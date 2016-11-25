@@ -123,5 +123,5 @@ def PyModule_GetName(space, w_mod):
     # and returns a "char *" inside this PyStringObject.
     if not isinstance(w_mod, Module):
         raise oefmt(space.w_SystemError, "PyModule_GetName(): not a module")
-    from pypy.module.cpyext.bytesobject import PyString_AsString
-    return PyString_AsString(space, as_pyobj(space, w_mod.w_name))
+    from pypy.module.cpyext.unicodeobject import _PyUnicode_AsString
+    return _PyUnicode_AsString(space, as_pyobj(space, w_mod.w_name))
