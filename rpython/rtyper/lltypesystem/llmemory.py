@@ -384,7 +384,6 @@ class GCHeaderAntiOffset(AddressOffset):
 def _sizeof_none(TYPE):
     assert not TYPE._is_varsize()
     return ItemOffset(TYPE)
-_sizeof_none._annspecialcase_ = 'specialize:memo'
 
 @specialize.memo()
 def _internal_array_field(TYPE):

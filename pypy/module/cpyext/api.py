@@ -36,8 +36,6 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
 from pypy.module import exceptions
 from pypy.module.exceptions import interp_exceptions
-# CPython 2.4 compatibility
-from py.builtin import BaseException
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib import rawrefcount
@@ -985,7 +983,7 @@ def setup_init_functions(eci, translating):
         py_type_ready(space, get_capsule_type())
     INIT_FUNCTIONS.append(init_types)
     from pypy.module.posix.interp_posix import add_fork_hook
-    _reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [], 
+    _reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [],
                                   lltype.Void, compilation_info=eci)
     def reinit_tls(space):
         _reinit_tls()
@@ -1614,9 +1612,8 @@ def make_generic_cpy_call(FT, expect_null):
     miniglobals = {'__name__':    __name__, # for module name propagation
                    }
     exec source.compile() in miniglobals
-    call_external_function = miniglobals['cpy_call_external']
+    call_external_function = specialize.ll()(miniglobals['cpy_call_external'])
     call_external_function._dont_inline_ = True
-    call_external_function._annspecialcase_ = 'specialize:ll'
     call_external_function._gctransformer_hint_close_stack_ = True
     # don't inline, as a hack to guarantee that no GC pointer is alive
     # anywhere in call_external_function
