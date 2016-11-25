@@ -282,23 +282,22 @@ class FunctionDesc(Desc):
 
     def pycall(self, whence, args, s_previous_result, op=None):
         inputcells = self.parse_arguments(args)
-        result = self.specialize(inputcells, op)
-        if isinstance(result, FunctionGraph):
-            graph = result         # common case
-            annotator = self.bookkeeper.annotator
-            # if that graph has a different signature, we need to re-parse
-            # the arguments.
-            # recreate the args object because inputcells may have been changed
-            new_args = args.unmatch_signature(self.signature, inputcells)
-            inputcells = self.parse_arguments(new_args, graph)
-            result = annotator.recursivecall(graph, whence, inputcells)
-            signature = getattr(self.pyobj, '_signature_', None)
-            if signature:
-                sigresult = enforce_signature_return(self, signature[1], result)
-                if sigresult is not None:
-                    annotator.addpendingblock(
-                        graph, graph.returnblock, [sigresult])
-                    result = sigresult
+        graph = self.specialize(inputcells, op)
+        assert isinstance(graph, FunctionGraph)
+        # if that graph has a different signature, we need to re-parse
+        # the arguments.
+        # recreate the args object because inputcells may have been changed
+        new_args = args.unmatch_signature(self.signature, inputcells)
+        inputcells = self.parse_arguments(new_args, graph)
+        annotator = self.bookkeeper.annotator
+        result = annotator.recursivecall(graph, whence, inputcells)
+        signature = getattr(self.pyobj, '_signature_', None)
+        if signature:
+            sigresult = enforce_signature_return(self, signature[1], result)
+            if sigresult is not None:
+                annotator.addpendingblock(
+                    graph, graph.returnblock, [sigresult])
+                result = sigresult
         # Some specializations may break the invariant of returning
         # annotations that are always more general than the previous time.
         # We restore it here:
