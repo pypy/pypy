@@ -166,8 +166,20 @@ def enforce_signature_args(funcdesc, paramtypes, actualtypes):
 
 def enforce_signature_return(funcdesc, sigtype, inferredtype):
     s_sigret = finish_type(sigtype, funcdesc.bookkeeper, funcdesc.pyobj)
-    if s_sigret is not None and not s_sigret.contains(inferredtype):
+    if s_sigret is not None:
+        check_signature_return(funcdesc, s_sigret, inferredtype)
+    return s_sigret
+
+def check_signature_return(funcdesc, s_sigret, s_inferred):
+    if not s_sigret.contains(s_inferred):
         raise SignatureError("%r return value:\n"
                         "expected %s,\n"
-                        "     got %s" % (funcdesc, s_sigret, inferredtype))
-    return s_sigret
+                        "     got %s" % (funcdesc, s_sigret, s_inferred))
+
+class SignatureReturn(object):
+    def __init__(self, funcdesc, s_sig):
+        self.funcdesc = funcdesc
+        self.s_sig = s_sig
+
+    def require_update(self, annotator, s_new):
+        check_signature_return(self.funcdesc, self.s_sig, s_new)

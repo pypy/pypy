@@ -26,8 +26,9 @@ def getsig(f, policy=None):
     return sigof(a, f)
 
 def check_annotator_fails(caller):
-    exc = py.test.raises(model.AnnotatorError, annotate_at, caller).value
-    assert caller.func_name in str(exc)
+    with py.test.raises(model.AnnotatorError) as excinfo:
+        annotate_at(caller)
+    assert caller.func_name in str(excinfo.value)
 
 
 def test_bookkeeping():
