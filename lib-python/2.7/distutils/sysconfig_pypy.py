@@ -12,7 +12,6 @@ __revision__ = "$Id: sysconfig.py 85358 2010-10-10 09:54:59Z antoine.pitrou $"
 
 import sys
 import os
-import shlex
 import imp
 
 from distutils.errors import DistutilsPlatformError
@@ -62,11 +61,17 @@ _config_vars = None
 def _init_posix():
     """Initialize the module as appropriate for POSIX systems."""
     g = {}
-    g['EXE'] = ""
+    g['CC'] = "gcc -pthread"
+    g['CXX'] = "g++ -pthread"
+    g['OPT'] = "-DNDEBUG -O2"
+    g['CFLAGS'] = "-DNDEBUG -O2"
+    g['CCSHARED'] = "-fPIC"
+    g['LDSHARED'] = "gcc -pthread -shared"
     g['SO'] = [s[0] for s in imp.get_suffixes() if s[2] == imp.C_EXTENSION][0]
+    g['AR'] = "ar"
+    g['ARFLAGS'] = "rc"
+    g['EXE'] = ""
     g['LIBDIR'] = os.path.join(sys.prefix, 'lib')
-    g['CC'] = "gcc -pthread" # -pthread might not be valid on OS/X, check
-    g['OPT'] = "" 
     g['VERSION'] = get_python_version()
 
     global _config_vars
@@ -119,30 +124,80 @@ def get_config_var(name):
     """
     return get_config_vars().get(name)
 
-def customize_compiler(compiler):
-    """Dummy method to let some easy_install packages that have
-    optional C speedup components.
-    """
-    def customize(executable, flags):
-        command = compiler.executables[executable] + flags
-        setattr(compiler, executable, command)
 
+def customize_compiler(compiler):
+    """Do any platform-specific customization of a CCompiler instance.
+
+    Mainly needed on Unix, so we can plug in the information that
+    varies across Unices and is stored in Python's Makefile (CPython)
+    or hard-coded in _init_posix() (PyPy).
+    """
     if compiler.compiler_type == "unix":
-        # compiler_so can be c++ which has no -Wimplicit
-        #compiler.compiler_so.extend(['-O2', '-fPIC', '-Wimplicit'])
-        compiler.compiler_so.extend(['-O2', '-fPIC'])
-        compiler.shared_lib_extension = get_config_var('SO')
-        if "CPPFLAGS" in os.environ:
-            cppflags = shlex.split(os.environ["CPPFLAGS"])
-            for executable in ('compiler', 'compiler_so', 'linker_so'):
-                customize(executable, cppflags)
-        if "CFLAGS" in os.environ:
-            cflags = shlex.split(os.environ["CFLAGS"])
-            for executable in ('compiler', 'compiler_so', 'linker_so'):
-                customize(executable, cflags)
-        if "LDFLAGS" in os.environ:
-            ldflags = shlex.split(os.environ["LDFLAGS"])
-            customize('linker_so', ldflags)
+        if sys.platform == "darwin":
+            # Perform first-time customization of compiler-related
+            # config vars on OS X now that we know we need a compiler.
+            # This is primarily to support Pythons from binary
+            # installers.  The kind and paths to build tools on
+            # the user system may vary significantly from the system
+            # that Python itself was built on.  Also the user OS
+            # version and build tools may not support the same set
+            # of CPU architectures for universal builds.
+            global _config_vars
+            # Use get_config_var() to ensure _config_vars is initialized.
+            if not get_config_var('CUSTOMIZED_OSX_COMPILER'):
+                import _osx_support
+                _osx_support.customize_compiler(_config_vars)
+                _config_vars['CUSTOMIZED_OSX_COMPILER'] = 'True'
+
+        (cc, cxx, opt, cflags, ccshared, ldshared, so_ext, ar, ar_flags) = \
+            get_config_vars('CC', 'CXX', 'OPT', 'CFLAGS',
+                            'CCSHARED', 'LDSHARED', 'SO', 'AR',
+                            'ARFLAGS')
+
+        if 'CC' in os.environ:
+            newcc = os.environ['CC']
+            if (sys.platform == 'darwin'
+                    and 'LDSHARED' not in os.environ
+                    and ldshared.startswith(cc)):
+                # On OS X, if CC is overridden, use that as the default
+                #       command for LDSHARED as well
+                ldshared = newcc + ldshared[len(cc):]
+            cc = newcc
+        if 'CXX' in os.environ:
+            cxx = os.environ['CXX']
+        if 'LDSHARED' in os.environ:
+            ldshared = os.environ['LDSHARED']
+        if 'CPP' in os.environ:
+            cpp = os.environ['CPP']
+        else:
+            cpp = cc + " -E"           # not always
+        if 'LDFLAGS' in os.environ:
+            ldshared = ldshared + ' ' + os.environ['LDFLAGS']
+        if 'CFLAGS' in os.environ:
+            cflags = opt + ' ' + os.environ['CFLAGS']
+            ldshared = ldshared + ' ' + os.environ['CFLAGS']
+        if 'CPPFLAGS' in os.environ:
+            cpp = cpp + ' ' + os.environ['CPPFLAGS']
+            cflags = cflags + ' ' + os.environ['CPPFLAGS']
+            ldshared = ldshared + ' ' + os.environ['CPPFLAGS']
+        if 'AR' in os.environ:
+            ar = os.environ['AR']
+        if 'ARFLAGS' in os.environ:
+            archiver = ar + ' ' + os.environ['ARFLAGS']
+        else:
+            archiver = ar + ' ' + ar_flags
+
+        cc_cmd = cc + ' ' + cflags
+        compiler.set_executables(
+            preprocessor=cpp,
+            compiler=cc_cmd,
+            compiler_so=cc_cmd + ' ' + ccshared,
+            compiler_cxx=cxx,
+            linker_so=ldshared,
+            linker_exe=cc,
+            archiver=archiver)
+
+        compiler.shared_lib_extension = so_ext
 
 
 from sysconfig_cpython import (
