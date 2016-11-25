@@ -293,10 +293,7 @@ class FunctionDesc(Desc):
         if whence is not None:
             annotator.record_call(graph, whence)
         if v_result is not None:
-            # annotator.notify[graph.returnblock] is a set of variables to update
-            # whenever the return block of this graph has been analysed.
-            returnvars = annotator.notify.setdefault(graph.returnblock, set())
-            returnvars.add(v_result)
+            annotator.add_notification(graph.getreturnvar(), v_result)
 
         # generalize the function's input arguments
         annotator.addpendinggraph(graph, inputcells)

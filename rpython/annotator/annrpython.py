@@ -294,6 +294,10 @@ class RPythonAnnotator(object):
         self.var_def[v_result] = position_key
         return v_result
 
+    def add_notification(self, v_src, v_target):
+        successors = self.notify.setdefault(v_src, set())
+        successors.add(v_target)
+
     def update_var(self, v):
         position_key = self.var_def[v]
         self.reflowfromposition(position_key)
@@ -449,6 +453,10 @@ class RPythonAnnotator(object):
         return repr(graph) + blk + opid
 
     def flowin(self, graph, block):
+        for v in block.inputargs:
+            if v in self.notify:
+                for v2 in self.notify[v]:
+                    self.update_var(v2)
         try:
             i = 0
             while i < len(block.operations):
@@ -533,10 +541,6 @@ class RPythonAnnotator(object):
             for link in exits:
                 constraints = knowntypedata.get(link.exitcase, {})
                 self.follow_link(graph, link, constraints)
-
-        if block in self.notify:
-            for v in self.notify[block]:
-                self.update_var(v)
 
     def follow_link(self, graph, link, constraints):
         assert not (isinstance(link.exitcase, (types.ClassType, type)) and
