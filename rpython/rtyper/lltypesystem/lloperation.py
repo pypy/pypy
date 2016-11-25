@@ -490,6 +490,7 @@ LL_OPERATIONS = {
     'gc_rawrefcount_init':              LLOp(),
     'gc_rawrefcount_create_link_pypy':  LLOp(),
     'gc_rawrefcount_create_link_pyobj': LLOp(),
+    'gc_rawrefcount_mark_deallocating': LLOp(),
     'gc_rawrefcount_from_obj':          LLOp(sideeffects=False),
     'gc_rawrefcount_to_obj':            LLOp(sideeffects=False),
 
