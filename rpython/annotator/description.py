@@ -290,7 +290,20 @@ class FunctionDesc(Desc):
         new_args = args.unmatch_signature(self.signature, inputcells)
         inputcells = self.parse_arguments(new_args, graph)
         annotator = self.bookkeeper.annotator
-        result = annotator.recursivecall(graph, whence, inputcells, v_result)
+        if whence is not None:
+            annotator.record_call(graph, whence)
+        if v_result is not None:
+            # annotator.notify[graph.returnblock] is a set of variables to update
+            # whenever the return block of this graph has been analysed.
+            returnvars = annotator.notify.setdefault(graph.returnblock, set())
+            returnvars.add(v_result)
+
+        # generalize the function's input arguments
+        annotator.addpendinggraph(graph, inputcells)
+
+        result = graph.getreturnvar().annotation
+        if result is None:
+            result = s_ImpossibleValue
         signature = getattr(self.pyobj, '_signature_', None)
         if signature:
             sigresult = enforce_signature_return(self, signature[1], result)

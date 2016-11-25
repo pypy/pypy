@@ -294,28 +294,6 @@ class RPythonAnnotator(object):
         self.var_def[v_result] = position_key
         return v_result
 
-
-    def recursivecall(self, graph, whence, inputcells, v_result):
-        if whence is not None:
-            self.record_call(graph, whence)
-        if v_result is not None:
-            # self.notify[graph.returnblock] is a set of variables to update
-            # whenever the return block of this graph has been analysed.
-            returnvars = self.notify.setdefault(graph.returnblock, set())
-            returnvars.add(v_result)
-
-        # generalize the function's input arguments
-        self.addpendingblock(graph, graph.startblock, inputcells)
-
-        # get the (current) return value
-        v = graph.getreturnvar()
-        try:
-            return self.binding(v)
-        except KeyError:
-            # the function didn't reach any return statement so far.
-            # (some functions actually never do, they always raise exceptions)
-            return s_ImpossibleValue
-
     def update_var(self, v):
         position_key = self.var_def[v]
         self.reflowfromposition(position_key)
