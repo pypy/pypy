@@ -36,8 +36,6 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
 from pypy.module import exceptions
 from pypy.module.exceptions import interp_exceptions
-# CPython 2.4 compatibility
-from py.builtin import BaseException
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib import rawrefcount
@@ -985,7 +983,7 @@ def setup_init_functions(eci, translating):
         py_type_ready(space, get_capsule_type())
     INIT_FUNCTIONS.append(init_types)
     from pypy.module.posix.interp_posix import add_fork_hook
-    _reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [], 
+    _reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [],
                                   lltype.Void, compilation_info=eci)
     def reinit_tls(space):
         _reinit_tls()

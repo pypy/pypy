@@ -8,7 +8,6 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
-from rpython.rlib.objectmodel import specialize
 
 import sys
 import weakref
