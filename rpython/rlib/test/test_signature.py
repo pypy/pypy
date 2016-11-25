@@ -83,15 +83,6 @@ def test_return_errors():
     def str_to_int(s):
         return s
 
-    @signature(returns=types.str())
-    def str_not_None():
-        return None
-    @check_annotator_fails
-    def caller_of_str_not_None():
-        return str_not_None()
-
-@py.test.mark.xfail
-def test_return_errors_xfail():
     @check_annotator_fails
     @signature(returns=types.str())
     def str_not_None():
@@ -268,11 +259,10 @@ def test_any_as_argument():
     sig = getsig(g)
     assert sig == [model.SomeFloat(), model.SomeFloat()]
 
+    @check_annotator_fails
     @signature(types.str(), returns=types.int())
     def cannot_add_string(x):
         return f(x, 2)
-    exc = py.test.raises(model.AnnotatorError, annotate_at, cannot_add_string).value
-    assert 'Blocked block' in str(exc)
 
 def test_return_any():
     @signature(types.int(), returns=types.any())
