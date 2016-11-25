@@ -608,7 +608,7 @@ class ClassDesc(Desc):
             if mixin:
                 # make a new copy of the FunctionDesc for this class,
                 # but don't specialize further for all subclasses
-                funcdesc = FunctionDesc(self.bookkeeper, value)
+                funcdesc = self.bookkeeper.newfuncdesc(value)
                 self.classdict[name] = funcdesc
                 return
             # NB. if value is, say, AssertionError.__init__, then we

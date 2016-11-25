@@ -202,6 +202,7 @@ class FakeObjSpace(ObjSpace):
     def newunicode(self, x):
         return w_some_obj()
 
+    @specialize.argtype(1)
     def wrap(self, x):
         if not we_are_translated():
             if isinstance(x, gateway.interp2app):
@@ -215,7 +216,6 @@ class FakeObjSpace(ObjSpace):
                 return w_some_obj()
             self._wrap_not_rpython(x)
         return w_some_obj()
-    wrap._annspecialcase_ = "specialize:argtype(1)"
 
     def _wrap_not_rpython(self, x):
         "NOT_RPYTHON"
@@ -305,10 +305,10 @@ class FakeObjSpace(ObjSpace):
         is_root(w_complex)
         return 1.1, 2.2
 
+    @specialize.arg(1)
     def allocate_instance(self, cls, w_subtype):
         is_root(w_subtype)
         return instantiate(cls)
-    allocate_instance._annspecialcase_ = "specialize:arg(1)"
 
     def decode_index(self, w_index_or_slice, seqlength):
         is_root(w_index_or_slice)

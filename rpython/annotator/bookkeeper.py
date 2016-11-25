@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from collections import OrderedDict
 
 from rpython.flowspace.model import Constant
+from rpython.flowspace.bytecode import cpython_code_signature
 from rpython.annotator.model import (
     SomeOrderedDict, SomeString, SomeChar, SomeFloat, unionof, SomeInstance,
     SomeDict, SomeBuiltin, SomePBC, SomeInteger, TLS, SomeUnicodeCodePoint,
@@ -21,6 +22,7 @@ from rpython.annotator.dictdef import DictDef
 from rpython.annotator import description
 from rpython.annotator.signature import annotationoftype
 from rpython.annotator.argument import simple_args
+from rpython.annotator.specialize import memo
 from rpython.rlib.objectmodel import r_dict, r_ordereddict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper import extregistry
@@ -358,7 +360,7 @@ class Bookkeeper(object):
             return self.descs[obj_key]
         except KeyError:
             if isinstance(pyobj, types.FunctionType):
-                result = description.FunctionDesc(self, pyobj)
+                result = self.newfuncdesc(pyobj)
             elif isinstance(pyobj, (type, types.ClassType)):
                 if pyobj is object:
                     raise Exception("ClassDesc for object not supported")
@@ -402,6 +404,23 @@ class Bookkeeper(object):
                 result = self.getfrozen(pyobj)
             self.descs[obj_key] = result
             return result
+
+    def newfuncdesc(self, pyfunc):
+        name = pyfunc.__name__
+        if hasattr(pyfunc, '_generator_next_method_of_'):
+            from rpython.flowspace.argument import Signature
+            signature = Signature(['entry'])     # haaaaaack
+            defaults = ()
+        else:
+            signature = cpython_code_signature(pyfunc.func_code)
+            defaults = pyfunc.func_defaults
+        # get the specializer based on the tag of the 'pyobj'
+        # (if any), according to the current policy
+        tag = getattr(pyfunc, '_annspecialcase_', None)
+        specializer = self.annotator.policy.get_specializer(tag)
+        if specializer is memo:
+            return description.MemoDesc(self, pyfunc, name, signature, defaults, specializer)
+        return description.FunctionDesc(self, pyfunc, name, signature, defaults, specializer)
 
     def getfrozen(self, pyobj):
         return description.FrozenDesc(self, pyobj)

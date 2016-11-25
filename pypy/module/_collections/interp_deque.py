@@ -1,4 +1,5 @@
 import sys
+from rpython.rlib.objectmodel import specialize
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr

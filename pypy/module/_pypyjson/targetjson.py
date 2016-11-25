@@ -4,6 +4,7 @@ ROOT = py.path.local(__file__).dirpath('..', '..', '..')
 sys.path.insert(0, str(ROOT))
 
 import time
+from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.error import OperationError
 from pypy.module._pypyjson.interp_decoder import loads
 from rpython.rlib.objectmodel import specialize, dont_inline
