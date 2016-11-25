@@ -81,7 +81,8 @@ class W_UnicodeObject(W_Root):
         try:
             identifier = jit.conditional_call_elidable(
                                 self._utf8, g_encode_utf8, self._value)
-            self._utf8 = identifier
+            if not jit.isconstant(self):
+                self._utf8 = identifier
         except UnicodeEncodeError:
             # bah, this is just to get an official app-level
             # UnicodeEncodeError
