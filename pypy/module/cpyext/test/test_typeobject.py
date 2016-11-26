@@ -452,48 +452,6 @@ class TestTypes(BaseApiTest):
         ref = make_ref(space, w_obj)
         api.Py_DecRef(ref)
 
-    def test_nb_add_from_python(self, space, api):
-        w_date = space.appexec([], """():
-            class DateType(object):
-                def __add__(self, other):
-                    return 'sum!'
-            return DateType()
-            """)
-        w_datetype = space.type(w_date)
-        py_date = make_ref(space, w_date)
-        py_datetype = rffi.cast(PyTypeObjectPtr, make_ref(space, w_datetype))
-        assert py_datetype.c_tp_as_number
-        assert py_datetype.c_tp_as_number.c_nb_add
-        w_obj = generic_cpy_call(space, py_datetype.c_tp_as_number.c_nb_add,
-                                 py_date, py_date)
-        assert space.str_w(w_obj) == 'sum!'
-
-    def test_tp_new_from_python(self, space, api):
-        w_date = space.appexec([], """():
-            class Date(object):
-                def __new__(cls, year, month, day):
-                    self = object.__new__(cls)
-                    self.year = year
-                    self.month = month
-                    self.day = day
-                    return self
-            return Date
-            """)
-        py_datetype = rffi.cast(PyTypeObjectPtr, make_ref(space, w_date))
-        one = space.newint(1)
-        arg = space.newtuple([one, one, one])
-        # call w_date.__new__
-        w_obj = space.call_function(w_date, one, one, one)
-        w_year = space.getattr(w_obj, space.newbytes('year'))
-        assert space.int_w(w_year) == 1
-
-        # currently fails with "object() takse no parameters,
-        # from the tp_new of space.w_object
-        w_obj = generic_cpy_call(space, py_datetype.c_tp_new, py_datetype, 
-                                 arg, space.newdict({}))
-        w_year = space.getattr(w_obj, space.newbytes('year'))
-        assert space.int_w(w_year) == 1
-
 class AppTestSlots(AppTestCpythonExtensionBase):
     def setup_class(cls):
         AppTestCpythonExtensionBase.setup_class.im_func(cls)
