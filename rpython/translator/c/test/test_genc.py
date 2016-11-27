@@ -8,7 +8,7 @@ from rpython.rlib.rfloat import NAN, INFINITY
 from rpython.rlib.entrypoint import entrypoint_highlevel
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint, intmask
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, assert_
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lltype import *
 from rpython.rtyper.lltypesystem.rstr import STR
@@ -78,7 +78,7 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
                 if a == 'True':
                     args += (True,)
                 else:
-                    assert a == 'False'
+                    assert_(a == 'False')
                     args += (False,)
             elif argtype is float:
                 if a == 'inf':

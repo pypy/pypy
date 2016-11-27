@@ -32,13 +32,12 @@ def sc_import(ctx, *args_w):
 
 @register_flow_sc(locals)
 def sc_locals(_, *args):
-    raise Exception(
-        "A function calling locals() is not RPython.  "
-        "Note that if you're translating code outside the PyPy "
-        "repository, a likely cause is that py.test's --assert=rewrite "
-        "mode is getting in the way.  You should copy the file "
-        "pytest.ini from the root of the PyPy repository into your "
-        "own project.")
+    from rpython.flowspace.flowcontext import FlowingError
+    raise FlowingError(
+        "A function calling locals() is not RPython. A likely cause is that "
+        "py.test's assert rewriting is getting in the way. If so, you "
+        "should use `rpython.rlib.objectmodel.assert_()` instead of an "
+        "assert statement here.")
 
 @register_flow_sc(getattr)
 def sc_getattr(ctx, w_obj, w_index, w_default=None):
