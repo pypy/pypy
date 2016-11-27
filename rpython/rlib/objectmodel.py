@@ -14,7 +14,7 @@ from collections import OrderedDict
 from rpython.tool.sourcetools import rpython_wrapper, func_with_new_name
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.flowspace.specialcase import register_flow_sc
-from rpython.flowspace.model import Constant
+from rpython.flowspace.model import Constant, const
 
 # specialize is a decorator factory for attaching _annspecialcase_
 # attributes to functions: for example
@@ -229,6 +229,34 @@ def not_rpython(func):
     # test is in annotator/test/test_annrpython.py
     func._not_rpython_ = True
     return func
+
+def assert_(condition, msg=None):
+    """
+    A function version of the assert statement.
+
+    The RPython toolchain interprets it in exactly the same way as the
+    statement version. This is useful in tests to prevent py.test assertion
+    rewriting from modifying the bytecode of RPython functions.
+    """
+    if msg is None:
+        assert condition
+    else:
+        assert condition, msg
+
+@register_flow_sc(assert_)
+def sc_assert(ctx, *args_w):
+    from rpython.flowspace.operation import op
+    from rpython.flowspace.flowcontext import Raise, FlowingError
+    if len(args_w) == 2:
+        w_condition, w_msg = args_w
+    elif len(args_w) == 1:
+        w_condition, = args_w
+        w_msg = const(None)
+    else:
+        raise FlowingError(
+            "assert_() requires 1 or 2 arguments, %s given" % len(args_w))
+    if not ctx.guessbool(op.bool(w_condition).eval(ctx)):
+        raise Raise(ctx.exc_from_raise(const(AssertionError), w_msg))
 
 
 # ____________________________________________________________

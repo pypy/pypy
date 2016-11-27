@@ -759,7 +759,6 @@ class FlowContext(object):
         w_value = self.peekvalue()
         if self.guessbool(op.bool(w_value).eval(self)):
             return target
-            return target
         self.popvalue()
 
     def JUMP_IF_NOT_DEBUG(self, target):

@@ -18,6 +18,7 @@ from rpython.flowspace.model import *
 from rpython.rlib.rarithmetic import r_uint, base_int, r_longlong, r_ulonglong
 from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.rlib import objectmodel
+from rpython.rlib.objectmodel import assert_
 from rpython.flowspace.flowcontext import FlowingError
 from rpython.flowspace.operation import op
 
@@ -858,7 +859,7 @@ class TestAnnotateTestCase:
         class C(B):
             pass
         def f(x):
-            assert type(x) is C
+            assert_(type(x) is C)
             return x
         a = self.RPythonAnnotator()
         s = a.build_types(f, [B])
@@ -894,10 +895,10 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeString)
 
     def test_ann_assert(self):
-        def assert_(x):
-            assert x,"XXX"
+        def my_assert(x):
+            assert_(x, "XXX")
         a = self.RPythonAnnotator()
-        s = a.build_types(assert_, [int])
+        s = a.build_types(my_assert, [int])
         assert s.const is None
 
     def test_string_and_none(self):
@@ -1059,7 +1060,7 @@ class TestAnnotateTestCase:
             if a:
                 c = a
             else:
-                assert b >= 0
+                assert_(b >= 0)
                 c = b
             return c
         a = self.RPythonAnnotator()
@@ -1214,7 +1215,7 @@ class TestAnnotateTestCase:
 
         def alloc(cls):
             i = inst(cls)
-            assert isinstance(i, cls)
+            assert_(isinstance(i, cls))
             return i
         alloc._annspecialcase_ = "specialize:arg(0)"
 
@@ -1250,9 +1251,9 @@ class TestAnnotateTestCase:
 
         def alloc(cls, cls2):
             i = cls()
-            assert isinstance(i, cls)
+            assert_(isinstance(i, cls))
             j = cls2()
-            assert isinstance(j, cls2)
+            assert_(isinstance(j, cls2))
             return i
 
         def f():
@@ -1360,7 +1361,7 @@ class TestAnnotateTestCase:
         class T(object):
             pass
         def g(l):
-            assert isinstance(l, list)
+            assert_(isinstance(l, list))
             return l
         def f():
             l = [T()]
