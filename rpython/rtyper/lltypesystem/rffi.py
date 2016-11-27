@@ -205,11 +205,17 @@ def llexternal(name, args, result, _callable=None,
     else:
         # if we don't have to invoke the GIL handling, we can just call
         # the low-level function pointer carelessly
-        if macro is None and save_err == RFFI_ERR_NONE:
+        # ...well, unless it's a macro, in which case we still have
+        # to hide it from the JIT...
+        need_wrapper = (macro is not None or save_err != RFFI_ERR_NONE)
+        # XXX ...and unless we're on Windows, because the calling convention
+        #     is unknown so far and thus the JIT can't assume it knows it...
+        if sys.platform == 'win32':
+            need_wrapper = True
+        #
+        if not need_wrapper:
             call_external_function = funcptr
         else:
-            # ...well, unless it's a macro, in which case we still have
-            # to hide it from the JIT...
             argnames = ', '.join(['a%d' % i for i in range(len(args))])
             source = py.code.Source("""
                 def call_external_function(%(argnames)s):
