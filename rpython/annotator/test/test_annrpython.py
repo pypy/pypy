@@ -1649,7 +1649,7 @@ class TestAnnotateTestCase:
 
     def test_more_nonneg_cleverness(self):
         def f(start, stop):
-            assert 0 <= start <= stop
+            assert_(0 <= start <= stop)
             return start, stop
         a = self.RPythonAnnotator()
         s = a.build_types(f, [int, int])
@@ -1657,7 +1657,7 @@ class TestAnnotateTestCase:
 
     def test_more_general_nonneg_cleverness(self):
         def f(start, stop):
-            assert 0 <= start <= stop
+            assert_(0 <= start <= stop)
             return start, stop
         a = self.RPythonAnnotator()
         s = a.build_types(f, [r_longlong, r_longlong])
@@ -1829,7 +1829,7 @@ class TestAnnotateTestCase:
 
     def test_int_nonneg(self):
         def f(x, y):
-            assert x >= 0
+            assert_(x >= 0)
             return int(x) + int(y == 3)
         a = self.RPythonAnnotator()
         s = a.build_types(f, [int, int])
@@ -3375,7 +3375,7 @@ class TestAnnotateTestCase:
         def g():
             should_not_see_this
         def f(n):
-            assert n >= 0
+            assert_(n >= 0)
             if n < 0:
                 g()
             if not (n >= 0):
@@ -4244,7 +4244,7 @@ class TestAnnotateTestCase:
 
         class B(A):
             def __init__(self, x):
-                assert x >= 0
+                assert_(x >= 0)
                 self.x = x
 
         def fn(i):
