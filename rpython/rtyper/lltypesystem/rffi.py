@@ -7,7 +7,7 @@ from rpython.rtyper.lltypesystem.llmemory import cast_ptr_to_adr
 from rpython.rtyper.lltypesystem.llmemory import itemoffsetof
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.tool.sourcetools import func_with_new_name
-from rpython.rlib.objectmodel import Symbolic
+from rpython.rlib.objectmodel import Symbolic, specialize
 from rpython.rlib.objectmodel import keepalive_until_here, enforceargs
 from rpython.rlib import rarithmetic, rgc
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -96,6 +96,9 @@ def llexternal(name, args, result, _callable=None,
                 we consider that the function is really short-running and
                 don't bother releasing the GIL.  An explicit True or False
                 overrides this logic.
+
+    calling_conv: deprecated, because it's hard to get it right 100% of the
+                  time.  Nowadays it is ignored except for tests.
     """
     if _callable is not None:
         assert callable(_callable)
@@ -314,10 +317,6 @@ def llexternal(name, args, result, _callable=None,
     # for debugging, stick ll func ptr to that
     wrapper._ptr = funcptr
     wrapper = func_with_new_name(wrapper, name)
-
-    if calling_conv != "c":
-        wrapper = jit.dont_look_inside(wrapper)
-
     return wrapper
 
 
@@ -1291,13 +1290,23 @@ class scoped_alloc_unicodebuffer:
 
 # You would have to have a *huge* amount of data for this to block long enough
 # to be worth it to release the GIL.
-c_memcpy = llexternal("memcpy",
+_c_memcpy = llexternal("memcpy",
             [VOIDP, VOIDP, SIZE_T],
             lltype.Void,
-            releasegil=False
+            releasegil=False,
+            _nowrapper=True
         )
-c_memset = llexternal("memset",
+_c_memset = llexternal("memset",
             [VOIDP, lltype.Signed, SIZE_T],
             lltype.Void,
-            releasegil=False
+            releasegil=False,
+            _nowrapper=True
         )
+
+@specialize.ll()
+def c_memcpy(dst, src, size):
+    _c_memcpy(cast(VOIDP, dst), cast(VOIDP, src), cast(SIZE_T, size))
+
+@specialize.ll()
+def c_memset(s, c, n):
+    _c_memset(cast(VOIDP, s), cast(lltype.Signed, c), cast(SIZE_T, n))
