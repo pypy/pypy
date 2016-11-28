@@ -846,10 +846,16 @@ def make_array(mytype):
             if mytype.typecode in 'bBhHil':
                 item = rffi.cast(lltype.Signed, item)
                 return space.newint(item)
-            elif mytype.typecode == 'f':
+            if mytype.typecode in 'IL':
+                return space.newint(item)
+            elif mytype.typecode in 'fd':
                 item = float(item)
                 return space.newfloat(item)
-            return space.wrap(item) # YYY
+            elif mytype.typecode == 'c':
+                return space.newbytes(item)
+            elif mytype.typecode == 'u':
+                return space.newunicode(item)
+            assert 0, "unreachable"
 
         # interface
 

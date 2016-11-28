@@ -171,6 +171,7 @@ class FakeObjSpace(ObjSpace):
         W_SliceObject(w_start, w_end, w_step)
         return w_some_obj()
 
+    @specialize.argtype(1)
     def newint(self, x):
         return w_some_obj()
 
