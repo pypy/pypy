@@ -14,14 +14,15 @@ def _bytes_with_len(char_ptr, length):
     return ffi.buffer(char_ptr, length)[:]
 
 def _str_to_ffi_buffer(view):
-    # XXX incomplete and does not work if e.g. view in (True, 0, 1, ...)
-    try:
-        buf = ffi.from_buffer(view)
-        return buf
-    except TypeError:
-        if isinstance(view, str):
-            return ffi.from_buffer(bytes(view, 'utf-8'))
-        return ffi.from_buffer(bytes(view))
+    if isinstance(view, str):
+        return ffi.from_buffer(view.encode())
+    elif isinstance(view, memoryview):
+        # NOTE pypy limitation StringBuffer does not allow
+        # to get a raw address to the string!
+        view = bytes(view)
+    # dont call call ffi.from_buffer(bytes(view)), arguments
+    # like ints/bools should result in a TypeError
+    return ffi.from_buffer(view)
 
 def _str_from_buf(buf):
     return ffi.string(buf).decode('utf-8')
