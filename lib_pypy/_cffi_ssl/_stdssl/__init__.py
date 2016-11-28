@@ -345,7 +345,11 @@ class _SSLSocket(object):
         if ret < 1:
             raise pyssl_error(self, ret)
 
-        self.peer_cert = lib.gc(lib.SSL_get_peer_certificate(ssl), lib.X509_free)
+        peer_cert = lib.SSL_get_peer_certificate(ssl)
+        if peer_cert != ffi.NULL:
+            peer_cert = lib.gc(peer_cert, lib.X509_free)
+        self.peer_cert = peer_cert
+
         #PySSL_END_ALLOW_THREADS
         self.handshake_done = 1
         return None
@@ -730,9 +734,10 @@ class _SSLContext(object):
         else:
             raise ValueError("invalid protocol version")
 
-        self.ctx = ffi.gc(lib.SSL_CTX_new(method), lib.SSL_CTX_free)
-        if self.ctx == ffi.NULL: 
+        ctx = lib.SSL_CTX_new(method)
+        if ctx == ffi.NULL:
             raise ssl_error("failed to allocate SSL context")
+        self.ctx = ffi.gc(lib.SSL_CTX_new(method), lib.SSL_CTX_free)
 
         self._check_hostname = False
 
