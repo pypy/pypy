@@ -456,6 +456,9 @@ class FunctionCodeGenerator(object):
     def OP_JIT_CONDITIONAL_CALL(self, op):
         return 'abort();  /* jit_conditional_call */'
 
+    def OP_JIT_CONDITIONAL_CALL_VALUE(self, op):
+        return 'abort();  /* jit_conditional_call_value */'
+
     # low-level operations
     def generic_get(self, op, sourceexpr):
         T = self.lltypemap(op.result)

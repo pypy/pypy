@@ -1097,6 +1097,8 @@ _oplist = [
     '_MALLOC_LAST',
     'FORCE_TOKEN/0/r',    # historical name; nowadays, returns the jitframe
     'VIRTUAL_REF/2/r',    # removed before it's passed to the backend
+    'STRHASH/1/i',        # only reading the .hash field, might be zero so far
+    'UNICODEHASH/1/i',    #     (unless applied on consts, where .hash is forced)
     # this one has no *visible* side effect, since the virtualizable
     # must be forced, however we need to execute it anyway
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
@@ -1151,7 +1153,7 @@ _oplist = [
     '_CALL_FIRST',
     'CALL/*d/rfin',
     'COND_CALL/*d/n',   # a conditional call, with first argument as a condition
-    'COND_CALL_VALUE/*d/ri',  # same but returns a result; emitted by rewrite
+    'COND_CALL_VALUE/*d/ri',  # "return a0 or a1(a2, ..)", a1 elidable
     'CALL_ASSEMBLER/*d/rfin',  # call already compiled assembler
     'CALL_MAY_FORCE/*d/rfin',
     'CALL_LOOPINVARIANT/*d/rfin',
@@ -1274,6 +1276,15 @@ class rop(object):
         return rop.CALL_LOOPINVARIANT_N
 
     @staticmethod
+    def cond_call_value_for_descr(descr):
+        tp = descr.get_normalized_result_type()
+        if tp == 'i':
+            return rop.COND_CALL_VALUE_I
+        elif tp == 'r':
+            return rop.COND_CALL_VALUE_R
+        assert False, tp
+
+    @staticmethod
     def getfield_pure_for_descr(descr):
         if descr.is_pointer_field():
             return rop.GETFIELD_GC_PURE_R
@@ -1324,6 +1335,16 @@ class rop(object):
         elif tp == 'f':
             return rop.CALL_F
         return rop.CALL_N
+
+    @staticmethod
+    def call_pure_for_type(tp):
+        if tp == 'i':
+            return rop.CALL_PURE_I
+        elif tp == 'r':
+            return rop.CALL_PURE_R
+        elif tp == 'f':
+            return rop.CALL_PURE_F
+        return rop.CALL_PURE_N
 
     @staticmethod
     def is_guard(opnum):
@@ -1445,6 +1466,11 @@ class rop(object):
         return (opnum == rop.CALL_RELEASE_GIL_I or
                 opnum == rop.CALL_RELEASE_GIL_F or
                 opnum == rop.CALL_RELEASE_GIL_N)
+
+    @staticmethod
+    def is_cond_call_value(opnum):
+        return (opnum == rop.COND_CALL_VALUE_I or
+                opnum == rop.COND_CALL_VALUE_R)
 
     @staticmethod
     def is_ovf(opnum):

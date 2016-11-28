@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import cpython_api, cpython_struct, \
         METH_STATIC, METH_CLASS, METH_COEXIST, CANNOT_FAIL, CONST_STRING
-from pypy.module.cpyext.pyobject import PyObject
+from pypy.module.cpyext.pyobject import PyObject, as_pyobj
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.methodobject import (
     W_PyCFunctionObject, PyCFunction_NewEx, PyDescr_NewMethod,
@@ -111,11 +111,17 @@ def PyModule_GetDict(space, w_mod):
     else:
         PyErr_BadInternalCall(space)
 
-@cpython_api([PyObject], rffi.CCHARP, error=0)
-def PyModule_GetName(space, module):
+@cpython_api([PyObject], rffi.CCHARP)
+def PyModule_GetName(space, w_mod):
     """
     Return module's __name__ value.  If the module does not provide one,
-    or if it is not a string, SystemError is raised and NULL is returned."""
-    raise NotImplementedError
-
-
+    or if it is not a string, SystemError is raised and NULL is returned.
+    """
+    # NOTE: this version of the code works only because w_mod.w_name is
+    # a wrapped string object attached to w_mod; so it makes a
+    # PyStringObject that will live as long as the module itself,
+    # and returns a "char *" inside this PyStringObject.
+    if not isinstance(w_mod, Module):
+        raise oefmt(space.w_SystemError, "PyModule_GetName(): not a module")
+    from pypy.module.cpyext.unicodeobject import _PyUnicode_AsString
+    return _PyUnicode_AsString(space, as_pyobj(space, w_mod.w_name))

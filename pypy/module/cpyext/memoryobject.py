@@ -112,12 +112,10 @@ def PyMemoryView_FromBuffer(space, view):
     The memoryview object then owns the buffer represented by view, which
     means you shouldn't try to call PyBuffer_Release() yourself: it
     will be done on deallocation of the memoryview object."""
-    if not view.c_buf:
-        raise oefmt(space.w_ValueError,
-                    "cannot make memory view from a buffer with a NULL data "
-                    "pointer")
-    buf = CBuffer(space, view.c_buf, view.c_len, view.c_obj)
-    return space.wrap(W_MemoryView(buf))
+    w_obj = from_ref(space, view.c_obj)
+    if isinstance(w_obj, W_MemoryView):
+        return w_obj
+    return space.call_method(space.builtin, "memoryview", w_obj)
 
 @cpython_api([PyObject], PyObject)
 def PyMemoryView_GET_BASE(space, w_obj):

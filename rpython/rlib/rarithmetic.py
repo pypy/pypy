@@ -11,7 +11,7 @@ r_uint   an unsigned integer which has no overflow
 intmask  mask a possibly long value when running on CPython
          back to a signed int value
 ovfcheck check on CPython whether the result of a signed
-         integer operation did overflow
+         integer operation did overflow (add, sub, mul)
 ovfcheck_float_to_int
          convert to an integer or raise OverflowError
 ovfcheck_float_to_longlong
@@ -168,6 +168,7 @@ def is_valid_int(r):
 def ovfcheck(r):
     # to be used as ovfcheck(x <op> y)
     # raise OverflowError if the operation did overflow
+    # Nowadays, only supports '+', '-' or '*' as the operation.
     assert not isinstance(r, r_uint), "unexpected ovf check on unsigned"
     assert not isinstance(r, r_longlong), "ovfcheck not supported on r_longlong"
     assert not isinstance(r, r_ulonglong), "ovfcheck not supported on r_ulonglong"

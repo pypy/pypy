@@ -3775,9 +3775,8 @@ class BaseLLtypeTests(BasicTests):
             return n
         res = self.meta_interp(f, [10])
         assert res == 0
-        self.check_resops({'int_gt': 2, 'getfield_gc_i': 1, 'int_eq': 1,
-                           'guard_true': 2, 'int_sub': 2, 'jump': 1,
-                           'guard_false': 1})
+        self.check_resops({'int_sub': 2, 'int_gt': 2, 'guard_true': 2,
+                           'jump': 1})
 
     def test_virtual_after_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ["n"])
@@ -4575,3 +4574,14 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
 
         self.meta_interp(g, [5, 5, 5])
         self.check_resops(guard_true=10)   # 5 unrolled, plus 5 unrelated
+
+    def test_conditional_call_value(self):
+        from rpython.rlib.jit import conditional_call_elidable
+        def g(j):
+            return j + 5
+        def f(i, j):
+            return conditional_call_elidable(i, g, j)
+        res = self.interp_operations(f, [-42, 200])
+        assert res == -42
+        res = self.interp_operations(f, [0, 200])
+        assert res == 205

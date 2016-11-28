@@ -79,9 +79,10 @@ class W_UnicodeObject(W_Root):
 
     def identifier_w(self, space):
         try:
-            # call the elidable function, with a jit.call_shortcut in case
-            # self._utf8 is already computed
-            identifier = g_identifier_w(self, space)
+            identifier = jit.conditional_call_elidable(
+                                self._utf8, g_encode_utf8, self._value)
+            if not jit.isconstant(self):
+                self._utf8 = identifier
         except UnicodeEncodeError:
             # bah, this is just to get an official app-level
             # UnicodeEncodeError
@@ -1273,15 +1274,9 @@ def unicode_to_decimal_w(space, w_unistr, allow_surrogates=False):
                                      allow_surrogates=allow_surrogates)
 
 @jit.elidable
-@jit.call_shortcut
-def g_identifier_w(self, space):
-    """This is a global function because of @jit.call_shortcut"""
-    identifier = self._utf8
-    if identifier is not None:
-        return identifier
-    identifier = self._value.encode('utf-8')
-    self._utf8 = identifier
-    return identifier
+def g_encode_utf8(value):
+    """This is a global function because of jit.conditional_call_value"""
+    return value.encode('utf-8')
 
 _repr_function, _ = make_unicode_escape_function(
     pass_printable=True, unicode_output=True, quotes=True, prefix='')

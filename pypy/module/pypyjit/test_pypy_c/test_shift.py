@@ -47,9 +47,9 @@ class TestShift(BaseTestPyPyC):
             res = 0
             a = 0
             while a < 300:
-                res1 = a/b     # ID: div
-                res2 = a/2     # ID: shift
-                res3 = a/11    # ID: mul
+                res1 = a // b     # ID: div
+                res2 = a // 2     # ID: shift
+                res3 = a // 11    # ID: mul
                 res += res1 + res2 + res3
                 a += 1
             return res

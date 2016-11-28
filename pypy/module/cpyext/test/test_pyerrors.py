@@ -106,7 +106,7 @@ class TestExceptions(BaseApiTest):
 
 class AppTestFetch(AppTestCpythonExtensionBase):
     def setup_class(cls):
-        from pypy.module.imp.test.support import get_special_char
+        from pypy.interpreter.test.test_fsencode import get_special_char
         space = cls.space
         cls.special_char = get_special_char()
         cls.w_special_char = space.wrap(cls.special_char)
@@ -380,7 +380,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         "XXX seems to pass, but doesn't: 'py.test -s' shows errors in PyObject_Free")
     def test_GetSetExcInfo(self):
         import sys
-        if self.runappdirect and (sys.version_info.major < 3 or 
+        if self.runappdirect and (sys.version_info.major < 3 or
                                   sys.version_info.minor < 3):
             skip('PyErr_{GS}etExcInfo introduced in python 3.3')
         module = self.import_extension('foo', [
