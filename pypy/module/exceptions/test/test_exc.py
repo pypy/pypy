@@ -374,6 +374,23 @@ class AppTestExc(object):
         e = SubOSErrorWithNew("some message", baz="baz")
         assert e.baz == "baz"
         assert e.args == ("some message",)
+        assert e.filename is None
+        assert e.filename2 is None
+
+    def test_oserror_3_args(self):
+        e = OSError(42, "bar", "baz")
+        assert e.args == (42, "bar")
+        assert e.filename == "baz"
+        assert e.filename2 is None
+        assert str(e) == "[Errno 42] bar: 'baz'"
+
+    def test_oserror_5_args(self):
+        # NB. argument 4 is only parsed on Windows
+        e = OSError(42, "bar", "baz", None, "bok")
+        assert e.args == (42, "bar")
+        assert e.filename == "baz"
+        assert e.filename2 == "bok"
+        assert str(e) == "[Errno 42] bar: 'baz' -> 'bok'"
 
     # Check the heuristic for print & exec covers significant cases
     # As well as placing some limits on false positives

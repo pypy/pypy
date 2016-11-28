@@ -446,6 +446,7 @@ class W_OSError(W_Exception):
         self.w_errno = space.w_None
         self.w_strerror = space.w_None
         self.w_filename = space.w_None
+        self.w_filename2 = space.w_None
         self.written = -1  # only for BlockingIOError.
         W_BaseException.__init__(self, space)
 
@@ -471,15 +472,17 @@ class W_OSError(W_Exception):
 
     @staticmethod
     def _parse_init_args(space, args_w):
-        if 2 <= len(args_w) <= 3:
+        if 2 <= len(args_w) <= 5:
             w_errno = args_w[0]
             w_strerror = args_w[1]
-            if len(args_w) == 3:
+            w_filename = None
+            w_filename2 = None
+            if len(args_w) > 2:
                 w_filename = args_w[2]
-            else:
-                w_filename = None
-            return w_errno, w_strerror, w_filename
-        return None, None, None
+                if len(args_w) > 4:
+                    w_filename2 = args_w[4]
+            return w_errno, w_strerror, w_filename, w_filename2
+        return None, None, None, None
 
     @staticmethod
     def descr_new(space, w_subtype, __args__):
@@ -487,11 +490,12 @@ class W_OSError(W_Exception):
         w_errno = None
         w_strerror = None
         w_filename = None
+        w_filename2 = None
         if not W_OSError._use_init(space, w_subtype):
             if kwds_w:
                 raise oefmt(space.w_TypeError,
                             "OSError does not take keyword arguments")
-            (w_errno, w_strerror, w_filename,
+            (w_errno, w_strerror, w_filename, w_filename2
              ) = W_OSError._parse_init_args(space, args_w)
         if (not space.is_none(w_errno) and
             space.is_w(w_subtype, space.gettypeobject(W_OSError.typedef))):
@@ -509,7 +513,8 @@ class W_OSError(W_Exception):
         exc = space.allocate_instance(W_OSError, w_subtype)
         W_OSError.__init__(exc, space)
         if not W_OSError._use_init(space, w_subtype):
-            exc._init_error(space, args_w, w_errno, w_strerror, w_filename)
+            exc._init_error(space, args_w, w_errno, w_strerror, w_filename,
+                            w_filename2)
         return space.wrap(exc)
 
     def descr_init(self, space, __args__):
@@ -520,11 +525,13 @@ class W_OSError(W_Exception):
         if kwds_w:
             raise oefmt(space.w_TypeError,
                         "OSError does not take keyword arguments")
-        (w_errno, w_strerror, w_filename
+        (w_errno, w_strerror, w_filename, w_filename2
          ) = W_OSError._parse_init_args(space, args_w)
-        self._init_error(space, args_w, w_errno, w_strerror, w_filename)
+        self._init_error(space, args_w, w_errno, w_strerror, w_filename,
+                         w_filename2)
 
-    def _init_error(self, space, args_w, w_errno, w_strerror, w_filename):
+    def _init_error(self, space, args_w, w_errno, w_strerror, w_filename,
+                    w_filename2):
         W_BaseException.descr_init(self, space, args_w)
         if w_errno:
             self.w_errno = w_errno
@@ -540,17 +547,21 @@ class W_OSError(W_Exception):
                     self.w_filename = w_filename
             else:
                 self.w_filename = w_filename
+                if not space.is_none(w_filename2):
+                    self.w_filename2 = w_filename2
                 # filename is removed from the args tuple (for compatibility
                 # purposes, see test_exceptions.py)
                 self.args_w = [w_errno, w_strerror]
 
     # since we rebind args_w, we need special reduce, grump
     def descr_reduce(self, space):
+        extra = []
         if not space.is_w(self.w_filename, space.w_None):
-            lst = [self.getclass(space), space.newtuple(
-                self.args_w + [self.w_filename])]
-        else:
-            lst = [self.getclass(space), space.newtuple(self.args_w)]
+            extra.append(self.w_filename)
+            if not space.is_w(self.w_filename2, space.w_None):
+                extra.append(space.w_None)
+                extra.append(self.w_filename2)
+        lst = [self.getclass(space), space.newtuple(self.args_w + extra)]
         if self.w_dict is not None and space.is_true(self.w_dict):
             lst = lst + [self.w_dict]
         return space.newtuple(lst)
@@ -561,6 +572,12 @@ class W_OSError(W_Exception):
             errno = space.unicode_w(space.str(self.w_errno))
             strerror = space.unicode_w(space.str(self.w_strerror))
             if not space.is_w(self.w_filename, space.w_None):
+                if not space.is_w(self.w_filename2, space.w_None):
+                    return space.wrap(u"[Errno %s] %s: %s -> %s" % (
+                        errno,
+                        strerror,
+                        space.unicode_w(space.repr(self.w_filename)),
+                        space.unicode_w(space.repr(self.w_filename2))))
                 return space.wrap(u"[Errno %s] %s: %s" % (
                     errno,
                     strerror,
@@ -590,6 +607,7 @@ W_OSError.typedef = TypeDef(
     errno    = readwrite_attrproperty_w('w_errno',    W_OSError),
     strerror = readwrite_attrproperty_w('w_strerror', W_OSError),
     filename = readwrite_attrproperty_w('w_filename', W_OSError),
+    filename2= readwrite_attrproperty_w('w_filename2',W_OSError),
     characters_written = GetSetProperty(W_OSError.descr_get_written,
                                         W_OSError.descr_set_written),
     )
