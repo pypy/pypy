@@ -3,6 +3,8 @@ from pypy.interpreter.mixedmodule import MixedModule
 import os
 
 class Module(MixedModule):
+    applevel_name = '_signal'
+
     interpleveldefs = {
         'signal':              'interp_signal.signal',
         'getsignal':           'interp_signal.getsignal',
