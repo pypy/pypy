@@ -65,7 +65,14 @@ class WeakSet:
                     yield item
 
     def __len__(self):
-        return len(self.data) - len(self._pending_removals)
+        # PyPy change: we can't rely on len(self.data) at all, because
+        # the weakref callbacks may be called at an unknown later time.
+#        return len(self.data) - len(self._pending_removals)
+#
+        result = 0
+        for wr in self.data:
+            result += (wr() is not None)
+        return result
 
     def __contains__(self, item):
         try:
