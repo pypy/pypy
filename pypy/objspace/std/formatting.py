@@ -503,6 +503,8 @@ def make_formatter_subclass(do_unicode):
                 raise oefmt(space.w_TypeError, "%c requires int or char")
 
         def fmt_b(self, w_value):
+            if do_unicode:
+                self.unknown_fmtchar()
             space = self.space
             # cpython explicitly checks for bytes & bytearray
             if space.isinstance_w(w_value, space.w_bytes):
@@ -524,7 +526,7 @@ def make_formatter_subclass(do_unicode):
                 return
 
             raise oefmt(space.w_TypeError,
-                    "requires bytes, or an object that" \
+                    "requires bytes, or an object that "
                     "implements __bytes__, not '%T'", w_value)
 
     return StringFormatter
