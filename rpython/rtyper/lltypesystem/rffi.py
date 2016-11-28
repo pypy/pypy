@@ -74,7 +74,8 @@ RFFI_ALT_ERRNO           = 64    # read, save using alt tl destination
 def llexternal(name, args, result, _callable=None,
                compilation_info=ExternalCompilationInfo(),
                sandboxsafe=False, releasegil='auto',
-               _nowrapper=False, calling_conv='c',
+               _nowrapper=False,
+               calling_conv='unknown' if sys.platform == 'win32' else 'c',
                elidable_function=False, macro=None,
                random_effects_on_gcobjs='auto',
                save_err=RFFI_ERR_NONE):
@@ -97,8 +98,9 @@ def llexternal(name, args, result, _callable=None,
                 don't bother releasing the GIL.  An explicit True or False
                 overrides this logic.
 
-    calling_conv: deprecated, because it's hard to get it right 100% of the
-                  time.  Nowadays it is ignored except for tests.
+    calling_conv: if 'unknown' or 'win', the C function is not directly seen
+                  by the JIT.  If 'c', it can be seen (depending on
+                  releasegil=False).  For tests only, it defaults to 'c'.
     """
     if _callable is not None:
         assert callable(_callable)
@@ -110,7 +112,8 @@ def llexternal(name, args, result, _callable=None,
             _callable = generate_macro_wrapper(
                 name, macro, ext_type, compilation_info)
         else:
-            _callable = ll2ctypes.LL2CtypesCallable(ext_type, calling_conv)
+            _callable = ll2ctypes.LL2CtypesCallable(ext_type,
+                'c' if calling_conv == 'unknown' else calling_conv)
     else:
         assert macro is None, "'macro' is useless if you specify '_callable'"
     if elidable_function:
@@ -211,9 +214,9 @@ def llexternal(name, args, result, _callable=None,
         # ...well, unless it's a macro, in which case we still have
         # to hide it from the JIT...
         need_wrapper = (macro is not None or save_err != RFFI_ERR_NONE)
-        # XXX ...and unless we're on Windows, because the calling convention
-        #     is unknown so far and thus the JIT can't assume it knows it...
-        if sys.platform == 'win32':
+        # ...and unless we're on Windows and the calling convention is
+        # 'win' or 'unknown'
+        if calling_conv != 'c':
             need_wrapper = True
         #
         if not need_wrapper:
@@ -1290,23 +1293,15 @@ class scoped_alloc_unicodebuffer:
 
 # You would have to have a *huge* amount of data for this to block long enough
 # to be worth it to release the GIL.
-_c_memcpy = llexternal("memcpy",
+c_memcpy = llexternal("memcpy",
             [VOIDP, VOIDP, SIZE_T],
             lltype.Void,
             releasegil=False,
-            _nowrapper=True
+            calling_conv='c',
         )
-_c_memset = llexternal("memset",
+c_memset = llexternal("memset",
             [VOIDP, lltype.Signed, SIZE_T],
             lltype.Void,
             releasegil=False,
-            _nowrapper=True
+            calling_conv='c',
         )
-
-@specialize.ll()
-def c_memcpy(dst, src, size):
-    _c_memcpy(cast(VOIDP, dst), cast(VOIDP, src), cast(SIZE_T, size))
-
-@specialize.ll()
-def c_memset(s, c, n):
-    _c_memset(cast(VOIDP, s), cast(lltype.Signed, c), cast(SIZE_T, n))
