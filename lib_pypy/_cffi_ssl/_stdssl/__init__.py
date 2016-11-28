@@ -203,9 +203,6 @@ SOCKET_HAS_BEEN_CLOSED = 3
 SOCKET_TOO_LARGE_FOR_SELECT = 4
 SOCKET_OPERATION_OK = 5
 
-def _buffer_new(length):
-    return ffi.new("char[%d]"%length)
-
 class _SSLSocket(object):
 
     @staticmethod
@@ -218,7 +215,7 @@ class _SSLSocket(object):
 
         lib.ERR_get_state()
         lib.ERR_clear_error()
-        self.ssl = ssl = lib.gc(lib.SSL_new(ctx), lib.SSL_free)
+        self.ssl = ssl = ffi.gc(lib.SSL_new(ctx), lib.SSL_free)
 
         self._app_data_handle = ffi.new_handle(self)
         lib.SSL_set_app_data(ssl, ffi.cast("char*", self._app_data_handle))
@@ -347,7 +344,7 @@ class _SSLSocket(object):
 
         peer_cert = lib.SSL_get_peer_certificate(ssl)
         if peer_cert != ffi.NULL:
-            peer_cert = lib.gc(peer_cert, lib.X509_free)
+            peer_cert = ffi.gc(peer_cert, lib.X509_free)
         self.peer_cert = peer_cert
 
         #PySSL_END_ALLOW_THREADS
@@ -437,7 +434,7 @@ class _SSLSocket(object):
         sock = self.get_socket_or_connection_gone()
 
         if not buffer_into:
-            dest = _buffer_new(length)
+            dest = ffi.new("char[]", length)
             mem = dest
         else:
             mem = ffi.from_buffer(buffer_into)
@@ -654,7 +651,7 @@ class _SSLSocket(object):
             return count
 
     def tls_unique_cb(self):
-        buf = ffi.new("char[%d]" % SSL_CB_MAXLEN)
+        buf = ffi.new("char[]", SSL_CB_MAXLEN)
 
         if lib.SSL_session_reused(self.ssl) ^ (not self.socket_type):
             # if session is resumed XOR we are the client
@@ -1259,7 +1256,7 @@ def _asn1obj2py(obj):
         raise ValueError("Unknown object")
     sn = _str_from_buf(lib.OBJ_nid2sn(nid))
     ln = _str_from_buf(lib.OBJ_nid2ln(nid))
-    buf = ffi.new("char[255]")
+    buf = ffi.new("char[]", 255)
     length = lib.OBJ_obj2txt(buf, len(buf), obj, 1)
     if length < 0:
         ssl_error(None)
@@ -1301,7 +1298,7 @@ class MemoryBIO(object):
         lib.BIO_set_retry_read(bio);
         lib.BIO_set_mem_eof_return(bio, -1);
 
-        self.bio = lib.gc(bio, lib.BIO_free)
+        self.bio = ffi.gc(bio, lib.BIO_free)
         self.eof_written = False
 
     @property
@@ -1339,7 +1336,7 @@ class MemoryBIO(object):
         if count < 0 or count > avail:
             count = avail;
 
-        buf = ffi.new("char[%d]" % count)
+        buf = ffi.new("char[]", count)
 
         nbytes = lib.BIO_read(self.bio, buf, count);
         #  There should never be any short reads but check anyway.
@@ -1358,7 +1355,7 @@ RAND_status = lib.RAND_status
 def _RAND_bytes(count, pseudo):
     if count < 0:
         raise ValueError("num must be positive")
-    buf = ffi.new("unsigned char[%d]" % count)
+    buf = ffi.new("unsigned char[]", count)
     if pseudo:
         # note by reaperhulk, RAND_pseudo_bytes is deprecated in 3.6 already,
         # it is totally fine to just call RAND_bytes instead
