@@ -74,8 +74,7 @@ RFFI_ALT_ERRNO           = 64    # read, save using alt tl destination
 def llexternal(name, args, result, _callable=None,
                compilation_info=ExternalCompilationInfo(),
                sandboxsafe=False, releasegil='auto',
-               _nowrapper=False,
-               calling_conv='unknown' if sys.platform == 'win32' else 'c',
+               _nowrapper=False, calling_conv=None,
                elidable_function=False, macro=None,
                random_effects_on_gcobjs='auto',
                save_err=RFFI_ERR_NONE):
@@ -100,8 +99,14 @@ def llexternal(name, args, result, _callable=None,
 
     calling_conv: if 'unknown' or 'win', the C function is not directly seen
                   by the JIT.  If 'c', it can be seen (depending on
-                  releasegil=False).  For tests only, it defaults to 'c'.
+                  releasegil=False).  For tests only, or if _nowrapper,
+                  it defaults to 'c'.
     """
+    if calling_conv is None:
+        if sys.platform == 'win32' and not _nowrapper:
+            calling_conv = 'unknown'
+        else:
+            calling_conv = 'c'
     if _callable is not None:
         assert callable(_callable)
     ext_type = lltype.FuncType(args, result)
