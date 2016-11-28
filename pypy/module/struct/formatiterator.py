@@ -151,18 +151,27 @@ class UnpackFormatIterator(FormatIterator):
     @specialize.argtype(1)
     def appendobj(self, value):
         # CPython tries hard to return int objects whenever it can, but
-        # space.wrap returns a long if we pass a r_uint, r_ulonglong or
+        # space.newint returns a long if we pass a r_uint, r_ulonglong or
         # r_longlong. So, we need special care in those cases.
         is_unsigned = (isinstance(value, r_uint) or
                        isinstance(value, r_ulonglong))
-        if is_unsigned and value <= maxint:
-            w_value = self.space.wrap(intmask(value))
+        if is_unsigned:
+            if value <= maxint:
+                w_value = self.space.newint(intmask(value))
+            else:
+                w_value = self.space.newint(value)
         elif isinstance(value, r_longlong) and -maxint-1 <= value <= maxint:
-            w_value = self.space.wrap(intmask(value))
+            w_value = self.space.newint(intmask(value))
+        elif isinstance(value, int):
+            w_value = self.space.newint(value)
+        elif isinstance(value, float):
+            w_value = self.space.newfloat(value)
+        elif isinstance(value, str):
+            w_value = self.space.newbytes(value)
+        elif isinstance(value, unicode):
+            w_value = self.space.newunicode(value)
         else:
-            # generic type, just use space.wrap
-            w_value = self.space.wrap(value)
-        #
+            assert 0, "unreachable"
         self.result_w.append(w_value)
 
     def get_pos(self):
