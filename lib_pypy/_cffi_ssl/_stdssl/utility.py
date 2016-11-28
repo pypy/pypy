@@ -13,39 +13,22 @@ def _str_with_len(char_ptr, length):
 def _bytes_with_len(char_ptr, length):
     return ffi.buffer(char_ptr, length)[:]
 
-def _str_to_ffi_buffer(view, zeroterm=False):
-    # REVIEW unsure how to solve this. might be easy:
-    # str does not support buffer protocol.
-    # I think a user should really encode the string before it is 
-    # passed here!
+def _str_to_ffi_buffer(view):
     if isinstance(view, str):
-        enc = view.encode()
-        if zeroterm:
-            return ffi.from_buffer(enc + b'\x00')
-        else:
-            return ffi.from_buffer(enc)
-    else:
-        if isinstance(view, memoryview):
-            # TODO pypy limitation StringBuffer does not allow
-            # to get a raw address to the string!
-            view = bytes(view)
-        if zeroterm:
-            return ffi.from_buffer(view + b'\x00')
-        else:
-            return ffi.from_buffer(view)
+        return ffi.from_buffer(view.encode())
+    elif isinstance(view, memoryview):
+        # NOTE pypy limitation StringBuffer does not allow
+        # to get a raw address to the string!
+        view = bytes(view)
+    # dont call call ffi.from_buffer(bytes(view)), arguments
+    # like ints/bools should result in a TypeError
+    return ffi.from_buffer(view)
 
 def _str_from_buf(buf):
     return ffi.string(buf).decode('utf-8')
 
 def _cstr_decode_fs(buf):
-#define CONVERT(info, target) { \
-#        const char *tmp = (info); \
-#        target = NULL; \
-#        if (!tmp) { Py_INCREF(Py_None); target = Py_None; } \
-#        else if ((target = PyUnicode_DecodeFSDefault(tmp)) == NULL) { \
-#            target = PyBytes_FromString(tmp); } \
-#        if (!target) goto error; \
-#    }
-    # REVIEW
+    if buf == ffi.NULL:
+        return None
     return ffi.string(buf).decode(sys.getfilesystemencoding())
 
