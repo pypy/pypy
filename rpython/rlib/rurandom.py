@@ -75,16 +75,6 @@ if sys.platform == 'win32':
 
             return rffi.charpsize2str(rffi.cast(rffi.CCHARP, buf), n)
 
-elif 0:  # __VMS
-    from rpython.rlib.ropenssl import libssl_RAND_pseudo_bytes
-    def init_urandom():
-        pass
-
-    def urandom(context, n):
-        with rffi.scoped_alloc_buffer(n) as buf:
-            if libssl_RAND_pseudo_bytes(self.raw, n) < 0:
-                raise ValueError("RAND_pseudo_bytes")
-            return buf.str(n)
 else:  # Posix implementation
     @not_rpython
     def init_urandom():

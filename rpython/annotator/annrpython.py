@@ -2,6 +2,7 @@ from __future__ import absolute_import
 
 import types
 from collections import defaultdict
+from contextlib import contextmanager
 
 from rpython.tool.ansi_print import AnsiLogger
 from rpython.tool.pairtype import pair
@@ -83,22 +84,17 @@ class RPythonAnnotator(object):
         annmodel.TLS.check_str_without_nul = (
             self.translator.config.translation.check_str_without_nul)
 
-        flowgraph, inputs_s = self.get_call_parameters(function, args_s, policy)
+        with self.using_policy(policy):
+            flowgraph, inputs_s = self.get_call_parameters(function, args_s)
 
         if main_entry_point:
             self.translator.entry_point_graph = flowgraph
         return self.build_graph_types(flowgraph, inputs_s, complete_now=complete_now)
 
-    def get_call_parameters(self, function, args_s, policy):
-        desc = self.bookkeeper.getdesc(function)
-        prevpolicy = self.policy
-        self.policy = policy
-        self.bookkeeper.enter(None)
-        try:
+    def get_call_parameters(self, function, args_s):
+        with self.bookkeeper.at_position(None):
+            desc = self.bookkeeper.getdesc(function)
             return desc.get_call_parameters(args_s)
-        finally:
-            self.bookkeeper.leave()
-            self.policy = prevpolicy
 
     def annotate_helper(self, function, args_s, policy=None):
         if policy is None:
@@ -107,21 +103,29 @@ class RPythonAnnotator(object):
             # XXX hack
             annmodel.TLS.check_str_without_nul = (
                 self.translator.config.translation.check_str_without_nul)
-        graph, inputcells = self.get_call_parameters(function, args_s, policy)
-        self.build_graph_types(graph, inputcells, complete_now=False)
-        self.complete_helpers(policy)
+        with self.using_policy(policy):
+            graph, inputcells = self.get_call_parameters(function, args_s)
+            self.build_graph_types(graph, inputcells, complete_now=False)
+            self.complete_helpers()
         return graph
 
-    def complete_helpers(self, policy):
-        saved = self.policy, self.added_blocks
-        self.policy = policy
+    def complete_helpers(self):
+        saved = self.added_blocks
+        self.added_blocks = {}
         try:
-            self.added_blocks = {}
             self.complete()
             # invoke annotation simplifications for the new blocks
             self.simplify(block_subset=self.added_blocks)
         finally:
-            self.policy, self.added_blocks = saved
+            self.added_blocks = saved
+
+    @contextmanager
+    def using_policy(self, policy):
+        """A context manager that temporarily replaces the annotator policy"""
+        old_policy = self.policy
+        self.policy = policy
+        yield
+        self.policy = old_policy
 
     def build_graph_types(self, flowgraph, inputcells, complete_now=True):
         checkgraph(flowgraph)

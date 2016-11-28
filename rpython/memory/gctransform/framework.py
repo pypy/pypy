@@ -476,6 +476,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 GCClass.rawrefcount_create_link_pyobj,
                 [s_gc, s_gcref, SomeAddress()],
                 annmodel.s_None)
+            self.rawrefcount_mark_deallocating = getfn(
+                GCClass.rawrefcount_mark_deallocating,
+                [s_gc, s_gcref, SomeAddress()],
+                annmodel.s_None)
             self.rawrefcount_from_obj_ptr = getfn(
                 GCClass.rawrefcount_from_obj, [s_gc, s_gcref], SomeAddress(),
                 inline = True)
@@ -1279,6 +1283,14 @@ class BaseFrameworkGCTransformer(GCTransformer):
         assert v_pyobject.concretetype == llmemory.Address
         hop.genop("direct_call",
                   [self.rawrefcount_create_link_pyobj_ptr, self.c_const_gc,
+                   v_gcobj, v_pyobject])
+
+    def gct_gc_rawrefcount_mark_deallocating(self, hop):
+        [v_gcobj, v_pyobject] = hop.spaceop.args
+        assert v_gcobj.concretetype == llmemory.GCREF
+        assert v_pyobject.concretetype == llmemory.Address
+        hop.genop("direct_call",
+                  [self.rawrefcount_mark_deallocating, self.c_const_gc,
                    v_gcobj, v_pyobject])
 
     def gct_gc_rawrefcount_from_obj(self, hop):
