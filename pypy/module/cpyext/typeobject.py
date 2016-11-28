@@ -504,18 +504,24 @@ def subtype_dealloc(space, obj):
     this_func_ptr = llhelper(subtype_dealloc.api_func.functype,
             subtype_dealloc.api_func.get_wrapper(space))
     w_obj = from_ref(space, rffi.cast(PyObject, base))
-    obj_not_cpytype = not w_obj.is_cpytype()
-    # see comment in userslot.slot_tp_new, this call can infinitely recurse
-    # We can only get into this function if tp_dealloc is being called on 
-    # a non-cpytype, which could or could not inherit from a cpytype
-    # So if the original obj is non-cpytype, climb the mro to the first non-cpytype,
-    # otherwise just make sure we are not calling ourselves again
-    #
-    # This logic might fail for complicated inheritance schemes.
-    while base.c_tp_dealloc == this_func_ptr or (obj_not_cpytype and w_obj.is_cpytype()):
+    # This wrapper is created on a specific type, call it w_A. 
+    # We wish to call the dealloc function from one of the base classes of w_A,
+    # the first of which is not this function itself.
+    # w_obj is an instance of w_A or one of its subclasses. So climb up the
+    # inheritance chain until base.c_tp_dealloc is exactly this_func, and then
+    # continue on up until they differ.
+    print 'subtype_dealloc, start from', rffi.charp2str(base)
+    while base.c_tp_dealloc != this_func_ptr:
         base = base.c_tp_base
         assert base
+        print '                 ne move to', rffi.charp2str(base)
         w_obj = from_ref(space, rffi.cast(PyObject, base))
+    while base.c_tp_dealloc == this_func_ptr:
+        base = base.c_tp_base
+        assert base
+        print '                 eq move to', rffi.charp2str(base)
+        w_obj = from_ref(space, rffi.cast(PyObject, base))
+    print '                   end with', rffi.charp2str(base)
     dealloc = base.c_tp_dealloc
     # XXX call tp_del if necessary
     generic_cpy_call(space, dealloc, obj)
