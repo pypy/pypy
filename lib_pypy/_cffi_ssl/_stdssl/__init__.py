@@ -1296,7 +1296,7 @@ class MemoryBIO(object):
         lib.BIO_set_retry_read(bio);
         lib.BIO_set_mem_eof_return(bio, -1);
 
-        self.bio = bio;
+        self.bio = lib.gc(bio, lib.BIO_free)
         self.eof_written = False
 
     @property
