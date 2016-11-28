@@ -20,6 +20,8 @@ from _cffi_ssl._stdssl.error import (SSL_ERROR_NONE,
         SSL_ERROR_EOF, SSL_ERROR_NO_SOCKET, SSL_ERROR_INVALID_ERROR_CODE,
         pyerr_write_unraisable)
 from _cffi_ssl._stdssl import error
+from select import poll, POLLIN, POLLOUT, select
+from enum import IntEnum as _IntEnum
 
 OPENSSL_VERSION = ffi.string(lib.OPENSSL_VERSION_TEXT).decode('utf-8')
 OPENSSL_VERSION_NUMBER = lib.OPENSSL_VERSION_NUMBER
@@ -77,7 +79,6 @@ if lib.Cryptography_HAS_TLSv1_2:
 
 _PROTOCOL_NAMES = (name for name in dir(lib) if name.startswith('PROTOCOL_'))
 
-from enum import IntEnum as _IntEnum
 _IntEnum._convert('_SSLMethod', __name__,
         lambda name: name.startswith('PROTOCOL_'))
 
@@ -120,7 +121,6 @@ PWINFO_STORAGE = {}
 def _Cryptography_pem_password_cb(buf, size, rwflag, userdata):
     pw_info = ffi.from_handle(userdata)
 
-    # TODO PySSL_END_ALLOW_THREADS_S(pw_info->thread_state);
     password = pw_info.password
 
     if pw_info.callable:
@@ -140,7 +140,6 @@ def _Cryptography_pem_password_cb(buf, size, rwflag, userdata):
         pw_info.operationerror = ValueError("password cannot be longer than %d bytes" % size)
         return 0
 
-    #PySSL_BEGIN_ALLOW_THREADS_S(pw_info->thread_state);
     ffi.memmove(buf, password, len(password))
     return len(password)
 
@@ -150,7 +149,12 @@ if lib.Cryptography_STATIC_CALLBACKS:
 else:
     Cryptography_pem_password_cb = ffi.callback("int(char*,int,int,void*)")(_Cryptography_pem_password_cb)
 
-from select import poll, POLLIN, POLLOUT, select
+if hasattr(time, 'monotonic'):
+    def _monotonic_clock():
+        return time.monotonic()
+else:
+    def _monotonic_clock():
+        return time.clock_gettime(time.CLOCK_MONOTONIC)
 
 HAVE_POLL = True
 
@@ -177,10 +181,9 @@ def _ssl_select(sock, writing, timeout):
     if HAVE_POLL:
         p.register(sock.fileno(), POLLOUT | POLLIN)
 
-        #PySSL_BEGIN_ALLOW_THREADS
         rc = len(p.poll(timeout * 1000.0))
-        #PySSL_END_ALLOW_THREADS
     else:
+        # currently disabled, see HAVE_POLL
         fd = sock.fileno()
         #if (!_PyIsSelectable_fd(s->sock_fd))
         #    return SOCKET_TOO_LARGE_FOR_SELECT;
@@ -217,7 +220,7 @@ class _SSLSocket(object):
         lib.ERR_clear_error()
         self.ssl = ssl = lib.SSL_new(ctx)
 
-        self._app_data_handle = ffi.new_handle(self) # TODO release later
+        self._app_data_handle = ffi.new_handle(self)
         lib.SSL_set_app_data(ssl, ffi.cast("char*", self._app_data_handle))
         if sock:
             lib.SSL_set_fd(ssl, sock.fileno())
@@ -247,13 +250,11 @@ class _SSLSocket(object):
             lib.BIO_set_nbio(lib.SSL_get_rbio(ssl), 1)
             lib.BIO_set_nbio(lib.SSL_get_wbio(ssl), 1)
 
-        #PySSL_BEGIN_ALLOW_THREADS
         if socket_type == SSL_CLIENT:
             lib.SSL_set_connect_state(ssl)
         else:
             lib.SSL_set_accept_state(ssl)
         self.socket_type = socket_type
-        #PySSL_END_ALLOW_THREADS
 
         if sock:
             self.socket = weakref.ref(sock)
@@ -269,6 +270,9 @@ class _SSLSocket(object):
         self._owner = None
         self.server_hostname = None
         self.socket = None
+
+    def __del__(self):
+        self._app_data_handle = None
 
     @property
     def owner(self):
@@ -309,8 +313,7 @@ class _SSLSocket(object):
         has_timeout = timeout > 0
         deadline = -1
         if has_timeout:
-            # REVIEW, cpython uses a monotonic clock here
-            deadline = time.time() + timeout;
+            deadline = _monotonic_clock() + timeout;
         # Actually negotiate SSL connection
         # XXX If SSL_do_handshake() returns 0, it's also a failure.
         while True:
@@ -323,7 +326,7 @@ class _SSLSocket(object):
 
             if has_timeout:
                 # REIVIEW monotonic clock?
-                timeout = deadline - time.time()
+                timeout = deadline - _monotonic_clock()
 
             if err == SSL_ERROR_WANT_READ:
                 sockstate = _ssl_select(sock, 0, timeout)
@@ -347,7 +350,6 @@ class _SSLSocket(object):
 
         if self.peer_cert != ffi.NULL:
             lib.X509_free(self.peer_cert)
-        #PySSL_BEGIN_ALLOW_THREADS
         self.peer_cert = lib.SSL_get_peer_certificate(ssl)
         #PySSL_END_ALLOW_THREADS
         self.handshake_done = 1
@@ -387,8 +389,7 @@ class _SSLSocket(object):
 
         has_timeout = timeout > 0
         if has_timeout:
-            # TODO monotonic clock?
-            deadline = time.time() + timeout
+            deadline = _monotonic_clock() + timeout
 
         sockstate = _ssl_select(sock, 1, timeout)
         if sockstate == SOCKET_HAS_TIMED_OUT:
@@ -399,16 +400,13 @@ class _SSLSocket(object):
             raise ssl_error("Underlying socket too large for select().")
 
         while True:
-            #PySSL_START_ALLOW_THREADS
             length = lib.SSL_write(self.ssl, b, len(b))
             err = lib.SSL_get_error(self.ssl, length)
-            #PySSL_END_ALLOW_THREADS
 
             check_signals()
 
             if has_timeout:
-                # TODO monotonic clock
-                timeout = deadline - time.time()
+                timeout = deadline - _monotonic_clock()
 
             if err == SSL_ERROR_WANT_READ:
                 sockstate = _ssl_select(sock, 0, timeout)
@@ -459,20 +457,17 @@ class _SSLSocket(object):
         timeout = _socket_timeout(sock)
         has_timeout = timeout > 0
         if has_timeout:
-            # TODO monotonic clock?
-            deadline = time.time() + timeout
+            deadline = _monotonic_clock() + timeout
 
         shutdown = False
         while True:
-            #PySSL_BEGIN_ALLOW_THREADS
             count = lib.SSL_read(self.ssl, mem, length);
             err = lib.SSL_get_error(self.ssl, count);
-            #PySSL_END_ALLOW_THREADS
 
             check_signals()
 
             if has_timeout:
-                timeout = deadline - time.time() # TODO ? _PyTime_GetMonotonicClock();
+                timeout = deadline - _monotonic_clock()
 
             if err == SSL_ERROR_WANT_READ:
                 sockstate = _ssl_select(sock, 0, timeout)
@@ -591,13 +586,11 @@ class _SSLSocket(object):
 
         has_timeout = (timeout > 0);
         if has_timeout:
-            # TODO monotonic clock
-            deadline = time.time() + timeout;
+            deadline = _monotonic_clock() + timeout;
 
         zeros = 0
 
         while True:
-            # TODO PySSL_BEGIN_ALLOW_THREADS
             # Disable read-ahead so that unwrap can work correctly.
             # Otherwise OpenSSL might read in too much data,
             # eating clear text data that happens to be
@@ -609,7 +602,6 @@ class _SSLSocket(object):
             if self.shutdown_seen_zero:
                 lib.SSL_set_read_ahead(self.ssl, 0)
             err = lib.SSL_shutdown(self.ssl)
-            # TODO PySSL_END_ALLOW_THREADS
 
             # If err == 1, a secure shutdown with SSL_shutdown() is complete
             if err > 0:
@@ -626,8 +618,7 @@ class _SSLSocket(object):
                 continue
 
             if has_timeout:
-                # TODO monotonic clock
-                timeout = deadline - time.time() #_PyTime_GetMonotonicClock();
+                timeout = deadline - _monotonic_clock()
 
             # Possibly retry shutdown until timeout or failure
             ssl_err = lib.SSL_get_error(self.ssl, err)
@@ -657,9 +648,7 @@ class _SSLSocket(object):
             return None
 
     def pending(self):
-        # TODO PySSL_BEGIN_ALLOW_THREADS
         count = lib.SSL_pending(self.ssl)
-        # TODO PySSL_END_ALLOW_THREADS
         if count < 0:
             raise pyssl_error(self, count)
         else:
@@ -692,8 +681,7 @@ class _SSLSocket(object):
 
 
 def _fs_decode(name):
-    # TODO return PyUnicode_DecodeFSDefault(short_name);
-    return name.decode('utf-8')
+    return name.decode(sys.getfilesystemencoding())
 
 
 def cipher_to_tuple(cipher):
@@ -747,7 +735,7 @@ class _SSLContext(object):
         else:
             raise ValueError("invalid protocol version")
 
-        self.ctx = lib.SSL_CTX_new(method)
+        self.ctx = ffi.gc(lib.SSL_CTX_new(method), lib.SSL_CTX_free)
         if self.ctx == ffi.NULL: 
             raise ssl_error("failed to allocate SSL context")
 
@@ -1049,15 +1037,6 @@ class _SSLContext(object):
         return {'x509': x509, 'x509_ca': x509_ca, 'crl': crl}
 
 
-    def __del__(self):
-        # REVIEW, is this done properly? In RPython the a finalizer
-        # function is added
-        ctx = self.ctx
-        if ctx:
-            self.ctx = None
-            lib.SSL_CTX_free(ctx)
-
-
     def session_stats(self):
         stats = {}
         for name, ssl_func in SSL_CTX_STATS:
@@ -1273,7 +1252,6 @@ class ServernameCallback(object):
         self.ctx = ctx
 
 SERVERNAME_CALLBACKS = weakref.WeakValueDictionary()
-TEST = None
 
 def _asn1obj2py(obj):
     nid = lib.OBJ_obj2nid(obj)
@@ -1376,7 +1354,6 @@ class MemoryBIO(object):
 
 
 RAND_status = lib.RAND_status
-RAND_add = lib.RAND_add
 
 def _RAND_bytes(count, pseudo):
     if count < 0:
