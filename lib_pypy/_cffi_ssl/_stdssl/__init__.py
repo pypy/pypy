@@ -678,6 +678,11 @@ class _SSLSocket(object):
 
 def _fs_decode(name):
     return name.decode(sys.getfilesystemencoding())
+def _fs_converter(name):
+    """ name must not be None """
+    if isinstance(name, str):
+        return name.encode(sys.getfilesystemencoding())
+    return bytes(name)
 
 
 def cipher_to_tuple(cipher):
@@ -1048,7 +1053,7 @@ class _SSLContext(object):
         ffi.errno = 0
         if filepath is None:
             raise TypeError("filepath must not be None")
-        buf = _str_to_ffi_buffer(filepath, zeroterm=True)
+        buf = _fs_converter(filepath)
         mode = ffi.new("char[]",b"r")
         ffi.errno = 0
         bio = lib.BIO_new_file(buf, mode)
@@ -1096,7 +1101,10 @@ class _SSLContext(object):
         return _list
 
     def set_ecdh_curve(self, name):
-        buf = _str_to_ffi_buffer(name, zeroterm=True)
+        # needs to be zero terminated
+        if name is None:
+            raise TypeError()
+        buf = _fs_converter(name)
         nid = lib.OBJ_sn2nid(buf)
         if nid == 0:
             raise ValueError("unknown elliptic curve name '%s'" % name)
