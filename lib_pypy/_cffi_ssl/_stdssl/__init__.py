@@ -218,7 +218,7 @@ class _SSLSocket(object):
 
         lib.ERR_get_state()
         lib.ERR_clear_error()
-        self.ssl = ssl = lib.SSL_new(ctx)
+        self.ssl = ssl = lib.gc(lib.SSL_new(ctx), lib.SSL_free)
 
         self._app_data_handle = ffi.new_handle(self)
         lib.SSL_set_app_data(ssl, ffi.cast("char*", self._app_data_handle))
@@ -270,9 +270,6 @@ class _SSLSocket(object):
         self._owner = None
         self.server_hostname = None
         self.socket = None
-
-    def __del__(self):
-        self._app_data_handle = None
 
     @property
     def owner(self):
@@ -348,9 +345,7 @@ class _SSLSocket(object):
         if ret < 1:
             raise pyssl_error(self, ret)
 
-        if self.peer_cert != ffi.NULL:
-            lib.X509_free(self.peer_cert)
-        self.peer_cert = lib.SSL_get_peer_certificate(ssl)
+        self.peer_cert = lib.gc(lib.SSL_get_peer_certificate(ssl), lib.X509_free)
         #PySSL_END_ALLOW_THREADS
         self.handshake_done = 1
         return None

@@ -9,8 +9,6 @@ from pypy.interpreter.streamutil import wrap_streamerror
 
 def extension_suffixes(space):
     suffixes_w = []
-    # REVIEW this condition prevents pypy/tools/build_cffi_imports.py to succeed if
-    # pypy was compiled without cpyext module. why nore always append it?
     if space.config.objspace.usemodules.cpyext:
         suffixes_w.append(space.wrap(importing.get_so_extension(space)))
     return space.newlist(suffixes_w)
