@@ -178,6 +178,7 @@ class AppTestStringObject:
         raises(TypeError, '%c'.__mod__, ("bla",))
         raises(TypeError, '%c'.__mod__, ("",))
         raises(TypeError, '%c'.__mod__, (['c'],))
+        raises(TypeError, '%c'.__mod__, b'A')
 
     def test___int__index__(self):
         class MyInt(object):
@@ -368,6 +369,7 @@ class AppTestBytes:
         assert b"<%c>" % 48 == b"<0>"
         assert b"<%c>" % b"?" == b"<?>"
         raises(TypeError, 'b"<%c>" % "?"')
+        assert b"<%c>" % bytearray(b"?") == b"<?>"
 
     def test_bytes_bytes(self):
         assert b"<%b>" % b"123" == b"<123>"
@@ -421,6 +423,8 @@ class AppTestBytearray:
         assert bytearray(b"<%c>") % 48 == bytearray(b"<0>")
         assert bytearray(b"<%c>") % b"?" == bytearray(b"<?>")
         raises(TypeError, 'bytearray(b"<%c>") % "?"')
+        assert bytearray(b"<%c>") % bytearray(b"?") == bytearray(b"<?>")
+        raises(TypeError, 'bytearray(b"<%c>") % memoryview(b"X")')
 
     def test_bytes_bytes(self):
         assert bytearray(b"<%b>") % b"123" == bytearray(b"<123>")

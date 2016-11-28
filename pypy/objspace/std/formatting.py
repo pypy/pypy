@@ -483,22 +483,24 @@ def make_formatter_subclass(do_unicode):
                                     "character code not in range(256)")
                     self.std_wp(s)
                 return
-            if space.isinstance_w(w_value, space.w_str):
-                s = space.str_w(w_value)
+            if not do_unicode:
+                if space.isinstance_w(w_value, space.w_str):
+                    s = space.str_w(w_value)
+                elif space.isinstance_w(w_value, space.w_bytearray):
+                    s = w_value.buffer_w(space, 0).as_str()
+                else:
+                    s = ''
                 if len(s) == 1:
                     self.std_wp(s)
                     return
-            elif space.isinstance_w(w_value, space.w_unicode):
-                if not do_unicode:
-                    raise NeedUnicodeFormattingError
-                ustr = space.unicode_w(w_value)
-                if len(ustr) == 1:
-                    self.std_wp(ustr)
-                    return
-            if do_unicode:
-                raise oefmt(space.w_TypeError, "%c requires int or char")
-            else:
                 raise oefmt(space.w_TypeError, "%c requires int or single byte")
+            else:
+                if space.isinstance_w(w_value, space.w_unicode):
+                    ustr = space.unicode_w(w_value)
+                    if len(ustr) == 1:
+                        self.std_wp(ustr)
+                        return
+                raise oefmt(space.w_TypeError, "%c requires int or char")
 
         def fmt_b(self, w_value):
             space = self.space
