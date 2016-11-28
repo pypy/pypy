@@ -1214,6 +1214,18 @@ class AppTestPosix:
         self.posix.RTLD_GLOBAL
         self.posix.RTLD_LOCAL
 
+    def test_error_message(self):
+        e = raises(OSError, self.posix.open, 'nonexistentfile1', 0)
+        assert str(e.value).endswith(": 'nonexistentfile1'")
+
+        e = raises(OSError, self.posix.link, 'nonexistentfile1', 'bok')
+        assert str(e.value).endswith(": 'nonexistentfile1' -> 'bok'")
+        e = raises(OSError, self.posix.rename, 'nonexistentfile1', 'bok')
+        assert str(e.value).endswith(": 'nonexistentfile1' -> 'bok'")
+
+        e = raises(OSError, self.posix.symlink, 'bok', '/nonexistentdir/boz')
+        assert str(e.value).endswith(": 'bok' -> '/nonexistentdir/boz'")
+
 
 class AppTestEnvironment(object):
     def setup_class(cls):

@@ -1008,7 +1008,7 @@ src_dir_fd and dst_dir_fd, may not be implemented on your platform.
         else:
             dispatch_filename_2(rposix.rename)(space, w_src, w_dst)
     except OSError as e:
-        raise wrap_oserror(space, e)
+        raise wrap_oserror2(space, e, w_filename=w_src, w_filename2=w_dst)
 
 @unwrap_spec(src_dir_fd=DirFD(rposix.HAVE_RENAMEAT),
         dst_dir_fd=DirFD(rposix.HAVE_RENAMEAT))
@@ -1115,7 +1115,7 @@ in the hardest way possible on the hosting operating system."""
     rposix.kill(os.getpid(), signal.SIGABRT)
 
 @unwrap_spec(
-    src='fsencode', dst='fsencode',
+    src='fsencode', dst='fsencode',  # <- simpler: link() is never on Windows
     src_dir_fd=DirFD(rposix.HAVE_LINKAT), dst_dir_fd=DirFD(rposix.HAVE_LINKAT),
     follow_symlinks=bool)
 def link(
@@ -1144,7 +1144,7 @@ src_dir_fd, dst_dir_fd, and follow_symlinks may not be implemented on your
         else:
             rposix.link(src, dst)
     except OSError as e:
-        raise wrap_oserror(space, e)
+        raise wrap_oserror(space, e, filename=src, filename2=dst)
 
 
 @unwrap_spec(dir_fd=DirFD(rposix.HAVE_SYMLINKAT))
@@ -1171,7 +1171,7 @@ dir_fd may not be implemented on your platform.
         else:
             dispatch_filename_2(rposix.symlink)(space, w_src, w_dst)
     except OSError as e:
-        raise wrap_oserror(space, e)
+        raise wrap_oserror2(space, e, w_filename=w_src, w_filename2=w_dst)
 
 
 @unwrap_spec(
