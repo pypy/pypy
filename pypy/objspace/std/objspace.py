@@ -536,7 +536,7 @@ class StdObjSpace(ObjSpace):
         if isinstance(w_slice, W_SliceObject):
             a, b, c = w_slice.indices3(self, self.int_w(w_length))
             return (a, b, c)
-        w_indices = self.getattr(w_slice, self.wrap('indices'))
+        w_indices = self.getattr(w_slice, self.newbytes('indices'))
         w_tup = self.call_function(w_indices, w_length)
         l_w = self.unpackiterable(w_tup)
         if not len(l_w) == 3:
@@ -629,7 +629,7 @@ class StdObjSpace(ObjSpace):
                 not w_obj.user_overridden_class):
             w_obj.setitem_str(key, w_value)
         else:
-            self.setitem(w_obj, self.wrap(key), w_value)
+            self.setitem(w_obj, self.newtext(key), w_value)
 
     def getindex_w(self, w_obj, w_exception, objdescr=None):
         if type(w_obj) is W_IntObject:
