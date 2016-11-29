@@ -441,13 +441,16 @@ def wrap_value(space, func, add_arg, argdesc, letter):
             if c in TYPEMAP_PTR_LETTERS:
                 res = func(add_arg, argdesc, rffi.VOIDP)
                 return space.newint(rffi.cast(lltype.Unsigned, res))
+            if c in TYPEMAP_NUMBER_LETTERS:
+                return space.newint(func(add_arg, argdesc, ll_type))
             elif c == 'c':
                 return space.newbytes(func(add_arg, argdesc, ll_type))
+            elif c == 'u':
+                return space.newunicode(func(add_arg, argdesc, ll_type))
             elif c == 'f' or c == 'd' or c == 'g':
                 return space.newfloat(float(func(add_arg, argdesc, ll_type)))
             else:
-                # YYY hard
-                return space.wrap(func(add_arg, argdesc, ll_type))
+                assert 0, "unreachable"
     raise oefmt(space.w_TypeError, "cannot directly read value")
 
 NARROW_INTEGER_TYPES = 'cbhiBIH?'
