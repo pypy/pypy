@@ -7,12 +7,12 @@ from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 class TestString(BaseTestPyPyC):
     def test_lookup_default_encoding(self):
         def main(n):
-            import string
             i = 0
-            letters = string.letters
-            uletters = unicode(string.letters)
+            letters = b'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+            uletters = u'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
             while i < n:
-                i += letters[i % len(letters)] == uletters[i % len(letters)]
+                i += (letters[i % len(letters)].decode() ==
+                      uletters[i % len(letters)])
             return i
 
         log = self.run(main, [300], import_site=True)
@@ -45,7 +45,7 @@ class TestString(BaseTestPyPyC):
 
     def test_long(self):
         def main(n):
-            import string
+            digits = '0123456789'
             i = 1
             while i < n:
                 i += int(long(string.digits[i % len(string.digits)], 16))
