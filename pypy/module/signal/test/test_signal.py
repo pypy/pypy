@@ -40,23 +40,22 @@ class AppTestSignal:
     }
 
     def setup_class(cls):
-        cls.w_signal = cls.space.getbuiltinmodule('_signal')
         cls.w_temppath = cls.space.wrap(
             str(py.test.ensuretemp("signal").join("foo.txt")))
         cls.w_appdirect = cls.space.wrap(cls.runappdirect)
 
     def test_exported_names(self):
-        import os
-        self.signal.__dict__   # crashes if the interpleveldefs are invalid
+        import os, _signal
+        _signal.__dict__   # crashes if the interpleveldefs are invalid
         if os.name == 'nt':
-            assert self.signal.CTRL_BREAK_EVENT == 1
-            assert self.signal.CTRL_C_EVENT == 0
+            assert _signal.CTRL_BREAK_EVENT == 1
+            assert _signal.CTRL_C_EVENT == 0
 
     def test_basics(self):
-        import types, os
+        import types, os, _signal
         if not hasattr(os, 'kill') or not hasattr(os, 'getpid'):
             skip("requires os.kill() and os.getpid()")
-        signal = self.signal   # the signal module to test
+        signal = _signal   # the signal module to test
         if not hasattr(signal, 'SIGUSR1'):
             skip("requires SIGUSR1 in signal")
         signum = signal.SIGUSR1
