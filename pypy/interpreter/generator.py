@@ -107,6 +107,14 @@ return next yielded value or raise StopIteration."""
         if self.saved_operr is not None:
             ec.set_sys_exc_info(self.saved_operr)
             self.saved_operr = None
+        #
+        # Optimization only: after we've started a Coroutine without
+        # CO_YIELD_INSIDE_TRY, then Coroutine._finalize_() will be a no-op
+        if (isinstance(self, Coroutine)
+                and frame.last_instr == -1
+                and not (self.pycode.co_flags & CO_YIELD_INSIDE_TRY)):
+            rgc.may_ignore_finalizer(self)
+        #
         self.running = True
         try:
             w_result = frame.execute_frame(self, w_arg_or_err)
