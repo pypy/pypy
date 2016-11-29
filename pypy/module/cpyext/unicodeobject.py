@@ -758,4 +758,5 @@ def PyUnicode_Splitlines(space, w_str, keepend):
     Unicode strings.  CRLF is considered to be one line break.  If
     keepend is 0, the Line break characters are not included in the
     resulting strings."""
-    return space.call_method(w_str, "splitlines", space.newbool(bool(keepend)))
+    w_keepend = space.newbool(bool(rffi.cast(lltype.Signed, keepend)))
+    return space.call_method(w_str, "splitlines", w_keepend)

@@ -120,7 +120,7 @@ for name, argtypes in streamio.STREAM_METHODS.iteritems():
         finally:
             if acquired:
                 self.release_lock()
-        return space.wrap(result) # YYY
+        return space.wrap(result)
     %(name)s.unwrap_spec = [W_Stream, ObjSpace] + argtypes
     """ % locals()).compile() in globals()
 

@@ -41,4 +41,4 @@ class Module(MixedModule):
         from pypy.module.cppyy import capi
         capi.verify_backend(space)      # may raise ImportError
 
-        space.call_method(space.wrap(self), '_init_pythonify')
+        space.call_method(self, '_init_pythonify')

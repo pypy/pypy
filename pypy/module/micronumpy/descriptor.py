@@ -859,7 +859,7 @@ def _usefields(space, w_dict, align):
             alignment = -1
         format = dtype_from_spec(space, obj[0], alignment=alignment)
         if len(obj) > 2:
-            title = space.wrap(obj[2])
+            title = obj[2]
         else:
             title = space.w_None
         allfields.append((fname_w, format, num, title))
@@ -873,7 +873,7 @@ def _usefields(space, w_dict, align):
     else:
         alignment = -1
     for i in range(len(names)):
-        aslist.append(space.newtuple([space.wrap(names[i]), space.wrap(formats[i])]))
+        aslist.append(space.newtuple([names[i], formats[i]]))
     return dtype_from_list(space, space.newlist(aslist), False, alignment, offsets=offsets)
     
 def dtype_from_dict(space, w_dict, alignment):
