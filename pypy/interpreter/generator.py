@@ -20,7 +20,8 @@ class GeneratorOrCoroutine(W_Root):
         self.running = False
         self._name = name           # may be null, use get_name()
         self._qualname = qualname   # may be null, use get_qualname()
-        if self.pycode.co_flags & CO_YIELD_INSIDE_TRY:
+        if (isinstance(self, Coroutine)    # XXX would be cool not to need this
+                or self.pycode.co_flags & CO_YIELD_INSIDE_TRY):
             self.register_finalizer(self.space)
         self.saved_operr = None
 
@@ -385,7 +386,7 @@ class Coroutine(GeneratorOrCoroutine):
            self.frame.last_instr == -1:
             space = self.space
             msg = u"coroutine '%s' was never awaited" % self.get_qualname()
-            space.warn(space.w_RuntimeWarning, space.wrap(msg))
+            space.warn(space.wrap(msg), space.w_RuntimeWarning)
         GeneratorOrCoroutine._finalize_(self)
 
 

@@ -160,3 +160,20 @@ class AppTestCoroutine:
         else:
             assert False, "should have raised"
         """
+
+    def test_runtime_warning(self): """
+        import gc, warnings
+        async def foobaz():
+            pass
+        with warnings.catch_warnings(record=True) as l:
+            foobaz()
+            gc.collect()
+            gc.collect()
+            gc.collect()
+
+        assert len(l) == 1, repr(l)
+        w = l[0].message
+        assert isinstance(w, RuntimeWarning)
+        assert str(w).startswith("coroutine ")
+        assert str(w).endswith("foobaz' was never awaited")
+        """
