@@ -1013,6 +1013,7 @@ class ExceptionTests(unittest.TestCase):
             self.assertNotEqual(wr(), None)
         else:
             self.fail("RecursionError not raised")
+        gc_collect()
         self.assertEqual(wr(), None)
 
     def test_errno_ENOTDIR(self):

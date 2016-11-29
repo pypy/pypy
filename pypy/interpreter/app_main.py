@@ -595,7 +595,7 @@ def run_command_line(interactive,
     # set up the Ctrl-C => KeyboardInterrupt signal handler, if the
     # signal module is available
     try:
-        import signal
+        import _signal as signal
     except ImportError:
         pass
     else:

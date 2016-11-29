@@ -14,7 +14,7 @@ class TestCheckSignals:
     def test_checksignals(self):
         space = self.space
         w_received = space.appexec([], """():
-            import signal
+            import _signal as signal
             received = []
             def myhandler(signum, frame):
                 received.append(signum)
@@ -40,7 +40,7 @@ class AppTestSignal:
     }
 
     def setup_class(cls):
-        cls.w_signal = cls.space.getbuiltinmodule('signal')
+        cls.w_signal = cls.space.getbuiltinmodule('_signal')
         cls.w_temppath = cls.space.wrap(
             str(py.test.ensuretemp("signal").join("foo.txt")))
         cls.w_appdirect = cls.space.wrap(cls.runappdirect)
@@ -92,7 +92,7 @@ class AppTestSignal:
         """
         Test that signal.signal returns SIG_DFL if that is the current handler.
         """
-        from signal import signal, SIGINT, SIG_DFL, SIG_IGN
+        from _signal import signal, SIGINT, SIG_DFL, SIG_IGN
 
         try:
             for handler in SIG_DFL, SIG_IGN, lambda *a: None:
@@ -105,7 +105,7 @@ class AppTestSignal:
         """
         Test that signal.signal returns SIG_IGN if that is the current handler.
         """
-        from signal import signal, SIGINT, SIG_DFL, SIG_IGN
+        from _signal import signal, SIGINT, SIG_DFL, SIG_IGN
 
         try:
             for handler in SIG_DFL, SIG_IGN, lambda *a: None:
@@ -119,7 +119,7 @@ class AppTestSignal:
         Test that signal.signal returns a Python object if one is the current
         handler.
         """
-        from signal import signal, SIGINT, SIG_DFL, SIG_IGN
+        from _signal import signal, SIGINT, SIG_DFL, SIG_IGN
         def installed(*a):
             pass
 
@@ -134,7 +134,7 @@ class AppTestSignal:
         """
         Test that signal.getsignal returns the currently installed handler.
         """
-        from signal import getsignal, signal, SIGINT, SIG_DFL, SIG_IGN
+        from _signal import getsignal, signal, SIGINT, SIG_DFL, SIG_IGN
 
         def handler(*a):
             pass
@@ -153,7 +153,7 @@ class AppTestSignal:
 
     def test_check_signum(self):
         import sys
-        from signal import getsignal, signal, NSIG
+        from _signal import getsignal, signal, NSIG
 
         # signum out of range fails
         raises(ValueError, getsignal, NSIG)
@@ -166,7 +166,7 @@ class AppTestSignal:
 
     def test_alarm(self):
         try:
-            from signal import alarm, signal, SIG_DFL, SIGALRM
+            from _signal import alarm, signal, SIG_DFL, SIGALRM
         except:
             skip('no alarm on this platform')
         import time
@@ -186,7 +186,7 @@ class AppTestSignal:
 
     def test_set_wakeup_fd(self):
         try:
-            import signal, posix, fcntl
+            import _signal as signal, posix, fcntl
         except ImportError:
             skip('cannot import posix or fcntl')
         def myhandler(signum, frame):
@@ -222,13 +222,13 @@ class AppTestSignal:
         signal.signal(signal.SIGINT, signal.SIG_DFL)
 
     def test_set_wakeup_fd_invalid(self):
-        import signal
+        import _signal as signal
         with open(self.temppath, 'wb') as f:
             fd = f.fileno()
         raises(ValueError, signal.set_wakeup_fd, fd)
 
     def test_siginterrupt(self):
-        import signal, os, time
+        import _signal as signal, os, time
         if not hasattr(signal, 'siginterrupt'):
             skip('non siginterrupt in signal')
         signum = signal.SIGUSR1
@@ -267,7 +267,7 @@ class AppTestSignalSocket:
 
     def test_alarm_raise(self):
         try:
-            from signal import alarm, signal, SIG_DFL, SIGALRM
+            from _signal import alarm, signal, SIG_DFL, SIGALRM
         except ImportError:
             skip("no SIGALRM on this platform")
         import _socket
@@ -299,7 +299,7 @@ class AppTestItimer:
             py.test.skip("Unix only")
 
     def test_itimer_real(self):
-        import signal
+        import _signal as signal
 
         def sig_alrm(*args):
             self.called = True
@@ -316,7 +316,7 @@ class AppTestItimer:
         assert self.called
 
     def test_itimer_exc(self):
-        import signal
+        import _signal as signal
 
         raises(signal.ItimerError, signal.setitimer, -1, 0)
 
@@ -324,7 +324,7 @@ class AppTestPThread:
     spaceconfig = dict(usemodules=['signal', 'thread', 'time'])
 
     def test_pthread_kill(self):
-        import signal
+        import _signal as signal
         import _thread
         signum = signal.SIGUSR1
         def handler(signum, frame):
@@ -334,7 +334,7 @@ class AppTestPThread:
         raises(ZeroDivisionError, signal.pthread_kill, tid, signum)
         
     def test_sigwait(self):
-        import signal
+        import _signal as signal
         def handler(signum, frame):
             1/0
         signal.signal(signal.SIGALRM, handler)
@@ -343,7 +343,7 @@ class AppTestPThread:
         assert received == signal.SIGALRM
         
     def test_sigmask(self):
-        import signal, posix
+        import _signal as signal, posix
         signum1 = signal.SIGUSR1
         signum2 = signal.SIGUSR2
 
