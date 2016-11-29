@@ -15,6 +15,7 @@ from rpython.conftest import option
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rtyper.rtyper import llinterp_backend
+from rpython.rlib.objectmodel import assert_
 
 
 WORD = LONG_BIT // 8
@@ -804,7 +805,7 @@ class GenericMovingGCTests(GenericGCTests):
                     [A() for i in range(20)]
                 i = 0
                 while i < len(alist):
-                    assert idarray[i] == compute_unique_id(alist[i])
+                    assert_(idarray[i] == compute_unique_id(alist[i]))
                     i += 1
                 j += 1
             lltype.free(idarray, flavor='raw')
@@ -855,7 +856,7 @@ class GenericMovingGCTests(GenericGCTests):
         if cls.gcname == 'incminimark':
             marker = cls.marker
             def cleanup():
-                assert marker[0] > 0
+                assert_(marker[0] > 0)
                 marker[0] = 0
         else:
             cleanup = None
@@ -987,7 +988,7 @@ class GenericMovingGCTests(GenericGCTests):
             for i in range(20):
                 x.append((1, lltype.malloc(S)))
             for i in range(50):
-                assert l2[i] == l[50 + i]
+                assert_(l2[i] == l[50 + i])
             return 0
 
         return fn
@@ -1036,9 +1037,9 @@ class TestGenerationGC(GenericMovingGCTests):
             while i < x:
                 all[i] = [i] * i
                 i += 1
-            assert ref() is a
+            assert_(ref() is a)
             llop.gc__collect(lltype.Void)
-            assert ref() is a
+            assert_(ref() is a)
             return a.foo + len(all)
         return f
 
@@ -1115,7 +1116,7 @@ class TestGenerationGC(GenericMovingGCTests):
             i = 0
             while i < 17:
                 ref = weakref.ref(a)
-                assert ref() is a
+                assert_(ref() is a)
                 i += 1
             return 0
 
@@ -1182,9 +1183,9 @@ class TestGenerationGC(GenericMovingGCTests):
             a1 = A()
             nf1 = nf_a.address[0]
             nt1 = nt_a.address[0]
-            assert nf1 > nf0
-            assert nt1 > nf1
-            assert nt1 == nt0
+            assert_(nf1 > nf0)
+            assert_(nt1 > nf1)
+            assert_(nt1 == nt0)
             return 0
 
         return f
@@ -1359,7 +1360,7 @@ class TestMiniMarkGC(TestHybridGC):
                 hashes.append(compute_identity_hash(obj))
             unique = {}
             for i in range(len(objects)):
-                assert compute_identity_hash(objects[i]) == hashes[i]
+                assert_(compute_identity_hash(objects[i]) == hashes[i])
                 unique[hashes[i]] = None
             return len(unique)
         return fn

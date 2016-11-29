@@ -49,39 +49,39 @@ class TestException(BaseRtypingTest):
             try:
                 g(n)
             except IOError as e:
-                assert e.errno == 0
-                assert e.strerror == "test"
-                assert e.filename is None
+                assert_(e.errno == 0)
+                assert_(e.strerror == "test")
+                assert_(e.filename is None)
             else:
-                assert False
+                assert_(False)
             try:
                 h(n)
             except OSError as e:
-                assert e.errno == 42
-                assert e.strerror == "?"
-                assert e.filename is None
+                assert_(e.errno == 42)
+                assert_(e.strerror == "?")
+                assert_(e.filename is None)
             else:
-                assert False
+                assert_(False)
             try:
                 i(n)
             except EnvironmentError as e:
-                assert e.errno == 42
-                assert e.strerror == "?"
-                assert e.filename == "test"
+                assert_(e.errno == 42)
+                assert_(e.strerror == "?")
+                assert_(e.filename == "test")
             else:
-                assert False
+                assert_(False)
             try:
                 j(n)
             except (IOError, OSError) as e:
-                assert e.errno == 0
-                assert e.strerror == "test"
-                assert e.filename is None
+                assert_(e.errno == 0)
+                assert_(e.strerror == "test")
+                assert_(e.filename is None)
             try:
                 k(n)
             except EnvironmentError as e:
-                assert e.errno == 0
-                assert e.strerror is None
-                assert e.filename is None
+                assert_(e.errno == 0)
+                assert_(e.strerror is None)
+                assert_(e.filename is None)
         self.interpret(f, [42])
 
     def test_catch_incompatible_class(self):
@@ -91,7 +91,7 @@ class TestException(BaseRtypingTest):
             pass
         def f(n):
             try:
-                assert n < 10
+                assert_(n < 10)
             except MyError as operr:
                 h(operr)
         res = self.interpret(f, [7])

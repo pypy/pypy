@@ -2,6 +2,7 @@ import py
 
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rlib.objectmodel import assert_
 
 from rpython.memory.test import test_generational_gc
 
@@ -35,12 +36,12 @@ class TestHybridGC(test_generational_gc.TestGenerationalGC):
             while i < x:
                 gc.collect()
                 i += 1
-            assert ref() is a
-            assert ref().x == 42
+            assert_(ref() is a)
+            assert_(ref().x == 42)
             return ref
         def step2(ref):
             gc.collect()       # 'a' is freed here
-            assert ref() is None
+            assert_(ref() is None)
         def f(x):
             ref = step1(x)
             step2(ref)

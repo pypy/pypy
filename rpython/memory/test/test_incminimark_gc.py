@@ -2,6 +2,7 @@ import py
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib import rgc
+from rpython.rlib.objectmodel import assert_
 
 from rpython.memory.test import test_minimark_gc
 
@@ -21,8 +22,8 @@ class TestIncrementalMiniMarkGC(test_minimark_gc.TestMiniMarkGC):
             a.x = 5
             wr = weakref.ref(a)
             llop.gc__collect(lltype.Void)   # make everything old
-            assert wr() is not None
-            assert a.x == 5
+            assert_(wr() is not None)
+            assert_(a.x == 5)
             return wr
         def f():
             ref = g()
@@ -31,7 +32,7 @@ class TestIncrementalMiniMarkGC(test_minimark_gc.TestMiniMarkGC):
             # to an object not found, but still reachable:
             b = ref()
             llop.debug_print(lltype.Void, b)
-            assert b is not None
+            assert_(b is not None)
             llop.gc__collect(lltype.Void)   # finish the major cycle
             # assert does not crash, because 'b' is still kept alive
             b.x = 42
@@ -46,7 +47,7 @@ class TestIncrementalMiniMarkGC(test_minimark_gc.TestMiniMarkGC):
         def f():
             a = A()
             ref = weakref.ref(a)
-            assert not rgc.pin(ref)
+            assert_(not rgc.pin(ref))
         self.interpret(f, [])
 
     def test_pin_finalizer_not_implemented(self):
@@ -63,8 +64,8 @@ class TestIncrementalMiniMarkGC(test_minimark_gc.TestMiniMarkGC):
         def f():
             a = A()
             b = B()
-            assert not rgc.pin(a)
-            assert not rgc.pin(b)
+            assert_(not rgc.pin(a))
+            assert_(not rgc.pin(b))
         self.interpret(f, [])
 
     def test_weakref_to_pinned(self):
@@ -75,18 +76,18 @@ class TestIncrementalMiniMarkGC(test_minimark_gc.TestMiniMarkGC):
             pass
         def g():
             a = A()
-            assert rgc.pin(a)
+            assert_(rgc.pin(a))
             a.x = 100
             wr = weakref.ref(a)
             llop.gc__collect(lltype.Void)
-            assert wr() is not None
-            assert a.x == 100
+            assert_(wr() is not None)
+            assert_(a.x == 100)
             return wr
         def f():
             ref = g()
             llop.gc__collect(lltype.Void, 1)
             b = ref()
-            assert b is not None
+            assert_(b is not None)
             b.x = 101
             return ref() is b
         res = self.interpret(f, [])
