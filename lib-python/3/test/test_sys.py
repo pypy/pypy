@@ -811,7 +811,12 @@ class SysModuleTest(unittest.TestCase):
             ref = AtExit()
         """
         rc, stdout, stderr = assert_python_ok('-c', code)
-        self.assertEqual(stdout.rstrip(), b'True')
+        if test.support.check_impl_detail(cpython=True):
+            self.assertEqual(stdout.rstrip(), b'True')
+        else:
+            # the __del__ method may or may not have been called
+            # in other Python implementations
+            self.assertIn(stdout.rstrip(), {b'True', b''})
 
 
 @test.support.cpython_only
