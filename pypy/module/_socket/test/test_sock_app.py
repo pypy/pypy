@@ -373,12 +373,12 @@ class AppTestSocket:
         import _socket
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
         try:
-            expected = ('<socket object, fd=%s, family=%s, type=%s, protocol=%s>'
+            expected = ('<socket object, fd=%s, family=%s, type=%s, proto=%s>'
                         % (s.fileno(), s.family, s.type, s.proto))
             assert repr(s) == expected
         finally:
             s.close()
-        expected = ('<socket object, fd=-1, family=%s, type=%s, protocol=%s>'
+        expected = ('<socket object, fd=-1, family=%s, type=%s, proto=%s>'
                     % (s.family, s.type, s.proto))
         assert repr(s) == expected
 
