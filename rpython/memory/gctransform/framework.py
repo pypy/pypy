@@ -545,6 +545,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                              s_gcref],
                                             annmodel.s_None)
 
+        self.ignore_finalizer_ptr = None
+        if hasattr(GCClass, 'ignore_finalizer'):
+            self.ignore_finalizer_ptr = getfn(GCClass.ignore_finalizer,
+                                              [s_gc, SomeAddress()],
+                                              annmodel.s_None)
+
     def create_custom_trace_funcs(self, gc, rtyper):
         custom_trace_funcs = tuple(rtyper.custom_trace_funcs)
         rtyper.custom_trace_funcs = custom_trace_funcs
@@ -1571,6 +1577,13 @@ class BaseFrameworkGCTransformer(GCTransformer):
                           resulttype=llmemory.Address)
         hop.genop("cast_adr_to_ptr", [v_adr],
                   resultvar = hop.spaceop.result)
+
+    def gct_gc_ignore_finalizer(self, hop):
+        if self.ignore_finalizer_ptr is not None:
+            v_adr = hop.genop("cast_ptr_to_adr", [hop.spaceop.args[0]],
+                              resulttype=llmemory.Address)
+            hop.genop("direct_call", [self.ignore_finalizer_ptr,
+                                      self.c_const_gc, v_adr])
 
 
 class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
