@@ -16,13 +16,6 @@ typedef ... EVP_MD_CTX;
 
 typedef ... EVP_PKEY;
 typedef ... EVP_PKEY_CTX;
-typedef struct {
-    int type;
-    int alias;
-    const char *name;
-    const char *data;
-} OBJ_NAME;
-
 static const int EVP_PKEY_RSA;
 static const int EVP_PKEY_DSA;
 static const int EVP_PKEY_DH;
@@ -31,6 +24,13 @@ static const int EVP_MAX_MD_SIZE;
 static const int EVP_CTRL_GCM_SET_IVLEN;
 static const int EVP_CTRL_GCM_GET_TAG;
 static const int EVP_CTRL_GCM_SET_TAG;
+
+typedef struct {
+    int type;
+    int alias;
+    const char *name;
+    const char *data;
+} OBJ_NAME;
 
 static const int Cryptography_HAS_GCM;
 static const int Cryptography_HAS_PBKDF2_HMAC;
@@ -176,7 +176,6 @@ int EVP_PKEY_CTX_set_signature_md(EVP_PKEY_CTX *, const EVP_MD *);
 int EVP_PBE_scrypt(const char *, size_t, const unsigned char *, size_t,
                    uint64_t, uint64_t, uint64_t, uint64_t, unsigned char *,
                    size_t);
-
 #define OBJ_NAME_TYPE_MD_METH ...
 """
 
