@@ -527,6 +527,7 @@ class FqTagEntry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.inputconst(lltype.Signed, hop.s_result.const)
 
+@jit.dont_look_inside
 def may_ignore_finalizer(obj):
     """Optimization hint: says that it is valid for any finalizer
     for 'obj' to be ignored, depending on the GC."""
