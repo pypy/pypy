@@ -21,13 +21,6 @@ from inspect import getmro
 
 pypyroot = os.path.dirname(pypydir)
 
-RENAMED_USEMODULES = dict(
-    _winreg='winreg',
-    exceptions='builtins',
-    struct='_struct',
-    thread='_thread',
-    operator='_operator',
-    )
 
 class AppError(Exception):
     def __init__(self, excinfo):
@@ -61,6 +54,11 @@ def py3k_repr(value):
         return type.__name__
     else:
         return repr(value)
+
+
+def _rename_module(name):
+    mod = __import__("pypy.module." + name, globals(), locals(), ['Module'])
+    return mod.Module.applevel_name or name
 
 
 def run_with_python(python_, target_, usemodules, **definitions):
@@ -133,8 +131,7 @@ if 1:
 
     check_usemodules = ''
     if usemodules:
-        usemodules = [str(RENAMED_USEMODULES.get(name, name))
-                      for name in usemodules]
+        usemodules = [_rename_module(name) for name in usemodules]
         check_usemodules = """\
     missing = set(%r).difference(sys.builtin_module_names)
     if missing:
