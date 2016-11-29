@@ -1148,6 +1148,11 @@ class AppTestPosix:
             assert posix.get_blocking(fd) is True
             posix.close(fd)
 
+        def test_blocking_error(self):
+            posix = self.posix
+            raises(OSError, posix.get_blocking, 1234567)
+            raises(OSError, posix.set_blocking, 1234567, True)
+
 
     def test_urandom(self):
         os = self.posix
