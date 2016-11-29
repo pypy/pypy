@@ -125,8 +125,9 @@ class Module(W_Root):
         if w_loader is not None:
             try:
                 return space.call_method(w_loader, "module_repr", self)
-            except OperationError:
-                pass
+            except OperationError, operr:
+                if not operr.match(space, space.w_Exception):
+                    raise
         try:
             w_name = space.getattr(self, space.wrap('__name__'))
             name = space.unicode_w(space.repr(w_name))
