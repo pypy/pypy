@@ -55,6 +55,7 @@ class W_DlOpenLibObject(W_LibObject):
         if not libhandle:
             raise oefmt(self.ffi.w_FFIError, "library '%s' is already closed",
                         self.libname)
+        self.may_unregister_rpython_finalizer(self.ffi.space)
 
         # Clear the dict to force further accesses to do cdlopen_fetch()
         # again, and fail because the library was closed.  Note that the
