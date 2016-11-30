@@ -131,8 +131,14 @@ SimpleNamespace(**kwargs)"""
             sns_recurse.discard(ident)
 
     def __eq__(self, other):
-        return (issubclass(type(other), SimpleNamespace) and
-                self.__dict__ == other.__dict__)
+        if issubclass(type(other), SimpleNamespace):
+            return self.__dict__ == other.__dict__
+        return NotImplemented
+
+    def __ne__(self, other):
+        if issubclass(type(other), SimpleNamespace):
+            return self.__dict__ != other.__dict__
+        return NotImplemented
 
 sns_recurse = set()
 
