@@ -209,7 +209,7 @@ class TestShift(BaseTestPyPyC):
                 sa += (b<<100)>>100
                 sa += (c<<100)>>100
                 i += 1
-            return long(sa)
+            return sa
 
         for a in (1, 4, 8, 100):
             for b in (-10, 10, -201, 201, -maxint/3, maxint/3):
