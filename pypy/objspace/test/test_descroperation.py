@@ -280,7 +280,8 @@ class AppTest_Descroperation:
             assert operate(A()) == "hello" * n
             assert type(operate(A())) is str
             answer = 42
-            raises(TypeError, operate, A())
+            excinfo = raises(TypeError, operate, A())
+            assert "returned non-string (type 'int')" in str(excinfo.value)
 
     def test_string_results_unicode(self):
         class A(object):
