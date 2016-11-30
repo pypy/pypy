@@ -76,7 +76,13 @@ def _super_from_frame(space, frame):
         raise oefmt(space.w_RuntimeError, "super(): no code object")
     if code.co_argcount == 0:
         raise oefmt(space.w_RuntimeError, "super(): no arguments")
-    w_obj = frame.locals_cells_stack_w[0]
+    args_to_copy = code._args_as_cellvars
+    for i in range(len(args_to_copy)):
+        if args_to_copy[i] == 0:
+            w_obj = frame._getcell(i).w_value
+            break
+    else:
+        w_obj = frame.locals_cells_stack_w[0]
     if not w_obj:
         raise oefmt(space.w_RuntimeError, "super(): arg[0] deleted")
 
