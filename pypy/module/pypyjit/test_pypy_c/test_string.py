@@ -22,8 +22,22 @@ class TestString(BaseTestPyPyC):
         assert log.result == 255
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
-            #...
+            # nothing left like allocating a list object or doing any
+            # residual call
+            i49 = int_lt(i38, i26)
+            guard_true(i49, descr=...)
+            guard_not_invalidated(descr=...)
+            i51 = int_lt(i38, 256)
+            guard_true(i51, descr=...)
+            i53 = int_add(i38, 1)
             --TICK--
+            i58 = strlen(p46)
+            i60 = int_add(i58, 1)
+            p61 = newstr(i60)
+            copystrcontent(p46, p61, 0, 0, i58)
+            strsetitem(p61, i58, i38)
+            p62 = newstr(1)
+            strsetitem(p62, 0, i38)
             jump(..., descr=...)
         """)
 
