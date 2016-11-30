@@ -387,7 +387,8 @@ class TestMisc(BaseTestPyPyC):
     def test_long_comparison(self):
         def main(n):
             while n:
-                12345L > 123L  # ID: long_op
+                x = 12345L
+                x > 123L  # ID: long_op
                 n -= 1
 
         log = self.run(main, [300])
