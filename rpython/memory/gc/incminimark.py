@@ -1164,6 +1164,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
             obj = self.get_forwarding_address(obj)
         return self.get_type_id(obj)
 
+    def get_possibly_forwarded_tid(self, obj):
+        if self.is_in_nursery(obj) and self.is_forwarded(obj):
+            obj = self.get_forwarding_address(obj)
+        return self.header(obj).tid
+
     def get_total_memory_used(self):
         """Return the total memory used, not counting any object in the
         nursery: only objects in the ArenaCollection or raw-malloced.
@@ -2678,7 +2683,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         while self.probably_young_objects_with_finalizers.non_empty():
             obj = self.probably_young_objects_with_finalizers.popleft()
             fq_nr = self.probably_young_objects_with_finalizers.popleft()
-            if self.header(obj).tid & GCFLAG_IGNORE_FINALIZER:
+            if self.get_possibly_forwarded_tid(obj) & GCFLAG_IGNORE_FINALIZER:
                 continue
             self.singleaddr.address[0] = obj
             self._trace_drag_out1(self.singleaddr)
