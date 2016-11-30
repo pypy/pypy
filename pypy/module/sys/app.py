@@ -112,23 +112,29 @@ null__xoptions = {}
 
 
 class SimpleNamespace:
+    """A simple attribute-based namespace.
+
+SimpleNamespace(**kwargs)"""
+
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
 
-    def __repr__(self, recurse=set()):
+    def __repr__(self):
         ident = id(self)
-        if ident in recurse:
+        if ident in sns_recurse:
             return "namespace(...)"
-        recurse.add(ident)
+        sns_recurse.add(ident)
         try:
             pairs = ('%s=%r' % item for item in sorted(self.__dict__.items()))
             return "namespace(%s)" % ', '.join(pairs)
         finally:
-            recurse.remove(ident)
+            sns_recurse.discard(ident)
 
     def __eq__(self, other):
-        return (isinstance(other, SimpleNamespace) and
+        return (issubclass(type(other), SimpleNamespace) and
                 self.__dict__ == other.__dict__)
+
+sns_recurse = set()
 
 # This class is not exposed in sys, but by the types module.
 SimpleNamespace.__module__ = 'types'

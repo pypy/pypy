@@ -611,6 +611,13 @@ class AppTestSysModulePortedFromCPython:
         assert ns != Other(z=4, x=1, w=3)
         assert (Foo(z=4, x=1, w=3) == Other(z=4, x=1, w=3)) is False
         assert Foo(z=4, x=1, w=3) != Other(z=4, x=1, w=3)
+        #
+        class Fake:
+            __class__ = SimpleNamespace
+        assert isinstance(Fake(), SimpleNamespace)
+        assert not issubclass(Fake, SimpleNamespace)
+        assert (Fake() == SimpleNamespace()) is False
+        assert SimpleNamespace() != Fake()
 
     def test_pickle_simplenamespace(self):
         import pickle, sys
