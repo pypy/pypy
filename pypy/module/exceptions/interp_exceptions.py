@@ -135,7 +135,7 @@ class W_BaseException(W_Root):
 
     def descr_repr(self, space):
         if self.args_w:
-            args_repr = space.str_w(space.repr(space.newtuple(self.args_w)))
+            args_repr = space.text_w(space.repr(space.newtuple(self.args_w)))
         else:
             args_repr = "()"
         clsname = self.getclass(space).getname(space)
@@ -381,13 +381,13 @@ class W_EnvironmentError(W_StandardError):
     def descr_str(self, space):
         if (not space.is_w(self.w_errno, space.w_None) and
             not space.is_w(self.w_strerror, space.w_None)):
-            errno = space.str_w(space.str(self.w_errno))
-            strerror = space.str_w(space.str(self.w_strerror))
+            errno = space.text_w(space.str(self.w_errno))
+            strerror = space.text_w(space.str(self.w_strerror))
             if not space.is_w(self.w_filename, space.w_None):
                 return space.newtext("[Errno %s] %s: %s" % (
                     errno,
                     strerror,
-                    space.str_w(space.repr(self.w_filename))))
+                    space.text_w(space.repr(self.w_filename))))
             return space.newtext("[Errno %s] %s" % (
                 errno,
                 strerror,
@@ -436,10 +436,10 @@ class W_WindowsError(W_OSError):
             if not space.is_w(self.w_filename, space.w_None):
                 return space.newtext("[Error %d] %s: %s" % (
                     space.int_w(self.w_winerror),
-                    space.str_w(self.w_strerror),
-                    space.str_w(self.w_filename)))
+                    space.text_w(self.w_strerror),
+                    space.text_w(self.w_filename)))
             return space.newtext("[Error %d] %s" % (space.int_w(self.w_winerror),
-                                                    space.str_w(self.w_strerror)))
+                                                    space.text_w(self.w_strerror)))
         return W_BaseException.descr_str(self, space)
 
     if hasattr(rwin32, 'build_winerror_to_errno'):
@@ -547,7 +547,7 @@ class W_SyntaxError(W_StandardError):
             values_w = space.fixedview(self.args_w[1])
             w_tuple = space.newtuple(values_w + [self.w_lastlineno])
             args_w = [self.args_w[0], w_tuple]
-            args_repr = space.str_w(space.repr(space.newtuple(args_w)))
+            args_repr = space.text_w(space.repr(space.newtuple(args_w)))
             clsname = self.getclass(space).getname(space)
             return space.newtext(clsname + args_repr)
         else:

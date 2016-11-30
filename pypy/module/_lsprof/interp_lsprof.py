@@ -49,11 +49,11 @@ class W_StatsEntry(W_Root):
         return self.w_calls
 
     def repr(self, space):
-        frame_repr = space.str_w(space.repr(self.frame))
+        frame_repr = space.text_w(space.repr(self.frame))
         if not self.w_calls:
             calls_repr = "None"
         else:
-            calls_repr = space.str_w(space.repr(self.w_calls))
+            calls_repr = space.text_w(space.repr(self.w_calls))
         return space.newtext('("%s", %d, %d, %f, %f, %s)' % (
             frame_repr, self.callcount, self.reccallcount,
             self.tt, self.it, calls_repr))
@@ -85,7 +85,7 @@ class W_StatsSubEntry(W_Root):
         self.tt = tt
 
     def repr(self, space):
-        frame_repr = space.str_w(space.repr(self.frame))
+        frame_repr = space.text_w(space.repr(self.frame))
         return space.newtext('("%s", %d, %d, %f, %f)' % (
             frame_repr, self.callcount, self.reccallcount, self.tt, self.it))
 
@@ -218,7 +218,7 @@ def create_spec_for_method(space, w_function, w_type):
 def create_spec_for_function(space, w_func):
     assert isinstance(w_func, Function)
     if w_func.w_module is not None:
-        module = space.str_w(w_func.w_module)
+        module = space.text_w(w_func.w_module)
         if module != '__builtin__':
             return '<%s.%s>' % (module, w_func.name)
     return '<%s>' % w_func.name
@@ -233,7 +233,7 @@ class W_DelayedBuiltinStr(W_Root):
     # This class should not be seen at app-level, but is useful to
     # contain a (w_func, w_type) pair returned by prepare_spec().
     # Turning this pair into a string cannot be done eagerly in
-    # an @elidable function because of space.str_w(), but it can
+    # an @elidable function because of space.text_w(), but it can
     # be done lazily when we really want it.
 
     _immutable_fields_ = ['w_func', 'w_type']

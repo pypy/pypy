@@ -101,9 +101,9 @@ def setup_context(space, stacklevel):
     # setup filename
     try:
         w_filename = space.getitem(w_globals, space.newtext("__file__"))
-        filename = space.str_w(w_filename)
+        filename = space.text_w(w_filename)
     except OperationError as e:
-        if space.str_w(w_module) == '__main__':
+        if space.text_w(w_module) == '__main__':
             w_argv = space.sys.getdictvalue(space, 'argv')
             if w_argv and space.len_w(w_argv) > 0:
                 w_filename = space.getitem(w_argv, space.newint(0))
@@ -145,7 +145,7 @@ def get_filter(space, w_category, w_text, lineno, w_module):
             check_matched(space, w_mod, w_module) and
             space.abstract_issubclass_w(w_category, w_cat) and
             (ln == 0 or ln == lineno)):
-            return space.str_w(w_action), w_item
+            return space.text_w(w_action), w_item
 
     action = get_default_action(space)
     if not action:
@@ -155,10 +155,10 @@ def get_filter(space, w_category, w_text, lineno, w_module):
 def get_default_action(space):
     w_action = get_warnings_attr(space, "defaultaction");
     if w_action is None:
-        return space.str_w(space.fromcache(State).w_default_action)
+        return space.text_w(space.fromcache(State).w_default_action)
 
     space.fromcache(State).w_default_action = w_action
-    return space.str_w(w_action)
+    return space.text_w(w_action)
 
 def get_once_registry(space):
     w_registry = get_warnings_attr(space, "onceregistry");
@@ -188,7 +188,7 @@ def normalize_module(space, w_filename):
     if not space.is_true(w_filename):
         return space.newtext("<unknown>")
 
-    filename = space.str_w(w_filename)
+    filename = space.text_w(w_filename)
     if filename.endswith(".py"):
         n = len(filename) - 3
         assert n >= 0
@@ -201,8 +201,8 @@ def show_warning(space, w_filename, lineno, w_text, w_category,
     w_stderr = space.sys.get("stderr")
 
     # Print "filename:lineno: category: text\n"
-    message = "%s:%d: %s: %s\n" % (space.str_w(w_filename), lineno,
-                                   space.str_w(w_name), space.str_w(w_text))
+    message = "%s:%d: %s: %s\n" % (space.text_w(w_filename), lineno,
+                                   space.text_w(w_name), space.text_w(w_text))
     space.call_method(w_stderr, "write", space.newtext(message))
 
     # Print "  source_line\n"
@@ -220,7 +220,7 @@ def show_warning(space, w_filename, lineno, w_text, w_category,
 
     if not w_sourceline:
         return
-    line = space.str_w(w_sourceline)
+    line = space.text_w(w_sourceline)
     if not line:
         return
 
@@ -288,7 +288,7 @@ def do_warn_explicit(space, w_category, w_message, context_w,
                 warned = update_registry(space, w_registry, w_text, w_category)
         elif action != 'default':
             try:
-                err = space.str_w(space.str(w_item))
+                err = space.text_w(space.str(w_item))
             except OperationError:
                 err = "???"
             raise oefmt(space.w_RuntimeError,

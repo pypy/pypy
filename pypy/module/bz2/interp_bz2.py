@@ -265,7 +265,8 @@ class W_BZ2File(W_File):
 
     _exposed_method_names = []
     W_File._decl.im_func(locals(), "bz2__init__",
-                         """Opens a BZ2-compressed file.""")
+                         """Opens a BZ2-compressed file.""",
+                         wrapresult="space.w_None")
     # XXX ^^^ hacking hacking... can't just use the name "__init__" again
     # because the RTyper is confused about the two direct__init__() with
     # a different signature, confusion caused by the fact that
@@ -314,6 +315,7 @@ newlines are available only when reading.""",
     __repr__ = interp2app(W_BZ2File.file_bz2__repr__),
     **dict([(name, W_File.typedef.rawdict[name])
             for name in same_attributes_as_in_file]))
+
 
 # ____________________________________________________________
 

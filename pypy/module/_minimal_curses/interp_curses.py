@@ -51,7 +51,7 @@ def setupterm(space, w_termname=None, fd=-1):
         if space.is_none(w_termname):
             _curses_setupterm_null(fd)
         else:
-            _curses_setupterm(space.str_w(w_termname), fd)
+            _curses_setupterm(space.text_w(w_termname), fd)
     except curses_error as e:
         raise convert_error(space, e)
 

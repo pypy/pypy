@@ -579,9 +579,9 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
             else:
                 w_obj = space.int(w_obj)
             return newbigint(space, w_longtype, space.bigint_w(w_obj))
-        elif space.isinstance_w(w_value, space.w_str):
+        elif space.isinstance_w(w_value, space.w_bytes):
             return _string_to_w_long(space, w_longtype, w_value,
-                                     space.str_w(w_value))
+                                     space.bytes_w(w_value))
         elif space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
             return _string_to_w_long(space, w_longtype, w_value,
@@ -605,7 +605,7 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
             s = unicode_to_decimal_w(space, w_value)
         else:
             try:
-                s = space.str_w(w_value)
+                s = space.bytes_w(w_value)
             except OperationError:
                 raise oefmt(space.w_TypeError,
                             "long() can't convert non-string with explicit "

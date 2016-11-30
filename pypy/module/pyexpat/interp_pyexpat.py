@@ -658,7 +658,7 @@ Parse XML data from file-like object."""
         eof = False
         while not eof:
             w_data = space.call_method(w_file, 'read', space.newint(2048))
-            data = space.str_w(w_data)
+            data = space.text_w(w_data)
             eof = len(data) == 0
             w_res = self.Parse(space, data, isfinal=eof)
         return w_res
@@ -674,12 +674,12 @@ information passed to the ExternalEntityRefHandler."""
         if space.is_w(w_context, space.w_None):
             context = None
         else:
-            context = space.str_w(w_context)
+            context = space.text_w(w_context)
 
         if space.is_none(w_encoding):
             encoding = None
         else:
-            encoding = space.str_w(w_encoding)
+            encoding = space.text_w(w_encoding)
 
         xmlparser = XML_ExternalEntityParserCreate(
             self.itself, context, encoding)
@@ -812,8 +812,8 @@ def ParserCreate(space, w_encoding=None, w_namespace_separator=None,
 Return a new XML parser object."""
     if space.is_none(w_encoding):
         encoding = None
-    elif space.isinstance_w(w_encoding, space.w_str):
-        encoding = space.str_w(w_encoding)
+    elif space.isinstance_w(w_encoding, space.w_text):
+        encoding = space.text_w(w_encoding)
     else:
         raise oefmt(space.w_TypeError,
                     "ParserCreate() argument 1 must be string or None, not %T",
@@ -821,8 +821,8 @@ Return a new XML parser object."""
 
     if space.is_none(w_namespace_separator):
         namespace_separator = 0
-    elif space.isinstance_w(w_namespace_separator, space.w_str):
-        separator = space.str_w(w_namespace_separator)
+    elif space.isinstance_w(w_namespace_separator, space.w_text):
+        separator = space.text_w(w_namespace_separator)
         if len(separator) == 0:
             namespace_separator = 0
         elif len(separator) == 1:

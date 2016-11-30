@@ -664,7 +664,7 @@ def load_module(space, w_modulename, find_info, reuse=False):
                         pass
                 return w_mod
             elif find_info.modtype == C_EXTENSION and has_so_extension(space):
-                load_c_extension(space, find_info.filename, space.str_w(w_modulename))
+                load_c_extension(space, find_info.filename, space.text_w(w_modulename))
                 return check_sys_modules(space, w_modulename)
         except OperationError:
             w_mods = space.sys.get('modules')
@@ -906,7 +906,7 @@ def load_source_module(space, w_modulename, w_mod, pathname, source, fd,
     """
 
     log_pyverbose(space, 1, "import %s # from %s\n" %
-                  (space.str_w(w_modulename), pathname))
+                  (space.text_w(w_modulename), pathname))
 
     src_stat = os.fstat(fd)
     cpathname = pathname + 'c'
@@ -1030,7 +1030,7 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
     'sys.modules[modulename]', which must exist.
     """
     log_pyverbose(space, 1, "import %s # compiled from %s\n" %
-                  (space.str_w(w_modulename), cpathname))
+                  (space.text_w(w_modulename), cpathname))
 
     if magic != get_pyc_magic(space):
         raise oefmt(space.w_ImportError, "Bad magic number in %s", cpathname)
@@ -1069,7 +1069,7 @@ def write_compiled_module(space, co, cpathname, src_mode, src_mtime):
     try:
         w_str = space.call_method(w_marshal, 'dumps', co,
                                   space.newint(MARSHAL_VERSION_FOR_PYC))
-        strbuf = space.str_w(w_str)
+        strbuf = space.text_w(w_str)
     except OperationError as e:
         if e.async(space):
             raise

@@ -1418,7 +1418,7 @@ class W_DictViewObject(W_Root):
         w_seq = space.call_function(space.w_list, self)
         w_repr = space.repr(w_seq)
         return space.newtext("%s(%s)" % (space.type(self).getname(space),
-                                         space.str_w(w_repr)))
+                                         space.text_w(w_repr)))
 
     def descr_len(self, space):
         return space.len(self.w_dict)

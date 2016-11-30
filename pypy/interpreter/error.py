@@ -64,7 +64,7 @@ class OperationError(Exception):
             if self.__class__ is not OperationError and s is None:
                 s = self._compute_value(space)
             try:
-                s = space.str_w(s)
+                s = space.text_w(s)
             except Exception:
                 pass
         return '[%s: %s]' % (self.w_type, s)
@@ -77,16 +77,16 @@ class OperationError(Exception):
             exc_typename = str(self.w_type)
             exc_value = str(w_value)
         else:
-            exc_typename = space.str_w(
+            exc_typename = space.text_w(
                     space.getattr(self.w_type, space.newtext('__name__')))
             if space.is_w(w_value, space.w_None):
                 exc_value = ""
             else:
                 try:
                     if use_repr:
-                        exc_value = space.str_w(space.repr(w_value))
+                        exc_value = space.text_w(space.repr(w_value))
                     else:
-                        exc_value = space.str_w(space.str(w_value))
+                        exc_value = space.text_w(space.str(w_value))
                 except OperationError:
                     # oups, cannot __str__ the exception object
                     exc_value = ("<exception %s() failed>" %
@@ -238,7 +238,7 @@ class OperationError(Exception):
             objrepr = ''
         else:
             try:
-                objrepr = space.str_w(space.repr(w_object))
+                objrepr = space.text_w(space.repr(w_object))
             except OperationError:
                 objrepr = "<object repr() failed>"
         #
@@ -364,7 +364,7 @@ def get_operrcls2(valuefmt):
                     lst[i + i] = self.xstrings[i]
                     value = getattr(self, attr)
                     if fmt == 'R':
-                        result = space.str_w(space.repr(value))
+                        result = space.text_w(space.repr(value))
                     elif fmt == 'T':
                         result = space.type(value).name
                     elif fmt == 'N':

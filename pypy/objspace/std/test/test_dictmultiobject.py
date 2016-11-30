@@ -1094,11 +1094,13 @@ class FakeSpace:
             return str
         return type(w_obj)
     w_str = str
+    w_text = str
 
     def str_w(self, string):
         assert isinstance(string, str)
         return string
     bytes_w = str_w
+    text_w = str_w
 
     def int_w(self, integer, allow_conversion=True):
         assert isinstance(integer, int)

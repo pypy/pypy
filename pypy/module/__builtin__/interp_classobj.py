@@ -42,7 +42,7 @@ class W_ClassObject(W_Root):
     _immutable_fields_ = ['bases_w?[*]', 'w_dict?']
 
     def __init__(self, space, w_name, bases, w_dict):
-        self.name = space.str_w(w_name)
+        self.name = space.text_w(w_name)
         make_sure_not_resized(bases)
         self.bases_w = bases
         self.w_dict = w_dict
@@ -66,7 +66,7 @@ class W_ClassObject(W_Root):
     def setname(self, space, w_newname):
         if not space.isinstance_w(w_newname, space.w_str):
             raise oefmt(space.w_TypeError, "__name__ must be a string object")
-        self.name = space.str_w(w_newname)
+        self.name = space.text_w(w_newname)
 
     def setbases(self, space, w_bases):
         if not space.isinstance_w(w_bases, space.w_tuple):
@@ -123,7 +123,7 @@ class W_ClassObject(W_Root):
         return space.call_function(w_descr_get, w_value, space.w_None, self)
 
     def descr_setattr(self, space, w_attr, w_value):
-        name = space.str_w(w_attr)
+        name = space.text_w(w_attr)
         if name and name[0] == "_":
             if name == "__dict__":
                 self.setdict(space, w_value)
@@ -142,7 +142,7 @@ class W_ClassObject(W_Root):
         space.setitem(self.w_dict, w_attr, w_value)
 
     def descr_delattr(self, space, w_attr):
-        name = space.str_w(w_attr)
+        name = space.text_w(w_attr)
         if name in ("__dict__", "__name__", "__bases__"):
             raise oefmt(space.w_TypeError,
                         "cannot delete attribute '%s'", name)
@@ -173,7 +173,7 @@ class W_ClassObject(W_Root):
                 raise
             return "?"
         if space.isinstance_w(w_mod, space.w_str):
-            return space.str_w(w_mod)
+            return space.text_w(w_mod)
         return "?"
 
     def __repr__(self):
@@ -361,7 +361,7 @@ class W_InstanceObject(W_Root):
         return self.getattr(space, name)
 
     def descr_setattr(self, space, w_name, w_value):
-        name = space.str_w(w_name)
+        name = space.text_w(w_name)
         w_meth = self.getattr_from_class(space, '__setattr__')
         if name and name[0] == "_":
             if name == '__dict__':
@@ -382,7 +382,7 @@ class W_InstanceObject(W_Root):
             self.setdictvalue(space, name, w_value)
 
     def descr_delattr(self, space, w_name):
-        name = space.str_w(w_name)
+        name = space.text_w(w_name)
         if name and name[0] == "_":
             if name == '__dict__':
                 # use setdict to raise the error

@@ -156,7 +156,7 @@ class W_BaseConnection(W_Root):
         w_pickled = space.call_method(
             w_picklemodule, "dumps", w_obj, w_protocol)
 
-        buf = space.str_w(w_pickled)
+        buf = space.bytes_w(w_pickled)
         self.do_send_string(space, buf, 0, len(buf))
 
     def recv(self, space):

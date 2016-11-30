@@ -20,7 +20,7 @@ class ClassDictStrategy(DictStrategy):
         w_lookup_type = space.type(w_key)
         if (space.is_w(w_lookup_type, space.w_str) or  # Most common path first
             space.abstract_issubclass_w(w_lookup_type, space.w_str)):
-            return self.getitem_str(w_dict, space.str_w(w_key))
+            return self.getitem_str(w_dict, space.text_w(w_key))
         elif space.abstract_issubclass_w(w_lookup_type, space.w_unicode):
             try:
                 w_key = space.str(w_key)
@@ -29,7 +29,7 @@ class ClassDictStrategy(DictStrategy):
                     raise
                 # non-ascii unicode is never equal to a byte string
                 return None
-            return self.getitem_str(w_dict, space.str_w(w_key))
+            return self.getitem_str(w_dict, space.text_w(w_key))
         else:
             return None
 
@@ -39,7 +39,7 @@ class ClassDictStrategy(DictStrategy):
     def setitem(self, w_dict, w_key, w_value):
         space = self.space
         if space.is_w(space.type(w_key), space.w_str):
-            self.setitem_str(w_dict, self.space.str_w(w_key), w_value)
+            self.setitem_str(w_dict, self.space.text_w(w_key), w_value)
         else:
             raise oefmt(space.w_TypeError,
                         "cannot add non-string keys to dict of a type")
@@ -71,7 +71,7 @@ class ClassDictStrategy(DictStrategy):
         space = self.space
         w_key_type = space.type(w_key)
         if space.is_w(w_key_type, space.w_str):
-            key = self.space.str_w(w_key)
+            key = self.space.text_w(w_key)
             if not self.unerase(w_dict.dstorage).deldictvalue(space, key):
                 raise KeyError
         else:

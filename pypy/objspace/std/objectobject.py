@@ -161,7 +161,7 @@ def descr__repr__(space, w_obj):
         w_module = w_type.lookup("__module__")
         if w_module is not None:
             try:
-                modulename = space.str_w(w_module)
+                modulename = space.text_w(w_module)
             except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise

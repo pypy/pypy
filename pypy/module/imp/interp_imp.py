@@ -79,7 +79,7 @@ def load_module(space, w_name, w_file, w_filename, w_info):
     w_suffix, w_filemode, w_modtype = space.unpackiterable(w_info, 3)
 
     filename = space.str0_w(w_filename)
-    filemode = space.str_w(w_filemode)
+    filemode = space.text_w(w_filemode)
     if space.is_w(w_file, space.w_None):
         stream = None
     else:
@@ -89,7 +89,7 @@ def load_module(space, w_name, w_file, w_filename, w_info):
         space.int_w(w_modtype),
         filename,
         stream,
-        space.str_w(w_suffix),
+        space.text_w(w_suffix),
         filemode)
     return importing.load_module(
         space, w_name, find_info, reuse=True)
@@ -136,7 +136,7 @@ def load_compiled(space, w_modulename, filename, w_file=None):
 def load_dynamic(space, w_modulename, filename, w_file=None):
     if not importing.has_so_extension(space):
         raise oefmt(space.w_ImportError, "Not implemented")
-    importing.load_c_extension(space, filename, space.str_w(w_modulename))
+    importing.load_c_extension(space, filename, space.text_w(w_modulename))
     return importing.check_sys_modules(space, w_modulename)
 
 def new_module(space, w_name):

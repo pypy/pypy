@@ -848,8 +848,8 @@ class __extend__(pyframe.PyFrame):
             # catch KeyErrors and turn them into NameErrors
             if not e.match(self.space, self.space.w_KeyError):
                 raise
-            raise oefmt(self.space.w_NameError, "name '%s' is not defined",
-                        self.space.str_w(w_varname))
+            raise oefmt(self.space.w_NameError, "name %R is not defined",
+                        w_varname)
 
     def UNPACK_SEQUENCE(self, itemcount, next_instr):
         w_iterable = self.popvalue()
@@ -996,7 +996,6 @@ class __extend__(pyframe.PyFrame):
     def IMPORT_NAME(self, nameindex, next_instr):
         space = self.space
         w_modulename = self.getname_w(nameindex)
-        modulename = self.space.str_w(w_modulename)
         w_fromlist = self.popvalue()
 
         w_flag = self.popvalue()
@@ -1018,7 +1017,6 @@ class __extend__(pyframe.PyFrame):
             w_locals = d.w_locals
         if w_locals is None:            # CPython does this
             w_locals = space.w_None
-        w_modulename = space.newtext(modulename)
         w_globals = self.get_w_globals()
         if w_flag is None:
             w_obj = space.call_function(w_import, w_modulename, w_globals,
@@ -1044,7 +1042,7 @@ class __extend__(pyframe.PyFrame):
             if not e.match(self.space, self.space.w_AttributeError):
                 raise
             raise oefmt(self.space.w_ImportError,
-                        "cannot import name '%s'", self.space.str_w(w_name))
+                        "cannot import name %R", w_name)
         self.pushvalue(w_obj)
 
     def YIELD_VALUE(self, oparg, next_instr):
@@ -1177,7 +1175,7 @@ class __extend__(pyframe.PyFrame):
                     break
                 w_value = self.popvalue()
                 w_key = self.popvalue()
-                key = self.space.str_w(w_key)
+                key = self.space.text_w(w_key)
                 keywords[n_keywords] = key
                 keywords_w[n_keywords] = w_value
         else:

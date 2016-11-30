@@ -93,7 +93,7 @@ def _same_class_w(space, w_obj1, w_obj2, w_typ1, w_typ2):
 
 class Object(object):
     def descr__getattribute__(space, w_obj, w_name):
-        name = space.str_w(w_name)
+        name = space.text_w(w_name)
         w_descr = space.lookup(w_obj, name)
         if w_descr is not None:
             if space.is_data_descr(w_descr):
@@ -112,7 +112,7 @@ class Object(object):
         raiseattrerror(space, w_obj, name)
 
     def descr__setattr__(space, w_obj, w_name, w_value):
-        name = space.str_w(w_name)
+        name = space.text_w(w_name)
         w_descr = space.lookup(w_obj, name)
         if w_descr is not None:
             if space.is_data_descr(w_descr):
@@ -123,7 +123,7 @@ class Object(object):
         raiseattrerror(space, w_obj, name, w_descr)
 
     def descr__delattr__(space, w_obj, w_name):
-        name = space.str_w(w_name)
+        name = space.text_w(w_name)
         w_descr = space.lookup(w_obj, name)
         if w_descr is not None:
             if space.is_data_descr(w_descr):
@@ -860,7 +860,7 @@ for targetname, specialname in [
             if space.isinstance_w(w_result, space.w_str):
                 return w_result
             try:
-                result = space.str_w(w_result)
+                result = space.str_w(w_result) # YYY
             except OperationError, e:
                 if not e.match(space, space.w_TypeError):
                     raise

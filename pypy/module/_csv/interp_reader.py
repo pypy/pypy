@@ -79,7 +79,7 @@ class W_Reader(W_Root):
                             break
                 raise
             self.line_num += 1
-            line = space.str_w(w_line)
+            line = space.text_w(w_line)
             for c in line:
                 if c == '\0':
                     raise self.error("line contains NULL byte")

@@ -477,15 +477,15 @@ class W_ArrayBase(W_Root):
             return space.newtext("array('%s')" % self.typecode)
         elif self.typecode == "c":
             r = space.repr(self.descr_tostring(space))
-            s = "array('%s', %s)" % (self.typecode, space.str_w(r))
+            s = "array('%s', %s)" % (self.typecode, space.text_w(r))
             return space.newtext(s)
         elif self.typecode == "u":
             r = space.repr(self.descr_tounicode(space))
-            s = "array('%s', %s)" % (self.typecode, space.str_w(r))
+            s = "array('%s', %s)" % (self.typecode, space.text_w(r))
             return space.newtext(s)
         else:
             r = space.repr(self.descr_tolist(space))
-            s = "array('%s', %s)" % (self.typecode, space.str_w(r))
+            s = "array('%s', %s)" % (self.typecode, space.text_w(r))
             return space.newtext(s)
 
 W_ArrayBase.typedef = TypeDef(

@@ -56,8 +56,8 @@ class ModuleDictStrategy(DictStrategy):
 
     def setitem(self, w_dict, w_key, w_value):
         space = self.space
-        if space.is_w(space.type(w_key), space.w_str):
-            self.setitem_str(w_dict, space.str_w(w_key), w_value)
+        if space.is_w(space.type(w_key), space.w_text):
+            self.setitem_str(w_dict, space.text_w(w_key), w_value)
         else:
             self.switch_to_object_strategy(w_dict)
             w_dict.setitem(w_key, w_value)
@@ -75,8 +75,8 @@ class ModuleDictStrategy(DictStrategy):
 
     def setdefault(self, w_dict, w_key, w_default):
         space = self.space
-        if space.is_w(space.type(w_key), space.w_str):
-            key = space.str_w(w_key)
+        if space.is_w(space.type(w_key), space.w_text):
+            key = space.text_w(w_key)
             cell = self.getdictvalue_no_unwrapping(w_dict, key)
             w_result = unwrap_cell(self.space, cell)
             if w_result is not None:
@@ -90,8 +90,8 @@ class ModuleDictStrategy(DictStrategy):
     def delitem(self, w_dict, w_key):
         space = self.space
         w_key_type = space.type(w_key)
-        if space.is_w(w_key_type, space.w_str):
-            key = space.str_w(w_key)
+        if space.is_w(w_key_type, space.w_text):
+            key = space.text_w(w_key)
             dict_w = self.unerase(w_dict.dstorage)
             try:
                 del dict_w[key]
@@ -111,8 +111,8 @@ class ModuleDictStrategy(DictStrategy):
     def getitem(self, w_dict, w_key):
         space = self.space
         w_lookup_type = space.type(w_key)
-        if space.is_w(w_lookup_type, space.w_str):
-            return self.getitem_str(w_dict, space.str_w(w_key))
+        if space.is_w(w_lookup_type, space.w_text):
+            return self.getitem_str(w_dict, space.text_w(w_key))
 
         elif _never_equal_to_string(space, w_lookup_type):
             return None

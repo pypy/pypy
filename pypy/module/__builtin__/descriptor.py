@@ -41,7 +41,7 @@ class W_Super(W_Root):
             return space.call_function(w_selftype, self.w_starttype, w_obj)
 
     def getattribute(self, space, w_name):
-        name = space.str_w(w_name)
+        name = space.text_w(w_name)
         # only use a special logic for bound super objects and not for
         # getting the __class__ of the super object itself.
         if self.w_objtype is not None and name != '__class__':

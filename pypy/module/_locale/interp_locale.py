@@ -51,7 +51,7 @@ def setlocale(space, category, w_locale=None):
     if space.is_none(w_locale):
         locale = None
     else:
-        locale = space.str_w(w_locale)
+        locale = space.text_w(w_locale)
     try:
         result = rlocale.setlocale(category, locale)
     except rlocale.LocaleError as e:
@@ -121,10 +121,10 @@ _wcscoll = rlocale.external('wcscoll', [rffi.CWCHARP, rffi.CWCHARP], rffi.INT)
 def strcoll(space, w_s1, w_s2):
     "string,string -> int. Compares two strings according to the locale."
 
-    if (space.isinstance_w(w_s1, space.w_str) and
-        space.isinstance_w(w_s2, space.w_str)):
+    if (space.isinstance_w(w_s1, space.w_bytes) and
+        space.isinstance_w(w_s2, space.w_bytes)):
 
-        s1, s2 = space.str_w(w_s1), space.str_w(w_s2)
+        s1, s2 = space.bytes_w(w_s1), space.bytes_w(w_s2)
         s1_c = rffi.str2charp(s1)
         s2_c = rffi.str2charp(s2)
         try:
@@ -221,7 +221,7 @@ if rlocale.HAVE_LIBINTL:
             finally:
                 rffi.free_charp(msg_c)
         else:
-            domain = space.str_w(w_domain)
+            domain = space.text_w(w_domain)
             domain_c = rffi.str2charp(domain)
             msg_c = rffi.str2charp(msg)
             try:
@@ -256,7 +256,7 @@ if rlocale.HAVE_LIBINTL:
             finally:
                 rffi.free_charp(msg_c)
         else:
-            domain = space.str_w(w_domain)
+            domain = space.text_w(w_domain)
             domain_c = rffi.str2charp(domain)
             msg_c = rffi.str2charp(msg)
             try:
@@ -284,7 +284,7 @@ if rlocale.HAVE_LIBINTL:
             result = _textdomain(domain)
             result = rffi.charp2str(result)
         else:
-            domain = space.str_w(w_domain)
+            domain = space.text_w(w_domain)
             domain_c = rffi.str2charp(domain)
             try:
                 result = _textdomain(domain_c)
@@ -314,7 +314,7 @@ if rlocale.HAVE_LIBINTL:
             finally:
                 rffi.free_charp(domain_c)
         else:
-            dir = space.str_w(w_dir)
+            dir = space.text_w(w_dir)
             domain_c = rffi.str2charp(domain)
             dir_c = rffi.str2charp(dir)
             try:
@@ -345,7 +345,7 @@ if rlocale.HAVE_LIBINTL:
                 finally:
                     rffi.free_charp(domain_c)
             else:
-                codeset = space.str_w(w_codeset)
+                codeset = space.text_w(w_codeset)
                 domain_c = rffi.str2charp(domain)
                 codeset_c = rffi.str2charp(codeset)
                 try:

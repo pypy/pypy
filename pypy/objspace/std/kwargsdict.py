@@ -31,7 +31,7 @@ class KwargsDictStrategy(DictStrategy):
         return _wrapkey(self.space, key)
 
     def unwrap(self, wrapped):
-        return self.space.str_w(wrapped)
+        return self.space.text_w(wrapped)
 
     def get_empty_storage(self):
         d = ([], [])

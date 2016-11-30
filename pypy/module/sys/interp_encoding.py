@@ -10,7 +10,7 @@ implementation."""
 def setdefaultencoding(space, w_encoding):
     """Set the current default string encoding used by the Unicode
 implementation."""
-    encoding = space.str_w(w_encoding)
+    encoding = space.text_w(w_encoding)
     mod = space.getbuiltinmodule("_codecs")
     w_lookup = space.getattr(mod, space.newtext("lookup"))
     # check whether the encoding is there

@@ -102,8 +102,8 @@ class W_AbstractTupleObject(W_Root):
     def descr_repr(self, space):
         items = self.tolist()
         if len(items) == 1:
-            return space.newtext("(" + space.str_w(space.repr(items[0])) + ",)")
-        tmp = ", ".join([space.str_w(space.repr(item)) for item in items])
+            return space.newtext("(" + space.text_w(space.repr(items[0])) + ",)")
+        tmp = ", ".join([space.text_w(space.repr(item)) for item in items])
         return space.newtext("(" + tmp + ")")
 
     def descr_hash(self, space):

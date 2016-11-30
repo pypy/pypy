@@ -638,7 +638,7 @@ class W_TypeObject(W_Root):
         if w_mod is None or not space.isinstance_w(w_mod, space.w_str):
             mod = None
         else:
-            mod = space.str_w(w_mod)
+            mod = space.text_w(w_mod)
         if not self.is_heaptype():
             kind = 'type'
         else:
@@ -649,7 +649,7 @@ class W_TypeObject(W_Root):
             return space.newtext("<%s '%s'>" % (kind, self.name))
 
     def descr_getattribute(self, space, w_name):
-        name = space.str_w(w_name)
+        name = space.text_w(w_name)
         w_descr = space.lookup(self, name)
         if w_descr is not None:
             if space.is_data_descr(w_descr):
@@ -729,14 +729,14 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
             return space.call_function(newfunc, w_winner, w_name, w_bases, w_dict)
         w_typetype = w_winner
 
-    name = space.str_w(w_name)
+    name = space.text_w(w_name)
     assert isinstance(name, str)
     if '\x00' in name:
         raise oefmt(space.w_ValueError, "type name must not contain null characters")
     dict_w = {}
     dictkeys_w = space.listview(w_dict)
     for w_key in dictkeys_w:
-        key = space.str_w(w_key)
+        key = space.text_w(w_key)
         dict_w[key] = space.getitem(w_dict, w_key)
     w_type = space.allocate_instance(W_TypeObject, w_typetype)
     W_TypeObject.__init__(w_type, space, name, bases_w or [space.w_object],
@@ -779,7 +779,7 @@ def descr_set__name__(space, w_type, w_value):
         raise oefmt(space.w_TypeError,
                     "can only assign string to %N.__name__, not '%T'",
                     w_type, w_value)
-    name = space.str_w(w_value)
+    name = space.text_w(w_value)
     if '\x00' in name:
         raise oefmt(space.w_ValueError, "type name must not contain null characters")
     w_type.name = name
@@ -1055,7 +1055,7 @@ def create_all_slots(w_self, hasoldstylebase, w_bestbase, force_new_layout):
         else:
             slot_names_w = space.unpackiterable(w_slots)
         for w_slot_name in slot_names_w:
-            slot_name = space.str_w(w_slot_name)
+            slot_name = space.text_w(w_slot_name)
             if slot_name == '__dict__':
                 if wantdict or w_bestbase.hasdict:
                     raise oefmt(space.w_TypeError,
@@ -1106,7 +1106,7 @@ def create_slot(w_self, slot_name, index_next_extra_slot):
     slot_name = mangle(slot_name, w_self.name)
     if slot_name not in w_self.dict_w:
         # Force interning of slot names.
-        slot_name = space.str_w(space.new_interned_str(slot_name))
+        slot_name = space.text_w(space.new_interned_str(slot_name))
         # in cpython it is ignored less, but we probably don't care
         member = Member(index_next_extra_slot, slot_name, w_self)
         w_self.dict_w[slot_name] = member

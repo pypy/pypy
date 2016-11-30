@@ -309,7 +309,7 @@ def encode(space, w_obj, w_encoding=None, errors='strict'):
     if w_encoding is None:
         encoding = space.sys.defaultencoding
     else:
-        encoding = space.str_w(w_encoding)
+        encoding = space.text_w(w_encoding)
     w_encoder = space.getitem(lookup_codec(space, encoding), space.newint(0))
     w_res = space.call_function(w_encoder, w_obj, space.newtext(errors))
     return space.getitem(w_res, space.newint(0))
@@ -338,7 +338,7 @@ def decode(space, w_obj, w_encoding=None, errors='strict'):
     if w_encoding is None:
         encoding = space.sys.defaultencoding
     else:
-        encoding = space.str_w(w_encoding)
+        encoding = space.text_w(w_encoding)
     w_decoder = space.getitem(lookup_codec(space, encoding), space.newint(1))
     if space.is_true(w_decoder):
         w_res = space.call_function(w_decoder, w_obj, space.newtext(errors))

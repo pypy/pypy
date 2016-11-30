@@ -1432,11 +1432,11 @@ class _SSLContext(W_Root):
         if space.is_none(w_certfile):
             certfile = None
         else:
-            certfile = space.str_w(w_certfile)
+            certfile = space.text_w(w_certfile)
         if space.is_none(w_keyfile):
             keyfile = certfile
         else:
-            keyfile = space.str_w(w_keyfile)
+            keyfile = space.text_w(w_keyfile)
         pw_info = PasswordInfo()
         pw_info.space = space
         index = -1
@@ -1529,11 +1529,11 @@ class _SSLContext(W_Root):
         if space.is_none(w_cafile):
             cafile = None
         else:
-            cafile = space.str_w(w_cafile)
+            cafile = space.text_w(w_cafile)
         if space.is_none(w_capath):
             capath = None
         else:
-            capath = space.str_w(w_capath)
+            capath = space.text_w(w_capath)
         if space.is_none(w_cadata):
             cadata = None
             ca_file_type = -1

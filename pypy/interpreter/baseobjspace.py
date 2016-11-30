@@ -77,7 +77,8 @@ class W_Root(object):
 
     def getname(self, space):
         try:
-            return space.str_w(space.getattr(self, space.newtext('__name__')))
+            # YYY should be text_w?
+            return space.bytes_w(space.getattr(self, space.newtext('__name__')))
         except OperationError as e:
             if e.match(space, space.w_TypeError) or e.match(space, space.w_AttributeError):
                 return '?'

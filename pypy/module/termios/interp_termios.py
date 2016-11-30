@@ -28,11 +28,9 @@ def tcsetattr(space, w_fd, when, w_attributes):
     cc = []
     for w_c in space.unpackiterable(w_cc):
         if space.isinstance_w(w_c, space.w_int):
-            ch = space.call_function(space.getattr(w_builtin,
-                                          space.newtext('chr')), w_c)
-            cc.append(space.str_w(ch))
-        else:
-            cc.append(space.str_w(w_c))
+            w_c = space.call_function(space.getattr(w_builtin,
+                                      space.newtext('chr')), w_c)
+        cc.append(space.bytes_w(w_c))
     tup = (space.int_w(w_iflag), space.int_w(w_oflag),
            space.int_w(w_cflag), space.int_w(w_lflag),
            space.int_w(w_ispeed), space.int_w(w_ospeed), cc)

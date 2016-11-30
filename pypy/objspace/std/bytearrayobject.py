@@ -146,7 +146,7 @@ class W_BytearrayObject(W_Root):
         return False
 
     def _join_check_item(self, space, w_obj):
-        if (space.isinstance_w(w_obj, space.w_str) or
+        if (space.isinstance_w(w_obj, space.w_bytes) or
             space.isinstance_w(w_obj, space.w_bytearray)):
             return 0
         return 1
@@ -175,7 +175,7 @@ class W_BytearrayObject(W_Root):
 
     @staticmethod
     def descr_fromhex(space, w_bytearraytype, w_hexstring):
-        hexstring = space.str_w(w_hexstring)
+        hexstring = space.text_w(w_hexstring)
         data = _hexstring_to_array(space, hexstring)
         # in CPython bytearray.fromhex is a staticmethod, so
         # we ignore w_type and always return a bytearray
@@ -484,8 +484,8 @@ def _descr_contains_bytearray(data, space, char):
 
 
 def getbytevalue(space, w_value):
-    if space.isinstance_w(w_value, space.w_str):
-        string = space.str_w(w_value)
+    if space.isinstance_w(w_value, space.w_bytes):
+        string = space.bytes_w(w_value)
         if len(string) != 1:
             raise oefmt(space.w_ValueError, "string must be of size 1")
         return string[0]
