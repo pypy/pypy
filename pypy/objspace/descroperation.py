@@ -705,7 +705,7 @@ for targetname, specialname in [
                 return w_result
 
             raise oefmt(space.w_TypeError,
-                        "%(specialname)s returned non-%(targetname)s (type "
+                        "%(specialname)s returned non-string (type "
                         "'%%T')", w_result)
         assert not hasattr(DescrOperation, %(targetname)r)
         DescrOperation.%(targetname)s = %(targetname)s

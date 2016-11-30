@@ -272,11 +272,11 @@ class Test__ffi(BaseTestPyPyC):
             _write = libc.load_function(BWrite, 'write')
             i = 0
             fd0, fd1 = os.pipe()
-            buffer = _cffi_backend.newp(BCharP, 'A')
+            buffer = _cffi_backend.newp(BCharP, b'A')
             while i < 300:
                 tmp = _write(fd1, buffer, 1)   # ID: cfficall
                 assert tmp == 1
-                assert os.read(fd0, 2) == 'A'
+                assert os.read(fd0, 2) == b'A'
                 i += 1
             os.close(fd0)
             os.close(fd1)
@@ -410,7 +410,7 @@ class Test__ffi(BaseTestPyPyC):
         i161 = int_lt(i160, i43)
         guard_true(i161, descr=...)
         i162 = int_add(i160, 1)
-        setfield_gc(p22, i162, descr=<FieldS pypy.module.__builtin__.functional.W_XRangeIterator.inst_current .>)
+        setfield_gc(p22, i162, descr=<FieldS pypy.module.__builtin__.functional.W_IntRangeIterator.inst_current .>)
         guard_not_invalidated(descr=...)
         p163 = force_token()
         p164 = force_token()

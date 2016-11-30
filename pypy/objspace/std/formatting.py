@@ -2,12 +2,12 @@
 import sys
 
 from rpython.rlib import jit
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import INT_MAX
 from rpython.rlib.rfloat import DTSF_ALT, formatd, isnan, isinf
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.tool.sourcetools import func_with_new_name
-from rpython.rlib.objectmodel import specialize
 
 from pypy.interpreter.error import OperationError, oefmt
 
@@ -483,24 +483,28 @@ def make_formatter_subclass(do_unicode):
                                     "character code not in range(256)")
                     self.std_wp(s)
                 return
-            if space.isinstance_w(w_value, space.w_str):
-                s = space.str_w(w_value)
+            if not do_unicode:
+                if space.isinstance_w(w_value, space.w_str):
+                    s = space.str_w(w_value)
+                elif space.isinstance_w(w_value, space.w_bytearray):
+                    s = w_value.buffer_w(space, 0).as_str()
+                else:
+                    s = ''
                 if len(s) == 1:
                     self.std_wp(s)
                     return
-            elif space.isinstance_w(w_value, space.w_unicode):
-                if not do_unicode:
-                    raise NeedUnicodeFormattingError
-                ustr = space.unicode_w(w_value)
-                if len(ustr) == 1:
-                    self.std_wp(ustr)
-                    return
-            if do_unicode:
-                raise oefmt(space.w_TypeError, "%c requires int or char")
-            else:
                 raise oefmt(space.w_TypeError, "%c requires int or single byte")
+            else:
+                if space.isinstance_w(w_value, space.w_unicode):
+                    ustr = space.unicode_w(w_value)
+                    if len(ustr) == 1:
+                        self.std_wp(ustr)
+                        return
+                raise oefmt(space.w_TypeError, "%c requires int or char")
 
         def fmt_b(self, w_value):
+            if do_unicode:
+                self.unknown_fmtchar()
             space = self.space
             # cpython explicitly checks for bytes & bytearray
             if space.isinstance_w(w_value, space.w_bytes):
@@ -522,7 +526,7 @@ def make_formatter_subclass(do_unicode):
                 return
 
             raise oefmt(space.w_TypeError,
-                    "requires bytes, or an object that" \
+                    "requires bytes, or an object that "
                     "implements __bytes__, not '%T'", w_value)
 
     return StringFormatter

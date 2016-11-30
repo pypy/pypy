@@ -5,14 +5,36 @@ from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
 
 class TestString(BaseTestPyPyC):
+
+    def test_python3_missing_bchr(self):
+        # Check that 'bytes([i])' is special-cased into something
+        # efficient, as Python 3.5 doesn't have a bchr() function or
+        # anything more direct.
+        def main(n):
+            i = 0
+            result = b''
+            while i < n:
+                c = bytes([i])
+                result += c
+                i += 1
+            return i
+        log = self.run(main, [255])
+        assert log.result == 255
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            #...
+            --TICK--
+            jump(..., descr=...)
+        """)
+
     def test_lookup_default_encoding(self):
         def main(n):
-            import string
             i = 0
-            letters = string.letters
-            uletters = unicode(string.letters)
+            letters = b'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+            uletters = u'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
             while i < n:
-                i += letters[i % len(letters)] == uletters[i % len(letters)]
+                c = bytes([letters[i % len(uletters)]])
+                i += (c.decode() == uletters[i % len(uletters)])
             return i
 
         log = self.run(main, [300], import_site=True)
@@ -45,7 +67,7 @@ class TestString(BaseTestPyPyC):
 
     def test_long(self):
         def main(n):
-            import string
+            digits = '0123456789'
             i = 1
             while i < n:
                 i += int(long(string.digits[i % len(string.digits)], 16))

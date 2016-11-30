@@ -1103,7 +1103,7 @@ class MappingTestCase(TestBase):
         # Keep an iterator alive
         it = dct.items()
         try:
-            next(it)
+            print(next(it))
         except StopIteration:
             pass
         del items
@@ -1112,7 +1112,10 @@ class MappingTestCase(TestBase):
         del it
         gc.collect()
         gc.collect()
+        print(list(dct.items()))
         n2 = len(dct)
+        print(len(dct))
+        print(weakref)
         # one item may be kept alive inside the iterator
         self.assertIn(n1, (0, 1))
         self.assertEqual(n2, 0)

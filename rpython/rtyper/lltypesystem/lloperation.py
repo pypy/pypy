@@ -486,10 +486,12 @@ LL_OPERATIONS = {
     'gc_add_memory_pressure': LLOp(),
     'gc_fq_next_dead'     : LLOp(),
     'gc_fq_register'      : LLOp(),
+    'gc_ignore_finalizer' : LLOp(canrun=True),
 
     'gc_rawrefcount_init':              LLOp(),
     'gc_rawrefcount_create_link_pypy':  LLOp(),
     'gc_rawrefcount_create_link_pyobj': LLOp(),
+    'gc_rawrefcount_mark_deallocating': LLOp(),
     'gc_rawrefcount_from_obj':          LLOp(sideeffects=False),
     'gc_rawrefcount_to_obj':            LLOp(sideeffects=False),
 

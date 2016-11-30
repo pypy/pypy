@@ -81,6 +81,7 @@ epoll_wait = rffi.llexternal(
 
 class W_Epoll(W_Root):
     def __init__(self, space, epfd):
+        self.space = space
         self.epfd = epfd
         self.register_finalizer(space)
 
@@ -113,6 +114,7 @@ class W_Epoll(W_Root):
         if not self.get_closed():
             socketclose(self.epfd)
             self.epfd = -1
+            self.may_unregister_rpython_finalizer(self.space)
 
     def epoll_ctl(self, space, ctl, w_fd, eventmask, ignore_ebadf=False):
         fd = space.c_filedescriptor_w(w_fd)

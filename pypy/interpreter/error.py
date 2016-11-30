@@ -559,8 +559,9 @@ else:
                                           space.wrap(msg))
         return OperationError(exc, w_error)
 
+@specialize.arg(3)
 def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError',
-                  w_exception_class=None):
+                  w_exception_class=None, w_filename2=None):
     assert isinstance(e, OSError)
 
     if _WINDOWS and isinstance(e, WindowsError):
@@ -580,25 +581,31 @@ def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError',
     else:
         exc = w_exception_class
     if w_filename is not None:
-        w_error = space.call_function(exc, space.wrap(errno),
-                                      space.wrap(msg), w_filename)
+        if w_filename2 is not None:
+            w_error = space.call_function(exc, space.wrap(errno),
+                                          space.wrap(msg), w_filename,
+                                          space.w_None, w_filename2)
+        else:
+            w_error = space.call_function(exc, space.wrap(errno),
+                                          space.wrap(msg), w_filename)
     else:
         w_error = space.call_function(exc, space.wrap(errno),
                                       space.wrap(msg))
     return OperationError(exc, w_error)
-wrap_oserror2._annspecialcase_ = 'specialize:arg(3)'
 
+@specialize.arg(3)
 def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
-                 w_exception_class=None):
+                 w_exception_class=None, filename2=None):
+    w_filename = None
+    w_filename2 = None
     if filename is not None:
-        return wrap_oserror2(space, e, space.wrap(filename),
-                             exception_name=exception_name,
-                             w_exception_class=w_exception_class)
-    else:
-        return wrap_oserror2(space, e, None,
-                             exception_name=exception_name,
-                             w_exception_class=w_exception_class)
-wrap_oserror._annspecialcase_ = 'specialize:arg(3)'
+        w_filename = space.wrap(filename)
+        if filename2 is not None:
+            w_filename2 = space.wrap(filename2)
+    return wrap_oserror2(space, e, w_filename,
+                         exception_name=exception_name,
+                         w_exception_class=w_exception_class,
+                         w_filename2=w_filename2)
 
 def exception_from_saved_errno(space, w_type):
     from rpython.rlib.rposix import get_saved_errno

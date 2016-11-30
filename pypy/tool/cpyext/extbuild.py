@@ -206,6 +206,10 @@ def _build(cfilenames, outputfilename, compile_extra, link_extra,
         pass
     from distutils.ccompiler import new_compiler
     from distutils import sysconfig
+
+    # XXX for Darwin running old versions of CPython 2.7.x
+    sysconfig.get_config_vars()
+
     compiler = new_compiler(force=1)
     sysconfig.customize_compiler(compiler)  # XXX
     objects = []

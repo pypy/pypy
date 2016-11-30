@@ -484,7 +484,8 @@ class StatState(object):
     def __init__(self, space):
         self.stat_float_times = True
 
-def stat_float_times(space, w_value=None):
+@unwrap_spec(newval=int)
+def stat_float_times(space, newval=-1):
     """stat_float_times([newval]) -> oldval
 
 Determine whether os.[lf]stat represents time stamps as float objects.
@@ -494,10 +495,10 @@ If newval is omitted, return the current setting.
 """
     state = space.fromcache(StatState)
 
-    if w_value is None:
+    if newval == -1:
         return space.wrap(state.stat_float_times)
     else:
-        state.stat_float_times = space.bool_w(w_value)
+        state.stat_float_times = (newval != 0)
 
 
 @unwrap_spec(fd=c_int)
@@ -1008,7 +1009,7 @@ src_dir_fd and dst_dir_fd, may not be implemented on your platform.
         else:
             dispatch_filename_2(rposix.rename)(space, w_src, w_dst)
     except OSError as e:
-        raise wrap_oserror(space, e)
+        raise wrap_oserror2(space, e, w_filename=w_src, w_filename2=w_dst)
 
 @unwrap_spec(src_dir_fd=DirFD(rposix.HAVE_RENAMEAT),
         dst_dir_fd=DirFD(rposix.HAVE_RENAMEAT))
@@ -1115,7 +1116,7 @@ in the hardest way possible on the hosting operating system."""
     rposix.kill(os.getpid(), signal.SIGABRT)
 
 @unwrap_spec(
-    src='fsencode', dst='fsencode',
+    src='fsencode', dst='fsencode',  # <- simpler: link() is never on Windows
     src_dir_fd=DirFD(rposix.HAVE_LINKAT), dst_dir_fd=DirFD(rposix.HAVE_LINKAT),
     follow_symlinks=bool)
 def link(
@@ -1144,7 +1145,7 @@ src_dir_fd, dst_dir_fd, and follow_symlinks may not be implemented on your
         else:
             rposix.link(src, dst)
     except OSError as e:
-        raise wrap_oserror(space, e)
+        raise wrap_oserror(space, e, filename=src, filename2=dst)
 
 
 @unwrap_spec(dir_fd=DirFD(rposix.HAVE_SYMLINKAT))
@@ -1171,7 +1172,7 @@ dir_fd may not be implemented on your platform.
         else:
             dispatch_filename_2(rposix.symlink)(space, w_src, w_dst)
     except OSError as e:
-        raise wrap_oserror(space, e)
+        raise wrap_oserror2(space, e, w_filename=w_src, w_filename2=w_dst)
 
 
 @unwrap_spec(
@@ -2219,13 +2220,20 @@ def cpu_count(space):
 
 @unwrap_spec(fd=c_int)
 def get_blocking(space, fd):
-    return space.newbool(rposix.get_status_flags(fd) & rposix.O_NONBLOCK == 0)
+    try:
+        flags = rposix.get_status_flags(fd)
+    except OSError as e:
+        raise wrap_oserror(space, e)
+    return space.newbool(flags & rposix.O_NONBLOCK == 0)
 
 @unwrap_spec(fd=c_int, blocking=int)
 def set_blocking(space, fd, blocking):
-    flags = rposix.get_status_flags(fd)
-    if blocking:
-        flags &= ~rposix.O_NONBLOCK
-    else:
-        flags |= rposix.O_NONBLOCK
-    rposix.set_status_flags(fd, flags)
+    try:
+        flags = rposix.get_status_flags(fd)
+        if blocking:
+            flags &= ~rposix.O_NONBLOCK
+        else:
+            flags |= rposix.O_NONBLOCK
+        rposix.set_status_flags(fd, flags)
+    except OSError as e:
+        raise wrap_oserror(space, e)

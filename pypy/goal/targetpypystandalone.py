@@ -302,6 +302,12 @@ class PyPyTarget(object):
         elif config.objspace.usemodules.pypyjit:
             config.translation.jit = True
 
+        if config.objspace.usemodules.cpyext:
+            if config.translation.gc != 'incminimark':
+                raise Exception("The 'cpyext' module requires the 'incminimark'"
+                                " GC.  You need either 'targetpypystandalone.py"
+                                " --withoutmod-cpyext' or '--gc=incminimark'")
+
         config.translating = True
 
         import translate

@@ -1705,6 +1705,38 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
             res = self.run("limited_memory_linux", -1, runner=myrunner)
             assert res == 42
 
+    def define_ignore_finalizer(cls):
+        class X(object):
+            pass
+        class FQ(rgc.FinalizerQueue):
+            Class = X
+            def finalizer_trigger(self):
+                pass
+        queue = FQ()
+        def g():
+            x1 = X()
+            x2 = X()
+            queue.register_finalizer(x1)
+            queue.register_finalizer(x2)
+            rgc.may_ignore_finalizer(x1)
+        g._dont_inline_ = True
+        def f():
+            g()
+            rgc.collect()
+            seen = 0
+            while True:
+                obj = queue.next_dead()
+                if obj is None:
+                    break
+                seen += 1
+            return seen
+        assert f() == 2    # untranslated: may_ignore_finalizer() is ignored
+        return f
+
+    def test_ignore_finalizer(self):
+        res = self.run("ignore_finalizer")
+        assert res == 1    # translated: x1 is removed from the list
+
 
 # ____________________________________________________________________
 

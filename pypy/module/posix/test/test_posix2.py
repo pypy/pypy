@@ -159,11 +159,14 @@ class AppTestPosix:
             st = posix.stat(path)
             assert isinstance(st.st_mtime, float)
             assert st[7] == int(st.st_atime)
+            assert posix.stat_float_times(-1) is True
 
             posix.stat_float_times(False)
             st = posix.stat(path)
             assert isinstance(st.st_mtime, int)
             assert st[7] == st.st_atime
+            assert posix.stat_float_times(-1) is False
+
         finally:
             posix.stat_float_times(current)
 
@@ -1148,6 +1151,11 @@ class AppTestPosix:
             assert posix.get_blocking(fd) is True
             posix.close(fd)
 
+        def test_blocking_error(self):
+            posix = self.posix
+            raises(OSError, posix.get_blocking, 1234567)
+            raises(OSError, posix.set_blocking, 1234567, True)
+
 
     def test_urandom(self):
         os = self.posix
@@ -1213,6 +1221,18 @@ class AppTestPosix:
         self.posix.RTLD_NOW
         self.posix.RTLD_GLOBAL
         self.posix.RTLD_LOCAL
+
+    def test_error_message(self):
+        e = raises(OSError, self.posix.open, 'nonexistentfile1', 0)
+        assert str(e.value).endswith(": 'nonexistentfile1'")
+
+        e = raises(OSError, self.posix.link, 'nonexistentfile1', 'bok')
+        assert str(e.value).endswith(": 'nonexistentfile1' -> 'bok'")
+        e = raises(OSError, self.posix.rename, 'nonexistentfile1', 'bok')
+        assert str(e.value).endswith(": 'nonexistentfile1' -> 'bok'")
+
+        e = raises(OSError, self.posix.symlink, 'bok', '/nonexistentdir/boz')
+        assert str(e.value).endswith(": 'bok' -> '/nonexistentdir/boz'")
 
 
 class AppTestEnvironment(object):
