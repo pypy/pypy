@@ -95,7 +95,7 @@ class TestString(BaseTestPyPyC):
             jump(..., descr=...)
         """ % (-sys.maxint-1,))
 
-    def test_long(self):
+    def test_int_base_16(self):
         def main(n):
             i = 1
             while i < n:
@@ -127,17 +127,20 @@ class TestString(BaseTestPyPyC):
             i87 = int_mul(i85, 10)
             i19 = int_sub(i6, i87)
 
-            i23 = strgetitem(p10, i19)
-            p25 = newstr(1)
-            strsetitem(p25, 0, i23)
-            p93 = call_r(ConstClass(fromstr), p25, 16, descr=<Callr . ri EF=4>)
+            i23 = unicodegetitem(ConstPtr(ptr92), i19)
+            p25 = newunicode(1)
+            unicodesetitem(p25, 0, i23)
+            p97 = call_r(ConstClass(_rpy_unicode_to_decimal_w), p25, descr=<Callr . r EF=5>)
             guard_no_exception(descr=...)
-            i95 = getfield_gc_i(p93, descr=<FieldS rpython.rlib.rbigint.rbigint.inst_size .*>)
-            i96 = int_gt(i95, #)
-            guard_false(i96, descr=...)
-            i94 = call_i(ConstClass(rbigint._toint_helper), p93, descr=<Calli . r EF=4>)
+            i98 = unicodelen(p97)
+            p99 = force_token()
+            setfield_gc(p0, p99, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token .>)
+            p104 = call_may_force_r(ConstClass(unicode_encode_utf_8_impl), p97, i98, ConstPtr(ptr101), 1, 1, descr=<Callr . ririi EF=7>)
+            guard_not_forced(descr=...)
             guard_no_exception(descr=...)
-            i95 = int_add_ovf(i6, i94)
+            i107 = call_i(ConstClass(string_to_int), p104, 16, descr=<Calli . ri EF=4>)
+            guard_no_exception(descr=...)
+            i95 = int_add_ovf(i6, i107)
             guard_no_overflow(descr=...)
             --TICK--
             jump(..., descr=...)

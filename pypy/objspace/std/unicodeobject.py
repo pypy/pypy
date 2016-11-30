@@ -1257,7 +1257,11 @@ W_UnicodeObject.EMPTY = W_UnicodeObject(u'')
 def unicode_to_decimal_w(space, w_unistr, allow_surrogates=False):
     if not isinstance(w_unistr, W_UnicodeObject):
         raise oefmt(space.w_TypeError, "expected unicode, got '%T'", w_unistr)
-    unistr = w_unistr._value
+    value = _rpy_unicode_to_decimal_w(space, w_unistr._value)
+    return unicodehelper.encode_utf8(space, value,
+                                     allow_surrogates=allow_surrogates)
+
+def _rpy_unicode_to_decimal_w(space, unistr):
     result = [u'\0'] * len(unistr)
     for i in xrange(len(unistr)):
         uchr = ord(unistr[i])
@@ -1270,8 +1274,7 @@ def unicode_to_decimal_w(space, w_unistr, allow_surrogates=False):
             except KeyError:
                 pass
         result[i] = unichr(uchr)
-    return unicodehelper.encode_utf8(space, u''.join(result),
-                                     allow_surrogates=allow_surrogates)
+    return u''.join(result)
 
 @jit.elidable
 def g_encode_utf8(value):
