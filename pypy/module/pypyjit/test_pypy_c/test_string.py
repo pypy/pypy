@@ -9,10 +9,11 @@ class TestString(BaseTestPyPyC):
         def main(n):
             i = 0
             letters = b'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+            letters = [b'%c' % n for n in letters]  # list of single-char bytes
             uletters = u'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
             while i < n:
-                i += (letters[i % len(letters)].decode() ==
-                      uletters[i % len(letters)])
+                c = letters[i % len(uletters)]
+                i += (c.decode() == uletters[i % len(uletters)])
             return i
 
         log = self.run(main, [300], import_site=True)
