@@ -2,7 +2,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.pyopcode import LoopBlock
 from pypy.interpreter.pycode import CO_YIELD_INSIDE_TRY
-from rpython.rlib import jit
+from rpython.rlib import jit, rgc
 
 
 class GeneratorIterator(W_Root):
@@ -102,11 +102,11 @@ return next yielded value or raise StopIteration."""
                 w_result = frame.execute_frame(w_arg, operr)
             except OperationError:
                 # errors finish a frame
-                self.frame = None
+                self.frame_is_finished()
                 raise
             # if the frame is now marked as finished, it was RETURNed from
             if frame.frame_finished_execution:
-                self.frame = None
+                self.frame_is_finished()
                 raise OperationError(space.w_StopIteration, space.w_None)
             else:
                 return w_result     # YIELDed
@@ -208,7 +208,7 @@ return next yielded value or raise StopIteration."""
             finally:
                 frame.f_backref = jit.vref_None
                 self.running = False
-                self.frame = None
+                self.frame_is_finished()
         return unpack_into
     unpack_into = _create_unpack_into()
     unpack_into_w = _create_unpack_into()
@@ -226,6 +226,10 @@ return next yielded value or raise StopIteration."""
                     self.descr_close()
                     break
                 block = block.previous
+
+    def frame_is_finished(self):
+        self.frame = None
+        rgc.may_ignore_finalizer(self)
 
 
 def get_printable_location_genentry(bytecode):

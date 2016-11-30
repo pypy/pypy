@@ -9,9 +9,9 @@ from pypy.interpreter.gateway import interp2app, ObjSpace
 
 def make_checker():
     check = []
+    @specialize.memo()
     def see():
         check.append(True)
-    see._annspecialcase_ = 'specialize:memo'
     return see, check
 
 def test_wrap_interp2app():

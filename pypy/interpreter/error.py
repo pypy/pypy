@@ -445,6 +445,7 @@ else:
                                           space.newtext(msg))
         return OperationError(exc, w_error)
 
+@specialize.arg(3)
 def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError',
                   w_exception_class=None):
     assert isinstance(e, OSError)
@@ -472,8 +473,8 @@ def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError',
         w_error = space.call_function(exc, space.newint(errno),
                                       space.newtext(msg))
     return OperationError(exc, w_error)
-wrap_oserror2._annspecialcase_ = 'specialize:arg(3)'
 
+@specialize.arg(3)
 def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
                  w_exception_class=None):
     if filename is not None:
@@ -484,7 +485,6 @@ def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
         return wrap_oserror2(space, e, None,
                              exception_name=exception_name,
                              w_exception_class=w_exception_class)
-wrap_oserror._annspecialcase_ = 'specialize:arg(3)'
 
 def exception_from_saved_errno(space, w_type):
     from rpython.rlib.rposix import get_saved_errno

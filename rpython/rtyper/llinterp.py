@@ -562,6 +562,9 @@ class LLFrame(object):
     def op_jit_conditional_call(self, *args):
         raise NotImplementedError("should not be called while not jitted")
 
+    def op_jit_conditional_call_value(self, *args):
+        raise NotImplementedError("should not be called while not jitted")
+
     def op_get_exception_addr(self, *args):
         raise NotImplementedError
 
@@ -955,6 +958,9 @@ class LLFrame(object):
 
     def op_gc_rawrefcount_create_link_pypy(self, *args):
         raise NotImplementedError("gc_rawrefcount_create_link_pypy")
+
+    def op_gc_rawrefcount_mark_deallocating(self, *args):
+        raise NotImplementedError("gc_rawrefcount_mark_deallocating")
 
     def op_do_malloc_fixedsize(self):
         raise NotImplementedError("do_malloc_fixedsize")

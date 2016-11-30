@@ -12,65 +12,53 @@ from rpython.rlib import jit
 @specialize.memo()
 def object_getattribute(space):
     "Utility that returns the app-level descriptor object.__getattribute__."
-    w_src, w_getattribute = space.lookup_in_type_where(space.w_object,
-                                                       '__getattribute__')
-    return w_getattribute
+    return space.lookup_in_type(space.w_object, '__getattribute__')
 
 @specialize.memo()
 def object_setattr(space):
     "Utility that returns the app-level descriptor object.__setattr__."
-    w_src, w_setattr = space.lookup_in_type_where(space.w_object,
-                                                  '__setattr__')
-    return w_setattr
+    return space.lookup_in_type(space.w_object, '__setattr__')
 
 @specialize.memo()
 def object_delattr(space):
     "Utility that returns the app-level descriptor object.__delattr__."
-    w_src, w_delattr = space.lookup_in_type_where(space.w_object,
-                                                  '__delattr__')
-    return w_delattr
+    return space.lookup_in_type(space.w_object, '__delattr__')
 
 @specialize.memo()
 def object_hash(space):
     "Utility that returns the app-level descriptor object.__hash__."
-    w_src, w_hash = space.lookup_in_type_where(space.w_object,
-                                                  '__hash__')
-    return w_hash
+    return space.lookup_in_type(space.w_object, '__hash__')
 
 @specialize.memo()
 def type_eq(space):
     "Utility that returns the app-level descriptor type.__eq__."
-    w_src, w_eq = space.lookup_in_type_where(space.w_type,
-                                             '__eq__')
-    return w_eq
+    return space.lookup_in_type(space.w_type, '__eq__')
 
 @specialize.memo()
 def list_iter(space):
     "Utility that returns the app-level descriptor list.__iter__."
-    w_src, w_iter = space.lookup_in_type_where(space.w_list,
-                                               '__iter__')
-    return w_iter
+    return space.lookup_in_type(space.w_list, '__iter__')
 
 @specialize.memo()
 def tuple_iter(space):
     "Utility that returns the app-level descriptor tuple.__iter__."
-    w_src, w_iter = space.lookup_in_type_where(space.w_tuple,
-                                               '__iter__')
-    return w_iter
+    return space.lookup_in_type(space.w_tuple, '__iter__')
 
 @specialize.memo()
 def str_getitem(space):
     "Utility that returns the app-level descriptor str.__getitem__."
-    w_src, w_iter = space.lookup_in_type_where(space.w_str,
-                                               '__getitem__')
-    return w_iter
+    return space.lookup_in_type(space.w_str, '__getitem__')
 
 @specialize.memo()
 def unicode_getitem(space):
     "Utility that returns the app-level descriptor unicode.__getitem__."
-    w_src, w_iter = space.lookup_in_type_where(space.w_unicode,
-                                               '__getitem__')
-    return w_iter
+    return space.lookup_in_type(space.w_unicode, '__getitem__')
+
+@specialize.memo()
+def dict_getitem(space):
+    "Utility that returns the app-level descriptor dict.__getitem__."
+    return space.lookup_in_type(space.w_dict, '__getitem__')
+
 
 def raiseattrerror(space, w_obj, name, w_descr=None):
     if w_descr is None:
@@ -865,7 +853,7 @@ for targetname, specialname in [
                 if not e.match(space, space.w_TypeError):
                     raise
                 raise oefmt(space.w_TypeError,
-                            "%(specialname)s returned non-%(targetname)s "
+                            "%(specialname)s returned non-string "
                             "(type '%%T')", w_result)
             else:
                 # re-wrap the result as a real string

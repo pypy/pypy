@@ -1,5 +1,5 @@
 
-from rpython.rlib.objectmodel import specialize, we_are_translated
+from rpython.rlib.objectmodel import specialize, we_are_translated, compute_hash
 from rpython.jit.metainterp.resoperation import AbstractValue, ResOperation,\
      rop, OpHelpers
 from rpython.jit.metainterp.history import ConstInt, Const
@@ -71,6 +71,9 @@ class PtrInfo(AbstractInfo):
         return self is other
 
     def getstrlen(self, op, string_optimizer, mode, create_ops=True):
+        return None
+
+    def getstrhash(self, op, mode):
         return None
 
     def copy_fields_to_const(self, constinfo, optheap):
@@ -789,6 +792,20 @@ class ConstPtrInfo(PtrInfo):
             if s is None:
                 return None
             return ConstInt(len(s))
+
+    def getstrhash(self, op, mode):
+        from rpython.jit.metainterp.optimizeopt import vstring
+
+        if mode is vstring.mode_string:
+            s = self._unpack_str(vstring.mode_string)
+            if s is None:
+                return None
+            return ConstInt(compute_hash(s))
+        else:
+            s = self._unpack_str(vstring.mode_unicode)
+            if s is None:
+                return None
+            return ConstInt(compute_hash(s))
 
     def string_copy_parts(self, op, string_optimizer, targetbox, offsetbox,
                           mode):

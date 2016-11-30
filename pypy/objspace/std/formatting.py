@@ -2,12 +2,12 @@
 import sys
 
 from rpython.rlib import jit
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import INT_MAX
 from rpython.rlib.rfloat import DTSF_ALT, formatd, isnan, isinf
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.tool.sourcetools import func_with_new_name
-from rpython.rlib.objectmodel import specialize
 
 from pypy.interpreter.error import OperationError, oefmt
 

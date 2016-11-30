@@ -202,6 +202,7 @@ class Compress(ZLibObject):
                 if mode == rzlib.Z_FINISH:    # release the data structures now
                     rzlib.deflateEnd(self.stream)
                     self.stream = rzlib.null_stream
+                    self.may_unregister_rpython_finalizer(space)
             finally:
                 self.unlock()
         except rzlib.RZlibError as e:

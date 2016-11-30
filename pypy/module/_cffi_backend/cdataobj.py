@@ -397,7 +397,7 @@ class W_CData(W_Root):
         space = self.space
         if space.is_none(w_destructor):
             if isinstance(self, W_CDataGCP):
-                self.w_destructor = None
+                self.detach_destructor()
                 return space.w_None
             raise oefmt(space.w_TypeError,
                         "Can remove destructor only on a object "
@@ -603,6 +603,10 @@ class W_CDataGCP(W_CData):
         if w_destructor is not None:
             self.w_destructor = None
             self.space.call_function(w_destructor, self.w_original_cdata)
+
+    def detach_destructor(self):
+        self.w_destructor = None
+        self.may_unregister_rpython_finalizer(self.space)
 
 
 W_CData.typedef = TypeDef(

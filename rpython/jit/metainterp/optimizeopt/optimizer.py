@@ -261,9 +261,9 @@ class Optimization(object):
     def produce_potential_short_preamble_ops(self, potential_ops):
         pass
 
-    def _can_optimize_call_pure(self, op):
+    def _can_optimize_call_pure(self, op, start_index=0):
         arg_consts = []
-        for i in range(op.numargs()):
+        for i in range(start_index, op.numargs()):
             arg = op.getarg(i)
             const = self.optimizer.get_constant_box(arg)
             if const is None:

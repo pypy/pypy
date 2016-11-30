@@ -1,4 +1,5 @@
 import sys
+from rpython.rlib.objectmodel import specialize
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
@@ -6,7 +7,6 @@ from pypy.interpreter.typedef import GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.debug import check_nonneg
-from rpython.rlib.objectmodel import specialize
 
 
 # A `dequeobject` is composed of a doubly-linked list of `block` nodes.

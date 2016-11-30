@@ -137,8 +137,7 @@ def PyDict_Update(space, w_obj, w_other):
     """This is the same as PyDict_Merge(a, b, 1) in C, or a.update(b) in
     Python.  Return 0 on success or -1 if an exception was raised.
     """
-    space.call_method(space.w_dict, "update", w_obj, w_other)
-    return 0
+    return PyDict_Merge(space, w_obj, w_other, 1)
 
 @cpython_api([PyObject], PyObject)
 def PyDict_Keys(space, w_obj):

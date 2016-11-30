@@ -62,12 +62,14 @@ def PyList_GetItem(space, w_list, index):
     position must be positive, indexing from the end of the list is not
     supported.  If pos is out of bounds, return NULL and set an
     IndexError exception."""
+    from pypy.module.cpyext.sequence import CPyListStrategy
     if not isinstance(w_list, W_ListObject):
         PyErr_BadInternalCall(space)
     if index < 0 or index >= w_list.length():
         raise oefmt(space.w_IndexError, "list index out of range")
-    w_list.ensure_object_strategy()  # make sure we can return a borrowed obj
-    # XXX ^^^ how does this interact with CPyListStrategy?
+    cpy_strategy = space.fromcache(CPyListStrategy)
+    if w_list.strategy is not cpy_strategy:
+        w_list.ensure_object_strategy() # make sure we can return a borrowed obj
     w_res = w_list.getitem(index)
     return w_res     # borrowed ref
 

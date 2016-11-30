@@ -3,7 +3,7 @@ import sys
 import py
 
 from rpython.rlib.nonconst import NonConstant
-from rpython.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, specialize, not_rpython
+from rpython.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, specialize, not_rpython, we_are_translated
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.sourcetools import rpython_wrapper
@@ -255,27 +255,6 @@ def not_in_trace(func):
     interpreted mode, and by the jit tracing and blackholing, but not
     by the final assembler."""
     func.oopspec = "jit.not_in_trace()"   # note that 'func' may take arguments
-    return func
-
-def call_shortcut(func):
-    """A decorator to ensure that a function has a fast-path.
-    DOES NOT RELIABLY WORK ON METHODS, USE ONLY ON FUNCTIONS!
-
-    Only useful on functions that the JIT doesn't normally look inside.
-    It still replaces residual calls to that function with inline code
-    that checks for a fast path, and only does the call if not.  For
-    now, graphs made by the following kinds of functions are detected:
-
-           def func(x, y, z):         def func(x, y, z):
-               if y.field:                 r = y.field
-                   return y.field          if r is None:
-               ...                             ...
-                                           return r
-
-    Fast-path detection is always on, but this decorator makes the
-    codewriter complain if it cannot find the promized fast-path.
-    """
-    func._call_shortcut_ = True
     return func
 
 
@@ -1194,32 +1173,103 @@ class Entry(ExtRegistryEntry):
         return hop.gendirectcall(ll_record_exact_class, v_inst, v_cls)
 
 def _jit_conditional_call(condition, function, *args):
-    pass
+    pass           # special-cased below
 
 @specialize.call_location()
 def conditional_call(condition, function, *args):
+    """Does the same as:
+
+         if condition:
+             function(*args)
+
+    but is better for the JIT, in case the condition is often false
+    but could be true occasionally.  It allows the JIT to always produce
+    bridge-free code.  The function is never looked inside.
+    """
     if we_are_jitted():
         _jit_conditional_call(condition, function, *args)
     else:
         if condition:
             function(*args)
-conditional_call._always_inline_ = True
+conditional_call._always_inline_ = 'try'
+
+def _jit_conditional_call_value(value, function, *args):
+    return value    # special-cased below
+
+@specialize.call_location()
+def conditional_call_elidable(value, function, *args):
+    """Does the same as:
+
+        if value == <0 or None>:
+            value = function(*args)
+        return value
+
+    For the JIT.  Allows one branch which doesn't create a bridge,
+    typically used for caching.  The value and the function's return
+    type must match and cannot be a float: they must be either regular
+    'int', or something that turns into a pointer.
+
+    Even if the function is not marked @elidable, it is still treated
+    mostly like one.  The only difference is that (in heapcache.py)
+    we don't assume this function won't change anything observable.
+    This is useful for caches, as you can write:
+
+        def _compute_and_cache(...):
+            self.cache = ...compute...
+            return self.cache
+
+        x = jit.conditional_call_elidable(self.cache, _compute_and_cache, ...)
+
+    """
+    if we_are_translated() and we_are_jitted():
+        #^^^ the occasional test patches we_are_jitted() to True
+        return _jit_conditional_call_value(value, function, *args)
+    else:
+        if isinstance(value, int):
+            if value == 0:
+                value = function(*args)
+                assert isinstance(value, int)
+        else:
+            if value is None:
+                value = function(*args)
+                assert not isinstance(value, int)
+        return value
+conditional_call_elidable._always_inline_ = 'try'
 
 class ConditionalCallEntry(ExtRegistryEntry):
-    _about_ = _jit_conditional_call
+    _about_ = _jit_conditional_call, _jit_conditional_call_value
 
     def compute_result_annotation(self, *args_s):
-        self.bookkeeper.emulate_pbc_call(self.bookkeeper.position_key,
-                                         args_s[1], args_s[2:])
+        s_res = self.bookkeeper.emulate_pbc_call(self.bookkeeper.position_key,
+                                                 args_s[1], args_s[2:])
+        if self.instance == _jit_conditional_call_value:
+            from rpython.annotator import model as annmodel
+            # the result is either s_res, i.e. the function result, or
+            # it is args_s[0]-but-not-none.  The "not-none" part is
+            # only useful for pointer-like types, but it means that
+            # args_s[0] could be NULL without the result of the whole
+            # conditional_call_elidable() necessarily returning a result
+            # that can be NULL.
+            return annmodel.unionof(s_res, args_s[0].nonnoneify())
 
     def specialize_call(self, hop):
         from rpython.rtyper.lltypesystem import lltype
 
-        args_v = hop.inputargs(lltype.Bool, lltype.Void, *hop.args_r[2:])
+        if self.instance == _jit_conditional_call:
+            opname = 'jit_conditional_call'
+            COND = lltype.Bool
+            resulttype = None
+        elif self.instance == _jit_conditional_call_value:
+            opname = 'jit_conditional_call_value'
+            COND = hop.r_result
+            resulttype = hop.r_result.lowleveltype
+        else:
+            assert False
+        args_v = hop.inputargs(COND, lltype.Void, *hop.args_r[2:])
         args_v[1] = hop.args_r[1].get_concrete_llfn(hop.args_s[1],
                                                     hop.args_s[2:], hop.spaceop)
         hop.exception_is_here()
-        return hop.genop('jit_conditional_call', args_v)
+        return hop.genop(opname, args_v, resulttype=resulttype)
 
 def enter_portal_frame(unique_id):
     """call this when starting to interpret a function. calling this is not
