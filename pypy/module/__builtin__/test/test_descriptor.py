@@ -515,4 +515,8 @@ class AppTestBuiltinApp:
                 del self
                 super()
         raises(RuntimeError, X().f)
+        class X:
+            def f(*args):
+                super()
+        raises(RuntimeError, X().f)
         """
