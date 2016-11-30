@@ -5,14 +5,35 @@ from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
 
 class TestString(BaseTestPyPyC):
+
+    def test_python3_missing_bchr(self):
+        # Check that 'bytes([i])' is special-cased into something
+        # efficient, as Python 3.5 doesn't have a bchr() function or
+        # anything more direct.
+        def main(n):
+            i = 0
+            result = b''
+            while i < n:
+                c = bytes([i])
+                result += c
+                i += 1
+            return i
+        log = self.run(main, [255])
+        assert log.result == 255
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            #...
+            --TICK--
+            jump(..., descr=...)
+        """)
+
     def test_lookup_default_encoding(self):
         def main(n):
             i = 0
             letters = b'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
-            letters = [b'%c' % n for n in letters]  # list of single-char bytes
             uletters = u'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
             while i < n:
-                c = letters[i % len(uletters)]
+                c = bytes([letters[i % len(uletters)]])
                 i += (c.decode() == uletters[i % len(uletters)])
             return i
 
