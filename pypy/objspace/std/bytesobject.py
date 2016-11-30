@@ -1,6 +1,6 @@
 """The builtin bytes implementation"""
 
-from rpython.rlib.jit import we_are_jitted
+from rpython.rlib import jit
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin, newlist_hint,
     resizelist_hint, HASH_ALGORITHM)
@@ -529,10 +529,22 @@ class W_BytesObject(W_AbstractBytesObject):
     @unwrap_spec(encoding='str_or_None', errors='str_or_None')
     def descr_new(space, w_stringtype, w_source=None, encoding=None,
                   errors=None):
-        if (w_source and space.is_w(space.type(w_source), space.w_bytes) and
-            space.is_w(w_stringtype, space.w_bytes) and encoding is None
-            and errors is None):
-            return w_source
+        if (w_source and space.is_w(w_stringtype, space.w_bytes)
+                and encoding is None and errors is None):
+            # special-case 'bytes(byte_object)'
+            w_srctype = space.type(w_source)
+            if w_srctype is space.w_bytes:
+                return w_source
+            # special-case 'bytes([single_integer])' or 'bytes((single_int,))'
+            # for JITted performance only, when we clearly see the
+            # length of the list/tuple being constant and equal to 1
+            if w_srctype is space.w_list or w_srctype is space.w_tuple:
+                length = space.len_w(w_source)
+                if jit.isconstant(length) and length == 1:
+                    w_item = space.getitem(w_source, space.wrap(0))
+                    value = getbytevalue(space, w_item)
+                    return W_BytesObject(value)
+        #
         value = newbytesdata_w(space, w_source, encoding, errors)
         w_obj = space.allocate_instance(W_BytesObject, w_stringtype)
         W_BytesObject.__init__(w_obj, value)
