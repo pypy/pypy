@@ -409,3 +409,10 @@ class AppTestMemoryViewMockBuffer(object):
         v = view.cast('h', shape=(3,2))
         assert v.tolist() == [[2,3],[4,5],[6,7]]
         raises(TypeError, "view.cast('h', shape=(3,3))")
+
+    def test_reversed(self):
+        bytes = b"\x01\x00\x02\x00\x03\x00"
+        view = memoryview(bytes)
+        revlist = list(reversed(view.tolist()))
+        assert list(reversed(view)) == revlist
+        assert list(reversed(view)) == view[::-1].tolist()
