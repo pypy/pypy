@@ -14,7 +14,19 @@ def collect(space, generation=0):
     cache.clear()
     cache = space.fromcache(MapAttrCache)
     cache.clear()
+
     rgc.collect()
+
+    # if we are running in gc.disable() mode but gc.collect() is called,
+    # we should still call the finalizers now.  We do this as an attempt
+    # to get closer to CPython's behavior: in Py3.5 some tests
+    # specifically rely on that.  This is similar to how, in CPython, an
+    # explicit gc.collect() will invoke finalizers from cycles and fully
+    # ignore the gc.disable() mode.
+    if not space.user_del_action.enabled_at_app_level:
+        enable_finalizers(space)
+        disable_finalizers(space)
+
     return space.wrap(0)
 
 def enable(space):
