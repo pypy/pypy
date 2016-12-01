@@ -181,7 +181,8 @@ class SimpleFinalizationTest(TestBase, unittest.TestCase):
     def test_non_gc(self):
         with SimpleBase.test():
             s = NonGC()
-            self.assertFalse(gc.is_tracked(s))
+            if support.check_impl_detail():
+                self.assertFalse(gc.is_tracked(s))
             ids = [id(s)]
             del s
             gc.collect()
@@ -194,7 +195,8 @@ class SimpleFinalizationTest(TestBase, unittest.TestCase):
     def test_non_gc_resurrect(self):
         with SimpleBase.test():
             s = NonGCResurrector()
-            self.assertFalse(gc.is_tracked(s))
+            if support.check_impl_detail():
+                self.assertFalse(gc.is_tracked(s))
             ids = [id(s)]
             del s
             gc.collect()
