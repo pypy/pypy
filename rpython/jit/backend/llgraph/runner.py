@@ -1128,7 +1128,7 @@ class LLFrame(object):
                 value = sum(value)
             elif info.accum_operation == '*':
                 def prod(acc, x): return acc * x
-                value = reduce(prod, value, 1)
+                value = reduce(prod, value, 1.0)
             else:
                 raise NotImplementedError("accum operator in fail guard")
             values[i] = value

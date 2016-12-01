@@ -847,6 +847,10 @@ class PackSet(object):
                                      vecop, count)
                 oplist.append(vecop)
             elif pack.reduce_init() == 1:
+                # PRECISION loss, because the numbers are accumulated (associative, commutative properties must hold)
+                # you can end up a small number and a huge number that is finally multiplied. giving an
+                # inprecision result, thus this is disabled now
+                raise NotImplementedError
                 # multiply is only supported by floats
                 vecop = OpHelpers.create_vec_expand(ConstFloat(1.0), bytesize,
                                                     signed, count)
