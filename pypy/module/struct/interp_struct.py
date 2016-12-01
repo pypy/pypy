@@ -83,10 +83,6 @@ def _unpack(space, format, buf):
         raise OperationError(get_error(space), space.wrap(e.msg))
     return space.newtuple(fmtiter.result_w[:])
 
-def clearcache(space):
-    "Clear the internal cache."
-    # No cache in this implementation
-
 
 @unwrap_spec(format=str)
 def unpack(space, format, w_str):
