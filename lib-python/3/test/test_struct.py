@@ -547,19 +547,19 @@ class StructTest(unittest.TestCase):
         self.assertRaises(struct.error, struct.unpack_from, '12345', store, 0)
 
         # Format lists with trailing count spec should result in an error
-        self.assertRaises(struct.error, struct.pack, 'c12345', 'x')
-        self.assertRaises(struct.error, struct.unpack, 'c12345', 'x')
+        self.assertRaises(struct.error, struct.pack, 'c12345', b'x')
+        self.assertRaises(struct.error, struct.unpack, 'c12345', b'x')
         self.assertRaises(struct.error, struct.pack_into, 'c12345', store, 0,
-                           'x')
+                           b'x')
         self.assertRaises(struct.error, struct.unpack_from, 'c12345', store,
                            0)
 
         # Mixed format tests
-        self.assertRaises(struct.error, struct.pack, '14s42', 'spam and eggs')
+        self.assertRaises(struct.error, struct.pack, '14s42', b'spam and eggs')
         self.assertRaises(struct.error, struct.unpack, '14s42',
-                          'spam and eggs')
+                          b'spam and eggs')
         self.assertRaises(struct.error, struct.pack_into, '14s42', store, 0,
-                          'spam and eggs')
+                          b'spam and eggs')
         self.assertRaises(struct.error, struct.unpack_from, '14s42', store, 0)
 
     def test_Struct_reinitialization(self):
