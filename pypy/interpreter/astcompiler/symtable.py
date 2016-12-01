@@ -484,9 +484,6 @@ class SymtableBuilder(ast.GenericASTVisitor):
 
     def visit_Global(self, glob):
         for name in glob.names:
-            if isinstance(self.scope, ClassScope) and name == '__class__':
-                raise SyntaxError("cannot make __class__ global",
-                                  glob.lineno, glob.col_offset)
             old_role = self.scope.lookup_role(name)
             if old_role & (SYM_USED | SYM_ASSIGNED):
                 if old_role & SYM_ASSIGNED:
