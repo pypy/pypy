@@ -403,6 +403,25 @@ class AppTestStruct(object):
         assert list(it) == [(0, 0), (0, 0)]
         it = self.struct.iter_unpack('ii', b)
         assert list(it) == [(0, 0), (0, 0)]
+        #
+        it = s.iter_unpack(b)
+        next(it)
+        assert it.__length_hint__() == 1
+        next(it)
+        assert it.__length_hint__() == 0
+        assert list(it) == []
+        assert it.__length_hint__() == 0
+
+    def test_iter_unpack_bad_length(self):
+        struct = self.struct
+        s = struct.Struct('!i')
+        lst = list(s.iter_unpack(b'1234'))
+        assert lst == [(0x31323334,)]
+        lst = list(s.iter_unpack(b''))
+        assert lst == []
+        raises(struct.error, s.iter_unpack, b'12345')
+        raises(struct.error, s.iter_unpack, b'123')
+        raises(struct.error, struct.iter_unpack, 'h', b'12345')
 
     def test___float__(self):
         class MyFloat(object):
