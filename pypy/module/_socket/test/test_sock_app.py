@@ -868,6 +868,22 @@ class AppTestSocketTCP:
         posix.close(fileno)
         cli.close()
 
+    def test_recv_into_params(self):
+        import os
+        import _socket
+        cli = _socket.socket()
+        cli.connect(self.serv.getsockname())
+        fileno, addr = self.serv._accept()
+        os.write(fileno, b"abcdef")
+        #
+        m = memoryview(bytearray(5))
+        raises(ValueError, cli.recv_into, m, -1)
+        raises(ValueError, cli.recv_into, m, 6)
+        cli.recv_into(m,5)
+        assert m.tobytes() == b"abcde"
+        os.close(fileno)
+        cli.close()
+
 
 class AppTestErrno:
     spaceconfig = {'usemodules': ['_socket', 'select']}
