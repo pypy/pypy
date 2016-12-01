@@ -250,8 +250,8 @@ class __extend__(W_NDimArray):
 
     def descr_getitem(self, space, w_idx):
         if self.get_dtype().is_record():
-            if space.isinstance_w(w_idx, space.w_str):
-                idx = space.str_w(w_idx)
+            if space.isinstance_w(w_idx, space.w_text):
+                idx = space.text_w(w_idx)
                 return self.getfield(space, idx)
         if space.is_w(w_idx, space.w_Ellipsis):
             return self.descr_view(space, space.type(self))
@@ -287,8 +287,8 @@ class __extend__(W_NDimArray):
 
     def descr_setitem(self, space, w_idx, w_value):
         if self.get_dtype().is_record():
-            if space.isinstance_w(w_idx, space.w_str):
-                idx = space.str_w(w_idx)
+            if space.isinstance_w(w_idx, space.w_text):
+                idx = space.text_w(w_idx)
                 view = self.getfield(space, idx)
                 w_value = convert_to_array(space, w_value)
                 view.implementation.setslice(space, w_value)
@@ -735,10 +735,9 @@ class __extend__(W_NDimArray):
             # XXX Should not happen
             raise oefmt(space.w_ValueError, "new dtype has elsize of 0")
         if not can_cast_array(space, self, new_dtype, casting):
-            raise oefmt(space.w_TypeError, "Cannot cast array from %s to %s"
-                        "according to the rule %s",
-                        space.str_w(self.get_dtype().descr_repr(space)),
-                        space.str_w(new_dtype.descr_repr(space)), casting)
+            raise oefmt(space.w_TypeError, "Cannot cast array from %R to %R"
+                        "according to the rule %s", self.get_dtype(),
+                        new_dtype, casting)
         order  = order_converter(space, space.newtext(order), self.get_order())
         if (not copy and new_dtype == self.get_dtype()
                 and (order in (NPY.KEEPORDER, NPY.ANYORDER) or order == self.get_order())

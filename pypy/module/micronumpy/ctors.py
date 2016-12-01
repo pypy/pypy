@@ -20,11 +20,11 @@ def build_scalar(space, w_dtype, w_state):
                     "argument 1 must be numpy.dtype, not %T", w_dtype)
     if w_dtype.elsize == 0:
         raise oefmt(space.w_TypeError, "Empty data-type")
-    if not space.isinstance_w(w_state, space.w_str):
+    if not space.isinstance_w(w_state, space.w_bytes): # py3 accepts unicode here too
         raise oefmt(space.w_TypeError, "initializing object must be a string")
     if space.len_w(w_state) != w_dtype.elsize:
         raise oefmt(space.w_ValueError, "initialization string is too small")
-    state = rffi.str2charp(space.str_w(w_state))
+    state = rffi.str2charp(space.text_w(w_state))
     box = w_dtype.itemtype.box_raw_data(state)
     lltype.free(state, flavor="raw")
     return box
@@ -212,7 +212,7 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
     if not isinstance(w_object, W_NDimArray):
         w_array = try_array_method(space, w_object, w_dtype)
         if w_array is None:
-            if (    not space.isinstance_w(w_object, space.w_str) and 
+            if (    not space.isinstance_w(w_object, space.w_bytes) and 
                     not space.isinstance_w(w_object, space.w_unicode) and
                     not isinstance(w_object, W_GenericBox)):
                 # use buffer interface
@@ -323,7 +323,7 @@ def find_shape_and_elems(space, w_iterable, dtype):
     return _find_shape_and_elems(space, w_iterable, is_rec_type)
 
 def is_scalar_like(space, w_obj, dtype):
-    isstr = space.isinstance_w(w_obj, space.w_str)
+    isstr = space.isinstance_w(w_obj, space.w_bytes)
     if not support.issequence_w(space, w_obj) or isstr:
         if dtype is None or dtype.char != NPY.CHARLTR:
             return True

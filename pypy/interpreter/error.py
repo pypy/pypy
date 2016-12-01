@@ -403,7 +403,7 @@ def oefmt(w_type, valuefmt, *args):
     Supports the standard %s and %d formats, plus the following:
 
     %N - The result of w_arg.getname(space)
-    %R - The result of space.str_w(space.repr(w_arg))
+    %R - The result of space.text_w(space.repr(w_arg))
     %T - The result of space.type(w_arg).name
 
     """

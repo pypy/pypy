@@ -153,7 +153,7 @@ class W_Ufunc(W_Root):
         if w_casting is None:
             casting = 'unsafe'
         else:
-            casting = space.str_w(w_casting)
+            casting = space.text_w(w_casting)
         retval = self.call(space, args_w, sig, casting, extobj)
         keepalive_until_here(args_w)
         return retval
@@ -983,7 +983,7 @@ class W_UfuncGeneric(W_Ufunc):
                 if sig:
                     raise oefmt(space.w_RuntimeError,
                             "cannot specify both 'sig' and 'dtype'")
-                sig = space.str_w(kwargs_w[kw])
+                sig = space.text_w(kwargs_w[kw])
                 parsed_kw.append(kw)
             elif kw.startswith('where'):
                 raise oefmt(space.w_NotImplementedError,
@@ -1504,7 +1504,7 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
     elif (space.isinstance_w(w_dtypes, space.w_tuple) or
             space.isinstance_w(w_dtypes, space.w_list)):
             _dtypes = space.listview(w_dtypes)
-            if space.isinstance_w(_dtypes[0], space.w_str) and space.str_w(_dtypes[0]) == 'match':
+            if space.isinstance_w(_dtypes[0], space.w_text) and space.text_w(_dtypes[0]) == 'match':
                 dtypes = []
                 match_dtypes = True
             else:

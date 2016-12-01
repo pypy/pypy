@@ -61,7 +61,7 @@ class W_FlagsObject(W_Root):
         return space.newint(self.flags)
 
     def descr_getitem(self, space, w_item):
-        key = space.str_w(w_item)
+        key = space.text_w(w_item)
         if key == "C" or key == "CONTIGUOUS" or key == "C_CONTIGUOUS":
             return self.descr_c_contiguous(space)
         if key == "F" or key == "FORTRAN" or key == "F_CONTIGUOUS":
