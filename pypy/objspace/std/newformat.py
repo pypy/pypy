@@ -352,7 +352,7 @@ def make_template_formatting_class(for_unicode):
             if recursive:
                 spec = self._build_string(spec_start, end, level)
             w_rendered = self.space.format(w_obj, self.wrap(spec))
-            unwrapper = "unicode_w" if self.is_unicode else "str_w"
+            unwrapper = "unicode_w" if self.is_unicode else "bytes_w"
             to_interp = getattr(self.space, unwrapper)
             return to_interp(w_rendered)
 
@@ -382,7 +382,7 @@ def format_method(space, w_string, args, is_unicode):
                                               space.unicode_w(w_string))
         return space.newunicode(template.build(args))
     else:
-        template = str_template_formatter(space, space.str_w(w_string))
+        template = str_template_formatter(space, space.bytes_w(w_string))
         return space.newbytes(template.build(args))
 
 
@@ -1175,5 +1175,5 @@ def run_formatter(space, w_format_spec, meth, *args):
         formatter = unicode_formatter(space, space.unicode_w(w_format_spec))
         return getattr(formatter, meth)(*args)
     else:
-        formatter = str_formatter(space, space.str_w(w_format_spec))
+        formatter = str_formatter(space, space.bytes_w(w_format_spec))
         return getattr(formatter, meth)(*args)

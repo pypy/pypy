@@ -118,8 +118,8 @@ def PyMethod_Class(space, w_method):
     assert isinstance(w_method, Method)
     return w_method.w_class     # borrowed ref
 
-def unwrap_list_of_strings(space, w_list):
-    return [space.str_w(w_item) for w_item in space.fixedview(w_list)]
+def unwrap_list_of_texts(space, w_list):
+    return [space.text_w(w_item) for w_item in space.fixedview(w_list)]
 
 @cpython_api([rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real,
               PyObject, PyObject, PyObject, PyObject, PyObject, PyObject,
@@ -136,16 +136,16 @@ def PyCode_New(space, argcount, nlocals, stacksize, flags,
                   nlocals=rffi.cast(lltype.Signed, nlocals),
                   stacksize=rffi.cast(lltype.Signed, stacksize),
                   flags=rffi.cast(lltype.Signed, flags),
-                  code=space.str_w(w_code),
+                  code=space.bytes_w(w_code),
                   consts=space.fixedview(w_consts),
-                  names=unwrap_list_of_strings(space, w_names),
-                  varnames=unwrap_list_of_strings(space, w_varnames),
-                  filename=space.str_w(w_filename),
-                  name=space.str_w(w_funcname),
+                  names=unwrap_list_of_texts(space, w_names),
+                  varnames=unwrap_list_of_texts(space, w_varnames),
+                  filename=space.text_w(w_filename),
+                  name=space.text_w(w_funcname),
                   firstlineno=rffi.cast(lltype.Signed, firstlineno),
-                  lnotab=space.str_w(w_lnotab),
-                  freevars=unwrap_list_of_strings(space, w_freevars),
-                  cellvars=unwrap_list_of_strings(space, w_cellvars))
+                  lnotab=space.bytes_w(w_lnotab),
+                  freevars=unwrap_list_of_texts(space, w_freevars),
+                  cellvars=unwrap_list_of_texts(space, w_cellvars))
 
 @cpython_api([CONST_STRING, CONST_STRING, rffi.INT_real], PyCodeObject)
 def PyCode_NewEmpty(space, filename, funcname, firstlineno):

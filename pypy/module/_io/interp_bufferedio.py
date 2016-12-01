@@ -91,7 +91,7 @@ class W_BufferedIOBase(W_IOBase):
 
         if not space.isinstance_w(w_data, space.w_str):
             raise oefmt(space.w_TypeError, "read() should return bytes")
-        data = space.str_w(w_data)
+        data = space.bytes_w(w_data)
         rwbuffer.setslice(0, data)
         return space.newint(len(data))
 
@@ -225,7 +225,7 @@ class BufferedMixin:
                 raise
             return space.newtext("<%s>" % (typename,))
         else:
-            name_repr = space.str_w(space.repr(w_name))
+            name_repr = space.text_w(space.repr(w_name))
             return space.newtext("<%s name=%s>" % (typename, name_repr))
 
     # ______________________________________________

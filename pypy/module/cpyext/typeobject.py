@@ -947,7 +947,7 @@ def _PyType_Lookup(space, type, w_name):
 
     if not space.isinstance_w(w_name, space.w_str):
         return None
-    name = space.str_w(w_name)
+    name = space.text_w(w_name)
     w_obj = w_type.lookup(name)
     # this assumes that w_obj is not dynamically created, but will stay alive
     # until w_type is modified or dies.  Assuming this, we return a borrowed ref

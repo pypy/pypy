@@ -502,11 +502,11 @@ class W_BytesObject(W_AbstractBytesObject):
 
     @staticmethod
     def _op_val(space, w_other, strict=None):
-        if strict and not space.isinstance_w(w_other, space.w_str):
+        if strict and not space.isinstance_w(w_other, space.w_bytes):
             raise oefmt(space.w_TypeError,
                 "%s arg must be None, str or unicode", strict)
         try:
-            return space.str_w(w_other)
+            return space.bytes_w(w_other)
         except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
@@ -569,7 +569,7 @@ class W_BytesObject(W_AbstractBytesObject):
         # NB. the default value of w_object is really a *wrapped* empty string:
         #     there is gateway magic at work
         w_obj = space.str(w_object)
-        if space.is_w(w_stringtype, space.w_str):
+        if space.is_w(w_stringtype, space.w_bytes):
             return w_obj  # XXX might be reworked when space.str() typechecks
         value = space.bytes_w(w_obj)
         w_obj = space.allocate_instance(W_BytesObject, w_stringtype)
@@ -596,9 +596,9 @@ class W_BytesObject(W_AbstractBytesObject):
         return newformat.format_method(space, self, __args__, is_unicode=False)
 
     def descr__format__(self, space, w_format_spec):
-        if not space.isinstance_w(w_format_spec, space.w_str):
+        if not space.isinstance_w(w_format_spec, space.w_bytes):
             w_format_spec = space.str(w_format_spec)
-        spec = space.str_w(w_format_spec)
+        spec = space.bytes_w(w_format_spec)
         formatter = newformat.str_formatter(space, spec)
         return formatter.format_string(self._value)
 
@@ -826,11 +826,11 @@ class W_BytesObject(W_AbstractBytesObject):
         return self._StringMethods_descr_rpartition(space, w_sub)
 
     def _join_return_one(self, space, w_obj):
-        return (space.is_w(space.type(w_obj), space.w_str) or
+        return (space.is_w(space.type(w_obj), space.w_bytes) or
                 space.is_w(space.type(w_obj), space.w_unicode))
 
     def _join_check_item(self, space, w_obj):
-        if space.isinstance_w(w_obj, space.w_str):
+        if space.isinstance_w(w_obj, space.w_bytes):
             return 0
         if space.isinstance_w(w_obj, space.w_unicode):
             return 2
@@ -851,12 +851,12 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def descr_formatter_parser(self, space):
         from pypy.objspace.std.newformat import str_template_formatter
-        tformat = str_template_formatter(space, space.str_w(self))
+        tformat = str_template_formatter(space, space.bytes_w(self))
         return tformat.formatter_parser()
 
     def descr_formatter_field_name_split(self, space):
         from pypy.objspace.std.newformat import str_template_formatter
-        tformat = str_template_formatter(space, space.str_w(self))
+        tformat = str_template_formatter(space, space.bytes_w(self))
         return tformat.formatter_field_name_split()
 
 

@@ -326,7 +326,7 @@ class W_FileIO(W_RawIOBase):
             w_repr = space.repr(self.w_name)
             return space.newtext(
                 "<_io.FileIO name=%s mode='%s'>" % (
-                    space.str_w(w_repr), self._mode()))
+                    space.text_w(w_repr), self._mode()))
 
     # ______________________________________________
 

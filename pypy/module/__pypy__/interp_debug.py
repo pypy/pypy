@@ -9,7 +9,7 @@ def debug_start(space, category):
 
 @jit.dont_look_inside
 def debug_print(space, args_w):
-    parts = [space.str_w(space.str(w_item)) for w_item in args_w]
+    parts = [space.text_w(space.str(w_item)) for w_item in args_w]
     debug.debug_print(' '.join(parts))
 
 @jit.dont_look_inside

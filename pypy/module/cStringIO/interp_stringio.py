@@ -178,7 +178,7 @@ class W_OutputType(W_InputOutputType):
                 if not e.match(space, space.w_StopIteration):
                     raise
                 break  # done
-            self.write(space.str_w(w_line))
+            self.write(space.text_w(w_line))
 
 # ____________________________________________________________
 

@@ -77,7 +77,7 @@ def getservbyname(space, name, w_proto):
     if space.is_w(w_proto, space.w_None):
         proto = None
     else:
-        proto = space.str_w(w_proto)
+        proto = space.text_w(w_proto)
     try:
         port = rsocket.getservbyname(name, proto)
     except SocketError as e:
@@ -95,7 +95,7 @@ def getservbyport(space, port, w_proto):
     if space.is_w(w_proto, space.w_None):
         proto = None
     else:
-        proto = space.str_w(w_proto)
+        proto = space.text_w(w_proto)
 
     if port < 0 or port > 0xffff:
         raise oefmt(space.w_ValueError, "getservbyport: port must be 0-65535.")

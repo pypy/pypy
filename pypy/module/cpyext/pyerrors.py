@@ -338,7 +338,7 @@ def PyErr_WriteUnraisable(space, w_where):
     state = space.fromcache(State)
     operror = state.clear_exception()
     if operror:
-        operror.write_unraisable(space, space.str_w(space.repr(w_where)))
+        operror.write_unraisable(space, space.text_w(space.repr(w_where)))
 
 @cpython_api([], lltype.Void)
 def PyErr_SetInterrupt(space):

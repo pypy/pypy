@@ -77,7 +77,7 @@ class W_UnicodeObject(W_Root):
         return space.newint(uid)
 
     def str_w(self, space):
-        return space.str_w(space.str(self))
+        return space.text_w(space.str(self))
 
     def unicode_w(self, space):
         return self._value
@@ -450,8 +450,8 @@ def getdefaultencoding(space):
 
 
 def _get_encoding_and_errors(space, w_encoding, w_errors):
-    encoding = None if w_encoding is None else space.str_w(w_encoding)
-    errors = None if w_errors is None else space.str_w(w_errors)
+    encoding = None if w_encoding is None else space.text_w(w_encoding)
+    errors = None if w_errors is None else space.text_w(w_errors)
     return encoding, errors
 
 
@@ -569,7 +569,7 @@ def unicode_from_string(space, w_str):
     encoding = getdefaultencoding(space)
     if encoding != 'ascii':
         return unicode_from_encoded_object(space, w_str, encoding, "strict")
-    s = space.str_w(w_str)
+    s = space.bytes_w(w_str)
     try:
         return W_UnicodeObject(s.decode("ascii"))
     except UnicodeDecodeError:

@@ -183,8 +183,8 @@ def _promote(space, w_obj):
         jit.promote(space.int_w(w_obj))
     elif space.is_w(space.type(w_obj), space.w_float):
         jit.promote(space.float_w(w_obj))
-    elif space.is_w(space.type(w_obj), space.w_str):
-        jit.promote_string(space.str_w(w_obj))
+    elif space.is_w(space.type(w_obj), space.w_bytes):
+        jit.promote_string(space.bytes_w(w_obj))
     elif space.is_w(space.type(w_obj), space.w_unicode):
         raise oefmt(space.w_TypeError, "promoting unicode unsupported")
     else:

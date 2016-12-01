@@ -116,8 +116,8 @@ class W_SRE_Pattern(W_Root):
                 endpos = len(unicodestr)
             return rsre_core.UnicodeMatchContext(self.code, unicodestr,
                                                  pos, endpos, self.flags)
-        elif space.isinstance_w(w_string, space.w_str):
-            str = space.str_w(w_string)
+        elif space.isinstance_w(w_string, space.w_bytes):
+            str = space.bytes_w(w_string)
             if pos > len(str):
                 pos = len(str)
             if endpos > len(str):

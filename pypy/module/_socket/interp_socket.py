@@ -83,7 +83,7 @@ def fill_from_object(addr, space, w_address):
 def addr_from_object(family, fd, space, w_address):
     if family == rsocket.AF_INET:
         w_host, w_port = space.unpackiterable(w_address, 2)
-        host = space.str_w(w_host)
+        host = space.text_w(w_host)
         port = space.int_w(w_port)
         port = make_ushort_port(space, port)
         return rsocket.INETAddress(host, port)
@@ -93,7 +93,7 @@ def addr_from_object(family, fd, space, w_address):
             raise oefmt(space.w_TypeError,
                         "AF_INET6 address must be a tuple of length 2 "
                         "to 4, not %d", len(pieces_w))
-        host = space.str_w(pieces_w[0])
+        host = space.text_w(pieces_w[0])
         port = space.int_w(pieces_w[1])
         port = make_ushort_port(space, port)
         if len(pieces_w) > 2: flowinfo = space.int_w(pieces_w[2])
@@ -103,7 +103,7 @@ def addr_from_object(family, fd, space, w_address):
         flowinfo = make_unsigned_flowinfo(space, flowinfo)
         return rsocket.INET6Address(host, port, flowinfo, scope_id)
     if rsocket.HAS_AF_UNIX and family == rsocket.AF_UNIX:
-        return rsocket.UNIXAddress(space.str_w(w_address))
+        return rsocket.UNIXAddress(space.text_w(w_address))
     if rsocket.HAS_AF_NETLINK and family == rsocket.AF_NETLINK:
         w_pid, w_groups = space.unpackiterable(w_address, 2)
         return rsocket.NETLINKAddress(space.uint_w(w_pid), space.uint_w(w_groups))
@@ -113,14 +113,14 @@ def addr_from_object(family, fd, space, w_address):
             raise oefmt(space.w_TypeError,
                         "AF_PACKET address must be a tuple of length 2 "
                         "to 5, not %d", len(pieces_w))
-        ifname = space.str_w(pieces_w[0])
+        ifname = space.text_w(pieces_w[0])
         ifindex = rsocket.PacketAddress.get_ifindex_from_ifname(fd, ifname)
         protocol = space.int_w(pieces_w[1])
         if len(pieces_w) > 2: pkttype = space.int_w(pieces_w[2])
         else:                 pkttype = 0
         if len(pieces_w) > 3: hatype = space.int_w(pieces_w[3])
         else:                 hatype = 0
-        if len(pieces_w) > 4: haddr = space.str_w(pieces_w[4])
+        if len(pieces_w) > 4: haddr = space.text_w(pieces_w[4])
         else:                 haddr = ""
         if len(haddr) > 8:
             raise oefmt(space.w_ValueError,
@@ -144,7 +144,7 @@ def make_unsigned_flowinfo(space, flowinfo):
 
 # XXX Hack to seperate rpython and pypy
 def ipaddr_from_object(space, w_sockaddr):
-    host = space.str_w(space.getitem(w_sockaddr, space.newint(0)))
+    host = space.text_w(space.getitem(w_sockaddr, space.newint(0)))
     addr = rsocket.makeipaddr(host)
     fill_from_object(addr, space, w_sockaddr)
     return addr
@@ -165,7 +165,7 @@ class W_Socket(W_Root):
         is_open = self.sock.fd >= 0
         if is_open and self.space.sys.track_resources:
             w_repr = self.space.repr(self)
-            str_repr = self.space.str_w(w_repr)
+            str_repr = self.space.text_w(w_repr)
             w_msg = self.space.newtext("WARNING: unclosed " + str_repr)
             self.space.resource_warning(w_msg, self.w_tb)
 

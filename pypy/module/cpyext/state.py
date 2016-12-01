@@ -100,7 +100,7 @@ class State:
             argv = space.sys.get('argv')
             if space.len_w(argv):
                 argv0 = space.getitem(argv, space.newint(0))
-                progname = space.str_w(argv0)
+                progname = space.text_w(argv0)
             else:
                 progname = "pypy"
             self.programname = rffi.str2charp(progname)
@@ -111,7 +111,7 @@ class State:
         if not self.version:
             space = self.space
             w_version = space.sys.get('version')
-            version = space.str_w(w_version)
+            version = space.text_w(w_version)
             self.version = rffi.str2charp(version)
             lltype.render_immortal(self.version)
         return self.version

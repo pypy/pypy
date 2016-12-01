@@ -37,7 +37,7 @@ def unpack_fields(space, w_fields):
                         "Expected list of 2- or 3-size tuples")
 
         try:
-            name = space.str_w(l_w[0])
+            name = space.text_w(l_w[0])
         except OperationError:
             raise oefmt(space.w_TypeError,
                         "structure field name must be string not %T", l_w[0])

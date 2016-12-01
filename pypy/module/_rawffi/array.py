@@ -185,7 +185,7 @@ class W_ArrayInstance(W_DataInstance):
 
     def setslice(self, space, w_slice, w_value):
         start, stop = self.decodeslice(space, w_slice)
-        value = space.str_w(w_value)
+        value = space.bytes_w(w_value)
         if start + len(value) != stop:
             raise oefmt(space.w_ValueError, "cannot resize array")
         ll_buffer = self.ll_buffer

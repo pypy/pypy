@@ -170,7 +170,7 @@ def PyMemoryView_GET_BUFFER(space, w_obj):
     except ValueError:
         w_s = w_obj.descr_tobytes(space)
         view.c_obj = make_ref(space, w_s)
-        view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(space.str_w(w_s), track_allocation=False))
+        view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(space.text_w(w_s), track_allocation=False))
         rffi.setintfield(view, 'c_readonly', 1)
         isstr = True
     return view

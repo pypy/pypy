@@ -100,7 +100,7 @@ def letter2tp(space, key):
 def unpack_simple_shape(space, w_shape):
     # 'w_shape' must be either a letter or a tuple (struct, 1).
     if space.isinstance_w(w_shape, space.w_str):
-        letter = space.str_w(w_shape)
+        letter = space.text_w(w_shape)
         return letter2tp(space, letter)
     else:
         w_shapetype, w_length = space.fixedview(w_shape, expected_length=2)
@@ -110,8 +110,8 @@ def unpack_simple_shape(space, w_shape):
 def unpack_shape_with_length(space, w_shape):
     # Allow 'w_shape' to be a letter or any (shape, number).
     # The result is always a W_Array.
-    if space.isinstance_w(w_shape, space.w_str):
-        letter = space.str_w(w_shape)
+    if space.isinstance_w(w_shape, space.w_text):
+        letter = space.text_w(w_shape)
         return letter2tp(space, letter)
     else:
         w_shapetype, w_length = space.fixedview(w_shape, expected_length=2)
@@ -186,8 +186,8 @@ class W_CDLL(W_Root):
         else:
             ffi_restype = ffi_type_void
 
-        if space.isinstance_w(w_name, space.w_str):
-            name = space.str_w(w_name)
+        if space.isinstance_w(w_name, space.w_text):
+            name = space.text_w(w_name)
 
             try:
                 ptr = self.cdll.getrawpointer(name, ffi_argtypes, ffi_restype,
@@ -408,7 +408,7 @@ def unwrap_value(space, push_func, add_arg, argdesc, letter, w_arg):
         push_func(add_arg, argdesc, rffi.cast(rffi.LONGDOUBLE,
                                               space.float_w(w_arg)))
     elif letter == "c":
-        s = space.str_w(w_arg)
+        s = space.bytes_w(w_arg)
         if len(s) != 1:
             raise oefmt(space.w_TypeError,
                         "Expected string of length one as character")

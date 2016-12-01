@@ -115,7 +115,7 @@ def PyMember_SetOne(space, obj, w_member, w_value):
             return 0
 
     if member_type == T_CHAR:
-        str_value = space.str_w(w_value)
+        str_value = space.text_w(w_value)
         if len(str_value) != 1:
             raise oefmt(space.w_TypeError, "string of length 1 expected")
         array = rffi.cast(rffi.CCHARP, addr)

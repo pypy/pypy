@@ -413,7 +413,7 @@ class ReadBZ2Filter(Stream):
                 raise oefmt(self.space.w_EOFError,
                             "compressed file ended before the logical "
                             "end-of-the-stream was detected")
-            result = self.space.str_w(w_result)
+            result = self.space.bytes_w(w_result)
             self.readlength += len(result)
         else:
             result = ""
@@ -443,7 +443,7 @@ class ReadBZ2Filter(Stream):
                     self.finished = True
                     return ""
                 raise
-            self.buffer = self.space.str_w(w_read)
+            self.buffer = self.space.bytes_w(w_read)
             self.pos = 0
         if len(self.buffer) - self.pos >= n:
             pos = self.pos
@@ -478,11 +478,11 @@ class WriteBZ2Filter(Stream):
         self.writtenlength = 0
 
     def close1(self, closefileno):
-        self.stream.write(self.space.str_w(self.compressor.flush()))
+        self.stream.write(self.space.bytes_w(self.compressor.flush()))
         self.stream.close1(closefileno)
 
     def write(self, data):
-        self.stream.write(self.space.str_w(self.compressor.compress(data)))
+        self.stream.write(self.space.bytes_w(self.compressor.compress(data)))
         self.writtenlength += len(data)
 
     def tell(self):

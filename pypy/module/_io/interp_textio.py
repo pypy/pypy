@@ -375,9 +375,8 @@ class W_TextIOWrapper(W_TextIOBase):
         else:
             newline = space.unicode_w(w_newline)
         if newline and newline not in (u'\n', u'\r\n', u'\r'):
-            r = space.str_w(space.repr(w_newline))
             raise oefmt(space.w_ValueError,
-                        "illegal newline value: %s", r)
+                        "illegal newline value: %R", w_newline)
 
         self.line_buffering = line_buffering
 
@@ -398,7 +397,7 @@ class W_TextIOWrapper(W_TextIOBase):
         # build the decoder object
         if space.is_true(space.call_method(w_buffer, "readable")):
             w_codec = interp_codecs.lookup_codec(space,
-                                                 space.str_w(self.w_encoding))
+                                                 space.text_w(self.w_encoding))
             self.w_decoder = space.call_method(w_codec,
                                                "incrementaldecoder", w_errors)
             if self.readuniversal:
@@ -409,7 +408,7 @@ class W_TextIOWrapper(W_TextIOBase):
         # build the encoder object
         if space.is_true(space.call_method(w_buffer, "writable")):
             w_codec = interp_codecs.lookup_codec(space,
-                                                 space.str_w(self.w_encoding))
+                                                 space.text_w(self.w_encoding))
             self.w_encoder = space.call_method(w_codec,
                                                "incrementalencoder", w_errors)
 
@@ -875,9 +874,8 @@ class W_TextIOWrapper(W_TextIOBase):
                         whence)
 
         if space.is_true(space.lt(w_pos, space.newint(0))):
-            r = space.str_w(space.repr(w_pos))
             raise oefmt(space.w_ValueError,
-                        "negative seek position %s", r)
+                        "negative seek position %R", w_pos)
 
         space.call_method(self, "flush")
 
@@ -984,7 +982,7 @@ class W_TextIOWrapper(W_TextIOBase):
 
                 w_state = space.call_method(self.w_decoder, "getstate")
                 w_dec_buffer, w_flags = space.unpackiterable(w_state, 2)
-                dec_buffer_len = len(space.str_w(w_dec_buffer))
+                dec_buffer_len = space.len_w(w_dec_buffer)
 
                 if dec_buffer_len == 0 and chars_decoded <= chars_to_skip:
                     # Decoder buffer is empty, so this is a safe start point.

@@ -79,7 +79,7 @@ def bytes_attach(space, py_obj, w_obj):
     c_ob_sval must not be modified.
     """
     py_str = rffi.cast(PyBytesObject, py_obj)
-    s = space.str_w(w_obj)
+    s = space.bytes_w(w_obj)
     if py_str.c_ob_size  < len(s):
         raise oefmt(space.w_ValueError,
             "bytes_attach called on object with ob_size %d but trying to store %d",
