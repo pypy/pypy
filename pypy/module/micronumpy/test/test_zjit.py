@@ -374,17 +374,7 @@ class TestNumpyJit(LLJitMixin):
     def test_sum(self):
         result = self.run("sum")
         assert result == sum(range(30))
-        self.check_vectorized(1, 1)
-
-    def define_sum():
-        return """
-        a = |30|
-        sum(a)
-        """
-    def test_sum(self):
-        result = self.run("sum")
-        assert result == sum(range(30))
-        self.check_vectorized(1, 1)
+        self.check_vectorized(1, 0)
 
     def define_sum_int():
         return """
