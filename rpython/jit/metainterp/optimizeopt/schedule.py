@@ -980,7 +980,6 @@ class Pair(Pack):
 class AccumPack(Pack):
     SUPPORTED = { rop.FLOAT_ADD: '+',
                   rop.INT_ADD:   '+',
-                  rop.FLOAT_MUL: '*',
                 }
 
     def __init__(self, nodes, operator, position):

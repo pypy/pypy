@@ -518,12 +518,10 @@ class TestNumpyJit(LLJitMixin):
     def test_prod(self):
         result = self.run("prod")
         assert int(result) == 576
-        self.check_vectorized(1, 1)
 
     def test_prod_zero(self):
         result = self.run("prod_zero")
         assert int(result) == 0
-        self.check_vectorized(1, 1)
 
 
     def define_max():
