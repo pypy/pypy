@@ -9,7 +9,7 @@ from pypy.interpreter.streamutil import wrap_streamerror
 
 def extension_suffixes(space):
     suffixes_w = []
-    if space.config.objspace.usemodules.cpyext:
+    if 1:   #if space.config.objspace.usemodules.cpyext:
         suffixes_w.append(space.wrap(importing.get_so_extension(space)))
     return space.newlist(suffixes_w)
 
