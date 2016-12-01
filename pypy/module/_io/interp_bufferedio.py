@@ -158,6 +158,9 @@ class RawBuffer(Buffer):
     def getlength(self):
         return self.length
 
+    def getitem(self, index):
+        return self.buf[index]
+
     def setitem(self, index, char):
         self.buf[self.start + index] = char
 
