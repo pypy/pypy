@@ -978,9 +978,7 @@ class Pair(Pack):
                    self.right is other.right
 
 class AccumPack(Pack):
-    SUPPORTED = { rop.FLOAT_ADD: '+',
-                  rop.INT_ADD:   '+',
-                }
+    SUPPORTED = { rop.INT_ADD: '+', }
 
     def __init__(self, nodes, operator, position):
         Pack.__init__(self, nodes)
