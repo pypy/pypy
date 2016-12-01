@@ -3,7 +3,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.pyopcode import LoopBlock, SApplicationException, Yield
 from pypy.interpreter.pycode import CO_YIELD_INSIDE_TRY
 from pypy.interpreter.astcompiler import consts
-from rpython.rlib import jit
+from rpython.rlib import jit, rgc
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_uint
 
@@ -20,7 +20,7 @@ class GeneratorOrCoroutine(W_Root):
         self.running = False
         self._name = name           # may be null, use get_name()
         self._qualname = qualname   # may be null, use get_qualname()
-        if (isinstance(self, Coroutine)    # XXX would be cool not to need this
+        if (isinstance(self, Coroutine)
                 or self.pycode.co_flags & CO_YIELD_INSIDE_TRY):
             self.register_finalizer(self.space)
         self.saved_operr = None
@@ -89,7 +89,7 @@ return next yielded value or raise StopIteration."""
 
         # if the frame is now marked as finished, it was RETURNed from
         if frame.frame_finished_execution:
-            self.frame = None
+            self.frame_is_finished()
             if space.is_w(w_result, space.w_None):
                 raise OperationError(space.w_StopIteration, space.w_None)
             else:
@@ -107,6 +107,14 @@ return next yielded value or raise StopIteration."""
         if self.saved_operr is not None:
             ec.set_sys_exc_info(self.saved_operr)
             self.saved_operr = None
+        #
+        # Optimization only: after we've started a Coroutine without
+        # CO_YIELD_INSIDE_TRY, then Coroutine._finalize_() will be a no-op
+        if (isinstance(self, Coroutine)
+                and frame.last_instr == -1
+                and not (self.pycode.co_flags & CO_YIELD_INSIDE_TRY)):
+            rgc.may_ignore_finalizer(self)
+        #
         self.running = True
         try:
             w_result = frame.execute_frame(self, w_arg_or_err)
@@ -116,7 +124,7 @@ return next yielded value or raise StopIteration."""
                 if e.match(space, space.w_StopIteration):
                     self._leak_stopiteration(e)
             finally:
-                self.frame = None
+                self.frame_is_finished()
             raise
         finally:
             frame.f_backref = jit.vref_None
@@ -323,6 +331,10 @@ return next yielded value or raise StopIteration."""
                     break
                 block = block.previous
 
+    def frame_is_finished(self):
+        self.frame = None
+        rgc.may_ignore_finalizer(self)
+
 
 class GeneratorIterator(GeneratorOrCoroutine):
     "An iterator created by a generator."
@@ -364,7 +376,7 @@ class GeneratorIterator(GeneratorOrCoroutine):
                     break
                 # if the frame is now marked as finished, it was RETURNed from
                 if frame.frame_finished_execution:
-                    self.frame = None
+                    self.frame_is_finished()
                     break
                 results.append(w_result)     # YIELDed
         return unpack_into

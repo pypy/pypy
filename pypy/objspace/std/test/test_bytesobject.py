@@ -89,6 +89,13 @@ class TestW_BytesObject:
         assert self.space.listview_bytes(w_bytes) == None
         assert self.space.listview_int(w_bytes) == [97, 98, 99, 100]
 
+    def test_constructor_single_char(self, monkeypatch):
+        from rpython.rlib import jit
+        monkeypatch.setattr(jit, 'isconstant', lambda x: True)
+        space = self.space
+        w_res = space.call_function(space.w_bytes, space.wrap([42]))
+        assert space.str_w(w_res) == '*'
+
 class AppTestBytesObject:
 
     def test_constructor(self):
@@ -97,6 +104,23 @@ class AppTestBytesObject:
         assert bytes(b'abc') == b'abc'
         assert bytes('abc', 'ascii') == b'abc'
         assert bytes(set(b'foo')) in (b'fo', b'of')
+        assert bytes([]) == b''
+        assert bytes([42]) == b'*'
+        assert bytes([0xFC]) == b'\xFC'
+        assert bytes([42, 0xCC]) == b'*\xCC'
+
+    def test_constructor_list_of_objs(self):
+        class X:
+            def __index__(self):
+                return 42
+        class Y:
+            def __int__(self):
+                return 42
+        for obj in [42, X()]:
+            assert bytes([obj]) == b'*'
+            assert bytes([obj, obj, obj]) == b'***'
+        raises(TypeError, bytes, [Y()])
+        raises(TypeError, bytes, [Y(), Y()])
 
     def test_fromhex(self):
         assert bytes.fromhex("abcd") == b'\xab\xcd'

@@ -247,6 +247,13 @@ class TestMisc(BaseTestPyPyC):
         """)
 
     def test_dont_trace_every_iteration(self):
+        def reference(a, b):
+            i = sa = 0
+            while i < 300:
+                sa += a % b
+                i += 1
+            return sa
+        #
         def main(a, b):
             i = sa = 0
             while i < 300:
@@ -258,9 +265,12 @@ class TestMisc(BaseTestPyPyC):
                 i += 1
             return sa
         #
+        log_ref = self.run(reference, [10, 20])
+        assert log_ref.result == 300 * (10 % 20)
+        #
         log = self.run(main, [10, 20])
         assert log.result == 300 * (10 % 20)
-        assert log.jit_summary.tracing_no == 1
+        assert log.jit_summary.tracing_no == log_ref.jit_summary.tracing_no
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
             i11 = int_lt(i7, 300)
@@ -274,7 +284,7 @@ class TestMisc(BaseTestPyPyC):
         #
         log = self.run(main, [-10, -20])
         assert log.result == 300 * (-10 % -20)
-        assert log.jit_summary.tracing_no == 1
+        assert log.jit_summary.tracing_no == log_ref.jit_summary.tracing_no
 
     def test_overflow_checking(self):
         """
@@ -297,6 +307,7 @@ class TestMisc(BaseTestPyPyC):
         self.run_and_check(main, [])
 
     def test_global(self):
+        # check that the global read is removed even from the entry bridge
         log = self.run("""
         i = 0
         globalinc = 1
@@ -308,7 +319,10 @@ class TestMisc(BaseTestPyPyC):
         """, [1000])
 
         loop, = log.loops_by_id("globalread", is_entry_bridge=True)
-        assert len(loop.ops_by_id("globalread")) == 0
+        assert loop.match_by_id("globalread", """
+            # only a dead read
+            p26 = getfield_gc_r(ConstPtr(ptr25), descr=<FieldP pypy.objspace.std.unicodeobject.W_UnicodeObject.inst__utf8 .>)
+        """)
 
     def test_eval(self):
         def main():
@@ -349,7 +363,8 @@ class TestMisc(BaseTestPyPyC):
     def test_long_comparison(self):
         def main(n):
             while n:
-                12345L > 123L  # ID: long_op
+                x = 12345678901234567890123456
+                x > 1231231231231231231231231  # ID: long_op
                 n -= 1
 
         log = self.run(main, [300])

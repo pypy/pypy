@@ -320,3 +320,36 @@ class TestInstance(BaseTestPyPyC):
             --TICK--
             jump(..., descr=...)
         """)
+
+    def test_super_no_args(self):
+        def main():
+            class A(object):
+                def m(self, x):
+                    return x + 1
+            class B(A):
+                def m(self, x):
+                    return super().m(x)
+            i = 0
+            while i < 300:
+                i = B().m(i)
+            return i
+
+        log = self.run(main, [])
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i78 = int_lt(i72, 300)
+            guard_true(i78, descr=...)
+            guard_not_invalidated(descr=...)
+            p1 = force_token()
+            p65 = force_token()
+            p3 = force_token()
+            i81 = int_add(i72, 1)
+
+            # can't use TICK here, because of the extra setfield_gc
+            ticker0 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct.c_value .*>)
+            setfield_gc(p0, p65, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token .>)
+            ticker_cond0 = int_lt(ticker0, 0)
+            guard_false(ticker_cond0, descr=...)
+
+            jump(..., descr=...)
+        """)

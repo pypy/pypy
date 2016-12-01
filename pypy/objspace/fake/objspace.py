@@ -66,14 +66,15 @@ class W_MyListObj(W_MyObject):
 class W_MyType(W_MyObject):
     name = "foobar"
     flag_map_or_seq = '?'
+    hasuserdel = False
 
     def __init__(self):
         self.mro_w = [w_some_obj(), w_some_obj()]
         self.dict_w = {'__str__': w_some_obj()}
+        self.hasuserdel = True
 
     def get_module(self):
         return w_some_obj()
-
 
     def getname(self, space):
         return self.name.decode('utf-8')

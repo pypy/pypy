@@ -155,7 +155,10 @@ GCFLAG_PINNED        = first_gcflag << 9
 # 'old_objects_pointing_to_pinned' and doesn't have to be added again.
 GCFLAG_PINNED_OBJECT_PARENT_KNOWN = GCFLAG_PINNED
 
-_GCFLAG_FIRST_UNUSED = first_gcflag << 10    # the first unused bit
+# record that ignore_finalizer() has been called
+GCFLAG_IGNORE_FINALIZER = first_gcflag << 10
+
+_GCFLAG_FIRST_UNUSED = first_gcflag << 11    # the first unused bit
 
 
 # States for the incremental GC
@@ -1161,6 +1164,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
             obj = self.get_forwarding_address(obj)
         return self.get_type_id(obj)
 
+    def get_possibly_forwarded_tid(self, obj):
+        if self.is_in_nursery(obj) and self.is_forwarded(obj):
+            obj = self.get_forwarding_address(obj)
+        return self.header(obj).tid
+
     def get_total_memory_used(self):
         """Return the total memory used, not counting any object in the
         nursery: only objects in the ArenaCollection or raw-malloced.
@@ -1672,7 +1680,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.rrc_minor_collection_trace()
         #
         # visit the "probably young" objects with finalizers.  They
-        # always all survive.
+        # all survive, except if IGNORE_FINALIZER is set.
         if self.probably_young_objects_with_finalizers.non_empty():
             self.deal_with_young_objects_with_finalizers()
         #
@@ -2675,6 +2683,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         while self.probably_young_objects_with_finalizers.non_empty():
             obj = self.probably_young_objects_with_finalizers.popleft()
             fq_nr = self.probably_young_objects_with_finalizers.popleft()
+            if self.get_possibly_forwarded_tid(obj) & GCFLAG_IGNORE_FINALIZER:
+                continue
             self.singleaddr.address[0] = obj
             self._trace_drag_out1(self.singleaddr)
             obj = self.singleaddr.address[0]
@@ -2697,6 +2707,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             fq_nr = self.old_objects_with_finalizers.popleft()
             ll_assert(self._finalization_state(x) != 1,
                       "bad finalization state 1")
+            if self.header(x).tid & GCFLAG_IGNORE_FINALIZER:
+                continue
             if self.header(x).tid & GCFLAG_VISITED:
                 new_with_finalizer.append(x)
                 new_with_finalizer.append(fq_nr)
@@ -2786,6 +2798,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         ll_assert(not self.is_in_nursery(obj), "pinned finalizer object??")
         self.objects_to_trace.append(obj)
         self.visit_all_objects()
+
+    def ignore_finalizer(self, obj):
+        self.header(obj).tid |= GCFLAG_IGNORE_FINALIZER
 
 
     # ----------

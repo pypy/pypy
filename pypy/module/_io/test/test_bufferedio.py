@@ -65,6 +65,23 @@ class AppTestBufferedReader:
         bufio = _io.BufferedReader(MockIO())
         assert bufio.read(9000) == b"abcdefg"
 
+    def test_valid_buffer(self):
+        import _io
+
+        class MockIO(_io._IOBase):
+            def readable(self):
+                return True
+
+            def readinto(self, buf):
+                # Check that `buf` is a valid memoryview object
+                assert buf.itemsize == 1
+                assert buf.strides == (1,)
+                assert buf.shape == (len(buf),)
+                return len(bytes(buf))
+
+        bufio = _io.BufferedReader(MockIO())
+        assert len(bufio.read(5)) == 5  # Note: PyPy zeros the buffer, CPython does not
+
     def test_buffering(self):
         import _io
         data = b"abcdefghi"
@@ -695,7 +712,7 @@ class AppTestBufferedRandom:
                 expected[j] = 2
                 expected[i] = 1
                 assert raw.getvalue() == expected
-        
+
     def test_interleaved_read_write(self):
         import _io as io
         # Test for issue #12213

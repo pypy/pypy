@@ -63,15 +63,47 @@ class W_BufferedIOBase(W_IOBase):
         raise NotImplementedError
 
     def read_w(self, space, w_size=None):
+        """Read and return up to n bytes.
+
+If the argument is omitted, None, or negative, reads and
+returns all data until EOF.
+
+If the argument is positive, and the underlying raw stream is
+not 'interactive', multiple raw reads may be issued to satisfy
+the byte count (unless EOF is reached first).  But for
+interactive raw streams (as well as sockets and pipes), at most
+one raw read will be issued, and a short result does not imply
+that EOF is imminent.
+
+Returns an empty bytes object on EOF.
+
+Returns None if the underlying raw stream was open in non-blocking
+mode and no data is available at the moment."""
         self._unsupportedoperation(space, "read")
 
     def read1_w(self, space, w_size):
+        """Read and return up to n bytes, with at most one read() call
+to the underlying raw stream. A short result does not imply
+that EOF is imminent.
+
+Returns an empty bytes object on EOF."""
         self._unsupportedoperation(space, "read1")
 
     def write_w(self, space, w_data):
+        """Write the given buffer to the IO stream.
+
+Returns the number of bytes written, which is always the length of b
+in bytes.
+
+Raises BlockingIOError if the buffer is full and the
+underlying raw stream cannot accept more data at the moment."""
         self._unsupportedoperation(space, "write")
 
     def detach_w(self, space):
+        """Disconnect this buffer from its underlying raw stream and return it.
+
+After the raw stream has been detached, the buffer is in an unusable
+state."""
         self._unsupportedoperation(space, "detach")
 
     def readinto_w(self, space, w_buffer):
@@ -92,6 +124,20 @@ class W_BufferedIOBase(W_IOBase):
 
 W_BufferedIOBase.typedef = TypeDef(
     '_io._BufferedIOBase', W_IOBase.typedef,
+    __doc__="""Base class for buffered IO objects.
+
+The main difference with RawIOBase is that the read() method
+supports omitting the size argument, and does not have a default
+implementation that defers to readinto().
+
+In addition, read(), readinto() and write() may raise
+BlockingIOError if the underlying raw stream is in non-blocking
+mode and not ready; unlike their raw counterparts, they will never
+return None.
+
+A typical implementation should not inherit from a RawIOBase
+implementation, but wrap one.
+""",
     __new__ = generic_new_descr(W_BufferedIOBase),
     read = interp2app(W_BufferedIOBase.read_w),
     read1 = interp2app(W_BufferedIOBase.read1_w),
@@ -111,6 +157,9 @@ class RawBuffer(Buffer):
 
     def getlength(self):
         return self.length
+
+    def getitem(self, index):
+        return self.buf[index]
 
     def setitem(self, index, char):
         self.buf[self.start + index] = char

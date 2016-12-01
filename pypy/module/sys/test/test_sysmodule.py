@@ -589,6 +589,35 @@ class AppTestSysModulePortedFromCPython:
         #
         raises(AttributeError, "del ns.spam")
         del ns.y
+        #
+        assert ns == SimpleNamespace(z=4, x=1, w=3)
+        assert (ns != SimpleNamespace(z=4, x=1, w=3)) is False
+        assert (ns == SimpleNamespace(z=4, x=2, w=3)) is False
+        assert ns != SimpleNamespace(z=4, x=2, w=3)
+        #
+        class Foo(SimpleNamespace):
+            pass
+        assert ns == Foo(z=4, x=1, w=3)
+        assert (ns != Foo(z=4, x=1, w=3)) is False
+        assert (ns == Foo(z=4, x=2, w=3)) is False
+        assert ns != Foo(z=4, x=2, w=3)
+        #
+        class Other:
+            def __init__(self, x, z, w):
+                self.x = x
+                self.z = z
+                self.w = w
+        assert (ns == Other(z=4, x=1, w=3)) is False
+        assert ns != Other(z=4, x=1, w=3)
+        assert (Foo(z=4, x=1, w=3) == Other(z=4, x=1, w=3)) is False
+        assert Foo(z=4, x=1, w=3) != Other(z=4, x=1, w=3)
+        #
+        class Fake:
+            __class__ = SimpleNamespace
+        assert isinstance(Fake(), SimpleNamespace)
+        assert not issubclass(Fake, SimpleNamespace)
+        assert (Fake() == SimpleNamespace()) is False
+        assert SimpleNamespace() != Fake()
 
     def test_pickle_simplenamespace(self):
         import pickle, sys

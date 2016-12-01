@@ -129,6 +129,20 @@ class AppTest_ModuleObject:
         expected_repr = "<module 'test_module' ({})>".format(loader_repr)
         assert mod_repr == expected_repr
 
+    def test_repr_with_loader_with_raising_module_repr2(self):
+        import sys
+        test_module = type(sys)("test_module", "doc")
+        # If an exception occurs in module_repr(), the exception is caught
+        # and discarded, and the calculation of the module’s repr continues
+        # as if module_repr() did not exist.
+        class CustomLoaderWithRaisingRepr:
+            @classmethod
+            def module_repr(cls, module):
+                raise KeyboardInterrupt
+
+        test_module.__loader__ = CustomLoaderWithRaisingRepr
+        raises(KeyboardInterrupt, 'repr(test_module)')
+
     def test_repr_with_raising_loader_and___file__(self):
         import sys
         test_module = type(sys)("test_module", "doc")

@@ -1,3 +1,4 @@
+from rpython.rlib import jit
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
@@ -67,29 +68,43 @@ class W_Super(W_Root):
         # fallback to object.__getattribute__()
         return space.call_function(object_getattribute(space), self, w_name)
 
-def _super_from_frame(space, frame):
-    """super() without args -- fill in from __class__ and first local
-    variable on the stack.
-    """
-    code = frame.pycode
-    if not code:
-        raise oefmt(space.w_RuntimeError, "super(): no code object")
+@jit.elidable
+def _get_self_location(space, code):
     if code.co_argcount == 0:
         raise oefmt(space.w_RuntimeError, "super(): no arguments")
-    w_obj = frame.locals_cells_stack_w[0]
-    if not w_obj:
-        raise oefmt(space.w_RuntimeError, "super(): arg[0] deleted")
+    args_to_copy = code._args_as_cellvars
+    for i in range(len(args_to_copy)):
+        if args_to_copy[i] == 0:
+            self_cell = i
+            break
+    else:
+        self_cell = -1
 
     for index, name in enumerate(code.co_freevars):
         if name == '__class__':
             break
     else:
         raise oefmt(space.w_RuntimeError, "super(): __class__ cell not found")
+    class_cell = len(code.co_cellvars) + index
+    return self_cell, class_cell
+
+def _super_from_frame(space, frame):
+    """super() without args -- fill in from __class__ and first local
+    variable on the stack.
+    """
+    if frame is None:
+        raise oefmt(space.w_RuntimeError, "super(): no frame object")
+    self_cell, class_cell = _get_self_location(space, frame.getcode())
+    if self_cell < 0:
+        w_obj = frame.locals_cells_stack_w[0]
+    else:
+        w_obj = frame._getcell(self_cell).w_value
+    if not w_obj:
+        raise oefmt(space.w_RuntimeError, "super(): arg[0] deleted")
+
     # a kind of LOAD_DEREF
-    cell = frame._getcell(len(code.co_cellvars) + index)
-    try:
-        w_starttype = cell.get()
-    except ValueError:
+    w_starttype = frame._getcell(class_cell).w_value
+    if w_starttype is None:
         raise oefmt(space.w_RuntimeError, "super(): empty __class__ cell")
     return w_starttype, w_obj
 
