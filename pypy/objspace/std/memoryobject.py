@@ -167,18 +167,20 @@ class W_MemoryView(W_Root):
             raise NotImplementedError
         elif dim == 1:
             itemsize = self.getitemsize()
-            return self._tolist(space, buf, self.getlength() // itemsize, fmt)
+            return self._tolist(space, buf, self.getlength(), itemsize, fmt,
+                                self.getstrides())
         else:
             return self._tolist_rec(space, buf, 0, 0, fmt)
 
-    def _tolist(self, space, buf, count, fmt):
+    def _tolist(self, space, buf, bytecount, itemsize, fmt, strides=None):
         # TODO: this probably isn't very fast
+        count = bytecount // itemsize
         fmtiter = UnpackFormatIterator(space, buf)
         # patch the length, necessary buffer might have offset
         # which leads to wrong length calculation if e.g. the
         # memoryview is reversed
-        fmtiter.length = self.getlength()
-        fmtiter.strides = self.getstrides()
+        fmtiter.length = bytecount
+        fmtiter.strides = strides
         fmtiter.interpret(fmt * count)
         return space.newlist(fmtiter.result_w)
 
@@ -193,12 +195,13 @@ class W_MemoryView(W_Root):
         #
         if dim >= self.getndim():
             bytecount = (stride * dimshape)
-            count = bytecount // itemsize
-            return self._tolist(space, buf, count, fmt)
+            return self._tolist(space, buf, bytecount, itemsize, fmt, [stride])
         items = [None] * dimshape
 
         for i in range(dimshape):
-            item = self._tolist_rec(space, SubBuffer(buf, start, stride), start, idim+1, fmt)
+            import pdb; pdb.set_trace()
+            buf = SubBuffer(buf, start, stride)
+            item = self._tolist_rec(space, buf, start, idim+1, fmt)
             items[i] = item
             start += stride
 

@@ -135,9 +135,8 @@ class UnpackFormatIterator(FormatIterator):
 
     def read(self, count):
         if self.strides:
-            end = self.pos + count * self.strides[0]
-        else:
-            end = self.pos + count
+            count = self.strides[0]
+        end = self.pos + count
         if end > self.length:
             raise StructError("unpack str size too short for format")
         s = self.buf.getslice(self.pos, end, 1, count)

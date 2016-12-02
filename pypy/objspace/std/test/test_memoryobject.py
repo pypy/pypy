@@ -1,4 +1,5 @@
 import py
+import pytest
 import struct
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app
@@ -424,3 +425,18 @@ class AppTestMemoryViewMockBuffer(object):
         assert view[::-1][-2] == 1
         assert list(reversed(view)) == revlist
         assert list(reversed(view)) == view[::-1].tolist()
+
+class AppTestMemoryViewReversed(object):
+    spaceconfig = dict(usemodules=['array'])
+    def test_reversed_non_bytes(self):
+        import array
+        items = [1,2,3,9,7,5]
+        formats = ['h']
+        for fmt in formats:
+            bytes = array.array(fmt, items)
+            view = memoryview(bytes)
+            bview = view.cast('b')
+            rview = bview.cast(fmt, shape=(2,3))
+            assert rview.tolist() == [[1,2,3],[9,7,5]]
+            assert rview[::-1].tolist() == [[3,2,1], [5,7,9]]
+            raises(NotImplementedError, list, reversed(rview))
