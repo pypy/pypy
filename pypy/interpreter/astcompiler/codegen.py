@@ -243,6 +243,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 op = name_ops_fast(ctx)
         elif scope == symtable.SCOPE_FREE:
             op = name_ops_deref(ctx)
+            if op == ops.LOAD_DEREF and isinstance(self, ClassCodeGenerator):
+                op = ops.LOAD_CLASSDEREF
             container = self.free_vars
         elif scope == symtable.SCOPE_CELL:
             op = name_ops_deref(ctx)

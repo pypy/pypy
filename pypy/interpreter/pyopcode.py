@@ -348,6 +348,8 @@ class __extend__(pyframe.PyFrame):
                 self.LOAD_CONST(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_DEREF.index:
                 self.LOAD_DEREF(oparg, next_instr)
+            elif opcode == opcodedesc.LOAD_CLASSDEREF.index:
+                self.LOAD_CLASSDEREF(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_FAST.index:
                 self.LOAD_FAST(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_GLOBAL.index:
@@ -518,6 +520,18 @@ class __extend__(pyframe.PyFrame):
             w_value = cell.get()
         except ValueError:
             self.raise_exc_unbound(varindex)
+        else:
+            self.pushvalue(w_value)
+
+    def LOAD_CLASSDEREF(self, varindex, next_instr):
+        # like LOAD_DEREF but used in class bodies
+        space = self.space
+        i = varindex - len(self.pycode.co_cellvars)
+        assert i >= 0
+        name = self.pycode.co_freevars[i]
+        w_value = space.finditem(self.debugdata.w_locals, space.wrap(name))
+        if w_value is None:
+            self.LOAD_DEREF(varindex, next_instr)
         else:
             self.pushvalue(w_value)
 

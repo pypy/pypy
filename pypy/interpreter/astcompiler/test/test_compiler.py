@@ -1151,6 +1151,17 @@ class TestCompiler:
         assert e.value.msg == (
             "'await' expressions in comprehensions are not supported")
 
+    def test_load_classderef(self):
+        source = """if 1:
+        def f():
+            x = 42
+            class X:
+                locals()["x"] = 43
+                y = x
+            return X.y
+        """
+        yield self.st, source, "f()", 43
+
 
 class AppTestCompiler:
 
