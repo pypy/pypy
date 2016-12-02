@@ -50,3 +50,6 @@ def unregister(func):
     for i, (f, _, _) in enumerate(atexit_callbacks):
         if f == func:
             atexit_callbacks[i] = (None, None, None)
+
+def ncallbacks():
+    return len(atexit_callbacks)
