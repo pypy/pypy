@@ -411,8 +411,16 @@ class AppTestMemoryViewMockBuffer(object):
         raises(TypeError, "view.cast('h', shape=(3,3))")
 
     def test_reversed(self):
-        bytes = b"\x01\x00\x02\x00\x03\x00"
+        bytes = b"\x01\x01\x02\x02\x03\x03"
         view = memoryview(bytes)
         revlist = list(reversed(view.tolist()))
+        assert view[::-1][0] == 3
+        assert view[::-1][1] == 3
+        assert view[::-1][2] == 2
+        assert view[::-1][3] == 2
+        assert view[::-1][4] == 1
+        assert view[::-1][5] == 1
+        assert view[::-1][-1] == 1
+        assert view[::-1][-2] == 1
         assert list(reversed(view)) == revlist
         assert list(reversed(view)) == view[::-1].tolist()

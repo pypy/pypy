@@ -212,12 +212,11 @@ class W_MemoryView(W_Root):
         while dim < length:
             w_obj = w_tuple.getitem(space, dim)
             index = space.getindex_w(w_obj, space.w_IndexError)
-            start = self.lookup_dimension(space, start, dim, index)
+            start = self.lookup_dimension(space, self.buf, start, dim, index)
             dim += 1
         return start
 
-    def lookup_dimension(self, space, start, dim, index):
-        view = self.buf
+    def lookup_dimension(self, space, view, start, dim, index):
         shape = view.getshape()
         strides = view.getstrides()
         nitems = shape[dim]
@@ -264,9 +263,16 @@ class W_MemoryView(W_Root):
         # ^^^ for a non-slice index, this returns (index, 0, 0, 1)
         if step == 0:  # index only
             itemsize = self.getitemsize()
+            dim = self.getndim()
             if itemsize == 1:
-                ch = self.buf.getitem(start)
-                return space.newint(ord(ch))
+                if dim == 0:
+                    raise oefmt(space.w_TypeError, "invalid indexing of 0-dim memory")
+                elif dim == 1:
+                    idx = self.lookup_dimension(space, self, 0, 0, start)
+                    ch = self.buf.getitem(idx)
+                    return space.newint(ord(ch))
+                else:
+                    raise oefmt(space.w_NotImplementedError, "multi-dimensional sub-views are not implemented")
             else:
                 # TODO: this probably isn't very fast
                 buf = SubBuffer(self.buf, start*itemsize, itemsize)
@@ -292,7 +298,7 @@ class W_MemoryView(W_Root):
         shape = self.getshape()[:]
         itemsize = self.getitemsize()
         dim = 0
-        self.buf = SubBuffer(self.buf, strides[dim] * start, size*step*itemsize)
+        self.buf = SubBuffer(self.buf, strides[dim] * start, itemsize)
         shape[dim] = size
         strides[dim] = strides[dim] * step
         self.strides = strides
