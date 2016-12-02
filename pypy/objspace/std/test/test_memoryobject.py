@@ -437,6 +437,6 @@ class AppTestMemoryViewReversed(object):
             view = memoryview(bytes)
             bview = view.cast('b')
             rview = bview.cast(fmt, shape=(2,3))
-            assert rview.tolist() == [[1,2,3],[9,7,5]]
-            assert rview[::-1].tolist() == [[3,2,1], [5,7,9]]
             raises(NotImplementedError, list, reversed(rview))
+            assert rview.tolist() == [[1,2,3],[9,7,5]]
+            assert rview[::-1].tolist() == [[9,7,5], [1,2,3]]

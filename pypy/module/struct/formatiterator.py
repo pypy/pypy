@@ -159,13 +159,12 @@ class UnpackFormatIterator(FormatIterator):
 
     def skip(self, count):
         # assumption: UnpackFormatIterator only iterates over
-        # flat structures (continous memory) either, forward (index
-        # is increasing) or reverse
+        # flat structures (continous memory) either: forward (index
+        # grows) or reverse
         if self.strides:
             assert len(self.strides) == 1
-            end = self.pos + count * self.strides[0]
-        else:
-            end = self.pos + count
+            count = self.strides[0]
+        end = self.pos + count
         if end > self.length:
             raise StructError("unpack str size too short for format")
         self.pos = end

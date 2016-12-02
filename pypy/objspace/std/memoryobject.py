@@ -199,7 +199,6 @@ class W_MemoryView(W_Root):
         items = [None] * dimshape
 
         for i in range(dimshape):
-            import pdb; pdb.set_trace()
             buf = SubBuffer(buf, start, stride)
             item = self._tolist_rec(space, buf, start, idim+1, fmt)
             items[i] = item
@@ -267,7 +266,8 @@ class W_MemoryView(W_Root):
         if space.isinstance_w(w_index, space.w_tuple):
             return self._getitem_tuple_indexed(space, w_index)
 
-        start, stop, step, size = space.decode_index4(w_index, self.getlength())
+        shape = self.getshape()
+        start, stop, step, slicelength = space.decode_index4(w_index, shape[0])
         # ^^^ for a non-slice index, this returns (index, 0, 0, 1)
         if step == 0:  # index only
             itemsize = self.getitemsize()
@@ -289,28 +289,27 @@ class W_MemoryView(W_Root):
                 return fmtiter.result_w[0]
         elif step == 1:
             mv = W_MemoryView.copy(self)
-            mv.slice(start, step, size)
+            mv.init_slice(start, stop, step, slicelength, 0)
             mv._init_flags()
             return mv
         else:
             mv = W_MemoryView.copy(self)
-            mv.slice(start, step, size)
-            mv.length = mv.bytecount_from_shape()
+            mv.init_slice(start, stop, step, slicelength, 0)
+            mv.init_len()
             mv._init_flags()
             return mv
 
-    def slice(self, start, step, size):
+    def init_slice(self, start, stop, step, slicelength, dim):
         # modifies the buffer, shape and stride to allow step to be > 1
         # TODO subbuffer
-        strides = self.getstrides()[:]
-        shape = self.getshape()[:]
-        itemsize = self.getitemsize()
-        dim = 0
-        self.buf = SubBuffer(self.buf, strides[dim] * start, itemsize)
-        shape[dim] = size
+        self.strides = strides = self.getstrides()[:]
+        self.shape = shape = self.getshape()[:]
+        self.buf = SubBuffer(self.buf, strides[dim] * start, slicelength)
+        shape[dim] = slicelength
         strides[dim] = strides[dim] * step
-        self.strides = strides
-        self.shape = shape
+
+    def init_len(self):
+        self.length = self.bytecount_from_shape()
 
     def bytecount_from_shape(self):
         dim = self.getndim()
@@ -629,8 +628,6 @@ class W_MemoryView(W_Root):
         return None
 
     def _cast_to_ND(self, space, shape, ndim):
-        buf = self.buf
-
         self.ndim = ndim
         length = self.itemsize
         if ndim == 0:
