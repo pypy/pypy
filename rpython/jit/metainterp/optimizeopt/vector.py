@@ -842,7 +842,8 @@ class PackSet(object):
                 oplist.append(vecop)
                 opnum = rop.VEC_INT_XOR
                 if datatype == FLOAT:
-                    opnum = rop.VEC_FLOAT_XOR
+                    # see PRECISION loss below
+                    raise NotImplementedError
                 vecop = VecOperation(opnum, [vecop, vecop],
                                      vecop, count)
                 oplist.append(vecop)

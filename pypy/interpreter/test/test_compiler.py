@@ -806,6 +806,8 @@ class AppTestCompiler(object):
 
     def setup_class(cls):
         cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
+        cls.w_host_is_pypy = cls.space.wrap(
+            '__pypy__' in sys.builtin_module_names)
 
     def w_is_pypy(self):
         import sys
@@ -951,6 +953,18 @@ class AppTestCompiler(object):
             assert v.text ==  "print '\u5e74'\n"
         else:
             assert False, "Expected SyntaxError"
+
+    def test_dict_and_set_literal_order(self):
+        x = 1
+        l1 = list({1:'a', 3:'b', 2:'c', 4:'d'})
+        l2 = list({1, 3, 2, 4})
+        l3 = list({x:'a', 3:'b', 2:'c', 4:'d'})
+        l4 = list({x, 3, 2, 4})
+        if not self.host_is_pypy:
+            # the full test relies on the host Python providing ordered dicts
+            assert set(l1) == set(l2) == set(l3) == set(l4) == {1, 3, 2, 4}
+        else:
+            assert l1 == l2 == l3 == l4 == [1, 3, 2, 4]
 
     def test_ast_equality(self):
         import _ast
