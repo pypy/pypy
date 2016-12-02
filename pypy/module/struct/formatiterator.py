@@ -109,6 +109,7 @@ class UnpackFormatIterator(FormatIterator):
         self.buf = buf
         self.length = buf.getlength()
         self.pos = 0
+        self.strides = None
         self.result_w = []     # list of wrapped objects
 
     # See above comment on operate.
@@ -126,11 +127,18 @@ class UnpackFormatIterator(FormatIterator):
         self.pos = (self.pos + mask) & ~mask
 
     def finished(self):
-        if self.pos != self.length:
-            raise StructError("unpack str size too long for format")
+        if self.strides:
+            # FIXME richard
+            pass
+        else:
+            if self.pos != self.length:
+                raise StructError("unpack str size too long for format")
 
     def read(self, count):
-        end = self.pos + count
+        if self.strides:
+            end = self.pos + count * self.strides[0]
+        else:
+            end = self.pos + count
         if end > self.length:
             raise StructError("unpack str size too short for format")
         s = self.buf.getslice(self.pos, end, 1, count)
@@ -151,5 +159,15 @@ class UnpackFormatIterator(FormatIterator):
         string, pos = self.buf.as_str_and_offset_maybe()
         return string, pos+self.pos
 
-    def skip(self, size):
-        self.read(size) # XXX, could avoid taking the slice
+    def skip(self, count):
+        # assumption: UnpackFormatIterator only iterates over
+        # flat structures (continous memory) either, forward (index
+        # is increasing) or reverse
+        if self.strides:
+            assert len(self.strides) == 1
+            end = self.pos + count * self.strides[0]
+        else:
+            end = self.pos + count
+        if end > self.length:
+            raise StructError("unpack str size too short for format")
+        self.pos = end

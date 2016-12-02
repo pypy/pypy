@@ -167,13 +167,18 @@ class W_MemoryView(W_Root):
             raise NotImplementedError
         elif dim == 1:
             itemsize = self.getitemsize()
-            return self._tolist(space, buf, buf.getlength() // itemsize, fmt)
+            return self._tolist(space, buf, self.getlength() // itemsize, fmt)
         else:
             return self._tolist_rec(space, buf, 0, 0, fmt)
 
     def _tolist(self, space, buf, count, fmt):
         # TODO: this probably isn't very fast
         fmtiter = UnpackFormatIterator(space, buf)
+        # patch the length, necessary buffer might have offset
+        # which leads to wrong length calculation if e.g. the
+        # memoryview is reversed
+        fmtiter.length = self.getlength()
+        fmtiter.strides = self.getstrides()
         fmtiter.interpret(fmt * count)
         return space.newlist(fmtiter.result_w)
 
