@@ -374,6 +374,44 @@ def wrong3():
             ex.normalize_exception(space)
             assert ex.match(space, space.w_SyntaxError)
 
+    def test_no_warning_run(self):
+        space = self.space
+        w_mod = space.appexec((), '():\n import warnings\n return warnings\n') #sys.getmodule('warnings')
+        w_filterwarnings = space.getattr(w_mod, space.wrap('filterwarnings'))
+        filter_arg = Arguments(space, [ space.wrap('error') ], ["module"],
+                               [space.wrap("<tmp>")])
+        for code in ['''
+class C:
+    global __class__
+    __class__ = 42
+def testing():
+    return __class__
+''', '''
+def testing():
+    __class__ = 0
+    def f():
+        nonlocal __class__
+        __class__ = 42
+    f()
+    return __class__
+''', '''
+class Y:
+    class X:
+        nonlocal __class__
+        __class__ = 42
+def testing():
+    return 42   # 'Y.__class__' is *not* set to 42, at least on CPython 3.5.2
+'''
+        ]:
+            space.call_args(w_filterwarnings, filter_arg)
+            pycode = self.compiler.compile(code, '<tmp>', 'exec', 0)
+            space.call_method(w_mod, 'resetwarnings')
+            w_d = space.newdict()
+            pycode.exec_code(space, w_d, w_d)
+            w_res = space.call_function(
+                space.getitem(w_d, space.wrap('testing')))
+            assert space.unwrap(w_res) == 42
+
     def test_firstlineno(self):
         snippet = str(py.code.Source(r'''
             def f(): "line 2"
