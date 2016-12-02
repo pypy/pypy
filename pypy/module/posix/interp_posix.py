@@ -1037,7 +1037,7 @@ src_dir_fd and dst_dir_fd, may not be implemented on your platform.
         else:
             dispatch_filename_2(rposix.replace)(space, w_src, w_dst)
     except OSError as e:
-        raise wrap_oserror(space, e)
+        raise wrap_oserror2(space, e, w_filename=w_src, w_filename2=w_dst)
 
 @unwrap_spec(mode=c_int, dir_fd=DirFD(rposix.HAVE_MKFIFOAT))
 def mkfifo(space, w_path, mode=0666, __kwonly__=None, dir_fd=DEFAULT_DIR_FD):

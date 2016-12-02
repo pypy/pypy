@@ -1231,6 +1231,8 @@ class AppTestPosix:
         assert str(e.value).endswith(": 'nonexistentfile1' -> 'bok'")
         e = raises(OSError, self.posix.rename, 'nonexistentfile1', 'bok')
         assert str(e.value).endswith(": 'nonexistentfile1' -> 'bok'")
+        e = raises(OSError, self.posix.replace, 'nonexistentfile1', 'bok')
+        assert str(e.value).endswith(": 'nonexistentfile1' -> 'bok'")
 
         e = raises(OSError, self.posix.symlink, 'bok', '/nonexistentdir/boz')
         assert str(e.value).endswith(": 'bok' -> '/nonexistentdir/boz'")
