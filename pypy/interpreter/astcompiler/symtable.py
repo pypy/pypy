@@ -213,7 +213,7 @@ class Scope(object):
             try:
                 role_here = self.roles[name]
             except KeyError:
-                if name in bound:
+                if bound and name in bound:
                     self.symbols[name] = SCOPE_FREE
                     self.free_vars[name] = None
             else:
@@ -330,7 +330,7 @@ class ClassScope(Scope):
         return misc.mangle(name, self.name)
 
     def _pass_special_names(self, local, new_bound):
-        assert '__class__' in local
+        #assert '__class__' in local
         new_bound['__class__'] = None
 
     def _finalize_cells(self, free):
@@ -485,7 +485,9 @@ class SymtableBuilder(ast.GenericASTVisitor):
     def visit_Global(self, glob):
         for name in glob.names:
             old_role = self.scope.lookup_role(name)
-            if old_role & (SYM_USED | SYM_ASSIGNED):
+            if (old_role & (SYM_USED | SYM_ASSIGNED) and not
+                    (name == '__class__' and
+                     self.scope._hide_bound_from_nested_scopes)):
                 if old_role & SYM_ASSIGNED:
                     msg = "name '%s' is assigned to before global declaration" \
                         % (name,)
@@ -499,7 +501,9 @@ class SymtableBuilder(ast.GenericASTVisitor):
     def visit_Nonlocal(self, nonl):
         for name in nonl.names:
             old_role = self.scope.lookup_role(name)
-            if old_role & (SYM_USED | SYM_ASSIGNED):
+            if (old_role & (SYM_USED | SYM_ASSIGNED) and not
+                    (name == '__class__' and
+                     self.scope._hide_bound_from_nested_scopes)):
                 if old_role & SYM_ASSIGNED:
                     msg = "name '%s' is assigned to before nonlocal declaration" \
                         % (name,)

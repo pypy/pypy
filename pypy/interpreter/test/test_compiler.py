@@ -399,8 +399,11 @@ class Y:
     class X:
         nonlocal __class__
         __class__ = 42
+    assert locals()['__class__'] == 42
+    # ^^^ but at the same place, reading '__class__' gives a NameError
+    # in CPython 3.5.2.  Looks like a bug to me
 def testing():
-    return 42   # 'Y.__class__' is *not* set to 42, at least on CPython 3.5.2
+    return 42
 '''
         ]:
             space.call_args(w_filterwarnings, filter_arg)
