@@ -700,12 +700,16 @@ else:
         """Return the current working directory as a string."""
         return space.fsdecode(getcwdb(space))
 
-def chdir(space, w_path):
+@unwrap_spec(path=path_or_fd(allow_fd=rposix.HAVE_FCHDIR))
+def chdir(space, path):
     """Change the current working directory to the specified path."""
     try:
-        dispatch_filename(rposix.chdir)(space, w_path)
+        if rposix.HAVE_FCHDIR and path.as_fd != -1:
+            os.fchdir(path.as_fd)
+        else:
+            call_rposix(rposix.chdir, path)
     except OSError as e:
-        raise wrap_oserror2(space, e, w_path)
+        raise wrap_oserror2(space, e, path.w_path)
 
 @unwrap_spec(mode=c_int, dir_fd=DirFD(rposix.HAVE_MKDIRAT))
 def mkdir(space, w_path, mode=0o777, __kwonly__=None, dir_fd=DEFAULT_DIR_FD):

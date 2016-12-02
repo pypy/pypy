@@ -818,19 +818,20 @@ class AppTestPosix:
         def test_fchdir(self):
             os = self.posix
             localdir = os.getcwd()
-            try:
-                os.mkdir(self.path2 + 'dir')
-                fd = os.open(self.path2 + 'dir', os.O_RDONLY)
+            os.mkdir(self.path2 + 'fchdir')
+            for func in [os.fchdir, os.chdir]:
                 try:
-                    os.fchdir(fd)
-                    mypath = os.getcwd()
+                    fd = os.open(self.path2 + 'fchdir', os.O_RDONLY)
+                    try:
+                        func(fd)
+                        mypath = os.getcwd()
+                    finally:
+                        os.close(fd)
+                    assert mypath.endswith('test_posix2-fchdir')
+                    raises(OSError, func, fd)
                 finally:
-                    os.close(fd)
-                assert mypath.endswith('test_posix2-dir')
-                raises(OSError, os.fchdir, fd)
-                raises(ValueError, os.fchdir, -1)
-            finally:
-                os.chdir(localdir)
+                    os.chdir(localdir)
+            raises(ValueError, os.fchdir, -1)
 
     def test_largefile(self):
         os = self.posix
