@@ -217,7 +217,7 @@ KEY_SET_VALUE access."""
     if space.is_w(w_subkey, space.w_None):
         subkey = None
     else:
-        subkey = space.str_w(w_subkey)
+        subkey = space.text_w(w_subkey)
     with rffi.scoped_str2charp(value) as dataptr:
         ret = rwinreg.RegSetValue(hkey, subkey, rwinreg.REG_SZ, dataptr, len(value))
         if ret != 0:
@@ -238,7 +238,7 @@ But the underlying API call doesn't return the type, Lame Lame Lame, DONT USE TH
     if space.is_w(w_subkey, space.w_None):
         subkey = None
     else:
-        subkey = space.str_w(w_subkey)
+        subkey = space.text_w(w_subkey)
     with lltype.scoped_alloc(rwin32.PLONG.TO, 1) as bufsize_p:
         ret = rwinreg.RegQueryValue(hkey, subkey, None, bufsize_p)
         bufSize = intmask(bufsize_p[0])
@@ -286,7 +286,7 @@ def convert_to_regdata(space, w_value, typ):
             if space.isinstance_w(w_value, space.w_unicode):
                 w_value = space.call_method(w_value, 'encode',
                                             space.newtext('mbcs'))
-            buf = rffi.str2charp(space.str_w(w_value))
+            buf = rffi.str2charp(space.text_w(w_value))
             buflen = space.len_w(w_value) + 1
 
     elif typ == rwinreg.REG_MULTI_SZ:
@@ -306,7 +306,7 @@ def convert_to_regdata(space, w_value, typ):
                     if space.isinstance_w(w_item, space.w_unicode):
                         w_item = space.call_method(w_item, 'encode',
                                                    space.newtext('mbcs'))
-                    item = space.str_w(w_item)
+                    item = space.bytes_w(w_item)
                     strings.append(item)
                     buflen += len(item) + 1
                 except OperationError as e:
@@ -438,7 +438,7 @@ value_name is a string indicating the value to query"""
     if space.is_w(w_subkey, space.w_None):
         subkey = None
     else:
-        subkey = space.str_w(w_subkey)
+        subkey = space.text_w(w_subkey)
     null_dword = lltype.nullptr(rwin32.LPDWORD.TO)
     with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retDataSize:
         ret = rwinreg.RegQueryValueEx(hkey, subkey, null_dword, null_dword,

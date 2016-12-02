@@ -205,7 +205,7 @@ def marshal_float(space, w_float, m):
         m.put(pack_float(w_float.floatval))
     else:
         m.start(TYPE_FLOAT)
-        m.put_pascal(space.str_w(space.repr(w_float)))
+        m.put_pascal(space.text_w(space.repr(w_float)))
 
 @unmarshaller(TYPE_FLOAT)
 def unmarshal_float(space, u, tc):
@@ -227,8 +227,8 @@ def marshal_complex(space, w_complex, m):
         w_real = space.newfloat(w_complex.realval)
         w_imag = space.newfloat(w_complex.imagval)
         m.start(TYPE_COMPLEX)
-        m.put_pascal(space.str_w(space.repr(w_real)))
-        m.put_pascal(space.str_w(space.repr(w_imag)))
+        m.put_pascal(space.text_w(space.repr(w_real)))
+        m.put_pascal(space.text_w(space.repr(w_imag)))
 
 @unmarshaller(TYPE_COMPLEX)
 def unmarshal_complex(space, u, tc):
@@ -248,7 +248,7 @@ def unmarshal_complex_bin(space, u, tc):
 
 @marshaller(W_BytesObject)
 def marshal_bytes(space, w_str, m):
-    s = space.str_w(w_str)
+    s = space.bytes_w(w_str)
     if m.version >= 1 and space.is_interned_str(s):
         # we use a native rtyper stringdict for speed
         try:
@@ -363,7 +363,7 @@ def marshal_pycode(space, w_pycode, m):
 def unmarshal_str(u):
     w_obj = u.get_w_obj()
     try:
-        return u.space.str_w(w_obj)
+        return u.space.bytes_w(w_obj)
     except OperationError as e:
         if e.match(u.space, u.space.w_TypeError):
             u.raise_exc('invalid marshal data for code object')

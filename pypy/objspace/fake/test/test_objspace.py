@@ -40,7 +40,7 @@ class TestTranslate:
     def test_constants(self):
         space = self.space
         space.translates(lambda: (space.w_None, space.w_True, space.w_False,
-                                  space.w_int, space.w_str, space.w_object,
+                                  space.w_int, space.w_bytes, space.w_object,
                                   space.w_TypeError))
 
     def test_wrap(self):

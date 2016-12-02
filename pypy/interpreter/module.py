@@ -91,7 +91,7 @@ class Module(W_Root):
     def descr__reduce__(self, space):
         w_name = space.finditem(self.w_dict, space.newtext('__name__'))
         if (w_name is None or
-            not space.isinstance_w(w_name, space.w_str)):
+            not space.isinstance_w(w_name, space.w_text)):
             # maybe raise exception here (XXX this path is untested)
             return space.w_None
         w_modules = space.sys.get('modules')

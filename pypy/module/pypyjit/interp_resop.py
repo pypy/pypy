@@ -280,7 +280,7 @@ class W_JitLoopInfo(W_Root):
         if self.type == "bridge":
             code_repr = 'bridge no %d' % self.bridge_no
         else:
-            code_repr = space.str_w(space.repr(self.w_green_key))
+            code_repr = space.text_w(space.repr(self.w_green_key))
         return space.newtext('<JitLoopInfo %s, %d operations, starting at <%s>>' %
                              (self.jd_name, lgt, code_repr))
 

@@ -262,7 +262,7 @@ def getaddrinfo(space, w_host, w_port,
     # host can be None, string or unicode
     if space.is_w(w_host, space.w_None):
         host = None
-    elif space.isinstance_w(w_host, space.w_str):
+    elif space.isinstance_w(w_host, space.w_bytes):
         host = space.bytes_w(w_host)
     elif space.isinstance_w(w_host, space.w_unicode):
         w_shost = space.call_method(w_host, "encode", space.newtext("idna"))
@@ -276,7 +276,7 @@ def getaddrinfo(space, w_host, w_port,
         port = None
     elif space.isinstance_w(w_port, space.w_int) or space.isinstance_w(w_port, space.w_long):
         port = str(space.int_w(w_port))
-    elif space.isinstance_w(w_port, space.w_str):
+    elif space.isinstance_w(w_port, space.w_bytes):
         port = space.bytes_w(w_port)
     else:
         raise oefmt(space.w_TypeError,

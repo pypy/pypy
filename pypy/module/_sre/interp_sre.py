@@ -251,7 +251,7 @@ class W_SRE_Pattern(W_Root):
                 else:
                     literal = '\\' not in filter_as_string
                     use_builder = (
-                        space.isinstance_w(w_string, space.w_str) and literal)
+                        space.isinstance_w(w_string, space.w_bytes) and literal)
             if literal:
                 w_filter = w_ptemplate
                 filter_is_callable = False

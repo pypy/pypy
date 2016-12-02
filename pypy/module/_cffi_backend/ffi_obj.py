@@ -152,7 +152,7 @@ class W_FFIObject(W_Root):
         space = self.space
         if (accept & ACCEPT_STRING) and (
                 space.isinstance_w(w_x, space.w_basestring)):
-            string = space.str_w(w_x)
+            string = space.text_w(w_x)
             consider_fn_as_fnptr = (accept & CONSIDER_FN_AS_FNPTR) != 0
             if jit.isconstant(string):
                 try:
@@ -226,7 +226,7 @@ function or global variable."""
         space = self.space
         if isinstance(w_arg, W_LibObject) and len(args_w) == 1:
             # case 3 in the docstring
-            return w_arg.address_of_func_or_global_var(space.str_w(args_w[0]))
+            return w_arg.address_of_func_or_global_var(space.text_w(args_w[0]))
         #
         w_ctype = self.ffi_type(w_arg, ACCEPT_CDATA)
         if len(args_w) == 0:

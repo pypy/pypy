@@ -42,9 +42,9 @@ class W_Writer(W_Root):
             if space.is_w(w_field, space.w_None):
                 field = ""
             elif space.isinstance_w(w_field, space.w_float):
-                field = space.str_w(space.repr(w_field))
+                field = space.text_w(space.repr(w_field))
             else:
-                field = space.str_w(space.str(w_field))
+                field = space.text_w(space.str(w_field))
             #
             if dialect.quoting == QUOTE_NONNUMERIC:
                 try:

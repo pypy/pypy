@@ -38,7 +38,7 @@ def _get_str(space, w_src, default, attrname):
     if w_src is None:
         return default
     try:
-        return space.str_w(w_src)
+        return space.text_w(w_src)
     except OperationError as e:
         if e.match(space, space.w_TypeError):
             raise oefmt(space.w_TypeError, '"%s" must be a string', attrname)
@@ -49,9 +49,9 @@ def _get_char(space, w_src, default, name):
         return default
     if space.is_w(w_src, space.w_None):
         return '\0'
-    if not space.isinstance_w(w_src, space.w_str):
+    if not space.isinstance_w(w_src, space.w_text):
         raise oefmt(space.w_TypeError, '"%s" must be string, not %T', name, w_src)
-    src = space.str_w(w_src)
+    src = space.text_w(w_src)
     if len(src) == 1:
         return src[0]
     if len(src) == 0:

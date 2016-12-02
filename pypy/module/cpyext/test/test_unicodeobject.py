@@ -231,7 +231,7 @@ class TestUnicode(BaseApiTest):
     def test_AsUTF8String(self, space, api):
         w_u = space.wrap(u'sp\x09m')
         w_res = api.PyUnicode_AsUTF8String(w_u)
-        assert space.type(w_res) is space.w_str
+        assert space.type(w_res) is space.w_bytes
         assert space.unwrap(w_res) == 'sp\tm'
 
     def test_decode_utf8(self, space, api):
@@ -385,10 +385,10 @@ class TestUnicode(BaseApiTest):
         # This tests works at least on a Western Windows.
         unichars = u"abc" + unichr(12345)
         wbuf = rffi.unicode2wcharp(unichars)
-        w_str = api.PyUnicode_EncodeMBCS(wbuf, 4, None)
+        w_bytes = api.PyUnicode_EncodeMBCS(wbuf, 4, None)
         rffi.free_wcharp(wbuf)
-        assert space.type(w_str) is space.w_str
-        assert space.str_w(w_str) == "abc?"
+        assert space.type(w_bytes) is space.w_bytes
+        assert space.str_w(w_bytes) == "abc?"
 
     def test_escape(self, space, api):
         def test(ustr):

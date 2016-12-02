@@ -904,7 +904,7 @@ def get_block_class(opname):
 
 def unpickle_block(space, w_tup):
     w_opname, w_handlerposition, w_valuestackdepth = space.unpackiterable(w_tup)
-    opname = space.str_w(w_opname)
+    opname = space.text_w(w_opname)
     handlerposition = space.int_w(w_handlerposition)
     valuestackdepth = space.int_w(w_valuestackdepth)
     assert valuestackdepth >= 0

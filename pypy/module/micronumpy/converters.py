@@ -60,7 +60,7 @@ def searchside_converter(space, w_obj):
 def order_converter(space, w_order, default):
     if space.is_none(w_order):
         return default
-    if not space.isinstance_w(w_order, space.w_str):
+    if not space.isinstance_w(w_order, space.w_text):
         if space.is_true(w_order):
             return NPY.FORTRANORDER
         else:

@@ -56,7 +56,7 @@ class W_File(W_AbstractStream):
             return
         if self.space.sys.track_resources:
             w_repr = self.space.repr(self)
-            str_repr = self.space.str_w(w_repr)
+            str_repr = self.space.text_w(w_repr)
             w_msg = self.space.newtext("WARNING: unclosed file: " + str_repr)
             self.space.resource_warning(w_msg, self.w_tb)
         #
@@ -493,7 +493,7 @@ optimizations previously implemented in the xreadlines module.""",
         if w_name is None:
             return '?'
         else:
-            return space.str_w(space.repr(w_name))
+            return space.text_w(space.repr(w_name))
 
     def file_write(self, w_data):
         """write(str) -> None.  Write string str to file.
@@ -526,7 +526,7 @@ producing strings. This is equivalent to calling write() for each string."""
         self.check_writable()
         lines = space.fixedview(w_lines)
         for i, w_line in enumerate(lines):
-            if not space.isinstance_w(w_line, space.w_str):
+            if not space.isinstance_w(w_line, space.w_bytes):
                 try:
                     if self.binary:
                         line = w_line.readbuf_w(space).as_str()

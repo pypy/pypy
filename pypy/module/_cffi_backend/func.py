@@ -137,7 +137,7 @@ def from_buffer(space, w_ctype, w_x):
 
 def _from_buffer(space, w_ctype, w_x):
     buf = _fetch_as_read_buffer(space, w_x)
-    if space.isinstance_w(w_x, space.w_str):
+    if space.isinstance_w(w_x, space.w_bytes):
         _cdata = get_raw_address_of_string(space, w_x)
     else:
         try:
@@ -178,7 +178,7 @@ def get_raw_address_of_string(space, w_x):
     cache = space.fromcache(RawBytesCache)
     rawbytes = cache.wdict.get(w_x)
     if rawbytes is None:
-        data = space.str_w(w_x)
+        data = space.bytes_w(w_x)
         if we_are_translated() and not rgc.can_move(data):
             lldata = llstr(data)
             data_start = (llmemory.cast_ptr_to_adr(lldata) +

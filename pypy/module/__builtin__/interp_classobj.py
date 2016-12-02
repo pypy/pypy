@@ -64,7 +64,7 @@ class W_ClassObject(W_Root):
         self.w_dict = w_dict
 
     def setname(self, space, w_newname):
-        if not space.isinstance_w(w_newname, space.w_str):
+        if not space.isinstance_w(w_newname, space.w_text):
             raise oefmt(space.w_TypeError, "__name__ must be a string object")
         self.name = space.text_w(w_newname)
 
@@ -172,7 +172,7 @@ class W_ClassObject(W_Root):
             if not e.match(space, space.w_AttributeError):
                 raise
             return "?"
-        if space.isinstance_w(w_mod, space.w_str):
+        if space.isinstance_w(w_mod, space.w_text):
             return space.text_w(w_mod)
         return "?"
 

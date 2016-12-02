@@ -138,7 +138,7 @@ class W_CTypeStructOrUnion(W_CType):
             lst_w = space.fixedview(w_ob)
             for i in range(len(lst_w)):
                 w_key = lst_w[i]
-                key = space.str_w(w_key)
+                key = space.text_w(w_key)
                 try:
                     cf = self._fields_dict[key]
                 except KeyError:

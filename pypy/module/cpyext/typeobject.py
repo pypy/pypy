@@ -599,7 +599,7 @@ def setup_buffer_procs(space, w_type, pto):
     lltype.render_immortal(c_buf)
     c_buf.c_bf_getsegcount = llhelper(bf_segcount.api_func.functype,
                                       bf_segcount.api_func.get_wrapper(space))
-    if space.is_w(w_type, space.w_str):
+    if space.is_w(w_type, space.w_bytes):
         # Special case: str doesn't support get_raw_address(), so we have a
         # custom get*buffer that instead gives the address of the char* in the
         # PyBytesObject*!
@@ -703,7 +703,7 @@ def type_attach(space, py_obj, w_type):
         pto.c_tp_dealloc = llhelper(
             subtype_dealloc.api_func.functype,
             subtype_dealloc.api_func.get_wrapper(space))
-    if space.is_w(w_type, space.w_str):
+    if space.is_w(w_type, space.w_bytes):
         pto.c_tp_itemsize = 1
     elif space.is_w(w_type, space.w_tuple):
         pto.c_tp_itemsize = rffi.sizeof(PyObject)
@@ -945,7 +945,7 @@ def _PyType_Lookup(space, type, w_name):
     w_type = from_ref(space, rffi.cast(PyObject, type))
     assert isinstance(w_type, W_TypeObject)
 
-    if not space.isinstance_w(w_name, space.w_str):
+    if not space.isinstance_w(w_name, space.w_text):
         return None
     name = space.text_w(w_name)
     w_obj = w_type.lookup(name)

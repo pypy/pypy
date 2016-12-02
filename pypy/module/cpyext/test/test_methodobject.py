@@ -108,7 +108,7 @@ class TestPyCMethodObject(BaseApiTest):
         ml.c_ml_meth = rffi.cast(PyCFunction_typedef,
                                  c_func.get_llhelper(space))
 
-        method = api.PyDescr_NewMethod(space.w_str, ml)
+        method = api.PyDescr_NewMethod(space.w_bytes, ml)
         assert repr(method).startswith(
             "<built-in method 'func' of 'str' object ")
 

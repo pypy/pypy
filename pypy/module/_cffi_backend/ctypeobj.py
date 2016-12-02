@@ -175,7 +175,7 @@ class W_CType(W_Root):
     def direct_typeoffsetof(self, w_field_or_index, following=0):
         space = self.space
         try:
-            fieldname = space.str_w(w_field_or_index)
+            fieldname = space.text_w(w_field_or_index)
         except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise

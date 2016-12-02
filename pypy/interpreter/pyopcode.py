@@ -956,10 +956,10 @@ class __extend__(pyframe.PyFrame):
         space = self.space
         if space.isinstance_w(w_2, space.w_tuple):
             for w_t in space.fixedview(w_2):
-                if space.isinstance_w(w_t, space.w_str):
+                if space.isinstance_w(w_t, space.w_bytes):
                     msg = "catching of string exceptions is deprecated"
                     space.warn(space.newtext(msg), space.w_DeprecationWarning)
-        elif space.isinstance_w(w_2, space.w_str):
+        elif space.isinstance_w(w_2, space.w_bytes):
             msg = "catching of string exceptions is deprecated"
             space.warn(space.newtext(msg), space.w_DeprecationWarning)
         return space.newbool(space.exception_match(w_1, w_2))

@@ -1093,7 +1093,7 @@ class FakeSpace:
         if isinstance(w_obj, FakeString):
             return str
         return type(w_obj)
-    w_str = str
+    w_bytes = str
     w_text = str
 
     def str_w(self, string):

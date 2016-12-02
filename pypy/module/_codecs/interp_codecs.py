@@ -176,7 +176,7 @@ def check_exception(space, w_exc):
         raise oefmt(space.w_TypeError, "wrong exception")
 
     delta = space.int_w(w_end) - space.int_w(w_start)
-    if delta < 0 or not (space.isinstance_w(w_obj, space.w_str) or
+    if delta < 0 or not (space.isinstance_w(w_obj, space.w_bytes) or
                          space.isinstance_w(w_obj, space.w_unicode)):
         raise oefmt(space.w_TypeError, "wrong exception")
 
@@ -561,7 +561,7 @@ class Charmap_Encode:
                 raise
             return errorchar
 
-        if space.isinstance_w(w_ch, space.w_str):
+        if space.isinstance_w(w_ch, space.w_bytes):
             # Charmap may return a string
             return space.bytes_w(w_ch)
         elif space.isinstance_w(w_ch, space.w_int):

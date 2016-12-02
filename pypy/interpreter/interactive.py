@@ -152,7 +152,7 @@ class PyPyConsole(code.InteractiveConsole):
                                if not k.startswith('w_')]))
             del local['locals']
             for w_name in self.space.unpackiterable(self.w_globals):
-                local['w_' + self.space.str_w(w_name)] = (
+                local['w_' + self.space.text_w(w_name)] = (
                     self.space.getitem(self.w_globals, w_name))
             code.interact(banner=banner, local=local)
             # copy back 'w_' names

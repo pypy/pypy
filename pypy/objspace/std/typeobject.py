@@ -635,7 +635,7 @@ class W_TypeObject(W_Root):
 
     def descr_repr(self, space):
         w_mod = self.get_module()
-        if w_mod is None or not space.isinstance_w(w_mod, space.w_str):
+        if w_mod is None or not space.isinstance_w(w_mod, space.w_text):
             mod = None
         else:
             mod = space.text_w(w_mod)
@@ -691,7 +691,7 @@ def descr__new__(space, w_typetype, w_name, w_bases=None, w_dict=None):
 def _check_new_args(space, w_name, w_bases, w_dict):
     if w_bases is None or w_dict is None:
         raise oefmt(space.w_TypeError, "type() takes 1 or 3 arguments")
-    if not space.isinstance_w(w_name, space.w_str):
+    if not space.isinstance_w(w_name, space.w_text):
         raise oefmt(space.w_TypeError,
                     "type() argument 1 must be string, not %T", w_name)
     if not space.isinstance_w(w_bases, space.w_tuple):
@@ -775,7 +775,7 @@ def descr_set__name__(space, w_type, w_value):
     w_type = _check(space, w_type)
     if not w_type.is_heaptype():
         raise oefmt(space.w_TypeError, "can't set %N.__name__", w_type)
-    if not space.isinstance_w(w_value, space.w_str):
+    if not space.isinstance_w(w_value, space.w_text):
         raise oefmt(space.w_TypeError,
                     "can only assign string to %N.__name__, not '%T'",
                     w_type, w_value)
@@ -1049,7 +1049,7 @@ def create_all_slots(w_self, hasoldstylebase, w_bestbase, force_new_layout):
         wantdict = False
         wantweakref = False
         w_slots = dict_w['__slots__']
-        if (space.isinstance_w(w_slots, space.w_str) or
+        if (space.isinstance_w(w_slots, space.w_bytes) or
             space.isinstance_w(w_slots, space.w_unicode)):
             slot_names_w = [w_slots]
         else:

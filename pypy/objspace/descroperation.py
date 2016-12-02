@@ -45,9 +45,9 @@ def tuple_iter(space):
     return space.lookup_in_type(space.w_tuple, '__iter__')
 
 @specialize.memo()
-def str_getitem(space):
+def bytes_getitem(space):
     "Utility that returns the app-level descriptor str.__getitem__."
-    return space.lookup_in_type(space.w_str, '__getitem__')
+    return space.lookup_in_type(space.w_bytes, '__getitem__')
 
 @specialize.memo()
 def unicode_getitem(space):
@@ -845,10 +845,10 @@ for targetname, specialname in [
                             "'%%T'", w_obj)
             w_result = space.get_and_call_function(w_impl, w_obj)
 
-            if space.isinstance_w(w_result, space.w_str):
+            if space.isinstance_w(w_result, space.w_text):
                 return w_result
             try:
-                result = space.str_w(w_result) # YYY
+                result = space.text_w(w_result)
             except OperationError, e:
                 if not e.match(space, space.w_TypeError):
                     raise

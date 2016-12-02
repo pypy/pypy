@@ -43,7 +43,7 @@ def w_array(space, w_cls, typecode, __args__):
     if len(__args__.arguments_w) > 0:
         w_initializer = __args__.arguments_w[0]
         w_initializer_type = space.type(w_initializer)
-        if w_initializer_type is space.w_str:
+        if w_initializer_type is space.w_bytes:
             a.descr_fromstring(space, w_initializer)
         elif w_initializer_type is space.w_list:
             a.descr_fromlist(space, w_initializer)

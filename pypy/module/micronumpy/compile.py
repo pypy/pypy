@@ -75,8 +75,8 @@ class FakeSpace(ObjSpace):
     w_long = W_TypeObject("long")
     w_tuple = W_TypeObject('tuple')
     w_slice = W_TypeObject("slice")
-    w_str = W_TypeObject("str")
-    w_bytes = w_str
+    w_bytes = W_TypeObject("str")
+    w_text = w_bytes
     w_unicode = W_TypeObject("unicode")
     w_complex = W_TypeObject("complex")
     w_dict = W_TypeObject("dict")
@@ -499,7 +499,7 @@ class SliceObject(W_Root):
         self.step = step
 
 class StringObject(W_Root):
-    tp = FakeSpace.w_str
+    tp = FakeSpace.w_bytes
     def __init__(self, v):
         self.v = v
 

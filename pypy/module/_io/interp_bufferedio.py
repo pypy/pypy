@@ -89,7 +89,7 @@ class W_BufferedIOBase(W_IOBase):
         length = rwbuffer.getlength()
         w_data = space.call_method(self, "read", space.newint(length))
 
-        if not space.isinstance_w(w_data, space.w_str):
+        if not space.isinstance_w(w_data, space.w_bytes):
             raise oefmt(space.w_TypeError, "read() should return bytes")
         data = space.bytes_w(w_data)
         rwbuffer.setslice(0, data)

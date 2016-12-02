@@ -283,4 +283,4 @@ def test_isinstance_shortcut():
     # if it crashes, it means that space._type_isinstance didn't go through
     # the fast path, and tries to call type() (which is set to None just
     # above)
-    space.isinstance_w(w_a, space.w_str) # does not crash
+    space.isinstance_w(w_a, space.w_bytes) # does not crash

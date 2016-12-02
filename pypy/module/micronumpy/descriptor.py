@@ -414,7 +414,7 @@ class W_Dtype(W_Root):
         for i in range(len(names_w)):
             w_name = names_w[i]
             title = self.names[i][1]
-            if not space.isinstance_w(w_name, space.w_str):
+            if not space.isinstance_w(w_name, space.w_text):
                 raise oefmt(space.w_ValueError,
                             "item #%d of names is of type %T and not string",
                             len(names), w_name)
@@ -561,7 +561,7 @@ class W_Dtype(W_Root):
                 r = space.newtext("'" + byteorder + self.char + str(size) + "'")
             else:
                 r = self.descr_get_name(space, quote=True)
-        if space.isinstance_w(r, space.w_str):
+        if space.isinstance_w(r, space.w_text):
             return space.newtext("dtype(%s)" % space.text_w(r))
         return space.newtext("dtype(%s)" % space.text_w(space.repr(r)))
 
@@ -756,7 +756,7 @@ def dtype_from_list(space, w_lst, simple, alignment, offsets=None, itemsize=0):
                     titles[i] = space.text_w(fldlist[1])
                 if len(fldlist) != 2:
                     raise oefmt(space.w_TypeError, "data type not understood")
-            elif space.isinstance_w(w_fldname, space.w_str): 
+            elif space.isinstance_w(w_fldname, space.w_text): 
                 fldnames[i] = space.text_w(w_fldname)
             else:
                 raise oefmt(space.w_TypeError, "data type not understood")
@@ -942,7 +942,7 @@ def dtype_from_spec(space, w_spec, alignment):
         if not e.match(space, space.w_ImportError):
             raise
         # handle only simple cases for testing
-        if space.isinstance_w(w_spec, space.w_str):
+        if space.isinstance_w(w_spec, space.w_text):
             spec = [s.strip() for s in space.text_w(w_spec).split(',')]
             w_lst = space.newlist([space.newtext(s) for s in spec]) 
     if not space.isinstance_w(w_lst, space.w_list) or space.len_w(w_lst) < 1:
@@ -1347,7 +1347,7 @@ class DtypeCache(object):
                            space.gettypefor(boxes.W_FloatingBox)],
             NPY.CDOUBLE:  [space.w_complex,
                            space.gettypefor(boxes.W_ComplexFloatingBox)],
-            NPY.STRING:   [space.w_str,
+            NPY.STRING:   [space.w_bytes,
                            space.gettypefor(boxes.W_CharacterBox)],
             NPY.UNICODE:  [space.w_unicode],
             NPY.VOID:     [space.gettypefor(boxes.W_GenericBox)],

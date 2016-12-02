@@ -89,10 +89,12 @@ class StdObjSpace(ObjSpace):
         for typedef, cls in builtin_type_classes.items():
             w_type = self.gettypeobject(typedef)
             self.builtin_types[typedef.name] = w_type
-            setattr(self, 'w_' + typedef.name, w_type)
+            if typedef.name != "str":
+                setattr(self, 'w_' + typedef.name, w_type)
+            else:
+                self.w_bytes = w_type
             self._interplevel_classes[w_type] = cls
-        self.w_bytes = self.w_str
-        self.w_text = self.w_str # this is w_unicode on Py3
+        self.w_text = self.w_bytes # this is w_unicode on Py3
         self.w_dict.flag_map_or_seq = 'M'
         self.builtin_types["NotImplemented"] = self.w_NotImplemented
         self.builtin_types["Ellipsis"] = self.w_Ellipsis
@@ -519,9 +521,9 @@ class StdObjSpace(ObjSpace):
         return self.lookup(w_obj, '__iter__') is tuple_iter(self)
 
     def _str_uses_no_iter(self, w_obj):
-        from pypy.objspace.descroperation import str_getitem
+        from pypy.objspace.descroperation import bytes_getitem
         return (self.lookup(w_obj, '__iter__') is None and
-                self.lookup(w_obj, '__getitem__') is str_getitem(self))
+                self.lookup(w_obj, '__getitem__') is bytes_getitem(self))
 
     def _uni_uses_no_iter(self, w_obj):
         from pypy.objspace.descroperation import unicode_getitem
@@ -557,7 +559,7 @@ class StdObjSpace(ObjSpace):
 
         # fast path: XXX this is duplicating most of the logic
         # from the default __getattribute__ and the getattr() method...
-        name = self.str_w(w_name)
+        name = self.text_w(w_name)
         w_descr = w_type.lookup(name)
         e = None
         if w_descr is not None:

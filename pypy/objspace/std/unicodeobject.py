@@ -129,7 +129,7 @@ class W_UnicodeObject(W_Root):
     def _op_val(space, w_other, strict=None):
         if isinstance(w_other, W_UnicodeObject):
             return w_other._value
-        if space.isinstance_w(w_other, space.w_str):
+        if space.isinstance_w(w_other, space.w_bytes):
             return unicode_from_string(space, w_other)._value
         if strict:
             raise oefmt(space.w_TypeError,
@@ -374,7 +374,7 @@ class W_UnicodeObject(W_Root):
         return space.is_w(space.type(w_obj), space.w_unicode)
 
     def _join_check_item(self, space, w_obj):
-        if (space.isinstance_w(w_obj, space.w_str) or
+        if (space.isinstance_w(w_obj, space.w_bytes) or
             space.isinstance_w(w_obj, space.w_unicode)):
             return 0
         return 1
@@ -490,7 +490,7 @@ def encode_object(space, w_object, encoding, errors):
         w_errors = space.newtext(errors)
     w_restuple = space.call_function(w_encoder, w_object, w_errors)
     w_retval = space.getitem(w_restuple, space.newint(0))
-    if not space.isinstance_w(w_retval, space.w_str):
+    if not space.isinstance_w(w_retval, space.w_bytes):
         raise oefmt(space.w_TypeError,
                     "encoder did not return an string object (type '%T')",
                     w_retval)
@@ -545,7 +545,7 @@ def unicode_from_encoded_object(space, w_obj, encoding, errors):
 def unicode_from_object(space, w_obj):
     if space.is_w(space.type(w_obj), space.w_unicode):
         return w_obj
-    elif space.is_w(space.type(w_obj), space.w_str):
+    elif space.is_w(space.type(w_obj), space.w_bytes):
         w_res = w_obj
     else:
         w_unicode_method = space.lookup(w_obj, "__unicode__")
@@ -564,17 +564,17 @@ def unicode_from_object(space, w_obj):
     return unicode_from_encoded_object(space, w_res, None, "strict")
 
 
-def unicode_from_string(space, w_str):
+def unicode_from_string(space, w_bytes):
     # this is a performance and bootstrapping hack
     encoding = getdefaultencoding(space)
     if encoding != 'ascii':
-        return unicode_from_encoded_object(space, w_str, encoding, "strict")
-    s = space.bytes_w(w_str)
+        return unicode_from_encoded_object(space, w_bytes, encoding, "strict")
+    s = space.bytes_w(w_bytes)
     try:
         return W_UnicodeObject(s.decode("ascii"))
     except UnicodeDecodeError:
         # raising UnicodeDecodeError is messy, "please crash for me"
-        return unicode_from_encoded_object(space, w_str, "ascii", "strict")
+        return unicode_from_encoded_object(space, w_bytes, "ascii", "strict")
 
 
 class UnicodeDocstrings:

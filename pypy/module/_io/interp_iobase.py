@@ -185,7 +185,7 @@ class W_IOBase(W_Root):
                     if trap_eintr(space, e):
                         continue
                     raise
-                if not space.isinstance_w(w_readahead, space.w_str):
+                if not space.isinstance_w(w_readahead, space.w_bytes):
                     raise oefmt(space.w_IOError,
                                 "peek() should have returned a bytes object, "
                                 "not '%T'", w_readahead)
@@ -215,7 +215,7 @@ class W_IOBase(W_Root):
                 if trap_eintr(space, e):
                     continue
                 raise
-            if not space.isinstance_w(w_read, space.w_str):
+            if not space.isinstance_w(w_read, space.w_bytes):
                 raise oefmt(space.w_IOError,
                             "peek() should have returned a bytes object, not "
                             "'%T'", w_read)
@@ -337,7 +337,7 @@ class W_RawIOBase(W_IOBase):
                     return w_data
                 break
 
-            if not space.isinstance_w(w_data, space.w_str):
+            if not space.isinstance_w(w_data, space.w_bytes):
                 raise oefmt(space.w_TypeError, "read() should return bytes")
             data = space.bytes_w(w_data)
             if not data:

@@ -551,7 +551,7 @@ class TestGateway:
         space = self.space
         w = space.wrap
         def g_run(space, w_type):
-            assert space.is_w(w_type, space.w_str)
+            assert space.is_w(w_type, space.w_text)
             return w(42)
 
         app_g_run = gateway.interp2app_temp(g_run,
@@ -559,7 +559,7 @@ class TestGateway:
                                                          gateway.W_Root],
                                             as_classmethod=True)
         w_app_g_run = space.wrap(app_g_run)
-        w_bound = space.get(w_app_g_run, w("hello"), space.w_str)
+        w_bound = space.get(w_app_g_run, w("hello"), space.w_text)
         assert space.eq_w(space.call_function(w_bound), w(42))
 
     def test_interp2app_fastcall(self):

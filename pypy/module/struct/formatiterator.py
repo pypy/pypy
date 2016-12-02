@@ -98,7 +98,7 @@ class PackFormatIterator(FormatIterator):
 
     def accept_str_arg(self):
         w_obj = self.accept_obj_arg()
-        return self.space.str_w(w_obj)
+        return self.space.bytes_w(w_obj)
 
     def accept_unicode_arg(self):
         w_obj = self.accept_obj_arg()

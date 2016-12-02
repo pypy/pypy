@@ -98,7 +98,7 @@ class W_ExternPython(W_CData):
 
     def _repr_extra(self):
         space = self.space
-        return 'calling ' + space.str_w(space.repr(self.w_callable))
+        return 'calling ' + space.text_w(space.repr(self.w_callable))
 
     def write_error_return_value(self, ll_res):
         error_string = self.error_string

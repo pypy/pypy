@@ -284,7 +284,7 @@ def _determine_encoding(space, encoding):
             raise
         return space.newtext('ascii')
     else:
-        if space.isinstance_w(w_encoding, space.w_str):
+        if space.isinstance_w(w_encoding, space.w_text):
             return w_encoding
 
     raise oefmt(space.w_IOError, "could not determine default encoding")
@@ -565,7 +565,7 @@ class W_TextIOWrapper(W_TextIOBase):
         w_input = space.call_method(self.w_buffer, "read1",
                                     space.newint(self.chunk_size))
 
-        if not space.isinstance_w(w_input, space.w_str):
+        if not space.isinstance_w(w_input, space.w_bytes):
             msg = "decoder getstate() should have returned a bytes " \
                   "object not '%T'"
             raise oefmt(space.w_TypeError, msg, w_input)
@@ -897,7 +897,7 @@ class W_TextIOWrapper(W_TextIOBase):
             # Just like _read_chunk, feed the decoder and save a snapshot.
             w_chunk = space.call_method(self.w_buffer, "read",
                                         space.newint(cookie.bytes_to_feed))
-            if not space.isinstance_w(w_chunk, space.w_str):
+            if not space.isinstance_w(w_chunk, space.w_bytes):
                 msg = "underlying read() should have returned " \
                       "a bytes object, not '%T'"
                 raise oefmt(space.w_TypeError, msg, w_chunk)

@@ -25,7 +25,7 @@ class BytecodeCorruption(Exception):
 
 # helper
 
-def unpack_str_tuple(space,w_str_tuple):
+def unpack_text_tuple(space,w_str_tuple):
     return [space.text_w(w_el) for w_el in space.unpackiterable(w_str_tuple)]
 
 
@@ -382,14 +382,14 @@ class PyCode(eval.Code):
         if not space.isinstance_w(w_constants, space.w_tuple):
             raise oefmt(space.w_TypeError, "Expected tuple for constants")
         consts_w = space.fixedview(w_constants)
-        names = unpack_str_tuple(space, w_names)
-        varnames = unpack_str_tuple(space, w_varnames)
+        names = unpack_text_tuple(space, w_names)
+        varnames = unpack_text_tuple(space, w_varnames)
         if w_freevars is not None:
-            freevars = unpack_str_tuple(space, w_freevars)
+            freevars = unpack_text_tuple(space, w_freevars)
         else:
             freevars = []
         if w_cellvars is not None:
-            cellvars = unpack_str_tuple(space, w_cellvars)
+            cellvars = unpack_text_tuple(space, w_cellvars)
         else:
             cellvars = []
         code = space.allocate_instance(PyCode, w_subtype)

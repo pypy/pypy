@@ -334,19 +334,10 @@ def make_formatter_subclass(do_unicode):
         def unknown_fmtchar(self):
             space = self.space
             c = self.fmt[self.fmtpos - 1]
-            if do_unicode:
-                w_defaultencoding = space.call_function(
-                    space.sys.get('getdefaultencoding'))
-                w_s = space.call_method(space.newunicode(c),
-                                        "encode",
-                                        w_defaultencoding,
-                                        space.newtext('replace'))
-                s = space.str_w(w_s)
-            else:
-                s = c
+            w_s = space.newunicode(c) if do_unicode else space.newbytes(c)
             raise oefmt(space.w_ValueError,
-                        "unsupported format character '%s' (%s) at index %d",
-                        s, hex(ord(c)), self.fmtpos - 1)
+                        "unsupported format character %R (%s) at index %d",
+                        w_s, hex(ord(c)), self.fmtpos - 1)
 
         @specialize.argtype(1)
         def std_wp(self, r):
@@ -437,7 +428,7 @@ def make_formatter_subclass(do_unicode):
             if space.isinstance_w(w_result,
                                               space.w_unicode):
                 raise NeedUnicodeFormattingError
-            return space.str_w(w_result)
+            return space.bytes_w(w_result)
 
         def fmt_s(self, w_value):
             space = self.space
@@ -462,8 +453,8 @@ def make_formatter_subclass(do_unicode):
         def fmt_c(self, w_value):
             self.prec = -1     # just because
             space = self.space
-            if space.isinstance_w(w_value, space.w_str):
-                s = space.str_w(w_value)
+            if space.isinstance_w(w_value, space.w_bytes):
+                s = space.bytes_w(w_value)
                 if len(s) != 1:
                     raise oefmt(space.w_TypeError, "%c requires int or char")
                 self.std_wp(s)
@@ -511,7 +502,7 @@ FORMATTER_CHARS = unrolling_iterable(
 def format(space, w_fmt, values_w, w_valuedict, do_unicode):
     "Entry point"
     if not do_unicode:
-        fmt = space.str_w(w_fmt)
+        fmt = space.bytes_w(w_fmt)
         formatter = StringFormatter(space, fmt, values_w, w_valuedict)
         try:
             result = formatter.format()

@@ -52,13 +52,13 @@ cpython_struct("PyStringObject", PyBytesObjectFields, PyBytesObjectStruct)
 @bootstrap_function
 def init_bytesobject(space):
     "Type description of PyBytesObject"
-    make_typedescr(space.w_str.layout.typedef,
+    make_typedescr(space.w_bytes.layout.typedef,
                    basestruct=PyBytesObject.TO,
                    attach=bytes_attach,
                    dealloc=bytes_dealloc,
                    realize=bytes_realize)
 
-PyString_Check, PyString_CheckExact = build_type_checkers("String", "w_str")
+PyString_Check, PyString_CheckExact = build_type_checkers("String", "w_bytes")
 
 def new_empty_str(space, length):
     """
@@ -66,8 +66,8 @@ def new_empty_str(space, length):
     interpreter object.  The ob_sval may be mutated, until bytes_realize() is
     called.  Refcount of the result is 1.
     """
-    typedescr = get_typedescr(space.w_str.layout.typedef)
-    py_obj = typedescr.allocate(space, space.w_str, length)
+    typedescr = get_typedescr(space.w_bytes.layout.typedef)
+    py_obj = typedescr.allocate(space, space.w_bytes, length)
     py_str = rffi.cast(PyBytesObject, py_obj)
     py_str.c_ob_shash = -1
     py_str.c_ob_sstate = rffi.cast(rffi.INT, 0) # SSTATE_NOT_INTERNED
@@ -132,7 +132,7 @@ def PyString_AsString(space, ref):
     return _PyString_AsString(space, ref)
 
 def _PyString_AsString(space, ref):
-    if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_str:
+    if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_bytes:
         pass    # typecheck returned "ok" without forcing 'ref' at all
     elif not PyString_Check(space, ref):   # otherwise, use the alternate way
         from pypy.module.cpyext.unicodeobject import (
@@ -182,7 +182,7 @@ def PyString_AsStringAndSize(space, ref, data, length):
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyString_Size(space, ref):
-    if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_str:
+    if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_bytes:
         ref = rffi.cast(PyBytesObject, ref)
         return ref.c_ob_size
     else:

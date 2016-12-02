@@ -80,7 +80,7 @@ class FromAppLevelConverter(object):
     def maybe_handle_char_or_unichar_p(self, w_ffitype, w_obj):
         w_type = jit.promote(self.space.type(w_obj))
         if w_ffitype.is_char_p() and w_type is self.space.w_bytes:
-            strval = self.space.str_w(w_obj)
+            strval = self.space.bytes_w(w_obj)
             self.handle_char_p(w_ffitype, w_obj, strval)
             return True
         elif w_ffitype.is_unichar_p() and (w_type is self.space.w_bytes or

@@ -44,7 +44,7 @@ def checkattrname(space, w_name):
     # space.{get,set,del}attr()...
     # Note that if w_name is already an exact string it must be returned
     # unmodified (and not e.g. unwrapped-rewrapped).
-    if not space.is_w(space.type(w_name), space.w_str):
+    if not space.is_w(space.type(w_name), space.w_text):
         name = space.text_w(w_name)    # typecheck
         w_name = space.newtext(name)     # rewrap as a real string
     return w_name
@@ -223,7 +223,7 @@ def intern(space, w_str):
 table of interned strings whose purpose is to speed up dictionary lookups.
 Return the string itself or the previously interned string object with the
 same value."""
-    if space.is_w(space.type(w_str), space.w_str):
+    if space.is_w(space.type(w_str), space.w_bytes):
         return space.new_interned_w_str(w_str)
     raise oefmt(space.w_TypeError, "intern() argument must be string.")
 

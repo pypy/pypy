@@ -227,7 +227,7 @@ def decode_utf8(space, s, ps, end):
 def decode_utf8_recode(space, s, ps, end, recode_encoding):
     u, ps = decode_utf8(space, s, ps, end)
     w_v = unicodehelper.encode(space, space.newunicode(u), recode_encoding)
-    v = space.str_w(w_v)
+    v = space.bytes_w(w_v)
     return v, ps
 
 def raise_app_valueerror(space, msg):

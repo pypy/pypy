@@ -222,7 +222,7 @@ class W_LibObject(W_Root):
         else:
             raise oefmt(self.space.w_AttributeError,
                         "cannot write to function or constant '%s'",
-                        self.space.str_w(w_attr))
+                        self.space.text_w(w_attr))
 
     def descr_delattr(self, w_attr):
         self._get_attr(w_attr)    # for the possible AttributeError

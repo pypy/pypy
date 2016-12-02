@@ -130,7 +130,7 @@ def _array_from_buffer_3118(space, w_object, dtype):
             # object does not have buffer interface
             return w_object
         raise
-    format = space.getattr(w_buf,space.newbytes('format'))
+    format = space.getattr(w_buf, space.newtext('format'))
     if format:
         descr = _descriptor_from_pep3118_format(space, space.str_w(format))
         if not descr:

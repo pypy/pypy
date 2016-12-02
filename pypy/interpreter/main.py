@@ -137,7 +137,7 @@ def run_toplevel(space, f, verbose=False):
                         exitcode = space.int_w(w_exitcode, allow_conversion=False)
                     except OperationError:
                         # not an integer: print it to stderr
-                        msg = space.str_w(space.str(w_exitcode))
+                        msg = space.text_w(space.str(w_exitcode))
                         print >> sys.stderr, msg
                         exitcode = 1
                 raise SystemExit(exitcode)

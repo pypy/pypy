@@ -44,7 +44,7 @@ in addition to any features explicitly specified.
     if space.isinstance_w(w_source, space.w_unicode):
         w_utf_8_source = space.call_method(w_source, "encode",
                                            space.newtext("utf-8"))
-        source = space.str_w(w_utf_8_source)
+        source = space.bytes_w(w_utf_8_source)
         # This flag tells the parser to reject any coding cookies it sees.
         flags |= consts.PyCF_SOURCE_IS_UTF8
     else:
@@ -69,7 +69,7 @@ or a code object as returned by compile().  The globals and locals
 are dictionaries, defaulting to the current current globals and locals.
 If only globals is given, locals defaults to it.
 """
-    if (space.isinstance_w(w_code, space.w_str) or
+    if (space.isinstance_w(w_code, space.w_bytes) or
         space.isinstance_w(w_code, space.w_unicode)):
         w_code = compile(space,
                          space.call_method(w_code, 'lstrip',

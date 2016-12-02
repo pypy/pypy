@@ -235,7 +235,7 @@ class W_MMap(W_Root):
             j = i
         elif j > self.mmap.size:
             j = self.mmap.size
-        if not space.isinstance_w(w_item, space.w_str):
+        if not space.isinstance_w(w_item, space.w_bytes):
             raise oefmt(space.w_IndexError,
                         "mmap slice assignment must be a string")
         value = space.realstr_w(w_item)

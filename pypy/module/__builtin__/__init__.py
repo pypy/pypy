@@ -36,7 +36,7 @@ class Module(MixedModule):
         'None'          : '(space.w_None)',
         'False'         : '(space.w_False)',
         'True'          : '(space.w_True)',
-        'bytes'         : '(space.w_str)',
+        'bytes'         : '(space.w_bytes)',
 
         'file'          : 'state.get(space).w_file',
         'open'          : 'state.get(space).w_file',

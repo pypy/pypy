@@ -337,7 +337,7 @@ def scalar2dtype(space, w_obj):
         return float_dtype
     elif space.isinstance_w(w_obj, space.w_complex):
         return complex_dtype
-    elif space.isinstance_w(w_obj, space.w_str):
+    elif space.isinstance_w(w_obj, space.w_bytes):
         return variable_dtype(space, 'S%d' % space.len_w(w_obj))
     elif space.isinstance_w(w_obj, space.w_unicode):
         return new_unicode_dtype(space, space.len_w(w_obj))
