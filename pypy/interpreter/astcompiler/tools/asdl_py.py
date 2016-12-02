@@ -132,6 +132,8 @@ class ASTNodeVisitor(ASDLVisitor):
         elif field.type.value == "int":
             return "space.newint(%s)" % (value,)
         elif field.type.value == "identifier":
+            if field.opt:
+                return "space.newtext_or_none(%s)" % (value,)
             return "space.newtext(%s)" % (value,)
         else:
             wrapper = "%s.to_object(space)" % (value,)

@@ -45,8 +45,8 @@ class TestTranslate:
 
     def test_wrap(self):
         space = self.space
-        space.translates(lambda: (space.wrap(42), space.wrap(42.5),
-                                  space.wrap("foo")))
+        space.translates(lambda: (space.newint(42), space.newfloat(42.5),
+                                  space.newtext("foo")))
 
     def test_call_args(self):
         space = self.space

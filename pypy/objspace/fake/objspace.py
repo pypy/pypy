@@ -4,7 +4,8 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace, SpaceCache
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.objspace.std.sliceobject import W_SliceObject
 from rpython.rlib.buffer import StringBuffer
-from rpython.rlib.objectmodel import instantiate, we_are_translated, specialize
+from rpython.rlib.objectmodel import (instantiate, we_are_translated, specialize,
+    not_rpython)
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import r_uint, r_singlefloat
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -141,8 +142,8 @@ class FakeObjSpace(ObjSpace):
         is_root(w_obj)
         return NonConstant(False)
 
+    @not_rpython
     def unwrap(self, w_obj):
-        "NOT_RPYTHON"
         raise NotImplementedError
 
     def newdict(self, module=False, instance=False, kwargs=False,
@@ -194,8 +195,8 @@ class FakeObjSpace(ObjSpace):
     def newbuffer(self, x):
         return w_some_obj()
 
+    @not_rpython
     def marshal_w(self, w_obj):
-        "NOT_RPYTHON"
         raise NotImplementedError
 
     def newbytes(self, x):
@@ -207,7 +208,7 @@ class FakeObjSpace(ObjSpace):
     newtext = newbytes
     newtext_or_none = newbytes
 
-    @specialize.argtype(1)
+    @not_rpython
     def wrap(self, x):
         if not we_are_translated():
             if isinstance(x, gateway.interp2app):
@@ -219,15 +220,11 @@ class FakeObjSpace(ObjSpace):
         if isinstance(x, list):
             if x == []: # special case: it is used e.g. in sys/__init__.py
                 return w_some_obj()
-            self._wrap_not_rpython(x)
+            raise NotImplementedError
         return w_some_obj()
 
-    def _wrap_not_rpython(self, x):
-        "NOT_RPYTHON"
-        raise NotImplementedError
-
+    @not_rpython
     def _see_interp2app(self, interp2app):
-        "NOT_RPYTHON"
         activation = interp2app._code.activation
         def check():
             scope_w = [w_some_obj()] * NonConstant(42)
@@ -236,8 +233,8 @@ class FakeObjSpace(ObjSpace):
         check = func_with_new_name(check, 'check__' + interp2app.name)
         self._seen_extras.append(check)
 
+    @not_rpython
     def _see_getsetproperty(self, getsetproperty):
-        "NOT_RPYTHON"
         space = self
         def checkprop():
             getsetproperty.fget(getsetproperty, space, w_some_obj())
@@ -388,7 +385,10 @@ class FakeObjSpace(ObjSpace):
         for name in (ObjSpace.ConstantTable +
                      ObjSpace.ExceptionTable +
                      BUILTIN_TYPES):
-            setattr(space, 'w_' + name, w_some_obj())
+            if name != "str":
+                setattr(space, 'w_' + name, w_some_obj())
+        space.w_bytes = w_some_obj()
+        space.w_text = w_some_obj()
         space.w_type = w_some_type()
         #
         for (name, _, arity, _) in ObjSpace.MethodTable:

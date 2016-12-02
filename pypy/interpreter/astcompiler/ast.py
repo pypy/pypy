@@ -51,7 +51,7 @@ class _FieldsWrapper(W_Root):
         self.fields = fields
 
     def spacebind(self, space):
-        return space.newtuple([space.wrap(field) for field in self.fields])
+        return space.newtuple([space.newtext(field) for field in self.fields])
 
 
 class W_AST(W_Root):
@@ -1240,7 +1240,7 @@ class ImportFrom(stmt):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_ImportFrom)
-        w_module = space.newtext(self.module)  # identifier
+        w_module = space.newtext_or_none(self.module)  # identifier
         space.setattr(w_node, space.newtext('module'), w_module)
         if self.names is None:
             names_w = []
@@ -3248,9 +3248,9 @@ class arguments(AST):
             args_w = [node.to_object(space) for node in self.args] # expr
         w_args = space.newlist(args_w)
         space.setattr(w_node, space.newtext('args'), w_args)
-        w_vararg = space.newtext(self.vararg)  # identifier
+        w_vararg = space.newtext_or_none(self.vararg)  # identifier
         space.setattr(w_node, space.newtext('vararg'), w_vararg)
-        w_kwarg = space.newtext(self.kwarg)  # identifier
+        w_kwarg = space.newtext_or_none(self.kwarg)  # identifier
         space.setattr(w_node, space.newtext('kwarg'), w_kwarg)
         if self.defaults is None:
             defaults_w = []
@@ -3323,7 +3323,7 @@ class alias(AST):
         w_node = space.call_function(get(space).w_alias)
         w_name = space.newtext(self.name)  # identifier
         space.setattr(w_node, space.newtext('name'), w_name)
-        w_asname = space.newtext(self.asname)  # identifier
+        w_asname = space.newtext_or_none(self.asname)  # identifier
         space.setattr(w_node, space.newtext('asname'), w_asname)
         return w_node
 

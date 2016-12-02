@@ -297,11 +297,11 @@ class FakeSpace(ObjSpace):
     def index(self, w_obj):
         return self.wrap(self.int_w(w_obj))
 
-    def str_w(self, w_obj):
+    def bytes_w(self, w_obj):
         if isinstance(w_obj, StringObject):
             return w_obj.v
         raise NotImplementedError
-    text_w = str_w
+    text_w = bytes_w
 
     def unicode_w(self, w_obj):
         # XXX

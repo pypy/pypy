@@ -30,7 +30,7 @@ def test_wrap_interp2app_int():
     def foobar(space, x, w_y, z):
         is_root(w_y)
         see()
-        return space.wrap(x - z)
+        return space.newint(x - z)
     space = FakeObjSpace()
     space.wrap(interp2app(foobar, unwrap_spec=[ObjSpace, int, W_Root, int]))
     space.translates()
@@ -89,7 +89,7 @@ def test_gettype_mro():
     space = FakeObjSpace()
 
     def f(i):
-        w_x = space.wrap(i)
+        w_x = space.newint(i)
         w_type = space.type(w_x)
         return len(w_type.mro_w)
 
