@@ -175,7 +175,7 @@ class AppTestPosix:
         assert st.st_atime == 41
         assert st.st_mtime == 42.1
         assert st.st_ctime == 43
-        assert repr(st).startswith(self.posix.__name__ + '.stat_result')
+        assert repr(st).startswith('os.stat_result')
 
     def test_stat_lstat(self):
         import stat
