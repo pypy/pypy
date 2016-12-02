@@ -127,12 +127,11 @@ class UnpackFormatIterator(FormatIterator):
         self.pos = (self.pos + mask) & ~mask
 
     def finished(self):
-        if self.strides:
-            # FIXME richard
-            pass
-        else:
-            if self.pos != self.length:
-                raise StructError("unpack str size too long for format")
+        value = self.pos
+        if self.strides and self.strides[0] < 0:
+                value = -self.pos
+        if value != self.length:
+            raise StructError("unpack str size too long for format")
 
     def read(self, count):
         if self.strides:
