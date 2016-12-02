@@ -237,13 +237,13 @@ dir_fd may not be implemented on your platform.
         raise wrap_oserror2(space, e, w_path)
     return space.wrap(fd)
 
-@unwrap_spec(fd=c_int, pos=r_longlong, how=c_int)
-def lseek(space, fd, pos, how):
+@unwrap_spec(fd=c_int, position=r_longlong, how=c_int)
+def lseek(space, fd, position, how):
     """Set the current position of a file descriptor.  Return the new position.
-If how == 0, 'pos' is relative to the start of the file; if how == 1, to the
-current position; if how == 2, to the end."""
+If how == 0, 'position' is relative to the start of the file; if how == 1, to
+the current position; if how == 2, to the end."""
     try:
-        pos = os.lseek(fd, pos, how)
+        pos = os.lseek(fd, position, how)
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
@@ -260,11 +260,11 @@ slave end of a terminal."""
     else:
         return space.wrap(res)
 
-@unwrap_spec(fd=c_int, buffersize=int)
-def read(space, fd, buffersize):
+@unwrap_spec(fd=c_int, length=int)
+def read(space, fd, length):
     """Read data from a file descriptor."""
     try:
-        s = os.read(fd, buffersize)
+        s = os.read(fd, length)
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
@@ -540,11 +540,11 @@ descriptor."""
     else:
         return space.wrap(newfd)
 
-@unwrap_spec(old_fd=c_int, new_fd=c_int, inheritable=int)
-def dup2(space, old_fd, new_fd, inheritable=1):
+@unwrap_spec(fd=c_int, fd2=c_int, inheritable=bool)
+def dup2(space, fd, fd2, inheritable=1):
     """Duplicate a file descriptor."""
     try:
-        rposix.dup2(old_fd, new_fd, inheritable)
+        rposix.dup2(fd, fd2, inheritable)
     except OSError as e:
         raise wrap_oserror(space, e)
 
@@ -613,11 +613,11 @@ def times(space):
                                space.wrap(times[3]),
                                space.wrap(times[4])])
 
-@unwrap_spec(cmd='fsencode')
-def system(space, cmd):
+@unwrap_spec(command='fsencode')
+def system(space, command):
     """Execute the command (a string) in a subshell."""
     try:
-        rc = os.system(cmd)
+        rc = os.system(command)
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
@@ -700,16 +700,16 @@ else:
         """Return the current working directory as a string."""
         return space.fsdecode(getcwdb(space))
 
-@unwrap_spec(path=path_or_fd(allow_fd=rposix.HAVE_FCHDIR))
-def chdir(space, path):
+def chdir(space, w_path):
     """Change the current working directory to the specified path."""
     try:
-        if rposix.HAVE_FCHDIR and path.as_fd != -1:
-            os.fchdir(path.as_fd)
+        if rposix.HAVE_FCHDIR:
+            dispatch_filename(rposix.chdir,
+                              allow_fd_fn=os.fchdir)(space, w_path)
         else:
-            call_rposix(rposix.chdir, path)
+            dispatch_filename(rposix.chdir)(space, w_path)
     except OSError as e:
-        raise wrap_oserror2(space, e, path.w_path)
+        raise wrap_oserror2(space, e, w_path)
 
 @unwrap_spec(mode=c_int, dir_fd=DirFD(rposix.HAVE_MKDIRAT))
 def mkdir(space, w_path, mode=0o777, __kwonly__=None, dir_fd=DEFAULT_DIR_FD):
@@ -751,11 +751,11 @@ dir_fd may not be implemented on your platform.
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
-@unwrap_spec(errno=c_int)
-def strerror(space, errno):
+@unwrap_spec(code=c_int)
+def strerror(space, code):
     """Translate an error code to a message string."""
     try:
-        return space.wrap(_strerror(errno))
+        return space.wrap(_strerror(code))
     except ValueError:
         raise oefmt(space.w_ValueError, "strerror() argument out of range")
 
@@ -1059,12 +1059,12 @@ dir_fd may not be implemented on your platform.
         raise wrap_oserror2(space, e, w_path)
 
 @unwrap_spec(mode=c_int, device=c_int, dir_fd=DirFD(rposix.HAVE_MKNODAT))
-def mknod(space, w_filename, mode=0600, device=0,
+def mknod(space, w_path, mode=0600, device=0,
           __kwonly__=None, dir_fd=DEFAULT_DIR_FD):
-    """mknod(filename, mode=0o600, device=0, *, dir_fd=None)
+    """mknod(path, mode=0o600, device=0, *, dir_fd=None)
 
 Create a filesystem node (file, device special file or named pipe)
-named filename. mode specifies both the permissions to use and the
+named 'path'. mode specifies both the permissions to use and the
 type of node to be created, being combined (bitwise OR) with one of
 S_IFREG, S_IFCHR, S_IFBLK, and S_IFIFO. For S_IFCHR and S_IFBLK,
 device defines the newly created device special file (probably using
@@ -1076,12 +1076,12 @@ dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
         if rposix.HAVE_MKNODAT and dir_fd != DEFAULT_DIR_FD:
-            fname = space.fsencode_w(w_filename)
+            fname = space.fsencode_w(w_path)
             rposix.mknodat(fname, mode, device, dir_fd)
         else:
-            dispatch_filename(rposix.mknod)(space, w_filename, mode, device)
+            dispatch_filename(rposix.mknod)(space, w_path, mode, device)
     except OSError as e:
-        raise wrap_oserror2(space, e, w_filename)
+        raise wrap_oserror2(space, e, w_path)
 
 @unwrap_spec(mask=c_int)
 def umask(space, mask):
@@ -1097,19 +1097,19 @@ def getpid(space):
         raise wrap_oserror(space, e)
     return space.wrap(pid)
 
-@unwrap_spec(pid=c_int, sig=c_int)
-def kill(space, pid, sig):
+@unwrap_spec(pid=c_int, signal=c_int)
+def kill(space, pid, signal):
     "Kill a process with a signal."
     try:
-        rposix.kill(pid, sig)
+        rposix.kill(pid, signal)
     except OSError as e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(pgid=c_int, sig=c_int)
-def killpg(space, pgid, sig):
+@unwrap_spec(pgid=c_int, signal=c_int)
+def killpg(space, pgid, signal):
     "Kill a process group with a signal."
     try:
-        os.killpg(pgid, sig)
+        os.killpg(pgid, signal)
     except OSError as e:
         raise wrap_oserror(space, e)
 
@@ -1287,7 +1287,7 @@ def waitpid(space, pid, options):
 def _exit(space, status):
     os._exit(status)
 
-def execv(space, w_path, w_args):
+def execv(space, w_path, w_argv):
     """ execv(path, args)
 
 Execute an executable path with arguments, replacing current process.
@@ -1297,7 +1297,7 @@ Execute an executable path with arguments, replacing current process.
     """
     command = space.fsencode_w(w_path)
     try:
-        args_w = space.unpackiterable(w_args)
+        args_w = space.unpackiterable(w_argv)
         if len(args_w) < 1:
             raise oefmt(space.w_ValueError,
                 "execv() arg 2 must not be empty")
@@ -1322,13 +1322,13 @@ def _env2interp(space, w_env):
     return env
 
 
-def execve(space, w_path, w_argv, w_environment):
-    """execve(path, args, env)
+def execve(space, w_path, w_argv, w_env):
+    """execve(path, argv, env)
 
 Execute a path with arguments and environment, replacing current process.
 
     path: path of executable file
-    args: tuple or list of arguments
+    argv: tuple or list of arguments
     env: dictionary of strings mapping to strings
 
 On some platforms, you may specify an open file descriptor for path;
@@ -1340,7 +1340,7 @@ On some platforms, you may specify an open file descriptor for path;
         raise oefmt(space.w_TypeError,
             "execve: argv must be a tuple or a list")
     args = [space.fsencode_w(w_arg) for w_arg in space.unpackiterable(w_argv)]
-    env = _env2interp(space, w_environment)
+    env = _env2interp(space, w_env)
     try:
         path = space.fsencode_w(w_path)
     except OperationError:
@@ -1363,8 +1363,8 @@ On some platforms, you may specify an open file descriptor for path;
             raise wrap_oserror(space, e)
 
 @unwrap_spec(mode=int, path='fsencode')
-def spawnv(space, mode, path, w_args):
-    args = [space.fsencode_w(w_arg) for w_arg in space.unpackiterable(w_args)]
+def spawnv(space, mode, path, w_argv):
+    args = [space.fsencode_w(w_arg) for w_arg in space.unpackiterable(w_argv)]
     try:
         ret = os.spawnv(mode, path, args)
     except OSError as e:
@@ -1372,8 +1372,8 @@ def spawnv(space, mode, path, w_args):
     return space.wrap(ret)
 
 @unwrap_spec(mode=int, path='fsencode')
-def spawnve(space, mode, path, w_args, w_env):
-    args = [space.fsencode_w(w_arg) for w_arg in space.unpackiterable(w_args)]
+def spawnve(space, mode, path, w_argv, w_env):
+    args = [space.fsencode_w(w_arg) for w_arg in space.unpackiterable(w_argv)]
     env = _env2interp(space, w_env)
     try:
         ret = os.spawnve(mode, path, args, env)
@@ -1561,47 +1561,47 @@ def getuid(space):
     """
     return wrap_uid(space, os.getuid())
 
-@unwrap_spec(arg=c_uid_t)
-def setuid(space, arg):
+@unwrap_spec(uid=c_uid_t)
+def setuid(space, uid):
     """ setuid(uid)
 
     Set the current process's user id.
     """
     try:
-        os.setuid(arg)
+        os.setuid(uid)
     except OSError as e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(arg=c_uid_t)
-def seteuid(space, arg):
-    """ seteuid(uid)
+@unwrap_spec(euid=c_uid_t)
+def seteuid(space, euid):
+    """ seteuid(euid)
 
     Set the current process's effective user id.
     """
     try:
-        os.seteuid(arg)
+        os.seteuid(euid)
     except OSError as e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(arg=c_gid_t)
-def setgid(space, arg):
+@unwrap_spec(gid=c_gid_t)
+def setgid(space, gid):
     """ setgid(gid)
 
     Set the current process's group id.
     """
     try:
-        os.setgid(arg)
+        os.setgid(gid)
     except OSError as e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(arg=c_gid_t)
-def setegid(space, arg):
-    """ setegid(gid)
+@unwrap_spec(egid=c_gid_t)
+def setegid(space, egid):
+    """ setegid(egid)
 
     Set the current process's effective group id.
     """
     try:
-        os.setegid(arg)
+        os.setegid(egid)
     except OSError as e:
         raise wrap_oserror(space, e)
 
@@ -1649,13 +1649,13 @@ def getgroups(space):
         raise wrap_oserror(space, e)
     return space.newlist([wrap_gid(space, e) for e in list])
 
-def setgroups(space, w_list):
-    """ setgroups(list)
+def setgroups(space, w_groups):
+    """ setgroups(groups)
 
     Set the groups of the current process to list.
     """
     list = []
-    for w_gid in space.unpackiterable(w_list):
+    for w_gid in space.unpackiterable(w_groups):
         list.append(space.c_uid_t_w(w_gid))
     try:
         os.setgroups(list[:])
@@ -2025,24 +2025,25 @@ def minor(space, device):
     result = os.minor(intmask(device))
     return space.wrap(result)
 
-@unwrap_spec(inc=c_int)
-def nice(space, inc):
-    "Decrease the priority of process by inc and return the new priority."
+@unwrap_spec(increment=c_int)
+def nice(space, increment):
+    """Decrease the priority of process by 'increment'
+    and return the new priority."""
     try:
-        res = os.nice(inc)
+        res = os.nice(increment)
     except OSError as e:
         raise wrap_oserror(space, e)
     return space.wrap(res)
 
-@unwrap_spec(n=int)
-def urandom(space, n):
-    """urandom(n) -> str
+@unwrap_spec(size=int)
+def urandom(space, size):
+    """urandom(size) -> str
 
-    Return a string of n random bytes suitable for cryptographic use.
+    Return a string of 'size' random bytes suitable for cryptographic use.
     """
     context = get(space).random_context
     try:
-        return space.newbytes(rurandom.urandom(context, n))
+        return space.newbytes(rurandom.urandom(context, size))
     except OSError as e:
         raise wrap_oserror(space, e)
 
