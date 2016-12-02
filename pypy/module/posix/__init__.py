@@ -206,6 +206,10 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['get_blocking'] = 'interp_posix.get_blocking'
         interpleveldefs['set_blocking'] = 'interp_posix.set_blocking'
 
+    for _name in ["O_CLOEXEC"]:
+        if getattr(rposix, _name) is not None:
+            interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
+
     def startup(self, space):
         from pypy.module.posix import interp_posix
         from pypy.module.imp import importing
