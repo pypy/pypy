@@ -485,9 +485,13 @@ class SymtableBuilder(ast.GenericASTVisitor):
     def visit_Global(self, glob):
         for name in glob.names:
             old_role = self.scope.lookup_role(name)
-            if (old_role & (SYM_USED | SYM_ASSIGNED) and not
-                    (name == '__class__' and
-                     self.scope._hide_bound_from_nested_scopes)):
+            if (self.scope._hide_bound_from_nested_scopes and
+                   name == '__class__'):
+                msg = ("'global __class__' inside a class statement is not "
+                       "implemented in PyPy")
+                raise SyntaxError(msg, glob.lineno, glob.col_offset,
+                                  filename=self.compile_info.filename)
+            if old_role & (SYM_USED | SYM_ASSIGNED):
                 if old_role & SYM_ASSIGNED:
                     msg = "name '%s' is assigned to before global declaration" \
                         % (name,)

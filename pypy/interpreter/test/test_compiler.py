@@ -381,12 +381,6 @@ def wrong3():
         filter_arg = Arguments(space, [ space.wrap('error') ], ["module"],
                                [space.wrap("<tmp>")])
         for code in ['''
-class C:
-    global __class__
-    __class__ = 42
-def testing():
-    return __class__
-''', '''
 def testing():
     __class__ = 0
     def f():
