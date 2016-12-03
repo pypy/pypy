@@ -2791,11 +2791,11 @@ class TestSignatureObject(unittest.TestCase):
         self.assertNotEqual(hash(foo_sig), hash(inspect.signature(bar)))
 
         def foo(a={}): pass
-        with self.assertRaisesRegex(TypeError, 'unhashable type'):
+        with self.assertRaisesRegex(TypeError, 'unhashable'):
             hash(inspect.signature(foo))
 
         def foo(a) -> {}: pass
-        with self.assertRaisesRegex(TypeError, 'unhashable type'):
+        with self.assertRaisesRegex(TypeError, 'unhashable'):
             hash(inspect.signature(foo))
 
     def test_signature_str(self):
@@ -3252,7 +3252,7 @@ class TestBoundArguments(unittest.TestCase):
         def foo(a): pass
         ba = inspect.signature(foo).bind(1)
 
-        with self.assertRaisesRegex(TypeError, 'unhashable type'):
+        with self.assertRaisesRegex(TypeError, 'unhashable'):
             hash(ba)
 
     def test_signature_bound_arguments_equality(self):
