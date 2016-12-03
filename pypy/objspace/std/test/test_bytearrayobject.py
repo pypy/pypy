@@ -695,3 +695,15 @@ class AppTestBytesArray:
         del x[3:10:2]
         assert x.__alloc__() == 33
         assert x == bytearray(b'acdfhjlmnopqrstuvwxyz')
+        #
+        x = make(shift=3)
+        assert b'f' in x
+        assert b'ef' in x
+        assert b'efx' not in x
+        assert b'very long string longer than the original' not in x
+        assert x.__alloc__() == 14
+        assert x.find(b'f') == 5
+        assert x.rfind(b'f', 2, 11) == 5
+        assert x.find(b'fe') == -1
+        assert x.index(b'f', 2, 11) == 5
+        assert x.__alloc__() == 14
