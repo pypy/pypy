@@ -37,6 +37,7 @@ class W_BytearrayObject(W_Root):
         self._data = resizable_list_supporting_raw_ptr(data)
         self._offset = 0
         # NOTE: the bytearray data is in 'self._data[self._offset:]'
+        check_nonneg(self._offset)
         _tweak_for_tests(self)
 
     def getdata(self):
@@ -80,12 +81,12 @@ class W_BytearrayObject(W_Root):
         # for getitem/setitem/delitem of a single char
         if index >= 0:
             index += self._offset
-            oob = index >= len(self._data)
+            if index >= len(self._data):
+                raise OperationError(space.w_IndexError, space.wrap(errmsg))
         else:
             index += len(self._data)    # count from the end
-            oob = index < self._offset
-        if oob:
-            raise OperationError(space.w_IndexError, space.wrap(errmsg))
+            if index < self._offset:
+                raise OperationError(space.w_IndexError, space.wrap(errmsg))
         check_nonneg(index)
         return index
 
@@ -411,6 +412,7 @@ class W_BytearrayObject(W_Root):
                 del self._data[idx]
 
     def _delete_from_start(self, n):
+        assert n >= 0
         self._offset += n
         jit.conditional_call(self._offset > len(self._data) / 2,
                              self._shrink_after_delete_from_start)
