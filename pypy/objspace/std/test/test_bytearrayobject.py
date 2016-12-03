@@ -1,10 +1,27 @@
 # coding: utf-8
 
+import random
 from pypy import conftest
+from pypy.objspace.std import bytearrayobject
+
+class DontAccess(object):
+    pass
+dont_access = DontAccess()
+
 
 class AppTestBytesArray:
     def setup_class(cls):
         cls.w_runappdirect = cls.space.wrap(conftest.option.runappdirect)
+        def tweak(w_bytearray):
+            n = random.randint(-3, 16)
+            if n > 0:
+                w_bytearray._data = [dont_access] * n + w_bytearray._data
+                w_bytearray._offset += n
+        cls._old_tweak = [bytearrayobject._tweak_for_tests]
+        bytearrayobject._tweak_for_tests = tweak
+
+    def teardown_class(cls):
+        [bytearrayobject._tweak_for_tests] = cls._old_tweak
 
     def test_basics(self):
         b = bytearray()
@@ -345,6 +362,20 @@ class AppTestBytesArray:
         b.reverse()
         assert b == bytearray(b'olleh')
 
+    def test_delitem_from_front(self):
+        b = bytearray(b'abcdefghij')
+        del b[0]
+        del b[0]
+        assert len(b) == 8
+        assert b == bytearray(b'cdefghij')
+        del b[-8]
+        del b[-7]
+        assert len(b) == 6
+        assert b == bytearray(b'efghij')
+        del b[:3]
+        assert len(b) == 3
+        assert b == bytearray(b'hij')
+
     def test_delitem(self):
         b = bytearray(b'abc')
         del b[1]
@@ -426,6 +457,18 @@ class AppTestBytesArray:
         raises(TypeError, b.extend, object())
         raises(TypeError, b.extend, [object()])
         raises(TypeError, b.extend, "unicode")
+
+    def test_setitem_from_front(self):
+        b = bytearray(b'abcdefghij')
+        b[:2] = b''
+        assert len(b) == 8
+        assert b == bytearray(b'cdefghij')
+        b[:3] = b'X'
+        assert len(b) == 6
+        assert b == bytearray(b'Xfghij')
+        b[:2] = b'ABC'
+        assert len(b) == 7
+        assert b == bytearray(b'ABCghij')
 
     def test_setslice(self):
         b = bytearray(b'hello')
