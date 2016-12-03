@@ -226,15 +226,21 @@ dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     if rposix.O_CLOEXEC is not None:
         flags |= rposix.O_CLOEXEC
+    while True:
+        try:
+            if rposix.HAVE_OPENAT and dir_fd != DEFAULT_DIR_FD:
+                path = space.fsencode_w(w_path)
+                fd = rposix.openat(path, flags, mode, dir_fd)
+            else:
+                fd = dispatch_filename(rposix.open)(space, w_path, flags, mode)
+            break
+        except OSError as e:
+            wrap_oserror2(space, e, w_path, eintr_retry=True)
     try:
-        if rposix.HAVE_OPENAT and dir_fd != DEFAULT_DIR_FD:
-            path = space.fsencode_w(w_path)
-            fd = rposix.openat(path, flags, mode, dir_fd)
-        else:
-            fd = dispatch_filename(rposix.open)(space, w_path, flags, mode)
         _open_inhcache.set_non_inheritable(fd)
     except OSError as e:
-        raise wrap_oserror2(space, e, w_path)
+        rposix.c_close(fd)
+        raise wrap_oserror2(space, e, w_path, eintr_retry=False)
     return space.wrap(fd)
 
 @unwrap_spec(fd=c_int, position=r_longlong, how=c_int)
@@ -276,12 +282,13 @@ def write(space, fd, w_data):
     """Write a string to a file descriptor.  Return the number of bytes
 actually written, which may be smaller than len(data)."""
     data = space.getarg_w('y*', w_data)
-    try:
-        res = os.write(fd, data.as_str())
-    except OSError as e:
-        raise wrap_oserror(space, e)
-    else:
-        return space.wrap(res)
+    while True:
+        try:
+            res = os.write(fd, data.as_str())
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+            return space.wrap(res)
 
 @unwrap_spec(fd=c_int)
 def close(space, fd):
@@ -911,9 +918,14 @@ def pipe(space):
     "Create a pipe.  Returns (read_end, write_end)."
     try:
         fd1, fd2 = rposix.pipe(rposix.O_CLOEXEC or 0)
+    except OSError as e:
+        raise wrap_oserror(space, e)
+    try:
         _pipe_inhcache.set_non_inheritable(fd1)
         _pipe_inhcache.set_non_inheritable(fd2)
     except OSError as e:
+        rposix.c_close(fd2)
+        rposix.c_close(fd1)
         raise wrap_oserror(space, e)
     return space.newtuple([space.wrap(fd1), space.wrap(fd2)])
 
