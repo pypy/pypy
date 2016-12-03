@@ -60,6 +60,13 @@ class AppTestFunctionIntrospection:
         f.__annotations__ = ann
         assert f.__annotations__ is ann
 
+    def test_annotations_mangle(self): """
+        class X:
+            def foo(self, __a:5, b:6):
+                pass
+        assert X.foo.__annotations__ == {'_X__a': 5, 'b': 6}
+        """
+
     def test_kwdefaults(self):
         """
         def f(*, kw=3): return kw
