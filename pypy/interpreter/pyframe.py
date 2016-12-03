@@ -256,13 +256,22 @@ class PyFrame(W_Root):
             # MemoryError is raised at just the wrong place
             executioncontext = self.space.getexecutioncontext()
             exc_on_enter = executioncontext.sys_exc_info()
-            try:
-                return self.execute_frame()
-            finally:
-                if we_are_translated():
+            if we_are_translated():
+                try:
+                    return self.execute_frame()
+                finally:
                     executioncontext.set_sys_exc_info(exc_on_enter)
-                else:
+            else:
+                # untranslated, we check consistency, but not in case of
+                # interp-level exceptions different than OperationError
+                # (e.g. a random failing test, or a pytest Skipped exc.)
+                try:
+                    w_res = self.execute_frame()
                     assert exc_on_enter is executioncontext.sys_exc_info()
+                except OperationError:
+                    assert exc_on_enter is executioncontext.sys_exc_info()
+                    raise
+                return w_res
     run._always_inline_ = True
 
     def initialize_as_generator(self, name, qualname):
