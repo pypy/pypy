@@ -25,7 +25,8 @@ class StringMethods(object):
         value = self._val(space)
         lenself = len(value)
         start, end = unwrap_start_stop(space, lenself, w_start, w_end)
-        return (value, start, end)
+        # the None means "no offset"; see bytearrayobject.py
+        return (value, start, end, None)
 
     @staticmethod
     def descr_maketrans(space, w_type, w_from, w_to):
@@ -79,12 +80,12 @@ class StringMethods(object):
         return W_StringIterObject(self, self._iter_getitem_result)
 
     def descr_contains(self, space, w_sub):
-        value = self._val(space)
+        value, start, end, _ = self._convert_idx_params(space, None, None)
         other = self._op_val(space, w_sub, allow_char=True)
         if self._use_rstr_ops(space, w_sub):
-            res = value.find(other)
+            res = value.find(other, start, end)
         else:
-            res = find(value, other, 0, len(value))
+            res = find(value, other, start, end)
         return space.newbool(res >= 0)
 
     def descr_add(self, space, w_other):
@@ -179,7 +180,7 @@ class StringMethods(object):
         return self._new(centered)
 
     def descr_count(self, space, w_sub, w_start=None, w_end=None):
-        value, start, end = self._convert_idx_params(space, w_start, w_end)
+        value, start, end, _ = self._convert_idx_params(space, w_start, w_end)
 
         sub = self._op_val(space, w_sub, allow_char=True)
         if self._use_rstr_ops(space, w_sub):
@@ -247,27 +248,31 @@ class StringMethods(object):
         return distance
 
     def descr_find(self, space, w_sub, w_start=None, w_end=None):
-        (value, start, end) = self._convert_idx_params(space, w_start, w_end)
+        value, start, end, ofs = self._convert_idx_params(space, w_start, w_end)
 
         sub = self._op_val(space, w_sub, allow_char=True)
         if self._use_rstr_ops(space, w_sub):
             res = value.find(sub, start, end)
         else:
             res = find(value, sub, start, end)
+        if ofs is not None and res >= 0:
+            res -= ofs
         return space.wrap(res)
 
     def descr_rfind(self, space, w_sub, w_start=None, w_end=None):
-        (value, start, end) = self._convert_idx_params(space, w_start, w_end)
+        value, start, end, ofs = self._convert_idx_params(space, w_start, w_end)
 
         sub = self._op_val(space, w_sub, allow_char=True)
         if self._use_rstr_ops(space, w_sub):
             res = value.rfind(sub, start, end)
         else:
             res = rfind(value, sub, start, end)
+        if ofs is not None and res >= 0:
+            res -= ofs
         return space.wrap(res)
 
     def descr_index(self, space, w_sub, w_start=None, w_end=None):
-        (value, start, end) = self._convert_idx_params(space, w_start, w_end)
+        value, start, end, ofs = self._convert_idx_params(space, w_start, w_end)
 
         sub = self._op_val(space, w_sub, allow_char=True)
         if self._use_rstr_ops(space, w_sub):
@@ -278,10 +283,12 @@ class StringMethods(object):
         if res < 0:
             raise oefmt(space.w_ValueError,
                         "substring not found in " + self._KIND2 + ".index")
+        if ofs is not None:
+            res -= ofs
         return space.wrap(res)
 
     def descr_rindex(self, space, w_sub, w_start=None, w_end=None):
-        (value, start, end) = self._convert_idx_params(space, w_start, w_end)
+        value, start, end, ofs = self._convert_idx_params(space, w_start, w_end)
 
         sub = self._op_val(space, w_sub, allow_char=True)
         if self._use_rstr_ops(space, w_sub):
@@ -292,6 +299,8 @@ class StringMethods(object):
         if res < 0:
             raise oefmt(space.w_ValueError,
                         "substring not found in " + self._KIND2 + ".rindex")
+        if ofs is not None:
+            res -= ofs
         return space.wrap(res)
 
     @specialize.arg(2)
@@ -595,7 +604,7 @@ class StringMethods(object):
         return "bytes"
 
     def descr_startswith(self, space, w_prefix, w_start=None, w_end=None):
-        (value, start, end) = self._convert_idx_params(space, w_start, w_end)
+        value, start, end, _ = self._convert_idx_params(space, w_start, w_end)
         if space.isinstance_w(w_prefix, space.w_tuple):
             return self._startswith_tuple(space, value, w_prefix, start, end)
         try:
@@ -620,7 +629,7 @@ class StringMethods(object):
         return startswith(value, prefix, start, end)
 
     def descr_endswith(self, space, w_suffix, w_start=None, w_end=None):
-        (value, start, end) = self._convert_idx_params(space, w_start, w_end)
+        value, start, end, _ = self._convert_idx_params(space, w_start, w_end)
         if space.isinstance_w(w_suffix, space.w_tuple):
             return self._endswith_tuple(space, value, w_suffix, start, end)
         try:

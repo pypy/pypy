@@ -18,7 +18,7 @@ from pypy.objspace.std.bytesobject import (
     getbytevalue, makebytesdata_w, newbytesdata_w)
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
-from pypy.objspace.std.sliceobject import W_SliceObject
+from pypy.objspace.std.sliceobject import W_SliceObject, unwrap_start_stop
 from pypy.objspace.std.stringmethods import StringMethods, _get_buffer
 from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.util import get_positive_index
@@ -498,7 +498,13 @@ class W_BytearrayObject(W_Root):
         return self._getitem_result(space, index)
 
     def descr_alloc(self, space):
-        return space.wrap(self._len() + 1)
+        return space.wrap(len(self._data) + 1)   # includes the _offset part
+
+    def _convert_idx_params(self, space, w_start, w_end):
+        # optimization: this version doesn't force getdata()
+        start, end = unwrap_start_stop(space, self._len(), w_start, w_end)
+        ofs = self._offset
+        return (self._data, start + ofs, end + ofs, ofs)
 
 
 # ____________________________________________________________
