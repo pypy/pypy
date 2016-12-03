@@ -6,10 +6,11 @@ from rpython.rlib.objectmodel import (
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rstring import StringBuilder, ByteListBuilder
-from rpython.rlib.debug import check_list_of_chars
+from rpython.rlib.debug import check_list_of_chars, check_nonneg
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
         nonmoving_raw_ptr_for_resizable_list)
+from rpython.rlib import jit
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -17,8 +18,9 @@ from pypy.objspace.std.bytesobject import (
     getbytevalue, makebytesdata_w, newbytesdata_w)
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
-from pypy.objspace.std.sliceobject import W_SliceObject
+from pypy.objspace.std.sliceobject import W_SliceObject, unwrap_start_stop
 from pypy.objspace.std.stringmethods import StringMethods, _get_buffer
+from pypy.objspace.std.stringmethods import _descr_getslice_slowpath
 from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.util import get_positive_index
 from pypy.objspace.std.formatting import mod_format, FORMAT_BYTEARRAY
@@ -32,23 +34,34 @@ class W_BytearrayObject(W_Root):
 
     def __init__(self, data):
         check_list_of_chars(data)
-        self.data = resizable_list_supporting_raw_ptr(data)
+        self._data = resizable_list_supporting_raw_ptr(data)
+        self._offset = 0
+        # NOTE: the bytearray data is in 'self._data[self._offset:]'
+        check_nonneg(self._offset)
+        _tweak_for_tests(self)
+
+    def getdata(self):
+        if self._offset > 0:
+            self._data = self._data[self._offset:]
+            self._offset = 0
+        return self._data
 
     def __repr__(self):
         """representation for debugging purposes"""
-        return "%s(%s)" % (self.__class__.__name__, ''.join(self.data))
+        return "%s(%s)" % (self.__class__.__name__,
+                           ''.join(self._data[self._offset:]))
 
     def buffer_w(self, space, flags):
-        return BytearrayBuffer(self.data, False)
+        return BytearrayBuffer(self)
 
     def bytearray_list_of_chars_w(self, space):
-        return self.data
+        return self.getdata()
 
     def nonmovable_carray(self, space):
-        return BytearrayBuffer(self.data, False).get_raw_address()
+        return BytearrayBuffer(self).get_raw_address()
 
     def _new(self, value):
-        if value is self.data:
+        if value is self._data:
             value = value[:]
         return W_BytearrayObject(value)
 
@@ -62,17 +75,27 @@ class W_BytearrayObject(W_Root):
         return W_BytearrayObject([])
 
     def _len(self):
-        return len(self.data)
+        return len(self._data) - self._offset
+
+    def _fixindex(self, space, index, errmsg="bytearray index out of range"):
+        # for getitem/setitem/delitem of a single char
+        if index >= 0:
+            index += self._offset
+            if index >= len(self._data):
+                raise OperationError(space.w_IndexError, space.wrap(errmsg))
+        else:
+            index += len(self._data)    # count from the end
+            if index < self._offset:
+                raise OperationError(space.w_IndexError, space.wrap(errmsg))
+        check_nonneg(index)
+        return index
 
     def _getitem_result(self, space, index):
-        try:
-            character = self.data[index]
-        except IndexError:
-            raise oefmt(space.w_IndexError, "bytearray index out of range")
+        character = self._data[self._fixindex(space, index)]
         return space.wrap(ord(character))
 
     def _val(self, space):
-        return self.data
+        return self.getdata()
 
     @staticmethod
     def _use_rstr_ops(space, w_other):
@@ -151,11 +174,12 @@ class W_BytearrayObject(W_Root):
         return False
 
     def ord(self, space):
-        if len(self.data) != 1:
+        length = self._len()
+        if length != 1:
             raise oefmt(space.w_TypeError,
                         "ord() expected a character, but string of length %d "
-                        "found", len(self.data))
-        return space.wrap(ord(self.data[0]))
+                        "found", length)
+        return space.wrap(ord(self._data[self._offset]))
 
     @staticmethod
     def descr_new(space, w_bytearraytype, __args__):
@@ -168,7 +192,7 @@ class W_BytearrayObject(W_Root):
             w_dict = space.w_None
         return space.newtuple([
             space.type(self), space.newtuple([
-                space.wrap(''.join(self.data).decode('latin-1')),
+                space.wrap(''.join(self.getdata()).decode('latin-1')),
                 space.wrap('latin-1')]),
             w_dict])
 
@@ -186,17 +210,20 @@ class W_BytearrayObject(W_Root):
     def descr_init(self, space, w_source=None, encoding=None, errors=None):
         assert isinstance(self, W_BytearrayObject)
         data = [c for c in newbytesdata_w(space, w_source, encoding, errors)]
-        self.data = resizable_list_supporting_raw_ptr(data)
+        self._data = resizable_list_supporting_raw_ptr(data)
+        self._offset = 0
+        _tweak_for_tests(self)
 
     def descr_repr(self, space):
-        s = self.data
+        s, start, end, _ = self._convert_idx_params(space, None, None)
 
         # Good default if there are no replacements.
-        buf = StringBuilder(len("bytearray(b'')") + len(s))
+        buf = StringBuilder(len("bytearray(b'')") + (end - start))
 
         buf.append("bytearray(b")
         quote = "'"
-        for c in s:
+        for i in range(start, end):
+            c = s[i]
             if c == '"':
                 quote = "'"
                 break
@@ -204,7 +231,7 @@ class W_BytearrayObject(W_Root):
                 quote = '"'
         buf.append(quote)
 
-        for i in range(len(s)):
+        for i in range(start, end):
             c = s[i]
 
             if c == '\\' or c == "'":
@@ -237,7 +264,7 @@ class W_BytearrayObject(W_Root):
 
     def descr_eq(self, space, w_other):
         if isinstance(w_other, W_BytearrayObject):
-            return space.newbool(self.data == w_other.data)
+            return space.newbool(self.getdata() == w_other.getdata())
 
         try:
             buffer = _get_buffer(space, w_other)
@@ -257,7 +284,7 @@ class W_BytearrayObject(W_Root):
 
     def descr_ne(self, space, w_other):
         if isinstance(w_other, W_BytearrayObject):
-            return space.newbool(self.data != w_other.data)
+            return space.newbool(self.getdata() != w_other.getdata())
 
         try:
             buffer = _get_buffer(space, w_other)
@@ -279,7 +306,7 @@ class W_BytearrayObject(W_Root):
         value = self._val(space)
 
         if isinstance(w_other, W_BytearrayObject):
-            other = w_other.data
+            other = w_other.getdata()
             other_len = len(other)
             cmp = _memcmp(value, other, min(len(value), len(other)))
         elif isinstance(w_other, W_BytesObject):
@@ -324,7 +351,7 @@ class W_BytearrayObject(W_Root):
 
     def descr_inplace_add(self, space, w_other):
         if isinstance(w_other, W_BytearrayObject):
-            self.data += w_other.data
+            self._data += w_other.getdata()
             return self
 
         if isinstance(w_other, W_BytesObject):
@@ -336,7 +363,7 @@ class W_BytearrayObject(W_Root):
     @specialize.argtype(1)
     def _inplace_add(self, other):
         for i in range(len(other)):
-            self.data.append(other[i])
+            self._data.append(other[i])
 
     def descr_inplace_mul(self, space, w_times):
         try:
@@ -345,75 +372,89 @@ class W_BytearrayObject(W_Root):
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
-        self.data *= times
+        data = self.getdata()
+        data *= times
         return self
 
     def descr_setitem(self, space, w_index, w_other):
         if isinstance(w_index, W_SliceObject):
-            oldsize = len(self.data)
+            sequence2 = makebytesdata_w(space, w_other)
+            oldsize = self._len()
             start, stop, step, slicelength = w_index.indices4(space, oldsize)
-            sequence2 = [c for c in makebytesdata_w(space, w_other)]
-            _setitem_slice_helper(space, self.data, start, step,
+            if start == 0 and step == 1 and len(sequence2) <= slicelength:
+                self._delete_from_start(slicelength - len(sequence2))
+                slicelength = len(sequence2)
+                if slicelength == 0:
+                    return
+            data = self._data
+            start += self._offset
+            _setitem_slice_helper(space, data, start, step,
                                   slicelength, sequence2, empty_elem='\x00')
         else:
             idx = space.getindex_w(w_index, space.w_IndexError, "bytearray")
-            try:
-                self.data[idx] = getbytevalue(space, w_other)
-            except IndexError:
-                raise oefmt(space.w_IndexError, "bytearray index out of range")
+            newvalue = getbytevalue(space, w_other)
+            self._data[self._fixindex(space, idx)] = newvalue
 
     def descr_delitem(self, space, w_idx):
         if isinstance(w_idx, W_SliceObject):
-            start, stop, step, slicelength = w_idx.indices4(space,
-                                                            len(self.data))
-            _delitem_slice_helper(space, self.data, start, step, slicelength)
+            start, stop, step, slicelength = w_idx.indices4(space, self._len())
+            if start == 0 and step == 1:
+                self._delete_from_start(slicelength)
+            else:
+                _delitem_slice_helper(space, self._data,
+                                      start + self._offset, step, slicelength)
         else:
             idx = space.getindex_w(w_idx, space.w_IndexError, "bytearray")
-            try:
-                del self.data[idx]
-            except IndexError:
-                raise oefmt(space.w_IndexError,
-                            "bytearray deletion index out of range")
+            idx = self._fixindex(space, idx)
+            if idx == self._offset:    # fast path for del x[0] or del[-len]
+                self._delete_from_start(1)
+            else:
+                del self._data[idx]
+
+    def _delete_from_start(self, n):
+        assert n >= 0
+        self._offset += n
+        jit.conditional_call(self._offset > len(self._data) / 2,
+                             _shrink_after_delete_from_start, self)
 
     def descr_append(self, space, w_item):
-        self.data.append(getbytevalue(space, w_item))
+        self._data.append(getbytevalue(space, w_item))
 
     def descr_extend(self, space, w_other):
         if isinstance(w_other, W_BytearrayObject):
-            self.data += w_other.data
+            self._data += w_other.getdata()
         else:
-            self.data += [c for c in makebytesdata_w(space, w_other)]
-        return self
+            self._inplace_add(makebytesdata_w(space, w_other))
 
     def descr_insert(self, space, w_idx, w_other):
         where = space.int_w(w_idx)
-        length = len(self.data)
-        index = get_positive_index(where, length)
         val = getbytevalue(space, w_other)
-        self.data.insert(index, val)
-        return space.w_None
+        data = self.getdata()
+        length = len(data)
+        index = get_positive_index(where, length)
+        data.insert(index, val)
 
     @unwrap_spec(w_idx=WrappedDefault(-1))
     def descr_pop(self, space, w_idx):
         index = space.int_w(w_idx)
-        try:
-            result = self.data.pop(index)
-        except IndexError:
-            if not self.data:
-                raise oefmt(space.w_IndexError, "pop from empty bytearray")
-            raise oefmt(space.w_IndexError, "pop index out of range")
+        if self._len() == 0:
+            raise oefmt(space.w_IndexError, "pop from empty bytearray")
+        index = self._fixindex(space, index, "pop index out of range")
+        result = self._data.pop(index)
         return space.wrap(ord(result))
 
     def descr_remove(self, space, w_char):
         char = space.int_w(space.index(w_char))
-        try:
-            self.data.remove(chr(char))
-        except ValueError:
-            raise oefmt(space.w_ValueError, "value not found in bytearray")
+        _data = self._data
+        for index in range(self._offset, len(_data)):
+            if ord(_data[index]) == char:
+                del _data[index]
+                return
+        raise oefmt(space.w_ValueError, "value not found in bytearray")
 
     def descr_add(self, space, w_other):
         if isinstance(w_other, W_BytearrayObject):
-            return self._new(self.data + w_other.data)
+            return self._new(self.getdata() + w_other.getdata())
 
         if isinstance(w_other, W_BytesObject):
             return self._add(self._op_val(space, w_other))
@@ -428,19 +469,21 @@ class W_BytearrayObject(W_Root):
 
     @specialize.argtype(1)
     def _add(self, other):
-        return self._new(self.data + [other[i] for i in range(len(other))])
+        return self._new(self.getdata() + [other[i] for i in range(len(other))])
 
     def descr_reverse(self, space):
-        self.data.reverse()
+        self.getdata().reverse()
 
     def descr_clear(self, space):
-        self.data = []
+        self._data = []
+        self._offset = 0
 
     def descr_copy(self, space):
-        return self._new(self.data[:])
+        return self._new(self._data[self._offset:])
 
     def descr_hex(self, space):
-        return _array_to_hexstring(space, self.data, len(self.data), True)
+        data = self.getdata()
+        return _array_to_hexstring(space, data, len(data), True)
 
     def descr_mod(self, space, w_values):
         return mod_format(space, self, w_values, fmt_type=FORMAT_BYTEARRAY)
@@ -451,7 +494,31 @@ class W_BytearrayObject(W_Root):
         return self._getitem_result(space, index)
 
     def descr_alloc(self, space):
-        return space.wrap(self._len() + 1)
+        return space.wrap(len(self._data) + 1)   # includes the _offset part
+
+    def _convert_idx_params(self, space, w_start, w_end):
+        # optimization: this version doesn't force getdata()
+        start, end = unwrap_start_stop(space, self._len(), w_start, w_end)
+        ofs = self._offset
+        return (self._data, start + ofs, end + ofs, ofs)
+
+    def descr_getitem(self, space, w_index):
+        # optimization: this version doesn't force getdata()
+        if isinstance(w_index, W_SliceObject):
+            start, stop, step, sl = w_index.indices4(space, self._len())
+            if sl == 0:
+                return self._empty()
+            elif step == 1:
+                assert start >= 0 and stop >= 0
+                ofs = self._offset
+                return self._new(self._data[start + ofs : stop + ofs])
+            else:
+                start += self._offset
+                ret = _descr_getslice_slowpath(self._data, start, step, sl)
+                return self._new_from_list(ret)
+
+        index = space.getindex_w(w_index, space.w_IndexError, self._KIND1)
+        return self._getitem_result(space, index)
 
 
 # ____________________________________________________________
@@ -1194,21 +1261,6 @@ def _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
                     "attempt to assign sequence of size %d to extended slice "
                     "of size %d", len2, slicelength)
 
-    if sequence2 is items:
-        if step > 0:
-            # Always copy starting from the right to avoid
-            # having to make a shallow copy in the case where
-            # the source and destination lists are the same list.
-            i = len2 - 1
-            start += i*step
-            while i >= 0:
-                items[start] = sequence2[i]
-                start -= step
-                i -= 1
-            return
-        else:
-            # Make a shallow copy to more easily handle the reversal case
-            sequence2 = list(sequence2)
     for i in range(len2):
         items[start] = sequence2[i]
         start += step
@@ -1216,37 +1268,48 @@ def _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
 
 class BytearrayBuffer(Buffer):
     _immutable_ = True
+    readonly = False
 
-    def __init__(self, data, readonly):
-        self.data = data
-        self.readonly = readonly
+    def __init__(self, ba):
+        self.ba = ba     # the W_BytearrayObject
 
     def getlength(self):
-        return len(self.data)
+        return self.ba._len()
 
     def getitem(self, index):
-        return self.data[index]
+        ba = self.ba
+        return ba._data[ba._offset + index]
 
     def setitem(self, index, char):
-        self.data[index] = char
+        ba = self.ba
+        ba._data[ba._offset + index] = char
 
     def getslice(self, start, stop, step, size):
         if size == 0:
             return ""
         if step == 1:
             assert 0 <= start <= stop
-            if start == 0 and stop == len(self.data):
-                return "".join(self.data)
-            return "".join(self.data[start:stop])
+            ba = self.ba
+            start += ba._offset
+            stop += ba._offset
+            data = ba._data
+            if start != 0 or stop != len(data):
+                data = data[start:stop]
+            return "".join(data)
         return Buffer.getslice(self, start, stop, step, size)
 
     def setslice(self, start, string):
         # No bounds checks.
+        ba = self.ba
+        start += ba._offset
         for i in range(len(string)):
-            self.data[start + i] = string[i]
+            ba._data[start + i] = string[i]
 
     def get_raw_address(self):
-        return nonmoving_raw_ptr_for_resizable_list(self.data)
+        ba = self.ba
+        p = nonmoving_raw_ptr_for_resizable_list(ba._data)
+        p = rffi.ptradd(p, ba._offset)
+        return p
 
 
 @specialize.argtype(1)
@@ -1257,3 +1320,9 @@ def _memcmp(selfvalue, buffer, length):
         if selfvalue[i] > buffer[i]:
             return 1
     return 0
+
+def _tweak_for_tests(w_bytearray):
+    "Patched in test_bytearray.py"
+
+def _shrink_after_delete_from_start(w_bytearray):
+    w_bytearray.getdata()
