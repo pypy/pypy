@@ -1,4 +1,5 @@
 import os
+from errno import EINTR
 from resource import ffi, lib, _make_struct_rusage
 
 __all__ = ["wait3", "wait4"]
@@ -7,10 +8,13 @@ __all__ = ["wait3", "wait4"]
 def wait3(options):
     status = ffi.new("int *")
     ru = ffi.new("struct rusage *")
-    pid = lib.wait3(status, options, ru)
-    if pid == -1:
+    while True:
+        pid = lib.wait3(status, options, ru)
+        if pid != -1:
+            break
         errno = ffi.errno
-        raise OSError(errno, os.strerror(errno))
+        if errno != EINTR:
+            raise OSError(errno, os.strerror(errno))
 
     rusage = _make_struct_rusage(ru)
 
@@ -19,10 +23,13 @@ def wait3(options):
 def wait4(pid, options):
     status = ffi.new("int *")
     ru = ffi.new("struct rusage *")
-    pid = lib.wait4(pid, status, options, ru)
-    if pid == -1:
+    while True:
+        pid = lib.wait4(pid, status, options, ru)
+        if pid != -1:
+            break
         errno = ffi.errno
-        raise OSError(errno, os.strerror(errno))
+        if errno != EINTR:
+            raise OSError(errno, os.strerror(errno))
 
     rusage = _make_struct_rusage(ru)
 
