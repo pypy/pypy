@@ -214,14 +214,15 @@ class W_BytearrayObject(W_Root):
         _tweak_for_tests(self)
 
     def descr_repr(self, space):
-        s = self.getdata()
+        s, start, end, _ = self._convert_idx_params(space, None, None)
 
         # Good default if there are no replacements.
-        buf = StringBuilder(len("bytearray(b'')") + len(s))
+        buf = StringBuilder(len("bytearray(b'')") + (end - start))
 
         buf.append("bytearray(b")
         quote = "'"
-        for c in s:
+        for i in range(start, end):
+            c = s[i]
             if c == '"':
                 quote = "'"
                 break
@@ -229,7 +230,7 @@ class W_BytearrayObject(W_Root):
                 quote = '"'
         buf.append(quote)
 
-        for i in range(len(s)):
+        for i in range(start, end):
             c = s[i]
 
             if c == '\\' or c == "'":
@@ -399,8 +400,8 @@ class W_BytearrayObject(W_Root):
             if start == 0 and step == 1:
                 self._delete_from_start(slicelength)
             else:
-                _delitem_slice_helper(space, self.getdata(),
-                                      start, step, slicelength)
+                _delitem_slice_helper(space, self._data,
+                                      start + self._offset, step, slicelength)
         else:
             idx = space.getindex_w(w_idx, space.w_IndexError, "bytearray")
             idx = self._fixindex(space, idx)
@@ -411,7 +412,7 @@ class W_BytearrayObject(W_Root):
 
     def _delete_from_start(self, n):
         self._offset += n
-        jit.conditional_call(self._offset > len(self._data) / 2 + 15,
+        jit.conditional_call(self._offset > len(self._data) / 2,
                              self._shrink_after_delete_from_start)
 
     def _shrink_after_delete_from_start(self):

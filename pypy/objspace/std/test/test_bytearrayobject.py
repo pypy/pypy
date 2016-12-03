@@ -632,17 +632,13 @@ class AppTestBytesArray:
     def test_dont_force_offset(self):
         def make(x=b'abcdefghij', shift=3):
             b = bytearray(b'?'*shift + x)
-            repr(b)                       # force 'b'
+            b + b''                       # force 'b'
             del b[:shift]                 # add shift to b._offset
             return b
         assert make(shift=0).__alloc__() == 11
         #
         x = make(shift=3)
         assert x.__alloc__() == 14
-        repr(x) 
-        assert x.__alloc__() == 11
-        #
-        x = make(shift=3)
         assert memoryview(x)[1] == ord('b')
         assert x.__alloc__() == 14
         assert len(x) == 10
@@ -652,6 +648,8 @@ class AppTestBytesArray:
         assert x.__alloc__() == 14
         assert x[3:-3] == b'defg'
         assert x[-3:3:-1] == b'hgfe'
+        assert x.__alloc__() == 14
+        assert repr(x) == "bytearray(b'abcdefghij')"
         assert x.__alloc__() == 14
         #
         x = make(shift=3)
@@ -665,15 +663,31 @@ class AppTestBytesArray:
         assert x.__alloc__() == 13
         assert x == bytearray(b'abcDE/G*j')
         #
-        x = make(shift=3)
-        assert x.__alloc__() == 14
+        x = make(b'abcdefghijklmnopqrstuvwxyz', shift=11)
+        assert len(x) == 26
+        assert x.__alloc__() == 38
         del x[:1]
-        assert x.__alloc__() == 13
+        assert len(x) == 25
+        assert x.__alloc__() == 38
         del x[0:5]
-        assert x.__alloc__() == 8
+        assert len(x) == 20
+        assert x.__alloc__() == 38
         del x[0]
-        assert len(x) == 4
-        assert x.__alloc__() == 7
+        assert len(x) == 19
+        assert x.__alloc__() == 38
+        del x[0]                      # too much emptiness, forces now
+        assert len(x) == 18
+        assert x.__alloc__() == 19
+        #
+        x = make(b'abcdefghijklmnopqrstuvwxyz', shift=11)
+        del x[:9]                     # too much emptiness, forces now
+        assert len(x) == 17
+        assert x.__alloc__() == 18
+        #
+        x = make(b'abcdefghijklmnopqrstuvwxyz', shift=11)
+        assert x.__alloc__() == 38
         del x[1]
-        assert x.__alloc__() == 4      # forced
-        assert x == bytearray(b'gij')
+        assert x.__alloc__() == 37      # not forced, but the list shrank
+        del x[3:10:2]
+        assert x.__alloc__() == 33
+        assert x == bytearray(b'acdfhjlmnopqrstuvwxyz')
