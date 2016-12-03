@@ -248,20 +248,21 @@ class PyFrame(W_Root):
         """Start this frame's execution."""
         if self._is_generator_or_coroutine():
             return self.initialize_as_generator(name, qualname)
-        elif we_are_translated():
-            return self.execute_frame()
         else:
             # untranslated: check that sys_exc_info is exactly
-            # restored after running any Python function
+            # restored after running any Python function.
+            # Translated: actually save and restore it, as an attempt to
+            # work around rare cases that can occur if RecursionError or
+            # MemoryError is raised at just the wrong place
             executioncontext = self.space.getexecutioncontext()
             exc_on_enter = executioncontext.sys_exc_info()
             try:
-                w_res = self.execute_frame()
-            except OperationError:
-                assert exc_on_enter is executioncontext.sys_exc_info()
-                raise
-            assert exc_on_enter is executioncontext.sys_exc_info()
-            return w_res
+                return self.execute_frame()
+            finally:
+                if we_are_translated():
+                    executioncontext.set_sys_exc_info(exc_on_enter)
+                else:
+                    assert exc_on_enter is executioncontext.sys_exc_info()
     run._always_inline_ = True
 
     def initialize_as_generator(self, name, qualname):
