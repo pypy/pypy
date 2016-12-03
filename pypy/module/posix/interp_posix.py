@@ -306,10 +306,12 @@ def closerange(fd_low, fd_high):
 @unwrap_spec(fd=c_int, length=r_longlong)
 def ftruncate(space, fd, length):
     """Truncate a file (by file descriptor) to a specified length."""
-    try:
-        os.ftruncate(fd, length)
-    except OSError as e:
-        raise wrap_oserror(space, e)
+    while True:
+        try:
+            os.ftruncate(fd, length)
+            break
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
 
 def truncate(space, w_path, w_length):
     """Truncate a file to a specified length."""
@@ -1072,14 +1074,16 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
   and path should be relative; path will then be relative to that directory.
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
-    try:
-        if rposix.HAVE_MKFIFOAT and dir_fd != DEFAULT_DIR_FD:
-            path = space.fsencode_w(w_path)
-            rposix.mkfifoat(path, mode, dir_fd)
-        else:
-            dispatch_filename(rposix.mkfifo)(space, w_path, mode)
-    except OSError as e:
-        raise wrap_oserror2(space, e, w_path)
+    while True:
+        try:
+            if rposix.HAVE_MKFIFOAT and dir_fd != DEFAULT_DIR_FD:
+                path = space.fsencode_w(w_path)
+                rposix.mkfifoat(path, mode, dir_fd)
+            else:
+                dispatch_filename(rposix.mkfifo)(space, w_path, mode)
+            break
+        except OSError as e:
+            wrap_oserror2(space, e, w_path, eintr_retry=True)
 
 @unwrap_spec(mode=c_int, device=c_int, dir_fd=DirFD(rposix.HAVE_MKNODAT))
 def mknod(space, w_path, mode=0600, device=0,
@@ -1097,14 +1101,16 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
   and path should be relative; path will then be relative to that directory.
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
-    try:
-        if rposix.HAVE_MKNODAT and dir_fd != DEFAULT_DIR_FD:
-            fname = space.fsencode_w(w_path)
-            rposix.mknodat(fname, mode, device, dir_fd)
-        else:
-            dispatch_filename(rposix.mknod)(space, w_path, mode, device)
-    except OSError as e:
-        raise wrap_oserror2(space, e, w_path)
+    while True:
+        try:
+            if rposix.HAVE_MKNODAT and dir_fd != DEFAULT_DIR_FD:
+                fname = space.fsencode_w(w_path)
+                rposix.mknodat(fname, mode, device, dir_fd)
+            else:
+                dispatch_filename(rposix.mknod)(space, w_path, mode, device)
+            break
+        except OSError as e:
+            wrap_oserror2(space, e, w_path, eintr_retry=True)
 
 @unwrap_spec(mask=c_int)
 def umask(space, mask):
