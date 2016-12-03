@@ -415,10 +415,7 @@ class W_BytearrayObject(W_Root):
         assert n >= 0
         self._offset += n
         jit.conditional_call(self._offset > len(self._data) / 2,
-                             self._shrink_after_delete_from_start)
-
-    def _shrink_after_delete_from_start(self):
-        self.getdata()
+                             _shrink_after_delete_from_start, self)
 
     def descr_append(self, space, w_item):
         self._data.append(getbytevalue(space, w_item))
@@ -1326,3 +1323,6 @@ def _memcmp(selfvalue, buffer, length):
 
 def _tweak_for_tests(w_bytearray):
     "Patched in test_bytearray.py"
+
+def _shrink_after_delete_from_start(w_bytearray):
+    w_bytearray.getdata()
