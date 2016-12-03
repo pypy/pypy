@@ -1306,11 +1306,15 @@ def waitpid(space, pid, options):
 
     Wait for completion of a given child process.
     """
-    try:
-        pid, status = os.waitpid(pid, options)
-    except OSError as e:
-        raise wrap_oserror(space, e)
+    while True:
+        try:
+            pid, status = os.waitpid(pid, options)
+            break
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
     return space.newtuple([space.wrap(pid), space.wrap(status)])
+
+# missing: waitid()
 
 @unwrap_spec(status=c_int)
 def _exit(space, status):
