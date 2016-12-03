@@ -85,6 +85,7 @@ class AppTestBytesArray:
         raises(IndexError, b.__getitem__, 4)
         assert b[1:5] == bytearray(b'est')
         assert b[slice(1,5)] == bytearray(b'est')
+        assert b[1:5:2] == bytearray(b'et')
 
     def test_arithmetic(self):
         b1 = bytearray(b'hello ')
@@ -627,3 +628,52 @@ class AppTestBytesArray:
     def test_constructor_typeerror(self):
         raises(TypeError, bytearray, b'', 'ascii')
         raises(TypeError, bytearray, '')
+
+    def test_dont_force_offset(self):
+        def make(x=b'abcdefghij', shift=3):
+            b = bytearray(b'?'*shift + x)
+            repr(b)                       # force 'b'
+            del b[:shift]                 # add shift to b._offset
+            return b
+        assert make(shift=0).__alloc__() == 11
+        #
+        x = make(shift=3)
+        assert x.__alloc__() == 14
+        repr(x) 
+        assert x.__alloc__() == 11
+        #
+        x = make(shift=3)
+        assert memoryview(x)[1] == ord('b')
+        assert x.__alloc__() == 14
+        assert len(x) == 10
+        assert x.__alloc__() == 14
+        assert x[3] == ord('d')
+        assert x[-3] == ord('h')
+        assert x.__alloc__() == 14
+        assert x[3:-3] == b'defg'
+        assert x[-3:3:-1] == b'hgfe'
+        assert x.__alloc__() == 14
+        #
+        x = make(shift=3)
+        x[3] = ord('D')
+        assert x.__alloc__() == 14
+        x[4:6] = b'EF'
+        assert x.__alloc__() == 14
+        x[6:8] = b'G'
+        assert x.__alloc__() == 13
+        x[-2:4:-2] = b'*/'
+        assert x.__alloc__() == 13
+        assert x == bytearray(b'abcDE/G*j')
+        #
+        x = make(shift=3)
+        assert x.__alloc__() == 14
+        del x[:1]
+        assert x.__alloc__() == 13
+        del x[0:5]
+        assert x.__alloc__() == 8
+        del x[0]
+        assert len(x) == 4
+        assert x.__alloc__() == 7
+        del x[1]
+        assert x.__alloc__() == 4      # forced
+        assert x == bytearray(b'gij')

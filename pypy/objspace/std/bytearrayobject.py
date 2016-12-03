@@ -20,6 +20,7 @@ from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.sliceobject import W_SliceObject, unwrap_start_stop
 from pypy.objspace.std.stringmethods import StringMethods, _get_buffer
+from pypy.objspace.std.stringmethods import _descr_getslice_slowpath
 from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.util import get_positive_index
 from pypy.objspace.std.formatting import mod_format, FORMAT_BYTEARRAY
@@ -93,8 +94,6 @@ class W_BytearrayObject(W_Root):
         return space.wrap(ord(character))
 
     def _val(self, space):
-        # XXX review the calls of _val and think if some of them should
-        # XXX not force a copy of self._data if _offset > 0
         return self.getdata()
 
     @staticmethod
@@ -377,7 +376,7 @@ class W_BytearrayObject(W_Root):
 
     def descr_setitem(self, space, w_index, w_other):
         if isinstance(w_index, W_SliceObject):
-            sequence2 = [c for c in makebytesdata_w(space, w_other)]
+            sequence2 = makebytesdata_w(space, w_other)
             oldsize = self._len()
             start, stop, step, slicelength = w_index.indices4(space, oldsize)
             if start == 0 and step == 1 and len(sequence2) <= slicelength:
@@ -385,11 +384,8 @@ class W_BytearrayObject(W_Root):
                 slicelength = len(sequence2)
                 if slicelength == 0:
                     return
-                data = self._data
-                start += self._offset
-                #stop += self._offset---not used
-            else:
-                data = self.getdata()
+            data = self._data
+            start += self._offset
             _setitem_slice_helper(space, data, start, step,
                                   slicelength, sequence2, empty_elem='\x00')
         else:
@@ -505,6 +501,24 @@ class W_BytearrayObject(W_Root):
         start, end = unwrap_start_stop(space, self._len(), w_start, w_end)
         ofs = self._offset
         return (self._data, start + ofs, end + ofs, ofs)
+
+    def descr_getitem(self, space, w_index):
+        # optimization: this version doesn't force getdata()
+        if isinstance(w_index, W_SliceObject):
+            start, stop, step, sl = w_index.indices4(space, self._len())
+            if sl == 0:
+                return self._empty()
+            elif step == 1:
+                assert start >= 0 and stop >= 0
+                ofs = self._offset
+                return self._new(self._data[start + ofs : stop + ofs])
+            else:
+                start += self._offset
+                ret = _descr_getslice_slowpath(self._data, start, step, sl)
+                return self._new_from_list(ret)
+
+        index = space.getindex_w(w_index, space.w_IndexError, self._KIND1)
+        return self._getitem_result(space, index)
 
 
 # ____________________________________________________________
@@ -1247,21 +1261,6 @@ def _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
                     "attempt to assign sequence of size %d to extended slice "
                     "of size %d", len2, slicelength)
 
-    if sequence2 is items:
-        if step > 0:
-            # Always copy starting from the right to avoid
-            # having to make a shallow copy in the case where
-            # the source and destination lists are the same list.
-            i = len2 - 1
-            start += i*step
-            while i >= 0:
-                items[start] = sequence2[i]
-                start -= step
-                i -= 1
-            return
-        else:
-            # Make a shallow copy to more easily handle the reversal case
-            sequence2 = list(sequence2)
     for i in range(len2):
         items[start] = sequence2[i]
         start += step
