@@ -229,6 +229,10 @@ class AppTestBytesArray:
         assert bytearray(b'ab').endswith(bytearray(b''), 2) is True
         assert bytearray(b'ab').endswith(bytearray(b''), 3) is False
 
+    def test_startswith_self(self):
+        b = bytearray(b'abcd')
+        assert b.startswith(b)
+
     def test_stringlike_conversions(self):
         # methods that should return bytearray (and not str)
         def check(result, expected):
