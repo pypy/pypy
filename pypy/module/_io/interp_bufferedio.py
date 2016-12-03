@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from rpython.rlib.buffer import Buffer
+from rpython.rlib.buffer import Buffer, SubBuffer
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import r_longlong, intmask
 from rpython.rlib import rposix
@@ -149,20 +149,18 @@ implementation, but wrap one.
 class RawBuffer(Buffer):
     _immutable_ = True
 
-    def __init__(self, buf, start, length):
-        self.buf = buf
-        self.start = start
-        self.length = length
+    def __init__(self, data):
+        self.buf = data
         self.readonly = False
 
     def getlength(self):
-        return self.length
+        return len(self.buf)
 
     def getitem(self, index):
         return self.buf[index]
 
     def setitem(self, index, char):
-        self.buf[self.start + index] = char
+        self.buf[index] = char
 
     def get_raw_address(self):
         return nonmoving_raw_ptr_for_resizable_list(self.buf)
@@ -577,7 +575,8 @@ class BufferedMixin:
 
     def _raw_read(self, space, buffer, start, length):
         length = intmask(length)
-        w_buf = space.newbuffer(RawBuffer(buffer, start, length))
+        start = intmask(start)
+        w_buf = space.newbuffer(SubBuffer(RawBuffer(buffer), start, length))
         while True:
             try:
                 w_size = space.call_method(self.w_raw, "readinto", w_buf)
