@@ -293,6 +293,10 @@ actually written, which may be smaller than len(data)."""
 @unwrap_spec(fd=c_int)
 def close(space, fd):
     """Close a file descriptor (for low level IO)."""
+    # PEP 475 note: os.close() must not retry upon EINTR.  Like in
+    # previous versions of Python it raises OSError in this case.
+    # The text of PEP 475 seems to suggest that EINTR is eaten and
+    # hidden from app-level, but it is not the case in CPython 3.5.2.
     try:
         os.close(fd)
     except OSError as e:
