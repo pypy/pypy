@@ -561,7 +561,19 @@ else:
 
 @specialize.arg(3)
 def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError',
-                  w_exception_class=None, w_filename2=None):
+                  w_exception_class=None, w_filename2=None, eintr_retry=False):
+    """A double API here:
+
+        * if eintr_retry is False, always return the OperationError to
+          be raised by the caller, which might be about EINTR
+          (checksignals() is still called here).
+
+        * if eintr_retry is True (PEP 475 compliant API for retrying
+          system calls failing with EINTR), then this function raises
+          the OperationError directly, or for EINTR it calls
+          checksignals() and returns None in case the original
+          operation should be retried.
+    """
     assert isinstance(e, OSError)
 
     if _WINDOWS and isinstance(e, WindowsError):
@@ -571,6 +583,8 @@ def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError',
 
     if errno == EINTR:
         space.getexecutioncontext().checksignals()
+        if eintr_retry:
+            return None
 
     try:
         msg = strerror(errno)
@@ -591,11 +605,14 @@ def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError',
     else:
         w_error = space.call_function(exc, space.wrap(errno),
                                       space.wrap(msg))
-    return OperationError(exc, w_error)
+    operr = OperationError(exc, w_error)
+    if eintr_retry:
+        raise operr
+    return operr
 
 @specialize.arg(3)
 def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
-                 w_exception_class=None, filename2=None):
+                 w_exception_class=None, filename2=None, eintr_retry=False):
     w_filename = None
     w_filename2 = None
     if filename is not None:

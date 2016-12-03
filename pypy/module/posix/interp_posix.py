@@ -263,12 +263,13 @@ slave end of a terminal."""
 @unwrap_spec(fd=c_int, length=int)
 def read(space, fd, length):
     """Read data from a file descriptor."""
-    try:
-        s = os.read(fd, length)
-    except OSError as e:
-        raise wrap_oserror(space, e)
-    else:
-        return space.newbytes(s)
+    while True:
+        try:
+            s = os.read(fd, length)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+            return space.newbytes(s)
 
 @unwrap_spec(fd=c_int)
 def write(space, fd, w_data):
