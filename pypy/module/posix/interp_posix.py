@@ -333,19 +333,23 @@ def truncate(space, w_path, w_length):
 def fsync(space, w_fd):
     """Force write of file with filedescriptor to disk."""
     fd = space.c_filedescriptor_w(w_fd)
-    try:
-        os.fsync(fd)
-    except OSError as e:
-        raise wrap_oserror(space, e)
+    while True:
+        try:
+            os.fsync(fd)
+            break
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
 
 def fdatasync(space, w_fd):
     """Force write of file with filedescriptor to disk.
 Does not force update of metadata."""
     fd = space.c_filedescriptor_w(w_fd)
-    try:
-        os.fdatasync(fd)
-    except OSError as e:
-        raise wrap_oserror(space, e)
+    while True:
+        try:
+            os.fdatasync(fd)
+            break
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
 
 def sync(space):
     """Force write of everything to disk."""
@@ -355,10 +359,12 @@ def fchdir(space, w_fd):
     """Change to the directory of the given file descriptor.  fildes must be
 opened on a directory, not a file."""
     fd = space.c_filedescriptor_w(w_fd)
-    try:
-        os.fchdir(fd)
-    except OSError as e:
-        raise wrap_oserror(space, e)
+    while True:
+        try:
+            os.fchdir(fd)
+            break
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
 
 # ____________________________________________________________
 
@@ -423,12 +429,13 @@ def build_statvfs_result(space, st):
 def fstat(space, fd):
     """Perform a stat system call on the file referenced to by an open
 file descriptor."""
-    try:
-        st = rposix_stat.fstat(fd)
-    except OSError as e:
-        raise wrap_oserror(space, e)
-    else:
-        return build_stat_result(space, st)
+    while True:
+        try:
+            st = rposix_stat.fstat(fd)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+            return build_stat_result(space, st)
 
 @unwrap_spec(
     path=path_or_fd(allow_fd=True),
@@ -511,12 +518,13 @@ If newval is omitted, return the current setting.
 
 @unwrap_spec(fd=c_int)
 def fstatvfs(space, fd):
-    try:
-        st = rposix_stat.fstatvfs(fd)
-    except OSError as e:
-        raise wrap_oserror(space, e)
-    else:
-        return build_statvfs_result(space, st)
+    while True:
+        try:
+            st = rposix_stat.fstatvfs(fd)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+            return build_statvfs_result(space, st)
 
 
 def statvfs(space, w_path):
@@ -991,10 +999,12 @@ def _chmod_path(path, mode, dir_fd, follow_symlinks):
         rposix.chmod(path, mode)
 
 def _chmod_fd(space, fd, mode):
-    try:
-        os.fchmod(fd, mode)
-    except OSError as e:
-        raise wrap_oserror(space, e)
+    while True:
+        try:
+            os.fchmod(fd, mode)
+            break
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
 
 
 @unwrap_spec(fd=c_int, mode=c_int)
@@ -2009,10 +2019,12 @@ def fchown(space, w_fd, uid, gid):
 Change the owner and group id of the file given by file descriptor
 fd to the numeric uid and gid.  Equivalent to os.chown(fd, uid, gid)."""
     fd = space.c_filedescriptor_w(w_fd)
-    try:
-        os.fchown(fd, uid, gid)
-    except OSError as e:
-        raise wrap_oserror(space, e)
+    while True:
+        try:
+            os.fchown(fd, uid, gid)
+            break
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
 
 def getloadavg(space):
     try:
