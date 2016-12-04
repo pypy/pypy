@@ -90,11 +90,15 @@ class W_AbstractIntObject(W_Root):
             as_int = bigint.toint()
         except OverflowError:
             from pypy.objspace.std.longobject import newbigint
+            if space.is_w(w_inttype, space.w_bool):
+                return space.w_True      # extremely obscure case
             return newbigint(space, w_inttype, bigint)
         else:
             if space.is_w(w_inttype, space.w_int):
                 # common case
                 return wrapint(space, as_int)
+            if space.is_w(w_inttype, space.w_bool):
+                return space.newbool(as_int)     # extremely obscure case
             w_obj = space.allocate_instance(W_IntObject, w_inttype)
             W_IntObject.__init__(w_obj, as_int)
             return w_obj

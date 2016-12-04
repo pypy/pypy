@@ -607,6 +607,16 @@ class AppTestInt(object):
         assert int(bytearray(b'100'), 2) == 4
         raises(TypeError, int, memoryview(b'100'), 2)
 
+    def test_from_bytes(self):
+        class X(int):
+            pass
+        x = X.from_bytes(b"", 'little')
+        assert type(x) is X and x == 0
+        x = X.from_bytes(b"*" * 100, 'little')
+        assert type(x) is X
+        expected = sum(256 ** i for i in range(100))
+        assert x == expected * ord('*')
+
 
 class AppTestIntShortcut(AppTestInt):
     spaceconfig = {"objspace.std.intshortcut": True}
