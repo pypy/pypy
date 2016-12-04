@@ -91,6 +91,10 @@ class DateTimeTests(unittest.TestCase):
             '01-01-1980 25:00:00',
             '01-01-1980 00:61:00',
             '01-01-1980 00:00:62',
+            '08-Oct-3697739',
+            '08-01-3697739',
+            '09 Feb 19942632 22:23:32 GMT',
+            'Wed, 09 Feb 1994834 22:23:32 GMT',
             ]:
             self.assertIsNone(http2time(test),
                               "http2time(%s) is not None\n"
@@ -1725,7 +1729,7 @@ class LWPCookieTests(unittest.TestCase):
             key = "%s_after" % cookie.value
             counter[key] = counter[key] + 1
 
-            # a permanent cookie got lost accidently
+            # a permanent cookie got lost accidentally
         self.assertEqual(counter["perm_after"], counter["perm_before"])
             # a session cookie hasn't been cleared
         self.assertEqual(counter["session_after"], 0)

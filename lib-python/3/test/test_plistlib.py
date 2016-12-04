@@ -428,6 +428,15 @@ class TestPlistlib(unittest.TestCase):
                 b'\x00\x00\x00\x00\x00\x00\x00\x13')
         self.assertEqual(plistlib.loads(data), {'a': 'b'})
 
+    def test_large_timestamp(self):
+        # Issue #26709: 32-bit timestamp out of range
+        for ts in -2**31-1, 2**31:
+            with self.subTest(ts=ts):
+                d = (datetime.datetime.utcfromtimestamp(0) +
+                     datetime.timedelta(seconds=ts))
+                data = plistlib.dumps(d, fmt=plistlib.FMT_BINARY)
+                self.assertEqual(plistlib.loads(data), d)
+
 
 class TestPlistlibDeprecated(unittest.TestCase):
     def test_io_deprecated(self):
@@ -506,15 +515,15 @@ class TestPlistlibDeprecated(unittest.TestCase):
 
         cur = plistlib.loads(buf)
         self.assertEqual(cur, out_data)
-        self.assertNotEqual(cur, in_data)
+        self.assertEqual(cur, in_data)
 
         cur = plistlib.loads(buf, use_builtin_types=False)
-        self.assertNotEqual(cur, out_data)
+        self.assertEqual(cur, out_data)
         self.assertEqual(cur, in_data)
 
         with self.assertWarns(DeprecationWarning):
             cur = plistlib.readPlistFromBytes(buf)
-        self.assertNotEqual(cur, out_data)
+        self.assertEqual(cur, out_data)
         self.assertEqual(cur, in_data)
 
 

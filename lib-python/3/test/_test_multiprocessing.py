@@ -455,13 +455,15 @@ class _TestSubclassingProcess(BaseTestCase):
 
     @classmethod
     def _test_stderr_flush(cls, testfn):
-        sys.stderr = open(testfn, 'w')
+        fd = os.open(testfn, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+        sys.stderr = open(fd, 'w', closefd=False)
         1/0 # MARKER
 
 
     @classmethod
     def _test_sys_exit(cls, reason, testfn):
-        sys.stderr = open(testfn, 'w')
+        fd = os.open(testfn, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+        sys.stderr = open(fd, 'w', closefd=False)
         sys.exit(reason)
 
     def test_sys_exit(self):
@@ -472,15 +474,21 @@ class _TestSubclassingProcess(BaseTestCase):
         testfn = test.support.TESTFN
         self.addCleanup(test.support.unlink, testfn)
 
-        for reason, code in (([1, 2, 3], 1), ('ignore this', 1)):
+        for reason in (
+            [1, 2, 3],
+            'ignore this',
+        ):
             p = self.Process(target=self._test_sys_exit, args=(reason, testfn))
             p.daemon = True
             p.start()
             p.join(5)
-            self.assertEqual(p.exitcode, code)
+            self.assertEqual(p.exitcode, 1)
 
             with open(testfn, 'r') as f:
-                self.assertEqual(f.read().rstrip(), str(reason))
+                content = f.read()
+            self.assertEqual(content.rstrip(), str(reason))
+
+            os.unlink(testfn)
 
         for reason in (True, False, 8):
             p = self.Process(target=sys.exit, args=(reason,))
@@ -1818,13 +1826,19 @@ class _TestPool(BaseTestCase):
                 expected_values.remove(value)
 
     def test_make_pool(self):
-        self.assertRaises(ValueError, multiprocessing.Pool, -1)
-        self.assertRaises(ValueError, multiprocessing.Pool, 0)
+        expected_error = (RemoteError if self.TYPE == 'manager'
+                          else ValueError)
 
-        p = multiprocessing.Pool(3)
-        self.assertEqual(3, len(p._pool))
-        p.close()
-        p.join()
+        self.assertRaises(expected_error, self.Pool, -1)
+        self.assertRaises(expected_error, self.Pool, 0)
+
+        if self.TYPE != 'manager':
+            p = self.Pool(3)
+            try:
+                self.assertEqual(3, len(p._pool))
+            finally:
+                p.close()
+                p.join()
 
     def test_terminate(self):
         result = self.pool.map_async(
@@ -1833,7 +1847,8 @@ class _TestPool(BaseTestCase):
         self.pool.terminate()
         join = TimingWrapper(self.pool.join)
         join()
-        self.assertLess(join.elapsed, 0.5)
+        # Sanity check the pool didn't wait for all tasks to finish
+        self.assertLess(join.elapsed, 2.0)
 
     def test_empty_iterable(self):
         # See Issue 12157
@@ -1851,7 +1866,7 @@ class _TestPool(BaseTestCase):
         if self.TYPE == 'processes':
             L = list(range(10))
             expected = [sqr(i) for i in L]
-            with multiprocessing.Pool(2) as p:
+            with self.Pool(2) as p:
                 r = p.map_async(sqr, L)
                 self.assertEqual(r.get(), expected)
             self.assertRaises(ValueError, p.map_async, sqr, L)
@@ -3834,7 +3849,7 @@ class ThreadsMixin(object):
     connection = multiprocessing.dummy.connection
     current_process = staticmethod(multiprocessing.dummy.current_process)
     active_children = staticmethod(multiprocessing.dummy.active_children)
-    Pool = staticmethod(multiprocessing.Pool)
+    Pool = staticmethod(multiprocessing.dummy.Pool)
     Pipe = staticmethod(multiprocessing.dummy.Pipe)
     Queue = staticmethod(multiprocessing.dummy.Queue)
     JoinableQueue = staticmethod(multiprocessing.dummy.JoinableQueue)

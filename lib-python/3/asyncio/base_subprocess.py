@@ -210,6 +210,10 @@ class BaseSubprocessTransport(transports.SubprocessTransport):
             logger.info('%r exited with return code %r',
                         self, returncode)
         self._returncode = returncode
+        if self._proc.returncode is None:
+            # asyncio uses a child watcher: copy the status into the Popen
+            # object. On Python 3.6, it is required to avoid a ResourceWarning.
+            self._proc.returncode = returncode
         self._call(self._protocol.process_exited)
         self._try_finish()
 
@@ -227,7 +231,7 @@ class BaseSubprocessTransport(transports.SubprocessTransport):
         if self._returncode is not None:
             return self._returncode
 
-        waiter = futures.Future(loop=self._loop)
+        waiter = self._loop.create_future()
         self._exit_waiters.append(waiter)
         return (yield from waiter)
 

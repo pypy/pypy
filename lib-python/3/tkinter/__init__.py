@@ -1249,7 +1249,7 @@ class Misc:
         nsign, b, f, h, k, s, t, w, x, y, A, E, K, N, W, T, X, Y, D = args
         # Missing: (a, c, d, m, o, v, B, R)
         e = Event()
-        # serial field: valid vor all events
+        # serial field: valid for all events
         # number of button: ButtonPress and ButtonRelease events only
         # height field: Configure, ConfigureRequest, Create,
         # ResizeRequest, and Expose events only
@@ -1257,11 +1257,11 @@ class Misc:
         # time field: "valid for events that contain a time field"
         # width field: Configure, ConfigureRequest, Create, ResizeRequest,
         # and Expose events only
-        # x field: "valid for events that contain a x field"
+        # x field: "valid for events that contain an x field"
         # y field: "valid for events that contain a y field"
         # keysym as decimal: KeyPress and KeyRelease events only
         # x_root, y_root fields: ButtonPress, ButtonRelease, KeyPress,
-        # KeyRelease,and Motion events
+        # KeyRelease, and Motion events
         e.serial = getint(nsign)
         e.num = getint_event(b)
         try: e.focus = getboolean(f)
@@ -1337,8 +1337,9 @@ class Misc:
         self.configure({key: value})
     def keys(self):
         """Return a list of all resource names of this widget."""
-        return [x[0][1:] for x in
-                self.tk.splitlist(self.tk.call(self._w, 'configure'))]
+        splitlist = self.tk.splitlist
+        return [splitlist(x)[0][1:] for x in
+                splitlist(self.tk.call(self._w, 'configure'))]
     def __str__(self):
         """Return the window path name of this widget."""
         return self._w
@@ -2500,7 +2501,7 @@ class Checkbutton(Widget):
         self.tk.call(self._w, 'toggle')
 
 class Entry(Widget, XView):
-    """Entry widget which allows to display simple text."""
+    """Entry widget which allows displaying simple text."""
     def __init__(self, master=None, cnf={}, **kw):
         """Construct an entry widget with the parent MASTER.
 
@@ -2696,7 +2697,7 @@ class Listbox(Widget, XView, YView):
     itemconfig = itemconfigure
 
 class Menu(Widget):
-    """Menu widget which allows to display menu bars, pull-down menus and pop-up menus."""
+    """Menu widget which allows displaying menu bars, pull-down menus and pop-up menus."""
     def __init__(self, master=None, cnf={}, **kw):
         """Construct menu widget with the parent MASTER.
 
@@ -2771,7 +2772,7 @@ class Menu(Widget):
                     self.deletecommand(c)
         self.tk.call(self._w, 'delete', index1, index2)
     def entrycget(self, index, option):
-        """Return the resource value of an menu item for OPTION at INDEX."""
+        """Return the resource value of a menu item for OPTION at INDEX."""
         return self.tk.call(self._w, 'entrycget', index, '-' + option)
     def entryconfigure(self, index, cnf=None, **kw):
         """Configure a menu item at INDEX."""
@@ -3140,7 +3141,7 @@ class Text(Widget, XView, YView):
         """Creates a peer text widget with the given newPathName, and any
         optional standard configuration options. By default the peer will
         have the same start and end line as the parent widget, but
-        these can be overriden with the standard configuration options."""
+        these can be overridden with the standard configuration options."""
         self.tk.call(self._w, 'peer', 'create', newPathName,
             *self._options(cnf, kw))
     def peer_names(self): # new in Tk 8.5
@@ -3406,16 +3407,20 @@ class PhotoImage(Image):
         destImage = PhotoImage(master=self.tk)
         self.tk.call(destImage, 'copy', self.name)
         return destImage
-    def zoom(self,x,y=''):
+    def zoom(self, x, y=''):
         """Return a new PhotoImage with the same image as this widget
-        but zoom it with X and Y."""
+        but zoom it with a factor of x in the X direction and y in the Y
+        direction.  If y is not given, the default value is the same as x.
+        """
         destImage = PhotoImage(master=self.tk)
         if y=='': y=x
         self.tk.call(destImage, 'copy', self.name, '-zoom',x,y)
         return destImage
-    def subsample(self,x,y=''):
+    def subsample(self, x, y=''):
         """Return a new PhotoImage based on the same image as this widget
-        but use only every Xth or Yth pixel."""
+        but use only every Xth or Yth pixel.  If y is not given, the
+        default value is the same as x.
+        """
         destImage = PhotoImage(master=self.tk)
         if y=='': y=x
         self.tk.call(destImage, 'copy', self.name, '-subsample',x,y)

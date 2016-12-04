@@ -33,7 +33,7 @@ class ModuleTests(unittest.TestCase):
             pass
         self.assertEqual(foo.__doc__, ModuleType.__doc__)
 
-    def test_unintialized_missing_getattr(self):
+    def test_uninitialized_missing_getattr(self):
         # Issue 8297
         # test the text in the AttributeError of an uninitialized module
         foo = ModuleType.__new__(ModuleType)
@@ -230,7 +230,7 @@ a = A(destroyed)"""
             b"len = len",
             b"shutil.rmtree = rmtree"})
 
-    def test_descriptor_errors_propogate(self):
+    def test_descriptor_errors_propagate(self):
         class Descr:
             def __get__(self, o, t):
                 raise RuntimeError

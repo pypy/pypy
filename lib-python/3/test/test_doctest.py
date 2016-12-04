@@ -324,7 +324,7 @@ containing test:
     >>> test.lineno + e2.lineno
     26
 
-If the docstring contains inconsistant leading whitespace in the
+If the docstring contains inconsistent leading whitespace in the
 expected output of an example, then `DocTest` will raise a ValueError:
 
     >>> docstring = r'''
@@ -2647,7 +2647,7 @@ Windows line endings first:
     >>> with open(fn, 'wb') as f:
     ...    f.write(b'Test:\r\n\r\n  >>> x = 1 + 1\r\n\r\nDone.\r\n')
     35
-    >>> doctest.testfile(fn, False)
+    >>> doctest.testfile(fn, module_relative=False, verbose=False)
     TestResults(failed=0, attempted=1)
     >>> os.remove(fn)
 
@@ -2657,7 +2657,7 @@ And now *nix line endings:
     >>> with open(fn, 'wb') as f:
     ...     f.write(b'Test:\n\n  >>> x = 1 + 1\n\nDone.\n')
     30
-    >>> doctest.testfile(fn, False)
+    >>> doctest.testfile(fn, module_relative=False, verbose=False)
     TestResults(failed=0, attempted=1)
     >>> os.remove(fn)
 
@@ -2775,7 +2775,7 @@ Now we'll write a couple files, one with three tests, the other a python module
 with two tests, both of the files having "errors" in the tests that can be made
 non-errors by applying the appropriate doctest options to the run (ELLIPSIS in
 the first file, NORMALIZE_WHITESPACE in the second).  This combination will
-allow to thoroughly test the -f and -o flags, as well as the doctest command's
+allow thoroughly testing the -f and -o flags, as well as the doctest command's
 ability to process more than one file on the command line and, since the second
 file ends in '.py', its handling of python module files (as opposed to straight
 text files).

@@ -227,6 +227,9 @@ _code_type = type(_write_atomic.__code__)
 # MAGIC must change whenever the bytecode emitted by the compiler may no
 # longer be understood by older implementations of the eval loop (usually
 # due to the addition of new opcodes).
+#
+# Whenever MAGIC_NUMBER is changed, the ranges in the magic_values array
+# in PC/launcher.c must also be updated.
 
 # MAGIC_NUMBER = (3350).to_bytes(2, 'little') + b'\r\n'
 #
@@ -1217,8 +1220,8 @@ class FileFinder:
                                        submodule_search_locations=smsl)
 
     def find_spec(self, fullname, target=None):
-        """Try to find a loader for the specified module, or the namespace
-        package portions. Returns (loader, list-of-portions)."""
+        """Try to find a spec for the specified module.  Returns the
+        matching spec, or None if not found."""
         is_namespace = False
         tail_module = fullname.rpartition('.')[2]
         try:
