@@ -464,6 +464,7 @@ class W_FileIO(W_RawIOBase):
                     return space.w_None
                 wrap_oserror(space, e, exception_name='w_IOError',
                              eintr_retry=True)
+                continue
             if not chunk:
                 break
             builder.append(chunk)
