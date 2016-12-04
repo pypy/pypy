@@ -52,7 +52,7 @@ If a file ".pdbrc" exists in your home directory or in the current
 directory, it is read in and executed as if it had been typed at the
 debugger prompt.  This is particularly useful for aliases.  If both
 files exist, the one in the home directory is read first and aliases
-defined there can be overriden by the local file.
+defined there can be overridden by the local file.
 
 Aside from aliases, the debugger is not directly programmable; but it
 is implemented as a class from which you can derive your own debugger
@@ -300,7 +300,7 @@ class Pdb(bdb.Bdb, cmd.Cmd):
 
         # An 'Internal StopIteration' exception is an exception debug event
         # issued by the interpreter when handling a subgenerator run with
-        # 'yield from' or a generator controled by a for loop. No exception has
+        # 'yield from' or a generator controlled by a for loop. No exception has
         # actually occurred in this case. The debugger uses this debug event to
         # stop when the debuggee is returning from such generators.
         prefix = 'Internal ' if (not exc_traceback

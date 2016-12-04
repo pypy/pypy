@@ -296,8 +296,9 @@ class IOBase(metaclass=abc.ABCMeta):
     called.
 
     The basic type used for binary data read from or written to a file is
-    bytes. bytearrays are accepted too, and in some cases (such as
-    readinto) needed. Text I/O classes work with str data.
+    bytes. Other bytes-like objects are accepted as method arguments too. In
+    some cases (such as readinto), a writable object is required. Text I/O
+    classes work with str data.
 
     Note that calling any method (even inquiries) on a closed stream is
     undefined. Implementations may raise OSError in this case.
@@ -390,7 +391,7 @@ class IOBase(metaclass=abc.ABCMeta):
     def seekable(self):
         """Return a bool indicating whether object supports random access.
 
-        If False, seek(), tell() and truncate() will raise UnsupportedOperation.
+        If False, seek(), tell() and truncate() will raise OSError.
         This method may need to do a test seek().
         """
         return False
@@ -405,7 +406,7 @@ class IOBase(metaclass=abc.ABCMeta):
     def readable(self):
         """Return a bool indicating whether object was opened for reading.
 
-        If False, read() will raise UnsupportedOperation.
+        If False, read() will raise OSError.
         """
         return False
 
@@ -419,7 +420,7 @@ class IOBase(metaclass=abc.ABCMeta):
     def writable(self):
         """Return a bool indicating whether object was opened for writing.
 
-        If False, write() and truncate() will raise UnsupportedOperation.
+        If False, write() and truncate() will raise OSError.
         """
         return False
 
@@ -439,7 +440,7 @@ class IOBase(metaclass=abc.ABCMeta):
         return self.__closed
 
     def _checkClosed(self, msg=None):
-        """Internal: raise an ValueError if file is closed
+        """Internal: raise a ValueError if file is closed
         """
         if self.closed:
             raise ValueError("I/O operation on closed file."
@@ -596,7 +597,7 @@ class RawIOBase(IOBase):
             return data
 
     def readinto(self, b):
-        """Read up to len(b) bytes into bytearray b.
+        """Read bytes into a pre-allocated bytes-like object b.
 
         Returns an int representing the number of bytes read (0 for EOF), or
         None if the object is set not to block and has no data to read.
@@ -606,7 +607,8 @@ class RawIOBase(IOBase):
     def write(self, b):
         """Write the given buffer to the IO stream.
 
-        Returns the number of bytes written, which may be less than len(b).
+        Returns the number of bytes written, which may be less than the
+        length of b in bytes.
         """
         self._unsupported("write")
 
@@ -659,7 +661,7 @@ class BufferedIOBase(IOBase):
         self._unsupported("read1")
 
     def readinto(self, b):
-        """Read up to len(b) bytes into bytearray b.
+        """Read bytes into a pre-allocated bytes-like object b.
 
         Like read(), this may issue multiple reads to the underlying raw
         stream, unless the latter is 'interactive'.
@@ -673,7 +675,7 @@ class BufferedIOBase(IOBase):
         return self._readinto(b, read1=False)
 
     def readinto1(self, b):
-        """Read up to len(b) bytes into *b*, using at most one system call
+        """Read bytes into buffer *b*, using at most one system call
 
         Returns an int representing the number of bytes read (0 for EOF).
 
@@ -701,8 +703,8 @@ class BufferedIOBase(IOBase):
     def write(self, b):
         """Write the given bytes buffer to the IO stream.
 
-        Return the number of bytes written, which is never less than
-        len(b).
+        Return the number of bytes written, which is always the length of b
+        in bytes.
 
         Raises BlockingIOError if the buffer is full and the
         underlying raw stream cannot accept more data at the moment.
@@ -786,12 +788,6 @@ class _BufferedIOMixin(BufferedIOBase):
 
     def seekable(self):
         return self.raw.seekable()
-
-    def readable(self):
-        return self.raw.readable()
-
-    def writable(self):
-        return self.raw.writable()
 
     @property
     def raw(self):
@@ -890,7 +886,8 @@ class BytesIO(BufferedIOBase):
             raise ValueError("write to closed file")
         if isinstance(b, str):
             raise TypeError("can't write str to binary stream")
-        n = len(b)
+        with memoryview(b) as view:
+            n = view.nbytes  # Size of any bytes-like object
         if n == 0:
             return 0
         pos = self._pos
@@ -982,6 +979,9 @@ class BufferedReader(_BufferedIOMixin):
         self._reset_read_buf()
         self._read_lock = Lock()
 
+    def readable(self):
+        return self.raw.readable()
+
     def _reset_read_buf(self):
         self._read_buf = b""
         self._read_pos = 0
@@ -1043,7 +1043,7 @@ class BufferedReader(_BufferedIOMixin):
                 break
             avail += len(chunk)
             chunks.append(chunk)
-        # n is more then avail only when an EOF occurred or when
+        # n is more than avail only when an EOF occurred or when
         # read() would have blocked.
         n = min(n, avail)
         out = b"".join(chunks)
@@ -1093,14 +1093,13 @@ class BufferedReader(_BufferedIOMixin):
     def _readinto(self, buf, read1):
         """Read data into *buf* with at most one system call."""
 
-        if len(buf) == 0:
-            return 0
-
         # Need to create a memoryview object of type 'b', otherwise
         # we may not be able to assign bytes to it, and slicing it
         # would create a new object.
         if not isinstance(buf, memoryview):
             buf = memoryview(buf)
+        if buf.nbytes == 0:
+            return 0
         buf = buf.cast('B')
 
         written = 0
@@ -1169,6 +1168,9 @@ class BufferedWriter(_BufferedIOMixin):
         self.buffer_size = buffer_size
         self._write_buf = bytearray()
         self._write_lock = Lock()
+
+    def writable(self):
+        return self.raw.writable()
 
     def write(self, b):
         if self.closed:

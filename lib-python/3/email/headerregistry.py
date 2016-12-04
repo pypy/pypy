@@ -16,7 +16,7 @@ from email import _header_value_parser as parser
 class Address:
 
     def __init__(self, display_name='', username='', domain='', addr_spec=None):
-        """Create an object represeting a full email address.
+        """Create an object representing a full email address.
 
         An address can have a 'display_name', a 'username', and a 'domain'.  In
         addition to specifying the username and domain separately, they may be
@@ -109,7 +109,7 @@ class Group:
     def __init__(self, display_name=None, addresses=None):
         """Create an object representing an address group.
 
-        An address group consists of a display_name followed by colon and an
+        An address group consists of a display_name followed by colon and a
         list of addresses (see Address) terminated by a semi-colon.  The Group
         is created by specifying a display_name and a possibly empty list of
         Address objects.  A Group can also be used to represent a single

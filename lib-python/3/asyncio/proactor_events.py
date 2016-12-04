@@ -90,7 +90,7 @@ class _ProactorBasePipeTransport(transports._FlowControlMixin,
                 self.close()
 
     def _fatal_error(self, exc, message='Fatal error on pipe transport'):
-        if isinstance(exc, (BrokenPipeError, ConnectionResetError)):
+        if isinstance(exc, base_events._FATAL_ERROR_IGNORE):
             if self._loop.get_debug():
                 logger.debug("%r: %s", self, message, exc_info=True)
         else:
@@ -440,15 +440,7 @@ class BaseProactorEventLoop(base_events.BaseEventLoop):
         return self._proactor.send(sock, data)
 
     def sock_connect(self, sock, address):
-        try:
-            if self._debug:
-                base_events._check_resolved_address(sock, address)
-        except ValueError as err:
-            fut = futures.Future(loop=self)
-            fut.set_exception(err)
-            return fut
-        else:
-            return self._proactor.connect(sock, address)
+        return self._proactor.connect(sock, address)
 
     def sock_accept(self, sock):
         return self._proactor.accept(sock)

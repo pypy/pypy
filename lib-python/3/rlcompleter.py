@@ -75,7 +75,12 @@ class Completer:
 
         if not text.strip():
             if state == 0:
-                return '\t'
+                if _readline_available:
+                    readline.insert_text('\t')
+                    readline.redisplay()
+                    return ''
+                else:
+                    return '\t'
             else:
                 return None
 
@@ -103,13 +108,16 @@ class Completer:
         """
         import keyword
         matches = []
+        seen = {"__builtins__"}
         n = len(text)
         for word in keyword.kwlist:
             if word[:n] == text:
+                seen.add(word)
                 matches.append(word)
-        for nspace in [builtins.__dict__, self.namespace]:
+        for nspace in [self.namespace, builtins.__dict__]:
             for word, val in nspace.items():
-                if word[:n] == text and word != "__builtins__":
+                if word[:n] == text and word not in seen:
+                    seen.add(word)
                     matches.append(self._callable_postfix(val, word))
         return matches
 
@@ -165,10 +173,11 @@ def get_class_members(klass):
 try:
     import readline
 except ImportError:
-    pass
+    _readline_available = False
 else:
     readline.set_completer(Completer().complete)
     # Release references early at shutdown (the readline module's
     # contents are quasi-immortal, and the completer function holds a
     # reference to globals).
     atexit.register(lambda: readline.set_completer(None))
+    _readline_available = True

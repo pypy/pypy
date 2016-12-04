@@ -156,7 +156,7 @@ class CookieError(Exception):
 # a two-way quoting algorithm.  Any non-text character is translated
 # into a 4 character sequence: a forward-slash followed by the
 # three-digit octal equivalent of the character.  Any '\' or '"' is
-# quoted with a preceeding '\' slash.
+# quoted with a preceding '\' slash.
 # Because of the way browsers really handle cookies (as opposed to what
 # the RFC says) we also encode "," and ";".
 #
@@ -174,7 +174,7 @@ _Translator.update({
     ord('\\'): '\\\\',
 })
 
-_is_legal_key = re.compile('[%s]+' % _LegalChars).fullmatch
+_is_legal_key = re.compile('[%s]+' % re.escape(_LegalChars)).fullmatch
 
 def _quote(str):
     r"""Quote a string for use in a cookie header.

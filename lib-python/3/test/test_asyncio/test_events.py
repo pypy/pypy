@@ -749,34 +749,37 @@ class EventLoopTestsMixin:
         @asyncio.coroutine
         def getaddrinfo(host, port, *args, **kw):
             if family == socket.AF_INET:
-                return [[family, socket.SOCK_STREAM, 6, '', (host, port)]]
+                return [(family, socket.SOCK_STREAM, 6, '', (host, port))]
             else:
-                return [[family, socket.SOCK_STREAM, 6, '', (host, port, 0, 0)]]
+                return [(family, socket.SOCK_STREAM, 6, '', (host, port, 0, 0))]
 
         def getaddrinfo_task(*args, **kwds):
             return asyncio.Task(getaddrinfo(*args, **kwds), loop=self.loop)
 
+        unique_hosts = set(hosts)
+
         if family == socket.AF_INET:
-            mock_sock.socket().getsockbyname.side_effect = [(host, 80)
-                                                            for host in hosts]
+            mock_sock.socket().getsockbyname.side_effect = [
+                (host, 80) for host in unique_hosts]
         else:
-            mock_sock.socket().getsockbyname.side_effect = [(host, 80, 0, 0)
-                                                            for host in hosts]
+            mock_sock.socket().getsockbyname.side_effect = [
+                (host, 80, 0, 0) for host in unique_hosts]
         self.loop.getaddrinfo = getaddrinfo_task
         self.loop._start_serving = mock.Mock()
         self.loop._stop_serving = mock.Mock()
         f = self.loop.create_server(lambda: MyProto(self.loop), hosts, 80)
         server = self.loop.run_until_complete(f)
         self.addCleanup(server.close)
-        server_hosts = [sock.getsockbyname()[0] for sock in server.sockets]
-        self.assertEqual(server_hosts, hosts)
+        server_hosts = {sock.getsockbyname()[0] for sock in server.sockets}
+        self.assertEqual(server_hosts, unique_hosts)
 
     def test_create_server_multiple_hosts_ipv4(self):
         self.create_server_multiple_hosts(socket.AF_INET,
-                                          ['1.2.3.4', '5.6.7.8'])
+                                          ['1.2.3.4', '5.6.7.8', '1.2.3.4'])
 
     def test_create_server_multiple_hosts_ipv6(self):
-        self.create_server_multiple_hosts(socket.AF_INET6, ['::1', '::2'])
+        self.create_server_multiple_hosts(socket.AF_INET6,
+                                          ['::1', '::2', '::1'])
 
     def test_create_server(self):
         proto = MyProto(self.loop)
@@ -909,7 +912,6 @@ class EventLoopTestsMixin:
         sslcontext = self._create_ssl_context(certfile, keyfile)
         return self._make_unix_server(factory, ssl=sslcontext)
 
-    @unittest.skipIf('__pypy__' in sys.modules, 'XXX: broken ssl')
     @unittest.skipIf(ssl is None, 'No ssl module')
     def test_create_server_ssl(self):
         proto = MyProto(loop=self.loop)
@@ -946,7 +948,6 @@ class EventLoopTestsMixin:
         with test_utils.force_legacy_ssl_support():
             self.test_create_server_ssl()
 
-    @unittest.skipIf('__pypy__' in sys.modules, 'XXX: broken ssl')
     @unittest.skipIf(ssl is None, 'No ssl module')
     @unittest.skipUnless(hasattr(socket, 'AF_UNIX'), 'No UNIX Sockets')
     def test_create_unix_server_ssl(self):
@@ -982,7 +983,6 @@ class EventLoopTestsMixin:
         with test_utils.force_legacy_ssl_support():
             self.test_create_unix_server_ssl()
 
-    @unittest.skipIf('__pypy__' in sys.modules, 'XXX: broken ssl')
     @unittest.skipIf(ssl is None, 'No ssl module')
     def test_create_server_ssl_verify_failed(self):
         proto = MyProto(loop=self.loop)
@@ -1002,7 +1002,7 @@ class EventLoopTestsMixin:
         with mock.patch.object(self.loop, 'call_exception_handler'):
             with test_utils.disable_logger():
                 with self.assertRaisesRegex(ssl.SSLError,
-                                            'certificate verify failed '):
+                                            '(?i)certificate.verify.failed'):
                     self.loop.run_until_complete(f_c)
 
             # execute the loop to log the connection error
@@ -1016,7 +1016,6 @@ class EventLoopTestsMixin:
         with test_utils.force_legacy_ssl_support():
             self.test_create_server_ssl_verify_failed()
 
-    @unittest.skipIf('__pypy__' in sys.modules, 'XXX: broken ssl')
     @unittest.skipIf(ssl is None, 'No ssl module')
     @unittest.skipUnless(hasattr(socket, 'AF_UNIX'), 'No UNIX Sockets')
     def test_create_unix_server_ssl_verify_failed(self):
@@ -1037,7 +1036,7 @@ class EventLoopTestsMixin:
         with mock.patch.object(self.loop, 'call_exception_handler'):
             with test_utils.disable_logger():
                 with self.assertRaisesRegex(ssl.SSLError,
-                                            'certificate verify failed '):
+                                            '(?i)certificate.verify.failed'):
                     self.loop.run_until_complete(f_c)
 
             # execute the loop to log the connection error
@@ -1052,7 +1051,6 @@ class EventLoopTestsMixin:
         with test_utils.force_legacy_ssl_support():
             self.test_create_unix_server_ssl_verify_failed()
 
-    @unittest.skipIf('__pypy__' in sys.modules, 'XXX: broken ssl')
     @unittest.skipIf(ssl is None, 'No ssl module')
     def test_create_server_ssl_match_failed(self):
         proto = MyProto(loop=self.loop)
@@ -1085,7 +1083,6 @@ class EventLoopTestsMixin:
         with test_utils.force_legacy_ssl_support():
             self.test_create_server_ssl_match_failed()
 
-    @unittest.skipIf('__pypy__' in sys.modules, 'XXX: broken ssl')
     @unittest.skipIf(ssl is None, 'No ssl module')
     @unittest.skipUnless(hasattr(socket, 'AF_UNIX'), 'No UNIX Sockets')
     def test_create_unix_server_ssl_verified(self):
@@ -1116,7 +1113,6 @@ class EventLoopTestsMixin:
         with test_utils.force_legacy_ssl_support():
             self.test_create_unix_server_ssl_verified()
 
-    @unittest.skipIf('__pypy__' in sys.modules, 'XXX: broken ssl')
     @unittest.skipIf(ssl is None, 'No ssl module')
     def test_create_server_ssl_verified(self):
         proto = MyProto(loop=self.loop)
@@ -1146,7 +1142,6 @@ class EventLoopTestsMixin:
         server.close()
         self.loop.run_until_complete(proto.done)
 
-    @unittest.skipIf('__pypy__' in sys.modules, 'XXX: broken ssl')
     def test_legacy_create_server_ssl_verified(self):
         with test_utils.force_legacy_ssl_support():
             self.test_create_server_ssl_verified()
@@ -1373,6 +1368,41 @@ class EventLoopTestsMixin:
 
     @unittest.skipUnless(sys.platform != 'win32',
                          "Don't support pipes for Windows")
+    def test_unclosed_pipe_transport(self):
+        # This test reproduces the issue #314 on GitHub
+        loop = self.create_event_loop()
+        read_proto = MyReadPipeProto(loop=loop)
+        write_proto = MyWritePipeProto(loop=loop)
+
+        rpipe, wpipe = os.pipe()
+        rpipeobj = io.open(rpipe, 'rb', 1024)
+        wpipeobj = io.open(wpipe, 'w', 1024)
+
+        @asyncio.coroutine
+        def connect():
+            read_transport, _ = yield from loop.connect_read_pipe(
+                lambda: read_proto, rpipeobj)
+            write_transport, _ = yield from loop.connect_write_pipe(
+                lambda: write_proto, wpipeobj)
+            return read_transport, write_transport
+
+        # Run and close the loop without closing the transports
+        read_transport, write_transport = loop.run_until_complete(connect())
+        loop.close()
+
+        # These 'repr' calls used to raise an AttributeError
+        # See Issue #314 on GitHub
+        self.assertIn('open', repr(read_transport))
+        self.assertIn('open', repr(write_transport))
+
+        # Clean up (avoid ResourceWarning)
+        rpipeobj.close()
+        wpipeobj.close()
+        read_transport._pipe = None
+        write_transport._pipe = None
+
+    @unittest.skipUnless(sys.platform != 'win32',
+                         "Don't support pipes for Windows")
     # select, poll and kqueue don't support character devices (PTY) on Mac OS X
     # older than 10.6 (Snow Leopard)
     @support.requires_mac_ver(10, 6)
@@ -1579,29 +1609,6 @@ class EventLoopTestsMixin:
         self.assertLessEqual(self.loop._run_once_counter, 20,
             {'clock_resolution': self.loop._clock_resolution,
              'selector': self.loop._selector.__class__.__name__})
-
-    def test_sock_connect_address(self):
-        # In debug mode, sock_connect() must ensure that the address is already
-        # resolved (call _check_resolved_address())
-        self.loop.set_debug(True)
-
-        addresses = [(socket.AF_INET, ('www.python.org', 80))]
-        if support.IPV6_ENABLED:
-            addresses.extend((
-                (socket.AF_INET6, ('www.python.org', 80)),
-                (socket.AF_INET6, ('www.python.org', 80, 0, 0)),
-            ))
-
-        for family, address in addresses:
-            for sock_type in (socket.SOCK_STREAM, socket.SOCK_DGRAM):
-                sock = socket.socket(family, sock_type)
-                with sock:
-                    sock.setblocking(False)
-                    connect = self.loop.sock_connect(sock, address)
-                    with self.assertRaises(ValueError) as cm:
-                        self.loop.run_until_complete(connect)
-                    self.assertIn('address must be resolved',
-                                  str(cm.exception))
 
     def test_remove_fds_after_closing(self):
         loop = self.create_event_loop()

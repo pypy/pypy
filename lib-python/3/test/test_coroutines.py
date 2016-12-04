@@ -569,6 +569,147 @@ class CoroutineTest(unittest.TestCase):
                                     "coroutine ignored GeneratorExit"):
             c.close()
 
+    def test_func_15(self):
+        # See http://bugs.python.org/issue25887 for details
+
+        async def spammer():
+            return 'spam'
+        async def reader(coro):
+            return await coro
+
+        spammer_coro = spammer()
+
+        with self.assertRaisesRegex(StopIteration, 'spam'):
+            reader(spammer_coro).send(None)
+
+        with self.assertRaisesRegex(RuntimeError,
+                                    'cannot reuse already awaited coroutine'):
+            reader(spammer_coro).send(None)
+
+    def test_func_16(self):
+        # See http://bugs.python.org/issue25887 for details
+
+        @types.coroutine
+        def nop():
+            yield
+        async def send():
+            await nop()
+            return 'spam'
+        async def read(coro):
+            await nop()
+            return await coro
+
+        spammer = send()
+
+        reader = read(spammer)
+        reader.send(None)
+        reader.send(None)
+        with self.assertRaisesRegex(Exception, 'ham'):
+            reader.throw(Exception('ham'))
+
+        reader = read(spammer)
+        reader.send(None)
+        with self.assertRaisesRegex(RuntimeError,
+                                    'cannot reuse already awaited coroutine'):
+            reader.send(None)
+
+        with self.assertRaisesRegex(RuntimeError,
+                                    'cannot reuse already awaited coroutine'):
+            reader.throw(Exception('wat'))
+
+    def test_func_17(self):
+        # See http://bugs.python.org/issue25887 for details
+
+        async def coroutine():
+            return 'spam'
+
+        coro = coroutine()
+        with self.assertRaisesRegex(StopIteration, 'spam'):
+            coro.send(None)
+
+        with self.assertRaisesRegex(RuntimeError,
+                                    'cannot reuse already awaited coroutine'):
+            coro.send(None)
+
+        with self.assertRaisesRegex(RuntimeError,
+                                    'cannot reuse already awaited coroutine'):
+            coro.throw(Exception('wat'))
+
+        # Closing a coroutine shouldn't raise any exception even if it's
+        # already closed/exhausted (similar to generators)
+        coro.close()
+        coro.close()
+
+    def test_func_18(self):
+        # See http://bugs.python.org/issue25887 for details
+
+        async def coroutine():
+            return 'spam'
+
+        coro = coroutine()
+        await_iter = coro.__await__()
+        it = iter(await_iter)
+
+        with self.assertRaisesRegex(StopIteration, 'spam'):
+            it.send(None)
+
+        with self.assertRaisesRegex(RuntimeError,
+                                    'cannot reuse already awaited coroutine'):
+            it.send(None)
+
+        with self.assertRaisesRegex(RuntimeError,
+                                    'cannot reuse already awaited coroutine'):
+            # Although the iterator protocol requires iterators to
+            # raise another StopIteration here, we don't want to do
+            # that.  In this particular case, the iterator will raise
+            # a RuntimeError, so that 'yield from' and 'await'
+            # expressions will trigger the error, instead of silently
+            # ignoring the call.
+            next(it)
+
+        with self.assertRaisesRegex(RuntimeError,
+                                    'cannot reuse already awaited coroutine'):
+            it.throw(Exception('wat'))
+
+        with self.assertRaisesRegex(RuntimeError,
+                                    'cannot reuse already awaited coroutine'):
+            it.throw(Exception('wat'))
+
+        # Closing a coroutine shouldn't raise any exception even if it's
+        # already closed/exhausted (similar to generators)
+        it.close()
+        it.close()
+
+    def test_func_19(self):
+        CHK = 0
+
+        @types.coroutine
+        def foo():
+            nonlocal CHK
+            yield
+            try:
+                yield
+            except GeneratorExit:
+                CHK += 1
+
+        async def coroutine():
+            await foo()
+
+        coro = coroutine()
+
+        coro.send(None)
+        coro.send(None)
+
+        self.assertEqual(CHK, 0)
+        coro.close()
+        self.assertEqual(CHK, 1)
+
+        for _ in range(3):
+            # Closing a coroutine shouldn't raise any exception even if it's
+            # already closed/exhausted (similar to generators)
+            coro.close()
+            self.assertEqual(CHK, 1)
+
     def test_cr_await(self):
         @types.coroutine
         def a():
@@ -800,6 +941,24 @@ class CoroutineTest(unittest.TestCase):
         c.send(None)
         with self.assertRaises(Marker):
             c.throw(ZeroDivisionError)
+
+    def test_await_15(self):
+        @types.coroutine
+        def nop():
+            yield
+
+        async def coroutine():
+            await nop()
+
+        async def waiter(coro):
+            await coro
+
+        coro = coroutine()
+        coro.send(None)
+
+        with self.assertRaisesRegex(RuntimeError,
+                                    "coroutine is being awaited already"):
+            waiter(coro).send(None)
 
     def test_with_1(self):
         class Manager:
@@ -1096,8 +1255,9 @@ class CoroutineTest(unittest.TestCase):
 
         buffer = []
         async def test1():
-            async for i1, i2 in AsyncIter():
-                buffer.append(i1 + i2)
+            with self.assertWarnsRegex(PendingDeprecationWarning, "legacy"):
+                async for i1, i2 in AsyncIter():
+                    buffer.append(i1 + i2)
 
         yielded, _ = run_async(test1())
         # Make sure that __aiter__ was called only once
@@ -1109,12 +1269,13 @@ class CoroutineTest(unittest.TestCase):
         buffer = []
         async def test2():
             nonlocal buffer
-            async for i in AsyncIter():
-                buffer.append(i[0])
-                if i[0] == 20:
-                    break
-            else:
-                buffer.append('what?')
+            with self.assertWarnsRegex(PendingDeprecationWarning, "legacy"):
+                async for i in AsyncIter():
+                    buffer.append(i[0])
+                    if i[0] == 20:
+                        break
+                else:
+                    buffer.append('what?')
             buffer.append('end')
 
         yielded, _ = run_async(test2())
@@ -1127,12 +1288,13 @@ class CoroutineTest(unittest.TestCase):
         buffer = []
         async def test3():
             nonlocal buffer
-            async for i in AsyncIter():
-                if i[0] > 20:
-                    continue
-                buffer.append(i[0])
-            else:
-                buffer.append('what?')
+            with self.assertWarnsRegex(PendingDeprecationWarning, "legacy"):
+                async for i in AsyncIter():
+                    if i[0] > 20:
+                        continue
+                    buffer.append(i[0])
+                else:
+                    buffer.append('what?')
             buffer.append('end')
 
         yielded, _ = run_async(test3())
@@ -1179,7 +1341,7 @@ class CoroutineTest(unittest.TestCase):
 
     def test_for_4(self):
         class I:
-            async def __aiter__(self):
+            def __aiter__(self):
                 return self
 
             def __anext__(self):
@@ -1209,8 +1371,9 @@ class CoroutineTest(unittest.TestCase):
                 return 123
 
         async def foo():
-            async for i in I():
-                print('never going to happen')
+            with self.assertWarnsRegex(PendingDeprecationWarning, "legacy"):
+                async for i in I():
+                    print('never going to happen')
 
         with self.assertRaisesRegex(
                 TypeError,
@@ -1234,7 +1397,7 @@ class CoroutineTest(unittest.TestCase):
             def __init__(self):
                 self.i = 0
 
-            async def __aiter__(self):
+            def __aiter__(self):
                 return self
 
             async def __anext__(self):
@@ -1258,7 +1421,11 @@ class CoroutineTest(unittest.TestCase):
                     I += 1
             I += 1000
 
-        run_async(main())
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            # Test that __aiter__ that returns an asyncronous iterator
+            # directly does not throw any warnings.
+            run_async(main())
         self.assertEqual(I, 111011)
 
         self.assertEqual(sys.getrefcount(manager), mrefs_before)
@@ -1313,12 +1480,62 @@ class CoroutineTest(unittest.TestCase):
                 1/0
         async def foo():
             nonlocal CNT
-            async for i in AI():
-                CNT += 1
+            with self.assertWarnsRegex(PendingDeprecationWarning, "legacy"):
+                async for i in AI():
+                    CNT += 1
             CNT += 10
         with self.assertRaises(ZeroDivisionError):
             run_async(foo())
         self.assertEqual(CNT, 0)
+
+    def test_for_8(self):
+        CNT = 0
+        class AI:
+            def __aiter__(self):
+                1/0
+        async def foo():
+            nonlocal CNT
+            async for i in AI():
+                CNT += 1
+            CNT += 10
+        with self.assertRaises(ZeroDivisionError):
+            with warnings.catch_warnings():
+                warnings.simplefilter("error")
+                # Test that if __aiter__ raises an exception it propagates
+                # without any kind of warning.
+                run_async(foo())
+        self.assertEqual(CNT, 0)
+
+    def test_for_9(self):
+        # Test that PendingDeprecationWarning can safely be converted into
+        # an exception (__aiter__ should not have a chance to raise
+        # a ZeroDivisionError.)
+        class AI:
+            async def __aiter__(self):
+                1/0
+        async def foo():
+            async for i in AI():
+                pass
+
+        with self.assertRaises(PendingDeprecationWarning):
+            with warnings.catch_warnings():
+                warnings.simplefilter("error")
+                run_async(foo())
+
+    def test_for_10(self):
+        # Test that PendingDeprecationWarning can safely be converted into
+        # an exception.
+        class AI:
+            async def __aiter__(self):
+                pass
+        async def foo():
+            async for i in AI():
+                pass
+
+        with self.assertRaises(PendingDeprecationWarning):
+            with warnings.catch_warnings():
+                warnings.simplefilter("error")
+                run_async(foo())
 
     def test_copy(self):
         async def func(): pass

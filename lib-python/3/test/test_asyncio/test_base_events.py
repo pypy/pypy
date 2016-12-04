@@ -32,6 +32,145 @@ MOCK_ANY = mock.ANY
 PY34 = sys.version_info >= (3, 4)
 
 
+def mock_socket_module():
+    m_socket = mock.MagicMock(spec=socket)
+    for name in (
+        'AF_INET', 'AF_INET6', 'AF_UNSPEC', 'IPPROTO_TCP', 'IPPROTO_UDP',
+        'SOCK_STREAM', 'SOCK_DGRAM', 'SOL_SOCKET', 'SO_REUSEADDR', 'inet_pton'
+    ):
+        if hasattr(socket, name):
+            setattr(m_socket, name, getattr(socket, name))
+        else:
+            delattr(m_socket, name)
+
+    m_socket.socket = mock.MagicMock()
+    m_socket.socket.return_value = test_utils.mock_nonblocking_socket()
+    m_socket.getaddrinfo._is_coroutine = False
+
+    return m_socket
+
+
+def patch_socket(f):
+    return mock.patch('asyncio.base_events.socket',
+                      new_callable=mock_socket_module)(f)
+
+
+class BaseEventTests(test_utils.TestCase):
+
+    def test_ipaddr_info(self):
+        UNSPEC = socket.AF_UNSPEC
+        INET = socket.AF_INET
+        INET6 = socket.AF_INET6
+        STREAM = socket.SOCK_STREAM
+        DGRAM = socket.SOCK_DGRAM
+        TCP = socket.IPPROTO_TCP
+        UDP = socket.IPPROTO_UDP
+
+        self.assertEqual(
+            (INET, STREAM, TCP, '', ('1.2.3.4', 1)),
+            base_events._ipaddr_info('1.2.3.4', 1, INET, STREAM, TCP))
+
+        self.assertEqual(
+            (INET, STREAM, TCP, '', ('1.2.3.4', 1)),
+            base_events._ipaddr_info(b'1.2.3.4', 1, INET, STREAM, TCP))
+
+        self.assertEqual(
+            (INET, STREAM, TCP, '', ('1.2.3.4', 1)),
+            base_events._ipaddr_info('1.2.3.4', 1, UNSPEC, STREAM, TCP))
+
+        self.assertEqual(
+            (INET, DGRAM, UDP, '', ('1.2.3.4', 1)),
+            base_events._ipaddr_info('1.2.3.4', 1, UNSPEC, DGRAM, UDP))
+
+        # Socket type STREAM implies TCP protocol.
+        self.assertEqual(
+            (INET, STREAM, TCP, '', ('1.2.3.4', 1)),
+            base_events._ipaddr_info('1.2.3.4', 1, UNSPEC, STREAM, 0))
+
+        # Socket type DGRAM implies UDP protocol.
+        self.assertEqual(
+            (INET, DGRAM, UDP, '', ('1.2.3.4', 1)),
+            base_events._ipaddr_info('1.2.3.4', 1, UNSPEC, DGRAM, 0))
+
+        # No socket type.
+        self.assertIsNone(
+            base_events._ipaddr_info('1.2.3.4', 1, UNSPEC, 0, 0))
+
+        # IPv4 address with family IPv6.
+        self.assertIsNone(
+            base_events._ipaddr_info('1.2.3.4', 1, INET6, STREAM, TCP))
+
+        self.assertEqual(
+            (INET6, STREAM, TCP, '', ('::3', 1)),
+            base_events._ipaddr_info('::3', 1, INET6, STREAM, TCP))
+
+        self.assertEqual(
+            (INET6, STREAM, TCP, '', ('::3', 1)),
+            base_events._ipaddr_info('::3', 1, UNSPEC, STREAM, TCP))
+
+        # IPv6 address with family IPv4.
+        self.assertIsNone(
+            base_events._ipaddr_info('::3', 1, INET, STREAM, TCP))
+
+        # IPv6 address with zone index.
+        self.assertIsNone(
+            base_events._ipaddr_info('::3%lo0', 1, INET6, STREAM, TCP))
+
+    def test_port_parameter_types(self):
+        # Test obscure kinds of arguments for "port".
+        INET = socket.AF_INET
+        STREAM = socket.SOCK_STREAM
+        TCP = socket.IPPROTO_TCP
+
+        self.assertEqual(
+            (INET, STREAM, TCP, '', ('1.2.3.4', 0)),
+            base_events._ipaddr_info('1.2.3.4', None, INET, STREAM, TCP))
+
+        self.assertEqual(
+            (INET, STREAM, TCP, '', ('1.2.3.4', 0)),
+            base_events._ipaddr_info('1.2.3.4', b'', INET, STREAM, TCP))
+
+        self.assertEqual(
+            (INET, STREAM, TCP, '', ('1.2.3.4', 0)),
+            base_events._ipaddr_info('1.2.3.4', '', INET, STREAM, TCP))
+
+        self.assertEqual(
+            (INET, STREAM, TCP, '', ('1.2.3.4', 1)),
+            base_events._ipaddr_info('1.2.3.4', '1', INET, STREAM, TCP))
+
+        self.assertEqual(
+            (INET, STREAM, TCP, '', ('1.2.3.4', 1)),
+            base_events._ipaddr_info('1.2.3.4', b'1', INET, STREAM, TCP))
+
+    def test_getaddrinfo_servname(self):
+        INET = socket.AF_INET
+        STREAM = socket.SOCK_STREAM
+        TCP = socket.IPPROTO_TCP
+
+        self.assertEqual(
+            (INET, STREAM, TCP, '', ('1.2.3.4', 80)),
+            base_events._ipaddr_info('1.2.3.4', 'http', INET, STREAM, TCP))
+
+        self.assertEqual(
+            (INET, STREAM, TCP, '', ('1.2.3.4', 80)),
+            base_events._ipaddr_info('1.2.3.4', b'http', INET, STREAM, TCP))
+
+        # Raises "service/proto not found".
+        with self.assertRaises(OSError):
+            base_events._ipaddr_info('1.2.3.4', 'nonsense', INET, STREAM, TCP)
+
+        with self.assertRaises(OSError):
+            base_events._ipaddr_info('1.2.3.4', 'nonsense', INET, STREAM, TCP)
+
+    @patch_socket
+    def test_ipaddr_info_no_inet_pton(self, m_socket):
+        del m_socket.inet_pton
+        self.assertIsNone(base_events._ipaddr_info('1.2.3.4', 1,
+                                                   socket.AF_INET,
+                                                   socket.SOCK_STREAM,
+                                                   socket.IPPROTO_TCP))
+
+
 class BaseEventLoopTests(test_utils.TestCase):
 
     def setUp(self):
@@ -540,8 +679,10 @@ class BaseEventLoopTests(test_utils.TestCase):
         self.loop.set_debug(True)
         self.loop._process_events = mock.Mock()
 
+        self.assertIsNone(self.loop.get_exception_handler())
         mock_handler = mock.Mock()
         self.loop.set_exception_handler(mock_handler)
+        self.assertIs(self.loop.get_exception_handler(), mock_handler)
         handle = run_loop()
         mock_handler.assert_called_with(self.loop, {
             'exception': MOCK_ANY,
@@ -876,7 +1017,7 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
         self.loop = asyncio.new_event_loop()
         self.set_event_loop(self.loop)
 
-    @mock.patch('asyncio.base_events.socket')
+    @patch_socket
     def test_create_connection_multiple_errors(self, m_socket):
 
         class MyProto(asyncio.Protocol):
@@ -909,7 +1050,7 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
 
         self.assertEqual(str(cm.exception), 'Multiple exceptions: err1, err2')
 
-    @mock.patch('asyncio.base_events.socket')
+    @patch_socket
     def test_create_connection_timeout(self, m_socket):
         # Ensure that the socket is closed on timeout
         sock = mock.Mock()
@@ -987,7 +1128,7 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
         with self.assertRaises(OSError):
             self.loop.run_until_complete(coro)
 
-    @mock.patch('asyncio.base_events.socket')
+    @patch_socket
     def test_create_connection_multiple_errors_local_addr(self, m_socket):
 
         def bind(addr):
@@ -1019,6 +1160,55 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
         self.assertTrue(str(cm.exception).startswith('Multiple exceptions: '))
         self.assertTrue(m_socket.socket.return_value.close.called)
 
+    def _test_create_connection_ip_addr(self, m_socket, allow_inet_pton):
+        # Test the fallback code, even if this system has inet_pton.
+        if not allow_inet_pton:
+            del m_socket.inet_pton
+
+        m_socket.getaddrinfo = socket.getaddrinfo
+        sock = m_socket.socket.return_value
+
+        self.loop.add_reader = mock.Mock()
+        self.loop.add_reader._is_coroutine = False
+        self.loop.add_writer = mock.Mock()
+        self.loop.add_writer._is_coroutine = False
+
+        coro = self.loop.create_connection(asyncio.Protocol, '1.2.3.4', 80)
+        t, p = self.loop.run_until_complete(coro)
+        try:
+            sock.connect.assert_called_with(('1.2.3.4', 80))
+            _, kwargs = m_socket.socket.call_args
+            self.assertEqual(kwargs['family'], m_socket.AF_INET)
+            self.assertEqual(kwargs['type'], m_socket.SOCK_STREAM)
+        finally:
+            t.close()
+            test_utils.run_briefly(self.loop)  # allow transport to close
+
+        sock.family = socket.AF_INET6
+        coro = self.loop.create_connection(asyncio.Protocol, '::2', 80)
+        t, p = self.loop.run_until_complete(coro)
+        try:
+            # Without inet_pton we use getaddrinfo, which transforms ('::2', 80)
+            # to ('::0.0.0.2', 80, 0, 0). The last 0s are flow info, scope id.
+            [address] = sock.connect.call_args[0]
+            host, port = address[:2]
+            self.assertRegex(host, r'::(0\.)*2')
+            self.assertEqual(port, 80)
+            _, kwargs = m_socket.socket.call_args
+            self.assertEqual(kwargs['family'], m_socket.AF_INET6)
+            self.assertEqual(kwargs['type'], m_socket.SOCK_STREAM)
+        finally:
+            t.close()
+            test_utils.run_briefly(self.loop)  # allow transport to close
+
+    @patch_socket
+    def test_create_connection_ip_addr(self, m_socket):
+        self._test_create_connection_ip_addr(m_socket, True)
+
+    @patch_socket
+    def test_create_connection_no_inet_pton(self, m_socket):
+        self._test_create_connection_ip_addr(m_socket, False)
+
     def test_create_connection_no_local_addr(self):
         @asyncio.coroutine
         def getaddrinfo(host, *args, **kw):
@@ -1037,6 +1227,21 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
             local_addr=(None, 8080))
         self.assertRaises(
             OSError, self.loop.run_until_complete, coro)
+
+    @patch_socket
+    def test_create_connection_bluetooth(self, m_socket):
+        # See http://bugs.python.org/issue27136, fallback to getaddrinfo when
+        # we can't recognize an address is resolved, e.g. a Bluetooth address.
+        addr = ('00:01:02:03:04:05', 1)
+
+        def getaddrinfo(host, port, *args, **kw):
+            assert (host, port) == addr
+            return [(999, 1, 999, '', (addr, 1))]
+
+        m_socket.getaddrinfo = getaddrinfo
+        sock = m_socket.socket()
+        coro = self.loop.sock_connect(sock, addr)
+        self.loop.run_until_complete(coro)
 
     def test_create_connection_ssl_server_hostname_default(self):
         self.loop.getaddrinfo = mock.Mock()
@@ -1151,14 +1356,12 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
         getaddrinfo = self.loop.getaddrinfo = mock.Mock()
         getaddrinfo.return_value = []
 
-        f = self.loop.create_server(MyProto, '0.0.0.0', 0)
+        f = self.loop.create_server(MyProto, 'python.org', 0)
         self.assertRaises(OSError, self.loop.run_until_complete, f)
 
-    @mock.patch('asyncio.base_events.socket')
+    @patch_socket
     def test_create_server_nosoreuseport(self, m_socket):
         m_socket.getaddrinfo = socket.getaddrinfo
-        m_socket.SOCK_STREAM = socket.SOCK_STREAM
-        m_socket.SOL_SOCKET = socket.SOL_SOCKET
         del m_socket.SO_REUSEPORT
         m_socket.socket.return_value = mock.Mock()
 
@@ -1167,7 +1370,7 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
 
         self.assertRaises(ValueError, self.loop.run_until_complete, f)
 
-    @mock.patch('asyncio.base_events.socket')
+    @patch_socket
     def test_create_server_cant_bind(self, m_socket):
 
         class Err(OSError):
@@ -1183,7 +1386,7 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
         self.assertRaises(OSError, self.loop.run_until_complete, fut)
         self.assertTrue(m_sock.close.called)
 
-    @mock.patch('asyncio.base_events.socket')
+    @patch_socket
     def test_create_datagram_endpoint_no_addrinfo(self, m_socket):
         m_socket.getaddrinfo.return_value = []
         m_socket.getaddrinfo._is_coroutine = False
@@ -1212,7 +1415,7 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
         self.assertRaises(
             OSError, self.loop.run_until_complete, coro)
 
-    @mock.patch('asyncio.base_events.socket')
+    @patch_socket
     def test_create_datagram_endpoint_socket_err(self, m_socket):
         m_socket.getaddrinfo = socket.getaddrinfo
         m_socket.socket.side_effect = OSError
@@ -1235,7 +1438,7 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
         self.assertRaises(
             ValueError, self.loop.run_until_complete, coro)
 
-    @mock.patch('asyncio.base_events.socket')
+    @patch_socket
     def test_create_datagram_endpoint_setblk_err(self, m_socket):
         m_socket.socket.return_value.setblocking.side_effect = OSError
 
@@ -1251,12 +1454,11 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
             asyncio.DatagramProtocol)
         self.assertRaises(ValueError, self.loop.run_until_complete, coro)
 
-    @mock.patch('asyncio.base_events.socket')
+    @patch_socket
     def test_create_datagram_endpoint_cant_bind(self, m_socket):
         class Err(OSError):
             pass
 
-        m_socket.AF_INET6 = socket.AF_INET6
         m_socket.getaddrinfo = socket.getaddrinfo
         m_sock = m_socket.socket.return_value = mock.Mock()
         m_sock.bind.side_effect = Err
@@ -1370,11 +1572,8 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
         self.loop.run_until_complete(protocol.done)
         self.assertEqual('CLOSED', protocol.state)
 
-    @mock.patch('asyncio.base_events.socket')
+    @patch_socket
     def test_create_datagram_endpoint_nosoreuseport(self, m_socket):
-        m_socket.getaddrinfo = socket.getaddrinfo
-        m_socket.SOCK_DGRAM = socket.SOCK_DGRAM
-        m_socket.SOL_SOCKET = socket.SOL_SOCKET
         del m_socket.SO_REUSEPORT
         m_socket.socket.return_value = mock.Mock()
 
@@ -1385,6 +1584,33 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
             reuse_port=True)
 
         self.assertRaises(ValueError, self.loop.run_until_complete, coro)
+
+    @patch_socket
+    def test_create_datagram_endpoint_ip_addr(self, m_socket):
+        def getaddrinfo(*args, **kw):
+            self.fail('should not have called getaddrinfo')
+
+        m_socket.getaddrinfo = getaddrinfo
+        m_socket.socket.return_value.bind = bind = mock.Mock()
+        self.loop.add_reader = mock.Mock()
+        self.loop.add_reader._is_coroutine = False
+
+        reuseport_supported = hasattr(socket, 'SO_REUSEPORT')
+        coro = self.loop.create_datagram_endpoint(
+            lambda: MyDatagramProto(loop=self.loop),
+            local_addr=('1.2.3.4', 0),
+            reuse_address=False,
+            reuse_port=reuseport_supported)
+
+        t, p = self.loop.run_until_complete(coro)
+        try:
+            bind.assert_called_with(('1.2.3.4', 0))
+            m_socket.socket.assert_called_with(family=m_socket.AF_INET,
+                                               proto=m_socket.IPPROTO_UDP,
+                                               type=m_socket.SOCK_DGRAM)
+        finally:
+            t.close()
+            test_utils.run_briefly(self.loop)  # allow transport to close
 
     def test_accept_connection_retry(self):
         sock = mock.Mock()

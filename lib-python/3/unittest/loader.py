@@ -387,7 +387,7 @@ class TestLoader(object):
             if tests is not None:
                 yield tests
             if not should_recurse:
-                # Either an error occured, or load_tests was used by the
+                # Either an error occurred, or load_tests was used by the
                 # package.
                 return
         # Handle the contents.
@@ -479,6 +479,8 @@ class TestLoader(object):
                     return tests, True
                 finally:
                     self._loading_packages.discard(name)
+        else:
+            return None, False
 
 
 defaultTestLoader = TestLoader()

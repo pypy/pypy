@@ -27,8 +27,8 @@ _YIELD_FROM = opcode.opmap['YIELD_FROM']
 # before you define your coroutines.  A downside of using this feature
 # is that tracebacks show entries for the CoroWrapper.__next__ method
 # when _DEBUG is true.
-_DEBUG = (not sys.flags.ignore_environment
-          and bool(os.environ.get('PYTHONASYNCIODEBUG')))
+_DEBUG = (not sys.flags.ignore_environment and
+          bool(os.environ.get('PYTHONASYNCIODEBUG')))
 
 
 try:
@@ -86,7 +86,7 @@ class CoroWrapper:
     def __init__(self, gen, func=None):
         assert inspect.isgenerator(gen) or inspect.iscoroutine(gen), gen
         self.gen = gen
-        self.func = func # Used to unwrap @coroutine decorator
+        self.func = func  # Used to unwrap @coroutine decorator
         self._source_traceback = traceback.extract_stack(sys._getframe(1))
         self.__name__ = getattr(gen, '__name__', None)
         self.__qualname__ = getattr(gen, '__qualname__', None)
@@ -204,7 +204,8 @@ def coroutine(func):
         @functools.wraps(func)
         def coro(*args, **kw):
             res = func(*args, **kw)
-            if isinstance(res, futures.Future) or inspect.isgenerator(res):
+            if isinstance(res, futures.Future) or inspect.isgenerator(res) or \
+                    isinstance(res, CoroWrapper):
                 res = yield from res
             elif _AwaitableABC is not None:
                 # If 'func' returns an Awaitable (new in 3.5) we
@@ -283,10 +284,13 @@ def _format_coroutine(coro):
         coro_frame = coro.cr_frame
 
     filename = coro_code.co_filename
-    if (isinstance(coro, CoroWrapper)
-    and not inspect.isgeneratorfunction(coro.func)
-    and coro.func is not None):
-        filename, lineno = events._get_function_source(coro.func)
+    lineno = 0
+    if (isinstance(coro, CoroWrapper) and
+            not inspect.isgeneratorfunction(coro.func) and
+            coro.func is not None):
+        source = events._get_function_source(coro.func)
+        if source is not None:
+            filename, lineno = source
         if coro_frame is None:
             coro_repr = ('%s done, defined at %s:%s'
                          % (coro_name, filename, lineno))

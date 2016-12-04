@@ -118,7 +118,7 @@ class EnumMeta(type):
 
         # save attributes from super classes so we know if we can take
         # the shortcut of storing members in the class dict
-        base_attributes = {a for b in bases for a in b.__dict__}
+        base_attributes = {a for b in enum_class.mro() for a in b.__dict__}
 
         # Reverse value->name map for hashable values.
         enum_class._value2member_map_ = {}
@@ -205,6 +205,12 @@ class EnumMeta(type):
                 enum_class.__new_member__ = __new__
             enum_class.__new__ = Enum.__new__
         return enum_class
+
+    def __bool__(self):
+        """
+        classes/types should always be True.
+        """
+        return True
 
     def __call__(cls, value, names=None, *, module=None, qualname=None, type=None, start=1):
         """Either returns an existing member, or creates a new enum class.

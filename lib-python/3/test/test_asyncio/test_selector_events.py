@@ -343,9 +343,11 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
 
         f = self.loop.sock_connect(sock, ('127.0.0.1', 8080))
         self.assertIsInstance(f, asyncio.Future)
-        self.assertEqual(
-            (f, sock, ('127.0.0.1', 8080)),
-            self.loop._sock_connect.call_args[0])
+        self.loop._run_once()
+        future_in, sock_in, address_in = self.loop._sock_connect.call_args[0]
+        self.assertEqual(future_in, f)
+        self.assertEqual(sock_in, sock)
+        self.assertEqual(address_in, ('127.0.0.1', 8080))
 
     def test_sock_connect_timeout(self):
         # asyncio issue #205: sock_connect() must unregister the socket on
@@ -359,6 +361,7 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
 
         # first call to sock_connect() registers the socket
         fut = self.loop.sock_connect(sock, ('127.0.0.1', 80))
+        self.loop._run_once()
         self.assertTrue(sock.connect.called)
         self.assertTrue(self.loop.add_writer.called)
         self.assertEqual(len(fut._callbacks), 1)
@@ -376,7 +379,10 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         sock = mock.Mock()
         sock.fileno.return_value = 10
 
-        self.loop._sock_connect(f, sock, ('127.0.0.1', 8080))
+        resolved = self.loop.create_future()
+        resolved.set_result([(socket.AF_INET, socket.SOCK_STREAM,
+                              socket.IPPROTO_TCP, '', ('127.0.0.1', 8080))])
+        self.loop._sock_connect(f, sock, resolved)
         self.assertTrue(f.done())
         self.assertIsNone(f.result())
         self.assertTrue(sock.connect.called)
@@ -402,9 +408,13 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         sock.connect.side_effect = BlockingIOError
         sock.getsockopt.return_value = 0
         address = ('127.0.0.1', 8080)
+        resolved = self.loop.create_future()
+        resolved.set_result([(socket.AF_INET, socket.SOCK_STREAM,
+                              socket.IPPROTO_TCP, '', address)])
 
         f = asyncio.Future(loop=self.loop)
-        self.loop._sock_connect(f, sock, address)
+        self.loop._sock_connect(f, sock, resolved)
+        self.loop._run_once()
         self.assertTrue(self.loop.add_writer.called)
         self.assertEqual(10, self.loop.add_writer.call_args[0][0])
 
@@ -1077,17 +1087,6 @@ class SelectorSocketTransportTests(test_utils.TestCase):
                                    err,
                                    'Fatal write error on socket transport')
 
-    @mock.patch('asyncio.base_events.logger')
-    def test_write_ready_exception_and_close(self, m_log):
-        self.sock.send.side_effect = OSError()
-        remove_writer = self.loop.remove_writer = mock.Mock()
-
-        transport = self.socket_transport()
-        transport.close()
-        transport._buffer.extend(b'data')
-        transport._write_ready()
-        remove_writer.assert_called_with(self.sock_fd)
-
     def test_write_eof(self):
         tr = self.socket_transport()
         self.assertTrue(tr.can_write_eof())
@@ -1110,6 +1109,14 @@ class SelectorSocketTransportTests(test_utils.TestCase):
         self.assertTrue(self.sock.send.called)
         self.sock.shutdown.assert_called_with(socket.SHUT_WR)
         tr.close()
+
+    @mock.patch('asyncio.base_events.logger')
+    def test_transport_close_remove_writer(self, m_log):
+        remove_writer = self.loop.remove_writer = mock.Mock()
+
+        transport = self.socket_transport()
+        transport.close()
+        remove_writer.assert_called_with(self.sock_fd)
 
 
 @unittest.skipIf(ssl is None, 'No ssl module')
@@ -1165,7 +1172,7 @@ class SelectorSslTransportTests(test_utils.TestCase):
         self.sslsock.do_handshake.side_effect = exc
         with test_utils.disable_logger():
             waiter = asyncio.Future(loop=self.loop)
-            transport = self.ssl_transport(waiter=waiter)
+            self.ssl_transport(waiter=waiter)
         self.assertTrue(waiter.done())
         self.assertIs(exc, waiter.exception())
         self.assertTrue(self.sslsock.close.called)
@@ -1182,7 +1189,7 @@ class SelectorSslTransportTests(test_utils.TestCase):
         self.assertIs(exc, waiter.exception())
 
     def test_cancel_handshake(self):
-        # Python issue #23197: cancelling an handshake must not raise an
+        # Python issue #23197: cancelling a handshake must not raise an
         # exception or log an error, even if the handshake failed
         waiter = asyncio.Future(loop=self.loop)
         transport = self.ssl_transport(waiter=waiter)
@@ -1364,20 +1371,19 @@ class SelectorSslTransportTests(test_utils.TestCase):
     def test_write_ready_send_closing(self):
         self.sslsock.send.return_value = 4
         transport = self._make_one()
-        transport.close()
         transport._buffer = list_to_buffer([b'data'])
+        transport.close()
         transport._write_ready()
-        self.assertFalse(self.loop.writers)
         self.protocol.connection_lost.assert_called_with(None)
 
     def test_write_ready_send_closing_empty_buffer(self):
         self.sslsock.send.return_value = 4
+        call_soon = self.loop.call_soon = mock.Mock()
         transport = self._make_one()
-        transport.close()
         transport._buffer = list_to_buffer()
+        transport.close()
         transport._write_ready()
-        self.assertFalse(self.loop.writers)
-        self.protocol.connection_lost.assert_called_with(None)
+        call_soon.assert_called_with(transport._call_connection_lost, None)
 
     def test_write_ready_send_retry(self):
         transport = self._make_one()

@@ -304,6 +304,17 @@ class MockTest(unittest.TestCase):
         # an exception. See issue 24857.
         self.assertFalse(mock.call_args == "a long sequence")
 
+
+    def test_calls_equal_with_any(self):
+        call1 = mock.call(mock.MagicMock())
+        call2 = mock.call(mock.ANY)
+
+        # Check that equality and non-equality is consistent even when
+        # comparing with mock.ANY
+        self.assertTrue(call1 == call2)
+        self.assertFalse(call1 != call2)
+
+
     def test_assert_called_with(self):
         mock = Mock()
         mock()
@@ -317,6 +328,12 @@ class MockTest(unittest.TestCase):
 
         mock(1, 2, 3, a='fish', b='nothing')
         mock.assert_called_with(1, 2, 3, a='fish', b='nothing')
+
+
+    def test_assert_called_with_any(self):
+        m = MagicMock()
+        m(MagicMock())
+        m.assert_called_with(mock.ANY)
 
 
     def test_assert_called_with_function_spec(self):
@@ -1401,6 +1418,18 @@ class MockTest(unittest.TestCase):
         second = mopen().readline()
         self.assertEqual('abc', first)
         self.assertEqual('abc', second)
+
+    def test_mock_open_after_eof(self):
+        # read, readline and readlines should work after end of file.
+        _open = mock.mock_open(read_data='foo')
+        h = _open('bar')
+        h.read()
+        self.assertEqual('', h.read())
+        self.assertEqual('', h.read())
+        self.assertEqual('', h.readline())
+        self.assertEqual('', h.readline())
+        self.assertEqual([], h.readlines())
+        self.assertEqual([], h.readlines())
 
     def test_mock_parents(self):
         for Klass in Mock, MagicMock:

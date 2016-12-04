@@ -1665,7 +1665,7 @@ class HTTPHandlerTest(BaseTest):
         logger = logging.getLogger("http")
         root_logger = self.root_logger
         root_logger.removeHandler(self.root_logger.handlers[0])
-        for secure in (False,):  # XXX: disable SSL tests until it works
+        for secure in (False, True):
             addr = ('localhost', 0)
             if secure:
                 try:
@@ -1690,7 +1690,8 @@ class HTTPHandlerTest(BaseTest):
             secure_client = secure and sslctx
             self.h_hdlr = logging.handlers.HTTPHandler(host, '/frob',
                                                        secure=secure_client,
-                                                       context=context)
+                                                       context=context,
+                                                       credentials=('foo', 'bar'))
             self.log_data = None
             root_logger.addHandler(self.h_hdlr)
 

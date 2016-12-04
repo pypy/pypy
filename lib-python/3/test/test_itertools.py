@@ -1399,6 +1399,16 @@ class TestExamples(unittest.TestCase):
         self.assertEqual(list(copy.deepcopy(it)), accumulated[1:])
         self.assertEqual(list(copy.copy(it)), accumulated[1:])
 
+    def test_accumulate_reducible_none(self):
+        # Issue #25718: total is None
+        it = accumulate([None, None, None], operator.is_)
+        self.assertEqual(next(it), None)
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            it_copy = pickle.loads(pickle.dumps(it, proto))
+            self.assertEqual(list(it_copy), [True, False])
+        self.assertEqual(list(copy.deepcopy(it)), [True, False])
+        self.assertEqual(list(copy.copy(it)), [True, False])
+
     def test_chain(self):
         self.assertEqual(''.join(chain('ABC', 'DEF')), 'ABCDEF')
 
@@ -2006,6 +2016,11 @@ Samuele
 ...     "Returns the nth item or a default value"
 ...     return next(islice(iterable, n, None), default)
 
+>>> def all_equal(iterable):
+...     "Returns True if all the elements are equal to each other"
+...     g = groupby(iterable)
+...     return next(g, True) and not next(g, False)
+
 >>> def quantify(iterable, pred=bool):
 ...     "Count how many times the predicate is true"
 ...     return sum(map(pred, iterable))
@@ -2118,6 +2133,9 @@ perform as purported.
 
 >>> nth('abcde', 9) is None
 True
+
+>>> [all_equal(s) for s in ('', 'A', 'AAAA', 'AAAB', 'AAABA')]
+[True, True, True, False, False]
 
 >>> quantify(range(99), lambda x: x%2==0)
 50
