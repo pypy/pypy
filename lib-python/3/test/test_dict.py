@@ -861,7 +861,7 @@ class DictTest(unittest.TestCase):
             itorg = iter(data.items())
             d = pickle.dumps(itorg, proto)
             it = pickle.loads(d)
-            # note that the type of type of the unpickled iterator
+            # note that the type of the unpickled iterator
             # is not necessarily the same as the original.  It is
             # merely an object supporting the iterator protocol, yielding
             # the same objects as the original one.
@@ -951,6 +951,12 @@ class DictTest(unittest.TestCase):
         other[X()] = 0
         d = {X(): 0, 1: 1}
         self.assertRaises(RuntimeError, d.update, other)
+
+    def test_free_after_iterating(self):
+        support.check_free_after_iterating(self, iter, dict)
+        support.check_free_after_iterating(self, lambda d: iter(d.keys()), dict)
+        support.check_free_after_iterating(self, lambda d: iter(d.values()), dict)
+        support.check_free_after_iterating(self, lambda d: iter(d.items()), dict)
 
 from test import mapping_tests
 

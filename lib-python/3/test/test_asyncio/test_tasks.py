@@ -6,6 +6,7 @@ import io
 import os
 import re
 import sys
+import time
 import types
 import unittest
 import weakref
@@ -75,6 +76,21 @@ class TaskTests(test_utils.TestCase):
 
     def setUp(self):
         self.loop = self.new_test_loop()
+
+    def test_other_loop_future(self):
+        other_loop = asyncio.new_event_loop()
+        fut = asyncio.Future(loop=other_loop)
+
+        @asyncio.coroutine
+        def run(fut):
+            yield from fut
+
+        try:
+            with self.assertRaisesRegex(RuntimeError,
+                                        r'Task .* got Future .* attached'):
+                self.loop.run_until_complete(run(fut))
+        finally:
+            other_loop.close()
 
     def test_task_class(self):
         @asyncio.coroutine
@@ -1778,6 +1794,30 @@ class TaskTests(test_utils.TestCase):
 
         self.assertRegex(message, re.compile(regex, re.DOTALL))
 
+    def test_return_coroutine_from_coroutine(self):
+        """Return of @asyncio.coroutine()-wrapped function generator object
+        from @asyncio.coroutine()-wrapped function should have same effect as
+        returning generator object or Future."""
+        def check():
+            @asyncio.coroutine
+            def outer_coro():
+                @asyncio.coroutine
+                def inner_coro():
+                    return 1
+
+                return inner_coro()
+
+            result = self.loop.run_until_complete(outer_coro())
+            self.assertEqual(result, 1)
+
+        # Test with debug flag cleared.
+        with set_coroutine_debug(False):
+            check()
+
+        # Test with debug flag set.
+        with set_coroutine_debug(True):
+            check()
+
     def test_task_source_traceback(self):
         self.loop.set_debug(True)
 
@@ -2196,6 +2236,10 @@ class SleepTests(test_utils.TestCase):
     def setUp(self):
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(None)
+
+    def tearDown(self):
+        self.loop.close()
+        self.loop = None
 
     def test_sleep_zero(self):
         result = 0

@@ -236,6 +236,9 @@ class CAPITest(unittest.TestCase):
                              'return_result_with_error.* '
                              'returned a result with an error set')
 
+    def test_buildvalue_N(self):
+        _testcapi.test_buildvalue_N()
+
 
 @unittest.skipUnless(threading, 'Threading required for this test.')
 class TestPendingCalls(unittest.TestCase):
@@ -343,7 +346,8 @@ class Test6012(unittest.TestCase):
 
 class EmbeddingTests(unittest.TestCase):
     def setUp(self):
-        basepath = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        here = os.path.abspath(__file__)
+        basepath = os.path.dirname(os.path.dirname(os.path.dirname(here)))
         exename = "_testembed"
         if sys.platform.startswith("win"):
             ext = ("_d" if "_d" in sys.executable else "") + ".exe"
@@ -457,7 +461,7 @@ class SkipitemTest(unittest.TestCase):
         test and not for the other, there's a mismatch, and the test fails.
 
            ** Some format units have special funny semantics and it would
-              be difficult to accomodate them here.  Since these are all
+              be difficult to accommodate them here.  Since these are all
               well-established and properly skipped in skipitem() we can
               get away with not testing them--this test is really intended
               to catch *new* format units.
@@ -488,7 +492,7 @@ class SkipitemTest(unittest.TestCase):
                     format.encode("ascii"), keywords)
                 when_not_skipped = False
             except TypeError as e:
-                s = "argument 1 must be impossible<bad format char>, not int"
+                s = "argument 1 (impossible<bad format char>)"
                 when_not_skipped = (str(e) == s)
             except RuntimeError as e:
                 when_not_skipped = False

@@ -185,6 +185,14 @@ class FaultHandlerTests(unittest.TestCase):
             2,
             'xyz')
 
+    def test_fatal_error_without_gil(self):
+        self.check_fatal_error("""
+            import faulthandler
+            faulthandler._fatal_error(b'xyz', True)
+            """,
+            2,
+            'xyz')
+
     @unittest.skipIf(sys.platform.startswith('openbsd') and HAVE_THREADS,
                      "Issue #12868: sigaltstack() doesn't work on "
                      "OpenBSD if Python is compiled with pthread")
@@ -675,7 +683,7 @@ class FaultHandlerTests(unittest.TestCase):
             sys.stderr = stderr
 
     def test_stderr_None(self):
-        # Issue #21497: provide an helpful error if sys.stderr is None,
+        # Issue #21497: provide a helpful error if sys.stderr is None,
         # instead of just an attribute error: "None has no attribute fileno".
         with self.check_stderr_none():
             faulthandler.enable()

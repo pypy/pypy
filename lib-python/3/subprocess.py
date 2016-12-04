@@ -535,14 +535,11 @@ def _args_from_interpreter_flags():
         'verbose': 'v',
         'bytes_warning': 'b',
         'quiet': 'q',
-        'hash_randomization': 'R',
     }
     args = []
     for flag, opt in flag_opt_map.items():
         v = getattr(sys.flags, flag)
         if v > 0:
-            if flag == 'hash_randomization':
-                v = 1 # Handle specification of an exact seed
             args.append('-' + opt * v)
     for opt in sys.warnoptions:
         args.append('-W' + opt)
@@ -1014,8 +1011,7 @@ class Popen(object):
             try:
                 self.stdin.write(input)
             except BrokenPipeError:
-                # communicate() must ignore broken pipe error
-                pass
+                pass  # communicate() must ignore broken pipe errors.
             except OSError as e:
                 if e.errno == errno.EINVAL and self.poll() is not None:
                     # Issue #19612: On Windows, stdin.write() fails with EINVAL
@@ -1023,7 +1019,15 @@ class Popen(object):
                     pass
                 else:
                     raise
-        self.stdin.close()
+        try:
+            self.stdin.close()
+        except BrokenPipeError:
+            pass  # communicate() must ignore broken pipe errors.
+        except OSError as e:
+            if e.errno == errno.EINVAL and self.poll() is not None:
+                pass
+            else:
+                raise
 
     def communicate(self, input=None, timeout=None):
         """Interact with process: Send data to stdin.  Read data from
@@ -1404,7 +1408,10 @@ class Popen(object):
             elif stderr == PIPE:
                 errread, errwrite = os.pipe()
             elif stderr == STDOUT:
-                errwrite = c2pwrite
+                if c2pwrite != -1:
+                    errwrite = c2pwrite
+                else: # child's stdout is not set, use parent's stdout
+                    errwrite = sys.__stdout__.fileno()
             elif stderr == DEVNULL:
                 errwrite = self._get_devnull()
             elif isinstance(stderr, int):
@@ -1661,9 +1668,15 @@ class Popen(object):
             if self.stdin and not self._communication_started:
                 # Flush stdio buffer.  This might block, if the user has
                 # been writing to .stdin in an uncontrolled fashion.
-                self.stdin.flush()
+                try:
+                    self.stdin.flush()
+                except BrokenPipeError:
+                    pass  # communicate() must ignore BrokenPipeError.
                 if not input:
-                    self.stdin.close()
+                    try:
+                        self.stdin.close()
+                    except BrokenPipeError:
+                        pass  # communicate() must ignore BrokenPipeError.
 
             stdout = None
             stderr = None

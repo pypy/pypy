@@ -25,6 +25,12 @@ requires_setformat = unittest.skipUnless(hasattr(float, "__setformat__"),
 test_dir = os.path.dirname(__file__) or os.curdir
 format_testfile = os.path.join(test_dir, 'formatfloat_testcases.txt')
 
+class FloatSubclass(float):
+    pass
+
+class OtherFloatSubclass(float):
+    pass
+
 class GeneralFloatCases(unittest.TestCase):
 
     def test_float(self):
@@ -166,6 +172,15 @@ class GeneralFloatCases(unittest.TestCase):
             def __float__(self):
                 return ""
         self.assertRaises(TypeError, time.sleep, Foo5())
+
+        # Issue #24731
+        class F:
+            def __float__(self):
+                return OtherFloatSubclass(42.)
+        self.assertAlmostEqual(float(F()), 42.)
+        self.assertIs(type(float(F())), OtherFloatSubclass)
+        self.assertAlmostEqual(FloatSubclass(F()), 42.)
+        self.assertIs(type(FloatSubclass(F())), FloatSubclass)
 
     def test_is_integer(self):
         self.assertFalse((1.1).is_integer())
@@ -1339,6 +1354,24 @@ class HexFloatTestCase(unittest.TestCase):
                 pass
             else:
                 self.identical(x, fromHex(toHex(x)))
+
+    def test_subclass(self):
+        class F(float):
+            def __new__(cls, value):
+                return float.__new__(cls, value + 1)
+
+        f = F.fromhex((1.5).hex())
+        self.assertIs(type(f), F)
+        self.assertEqual(f, 2.5)
+
+        class F2(float):
+            def __init__(self, value):
+                self.foo = 'bar'
+
+        f = F2.fromhex((1.5).hex())
+        self.assertIs(type(f), F2)
+        self.assertEqual(f, 1.5)
+        self.assertEqual(getattr(f, 'foo', 'none'), 'bar')
 
 
 if __name__ == '__main__':

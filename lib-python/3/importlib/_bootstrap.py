@@ -922,7 +922,7 @@ def _sanity_check(name, package, level):
         raise TypeError('module name must be str, not {}'.format(type(name)))
     if level < 0:
         raise ValueError('level must be >= 0')
-    if package:
+    if level > 0:
         if not isinstance(package, str):
             raise TypeError('__package__ not set to a string')
         elif package not in sys.modules:
@@ -1043,7 +1043,7 @@ def _calc___package__(globals):
 def __import__(name, globals=None, locals=None, fromlist=(), level=0):
     """Import a module.
 
-    The 'globals' argument is used to infer where the import is occuring from
+    The 'globals' argument is used to infer where the import is occurring from
     to handle relative imports. The 'locals' argument is ignored. The
     'fromlist' argument specifies what should exist as attributes on the module
     being imported (e.g. ``from module import <fromlist>``).  The 'level'

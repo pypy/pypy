@@ -47,7 +47,7 @@ from _ctypes import FUNCFLAG_CDECL as _FUNCFLAG_CDECL, \
 def create_string_buffer(init, size=None):
     """create_string_buffer(aBytes) -> character array
     create_string_buffer(anInteger) -> character array
-    create_string_buffer(aString, anInteger) -> character array
+    create_string_buffer(aBytes, anInteger) -> character array
     """
     if isinstance(init, bytes):
         if size is None:
@@ -368,8 +368,8 @@ class CDLL(object):
         return func
 
 class PyDLL(CDLL):
-    """This class represents the Python library itself.  It allows to
-    access Python API functions.  The GIL is not released, and
+    """This class represents the Python library itself.  It allows
+    accessing Python API functions.  The GIL is not released, and
     Python exceptions are handled correctly.
     """
     _func_flags_ = _FUNCFLAG_CDECL | _FUNCFLAG_PYTHONAPI

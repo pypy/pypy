@@ -146,6 +146,21 @@ _is_illegal_header_value = re.compile(rb'\n(?![ \t])|\r(?![ \t\n])').search
 _METHODS_EXPECTING_BODY = {'PATCH', 'POST', 'PUT'}
 
 
+def _encode(data, name='data'):
+    """Call data.encode("latin-1") but show a better error message."""
+    try:
+        return data.encode("latin-1")
+    except UnicodeEncodeError as err:
+        raise UnicodeEncodeError(
+            err.encoding,
+            err.object,
+            err.start,
+            err.end,
+            "%s (%.20r) is not valid Latin-1. Use %s.encode('utf-8') "
+            "if you want to send it encoded in UTF-8." %
+            (name.title(), data[err.start:err.end], name)) from None
+
+
 class HTTPMessage(email.message.Message):
     # XXX The only usage of this method is in
     # http.server.CGIHTTPRequestHandler.  Maybe move the code there so
@@ -620,6 +635,8 @@ class HTTPResponse(io.BufferedIOBase):
             return b""
         if self.chunked:
             return self._read1_chunked(n)
+        if self.length is not None and (n < 0 or n > self.length):
+            n = self.length
         try:
             result = self.fp.read1(n)
         except ValueError:
@@ -630,6 +647,8 @@ class HTTPResponse(io.BufferedIOBase):
             result = self.fp.read1(16*1024)
         if not result and n:
             self._close_conn()
+        elif self.length is not None:
+            self.length -= len(result)
         return result
 
     def peek(self, n=-1):
@@ -647,9 +666,13 @@ class HTTPResponse(io.BufferedIOBase):
         if self.chunked:
             # Fallback to IOBase readline which uses peek() and read()
             return super().readline(limit)
+        if self.length is not None and (limit < 0 or limit > self.length):
+            limit = self.length
         result = self.fp.readline(limit)
         if not result and limit:
             self._close_conn()
+        elif self.length is not None:
+            self.length -= len(result)
         return result
 
     def _read1_chunked(self, n):
@@ -1124,7 +1147,7 @@ class HTTPConnection:
         if isinstance(body, str):
             # RFC 2616 Section 3.7.1 says that text default has a
             # default charset of iso-8859-1.
-            body = body.encode('iso-8859-1')
+            body = _encode(body, 'body')
         self.endheaders(body)
 
     def getresponse(self):
@@ -1132,7 +1155,7 @@ class HTTPConnection:
 
         If the HTTPConnection is in the correct state, returns an
         instance of HTTPResponse or of whatever object is returned by
-        class the response_class variable.
+        the response_class variable.
 
         If a request has not been sent or if a previous response has
         not be handled, ResponseNotReady is raised.  If the HTTP

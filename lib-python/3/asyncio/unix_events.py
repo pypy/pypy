@@ -177,7 +177,7 @@ class _UnixSelectorEventLoop(selector_events.BaseSelectorEventLoop):
                                    stdin, stdout, stderr, bufsize,
                                    extra=None, **kwargs):
         with events.get_child_watcher() as watcher:
-            waiter = futures.Future(loop=self)
+            waiter = self.create_future()
             transp = _UnixSubprocessTransport(self, protocol, args, shell,
                                               stdin, stdout, stderr, bufsize,
                                               waiter=waiter, extra=extra,
@@ -329,14 +329,17 @@ class _UnixReadPipeTransport(transports.ReadTransport):
         elif self._closing:
             info.append('closing')
         info.append('fd=%s' % self._fileno)
-        if self._pipe is not None:
+        selector = getattr(self._loop, '_selector', None)
+        if self._pipe is not None and selector is not None:
             polling = selector_events._test_selector_event(
-                          self._loop._selector,
+                          selector,
                           self._fileno, selectors.EVENT_READ)
             if polling:
                 info.append('polling')
             else:
                 info.append('idle')
+        elif self._pipe is not None:
+            info.append('open')
         else:
             info.append('closed')
         return '<%s>' % ' '.join(info)
@@ -453,9 +456,10 @@ class _UnixWritePipeTransport(transports._FlowControlMixin,
         elif self._closing:
             info.append('closing')
         info.append('fd=%s' % self._fileno)
-        if self._pipe is not None:
+        selector = getattr(self._loop, '_selector', None)
+        if self._pipe is not None and selector is not None:
             polling = selector_events._test_selector_event(
-                          self._loop._selector,
+                          selector,
                           self._fileno, selectors.EVENT_WRITE)
             if polling:
                 info.append('polling')
@@ -464,6 +468,8 @@ class _UnixWritePipeTransport(transports._FlowControlMixin,
 
             bufsize = self.get_write_buffer_size()
             info.append('bufsize=%s' % bufsize)
+        elif self._pipe is not None:
+            info.append('open')
         else:
             info.append('closed')
         return '<%s>' % ' '.join(info)
@@ -575,7 +581,7 @@ class _UnixWritePipeTransport(transports._FlowControlMixin,
 
     def _fatal_error(self, exc, message='Fatal error on pipe transport'):
         # should be called by exception handler only
-        if isinstance(exc, (BrokenPipeError, ConnectionResetError)):
+        if isinstance(exc, base_events._FATAL_ERROR_IGNORE):
             if self._loop.get_debug():
                 logger.debug("%r: %s", self, message, exc_info=True)
         else:

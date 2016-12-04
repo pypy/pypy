@@ -43,6 +43,9 @@ def duplicate_string(text):
     """
     return text.encode().decode()
 
+class StrSubclass(str):
+    pass
+
 class UnicodeTest(string_tests.CommonTest,
         string_tests.MixinStrUnicodeUserStringTest,
         string_tests.MixinStrUnicodeTest,
@@ -338,12 +341,22 @@ class UnicodeTest(string_tests.CommonTest,
                          "[XXX]")
         self.assertEqual("[a]".translate(str.maketrans({'a': '\xe9'})),
                          "[\xe9]")
+        self.assertEqual('axb'.translate(str.maketrans({'a': None, 'b': '123'})),
+                         "x123")
+        self.assertEqual('axb'.translate(str.maketrans({'a': None, 'b': '\xe9'})),
+                         "x\xe9")
+
+        # test non-ASCII (don't take the fast-path)
         self.assertEqual("[a]".translate(str.maketrans({'a': '<\xe9>'})),
                          "[<\xe9>]")
         self.assertEqual("[\xe9]".translate(str.maketrans({'\xe9': 'a'})),
                          "[a]")
         self.assertEqual("[\xe9]".translate(str.maketrans({'\xe9': None})),
                          "[]")
+        self.assertEqual("[\xe9]".translate(str.maketrans({'\xe9': '123'})),
+                         "[123]")
+        self.assertEqual("[a\xe9]".translate(str.maketrans({'a': '<\u20ac>'})),
+                         "[<\u20ac>\xe9]")
 
         # invalid Unicode characters
         invalid_char = 0x10ffff+1
@@ -367,10 +380,6 @@ class UnicodeTest(string_tests.CommonTest,
     def test_split(self):
         string_tests.CommonTest.test_split(self)
 
-        # Mixed arguments
-        self.checkequalnofix(['a', 'b', 'c', 'd'], 'a//b//c//d', 'split', '//')
-        self.checkequalnofix(['a', 'b', 'c', 'd'], 'a//b//c//d', 'split', '//')
-        self.checkequalnofix(['endcase ', ''], 'endcase test', 'split', 'test')
         # test mixed kinds
         for left, right in ('ba', '\u0101\u0100', '\U00010301\U00010300'):
             left *= 9
@@ -552,7 +561,7 @@ class UnicodeTest(string_tests.CommonTest,
         self.assertTrue('\ud800\udc02' < '\ud84d\udc56')
 
     def test_islower(self):
-        string_tests.MixinStrUnicodeUserStringTest.test_islower(self)
+        super().test_islower()
         self.checkequalnofix(False, '\u1FFc', 'islower')
         self.assertFalse('\u2167'.islower())
         self.assertTrue('\u2177'.islower())
@@ -567,7 +576,7 @@ class UnicodeTest(string_tests.CommonTest,
         self.assertFalse('\U0001F46F'.islower())
 
     def test_isupper(self):
-        string_tests.MixinStrUnicodeUserStringTest.test_isupper(self)
+        super().test_isupper()
         if not sys.platform.startswith('java'):
             self.checkequalnofix(False, '\u1FFc', 'isupper')
         self.assertTrue('\u2167'.isupper())
@@ -583,7 +592,7 @@ class UnicodeTest(string_tests.CommonTest,
         self.assertFalse('\U0001F46F'.isupper())
 
     def test_istitle(self):
-        string_tests.MixinStrUnicodeUserStringTest.test_istitle(self)
+        super().test_istitle()
         self.checkequalnofix(True, '\u1FFc', 'istitle')
         self.checkequalnofix(True, 'Greek \u1FFcitlecases ...', 'istitle')
 
@@ -595,7 +604,7 @@ class UnicodeTest(string_tests.CommonTest,
             self.assertFalse(ch.istitle(), '{!a} is not title'.format(ch))
 
     def test_isspace(self):
-        string_tests.MixinStrUnicodeUserStringTest.test_isspace(self)
+        super().test_isspace()
         self.checkequalnofix(True, '\u2000', 'isspace')
         self.checkequalnofix(True, '\u200a', 'isspace')
         self.checkequalnofix(False, '\u2014', 'isspace')
@@ -605,13 +614,13 @@ class UnicodeTest(string_tests.CommonTest,
             self.assertFalse(ch.isspace(), '{!a} is not space.'.format(ch))
 
     def test_isalnum(self):
-        string_tests.MixinStrUnicodeUserStringTest.test_isalnum(self)
+        super().test_isalnum()
         for ch in ['\U00010401', '\U00010427', '\U00010429', '\U0001044E',
                    '\U0001D7F6', '\U00011066', '\U000104A0', '\U0001F107']:
             self.assertTrue(ch.isalnum(), '{!a} is alnum.'.format(ch))
 
     def test_isalpha(self):
-        string_tests.MixinStrUnicodeUserStringTest.test_isalpha(self)
+        super().test_isalpha()
         self.checkequalnofix(True, '\u1FFc', 'isalpha')
         # non-BMP, cased
         self.assertTrue('\U00010401'.isalpha())
@@ -641,7 +650,7 @@ class UnicodeTest(string_tests.CommonTest,
             self.assertTrue(ch.isdecimal(), '{!a} is decimal.'.format(ch))
 
     def test_isdigit(self):
-        string_tests.MixinStrUnicodeUserStringTest.test_isdigit(self)
+        super().test_isdigit()
         self.checkequalnofix(True, '\u2460', 'isdigit')
         self.checkequalnofix(False, '\xbc', 'isdigit')
         self.checkequalnofix(True, '\u0660', 'isdigit')
@@ -794,7 +803,7 @@ class UnicodeTest(string_tests.CommonTest,
         self.assertEqual('A\u0345\u03a3'.capitalize(), 'A\u0345\u03c2')
 
     def test_title(self):
-        string_tests.MixinStrUnicodeUserStringTest.test_title(self)
+        super().test_title()
         self.assertEqual('\U0001044F'.title(), '\U00010427')
         self.assertEqual('\U0001044F\U0001044F'.title(),
                          '\U00010427\U0001044F')
@@ -1441,11 +1450,8 @@ class UnicodeTest(string_tests.CommonTest,
             'unicode remains unicode'
         )
 
-        class UnicodeSubclass(str):
-            pass
-
         for text in ('ascii', '\xe9', '\u20ac', '\U0010FFFF'):
-            subclass = UnicodeSubclass(text)
+            subclass = StrSubclass(text)
             self.assertEqual(str(subclass), text)
             self.assertEqual(len(subclass), len(text))
             if text == 'ascii':
@@ -1768,7 +1774,7 @@ class UnicodeTest(string_tests.CommonTest,
 
     def assertCorrectUTF8Decoding(self, seq, res, err):
         """
-        Check that an invalid UTF-8 sequence raises an UnicodeDecodeError when
+        Check that an invalid UTF-8 sequence raises a UnicodeDecodeError when
         'strict' is used, returns res when 'replace' is used, and that doesn't
         return anything when 'ignore' is used.
         """
@@ -2199,6 +2205,9 @@ class UnicodeTest(string_tests.CommonTest,
         s = str(StrSubclassToStrSubclass("foo"))
         self.assertEqual(s, "foofoo")
         self.assertIs(type(s), StrSubclassToStrSubclass)
+        s = StrSubclass(StrSubclassToStrSubclass("foo"))
+        self.assertEqual(s, "foofoo")
+        self.assertIs(type(s), StrSubclass)
 
     def test_unicode_repr(self):
         class s1:
@@ -2715,6 +2724,10 @@ class UnicodeTest(string_tests.CommonTest,
                 self.assertEqual(getargs_s_hash(s), chr(k).encode() * (i + 1))
                 # Check that the second call returns the same result
                 self.assertEqual(getargs_s_hash(s), chr(k).encode() * (i + 1))
+
+    def test_free_after_iterating(self):
+        support.check_free_after_iterating(self, iter, str)
+        support.check_free_after_iterating(self, reversed, str)
 
 
 class StringModuleTest(unittest.TestCase):
