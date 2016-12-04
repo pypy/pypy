@@ -1302,11 +1302,16 @@ def fork(space):
 
 def openpty(space):
     "Open a pseudo-terminal, returning open fd's for both master and slave end."
+    master_fd = slave_fd = -1
     try:
         master_fd, slave_fd = os.openpty()
         rposix.set_inheritable(master_fd, False)
         rposix.set_inheritable(slave_fd, False)
     except OSError as e:
+        if master_fd >= 0:
+            rposix.c_close(master_fd)
+        if slave_fd >= 0:
+            rposix.c_close(slave_fd)
         raise wrap_oserror(space, e, eintr_retry=False)
     return space.newtuple([space.wrap(master_fd), space.wrap(slave_fd)])
 
