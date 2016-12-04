@@ -544,7 +544,6 @@ class TestUrlopen(unittest.TestCase):
         self.assertEqual(handler.requests, ["/bizarre", b"get=with_feeling"])
 
     def test_https(self):
-        self.skipTest('Segfaults on PyPy')
         handler = self.start_https_server()
         context = ssl.create_default_context(cafile=CERT_localhost)
         data = self.urlopen("https://localhost:%s/bizarre" % handler.port, context=context)
@@ -574,7 +573,6 @@ class TestUrlopen(unittest.TestCase):
                          cadefault=True)
 
     def test_https_sni(self):
-        self.skipTest('Segfaults on PyPy')
         if ssl is None:
             self.skipTest("ssl module required")
         if not ssl.HAS_SNI:
