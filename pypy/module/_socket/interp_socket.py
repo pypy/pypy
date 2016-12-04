@@ -1,5 +1,6 @@
-import sys
+import sys, errno
 from rpython.rlib import rsocket, rweaklist
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rsocket import (
     RSocket, AF_INET, SOCK_STREAM, SocketError, SocketErrorWithErrno,
@@ -227,12 +228,13 @@ class W_Socket(W_Root):
         representing the connection, and the address of the client.
         For IP sockets, the address info is a pair (hostaddr, port).
         """
-        try:
-            fd, addr = self.sock.accept(inheritable=False)
-            return space.newtuple([space.wrap(fd),
-                                   addr_as_object(addr, fd, space)])
-        except SocketError as e:
-            raise converted_error(space, e)
+        while True:
+            try:
+                fd, addr = self.sock.accept(inheritable=False)
+                return space.newtuple([space.wrap(fd),
+                                       addr_as_object(addr, fd, space)])
+            except SocketError as e:
+                converted_error(space, e, eintr_retry=True)
 
     # convert an Address into an app-level object
     def addr_as_object(self, space, address):
@@ -274,10 +276,12 @@ class W_Socket(W_Root):
         Connect the socket to a remote address.  For IP sockets, the address
         is a pair (host, port).
         """
-        try:
-            self.sock.connect(self.addr_from_object(space, w_addr))
-        except SocketError as e:
-            raise converted_error(space, e)
+        while True:
+            try:
+                self.sock.connect(self.addr_from_object(space, w_addr))
+                break
+            except SocketError as e:
+                converted_error(space, e, eintr_retry=True)
 
     def connect_ex_w(self, space, w_addr):
         """connect_ex(address) -> errno
@@ -289,7 +293,11 @@ class W_Socket(W_Root):
             addr = self.addr_from_object(space, w_addr)
         except SocketError as e:
             raise converted_error(space, e)
-        error = self.sock.connect_ex(addr)
+        while True:
+            error = self.sock.connect_ex(addr)
+            if error != errno.EINTR:
+                break
+            space.getexecutioncontext().checksignals()
         return space.wrap(error)
 
     def fileno_w(self, space):
@@ -384,10 +392,12 @@ class W_Socket(W_Root):
         at least one byte is available or until the remote end is closed.  When
         the remote end is closed and all data is read, return the empty string.
         """
-        try:
-            data = self.sock.recv(buffersize, flags)
-        except SocketError as e:
-            raise converted_error(space, e)
+        while True:
+            try:
+                data = self.sock.recv(buffersize, flags)
+                break
+            except SocketError as e:
+                converted_error(space, e, eintr_retry=True)
         return space.newbytes(data)
 
     @unwrap_spec(buffersize='nonnegint', flags=int)
@@ -396,15 +406,17 @@ class W_Socket(W_Root):
 
         Like recv(buffersize, flags) but also return the sender's address info.
         """
-        try:
-            data, addr = self.sock.recvfrom(buffersize, flags)
-            if addr:
-                w_addr = addr_as_object(addr, self.sock.fd, space)
-            else:
-                w_addr = space.w_None
-            return space.newtuple([space.newbytes(data), w_addr])
-        except SocketError as e:
-            raise converted_error(space, e)
+        while True:
+            try:
+                data, addr = self.sock.recvfrom(buffersize, flags)
+                if addr:
+                    w_addr = addr_as_object(addr, self.sock.fd, space)
+                else:
+                    w_addr = space.w_None
+                break
+            except SocketError as e:
+                converted_error(space, e, eintr_retry=True)
+        return space.newtuple([space.newbytes(data), w_addr])
 
     @unwrap_spec(data='bufferstr', flags=int)
     def send_w(self, space, data, flags=0):
@@ -414,10 +426,12 @@ class W_Socket(W_Root):
         argument, see the Unix manual.  Return the number of bytes
         sent; this may be less than len(data) if the network is busy.
         """
-        try:
-            count = self.sock.send(data, flags)
-        except SocketError as e:
-            raise converted_error(space, e)
+        while True:
+            try:
+                count = self.sock.send(data, flags)
+                break
+            except SocketError as e:
+                converted_error(space, e, eintr_retry=True)
         return space.wrap(count)
 
     @unwrap_spec(data='bufferstr', flags=int)
@@ -450,11 +464,13 @@ class W_Socket(W_Root):
             # 3 args version
             flags = space.int_w(w_param2)
             w_addr = w_param3
-        try:
-            addr = self.addr_from_object(space, w_addr)
-            count = self.sock.sendto(data, flags, addr)
-        except SocketError as e:
-            raise converted_error(space, e)
+        while True:
+            try:
+                addr = self.addr_from_object(space, w_addr)
+                count = self.sock.sendto(data, flags, addr)
+                break
+            except SocketError as e:
+                converted_error(space, e, eintr_retry=True)
         return space.wrap(count)
 
     @unwrap_spec(flag=int)
@@ -520,10 +536,13 @@ class W_Socket(W_Root):
         lgt = rwbuffer.getlength()
         if nbytes == 0 or nbytes > lgt:
             nbytes = lgt
-        try:
-            return space.wrap(self.sock.recvinto(rwbuffer, nbytes, flags))
-        except SocketError as e:
-            raise converted_error(space, e)
+        while True:
+            try:
+                nbytes_read = self.sock.recvinto(rwbuffer, nbytes, flags)
+                break
+            except SocketError as e:
+                converted_error(space, e, eintr_retry=True)
+        return space.wrap(nbytes_read)
 
     @unwrap_spec(nbytes=int, flags=int)
     def recvfrom_into_w(self, space, w_buffer, nbytes=0, flags=0):
@@ -538,15 +557,20 @@ class W_Socket(W_Root):
         elif nbytes > lgt:
             raise oefmt(space.w_ValueError,
                         "nbytes is greater than the length of the buffer")
-        try:
-            readlgt, addr = self.sock.recvfrom_into(rwbuffer, nbytes, flags)
-            if addr:
+        while True:
+            try:
+                readlgt, addr = self.sock.recvfrom_into(rwbuffer, nbytes, flags)
+                break
+            except SocketError as e:
+                converted_error(space, e, eintr_retry=True)
+        if addr:
+            try:
                 w_addr = addr_as_object(addr, self.sock.fd, space)
-            else:
-                w_addr = space.w_None
-            return space.newtuple([space.wrap(readlgt), w_addr])
-        except SocketError as e:
-            raise converted_error(space, e)
+            except SocketError as e:
+                raise converted_error(space, e)
+        else:
+            w_addr = space.w_None
+        return space.newtuple([space.wrap(readlgt), w_addr])
 
     @unwrap_spec(cmd=int)
     def ioctl_w(self, space, cmd, w_option):
@@ -690,15 +714,20 @@ class SocketAPI:
 def get_error(space, name):
     return space.fromcache(SocketAPI).get_exception(name)
 
-def converted_error(space, e):
+@specialize.arg(2)
+def converted_error(space, e, eintr_retry=False):
     message = e.get_msg()
     w_exception_class = get_error(space, e.applevelerrcls)
     if isinstance(e, SocketErrorWithErrno):
+        if e.errno == errno.EINTR:
+            space.getexecutioncontext().checksignals()
+            if eintr_retry:
+                return       # only return None if eintr_retry==True
         w_exception = space.call_function(w_exception_class, space.wrap(e.errno),
                                       space.wrap(message))
     else:
         w_exception = space.call_function(w_exception_class, space.wrap(message))
-    return OperationError(w_exception_class, w_exception)
+    raise OperationError(w_exception_class, w_exception)
 
 # ____________________________________________________________
 
