@@ -7,6 +7,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.error import exception_from_saved_errno
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.interpreter import timeutils
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib._rsocket_rffi import socketclose, FD_SETSIZE
@@ -156,9 +157,11 @@ class W_Epoll(W_Root):
     def descr_poll(self, space, timeout=-1.0, maxevents=-1):
         self.check_closed(space)
         if timeout < 0:
-            timeout = -1.0
+            end_time = 0.0
+            itimeout = -1
         else:
-            timeout *= 1000.0
+            end_time = timeutils.monotonic(space) + timeout
+            itimeout = int(timeout * 1000.0 + 0.999)
 
         if maxevents == -1:
             maxevents = FD_SETSIZE - 1
@@ -167,9 +170,18 @@ class W_Epoll(W_Root):
                         "maxevents must be greater than 0, not %d", maxevents)
 
         with lltype.scoped_alloc(rffi.CArray(epoll_event), maxevents) as evs:
-            nfds = epoll_wait(self.epfd, evs, maxevents, int(timeout))
-            if nfds < 0:
-                raise exception_from_saved_errno(space, space.w_IOError)
+            while True:
+                nfds = epoll_wait(self.epfd, evs, maxevents, itimeout)
+                if nfds < 0:
+                    if get_saved_errno() == errno.EINTR:
+                        space.getexecutioncontext().checksignals()
+                        if itimeout >= 0:
+                            timeout = end_time - timeutils.monotonic(space)
+                            timeout = max(timeout, 0.0)
+                            itimeout = int(timeout * 1000.0 + 0.999)
+                        continue
+                    raise exception_from_saved_errno(space, space.w_IOError)
+                break
 
             elist_w = [None] * nfds
             for i in xrange(nfds):

@@ -180,6 +180,7 @@ class W_Kqueue(W_Root):
                             raise oefmt(space.w_ValueError,
                                         "Timeout must be None or >= 0, got %s",
                                         str(_timeout))
+                        XXX   # fix test_select_signal.py first, for PEP475!
                         sec = int(_timeout)
                         nsec = int(1e9 * (_timeout - sec))
                         rffi.setintfield(timeout, 'c_tv_sec', sec)
