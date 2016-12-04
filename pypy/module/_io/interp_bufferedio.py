@@ -149,12 +149,13 @@ implementation, but wrap one.
 class RawBuffer(Buffer):
     _immutable_ = True
 
-    def __init__(self, data):
-        self.buf = data
+    def __init__(self, n):
+        self.length = n
+        self.buf = ['\0'] * n
         self.readonly = False
 
     def getlength(self):
-        return len(self.buf)
+        return self.length
 
     def getitem(self, index):
         return self.buf[index]
@@ -203,7 +204,7 @@ class BufferedMixin:
             raise oefmt(space.w_ValueError,
                         "buffer size must be strictly positive")
 
-        self.buffer = ['\0'] * self.buffer_size
+        self.buffer = RawBuffer(self.buffer_size)
 
         self.lock = TryLock(space)
 
@@ -424,11 +425,7 @@ class BufferedMixin:
         return written
 
     def _raw_write(self, space, start, end):
-        # XXX inefficient
-        l = []
-        for i in range(start, end):
-            l.append(self.buffer[i])
-        return self._write(space, ''.join(l))
+        return self._write(space, self.buffer[start:end])
 
     def detach_w(self, space):
         self._check_init(space)
@@ -489,7 +486,7 @@ class BufferedMixin:
             # buffer.
             have = self._readahead()
             if have > 0:
-                data = ''.join(self.buffer[self.pos:self.pos+have])
+                data = self.buffer[self.pos:self.pos+have]
                 return space.newbytes(data)
 
             # Fill the buffer from the raw stream, and copy it to the result
@@ -499,7 +496,7 @@ class BufferedMixin:
             except BlockingIOError:
                 size = 0
             self.pos = 0
-            data = ''.join(self.buffer[:size])
+            data = self.buffer[0:size]
             return space.newbytes(data)
 
     @unwrap_spec(size=int)
@@ -536,7 +533,7 @@ class BufferedMixin:
             if size > have:
                 size = have
             endpos = self.pos + size
-            data = ''.join(self.buffer[self.pos:endpos])
+            data = self.buffer[self.pos:endpos]
             self.pos = endpos
             return space.newbytes(data)
 
@@ -548,7 +545,7 @@ class BufferedMixin:
         current_size = self._readahead()
         data = None
         if current_size:
-            data = ''.join(self.buffer[self.pos:self.pos + current_size])
+            data = self.buffer[self.pos:self.pos + current_size]
             builder.append(data)
             self.pos += current_size
         # We're going past the buffer's bounds, flush it
@@ -576,7 +573,7 @@ class BufferedMixin:
     def _raw_read(self, space, buffer, start, length):
         length = intmask(length)
         start = intmask(start)
-        w_buf = space.newbuffer(SubBuffer(RawBuffer(buffer), start, length))
+        w_buf = space.newbuffer(SubBuffer(buffer, start, length))
         while True:
             try:
                 w_size = space.call_method(self.w_raw, "readinto", w_buf)
@@ -616,12 +613,12 @@ class BufferedMixin:
         if n <= current_size:
             return self._read_fast(n)
 
-        result_buffer = ['\0'] * n
+        result_buffer = RawBuffer(n)
         remaining = n
         written = 0
         if current_size:
-            for i in range(current_size):
-                result_buffer[written + i] = self.buffer[self.pos + i]
+            result_buffer.setslice(
+                written, self.buffer[self.pos:self.pos + current_size])
             remaining -= current_size
             written += current_size
             self.pos += current_size
@@ -643,7 +640,7 @@ class BufferedMixin:
                     return None
                 size = 0
             if size == 0:
-                return ''.join(result_buffer[:written])
+                return result_buffer[0:written]
             remaining -= size
             written += size
 
@@ -665,14 +662,13 @@ class BufferedMixin:
             if remaining > 0:
                 if size > remaining:
                     size = remaining
-                for i in range(size):
-                    result_buffer[written + i] = self.buffer[self.pos + i]
+                result_buffer.setslice(
+                    written, self.buffer[self.pos:self.pos + size])
                 self.pos += size
-
                 written += size
                 remaining -= size
 
-        return ''.join(result_buffer[:written])
+        return result_buffer[0:written]
 
     def _read_fast(self, n):
         """Read n bytes from the buffer if it can, otherwise return None.
@@ -680,7 +676,7 @@ class BufferedMixin:
         current_size = self._readahead()
         if n <= current_size:
             endpos = self.pos + n
-            res = ''.join(self.buffer[self.pos:endpos])
+            res = self.buffer[self.pos:endpos]
             self.pos = endpos
             return res
         return None
@@ -703,11 +699,11 @@ class BufferedMixin:
         else:
             pos = -1
         if pos >= 0:
-            w_res = space.newbytes(''.join(self.buffer[self.pos:pos+1]))
+            w_res = space.newbytes(self.buffer[self.pos:pos+1])
             self.pos = pos + 1
             return w_res
         if have == limit:
-            w_res = space.newbytes(''.join(self.buffer[self.pos:self.pos+have]))
+            w_res = space.newbytes(self.buffer[self.pos:self.pos+have])
             self.pos += have
             return w_res
 
@@ -716,7 +712,7 @@ class BufferedMixin:
             # Now we try to get some more from the raw stream
             chunks = []
             if have > 0:
-                chunks.extend(self.buffer[self.pos:self.pos+have])
+                chunks.append(self.buffer[self.pos:self.pos+have])
                 written += have
                 self.pos += have
                 if limit >= 0:
@@ -734,13 +730,14 @@ class BufferedMixin:
                 pos = 0
                 found = False
                 while pos < have:
-                    c = self.buffer[pos]
+                    # 'buffer.buf[]' instead of 'buffer[]' because RPython...
+                    c = self.buffer.buf[pos]
                     pos += 1
                     if c == '\n':
                         self.pos = pos
                         found = True
                         break
-                chunks.extend(self.buffer[0:pos])
+                chunks.append(self.buffer[0:pos])
                 if found:
                     break
                 if have == limit:
@@ -767,7 +764,6 @@ class BufferedMixin:
         size = len(data)
 
         with self.lock:
-
             if (not (self.readable and self.read_end != -1) and
                 not (self.writable and self.write_end != -1)):
                 self.pos = 0
@@ -794,7 +790,8 @@ class BufferedMixin:
                     self._reader_reset_buf()
                 # Make some place by shifting the buffer
                 for i in range(self.write_pos, self.write_end):
-                    self.buffer[i - self.write_pos] = self.buffer[i]
+                    # XXX: messing with buffer internals
+                    self.buffer.buf[i - self.write_pos] = self.buffer.buf[i]
                 self.write_end -= self.write_pos
                 self.raw_pos -= self.write_pos
                 newpos = self.pos - self.write_pos
