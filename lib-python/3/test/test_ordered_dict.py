@@ -12,7 +12,7 @@ from test import mapping_tests, support
 
 
 py_coll = support.import_fresh_module('collections', blocked=['_collections'])
-c_coll = import_fresh_module('_collections', fresh=['_collections'])
+c_coll = support.import_fresh_module('_collections', fresh=['_collections'])
 
 
 @contextlib.contextmanager
