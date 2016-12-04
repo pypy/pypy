@@ -622,7 +622,8 @@ def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
     return wrap_oserror2(space, e, w_filename,
                          exception_name=exception_name,
                          w_exception_class=w_exception_class,
-                         w_filename2=w_filename2)
+                         w_filename2=w_filename2,
+                         eintr_retry=eintr_retry)
 
 def exception_from_saved_errno(space, w_type):
     from rpython.rlib.rposix import get_saved_errno
