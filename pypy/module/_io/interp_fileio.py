@@ -175,46 +175,48 @@ class W_FileIO(W_RawIOBase):
                                 "Cannot use closefd=False with file name")
 
                 from pypy.module.posix.interp_posix import dispatch_filename
-                try:
-                    self.fd = dispatch_filename(rposix.open)(
-                        space, w_name, flags, 0666)
-                except OSError as e:
-                    raise wrap_oserror2(space, e, w_name,
-                                        exception_name='w_IOError')
-                finally:
-                    fd_is_own = True
+                while True:
+                    try:
+                        self.fd = dispatch_filename(rposix.open)(
+                            space, w_name, flags, 0666)
+                        fd_is_own = True
+                        break
+                    except OSError as e:
+                        wrap_oserror2(space, e, w_name,
+                                      exception_name='w_IOError',
+                                      eintr_retry=True)
                 if not rposix._WIN32:
                     try:
                         _open_inhcache.set_non_inheritable(self.fd)
                     except OSError as e:
-                        raise wrap_oserror2(space, e, w_name)
+                        raise wrap_oserror2(space, e, w_name, eintr_retry=False)
             else:
                 w_fd = space.call_function(w_opener, w_name, space.wrap(flags))
                 try:
                     self.fd = space.int_w(w_fd)
+                    fd_is_own = True
                 except OperationError as e:
                     if not e.match(space, space.w_TypeError):
                         raise
                     raise oefmt(space.w_TypeError,
                                 "expected integer from opener")
-                finally:
-                    fd_is_own = True
                 if not rposix._WIN32:
                     try:
                         rposix.set_inheritable(self.fd, False)
                     except OSError as e:
-                        raise wrap_oserror2(space, e, w_name)
+                        raise wrap_oserror2(space, e, w_name, eintr_retry=False)
 
             try:
                 st = os.fstat(self.fd)
             except OSError as e:
-                raise wrap_oserror(space, e)
+                raise wrap_oserror(space, e, eintr_retry=False)
             # On Unix, fopen will succeed for directories.
             # In Python, there should be no file objects referring to
             # directories, so we need a check.
             if stat.S_ISDIR(st.st_mode):
                 raise wrap_oserror2(space, OSError(errno.EISDIR, "fstat"),
-                                    w_name, exception_name='w_IOError')
+                                    w_name, exception_name='w_IOError',
+                                    eintr_retry=False)
             self.blksize = DEFAULT_BUFFER_SIZE
             if HAS_BLKSIZE and st.st_blksize > 1:
                 self.blksize = st.st_blksize
@@ -227,7 +229,8 @@ class W_FileIO(W_RawIOBase):
                 try:
                     os.lseek(self.fd, 0, os.SEEK_END)
                 except OSError as e:
-                    raise wrap_oserror(space, e, exception_name='w_IOError')
+                    raise wrap_oserror(space, e, exception_name='w_IOError',
+                                       eintr_retry=False)
         except:
             if not fd_is_own:
                 self.fd = -1
@@ -285,7 +288,8 @@ class W_FileIO(W_RawIOBase):
             os.close(fd)
         except OSError as e:
             raise wrap_oserror(space, e,
-                               exception_name='w_IOError')
+                               exception_name='w_IOError',
+                               eintr_retry=False)
 
     def close_w(self, space):
         try:
@@ -319,7 +323,8 @@ class W_FileIO(W_RawIOBase):
             pos = os.lseek(self.fd, pos, whence)
         except OSError as e:
             raise wrap_oserror(space, e,
-                               exception_name='w_IOError')
+                               exception_name='w_IOError',
+                               eintr_retry=False)
         return space.wrap(pos)
 
     def tell_w(self, space):
@@ -328,7 +333,8 @@ class W_FileIO(W_RawIOBase):
             pos = os.lseek(self.fd, 0, 1)
         except OSError as e:
             raise wrap_oserror(space, e,
-                               exception_name='w_IOError')
+                               exception_name='w_IOError',
+                               eintr_retry=False)
         return space.wrap(pos)
 
     def readable_w(self, space):
@@ -361,7 +367,8 @@ class W_FileIO(W_RawIOBase):
         try:
             res = os.isatty(self.fd)
         except OSError as e:
-            raise wrap_oserror(space, e, exception_name='w_IOError')
+            raise wrap_oserror(space, e, exception_name='w_IOError',
+                               eintr_retry=False)
         return space.wrap(res)
 
     def repr_w(self, space):
@@ -387,13 +394,16 @@ class W_FileIO(W_RawIOBase):
         self._check_writable(space)
         data = space.getarg_w('y*', w_data).as_str()
 
-        try:
-            n = os.write(self.fd, data)
-        except OSError as e:
-            if e.errno == errno.EAGAIN:
-                return space.w_None
-            raise wrap_oserror(space, e,
-                               exception_name='w_IOError')
+        while True:
+            try:
+                n = os.write(self.fd, data)
+                break
+            except OSError as e:
+                if e.errno == errno.EAGAIN:
+                    return space.w_None
+                wrap_oserror(space, e,
+                             exception_name='w_IOError',
+                             eintr_retry=True)
 
         return space.wrap(n)
 
@@ -405,13 +415,16 @@ class W_FileIO(W_RawIOBase):
         if size < 0:
             return self.readall_w(space)
 
-        try:
-            s = os.read(self.fd, size)
-        except OSError as e:
-            if e.errno == errno.EAGAIN:
-                return space.w_None
-            raise wrap_oserror(space, e,
-                               exception_name='w_IOError')
+        while True:
+            try:
+                s = os.read(self.fd, size)
+                break
+            except OSError as e:
+                if e.errno == errno.EAGAIN:
+                    return space.w_None
+                wrap_oserror(space, e,
+                             exception_name='w_IOError',
+                             eintr_retry=True)
 
         return space.newbytes(s)
 
@@ -420,13 +433,16 @@ class W_FileIO(W_RawIOBase):
         self._check_readable(space)
         rwbuffer = space.getarg_w('w*', w_buffer)
         length = rwbuffer.getlength()
-        try:
-            buf = os.read(self.fd, length)
-        except OSError as e:
-            if e.errno == errno.EAGAIN:
-                return space.w_None
-            raise wrap_oserror(space, e,
-                               exception_name='w_IOError')
+        while True:
+            try:
+                buf = os.read(self.fd, length)
+                break
+            except OSError as e:
+                if e.errno == errno.EAGAIN:
+                    return space.w_None
+                wrap_oserror(space, e,
+                             exception_name='w_IOError',
+                             eintr_retry=True)
         rwbuffer.setslice(0, buf)
         return space.wrap(len(buf))
 
@@ -442,17 +458,13 @@ class W_FileIO(W_RawIOBase):
             try:
                 chunk = os.read(self.fd, newsize - total)
             except OSError as e:
-                if e.errno == errno.EINTR:
-                    space.getexecutioncontext().checksignals()
-                    continue
-                if total > 0:
-                    # return what we've got so far
-                    break
                 if e.errno == errno.EAGAIN:
+                    if total > 0:
+                        break   # return what we've got so far
                     return space.w_None
-                raise wrap_oserror(space, e,
-                                   exception_name='w_IOError')
-
+                wrap_oserror(space, e, exception_name='w_IOError',
+                             eintr_retry=True)
+                continue
             if not chunk:
                 break
             builder.append(chunk)
@@ -476,7 +488,8 @@ class W_FileIO(W_RawIOBase):
         try:
             self._truncate(space.r_longlong_w(w_size))
         except OSError as e:
-            raise wrap_oserror(space, e, exception_name='w_IOError')
+            raise wrap_oserror(space, e, exception_name='w_IOError',
+                               eintr_retry=False)
 
         return w_size
 

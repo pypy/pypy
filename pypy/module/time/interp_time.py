@@ -2,6 +2,7 @@ from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rtyper.lltypesystem import rffi
 from pypy.interpreter.error import OperationError, oefmt, strerror as _strerror, exception_from_saved_errno
 from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter import timeutils
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import intmask, r_ulonglong, r_longfloat, widen
 from rpython.rlib.rtime import (GETTIMEOFDAY_NO_TZ, TIMEVAL,
@@ -438,12 +439,31 @@ def _get_error_msg():
     return _strerror(errno)
 
 if sys.platform != 'win32':
+    from errno import EINTR
+    from rpython.rlib.rtime import c_select
+
     @unwrap_spec(secs=float)
     def sleep(space, secs):
         if secs < 0:
             raise oefmt(space.w_ValueError,
                         "sleep length must be non-negative")
-        rtime.sleep(secs)
+        end_time = timeutils.monotonic(space) + secs
+        while True:
+            void = lltype.nullptr(rffi.VOIDP.TO)
+            with lltype.scoped_alloc(TIMEVAL) as t:
+                frac = math.fmod(secs, 1.0)
+                rffi.setintfield(t, 'c_tv_sec', int(secs))
+                rffi.setintfield(t, 'c_tv_usec', int(frac*1000000.0))
+
+                res = rffi.cast(rffi.LONG, c_select(0, void, void, void, t))
+            if res == 0:
+                break    # normal path
+            if rposix.get_saved_errno() != EINTR:
+                raise exception_from_saved_errno(space, space.w_OSError)
+            secs = end_time - timeutils.monotonic(space)   # retry
+            if secs <= 0.0:
+                break
+
 else:
     from rpython.rlib import rwin32
     from errno import EINTR
@@ -463,6 +483,7 @@ else:
                                    OSError(EINTR, "sleep() interrupted"))
     @unwrap_spec(secs=float)
     def sleep(space, secs):
+        XXX   # review for EINTR / PEP475
         if secs < 0:
             raise oefmt(space.w_ValueError,
                         "sleep length must be non-negative")

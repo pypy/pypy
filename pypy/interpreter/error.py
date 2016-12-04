@@ -543,6 +543,7 @@ else:
     _WINDOWS = True
 
     def wrap_windowserror(space, e, w_filename=None):
+        XXX    # WindowsError no longer exists in Py3.5
         from rpython.rlib import rwin32
 
         winerror = e.winerror
@@ -559,43 +560,72 @@ else:
                                           space.wrap(msg))
         return OperationError(exc, w_error)
 
-@specialize.arg(3)
+@specialize.arg(3, 6)
 def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError',
-                  w_exception_class=None, w_filename2=None):
+                  w_exception_class=None, w_filename2=None, eintr_retry=False):
+    """A double API here:
+
+        * if eintr_retry is False, always return the OperationError to
+          be raised by the caller.  It can possibly be about EINTR
+          (checksignals() is still called here).
+
+        * if eintr_retry is True (PEP 475 compliant API for retrying
+          system calls failing with EINTR), then this function raises
+          the OperationError directly, or for EINTR it calls
+          checksignals() and returns None in case the original
+          operation should be retried.
+    """
     assert isinstance(e, OSError)
 
     if _WINDOWS and isinstance(e, WindowsError):
         return wrap_windowserror(space, e, w_filename)
 
+    if w_exception_class is None:
+        w_exc = getattr(space, exception_name)
+    else:
+        w_exc = w_exception_class
+    operror = _wrap_oserror2_impl(space, e, w_filename, w_filename2, w_exc,
+                                  eintr_retry)
+    if eintr_retry:
+        assert operror is None   # otherwise, _wrap_oserror2_impl() has raised
+    else:
+        assert operror is not None   # tell the annotator we don't return None
+        return operror
+
+def _wrap_oserror2_impl(space, e, w_filename, w_filename2, w_exc, eintr_retry):
+    # move the common logic in its own function, instead of having it
+    # duplicated 4 times in all 4 specialized versions of wrap_oserror2()
     errno = e.errno
 
     if errno == EINTR:
         space.getexecutioncontext().checksignals()
+        if eintr_retry:
+            return None
 
     try:
         msg = strerror(errno)
     except ValueError:
         msg = u'error %d' % errno
-    if w_exception_class is None:
-        exc = getattr(space, exception_name)
-    else:
-        exc = w_exception_class
     if w_filename is not None:
         if w_filename2 is not None:
-            w_error = space.call_function(exc, space.wrap(errno),
+            w_error = space.call_function(w_exc, space.wrap(errno),
                                           space.wrap(msg), w_filename,
                                           space.w_None, w_filename2)
         else:
-            w_error = space.call_function(exc, space.wrap(errno),
+            w_error = space.call_function(w_exc, space.wrap(errno),
                                           space.wrap(msg), w_filename)
     else:
-        w_error = space.call_function(exc, space.wrap(errno),
+        w_error = space.call_function(w_exc, space.wrap(errno),
                                       space.wrap(msg))
-    return OperationError(exc, w_error)
+    operror = OperationError(w_exc, w_error)
+    if eintr_retry:
+        raise operror
+    return operror
+_wrap_oserror2_impl._dont_inline_ = True
 
-@specialize.arg(3)
+@specialize.arg(3, 6)
 def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
-                 w_exception_class=None, filename2=None):
+                 w_exception_class=None, filename2=None, eintr_retry=False):
     w_filename = None
     w_filename2 = None
     if filename is not None:
@@ -605,7 +635,9 @@ def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
     return wrap_oserror2(space, e, w_filename,
                          exception_name=exception_name,
                          w_exception_class=w_exception_class,
-                         w_filename2=w_filename2)
+                         w_filename2=w_filename2,
+                         eintr_retry=eintr_retry)
+wrap_oserror._dont_inline_ = True
 
 def exception_from_saved_errno(space, w_type):
     from rpython.rlib.rposix import get_saved_errno
