@@ -909,7 +909,6 @@ class EventLoopTestsMixin:
         sslcontext = self._create_ssl_context(certfile, keyfile)
         return self._make_unix_server(factory, ssl=sslcontext)
 
-    @unittest.skipIf('__pypy__' in sys.modules, 'XXX: broken ssl')
     @unittest.skipIf(ssl is None, 'No ssl module')
     def test_create_server_ssl(self):
         proto = MyProto(loop=self.loop)
@@ -946,7 +945,6 @@ class EventLoopTestsMixin:
         with test_utils.force_legacy_ssl_support():
             self.test_create_server_ssl()
 
-    @unittest.skipIf('__pypy__' in sys.modules, 'XXX: broken ssl')
     @unittest.skipIf(ssl is None, 'No ssl module')
     @unittest.skipUnless(hasattr(socket, 'AF_UNIX'), 'No UNIX Sockets')
     def test_create_unix_server_ssl(self):
@@ -982,7 +980,6 @@ class EventLoopTestsMixin:
         with test_utils.force_legacy_ssl_support():
             self.test_create_unix_server_ssl()
 
-    @unittest.skipIf('__pypy__' in sys.modules, 'XXX: broken ssl')
     @unittest.skipIf(ssl is None, 'No ssl module')
     def test_create_server_ssl_verify_failed(self):
         proto = MyProto(loop=self.loop)
@@ -1016,7 +1013,6 @@ class EventLoopTestsMixin:
         with test_utils.force_legacy_ssl_support():
             self.test_create_server_ssl_verify_failed()
 
-    @unittest.skipIf('__pypy__' in sys.modules, 'XXX: broken ssl')
     @unittest.skipIf(ssl is None, 'No ssl module')
     @unittest.skipUnless(hasattr(socket, 'AF_UNIX'), 'No UNIX Sockets')
     def test_create_unix_server_ssl_verify_failed(self):
@@ -1052,7 +1048,6 @@ class EventLoopTestsMixin:
         with test_utils.force_legacy_ssl_support():
             self.test_create_unix_server_ssl_verify_failed()
 
-    @unittest.skipIf('__pypy__' in sys.modules, 'XXX: broken ssl')
     @unittest.skipIf(ssl is None, 'No ssl module')
     def test_create_server_ssl_match_failed(self):
         proto = MyProto(loop=self.loop)
@@ -1085,7 +1080,6 @@ class EventLoopTestsMixin:
         with test_utils.force_legacy_ssl_support():
             self.test_create_server_ssl_match_failed()
 
-    @unittest.skipIf('__pypy__' in sys.modules, 'XXX: broken ssl')
     @unittest.skipIf(ssl is None, 'No ssl module')
     @unittest.skipUnless(hasattr(socket, 'AF_UNIX'), 'No UNIX Sockets')
     def test_create_unix_server_ssl_verified(self):
@@ -1116,7 +1110,6 @@ class EventLoopTestsMixin:
         with test_utils.force_legacy_ssl_support():
             self.test_create_unix_server_ssl_verified()
 
-    @unittest.skipIf('__pypy__' in sys.modules, 'XXX: broken ssl')
     @unittest.skipIf(ssl is None, 'No ssl module')
     def test_create_server_ssl_verified(self):
         proto = MyProto(loop=self.loop)
@@ -1146,7 +1139,6 @@ class EventLoopTestsMixin:
         server.close()
         self.loop.run_until_complete(proto.done)
 
-    @unittest.skipIf('__pypy__' in sys.modules, 'XXX: broken ssl')
     def test_legacy_create_server_ssl_verified(self):
         with test_utils.force_legacy_ssl_support():
             self.test_create_server_ssl_verified()
