@@ -1,7 +1,7 @@
 import py
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest
-from pypy.module.cpyext.api import Py_ssize_tP, PyObjectP
+from pypy.module.cpyext.api import Py_ssize_tP, PyObjectP, PyTypeObjectPtr
 from pypy.module.cpyext.pyobject import make_ref, from_ref
 from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
@@ -182,8 +182,8 @@ class TestDictObject(BaseApiTest):
         assert api.PyDictProxy_Check(w_proxy)
 
     def test_typedict(self, space, api):
-        py_type = make_ref(space, space.w_type)
-        py_dict = py_type.c_ob_type.c_tp_dict
+        py_type = make_ref(space, space.w_int)
+        py_dict = rffi.cast(PyTypeObjectPtr, py_type).c_tp_dict
         ppos = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')
 
         ppos[0] = 0

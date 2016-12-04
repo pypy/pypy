@@ -1,4 +1,8 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.objectmodel import specialize
+from pypy.interpreter.error import OperationError
+from pypy.objspace.std.classdict import ClassDictStrategy
+from pypy.interpreter.typedef import GetSetProperty
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, build_type_checkers, Py_ssize_t,
     Py_ssize_tP, CONST_STRING, PyObjectFields, cpython_struct,
@@ -7,8 +11,7 @@ from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, as_pyobj,
         make_typedescr, track_reference, create_ref, from_ref, Py_DecRef,
         Py_IncRef)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
-from pypy.interpreter.error import OperationError
-from rpython.rlib.objectmodel import specialize
+from pypy.module.cpyext.typeobject import W_GetSetPropertyEx
 
 PyDictObjectStruct = lltype.ForwardReference()
 PyDictObject = lltype.Ptr(PyDictObjectStruct)
@@ -258,6 +261,10 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
         return 0
     w_key = space.listview(w_keys)[pos]
     w_value = space.getitem(w_dict, w_key)
+    if isinstance(w_value, GetSetProperty):
+        # XXX doesn't quite work, need to convert GetSetProperty
+        #     to PyGetSetDef, with c_name, c_get, c_set, c_doc, c_closure
+        w_value = W_GetSetPropertyEx(w_value, w_dict.dstorage._x)
     if pkey:
         pkey[0]   = as_pyobj(space, w_key)
     if pvalue:
