@@ -1,6 +1,6 @@
 class AppTestTime:
     spaceconfig = {
-        "usemodules": ['time', 'struct', 'binascii'],
+        "usemodules": ['time', 'struct', 'binascii', 'signal'],
     }
 
     def test_attributes(self):
@@ -394,3 +394,23 @@ class AppTestTime:
             assert info.resolution > 0.0
             assert info.resolution <= 1.0
             assert isinstance(info.adjustable, bool)
+
+    def test_pep475_retry_sleep(self):
+        import time
+        import _signal as signal
+        signalled = []
+
+        def foo(*args):
+            signalled.append("ALARM")
+
+        signal.signal(signal.SIGALRM, foo)
+        try:
+            t1 = time.time()
+            signal.alarm(1)
+            time.sleep(3.0)
+            t2 = time.time()
+        finally:
+            signal.signal(signal.SIGALRM, signal.SIG_DFL)
+
+        assert signalled != []
+        assert t2 - t1 > 2.99
