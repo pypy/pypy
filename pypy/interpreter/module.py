@@ -22,11 +22,9 @@ class Module(W_Root):
         self.w_name = w_name
         if w_name is not None:
             space.setitem(w_dict, space.new_interned_str('__name__'), w_name)
-        if add_package:
-            # add the __package__ attribute only when created from internal
-            # code, but not when created from Python code (as in CPython)
-            space.setitem(w_dict, space.new_interned_str('__package__'),
-                          space.w_None)
+        # add these three attributes always ('add_package' is no longer used)
+        for extra in ['__package__', '__loader__', '__spec__']:
+            space.setitem(w_dict, space.new_interned_str(extra), space.w_None)
         self.startup_called = False
 
     def _cleanup_(self):
