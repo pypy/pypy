@@ -28,7 +28,7 @@ def scandir(space, w_path=None):
     try:
         dirp = rposix_scandir.opendir(path_bytes)
     except OSError as e:
-        raise wrap_oserror2(space, e, w_path)
+        raise wrap_oserror2(space, e, w_path, eintr_retry=False)
     path_prefix = path_bytes
     if len(path_prefix) > 0 and path_prefix[-1] != '/':
         path_prefix += '/'
@@ -85,7 +85,8 @@ class W_ScandirIterator(W_Root):
                 try:
                     entry = rposix_scandir.nextentry(self.dirp)
                 except OSError as e:
-                    raise self.fail(wrap_oserror2(space, e, self.w_path_prefix))
+                    raise self.fail(wrap_oserror2(space, e, self.w_path_prefix,
+                                                  eintr_retry=False))
                 if not entry:
                     raise self.fail()
                 assert rposix_scandir.has_name_bytes(entry)
@@ -235,7 +236,8 @@ class W_DirEntry(W_Root):
         except OSError as e:
             if e.errno == ENOENT:    # not found
                 return -1
-            raise wrap_oserror2(self.space, e, self.fget_path(self.space))
+            raise wrap_oserror2(self.space, e, self.fget_path(self.space),
+                                eintr_retry=False)
         return stat.S_IFMT(st.st_mode)
 
     def is_dir(self, follow_symlinks):
@@ -287,7 +289,8 @@ class W_DirEntry(W_Root):
         try:
             st = self.get_stat_or_lstat(follow_symlinks)
         except OSError as e:
-            raise wrap_oserror2(space, e, self.fget_path(space))
+            raise wrap_oserror2(space, e, self.fget_path(space),
+                                eintr_retry=False)
         return build_stat_result(space, st)
 
     def descr_inode(self, space):
