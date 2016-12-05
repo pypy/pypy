@@ -98,7 +98,7 @@ class W_AbstractIntObject(W_Root):
                 # common case
                 return wrapint(space, as_int)
             if space.is_w(w_inttype, space.w_bool):
-                return space.newbool(as_int)     # extremely obscure case
+                return space.newbool(as_int != 0)     # extremely obscure case
             w_obj = space.allocate_instance(W_IntObject, w_inttype)
             W_IntObject.__init__(w_obj, as_int)
             return w_obj
