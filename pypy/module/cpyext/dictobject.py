@@ -261,13 +261,17 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
         return 0
     w_key = space.listview(w_keys)[pos]
     w_value = space.getitem(w_dict, w_key)
-    if isinstance(w_value, GetSetProperty):
-        # XXX doesn't quite work, need to convert GetSetProperty
-        #     to PyGetSetDef, with c_name, c_get, c_set, c_doc, c_closure
-        w_value = W_GetSetPropertyEx(w_value, w_dict.dstorage._x)
     if pkey:
         pkey[0]   = as_pyobj(space, w_key)
     if pvalue:
+        if 0 and isinstance(w_value, GetSetProperty):
+            # XXX implement this method for all W_Dict storage strategies
+            w_type = w_dict.get_storage().get_original_type_object_if_classdict()
+            # XXX doesn't quite work, need to convert GetSetProperty
+            #     to PyGetSetDef, with c_name, c_get, c_set, c_doc, c_closure
+            #     Do this by calling a make_typedescr(GetSetProperty)?
+            py_getsetdef = as_pyobj(space, w_value)
+            w_value = W_GetSetPropertyEx(py_getsetdef, w_type)
         pvalue[0] = as_pyobj(space, w_value)
     return 1
 
