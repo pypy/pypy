@@ -608,14 +608,18 @@ class AppTestInt(object):
         raises(TypeError, int, memoryview(b'100'), 2)
 
     def test_from_bytes(self):
+        called = []
         class X(int):
-            pass
+            def __init__(self, val):
+                called.append(val)
         x = X.from_bytes(b"", 'little')
         assert type(x) is X and x == 0
+        assert called == [0]
         x = X.from_bytes(b"*" * 100, 'little')
         assert type(x) is X
-        expected = sum(256 ** i for i in range(100))
-        assert x == expected * ord('*')
+        expected = sum(256 ** i for i in range(100)) * ord('*')
+        assert x == expected
+        assert called == [0, expected]
 
 
 class AppTestIntShortcut(AppTestInt):

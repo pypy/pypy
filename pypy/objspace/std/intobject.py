@@ -89,19 +89,13 @@ class W_AbstractIntObject(W_Root):
         try:
             as_int = bigint.toint()
         except OverflowError:
-            from pypy.objspace.std.longobject import newbigint
-            if space.is_w(w_inttype, space.w_bool):
-                return space.w_True      # extremely obscure case
-            return newbigint(space, w_inttype, bigint)
+            w_obj = space.newlong_from_rbigint(bigint)
         else:
-            if space.is_w(w_inttype, space.w_int):
-                # common case
-                return wrapint(space, as_int)
-            if space.is_w(w_inttype, space.w_bool):
-                return space.newbool(as_int != 0)     # extremely obscure case
-            w_obj = space.allocate_instance(W_IntObject, w_inttype)
-            W_IntObject.__init__(w_obj, as_int)
-            return w_obj
+            w_obj = space.newint(as_int)
+        if not space.is_w(w_inttype, space.w_int):
+            # That's what from_bytes() does in CPython 3.5.2 too
+            w_obj = space.call_function(w_inttype, w_obj)
+        return w_obj
 
     @unwrap_spec(nbytes=int, byteorder=str, signed=bool)
     def descr_to_bytes(self, space, nbytes, byteorder, signed=False):
