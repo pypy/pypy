@@ -318,8 +318,21 @@ class BaseTest:
             d = pickle.dumps((itorig, orig), proto)
             it, a = pickle.loads(d)
             a.fromlist(data2)
-            self.assertEqual(type(it), type(itorig))
-            self.assertEqual(list(it), data2)
+            # PyPy change: we implement 3.6 behaviour
+            self.assertEqual(list(it), [])
+
+    def test_exhausted_iterator(self):
+        # PyPy change: test copied from 3.6 stdlib
+        a = array.array(self.typecode, self.example)
+        self.assertEqual(list(a), list(self.example))
+        exhit = iter(a)
+        empit = iter(a)
+        for x in exhit:  # exhaust the iterator
+            next(empit)  # not exhausted
+        a.append(self.outside)
+        self.assertEqual(list(exhit), [])
+        self.assertEqual(list(empit), [self.outside])
+        self.assertEqual(list(a), list(self.example) + [self.outside])
 
     def test_insert(self):
         a = array.array(self.typecode, self.example)
