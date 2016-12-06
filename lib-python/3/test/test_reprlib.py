@@ -407,7 +407,8 @@ class TestRecursiveRepr(unittest.TestCase):
         wrapped = MyContainer3.wrapped
         wrapper = MyContainer3.wrapper
         for name in assigned:
-            self.assertIs(getattr(wrapper, name), getattr(wrapped, name))
+            # pypy fix: can't use assertIs() to compare two strings
+            self.assertEqual(getattr(wrapper, name), getattr(wrapped, name))
 
 if __name__ == "__main__":
     unittest.main()
