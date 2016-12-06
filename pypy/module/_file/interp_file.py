@@ -132,7 +132,7 @@ class W_File(W_AbstractStream):
     # The 'direct_' methods assume that the caller already acquired the
     # file lock.  They don't convert StreamErrors to OperationErrors, too.
 
-    @unwrap_spec(mode=str, buffering=int)
+    @unwrap_spec(mode='text', buffering=int)
     def direct___init__(self, w_name, mode='r', buffering=-1):
         self.direct_close()
         self.w_name = w_name
@@ -550,7 +550,7 @@ def descr_file__new__(space, w_subtype, __args__):
     W_File.__init__(file, space)
     return file
 
-@unwrap_spec(fd=int, mode=str, buffering=int)
+@unwrap_spec(fd=int, mode='text', buffering=int)
 def descr_file_fdopen(space, w_subtype, fd, mode='r', buffering=-1):
     file = space.allocate_instance(W_File, w_subtype)
     W_File.__init__(file, space)

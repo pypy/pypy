@@ -128,7 +128,7 @@ class W_FileIO(W_RawIOBase):
         W_FileIO.__init__(self, space)
         return self
 
-    @unwrap_spec(mode=str, closefd=int)
+    @unwrap_spec(mode='text', closefd=int)
     def descr_init(self, space, w_name, mode='r', closefd=True):
         if space.isinstance_w(w_name, space.w_float):
             raise oefmt(space.w_TypeError,

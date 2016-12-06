@@ -132,7 +132,7 @@ def load_compiled(space, w_modulename, filename, w_file=None):
     return _run_compiled_module(space, w_modulename, filename, w_file, w_mod,
                                 check_afterwards=True)
 
-@unwrap_spec(filename=str)
+@unwrap_spec(filename='text')
 def load_dynamic(space, w_modulename, filename, w_file=None):
     if not importing.has_so_extension(space):
         raise oefmt(space.w_ImportError, "Not implemented")

@@ -20,7 +20,7 @@ def gethostname(space):
         raise converted_error(space, e)
     return space.newtext(res)
 
-@unwrap_spec(host=str)
+@unwrap_spec(host='text')
 def gethostbyname(space, host):
     """gethostbyname(host) -> address
 
@@ -53,7 +53,7 @@ def gethostbyname_ex(space, host):
         raise converted_error(space, e)
     return common_wrapgethost(space, res)
 
-@unwrap_spec(host=str)
+@unwrap_spec(host='text')
 def gethostbyaddr(space, host):
     """gethostbyaddr(host) -> (name, aliaslist, addresslist)
 
@@ -66,7 +66,7 @@ def gethostbyaddr(space, host):
         raise converted_error(space, e)
     return common_wrapgethost(space, res)
 
-@unwrap_spec(name=str, w_proto = WrappedDefault(None))
+@unwrap_spec(name='text', w_proto = WrappedDefault(None))
 def getservbyname(space, name, w_proto):
     """getservbyname(servicename[, protocolname]) -> integer
 
@@ -106,7 +106,7 @@ def getservbyport(space, port, w_proto):
         raise converted_error(space, e)
     return space.newtext(service)
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def getprotobyname(space, name):
     """getprotobyname(name) -> integer
 
@@ -198,7 +198,7 @@ def htonl(space, x):
     """
     return space.newint(rsocket.htonl(x))
 
-@unwrap_spec(ip=str)
+@unwrap_spec(ip='text')
 def inet_aton(space, ip):
     """inet_aton(string) -> packed 32-bit IP representation
 
@@ -211,7 +211,7 @@ def inet_aton(space, ip):
         raise converted_error(space, e)
     return space.newbytes(buf)
 
-@unwrap_spec(packed=str)
+@unwrap_spec(packed='text')
 def inet_ntoa(space, packed):
     """inet_ntoa(packed_ip) -> ip_address_string
 
@@ -223,7 +223,7 @@ def inet_ntoa(space, packed):
         raise converted_error(space, e)
     return space.newtext(ip)
 
-@unwrap_spec(family=int, ip=str)
+@unwrap_spec(family=int, ip='text')
 def inet_pton(space, family, ip):
     """inet_pton(family, ip) -> packed IP address string
 
@@ -236,7 +236,7 @@ def inet_pton(space, family, ip):
         raise converted_error(space, e)
     return space.newbytes(buf)
 
-@unwrap_spec(family=int, packed=str)
+@unwrap_spec(family=int, packed='bufferstr')
 def inet_ntop(space, family, packed):
     """inet_ntop(family, packed_ip) -> string formatted IP address
 

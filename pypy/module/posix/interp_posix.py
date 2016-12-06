@@ -1017,7 +1017,7 @@ def setgroups(space, w_list):
     except OSError as e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(username=str, gid=c_gid_t)
+@unwrap_spec(username='text', gid=c_gid_t)
 def initgroups(space, username, gid):
     """ initgroups(username, gid) -> None
     

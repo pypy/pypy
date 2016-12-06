@@ -8,7 +8,7 @@ from pypy.interpreter.astcompiler import consts, ast
 from pypy.interpreter.gateway import unwrap_spec
 
 
-@unwrap_spec(filename=str, mode=str, flags=int, dont_inherit=int)
+@unwrap_spec(filename='text', mode='text', flags=int, dont_inherit=int)
 def compile(space, w_source, filename, mode, flags=0, dont_inherit=0):
     """Compile the source string (a Python module, statement or expression)
 into a code object that can be executed by the exec statement or eval().

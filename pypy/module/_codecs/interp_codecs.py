@@ -121,7 +121,7 @@ def register_codec(space, w_search_function):
         raise oefmt(space.w_TypeError, "argument must be callable")
 
 
-@unwrap_spec(encoding=str)
+@unwrap_spec(encoding='text')
 def lookup_codec(space, encoding):
     """lookup(encoding) -> (encoder, decoder, stream_reader, stream_writer)
     Looks up a codec tuple in the Python codec registry and returns
@@ -278,7 +278,7 @@ def register_builtin_error_handlers(space):
                 globals()[name]).spacebind(space)
 
 
-@unwrap_spec(errors=str)
+@unwrap_spec(errors='text')
 def lookup_error(space, errors):
     """lookup_error(errors) -> handler
 
@@ -295,7 +295,7 @@ def lookup_error(space, errors):
     return w_err_handler
 
 
-@unwrap_spec(errors=str)
+@unwrap_spec(errors='text')
 def encode(space, w_obj, w_encoding=None, errors='strict'):
     """encode(obj, [encoding[,errors]]) -> object
 
@@ -324,7 +324,7 @@ def charbuffer_encode(space, w_data, errors='strict'):
     s = space.getarg_w('t#', w_data)
     return space.newtuple([space.newbytes(s), space.newint(len(s))])
 
-@unwrap_spec(errors=str)
+@unwrap_spec(errors='text')
 def decode(space, w_obj, w_encoding=None, errors='strict'):
     """decode(obj, [encoding[,errors]]) -> object
 
@@ -349,7 +349,7 @@ def decode(space, w_obj, w_encoding=None, errors='strict'):
     else:
         assert 0, "XXX, what to do here?"
 
-@unwrap_spec(errors=str)
+@unwrap_spec(errors='text')
 def register_error(space, errors, w_handler):
     """register_error(errors, handler)
 
@@ -685,7 +685,7 @@ def unicode_internal_decode(space, w_string, errors="strict"):
 # support for the "string escape" codec
 # This is a bytes-to bytes transformation
 
-@unwrap_spec(data=str, errors='str_or_None')
+@unwrap_spec(data='bytes', errors='str_or_None')
 def escape_encode(space, data, errors='strict'):
     from pypy.objspace.std.bytesobject import string_escape_encode
     result = string_escape_encode(data, quote="'")
@@ -695,7 +695,7 @@ def escape_encode(space, data, errors='strict'):
     w_result = space.newbytes(result[start:end])
     return space.newtuple([w_result, space.newint(len(data))])
 
-@unwrap_spec(data=str, errors='str_or_None')
+@unwrap_spec(data='bytes', errors='str_or_None')
 def escape_decode(space, data, errors='strict'):
     from pypy.interpreter.pyparser.parsestring import PyString_DecodeEscape
     result = PyString_DecodeEscape(space, data, errors, None)

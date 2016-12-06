@@ -22,7 +22,7 @@ def attach_gdb(space):
     attach_gdb()
 
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def method_cache_counter(space, name):
     """Return a tuple (method_cache_hits, method_cache_misses) for calls to
     methods with the name."""
@@ -41,7 +41,7 @@ def reset_method_cache_counter(space):
     cache.misses = {}
     cache.hits = {}
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def mapdict_cache_counter(space, name):
     """Return a tuple (index_cache_hits, index_cache_misses) for lookups
     in the mapdict cache with the given attribute name."""
@@ -75,7 +75,7 @@ def get_hidden_tb(space):
     operr = space.getexecutioncontext().sys_exc_info(for_hidden=True)
     return space.w_None if operr is None else operr.get_w_traceback(space)
 
-@unwrap_spec(meth=str)
+@unwrap_spec(meth='text')
 def lookup_special(space, w_obj, meth):
     """Lookup up a special method on an object."""
     if space.is_oldstyle_instance(w_obj):
@@ -163,7 +163,7 @@ def set_code_callback(space, w_callable):
     else:
         cache._code_hook = w_callable
 
-@unwrap_spec(string=str, byteorder=str, signed=int)
+@unwrap_spec(string='bytes', byteorder='text', signed=int)
 def decode_long(space, string, byteorder='little', signed=1):
     from rpython.rlib.rbigint import rbigint, InvalidEndiannessError
     try:

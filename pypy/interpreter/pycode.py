@@ -364,9 +364,9 @@ class PyCode(eval.Code):
         return w_result
 
     @unwrap_spec(argcount=int, nlocals=int, stacksize=int, flags=int,
-                 codestring=str,
-                 filename=str, name=str, firstlineno=int,
-                 lnotab=str, magic=int)
+                 codestring='bytes',
+                 filename='text', name='text', firstlineno=int,
+                 lnotab='bytes', magic=int)
     def descr_code__new__(space, w_subtype,
                           argcount, nlocals, stacksize, flags,
                           codestring, w_constants, w_names,

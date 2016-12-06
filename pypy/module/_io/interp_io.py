@@ -40,7 +40,7 @@ W_BlockingIOError.typedef = TypeDef(
 
 DEFAULT_BUFFER_SIZE = 8 * 1024
 
-@unwrap_spec(mode=str, buffering=int,
+@unwrap_spec(mode='text', buffering=int,
              encoding="str_or_None", errors="str_or_None",
              newline="str_or_None", closefd=bool)
 def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,

@@ -103,7 +103,7 @@ class W_ClassObject(W_Root):
                 return w_result
         return None
 
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='text')
     def descr_getattribute(self, space, name):
         if name and name[0] == "_":
             if name == "__dict__":
@@ -351,7 +351,7 @@ class W_InstanceObject(W_Root):
         else:
             return None
 
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='text')
     def descr_getattribute(self, space, name):
         if len(name) >= 8 and name[0] == '_':
             if name == "__dict__":

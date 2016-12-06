@@ -226,7 +226,7 @@ SOCKET_STORAGE = RWeakValueDictionary(int, W_Root)
 
 if HAVE_OPENSSL_RAND:
     # helper routines for seeding the SSL PRNG
-    @unwrap_spec(string=str, entropy=float)
+    @unwrap_spec(string='bytes', entropy=float)
     def RAND_add(space, string, entropy):
         """RAND_add(string, entropy)
 
@@ -247,7 +247,7 @@ if HAVE_OPENSSL_RAND:
         return space.newint(res)
 
     if HAVE_OPENSSL_RAND_EGD:
-        @unwrap_spec(path=str)
+        @unwrap_spec(path='text')
         def RAND_egd(space, path):
             """RAND_egd(path) -> bytes
 
@@ -263,7 +263,7 @@ if HAVE_OPENSSL_RAND:
             return space.newint(bytes)
     else:
         # Dummy func for platforms missing RAND_egd(). Most likely LibreSSL.
-        @unwrap_spec(path=str)
+        @unwrap_spec(path='text')
         def RAND_egd(space, path):
             raise ssl_error(space, "RAND_egd unavailable")
 
@@ -1150,7 +1150,7 @@ def get_exception_class(space, name):
     return getattr(space.fromcache(Cache), name)
 
 
-@unwrap_spec(filename=str)
+@unwrap_spec(filename='text')
 def _test_decode_cert(space, filename):
     cert = libssl_BIO_new(libssl_BIO_s_file())
     if not cert:
@@ -1334,7 +1334,7 @@ class _SSLContext(W_Root):
     def descr_wrap_socket(self, space, w_sock, server_side, w_server_hostname=None, w_ssl_sock=None):
         return _SSLSocket.descr_new(space, self, w_sock, server_side, w_server_hostname, w_ssl_sock)
 
-    @unwrap_spec(cipherlist=str)
+    @unwrap_spec(cipherlist='text')
     def descr_set_ciphers(self, space, cipherlist):
         ret = libssl_SSL_CTX_set_cipher_list(self.ctx, cipherlist)
         if ret == 0:
@@ -1499,7 +1499,7 @@ class _SSLContext(W_Root):
             libssl_SSL_CTX_set_default_passwd_cb_userdata(
                 self.ctx, None)
 
-    @unwrap_spec(filepath=str)
+    @unwrap_spec(filepath='text')
     def load_dh_params_w(self, space, filepath):
         bio = libssl_BIO_new_file(filepath, "r")
         if not bio:
@@ -1688,7 +1688,7 @@ class _SSLContext(W_Root):
                 rlist.append(_decode_certificate(space, cert))
         return space.newlist(rlist)
 
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='text')
     def set_ecdh_curve_w(self, space, name):
         nid = libssl_OBJ_sn2nid(name)
         if nid == 0:
@@ -1767,7 +1767,7 @@ def _asn1obj2py(space, obj):
     return space.newtuple([space.newint(nid), w_sn, w_ln, w_buf])
 
 
-@unwrap_spec(txt=str, name=bool)
+@unwrap_spec(txt='bytes', name=bool)
 def txt2obj(space, txt, name=False):
     obj = libssl_OBJ_txt2obj(txt, not name)
     if not obj:
