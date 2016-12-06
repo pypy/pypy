@@ -77,11 +77,6 @@ class BaseCpyTypedescr(object):
                             "from a PyObject",
                             w_type)
             raise
-        # XXX Assign some attributes of the w_type to the w_obj,
-        #     i.e. w_type.w_doc => w_obj.__doc__
-        #     are there more?
-        if w_type.w_doc:
-            space.setattr(w_obj, space.wrap('__doc__'), w_type.w_doc)
         track_reference(space, obj, w_obj)
         return w_obj
 
