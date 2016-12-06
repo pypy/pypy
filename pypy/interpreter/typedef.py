@@ -825,9 +825,11 @@ Coroutine.typedef = TypeDef("coroutine",
     cr_code    = interp_attrproperty_w('pycode', cls=Coroutine),
     cr_await   = interp_attrproperty_w('w_yielded_from', cls=Coroutine),
     __name__   = GetSetProperty(Coroutine.descr__name__,
-                                Coroutine.descr_set__name__),
+                                Coroutine.descr_set__name__,
+                                doc="name of the coroutine"),
     __qualname__ = GetSetProperty(Coroutine.descr__qualname__,
-                                  Coroutine.descr_set__qualname__),
+                                  Coroutine.descr_set__qualname__,
+                                  doc="qualified name of the coroutine"),
     __weakref__ = make_weakref_descr(Coroutine),
 )
 assert not Coroutine.typedef.acceptable_as_base_class  # no __new__

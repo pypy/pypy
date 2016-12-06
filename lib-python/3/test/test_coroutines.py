@@ -747,9 +747,12 @@ class CoroutineTest(unittest.TestCase):
 
     def test_corotype_1(self):
         ct = types.CoroutineType
-        self.assertIn('into coroutine', ct.send.__doc__)
-        self.assertIn('inside coroutine', ct.close.__doc__)
-        self.assertIn('in coroutine', ct.throw.__doc__)
+        self.assert_('into coroutine' in ct.send.__doc__ or
+                     'into generator/coroutine' in ct.send.__doc__)
+        self.assert_('inside coroutine' in ct.close.__doc__ or
+                     'inside generator/coroutine' in ct.close.__doc__)
+        self.assert_('in coroutine' in ct.throw.__doc__ or
+                     'in generator/coroutine' in ct.throw.__doc__)
         self.assertIn('of the coroutine', ct.__dict__['__name__'].__doc__)
         self.assertIn('of the coroutine', ct.__dict__['__qualname__'].__doc__)
         self.assertEqual(ct.__name__, 'coroutine')

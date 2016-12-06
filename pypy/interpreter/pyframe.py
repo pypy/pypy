@@ -298,7 +298,7 @@ class PyFrame(W_Root):
                 raise oefmt(space.w_RuntimeError,
                             "coroutine wrapper %R attempted "
                             "to recursively wrap %R",
-                            w_wrapper, w_gen)
+                            w_wrapper, self)
             ec.in_coroutine_wrapper = True
             try:
                 w_gen = space.call_function(w_wrapper, w_gen)
