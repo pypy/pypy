@@ -997,11 +997,14 @@ class LLFrame(object):
     # __________________________________________________________
     # operations on addresses
 
-    def op_raw_malloc(self, size):
+    def op_raw_malloc(self, size, zero):
+        assert lltype.typeOf(size) == lltype.Signed
+        return llmemory.raw_malloc(size, zero=zero)
+
+    def op_boehm_malloc(self, size):
         assert lltype.typeOf(size) == lltype.Signed
         return llmemory.raw_malloc(size)
-
-    op_boehm_malloc = op_boehm_malloc_atomic = op_raw_malloc
+    op_boehm_malloc_atomic = op_boehm_malloc
 
     def op_boehm_register_finalizer(self, p, finalizer):
         pass
@@ -1068,9 +1071,6 @@ class LLFrame(object):
         else:
             assert offset.TYPE == ARGTYPE
             getattr(addr, str(ARGTYPE).lower())[offset.repeat] = value
-
-    def op_stack_malloc(self, size): # mmh
-        raise NotImplementedError("backend only")
 
     def op_track_alloc_start(self, addr):
         # we don't do tracking at this level

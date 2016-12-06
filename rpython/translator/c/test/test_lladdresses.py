@@ -32,7 +32,29 @@ def test_memory_access():
     assert res == 42
     res = fc(1)
     assert res == 1
-    
+
+def test_memory_access_zero():
+    def f():
+        blocks = []
+        for i in range(1000):
+            addr = raw_malloc(16, zero=False)
+            addr.signed[1] = 10000 + i
+            blocks.append(addr)
+        for addr in blocks:
+            raw_free(addr)
+        result = 0
+        blocks = []
+        for i in range(1000):
+            addr = raw_malloc(16, zero=True)
+            result |= addr.signed[1]
+            blocks.append(addr)
+        for addr in blocks:
+            raw_free(addr)
+        return result
+    fc = compile(f, [])
+    res = fc()
+    assert res == 0
+
 def test_memory_float():
     S = lltype.GcStruct("S", ("x", lltype.Float), ("y", lltype.Float))
     offset = FieldOffset(S, 'x')
