@@ -20,6 +20,7 @@ error = OSError
 class stat_result(metaclass=structseqtype):
 
     name = "os.stat_result"
+    __module__ = "os"
 
     st_mode  = structseqfield(0, "protection bits")
     st_ino   = structseqfield(1, "inode")
