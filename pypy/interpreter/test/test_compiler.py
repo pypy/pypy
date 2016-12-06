@@ -954,6 +954,15 @@ class AppTestCompiler(object):
         else:
             assert False, "Expected SyntaxError"
 
+    def test_invalid_utf8(self):
+        e = raises(SyntaxError, compile, b'\x80', "dummy", "exec")
+        assert str(e.value).startswith('Non-UTF-8 code')
+        assert 'but no encoding declared' in str(e.value)
+        e = raises(SyntaxError, compile, b'# coding: utf-8\n\x80',
+                   "dummy", "exec")
+        assert str(e.value).startswith('Non-UTF-8 code')
+        assert 'but no encoding declared' not in str(e.value)
+
     def test_invalid_utf8_in_comments_or_strings(self):
         import sys
         compile(b"# coding: latin1\n#\xfd\n", "dummy", "exec")
