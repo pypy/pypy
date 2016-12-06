@@ -93,6 +93,22 @@ def getcheckinterval(space):
         result = 0
     return space.wrap(result)
 
+@unwrap_spec(interval=float)
+def setswitchinterval(space, interval):
+    """For CPython compatibility, this maps to
+    sys.setcheckinterval(interval * 2000000)
+    """
+    # The scaling factor is chosen so that with the default
+    # checkinterval value of 10000, it corresponds to 0.005, which is
+    # the default value of the switchinterval in CPython 3.5
+    space.actionflag.setcheckinterval(int(interval * 2000000.0))
+
+def getswitchinterval(space):
+    """For CPython compatibility, this maps to
+    sys.getcheckinterval() / 2000000
+    """
+    return space.wrap(space.actionflag.getcheckinterval() / 2000000.0)
+
 def exc_info(space):
     """Return the (type, value, traceback) of the most recent exception
 caught by an except clause in the current stack frame or in an older stack

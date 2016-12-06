@@ -59,6 +59,8 @@ class Module(MixedModule):
         'getrecursionlimit'     : 'vm.getrecursionlimit',
         'setcheckinterval'      : 'vm.setcheckinterval',
         'getcheckinterval'      : 'vm.getcheckinterval',
+        'setswitchinterval'     : 'vm.setswitchinterval',
+        'getswitchinterval'     : 'vm.getswitchinterval',
         'exc_info'              : 'vm.exc_info',
         'settrace'              : 'vm.settrace',
         'gettrace'              : 'vm.gettrace',
