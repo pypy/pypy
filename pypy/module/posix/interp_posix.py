@@ -1191,7 +1191,7 @@ src_dir_fd, dst_dir_fd, and follow_symlinks may not be implemented on your
         else:
             rposix.link(src, dst)
     except OSError as e:
-        raise wrap_oserror2(space, e, filename=w_src, filename2=w_dst,
+        raise wrap_oserror2(space, e, w_filename=w_src, w_filename2=w_dst,
                             eintr_retry=False)
 
 
@@ -1663,7 +1663,7 @@ def chroot(space, w_path):
 
     Change root directory to path.
     """
-    w_path = space.fsencode_w(w_path)
+    path = space.fsencode_w(w_path)
     try:
         os.chroot(path)
     except OSError as e:
