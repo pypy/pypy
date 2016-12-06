@@ -44,9 +44,21 @@ def match_encoding_declaration(comment):
     return None
 
 
+def verify_utf8(token):
+    for c in token:
+        if ord(c) >= 0x80:
+            break
+    else:
+        return True
+    try:
+        u = token.decode('utf-8')
+    except UnicodeDecodeError:
+        return False
+    return True
+
 def verify_identifier(token):
     for c in token:
-        if ord(c) > 0x80:
+        if ord(c) >= 0x80:
             break
     else:
         return True
@@ -159,8 +171,14 @@ def generate_tokens(lines, flags):
                 pos = pos + 1
             if pos == max: break
 
-            if line[pos] in '#\r\n':
-                # skip comments or blank lines
+            if line[pos] in '\r\n':
+                # skip blank lines
+                continue
+            if line[pos] == '#':
+                # skip full-line comment, but still check that it is valid utf-8
+                if not verify_utf8(line):
+                    raise TokenError("Non-UTF-8 code in comment",
+                                     line, lnum, pos, token_list)
                 continue
 
             if column == indents[-1]:
@@ -227,7 +245,10 @@ def generate_tokens(lines, flags):
                         token_list.append(tok)
                     last_comment = ''
                 elif initial == '#':
-                    # skip comment
+                    # skip comment, but still check that it is valid utf-8
+                    if not verify_utf8(token):
+                        raise TokenError("Non-UTF-8 code in comment",
+                                         line, lnum, start, token_list)
                     last_comment = token
                 elif token in triple_quoted:
                     endDFA = endDFAs[token]

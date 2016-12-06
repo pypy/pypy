@@ -954,6 +954,27 @@ class AppTestCompiler(object):
         else:
             assert False, "Expected SyntaxError"
 
+    def test_invalid_utf8_in_comments_or_strings(self):
+        import sys
+        compile(b"# coding: latin1\n#\xfd\n", "dummy", "exec")
+        raises(SyntaxError, compile, b"# coding: utf-8\n'\xfd'\n",
+               "dummy", "exec") #1
+        raises(SyntaxError, compile, b'# coding: utf-8\nx=5\nb"\xfd"\n',
+               "dummy", "exec") #2
+        # the following example still fails on CPython 3.5.2, skip if -A
+        if '__pypy__' in sys.builtin_module_names:
+            raises(SyntaxError, compile, b"# coding: utf-8\n#\xfd\n",
+                   "dummy", "exec") #3
+
+    def test_cpython_issues_24022_25388(self):
+        from _ast import PyCF_ACCEPT_NULL_BYTES
+        raises(SyntaxError, compile, b'0000\x00\n00000000000\n\x00\n\x9e\n',
+               "dummy", "exec", PyCF_ACCEPT_NULL_BYTES)
+        raises(SyntaxError, compile, b"#\x00\n#\xfd\n", "dummy", "exec",
+               PyCF_ACCEPT_NULL_BYTES)
+        raises(SyntaxError, compile, b"#\x00\nx=5#\xfd\n", "dummy", "exec",
+               PyCF_ACCEPT_NULL_BYTES)
+
     def test_dict_and_set_literal_order(self):
         x = 1
         l1 = list({1:'a', 3:'b', 2:'c', 4:'d'})
