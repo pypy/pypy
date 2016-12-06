@@ -23,9 +23,18 @@ def collect(space, generation=0):
     # specifically rely on that.  This is similar to how, in CPython, an
     # explicit gc.collect() will invoke finalizers from cycles and fully
     # ignore the gc.disable() mode.
-    if not space.user_del_action.enabled_at_app_level:
+    temp_reenable = not space.user_del_action.enabled_at_app_level
+    if temp_reenable:
         enable_finalizers(space)
-        disable_finalizers(space)
+    try:
+        # fetch the pending finalizers from the queue, where they are
+        # likely to have been added by rgc.collect() above, and actually
+        # run them now.  This forces them to run before this function
+        # returns, and also always in the enable_finalizers() mode.
+        space.user_del_action._run_finalizers()
+    finally:
+        if temp_reenable:
+            disable_finalizers(space)
 
     return space.wrap(0)
 
