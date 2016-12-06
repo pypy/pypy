@@ -35,6 +35,7 @@ class FrameDebugData(object):
     f_lineno                 = 0      # current lineno for tracing
     is_being_profiled        = False
     w_locals                 = None
+    hidden_operationerr      = None
 
     def __init__(self, pycode):
         self.f_lineno = pycode.co_firstlineno

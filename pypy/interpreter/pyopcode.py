@@ -699,7 +699,10 @@ class __extend__(pyframe.PyFrame):
         if nbargs > 2:
             raise BytecodeCorruption("bad RAISE_VARARGS oparg")
         if nbargs == 0:
-            last_operr = self.space.getexecutioncontext().sys_exc_info()
+            if not self.hide():
+                last_operr = self.space.getexecutioncontext().sys_exc_info()
+            else:
+                last_operr = self.getorcreatedebug().hidden_operationerr
             if last_operr is None:
                 raise oefmt(space.w_RuntimeError,
                             "No active exception to reraise")
@@ -773,6 +776,10 @@ class __extend__(pyframe.PyFrame):
         if operationerr is not None:   # otherwise, don't change sys_exc_info
             if not self.hide():
                 ec.set_sys_exc_info(operationerr)
+            else:
+                # for hidden frames, a more limited solution should be
+                # enough: store away the exception on the frame
+                self.getorcreatedebug().hidden_operationerr = operationerr
 
     def end_finally(self):
         # unlike CPython, there are two statically distinct cases: the
