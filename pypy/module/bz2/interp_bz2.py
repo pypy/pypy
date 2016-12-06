@@ -206,7 +206,11 @@ class OutBuffer(object):
         self.left = 0
 
     def get_data_size(self):
-        return self.current_size - rffi.getintfield(self.bzs, 'c_avail_out')
+        curr_out = self.current_size - rffi.getintfield(self.bzs, 'c_avail_out')
+        total_size = curr_out
+        for s in self.temp:
+            total_size += len(s)
+        return total_size
 
     def _allocate_chunk(self, size):
         self.raw_buf, self.gc_buf, self.case_num = rffi.alloc_buffer(size)
@@ -231,6 +235,8 @@ class OutBuffer(object):
         newsize = size
         if self.max_length == -1:
             newsize = _new_buffer_size(size)
+        else:
+            newsize = min(newsize, self.max_length - self.get_data_size())
         self._allocate_chunk(newsize)
 
     def make_result_string(self):
