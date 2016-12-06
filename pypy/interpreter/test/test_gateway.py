@@ -253,7 +253,6 @@ class TestGateway:
         # we can't use the "bytes" object for the unwrap_spec, because that's
         # an alias for "str" on the underlying Python2
         space = self.space
-        w = space.wrap
         def g(space, b):
             return space.newbytes(b)
         app_g = gateway.interp2app(g, unwrap_spec=[gateway.ObjSpace, 'bytes'])
@@ -262,6 +261,17 @@ class TestGateway:
         w_app_g = space.wrap(app_g)
         assert self.space.eq_w(space.call_function(w_app_g, space.newbytes("abc")),
                                space.newbytes("abc"))
+
+    def test_interp2app_unwrap_spec_text(self):
+        space = self.space
+        def g(space, b):
+            return space.newbytes(b)
+        app_g = gateway.interp2app(g, unwrap_spec=[gateway.ObjSpace, 'text'])
+        app_g2 = gateway.interp2app(g, unwrap_spec=[gateway.ObjSpace, 'text'])
+        assert app_g is app_g2
+        w_app_g = space.wrap(app_g)
+        assert self.space.eq_w(space.call_function(w_app_g, space.newtext("abc")),
+                               space.newtext("abc"))
 
     def test_caching_methods(self):
         class Base(gateway.W_Root):
