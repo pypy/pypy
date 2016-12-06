@@ -1162,11 +1162,9 @@ in the hardest way possible on the hosting operating system."""
     rposix.kill(os.getpid(), signal.SIGABRT)
 
 @unwrap_spec(
-    src='fsencode', dst='fsencode',  # <- simpler: link() is never on Windows
     src_dir_fd=DirFD(rposix.HAVE_LINKAT), dst_dir_fd=DirFD(rposix.HAVE_LINKAT),
     follow_symlinks=bool)
-def link(
-        space, src, dst, __kwonly__,
+def link(space, w_src, w_dst, __kwonly__,
         src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD,
         follow_symlinks=True):
     """\
@@ -1183,6 +1181,8 @@ If follow_symlinks is False, and the last element of src is a symbolic
 src_dir_fd, dst_dir_fd, and follow_symlinks may not be implemented on your
   platform.  If they are unavailable, using them will raise a
   NotImplementedError."""
+    src = space.fsencode_w(w_src)
+    dst = space.fsencode_w(w_dst)
     try:
         if (rposix.HAVE_LINKAT and
             (src_dir_fd != DEFAULT_DIR_FD or dst_dir_fd != DEFAULT_DIR_FD
@@ -1191,8 +1191,8 @@ src_dir_fd, dst_dir_fd, and follow_symlinks may not be implemented on your
         else:
             rposix.link(src, dst)
     except OSError as e:
-        raise wrap_oserror(space, e, filename=src, filename2=dst,
-                           eintr_retry=False)
+        raise wrap_oserror2(space, e, filename=w_src, filename2=w_dst,
+                            eintr_retry=False)
 
 
 @unwrap_spec(dir_fd=DirFD(rposix.HAVE_SYMLINKAT))
@@ -1658,16 +1658,16 @@ def setegid(space, egid):
     except OSError as e:
         raise wrap_oserror(space, e, eintr_retry=False)
 
-@unwrap_spec(path='fsencode')
-def chroot(space, path):
+def chroot(space, w_path):
     """ chroot(path)
 
     Change root directory to path.
     """
+    w_path = space.fsencode_w(w_path)
     try:
         os.chroot(path)
     except OSError as e:
-        raise wrap_oserror(space, e, path, eintr_retry=False)
+        raise wrap_oserror2(space, e, w_path, eintr_retry=False)
     return space.w_None
 
 def getgid(space):
@@ -2030,17 +2030,18 @@ dir_fd and follow_symlinks may not be implemented on your platform.
             raise wrap_oserror2(space, e, w_path, eintr_retry=False)
 
 
-@unwrap_spec(path='fsencode', uid=c_uid_t, gid=c_gid_t)
-def lchown(space, path, uid, gid):
+@unwrap_spec(uid=c_uid_t, gid=c_gid_t)
+def lchown(space, w_path, uid, gid):
     """lchown(path, uid, gid)
 
 Change the owner and group id of path to the numeric uid and gid.
 This function will not follow symbolic links.
 Equivalent to os.chown(path, uid, gid, follow_symlinks=False)."""
+    path = space.fsencode_w(w_path)
     try:
         os.lchown(path, uid, gid)
     except OSError as e:
-        raise wrap_oserror(space, e, path, eintr_retry=False)
+        raise wrap_oserror2(space, e, w_path, eintr_retry=False)
 
 @unwrap_spec(uid=c_uid_t, gid=c_gid_t)
 def fchown(space, w_fd, uid, gid):
