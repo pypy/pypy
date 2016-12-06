@@ -701,7 +701,7 @@ If the function fails, an EnvironmentError exception is raised."""
 def ExpandEnvironmentStrings(space, source):
     "string = ExpandEnvironmentStrings(string) - Expand environment vars."
     try:
-        return space.newtext(rwinreg.ExpandEnvironmentStrings(source))
+        return space.newunicode(rwinreg.ExpandEnvironmentStrings(source))
     except WindowsError as e:
         raise wrap_windowserror(space, e)
 
