@@ -8,6 +8,11 @@ import unittest
 import warnings
 from test import support
 
+def _getrefcount(obj):
+    if hasattr(sys, 'getrefcount'):
+        return sys.getrefcount(obj)
+    return '<no reference counts on this implementation>'
+
 
 class AsyncYieldFrom:
     def __init__(self, obj):
@@ -1306,7 +1311,7 @@ class CoroutineTest(unittest.TestCase):
 
     def test_for_2(self):
         tup = (1, 2, 3)
-        refs_before = sys.getrefcount(tup)
+        refs_before = _getrefcount(tup)
 
         async def foo():
             async for i in tup:
@@ -1317,7 +1322,7 @@ class CoroutineTest(unittest.TestCase):
 
             run_async(foo())
 
-        self.assertEqual(sys.getrefcount(tup), refs_before)
+        self.assertEqual(_getrefcount(tup), refs_before)
 
     def test_for_3(self):
         class I:
@@ -1325,7 +1330,7 @@ class CoroutineTest(unittest.TestCase):
                 return self
 
         aiter = I()
-        refs_before = sys.getrefcount(aiter)
+        refs_before = _getrefcount(aiter)
 
         async def foo():
             async for i in aiter:
@@ -1337,7 +1342,7 @@ class CoroutineTest(unittest.TestCase):
 
             run_async(foo())
 
-        self.assertEqual(sys.getrefcount(aiter), refs_before)
+        self.assertEqual(_getrefcount(aiter), refs_before)
 
     def test_for_4(self):
         class I:
@@ -1348,7 +1353,7 @@ class CoroutineTest(unittest.TestCase):
                 return ()
 
         aiter = I()
-        refs_before = sys.getrefcount(aiter)
+        refs_before = _getrefcount(aiter)
 
         async def foo():
             async for i in aiter:
@@ -1360,7 +1365,7 @@ class CoroutineTest(unittest.TestCase):
 
             run_async(foo())
 
-        self.assertEqual(sys.getrefcount(aiter), refs_before)
+        self.assertEqual(_getrefcount(aiter), refs_before)
 
     def test_for_5(self):
         class I:
@@ -1410,8 +1415,8 @@ class CoroutineTest(unittest.TestCase):
 
         manager = Manager()
         iterable = Iterable()
-        mrefs_before = sys.getrefcount(manager)
-        irefs_before = sys.getrefcount(iterable)
+        mrefs_before = _getrefcount(manager)
+        irefs_before = _getrefcount(iterable)
 
         async def main():
             nonlocal I
@@ -1428,8 +1433,8 @@ class CoroutineTest(unittest.TestCase):
             run_async(main())
         self.assertEqual(I, 111011)
 
-        self.assertEqual(sys.getrefcount(manager), mrefs_before)
-        self.assertEqual(sys.getrefcount(iterable), irefs_before)
+        self.assertEqual(_getrefcount(manager), mrefs_before)
+        self.assertEqual(_getrefcount(iterable), irefs_before)
 
         ##############
 
