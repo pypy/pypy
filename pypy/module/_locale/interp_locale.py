@@ -148,7 +148,7 @@ def strcoll(space, w_s1, w_s2):
 _strxfrm = rlocale.external('strxfrm',
                     [rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T], rffi.SIZE_T)
 
-@unwrap_spec(s=str)
+@unwrap_spec(s='text')
 def strxfrm(space, s):
     "string -> string. Returns a string that behaves for cmp locale-aware."
     n1 = len(s) + 1
@@ -193,7 +193,7 @@ if rlocale.HAVE_LANGINFO:
 if rlocale.HAVE_LIBINTL:
     _gettext = rlocale.external('gettext', [rffi.CCHARP], rffi.CCHARP)
 
-    @unwrap_spec(msg=str)
+    @unwrap_spec(msg='text')
     def gettext(space, msg):
         """gettext(msg) -> string
         Return translation of msg."""
@@ -205,7 +205,7 @@ if rlocale.HAVE_LIBINTL:
 
     _dgettext = rlocale.external('dgettext', [rffi.CCHARP, rffi.CCHARP], rffi.CCHARP)
 
-    @unwrap_spec(msg=str)
+    @unwrap_spec(msg='text')
     def dgettext(space, w_domain, msg):
         """dgettext(domain, msg) -> string
         Return translation of msg in domain."""
@@ -239,7 +239,7 @@ if rlocale.HAVE_LIBINTL:
     _dcgettext = rlocale.external('dcgettext', [rffi.CCHARP, rffi.CCHARP, rffi.INT],
                                                                 rffi.CCHARP)
 
-    @unwrap_spec(msg=str, category=int)
+    @unwrap_spec(msg='text', category=int)
     def dcgettext(space, w_domain, msg, category):
         """dcgettext(domain, msg, category) -> string
         Return translation of msg in domain and category."""
@@ -301,7 +301,7 @@ if rlocale.HAVE_LIBINTL:
                                                                 rffi.CCHARP,
                                        save_err=rffi.RFFI_SAVE_ERRNO)
 
-    @unwrap_spec(domain=str)
+    @unwrap_spec(domain='text')
     def bindtextdomain(space, domain, w_dir):
         """bindtextdomain(domain, dir) -> string
         Bind the C library's domain to dir."""
@@ -332,7 +332,7 @@ if rlocale.HAVE_LIBINTL:
                                     [rffi.CCHARP, rffi.CCHARP], rffi.CCHARP)
 
     if rlocale.HAVE_BIND_TEXTDOMAIN_CODESET:
-        @unwrap_spec(domain=str)
+        @unwrap_spec(domain='text')
         def bind_textdomain_codeset(space, domain, w_codeset):
             """bind_textdomain_codeset(domain, codeset) -> string
             Bind the C library's domain to codeset."""

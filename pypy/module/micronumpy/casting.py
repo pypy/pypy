@@ -119,7 +119,7 @@ def _use_min_scalar(arrays_w, dtypes_w):
     return not all_scalars and max_array_kind >= max_scalar_kind
 
 
-@unwrap_spec(casting=str)
+@unwrap_spec(casting='text')
 def can_cast(space, w_from, w_totype, casting='safe'):
     try:
         target = as_dtype(space, w_totype, allow_None=False)

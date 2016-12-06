@@ -519,7 +519,7 @@ def _fromstring_bin(space, s, count, length, dtype):
     return a
 
 
-@unwrap_spec(s=str, count=int, sep=str, w_dtype=WrappedDefault(None))
+@unwrap_spec(s='text', count=int, sep='text', w_dtype=WrappedDefault(None))
 def fromstring(space, s, w_dtype=None, count=-1, sep=''):
     dtype = space.interp_w(descriptor.W_Dtype,
         space.call_function(space.gettypefor(descriptor.W_Dtype), w_dtype))

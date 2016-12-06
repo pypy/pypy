@@ -48,7 +48,7 @@ class W_STType(W_Root):
         return self._build_app_tree(space, self.tree, space.newlist,
                                     line_info, col_info)
 
-    @unwrap_spec(filename=str)
+    @unwrap_spec(filename='text')
     def descr_compile(self, space, filename="<syntax-tree>"):
         info = pyparse.CompileInfo(filename, self.mode)
         try:
@@ -85,12 +85,12 @@ def parse_python(space, source, mode):
     return W_STType(tree, mode)
 
 
-@unwrap_spec(source=str)
+@unwrap_spec(source='text')
 def suite(space, source):
     return parse_python(space, source, 'exec')
 
 
-@unwrap_spec(source=str)
+@unwrap_spec(source='text')
 def expr(space, source):
     return parse_python(space, source, 'eval')
 

@@ -11,7 +11,7 @@ class MultibyteCodec(W_Root):
         self.name = name
         self.codec = codec
 
-    @unwrap_spec(input=str, errors="str_or_None")
+    @unwrap_spec(input='bytes', errors="str_or_None")
     def decode(self, space, input, errors=None):
         if errors is None:
             errors = 'strict'
@@ -52,7 +52,7 @@ MultibyteCodec.typedef = TypeDef(
 MultibyteCodec.typedef.acceptable_as_base_class = False
 
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def getcodec(space, name):
     try:
         codec = c_codecs.getcodec(name)

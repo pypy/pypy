@@ -40,7 +40,7 @@ def common_wrapgethost(space, (name, aliases, address_list)):
                            space.newlist(aliases),
                            space.newlist(address_list)])
 
-@unwrap_spec(host=str)
+@unwrap_spec(host='text')
 def gethostbyname_ex(space, host):
     """gethostbyname_ex(host) -> (name, aliaslist, addresslist)
 

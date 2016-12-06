@@ -75,7 +75,7 @@ def _curses_tparm(s, args):
     except _curses.error as e:
         raise curses_error(e.args[0])
 
-@unwrap_spec(capname=str)
+@unwrap_spec(capname='text')
 def tigetstr(space, capname):
     try:
         result = _curses_tigetstr(capname)
@@ -85,7 +85,7 @@ def tigetstr(space, capname):
         raise convert_error(space, e)
     return space.newbytes(result)
 
-@unwrap_spec(s=str)
+@unwrap_spec(s='text')
 def tparm(space, s, args_w):
     args = [space.int_w(a) for a in args_w]
     try:

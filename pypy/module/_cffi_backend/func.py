@@ -64,7 +64,7 @@ def rawaddressof(space, w_ctype, w_cdata, offset):
 
 # ____________________________________________________________
 
-@unwrap_spec(w_ctype=ctypeobj.W_CType, replace_with=str)
+@unwrap_spec(w_ctype=ctypeobj.W_CType, replace_with='text')
 def getcname(space, w_ctype, replace_with):
     p = w_ctype.name_position
     s = '%s%s%s' % (w_ctype.name[:p], replace_with, w_ctype.name[p:])

@@ -1422,8 +1422,8 @@ def _ufunc2_dtypes(ufunc, space):
 def get(space):
     return space.fromcache(UfuncState)
 
-@unwrap_spec(nin=int, nout=int, signature=str, w_identity=WrappedDefault(None),
-             name=str, doc=str, stack_inputs=bool)
+@unwrap_spec(nin=int, nout=int, signature='text', w_identity=WrappedDefault(None),
+             name='text', doc='text', stack_inputs=bool)
 def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
      w_identity=None, name='', doc='', stack_inputs=False):
     ''' frompyfunc(func, nin, nout) #cpython numpy compatible

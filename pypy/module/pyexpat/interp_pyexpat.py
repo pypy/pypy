@@ -636,7 +636,7 @@ getting the advantage of providing document type information to the parser.
 
     # Parse methods
 
-    @unwrap_spec(data=str, isfinal=bool)
+    @unwrap_spec(data='text', isfinal=bool)
     def Parse(self, space, data, isfinal=False):
         """Parse(data[, isfinal])
 Parse XML data.  `isfinal' should be true at end of input."""
@@ -663,7 +663,7 @@ Parse XML data from file-like object."""
             w_res = self.Parse(space, data, isfinal=eof)
         return w_res
 
-    @unwrap_spec(base=str)
+    @unwrap_spec(base='text')
     def SetBase(self, space, base):
         XML_SetBase(self.itself, base)
 

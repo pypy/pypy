@@ -1505,7 +1505,7 @@ def _load_from_cffi(space, name, path, initptr):
     from pypy.module._cffi_backend import cffi1_module
     cffi1_module.load_cffi1_module(space, name, path, initptr)
 
-@unwrap_spec(path=str, name=str)
+@unwrap_spec(path='text', name='text')
 def load_extension_module(space, path, name):
     # note: this is used both to load CPython-API-style C extension
     # modules (cpyext) and to load CFFI-style extension modules

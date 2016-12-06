@@ -127,15 +127,15 @@ def wrap_oplist(space, logops, operations, ops_offset=None):
             l_w.append(WrappedOp(name, ofs, logops.repr_of_resop(op)))
     return l_w
 
-@unwrap_spec(offset=int, repr=str, name=str)
+@unwrap_spec(offset=int, repr='text', name='text')
 def descr_new_resop(space, w_tp, name, offset=-1, repr=''):
     return WrappedOp(name, offset, repr)
 
-@unwrap_spec(offset=int, repr=str, name=str, hash=r_uint)
+@unwrap_spec(offset=int, repr='text', name='text', hash=r_uint)
 def descr_new_guardop(space, w_tp, name, offset=-1, repr='', hash=r_uint(0)):
     return GuardOp(name, offset, repr, hash)
 
-@unwrap_spec(repr=str, name=str, jd_name=str, call_depth=int, call_id=int)
+@unwrap_spec(repr='text', name='text', jd_name='text', call_depth=int, call_id=int)
 def descr_new_dmp(space, w_tp, name, repr, jd_name, call_depth, call_id,
     w_greenkey):
 
@@ -291,7 +291,7 @@ class W_JitLoopInfo(W_Root):
 
 
 @unwrap_spec(loopno=int, asmaddr=int, asmlen=int, loop_no=int,
-             type=str, jd_name=str, bridge_no=int)
+             type='text', jd_name='text', bridge_no=int)
 def descr_new_jit_loop_info(space, w_subtype, w_greenkey, w_ops, loopno,
                             asmaddr, asmlen, loop_no, type, jd_name,
                             bridge_no=-1):

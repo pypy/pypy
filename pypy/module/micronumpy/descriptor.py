@@ -700,7 +700,7 @@ class W_Dtype(W_Root):
             self.alignment = alignment
         self.flags = flags
 
-    @unwrap_spec(new_order=str)
+    @unwrap_spec(new_order='text')
     def descr_newbyteorder(self, space, new_order=NPY.SWAP):
         newendian = byteorder_converter(space, new_order)
         endian = self.byteorder

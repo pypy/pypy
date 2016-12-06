@@ -714,7 +714,7 @@ class __extend__(W_NDimArray):
         contig = self.implementation.astype(space, dtype, self.get_order())
         return contig.argsort(space, w_axis)
 
-    @unwrap_spec(order=str, casting=str, subok=bool, copy=bool)
+    @unwrap_spec(order='text', casting='text', subok=bool, copy=bool)
     def descr_astype(self, space, w_dtype, order='K', casting='unsafe', subok=True, copy=True):
         cur_dtype = self.get_dtype()
         new_dtype = space.interp_w(descriptor.W_Dtype, space.call_function(
@@ -857,7 +857,7 @@ class __extend__(W_NDimArray):
         raise oefmt(space.w_NotImplementedError,
                     "getfield not implemented yet")
 
-    @unwrap_spec(new_order=str)
+    @unwrap_spec(new_order='text')
     def descr_newbyteorder(self, space, new_order=NPY.SWAP):
         return self.descr_view(
             space, self.get_dtype().descr_newbyteorder(space, new_order))
@@ -931,7 +931,7 @@ class __extend__(W_NDimArray):
         raise oefmt(space.w_NotImplementedError,
                     "setflags not implemented yet")
 
-    @unwrap_spec(kind=str)
+    @unwrap_spec(kind='text')
     def descr_sort(self, space, w_axis=None, kind='quicksort', w_order=None):
         # happily ignore the kind
         # modify the array in-place

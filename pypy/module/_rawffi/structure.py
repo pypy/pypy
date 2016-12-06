@@ -204,12 +204,12 @@ class W_Structure(W_DataShape):
     def fromaddress(self, space, address):
         return W_StructureInstance(space, self, address)
 
-    @unwrap_spec(attr=str)
+    @unwrap_spec(attr='text')
     def descr_fieldoffset(self, space, attr):
         index = self.getindex(space, attr)
         return space.newint(self.ll_positions[index])
 
-    @unwrap_spec(attr=str)
+    @unwrap_spec(attr='text')
     def descr_fieldsize(self, space, attr):
         index = self.getindex(space, attr)
         if self.ll_bitsizes and index < len(self.ll_bitsizes):
@@ -351,7 +351,7 @@ class W_StructureInstance(W_DataInstance):
         addr = rffi.cast(lltype.Unsigned, self.ll_buffer)
         return space.newtext("<_rawffi struct %x>" % (addr,))
 
-    @unwrap_spec(attr=str)
+    @unwrap_spec(attr='text')
     def getattr(self, space, attr):
         if not self.ll_buffer:
             raise segfault_exception(space, "accessing NULL pointer")
@@ -359,7 +359,7 @@ class W_StructureInstance(W_DataInstance):
         _, tp, _ = self.shape.fields[i]
         return wrap_value(space, cast_pos, self, i, tp.itemcode)
 
-    @unwrap_spec(attr=str)
+    @unwrap_spec(attr='text')
     def setattr(self, space, attr, w_value):
         if not self.ll_buffer:
             raise segfault_exception(space, "accessing NULL pointer")
@@ -367,7 +367,7 @@ class W_StructureInstance(W_DataInstance):
         _, tp, _ = self.shape.fields[i]
         unwrap_value(space, push_field, self, i, tp.itemcode, w_value)
 
-    @unwrap_spec(attr=str)
+    @unwrap_spec(attr='text')
     def descr_fieldaddress(self, space, attr):
         i = self.shape.getindex(space, attr)
         ptr = rffi.ptradd(self.ll_buffer, self.shape.ll_positions[i])

@@ -21,7 +21,7 @@ class W_Field(W_Root):
     def __repr__(self):
         return '<Field %s %s>' % (self.name, self.w_ffitype.name)
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def descr_new_field(space, w_type, name, w_ffitype):
     w_ffitype = space.interp_w(W_FFIType, w_ffitype)
     return W_Field(name, w_ffitype)
@@ -111,7 +111,7 @@ class W__StructDescr(W_Root):
 
 
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def descr_new_structdescr(space, w_type, name, w_fields=None):
     descr = W__StructDescr(name)
     if not space.is_none(w_fields):
@@ -180,14 +180,14 @@ class W__StructInstance(W_Root):
         addr = rffi.cast(rffi.ULONG, self.rawmem)
         return space.newint(addr)
 
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='text')
     def getfield(self, space, name):
         w_ffitype, offset = self.structdescr.get_type_and_offset_for_field(
             space, name)
         field_getter = GetFieldConverter(space, self.rawmem, offset)
         return field_getter.do_and_wrap(w_ffitype)
 
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='text')
     def setfield(self, space, name, w_value):
         w_ffitype, offset = self.structdescr.get_type_and_offset_for_field(
             space, name)

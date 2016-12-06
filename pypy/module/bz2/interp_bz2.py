@@ -249,7 +249,7 @@ class W_BZ2File(W_File):
             space = self.space
             raise oefmt(space.w_ValueError, "invalid mode: '%s'", mode)
 
-    @unwrap_spec(mode=str, buffering=int, compresslevel=int)
+    @unwrap_spec(mode='text', buffering=int, compresslevel=int)
     def direct_bz2__init__(self, w_name, mode='r', buffering=-1,
                            compresslevel=9):
         self.direct_close()

@@ -94,7 +94,7 @@ class UCD(W_Root):
 
         self.version = unicodedb.version
 
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='text')
     def _get_code(self, space, name):
         try:
             code = self._lookup(name.upper())
@@ -103,7 +103,7 @@ class UCD(W_Root):
             raise OperationError(space.w_KeyError, msg)
         return space.newint(code)
 
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='text')
     def lookup(self, space, name):
         try:
             code = self._lookup(name.upper())
@@ -177,7 +177,7 @@ class UCD(W_Root):
         code = unichr_to_code_w(space, w_unichr)
         return space.newtext(self._decomposition(code))
 
-    @unwrap_spec(form=str)
+    @unwrap_spec(form='text')
     def normalize(self, space, form, w_unistr):
         if not space.isinstance_w(w_unistr, space.w_unicode):
             raise oefmt(

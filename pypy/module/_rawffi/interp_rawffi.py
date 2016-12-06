@@ -218,7 +218,7 @@ class W_CDLL(W_Root):
         space.setitem(self.w_cache, w_key, w_funcptr)
         return w_funcptr
 
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='text')
     def getaddressindll(self, space, name):
         try:
             address_as_uint = rffi.cast(lltype.Unsigned,
@@ -562,7 +562,7 @@ W_FuncPtr.typedef = TypeDef(
 W_FuncPtr.typedef.acceptable_as_base_class = False
 
 def _create_new_accessor(func_name, name):
-    @unwrap_spec(tp_letter=str)
+    @unwrap_spec(tp_letter='text')
     def accessor(space, tp_letter):
         if len(tp_letter) != 1:
             raise oefmt(space.w_ValueError, "Expecting string of length one")

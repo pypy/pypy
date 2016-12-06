@@ -16,7 +16,7 @@ from pypy.interpreter.typedef import (
 from pypy.module._file.interp_file import W_File
 
 
-@unwrap_spec(typecode=str)
+@unwrap_spec(typecode='text')
 def w_array(space, w_cls, typecode, __args__):
     if len(__args__.arguments_w) > 1:
         raise oefmt(space.w_TypeError, "array() takes at most 2 arguments")

@@ -101,7 +101,7 @@ class W_MMap(W_Root):
         except RValueError as v:
             raise mmap_error(self.space, v)
 
-    @unwrap_spec(byte=str)
+    @unwrap_spec(byte='bytes')
     def write_byte(self, byte):
         self.check_valid()
         self.check_writeable()
@@ -265,7 +265,7 @@ if rmmap._POSIX:
 
 elif rmmap._MS_WINDOWS:
 
-    @unwrap_spec(fileno=int, length=int, tagname=str,
+    @unwrap_spec(fileno=int, length=int, tagname='text',
                  access=int, offset=OFF_T)
     def mmap(space, w_subtype, fileno, length, tagname="",
              access=rmmap._ACCESS_DEFAULT, offset=0):
