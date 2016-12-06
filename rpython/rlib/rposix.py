@@ -1779,22 +1779,19 @@ def uname():
         lltype.free(l_utsbuf, flavor='raw')
 
 # These are actually macros on some/most systems
-c_makedev = external('makedev', [rffi.INT, rffi.INT], rffi.INT)
-c_major = external('major', [rffi.INT], rffi.INT)
-c_minor = external('minor', [rffi.INT], rffi.INT)
+c_makedev = external('makedev', [rffi.INT, rffi.INT], rffi.INT, macro=True)
+c_major = external('major', [rffi.INT], rffi.INT, macro=True)
+c_minor = external('minor', [rffi.INT], rffi.INT, macro=True)
 
 @replace_os_function('makedev')
-@jit.dont_look_inside
 def makedev(maj, min):
     return c_makedev(maj, min)
 
 @replace_os_function('major')
-@jit.dont_look_inside
 def major(dev):
     return c_major(dev)
 
 @replace_os_function('minor')
-@jit.dont_look_inside
 def minor(dev):
     return c_minor(dev)
 
