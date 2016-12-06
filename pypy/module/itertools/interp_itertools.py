@@ -1711,8 +1711,17 @@ class W_Accumulate(W_Root):
 
     def reduce_w(self):
         space = self.space
-        w_total = space.w_None if self.w_total is None else self.w_total
         w_func = space.w_None if self.w_func is None else self.w_func
+        if self.w_total is space.w_None:      # :-(
+            w_it = W_Chain(space, space.iter(space.newlist([
+                                     space.newtuple([self.w_total]),
+                                     self.w_iterable])))
+            w_it = space.call_function(space.type(self),
+                           w_it, w_func)
+            return space.newtuple([space.gettypefor(W_ISlice),
+                                   space.newtuple([w_it, space.wrap(1),
+                                                   space.w_None])])
+        w_total = space.w_None if self.w_total is None else self.w_total
         return space.newtuple([space.gettypefor(W_Accumulate),
                                space.newtuple([self.w_iterable, w_func]), w_total])
 
