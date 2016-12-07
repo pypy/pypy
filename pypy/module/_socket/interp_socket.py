@@ -534,7 +534,9 @@ class W_Socket(W_Root):
         """
         rwbuffer = space.getarg_w('w*', w_buffer)
         lgt = rwbuffer.getlength()
-        if nbytes == 0 or nbytes > lgt:
+        if nbytes < 0:
+            raise oefmt(space.w_ValueError, "negative buffersize in recv_into")
+        if nbytes == 0:
             nbytes = lgt
         while True:
             try:

@@ -1,4 +1,5 @@
 import py
+import pytest
 import struct
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app
@@ -42,13 +43,13 @@ class AppTestMemoryView:
     def test_extended_slice(self):
         data = bytearray(b'abcefg')
         v = memoryview(data)
-        w = v[0:2:2]      # failing for now: NotImplementedError
+        w = v[0:2:2]
         assert len(w) == 1
         assert list(w) == [97]
         v[::2] = b'ABC'
         assert data == bytearray(eval("b'AbBeCg'"))
-        assert v[::2] == b'ABC'
-        assert v[::-2] == b'geb'
+        assert v[::2].tobytes() == b'ABC'
+        assert v[::-2].tobytes() == b'geb'
 
     def test_memoryview_attrs(self):
         v = memoryview(b"a"*100)
@@ -409,3 +410,33 @@ class AppTestMemoryViewMockBuffer(object):
         v = view.cast('h', shape=(3,2))
         assert v.tolist() == [[2,3],[4,5],[6,7]]
         raises(TypeError, "view.cast('h', shape=(3,3))")
+
+    def test_reversed(self):
+        bytes = b"\x01\x01\x02\x02\x03\x03"
+        view = memoryview(bytes)
+        revlist = list(reversed(view.tolist()))
+        assert view[::-1][0] == 3
+        assert view[::-1][1] == 3
+        assert view[::-1][2] == 2
+        assert view[::-1][3] == 2
+        assert view[::-1][4] == 1
+        assert view[::-1][5] == 1
+        assert view[::-1][-1] == 1
+        assert view[::-1][-2] == 1
+        assert list(reversed(view)) == revlist
+        assert list(reversed(view)) == view[::-1].tolist()
+
+class AppTestMemoryViewReversed(object):
+    spaceconfig = dict(usemodules=['array'])
+    def test_reversed_non_bytes(self):
+        import array
+        items = [1,2,3,9,7,5]
+        formats = ['h']
+        for fmt in formats:
+            bytes = array.array(fmt, items)
+            view = memoryview(bytes)
+            bview = view.cast('b')
+            rview = bview.cast(fmt, shape=(2,3))
+            raises(NotImplementedError, list, reversed(rview))
+            assert rview.tolist() == [[1,2,3],[9,7,5]]
+            assert rview[::-1].tolist() == [[9,7,5], [1,2,3]]

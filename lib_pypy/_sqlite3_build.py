@@ -103,6 +103,10 @@ static void *const SQLITE_TRANSIENT;
 #define SQLITE_DROP_VTABLE ...
 #define SQLITE_FUNCTION ...
 
+static const long SQLITE_OPEN_URI;
+static const long SQLITE_OPEN_READWRITE;
+static const long SQLITE_OPEN_CREATE;
+
 const char *sqlite3_libversion(void);
 
 typedef ... sqlite3;
@@ -115,6 +119,13 @@ typedef uint64_t sqlite3_uint64;
 int sqlite3_open(
     const char *filename,   /* Database filename (UTF-8) */
     sqlite3 **ppDb          /* OUT: SQLite db handle */
+);
+
+int sqlite3_open_v2(
+  const char *filename,   /* Database filename (UTF-8) */
+  sqlite3 **ppDb,         /* OUT: SQLite db handle */
+  int flags,              /* Flags */
+  const char *zVfs        /* Name of VFS module to use */
 );
 
 int sqlite3_close(sqlite3 *);
@@ -259,7 +270,21 @@ else:
         libraries=['sqlite3']
     )
 
-_ffi.set_source("_sqlite3_cffi", "#include <sqlite3.h>", **extra_args)
+SOURCE = """
+#include <sqlite3.h>
+
+#ifndef SQLITE_OPEN_URI
+static const long SQLITE_OPEN_URI = 0;
+#endif
+#ifndef SQLITE_OPEN_READWRITE
+static const long SQLITE_OPEN_READWRITE = 0;
+#endif
+#ifndef SQLITE_OPEN_CREATE
+static const long SQLITE_OPEN_CREATE = 0;
+#endif
+"""
+
+_ffi.set_source("_sqlite3_cffi", SOURCE, **extra_args)
 
 
 if __name__ == "__main__":

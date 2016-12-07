@@ -25,6 +25,13 @@ static const int EVP_CTRL_GCM_SET_IVLEN;
 static const int EVP_CTRL_GCM_GET_TAG;
 static const int EVP_CTRL_GCM_SET_TAG;
 
+typedef struct {
+    int type;
+    int alias;
+    const char *name;
+    const char *data;
+} OBJ_NAME;
+
 static const int Cryptography_HAS_GCM;
 static const int Cryptography_HAS_PBKDF2_HMAC;
 static const int Cryptography_HAS_PKEY_CTX;
@@ -136,6 +143,7 @@ int Cryptography_EVP_PKEY_id(const EVP_PKEY *);
    without worrying about what OpenSSL we're running against. */
 EVP_MD_CTX *Cryptography_EVP_MD_CTX_new(void);
 void Cryptography_EVP_MD_CTX_free(EVP_MD_CTX *);
+void OBJ_NAME_do_all(int, void (*) (const OBJ_NAME *, void *), void *);
 """
 
 MACROS = """
@@ -156,6 +164,7 @@ int EVP_PKEY_assign_EC_KEY(EVP_PKEY *, EC_KEY *);
 EC_KEY *EVP_PKEY_get1_EC_KEY(EVP_PKEY *);
 int EVP_PKEY_set1_EC_KEY(EVP_PKEY *, EC_KEY *);
 
+int EVP_MD_CTX_block_size(const EVP_MD_CTX *md);
 int EVP_CIPHER_CTX_block_size(const EVP_CIPHER_CTX *);
 int EVP_CIPHER_CTX_ctrl(EVP_CIPHER_CTX *, int, int, void *);
 
@@ -167,6 +176,7 @@ int EVP_PKEY_CTX_set_signature_md(EVP_PKEY_CTX *, const EVP_MD *);
 int EVP_PBE_scrypt(const char *, size_t, const unsigned char *, size_t,
                    uint64_t, uint64_t, uint64_t, uint64_t, unsigned char *,
                    size_t);
+#define OBJ_NAME_TYPE_MD_METH ...
 """
 
 CUSTOMIZATIONS = """
