@@ -46,6 +46,8 @@ except ImportError:
     threading = None
 
 try:
+    if '__pypy__' in sys.builtin_module_names:
+        raise ImportError    # don't use ctypes, missing ctypes.resize()
     import ctypes
 except ImportError:
     def byteslike(*pos, **kw):
