@@ -80,7 +80,8 @@ class stat_result(metaclass=structseqtype):
 
 class statvfs_result(metaclass=structseqtype):
 
-    name = osname + ".statvfs_result"
+    name = "os.statvfs_result"
+    __module__ = "os"
 
     f_bsize = structseqfield(0)
     f_frsize = structseqfield(1)
@@ -96,7 +97,7 @@ class statvfs_result(metaclass=structseqtype):
 
 class uname_result(metaclass=structseqtype):
 
-    name = osname + ".uname_result"
+    name = osname + ".uname_result"    # and NOT "os.uname_result"
 
     sysname  = structseqfield(0, "operating system name")
     nodename = structseqfield(1, "name of machine on network "
@@ -108,6 +109,7 @@ class uname_result(metaclass=structseqtype):
 class terminal_size(metaclass=structseqtype):
 
     name = "os.terminal_size"
+    __module__ = "os"
 
     columns  = structseqfield(0, "width of the terminal window in characters")
     lines = structseqfield(1, "height of the terminal window in characters")
