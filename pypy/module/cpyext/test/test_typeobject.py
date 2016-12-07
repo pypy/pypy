@@ -1173,37 +1173,32 @@ class AppTestSlots(AppTestCpythonExtensionBase):
            ("new_obj", "METH_NOARGS",
             '''
                 PyObject *obj;
-                obj = PyObject_New(PyObject, &Foo12_Type);
+                PyTypeObject *Base1, *Base2, *Base12;
+                Base1 =  (PyTypeObject*)PyType_Type.tp_alloc(&PyType_Type, 0);
+                Base2 =  (PyTypeObject*)PyType_Type.tp_alloc(&PyType_Type, 0);
+                Base12 =  (PyTypeObject*)PyType_Type.tp_alloc(&PyType_Type, 0);
+                Base1->tp_name = "Base1";
+                Base2->tp_name = "Base2";
+                Base12->tp_name = "Base12";
+                Base1->tp_basicsize = sizeof(PyHeapTypeObject);
+                Base2->tp_basicsize = sizeof(PyHeapTypeObject);
+                Base12->tp_basicsize = sizeof(PyHeapTypeObject);
+                Base1->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
+                Base2->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
+                Base12->tp_flags = Py_TPFLAGS_DEFAULT;
+                Base12->tp_base = Base1;
+                Base12->tp_bases = PyTuple_Pack(2, Base1, Base2); 
+                Base12->tp_doc = "The Base12 type or object";
+                if (PyType_Ready(Base1) < 0) return NULL;
+                if (PyType_Ready(Base2) < 0) return NULL;
+                if (PyType_Ready(Base12) < 0) return NULL;
+                obj = PyObject_New(PyObject, Base12);
                 return obj;
             '''
-            )], prologue='''
-            static PyTypeObject Foo1_Type = {
-                PyVarObject_HEAD_INIT(NULL, 0)
-                "foo.foo1",
-            };
-            static PyTypeObject Foo2_Type = {
-                PyVarObject_HEAD_INIT(NULL, 0)
-                "foo.foo2",
-            };
-            static PyTypeObject Foo12_Type = {
-                PyVarObject_HEAD_INIT(NULL, 0)
-                "foo.foo12",
-            };
-            static char doc[]="The foo12 object";
-            ''', more_init = '''
-                Foo1_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
-                Foo2_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
-                Foo12_Type.tp_flags = Py_TPFLAGS_DEFAULT;
-                Foo12_Type.tp_base = &Foo1_Type;
-                Foo12_Type.tp_doc = doc;
-                Foo12_Type.tp_bases = PyTuple_Pack(2, &Foo1_Type, &Foo2_Type);
-                if (PyType_Ready(&Foo1_Type) < 0) INITERROR;
-                if (PyType_Ready(&Foo2_Type) < 0) INITERROR;
-                if (PyType_Ready(&Foo12_Type) < 0) INITERROR;
-            ''')
+            )])
         obj = module.new_obj()
-        assert 'foo.foo12' in str(obj)
-        assert type(obj).__doc__ == "The foo12 object"
-        assert obj.__doc__ == "The foo12 object"
+        assert 'Base12' in str(obj)
+        assert type(obj).__doc__ == "The Base12 type or object"
+        assert obj.__doc__ == "The Base12 type or object"
 
 
