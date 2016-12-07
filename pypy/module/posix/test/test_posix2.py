@@ -7,6 +7,7 @@ import signal
 
 from rpython.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
+from pypy.interpreter.gateway import interp2app
 from rpython.translator.c.test.test_extfunc import need_sparse_files
 from rpython.rlib import rposix
 
@@ -175,7 +176,7 @@ class AppTestPosix:
         assert st.st_atime == 41
         assert st.st_mtime == 42.1
         assert st.st_ctime == 43
-        assert repr(st).startswith(self.posix.__name__ + '.stat_result')
+        assert repr(st).startswith('os.stat_result')
 
     def test_stat_lstat(self):
         import stat
@@ -818,19 +819,20 @@ class AppTestPosix:
         def test_fchdir(self):
             os = self.posix
             localdir = os.getcwd()
-            try:
-                os.mkdir(self.path2 + 'dir')
-                fd = os.open(self.path2 + 'dir', os.O_RDONLY)
+            os.mkdir(self.path2 + 'fchdir')
+            for func in [os.fchdir, os.chdir]:
                 try:
-                    os.fchdir(fd)
-                    mypath = os.getcwd()
+                    fd = os.open(self.path2 + 'fchdir', os.O_RDONLY)
+                    try:
+                        func(fd)
+                        mypath = os.getcwd()
+                    finally:
+                        os.close(fd)
+                    assert mypath.endswith('test_posix2-fchdir')
+                    raises(OSError, func, fd)
                 finally:
-                    os.close(fd)
-                assert mypath.endswith('test_posix2-dir')
-                raises(OSError, os.fchdir, fd)
-                raises(ValueError, os.fchdir, -1)
-            finally:
-                os.chdir(localdir)
+                    os.chdir(localdir)
+            raises(ValueError, os.fchdir, -1)
 
     def test_largefile(self):
         os = self.posix
@@ -1230,6 +1232,8 @@ class AppTestPosix:
         assert str(e.value).endswith(": 'nonexistentfile1' -> 'bok'")
         e = raises(OSError, self.posix.rename, 'nonexistentfile1', 'bok')
         assert str(e.value).endswith(": 'nonexistentfile1' -> 'bok'")
+        e = raises(OSError, self.posix.replace, 'nonexistentfile1', 'bok')
+        assert str(e.value).endswith(": 'nonexistentfile1' -> 'bok'")
 
         e = raises(OSError, self.posix.symlink, 'bok', '/nonexistentdir/boz')
         assert str(e.value).endswith(": 'bok' -> '/nonexistentdir/boz'")
@@ -1362,3 +1366,40 @@ class AppTestFdVariants:
         if os.name == 'posix':
             assert os.open in os.supports_dir_fd  # openat()
 
+
+class AppTestPep475Retry:
+    spaceconfig = {'usemodules': USEMODULES}
+
+    def setup_class(cls):
+        if os.name != 'posix':
+            skip("xxx tests are posix-only")
+        if cls.runappdirect:
+            skip("xxx does not work with -A")
+
+        def fd_data_after_delay(space):
+            g = os.popen("sleep 5 && echo hello", "r")
+            cls._keepalive_g = g
+            return space.wrap(g.fileno())
+
+        cls.w_posix = space.appexec([], GET_POSIX)
+        cls.w_fd_data_after_delay = cls.space.wrap(
+            interp2app(fd_data_after_delay))
+
+    def test_pep475_retry_read(self):
+        import _signal as signal
+        signalled = []
+
+        def foo(*args):
+            signalled.append("ALARM")
+
+        signal.signal(signal.SIGALRM, foo)
+        try:
+            fd = self.fd_data_after_delay()
+            signal.alarm(1)
+            got = self.posix.read(fd, 100)
+            self.posix.close(fd)
+        finally:
+            signal.signal(signal.SIGALRM, signal.SIG_DFL)
+
+        assert signalled != []
+        assert got.startswith(b'h')

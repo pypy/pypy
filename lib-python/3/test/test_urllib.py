@@ -1,4 +1,4 @@
-"""Regresssion tests for urllib"""
+"""Regresssion tests for what was in Python 2's "urllib" module"""
 
 import urllib.parse
 import urllib.request
@@ -39,10 +39,7 @@ def urlopen(url, data=None, proxies=None):
     if proxies is not None:
         opener = urllib.request.FancyURLopener(proxies=proxies)
     elif not _urlopener:
-        with support.check_warnings(
-                ('FancyURLopener style of invoking requests is deprecated.',
-                DeprecationWarning)):
-            opener = urllib.request.FancyURLopener()
+        opener = FancyURLopener()
         _urlopener = opener
     else:
         opener = _urlopener
@@ -50,6 +47,13 @@ def urlopen(url, data=None, proxies=None):
         return opener.open(url)
     else:
         return opener.open(url, data)
+
+
+def FancyURLopener():
+    with support.check_warnings(
+            ('FancyURLopener style of invoking requests is deprecated.',
+            DeprecationWarning)):
+        return urllib.request.FancyURLopener()
 
 
 def fakehttp(fakedata):
@@ -82,10 +86,11 @@ def fakehttp(fakedata):
 
         # buffer to store data for verification in urlopen tests.
         buf = None
-        fakesock = FakeSocket(fakedata)
 
         def connect(self):
-            self.sock = self.fakesock
+            self.sock = FakeSocket(self.fakedata)
+            type(self).fakesock = self.sock
+    FakeHTTPConnection.fakedata = fakedata
 
     return FakeHTTPConnection
 
@@ -222,8 +227,59 @@ class ProxyTests(unittest.TestCase):
         # getproxies_environment use lowered case truncated (no '_proxy') keys
         self.assertEqual('localhost', proxies['no'])
         # List of no_proxies with space.
-        self.env.set('NO_PROXY', 'localhost, anotherdomain.com, newdomain.com')
+        self.env.set('NO_PROXY', 'localhost, anotherdomain.com, newdomain.com:1234')
         self.assertTrue(urllib.request.proxy_bypass_environment('anotherdomain.com'))
+        self.assertTrue(urllib.request.proxy_bypass_environment('anotherdomain.com:8888'))
+        self.assertTrue(urllib.request.proxy_bypass_environment('newdomain.com:1234'))
+
+    def test_proxy_bypass_environment_host_match(self):
+        bypass = urllib.request.proxy_bypass_environment
+        self.env.set('NO_PROXY',
+            'localhost, anotherdomain.com, newdomain.com:1234')
+        self.assertTrue(bypass('localhost'))
+        self.assertTrue(bypass('LocalHost'))                 # MixedCase
+        self.assertTrue(bypass('LOCALHOST'))                 # UPPERCASE
+        self.assertTrue(bypass('newdomain.com:1234'))
+        self.assertTrue(bypass('anotherdomain.com:8888'))
+        self.assertTrue(bypass('www.newdomain.com:1234'))
+        self.assertFalse(bypass('prelocalhost'))
+        self.assertFalse(bypass('newdomain.com'))            # no port
+        self.assertFalse(bypass('newdomain.com:1235'))       # wrong port
+
+class ProxyTests_withOrderedEnv(unittest.TestCase):
+
+    def setUp(self):
+        # We need to test conditions, where variable order _is_ significant
+        self._saved_env = os.environ
+        # Monkey patch os.environ, start with empty fake environment
+        os.environ = collections.OrderedDict()
+
+    def tearDown(self):
+        os.environ = self._saved_env
+
+    def test_getproxies_environment_prefer_lowercase(self):
+        # Test lowercase preference with removal
+        os.environ['no_proxy'] = ''
+        os.environ['No_Proxy'] = 'localhost'
+        self.assertFalse(urllib.request.proxy_bypass_environment('localhost'))
+        self.assertFalse(urllib.request.proxy_bypass_environment('arbitrary'))
+        os.environ['http_proxy'] = ''
+        os.environ['HTTP_PROXY'] = 'http://somewhere:3128'
+        proxies = urllib.request.getproxies_environment()
+        self.assertEqual({}, proxies)
+        # Test lowercase preference of proxy bypass and correct matching including ports
+        os.environ['no_proxy'] = 'localhost, noproxy.com, my.proxy:1234'
+        os.environ['No_Proxy'] = 'xyz.com'
+        self.assertTrue(urllib.request.proxy_bypass_environment('localhost'))
+        self.assertTrue(urllib.request.proxy_bypass_environment('noproxy.com:5678'))
+        self.assertTrue(urllib.request.proxy_bypass_environment('my.proxy:1234'))
+        self.assertFalse(urllib.request.proxy_bypass_environment('my.proxy'))
+        self.assertFalse(urllib.request.proxy_bypass_environment('arbitrary'))
+        # Test lowercase preference with replacement
+        os.environ['http_proxy'] = 'http://somewhere:3128'
+        os.environ['Http_Proxy'] = 'http://somewhereelse:3128'
+        proxies = urllib.request.getproxies_environment()
+        self.assertEqual('http://somewhere:3128', proxies['http'])
 
 class urlopen_HttpTests(unittest.TestCase, FakeHTTPMixin, FakeFTPMixin):
     """Test urlopen() opening a fake http connection."""
@@ -291,10 +347,25 @@ Connection: close
 Content-Type: text/html; charset=iso-8859-1
 ''')
         try:
-            self.assertRaises(urllib.error.HTTPError, urlopen,
-                              "http://python.org/")
+            msg = "Redirection to url 'file:"
+            with self.assertRaisesRegex(urllib.error.HTTPError, msg):
+                urlopen("http://python.org/")
         finally:
             self.unfakehttp()
+
+    def test_redirect_limit_independent(self):
+        # Ticket #12923: make sure independent requests each use their
+        # own retry limit.
+        for i in range(FancyURLopener().maxtries):
+            self.fakehttp(b'''HTTP/1.1 302 Found
+Location: file://guidocomputer.athome.com:/python/license
+Connection: close
+''')
+            try:
+                self.assertRaises(urllib.error.HTTPError, urlopen,
+                    "http://something")
+            finally:
+                self.unfakehttp()
 
     def test_empty_socket(self):
         # urlopen() raises OSError if the underlying socket does not send any

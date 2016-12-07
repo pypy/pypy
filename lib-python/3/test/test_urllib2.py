@@ -13,7 +13,8 @@ import urllib.request
 # proxy config data structure but is testable on all platforms.
 from urllib.request import (Request, OpenerDirector, HTTPBasicAuthHandler,
                             HTTPPasswordMgrWithPriorAuth, _parse_proxy,
-                            _proxy_bypass_macosx_sysconf)
+                            _proxy_bypass_macosx_sysconf,
+                            AbstractDigestAuthHandler)
 from urllib.parse import urlparse
 import urllib.error
 import http.client
@@ -461,7 +462,7 @@ class MockHTTPHandler(urllib.request.BaseHandler):
         self.requests = []
 
     def http_open(self, req):
-        import email, http.client, copy
+        import email, copy
         self.requests.append(copy.deepcopy(req))
         if self._count == 0:
             self._count = self._count + 1
@@ -479,8 +480,8 @@ class MockHTTPSHandler(urllib.request.AbstractHTTPHandler):
     # Useful for testing the Proxy-Authorization request by verifying the
     # properties of httpcon
 
-    def __init__(self):
-        urllib.request.AbstractHTTPHandler.__init__(self)
+    def __init__(self, debuglevel=0):
+        urllib.request.AbstractHTTPHandler.__init__(self, debuglevel=debuglevel)
         self.httpconn = MockHTTPClass()
 
     def https_open(self, req):
@@ -949,6 +950,13 @@ class HandlerTests(unittest.TestCase):
             newreq = h.do_request_(req)
             self.assertEqual(int(newreq.get_header('Content-length')),16)
 
+    def test_http_handler_debuglevel(self):
+        o = OpenerDirector()
+        h = MockHTTPSHandler(debuglevel=1)
+        o.add_handler(h)
+        o.open("https://www.example.com")
+        self.assertEqual(h._debuglevel, 1)
+
     def test_http_doubleslash(self):
         # Checks the presence of any unnecessary double slash in url does not
         # break anything. Previously, a double slash directly after the host
@@ -1199,6 +1207,57 @@ class HandlerTests(unittest.TestCase):
         o = build_test_opener(hh, hdeh, hrh)
         fp = o.open('http://www.example.com')
         self.assertEqual(fp.geturl(), redirected_url.strip())
+
+    def test_redirect_no_path(self):
+        # Issue 14132: Relative redirect strips original path
+        real_class = http.client.HTTPConnection
+        response1 = b"HTTP/1.1 302 Found\r\nLocation: ?query\r\n\r\n"
+        http.client.HTTPConnection = test_urllib.fakehttp(response1)
+        self.addCleanup(setattr, http.client, "HTTPConnection", real_class)
+        urls = iter(("/path", "/path?query"))
+        def request(conn, method, url, *pos, **kw):
+            self.assertEqual(url, next(urls))
+            real_class.request(conn, method, url, *pos, **kw)
+            # Change response for subsequent connection
+            conn.__class__.fakedata = b"HTTP/1.1 200 OK\r\n\r\nHello!"
+        http.client.HTTPConnection.request = request
+        fp = urllib.request.urlopen("http://python.org/path")
+        self.assertEqual(fp.geturl(), "http://python.org/path?query")
+
+    def test_redirect_encoding(self):
+        # Some characters in the redirect target may need special handling,
+        # but most ASCII characters should be treated as already encoded
+        class Handler(urllib.request.HTTPHandler):
+            def http_open(self, req):
+                result = self.do_open(self.connection, req)
+                self.last_buf = self.connection.buf
+                # Set up a normal response for the next request
+                self.connection = test_urllib.fakehttp(
+                    b'HTTP/1.1 200 OK\r\n'
+                    b'Content-Length: 3\r\n'
+                    b'\r\n'
+                    b'123'
+                )
+                return result
+        handler = Handler()
+        opener = urllib.request.build_opener(handler)
+        tests = (
+            (b'/p\xC3\xA5-dansk/', b'/p%C3%A5-dansk/'),
+            (b'/spaced%20path/', b'/spaced%20path/'),
+            (b'/spaced path/', b'/spaced%20path/'),
+            (b'/?p\xC3\xA5-dansk', b'/?p%C3%A5-dansk'),
+        )
+        for [location, result] in tests:
+            with self.subTest(repr(location)):
+                handler.connection = test_urllib.fakehttp(
+                    b'HTTP/1.1 302 Redirect\r\n'
+                    b'Location: ' + location + b'\r\n'
+                    b'\r\n'
+                )
+                response = opener.open('http://example.com/')
+                expected = b'GET ' + result + b' '
+                request = handler.last_buf
+                self.assertTrue(request.startswith(expected), repr(request))
 
     def test_proxy(self):
         o = OpenerDirector()
@@ -1679,6 +1738,15 @@ class MiscTests(unittest.TestCase):
             self.assertEqual(_parse_proxy(tc), expected)
 
         self.assertRaises(ValueError, _parse_proxy, 'file:/ftp.example.com'),
+
+    def test_unsupported_algorithm(self):
+        handler = AbstractDigestAuthHandler()
+        with self.assertRaises(ValueError) as exc:
+            handler.get_algorithm_impls('invalid')
+        self.assertEqual(
+            str(exc.exception),
+            "Unsupported digest authentication algorithm 'invalid'"
+        )
 
 
 class RequestTests(unittest.TestCase):

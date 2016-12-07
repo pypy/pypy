@@ -40,6 +40,9 @@ class hash_info(metaclass=structseqtype):
     nan = structseqfield(3)
     imag = structseqfield(4)
     algorithm = structseqfield(5)
+    hash_bits = structseqfield(6)
+    seed_bits = structseqfield(7)
+    cutoff = structseqfield(8)
 
 class thread_info(metaclass=structseqtype):
     name = structseqfield(0)
@@ -76,6 +79,9 @@ def get_int_info(space):
     return space.call_function(w_int_info, space.newtuple(info_w))
 
 def get_hash_info(space):
+    HASH_HASH_BITS = 8 * rffi.sizeof(lltype.Signed)
+    HASH_SEED_BITS = 0    # XXX don't know what this is supposed to be
+    HASH_CUTOFF = 0
     info_w = [
         space.wrap(8 * rffi.sizeof(lltype.Signed)),
         space.wrap(HASH_MODULUS),
@@ -83,6 +89,9 @@ def get_hash_info(space):
         space.wrap(HASH_NAN),
         space.wrap(HASH_IMAG),
         space.wrap(HASH_ALGORITHM),
+        space.wrap(HASH_HASH_BITS),
+        space.wrap(HASH_SEED_BITS),
+        space.wrap(HASH_CUTOFF),
     ]
     w_hash_info = app.wget(space, "hash_info")
     return space.call_function(w_hash_info, space.newtuple(info_w))

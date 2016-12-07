@@ -308,7 +308,7 @@ class W_ArrayBase(W_Root):
         """ fromfile(f, n)
 
         Read n objects from the file object f and append them to the end of the
-        array.  Also called as read.
+        array.
         """
         try:
             size = ovfcheck(self.itemsize * n)
@@ -323,7 +323,7 @@ class W_ArrayBase(W_Root):
                 item = item[0:elems]
             self._frombytes(space, item)
             raise oefmt(space.w_EOFError, "not enough items in file")
-        self.descr_fromstring(space, w_item)
+        self._frombytes(space, item)
 
     def descr_tofile(self, space, w_f):
         """ tofile(f)

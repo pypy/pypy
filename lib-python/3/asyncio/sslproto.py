@@ -603,7 +603,7 @@ class SSLProtocol(protocols.Protocol):
         self._wakeup_waiter()
         self._session_established = True
         # In case transport.write() was already called. Don't call
-        # immediatly _process_write_backlog(), but schedule it:
+        # immediately _process_write_backlog(), but schedule it:
         # _on_handshake_complete() can be called indirectly from
         # _process_write_backlog(), and _process_write_backlog() is not
         # reentrant.
@@ -655,7 +655,7 @@ class SSLProtocol(protocols.Protocol):
 
     def _fatal_error(self, exc, message='Fatal error on transport'):
         # Should be called from exception handler only.
-        if isinstance(exc, (BrokenPipeError, ConnectionResetError)):
+        if isinstance(exc, base_events._FATAL_ERROR_IGNORE):
             if self._loop.get_debug():
                 logger.debug("%r: %s", self, message, exc_info=True)
         else:

@@ -83,10 +83,6 @@ def _unpack(space, format, buf):
         raise OperationError(get_error(space), space.wrap(e.msg))
     return space.newtuple(fmtiter.result_w[:])
 
-def clearcache(space):
-    "Clear the internal cache."
-    # No cache in this implementation
-
 
 @unwrap_spec(format=str)
 def unpack(space, format, w_str):
@@ -109,7 +105,12 @@ def unpack_from(space, format, w_buffer, offset=0):
 
 
 class W_UnpackIter(W_Root):
-    def __init__(self, w_struct, buf):
+    def __init__(self, space, w_struct, w_buffer):
+        buf = space.buffer_w(w_buffer, space.BUF_SIMPLE)
+        if buf.getlength() % w_struct.size != 0:
+            raise oefmt(get_error(space),
+                "iterative unpacking requires a bytes length multiple of %d",
+                w_struct.size)
         self.w_struct = w_struct
         self.buf = buf
         self.index = 0
@@ -163,8 +164,7 @@ class W_Struct(W_Root):
         return unpack_from(space, jit.promote_string(self.format), w_buffer, offset)
 
     def descr_iter_unpack(self, space, w_buffer):
-        buf = space.buffer_w(w_buffer, space.BUF_SIMPLE)
-        return W_UnpackIter(self, buf)
+        return W_UnpackIter(space, self, w_buffer)
 
 W_Struct.typedef = TypeDef("Struct",
     __new__=interp2app(W_Struct.descr__new__.im_func),
@@ -178,15 +178,7 @@ W_Struct.typedef = TypeDef("Struct",
     iter_unpack=interp2app(W_Struct.descr_iter_unpack),
 )
 
-@unwrap_spec(w_struct=W_Struct)
-def new_unpackiter(space, w_subtype, w_struct, w_buffer):
-    buf = space.buffer_w(w_buffer, space.BUF_SIMPLE)
-    w_res = space.allocate_instance(W_UnpackIter, w_subtype)
-    w_res.__init__(w_struct, buf)
-    return w_res
-
 W_UnpackIter.typedef = TypeDef("unpack_iterator",
-    __new__=interp2app(new_unpackiter),
     __iter__=interp2app(W_UnpackIter.descr_iter),
     __next__=interp2app(W_UnpackIter.descr_next),
     __length_hint__=interp2app(W_UnpackIter.descr_length_hint)
@@ -195,8 +187,7 @@ W_UnpackIter.typedef = TypeDef("unpack_iterator",
 @unwrap_spec(format=str)
 def iter_unpack(space, format, w_buffer):
     w_struct = W_Struct(space, format)
-    buf = space.buffer_w(w_buffer, space.BUF_SIMPLE)
-    return W_UnpackIter(w_struct, buf)
+    return W_UnpackIter(space, w_struct, w_buffer)
 
 def clearcache(space):
     """No-op on PyPy"""

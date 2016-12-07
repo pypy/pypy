@@ -114,7 +114,7 @@ Verify clearing of SF bug #733667
     >>> g(*Nothing())                     #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after * must be a sequence, not Nothing
+    TypeError: ...argument after * must be an iterable, not Nothing
 
     >>> class Nothing:
     ...     def __len__(self): return 5
@@ -123,7 +123,7 @@ Verify clearing of SF bug #733667
     >>> g(*Nothing())                     #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after * must be a sequence, not Nothing
+    TypeError: ...argument after * must be an iterable, not Nothing
 
     >>> class Nothing():
     ...     def __len__(self): return 5
@@ -148,6 +148,45 @@ Verify clearing of SF bug #733667
 
     >>> g(*Nothing())
     0 (1, 2, 3) {}
+
+Check for issue #4806: Does a TypeError in a generator get propagated with the
+right error message? (Also check with other iterables.)
+
+    >>> def broken(): raise TypeError("myerror")
+    ...
+
+    >>> g(*(broken() for i in range(1)))
+    Traceback (most recent call last):
+      ...
+    TypeError: myerror
+
+    >>> class BrokenIterable1:
+    ...     def __iter__(self):
+    ...         raise TypeError('myerror')
+    ...
+    >>> g(*BrokenIterable1())
+    Traceback (most recent call last):
+      ...
+    TypeError: myerror
+
+    >>> class BrokenIterable2:
+    ...     def __iter__(self):
+    ...         yield 0
+    ...         raise TypeError('myerror')
+    ...
+    >>> g(*BrokenIterable2())
+    Traceback (most recent call last):
+      ...
+    TypeError: myerror
+
+    >>> class BrokenSequence:
+    ...     def __getitem__(self, idx):
+    ...         raise TypeError('myerror')
+    ...
+    >>> g(*BrokenSequence())
+    Traceback (most recent call last):
+      ...
+    TypeError: myerror
 
 Make sure that the function doesn't stomp the dictionary
 
@@ -188,17 +227,17 @@ What about willful misconduct?
     >>> h(*h)                                  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after * must be a sequence, not function
+    TypeError: ...argument after * must be an iterable, not function
 
     >>> dir(*h)                                #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after * must be a sequence, not function
+    TypeError: ...argument after * must be an iterable, not function
 
     >>> None(*h)                               #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after * must be a sequence, not function
+    TypeError: ...argument after * must be an iterable, not function
 
     >>> h(**h)                                 #doctest: +ELLIPSIS
     Traceback (most recent call last):

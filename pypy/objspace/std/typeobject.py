@@ -802,8 +802,9 @@ def descr_get__bases__(space, w_type):
     return space.newtuple(w_type.bases_w)
 
 def mro_subclasses(space, w_type, temp):
-    temp.append((w_type, w_type.mro_w))
+    old_mro_w = w_type.mro_w
     compute_mro(w_type)
+    temp.append((w_type, old_mro_w, w_type.mro_w))
     for w_sc in w_type.get_subclasses():
         assert isinstance(w_sc, W_TypeObject)
         mro_subclasses(space, w_sc, temp)
@@ -856,9 +857,11 @@ def descr_set__bases__(space, w_type, w_value):
         # try to recompute all MROs
         mro_subclasses(space, w_type, temp)
     except:
-        for cls, old_mro in temp:
-            cls.mro_w = old_mro
-        w_type.bases_w = saved_bases_w
+        for cls, old_mro, new_mro in temp:
+            if cls.mro_w is new_mro:      # don't revert if it changed again
+                cls.mro_w = old_mro
+        if w_type.bases_w is newbases_w:  # don't revert if it changed again
+            w_type.bases_w = saved_bases_w
         raise
     if (w_type.version_tag() is not None and
         not is_mro_purely_of_types(w_type.mro_w)):

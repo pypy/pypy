@@ -499,12 +499,15 @@ class _PreciseSelector(_Selector):
         _Selector.__init__(self, child_parts)
 
     def _select_from(self, parent_path, is_dir, exists, listdir):
-        if not is_dir(parent_path):
+        try:
+            if not is_dir(parent_path):
+                return
+            path = parent_path._make_child_relpath(self.name)
+            if exists(path):
+                for p in self.successor._select_from(path, is_dir, exists, listdir):
+                    yield p
+        except PermissionError:
             return
-        path = parent_path._make_child_relpath(self.name)
-        if exists(path):
-            for p in self.successor._select_from(path, is_dir, exists, listdir):
-                yield p
 
 
 class _WildcardSelector(_Selector):
@@ -514,15 +517,19 @@ class _WildcardSelector(_Selector):
         _Selector.__init__(self, child_parts)
 
     def _select_from(self, parent_path, is_dir, exists, listdir):
-        if not is_dir(parent_path):
+        try:
+            if not is_dir(parent_path):
+                return
+            cf = parent_path._flavour.casefold
+            for name in listdir(parent_path):
+                casefolded = cf(name)
+                if self.pat.match(casefolded):
+                    path = parent_path._make_child_relpath(name)
+                    for p in self.successor._select_from(path, is_dir, exists, listdir):
+                        yield p
+        except PermissionError:
             return
-        cf = parent_path._flavour.casefold
-        for name in listdir(parent_path):
-            casefolded = cf(name)
-            if self.pat.match(casefolded):
-                path = parent_path._make_child_relpath(name)
-                for p in self.successor._select_from(path, is_dir, exists, listdir):
-                    yield p
+
 
 
 class _RecursiveWildcardSelector(_Selector):
@@ -532,26 +539,32 @@ class _RecursiveWildcardSelector(_Selector):
 
     def _iterate_directories(self, parent_path, is_dir, listdir):
         yield parent_path
-        for name in listdir(parent_path):
-            path = parent_path._make_child_relpath(name)
-            if is_dir(path):
-                for p in self._iterate_directories(path, is_dir, listdir):
-                    yield p
+        try:
+            for name in listdir(parent_path):
+                path = parent_path._make_child_relpath(name)
+                if is_dir(path) and not path.is_symlink():
+                    for p in self._iterate_directories(path, is_dir, listdir):
+                        yield p
+        except PermissionError:
+            return
 
     def _select_from(self, parent_path, is_dir, exists, listdir):
-        if not is_dir(parent_path):
+        try:
+            if not is_dir(parent_path):
+                return
+            with _cached(listdir) as listdir:
+                yielded = set()
+                try:
+                    successor_select = self.successor._select_from
+                    for starting_point in self._iterate_directories(parent_path, is_dir, listdir):
+                        for p in successor_select(starting_point, is_dir, exists, listdir):
+                            if p not in yielded:
+                                yield p
+                                yielded.add(p)
+                finally:
+                    yielded.clear()
+        except PermissionError:
             return
-        with _cached(listdir) as listdir:
-            yielded = set()
-            try:
-                successor_select = self.successor._select_from
-                for starting_point in self._iterate_directories(parent_path, is_dir, listdir):
-                    for p in successor_select(starting_point, is_dir, exists, listdir):
-                        if p not in yielded:
-                            yield p
-                            yielded.add(p)
-            finally:
-                yielded.clear()
 
 
 #
@@ -661,7 +674,7 @@ class PurePath(object):
             return cls._flavour.join(parts)
 
     def _init(self):
-        # Overriden in concrete Path
+        # Overridden in concrete Path
         pass
 
     def _make_child(self, args):
@@ -1045,6 +1058,8 @@ class Path(PurePath):
         """Iterate over this subtree and yield all existing files (of any
         kind, including directories) matching the given pattern.
         """
+        if not pattern:
+            raise ValueError("Unacceptable pattern: {!r}".format(pattern))
         pattern = self._flavour.casefold(pattern)
         drv, root, pattern_parts = self._flavour.parse_parts((pattern,))
         if drv or root:
@@ -1403,3 +1418,9 @@ class PosixPath(Path, PurePosixPath):
 
 class WindowsPath(Path, PureWindowsPath):
     __slots__ = ()
+
+    def owner(self):
+        raise NotImplementedError("Path.owner() is unsupported on this system")
+
+    def group(self):
+        raise NotImplementedError("Path.group() is unsupported on this system")

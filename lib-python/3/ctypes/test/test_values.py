@@ -28,8 +28,7 @@ class ValuesTestCase(unittest.TestCase):
         ctdll = CDLL(_ctypes_test.__file__)
         self.assertRaises(ValueError, c_int.in_dll, ctdll, "Undefined_Symbol")
 
-@unittest.skipUnless(sys.platform == 'win32', 'Windows-specific test')
-class Win_ValuesTestCase(unittest.TestCase):
+class PythonValuesTestCase(unittest.TestCase):
     """This test only works when python itself is a dll/shared library"""
 
     def test_optimizeflag(self):
@@ -76,15 +75,16 @@ class Win_ValuesTestCase(unittest.TestCase):
             if entry.name in bootstrap_expected:
                 bootstrap_seen.append(entry.name)
                 self.assertTrue(entry.size,
-                    "{} was reported as having no size".format(entry.name))
+                    "{!r} was reported as having no size".format(entry.name))
                 continue
-            items.append((entry.name, entry.size))
+            items.append((entry.name.decode("ascii"), entry.size))
 
-        expected = [(b"__hello__", 161),
-                    (b"__phello__", -161),
-                    (b"__phello__.spam", 161),
+        expected = [("__hello__", 161),
+                    ("__phello__", -161),
+                    ("__phello__.spam", 161),
                     ]
-        self.assertEqual(items, expected)
+        self.assertEqual(items, expected, "PyImport_FrozenModules example "
+            "in Doc/library/ctypes.rst may be out of date")
 
         self.assertEqual(sorted(bootstrap_seen), bootstrap_expected,
             "frozen bootstrap modules did not match PyImport_FrozenModules")

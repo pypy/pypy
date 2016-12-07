@@ -449,7 +449,7 @@ class KDFTests(unittest.TestCase):
 
     pbkdf2_results = {
         "sha1": [
-            # offical test vectors from RFC 6070
+            # official test vectors from RFC 6070
             (bytes.fromhex('0c60c80f961f0e71f3a9b524af6012062fe037a6'), None),
             (bytes.fromhex('ea6c014dc72d6f8ccd1ed92ace1d41f0d8de8957'), None),
             (bytes.fromhex('4b007901b765489abead49d926f721d065a429c1'), None),
@@ -513,6 +513,9 @@ class KDFTests(unittest.TestCase):
         self.assertRaises(ValueError, pbkdf2, 'sha1', b'pass', b'salt', 1, -1)
         with self.assertRaisesRegex(ValueError, 'unsupported hash type'):
             pbkdf2('unknown', b'pass', b'salt', 1)
+        out = pbkdf2(hash_name='sha1', password=b'password', salt=b'salt',
+            iterations=1, dklen=None)
+        self.assertEqual(out, self.pbkdf2_results['sha1'][0][0])
 
     def test_pbkdf2_hmac_py(self):
         self._test_pbkdf2_hmac(py_hashlib.pbkdf2_hmac)

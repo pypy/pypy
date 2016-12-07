@@ -840,6 +840,17 @@ class TestGateway:
         assert ('unexpected internal exception (please '
                 'report a bug): UnexpectedException') in err
 
+    def test_bare_raise_in_app_helper(self):
+        space = self.space
+        w = space.wrap
+        def app_g3(a):
+            try:
+                1 / a
+            except ZeroDivisionError:
+                raise
+        g3 = gateway.app2interp(app_g3)
+        space.raises_w(space.w_ZeroDivisionError, g3, space, w(0))
+
     def test_unwrap_spec_default_bytes(self):
         space = self.space
         @gateway.unwrap_spec(s='bufferstr')

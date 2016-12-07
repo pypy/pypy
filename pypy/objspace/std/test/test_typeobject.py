@@ -270,6 +270,37 @@ class AppTestTypeObject:
             assert 0, "exception not propagated"
             """
 
+    def test_mutable_bases_with_failing_mro_2(self): """
+        class E(Exception):
+            pass
+        class M(type):
+            def mro(cls):
+                if cls.__name__ == 'Sub' and A.__bases__ == (Base1,):
+                    A.__bases__ = (Base2,)
+                    raise E
+                return type.mro(cls)
+
+        class Base0:
+            pass
+        class Base1:
+            pass
+        class Base2:
+            pass
+        class A(Base0, metaclass=M):
+            pass
+        class Sub(A):
+            pass
+
+        try:
+            A.__bases__ = (Base1,)
+        except E:
+            assert A.__bases__ == (Base2,)
+            assert A.__mro__ == (A, Base2, object)
+            assert Sub.__mro__ == (Sub, A, Base2, object)
+        else:
+            assert 0
+        """
+
     def test_mutable_bases_catch_mro_conflict(self):
         class A(object):
             pass

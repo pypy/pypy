@@ -10,6 +10,7 @@ from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.gateway import (
     Unwrapper, WrappedDefault, interp2app, unwrap_spec)
 from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter import timeutils
 
 defaultevents = rpoll.POLLIN | rpoll.POLLOUT | rpoll.POLLPRI
 
@@ -49,8 +50,10 @@ class Poll(W_Root):
 
     @unwrap_spec(w_timeout=WrappedDefault(None))
     def poll(self, space, w_timeout):
+        """WARNING: the timeout parameter is in **milliseconds**!"""
         if space.is_w(w_timeout, space.w_None):
             timeout = -1
+            end_time = 0
         else:
             # we want to be compatible with cpython and also accept things
             # that can be casted to integer (I think)
@@ -61,19 +64,29 @@ class Poll(W_Root):
                 raise oefmt(space.w_TypeError,
                             "timeout must be an integer or None")
             timeout = space.c_int_w(w_timeout)
+            end_time = timeutils.monotonic(space) + timeout * 0.001
 
         if self.running:
             raise oefmt(space.w_RuntimeError, "concurrent poll() invocation")
-        self.running = True
-        try:
-            retval = rpoll.poll(self.fddict, timeout)
-        except rpoll.PollError as e:
-            message = e.get_msg()
-            raise OperationError(space.w_OSError,
-                                 space.newtuple([space.wrap(e.errno),
-                                                 space.wrap(message)]))
-        finally:
-            self.running = False
+        while True:
+            self.running = True
+            try:
+                retval = rpoll.poll(self.fddict, timeout)
+            except rpoll.PollError as e:
+                if e.errno == errno.EINTR:
+                    space.getexecutioncontext().checksignals()
+                    timeout = int((end_time - timeutils.monotonic(space))
+                                  * 1000.0 + 0.999)   # round up
+                    if timeout < 0:
+                        timeout = 0
+                    continue
+                message = e.get_msg()
+                raise OperationError(space.w_OSError,
+                                     space.newtuple([space.wrap(e.errno),
+                                                     space.wrap(message)]))
+            finally:
+                self.running = False
+            break
 
         retval_w = []
         for fd, revents in retval:
@@ -112,7 +125,7 @@ def _unbuild_fd_set(space, list_w, fdlist, ll_list, reslist_w):
 
 
 def _call_select(space, iwtd_w, owtd_w, ewtd_w,
-                 ll_inl, ll_outl, ll_errl, ll_timeval):
+                 ll_inl, ll_outl, ll_errl, ll_timeval, timeout):
     fdlistin = fdlistout = fdlisterr = None
     nfds = -1
     if ll_inl:
@@ -122,13 +135,32 @@ def _call_select(space, iwtd_w, owtd_w, ewtd_w,
     if ll_errl:
         fdlisterr, nfds = _build_fd_set(space, ewtd_w, ll_errl, nfds)
 
-    res = _c.select(nfds + 1, ll_inl, ll_outl, ll_errl, ll_timeval)
+    if ll_timeval:
+        end_time = timeutils.monotonic(space) + timeout
+    else:
+        end_time = 0.0
 
-    if res < 0:
-        errno = _c.geterrno()
-        msg = _c.socket_strerror_str(errno)
-        raise OperationError(space.w_OSError, space.newtuple([
-            space.wrap(errno), space.wrap(msg)]))
+    while True:
+        if ll_timeval:
+            i = int(timeout)
+            rffi.setintfield(ll_timeval, 'c_tv_sec', i)
+            rffi.setintfield(ll_timeval, 'c_tv_usec', int((timeout-i)*1000000))
+
+        res = _c.select(nfds + 1, ll_inl, ll_outl, ll_errl, ll_timeval)
+
+        if res >= 0:
+            break     # normal path
+        err = _c.geterrno()
+        if err != errno.EINTR:
+            msg = _c.socket_strerror_str(err)
+            raise OperationError(space.w_OSError, space.newtuple([
+                space.wrap(err), space.wrap(msg)]))
+        # got EINTR, automatic retry
+        space.getexecutioncontext().checksignals()
+        if timeout > 0.0:
+            timeout = end_time - timeutils.monotonic(space)
+            if timeout < 0.0:
+                timeout = 0.0
 
     resin_w = []
     resout_w = []
@@ -193,15 +225,12 @@ On Windows, only sockets are supported; on Unix, all file descriptors.
             ll_errl = lltype.malloc(_c.fd_set.TO, flavor='raw')
         if timeout >= 0.0:
             ll_timeval = rffi.make(_c.timeval)
-            i = int(timeout)
-            rffi.setintfield(ll_timeval, 'c_tv_sec', i)
-            rffi.setintfield(ll_timeval, 'c_tv_usec', int((timeout-i)*1000000))
 
         # Call this as a separate helper to avoid a large piece of code
         # in try:finally:.  Needed for calling further _always_inline_
         # helpers like _build_fd_set().
         return _call_select(space, iwtd_w, owtd_w, ewtd_w,
-                            ll_inl, ll_outl, ll_errl, ll_timeval)
+                            ll_inl, ll_outl, ll_errl, ll_timeval, timeout)
     finally:
         if ll_timeval:
             lltype.free(ll_timeval, flavor='raw')

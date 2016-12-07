@@ -682,12 +682,11 @@ _static_opcode_stack_effects = {
     ops.JUMP_IF_FALSE_OR_POP: 0,
     ops.POP_JUMP_IF_TRUE: -1,
     ops.POP_JUMP_IF_FALSE: -1,
-    # TODO
     ops.JUMP_IF_NOT_DEBUG: 0,
 
     # TODO
     ops.BUILD_LIST_FROM_ARG: 1,
-    # TODO
+
     ops.LOAD_CLASSDEREF: 1,
 }
 

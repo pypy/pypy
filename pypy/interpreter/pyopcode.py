@@ -348,6 +348,8 @@ class __extend__(pyframe.PyFrame):
                 self.LOAD_CONST(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_DEREF.index:
                 self.LOAD_DEREF(oparg, next_instr)
+            elif opcode == opcodedesc.LOAD_CLASSDEREF.index:
+                self.LOAD_CLASSDEREF(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_FAST.index:
                 self.LOAD_FAST(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_GLOBAL.index:
@@ -521,6 +523,18 @@ class __extend__(pyframe.PyFrame):
         else:
             self.pushvalue(w_value)
 
+    def LOAD_CLASSDEREF(self, varindex, next_instr):
+        # like LOAD_DEREF but used in class bodies
+        space = self.space
+        i = varindex - len(self.pycode.co_cellvars)
+        assert i >= 0
+        name = self.pycode.co_freevars[i]
+        w_value = space.finditem(self.debugdata.w_locals, space.wrap(name))
+        if w_value is None:
+            self.LOAD_DEREF(varindex, next_instr)
+        else:
+            self.pushvalue(w_value)
+
     def STORE_DEREF(self, varindex, next_instr):
         # nested scopes: access a variable through its cell object
         w_newvalue = self.popvalue()
@@ -685,7 +699,10 @@ class __extend__(pyframe.PyFrame):
         if nbargs > 2:
             raise BytecodeCorruption("bad RAISE_VARARGS oparg")
         if nbargs == 0:
-            last_operr = self.space.getexecutioncontext().sys_exc_info()
+            if not self.hide():
+                last_operr = self.space.getexecutioncontext().sys_exc_info()
+            else:
+                last_operr = self.getorcreatedebug().hidden_operationerr
             if last_operr is None:
                 raise oefmt(space.w_RuntimeError,
                             "No active exception to reraise")
@@ -759,6 +776,10 @@ class __extend__(pyframe.PyFrame):
         if operationerr is not None:   # otherwise, don't change sys_exc_info
             if not self.hide():
                 ec.set_sys_exc_info(operationerr)
+            else:
+                # for hidden frames, a more limited solution should be
+                # enough: store away the exception on the frame
+                self.getorcreatedebug().hidden_operationerr = operationerr
 
     def end_finally(self):
         # unlike CPython, there are two statically distinct cases: the
@@ -1362,9 +1383,10 @@ class __extend__(pyframe.PyFrame):
     @jit.unroll_safe
     def BUILD_SET(self, itemcount, next_instr):
         w_set = self.space.newset()
-        for i in range(itemcount):
-            w_item = self.popvalue()
+        for i in range(itemcount-1, -1, -1):
+            w_item = self.peekvalue(i)
             self.space.call_method(w_set, 'add', w_item)
+        self.popvalues(itemcount)
         self.pushvalue(w_set)
 
     @jit.unroll_safe

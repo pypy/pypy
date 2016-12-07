@@ -233,25 +233,25 @@ Make sure the raised errors are right for keyword argument unpackings
 
 Overridden parameters
 
-    >>> f(x=5, **{'x': 3}, y=2)
+    >>> f(x=5, **{'x': 3}, y=2)     # doctest:+ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: f() got multiple values for keyword argument 'x'
+    TypeError: ...got multiple values for keyword argument 'x'
 
-    >>> f(**{'x': 3}, x=5, y=2)
+    >>> f(**{'x': 3}, x=5, y=2)     # doctest:+ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: f() got multiple values for keyword argument 'x'
+    TypeError: ...got multiple values for keyword argument 'x'
 
-    >>> f(**{'x': 3}, **{'x': 5}, y=2)
+    >>> f(**{'x': 3}, **{'x': 5}, y=2)     # doctest:+ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: f() got multiple values for keyword argument 'x'
+    TypeError: ...got multiple values for keyword argument 'x'
 
-    >>> f(**{1: 3}, **{1: 5})
+    >>> f(**{1: 3}, **{1: 5})     # doctest:+ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: f() keywords must be strings
+    TypeError: ...keywords must be strings...
 
 Unpacking non-sequence
 

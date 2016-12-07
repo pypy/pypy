@@ -90,7 +90,7 @@ class AppTestItertools:
 
     def test_repeat_len(self):
         import itertools
-        import operator
+        import _operator as operator
 
         r = itertools.repeat('a', 15)
         next(r)
@@ -329,7 +329,8 @@ class AppTestItertools:
             assert next(it) == x
 
     def test_starmap(self):
-        import itertools, operator
+        import itertools
+        import _operator as operator
 
         it = itertools.starmap(operator.add, [])
         raises(StopIteration, next, it)
@@ -1070,7 +1071,7 @@ class AppTestItertools32:
         from itertools import accumulate
         from decimal import Decimal
         from fractions import Fraction
-        import operator
+        import _operator as operator
         expected = [0, 1, 3, 6, 10, 15, 21, 28, 36, 45]
         # one positional arg
         assert list(accumulate(range(10))) == expected
@@ -1105,3 +1106,14 @@ class AppTestItertools32:
         a = accumulate(it)
         a.__setstate__(20)
         assert a.__reduce__() == (accumulate, (it, None), 20)
+
+    def test_accumulate_reduce_corner_case(self):
+        from itertools import accumulate
+        import _operator as operator
+        it = iter([None, None, None])
+        a = accumulate(it, operator.is_)
+        next(a)
+        x1, x2 = a.__reduce__()
+        b = x1(*x2)
+        res = list(b)
+        assert res == [True, False]

@@ -1127,10 +1127,20 @@ class TestCompiler:
         source = """if 1:
         class X:
            global __class__
-           def f(self):
-               super()
         """
         py.test.raises(SyntaxError, self.simple_test, source, None, None)
+        # XXX this raises "'global __class__' inside a class statement
+        # is not implemented in PyPy".  The reason it is not is that it
+        # seems we need to refactor some things to implement it exactly
+        # like CPython, and I seriously don't think there is a point
+        #
+        # Another case which so far works on CPython but not on PyPy:
+        #class X:
+        #    __class__ = 42
+        #    def f(self):
+        #        return __class__
+        #assert X.__dict__['__class__'] == 42
+        #assert X().f() is X
 
     def test_error_message_1(self):
         source = """if 1:
@@ -1140,6 +1150,17 @@ class TestCompiler:
         e = py.test.raises(SyntaxError, self.simple_test, source, None, None)
         assert e.value.msg == (
             "'await' expressions in comprehensions are not supported")
+
+    def test_load_classderef(self):
+        source = """if 1:
+        def f():
+            x = 42
+            class X:
+                locals()["x"] = 43
+                y = x
+            return X.y
+        """
+        yield self.st, source, "f()", 43
 
 
 class AppTestCompiler:

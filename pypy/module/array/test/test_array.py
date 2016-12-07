@@ -227,6 +227,19 @@ class AppTestArray(object):
             raises(EOFError, a.fromfile, myfile(b'\x01', 2 + i), 2)
             assert len(a) == 1 and a[0] == 257
 
+    def test_fromfile_no_warning(self):
+        import warnings
+        # check that fromfile defers to frombytes, not fromstring
+        class FakeF(object):
+            def read(self, n):
+                return b"a" * n
+        a = self.array('b')
+        with warnings.catch_warnings(record=True) as w:
+            # Cause all warnings to always be triggered.
+            warnings.simplefilter("always")
+            a.fromfile(FakeF(), 4)
+            assert len(w) == 0
+
     def test_fromlist(self):
         a = self.array('b')
         raises(OverflowError, a.fromlist, [1, 2, 400])

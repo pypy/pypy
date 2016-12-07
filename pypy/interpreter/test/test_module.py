@@ -181,7 +181,7 @@ class AppTest_ModuleObject:
 
         assert sys.__package__ == ''
         assert os.__package__ == ''
-        assert not hasattr(type(sys)('foo'), '__package__')
+        assert type(sys)('foo').__package__ is None
 
     def test_name_nonascii(self):
         import sys
@@ -206,3 +206,12 @@ class AppTest_ModuleObject:
     def test_weakrefable(self):
         import weakref
         weakref.ref(weakref)
+
+    def test_all_dict_content(self):
+        import sys
+        m = type(sys)('foo')
+        assert m.__dict__ == {'__name__': 'foo',
+                              '__doc__': None,
+                              '__package__': None,
+                              '__loader__': None,
+                              '__spec__': None}

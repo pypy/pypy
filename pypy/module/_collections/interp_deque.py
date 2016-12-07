@@ -525,7 +525,9 @@ app = gateway.applevel("""
         'The app-level part of repr().'
         deque_id = id(d)
         if deque_id in currently_in_repr:
-            listrepr = '[...]'
+            return '[...]'   # strange because it's a deque and this
+                             # strongly suggests it's a list instead,
+                             # but confirmed behavior from python-dev
         else:
             currently_in_repr[deque_id] = 1
             try:

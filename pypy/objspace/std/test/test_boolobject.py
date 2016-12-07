@@ -84,3 +84,7 @@ class AppTestAppBoolTest:
             def __bool__(self):
                 return 1
         raises(TypeError, bool, Spam())
+
+    def test_from_bytes(self):
+        assert bool.from_bytes(b"", 'little') is False
+        assert bool.from_bytes(b"dasijldjs" * 157, 'little') is True

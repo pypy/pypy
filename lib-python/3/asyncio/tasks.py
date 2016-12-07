@@ -251,7 +251,13 @@ class Task(futures.Future):
         else:
             if isinstance(result, futures.Future):
                 # Yielded Future must come from Future.__iter__().
-                if result._blocking:
+                if result._loop is not self._loop:
+                    self._loop.call_soon(
+                        self._step,
+                        RuntimeError(
+                            'Task {!r} got Future {!r} attached to a '
+                            'different loop'.format(self, result)))
+                elif result._blocking:
                     result._blocking = False
                     result.add_done_callback(self._wakeup)
                     self._fut_waiter = result
@@ -366,7 +372,7 @@ def wait_for(fut, timeout, *, loop=None):
     if timeout is None:
         return (yield from fut)
 
-    waiter = futures.Future(loop=loop)
+    waiter = loop.create_future()
     timeout_handle = loop.call_later(timeout, _release_waiter, waiter)
     cb = functools.partial(_release_waiter, waiter)
 
@@ -394,12 +400,12 @@ def wait_for(fut, timeout, *, loop=None):
 
 @coroutine
 def _wait(fs, timeout, return_when, loop):
-    """Internal helper for wait() and _wait_for().
+    """Internal helper for wait() and wait_for().
 
     The fs argument must be a collection of Futures.
     """
     assert fs, 'Set of Futures is empty.'
-    waiter = futures.Future(loop=loop)
+    waiter = loop.create_future()
     timeout_handle = None
     if timeout is not None:
         timeout_handle = loop.call_later(timeout, _release_waiter, waiter)
@@ -500,7 +506,9 @@ def sleep(delay, result=None, *, loop=None):
         yield
         return result
 
-    future = futures.Future(loop=loop)
+    if loop is None:
+        loop = events.get_event_loop()
+    future = loop.create_future()
     h = future._loop.call_later(delay,
                                 futures._set_result_unless_cancelled,
                                 future, result)
@@ -597,7 +605,9 @@ def gather(*coros_or_futures, loop=None, return_exceptions=False):
     be cancelled.)
     """
     if not coros_or_futures:
-        outer = futures.Future(loop=loop)
+        if loop is None:
+            loop = events.get_event_loop()
+        outer = loop.create_future()
         outer.set_result([])
         return outer
 
@@ -685,7 +695,7 @@ def shield(arg, *, loop=None):
         # Shortcut.
         return inner
     loop = inner._loop
-    outer = futures.Future(loop=loop)
+    outer = loop.create_future()
 
     def _done_callback(inner):
         if outer.cancelled():

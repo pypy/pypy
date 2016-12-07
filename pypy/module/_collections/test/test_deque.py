@@ -243,8 +243,9 @@ class AppTestBasic:
         d = deque(range(20))
         e = eval(repr(d))
         assert d == e
+        d = deque()
         d.append(d)
-        assert '...' in repr(d)
+        assert repr(d) == "deque([[...]])"
 
     def test_hash(self):
         from _collections import deque

@@ -243,6 +243,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 op = name_ops_fast(ctx)
         elif scope == symtable.SCOPE_FREE:
             op = name_ops_deref(ctx)
+            if op == ops.LOAD_DEREF and isinstance(self, ClassCodeGenerator):
+                op = ops.LOAD_CLASSDEREF
             container = self.free_vars
         elif scope == symtable.SCOPE_CELL:
             op = name_ops_deref(ctx)
@@ -343,7 +345,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def _visit_arg_annotation(self, name, ann, names):
         if ann:
             ann.walkabout(self)
-            names.append(name)
+            names.append(self.scope.mangle(name))
 
     def _visit_arg_annotations(self, args, names):
         if args:

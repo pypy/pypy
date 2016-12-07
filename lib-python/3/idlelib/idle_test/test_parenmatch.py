@@ -1,10 +1,13 @@
-"""Test idlelib.ParenMatch."""
-# This must currently be a gui test because ParenMatch methods use
-# several text methods not defined on idlelib.idle_test.mock_tk.Text.
+'''Test idlelib.ParenMatch.
+
+This must currently be a gui test because ParenMatch methods use
+several text methods not defined on idlelib.idle_test.mock_tk.Text.
+'''
+from test.support import requires
+requires('gui')
 
 import unittest
 from unittest.mock import Mock
-from test.support import requires
 from tkinter import Tk, Text
 from idlelib.ParenMatch import ParenMatch
 
@@ -20,7 +23,6 @@ class ParenMatchTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        requires('gui')
         cls.root = Tk()
         cls.text = Text(cls.root)
         cls.editwin = DummyEditwin(cls.text)
@@ -29,6 +31,7 @@ class ParenMatchTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         del cls.text, cls.editwin
+        cls.root.update_idletasks()
         cls.root.destroy()
         del cls.root
 

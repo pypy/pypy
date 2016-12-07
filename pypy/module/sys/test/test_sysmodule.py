@@ -433,6 +433,15 @@ class AppTestSysModulePortedFromCPython:
             sys.setcheckinterval(n)
             assert sys.getcheckinterval() == n
 
+    def test_setswitchinterval(self):
+        import sys
+        raises(TypeError, sys.setswitchinterval)
+        orig = sys.getswitchinterval()
+        for n in 1e-6, 0.1, orig: # orig last to restore starting state
+            sys.setswitchinterval(n)
+            assert sys.getswitchinterval() == n
+        raises(ValueError, sys.setswitchinterval, 0.0)
+
     def test_recursionlimit(self):
         import sys
         raises(TypeError, sys.getrecursionlimit, 42)

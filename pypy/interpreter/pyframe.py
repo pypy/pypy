@@ -35,6 +35,7 @@ class FrameDebugData(object):
     f_lineno                 = 0      # current lineno for tracing
     is_being_profiled        = False
     w_locals                 = None
+    hidden_operationerr      = None
 
     def __init__(self, pycode):
         self.f_lineno = pycode.co_firstlineno
@@ -248,20 +249,30 @@ class PyFrame(W_Root):
         """Start this frame's execution."""
         if self._is_generator_or_coroutine():
             return self.initialize_as_generator(name, qualname)
-        elif we_are_translated():
-            return self.execute_frame()
         else:
             # untranslated: check that sys_exc_info is exactly
-            # restored after running any Python function
+            # restored after running any Python function.
+            # Translated: actually save and restore it, as an attempt to
+            # work around rare cases that can occur if RecursionError or
+            # MemoryError is raised at just the wrong place
             executioncontext = self.space.getexecutioncontext()
             exc_on_enter = executioncontext.sys_exc_info()
-            try:
-                w_res = self.execute_frame()
-            except OperationError:
-                assert exc_on_enter is executioncontext.sys_exc_info()
-                raise
-            assert exc_on_enter is executioncontext.sys_exc_info()
-            return w_res
+            if we_are_translated():
+                try:
+                    return self.execute_frame()
+                finally:
+                    executioncontext.set_sys_exc_info(exc_on_enter)
+            else:
+                # untranslated, we check consistency, but not in case of
+                # interp-level exceptions different than OperationError
+                # (e.g. a random failing test, or a pytest Skipped exc.)
+                try:
+                    w_res = self.execute_frame()
+                    assert exc_on_enter is executioncontext.sys_exc_info()
+                except OperationError:
+                    assert exc_on_enter is executioncontext.sys_exc_info()
+                    raise
+                return w_res
     run._always_inline_ = True
 
     def initialize_as_generator(self, name, qualname):
@@ -288,7 +299,7 @@ class PyFrame(W_Root):
                 raise oefmt(space.w_RuntimeError,
                             "coroutine wrapper %R attempted "
                             "to recursively wrap %R",
-                            w_wrapper, w_gen)
+                            w_wrapper, self)
             ec.in_coroutine_wrapper = True
             try:
                 w_gen = space.call_function(w_wrapper, w_gen)

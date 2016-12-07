@@ -374,6 +374,41 @@ def wrong3():
             ex.normalize_exception(space)
             assert ex.match(space, space.w_SyntaxError)
 
+    def test_no_warning_run(self):
+        space = self.space
+        w_mod = space.appexec((), '():\n import warnings\n return warnings\n') #sys.getmodule('warnings')
+        w_filterwarnings = space.getattr(w_mod, space.wrap('filterwarnings'))
+        filter_arg = Arguments(space, [ space.wrap('error') ], ["module"],
+                               [space.wrap("<tmp>")])
+        for code in ['''
+def testing():
+    __class__ = 0
+    def f():
+        nonlocal __class__
+        __class__ = 42
+    f()
+    return __class__
+''', '''
+class Y:
+    class X:
+        nonlocal __class__
+        __class__ = 42
+    assert locals()['__class__'] == 42
+    # ^^^ but at the same place, reading '__class__' gives a NameError
+    # in CPython 3.5.2.  Looks like a bug to me
+def testing():
+    return 42
+'''
+        ]:
+            space.call_args(w_filterwarnings, filter_arg)
+            pycode = self.compiler.compile(code, '<tmp>', 'exec', 0)
+            space.call_method(w_mod, 'resetwarnings')
+            w_d = space.newdict()
+            pycode.exec_code(space, w_d, w_d)
+            w_res = space.call_function(
+                space.getitem(w_d, space.wrap('testing')))
+            assert space.unwrap(w_res) == 42
+
     def test_firstlineno(self):
         snippet = str(py.code.Source(r'''
             def f(): "line 2"
@@ -771,6 +806,8 @@ class AppTestCompiler(object):
 
     def setup_class(cls):
         cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
+        cls.w_host_is_pypy = cls.space.wrap(
+            '__pypy__' in sys.builtin_module_names)
 
     def w_is_pypy(self):
         import sys
@@ -916,6 +953,48 @@ class AppTestCompiler(object):
             assert v.text ==  "print '\u5e74'\n"
         else:
             assert False, "Expected SyntaxError"
+
+    def test_invalid_utf8(self):
+        e = raises(SyntaxError, compile, b'\x80', "dummy", "exec")
+        assert str(e.value).startswith('Non-UTF-8 code')
+        assert 'but no encoding declared' in str(e.value)
+        e = raises(SyntaxError, compile, b'# coding: utf-8\n\x80',
+                   "dummy", "exec")
+        assert str(e.value).startswith('Non-UTF-8 code')
+        assert 'but no encoding declared' not in str(e.value)
+
+    def test_invalid_utf8_in_comments_or_strings(self):
+        import sys
+        compile(b"# coding: latin1\n#\xfd\n", "dummy", "exec")
+        raises(SyntaxError, compile, b"# coding: utf-8\n'\xfd'\n",
+               "dummy", "exec") #1
+        raises(SyntaxError, compile, b'# coding: utf-8\nx=5\nb"\xfd"\n',
+               "dummy", "exec") #2
+        # the following example still fails on CPython 3.5.2, skip if -A
+        if '__pypy__' in sys.builtin_module_names:
+            raises(SyntaxError, compile, b"# coding: utf-8\n#\xfd\n",
+                   "dummy", "exec") #3
+
+    def test_cpython_issues_24022_25388(self):
+        from _ast import PyCF_ACCEPT_NULL_BYTES
+        raises(SyntaxError, compile, b'0000\x00\n00000000000\n\x00\n\x9e\n',
+               "dummy", "exec", PyCF_ACCEPT_NULL_BYTES)
+        raises(SyntaxError, compile, b"#\x00\n#\xfd\n", "dummy", "exec",
+               PyCF_ACCEPT_NULL_BYTES)
+        raises(SyntaxError, compile, b"#\x00\nx=5#\xfd\n", "dummy", "exec",
+               PyCF_ACCEPT_NULL_BYTES)
+
+    def test_dict_and_set_literal_order(self):
+        x = 1
+        l1 = list({1:'a', 3:'b', 2:'c', 4:'d'})
+        l2 = list({1, 3, 2, 4})
+        l3 = list({x:'a', 3:'b', 2:'c', 4:'d'})
+        l4 = list({x, 3, 2, 4})
+        if not self.host_is_pypy:
+            # the full test relies on the host Python providing ordered dicts
+            assert set(l1) == set(l2) == set(l3) == set(l4) == {1, 3, 2, 4}
+        else:
+            assert l1 == l2 == l3 == l4 == [1, 3, 2, 4]
 
     def test_ast_equality(self):
         import _ast

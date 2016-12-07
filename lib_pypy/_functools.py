@@ -34,6 +34,7 @@ class partial(object):
     """
 
     __slots__ = ('_func', '_args', '_keywords', '__dict__')
+    __module__ = 'functools'   # instead of '_functools'
 
     def __init__(*args, **keywords):
         if len(args) < 2:
