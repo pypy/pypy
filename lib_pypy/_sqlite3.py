@@ -1205,6 +1205,8 @@ class Row(object):
     def __getitem__(self, item):
         if isinstance(item, (int, long)):
             return self.values[item]
+        elif isinstance(item, slice):
+            return self.values[item]
         else:
             item = item.lower()
             for idx, desc in enumerate(self.description):
