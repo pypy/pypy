@@ -556,7 +556,6 @@ class HTTPResponse(io.BufferedIOBase):
         try:
             while True:
                 chunk_left = self._get_chunk_left()
-                print("chunk_left", chunk_left)
                 if chunk_left is None:
                     break
                 value.append(self._safe_read(chunk_left))
@@ -606,7 +605,6 @@ class HTTPResponse(io.BufferedIOBase):
         s = []
         while amt > 0:
             chunk = self.fp.read(min(amt, MAXAMOUNT))
-            print("read chunk %d %d", len(chunk), min(amt, MAXAMOUNT))
             if not chunk:
                 raise IncompleteRead(b''.join(s), amt)
             s.append(chunk)
