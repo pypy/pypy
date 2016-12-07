@@ -177,18 +177,6 @@ def test_flavored_malloc_raw():
     fn = compile(f, [int])
     assert fn(1) == 2
 
-def test_flavored_malloc_stack():
-    class A(object):
-        _alloc_flavor_ = "stack"
-        def __init__(self, val):
-            self.val = val
-    def f(x):
-        a = A(x + 1)
-        result = a.val
-        return result
-    fn = compile(f, [int])
-    assert fn(1) == 2
-
 def test_gcref():
     if sys.platform == 'darwin':
         py.test.skip("'boehm' may crash")
