@@ -1067,6 +1067,10 @@ class AppTestPosix:
             posix.truncate(dest, 1)
             assert 1 == posix.stat(dest).st_size
 
+            # File does not exist
+            e = raises(OSError, posix.truncate, dest + '-DOESNT-EXIST', 0)
+            assert e.value.filename == dest + '-DOESNT-EXIST'
+
     try:
         os.getlogin()
     except (AttributeError, OSError):
