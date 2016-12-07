@@ -317,7 +317,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             # Load cell and free vars to pass on.
             for free in code.co_freevars:
                 free_scope = self.scope.lookup(free)
-                if free_scope == symtable.SCOPE_CELL:
+                if free_scope in (symtable.SCOPE_CELL,
+                                  symtable.SCOPE_CELL_CLASS):
                     index = self.cell_vars[free]
                 else:
                     index = self.free_vars[free]
@@ -1626,7 +1627,7 @@ class ClassCodeGenerator(PythonCodeGenerator):
         self._handle_body(cls.body)
         # return the (empty) __class__ cell
         scope = self.scope.lookup("__class__")
-        if scope == symtable.SCOPE_CELL:
+        if scope == symtable.SCOPE_CELL_CLASS:
             # Return the cell where to store __class__
             self.emit_op_arg(ops.LOAD_CLOSURE, self.cell_vars["__class__"])
         else:
