@@ -85,29 +85,29 @@ class _CDataMeta(type):
 
     def from_buffer(self, obj, offset=0):
         size = self._sizeofinstances()
-        buf = buffer(obj, offset, size)
-        if len(buf) < size:
+        buf = memoryview(obj)
+        if buf.nbytes < offset + size:
             raise ValueError(
                 "Buffer size too small (%d instead of at least %d bytes)"
-                % (len(buf) + offset, size + offset))
-        raw_addr = buf._pypy_raw_address()
+                % (buf.nbytes, offset + size))
+        raw_addr = buf._pypy_raw_address() + offset
         result = self.from_address(raw_addr)
         result._ensure_objects()['ffffffff'] = obj
         return result
 
     def from_buffer_copy(self, obj, offset=0):
         size = self._sizeofinstances()
-        buf = buffer(obj, offset, size)
-        if len(buf) < size:
+        buf = memoryview(obj)
+        if buf.nbytes < offset + size:
             raise ValueError(
                 "Buffer size too small (%d instead of at least %d bytes)"
-                % (len(buf) + offset, size + offset))
+                % (buf.nbytes, offset + size))
         result = self()
         dest = result._buffer.buffer
         try:
-            raw_addr = buf._pypy_raw_address()
+            raw_addr = buf._pypy_raw_address() + offset
         except ValueError:
-            _rawffi.rawstring2charp(dest, buf)
+            _rawffi.rawstring2charp(dest, buf, offset, size)
         else:
             from ctypes import memmove
             memmove(dest, raw_addr, size)

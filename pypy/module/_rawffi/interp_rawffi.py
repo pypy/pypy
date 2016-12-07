@@ -606,12 +606,14 @@ def wcharp2rawunicode(space, address, maxlength=-1):
     s = rffi.wcharpsize2unicode(rffi.cast(rffi.CWCHARP, address), maxlength)
     return space.wrap(s)
 
-@unwrap_spec(address=r_uint, newcontent='bufferstr')
-def rawstring2charp(space, address, newcontent):
+@unwrap_spec(address=r_uint, newcontent='bufferstr', offset=int, size=int)
+def rawstring2charp(space, address, newcontent, offset=0, size=-1):
     from rpython.rtyper.annlowlevel import llstr
     from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
     array = rffi.cast(rffi.CCHARP, address)
-    copy_string_to_raw(llstr(newcontent), array, 0, len(newcontent))
+    if size < 0:
+        size = len(newcontent) - offset
+    copy_string_to_raw(llstr(newcontent), array, offset, size)
 
 if _MS_WINDOWS:
     @unwrap_spec(code=int)
