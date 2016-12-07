@@ -115,8 +115,6 @@ class W_MemoryView(W_Root):
         return ''.join(self.copy_buffer())
 
     def copy_buffer(self):
-        buf = self.buf
-        n_bytes = buf.getlength()
         data = []
         self._copy_rec(0, data, 0)
         return data
@@ -130,7 +128,6 @@ class W_MemoryView(W_Root):
             self._copy_base(data,off)
             return
 
-        # TODO add a test that has at least 2 dims
         for i in range(shape):
             self._copy_rec(idim+1,data,off)
             off += strides[idim]
@@ -140,18 +137,21 @@ class W_MemoryView(W_Root):
         step = shapes[0]
         strides = self.getstrides()
         itemsize = self.getitemsize()
+        bytesize = self.getlength()
+        copiedbytes = 0
         for i in range(step):
             bytes = self.buf.getslice(off, off+itemsize, 1, itemsize)
             data.append(bytes)
+            copiedbytes += len(bytes)
             off += strides[0]
             # do notcopy data if the sub buffer is out of bounds
-            if off >= self.buf.getlength():
+            if copiedbytes >= bytesize:
                 break
 
     def getlength(self):
         if self.length != -1:
-            return self.length // self.itemsize
-        return self.buf.getlength() // self.itemsize
+            return self.length
+        return self.buf.getlength()
 
     def descr_tobytes(self, space):
         self._check_released(space)
@@ -167,13 +167,20 @@ class W_MemoryView(W_Root):
             raise NotImplementedError
         elif dim == 1:
             itemsize = self.getitemsize()
-            return self._tolist(space, buf, buf.getlength() // itemsize, fmt)
+            return self._tolist(space, buf, self.getlength(), itemsize, fmt,
+                                self.getstrides())
         else:
             return self._tolist_rec(space, buf, 0, 0, fmt)
 
-    def _tolist(self, space, buf, count, fmt):
+    def _tolist(self, space, buf, bytecount, itemsize, fmt, strides=None):
         # TODO: this probably isn't very fast
+        count = bytecount // itemsize
         fmtiter = UnpackFormatIterator(space, buf)
+        # patch the length, necessary buffer might have offset
+        # which leads to wrong length calculation if e.g. the
+        # memoryview is reversed
+        fmtiter.length = bytecount
+        fmtiter.strides = strides
         fmtiter.interpret(fmt * count)
         return space.newlist(fmtiter.result_w)
 
@@ -188,12 +195,13 @@ class W_MemoryView(W_Root):
         #
         if dim >= self.getndim():
             bytecount = (stride * dimshape)
-            count = bytecount // itemsize
-            return self._tolist(space, buf, count, fmt)
+            return self._tolist(space, buf, bytecount, itemsize, fmt, [stride])
         items = [None] * dimshape
 
+        orig_buf = buf
         for i in range(dimshape):
-            item = self._tolist_rec(space, SubBuffer(buf, start, stride), start, idim+1, fmt)
+            buf = SubBuffer(orig_buf, start, stride)
+            item = self._tolist_rec(space, buf, start, idim+1, fmt)
             items[i] = item
             start += stride
 
@@ -212,23 +220,21 @@ class W_MemoryView(W_Root):
         while dim < length:
             w_obj = w_tuple.getitem(space, dim)
             index = space.getindex_w(w_obj, space.w_IndexError)
-            start = self.lookup_dimension(space, start, dim, index)
+            shape = self.buf.getshape()
+            strides = self.buf.getstrides()
+            start = self.lookup_dimension(space, shape, strides, start, dim, index)
             dim += 1
         return start
 
-    def lookup_dimension(self, space, start, dim, index):
-        view = self.buf
-        shape = view.getshape()
-        strides = view.getstrides()
+    def lookup_dimension(self, space, shape, strides, start, dim, index):
         nitems = shape[dim]
         if index < 0:
             index += nitems
         if index < 0 or index >= nitems:
             raise oefmt(space.w_IndexError,
                 "index out of bounds on dimension %d", dim+1)
-        start += strides[dim] * index
         # TODO suboffsets?
-        return start
+        return start + strides[dim] * index
 
     def _getitem_tuple_indexed(self, space, w_index):
         view = self.buf
@@ -253,50 +259,65 @@ class W_MemoryView(W_Root):
         fmtiter.interpret(fmt)
         return fmtiter.result_w[0]
 
+    def _decode_index(self, space, w_index, is_slice):
+        shape = self.getshape()
+        if len(shape) == 0:
+            count = 1
+        else:
+            count = shape[0]
+        return space.decode_index4(w_index, count)
 
     def descr_getitem(self, space, w_index):
         self._check_released(space)
 
         if space.isinstance_w(w_index, space.w_tuple):
             return self._getitem_tuple_indexed(space, w_index)
-
-        start, stop, step, size = space.decode_index4(w_index, self.getlength())
+        is_slice = space.isinstance_w(w_index, space.w_slice)
+        start, stop, step, slicelength = self._decode_index(space, w_index, is_slice)
         # ^^^ for a non-slice index, this returns (index, 0, 0, 1)
         if step == 0:  # index only
             itemsize = self.getitemsize()
-            if itemsize == 1:
-                ch = self.buf.getitem(start)
-                return space.newint(ord(ch))
+            dim = self.getndim()
+            if dim == 0:
+                raise oefmt(space.w_TypeError, "invalid indexing of 0-dim memory")
+            elif dim == 1:
+                shape = self.getshape()
+                strides = self.getstrides()
+                idx = self.lookup_dimension(space, shape, strides, 0, 0, start)
+                if itemsize == 1:
+                    ch = self.buf.getitem(idx)
+                    return space.newint(ord(ch))
+                else:
+                    # TODO: this probably isn't very fast
+                    buf = SubBuffer(self.buf, idx, itemsize)
+                    fmtiter = UnpackFormatIterator(space, buf)
+                    fmtiter.length = buf.getlength()
+                    fmtiter.interpret(self.format)
+                    return fmtiter.result_w[0]
             else:
-                # TODO: this probably isn't very fast
-                buf = SubBuffer(self.buf, start*itemsize, itemsize)
-                fmtiter = UnpackFormatIterator(space, buf)
-                fmtiter.interpret(self.format)
-                return fmtiter.result_w[0]
-        elif step == 1:
+                raise oefmt(space.w_NotImplementedError, "multi-dimensional sub-views are not implemented")
+        elif is_slice:
             mv = W_MemoryView.copy(self)
-            mv.slice(start, step, size)
+            mv.init_slice(start, stop, step, slicelength, 0)
+            mv.init_len()
             mv._init_flags()
             return mv
+        # multi index is handled at the top of this function
         else:
-            mv = W_MemoryView.copy(self)
-            mv.slice(start, step, size)
-            mv.length = mv.bytecount_from_shape()
-            mv._init_flags()
-            return mv
+            raise TypeError("memoryview: invalid slice key")
 
-    def slice(self, start, step, size):
+    def init_slice(self, start, stop, step, slicelength, dim):
         # modifies the buffer, shape and stride to allow step to be > 1
-        # TODO subbuffer
-        strides = self.getstrides()[:]
-        shape = self.getshape()[:]
-        itemsize = self.getitemsize()
-        dim = 0
-        self.buf = SubBuffer(self.buf, strides[dim] * start, size*step*itemsize)
-        shape[dim] = size
+        self.strides = strides = self.getstrides()[:]
+        self.shape = shape = self.getshape()[:]
+        bytesize = self.getitemsize() * slicelength
+        self.buf = SubBuffer(self.buf, strides[dim] * start, bytesize)
+        shape[dim] = slicelength
         strides[dim] = strides[dim] * step
-        self.strides = strides
-        self.shape = shape
+        # TODO subbuffer
+
+    def init_len(self):
+        self.length = self.bytecount_from_shape()
 
     def bytecount_from_shape(self):
         dim = self.getndim()
@@ -307,10 +328,9 @@ class W_MemoryView(W_Root):
         return length * self.getitemsize()
 
     @staticmethod
-    def copy(view, buf=None):
+    def copy(view):
         # TODO suboffsets
-        if buf == None:
-            buf = view.buf
+        buf = view.buf
         return W_MemoryView(buf, view.getformat(), view.getitemsize(),
                             view.getndim(), view.getshape()[:], view.getstrides()[:])
 
@@ -321,11 +341,16 @@ class W_MemoryView(W_Root):
         if space.isinstance_w(w_index, space.w_tuple):
             raise oefmt(space.w_NotImplementedError, "")
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
+        is_slice = space.isinstance_w(w_index, space.w_slice)
+        start, stop, step, slicelength = self._decode_index(space, w_index, is_slice)
         itemsize = self.getitemsize()
         if step == 0:  # index only
+            shape = self.getshape()
+            strides = self.getstrides()
+            idx = self.lookup_dimension(space, shape, strides, 0, 0, start)
             if itemsize == 1:
                 ch = getbytevalue(space, w_obj)
-                self.buf.setitem(start, ch)
+                self.buf.setitem(idx, ch)
             else:
                 # TODO: this probably isn't very fast
                 fmtiter = PackFormatIterator(space, [w_obj], itemsize)
@@ -335,10 +360,10 @@ class W_MemoryView(W_Root):
                     raise oefmt(space.w_TypeError,
                                 "memoryview: invalid type for format '%s'",
                                 self.format)
-                self.buf.setslice(start * itemsize, fmtiter.result.build())
+                self.buf.setslice(idx, fmtiter.result.build())
         elif step == 1:
             value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
-            if value.getlength() != size * itemsize:
+            if value.getlength() != slicelength * itemsize:
                 raise oefmt(space.w_ValueError,
                             "cannot modify size of memoryview object")
             self.buf.setslice(start * itemsize, value.as_str())
@@ -354,11 +379,11 @@ class W_MemoryView(W_Root):
             src = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
             dst_strides = self.getstrides()
             dim = 0
-            dst = SubBuffer(self.buf, start * itemsize, size * itemsize)
+            dst = SubBuffer(self.buf, start * itemsize, slicelength * itemsize)
             src_stride0 = dst_strides[dim]
 
             off = 0
-            src_shape0 = size
+            src_shape0 = slicelength
             src_stride0 = src.getstrides()[0]
             if isinstance(w_obj, W_MemoryView):
                 src_stride0 = w_obj.getstrides()[0]
@@ -373,11 +398,15 @@ class W_MemoryView(W_Root):
 
     def descr_len(self, space):
         self._check_released(space)
-        return space.wrap(self.getlength())
+        dim = self.getndim()
+        if dim == 0:
+            return space.newint(1)
+        shape = self.getshape()
+        return space.wrap(shape[0])
 
     def w_get_nbytes(self, space):
         self._check_released(space)
-        return space.wrap(self.buf.getlength())
+        return space.wrap(self.getlength())
 
     def w_get_format(self, space):
         self._check_released(space)
@@ -385,11 +414,11 @@ class W_MemoryView(W_Root):
 
     def w_get_itemsize(self, space):
         self._check_released(space)
-        return space.wrap(self.itemsize)
+        return space.wrap(self.getitemsize())
 
     def w_get_ndim(self, space):
         self._check_released(space)
-        return space.wrap(self.buf.getndim())
+        return space.wrap(self.getndim())
 
     def w_is_readonly(self, space):
         self._check_released(space)
@@ -397,13 +426,13 @@ class W_MemoryView(W_Root):
 
     def w_get_shape(self, space):
         self._check_released(space)
-        if self.buf.getndim() == 0:
+        if self.getndim() == 0:
             return space.w_None
         return space.newtuple([space.wrap(x) for x in self.getshape()])
 
     def w_get_strides(self, space):
         self._check_released(space)
-        if self.buf.getndim() == 0:
+        if self.getndim() == 0:
             return space.w_None
         return space.newtuple([space.wrap(x) for x in self.getstrides()])
 
@@ -615,8 +644,6 @@ class W_MemoryView(W_Root):
         return None
 
     def _cast_to_ND(self, space, shape, ndim):
-        buf = self.buf
-
         self.ndim = ndim
         length = self.itemsize
         if ndim == 0:

@@ -16,7 +16,8 @@ import unittest
 import warnings
 from operator import neg
 from test.support import (
-    TESTFN, unlink,  run_unittest, check_warnings, check_impl_detail)
+    TESTFN, unlink,  run_unittest, check_warnings, check_impl_detail,
+    cpython_only)
 from test.support.script_helper import assert_python_ok
 try:
     import pty, signal
@@ -1640,6 +1641,8 @@ class TestSorted(unittest.TestCase):
 
 class ShutdownTest(unittest.TestCase):
 
+    # PyPy doesn't do a gc.collect() at shutdown
+    @cpython_only
     def test_cleanup(self):
         # Issue #19255: builtins are still available at shutdown
         code = """if 1:
