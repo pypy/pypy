@@ -327,6 +327,8 @@ def add_operators(space, dict_w, pto):
         w_obj = W_PyCWrapperObject(space, pto, method_name, wrapper_func,
                 wrapper_func_kwds, doc, func_voidp, offset=offset)
         dict_w[method_name] = space.wrap(w_obj)
+    if pto.c_tp_doc:
+        dict_w['__doc__'] = space.newbytes(rffi.charp2str(pto.c_tp_doc))
     if pto.c_tp_new:
         add_tp_new_wrapper(space, dict_w, pto)
 
