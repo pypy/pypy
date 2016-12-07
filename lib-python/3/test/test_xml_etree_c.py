@@ -11,6 +11,7 @@ cET_alias = import_fresh_module('xml.etree.cElementTree',
                                 fresh=['_elementtree', 'xml.etree'])
 
 
+@unittest.skipUnless(cET, 'requires _elementtree')
 class MiscTests(unittest.TestCase):
     # Issue #8651.
     @support.bigmemtest(size=support._2G + 100, memuse=1, dry_run=False)
