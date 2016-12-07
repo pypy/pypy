@@ -8,11 +8,14 @@
 #define OP_STACK_CURRENT(r)  r = (Signed)&r
 
 
-#define OP_RAW_MALLOC(size, r, restype)  {				\
-	r = (restype) malloc(size);				\
-	if (r != NULL) {						\
-	    COUNT_MALLOC;						\
-	}								\
+#define OP_RAW_MALLOC(size, zero, result)  {    \
+        if (zero)                               \
+            result = calloc(size, 1);           \
+        else                                    \
+            result = malloc(size);              \
+        if (result != NULL) {                   \
+            COUNT_MALLOC;                       \
+        }                                       \
     }
 
 #define OP_RAW_FREE(p, r) free(p); COUNT_FREE;
@@ -26,10 +29,6 @@
 #define alloca  _alloca
 #endif
 
-#define OP_STACK_MALLOC(size,r,restype)                                 \
-    r = (restype) alloca(size);                                         \
-    if (r != NULL) memset((void*) r, 0, size);
-    
 #define OP_RAW_MEMCOPY(x,y,size,r) memcpy(y,x,size);
 #define OP_RAW_MEMMOVE(x,y,size,r) memmove(y,x,size);
 
