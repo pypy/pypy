@@ -43,13 +43,13 @@ class AppTestMemoryView:
     def test_extended_slice(self):
         data = bytearray(b'abcefg')
         v = memoryview(data)
-        w = v[0:2:2]      # failing for now: NotImplementedError
+        w = v[0:2:2]
         assert len(w) == 1
         assert list(w) == [97]
         v[::2] = b'ABC'
         assert data == bytearray(eval("b'AbBeCg'"))
-        assert v[::2] == b'ABC'
-        assert v[::-2] == b'geb'
+        assert v[::2].tobytes() == b'ABC'
+        assert v[::-2].tobytes() == b'geb'
 
     def test_memoryview_attrs(self):
         v = memoryview(b"a"*100)
