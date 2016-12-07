@@ -23,12 +23,14 @@ class ControllerEntry(ExtRegistryEntry):
         return self._controller_()
 
     def specialize_call(self, hop, **kwds_i):
+        from rpython.rtyper.rcontrollerentry import rtypedelegate
         if hop.s_result == annmodel.s_ImpossibleValue:
             raise TyperError("object creation always raises: %s" % (
                 hop.spaceop,))
+        assert not kwds_i
         controller = hop.s_result.controller
-        return controller.rtype_new(hop, **kwds_i)
-
+        return rtypedelegate(controller.new, hop, revealargs=[],
+            revealresult=True)
 
 
 def controlled_instance_box(controller, obj):
@@ -72,45 +74,13 @@ class Controller(object):
         return controlled_instance_is_box(self, obj)
     is_box._annspecialcase_ = 'specialize:arg(0)'
 
-    def rtype_new(self, hop):
-        from rpython.rtyper.rcontrollerentry import rtypedelegate
-        return rtypedelegate(self.new, hop, revealargs=[], revealresult=True)
-
     def getattr(self, obj, attr):
         return getattr(self, 'get_' + attr)(obj)
     getattr._annspecialcase_ = 'specialize:arg(0, 2)'
 
-    def rtype_getattr(self, hop):
-        from rpython.rtyper.rcontrollerentry import rtypedelegate
-        return rtypedelegate(self.getattr, hop)
-
     def setattr(self, obj, attr, value):
         return getattr(self, 'set_' + attr)(obj, value)
     setattr._annspecialcase_ = 'specialize:arg(0, 2)'
-
-    def rtype_setattr(self, hop):
-        from rpython.rtyper.rcontrollerentry import rtypedelegate
-        return rtypedelegate(self.setattr, hop)
-
-    def rtype_getitem(self, hop):
-        from rpython.rtyper.rcontrollerentry import rtypedelegate
-        return rtypedelegate(self.getitem, hop)
-
-    def rtype_setitem(self, hop):
-        from rpython.rtyper.rcontrollerentry import rtypedelegate
-        return rtypedelegate(self.setitem, hop)
-
-    def rtype_delitem(self, hop):
-        from rpython.rtyper.rcontrollerentry import rtypedelegate
-        return rtypedelegate(self.delitem, hop)
-
-    def rtype_bool(self, hop):
-        from rpython.rtyper.rcontrollerentry import rtypedelegate
-        return rtypedelegate(self.bool, hop)
-
-    def rtype_call(self, hop):
-        from rpython.rtyper.rcontrollerentry import rtypedelegate
-        return rtypedelegate(self.call, hop)
 
 
 def delegate(boundmethod, *args_s):

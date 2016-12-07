@@ -24,28 +24,28 @@ class ControlledInstanceRepr(Repr):
         return self.s_real_obj, self.r_real_obj
 
     def rtype_getattr(self, hop):
-        return self.controller.rtype_getattr(hop)
+        return rtypedelegate(self.controller.getattr, hop)
 
     def rtype_setattr(self, hop):
-        return self.controller.rtype_setattr(hop)
+        return rtypedelegate(self.controller.setattr, hop)
 
     def rtype_bool(self, hop):
-        return self.controller.rtype_bool(hop)
+        return rtypedelegate(self.controller.bool, hop)
 
     def rtype_simple_call(self, hop):
-        return self.controller.rtype_call(hop)
+        return rtypedelegate(self.controller.call, hop)
 
 
 class __extend__(pairtype(ControlledInstanceRepr, Repr)):
 
     def rtype_getitem((r_controlled, r_key), hop):
-        return r_controlled.controller.rtype_getitem(hop)
+        return rtypedelegate(r_controlled.controller.getitem, hop)
 
     def rtype_setitem((r_controlled, r_key), hop):
-        return r_controlled.controller.rtype_setitem(hop)
+        return rtypedelegate(r_controlled.controller.setitem, hop)
 
     def rtype_delitem((r_controlled, r_key), hop):
-        return r_controlled.controller.rtype_delitem(hop)
+        return rtypedelegate(r_controlled.controller.delitem, hop)
 
 
 def rtypedelegate(callable, hop, revealargs=[0], revealresult=False):
