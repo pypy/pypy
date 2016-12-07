@@ -40,3 +40,8 @@ call this function" returning a result.
 Refactor FunctionDesc.specialize() and related code (RPython annotator).
 
 .. branch: raw-calloc
+
+.. branch: issue2446
+
+Assign ``tp_doc`` to the new TypeObject's type dictionary ``__doc__`` key
+so it will be picked up by app-level objects of that type
