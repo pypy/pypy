@@ -166,7 +166,7 @@ class W_TypeObject(W_Root):
                  overridetypedef=None, force_new_layout=False):
         self.space = space
         self.name = name
-        self.qualname = name.decode('utf-8')
+        self.qualname = None
         self.bases_w = bases_w
         self.dict_w = dict_w
         self.hasdict = False
@@ -1181,6 +1181,8 @@ def setup_user_defined_type(w_self, force_new_layout):
     w_qualname = w_self.dict_w.pop('__qualname__', None)
     if w_qualname is not None:
         w_self.qualname = w_self.space.unicode_w(w_qualname)
+    else:
+        w_self.qualname = w_self.getname(w_self.space)
 
     ensure_common_attributes(w_self)
     return layout
@@ -1189,6 +1191,7 @@ def setup_builtin_type(w_self, instancetypedef):
     w_self.hasdict = instancetypedef.hasdict
     w_self.weakrefable = instancetypedef.weakrefable
     w_self.w_doc = w_self.space.wrap(instancetypedef.doc)
+    w_self.qualname = w_self.getname(w_self.space)
     ensure_common_attributes(w_self)
     w_self.flag_heaptype = instancetypedef.heaptype
     #
