@@ -1057,6 +1057,14 @@ def copy_flags_from_bases(w_self, w_bestbase):
         w_self.weakrefable = w_self.weakrefable or w_base.weakrefable
     return hasoldstylebase
 
+def slot_w(space, w_name):
+    from pypy.objspace.std.unicodeobject import _isidentifier
+    if not space.isinstance_w(w_name, space.w_text):
+        raise oefmt(space.w_TypeError,
+            "__slots__ items must be strings, not '%T'", w_name)
+    if not _isidentifier(w_name._value):
+        raise oefmt(space.w_TypeError, "__slots__ must be identifiers")
+    return w_name.identifier_w(space)
 
 def create_all_slots(w_self, hasoldstylebase, w_bestbase, force_new_layout):
     from pypy.objspace.std.listobject import StringSort
@@ -1073,13 +1081,12 @@ def create_all_slots(w_self, hasoldstylebase, w_bestbase, force_new_layout):
         wantdict = False
         wantweakref = False
         w_slots = dict_w['__slots__']
-        if (space.isinstance_w(w_slots, space.w_str) or
-            space.isinstance_w(w_slots, space.w_unicode)):
+        if space.isinstance_w(w_slots, space.w_text):
             slot_names_w = [w_slots]
         else:
             slot_names_w = space.unpackiterable(w_slots)
         for w_slot_name in slot_names_w:
-            slot_name = space.str_w(w_slot_name)
+            slot_name = slot_w(space, w_slot_name)
             if slot_name == '__dict__':
                 if wantdict or w_bestbase.hasdict:
                     raise oefmt(space.w_TypeError,
@@ -1124,8 +1131,6 @@ def create_all_slots(w_self, hasoldstylebase, w_bestbase, force_new_layout):
 
 def create_slot(w_self, slot_name, index_next_extra_slot):
     space = w_self.space
-    if not valid_slot_name(slot_name):
-        raise oefmt(space.w_TypeError, "__slots__ must be identifiers")
     # create member
     slot_name = mangle(slot_name, w_self.name)
     if slot_name not in w_self.dict_w:
@@ -1155,14 +1160,6 @@ def create_weakref_slot(w_self):
         w_self.dict_w.setdefault('__weakref__',
                                  w_self.space.wrap(weakref_descr))
         w_self.weakrefable = True
-
-def valid_slot_name(slot_name):
-    if len(slot_name) == 0 or slot_name[0].isdigit():
-        return False
-    for c in slot_name:
-        if not c.isalnum() and c != '_':
-            return False
-    return True
 
 def setup_user_defined_type(w_self, force_new_layout):
     if len(w_self.bases_w) == 0:

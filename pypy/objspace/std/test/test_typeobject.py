@@ -667,6 +667,11 @@ class AppTestTypeObject:
         b.abc = "awesomer"
         assert b.abc == "awesomer"
 
+    def test_bad_slots(self):
+        raises(TypeError, type, 'A', (), {'__slots__': b'x'})
+        raises(TypeError, type, 'A', (), {'__slots__': 42})
+        raises(TypeError, type, 'A', (), {'__slots__': '2_x'})
+
     def test_base_attr(self):
         # check the '__base__'
         class A(object):
