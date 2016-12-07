@@ -21,6 +21,7 @@ SCOPE_GLOBAL_EXPLICIT = 2
 SCOPE_LOCAL = 3
 SCOPE_FREE = 4
 SCOPE_CELL = 5
+SCOPE_CELL_CLASS = 6     # for "__class__" inside class bodies only
 
 
 class Scope(object):
@@ -336,7 +337,7 @@ class ClassScope(Scope):
     def _finalize_cells(self, free):
         for name, role in self.symbols.iteritems():
             if role == SCOPE_LOCAL and name in free and name == '__class__':
-                self.symbols[name] = SCOPE_CELL
+                self.symbols[name] = SCOPE_CELL_CLASS
                 del free[name]
 
 

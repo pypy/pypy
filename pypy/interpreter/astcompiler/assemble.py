@@ -137,11 +137,11 @@ class Block(object):
         return ''.join(code)
 
 
-def _make_index_dict_filter(syms, flag):
+def _make_index_dict_filter(syms, flag1, flag2):
     i = 0
     result = {}
     for name, scope in syms.iteritems():
-        if scope == flag:
+        if scope in (flag1, flag2):
             result[name] = i
             i += 1
     return result
@@ -170,7 +170,8 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.names = {}
         self.var_names = _iter_to_dict(scope.varnames)
         self.cell_vars = _make_index_dict_filter(scope.symbols,
-                                                 symtable.SCOPE_CELL)
+                                                 symtable.SCOPE_CELL,
+                                                 symtable.SCOPE_CELL_CLASS)
         self.free_vars = _iter_to_dict(scope.free_vars, len(self.cell_vars))
         self.w_consts = space.newdict()
         self.argcount = 0

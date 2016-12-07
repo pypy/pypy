@@ -325,7 +325,7 @@ def truncate(space, w_path, w_length):
         if space.isinstance_w(w_path, space.w_int):
             w_fd = w_path
         else:
-            w_fd = open(space, w_path, os.O_RDWR | os.O_CREAT)
+            w_fd = open(space, w_path, os.O_WRONLY)
             allocated_fd = True
 
         fd = space.c_filedescriptor_w(w_fd)

@@ -398,6 +398,13 @@ class Y:
     # in CPython 3.5.2.  Looks like a bug to me
 def testing():
     return 42
+''', '''
+class Y:
+    def f():
+        __class__
+    __class__ = 42
+def testing():
+    return Y.__dict__['__class__']
 '''
         ]:
             space.call_args(w_filterwarnings, filter_arg)

@@ -187,7 +187,7 @@ class W_LongObject(W_AbstractLongObject):
             return space.w_NotImplemented
 
         if w_exponent.asbigint().sign < 0:
-            raise oefmt(space.w_TypeError,
+            raise oefmt(space.w_ValueError,
                         "pow() 2nd argument cannot be negative when 3rd "
                         "argument specified")
         try:

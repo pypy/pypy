@@ -667,6 +667,11 @@ class AppTestTypeObject:
         b.abc = "awesomer"
         assert b.abc == "awesomer"
 
+    def test_bad_slots(self):
+        raises(TypeError, type, 'A', (), {'__slots__': b'x'})
+        raises(TypeError, type, 'A', (), {'__slots__': 42})
+        raises(TypeError, type, 'A', (), {'__slots__': '2_x'})
+
     def test_base_attr(self):
         # check the '__base__'
         class A(object):
@@ -935,6 +940,22 @@ class AppTestTypeObject:
             assert str(e) == "type name must not contain null characters"
         else:
             assert False
+
+    def test_qualname(self):
+        A = type('A', (), {'__qualname__': 'B.C'})
+        assert A.__name__ == 'A'
+        assert A.__qualname__ == 'B.C'
+        raises(TypeError, type, 'A', (), {'__qualname__': b'B'})
+        assert A.__qualname__ == 'B.C'
+
+        A.__qualname__ = 'D.E'
+        assert A.__name__ == 'A'
+        assert A.__qualname__ == 'D.E'
+
+        C = type('C', (), {})
+        C.__name__ = 'A'
+        assert C.__name__ == 'A'
+        assert C.__qualname__ == 'C'
 
     def test_compare(self):
         class A(object):

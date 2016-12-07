@@ -375,7 +375,7 @@ def tostereo(cp, size, fac1, fac2):
     sample_count = _sample_count(cp, size)
 
     rv = ffi.new("unsigned char[]", len(cp) * 2)
-    lib.tostereo(rv, cp, len(cp), size, fac1, fac2)
+    lib.tostereo(rv, ffi.from_buffer(cp), len(cp), size, fac1, fac2)
     return ffi.buffer(rv)[:]
 
 
@@ -386,7 +386,7 @@ def add(cp1, cp2, size):
         raise error("Lengths should be the same")
 
     rv = ffi.new("unsigned char[]", len(cp1))
-    lib.add(rv, cp1, cp2, len(cp1), size)
+    lib.add(rv, ffi.from_buffer(cp1), ffi.from_buffer(cp2), len(cp1), size)
     return ffi.buffer(rv)[:]
 
 
@@ -569,7 +569,7 @@ def adpcm2lin(cp, size, state):
     state = _check_state(state)
     rv = ffi.new("unsigned char[]", len(cp) * size * 2)
     state_ptr = ffi.new("int[]", state)
-    lib.adcpm2lin(rv, cp, len(cp), size, state_ptr)
+    lib.adcpm2lin(rv, ffi.from_buffer(cp), len(cp), size, state_ptr)
     return ffi.buffer(rv)[:], tuple(state_ptr)
 
 def byteswap(cp, size):
