@@ -101,6 +101,9 @@ def setswitchinterval(space, interval):
     # The scaling factor is chosen so that with the default
     # checkinterval value of 10000, it corresponds to 0.005, which is
     # the default value of the switchinterval in CPython 3.5
+    if interval <= 0.0:
+        raise oefmt(space.w_ValueError,
+                    "switch interval must be strictly positive")
     space.actionflag.setcheckinterval(int(interval * 2000000.0))
 
 def getswitchinterval(space):
