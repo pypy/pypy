@@ -378,7 +378,7 @@ def _pow(space, iv, iw, iz):
     """Helper for pow"""
     if iw < 0:
         if iz != 0:
-            raise oefmt(space.w_TypeError,
+            raise oefmt(space.w_ValueError,
                         "pow() 2nd argument cannot be negative when 3rd "
                         "argument specified")
         # bounce it, since it always returns float
