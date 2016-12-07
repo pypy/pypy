@@ -396,7 +396,7 @@ class W_MemoryView(W_Root):
         self._check_released(space)
         dim = self.getndim()
         if dim == 0:
-            return 1
+            return space.newint(1)
         shape = self.getshape()
         return space.wrap(shape[0])
 
