@@ -1049,6 +1049,7 @@ class ExceptionTests(unittest.TestCase):
                 obj = test_class()
                 with captured_stderr() as stderr:
                     del obj
+                    gc_collect()
                 report = stderr.getvalue()
                 self.assertIn("Exception ignored", report)
                 if test_class is BrokenRepr:
@@ -1059,7 +1060,12 @@ class ExceptionTests(unittest.TestCase):
                 self.assertIn("raise exc", report)
                 if test_class is BrokenExceptionDel:
                     self.assertIn("BrokenStrException", report)
-                    self.assertIn("<exception str() failed>", report)
+                    if check_impl_detail(pypy=False):
+                        self.assertIn("<exception str() failed>", report)
+                    else:
+                        # pypy: this is what lib-python's traceback.py gives
+                        self.assertIn("<unprintable BrokenExceptionDel object>",
+                                      report)
                 else:
                     self.assertIn("ValueError", report)
                     self.assertIn("del is broken", report)
@@ -1081,7 +1087,12 @@ class ExceptionTests(unittest.TestCase):
                 self.assertIn("raise exc", report)
                 self.assertIn(exc_type.__name__, report)
                 if exc_type is BrokenStrException:
-                    self.assertIn("<exception str() failed>", report)
+                    if check_impl_detail(pypy=False):
+                        self.assertIn("<exception str() failed>", report)
+                    else:
+                        # pypy: this is what lib-python's traceback.py gives
+                        self.assertIn("<unprintable BrokenStrException object>",
+                                      report)
                 else:
                     self.assertIn("test message", report)
                 self.assertTrue(report.endswith("\n"))
