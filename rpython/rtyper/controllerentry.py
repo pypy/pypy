@@ -10,7 +10,14 @@ class ControllerEntry(ExtRegistryEntry):
 
     def compute_result_annotation(self, *args_s, **kwds_s):
         controller = self.getcontroller(*args_s, **kwds_s)
-        return controller.ctrl_new_ex(self.bookkeeper, *args_s, **kwds_s)
+        if kwds_s:
+            raise TypeError("cannot handle keyword arguments in %s" % (
+                self.new,))
+        s_real_obj = delegate(controller.new, *args_s)
+        if s_real_obj == annmodel.s_ImpossibleValue:
+            return annmodel.s_ImpossibleValue
+        else:
+            return SomeControlledInstance(s_real_obj, controller)
 
     def getcontroller(self, *args_s, **kwds_s):
         return self._controller_()
@@ -65,19 +72,6 @@ class Controller(object):
         return controlled_instance_is_box(self, obj)
     is_box._annspecialcase_ = 'specialize:arg(0)'
 
-    def ctrl_new(self, *args_s, **kwds_s):
-        if kwds_s:
-            raise TypeError("cannot handle keyword arguments in %s" % (
-                self.new,))
-        s_real_obj = delegate(self.new, *args_s)
-        if s_real_obj == annmodel.s_ImpossibleValue:
-            return annmodel.s_ImpossibleValue
-        else:
-            return SomeControlledInstance(s_real_obj, controller=self)
-
-    def ctrl_new_ex(self, bookkeeper, *args_s, **kwds_s):
-        return self.ctrl_new(*args_s, **kwds_s)
-
     def rtype_new(self, hop):
         from rpython.rtyper.rcontrollerentry import rtypedelegate
         return rtypedelegate(self.new, hop, revealargs=[], revealresult=True)
@@ -85,9 +79,6 @@ class Controller(object):
     def getattr(self, obj, attr):
         return getattr(self, 'get_' + attr)(obj)
     getattr._annspecialcase_ = 'specialize:arg(0, 2)'
-
-    def ctrl_getattr(self, s_obj, s_attr):
-        return delegate(self.getattr, s_obj, s_attr)
 
     def rtype_getattr(self, hop):
         from rpython.rtyper.rcontrollerentry import rtypedelegate
@@ -97,43 +88,25 @@ class Controller(object):
         return getattr(self, 'set_' + attr)(obj, value)
     setattr._annspecialcase_ = 'specialize:arg(0, 2)'
 
-    def ctrl_setattr(self, s_obj, s_attr, s_value):
-        return delegate(self.setattr, s_obj, s_attr, s_value)
-
     def rtype_setattr(self, hop):
         from rpython.rtyper.rcontrollerentry import rtypedelegate
         return rtypedelegate(self.setattr, hop)
-
-    def ctrl_getitem(self, s_obj, s_key):
-        return delegate(self.getitem, s_obj, s_key)
 
     def rtype_getitem(self, hop):
         from rpython.rtyper.rcontrollerentry import rtypedelegate
         return rtypedelegate(self.getitem, hop)
 
-    def ctrl_setitem(self, s_obj, s_key, s_value):
-        return delegate(self.setitem, s_obj, s_key, s_value)
-
     def rtype_setitem(self, hop):
         from rpython.rtyper.rcontrollerentry import rtypedelegate
         return rtypedelegate(self.setitem, hop)
-
-    def ctrl_delitem(self, s_obj, s_key):
-        return delegate(self.delitem, s_obj, s_key)
 
     def rtype_delitem(self, hop):
         from rpython.rtyper.rcontrollerentry import rtypedelegate
         return rtypedelegate(self.delitem, hop)
 
-    def ctrl_bool(self, s_obj):
-        return delegate(self.bool, s_obj)
-
     def rtype_bool(self, hop):
         from rpython.rtyper.rcontrollerentry import rtypedelegate
         return rtypedelegate(self.bool, hop)
-
-    def ctrl_call(self, s_obj, *args_s):
-        return delegate(self.call, s_obj, *args_s)
 
     def rtype_call(self, hop):
         from rpython.rtyper.rcontrollerentry import rtypedelegate
@@ -226,34 +199,34 @@ class SomeControlledInstance(annmodel.SomeObject):
         real_key = self.s_real_obj.rtyper_makekey()
         return self.__class__, real_key, self.controller
 
-
-class __extend__(SomeControlledInstance):
-
-    def getattr(s_cin, s_attr):
+    def getattr(self, s_attr):
         assert s_attr.is_constant()
-        return s_cin.controller.ctrl_getattr(s_cin.s_real_obj, s_attr)
+        ctrl = self.controller
+        return delegate(ctrl.getattr, self.s_real_obj, s_attr)
 
-    def setattr(s_cin, s_attr, s_value):
+    def setattr(self, s_attr, s_value):
         assert s_attr.is_constant()
-        s_cin.controller.ctrl_setattr(s_cin.s_real_obj, s_attr, s_value)
+        ctrl = self.controller
+        return delegate(ctrl.setattr, self.s_real_obj, s_attr, s_value)
 
-    def bool(s_cin):
-        return s_cin.controller.ctrl_is_true(s_cin.s_real_obj)
+    def bool(self):
+        ctrl = self.controller
+        return delegate(ctrl.bool, self.s_real_obj)
 
-    def simple_call(s_cin, *args_s):
-        return s_cin.controller.ctrl_call(s_cin.s_real_obj, *args_s)
+    def simple_call(self, *args_s):
+        return delegate(self.controller.call, self.s_real_obj, *args_s)
 
 
 class __extend__(pairtype(SomeControlledInstance, annmodel.SomeObject)):
 
     def getitem((s_cin, s_key)):
-        return s_cin.controller.ctrl_getitem(s_cin.s_real_obj, s_key)
+        return delegate(s_cin.controller.getitem, s_cin.s_real_obj, s_key)
 
     def setitem((s_cin, s_key), s_value):
-        s_cin.controller.ctrl_setitem(s_cin.s_real_obj, s_key, s_value)
+        delegate(s_cin.controller.setitem, s_cin.s_real_obj, s_key, s_value)
 
     def delitem((s_cin, s_key)):
-        s_cin.controller.ctrl_delitem(s_cin.s_real_obj, s_key)
+        delegate(s_cin.controller.delitem, s_cin.s_real_obj, s_key)
 
 
 class __extend__(pairtype(SomeControlledInstance, SomeControlledInstance)):
