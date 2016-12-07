@@ -1062,7 +1062,7 @@ def slot_w(space, w_name):
     if not space.isinstance_w(w_name, space.w_text):
         raise oefmt(space.w_TypeError,
             "__slots__ items must be strings, not '%T'", w_name)
-    if not _isidentifier(w_name._value):
+    if not _isidentifier(space.unicode_w(w_name)):
         raise oefmt(space.w_TypeError, "__slots__ must be identifiers")
     return w_name.identifier_w(space)
 
