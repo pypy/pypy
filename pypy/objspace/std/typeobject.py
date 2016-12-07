@@ -166,7 +166,7 @@ class W_TypeObject(W_Root):
                  overridetypedef=None, force_new_layout=False):
         self.space = space
         self.name = name
-        self.qualname = None
+        self.qualname = name.decode('utf-8')
         self.bases_w = bases_w
         self.dict_w = dict_w
         self.hasdict = False
@@ -545,7 +545,7 @@ class W_TypeObject(W_Root):
         return result.decode('utf-8')
 
     def getqualname(self, space):
-        return self.qualname or self.getname(space)
+        return self.qualname
 
     def add_subclass(self, w_subclass):
         space = self.space
