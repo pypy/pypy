@@ -38,3 +38,5 @@ call this function" returning a result.
 .. branch: desc-specialize
 
 Refactor FunctionDesc.specialize() and related code (RPython annotator).
+
+.. branch: raw-calloc
