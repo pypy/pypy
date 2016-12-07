@@ -572,7 +572,6 @@ class SocketIO(io.RawIOBase):
             raise OSError("cannot read from timed out object")
         while True:
             try:
-                import pdb; pdb.set_trace()
                 return self._sock.recv_into(b)
             except timeout:
                 self._timeout_occurred = True
