@@ -2,6 +2,8 @@
 Buffer protocol support.
 """
 from rpython.rlib import jit
+from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
+        nonmoving_raw_ptr_for_resizable_list)
 
 
 class Buffer(object):
@@ -76,13 +78,14 @@ class Buffer(object):
         return [1]
 
 class StringBuffer(Buffer):
-    __slots__ = ['value', '_charp']
+    __slots__ = ['value', 'charlist']
     _immutable_ = True
 
     def __init__(self, value):
         self.value = value
         self.readonly = True
-        self._charp = 0
+        # currently the
+        self.charlist = None
 
     def getlength(self):
         return len(self.value)
@@ -107,10 +110,10 @@ class StringBuffer(Buffer):
         return Buffer.getslice(self, start, stop, step, size)
 
     def get_raw_address(self):
-        from rpython.rtyper.lltypesystem import rffi
-        if self._charp == 0:
-            self._charp = rffi.str2charp_gc(self.value)
-        return self._charp
+        if not self.charlist:
+            data = [c for c in self.value]
+            self.charlist = resizable_list_supporting_raw_ptr(data)
+        return nonmoving_raw_ptr_for_resizable_list(self.charlist)
 
 
 

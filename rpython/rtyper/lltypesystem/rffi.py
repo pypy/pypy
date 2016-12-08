@@ -805,19 +805,6 @@ def make_string_mappings(strtype):
         else:
             lltype.free(cp, flavor='raw', track_allocation=False)
 
-    # str -> char*
-    def str2charp_gc(s):
-        """ str -> char* but collected by the gc
-        """
-        array = lltype.malloc(TYPEP.TO, len(s) + 1, flavor='gc', immortal=True)
-        i = len(s)
-        ll_s = llstrtype(s)
-        copy_string_to_raw(ll_s, array, 0, i)
-        array[i] = lastchar
-        return array
-    str2charp_gc._annenforceargs_ = [strtype]
-
-
     # str -> already-existing char[maxsize]
     def str2chararray(s, array, maxsize):
         length = min(len(s), maxsize)
@@ -997,20 +984,20 @@ def make_string_mappings(strtype):
         return result
     charpsize2str._annenforceargs_ = [None, int]
 
-    return (str2charp, free_charp, str2charp_gc, charp2str,
+    return (str2charp, free_charp, charp2str,
             get_nonmovingbuffer, free_nonmovingbuffer,
             get_nonmovingbuffer_final_null,
             alloc_buffer, str_from_buffer, keep_buffer_alive_until_here,
             charp2strn, charpsize2str, str2chararray, str2rawmem,
             )
 
-(str2charp, free_charp, str2charp_gc, charp2str,
+(str2charp, free_charp, charp2str,
  get_nonmovingbuffer, free_nonmovingbuffer, get_nonmovingbuffer_final_null,
  alloc_buffer, str_from_buffer, keep_buffer_alive_until_here,
  charp2strn, charpsize2str, str2chararray, str2rawmem,
  ) = make_string_mappings(str)
 
-(unicode2wcharp, free_wcharp, _, wcharp2unicode,
+(unicode2wcharp, free_wcharp, wcharp2unicode,
  get_nonmoving_unicodebuffer, free_nonmoving_unicodebuffer, __not_usable,
  alloc_unicodebuffer, unicode_from_buffer, keep_unicodebuffer_alive_until_here,
  wcharp2unicoden, wcharpsize2unicode, unicode2wchararray, unicode2rawmem,

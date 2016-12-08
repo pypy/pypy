@@ -71,4 +71,3 @@ def test_string_buffer_as_buffer():
     assert addr[0] == b'h'
     assert addr[4] == b'o'
     assert addr[6] == b'w'
-    assert addr[len(b'hello world')] == b'\x00'
