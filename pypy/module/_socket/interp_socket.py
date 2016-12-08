@@ -112,10 +112,9 @@ def addr_from_object(family, fd, space, w_address):
         return rsocket.INET6Address(host, port, flowinfo, scope_id)
     if rsocket.HAS_AF_UNIX and family == rsocket.AF_UNIX:
         # Not using space.fsencode_w since Linux allows embedded NULs.
-        import pdb; pdb.set_trace()
         if space.isinstance_w(w_address, space.w_unicode):
             w_address = space.fsencode(w_address)
-        bytelike = space.arg_w('y*', w_address)
+        bytelike = space.getarg_w('y*', w_address)
         return rsocket.UNIXAddress(bytelike)
     if rsocket.HAS_AF_NETLINK and family == rsocket.AF_NETLINK:
         w_pid, w_groups = space.unpackiterable(w_address, 2)
@@ -459,7 +458,7 @@ class W_Socket(W_Root):
         Like send(data, flags) but allows specifying the destination address.
         For IP sockets, the address is a pair (hostaddr, port).
         """
-        data = space.arg_w('y*', w_data)
+        data = space.getarg_w('y*', w_data)
         if w_param3 is None:
             # 2 args version
             flags = 0
