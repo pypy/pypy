@@ -449,13 +449,14 @@ class W_Socket(W_Root):
         except SocketError as e:
             raise converted_error(space, e)
 
-    @unwrap_spec(data='bufferstr')
-    def sendto_w(self, space, data, w_param2, w_param3=None):
+    @unwrap_spec(data='buffer')
+    def sendto_w(self, space, w_data, w_param2, w_param3=None):
         """sendto(data[, flags], address) -> count
 
         Like send(data, flags) but allows specifying the destination address.
         For IP sockets, the address is a pair (hostaddr, port).
         """
+        data = space.arg_w('y*', w_data)
         if w_param3 is None:
             # 2 args version
             flags = 0

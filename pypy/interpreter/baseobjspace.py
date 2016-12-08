@@ -1502,9 +1502,9 @@ class ObjSpace(object):
 
     def _getarg_error(self, expected, w_obj):
         if self.is_none(w_obj):
-            e = oefmt(self.w_TypeError, "must be %s, not None", expected)
+            e = oefmt(self.w_TypeError, "a %s is required, not None", expected)
         else:
-            e = oefmt(self.w_TypeError, "must be %s, not %T", expected, w_obj)
+            e = oefmt(self.w_TypeError, "a %s is requried, not %T", expected, w_obj)
         raise e
 
     @specialize.arg(1)
@@ -1543,7 +1543,7 @@ class ObjSpace(object):
             try:
                 return w_obj.buffer_w(self, self.BUF_SIMPLE)
             except BufferInterfaceNotFound:
-                self._getarg_error("bytes or buffer", w_obj)
+                self._getarg_error("bytes-like object", w_obj)
         else:
             assert False
 
