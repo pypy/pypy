@@ -1,4 +1,4 @@
-from rpython.rlib.buffer import *
+from rpython.rlib.buffer import StringBuffer, SubBuffer, Buffer
 from rpython.annotator.annrpython import RPythonAnnotator
 from rpython.annotator.model import SomeInteger
 
@@ -64,3 +64,11 @@ def test_repeated_subbuffer():
     for i in range(9999, 9, -1):
         buf = SubBuffer(buf, 1, i)
     assert buf.getlength() == 10
+
+def test_string_buffer_as_buffer():
+    buf = StringBuffer(b'hello world')
+    addr = buf.get_raw_address()
+    assert addr[0] == b'h'
+    assert addr[4] == b'o'
+    assert addr[6] == b'w'
+    assert addr[len(b'hello world')] == b'\x00'

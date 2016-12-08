@@ -76,12 +76,13 @@ class Buffer(object):
         return [1]
 
 class StringBuffer(Buffer):
-    __slots__ = ['value']
+    __slots__ = ['value', '_charp']
     _immutable_ = True
 
     def __init__(self, value):
         self.value = value
         self.readonly = True
+        self._charp = 0
 
     def getlength(self):
         return len(self.value)
@@ -104,6 +105,13 @@ class StringBuffer(Buffer):
                 return self.value
             return self.value[start:stop]
         return Buffer.getslice(self, start, stop, step, size)
+
+    def get_raw_address(self):
+        from rpython.rtyper.lltypesystem import rffi
+        if self._charp == 0:
+            self._charp = rffi.str2charp_gc(self.value)
+        return self._charp
+
 
 
 class SubBuffer(Buffer):
