@@ -7,7 +7,7 @@ from rpython.rtyper.lltypesystem.llmemory import cast_ptr_to_adr
 from rpython.rtyper.lltypesystem.llmemory import itemoffsetof
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.tool.sourcetools import func_with_new_name
-from rpython.rlib.objectmodel import Symbolic
+from rpython.rlib.objectmodel import Symbolic, specialize
 from rpython.rlib.objectmodel import keepalive_until_here, enforceargs
 from rpython.rlib import rarithmetic, rgc
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -74,7 +74,7 @@ RFFI_ALT_ERRNO           = 64    # read, save using alt tl destination
 def llexternal(name, args, result, _callable=None,
                compilation_info=ExternalCompilationInfo(),
                sandboxsafe=False, releasegil='auto',
-               _nowrapper=False, calling_conv='c',
+               _nowrapper=False, calling_conv=None,
                elidable_function=False, macro=None,
                random_effects_on_gcobjs='auto',
                save_err=RFFI_ERR_NONE):
@@ -96,7 +96,17 @@ def llexternal(name, args, result, _callable=None,
                 we consider that the function is really short-running and
                 don't bother releasing the GIL.  An explicit True or False
                 overrides this logic.
+
+    calling_conv: if 'unknown' or 'win', the C function is not directly seen
+                  by the JIT.  If 'c', it can be seen (depending on
+                  releasegil=False).  For tests only, or if _nowrapper,
+                  it defaults to 'c'.
     """
+    if calling_conv is None:
+        if sys.platform == 'win32' and not _nowrapper:
+            calling_conv = 'unknown'
+        else:
+            calling_conv = 'c'
     if _callable is not None:
         assert callable(_callable)
     ext_type = lltype.FuncType(args, result)
@@ -107,7 +117,8 @@ def llexternal(name, args, result, _callable=None,
             _callable = generate_macro_wrapper(
                 name, macro, ext_type, compilation_info)
         else:
-            _callable = ll2ctypes.LL2CtypesCallable(ext_type, calling_conv)
+            _callable = ll2ctypes.LL2CtypesCallable(ext_type,
+                'c' if calling_conv == 'unknown' else calling_conv)
     else:
         assert macro is None, "'macro' is useless if you specify '_callable'"
     if elidable_function:
@@ -205,11 +216,17 @@ def llexternal(name, args, result, _callable=None,
     else:
         # if we don't have to invoke the GIL handling, we can just call
         # the low-level function pointer carelessly
-        if macro is None and save_err == RFFI_ERR_NONE:
+        # ...well, unless it's a macro, in which case we still have
+        # to hide it from the JIT...
+        need_wrapper = (macro is not None or save_err != RFFI_ERR_NONE)
+        # ...and unless we're on Windows and the calling convention is
+        # 'win' or 'unknown'
+        if calling_conv != 'c':
+            need_wrapper = True
+        #
+        if not need_wrapper:
             call_external_function = funcptr
         else:
-            # ...well, unless it's a macro, in which case we still have
-            # to hide it from the JIT...
             argnames = ', '.join(['a%d' % i for i in range(len(args))])
             source = py.code.Source("""
                 def call_external_function(%(argnames)s):
@@ -308,10 +325,6 @@ def llexternal(name, args, result, _callable=None,
     # for debugging, stick ll func ptr to that
     wrapper._ptr = funcptr
     wrapper = func_with_new_name(wrapper, name)
-
-    if calling_conv != "c":
-        wrapper = jit.dont_look_inside(wrapper)
-
     return wrapper
 
 
@@ -1288,10 +1301,12 @@ class scoped_alloc_unicodebuffer:
 c_memcpy = llexternal("memcpy",
             [VOIDP, VOIDP, SIZE_T],
             lltype.Void,
-            releasegil=False
+            releasegil=False,
+            calling_conv='c',
         )
 c_memset = llexternal("memset",
             [VOIDP, lltype.Signed, SIZE_T],
             lltype.Void,
-            releasegil=False
+            releasegil=False,
+            calling_conv='c',
         )

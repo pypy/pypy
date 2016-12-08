@@ -28,6 +28,8 @@ class VMProfError(Exception):
 class FakeWeakCodeObjectList(object):
     def add_handle(self, handle):
         pass
+    def get_all_handles(self):
+        return []
 
 class VMProf(object):
 

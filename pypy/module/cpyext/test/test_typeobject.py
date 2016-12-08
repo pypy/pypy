@@ -142,7 +142,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert fuu2(u"abc").baz().escape()
         raises(TypeError, module.fooType.object_member.__get__, 1)
 
-    def test_multiple_inheritance(self):
+    def test_multiple_inheritance1(self):
         module = self.import_module(name='foo')
         obj = module.UnicodeSubtype(u'xyz')
         obj2 = module.UnicodeSubtype2()
@@ -422,7 +422,7 @@ class TestTypes(BaseApiTest):
         assert space.int_w(space.getattr(w_class, w_name)) == 1
         space.delitem(w_dict, w_name)
 
-    def test_multiple_inheritance(self, space, api):
+    def test_multiple_inheritance2(self, space, api):
         w_class = space.appexec([], """():
             class A(object):
                 pass
@@ -1167,3 +1167,38 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             __metaclass__ = FooType
         print repr(X)
         X()
+
+    def test_multiple_inheritance3(self):
+        module = self.import_extension('foo', [
+           ("new_obj", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                PyTypeObject *Base1, *Base2, *Base12;
+                Base1 =  (PyTypeObject*)PyType_Type.tp_alloc(&PyType_Type, 0);
+                Base2 =  (PyTypeObject*)PyType_Type.tp_alloc(&PyType_Type, 0);
+                Base12 =  (PyTypeObject*)PyType_Type.tp_alloc(&PyType_Type, 0);
+                Base1->tp_name = "Base1";
+                Base2->tp_name = "Base2";
+                Base12->tp_name = "Base12";
+                Base1->tp_basicsize = sizeof(PyHeapTypeObject);
+                Base2->tp_basicsize = sizeof(PyHeapTypeObject);
+                Base12->tp_basicsize = sizeof(PyHeapTypeObject);
+                Base1->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
+                Base2->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
+                Base12->tp_flags = Py_TPFLAGS_DEFAULT;
+                Base12->tp_base = Base1;
+                Base12->tp_bases = PyTuple_Pack(2, Base1, Base2); 
+                Base12->tp_doc = "The Base12 type or object";
+                if (PyType_Ready(Base1) < 0) return NULL;
+                if (PyType_Ready(Base2) < 0) return NULL;
+                if (PyType_Ready(Base12) < 0) return NULL;
+                obj = PyObject_New(PyObject, Base12);
+                return obj;
+            '''
+            )])
+        obj = module.new_obj()
+        assert 'Base12' in str(obj)
+        assert type(obj).__doc__ == "The Base12 type or object"
+        assert obj.__doc__ == "The Base12 type or object"
+
+

@@ -281,6 +281,12 @@ class TestPosixFunction:
     def test_isatty(self):
         assert rposix.isatty(-1) is False
 
+    @py.test.mark.skipif("not hasattr(rposix, 'makedev')")
+    def test_makedev(self):
+        dev = rposix.makedev(24, 7)
+        assert rposix.major(dev) == 24
+        assert rposix.minor(dev) == 7
+
 
 @py.test.mark.skipif("not hasattr(os, 'ttyname')")
 class TestOsExpect(ExpectTest):
