@@ -700,28 +700,34 @@ def getbytevalue(space, w_value):
     return chr(value)
 
 def newbytesdata_w(space, w_source, encoding, errors):
-    # Unicode with encoding
-    if w_source is not None and space.isinstance_w(w_source, space.w_unicode):
-        if encoding is None:
+    # None value
+    if w_source is None:
+        if encoding is not None or errors is not None:
             raise oefmt(space.w_TypeError,
-                        "string argument without an encoding")
+                "encoding or errors without sequence argument")
+        else:
+            return b""
+    # Unicode with encoding
+    if encoding is not None:
+        if not space.isinstance_w(w_source, space.w_unicode):
+            raise oefmt(space.w_TypeError,
+                "encoding without string argument (got '%T' instead)",
+                w_source)
         from pypy.objspace.std.unicodeobject import encode_object
         w_source = encode_object(space, w_source, encoding, errors)
         # and continue with the encoded string
-    elif encoding is not None or errors is not None:
-        if w_source is None:
+    elif errors is not None:
+        if not space.isinstance_w(w_source, space.w_unicode):
             raise oefmt(space.w_TypeError,
-                        "encoding or errors without string argument")
-        raise oefmt(space.w_TypeError,
-               "encoding or errors without string argument (got '%T' instead)",
-               w_source)
-    # None value
-    if w_source is None:
-        return b""
+                "errors without string argument (got '%T' instead)",
+                w_source)
+        else:
+            raise oefmt(space.w_TypeError,
+                "string argument without an encoding")
     # Fast-path for bytes
     if space.isinstance_w(w_source, space.w_str):
         return space.bytes_w(w_source)
-    # Some other object with a __bytes__ special method
+    # Some other object with a __bytes__ special method (could be str subclass)
     w_bytes_method = space.lookup(w_source, "__bytes__")
     if w_bytes_method is not None:
         w_bytes = space.get_and_call_function(w_bytes_method, w_source)
@@ -729,6 +735,9 @@ def newbytesdata_w(space, w_source, encoding, errors):
             raise oefmt(space.w_TypeError,
                         "__bytes__ returned non-bytes (type '%T')", w_bytes)
         return space.bytes_w(w_bytes)
+    if space.isinstance_w(w_source, space.w_unicode):
+        raise oefmt(space.w_TypeError, "string argument without an encoding")
+
     # Is it an integer?
     # Note that we're calling space.getindex_w() instead of space.int_w().
     try:

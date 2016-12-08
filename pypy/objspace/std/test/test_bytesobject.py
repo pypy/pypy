@@ -832,6 +832,11 @@ class AppTestBytesObject:
                 return 3
         assert bytes(WithIndex()) == b'a'
 
+        class Str(str):
+            def __bytes__(self):
+                return b'a'
+        assert bytes(Str('abc')) == b'a'
+
     def test_getnewargs(self):
         assert  b"foo".__getnewargs__() == (b"foo",)
 
