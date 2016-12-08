@@ -424,7 +424,7 @@ class W_Socket(W_Root):
             w_addr = w_param3
         try:
             addr = self.addr_from_object(space, w_addr)
-            count = self.sock.sendto(data, flags, addr)
+            count = self.sock.sendto(data, len(data), flags, addr)
         except SocketError as e:
             raise converted_error(space, e)
         return space.wrap(count)
