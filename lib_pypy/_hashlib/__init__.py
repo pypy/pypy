@@ -142,12 +142,10 @@ for _name in algorithms:
     globals()[_newname] = make_new_hash(_name, _newname)
 
 if hasattr(lib, 'PKCS5_PBKDF2_HMAC'):
-    #@unwrap_spec(name=str, password='bytes', salt='bytes', iterations=int,
-    #             w_dklen=WrappedDefault(None))
-    def pbkdf2_hmac(name, password, salt, iterations, dklen=None):
-        if not isinstance(name, str):
-            raise TypeError("expected 'str' for name, but got %s" % type(name))
-        c_name = _str_to_ffi_buffer(name)
+    def pbkdf2_hmac(hash_name, password, salt, iterations, dklen=None):
+        if not isinstance(hash_name, str):
+            raise TypeError("expected 'str' for name, but got %s" % type(hash_name))
+        c_name = _str_to_ffi_buffer(hash_name)
         digest = lib.EVP_get_digestbyname(c_name)
         if digest == ffi.NULL:
             raise ValueError("unsupported hash type")
