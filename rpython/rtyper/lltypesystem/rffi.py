@@ -815,7 +815,7 @@ def make_string_mappings(strtype):
         copy_string_to_raw(ll_s, array, 0, i)
         array[i] = lastchar
         return array
-    str2charp_gc._annenforceargs_ = [strtype, bool]
+    str2charp_gc._annenforceargs_ = [strtype]
 
 
     # str -> already-existing char[maxsize]
