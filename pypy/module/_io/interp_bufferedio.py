@@ -4,6 +4,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
+from rpython.rlib.rgc import nonmoving_raw_ptr_for_resizable_list
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import r_longlong, intmask
@@ -119,6 +120,9 @@ class RawBuffer(Buffer):
 
     def setitem(self, index, char):
         self.buf[self.start + index] = char
+
+    def get_raw_address(self):
+        return nonmoving_raw_ptr_for_resizable_list(self.buf)
 
 class BufferedMixin:
     _mixin_ = True
