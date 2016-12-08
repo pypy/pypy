@@ -89,6 +89,8 @@ def fill_from_object(addr, space, w_address):
 def addr_from_object(family, fd, space, w_address):
     if family == rsocket.AF_INET:
         w_host, w_port = space.unpackiterable(w_address, 2)
+        if space.isinstance_w(w_host, space.w_unicode):
+            pass
         host = space.str_w(w_host)
         port = space.int_w(w_port)
         port = make_ushort_port(space, port)
@@ -110,9 +112,11 @@ def addr_from_object(family, fd, space, w_address):
         return rsocket.INET6Address(host, port, flowinfo, scope_id)
     if rsocket.HAS_AF_UNIX and family == rsocket.AF_UNIX:
         # Not using space.fsencode_w since Linux allows embedded NULs.
+        import pdb; pdb.set_trace()
         if space.isinstance_w(w_address, space.w_unicode):
             w_address = space.fsencode(w_address)
-        return rsocket.UNIXAddress(space.bytes_w(w_address))
+        bytelike = space.arg_w('y*', w_address)
+        return rsocket.UNIXAddress(bytelike)
     if rsocket.HAS_AF_NETLINK and family == rsocket.AF_NETLINK:
         w_pid, w_groups = space.unpackiterable(w_address, 2)
         return rsocket.NETLINKAddress(space.uint_w(w_pid), space.uint_w(w_groups))
@@ -449,7 +453,6 @@ class W_Socket(W_Root):
         except SocketError as e:
             raise converted_error(space, e)
 
-    @unwrap_spec(data='buffer')
     def sendto_w(self, space, w_data, w_param2, w_param3=None):
         """sendto(data[, flags], address) -> count
 

@@ -884,6 +884,11 @@ class AppTestSocketTCP:
         os.close(fileno)
         cli.close()
 
+    def test_bytearray_name(self):
+        import _socket as socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.bind(bytearray(b"\x00python\x00test\x00"))
+        assert s.getsockname() == b"\x00python\x00test\x00"
 
 class AppTestErrno:
     spaceconfig = {'usemodules': ['_socket', 'select']}
