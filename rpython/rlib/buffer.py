@@ -84,7 +84,8 @@ class StringBuffer(Buffer):
     def __init__(self, value):
         self.value = value
         self.readonly = True
-        # currently the
+        # the not initialized list of chars, copied from value
+        # as soon as get_raw_address is called
         self.charlist = None
 
     def getlength(self):
