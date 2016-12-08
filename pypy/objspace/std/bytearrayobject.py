@@ -488,6 +488,11 @@ class W_BytearrayObject(W_Root):
     def descr_mod(self, space, w_values):
         return mod_format(space, self, w_values, fmt_type=FORMAT_BYTEARRAY)
 
+    def descr_rmod(self, space, w_value):
+        if not isinstance(w_value, W_BytearrayObject):
+            return space.w_NotImplemented
+        return mod_format(space, w_value, self, fmt_type=FORMAT_BYTEARRAY)
+
     @staticmethod
     def _iter_getitem_result(self, space, index):
         assert isinstance(self, W_BytearrayObject)
@@ -671,7 +676,10 @@ class BytearrayDocstrings:
         """x.__mul__(n) <==> x*n"""
 
     def __mod__():
-        """x.__mod__(y) <==> x % y"""
+        """Return self%value."""
+
+    def __rmod__():
+        """Return value%self."""
 
     def __ne__():
         """x.__ne__(y) <==> x!=y"""
@@ -1176,6 +1184,8 @@ W_BytearrayObject.typedef = TypeDef(
                              doc=BytearrayDocstrings.__delitem__.__doc__),
     __mod__ = interp2app(W_BytearrayObject.descr_mod,
                            doc=BytearrayDocstrings.__mod__.__doc__),
+    __rmod__ = interp2app(W_BytearrayObject.descr_rmod,
+                           doc=BytearrayDocstrings.__rmod__.__doc__),
 
     append = interp2app(W_BytearrayObject.descr_append,
                         doc=BytearrayDocstrings.append.__doc__),

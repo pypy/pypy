@@ -583,6 +583,10 @@ class AppTestBytesArray:
         assert bytearray(b'%04X') % 10 == b'000A'
         assert bytearray(b'%c') % 48 == b'0'
         assert bytearray(b'%c') % b'a' == b'a'
+        assert bytearray(b'%c') % bytearray(b'a') == b'a'
+
+        raises(TypeError, bytearray(b'a').__mod__, 5)
+        assert bytearray(b'a').__rmod__(5) == NotImplemented
         """
 
     def test_format_b(self):
