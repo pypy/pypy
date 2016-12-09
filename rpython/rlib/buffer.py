@@ -83,7 +83,7 @@ class StringBuffer(Buffer):
 
     def __init__(self, value):
         self.value = value
-        self.readonly = True
+        self.readonly = 1
 
     def getlength(self):
         return len(self.value)
