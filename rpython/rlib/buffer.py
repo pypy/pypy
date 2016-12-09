@@ -78,15 +78,12 @@ class Buffer(object):
         return [1]
 
 class StringBuffer(Buffer):
-    __slots__ = ['value', 'charlist']
+    __slots__ = ['value', '__weakref__']
     _immutable_ = True
 
     def __init__(self, value):
         self.value = value
         self.readonly = True
-        # the not initialized list of chars, copied from value
-        # as soon as get_raw_address is called
-        self.charlist = None
 
     def getlength(self):
         return len(self.value)
@@ -111,12 +108,8 @@ class StringBuffer(Buffer):
         return Buffer.getslice(self, start, stop, step, size)
 
     def get_raw_address(self):
-        if not self.charlist:
-            data = [c for c in self.value]
-            self.charlist = resizable_list_supporting_raw_ptr(data)
-        return nonmoving_raw_ptr_for_resizable_list(self.charlist)
-
-
+        from rpython.rtyper.lltypesystem import rffi
+        return rffi.get_raw_address_of_string(self, self.value)
 
 class SubBuffer(Buffer):
     __slots__ = ['buffer', 'offset', 'size']
