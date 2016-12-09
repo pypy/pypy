@@ -55,6 +55,8 @@ extern "C" {
     float  cppyy_call_f(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
     RPY_EXTERN
     double cppyy_call_d(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
+    RPY_EXTERN
+    long double cppyy_call_ld(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
 
     RPY_EXTERN
     void*  cppyy_call_r(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);

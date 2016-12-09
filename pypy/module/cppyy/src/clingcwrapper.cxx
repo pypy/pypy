@@ -1255,6 +1255,11 @@ double cppyy_call_d(cppyy_method_t method, cppyy_object_t self, int nargs, void*
     return (double)Cppyy::CallD(method, (void*)self, &parvec);
 }
 
+long double cppyy_call_ld(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+    std::vector<TParameter> parvec = vsargs_to_parvec(args, nargs);
+    return (long double)Cppyy::CallLD(method, (void*)self, &parvec);
+}
+
 void* cppyy_call_r(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     std::vector<TParameter> parvec = vsargs_to_parvec(args, nargs);
     return (void*)Cppyy::CallR(method, (void*)self, &parvec);

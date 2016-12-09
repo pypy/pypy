@@ -3,7 +3,7 @@ import sys
 from pypy.interpreter.error import OperationError, oefmt
 
 from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.rlib.rarithmetic import r_singlefloat
+from rpython.rlib.rarithmetic import r_singlefloat, r_longfloat
 from rpython.rlib import rfloat
 
 from pypy.module._rawffi.interp_rawffi import letter2tp
@@ -351,7 +351,7 @@ class FloatConverter(ffitypes.typeid(rffi.FLOAT), FloatTypeConverterMixin, TypeC
     def from_memory(self, space, w_obj, w_pycppclass, offset):
         address = self._get_raw_address(space, w_obj, offset)
         rffiptr = rffi.cast(self.c_ptrtype, address)
-        return space.wrap(float(rffiptr[0]))
+        return self._wrap_object(space, rffiptr[0])
 
 class ConstFloatRefConverter(FloatConverter):
     _immutable_fields_ = ['typecode']
@@ -377,6 +377,25 @@ class DoubleConverter(ffitypes.typeid(rffi.DOUBLE), FloatTypeConverterMixin, Typ
 class ConstDoubleRefConverter(ConstRefNumericTypeConverterMixin, DoubleConverter):
     _immutable_fields_ = ['typecode']
     typecode = 'd'
+
+class LongDoubleConverter(ffitypes.typeid(rffi.LONGDOUBLE), FloatTypeConverterMixin, TypeConverter):
+    _immutable_fields_ = ['default']
+
+    def __init__(self, space, default):
+        if default:
+            fval = float(rfloat.rstring_to_float(default))
+        else:
+            fval = float(0.)
+        self.default = r_longfloat(fval)
+
+    def from_memory(self, space, w_obj, w_pycppclass, offset):
+        address = self._get_raw_address(space, w_obj, offset)
+        rffiptr = rffi.cast(self.c_ptrtype, address)
+        return self._wrap_object(space, rffiptr[0])
+
+class ConstLongDoubleRefConverter(ConstRefNumericTypeConverterMixin, LongDoubleConverter):
+    _immutable_fields_ = ['typecode']
+    typecode = 'g'
 
 class CStringConverter(TypeConverter):
     def convert_argument(self, space, w_obj, address, call_local):
@@ -725,6 +744,8 @@ _converters["float"]                    = FloatConverter
 _converters["const float&"]             = ConstFloatRefConverter
 _converters["double"]                   = DoubleConverter
 _converters["const double&"]            = ConstDoubleRefConverter
+_converters["long double"]              = LongDoubleConverter
+_converters["const long double&"]       = ConstLongDoubleRefConverter
 _converters["const char*"]              = CStringConverter
 _converters["void*"]                    = VoidPtrConverter
 _converters["void**"]                   = VoidPtrPtrConverter
@@ -837,7 +858,8 @@ _build_array_converters()
 def _add_aliased_converters():
     "NOT_RPYTHON"
     aliases = (
-        ("char",                            "unsigned char"),
+        ("char",                            "unsigned char"), # TODO: check
+        ("char",                            "signed char"),   # TODO: check
         ("const char*",                     "char*"),
 
         ("std::basic_string<char>",         "string"),

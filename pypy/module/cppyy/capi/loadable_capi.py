@@ -125,23 +125,24 @@ class State(object):
         # types (see capi/__init__.py), but by using strings here, that isn't guaranteed
         c_opaque_ptr = state.c_ulong
  
-        c_scope  = c_opaque_ptr
-        c_type   = c_scope
-        c_object = c_opaque_ptr
-        c_method = c_opaque_ptr
-        c_index  = state.c_long
+        c_scope       = c_opaque_ptr
+        c_type        = c_scope
+        c_object      = c_opaque_ptr
+        c_method      = c_opaque_ptr
+        c_index       = state.c_long
         c_index_array = state.c_voidp
 
-        c_void   = state.c_void
-        c_char   = state.c_char
-        c_uchar  = state.c_uchar
-        c_short  = state.c_short
-        c_int    = state.c_int
-        c_long   = state.c_long
-        c_llong  = state.c_llong
-        c_ullong = state.c_ullong
-        c_float  = state.c_float
-        c_double = state.c_double
+        c_void    = state.c_void
+        c_char    = state.c_char
+        c_uchar   = state.c_uchar
+        c_short   = state.c_short
+        c_int     = state.c_int
+        c_long    = state.c_long
+        c_llong   = state.c_llong
+        c_ullong  = state.c_ullong
+        c_float   = state.c_float
+        c_double  = state.c_double
+        c_ldouble = state.c_ldouble
 
         c_ccharp = state.c_ccharp
         c_voidp  = state.c_voidp
@@ -174,6 +175,7 @@ class State(object):
             'call_ll'      : ([c_method, c_object, c_int, c_voidp],   c_llong),
             'call_f'       : ([c_method, c_object, c_int, c_voidp],   c_float),
             'call_d'       : ([c_method, c_object, c_int, c_voidp],   c_double),
+            'call_ld'      : ([c_method, c_object, c_int, c_voidp],   c_ldouble),
 
             'call_r'       : ([c_method, c_object, c_int, c_voidp],   c_voidp),
             # call_s actually takes an size_t* as last parameter, but this will do
@@ -372,6 +374,9 @@ def c_call_f(space, cppmethod, cppobject, nargs, cargs):
 def c_call_d(space, cppmethod, cppobject, nargs, cargs):
     args = [_ArgH(cppmethod), _ArgH(cppobject), _ArgL(nargs), _ArgP(cargs)]
     return rffi.cast(rffi.DOUBLE, space.float_w(call_capi(space, 'call_d', args)))
+def c_call_ld(space, cppmethod, cppobject, nargs, cargs):
+    args = [_ArgH(cppmethod), _ArgH(cppobject), _ArgL(nargs), _ArgP(cargs)]
+    return rffi.cast(rffi.LONGDOUBLE, space.float_w(call_capi(space, 'call_ld', args)))
 
 def c_call_r(space, cppmethod, cppobject, nargs, cargs):
     args = [_ArgH(cppmethod), _ArgH(cppobject), _ArgL(nargs), _ArgP(cargs)]

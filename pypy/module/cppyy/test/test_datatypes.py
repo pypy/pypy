@@ -15,20 +15,20 @@ class AppTestDATATYPES:
     spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
-        cls.w_N = cls.space.wrap(5)  # should be imported from the dictionary
         cls.w_test_dct  = cls.space.wrap(test_dct)
         cls.w_datatypes = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))
+        cls.w_N = cls.space.wrap(5)  # should be imported from the dictionary
 
     def test01_load_reflection_cache(self):
-        """Test whether loading a refl. info twice results in the same object."""
+        """Loading reflection info twice should result in the same object"""
         import cppyy
         lib2 = cppyy.load_reflection_info(self.test_dct)
         assert self.datatypes is lib2
 
     def test02_instance_data_read_access(self):
-        """Test read access to instance public data and verify values"""
+        """Read access to instance public data and verify values"""
 
         import cppyy
         CppyyTestData = cppyy.gbl.CppyyTestData
@@ -38,62 +38,63 @@ class AppTestDATATYPES:
 
         # reading boolean type
         assert c.m_bool == False
+        assert not c.get_bool(); assert not c.get_bool_cr(); assert not c.get_bool_r()
 
         # reading char types
         assert c.m_char  == 'a'
+        assert c.m_schar == 'b'
         assert c.m_uchar == 'c'
 
         # reading integer types
-        assert c.m_short  == -11
-        assert c.m_ushort ==  11
-        assert c.m_int    == -22
-        assert c.m_uint   ==  22
-        assert c.m_long   == -33
-        assert c.m_ulong  ==  33
-        assert c.m_llong  == -44
-        assert c.m_ullong ==  44
+        assert c.m_short   == -11; assert c.get_short_cr()   == -11; assert c.get_short_r()   == -11
+        assert c.m_ushort  ==  11; assert c.get_ushort_cr()  ==  11; assert c.get_ushort_r()  ==  11
+        assert c.m_int     == -22; assert c.get_int_cr()     == -22; assert c.get_int_r()     == -22
+        assert c.m_uint    ==  22; assert c.get_uint_cr()    ==  22; assert c.get_uint_r()    ==  22
+        assert c.m_long    == -33; assert c.get_long_cr()    == -33; assert c.get_long_r()    == -33
+        assert c.m_ulong   ==  33; assert c.get_ulong_cr()   ==  33; assert c.get_ulong_r()   ==  33
+        assert c.m_llong   == -44; assert c.get_llong_cr()   == -44; assert c.get_llong_r()   == -44
+        assert c.m_ullong  ==  44; assert c.get_ullong_cr()  ==  44; assert c.get_ullong_r()  ==  44
+        assert c.m_long64  == -55; assert c.get_long64_cr()  == -55; assert c.get_long64_r()  == -55
+        assert c.m_ulong64 ==  55; assert c.get_ulong64_cr() ==  55; assert c.get_ulong64_r() ==  55
 
         # reading floating point types
-        assert round(c.m_float  + 66., 5) == 0
+        assert round(c.m_float          + 66.,  5) == 0
+        assert round(c.get_float_cr()   + 66.,  5) == 0
+        assert round(c.get_float_r()    + 66.,  5) == 0
+        assert round(c.m_double         + 77., 11) == 0
+        assert round(c.get_double_cr()  + 77., 11) == 0
+        assert round(c.get_double_r()   + 77., 11) == 0
+        assert round(c.m_ldouble        + 88., 24) == 0
+        assert round(c.get_ldouble_cr() + 88., 24) == 0
+        assert round(c.get_ldouble_r()  + 88., 24) == 0
         assert round(c.m_double + 77., 8) == 0
 
-        # reding of array types
+        # reading of enum types
+        assert c.m_enum == CppyyTestData.kNothing
+        assert c.m_enum == c.kNothing
+
+        # reading of boolean array
         for i in range(self.N):
-            # reading of integer array types
             assert c.m_bool_array[i]        ==   bool(i%2)
             assert c.get_bool_array()[i]    ==   bool(i%2)
             assert c.m_bool_array2[i]       ==   bool((i+1)%2)
             assert c.get_bool_array2()[i]   ==   bool((i+1)%2)
-            assert c.m_short_array[i]       ==  -1*i
-            assert c.get_short_array()[i]   ==  -1*i
-            assert c.m_short_array2[i]      ==  -2*i
-            assert c.get_short_array2()[i]  ==  -2*i
-            assert c.m_ushort_array[i]      ==   3*i
-            assert c.get_ushort_array()[i]  ==   3*i
-            assert c.m_ushort_array2[i]     ==   4*i
-            assert c.get_ushort_array2()[i] ==   4*i
-            assert c.m_int_array[i]         ==  -5*i
-            assert c.get_int_array()[i]     ==  -5*i
-            assert c.m_int_array2[i]        ==  -6*i
-            assert c.get_int_array2()[i]    ==  -6*i
-            assert c.m_uint_array[i]        ==   7*i
-            assert c.get_uint_array()[i]    ==   7*i
-            assert c.m_uint_array2[i]       ==   8*i
-            assert c.get_uint_array2()[i]   ==   8*i
 
-            assert c.m_long_array[i]        ==  -9*i
-            assert c.get_long_array()[i]    ==  -9*i
-            assert c.m_long_array2[i]       == -10*i
-            assert c.get_long_array2()[i]   == -10*i
-            assert c.m_ulong_array[i]       ==  11*i
-            assert c.get_ulong_array()[i]   ==  11*i
-            assert c.m_ulong_array2[i]      ==  12*i
-            assert c.get_ulong_array2()[i]  ==  12*i
+        # reading of integer array types
+        names = [ 'short', 'ushort',    'int', 'uint',    'long',  'ulong']
+        alpha = [(-1, -2),   (3, 4), (-5, -6), (7, 8), (-9, -10), (11, 12)]
+        for j in range(self.N):
+            assert getattr(c, 'm_%s_array'    % names[i])[i]   == alpha[i][0]*i
+            assert getattr(c, 'get_%s_array'  % names[i])()[i] == alpha[i][0]*i
+            assert getattr(c, 'm_%s_array2'   % names[i])[i]   == alpha[i][1]*i
+            assert getattr(c, 'get_%s_array2' % names[i])()[i] == alpha[i][1]*i
 
-            assert round(c.m_float_array[i]   + 13.*i, 5) == 0
-            assert round(c.m_float_array2[i]  + 14.*i, 5) == 0
-            assert round(c.m_double_array[i]  + 15.*i, 8) == 0
-            assert round(c.m_double_array2[i] + 16.*i, 8) == 0
+        # reading of floating point array types
+        for k in range(self.N):
+            assert round(c.m_float_array[k]   + 13.*k, 5) == 0
+            assert round(c.m_float_array2[k]  + 14.*k, 5) == 0
+            assert round(c.m_double_array[k]  + 15.*k, 8) == 0
+            assert round(c.m_double_array2[k] + 16.*k, 8) == 0
 
         # out-of-bounds checks
         raises(IndexError, c.m_short_array.__getitem__,  self.N)

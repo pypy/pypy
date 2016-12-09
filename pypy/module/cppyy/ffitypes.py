@@ -241,10 +241,15 @@ class LongDoubleTypeMixin(object):
 
     c_type      = rffi.LONGDOUBLE
     c_ptrtype   = rffi.LONGDOUBLEP
-    typecode    = 'D'
+    typecode    = 'g'
 
     def _unwrap_object(self, space, w_obj):
         return space.float_w(w_obj)
+
+    def _wrap_object(self, space, obj):
+        # long double not really supported, so force a cast to double
+        dbl = rffi.cast(rffi.DOUBLE, obj)
+        return space.wrap(float(dbl))
 
     def cffi_type(self, space):
         state = space.fromcache(State)

@@ -318,7 +318,8 @@ def _build_basic_executors():
     "NOT_RPYTHON"
     type_info = (
         (bool,            capi.c_call_b,   ("bool",)),
-        (rffi.CHAR,       capi.c_call_c,   ("char", "unsigned char")),
+        # TODO: either signed or unsigned is correct for a given platform ...
+        (rffi.CHAR,       capi.c_call_c,   ("char", "unsigned char", "signed char")),
         (rffi.SHORT,      capi.c_call_h,   ("short", "short int", "unsigned short", "unsigned short int")),
         (rffi.INT,        capi.c_call_i,   ("int", "internal_enum_type_t")),
         (rffi.UINT,       capi.c_call_l,   ("unsigned", "unsigned int")),
@@ -328,6 +329,7 @@ def _build_basic_executors():
         (rffi.ULONGLONG,  capi.c_call_ll,  ("unsigned long long", "unsigned long long int", "ULong64_t")),
         (rffi.FLOAT,      capi.c_call_f,   ("float",)),
         (rffi.DOUBLE,     capi.c_call_d,   ("double",)),
+        (rffi.LONGDOUBLE, capi.c_call_ld,  ("long double",)),
     )
 
     for c_type, stub, names in type_info:

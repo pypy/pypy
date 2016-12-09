@@ -146,6 +146,13 @@ _c_call_d = rffi.llexternal(
     compilation_info=backend.eci)
 def c_call_d(space, cppmethod, cppobject, nargs, args):
     return _c_call_d(cppmethod, cppobject, nargs, args)
+_c_call_ld = rffi.llexternal(
+    "cppyy_call_ld",
+    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.LONGDOUBLE,
+    releasegil=ts_call,
+    compilation_info=backend.eci)
+def c_call_ld(space, cppmethod, cppobject, nargs, args):
+    return _c_call_ld(cppmethod, cppobject, nargs, args)
 
 _c_call_r = rffi.llexternal(
     "cppyy_call_r",
