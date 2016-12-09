@@ -89,8 +89,6 @@ def fill_from_object(addr, space, w_address):
 def addr_from_object(family, fd, space, w_address):
     if family == rsocket.AF_INET:
         w_host, w_port = space.unpackiterable(w_address, 2)
-        if space.isinstance_w(w_host, space.w_unicode):
-            pass
         host = space.str_w(w_host)
         port = space.int_w(w_port)
         port = make_ushort_port(space, port)
@@ -114,7 +112,7 @@ def addr_from_object(family, fd, space, w_address):
         # Not using space.fsencode_w since Linux allows embedded NULs.
         if space.isinstance_w(w_address, space.w_unicode):
             w_address = space.fsencode(w_address)
-        bytelike = space.getarg_w('y*', w_address)
+        bytelike = space.bytes_w(w_address) # getarg_w('y*', w_address)
         return rsocket.UNIXAddress(bytelike)
     if rsocket.HAS_AF_NETLINK and family == rsocket.AF_NETLINK:
         w_pid, w_groups = space.unpackiterable(w_address, 2)
@@ -458,7 +456,7 @@ class W_Socket(W_Root):
         Like send(data, flags) but allows specifying the destination address.
         For IP sockets, the address is a pair (hostaddr, port).
         """
-        data = space.getarg_w('y*', w_data)
+        data = space.bufferstr_w(w_data)
         if w_param3 is None:
             # 2 args version
             flags = 0
