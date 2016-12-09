@@ -11,7 +11,7 @@ from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, as_pyobj,
         make_typedescr, track_reference, create_ref, from_ref, Py_DecRef,
         Py_IncRef)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
-from pypy.module.cpyext.typeobject import W_GetSetPropertyEx
+from pypy.module.cpyext.typeobject import W_GetSetPropertyEx, make_GetSet
 
 PyDictObjectStruct = lltype.ForwardReference()
 PyDictObject = lltype.Ptr(PyDictObjectStruct)
@@ -264,13 +264,15 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
     if pkey:
         pkey[0]   = as_pyobj(space, w_key)
     if pvalue:
-        if 0 and isinstance(w_value, GetSetProperty):
-            # XXX implement this method for all W_Dict storage strategies
-            w_type = w_dict.get_storage().get_original_type_object_if_classdict()
-            # XXX doesn't quite work, need to convert GetSetProperty
-            #     to PyGetSetDef, with c_name, c_get, c_set, c_doc, c_closure
-            #     Do this by calling a make_typedescr(GetSetProperty)?
-            py_getsetdef = as_pyobj(space, w_value)
+        if isinstance(w_value, GetSetProperty):
+            strategy = w_dict.get_strategy()
+            # for translation
+            assert isinstance(strategy, ClassDictStrategy)
+            w_type = strategy.unerase(w_dict.get_storage())
+            assert space.isinstance_w(w_type, space.w_type)
+            #XXX Could this by calling a make_typedescr(GetSetProperty),
+            #    but how to feed in w_type?
+            py_getsetdef = make_GetSet(space, w_value)
             w_value = W_GetSetPropertyEx(py_getsetdef, w_type)
         pvalue[0] = as_pyobj(space, w_value)
     return 1

@@ -32,7 +32,7 @@ from pypy.module.cpyext.slotdefs import (
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
 from pypy.module.cpyext.typeobjectdefs import (
-    PyGetSetDef, PyMemberDef, newfunc,
+    PyGetSetDef, PyMemberDef, newfunc, getter, setter,
     PyNumberMethods, PyMappingMethods, PySequenceMethods, PyBufferProcs)
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 
@@ -61,6 +61,7 @@ class W_GetSetPropertyEx(GetSetProperty):
         self.w_type = w_type
         doc = set = get = None
         if doc:
+            # XXX dead code?
             doc = rffi.charp2str(getset.c_doc)
         if getset.c_get:
             get = GettersAndSetters.getter.im_func
@@ -72,6 +73,21 @@ class W_GetSetPropertyEx(GetSetProperty):
 
 def PyDescr_NewGetSet(space, getset, w_type):
     return space.wrap(W_GetSetPropertyEx(getset, w_type))
+
+def make_GetSet(space, getsetprop):
+    py_getsetdef = lltype.malloc(PyGetSetDef, flavor='raw')
+    doc = getsetprop.doc
+    if doc:
+        py_getsetdef.c_doc = rffi.str2charp(doc)
+    else:
+        py_getsetdef.c_doc = rffi.cast(rffi.CCHARP, 0)
+    py_getsetdef.c_name = rffi.str2charp(getsetprop.getname(space))
+    # XXX FIXME - actually assign these !!!
+    py_getsetdef.c_get = rffi.cast(getter, 0)
+    py_getsetdef.c_set = rffi.cast(setter, 0)
+    py_getsetdef.c_closure = rffi.cast(rffi.VOIDP, 0)
+    return py_getsetdef
+    
 
 class W_MemberDescr(GetSetProperty):
     name = 'member_descriptor'

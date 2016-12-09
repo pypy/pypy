@@ -356,6 +356,9 @@ class W_DictMultiObject(W_Root):
         if strategy is not object_strategy:
             strategy.switch_to_object_strategy(self)
 
+    def get_storage(self): # for getting the w_type from a ClassDictStrategy
+        return self.dstorage
+
 
 class W_DictObject(W_DictMultiObject):
     """ a regular dict object """
