@@ -795,11 +795,8 @@ def get_raw_address_of_string(key, string):
             return data_start
         rawbytes = RawBytes(string)
         _STR_WDICT.set(key, rawbytes)
+
     return rawbytes.ptr
-
-
-
-
 
 # various type mapping
 
