@@ -608,16 +608,6 @@ class FunctionCodeGenerator(object):
         return 'GC_REGISTER_FINALIZER(%s, (GC_finalization_proc)%s, NULL, NULL, NULL);' \
                % (self.expr(op.args[0]), self.expr(op.args[1]))
 
-    def OP_RAW_MALLOC(self, op):
-        eresult = self.expr(op.result)
-        esize = self.expr(op.args[0])
-        return "OP_RAW_MALLOC(%s, %s, void *);" % (esize, eresult)
-
-    def OP_STACK_MALLOC(self, op):
-        eresult = self.expr(op.result)
-        esize = self.expr(op.args[0])
-        return "OP_STACK_MALLOC(%s, %s, void *);" % (esize, eresult)
-
     def OP_DIRECT_FIELDPTR(self, op):
         return self.OP_GETFIELD(op, ampersand='&')
 

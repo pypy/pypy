@@ -326,6 +326,8 @@ def add_operators(space, dict_w, pto):
         w_obj = W_PyCWrapperObject(space, pto, method_name, wrapper_func,
                 wrapper_func_kwds, doc, func_voidp, offset=offset)
         dict_w[method_name] = space.wrap(w_obj)
+    if pto.c_tp_doc:
+        dict_w['__doc__'] = space.newbytes(rffi.charp2str(pto.c_tp_doc))
     if pto.c_tp_new:
         add_tp_new_wrapper(space, dict_w, pto)
 
@@ -461,13 +463,17 @@ class W_PyCTypeObject(W_TypeObject):
         convert_member_defs(space, dict_w, pto.c_tp_members, self)
 
         name = rffi.charp2str(pto.c_tp_name)
-        new_layout = (pto.c_tp_basicsize > rffi.sizeof(PyObject.TO) or
-                      pto.c_tp_itemsize > 0)
+        flag_heaptype = pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE
+        if flag_heaptype:
+            minsize = rffi.sizeof(PyHeapTypeObject.TO)
+        else:
+            minsize = rffi.sizeof(PyObject.TO)
+        new_layout = (pto.c_tp_basicsize > minsize or pto.c_tp_itemsize > 0)
 
         W_TypeObject.__init__(self, space, name,
             bases_w or [space.w_object], dict_w, force_new_layout=new_layout)
         self.flag_cpytype = True
-        self.flag_heaptype = pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE
+        self.flag_heaptype = flag_heaptype
         # if a sequence or a mapping, then set the flag to force it
         if pto.c_tp_as_sequence and pto.c_tp_as_sequence.c_sq_item:
             self.flag_map_or_seq = 'S'

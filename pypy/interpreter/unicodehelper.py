@@ -142,6 +142,8 @@ def decode_utf8(space, string, allow_surrogates=False):
 
 def encode_utf8(space, uni, allow_surrogates=False):
     # Note that Python3 tends to forbid lone surrogates
+    # Also, note that the two characters \d800\dc00 are considered as
+    # a paired surrogate, and turn into a single 4-byte utf8 char.
     return runicode.unicode_encode_utf_8(
         uni, len(uni), "strict",
         errorhandler=encode_error_handler(space),

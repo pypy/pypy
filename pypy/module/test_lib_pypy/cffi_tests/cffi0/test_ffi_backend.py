@@ -494,3 +494,15 @@ class TestBitfield:
     def test_negative_array_size(self):
         ffi = FFI()
         py.test.raises(ValueError, ffi.cast, "int[-5]", 0)
+
+    def test_cannot_instantiate_manually(self):
+        ffi = FFI()
+        ct = type(ffi.typeof("void *"))
+        py.test.raises(TypeError, ct)
+        py.test.raises(TypeError, ct, ffi.NULL)
+        for cd in [type(ffi.cast("void *", 0)),
+                   type(ffi.new("char[]", 3)),
+                   type(ffi.gc(ffi.NULL, lambda x: None))]:
+            py.test.raises(TypeError, cd)
+            py.test.raises(TypeError, cd, ffi.NULL)
+            py.test.raises(TypeError, cd, ffi.typeof("void *"))
