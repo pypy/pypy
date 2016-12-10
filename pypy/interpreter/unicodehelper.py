@@ -134,6 +134,11 @@ def decode_raw_unicode_escape(space, string):
     return result
 
 def decode_utf8(space, string, allow_surrogates=False):
+    # Note that Python3 tends to forbid *all* surrogates in utf-8.
+    # If allow_surrogates=True, then revert to the Python 2 behavior,
+    # i.e. surrogates are accepted and not treated specially at all.
+    # If there happen to be two 3-bytes encoding a pair of surrogates,
+    # you still get two surrogate unicode characters in the result.
     result, consumed = runicode.str_decode_utf_8(
         string, len(string), "strict",
         final=True, errorhandler=decode_error_handler(space),
@@ -141,9 +146,11 @@ def decode_utf8(space, string, allow_surrogates=False):
     return result
 
 def encode_utf8(space, uni, allow_surrogates=False):
-    # Note that Python3 tends to forbid lone surrogates
-    # Also, note that the two characters \d800\dc00 are considered as
-    # a paired surrogate, and turn into a single 4-byte utf8 char.
+    # Note that Python3 tends to forbid *all* surrogates in utf-8.
+    # If allow_surrogates=True, then revert to the Python 2 behavior
+    # which never raises UnicodeEncodeError.  Surrogate pairs are then
+    # allowed, either paired or lone.  A paired surrogate is considered
+    # like the non-BMP character it stands for.
     return runicode.unicode_encode_utf_8(
         uni, len(uni), "strict",
         errorhandler=encode_error_handler(space),
