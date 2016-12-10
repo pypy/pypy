@@ -3,7 +3,6 @@ import os
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rstring import rsplit
-from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import rffi, lltype
 
 from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
@@ -27,7 +26,8 @@ from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, create_ref, from_ref, get_typedescr, make_typedescr,
     track_reference, Py_DecRef, as_pyobj)
 from pypy.module.cpyext.slotdefs import (
-    slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function)
+    slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function,
+    llslot)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
 from pypy.module.cpyext.typeobjectdefs import (
@@ -252,21 +252,14 @@ def update_all_slots(space, w_type, pto):
             # XXX special case iternext
             continue
 
-        slot_func_helper = None
-
         if slot_func is None and typedef is not None:
-            get_slot = get_slot_tp_function(space, typedef, slot_name)
-            if get_slot:
-                slot_func_helper = get_slot()
-        elif slot_func:
-            slot_func_helper = llhelper(slot_func.api_func.functype,
-                                        slot_func.api_func.get_wrapper(space))
-
-        if slot_func_helper is None:
+            slot_func = get_slot_tp_function(space, typedef, slot_name)
+        if not slot_func:
             if WARN_ABOUT_MISSING_SLOT_FUNCTIONS:
                 os.write(2, "%s defined by %s but no slot function defined!\n" % (
                         method_name, w_type.getname(space)))
             continue
+        slot_func_helper = llslot(space, slot_func)
 
         # XXX special case wrapper-functions and use a "specific" slot func
 
@@ -372,9 +365,8 @@ def get_new_method_def(space):
 
 def setup_new_method_def(space):
     ptr = get_new_method_def(space)
-    ptr.c_ml_meth = rffi.cast(PyCFunction_typedef,
-        llhelper(tp_new_wrapper.api_func.functype,
-                 tp_new_wrapper.api_func.get_wrapper(space)))
+    ptr.c_ml_meth = rffi.cast(
+        PyCFunction_typedef, llslot(space, tp_new_wrapper))
 
 def add_tp_new_wrapper(space, dict_w, pto):
     if "__new__" in dict_w:
@@ -495,8 +487,7 @@ def init_typeobject(space):
 def subtype_dealloc(space, obj):
     pto = obj.c_ob_type
     base = pto
-    this_func_ptr = llhelper(subtype_dealloc.api_func.functype,
-            subtype_dealloc.api_func.get_wrapper(space))
+    this_func_ptr = llslot(space, subtype_dealloc)
     while base.c_tp_dealloc == this_func_ptr:
         base = base.c_tp_base
         assert base
@@ -519,9 +510,7 @@ def bytes_getbuffer(space, w_str, view, flags):
 def setup_bytes_buffer_procs(space, pto):
     c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True)
     lltype.render_immortal(c_buf)
-    c_buf.c_bf_getbuffer = llhelper(
-        bytes_getbuffer.api_func.functype,
-        bytes_getbuffer.api_func.get_wrapper(space))
+    c_buf.c_bf_getbuffer = llslot(space, bytes_getbuffer)
     pto.c_tp_as_buffer = c_buf
     pto.c_tp_flags |= Py_TPFLAGS_HAVE_GETCHARBUFFER
 
@@ -581,12 +570,10 @@ def type_attach(space, py_obj, w_type):
     # dealloc
     if space.gettypeobject(w_type.layout.typedef) is w_type:
         # only for the exact type, like 'space.w_tuple' or 'space.w_list'
-        pto.c_tp_dealloc = typedescr.get_dealloc(space)
+        pto.c_tp_dealloc = llslot(space, typedescr.get_dealloc())
     else:
         # for all subtypes, use subtype_dealloc()
-        pto.c_tp_dealloc = llhelper(
-            subtype_dealloc.api_func.functype,
-            subtype_dealloc.api_func.get_wrapper(space))
+        pto.c_tp_dealloc = llslot(space, subtype_dealloc)
     if space.is_w(w_type, space.w_str):
         pto.c_tp_itemsize = 1
     elif space.is_w(w_type, space.w_tuple):
@@ -595,10 +582,8 @@ def type_attach(space, py_obj, w_type):
     if space.is_w(w_type, space.w_str):
         setup_bytes_buffer_procs(space, pto)
 
-    pto.c_tp_free = llhelper(PyObject_Free.api_func.functype,
-            PyObject_Free.api_func.get_wrapper(space))
-    pto.c_tp_alloc = llhelper(PyType_GenericAlloc.api_func.functype,
-            PyType_GenericAlloc.api_func.get_wrapper(space))
+    pto.c_tp_free = llslot(space, PyObject_Free)
+    pto.c_tp_alloc = llslot(space, PyType_GenericAlloc)
     builder = space.fromcache(StaticObjectBuilder)
     if ((pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE) != 0
             and builder.cpyext_type_init is None):
@@ -780,15 +765,11 @@ def finish_type_2(space, pto, w_obj):
 
     if not pto.c_tp_setattro:
         from pypy.module.cpyext.object import PyObject_GenericSetAttr
-        pto.c_tp_setattro = llhelper(
-            PyObject_GenericSetAttr.api_func.functype,
-            PyObject_GenericSetAttr.api_func.get_wrapper(space))
+        pto.c_tp_setattro = llslot(space, PyObject_GenericSetAttr)
 
     if not pto.c_tp_getattro:
         from pypy.module.cpyext.object import PyObject_GenericGetAttr
-        pto.c_tp_getattro = llhelper(
-            PyObject_GenericGetAttr.api_func.functype,
-            PyObject_GenericGetAttr.api_func.get_wrapper(space))
+        pto.c_tp_getattro = llslot(space, PyObject_GenericGetAttr)
 
     if w_obj.is_cpytype():
         Py_DecRef(space, pto.c_tp_dict)
