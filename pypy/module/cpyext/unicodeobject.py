@@ -62,7 +62,7 @@ def new_empty_unicode(space, length):
     py_uni.c_defenc = lltype.nullptr(PyObject.TO)
     return py_uni
 
-def unicode_attach(space, py_obj, w_obj):
+def unicode_attach(space, py_obj, w_obj, w_userdata=None):
     "Fills a newly allocated PyUnicodeObject with a unicode string"
     py_unicode = rffi.cast(PyUnicodeObject, py_obj)
     py_unicode.c_length = len(space.unicode_w(w_obj))

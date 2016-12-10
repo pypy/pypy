@@ -28,7 +28,7 @@ def init_dictobject(space):
                    dealloc=dict_dealloc,
                    realize=dict_realize)
 
-def dict_attach(space, py_obj, w_obj):
+def dict_attach(space, py_obj, w_obj, w_userdata=None):
     """
     Fills a newly allocated PyDictObject with the given dict object.
     """
@@ -264,17 +264,13 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
     if pkey:
         pkey[0]   = as_pyobj(space, w_key)
     if pvalue:
+        w_type = None
         if isinstance(w_value, GetSetProperty):
             strategy = w_dict.get_strategy()
             # for translation
             assert isinstance(strategy, ClassDictStrategy)
             w_type = strategy.unerase(w_dict.get_storage())
-            assert space.isinstance_w(w_type, space.w_type)
-            #XXX Could this by calling a make_typedescr(GetSetProperty),
-            #    but how to feed in w_type?
-            py_getsetdef = make_GetSet(space, w_value)
-            w_value = W_GetSetPropertyEx(py_getsetdef, w_type)
-        pvalue[0] = as_pyobj(space, w_value)
+        pvalue[0] = as_pyobj(space, w_value, w_type)
     return 1
 
 @specialize.memo()

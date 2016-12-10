@@ -63,7 +63,7 @@ class BaseCpyTypedescr(object):
         pyobj.c_ob_type = pytype
         return pyobj
 
-    def attach(self, space, pyobj, w_obj):
+    def attach(self, space, pyobj, w_obj, w_userdata=None):
         pass
 
     def realize(self, space, obj):
@@ -115,8 +115,8 @@ def make_typedescr(typedef, **kw):
                     tp_dealloc.api_func.get_wrapper(space))
 
         if tp_attach:
-            def attach(self, space, pyobj, w_obj):
-                tp_attach(space, pyobj, w_obj)
+            def attach(self, space, pyobj, w_obj, w_userdata=None):
+                tp_attach(space, pyobj, w_obj, w_userdata)
 
         if tp_realize:
             def realize(self, space, ref):
@@ -156,7 +156,7 @@ def get_typedescr(typedef):
 class InvalidPointerException(Exception):
     pass
 
-def create_ref(space, w_obj):
+def create_ref(space, w_obj, w_userdata=None):
     """
     Allocates a PyObject, and fills its fields with info from the given
     interpreter object.
@@ -177,7 +177,7 @@ def create_ref(space, w_obj):
     assert py_obj.c_ob_refcnt > rawrefcount.REFCNT_FROM_PYPY
     py_obj.c_ob_refcnt -= 1
     #
-    typedescr.attach(space, py_obj, w_obj)
+    typedescr.attach(space, py_obj, w_obj, w_userdata)
     return py_obj
 
 def track_reference(space, py_obj, w_obj):
@@ -232,7 +232,7 @@ def from_ref(space, ref):
     assert isinstance(w_type, W_TypeObject)
     return get_typedescr(w_type.layout.typedef).realize(space, ref)
 
-def as_pyobj(space, w_obj):
+def as_pyobj(space, w_obj, w_userdata=None):
     """
     Returns a 'PyObject *' representing the given intepreter object.
     This doesn't give a new reference, but the returned 'PyObject *'
@@ -244,7 +244,7 @@ def as_pyobj(space, w_obj):
         assert not is_pyobj(w_obj)
         py_obj = rawrefcount.from_obj(PyObject, w_obj)
         if not py_obj:
-            py_obj = create_ref(space, w_obj)
+            py_obj = create_ref(space, w_obj, w_userdata)
         return py_obj
     else:
         return lltype.nullptr(PyObject.TO)

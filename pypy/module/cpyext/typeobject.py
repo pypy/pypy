@@ -174,7 +174,7 @@ def init_memberdescrobject(space):
                    realize=methoddescr_realize,
                    )
 
-def memberdescr_attach(space, py_obj, w_obj):
+def memberdescr_attach(space, py_obj, w_obj, w_userdata=None):
     """
     Fills a newly allocated PyMemberDescrObject with the given W_MemberDescr
     object. The values must not be modified.
@@ -193,17 +193,21 @@ def memberdescr_realize(space, obj):
     track_reference(space, obj, w_obj)
     return w_obj
 
-def getsetdescr_attach(space, py_obj, w_obj):
+def getsetdescr_attach(space, py_obj, w_obj, w_userdata=None):
     """
     Fills a newly allocated PyGetSetDescrObject with the given W_GetSetPropertyEx
     object. The values must not be modified.
     """
     py_getsetdescr = rffi.cast(PyGetSetDescrObject, py_obj)
+    if isinstance(w_obj, GetSetProperty):
+        py_getsetdef = make_GetSet(space, w_obj)
+        assert space.isinstance_w(w_userdata, space.w_type)
+        w_obj = W_GetSetPropertyEx(py_getsetdef, w_userdata)
     # XXX assign to d_dname, d_type?
     assert isinstance(w_obj, W_GetSetPropertyEx)
     py_getsetdescr.c_d_getset = w_obj.getset
 
-def methoddescr_attach(space, py_obj, w_obj):
+def methoddescr_attach(space, py_obj, w_obj, w_userdata=None):
     py_methoddescr = rffi.cast(PyMethodDescrObject, py_obj)
     # XXX assign to d_dname, d_type?
     assert isinstance(w_obj, W_PyCFunctionObject)
@@ -702,7 +706,7 @@ def type_alloc(space, w_metatype, itemsize=0):
 
     return rffi.cast(PyObject, heaptype)
 
-def type_attach(space, py_obj, w_type):
+def type_attach(space, py_obj, w_type, w_userdata=None):
     """
     Fills a newly allocated PyTypeObject from an existing type.
     """

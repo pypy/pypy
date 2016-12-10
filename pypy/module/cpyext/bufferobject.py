@@ -31,7 +31,7 @@ def init_bufferobject(space):
                    dealloc=buffer_dealloc,
                    realize=buffer_realize)
 
-def buffer_attach(space, py_obj, w_obj):
+def buffer_attach(space, py_obj, w_obj, w_userdata=None):
     """
     Fills a newly allocated PyBufferObject with the given (str) buffer object.
     """
