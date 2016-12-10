@@ -441,11 +441,9 @@ def _marshal_unicode(space, s, m, w_unicode=None):
     if typecode != FLAG_DONE:
         m.atom_str(typecode, s)
 
-def _encode_utf8(space, u):
-    return unicodehelper.encode_utf8(space, u, allow_surrogates=True)
-
-def _decode_utf8(space, s):
-    return unicodehelper.decode_utf8(space, s, allow_surrogates=True)
+# surrogate-preserving variants
+_encode_utf8 = unicodehelper.encode_utf8sp
+_decode_utf8 = unicodehelper.decode_utf8sp
 
 @marshaller(W_UnicodeObject)
 def marshal_unicode(space, w_unicode, m):

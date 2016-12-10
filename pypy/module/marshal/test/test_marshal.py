@@ -172,6 +172,8 @@ class AppTestMarshal:
         import marshal, sys
         self.marshal_check('\uFFFF')
         self.marshal_check('\ud800')
+        c = u"\ud800"
+        self.marshal_check(c + u'\udc00')
 
         self.marshal_check(chr(sys.maxunicode))
 
