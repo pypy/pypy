@@ -276,14 +276,14 @@ class Entry(ExtRegistryEntry):
         return hop.inputconst(lltype.Bool, hop.s_result.const)
 
 @specialize.ll()
-def make_ref(space, obj):
+def make_ref(space, obj, w_userdata=None):
     """Increment the reference counter of the PyObject and return it.
     Can be called with either a PyObject or a W_Root.
     """
     if is_pyobj(obj):
         pyobj = rffi.cast(PyObject, obj)
     else:
-        pyobj = as_pyobj(space, obj)
+        pyobj = as_pyobj(space, obj, w_userdata)
     if pyobj:
         assert pyobj.c_ob_refcnt > 0
         pyobj.c_ob_refcnt += 1
