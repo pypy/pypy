@@ -27,9 +27,7 @@ class BaseCpyTypedescr(object):
 
     def get_dealloc(self, space):
         from pypy.module.cpyext.typeobject import subtype_dealloc
-        return llhelper(
-            subtype_dealloc.api_func.functype,
-            subtype_dealloc.api_func.get_wrapper(space))
+        return subtype_dealloc.api_func.get_llhelper(space)
 
     def allocate(self, space, w_type, itemcount=0):
         # similar to PyType_GenericAlloc?
@@ -110,9 +108,7 @@ def make_typedescr(typedef, **kw):
 
         if tp_dealloc:
             def get_dealloc(self, space):
-                return llhelper(
-                    tp_dealloc.api_func.functype,
-                    tp_dealloc.api_func.get_wrapper(space))
+                return tp_dealloc.api_func.get_llhelper(space)
 
         if tp_attach:
             def attach(self, space, pyobj, w_obj):
