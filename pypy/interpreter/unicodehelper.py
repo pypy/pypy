@@ -61,6 +61,8 @@ def encode_utf8(space, uni):
     # Note that this function never raises UnicodeEncodeError,
     # since surrogate pairs are allowed.
     # This is not the case with Python3.
+    # Also, note that the two characters \d800\dc00 are considered as
+    # a paired surrogate, and turn into a single 4-byte utf8 char.
     return runicode.unicode_encode_utf_8(
         uni, len(uni), "strict",
         errorhandler=raise_unicode_exception_encode,
