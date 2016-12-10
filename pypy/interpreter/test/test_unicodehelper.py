@@ -1,5 +1,6 @@
 import py
 from pypy.interpreter.unicodehelper import encode_utf8, decode_utf8
+from pypy.interpreter.unicodehelper import encode_utf8sp, decode_utf8sp
 
 
 class Hit(Exception):
@@ -31,6 +32,14 @@ def test_encode_utf8_allow_surrogates():
     got = encode_utf8(sp, u"\ud800" + c, allow_surrogates=True)
     assert got == "\xf0\x90\x80\x80"
 
+def test_encode_utf8sp():
+    sp = FakeSpace()
+    assert encode_utf8sp(sp, u"\ud800") == "\xed\xa0\x80"
+    assert encode_utf8sp(sp, u"\udc00") == "\xed\xb0\x80"
+    c = u"\udc00"
+    got = encode_utf8sp(sp, u"\ud800" + c)
+    assert got == "\xed\xa0\x80\xed\xb0\x80"
+
 def test_decode_utf8():
     space = FakeSpace()
     assert decode_utf8(space, "abc") == u"abc"
@@ -48,4 +57,13 @@ def test_decode_utf8_allow_surrogates():
     got = decode_utf8(sp, "\xed\xa0\x80\xed\xb0\x80", allow_surrogates=True)
     assert map(ord, got) == [0xd800, 0xdc00]
     got = decode_utf8(sp, "\xf0\x90\x80\x80", allow_surrogates=True)
+    assert map(ord, got) == [0x10000]
+
+def test_decode_utf8sp():
+    space = FakeSpace()
+    assert decode_utf8sp(space, "\xed\xa0\x80") == u"\ud800"
+    assert decode_utf8sp(space, "\xed\xb0\x80") == u"\udc00"
+    got = decode_utf8sp(space, "\xed\xa0\x80\xed\xb0\x80")
+    assert map(ord, got) == [0xd800, 0xdc00]
+    got = decode_utf8sp(space, "\xf0\x90\x80\x80")
     assert map(ord, got) == [0x10000]
