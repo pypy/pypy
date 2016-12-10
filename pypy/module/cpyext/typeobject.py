@@ -253,20 +253,14 @@ def update_all_slots(space, w_type, pto):
             # XXX special case iternext
             continue
 
-        slot_func_helper = None
-
         if slot_func is None and typedef is not None:
-            get_slot = get_slot_tp_function(space, typedef, slot_name)
-            if get_slot:
-                slot_func_helper = get_slot()
-        elif slot_func:
-            slot_func_helper = llslot(space, slot_func)
-
-        if slot_func_helper is None:
+            slot_func = get_slot_tp_function(space, typedef, slot_name)
+        if not slot_func:
             if WARN_ABOUT_MISSING_SLOT_FUNCTIONS:
                 os.write(2, "%s defined by %s but no slot function defined!\n" % (
                         method_name, w_type.getname(space)))
             continue
+        slot_func_helper = llslot(space, slot_func)
 
         # XXX special case wrapper-functions and use a "specific" slot func
 
@@ -683,7 +677,7 @@ def type_attach(space, py_obj, w_type):
     # dealloc
     if space.gettypeobject(w_type.layout.typedef) is w_type:
         # only for the exact type, like 'space.w_tuple' or 'space.w_list'
-        pto.c_tp_dealloc = typedescr.get_dealloc(space)
+        pto.c_tp_dealloc = llslot(space, typedescr.get_dealloc())
     else:
         # for all subtypes, use subtype_dealloc()
         pto.c_tp_dealloc = llslot(space, subtype_dealloc)

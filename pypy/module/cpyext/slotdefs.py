@@ -652,7 +652,7 @@ def build_slot_tp_function(space, typedef, name):
         # richcmpfunc(s)
         return
 
-    return lambda: llslot(space, slot_func)
+    return slot_func
 
 PyWrapperFlag_KEYWORDS = 1
 
