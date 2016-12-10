@@ -3,12 +3,13 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.bytesobject import new_empty_str, PyBytesObject
-from pypy.module.cpyext.api import PyObjectP, PyObject, Py_ssize_tP, generic_cpy_call
-from pypy.module.cpyext.pyobject import Py_DecRef, from_ref, make_ref
+from pypy.module.cpyext.api import PyObjectP, PyObject, Py_ssize_tP, generic_cpy_call, Py_buffer
+from pypy.module.cpyext.pyobject import Py_DecRef, from_ref, make_ref, as_pyobj
 from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
 
 import py
 import sys
+
 
 class AppTestBytesObject(AppTestCpythonExtensionBase):
     def test_bytesobject(self):
@@ -290,3 +291,10 @@ class TestBytes(BaseApiTest):
         w_obj = space.wrap(u"test")
         assert api.PyBytes_FromObject(w_obj) is None
         api.PyErr_Clear()
+
+    def test_suboffsets(self, space, api):
+        w_bytes = space.newbytes('1234')
+        view = lltype.malloc(Py_buffer, flavor='raw', zero=True)
+        flags = rffi.cast(rffi.INT_real, 0)
+        api.PyObject_GetBuffer(w_bytes, view, flags)
+        assert not view.c_suboffsets

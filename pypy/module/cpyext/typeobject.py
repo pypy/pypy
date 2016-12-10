@@ -505,10 +505,10 @@ def subtype_dealloc(space, obj):
               header=None, error=-1)
 def bytes_getbuffer(space, w_str, view, flags):
     from pypy.module.cpyext.bytesobject import PyBytes_AsString
-    view.c_obj = make_ref(space, w_str)
-    view.c_buf = rffi.cast(rffi.VOIDP, PyBytes_AsString(space, view.c_obj))
-    view.c_len = space.len_w(w_str)
-    return 0
+    from pypy.module.cpyext.object import PyBuffer_FillInfo
+    c_buf = rffi.cast(rffi.VOIDP, PyBytes_AsString(space, w_str))
+    return PyBuffer_FillInfo(space, view, w_str, c_buf,
+                             space.len_w(w_str), 1, flags)
 
 def setup_bytes_buffer_procs(space, pto):
     c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True)
