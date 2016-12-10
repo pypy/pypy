@@ -98,20 +98,6 @@ int PyObject_AsWriteBuffer(PyObject *obj,
 
 /* Buffer C-API for Python 3.0 */
 
-int
-PyObject_GetBuffer(PyObject *obj, Py_buffer *view, int flags)
-{
-    PyBufferProcs *pb = obj->ob_type->tp_as_buffer;
-
-    if (pb == NULL || pb->bf_getbuffer == NULL) {
-        PyErr_Format(PyExc_TypeError,
-                     "a bytes-like object is required, not '%.100s'",
-                     Py_TYPE(obj)->tp_name);
-        return -1;
-    }
-    return (*pb->bf_getbuffer)(obj, view, flags);
-}
-
 void
 PyBuffer_Release(Py_buffer *view)
 {
