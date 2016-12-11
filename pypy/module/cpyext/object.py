@@ -493,7 +493,7 @@ def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
     This is not a complete re-implementation of the CPython API; it only
     provides a subset of CPython's behavior.
     """
-    if flags & PyBUF_WRITABLE and readonly:
+    if rffi.cast(lltype.Signed, flags) & PyBUF_WRITABLE and readonly:
         raise oefmt(space.w_ValueError, "Object is not writable")
     view.c_buf = buf
     view.c_len = length
