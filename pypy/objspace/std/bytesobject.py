@@ -793,7 +793,7 @@ def _convert_from_buffer_or_iterable(space, w_source):
 
 
 W_BytesObject.typedef = TypeDef(
-    "bytes",
+    "bytes", None, None, "read",
     __new__ = interp2app(W_BytesObject.descr_new),
     __doc__ = """bytes(iterable_of_ints) -> bytes
     bytes(string, encoding[, errors]) -> bytes

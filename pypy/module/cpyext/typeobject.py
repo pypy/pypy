@@ -508,10 +508,25 @@ def bytes_getbuffer(space, w_str, view, flags):
     return PyBuffer_FillInfo(space, view, w_str, c_buf,
                              space.len_w(w_str), 1, flags)
 
-def setup_bytes_buffer_procs(space, pto):
+@cpython_api([PyObject, lltype.Ptr(Py_buffer), rffi.INT_real], rffi.INT_real,
+              header=None, error=-1)
+def bf_getbuffer(space, w_obj, view, flags):
+    from pypy.module.cpyext.object import PyBuffer_FillInfo
+    buf = space.buffer_w(w_obj, rffi.cast(lltype.Signed, flags))
+    c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
+    return PyBuffer_FillInfo(space, view, w_obj, c_buf,
+                             space.len_w(w_obj), 0, flags)
+
+def setup_buffer_procs(space, w_type, pto):
+    bufspec = w_type.layout.typedef.buffer
+    if not bufspec:
+        return
     c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True)
     lltype.render_immortal(c_buf)
-    c_buf.c_bf_getbuffer = llslot(space, bytes_getbuffer)
+    if space.is_w(w_type, space.w_bytes):
+        c_buf.c_bf_getbuffer = llslot(space, bytes_getbuffer)
+    else:
+        c_buf.c_bf_getbuffer = llslot(space, bf_getbuffer)
     pto.c_tp_as_buffer = c_buf
     pto.c_tp_flags |= Py_TPFLAGS_HAVE_GETCHARBUFFER
 
@@ -580,8 +595,7 @@ def type_attach(space, py_obj, w_type):
     elif space.is_w(w_type, space.w_tuple):
         pto.c_tp_itemsize = rffi.sizeof(PyObject)
     # buffer protocol
-    if space.is_w(w_type, space.w_str):
-        setup_bytes_buffer_procs(space, pto)
+    setup_buffer_procs(space, w_type, pto)
 
     pto.c_tp_free = llslot(space, PyObject_Free)
     pto.c_tp_alloc = llslot(space, PyType_GenericAlloc)

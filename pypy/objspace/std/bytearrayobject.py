@@ -1052,7 +1052,7 @@ class BytearrayDocstrings:
 
 
 W_BytearrayObject.typedef = TypeDef(
-    "bytearray",
+    "bytearray", None, None, "read-write",
     __doc__ = BytearrayDocstrings.__doc__,
     __new__ = interp2app(W_BytearrayObject.descr_new),
     __hash__ = None,
