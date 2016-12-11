@@ -7,12 +7,12 @@ from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, PyObject, Py_ssize_t,
     Py_buffer, mangle_name, pypy_decl)
 from pypy.module.cpyext.typeobjectdefs import (
-    unaryfunc, wrapperfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc, ternaryfunc,
+    unaryfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc,
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
     ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
     cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc, objobjargproc,
     getbufferproc, ssizessizeobjargproc)
-from pypy.module.cpyext.pyobject import from_ref, make_ref, Py_DecRef
+from pypy.module.cpyext.pyobject import make_ref, Py_DecRef
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.memoryobject import fill_Py_buffer
 from pypy.module.cpyext.state import State
@@ -20,9 +20,11 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.argument import Arguments
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, not_rpython
 from rpython.rlib.rarithmetic import widen
 from rpython.tool.sourcetools import func_renamer
+from rpython.flowspace.model import Constant
+from rpython.flowspace.specialcase import register_flow_sc
 from rpython.rtyper.annlowlevel import llhelper
 from pypy.module.sys.version import CPYTHON_VERSION
 
@@ -59,8 +61,16 @@ def check_num_argsv(space, w_ob, low, high):
                 "expected %d-%d arguments, got %d",
                 low, high, space.len_w(w_ob))
 
+@not_rpython
 def llslot(space, func):
     return llhelper(func.api_func.functype, func.api_func.get_wrapper(space))
+
+@register_flow_sc(llslot)
+def sc_llslot(ctx, v_space, v_func):
+    assert isinstance(v_func, Constant)
+    get_llhelper = v_func.value.api_func.get_llhelper
+    return ctx.appcall(get_llhelper, v_space)
+
 
 def wrap_init(space, w_self, w_args, func, w_kwargs):
     func_init = rffi.cast(initproc, func)
@@ -416,9 +426,10 @@ def get_slot_tp_function(space, typedef, name):
     try:
         return SLOTS[key]
     except KeyError:
-        ret = build_slot_tp_function(space, typedef, name)
-        SLOTS[key] = ret
-        return ret
+        slot_func = build_slot_tp_function(space, typedef, name)
+        api_func = slot_func.api_func if slot_func else None
+        SLOTS[key] = api_func
+        return api_func
 
 def build_slot_tp_function(space, typedef, name):
     w_type = space.gettypeobject(typedef)
@@ -927,8 +938,8 @@ def slotdef_sort_key(slotdef):
 slotdefs = sorted(slotdefs, key=slotdef_sort_key)
 
 slotdefs_for_tp_slots = unrolling_iterable(
-    [(x.method_name, x.slot_name, x.slot_names, x.slot_func)
-     for x in slotdefs])
+    [(x.method_name, x.slot_name, x.slot_names,
+      x.slot_func.api_func if x.slot_func else None) for x in slotdefs])
 
 slotdefs_for_wrappers = unrolling_iterable(
     [(x.method_name, x.slot_names, x.wrapper_func, x.wrapper_func_kwds, x.doc)
