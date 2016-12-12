@@ -142,10 +142,14 @@ def decode_hp_hint_args(op):
             assert len(lst) == len(args_v), (
                 "not supported so far: 'greens' variables contain Void")
         # a crash here means that you have to reorder the variable named in
-        # the JitDriver.  Indeed, greens and reds must both be sorted: first
-        # all INTs, followed by all REFs, followed by all FLOATs.
+        # the JitDriver.  
         lst2 = sort_vars(lst)
-        assert lst == lst2
+        assert lst == lst2, ("You have to reorder the variables named in "
+            "the JitDriver (both the 'greens' and 'reds' independently). "
+            "They must be sorted like this: first all the integer-like, "
+            "then all the pointer-like, and finally the floats.\n"
+            "Got: %r\n"
+            "Expected: %r" % (lst, lst2))
         return lst
     #
     return (_sort(greens_v, True), _sort(reds_v, False))

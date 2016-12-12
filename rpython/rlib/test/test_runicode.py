@@ -812,6 +812,21 @@ class TestEncoding(UnicodeTests):
         py.test.raises(UnicodeEncodeError, encoder, u' 12, \u1234 ', 7, None)
         assert encoder(u'u\u1234', 2, 'replace') == 'u?'
 
+    def test_encode_utf8sp(self):
+        # for the following test, go to lengths to avoid CPython's optimizer
+        # and .pyc file storage, which collapse the two surrogates into one
+        c = u"\udc00"
+        for input, expected in [
+                (u"", ""),
+                (u"abc", "abc"),
+                (u"\u1234", "\xe1\x88\xb4"),
+                (u"\ud800", "\xed\xa0\x80"),
+                (u"\udc00", "\xed\xb0\x80"),
+                (u"\ud800" + c, "\xed\xa0\x80\xed\xb0\x80"),
+            ]:
+            got = runicode.unicode_encode_utf8sp(input, len(input))
+            assert got == expected
+
 
 class TestTranslation(object):
     def setup_class(cls):
