@@ -186,6 +186,14 @@ class W_TypeObject(W_Root):
         else:
             layout = setup_user_defined_type(self, force_new_layout)
         self.layout = layout
+        if self.flag_heaptype:
+            w_qualname = self.dict_w.pop('__qualname__', None)
+            if w_qualname is not None:
+                self.qualname = space.unicode_w(w_qualname)
+            else:
+                self.qualname = self.getname(space)
+        else:
+            self.qualname = self.getname(space)
 
         if not is_mro_purely_of_types(self.mro_w):
             pass
@@ -1178,12 +1186,6 @@ def setup_user_defined_type(w_self, force_new_layout):
     layout = create_all_slots(w_self, hasoldstylebase, w_bestbase,
                               force_new_layout)
 
-    w_qualname = w_self.dict_w.pop('__qualname__', None)
-    if w_qualname is not None:
-        w_self.qualname = w_self.space.unicode_w(w_qualname)
-    else:
-        w_self.qualname = w_self.getname(w_self.space)
-
     ensure_common_attributes(w_self)
     return layout
 
@@ -1191,7 +1193,6 @@ def setup_builtin_type(w_self, instancetypedef):
     w_self.hasdict = instancetypedef.hasdict
     w_self.weakrefable = instancetypedef.weakrefable
     w_self.w_doc = w_self.space.wrap(instancetypedef.doc)
-    w_self.qualname = w_self.getname(w_self.space)
     ensure_common_attributes(w_self)
     w_self.flag_heaptype = instancetypedef.heaptype
     #
