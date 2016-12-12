@@ -60,7 +60,7 @@ writebufferproc = P(FT([PyO, Py_ssize_t, rffi.VOIDPP], Py_ssize_t))
 segcountproc = P(FT([PyO, Py_ssize_tP], Py_ssize_t))
 charbufferproc = P(FT([PyO, Py_ssize_t, rffi.CCHARPP], Py_ssize_t))
 getbufferproc = P(FT([PyO, Py_bufferP, rffi.INT_real], rffi.INT_real))
-releasebufferproc = rffi.VOIDP
+releasebufferproc = P(FT([PyO, Py_bufferP], Void))
 
 
 PyGetSetDef = cpython_struct("PyGetSetDef", (
