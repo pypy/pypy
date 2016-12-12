@@ -1154,6 +1154,7 @@ class __extend__(pyframe.PyFrame):
             if not e.match(self.space, self.space.w_StopIteration):
                 raise
             # iterator exhausted
+            self.space.getexecutioncontext().exception_trace(self, e)
             self.popvalue()
             next_instr += jumpby
         else:
