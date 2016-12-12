@@ -75,6 +75,9 @@ class Buffer(object):
     def getstrides(self):
         return [1]
 
+    def releasebuffer(self):
+        pass
+
 class StringBuffer(Buffer):
     __slots__ = ['value']
     _immutable_ = True

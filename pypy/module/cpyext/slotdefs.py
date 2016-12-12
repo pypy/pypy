@@ -340,11 +340,12 @@ class CPyBuffer(Buffer):
         self.ndim = ndim
         self.itemsize = itemsize
         self.readonly = readonly
-        self.releasebuffer = releasebuffer
+        self.releasebufferproc = releasebuffer
 
-    def __del__(self):
-        if self.releasebuffer:
-            func_target = rffi.cast(releasebufferproc, self.releasebuffer)
+    def releasebuffer(self):
+        print '--------------'
+        if self.releasebufferproc:        
+            func_target = rffi.cast(releasebufferproc, self.releasebufferproc)
             with lltype.scoped_alloc(Py_buffer) as pybuf:
                 pybuf.c_buf = self.ptr
                 pybuf.c_len = self.size
@@ -354,6 +355,7 @@ class CPyBuffer(Buffer):
                     pybuf.c_strides[i] = self.strides[i]
                 pybuf.c_format = rffi.str2charp(self.format)
                 generic_cpy_call(self.space, func_target, self.w_obj, pybuf)
+            self.releasebufferproc = None
 
     def getlength(self):
         return self.size

@@ -17,6 +17,9 @@ class W_Buffer(W_Root):
         assert isinstance(buf, Buffer)
         self.buf = buf
 
+    def _finalize_(self):
+        return self.buf.releasebuffer()
+
     def buffer_w(self, space, flags):
         space.check_buf_flags(flags, self.buf.readonly)
         return self.buf
