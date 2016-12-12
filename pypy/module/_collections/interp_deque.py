@@ -610,6 +610,14 @@ class W_DequeIter(W_Root):
         self.lock = deque.getlock()
         check_nonneg(self.index)
 
+    def _move_to(self, index):
+        if index < 0:
+            return
+        self.counter = self.deque.len - index
+        if self.counter <= 0:
+            return
+        self.block, self.index = self.deque.locate(index)
+
     def iter(self):
         return self.space.wrap(self)
 
@@ -621,7 +629,7 @@ class W_DequeIter(W_Root):
         if self.lock is not self.deque.lock:
             self.counter = 0
             raise oefmt(space.w_RuntimeError, "deque mutated during iteration")
-        if self.counter == 0:
+        if self.counter <= 0:
             raise OperationError(space.w_StopIteration, space.w_None)
         self.counter -= 1
         ri = self.index
@@ -634,15 +642,19 @@ class W_DequeIter(W_Root):
         return w_x
 
     def reduce(self):
+        w_i = self.space.wrap(self.deque.len - self.counter)
         return self.space.newtuple([self.space.gettypefor(W_DequeIter),
-                                    self.space.newtuple([self.deque])])
+                                    self.space.newtuple([self.deque, w_i])])
 
-def W_DequeIter__new__(space, w_subtype, w_deque):
+@unwrap_spec(index=int)
+def W_DequeIter__new__(space, w_subtype, w_deque, index=0):
     w_self = space.allocate_instance(W_DequeIter, w_subtype)
     if not isinstance(w_deque, W_Deque):
         raise oefmt(space.w_TypeError, "must be collections.deque, not %T", w_deque)
 
-    W_DequeIter.__init__(space.interp_w(W_DequeIter, w_self), w_deque)
+    self = space.interp_w(W_DequeIter, w_self)
+    W_DequeIter.__init__(self, w_deque)
+    self._move_to(index)
     return w_self
 
 W_DequeIter.typedef = TypeDef("_collections.deque_iterator",
@@ -666,6 +678,14 @@ class W_DequeRevIter(W_Root):
         self.lock = deque.getlock()
         check_nonneg(self.index)
 
+    def _move_to(self, index):
+        if index < 0:
+            return
+        self.counter = self.deque.len - index
+        if self.counter <= 0:
+            return
+        self.block, self.index = self.deque.locate(self.counter - 1)
+
     def iter(self):
         return self.space.wrap(self)
 
@@ -677,7 +697,7 @@ class W_DequeRevIter(W_Root):
         if self.lock is not self.deque.lock:
             self.counter = 0
             raise oefmt(space.w_RuntimeError, "deque mutated during iteration")
-        if self.counter == 0:
+        if self.counter <= 0:
             raise OperationError(space.w_StopIteration, space.w_None)
         self.counter -= 1
         ri = self.index
@@ -690,15 +710,19 @@ class W_DequeRevIter(W_Root):
         return w_x
 
     def reduce(self):
+        w_i = self.space.wrap(self.deque.len - self.counter)
         return self.space.newtuple([self.space.gettypefor(W_DequeRevIter),
-                                    self.space.newtuple([self.deque])])
+                                    self.space.newtuple([self.deque, w_i])])
 
-def W_DequeRevIter__new__(space, w_subtype, w_deque):
+@unwrap_spec(index=int)
+def W_DequeRevIter__new__(space, w_subtype, w_deque, index=0):
     w_self = space.allocate_instance(W_DequeRevIter, w_subtype)
     if not isinstance(w_deque, W_Deque):
         raise oefmt(space.w_TypeError, "must be collections.deque, not %T", w_deque)
 
-    W_DequeRevIter.__init__(space.interp_w(W_DequeRevIter, w_self), w_deque)
+    self = space.interp_w(W_DequeRevIter, w_self)
+    W_DequeRevIter.__init__(self, w_deque)
+    self._move_to(index)
     return w_self
 
 W_DequeRevIter.typedef = TypeDef("_collections.deque_reverse_iterator",

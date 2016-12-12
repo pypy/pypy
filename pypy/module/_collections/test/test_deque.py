@@ -331,18 +331,28 @@ class AppTestBasic:
     def test_DequeIter_pickle(self):
         from _collections import deque
         import pickle
-        d = deque([1,2,3])
-        iterator = iter(d)
-        copy = pickle.loads(pickle.dumps(iterator))
-        assert list(iterator) == list(copy)
+        for i in range(4):
+            d = deque([1,2,3])
+            iterator = iter(d)
+            assert iterator.__reduce__() == (type(iterator), (d, 0))
+            for j in range(i):
+                next(iterator)
+            assert iterator.__reduce__() == (type(iterator), (d, i))
+            copy = pickle.loads(pickle.dumps(iterator))
+            assert list(iterator) == list(copy)
 
     def test_DequeRevIter_pickle(self):
         from _collections import deque
         import pickle
-        d = deque([1,2,3])
-        iterator = reversed(d)
-        copy = pickle.loads(pickle.dumps(iterator))
-        assert list(iterator) == list(copy)
+        for i in range(4):
+            d = deque([1,2,3])
+            iterator = reversed(d)
+            assert iterator.__reduce__() == (type(iterator), (d, 0))
+            for j in range(i):
+                assert next(iterator)
+            assert iterator.__reduce__() == (type(iterator), (d, i))
+            copy = pickle.loads(pickle.dumps(iterator))
+            assert list(iterator) == list(copy)
 
     def test_deque_mul(self):
         from _collections import deque
