@@ -310,7 +310,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
             ("setattr", "METH_O",
              '''
                 int ret;
-                PyObject* name = PyString_FromString("mymodule");
+                PyObject* name = PyBytes_FromString("mymodule");
                 PyObject *obj = PyType_Type.tp_alloc(&PyType_Type, 0);
                 PyHeapTypeObject *type = (PyHeapTypeObject*)obj;
                 if ((type->ht_type.tp_flags & Py_TPFLAGS_HEAPTYPE) == 0)
@@ -1152,7 +1152,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 Base2->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
                 Base12->tp_flags = Py_TPFLAGS_DEFAULT;
                 Base12->tp_base = Base1;
-                Base12->tp_bases = PyTuple_Pack(2, Base1, Base2); 
+                Base12->tp_bases = PyTuple_Pack(2, Base1, Base2);
                 Base12->tp_doc = "The Base12 type or object";
                 if (PyType_Ready(Base1) < 0) return NULL;
                 if (PyType_Ready(Base2) < 0) return NULL;
