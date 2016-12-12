@@ -181,7 +181,7 @@ class TestDictObject(BaseApiTest):
         raises(OperationError, space.call_method, w_proxy, 'clear')
         assert api.PyDictProxy_Check(w_proxy)
 
-    def test_typedict(self, space, api):
+    def test_typedict1(self, space, api):
         py_type = make_ref(space, space.w_int)
         py_dict = rffi.cast(PyTypeObjectPtr, py_type).c_tp_dict
         ppos = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')
@@ -245,4 +245,18 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
         assert d == dict(a=1, c=2)
         d = {"a": 1}
         raises(AttributeError, module.update, d, [("c", 2)])
+
+    def test_typedict2(self):
+        module = self.import_extension('foo', [
+            ("get_type_dict", "METH_O",
+             '''
+                PyObject* value = args->ob_type->tp_dict;
+                if (value == NULL) value = Py_None;
+                Py_INCREF(value);
+                return value;
+             '''),
+            ])
+        d = module.get_type_dict(1)
+        print type(d['real'])
+        assert d['real'].__get__(1, 1) == 1
 
