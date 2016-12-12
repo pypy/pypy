@@ -164,7 +164,6 @@ class W_ReverseSeqIterObject(W_Root):
         index = space.int_w(w_state)
         if self.w_seq is not None:
             length = space.int_w(space.len(self.w_seq))
-            if index < 0: index = 0
             if index >= length: index = length-1
             self.index = index
 

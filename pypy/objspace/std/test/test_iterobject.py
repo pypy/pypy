@@ -82,6 +82,17 @@ class AppTest_IterObject(object):
         assert next(iterable) == 1
         iterable.__setstate__(3)
         assert next(iterable) == 4
+        iterable.__setstate__(-1)
+        raises(StopIteration, next, iterable)
+        #
+        iterable = reversed([1,2,3,4])
+        iterable.__setstate__(-100)
+        raises(StopIteration, next, iterable)
+        #
+        iterable = reversed([1,2,3,4])
+        iterable.__setstate__(100)
+        assert next(iterable) == 4
+        assert next(iterable) == 3
 
     def test_forward_iter_reduce(self):
         T = "abc"
