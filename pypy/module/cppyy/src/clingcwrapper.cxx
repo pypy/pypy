@@ -1063,10 +1063,11 @@ ptrdiff_t Cppyy::GetDatamemberOffset( TCppScope_t scope, TCppIndex_t idata )
    TClassRef& cr = type_from_handle( scope );
    if ( cr.GetClass() ) {
       TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At( idata );
-      return (ptrdiff_t)m->GetOffsetCint();      // yes, CINT ...
+      return (ptrdiff_t)m->GetOffsetCint();      // yes, CINT (GetOffset() is both wrong
+                                                 // and caches that wrong result!
    }
 
-   return (ptrdiff_t)0;
+   return (ptrdiff_t)-1;
 }
 
 Cppyy::TCppIndex_t Cppyy::GetDatamemberIndex( TCppScope_t scope, const std::string& name )

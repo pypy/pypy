@@ -842,6 +842,8 @@ class W_CPPNamespace(W_CPPScope):
     def _make_datamember(self, dm_name, dm_idx):
         type_name = capi.c_datamember_type(self.space, self, dm_idx)
         offset = capi.c_datamember_offset(self.space, self, dm_idx)
+        if offset == -1:
+            raise self.missing_attribute_error(dm_name)
         datamember = W_CPPStaticData(self.space, self, type_name, offset)
         self.datamembers[dm_name] = datamember
         return datamember
@@ -941,6 +943,8 @@ class W_CPPClass(W_CPPScope):
             datamember_name = capi.c_datamember_name(self.space, self, i)
             type_name = capi.c_datamember_type(self.space, self, i)
             offset = capi.c_datamember_offset(self.space, self, i)
+            if offset == -1:
+                continue      # dictionary problem; raises AttributeError on use
             is_static = bool(capi.c_is_staticdata(self.space, self, i))
             if is_static:
                 datamember = W_CPPStaticData(self.space, self, type_name, offset)
