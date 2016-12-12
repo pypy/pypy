@@ -580,3 +580,25 @@ class AppTestPyFrame:
             pass
         sys.settrace(None)
         assert seen == ['call', 'exception', 'return']
+
+    def test_generator_trace_stopiteration(self):
+        import sys
+        def f():
+            yield 5
+        gen = f()
+        assert next(gen) == 5
+        seen = []
+        def trace_func(frame, event, *args):
+            print('TRACE:', frame, event, args)
+            seen.append(event)
+            return trace_func
+        def g():
+            for x in gen:
+                never_entered
+        sys.settrace(trace_func)
+        g()
+        sys.settrace(None)
+        print 'seen:', seen
+        # on Python 3 we get an extra 'exception' when 'for' catches
+        # StopIteration
+        assert seen == ['call', 'line', 'call', 'return', 'return']
