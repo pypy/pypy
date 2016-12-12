@@ -663,6 +663,8 @@ class AppTestPyFrame:
         g()
         sys.settrace(None)
         print('seen:', seen)
+        # on Python 3 we get an extra 'exception' when 'for' catches
+        # StopIteration
         assert seen == ['call', 'line', 'call', 'return', 'exception', 'return']
 
     def test_clear_locals(self):
