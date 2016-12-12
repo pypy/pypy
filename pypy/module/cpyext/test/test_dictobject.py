@@ -257,6 +257,5 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
              '''),
             ])
         d = module.get_type_dict(1)
-        print type(d['real'])
         assert d['real'].__get__(1, 1) == 1
 
