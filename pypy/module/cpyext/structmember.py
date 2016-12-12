@@ -91,9 +91,10 @@ def PyMember_SetOne(space, obj, w_member, w_value):
     member_type = rffi.cast(lltype.Signed, w_member.c_type)
     flags = rffi.cast(lltype.Signed, w_member.c_flags)
 
-    if (flags & READONLY or
-        member_type in [T_STRING, T_STRING_INPLACE]):
+    if flags & READONLY:
         raise oefmt(space.w_AttributeError, "readonly attribute")
+    elif member_type in [T_STRING, T_STRING_INPLACE]:
+        raise oefmt(space.w_TypeError, "readonly attribute")
     elif w_value is None:
         if member_type == T_OBJECT_EX:
             if not rffi.cast(PyObjectP, addr)[0]:
