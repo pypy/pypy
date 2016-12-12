@@ -652,9 +652,11 @@ class AppTestPyFrame:
         gen = f()
         assert next(gen) == 5
         seen = []
+        frames = []
         def trace_func(frame, event, *args):
             print('TRACE:', frame, event, args)
             seen.append(event)
+            frames.append(frame)
             return trace_func
         def g():
             for x in gen:
@@ -666,6 +668,63 @@ class AppTestPyFrame:
         # on Python 3 we get an extra 'exception' when 'for' catches
         # StopIteration
         assert seen == ['call', 'line', 'call', 'return', 'exception', 'return']
+        assert frames[-2].f_code.co_name == 'g'
+
+    def test_yieldfrom_trace_stopiteration(self): """
+        import sys
+        def f2():
+            yield 5
+        def f():
+            yield from f2()
+        gen = f()
+        assert next(gen) == 5
+        seen = []
+        frames = []
+        def trace_func(frame, event, *args):
+            print('TRACE:', frame, event, args)
+            seen.append(event)
+            frames.append(frame)
+            return trace_func
+        def g():
+            for x in gen:
+                never_entered
+        sys.settrace(trace_func)
+        g()      # invokes next_yield_from() from resume_execute_frame()
+        sys.settrace(None)
+        print('seen:', seen)
+        assert seen == ['call', 'line', 'call', 'call', 'return',
+                        'exception', 'return', 'exception', 'return']
+        assert frames[-4].f_code.co_name == 'f'
+        assert frames[-2].f_code.co_name == 'g'
+        """
+
+    def test_yieldfrom_trace_stopiteration_2(self): """
+        import sys
+        def f2():
+            if False:
+                yield 5
+        def f():
+            yield from f2()
+        gen = f()
+        seen = []
+        frames = []
+        def trace_func(frame, event, *args):
+            print('TRACE:', frame, event, args)
+            seen.append(event)
+            frames.append(frame)
+            return trace_func
+        def g():
+            for x in gen:
+                never_entered
+        sys.settrace(trace_func)
+        g()      # invokes next_yield_from() from YIELD_FROM()
+        sys.settrace(None)
+        print('seen:', seen)
+        assert seen == ['call', 'line', 'call', 'line', 'call', 'line',
+                        'return', 'exception', 'return', 'exception', 'return']
+        assert frames[-4].f_code.co_name == 'f'
+        assert frames[-2].f_code.co_name == 'g'
+        """
 
     def test_clear_locals(self):
         def make_frames():
