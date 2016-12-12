@@ -163,7 +163,8 @@ class W_TypeObject(W_Root):
 
     @dont_look_inside
     def __init__(self, space, name, bases_w, dict_w,
-                 overridetypedef=None, force_new_layout=False):
+                 overridetypedef=None, force_new_layout=False,
+                 is_heaptype=True):
         self.space = space
         self.name = name
         self.qualname = None
@@ -174,7 +175,7 @@ class W_TypeObject(W_Root):
         self.weakrefable = False
         self.w_doc = space.w_None
         self.weak_subclasses = []
-        self.flag_heaptype = False
+        self.flag_heaptype = is_heaptype
         self.flag_cpytype = False
         self.flag_abstract = False
         self.flag_sequence_bug_compat = False
@@ -727,7 +728,7 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
         dict_w[key] = space.getitem(w_dict, w_key)
     w_type = space.allocate_instance(W_TypeObject, w_typetype)
     W_TypeObject.__init__(w_type, space, name, bases_w or [space.w_object],
-                          dict_w)
+                          dict_w, is_heaptype=True)
     w_type.ready()
     return w_type
 
@@ -1173,7 +1174,6 @@ def setup_user_defined_type(w_self, force_new_layout):
     if len(w_self.bases_w) == 0:
         w_self.bases_w = [w_self.space.w_object]
     w_bestbase = check_and_find_best_base(w_self.space, w_self.bases_w)
-    w_self.flag_heaptype = True
     for w_base in w_self.bases_w:
         if not isinstance(w_base, W_TypeObject):
             continue
@@ -1194,7 +1194,6 @@ def setup_builtin_type(w_self, instancetypedef):
     w_self.weakrefable = instancetypedef.weakrefable
     w_self.w_doc = w_self.space.wrap(instancetypedef.doc)
     ensure_common_attributes(w_self)
-    w_self.flag_heaptype = instancetypedef.heaptype
     #
     # usually 'instancetypedef' is new, i.e. not seen in any base,
     # but not always (see Exception class)
@@ -1376,7 +1375,8 @@ class TypeCache(SpaceCache):
         else:
             overridetypedef = typedef
         w_type = W_TypeObject(space, typedef.name, bases_w, dict_w,
-                              overridetypedef=overridetypedef)
+                              overridetypedef=overridetypedef,
+                              is_heaptype=overridetypedef.heaptype)
         if typedef is not overridetypedef:
             w_type.w_doc = space.wrap(typedef.doc)
         else:
