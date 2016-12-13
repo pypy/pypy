@@ -313,7 +313,7 @@ def c_is_subtype(space, derived, base):
 
 _c_base_offset = rffi.llexternal(
     "cppyy_base_offset",
-    [C_TYPE, C_TYPE, C_OBJECT, rffi.INT], rffi.SIZE_T,
+    [C_TYPE, C_TYPE, C_OBJECT, rffi.INT], rffi.LONG, # actually ptrdiff_t
     releasegil=ts_reflect,
     compilation_info=backend.eci,
     random_effects_on_gcobjs=False)
@@ -490,7 +490,7 @@ def c_datamember_type(space, cppscope, datamember_index):
     return charp2str_free(space, _c_datamember_type(cppscope.handle, datamember_index))
 _c_datamember_offset = rffi.llexternal(
     "cppyy_datamember_offset",
-    [C_SCOPE, rffi.INT], rffi.SIZE_T,
+    [C_SCOPE, rffi.INT], rffi.LONG, # actually ptrdiff_t
     releasegil=ts_reflect,
     compilation_info=backend.eci)
 def c_datamember_offset(space, cppscope, datamember_index):
