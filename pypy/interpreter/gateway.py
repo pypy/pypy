@@ -671,10 +671,10 @@ class BuiltinCode(Code):
         return space.newtuple([builtin_code,
                                space.newtuple([space.wrap(self.identifier)])])
 
-    def find(space, indentifier):
+    @staticmethod
+    def find(space, identifier):
         from pypy.interpreter.function import Function
         return Function.find(space, identifier).code
-    find = staticmethod(find)
 
     def signature(self):
         return self.sig
