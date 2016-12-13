@@ -292,7 +292,7 @@ class W_ArrayBase(W_Root):
     def _frombytes(self, space, s):
         if len(s) % self.itemsize != 0:
             raise oefmt(space.w_ValueError,
-                        "string length not a multiple of item size")
+                        "bytes length not a multiple of item size")
         oldlen = self.len
         new = len(s) / self.itemsize
         if not new:
@@ -316,14 +316,9 @@ class W_ArrayBase(W_Root):
             raise MemoryError
         w_item = space.call_method(w_f, 'read', space.wrap(size))
         item = space.bytes_w(w_item)
-        if len(item) < size:
-            n = len(item) % self.itemsize
-            elems = max(0, len(item) - (len(item) % self.itemsize))
-            if n != 0:
-                item = item[0:elems]
-            self._frombytes(space, item)
-            raise oefmt(space.w_EOFError, "not enough items in file")
         self._frombytes(space, item)
+        if len(item) < size:
+            raise oefmt(space.w_EOFError, "not enough items in file")
 
     def descr_tofile(self, space, w_f):
         """ tofile(f)
@@ -339,7 +334,7 @@ class W_ArrayBase(W_Root):
 
         Extends this array with data from the unicode string ustr.
         The array must be a type 'u' array; otherwise a ValueError
-        is raised.  Use array.fromstring(ustr.decode(...)) to
+        is raised.  Use array.frombytes(ustr.encode(...)) to
         append Unicode data to an array of some other type.
         """
         # XXX the following probable bug is not emulated:
@@ -358,7 +353,7 @@ class W_ArrayBase(W_Root):
 
         Convert the array to a unicode string.  The array must be
         a type 'u' array; otherwise a ValueError is raised.  Use
-        array.tostring().decode() to obtain a unicode string from
+        array.tobytes().decode() to obtain a unicode string from
         an array of some other type.
         """
         if self.typecode == 'u':
@@ -908,6 +903,11 @@ def make_array(mytype):
                 item = rffi.cast(lltype.Signed, item)
             elif mytype.typecode == 'f':
                 item = float(item)
+            elif mytype.typecode == 'u':
+                if ord(item) >= 0x110000:
+                    raise oefmt(space.w_ValueError,
+                                "array contains a unicode character out of "
+                                "range(0x110000)")
             return space.wrap(item)
 
         # interface

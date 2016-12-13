@@ -222,10 +222,14 @@ class AppTestArray(object):
         a.fromfile(myfile(b'\x01', 20), 2)
         assert len(a) == 2 and a[0] == 257 and a[1] == 257
 
-        for i in (0, 1):
-            a = self.array('h')
-            raises(EOFError, a.fromfile, myfile(b'\x01', 2 + i), 2)
-            assert len(a) == 1 and a[0] == 257
+        a = self.array('h')
+        raises(EOFError, a.fromfile, myfile(b'\x01', 2), 2)
+        assert len(a) == 1 and a[0] == 257
+
+        a = self.array('h')
+        raises(ValueError, a.fromfile, myfile(b'\x01', 3), 2)
+        # ValueError: bytes length not a multiple of item size
+        assert len(a) == 0
 
     def test_fromfile_no_warning(self):
         import warnings
@@ -454,6 +458,9 @@ class AppTestArray(object):
         assert a.tostring() == b'helLo'
 
     def test_buffer_keepalive(self):
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            skip("CPython: cannot resize an array that is exporting buffers")
         buf = memoryview(self.array('b', b'text'))
         assert buf[2] == ord('x')
         #
@@ -866,7 +873,7 @@ class AppTestArray(object):
         a = self.array('u', u'\x01\u263a\x00\ufeff')
         b = self.array('u', u'\x01\u263a\x00\ufeff')
         b.byteswap()
-        assert a != b
+        raises(ValueError, "a != b")
 
     def test_unicode_ord_positive(self):
         import sys
@@ -874,11 +881,7 @@ class AppTestArray(object):
             skip("test for 32-bit unicodes")
         a = self.array('u', b'\xff\xff\xff\xff')
         assert len(a) == 1
-        assert repr(a[0]) == r"'\Uffffffff'"
-        if sys.maxsize == 2147483647:
-            assert ord(a[0]) == -1
-        else:
-            assert ord(a[0]) == 4294967295
+        raises(ValueError, "a[0]")
 
     def test_weakref(self):
         import weakref
