@@ -182,8 +182,9 @@ if 1:
     if res == 81:
         py.test.skip('%r was not compiled w/ required usemodules: %r' %
                      (python_, usemodules))
-    elif res > 0:
-        raise AssertionError("Subprocess failed:\n" + stderr)
+    elif res != 0:
+        raise AssertionError(
+            "Subprocess failed with exit code %s:\n%s" % (res, stderr))
     elif "===aefwuiheawiu===" not in stdout:
         raise AssertionError("%r crashed:\n%s" % (python_, stderr))
 
