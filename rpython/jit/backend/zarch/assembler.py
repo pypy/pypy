@@ -426,6 +426,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler,
         # Finish
         self._reload_frame_if_necessary(mc)
 
+        mc.LGR(r.SCRATCH2, r.r2)
+
         self.pop_gcmap(mc) # cancel the push_gcmap(store=True) in the caller
         self._pop_core_regs_from_jitframe(mc, saved_regs)
         if supports_floats:
