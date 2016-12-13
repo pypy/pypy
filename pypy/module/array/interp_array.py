@@ -570,7 +570,7 @@ else:
     _UINTTypeCode = \
          TypeCode(rffi.UINT,          'int_w', True)
 types = {
-    'c': TypeCode(lltype.Char,        'str_w', method=''),
+    'c': TypeCode(lltype.Char,        'bytes_w', method=''),
     'u': TypeCode(lltype.UniChar,     'unicode_w', method=''),
     'b': TypeCode(rffi.SIGNEDCHAR,    'int_w', True, True),
     'B': TypeCode(rffi.UCHAR,         'int_w', True),
@@ -682,7 +682,7 @@ def make_array(mytype):
                                 "unsigned %d-byte integer out of range",
                                 mytype.bytes)
                 return rffi.cast(mytype.itemtype, item)
-            if mytype.unwrap == 'str_w' or mytype.unwrap == 'unicode_w':
+            if mytype.unwrap == 'bytes_w' or mytype.unwrap == 'unicode_w':
                 if len(item) != 1:
                     raise oefmt(space.w_TypeError, "array item must be char")
                 item = item[0]
@@ -1052,7 +1052,7 @@ def make_array(mytype):
             start = 0
         # <a performance hack>
         if oldlen == 1:
-            if mytype.unwrap == 'str_w' or mytype.unwrap == 'unicode_w':
+            if mytype.unwrap == 'bytes_w' or mytype.unwrap == 'unicode_w':
                 zero = not ord(self.buffer[0])
             elif mytype.unwrap == 'int_w' or mytype.unwrap == 'bigint_w':
                 zero = not widen(self.buffer[0])
