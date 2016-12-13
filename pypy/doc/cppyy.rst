@@ -2,9 +2,12 @@ cppyy: C++ bindings for PyPy
 ============================
 
 The cppyy module delivers dynamic Python-C++ bindings.
+It is designed for automation, high performance, scale, interactivity, and
+handling all of modern C++.
 It is based on `Cling`_ which, through `LLVM`_/`clang`_, provides C++
-reflection as extracted from header files.
-The module itself is built into PyPy (an alternative exists for CPython), but
+reflection and interactivity.
+Reflection information is extracted from C++ header files.
+Cppyy itself is built into PyPy (an alternative exists for CPython), but
 it requires a backend, installable through pip, to interface with Cling.
 
 .. _Cling: https://root.cern.ch/cling
@@ -12,112 +15,22 @@ it requires a backend, installable through pip, to interface with Cling.
 .. _clang: http://clang.llvm.org/
 
 
-Motivation
-----------
-To provide bindings to another language in CPython, you program to a
-generic C-API that exposes many of the interpreter features.
-With PyPy, however, there is no such generic C-API, because several of the
-interpreter features (e.g. the memory model) are pluggable and therefore
-subject to change.
-Furthermore, a generic API does not allow any assumptions about the calls
-into another language, forcing the JIT to behave conservatively around these
-calls and with the objects that cross language boundaries.
-In contrast, cppyy does not expose an API, but expects one to be implemented
-by a backend.
-It makes strong assumptions about the semantics of the API that it uses and
-that in turn allows the JIT to make equally strong assumptions.
-This is possible, because the expected API is only for providing C++ language
-bindings, and does not provide generic programmability.
-
-The cppyy module further offers two features, which result in improved
-performance as well as better functionality and cross-language integration.
-First, cppyy itself is written in RPython and therefore open to optimizations
-by the JIT up until the actual point of call into C++.
-This means for example, that if variables are already unboxed by the JIT, they
-can be passed through directly to C++.
-Second, a backend such as Cling adds dynamic features
-to C++, thus greatly reducing impedance mismatches between the two languages.
-For example, Reflex is dynamic enough to allow writing runtime bindings
-generation in python (as opposed to RPython) and this is used to create very
-natural "pythonizations" of the bound code.
-As another example, cling allows automatic instantiations of templates.
-
-See this description of the `cppyy architecture`_ for further details.
-
-.. _cppyy architecture: http://morepypy.blogspot.com/2012/06/architecture-of-cppyy.html
-
-
 Installation
 ------------
 
-There are two ways of using cppyy, and the choice depends on how pypy-c was
-built: the backend can be builtin, or dynamically loadable.
-The former has the disadvantage of requiring pypy-c to be linked with external
-C++ libraries (e.g. libReflex.so), but has the advantage of being faster in
-some cases.
-That advantage will disappear over time, however, with improvements in the
-JIT.
-Therefore, this document assumes that the dynamically loadable backend is
-chosen (it is, by default).
-See the :doc:`backend documentation <cppyy_backend>`.
+This assumes PyPy2.7 v5.7 or later; earlier versions use a Reflex-based cppyy
+module, which is no longer supported.
+Both the tooling and user-facing Python codes are very backwards compatible,
+however.
+Further dependencies are cmake (for general build) and Python2.7 (for LLVM).
 
-A standalone version of Reflex that also provides the dynamically loadable
-backend is available for `download`_. Note this is currently the only way to
-get the dynamically loadable backend, so use this first.
+Assuming you have a recent enough version of PyPy installed, use pip to
+complete the installation of cppyy::
 
-That version, as well as any other distribution of Reflex (e.g. the one that
-comes with `ROOT`_, which may be part of your Linux distribution as part of
-the selection of scientific software) will also work for a build with the
-builtin backend.
+ $ pypy-c -m pip install PyPy-cppyy-backend
 
-.. _download: http://cern.ch/wlav/reflex-2014-10-20.tar.bz2
-.. _ROOT: http://root.cern.ch/
-
-Besides Reflex, you probably need a version of `gccxml`_ installed, which is
-most easily provided by the packager of your system.
-If you read up on gccxml, you will probably notice that it is no longer being
-developed and hence will not provide C++11 support.
-That's why the medium term plan is to move to cling.
-Note that gccxml is only needed to generate reflection libraries.
-It is not needed to use them.
-
-.. _gccxml: http://www.gccxml.org
-
-To install the standalone version of Reflex, after download::
-
-    $ tar jxf reflex-2014-10-20.tar.bz2
-    $ cd reflex-2014-10-20
-    $ ./build/autogen
-    $ ./configure <usual set of options such as --prefix>
-    $ make && make install
-
-The usual rules apply: <prefix>/bin needs to be added to the ``PATH`` and
-<prefix>/lib to the ``LD_LIBRARY_PATH`` environment variable.
-For convenience, this document will assume that there is a ``REFLEXHOME``
-variable that points to <prefix>.
-If you downloaded or built the whole of ROOT, ``REFLEXHOME`` should be equal
-to ``ROOTSYS``.
-
-The following is optional, and is only to show how pypy-c can be build
-:doc:`from source <build>`, for example to get at the main development branch of cppyy.
-The :doc:`backend documentation <cppyy_backend>` has more details on the backend-specific
-prerequisites.
-
-Then run the translation to build ``pypy-c``::
-
-    $ hg clone https://bitbucket.org/pypy/pypy
-    $ cd pypy
-    $ hg up reflex-support         # optional
-
-    # This example shows python, but using pypy-c is faster and uses less memory
-    $ python rpython/bin/rpython --opt=jit pypy/goal/targetpypystandalone --withmod-cppyy
-
-This will build a ``pypy-c`` that includes the cppyy module, and through that,
-Reflex support.
-Of course, if you already have a pre-built version of the ``pypy`` interpreter,
-you can use that for the translation rather than ``python``.
-If not, you may want :ref:`to obtain a binary distribution <prebuilt-pypy>` to speed up the
-translation step.
+The building process may take quite some time as it includes a customized
+version of LLVM as part of Cling.
 
 
 Basic bindings example
