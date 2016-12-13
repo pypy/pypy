@@ -32,6 +32,17 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                  Py_DECREF(s);
                  return PyLong_FromLong(result);
              """),
+            ("test_GetLength", "METH_NOARGS",
+             """
+                 PyObject* s = PyUnicode_FromString("Hello world");
+                 int result = 0;
+
+                 if(PyUnicode_GetLength(s) != 11) {
+                     result = -PyUnicode_GetSize(s);
+                 }
+                 Py_DECREF(s);
+                 return PyLong_FromLong(result);
+             """),
             ("test_GetSize_exception", "METH_NOARGS",
              """
                  PyObject* f = PyFloat_FromDouble(1.0);
@@ -47,6 +58,9 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         assert module.get_hello1() == u'Hello world'
         assert module.test_GetSize() == 0
         raises(TypeError, module.test_GetSize_exception)
+
+        # XXX: needs a test where it differs from GetSize
+        assert module.test_GetLength() == 0
 
         assert module.test_is_unicode(u"")
         assert not module.test_is_unicode(())

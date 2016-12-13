@@ -253,12 +253,26 @@ def _PyUnicode_AsString(space, ref):
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyUnicode_GetSize(space, ref):
+    """Return the size of the deprecated Py_UNICODE representation, in code
+    units (this includes surrogate pairs as 2 units).
+
+    Please migrate to using PyUnicode_GetLength().
+    """
     if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_unicode:
         ref = rffi.cast(PyUnicodeObject, ref)
         return ref.c_length
     else:
         w_obj = from_ref(space, ref)
         return space.len_w(w_obj)
+
+@cpython_api([PyObject], Py_ssize_t, error=-1)
+def PyUnicode_GetLength(space, w_unicode):
+    """Return the length of the Unicode object, in code points."""
+    # XXX: this is a stub
+    if not PyUnicode_Check(space, w_unicode):
+        PyErr_BadArgument(space)
+    #PyUnicode_READY(w_unicode)
+    return PyUnicode_GET_LENGTH(space, w_unicode)
 
 @cpython_api([PyObject, rffi.CWCHARP, Py_ssize_t], Py_ssize_t, error=-1)
 def PyUnicode_AsWideChar(space, ref, buf, size):
