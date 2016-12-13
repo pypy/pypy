@@ -294,7 +294,7 @@ class AppTestObject(AppTestCpythonExtensionBase):
                 return obj;
             """)])
         a = module.empty_format('hello')
-        assert isinstance(a, unicode)
+        assert isinstance(a, str)
 
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     """
