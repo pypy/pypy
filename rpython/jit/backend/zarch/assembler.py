@@ -396,6 +396,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler,
         #   * gcmap is pushed
         #   * the old value of these regs must already be stored in the jitframe
         #   * on exit, all registers are restored from the jitframe
+        #   * the result of the call is moved to register r1
 
         mc = InstrBuilder()
         self.mc = mc
@@ -426,9 +427,10 @@ class AssemblerZARCH(BaseAssembler, OpAssembler,
         # Finish
         self._reload_frame_if_necessary(mc)
 
-        mc.LGR(r.SCRATCH2, r.r2)
-
         self.pop_gcmap(mc) # cancel the push_gcmap(store=True) in the caller
+
+        mc.LGR(r.SCRATCH2, r.RES)
+
         self._pop_core_regs_from_jitframe(mc, saved_regs)
         if supports_floats:
             self._pop_fp_regs_from_jitframe(mc)
