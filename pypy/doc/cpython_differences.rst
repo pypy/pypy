@@ -478,6 +478,12 @@ Miscellaneous
   from the Makefile used to build the interpreter. PyPy should bake the values
   in during compilation, but does not do that yet.
 
+* CPython's ``sys.settrace()`` sometimes reports an ``exception`` at the
+  end of ``for`` or ``yield from`` lines for the ``StopIteration``, and
+  sometimes not.  The problem is that it occurs in an ill-defined subset
+  of cases.  PyPy attempts to emulate that but the precise set of cases
+  is not exactly the same.
+
 .. _`is ignored in PyPy`: http://bugs.python.org/issue14621
 .. _`little point`: http://events.ccc.de/congress/2012/Fahrplan/events/5152.en.html
 .. _`#2072`: https://bitbucket.org/pypy/pypy/issue/2072/

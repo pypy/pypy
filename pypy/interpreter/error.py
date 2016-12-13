@@ -309,6 +309,9 @@ class OperationError(Exception):
             tb.frame.mark_as_escaped()
         return tb
 
+    def has_any_traceback(self):
+        return self._application_traceback is not None
+
     def set_cause(self, space, w_cause):
         if w_cause is None:
             return

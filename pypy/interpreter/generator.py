@@ -185,7 +185,7 @@ return next yielded value or raise StopIteration."""
             if not e.match(space, space.w_StopIteration):
                 raise
             e.normalize_exception(space)
-            space.getexecutioncontext().exception_trace(frame, e)
+            frame._report_stopiteration_sometimes(w_yf, e)
             try:
                 w_stop_value = space.getattr(e.get_w_value(space),
                                              space.wrap("value"))

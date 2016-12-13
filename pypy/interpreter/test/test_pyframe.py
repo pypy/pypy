@@ -666,8 +666,31 @@ class AppTestPyFrame:
         sys.settrace(None)
         print('seen:', seen)
         # on Python 3 we get an extra 'exception' when 'for' catches
-        # StopIteration
+        # StopIteration (but not always! mess)
         assert seen == ['call', 'line', 'call', 'return', 'exception', 'return']
+        assert frames[-2].f_code.co_name == 'g'
+
+    def test_nongenerator_trace_stopiteration(self):
+        import sys
+        gen = iter([5])
+        assert next(gen) == 5
+        seen = []
+        frames = []
+        def trace_func(frame, event, *args):
+            print('TRACE:', frame, event, args)
+            seen.append(event)
+            frames.append(frame)
+            return trace_func
+        def g():
+            for x in gen:
+                never_entered
+        sys.settrace(trace_func)
+        g()
+        sys.settrace(None)
+        print('seen:', seen)
+        # hack: don't report the StopIteration for some "simple"
+        # iterators.
+        assert seen == ['call', 'line', 'return']
         assert frames[-2].f_code.co_name == 'g'
 
     def test_yieldfrom_trace_stopiteration(self): """
@@ -724,6 +747,30 @@ class AppTestPyFrame:
                         'return', 'exception', 'return', 'exception', 'return']
         assert frames[-4].f_code.co_name == 'f'
         assert frames[-2].f_code.co_name == 'g'
+        """
+
+    def test_yieldfrom_trace_stopiteration_3(self): """
+        import sys
+        def f():
+            yield from []
+        gen = f()
+        seen = []
+        frames = []
+        def trace_func(frame, event, *args):
+            print('TRACE:', frame, event, args)
+            seen.append(event)
+            frames.append(frame)
+            return trace_func
+        def g():
+            for x in gen:
+                never_entered
+        sys.settrace(trace_func)
+        g()      # invokes next_yield_from() from YIELD_FROM()
+        sys.settrace(None)
+        print('seen:', seen)
+        assert seen == ['call', 'line', 'call', 'line',
+                        'return', 'exception', 'return']
+        assert frames[-4].f_code.co_name == 'f'
         """
 
     def test_clear_locals(self):

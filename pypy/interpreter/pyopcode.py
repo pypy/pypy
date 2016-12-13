@@ -1154,12 +1154,30 @@ class __extend__(pyframe.PyFrame):
             if not e.match(self.space, self.space.w_StopIteration):
                 raise
             # iterator exhausted
-            self.space.getexecutioncontext().exception_trace(self, e)
+            self._report_stopiteration_sometimes(w_iterator, e)
             self.popvalue()
             next_instr += jumpby
         else:
             self.pushvalue(w_nextitem)
         return next_instr
+
+    def _report_stopiteration_sometimes(self, w_iterator, operr):
+        # CPython 3.5 calls the exception trace in an ill-defined subset
+        # of cases: only if tp_iternext returned NULL and set a
+        # StopIteration exception, but not if tp_iternext returned NULL
+        # *without* setting an exception.  We can't easily emulate that
+        # behavior at this point.  For example, the generator's
+        # tp_iternext uses one or other case depending on whether the
+        # generator is already exhausted or just exhausted now.  We'll
+        # classify that as a CPython incompatibility and use an
+        # approximative rule: if w_iterator is a generator-iterator,
+        # we always report it; if operr has already a stack trace
+        # attached (likely from a custom __iter__() method), we also
+        # report it; in other cases, we don't.
+        from pypy.interpreter.generator import GeneratorOrCoroutine
+        if (isinstance(w_iterator, GeneratorOrCoroutine) or
+                operr.has_any_traceback()):
+            self.space.getexecutioncontext().exception_trace(self, operr)
 
     def FOR_LOOP(self, oparg, next_instr):
         raise BytecodeCorruption("old opcode, no longer in use")
