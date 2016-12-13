@@ -239,25 +239,20 @@ class LongDoubleTypeMixin(object):
     _mixin_     = True
     _immutable_fields_ = ['c_type', 'c_ptrtype', 'typecode']
 
-    # long double is not really supported, so work with normal
-    # double instead; doing it here keeps this localized
-    c_type      = rffi.DOUBLE  #rffi.LONGDOUBLE
-    c_ptrtype   = rffi.DOUBLEP #rffi.LONGDOUBLEP
+    c_type      = rffi.LONGDOUBLE
+    c_ptrtype   = rffi.LONGDOUBLEP
     typecode    = 'g'
 
+    # long double is not really supported ...
     def _unwrap_object(self, space, w_obj):
-        #return r_longfloat(space.float_w(w_obj))
-        return float(space.float_w(w_obj))
+        return r_longfloat(space.float_w(w_obj))
 
     def _wrap_object(self, space, obj):
-        # return space.wrap(obj)
-        dbl = rffi.cast(rffi.DOUBLE, obj)
-        return space.wrap(float(dbl))
+        return space.wrap(obj)
 
     def cffi_type(self, space):
         state = space.fromcache(State)
-        #return state.c_ldouble
-        return state.c_double
+        return state.c_ldouble
 
 def typeid(c_type):
     "NOT_RPYTHON"

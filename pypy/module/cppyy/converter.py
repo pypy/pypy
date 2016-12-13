@@ -386,14 +386,7 @@ class LongDoubleConverter(ffitypes.typeid(rffi.LONGDOUBLE), FloatTypeConverterMi
             fval = float(rfloat.rstring_to_float(default))
         else:
             fval = float(0.)
-        # see ffitypes.LongDoubleTypeMixin: long double not really
-        # supported in rffi
-        self.default = fval #r_longfloat(fval)
-
-    def from_memory(self, space, w_obj, w_pycppclass, offset):
-        address = self._get_raw_address(space, w_obj, offset)
-        rffiptr = rffi.cast(self.c_ptrtype, address)
-        return self._wrap_object(space, rffiptr[0])
+        self.default = r_longfloat(fval)
 
 class ConstLongDoubleRefConverter(ConstRefNumericTypeConverterMixin, LongDoubleConverter):
     _immutable_fields_ = ['typecode']
@@ -746,8 +739,8 @@ _converters["float"]                    = FloatConverter
 _converters["const float&"]             = ConstFloatRefConverter
 _converters["double"]                   = DoubleConverter
 _converters["const double&"]            = ConstDoubleRefConverter
-_converters["long double"]              = LongDoubleConverter
-_converters["const long double&"]       = ConstLongDoubleRefConverter
+#_converters["long double"]              = LongDoubleConverter
+#_converters["const long double&"]       = ConstLongDoubleRefConverter
 _converters["const char*"]              = CStringConverter
 _converters["void*"]                    = VoidPtrConverter
 _converters["void**"]                   = VoidPtrPtrConverter
@@ -841,7 +834,7 @@ def _build_array_converters():
         ('Q', rffi.sizeof(rffi.ULONGLONG),  ("unsigned long long", "unsigned long long int", "ULong64_t")),
         ('f', rffi.sizeof(rffi.FLOAT),      ("float",)),
         ('d', rffi.sizeof(rffi.DOUBLE),     ("double",)),
-        ('g', rffi.sizeof(rffi.LONGDOUBLE), ("long double",)),
+#        ('g', rffi.sizeof(rffi.LONGDOUBLE), ("long double",)),
     )
 
     for tcode, tsize, names in array_info:
