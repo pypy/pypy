@@ -409,7 +409,9 @@ class TestUsingBoehm(AbstractGCTestClass):
         #
         def fn():
             for i in range(1000):
-                fq.register_finalizer(A(i))
+                x = A(i)
+                fq.register_finalizer(x)
+                rgc.may_ignore_finalizer(x)   # this is ignored with Boehm
             rgc.collect()
             rgc.collect()
             if glob.triggered == 0:

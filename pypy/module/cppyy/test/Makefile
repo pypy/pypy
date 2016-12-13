@@ -29,7 +29,7 @@ ifeq ($(PLATFORM),Darwin)
 endif
 
 ifeq ($(DUMMY),t)
-  cppflags2=-O3 -fPIC -rdynamic
+  cppflags2=-O3 -fPIC -rdynamic -std=c++11 -DCPPYY_DUMMY_BACKEND
 else ifeq ($(CLING),t)
   cppflags2=-O3 -fPIC -rdynamic
 else
@@ -55,7 +55,7 @@ else ifeq ($(DUMMY),t)
 
 else # reflex
 %Dict.so: %_rflx.cpp %.cxx
-	g++ -o $@ $^ -shared -std=c++14 $(cppflags) $(cppflags2)
+	g++ -o $@ $^ -shared $(cppflags) $(cppflags2)
 
 %_rflx.cpp: %.h %.xml
 	$(genreflex) $< $(genreflexflags) --selection=$*.xml --rootmap=$*Dict.rootmap --rootmap-lib=$*Dict.so
@@ -66,7 +66,7 @@ ifeq ($(DUMMY),)
 # TODO: methptrgetter causes these tests to crash, so don't use it for now
 std_streamsDict.so: std_streams.cxx std_streams.h std_streams.xml
 	$(genreflex) std_streams.h --selection=std_streams.xml
-	g++ -o $@ std_streams_rflx.cpp std_streams.cxx -shared -std=c++14 $(cppflags) $(cppflags2)
+	g++ -o $@ std_streams_rflx.cpp std_streams.cxx -shared -std=c++11 $(cppflags) $(cppflags2)
 endif
 
 .PHONY: clean

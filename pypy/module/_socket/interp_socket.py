@@ -233,6 +233,7 @@ class W_Socket(W_Root):
         except SocketError:
             # cpython doesn't return any errors on close
             pass
+        self.may_unregister_rpython_finalizer(space)
 
     def connect_w(self, space, w_addr):
         """connect(address)

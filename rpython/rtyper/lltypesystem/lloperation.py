@@ -396,7 +396,6 @@ LL_OPERATIONS = {
     'raw_store':            LLOp(canrun=True),
     'bare_raw_store':       LLOp(),
     'gc_load_indexed':      LLOp(sideeffects=False, canrun=True),
-    'stack_malloc':         LLOp(), # mmh
     'track_alloc_start':    LLOp(),
     'track_alloc_stop':     LLOp(),
     'adr_add':              LLOp(canfold=True),
@@ -431,6 +430,7 @@ LL_OPERATIONS = {
     'jit_record_exact_class'  : LLOp(canrun=True),
     'jit_ffi_save_result':  LLOp(canrun=True),
     'jit_conditional_call': LLOp(),
+    'jit_conditional_call_value': LLOp(),
     'jit_enter_portal_frame': LLOp(canrun=True),
     'jit_leave_portal_frame': LLOp(canrun=True),
     'get_exception_addr':   LLOp(),
@@ -485,10 +485,12 @@ LL_OPERATIONS = {
     'gc_add_memory_pressure': LLOp(),
     'gc_fq_next_dead'     : LLOp(),
     'gc_fq_register'      : LLOp(),
+    'gc_ignore_finalizer' : LLOp(canrun=True),
 
     'gc_rawrefcount_init':              LLOp(),
     'gc_rawrefcount_create_link_pypy':  LLOp(),
     'gc_rawrefcount_create_link_pyobj': LLOp(),
+    'gc_rawrefcount_mark_deallocating': LLOp(),
     'gc_rawrefcount_from_obj':          LLOp(sideeffects=False),
     'gc_rawrefcount_to_obj':            LLOp(sideeffects=False),
 

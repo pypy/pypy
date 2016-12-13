@@ -537,6 +537,20 @@ class OptString(optimizer.Optimization):
                 return
         return self.emit(op)
 
+    def optimize_STRHASH(self, op):
+        return self._optimize_STRHASH(op, mode_string)
+    def optimize_UNICODEHASH(self, op):
+        return self._optimize_STRHASH(op, mode_unicode)
+
+    def _optimize_STRHASH(self, op, mode):
+        opinfo = self.getptrinfo(op.getarg(0))
+        if opinfo:
+            lgtop = opinfo.getstrhash(op, mode)
+            if lgtop is not None:
+                self.make_equal_to(op, lgtop)
+                return
+        return self.emit(op)
+
     def optimize_COPYSTRCONTENT(self, op):
         return self._optimize_COPYSTRCONTENT(op, mode_string)
 

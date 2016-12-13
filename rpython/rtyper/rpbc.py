@@ -362,9 +362,9 @@ class FunctionRepr(FunctionReprBase):
     def get_concrete_llfn(self, s_pbc, args_s, op):
         bk = self.rtyper.annotator.bookkeeper
         funcdesc, = s_pbc.descriptions
-        args = simple_args(args_s)
         with bk.at_position(None):
-            graph = funcdesc.get_graph(args, op)
+            argspec = simple_args(args_s)
+            graph = funcdesc.get_graph(argspec, op)
         llfn = self.rtyper.getcallable(graph)
         return inputconst(typeOf(llfn), llfn)
 

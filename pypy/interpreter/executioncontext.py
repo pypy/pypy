@@ -547,6 +547,8 @@ class UserDelAction(AsyncAction):
 
     @jit.dont_look_inside
     def _run_finalizers(self):
+        # called by perform() when we have to "perform" this action,
+        # and also directly at the end of gc.collect).
         while True:
             w_obj = self.space.finalizer_queue.next_dead()
             if w_obj is None:

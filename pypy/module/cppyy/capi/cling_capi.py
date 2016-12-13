@@ -63,7 +63,7 @@ eci = ExternalCompilationInfo(
     includes=["clingcwrapper.h"],
     library_dirs=rootlibpath,
     libraries=["Cling"],
-    compile_extra=["-fno-strict-aliasing", "-std=c++14"],
+    compile_extra=["-fno-strict-aliasing", "-std=c++11"],
     use_cpp_linker=True,
 )
 

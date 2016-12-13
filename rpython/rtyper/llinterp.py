@@ -562,6 +562,9 @@ class LLFrame(object):
     def op_jit_conditional_call(self, *args):
         raise NotImplementedError("should not be called while not jitted")
 
+    def op_jit_conditional_call_value(self, *args):
+        raise NotImplementedError("should not be called while not jitted")
+
     def op_get_exception_addr(self, *args):
         raise NotImplementedError
 
@@ -956,6 +959,9 @@ class LLFrame(object):
     def op_gc_rawrefcount_create_link_pypy(self, *args):
         raise NotImplementedError("gc_rawrefcount_create_link_pypy")
 
+    def op_gc_rawrefcount_mark_deallocating(self, *args):
+        raise NotImplementedError("gc_rawrefcount_mark_deallocating")
+
     def op_do_malloc_fixedsize(self):
         raise NotImplementedError("do_malloc_fixedsize")
     def op_do_malloc_fixedsize_clear(self):
@@ -991,11 +997,14 @@ class LLFrame(object):
     # __________________________________________________________
     # operations on addresses
 
-    def op_raw_malloc(self, size):
+    def op_raw_malloc(self, size, zero):
+        assert lltype.typeOf(size) == lltype.Signed
+        return llmemory.raw_malloc(size, zero=zero)
+
+    def op_boehm_malloc(self, size):
         assert lltype.typeOf(size) == lltype.Signed
         return llmemory.raw_malloc(size)
-
-    op_boehm_malloc = op_boehm_malloc_atomic = op_raw_malloc
+    op_boehm_malloc_atomic = op_boehm_malloc
 
     def op_boehm_register_finalizer(self, p, finalizer):
         pass
@@ -1062,9 +1071,6 @@ class LLFrame(object):
         else:
             assert offset.TYPE == ARGTYPE
             getattr(addr, str(ARGTYPE).lower())[offset.repeat] = value
-
-    def op_stack_malloc(self, size): # mmh
-        raise NotImplementedError("backend only")
 
     def op_track_alloc_start(self, addr):
         # we don't do tracking at this level

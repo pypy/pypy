@@ -1,31 +1,19 @@
 cppyy: C++ bindings for PyPy
 ============================
 
-The cppyy module creates, at run-time, Python-side classes and functions for
-C++, by querying a C++ reflection system.
-The default system used is `Reflex`_, which extracts the needed information
-from C++ header files.
-Another current backend is based on `CINT`_, and yet another, more important
-one for the medium- to long-term will be based on `cling`_.
-The latter sits on top of `llvm`_'s `clang`_, and will therefore allow the use
-of C++11.
-The work on the cling backend has so far been done only for CPython, but
-bringing it to PyPy is a lot less work than developing it in the first place.
+The cppyy module delivers dynamic Python-C++ bindings.
+It is based on `Cling`_ which, through `LLVM`_/`clang`_, provides C++
+reflection as extracted from header files.
+The module itself is built into PyPy (an alternative exists for CPython), but
+it requires a backend, installable through pip, to interface with Cling.
 
-.. _Reflex: https://root.cern.ch/how/how-use-reflex
-.. _CINT: https://root.cern.ch/introduction-cint
-.. _cling: https://root.cern.ch/cling
-.. _llvm: http://llvm.org/
+.. _Cling: https://root.cern.ch/cling
+.. _LLVM: http://llvm.org/
 .. _clang: http://clang.llvm.org/
-
-This document describes the version of cppyy that lives in the main branch of
-PyPy.
-The development of cppyy happens in the "reflex-support" branch.
 
 
 Motivation
 ----------
-
 To provide bindings to another language in CPython, you program to a
 generic C-API that exposes many of the interpreter features.
 With PyPy, however, there is no such generic C-API, because several of the
@@ -47,7 +35,7 @@ First, cppyy itself is written in RPython and therefore open to optimizations
 by the JIT up until the actual point of call into C++.
 This means for example, that if variables are already unboxed by the JIT, they
 can be passed through directly to C++.
-Second, a backend such as Reflex (and cling far more so) adds dynamic features
+Second, a backend such as Cling adds dynamic features
 to C++, thus greatly reducing impedance mismatches between the two languages.
 For example, Reflex is dynamic enough to allow writing runtime bindings
 generation in python (as opposed to RPython) and this is used to create very

@@ -66,14 +66,15 @@ class W_MyListObj(W_MyObject):
 class W_MyType(W_MyObject):
     name = "foobar"
     flag_map_or_seq = '?'
+    hasuserdel = False
 
     def __init__(self):
         self.mro_w = [w_some_obj(), w_some_obj()]
         self.dict_w = {'__str__': w_some_obj()}
+        self.hasuserdel = True
 
     def get_module(self):
         return w_some_obj()
-
 
     def getname(self, space):
         return self.name
@@ -202,6 +203,7 @@ class FakeObjSpace(ObjSpace):
     def newunicode(self, x):
         return w_some_obj()
 
+    @specialize.argtype(1)
     def wrap(self, x):
         if not we_are_translated():
             if isinstance(x, gateway.interp2app):
@@ -215,7 +217,6 @@ class FakeObjSpace(ObjSpace):
                 return w_some_obj()
             self._wrap_not_rpython(x)
         return w_some_obj()
-    wrap._annspecialcase_ = "specialize:argtype(1)"
 
     def _wrap_not_rpython(self, x):
         "NOT_RPYTHON"
@@ -305,10 +306,10 @@ class FakeObjSpace(ObjSpace):
         is_root(w_complex)
         return 1.1, 2.2
 
+    @specialize.arg(1)
     def allocate_instance(self, cls, w_subtype):
         is_root(w_subtype)
         return instantiate(cls)
-    allocate_instance._annspecialcase_ = "specialize:arg(1)"
 
     def decode_index(self, w_index_or_slice, seqlength):
         is_root(w_index_or_slice)
@@ -338,6 +339,9 @@ class FakeObjSpace(ObjSpace):
 
     def is_generator(self, w_obj):
         return NonConstant(False)
+
+    def lookup_in_type(self, w_type, name):
+        return w_some_obj()
 
     # ----------
 

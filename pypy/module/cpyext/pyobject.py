@@ -15,6 +15,7 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib import rawrefcount
+from rpython.rlib.debug import fatalerror
 
 
 #________________________________________________________
@@ -24,11 +25,9 @@ class BaseCpyTypedescr(object):
     basestruct = PyObject.TO
     W_BaseObject = W_ObjectObject
 
-    def get_dealloc(self, space):
+    def get_dealloc(self):
         from pypy.module.cpyext.typeobject import subtype_dealloc
-        return llhelper(
-            subtype_dealloc.api_func.functype,
-            subtype_dealloc.api_func.get_wrapper(space))
+        return subtype_dealloc.api_func
 
     def allocate(self, space, w_type, itemcount=0):
         # similar to PyType_GenericAlloc?
@@ -108,10 +107,8 @@ def make_typedescr(typedef, **kw):
                 return tp_alloc(space, w_type, itemcount)
 
         if tp_dealloc:
-            def get_dealloc(self, space):
-                return llhelper(
-                    tp_dealloc.api_func.functype,
-                    tp_dealloc.api_func.get_wrapper(space))
+            def get_dealloc(self):
+                return tp_dealloc.api_func
 
         if tp_attach:
             def attach(self, space, pyobj, w_obj):
@@ -192,6 +189,8 @@ def track_reference(space, py_obj, w_obj):
     rawrefcount.create_link_pypy(w_obj, py_obj)
 
 
+w_marker_deallocating = W_Root()
+
 def from_ref(space, ref):
     """
     Finds the interpreter object corresponding to the given reference.  If the
@@ -202,7 +201,23 @@ def from_ref(space, ref):
         return None
     w_obj = rawrefcount.to_obj(W_Root, ref)
     if w_obj is not None:
-        return w_obj
+        if w_obj is not w_marker_deallocating:
+            return w_obj
+        fatalerror(
+            "*** Invalid usage of a dying CPython object ***\n"
+            "\n"
+            "cpyext, the emulation layer, detected that while it is calling\n"
+            "an object's tp_dealloc, the C code calls back a function that\n"
+            "tries to recreate the PyPy version of the object.  Usually it\n"
+            "means that tp_dealloc calls some general PyXxx() API.  It is\n"
+            "a dangerous and potentially buggy thing to do: even in CPython\n"
+            "the PyXxx() function could, in theory, cause a reference to the\n"
+            "object to be taken and stored somewhere, for an amount of time\n"
+            "exceeding tp_dealloc itself.  Afterwards, the object will be\n"
+            "freed, making that reference point to garbage.\n"
+            ">>> PyPy could contain some workaround to still work if\n"
+            "you are lucky, but it is not done so far; better fix the bug in\n"
+            "the CPython extension.")
 
     # This reference is not yet a real interpreter object.
     # Realize it.
@@ -233,7 +248,8 @@ as_pyobj._always_inline_ = 'try'
 INTERPLEVEL_API['as_pyobj'] = as_pyobj
 
 def pyobj_has_w_obj(pyobj):
-    return rawrefcount.to_obj(W_Root, pyobj) is not None
+    w_obj = rawrefcount.to_obj(W_Root, pyobj)
+    return w_obj is not None and w_obj is not w_marker_deallocating
 INTERPLEVEL_API['pyobj_has_w_obj'] = staticmethod(pyobj_has_w_obj)
 
 
@@ -335,6 +351,7 @@ def _Py_Dealloc(space, obj):
     pto = obj.c_ob_type
     #print >>sys.stderr, "Calling dealloc slot", pto.c_tp_dealloc, "of", obj, \
     #      "'s type which is", rffi.charp2str(pto.c_tp_name)
+    rawrefcount.mark_deallocating(w_marker_deallocating, obj)
     generic_cpy_call(space, pto.c_tp_dealloc, obj)
 
 @cpython_api([rffi.VOIDP], lltype.Signed, error=CANNOT_FAIL)
