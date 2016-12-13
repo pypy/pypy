@@ -386,7 +386,9 @@ class LongDoubleConverter(ffitypes.typeid(rffi.LONGDOUBLE), FloatTypeConverterMi
             fval = float(rfloat.rstring_to_float(default))
         else:
             fval = float(0.)
-        self.default = r_longfloat(fval)
+        # see ffitypes.LongDoubleTypeMixin: long double not really
+        # supported in rffi
+        self.default = fval #r_longfloat(fval)
 
     def from_memory(self, space, w_obj, w_pycppclass, offset):
         address = self._get_raw_address(space, w_obj, offset)

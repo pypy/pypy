@@ -1,7 +1,7 @@
 from pypy.interpreter.error import oefmt
 
 from rpython.rtyper.lltypesystem import rffi
-from rpython.rlib.rarithmetic import r_singlefloat
+from rpython.rlib.rarithmetic import r_singlefloat, r_longfloat
 
 from pypy.module._cffi_backend import newtype
 
@@ -239,21 +239,25 @@ class LongDoubleTypeMixin(object):
     _mixin_     = True
     _immutable_fields_ = ['c_type', 'c_ptrtype', 'typecode']
 
-    c_type      = rffi.LONGDOUBLE
-    c_ptrtype   = rffi.LONGDOUBLEP
+    # long double is not really supported, so work with normal
+    # double instead; doing it here keeps this localized
+    c_type      = rffi.DOUBLE  #rffi.LONGDOUBLE
+    c_ptrtype   = rffi.DOUBLEP #rffi.LONGDOUBLEP
     typecode    = 'g'
 
     def _unwrap_object(self, space, w_obj):
-        return space.float_w(w_obj)
+        #return r_longfloat(space.float_w(w_obj))
+        return float(space.float_w(w_obj))
 
     def _wrap_object(self, space, obj):
-        # long double not really supported, so force a cast to double
+        # return space.wrap(obj)
         dbl = rffi.cast(rffi.DOUBLE, obj)
         return space.wrap(float(dbl))
 
     def cffi_type(self, space):
         state = space.fromcache(State)
-        return state.c_ldouble
+        #return state.c_ldouble
+        return state.c_double
 
 def typeid(c_type):
     "NOT_RPYTHON"
