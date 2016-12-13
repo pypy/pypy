@@ -593,6 +593,8 @@ class Transformer(object):
         log.WARNING('ignoring hint %r at %r' % (hints, self.graph))
 
     def _rewrite_raw_malloc(self, op, name, args):
+        # NB. the operation 'raw_malloc' is not supported; this is for
+        # the operation 'malloc'/'malloc_varsize' with {flavor: 'gc'}
         d = op.args[1].value.copy()
         d.pop('flavor')
         add_memory_pressure = d.pop('add_memory_pressure', False)

@@ -689,9 +689,9 @@ class BuiltinCode(Code):
         return space.newtuple([builtin_code,
                                space.newtuple([space.newtext(self.identifier)])])
 
-    def find(indentifier):
+    def find(space, indentifier):
         from pypy.interpreter.function import Function
-        return Function._all[indentifier].code
+        return Function.find(space, identifier).code
     find = staticmethod(find)
 
     def signature(self):
