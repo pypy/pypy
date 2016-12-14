@@ -196,81 +196,84 @@ typedef int (*objobjproc)(PyObject *, PyObject *);
 typedef int (*visitproc)(PyObject *, void *);
 typedef int (*traverseproc)(PyObject *, visitproc, void *);
 
+
 typedef struct {
     /* Number implementations must check *both*
        arguments for proper type and implement the necessary conversions
        in the slot functions themselves. */
 
-	binaryfunc nb_add;
-	binaryfunc nb_subtract;
-	binaryfunc nb_multiply;
-	binaryfunc nb_divide;
-	binaryfunc nb_remainder;
-	binaryfunc nb_divmod;
-	ternaryfunc nb_power;
-	unaryfunc nb_negative;
-	unaryfunc nb_positive;
-	unaryfunc nb_absolute;
-	inquiry nb_bool;
-	unaryfunc nb_invert;
-	binaryfunc nb_lshift;
-	binaryfunc nb_rshift;
-	binaryfunc nb_and;
-	binaryfunc nb_xor;
-	binaryfunc nb_or;
-	coercion nb_coerce;
-	unaryfunc nb_int;
-	unaryfunc nb_long;
-	unaryfunc nb_float;
-	/* Added in release 2.0 */
-	binaryfunc nb_inplace_add;
-	binaryfunc nb_inplace_subtract;
-	binaryfunc nb_inplace_multiply;
-	binaryfunc nb_inplace_divide;
-	binaryfunc nb_inplace_remainder;
-	ternaryfunc nb_inplace_power;
-	binaryfunc nb_inplace_lshift;
-	binaryfunc nb_inplace_rshift;
-	binaryfunc nb_inplace_and;
-	binaryfunc nb_inplace_xor;
-	binaryfunc nb_inplace_or;
+       binaryfunc nb_add;
+       binaryfunc nb_subtract;
+       binaryfunc nb_multiply;
+       binaryfunc nb_remainder;
+       binaryfunc nb_divmod;
+       ternaryfunc nb_power;
+       unaryfunc nb_negative;
+       unaryfunc nb_positive;
+       unaryfunc nb_absolute;
+       inquiry nb_bool;
+       unaryfunc nb_invert;
+       binaryfunc nb_lshift;
+       binaryfunc nb_rshift;
+       binaryfunc nb_and;
+       binaryfunc nb_xor;
+       binaryfunc nb_or;
+       unaryfunc nb_int;
+       void *nb_reserved;  /* the slot formerly known as nb_long */
+       unaryfunc nb_float;
 
-	/* Added in release 2.2 */
-	/* The following require the Py_TPFLAGS_HAVE_CLASS flag */
-	binaryfunc nb_floor_divide;
-	binaryfunc nb_true_divide;
-	binaryfunc nb_inplace_floor_divide;
-	binaryfunc nb_inplace_true_divide;
+       binaryfunc nb_inplace_add;
+       binaryfunc nb_inplace_subtract;
+       binaryfunc nb_inplace_multiply;
+       binaryfunc nb_inplace_remainder;
+       ternaryfunc nb_inplace_power;
+       binaryfunc nb_inplace_lshift;
+       binaryfunc nb_inplace_rshift;
+       binaryfunc nb_inplace_and;
+       binaryfunc nb_inplace_xor;
+       binaryfunc nb_inplace_or;
 
-	/* Added in release 2.5 */
-	unaryfunc nb_index;
+       binaryfunc nb_floor_divide;
+       binaryfunc nb_true_divide;
+       binaryfunc nb_inplace_floor_divide;
+       binaryfunc nb_inplace_true_divide;
+
+       unaryfunc nb_index;
+
+       binaryfunc nb_matrix_multiply;
+       binaryfunc nb_inplace_matrix_multiply;
 } PyNumberMethods;
 
 typedef struct {
-	lenfunc sq_length;
-	binaryfunc sq_concat;
-	ssizeargfunc sq_repeat;
-	ssizeargfunc sq_item;
-	void *was_sq_slice;
-	ssizeobjargproc sq_ass_item;
-	void *was_sq_ass_slice;
-	objobjproc sq_contains;
-	/* Added in release 2.0 */
-	binaryfunc sq_inplace_concat;
-	ssizeargfunc sq_inplace_repeat;
+    lenfunc sq_length;
+    binaryfunc sq_concat;
+    ssizeargfunc sq_repeat;
+    ssizeargfunc sq_item;
+    void *was_sq_slice;
+    ssizeobjargproc sq_ass_item;
+    void *was_sq_ass_slice;
+    objobjproc sq_contains;
+
+    binaryfunc sq_inplace_concat;
+    ssizeargfunc sq_inplace_repeat;
 } PySequenceMethods;
 
 typedef struct {
-	lenfunc mp_length;
-	binaryfunc mp_subscript;
-	objobjargproc mp_ass_subscript;
+    lenfunc mp_length;
+    binaryfunc mp_subscript;
+    objobjargproc mp_ass_subscript;
 } PyMappingMethods;
+
+typedef struct {
+    unaryfunc am_await;
+    unaryfunc am_aiter;
+    unaryfunc am_anext;
+} PyAsyncMethods;
 
 typedef struct {
      getbufferproc bf_getbuffer;
      releasebufferproc bf_releasebuffer;
 } PyBufferProcs;
-
 
 
 typedef struct _typeobject {
