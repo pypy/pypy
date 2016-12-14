@@ -376,6 +376,7 @@ class CallOpAssembler(object):
     def emit_cond_call(self, op, arglocs, regalloc):
         resloc = arglocs[0]
         arglocs = arglocs[1:]
+
         fcond = self.guard_success_cc
         self.guard_success_cc = c.cond_none
         assert fcond.value != c.cond_none.value
@@ -413,7 +414,7 @@ class CallOpAssembler(object):
         # restoring the registers saved above, and doing pop_gcmap(), is left
         # to the cond_call_slowpath helper.  We never have any result value.
         if resloc is not None:
-            self.mc.LGR(resloc, r.RES)
+            self.mc.LGR(resloc, r.SCRATCH2)
         relative_target = self.mc.currpos() - jmp_adr
         pmc = OverwritingBuilder(self.mc, jmp_adr, 1)
         pmc.BRCL(fcond, l.imm(relative_target))

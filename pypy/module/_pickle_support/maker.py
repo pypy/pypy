@@ -73,7 +73,7 @@ def intrangeiter_new(space, current, remaining, step):
 def builtin_code(space, identifier):
     from pypy.interpreter import gateway
     try:
-        return gateway.BuiltinCode.find(identifier)
+        return gateway.BuiltinCode.find(space, identifier)
     except KeyError:
         raise oefmt(space.w_RuntimeError,
                     "cannot unpickle builtin code: %s", identifier)
@@ -82,7 +82,7 @@ def builtin_code(space, identifier):
 def builtin_function(space, identifier):
     from pypy.interpreter import function
     try:
-        return function.Function.find(identifier)
+        return function.Function.find(space, identifier)
     except KeyError:
         raise oefmt(space.w_RuntimeError,
                     "cannot unpickle builtin function: %s", identifier)

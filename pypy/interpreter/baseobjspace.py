@@ -426,6 +426,8 @@ class ObjSpace(object):
         make_finalizer_queue(W_Root, self)
         self._code_of_sys_exc_info = None
 
+        self._builtin_functions_by_identifier = {'': None}
+
         # can be overridden to a subclass
         self.initialize()
 

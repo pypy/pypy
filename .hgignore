@@ -78,3 +78,5 @@ syntax: regexp
 ^.hypothesis/
 ^release/
 ^rpython/_cache$
+
+pypy/module/cppyy/.+/*\.pcm

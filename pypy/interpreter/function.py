@@ -257,16 +257,15 @@ class Function(W_Root):
     def descr_function_repr(self):
         return self.getrepr(self.space, u'function %s' % self.qualname)
 
-    # delicate
-    _all = {'': None}
 
     def _cleanup_(self):
+        # delicate
         from pypy.interpreter.gateway import BuiltinCode
         if isinstance(self.code, BuiltinCode):
             # we have been seen by other means so rtyping should not choke
             # on us
             identifier = self.code.identifier
-            previous = Function._all.get(identifier, self)
+            previous = self.space._builtin_functions_by_identifier.get(identifier, self)
             assert previous is self, (
                 "duplicate function ids with identifier=%r: %r and %r" % (
                 identifier, previous, self))
@@ -274,10 +273,10 @@ class Function(W_Root):
         return False
 
     def add_to_table(self):
-        Function._all[self.code.identifier] = self
+        self.space._builtin_functions_by_identifier[self.code.identifier] = self
 
-    def find(identifier):
-        return Function._all[identifier]
+    def find(space, identifier):
+        return space._builtin_functions_by_identifier[identifier]
     find = staticmethod(find)
 
     def descr_function__reduce__(self, space):
