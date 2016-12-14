@@ -119,13 +119,8 @@ typedef PyObject * (*binaryfunc)(PyObject *, PyObject *);
 typedef PyObject * (*ternaryfunc)(PyObject *, PyObject *, PyObject *);
 typedef int (*inquiry)(PyObject *);
 typedef Py_ssize_t (*lenfunc)(PyObject *);
-typedef int (*coercion)(PyObject **, PyObject **);
-typedef PyObject *(*intargfunc)(PyObject *, int) Py_DEPRECATED(2.5);
-typedef PyObject *(*intintargfunc)(PyObject *, int, int) Py_DEPRECATED(2.5);
 typedef PyObject *(*ssizeargfunc)(PyObject *, Py_ssize_t);
 typedef PyObject *(*ssizessizeargfunc)(PyObject *, Py_ssize_t, Py_ssize_t);
-typedef int(*intobjargproc)(PyObject *, int, PyObject *);
-typedef int(*intintobjargproc)(PyObject *, int, int, PyObject *);
 typedef int(*ssizeobjargproc)(PyObject *, Py_ssize_t, PyObject *);
 typedef int(*ssizessizeobjargproc)(PyObject *, Py_ssize_t, Py_ssize_t, PyObject *);
 typedef int(*objobjargproc)(PyObject *, PyObject *, PyObject *);
@@ -138,10 +133,8 @@ typedef struct bufferinfo {
     void *buf;
     PyObject *obj;        /* owned reference */
     Py_ssize_t len;
-
-    /* This is Py_ssize_t so it can be
-       pointed to by strides in simple case.*/
-    Py_ssize_t itemsize;
+    Py_ssize_t itemsize;  /* This is Py_ssize_t so it can be
+                             pointed to by strides in simple case.*/
     int readonly;
     int ndim;
     char *format;
@@ -156,7 +149,6 @@ typedef struct bufferinfo {
     /* Py_ssize_t smalltable[2]; */
     void *internal; /* always NULL for app-level objects */
 } Py_buffer;
-
 
 typedef int (*getbufferproc)(PyObject *, Py_buffer *, int);
 typedef void (*releasebufferproc)(PyObject *, Py_buffer *);
@@ -202,46 +194,46 @@ typedef struct {
        arguments for proper type and implement the necessary conversions
        in the slot functions themselves. */
 
-       binaryfunc nb_add;
-       binaryfunc nb_subtract;
-       binaryfunc nb_multiply;
-       binaryfunc nb_remainder;
-       binaryfunc nb_divmod;
-       ternaryfunc nb_power;
-       unaryfunc nb_negative;
-       unaryfunc nb_positive;
-       unaryfunc nb_absolute;
-       inquiry nb_bool;
-       unaryfunc nb_invert;
-       binaryfunc nb_lshift;
-       binaryfunc nb_rshift;
-       binaryfunc nb_and;
-       binaryfunc nb_xor;
-       binaryfunc nb_or;
-       unaryfunc nb_int;
-       void *nb_reserved;  /* the slot formerly known as nb_long */
-       unaryfunc nb_float;
+    binaryfunc nb_add;
+    binaryfunc nb_subtract;
+    binaryfunc nb_multiply;
+    binaryfunc nb_remainder;
+    binaryfunc nb_divmod;
+    ternaryfunc nb_power;
+    unaryfunc nb_negative;
+    unaryfunc nb_positive;
+    unaryfunc nb_absolute;
+    inquiry nb_bool;
+    unaryfunc nb_invert;
+    binaryfunc nb_lshift;
+    binaryfunc nb_rshift;
+    binaryfunc nb_and;
+    binaryfunc nb_xor;
+    binaryfunc nb_or;
+    unaryfunc nb_int;
+    void *nb_reserved;  /* the slot formerly known as nb_long */
+    unaryfunc nb_float;
 
-       binaryfunc nb_inplace_add;
-       binaryfunc nb_inplace_subtract;
-       binaryfunc nb_inplace_multiply;
-       binaryfunc nb_inplace_remainder;
-       ternaryfunc nb_inplace_power;
-       binaryfunc nb_inplace_lshift;
-       binaryfunc nb_inplace_rshift;
-       binaryfunc nb_inplace_and;
-       binaryfunc nb_inplace_xor;
-       binaryfunc nb_inplace_or;
+    binaryfunc nb_inplace_add;
+    binaryfunc nb_inplace_subtract;
+    binaryfunc nb_inplace_multiply;
+    binaryfunc nb_inplace_remainder;
+    ternaryfunc nb_inplace_power;
+    binaryfunc nb_inplace_lshift;
+    binaryfunc nb_inplace_rshift;
+    binaryfunc nb_inplace_and;
+    binaryfunc nb_inplace_xor;
+    binaryfunc nb_inplace_or;
 
-       binaryfunc nb_floor_divide;
-       binaryfunc nb_true_divide;
-       binaryfunc nb_inplace_floor_divide;
-       binaryfunc nb_inplace_true_divide;
+    binaryfunc nb_floor_divide;
+    binaryfunc nb_true_divide;
+    binaryfunc nb_inplace_floor_divide;
+    binaryfunc nb_inplace_true_divide;
 
-       unaryfunc nb_index;
+    unaryfunc nb_index;
 
-       binaryfunc nb_matrix_multiply;
-       binaryfunc nb_inplace_matrix_multiply;
+    binaryfunc nb_matrix_multiply;
+    binaryfunc nb_inplace_matrix_multiply;
 } PyNumberMethods;
 
 typedef struct {
@@ -277,84 +269,85 @@ typedef struct {
 
 
 typedef struct _typeobject {
-	PyObject_VAR_HEAD
-	const char *tp_name; /* For printing, in format "<module>.<name>" */
-	Py_ssize_t tp_basicsize, tp_itemsize; /* For allocation */
+    PyObject_VAR_HEAD
+    const char *tp_name; /* For printing, in format "<module>.<name>" */
+    Py_ssize_t tp_basicsize, tp_itemsize; /* For allocation */
 
-	/* Methods to implement standard operations */
+    /* Methods to implement standard operations */
 
-	destructor tp_dealloc;
-	printfunc tp_print;
-	getattrfunc tp_getattr;
-	setattrfunc tp_setattr;
-	cmpfunc tp_compare;
-	reprfunc tp_repr;
+    destructor tp_dealloc;
+    printfunc tp_print;
+    getattrfunc tp_getattr;
+    setattrfunc tp_setattr;
+    PyAsyncMethods *tp_as_async; /* formerly known as tp_compare (Python 2)
+                                    or tp_reserved (Python 3) */
+    reprfunc tp_repr;
 
-	/* Method suites for standard classes */
+    /* Method suites for standard classes */
 
-	PyNumberMethods *tp_as_number;
-	PySequenceMethods *tp_as_sequence;
-	PyMappingMethods *tp_as_mapping;
+    PyNumberMethods *tp_as_number;
+    PySequenceMethods *tp_as_sequence;
+    PyMappingMethods *tp_as_mapping;
 
-	/* More standard operations (here for binary compatibility) */
+    /* More standard operations (here for binary compatibility) */
 
-	hashfunc tp_hash;
-	ternaryfunc tp_call;
-	reprfunc tp_str;
-	getattrofunc tp_getattro;
-	setattrofunc tp_setattro;
+    hashfunc tp_hash;
+    ternaryfunc tp_call;
+    reprfunc tp_str;
+    getattrofunc tp_getattro;
+    setattrofunc tp_setattro;
 
-	/* Functions to access object as input/output buffer */
-	PyBufferProcs *tp_as_buffer;
+    /* Functions to access object as input/output buffer */
+    PyBufferProcs *tp_as_buffer;
 
-	/* Flags to define presence of optional/expanded features */
-	long tp_flags;
+    /* Flags to define presence of optional/expanded features */
+    long tp_flags;
 
-	const char *tp_doc; /* Documentation string */
+    const char *tp_doc; /* Documentation string */
 
-	/* Assigned meaning in release 2.0 */
-	/* call function for all accessible objects */
-	traverseproc tp_traverse;
+    /* Assigned meaning in release 2.0 */
+    /* call function for all accessible objects */
+    traverseproc tp_traverse;
 
-	/* delete references to contained objects */
-	inquiry tp_clear;
+    /* delete references to contained objects */
+    inquiry tp_clear;
 
-	/* Assigned meaning in release 2.1 */
-	/* rich comparisons */
-	richcmpfunc tp_richcompare;
+    /* Assigned meaning in release 2.1 */
+    /* rich comparisons */
+    richcmpfunc tp_richcompare;
 
-	/* weak reference enabler */
-	Py_ssize_t tp_weaklistoffset;
+    /* weak reference enabler */
+    Py_ssize_t tp_weaklistoffset;
 
-	/* Added in release 2.2 */
-	/* Iterators */
-	getiterfunc tp_iter;
-	iternextfunc tp_iternext;
+    /* Iterators */
+    getiterfunc tp_iter;
+    iternextfunc tp_iternext;
 
-	/* Attribute descriptor and subclassing stuff */
-	struct PyMethodDef *tp_methods;
-	struct PyMemberDef *tp_members;
-	struct PyGetSetDef *tp_getset;
-	struct _typeobject *tp_base;
-	PyObject *tp_dict;
-	descrgetfunc tp_descr_get;
-	descrsetfunc tp_descr_set;
-	Py_ssize_t tp_dictoffset;
-	initproc tp_init;
-	allocfunc tp_alloc;
-	newfunc tp_new;
-	freefunc tp_free; /* Low-level free-memory routine */
-	inquiry tp_is_gc; /* For PyObject_IS_GC */
-	PyObject *tp_bases;
-	PyObject *tp_mro; /* method resolution order */
-	PyObject *tp_cache;
-	PyObject *tp_subclasses;
-	PyObject *tp_weaklist;
-	destructor tp_del;
+    /* Attribute descriptor and subclassing stuff */
+    struct PyMethodDef *tp_methods;
+    struct PyMemberDef *tp_members;
+    struct PyGetSetDef *tp_getset;
+    struct _typeobject *tp_base;
+    PyObject *tp_dict;
+    descrgetfunc tp_descr_get;
+    descrsetfunc tp_descr_set;
+    Py_ssize_t tp_dictoffset;
+    initproc tp_init;
+    allocfunc tp_alloc;
+    newfunc tp_new;
+    freefunc tp_free; /* Low-level free-memory routine */
+    inquiry tp_is_gc; /* For PyObject_IS_GC */
+    PyObject *tp_bases;
+    PyObject *tp_mro; /* method resolution order */
+    PyObject *tp_cache;
+    PyObject *tp_subclasses;
+    PyObject *tp_weaklist;
+    destructor tp_del;
 
-	/* Type attribute cache version tag. Added in version 2.6 */
-	unsigned int tp_version_tag;
+    /* Type attribute cache version tag. Added in version 2.6 */
+    unsigned int tp_version_tag;
 
+    destructor tp_finalize;
 } PyTypeObject;
 
 typedef struct {
@@ -369,10 +362,10 @@ typedef struct {
 #define PyObject_Bytes PyObject_Str
 
 /* Flag bits for printing: */
-#define Py_PRINT_RAW	1	/* No string quotes etc. */
+#define Py_PRINT_RAW    1       /* No string quotes etc. */
 
 /*
-Type flags (tp_flags)
+`Type flags (tp_flags)
 
 These flags are used to extend the type structure in a backwards-compatible
 fashion. Extensions can use the flags to indicate (and test) when a given
@@ -384,18 +377,14 @@ Arbitration of the flag bit positions will need to be coordinated among
 all extension writers who publically release their extensions (this will
 be fewer than you might expect!)..
 
-Python 1.5.2 introduced the bf_getcharbuffer slot into PyBufferProcs.
+Most flags were removed as of Python 3.0 to make room for new flags.  (Some
+flags are not for backwards compatibility but to indicate the presence of an
+optional feature; these flags remain of course.)
 
 Type definitions should use Py_TPFLAGS_DEFAULT for their tp_flags value.
 
 Code can use PyType_HasFeature(type_ob, flag_value) to test whether the
 given type object has a specified feature.
-
-NOTE: when building the core, Py_TPFLAGS_DEFAULT includes
-Py_TPFLAGS_HAVE_VERSION_TAG; outside the core, it doesn't.  This is so
-that extensions that modify tp_dict of their own types directly don't
-break, since this was allowed in 2.5.  In 3.0 they will have to
-manually remove this flag though!
 */
 
 /* PyBufferProcs contains bf_getcharbuffer */
