@@ -34,12 +34,8 @@ binaryfunc = P(FT([PyO, PyO], PyO))
 ternaryfunc = P(FT([PyO, PyO, PyO], PyO))
 inquiry = P(FT([PyO], rffi.INT_real))
 lenfunc = P(FT([PyO], Py_ssize_t))
-intargfunc = P(FT([PyO, rffi.INT_real], PyO))
-intintargfunc = P(FT([PyO, rffi.INT_real, rffi.INT], PyO))
 ssizeargfunc = P(FT([PyO, Py_ssize_t], PyO))
 ssizessizeargfunc = P(FT([PyO, Py_ssize_t, Py_ssize_t], PyO))
-intobjargproc = P(FT([PyO, rffi.INT_real, PyO], rffi.INT))
-intintobjargproc = P(FT([PyO, rffi.INT_real, rffi.INT, PyO], rffi.INT))
 ssizeobjargproc = P(FT([PyO, Py_ssize_t, PyO], rffi.INT_real))
 ssizessizeobjargproc = P(FT([PyO, Py_ssize_t, Py_ssize_t, PyO], rffi.INT_real))
 objobjargproc = P(FT([PyO, PyO, PyO], rffi.INT_real))
@@ -70,7 +66,6 @@ PyNumberMethods = cpython_struct("PyNumberMethods", (
     ("nb_add", binaryfunc),
     ("nb_subtract", binaryfunc),
     ("nb_multiply", binaryfunc),
-    ("nb_divide", binaryfunc),
     ("nb_remainder", binaryfunc),
     ("nb_divmod", binaryfunc),
     ("nb_power", ternaryfunc),
@@ -85,12 +80,11 @@ PyNumberMethods = cpython_struct("PyNumberMethods", (
     ("nb_xor", binaryfunc),
     ("nb_or", binaryfunc),
     ("nb_int", unaryfunc),
-    ("nb_long", unaryfunc),
+    ("nb_reserved", rffi.VOIDP),
     ("nb_float", unaryfunc),
     ("nb_inplace_add", binaryfunc),
     ("nb_inplace_subtract", binaryfunc),
     ("nb_inplace_multiply", binaryfunc),
-    ("nb_inplace_divide", binaryfunc),
     ("nb_inplace_remainder", binaryfunc),
     ("nb_inplace_power", ternaryfunc),
     ("nb_inplace_lshift", binaryfunc),
@@ -105,6 +99,8 @@ PyNumberMethods = cpython_struct("PyNumberMethods", (
     ("nb_inplace_true_divide", binaryfunc),
 
     ("nb_index", unaryfunc),
+    ("nb_matrix_multiply", binaryfunc),
+    ("nb_inplace_matrix_multiply", binaryfunc),
 ))
 
 PySequenceMethods = cpython_struct("PySequenceMethods", (
@@ -122,6 +118,12 @@ PyMappingMethods = cpython_struct("PyMappingMethods", (
     ("mp_length", lenfunc),
     ("mp_subscript", binaryfunc),
     ("mp_ass_subscript", objobjargproc),
+))
+
+PyAsyncMethods = cpython_struct("PyAsyncMethods", (
+    ("am_await", unaryfunc),
+    ("am_aiter", unaryfunc),
+    ("am_anext", unaryfunc),
 ))
 
 PyBufferProcs = cpython_struct("PyBufferProcs", (
@@ -155,7 +157,7 @@ PyTypeObjectFields.extend([
     ("tp_print", printfunc),      #U
     ("tp_getattr", getattrfunc),  #U
     ("tp_setattr", setattrfunc),  #U
-    ("tp_compare", cmpfunc),      #N
+    ("tp_as_async", Ptr(PyAsyncMethods)),      #N
     ("tp_repr", reprfunc),        #N
 
     # Method suites for standard classes
