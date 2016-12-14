@@ -228,8 +228,10 @@ class AppTestFRAGILE:
 
             assert 'nested1' in members          # namespace
 
-        assert 'fglobal' in members          # function
-        assert 'gI'in members                # variable
+        # TODO: think this through ... probably want this, but interferes with
+        # the (new) policy of lazy lookups
+        #assert 'fglobal' in members          # function
+        #assert 'gI'in members                # variable
 
     def test12_imports(self):
         """Test ability to import from namespace (or fail with ImportError)"""

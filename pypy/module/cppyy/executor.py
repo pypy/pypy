@@ -27,12 +27,12 @@ from pypy.module.cppyy import helper, capi, ffitypes
 NULL = lltype.nullptr(jit_libffi.FFI_TYPE_P.TO)
 
 class FunctionExecutor(object):
-    _immutable_fields_ = ['libffitype']
-
-    libffitype = NULL
-
     def __init__(self, space, extra):
         pass
+
+    def cffi_type(self, space):
+        from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
+        raise FastCallNotPossible
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
         raise oefmt(space.w_TypeError,
@@ -44,10 +44,12 @@ class FunctionExecutor(object):
 
 
 class PtrTypeExecutor(FunctionExecutor):
-    _immutable_fields_ = ['libffitype', 'typecode']
-
-    libffitype = jit_libffi.types.pointer
+    _immutable_fields_ = ['typecode']
     typecode = 'P'
+
+    def cffi_type(self, space):
+        state = space.fromcache(ffitypes.State)
+        return state.c_voidp
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
         if hasattr(space, "fake"):
@@ -62,9 +64,9 @@ class PtrTypeExecutor(FunctionExecutor):
 
 
 class VoidExecutor(FunctionExecutor):
-    _immutable_fields_ = ['libffitype']
-
-    libffitype = jit_libffi.types.void
+    def cffi_type(self, space):
+        state = space.fromcache(ffitypes.State)
+        return state.c_void
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
         capi.c_call_v(space, cppmethod, cppthis, num_args, args)
@@ -143,13 +145,15 @@ class ConstructorExecutor(FunctionExecutor):
 
 
 class InstancePtrExecutor(FunctionExecutor):
-    _immutable_fields_ = ['libffitype', 'cppclass']
-
-    libffitype = jit_libffi.types.pointer
+    _immutable_fields_ = ['cppclass']
 
     def __init__(self, space, cppclass):
         FunctionExecutor.__init__(self, space, cppclass)
         self.cppclass = cppclass
+
+    def cffi_type(self, space):
+        state = space.fromcache(ffitypes.State)
+        return state.c_voidp
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
         from pypy.module.cppyy import interp_cppyy
@@ -195,8 +199,10 @@ class InstanceExecutor(InstancePtrExecutor):
 class StdStringExecutor(InstancePtrExecutor):
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
-        cstr_result = capi.c_call_s(space, cppmethod, cppthis, num_args, args)
-        return space.newbytes(capi.charp2str_free(space, cstr_result))
+        cstr, cstr_len = capi.c_call_s(space, cppmethod, cppthis, num_args, args)
+        pystr = rffi.charpsize2str(cstr, cstr_len)
+        capi.c_free(space, rffi.cast(rffi.VOIDP, cstr))
+        return space.newbytes(pystr)
 
     def execute_libffi(self, space, cif_descr, funcaddr, buffer):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
@@ -284,7 +290,7 @@ def get_executor(space, name):
         elif compound == '**' or compound == '*&':
             return InstancePtrPtrExecutor(space, cppclass)
     elif capi.c_is_enum(space, clean_name):
-        return _executors['unsigned int'](space, None)
+        return _executors['internal_enum_type_t'](space, None)
 
     # 4) additional special cases
     if compound == '*':
@@ -312,16 +318,18 @@ def _build_basic_executors():
     "NOT_RPYTHON"
     type_info = (
         (bool,            capi.c_call_b,   ("bool",)),
-        (rffi.CHAR,       capi.c_call_c,   ("char", "unsigned char")),
+        # TODO: either signed or unsigned is correct for a given platform ...
+        (rffi.CHAR,       capi.c_call_c,   ("char", "unsigned char", "signed char")),
         (rffi.SHORT,      capi.c_call_h,   ("short", "short int", "unsigned short", "unsigned short int")),
-        (rffi.INT,        capi.c_call_i,   ("int",)),
+        (rffi.INT,        capi.c_call_i,   ("int", "internal_enum_type_t")),
         (rffi.UINT,       capi.c_call_l,   ("unsigned", "unsigned int")),
         (rffi.LONG,       capi.c_call_l,   ("long", "long int")),
         (rffi.ULONG,      capi.c_call_l,   ("unsigned long", "unsigned long int")),
-        (rffi.LONGLONG,   capi.c_call_ll,  ("long long", "long long int")),
-        (rffi.ULONGLONG,  capi.c_call_ll,  ("unsigned long long", "unsigned long long int")),
+        (rffi.LONGLONG,   capi.c_call_ll,  ("long long", "long long int", "Long64_t")),
+        (rffi.ULONGLONG,  capi.c_call_ll,  ("unsigned long long", "unsigned long long int", "ULong64_t")),
         (rffi.FLOAT,      capi.c_call_f,   ("float",)),
         (rffi.DOUBLE,     capi.c_call_d,   ("double",)),
+#        (rffi.LONGDOUBLE, capi.c_call_ld,  ("long double",)),
     )
 
     for c_type, stub, names in type_info:
@@ -329,8 +337,9 @@ def _build_basic_executors():
             _immutable_ = True
             c_stubcall  = staticmethod(stub)
         class BasicRefExecutor(ffitypes.typeid(c_type), NumericRefExecutorMixin, FunctionExecutor):
-            _immutable_fields_ = ['libffitype']
-            libffitype = jit_libffi.types.pointer
+            def cffi_type(self, space):
+                state = space.fromcache(ffitypes.State)
+                return state.c_voidp
         for name in names:
             _executors[name]              = BasicExecutor
             _executors[name+'&']          = BasicRefExecutor
