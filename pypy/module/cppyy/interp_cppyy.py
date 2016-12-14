@@ -429,9 +429,9 @@ class CPPTemplatedCall(CPPMethod):
         assert lltype.typeOf(cppthis) == capi.C_OBJECT
         for i in range(len(args_w)):
             try:
-                s = self.space.str_w(args_w[i])
+                s = self.space.text_w(args_w[i])
             except OperationError:
-                s = self.space.str_w(self.space.getattr(args_w[i], self.space.newtext('__name__')))
+                s = self.space.text_w(self.space.getattr(args_w[i], self.space.newtext('__name__')))
             s = capi.c_resolve_name(self.space, s)
             if s != self.templ_args[i]:
                 raise oefmt(self.space.w_TypeError,
@@ -1009,7 +1009,7 @@ class W_CPPTemplateType(W_Root):
     @unwrap_spec(args_w='args_w')
     def __call__(self, args_w):
         # TODO: this is broken but unused (see pythonify.py)
-        fullname = "".join([self.name, '<', self.space.str_w(args_w[0]), '>'])
+        fullname = "".join([self.name, '<', self.space.text_w(args_w[0]), '>'])
         return scope_byname(self.space, fullname)
 
 W_CPPTemplateType.typedef = TypeDef(
@@ -1286,9 +1286,9 @@ def bind_object(space, w_obj, w_pycppclass, owns=False, cast=False):
         rawobject = rffi.cast(capi.C_OBJECT, space.uint_w(w_obj))
     w_cppclass = space.findattr(w_pycppclass, space.newtext("_cpp_proxy"))
     if not w_cppclass:
-        w_cppclass = scope_byname(space, space.str_w(w_pycppclass))
+        w_cppclass = scope_byname(space, space.text_w(w_pycppclass))
         if not w_cppclass:
             raise oefmt(space.w_TypeError,
-                        "no such class: %s", space.str_w(w_pycppclass))
+                        "no such class: %s", space.text_w(w_pycppclass))
     cppclass = space.interp_w(W_CPPClass, w_cppclass, can_be_None=False)
     return wrap_cppobject(space, rawobject, cppclass, do_cast=cast, python_owns=owns)

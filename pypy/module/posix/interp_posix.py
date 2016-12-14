@@ -580,18 +580,16 @@ entries '.' and '..' even if they are present in the directory."""
             len_result = len(result)
             result_w = [None] * len_result
             for i in range(len_result):
-                if type(result[i]) is unicode:
-                    result_w[i] = space.newunicode(result[i])
-                else:
-                    w_bytes = space.newtext(result[i])
-                    try:
-                        result_w[i] = space.call_method(w_bytes,
-                                                        "decode", w_fs_encoding)
-                    except OperationError as e:
-                        # fall back to the original byte string
-                        if e.async(space):
-                            raise
-                        result_w[i] = w_bytes
+                res = result[i]
+                w_bytes = space.newtext(res)
+                try:
+                    result_w[i] = space.call_method(w_bytes,
+                                                    "decode", w_fs_encoding)
+                except OperationError as e:
+                    # fall back to the original byte string
+                    if e.async(space):
+                        raise
+                    result_w[i] = w_bytes
             return space.newlist(result_w)
         else:
             dirname = space.str0_w(w_dirname)

@@ -181,10 +181,10 @@ class PtrTypeConverterMixin(object):
 
     def convert_argument(self, space, w_obj, address, call_local):
         w_tc = space.findattr(w_obj, space.newtext('typecode'))
-        if w_tc is not None and space.str_w(w_tc) != self.typecode:
+        if w_tc is not None and space.text_w(w_tc) != self.typecode:
             raise oefmt(space.w_TypeError,
                         "expected %s pointer type, but received %s",
-                        self.typecode, space.str_w(w_tc))
+                        self.typecode, space.text_w(w_tc))
         x = rffi.cast(rffi.VOIDPP, address)
         try:
             x[0] = rffi.cast(rffi.VOIDP, get_rawbuffer(space, w_obj))
@@ -362,7 +362,7 @@ class ConstDoubleRefConverter(ConstRefNumericTypeConverterMixin, DoubleConverter
 class CStringConverter(TypeConverter):
     def convert_argument(self, space, w_obj, address, call_local):
         x = rffi.cast(rffi.LONGP, address)
-        arg = space.str_w(w_obj)
+        arg = space.text_w(w_obj)
         x[0] = rffi.cast(rffi.LONG, rffi.str2charp(arg))
         ba = rffi.cast(rffi.CCHARP, address)
         ba[capi.c_function_arg_typeoffset(space)] = 'o'
@@ -555,7 +555,7 @@ class StdStringConverter(InstanceConverter):
             arg = InstanceConverter._unwrap_object(self, space, w_obj)
             return capi.c_stdstring2stdstring(space, arg)
         else:
-            return capi.c_charp2stdstring(space, space.str_w(w_obj))
+            return capi.c_charp2stdstring(space, space.text_w(w_obj))
 
     def to_memory(self, space, w_obj, w_value, offset):
         try:
@@ -838,7 +838,7 @@ if capi.identify() == "CINT":
                 arg = InstanceConverter._unwrap_object(self, space, w_obj)
                 return capi.backend.c_TString2TString(space, arg)
             else:
-                return capi.backend.c_charp2TString(space, space.str_w(w_obj))
+                return capi.backend.c_charp2TString(space, space.text_w(w_obj))
 
         def free_argument(self, space, arg, call_local):
             capi.c_destruct(space, self.cppclass, rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, arg)[0]))

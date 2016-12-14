@@ -48,7 +48,7 @@ class CharTypeMixin(object):
 
             value = rffi.cast(rffi.CHAR, space.c_int_w(w_value))
         else:
-            value = space.str_w(w_value)
+            value = space.bytes_w(w_value)
 
         if len(value) != 1:  
             raise oefmt(space.w_ValueError,

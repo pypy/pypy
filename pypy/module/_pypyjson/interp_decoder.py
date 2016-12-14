@@ -388,7 +388,7 @@ def loads(space, w_s):
     if space.isinstance_w(w_s, space.w_unicode):
         raise oefmt(space.w_TypeError,
                     "Expected utf8-encoded str, got unicode")
-    s = space.str_w(w_s)
+    s = space.bytes_w(w_s)
     decoder = JSONDecoder(space, s)
     try:
         w_res = decoder.decode_any(0)
