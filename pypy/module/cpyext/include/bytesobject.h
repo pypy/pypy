@@ -56,6 +56,9 @@ typedef struct {
 #define PyString_CHECK_INTERNED(op) (((PyStringObject *)(op))->ob_sstate)
 
 
+PyAPI_FUNC(PyObject *) PyBytes_FromFormatV(const char*, va_list);
+PyAPI_FUNC(PyObject *) PyBytes_FromFormat(const char*, ...);
+
 #ifdef __cplusplus
 }
 #endif

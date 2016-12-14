@@ -202,6 +202,19 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
         module.getbytes()
         module.c_only()
 
+    def test_FromFormat(self):
+        module = self.import_extension('foo', [
+            ("fmt", "METH_VARARGS",
+             """
+                PyObject* fmt = PyTuple_GetItem(args, 0);
+                int n = PyLong_AsLong(PyTuple_GetItem(args, 1));
+                PyObject* result = PyBytes_FromFormat(PyBytes_AsString(fmt), n);
+                return result;
+             """),
+        ])
+        print(module.fmt(b'd:%d', 10))
+        assert module.fmt(b'd:%d', 10) == b'd:10'
+
 
 class TestBytes(BaseApiTest):
     def test_bytes_resize(self, space, api):

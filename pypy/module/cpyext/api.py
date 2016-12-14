@@ -1346,6 +1346,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pythread.c",
                          source_dir / "missing.c",
                          source_dir / "pymem.c",
+                         source_dir / "bytesobject.c",
                          ]
 
 def build_eci(building_bridge, export_symbols, code, use_micronumpy=False):
