@@ -50,7 +50,8 @@ def pytest_configure(config):
             eci = ExternalCompilationInfo(
                 separate_module_files=[srcpath.join('dummy_backend.cxx')],
                 include_dirs=[incpath, tstpath, cdir],
-                compile_extra=['-DRPY_EXTERN=RPY_EXPORTED'],
+                compile_extra=['-DRPY_EXTERN=RPY_EXPORTED', '-DCPPYY_DUMMY_BACKEND',
+                               '-fno-strict-aliasing', '-std=c++11'],
                 use_cpp_linker=True,
             )
 
