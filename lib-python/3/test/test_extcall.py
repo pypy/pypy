@@ -49,14 +49,14 @@ Here we add keyword arguments
 
     >>> f(1, 2, 3, **{'a':4, 'b':5})
     (1, 2, 3) {'a': 4, 'b': 5}
-    >>> f(1, 2, **{'a': -1, 'b': 5}, **{'a': 4, 'c': 6})
+    >>> f(1, 2, **{'a': -1, 'b': 5}, **{'a': 4, 'c': 6})   #doctest: +ELLIPSIS
     Traceback (most recent call last):
         ...
-    TypeError: f() got multiple values for keyword argument 'a'
-    >>> f(1, 2, **{'a': -1, 'b': 5}, a=4, c=6)
+    TypeError: ...got multiple values for keyword argument 'a'
+    >>> f(1, 2, **{'a': -1, 'b': 5}, a=4, c=6)             #doctest: +ELLIPSIS
     Traceback (most recent call last):
         ...
-    TypeError: f() got multiple values for keyword argument 'a'
+    TypeError: ...got multiple values for keyword argument 'a'
     >>> f(1, 2, 3, *[4, 5], **{'a':6, 'b':7})
     (1, 2, 3, 4, 5) {'a': 6, 'b': 7}
     >>> f(1, 2, 3, x=4, y=5, *(6, 7), **{'a':8, 'b': 9})
@@ -217,7 +217,7 @@ What about willful misconduct?
     >>> f(**{1:2})                             #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: ...keywords must be strings
+    TypeError: ...keywords must be strings...
 
     >>> h(**{'e': 2})
     Traceback (most recent call last):
