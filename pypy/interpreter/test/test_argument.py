@@ -878,6 +878,21 @@ class AppTestArgument:
         else:
             assert False, "Expected TypeError"
 
+    def test_call_iter_dont_eat_typeerror(self):
+        # same as test_cpython_issue4806, not only for generators
+        # (only for 3.x, on CPython 2.7 this case still eats the
+        # TypeError and replaces it with "argument after * ...")
+        class X:
+            def __iter__(self):
+                raise TypeError("myerror")
+        def f():
+            pass
+        e = raises(TypeError, "f(*42)")
+        assert str(e.value).endswith(
+            "argument after * must be an iterable, not int")
+        e = raises(TypeError, "f(*X())")
+        assert str(e.value) == "myerror"
+
     def test_keyword_arg_after_keywords_dict(self):
         """
         def f(x, y):

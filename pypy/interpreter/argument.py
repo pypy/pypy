@@ -92,7 +92,7 @@ class Arguments(object):
             args_w = space.fixedview(w_stararg)
         except OperationError as e:
             if (e.match(space, space.w_TypeError) and
-                    not space.is_generator(w_stararg)):
+                    not space.is_iterable(w_stararg)):
                 raise oefmt(space.w_TypeError,
                             "argument after * must be an iterable, not %T",
                             w_stararg)

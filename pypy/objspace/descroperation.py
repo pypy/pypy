@@ -272,6 +272,15 @@ class DescrOperation(object):
             raise oefmt(space.w_ValueError, "__len__() should return >= 0")
         return result
 
+    def is_iterable(space, w_obj):
+        w_descr = space.lookup(w_obj, '__iter__')
+        if w_descr is None:
+            if space.type(w_obj).flag_map_or_seq != 'M':
+                w_descr = space.lookup(w_obj, '__getitem__')
+            if w_descr is None:
+                return False
+        return True
+
     def iter(space, w_obj):
         w_descr = space.lookup(w_obj, '__iter__')
         if w_descr is None:
