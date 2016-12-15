@@ -1,3 +1,9 @@
+#encoding utf-8
+
+Contributors
+------------
+::
+
   Armin Rigo
   Maciej Fijalkowski
   Carl Friedrich Bolz

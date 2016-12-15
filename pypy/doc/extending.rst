@@ -61,8 +61,8 @@ these two modules.
 .. _libffi: http://sourceware.org/libffi/
 
 
-Reflex
-------
+Reflex and cppyy
+----------------
 
 The builtin :doc:`cppyy <cppyy>` module uses reflection information, provided by
 `Reflex`_ (which needs to be `installed separately`_), of C/C++ code to
@@ -81,6 +81,9 @@ most cross-language call overhead.
 .. _installed separately: http://cern.ch/wlav/reflex-2013-08-14.tar.bz2
 .. _Reflex: https://root.cern.ch/how/how-use-reflex
 
+.. toctree::
+
+   cppyy
 
 RPython Mixed Modules
 ---------------------
@@ -94,7 +97,3 @@ details of the JIT, allowing us to tweak its interaction with user code.
 This is how the numpy module is being developed.
 
 
-.. toctree::
-   :hidden:
-
-   cppyy
