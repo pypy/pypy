@@ -969,3 +969,30 @@ class AppTestBytesObject:
     def test_constructor_typeerror(self):
         raises(TypeError, bytes, b'', 'ascii')
         raises(TypeError, bytes, '')
+
+    def test_constructor_subclass(self):
+        class Sub(bytes):
+            pass
+        class X:
+            def __bytes__(self):
+                return Sub(b'foo')
+        assert type(bytes(X())) is Sub
+
+    def test_constructor_subclass_2(self):
+        class Sub(bytes):
+            pass
+        class X(bytes):
+            def __bytes__(self):
+                return Sub(b'foo')
+        assert type(bytes(X())) is Sub
+
+    def test_constructor_subclass_3(self):
+        class Sub(bytes):
+            pass
+        class X(bytes):
+            def __bytes__(self):
+                return Sub(b'foo')
+        class Sub1(bytes):
+            pass
+        assert type(Sub1(X())) is Sub1
+        assert Sub1(X()) == b'foo'

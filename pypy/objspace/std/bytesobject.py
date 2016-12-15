@@ -544,8 +544,16 @@ class W_BytesObject(W_AbstractBytesObject):
                     w_item = space.getitem(w_source, space.wrap(0))
                     value = getbytevalue(space, w_item)
                     return W_BytesObject(value)
-        #
-        value = newbytesdata_w(space, w_source, encoding, errors)
+            else:
+                # special-case 'bytes(X)' if X has a __bytes__() method:
+                # we must return the result unmodified even if it is a
+                # subclass of bytes
+                w_result = invoke_bytes_method(space, w_source)
+                if w_result is not None:
+                    return w_result
+            value = newbytesdata_w_tail(space, w_source)
+        else:
+            value = newbytesdata_w(space, w_source, encoding, errors)
         w_obj = space.allocate_instance(W_BytesObject, w_stringtype)
         W_BytesObject.__init__(w_obj, value)
         return w_obj
@@ -699,6 +707,16 @@ def getbytevalue(space, w_value):
         raise oefmt(space.w_ValueError, "byte must be in range(0, 256)")
     return chr(value)
 
+def invoke_bytes_method(space, w_source):
+    w_bytes_method = space.lookup(w_source, "__bytes__")
+    if w_bytes_method is not None:
+        w_bytes = space.get_and_call_function(w_bytes_method, w_source)
+        if not space.isinstance_w(w_bytes, space.w_bytes):
+            raise oefmt(space.w_TypeError,
+                        "__bytes__ returned non-bytes (type '%T')", w_bytes)
+        return w_bytes
+    return None
+
 def newbytesdata_w(space, w_source, encoding, errors):
     # None value
     if w_source is None:
@@ -725,16 +743,18 @@ def newbytesdata_w(space, w_source, encoding, errors):
             raise oefmt(space.w_TypeError,
                 "string argument without an encoding")
     # Fast-path for bytes
-    if space.isinstance_w(w_source, space.w_str):
+    if space.type(w_source) is space.w_bytes:
         return space.bytes_w(w_source)
     # Some other object with a __bytes__ special method (could be str subclass)
-    w_bytes_method = space.lookup(w_source, "__bytes__")
-    if w_bytes_method is not None:
-        w_bytes = space.get_and_call_function(w_bytes_method, w_source)
-        if not space.isinstance_w(w_bytes, space.w_bytes):
-            raise oefmt(space.w_TypeError,
-                        "__bytes__ returned non-bytes (type '%T')", w_bytes)
-        return space.bytes_w(w_bytes)
+    w_result = invoke_bytes_method(space, w_source)
+    if w_result is not None:
+        return space.bytes_w(w_result)
+
+    return newbytesdata_w_tail(space, w_source)
+
+def newbytesdata_w_tail(space, w_source):
+    # converts rare case of bytes constructor arguments: we don't have
+    # any encodings/errors, and the argument does not have __bytes__()
     if space.isinstance_w(w_source, space.w_unicode):
         raise oefmt(space.w_TypeError, "string argument without an encoding")
 
