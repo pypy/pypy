@@ -1,7 +1,13 @@
-import py
+import py, sys
 
 @py.test.mark.tryfirst
 def pytest_runtest_setup(item):
+    if 'linux' in sys.platform:
+        # tests require minimally std=c++11
+        cc_info = py.process.cmdexec('gcc -v --help')
+        if not '-std=c++11' in cc_info:
+            py.test.skip('skipping tests because gcc does not support C++11')
+
     if py.path.local.sysfind('genreflex') is None:
         import pypy.module.cppyy.capi.loadable_capi as lcapi
         if 'dummy' in lcapi.reflection_library:
