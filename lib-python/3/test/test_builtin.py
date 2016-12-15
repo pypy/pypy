@@ -1775,8 +1775,9 @@ class TestType(unittest.TestCase):
         for doc in 'x', '\xc4', '\U0001f40d', 'x\x00y', b'x', 42, None:
             A = type('A', (), {'__doc__': doc})
             self.assertEqual(A.__doc__, doc)
-        with self.assertRaises(UnicodeEncodeError):
-            type('A', (), {'__doc__': 'x\udcdcy'})
+        if check_impl_detail():     # CPython encodes __doc__ into tp_doc
+            with self.assertRaises(UnicodeEncodeError):
+                type('A', (), {'__doc__': 'x\udcdcy'})
 
         A = type('A', (), {})
         self.assertEqual(A.__doc__, None)
@@ -1807,8 +1808,9 @@ class TestType(unittest.TestCase):
     def test_bad_slots(self):
         with self.assertRaises(TypeError):
             type('A', (), {'__slots__': b'x'})
-        with self.assertRaises(TypeError):
-            type('A', (int,), {'__slots__': 'x'})
+        if check_impl_detail():     # 'int' is variable-sized on CPython 3.x
+            with self.assertRaises(TypeError):
+                type('A', (int,), {'__slots__': 'x'})
         with self.assertRaises(TypeError):
             type('A', (), {'__slots__': ''})
         with self.assertRaises(TypeError):
