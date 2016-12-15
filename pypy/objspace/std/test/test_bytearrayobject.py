@@ -38,6 +38,9 @@ class AppTestBytesArray:
         raises(ValueError, bytearray, [65, -3])
         raises(TypeError, bytearray, [65.0])
         raises(ValueError, bytearray, -1)
+        assert bytearray('abc', 'ascii') == b'abc'
+        raises(TypeError, bytearray, 'abc', b'ascii')
+        raises(UnicodeEncodeError, bytearray, '\x80', 'ascii')
 
     def test_init_override(self):
         class subclass(bytearray):

@@ -1567,7 +1567,8 @@ class ObjSpace(object):
         return self.buffer_w(w_obj, flags).as_str()
 
     def str_or_None_w(self, w_obj):
-        return None if self.is_none(w_obj) else self.str_w(w_obj)
+        # FIXME: XXX for now, inconsistent with str_w()
+        return None if self.is_none(w_obj) else self.identifier_w(w_obj)
 
     def str_w(self, w_obj):
         """

@@ -108,6 +108,8 @@ class AppTestBytesObject:
         assert bytes([42]) == b'*'
         assert bytes([0xFC]) == b'\xFC'
         assert bytes([42, 0xCC]) == b'*\xCC'
+        raises(TypeError, bytes, 'abc', b'ascii')
+        raises(UnicodeEncodeError, bytes, '\x80', 'ascii')
 
     def test_constructor_list_of_objs(self):
         class X:
