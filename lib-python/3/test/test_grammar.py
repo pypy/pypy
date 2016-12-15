@@ -1,7 +1,7 @@
 # Python test set -- part 1, grammar.
 # This just tests whether the parser accepts them all.
 
-from test.support import check_syntax_error
+from test.support import check_syntax_error, check_impl_detail
 import inspect
 import unittest
 import sys
@@ -419,8 +419,16 @@ class GrammarTests(unittest.TestCase):
                     with self.assertRaisesRegex(SyntaxError, custom_msg):
                         exec(source)
                 source = source.replace("foo", "(foo.)")
+                # PyPy's parser also detects the same "Missing parentheses"
+                # if there are some parentheses later in the line
+                # (above, the cases that contain '{1:').
+                # CPython gives up in this case.
+                if check_impl_detail(pypy=True) and '{1:' in source:
+                    expected = custom_msg
+                else:
+                    expected = "invalid syntax"
                 with self.subTest(source=source):
-                    with self.assertRaisesRegex(SyntaxError, "invalid syntax"):
+                    with self.assertRaisesRegex(SyntaxError, expected):
                         exec(source)
 
     def test_del_stmt(self):
