@@ -136,6 +136,7 @@ class AppTestInterpObjectPickling:
 
     def test_pickle_non_top_reachable_func(self):
         self.skip_on_cpython()
+        skip("this behavior was disabled to follow CPython more closely")
         def func():
             return 42
         global a
@@ -199,6 +200,7 @@ class AppTestInterpObjectPickling:
         assert a == result
 
     def test_pickle_method(self):
+        skip("this behavior was disabled to follow CPython more closely")
         class myclass(object):
             def f(self):
                 return 42
@@ -221,6 +223,7 @@ class AppTestInterpObjectPickling:
             del sys.modules['mod']
 
     def test_pickle_staticmethod(self):
+        skip("this behavior was disabled to follow CPython more closely")
         self.skip_on_cpython()
         class myclass(object):
             def f():
@@ -233,6 +236,7 @@ class AppTestInterpObjectPickling:
         assert method() == result()
 
     def test_pickle_classmethod(self):
+        skip("this behavior was disabled to follow CPython more closely")
         class myclass(object):
             def f(cls):
                 return cls

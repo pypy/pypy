@@ -280,6 +280,7 @@ class Function(W_Root):
     find = staticmethod(find)
 
     def descr_function__reduce__(self, space):
+        XXX   # This is not used any more
         from pypy.interpreter.gateway import BuiltinCode
         from pypy.interpreter.mixedmodule import MixedModule
         w_mod = space.getbuiltinmodule('_pickle_support')
@@ -325,6 +326,7 @@ class Function(W_Root):
         return nt([new_inst, nt(tup_base), nt(tup_state)])
 
     def descr_function__setstate__(self, space, w_args):
+        XXX   # This is not used any more
         args_w = space.unpackiterable(w_args)
         try:
             (w_name, w_qualname, w_doc, w_code, w_func_globals, w_closure,
