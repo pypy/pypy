@@ -45,3 +45,14 @@ Refactor FunctionDesc.specialize() and related code (RPython annotator).
 
 Assign ``tp_doc`` to the new TypeObject's type dictionary ``__doc__`` key
 so it will be picked up by app-level objects of that type
+
+.. branch: cling-support
+
+Module cppyy now uses cling as its backend (Reflex has been removed). The
+user-facing interface and main developer tools (genreflex, selection files,
+class loader, etc.) remain the same.  A libcppyy_backend.so library is still
+needed but is now available through PyPI with pip: PyPy-cppyy-backend.
+
+The Cling-backend brings support for modern C++ (11, 14, etc.), dynamic
+template instantations, and improved integration with CFFI for better
+performance.  It also provides interactive C++ (and bindings to that).
