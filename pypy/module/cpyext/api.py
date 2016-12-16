@@ -607,14 +607,6 @@ def build_exported_objects():
                              % (cpyname, ))
 build_exported_objects()
 
-def get_structtype_for_ctype(ctype):
-    from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
-    from pypy.module.cpyext.cdatetime import PyDateTime_CAPI
-    from pypy.module.cpyext.intobject import PyIntObject
-    return {"PyObject*": PyObject, "PyTypeObject*": PyTypeObjectPtr,
-            "PyIntObject*": PyIntObject,
-            "PyDateTime_CAPI*": lltype.Ptr(PyDateTime_CAPI)}[ctype]
-
 # Note: as a special case, "PyObject" is the pointer type in RPython,
 # corresponding to "PyObject *" in C.  We do that only for PyObject.
 # For example, "PyTypeObject" is the struct type even in RPython.
