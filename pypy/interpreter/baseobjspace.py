@@ -1193,7 +1193,7 @@ class ObjSpace(object):
         return w_res
 
     def call_method(self, w_obj, methname, *arg_w):
-        w_meth = self.getattr(w_obj, self.newbytes(methname))
+        w_meth = self.getattr(w_obj, self.newtext(methname))
         return self.call_function(w_meth, *arg_w)
 
     def raise_key_error(self, w_key):
@@ -1202,7 +1202,7 @@ class ObjSpace(object):
 
     def lookup(self, w_obj, name):
         w_type = self.type(w_obj)
-        w_mro = self.getattr(w_type, self.newbytes("__mro__"))
+        w_mro = self.getattr(w_type, self.newtext("__mro__"))
         for w_supertype in self.fixedview(w_mro):
             w_value = w_supertype.getdictvalue(self, name)
             if w_value is not None:
@@ -1223,7 +1223,7 @@ class ObjSpace(object):
             if self.is_oldstyle_instance(w_obj):
                 # ugly old style class special treatment, but well ...
                 try:
-                    self.getattr(w_obj, self.newbytes("__call__"))
+                    self.getattr(w_obj, self.newtext("__call__"))
                     return self.w_True
                 except OperationError as e:
                     if not e.match(self, self.w_AttributeError):
@@ -1235,7 +1235,7 @@ class ObjSpace(object):
 
     def issequence_w(self, w_obj):
         if self.is_oldstyle_instance(w_obj):
-            return (self.findattr(w_obj, self.newbytes('__getitem__')) is not None)
+            return (self.findattr(w_obj, self.newtext('__getitem__')) is not None)
         flag = self.type(w_obj).flag_map_or_seq
         if flag == 'M':
             return False
@@ -1246,7 +1246,7 @@ class ObjSpace(object):
 
     def ismapping_w(self, w_obj):
         if self.is_oldstyle_instance(w_obj):
-            return (self.findattr(w_obj, self.newbytes('__getitem__')) is not None)
+            return (self.findattr(w_obj, self.newtext('__getitem__')) is not None)
         flag = self.type(w_obj).flag_map_or_seq
         if flag == 'M':
             return True
@@ -1327,7 +1327,7 @@ class ObjSpace(object):
                                          hidden_applevel=hidden_applevel)
         if not isinstance(statement, PyCode):
             raise TypeError('space.exec_(): expected a string, code or PyCode object')
-        w_key = self.newbytes('__builtins__')
+        w_key = self.newtext('__builtins__')
         if not self.contains_w(w_globals, w_key):
             self.setitem(w_globals, w_key, self.builtin)
         return statement.exec_code(self, w_globals, w_locals)
@@ -1808,7 +1808,7 @@ class ObjSpace(object):
         if (not self.isinstance_w(w_fd, self.w_int) and
             not self.isinstance_w(w_fd, self.w_long)):
             try:
-                w_fileno = self.getattr(w_fd, self.newbytes("fileno"))
+                w_fileno = self.getattr(w_fd, self.newtext("fileno"))
             except OperationError as e:
                 if e.match(self, self.w_AttributeError):
                     raise oefmt(self.w_TypeError,
