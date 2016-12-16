@@ -597,6 +597,8 @@ class FlowContext(object):
 
         Returns an FSException object whose w_value is an instance of w_type.
         """
+        from rpython.rlib.debug import ll_assert_not_none
+
         w_is_type = op.isinstance(w_arg1, const(type)).eval(self)
         if self.guessbool(w_is_type):
             # this is for all cases of the form (Class, something)
@@ -618,6 +620,7 @@ class FlowContext(object):
                                 "separate value")
                 raise Raise(const(exc))
             w_value = w_arg1
+        w_value = op.simple_call(const(ll_assert_not_none), w_value).eval(self)
         w_type = op.type(w_value).eval(self)
         return FSException(w_type, w_value)
 
