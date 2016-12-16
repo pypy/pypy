@@ -1073,7 +1073,7 @@ def slot_w(space, w_name):
             "__slots__ items must be strings, not '%T'", w_name)
     if not _isidentifier(space.unicode_w(w_name)):
         raise oefmt(space.w_TypeError, "__slots__ must be identifiers")
-    return w_name.identifier_w(space)
+    return w_name.text_w(space)
 
 def create_all_slots(w_self, hasoldstylebase, w_bestbase, force_new_layout):
     from pypy.objspace.std.listobject import StringSort

@@ -30,6 +30,16 @@ class TestUnicodeObject:
                 space.w_unicode, "__new__", space.w_unicode, w_uni)
         assert w_new is w_uni
 
+    def test_identifier_or_text_w(self):
+        space = self.space
+        w_uni = space.wrap(u'abcd')
+        assert space.identifier_w(w_uni) == 'abcd'
+        assert space.text_w(w_uni) == 'abcd'
+        w_uni = space.wrap(unichr(0xd921) + unichr(0xdddd))
+        space.raises_w(space.w_UnicodeEncodeError, space.identifier_w, w_uni)
+        assert space.text_w(w_uni) == '\xed\xa4\xa1\xed\xb7\x9d'
+        #                             ^^^ and not the 4-bytes combined character
+
 
 class AppTestUnicodeStringStdOnly:
     def test_compares(self):

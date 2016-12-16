@@ -6,7 +6,9 @@ from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.runicode import (
     make_unicode_escape_function, str_decode_ascii, str_decode_utf_8,
-    unicode_encode_ascii, unicode_encode_utf_8, fast_str_decode_ascii)
+    unicode_encode_ascii, unicode_encode_utf_8, fast_str_decode_ascii,
+    unicode_encode_utf8sp, unicode_encode_utf8_forbid_surrogates,
+    SurrogateError)
 from rpython.rlib import jit
 
 from pypy.interpreter import unicodehelper
@@ -77,23 +79,34 @@ class W_UnicodeObject(W_Root):
     def unicode_w(self, space):
         return self._value
 
-    def identifier_w(self, space):
+    def _identifier_or_text_w(self, space, ignore_sg):
         try:
             identifier = jit.conditional_call_elidable(
                                 self._utf8, g_encode_utf8, self._value)
             if not jit.isconstant(self):
                 self._utf8 = identifier
-        except UnicodeEncodeError:
-            # bah, this is just to get an official app-level
-            # UnicodeEncodeError
+        except SurrogateError:
+            # If 'ignore_sg' is False, this logic is here only
+            # to get an official app-level UnicodeEncodeError.
+            # If 'ignore_sg' is True, we encode instead using
+            # unicode_encode_utf8sp().
             u = self._value
-            eh = unicodehelper.rpy_encode_error_handler()
-            try:
-                identifier = unicode_encode_utf_8(u, len(u), None,
-                                                  errorhandler=eh)
-            except unicodehelper.RUnicodeEncodeError as ue:
-                raise wrap_encode_error(space, ue)
+            if ignore_sg:
+                identifier = unicode_encode_utf8sp(u, len(u))
+            else:
+                eh = unicodehelper.rpy_encode_error_handler()
+                try:
+                    identifier = unicode_encode_utf_8(u, len(u), None,
+                                                      errorhandler=eh)
+                except unicodehelper.RUnicodeEncodeError as ue:
+                    raise wrap_encode_error(space, ue)
         return identifier
+
+    def text_w(self, space):
+        return self._identifier_or_text_w(space, ignore_sg=True)
+
+    def identifier_w(self, space):
+        return self._identifier_or_text_w(space, ignore_sg=False)
 
     def listview_unicode(self):
         return _create_list_from_unicode(self._value)
@@ -1279,7 +1292,7 @@ def _rpy_unicode_to_decimal_w(space, unistr):
 @jit.elidable
 def g_encode_utf8(value):
     """This is a global function because of jit.conditional_call_value"""
-    return value.encode('utf-8')
+    return unicode_encode_utf8_forbid_surrogates(value, len(value))
 
 _repr_function, _ = make_unicode_escape_function(
     pass_printable=True, unicode_output=True, quotes=True, prefix='')

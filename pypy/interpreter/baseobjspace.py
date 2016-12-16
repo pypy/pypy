@@ -6,7 +6,7 @@ from rpython.rlib import jit, types
 from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
-     compute_unique_id, specialize)
+     compute_unique_id, specialize, not_rpython)
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import r_uint, SHRT_MIN, SHRT_MAX, \
     INT_MIN, INT_MAX, UINT_MAX, USHRT_MAX
@@ -253,6 +253,9 @@ class W_Root(object):
         self._typed_unwrap_error(space, "string")
 
     def identifier_w(self, space):
+        self._typed_unwrap_error(space, "string")
+
+    def text_w(self, space):
         self._typed_unwrap_error(space, "string")
 
     def bytearray_list_of_chars_w(self, space):
@@ -1570,18 +1573,20 @@ class ObjSpace(object):
         return None if self.is_none(w_obj) else self.str_w(w_obj)
 
     def text_or_None_w(self, w_obj):
-        return None if self.is_none(w_obj) else self.identifier_w(w_obj)
+        return None if self.is_none(w_obj) else self.text_w(w_obj)
 
+    @not_rpython
     def str_w(self, w_obj):
         """
-        if w_obj is unicode, call identifier_w() (i.e., return the UTF-8
+        if w_obj is unicode, call text_w() (i.e., return the UTF-8-nosg
         encoded string). Else, call bytes_w().
 
-        Maybe we should kill str_w completely and manually substitute it with
-        identifier_w/bytes_w at all call sites?
+        We should kill str_w completely and manually substitute it with
+        text_w/identifier_w/bytes_w at all call sites.  It remains for
+        now for tests only.
         """
         if self.isinstance_w(w_obj, self.w_unicode):
-            return w_obj.identifier_w(self)
+            return w_obj.text_w(self)
         else:
             return w_obj.bytes_w(self)
 
@@ -1660,11 +1665,22 @@ class ObjSpace(object):
             raise oefmt(self.w_TypeError, "argument must be a unicode")
         return self.unicode_w(w_obj)
 
+    def text_w(self, w_obj):
+        """
+        Unwrap a unicode object and return a 'utf-8-nosg' byte string
+        ('no surrogate').  This encoding always works and is in one-to-
+        one correspondance with the unicode.
+        """
+        return w_obj.text_w(self)
+
     def identifier_w(self, w_obj):
         """
         Unwrap an object which is used as an identifier (i.e. names of
         variables, methdods, functions, classes etc.). In py3k, identifiers
         are unicode strings and are unwrapped as UTF-8 encoded byte strings.
+        This differs from space.text_w() because it raises an app-level
+        UnicodeEncodeError if the unicode string contains surrogates.
+        This corresponds exactly to 'str.encode(obj, "utf-8")' at app-level.
         """
         return w_obj.identifier_w(self)
 

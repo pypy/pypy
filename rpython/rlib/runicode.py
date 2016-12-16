@@ -428,6 +428,37 @@ def unicode_encode_utf8sp(s, size):
             _encodeUCS4(result, ch)
     return result.build()
 
+class SurrogateError(Exception):
+    pass
+
+def unicode_encode_utf8_forbid_surrogates(s, size):
+    # Strict surrogate-forbidding utf-8 encoding.  Any surrogate character
+    # raises an interp-level SurrogateError, even on 16-bit hosts.
+    # --- XXX check in detail what occurs on 16-bit hosts in PyPy 3 ---
+    assert(size >= 0)
+    result = StringBuilder(size)
+    pos = 0
+    while pos < size:
+        ch = ord(s[pos])
+        pos += 1
+        if ch < 0x80:
+            # Encode ASCII
+            result.append(chr(ch))
+        elif ch < 0x0800:
+            # Encode Latin-1
+            result.append(chr((0xc0 | (ch >> 6))))
+            result.append(chr((0x80 | (ch & 0x3f))))
+        elif ch < 0x10000:
+            if 0xD800 <= ch <= 0xDFFF:
+                raise SurrogateError
+            # Encode UCS2 Unicode ordinals
+            result.append((chr((0xe0 | (ch >> 12)))))
+            result.append((chr((0x80 | ((ch >> 6) & 0x3f)))))
+            result.append((chr((0x80 | (ch & 0x3f)))))
+        else:
+            _encodeUCS4(result, ch)
+    return result.build()
+
 # ____________________________________________________________
 # utf-16
 
