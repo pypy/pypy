@@ -349,6 +349,9 @@ class FakeObjSpace(ObjSpace):
     def is_generator(self, w_obj):
         return NonConstant(False)
 
+    def is_iterable(self, w_obj):
+        return NonConstant(False)
+
     def lookup_in_type(self, w_type, name):
         return w_some_obj()
 
