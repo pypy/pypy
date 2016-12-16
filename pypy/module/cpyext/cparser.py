@@ -666,6 +666,16 @@ class ParsedSource(object):
         self.source = source
         self.definitions = definitions
 
+def cffi_to_lltype(obj):
+    from pypy.module.cpyext.api import cpython_struct
+    if isinstance(obj, model.PrimitiveType):
+        return cname_to_lltype(obj.name)
+    elif isinstance(obj, model.StructType):
+        fields = zip(
+            obj.fldnames,
+            [cffi_to_lltype(field) for field in obj.fldtypes])
+        return cpython_struct(obj.name, fields)
+
 
 def parse_source(source):
     ctx = Parser()
@@ -675,9 +685,6 @@ def parse_source(source):
         if not name.startswith('typedef '):
             continue
         name = name[8:]
-        if isinstance(obj, model.PrimitiveType):
-            assert obj.name not in defs
-            defs[name] = cname_to_lltype(obj.name)
-        else:
-            pass
+        assert name not in defs
+        defs[name] = cffi_to_lltype(obj)
     return ParsedSource(source, defs)

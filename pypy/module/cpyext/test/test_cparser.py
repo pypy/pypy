@@ -16,6 +16,7 @@ def test_stuff():
     obj = ctx._declarations['typedef PyFloatObject'][0]
     assert [cname_to_lltype(tp.name) for tp in obj.fldtypes] == [
         rffi.SSIZE_T, rffi.SSIZE_T, rffi.DOUBLE]
+    res = parse_source(decl)
 
 def test_simple():
     decl = "typedef ssize_t Py_ssize_t;"
