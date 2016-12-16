@@ -2,6 +2,8 @@ from cffi import api, model
 from cffi.commontypes import COMMON_TYPES, resolve_common_type
 import pycparser
 import weakref, re
+from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.tool import rfficache
 
 _r_comment = re.compile(r"/\*.*?\*/|//([^\n\\]|\\.)*?$",
                         re.DOTALL | re.MULTILINE)
@@ -639,3 +641,22 @@ class Parser(object):
                 self._declare(name, tp, included=True, quals=quals)
         for k, v in other._int_constants.items():
             self._add_constants(k, v)
+
+CNAME_TO_LLTYPE = {
+    'char': rffi.CHAR,
+    'double': rffi.DOUBLE, 'long double': rffi.LONGDOUBLE,
+    'float': rffi.FLOAT}
+
+def add_inttypes():
+    for name in rffi.TYPES:
+        if name.startswith('unsigned'):
+            rname = 'u' + name[9:]
+        else:
+            rname = name
+        rname = rname.replace(' ', '').upper()
+        CNAME_TO_LLTYPE[name] = rfficache.platform.types[rname]
+
+add_inttypes()
+
+def cname_to_lltype(name):
+    return CNAME_TO_LLTYPE[name]
