@@ -3,16 +3,17 @@ cppyy: C++ bindings for PyPy
 
 The cppyy module delivers dynamic Python-C++ bindings.
 It is designed for automation, high performance, scale, interactivity, and
-handling all of modern C++.
+handling all of modern C++ (11, 14, etc.).
 It is based on `Cling`_ which, through `LLVM`_/`clang`_, provides C++
 reflection and interactivity.
 Reflection information is extracted from C++ header files.
 Cppyy itself is built into PyPy (an alternative exists for CPython), but
-it requires a backend, installable through pip, to interface with Cling.
+it requires a `backend`_, installable through pip, to interface with Cling.
 
 .. _Cling: https://root.cern.ch/cling
 .. _LLVM: http://llvm.org/
 .. _clang: http://clang.llvm.org/
+.. _backend: https://pypi.python.org/pypi/PyPy-cppyy-backend
 
 
 Installation
@@ -22,25 +23,39 @@ This assumes PyPy2.7 v5.7 or later; earlier versions use a Reflex-based cppyy
 module, which is no longer supported.
 Both the tooling and user-facing Python codes are very backwards compatible,
 however.
-Further dependencies are cmake (for general build) and Python2.7 (for LLVM).
+Further dependencies are cmake (for general build), Python2.7 (for LLVM), and
+a modern C++ compiler (one that supports at least C++11).
 
 Assuming you have a recent enough version of PyPy installed, use pip to
 complete the installation of cppyy::
 
- $ pypy-c -m pip install PyPy-cppyy-backend
+ $ MAKE_NPROCS=4 pypy-c -m pip install --verbose PyPy-cppyy-backend
 
+Set the number of parallel builds ('4' in this example, through the MAKE_NPROCS
+environment variable) to a number appropriate for your machine.
 The building process may take quite some time as it includes a customized
-version of LLVM as part of Cling.
+version of LLVM as part of Cling, which is why --verbose is recommended so that
+you can see the build progress.
+
+The default installation will be under
+$PYTHONHOME/site-packages/cppyy_backend/lib,
+which needs to be added to your dynamic loader path (LD_LIBRARY_PATH).
+If you need the dictionary and class map generation tools (used in the examples
+below), you need to add $PYTHONHOME/site-packages/cppyy_backend/bin to your
+executable path (PATH).
 
 
 Basic bindings example
 ----------------------
 
-Now test with a trivial example whether all packages are properly installed
-and functional.
-First, create a C++ header file with some class in it (note that all functions
-are made inline for convenience; a real-world example would of course have a
-corresponding source file)::
+These examples assume that cppyy_backend is pointed to by the environment
+variable CPPYYHOME, and that CPPYYHOME/lib is added to LD_LIBRARY_PATH and
+CPPYYHOME/bin to PATH.
+
+Let's first test with a trivial example whether all packages are properly
+installed and functional.
+Create a C++ header file with some class in it (all functions are made inline
+for convenience; if you have out-of-line code, link with it as appropriate)::
 
     $ cat MyClass.h
     class MyClass {
@@ -54,11 +69,11 @@ corresponding source file)::
         int m_myint;
     };
 
-Then, generate the bindings using ``genreflex`` (part of ROOT), and compile the
-code::
+Then, generate the bindings using ``genreflex`` (installed under
+cppyy_backend/bin in site_packages), and compile the code::
 
     $ genreflex MyClass.h
-    $ g++ -fPIC -rdynamic -O2 -shared -I$REFLEXHOME/include MyClass_rflx.cpp -o libMyClassDict.so -L$REFLEXHOME/lib -lReflex
+    $ g++ -std=c++11 -fPIC -rdynamic -O2 -shared -I$CPPYYHOME/include MyClass_rflx.cpp -o libMyClassDict.so -L$CPPYYHOME/lib -lCling
 
 Next, make sure that the library can be found through the dynamic lookup path
 (the ``LD_LIBRARY_PATH`` environment variable on Linux, ``PATH`` on Windows),
@@ -110,7 +125,7 @@ library.
 For example::
 
     $ genreflex MyClass.h --rootmap=libMyClassDict.rootmap --rootmap-lib=libMyClassDict.so
-    $ g++ -fPIC -rdynamic -O2 -shared -I$REFLEXHOME/include MyClass_rflx.cpp -o libMyClassDict.so -L$REFLEXHOME/lib -lReflex
+    $ g++ -std=c++11 -fPIC -rdynamic -O2 -shared -I$CPPYYHOME/include MyClass_rflx.cpp -o libMyClassDict.so -L$CPPYYHOME/lib -lCling
 
 where the first option (``--rootmap``) specifies the output file name, and the
 second option (``--rootmap-lib``) the name of the reflection library where
@@ -212,7 +227,7 @@ For our purposes, the following rather straightforward selection will do
 Now the reflection info can be generated and compiled::
 
     $ genreflex MyAdvanced.h --selection=MyAdvanced.xml
-    $ g++ -fPIC -rdynamic -O2 -shared -I$REFLEXHOME/include MyAdvanced_rflx.cpp -o libAdvExDict.so -L$REFLEXHOME/lib -lReflex
+    $ g++ -std=c++11 -fPIC -rdynamic -O2 -shared -I$CPPYYHOME/include MyAdvanced_rflx.cpp -o libAdvExDict.so -L$CPPYYHOME/lib -lCling
 
 and subsequently be used from PyPy::
 
@@ -271,7 +286,7 @@ For the C++ side of the examples, refer to this :doc:`example code <cppyy_exampl
 bound using::
 
     $ genreflex example.h --deep --rootmap=libexampleDict.rootmap --rootmap-lib=libexampleDict.so
-    $ g++ -fPIC -rdynamic -O2 -shared -I$REFLEXHOME/include example_rflx.cpp -o libexampleDict.so -L$REFLEXHOME/lib -lReflex
+    $ g++ -std=c++11 -fPIC -rdynamic -O2 -shared -I$CPPYYHOME/include example_rflx.cpp -o libexampleDict.so -L$CPPYYHOME/lib -lCling
 
 * **abstract classes**: Are represented as python classes, since they are
   needed to complete the inheritance hierarchies, but will raise an exception
@@ -567,13 +582,10 @@ Only that one specific method can not be used.
 Templates
 ---------
 
-A bit of special care needs to be taken for the use of templates.
-For a templated class to be completely available, it must be guaranteed that
-said class is fully instantiated, and hence all executable C++ code is
-generated and compiled in.
-The easiest way to fulfill that guarantee is by explicit instantiation in the
-header file that is handed to ``genreflex``.
-The following example should make that clear::
+Templates can be automatically instantiated, assuming the appropriate header
+files have been loaded or are accessible to the class loader.
+This is the case for example for all of STL.
+For example::
 
     $ cat MyTemplate.h
     #include <vector>
@@ -587,68 +599,10 @@ The following example should make that clear::
         int m_i;
     };
 
-    #ifdef __GCCXML__
-    template class std::vector<MyClass>;   // explicit instantiation
-    #endif
-
-If you know for certain that all symbols will be linked in from other sources,
-you can also declare the explicit template instantiation ``extern``.
-An alternative is to add an object to an unnamed namespace::
-
-    namespace {
-        std::vector<MyClass> vmc;
-    } // unnamed namespace
-
-Unfortunately, this is not always enough for gcc.
-The iterators of vectors, if they are going to be used, need to be
-instantiated as well, as do the comparison operators on those iterators, as
-these live in an internal namespace, rather than in the iterator classes.
-Note that you do NOT need this iterators to iterator over a vector.
-You only need them if you plan to explicitly call e.g. ``begin`` and ``end``
-methods, and do comparisons of iterators.
-One way to handle this, is to deal with this once in a macro, then reuse that
-macro for all ``vector`` classes.
-Thus, the header above needs this (again protected with
-``#ifdef __GCCXML__``), instead of just the explicit instantiation of the
-``vector<MyClass>``::
-
-    #define STLTYPES_EXPLICIT_INSTANTIATION_DECL(STLTYPE, TTYPE)                      \
-    template class std::STLTYPE< TTYPE >;                                             \
-    template class __gnu_cxx::__normal_iterator<TTYPE*, std::STLTYPE< TTYPE > >;      \
-    template class __gnu_cxx::__normal_iterator<const TTYPE*, std::STLTYPE< TTYPE > >;\
-    namespace __gnu_cxx {                                                             \
-    template bool operator==(const std::STLTYPE< TTYPE >::iterator&,                  \
-                             const std::STLTYPE< TTYPE >::iterator&);                 \
-    template bool operator!=(const std::STLTYPE< TTYPE >::iterator&,                  \
-                             const std::STLTYPE< TTYPE >::iterator&);                 \
-    }
-
-    STLTYPES_EXPLICIT_INSTANTIATION_DECL(vector, MyClass)
-
-Then, still for gcc, the selection file needs to contain the full hierarchy as
-well as the global overloads for comparisons for the iterators::
-
-    $ cat MyTemplate.xml
-    <lcgdict>
-        <class pattern="std::vector<*>" />
-        <class pattern="std::vector<*>::iterator" />
-        <function name="__gnu_cxx::operator=="/>
-        <function name="__gnu_cxx::operator!="/>
-
-        <class name="MyClass" />
-    </lcgdict>
-
 Run the normal ``genreflex`` and compilation steps::
 
     $ genreflex MyTemplate.h --selection=MyTemplate.xml
-    $ g++ -fPIC -rdynamic -O2 -shared -I$REFLEXHOME/include MyTemplate_rflx.cpp -o libTemplateDict.so -L$REFLEXHOME/lib -lReflex
-
-Note: this is a dirty corner that clearly could do with some automation,
-even if the macro already helps.
-Such automation is planned.
-In fact, in the Cling world, the backend can perform the template
-instantations and generate the reflection info on the fly, and none of the
-above will any longer be necessary.
+    $ g++ -std=c++11 -fPIC -rdynamic -O2 -shared -I$CPPYYHOME/include MyTemplate_rflx.cpp -o libTemplateDict.so -L$CPPYYHOME/lib -lCling
 
 Subsequent use should be as expected.
 Note the meta-class style of "instantiating" the template::
@@ -665,8 +619,6 @@ Note the meta-class style of "instantiating" the template::
     1 2 3
     >>>>
 
-Other templates work similarly, but are typically simpler, as there are no
-similar issues with iterators for e.g. ``std::list``.
 The arguments to the template instantiation can either be a string with the
 full list of arguments, or the explicit classes.
 The latter makes for easier code writing if the classes passed to the
@@ -676,95 +628,40 @@ instantiation are themselves templates.
 The fast lane
 -------------
 
-The following is an experimental feature of cppyy.
-It mostly works, but there are some known issues (e.g. with return-by-value).
-Soon it should be the default mode, however.
+By default, cppyy will use direct function pointers through `CFFI`_ whenever
+possible. If this causes problems for you, you can disable it by setting the
+CPPYY_DISABLE_FASTPATH environment variable.
 
-With a slight modification of Reflex, it can provide function pointers for
-C++ methods, and hence allow PyPy to call those pointers directly, rather than
-calling C++ through a Reflex stub.
+.. _CFFI: https://cffi.readthedocs.io/en/latest/
 
-The standalone version of Reflex `provided`_ has been patched, but if you get
-Reflex from another source (most likely with a ROOT distribution), locate the
-file `genreflex-methptrgetter.patch`_ in pypy/module/cppyy and apply it to
-the genreflex python scripts found in ``$ROOTSYS/lib``::
-
-    $ cd $ROOTSYS/lib
-    $ patch -p2 < genreflex-methptrgetter.patch
-
-With this patch, ``genreflex`` will have grown the ``--with-methptrgetter``
-option.
-Use this option when running ``genreflex``, and add the
-``-Wno-pmf-conversions`` option to ``g++`` when compiling.
-The rest works the same way: the fast path will be used transparently (which
-also means that you can't actually find out whether it is in use, other than
-by running a micro-benchmark or a JIT test).
-
-.. _provided: http://cern.ch/wlav/reflex-2014-10-20.tar.bz2
-.. _genreflex-methptrgetter.patch: https://bitbucket.org/pypy/pypy/src/default/pypy/module/cppyy/genreflex-methptrgetter.patch
 
 CPython
 -------
 
-Most of the ideas in cppyy come originally from the `PyROOT`_ project.
-Although PyROOT does not support Reflex directly, it has an alter ego called
-"PyCintex" that, in a somewhat roundabout way, does.
-If you installed ROOT, rather than just Reflex, PyCintex should be available
-immediately if you add ``$ROOTSYS/lib`` to the ``PYTHONPATH`` environment
-variable.
+Most of the ideas in cppyy come originally from the `PyROOT`_ project, which
+contains a CPython-based cppyy.py module (with similar dependencies as the
+one that comes with PyPy).
+A standalone pip-installable version is planned, but for now you can install
+ROOT through your favorite distribution installer (available in the science
+section).
 
 .. _PyROOT: https://root.cern.ch/pyroot
 
-There are a couple of minor differences between PyCintex and cppyy, most to do
-with naming.
-The one that you will run into directly, is that PyCintex uses a function
-called ``loadDictionary`` rather than ``load_reflection_info`` (it has the
-same rootmap-based class loader functionality, though, making this point
-somewhat moot).
-The reason for this is that Reflex calls the shared libraries that contain
-reflection info "dictionaries."
-However, in python, the name `dictionary` already has a well-defined meaning,
-so a more descriptive name was chosen for cppyy.
-In addition, PyCintex requires that the names of shared libraries so loaded
-start with "lib" in their name.
-The basic example above, rewritten for PyCintex thus goes like this::
-
-    $ python
-    >>> import PyCintex
-    >>> PyCintex.loadDictionary("libMyClassDict.so")
-    >>> myinst = PyCintex.gbl.MyClass(42)
-    >>> print myinst.GetMyInt()
-    42
-    >>> myinst.SetMyInt(33)
-    >>> print myinst.m_myint
-    33
-    >>> myinst.m_myint = 77
-    >>> print myinst.GetMyInt()
-    77
-    >>> help(PyCintex.gbl.MyClass)   # shows that normal python introspection works
-
-Other naming differences are such things as taking an address of an object.
-In PyCintex, this is done with ``AddressOf`` whereas in cppyy the choice was
-made to follow the naming as in ``ctypes`` and hence use ``addressof``
-(PyROOT/PyCintex predate ``ctypes`` by several years, and the ROOT project
-follows camel-case, hence the differences).
-
-Of course, this is python, so if any of the naming is not to your liking, all
-you have to do is provide a wrapper script that you import instead of
-importing the ``cppyy`` or ``PyCintex`` modules directly.
-In that wrapper script you can rename methods exactly the way you need it.
-
-In the cling world, all these differences will be resolved.
+There are a couple of minor differences between the two versions of cppyy
+(the CPython version has a few more features).
+Work is on-going to integrate the nightly tests of both to make sure their
+feature sets are equalized.
 
 
 Python3
 -------
 
-To change versions of CPython (to Python3, another version of Python, or later
-to the `Py3k`_ version of PyPy), the only part that requires recompilation is
-the bindings module, be it ``cppyy`` or ``libPyROOT.so`` (in PyCintex).
-Although ``genreflex`` is indeed a Python tool, the generated reflection
-information is completely independent of Python.
+The CPython version of cppyy supports Python3, assuming your packager has
+build the backend for it.
+The cppyy module has not been tested with the `Py3k`_ version of PyPy.
+Note that the generated reflection information (from ``genreflex``) is fully
+independent of Python, and does not need to be rebuild when switching versions
+or interpreters.
 
 .. _Py3k: https://bitbucket.org/pypy/pypy/src/py3k
 
@@ -772,5 +669,4 @@ information is completely independent of Python.
 .. toctree::
    :hidden:
 
-   cppyy_backend
    cppyy_example
