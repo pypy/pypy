@@ -465,7 +465,7 @@ class __extend__(pyframe.PyFrame):
         return self.getcode().co_consts_w[index]
 
     def getname_u(self, index):
-        return self.space.identifier_w(self.getname_w(index))
+        return self.space.text_w(self.getname_w(index))
 
     def getname_w(self, index):
         return self.getcode().co_names_w[index]
@@ -899,7 +899,7 @@ class __extend__(pyframe.PyFrame):
 
     def LOAD_NAME(self, nameindex, next_instr):
         w_varname = self.getname_w(nameindex)
-        varname = self.space.identifier_w(w_varname)
+        varname = self.space.text_w(w_varname)
         if self.getorcreatedebug().w_locals is not self.get_w_globals():
             w_value = self.space.finditem_str(self.getorcreatedebug().w_locals,
                                               varname)
@@ -929,7 +929,7 @@ class __extend__(pyframe.PyFrame):
     @always_inline
     def LOAD_GLOBAL(self, nameindex, next_instr):
         w_varname = self.getname_w(nameindex)
-        w_value = self._load_global(self.space.identifier_w(w_varname))
+        w_value = self._load_global(self.space.text_w(w_varname))
         if w_value is None:
             self._load_global_failed(w_varname)
         self.pushvalue(w_value)
@@ -1257,7 +1257,7 @@ class __extend__(pyframe.PyFrame):
                     break
                 w_value = self.popvalue()
                 w_key = self.popvalue()
-                key = self.space.identifier_w(w_key)
+                key = self.space.text_w(w_key)
                 keywords[n_keywords] = key
                 keywords_w[n_keywords] = w_value
         else:

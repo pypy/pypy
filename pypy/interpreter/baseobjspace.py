@@ -1522,7 +1522,7 @@ class ObjSpace(object):
             if self.isinstance_w(w_obj, self.w_str):
                 return StringBuffer(w_obj.bytes_w(self))
             if self.isinstance_w(w_obj, self.w_unicode):
-                return StringBuffer(w_obj.identifier_w(self))
+                return StringBuffer(w_obj.identifier_w(self))  # no surrogates
             try:
                 return w_obj.buffer_w(self, self.BUF_SIMPLE)
             except BufferInterfaceNotFound:
@@ -1531,7 +1531,7 @@ class ObjSpace(object):
             if self.isinstance_w(w_obj, self.w_str):
                 return w_obj.bytes_w(self)
             if self.isinstance_w(w_obj, self.w_unicode):
-                return w_obj.identifier_w(self)
+                return w_obj.identifier_w(self)    # no surrogates (forbidden)
             try:
                 return w_obj.buffer_w(self, self.BUF_SIMPLE).as_str()
             except BufferInterfaceNotFound:
@@ -1681,6 +1681,7 @@ class ObjSpace(object):
         This differs from space.text_w() because it raises an app-level
         UnicodeEncodeError if the unicode string contains surrogates.
         This corresponds exactly to 'str.encode(obj, "utf-8")' at app-level.
+        (XXX check what occurs on narrow builds or kill narrow builds!)
         """
         return w_obj.identifier_w(self)
 
