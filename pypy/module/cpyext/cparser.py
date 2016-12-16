@@ -660,3 +660,24 @@ add_inttypes()
 
 def cname_to_lltype(name):
     return CNAME_TO_LLTYPE[name]
+
+class ParsedSource(object):
+    def __init__(self, source, definitions):
+        self.source = source
+        self.definitions = definitions
+
+
+def parse_source(source):
+    ctx = Parser()
+    ctx.parse(source)
+    defs = {}
+    for name, (obj, quals) in ctx._declarations.iteritems():
+        if not name.startswith('typedef '):
+            continue
+        name = name[8:]
+        if isinstance(obj, model.PrimitiveType):
+            assert obj.name not in defs
+            defs[name] = cname_to_lltype(obj.name)
+        else:
+            pass
+    return ParsedSource(source, defs)
