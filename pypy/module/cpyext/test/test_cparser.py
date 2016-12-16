@@ -22,3 +22,20 @@ def test_simple():
     decl = "typedef ssize_t Py_ssize_t;"
     hdr = parse_source(decl)
     assert hdr.definitions == {'Py_ssize_t': rffi.SSIZE_T}
+
+def test_macro():
+    decl = """
+    typedef ssize_t Py_ssize_t;
+
+    #define PyObject_HEAD  \
+        Py_ssize_t ob_refcnt;        \
+        Py_ssize_t ob_pypy_link;     \
+
+    typedef struct {
+        PyObject_HEAD
+        double ob_fval;
+    } PyFloatObject;
+    """
+    hdr = parse_source(decl)
+    assert 'PyFloatObject' in hdr.definitions
+    assert 'PyObject_HEAD' in hdr.macros

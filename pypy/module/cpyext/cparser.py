@@ -45,6 +45,10 @@ def _preprocess(csource):
     csource = _r_stdcall2.sub(' volatile volatile const(', csource)
     csource = _r_stdcall1.sub(' volatile volatile const ', csource)
     csource = _r_cdecl.sub(' ', csource)
+
+    for name, value in reversed(macros.items()):
+        csource = re.sub(r'\b%s\b' % name, value, csource)
+
     return csource, macros
 
 def _common_type_names(csource):
@@ -219,17 +223,8 @@ class Parser(object):
             value = value.strip()
             if _r_int_literal.match(value):
                 self._add_integer_constant(key, value)
-            elif value == '...':
-                self._declare('macro ' + key, value)
             else:
-                raise api.CDefError(
-                    'only supports one of the following syntax:\n'
-                    '  #define %s ...     (literally dot-dot-dot)\n'
-                    '  #define %s NUMBER  (with NUMBER an integer'
-                                    ' constant, decimal/hex/octal)\n'
-                    'got:\n'
-                    '  #define %s %s'
-                    % (key, key, key, value))
+                self._declare('macro ' + key, value)
 
     def _declare_function(self, tp, quals, decl):
         tp = self._get_type_pointer(tp, quals)
@@ -662,9 +657,10 @@ def cname_to_lltype(name):
     return CNAME_TO_LLTYPE[name]
 
 class ParsedSource(object):
-    def __init__(self, source, definitions):
+    def __init__(self, source, definitions, macros):
         self.source = source
         self.definitions = definitions
+        self.macros = macros
 
 def cffi_to_lltype(obj):
     from pypy.module.cpyext.api import cpython_struct
@@ -681,10 +677,15 @@ def parse_source(source):
     ctx = Parser()
     ctx.parse(source)
     defs = {}
+    macros = {}
     for name, (obj, quals) in ctx._declarations.iteritems():
-        if not name.startswith('typedef '):
-            continue
-        name = name[8:]
-        assert name not in defs
-        defs[name] = cffi_to_lltype(obj)
-    return ParsedSource(source, defs)
+        if name.startswith('typedef '):
+            name = name[8:]
+            assert name not in defs
+            defs[name] = cffi_to_lltype(obj)
+        elif name.startswith('macro '):
+            name = name[6:]
+            assert name not in macros
+            macros[name] = obj
+
+    return ParsedSource(source, defs, macros)
