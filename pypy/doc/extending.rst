@@ -12,7 +12,7 @@ directly useful to most messy to use with PyPy):
 
 * Write them in pure Python and use ctypes_.
 
-* Write them in C++ and bind them through Reflex_.
+* Write them in C++ and bind them through cppyy_ using Cling.
 
 * Write them in as `RPython mixed modules`_.
 
@@ -61,11 +61,11 @@ these two modules.
 .. _libffi: http://sourceware.org/libffi/
 
 
-Reflex and cppyy
-----------------
+Cling and cppyy
+---------------
 
 The builtin :doc:`cppyy <cppyy>` module uses reflection information, provided by
-`Reflex`_ (which needs to be `installed separately`_), of C/C++ code to
+`Cling`_ (which needs to be `installed separately`_), of C/C++ code to
 automatically generate bindings at runtime.
 In Python, classes and functions are always runtime structures, so when they
 are generated matters not for performance.
@@ -78,8 +78,8 @@ most cross-language call overhead.
 
 :doc:`Full details <cppyy>` are `available here <cppyy>`.
 
-.. _installed separately: http://cern.ch/wlav/reflex-2013-08-14.tar.bz2
-.. _Reflex: https://root.cern.ch/how/how-use-reflex
+.. _installed separately: https://pypi.python.org/pypi/PyPy-cppyy-backend
+.. _Cling: https://root.cern.ch/cling
 
 .. toctree::
 
