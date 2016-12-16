@@ -170,6 +170,8 @@ class AppTestBytesObject:
             expected2 = int_format + ' format: an integer is required, not str'
             assert str(exc_info.value) in (expected1, expected2)
         raises(TypeError, "None % 'abc'") # __rmod__
+        assert b'abc'.__rmod__('-%b-') is NotImplemented
+        assert b'abc'.__rmod__(b'-%b-') == b'-abc-'
 
     def test_format_bytes(self):
         assert b'<%s>' % b'abc' == b'<abc>'

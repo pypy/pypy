@@ -684,6 +684,8 @@ class W_BytesObject(W_AbstractBytesObject):
         return mod_format(space, self, w_values, fmt_type=FORMAT_BYTES)
 
     def descr_rmod(self, space, w_values):
+        if not isinstance(w_values, W_AbstractBytesObject):
+            return space.w_NotImplemented
         return mod_format(space, w_values, self, fmt_type=FORMAT_BYTES)
 
     @staticmethod
