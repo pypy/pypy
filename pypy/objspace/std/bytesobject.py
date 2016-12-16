@@ -526,7 +526,7 @@ class W_BytesObject(W_AbstractBytesObject):
         return space.newlist_bytes(lst)
 
     @staticmethod
-    @unwrap_spec(encoding='str_or_None', errors='str_or_None')
+    @unwrap_spec(encoding='text_or_None', errors='text_or_None')
     def descr_new(space, w_stringtype, w_source=None, encoding=None,
                   errors=None):
         if (w_source and space.is_w(w_stringtype, space.w_bytes)
