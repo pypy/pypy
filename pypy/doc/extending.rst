@@ -12,7 +12,7 @@ directly useful to most messy to use with PyPy):
 
 * Write them in pure Python and use ctypes_.
 
-* Write them in C++ and bind them through cppyy_ using Cling.
+* Write them in C++ and bind them through  :doc:`cppyy <cppyy>` using Cling.
 
 * Write them in as `RPython mixed modules`_.
 
@@ -76,7 +76,7 @@ language mappings.
 The :doc:`cppyy <cppyy>` module is written in RPython, thus PyPy's JIT is able to remove
 most cross-language call overhead.
 
-:doc:`Full details <cppyy>` are `available here <cppyy>`.
+:doc:Full details are `available here <cppyy>`.
 
 .. _installed separately: https://pypi.python.org/pypi/PyPy-cppyy-backend
 .. _Cling: https://root.cern.ch/cling
