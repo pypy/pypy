@@ -313,7 +313,7 @@ Contributors
   Mads Kiilerich
   Antony Lee
   Jason Madden
-  Daniel Neuh‰user
+  Daniel Neuh√§user
   reubano@gmail.com
   Yaroslav Fedevych
   Jim Hunziker
