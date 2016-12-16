@@ -2158,18 +2158,3 @@ def PyEval_EvalFrameEx(space, f, throwflag):
     it causes an exception to immediately be thrown; this is used for the
     throw() methods of generator objects."""
     raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyWeakref_Check(space, ob):
-    """Return true if ob is either a reference or proxy object."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyWeakref_CheckRef(space, ob):
-    """Return true if ob is a reference object."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyWeakref_CheckProxy(space, ob):
-    """Return true if ob is a proxy object."""
-    raise NotImplementedError

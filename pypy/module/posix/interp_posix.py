@@ -2099,8 +2099,9 @@ def urandom(space, size):
     Return a string of 'size' random bytes suitable for cryptographic use.
     """
     context = get(space).random_context
+    signal_checker = space.getexecutioncontext().checksignals
     try:
-        return space.newbytes(rurandom.urandom(context, size))
+        return space.newbytes(rurandom.urandom(context, n, signal_checker))
     except OSError as e:
         # 'rurandom' should catch and retry internally if it gets EINTR
         # (at least in os.read(), which is probably enough in practice)
