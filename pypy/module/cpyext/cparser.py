@@ -671,11 +671,15 @@ class DelayedStruct(object):
 
 class ParsedSource(object):
     def __init__(self, source, parser, definitions=None, macros=None):
+        from pypy.module.cpyext.api import CConfig
         self.source = source
         self.definitions = definitions if definitions is not None else {}
         self.macros = macros if macros is not None else {}
         self.structs = {}
         self.ctx = parser
+        self._Config = type('Config', (object,), {})
+        self._Config._compilation_info_ = CConfig._compilation_info_
+        self._TYPES = {}
 
     def add_typedef(self, name, obj):
         assert name not in self.definitions
@@ -701,11 +705,16 @@ class ParsedSource(object):
     def realize_struct(self, struct, type_name):
         from pypy.module.cpyext.api import CConfig, TYPES
         configname = type_name.replace(' ', '__')
-        setattr(CConfig, configname,
+        setattr(self._Config, configname,
             rffi_platform.Struct(type_name, struct.fields))
         forward = lltype.ForwardReference()
-        TYPES[configname] = forward
+        self._TYPES[configname] = forward
         return forward
+
+    def configure_types(self):
+        for name, TYPE in rffi_platform.configure(self._Config).iteritems():
+            if name in self._TYPES:
+                self._TYPES[name].become(TYPE)
 
     def convert_type(self, obj):
         if isinstance(obj, model.PrimitiveType):

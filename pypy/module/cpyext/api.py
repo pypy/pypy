@@ -268,8 +268,6 @@ class ApiFunction(object):
         self.gil = gil
         self.result_borrowed = result_borrowed
         self.result_is_ll = result_is_ll
-        if result_is_ll:    # means 'returns a low-level PyObject pointer'
-            assert is_PyObject(restype)
         #
         def get_llhelper(space):
             return llhelper(self.functype, self.get_wrapper(space))
@@ -624,6 +622,7 @@ typedef struct {
 
 typedef struct _typeobject PyTypeObject;
 """)
+h.configure_types()
 
 Py_ssize_t = h.definitions['Py_ssize_t']
 Py_ssize_tP = rffi.CArrayPtr(Py_ssize_t)
