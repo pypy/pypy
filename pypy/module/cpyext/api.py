@@ -621,6 +621,8 @@ typedef struct {
 } PyVarObject;
 
 typedef struct _typeobject PyTypeObject;
+
+typedef void (*freefunc)(void *);
 """)
 h.configure_types()
 

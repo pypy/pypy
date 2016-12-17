@@ -726,7 +726,18 @@ class ParsedSource(object):
             self.structs[obj] = result
             return result
         elif isinstance(obj, model.PointerType):
-            return lltype.Ptr(self.convert_type(obj.totype))
+            TO = self.convert_type(obj.totype)
+            if TO is lltype.Void:
+                return rffi.VOIDP
+            return lltype.Ptr(TO)
+        elif isinstance(obj, model.FunctionPtrType):
+            if obj.ellipsis:
+                raise NotImplementedError
+            args = [self.convert_type(arg) for arg in obj.args]
+            res = self.convert_type(obj.result)
+            return lltype.Ptr(lltype.FuncType(args, res))
+        elif isinstance(obj, model.VoidType):
+            return lltype.Void
         else:
             raise NotImplementedError
 
