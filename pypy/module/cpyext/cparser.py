@@ -656,36 +656,62 @@ add_inttypes()
 def cname_to_lltype(name):
     return CNAME_TO_LLTYPE[name]
 
-class ParsedSource(object):
-    def __init__(self, source, definitions, macros):
-        self.source = source
-        self.definitions = definitions
-        self.macros = macros
+class DelayedStruct(object):
+    def __init__(self, name, fields):
+        self.struct_name = name
+        self.fields = fields
 
-def cffi_to_lltype(obj):
-    from pypy.module.cpyext.api import cpython_struct
-    if isinstance(obj, model.PrimitiveType):
-        return cname_to_lltype(obj.name)
-    elif isinstance(obj, model.StructType):
-        fields = zip(
-            obj.fldnames,
-            [cffi_to_lltype(field) for field in obj.fldtypes])
-        return cpython_struct(obj.name, fields)
+    def realize(self, type_name):
+        from pypy.module.cpyext.api import cpython_struct
+        return cpython_struct(type_name, self.fields)
+
+    def __repr__(self):
+        return "<struct {struct_name}>".format(vars(self))
+
+
+class ParsedSource(object):
+    def __init__(self, source, definitions=None, macros=None):
+        self.source = source
+        self.definitions = definitions if definitions is not None else {}
+        self.macros = macros if macros is not None else {}
+        self.structs = {}
+
+    def add_typedef(self, name, obj):
+        assert name not in self.definitions
+        tp = self.convert_type(obj)
+        if isinstance(tp, DelayedStruct):
+            tp = tp.realize(name)
+            self.structs[obj] = tp
+        self.definitions[name] = tp
+
+    def add_macro(self, name, value):
+        assert name not in self.macros
+        self.macros[name] = value
+
+    def convert_type(self, obj):
+        from pypy.module.cpyext.api import cpython_struct
+        if isinstance(obj, model.PrimitiveType):
+            return cname_to_lltype(obj.name)
+        elif isinstance(obj, model.StructType):
+            if obj in self.structs:
+                return self.structs[obj]
+            fields = zip(
+                obj.fldnames,
+                [self.convert_type(field) for field in obj.fldtypes])
+            result = DelayedStruct(obj.name, fields)
+            self.structs[obj] = result
+            return result
 
 
 def parse_source(source):
     ctx = Parser()
     ctx.parse(source)
-    defs = {}
-    macros = {}
+    src = ParsedSource(source)
     for name, (obj, quals) in ctx._declarations.iteritems():
         if name.startswith('typedef '):
             name = name[8:]
-            assert name not in defs
-            defs[name] = cffi_to_lltype(obj)
+            src.add_typedef(name, obj)
         elif name.startswith('macro '):
             name = name[6:]
-            assert name not in macros
-            macros[name] = obj
-
-    return ParsedSource(source, defs, macros)
+            src.add_macro(name, obj)
+    return src
