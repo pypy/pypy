@@ -22,7 +22,7 @@ class Entry(ExtRegistryEntry):
 
 def ll_assert_not_none(x):
     """assert x is not None"""
-    assert x, "ll_assert_not_none(%r)" % (x,)
+    assert x is not None, "ll_assert_not_none(%r)" % (x,)
     return x
 
 class Entry(ExtRegistryEntry):
@@ -33,11 +33,8 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         [v0] = hop.inputargs(hop.args_r[0])
-        assert isinstance(v0.concretetype, lltype.Ptr)
-        v1 = hop.genop('ptr_nonzero', [v0], resulttype=lltype.Bool)
         hop.exception_cannot_occur()
-        cmsg = hop.inputconst(lltype.Void, "ll_assert_not_none failed")
-        hop.genop('debug_assert', [v1, cmsg])
+        hop.genop('debug_assert_not_none', [v0])
         return v0
 
 class FatalError(Exception):

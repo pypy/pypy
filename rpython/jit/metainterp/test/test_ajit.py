@@ -4585,3 +4585,30 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         assert res == -42
         res = self.interp_operations(f, [0, 200])
         assert res == 205
+
+    def test_ll_assert_not_none(self):
+        # the presence of ll_assert_not_none(), even in cases where it
+        # doesn't influence the annotation, is a hint for the JIT
+        from rpython.rlib.debug import ll_assert_not_none
+        class X:
+            pass
+        class Y(X):
+            pass
+        def g(x, check):
+            if check:
+                x = ll_assert_not_none(x)
+            return isinstance(x, Y)
+        @dont_look_inside
+        def make(i):
+            if i == 1:
+                return X()
+            if i == 2:
+                return Y()
+            return None
+        def f(a, b, check):
+            return g(make(a), check) + g(make(b), check) * 10
+        res = self.interp_operations(f, [1, 2, 1])
+        assert res == 10
+        self.check_operations_history(guard_nonnull=0, guard_nonnull_class=0,
+                                      guard_class=2,
+                                      assert_not_none=2) # before optimization

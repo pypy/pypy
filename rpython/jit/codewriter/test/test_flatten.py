@@ -402,7 +402,7 @@ class TestFlatten:
 
         self.encoding_test(f, [65], """
         raise $<* struct object>
-        """)
+        """, transform=True)
 
     def test_exc_raise_2(self):
         def g(i):
