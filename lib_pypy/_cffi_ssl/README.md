@@ -14,3 +14,7 @@ Currently this module is tested using CPython's standard library test suite.
 Copy over all the sources into the folder `lib_pypy/_cffi_ssl/*`. Updating the cffi backend can be simply done by the following command:
 
     $ cp -r <cloned cryptography folder>/src/_cffi_src/* .
+
+# Crpytography version
+
+`c8f47ad2122efdd5e772aee13ed5d4c64e7d6086`
