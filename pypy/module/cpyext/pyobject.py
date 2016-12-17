@@ -7,7 +7,7 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 from pypy.module.cpyext.api import (
     cpython_api, bootstrap_function, PyObject, PyObjectP, ADDR,
     CANNOT_FAIL, Py_TPFLAGS_HEAPTYPE, PyTypeObjectPtr, is_PyObject,
-    INTERPLEVEL_API, PyVarObject)
+    PyVarObject)
 from pypy.module.cpyext.state import State
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.objectobject import W_ObjectObject
@@ -245,12 +245,10 @@ def as_pyobj(space, w_obj, w_userdata=None):
     else:
         return lltype.nullptr(PyObject.TO)
 as_pyobj._always_inline_ = 'try'
-INTERPLEVEL_API['as_pyobj'] = as_pyobj
 
 def pyobj_has_w_obj(pyobj):
     w_obj = rawrefcount.to_obj(W_Root, pyobj)
     return w_obj is not None and w_obj is not w_marker_deallocating
-INTERPLEVEL_API['pyobj_has_w_obj'] = staticmethod(pyobj_has_w_obj)
 
 
 def is_pyobj(x):
@@ -260,7 +258,6 @@ def is_pyobj(x):
         return True
     else:
         raise TypeError(repr(type(x)))
-INTERPLEVEL_API['is_pyobj'] = staticmethod(is_pyobj)
 
 class Entry(ExtRegistryEntry):
     _about_ = is_pyobj
@@ -286,7 +283,6 @@ def make_ref(space, obj, w_userdata=None):
         if not is_pyobj(obj):
             keepalive_until_here(obj)
     return pyobj
-INTERPLEVEL_API['make_ref'] = make_ref
 
 
 @specialize.ll()
@@ -307,13 +303,11 @@ def get_w_obj_and_decref(space, obj):
         assert pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
         keepalive_until_here(w_obj)
     return w_obj
-INTERPLEVEL_API['get_w_obj_and_decref'] = get_w_obj_and_decref
 
 
 @specialize.ll()
 def incref(space, obj):
     make_ref(space, obj)
-INTERPLEVEL_API['incref'] = incref
 
 @specialize.ll()
 def decref(space, obj):
@@ -326,7 +320,6 @@ def decref(space, obj):
                 _Py_Dealloc(space, obj)
     else:
         get_w_obj_and_decref(space, obj)
-INTERPLEVEL_API['decref'] = decref
 
 
 @cpython_api([PyObject], lltype.Void)

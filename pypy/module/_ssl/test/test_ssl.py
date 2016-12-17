@@ -169,8 +169,8 @@ class AppTestConnectedSSL:
     }
 
     def setup_method(self, method):
-        # https://www.verisign.net/
-        ADDR = "www.verisign.net", 443
+        # https://gmail.com/
+        ADDR = "gmail.com", 443
 
         self.w_s = self.space.appexec([self.space.wrap(ADDR)], """(ADDR):
             import socket
