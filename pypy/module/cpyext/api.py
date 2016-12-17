@@ -41,14 +41,9 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib import rawrefcount
 from rpython.rlib import rthread
 from rpython.rlib.debug import fatalerror_notb
+from pypy.module.cpyext.cparser import parse_source
 
 DEBUG_WRAPPER = True
-
-# update these for other platforms
-Py_ssize_t = lltype.Typedef(rffi.SSIZE_T, 'Py_ssize_t')
-Py_ssize_tP = rffi.CArrayPtr(Py_ssize_t)
-size_t = rffi.ULONG
-ADDR = lltype.Signed
 
 pypydir = py.path.local(pypydir)
 include_dir = pypydir / 'module' / 'cpyext' / 'include'
@@ -119,6 +114,9 @@ def is_valid_fp(fp):
     return is_valid_fd(c_fileno(fp))
 
 pypy_decl = 'pypy_decl.h'
+udir.join(pypy_decl).write("/* Will be filled later */\n")
+udir.join('pypy_structmember_decl.h').write("/* Will be filled later */\n")
+udir.join('pypy_macros.h').write("/* Will be filled later */\n")
 
 constant_names = """
 Py_TPFLAGS_READY Py_TPFLAGS_READYING Py_TPFLAGS_HAVE_GETCHARBUFFER
@@ -129,9 +127,6 @@ Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_TPFLAGS_CHECKTYPES Py_MAX_NDIMS
 """.split()
 for name in constant_names:
     setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))
-udir.join(pypy_decl).write("/* Will be filled later */\n")
-udir.join('pypy_structmember_decl.h').write("/* Will be filled later */\n")
-udir.join('pypy_macros.h').write("/* Will be filled later */\n")
 globals().update(rffi_platform.configure(CConfig_constants))
 
 def _copy_header_files(headers, dstdir):
@@ -606,6 +601,14 @@ def build_exported_objects():
         FORWARD_DECLS.append('typedef struct { PyObject_HEAD } %s'
                              % (cpyname, ))
 build_exported_objects()
+
+# update these for other platforms
+h = parse_source("typedef ssize_t Py_ssize_t;")
+
+Py_ssize_t = h.definitions['Py_ssize_t']
+Py_ssize_tP = rffi.CArrayPtr(Py_ssize_t)
+size_t = rffi.ULONG
+ADDR = lltype.Signed
 
 # Note: as a special case, "PyObject" is the pointer type in RPython,
 # corresponding to "PyObject *" in C.  We do that only for PyObject.

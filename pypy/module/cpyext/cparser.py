@@ -2,7 +2,7 @@ from cffi import api, model
 from cffi.commontypes import COMMON_TYPES, resolve_common_type
 import pycparser
 import weakref, re
-from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rfficache
 
 _r_comment = re.compile(r"/\*.*?\*/|//([^\n\\]|\\.)*?$",
@@ -682,17 +682,17 @@ class ParsedSource(object):
         if isinstance(tp, DelayedStruct):
             tp = tp.realize(name)
             self.structs[obj] = tp
-        self.definitions[name] = tp
+        self.definitions[name] = lltype.Typedef(tp, name)
 
     def add_macro(self, name, value):
         assert name not in self.macros
         self.macros[name] = value
 
     def convert_type(self, obj):
-        from pypy.module.cpyext.api import cpython_struct
         if isinstance(obj, model.PrimitiveType):
             return cname_to_lltype(obj.name)
         elif isinstance(obj, model.StructType):
+            from pypy.module.cpyext.api import cpython_struct
             if obj in self.structs:
                 return self.structs[obj]
             fields = zip(
