@@ -323,7 +323,6 @@ class StdObjSpace(ObjSpace):
 
     def newbuffer(self, obj):
         ret = W_Buffer(obj)
-        ret.register_finalizer(self)
         return ret
 
     def newbytes(self, s):

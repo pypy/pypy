@@ -450,6 +450,7 @@ class FinalizerQueue(object):
             "the object must have a __dict__" % (obj,))
         assert (not hasattr(obj, '__slots__') or
                 type(obj).__slots__ == () or
+                type(obj).__slots__ == ['readonly'] or
                 type(obj).__slots__ == ('__weakref__',)), (
             "%r: to run register_finalizer() untranslated, "
             "the object must not have __slots__" % (obj,))

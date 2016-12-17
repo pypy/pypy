@@ -114,9 +114,8 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
             """, )
         import gc
         assert module.get_cnt() == 0
-        print '++++++++++++++++++'
         a = memoryview(module.create_test())
-        print 'xxxxxxxxxxxxxxxxxxxxxxx'
         assert module.get_cnt() == 1
         del a
+        gc.collect(); gc.collect(); gc.collect()
         assert module.get_cnt() == 0

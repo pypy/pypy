@@ -4,6 +4,7 @@ import re
 
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import widen
+from rpython.rlib import rgc # Force registration of gc.collect
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, PyObject, Py_ssize_t, Py_TPFLAGS_CHECKTYPES,
     mangle_name, pypy_decl, Py_buffer, Py_bufferP)
@@ -343,7 +344,6 @@ class CPyBuffer(Buffer):
         self.releasebufferproc = releasebuffer
 
     def releasebuffer(self):
-        print '--------------'
         if self.releasebufferproc:        
             func_target = rffi.cast(releasebufferproc, self.releasebufferproc)
             with lltype.scoped_alloc(Py_buffer) as pybuf:
@@ -385,6 +385,17 @@ class CPyBuffer(Buffer):
         # absolutely no safety checks, what could go wrong?
         self.ptr[index] = char
 
+class FQ(rgc.FinalizerQueue):
+    Class = CPyBuffer
+    def finalizer_trigger(self):
+        while 1:
+            buf  = self.next_dead()
+            if not buf:
+                break
+            buf.releasebuffer()
+
+fq = FQ()
+
 def wrap_getreadbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(readbufferproc, func)
     py_obj = make_ref(space, w_self)
@@ -395,8 +406,10 @@ def wrap_getreadbuffer(space, w_self, w_args, func):
         size = generic_cpy_call(space, func_target, w_self, index, ptr)
         if size < 0:
             space.fromcache(State).check_and_raise_exception(always=True)
-        return space.newbuffer(CPyBuffer(space, ptr[0], size, w_self, 
-                               releasebuffer=releasebuffer))
+        buf = CPyBuffer(space, ptr[0], size, w_self, 
+                               releasebuffer=releasebuffer)
+        fq.register_finalizer(buf)
+        return space.newbuffer(buf)
 
 def wrap_getwritebuffer(space, w_self, w_args, func):
     func_target = rffi.cast(readbufferproc, func)
@@ -408,8 +421,10 @@ def wrap_getwritebuffer(space, w_self, w_args, func):
         size = generic_cpy_call(space, func_target, w_self, index, ptr)
         if size < 0:
             space.fromcache(State).check_and_raise_exception(always=True)
-        return space.newbuffer(CPyBuffer(space, ptr[0], size, w_self, readonly=False,
-                               releasebuffer=releasebuffer))
+        buf = CPyBuffer(space, ptr[0], size, w_self, readonly=False,
+                               releasebuffer=releasebuffer)
+        fq.register_finalizer(buf)
+        return space.newbuffer(buf)
 
 def wrap_getbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(getbufferproc, func)
@@ -436,11 +451,13 @@ def wrap_getbuffer(space, w_self, w_args, func):
             format = rffi.charp2str(pybuf.c_format)
         else:
             format = 'B'
-        return space.newbuffer(CPyBuffer(space, ptr, size, w_self, format=format,
+        buf = CPyBuffer(space, ptr, size, w_self, format=format,
                             ndim=ndim, shape=shape, strides=strides,
                             itemsize=pybuf.c_itemsize,
                             readonly=widen(pybuf.c_readonly),
-                            releasebuffer = releasebuffer))
+                            releasebuffer = releasebuffer)
+        fq.register_finalizer(buf)
+        return space.newbuffer(buf)
 
 def get_richcmp_func(OP_CONST):
     def inner(space, w_self, w_args, func):
