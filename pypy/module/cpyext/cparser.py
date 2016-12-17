@@ -4,11 +4,11 @@ from cffi.commontypes import COMMON_TYPES, resolve_common_type
 import pycparser
 import weakref, re
 from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.rtyper.tool import rfficache
+from rpython.rtyper.tool import rfficache, rffi_platform
 
 _r_comment = re.compile(r"/\*.*?\*/|//([^\n\\]|\\.)*?$",
                         re.DOTALL | re.MULTILINE)
-_r_define  = re.compile(r"^\s*#\s*define\s+([A-Za-z_][A-Za-z_0-9]*)"
+_r_define = re.compile(r"^\s*#\s*define\s+([A-Za-z_][A-Za-z_0-9]*)"
                         r"\b((?:[^\n\\]|\\.)*?)$",
                         re.DOTALL | re.MULTILINE)
 _r_words = re.compile(r"\w+|\S")
@@ -665,10 +665,6 @@ class DelayedStruct(object):
         self.struct_name = name
         self.fields = fields
 
-    def realize(self, type_name):
-        from pypy.module.cpyext.api import cpython_struct
-        return cpython_struct(type_name, self.fields)
-
     def __repr__(self):
         return "<struct {struct_name}>".format(vars(self))
 
@@ -685,7 +681,7 @@ class ParsedSource(object):
         assert name not in self.definitions
         tp = self.convert_type(obj)
         if isinstance(tp, DelayedStruct):
-            tp = tp.realize(name)
+            tp = self.realize_struct(tp, name)
             self.structs[obj] = tp
         self.definitions[name] = lltype.Typedef(tp, name)
 
@@ -693,20 +689,31 @@ class ParsedSource(object):
         assert name not in self.macros
         self.macros[name] = value
 
+    def new_struct(self, obj):
+        if obj.fldtypes is None:
+            return lltype.ForwardReference()
+        else:
+            fields = zip(
+                obj.fldnames,
+                [self.convert_type(field) for field in obj.fldtypes])
+            return DelayedStruct(obj.name, fields)
+
+    def realize_struct(self, struct, type_name):
+        from pypy.module.cpyext.api import CConfig, TYPES
+        configname = type_name.replace(' ', '__')
+        setattr(CConfig, configname,
+            rffi_platform.Struct(type_name, struct.fields))
+        forward = lltype.ForwardReference()
+        TYPES[configname] = forward
+        return forward
+
     def convert_type(self, obj):
         if isinstance(obj, model.PrimitiveType):
             return cname_to_lltype(obj.name)
         elif isinstance(obj, model.StructType):
-            from pypy.module.cpyext.api import cpython_struct
             if obj in self.structs:
                 return self.structs[obj]
-            if obj.fldtypes is None:
-                result = lltype.ForwardReference()
-            else:
-                fields = zip(
-                    obj.fldnames,
-                    [self.convert_type(field) for field in obj.fldtypes])
-                result = DelayedStruct(obj.name, fields)
+            result = self.new_struct(obj)
             self.structs[obj] = result
             return result
         elif isinstance(obj, model.PointerType):
