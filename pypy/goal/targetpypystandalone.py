@@ -83,10 +83,10 @@ def create_entry_point(space, w_dict):
                 return 1
         return exitcode
 
-    return entry_point, get_additional_entrypoints(space)
+    return entry_point, get_additional_entrypoints(space, w_initstdio)
 
 
-def get_additional_entrypoints(space):
+def get_additional_entrypoints(space, w_initstdio):
     # register the minimal equivalent of running a small piece of code. This
     # should be used as sparsely as possible, just to register callbacks
     from rpython.rlib.entrypoint import entrypoint_highlevel
