@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from cffi import api, model
 from cffi.commontypes import COMMON_TYPES, resolve_common_type
 import pycparser
@@ -30,7 +31,7 @@ def _preprocess(csource):
     # should not contain any string literal!
     csource = _r_comment.sub(' ', csource)
     # Remove the "#define FOO x" lines
-    macros = {}
+    macros = OrderedDict()
     for match in _r_define.finditer(csource):
         macroname, macrovalue = match.groups()
         macrovalue = macrovalue.replace('\\\n', '').strip()
@@ -695,12 +696,19 @@ class ParsedSource(object):
             from pypy.module.cpyext.api import cpython_struct
             if obj in self.structs:
                 return self.structs[obj]
-            fields = zip(
-                obj.fldnames,
-                [self.convert_type(field) for field in obj.fldtypes])
-            result = DelayedStruct(obj.name, fields)
+            if obj.fldtypes is None:
+                result = lltype.ForwardReference()
+            else:
+                fields = zip(
+                    obj.fldnames,
+                    [self.convert_type(field) for field in obj.fldtypes])
+                result = DelayedStruct(obj.name, fields)
             self.structs[obj] = result
             return result
+        elif isinstance(obj, model.PointerType):
+            return lltype.Ptr(self.convert_type(obj.totype))
+        else:
+            raise NotImplementedError
 
 
 def parse_source(source):
