@@ -10,6 +10,7 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, as_pyobj, 
         make_typedescr, track_reference, create_ref, from_ref, decref,
         Py_IncRef)
+from pypy.module.cpyext.object import _dealloc
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 
 PyDictObjectStruct = lltype.ForwardReference()
@@ -58,7 +59,7 @@ def dict_realize(space, py_obj):
 def dict_dealloc(space, py_obj):
     py_dict = rffi.cast(PyDictObject, py_obj)
     decref(space, py_dict.c_ob_keys)
-    from pypy.module.cpyext.object import _dealloc
+    py_dict.c_ob_keys = lltype.nullptr(PyObject.TO)
     _dealloc(space, py_obj)
 
 @cpython_api([], PyObject)
@@ -270,6 +271,8 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
         w_keys = from_ref(space, py_dict.c_ob_keys)
     ppos[0] += 1
     if pos >= space.len_w(w_keys):
+        decref(space, py_dict.c_ob_keys)
+        py_dict.c_ob_keys = lltype.nullptr(PyObject.TO)
         return 0
     w_key = space.listview(w_keys)[pos]
     w_value = space.getitem(w_dict, w_key)
