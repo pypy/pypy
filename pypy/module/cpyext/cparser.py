@@ -26,12 +26,11 @@ def _get_parser():
         _parser_cache = pycparser.CParser()
     return _parser_cache
 
-def _preprocess(csource):
+def _preprocess(csource, macros):
     # Remove comments.  NOTE: this only work because the cdef() section
     # should not contain any string literal!
     csource = _r_comment.sub(' ', csource)
     # Remove the "#define FOO x" lines
-    macros = OrderedDict()
     for match in _r_define.finditer(csource):
         macroname, macrovalue = match.groups()
         macrovalue = macrovalue.replace('\\\n', '').strip()
@@ -102,9 +101,11 @@ class Parser(object):
         self._options = {}
         self._int_constants = {}
         self._recomplete = []
+        self._macros = OrderedDict()
 
     def _parse(self, csource):
-        csource, macros = _preprocess(csource)
+        # modifies self._macros in-place
+        csource, macros = _preprocess(csource, self._macros)
         # XXX: for more efficiency we would need to poke into the
         # internals of CParser...  the following registers the
         # typedefs, because their presence or absence influences the
@@ -633,10 +634,12 @@ class Parser(object):
             if name.startswith('anonymous $enum_$'):
                 continue   # fix for test_anonymous_enum_include
             kind = name.split(' ', 1)[0]
-            if kind in ('struct', 'union', 'enum', 'anonymous', 'typedef'):
+            if kind in ('struct', 'union', 'enum', 'anonymous', 'typedef', 'macro'):
                 self._declare(name, tp, included=True, quals=quals)
         for k, v in other._int_constants.items():
             self._add_constants(k, v)
+        for k, v in other._macros.items():
+            self._macros[k] = v
 
 CNAME_TO_LLTYPE = {
     'char': rffi.CHAR,
@@ -671,11 +674,12 @@ class DelayedStruct(object):
 
 
 class ParsedSource(object):
-    def __init__(self, source, definitions=None, macros=None):
+    def __init__(self, source, parser, definitions=None, macros=None):
         self.source = source
         self.definitions = definitions if definitions is not None else {}
         self.macros = macros if macros is not None else {}
         self.structs = {}
+        self.ctx = parser
 
     def add_typedef(self, name, obj):
         assert name not in self.definitions
@@ -711,11 +715,17 @@ class ParsedSource(object):
             raise NotImplementedError
 
 
-def parse_source(source):
+def parse_source(source, includes=None):
     ctx = Parser()
+    if includes is not None:
+        for header in includes:
+            ctx.include(header.ctx)
+
     ctx.parse(source)
-    src = ParsedSource(source)
+    src = ParsedSource(source, ctx)
     for name, (obj, quals) in ctx._declarations.iteritems():
+        if obj in ctx._included_declarations:
+            continue
         if name.startswith('typedef '):
             name = name[8:]
             src.add_typedef(name, obj)

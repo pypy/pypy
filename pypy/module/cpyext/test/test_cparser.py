@@ -39,3 +39,21 @@ def test_macro():
     hdr = parse_source(decl)
     assert 'PyFloatObject' in hdr.definitions
     assert 'PyObject_HEAD' in hdr.macros
+
+def test_include():
+    cdef1 = """
+    typedef ssize_t Py_ssize_t;
+
+    #define PyObject_HEAD  \
+        Py_ssize_t ob_refcnt;        \
+        Py_ssize_t ob_pypy_link;     \
+    """
+    hdr1 = parse_source(cdef1)
+    cdef2 = """
+    typedef struct {
+        PyObject_HEAD
+        Py_ssize_t ob_foo;
+    } Object;
+    """
+    hdr2 = parse_source(cdef2, includes=[hdr1])
+    assert 'Object' in hdr2.definitions
