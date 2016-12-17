@@ -190,6 +190,12 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                "make sure that all calls go through space.call_args",
                default=False),
 
+    BoolOption("disable_entrypoints",
+               "Disable external entry points, notably the"
+               " cpyext module and cffi's embedding mode.",
+               default=False,
+               requires=[("objspace.usemodules.cpyext", False)]),
+
     OptionDescription("std", "Standard Object Space Options", [
         BoolOption("withtproxy", "support transparent proxies",
                    default=True),

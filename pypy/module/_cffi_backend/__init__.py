@@ -71,10 +71,11 @@ class Module(MixedModule):
     def __init__(self, space, *args):
         MixedModule.__init__(self, space, *args)
         #
-        # import 'embedding', which has the side-effect of registering
-        # the 'pypy_init_embedded_cffi_module' entry point
-        from pypy.module._cffi_backend import embedding
-        embedding.glob.space = space
+        if not space.config.objspace.disable_entrypoints:
+            # import 'embedding', which has the side-effect of registering
+            # the 'pypy_init_embedded_cffi_module' entry point
+            from pypy.module._cffi_backend import embedding
+            embedding.glob.space = space
 
 
 def get_dict_rtld_constants():
