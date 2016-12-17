@@ -96,7 +96,7 @@ for name in error.SSL_AD_NAMES:
 # init open ssl
 lib.SSL_load_error_strings()
 lib.SSL_library_init()
-# TODO threads?
+lib._setup_ssl_threads()
 lib.OpenSSL_add_all_algorithms()
 
 def check_signals():
