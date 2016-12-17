@@ -1,6 +1,6 @@
 from pypy.interpreter import module
 from pypy.module.cpyext.api import (
-    generic_cpy_call, cpython_api, PyObject, CONST_STRING)
+    generic_cpy_call, cpython_api, PyObject, CONST_STRING, CANNOT_FAIL)
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.module import Module
@@ -124,3 +124,24 @@ def PyImport_ExecCodeModuleEx(space, name, w_code, pathname):
     w_mod = importing.add_module(space, w_name)
     space.setattr(w_mod, space.wrap('__file__'), space.wrap(pathname))
     return importing.exec_code_module(space, w_mod, code, w_name)
+
+@cpython_api([], lltype.Void, error=CANNOT_FAIL)
+def _PyImport_AcquireLock(space):
+    """Locking primitive to prevent parallel imports of the same module
+    in different threads to return with a partially loaded module.
+    These calls are serialized by the global interpreter lock."""
+    try:
+        w_func = space.getbuiltinmodule('imp').get('acquire_lock')
+        space.call_function(w_func)
+    except OperationError as e:
+        e.write_unraisable(space, "_PyImport_AcquireLock")
+
+@cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
+def _PyImport_ReleaseLock(space):
+    try:
+        w_func = space.getbuiltinmodule('imp').get('release_lock')
+        space.call_function(w_func)
+        return 1
+    except OperationError as e:
+        e.write_unraisable(space, "_PyImport_ReleaseLock")
+        return -1
