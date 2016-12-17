@@ -599,6 +599,7 @@ class FlowContext(object):
         """
         from rpython.rlib.debug import ll_assert_not_none
 
+        check_not_none = False
         w_is_type = op.isinstance(w_arg1, const(type)).eval(self)
         if self.guessbool(w_is_type):
             # this is for all cases of the form (Class, something)
@@ -610,6 +611,7 @@ class FlowContext(object):
                 if self.guessbool(op.issubtype(w_valuetype, w_arg1).eval(self)):
                     # raise Type, Instance: let etype be the exact type of value
                     w_value = w_arg2
+                    check_not_none = True
                 else:
                     # raise Type, X: assume X is the constructor argument
                     w_value = op.simple_call(w_arg1, w_arg2).eval(self)
@@ -620,7 +622,10 @@ class FlowContext(object):
                                 "separate value")
                 raise Raise(const(exc))
             w_value = w_arg1
-        w_value = op.simple_call(const(ll_assert_not_none), w_value).eval(self)
+            check_not_none = True
+        if check_not_none:
+            w_value = op.simple_call(const(ll_assert_not_none),
+                                     w_value).eval(self)
         w_type = op.type(w_value).eval(self)
         return FSException(w_type, w_value)
 
