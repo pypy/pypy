@@ -180,6 +180,11 @@ What about willful misconduct?
       ...
     TypeError: h() argument after * must be an iterable, not function
 
+    >>> h(1, *h)
+    Traceback (most recent call last):
+      ...
+    TypeError: h() argument after * must be an iterable, not function
+
     >>> dir(*h)
     Traceback (most recent call last):
       ...
@@ -195,6 +200,21 @@ not function
     Traceback (most recent call last):
       ...
     TypeError: h() argument after ** must be a mapping, not function
+
+    >>> h(**[])
+    Traceback (most recent call last):
+      ...
+    TypeError: h() argument after ** must be a mapping, not list
+
+    >>> h(a=1, **h)
+    Traceback (most recent call last):
+      ...
+    TypeError: h() argument after ** must be a mapping, not function
+
+    >>> h(a=1, **[])
+    Traceback (most recent call last):
+      ...
+    TypeError: h() argument after ** must be a mapping, not list
 
     >>> dir(**h)
     Traceback (most recent call last):

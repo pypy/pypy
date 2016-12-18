@@ -8,6 +8,7 @@ import errno
 import functools
 import gc
 import socket
+import stat
 import sys
 import os
 import platform
@@ -182,6 +183,16 @@ def unload(name):
     except KeyError:
         pass
 
+def _force_run(path, func, *args):
+    try:
+        return func(*args)
+    except EnvironmentError as err:
+        if verbose >= 2:
+            print('%s: %s' % (err.__class__.__name__, err))
+            print('re-run %s%r' % (func.__name__, args))
+        os.chmod(path, stat.S_IRWXU)
+        return func(*args)
+
 if sys.platform.startswith("win"):
     def _waitfor(func, pathname, waitall=False):
         # Perform the operation
@@ -196,7 +207,7 @@ if sys.platform.startswith("win"):
         # The exponential backoff of the timeout amounts to a total
         # of ~1 second after which the deletion is probably an error
         # anyway.
-        # Testing on a i7@4.3GHz shows that usually only 1 iteration is
+        # Testing on an i7@4.3GHz shows that usually only 1 iteration is
         # required when contention occurs.
         timeout = 0.001
         while timeout < 1.0:
@@ -224,19 +235,40 @@ if sys.platform.startswith("win"):
 
     def _rmtree(path):
         def _rmtree_inner(path):
-            for name in os.listdir(path):
+            for name in _force_run(path, os.listdir, path):
                 fullname = os.path.join(path, name)
                 if os.path.isdir(fullname):
                     _waitfor(_rmtree_inner, fullname, waitall=True)
-                    os.rmdir(fullname)
+                    _force_run(fullname, os.rmdir, fullname)
                 else:
-                    os.unlink(fullname)
+                    _force_run(fullname, os.unlink, fullname)
         _waitfor(_rmtree_inner, path, waitall=True)
-        _waitfor(os.rmdir, path)
+        _waitfor(lambda p: _force_run(p, os.rmdir, p), path)
 else:
     _unlink = os.unlink
     _rmdir = os.rmdir
-    _rmtree = shutil.rmtree
+
+    def _rmtree(path):
+        try:
+            shutil.rmtree(path)
+            return
+        except EnvironmentError:
+            pass
+
+        def _rmtree_inner(path):
+            for name in _force_run(path, os.listdir, path):
+                fullname = os.path.join(path, name)
+                try:
+                    mode = os.lstat(fullname).st_mode
+                except EnvironmentError:
+                    mode = 0
+                if stat.S_ISDIR(mode):
+                    _rmtree_inner(fullname)
+                    _force_run(path, os.rmdir, fullname)
+                else:
+                    _force_run(path, os.unlink, fullname)
+        _rmtree_inner(path)
+        os.rmdir(path)
 
 def unlink(filename):
     try:
@@ -331,6 +363,7 @@ def _is_gui_available():
         try:
             from Tkinter import Tk
             root = Tk()
+            root.withdraw()
             root.update()
             root.destroy()
         except Exception as e:
@@ -355,12 +388,12 @@ def is_resource_enabled(resource):
 
 def requires(resource, msg=None):
     """Raise ResourceDenied if the specified resource is not available."""
-    if resource == 'gui' and not _is_gui_available():
-        raise ResourceDenied(_is_gui_available.reason)
     if not is_resource_enabled(resource):
         if msg is None:
             msg = "Use of the `%s' resource not enabled" % resource
         raise ResourceDenied(msg)
+    if resource == 'gui' and not _is_gui_available():
+        raise ResourceDenied(_is_gui_available.reason)
 
 def requires_mac_ver(*min_version):
     """Decorator raising SkipTest if the OS is Mac OS X and the OS X
