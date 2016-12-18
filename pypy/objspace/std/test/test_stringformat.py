@@ -137,6 +137,57 @@ class AppTestStringObject:
         sl = SubLong(l)
         assert '%d' % sl == '4800000000'
 
+    def test_format_subclass_with_str(self):
+        import sys
+        if sys.version_info < (2, 7, 13):
+            skip("CPython gives SystemError before 2.7.13")
+            #...and behaves inconsistently in 2.7.13, but we reproduce that
+
+        class SubInt2(int):
+            def __str__(self):
+                assert False, "not called"
+            def __hex__(self):
+                assert False, "not called"
+            def __oct__(self):
+                assert False, "not called"
+            def __int__(self):
+                assert False, "not called"
+            def __long__(self):
+                assert False, "not called"
+        sl = SubInt2(123)
+        assert '%i' % sl == '123'
+        assert '%u' % sl == '123'
+        assert '%d' % sl == '123'
+        assert '%x' % sl == '7b'
+        assert '%X' % sl == '7B'
+        assert '%o' % sl == '173'
+
+        class SubLong2(long):
+            def __str__(self):
+                return 'Xx'
+            def __hex__(self):
+                return extra_stuff + '0xYy' + extra_tail
+            def __oct__(self):
+                return extra_stuff + '0Zz' + extra_tail
+            def __int__(self):
+                assert False, "not called"
+            def __long__(self):
+                assert False, "not called"
+        sl = SubLong2(123)
+        extra_stuff = ''
+        for extra_tail in ['', 'l', 'L']:
+            x = '%i' % sl
+            assert x == 'Xx'
+            assert '%u' % sl == 'Xx'
+            assert '%d' % sl == 'Xx'
+            assert '%x' % sl == ('Yyl' if extra_tail == 'l' else 'Yy')
+            assert '%X' % sl == ('YYL' if extra_tail == 'l' else 'YY')
+            assert '%o' % sl == ('Zzl' if extra_tail == 'l' else 'Zz')
+        extra_stuff = '??'
+        raises(ValueError, "'%x' % sl")
+        raises(ValueError, "'%X' % sl")
+        raises(ValueError, "'%o' % sl")
+
     def test_format_list(self):
         l = [1,2]
         assert '<[1, 2]>' == '<%s>' % l
@@ -202,7 +253,8 @@ class AppTestStringObject:
             def __long__(self):
                 return 0L
 
-        assert "%x" % IntFails() == '0'
+        x = "%x" % IntFails()
+        assert x == '0'
 
     def test_formatting_huge_precision(self):
         prec = 2**31
