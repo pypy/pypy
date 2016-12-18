@@ -278,7 +278,7 @@ class Decompress(ZLibObject):
         else:
             self.unconsumed_tail = tail
 
-    @unwrap_spec(data='bufferstr', max_length="c_int")
+    @unwrap_spec(data='bufferstr', max_length=int)
     def decompress(self, space, data, max_length=0):
         """
         decompress(data[, max_length]) -- Return a string containing the

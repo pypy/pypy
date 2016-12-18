@@ -230,6 +230,14 @@ class AppTestZlib(object):
             data = d.unconsumed_tail
         assert not data
 
+    def test_max_length_large(self):
+        import sys
+        if sys.version_info < (2, 7, 13):
+            skip("passing a potentially 64-bit int as max_length is not "
+                 "supported before 2.7.13")
+        d = self.zlib.decompressobj()
+        assert d.decompress(self.compressed, sys.maxsize) == self.expanded
+
     def test_buffer(self):
         """
         We should be able to pass buffer objects instead of strings.
