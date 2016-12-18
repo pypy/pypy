@@ -8,6 +8,8 @@ class AppTestSSL:
     def setup_class(cls):
         cls.w_nullbytecert = cls.space.wrap(os.path.join(
             os.path.dirname(__file__), 'nullbytecert.pem'))
+        cls.w_allsans = cls.space.wrap(os.path.join(
+            os.path.dirname(__file__), 'allsans.pem'))
 
     def test_init_module(self):
         import _ssl
@@ -120,6 +122,10 @@ class AppTestSSL:
              ('URI', 'http://null.python.org\x00http://example.org'),
              ('IP Address', '192.0.2.1'),
              ('IP Address', '2001:DB8:0:0:0:0:0:1\n'))
+
+    def test_decode_all_sans(self):
+        import _ssl
+        _ssl._test_decode_cert(self.allsans)
 
     def test_context(self):
         import _ssl
