@@ -1,7 +1,10 @@
 from collections import OrderedDict
 from cffi import api, model
 from cffi.commontypes import COMMON_TYPES, resolve_common_type
-import pycparser
+try:
+    from cffi import _pycparser as pycparser
+except ImportError:
+    import pycparser
 import weakref, re
 from rpython.rlib.rfile import FILEP
 from rpython.rtyper.lltypesystem import rffi, lltype
