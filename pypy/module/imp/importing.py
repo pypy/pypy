@@ -355,7 +355,7 @@ def absolute_import_try(space, modulename, baselevel, w_fromlist):
             w_name = space.getitem(w_fromlist, space.wrap(i))
             if not space.isinstance_w(w_name, space.w_str):
                 raise oefmt(space.w_TypeError,
-                    "'fromlist' must be a list of strings, got %T", w_name)
+                    "'fromlist' items must be str, not %T", w_name)
         if w_path is not None:
             if length == 1 and space.eq_w(
                     space.getitem(w_fromlist, space.wrap(0)),
