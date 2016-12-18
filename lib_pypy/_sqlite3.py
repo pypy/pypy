@@ -364,12 +364,7 @@ class Connection(object):
                     cursor._reset = True
 
     def _reset_all_statements(self):
-        total = 0
-        for weakref in self.__statements:
-            statement = weakref()
-            if statement is not None:
-                total += statement._reset()
-        return total
+        self.__do_all_statements(Statement._reset, False)
 
     @_check_thread_wrap
     @_check_closed_wrap
@@ -839,12 +834,10 @@ class Cursor(object):
                 # this is the only place shown by pysqlite tests, and I
                 # can only hope there is no other.
 
-                while True:
+                ret = _lib.sqlite3_step(self.__statement._statement)
+                if ret == _lib.SQLITE_LOCKED:
+                    self.__connection._reset_all_statements()
                     ret = _lib.sqlite3_step(self.__statement._statement)
-                    if (ret == _lib.SQLITE_LOCKED and
-                            self.__connection._reset_all_statements()):
-                        continue
-                    break
 
                 if ret == _lib.SQLITE_ROW:
                     if multiple:
@@ -1074,8 +1067,6 @@ class Statement(object):
         if self._in_use and self._statement:
             _lib.sqlite3_reset(self._statement)
             self._in_use = False
-            return 1
-        return 0
 
     if sys.version_info[0] < 3:
         def __check_decodable(self, param):
