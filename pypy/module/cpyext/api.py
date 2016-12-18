@@ -840,11 +840,47 @@ typedef struct {
 	releasebufferproc bf_releasebuffer;
 } PyBufferProcs;
 
+/* from descrobject.h */
+typedef PyObject *(*getter)(PyObject *, void *);
+typedef int (*setter)(PyObject *, PyObject *, void *);
+
+typedef struct PyGetSetDef {
+	char *name;
+	getter get;
+	setter set;
+	char *doc;
+	void *closure;
+} PyGetSetDef;
+
+/* from methodobject.h */
+typedef PyObject *(*PyCFunction)(PyObject *, PyObject *);
+typedef PyObject *(*PyCFunctionWithKeywords)(PyObject *, PyObject *,
+                                             PyObject *);
+typedef PyObject *(*PyNoArgsFunction)(PyObject *);
+
+struct PyMethodDef {
+    const char  *ml_name;   /* The name of the built-in function/method */
+    PyCFunction  ml_meth;   /* The C function that implements it */
+    int          ml_flags;  /* Combination of METH_xxx flags, which mostly
+                               describe the args expected by the C func */
+    const char  *ml_doc;    /* The __doc__ attribute, or NULL */
+};
+typedef struct PyMethodDef PyMethodDef;
+
+/* from structmember.h */
+typedef struct PyMemberDef {
+    /* Current version, use this */
+    char *name;
+    int type;
+    Py_ssize_t offset;
+    int flags;
+    char *doc;
+} PyMemberDef;
 
 
 typedef struct _typeobject {
 	PyObject_VAR_HEAD
-	const char *tp_name; /* For printing, in format "<module>.<name>" */
+	/* const */ char *tp_name; /* For printing, in format "<module>.<name>" */
 	Py_ssize_t tp_basicsize, tp_itemsize; /* For allocation */
 
 	/* Methods to implement standard operations */
@@ -876,7 +912,7 @@ typedef struct _typeobject {
 	/* Flags to define presence of optional/expanded features */
 	long tp_flags;
 
-	const char *tp_doc; /* Documentation string */
+	/*const*/ char *tp_doc; /* Documentation string */
 
 	/* Assigned meaning in release 2.0 */
 	/* call function for all accessible objects */
@@ -923,7 +959,7 @@ typedef struct _typeobject {
 
 } PyTypeObject;
 
-""")
+""", configure_now=True)
 
 Py_ssize_t = object_h.gettype('Py_ssize_t')
 Py_ssize_tP = object_h.gettype('Py_ssize_t *')

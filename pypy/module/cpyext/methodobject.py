@@ -11,23 +11,15 @@ from pypy.module.cpyext.api import (
     CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_NOARGS, METH_O,
     METH_STATIC, METH_VARARGS, PyObject, PyObjectFields, bootstrap_function,
     build_type_checkers, cpython_api, cpython_struct, generic_cpy_call,
-    PyTypeObjectPtr, slot_function)
+    PyTypeObjectPtr, slot_function, object_h)
 from pypy.module.cpyext.pyobject import (
     Py_DecRef, from_ref, make_ref, as_pyobj, make_typedescr)
 
 PyCFunction_typedef = rffi.COpaquePtr(typedef='PyCFunction')
-PyCFunction = lltype.Ptr(lltype.FuncType([PyObject, PyObject], PyObject))
-PyCFunctionKwArgs = lltype.Ptr(lltype.FuncType([PyObject, PyObject, PyObject],
-                                               PyObject))
 
-PyMethodDef = cpython_struct(
-    'PyMethodDef',
-    [('ml_name', rffi.CONST_CCHARP),
-     ('ml_meth', PyCFunction_typedef),
-     ('ml_flags', rffi.INT_real),
-     ('ml_doc', rffi.CONST_CCHARP),
-     ])
-
+PyMethodDef = object_h.gettype('PyMethodDef')
+PyCFunction = object_h.gettype('PyCFunction')
+PyCFunctionKwArgs = object_h.gettype('PyCFunctionWithKeywords')
 PyCFunctionObjectStruct = cpython_struct(
     'PyCFunctionObject',
     PyObjectFields + (
