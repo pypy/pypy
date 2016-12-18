@@ -1331,8 +1331,9 @@ def urandom(space, n):
     Return a string of n random bytes suitable for cryptographic use.
     """
     context = get(space).random_context
+    signal_checker = space.getexecutioncontext().checksignals
     try:
-        return space.wrap(rurandom.urandom(context, n))
+        return space.wrap(rurandom.urandom(context, n, signal_checker))
     except OSError as e:
         raise wrap_oserror(space, e)
 

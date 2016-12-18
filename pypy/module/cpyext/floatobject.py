@@ -22,7 +22,7 @@ def init_floatobject(space):
                    attach=float_attach,
                    realize=float_realize)
 
-def float_attach(space, py_obj, w_obj):
+def float_attach(space, py_obj, w_obj, w_userdata=None):
     """
     Fills a newly allocated PyFloatObject with the given float object. The
     value must not be modified.

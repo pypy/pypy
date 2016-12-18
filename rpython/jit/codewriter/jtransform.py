@@ -283,6 +283,12 @@ class Transformer(object):
     def rewrite_op_jit_record_exact_class(self, op):
         return SpaceOperation("record_exact_class", [op.args[0], op.args[1]], None)
 
+    def rewrite_op_debug_assert_not_none(self, op):
+        if isinstance(op.args[0], Variable):
+            return SpaceOperation('assert_not_none', [op.args[0]], None)
+        else:
+            return []
+
     def rewrite_op_cast_bool_to_int(self, op): pass
     def rewrite_op_cast_bool_to_uint(self, op): pass
     def rewrite_op_cast_char_to_int(self, op): pass
