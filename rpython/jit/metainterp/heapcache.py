@@ -373,7 +373,7 @@ class HeapCache(object):
     def class_now_known(self, box):
         if isinstance(box, Const):
             return
-        self._set_flag(box, HF_KNOWN_CLASS)
+        self._set_flag(box, HF_KNOWN_CLASS | HF_KNOWN_NULLITY)
 
     def is_nullity_known(self, box):
         if isinstance(box, Const):
@@ -403,7 +403,8 @@ class HeapCache(object):
     def new(self, box):
         assert isinstance(box, RefFrontendOp)
         self.update_version(box)
-        add_flags(box, HF_LIKELY_VIRTUAL | HF_SEEN_ALLOCATION | HF_IS_UNESCAPED)
+        add_flags(box, HF_LIKELY_VIRTUAL | HF_SEEN_ALLOCATION | HF_IS_UNESCAPED
+                       | HF_KNOWN_NULLITY)
 
     def new_array(self, box, lengthbox):
         self.new(box)
