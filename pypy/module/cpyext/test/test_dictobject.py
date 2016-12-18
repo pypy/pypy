@@ -1,7 +1,7 @@
 import py
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest
-from pypy.module.cpyext.api import Py_ssize_tP, PyObjectP
+from pypy.module.cpyext.api import Py_ssize_tP, PyObjectP, PyTypeObjectPtr
 from pypy.module.cpyext.pyobject import make_ref, from_ref
 from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
@@ -181,6 +181,27 @@ class TestDictObject(BaseApiTest):
         raises(OperationError, space.call_method, w_proxy, 'clear')
         assert api.PyDictProxy_Check(w_proxy)
 
+    def test_typedict1(self, space, api):
+        py_type = make_ref(space, space.w_int)
+        py_dict = rffi.cast(PyTypeObjectPtr, py_type).c_tp_dict
+        ppos = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')
+
+        ppos[0] = 0
+        pkey = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
+        pvalue = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
+        try:
+            w_copy = space.newdict()
+            while api.PyDict_Next(py_dict, ppos, pkey, pvalue):
+                w_key = from_ref(space, pkey[0])
+                w_value = from_ref(space, pvalue[0])
+                space.setitem(w_copy, w_key, w_value)
+        finally:
+            lltype.free(ppos, flavor='raw')
+            lltype.free(pkey, flavor='raw')
+            lltype.free(pvalue, flavor='raw')
+        api.Py_DecRef(py_type) # release borrowed references
+        # do something with w_copy ?
+
 class AppTestDictObject(AppTestCpythonExtensionBase):
     def test_dictproxytype(self):
         module = self.import_extension('foo', [
@@ -224,4 +245,17 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
         assert d == dict(a=1, c=2)
         d = {"a": 1}
         raises(AttributeError, module.update, d, [("c", 2)])
+
+    def test_typedict2(self):
+        module = self.import_extension('foo', [
+            ("get_type_dict", "METH_O",
+             '''
+                PyObject* value = args->ob_type->tp_dict;
+                if (value == NULL) value = Py_None;
+                Py_INCREF(value);
+                return value;
+             '''),
+            ])
+        d = module.get_type_dict(1)
+        assert d['real'].__get__(1, 1) == 1
 
