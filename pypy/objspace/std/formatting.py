@@ -547,7 +547,7 @@ def maybe_float(space, w_value):
     # make sure that w_value is a wrapped float
     return space.float(w_value)
 
-def format_num_helper_generator(fmt, digits, method, remove_prefix=''):
+def format_num_helper_generator(fmt, digits):
     def format_num_helper(space, w_value):
         if (not space.isinstance_w(w_value, space.w_int) and
             not space.isinstance_w(w_value, space.w_long)):
@@ -563,27 +563,17 @@ def format_num_helper_generator(fmt, digits, method, remove_prefix=''):
                         "%s format: a number is required, not %T", fmt, w_value)
                 else:
                     raise
-        if space.isinstance_w(w_value, space.w_long):
-            text = space.str_w(space.call_method(w_value, method))
-            skip_left = 0
-            skip_right = len(text)
-            if remove_prefix:
-                if not text.startswith(remove_prefix):
-                    raise oefmt(space.w_ValueError,
-                                "%s format: invalid result of %s (type=%T)",
-                                fmt, method, w_value)
-                skip_left = len(remove_prefix)
-            if text.endswith('L'):
-                skip_right = len(text) - 1
-                assert skip_right >= 0
-            return text[skip_left : skip_right]
-        else:
+        try:
             value = space.int_w(w_value)
             return fmt % (value,)
+        except OperationError as operr:
+            if not operr.match(space, space.w_OverflowError):
+                raise
+            num = space.bigint_w(w_value)
+            return num.format(digits)
     return func_with_new_name(format_num_helper,
                               'base%d_num_helper' % len(digits))
 
-int_num_helper = format_num_helper_generator('%d', '0123456789', '__str__')
-oct_num_helper = format_num_helper_generator('%o', '01234567', '__oct__', '0')
-hex_num_helper = format_num_helper_generator('%x', '0123456789abcdef',
-                                             '__hex__', '0x')
+int_num_helper = format_num_helper_generator('%d', '0123456789')
+oct_num_helper = format_num_helper_generator('%o', '01234567')
+hex_num_helper = format_num_helper_generator('%x', '0123456789abcdef')
