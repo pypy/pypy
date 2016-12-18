@@ -313,7 +313,7 @@ class Decompress(ZLibObject):
         data as possible.
         """
         if w_length is not None:
-            length = space.c_int_w(w_length)
+            length = space.int_w(w_length)
             if length <= 0:
                 raise oefmt(space.w_ValueError,
                             "length must be greater than zero")
