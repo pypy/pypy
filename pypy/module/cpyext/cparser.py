@@ -695,9 +695,9 @@ class ParsedSource(object):
         self.structs.update(other.structs)
         self.includes.append(other)
 
-    def add_typedef(self, name, obj, configure_now=False):
+    def add_typedef(self, name, obj, quals, configure_now=False):
         assert name not in self.definitions
-        tp = self.convert_type(obj)
+        tp = self.convert_type(obj, quals)
         if isinstance(tp, DelayedStruct):
             tp = self.realize_struct(tp, name, configure_now=configure_now)
         self.definitions[name] = tp
@@ -735,7 +735,7 @@ class ParsedSource(object):
                 continue
             if name.startswith('typedef '):
                 name = name[8:]
-                self.add_typedef(name, obj, configure_now=configure_now)
+                self.add_typedef(name, obj, quals, configure_now=configure_now)
             elif name.startswith('macro '):
                 name = name[6:]
                 self.add_macro(name, obj)
@@ -743,7 +743,7 @@ class ParsedSource(object):
             if name in self._TYPES:
                 self._TYPES[name].become(TYPE)
 
-    def convert_type(self, obj):
+    def convert_type(self, obj, quals=0):
         if isinstance(obj, model.PrimitiveType):
             return cname_to_lltype(obj.name)
         elif isinstance(obj, model.StructType):
@@ -754,11 +754,16 @@ class ParsedSource(object):
             TO = self.convert_type(obj.totype)
             if TO is lltype.Void:
                 return rffi.VOIDP
-            elif isinstance(obj.totype, model.PrimitiveType):
-                return rffi.CArrayPtr(TO)
             elif isinstance(TO, DelayedStruct):
                 TO = TO.TYPE
-            return lltype.Ptr(TO)
+            if isinstance(TO, lltype.ContainerType):
+                return lltype.Ptr(TO)
+            else:
+                if obj.quals & model.Q_CONST:
+                    return lltype.Ptr(lltype.Array(
+                        TO, hints={'nolength': True, 'render_as_const': True}))
+                else:
+                    return rffi.CArrayPtr(TO)
         elif isinstance(obj, model.FunctionPtrType):
             if obj.ellipsis:
                 raise NotImplementedError

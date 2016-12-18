@@ -129,3 +129,16 @@ def test_recursive(tmpdir):
     Object = foo_h.definitions['Object']
     assert isinstance(Object, lltype.Struct)
     hash(Object)
+
+def test_const(tmpdir):
+    cdef = """
+    typedef struct {
+        const char * const foo;
+    } bar;
+    """
+    (tmpdir / 'foo.h').write(cdef)
+    eci = ExternalCompilationInfo(
+        include_dirs=[str(tmpdir)],
+        includes=['sys/types.h', 'foo.h'])
+    hdr = parse_source(cdef, eci=eci, configure_now=True)
+    assert hdr.definitions['bar'].c_foo == rffi.CONST_CCHARP != rffi.CCHARP
