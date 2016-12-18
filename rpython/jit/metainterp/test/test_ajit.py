@@ -3510,6 +3510,7 @@ class BaseLLtypeTests(BasicTests):
         self.check_resops(call_f=1)
 
     def test_look_inside_iff_virtual(self):
+        from rpython.rlib.debug import ll_assert_not_none
         # There's no good reason for this to be look_inside_iff, but it's a test!
         @look_inside_iff(lambda arg, n: isvirtual(arg))
         def f(arg, n):
@@ -3529,7 +3530,7 @@ class BaseLLtypeTests(BasicTests):
                 if n == 0:
                     i += f(a, n)
                 else:
-                    i += f(A(2), n)
+                    i += f(ll_assert_not_none(A(2)), n)
         res = self.meta_interp(main, [0], enable_opts='')
         assert res == main(0)
         self.check_resops(call_i=1, getfield_gc_i=0)
