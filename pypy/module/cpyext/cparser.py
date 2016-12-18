@@ -657,6 +657,7 @@ def add_inttypes():
         CNAME_TO_LLTYPE[name] = rfficache.platform.types[rname]
 
 add_inttypes()
+CNAME_TO_LLTYPE['int'] = rffi.INT_real
 
 def cname_to_lltype(name):
     return CNAME_TO_LLTYPE[name]
