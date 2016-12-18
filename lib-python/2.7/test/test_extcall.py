@@ -180,6 +180,11 @@ What about willful misconduct?
       ...
     TypeError: ...argument after * must be an iterable, not function
 
+    >>> h(1, *h)                               #doctest: +ELLIPSIS
+    Traceback (most recent call last):
+      ...
+    TypeError: ...argument after * must be an iterable, not function
+
     >>> dir(*h)                                #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
@@ -194,6 +199,21 @@ What about willful misconduct?
     Traceback (most recent call last):
       ...
     TypeError: ...argument after ** must be a mapping, not function
+
+    >>> h(**[])                                #doctest: +ELLIPSIS
+    Traceback (most recent call last):
+      ...
+    TypeError: ...argument after ** must be a mapping, not list
+
+    >>> h(a=1, **h)                            #doctest: +ELLIPSIS
+    Traceback (most recent call last):
+      ...
+    TypeError: ...argument after ** must be a mapping, not function
+
+    >>> h(a=1, **[])                           #doctest: +ELLIPSIS
+    Traceback (most recent call last):
+      ...
+    TypeError: ...argument after ** must be a mapping, not list
 
     >>> dir(**h)                               #doctest: +ELLIPSIS
     Traceback (most recent call last):
