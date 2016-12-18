@@ -368,12 +368,16 @@ class Connection(object):
     def __call__(self, sql):
         return self._statement_cache.get(sql)
 
-    def cursor(self, factory=None):
+    def _default_cursor_factory(self):
+        return Cursor(self)
+
+    def cursor(self, factory=_default_cursor_factory):
         self._check_thread()
         self._check_closed()
-        if factory is None:
-            factory = Cursor
         cur = factory(self)
+        if not issubclass(type(cur), Cursor):
+            raise TypeError("factory must return a cursor, not %s"
+                            % (type(cur).__name__,))
         if self.row_factory is not None:
             cur.row_factory = self.row_factory
         return cur
@@ -414,7 +418,8 @@ class Connection(object):
         if not self._in_transaction:
             return
 
-        self.__do_all_statements(Statement._reset, False)
+        # the following line is removed for compatibility with 2.7.13:
+        #    self.__do_all_statements(Statement._reset, False)
 
         statement_star = _ffi.new('sqlite3_stmt **')
         ret = _lib.sqlite3_prepare_v2(self._db, b"COMMIT", -1,
@@ -546,7 +551,7 @@ class Connection(object):
     @_check_thread_wrap
     @_check_closed_wrap
     def create_collation(self, name, callback):
-        name = name.upper()
+        name = str.upper(name)
         if not all(c in string.ascii_uppercase + string.digits + '_' for c in name):
             raise ProgrammingError("invalid character in collation name")
 
