@@ -14,7 +14,7 @@ from pypy.module.cpyext.typeobjectdefs import (
     ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
     cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc, objobjargproc,
     readbufferproc, getbufferproc, releasebufferproc, ssizessizeobjargproc)
-from pypy.module.cpyext.pyobject import make_ref, Py_DecRef
+from pypy.module.cpyext.pyobject import make_ref, decref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.memoryobject import fill_Py_buffer
 from pypy.module.cpyext.state import State
@@ -99,7 +99,7 @@ def wrap_binaryfunc_l(space, w_self, w_args, func):
     if (not ref.c_ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
         not space.issubtype_w(space.type(args_w[0]), space.type(w_self))):
         return space.w_NotImplemented
-    Py_DecRef(space, ref)
+    decref(space, ref)
     return generic_cpy_call(space, func_binary, w_self, args_w[0])
 
 def wrap_binaryfunc_r(space, w_self, w_args, func):
@@ -110,7 +110,7 @@ def wrap_binaryfunc_r(space, w_self, w_args, func):
     if (not ref.c_ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
         not space.issubtype_w(space.type(args_w[0]), space.type(w_self))):
         return space.w_NotImplemented
-    Py_DecRef(space, ref)
+    decref(space, ref)
     return generic_cpy_call(space, func_binary, args_w[0], w_self)
 
 def wrap_ternaryfunc(space, w_self, w_args, func):
@@ -132,7 +132,7 @@ def wrap_ternaryfunc_r(space, w_self, w_args, func):
     if (not ref.c_ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
         not space.issubtype_w(space.type(args_w[0]), space.type(w_self))):
         return space.w_NotImplemented
-    Py_DecRef(space, ref)
+    decref(space, ref)
     arg3 = space.w_None
     if len(args_w) > 1:
         arg3 = args_w[1]
@@ -329,6 +329,7 @@ class CPyBuffer(Buffer):
         self.ptr = ptr
         self.size = size
         self.w_obj = w_obj # kept alive
+        self.pyobj = make_ref(space, w_obj)
         self.format = format
         if not shape:
             self.shape = [size]
@@ -344,6 +345,12 @@ class CPyBuffer(Buffer):
         self.releasebufferproc = releasebuffer
 
     def releasebuffer(self):
+        if self.pyobj:
+            decref(self.space, self.pyobj)
+            self.pyobj = lltype.nullptr(PyObject.TO)
+        else:
+            #do not call twice
+            return
         if self.releasebufferproc:        
             func_target = rffi.cast(releasebufferproc, self.releasebufferproc)
             with lltype.scoped_alloc(Py_buffer) as pybuf:
@@ -354,8 +361,8 @@ class CPyBuffer(Buffer):
                     pybuf.c_shape[i] = self.shape[i]
                     pybuf.c_strides[i] = self.strides[i]
                 pybuf.c_format = rffi.str2charp(self.format)
-                generic_cpy_call(self.space, func_target, self.w_obj, pybuf)
-            self.releasebufferproc = None
+                generic_cpy_call(self.space, func_target, self.pyobj, pybuf)
+            self.releasebufferproc = rffi.cast(rffi.VOIDP, 0)
 
     def getlength(self):
         return self.size
@@ -400,7 +407,11 @@ def wrap_getreadbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(readbufferproc, func)
     py_obj = make_ref(space, w_self)
     py_type = py_obj.c_ob_type
-    releasebuffer = py_type.c_tp_as_buffer and py_type.c_tp_as_buffer.c_bf_releasebuffer
+    releasebuffer = rffi.cast(rffi.VOIDP, 0)
+    need_finalizer = False
+    if py_type.c_tp_as_buffer:
+        releasebuffer = rffi.cast(rffi.VOIDP, py_type.c_tp_as_buffer.c_bf_releasebuffer)
+        need_finalizer = True
     with lltype.scoped_alloc(rffi.VOIDPP.TO, 1) as ptr:
         index = rffi.cast(Py_ssize_t, 0)
         size = generic_cpy_call(space, func_target, w_self, index, ptr)
@@ -408,14 +419,19 @@ def wrap_getreadbuffer(space, w_self, w_args, func):
             space.fromcache(State).check_and_raise_exception(always=True)
         buf = CPyBuffer(space, ptr[0], size, w_self, 
                                releasebuffer=releasebuffer)
-        fq.register_finalizer(buf)
+        if need_finalizer:
+            fq.register_finalizer(buf)
         return space.newbuffer(buf)
 
 def wrap_getwritebuffer(space, w_self, w_args, func):
     func_target = rffi.cast(readbufferproc, func)
     py_obj = make_ref(space, w_self)
     py_type = py_obj.c_ob_type
-    releasebuffer = py_type.c_tp_as_buffer and py_type.c_tp_as_buffer.c_bf_releasebuffer
+    releasebuffer = rffi.cast(rffi.VOIDP, 0)
+    need_finalizer = False
+    if py_type.c_tp_as_buffer:
+        releasebuffer = rffi.cast(rffi.VOIDP, py_type.c_tp_as_buffer.c_bf_releasebuffer)
+        need_finalizer = True
     with lltype.scoped_alloc(rffi.VOIDPP.TO, 1) as ptr:
         index = rffi.cast(Py_ssize_t, 0)
         size = generic_cpy_call(space, func_target, w_self, index, ptr)
@@ -423,14 +439,19 @@ def wrap_getwritebuffer(space, w_self, w_args, func):
             space.fromcache(State).check_and_raise_exception(always=True)
         buf = CPyBuffer(space, ptr[0], size, w_self, readonly=False,
                                releasebuffer=releasebuffer)
-        fq.register_finalizer(buf)
+        if need_finalizer:
+            fq.register_finalizer(buf)
         return space.newbuffer(buf)
 
 def wrap_getbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(getbufferproc, func)
     py_obj = make_ref(space, w_self)
     py_type = py_obj.c_ob_type
-    releasebuffer = py_type.c_tp_as_buffer and py_type.c_tp_as_buffer.c_bf_releasebuffer
+    releasebuffer = rffi.cast(rffi.VOIDP, 0)
+    need_finalizer = False
+    if py_type.c_tp_as_buffer:
+        releasebuffer = rffi.cast(rffi.VOIDP, py_type.c_tp_as_buffer.c_bf_releasebuffer)
+        need_finalizer = True
     with lltype.scoped_alloc(Py_buffer) as pybuf:
         _flags = 0
         if space.len_w(w_args) > 0:
@@ -456,7 +477,8 @@ def wrap_getbuffer(space, w_self, w_args, func):
                             itemsize=pybuf.c_itemsize,
                             readonly=widen(pybuf.c_readonly),
                             releasebuffer = releasebuffer)
-        fq.register_finalizer(buf)
+        if need_finalizer:
+            fq.register_finalizer(buf)
         return space.newbuffer(buf)
 
 def get_richcmp_func(OP_CONST):
