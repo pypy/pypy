@@ -661,9 +661,10 @@ def cname_to_lltype(name):
     return CNAME_TO_LLTYPE[name]
 
 class DelayedStruct(object):
-    def __init__(self, name, fields):
+    def __init__(self, name, fields, TYPE):
         self.struct_name = name
         self.fields = fields
+        self.TYPE = TYPE
 
     def __repr__(self):
         return "<struct {struct_name}>".format(**vars(self))
@@ -702,10 +703,7 @@ class ParsedSource(object):
         self.macros[name] = value
 
     def new_struct(self, obj):
-        if obj.fldtypes is None:
-            struct = lltype.ForwardReference()
-        else:
-            struct = DelayedStruct(obj.name, None)
+        struct = DelayedStruct(obj.name, None, lltype.ForwardReference())
         # Cache it early, to avoid infinite recursion
         self.structs[obj] = struct
         if obj.fldtypes is not None:
@@ -740,6 +738,8 @@ class ParsedSource(object):
                 return rffi.VOIDP
             elif isinstance(obj.totype, model.PrimitiveType):
                 return rffi.CArrayPtr(TO)
+            elif isinstance(TO, DelayedStruct):
+                TO = TO.TYPE
             return lltype.Ptr(TO)
         elif isinstance(obj, model.FunctionPtrType):
             if obj.ellipsis:
