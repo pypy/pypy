@@ -730,6 +730,8 @@ class ParsedSource(object):
             TO = self.convert_type(obj.totype)
             if TO is lltype.Void:
                 return rffi.VOIDP
+            elif isinstance(obj.totype, model.PrimitiveType):
+                return rffi.CArrayPtr(TO)
             return lltype.Ptr(TO)
         elif isinstance(obj, model.FunctionPtrType):
             if obj.ellipsis:
@@ -739,6 +741,8 @@ class ParsedSource(object):
             return lltype.Ptr(lltype.FuncType(args, res))
         elif isinstance(obj, model.VoidType):
             return lltype.Void
+        elif isinstance(obj, model.ArrayType):
+            return rffi.CFixedArray(self.convert_type(obj.item), obj.length)
         else:
             raise NotImplementedError
 
