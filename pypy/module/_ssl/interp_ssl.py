@@ -420,6 +420,12 @@ class _SSLSocket(W_Root):
                 raise oefmt(space.w_ValueError, "size should not be negative")
             rwbuffer = None
 
+        if num_bytes <= 0:
+            if rwbuffer:
+                return space.wrap(0)
+            else:
+                return space.wrap("")
+
         with rffi.scoped_alloc_buffer(num_bytes) as buf:
             while True:
                 err = 0

@@ -218,6 +218,7 @@ class AppTestConnectedSSL:
         ss.write("hello\n")
         data = ss.read(10)
         assert isinstance(data, str)
+        assert ss.read(0) == ''
         self.s.close()
         del ss; gc.collect()
 
