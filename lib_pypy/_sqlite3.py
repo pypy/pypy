@@ -418,8 +418,15 @@ class Connection(object):
         if not self._in_transaction:
             return
 
-        # the following line is removed for compatibility with 2.7.13:
-        #    self.__do_all_statements(Statement._reset, False)
+        # The following line is a KNOWN DIFFERENCE with CPython 2.7.13.
+        # More precisely, the corresponding line was removed in the
+        # version 2.7.13 of CPython, but this is causing troubles for
+        # PyPy (and potentially for CPython too):
+        #
+        #     http://bugs.python.org/issue29006
+        #
+        # So for now, we keep this line.
+        self.__do_all_statements(Statement._reset, False)
 
         statement_star = _ffi.new('sqlite3_stmt **')
         ret = _lib.sqlite3_prepare_v2(self._db, b"COMMIT", -1,
