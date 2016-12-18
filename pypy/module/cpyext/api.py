@@ -674,6 +674,51 @@ typedef struct {
 typedef struct _typeobject PyTypeObject;
 
 typedef void (*freefunc)(void *);
+typedef void (*destructor)(PyObject *);
+typedef int (*printfunc)(PyObject *, FILE *, int);
+typedef PyObject *(*getattrfunc)(PyObject *, char *);
+typedef PyObject *(*getattrofunc)(PyObject *, PyObject *);
+typedef int (*setattrfunc)(PyObject *, char *, PyObject *);
+typedef int (*setattrofunc)(PyObject *, PyObject *, PyObject *);
+typedef int (*cmpfunc)(PyObject *, PyObject *);
+typedef PyObject *(*reprfunc)(PyObject *);
+typedef long (*hashfunc)(PyObject *);
+typedef PyObject *(*richcmpfunc) (PyObject *, PyObject *, int);
+typedef PyObject *(*getiterfunc) (PyObject *);
+typedef PyObject *(*iternextfunc) (PyObject *);
+typedef PyObject *(*descrgetfunc) (PyObject *, PyObject *, PyObject *);
+typedef int (*descrsetfunc) (PyObject *, PyObject *, PyObject *);
+typedef int (*initproc)(PyObject *, PyObject *, PyObject *);
+typedef PyObject *(*newfunc)(struct _typeobject *, PyObject *, PyObject *);
+typedef PyObject *(*allocfunc)(struct _typeobject *, Py_ssize_t);
+
+typedef PyObject * (*unaryfunc)(PyObject *);
+typedef PyObject * (*binaryfunc)(PyObject *, PyObject *);
+typedef PyObject * (*ternaryfunc)(PyObject *, PyObject *, PyObject *);
+typedef int (*inquiry)(PyObject *);
+typedef Py_ssize_t (*lenfunc)(PyObject *);
+typedef int (*coercion)(PyObject **, PyObject **);
+typedef PyObject *(*intargfunc)(PyObject *, int);
+typedef PyObject *(*intintargfunc)(PyObject *, int, int);
+typedef PyObject *(*ssizeargfunc)(PyObject *, Py_ssize_t);
+typedef PyObject *(*ssizessizeargfunc)(PyObject *, Py_ssize_t, Py_ssize_t);
+typedef int(*intobjargproc)(PyObject *, int, PyObject *);
+typedef int(*intintobjargproc)(PyObject *, int, int, PyObject *);
+typedef int(*ssizeobjargproc)(PyObject *, Py_ssize_t, PyObject *);
+typedef int(*ssizessizeobjargproc)(PyObject *, Py_ssize_t, Py_ssize_t, PyObject *);
+typedef int(*objobjargproc)(PyObject *, PyObject *, PyObject *);
+
+
+/* int-based buffer interface */
+typedef int (*getreadbufferproc)(PyObject *, int, void **);
+typedef int (*getwritebufferproc)(PyObject *, int, void **);
+typedef int (*getsegcountproc)(PyObject *, int *);
+typedef int (*getcharbufferproc)(PyObject *, int, char **);
+/* ssize_t-based buffer interface */
+typedef Py_ssize_t (*readbufferproc)(PyObject *, Py_ssize_t, void **);
+typedef Py_ssize_t (*writebufferproc)(PyObject *, Py_ssize_t, void **);
+typedef Py_ssize_t (*segcountproc)(PyObject *, Py_ssize_t *);
+typedef Py_ssize_t (*charbufferproc)(PyObject *, Py_ssize_t, char **);
 
 /* Py3k buffer interface, adapted for PyPy */
 #define Py_MAX_NDIMS 32
