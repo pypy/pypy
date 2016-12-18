@@ -351,6 +351,9 @@ class AppTestImport:
         o = __import__('sys', [], [], ['']) # CPython accepts this
         assert sys == o
 
+    def test_import_fromlist_must_not_contain_unicodes(self):
+        raises(TypeError, __import__, 'encodings', None, None, [u'xxx'])
+
     def test_import_relative_back_to_absolute2(self):
         from pkg import abs_x_y
         import sys
