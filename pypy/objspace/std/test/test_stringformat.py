@@ -164,7 +164,7 @@ class AppTestStringObject:
 
         class SubLong2(long):
             def __str__(self):
-                return 'Xx'
+                return extra_stuff + 'Xx'
             def __hex__(self):
                 return extra_stuff + '0xYy' + extra_tail
             def __oct__(self):
@@ -174,15 +174,16 @@ class AppTestStringObject:
             def __long__(self):
                 assert False, "not called"
         sl = SubLong2(123)
-        extra_stuff = ''
-        for extra_tail in ['', 'l', 'L']:
-            x = '%i' % sl
-            assert x == 'Xx'
-            assert '%u' % sl == 'Xx'
-            assert '%d' % sl == 'Xx'
-            assert '%x' % sl == ('Yyl' if extra_tail == 'l' else 'Yy')
-            assert '%X' % sl == ('YYL' if extra_tail == 'l' else 'YY')
-            assert '%o' % sl == ('Zzl' if extra_tail == 'l' else 'Zz')
+        for extra_stuff in ['', '-']:
+            for extra_tail in ['', 'l', 'L']:
+                m = extra_stuff
+                x = '%i' % sl
+                assert x == m+'Xx'
+                assert '%u' % sl == m+'Xx'
+                assert '%d' % sl == m+'Xx'
+                assert '%x' % sl == m+('Yyl' if extra_tail == 'l' else 'Yy')
+                assert '%X' % sl == m+('YYL' if extra_tail == 'l' else 'YY')
+                assert '%o' % sl == m+('Zzl' if extra_tail == 'l' else 'Zz')
         extra_stuff = '??'
         raises(ValueError, "'%x' % sl")
         raises(ValueError, "'%X' % sl")
