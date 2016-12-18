@@ -3,6 +3,7 @@ from cffi import api, model
 from cffi.commontypes import COMMON_TYPES, resolve_common_type
 import pycparser
 import weakref, re
+from rpython.rlib.rfile import FILEP
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rfficache, rffi_platform
 
@@ -644,7 +645,7 @@ class Parser(object):
 CNAME_TO_LLTYPE = {
     'char': rffi.CHAR,
     'double': rffi.DOUBLE, 'long double': rffi.LONGDOUBLE,
-    'float': rffi.FLOAT}
+    'float': rffi.FLOAT, 'FILE': FILEP.TO}
 
 def add_inttypes():
     for name in rffi.TYPES:
@@ -702,6 +703,8 @@ class ParsedSource(object):
         self.macros[name] = value
 
     def new_struct(self, obj):
+        if obj.name == '_IO_FILE':  # cffi weirdness
+            return cname_to_lltype('FILE')
         struct = DelayedStruct(obj.name, None, lltype.ForwardReference())
         # Cache it early, to avoid infinite recursion
         self.structs[obj] = struct
