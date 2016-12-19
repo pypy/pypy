@@ -64,3 +64,7 @@ typedef dict, the test exposed a problem converting a ``GetSetProperty`` to a
 ``PyGetSetDescrObject``. The other direction seem to be fully implemented.
 This branch made a minimal effort to convert the basic fields to avoid
 segfaults, but trying to use the ``PyGetSetDescrObject`` will probably fail.
+
+.. branch: stdlib-2.7.13
+
+Updated the implementation to match CPython 2.7.13 instead of 2.7.13.
