@@ -20,16 +20,16 @@ class TestMemoryViewObject(BaseApiTest):
     def test_frombuffer(self, space, api):
         w_buf = space.newbuffer(StringBuffer("hello"))
         w_memoryview = api.PyMemoryView_FromObject(w_buf)
-        w_view = api.PyMemoryView_GET_BUFFER(w_memoryview)
-        assert w_view.c_ndim == 1
-        f = rffi.charp2str(w_view.c_format)
+        view = api.PyMemoryView_GET_BUFFER(w_memoryview)
+        assert view.c_ndim == 1
+        f = rffi.charp2str(view.c_format)
         assert f == 'B'
-        assert w_view.c_shape[0] == 5
-        assert w_view.c_strides[0] == 1
-        assert w_view.c_len == 5
-        o = rffi.charp2str(w_view.c_buf)
+        assert view.c_shape[0] == 5
+        assert view.c_strides[0] == 1
+        assert view.c_len == 5
+        o = rffi.charp2str(view.c_buf)
         assert o == 'hello'
-        w_mv = api.PyMemoryView_FromBuffer(w_view)
+        w_mv = api.PyMemoryView_FromBuffer(view)
         for f in ('format', 'itemsize', 'ndim', 'readonly', 
                   'shape', 'strides', 'suboffsets'):
             w_f = space.wrap(f)

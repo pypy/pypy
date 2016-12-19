@@ -356,7 +356,7 @@ class CPyBuffer(Buffer):
             with lltype.scoped_alloc(Py_buffer) as pybuf:
                 pybuf.c_buf = self.ptr
                 pybuf.c_len = self.size
-                pybuf.c_ndim = rffi.cast(rffi.INT, self.ndim)
+                pybuf.c_ndim = rffi.cast(rffi.INT_real, self.ndim)
                 for i in range(self.ndim):
                     pybuf.c_shape[i] = self.shape[i]
                     pybuf.c_strides[i] = self.strides[i]
