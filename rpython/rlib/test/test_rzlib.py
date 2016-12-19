@@ -278,20 +278,29 @@ def test_zlibVersion():
 def test_translate_and_large_input():
     from rpython.translator.c.test.test_genc import compile
 
-    def f(i):
+    def f(i, check):
         bytes = "s" * i
-        for j in range(3):
-            stream = rzlib.deflateInit()
-            bytes = rzlib.compress(stream, bytes, rzlib.Z_FINISH)
-            rzlib.deflateEnd(stream)
-        return bytes
+        if check == 1:
+            for j in range(3):
+                stream = rzlib.deflateInit()
+                bytes = rzlib.compress(stream, bytes, rzlib.Z_FINISH)
+                rzlib.deflateEnd(stream)
+            return bytes
+        if check == 2:
+            return str(rzlib.adler32(bytes))
+        if check == 3:
+            return str(rzlib.crc32(bytes))
+        return '?'
 
-    fc = compile(f, [int])
+    fc = compile(f, [int, int])
 
     test_list = [1, 2, 3, 5, 8, 87, 876, 8765, 87654, 876543, 8765432,
                  127329129]       # up to ~128MB
     if sys.maxint > 2**32:
-        test_list.append(2971215073)    # 3GB (greater than INPUT_BUFFER_MAX)
+        test_list.append(4305704715)    # 4.01GB
+        # XXX should we have a way to say "I don't have enough RAM,
+        # don't run this"?
+
     for a in test_list:
         print 'Testing compression of "s" * %d' % a
         z = zlib.compressobj()
@@ -306,4 +315,17 @@ def test_translate_and_large_input():
         del pieces
         expected = zlib.compress(expected)
         expected = zlib.compress(expected)
-        assert fc(a) == expected
+        assert fc(a, 1) == expected
+
+        print 'Testing adler32 and crc32 of "s" * %d' % a
+        def compute(function, start):
+            count = a
+            while count > 0:
+                count1 = min(count, 1024*1024)
+                start = function("s" * count1, start)
+                count -= count1
+            return start
+        expected_adler32 = compute(zlib.adler32, 1) & (2**32-1)
+        expected_crc32 = compute(zlib.crc32, 0) & (2**32-1)
+        assert fc(a, 2) == str(expected_adler32)
+        assert fc(a, 3) == str(expected_crc32)

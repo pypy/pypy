@@ -172,6 +172,18 @@ _zlibVersion = zlib_external('zlibVersion', [], rffi.CCHARP)
 
 # ____________________________________________________________
 
+def _crc_or_adler(string, start, function):
+    with rffi.scoped_nonmovingbuffer(string) as bytes:
+        remaining = len(string)
+        checksum = start
+        ptr = rffi.cast(Bytefp, bytes)
+        while remaining > 0:
+            count = min(remaining, 32*1024*1024)
+            checksum = function(checksum, ptr, count)
+            ptr = rffi.ptradd(ptr, count)
+            remaining -= count
+    return checksum
+
 CRC32_DEFAULT_START = 0
 
 def crc32(string, start=CRC32_DEFAULT_START):
@@ -179,12 +191,17 @@ def crc32(string, start=CRC32_DEFAULT_START):
     Compute the CRC32 checksum of the string, possibly with the given
     start value, and return it as a unsigned 32 bit integer.
     """
-    with rffi.scoped_nonmovingbuffer(string) as bytes:
-        checksum = _crc32(start, rffi.cast(Bytefp, bytes), len(string))
-    return checksum
-
+    return _crc_or_adler(string, start, _crc32)
 
 ADLER32_DEFAULT_START = 1
+
+def adler32(string, start=ADLER32_DEFAULT_START):
+    """
+    Compute the Adler-32 checksum of the string, possibly with the given
+    start value, and return it as a unsigned 32 bit integer.
+    """
+    return _crc_or_adler(string, start, _adler32)
+
 
 def deflateSetDictionary(stream, string):
     with rffi.scoped_nonmovingbuffer(string) as buf:
@@ -199,16 +216,6 @@ def inflateSetDictionary(stream, string):
         raise RZlibError("Parameter is invalid or the stream state is inconsistent")
     elif err == Z_DATA_ERROR:
         raise RZlibError("The given dictionary doesn't match the expected one")
-
-    
-def adler32(string, start=ADLER32_DEFAULT_START):
-    """
-    Compute the Adler-32 checksum of the string, possibly with the given
-    start value, and return it as a unsigned 32 bit integer.
-    """
-    with rffi.scoped_nonmovingbuffer(string) as bytes:
-        checksum = _adler32(start, rffi.cast(Bytefp, bytes), len(string))
-    return checksum
 
 def zlibVersion():
     """Return the runtime version of zlib library"""
