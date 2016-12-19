@@ -8,6 +8,8 @@ class AppTestSSL:
     def setup_class(cls):
         cls.w_nullbytecert = cls.space.wrap(os.path.join(
             os.path.dirname(__file__), 'nullbytecert.pem'))
+        cls.w_allsans = cls.space.wrap(os.path.join(
+            os.path.dirname(__file__), 'allsans.pem'))
 
     def test_init_module(self):
         import _ssl
@@ -121,6 +123,10 @@ class AppTestSSL:
              ('IP Address', '192.0.2.1'),
              ('IP Address', '2001:DB8:0:0:0:0:0:1\n'))
 
+    def test_decode_all_sans(self):
+        import _ssl
+        _ssl._test_decode_cert(self.allsans)
+
     def test_context(self):
         import _ssl
         s = _ssl._SSLContext(_ssl.PROTOCOL_TLS)
@@ -212,6 +218,7 @@ class AppTestConnectedSSL:
         ss.write("hello\n")
         data = ss.read(10)
         assert isinstance(data, str)
+        assert ss.read(0) == ''
         self.s.close()
         del ss; gc.collect()
 

@@ -135,7 +135,6 @@ class AppTestZlib(object):
         """
         decompressor = self.zlib.decompressobj()
         bytes = decompressor.decompress(self.compressed)
-        raises(OverflowError, decompressor.flush, 2**31)
         bytes += decompressor.flush()
         assert bytes == self.expanded
 
@@ -165,10 +164,8 @@ class AppTestZlib(object):
         raises(ValueError, zlib.decompressobj().flush, 0)
         raises(ValueError, zlib.decompressobj().flush, -1)
         raises(TypeError, zlib.decompressobj().flush, None)
-        raises(OverflowError, zlib.decompressobj().flush, 2**31)
         raises(ValueError, zlib.decompressobj().decompress, b'abc', -1)
         raises(TypeError, zlib.decompressobj().decompress, b'abc', None)
-        raises(OverflowError, zlib.decompressobj().decompress, b'abc', 2**31)
         raises(TypeError, self.zlib.decompress, self.compressed, None)
         raises(OverflowError, self.zlib.decompress, self.compressed, 2**31)
 
@@ -229,6 +226,14 @@ class AppTestZlib(object):
             assert s1 == self.expanded[i:i+10]
             data = d.unconsumed_tail
         assert not data
+
+    def test_max_length_large(self):
+        import sys
+        if sys.version_info < (2, 7, 13):
+            skip("passing a potentially 64-bit int as max_length is not "
+                 "supported before 2.7.13")
+        d = self.zlib.decompressobj()
+        assert d.decompress(self.compressed, sys.maxsize) == self.expanded
 
     def test_buffer(self):
         """
