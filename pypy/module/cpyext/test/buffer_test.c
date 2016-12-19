@@ -190,11 +190,18 @@ test_buffer(PyObject* self, PyObject* args)
 {
     Py_buffer* view = NULL;
     PyObject* obj = PyTuple_GetItem(args, 0);
+    int before_cnt = obj->ob_refcnt;
     PyObject* memoryview = PyMemoryView_FromObject(obj);
     if (memoryview == NULL)
         return PyInt_FromLong(-1);
     view = PyMemoryView_GET_BUFFER(memoryview);
     Py_DECREF(memoryview);
+    if (obj->ob_refcnt != before_cnt)
+    {
+        PyErr_SetString(PyExc_RuntimeError,
+            "leaking view->obj from PyMemoryView_GET_BUFFER");
+        return NULL;
+    }
     return PyInt_FromLong(view->len);
 }
 

@@ -173,5 +173,8 @@ def PyMemoryView_GET_BUFFER(space, w_obj):
         view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(space.str_w(w_s), track_allocation=False))
         rffi.setintfield(view, 'c_readonly', 1)
         isstr = True
+    # XXX leaks the view object and never decrefs the view.c_obj
+    #     In cpython the view is a field of the PyMemoryViewObject
+    #     and view.obj is decrefed in memory_dealloc
     return view
 
