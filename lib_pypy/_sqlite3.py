@@ -363,8 +363,11 @@ class Connection(object):
                 if cursor is not None:
                     cursor._reset = True
 
-    def _reset_all_statements(self):
-        self.__do_all_statements(Statement._reset, False)
+    def _reset_other_statements(self, excepted):
+        for weakref in self.__statements:
+            statement = weakref()
+            if statement is not None and statement is not excepted:
+                statement._reset()
 
     @_check_thread_wrap
     @_check_closed_wrap
@@ -836,7 +839,7 @@ class Cursor(object):
 
                 ret = _lib.sqlite3_step(self.__statement._statement)
                 if ret == _lib.SQLITE_LOCKED:
-                    self.__connection._reset_all_statements()
+                    self.__connection._reset_other_statements(self.__statement)
                     ret = _lib.sqlite3_step(self.__statement._statement)
 
                 if ret == _lib.SQLITE_ROW:
