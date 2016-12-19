@@ -1143,6 +1143,7 @@ _oplist = [
     'COPYSTRCONTENT/5/n',       # src, dst, srcstart, dststart, length
     'COPYUNICODECONTENT/5/n',
     'QUASIIMMUT_FIELD/1d/n',    # [objptr], descr=SlowMutateDescr
+    'ASSERT_NOT_NONE/1/n',      # [objptr]
     'RECORD_EXACT_CLASS/2/n',   # [objptr, clsptr]
     'KEEPALIVE/1/n',
     'SAVE_EXCEPTION/0/r',

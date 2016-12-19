@@ -213,10 +213,10 @@ class WeakValueDictionary(UserDict.UserDict):
         if o is None:
             if args:
                 return args[0]
-            raise KeyError, key
+            else:
+                raise KeyError, key
         else:
             return o
-        # The logic above was fixed in PyPy
 
     def setdefault(self, key, default=None):
         try:
@@ -230,7 +230,6 @@ class WeakValueDictionary(UserDict.UserDict):
             return default
         else:
             return o
-        # The logic above was fixed in PyPy
 
     def update(*args, **kwargs):
         if not args:

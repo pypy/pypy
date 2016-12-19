@@ -30,7 +30,7 @@ def init_frameobject(space):
                    dealloc=frame_dealloc,
                    realize=frame_realize)
 
-def frame_attach(space, py_obj, w_obj):
+def frame_attach(space, py_obj, w_obj, w_userdata=None):
     "Fills a newly allocated PyFrameObject with a frame object"
     frame = space.interp_w(PyFrame, w_obj)
     py_frame = rffi.cast(PyFrameObject, py_obj)

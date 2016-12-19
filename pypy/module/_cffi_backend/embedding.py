@@ -1,4 +1,5 @@
 import os
+from rpython.rlib import entrypoint
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
@@ -46,6 +47,8 @@ class Global:
 glob = Global()
 
 
+@entrypoint.entrypoint_highlevel('main', [rffi.INT, rffi.VOIDP],
+                                 c_name='pypy_init_embedded_cffi_module')
 def pypy_init_embedded_cffi_module(version, init_struct):
     # called from __init__.py
     name = "?"

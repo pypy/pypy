@@ -51,7 +51,7 @@ PyFunction_Check, PyFunction_CheckExact = build_type_checkers("Function", Functi
 PyMethod_Check, PyMethod_CheckExact = build_type_checkers("Method", Method)
 PyCode_Check, PyCode_CheckExact = build_type_checkers("Code", PyCode)
 
-def function_attach(space, py_obj, w_obj):
+def function_attach(space, py_obj, w_obj, w_userdata=None):
     py_func = rffi.cast(PyFunctionObject, py_obj)
     assert isinstance(w_obj, Function)
     py_func.c_func_name = make_ref(space, space.newtext(w_obj.name))
@@ -63,7 +63,7 @@ def function_dealloc(space, py_obj):
     from pypy.module.cpyext.object import _dealloc
     _dealloc(space, py_obj)
 
-def code_attach(space, py_obj, w_obj):
+def code_attach(space, py_obj, w_obj, w_userdata=None):
     py_code = rffi.cast(PyCodeObject, py_obj)
     assert isinstance(w_obj, PyCode)
     py_code.c_co_name = make_ref(space, space.newtext(w_obj.co_name))

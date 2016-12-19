@@ -24,7 +24,7 @@ def init_intobject(space):
                    attach=int_attach,
                    realize=int_realize)
 
-def int_attach(space, py_obj, w_obj):
+def int_attach(space, py_obj, w_obj, w_userdata=None):
     """
     Fills a newly allocated PyIntObject with the given int object. The
     value must not be modified.

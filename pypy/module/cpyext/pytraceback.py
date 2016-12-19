@@ -28,7 +28,7 @@ def init_traceback(space):
                    dealloc=traceback_dealloc)
 
 
-def traceback_attach(space, py_obj, w_obj):
+def traceback_attach(space, py_obj, w_obj, w_userdata=None):
     py_traceback = rffi.cast(PyTracebackObject, py_obj)
     traceback = space.interp_w(PyTraceback, w_obj)
     if traceback.next is None:

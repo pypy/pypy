@@ -66,7 +66,7 @@ class FakeSpace(ObjSpace):
     w_SystemExit = W_TypeObject("SystemExit")
     w_KeyboardInterrupt = W_TypeObject("KeyboardInterrupt")
     w_VisibleDeprecationWarning = W_TypeObject("VisibleDeprecationWarning")
-    w_None = None
+    w_None = W_Root()
 
     w_bool = W_TypeObject("bool")
     w_int = W_TypeObject("int")
