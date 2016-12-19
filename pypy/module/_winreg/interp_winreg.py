@@ -149,7 +149,7 @@ If you don't know whether a FlushKey() call is required, it probably isn't."""
         if ret != 0:
             raiseWindowsError(space, ret, 'RegFlushKey')
 
-@unwrap_spec(subkey=str, filename=str)
+@unwrap_spec(subkey="text", filename="text")
 def LoadKey(space, w_hkey, subkey, filename):
     """LoadKey(key, sub_key, file_name) - Creates a subkey under the specified key
 and stores registration information from a specified file into that subkey.
@@ -173,7 +173,7 @@ The docs imply key must be in the HKEY_USER or HKEY_LOCAL_MACHINE tree"""
     if ret != 0:
         raiseWindowsError(space, ret, 'RegLoadKey')
 
-@unwrap_spec(filename=str)
+@unwrap_spec(filename="text")
 def SaveKey(space, w_hkey, filename):
     """SaveKey(key, file_name) - Saves the specified key, and all its subkeys to the specified file.
 
@@ -192,7 +192,7 @@ This function passes NULL for security_attributes to the API."""
     if ret != 0:
         raiseWindowsError(space, ret, 'RegSaveKey')
 
-@unwrap_spec(typ=int, value=str)
+@unwrap_spec(typ=int, value="text")
 def SetValue(space, w_hkey, w_subkey, typ, value):
     """SetValue(key, sub_key, type, value) - Associates a value with a specified key.
 
@@ -388,7 +388,7 @@ def convert_from_regdata(space, buf, buflen, typ):
     else: # REG_BINARY and all other types
         return space.newbytes(rffi.charpsize2str(buf, buflen))
 
-@unwrap_spec(value_name=str, typ=int)
+@unwrap_spec(value_name="text", typ=int)
 def SetValueEx(space, w_hkey, value_name, w_reserved, typ, w_value):
     """SetValueEx(key, value_name, reserved, type, value) - Stores data in the value field of an open registry key.
 
@@ -469,7 +469,7 @@ value_name is a string indicating the value to query"""
                         space.newint(intmask(retType[0])),
                         ])
 
-@unwrap_spec(subkey=str)
+@unwrap_spec(subkey="text")
 def CreateKey(space, w_hkey, subkey):
     """key = CreateKey(key, sub_key) - Creates or opens the specified key.
 
@@ -489,7 +489,7 @@ If the function fails, an exception is raised."""
             raiseWindowsError(space, ret, 'CreateKey')
         return W_HKEY(space, rethkey[0])
 
-@unwrap_spec(subkey=str, res=int, sam=rffi.r_uint)
+@unwrap_spec(subkey="text", res=int, sam=rffi.r_uint)
 def CreateKeyEx(space, w_hkey, subkey, res=0, sam=rwinreg.KEY_WRITE):
     """key = CreateKey(key, sub_key) - Creates or opens the specified key.
 
@@ -511,7 +511,7 @@ If the function fails, an exception is raised."""
             raiseWindowsError(space, ret, 'CreateKeyEx')
         return W_HKEY(space, rethkey[0])
 
-@unwrap_spec(subkey=str)
+@unwrap_spec(subkey="text")
 def DeleteKey(space, w_hkey, subkey):
     """DeleteKey(key, sub_key) - Deletes the specified key.
 
@@ -528,7 +528,7 @@ is removed.  If the method fails, an EnvironmentError exception is raised."""
     if ret != 0:
         raiseWindowsError(space, ret, 'RegDeleteKey')
 
-@unwrap_spec(subkey=str)
+@unwrap_spec(subkey="text")
 def DeleteValue(space, w_hkey, subkey):
     """DeleteValue(key, value) - Removes a named value from a registry key.
 
@@ -539,7 +539,7 @@ value is a string that identifies the value to remove."""
     if ret != 0:
         raiseWindowsError(space, ret, 'RegDeleteValue')
 
-@unwrap_spec(subkey=str, res=int, sam=rffi.r_uint)
+@unwrap_spec(subkey="text", res=int, sam=rffi.r_uint)
 def OpenKey(space, w_hkey, subkey, res=0, sam=rwinreg.KEY_READ):
     """key = OpenKey(key, sub_key, res = 0, sam = KEY_READ) - Opens the specified key.
 
@@ -727,7 +727,7 @@ def QueryReflectionKey(space, w_key):
     raise oefmt(space.w_NotImplementedError,
                 "not implemented on this platform")
 
-@unwrap_spec(subkey=str)
+@unwrap_spec(subkey="text")
 def DeleteKeyEx(space, w_key, subkey):
     """DeleteKeyEx(key, sub_key, sam, res) - Deletes the specified key.
 
