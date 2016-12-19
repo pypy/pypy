@@ -37,6 +37,14 @@ class TestImport(BaseApiTest):
         stat = api.PyImport_ReloadModule(stat)
         assert space.getattr(stat, space.wrap("S_IMODE"))
 
+    def test_lock(self, space, api):
+        # "does not crash"
+        api._PyImport_AcquireLock()
+        api._PyImport_AcquireLock()
+        api._PyImport_ReleaseLock()
+        api._PyImport_ReleaseLock()
+
+
 class AppTestImportLogic(AppTestCpythonExtensionBase):
     def test_import_logic(self):
         import sys, os

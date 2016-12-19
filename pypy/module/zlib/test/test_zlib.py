@@ -132,7 +132,6 @@ class AppTestZlib(object):
         import sys
         decompressor = self.zlib.decompressobj()
         bytes = decompressor.decompress(self.compressed)
-        raises(OverflowError, decompressor.flush, sys.maxsize + 1)
         bytes += decompressor.flush()
         assert bytes == self.expanded
 
@@ -163,10 +162,8 @@ class AppTestZlib(object):
         raises(ValueError, zlib.decompressobj().flush, 0)
         raises(ValueError, zlib.decompressobj().flush, -1)
         raises(TypeError, zlib.decompressobj().flush, None)
-        raises(OverflowError, zlib.decompressobj().flush, BIG)
         raises(ValueError, zlib.decompressobj().decompress, b'abc', -1)
         raises(TypeError, zlib.decompressobj().decompress, b'abc', None)
-        raises(OverflowError, zlib.decompressobj().decompress, b'abc', BIG)
         raises(TypeError, self.zlib.decompress, self.compressed, None)
         raises(OverflowError, self.zlib.decompress, self.compressed, BIG)
 
@@ -249,6 +246,11 @@ class AppTestZlib(object):
             assert s1 == self.expanded[i:i+10]
             data = d.unconsumed_tail
         assert not data
+
+    def test_max_length_large(self):
+        import sys
+        d = self.zlib.decompressobj()
+        assert d.decompress(self.compressed, sys.maxsize) == self.expanded
 
     def test_buffer(self):
         """

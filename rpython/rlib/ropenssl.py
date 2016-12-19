@@ -55,6 +55,7 @@ eci = ExternalCompilationInfo(
         # Unnamed structures are not supported by rffi_platform.
         # So we replace an attribute access with a macro call.
         '#define pypy_GENERAL_NAME_dirn(name) (name->d.dirn)',
+        '#define pypy_GENERAL_NAME_rid(name) (name->d.rid)',
         '#define pypy_GENERAL_NAME_uri(name) (name->d.uniformResourceIdentifier)',
         '#define pypy_GENERAL_NAME_pop_free(names) (sk_GENERAL_NAME_pop_free(names, GENERAL_NAME_free))',
         '#define pypy_DIST_POINT_fullname(obj) (obj->distpoint->name.fullname)',
@@ -436,6 +437,7 @@ ssl_external('ASN1_STRING_to_UTF8', [rffi.CCHARPP, ASN1_STRING], rffi.INT,
              save_err=SAVE_ERR)
 ssl_external('ASN1_TIME_print', [BIO, ASN1_TIME], rffi.INT)
 ssl_external('i2a_ASN1_INTEGER', [BIO, ASN1_INTEGER], rffi.INT)
+ssl_external('i2t_ASN1_OBJECT', [rffi.CCHARP, rffi.INT, ASN1_OBJECT], rffi.INT)
 ssl_external('ASN1_item_d2i',
              [rffi.VOIDP, rffi.CCHARPP, rffi.LONG, ASN1_ITEM], rffi.VOIDP)
 ssl_external('ASN1_ITEM_ptr', [ASN1_ITEM_EXP], ASN1_ITEM, macro=True)
@@ -474,6 +476,8 @@ ssl_external('AUTHORITY_INFO_ACCESS_free', [AUTHORITY_INFO_ACCESS], lltype.Void)
 
 ssl_external('GENERAL_NAME_print', [BIO, GENERAL_NAME], rffi.INT)
 ssl_external('pypy_GENERAL_NAME_dirn', [GENERAL_NAME], X509_NAME,
+             macro=True)
+ssl_external('pypy_GENERAL_NAME_rid', [GENERAL_NAME], ASN1_OBJECT,
              macro=True)
 
 ssl_external('pypy_GENERAL_NAME_uri', [GENERAL_NAME], ASN1_IA5STRING,

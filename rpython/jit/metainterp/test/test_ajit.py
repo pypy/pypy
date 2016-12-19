@@ -3510,6 +3510,7 @@ class BaseLLtypeTests(BasicTests):
         self.check_resops(call_f=1)
 
     def test_look_inside_iff_virtual(self):
+        from rpython.rlib.debug import ll_assert_not_none
         # There's no good reason for this to be look_inside_iff, but it's a test!
         @look_inside_iff(lambda arg, n: isvirtual(arg))
         def f(arg, n):
@@ -3529,7 +3530,7 @@ class BaseLLtypeTests(BasicTests):
                 if n == 0:
                     i += f(a, n)
                 else:
-                    i += f(A(2), n)
+                    i += f(ll_assert_not_none(A(2)), n)
         res = self.meta_interp(main, [0], enable_opts='')
         assert res == main(0)
         self.check_resops(call_i=1, getfield_gc_i=0)
@@ -4585,3 +4586,30 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         assert res == -42
         res = self.interp_operations(f, [0, 200])
         assert res == 205
+
+    def test_ll_assert_not_none(self):
+        # the presence of ll_assert_not_none(), even in cases where it
+        # doesn't influence the annotation, is a hint for the JIT
+        from rpython.rlib.debug import ll_assert_not_none
+        class X:
+            pass
+        class Y(X):
+            pass
+        def g(x, check):
+            if check:
+                x = ll_assert_not_none(x)
+            return isinstance(x, Y)
+        @dont_look_inside
+        def make(i):
+            if i == 1:
+                return X()
+            if i == 2:
+                return Y()
+            return None
+        def f(a, b, check):
+            return g(make(a), check) + g(make(b), check) * 10
+        res = self.interp_operations(f, [1, 2, 1])
+        assert res == 10
+        self.check_operations_history(guard_nonnull=0, guard_nonnull_class=0,
+                                      guard_class=2,
+                                      assert_not_none=2) # before optimization

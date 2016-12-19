@@ -73,6 +73,7 @@ import pypy.module.cpyext.pyfile
 import pypy.module.cpyext.pystrtod
 import pypy.module.cpyext.pytraceback
 import pypy.module.cpyext.methodobject
+import pypy.module.cpyext.dictproxyobject
 
 # now that all rffi_platform.Struct types are registered, configure them
 api.configure_types()
