@@ -8,7 +8,6 @@ from rpython.rlib.objectmodel import keepalive_until_here
 
 from rpython.rlib import rzlib
 
-UINT_MAX = 2**32-1
 
 @unwrap_spec(string='bufferstr', start='truncatedint_w')
 def crc32(space, string, start = rzlib.CRC32_DEFAULT_START):
@@ -52,8 +51,6 @@ def compress(space, string, level=rzlib.Z_DEFAULT_COMPRESSION):
 
     Optional arg level is the compression level, in 1-9.
     """
-    if len(string) > UINT_MAX:
-        raise oefmt(space.w_OverflowError, "Size does not fit in an unsigned int")
     try:
         try:
             stream = rzlib.deflateInit(level)
@@ -76,8 +73,6 @@ def decompress(space, string, wbits=rzlib.MAX_WBITS, bufsize=0):
     Optional arg wbits is the window buffer size.  Optional arg bufsize is
     only for compatibility with CPython and is ignored.
     """
-    if len(string) > UINT_MAX:
-        raise oefmt(space.w_OverflowError, "Size does not fit in an unsigned int")
     try:
         try:
             stream = rzlib.inflateInit(wbits)
@@ -152,8 +147,6 @@ class Compress(ZLibObject):
 
         Call the flush() method to clear these buffers.
         """
-        if len(data) > UINT_MAX:
-            raise oefmt(space.w_OverflowError, "Size does not fit in an unsigned int")
         try:
             self.lock()
             try:
@@ -284,12 +277,10 @@ class Decompress(ZLibObject):
         unconsumed_tail attribute.
         """
         if max_length == 0:
-            max_length = UINT_MAX
+            max_length = sys.maxint
         elif max_length < 0:
             raise oefmt(space.w_ValueError,
                         "max_length must be greater than zero")
-        elif len(data) > UINT_MAX:
-            raise oefmt(space.w_OverflowError, "Size does not fit in an unsigned int")
         try:
             self.lock()
             try:
