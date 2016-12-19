@@ -3,7 +3,7 @@
 Tests for the rzlib module.
 """
 
-import py
+import py, sys
 from rpython.rlib import rzlib
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib import clibffi # for side effect of testing lib_c_name on win32
@@ -274,3 +274,36 @@ def test_cornercases():
 def test_zlibVersion():
     runtime_version = rzlib.zlibVersion()
     assert runtime_version[0] == rzlib.ZLIB_VERSION[0]
+
+def test_translate_and_large_input():
+    from rpython.translator.c.test.test_genc import compile
+
+    def f(i):
+        bytes = "s" * i
+        for j in range(3):
+            stream = rzlib.deflateInit()
+            bytes = rzlib.compress(stream, bytes, rzlib.Z_FINISH)
+            rzlib.deflateEnd(stream)
+        return bytes
+
+    fc = compile(f, [int])
+
+    test_list = [1, 2, 3, 5, 8, 87, 876, 8765, 87654, 876543, 8765432,
+                 127329129]       # up to ~128MB
+    if sys.maxint > 2**32:
+        test_list.append(2971215073)    # 3GB (greater than INPUT_BUFFER_MAX)
+    for a in test_list:
+        print 'Testing compression of "s" * %d' % a
+        z = zlib.compressobj()
+        count = a
+        pieces = []
+        while count > 1024*1024:
+            pieces.append(z.compress("s" * (1024*1024)))
+            count -= 1024*1024
+        pieces.append(z.compress("s" * count))
+        pieces.append(z.flush(zlib.Z_FINISH))
+        expected = ''.join(pieces)
+        del pieces
+        expected = zlib.compress(expected)
+        expected = zlib.compress(expected)
+        assert fc(a) == expected
