@@ -196,14 +196,14 @@ def descr__str__(space, w_obj):
 
 @unwrap_spec(proto=int)
 def descr__reduce__(space, w_obj, proto=0):
-    w_proto = space.wrap(proto)
+    w_proto = space.newint(proto)
     if proto >= 2:
         return reduce_2(space, w_obj, w_proto)
     return reduce_1(space, w_obj, w_proto)
 
 @unwrap_spec(proto=int)
 def descr__reduce_ex__(space, w_obj, proto=0):
-    w_st_reduce = space.wrap('__reduce__')
+    w_st_reduce = space.newtext('__reduce__')
     w_reduce = space.findattr(w_obj, w_st_reduce)
     if w_reduce is not None:
         # Check if __reduce__ has been overridden:

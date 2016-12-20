@@ -314,6 +314,10 @@ class StdObjSpace(ObjSpace):
     def newlist_bytes(self, list_s):
         return W_ListObject.newlist_bytes(self, list_s)
 
+    def newlist_text(self, list_t):
+        # XXX improve!
+        return self.newlist([self.newtext(t) for t in list_t])
+
     def newlist_unicode(self, list_u):
         return W_ListObject.newlist_unicode(self, list_u)
 
@@ -354,15 +358,17 @@ class StdObjSpace(ObjSpace):
         return W_MemoryView(w_obj)
 
     def newbytes(self, s):
+        assert isinstance(s, str)
         return W_BytesObject(s)
 
     def newbytearray(self, l):
         return W_BytearrayObject(l)
 
-    def newutf8(self, string):
-        return self.newunicode(decode_utf8(self, string))
+    def newtext(self, s):
+        return self.newunicode(decode_utf8(self, s, allow_surrogates=True))
 
     def newunicode(self, uni):
+        assert isinstance(uni, unicode)
         return W_UnicodeObject(uni)
 
     def type(self, w_obj):

@@ -32,9 +32,9 @@ def debug(msg):
 
 def create_entry_point(space, w_dict):
     if w_dict is not None: # for tests
-        w_entry_point = space.getitem(w_dict, space.wrap('entry_point'))
-        w_run_toplevel = space.getitem(w_dict, space.wrap('run_toplevel'))
-        w_initstdio = space.getitem(w_dict, space.wrap('initstdio'))
+        w_entry_point = space.getitem(w_dict, space.newtext('entry_point'))
+        w_run_toplevel = space.getitem(w_dict, space.newtext('run_toplevel'))
+        w_initstdio = space.getitem(w_dict, space.newtext('initstdio'))
         withjit = space.config.objspace.usemodules.pypyjit
     else:
         w_initstdio = space.appexec([], """():
@@ -182,11 +182,11 @@ def get_additional_entrypoints(space, w_initstdio):
     def _pypy_execute_source(source, c_argument):
         try:
             w_globals = space.newdict(module=True)
-            space.setitem(w_globals, space.wrap('__builtins__'),
+            space.setitem(w_globals, space.newtext('__builtins__'),
                           space.builtin_modules['builtins'])
-            space.setitem(w_globals, space.wrap('c_argument'),
-                          space.wrap(c_argument))
-            space.appexec([space.wrap(source), w_globals], """(src, glob):
+            space.setitem(w_globals, space.newtext('c_argument'),
+                          space.newbytes(c_argument))
+            space.appexec([space.newtext(source), w_globals], """(src, glob):
                 import sys
                 stmt = compile(src, 'c callback', 'exec')
                 if not hasattr(sys, '_pypy_execute_source'):
@@ -322,7 +322,7 @@ class PyPyTarget(object):
         # obscure hack to stuff the translation options into the translated PyPy
         import pypy.module.sys
         options = make_dict(config)
-        wrapstr = 'space.wrap(%r)' % (options)
+        wrapstr = 'space.newtext(%r)' % (options)
         pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
         if config.objspace.usemodules._cffi_backend:
             self.hack_for_cffi_modules(driver)

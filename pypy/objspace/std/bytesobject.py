@@ -45,7 +45,7 @@ class W_AbstractBytesObject(W_Root):
             else:
                 base = 256           # empty string: base value 256
             uid = (base << IDTAG_SHIFT) | IDTAG_SPECIAL
-        return space.wrap(uid)
+        return space.newint(uid)
 
     def descr_add(self, space, w_other):
         """x.__add__(y) <==> x+y"""
@@ -441,7 +441,7 @@ class W_BytesObject(W_AbstractBytesObject):
             raise oefmt(space.w_TypeError,
                         "ord() expected a character, but bytes of length %d "
                         "found", len(self._value))
-        return space.wrap(ord(self._value[0]))
+        return space.newint(ord(self._value[0]))
 
     def _new(self, value):
         return W_BytesObject(value)
@@ -574,7 +574,7 @@ class W_BytesObject(W_AbstractBytesObject):
         return W_BytesObject(bytes)
 
     def descr_repr(self, space):
-        return space.wrap(string_escape_encode(self._value, True))
+        return space.newtext(string_escape_encode(self._value, True))
 
     def descr_str(self, space):
         if space.sys.get_flag('bytes_warning'):
@@ -584,7 +584,7 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def descr_hash(self, space):
         x = compute_hash(self._value)
-        return space.wrap(x)
+        return space.newint(x)
 
     def descr_eq(self, space, w_other):
         if space.config.objspace.std.withstrbuf:

@@ -138,6 +138,6 @@ def call_method_opt(space, w_obj, methname, *arg_w):
                 # fast method path: a function object in the class,
                 # nothing in the instance
                 return space.call_function(w_descr, w_obj, *arg_w)
-    w_name = space.wrap(methname)
+    w_name = space.newtext(methname)
     w_meth = space.getattr(w_obj, w_name)
     return space.call_function(w_meth, *arg_w)

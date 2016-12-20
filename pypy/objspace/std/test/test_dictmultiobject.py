@@ -1148,6 +1148,7 @@ class FakeSpace:
             return string.encode('utf-8')
         assert isinstance(string, str)
         return string
+    bytes_w = str_w
 
     def bytes_w(self, string):
         assert isinstance(string, str)
@@ -1165,6 +1166,7 @@ class FakeSpace:
         if isinstance(obj, str):
             return obj.decode('ascii')
         return obj
+    newtext = newbytes = wrap
 
     def newbytes(self, obj):
         return obj

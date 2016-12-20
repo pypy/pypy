@@ -74,7 +74,7 @@ class W_UnicodeObject(W_Root):
             else:
                 base = 257       # empty unicode string: base value 257
             uid = (base << IDTAG_SHIFT) | IDTAG_SPECIAL
-        return space.wrap(uid)
+        return space.newint(uid)
 
     def unicode_w(self, space):
         return self._value
@@ -116,7 +116,7 @@ class W_UnicodeObject(W_Root):
             raise oefmt(space.w_TypeError,
                          "ord() expected a character, but string of length %d "
                          "found", len(self._value))
-        return space.wrap(ord(self._value[0]))
+        return space.newint(ord(self._value[0]))
 
     def _new(self, value):
         return W_UnicodeObject(value)
@@ -327,7 +327,7 @@ class W_UnicodeObject(W_Root):
         chars = self._value
         size = len(chars)
         s = _repr_function(chars, size, "strict")
-        return space.wrap(s)
+        return space.newtext(s)
 
     def descr_str(self, space):
         if space.is_w(space.type(self), space.w_unicode):
@@ -337,7 +337,7 @@ class W_UnicodeObject(W_Root):
 
     def descr_hash(self, space):
         x = compute_hash(self._value)
-        return space.wrap(x)
+        return space.newint(x)
 
     def descr_eq(self, space, w_other):
         try:
@@ -426,11 +426,11 @@ class W_UnicodeObject(W_Root):
         selfvalue = self._value
         w_sys = space.getbuiltinmodule('sys')
         maxunicode = space.int_w(space.getattr(w_sys,
-                                               space.wrap("maxunicode")))
+                                               space.newtext("maxunicode")))
         result = []
         for unichar in selfvalue:
             try:
-                w_newval = space.getitem(w_table, space.wrap(ord(unichar)))
+                w_newval = space.getitem(w_table, space.newint(ord(unichar)))
             except OperationError as e:
                 if e.match(space, space.w_LookupError):
                     result.append(unichar)
@@ -464,8 +464,8 @@ class W_UnicodeObject(W_Root):
         l = space.listview_unicode(w_list)
         if l is not None:
             if len(l) == 1:
-                return space.wrap(l[0])
-            return space.wrap(self._val(space).join(l))
+                return space.newunicode(l[0])
+            return space.newunicode(self._val(space).join(l))
         return self._StringMethods_descr_join(space, w_list)
 
     def _join_return_one(self, space, w_obj):
@@ -600,11 +600,11 @@ def encode_object(space, w_object, encoding, errors):
 def wrap_encode_error(space, ue):
     raise OperationError(space.w_UnicodeEncodeError,
                          space.newtuple([
-        space.wrap(ue.encoding),
-        space.wrap(ue.object),
-        space.wrap(ue.start),
-        space.wrap(ue.end),
-        space.wrap(ue.reason)]))
+        space.newtext(ue.encoding),
+        space.newbytes(ue.object),
+        space.newint(ue.start),
+        space.newint(ue.end),
+        space.newtext(ue.reason)]))
 
 
 def decode_object(space, w_obj, encoding, errors):
@@ -620,11 +620,11 @@ def decode_object(space, w_obj, encoding, errors):
                 eh = unicodehelper.decode_error_handler(space)
                 u = str_decode_ascii(     # try again, to get the error right
                     s, len(s), None, final=True, errorhandler=eh)[0]
-            return space.wrap(u)
+            return space.newunicode(u)
         if encoding == 'utf-8':
             s = space.charbuf_w(w_obj)
             eh = unicodehelper.decode_error_handler(space)
-            return space.wrap(str_decode_utf_8(
+            return space.newunicode(str_decode_utf_8(
                     s, len(s), None, final=True, errorhandler=eh)[0])
 
     from pypy.module._codecs.interp_codecs import decode_text

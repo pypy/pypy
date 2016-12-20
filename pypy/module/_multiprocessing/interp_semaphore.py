@@ -445,7 +445,7 @@ class W_SemLock(W_Root):
     def name_get(self, space):
         if self.name is None:
             return space.w_None
-        return space.newutf8(self.name)
+        return space.newtext(self.name)
 
     def kind_get(self, space):
         return space.newint(self.kind)

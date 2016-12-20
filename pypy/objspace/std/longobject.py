@@ -47,7 +47,7 @@ class W_AbstractLongObject(W_AbstractIntObject):
     def descr_bit_length(self, space):
         bigint = space.bigint_w(self)
         try:
-            return space.wrap(bigint.bit_length())
+            return space.newint(bigint.bit_length())
         except OverflowError:
             raise oefmt(space.w_OverflowError, "too many digits in integer")
 
@@ -75,7 +75,7 @@ class W_AbstractLongObject(W_AbstractIntObject):
                                        newformat.LONG_KIND)
 
     def descr_hash(self, space):
-        return space.wrap(_hash_long(space, self.asbigint()))
+        return space.newint(_hash_long(space, self.asbigint()))
 
     def descr_str(self, space):
         return space.wrap(self.asbigint().str())

@@ -159,8 +159,8 @@ def unpackcomplex(space, w_complex):
     # no '__complex__' method, so we assume it is a float,
     # unless it is an instance of some subclass of complex.
     if space.isinstance_w(w_complex, space.gettypefor(W_ComplexObject)):
-        real = space.float(space.getattr(w_complex, space.wrap("real")))
-        imag = space.float(space.getattr(w_complex, space.wrap("imag")))
+        real = space.float(space.getattr(w_complex, space.newtext("real")))
+        imag = space.float(space.getattr(w_complex, space.newtext("imag")))
         return (space.float_w(real), space.float_w(imag))
     #
     # Check that it is not a string (on which space.float() would succeed).
@@ -231,10 +231,10 @@ class W_ComplexObject(W_Root):
             return False
         if self.user_overridden_class or w_other.user_overridden_class:
             return self is w_other
-        real1 = space.float_w(space.getattr(self, space.wrap("real")))
-        real2 = space.float_w(space.getattr(w_other, space.wrap("real")))
-        imag1 = space.float_w(space.getattr(self, space.wrap("imag")))
-        imag2 = space.float_w(space.getattr(w_other, space.wrap("imag")))
+        real1 = space.float_w(space.getattr(self, space.newtext("real")))
+        real2 = space.float_w(space.getattr(w_other, space.newtext("real")))
+        imag1 = space.float_w(space.getattr(self, space.newtext("imag")))
+        imag2 = space.float_w(space.getattr(w_other, space.newtext("imag")))
         real1 = float2longlong(real1)
         real2 = float2longlong(real2)
         imag1 = float2longlong(imag1)
@@ -247,8 +247,8 @@ class W_ComplexObject(W_Root):
         from rpython.rlib.longlong2float import float2longlong
         from pypy.objspace.std.util import IDTAG_COMPLEX as tag
         from pypy.objspace.std.util import IDTAG_SHIFT
-        real = space.float_w(space.getattr(self, space.wrap("real")))
-        imag = space.float_w(space.getattr(self, space.wrap("imag")))
+        real = space.float_w(space.getattr(self, space.newtext("real")))
+        imag = space.float_w(space.getattr(self, space.newtext("imag")))
         real_b = rbigint.fromrarith_int(float2longlong(real))
         imag_b = rbigint.fromrarith_int(r_ulonglong(float2longlong(imag)))
         val = real_b.lshift(64).or_(imag_b).lshift(IDTAG_SHIFT).int_or_(tag)
@@ -324,19 +324,19 @@ class W_ComplexObject(W_Root):
 
     def descr_repr(self, space):
         if self.realval == 0 and copysign(1., self.realval) == 1.:
-            return space.wrap(repr_format(self.imagval) + 'j')
+            return space.newtext(repr_format(self.imagval) + 'j')
         sign = (copysign(1., self.imagval) == 1. or
                 isnan(self.imagval)) and '+' or ''
-        return space.wrap('(' + repr_format(self.realval)
-                          + sign + repr_format(self.imagval) + 'j)')
+        return space.newtext('(' + repr_format(self.realval)
+                             + sign + repr_format(self.imagval) + 'j)')
 
     def descr_str(self, space):
         if self.realval == 0 and copysign(1., self.realval) == 1.:
-            return space.wrap(str_format(self.imagval) + 'j')
+            return space.newtext(str_format(self.imagval) + 'j')
         sign = (copysign(1., self.imagval) == 1. or
                 isnan(self.imagval)) and '+' or ''
-        return space.wrap('(' + str_format(self.realval)
-                          + sign + str_format(self.imagval) + 'j)')
+        return space.newtext('(' + str_format(self.realval)
+                             + sign + str_format(self.imagval) + 'j)')
 
     def descr_hash(self, space):
         hashreal = _hash_float(space, self.realval)
@@ -371,7 +371,7 @@ class W_ComplexObject(W_Root):
         try:
             return space.newfloat(math.hypot(self.realval, self.imagval))
         except OverflowError as e:
-            raise OperationError(space.w_OverflowError, space.wrap(str(e)))
+            raise OperationError(space.w_OverflowError, space.newtext(str(e)))
 
     def descr_eq(self, space, w_other):
         if isinstance(w_other, W_ComplexObject):
@@ -445,7 +445,7 @@ class W_ComplexObject(W_Root):
         try:
             return self.div(w_rhs)
         except ZeroDivisionError as e:
-            raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+            raise OperationError(space.w_ZeroDivisionError, space.newtext(str(e)))
 
     def descr_rtruediv(self, space, w_lhs):
         w_lhs = self._to_complex(space, w_lhs)
@@ -454,7 +454,7 @@ class W_ComplexObject(W_Root):
         try:
             return w_lhs.div(self)
         except ZeroDivisionError as e:
-            raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+            raise OperationError(space.w_ZeroDivisionError, space.newtext(str(e)))
 
     def descr_floordiv(self, space, w_rhs):
         raise oefmt(space.w_TypeError, "can't take floor of complex number.")

@@ -337,7 +337,7 @@ class DevolvedDictTerminator(Terminator):
             space = self.space
             w_dict = obj.getdict(space)
             try:
-                space.delitem(w_dict, space.wrap(name.decode('utf-8')))
+                space.delitem(w_dict, space.newtext(name))
             except OperationError as ex:
                 if not ex.match(space, space.w_KeyError):
                     raise
@@ -402,7 +402,7 @@ class PlainAttribute(AbstractAttribute):
     def materialize_r_dict(self, space, obj, dict_w):
         new_obj = self.back.materialize_r_dict(space, obj, dict_w)
         if self.index == DICT:
-            w_attr = space.wrap(self.name.decode('utf-8'))
+            w_attr = space.newtext(self.name)
             dict_w[w_attr] = obj._mapdict_read_storage(self.storageindex)
         else:
             self._copy_attr(obj, new_obj)
@@ -810,7 +810,7 @@ class MapDictStrategy(DictStrategy):
             raise KeyError
         key = curr.name
         w_value = self.getitem_str(w_dict, key)
-        w_key = self.space.wrap(key.decode('utf-8'))
+        w_key = self.space.newtext(key)
         self.delitem(w_dict, w_key)
         return (w_key, w_value)
 
@@ -867,7 +867,7 @@ class MapDictIteratorKeys(BaseKeyIterator):
         attrs = self.attrs
         if len(attrs) > 0:
             attr = attrs.pop()
-            w_attr = self.space.wrap(attr.decode('utf-8'))
+            w_attr = self.space.newtext(attr)
             return w_attr
         return None
 
@@ -904,7 +904,7 @@ class MapDictIteratorItems(BaseItemIterator):
         attrs = self.attrs
         if len(attrs) > 0:
             attr = attrs.pop()
-            w_attr = self.space.wrap(attr.decode('utf-8'))
+            w_attr = self.space.newtext(attr)
             return w_attr, self.w_obj.getdictvalue(self.space, attr)
         return None, None
 

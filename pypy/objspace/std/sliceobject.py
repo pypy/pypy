@@ -105,7 +105,7 @@ class W_SliceObject(W_Root):
         return w_obj
 
     def descr_repr(self, space):
-        return space.wrap("slice(%s, %s, %s)" % (
+        return space.newtext("slice(%s, %s, %s)" % (
             space.str_w(space.repr(self.w_start)),
             space.str_w(space.repr(self.w_stop)),
             space.str_w(space.repr(self.w_step))))

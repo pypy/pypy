@@ -73,7 +73,7 @@ class StringMethods(object):
         return chr(char)
 
     def descr_len(self, space):
-        return space.wrap(self._len())
+        return space.newint(self._len())
 
     def descr_iter(self, space):
         from pypy.objspace.std.iterobject import W_StringIterObject
@@ -188,7 +188,7 @@ class StringMethods(object):
         else:
             res = count(value, sub, start, end)
             assert res >= 0
-        return space.wrap(res)
+        return space.newint(res)
 
     def descr_decode(self, space, w_encoding=None, w_errors=None):
         from pypy.objspace.std.unicodeobject import (
@@ -257,7 +257,7 @@ class StringMethods(object):
             res = find(value, sub, start, end)
         if ofs is not None and res >= 0:
             res -= ofs
-        return space.wrap(res)
+        return space.newint(res)
 
     def descr_rfind(self, space, w_sub, w_start=None, w_end=None):
         value, start, end, ofs = self._convert_idx_params(space, w_start, w_end)
@@ -269,7 +269,7 @@ class StringMethods(object):
             res = rfind(value, sub, start, end)
         if ofs is not None and res >= 0:
             res -= ofs
-        return space.wrap(res)
+        return space.newint(res)
 
     def descr_index(self, space, w_sub, w_start=None, w_end=None):
         value, start, end, ofs = self._convert_idx_params(space, w_start, w_end)
@@ -285,7 +285,7 @@ class StringMethods(object):
                         "substring not found in " + self._KIND2 + ".index")
         if ofs is not None:
             res -= ofs
-        return space.wrap(res)
+        return space.newint(res)
 
     def descr_rindex(self, space, w_sub, w_start=None, w_end=None):
         value, start, end, ofs = self._convert_idx_params(space, w_start, w_end)
@@ -301,7 +301,7 @@ class StringMethods(object):
                         "substring not found in " + self._KIND2 + ".rindex")
         if ofs is not None:
             res -= ofs
-        return space.wrap(res)
+        return space.newint(res)
 
     @specialize.arg(2)
     def _is_generic(self, space, func_name):

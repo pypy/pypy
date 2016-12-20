@@ -96,8 +96,8 @@ class W_Root(object):
     def getaddrstring(self, space):
         # slowish
         w_id = space.id(self)
-        w_4 = space.wrap(4)
-        w_0x0F = space.wrap(0x0F)
+        w_4 = space.newint(4)
+        w_0x0F = space.newint(0x0F)
         i = 2 * HUGEVAL_BYTES
         addrstring = [' '] * i
         while True:

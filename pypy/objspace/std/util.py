@@ -1,6 +1,6 @@
 from rpython.rlib.rstring import InvalidBaseError
 
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter import gateway
 
 IDTAG_SHIFT   = 4
@@ -53,12 +53,10 @@ def get_positive_index(where, length):
 
 def wrap_parsestringerror(space, e, w_source):
     if isinstance(e, InvalidBaseError):
-        w_msg = space.wrap(e.msg)
+        raise OperationError(space.w_ValueError, space.newtext(e.msg))
     else:
-        w_msg = space.wrap(u'%s: %s' % (unicode(e.msg),
-                                        space.unicode_w(space.repr(w_source))))
-    return OperationError(space.w_ValueError, w_msg)
-
+        raise oefmt(space.w_ValueError, '%s: %R',
+                            e.msg, w_source)
 
 app = gateway.applevel(r'''
     def _classdir(klass):
