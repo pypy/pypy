@@ -47,10 +47,10 @@ class _FieldsWrapper(W_Root):
     "Hack around the fact we can't store tuples on a TypeDef."
 
     def __init__(self, fields):
-        self.fields = fields
+        assert fields == []
 
     def __spacebind__(self, space):
-        return space.newtuple([space.wrap(field) for field in self.fields])
+        return space.newtuple([])
 
 
 class W_AST(W_Root):
