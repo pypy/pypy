@@ -1313,14 +1313,15 @@ c_memset = llexternal("memset",
             calling_conv='c',
         )
 
-class RawBytes(object):
-    # literal copy of _cffi_backend/func.py
-    def __init__(self, string):
-        self.ptr = str2charp(string, track_allocation=False)
-    def __del__(self):
-        free_charp(self.ptr, track_allocation=False)
 
 if not we_are_translated():
+    class RawBytes(object):
+        # literal copy of _cffi_backend/func.py
+        def __init__(self, string):
+            self.ptr = str2charp(string, track_allocation=False)
+        def __del__(self):
+            free_charp(self.ptr, track_allocation=False)
+
     TEST_RAW_ADDR_KEEP_ALIVE = {}
 
 @jit.dont_look_inside
@@ -1336,23 +1337,23 @@ def get_raw_address_of_string(string):
     referencing it goes out of scope.
     """
     assert isinstance(string, str)
-    from rpython.rtyper.annlowlevel import llstr, hlstr
+    from rpython.rtyper.annlowlevel import llstr
     from rpython.rtyper.lltypesystem.rstr import STR
     from rpython.rtyper.lltypesystem import llmemory
     from rpython.rlib import rgc
 
     if we_are_translated():
+        newstring = string
         if rgc.can_move(string):
-            # create a shadow object that is exposed
-            string = rgc.move_out_of_nursery(string)
+            newstring = rgc.move_out_of_nursery(string)
 
-        # string cannot move! just return the address then!
-        lldata = llstr(string)
+        # string cannot move now! return the address
+        lldata = llstr(newstring)
         data_start = (llmemory.cast_ptr_to_adr(lldata) +
                       offsetof(STR, 'chars') +
                       llmemory.itemoffsetof(STR.chars, 0))
         data_start = cast(CCHARP, data_start)
-        data_start[len(string)] = '\x00'   # write the final extra null
+        data_start[len(newstring)] = '\x00'   # write the final extra null
         return data_start
     else:
         global TEST_RAW_ADDR_KEEP_ALIVE
