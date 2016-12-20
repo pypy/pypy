@@ -1016,7 +1016,7 @@ class BytesDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     def is_correct_type(self, w_obj):
         space = self.space
-        return space.is_w(space.type(w_obj), space.w_str)
+        return space.is_w(space.type(w_obj), space.w_bytes)
 
     def get_empty_storage(self):
         res = {}
@@ -1167,7 +1167,7 @@ class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
         space = self.space
         # XXX there are many more types
         return (space.is_w(w_lookup_type, space.w_NoneType) or
-                space.is_w(w_lookup_type, space.w_str) or
+                space.is_w(w_lookup_type, space.w_bytes) or
                 space.is_w(w_lookup_type, space.w_unicode)
                 )
 

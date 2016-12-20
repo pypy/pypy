@@ -139,6 +139,7 @@ def decode_utf8(space, string, allow_surrogates=False):
     # i.e. surrogates are accepted and not treated specially at all.
     # If there happen to be two 3-bytes encoding a pair of surrogates,
     # you still get two surrogate unicode characters in the result.
+    assert isinstance(string, str)
     result, consumed = runicode.str_decode_utf_8(
         string, len(string), "strict",
         final=True, errorhandler=decode_error_handler(space),

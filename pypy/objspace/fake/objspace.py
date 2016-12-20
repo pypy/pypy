@@ -42,9 +42,9 @@ class W_MyObject(W_Root):
     def buffer_w(self, space, flags):
         return StringBuffer("foobar")
 
-    def str_w(self, space):
+    def text_w(self, space):
         return NonConstant("foobar")
-    identifier_w = bytes_w = str_w
+    identifier_w = bytes_w = text_w
 
     def unicode_w(self, space):
         return NonConstant(u"foobar")
@@ -118,7 +118,7 @@ class Entry(ExtRegistryEntry):
 # ____________________________________________________________
 
 
-BUILTIN_TYPES = ['int', 'str', 'float', 'tuple', 'list', 'dict', 'bytes',
+BUILTIN_TYPES = ['int', 'float', 'tuple', 'list', 'dict', 'bytes',
                  'unicode', 'complex', 'slice', 'bool', 'text', 'object',
                  'set', 'frozenset', 'bytearray', 'memoryview']
 

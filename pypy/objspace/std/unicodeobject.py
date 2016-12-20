@@ -326,8 +326,8 @@ class W_UnicodeObject(W_Root):
     def descr_repr(self, space):
         chars = self._value
         size = len(chars)
-        s = _repr_function(chars, size, "strict")
-        return space.newtext(s)
+        u = _repr_function(chars, size, "strict")
+        return space.newunicode(u)
 
     def descr_str(self, space):
         if space.is_w(space.type(self), space.w_unicode):
