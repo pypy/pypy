@@ -45,7 +45,6 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
         'x86_32': 'i386',
         'x86_64': 'i386:x86-64',
         'x86-64': 'i386:x86-64',
-        'x86-64-sse4': 'i386:x86-64',
         'i386': 'i386',
         'arm': 'arm',
         'arm_32': 'arm',

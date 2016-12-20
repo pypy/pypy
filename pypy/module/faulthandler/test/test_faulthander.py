@@ -1,4 +1,3 @@
-
 class AppTestFaultHandler:
     spaceconfig = {
         "usemodules": ["faulthandler", "_vmprof"]

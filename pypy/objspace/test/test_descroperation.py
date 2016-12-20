@@ -315,7 +315,8 @@ class AppTest_Descroperation:
                 assert operate(A()) == "world" * n
             assert type(operate(A())) is str
             answer = 42
-            raises(TypeError, operate, A())
+            excinfo = raises(TypeError, operate, A())
+            assert "returned non-string (type 'int')" in str(excinfo.value)
 
     def test_missing_getattribute(self):
         class X(object):

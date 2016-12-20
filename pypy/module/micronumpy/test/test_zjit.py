@@ -16,7 +16,7 @@ from pypy.module.micronumpy.base import W_NDimArray
 from rpython.jit.backend.detect_cpu import getcpuclass
 
 CPU = getcpuclass()
-if not CPU.vector_extension:
+if not CPU.vector_ext:
     py.test.skip("this cpu %s has no implemented vector backend" % CPU)
 
 def get_profiler():
@@ -29,7 +29,7 @@ class TestNumpyJit(LLJitMixin):
     interp = None
 
     def setup_method(self, method):
-        if not self.CPUClass.vector_extension:
+        if not self.CPUClass.vector_ext:
             py.test.skip("needs vector extension to run (for now)")
 
     def assert_float_equal(self, f1, f2, delta=0.0001):
@@ -374,17 +374,7 @@ class TestNumpyJit(LLJitMixin):
     def test_sum(self):
         result = self.run("sum")
         assert result == sum(range(30))
-        self.check_vectorized(1, 1)
-
-    def define_sum():
-        return """
-        a = |30|
-        sum(a)
-        """
-    def test_sum(self):
-        result = self.run("sum")
-        assert result == sum(range(30))
-        self.check_vectorized(1, 1)
+        self.check_vectorized(1, 0)
 
     def define_sum_int():
         return """
@@ -408,7 +398,7 @@ class TestNumpyJit(LLJitMixin):
     def test_sum_multi(self):
         result = self.run("sum_multi")
         assert result == sum(range(30)) + sum(range(60))
-        self.check_vectorized(1, 1)
+        self.check_vectorized(1, 0)
 
     def define_sum_float_to_int16():
         return """
@@ -418,9 +408,7 @@ class TestNumpyJit(LLJitMixin):
     def test_sum_float_to_int16(self):
         result = self.run("sum_float_to_int16")
         assert result == sum(range(30))
-        # one can argue that this is not desired,
-        # but unpacking exactly hits savings = 0
-        self.check_vectorized(1, 1)
+
     def define_sum_float_to_int32():
         return """
         a = |30|
@@ -429,7 +417,6 @@ class TestNumpyJit(LLJitMixin):
     def test_sum_float_to_int32(self):
         result = self.run("sum_float_to_int32")
         assert result == sum(range(30))
-        self.check_vectorized(1, 1)
 
     def define_sum_float_to_float32():
         return """
@@ -493,7 +480,7 @@ class TestNumpyJit(LLJitMixin):
         assert retval == sum(range(1,11))
         # check that we got only one loop
         assert len(get_stats().loops) == 1
-        self.check_vectorized(2, 1)
+        self.check_vectorized(2, 0)
 
     def test_reduce_axis_compile_only_once(self):
         self.compile_graph()
@@ -504,7 +491,7 @@ class TestNumpyJit(LLJitMixin):
         retval = self.interp.eval_graph(self.graph, [i])
         # check that we got only one loop
         assert len(get_stats().loops) == 1
-        self.check_vectorized(3, 1)
+        self.check_vectorized(3, 0)
 
     def define_prod():
         return """
@@ -521,12 +508,10 @@ class TestNumpyJit(LLJitMixin):
     def test_prod(self):
         result = self.run("prod")
         assert int(result) == 576
-        self.check_vectorized(1, 1)
 
     def test_prod_zero(self):
         result = self.run("prod_zero")
         assert int(result) == 0
-        self.check_vectorized(1, 1)
 
 
     def define_max():

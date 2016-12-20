@@ -106,8 +106,10 @@ def default_identity_hash(space, w_obj):
 # So we create a few interp-level subclasses of W_XxxObject, which add
 # some combination of features. This is done using mapdict.
 
-# we need two subclasses of the app-level type, one to add mapdict, and then one
-# to add del to not slow down the GC.
+# Note that nowadays, we need not "a few" but only one subclass.  It
+# adds mapdict, which flexibly allows all features.  We handle the
+# presence or absence of an app-level '__del__' by calling
+# register_finalizer() or not.
 
 @specialize.memo()
 def get_unique_interplevel_subclass(space, cls):
@@ -768,12 +770,12 @@ Cell.typedef = TypeDef("cell",
 )
 assert not Cell.typedef.acceptable_as_base_class  # no __new__
 
-Ellipsis.typedef = TypeDef("Ellipsis",
+Ellipsis.typedef = TypeDef("ellipsis",
     __repr__ = interp2app(Ellipsis.descr__repr__),
 )
 assert not Ellipsis.typedef.acceptable_as_base_class  # no __new__
 
-NotImplemented.typedef = TypeDef("NotImplemented",
+NotImplemented.typedef = TypeDef("NotImplementedType",
     __repr__ = interp2app(NotImplemented.descr__repr__),
 )
 assert not NotImplemented.typedef.acceptable_as_base_class  # no __new__

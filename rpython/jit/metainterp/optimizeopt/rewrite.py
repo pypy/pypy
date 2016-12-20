@@ -499,6 +499,9 @@ class OptRewrite(Optimization):
         box = self.get_box_replacement(op.getarg(0))
         self.make_constant(box, CONST_0)
 
+    def optimize_ASSERT_NOT_NONE(self, op):
+        self.make_nonnull(op.getarg(0))
+
     def optimize_RECORD_EXACT_CLASS(self, op):
         opinfo = self.getptrinfo(op.getarg(0))
         expectedclassbox = op.getarg(1)
@@ -595,6 +598,19 @@ class OptRewrite(Optimization):
             opnum = OpHelpers.call_for_type(op.type)
             op = op.copy_and_change(opnum, args=op.getarglist()[1:])
         return self.emit(op)
+
+    def optimize_COND_CALL_VALUE_I(self, op):
+        # look if we know the nullness of the first argument
+        info = self.getnullness(op.getarg(0))
+        if info == INFO_NONNULL:
+            self.make_equal_to(op, op.getarg(0))
+            self.last_emitted_operation = REMOVED
+            return
+        if info == INFO_NULL:
+            opnum = OpHelpers.call_pure_for_type(op.type)
+            op = self.replace_op_with(op, opnum, args=op.getarglist()[1:])
+        return self.emit(op)
+    optimize_COND_CALL_VALUE_R = optimize_COND_CALL_VALUE_I
 
     def _optimize_nullness(self, op, box, expect_nonnull):
         info = self.getnullness(box)

@@ -13,6 +13,7 @@ from rpython.jit.metainterp import resoperation as resoperations
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.history import ConstInt, ConstFloat
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rarithmetic import r_longlong
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.objectmodel import compute_unique_id, always_inline
 from rpython.rlib.objectmodel import we_are_translated, specialize
@@ -113,6 +114,7 @@ def encode_le_32bit(val):
 
 @always_inline
 def encode_le_64bit(val):
+    val = r_longlong(val)     # force 64-bit, even on 32-bit
     return ''.join([chr((val >> 0) & 0xff),
                     chr((val >> 8) & 0xff),
                     chr((val >> 16) & 0xff),

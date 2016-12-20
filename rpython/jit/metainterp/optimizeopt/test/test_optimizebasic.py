@@ -5595,6 +5595,19 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_assert_not_none(self):
+        ops = """
+        [p0]
+        assert_not_none(p0)
+        guard_nonnull(p0) []
+        finish()
+        """
+        expected = """
+        [p0]
+        finish()
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass

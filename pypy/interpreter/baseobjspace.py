@@ -183,6 +183,14 @@ class W_Root(object):
                 assert self._finalize_.im_func is not W_Root._finalize_.im_func
             space.finalizer_queue.register_finalizer(self)
 
+    def may_unregister_rpython_finalizer(self, space):
+        """Optimization hint only: if there is no user-defined __del__()
+        method, pass the hint ``don't call any finalizer'' to rgc.
+        """
+        if not self.getclass(space).hasuserdel:
+            from rpython.rlib import rgc
+            rgc.may_ignore_finalizer(self)
+
     # hooks that the mapdict implementations needs:
     def _get_mapdict_map(self):
         return None
@@ -419,6 +427,8 @@ class ObjSpace(object):
         self.check_signal_action = None   # changed by the signal module
         make_finalizer_queue(W_Root, self)
         self._code_of_sys_exc_info = None
+
+        self._builtin_functions_by_identifier = {'': None}
 
         # can be overridden to a subclass
         self.initialize()

@@ -73,7 +73,7 @@ def new_empty_str(space, length):
     py_str.c_ob_sstate = rffi.cast(rffi.INT, 0) # SSTATE_NOT_INTERNED
     return py_str
 
-def bytes_attach(space, py_obj, w_obj):
+def bytes_attach(space, py_obj, w_obj, w_userdata=None):
     """
     Copy RPython string object contents to a PyBytesObject. The
     c_ob_sval must not be modified.

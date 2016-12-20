@@ -3,7 +3,7 @@ from rpython.rlib.debug import check_nonneg
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rsre import rsre_char
 from rpython.tool.sourcetools import func_with_new_name
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib import jit
 from rpython.rlib.rsre.rsre_jit import install_jitdriver, install_jitdriver_spec
 
@@ -121,16 +121,18 @@ class AbstractMatchContext(object):
         assert result >= 0
         return result
 
+    @not_rpython
     def str(self, index):
-        """NOT_RPYTHON: Must be overridden in a concrete subclass.
+        """Must be overridden in a concrete subclass.
         The tag ^^^ here is used to generate a translation-time crash
         if there is a call to str() that is indirect.  All calls must
         be direct for performance reasons; you need to specialize the
         caller with @specializectx."""
         raise NotImplementedError
 
+    @not_rpython
     def lowstr(self, index):
-        """NOT_RPYTHON: Similar to str()."""
+        """Similar to str()."""
         raise NotImplementedError
 
     def get_mark(self, gid):

@@ -307,7 +307,8 @@ class StatState(object):
     def __init__(self, space):
         self.stat_float_times = True
 
-def stat_float_times(space, w_value=None):
+@unwrap_spec(newval=int)
+def stat_float_times(space, newval=-1):
     """stat_float_times([newval]) -> oldval
 
 Determine whether os.[lf]stat represents time stamps as float objects.
@@ -317,10 +318,10 @@ If newval is omitted, return the current setting.
 """
     state = space.fromcache(StatState)
 
-    if w_value is None:
+    if newval == -1:
         return space.wrap(state.stat_float_times)
     else:
-        state.stat_float_times = space.bool_w(w_value)
+        state.stat_float_times = (newval != 0)
 
 
 @unwrap_spec(fd=c_int)
@@ -1330,8 +1331,9 @@ def urandom(space, n):
     Return a string of n random bytes suitable for cryptographic use.
     """
     context = get(space).random_context
+    signal_checker = space.getexecutioncontext().checksignals
     try:
-        return space.wrap(rurandom.urandom(context, n))
+        return space.wrap(rurandom.urandom(context, n, signal_checker))
     except OSError as e:
         raise wrap_oserror(space, e)
 

@@ -275,6 +275,10 @@ def set_unbuffered_io():
 def set_fully_buffered_io():
     sys.stdout = sys.__stdout__ = fdopen(1, 'w')
 
+def initstdio(unbuffered=False):
+    if unbuffered:
+        set_unbuffered_io()
+
 # ____________________________________________________________
 # Main entry point
 

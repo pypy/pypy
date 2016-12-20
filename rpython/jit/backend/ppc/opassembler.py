@@ -29,6 +29,7 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.backend.ppc import callbuilder
 from rpython.rlib.rarithmetic import r_uint
+from rpython.jit.backend.ppc.vector_ext import VectorAssembler
 from rpython.rlib.rjitlog import rjitlog as jl
 
 class IntOpAssembler(object):
@@ -655,10 +656,12 @@ class CallOpAssembler(object):
     _COND_CALL_SAVE_REGS = [r.r3, r.r4, r.r5, r.r6, r.r12]
 
     def emit_cond_call(self, op, arglocs, regalloc):
+        resloc = arglocs[0]
+        arglocs = arglocs[1:]
+
         fcond = self.guard_success_cc
         self.guard_success_cc = c.cond_none
         assert fcond != c.cond_none
-        fcond = c.negate(fcond)
 
         jmp_adr = self.mc.get_relative_pos()
         self.mc.trap()        # patched later to a 'bc'
@@ -690,7 +693,10 @@ class CallOpAssembler(object):
         cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
         self.mc.bl_abs(cond_call_adr)
         # restoring the registers saved above, and doing pop_gcmap(), is left
-        # to the cond_call_slowpath helper.  We never have any result value.
+        # to the cond_call_slowpath helper.  If we have a result, move
+        # it from r2 to its expected location.
+        if resloc is not None:
+            self.mc.mr(resloc.value, r.SCRATCH2.value)
         relative_target = self.mc.currpos() - jmp_adr
         pmc = OverwritingBuilder(self.mc, jmp_adr, 1)
         BI, BO = c.encoding[fcond]
@@ -699,6 +705,9 @@ class CallOpAssembler(object):
         # might be overridden again to skip over the following
         # guard_no_exception too
         self.previous_cond_call_jcond = jmp_adr, BI, BO
+
+    emit_cond_call_value_i = emit_cond_call
+    emit_cond_call_value_r = emit_cond_call
 
 
 class FieldOpAssembler(object):
@@ -1329,7 +1338,8 @@ class OpAssembler(IntOpAssembler, GuardOpAssembler,
                   MiscOpAssembler, FieldOpAssembler,
                   StrOpAssembler, CallOpAssembler,
                   UnicodeOpAssembler, ForceOpAssembler,
-                  AllocOpAssembler, FloatOpAssembler):
+                  AllocOpAssembler, FloatOpAssembler,
+                  VectorAssembler):
     _mixin_ = True
 
     def nop(self):

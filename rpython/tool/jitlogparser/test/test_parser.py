@@ -2,7 +2,8 @@ from rpython.tool.jitlogparser.parser import (SimpleParser, TraceForOpcode,
                                               Function, adjust_bridges,
                                               import_log, split_trace, Op,
                                               parse_log_counts)
-from rpython.tool.jitlogparser.storage import LoopStorage
+from rpython.tool.jitlogparser.storage import LoopStorage, GenericCode
+from rpython.tool.udir import udir
 import py, sys
 from rpython.jit.backend.detect_cpu import autodetect
 from rpython.jit.backend.tool.viewcode import ObjdumpNotFound
@@ -381,4 +382,58 @@ def test_parse_from_inside():
     """)
     f = Function.from_operations(loop.operations, LoopStorage())
     assert len(f.chunks) == 2
-    
+
+def test_embedded_lineno():
+    # debug_merge_point() can have a text that is either:
+    #
+    # * the PyPy2's  <code object %s. file '%s'. line %d> #%d %s>
+    #                 funcname, filename, lineno, bytecode_no, bytecode_name
+    #
+    # * a standard text of the form  %s;%s:%d-%d-%d %s
+    #           funcname, filename, startlineno, curlineno, endlineno, anything
+    #
+    # * or anything else, which is not specially recognized but shouldn't crash
+    #
+    sourcefile = str(udir.join('test_embedded_lineno.src'))
+    with open(sourcefile, 'w') as f:
+        print >> f, "A#1"
+        print >> f, "B#2"
+        print >> f, "C#3"
+        print >> f, "D#4"
+        print >> f, "E#5"
+        print >> f, "F#6"
+    loop = parse("""
+    []
+    debug_merge_point(0, 0, 'myfunc;%(filename)s:2-2~one')
+    debug_merge_point(0, 0, 'myfunc;%(filename)s:2-2~two')
+    debug_merge_point(0, 0, 'myfunc;%(filename)s:2-4~')
+    debug_merge_point(0, 0, 'myfunc;%(filename)s:2-4~four')
+    """ % {'filename': sourcefile})
+    f = Function.from_operations(loop.operations, LoopStorage())
+
+    expect = [(2, 'one', True),
+              (2, 'two', False),
+              (4, '', True),
+              (4, 'four', False)]
+    assert len(f.chunks) == len(expect)
+
+    code_seen = set()
+    for chunk, (expected_lineno,
+                expected_bytecode_name,
+                expected_line_starts_here) in zip(f.chunks, expect):
+        assert chunk.name == 'myfunc'
+        assert chunk.bytecode_name == expected_bytecode_name
+        assert chunk.filename == sourcefile
+        assert chunk.startlineno == 2
+        assert chunk.bytecode_no == ~expected_lineno     # half-abuse
+        assert chunk.has_valid_code()
+        assert chunk.lineno == expected_lineno
+        assert chunk.line_starts_here == expected_line_starts_here
+        code_seen.add(chunk.code)
+
+    assert len(code_seen) == 1
+    code, = code_seen
+    assert code.source[0] == "B#2"
+    assert code.source[1] == "C#3"
+    assert code.source[4] == "F#6"
+    py.test.raises(IndexError, "code.source[5]")

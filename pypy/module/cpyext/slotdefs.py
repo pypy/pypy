@@ -8,12 +8,12 @@ from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, PyObject, Py_ssize_t, Py_TPFLAGS_CHECKTYPES,
     mangle_name, pypy_decl, Py_buffer, Py_bufferP)
 from pypy.module.cpyext.typeobjectdefs import (
-    unaryfunc, wrapperfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc, ternaryfunc,
+    unaryfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc,
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
     ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
     cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc, objobjargproc,
     readbufferproc, getbufferproc, ssizessizeobjargproc)
-from pypy.module.cpyext.pyobject import from_ref, make_ref, Py_DecRef
+from pypy.module.cpyext.pyobject import make_ref, Py_DecRef
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.memoryobject import fill_Py_buffer
 from pypy.module.cpyext.state import State
@@ -21,8 +21,10 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.argument import Arguments
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, not_rpython
 from rpython.tool.sourcetools import func_renamer
+from rpython.flowspace.model import Constant
+from rpython.flowspace.specialcase import register_flow_sc
 from rpython.rtyper.annlowlevel import llhelper
 from pypy.module.sys.version import CPYTHON_VERSION
 
@@ -58,6 +60,17 @@ def check_num_argsv(space, w_ob, low, high):
     raise oefmt(space.w_TypeError,
                 "expected %d-%d arguments, got %d",
                 low, high, space.len_w(w_ob))
+
+@not_rpython
+def llslot(space, func):
+    return llhelper(func.api_func.functype, func.api_func.get_wrapper(space))
+
+@register_flow_sc(llslot)
+def sc_llslot(ctx, v_space, v_func):
+    assert isinstance(v_func, Constant)
+    get_llhelper = v_func.value.api_func.get_llhelper
+    return ctx.appcall(get_llhelper, v_space)
+
 
 def wrap_init(space, w_self, w_args, func, w_kwargs):
     func_init = rffi.cast(initproc, func)
@@ -106,7 +119,7 @@ def wrap_ternaryfunc(space, w_self, w_args, func):
     args_w = space.fixedview(w_args)
     arg3 = space.w_None
     if len(args_w) > 1:
-        arg3 = args_w[1] 
+        arg3 = args_w[1]
     return generic_cpy_call(space, func_ternary, w_self, args_w[0], arg3)
 
 def wrap_ternaryfunc_r(space, w_self, w_args, func):
@@ -121,7 +134,7 @@ def wrap_ternaryfunc_r(space, w_self, w_args, func):
     Py_DecRef(space, ref)
     arg3 = space.w_None
     if len(args_w) > 1:
-        arg3 = args_w[1] 
+        arg3 = args_w[1]
     return generic_cpy_call(space, func_ternary, args_w[0], w_self, arg3)
 
 
@@ -322,7 +335,7 @@ class CPyBuffer(Buffer):
             self.strides = [1]
         else:
             self.strides = strides
-        self.ndim = ndim 
+        self.ndim = ndim
         self.itemsize = itemsize
         self.readonly = readonly
 
@@ -386,7 +399,10 @@ def wrap_getbuffer(space, w_self, w_args, func):
         size = pybuf.c_len
         ndim = widen(pybuf.c_ndim)
         shape =   [pybuf.c_shape[i]   for i in range(ndim)]
-        strides = [pybuf.c_strides[i] for i in range(ndim)]
+        if pybuf.c_strides:
+            strides = [pybuf.c_strides[i] for i in range(ndim)]
+        else:
+            strides = [1]
         if pybuf.c_format:
             format = rffi.charp2str(pybuf.c_format)
         else:
@@ -434,9 +450,10 @@ def get_slot_tp_function(space, typedef, name):
     try:
         return SLOTS[key]
     except KeyError:
-        ret = build_slot_tp_function(space, typedef, name)
-        SLOTS[key] = ret
-        return ret
+        slot_func = build_slot_tp_function(space, typedef, name)
+        api_func = slot_func.api_func if slot_func else None
+        SLOTS[key] = api_func
+        return api_func
 
 def build_slot_tp_function(space, typedef, name):
     w_type = space.gettypeobject(typedef)
@@ -469,7 +486,6 @@ def build_slot_tp_function(space, typedef, name):
             @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
             def slot_func(space, w_self):
                 return space.call_function(slot_fn, w_self)
-            api_func = slot_func.api_func
             handled = True
 
     # binary functions
@@ -496,7 +512,6 @@ def build_slot_tp_function(space, typedef, name):
             @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
             def slot_func(space, w_self, w_arg):
                 return space.call_function(slot_fn, w_self, w_arg)
-            api_func = slot_func.api_func
             handled = True
 
     # binary-with-Py_ssize_t-type
@@ -514,7 +529,6 @@ def build_slot_tp_function(space, typedef, name):
             @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
             def slot_func(space, w_self, arg):
                 return space.call_function(slot_fn, w_self, space.wrap(arg))
-            api_func = slot_func.api_func
             handled = True
 
     # ternary functions
@@ -529,7 +543,6 @@ def build_slot_tp_function(space, typedef, name):
             @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
             def slot_func(space, w_self, w_arg1, w_arg2):
                 return space.call_function(slot_fn, w_self, w_arg1, w_arg2)
-            api_func = slot_func.api_func
             handled = True
 
     if handled:
@@ -549,7 +562,7 @@ def build_slot_tp_function(space, typedef, name):
             else:
                 space.call_function(delattr_fn, w_self, w_name)
             return 0
-        api_func = slot_tp_setattro.api_func
+        slot_func = slot_tp_setattro
     elif name == 'tp_getattro':
         getattr_fn = w_type.getdictvalue(space, '__getattribute__')
         if getattr_fn is None:
@@ -559,7 +572,7 @@ def build_slot_tp_function(space, typedef, name):
         @func_renamer("cpyext_tp_getattro_%s" % (typedef.name,))
         def slot_tp_getattro(space, w_self, w_name):
             return space.call_function(getattr_fn, w_self, w_name)
-        api_func = slot_tp_getattro.api_func
+        slot_func = slot_tp_getattro
     elif name == 'tp_call':
         call_fn = w_type.getdictvalue(space, '__call__')
         if call_fn is None:
@@ -571,7 +584,7 @@ def build_slot_tp_function(space, typedef, name):
             args = Arguments(space, [w_self],
                              w_stararg=w_args, w_starstararg=w_kwds)
             return space.call_args(call_fn, args)
-        api_func = slot_tp_call.api_func
+        slot_func = slot_tp_call
 
     elif name == 'tp_iternext':
         iternext_fn = w_type.getdictvalue(space, 'next')
@@ -587,7 +600,7 @@ def build_slot_tp_function(space, typedef, name):
                 if not e.match(space, space.w_StopIteration):
                     raise
                 return None
-        api_func = slot_tp_iternext.api_func
+        slot_func = slot_tp_iternext
 
     elif name == 'tp_init':
         init_fn = w_type.getdictvalue(space, '__init__')
@@ -602,7 +615,7 @@ def build_slot_tp_function(space, typedef, name):
                              w_stararg=w_args, w_starstararg=w_kwds)
             space.call_args(init_fn, args)
             return 0
-        api_func = slot_tp_init.api_func
+        slot_func = slot_tp_init
     elif name == 'tp_new':
         new_fn = w_type.getdictvalue(space, '__new__')
         if new_fn is None:
@@ -614,12 +627,12 @@ def build_slot_tp_function(space, typedef, name):
             args = Arguments(space, [w_self],
                              w_stararg=w_args, w_starstararg=w_kwds)
             return space.call_args(space.get(new_fn, w_self), args)
-        api_func = slot_tp_new.api_func
+        slot_func = slot_tp_new
     elif name == 'tp_as_buffer.c_bf_getbuffer':
         buff_fn = w_type.getdictvalue(space, '__buffer__')
         if buff_fn is None:
             return
-        @cpython_api([PyObject, Py_bufferP, rffi.INT_real], 
+        @cpython_api([PyObject, Py_bufferP, rffi.INT_real],
                 rffi.INT_real, header=None, error=-1)
         @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
         def buff_w(space, w_self, view, flags):
@@ -643,14 +656,14 @@ def build_slot_tp_function(space, typedef, name):
             return 0
         # XXX remove this when it no longer crashes a translated PyPy
         return
-        api_func = buff_w.api_func
+        slot_func = buff_w
     else:
         # missing: tp_as_number.nb_nonzero, tp_as_number.nb_coerce
         # tp_as_sequence.c_sq_contains, tp_as_sequence.c_sq_length
         # richcmpfunc(s)
         return
 
-    return lambda: llhelper(api_func.functype, api_func.get_wrapper(space))
+    return slot_func
 
 PyWrapperFlag_KEYWORDS = 1
 
@@ -981,8 +994,8 @@ def slotdef_sort_key(slotdef):
 slotdefs = sorted(slotdefs, key=slotdef_sort_key)
 
 slotdefs_for_tp_slots = unrolling_iterable(
-    [(x.method_name, x.slot_name, x.slot_names, x.slot_func)
-     for x in slotdefs])
+    [(x.method_name, x.slot_name, x.slot_names,
+      x.slot_func.api_func if x.slot_func else None) for x in slotdefs])
 
 slotdefs_for_wrappers = unrolling_iterable(
     [(x.method_name, x.slot_names, x.wrapper_func, x.wrapper_func_kwds, x.doc)

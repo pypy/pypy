@@ -146,6 +146,27 @@ class TestAnnotateTestCase:
         # result should be an integer
         assert s.knowntype == int
 
+    def test_not_rpython(self):
+        def g(x):
+            """ NOT_RPYTHON """
+            return eval(x)
+        def f(x):
+            return g(str(x))
+        a = self.RPythonAnnotator()
+        with py.test.raises(ValueError):
+            a.build_types(f, [int])
+
+    def test_not_rpython_decorator(self):
+        from rpython.rlib.objectmodel import not_rpython
+        @not_rpython
+        def g(x):
+            return eval(x)
+        def f(x):
+            return g(str(x))
+        a = self.RPythonAnnotator()
+        with py.test.raises(ValueError):
+            a.build_types(f, [int])
+
     def test_lists(self):
         a = self.RPythonAnnotator()
         end_cell = a.build_types(snippet.poor_man_rev_range, [int])
@@ -4630,6 +4651,17 @@ class TestAnnotateTestCase:
         e = py.test.raises(AnnotatorError, a.build_types, f, [str])
         assert ('string formatting requires a constant string/unicode'
                 in str(e.value))
+
+    def test_cannot_raise_none(self):
+        def f(x):
+            s = None
+            if x > 5:
+                s = ValueError()
+            raise s
+        a = self.RPythonAnnotator()
+        a.build_types(f, [int])
+        s_exc = a.binding(graphof(a, f).exceptblock.inputargs[1])
+        assert not s_exc.can_be_none()
 
 
 def g(n):

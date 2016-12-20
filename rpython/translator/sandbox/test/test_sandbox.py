@@ -65,6 +65,24 @@ def test_open_dup():
     f.close()
     assert tail == ""
 
+def test_open_dup_rposix():
+    from rpython.rlib import rposix
+    def entry_point(argv):
+        fd = rposix.open("/tmp/foobar", os.O_RDONLY, 0777)
+        assert fd == 77
+        fd2 = rposix.dup(fd)
+        assert fd2 == 78
+        return 0
+
+    exe = compile(entry_point)
+    g, f = run_in_subprocess(exe)
+    expect(f, g, "ll_os.ll_os_open", ("/tmp/foobar", os.O_RDONLY, 0777), 77)
+    expect(f, g, "ll_os.ll_os_dup",  (77, True), 78)
+    g.close()
+    tail = f.read()
+    f.close()
+    assert tail == ""
+
 def test_read_write():
     def entry_point(argv):
         fd = os.open("/tmp/foobar", os.O_RDONLY, 0777)

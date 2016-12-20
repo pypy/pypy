@@ -83,8 +83,11 @@ class SystemCompilationInfo(object):
     def import_extension(self, modname, functions, prologue="",
             include_dirs=None, more_init="", PY_SSIZE_T_CLEAN=False):
         body = prologue + make_methods(functions, modname)
-        init = """Py_InitModule("%s", methods);""" % (modname,)
+        init = """Py_InitModule("%s", methods);
+               """ % (modname,)
         if more_init:
+            init += """#define INITERROR return
+                    """
             init += more_init
         return self.import_module(
             name=modname, init=init, body=body, include_dirs=include_dirs,
@@ -192,8 +195,19 @@ def c_compile(cfilenames, outputfilename,
 
 def _build(cfilenames, outputfilename, compile_extra, link_extra,
         include_dirs, libraries, library_dirs):
+    try:
+        # monkeypatch distutils for some versions of msvc compiler
+        import setuptools
+    except ImportError:
+        # XXX if this fails and is required, 
+        #     we must call pypy -mensurepip after translation
+        pass
     from distutils.ccompiler import new_compiler
     from distutils import sysconfig
+
+    # XXX for Darwin running old versions of CPython 2.7.x
+    sysconfig.get_config_vars()
+
     compiler = new_compiler(force=1)
     sysconfig.customize_compiler(compiler)  # XXX
     objects = []

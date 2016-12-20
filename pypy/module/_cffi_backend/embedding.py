@@ -1,4 +1,5 @@
 import os
+from rpython.rlib import entrypoint
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
@@ -45,26 +46,9 @@ class Global:
     pass
 glob = Global()
 
-def patch_sys(space):
-    # Annoying: CPython would just use the C-level std{in,out,err} as
-    # configured by the main application, for example in binary mode
-    # on Windows or with buffering turned off.  We can't easily do the
-    # same.  Instead, go for the safest bet (but possibly bad for
-    # performance) and open sys.std{in,out,err} unbuffered.  On
-    # Windows I guess binary mode is a better default choice.
-    #
-    # XXX if needed, we could add support for a flag passed to
-    # pypy_init_embedded_cffi_module().
-    if not glob.patched_sys:
-        space.appexec([], """():
-            import os, sys
-            sys.stdin  = sys.__stdin__  = os.fdopen(0, 'rb', 0)
-            sys.stdout = sys.__stdout__ = os.fdopen(1, 'wb', 0)
-            sys.stderr = sys.__stderr__ = os.fdopen(2, 'wb', 0)
-        """)
-        glob.patched_sys = True
 
-
+@entrypoint.entrypoint_highlevel('main', [rffi.INT, rffi.VOIDP],
+                                 c_name='pypy_init_embedded_cffi_module')
 def pypy_init_embedded_cffi_module(version, init_struct):
     # called from __init__.py
     name = "?"
@@ -76,7 +60,6 @@ def pypy_init_embedded_cffi_module(version, init_struct):
         must_leave = False
         try:
             must_leave = space.threadlocals.try_enter_thread(space)
-            patch_sys(space)
             load_embedded_cffi_module(space, version, init_struct)
             res = 0
         except OperationError as operr:

@@ -1,8 +1,10 @@
 """ PyFrame class implementation with the interpreter main loop.
 """
 
+import sys
 from rpython.rlib import jit
 from rpython.rlib.debug import make_sure_not_resized, check_nonneg
+from rpython.rlib.debug import ll_assert_not_none
 from rpython.rlib.jit import hint
 from rpython.rlib.objectmodel import instantiate, specialize, we_are_translated
 from rpython.rlib.rarithmetic import intmask, r_uint
@@ -278,6 +280,10 @@ class PyFrame(W_Root):
                         self.pushvalue(w_inputvalue)
                 w_exitvalue = self.dispatch(self.pycode, next_instr,
                                             executioncontext)
+            except OperationError:
+                raise
+            except Exception as e:      # general fall-back
+                raise self._convert_unexpected_exception(e)
             finally:
                 executioncontext.return_trace(self, w_exitvalue)
             # it used to say self.last_exception = None
@@ -293,7 +299,13 @@ class PyFrame(W_Root):
     # stack manipulation helpers
     def pushvalue(self, w_object):
         depth = self.valuestackdepth
-        self.locals_cells_stack_w[depth] = w_object
+        self.locals_cells_stack_w[depth] = ll_assert_not_none(w_object)
+        self.valuestackdepth = depth + 1
+
+    def pushvalue_none(self):
+        depth = self.valuestackdepth
+        # the entry is already None, and remains None
+        assert self.locals_cells_stack_w[depth] is None
         self.valuestackdepth = depth + 1
 
     def _check_stack_index(self, index):
@@ -306,6 +318,9 @@ class PyFrame(W_Root):
         return index >= stackstart
 
     def popvalue(self):
+        return ll_assert_not_none(self.popvalue_maybe_none())
+
+    def popvalue_maybe_none(self):
         depth = self.valuestackdepth - 1
         assert self._check_stack_index(depth)
         assert depth >= 0
@@ -384,6 +399,9 @@ class PyFrame(W_Root):
     def peekvalue(self, index_from_top=0):
         # NOTE: top of the stack is peekvalue(0).
         # Contrast this with CPython where it's PEEK(-1).
+        return ll_assert_not_none(self.peekvalue_maybe_none(index_from_top))
+
+    def peekvalue_maybe_none(self, index_from_top=0):
         index_from_top = hint(index_from_top, promote=True)
         index = self.valuestackdepth + ~index_from_top
         assert self._check_stack_index(index)
@@ -395,7 +413,7 @@ class PyFrame(W_Root):
         index = self.valuestackdepth + ~index_from_top
         assert self._check_stack_index(index)
         assert index >= 0
-        self.locals_cells_stack_w[index] = w_object
+        self.locals_cells_stack_w[index] = ll_assert_not_none(w_object)
 
     @jit.unroll_safe
     def dropvaluesuntil(self, finaldepth):
@@ -886,6 +904,14 @@ class PyFrame(W_Root):
                     return last
             frame = frame.f_backref()
         return None
+
+    def _convert_unexpected_exception(self, e):
+        from pypy.interpreter import error
+
+        operr = error.get_converted_unexpected_exception(self.space, e)
+        pytraceback.record_application_traceback(
+            self.space, operr, self, self.last_instr)
+        raise operr
 
 # ____________________________________________________________
 

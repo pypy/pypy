@@ -8,6 +8,13 @@ class Renamer(object):
         return self.rename_map.get(box, box)
 
     def start_renaming(self, var, tovar):
+        # edge case, it happens that in e.g. jump arguments
+        # constants are used to jump to a label, for unrolling
+        # we should never apply this renaming, because it is not supported to
+        # have a constant in failargs (see compute_vars_longevity in
+        # llsupport/regalloc.py)
+        if tovar.is_constant():
+            return
         self.rename_map[var] = tovar
 
     def rename(self, op):

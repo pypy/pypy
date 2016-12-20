@@ -3,7 +3,8 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.eval import (
     Py_single_input, Py_file_input, Py_eval_input, PyCompilerFlags)
-from pypy.module.cpyext.api import c_fopen, c_fclose, c_fileno, Py_ssize_tP
+from pypy.module.cpyext.api import (c_fopen, c_fclose, c_fileno, 
+                Py_ssize_tP, is_valid_fd)
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.astcompiler import consts
 from rpython.tool.udir import udir
@@ -142,7 +143,8 @@ class TestEval(BaseApiTest):
         fp = c_fopen(str(filepath), "rb")
         os.close(c_fileno(fp))
         api.PyRun_File(fp, filename, Py_file_input, w_globals, w_locals)
-        c_fclose(fp)
+        if is_valid_fd(c_fileno(fp)):
+            c_fclose(fp)
         assert api.PyErr_Occurred() is space.w_IOError
         api.PyErr_Clear()
 
