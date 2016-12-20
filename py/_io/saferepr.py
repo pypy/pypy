@@ -16,11 +16,16 @@ class SafeRepr(reprlib.Repr):
         # Strictly speaking wrong on narrow builds
         def repr(u):
             if "'" not in u:
-                return py.builtin._totext("u'%s'") % u
+                return py.builtin._totext("'%s'") % u
             elif '"' not in u:
-                return py.builtin._totext('u"%s"') % u
+                return py.builtin._totext('"%s"') % u
             else:
-                return py.builtin._totext("u'%s'") % u.replace("'", r"\'")
+                return py.builtin._totext("'%s'") % u.replace("'", r"\'")
+
+        repr = builtin_repr
+        # ^^^ it's very annoying to display 'xx' instead of u'xx' when
+        # the difference can be essential, particularly in PyPy
+
         s = repr(x[:self.maxstring])
         if len(s) > self.maxstring:
             i = max(0, (self.maxstring-3)//2)
