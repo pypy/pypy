@@ -78,7 +78,7 @@ class Buffer(object):
         return [1]
 
 class StringBuffer(Buffer):
-    __slots__ = ['value', '__weakref__']
+    __slots__ = ['value']
     _immutable_ = True
 
     def __init__(self, value):
@@ -109,7 +109,7 @@ class StringBuffer(Buffer):
 
     def get_raw_address(self):
         from rpython.rtyper.lltypesystem import rffi
-        return rffi.get_raw_address_of_string(self, self.value)
+        return rffi.get_raw_address_of_string(self.value)
 
 class SubBuffer(Buffer):
     __slots__ = ['buffer', 'offset', 'size']

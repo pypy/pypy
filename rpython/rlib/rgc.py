@@ -535,6 +535,13 @@ def may_ignore_finalizer(obj):
     from rpython.rtyper.lltypesystem.lloperation import llop
     llop.gc_ignore_finalizer(lltype.Void, obj)
 
+@jit.dont_look_inside
+def move_out_of_nursery(obj):
+    """This object should move to the second generation (out of nursery).
+    The object will not move, anymore after this operation succeeded.
+    """
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    llop.gc_move_out_of_nursery(obj)
 
 # ____________________________________________________________
 

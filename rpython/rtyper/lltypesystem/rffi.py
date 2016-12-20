@@ -1320,14 +1320,14 @@ class RawBytes(object):
     def __del__(self):
         free_charp(self.ptr, track_allocation=False)
 
-from rpython.rlib import rweakref
-from rpython.rlib.buffer import Buffer
-_STR_WDICT = rweakref.RWeakKeyDictionary(Buffer, RawBytes)
+if not we_are_translated():
+    TEST_RAW_ADDR_KEEP_ALIVE = {}
 
 @jit.dont_look_inside
-def get_raw_address_of_string(key, string):
-    """Returns a 'char *' that is valid as long as the key object is alive.
-    Two calls to to this function are guaranteed to return the same pointer.
+def get_raw_address_of_string(string):
+    """Returns a 'char *' that is valid as long as the rpython string object is alive.
+    Two calls to to this function, given the same string parameter,
+    are guaranteed to return the same pointer.
 
     The extra parameter key is necessary to create a weak reference.
     The buffer of the returned pointer (if object is young) lives as long
@@ -1335,24 +1335,28 @@ def get_raw_address_of_string(key, string):
     be freed. `string` cannot go out of scope until the RawBytes object
     referencing it goes out of scope.
     """
+    assert isinstance(string, str)
     from rpython.rtyper.annlowlevel import llstr
     from rpython.rtyper.lltypesystem.rstr import STR
     from rpython.rtyper.lltypesystem import llmemory
     from rpython.rlib import rgc
 
-    global _STR_WDICT
-    rawbytes = _STR_WDICT.get(key)
-    if rawbytes is None:
-        if we_are_translated() and not rgc.can_move(string):
-            lldata = llstr(string)
-            data_start = (llmemory.cast_ptr_to_adr(lldata) +
-                          offsetof(STR, 'chars') +
-                          llmemory.itemoffsetof(STR.chars, 0))
-            data_start = cast(CCHARP, data_start)
-            data_start[len(string)] = '\x00'   # write the final extra null
-            return data_start
-        rawbytes = RawBytes(string)
-        _STR_WDICT.set(key, rawbytes)
+    if we_are_translated():
+        if rgc.can_move(string):
+            string = rgc.move_out_of_nursery(string)
 
-    return rawbytes.ptr
-
+        assert not rgc.can_move(string)
+        # string cannot move! just return the address then!
+        lldata = llstr(string)
+        data_start = (llmemory.cast_ptr_to_adr(lldata) +
+                      offsetof(STR, 'chars') +
+                      llmemory.itemoffsetof(STR.chars, 0))
+        data_start = cast(CCHARP, data_start)
+        data_start[len(string)] = '\x00'   # write the final extra null
+        return data_start
+    else:
+        global TEST_RAW_ADDR_KEEP_ALIVE
+        if string in TEST_RAW_ADDR_KEEP_ALIVE:
+            return TEST_RAW_ADDR_KEEP_ALIVE[string].ptr
+        TEST_RAW_ADDR_KEEP_ALIVE[string] = rb = RawBytes(string)
+        return rb.ptr

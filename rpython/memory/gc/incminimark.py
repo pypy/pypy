@@ -729,6 +729,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
         obj = self.external_malloc(typeid, length, alloc_young=True)
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
+    def move_out_of_nursery(self, obj):
+        #
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        totalsize = size_gc_header + self.get_size(obj)
+        self.nursery_surviving_size += raw_malloc_usage(totalsize)
+        newhdr = self._malloc_out_of_nursery(totalsize)
+        #return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
+
 
     def collect(self, gen=2):
         """Do a minor (gen=0), start a major (gen=1), or do a full
