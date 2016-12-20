@@ -3158,3 +3158,4 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if surviving_dict:
                 surviving_dict.insertclean(obj, pyobject)
         else:
+            self._rrc_free(pyobject)
