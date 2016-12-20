@@ -543,8 +543,17 @@ def move_out_of_nursery(obj):
 
         NOTE: Only use for immutable objects!
     """
-    from rpython.rtyper.lltypesystem.lloperation import llop
-    return llop.gc_move_out_of_nursery(lltype.Void, obj)
+    pass
+
+class MoveOutOfNurseryEntry(ExtRegistryEntry):
+    _about_ = move_out_of_nursery
+
+    def compute_result_annotation(self, s_obj):
+        return s_obj
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop('gc_move_out_of_nursery', hop.args_v, resulttype=hop.r_result)
 
 # ____________________________________________________________
 

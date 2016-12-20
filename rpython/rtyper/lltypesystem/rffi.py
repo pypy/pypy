@@ -1343,17 +1343,16 @@ def get_raw_address_of_string(string):
     from rpython.rlib import rgc
 
     if we_are_translated():
-        newstring = string
         if rgc.can_move(string):
-            newstring = rgc.move_out_of_nursery(string)
+            string = rgc.move_out_of_nursery(string)
 
         # string cannot move now! return the address
-        lldata = llstr(newstring)
+        lldata = llstr(string)
         data_start = (llmemory.cast_ptr_to_adr(lldata) +
                       offsetof(STR, 'chars') +
                       llmemory.itemoffsetof(STR.chars, 0))
         data_start = cast(CCHARP, data_start)
-        data_start[len(newstring)] = '\x00'   # write the final extra null
+        data_start[len(string)] = '\x00'   # write the final extra null
         return data_start
     else:
         global TEST_RAW_ADDR_KEEP_ALIVE

@@ -54,10 +54,6 @@ def main(argv=[]):
 def target(driver, args):
     return main
 
-def test_compiled():
-    fn = compile(main, [], gcpolicy="minimark")
-    fn()
-
 def test_compiled_incminimark():
     fn = compile(main, [], gcpolicy="incminimark")
     fn()
