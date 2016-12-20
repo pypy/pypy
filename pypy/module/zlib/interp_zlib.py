@@ -5,6 +5,7 @@ from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rtyper.lltypesystem import rffi
 
 from rpython.rlib import rzlib
 
@@ -15,9 +16,7 @@ if intmask(2**31) == -2**31:
 else:
     # 64-bit platforms
     def unsigned_to_signed_32bit(x):
-        # assumes that 'x' is in range(0, 2**32) to start with
-        SIGN_EXTEND2 = 1 << 31
-        return intmask((x ^ SIGN_EXTEND2) - SIGN_EXTEND2)
+        return intmask(rffi.cast(rffi.INT, x))
 
 
 @unwrap_spec(string='bufferstr', start='truncatedint_w')

@@ -2,6 +2,7 @@
 Tests for the zlib module.
 """
 
+import sys
 try:
     import zlib
 except ImportError:
@@ -16,6 +17,10 @@ def test_unsigned_to_signed_32bit():
     assert interp_zlib.unsigned_to_signed_32bit(123) == 123
     assert interp_zlib.unsigned_to_signed_32bit(2**31) == -2**31
     assert interp_zlib.unsigned_to_signed_32bit(2**32-1) == -1
+    if sys.maxint > 2**32:
+        from rpython.rlib.rarithmetic import r_uint
+        assert interp_zlib.unsigned_to_signed_32bit(r_uint(sys.maxint)) == -1
+        assert interp_zlib.unsigned_to_signed_32bit(r_uint(sys.maxint+1)) == 0
 
 
 class AppTestZlib(object):
