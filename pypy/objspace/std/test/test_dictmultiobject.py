@@ -1088,6 +1088,7 @@ class FakeSpace:
         return l
     def newlist_bytes(self, l):
         return l
+    newlist_text = newlist_bytes
     DictObjectCls = W_DictObject
     def type(self, w_obj):
         if isinstance(w_obj, FakeString):

@@ -116,7 +116,7 @@ class KwargsDictStrategy(DictStrategy):
 
     def w_keys(self, w_dict):
         l = self.unerase(w_dict.dstorage)[0]
-        return self.space.newlist_bytes(l[:])
+        return self.space.newlist_text(l[:])
 
     def values(self, w_dict):
         return self.unerase(w_dict.dstorage)[1][:] # to make non-resizable
