@@ -537,11 +537,23 @@ def may_ignore_finalizer(obj):
 
 @jit.dont_look_inside
 def move_out_of_nursery(obj):
-    """This object should move to the second generation (out of nursery).
-    The object will not move, anymore after this operation succeeded.
+    """ Returns another object which is a copy of obj; but at any point
+        (either now or in the future) the returned object might suddenly
+        become identical to the one returned.
+
+        NOTE: Only use for immutable objects!
     """
-    from rpython.rtyper.lltypesystem.lloperation import llop
-    llop.gc_move_out_of_nursery(obj)
+    pass
+
+class MoveOutOfNurseryEntry(ExtRegistryEntry):
+    _about_ = move_out_of_nursery
+
+    def compute_result_annotation(self, s_obj):
+        return s_obj
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop('gc_move_out_of_nursery', hop.args_v, resulttype=hop.r_result)
 
 # ____________________________________________________________
 

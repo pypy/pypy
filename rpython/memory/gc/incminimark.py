@@ -158,7 +158,11 @@ GCFLAG_PINNED_OBJECT_PARENT_KNOWN = GCFLAG_PINNED
 # record that ignore_finalizer() has been called
 GCFLAG_IGNORE_FINALIZER = first_gcflag << 10
 
-_GCFLAG_FIRST_UNUSED = first_gcflag << 11    # the first unused bit
+# shadow objects can have its memory initialized when it is created.
+# It does not need an additional copy in trace out
+GCFLAG_SHADOW_INITIALIZED   = first_gcflag << 11
+
+_GCFLAG_FIRST_UNUSED = first_gcflag << 12    # the first unused bit
 
 
 # States for the incremental GC
@@ -730,27 +734,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
     def move_out_of_nursery(self, obj):
-        #
-        size_gc_header = self.gcheaderbuilder.size_gc_header
-        totalsize = size_gc_header + self.get_size(obj)
-        self.nursery_surviving_size += raw_malloc_usage(totalsize)
-        newhdr = self._malloc_out_of_nursery(totalsize)
-        llmemory.raw_memcopy(obj - size_gc_header, newhdr, totalsize)
+        # called twice, it should return the same shadow object,
+        # and not creating another shadow object
+        if self.header(obj).tid & GCFLAG_HAS_SHADOW:
+            shadow = self.nursery_objects_shadows.get(obj)
+            ll_assert(shadow != llmemory.NULL,
+                      "GCFLAG_HAS_SHADOW but no shadow found")
+            return shadow
 
-        # Set the old object's tid to -42 (containing all flags) and
-        # replace the old object's content with the target address.
-        # A bit of no-ops to convince llarena that we are changing
-        # the layout, in non-translated versions.
-        typeid = self.get_type_id(obj)
-        obj = llarena.getfakearenaaddress(obj)
-        llarena.arena_reset(obj - size_gc_header, totalsize, 0)
-        llarena.arena_reserve(obj - size_gc_header,
-                              size_gc_header + llmemory.sizeof(FORWARDSTUB))
-        self.header(obj).tid = -42
-        newobj = newhdr + size_gc_header
-        llmemory.cast_adr_to_ptr(obj, FORWARDSTUBPTR).forw = newobj
-        return llmemory.cast_adr_to_ptr(newobj, llmemory.GCREF)
-
+        return self._allocate_shadow(obj, copy=True)
 
     def collect(self, gen=2):
         """Do a minor (gen=0), start a major (gen=1), or do a full
@@ -2004,6 +1996,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 and self.young_rawmalloced_objects.contains(obj)):
                 self._visit_young_rawmalloced_object(obj)
             return
+        # copy the contents of the object? usually yes, but not for some
+        # shadow objects
+        copy = True
         #
         size_gc_header = self.gcheaderbuilder.size_gc_header
         if self.header(obj).tid & (GCFLAG_HAS_SHADOW | GCFLAG_PINNED) == 0:
@@ -2059,13 +2054,18 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Remove the flag GCFLAG_HAS_SHADOW, so that it doesn't get
             # copied to the shadow itself.
             self.header(obj).tid &= ~GCFLAG_HAS_SHADOW
+            tid = self.header(obj).tid
+            if (tid & GCFLAG_SHADOW_INITIALIZED) != 0:
+                copy = False
+                self.header(obj).tid &= ~GCFLAG_SHADOW_INITIALIZED
             #
             totalsize = size_gc_header + self.get_size(obj)
             self.nursery_surviving_size += raw_malloc_usage(totalsize)
         #
         # Copy it.  Note that references to other objects in the
         # nursery are kept unchanged in this step.
-        llmemory.raw_memcopy(obj - size_gc_header, newhdr, totalsize)
+        if copy:
+            llmemory.raw_memcopy(obj - size_gc_header, newhdr, totalsize)
         #
         # Set the old object's tid to -42 (containing all flags) and
         # replace the old object's content with the target address.
@@ -2592,7 +2592,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
     # ----------
     # id() and identityhash() support
 
-    def _allocate_shadow(self, obj):
+    @specialize.arg(2)
+    def _allocate_shadow(self, obj, copy=False):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         size = self.get_size(obj)
         shadowhdr = self._malloc_out_of_nursery(size_gc_header +
@@ -2614,6 +2615,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         self.header(obj).tid |= GCFLAG_HAS_SHADOW
         self.nursery_objects_shadows.setitem(obj, shadow)
+
+        if copy:
+            self.header(obj).tid |= GCFLAG_SHADOW_INITIALIZED
+            totalsize = size_gc_header + self.get_size(obj)
+            llmemory.raw_memcopy(obj - size_gc_header, shadow, totalsize)
+
         return shadow
 
     def _find_shadow(self, obj):
@@ -3151,4 +3158,3 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if surviving_dict:
                 surviving_dict.insertclean(obj, pyobject)
         else:
-            self._rrc_free(pyobject)

@@ -1336,16 +1336,16 @@ def get_raw_address_of_string(string):
     referencing it goes out of scope.
     """
     assert isinstance(string, str)
-    from rpython.rtyper.annlowlevel import llstr
+    from rpython.rtyper.annlowlevel import llstr, hlstr
     from rpython.rtyper.lltypesystem.rstr import STR
     from rpython.rtyper.lltypesystem import llmemory
     from rpython.rlib import rgc
 
     if we_are_translated():
         if rgc.can_move(string):
+            # create a shadow object that is exposed
             string = rgc.move_out_of_nursery(string)
 
-        assert not rgc.can_move(string)
         # string cannot move! just return the address then!
         lldata = llstr(string)
         data_start = (llmemory.cast_ptr_to_adr(lldata) +

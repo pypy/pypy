@@ -1596,8 +1596,11 @@ class BaseFrameworkGCTransformer(GCTransformer):
         if self.move_out_of_nursery_ptr is not None:
             v_adr = hop.genop("cast_ptr_to_adr", [hop.spaceop.args[0]],
                               resulttype=llmemory.Address)
-            hop.genop("direct_call", [self.move_out_of_nursery_ptr,
-                                      self.c_const_gc, v_adr])
+            v_ret = hop.genop("direct_call", [self.move_out_of_nursery_ptr,
+                                      self.c_const_gc, v_adr],
+                                      resulttype=llmemory.Address)
+            hop.genop("cast_adr_to_ptr", [v_ret],
+                      resultvar = hop.spaceop.result)
 
 
 
