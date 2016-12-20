@@ -275,12 +275,18 @@ class MIFrame(object):
     def opimpl_ptr_iszero(self, box):
         return self.execute(rop.PTR_EQ, box, history.CONST_NULL)
 
+    @arguments("box")
+    def opimpl_assert_not_none(self, box):
+        if self.metainterp.heapcache.is_nullity_known(box):
+            return
+        self.execute(rop.ASSERT_NOT_NONE, box)
+        self.metainterp.heapcache.nullity_now_known(box)
+
     @arguments("box", "box")
     def opimpl_record_exact_class(self, box, clsbox):
         from rpython.rtyper.lltypesystem import llmemory
         if self.metainterp.heapcache.is_class_known(box):
             return
-        adr = clsbox.getaddr()
         self.execute(rop.RECORD_EXACT_CLASS, box, clsbox)
         self.metainterp.heapcache.class_now_known(box)
 

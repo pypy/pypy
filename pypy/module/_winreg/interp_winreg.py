@@ -168,6 +168,7 @@ If key is a handle returned by ConnectRegistry(), then the path specified
 in fileName is relative to the remote computer.
 
 The docs imply key must be in the HKEY_USER or HKEY_LOCAL_MACHINE tree"""
+    # XXX should filename use space.fsencode_w?
     hkey = hkey_w(w_hkey, space)
     ret = rwinreg.RegLoadKey(hkey, subkey, filename)
     if ret != 0:

@@ -484,6 +484,16 @@ Miscellaneous
   of cases.  PyPy attempts to emulate that but the precise set of cases
   is not exactly the same.
 
+* ``"%d" % x`` and ``"%x" % x`` and similar constructs, where ``x`` is
+  an instance of a subclass of ``long`` that overrides the special
+  methods ``__str__`` or ``__hex__`` or ``__oct__``: PyPy doesn't call
+  the special methods; CPython does---but only if it is a subclass of
+  ``long``, not ``int``.  CPython's behavior is really messy: e.g. for
+  ``%x`` it calls ``__hex__()``, which is supposed to return a string
+  like ``-0x123L``; then the ``0x`` and the final ``L`` are removed, and
+  the rest is kept.  If you return an unexpected string from
+  ``__hex__()`` you get an exception (or a crash before CPython 2.7.13).
+
 .. _`is ignored in PyPy`: http://bugs.python.org/issue14621
 .. _`little point`: http://events.ccc.de/congress/2012/Fahrplan/events/5152.en.html
 .. _`#2072`: https://bitbucket.org/pypy/pypy/issue/2072/

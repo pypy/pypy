@@ -843,3 +843,25 @@ class AppTestMMap:
 
         m = mmap(f.fileno(), 6)
         assert m.read(None) == b"foobar"
+
+    def test_resize_past_pos(self):
+        import os, mmap, sys
+        if os.name == "nt":
+            skip("cannot resize anonymous mmaps on Windows")
+        if sys.version_info < (2, 7, 13):
+            skip("cannot resize anonymous mmaps before 2.7.13")
+        m = mmap.mmap(-1, 8192)
+        m.read(5000)
+        try:
+            m.resize(4096)
+        except SystemError:
+            skip("resizing not supported")
+        assert m.tell() == 5000
+        assert m.read(14) == ''
+        assert m.read(-1) == ''
+        raises(ValueError, m.read_byte)
+        assert m.readline() == ''
+        raises(ValueError, m.write_byte, 'b')
+        raises(ValueError, m.write, 'abc')
+        assert m.tell() == 5000
+        m.close()

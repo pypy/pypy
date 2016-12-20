@@ -354,6 +354,9 @@ class AppTestImport(BaseFSEncodeTest):
         o = __import__('sys', [], [], ['']) # CPython accepts this
         assert sys == o
 
+    def test_import_fromlist_must_not_contain_unicodes(self):
+        raises(TypeError, __import__, 'encodings', None, None, [u'xxx'])
+
     def test_proper_failure_on_killed__path__(self):
         import pkg.pkg2.a
         del pkg.pkg2.__path__

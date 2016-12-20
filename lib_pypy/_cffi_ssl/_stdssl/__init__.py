@@ -96,11 +96,12 @@ for name in error.SSL_AD_NAMES:
 # init open ssl
 lib.SSL_load_error_strings()
 lib.SSL_library_init()
-# TODO threads?
+lib._setup_ssl_threads()
 lib.OpenSSL_add_all_algorithms()
 
 def check_signals():
-    # TODO PyErr_CheckSignal equivalent for pypy?
+    # nothing to do, we are on python level, signals are
+    # checked frequently in the bytecode dispatch loop
     pass
 
 def _socket_timeout(s):
@@ -347,7 +348,6 @@ class _SSLSocket(object):
             peer_cert = ffi.gc(peer_cert, lib.X509_free)
         self.peer_cert = peer_cert
 
-        #PySSL_END_ALLOW_THREADS
         self.handshake_done = 1
         return None
 

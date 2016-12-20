@@ -499,6 +499,9 @@ class OptRewrite(Optimization):
         box = self.get_box_replacement(op.getarg(0))
         self.make_constant(box, CONST_0)
 
+    def optimize_ASSERT_NOT_NONE(self, op):
+        self.make_nonnull(op.getarg(0))
+
     def optimize_RECORD_EXACT_CLASS(self, op):
         opinfo = self.getptrinfo(op.getarg(0))
         expectedclassbox = op.getarg(1)

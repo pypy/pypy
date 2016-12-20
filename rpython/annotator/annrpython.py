@@ -231,6 +231,12 @@ class RPythonAnnotator(object):
             v = graph.getreturnvar()
             if v.annotation is None:
                 self.setbinding(v, s_ImpossibleValue)
+            v = graph.exceptblock.inputargs[1]
+            if v.annotation is not None and v.annotation.can_be_none():
+                raise annmodel.AnnotatorError(
+                    "%r is found by annotation to possibly raise None, "
+                    "but the None was not suppressed by the flow space" %
+                        (graph,))
 
     def validate(self):
         """Check that the annotation results are valid"""

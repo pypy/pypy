@@ -521,6 +521,10 @@ class LLFrame(object):
         if not x:
             raise LLAssertFailure(msg)
 
+    def op_debug_assert_not_none(self, x):
+        if not x:
+            raise LLAssertFailure("ll_assert_not_none() failed")
+
     def op_debug_fatalerror(self, ll_msg, ll_exc=None):
         msg = ''.join(ll_msg.chars)
         if ll_exc is None:

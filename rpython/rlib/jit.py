@@ -1141,6 +1141,9 @@ def record_exact_class(value, cls):
     """
     Assure the JIT that value is an instance of cls. This is a precise
     class check, like a guard_class.
+
+    See also debug.ll_assert_not_none(x), which asserts that x is not None
+    and also assures the JIT that it is the case.
     """
     assert type(value) is cls
 

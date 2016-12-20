@@ -151,7 +151,6 @@ def _create_tuple_for_X509_NAME(xname):
         value = lib.X509_NAME_ENTRY_get_data(entry);
         attr = _create_tuple_for_attribute(name, value);
         if attr == ffi.NULL:
-            pass # TODO error
             raise NotImplementedError
         rdn.append(attr)
 
