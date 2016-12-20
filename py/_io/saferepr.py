@@ -16,11 +16,11 @@ class SafeRepr(reprlib.Repr):
         # Strictly speaking wrong on narrow builds
         def repr(u):
             if "'" not in u:
-                return py.builtin._totext("'%s'") % u
+                return py.builtin._totext("u'%s'") % u
             elif '"' not in u:
-                return py.builtin._totext('"%s"') % u
+                return py.builtin._totext('u"%s"') % u
             else:
-                return py.builtin._totext("'%s'") % u.replace("'", r"\'")
+                return py.builtin._totext("u'%s'") % u.replace("'", r"\'")
         s = repr(x[:self.maxstring])
         if len(s) > self.maxstring:
             i = max(0, (self.maxstring-3)//2)
