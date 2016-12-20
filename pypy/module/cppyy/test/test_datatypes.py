@@ -15,85 +15,86 @@ class AppTestDATATYPES:
     spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
-        cls.w_N = cls.space.wrap(5)  # should be imported from the dictionary
         cls.w_test_dct  = cls.space.wrap(test_dct)
         cls.w_datatypes = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))
+        cls.w_N = cls.space.wrap(5)  # should be imported from the dictionary
 
     def test01_load_reflection_cache(self):
-        """Test whether loading a refl. info twice results in the same object."""
+        """Loading reflection info twice should result in the same object"""
         import cppyy
         lib2 = cppyy.load_reflection_info(self.test_dct)
         assert self.datatypes is lib2
 
     def test02_instance_data_read_access(self):
-        """Test read access to instance public data and verify values"""
+        """Read access to instance public data and verify values"""
 
         import cppyy
-        cppyy_test_data = cppyy.gbl.cppyy_test_data
+        CppyyTestData = cppyy.gbl.CppyyTestData
 
-        c = cppyy_test_data()
-        assert isinstance(c, cppyy_test_data)
+        c = CppyyTestData()
+        assert isinstance(c, CppyyTestData)
 
         # reading boolean type
         assert c.m_bool == False
+        assert not c.get_bool(); assert not c.get_bool_cr(); assert not c.get_bool_r()
 
         # reading char types
         assert c.m_char  == 'a'
+        assert c.m_schar == 'b'
         assert c.m_uchar == 'c'
 
         # reading integer types
-        assert c.m_short  == -11
-        assert c.m_ushort ==  11
-        assert c.m_int    == -22
-        assert c.m_uint   ==  22
-        assert c.m_long   == -33
-        assert c.m_ulong  ==  33
-        assert c.m_llong  == -44
-        assert c.m_ullong ==  55
+        assert c.m_short   == -11; assert c.get_short_cr()   == -11; assert c.get_short_r()   == -11
+        assert c.m_ushort  ==  11; assert c.get_ushort_cr()  ==  11; assert c.get_ushort_r()  ==  11
+        assert c.m_int     == -22; assert c.get_int_cr()     == -22; assert c.get_int_r()     == -22
+        assert c.m_uint    ==  22; assert c.get_uint_cr()    ==  22; assert c.get_uint_r()    ==  22
+        assert c.m_long    == -33; assert c.get_long_cr()    == -33; assert c.get_long_r()    == -33
+        assert c.m_ulong   ==  33; assert c.get_ulong_cr()   ==  33; assert c.get_ulong_r()   ==  33
+        assert c.m_llong   == -44; assert c.get_llong_cr()   == -44; assert c.get_llong_r()   == -44
+        assert c.m_ullong  ==  44; assert c.get_ullong_cr()  ==  44; assert c.get_ullong_r()  ==  44
+        assert c.m_long64  == -55; assert c.get_long64_cr()  == -55; assert c.get_long64_r()  == -55
+        assert c.m_ulong64 ==  55; assert c.get_ulong64_cr() ==  55; assert c.get_ulong64_r() ==  55
 
         # reading floating point types
-        assert round(c.m_float  + 66., 5) == 0
+        assert round(c.m_float          + 66.,  5) == 0
+        assert round(c.get_float_cr()   + 66.,  5) == 0
+        assert round(c.get_float_r()    + 66.,  5) == 0
+        assert round(c.m_double         + 77., 11) == 0
+        assert round(c.get_double_cr()  + 77., 11) == 0
+        assert round(c.get_double_r()   + 77., 11) == 0
+        #assert round(c.m_ldouble        + 88., 24) == 0
+        #assert round(c.get_ldouble_cr() + 88., 24) == 0
+        #assert round(c.get_ldouble_r()  + 88., 24) == 0
         assert round(c.m_double + 77., 8) == 0
 
-        # reding of array types
+        # reading of enum types
+        assert c.m_enum == CppyyTestData.kNothing
+        assert c.m_enum == c.kNothing
+
+        # reading of boolean array
         for i in range(self.N):
-            # reading of integer array types
             assert c.m_bool_array[i]        ==   bool(i%2)
             assert c.get_bool_array()[i]    ==   bool(i%2)
             assert c.m_bool_array2[i]       ==   bool((i+1)%2)
             assert c.get_bool_array2()[i]   ==   bool((i+1)%2)
-            assert c.m_short_array[i]       ==  -1*i
-            assert c.get_short_array()[i]   ==  -1*i
-            assert c.m_short_array2[i]      ==  -2*i
-            assert c.get_short_array2()[i]  ==  -2*i
-            assert c.m_ushort_array[i]      ==   3*i
-            assert c.get_ushort_array()[i]  ==   3*i
-            assert c.m_ushort_array2[i]     ==   4*i
-            assert c.get_ushort_array2()[i] ==   4*i
-            assert c.m_int_array[i]         ==  -5*i
-            assert c.get_int_array()[i]     ==  -5*i
-            assert c.m_int_array2[i]        ==  -6*i
-            assert c.get_int_array2()[i]    ==  -6*i
-            assert c.m_uint_array[i]        ==   7*i
-            assert c.get_uint_array()[i]    ==   7*i
-            assert c.m_uint_array2[i]       ==   8*i
-            assert c.get_uint_array2()[i]   ==   8*i
 
-            assert c.m_long_array[i]        ==  -9*i
-            assert c.get_long_array()[i]    ==  -9*i
-            assert c.m_long_array2[i]       == -10*i
-            assert c.get_long_array2()[i]   == -10*i
-            assert c.m_ulong_array[i]       ==  11*i
-            assert c.get_ulong_array()[i]   ==  11*i
-            assert c.m_ulong_array2[i]      ==  12*i
-            assert c.get_ulong_array2()[i]  ==  12*i
+        # reading of integer array types
+        names = [ 'short', 'ushort',    'int', 'uint',    'long',  'ulong']
+        alpha = [(-1, -2),   (3, 4), (-5, -6), (7, 8), (-9, -10), (11, 12)]
+        for j in range(self.N):
+            assert getattr(c, 'm_%s_array'    % names[i])[i]   == alpha[i][0]*i
+            assert getattr(c, 'get_%s_array'  % names[i])()[i] == alpha[i][0]*i
+            assert getattr(c, 'm_%s_array2'   % names[i])[i]   == alpha[i][1]*i
+            assert getattr(c, 'get_%s_array2' % names[i])()[i] == alpha[i][1]*i
 
-            assert round(c.m_float_array[i]   + 13.*i, 5) == 0
-            assert round(c.m_float_array2[i]  + 14.*i, 5) == 0
-            assert round(c.m_double_array[i]  + 15.*i, 8) == 0
-            assert round(c.m_double_array2[i] + 16.*i, 8) == 0
+        # reading of floating point array types
+        for k in range(self.N):
+            assert round(c.m_float_array[k]   + 13.*k, 5) == 0
+            assert round(c.m_float_array2[k]  + 14.*k, 5) == 0
+            assert round(c.m_double_array[k]  + 15.*k, 8) == 0
+            assert round(c.m_double_array2[k] + 16.*k, 8) == 0
 
         # out-of-bounds checks
         raises(IndexError, c.m_short_array.__getitem__,  self.N)
@@ -106,11 +107,11 @@ class AppTestDATATYPES:
         raises(IndexError, c.m_double_array.__getitem__, self.N)
 
         # can not access an instance member on the class
-        raises(ReferenceError, getattr, cppyy_test_data, 'm_bool')
-        raises(ReferenceError, getattr, cppyy_test_data, 'm_int')
+        raises(ReferenceError, getattr, CppyyTestData, 'm_bool')
+        raises(ReferenceError, getattr, CppyyTestData, 'm_int')
 
-        assert not hasattr(cppyy_test_data, 'm_bool')
-        assert not hasattr(cppyy_test_data, 'm_int')
+        assert not hasattr(CppyyTestData, 'm_bool')
+        assert not hasattr(CppyyTestData, 'm_int')
 
         c.destruct()
 
@@ -118,14 +119,13 @@ class AppTestDATATYPES:
         """Test write access to instance public data and verify values"""
 
         import cppyy
-        cppyy_test_data = cppyy.gbl.cppyy_test_data
+        CppyyTestData = cppyy.gbl.CppyyTestData
 
-        c = cppyy_test_data()
-        assert isinstance(c, cppyy_test_data)
+        c = CppyyTestData()
+        assert isinstance(c, CppyyTestData)
 
         # boolean types through functions
-        c.set_bool(True);
-        assert c.get_bool() == True
+        c.set_bool(True);  assert c.get_bool() == True
         c.set_bool(0);     assert c.get_bool() == False
 
         # boolean types through data members
@@ -166,7 +166,7 @@ class AppTestDATATYPES:
             assert eval('c.m_%s' % names[i]) == 2*i
 
         for i in range(len(names)):
-            exec 'c.set_%s_c(%d)' % (names[i],3*i)
+            exec 'c.set_%s_cr(%d)' % (names[i],3*i)
             assert eval('c.m_%s' % names[i]) == 3*i
 
         # float types through functions
@@ -174,12 +174,12 @@ class AppTestDATATYPES:
         c.set_double( 0.456 ); assert round(c.get_double() - 0.456, 8) == 0
 
         # float types through data members
-        c.m_float = 0.123;     assert round(c.get_float()  - 0.123, 5) == 0
-        c.set_float(0.234);    assert round(c.m_float      - 0.234, 5) == 0
-        c.set_float_c(0.456);  assert round(c.m_float      - 0.456, 5) == 0
-        c.m_double = 0.678;    assert round(c.get_double() - 0.678, 8) == 0
-        c.set_double(0.890);   assert round(c.m_double     - 0.890, 8) == 0
-        c.set_double_c(0.012); assert round(c.m_double     - 0.012, 8) == 0
+        c.m_float = 0.123;      assert round(c.get_float()  - 0.123, 5) == 0
+        c.set_float(0.234);     assert round(c.m_float      - 0.234, 5) == 0
+        c.set_float_cr(0.456);  assert round(c.m_float      - 0.456, 5) == 0
+        c.m_double = 0.678;     assert round(c.get_double() - 0.678, 8) == 0
+        c.set_double(0.890);    assert round(c.m_double     - 0.890, 8) == 0
+        c.set_double_cr(0.012); assert round(c.m_double     - 0.012, 8) == 0
 
         # arrays; there will be pointer copies, so destroy the current ones
         c.destroy_arrays()
@@ -206,10 +206,10 @@ class AppTestDATATYPES:
         """Test passing of array arguments"""
 
         import cppyy, array, sys
-        cppyy_test_data = cppyy.gbl.cppyy_test_data
+        CppyyTestData = cppyy.gbl.CppyyTestData
 
-        c = cppyy_test_data()
-        assert isinstance(c, cppyy_test_data)
+        c = CppyyTestData()
+        assert isinstance(c, CppyyTestData)
 
         a = range(self.N)
         # test arrays in mixed order, to give overload resolution a workout
@@ -244,39 +244,39 @@ class AppTestDATATYPES:
         """Test read access to class public data and verify values"""
 
         import cppyy, sys
-        cppyy_test_data = cppyy.gbl.cppyy_test_data
+        CppyyTestData = cppyy.gbl.CppyyTestData
 
-        c = cppyy_test_data()
-        assert isinstance(c, cppyy_test_data)
+        c = CppyyTestData()
+        assert isinstance(c, CppyyTestData)
 
         # char types
-        assert cppyy_test_data.s_char  == 's'
-        assert c.s_char                == 's'
+        assert CppyyTestData.s_char    == 'c'
+        assert c.s_char                == 'c'
         assert c.s_uchar               == 'u'
-        assert cppyy_test_data.s_uchar == 'u'
+        assert CppyyTestData.s_uchar   == 'u'
 
         # integer types
-        assert cppyy_test_data.s_short  == -101
+        assert CppyyTestData.s_short    == -101
         assert c.s_short                == -101
         assert c.s_ushort               ==  255
-        assert cppyy_test_data.s_ushort ==  255
-        assert cppyy_test_data.s_int    == -202
+        assert CppyyTestData.s_ushort   ==  255
+        assert CppyyTestData.s_int      == -202
         assert c.s_int                  == -202
         assert c.s_uint                 ==  202
-        assert cppyy_test_data.s_uint   ==  202
-        assert cppyy_test_data.s_long   == -303L
+        assert CppyyTestData.s_uint     ==  202
+        assert CppyyTestData.s_long     == -303L
         assert c.s_long                 == -303L
         assert c.s_ulong                ==  303L
-        assert cppyy_test_data.s_ulong  ==  303L
-        assert cppyy_test_data.s_llong  == -404L
+        assert CppyyTestData.s_ulong    ==  303L
+        assert CppyyTestData.s_llong    == -404L
         assert c.s_llong                == -404L
-        assert c.s_ullong               ==  505L
-        assert cppyy_test_data.s_ullong ==  505L
+        assert c.s_ullong               ==  404L
+        assert CppyyTestData.s_ullong   ==  404L
 
         # floating point types
-        assert round(cppyy_test_data.s_float  + 606., 5) == 0
+        assert round(CppyyTestData.s_float  + 606., 5)   == 0
         assert round(c.s_float                + 606., 5) == 0
-        assert round(cppyy_test_data.s_double + 707., 8) == 0
+        assert round(CppyyTestData.s_double + 707., 8)   == 0
         assert round(c.s_double               + 707., 8) == 0
 
         c.destruct()
@@ -285,62 +285,62 @@ class AppTestDATATYPES:
         """Test write access to class public data and verify values"""
 
         import cppyy, sys
-        cppyy_test_data = cppyy.gbl.cppyy_test_data
+        CppyyTestData = cppyy.gbl.CppyyTestData
 
-        c = cppyy_test_data()
-        assert isinstance(c, cppyy_test_data)
+        c = CppyyTestData()
+        assert isinstance(c, CppyyTestData)
 
         # char types
-        cppyy_test_data.s_char          = 'a'
+        CppyyTestData.s_char          = 'a'
         assert c.s_char                == 'a'
         c.s_char                        = 'b'
-        assert cppyy_test_data.s_char  == 'b'
-        cppyy_test_data.s_uchar         = 'c'
+        assert CppyyTestData.s_char  == 'b'
+        CppyyTestData.s_uchar         = 'c'
         assert c.s_uchar               == 'c'
         c.s_uchar                       = 'd'
-        assert cppyy_test_data.s_uchar == 'd'
-        raises(ValueError, setattr, cppyy_test_data, 's_uchar', -1)
+        assert CppyyTestData.s_uchar == 'd'
+        raises(ValueError, setattr, CppyyTestData, 's_uchar', -1)
         raises(ValueError, setattr, c,               's_uchar', -1)
 
         # integer types
         c.s_short                        = -102
-        assert cppyy_test_data.s_short  == -102
-        cppyy_test_data.s_short          = -203
+        assert CppyyTestData.s_short  == -102
+        CppyyTestData.s_short          = -203
         assert c.s_short                == -203
         c.s_ushort                       =  127
-        assert cppyy_test_data.s_ushort ==  127
-        cppyy_test_data.s_ushort         =  227
+        assert CppyyTestData.s_ushort ==  127
+        CppyyTestData.s_ushort         =  227
         assert c.s_ushort               ==  227
-        cppyy_test_data.s_int            = -234
+        CppyyTestData.s_int            = -234
         assert c.s_int                  == -234
         c.s_int                          = -321
-        assert cppyy_test_data.s_int    == -321
-        cppyy_test_data.s_uint           = 1234
+        assert CppyyTestData.s_int    == -321
+        CppyyTestData.s_uint           = 1234
         assert c.s_uint                 == 1234
         c.s_uint                         = 4321
-        assert cppyy_test_data.s_uint   == 4321
+        assert CppyyTestData.s_uint   == 4321
         raises(ValueError, setattr, c,               's_uint', -1)
-        raises(ValueError, setattr, cppyy_test_data, 's_uint', -1)
-        cppyy_test_data.s_long           = -87L
+        raises(ValueError, setattr, CppyyTestData, 's_uint', -1)
+        CppyyTestData.s_long           = -87L
         assert c.s_long                 == -87L
         c.s_long                         = 876L
-        assert cppyy_test_data.s_long   == 876L
-        cppyy_test_data.s_ulong          = 876L
+        assert CppyyTestData.s_long   == 876L
+        CppyyTestData.s_ulong          = 876L
         assert c.s_ulong                == 876L
         c.s_ulong                        = 678L
-        assert cppyy_test_data.s_ulong  == 678L
-        raises(ValueError, setattr, cppyy_test_data, 's_ulong', -1)
+        assert CppyyTestData.s_ulong  == 678L
+        raises(ValueError, setattr, CppyyTestData, 's_ulong', -1)
         raises(ValueError, setattr, c,               's_ulong', -1)
 
         # floating point types
-        cppyy_test_data.s_float                    = -3.1415
+        CppyyTestData.s_float                    = -3.1415
         assert round(c.s_float, 5 )               == -3.1415
         c.s_float                                  =  3.1415
-        assert round(cppyy_test_data.s_float, 5 ) ==  3.1415
+        assert round(CppyyTestData.s_float, 5 ) ==  3.1415
         import math
         c.s_double                                 = -math.pi
-        assert cppyy_test_data.s_double           == -math.pi
-        cppyy_test_data.s_double                   =  math.pi
+        assert CppyyTestData.s_double           == -math.pi
+        CppyyTestData.s_double                   =  math.pi
         assert c.s_double                         ==  math.pi
 
         c.destruct()
@@ -349,10 +349,10 @@ class AppTestDATATYPES:
         """Test the ranges of integer types"""
 
         import cppyy, sys
-        cppyy_test_data = cppyy.gbl.cppyy_test_data
+        CppyyTestData = cppyy.gbl.CppyyTestData
 
-        c = cppyy_test_data()
-        assert isinstance(c, cppyy_test_data)
+        c = CppyyTestData()
+        assert isinstance(c, CppyyTestData)
 
         # TODO: should these be TypeErrors, or should char/bool raise
         #       ValueErrors? In any case, consistency is needed ...
@@ -365,10 +365,10 @@ class AppTestDATATYPES:
         """Test conversions between builtin types"""
 
         import cppyy, sys
-        cppyy_test_data = cppyy.gbl.cppyy_test_data
+        CppyyTestData = cppyy.gbl.CppyyTestData
 
-        c = cppyy_test_data()
-        assert isinstance(c, cppyy_test_data)
+        c = CppyyTestData()
+        assert isinstance(c, CppyyTestData)
 
         c.m_double = -1
         assert round(c.m_double + 1.0, 8) == 0
@@ -403,7 +403,7 @@ class AppTestDATATYPES:
 
         raises(ReferenceError, 'gbl.g_pod.m_int')
 
-        c = gbl.cppyy_test_pod()
+        c = gbl.CppyyTestPod()
         c.m_int = 42
         c.m_double = 3.14
 
@@ -417,7 +417,7 @@ class AppTestDATATYPES:
         assert c == d
         assert id(c) == id(d)
 
-        e = gbl.cppyy_test_pod()
+        e = gbl.CppyyTestPod()
         e.m_int = 43
         e.m_double = 2.14
 
@@ -432,44 +432,44 @@ class AppTestDATATYPES:
         import cppyy
         gbl = cppyy.gbl
 
-        cppyy_test_data = cppyy.gbl.cppyy_test_data
+        CppyyTestData = cppyy.gbl.CppyyTestData
 
-        c = cppyy_test_data()
-        assert isinstance(c, cppyy_test_data)
+        c = CppyyTestData()
+        assert isinstance(c, CppyyTestData)
 
         # test that the enum is accessible as a type
-        assert cppyy_test_data.what
+        assert CppyyTestData.EWhat
 
-        assert cppyy_test_data.kNothing   ==   6
-        assert cppyy_test_data.kSomething == 111
-        assert cppyy_test_data.kLots      ==  42
+        assert CppyyTestData.kNothing   ==   6
+        assert CppyyTestData.kSomething == 111
+        assert CppyyTestData.kLots      ==  42
 
-        assert cppyy_test_data.what(cppyy_test_data.kNothing) == cppyy_test_data.kNothing
-        assert cppyy_test_data.what(6) == cppyy_test_data.kNothing
+        assert CppyyTestData.EWhat(CppyyTestData.kNothing) == CppyyTestData.kNothing
+        assert CppyyTestData.EWhat(6) == CppyyTestData.kNothing
         # TODO: only allow instantiations with correct values (C++11)
 
-        assert c.get_enum() == cppyy_test_data.kNothing
-        assert c.m_enum == cppyy_test_data.kNothing
+        assert c.get_enum() == CppyyTestData.kNothing
+        assert c.m_enum == CppyyTestData.kNothing
 
-        c.m_enum = cppyy_test_data.kSomething
-        assert c.get_enum() == cppyy_test_data.kSomething
-        assert c.m_enum == cppyy_test_data.kSomething
+        c.m_enum = CppyyTestData.kSomething
+        assert c.get_enum() == CppyyTestData.kSomething
+        assert c.m_enum == CppyyTestData.kSomething
 
-        c.set_enum(cppyy_test_data.kLots)
-        assert c.get_enum() == cppyy_test_data.kLots
-        assert c.m_enum == cppyy_test_data.kLots
+        c.set_enum(CppyyTestData.kLots)
+        assert c.get_enum() == CppyyTestData.kLots
+        assert c.m_enum == CppyyTestData.kLots
 
-        assert c.s_enum == cppyy_test_data.s_enum
-        assert c.s_enum == cppyy_test_data.kNothing
-        assert cppyy_test_data.s_enum == cppyy_test_data.kNothing
+        assert c.s_enum == CppyyTestData.s_enum
+        assert c.s_enum == CppyyTestData.kNothing
+        assert CppyyTestData.s_enum == CppyyTestData.kNothing
 
-        c.s_enum = cppyy_test_data.kSomething
-        assert c.s_enum == cppyy_test_data.s_enum
-        assert c.s_enum == cppyy_test_data.kSomething
-        assert cppyy_test_data.s_enum == cppyy_test_data.kSomething
+        c.s_enum = CppyyTestData.kSomething
+        assert c.s_enum == CppyyTestData.s_enum
+        assert c.s_enum == CppyyTestData.kSomething
+        assert CppyyTestData.s_enum == CppyyTestData.kSomething
 
         # global enums
-        assert gbl.fruit          # test type accessible
+        assert gbl.EFruit          # test type accessible
         assert gbl.kApple  == 78
         assert gbl.kBanana == 29
         assert gbl.kCitrus == 34
@@ -478,9 +478,9 @@ class AppTestDATATYPES:
         """Test passing/returning of a const char*"""
 
         import cppyy
-        cppyy_test_data = cppyy.gbl.cppyy_test_data
+        CppyyTestData = cppyy.gbl.CppyyTestData
 
-        c = cppyy_test_data()
+        c = CppyyTestData()
         assert c.get_valid_string('aap') == 'aap'
         #assert c.get_invalid_string() == ''
 
@@ -488,11 +488,11 @@ class AppTestDATATYPES:
         """Test copy constructor"""
 
         import cppyy
-        four_vector = cppyy.gbl.four_vector
+        FourVector = cppyy.gbl.FourVector
 
-        t1 = four_vector(1., 2., 3., -4.)
-        t2 = four_vector(0., 0., 0.,  0.)
-        t3 = four_vector(t1)
+        t1 = FourVector(1., 2., 3., -4.)
+        t2 = FourVector(0., 0., 0.,  0.)
+        t3 = FourVector(t1)
 
         assert t1 == t3
         assert t1 != t2
@@ -505,7 +505,7 @@ class AppTestDATATYPES:
 
         import cppyy
 
-        c = cppyy.gbl.cppyy_test_data()
+        c = cppyy.gbl.CppyyTestData()
 
         assert c.m_pod.m_int == 888
         assert c.m_pod.m_double == 3.14
@@ -532,11 +532,11 @@ class AppTestDATATYPES:
 
         import cppyy
 
-        c = cppyy.gbl.cppyy_test_data()
+        c = cppyy.gbl.CppyyTestData()
         assert c.m_pod.m_int == 888
         assert c.m_pod.m_double == 3.14
 
-        p = cppyy.gbl.cppyy_test_pod()
+        p = cppyy.gbl.CppyyTestPod()
         p.m_int = 123
         assert p.m_int == 123
         p.m_double = 321.
@@ -546,12 +546,12 @@ class AppTestDATATYPES:
         assert c.m_pod.m_int == 123
         assert c.m_pod.m_double == 321.
 
-        c = cppyy.gbl.cppyy_test_data()
+        c = cppyy.gbl.CppyyTestData()
         c.set_pod_ptr_in(p)
         assert c.m_pod.m_int == 123
         assert c.m_pod.m_double == 321.
 
-        c = cppyy.gbl.cppyy_test_data()
+        c = cppyy.gbl.CppyyTestData()
         c.set_pod_ptr_out(p)
         assert p.m_int == 888
         assert p.m_double == 3.14
@@ -559,26 +559,26 @@ class AppTestDATATYPES:
         p.m_int = 555
         p.m_double = 666.
 
-        c = cppyy.gbl.cppyy_test_data()
+        c = cppyy.gbl.CppyyTestData()
         c.set_pod_ref(p)
         assert c.m_pod.m_int == 555
         assert c.m_pod.m_double == 666.
 
-        c = cppyy.gbl.cppyy_test_data()
+        c = cppyy.gbl.CppyyTestData()
         c.set_pod_ptrptr_in(p)
         assert c.m_pod.m_int == 555
         assert c.m_pod.m_double == 666.
         assert p.m_int == 555
         assert p.m_double == 666.
 
-        c = cppyy.gbl.cppyy_test_data()
+        c = cppyy.gbl.CppyyTestData()
         c.set_pod_void_ptrptr_in(p)
         assert c.m_pod.m_int == 555
         assert c.m_pod.m_double == 666.
         assert p.m_int == 555
         assert p.m_double == 666.
 
-        c = cppyy.gbl.cppyy_test_data()
+        c = cppyy.gbl.CppyyTestData()
         c.set_pod_ptrptr_out(p)
         assert c.m_pod.m_int == 888
         assert c.m_pod.m_double == 3.14
@@ -588,7 +588,7 @@ class AppTestDATATYPES:
         p.m_int = 777
         p.m_double = 888.
 
-        c = cppyy.gbl.cppyy_test_data()
+        c = cppyy.gbl.CppyyTestData()
         c.set_pod_void_ptrptr_out(p)
         assert c.m_pod.m_int == 888
         assert c.m_pod.m_double == 3.14
@@ -601,7 +601,7 @@ class AppTestDATATYPES:
         import cppyy
 
         for o in (0, None):
-            c = cppyy.gbl.cppyy_test_data()
+            c = cppyy.gbl.CppyyTestData()
             assert c.m_pod.m_int == 888
             assert c.m_pod.m_double == 3.14
             assert not not c.m_ppod
@@ -614,10 +614,10 @@ class AppTestDATATYPES:
         """Test that privacy settings are respected"""
 
         import cppyy
-        cppyy_test_data = cppyy.gbl.cppyy_test_data
+        CppyyTestData = cppyy.gbl.CppyyTestData
 
-        c = cppyy_test_data()
-        assert isinstance(c, cppyy_test_data)
+        c = CppyyTestData()
+        assert isinstance(c, CppyyTestData)
 
         raises(AttributeError, getattr, c, 'm_owns_arrays')
 
@@ -629,29 +629,29 @@ class AppTestDATATYPES:
         import cppyy
         gbl = cppyy.gbl
 
-        c1 = cppyy.bind_object(0, gbl.cppyy_test_data)
+        c1 = cppyy.bind_object(0, gbl.CppyyTestData)
         assert c1 == None
         assert None == c1
 
-        c2 = cppyy.bind_object(0, gbl.cppyy_test_data)
+        c2 = cppyy.bind_object(0, gbl.CppyyTestData)
         assert c1 == c2
         assert c2 == c1
 
-        # four_vector overrides operator==
-        l1 = cppyy.bind_object(0, gbl.four_vector)
+        # FourVector overrides operator==
+        l1 = cppyy.bind_object(0, gbl.FourVector)
         assert l1 == None
         assert None == l1
 
         assert c1 != l1
         assert l1 != c1
 
-        l2 = cppyy.bind_object(0, gbl.four_vector)
+        l2 = cppyy.bind_object(0, gbl.FourVector)
         assert l1 == l2
         assert l2 == l1
 
-        l3 = gbl.four_vector(1, 2, 3, 4)
-        l4 = gbl.four_vector(1, 2, 3, 4)
-        l5 = gbl.four_vector(4, 3, 2, 1)
+        l3 = gbl.FourVector(1, 2, 3, 4)
+        l4 = gbl.FourVector(1, 2, 3, 4)
+        l5 = gbl.FourVector(4, 3, 2, 1)
         assert l3 == l4
         assert l4 == l3
 
@@ -665,7 +665,7 @@ class AppTestDATATYPES:
 
         from cppyy import gbl
 
-        d = gbl.cppyy_test_pod()
+        d = gbl.CppyyTestPod()
 
         assert d
         assert not not d
@@ -678,9 +678,9 @@ class AppTestDATATYPES:
         """Test usage of buffer sizing"""
 
         import cppyy
-        cppyy_test_data = cppyy.gbl.cppyy_test_data
+        CppyyTestData = cppyy.gbl.CppyyTestData
 
-        c = cppyy_test_data()
+        c = CppyyTestData()
         for func in ['get_bool_array',   'get_bool_array2',
                      'get_ushort_array', 'get_ushort_array2',
                      'get_int_array',    'get_int_array2',
@@ -699,19 +699,19 @@ class AppTestDATATYPES:
         """Test usage of void* data"""
 
         import cppyy
-        cppyy_test_data = cppyy.gbl.cppyy_test_data
+        CppyyTestData = cppyy.gbl.CppyyTestData
 
-        c = cppyy_test_data()
+        c = CppyyTestData()
 
         assert not cppyy.gbl.nullptr
 
         assert c.s_voidp                is cppyy.gbl.nullptr
-        assert cppyy_test_data.s_voidp  is cppyy.gbl.nullptr
+        assert CppyyTestData.s_voidp  is cppyy.gbl.nullptr
 
         assert c.m_voidp                is cppyy.gbl.nullptr
         assert c.get_voidp()            is cppyy.gbl.nullptr
 
-        c2 = cppyy_test_data()
+        c2 = CppyyTestData()
         assert c2.m_voidp               is cppyy.gbl.nullptr
         c.set_voidp(c2.m_voidp)
         assert c.m_voidp                is cppyy.gbl.nullptr
@@ -723,9 +723,9 @@ class AppTestDATATYPES:
         c.set_voidp(c2)
         def address_equality_test(a, b):
             assert cppyy.addressof(a) == cppyy.addressof(b)
-            b2 = cppyy.bind_object(a, cppyy_test_data)
+            b2 = cppyy.bind_object(a, CppyyTestData)
             assert b is b2    # memory regulator recycles
-            b3 = cppyy.bind_object(cppyy.addressof(a), cppyy_test_data)
+            b3 = cppyy.bind_object(cppyy.addressof(a), CppyyTestData)
             assert b is b3    # likewise
 
         address_equality_test(c.m_voidp, c2)

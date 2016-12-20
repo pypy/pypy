@@ -1108,13 +1108,15 @@ class Regalloc(BaseRegalloc, vector_ext.VectorRegalloc):
     def prepare_cond_call(self, op):
         self.load_condition_into_cc(op.getarg(0))
         locs = [None]
+        self.assembler.guard_success_cc = c.negate(
+                self.assembler.guard_success_cc)
         # support between 0 and 4 integer arguments
         assert 2 <= op.numargs() <= 2 + 4
         for i in range(1, op.numargs()):
             loc = self.loc(op.getarg(i))
             assert loc.type != FLOAT
             locs.append(loc)
-        return locs
+        return locs # [None, function, arg0, ..., argn]
 
     def prepare_cond_call_value_i(self, op):
         x = self.ensure_reg(op.getarg(0))

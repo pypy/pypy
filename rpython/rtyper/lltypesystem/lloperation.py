@@ -78,7 +78,8 @@ class LLOp(object):
     def is_pure(self, args_v):
         if self.canfold:                # canfold => pure operation
             return True
-        if self is llop.debug_assert:   # debug_assert is pure enough
+        if (self is llop.debug_assert or     # debug_assert is pure enough
+            self is llop.debug_assert_not_none):
             return True
         # reading from immutable
         if self is llop.getfield or self is llop.getarrayitem:
@@ -554,6 +555,7 @@ LL_OPERATIONS = {
     'debug_offset':             LLOp(canrun=True),
     'debug_flush':              LLOp(canrun=True),
     'debug_assert':             LLOp(tryfold=True),
+    'debug_assert_not_none':    LLOp(tryfold=True),
     'debug_fatalerror':         LLOp(canrun=True),
     'debug_llinterpcall':       LLOp(canraise=(Exception,)),
                                     # Python func call 'res=arg[0](*arg[1:])'

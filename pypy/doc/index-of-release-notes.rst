@@ -59,6 +59,7 @@ CPython 3.3 compatible versions
 
 .. toctree::
 
+   release-pypy3.3-v5.5.0.rst
    release-pypy3.3-v5.2-alpha1.rst
 
 CPython 3.2 compatible versions

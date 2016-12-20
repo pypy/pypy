@@ -563,6 +563,10 @@ class BlackholeInterpreter(object):
         ll_assert((i & 1) == 1, "bhimpl_cast_int_to_ptr: not an odd int")
         return lltype.cast_int_to_ptr(llmemory.GCREF, i)
 
+    @arguments("r")
+    def bhimpl_assert_not_none(a):
+        assert a
+
     @arguments("r", "i")
     def bhimpl_record_exact_class(a, b):
         pass
