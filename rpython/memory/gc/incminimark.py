@@ -735,7 +735,21 @@ class IncrementalMiniMarkGC(MovingGCBase):
         totalsize = size_gc_header + self.get_size(obj)
         self.nursery_surviving_size += raw_malloc_usage(totalsize)
         newhdr = self._malloc_out_of_nursery(totalsize)
-        #return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
+        llmemory.raw_memcopy(obj - size_gc_header, newhdr, totalsize)
+
+        # Set the old object's tid to -42 (containing all flags) and
+        # replace the old object's content with the target address.
+        # A bit of no-ops to convince llarena that we are changing
+        # the layout, in non-translated versions.
+        typeid = self.get_type_id(obj)
+        obj = llarena.getfakearenaaddress(obj)
+        llarena.arena_reset(obj - size_gc_header, totalsize, 0)
+        llarena.arena_reserve(obj - size_gc_header,
+                              size_gc_header + llmemory.sizeof(FORWARDSTUB))
+        self.header(obj).tid = -42
+        newobj = newhdr + size_gc_header
+        llmemory.cast_adr_to_ptr(obj, FORWARDSTUBPTR).forw = newobj
+        return llmemory.cast_adr_to_ptr(newobj, llmemory.GCREF)
 
 
     def collect(self, gen=2):
