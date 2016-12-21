@@ -76,6 +76,10 @@ else:
     DEF_MEM_LEVEL = MAX_MEM_LEVEL
 
 OUTPUT_BUFFER_SIZE = 32*1024
+INPUT_BUFFER_MAX = 2047*1024*1024
+# Note: we assume that zlib never outputs less than OUTPUT_BUFFER_SIZE
+# from an input of INPUT_BUFFER_MAX bytes.  This should be true by a
+# large margin (I think zlib never compresses by more than ~1000x).
 
 
 class ComplexCConfig:
@@ -168,6 +172,18 @@ _zlibVersion = zlib_external('zlibVersion', [], rffi.CCHARP)
 
 # ____________________________________________________________
 
+def _crc_or_adler(string, start, function):
+    with rffi.scoped_nonmovingbuffer(string) as bytes:
+        remaining = len(string)
+        checksum = start
+        ptr = rffi.cast(Bytefp, bytes)
+        while remaining > 0:
+            count = min(remaining, 32*1024*1024)
+            checksum = function(checksum, ptr, count)
+            ptr = rffi.ptradd(ptr, count)
+            remaining -= count
+    return checksum
+
 CRC32_DEFAULT_START = 0
 
 def crc32(string, start=CRC32_DEFAULT_START):
@@ -175,12 +191,17 @@ def crc32(string, start=CRC32_DEFAULT_START):
     Compute the CRC32 checksum of the string, possibly with the given
     start value, and return it as a unsigned 32 bit integer.
     """
-    with rffi.scoped_nonmovingbuffer(string) as bytes:
-        checksum = _crc32(start, rffi.cast(Bytefp, bytes), len(string))
-    return checksum
-
+    return _crc_or_adler(string, start, _crc32)
 
 ADLER32_DEFAULT_START = 1
+
+def adler32(string, start=ADLER32_DEFAULT_START):
+    """
+    Compute the Adler-32 checksum of the string, possibly with the given
+    start value, and return it as a unsigned 32 bit integer.
+    """
+    return _crc_or_adler(string, start, _adler32)
+
 
 def deflateSetDictionary(stream, string):
     with rffi.scoped_nonmovingbuffer(string) as buf:
@@ -195,16 +216,6 @@ def inflateSetDictionary(stream, string):
         raise RZlibError("Parameter is invalid or the stream state is inconsistent")
     elif err == Z_DATA_ERROR:
         raise RZlibError("The given dictionary doesn't match the expected one")
-
-    
-def adler32(string, start=ADLER32_DEFAULT_START):
-    """
-    Compute the Adler-32 checksum of the string, possibly with the given
-    start value, and return it as a unsigned 32 bit integer.
-    """
-    with rffi.scoped_nonmovingbuffer(string) as bytes:
-        checksum = _adler32(start, rffi.cast(Bytefp, bytes), len(string))
-    return checksum
 
 def zlibVersion():
     """Return the runtime version of zlib library"""
@@ -366,10 +377,10 @@ def _operate(stream, data, flush, max_length, cfunc, while_doing, zdict=None):
     """Common code for compress() and decompress().
     """
     # Prepare the input buffer for the stream
-    assert data is not None # XXX seems to be sane assumption, however not for sure
+    assert data is not None
     with rffi.scoped_nonmovingbuffer(data) as inbuf:
         stream.c_next_in = rffi.cast(Bytefp, inbuf)
-        rffi.setintfield(stream, 'c_avail_in', len(data))
+        end_inbuf = rffi.ptradd(stream.c_next_in, len(data))
 
         # Prepare the output buffer
         with lltype.scoped_alloc(rffi.CCHARP.TO, OUTPUT_BUFFER_SIZE) as outbuf:
@@ -379,6 +390,11 @@ def _operate(stream, data, flush, max_length, cfunc, while_doing, zdict=None):
             result = StringBuilder()
 
             while True:
+                avail_in = ptrdiff(end_inbuf, stream.c_next_in)
+                if avail_in > INPUT_BUFFER_MAX:
+                    avail_in = INPUT_BUFFER_MAX
+                rffi.setintfield(stream, 'c_avail_in', avail_in)
+
                 stream.c_next_out = rffi.cast(Bytefp, outbuf)
                 bufsize = OUTPUT_BUFFER_SIZE
                 if max_length < bufsize:
@@ -388,7 +404,9 @@ def _operate(stream, data, flush, max_length, cfunc, while_doing, zdict=None):
                     bufsize = max_length
                 max_length -= bufsize
                 rffi.setintfield(stream, 'c_avail_out', bufsize)
+
                 err = cfunc(stream, flush)
+
                 if err == Z_NEED_DICT and zdict is not None:
                     inflateSetDictionary(stream, zdict)
                     # repeat the call to inflate
@@ -422,6 +440,9 @@ def _operate(stream, data, flush, max_length, cfunc, while_doing, zdict=None):
     # When decompressing, if the compressed stream of data was truncated,
     # then the zlib simply returns Z_OK and waits for more.  If it is
     # complete it returns Z_STREAM_END.
-    return (result.build(),
-            err,
-            rffi.cast(lltype.Signed, stream.c_avail_in))
+    avail_in = ptrdiff(end_inbuf, stream.c_next_in)
+    return (result.build(), err, avail_in)
+
+def ptrdiff(p, q):
+    x = rffi.cast(lltype.Unsigned, p) - rffi.cast(lltype.Unsigned, q)
+    return rffi.cast(lltype.Signed, x)

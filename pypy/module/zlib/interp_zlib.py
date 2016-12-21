@@ -5,6 +5,7 @@ from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rtyper.lltypesystem import rffi
 
 from rpython.rlib import rzlib
 
@@ -15,9 +16,7 @@ if intmask(2**31) == -2**31:
 else:
     # 64-bit platforms
     def unsigned_to_signed_32bit(x):
-        # assumes that 'x' is in range(0, 2**32) to start with
-        SIGN_EXTEND2 = 1 << 31
-        return intmask((x ^ SIGN_EXTEND2) - SIGN_EXTEND2)
+        return intmask(rffi.cast(rffi.INT, x))
 
 
 @unwrap_spec(string='bufferstr', start='truncatedint_w')
@@ -278,7 +277,7 @@ class Decompress(ZLibObject):
         else:
             self.unconsumed_tail = tail
 
-    @unwrap_spec(data='bufferstr', max_length="c_int")
+    @unwrap_spec(data='bufferstr', max_length=int)
     def decompress(self, space, data, max_length=0):
         """
         decompress(data[, max_length]) -- Return a string containing the
@@ -313,7 +312,7 @@ class Decompress(ZLibObject):
         data as possible.
         """
         if w_length is not None:
-            length = space.c_int_w(w_length)
+            length = space.int_w(w_length)
             if length <= 0:
                 raise oefmt(space.w_ValueError,
                             "length must be greater than zero")
