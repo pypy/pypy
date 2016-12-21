@@ -1135,6 +1135,9 @@ class LLFrame(object):
         exc_data.exc_value = lltype.typeOf(evalue)._defl()
         return bool(etype)
 
+    def op_gc_move_out_of_nursery(self, obj):
+        raise NotImplementedError("gc_move_out_of_nursery")
+
 
 class Tracer(object):
     Counter = 0
