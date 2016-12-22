@@ -2013,3 +2013,159 @@ def test_typedef_array_dotdotdot():
     py.test.raises(ffi.error, ffi.sizeof, "vmat_t")
     p = ffi.new("vmat_t", 4)
     assert ffi.sizeof(p[3]) == 8 * ffi.sizeof("int")
+
+def test_call_with_custom_field_pos():
+    ffi = FFI()
+    ffi.cdef("""
+        struct foo { int x; ...; };
+        struct foo f(void);
+        struct foo g(int, ...);
+    """)
+    lib = verify(ffi, "test_call_with_custom_field_pos", """
+        struct foo { int y, x; };
+        struct foo f(void) {
+            struct foo s = { 40, 200 };
+            return s;
+        }
+        struct foo g(int a, ...) { }
+    """)
+    assert lib.f().x == 200
+    e = py.test.raises(NotImplementedError, lib.g, 0)
+    assert str(e.value) == (
+        'ctype \'struct foo\' not supported as return value.  It is a '
+        'struct declared with "...;", but the C calling convention may '
+        'depend on the missing fields; or, it contains anonymous '
+        'struct/unions.  Such structs are only supported '
+        'as return value if the function is \'API mode\' and non-variadic '
+        '(i.e. declared inside ffibuilder.cdef()+ffibuilder.set_source() '
+        'and not taking a final \'...\' argument)')
+
+def test_call_with_nested_anonymous_struct():
+    if sys.platform == 'win32':
+        py.test.skip("needs a GCC extension")
+    ffi = FFI()
+    ffi.cdef("""
+        struct foo { int a; union { int b, c; }; };
+        struct foo f(void);
+        struct foo g(int, ...);
+    """)
+    lib = verify(ffi, "test_call_with_nested_anonymous_struct", """
+        struct foo { int a; union { int b, c; }; };
+        struct foo f(void) {
+            struct foo s = { 40 };
+            s.b = 200;
+            return s;
+        }
+        struct foo g(int a, ...) { }
+    """)
+    assert lib.f().b == 200
+    e = py.test.raises(NotImplementedError, lib.g, 0)
+    assert str(e.value) == (
+        'ctype \'struct foo\' not supported as return value.  It is a '
+        'struct declared with "...;", but the C calling convention may '
+        'depend on the missing fields; or, it contains anonymous '
+        'struct/unions.  Such structs are only supported '
+        'as return value if the function is \'API mode\' and non-variadic '
+        '(i.e. declared inside ffibuilder.cdef()+ffibuilder.set_source() '
+        'and not taking a final \'...\' argument)')
+
+def test_call_with_bitfield():
+    ffi = FFI()
+    ffi.cdef("""
+        struct foo { int x:5; };
+        struct foo f(void);
+        struct foo g(int, ...);
+    """)
+    lib = verify(ffi, "test_call_with_bitfield", """
+        struct foo { int x:5; };
+        struct foo f(void) {
+            struct foo s = { 11 };
+            return s;
+        }
+        struct foo g(int a, ...) { }
+    """)
+    assert lib.f().x == 11
+    e = py.test.raises(NotImplementedError, lib.g, 0)
+    assert str(e.value) == (
+        "ctype 'struct foo' not supported as return value.  It is a struct "
+        "with bit fields, which libffi does not support.  Such structs are "
+        "only supported as return value if the function is 'API mode' and "
+        "non-variadic (i.e. declared inside ffibuilder.cdef()+ffibuilder."
+        "set_source() and not taking a final '...' argument)")
+
+def test_call_with_zero_length_field():
+    ffi = FFI()
+    ffi.cdef("""
+        struct foo { int a; int x[0]; };
+        struct foo f(void);
+        struct foo g(int, ...);
+    """)
+    lib = verify(ffi, "test_call_with_zero_length_field", """
+        struct foo { int a; int x[0]; };
+        struct foo f(void) {
+            struct foo s = { 42 };
+            return s;
+        }
+        struct foo g(int a, ...) { }
+    """)
+    assert lib.f().a == 42
+    e = py.test.raises(NotImplementedError, lib.g, 0)
+    assert str(e.value) == (
+        "ctype 'struct foo' not supported as return value.  It is a "
+        "struct with a zero-length array, which libffi does not support."
+        "  Such structs are only supported as return value if the function is "
+        "'API mode' and non-variadic (i.e. declared inside ffibuilder.cdef()"
+        "+ffibuilder.set_source() and not taking a final '...' argument)")
+
+def test_call_with_union():
+    ffi = FFI()
+    ffi.cdef("""
+        union foo { int a; char b; };
+        union foo f(void);
+        union foo g(int, ...);
+    """)
+    lib = verify(ffi, "test_call_with_union", """
+        union foo { int a; char b; };
+        union foo f(void) {
+            union foo s = { 42 };
+            return s;
+        }
+        union foo g(int a, ...) { }
+    """)
+    assert lib.f().a == 42
+    e = py.test.raises(NotImplementedError, lib.g, 0)
+    assert str(e.value) == (
+        "ctype 'union foo' not supported as return value by libffi.  "
+        "Unions are only supported as return value if the function is "
+        "'API mode' and non-variadic (i.e. declared inside ffibuilder.cdef()"
+        "+ffibuilder.set_source() and not taking a final '...' argument)")
+
+def test_call_with_packed_struct():
+    if sys.platform == 'win32':
+        py.test.skip("needs a GCC extension")
+    ffi = FFI()
+    ffi.cdef("""
+        struct foo { char y; int x; };
+        struct foo f(void);
+        struct foo g(int, ...);
+    """, packed=True)
+    lib = verify(ffi, "test_call_with_packed_struct", """
+        struct foo { char y; int x; } __attribute__((packed));
+        struct foo f(void) {
+            struct foo s = { 40, 200 };
+            return s;
+        }
+        struct foo g(int a, ...) {
+            struct foo s = { 41, 201 };
+            return s;
+        }
+    """)
+    assert lib.f().y == chr(40)
+    assert lib.f().x == 200
+    e = py.test.raises(NotImplementedError, lib.g, 0)
+    assert str(e.value) == (
+        "ctype 'struct foo' not supported as return value.  It is a "
+        "'packed' structure, with a different layout than expected by libffi."
+        "  Such structs are only supported as return value if the function is "
+        "'API mode' and non-variadic (i.e. declared inside ffibuilder.cdef()"
+        "+ffibuilder.set_source() and not taking a final '...' argument)")
