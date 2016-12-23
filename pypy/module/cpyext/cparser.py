@@ -682,6 +682,12 @@ class ParsedSource(object):
         self._Config = type(
             'Config', (object,), {'_compilation_info_': eci})
         self._TYPES = {}
+        self.includes = []
+
+    def include(self, other):
+        self.ctx.include(other.ctx)
+        self.structs.update(other.structs)
+        self.includes.append(other)
 
     def add_typedef(self, name, obj):
         assert name not in self.definitions
@@ -749,12 +755,11 @@ class ParsedSource(object):
 
 def parse_source(source, includes=None, eci=None):
     ctx = Parser()
+    src = ParsedSource(source, ctx, eci=eci)
     if includes is not None:
         for header in includes:
-            ctx.include(header.ctx)
-
+            src.include(header)
     ctx.parse(source)
-    src = ParsedSource(source, ctx, eci=eci)
     for name, (obj, quals) in ctx._declarations.iteritems():
         if obj in ctx._included_declarations:
             continue

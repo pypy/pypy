@@ -53,13 +53,19 @@ def test_include():
     #define PyObject_HEAD  \
         Py_ssize_t ob_refcnt;        \
         Py_ssize_t ob_pypy_link;     \
+
+    typedef struct {
+        char *name;
+    } Type;
     """
     hdr1 = parse_source(cdef1)
     cdef2 = """
     typedef struct {
         PyObject_HEAD
         Py_ssize_t ob_foo;
+        Type *type;
     } Object;
     """
     hdr2 = parse_source(cdef2, includes=[hdr1])
     assert 'Object' in hdr2.definitions
+    assert 'Type' not in hdr2.definitions
