@@ -46,7 +46,7 @@ def test_macro():
     assert 'PyFloatObject' in hdr.definitions
     assert 'PyObject_HEAD' in hdr.macros
 
-def test_include():
+def test_include(tmpdir):
     cdef1 = """
     typedef ssize_t Py_ssize_t;
 
@@ -58,7 +58,8 @@ def test_include():
         char *name;
     } Type;
     """
-    hdr1 = parse_source(cdef1)
+    base_name = tmpdir / 'base.h'
+    base_name.write(cdef1)
     cdef2 = """
     typedef struct {
         PyObject_HEAD
@@ -66,6 +67,16 @@ def test_include():
         Type *type;
     } Object;
     """
-    hdr2 = parse_source(cdef2, includes=[hdr1])
-    assert 'Object' in hdr2.definitions
+    (tmpdir / 'object.h').write(cdef2)
+    eci = ExternalCompilationInfo(
+        include_dirs=[str(tmpdir)],
+        includes=['sys/types.h', 'base.h', 'object.h'])
+    hdr1 = parse_source(cdef1, eci=eci)
+    hdr1.configure_types()
+    Type = hdr1.definitions['Type'].OF
+    assert isinstance(Type, lltype.Struct)
+    hdr2 = parse_source(cdef2, includes=[hdr1], eci=eci)
+    hdr2.configure_types()
     assert 'Type' not in hdr2.definitions
+    Object = hdr2.definitions['Object'].OF
+    assert Object.c_type.TO is Type

@@ -31,6 +31,7 @@ descrsetfunc = P(FT([PyO, PyO, PyO], rffi.INT_real))
 initproc = P(FT([PyO, PyO, PyO], rffi.INT_real))
 newfunc = P(FT([PyTypeObjectPtr, PyO, PyO], PyO))
 allocfunc = P(FT([PyTypeObjectPtr, Py_ssize_t], PyO))
+
 unaryfunc = P(FT([PyO], PyO))
 binaryfunc = P(FT([PyO, PyO], PyO))
 ternaryfunc = P(FT([PyO, PyO, PyO], PyO))
