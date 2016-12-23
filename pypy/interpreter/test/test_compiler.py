@@ -950,6 +950,7 @@ class AppTestCompiler(object):
         class 日本:
             pass
         assert 日本.__name__ == '日本'
+        assert 日本.__qualname__ == 'test_class_nonascii.<locals>.日本'
         assert '日本' in repr(日本)
         """
 
