@@ -670,15 +670,17 @@ class DelayedStruct(object):
 
 
 class ParsedSource(object):
-    def __init__(self, source, parser, definitions=None, macros=None):
-        from pypy.module.cpyext.api import CConfig
+    def __init__(self, source, parser, definitions=None, macros=None, eci=None):
+        from pypy.module.cpyext.api import configure_eci
         self.source = source
         self.definitions = definitions if definitions is not None else {}
         self.macros = macros if macros is not None else {}
         self.structs = {}
         self.ctx = parser
-        self._Config = type('Config', (object,), {})
-        self._Config._compilation_info_ = CConfig._compilation_info_
+        if eci is None:
+            eci = configure_eci
+        self._Config = type(
+            'Config', (object,), {'_compilation_info_': eci})
         self._TYPES = {}
 
     def add_typedef(self, name, obj):
@@ -703,7 +705,6 @@ class ParsedSource(object):
             return DelayedStruct(obj.name, fields)
 
     def realize_struct(self, struct, type_name):
-        from pypy.module.cpyext.api import CConfig, TYPES
         configname = type_name.replace(' ', '__')
         setattr(self._Config, configname,
             rffi_platform.Struct(type_name, struct.fields))
@@ -742,14 +743,14 @@ class ParsedSource(object):
             raise NotImplementedError
 
 
-def parse_source(source, includes=None):
+def parse_source(source, includes=None, eci=None):
     ctx = Parser()
     if includes is not None:
         for header in includes:
             ctx.include(header.ctx)
 
     ctx.parse(source)
-    src = ParsedSource(source, ctx)
+    src = ParsedSource(source, ctx, eci=eci)
     for name, (obj, quals) in ctx._declarations.iteritems():
         if obj in ctx._included_declarations:
             continue

@@ -55,18 +55,19 @@ include_dirs = [
     udir,
     ]
 
-class CConfig:
-    _compilation_info_ = ExternalCompilationInfo(
+configure_eci = ExternalCompilationInfo(
         include_dirs=include_dirs,
         includes=['Python.h', 'stdarg.h', 'structmember.h'],
-        compile_extra=['-DPy_BUILD_CORE'],
-        )
+        compile_extra=['-DPy_BUILD_CORE'])
+
+class CConfig:
+    _compilation_info_ = configure_eci
 
 class CConfig2:
-    _compilation_info_ = CConfig._compilation_info_
+    _compilation_info_ = configure_eci
 
 class CConfig_constants:
-    _compilation_info_ = CConfig._compilation_info_
+    _compilation_info_ = configure_eci
 
 VA_LIST_P = rffi.VOIDP # rffi.COpaquePtr('va_list')
 CONST_STRING = lltype.Ptr(lltype.Array(lltype.Char,
@@ -1484,7 +1485,7 @@ def setup_library(space):
         include_lines.append('RPY_EXPORTED %s %s;\n' % (typ, name))
 
     lines.append('};\n')
-    eci2 = CConfig._compilation_info_.merge(ExternalCompilationInfo(
+    eci2 = configure_eci.merge(ExternalCompilationInfo(
         separate_module_sources = [''.join(lines)],
         post_include_bits = [''.join(include_lines)],
         ))

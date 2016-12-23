@@ -1,7 +1,8 @@
-from rpython.rtyper.lltypesystem import rffi
-from pypy.module.cpyext.cparser import Parser, cname_to_lltype, parse_source
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.module.cpyext.cparser import parse_source
 
-def test_stuff():
+def test_configure(tmpdir):
     decl = """
     typedef ssize_t Py_ssize_t;
 
@@ -9,14 +10,19 @@ def test_stuff():
         Py_ssize_t ob_refcnt;
         Py_ssize_t ob_pypy_link;
         double ob_fval;
-    } PyFloatObject;
+    } TestFloatObject;
     """
-    ctx = Parser()
-    ctx.parse(decl)
-    obj = ctx._declarations['typedef PyFloatObject'][0]
-    assert [cname_to_lltype(tp.name) for tp in obj.fldtypes] == [
-        rffi.SSIZE_T, rffi.SSIZE_T, rffi.DOUBLE]
-    res = parse_source(decl)
+    hdr = tmpdir / 'header.h'
+    hdr.write(decl)
+    eci = ExternalCompilationInfo(
+        include_dirs=[str(tmpdir)], includes=['sys/types.h', 'header.h'])
+    res = parse_source(decl, eci=eci)
+    res.configure_types()
+    TestFloatObject = res.definitions['TestFloatObject'].OF
+    assert isinstance(TestFloatObject, lltype.Struct)
+    assert TestFloatObject.c_ob_refcnt == rffi.SSIZE_T
+    assert TestFloatObject.c_ob_pypy_link == rffi.SSIZE_T
+    assert TestFloatObject.c_ob_fval == rffi.DOUBLE
 
 def test_simple():
     decl = "typedef ssize_t Py_ssize_t;"
