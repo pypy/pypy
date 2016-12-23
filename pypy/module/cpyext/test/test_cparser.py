@@ -80,3 +80,57 @@ def test_include(tmpdir):
     assert 'Type' not in hdr2.definitions
     Object = hdr2.definitions['Object'].OF
     assert Object.c_type.TO is Type
+
+def test_incomplete(tmpdir):
+    cdef = """
+    typedef ssize_t Py_ssize_t;
+
+    typedef struct {
+        Py_ssize_t ob_refcnt;
+        Py_ssize_t ob_pypy_link;
+        struct _typeobject *ob_type;
+    } Object;
+
+    typedef struct {
+        void *buf;
+        Object *obj;
+    } Buffer;
+
+    """
+    (tmpdir / 'foo.h').write(cdef)
+    eci = ExternalCompilationInfo(
+        include_dirs=[str(tmpdir)],
+        includes=['sys/types.h', 'foo.h'])
+    foo_h = parse_source(cdef, eci=eci)
+    foo_h.configure_types()
+    Object = foo_h.definitions['Object'].OF
+    assert isinstance(Object, lltype.ForwardReference) or hash(Object)
+
+def test_recursive(tmpdir):
+    cdef = """
+    typedef ssize_t Py_ssize_t;
+
+    typedef struct {
+        Py_ssize_t ob_refcnt;
+        Py_ssize_t ob_pypy_link;
+        struct _typeobject *ob_type;
+    } Object;
+
+    typedef struct {
+        void *buf;
+        Object *obj;
+    } Buffer;
+
+    typedef struct _typeobject {
+        Object *obj;
+    } Type;
+    """
+    (tmpdir / 'foo.h').write(cdef)
+    eci = ExternalCompilationInfo(
+        include_dirs=[str(tmpdir)],
+        includes=['sys/types.h', 'foo.h'])
+    foo_h = parse_source(cdef, eci=eci)
+    foo_h.configure_types()
+    Object = foo_h.definitions['Object'].OF
+    assert isinstance(Object, lltype.Struct)
+    hash(Object)
