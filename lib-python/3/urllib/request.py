@@ -134,13 +134,73 @@ __all__ = [
 ]
 
 # used in User-Agent header sent
-__version__ = sys.version[:3]
+__version__ = '%d.%d' % sys.version_info[:2]
 
 _opener = None
 def urlopen(url, data=None, timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
             *, cafile=None, capath=None, cadefault=False, context=None):
+    '''Open the URL url, which can be either a string or a Request object.
+
+    *data* must be an object specifying additional data to be sent to
+    the server, or None if no such data is needed.  See Request for
+    details.
+
+    urllib.request module uses HTTP/1.1 and includes a "Connection:close"
+    header in its HTTP requests.
+
+    The optional *timeout* parameter specifies a timeout in seconds for
+    blocking operations like the connection attempt (if not specified, the
+    global default timeout setting will be used). This only works for HTTP,
+    HTTPS and FTP connections.
+
+    If *context* is specified, it must be a ssl.SSLContext instance describing
+    the various SSL options. See HTTPSConnection for more details.
+
+    The optional *cafile* and *capath* parameters specify a set of trusted CA
+    certificates for HTTPS requests. cafile should point to a single file
+    containing a bundle of CA certificates, whereas capath should point to a
+    directory of hashed certificate files. More information can be found in
+    ssl.SSLContext.load_verify_locations().
+
+    The *cadefault* parameter is ignored.
+
+    This function always returns an object which can work as a context
+    manager and has methods such as
+
+    * geturl() - return the URL of the resource retrieved, commonly used to
+      determine if a redirect was followed
+
+    * info() - return the meta-information of the page, such as headers, in the
+      form of an email.message_from_string() instance (see Quick Reference to
+      HTTP Headers)
+
+    * getcode() - return the HTTP status code of the response.  Raises URLError
+      on errors.
+
+    For HTTP and HTTPS URLs, this function returns a http.client.HTTPResponse
+    object slightly modified. In addition to the three new methods above, the
+    msg attribute contains the same information as the reason attribute ---
+    the reason phrase returned by the server --- instead of the response
+    headers as it is specified in the documentation for HTTPResponse.
+
+    For FTP, file, and data URLs and requests explicitly handled by legacy
+    URLopener and FancyURLopener classes, this function returns a
+    urllib.response.addinfourl object.
+
+    Note that None may be returned if no handler handles the request (though
+    the default installed global OpenerDirector uses UnknownHandler to ensure
+    this never happens).
+
+    In addition, if proxy settings are detected (for example, when a *_proxy
+    environment variable like http_proxy is set), ProxyHandler is default
+    installed and makes sure the requests are handled through the proxy.
+
+    '''
     global _opener
     if cafile or capath or cadefault:
+        import warnings
+        warnings.warn("cafile, cpath and cadefault are deprecated, use a "
+                      "custom context instead.", DeprecationWarning, 2)
         if context is not None:
             raise ValueError(
                 "You can't pass both context and any of cafile, capath, and "
@@ -1170,6 +1230,11 @@ class AbstractHTTPHandler(BaseHandler):
     def set_http_debuglevel(self, level):
         self._debuglevel = level
 
+    def _get_content_length(self, request):
+        return http.client.HTTPConnection._get_content_length(
+            request.data,
+            request.get_method())
+
     def do_request_(self, request):
         host = request.host
         if not host:
@@ -1178,24 +1243,22 @@ class AbstractHTTPHandler(BaseHandler):
         if request.data is not None:  # POST
             data = request.data
             if isinstance(data, str):
-                msg = "POST data should be bytes or an iterable of bytes. " \
-                      "It cannot be of type str."
+                msg = "POST data should be bytes, an iterable of bytes, " \
+                      "or a file object. It cannot be of type str."
                 raise TypeError(msg)
             if not request.has_header('Content-type'):
                 request.add_unredirected_header(
                     'Content-type',
                     'application/x-www-form-urlencoded')
-            if not request.has_header('Content-length'):
-                try:
-                    mv = memoryview(data)
-                except TypeError:
-                    if isinstance(data, collections.Iterable):
-                        raise ValueError("Content-Length should be specified "
-                                "for iterable data of type %r %r" % (type(data),
-                                data))
+            if (not request.has_header('Content-length')
+                    and not request.has_header('Transfer-encoding')):
+                content_length = self._get_content_length(request)
+                if content_length is not None:
+                    request.add_unredirected_header(
+                            'Content-length', str(content_length))
                 else:
                     request.add_unredirected_header(
-                            'Content-length', '%d' % (len(mv) * mv.itemsize))
+                            'Transfer-encoding', 'chunked')
 
         sel_host = host
         if request.has_proxy():
@@ -1251,7 +1314,8 @@ class AbstractHTTPHandler(BaseHandler):
 
         try:
             try:
-                h.request(req.get_method(), req.selector, req.data, headers)
+                h.request(req.get_method(), req.selector, req.data, headers,
+                          encode_chunked=req.has_header('Transfer-encoding'))
             except OSError as err: # timeout error
                 raise URLError(err)
             r = h.getresponse()
@@ -1625,7 +1689,7 @@ class URLopener:
         self.proxies = proxies
         self.key_file = x509.get('key_file')
         self.cert_file = x509.get('cert_file')
-        self.addheaders = [('User-Agent', self.version)]
+        self.addheaders = [('User-Agent', self.version), ('Accept', '*/*')]
         self.__tempfiles = []
         self.__unlink = os.unlink # See cleanup()
         self.tempcache = None
@@ -2412,6 +2476,12 @@ def getproxies_environment():
         name = name.lower()
         if value and name[-6:] == '_proxy':
             proxies[name[:-6]] = value
+    # CVE-2016-1000110 - If we are running as CGI script, forget HTTP_PROXY
+    # (non-all-lowercase) as it may be set from the web server by a "Proxy:"
+    # header from the client
+    # If "proxy" is lowercase, it will still be used thanks to the next block
+    if 'REQUEST_METHOD' in os.environ:
+        proxies.pop('http', None)
     for name, value in os.environ.items():
         if name[-6:] == '_proxy':
             name = name.lower()

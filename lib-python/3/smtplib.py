@@ -759,6 +759,10 @@ class SMTP:
             if context is not None and certfile is not None:
                 raise ValueError("context and certfile arguments are mutually "
                                  "exclusive")
+            if keyfile is not None or certfile is not None:
+                import warnings
+                warnings.warn("keyfile and certfile are deprecated, use a"
+                              "custom context instead", DeprecationWarning, 2)
             if context is None:
                 context = ssl._create_stdlib_context(certfile=certfile,
                                                      keyfile=keyfile)
@@ -900,7 +904,7 @@ class SMTP:
         the recipient addresses contain non-ASCII and the server advertises the
         SMTPUTF8 capability, the policy is cloned with utf8 set to True for the
         serialization, and SMTPUTF8 and BODY=8BITMIME are asserted on the send.
-        If the server does not support SMTPUTF8, an SMPTNotSupported error is
+        If the server does not support SMTPUTF8, an SMTPNotSupported error is
         raised.  Otherwise the generator is called without modifying the
         policy.
 
@@ -1011,6 +1015,10 @@ if _have_ssl:
             if context is not None and certfile is not None:
                 raise ValueError("context and certfile arguments are mutually "
                                  "exclusive")
+            if keyfile is not None or certfile is not None:
+                import warnings
+                warnings.warn("keyfile and certfile are deprecated, use a"
+                              "custom context instead", DeprecationWarning, 2)
             self.keyfile = keyfile
             self.certfile = certfile
             if context is None:

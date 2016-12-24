@@ -1,7 +1,6 @@
 import socket
 import selectors
 import telnetlib
-import time
 import contextlib
 
 from test import support
@@ -41,6 +40,11 @@ class GeneralTests(unittest.TestCase):
         # connects
         telnet = telnetlib.Telnet(HOST, self.port)
         telnet.sock.close()
+
+    def testContextManager(self):
+        with telnetlib.Telnet(HOST, self.port) as tn:
+            self.assertIsNotNone(tn.get_socket())
+        self.assertIsNone(tn.get_socket())
 
     def testTimeoutDefault(self):
         self.assertTrue(socket.getdefaulttimeout() is None)

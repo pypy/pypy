@@ -3,6 +3,7 @@ import os
 import io
 from hashlib import md5
 from contextlib import contextmanager
+from random import Random
 
 import unittest
 import unittest.mock
@@ -349,12 +350,17 @@ class CommonReadTest(ReadTest):
 
     def test_ignore_zeros(self):
         # Test TarFile's ignore_zeros option.
+        # generate 512 pseudorandom bytes
+        data = Random(0).getrandbits(512*8).to_bytes(512, 'big')
         for char in (b'\0', b'a'):
             # Test if EOFHeaderError ('\0') and InvalidHeaderError ('a')
             # are ignored correctly.
             with self.open(tmpname, "w") as fobj:
                 fobj.write(char * 1024)
-                fobj.write(tarfile.TarInfo("foo").tobuf())
+                tarinfo = tarfile.TarInfo("foo")
+                tarinfo.size = len(data)
+                fobj.write(tarinfo.tobuf())
+                fobj.write(data)
 
             tar = tarfile.open(tmpname, mode="r", ignore_zeros=True)
             try:
@@ -2073,6 +2079,24 @@ class MiscTest(unittest.TestCase):
             tarfile.itn(-0x10000000001, 6, tarfile.GNU_FORMAT)
         with self.assertRaises(ValueError):
             tarfile.itn(0x10000000000, 6, tarfile.GNU_FORMAT)
+
+    def test__all__(self):
+        blacklist = {'version', 'grp', 'pwd', 'symlink_exception',
+                     'NUL', 'BLOCKSIZE', 'RECORDSIZE', 'GNU_MAGIC',
+                     'POSIX_MAGIC', 'LENGTH_NAME', 'LENGTH_LINK',
+                     'LENGTH_PREFIX', 'REGTYPE', 'AREGTYPE', 'LNKTYPE',
+                     'SYMTYPE', 'CHRTYPE', 'BLKTYPE', 'DIRTYPE', 'FIFOTYPE',
+                     'CONTTYPE', 'GNUTYPE_LONGNAME', 'GNUTYPE_LONGLINK',
+                     'GNUTYPE_SPARSE', 'XHDTYPE', 'XGLTYPE', 'SOLARIS_XHDTYPE',
+                     'SUPPORTED_TYPES', 'REGULAR_TYPES', 'GNU_TYPES',
+                     'PAX_FIELDS', 'PAX_NAME_FIELDS', 'PAX_NUMBER_FIELDS',
+                     'stn', 'nts', 'nti', 'itn', 'calc_chksums', 'copyfileobj',
+                     'filemode',
+                     'EmptyHeaderError', 'TruncatedHeaderError',
+                     'EOFHeaderError', 'InvalidHeaderError',
+                     'SubsequentHeaderError', 'ExFileObject',
+                     'main'}
+        support.check__all__(self, tarfile, blacklist=blacklist)
 
 
 class CommandLineTest(unittest.TestCase):

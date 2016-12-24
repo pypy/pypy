@@ -289,12 +289,12 @@ class BasicAuthTests(unittest.TestCase):
         def http_server_with_basic_auth_handler(*args, **kwargs):
             return BasicAuthHandler(*args, **kwargs)
         self.server = LoopbackHttpServerThread(http_server_with_basic_auth_handler)
+        self.addCleanup(self.server.stop)
         self.server_url = 'http://127.0.0.1:%s' % self.server.port
         self.server.start()
         self.server.ready.wait()
 
     def tearDown(self):
-        self.server.stop()
         super(BasicAuthTests, self).tearDown()
 
     def test_basic_auth_success(self):
@@ -323,6 +323,14 @@ class ProxyAuthTests(unittest.TestCase):
 
     def setUp(self):
         super(ProxyAuthTests, self).setUp()
+        # Ignore proxy bypass settings in the environment.
+        def restore_environ(old_environ):
+            os.environ.clear()
+            os.environ.update(old_environ)
+        self.addCleanup(restore_environ, os.environ.copy())
+        os.environ['NO_PROXY'] = ''
+        os.environ['no_proxy'] = ''
+
         self.digest_auth_handler = DigestAuthHandler()
         self.digest_auth_handler.set_users({self.USER: self.PASSWD})
         self.digest_auth_handler.set_realm(self.REALM)
@@ -438,17 +446,14 @@ class TestUrlopen(unittest.TestCase):
 
     def setUp(self):
         super(TestUrlopen, self).setUp()
-        # Ignore proxies for localhost tests.
-        self.old_environ = os.environ.copy()
-        os.environ['NO_PROXY'] = '*'
-        self.server = None
 
-    def tearDown(self):
-        if self.server is not None:
-            self.server.stop()
-        os.environ.clear()
-        os.environ.update(self.old_environ)
-        super(TestUrlopen, self).tearDown()
+        # Ignore proxies for localhost tests.
+        def restore_environ(old_environ):
+            os.environ.clear()
+            os.environ.update(old_environ)
+        self.addCleanup(restore_environ, os.environ.copy())
+        os.environ['NO_PROXY'] = '*'
+        os.environ['no_proxy'] = '*'
 
     def urlopen(self, url, data=None, **kwargs):
         l = []
@@ -469,6 +474,7 @@ class TestUrlopen(unittest.TestCase):
         handler = GetRequestHandler(responses)
 
         self.server = LoopbackHttpServerThread(handler)
+        self.addCleanup(self.server.stop)
         self.server.start()
         self.server.ready.wait()
         port = self.server.port
@@ -551,26 +557,28 @@ class TestUrlopen(unittest.TestCase):
 
     def test_https_with_cafile(self):
         handler = self.start_https_server(certfile=CERT_localhost)
-        # Good cert
-        data = self.urlopen("https://localhost:%s/bizarre" % handler.port,
-                            cafile=CERT_localhost)
-        self.assertEqual(data, b"we care a bit")
-        # Bad cert
-        with self.assertRaises(urllib.error.URLError) as cm:
-            self.urlopen("https://localhost:%s/bizarre" % handler.port,
-                         cafile=CERT_fakehostname)
-        # Good cert, but mismatching hostname
-        handler = self.start_https_server(certfile=CERT_fakehostname)
-        with self.assertRaises(ssl.CertificateError) as cm:
-            self.urlopen("https://localhost:%s/bizarre" % handler.port,
-                         cafile=CERT_fakehostname)
+        with support.check_warnings(('', DeprecationWarning)):
+            # Good cert
+            data = self.urlopen("https://localhost:%s/bizarre" % handler.port,
+                                cafile=CERT_localhost)
+            self.assertEqual(data, b"we care a bit")
+            # Bad cert
+            with self.assertRaises(urllib.error.URLError) as cm:
+                self.urlopen("https://localhost:%s/bizarre" % handler.port,
+                             cafile=CERT_fakehostname)
+            # Good cert, but mismatching hostname
+            handler = self.start_https_server(certfile=CERT_fakehostname)
+            with self.assertRaises(ssl.CertificateError) as cm:
+                self.urlopen("https://localhost:%s/bizarre" % handler.port,
+                             cafile=CERT_fakehostname)
 
     def test_https_with_cadefault(self):
         handler = self.start_https_server(certfile=CERT_localhost)
         # Self-signed cert should fail verification with system certificate store
-        with self.assertRaises(urllib.error.URLError) as cm:
-            self.urlopen("https://localhost:%s/bizarre" % handler.port,
-                         cadefault=True)
+        with support.check_warnings(('', DeprecationWarning)):
+            with self.assertRaises(urllib.error.URLError) as cm:
+                self.urlopen("https://localhost:%s/bizarre" % handler.port,
+                             cadefault=True)
 
     def test_https_sni(self):
         if ssl is None:
@@ -592,7 +600,8 @@ class TestUrlopen(unittest.TestCase):
         handler = self.start_server()
         req = urllib.request.Request("http://localhost:%s/" % handler.port,
                                      headers={"Range": "bytes=20-39"})
-        urllib.request.urlopen(req)
+        with urllib.request.urlopen(req):
+            pass
         self.assertEqual(handler.headers_received["Range"], "bytes=20-39")
 
     def test_basic(self):
@@ -608,22 +617,21 @@ class TestUrlopen(unittest.TestCase):
 
     def test_info(self):
         handler = self.start_server()
-        try:
-            open_url = urllib.request.urlopen(
-                "http://localhost:%s" % handler.port)
+        open_url = urllib.request.urlopen(
+            "http://localhost:%s" % handler.port)
+        with open_url:
             info_obj = open_url.info()
-            self.assertIsInstance(info_obj, email.message.Message,
-                                  "object returned by 'info' is not an "
-                                  "instance of email.message.Message")
-            self.assertEqual(info_obj.get_content_subtype(), "plain")
-        finally:
-            self.server.stop()
+        self.assertIsInstance(info_obj, email.message.Message,
+                              "object returned by 'info' is not an "
+                              "instance of email.message.Message")
+        self.assertEqual(info_obj.get_content_subtype(), "plain")
 
     def test_geturl(self):
         # Make sure same URL as opened is returned by geturl.
         handler = self.start_server()
         open_url = urllib.request.urlopen("http://localhost:%s" % handler.port)
-        url = open_url.geturl()
+        with open_url:
+            url = open_url.geturl()
         self.assertEqual(url, "http://localhost:%s" % handler.port)
 
     def test_iteration(self):

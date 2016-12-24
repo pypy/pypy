@@ -1,5 +1,7 @@
 import unittest
 from test import support
+from test.test_grammar import (VALID_UNDERSCORE_LITERALS,
+                               INVALID_UNDERSCORE_LITERALS)
 
 from random import random
 from math import atan2, isnan, copysign
@@ -326,6 +328,14 @@ class ComplexTest(unittest.TestCase):
         self.assertRaises(ValueError, complex, "1e1ej")
         self.assertRaises(ValueError, complex, "1e++1ej")
         self.assertRaises(ValueError, complex, ")1+2j(")
+        self.assertRaisesRegex(
+            TypeError,
+            "first argument must be a string or a number, not 'dict'",
+            complex, {1:2}, 1)
+        self.assertRaisesRegex(
+            TypeError,
+            "second argument must be a number, not 'dict'",
+            complex, 1, {1:2})
         # the following three are accepted by Python 2.6
         self.assertRaises(ValueError, complex, "1..1j")
         self.assertRaises(ValueError, complex, "1.11.1j")
@@ -376,6 +386,18 @@ class ComplexTest(unittest.TestCase):
         self.assertAlmostEqual(complex(complex0(1j)), 42j)
         self.assertAlmostEqual(complex(complex1(1j)), 2j)
         self.assertRaises(TypeError, complex, complex2(1j))
+
+    def test_underscores(self):
+        # check underscores
+        for lit in VALID_UNDERSCORE_LITERALS:
+            if not any(ch in lit for ch in 'xXoObB'):
+                self.assertEqual(complex(lit), eval(lit))
+                self.assertEqual(complex(lit), complex(lit.replace('_', '')))
+        for lit in INVALID_UNDERSCORE_LITERALS:
+            if lit in ('0_7', '09_99'):  # octals are not recognized here
+                continue
+            if not any(ch in lit for ch in 'xXoObB'):
+                self.assertRaises(ValueError, complex, lit)
 
     def test_hash(self):
         for x in range(-30, 30):

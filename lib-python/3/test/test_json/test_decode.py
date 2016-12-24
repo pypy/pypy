@@ -35,7 +35,7 @@ class TestDecode:
         self.assertEqual(self.loads(s, object_pairs_hook=OrderedDict,
                                     object_hook=lambda x: None),
                          OrderedDict(p))
-        # check that empty objects literals work (see #17368)
+        # check that empty object literals work (see #17368)
         self.assertEqual(self.loads('{}', object_pairs_hook=OrderedDict),
                          OrderedDict())
         self.assertEqual(self.loads('{"empty": {}}',
@@ -72,10 +72,8 @@ class TestDecode:
 
     def test_invalid_input_type(self):
         msg = 'the JSON object must be str'
-        for value in [1, 3.14, b'bytes', b'\xff\x00', [], {}, None]:
+        for value in [1, 3.14, [], {}, None]:
             self.assertRaisesRegex(TypeError, msg, self.loads, value)
-        with self.assertRaisesRegex(TypeError, msg):
-            self.json.load(BytesIO(b'[1,2,3]'))
 
     def test_string_with_utf8_bom(self):
         # see #18958

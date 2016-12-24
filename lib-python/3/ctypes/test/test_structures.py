@@ -106,7 +106,7 @@ class StructureTestCase(unittest.TestCase):
         self.assertEqual(alignment(XX), alignment(X))
         self.assertEqual(sizeof(XX), calcsize("3s 3s 0s"))
 
-    def test_emtpy(self):
+    def test_empty(self):
         # I had problems with these
         #
         # Although these are pathological cases: Empty Structures!
@@ -227,10 +227,10 @@ class StructureTestCase(unittest.TestCase):
 
     def test_conflicting_initializers(self):
         class POINT(Structure):
-            _fields_ = [("x", c_int), ("y", c_int)]
+            _fields_ = [("phi", c_float), ("rho", c_float)]
         # conflicting positional and keyword args
-        self.assertRaises(TypeError, POINT, 2, 3, x=4)
-        self.assertRaises(TypeError, POINT, 2, 3, y=4)
+        self.assertRaisesRegex(TypeError, "phi", POINT, 2, 3, phi=4)
+        self.assertRaisesRegex(TypeError, "rho", POINT, 2, 3, rho=4)
 
         # too many initializers
         self.assertRaises(TypeError, POINT, 2, 3, 4)
@@ -326,11 +326,8 @@ class StructureTestCase(unittest.TestCase):
 
         cls, msg = self.get_except(Person, b"Someone", (b"a", b"b", b"c"))
         self.assertEqual(cls, RuntimeError)
-        if issubclass(Exception, object):
-            self.assertEqual(msg,
-                                 "(Phone) <class 'TypeError'>: too many initializers")
-        else:
-            self.assertEqual(msg, "(Phone) TypeError: too many initializers")
+        self.assertEqual(msg,
+                             "(Phone) <class 'TypeError'>: too many initializers")
 
     def test_huge_field_name(self):
         # issue12881: segfault with large structure field names

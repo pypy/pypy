@@ -3,7 +3,8 @@
 import re
 import sys
 
-from idlelib import macosxSupport
+from idlelib import macosx
+
 
 class ZoomHeight:
 
@@ -20,6 +21,7 @@ class ZoomHeight:
         top = self.editwin.top
         zoom_height(top)
 
+
 def zoom_height(top):
     geom = top.wm_geometry()
     m = re.match(r"(\d+)x(\d+)\+(-?\d+)\+(-?\d+)", geom)
@@ -32,7 +34,7 @@ def zoom_height(top):
         newy = 0
         newheight = newheight - 72
 
-    elif macosxSupport.isAquaTk():
+    elif macosx.isAquaTk():
         # The '88' below is a magic number that avoids placing the bottom
         # of the window below the panel on my machine. I don't know how
         # to calculate the correct value for this with tkinter.

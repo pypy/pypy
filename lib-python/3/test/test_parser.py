@@ -1,6 +1,5 @@
 import parser
 import unittest
-import sys
 import operator
 import struct
 from test import support
@@ -138,6 +137,45 @@ class RoundtripLegalSyntaxTestCase(unittest.TestCase):
     def test_simple_assignments(self):
         self.check_suite("a = b")
         self.check_suite("a = b = c = d = e")
+
+    def test_var_annot(self):
+        self.check_suite("x: int = 5")
+        self.check_suite("y: List[T] = []; z: [list] = fun()")
+        self.check_suite("x: tuple = (1, 2)")
+        self.check_suite("d[f()]: int = 42")
+        self.check_suite("f(d[x]): str = 'abc'")
+        self.check_suite("x.y.z.w: complex = 42j")
+        self.check_suite("x: int")
+        self.check_suite("def f():\n"
+                         "    x: str\n"
+                         "    y: int = 5\n")
+        self.check_suite("class C:\n"
+                         "    x: str\n"
+                         "    y: int = 5\n")
+        self.check_suite("class C:\n"
+                         "    def __init__(self, x: int) -> None:\n"
+                         "        self.x: int = x\n")
+        # double check for nonsense
+        with self.assertRaises(SyntaxError):
+            exec("2+2: int", {}, {})
+        with self.assertRaises(SyntaxError):
+            exec("[]: int = 5", {}, {})
+        with self.assertRaises(SyntaxError):
+            exec("x, *y, z: int = range(5)", {}, {})
+        with self.assertRaises(SyntaxError):
+            exec("t: tuple = 1, 2", {}, {})
+        with self.assertRaises(SyntaxError):
+            exec("u = v: int", {}, {})
+        with self.assertRaises(SyntaxError):
+            exec("False: int", {}, {})
+        with self.assertRaises(SyntaxError):
+            exec("x.False: int", {}, {})
+        with self.assertRaises(SyntaxError):
+            exec("x.y,: int", {}, {})
+        with self.assertRaises(SyntaxError):
+            exec("[0]: int", {}, {})
+        with self.assertRaises(SyntaxError):
+            exec("f(): int", {}, {})
 
     def test_simple_augmented_assignments(self):
         self.check_suite("a += b")
@@ -626,6 +664,28 @@ class CompileTestCase(unittest.TestCase):
         self.assertEqual(eval(code1), -3)
         code2 = parser.compilest(st)
         self.assertEqual(eval(code2), -3)
+
+    def test_compile_filename(self):
+        st = parser.expr('a + 5')
+        code = parser.compilest(st)
+        self.assertEqual(code.co_filename, '<syntax-tree>')
+        code = st.compile()
+        self.assertEqual(code.co_filename, '<syntax-tree>')
+        for filename in 'file.py', b'file.py':
+            code = parser.compilest(st, filename)
+            self.assertEqual(code.co_filename, 'file.py')
+            code = st.compile(filename)
+            self.assertEqual(code.co_filename, 'file.py')
+        for filename in bytearray(b'file.py'), memoryview(b'file.py'):
+            with self.assertWarns(DeprecationWarning):
+                code = parser.compilest(st, filename)
+            self.assertEqual(code.co_filename, 'file.py')
+            with self.assertWarns(DeprecationWarning):
+                code = st.compile(filename)
+            self.assertEqual(code.co_filename, 'file.py')
+        self.assertRaises(TypeError, parser.compilest, st, list(b'file.py'))
+        self.assertRaises(TypeError, st.compile, list(b'file.py'))
+
 
 class ParserStackLimitTestCase(unittest.TestCase):
     """try to push the parser to/over its limits.

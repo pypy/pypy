@@ -4,18 +4,17 @@
 
 """Basic message object for the email package object model."""
 
-__all__ = ['Message']
+__all__ = ['Message', 'EmailMessage']
 
 import re
 import uu
 import quopri
-import warnings
 from io import BytesIO, StringIO
 
 # Intrapackage imports
 from email import utils
 from email import errors
-from email._policybase import compat32
+from email._policybase import Policy, compat32
 from email import charset as _charset
 from email._encoded_words import decode_b
 Charset = _charset.Charset
@@ -951,6 +950,26 @@ class MIMEPart(Message):
             policy = default
         Message.__init__(self, policy)
 
+
+    def as_string(self, unixfrom=False, maxheaderlen=None, policy=None):
+        """Return the entire formatted message as a string.
+
+        Optional 'unixfrom', when true, means include the Unix From_ envelope
+        header.  maxheaderlen is retained for backward compatibility with the
+        base Message class, but defaults to None, meaning that the policy value
+        for max_line_length controls the header maximum length.  'policy' is
+        passed to the Generator instance used to serialize the mesasge; if it
+        is not specified the policy associated with the message instance is
+        used.
+        """
+        policy = self.policy if policy is None else policy
+        if maxheaderlen is None:
+            maxheaderlen = policy.max_line_length
+        return super().as_string(maxheaderlen=maxheaderlen, policy=policy)
+
+    def __str__(self):
+        return self.as_string(policy=self.policy.clone(utf8=True))
+
     def is_attachment(self):
         c_d = self.get('content-disposition')
         return False if c_d is None else c_d.content_disposition == 'attachment'
@@ -1022,7 +1041,7 @@ class MIMEPart(Message):
         maintype, subtype = self.get_content_type().split('/')
         if maintype != 'multipart' or subtype == 'alternative':
             return
-        parts = self.get_payload()
+        parts = self.get_payload().copy()
         if maintype == 'multipart' and subtype == 'related':
             # For related, we treat everything but the root as an attachment.
             # The root may be indicated by 'start'; if there's no start or we
@@ -1043,7 +1062,7 @@ class MIMEPart(Message):
             yield from parts
             return
         # Otherwise we more or less invert the remaining logic in get_body.
-        # This only really works in edge cases (ex: non-text relateds or
+        # This only really works in edge cases (ex: non-text related or
         # alternatives) if the sending agent sets content-disposition.
         seen = []   # Only skip the first example of each candidate type.
         for part in parts:

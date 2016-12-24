@@ -86,8 +86,8 @@ _SCHEME_KEYS = ('stdlib', 'platstdlib', 'purelib', 'platlib', 'include',
  # FIXME don't rely on sys.version here, its format is an implementation detail
  # of CPython, use sys.version_info or sys.hexversion
 _PY_VERSION = sys.version.split()[0]
-_PY_VERSION_SHORT = sys.version[:3]
-_PY_VERSION_SHORT_NO_DOT = _PY_VERSION[0] + _PY_VERSION[2]
+_PY_VERSION_SHORT = '%d.%d' % sys.version_info[:2]
+_PY_VERSION_SHORT_NO_DOT = '%d%d' % sys.version_info[:2]
 _PREFIX = os.path.normpath(sys.prefix)
 _BASE_PREFIX = os.path.normpath(sys.base_prefix)
 _EXEC_PREFIX = os.path.normpath(sys.exec_prefix)
@@ -215,7 +215,7 @@ def _parse_makefile(filename, vars=None):
     # Regexes needed for parsing Makefile (and similar syntaxes,
     # like old-style Setup files).
     import re
-    _variable_rx = re.compile("([a-zA-Z][a-zA-Z0-9_]+)\s*=\s*(.*)")
+    _variable_rx = re.compile(r"([a-zA-Z][a-zA-Z0-9_]+)\s*=\s*(.*)")
     _findvar1_rx = re.compile(r"\$\(([A-Za-z][A-Za-z0-9_]*)\)")
     _findvar2_rx = re.compile(r"\${([A-Za-z][A-Za-z0-9_]*)}")
 
@@ -337,7 +337,19 @@ def get_makefile_filename():
         config_dir_name = 'config-%s%s' % (_PY_VERSION_SHORT, sys.abiflags)
     else:
         config_dir_name = 'config'
+    if hasattr(sys.implementation, '_multiarch'):
+        config_dir_name += '-%s' % sys.implementation._multiarch
     return os.path.join(get_path('stdlib'), config_dir_name, 'Makefile')
+
+
+def _get_sysconfigdata_name():
+    return os.environ.get('_PYTHON_SYSCONFIGDATA_NAME',
+        '_sysconfigdata_{abi}_{platform}_{multiarch}'.format(
+        abi=sys.abiflags,
+        platform=sys.platform,
+        multiarch=getattr(sys.implementation, '_multiarch', ''),
+    ))
+
 
 def _generate_posix_vars():
     """Generate the Python module containing build-time variables."""
@@ -379,14 +391,14 @@ def _generate_posix_vars():
     # _sysconfigdata module manually and populate it with the build vars.
     # This is more than sufficient for ensuring the subsequent call to
     # get_platform() succeeds.
-    name = '_sysconfigdata'
+    name = _get_sysconfigdata_name()
     if 'darwin' in sys.platform:
         import types
         module = types.ModuleType(name)
         module.build_time_vars = vars
         sys.modules[name] = module
 
-    pybuilddir = 'build/lib.%s-%s' % (get_platform(), sys.version[:3])
+    pybuilddir = 'build/lib.%s-%s' % (get_platform(), _PY_VERSION_SHORT)
     if hasattr(sys, "gettotalrefcount"):
         pybuilddir += '-pydebug'
     os.makedirs(pybuilddir, exist_ok=True)
@@ -405,7 +417,9 @@ def _generate_posix_vars():
 def _init_posix(vars):
     """Initialize the module as appropriate for POSIX systems."""
     # _sysconfigdata is generated at build time, see _generate_posix_vars()
-    from _sysconfigdata import build_time_vars
+    name = _get_sysconfigdata_name()
+    _temp = __import__(name, globals(), locals(), ['build_time_vars'], 0)
+    build_time_vars = _temp.build_time_vars
     vars.update(build_time_vars)
 
 def _init_non_posix(vars):
@@ -518,7 +532,7 @@ def get_config_vars(*args):
         _CONFIG_VARS['exec_prefix'] = _EXEC_PREFIX
         _CONFIG_VARS['py_version'] = _PY_VERSION
         _CONFIG_VARS['py_version_short'] = _PY_VERSION_SHORT
-        _CONFIG_VARS['py_version_nodot'] = _PY_VERSION[0] + _PY_VERSION[2]
+        _CONFIG_VARS['py_version_nodot'] = _PY_VERSION_SHORT_NO_DOT
         _CONFIG_VARS['installed_base'] = _BASE_PREFIX
         _CONFIG_VARS['base'] = _PREFIX
         _CONFIG_VARS['installed_platbase'] = _BASE_EXEC_PREFIX

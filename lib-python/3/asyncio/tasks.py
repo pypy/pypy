@@ -9,11 +9,10 @@ __all__ = ['Task',
 import concurrent.futures
 import functools
 import inspect
-import linecache
-import traceback
 import warnings
 import weakref
 
+from . import base_tasks
 from . import compat
 from . import coroutines
 from . import events
@@ -93,18 +92,7 @@ class Task(futures.Future):
             futures.Future.__del__(self)
 
     def _repr_info(self):
-        info = super()._repr_info()
-
-        if self._must_cancel:
-            # replace status
-            info[0] = 'cancelling'
-
-        coro = coroutines._format_coroutine(self._coro)
-        info.insert(1, 'coro=<%s>' % coro)
-
-        if self._fut_waiter is not None:
-            info.insert(2, 'wait_for=%r' % self._fut_waiter)
-        return info
+        return base_tasks._task_repr_info(self)
 
     def get_stack(self, *, limit=None):
         """Return the list of stack frames for this task's coroutine.
@@ -127,31 +115,7 @@ class Task(futures.Future):
         For reasons beyond our control, only one stack frame is
         returned for a suspended coroutine.
         """
-        frames = []
-        try:
-            # 'async def' coroutines
-            f = self._coro.cr_frame
-        except AttributeError:
-            f = self._coro.gi_frame
-        if f is not None:
-            while f is not None:
-                if limit is not None:
-                    if limit <= 0:
-                        break
-                    limit -= 1
-                frames.append(f)
-                f = f.f_back
-            frames.reverse()
-        elif self._exception is not None:
-            tb = self._exception.__traceback__
-            while tb is not None:
-                if limit is not None:
-                    if limit <= 0:
-                        break
-                    limit -= 1
-                frames.append(tb.tb_frame)
-                tb = tb.tb_next
-        return frames
+        return base_tasks._task_get_stack(self, limit)
 
     def print_stack(self, *, limit=None, file=None):
         """Print the stack or traceback for this task's coroutine.
@@ -162,31 +126,7 @@ class Task(futures.Future):
         to which the output is written; by default output is written
         to sys.stderr.
         """
-        extracted_list = []
-        checked = set()
-        for f in self.get_stack(limit=limit):
-            lineno = f.f_lineno
-            co = f.f_code
-            filename = co.co_filename
-            name = co.co_name
-            if filename not in checked:
-                checked.add(filename)
-                linecache.checkcache(filename)
-            line = linecache.getline(filename, lineno, f.f_globals)
-            extracted_list.append((filename, lineno, name, line))
-        exc = self._exception
-        if not extracted_list:
-            print('No stack for %r' % self, file=file)
-        elif exc is not None:
-            print('Traceback for %r (most recent call last):' % self,
-                  file=file)
-        else:
-            print('Stack for %r (most recent call last):' % self,
-                  file=file)
-        traceback.print_list(extracted_list, file=file)
-        if exc is not None:
-            for line in traceback.format_exception_only(exc.__class__, exc):
-                print(line, file=file, end='')
+        return base_tasks._task_print_stack(self, limit, file)
 
     def cancel(self):
         """Request that this task cancel itself.
@@ -241,7 +181,7 @@ class Task(futures.Future):
                 result = coro.throw(exc)
         except StopIteration as exc:
             self.set_result(exc.value)
-        except futures.CancelledError as exc:
+        except futures.CancelledError:
             super().cancel()  # I.e., Future.cancel(self).
         except Exception as exc:
             self.set_exception(exc)
@@ -249,7 +189,8 @@ class Task(futures.Future):
             self.set_exception(exc)
             raise
         else:
-            if isinstance(result, futures.Future):
+            blocking = getattr(result, '_asyncio_future_blocking', None)
+            if blocking is not None:
                 # Yielded Future must come from Future.__iter__().
                 if result._loop is not self._loop:
                     self._loop.call_soon(
@@ -257,13 +198,20 @@ class Task(futures.Future):
                         RuntimeError(
                             'Task {!r} got Future {!r} attached to a '
                             'different loop'.format(self, result)))
-                elif result._blocking:
-                    result._blocking = False
-                    result.add_done_callback(self._wakeup)
-                    self._fut_waiter = result
-                    if self._must_cancel:
-                        if self._fut_waiter.cancel():
-                            self._must_cancel = False
+                elif blocking:
+                    if result is self:
+                        self._loop.call_soon(
+                            self._step,
+                            RuntimeError(
+                                'Task cannot await on itself: {!r}'.format(
+                                    self)))
+                    else:
+                        result._asyncio_future_blocking = False
+                        result.add_done_callback(self._wakeup)
+                        self._fut_waiter = result
+                        if self._must_cancel:
+                            if self._fut_waiter.cancel():
+                                self._must_cancel = False
                 else:
                     self._loop.call_soon(
                         self._step,
@@ -308,6 +256,18 @@ class Task(futures.Future):
         self = None  # Needed to break cycles when an exception occurs.
 
 
+_PyTask = Task
+
+
+try:
+    import _asyncio
+except ImportError:
+    pass
+else:
+    # _CTask is needed for tests.
+    Task = _CTask = _asyncio.Task
+
+
 # wait() and as_completed() similar to those in PEP 3148.
 
 FIRST_COMPLETED = concurrent.futures.FIRST_COMPLETED
@@ -332,7 +292,7 @@ def wait(fs, *, loop=None, timeout=None, return_when=ALL_COMPLETED):
     Note: This does not raise TimeoutError! Futures that aren't done
     when the timeout occurs are returned in the second set.
     """
-    if isinstance(fs, futures.Future) or coroutines.iscoroutine(fs):
+    if futures.isfuture(fs) or coroutines.iscoroutine(fs):
         raise TypeError("expect a list of futures, not %s" % type(fs).__name__)
     if not fs:
         raise ValueError('Set of coroutines/Futures is empty.')
@@ -461,7 +421,7 @@ def as_completed(fs, *, loop=None, timeout=None):
 
     Note: The futures 'f' are not necessarily members of fs.
     """
-    if isinstance(fs, futures.Future) or coroutines.iscoroutine(fs):
+    if futures.isfuture(fs) or coroutines.iscoroutine(fs):
         raise TypeError("expect a list of futures, not %s" % type(fs).__name__)
     loop = loop if loop is not None else events.get_event_loop()
     todo = {ensure_future(f, loop=loop) for f in set(fs)}
@@ -518,7 +478,7 @@ def sleep(delay, result=None, *, loop=None):
         h.cancel()
 
 
-def async(coro_or_future, *, loop=None):
+def async_(coro_or_future, *, loop=None):
     """Wrap a coroutine in a future.
 
     If the argument is a Future, it is returned directly.
@@ -531,13 +491,18 @@ def async(coro_or_future, *, loop=None):
 
     return ensure_future(coro_or_future, loop=loop)
 
+# Silence DeprecationWarning:
+globals()['async'] = async_
+async_.__name__ = 'async'
+del async_
+
 
 def ensure_future(coro_or_future, *, loop=None):
     """Wrap a coroutine or an awaitable in a future.
 
     If the argument is a Future, it is returned directly.
     """
-    if isinstance(coro_or_future, futures.Future):
+    if futures.isfuture(coro_or_future):
         if loop is not None and loop is not coro_or_future._loop:
             raise ValueError('loop argument must agree with Future')
         return coro_or_future
@@ -579,14 +544,20 @@ class _GatheringFuture(futures.Future):
     def cancel(self):
         if self.done():
             return False
+        ret = False
         for child in self._children:
-            child.cancel()
-        return True
+            if child.cancel():
+                ret = True
+        return ret
 
 
 def gather(*coros_or_futures, loop=None, return_exceptions=False):
     """Return a future aggregating results from the given coroutines
     or futures.
+
+    Coroutines will be wrapped in a future and scheduled in the event
+    loop. They will not necessarily be scheduled in the same order as
+    passed in.
 
     All futures must share the same event loop.  If all the tasks are
     done successfully, the returned future's result is the list of
@@ -613,7 +584,7 @@ def gather(*coros_or_futures, loop=None, return_exceptions=False):
 
     arg_to_fut = {}
     for arg in set(coros_or_futures):
-        if not isinstance(arg, futures.Future):
+        if not futures.isfuture(arg):
             fut = ensure_future(arg, loop=loop)
             if loop is None:
                 loop = fut._loop

@@ -1,7 +1,8 @@
+import ast
+import dis
 import os
 import sys
 import unittest
-import ast
 import weakref
 
 from test import support
@@ -115,6 +116,8 @@ exec_tests = [
     # PEP 448: Additional Unpacking Generalizations
     "{**{1:2}, 2:3}",
     "{*{1, 2}, 3}",
+    # Asynchronous comprehensions
+    "async def f():\n [i async for b in c]",
 ]
 
 # These are compiled through "single"
@@ -238,7 +241,7 @@ class AST_Tests(unittest.TestCase):
                     ast_tree = compile(i, "?", kind, ast.PyCF_ONLY_AST)
                     self.assertEqual(to_tuple(ast_tree), o)
                     self._assertTrueorder(ast_tree, (0, 0))
-                with self.subTest(action="compiling", input=i):
+                with self.subTest(action="compiling", input=i, kind=kind):
                     compile(ast_tree, "?", kind)
 
     def test_slice(self):
@@ -547,6 +550,17 @@ class ASTHelpers_Test(unittest.TestCase):
             compile(mod, 'test', 'exec')
         self.assertIn("invalid integer value: None", str(cm.exception))
 
+    def test_level_as_none(self):
+        body = [ast.ImportFrom(module='time',
+                               names=[ast.alias(name='sleep')],
+                               level=None,
+                               lineno=0, col_offset=0)]
+        mod = ast.Module(body)
+        code = compile(mod, 'test', 'exec')
+        ns = {}
+        exec(code, ns)
+        self.assertIn('sleep', ns)
+
 
 class ASTValidatorTests(unittest.TestCase):
 
@@ -742,7 +756,7 @@ class ASTValidatorTests(unittest.TestCase):
 
     def test_importfrom(self):
         imp = ast.ImportFrom(None, [ast.alias("x", None)], -42)
-        self.stmt(imp, "level less than -1")
+        self.stmt(imp, "Negative ImportFrom level")
         self.stmt(ast.ImportFrom(None, [], 0), "empty names on ImportFrom")
 
     def test_global(self):
@@ -797,21 +811,21 @@ class ASTValidatorTests(unittest.TestCase):
     def _check_comprehension(self, fac):
         self.expr(fac([]), "comprehension with no generators")
         g = ast.comprehension(ast.Name("x", ast.Load()),
-                              ast.Name("x", ast.Load()), [])
+                              ast.Name("x", ast.Load()), [], 0)
         self.expr(fac([g]), "must have Store context")
         g = ast.comprehension(ast.Name("x", ast.Store()),
-                              ast.Name("x", ast.Store()), [])
+                              ast.Name("x", ast.Store()), [], 0)
         self.expr(fac([g]), "must have Load context")
         x = ast.Name("x", ast.Store())
         y = ast.Name("y", ast.Load())
-        g = ast.comprehension(x, y, [None])
+        g = ast.comprehension(x, y, [None], 0)
         self.expr(fac([g]), "None disallowed")
-        g = ast.comprehension(x, y, [ast.Name("x", ast.Store())])
+        g = ast.comprehension(x, y, [ast.Name("x", ast.Store())], 0)
         self.expr(fac([g]), "must have Load context")
 
     def _simple_comp(self, fac):
         g = ast.comprehension(ast.Name("x", ast.Store()),
-                              ast.Name("x", ast.Load()), [])
+                              ast.Name("x", ast.Load()), [], 0)
         self.expr(fac(ast.Name("x", ast.Store()), [g]),
                   "must have Load context")
         def wrap(gens):
@@ -829,7 +843,7 @@ class ASTValidatorTests(unittest.TestCase):
 
     def test_dictcomp(self):
         g = ast.comprehension(ast.Name("y", ast.Store()),
-                              ast.Name("p", ast.Load()), [])
+                              ast.Name("p", ast.Load()), [], 0)
         c = ast.DictComp(ast.Name("x", ast.Store()),
                          ast.Name("y", ast.Load()), [g])
         self.expr(c, "must have Load context")
@@ -933,6 +947,125 @@ class ASTValidatorTests(unittest.TestCase):
             compile(mod, fn, "exec")
 
 
+class ConstantTests(unittest.TestCase):
+    """Tests on the ast.Constant node type."""
+
+    def compile_constant(self, value):
+        tree = ast.parse("x = 123")
+
+        node = tree.body[0].value
+        new_node = ast.Constant(value=value)
+        ast.copy_location(new_node, node)
+        tree.body[0].value = new_node
+
+        code = compile(tree, "<string>", "exec")
+
+        ns = {}
+        exec(code, ns)
+        return ns['x']
+
+    def test_validation(self):
+        with self.assertRaises(TypeError) as cm:
+            self.compile_constant([1, 2, 3])
+        self.assertEqual(str(cm.exception),
+                         "got an invalid type in Constant: list")
+
+    def test_singletons(self):
+        for const in (None, False, True, Ellipsis, b'', frozenset()):
+            with self.subTest(const=const):
+                value = self.compile_constant(const)
+                self.assertIs(value, const)
+
+    def test_values(self):
+        nested_tuple = (1,)
+        nested_frozenset = frozenset({1})
+        for level in range(3):
+            nested_tuple = (nested_tuple, 2)
+            nested_frozenset = frozenset({nested_frozenset, 2})
+        values = (123, 123.0, 123j,
+                  "unicode", b'bytes',
+                  tuple("tuple"), frozenset("frozenset"),
+                  nested_tuple, nested_frozenset)
+        for value in values:
+            with self.subTest(value=value):
+                result = self.compile_constant(value)
+                self.assertEqual(result, value)
+
+    def test_assign_to_constant(self):
+        tree = ast.parse("x = 1")
+
+        target = tree.body[0].targets[0]
+        new_target = ast.Constant(value=1)
+        ast.copy_location(new_target, target)
+        tree.body[0].targets[0] = new_target
+
+        with self.assertRaises(ValueError) as cm:
+            compile(tree, "string", "exec")
+        self.assertEqual(str(cm.exception),
+                         "expression which can't be assigned "
+                         "to in Store context")
+
+    def test_get_docstring(self):
+        tree = ast.parse("'docstring'\nx = 1")
+        self.assertEqual(ast.get_docstring(tree), 'docstring')
+
+        tree.body[0].value = ast.Constant(value='constant docstring')
+        self.assertEqual(ast.get_docstring(tree), 'constant docstring')
+
+    def get_load_const(self, tree):
+        # Compile to bytecode, disassemble and get parameter of LOAD_CONST
+        # instructions
+        co = compile(tree, '<string>', 'exec')
+        consts = []
+        for instr in dis.get_instructions(co):
+            if instr.opname == 'LOAD_CONST':
+                consts.append(instr.argval)
+        return consts
+
+    @support.cpython_only
+    def test_load_const(self):
+        consts = [None,
+                  True, False,
+                  124,
+                  2.0,
+                  3j,
+                  "unicode",
+                  b'bytes',
+                  (1, 2, 3)]
+
+        code = '\n'.join(['x={!r}'.format(const) for const in consts])
+        code += '\nx = ...'
+        consts.extend((Ellipsis, None))
+
+        tree = ast.parse(code)
+        self.assertEqual(self.get_load_const(tree),
+                         consts)
+
+        # Replace expression nodes with constants
+        for assign, const in zip(tree.body, consts):
+            assert isinstance(assign, ast.Assign), ast.dump(assign)
+            new_node = ast.Constant(value=const)
+            ast.copy_location(new_node, assign.value)
+            assign.value = new_node
+
+        self.assertEqual(self.get_load_const(tree),
+                         consts)
+
+    def test_literal_eval(self):
+        tree = ast.parse("1 + 2")
+        binop = tree.body[0].value
+
+        new_left = ast.Constant(value=10)
+        ast.copy_location(new_left, binop.left)
+        binop.left = new_left
+
+        new_right = ast.Constant(value=20)
+        ast.copy_location(new_right, binop.right)
+        binop.right = new_right
+
+        self.assertEqual(ast.literal_eval(binop), 30)
+
+
 def main():
     if __name__ != '__main__':
         return
@@ -940,8 +1073,9 @@ def main():
         for statements, kind in ((exec_tests, "exec"), (single_tests, "single"),
                                  (eval_tests, "eval")):
             print(kind+"_results = [")
-            for s in statements:
-                print(repr(to_tuple(compile(s, "?", kind, 0x400)))+",")
+            for statement in statements:
+                tree = ast.parse(statement, "?", kind)
+                print("%r," % (to_tuple(tree),))
             print("]")
         print("main()")
         raise SystemExit
@@ -979,19 +1113,20 @@ exec_results = [
 ('Module', [('For', (1, 0), ('Name', (1, 4), 'v', ('Store',)), ('Name', (1, 9), 'v', ('Load',)), [('Break', (1, 11))], [])]),
 ('Module', [('For', (1, 0), ('Name', (1, 4), 'v', ('Store',)), ('Name', (1, 9), 'v', ('Load',)), [('Continue', (1, 11))], [])]),
 ('Module', [('For', (1, 0), ('Tuple', (1, 4), [('Name', (1, 4), 'a', ('Store',)), ('Name', (1, 6), 'b', ('Store',))], ('Store',)), ('Name', (1, 11), 'c', ('Load',)), [('Pass', (1, 14))], [])]),
-('Module', [('Expr', (1, 0), ('ListComp', (1, 1), ('Tuple', (1, 2), [('Name', (1, 2), 'a', ('Load',)), ('Name', (1, 4), 'b', ('Load',))], ('Load',)), [('comprehension', ('Tuple', (1, 11), [('Name', (1, 11), 'a', ('Store',)), ('Name', (1, 13), 'b', ('Store',))], ('Store',)), ('Name', (1, 18), 'c', ('Load',)), [])]))]),
-('Module', [('Expr', (1, 0), ('GeneratorExp', (1, 1), ('Tuple', (1, 2), [('Name', (1, 2), 'a', ('Load',)), ('Name', (1, 4), 'b', ('Load',))], ('Load',)), [('comprehension', ('Tuple', (1, 11), [('Name', (1, 11), 'a', ('Store',)), ('Name', (1, 13), 'b', ('Store',))], ('Store',)), ('Name', (1, 18), 'c', ('Load',)), [])]))]),
-('Module', [('Expr', (1, 0), ('GeneratorExp', (1, 1), ('Tuple', (1, 2), [('Name', (1, 2), 'a', ('Load',)), ('Name', (1, 4), 'b', ('Load',))], ('Load',)), [('comprehension', ('Tuple', (1, 12), [('Name', (1, 12), 'a', ('Store',)), ('Name', (1, 14), 'b', ('Store',))], ('Store',)), ('Name', (1, 20), 'c', ('Load',)), [])]))]),
-('Module', [('Expr', (1, 0), ('GeneratorExp', (2, 4), ('Tuple', (3, 4), [('Name', (3, 4), 'Aa', ('Load',)), ('Name', (5, 7), 'Bb', ('Load',))], ('Load',)), [('comprehension', ('Tuple', (8, 4), [('Name', (8, 4), 'Aa', ('Store',)), ('Name', (10, 4), 'Bb', ('Store',))], ('Store',)), ('Name', (10, 10), 'Cc', ('Load',)), [])]))]),
-('Module', [('Expr', (1, 0), ('DictComp', (1, 0), ('Name', (1, 1), 'a', ('Load',)), ('Name', (1, 5), 'b', ('Load',)), [('comprehension', ('Name', (1, 11), 'w', ('Store',)), ('Name', (1, 16), 'x', ('Load',)), []), ('comprehension', ('Name', (1, 22), 'm', ('Store',)), ('Name', (1, 27), 'p', ('Load',)), [('Name', (1, 32), 'g', ('Load',))])]))]),
-('Module', [('Expr', (1, 0), ('DictComp', (1, 0), ('Name', (1, 1), 'a', ('Load',)), ('Name', (1, 5), 'b', ('Load',)), [('comprehension', ('Tuple', (1, 11), [('Name', (1, 11), 'v', ('Store',)), ('Name', (1, 13), 'w', ('Store',))], ('Store',)), ('Name', (1, 18), 'x', ('Load',)), [])]))]),
-('Module', [('Expr', (1, 0), ('SetComp', (1, 0), ('Name', (1, 1), 'r', ('Load',)), [('comprehension', ('Name', (1, 7), 'l', ('Store',)), ('Name', (1, 12), 'x', ('Load',)), [('Name', (1, 17), 'g', ('Load',))])]))]),
-('Module', [('Expr', (1, 0), ('SetComp', (1, 0), ('Name', (1, 1), 'r', ('Load',)), [('comprehension', ('Tuple', (1, 7), [('Name', (1, 7), 'l', ('Store',)), ('Name', (1, 9), 'm', ('Store',))], ('Store',)), ('Name', (1, 14), 'x', ('Load',)), [])]))]),
+('Module', [('Expr', (1, 0), ('ListComp', (1, 1), ('Tuple', (1, 2), [('Name', (1, 2), 'a', ('Load',)), ('Name', (1, 4), 'b', ('Load',))], ('Load',)), [('comprehension', ('Tuple', (1, 11), [('Name', (1, 11), 'a', ('Store',)), ('Name', (1, 13), 'b', ('Store',))], ('Store',)), ('Name', (1, 18), 'c', ('Load',)), [], 0)]))]),
+('Module', [('Expr', (1, 0), ('GeneratorExp', (1, 1), ('Tuple', (1, 2), [('Name', (1, 2), 'a', ('Load',)), ('Name', (1, 4), 'b', ('Load',))], ('Load',)), [('comprehension', ('Tuple', (1, 11), [('Name', (1, 11), 'a', ('Store',)), ('Name', (1, 13), 'b', ('Store',))], ('Store',)), ('Name', (1, 18), 'c', ('Load',)), [], 0)]))]),
+('Module', [('Expr', (1, 0), ('GeneratorExp', (1, 1), ('Tuple', (1, 2), [('Name', (1, 2), 'a', ('Load',)), ('Name', (1, 4), 'b', ('Load',))], ('Load',)), [('comprehension', ('Tuple', (1, 12), [('Name', (1, 12), 'a', ('Store',)), ('Name', (1, 14), 'b', ('Store',))], ('Store',)), ('Name', (1, 20), 'c', ('Load',)), [], 0)]))]),
+('Module', [('Expr', (1, 0), ('GeneratorExp', (2, 4), ('Tuple', (3, 4), [('Name', (3, 4), 'Aa', ('Load',)), ('Name', (5, 7), 'Bb', ('Load',))], ('Load',)), [('comprehension', ('Tuple', (8, 4), [('Name', (8, 4), 'Aa', ('Store',)), ('Name', (10, 4), 'Bb', ('Store',))], ('Store',)), ('Name', (10, 10), 'Cc', ('Load',)), [], 0)]))]),
+('Module', [('Expr', (1, 0), ('DictComp', (1, 0), ('Name', (1, 1), 'a', ('Load',)), ('Name', (1, 5), 'b', ('Load',)), [('comprehension', ('Name', (1, 11), 'w', ('Store',)), ('Name', (1, 16), 'x', ('Load',)), [], 0), ('comprehension', ('Name', (1, 22), 'm', ('Store',)), ('Name', (1, 27), 'p', ('Load',)), [('Name', (1, 32), 'g', ('Load',))], 0)]))]),
+('Module', [('Expr', (1, 0), ('DictComp', (1, 0), ('Name', (1, 1), 'a', ('Load',)), ('Name', (1, 5), 'b', ('Load',)), [('comprehension', ('Tuple', (1, 11), [('Name', (1, 11), 'v', ('Store',)), ('Name', (1, 13), 'w', ('Store',))], ('Store',)), ('Name', (1, 18), 'x', ('Load',)), [], 0)]))]),
+('Module', [('Expr', (1, 0), ('SetComp', (1, 0), ('Name', (1, 1), 'r', ('Load',)), [('comprehension', ('Name', (1, 7), 'l', ('Store',)), ('Name', (1, 12), 'x', ('Load',)), [('Name', (1, 17), 'g', ('Load',))], 0)]))]),
+('Module', [('Expr', (1, 0), ('SetComp', (1, 0), ('Name', (1, 1), 'r', ('Load',)), [('comprehension', ('Tuple', (1, 7), [('Name', (1, 7), 'l', ('Store',)), ('Name', (1, 9), 'm', ('Store',))], ('Store',)), ('Name', (1, 14), 'x', ('Load',)), [], 0)]))]),
 ('Module', [('AsyncFunctionDef', (1, 6), 'f', ('arguments', [], None, [], [], None, []), [('Expr', (2, 1), ('Await', (2, 1), ('Call', (2, 7), ('Name', (2, 7), 'something', ('Load',)), [], [])))], [], None)]),
 ('Module', [('AsyncFunctionDef', (1, 6), 'f', ('arguments', [], None, [], [], None, []), [('AsyncFor', (2, 7), ('Name', (2, 11), 'e', ('Store',)), ('Name', (2, 16), 'i', ('Load',)), [('Expr', (2, 19), ('Num', (2, 19), 1))], [('Expr', (3, 7), ('Num', (3, 7), 2))])], [], None)]),
 ('Module', [('AsyncFunctionDef', (1, 6), 'f', ('arguments', [], None, [], [], None, []), [('AsyncWith', (2, 7), [('withitem', ('Name', (2, 12), 'a', ('Load',)), ('Name', (2, 17), 'b', ('Store',)))], [('Expr', (2, 20), ('Num', (2, 20), 1))])], [], None)]),
 ('Module', [('Expr', (1, 0), ('Dict', (1, 0), [None, ('Num', (1, 10), 2)], [('Dict', (1, 3), [('Num', (1, 4), 1)], [('Num', (1, 6), 2)]), ('Num', (1, 12), 3)]))]),
 ('Module', [('Expr', (1, 0), ('Set', (1, 0), [('Starred', (1, 1), ('Set', (1, 2), [('Num', (1, 3), 1), ('Num', (1, 6), 2)]), ('Load',)), ('Num', (1, 10), 3)]))]),
+('Module', [('AsyncFunctionDef', (1, 6), 'f', ('arguments', [], None, [], [], None, []), [('Expr', (2, 1), ('ListComp', (2, 2), ('Name', (2, 2), 'i', ('Load',)), [('comprehension', ('Name', (2, 14), 'b', ('Store',)), ('Name', (2, 19), 'c', ('Load',)), [], 1)]))], [], None)]),
 ]
 single_results = [
 ('Interactive', [('Expr', (1, 0), ('BinOp', (1, 0), ('Num', (1, 0), 1), ('Add',), ('Num', (1, 2), 2)))]),
@@ -1006,8 +1141,8 @@ eval_results = [
 ('Expression', ('Dict', (1, 0), [], [])),
 ('Expression', ('Set', (1, 0), [('NameConstant', (1, 1), None)])),
 ('Expression', ('Dict', (1, 0), [('Num', (2, 6), 1)], [('Num', (4, 10), 2)])),
-('Expression', ('ListComp', (1, 1), ('Name', (1, 1), 'a', ('Load',)), [('comprehension', ('Name', (1, 7), 'b', ('Store',)), ('Name', (1, 12), 'c', ('Load',)), [('Name', (1, 17), 'd', ('Load',))])])),
-('Expression', ('GeneratorExp', (1, 1), ('Name', (1, 1), 'a', ('Load',)), [('comprehension', ('Name', (1, 7), 'b', ('Store',)), ('Name', (1, 12), 'c', ('Load',)), [('Name', (1, 17), 'd', ('Load',))])])),
+('Expression', ('ListComp', (1, 1), ('Name', (1, 1), 'a', ('Load',)), [('comprehension', ('Name', (1, 7), 'b', ('Store',)), ('Name', (1, 12), 'c', ('Load',)), [('Name', (1, 17), 'd', ('Load',))], 0)])),
+('Expression', ('GeneratorExp', (1, 1), ('Name', (1, 1), 'a', ('Load',)), [('comprehension', ('Name', (1, 7), 'b', ('Store',)), ('Name', (1, 12), 'c', ('Load',)), [('Name', (1, 17), 'd', ('Load',))], 0)])),
 ('Expression', ('Compare', (1, 0), ('Num', (1, 0), 1), [('Lt',), ('Lt',)], [('Num', (1, 4), 2), ('Num', (1, 8), 3)])),
 ('Expression', ('Call', (1, 0), ('Name', (1, 0), 'f', ('Load',)), [('Num', (1, 2), 1), ('Num', (1, 4), 2), ('Starred', (1, 10), ('Name', (1, 11), 'd', ('Load',)), ('Load',))], [('keyword', 'c', ('Num', (1, 8), 3)), ('keyword', None, ('Name', (1, 15), 'e', ('Load',)))])),
 ('Expression', ('Num', (1, 0), 10)),

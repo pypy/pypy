@@ -11,7 +11,6 @@ import time
 import os
 import platform
 import pwd
-import shutil
 import stat
 import tempfile
 import unittest
@@ -398,7 +397,7 @@ class PosixTester(unittest.TestCase):
             self.assertTrue(posix.stat(fp.fileno()))
 
             self.assertRaisesRegex(TypeError,
-                    'should be string, bytes or integer, not',
+                    'should be string, bytes, os.PathLike or integer, not',
                     posix.stat, float(fp.fileno()))
         finally:
             fp.close()
@@ -408,16 +407,18 @@ class PosixTester(unittest.TestCase):
     def test_stat(self):
         self.assertTrue(posix.stat(support.TESTFN))
         self.assertTrue(posix.stat(os.fsencode(support.TESTFN)))
-        self.assertTrue(posix.stat(bytearray(os.fsencode(support.TESTFN))))
 
+        self.assertWarnsRegex(DeprecationWarning,
+                'should be string, bytes, os.PathLike or integer, not',
+                posix.stat, bytearray(os.fsencode(support.TESTFN)))
         self.assertRaisesRegex(TypeError,
-                'can\'t specify None for path argument',
+                'should be string, bytes, os.PathLike or integer, not',
                 posix.stat, None)
         self.assertRaisesRegex(TypeError,
-                'should be string, bytes or integer, not',
+                'should be string, bytes, os.PathLike or integer, not',
                 posix.stat, list(support.TESTFN))
         self.assertRaisesRegex(TypeError,
-                'should be string, bytes or integer, not',
+                'should be string, bytes, os.PathLike or integer, not',
                 posix.stat, list(os.fsencode(support.TESTFN)))
 
     @unittest.skipUnless(hasattr(posix, 'mkfifo'), "don't have mkfifo()")
@@ -798,7 +799,11 @@ class PosixTester(unittest.TestCase):
             groups = idg.read().strip()
             ret = idg.close()
 
-        if ret is not None or not groups:
+        try:
+            idg_groups = set(int(g) for g in groups.split())
+        except ValueError:
+            idg_groups = set()
+        if ret is not None or not idg_groups:
             raise unittest.SkipTest("need working 'id -G'")
 
         # Issues 16698: OS X ABIs prior to 10.6 have limits on getgroups()
@@ -809,12 +814,11 @@ class PosixTester(unittest.TestCase):
                 raise unittest.SkipTest("getgroups(2) is broken prior to 10.6")
 
         # 'id -G' and 'os.getgroups()' should return the same
-        # groups, ignoring order and duplicates.
-        # #10822 - it is implementation defined whether posix.getgroups()
-        # includes the effective gid so we include it anyway, since id -G does
-        self.assertEqual(
-                set([int(x) for x in groups.split()]),
-                set(posix.getgroups() + [posix.getegid()]))
+        # groups, ignoring order, duplicates, and the effective gid.
+        # #10822/#26944 - It is implementation defined whether
+        # posix.getgroups() includes the effective gid.
+        symdiff = idg_groups.symmetric_difference(posix.getgroups())
+        self.assertTrue(not symdiff or symdiff == {posix.getegid()})
 
     # tests for the posix *at functions follow
 
@@ -863,9 +867,9 @@ class PosixTester(unittest.TestCase):
             self.assertEqual(s1, s2)
             s2 = posix.stat(support.TESTFN, dir_fd=None)
             self.assertEqual(s1, s2)
-            self.assertRaisesRegex(TypeError, 'should be integer, not',
+            self.assertRaisesRegex(TypeError, 'should be integer or None, not',
                     posix.stat, support.TESTFN, dir_fd=posix.getcwd())
-            self.assertRaisesRegex(TypeError, 'should be integer, not',
+            self.assertRaisesRegex(TypeError, 'should be integer or None, not',
                     posix.stat, support.TESTFN, dir_fd=float(f))
             self.assertRaises(OverflowError,
                     posix.stat, support.TESTFN, dir_fd=10**20)

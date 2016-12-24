@@ -3,12 +3,15 @@
 import ast
 import builtins
 import collections
+import decimal
+import fractions
 import io
 import locale
 import os
 import pickle
 import platform
 import random
+import re
 import sys
 import traceback
 import types
@@ -79,7 +82,7 @@ test_conv_no_sign = [
         ('', ValueError),
         (' ', ValueError),
         ('  \t\t  ', ValueError),
-        (str(b'\u0663\u0661\u0664 ','raw-unicode-escape'), 314),
+        (str(br'\u0663\u0661\u0664 ','raw-unicode-escape'), 314),
         (chr(0x200), ValueError),
 ]
 
@@ -101,7 +104,7 @@ test_conv_sign = [
         ('', ValueError),
         (' ', ValueError),
         ('  \t\t  ', ValueError),
-        (str(b'\u0663\u0661\u0664 ','raw-unicode-escape'), 314),
+        (str(br'\u0663\u0661\u0664 ','raw-unicode-escape'), 314),
         (chr(0x200), ValueError),
 ]
 
@@ -1244,6 +1247,15 @@ class BuiltinTest(unittest.TestCase):
         self.assertEqual(round(5e15+2), 5e15+2)
         self.assertEqual(round(5e15+3), 5e15+3)
 
+    def test_bug_27936(self):
+        # Verify that ndigits=None means the same as passing in no argument
+        for x in [1234,
+                  1234.56,
+                  decimal.Decimal('1234.56'),
+                  fractions.Fraction(123456, 100)]:
+            self.assertEqual(round(x, None), round(x))
+            self.assertEqual(type(round(x, None)), type(round(x)))
+
     def test_setattr(self):
         setattr(sys, 'spam', 1)
         self.assertEqual(sys.spam, 1)
@@ -1436,21 +1448,14 @@ class BuiltinTest(unittest.TestCase):
 
         # --------------------------------------------------------------------
         # Issue #7994: object.__format__ with a non-empty format string is
-        #  deprecated
-        def test_deprecated_format_string(obj, fmt_str, should_raise):
-            if should_raise:
-                self.assertRaises(TypeError, format, obj, fmt_str)
-            else:
-                format(obj, fmt_str)
-
-        fmt_strs = ['', 's']
-
+        # disallowed
         class A:
             def __format__(self, fmt_str):
                 return format('', fmt_str)
 
-        for fmt_str in fmt_strs:
-            test_deprecated_format_string(A(), fmt_str, False)
+        self.assertEqual(format(A()), '')
+        self.assertEqual(format(A(), ''), '')
+        self.assertEqual(format(A(), 's'), '')
 
         class B:
             pass
@@ -1459,8 +1464,12 @@ class BuiltinTest(unittest.TestCase):
             pass
 
         for cls in [object, B, C]:
-            for fmt_str in fmt_strs:
-                test_deprecated_format_string(cls(), fmt_str, len(fmt_str) != 0)
+            obj = cls()
+            self.assertEqual(format(obj), str(obj))
+            self.assertEqual(format(obj, ''), str(obj))
+            with self.assertRaisesRegex(TypeError,
+                                        r'\b%s\b' % re.escape(cls.__name__)):
+                format(obj, 's')
         # --------------------------------------------------------------------
 
         # make sure we can take a subclass of str as a format spec
@@ -1699,21 +1708,11 @@ class TestType(unittest.TestCase):
         self.assertEqual(x.spam(), 'spam42')
         self.assertEqual(x.to_bytes(2, 'little'), b'\x2a\x00')
 
-    def test_type_new_keywords(self):
-        class B:
-            def ham(self):
-                return 'ham%d' % self
-        C = type.__new__(type,
-                         name='C',
-                         bases=(B, int),
-                         dict={'spam': lambda self: 'spam%s' % self})
-        self.assertEqual(C.__name__, 'C')
-        self.assertEqual(C.__qualname__, 'C')
-        self.assertEqual(C.__module__, __name__)
-        self.assertEqual(C.__bases__, (B, int))
-        self.assertIs(C.__base__, int)
-        self.assertIn('spam', C.__dict__)
-        self.assertNotIn('ham', C.__dict__)
+    def test_type_nokwargs(self):
+        with self.assertRaises(TypeError):
+            type('a', (), {}, x=5)
+        with self.assertRaises(TypeError):
+            type('a', (), dict={})
 
     def test_type_name(self):
         for name in 'A', '\xc4', '\U0001f40d', 'B.A', '42', '':

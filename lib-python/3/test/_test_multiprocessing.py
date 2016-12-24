@@ -26,7 +26,7 @@ import test.support.script_helper
 _multiprocessing = test.support.import_module('_multiprocessing')
 # Skip tests if sem_open implementation is broken.
 test.support.import_module('multiprocessing.synchronize')
-# import threading after _multiprocessing to raise a more revelant error
+# import threading after _multiprocessing to raise a more relevant error
 # message: "No module named _multiprocessing". _multiprocessing is not compiled
 # without thread support.
 import threading
@@ -1628,13 +1628,33 @@ class _TestContainers(BaseTestCase):
         d = [a, b]
         e = self.list(d)
         self.assertEqual(
-            e[:],
+            [element[:] for element in e],
             [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 1, 2, 3, 4, 0, 1, 2, 3, 4]]
             )
 
         f = self.list([a])
         a.append('hello')
-        self.assertEqual(f[:], [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 'hello']])
+        self.assertEqual(f[0][:], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 'hello'])
+
+    def test_list_proxy_in_list(self):
+        a = self.list([self.list(range(3)) for _i in range(3)])
+        self.assertEqual([inner[:] for inner in a], [[0, 1, 2]] * 3)
+
+        a[0][-1] = 55
+        self.assertEqual(a[0][:], [0, 1, 55])
+        for i in range(1, 3):
+            self.assertEqual(a[i][:], [0, 1, 2])
+
+        self.assertEqual(a[1].pop(), 2)
+        self.assertEqual(len(a[1]), 2)
+        for i in range(0, 3, 2):
+            self.assertEqual(len(a[i]), 3)
+
+        del a
+
+        b = self.list()
+        b.append(b)
+        del b
 
     def test_dict(self):
         d = self.dict()
@@ -1645,6 +1665,52 @@ class _TestContainers(BaseTestCase):
         self.assertEqual(sorted(d.keys()), indices)
         self.assertEqual(sorted(d.values()), [chr(i) for i in indices])
         self.assertEqual(sorted(d.items()), [(i, chr(i)) for i in indices])
+
+    def test_dict_proxy_nested(self):
+        pets = self.dict(ferrets=2, hamsters=4)
+        supplies = self.dict(water=10, feed=3)
+        d = self.dict(pets=pets, supplies=supplies)
+
+        self.assertEqual(supplies['water'], 10)
+        self.assertEqual(d['supplies']['water'], 10)
+
+        d['supplies']['blankets'] = 5
+        self.assertEqual(supplies['blankets'], 5)
+        self.assertEqual(d['supplies']['blankets'], 5)
+
+        d['supplies']['water'] = 7
+        self.assertEqual(supplies['water'], 7)
+        self.assertEqual(d['supplies']['water'], 7)
+
+        del pets
+        del supplies
+        self.assertEqual(d['pets']['ferrets'], 2)
+        d['supplies']['blankets'] = 11
+        self.assertEqual(d['supplies']['blankets'], 11)
+
+        pets = d['pets']
+        supplies = d['supplies']
+        supplies['water'] = 7
+        self.assertEqual(supplies['water'], 7)
+        self.assertEqual(d['supplies']['water'], 7)
+
+        d.clear()
+        self.assertEqual(len(d), 0)
+        self.assertEqual(supplies['water'], 7)
+        self.assertEqual(pets['hamsters'], 4)
+
+        l = self.list([pets, supplies])
+        l[0]['marmots'] = 1
+        self.assertEqual(pets['marmots'], 1)
+        self.assertEqual(l[0]['marmots'], 1)
+
+        del pets
+        del supplies
+        self.assertEqual(l[0]['marmots'], 1)
+
+        outer = self.list([[88, 99], l])
+        self.assertIsInstance(outer[0], list)  # Not a ListProxy
+        self.assertEqual(outer[-1][-1]['feed'], 3)
 
     def test_namespace(self):
         n = self.Namespace()
@@ -1667,6 +1733,10 @@ def sqr(x, wait=0.0):
 
 def mul(x, y):
     return x*y
+
+def raise_large_valuerror(wait):
+    time.sleep(wait)
+    raise ValueError("x" * 1024**2)
 
 class SayWhenError(ValueError): pass
 
@@ -1909,6 +1979,26 @@ class _TestPool(BaseTestCase):
         with self.Pool(1) as p:
             with self.assertRaises(RuntimeError):
                 p.apply(self._test_wrapped_exception)
+
+    def test_map_no_failfast(self):
+        # Issue #23992: the fail-fast behaviour when an exception is raised
+        # during map() would make Pool.join() deadlock, because a worker
+        # process would fill the result queue (after the result handler thread
+        # terminated, hence not draining it anymore).
+
+        t_start = time.time()
+
+        with self.assertRaises(ValueError):
+            with self.Pool(2) as p:
+                try:
+                    p.map(raise_large_valuerror, [0, 1])
+                finally:
+                    time.sleep(0.5)
+                    p.close()
+                    p.join()
+
+        # check that we indeed waited for all jobs
+        self.assertGreater(time.time() - t_start, 0.9)
 
 
 def raising():
@@ -3767,7 +3857,7 @@ class TestSemaphoreTracker(unittest.TestCase):
         p.stderr.close()
         expected = 'semaphore_tracker: There appear to be 2 leaked semaphores'
         self.assertRegex(err, expected)
-        self.assertRegex(err, 'semaphore_tracker: %r: \[Errno' % name1)
+        self.assertRegex(err, r'semaphore_tracker: %r: \[Errno' % name1)
 
 #
 # Mixins

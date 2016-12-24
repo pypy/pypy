@@ -1,27 +1,45 @@
-import sys
+import io
 import linecache
+import queue
+import sys
 import time
 import traceback
 import _thread as thread
 import threading
-import queue
-import tkinter
+import warnings
 
-from idlelib import CallTips
-from idlelib import AutoComplete
+import tkinter  # Tcl, deletions, messagebox if startup fails
 
-from idlelib import RemoteDebugger
-from idlelib import RemoteObjectBrowser
-from idlelib import StackViewer
-from idlelib import rpc
-from idlelib import PyShell
-from idlelib import IOBinding
-
+from idlelib import autocomplete  # AutoComplete, fetch_encodings
+from idlelib import calltips  # CallTips
+from idlelib import debugger_r  # start_debugger
+from idlelib import debugobj_r  # remote_object_tree_item
+from idlelib import iomenu  # encoding
+from idlelib import rpc  # multiple objects
+from idlelib import stackviewer  # StackTreeItem
 import __main__
+
+for mod in ('simpledialog', 'messagebox', 'font',
+            'dialog', 'filedialog', 'commondialog',
+            'ttk'):
+    delattr(tkinter, mod)
+    del sys.modules['tkinter.' + mod]
 
 LOCALHOST = '127.0.0.1'
 
-import warnings
+
+def idle_formatwarning(message, category, filename, lineno, line=None):
+    """Format warnings the IDLE way."""
+
+    s = "\nWarning (from warnings module):\n"
+    s += '  File \"%s\", line %s\n' % (filename, lineno)
+    if line is None:
+        line = linecache.getline(filename, lineno)
+    line = line.strip()
+    if line:
+        s += "    %s\n" % line
+    s += "%s: %s\n" % (category.__name__, message)
+    return s
 
 def idle_showwarning_subproc(
         message, category, filename, lineno, file=None, line=None):
@@ -32,7 +50,7 @@ def idle_showwarning_subproc(
     if file is None:
         file = sys.stderr
     try:
-        file.write(PyShell.idle_formatwarning(
+        file.write(idle_formatwarning(
                 message, category, filename, lineno, line))
     except IOError:
         pass # the file (probably stderr) is invalid - this warning gets lost.
@@ -82,7 +100,7 @@ def main(del_exitfunc=False):
     MyHandler object.  That reference is saved as attribute rpchandler of the
     Executive instance.  The Executive methods have access to the reference and
     can pass it on to entities that they command
-    (e.g. RemoteDebugger.Debugger.start_debugger()).  The latter, in turn, can
+    (e.g. debugger_r.Debugger.start_debugger()).  The latter, in turn, can
     call MyHandler(SocketIO) register/unregister methods via the reference to
     register and unregister themselves.
 
@@ -204,7 +222,7 @@ def print_exception():
             tbe = traceback.extract_tb(tb)
             print('Traceback (most recent call last):', file=efile)
             exclude = ("run.py", "rpc.py", "threading.py", "queue.py",
-                       "RemoteDebugger.py", "bdb.py")
+                       "debugger_r.py", "bdb.py")
             cleanup_traceback(tbe, exclude)
             traceback.print_list(tbe, file=efile)
         lines = traceback.format_exception_only(typ, exc)
@@ -261,6 +279,7 @@ def exit():
     capture_warnings(False)
     sys.exit(0)
 
+
 class MyRPCServer(rpc.RPCServer):
 
     def handle_error(self, request, client_address):
@@ -291,6 +310,96 @@ class MyRPCServer(rpc.RPCServer):
             quitting = True
             thread.interrupt_main()
 
+
+# Pseudofiles for shell-remote communication (also used in pyshell)
+
+class PseudoFile(io.TextIOBase):
+
+    def __init__(self, shell, tags, encoding=None):
+        self.shell = shell
+        self.tags = tags
+        self._encoding = encoding
+
+    @property
+    def encoding(self):
+        return self._encoding
+
+    @property
+    def name(self):
+        return '<%s>' % self.tags
+
+    def isatty(self):
+        return True
+
+
+class PseudoOutputFile(PseudoFile):
+
+    def writable(self):
+        return True
+
+    def write(self, s):
+        if self.closed:
+            raise ValueError("write to closed file")
+        if type(s) is not str:
+            if not isinstance(s, str):
+                raise TypeError('must be str, not ' + type(s).__name__)
+            # See issue #19481
+            s = str.__str__(s)
+        return self.shell.write(s, self.tags)
+
+
+class PseudoInputFile(PseudoFile):
+
+    def __init__(self, shell, tags, encoding=None):
+        PseudoFile.__init__(self, shell, tags, encoding)
+        self._line_buffer = ''
+
+    def readable(self):
+        return True
+
+    def read(self, size=-1):
+        if self.closed:
+            raise ValueError("read from closed file")
+        if size is None:
+            size = -1
+        elif not isinstance(size, int):
+            raise TypeError('must be int, not ' + type(size).__name__)
+        result = self._line_buffer
+        self._line_buffer = ''
+        if size < 0:
+            while True:
+                line = self.shell.readline()
+                if not line: break
+                result += line
+        else:
+            while len(result) < size:
+                line = self.shell.readline()
+                if not line: break
+                result += line
+            self._line_buffer = result[size:]
+            result = result[:size]
+        return result
+
+    def readline(self, size=-1):
+        if self.closed:
+            raise ValueError("read from closed file")
+        if size is None:
+            size = -1
+        elif not isinstance(size, int):
+            raise TypeError('must be int, not ' + type(size).__name__)
+        line = self._line_buffer or self.shell.readline()
+        if size < 0:
+            size = len(line)
+        eol = line.find('\n', 0, size)
+        if eol >= 0:
+            size = eol + 1
+        self._line_buffer = line[size:]
+        return line[:size]
+
+    def close(self):
+        self.shell.close()
+
+
 class MyHandler(rpc.RPCHandler):
 
     def handle(self):
@@ -298,12 +407,12 @@ class MyHandler(rpc.RPCHandler):
         executive = Executive(self)
         self.register("exec", executive)
         self.console = self.get_remote_proxy("console")
-        sys.stdin = PyShell.PseudoInputFile(self.console, "stdin",
-                IOBinding.encoding)
-        sys.stdout = PyShell.PseudoOutputFile(self.console, "stdout",
-                IOBinding.encoding)
-        sys.stderr = PyShell.PseudoOutputFile(self.console, "stderr",
-                IOBinding.encoding)
+        sys.stdin = PseudoInputFile(self.console, "stdin",
+                iomenu.encoding)
+        sys.stdout = PseudoOutputFile(self.console, "stdout",
+                iomenu.encoding)
+        sys.stderr = PseudoOutputFile(self.console, "stderr",
+                iomenu.encoding)
 
         sys.displayhook = rpc.displayhook
         # page help() text to shell.
@@ -339,8 +448,8 @@ class Executive(object):
     def __init__(self, rpchandler):
         self.rpchandler = rpchandler
         self.locals = __main__.__dict__
-        self.calltip = CallTips.CallTips()
-        self.autocomplete = AutoComplete.AutoComplete()
+        self.calltip = calltips.CallTips()
+        self.autocomplete = autocomplete.AutoComplete()
 
     def runcode(self, code):
         global interruptable
@@ -372,7 +481,7 @@ class Executive(object):
             thread.interrupt_main()
 
     def start_the_debugger(self, gui_adap_oid):
-        return RemoteDebugger.start_debugger(self.rpchandler, gui_adap_oid)
+        return debugger_r.start_debugger(self.rpchandler, gui_adap_oid)
 
     def stop_the_debugger(self, idb_adap_oid):
         "Unregister the Idb Adapter.  Link objects and Idb then subject to GC"
@@ -396,7 +505,7 @@ class Executive(object):
             tb = tb.tb_next
         sys.last_type = typ
         sys.last_value = val
-        item = StackViewer.StackTreeItem(flist, tb)
-        return RemoteObjectBrowser.remote_object_tree_item(item)
+        item = stackviewer.StackTreeItem(flist, tb)
+        return debugobj_r.remote_object_tree_item(item)
 
 capture_warnings(False)  # Make sure turned off; see issue 18081

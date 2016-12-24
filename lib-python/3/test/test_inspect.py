@@ -30,6 +30,7 @@ from test.support import MISSING_C_DOCSTRINGS, cpython_only
 from test.support.script_helper import assert_python_ok, assert_python_failure
 from test import inspect_fodder as mod
 from test import inspect_fodder2 as mod2
+from test import support
 
 from test.test_import import _ready_to_import
 
@@ -38,7 +39,7 @@ from test.test_import import _ready_to_import
 # ismodule, isclass, ismethod, isfunction, istraceback, isframe, iscode,
 # isbuiltin, isroutine, isgenerator, isgeneratorfunction, getmembers,
 # getdoc, getfile, getmodule, getsourcefile, getcomments, getsource,
-# getclasstree, getargspec, getargvalues, formatargspec, formatargvalues,
+# getclasstree, getargvalues, formatargspec, formatargvalues,
 # currentframe, stack, trace, isdatadescriptor
 
 # NOTE: There are some additional tests relating to interaction with
@@ -64,7 +65,8 @@ class IsTestBase(unittest.TestCase):
                       inspect.isframe, inspect.isfunction, inspect.ismethod,
                       inspect.ismodule, inspect.istraceback,
                       inspect.isgenerator, inspect.isgeneratorfunction,
-                      inspect.iscoroutine, inspect.iscoroutinefunction])
+                      inspect.iscoroutine, inspect.iscoroutinefunction,
+                      inspect.isasyncgen, inspect.isasyncgenfunction])
 
     def istest(self, predicate, exp):
         obj = eval(exp)
@@ -72,6 +74,7 @@ class IsTestBase(unittest.TestCase):
 
         for other in self.predicates - set([predicate]):
             if (predicate == inspect.isgeneratorfunction or \
+               predicate == inspect.isasyncgenfunction or \
                predicate == inspect.iscoroutinefunction) and \
                other == inspect.isfunction:
                 continue
@@ -79,6 +82,10 @@ class IsTestBase(unittest.TestCase):
 
 def generator_function_example(self):
     for i in range(2):
+        yield i
+
+async def async_generator_function_example(self):
+    async for i in range(2):
         yield i
 
 async def coroutine_function_example(self):
@@ -121,6 +128,10 @@ class TestPredicates(IsTestBase):
         self.istest(inspect.isdatadescriptor, 'collections.defaultdict.default_factory')
         self.istest(inspect.isgenerator, '(x for x in range(2))')
         self.istest(inspect.isgeneratorfunction, 'generator_function_example')
+        self.istest(inspect.isasyncgen,
+                    'async_generator_function_example(1)')
+        self.istest(inspect.isasyncgenfunction,
+                    'async_generator_function_example')
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -400,7 +411,7 @@ class TestRetrievingSourceCode(GetSourceBase):
         self.assertEqual(normcase(inspect.getsourcefile(mod.spam)), modfile)
         self.assertEqual(normcase(inspect.getsourcefile(git.abuse)), modfile)
         fn = "_non_existing_filename_used_for_sourcefile_test.py"
-        co = compile("None", fn, "exec")
+        co = compile("x=1", fn, "exec")
         self.assertEqual(inspect.getsourcefile(co), None)
         linecache.cache[co.co_filename] = (1, None, "None", co.co_filename)
         try:
@@ -2902,6 +2913,10 @@ class TestParameterObject(unittest.TestCase):
                                     'is not a valid parameter name'):
             inspect.Parameter('$', kind=inspect.Parameter.VAR_KEYWORD)
 
+        with self.assertRaisesRegex(ValueError,
+                                    'is not a valid parameter name'):
+            inspect.Parameter('.a', kind=inspect.Parameter.VAR_KEYWORD)
+
         with self.assertRaisesRegex(ValueError, 'cannot have default values'):
             inspect.Parameter('a', default=42,
                               kind=inspect.Parameter.VAR_KEYWORD)
@@ -2984,6 +2999,17 @@ class TestParameterObject(unittest.TestCase):
     def test_signature_parameter_positional_only(self):
         with self.assertRaisesRegex(TypeError, 'name must be a str'):
             inspect.Parameter(None, kind=inspect.Parameter.POSITIONAL_ONLY)
+
+    @cpython_only
+    def test_signature_parameter_implicit(self):
+        with self.assertRaisesRegex(ValueError,
+                                    'implicit arguments must be passed in as'):
+            inspect.Parameter('.0', kind=inspect.Parameter.POSITIONAL_ONLY)
+
+        param = inspect.Parameter(
+            '.0', kind=inspect.Parameter.POSITIONAL_OR_KEYWORD)
+        self.assertEqual(param.kind, inspect.Parameter.POSITIONAL_ONLY)
+        self.assertEqual(param.name, 'implicit0')
 
     def test_signature_parameter_immutability(self):
         p = inspect.Parameter('spam', kind=inspect.Parameter.KEYWORD_ONLY)
@@ -3232,6 +3258,17 @@ class TestSignatureBind(unittest.TestCase):
         sig = inspect.signature(test)
         ba = sig.bind(args=1)
         self.assertEqual(ba.arguments, {'kwargs': {'args': 1}})
+
+    @cpython_only
+    def test_signature_bind_implicit_arg(self):
+        # Issue #19611: getcallargs should work with set comprehensions
+        def make_set():
+            return {z * z for z in range(5)}
+        setcomp_code = make_set.__code__.co_consts[1]
+        setcomp_func = types.FunctionType(setcomp_code, {})
+
+        iterator = iter(range(5))
+        self.assertEqual(self.call(setcomp_func, iterator), {0, 1, 4, 9, 16})
 
 
 class TestBoundArguments(unittest.TestCase):
@@ -3543,14 +3580,14 @@ class TestMain(unittest.TestCase):
 
     def test_details(self):
         module = importlib.import_module('unittest')
-        rc, out, err = assert_python_ok('-m', 'inspect',
+        args = support.optim_args_from_interpreter_flags()
+        rc, out, err = assert_python_ok(*args, '-m', 'inspect',
                                         'unittest', '--details')
         output = out.decode()
         # Just a quick sanity check on the output
         self.assertIn(module.__name__, output)
         self.assertIn(module.__file__, output)
-        if not sys.flags.optimize:
-            self.assertIn(module.__cached__, output)
+        self.assertIn(module.__cached__, output)
         self.assertEqual(err, b'')
 
 

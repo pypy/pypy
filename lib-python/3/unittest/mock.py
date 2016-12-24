@@ -60,16 +60,6 @@ def _is_exception(obj):
     )
 
 
-class _slotted(object):
-    __slots__ = ['a']
-
-
-DescriptorTypes = (
-    type(_slotted.a),
-    property,
-)
-
-
 def _get_signature_object(func, as_instance, eat_self):
     """
     Given an arbitrary, possibly callable object, try to create a suitable
@@ -203,6 +193,12 @@ def _setup_func(funcopy, mock):
 
     def assert_called_with(*args, **kwargs):
         return mock.assert_called_with(*args, **kwargs)
+    def assert_called(*args, **kwargs):
+        return mock.assert_called(*args, **kwargs)
+    def assert_not_called(*args, **kwargs):
+        return mock.assert_not_called(*args, **kwargs)
+    def assert_called_once(*args, **kwargs):
+        return mock.assert_called_once(*args, **kwargs)
     def assert_called_once_with(*args, **kwargs):
         return mock.assert_called_once_with(*args, **kwargs)
     def assert_has_calls(*args, **kwargs):
@@ -233,6 +229,9 @@ def _setup_func(funcopy, mock):
     funcopy.assert_has_calls = assert_has_calls
     funcopy.assert_any_call = assert_any_call
     funcopy.reset_mock = reset_mock
+    funcopy.assert_called = assert_called
+    funcopy.assert_not_called = assert_not_called
+    funcopy.assert_called_once = assert_called_once
 
     mock._mock_delegate = funcopy
 
@@ -523,7 +522,7 @@ class NonCallableMock(Base):
     side_effect = property(__get_side_effect, __set_side_effect)
 
 
-    def reset_mock(self, visited=None):
+    def reset_mock(self,  visited=None,*, return_value=False, side_effect=False):
         "Restore the mock object to its initial state."
         if visited is None:
             visited = []
@@ -537,6 +536,11 @@ class NonCallableMock(Base):
         self.mock_calls = _CallList()
         self.call_args_list = _CallList()
         self.method_calls = _CallList()
+
+        if return_value:
+            self._mock_return_value = DEFAULT
+        if side_effect:
+            self._mock_side_effect = None
 
         for child in self._mock_children.values():
             if isinstance(child, _SpecState):
@@ -744,7 +748,7 @@ class NonCallableMock(Base):
 
     def _call_matcher(self, _call):
         """
-        Given a call (or simply a (args, kwargs) tuple), return a
+        Given a call (or simply an (args, kwargs) tuple), return a
         comparison key suitable for matching with other calls.
         This is a best effort method which relies on the spec's signature,
         if available, or falls back on the arguments themselves.
@@ -769,6 +773,24 @@ class NonCallableMock(Base):
         self = _mock_self
         if self.call_count != 0:
             msg = ("Expected '%s' to not have been called. Called %s times." %
+                   (self._mock_name or 'mock', self.call_count))
+            raise AssertionError(msg)
+
+    def assert_called(_mock_self):
+        """assert that the mock was called at least once
+        """
+        self = _mock_self
+        if self.call_count == 0:
+            msg = ("Expected '%s' to have been called." %
+                   self._mock_name or 'mock')
+            raise AssertionError(msg)
+
+    def assert_called_once(_mock_self):
+        """assert that the mock was called only once.
+        """
+        self = _mock_self
+        if not self.call_count == 1:
+            msg = ("Expected '%s' to have been called once. Called %s times." %
                    (self._mock_name or 'mock', self.call_count))
             raise AssertionError(msg)
 
@@ -820,7 +842,7 @@ class NonCallableMock(Base):
             if expected not in all_calls:
                 raise AssertionError(
                     'Calls not found.\nExpected: %r\n'
-                    'Actual: %r' % (calls, self.mock_calls)
+                    'Actual: %r' % (_CallList(calls), self.mock_calls)
                 ) from cause
             return
 
@@ -1694,6 +1716,7 @@ _non_defaults = {
     '__reduce__', '__reduce_ex__', '__getinitargs__', '__getnewargs__',
     '__getstate__', '__setstate__', '__getformat__', '__setformat__',
     '__repr__', '__dir__', '__subclasses__', '__format__',
+    '__getnewargs_ex__',
 }
 
 
@@ -2129,7 +2152,7 @@ def create_autospec(spec, spec_set=False, instance=False, _parent=None,
     _kwargs.update(kwargs)
 
     Klass = MagicMock
-    if type(spec) in DescriptorTypes:
+    if inspect.isdatadescriptor(spec):
         # descriptors don't have a spec
         # because we don't know what type they return
         _kwargs = {}

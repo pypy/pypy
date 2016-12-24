@@ -6,7 +6,6 @@ import os
 import abc
 import codecs
 import errno
-import array
 import stat
 import sys
 # Import _thread instead of threading to reduce startup cost
@@ -161,6 +160,8 @@ def open(file, mode="r", buffering=-1, encoding=None, errors=None,
     opened in a text mode, and for bytes a BytesIO can be used like a file
     opened in a binary mode.
     """
+    if not isinstance(file, int):
+        file = os.fspath(file)
     if not isinstance(file, (str, bytes, int)):
         raise TypeError("invalid file: %r" % file)
     if not isinstance(mode, str):
@@ -182,8 +183,8 @@ def open(file, mode="r", buffering=-1, encoding=None, errors=None,
     text = "t" in modes
     binary = "b" in modes
     if "U" in modes:
-        if creating or writing or appending:
-            raise ValueError("can't use U and writing mode at once")
+        if creating or writing or appending or updating:
+            raise ValueError("mode U cannot be combined with 'x', 'w', 'a', or '+'")
         import warnings
         warnings.warn("'U' mode is deprecated",
                       DeprecationWarning, 2)
@@ -1516,7 +1517,7 @@ class FileIO(RawIOBase):
         if self._fd >= 0 and self._closefd and not self.closed:
             import warnings
             warnings.warn('unclosed file %r' % (self,), ResourceWarning,
-                          stacklevel=2)
+                          stacklevel=2, source=self)
             self.close()
 
     def __getstate__(self):

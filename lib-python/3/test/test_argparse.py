@@ -4512,6 +4512,21 @@ class TestStrings(TestCase):
         string = "Namespace(bar='spam', foo=42)"
         self.assertStringEqual(ns, string)
 
+    def test_namespace_starkwargs_notidentifier(self):
+        ns = argparse.Namespace(**{'"': 'quote'})
+        string = """Namespace(**{'"': 'quote'})"""
+        self.assertStringEqual(ns, string)
+
+    def test_namespace_kwargs_and_starkwargs_notidentifier(self):
+        ns = argparse.Namespace(a=1, **{'"': 'quote'})
+        string = """Namespace(a=1, **{'"': 'quote'})"""
+        self.assertStringEqual(ns, string)
+
+    def test_namespace_starkwargs_identifier(self):
+        ns = argparse.Namespace(**{'valid': True})
+        string = "Namespace(valid=True)"
+        self.assertStringEqual(ns, string)
+
     def test_parser(self):
         parser = argparse.ArgumentParser(prog='PROG')
         string = (
@@ -4550,7 +4565,7 @@ class TestNamespace(TestCase):
         self.assertTrue(ns2 != ns3)
         self.assertTrue(ns2 != ns4)
 
-    def test_equality_returns_notimplemeted(self):
+    def test_equality_returns_notimplemented(self):
         # See issue 21481
         ns = argparse.Namespace(a=1, b=2)
         self.assertIs(ns.__eq__(None), NotImplemented)

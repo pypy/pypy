@@ -1,14 +1,14 @@
 """Simple text browser for IDLE
 
 """
-
 from tkinter import *
-import tkinter.messagebox as tkMessageBox
+from tkinter.ttk import Scrollbar
+from tkinter.messagebox import showerror
+
 
 class TextViewer(Toplevel):
-    """A simple text viewer dialog for IDLE
+    "A simple text viewer dialog for IDLE."
 
-    """
     def __init__(self, parent, title, text, modal=True, _htest=False):
         """Show the given text in a scrollable window with a 'close' button
 
@@ -20,11 +20,11 @@ class TextViewer(Toplevel):
         """
         Toplevel.__init__(self, parent)
         self.configure(borderwidth=5)
-        # place dialog below parent if running htest
+        # Place dialog below parent if running htest.
         self.geometry("=%dx%d+%d+%d" % (750, 500,
                            parent.winfo_rootx() + 10,
                            parent.winfo_rooty() + (10 if not _htest else 100)))
-        #elguavas - config placeholders til config stuff completed
+        # TODO: get fg/bg from theme.
         self.bg = '#ffffff'
         self.fg = '#000000'
 
@@ -33,9 +33,9 @@ class TextViewer(Toplevel):
         self.protocol("WM_DELETE_WINDOW", self.Ok)
         self.parent = parent
         self.textView.focus_set()
-        #key bindings for this dialog
-        self.bind('<Return>',self.Ok) #dismiss dialog
-        self.bind('<Escape>',self.Ok) #dismiss dialog
+        # Bind keys for closing this dialog.
+        self.bind('<Return>',self.Ok)
+        self.bind('<Escape>',self.Ok)
         self.textView.insert(0.0, text)
         self.textView.config(state=DISABLED)
 
@@ -50,7 +50,7 @@ class TextViewer(Toplevel):
         self.buttonOk = Button(frameButtons, text='Close',
                                command=self.Ok, takefocus=FALSE)
         self.scrollbarView = Scrollbar(frameText, orient=VERTICAL,
-                                       takefocus=FALSE, highlightthickness=0)
+                                       takefocus=FALSE)
         self.textView = Text(frameText, wrap=WORD, highlightthickness=0,
                              fg=self.fg, bg=self.bg)
         self.scrollbarView.config(command=self.textView.yview)
@@ -72,10 +72,14 @@ def view_file(parent, title, filename, encoding=None, modal=True):
     try:
         with open(filename, 'r', encoding=encoding) as file:
             contents = file.read()
-    except IOError:
-        tkMessageBox.showerror(title='File Load Error',
-                               message='Unable to load file %r .' % filename,
-                               parent=parent)
+    except OSError:
+        showerror(title='File Load Error',
+                  message='Unable to load file %r .' % filename,
+                  parent=parent)
+    except UnicodeDecodeError as err:
+        showerror(title='Unicode Decode Error',
+                  message=str(err),
+                  parent=parent)
     else:
         return view_text(parent, title, contents, modal)
 

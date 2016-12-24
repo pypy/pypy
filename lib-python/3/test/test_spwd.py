@@ -56,5 +56,20 @@ class TestSpwdRoot(unittest.TestCase):
             self.assertRaises(TypeError, spwd.getspnam, bytes_name)
 
 
+@unittest.skipUnless(hasattr(os, 'geteuid') and os.geteuid() != 0,
+                     'non-root user required')
+class TestSpwdNonRoot(unittest.TestCase):
+
+    def test_getspnam_exception(self):
+        name = 'bin'
+        try:
+            with self.assertRaises(PermissionError) as cm:
+                spwd.getspnam(name)
+        except KeyError as exc:
+            self.skipTest("spwd entry %r doesn't exist: %s" % (name, exc))
+        else:
+            self.assertEqual(str(cm.exception), '[Errno 13] Permission denied')
+
+
 if __name__ == "__main__":
     unittest.main()

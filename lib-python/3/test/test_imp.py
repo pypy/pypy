@@ -6,13 +6,12 @@ import importlib
 import importlib.util
 import os
 import os.path
-import shutil
 import sys
 from test import support
 import unittest
 import warnings
 with warnings.catch_warnings():
-    warnings.simplefilter('ignore', PendingDeprecationWarning)
+    warnings.simplefilter('ignore', DeprecationWarning)
     import imp
 
 

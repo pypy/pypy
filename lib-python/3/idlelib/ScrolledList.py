@@ -1,5 +1,8 @@
 from tkinter import *
-from idlelib import macosxSupport
+from tkinter.ttk import Scrollbar
+
+from idlelib import macosx
+
 
 class ScrolledList:
 
@@ -23,7 +26,7 @@ class ScrolledList:
         # Bind events to the list box
         listbox.bind("<ButtonRelease-1>", self.click_event)
         listbox.bind("<Double-ButtonRelease-1>", self.double_click_event)
-        if macosxSupport.isAquaTk():
+        if macosx.isAquaTk():
             listbox.bind("<ButtonPress-2>", self.popup_event)
             listbox.bind("<Control-Button-1>", self.popup_event)
         else:
@@ -124,22 +127,20 @@ class ScrolledList:
         pass
 
 
-def _scrolled_list(parent):
-    root = Tk()
-    root.title("Test ScrolledList")
-    width, height, x, y = list(map(int, re.split('[x+]', parent.geometry())))
-    root.geometry("+%d+%d"%(x, y + 150))
+def _scrolled_list(parent):  # htest #
+    top = Toplevel(parent)
+    x, y = map(int, parent.geometry().split('+')[1:])
+    top.geometry("+%d+%d" % (x+200, y + 175))
     class MyScrolledList(ScrolledList):
         def fill_menu(self): self.menu.add_command(label="right click")
         def on_select(self, index): print("select", self.get(index))
         def on_double(self, index): print("double", self.get(index))
 
-    scrolled_list = MyScrolledList(root)
+    scrolled_list = MyScrolledList(top)
     for i in range(30):
         scrolled_list.append("Item %02d" % i)
 
-    root.mainloop()
-
 if __name__ == '__main__':
+    # At the moment, test_scrolledlist merely creates instance, like htest.
     from idlelib.idle_test.htest import run
     run(_scrolled_list)

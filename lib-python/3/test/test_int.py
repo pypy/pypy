@@ -2,6 +2,8 @@ import sys
 
 import unittest
 from test import support
+from test.test_grammar import (VALID_UNDERSCORE_LITERALS,
+                               INVALID_UNDERSCORE_LITERALS)
 
 L = [
         ('0', 0),
@@ -211,6 +213,25 @@ class IntTestCases(unittest.TestCase):
         self.assertEqual(int('2qhxjlj', 34), 4294967297)
         self.assertEqual(int('2br45qc', 35), 4294967297)
         self.assertEqual(int('1z141z5', 36), 4294967297)
+
+    def test_underscores(self):
+        for lit in VALID_UNDERSCORE_LITERALS:
+            if any(ch in lit for ch in '.eEjJ'):
+                continue
+            self.assertEqual(int(lit, 0), eval(lit))
+            self.assertEqual(int(lit, 0), int(lit.replace('_', ''), 0))
+        for lit in INVALID_UNDERSCORE_LITERALS:
+            if any(ch in lit for ch in '.eEjJ'):
+                continue
+            self.assertRaises(ValueError, int, lit, 0)
+        # Additional test cases with bases != 0, only for the constructor:
+        self.assertEqual(int("1_00", 3), 9)
+        self.assertEqual(int("0_100"), 100)  # not valid as a literal!
+        self.assertEqual(int(b"1_00"), 100)  # byte underscore
+        self.assertRaises(ValueError, int, "_100")
+        self.assertRaises(ValueError, int, "+_100")
+        self.assertRaises(ValueError, int, "1__00")
+        self.assertRaises(ValueError, int, "100_")
 
     @support.cpython_only
     def test_small_ints(self):
@@ -430,21 +451,24 @@ class IntTestCases(unittest.TestCase):
         with self.assertWarns(DeprecationWarning):
             n = int(bad_int)
         self.assertEqual(n, 1)
+        self.assertIs(type(n), int)
 
         bad_int = BadInt2()
         with self.assertWarns(DeprecationWarning):
             n = int(bad_int)
         self.assertEqual(n, 1)
+        self.assertIs(type(n), int)
 
         bad_int = TruncReturnsBadInt()
         with self.assertWarns(DeprecationWarning):
             n = int(bad_int)
         self.assertEqual(n, 1)
+        self.assertIs(type(n), int)
 
         good_int = TruncReturnsIntSubclass()
         n = int(good_int)
         self.assertEqual(n, 1)
-        self.assertIs(type(n), bool)
+        self.assertIs(type(n), int)
         n = IntSubclass(good_int)
         self.assertEqual(n, 1)
         self.assertIs(type(n), IntSubclass)

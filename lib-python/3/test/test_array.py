@@ -7,8 +7,6 @@ from test import support
 import weakref
 import pickle
 import operator
-import io
-import math
 import struct
 import sys
 import warnings
@@ -38,13 +36,23 @@ typecodes = "ubBhHiIlLfd"
 if have_long_long:
     typecodes += 'qQ'
 
-class BadConstructorTest(unittest.TestCase):
+class MiscTest(unittest.TestCase):
 
-    def test_constructor(self):
+    def test_bad_constructor(self):
         self.assertRaises(TypeError, array.array)
         self.assertRaises(TypeError, array.array, spam=42)
         self.assertRaises(TypeError, array.array, 'xx')
         self.assertRaises(ValueError, array.array, 'x')
+
+    def test_empty(self):
+        # Exercise code for handling zero-length arrays
+        a = array.array('B')
+        a[:] = a
+        self.assertEqual(len(a), 0)
+        self.assertEqual(len(a + a), 0)
+        self.assertEqual(len(a * 3), 0)
+        a += a
+        self.assertEqual(len(a), 0)
 
 
 # Machine format codes.
@@ -318,8 +326,19 @@ class BaseTest:
             d = pickle.dumps((itorig, orig), proto)
             it, a = pickle.loads(d)
             a.fromlist(data2)
-            self.assertEqual(type(it), type(itorig))
-            self.assertEqual(list(it), data2)
+            self.assertEqual(list(it), [])
+
+    def test_exhausted_iterator(self):
+        a = array.array(self.typecode, self.example)
+        self.assertEqual(list(a), list(self.example))
+        exhit = iter(a)
+        empit = iter(a)
+        for x in exhit:  # exhaust the iterator
+            next(empit)  # not exhausted
+        a.append(self.outside)
+        self.assertEqual(list(exhit), [])
+        self.assertEqual(list(empit), [self.outside])
+        self.assertEqual(list(a), list(self.example) + [self.outside])
 
     def test_insert(self):
         a = array.array(self.typecode, self.example)
@@ -1069,6 +1088,12 @@ class BaseTest:
         from _testcapi import getbuffer_with_null_view
         a = array.array('B', b"")
         self.assertRaises(BufferError, getbuffer_with_null_view, a)
+
+    def test_free_after_iterating(self):
+        support.check_free_after_iterating(self, iter, array.array,
+                                           (self.typecode,))
+        support.check_free_after_iterating(self, reversed, array.array,
+                                           (self.typecode,))
 
 class StringTest(BaseTest):
 

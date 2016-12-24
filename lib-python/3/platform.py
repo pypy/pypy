@@ -13,7 +13,6 @@
 #    Python bug tracker (http://bugs.python.org) and assign them to "lemburg".
 #
 #    Still needed:
-#    * more support for WinCE
 #    * support for MS-DOS (PythonDX ?)
 #    * support for Amiga and other still unsupported platforms running Python
 #    * support for additional Linux distributions
@@ -61,7 +60,7 @@
 #            though
 #    0.5.2 - fixed uname() to return '' instead of 'unknown' in all
 #            return values (the system uname command tends to return
-#            'unknown' instead of just leaving the field emtpy)
+#            'unknown' instead of just leaving the field empty)
 #    0.5.1 - included code for slackware dist; added exception handlers
 #            to cover up situations where platforms don't have os.popen
 #            (e.g. Mac) or fail on socket.gethostname(); fixed libc
@@ -252,13 +251,13 @@ def _dist_try_harder(distname, version, id):
 
 _release_filename = re.compile(r'(\w+)[-_](release|version)', re.ASCII)
 _lsb_release_version = re.compile(r'(.+)'
-                                   ' release '
-                                   '([\d.]+)'
-                                   '[^(]*(?:\((.+)\))?', re.ASCII)
+                                  r' release '
+                                  r'([\d.]+)'
+                                  r'[^(]*(?:\((.+)\))?', re.ASCII)
 _release_version = re.compile(r'([^0-9]+)'
-                               '(?: release )?'
-                               '([\d.]+)'
-                               '[^(]*(?:\((.+)\))?', re.ASCII)
+                              r'(?: release )?'
+                              r'([\d.]+)'
+                              r'[^(]*(?:\((.+)\))?', re.ASCII)
 
 # See also http://www.novell.com/coolsolutions/feature/11251.html
 # and http://linuxmafia.com/faq/Admin/release-files.html
@@ -408,8 +407,8 @@ def _norm_version(version, build=''):
     return version
 
 _ver_output = re.compile(r'(?:([\w ]+) ([\w.]+) '
-                         '.*'
-                         '\[.* ([\d.]+)\])')
+                         r'.*'
+                         r'\[.* ([\d.]+)\])')
 
 # Examples of VER command output:
 #
@@ -498,65 +497,6 @@ _WIN32_SERVER_RELEASES = {
     (6, None): "post2012ServerR2",
 }
 
-def _get_real_winver(maj, min, build):
-    if maj < 6 or (maj == 6 and min < 2):
-        return maj, min, build
-
-    from ctypes import (c_buffer, POINTER, byref, create_unicode_buffer,
-                        Structure, WinDLL)
-    from ctypes.wintypes import DWORD, HANDLE
-
-    class VS_FIXEDFILEINFO(Structure):
-        _fields_ = [
-            ("dwSignature", DWORD),
-            ("dwStrucVersion", DWORD),
-            ("dwFileVersionMS", DWORD),
-            ("dwFileVersionLS", DWORD),
-            ("dwProductVersionMS", DWORD),
-            ("dwProductVersionLS", DWORD),
-            ("dwFileFlagsMask", DWORD),
-            ("dwFileFlags", DWORD),
-            ("dwFileOS", DWORD),
-            ("dwFileType", DWORD),
-            ("dwFileSubtype", DWORD),
-            ("dwFileDateMS", DWORD),
-            ("dwFileDateLS", DWORD),
-        ]
-
-    kernel32 = WinDLL('kernel32')
-    version = WinDLL('version')
-
-    # We will immediately double the length up to MAX_PATH, but the
-    # path may be longer, so we retry until the returned string is
-    # shorter than our buffer.
-    name_len = actual_len = 130
-    while actual_len == name_len:
-        name_len *= 2
-        name = create_unicode_buffer(name_len)
-        actual_len = kernel32.GetModuleFileNameW(HANDLE(kernel32._handle),
-                                                 name, len(name))
-        if not actual_len:
-            return maj, min, build
-
-    size = version.GetFileVersionInfoSizeW(name, None)
-    if not size:
-        return maj, min, build
-
-    ver_block = c_buffer(size)
-    if (not version.GetFileVersionInfoW(name, None, size, ver_block) or
-        not ver_block):
-        return maj, min, build
-
-    pvi = POINTER(VS_FIXEDFILEINFO)()
-    if not version.VerQueryValueW(ver_block, "", byref(pvi), byref(DWORD())):
-        return maj, min, build
-
-    maj = pvi.contents.dwProductVersionMS >> 16
-    min = pvi.contents.dwProductVersionMS & 0xFFFF
-    build = pvi.contents.dwProductVersionLS >> 16
-
-    return maj, min, build
-
 def win32_ver(release='', version='', csd='', ptype=''):
     try:
         from sys import getwindowsversion
@@ -568,7 +508,7 @@ def win32_ver(release='', version='', csd='', ptype=''):
         from _winreg import OpenKeyEx, QueryValueEx, CloseKey, HKEY_LOCAL_MACHINE
 
     winver = getwindowsversion()
-    maj, min, build = _get_real_winver(*winver[:3])
+    maj, min, build = winver.platform_version or winver[:3]
     version = '{0}.{1}.{2}'.format(maj, min, build)
 
     release = (_WIN32_CLIENT_RELEASES.get((maj, min)) or
@@ -586,7 +526,7 @@ def win32_ver(release='', version='', csd='', ptype=''):
                 csd = 'SP' + csd[13:]
 
     # VER_NT_SERVER = 3
-    if getattr(winver, 'product', None) == 3:
+    if getattr(winver, 'product_type', None) == 3:
         release = (_WIN32_SERVER_RELEASES.get((maj, min)) or
                    _WIN32_SERVER_RELEASES.get((maj, None)) or
                    release)
@@ -1154,22 +1094,22 @@ _sys_version_parser = re.compile(
 
 _ironpython_sys_version_parser = re.compile(
     r'IronPython\s*'
-    '([\d\.]+)'
-    '(?: \(([\d\.]+)\))?'
-    ' on (.NET [\d\.]+)', re.ASCII)
+    r'([\d\.]+)'
+    r'(?: \(([\d\.]+)\))?'
+    r' on (.NET [\d\.]+)', re.ASCII)
 
 # IronPython covering 2.6 and 2.7
 _ironpython26_sys_version_parser = re.compile(
     r'([\d.]+)\s*'
-    '\(IronPython\s*'
-    '[\d.]+\s*'
-    '\(([\d.]+)\) on ([\w.]+ [\d.]+(?: \(\d+-bit\))?)\)'
+    r'\(IronPython\s*'
+    r'[\d.]+\s*'
+    r'\(([\d.]+)\) on ([\w.]+ [\d.]+(?: \(\d+-bit\))?)\)'
 )
 
 _pypy_sys_version_parser = re.compile(
     r'([\w.+]+)\s*'
-    '\(#?([^,]+),\s*([\w ]+),\s*([\w :]+)\)\s*'
-    '\[PyPy [^\]]+\]?')
+    r'\(#?([^,]+),\s*([\w ]+),\s*([\w :]+)\)\s*'
+    r'\[PyPy [^\]]+\]?')
 
 _sys_version_cache = {}
 
@@ -1404,7 +1344,7 @@ def platform(aliased=0, terse=0):
             # see issue #1322 for more information
             warnings.filterwarnings(
                 'ignore',
-                'dist\(\) and linux_distribution\(\) '
+                r'dist\(\) and linux_distribution\(\) '
                 'functions are deprecated .*',
                 PendingDeprecationWarning,
             )

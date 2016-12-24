@@ -589,6 +589,7 @@ class ReferencesTestCase(TestBase):
         del c1, c2, C, D
         gc.collect()
 
+    @support.requires_type_collecting
     def test_callback_in_cycle_resurrection(self):
         import gc
 
@@ -844,6 +845,14 @@ class ReferencesTestCase(TestBase):
         with self.assertRaises(AttributeError):
             ref1.__callback__ = lambda ref: None
 
+    def test_callback_gcs(self):
+        class ObjectWithDel(Object):
+            def __del__(self): pass
+        x = ObjectWithDel(1)
+        ref1 = weakref.ref(x, lambda ref: support.gc_collect())
+        del x
+        support.gc_collect()
+
 
 class SubclassableWeakrefTestCase(TestBase):
 
@@ -910,7 +919,7 @@ class SubclassableWeakrefTestCase(TestBase):
         self.assertFalse(hasattr(r, "__dict__"))
 
     def test_subclass_refs_with_cycle(self):
-        # Bug #3110
+        """Confirm https://bugs.python.org/issue3100 is fixed."""
         # An instance of a weakref subclass can have attributes.
         # If such a weakref holds the only strong reference to the object,
         # deleting the weakref will delete the object. In this case,
@@ -1324,13 +1333,16 @@ class MappingTestCase(TestBase):
         o = Object(123456)
         with testcontext():
             n = len(dict)
-            dict.popitem()
+            # Since underlaying dict is ordered, first item is popped
+            dict.pop(next(dict.keys()))
             self.assertEqual(len(dict), n - 1)
             dict[o] = o
             self.assertEqual(len(dict), n)
+        # last item in objects is removed from dict in context shutdown
         with testcontext():
             self.assertEqual(len(dict), n - 1)
-            dict.pop(next(dict.keys()))
+            # Then, (o, o) is popped
+            dict.popitem()
             self.assertEqual(len(dict), n - 2)
         with testcontext():
             self.assertEqual(len(dict), n - 3)

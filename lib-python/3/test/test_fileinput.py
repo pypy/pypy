@@ -22,8 +22,9 @@ except ImportError:
 from io import BytesIO, StringIO
 from fileinput import FileInput, hook_encoded
 
-from test.support import verbose, TESTFN, run_unittest, check_warnings
+from test.support import verbose, TESTFN, check_warnings
 from test.support import unlink as safe_unlink
+from test import support
 from unittest import mock
 
 
@@ -92,7 +93,11 @@ class BufferSizesTests(unittest.TestCase):
                 t2 = writeTmp(2, ["Line %s of file 2\n" % (i+1) for i in range(10)])
                 t3 = writeTmp(3, ["Line %s of file 3\n" % (i+1) for i in range(5)])
                 t4 = writeTmp(4, ["Line %s of file 4\n" % (i+1) for i in range(1)])
-                self.buffer_size_test(t1, t2, t3, t4, bs, round)
+                if bs:
+                    with self.assertWarns(DeprecationWarning):
+                        self.buffer_size_test(t1, t2, t3, t4, bs, round)
+                else:
+                    self.buffer_size_test(t1, t2, t3, t4, bs, round)
             finally:
                 remove_tempfiles(t1, t2, t3, t4)
 
@@ -940,7 +945,8 @@ class Test_hook_encoded(unittest.TestCase):
 
     def test(self):
         encoding = object()
-        result = fileinput.hook_encoded(encoding)
+        errors = object()
+        result = fileinput.hook_encoded(encoding, errors=errors)
 
         fake_open = InvocationRecorder()
         original_open = builtins.open
@@ -958,7 +964,25 @@ class Test_hook_encoded(unittest.TestCase):
         self.assertIs(args[0], filename)
         self.assertIs(args[1], mode)
         self.assertIs(kwargs.pop('encoding'), encoding)
+        self.assertIs(kwargs.pop('errors'), errors)
         self.assertFalse(kwargs)
+
+    def test_errors(self):
+        with open(TESTFN, 'wb') as f:
+            f.write(b'\x80abc')
+        self.addCleanup(safe_unlink, TESTFN)
+
+        def check(errors, expected_lines):
+            with FileInput(files=TESTFN, mode='r',
+                           openhook=hook_encoded('utf-8', errors=errors)) as fi:
+                lines = list(fi)
+            self.assertEqual(lines, expected_lines)
+
+        check('ignore', ['abc'])
+        with self.assertRaises(UnicodeDecodeError):
+            check('strict', ['abc'])
+        check('replace', ['\ufffdabc'])
+        check('backslashreplace', ['\\x80abc'])
 
     def test_modes(self):
         with open(TESTFN, 'wb') as f:
@@ -979,6 +1003,12 @@ class Test_hook_encoded(unittest.TestCase):
             check('U', ['A\n', 'B\n', 'C\n', 'D\u20ac'])
         with self.assertRaises(ValueError):
             check('rb', ['A\n', 'B\r\n', 'C\r', 'D\u20ac'])
+
+
+class MiscTest(unittest.TestCase):
+
+    def test_all(self):
+        support.check__all__(self, fileinput)
 
 
 if __name__ == "__main__":

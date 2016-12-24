@@ -4,8 +4,10 @@
 import os
 import pickle
 import random
+import re
 import subprocess
 import sys
+import sysconfig
 import textwrap
 import time
 import unittest
@@ -220,8 +222,8 @@ class CAPITest(unittest.TestCase):
                                 br'result with an error set\n'
                              br'ValueError\n'
                              br'\n'
-                             br'During handling of the above exception, '
-                                br'another exception occurred:\n'
+                             br'The above exception was the direct cause '
+                                br'of the following exception:\n'
                              br'\n'
                              br'SystemError: <built-in '
                                 br'function return_result_with_error> '
@@ -442,6 +444,7 @@ class EmbeddingTests(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(out.strip(), expected_output)
 
+
 class SkipitemTest(unittest.TestCase):
 
     def test_skipitem(self):
@@ -491,10 +494,10 @@ class SkipitemTest(unittest.TestCase):
                 _testcapi.parse_tuple_and_keywords(tuple_1, dict_b,
                     format.encode("ascii"), keywords)
                 when_not_skipped = False
-            except TypeError as e:
+            except SystemError as e:
                 s = "argument 1 (impossible<bad format char>)"
                 when_not_skipped = (str(e) == s)
-            except RuntimeError as e:
+            except TypeError:
                 when_not_skipped = False
 
             # test the format unit when skipped
@@ -503,7 +506,7 @@ class SkipitemTest(unittest.TestCase):
                 _testcapi.parse_tuple_and_keywords(empty_tuple, dict_b,
                     optional_format.encode("ascii"), keywords)
                 when_skipped = False
-            except RuntimeError as e:
+            except SystemError as e:
                 s = "impossible<bad format char>: '{}'".format(format)
                 when_skipped = (str(e) == s)
 
@@ -523,6 +526,32 @@ class SkipitemTest(unittest.TestCase):
                           (), {}, b'', [''] * 42)
         self.assertRaises(ValueError, _testcapi.parse_tuple_and_keywords,
                           (), {}, b'', [42])
+
+    def test_positional_only(self):
+        parse = _testcapi.parse_tuple_and_keywords
+
+        parse((1, 2, 3), {}, b'OOO', ['', '', 'a'])
+        parse((1, 2), {'a': 3}, b'OOO', ['', '', 'a'])
+        with self.assertRaisesRegex(TypeError,
+               r'Function takes at least 2 positional arguments \(1 given\)'):
+            parse((1,), {'a': 3}, b'OOO', ['', '', 'a'])
+        parse((1,), {}, b'O|OO', ['', '', 'a'])
+        with self.assertRaisesRegex(TypeError,
+               r'Function takes at least 1 positional arguments \(0 given\)'):
+            parse((), {}, b'O|OO', ['', '', 'a'])
+        parse((1, 2), {'a': 3}, b'OO$O', ['', '', 'a'])
+        with self.assertRaisesRegex(TypeError,
+               r'Function takes exactly 2 positional arguments \(1 given\)'):
+            parse((1,), {'a': 3}, b'OO$O', ['', '', 'a'])
+        parse((1,), {}, b'O|O$O', ['', '', 'a'])
+        with self.assertRaisesRegex(TypeError,
+               r'Function takes at least 1 positional arguments \(0 given\)'):
+            parse((), {}, b'O|O$O', ['', '', 'a'])
+        with self.assertRaisesRegex(SystemError, r'Empty parameter name after \$'):
+            parse((1,), {}, b'O|$OO', ['', '', 'a'])
+        with self.assertRaisesRegex(SystemError, 'Empty keyword'):
+            parse((1,), {}, b'O|OO', ['', 'a', ''])
+
 
 @unittest.skipUnless(threading, 'Threading required for this test.')
 class TestThreadState(unittest.TestCase):
@@ -548,6 +577,7 @@ class TestThreadState(unittest.TestCase):
         t.start()
         t.join()
 
+
 class Test_testcapi(unittest.TestCase):
     def test__testcapi(self):
         for name in dir(_testcapi):
@@ -555,6 +585,86 @@ class Test_testcapi(unittest.TestCase):
                 with self.subTest("internal", name=name):
                     test = getattr(_testcapi, name)
                     test()
+
+
+class PyMemDebugTests(unittest.TestCase):
+    PYTHONMALLOC = 'debug'
+    # '0x04c06e0' or '04C06E0'
+    PTR_REGEX = r'(?:0x)?[0-9a-fA-F]+'
+
+    def check(self, code):
+        with support.SuppressCrashReport():
+            out = assert_python_failure('-c', code,
+                                        PYTHONMALLOC=self.PYTHONMALLOC)
+        stderr = out.err
+        return stderr.decode('ascii', 'replace')
+
+    def test_buffer_overflow(self):
+        out = self.check('import _testcapi; _testcapi.pymem_buffer_overflow()')
+        regex = (r"Debug memory block at address p={ptr}: API 'm'\n"
+                 r"    16 bytes originally requested\n"
+                 r"    The [0-9] pad bytes at p-[0-9] are FORBIDDENBYTE, as expected.\n"
+                 r"    The [0-9] pad bytes at tail={ptr} are not all FORBIDDENBYTE \(0x[0-9a-f]{{2}}\):\n"
+                 r"        at tail\+0: 0x78 \*\*\* OUCH\n"
+                 r"        at tail\+1: 0xfb\n"
+                 r"        at tail\+2: 0xfb\n"
+                 r"        .*\n"
+                 r"    The block was made by call #[0-9]+ to debug malloc/realloc.\n"
+                 r"    Data at p: cb cb cb .*\n"
+                 r"\n"
+                 r"Fatal Python error: bad trailing pad byte")
+        regex = regex.format(ptr=self.PTR_REGEX)
+        regex = re.compile(regex, flags=re.DOTALL)
+        self.assertRegex(out, regex)
+
+    def test_api_misuse(self):
+        out = self.check('import _testcapi; _testcapi.pymem_api_misuse()')
+        regex = (r"Debug memory block at address p={ptr}: API 'm'\n"
+                 r"    16 bytes originally requested\n"
+                 r"    The [0-9] pad bytes at p-[0-9] are FORBIDDENBYTE, as expected.\n"
+                 r"    The [0-9] pad bytes at tail={ptr} are FORBIDDENBYTE, as expected.\n"
+                 r"    The block was made by call #[0-9]+ to debug malloc/realloc.\n"
+                 r"    Data at p: cb cb cb .*\n"
+                 r"\n"
+                 r"Fatal Python error: bad ID: Allocated using API 'm', verified using API 'r'\n")
+        regex = regex.format(ptr=self.PTR_REGEX)
+        self.assertRegex(out, regex)
+
+    @unittest.skipUnless(threading, 'Test requires a GIL (multithreading)')
+    def check_malloc_without_gil(self, code):
+        out = self.check(code)
+        expected = ('Fatal Python error: Python memory allocator called '
+                    'without holding the GIL')
+        self.assertIn(expected, out)
+
+    def test_pymem_malloc_without_gil(self):
+        # Debug hooks must raise an error if PyMem_Malloc() is called
+        # without holding the GIL
+        code = 'import _testcapi; _testcapi.pymem_malloc_without_gil()'
+        self.check_malloc_without_gil(code)
+
+    def test_pyobject_malloc_without_gil(self):
+        # Debug hooks must raise an error if PyObject_Malloc() is called
+        # without holding the GIL
+        code = 'import _testcapi; _testcapi.pyobject_malloc_without_gil()'
+        self.check_malloc_without_gil(code)
+
+
+class PyMemMallocDebugTests(PyMemDebugTests):
+    PYTHONMALLOC = 'malloc_debug'
+
+
+@unittest.skipUnless(sysconfig.get_config_var('WITH_PYMALLOC') == 1,
+                     'need pymalloc')
+class PyMemPymallocDebugTests(PyMemDebugTests):
+    PYTHONMALLOC = 'pymalloc_debug'
+
+
+@unittest.skipUnless(Py_DEBUG, 'need Py_DEBUG')
+class PyMemDefaultTests(PyMemDebugTests):
+    # test default allocator of Python compiled in debug mode
+    PYTHONMALLOC = ''
+
 
 if __name__ == "__main__":
     unittest.main()

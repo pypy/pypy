@@ -1,3 +1,4 @@
+import collections
 import copy
 import pickle
 import unittest
@@ -209,6 +210,32 @@ class DictSetTest(unittest.TestCase):
         self.assertRaises(TypeError, copy.copy, d.values())
         self.assertRaises(TypeError, copy.copy, d.items())
 
+    def test_compare_error(self):
+        class Exc(Exception):
+            pass
+
+        class BadEq:
+            def __hash__(self):
+                return 7
+            def __eq__(self, other):
+                raise Exc
+
+        k1, k2 = BadEq(), BadEq()
+        v1, v2 = BadEq(), BadEq()
+        d = {k1: v1}
+
+        self.assertIn(k1, d)
+        self.assertIn(k1, d.keys())
+        self.assertIn(v1, d.values())
+        self.assertIn((k1, v1), d.items())
+
+        self.assertRaises(Exc, d.__contains__, k2)
+        self.assertRaises(Exc, d.keys().__contains__, k2)
+        self.assertRaises(Exc, d.items().__contains__, (k2, v1))
+        self.assertRaises(Exc, d.items().__contains__, (k1, v2))
+        with self.assertRaises(Exc):
+            v2 in d.values()
+
     def test_pickle(self):
         d = {1: 10, "a": "ABC"}
         for proto in range(pickle.HIGHEST_PROTOCOL + 1):
@@ -218,6 +245,27 @@ class DictSetTest(unittest.TestCase):
                 pickle.dumps, d.values(), proto)
             self.assertRaises((TypeError, pickle.PicklingError),
                 pickle.dumps, d.items(), proto)
+
+    def test_abc_registry(self):
+        d = dict(a=1)
+
+        self.assertIsInstance(d.keys(), collections.KeysView)
+        self.assertIsInstance(d.keys(), collections.MappingView)
+        self.assertIsInstance(d.keys(), collections.Set)
+        self.assertIsInstance(d.keys(), collections.Sized)
+        self.assertIsInstance(d.keys(), collections.Iterable)
+        self.assertIsInstance(d.keys(), collections.Container)
+
+        self.assertIsInstance(d.values(), collections.ValuesView)
+        self.assertIsInstance(d.values(), collections.MappingView)
+        self.assertIsInstance(d.values(), collections.Sized)
+
+        self.assertIsInstance(d.items(), collections.ItemsView)
+        self.assertIsInstance(d.items(), collections.MappingView)
+        self.assertIsInstance(d.items(), collections.Set)
+        self.assertIsInstance(d.items(), collections.Sized)
+        self.assertIsInstance(d.items(), collections.Iterable)
+        self.assertIsInstance(d.items(), collections.Container)
 
 
 if __name__ == "__main__":

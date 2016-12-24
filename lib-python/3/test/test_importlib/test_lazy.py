@@ -1,6 +1,8 @@
 import importlib
 from importlib import abc
 from importlib import util
+import sys
+import types
 import unittest
 
 from . import util as test_util
@@ -64,6 +66,8 @@ class LazyLoaderTests(unittest.TestCase):
         spec = util.spec_from_loader(TestingImporter.module_name,
                                      util.LazyLoader(loader))
         module = spec.loader.create_module(spec)
+        if module is None:
+            module = types.ModuleType(TestingImporter.module_name)
         module.__spec__ = spec
         module.__loader__ = spec.loader
         spec.loader.exec_module(module)
@@ -122,11 +126,19 @@ class LazyLoaderTests(unittest.TestCase):
         self.assertFalse(hasattr(module, '__name__'))
 
     def test_module_substitution_error(self):
-        source_code = 'import sys; sys.modules[__name__] = 42'
-        module = self.new_module(source_code)
         with test_util.uncache(TestingImporter.module_name):
-            with self.assertRaises(ValueError):
+            fresh_module = types.ModuleType(TestingImporter.module_name)
+            sys.modules[TestingImporter.module_name] = fresh_module
+            module = self.new_module()
+            with self.assertRaisesRegex(ValueError, "substituted"):
                 module.__name__
+
+    def test_module_already_in_sys(self):
+        with test_util.uncache(TestingImporter.module_name):
+            module = self.new_module()
+            sys.modules[TestingImporter.module_name] = module
+            # Force the load; just care that no exception is raised.
+            module.__name__
 
 
 if __name__ == '__main__':
