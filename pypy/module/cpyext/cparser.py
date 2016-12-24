@@ -666,7 +666,7 @@ class DelayedStruct(object):
         self.fields = fields
 
     def __repr__(self):
-        return "<struct {struct_name}>".format(vars(self))
+        return "<struct {struct_name}>".format(**vars(self))
 
 
 class ParsedSource(object):
@@ -703,12 +703,16 @@ class ParsedSource(object):
 
     def new_struct(self, obj):
         if obj.fldtypes is None:
-            return lltype.ForwardReference()
+            struct = lltype.ForwardReference()
         else:
-            fields = zip(
-                obj.fldnames,
-                [self.convert_type(field) for field in obj.fldtypes])
-            return DelayedStruct(obj.name, fields)
+            struct = DelayedStruct(obj.name, None)
+        # Cache it early, to avoid infinite recursion
+        self.structs[obj] = struct
+        if obj.fldtypes is not None:
+            struct.fields = zip(
+                 obj.fldnames,
+                 [self.convert_type(field) for field in obj.fldtypes])
+        return struct
 
     def realize_struct(self, struct, type_name):
         configname = type_name.replace(' ', '__')
@@ -729,9 +733,7 @@ class ParsedSource(object):
         elif isinstance(obj, model.StructType):
             if obj in self.structs:
                 return self.structs[obj]
-            result = self.new_struct(obj)
-            self.structs[obj] = result
-            return result
+            return self.new_struct(obj)
         elif isinstance(obj, model.PointerType):
             TO = self.convert_type(obj.totype)
             if TO is lltype.Void:
