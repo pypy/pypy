@@ -60,7 +60,8 @@ omitted because it is not mentioned in either path configuration file.
 
 The readline module is also automatically configured to enable
 completion for systems that support it.  This can be overridden in
-sitecustomize, usercustomize or PYTHONSTARTUP.
+sitecustomize, usercustomize or PYTHONSTARTUP.  Starting Python in
+isolated mode (-I) disables automatic readline configuration.
 
 After these operations, an attempt is made to import a module
 named sitecustomize, which can perform arbitrary additional
@@ -133,13 +134,13 @@ def removeduppaths():
 
 
 def _init_pathinfo():
-    """Return a set containing all existing directory entries from sys.path"""
+    """Return a set containing all existing file system items from sys.path."""
     d = set()
-    for dir in sys.path:
+    for item in sys.path:
         try:
-            if os.path.isdir(dir):
-                dir, dircase = makepath(dir)
-                d.add(dircase)
+            if os.path.exists(item):
+                _, itemcase = makepath(item)
+                d.add(itemcase)
         except TypeError:
             continue
     return d
@@ -152,9 +153,9 @@ def addpackage(sitedir, name, known_paths):
     """
     if known_paths is None:
         known_paths = _init_pathinfo()
-        reset = 1
+        reset = True
     else:
-        reset = 0
+        reset = False
     fullname = os.path.join(sitedir, name)
     try:
         f = open(fullname, "r")
@@ -192,9 +193,9 @@ def addsitedir(sitedir, known_paths=None):
     'sitedir'"""
     if known_paths is None:
         known_paths = _init_pathinfo()
-        reset = 1
+        reset = True
     else:
-        reset = 0
+        reset = False
     sitedir, sitedircase = makepath(sitedir)
     if not sitedircase in known_paths:
         sys.path.append(sitedir)        # Add path component
@@ -310,7 +311,7 @@ def getsitepackages(prefixes=None):
                                                prefix=prefix))
         elif os.sep == '/':
             sitepackages.append(os.path.join(prefix, "lib",
-                                        "python" + sys.version[:3],
+                                        "python%d.%d" % sys.version_info[:2],
                                         "site-packages"))
         else:
             sitepackages.append(prefix)
@@ -323,7 +324,7 @@ def getsitepackages(prefixes=None):
             if framework:
                 sitepackages.append(
                         os.path.join("/Library", framework,
-                            sys.version[:3], "site-packages"))
+                            '%d.%d' % sys.version_info[:2], "site-packages"))
     return sitepackages
 
 def addsitepackages(known_paths, prefixes=None):
@@ -341,9 +342,7 @@ def setquit():
     The repr of each object contains a hint at how it works.
 
     """
-    if os.sep == ':':
-        eof = 'Cmd-Q'
-    elif os.sep == '\\':
+    if os.sep == '\\':
         eof = 'Ctrl-Z plus Return'
     else:
         eof = 'Ctrl-D (i.e. EOF)'
@@ -434,23 +433,6 @@ def enablerlcompleter():
 
     sys.__interactivehook__ = register_readline
 
-def aliasmbcs():
-    """On Windows, some default encodings are not provided by Python,
-    while they are always available as "mbcs" in each locale. Make
-    them usable by aliasing to "mbcs" in such a case."""
-    if sys.platform == 'win32':
-        import _bootlocale, codecs
-        enc = _bootlocale.getpreferredencoding(False)
-        if enc.startswith('cp'):            # "cp***" ?
-            try:
-                codecs.lookup(enc)
-            except LookupError:
-                import encodings
-                encodings._cache[enc] = encodings._unknown
-                encodings.aliases.aliases[enc] = 'mbcs'
-
-CONFIG_LINE = r'^(?P<key>(\w|[-_])+)\s*=\s*(?P<value>.*)\s*$'
-
 def venv(known_paths):
     global PREFIXES, ENABLE_USER_SITE
 
@@ -472,29 +454,20 @@ def venv(known_paths):
         ]
 
     if candidate_confs:
-        import re
-        config_line = re.compile(CONFIG_LINE)
         virtual_conf = candidate_confs[0]
         system_site = "true"
         # Issue 25185: Use UTF-8, as that's what the venv module uses when
         # writing the file.
         with open(virtual_conf, encoding='utf-8') as f:
             for line in f:
-                line = line.strip()
-                m = config_line.match(line)
-                if m:
-                    d = m.groupdict()
-                    key, value = d['key'].lower(), d['value']
+                if '=' in line:
+                    key, _, value = line.partition('=')
+                    key = key.strip().lower()
+                    value = value.strip()
                     if key == 'include-system-site-packages':
                         system_site = value.lower()
                     elif key == 'home':
                         sys._home = value
-                    elif key == 'applocal' and value.lower() == 'true':
-                        # App-local installs use the exe_dir as prefix,
-                        # not one level higher, and do not use system
-                        # site packages.
-                        site_prefix = exe_dir
-                        system_site = 'false'
 
         sys.prefix = sys.exec_prefix = site_prefix
 
@@ -515,11 +488,15 @@ def venv(known_paths):
 def execsitecustomize():
     """Run custom site specific code, if available."""
     try:
-        import sitecustomize
-    except ImportError:
-        pass
+        try:
+            import sitecustomize
+        except ImportError as exc:
+            if exc.name == 'sitecustomize':
+                pass
+            else:
+                raise
     except Exception as err:
-        if os.environ.get("PYTHONVERBOSE"):
+        if sys.flags.verbose:
             sys.excepthook(*sys.exc_info())
         else:
             sys.stderr.write(
@@ -531,11 +508,15 @@ def execsitecustomize():
 def execusercustomize():
     """Run custom user specific code, if available."""
     try:
-        import usercustomize
-    except ImportError:
-        pass
+        try:
+            import usercustomize
+        except ImportError as exc:
+            if exc.name == 'usercustomize':
+                pass
+            else:
+                raise
     except Exception as err:
-        if os.environ.get("PYTHONVERBOSE"):
+        if sys.flags.verbose:
             sys.excepthook(*sys.exc_info())
         else:
             sys.stderr.write(
@@ -562,13 +543,13 @@ def main():
     setquit()
     setcopyright()
     sethelper()
-    enablerlcompleter()
-    aliasmbcs()
+    if not sys.flags.isolated:
+        enablerlcompleter()
     execsitecustomize()
     if ENABLE_USER_SITE:
         execusercustomize()
 
-# Prevent edition of sys.path when python was started with -S and
+# Prevent extending of sys.path when python was started with -S and
 # site is imported later.
 if not sys.flags.no_site:
     main()

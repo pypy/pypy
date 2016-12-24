@@ -10,18 +10,18 @@ Refer to comments in EditorWindow autoindent code for details.
 
 """
 from tkinter import *
-import tkinter.messagebox as tkMessageBox
+from tkinter.ttk import Scrollbar
 import tkinter.colorchooser as tkColorChooser
 import tkinter.font as tkFont
+import tkinter.messagebox as tkMessageBox
 
-from idlelib.configHandler import idleConf
-from idlelib.dynOptionMenuWidget import DynOptionMenu
-from idlelib.keybindingDialog import GetKeysDialog
-from idlelib.configSectionNameDialog import GetCfgSectionNameDialog
-from idlelib.configHelpSourceEdit import GetHelpSourceDialog
+from idlelib.config import idleConf
+from idlelib.config_key import GetKeysDialog
+from idlelib.dynoption import DynOptionMenu
+from idlelib import macosx
+from idlelib.query import SectionName, HelpSource
 from idlelib.tabbedpages import TabbedPageSet
-from idlelib.textView import view_text
-from idlelib import macosxSupport
+from idlelib.textview import view_text
 
 class ConfigDialog(Toplevel):
 
@@ -91,7 +91,7 @@ class ConfigDialog(Toplevel):
         self.create_action_buttons().pack(side=BOTTOM)
 
     def create_action_buttons(self):
-        if macosxSupport.isAquaTk():
+        if macosx.isAquaTk():
             # Changing the default padding on OSX results in unreadable
             # text in the buttons
             paddingArgs = {}
@@ -341,6 +341,7 @@ class ConfigDialog(Toplevel):
         buttonSaveCustomKeys = Button(
                 frames[1], text='Save as New Custom Key Set',
                 command=self.SaveAsNewKeySet)
+        self.new_custom_keys = Label(frames[0], bd=2)
 
         ##widget packing
         #body
@@ -361,6 +362,7 @@ class ConfigDialog(Toplevel):
         self.radioKeysCustom.grid(row=1, column=0, sticky=W+NS)
         self.optMenuKeysBuiltin.grid(row=0, column=1, sticky=NSEW)
         self.optMenuKeysCustom.grid(row=1, column=1, sticky=NSEW)
+        self.new_custom_keys.grid(row=0, column=2, sticky=NSEW, padx=5, pady=5)
         self.buttonDeleteCustomKeys.pack(side=LEFT, fill=X, expand=True, padx=2)
         buttonSaveCustomKeys.pack(side=LEFT, fill=X, expand=True, padx=2)
         frames[0].pack(side=TOP, fill=BOTH, expand=True)
@@ -390,28 +392,28 @@ class ConfigDialog(Toplevel):
                                text=' Additional Help Sources ')
         #frameRun
         labelRunChoiceTitle = Label(frameRun, text='At Startup')
-        radioStartupEdit = Radiobutton(
+        self.radioStartupEdit = Radiobutton(
                 frameRun, variable=self.startupEdit, value=1,
-                command=self.SetKeysType, text="Open Edit Window")
-        radioStartupShell = Radiobutton(
+                text="Open Edit Window")
+        self.radioStartupShell = Radiobutton(
                 frameRun, variable=self.startupEdit, value=0,
-                command=self.SetKeysType, text='Open Shell Window')
+                text='Open Shell Window')
         #frameSave
         labelRunSaveTitle = Label(frameSave, text='At Start of Run (F5)  ')
-        radioSaveAsk = Radiobutton(
+        self.radioSaveAsk = Radiobutton(
                 frameSave, variable=self.autoSave, value=0,
-                command=self.SetKeysType, text="Prompt to Save")
-        radioSaveAuto = Radiobutton(
+                text="Prompt to Save")
+        self.radioSaveAuto = Radiobutton(
                 frameSave, variable=self.autoSave, value=1,
-                command=self.SetKeysType, text='No Prompt')
+                text='No Prompt')
         #frameWinSize
         labelWinSizeTitle = Label(
                 frameWinSize, text='Initial Window Size  (in characters)')
         labelWinWidthTitle = Label(frameWinSize, text='Width')
-        entryWinWidth = Entry(
+        self.entryWinWidth = Entry(
                 frameWinSize, textvariable=self.winWidth, width=3)
         labelWinHeightTitle = Label(frameWinSize, text='Height')
-        entryWinHeight = Entry(
+        self.entryWinHeight = Entry(
                 frameWinSize, textvariable=self.winHeight, width=3)
         #frameHelp
         frameHelpList = Frame(frameHelp)
@@ -441,17 +443,17 @@ class ConfigDialog(Toplevel):
         frameHelp.pack(side=TOP, padx=5, pady=5, expand=TRUE, fill=BOTH)
         #frameRun
         labelRunChoiceTitle.pack(side=LEFT, anchor=W, padx=5, pady=5)
-        radioStartupShell.pack(side=RIGHT, anchor=W, padx=5, pady=5)
-        radioStartupEdit.pack(side=RIGHT, anchor=W, padx=5, pady=5)
+        self.radioStartupShell.pack(side=RIGHT, anchor=W, padx=5, pady=5)
+        self.radioStartupEdit.pack(side=RIGHT, anchor=W, padx=5, pady=5)
         #frameSave
         labelRunSaveTitle.pack(side=LEFT, anchor=W, padx=5, pady=5)
-        radioSaveAuto.pack(side=RIGHT, anchor=W, padx=5, pady=5)
-        radioSaveAsk.pack(side=RIGHT, anchor=W, padx=5, pady=5)
+        self.radioSaveAuto.pack(side=RIGHT, anchor=W, padx=5, pady=5)
+        self.radioSaveAsk.pack(side=RIGHT, anchor=W, padx=5, pady=5)
         #frameWinSize
         labelWinSizeTitle.pack(side=LEFT, anchor=W, padx=5, pady=5)
-        entryWinHeight.pack(side=RIGHT, anchor=E, padx=10, pady=5)
+        self.entryWinHeight.pack(side=RIGHT, anchor=E, padx=10, pady=5)
         labelWinHeightTitle.pack(side=RIGHT, anchor=E, pady=5)
-        entryWinWidth.pack(side=RIGHT, anchor=E, padx=10, pady=5)
+        self.entryWinWidth.pack(side=RIGHT, anchor=E, padx=10, pady=5)
         labelWinWidthTitle.pack(side=RIGHT, anchor=E, pady=5)
         #frameHelp
         frameHelpListButtons.pack(side=RIGHT, padx=5, pady=5, fill=Y)
@@ -464,24 +466,24 @@ class ConfigDialog(Toplevel):
         return frame
 
     def AttachVarCallbacks(self):
-        self.fontSize.trace_variable('w', self.VarChanged_font)
-        self.fontName.trace_variable('w', self.VarChanged_font)
-        self.fontBold.trace_variable('w', self.VarChanged_font)
-        self.spaceNum.trace_variable('w', self.VarChanged_spaceNum)
-        self.colour.trace_variable('w', self.VarChanged_colour)
-        self.builtinTheme.trace_variable('w', self.VarChanged_builtinTheme)
-        self.customTheme.trace_variable('w', self.VarChanged_customTheme)
-        self.themeIsBuiltin.trace_variable('w', self.VarChanged_themeIsBuiltin)
-        self.highlightTarget.trace_variable('w', self.VarChanged_highlightTarget)
-        self.keyBinding.trace_variable('w', self.VarChanged_keyBinding)
-        self.builtinKeys.trace_variable('w', self.VarChanged_builtinKeys)
-        self.customKeys.trace_variable('w', self.VarChanged_customKeys)
-        self.keysAreBuiltin.trace_variable('w', self.VarChanged_keysAreBuiltin)
-        self.winWidth.trace_variable('w', self.VarChanged_winWidth)
-        self.winHeight.trace_variable('w', self.VarChanged_winHeight)
-        self.startupEdit.trace_variable('w', self.VarChanged_startupEdit)
-        self.autoSave.trace_variable('w', self.VarChanged_autoSave)
-        self.encoding.trace_variable('w', self.VarChanged_encoding)
+        self.fontSize.trace_add('write', self.VarChanged_font)
+        self.fontName.trace_add('write', self.VarChanged_font)
+        self.fontBold.trace_add('write', self.VarChanged_font)
+        self.spaceNum.trace_add('write', self.VarChanged_spaceNum)
+        self.colour.trace_add('write', self.VarChanged_colour)
+        self.builtinTheme.trace_add('write', self.VarChanged_builtinTheme)
+        self.customTheme.trace_add('write', self.VarChanged_customTheme)
+        self.themeIsBuiltin.trace_add('write', self.VarChanged_themeIsBuiltin)
+        self.highlightTarget.trace_add('write', self.VarChanged_highlightTarget)
+        self.keyBinding.trace_add('write', self.VarChanged_keyBinding)
+        self.builtinKeys.trace_add('write', self.VarChanged_builtinKeys)
+        self.customKeys.trace_add('write', self.VarChanged_customKeys)
+        self.keysAreBuiltin.trace_add('write', self.VarChanged_keysAreBuiltin)
+        self.winWidth.trace_add('write', self.VarChanged_winWidth)
+        self.winHeight.trace_add('write', self.VarChanged_winHeight)
+        self.startupEdit.trace_add('write', self.VarChanged_startupEdit)
+        self.autoSave.trace_add('write', self.VarChanged_autoSave)
+        self.encoding.trace_add('write', self.VarChanged_encoding)
 
     def remove_var_callbacks(self):
         "Remove callbacks to prevent memory leaks."
@@ -492,7 +494,7 @@ class ConfigDialog(Toplevel):
                 self.keyBinding, self.builtinKeys, self.customKeys,
                 self.keysAreBuiltin, self.winWidth, self.winHeight,
                 self.startupEdit, self.autoSave, self.encoding,):
-            var.trace_vdelete('w', var.trace_vinfo()[0][1])
+            var.trace_remove('write', var.trace_info()[0][1])
 
     def VarChanged_font(self, *params):
         '''When one font attribute changes, save them all, as they are
@@ -514,10 +516,11 @@ class ConfigDialog(Toplevel):
         self.OnNewColourSet()
 
     def VarChanged_builtinTheme(self, *params):
+        oldthemes = ('IDLE Classic', 'IDLE New')
         value = self.builtinTheme.get()
-        if value == 'IDLE Dark':
-            if idleConf.GetOption('main', 'Theme', 'name') != 'IDLE New':
-                self.AddChangedItem('main', 'Theme', 'name', 'IDLE Classic')
+        if value not in oldthemes:
+            if idleConf.GetOption('main', 'Theme', 'name') not in oldthemes:
+                self.AddChangedItem('main', 'Theme', 'name', oldthemes[0])
             self.AddChangedItem('main', 'Theme', 'name2', value)
             self.new_custom_theme.config(text='New theme, see Help',
                                          fg='#500000')
@@ -557,8 +560,23 @@ class ConfigDialog(Toplevel):
             self.AddChangedItem('extensions', extKeybindSection, event, value)
 
     def VarChanged_builtinKeys(self, *params):
+        oldkeys = (
+            'IDLE Classic Windows',
+            'IDLE Classic Unix',
+            'IDLE Classic Mac',
+            'IDLE Classic OSX',
+        )
         value = self.builtinKeys.get()
-        self.AddChangedItem('main', 'Keys', 'name', value)
+        if value not in oldkeys:
+            if idleConf.GetOption('main', 'Keys', 'name') not in oldkeys:
+                self.AddChangedItem('main', 'Keys', 'name', oldkeys[0])
+            self.AddChangedItem('main', 'Keys', 'name2', value)
+            self.new_custom_keys.config(text='New key set, see Help',
+                                        fg='#500000')
+        else:
+            self.AddChangedItem('main', 'Keys', 'name', value)
+            self.AddChangedItem('main', 'Keys', 'name2', '')
+            self.new_custom_keys.config(text='', fg='black')
         self.LoadKeysList(value)
 
     def VarChanged_customKeys(self, *params):
@@ -683,7 +701,7 @@ class ConfigDialog(Toplevel):
     def GetNewKeysName(self, message):
         usedNames = (idleConf.GetSectionList('user', 'keys') +
                 idleConf.GetSectionList('default', 'keys'))
-        newKeySet = GetCfgSectionNameDialog(
+        newKeySet = SectionName(
                 self, 'New Custom Key Set', message, usedNames).result
         return newKeySet
 
@@ -751,6 +769,7 @@ class ConfigDialog(Toplevel):
         if not tkMessageBox.askyesno(
                 'Delete Key Set',  delmsg % keySetName, parent=self):
             return
+        self.DeactivateCurrentConfig()
         #remove key set from config
         idleConf.userCfg['keys'].remove_section(keySetName)
         if keySetName in self.changedItems['keys']:
@@ -766,10 +785,13 @@ class ConfigDialog(Toplevel):
         else:
             self.optMenuKeysCustom.SetMenu(itemList, itemList[0])
         #revert to default key set
-        self.keysAreBuiltin.set(idleConf.defaultCfg['main'].Get('Keys', 'default'))
-        self.builtinKeys.set(idleConf.defaultCfg['main'].Get('Keys', 'name'))
+        self.keysAreBuiltin.set(idleConf.defaultCfg['main']
+                                .Get('Keys', 'default'))
+        self.builtinKeys.set(idleConf.defaultCfg['main'].Get('Keys', 'name')
+                             or idleConf.default_keys())
         #user can't back out of these changes, they must be applied now
-        self.Apply()
+        self.SaveAllChangedConfigs()
+        self.ActivateConfigChanges()
         self.SetKeysType()
 
     def DeleteCustomTheme(self):
@@ -778,6 +800,7 @@ class ConfigDialog(Toplevel):
         if not tkMessageBox.askyesno(
                 'Delete Theme',  delmsg % themeName, parent=self):
             return
+        self.DeactivateCurrentConfig()
         #remove theme from config
         idleConf.userCfg['highlight'].remove_section(themeName)
         if themeName in self.changedItems['highlight']:
@@ -796,7 +819,8 @@ class ConfigDialog(Toplevel):
         self.themeIsBuiltin.set(idleConf.defaultCfg['main'].Get('Theme', 'default'))
         self.builtinTheme.set(idleConf.defaultCfg['main'].Get('Theme', 'name'))
         #user can't back out of these changes, they must be applied now
-        self.Apply()
+        self.SaveAllChangedConfigs()
+        self.ActivateConfigChanges()
         self.SetThemeType()
 
     def GetColour(self):
@@ -832,7 +856,7 @@ class ConfigDialog(Toplevel):
     def GetNewThemeName(self, message):
         usedNames = (idleConf.GetSectionList('user', 'highlight') +
                 idleConf.GetSectionList('default', 'highlight'))
-        newTheme = GetCfgSectionNameDialog(
+        newTheme = SectionName(
                 self, 'New Custom Theme', message, usedNames).result
         return newTheme
 
@@ -935,7 +959,8 @@ class ConfigDialog(Toplevel):
                 self.buttonHelpListRemove.config(state=DISABLED)
 
     def HelpListItemAdd(self):
-        helpSource = GetHelpSourceDialog(self, 'New Help Source').result
+        helpSource = HelpSource(self, 'New Help Source',
+                                ).result
         if helpSource:
             self.userHelpList.append((helpSource[0], helpSource[1]))
             self.listHelp.insert(END, helpSource[0])
@@ -945,16 +970,17 @@ class ConfigDialog(Toplevel):
     def HelpListItemEdit(self):
         itemIndex = self.listHelp.index(ANCHOR)
         helpSource = self.userHelpList[itemIndex]
-        newHelpSource = GetHelpSourceDialog(
-                self, 'Edit Help Source', menuItem=helpSource[0],
-                filePath=helpSource[1]).result
-        if (not newHelpSource) or (newHelpSource == helpSource):
-            return #no changes
-        self.userHelpList[itemIndex] = newHelpSource
-        self.listHelp.delete(itemIndex)
-        self.listHelp.insert(itemIndex, newHelpSource[0])
-        self.UpdateUserHelpChangedItems()
-        self.SetHelpListButtonStates()
+        newHelpSource = HelpSource(
+                self, 'Edit Help Source',
+                menuitem=helpSource[0],
+                filepath=helpSource[1],
+                ).result
+        if newHelpSource and newHelpSource != helpSource:
+            self.userHelpList[itemIndex] = newHelpSource
+            self.listHelp.delete(itemIndex)
+            self.listHelp.insert(itemIndex, newHelpSource[0])
+            self.UpdateUserHelpChangedItems()
+            self.SetHelpListButtonStates()
 
     def HelpListItemRemove(self):
         itemIndex = self.listHelp.index(ANCHOR)
@@ -992,7 +1018,8 @@ class ConfigDialog(Toplevel):
             pass
         ##font size dropdown
         self.optMenuFontSize.SetMenu(('7', '8', '9', '10', '11', '12', '13',
-                                      '14', '16', '18', '20', '22'), fontSize )
+                                      '14', '16', '18', '20', '22',
+                                      '25', '29', '34', '40'), fontSize )
         ##fontWeight
         self.fontBold.set(fontBold)
         ##font sample
@@ -1061,7 +1088,7 @@ class ConfigDialog(Toplevel):
             self.optMenuKeysCustom.SetMenu(itemList, currentOption)
             itemList = idleConf.GetSectionList('default', 'keys')
             itemList.sort()
-            self.optMenuKeysBuiltin.SetMenu(itemList, itemList[0])
+            self.optMenuKeysBuiltin.SetMenu(itemList, idleConf.default_keys())
         self.SetKeysType()
         ##load keyset element list
         keySetName = idleConf.CurrentKeys()
@@ -1363,12 +1390,18 @@ machine. Some do not take affect until IDLE is restarted.
 [Cancel] only cancels changes made since the last save.
 '''
 help_pages = {
-    'Highlighting':'''
+    'Highlighting': '''
 Highlighting:
 The IDLE Dark color theme is new in October 2015.  It can only
 be used with older IDLE releases if it is saved as a custom
 theme, with a different name.
-'''
+''',
+    'Keys': '''
+Keys:
+The IDLE Modern Unix key set is new in June 2016.  It can only
+be used with older IDLE releases if it is saved as a custom
+key set, with a different name.
+''',
 }
 
 

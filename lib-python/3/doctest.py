@@ -381,11 +381,14 @@ class _OutputRedirectingPdb(pdb.Pdb):
             sys.stdout = save_stdout
 
 # [XX] Normalize with respect to os.path.pardir?
-def _module_relative_path(module, path):
+def _module_relative_path(module, test_path):
     if not inspect.ismodule(module):
         raise TypeError('Expected a module: %r' % module)
-    if path.startswith('/'):
+    if test_path.startswith('/'):
         raise ValueError('Module-relative files may not have absolute paths')
+
+    # Normalize the path. On Windows, replace "/" with "\".
+    test_path = os.path.join(*(test_path.split('/')))
 
     # Find the base directory for the path.
     if hasattr(module, '__file__'):
@@ -398,13 +401,19 @@ def _module_relative_path(module, path):
         else:
             basedir = os.curdir
     else:
+        if hasattr(module, '__path__'):
+            for directory in module.__path__:
+                fullpath = os.path.join(directory, test_path)
+                if os.path.exists(fullpath):
+                    return fullpath
+
         # A module w/o __file__ (this includes builtins)
         raise ValueError("Can't resolve paths relative to the module "
                          "%r (it has no __file__)"
                          % module.__name__)
 
-    # Combine the base directory and the path.
-    return os.path.join(basedir, *(path.split('/')))
+    # Combine the base directory and the test path.
+    return os.path.join(basedir, test_path)
 
 ######################################################################
 ## 2. Example & DocTest
@@ -756,7 +765,7 @@ class DocTestParser:
 
     # This regular expression finds the indentation of every non-blank
     # line in a string.
-    _INDENT_RE = re.compile('^([ ]*)(?=\S)', re.MULTILINE)
+    _INDENT_RE = re.compile(r'^([ ]*)(?=\S)', re.MULTILINE)
 
     def _min_indent(self, s):
         "Return the minimum indentation of any non-blank line in `s`"
@@ -1097,7 +1106,7 @@ class DocTestFinder:
         if lineno is not None:
             if source_lines is None:
                 return lineno+1
-            pat = re.compile('(^|.*:)\s*\w*("|\')')
+            pat = re.compile(r'(^|.*:)\s*\w*("|\')')
             for lineno in range(lineno, len(source_lines)):
                 if pat.match(source_lines[lineno]):
                     return lineno
@@ -1599,11 +1608,11 @@ class OutputChecker:
         # blank line, unless the DONT_ACCEPT_BLANKLINE flag is used.
         if not (optionflags & DONT_ACCEPT_BLANKLINE):
             # Replace <BLANKLINE> in want with a blank line.
-            want = re.sub('(?m)^%s\s*?$' % re.escape(BLANKLINE_MARKER),
+            want = re.sub(r'(?m)^%s\s*?$' % re.escape(BLANKLINE_MARKER),
                           '', want)
             # If a line in got contains only spaces, then remove the
             # spaces.
-            got = re.sub('(?m)^\s*?$', '', got)
+            got = re.sub(r'(?m)^\s*?$', '', got)
             if got == want:
                 return True
 

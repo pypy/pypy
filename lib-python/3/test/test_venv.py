@@ -15,34 +15,26 @@ import sys
 import tempfile
 from test.support import (captured_stdout, captured_stderr,
                           can_symlink, EnvironmentVarGuard, rmtree)
-import textwrap
 import unittest
 import venv
 
-# pip currently requires ssl support, so we ensure we handle
-# it being missing (http://bugs.python.org/issue19744)
-try:
-    import ssl
-except ImportError:
-    ssl = None
 
 try:
     import threading
 except ImportError:
     threading = None
 
+try:
+    import ctypes
+except ImportError:
+    ctypes = None
+
 skipInVenv = unittest.skipIf(sys.prefix != sys.base_prefix,
                              'Test not appropriate in a venv')
 
-# os.path.exists('nul') is False: http://bugs.python.org/issue20541
-if os.devnull.lower() == 'nul':
-    failsOnWindows = unittest.expectedFailure
-else:
-    def failsOnWindows(f):
-        return f
-
 class BaseTest(unittest.TestCase):
     """Base class for venv tests."""
+    maxDiff = 80 * 50
 
     def setUp(self):
         self.env_dir = os.path.realpath(tempfile.mkdtemp())
@@ -52,7 +44,7 @@ class BaseTest(unittest.TestCase):
             self.include = 'Include'
         else:
             self.bindir = 'bin'
-            self.lib = ('lib', 'python%s' % sys.version[:3])
+            self.lib = ('lib', 'python%d.%d' % sys.version_info[:2])
             self.include = 'include'
         if sys.platform == 'darwin' and '__PYVENV_LAUNCHER__' in os.environ:
             executable = os.environ['__PYVENV_LAUNCHER__']
@@ -115,6 +107,17 @@ class BasicTest(BaseTest):
             print('Contents of %r:' % bd)
             print('    %r' % os.listdir(bd))
         self.assertTrue(os.path.exists(fn), 'File %r should exist.' % fn)
+
+    def test_prompt(self):
+        env_name = os.path.split(self.env_dir)[1]
+
+        builder = venv.EnvBuilder()
+        context = builder.ensure_directories(self.env_dir)
+        self.assertEqual(context.prompt, '(%s) ' % env_name)
+
+        builder = venv.EnvBuilder(prompt='My prompt')
+        context = builder.ensure_directories(self.env_dir)
+        self.assertEqual(context.prompt, '(My prompt) ')
 
     @skipInVenv
     def test_prefixes(self):
@@ -313,20 +316,25 @@ class EnsurePipTest(BaseTest):
         self.run_with_capture(venv.create, self.env_dir, with_pip=False)
         self.assert_pip_not_installed()
 
-    @failsOnWindows
-    def test_devnull_exists_and_is_empty(self):
+    def test_devnull(self):
         # Fix for issue #20053 uses os.devnull to force a config file to
         # appear empty. However http://bugs.python.org/issue20541 means
         # that doesn't currently work properly on Windows. Once that is
         # fixed, the "win_location" part of test_with_pip should be restored
-        self.assertTrue(os.path.exists(os.devnull))
         with open(os.devnull, "rb") as f:
             self.assertEqual(f.read(), b"")
 
-    # Requesting pip fails without SSL (http://bugs.python.org/issue19744)
-    @unittest.skipIf(ssl is None, ensurepip._MISSING_SSL_MESSAGE)
+        # Issue #20541: os.path.exists('nul') is False on Windows
+        if os.devnull.lower() == 'nul':
+            self.assertFalse(os.path.exists(os.devnull))
+        else:
+            self.assertTrue(os.path.exists(os.devnull))
+
+
     @unittest.skipUnless(threading, 'some dependencies of pip import threading'
                                     ' module unconditionally')
+    # Issue #26610: pip/pep425tags.py requires ctypes
+    @unittest.skipUnless(ctypes, 'pip requires ctypes')
     def test_with_pip(self):
         rmtree(self.env_dir)
         with EnvironmentVarGuard() as envvars:

@@ -473,6 +473,16 @@ if 1:
         d = {f(): f(), f(): f()}
         self.assertEqual(d, {1: 2, 3: 4})
 
+    def test_compile_filename(self):
+        for filename in 'file.py', b'file.py':
+            code = compile('pass', filename, 'exec')
+            self.assertEqual(code.co_filename, 'file.py')
+        for filename in bytearray(b'file.py'), memoryview(b'file.py'):
+            with self.assertWarns(DeprecationWarning):
+                code = compile('pass', filename, 'exec')
+            self.assertEqual(code.co_filename, 'file.py')
+        self.assertRaises(TypeError, compile, 'pass', list(b'file.py'), 'exec')
+
     @support.cpython_only
     def test_same_filename_used(self):
         s = """def f(): pass\ndef g(): pass"""
@@ -656,6 +666,16 @@ if 1:
         self.check_constant(f2, frozenset({0.0}))
         self.assertTrue(f1(0))
         self.assertTrue(f2(0.0))
+
+    def test_path_like_objects(self):
+        # An implicit test for PyUnicode_FSDecoder().
+        class PathLike:
+            def __init__(self, path):
+                self._path = path
+            def __fspath__(self):
+                return self._path
+
+        compile("42", PathLike("test_compile_pathlike"), "single")
 
 
 class TestStackSize(unittest.TestCase):

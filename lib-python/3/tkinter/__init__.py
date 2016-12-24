@@ -30,6 +30,7 @@ button.pack(side=BOTTOM)
 tk.mainloop()
 """
 
+import enum
 import sys
 
 import _tkinter # If this fails your Python may not be configured for Tk
@@ -132,6 +133,50 @@ def _splitdict(tk, v, cut_minus=True, conv=None):
         dict[key] = value
     return dict
 
+
+class EventType(str, enum.Enum):
+    KeyPress = '2'
+    Key = KeyPress,
+    KeyRelease = '3'
+    ButtonPress = '4'
+    Button = ButtonPress,
+    ButtonRelease = '5'
+    Motion = '6'
+    Enter = '7'
+    Leave = '8'
+    FocusIn = '9'
+    FocusOut = '10'
+    Keymap = '11'           # undocumented
+    Expose = '12'
+    GraphicsExpose = '13'   # undocumented
+    NoExpose = '14'         # undocumented
+    Visibility = '15'
+    Create = '16'
+    Destroy = '17'
+    Unmap = '18'
+    Map = '19'
+    MapRequest = '20'
+    Reparent = '21'
+    Configure = '22'
+    ConfigureRequest = '23'
+    Gravity = '24'
+    ResizeRequest = '25'
+    Circulate = '26'
+    CirculateRequest = '27'
+    Property = '28'
+    SelectionClear = '29'   # undocumented
+    SelectionRequest = '30' # undocumented
+    Selection = '31'        # undocumented
+    Colormap = '32'
+    ClientMessage = '33'    # undocumented
+    Mapping = '34'          # undocumented
+    VirtualEvent = '35',    # undocumented
+    Activate = '36',
+    Deactivate = '37',
+    MouseWheel = '38',
+    def __str__(self):
+        return self.name
+
 class Event:
     """Container for the properties of an event.
 
@@ -174,7 +219,43 @@ class Event:
     widget - widget in which the event occurred
     delta - delta of wheel movement (MouseWheel)
     """
-    pass
+    def __repr__(self):
+        attrs = {k: v for k, v in self.__dict__.items() if v != '??'}
+        if not self.char:
+            del attrs['char']
+        elif self.char != '??':
+            attrs['char'] = repr(self.char)
+        if not getattr(self, 'send_event', True):
+            del attrs['send_event']
+        if self.state == 0:
+            del attrs['state']
+        elif isinstance(self.state, int):
+            state = self.state
+            mods = ('Shift', 'Lock', 'Control',
+                    'Mod1', 'Mod2', 'Mod3', 'Mod4', 'Mod5',
+                    'Button1', 'Button2', 'Button3', 'Button4', 'Button5')
+            s = []
+            for i, n in enumerate(mods):
+                if state & (1 << i):
+                    s.append(n)
+            state = state & ~((1<< len(mods)) - 1)
+            if state or not s:
+                s.append(hex(state))
+            attrs['state'] = '|'.join(s)
+        if self.delta == 0:
+            del attrs['delta']
+        # widget usually is known
+        # serial and time are not very interesting
+        # keysym_num duplicates keysym
+        # x_root and y_root mostly duplicate x and y
+        keys = ('send_event',
+                'state', 'keysym', 'keycode', 'char',
+                'num', 'delta', 'focus',
+                'x', 'y', 'width', 'height')
+        return '<%s event%s>' % (
+            self.type,
+            ''.join(' %s=%s' % (k, attrs[k]) for k in keys if k in attrs)
+        )
 
 _support_default_root = 1
 _default_root = None
@@ -262,16 +343,9 @@ class Variable:
     def get(self):
         """Return value of variable."""
         return self._tk.globalgetvar(self._name)
-    def trace_variable(self, mode, callback):
-        """Define a trace callback for the variable.
 
-        MODE is one of "r", "w", "u" for read, write, undefine.
-        CALLBACK must be a function which is called when
-        the variable is read, written or undefined.
-
-        Return the name of the callback.
-        """
-        f = CallWrapper(callback, None, self).__call__
+    def _register(self, callback):
+        f = CallWrapper(callback, None, self._root).__call__
         cbname = repr(id(f))
         try:
             callback = callback.__func__
@@ -285,25 +359,99 @@ class Variable:
         if self._tclCommands is None:
             self._tclCommands = []
         self._tclCommands.append(cbname)
+        return cbname
+
+    def trace_add(self, mode, callback):
+        """Define a trace callback for the variable.
+
+        Mode is one of "read", "write", "unset", or a list or tuple of
+        such strings.
+        Callback must be a function which is called when the variable is
+        read, written or unset.
+
+        Return the name of the callback.
+        """
+        cbname = self._register(callback)
+        self._tk.call('trace', 'add', 'variable',
+                      self._name, mode, (cbname,))
+        return cbname
+
+    def trace_remove(self, mode, cbname):
+        """Delete the trace callback for a variable.
+
+        Mode is one of "read", "write", "unset" or a list or tuple of
+        such strings.  Must be same as were specified in trace_add().
+        cbname is the name of the callback returned from trace_add().
+        """
+        self._tk.call('trace', 'remove', 'variable',
+                      self._name, mode, cbname)
+        for m, ca in self.trace_info():
+            if self._tk.splitlist(ca)[0] == cbname:
+                break
+        else:
+            self._tk.deletecommand(cbname)
+            try:
+                self._tclCommands.remove(cbname)
+            except ValueError:
+                pass
+
+    def trace_info(self):
+        """Return all trace callback information."""
+        splitlist = self._tk.splitlist
+        return [(splitlist(k), v) for k, v in map(splitlist,
+            splitlist(self._tk.call('trace', 'info', 'variable', self._name)))]
+
+    def trace_variable(self, mode, callback):
+        """Define a trace callback for the variable.
+
+        MODE is one of "r", "w", "u" for read, write, undefine.
+        CALLBACK must be a function which is called when
+        the variable is read, written or undefined.
+
+        Return the name of the callback.
+
+        This deprecated method wraps a deprecated Tcl method that will
+        likely be removed in the future.  Use trace_add() instead.
+        """
+        # TODO: Add deprecation warning
+        cbname = self._register(callback)
         self._tk.call("trace", "variable", self._name, mode, cbname)
         return cbname
+
     trace = trace_variable
+
     def trace_vdelete(self, mode, cbname):
         """Delete the trace callback for a variable.
 
         MODE is one of "r", "w", "u" for read, write, undefine.
         CBNAME is the name of the callback returned from trace_variable or trace.
+
+        This deprecated method wraps a deprecated Tcl method that will
+        likely be removed in the future.  Use trace_remove() instead.
         """
+        # TODO: Add deprecation warning
         self._tk.call("trace", "vdelete", self._name, mode, cbname)
-        self._tk.deletecommand(cbname)
-        try:
-            self._tclCommands.remove(cbname)
-        except ValueError:
-            pass
+        cbname = self._tk.splitlist(cbname)[0]
+        for m, ca in self.trace_info():
+            if self._tk.splitlist(ca)[0] == cbname:
+                break
+        else:
+            self._tk.deletecommand(cbname)
+            try:
+                self._tclCommands.remove(cbname)
+            except ValueError:
+                pass
+
     def trace_vinfo(self):
-        """Return all trace callback information."""
-        return [self._tk.split(x) for x in self._tk.splitlist(
+        """Return all trace callback information.
+
+        This deprecated method wraps a deprecated Tcl method that will
+        likely be removed in the future.  Use trace_info() instead.
+        """
+        # TODO: Add deprecation warning
+        return [self._tk.splitlist(x) for x in self._tk.splitlist(
             self._tk.call("trace", "vinfo", self._name))]
+
     def __eq__(self, other):
         """Comparison for equality (==).
 
@@ -352,7 +500,11 @@ class IntVar(Variable):
 
     def get(self):
         """Return the value of the variable as an integer."""
-        return self._tk.getint(self._tk.globalgetvar(self._name))
+        value = self._tk.globalgetvar(self._name)
+        try:
+            return self._tk.getint(value)
+        except (TypeError, TclError):
+            return int(self._tk.getdouble(value))
 
 class DoubleVar(Variable):
     """Value holder for float variables."""
@@ -421,6 +573,9 @@ class Misc:
 
     Base class which defines methods common for interior widgets."""
 
+    # used for generating child widget names
+    _last_child_ids = None
+
     # XXX font command?
     _tclCommands = None
     def destroy(self):
@@ -468,12 +623,6 @@ class Misc:
         disabledForeground, insertBackground, troughColor."""
         self.tk.call(('tk_setPalette',)
               + _flatten(args) + _flatten(list(kw.items())))
-    def tk_menuBar(self, *args):
-        """Do not use. Needed in Tk 3.6 and earlier."""
-        # obsolete since Tk 4.0
-        import warnings
-        warnings.warn('tk_menuBar() does nothing and will be removed in 3.6',
-                      DeprecationWarning, stacklevel=2)
     def wait_variable(self, name='PY_VAR'):
         """Wait until the variable is modified.
 
@@ -845,8 +994,7 @@ class Misc:
             self.tk.call('winfo', 'height', self._w))
     def winfo_id(self):
         """Return identifier ID for this widget."""
-        return self.tk.getint(
-            self.tk.call('winfo', 'id', self._w))
+        return int(self.tk.call('winfo', 'id', self._w), 0)
     def winfo_interps(self, displayof=0):
         """Return the name of all Tcl interpreters for this display."""
         args = ('winfo', 'interps') + self._displayof(displayof)
@@ -966,18 +1114,16 @@ class Misc:
     def winfo_visualid(self):
         """Return the X identifier for the visual for this widget."""
         return self.tk.call('winfo', 'visualid', self._w)
-    def winfo_visualsavailable(self, includeids=0):
+    def winfo_visualsavailable(self, includeids=False):
         """Return a list of all visuals available for the screen
         of this widget.
 
         Each item in the list consists of a visual name (see winfo_visual), a
-        depth and if INCLUDEIDS=1 is given also the X identifier."""
-        data = self.tk.split(
-            self.tk.call('winfo', 'visualsavailable', self._w,
-                     includeids and 'includeids' or None))
-        if isinstance(data, str):
-            data = [self.tk.split(data)]
-        return [self.__winfo_parseitem(x) for x in  data]
+        depth and if includeids is true is given also the X identifier."""
+        data = self.tk.call('winfo', 'visualsavailable', self._w,
+                            'includeids' if includeids else None)
+        data = [self.tk.splitlist(x) for x in self.tk.splitlist(data)]
+        return [self.__winfo_parseitem(x) for x in data]
     def __winfo_parseitem(self, t):
         """Internal function."""
         return t[:1] + tuple(map(self.__winfo_getint, t[1:]))
@@ -1278,7 +1424,10 @@ class Misc:
         except TclError: pass
         e.keysym = K
         e.keysym_num = getint_event(N)
-        e.type = T
+        try:
+            e.type = EventType(T)
+        except ValueError:
+            e.type = T
         try:
             e.widget = self._nametowidget(W)
         except KeyError:
@@ -1888,9 +2037,6 @@ class Tk(Misc, Wm):
         if tcl_version != _tkinter.TCL_VERSION:
             raise RuntimeError("tcl.h version (%s) doesn't match libtcl.a version (%s)" \
                                % (_tkinter.TCL_VERSION, tcl_version))
-        if TkVersion < 4.0:
-            raise RuntimeError("Tk 4.0 or higher is required; found Tk %s"
-                               % str(TkVersion))
         # Create and register the tkerror and exit commands
         # We need to inline parts of _register here, _ register
         # would register differently-named commands.
@@ -2113,7 +2259,15 @@ class BaseWidget(Misc):
             name = cnf['name']
             del cnf['name']
         if not name:
-            name = repr(id(self))
+            name = self.__class__.__name__.lower()
+            if master._last_child_ids is None:
+                master._last_child_ids = {}
+            count = master._last_child_ids.get(name, 0) + 1
+            master._last_child_ids[name] = count
+            if count == 1:
+                name = '!%s' % (name,)
+            else:
+                name = '!%s%d' % (name, count)
         self._name = name
         if master._w=='.':
             self._w = '.' + name
@@ -2709,12 +2863,6 @@ class Menu(Widget):
     def tk_popup(self, x, y, entry=""):
         """Post the menu at position X,Y with entry ENTRY."""
         self.tk.call('tk_popup', self._w, x, y, entry)
-    def tk_bindForTraversal(self):
-        # obsolete since Tk 4.0
-        import warnings
-        warnings.warn('tk_bindForTraversal() does nothing and '
-                      'will be removed in 3.6',
-                      DeprecationWarning, stacklevel=2)
     def activate(self, index):
         """Activate entry at INDEX."""
         self.tk.call(self._w, 'activate', index)
@@ -2859,7 +3007,7 @@ class Scale(Widget):
         value = self.tk.call(self._w, 'get')
         try:
             return self.tk.getint(value)
-        except (ValueError, TclError):
+        except (ValueError, TypeError, TclError):
             return self.tk.getdouble(value)
     def set(self, value):
         """Set the value to VALUE."""
@@ -3337,9 +3485,6 @@ class Image:
         if not name:
             Image._last_id += 1
             name = "pyimage%r" % (Image._last_id,) # tk itself would use image<x>
-            # The following is needed for systems where id(x)
-            # can return a negative number, such as Linux/m68k:
-            if name[0] == '-': name = '_' + name[1:]
         if kw and cnf: cnf = _cnfmerge((cnf, kw))
         elif kw: cnf = kw
         options = ()

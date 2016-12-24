@@ -9,7 +9,7 @@ sub-second periodicity (contrarily to signal()).
 """
 
 import contextlib
-import io
+import faulthandler
 import os
 import select
 import signal
@@ -50,6 +50,10 @@ class EINTRBaseTest(unittest.TestCase):
         signal.setitimer(signal.ITIMER_REAL, cls.signal_delay,
                          cls.signal_period)
 
+        # Issue #25277: Use faulthandler to try to debug a hang on FreeBSD
+        if hasattr(faulthandler, 'dump_traceback_later'):
+            faulthandler.dump_traceback_later(10 * 60, exit=True)
+
     @classmethod
     def stop_alarm(cls):
         signal.setitimer(signal.ITIMER_REAL, 0, 0)
@@ -58,6 +62,8 @@ class EINTRBaseTest(unittest.TestCase):
     def tearDownClass(cls):
         cls.stop_alarm()
         signal.signal(signal.SIGALRM, cls.orig_handler)
+        if hasattr(faulthandler, 'cancel_dump_traceback_later'):
+            faulthandler.cancel_dump_traceback_later()
 
     def subprocess(self, *args, **kw):
         cmd_args = (sys.executable, '-c') + args
@@ -77,6 +83,9 @@ class OSEINTRTest(EINTRBaseTest):
         processes = [self.new_sleep_process() for _ in range(num)]
         for _ in range(num):
             wait_func()
+        # Call the Popen method to avoid a ResourceWarning
+        for proc in processes:
+            proc.wait()
 
     def test_wait(self):
         self._test_wait_multiple(os.wait)
@@ -88,6 +97,8 @@ class OSEINTRTest(EINTRBaseTest):
     def _test_wait_single(self, wait_func):
         proc = self.new_sleep_process()
         wait_func(proc.pid)
+        # Call the Popen method to avoid a ResourceWarning
+        proc.wait()
 
     def test_waitpid(self):
         self._test_wait_single(lambda pid: os.waitpid(pid, 0))
@@ -372,7 +383,7 @@ class SignalEINTRTest(EINTRBaseTest):
     @unittest.skipUnless(hasattr(signal, 'sigwaitinfo'),
                          'need signal.sigwaitinfo()')
     def test_sigwaitinfo(self):
-        # Issue #25277, #25868: give a few miliseconds to the parent process
+        # Issue #25277, #25868: give a few milliseconds to the parent process
         # between os.write() and signal.sigwaitinfo() to works around a race
         # condition
         self.sleep_time = 0.100

@@ -1,7 +1,5 @@
-import itertools
 import os
 import posixpath
-import sys
 import unittest
 import warnings
 from posixpath import realpath, abspath, dirname, basename
@@ -203,6 +201,28 @@ class PosixPathTest(unittest.TestCase):
         def fake_lstat(path):
             st_ino = 0
             st_dev = 0
+            if path == ABSTFN:
+                st_dev = 1
+                st_ino = 1
+            return posix.stat_result((0, st_ino, st_dev, 0, 0, 0, 0, 0, 0, 0))
+        try:
+            os.lstat = fake_lstat
+            self.assertIs(posixpath.ismount(ABSTFN), True)
+        finally:
+            os.lstat = save_lstat
+
+    @unittest.skipIf(posix is None, "Test requires posix module")
+    def test_ismount_directory_not_readable(self):
+        # issue #2466: Simulate ismount run on a directory that is not
+        # readable, which used to return False.
+        save_lstat = os.lstat
+        def fake_lstat(path):
+            st_ino = 0
+            st_dev = 0
+            if path.startswith(ABSTFN) and path != ABSTFN:
+                # ismount tries to read something inside the ABSTFN directory;
+                # simulate this being forbidden (no read permission).
+                raise OSError("Fake [Errno 13] Permission denied")
             if path == ABSTFN:
                 st_dev = 1
                 st_ino = 1
@@ -574,6 +594,86 @@ class PosixPathTest(unittest.TestCase):
 class PosixCommonTest(test_genericpath.CommonTest, unittest.TestCase):
     pathmodule = posixpath
     attributes = ['relpath', 'samefile', 'sameopenfile', 'samestat']
+
+
+class PathLikeTests(unittest.TestCase):
+
+    path = posixpath
+
+    class PathLike:
+        def __init__(self, path=''):
+            self.path = path
+        def __fspath__(self):
+            if isinstance(self.path, BaseException):
+                raise self.path
+            else:
+                return self.path
+
+    def setUp(self):
+        self.file_name = support.TESTFN.lower()
+        self.file_path = self.PathLike(support.TESTFN)
+        self.addCleanup(support.unlink, self.file_name)
+        with open(self.file_name, 'xb', 0) as file:
+            file.write(b"test_posixpath.PathLikeTests")
+
+    def assertPathEqual(self, func):
+        self.assertEqual(func(self.file_path), func(self.file_name))
+
+    def test_path_normcase(self):
+        self.assertPathEqual(self.path.normcase)
+
+    def test_path_isabs(self):
+        self.assertPathEqual(self.path.isabs)
+
+    def test_path_join(self):
+        self.assertEqual(self.path.join('a', self.PathLike('b'), 'c'),
+                         self.path.join('a', 'b', 'c'))
+
+    def test_path_split(self):
+        self.assertPathEqual(self.path.split)
+
+    def test_path_splitext(self):
+        self.assertPathEqual(self.path.splitext)
+
+    def test_path_splitdrive(self):
+        self.assertPathEqual(self.path.splitdrive)
+
+    def test_path_basename(self):
+        self.assertPathEqual(self.path.basename)
+
+    def test_path_dirname(self):
+        self.assertPathEqual(self.path.dirname)
+
+    def test_path_islink(self):
+        self.assertPathEqual(self.path.islink)
+
+    def test_path_lexists(self):
+        self.assertPathEqual(self.path.lexists)
+
+    def test_path_ismount(self):
+        self.assertPathEqual(self.path.ismount)
+
+    def test_path_expanduser(self):
+        self.assertPathEqual(self.path.expanduser)
+
+    def test_path_expandvars(self):
+        self.assertPathEqual(self.path.expandvars)
+
+    def test_path_normpath(self):
+        self.assertPathEqual(self.path.normpath)
+
+    def test_path_abspath(self):
+        self.assertPathEqual(self.path.abspath)
+
+    def test_path_realpath(self):
+        self.assertPathEqual(self.path.realpath)
+
+    def test_path_relpath(self):
+        self.assertPathEqual(self.path.relpath)
+
+    def test_path_commonpath(self):
+        common_path = self.path.commonpath([self.file_path, self.file_name])
+        self.assertEqual(common_path, self.file_name)
 
 
 if __name__=="__main__":

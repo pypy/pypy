@@ -127,16 +127,20 @@ import socket
 import selectors
 import os
 import errno
+import sys
 try:
     import threading
 except ImportError:
     import dummy_threading as threading
+from io import BufferedIOBase
 from time import monotonic as time
 
-__all__ = ["BaseServer", "TCPServer", "UDPServer", "ForkingUDPServer",
-           "ForkingTCPServer", "ThreadingUDPServer", "ThreadingTCPServer",
+__all__ = ["BaseServer", "TCPServer", "UDPServer",
+           "ThreadingUDPServer", "ThreadingTCPServer",
            "BaseRequestHandler", "StreamRequestHandler",
-           "DatagramRequestHandler", "ThreadingMixIn", "ForkingMixIn"]
+           "DatagramRequestHandler", "ThreadingMixIn"]
+if hasattr(os, "fork"):
+    __all__.extend(["ForkingUDPServer","ForkingTCPServer", "ForkingMixIn"])
 if hasattr(socket, "AF_UNIX"):
     __all__.extend(["UnixStreamServer","UnixDatagramServer",
                     "ThreadingUnixStreamServer",
@@ -311,9 +315,12 @@ class BaseServer:
         if self.verify_request(request, client_address):
             try:
                 self.process_request(request, client_address)
-            except:
+            except Exception:
                 self.handle_error(request, client_address)
                 self.shutdown_request(request)
+            except:
+                self.shutdown_request(request)
+                raise
         else:
             self.shutdown_request(request)
 
@@ -367,12 +374,18 @@ class BaseServer:
         The default is to print a traceback and continue.
 
         """
-        print('-'*40)
-        print('Exception happened during processing of request from', end=' ')
-        print(client_address)
+        print('-'*40, file=sys.stderr)
+        print('Exception happened during processing of request from',
+            client_address, file=sys.stderr)
         import traceback
-        traceback.print_exc() # XXX But this goes to stderr!
-        print('-'*40)
+        traceback.print_exc()
+        print('-'*40, file=sys.stderr)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.server_close()
 
 
 class TCPServer(BaseServer):
@@ -527,85 +540,86 @@ class UDPServer(TCPServer):
         # No need to close anything.
         pass
 
-class ForkingMixIn:
+if hasattr(os, "fork"):
+    class ForkingMixIn:
+        """Mix-in class to handle each request in a new process."""
 
-    """Mix-in class to handle each request in a new process."""
+        timeout = 300
+        active_children = None
+        max_children = 40
 
-    timeout = 300
-    active_children = None
-    max_children = 40
-
-    def collect_children(self):
-        """Internal routine to wait for children that have exited."""
-        if self.active_children is None:
-            return
-
-        # If we're above the max number of children, wait and reap them until
-        # we go back below threshold. Note that we use waitpid(-1) below to be
-        # able to collect children in size(<defunct children>) syscalls instead
-        # of size(<children>): the downside is that this might reap children
-        # which we didn't spawn, which is why we only resort to this when we're
-        # above max_children.
-        while len(self.active_children) >= self.max_children:
-            try:
-                pid, _ = os.waitpid(-1, 0)
-                self.active_children.discard(pid)
-            except ChildProcessError:
-                # we don't have any children, we're done
-                self.active_children.clear()
-            except OSError:
-                break
-
-        # Now reap all defunct children.
-        for pid in self.active_children.copy():
-            try:
-                pid, _ = os.waitpid(pid, os.WNOHANG)
-                # if the child hasn't exited yet, pid will be 0 and ignored by
-                # discard() below
-                self.active_children.discard(pid)
-            except ChildProcessError:
-                # someone else reaped it
-                self.active_children.discard(pid)
-            except OSError:
-                pass
-
-    def handle_timeout(self):
-        """Wait for zombies after self.timeout seconds of inactivity.
-
-        May be extended, do not override.
-        """
-        self.collect_children()
-
-    def service_actions(self):
-        """Collect the zombie child processes regularly in the ForkingMixIn.
-
-        service_actions is called in the BaseServer's serve_forver loop.
-        """
-        self.collect_children()
-
-    def process_request(self, request, client_address):
-        """Fork a new subprocess to process the request."""
-        pid = os.fork()
-        if pid:
-            # Parent process
+        def collect_children(self):
+            """Internal routine to wait for children that have exited."""
             if self.active_children is None:
-                self.active_children = set()
-            self.active_children.add(pid)
-            self.close_request(request)
-            return
-        else:
-            # Child process.
-            # This must never return, hence os._exit()!
-            try:
-                self.finish_request(request, client_address)
-                self.shutdown_request(request)
-                os._exit(0)
-            except:
+                return
+
+            # If we're above the max number of children, wait and reap them until
+            # we go back below threshold. Note that we use waitpid(-1) below to be
+            # able to collect children in size(<defunct children>) syscalls instead
+            # of size(<children>): the downside is that this might reap children
+            # which we didn't spawn, which is why we only resort to this when we're
+            # above max_children.
+            while len(self.active_children) >= self.max_children:
                 try:
+                    pid, _ = os.waitpid(-1, 0)
+                    self.active_children.discard(pid)
+                except ChildProcessError:
+                    # we don't have any children, we're done
+                    self.active_children.clear()
+                except OSError:
+                    break
+
+            # Now reap all defunct children.
+            for pid in self.active_children.copy():
+                try:
+                    pid, _ = os.waitpid(pid, os.WNOHANG)
+                    # if the child hasn't exited yet, pid will be 0 and ignored by
+                    # discard() below
+                    self.active_children.discard(pid)
+                except ChildProcessError:
+                    # someone else reaped it
+                    self.active_children.discard(pid)
+                except OSError:
+                    pass
+
+        def handle_timeout(self):
+            """Wait for zombies after self.timeout seconds of inactivity.
+
+            May be extended, do not override.
+            """
+            self.collect_children()
+
+        def service_actions(self):
+            """Collect the zombie child processes regularly in the ForkingMixIn.
+
+            service_actions is called in the BaseServer's serve_forver loop.
+            """
+            self.collect_children()
+
+        def process_request(self, request, client_address):
+            """Fork a new subprocess to process the request."""
+            pid = os.fork()
+            if pid:
+                # Parent process
+                if self.active_children is None:
+                    self.active_children = set()
+                self.active_children.add(pid)
+                self.close_request(request)
+                return
+            else:
+                # Child process.
+                # This must never return, hence os._exit()!
+                status = 1
+                try:
+                    self.finish_request(request, client_address)
+                    status = 0
+                except Exception:
                     self.handle_error(request, client_address)
-                    self.shutdown_request(request)
                 finally:
-                    os._exit(1)
+                    try:
+                        self.shutdown_request(request)
+                    finally:
+                        os._exit(status)
 
 
 class ThreadingMixIn:
@@ -623,9 +637,9 @@ class ThreadingMixIn:
         """
         try:
             self.finish_request(request, client_address)
-            self.shutdown_request(request)
-        except:
+        except Exception:
             self.handle_error(request, client_address)
+        finally:
             self.shutdown_request(request)
 
     def process_request(self, request, client_address):
@@ -636,8 +650,9 @@ class ThreadingMixIn:
         t.start()
 
 
-class ForkingUDPServer(ForkingMixIn, UDPServer): pass
-class ForkingTCPServer(ForkingMixIn, TCPServer): pass
+if hasattr(os, "fork"):
+    class ForkingUDPServer(ForkingMixIn, UDPServer): pass
+    class ForkingTCPServer(ForkingMixIn, TCPServer): pass
 
 class ThreadingUDPServer(ThreadingMixIn, UDPServer): pass
 class ThreadingTCPServer(ThreadingMixIn, TCPServer): pass
@@ -729,7 +744,10 @@ class StreamRequestHandler(BaseRequestHandler):
             self.connection.setsockopt(socket.IPPROTO_TCP,
                                        socket.TCP_NODELAY, True)
         self.rfile = self.connection.makefile('rb', self.rbufsize)
-        self.wfile = self.connection.makefile('wb', self.wbufsize)
+        if self.wbufsize == 0:
+            self.wfile = _SocketWriter(self.connection)
+        else:
+            self.wfile = self.connection.makefile('wb', self.wbufsize)
 
     def finish(self):
         if not self.wfile.closed:
@@ -742,6 +760,24 @@ class StreamRequestHandler(BaseRequestHandler):
         self.wfile.close()
         self.rfile.close()
 
+class _SocketWriter(BufferedIOBase):
+    """Simple writable BufferedIOBase implementation for a socket
+
+    Does not hold data in a buffer, avoiding any need to call flush()."""
+
+    def __init__(self, sock):
+        self._sock = sock
+
+    def writable(self):
+        return True
+
+    def write(self, b):
+        self._sock.sendall(b)
+        with memoryview(b) as view:
+            return view.nbytes
+
+    def fileno(self):
+        return self._sock.fileno()
 
 class DatagramRequestHandler(BaseRequestHandler):
 

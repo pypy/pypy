@@ -28,9 +28,9 @@ The order by which events are called is defined by these rules:
    unless this conflicts with the first rule.
 Each function will be called at most once for each event.
 """
-
-import sys
 import re
+import sys
+
 import tkinter
 
 # the event type constants, which define the meaning of mc_type
@@ -414,12 +414,12 @@ def MultiCallCreator(widget):
     return MultiCall
 
 
-def _multi_call(parent):
-    root = tkinter.Tk()
-    root.title("Test MultiCall")
-    width, height, x, y = list(map(int, re.split('[x+]', parent.geometry())))
-    root.geometry("+%d+%d"%(x, y + 150))
-    text = MultiCallCreator(tkinter.Text)(root)
+def _multi_call(parent):  # htest #
+    top = tkinter.Toplevel(parent)
+    top.title("Test MultiCall")
+    x, y = map(int, parent.geometry().split('+')[1:])
+    top.geometry("+%d+%d" % (x, y + 175))
+    text = MultiCallCreator(tkinter.Text)(top)
     text.pack()
     def bindseq(seq, n=[0]):
         def handler(event):
@@ -439,7 +439,6 @@ def _multi_call(parent):
     bindseq("<FocusOut>")
     bindseq("<Enter>")
     bindseq("<Leave>")
-    root.mainloop()
 
 if __name__ == "__main__":
     from idlelib.idle_test.htest import run

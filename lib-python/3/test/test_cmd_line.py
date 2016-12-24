@@ -43,7 +43,7 @@ class CmdLineTest(unittest.TestCase):
 
     def test_version(self):
         version = ('Python %d.%d' % sys.version_info[:2]).encode("ascii")
-        for switch in '-V', '--version':
+        for switch in '-V', '--version', '-VV':
             rc, out, err = assert_python_ok(switch)
             self.assertFalse(err.startswith(version))
             self.assertTrue(out.startswith(version))
@@ -348,8 +348,9 @@ class CmdLineTest(unittest.TestCase):
             test.support.SuppressCrashReport().__enter__()
             sys.stdout.write('x')
             os.close(sys.stdout.fileno())"""
-        rc, out, err = assert_python_ok('-c', code)
+        rc, out, err = assert_python_failure('-c', code)
         self.assertEqual(b'', out)
+        self.assertEqual(120, rc)
         self.assertRegex(err.decode('ascii', 'ignore'),
                          'Exception ignored in.*\nOSError: .*')
 
@@ -468,7 +469,7 @@ class CmdLineTest(unittest.TestCase):
         rc, out, err = assert_python_ok('-I', '-c',
             'from sys import flags as f; '
             'print(f.no_user_site, f.ignore_environment, f.isolated)',
-            # dummyvar to prevent extranous -E
+            # dummyvar to prevent extraneous -E
             dummyvar="")
         self.assertEqual(out.strip(), b'1 1 1')
         with test.support.temp_cwd() as tmpdir:

@@ -148,7 +148,7 @@ __xname__ = __name__    # sys.modules lookup (--without-threads)
 __name__ = 'decimal'    # For pickling
 __version__ = '1.70'    # Highest version of the spec this complies with
                         # See http://speleotrove.com/decimal/
-__libmpdec_version__ = "2.4.1" # compatible libmpdec version
+__libmpdec_version__ = "2.4.2" # compatible libmpdec version
 
 import math as _math
 import numbers as _numbers
@@ -589,7 +589,7 @@ class Decimal(object):
         # From a string
         # REs insist on real strings, so we can too.
         if isinstance(value, str):
-            m = _parser(value.strip())
+            m = _parser(value.strip().replace("_", ""))
             if m is None:
                 if context is None:
                     context = getcontext()
@@ -1010,6 +1010,56 @@ class Decimal(object):
         """
         return DecimalTuple(self._sign, tuple(map(int, self._int)), self._exp)
 
+    def as_integer_ratio(self):
+        """Express a finite Decimal instance in the form n / d.
+
+        Returns a pair (n, d) of integers.  When called on an infinity
+        or NaN, raises OverflowError or ValueError respectively.
+
+        >>> Decimal('3.14').as_integer_ratio()
+        (157, 50)
+        >>> Decimal('-123e5').as_integer_ratio()
+        (-12300000, 1)
+        >>> Decimal('0.00').as_integer_ratio()
+        (0, 1)
+
+        """
+        if self._is_special:
+            if self.is_nan():
+                raise ValueError("cannot convert NaN to integer ratio")
+            else:
+                raise OverflowError("cannot convert Infinity to integer ratio")
+
+        if not self:
+            return 0, 1
+
+        # Find n, d in lowest terms such that abs(self) == n / d;
+        # we'll deal with the sign later.
+        n = int(self._int)
+        if self._exp >= 0:
+            # self is an integer.
+            n, d = n * 10**self._exp, 1
+        else:
+            # Find d2, d5 such that abs(self) = n / (2**d2 * 5**d5).
+            d5 = -self._exp
+            while d5 > 0 and n % 5 == 0:
+                n //= 5
+                d5 -= 1
+
+            # (n & -n).bit_length() - 1 counts trailing zeros in binary
+            # representation of n (provided n is nonzero).
+            d2 = -self._exp
+            shift2 = min((n & -n).bit_length() - 1, d2)
+            if shift2:
+                n >>= shift2
+                d2 -= shift2
+
+            d = 5**d5 << d2
+
+        if self._sign:
+            n = -n
+        return n, d
+
     def __repr__(self):
         """Represents the number as an instance of Decimal."""
         # Invariant:  eval(repr(d)) == d
@@ -1068,12 +1118,11 @@ class Decimal(object):
         return sign + intpart + fracpart + exp
 
     def to_eng_string(self, context=None):
-        """Convert to engineering-type string.
+        """Convert to a string, using engineering notation if an exponent is needed.
 
-        Engineering notation has an exponent which is a multiple of 3, so there
-        are up to 3 digits left of the decimal place.
-
-        Same rules for when in exponential and when as a value as in __str__.
+        Engineering notation has an exponent which is a multiple of 3.  This
+        can leave up to 3 digits to the left of the decimal place and may
+        require the addition of either one or two trailing zeros.
         """
         return self.__str__(eng=True, context=context)
 
@@ -4076,7 +4125,7 @@ class Context(object):
         This will make it round up for that operation.
         """
         rounding = self.rounding
-        self.rounding= type
+        self.rounding = type
         return rounding
 
     def create_decimal(self, num='0'):
@@ -4085,10 +4134,10 @@ class Context(object):
         This method implements the to-number operation of the
         IBM Decimal specification."""
 
-        if isinstance(num, str) and num != num.strip():
+        if isinstance(num, str) and (num != num.strip() or '_' in num):
             return self._raise_error(ConversionSyntax,
-                                     "no trailing or leading whitespace is "
-                                     "permitted.")
+                                     "trailing or leading whitespace and "
+                                     "underscores are not permitted.")
 
         d = Decimal(num, context=self)
         if d._isnan() and len(d._int) > self.prec - self.clamp:
@@ -4107,7 +4156,7 @@ class Context(object):
         >>> context.create_decimal_from_float(3.1415926535897932)
         Traceback (most recent call last):
             ...
-        decimal.Inexact
+        decimal.Inexact: None
 
         """
         d = Decimal.from_float(f)       # An exact conversion
@@ -5502,9 +5551,29 @@ class Context(object):
             return r
 
     def to_eng_string(self, a):
-        """Converts a number to a string, using scientific notation.
+        """Convert to a string, using engineering notation if an exponent is needed.
+
+        Engineering notation has an exponent which is a multiple of 3.  This
+        can leave up to 3 digits to the left of the decimal place and may
+        require the addition of either one or two trailing zeros.
 
         The operation is not affected by the context.
+
+        >>> ExtendedContext.to_eng_string(Decimal('123E+1'))
+        '1.23E+3'
+        >>> ExtendedContext.to_eng_string(Decimal('123E+3'))
+        '123E+3'
+        >>> ExtendedContext.to_eng_string(Decimal('123E-10'))
+        '12.3E-9'
+        >>> ExtendedContext.to_eng_string(Decimal('-123E-12'))
+        '-123E-12'
+        >>> ExtendedContext.to_eng_string(Decimal('7E-7'))
+        '700E-9'
+        >>> ExtendedContext.to_eng_string(Decimal('7E+1'))
+        '70'
+        >>> ExtendedContext.to_eng_string(Decimal('0E+1'))
+        '0.00E+3'
+
         """
         a = _convert_other(a, raiseit=True)
         return a.to_eng_string(context=self)

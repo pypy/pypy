@@ -132,9 +132,7 @@ class TestShutil(unittest.TestCase):
         write_file(os.path.join(victim, 'somefile'), 'foo')
         victim = os.fsencode(victim)
         self.assertIsInstance(victim, bytes)
-        win = (os.name == 'nt')
-        with self.assertWarns(DeprecationWarning) if win else ExitStack():
-            shutil.rmtree(victim)
+        shutil.rmtree(victim)
 
     @support.skip_unless_symlink
     def test_rmtree_fails_on_symlink(self):
@@ -1068,6 +1066,19 @@ class TestShutil(unittest.TestCase):
 
         with support.change_cwd(work_dir):
             base_name = os.path.abspath(rel_base_name)
+            res = make_archive(rel_base_name, 'zip', root_dir)
+
+        self.assertEqual(res, base_name + '.zip')
+        self.assertTrue(os.path.isfile(res))
+        self.assertTrue(zipfile.is_zipfile(res))
+        with zipfile.ZipFile(res) as zf:
+            self.assertCountEqual(zf.namelist(),
+                    ['dist/', 'dist/sub/', 'dist/sub2/',
+                     'dist/file1', 'dist/file2', 'dist/sub/file3',
+                     'outer'])
+
+        with support.change_cwd(work_dir):
+            base_name = os.path.abspath(rel_base_name)
             res = make_archive(rel_base_name, 'zip', root_dir, base_dir)
 
         self.assertEqual(res, base_name + '.zip')
@@ -1257,7 +1268,7 @@ class TestShutil(unittest.TestCase):
         self.assertRaises(shutil.ReadError, unpack_archive, TESTFN)
         self.assertRaises(ValueError, unpack_archive, TESTFN, format='xxx')
 
-    def test_unpack_registery(self):
+    def test_unpack_registry(self):
 
         formats = get_unpack_formats()
 
@@ -1306,10 +1317,10 @@ class TestShutil(unittest.TestCase):
             shutil.chown(filename)
 
         with self.assertRaises(LookupError):
-            shutil.chown(filename, user='non-exising username')
+            shutil.chown(filename, user='non-existing username')
 
         with self.assertRaises(LookupError):
-            shutil.chown(filename, group='non-exising groupname')
+            shutil.chown(filename, group='non-existing groupname')
 
         with self.assertRaises(TypeError):
             shutil.chown(filename, b'spam')
@@ -1858,7 +1869,8 @@ class TermsizeTests(unittest.TestCase):
         """
         try:
             size = subprocess.check_output(['stty', 'size']).decode().split()
-        except (FileNotFoundError, subprocess.CalledProcessError):
+        except (FileNotFoundError, PermissionError,
+                subprocess.CalledProcessError):
             self.skipTest("stty invocation failed")
         expected = (int(size[1]), int(size[0])) # reversed order
 

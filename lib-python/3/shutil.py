@@ -64,7 +64,7 @@ class ReadError(OSError):
 
 class RegistryError(Exception):
     """Raised when a registry operation with the archiving
-    and unpacking registeries fails"""
+    and unpacking registries fails"""
 
 
 def copyfileobj(fsrc, fdst, length=16*1024):
@@ -680,9 +680,10 @@ def _make_zipfile(base_name, base_dir, verbose=0, dry_run=0, logger=None):
         with zipfile.ZipFile(zip_filename, "w",
                              compression=zipfile.ZIP_DEFLATED) as zf:
             path = os.path.normpath(base_dir)
-            zf.write(path, path)
-            if logger is not None:
-                logger.info("adding '%s'", path)
+            if path != os.curdir:
+                zf.write(path, path)
+                if logger is not None:
+                    logger.info("adding '%s'", path)
             for dirpath, dirnames, filenames in os.walk(base_dir):
                 for name in sorted(dirnames):
                     path = os.path.normpath(os.path.join(dirpath, name))
@@ -853,7 +854,7 @@ def register_unpack_format(name, extensions, function, extra_args=None,
     _UNPACK_FORMATS[name] = extensions, function, extra_args, description
 
 def unregister_unpack_format(name):
-    """Removes the pack format from the registery."""
+    """Removes the pack format from the registry."""
     del _UNPACK_FORMATS[name]
 
 def _ensure_directory(path):
@@ -974,6 +975,9 @@ if hasattr(os, 'statvfs'):
 
     __all__.append('disk_usage')
     _ntuple_diskusage = collections.namedtuple('usage', 'total used free')
+    _ntuple_diskusage.total.__doc__ = 'Total space in bytes'
+    _ntuple_diskusage.used.__doc__ = 'Used space in bytes'
+    _ntuple_diskusage.free.__doc__ = 'Free space in bytes'
 
     def disk_usage(path):
         """Return disk usage statistics about the given path.

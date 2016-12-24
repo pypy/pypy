@@ -5,6 +5,7 @@ machinery = util.import_importlib('importlib.machinery')
 importlib_util = util.import_importlib('importlib.util')
 
 import os
+import pathlib
 import string
 import sys
 from test import support
@@ -46,14 +47,8 @@ class ModuleFromSpecTests:
             def exec_module(self, module):
                 pass
         spec = self.machinery.ModuleSpec('test', Loader())
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter('always')
+        with self.assertRaises(ImportError):
             module = self.util.module_from_spec(spec)
-        self.assertEqual(1, len(w))
-        self.assertTrue(issubclass(w[0].category, DeprecationWarning))
-        self.assertIn('create_module', str(w[0].message))
-        self.assertIsInstance(module, types.ModuleType)
-        self.assertEqual(module.__name__, spec.name)
 
     def test_create_module_returns_None(self):
         class Loader(self.abc.Loader):
@@ -372,7 +367,7 @@ class ResolveNameTests:
         # bacon
         self.assertEqual('bacon', self.util.resolve_name('bacon', None))
 
-    def test_aboslute_within_package(self):
+    def test_absolute_within_package(self):
         # bacon in spam
         self.assertEqual('bacon', self.util.resolve_name('bacon', 'spam'))
 
@@ -677,6 +672,15 @@ class PEP3147Tests:
             '\\foo\\bar\\baz\\__pycache__\\qux.{}.pyc'.format(self.tag))
 
     @unittest.skipUnless(sys.implementation.cache_tag is not None,
+                         'requires sys.implementation.cache_tag not be None')
+    def test_source_from_cache_path_like_arg(self):
+        path = pathlib.PurePath('foo', 'bar', 'baz', 'qux.py')
+        expect = os.path.join('foo', 'bar', 'baz', '__pycache__',
+                              'qux.{}.pyc'.format(self.tag))
+        self.assertEqual(self.util.cache_from_source(path, optimization=''),
+                         expect)
+
+    @unittest.skipUnless(sys.implementation.cache_tag is not None,
                          'requires sys.implementation.cache_tag to not be '
                          'None')
     def test_source_from_cache(self):
@@ -737,6 +741,15 @@ class PEP3147Tests:
         path = os.path.join('__pycache__', 'foo.{}.opt-.pyc'.format(self.tag))
         with self.assertRaises(ValueError):
             self.util.source_from_cache(path)
+
+    @unittest.skipUnless(sys.implementation.cache_tag is not None,
+                         'requires sys.implementation.cache_tag to not be '
+                         'None')
+    def test_source_from_cache_path_like_arg(self):
+        path = pathlib.PurePath('foo', 'bar', 'baz', '__pycache__',
+                                'qux.{}.pyc'.format(self.tag))
+        expect = os.path.join('foo', 'bar', 'baz', 'qux.py')
+        self.assertEqual(self.util.source_from_cache(path), expect)
 
 
 (Frozen_PEP3147Tests,

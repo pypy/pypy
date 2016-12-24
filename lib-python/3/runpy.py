@@ -98,7 +98,7 @@ def _run_module_code(code, init_globals=None,
     # may be cleared when the temporary module goes away
     return mod_globals.copy()
 
-# Helper to get the loader, code and filename for a module
+# Helper to get the full name, spec and code for a module
 def _get_module_details(mod_name, error=ImportError):
     if mod_name.startswith("."):
         raise error("Relative module names not supported")
@@ -114,6 +114,15 @@ def _get_module_details(mod_name, error=ImportError):
             if e.name is None or (e.name != pkg_name and
                     not pkg_name.startswith(e.name + ".")):
                 raise
+        # Warn if the module has already been imported under its normal name
+        existing = sys.modules.get(mod_name)
+        if existing is not None and not hasattr(existing, "__path__"):
+            from warnings import warn
+            msg = "{mod_name!r} found in sys.modules after import of " \
+                "package {pkg_name!r}, but prior to execution of " \
+                "{mod_name!r}; this may result in unpredictable " \
+                "behaviour".format(mod_name=mod_name, pkg_name=pkg_name)
+            warn(RuntimeWarning(msg))
 
     try:
         spec = importlib.util.find_spec(mod_name)
@@ -121,7 +130,7 @@ def _get_module_details(mod_name, error=ImportError):
         # This hack fixes an impedance mismatch between pkgutil and
         # importlib, where the latter raises other errors for cases where
         # pkgutil previously raised ImportError
-        msg = "Error while finding spec for {!r} ({}: {})"
+        msg = "Error while finding module specification for {!r} ({}: {})"
         raise error(msg.format(mod_name, type(ex).__name__, ex)) from ex
     if spec is None:
         raise error("No module named %s" % mod_name)
@@ -253,7 +262,7 @@ def run_path(path_name, init_globals=None, run_name=None):
         return _run_module_code(code, init_globals, run_name,
                                 pkg_name=pkg_name, script_name=fname)
     else:
-        # Importer is defined for path, so add it to
+        # Finder is defined for path, so add it to
         # the start of sys.path
         sys.path.insert(0, path_name)
         try:

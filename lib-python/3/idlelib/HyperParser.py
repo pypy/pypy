@@ -4,11 +4,10 @@ HyperParser uses PyParser.  PyParser mostly gives information on the
 proper indentation of code.  HyperParser gives additional information on
 the structure of code.
 """
-
-import string
 from keyword import iskeyword
-from idlelib import PyParse
+import string
 
+from idlelib import pyparse
 
 # all ASCII chars that may be in an identifier
 _ASCII_ID_CHARS = frozenset(string.ascii_letters + string.digits + "_")
@@ -30,7 +29,7 @@ class HyperParser:
         self.editwin = editwin
         self.text = text = editwin.text
 
-        parser = PyParse.Parser(editwin.indentwidth, editwin.tabwidth)
+        parser = pyparse.Parser(editwin.indentwidth, editwin.tabwidth)
 
         def index2line(index):
             return int(float(index))

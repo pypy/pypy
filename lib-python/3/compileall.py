@@ -25,6 +25,8 @@ from functools import partial
 __all__ = ["compile_dir","compile_file","compile_path"]
 
 def _walk_dir(dir, ddir=None, maxlevels=10, quiet=0):
+    if quiet < 2 and isinstance(dir, os.PathLike):
+        dir = os.fspath(dir)
     if not quiet:
         print('Listing {!r}...'.format(dir))
     try:
@@ -66,13 +68,13 @@ def compile_dir(dir, maxlevels=10, ddir=None, force=False, rx=None,
     optimize:  optimization level or -1 for level of the interpreter
     workers:   maximum number of parallel workers
     """
+    if workers is not None and workers < 0:
+        raise ValueError('workers must be greater or equal to 0')
+
     files = _walk_dir(dir, quiet=quiet, maxlevels=maxlevels,
                       ddir=ddir)
-    success = 1
+    success = True
     if workers is not None and workers != 1 and ProcessPoolExecutor is not None:
-        if workers < 0:
-            raise ValueError('workers must be greater or equal to 0')
-
         workers = workers or None
         with ProcessPoolExecutor(max_workers=workers) as executor:
             results = executor.map(partial(compile_file,
@@ -81,12 +83,12 @@ def compile_dir(dir, maxlevels=10, ddir=None, force=False, rx=None,
                                            legacy=legacy,
                                            optimize=optimize),
                                    files)
-            success = min(results, default=1)
+            success = min(results, default=True)
     else:
         for file in files:
             if not compile_file(file, ddir, force, rx, quiet,
                                 legacy, optimize):
-                success = 0
+                success = False
     return success
 
 def compile_file(fullname, ddir=None, force=False, rx=None, quiet=0,
@@ -104,7 +106,9 @@ def compile_file(fullname, ddir=None, force=False, rx=None, quiet=0,
     legacy:    if True, produce legacy pyc paths instead of PEP 3147 paths
     optimize:  optimization level or -1 for level of the interpreter
     """
-    success = 1
+    success = True
+    if quiet < 2 and isinstance(fullname, os.PathLike):
+        fullname = os.fspath(fullname)
     name = os.path.basename(fullname)
     if ddir is not None:
         dfile = os.path.join(ddir, name)
@@ -144,7 +148,7 @@ def compile_file(fullname, ddir=None, force=False, rx=None, quiet=0,
                 ok = py_compile.compile(fullname, cfile, dfile, True,
                                         optimize=optimize)
             except py_compile.PyCompileError as err:
-                success = 0
+                success = False
                 if quiet >= 2:
                     return success
                 elif quiet:
@@ -157,7 +161,7 @@ def compile_file(fullname, ddir=None, force=False, rx=None, quiet=0,
                 msg = msg.decode(sys.stdout.encoding)
                 print(msg)
             except (SyntaxError, UnicodeError, OSError) as e:
-                success = 0
+                success = False
                 if quiet >= 2:
                     return success
                 elif quiet:
@@ -167,7 +171,7 @@ def compile_file(fullname, ddir=None, force=False, rx=None, quiet=0,
                 print(e.__class__.__name__ + ':', e)
             else:
                 if ok == 0:
-                    success = 0
+                    success = False
     return success
 
 def compile_path(skip_curdir=1, maxlevels=0, force=False, quiet=0,
@@ -183,7 +187,7 @@ def compile_path(skip_curdir=1, maxlevels=0, force=False, quiet=0,
     legacy: as for compile_dir() (default False)
     optimize: as for compile_dir() (default -1)
     """
-    success = 1
+    success = True
     for dir in sys.path:
         if (not dir or dir == os.curdir) and skip_curdir:
             if quiet < 2:

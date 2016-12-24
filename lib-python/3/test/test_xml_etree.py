@@ -18,7 +18,7 @@ import weakref
 
 from itertools import product
 from test import support
-from test.support import TESTFN, findfile, import_fresh_module, gc_collect, impl_detail
+from test.support import TESTFN, findfile, import_fresh_module, gc_collect, impl_detail, swap_attr
 
 # pyET is the pure-Python implementation.
 #
@@ -91,14 +91,16 @@ ENTITY_XML = """\
 
 
 class ModuleTest(unittest.TestCase):
-    # TODO: this should be removed once we get rid of the global module vars
-
     def test_sanity(self):
         # Import sanity.
 
         from xml.etree import ElementTree
         from xml.etree import ElementInclude
         from xml.etree import ElementPath
+
+    def test_all(self):
+        names = ("xml.etree.ElementTree", "_elementtree")
+        support.check__all__(self, ET, names, blacklist=("HTML_EMPTY",))
 
 
 def serialize(elem, to_string=True, encoding='unicode', **options):
@@ -182,10 +184,12 @@ class ElementTreeTest(unittest.TestCase):
 
         def check_element(element):
             self.assertTrue(ET.iselement(element), msg="not an element")
-            self.assertTrue(hasattr(element, "tag"), msg="no tag member")
-            self.assertTrue(hasattr(element, "attrib"), msg="no attrib member")
-            self.assertTrue(hasattr(element, "text"), msg="no text member")
-            self.assertTrue(hasattr(element, "tail"), msg="no tail member")
+            direlem = dir(element)
+            for attr in 'tag', 'attrib', 'text', 'tail':
+                self.assertTrue(hasattr(element, attr),
+                        msg='no %s member' % attr)
+                self.assertIn(attr, direlem,
+                        msg='no %s visible by dir' % attr)
 
             check_string(element.tag)
             check_mapping(element.attrib)
@@ -404,6 +408,14 @@ class ElementTreeTest(unittest.TestCase):
         elem.attrib['testc'] = 'test2'
         self.assertEqual(ET.tostring(elem),
                 b'<test testa="testval" testb="test1" testc="test2">aa</test>')
+
+        elem = ET.Element('test')
+        elem.set('a', '\r')
+        elem.set('b', '\r\n')
+        elem.set('c', '\t\n\r ')
+        elem.set('d', '\n\n')
+        self.assertEqual(ET.tostring(elem),
+                b'<test a="&#10;" b="&#10;" c="&#09;&#10;&#10; " d="&#10;&#10;" />')
 
     def test_makeelement(self):
         # Test makeelement handling.
@@ -1862,6 +1874,12 @@ class BadElementTest(ElementTestCase, unittest.TestCase):
         e.extend([ET.Element('bar')])
         self.assertRaises(ValueError, e.remove, X('baz'))
 
+    def test_recursive_repr(self):
+        # Issue #25455
+        e = ET.Element('foo')
+        with swap_attr(e, 'tag', e):
+            with self.assertRaises(RuntimeError):
+                repr(e)  # Should not crash
 
 class MutatingElementPath(str):
     def __new__(cls, elem, *args):
@@ -2179,8 +2197,40 @@ class ElementIterTest(unittest.TestCase):
         # make sure both tag=None and tag='*' return all tags
         all_tags = ['document', 'house', 'room', 'room',
                     'shed', 'house', 'room']
+        self.assertEqual(summarize_list(doc.iter()), all_tags)
         self.assertEqual(self._ilist(doc), all_tags)
         self.assertEqual(self._ilist(doc, '*'), all_tags)
+
+    def test_getiterator(self):
+        doc = ET.XML('''
+            <document>
+                <house>
+                    <room>bedroom1</room>
+                    <room>bedroom2</room>
+                </house>
+                <shed>nothing here
+                </shed>
+                <house>
+                    <room>bedroom8</room>
+                </house>
+            </document>''')
+
+        self.assertEqual(summarize_list(doc.getiterator('room')),
+                         ['room'] * 3)
+        self.assertEqual(summarize_list(doc.getiterator('house')),
+                         ['house'] * 2)
+
+        # test that getiterator also accepts 'tag' as a keyword arg
+        self.assertEqual(
+            summarize_list(doc.getiterator(tag='room')),
+            ['room'] * 3)
+
+        # make sure both tag=None and tag='*' return all tags
+        all_tags = ['document', 'house', 'room', 'room',
+                    'shed', 'house', 'room']
+        self.assertEqual(summarize_list(doc.getiterator()), all_tags)
+        self.assertEqual(summarize_list(doc.getiterator(None)), all_tags)
+        self.assertEqual(summarize_list(doc.getiterator('*')), all_tags)
 
     @impl_detail
     def test_copy(self):

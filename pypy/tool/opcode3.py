@@ -33,12 +33,10 @@ hasjabs = []
 haslocal = []
 hascompare = []
 hasfree = []
-hasnargs = []
+hasnargs = [] # unused
 
 opmap = {}
-opname = [''] * 256
-for op in range(256): opname[op] = '<%r>' % (op,)
-del op
+opname = ['<%r>' % (op,) for op in range(256)]
 
 def def_op(name, op):
     opname[op] = name
@@ -123,7 +121,7 @@ def_op('WITH_CLEANUP_FINISH', 82)
 
 def_op('RETURN_VALUE', 83)
 def_op('IMPORT_STAR', 84)
-
+def_op('SETUP_ANNOTATIONS', 85)
 def_op('YIELD_VALUE', 86)
 def_op('POP_BLOCK', 87)
 def_op('END_FINALLY', 88)
@@ -173,13 +171,12 @@ def_op('STORE_FAST', 125)       # Local variable number
 haslocal.append(125)
 def_op('DELETE_FAST', 126)      # Local variable number
 haslocal.append(126)
+name_op('STORE_ANNOTATION', 127) # Index in name list
 
 def_op('RAISE_VARARGS', 130)    # Number of raise arguments (1, 2, or 3)
-def_op('CALL_FUNCTION', 131)    # #args + (#kwargs << 8)
-hasnargs.append(131)
-def_op('MAKE_FUNCTION', 132)    # Number of args with default values
+def_op('CALL_FUNCTION', 131)    # #args
+def_op('MAKE_FUNCTION', 132)    # Flags
 def_op('BUILD_SLICE', 133)      # Number of items
-def_op('MAKE_CLOSURE', 134)
 def_op('LOAD_CLOSURE', 135)
 hasfree.append(135)
 def_op('LOAD_DEREF', 136)
@@ -189,12 +186,8 @@ hasfree.append(137)
 def_op('DELETE_DEREF', 138)
 hasfree.append(138)
 
-def_op('CALL_FUNCTION_VAR', 140)     # #args + (#kwargs << 8)
-hasnargs.append(140)
-def_op('CALL_FUNCTION_KW', 141)      # #args + (#kwargs << 8)
-hasnargs.append(141)
-def_op('CALL_FUNCTION_VAR_KW', 142)  # #args + (#kwargs << 8)
-hasnargs.append(142)
+def_op('CALL_FUNCTION_KW', 141)  # #args + #kwargs
+def_op('CALL_FUNCTION_EX', 142)  # Flags
 
 jrel_op('SETUP_WITH', 143)
 
@@ -205,8 +198,6 @@ def_op('MAP_ADD', 147)
 def_op('LOAD_CLASSDEREF', 148)
 hasfree.append(148)
 
-jrel_op('SETUP_ASYNC_WITH', 154)
-
 def_op('EXTENDED_ARG', 144)
 EXTENDED_ARG = 144
 
@@ -215,6 +206,13 @@ def_op('BUILD_MAP_UNPACK', 150)
 def_op('BUILD_MAP_UNPACK_WITH_CALL', 151)
 def_op('BUILD_TUPLE_UNPACK', 152)
 def_op('BUILD_SET_UNPACK', 153)
+
+jrel_op('SETUP_ASYNC_WITH', 154)
+
+def_op('FORMAT_VALUE', 155)
+def_op('BUILD_CONST_KEY_MAP', 156)
+def_op('BUILD_STRING', 157)
+def_op('BUILD_TUPLE_UNPACK_WITH_CALL', 158)
 
 # pypy modification, experimental bytecode
 def_op('LOOKUP_METHOD', 201)          # Index in name list

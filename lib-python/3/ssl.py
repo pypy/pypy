@@ -51,6 +51,9 @@ The following constants identify various SSL protocol variants:
 PROTOCOL_SSLv2
 PROTOCOL_SSLv3
 PROTOCOL_SSLv23
+PROTOCOL_TLS
+PROTOCOL_TLS_CLIENT
+PROTOCOL_TLS_SERVER
 PROTOCOL_TLSv1
 PROTOCOL_TLSv1_1
 PROTOCOL_TLSv1_2
@@ -93,17 +96,16 @@ import re
 import sys
 import os
 from collections import namedtuple
-from enum import Enum as _Enum, IntEnum as _IntEnum
+from enum import Enum as _Enum, IntEnum as _IntEnum, IntFlag as _IntFlag
 
 import _ssl             # if we can't import it, let the error propagate
 
 from _ssl import OPENSSL_VERSION_NUMBER, OPENSSL_VERSION_INFO, OPENSSL_VERSION
-from _ssl import _SSLContext, MemoryBIO
+from _ssl import _SSLContext, MemoryBIO, SSLSession
 from _ssl import (
     SSLError, SSLZeroReturnError, SSLWantReadError, SSLWantWriteError,
     SSLSyscallError, SSLEOFError,
     )
-from _ssl import CERT_NONE, CERT_OPTIONAL, CERT_REQUIRED
 from _ssl import txt2obj as _txt2obj, nid2obj as _nid2obj
 from _ssl import RAND_status, RAND_add, RAND_bytes, RAND_pseudo_bytes
 try:
@@ -112,31 +114,47 @@ except ImportError:
     # LibreSSL does not provide RAND_egd
     pass
 
-def _import_symbols(prefix):
-    for n in dir(_ssl):
-        if n.startswith(prefix):
-            globals()[n] = getattr(_ssl, n)
-
-_import_symbols('OP_')
-_import_symbols('ALERT_DESCRIPTION_')
-_import_symbols('SSL_ERROR_')
-_import_symbols('VERIFY_')
 
 from _ssl import HAS_SNI, HAS_ECDH, HAS_NPN, HAS_ALPN
-
 from _ssl import _OPENSSL_API_VERSION
 
-_IntEnum._convert(
-        '_SSLMethod', __name__,
-        lambda name: name.startswith('PROTOCOL_'),
-        source=_ssl)
 
+_IntEnum._convert(
+    '_SSLMethod', __name__,
+    lambda name: name.startswith('PROTOCOL_') and name != 'PROTOCOL_SSLv23',
+    source=_ssl)
+
+_IntFlag._convert(
+    'Options', __name__,
+    lambda name: name.startswith('OP_'),
+    source=_ssl)
+
+_IntEnum._convert(
+    'AlertDescription', __name__,
+    lambda name: name.startswith('ALERT_DESCRIPTION_'),
+    source=_ssl)
+
+_IntEnum._convert(
+    'SSLErrorNumber', __name__,
+    lambda name: name.startswith('SSL_ERROR_'),
+    source=_ssl)
+
+_IntFlag._convert(
+    'VerifyFlags', __name__,
+    lambda name: name.startswith('VERIFY_'),
+    source=_ssl)
+
+_IntEnum._convert(
+    'VerifyMode', __name__,
+    lambda name: name.startswith('CERT_'),
+    source=_ssl)
+
+
+PROTOCOL_SSLv23 = _SSLMethod.PROTOCOL_SSLv23 = _SSLMethod.PROTOCOL_TLS
 _PROTOCOL_NAMES = {value: name for name, value in _SSLMethod.__members__.items()}
 
-try:
-    _SSLv2_IF_EXISTS = PROTOCOL_SSLv2
-except NameError:
-    _SSLv2_IF_EXISTS = None
+_SSLv2_IF_EXISTS = getattr(_SSLMethod, 'PROTOCOL_SSLv2', None)
+
 
 if sys.platform == "win32":
     from _ssl import enum_certificates, enum_crls
@@ -155,36 +173,42 @@ if _ssl.HAS_TLS_UNIQUE:
 else:
     CHANNEL_BINDING_TYPES = []
 
+
 # Disable weak or insecure ciphers by default
 # (OpenSSL's default setting is 'DEFAULT:!aNULL:!eNULL')
 # Enable a better set of ciphers by default
 # This list has been explicitly chosen to:
 #   * Prefer cipher suites that offer perfect forward secrecy (DHE/ECDHE)
 #   * Prefer ECDHE over DHE for better performance
-#   * Prefer any AES-GCM over any AES-CBC for better performance and security
+#   * Prefer AEAD over CBC for better performance and security
+#   * Prefer AES-GCM over ChaCha20 because most platforms have AES-NI
+#     (ChaCha20 needs OpenSSL 1.1.0 or patched 1.0.2)
+#   * Prefer any AES-GCM and ChaCha20 over any AES-CBC for better
+#     performance and security
 #   * Then Use HIGH cipher suites as a fallback
-#   * Then Use 3DES as fallback which is secure but slow
-#   * Disable NULL authentication, NULL encryption, and MD5 MACs for security
-#     reasons
+#   * Disable NULL authentication, NULL encryption, 3DES and MD5 MACs
+#     for security reasons
 _DEFAULT_CIPHERS = (
-    'ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:ECDH+AES128:DH+AES:ECDH+HIGH:'
-    'DH+HIGH:ECDH+3DES:DH+3DES:RSA+AESGCM:RSA+AES:RSA+HIGH:RSA+3DES:!aNULL:'
-    '!eNULL:!MD5'
-)
+    'ECDH+AESGCM:ECDH+CHACHA20:DH+AESGCM:DH+CHACHA20:ECDH+AES256:DH+AES256:'
+    'ECDH+AES128:DH+AES:ECDH+HIGH:DH+HIGH:RSA+AESGCM:RSA+AES:RSA+HIGH:'
+    '!aNULL:!eNULL:!MD5:!3DES'
+    )
 
 # Restricted and more secure ciphers for the server side
 # This list has been explicitly chosen to:
 #   * Prefer cipher suites that offer perfect forward secrecy (DHE/ECDHE)
 #   * Prefer ECDHE over DHE for better performance
-#   * Prefer any AES-GCM over any AES-CBC for better performance and security
+#   * Prefer AEAD over CBC for better performance and security
+#   * Prefer AES-GCM over ChaCha20 because most platforms have AES-NI
+#   * Prefer any AES-GCM and ChaCha20 over any AES-CBC for better
+#     performance and security
 #   * Then Use HIGH cipher suites as a fallback
-#   * Then Use 3DES as fallback which is secure but slow
-#   * Disable NULL authentication, NULL encryption, MD5 MACs, DSS, and RC4 for
-#     security reasons
+#   * Disable NULL authentication, NULL encryption, MD5 MACs, DSS, RC4, and
+#     3DES for security reasons
 _RESTRICTED_SERVER_CIPHERS = (
-    'ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:ECDH+AES128:DH+AES:ECDH+HIGH:'
-    'DH+HIGH:ECDH+3DES:DH+3DES:RSA+AESGCM:RSA+AES:RSA+HIGH:RSA+3DES:!aNULL:'
-    '!eNULL:!MD5:!DSS:!RC4'
+    'ECDH+AESGCM:ECDH+CHACHA20:DH+AESGCM:DH+CHACHA20:ECDH+AES256:DH+AES256:'
+    'ECDH+AES128:DH+AES:ECDH+HIGH:DH+HIGH:RSA+AESGCM:RSA+AES:RSA+HIGH:'
+    '!aNULL:!eNULL:!MD5:!DSS:!RC4:!3DES'
 )
 
 
@@ -357,30 +381,30 @@ class SSLContext(_SSLContext):
     __slots__ = ('protocol', '__weakref__')
     _windows_cert_stores = ("CA", "ROOT")
 
-    def __new__(cls, protocol, *args, **kwargs):
+    def __new__(cls, protocol=PROTOCOL_TLS, *args, **kwargs):
         self = _SSLContext.__new__(cls, protocol)
         if protocol != _SSLv2_IF_EXISTS:
             self.set_ciphers(_DEFAULT_CIPHERS)
         return self
 
-    def __init__(self, protocol):
+    def __init__(self, protocol=PROTOCOL_TLS):
         self.protocol = protocol
 
     def wrap_socket(self, sock, server_side=False,
                     do_handshake_on_connect=True,
                     suppress_ragged_eofs=True,
-                    server_hostname=None):
+                    server_hostname=None, session=None):
         return SSLSocket(sock=sock, server_side=server_side,
                          do_handshake_on_connect=do_handshake_on_connect,
                          suppress_ragged_eofs=suppress_ragged_eofs,
                          server_hostname=server_hostname,
-                         _context=self)
+                         _context=self, _session=session)
 
     def wrap_bio(self, incoming, outgoing, server_side=False,
-                 server_hostname=None):
+                 server_hostname=None, session=None):
         sslobj = self._wrap_bio(incoming, outgoing, server_side=server_side,
                                 server_hostname=server_hostname)
-        return SSLObject(sslobj)
+        return SSLObject(sslobj, session=session)
 
     def set_npn_protocols(self, npn_protocols):
         protos = bytearray()
@@ -426,6 +450,34 @@ class SSLContext(_SSLContext):
                 self._load_windows_store_certs(storename, purpose)
         self.set_default_verify_paths()
 
+    @property
+    def options(self):
+        return Options(super().options)
+
+    @options.setter
+    def options(self, value):
+        super(SSLContext, SSLContext).options.__set__(self, value)
+
+    @property
+    def verify_flags(self):
+        return VerifyFlags(super().verify_flags)
+
+    @verify_flags.setter
+    def verify_flags(self, value):
+        super(SSLContext, SSLContext).verify_flags.__set__(self, value)
+
+    @property
+    def verify_mode(self):
+        value = super().verify_mode
+        try:
+            return VerifyMode(value)
+        except ValueError:
+            return value
+
+    @verify_mode.setter
+    def verify_mode(self, value):
+        super(SSLContext, SSLContext).verify_mode.__set__(self, value)
+
 
 def create_default_context(purpose=Purpose.SERVER_AUTH, *, cafile=None,
                            capath=None, cadata=None):
@@ -438,32 +490,16 @@ def create_default_context(purpose=Purpose.SERVER_AUTH, *, cafile=None,
     if not isinstance(purpose, _ASN1Object):
         raise TypeError(purpose)
 
-    context = SSLContext(PROTOCOL_SSLv23)
-
-    # SSLv2 considered harmful.
-    context.options |= OP_NO_SSLv2
-
-    # SSLv3 has problematic security and is only required for really old
-    # clients such as IE6 on Windows XP
-    context.options |= OP_NO_SSLv3
-
-    # disable compression to prevent CRIME attacks (OpenSSL 1.0+)
-    context.options |= getattr(_ssl, "OP_NO_COMPRESSION", 0)
+    # SSLContext sets OP_NO_SSLv2, OP_NO_SSLv3, OP_NO_COMPRESSION,
+    # OP_CIPHER_SERVER_PREFERENCE, OP_SINGLE_DH_USE and OP_SINGLE_ECDH_USE
+    # by default.
+    context = SSLContext(PROTOCOL_TLS)
 
     if purpose == Purpose.SERVER_AUTH:
         # verify certs and host name in client mode
         context.verify_mode = CERT_REQUIRED
         context.check_hostname = True
     elif purpose == Purpose.CLIENT_AUTH:
-        # Prefer the server's ciphers by default so that we get stronger
-        # encryption
-        context.options |= getattr(_ssl, "OP_CIPHER_SERVER_PREFERENCE", 0)
-
-        # Use single use keys in order to improve forward secrecy
-        context.options |= getattr(_ssl, "OP_SINGLE_DH_USE", 0)
-        context.options |= getattr(_ssl, "OP_SINGLE_ECDH_USE", 0)
-
-        # disallow ciphers with known vulnerabilities
         context.set_ciphers(_RESTRICTED_SERVER_CIPHERS)
 
     if cafile or capath or cadata:
@@ -475,7 +511,7 @@ def create_default_context(purpose=Purpose.SERVER_AUTH, *, cafile=None,
         context.load_default_certs(purpose)
     return context
 
-def _create_unverified_context(protocol=PROTOCOL_SSLv23, *, cert_reqs=None,
+def _create_unverified_context(protocol=PROTOCOL_TLS, *, cert_reqs=None,
                            check_hostname=False, purpose=Purpose.SERVER_AUTH,
                            certfile=None, keyfile=None,
                            cafile=None, capath=None, cadata=None):
@@ -489,12 +525,10 @@ def _create_unverified_context(protocol=PROTOCOL_SSLv23, *, cert_reqs=None,
     if not isinstance(purpose, _ASN1Object):
         raise TypeError(purpose)
 
+    # SSLContext sets OP_NO_SSLv2, OP_NO_SSLv3, OP_NO_COMPRESSION,
+    # OP_CIPHER_SERVER_PREFERENCE, OP_SINGLE_DH_USE and OP_SINGLE_ECDH_USE
+    # by default.
     context = SSLContext(protocol)
-    # SSLv2 considered harmful.
-    context.options |= OP_NO_SSLv2
-    # SSLv3 has problematic security and is only required for really old
-    # clients such as IE6 on Windows XP
-    context.options |= OP_NO_SSLv3
 
     if cert_reqs is not None:
         context.verify_mode = cert_reqs
@@ -540,10 +574,12 @@ class SSLObject:
      * The ``do_handshake_on_connect`` and ``suppress_ragged_eofs`` machinery.
     """
 
-    def __init__(self, sslobj, owner=None):
+    def __init__(self, sslobj, owner=None, session=None):
         self._sslobj = sslobj
         # Note: _sslobj takes a weak reference to owner
         self._sslobj.owner = owner or self
+        if session is not None:
+            self._sslobj.session = session
 
     @property
     def context(self):
@@ -553,6 +589,20 @@ class SSLObject:
     @context.setter
     def context(self, ctx):
         self._sslobj.context = ctx
+
+    @property
+    def session(self):
+        """The SSLSession for client socket."""
+        return self._sslobj.session
+
+    @session.setter
+    def session(self, session):
+        self._sslobj.session = session
+
+    @property
+    def session_reused(self):
+        """Was the client session reused during handshake"""
+        return self._sslobj.session_reused
 
     @property
     def server_side(self):
@@ -666,12 +716,12 @@ class SSLSocket(socket):
 
     def __init__(self, sock=None, keyfile=None, certfile=None,
                  server_side=False, cert_reqs=CERT_NONE,
-                 ssl_version=PROTOCOL_SSLv23, ca_certs=None,
+                 ssl_version=PROTOCOL_TLS, ca_certs=None,
                  do_handshake_on_connect=True,
                  family=AF_INET, type=SOCK_STREAM, proto=0, fileno=None,
                  suppress_ragged_eofs=True, npn_protocols=None, ciphers=None,
                  server_hostname=None,
-                 _context=None):
+                 _context=None, _session=None):
 
         if _context:
             self._context = _context
@@ -703,11 +753,16 @@ class SSLSocket(socket):
         # mixed in.
         if sock.getsockopt(SOL_SOCKET, SO_TYPE) != SOCK_STREAM:
             raise NotImplementedError("only stream sockets are supported")
-        if server_side and server_hostname:
-            raise ValueError("server_hostname can only be specified "
-                             "in client mode")
+        if server_side:
+            if server_hostname:
+                raise ValueError("server_hostname can only be specified "
+                                 "in client mode")
+            if _session is not None:
+                raise ValueError("session can only be specified in "
+                                 "client mode")
         if self._context.check_hostname and not server_hostname:
             raise ValueError("check_hostname requires server_hostname")
+        self._session = _session
         self.server_side = server_side
         self.server_hostname = server_hostname
         self.do_handshake_on_connect = do_handshake_on_connect
@@ -743,7 +798,8 @@ class SSLSocket(socket):
             try:
                 sslobj = self._context._wrap_socket(self, server_side,
                                                     server_hostname)
-                self._sslobj = SSLObject(sslobj, owner=self)
+                self._sslobj = SSLObject(sslobj, owner=self,
+                                         session=self._session)
                 if do_handshake_on_connect:
                     timeout = self.gettimeout()
                     if timeout == 0.0:
@@ -763,6 +819,24 @@ class SSLSocket(socket):
     def context(self, ctx):
         self._context = ctx
         self._sslobj.context = ctx
+
+    @property
+    def session(self):
+        """The SSLSession for client socket."""
+        if self._sslobj is not None:
+            return self._sslobj.session
+
+    @session.setter
+    def session(self, session):
+        self._session = session
+        if self._sslobj is not None:
+            self._sslobj.session = session
+
+    @property
+    def session_reused(self):
+        """Was the client session reused during handshake"""
+        if self._sslobj is not None:
+            return self._sslobj.session_reused
 
     def dup(self):
         raise NotImplemented("Can't dup() %s instances" %
@@ -890,7 +964,6 @@ class SSLSocket(socket):
             while (count < amount):
                 v = self.send(data[count:])
                 count += v
-            return amount
         else:
             return socket.sendall(self, data, flags)
 
@@ -997,7 +1070,8 @@ class SSLSocket(socket):
         if self._connected:
             raise ValueError("attempt to connect already-connected SSLSocket!")
         sslobj = self.context._wrap_socket(self, False, self.server_hostname)
-        self._sslobj = SSLObject(sslobj, owner=self)
+        self._sslobj = SSLObject(sslobj, owner=self,
+                                 session=self._session)
         try:
             if connect_ex:
                 rc = socket.connect_ex(self, addr)
@@ -1056,11 +1130,10 @@ class SSLSocket(socket):
 
 def wrap_socket(sock, keyfile=None, certfile=None,
                 server_side=False, cert_reqs=CERT_NONE,
-                ssl_version=PROTOCOL_SSLv23, ca_certs=None,
+                ssl_version=PROTOCOL_TLS, ca_certs=None,
                 do_handshake_on_connect=True,
                 suppress_ragged_eofs=True,
                 ciphers=None):
-
     return SSLSocket(sock=sock, keyfile=keyfile, certfile=certfile,
                      server_side=server_side, cert_reqs=cert_reqs,
                      ssl_version=ssl_version, ca_certs=ca_certs,
@@ -1125,7 +1198,7 @@ def PEM_cert_to_DER_cert(pem_cert_string):
     d = pem_cert_string.strip()[len(PEM_HEADER):-len(PEM_FOOTER)]
     return base64.decodebytes(d.encode('ASCII', 'strict'))
 
-def get_server_certificate(addr, ssl_version=PROTOCOL_SSLv23, ca_certs=None):
+def get_server_certificate(addr, ssl_version=PROTOCOL_TLS, ca_certs=None):
     """Retrieve the certificate from the server at the specified address,
     and return it as a PEM-encoded string.
     If 'ca_certs' is specified, validate the server cert against it.

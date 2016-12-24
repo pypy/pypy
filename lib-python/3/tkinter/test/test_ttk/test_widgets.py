@@ -1487,6 +1487,98 @@ class TreeviewTest(AbstractWidgetTest, unittest.TestCase):
             value)
 
 
+    def test_selection(self):
+        self.assertRaises(TypeError, self.tv.selection, 'spam')
+        # item 'none' doesn't exist
+        self.assertRaises(tkinter.TclError, self.tv.selection_set, 'none')
+        self.assertRaises(tkinter.TclError, self.tv.selection_add, 'none')
+        self.assertRaises(tkinter.TclError, self.tv.selection_remove, 'none')
+        self.assertRaises(tkinter.TclError, self.tv.selection_toggle, 'none')
+
+        item1 = self.tv.insert('', 'end')
+        item2 = self.tv.insert('', 'end')
+        c1 = self.tv.insert(item1, 'end')
+        c2 = self.tv.insert(item1, 'end')
+        c3 = self.tv.insert(item1, 'end')
+        self.assertEqual(self.tv.selection(), ())
+
+        self.tv.selection_set(c1, item2)
+        self.assertEqual(self.tv.selection(), (c1, item2))
+        self.tv.selection_set(c2)
+        self.assertEqual(self.tv.selection(), (c2,))
+
+        self.tv.selection_add(c1, item2)
+        self.assertEqual(self.tv.selection(), (c1, c2, item2))
+        self.tv.selection_add(item1)
+        self.assertEqual(self.tv.selection(), (item1, c1, c2, item2))
+        self.tv.selection_add()
+        self.assertEqual(self.tv.selection(), (item1, c1, c2, item2))
+
+        self.tv.selection_remove(item1, c3)
+        self.assertEqual(self.tv.selection(), (c1, c2, item2))
+        self.tv.selection_remove(c2)
+        self.assertEqual(self.tv.selection(), (c1, item2))
+        self.tv.selection_remove()
+        self.assertEqual(self.tv.selection(), (c1, item2))
+
+        self.tv.selection_toggle(c1, c3)
+        self.assertEqual(self.tv.selection(), (c3, item2))
+        self.tv.selection_toggle(item2)
+        self.assertEqual(self.tv.selection(), (c3,))
+        self.tv.selection_toggle()
+        self.assertEqual(self.tv.selection(), (c3,))
+
+        self.tv.insert('', 'end', id='with spaces')
+        self.tv.selection_set('with spaces')
+        self.assertEqual(self.tv.selection(), ('with spaces',))
+
+        self.tv.insert('', 'end', id='{brace')
+        self.tv.selection_set('{brace')
+        self.assertEqual(self.tv.selection(), ('{brace',))
+
+        self.tv.insert('', 'end', id='unicode\u20ac')
+        self.tv.selection_set('unicode\u20ac')
+        self.assertEqual(self.tv.selection(), ('unicode\u20ac',))
+
+        self.tv.insert('', 'end', id=b'bytes\xe2\x82\xac')
+        self.tv.selection_set(b'bytes\xe2\x82\xac')
+        self.assertEqual(self.tv.selection(), ('bytes\xe2\x82\xac',))
+
+        self.tv.selection_set()
+        self.assertEqual(self.tv.selection(), ())
+
+        # Old interface
+        self.tv.selection_set((c1, item2))
+        self.assertEqual(self.tv.selection(), (c1, item2))
+        self.tv.selection_add((c1, item1))
+        self.assertEqual(self.tv.selection(), (item1, c1, item2))
+        self.tv.selection_remove((item1, c3))
+        self.assertEqual(self.tv.selection(), (c1, item2))
+        self.tv.selection_toggle((c1, c3))
+        self.assertEqual(self.tv.selection(), (c3, item2))
+
+        if sys.version_info >= (3, 7):
+            import warnings
+            warnings.warn(
+                'Deprecated API of Treeview.selection() should be removed')
+        self.tv.selection_set()
+        self.assertEqual(self.tv.selection(), ())
+        with self.assertWarns(DeprecationWarning):
+            self.tv.selection('set', (c1, item2))
+        self.assertEqual(self.tv.selection(), (c1, item2))
+        with self.assertWarns(DeprecationWarning):
+            self.tv.selection('add', (c1, item1))
+        self.assertEqual(self.tv.selection(), (item1, c1, item2))
+        with self.assertWarns(DeprecationWarning):
+            self.tv.selection('remove', (item1, c3))
+        self.assertEqual(self.tv.selection(), (c1, item2))
+        with self.assertWarns(DeprecationWarning):
+            self.tv.selection('toggle', (c1, c3))
+        self.assertEqual(self.tv.selection(), (c3, item2))
+        with self.assertWarns(DeprecationWarning):
+            selection = self.tv.selection(None)
+        self.assertEqual(selection, (c3, item2))
+
     def test_set(self):
         self.tv['columns'] = ['A', 'B']
         item = self.tv.insert('', 'end', values=['a', 'b'])

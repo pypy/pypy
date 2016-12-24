@@ -7,6 +7,7 @@ from test.support import run_unittest, TESTFN, unlink
 import cProfile
 from test.test_profile import ProfileTest, regenerate_expected_output
 
+
 class CProfileTest(ProfileTest):
     profilerclass = cProfile.Profile
     profilermodule = cProfile

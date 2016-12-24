@@ -133,6 +133,17 @@ class SymtableTest(unittest.TestCase):
         self.assertTrue(self.Mine.lookup("a_method").is_assigned())
         self.assertFalse(self.internal.lookup("x").is_assigned())
 
+    def test_annotated(self):
+        st1 = symtable.symtable('def f():\n    x: int\n', 'test', 'exec')
+        st2 = st1.get_children()[0]
+        self.assertTrue(st2.lookup('x').is_local())
+        self.assertTrue(st2.lookup('x').is_annotated())
+        self.assertFalse(st2.lookup('x').is_global())
+        st3 = symtable.symtable('def f():\n    x = 1\n', 'test', 'exec')
+        st4 = st3.get_children()[0]
+        self.assertTrue(st4.lookup('x').is_local())
+        self.assertFalse(st4.lookup('x').is_annotated())
+
     def test_imported(self):
         self.assertTrue(self.top.lookup("sys").is_imported())
 
@@ -157,6 +168,14 @@ class SymtableTest(unittest.TestCase):
                 self.fail("no SyntaxError for %r" % (brokencode,))
         checkfilename("def f(x): foo)(")  # parse-time
         checkfilename("def f(x): global x")  # symtable-build-time
+        symtable.symtable("pass", b"spam", "exec")
+        with self.assertWarns(DeprecationWarning), \
+             self.assertRaises(TypeError):
+            symtable.symtable("pass", bytearray(b"spam"), "exec")
+        with self.assertWarns(DeprecationWarning):
+            symtable.symtable("pass", memoryview(b"spam"), "exec")
+        with self.assertRaises(TypeError):
+            symtable.symtable("pass", list(b"spam"), "exec")
 
     def test_eval(self):
         symbols = symtable.symtable("42", "?", "eval")

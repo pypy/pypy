@@ -311,10 +311,12 @@ if ssl is not None:
         _ssl_closing = False
 
         def secure_connection(self):
-            socket = ssl.wrap_socket(self.socket, suppress_ragged_eofs=False,
-                                     certfile=CERTFILE, server_side=True,
-                                     do_handshake_on_connect=False,
-                                     ssl_version=ssl.PROTOCOL_SSLv23)
+            context = ssl.SSLContext()
+            context.load_cert_chain(CERTFILE)
+            socket = context.wrap_socket(self.socket,
+                                         suppress_ragged_eofs=False,
+                                         server_side=True,
+                                         do_handshake_on_connect=False)
             self.del_channel()
             self.set_socket(socket)
             self._ssl_accepting = True
@@ -1049,10 +1051,19 @@ class TestTimeouts(TestCase):
         ftp.close()
 
 
+class MiscTestCase(TestCase):
+    def test__all__(self):
+        blacklist = {'MSG_OOB', 'FTP_PORT', 'MAXLINE', 'CRLF', 'B_CRLF',
+                     'Error', 'parse150', 'parse227', 'parse229', 'parse257',
+                     'print_line', 'ftpcp', 'test'}
+        support.check__all__(self, ftplib, blacklist=blacklist)
+
+
 def test_main():
     tests = [TestFTPClass, TestTimeouts,
              TestIPv6Environment,
-             TestTLS_FTPClassMixin, TestTLS_FTPClass]
+             TestTLS_FTPClassMixin, TestTLS_FTPClass,
+             MiscTestCase]
 
     thread_info = support.threading_setup()
     try:

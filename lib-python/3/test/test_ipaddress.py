@@ -119,7 +119,7 @@ class CommonTestMixin_v4(CommonTestMixin):
 
     def test_bad_packed_length(self):
         def assertBadLength(length):
-            addr = bytes(length)
+            addr = b'\0' * length
             msg = "%r (len %d != 4) is not permitted as an IPv4 address"
             with self.assertAddressError(re.escape(msg % (addr, length))):
                 self.factory(addr)
@@ -139,11 +139,11 @@ class CommonTestMixin_v6(CommonTestMixin):
         self.assertInstancesEqual(3232235521, "::c0a8:1")
 
     def test_packed(self):
-        addr = bytes(12) + bytes.fromhex("00000000")
+        addr = b'\0'*12 + bytes.fromhex("00000000")
         self.assertInstancesEqual(addr, "::")
-        addr = bytes(12) + bytes.fromhex("c0a80001")
+        addr = b'\0'*12 + bytes.fromhex("c0a80001")
         self.assertInstancesEqual(addr, "::c0a8:1")
-        addr = bytes.fromhex("c0a80001") + bytes(12)
+        addr = bytes.fromhex("c0a80001") + b'\0'*12
         self.assertInstancesEqual(addr, "c0a8:1::")
 
     def test_negative_ints_rejected(self):
@@ -158,7 +158,7 @@ class CommonTestMixin_v6(CommonTestMixin):
 
     def test_bad_packed_length(self):
         def assertBadLength(length):
-            addr = bytes(length)
+            addr = b'\0' * length
             msg = "%r (len %d != 16) is not permitted as an IPv6 address"
             with self.assertAddressError(re.escape(msg % (addr, length))):
                 self.factory(addr)
@@ -734,7 +734,7 @@ class IpaddrUnitTest(unittest.TestCase):
         self.assertEqual("IPv6Interface('::1/128')",
                          repr(ipaddress.IPv6Interface('::1')))
 
-    # issue #16531: constructing IPv4Network from a (address, mask) tuple
+    # issue #16531: constructing IPv4Network from an (address, mask) tuple
     def testIPv4Tuple(self):
         # /32
         ip = ipaddress.IPv4Address('192.0.2.1')
@@ -797,7 +797,7 @@ class IpaddrUnitTest(unittest.TestCase):
         self.assertEqual(ipaddress.IPv4Interface((3221225985, 24)),
                          ipaddress.IPv4Interface('192.0.2.1/24'))
 
-    # issue #16531: constructing IPv6Network from a (address, mask) tuple
+    # issue #16531: constructing IPv6Network from an (address, mask) tuple
     def testIPv6Tuple(self):
         # /128
         ip = ipaddress.IPv6Address('2001:db8::')
@@ -1176,6 +1176,7 @@ class IpaddrUnitTest(unittest.TestCase):
 
         self.assertEqual(str(self.ipv6_network[5]),
                          '2001:658:22a:cafe::5')
+        self.assertRaises(IndexError, self.ipv6_network.__getitem__, 1 << 64)
 
     def testGetitem(self):
         # http://code.google.com/p/ipaddr-py/issues/detail?id=15
@@ -1262,7 +1263,7 @@ class IpaddrUnitTest(unittest.TestCase):
         ip4 = ipaddress.IPv4Address('1.1.1.3')
         ip5 = ipaddress.IPv4Address('1.1.1.4')
         ip6 = ipaddress.IPv4Address('1.1.1.0')
-        # check that addreses are subsumed properly.
+        # check that addresses are subsumed properly.
         collapsed = ipaddress.collapse_addresses(
             [ip1, ip2, ip3, ip4, ip5, ip6])
         self.assertEqual(list(collapsed),
@@ -1276,7 +1277,7 @@ class IpaddrUnitTest(unittest.TestCase):
         ip4 = ipaddress.IPv4Address('1.1.1.3')
         #ip5 = ipaddress.IPv4Interface('1.1.1.4/30')
         #ip6 = ipaddress.IPv4Interface('1.1.1.4/30')
-        # check that addreses are subsumed properly.
+        # check that addresses are subsumed properly.
         collapsed = ipaddress.collapse_addresses([ip1, ip2, ip3, ip4])
         self.assertEqual(list(collapsed),
                          [ipaddress.IPv4Network('1.1.1.0/30')])
@@ -1290,7 +1291,7 @@ class IpaddrUnitTest(unittest.TestCase):
         # stored in no particular order b/c we want CollapseAddr to call
         # [].sort
         ip6 = ipaddress.IPv4Network('1.1.0.0/22')
-        # check that addreses are subsumed properly.
+        # check that addresses are subsumed properly.
         collapsed = ipaddress.collapse_addresses([ip1, ip2, ip3, ip4, ip5,
                                                      ip6])
         self.assertEqual(list(collapsed),

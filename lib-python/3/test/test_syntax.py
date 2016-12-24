@@ -35,14 +35,6 @@ SyntaxError: invalid syntax
 Traceback (most recent call last):
 SyntaxError: can't assign to keyword
 
-It's a syntax error to assign to the empty tuple.  Why isn't it an
-error to assign to the empty list?  It will always raise some error at
-runtime.
-
->>> () = 1
-Traceback (most recent call last):
-SyntaxError: can't assign to ()
-
 >>> f() = 1
 Traceback (most recent call last):
 SyntaxError: can't assign to function call
@@ -342,7 +334,9 @@ isn't, there should be a syntax error.
      ...
    SyntaxError: 'break' outside loop
 
-This should probably raise a better error than a SystemError (or none at all).
+This raises a SyntaxError, it used to raise a SystemError.
+Context for this change can be found on issue #27514
+
 In 2.5 there was a missing exception and an assert was triggered in a debug
 build.  The number of blocks must be greater than CO_MAXBLOCKS.  SF #1565514
 
@@ -370,9 +364,25 @@ build.  The number of blocks must be greater than CO_MAXBLOCKS.  SF #1565514
    ...                      break
    Traceback (most recent call last):
      ...
-   SystemError: too many statically nested blocks
+   SyntaxError: too many statically nested blocks
 
-Misuse of the nonlocal statement can lead to a few unique syntax errors.
+Misuse of the nonlocal and global statement can lead to a few unique syntax errors.
+
+   >>> def f():
+   ...     x = 1
+   ...     global x
+   Traceback (most recent call last):
+     ...
+   SyntaxError: name 'x' is assigned to before global declaration
+
+   >>> def f():
+   ...     x = 1
+   ...     def g():
+   ...         print(x)
+   ...         nonlocal x
+   Traceback (most recent call last):
+     ...
+   SyntaxError: name 'x' is used prior to nonlocal declaration
 
    >>> def f(x):
    ...     nonlocal x
@@ -490,10 +500,6 @@ Make sure that the old "raise X, Y[, Z]" form is gone:
 Traceback (most recent call last):
    ...
 SyntaxError: keyword argument repeated
-
->>> del ()
-Traceback (most recent call last):
-SyntaxError: can't delete ()
 
 >>> {1, 2, 3} = 42
 Traceback (most recent call last):

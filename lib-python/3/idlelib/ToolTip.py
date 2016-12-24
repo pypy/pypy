@@ -1,4 +1,4 @@
-# general purpose 'tooltip' routines - currently unused in idlefork
+# general purpose 'tooltip' routines - currently unused in idlelib
 # (although the 'calltips' extension is partly based on this code)
 # may be useful for some purposes in (or almost in ;) the current project scope
 # Ideas gleaned from PySol
@@ -76,21 +76,20 @@ class ListboxToolTip(ToolTipBase):
         for item in self.items:
             listbox.insert(END, item)
 
-def _tooltip(parent):
-    root = Tk()
-    root.title("Test tooltip")
-    width, height, x, y = list(map(int, re.split('[x+]', parent.geometry())))
-    root.geometry("+%d+%d"%(x, y + 150))
-    label = Label(root, text="Place your mouse over buttons")
+def _tooltip(parent):  # htest #
+    top = Toplevel(parent)
+    top.title("Test tooltip")
+    x, y = map(int, parent.geometry().split('+')[1:])
+    top.geometry("+%d+%d" % (x, y + 150))
+    label = Label(top, text="Place your mouse over buttons")
     label.pack()
-    button1 = Button(root, text="Button 1")
-    button2 = Button(root, text="Button 2")
+    button1 = Button(top, text="Button 1")
+    button2 = Button(top, text="Button 2")
     button1.pack()
     button2.pack()
     ToolTip(button1, "This is tooltip text for button1.")
     ListboxToolTip(button2, ["This is","multiple line",
                             "tooltip text","for button2"])
-    root.mainloop()
 
 if __name__ == '__main__':
     from idlelib.idle_test.htest import run

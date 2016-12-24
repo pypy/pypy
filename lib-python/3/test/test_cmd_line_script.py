@@ -142,9 +142,8 @@ class CmdLineTest(unittest.TestCase):
                             expected_argv0, expected_path0,
                             expected_package, expected_loader,
                             *cmd_line_switches):
-        if not __debug__:
-            cmd_line_switches += ('-' + 'O' * sys.flags.optimize,)
-        run_args = cmd_line_switches + (script_name,) + tuple(example_args)
+        run_args = [*support.optim_args_from_interpreter_flags(),
+                    *cmd_line_switches, script_name, *example_args]
         rc, out, err = assert_python_ok(*run_args, __isolated=False)
         self._check_output(script_name, rc, out + err, expected_file,
                            expected_argv0, expected_path0,
@@ -432,9 +431,10 @@ class CmdLineTest(unittest.TestCase):
         # Exercise error reporting for various invalid package executions
         tests = (
             ('builtins', br'No code object available'),
-            ('builtins.x', br'Error while finding spec.*AttributeError'),
-            ('builtins.x.y', br'Error while finding spec.*'
-                br'ImportError.*No module named.*not a package'),
+            ('builtins.x', br'Error while finding module specification.*'
+                br'AttributeError'),
+            ('builtins.x.y', br'Error while finding module specification.*'
+                br'ModuleNotFoundError.*No module named.*not a package'),
             ('os.path', br'loader.*cannot handle'),
             ('importlib', br'No module named.*'
                 br'is a package and cannot be directly executed'),
@@ -456,7 +456,8 @@ class CmdLineTest(unittest.TestCase):
             with open('test_pkg/__init__.pyc', 'wb'):
                 pass
             err = self.check_dash_m_failure('test_pkg')
-            self.assertRegex(err, br'Error while finding spec.*'
+            self.assertRegex(err,
+                br'Error while finding module specification.*'
                 br'ImportError.*bad magic number')
             self.assertNotIn(b'is a package', err)
             self.assertNotIn(b'Traceback', err)

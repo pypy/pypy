@@ -1,3 +1,4 @@
+import builtins
 import contextlib
 import copy
 import gc
@@ -96,6 +97,19 @@ class OrderedDictTests:
         self.assertRaises(TypeError, OrderedDict().update, 42)
         self.assertRaises(TypeError, OrderedDict().update, (), ())
         self.assertRaises(TypeError, OrderedDict.update)
+
+    def test_init_calls(self):
+        calls = []
+        class Spam:
+            def keys(self):
+                calls.append('keys')
+                return ()
+            def items(self):
+                calls.append('items')
+                return ()
+
+        self.OrderedDict(Spam())
+        self.assertEqual(calls, ['keys'])
 
     def test_fromkeys(self):
         OrderedDict = self.OrderedDict
@@ -298,9 +312,11 @@ class OrderedDictTests:
         # do not save instance dictionary if not needed
         pairs = [('c', 1), ('b', 2), ('a', 3), ('d', 4), ('e', 5), ('f', 6)]
         od = OrderedDict(pairs)
+        self.assertIsInstance(od.__dict__, dict)
         self.assertIsNone(od.__reduce__()[2])
         od.x = 10
-        self.assertIsNotNone(od.__reduce__()[2])
+        self.assertEqual(od.__dict__['x'], 10)
+        self.assertEqual(od.__reduce__()[2], {'x': 10})
 
     def test_pickle_recursive(self):
         OrderedDict = self.OrderedDict
@@ -403,6 +419,14 @@ class OrderedDictTests:
         d = dict(a=1)
         od = OrderedDict(**d)
         self.assertGreater(sys.getsizeof(od), sys.getsizeof(d))
+
+    def test_views(self):
+        OrderedDict = self.OrderedDict
+        # See http://bugs.python.org/issue24286
+        s = 'the quick brown fox jumped over a lazy dog yesterday before dawn'.split()
+        od = OrderedDict.fromkeys(s)
+        self.assertEqual(od.keys(), dict(od).keys())
+        self.assertEqual(od.items(), dict(od).items())
 
     def test_override_update(self):
         OrderedDict = self.OrderedDict
@@ -614,6 +638,25 @@ class PurePythonOrderedDictTests(OrderedDictTests, unittest.TestCase):
     OrderedDict = py_coll.OrderedDict
 
 
+class CPythonBuiltinDictTests(unittest.TestCase):
+    """Builtin dict preserves insertion order.
+
+    Reuse some of tests in OrderedDict selectively.
+    """
+
+    module = builtins
+    OrderedDict = dict
+
+for method in (
+    "test_init test_update test_abc test_clear test_delitem " +
+    "test_setitem test_detect_deletion_during_iteration " +
+    "test_popitem test_reinsert test_override_update " +
+    "test_highly_nested test_highly_nested_subclass " +
+    "test_delitem_hash_collision ").split():
+    setattr(CPythonBuiltinDictTests, method, getattr(OrderedDictTests, method))
+del method
+
+
 @unittest.skipUnless(hasattr(c_coll, 'OrderedDict'), 'requires the C version of the collections module')
 class CPythonOrderedDictTests(OrderedDictTests, unittest.TestCase):
 
@@ -628,18 +671,20 @@ class CPythonOrderedDictTests(OrderedDictTests, unittest.TestCase):
         size = support.calcobjsize
         check = self.check_sizeof
 
-        basicsize = size('n2P' + '3PnPn2P') + calcsize('2nPn')
-        entrysize = calcsize('n2P') + calcsize('P')
+        basicsize = size('nQ2P' + '3PnPn2P') + calcsize('2nP2n')
+
+        entrysize = calcsize('n2P')
+        p = calcsize('P')
         nodesize = calcsize('Pn2P')
 
         od = OrderedDict()
-        check(od, basicsize + 8*entrysize)
+        check(od, basicsize + 8*p + 8 + 5*entrysize)  # 8byte indicies + 8*2//3 * entry table
         od.x = 1
-        check(od, basicsize + 8*entrysize)
+        check(od, basicsize + 8*p + 8 + 5*entrysize)
         od.update([(i, i) for i in range(3)])
-        check(od, basicsize + 8*entrysize + 3*nodesize)
+        check(od, basicsize + 8*p + 8 + 5*entrysize + 3*nodesize)
         od.update([(i, i) for i in range(3, 10)])
-        check(od, basicsize + 16*entrysize + 10*nodesize)
+        check(od, basicsize + 16*p + 16 + 10*entrysize + 10*nodesize)
 
         check(od.keys(), size('P'))
         check(od.items(), size('P'))

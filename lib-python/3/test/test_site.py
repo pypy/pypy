@@ -15,6 +15,7 @@ import re
 import encodings
 import urllib.request
 import urllib.error
+import shutil
 import subprocess
 import sysconfig
 from copy import copy
@@ -76,7 +77,7 @@ class HelperFunctionsTests(unittest.TestCase):
     def test_init_pathinfo(self):
         dir_set = site._init_pathinfo()
         for entry in [site.makepath(path)[1] for path in sys.path
-                        if path and os.path.isdir(path)]:
+                        if path and os.path.exists(path)]:
             self.assertIn(entry, dir_set,
                           "%s from sys.path not found in set returned "
                           "by _init_pathinfo(): %s" % (entry, dir_set))
@@ -139,10 +140,8 @@ class HelperFunctionsTests(unittest.TestCase):
             re.escape(os.path.join(pth_dir, pth_fn)))
         # XXX: ditto previous XXX comment.
         self.assertRegex(err_out.getvalue(), 'Traceback')
-        self.assertRegex(err_out.getvalue(), 'ImportError')
+        self.assertRegex(err_out.getvalue(), 'ModuleNotFoundError')
 
-    @unittest.skipIf(sys.platform == "win32", "Windows does not raise an "
-                      "error for file paths containing null characters")
     def test_addpackage_import_bad_pth_file(self):
         # Issue 5258
         pth_dir, pth_fn = self.make_pth("abc\x00def\n")
@@ -248,13 +247,14 @@ class HelperFunctionsTests(unittest.TestCase):
             self.assertEqual(len(dirs), 2)
             wanted = os.path.join('/Library',
                                   sysconfig.get_config_var("PYTHONFRAMEWORK"),
-                                  sys.version[:3],
+                                  '%d.%d' % sys.version_info[:2],
                                   'site-packages')
             self.assertEqual(dirs[1], wanted)
         elif os.sep == '/':
             # OS X non-framwework builds, Linux, FreeBSD, etc
             self.assertEqual(len(dirs), 1)
-            wanted = os.path.join('xoxo', 'lib', 'python' + sys.version[:3],
+            wanted = os.path.join('xoxo', 'lib',
+                                  'python%d.%d' % sys.version_info[:2],
                                   'site-packages')
             self.assertEqual(dirs[0], wanted)
         else:
@@ -453,10 +453,9 @@ class StartupImportTests(unittest.TestCase):
         popen = subprocess.Popen([sys.executable, '-I', '-v', '-c',
                                   'import sys; print(set(sys.modules))'],
                                  stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE)
+                                 stderr=subprocess.PIPE,
+                                 encoding='utf-8')
         stdout, stderr = popen.communicate()
-        stdout = stdout.decode('utf-8')
-        stderr = stderr.decode('utf-8')
         modules = eval(stdout)
 
         self.assertIn('site', modules)
@@ -476,7 +475,100 @@ class StartupImportTests(unittest.TestCase):
                            'heapq', 'itertools', 'keyword', 'operator',
                            'reprlib', 'types', 'weakref'
                           }.difference(sys.builtin_module_names)
-        self.assertFalse(modules.intersection(collection_mods), stderr)
+        # http://bugs.python.org/issue28095
+        if sys.platform != 'darwin':
+            self.assertFalse(modules.intersection(collection_mods), stderr)
+
+    def test_startup_interactivehook(self):
+        r = subprocess.Popen([sys.executable, '-c',
+            'import sys; sys.exit(hasattr(sys, "__interactivehook__"))']).wait()
+        self.assertTrue(r, "'__interactivehook__' not added by site")
+
+    def test_startup_interactivehook_isolated(self):
+        # issue28192 readline is not automatically enabled in isolated mode
+        r = subprocess.Popen([sys.executable, '-I', '-c',
+            'import sys; sys.exit(hasattr(sys, "__interactivehook__"))']).wait()
+        self.assertFalse(r, "'__interactivehook__' added in isolated mode")
+
+    def test_startup_interactivehook_isolated_explicit(self):
+        # issue28192 readline can be explicitly enabled in isolated mode
+        r = subprocess.Popen([sys.executable, '-I', '-c',
+            'import site, sys; site.enablerlcompleter(); sys.exit(hasattr(sys, "__interactivehook__"))']).wait()
+        self.assertTrue(r, "'__interactivehook__' not added by enablerlcompleter()")
+
+    @classmethod
+    def _create_underpth_exe(self, lines):
+        exe_file = os.path.join(os.getenv('TEMP'), os.path.split(sys.executable)[1])
+        shutil.copy(sys.executable, exe_file)
+
+        _pth_file = os.path.splitext(exe_file)[0] + '._pth'
+        try:
+            with open(_pth_file, 'w') as f:
+                for line in lines:
+                    print(line, file=f)
+            return exe_file
+        except:
+            os.unlink(_pth_file)
+            os.unlink(exe_file)
+            raise
+
+    @classmethod
+    def _cleanup_underpth_exe(self, exe_file):
+        _pth_file = os.path.splitext(exe_file)[0] + '._pth'
+        os.unlink(_pth_file)
+        os.unlink(exe_file)
+
+    @unittest.skipUnless(sys.platform == 'win32', "only supported on Windows")
+    def test_underpth_nosite_file(self):
+        libpath = os.path.dirname(os.path.dirname(encodings.__file__))
+        exe_prefix = os.path.dirname(sys.executable)
+        exe_file = self._create_underpth_exe([
+            'fake-path-name',
+            *[libpath for _ in range(200)],
+            '# comment',
+            'import site'
+        ])
+
+        try:
+            env = os.environ.copy()
+            env['PYTHONPATH'] = 'from-env'
+            env['PATH'] = '{};{}'.format(exe_prefix, os.getenv('PATH'))
+            rc = subprocess.call([exe_file, '-c',
+                'import sys; sys.exit(sys.flags.no_site and '
+                'len(sys.path) > 200 and '
+                '%r in sys.path and %r in sys.path and %r not in sys.path)' % (
+                    os.path.join(sys.prefix, 'fake-path-name'),
+                    libpath,
+                    os.path.join(sys.prefix, 'from-env'),
+                )], env=env)
+        finally:
+            self._cleanup_underpth_exe(exe_file)
+        self.assertEqual(rc, 0)
+
+    @unittest.skipUnless(sys.platform == 'win32', "only supported on Windows")
+    def test_underpth_file(self):
+        libpath = os.path.dirname(os.path.dirname(encodings.__file__))
+        exe_prefix = os.path.dirname(sys.executable)
+        exe_file = self._create_underpth_exe([
+            'fake-path-name',
+            *[libpath for _ in range(200)],
+            '# comment',
+            'import site'
+        ])
+        try:
+            env = os.environ.copy()
+            env['PYTHONPATH'] = 'from-env'
+            env['PATH'] = '{};{}'.format(exe_prefix, os.getenv('PATH'))
+            rc = subprocess.call([exe_file, '-c',
+                'import sys; sys.exit(not sys.flags.no_site and '
+                '%r in sys.path and %r in sys.path and %r not in sys.path)' % (
+                    os.path.join(sys.prefix, 'fake-path-name'),
+                    libpath,
+                    os.path.join(sys.prefix, 'from-env'),
+                )], env=env)
+        finally:
+            self._cleanup_underpth_exe(exe_file)
+        self.assertEqual(rc, 0)
 
 
 if __name__ == "__main__":

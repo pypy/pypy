@@ -15,6 +15,7 @@ import string
 import test.support
 import time
 import types
+import typing
 import unittest
 import urllib.parse
 import xml.etree
@@ -83,6 +84,8 @@ CLASSES
      |  Data and other attributes defined here:
      |\x20\x20
      |  NO_MEANING = 'eggs'
+     |\x20\x20
+     |  __annotations__ = {'NO_MEANING': <class 'str'>}
 \x20\x20\x20\x20
     class C(builtins.object)
      |  Methods defined here:
@@ -211,6 +214,8 @@ Data descriptors defined here:<br>
 Data and other attributes defined here:<br>
 <dl><dt><strong>NO_MEANING</strong> = 'eggs'</dl>
 
+<dl><dt><strong>__annotations__</strong> = {'NO_MEANING': &lt;class 'str'&gt;}</dl>
+
 </td></tr></table> <p>
 <table width="100%%" cellspacing=0 cellpadding=2 border=0 summary="section">
 <tr bgcolor="#ffc8d8">
@@ -279,7 +284,7 @@ Use help() to get the interactive help utility.
 Use help(str) for help on the str class.'''.replace('\n', os.linesep)
 
 # output pattern for module with bad imports
-badimport_pattern = "problem in %s - ImportError: No module named %r"
+badimport_pattern = "problem in %s - ModuleNotFoundError: No module named %r"
 
 expected_dynamicattribute_pattern = """
 Help on class DA in module %s:
@@ -372,7 +377,7 @@ def get_pydoc_html(module):
 def get_pydoc_link(module):
     "Returns a documentation web link of a module"
     dirname = os.path.dirname
-    basedir = os.path.join(dirname(dirname(__file__)))
+    basedir = dirname(dirname(__file__))
     doc = pydoc.TextDoc()
     loc = doc.getdocloc(module, basedir=basedir)
     return loc
@@ -656,8 +661,9 @@ class PydocDocTest(unittest.TestCase):
         del expected['__doc__']
         del expected['__class__']
         # inspect resolves descriptors on type into methods, but vars doesn't,
-        # so we need to update __subclasshook__.
+        # so we need to update __subclasshook__ and __init_subclass__.
         expected['__subclasshook__'] = TestClass.__subclasshook__
+        expected['__init_subclass__'] = TestClass.__init_subclass__
 
         methods = pydoc.allmethods(TestClass)
         self.assertDictEqual(methods, expected)
@@ -833,6 +839,18 @@ class TestDescriptions(unittest.TestCase):
         expected = 'C in module %s object' % __name__
         self.assertIn(expected, pydoc.render_doc(c))
 
+    def test_typing_pydoc(self):
+        def foo(data: typing.List[typing.Any],
+                x: int) -> typing.Iterator[typing.Tuple[int, typing.Any]]:
+            ...
+        T = typing.TypeVar('T')
+        class C(typing.Generic[T], typing.Mapping[int, str]): ...
+        self.assertEqual(pydoc.render_doc(foo).splitlines()[-1],
+                         'f\x08fo\x08oo\x08o(data:List[Any], x:int)'
+                         ' -> Iterator[Tuple[int, Any]]')
+        self.assertEqual(pydoc.render_doc(C).splitlines()[2],
+                         'class C\x08C(typing.Mapping)')
+
     def test_builtin(self):
         for name in ('str', 'str.translate', 'builtins.str',
                      'builtins.str.translate'):
@@ -872,6 +890,22 @@ class TestDescriptions(unittest.TestCase):
         t = textwrap.TextWrapper()
         self.assertEqual(self._get_summary_line(t.wrap),
             "wrap(text) method of textwrap.TextWrapper instance")
+
+    def test_field_order_for_named_tuples(self):
+        Person = namedtuple('Person', ['nickname', 'firstname', 'agegroup'])
+        s = pydoc.render_doc(Person)
+        self.assertLess(s.index('nickname'), s.index('firstname'))
+        self.assertLess(s.index('firstname'), s.index('agegroup'))
+
+        class NonIterableFields:
+            _fields = None
+
+        class NonHashableFields:
+            _fields = [[]]
+
+        # Make sure these doesn't fail
+        pydoc.render_doc(NonIterableFields)
+        pydoc.render_doc(NonHashableFields)
 
     @requires_docstrings
     def test_bound_builtin_method(self):

@@ -3,11 +3,11 @@ Tests for the threading module.
 """
 
 import test.support
-from test.support import verbose, strip_python_stderr, import_module, cpython_only
+from test.support import (verbose, import_module, cpython_only,
+                          requires_type_collecting)
 from test.support.script_helper import assert_python_ok, assert_python_failure
 
 import random
-import re
 import sys
 _thread = import_module('_thread')
 threading = import_module('threading')
@@ -18,6 +18,7 @@ import os
 import subprocess
 
 from test import lock_tests
+from test import support
 
 
 # Between fork() and exec(), only async-safe functions are allowed (issues
@@ -1000,6 +1001,7 @@ class ThreadingExceptionTests(BaseTestCase):
         self.assertIn("ZeroDivisionError", err)
         self.assertNotIn("Unhandled exception", err)
 
+    @requires_type_collecting
     def test_print_exception_stderr_is_none_1(self):
         script = r"""if True:
             import sys
@@ -1054,6 +1056,24 @@ class ThreadingExceptionTests(BaseTestCase):
         self.assertEqual(out, b'')
         self.assertNotIn("Unhandled exception", err.decode())
 
+    def test_bare_raise_in_brand_new_thread(self):
+        def bare_raise():
+            raise
+
+        class Issue27558(threading.Thread):
+            exc = None
+
+            def run(self):
+                try:
+                    bare_raise()
+                except Exception as exc:
+                    self.exc = exc
+
+        thread = Issue27558()
+        thread.start()
+        thread.join()
+        self.assertIsNotNone(thread.exc)
+        self.assertIsInstance(thread.exc, RuntimeError)
 
 class TimerTests(BaseTestCase):
 
@@ -1109,6 +1129,13 @@ class BoundedSemaphoreTests(lock_tests.BoundedSemaphoreTests):
 
 class BarrierTests(lock_tests.BarrierTests):
     barriertype = staticmethod(threading.Barrier)
+
+class MiscTestCase(unittest.TestCase):
+    def test__all__(self):
+        extra = {"ThreadError"}
+        blacklist = {'currentThread', 'activeCount'}
+        support.check__all__(self, threading, ('threading', '_thread'),
+                             extra=extra, blacklist=blacklist)
 
 if __name__ == "__main__":
     unittest.main()

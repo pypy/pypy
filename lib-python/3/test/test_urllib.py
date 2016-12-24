@@ -1,4 +1,4 @@
-"""Regresssion tests for what was in Python 2's "urllib" module"""
+"""Regression tests for what was in Python 2's "urllib" module"""
 
 import urllib.parse
 import urllib.request
@@ -232,6 +232,18 @@ class ProxyTests(unittest.TestCase):
         self.assertTrue(urllib.request.proxy_bypass_environment('anotherdomain.com:8888'))
         self.assertTrue(urllib.request.proxy_bypass_environment('newdomain.com:1234'))
 
+    def test_proxy_cgi_ignore(self):
+        try:
+            self.env.set('HTTP_PROXY', 'http://somewhere:3128')
+            proxies = urllib.request.getproxies_environment()
+            self.assertEqual('http://somewhere:3128', proxies['http'])
+            self.env.set('REQUEST_METHOD', 'GET')
+            proxies = urllib.request.getproxies_environment()
+            self.assertNotIn('http', proxies)
+        finally:
+            self.env.unset('REQUEST_METHOD')
+            self.env.unset('HTTP_PROXY')
+
     def test_proxy_bypass_environment_host_match(self):
         bypass = urllib.request.proxy_bypass_environment
         self.env.set('NO_PROXY',
@@ -457,10 +469,11 @@ Connection: close
     @unittest.skipUnless(ssl, "ssl module required")
     def test_cafile_and_context(self):
         context = ssl.create_default_context()
-        with self.assertRaises(ValueError):
-            urllib.request.urlopen(
-                "https://localhost", cafile="/nonexistent/path", context=context
-            )
+        with support.check_warnings(('', DeprecationWarning)):
+            with self.assertRaises(ValueError):
+                urllib.request.urlopen(
+                    "https://localhost", cafile="/nonexistent/path", context=context
+                )
 
 class urlopen_DataTests(unittest.TestCase):
     """Test urlopen() opening a data URL."""
@@ -717,7 +730,7 @@ FF
 
 
 class QuotingTests(unittest.TestCase):
-    """Tests for urllib.quote() and urllib.quote_plus()
+    r"""Tests for urllib.quote() and urllib.quote_plus()
 
     According to RFC 2396 (Uniform Resource Identifiers), to escape a
     character you write it as '%' + <2 character US-ASCII hex value>.
@@ -792,7 +805,7 @@ class QuotingTests(unittest.TestCase):
         # Make sure all characters that should be quoted are by default sans
         # space (separate test for that).
         should_quote = [chr(num) for num in range(32)] # For 0x00 - 0x1F
-        should_quote.append('<>#%"{}|\^[]`')
+        should_quote.append(r'<>#%"{}|\^[]`')
         should_quote.append(chr(127)) # For 0x7F
         should_quote = ''.join(should_quote)
         for char in should_quote:
