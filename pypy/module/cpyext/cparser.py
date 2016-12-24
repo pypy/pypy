@@ -666,6 +666,15 @@ class DelayedStruct(object):
         self.fields = fields
         self.TYPE = TYPE
 
+    def is_ready(self):
+        if self.fields is None:
+            return False
+        try:
+            [hash(fld[1]) for fld in self.fields]
+            return True
+        except TypeError:
+            return False
+
     def __repr__(self):
         return "<struct {struct_name}>".format(**vars(self))
 
@@ -713,12 +722,15 @@ class ParsedSource(object):
         return struct
 
     def realize_struct(self, struct, type_name):
+        from pypy.module.cpyext.api import cpython_struct
         configname = type_name.replace(' ', '__')
-        setattr(self._Config, configname,
-            rffi_platform.Struct(type_name, struct.fields))
-        forward = lltype.ForwardReference()
-        self._TYPES[configname] = forward
-        return forward
+        if struct.is_ready():
+            setattr(self._Config, configname,
+                rffi_platform.Struct(type_name, struct.fields))
+            self._TYPES[configname] = struct.TYPE
+        else:
+            cpython_struct(type_name, struct.fields, forward=struct.TYPE)
+        return struct.TYPE
 
     def configure_types(self):
         for name, TYPE in rffi_platform.configure(self._Config).iteritems():
