@@ -20,16 +20,16 @@ class TestMemoryViewObject(BaseApiTest):
     def test_frombuffer(self, space, api):
         w_buf = space.newbuffer(StringBuffer("hello"))
         w_memoryview = api.PyMemoryView_FromObject(w_buf)
-        w_view = api.PyMemoryView_GET_BUFFER(w_memoryview)
-        assert w_view.c_ndim == 1
-        f = rffi.charp2str(w_view.c_format)
+        view = api.PyMemoryView_GET_BUFFER(w_memoryview)
+        assert view.c_ndim == 1
+        f = rffi.charp2str(view.c_format)
         assert f == 'B'
-        assert w_view.c_shape[0] == 5
-        assert w_view.c_strides[0] == 1
-        assert w_view.c_len == 5
-        o = rffi.charp2str(w_view.c_buf)
+        assert view.c_shape[0] == 5
+        assert view.c_strides[0] == 1
+        assert view.c_len == 5
+        o = rffi.charp2str(view.c_buf)
         assert o == 'hello'
-        w_mv = api.PyMemoryView_FromBuffer(w_view)
+        w_mv = api.PyMemoryView_FromBuffer(view)
         for f in ('format', 'itemsize', 'ndim', 'readonly', 
                   'shape', 'strides', 'suboffsets'):
             w_f = space.wrap(f)
@@ -37,7 +37,7 @@ class TestMemoryViewObject(BaseApiTest):
                               space.getattr(w_memoryview, w_f))
 
 class AppTestBufferProtocol(AppTestCpythonExtensionBase):
-    def test_buffer_protocol(self):
+    def test_buffer_protocol_app(self):
         import struct
         module = self.import_module(name='buffer_test')
         arr = module.PyMyArray(10)
@@ -48,8 +48,26 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         s = y[3]
         assert len(s) == struct.calcsize('i')
         assert s == struct.pack('i', 3)
-        viewlen = module.test_buffer(arr)
-        assert viewlen == y.itemsize * len(y)
+
+    def test_buffer_protocol_capi(self):
+        foo = self.import_extension('foo', [
+            ("get_len", "METH_VARARGS",
+             """
+                Py_buffer view;
+                PyObject* obj = PyTuple_GetItem(args, 0);
+                long ret, vlen;
+                memset(&view, 0, sizeof(Py_buffer));
+                ret = PyObject_GetBuffer(obj, &view, PyBUF_FULL);
+                if (ret != 0)
+                    return NULL;
+                vlen = view.len / view.itemsize;
+                PyBuffer_Release(&view);
+                return PyInt_FromLong(vlen);
+             """)])
+        module = self.import_module(name='buffer_test')
+        arr = module.PyMyArray(10)
+        ten = foo.get_len(arr)
+        assert ten == 10
 
     @pytest.mark.skipif(only_pypy, reason='pypy only test')
     def test_buffer_info(self):
