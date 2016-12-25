@@ -63,10 +63,23 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
                 vlen = view.len / view.itemsize;
                 PyBuffer_Release(&view);
                 return PyInt_FromLong(vlen);
-             """)])
+             """),
+            ("test_buffer", "METH_VARARGS",
+             """
+                Py_buffer* view = NULL;
+                PyObject* obj = PyTuple_GetItem(args, 0);
+                PyObject* memoryview = PyMemoryView_FromObject(obj);
+                if (memoryview == NULL)
+                    return PyInt_FromLong(-1);
+                view = PyMemoryView_GET_BUFFER(memoryview);
+                Py_DECREF(memoryview);
+                return PyInt_FromLong(view->len / view->itemsize);
+            """)])
         module = self.import_module(name='buffer_test')
         arr = module.PyMyArray(10)
         ten = foo.get_len(arr)
+        assert ten == 10
+        ten = foo.test_buffer(arr)
         assert ten == 10
 
     @pytest.mark.skipif(only_pypy, reason='pypy only test')
