@@ -97,7 +97,7 @@ def PyMemoryView_GET_BUFFER(space, w_obj):
     fill_Py_buffer(space, w_obj.buf, view)
     try:
         view.c_buf = rffi.cast(rffi.VOIDP, w_obj.buf.get_raw_address())
-        view.c_obj = make_ref(space, w_obj)
+        #view.c_obj = make_ref(space, w_obj) # NO - this creates a ref cycle!
         rffi.setintfield(view, 'c_readonly', w_obj.buf.readonly)
         isstr = False
     except ValueError:
