@@ -76,7 +76,11 @@ def PyObject_GetBuffer(space, w_obj, view, flags):
     try:
         view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
     except ValueError:
-        raise BufferError("could not create buffer from object")
+        if not space.isinstance_w(w_obj, space.w_str):
+            # XXX Python 3?
+            raise BufferError("could not create buffer from object")
+        view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(space.str_w(w_obj), track_allocation=False))
+        rffi.setintfield(view, 'c_readonly', 1)
     ret = fill_Py_buffer(space, buf, view)
     view.c_obj = make_ref(space, w_obj)
     return ret
@@ -99,13 +103,11 @@ def PyMemoryView_GET_BUFFER(space, w_obj):
         view.c_buf = rffi.cast(rffi.VOIDP, w_obj.buf.get_raw_address())
         #view.c_obj = make_ref(space, w_obj) # NO - this creates a ref cycle!
         rffi.setintfield(view, 'c_readonly', w_obj.buf.readonly)
-        isstr = False
     except ValueError:
         w_s = w_obj.descr_tobytes(space)
         view.c_obj = make_ref(space, w_s)
         view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(space.str_w(w_s), track_allocation=False))
         rffi.setintfield(view, 'c_readonly', 1)
-        isstr = True
     return view
 
 def fill_Py_buffer(space, buf, view):

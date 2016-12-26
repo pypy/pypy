@@ -57,7 +57,7 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
                 PyObject* obj = PyTuple_GetItem(args, 0);
                 long ret, vlen;
                 memset(&view, 0, sizeof(Py_buffer));
-                ret = PyObject_GetBuffer(obj, &view, PyBUF_FULL);
+                ret = PyObject_GetBuffer(obj, &view, PyBUF_FULL_RO);
                 if (ret != 0)
                     return NULL;
                 vlen = view.len / view.itemsize;
@@ -78,6 +78,8 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         module = self.import_module(name='buffer_test')
         arr = module.PyMyArray(10)
         ten = foo.get_len(arr)
+        assert ten == 10
+        ten = foo.get_len('1234567890')
         assert ten == 10
         ten = foo.test_buffer(arr)
         assert ten == 10
