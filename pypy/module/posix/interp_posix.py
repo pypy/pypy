@@ -976,11 +976,12 @@ dir_fd and follow_symlinks may not be implemented on your platform.
     if not rposix.HAVE_FCHMODAT:
         if not follow_symlinks:
             raise argument_unavailable(space, "chmod", "follow_symlinks")
-        try:
-            dispatch_filename(rposix.chmod)(space, w_path, mode)
-            return
-        except OSError as e:
-            raise wrap_oserror2(space, e, w_path, eintr_retry=False)
+        while True:
+            try:
+                dispatch_filename(rposix.chmod)(space, w_path, mode)
+                return
+            except OSError as e:
+                wrap_oserror2(space, e, w_path, eintr_retry=True)
 
     try:
         path = space.fsencode_w(w_path)
@@ -989,21 +990,25 @@ dir_fd and follow_symlinks may not be implemented on your platform.
             raise oefmt(space.w_TypeError,
                 "argument should be string, bytes or integer, not %T", w_path)
         fd = unwrap_fd(space, w_path)
-        # NB. CPython 3.5.2: unclear why os.chmod(fd) propagates EINTR
-        # to app-level, but os.fchmod(fd) retries automatically
-        try:
-            os.fchmod(fd, mode)
-        except OSError as e:
-            raise wrap_oserror(space, e, eintr_retry=False)
-    else:
+        # NB. in CPython 3.5.2, os.chmod(fd) propagates EINTR to app-level,
+        # but os.fchmod(fd) retries automatically.  This might be fixed in
+        # more recent CPythons.
+        while True:
+            try:
+                os.fchmod(fd, mode)
+                return
+            except OSError as e:
+                wrap_oserror(space, e, eintr_retry=True)
+    while True:
         try:
             _chmod_path(path, mode, dir_fd, follow_symlinks)
+            break
         except OSError as e:
             if not follow_symlinks and e.errno in (ENOTSUP, EOPNOTSUPP):
                 # fchmodat() doesn't actually implement follow_symlinks=False
                 # so raise NotImplementedError in this case
                 raise argument_unavailable(space, "chmod", "follow_symlinks")
-            raise wrap_oserror2(space, e, w_path, eintr_retry=False)
+            wrap_oserror2(space, e, w_path, eintr_retry=True)
 
 def _chmod_path(path, mode, dir_fd, follow_symlinks):
     if dir_fd != DEFAULT_DIR_FD or not follow_symlinks:
@@ -1016,8 +1021,6 @@ def fchmod(space, fd, mode):
     """\
     Change the access permissions of the file given by file descriptor fd.
     """
-    # NB. CPython 3.5.2: unclear why os.chmod(fd) propagates EINTR
-    # to app-level, but os.fchmod(fd) retries automatically
     while True:
         try:
             os.fchmod(fd, mode)
@@ -2009,11 +2012,16 @@ dir_fd and follow_symlinks may not be implemented on your platform.
         if not follow_symlinks:
             raise oefmt(space.w_ValueError,
                 "chown: cannnot use fd and follow_symlinks together")
-        try:
-            os.fchown(fd, uid, gid)
-        except OSError as e:
-            raise wrap_oserror(space, e, eintr_retry=False)
-    else:
+        # NB. in CPython 3.5.2, os.chown(fd) propagates EINTR to app-level,
+        # but os.fchown(fd) retries automatically.  This might be fixed in
+        # more recent CPythons.
+        while True:
+            try:
+                os.fchown(fd, uid, gid)
+                return
+            except OSError as e:
+                wrap_oserror(space, e, eintr_retry=True)
+    while True:
         # String case
         try:
             if (rposix.HAVE_LCHOWN and
@@ -2026,8 +2034,9 @@ dir_fd and follow_symlinks may not be implemented on your platform.
                 assert follow_symlinks
                 assert dir_fd == DEFAULT_DIR_FD
                 os.chown(path, uid, gid)
+            break
         except OSError as e:
-            raise wrap_oserror2(space, e, w_path, eintr_retry=False)
+            wrap_oserror2(space, e, w_path, eintr_retry=True)
 
 
 @unwrap_spec(uid=c_uid_t, gid=c_gid_t)
@@ -2049,7 +2058,6 @@ def fchown(space, w_fd, uid, gid):
 
 Change the owner and group id of the file given by file descriptor
 fd to the numeric uid and gid.  Equivalent to os.chown(fd, uid, gid)."""
-    # same comment than about os.chmod(fd) vs. os.fchmod(fd)
     fd = space.c_filedescriptor_w(w_fd)
     while True:
         try:
