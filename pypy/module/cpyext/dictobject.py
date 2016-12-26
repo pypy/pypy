@@ -16,7 +16,7 @@ from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 PyDictObjectStruct = lltype.ForwardReference()
 PyDictObject = lltype.Ptr(PyDictObjectStruct)
 PyDictObjectFields = PyObjectFields + \
-    (("ob_keys", PyObject),)
+    (("_tmpkeys", PyObject),)
 cpython_struct("PyDictObject", PyDictObjectFields, PyDictObjectStruct)
 
 @bootstrap_function
@@ -33,7 +33,7 @@ def dict_attach(space, py_obj, w_obj, w_userdata=None):
     Fills a newly allocated PyDictObject with the given dict object.
     """
     py_dict = rffi.cast(PyDictObject, py_obj)
-    py_dict.c_ob_keys = lltype.nullptr(PyObject.TO)
+    py_dict.c__tmpkeys = lltype.nullptr(PyObject.TO)
     # Problems: if this dict is a typedict, we may have unbound GetSetProperty
     # functions in the dict. The corresponding PyGetSetDescrObject must be
     # bound to a class, but the actual w_type will be unavailable later on. 
@@ -58,8 +58,8 @@ def dict_realize(space, py_obj):
 @cpython_api([PyObject], lltype.Void, header=None)
 def dict_dealloc(space, py_obj):
     py_dict = rffi.cast(PyDictObject, py_obj)
-    decref(space, py_dict.c_ob_keys)
-    py_dict.c_ob_keys = lltype.nullptr(PyObject.TO)
+    decref(space, py_dict.c__tmpkeys)
+    py_dict.c__tmpkeys = lltype.nullptr(PyObject.TO)
     _dealloc(space, py_obj)
 
 @cpython_api([], PyObject)
@@ -263,16 +263,16 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
     py_dict = rffi.cast(PyDictObject, py_obj)
     if pos == 0:
         # Store the current keys in the PyDictObject.
-        decref(space, py_dict.c_ob_keys)
+        decref(space, py_dict.c__tmpkeys)
         w_keys = space.call_method(space.w_dict, "keys", w_dict)
-        py_dict.c_ob_keys = create_ref(space, w_keys)
-        Py_IncRef(space, py_dict.c_ob_keys)
+        py_dict.c__tmpkeys = create_ref(space, w_keys)
+        Py_IncRef(space, py_dict.c__tmpkeys)
     else:
-        w_keys = from_ref(space, py_dict.c_ob_keys)
+        w_keys = from_ref(space, py_dict.c__tmpkeys)
     ppos[0] += 1
     if pos >= space.len_w(w_keys):
-        decref(space, py_dict.c_ob_keys)
-        py_dict.c_ob_keys = lltype.nullptr(PyObject.TO)
+        decref(space, py_dict.c__tmpkeys)
+        py_dict.c__tmpkeys = lltype.nullptr(PyObject.TO)
         return 0
     w_key = space.listview(w_keys)[pos]
     w_value = space.getitem(w_dict, w_key)
