@@ -675,6 +675,15 @@ class DelayedStruct(object):
         except TypeError:
             return False
 
+    def config_fields(self):
+        result = []
+        for name, value in self.fields:
+            if isinstance(value, DelayedStruct):
+                result.append((name, value.TYPE))
+            else:
+                result.append((name, value))
+        return result
+
     def __repr__(self):
         return "<struct {struct_name}>".format(**vars(self))
 
@@ -704,7 +713,6 @@ class ParsedSource(object):
         tp = self.convert_type(obj)
         if isinstance(tp, DelayedStruct):
             tp = self.realize_struct(tp, name)
-            self.structs[obj] = tp
         self.definitions[name] = tp
 
     def add_macro(self, name, value):
@@ -726,13 +734,22 @@ class ParsedSource(object):
         configname = type_name.replace(' ', '__')
         if struct.is_ready():
             setattr(self._Config, configname,
-                rffi_platform.Struct(type_name, struct.fields))
+                rffi_platform.Struct(type_name, struct.config_fields()))
             self._TYPES[configname] = struct.TYPE
         else:
             cpython_struct(type_name, struct.fields, forward=struct.TYPE)
         return struct.TYPE
 
     def configure_types(self):
+        for name, (obj, quals) in self.ctx._declarations.iteritems():
+            if obj in self.ctx._included_declarations:
+                continue
+            if name.startswith('typedef '):
+                name = name[8:]
+                self.add_typedef(name, obj)
+            elif name.startswith('macro '):
+                name = name[6:]
+                self.add_macro(name, obj)
         for name, TYPE in rffi_platform.configure(self._Config).iteritems():
             if name in self._TYPES:
                 self._TYPES[name].become(TYPE)
@@ -774,13 +791,5 @@ def parse_source(source, includes=None, eci=None):
         for header in includes:
             src.include(header)
     ctx.parse(source)
-    for name, (obj, quals) in ctx._declarations.iteritems():
-        if obj in ctx._included_declarations:
-            continue
-        if name.startswith('typedef '):
-            name = name[8:]
-            src.add_typedef(name, obj)
-        elif name.startswith('macro '):
-            name = name[6:]
-            src.add_macro(name, obj)
+    src.configure_types()
     return src

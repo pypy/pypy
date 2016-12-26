@@ -625,7 +625,6 @@ typedef struct _typeobject PyTypeObject;
 
 typedef void (*freefunc)(void *);
 """)
-h.configure_types()
 
 Py_ssize_t = lltype.Typedef(h.definitions['Py_ssize_t'], 'Py_ssize_t')
 Py_ssize_tP = rffi.CArrayPtr(Py_ssize_t)
