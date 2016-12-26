@@ -16,7 +16,7 @@ def test_configure(tmpdir):
     hdr.write(decl)
     eci = ExternalCompilationInfo(
         include_dirs=[str(tmpdir)], includes=['sys/types.h', 'header.h'])
-    res = parse_source(decl, eci=eci)
+    res = parse_source(decl, eci=eci, configure_now=True)
     TestFloatObject = res.definitions['TestFloatObject']
     assert isinstance(TestFloatObject, lltype.Struct)
     assert TestFloatObject.c_ob_refcnt == rffi.SSIZE_T
@@ -70,10 +70,10 @@ def test_include(tmpdir):
     eci = ExternalCompilationInfo(
         include_dirs=[str(tmpdir)],
         includes=['sys/types.h', 'base.h', 'object.h'])
-    hdr1 = parse_source(cdef1, eci=eci)
+    hdr1 = parse_source(cdef1, eci=eci, configure_now=True)
     Type = hdr1.definitions['Type']
     assert isinstance(Type, lltype.Struct)
-    hdr2 = parse_source(cdef2, includes=[hdr1], eci=eci)
+    hdr2 = parse_source(cdef2, includes=[hdr1], eci=eci, configure_now=True)
     assert 'Type' not in hdr2.definitions
     Object = hdr2.definitions['Object']
     assert Object.c_type.TO is Type
@@ -125,7 +125,7 @@ def test_recursive(tmpdir):
     eci = ExternalCompilationInfo(
         include_dirs=[str(tmpdir)],
         includes=['sys/types.h', 'foo.h'])
-    foo_h = parse_source(cdef, eci=eci)
+    foo_h = parse_source(cdef, eci=eci, configure_now=True)
     Object = foo_h.definitions['Object']
     assert isinstance(Object, lltype.Struct)
     hash(Object)

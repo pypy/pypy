@@ -666,15 +666,6 @@ class DelayedStruct(object):
         self.fields = fields
         self.TYPE = TYPE
 
-    def is_ready(self):
-        if self.fields is None:
-            return False
-        try:
-            [hash(fld[1]) for fld in self.fields]
-            return True
-        except TypeError:
-            return False
-
     def config_fields(self):
         result = []
         for name, value in self.fields:
@@ -708,11 +699,11 @@ class ParsedSource(object):
         self.structs.update(other.structs)
         self.includes.append(other)
 
-    def add_typedef(self, name, obj):
+    def add_typedef(self, name, obj, configure_now=False):
         assert name not in self.definitions
         tp = self.convert_type(obj)
         if isinstance(tp, DelayedStruct):
-            tp = self.realize_struct(tp, name)
+            tp = self.realize_struct(tp, name, configure_now=configure_now)
         self.definitions[name] = tp
 
     def add_macro(self, name, value):
@@ -729,10 +720,10 @@ class ParsedSource(object):
                  [self.convert_type(field) for field in obj.fldtypes])
         return struct
 
-    def realize_struct(self, struct, type_name):
+    def realize_struct(self, struct, type_name, configure_now=False):
         from pypy.module.cpyext.api import cpython_struct
         configname = type_name.replace(' ', '__')
-        if struct.is_ready():
+        if configure_now:
             setattr(self._Config, configname,
                 rffi_platform.Struct(type_name, struct.config_fields()))
             self._TYPES[configname] = struct.TYPE
@@ -740,13 +731,13 @@ class ParsedSource(object):
             cpython_struct(type_name, struct.fields, forward=struct.TYPE)
         return struct.TYPE
 
-    def configure_types(self):
+    def configure_types(self, configure_now=False):
         for name, (obj, quals) in self.ctx._declarations.iteritems():
             if obj in self.ctx._included_declarations:
                 continue
             if name.startswith('typedef '):
                 name = name[8:]
-                self.add_typedef(name, obj)
+                self.add_typedef(name, obj, configure_now=configure_now)
             elif name.startswith('macro '):
                 name = name[6:]
                 self.add_macro(name, obj)
@@ -784,12 +775,12 @@ class ParsedSource(object):
             raise NotImplementedError
 
 
-def parse_source(source, includes=None, eci=None):
+def parse_source(source, includes=None, eci=None, configure_now=False):
     ctx = Parser()
     src = ParsedSource(source, ctx, eci=eci)
     if includes is not None:
         for header in includes:
             src.include(header)
     ctx.parse(source)
-    src.configure_types()
+    src.configure_types(configure_now=configure_now)
     return src
