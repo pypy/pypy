@@ -637,18 +637,18 @@ Py_buffer = cpython_struct(
         ('len', Py_ssize_t),
         ('itemsize', Py_ssize_t),
 
-        ('readonly', lltype.Signed),
-        ('ndim', lltype.Signed),
+        ('readonly', rffi.INT_real),
+        ('ndim', rffi.INT_real),
         ('format', rffi.CCHARP),
         ('shape', Py_ssize_tP),
         ('strides', Py_ssize_tP),
+        ('suboffsets', Py_ssize_tP),
         ('_format', rffi.CFixedArray(rffi.UCHAR, Py_MAX_FMT)),
         ('_shape', rffi.CFixedArray(Py_ssize_t, Py_MAX_NDIMS)),
         ('_strides', rffi.CFixedArray(Py_ssize_t, Py_MAX_NDIMS)),
-        ('suboffsets', Py_ssize_tP),
         #('smalltable', rffi.CFixedArray(Py_ssize_t, 2)),
-        ('internal', rffi.VOIDP)
-        ))
+        ('internal', rffi.VOIDP),
+))
 Py_bufferP = lltype.Ptr(Py_buffer)
 
 @specialize.memo()
