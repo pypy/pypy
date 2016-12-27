@@ -284,8 +284,7 @@ class Parser(object):
         return self.parse_type_and_quals(cdecl)[0]
 
     def parse_type_and_quals(self, cdecl):
-        ast, macros = self._parse('void __dummy(\n%s\n);' % cdecl)[:2]
-        assert not macros
+        ast, _, _ = self._parse('void __dummy(\n%s\n);' % cdecl)
         exprnode = ast.ext[-1].type.args.params[0]
         if isinstance(exprnode, pycparser.c_ast.ID):
             raise api.CDefError("unknown identifier '%s'" % (exprnode.name,))
@@ -776,6 +775,13 @@ class ParsedSource(object):
             return rffi.CFixedArray(self.convert_type(obj.item), obj.length)
         else:
             raise NotImplementedError
+
+    def gettype(self, cdecl):
+        obj = self.ctx.parse_type(cdecl)
+        result = self.convert_type(obj)
+        if isinstance(result, DelayedStruct):
+            result = result.TYPE
+        return result
 
 
 def parse_source(source, includes=None, eci=None, configure_now=False):

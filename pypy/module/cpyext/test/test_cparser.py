@@ -99,7 +99,7 @@ def test_incomplete(tmpdir):
         include_dirs=[str(tmpdir)],
         includes=['sys/types.h', 'foo.h'])
     foo_h = parse_source(cdef, eci=eci)
-    Object = foo_h.definitions['Object']
+    Object = foo_h.gettype('Object')
     assert isinstance(Object, lltype.ForwardReference)
 
 def test_recursive(tmpdir):
@@ -142,3 +142,24 @@ def test_const(tmpdir):
         includes=['sys/types.h', 'foo.h'])
     hdr = parse_source(cdef, eci=eci, configure_now=True)
     assert hdr.definitions['bar'].c_foo == rffi.CONST_CCHARP != rffi.CCHARP
+
+def test_gettype(tmpdir):
+    decl = """
+    typedef ssize_t Py_ssize_t;
+
+    #define PyObject_HEAD  \
+        Py_ssize_t ob_refcnt;        \
+        Py_ssize_t ob_pypy_link;     \
+
+    typedef struct {
+        PyObject_HEAD
+        double ob_fval;
+    } TestFloatObject;
+    """
+    hdr = tmpdir / 'header.h'
+    hdr.write(decl)
+    eci = ExternalCompilationInfo(
+        include_dirs=[str(tmpdir)], includes=['sys/types.h', 'header.h'])
+    res = parse_source(decl, eci=eci, configure_now=True)
+    assert res.gettype('Py_ssize_t') == rffi.SSIZE_T
+    assert res.gettype('TestFloatObject *').TO.c_ob_refcnt == rffi.SSIZE_T
