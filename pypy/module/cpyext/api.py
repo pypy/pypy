@@ -624,9 +624,41 @@ typedef struct {
 typedef struct _typeobject PyTypeObject;
 
 typedef void (*freefunc)(void *);
+
+/* Py3k buffer interface, adapted for PyPy */
+#define Py_MAX_NDIMS 32
+#define Py_MAX_FMT 128
+typedef struct bufferinfo {
+    void *buf;
+    PyObject *obj;        /* owned reference */
+    Py_ssize_t len;
+
+    /* This is Py_ssize_t so it can be
+       pointed to by strides in simple case.*/
+    Py_ssize_t itemsize;
+    int readonly;
+    int ndim;
+    char *format;
+    Py_ssize_t *shape;
+    Py_ssize_t *strides;
+    Py_ssize_t *suboffsets; /* alway NULL for app-level objects*/
+    unsigned char _format[Py_MAX_FMT];
+    Py_ssize_t _strides[Py_MAX_NDIMS];
+    Py_ssize_t _shape[Py_MAX_NDIMS];
+    /* static store for shape and strides of
+       mono-dimensional buffers. */
+    /* Py_ssize_t smalltable[2]; */
+    void *internal; /* always NULL for app-level objects */
+} Py_buffer;
+
+
+typedef int (*getbufferproc)(PyObject *, Py_buffer *, int);
+typedef void (*releasebufferproc)(PyObject *, Py_buffer *);
+/* end Py3k buffer interface */
+
 """)
 
-Py_ssize_t = lltype.Typedef(h.definitions['Py_ssize_t'], 'Py_ssize_t')
+Py_ssize_t = h.definitions['Py_ssize_t']
 Py_ssize_tP = rffi.CArrayPtr(Py_ssize_t)
 size_t = rffi.ULONG
 ADDR = lltype.Signed
@@ -645,26 +677,9 @@ PyVarObjectFields = PyObjectFields + (("ob_size", Py_ssize_t), )
 PyVarObjectStruct = h.definitions['PyVarObject']
 PyVarObject = lltype.Ptr(PyVarObjectStruct)
 
-Py_buffer = cpython_struct(
-    "Py_buffer", (
-        ('buf', rffi.VOIDP),
-        ('obj', PyObject),
-        ('len', Py_ssize_t),
-        ('itemsize', Py_ssize_t),
-
-        ('readonly', lltype.Signed),
-        ('ndim', lltype.Signed),
-        ('format', rffi.CCHARP),
-        ('shape', Py_ssize_tP),
-        ('strides', Py_ssize_tP),
-        ('_format', rffi.CFixedArray(rffi.UCHAR, Py_MAX_FMT)),
-        ('_shape', rffi.CFixedArray(Py_ssize_t, Py_MAX_NDIMS)),
-        ('_strides', rffi.CFixedArray(Py_ssize_t, Py_MAX_NDIMS)),
-        ('suboffsets', Py_ssize_tP),
-        #('smalltable', rffi.CFixedArray(Py_ssize_t, 2)),
-        ('internal', rffi.VOIDP)
-        ))
+Py_buffer = h.definitions['Py_buffer']
 Py_bufferP = lltype.Ptr(Py_buffer)
+
 
 @specialize.memo()
 def is_PyObject(TYPE):

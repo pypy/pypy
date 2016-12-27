@@ -666,15 +666,6 @@ class DelayedStruct(object):
         self.fields = fields
         self.TYPE = TYPE
 
-    def config_fields(self):
-        result = []
-        for name, value in self.fields:
-            if isinstance(value, DelayedStruct):
-                result.append((name, value.TYPE))
-            else:
-                result.append((name, value))
-        return result
-
     def __repr__(self):
         return "<struct {struct_name}>".format(**vars(self))
 
@@ -725,7 +716,7 @@ class ParsedSource(object):
         configname = type_name.replace(' ', '__')
         if configure_now:
             setattr(self._Config, configname,
-                rffi_platform.Struct(type_name, struct.config_fields()))
+                rffi_platform.Struct(type_name, struct.fields))
             self._TYPES[configname] = struct.TYPE
         else:
             cpython_struct(type_name, struct.fields, forward=struct.TYPE)

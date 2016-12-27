@@ -90,9 +90,9 @@ class TestConversion(BaseApiTest):
         from rpython.translator.c.database import LowLevelDatabase
         db = LowLevelDatabase()
         assert (api.c_function_signature(db, api.FUNCTIONS['PyPy_TypedefTest1'])
-                == ('Py_ssize_t', 'Py_ssize_t arg0'))
+                == ('Signed', 'Signed arg0'))
         assert (api.c_function_signature(db, api.FUNCTIONS['PyPy_TypedefTest2'])
-                == ('Py_ssize_t *', 'Py_ssize_t *arg0'))
+                == ('Signed *', 'Signed *arg0'))
 
         PyPy_TypedefTest1(space, 0)
         ppos = lltype.malloc(api.Py_ssize_tP.TO, 1, flavor='raw')
@@ -100,7 +100,7 @@ class TestConversion(BaseApiTest):
         PyPy_TypedefTest2(space, ppos)
         lltype.free(ppos, flavor='raw')
 
-@pytest.mark.skipif(os.environ.get('USER')=='root', 
+@pytest.mark.skipif(os.environ.get('USER')=='root',
                     reason='root can write to all files')
 def test_copy_header_files(tmpdir):
     api.copy_header_files(tmpdir, True)

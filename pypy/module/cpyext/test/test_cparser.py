@@ -100,7 +100,7 @@ def test_incomplete(tmpdir):
         includes=['sys/types.h', 'foo.h'])
     foo_h = parse_source(cdef, eci=eci)
     Object = foo_h.definitions['Object']
-    assert isinstance(Object, lltype.ForwardReference) or hash(Object)
+    assert isinstance(Object, lltype.ForwardReference)
 
 def test_recursive(tmpdir):
     cdef = """
