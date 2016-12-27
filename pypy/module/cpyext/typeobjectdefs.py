@@ -5,14 +5,14 @@ from pypy.module.cpyext.api import (cpython_struct, Py_ssize_t, Py_ssize_tP,
     Py_TPFLAGS_READYING, Py_TPFLAGS_READY, Py_TPFLAGS_HEAPTYPE)
 from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref
 from pypy.module.cpyext.modsupport import PyMethodDef
-from pypy.module.cpyext.api import Py_bufferP, h
+from pypy.module.cpyext.api import Py_bufferP, object_h
 
 
 P, FT, PyO = Ptr, FuncType, PyObject
 PyOPtr = Ptr(lltype.Array(PyO, hints={'nolength': True}))
 
 #freefunc = P(FT([rffi.VOIDP], Void))
-freefunc = h.definitions['freefunc']
+freefunc = object_h.definitions['freefunc']
 
 destructor = P(FT([PyO], Void))
 printfunc = P(FT([PyO, FILEP, rffi.INT_real], rffi.INT))
@@ -236,5 +236,3 @@ PyTypeObjectFields.extend([
     ("tp_del", destructor),      #N
     ])
 cpython_struct("PyTypeObject", PyTypeObjectFields, PyTypeObject)
-
-

@@ -601,7 +601,7 @@ def build_exported_objects():
                              % (cpyname, ))
 build_exported_objects()
 
-h = parse_source("""
+object_h = parse_source("""
 typedef ssize_t Py_ssize_t;
 
 #define PyObject_HEAD  \
@@ -658,7 +658,7 @@ typedef void (*releasebufferproc)(PyObject *, Py_buffer *);
 
 """)
 
-Py_ssize_t = h.definitions['Py_ssize_t']
+Py_ssize_t = object_h.definitions['Py_ssize_t']
 Py_ssize_tP = rffi.CArrayPtr(Py_ssize_t)
 size_t = rffi.ULONG
 ADDR = lltype.Signed
@@ -666,18 +666,18 @@ ADDR = lltype.Signed
 # Note: as a special case, "PyObject" is the pointer type in RPython,
 # corresponding to "PyObject *" in C.  We do that only for PyObject.
 # For example, "PyTypeObject" is the struct type even in RPython.
-PyTypeObject = h.definitions['PyTypeObject']
+PyTypeObject = object_h.definitions['PyTypeObject']
 PyTypeObjectPtr = lltype.Ptr(PyTypeObject)
-PyObjectStruct = h.definitions['PyObject']
+PyObjectStruct = object_h.definitions['PyObject']
 PyObject = lltype.Ptr(PyObjectStruct)
 PyObjectFields = (("ob_refcnt", lltype.Signed),
                   ("ob_pypy_link", lltype.Signed),
                   ("ob_type", PyTypeObjectPtr))
 PyVarObjectFields = PyObjectFields + (("ob_size", Py_ssize_t), )
-PyVarObjectStruct = h.definitions['PyVarObject']
+PyVarObjectStruct = object_h.definitions['PyVarObject']
 PyVarObject = lltype.Ptr(PyVarObjectStruct)
 
-Py_buffer = h.definitions['Py_buffer']
+Py_buffer = object_h.definitions['Py_buffer']
 Py_bufferP = lltype.Ptr(Py_buffer)
 
 
