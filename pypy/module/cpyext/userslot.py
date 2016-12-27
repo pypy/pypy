@@ -67,15 +67,15 @@ def slot_nb_add(space, w_obj1, w_obj2):
 
 @cpython_api([PyObject, PyObject], PyObject, header=None)
 def slot_nb_subtract(space, w_obj1, w_obj2):
-    return space.add(w_obj1, w_obj2)
+    return space.sub(w_obj1, w_obj2)
 
 @cpython_api([PyObject, PyObject], PyObject, header=None)
 def slot_nb_multiply(space, w_obj1, w_obj2):
-    return space.add(w_obj1, w_obj2)
+    return space.mul(w_obj1, w_obj2)
 
 @cpython_api([PyObject, PyObject], PyObject, header=None)
 def slot_nb_divide(space, w_obj1, w_obj2):
-    return space.add(w_obj1, w_obj2)
+    return space.div(w_obj1, w_obj2)
 
 @cpython_api([PyObject, PyObject], PyObject, header=None)
 def slot_nb_inplace_add(space, w_obj1, w_obj2):
@@ -83,15 +83,15 @@ def slot_nb_inplace_add(space, w_obj1, w_obj2):
 
 @cpython_api([PyObject, PyObject], PyObject, header=None)
 def slot_nb_inplace_subtract(space, w_obj1, w_obj2):
-    return space.add(w_obj1, w_obj2)
+    return space.sub(w_obj1, w_obj2)
 
 @cpython_api([PyObject, PyObject], PyObject, header=None)
 def slot_nb_inplace_multiply(space, w_obj1, w_obj2):
-    return space.add(w_obj1, w_obj2)
+    return space.mul(w_obj1, w_obj2)
 
 @cpython_api([PyObject, PyObject], PyObject, header=None)
 def slot_nb_inplace_divide(space, w_obj1, w_obj2):
-    return space.add(w_obj1, w_obj2)
+    return space.div(w_obj1, w_obj2)
 
 @cpython_api([PyObject, PyObject], PyObject, header=None)
 def slot_sq_concat(space, w_obj1, w_obj2):
@@ -103,7 +103,7 @@ def slot_sq_inplace_concat(space, w_obj1, w_obj2):
 
 @cpython_api([PyObject, PyObject], PyObject, header=None)
 def slot_mp_subscript(space, w_obj1, w_obj2):
-    return space.add(w_obj1, w_obj2)
+    return space.getitem(w_obj1, w_obj2)
 
 @cpython_api([PyObject, PyObject], PyObject, header=None)
 def slot_tp_getattr(space, w_obj1, w_obj2):
