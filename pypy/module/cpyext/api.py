@@ -630,7 +630,8 @@ cpython_struct('PyObject', PyObjectFields, PyObjectStruct)
 PyVarObjectStruct = cpython_struct("PyVarObject", PyVarObjectFields)
 PyVarObject = lltype.Ptr(PyVarObjectStruct)
 
-Py_buffer = rffi.CStruct( "Py_buffer", 
+Py_buffer = cpython_struct(
+    "Py_buffer", (
         ('buf', rffi.VOIDP),
         ('obj', PyObject),
         ('len', Py_ssize_t),
@@ -647,10 +648,7 @@ Py_buffer = rffi.CStruct( "Py_buffer",
         ('_strides', rffi.CFixedArray(Py_ssize_t, Py_MAX_NDIMS)),
         #('smalltable', rffi.CFixedArray(Py_ssize_t, 2)),
         ('internal', rffi.VOIDP),
-        hints={'size': 6 * rffi.sizeof(Py_ssize_tP) + 2 * rffi.sizeof(Py_ssize_t) +
-                       2 * rffi.sizeof(rffi.INT_real) + rffi.sizeof(rffi.CCHARP) +
-                       Py_MAX_FMT * rffi.sizeof(rffi.UCHAR) +
-                       2 * Py_MAX_NDIMS * rffi.sizeof(Py_ssize_t)})
+))
 Py_bufferP = lltype.Ptr(Py_buffer)
 
 @specialize.memo()

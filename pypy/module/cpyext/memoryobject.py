@@ -17,7 +17,9 @@ PyMemoryViewObjectStruct = lltype.ForwardReference()
 PyMemoryViewObject = lltype.Ptr(PyMemoryViewObjectStruct)
 PyMemoryViewObjectFields = PyObjectFields + \
     (("view", Py_buffer),)
-cpython_struct("PyMemoryViewObject", PyMemoryViewObjectFields, PyMemoryViewObjectStruct)
+cpython_struct(
+    "PyMemoryViewObject", PyMemoryViewObjectFields, PyMemoryViewObjectStruct,
+    level=2)
 
 @bootstrap_function
 def init_memoryobject(space):
