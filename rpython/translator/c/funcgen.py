@@ -456,6 +456,9 @@ class FunctionCodeGenerator(object):
     def OP_JIT_CONDITIONAL_CALL(self, op):
         return 'abort();  /* jit_conditional_call */'
 
+    def OP_JIT_CONDITIONAL_CALL_VALUE(self, op):
+        return 'abort();  /* jit_conditional_call_value */'
+
     # low-level operations
     def generic_get(self, op, sourceexpr):
         T = self.lltypemap(op.result)
@@ -604,16 +607,6 @@ class FunctionCodeGenerator(object):
     def OP_BOEHM_REGISTER_FINALIZER(self, op):
         return 'GC_REGISTER_FINALIZER(%s, (GC_finalization_proc)%s, NULL, NULL, NULL);' \
                % (self.expr(op.args[0]), self.expr(op.args[1]))
-
-    def OP_RAW_MALLOC(self, op):
-        eresult = self.expr(op.result)
-        esize = self.expr(op.args[0])
-        return "OP_RAW_MALLOC(%s, %s, void *);" % (esize, eresult)
-
-    def OP_STACK_MALLOC(self, op):
-        eresult = self.expr(op.result)
-        esize = self.expr(op.args[0])
-        return "OP_STACK_MALLOC(%s, %s, void *);" % (esize, eresult)
 
     def OP_DIRECT_FIELDPTR(self, op):
         return self.OP_GETFIELD(op, ampersand='&')
@@ -818,6 +811,10 @@ class FunctionCodeGenerator(object):
     def OP_DEBUG_ASSERT(self, op):
         return 'RPyAssert(%s, %s);' % (self.expr(op.args[0]),
                                        c_string_constant(op.args[1].value))
+
+    def OP_DEBUG_ASSERT_NOT_NONE(self, op):
+        return 'RPyAssert(%s != NULL, "ll_assert_not_none() failed");' % (
+                    self.expr(op.args[0]),)
 
     def OP_DEBUG_FATALERROR(self, op):
         # XXX

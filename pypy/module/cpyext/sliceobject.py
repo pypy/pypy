@@ -25,7 +25,7 @@ def init_sliceobject(space):
                    attach=slice_attach,
                    dealloc=slice_dealloc)
 
-def slice_attach(space, py_obj, w_obj):
+def slice_attach(space, py_obj, w_obj, w_userdata=None):
     """
     Fills a newly allocated PySliceObject with the given slice object. The
     fields must not be modified.

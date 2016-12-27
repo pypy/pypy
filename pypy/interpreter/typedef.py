@@ -770,12 +770,12 @@ Cell.typedef = TypeDef("cell",
 )
 assert not Cell.typedef.acceptable_as_base_class  # no __new__
 
-Ellipsis.typedef = TypeDef("Ellipsis",
+Ellipsis.typedef = TypeDef("ellipsis",
     __repr__ = interp2app(Ellipsis.descr__repr__),
 )
 assert not Ellipsis.typedef.acceptable_as_base_class  # no __new__
 
-NotImplemented.typedef = TypeDef("NotImplemented",
+NotImplemented.typedef = TypeDef("NotImplementedType",
     __repr__ = interp2app(NotImplemented.descr__repr__),
 )
 assert not NotImplemented.typedef.acceptable_as_base_class  # no __new__

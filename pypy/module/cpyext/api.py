@@ -36,8 +36,6 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
 from pypy.module import exceptions
 from pypy.module.exceptions import interp_exceptions
-# CPython 2.4 compatibility
-from py.builtin import BaseException
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib import rawrefcount
@@ -381,103 +379,97 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
         if error is _NOT_SPECIFIED:
             raise ValueError("function %s has no return value for exceptions"
                              % func)
-        def make_unwrapper(catch_exception):
-            # ZZZ is this whole logic really needed???  It seems to be only
-            # for RPython code calling PyXxx() functions directly.  I would
-            # think that usually directly calling the function is clean
-            # enough now
-            names = api_function.argnames
-            types_names_enum_ui = unrolling_iterable(enumerate(
-                zip(api_function.argtypes,
-                    [tp_name.startswith("w_") for tp_name in names])))
+        names = api_function.argnames
+        types_names_enum_ui = unrolling_iterable(enumerate(
+            zip(api_function.argtypes,
+                [tp_name.startswith("w_") for tp_name in names])))
 
-            @specialize.ll()
-            def unwrapper(space, *args):
-                from pypy.module.cpyext.pyobject import Py_DecRef, is_pyobj
-                from pypy.module.cpyext.pyobject import from_ref, as_pyobj
-                newargs = ()
-                keepalives = ()
-                assert len(args) == len(api_function.argtypes)
-                for i, (ARG, is_wrapped) in types_names_enum_ui:
-                    input_arg = args[i]
-                    if is_PyObject(ARG) and not is_wrapped:
-                        # build a 'PyObject *' (not holding a reference)
-                        if not is_pyobj(input_arg):
-                            keepalives += (input_arg,)
-                            arg = rffi.cast(ARG, as_pyobj(space, input_arg))
-                        else:
-                            arg = rffi.cast(ARG, input_arg)
-                    elif ARG == rffi.VOIDP and not is_wrapped:
-                        # unlike is_PyObject case above, we allow any kind of
-                        # argument -- just, if it's an object, we assume the
-                        # caller meant for it to become a PyObject*.
-                        if input_arg is None or isinstance(input_arg, W_Root):
-                            keepalives += (input_arg,)
-                            arg = rffi.cast(ARG, as_pyobj(space, input_arg))
-                        else:
-                            arg = rffi.cast(ARG, input_arg)
-                    elif (is_PyObject(ARG) or ARG == rffi.VOIDP) and is_wrapped:
-                        # build a W_Root, possibly from a 'PyObject *'
-                        if is_pyobj(input_arg):
-                            arg = from_ref(space, input_arg)
-                        else:
-                            arg = input_arg
-
-                            ## ZZZ: for is_pyobj:
-                            ## try:
-                            ##     arg = from_ref(space,
-                            ##                rffi.cast(PyObject, input_arg))
-                            ## except TypeError, e:
-                            ##     err = oefmt(space.w_TypeError,
-                            ##                 "could not cast arg to PyObject")
-                            ##     if not catch_exception:
-                            ##         raise err
-                            ##     state = space.fromcache(State)
-                            ##     state.set_exception(err)
-                            ##     if is_PyObject(restype):
-                            ##         return None
-                            ##     else:
-                            ##         return api_function.error_value
+        @specialize.ll()
+        def unwrapper(space, *args):
+            from pypy.module.cpyext.pyobject import Py_DecRef, is_pyobj
+            from pypy.module.cpyext.pyobject import from_ref, as_pyobj
+            newargs = ()
+            keepalives = ()
+            assert len(args) == len(api_function.argtypes)
+            for i, (ARG, is_wrapped) in types_names_enum_ui:
+                input_arg = args[i]
+                if is_PyObject(ARG) and not is_wrapped:
+                    # build a 'PyObject *' (not holding a reference)
+                    if not is_pyobj(input_arg):
+                        keepalives += (input_arg,)
+                        arg = rffi.cast(ARG, as_pyobj(space, input_arg))
                     else:
-                        # arg is not declared as PyObject, no magic
+                        arg = rffi.cast(ARG, input_arg)
+                elif ARG == rffi.VOIDP and not is_wrapped:
+                    # unlike is_PyObject case above, we allow any kind of
+                    # argument -- just, if it's an object, we assume the
+                    # caller meant for it to become a PyObject*.
+                    if input_arg is None or isinstance(input_arg, W_Root):
+                        keepalives += (input_arg,)
+                        arg = rffi.cast(ARG, as_pyobj(space, input_arg))
+                    else:
+                        arg = rffi.cast(ARG, input_arg)
+                elif (is_PyObject(ARG) or ARG == rffi.VOIDP) and is_wrapped:
+                    # build a W_Root, possibly from a 'PyObject *'
+                    if is_pyobj(input_arg):
+                        arg = from_ref(space, input_arg)
+                    else:
                         arg = input_arg
-                    newargs += (arg, )
-                if not catch_exception:
-                    try:
-                        res = func(space, *newargs)
-                    finally:
-                        keepalive_until_here(*keepalives)
-                else:
-                    # non-rpython variant
-                    assert not we_are_translated()
-                    try:
-                        res = func(space, *newargs)
-                    except OperationError as e:
-                        if not hasattr(api_function, "error_value"):
-                            raise
-                        state = space.fromcache(State)
-                        state.set_exception(e)
-                        if is_PyObject(restype):
-                            return None
-                        else:
-                            return api_function.error_value
-                    # 'keepalives' is alive here (it's not rpython)
-                    got_integer = isinstance(res, (int, long, float))
-                    assert got_integer == expect_integer, (
-                        'got %r not integer' % (res,))
-                return res
-            unwrapper.func = func
-            unwrapper.api_func = api_function
-            return unwrapper
 
-        unwrapper_catch = make_unwrapper(True)
-        unwrapper_raise = make_unwrapper(False)
+                        ## ZZZ: for is_pyobj:
+                        ## try:
+                        ##     arg = from_ref(space,
+                        ##                rffi.cast(PyObject, input_arg))
+                        ## except TypeError, e:
+                        ##     err = oefmt(space.w_TypeError,
+                        ##                 "could not cast arg to PyObject")
+                        ##     if not catch_exception:
+                        ##         raise err
+                        ##     state = space.fromcache(State)
+                        ##     state.set_exception(err)
+                        ##     if is_PyObject(restype):
+                        ##         return None
+                        ##     else:
+                        ##         return api_function.error_value
+                else:
+                    # arg is not declared as PyObject, no magic
+                    arg = input_arg
+                newargs += (arg, )
+            try:
+                return func(space, *newargs)
+            finally:
+                keepalive_until_here(*keepalives)
+
+        unwrapper.func = func
+        unwrapper.api_func = api_function
+
+        # ZZZ is this whole logic really needed???  It seems to be only
+        # for RPython code calling PyXxx() functions directly.  I would
+        # think that usually directly calling the function is clean
+        # enough now
+        def unwrapper_catch(space, *args):
+            try:
+                res = unwrapper(space, *args)
+            except OperationError as e:
+                if not hasattr(api_function, "error_value"):
+                    raise
+                state = space.fromcache(State)
+                state.set_exception(e)
+                if is_PyObject(restype):
+                    return None
+                else:
+                    return api_function.error_value
+            got_integer = isinstance(res, (int, long, float))
+            assert got_integer == expect_integer, (
+                'got %r not integer' % (res,))
+            return res
+
         if header is not None:
             if header == DEFAULT_HEADER:
                 FUNCTIONS[func_name] = api_function
             FUNCTIONS_BY_HEADER.setdefault(header, {})[func_name] = api_function
-        INTERPLEVEL_API[func_name] = unwrapper_catch # used in tests
-        return unwrapper_raise # used in 'normal' RPython code.
+        INTERPLEVEL_API[func_name] = unwrapper_catch  # used in tests
+        return unwrapper  # used in 'normal' RPython code.
     return decorate
 
 def cpython_struct(name, fields, forward=None, level=1):
@@ -610,7 +602,7 @@ def build_exported_objects():
         GLOBALS['%s#%s' % (cpyname, pypy_decl)] = ('PyTypeObject*', pypyexpr)
 
     for cpyname in '''PyMethodObject PyListObject PyLongObject
-                      PyDictObject PyClassObject'''.split():
+                      PyClassObject'''.split():
         FORWARD_DECLS.append('typedef struct { PyObject_HEAD } %s'
                              % (cpyname, ))
 build_exported_objects()
@@ -986,7 +978,7 @@ def setup_init_functions(eci, translating):
         py_type_ready(space, get_capsule_type())
     INIT_FUNCTIONS.append(init_types)
     from pypy.module.posix.interp_posix import add_fork_hook
-    _reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [], 
+    _reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [],
                                   lltype.Void, compilation_info=eci)
     def reinit_tls(space):
         _reinit_tls()
@@ -1615,9 +1607,8 @@ def make_generic_cpy_call(FT, expect_null):
     miniglobals = {'__name__':    __name__, # for module name propagation
                    }
     exec source.compile() in miniglobals
-    call_external_function = miniglobals['cpy_call_external']
+    call_external_function = specialize.ll()(miniglobals['cpy_call_external'])
     call_external_function._dont_inline_ = True
-    call_external_function._annspecialcase_ = 'specialize:ll'
     call_external_function._gctransformer_hint_close_stack_ = True
     # don't inline, as a hack to guarantee that no GC pointer is alive
     # anywhere in call_external_function

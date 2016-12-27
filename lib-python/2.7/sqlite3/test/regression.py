@@ -24,6 +24,7 @@
 import datetime
 import unittest
 import sqlite3 as sqlite
+from test import test_support
 
 class RegressionTests(unittest.TestCase):
     def setUp(self):
@@ -118,7 +119,7 @@ class RegressionTests(unittest.TestCase):
 
     def CheckUnicodeConnect(self):
         """
-        With pysqlite 2.4.0 you needed to use a string or a APSW connection
+        With pysqlite 2.4.0 you needed to use a string or an APSW connection
         object for opening database connections.
 
         Formerly, both bytestrings and unicode strings used to work.
@@ -349,6 +350,39 @@ class RegressionTests(unittest.TestCase):
         cur = con.cursor()
         self.assertRaises(ValueError, cur.execute, " \0select 2")
         self.assertRaises(ValueError, cur.execute, "select 2\0")
+
+    @test_support.impl_detail(pypy=False)
+    def CheckCommitCursorReset(self):
+        # This test is for logic added in 2.7.13 which PyPy doesn't
+        # implement.  See http://bugs.python.org/issue29006
+        """
+        Connection.commit() did reset cursors, which made sqlite3
+        to return rows multiple times when fetched from cursors
+        after commit. See issues 10513 and 23129 for details.
+        """
+        con = sqlite.connect(":memory:")
+        con.executescript("""
+        create table t(c);
+        create table t2(c);
+        insert into t values(0);
+        insert into t values(1);
+        insert into t values(2);
+        """)
+
+        self.assertEqual(con.isolation_level, "")
+
+        counter = 0
+        for i, row in enumerate(con.execute("select c from t")):
+            con.execute("insert into t2(c) values (?)", (i,))
+            con.commit()
+            if counter == 0:
+                self.assertEqual(row[0], 0)
+            elif counter == 1:
+                self.assertEqual(row[0], 1)
+            elif counter == 2:
+                self.assertEqual(row[0], 2)
+            counter += 1
+        self.assertEqual(counter, 3, "should have returned exactly three rows")
 
 
 def suite():

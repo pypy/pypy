@@ -853,7 +853,7 @@ for targetname, specialname in [
                 if not e.match(space, space.w_TypeError):
                     raise
                 raise oefmt(space.w_TypeError,
-                            "%(specialname)s returned non-%(targetname)s "
+                            "%(specialname)s returned non-string "
                             "(type '%%T')", w_result)
             else:
                 # re-wrap the result as a real string

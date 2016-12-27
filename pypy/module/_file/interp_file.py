@@ -172,6 +172,7 @@ class W_File(W_AbstractStream):
             self.newlines = self.stream.getnewlines()
             self.stream = None
             self.fd = -1
+            self.may_unregister_rpython_finalizer(self.space)
             openstreams = getopenstreams(self.space)
             try:
                 del openstreams[stream]

@@ -4652,6 +4652,17 @@ class TestAnnotateTestCase:
         assert ('string formatting requires a constant string/unicode'
                 in str(e.value))
 
+    def test_cannot_raise_none(self):
+        def f(x):
+            s = None
+            if x > 5:
+                s = ValueError()
+            raise s
+        a = self.RPythonAnnotator()
+        a.build_types(f, [int])
+        s_exc = a.binding(graphof(a, f).exceptblock.inputargs[1])
+        assert not s_exc.can_be_none()
+
 
 def g(n):
     return [0, 1, 2, n]

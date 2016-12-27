@@ -17,7 +17,7 @@ from pypy.module._cffi_backend import ctypearray, cdataobj, cerrno
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.ctypeptr import W_CTypePtrBase, W_CTypePointer
 from pypy.module._cffi_backend.ctypevoid import W_CTypeVoid
-from pypy.module._cffi_backend.ctypestruct import W_CTypeStruct
+from pypy.module._cffi_backend.ctypestruct import W_CTypeStruct, W_CTypeUnion
 from pypy.module._cffi_backend.ctypeprim import (W_CTypePrimitiveSigned,
     W_CTypePrimitiveUnsigned, W_CTypePrimitiveCharOrUniChar,
     W_CTypePrimitiveFloat, W_CTypePrimitiveLongDouble)
@@ -231,6 +231,11 @@ def _struct_ffi_type(self, cifbuilder, is_result_type):
         return cifbuilder.fb_struct_ffi_type(self, is_result_type)
     return _missing_ffi_type(self, cifbuilder, is_result_type)
 
+def _union_ffi_type(self, cifbuilder, is_result_type):
+    if self.size >= 0:   # only for a better error message
+        return cifbuilder.fb_union_ffi_type(self, is_result_type)
+    return _missing_ffi_type(self, cifbuilder, is_result_type)
+
 def _primsigned_ffi_type(self, cifbuilder, is_result_type):
     size = self.size
     if   size == 1: return clibffi.ffi_type_sint8
@@ -266,6 +271,7 @@ def _void_ffi_type(self, cifbuilder, is_result_type):
 
 W_CType._get_ffi_type                       = _missing_ffi_type
 W_CTypeStruct._get_ffi_type                 = _struct_ffi_type
+W_CTypeUnion._get_ffi_type                  = _union_ffi_type
 W_CTypePrimitiveSigned._get_ffi_type        = _primsigned_ffi_type
 W_CTypePrimitiveCharOrUniChar._get_ffi_type = _primunsigned_ffi_type
 W_CTypePrimitiveUnsigned._get_ffi_type      = _primunsigned_ffi_type
@@ -275,6 +281,12 @@ W_CTypePtrBase._get_ffi_type                = _ptr_ffi_type
 W_CTypeVoid._get_ffi_type                   = _void_ffi_type
 # ----------
 
+
+_SUPPORTED_IN_API_MODE = (
+        " are only supported as %s if the function is "
+        "'API mode' and non-variadic (i.e. declared inside ffibuilder"
+        ".cdef()+ffibuilder.set_source() and not taking a final '...' "
+        "argument)")
 
 class CifDescrBuilder(object):
     rawmem = lltype.nullptr(rffi.CCHARP.TO)
@@ -297,6 +309,20 @@ class CifDescrBuilder(object):
     def fb_fill_type(self, ctype, is_result_type):
         return ctype._get_ffi_type(self, is_result_type)
 
+    def fb_unsupported(self, ctype, is_result_type, detail):
+        place = "return value" if is_result_type else "argument"
+        raise oefmt(self.space.w_NotImplementedError,
+            "ctype '%s' not supported as %s.  %s.  "
+            "Such structs" + _SUPPORTED_IN_API_MODE,
+            ctype.name, place, detail, place)
+
+    def fb_union_ffi_type(self, ctype, is_result_type=False):
+        place = "return value" if is_result_type else "argument"
+        raise oefmt(self.space.w_NotImplementedError,
+            "ctype '%s' not supported as %s by libffi.  "
+            "Unions" + _SUPPORTED_IN_API_MODE,
+            ctype.name, place, place)
+
     def fb_struct_ffi_type(self, ctype, is_result_type=False):
         # We can't pass a struct that was completed by verify().
         # Issue: assume verify() is given "struct { long b; ...; }".
@@ -309,37 +335,40 @@ class CifDescrBuilder(object):
         # Another reason for 'custom_field_pos' would be anonymous
         # nested structures: we lost the information about having it
         # here, so better safe (and forbid it) than sorry (and maybe
-        # crash).
+        # crash).  Note: it seems we only get in this case with
+        # ffi.verify().
         space = self.space
         ctype.force_lazy_struct()
         if ctype._custom_field_pos:
             # these NotImplementedErrors may be caught and ignored until
             # a real call is made to a function of this type
-            place = "return value" if is_result_type else "argument"
-            raise oefmt(space.w_NotImplementedError,
-                "ctype '%s' not supported as %s (it is a struct declared "
-                "with \"...;\", but the C calling convention may depend "
-                "on the missing fields)", ctype.name, place)
+            raise self.fb_unsupported(ctype, is_result_type,
+                "It is a struct declared with \"...;\", but the C "
+                "calling convention may depend on the missing fields; "
+                "or, it contains anonymous struct/unions")
+        # Another reason: __attribute__((packed)) is not supported by libffi.
+        if ctype._with_packed_change:
+            raise self.fb_unsupported(ctype, is_result_type,
+                "It is a 'packed' structure, with a different layout than "
+                "expected by libffi")
 
         # walk the fields, expanding arrays into repetitions; first,
         # only count how many flattened fields there are
         nflat = 0
         for i, cf in enumerate(ctype._fields_list):
             if cf.is_bitfield():
-                place = "return value" if is_result_type else "argument"
-                raise oefmt(space.w_NotImplementedError,
-                    "ctype '%s' not supported as %s"
-                    " (it is a struct with bit fields)", ctype.name, place)
+                raise self.fb_unsupported(ctype, is_result_type,
+                    "It is a struct with bit fields, which libffi does not "
+                    "support")
             flat = 1
             ct = cf.ctype
             while isinstance(ct, ctypearray.W_CTypeArray):
                 flat *= ct.length
                 ct = ct.ctitem
             if flat <= 0:
-                place = "return value" if is_result_type else "argument"
-                raise oefmt(space.w_NotImplementedError,
-                    "ctype '%s' not supported as %s (it is a struct"
-                    " with a zero-length array)", ctype.name, place)
+                raise self.fb_unsupported(ctype, is_result_type,
+                    "It is a struct with a zero-length array, which libffi "
+                    "does not support")
             nflat += flat
 
         if USE_C_LIBFFI_MSVC and is_result_type:

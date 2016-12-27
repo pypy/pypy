@@ -361,7 +361,8 @@ def test_ffi_new_allocator_2():
         retries += 1
         assert retries <= 5
         import gc; gc.collect()
-    assert seen == [40, 40, raw1, raw2]
+    assert (seen == [40, 40, raw1, raw2] or
+            seen == [40, 40, raw2, raw1])
     assert repr(seen[2]) == "<cdata 'char[]' owning 41 bytes>"
     assert repr(seen[3]) == "<cdata 'char[]' owning 41 bytes>"
 

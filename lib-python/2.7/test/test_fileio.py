@@ -314,7 +314,7 @@ class OtherFileTests(unittest.TestCase):
             self.assertEqual(f.writable(), True)
             if sys.platform != "darwin" and \
                'bsd' not in sys.platform and \
-               not sys.platform.startswith('sunos'):
+               not sys.platform.startswith(('sunos', 'aix')):
                 # Somehow /dev/tty appears seekable on some BSDs
                 self.assertEqual(f.seekable(), False)
             self.assertEqual(f.isatty(), True)
@@ -366,6 +366,11 @@ class OtherFileTests(unittest.TestCase):
                 self.assertEqual(f.read(), b"abc")
         finally:
             os.unlink(TESTFN)
+
+    def testConstructorHandlesNULChars(self):
+        fn_with_NUL = 'foo\0bar'
+        self.assertRaises(TypeError, _FileIO, fn_with_NUL, 'w')
+        self.assertRaises(TypeError, _FileIO, fn_with_NUL.encode('ascii'), 'w')
 
     def testInvalidFd(self):
         self.assertRaises(ValueError, _FileIO, -10)
