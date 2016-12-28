@@ -76,7 +76,7 @@ class AppTestUserSlots(AppTestCpythonExtensionBase):
                  PyObject *obj = PyTuple_GET_ITEM(args, 1);
                  if (!type->tp_str)
                  {
-                     PyErr_SetNone(PyExc_ValueError);
+                     PyErr_SetString(PyExc_ValueError, "no tp_str");
                      return NULL;
                  }
                  return type->tp_str(obj);
@@ -91,5 +91,8 @@ class AppTestUserSlots(AppTestCpythonExtensionBase):
             def __str__(self):
                 return "more text"
         assert module.tp_str(int, D(42)) == "42"
+        class A(object):
+            pass
+        s = module.tp_str(type(A()), A())
+        assert 'A object' in s
 
-        
