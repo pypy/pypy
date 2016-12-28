@@ -556,6 +556,19 @@ def build_slot_tp_function(space, typedef, name):
                 return space.call_function(slot_fn, w_self)
             handled = True
 
+    for tp_name, attr in [('tp_hash', '__hash__'),
+                         ]:
+        if name == tp_name:
+            slot_fn = w_type.getdictvalue(space, attr)
+            if slot_fn is None:
+                return
+            @cpython_api([PyObject], lltype.Signed, header=header, error=-1)
+            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+            def slot_func(space, w_obj):
+                return space.int_w(space.call_function(slot_fn, w_self))
+            handled = True
+
+
     # binary functions
     for tp_name, attr in [('tp_as_number.c_nb_add', '__add__'),
                           ('tp_as_number.c_nb_subtract', '__sub__'),

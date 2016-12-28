@@ -276,12 +276,11 @@ def update_all_slots(space, w_type, pto):
     for method_name, slot_name, slot_names, slot_apifunc in slotdefs_for_tp_slots:
         if search_dict_w is not None:
             # heap type: only look in this exact class
-            #if method_name in search_dict_w and method_name == '__new__':
-            #    import pdb;pdb.set_trace()
             w_descr = search_dict_w.get(method_name, None)
         else:
             # built-in types: expose as many slots as possible, even
             # if it happens to come from some parent class
+            slot_apifunc = None # use get_slot_tp_function lookup mechanism
             w_descr = w_type.lookup(method_name)
 
         if w_descr is None:
