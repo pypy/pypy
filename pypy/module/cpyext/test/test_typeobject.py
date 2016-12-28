@@ -664,30 +664,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert module.tp_init(list, x, ("hi",)) is None
         assert x == ["h", "i"]
 
-    def test_tp_str(self):
-        module = self.import_extension('foo', [
-           ("tp_str", "METH_VARARGS",
-            '''
-                 PyTypeObject *type = (PyTypeObject *)PyTuple_GET_ITEM(args, 0);
-                 PyObject *obj = PyTuple_GET_ITEM(args, 1);
-                 if (!type->tp_str)
-                 {
-                     PyErr_SetNone(PyExc_ValueError);
-                     return NULL;
-                 }
-                 return type->tp_str(obj);
-             '''
-             )
-            ])
-        class C:
-            def __str__(self):
-                return "text"
-        assert module.tp_str(type(C()), C()) == "text"
-        class D(int):
-            def __str__(self):
-                return "more text"
-        assert module.tp_str(int, D(42)) == "42"
-
     def test_mp_ass_subscript(self):
         module = self.import_extension('foo', [
            ("new_obj", "METH_NOARGS",

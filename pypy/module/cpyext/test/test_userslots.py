@@ -1,8 +1,9 @@
-from pypy.module.cpyext.test.test_api import BaseApiTest
 from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.pyobject import make_ref, from_ref
 from pypy.module.cpyext.api import generic_cpy_call
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
+from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 
 class TestAppLevelObject(BaseApiTest):
@@ -21,20 +22,6 @@ class TestAppLevelObject(BaseApiTest):
         w_obj = generic_cpy_call(space, py_datetype.c_tp_as_number.c_nb_add,
                                  py_date, py_date)
         assert space.str_w(w_obj) == 'sum!'
-
-    def test_tp_hash_from_python(self, space, api):
-        w_c = space.appexec([], """():
-            class C:
-                def __hash__(self):
-                    return -23
-            return C()
-        """)
-        w_ctype = space.type(w_c)
-        py_c = make_ref(space, w_c)
-        py_ctype = rffi.cast(PyTypeObjectPtr, make_ref(space, w_ctype))
-        assert py_ctype.c_tp_hash
-        val = generic_cpy_call(space, py_ctype.c_tp_hash, py_c)
-        assert val == -23
 
     def test_tp_new_from_python(self, space, api):
         w_date = space.appexec([], """():
@@ -60,4 +47,49 @@ class TestAppLevelObject(BaseApiTest):
         w_year = space.getattr(w_obj, space.newbytes('year'))
         assert space.int_w(w_year) == 1
 
+class AppTestUserSlots(AppTestCpythonExtensionBase):
+    def test_tp_hash_from_python(self):
+        # to see that the functions are being used,
+        # run pytest with -s
+        module = self.import_extension('foo', [
+           ("use_hash", "METH_O",
+            '''
+                long hash = args->ob_type->tp_hash(args);
+                return PyLong_FromLong(hash);
+            ''')])
+        class C(object):
+            def __hash__(self):
+                return -23
+        c = C()
+        # uses the userslot slot_tp_hash
+        ret = module.use_hash(C())
+        assert hash(c) == ret
+        # uses the slotdef renamed cpyext_tp_hash_int
+        ret = module.use_hash(3)
+        assert hash(3) == ret
 
+    def test_tp_str(self):
+        module = self.import_extension('foo', [
+           ("tp_str", "METH_VARARGS",
+            '''
+                 PyTypeObject *type = (PyTypeObject *)PyTuple_GET_ITEM(args, 0);
+                 PyObject *obj = PyTuple_GET_ITEM(args, 1);
+                 if (!type->tp_str)
+                 {
+                     PyErr_SetNone(PyExc_ValueError);
+                     return NULL;
+                 }
+                 return type->tp_str(obj);
+             '''
+             )
+            ])
+        class C:
+            def __str__(self):
+                return "text"
+        assert module.tp_str(type(C()), C()) == "text"
+        class D(int):
+            def __str__(self):
+                return "more text"
+        assert module.tp_str(int, D(42)) == "42"
+
+        
