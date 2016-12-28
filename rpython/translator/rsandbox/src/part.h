@@ -20,7 +20,7 @@ typedef unsigned long Unsigned;
 /* ***********************************************************
 
    WARNING: Python is not meant to be a safe language.  For example,
-   think about making a custom code object with a random string and
+   think about making a custom code object with a random byte string and
    trying to interpret that.  A sandboxed PyPy contains extra safety
    checks that can detect such invalid operations before they cause
    problems.  When such a case is detected, THE WHOLE PROCESS IS
@@ -72,7 +72,7 @@ void rsandbox_set_heap_size(size_t maximum);
 
    rsandbox_module_t *compile_expression(const char *expression)
    {
-       rsandbox_push_string(expression);   // 'expression' is untrusted
+       rsandbox_push_bytes(expression);   // 'expression' is untrusted
        return rsandbox_open(
            "code = compile(args[0], '<untrusted>', 'eval')\n"
            "def evaluate(n):\n"
@@ -102,8 +102,8 @@ RPY_SANDBOX_EXPORTED void rsandbox_close(rsandbox_module_t *mod);
 */
 RPY_SANDBOX_EXPORTED void rsandbox_push_long(long);
 RPY_SANDBOX_EXPORTED void rsandbox_push_double(double);
-RPY_SANDBOX_EXPORTED void rsandbox_push_string(const char *);
-RPY_SANDBOX_EXPORTED void rsandbox_push_string_and_size(const char *, size_t);
+RPY_SANDBOX_EXPORTED void rsandbox_push_bytes(const char *);
+RPY_SANDBOX_EXPORTED void rsandbox_push_bytes_and_size(const char *, size_t);
 RPY_SANDBOX_EXPORTED void rsandbox_push_none(void);
 RPY_SANDBOX_EXPORTED void rsandbox_push_rw_buffer(char *, size_t);
 
@@ -122,24 +122,25 @@ RPY_SANDBOX_EXPORTED long rsandbox_result_long(void);
    malicious code returning results like inf, nan, or 1e-323.) */
 RPY_SANDBOX_EXPORTED double rsandbox_result_double(void);
 
-/* Returns the length of the string returned in the previous
-   rsandbox_call().  If it was not a string, returns 0. */
-RPY_SANDBOX_EXPORTED size_t rsandbox_result_string_length(void);
+/* Returns the length of the byte string returned in the previous
+   rsandbox_call().  If it was not a byte string, returns 0. */
+RPY_SANDBOX_EXPORTED size_t rsandbox_result_bytes_length(void);
 
-/* Returns the data in the string.  This function always writes an
-   additional '\0'.  If the string is longer than 'bufsize-1', it is
+/* Returns the data in the byte string.  This function always writes an
+   additional '\0'.  If the byte string is longer than 'bufsize-1', it is
    truncated to 'bufsize-1' characters.
 
    For small human-readable strings you can call
-   rsandbox_result_string() with some fixed maximum size.  You get a
+   rsandbox_result_bytes() with some fixed maximum size.  You get a
    regular null-terminated 'char *' string.  (If it contains embedded
    '\0', it will appear truncated; if the Python function did not
-   return a string at all, it will be completely empty; but anyway
+   return a byte string at all, it will be completely empty; but anyway
    you MUST be ready to handle any malformed string at all.)
 
    For strings of larger sizes or strings that can meaningfully
-   contain embedded '\0', you should allocate a 'buf' of size
-   'rsandbox_result_string_length() + 1'.
+   contain embedded '\0', you should compute 'bufsize =
+   rsandbox_result_bytes_length() + 1' and allocate a buffer of this
+   length.
 
    To repeat: Be careful when reading strings from Python!  They can
    contain any character, so be sure to escape them correctly (or
@@ -147,17 +148,20 @@ RPY_SANDBOX_EXPORTED size_t rsandbox_result_string_length(void);
    further.  Malicious code can return any string.  Your code must be
    ready for anything.  Err on the side of caution.
 */
-RPY_SANDBOX_EXPORTED void rsandbox_result_string(char *buf, size_t bufsize);
+RPY_SANDBOX_EXPORTED void rsandbox_result_bytes(char *buf, size_t bufsize);
 
 /* When an exception occurred in rsandbox_open() or rsandbox_call(),
-   return more information as a string.  Same rules as
-   rsandbox_result_string().  (Careful, you MUST NOT assume that the
+   return more information as a 'char *' string.  Same rules as
+   rsandbox_result_bytes().  (Careful, you MUST NOT assume that the
    string is well-formed: malicious code can make it contain anything.
    If you are copying it to a web page, for example, then a good idea
    is to replace any character not in a whitelist with '?'.)
+
+   If 'traceback_limit' is greater than zero, the output is a multiline
+   traceback like in standard Python, with up to 'traceback_limit' levels.
 */
 RPY_SANDBOX_EXPORTED void rsandbox_last_exception(char *buf, size_t bufsize,
-                                                  int include_traceback);
+                                                  int traceback_limit);
 
 
 /************************************************************/
