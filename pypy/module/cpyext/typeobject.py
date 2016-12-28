@@ -37,7 +37,7 @@ from pypy.module.cpyext.typeobjectdefs import (
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 
 
-WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
+#WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
 
 PyType_Check, PyType_CheckExact = build_type_checkers("Type", "w_type")
 
@@ -274,27 +274,21 @@ def update_all_slots(space, w_type, pto):
         search_dict_w = None
 
     for method_name, slot_name, slot_names, slot_apifunc in slotdefs_for_tp_slots:
-        if search_dict_w is not None:
-            # heap type: only look in this exact class
-            w_descr = search_dict_w.get(method_name, None)
-        else:
+        if search_dict_w is None:
             # built-in types: expose as many slots as possible, even
             # if it happens to come from some parent class
-            slot_apifunc = None # use get_slot_tp_function lookup mechanism
-            w_descr = w_type.lookup(method_name)
-
-        if w_descr is None:
-            # XXX special case iternext
-            continue
+            slot_apifunc = None # use get_slot_tp_function 
+        else:
+            # use the slot_apifunc (userslots) to lookup at runtime
+            pass
 
         if typedef is not None:
             if slot_apifunc is None:
                 slot_apifunc = get_slot_tp_function(space, typedef, slot_name)
         if not slot_apifunc:
-            if WARN_ABOUT_MISSING_SLOT_FUNCTIONS:
-                os.write(2,
-                    "%s defined by %s but no slot function defined!\n" % (
-                        method_name, w_type.getname(space)))
+            if not we_are_translated():
+               print "missing slot %r/%r for %r" % (
+                    method_name, slot_name, w_type.getname(space))
             continue
         slot_func_helper = slot_apifunc.get_llhelper(space)
 
@@ -771,9 +765,9 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         if pto.c_tp_itemsize < pto.c_tp_base.c_tp_itemsize:
             pto.c_tp_itemsize = pto.c_tp_base.c_tp_itemsize
 
-    # will be filled later on with the correct value
-    # may not be 0
     if space.is_w(w_type, space.w_object):
+        # will be filled later on with the correct value
+        # may not be 0
         pto.c_tp_new = rffi.cast(newfunc, 1)
     update_all_slots(space, w_type, pto)
     if not pto.c_tp_new:

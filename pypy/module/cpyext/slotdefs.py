@@ -565,7 +565,7 @@ def build_slot_tp_function(space, typedef, name):
             @cpython_api([PyObject], lltype.Signed, header=header, error=-1)
             @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
             def slot_func(space, w_obj):
-                return space.int_w(space.call_function(slot_fn, w_self))
+                return space.int_w(space.call_function(slot_fn, w_obj))
             handled = True
 
 
