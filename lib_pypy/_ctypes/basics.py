@@ -84,10 +84,18 @@ class _CDataMeta(type):
         return self.from_address(dll._handle.getaddressindll(name))
 
     def from_buffer(self, obj, offset=0):
+        from array import array
         size = self._sizeofinstances()
-        buf = buffer(obj, offset, size)
-        if buf._pypy_is_readonly():
-            raise TypeError("Cannot use %s as modifiable buffer" % str(type(obj)))
+        if isinstance(obj, array):
+            # hack, buffer(array.array) will always return a readonly buffer.
+            # CPython calls PyObject_AsWriteBuffer(...) here!
+            # array.array does not implement the buffer interface so we cannot
+            # use memoryview here (neither on CPython)!
+            buf = buffer(obj, offset, size)
+        else:
+            buf = memoryview(obj)[offset:]
+            if buf.readonly:
+                raise TypeError("Cannot use %s as modifiable buffer" % str(type(obj)))
         if len(buf) < size:
             raise ValueError(
                 "Buffer size too small (%d instead of at least %d bytes)"
