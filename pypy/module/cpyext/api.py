@@ -1076,7 +1076,7 @@ def build_bridge(space):
             '\n' +
             '\n'.join(functions))
 
-    eci = build_eci(True, export_symbols, code, use_micronumpy)
+    eci = build_eci(True, code, use_micronumpy)
     eci = eci.compile_shared_lib(
         outputfilename=str(udir / "module_cache" / "pypyapi"))
     modulename = py.path.local(eci.libraries[-1])
@@ -1341,7 +1341,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pymem.c",
                          ]
 
-def build_eci(building_bridge, export_symbols, code, use_micronumpy=False):
+def build_eci(building_bridge, code, use_micronumpy=False):
     "NOT_RPYTHON"
     # Build code and get pointer to the structure
     kwds = {}
@@ -1434,7 +1434,7 @@ def setup_library(space):
         code += "#include <pypy_numpy.h> /* api.py line 1290 */\n"
     code  += "\n".join(functions)
 
-    eci = build_eci(False, export_symbols, code, use_micronumpy)
+    eci = build_eci(False, code, use_micronumpy)
 
     space.fromcache(State).install_dll(eci)
 
