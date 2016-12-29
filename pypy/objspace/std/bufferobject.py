@@ -138,6 +138,11 @@ class W_Buffer(W_Root):
             raise OperationError(space.w_ValueError, space.wrap(msg))
         return space.wrap(rffi.cast(lltype.Signed, ptr))
 
+    def descr_is_readonly(self, space):
+        """ Needed in ctypes (from_buffer), CPython can check if a
+            buffer can be readonly (has a C Function/Macro for that) """
+        return space.newbool(bool(self.buf.readonly))
+
 W_Buffer.typedef = TypeDef(
     "buffer", None, None, "read-write",
     __doc__ = """\
@@ -166,5 +171,6 @@ extend to the end of the target object (or with the specified size).
     __repr__ = interp2app(W_Buffer.descr_repr),
     __buffer__ = interp2app(W_Buffer.descr_getbuffer),
     _pypy_raw_address = interp2app(W_Buffer.descr_pypy_raw_address),
+    _pypy_is_readonly = interp2app(W_Buffer.descr_is_readonly),
 )
 W_Buffer.typedef.acceptable_as_base_class = False

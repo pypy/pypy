@@ -85,8 +85,8 @@ class _CDataMeta(type):
 
     def from_buffer(self, obj, offset=0):
         size = self._sizeofinstances()
-        buf = memoryview(obj)[offset:]
-        if buf.readonly:
+        buf = buffer(obj, offset, size)
+        if buf._pypy_is_readonly():
             raise TypeError("Cannot use %s as modifiable buffer" % str(type(obj)))
         if len(buf) < size:
             raise ValueError(
