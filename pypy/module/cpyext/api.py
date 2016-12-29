@@ -482,6 +482,12 @@ def cpython_struct(name, fields, forward=None, level=1):
     TYPES[configname] = forward
     return forward
 
+GLOBALS = {}
+def register_global(name, typ, expr, header=None):
+    if header is not None:
+        name = '%s#%s' % (name, header)
+    GLOBALS[name] = (typ, expr)
+
 INTERPLEVEL_API = {}
 FUNCTIONS = {}
 FUNCTIONS_BY_HEADER = {}
@@ -542,17 +548,22 @@ SYMBOLS_C = [
     '_Py_QnewFlag', 'Py_Py3kWarningFlag', 'Py_HashRandomizationFlag', '_Py_PackageContext',
 ]
 TYPES = {}
-GLOBALS = { # this needs to include all prebuilt pto, otherwise segfaults occur
-    '_Py_NoneStruct#%s' % pypy_decl: ('PyObject*', 'space.w_None'),
-    '_Py_TrueStruct#%s' % pypy_decl: ('PyIntObject*', 'space.w_True'),
-    '_Py_ZeroStruct#%s' % pypy_decl: ('PyIntObject*', 'space.w_False'),
-    '_Py_NotImplementedStruct#%s' % pypy_decl: ('PyObject*', 'space.w_NotImplemented'),
-    '_Py_EllipsisObject#%s' % pypy_decl: ('PyObject*', 'space.w_Ellipsis'),
-    'PyDateTimeAPI': ('PyDateTime_CAPI*', 'None'),
-    }
 FORWARD_DECLS = []
 INIT_FUNCTIONS = []
 BOOTSTRAP_FUNCTIONS = []
+
+# this needs to include all prebuilt pto, otherwise segfaults occur
+register_global('_Py_NoneStruct',
+    'PyObject*', 'space.w_None', header=pypy_decl)
+register_global('_Py_TrueStruct',
+    'PyIntObject*', 'space.w_True', header=pypy_decl)
+register_global('_Py_ZeroStruct',
+    'PyIntObject*', 'space.w_False', header=pypy_decl)
+register_global('_Py_NotImplementedStruct',
+    'PyObject*', 'space.w_NotImplemented', header=pypy_decl)
+register_global('_Py_EllipsisObject',
+    'PyObject*', 'space.w_Ellipsis', header=pypy_decl)
+register_global('PyDateTimeAPI', 'PyDateTime_CAPI*', 'None')
 
 def build_exported_objects():
     # Standard exceptions
@@ -562,7 +573,7 @@ def build_exported_objects():
     # PyExc_NameError, PyExc_MemoryError, PyExc_RuntimeError,
     # PyExc_UnicodeEncodeError, PyExc_UnicodeDecodeError, ...
     for exc_name in exceptions.Module.interpleveldefs.keys():
-        GLOBALS['PyExc_' + exc_name] = (
+        register_global('PyExc_' + exc_name,
             'PyTypeObject*',
             'space.gettypeobject(interp_exceptions.W_%s.typedef)'% (exc_name, ))
 
@@ -597,7 +608,7 @@ def build_exported_objects():
         'PyCFunction_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCFunctionObject.typedef)',
         'PyWrapperDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCMethodObject.typedef)'
         }.items():
-        GLOBALS['%s#%s' % (cpyname, pypy_decl)] = ('PyTypeObject*', pypyexpr)
+        register_global(cpyname, 'PyTypeObject*', pypyexpr, header=pypy_decl)
 
     for cpyname in '''PyMethodObject PyListObject PyLongObject
                       PyClassObject'''.split():
@@ -1403,10 +1414,12 @@ def setup_micronumpy(space):
         return use_micronumpy
     # import registers api functions by side-effect, we also need HEADER
     from pypy.module.cpyext.ndarrayobject import HEADER
-    global GLOBALS, FUNCTIONS_BY_HEADER, separate_module_files
+    global FUNCTIONS_BY_HEADER, separate_module_files
     for func_name in ['PyArray_Type', '_PyArray_FILLWBYTE', '_PyArray_ZEROS']:
         FUNCTIONS_BY_HEADER.setdefault(HEADER, {})[func_name] = None
-    GLOBALS["PyArray_Type#%s" % HEADER] = ('PyTypeObject*', "space.gettypeobject(W_NDimArray.typedef)")
+    register_global("PyArray_Type",
+        'PyTypeObject*',  "space.gettypeobject(W_NDimArray.typedef)",
+        header=HEADER)
     separate_module_files.append(source_dir / "ndarrayobject.c")
     return use_micronumpy
 
