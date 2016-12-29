@@ -397,7 +397,7 @@ testmap = [
     RegrTest('test_source_encoding.py'),
     RegrTest('test_spwd.py'),
     RegrTest('test_sqlite.py', usemodules="thread _rawffi zlib"),
-    RegrTest('test_ssl.py', usemodules='_ssl _socket select'),
+    RegrTest('test_ssl.py', usemodules='_socket select'),
     RegrTest('test_startfile.py'),
     RegrTest('test_stat.py'),
     RegrTest('test_statistics.py'),
