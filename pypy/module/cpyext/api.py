@@ -1,6 +1,5 @@
 import ctypes
 import sys, os
-import atexit
 
 import py
 
@@ -18,7 +17,6 @@ from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.gensupp import NameManager
 from rpython.tool.udir import udir
-from rpython.translator import platform
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root
@@ -1028,6 +1026,8 @@ def build_bridge(space):
 
     generate_macros(export_symbols, prefix='cpyexttest')
 
+    functions = generate_decls_and_callbacks(db, prefix='cpyexttest')
+
     # Structure declaration code
     members = []
     structindex = {}
@@ -1046,8 +1046,6 @@ def build_bridge(space):
     } _pypyAPI;
     RPY_EXTERN struct PyPyAPI* pypyAPI = &_pypyAPI;
     """ % dict(members=structmembers)
-
-    functions = generate_decls_and_callbacks(db, prefix='cpyexttest')
 
     global_objects = []
     for name, (typ, expr) in GLOBALS.iteritems():
@@ -1219,7 +1217,6 @@ def mangle_name(prefix, name):
 def generate_macros(export_symbols, prefix):
     "NOT_RPYTHON"
     pypy_macros = []
-    renamed_symbols = []
     for name in export_symbols:
         if '#' in name:
             name, header = name.split('#')
@@ -1231,8 +1228,6 @@ def generate_macros(export_symbols, prefix):
             pypy_macros.append('#define %s %s' % (name, newname))
         if name.startswith("PyExc_"):
             pypy_macros.append('#define _%s _%s' % (name, newname))
-        renamed_symbols.append(newname)
-    export_symbols[:] = renamed_symbols
 
     # Generate defines
     for macro_name, size in [
