@@ -1047,8 +1047,7 @@ def build_bridge(space):
     RPY_EXTERN struct PyPyAPI* pypyAPI = &_pypyAPI;
     """ % dict(members=structmembers)
 
-    functions = generate_decls_and_callbacks(db, export_symbols,
-                                            prefix='cpyexttest')
+    functions = generate_decls_and_callbacks(db, prefix='cpyexttest')
 
     global_objects = []
     for name, (typ, expr) in GLOBALS.iteritems():
@@ -1097,7 +1096,6 @@ def build_bridge(space):
     run_bootstrap_functions(space)
 
     # load the bridge, and init structure
-    import ctypes
     bridge = ctypes.CDLL(str(modulename), mode=ctypes.RTLD_GLOBAL)
 
     space.fromcache(State).install_dll(eci)
@@ -1224,7 +1222,7 @@ def generate_macros(export_symbols, prefix):
     renamed_symbols = []
     for name in export_symbols:
         if '#' in name:
-            name,header = name.split('#')
+            name, header = name.split('#')
         else:
             header = pypy_decl
         newname = mangle_name(prefix, name)
@@ -1254,7 +1252,7 @@ def generate_macros(export_symbols, prefix):
     pypy_macros_h = udir.join('pypy_macros.h')
     pypy_macros_h.write('\n'.join(pypy_macros))
 
-def generate_decls_and_callbacks(db, export_symbols, api_struct=True, prefix=''):
+def generate_decls_and_callbacks(db, api_struct=True, prefix=''):
     "NOT_RPYTHON"
     # implement function callbacks and generate function decls
     functions = []
@@ -1427,8 +1425,7 @@ def setup_library(space):
 
     generate_macros(export_symbols, prefix=prefix)
 
-    functions = generate_decls_and_callbacks(db, [], api_struct=False,
-                                            prefix=prefix)
+    functions = generate_decls_and_callbacks(db, api_struct=False, prefix=prefix)
     code = "#include <Python.h>\n"
     if use_micronumpy:
         code += "#include <pypy_numpy.h> /* api.py line 1290 */\n"
@@ -1586,7 +1583,7 @@ def generic_cpy_call_expect_null(space, func, *args):
 
 @specialize.memo()
 def make_generic_cpy_call(FT, expect_null):
-    from pypy.module.cpyext.pyobject import make_ref, from_ref, Py_DecRef
+    from pypy.module.cpyext.pyobject import make_ref, from_ref
     from pypy.module.cpyext.pyobject import is_pyobj, as_pyobj
     from pypy.module.cpyext.pyobject import get_w_obj_and_decref
     from pypy.module.cpyext.pyerrors import PyErr_Occurred
