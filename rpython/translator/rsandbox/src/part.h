@@ -1,40 +1,46 @@
-/*** rpython/translator/rsandbox/src/part.h ***/
-
 #ifndef _RSANDBOX_H_
 #define _RSANDBOX_H_
 
 #ifndef RPY_SANDBOX_EXPORTED
-/* Common definitions when including this file from an external C project */
-
-#include <stdlib.h>
-#include <sys/utsname.h>
-
-#define RPY_SANDBOX_EXPORTED  extern
-
-typedef long Signed;
-typedef unsigned long Unsigned;
-
+#  define RPY_SANDBOX_EXPORTED  extern
 #endif
 
 
 /* ***********************************************************
 
-   WARNING: Python is not meant to be a safe language.  For example,
-   think about making a custom code object with a random byte string and
-   trying to interpret that.  A sandboxed PyPy contains extra safety
-   checks that can detect such invalid operations before they cause
-   problems.  When such a case is detected, THE WHOLE PROCESS IS
+   A direct interface for safely embedding Python inside a larger
+   application written in C (or any other language which can access C
+   libraries).
+
+   For now, there is little support for more complex cases.  Notably,
+   any call to functions like open() or any attempt to do 'import' of
+   any non-builtin module will fail.  This interface is not meant to
+   "drop in" a large amount of existing Python code.  If you are looking
+   for this and are not concerned about security, look at CFFI
+   embedding: http://cffi.readthedocs.org/en/latest/embedding.html .
+   Instead, this interface is meant to run small amounts of untrusted
+   Python code from third-party sources.  (It is possible to rebuild a
+   module system on top of this interface, by writing a custom
+   __import__ hook in Python.  Similarly, you cannot return arbitrary
+   Python objects to C code, but you can make a Python-side data
+   structure like a list or a dict, and pass integer indices to C.)
+
+   WARNING: Python is originally not meant to be a safe language.  For
+   example, think about making a custom code object with a random byte
+   string and trying to interpret that.  A sandboxed PyPy contains extra
+   safety checks that can detect such invalid operations before they
+   cause problems.  When such a case is detected, THE WHOLE PROCESS IS
    ABORTED right now.  In the future, there should be a setjmp/longjmp
    alternative to this, but the details need a bit of care (e.g. it
    would still create memory leaks).
 
-   For now, you have to accept that the process can be aborted if
-   given malicious code.  Also, running several Python sources from
-   different sources in the same process is not recommended---there is
-   only one global state: malicious code can easily mangle the state
-   of the Python interpreter, influencing subsequent runs.  Unless you
-   are fine with both issues, you MUST run Python from subprocesses,
-   not from your main program.
+   For now, you have to accept that the process can be aborted if given
+   malicious code.  Also, running several Python codes from different
+   untrusted sources in the same process is not recommended---there is
+   only one global state: malicious code can easily mangle the state of
+   the PyPy interpreter, influencing subsequent runs.  Unless you are
+   fine with both issues, you MUST run Python from subprocesses, not
+   from your main program.
 
    Multi-threading issues: DO NOT USE FROM SEVERAL THREADS AT THE SAME
    TIME!  You need a lock.  If you use subprocesses, they will likely
@@ -150,6 +156,14 @@ RPY_SANDBOX_EXPORTED size_t rsandbox_result_bytes_length(void);
 */
 RPY_SANDBOX_EXPORTED void rsandbox_result_bytes(char *buf, size_t bufsize);
 
+/* If the called function returns a tuple of values, then the above
+   'result' functions work on individual items in the tuple, initially
+   the 0th one.  This function changes the current item to
+   'current_item' if that is within bounds.  Returns the total length of
+   the tuple, or -1 if not a tuple.
+*/
+RPY_SANDBOX_EXPORTED int rsandbox_result_tuple_item(int current_item);
+
 /* When an exception occurred in rsandbox_open() or rsandbox_call(),
    return more information as a 'char *' string.  Same rules as
    rsandbox_result_bytes().  (Careful, you MUST NOT assume that the
@@ -163,14 +177,38 @@ RPY_SANDBOX_EXPORTED void rsandbox_result_bytes(char *buf, size_t bufsize);
 RPY_SANDBOX_EXPORTED void rsandbox_last_exception(char *buf, size_t bufsize,
                                                   int traceback_limit);
 
+/* Installs a callback inside the module 'mod' under the name 'fnname'.
+   The Python code then sees a function 'fnname()' which invokes back
+   the C function given as the 'callback' parameter.  The 'callback' is
+   called with 'data' as sole argument (use NULL if you don't need
+   this).
+
+   When the Python 'fnname()' is called, the 'callback' is executed.  At
+   this point it can read the tuple of provided arguments using
+   rsandbox_result_...() and rsandbox_result_tuple_item().  Before
+   returning, it can use rsandbox_push_...() to push a number of
+   answers.  If more than one answer is pushed, the Python-side will get
+   them inside a tuple.  The callback cannot raise a Python-level
+   exception; if you need this, write a Python wrapper around the
+   callback, and have the callback return an error code.  (Or, of course,
+   just write the error message to stderr and call abort(), like many
+   other operations do.)
+
+   As usual, be ready to handle any broken argument combination in
+   rsandbox_result_...().
+
+   It is ok to use rsandbox_call() recursively from a callback.  Likely,
+   if you do, malicious code could in theory cause infinite recursion,
+   but any infinite recursion including this one should be caught by the
+   general detection logic and cause a Python-level
+   RuntimeError/RecursionError exception.
+*/
+RPY_SANDBOX_EXPORTED void rsandbox_install_callback(rsandbox_module_t *mod,
+                                                    const char *fnname,
+                                                    void (*callback)(void *),
+                                                    void *data);
+
 
 /************************************************************/
 
-
-/* The list of 'rsandbox_fnptr_*' function pointers is automatically
-   generated.  Most of these function pointers are initialized to
-   point to a function that aborts the sandboxed execution.  The
-   sandboxed program cannot, by default, use any of them.  A few
-   exceptions are provided, where the default implementation returns a
-   safe default (for example rsandbox_fnptr_getenv()).
-*/
+#endif
