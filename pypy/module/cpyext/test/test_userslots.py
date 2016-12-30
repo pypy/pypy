@@ -102,6 +102,15 @@ class AppTestUserSlots(AppTestCpythonExtensionBase):
             '''
                 return PyLong_FromLong(foocnt);
             '''),
+            ("get__timestamp", "METH_NOARGS",
+            '''
+                PyObject * one = PyLong_FromLong(1);
+                PyObject * a = PyTuple_Pack(3, one, one, one);
+                PyObject * k = NULL;
+                obj = _Timestamp.tp_new(&_Timestamp, a, k);
+                Py_DECREF(one);
+                return obj;
+             '''),
             ("get_timestamp", "METH_NOARGS",
             '''
                 PyObject * one = PyLong_FromLong(1);
@@ -121,18 +130,13 @@ class AppTestUserSlots(AppTestCpythonExtensionBase):
                     foocnt ++;
                     return datetime_cls->tp_new(t, a, k);
                 }
+
                 static PyObject*
                 timestamp_new(PyTypeObject* t, PyObject* a, PyObject* k)
                 {
-                    foocnt ++;
                     return datetime_cls->tp_new(t, a, k);
                 }
-                static void 
-                timestamp_dealloc(PyObject *op)
-                {
-                    foocnt --;
-                    datetime_cls->tp_dealloc(op);
-                }
+
                 static void 
                 _timestamp_dealloc(PyObject *op)
                 {
@@ -147,15 +151,14 @@ class AppTestUserSlots(AppTestCpythonExtensionBase):
                     "foo._Timestamp",   /* tp_name*/
                     0,                  /* tp_basicsize*/
                     0,                  /* tp_itemsize */
-                    _timestamp_dealloc   /* tp_dealloc  */
+                    _timestamp_dealloc  /* tp_dealloc  */
                 };
                 static PyTypeObject Timestamp = {
                     PyObject_HEAD_INIT(NULL)
                     0,                            /* ob_size */
                     "foo.Timestamp",   /* tp_name*/
                     0,                  /* tp_basicsize*/
-                    0,                  /* tp_itemsize */
-                    timestamp_dealloc   /* tp_dealloc  */
+                    0                  /* tp_itemsize */
                 };
             ''', more_init='''
                 PyObject * mod = PyImport_ImportModule("datetime");
@@ -169,15 +172,21 @@ class AppTestUserSlots(AppTestCpythonExtensionBase):
                 Py_DECREF(mod);
                 Py_DECREF(dt);
                 if (PyType_Ready(&_Timestamp) < 0) INITERROR;
+
                 Timestamp.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
                 Timestamp.tp_base = &_Timestamp;
                 Timestamp.tp_new = timestamp_new;
+                Timestamp.tp_dealloc = datetime_cls->tp_dealloc;
                 if (PyType_Ready(&Timestamp) < 0) INITERROR;
             ''')
+        # _Timestamp has __new__, __del__ and 
+        #      inherits from datetime.datetime
+        # Timestamp has __new__, default __del__ (subtype_dealloc) and
+        #      inherits from _Timestamp
         import gc, sys
         cnt = module.get_cnt()
         assert cnt == 0
-        obj = module.get_timestamp()
+        obj = module.get__timestamp() #_Timestamp
         cnt = module.get_cnt()
         assert cnt == 1
         assert obj.year == 1
@@ -185,3 +194,15 @@ class AppTestUserSlots(AppTestCpythonExtensionBase):
         self.debug_collect()
         cnt = module.get_cnt()
         assert cnt == 0
+
+        obj = module.get_timestamp() #Timestamp
+        cnt = module.get_cnt()
+        assert cnt == 0
+        assert obj.year == 1
+        # XXX calling Timestamp.tp_dealloc which is subtype_dealloc
+        #     causes infinite recursion
+        del obj
+        self.debug_collect()
+        cnt = module.get_cnt()
+        assert cnt == 0
+
