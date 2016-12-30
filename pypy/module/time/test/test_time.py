@@ -254,6 +254,22 @@ class AppTestTime:
                 del os.environ['TZ']
             time.tzset()
 
+    def test_localtime_timezone(self):
+        import os, time
+        org_TZ = os.environ.get('TZ', None)
+        try:
+            os.environ['TZ'] = 'Europe/Kiev'
+            time.tzset()
+            localtm = time.localtime(0)
+            assert localtm.tm_zone == "MSK"
+            assert localtm.tm_gmtoff == 10800
+        finally:
+            if org_TZ is not None:
+                os.environ['TZ'] = org_TZ
+            elif 'TZ' in os.environ:
+                del os.environ['TZ']
+            time.tzset()
+
     def test_strftime(self):
         import time
         import os, sys

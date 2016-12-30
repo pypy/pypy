@@ -3,6 +3,7 @@
 from _structseq import structseqtype, structseqfield
 from types import SimpleNamespace
 import time
+
 class struct_time(metaclass=structseqtype):
     __module__ = 'time'
     name = 'time.struct_time'
@@ -16,6 +17,8 @@ class struct_time(metaclass=structseqtype):
     tm_wday   = structseqfield(6)
     tm_yday   = structseqfield(7)
     tm_isdst  = structseqfield(8)
+    tm_gmtoff = structseqfield(9)
+    tm_zone   = structseqfield(10)
 
 def strptime(string, format="%a %b %d %H:%M:%S %Y"):
     """strptime(string, format) -> struct_time

@@ -164,6 +164,8 @@ class CConfig:
     CLOCKS_PER_SEC = platform.ConstantInteger("CLOCKS_PER_SEC")
     has_gettimeofday = platform.Has('gettimeofday')
 
+HAS_TM_ZONE = False
+
 if _POSIX:
     calling_conv = 'c'
     CConfig.timeval = platform.Struct("struct timeval",
@@ -180,6 +182,9 @@ if _POSIX:
             ("tm_mon", rffi.INT), ("tm_year", rffi.INT), ("tm_wday", rffi.INT),
             ("tm_yday", rffi.INT), ("tm_isdst", rffi.INT), ("tm_gmtoff", rffi.LONG),
             ("tm_zone", rffi.CCHARP)])
+
+        HAS_TM_ZONE = True
+
 elif _WIN:
     calling_conv = 'win'
     CConfig.tm = platform.Struct("struct tm", [("tm_sec", rffi.INT),
@@ -539,7 +544,11 @@ def _tm_to_tuple(space, t):
 
     w_struct_time = _get_module_object(space, 'struct_time')
     w_time_tuple = space.newtuple(time_tuple)
-    return space.call_function(w_struct_time, w_time_tuple)
+    w_obj = space.call_function(w_struct_time, w_time_tuple)
+    if HAS_TM_ZONE:
+        space.setattr(w_obj, space.wrap("tm_gmoff"), space.wrap(rffi.getintfield(t, 'c_tm_gmtoff')))
+        space.setattr(w_obj, space.wrap("tm_zone"), space.wrap(rffi.getintfield(t, 'c_tm_zone')))
+    return w_obj
 
 def _gettmarg(space, w_tup, allowNone=True):
     if space.is_none(w_tup):
