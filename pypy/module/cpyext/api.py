@@ -1028,16 +1028,12 @@ def c_function_signature(db, func):
 def build_bridge(space):
     "NOT_RPYTHON"
     from pypy.module.cpyext.pyobject import make_ref
-
-    use_micronumpy = setup_micronumpy(space)
-
-    export_symbols = list(FUNCTIONS) + SYMBOLS_C + list(GLOBALS)
     from rpython.translator.c.database import LowLevelDatabase
+    use_micronumpy = setup_micronumpy(space)
     db = LowLevelDatabase()
+    prefix ='cpyexttest'
 
-    generate_macros(export_symbols, prefix='cpyexttest')
-
-    functions = generate_decls_and_callbacks(db, prefix='cpyexttest')
+    functions = generate_decls_and_callbacks(db, prefix=prefix)
 
     # Structure declaration code
     members = []
@@ -1124,7 +1120,7 @@ def build_bridge(space):
 
         INTERPLEVEL_API[name] = w_obj
 
-        name = name.replace('Py', 'cpyexttest')
+        name = name.replace('Py', prefix)
         if isptr:
             ptr = ctypes.c_void_p.in_dll(bridge, name)
             if typ == 'PyObject*':
@@ -1152,12 +1148,6 @@ def build_bridge(space):
     pypyAPI = ctypes.POINTER(ctypes.c_void_p).in_dll(bridge, 'pypyAPI')
 
     # implement structure initialization code
-    #for name, func in FUNCTIONS.iteritems():
-    #    if name.startswith('cpyext_'): # XXX hack
-    #        continue
-    #    pypyAPI[structindex[name]] = ctypes.cast(
-    #        ll2ctypes.lltype2ctypes(func.get_llhelper(space)),
-    #        ctypes.c_void_p)
     for header, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         for name, func in header_functions.iteritems():
             if name.startswith('cpyext_') or func is None: # XXX hack
@@ -1225,9 +1215,10 @@ def mangle_name(prefix, name):
     else:
         return None
 
-def generate_macros(export_symbols, prefix):
+def generate_decls_and_callbacks(db, api_struct=True, prefix=''):
     "NOT_RPYTHON"
     pypy_macros = []
+    export_symbols = sorted(FUNCTIONS) + sorted(SYMBOLS_C) + sorted(GLOBALS)
     for name in export_symbols:
         if '#' in name:
             name, header = name.split('#')
@@ -1258,8 +1249,6 @@ def generate_macros(export_symbols, prefix):
     pypy_macros_h = udir.join('pypy_macros.h')
     pypy_macros_h.write('\n'.join(pypy_macros))
 
-def generate_decls_and_callbacks(db, api_struct=True, prefix=''):
-    "NOT_RPYTHON"
     # implement function callbacks and generate function decls
     functions = []
     decls = {}
@@ -1425,13 +1414,10 @@ def setup_micronumpy(space):
 
 def setup_library(space):
     "NOT_RPYTHON"
-    use_micronumpy = setup_micronumpy(space)
-    export_symbols = sorted(FUNCTIONS) + sorted(SYMBOLS_C) + sorted(GLOBALS)
     from rpython.translator.c.database import LowLevelDatabase
+    use_micronumpy = setup_micronumpy(space)
     db = LowLevelDatabase()
     prefix = 'PyPy'
-
-    generate_macros(export_symbols, prefix=prefix)
 
     functions = generate_decls_and_callbacks(db, api_struct=False, prefix=prefix)
     code = "#include <Python.h>\n"
