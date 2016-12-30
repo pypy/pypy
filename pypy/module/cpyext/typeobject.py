@@ -259,6 +259,7 @@ def convert_member_defs(space, dict_w, members, w_type):
             dict_w[name] = w_descr
             i += 1
 
+missing_slots={}
 def update_all_slots(space, w_type, pto):
     # fill slots in pto
     # Not very sure about it, but according to
@@ -287,8 +288,10 @@ def update_all_slots(space, w_type, pto):
                 slot_apifunc = get_slot_tp_function(space, typedef, slot_name)
         if not slot_apifunc:
             if not we_are_translated():
-               print "missing slot %r/%r for %r" % (
-                    method_name, slot_name, w_type.getname(space))
+                if slot_name not in missing_slots:
+                    missing_slots[slot_name] = w_type.getname(space)
+                    print "missing slot %r/%r, discovered on %r" % (
+                        method_name, slot_name, w_type.getname(space))
             continue
         slot_func_helper = slot_apifunc.get_llhelper(space)
 
