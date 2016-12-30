@@ -107,7 +107,7 @@ class AppTestUserSlots(AppTestCpythonExtensionBase):
                 PyObject * one = PyLong_FromLong(1);
                 PyObject * a = PyTuple_Pack(3, one, one, one);
                 PyObject * k = NULL;
-                obj = _Timestamp.tp_new(&_Timestamp, a, k);
+                obj = Timestamp.tp_new(&Timestamp, a, k);
                 Py_DECREF(one);
                 return obj;
              '''),
@@ -115,6 +115,12 @@ class AppTestUserSlots(AppTestCpythonExtensionBase):
                 static int foocnt = 0;
                 static PyTypeObject* datetime_cls = NULL;
                 static PyObject * obj = NULL;
+                static PyObject*
+                _timestamp_new(PyTypeObject* t, PyObject* a, PyObject* k)
+                {
+                    foocnt ++;
+                    return datetime_cls->tp_new(t, a, k);
+                }
                 static PyObject*
                 timestamp_new(PyTypeObject* t, PyObject* a, PyObject* k)
                 {
@@ -127,12 +133,26 @@ class AppTestUserSlots(AppTestCpythonExtensionBase):
                     foocnt --;
                     datetime_cls->tp_dealloc(op);
                 }
+                static void 
+                _timestamp_dealloc(PyObject *op)
+                {
+                    foocnt --;
+                    datetime_cls->tp_dealloc(op);
+                }
                  
 
                 static PyTypeObject _Timestamp = {
                     PyObject_HEAD_INIT(NULL)
                     0,                            /* ob_size */
                     "foo._Timestamp",   /* tp_name*/
+                    0,                  /* tp_basicsize*/
+                    0,                  /* tp_itemsize */
+                    _timestamp_dealloc   /* tp_dealloc  */
+                };
+                static PyTypeObject Timestamp = {
+                    PyObject_HEAD_INIT(NULL)
+                    0,                            /* ob_size */
+                    "foo.Timestamp",   /* tp_name*/
                     0,                  /* tp_basicsize*/
                     0,                  /* tp_itemsize */
                     timestamp_dealloc   /* tp_dealloc  */
@@ -145,10 +165,14 @@ class AppTestUserSlots(AppTestCpythonExtensionBase):
                 if (datetime_cls == NULL) INITERROR;
                 _Timestamp.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
                 _Timestamp.tp_base = datetime_cls;
-                _Timestamp.tp_new = timestamp_new;
+                _Timestamp.tp_new = _timestamp_new;
                 Py_DECREF(mod);
                 Py_DECREF(dt);
                 if (PyType_Ready(&_Timestamp) < 0) INITERROR;
+                Timestamp.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
+                Timestamp.tp_base = &_Timestamp;
+                Timestamp.tp_new = timestamp_new;
+                if (PyType_Ready(&Timestamp) < 0) INITERROR;
             ''')
         import gc, sys
         cnt = module.get_cnt()
