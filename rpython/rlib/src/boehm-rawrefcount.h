@@ -16,6 +16,8 @@
 #define OP_GC_RAWREFCOUNT_NEXT_DEAD(r)   \
     r = gc_rawrefcount_next_dead()
 
+#define OP_GC_RAWREFCOUNT_MARK_DEALLOCATING(gcobj, pyobj, r)  /* nothing */
+
 
 RPY_EXTERN void gc_rawrefcount_create_link_pypy(/*gcobj_t*/void *gcobj, 
                                                 /*pyobj_t*/void *pyobj);
