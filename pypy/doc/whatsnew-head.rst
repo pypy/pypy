@@ -76,3 +76,8 @@ memory and held references. Add a finalizer to CPyBuffer, add a
 PyMemoryViewObject with a PyBuffer attached so that the call to 
 ``PyMemoryView_GET_BUFFER`` does not leak a PyBuffer-sized piece of memory.
 Properly call ``bf_releasebuffer`` when not ``NULL``.
+
+.. branch: boehm-rawrefcount
+
+Support translations of cpyext with the Boehm GC (for special cases like
+revdb).
