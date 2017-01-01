@@ -31,8 +31,8 @@ def newp_handle(space, w_ctype, w_x):
 @unwrap_spec(w_cdata=cdataobj.W_CData)
 def from_handle(space, w_cdata):
     ctype = w_cdata.ctype
-    if (not isinstance(ctype, ctypeptr.W_CTypePtrOrArray) or
-        not ctype.can_cast_anything):
+    if (not isinstance(ctype, ctypeptr.W_CTypePointer) or
+        not ctype.is_voidchar_ptr):
         raise oefmt(space.w_TypeError,
                     "expected a 'cdata' object with a 'void *' out of "
                     "new_handle(), got '%s'", ctype.name)

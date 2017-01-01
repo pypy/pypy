@@ -312,6 +312,16 @@ class AppTestObject(AppTestCpythonExtensionBase):
         assert isinstance(dict(), collections.Mapping)
         assert module.ismapping(dict())
 
+    def test_format_returns_unicode(self):
+        module = self.import_extension('foo', [
+            ("empty_format", "METH_O",
+            """
+                PyObject* empty_unicode = PyUnicode_FromStringAndSize("", 0);
+                PyObject* obj = PyObject_Format(args, empty_unicode);
+                return obj;
+            """)])
+        a = module.empty_format('hello')
+        assert isinstance(a, unicode)
 
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     """

@@ -3510,6 +3510,7 @@ class BaseLLtypeTests(BasicTests):
         self.check_resops(call_f=1)
 
     def test_look_inside_iff_virtual(self):
+        from rpython.rlib.debug import ll_assert_not_none
         # There's no good reason for this to be look_inside_iff, but it's a test!
         @look_inside_iff(lambda arg, n: isvirtual(arg))
         def f(arg, n):
@@ -3529,7 +3530,7 @@ class BaseLLtypeTests(BasicTests):
                 if n == 0:
                     i += f(a, n)
                 else:
-                    i += f(A(2), n)
+                    i += f(ll_assert_not_none(A(2)), n)
         res = self.meta_interp(main, [0], enable_opts='')
         assert res == main(0)
         self.check_resops(call_i=1, getfield_gc_i=0)
@@ -3775,9 +3776,8 @@ class BaseLLtypeTests(BasicTests):
             return n
         res = self.meta_interp(f, [10])
         assert res == 0
-        self.check_resops({'int_gt': 2, 'getfield_gc_i': 1, 'int_eq': 1,
-                           'guard_true': 2, 'int_sub': 2, 'jump': 1,
-                           'guard_false': 1})
+        self.check_resops({'int_sub': 2, 'int_gt': 2, 'guard_true': 2,
+                           'jump': 1})
 
     def test_virtual_after_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ["n"])
@@ -4507,3 +4507,109 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
                 i += 1
             return i
         self.meta_interp(f, [])
+
+    def test_round_trip_raw_pointer(self):
+        # The goal of this test to to get a raw pointer op into the short preamble
+        # so we can check that the proper guards are generated
+        # In this case, the resulting short preamble contains
+        #
+        # i1 = getfield_gc_i(p0, descr=inst__ptr)
+        # i2 = int_eq(i1, 0)
+        # guard_false(i2)
+        #
+        # as opposed to what the JIT used to produce
+        #
+        # i1 = getfield_gc_i(p0, descr=inst__ptr)
+        # guard_nonnull(i1)
+        #
+        # Which will probably generate correct assembly, but the optimization
+        # pipline expects guard_nonnull arguments to be pointer ops and may crash
+        # and may crash on other input types.
+        driver = JitDriver(greens=[], reds=['i', 'val'])
+
+        class Box(object):
+            _ptr = lltype.nullptr(rffi.CCHARP.TO)
+
+        def new_int_buffer(value):
+            data = lltype.malloc(rffi.CCHARP.TO, rffi.sizeof(rffi.INT), flavor='raw')
+            rffi.cast(rffi.INTP, data)[0] = rffi.cast(rffi.INT, value)
+            return data
+
+        def read_int_buffer(buf):
+            return rffi.cast(rffi.INTP, buf)[0]
+
+        def f():
+            i = 0
+            val = Box()
+            val._ptr = new_int_buffer(1)
+
+            set_param(None, 'retrace_limit', -1)
+            while i < 100:
+                driver.jit_merge_point(i=i, val=val)
+                driver.can_enter_jit(i=i, val=val)
+                # Just to produce a side exit
+                if i & 0b100:
+                    i += 1
+                i += int(read_int_buffer(val._ptr))
+                lltype.free(val._ptr, flavor='raw')
+                val._ptr = new_int_buffer(1)
+            lltype.free(val._ptr, flavor='raw')
+
+        self.meta_interp(f, [])
+        self.check_resops(guard_nonnull=0)
+
+    def test_loop_before_main_loop(self):
+        fdriver = JitDriver(greens=[], reds='auto')
+        gdriver = JitDriver(greens=[], reds='auto')
+        def f(i, j):
+            while j > 0:   # this loop unrolls because it is in the same
+                j -= 1     # function as a jit_merge_point()
+            while i > 0:
+                fdriver.jit_merge_point()
+                i -= 1
+        def g(i, j, k):
+            while k > 0:
+                gdriver.jit_merge_point()
+                f(i, j)
+                k -= 1
+
+        self.meta_interp(g, [5, 5, 5])
+        self.check_resops(guard_true=10)   # 5 unrolled, plus 5 unrelated
+
+    def test_conditional_call_value(self):
+        from rpython.rlib.jit import conditional_call_elidable
+        def g(j):
+            return j + 5
+        def f(i, j):
+            return conditional_call_elidable(i, g, j)
+        res = self.interp_operations(f, [-42, 200])
+        assert res == -42
+        res = self.interp_operations(f, [0, 200])
+        assert res == 205
+
+    def test_ll_assert_not_none(self):
+        # the presence of ll_assert_not_none(), even in cases where it
+        # doesn't influence the annotation, is a hint for the JIT
+        from rpython.rlib.debug import ll_assert_not_none
+        class X:
+            pass
+        class Y(X):
+            pass
+        def g(x, check):
+            if check:
+                x = ll_assert_not_none(x)
+            return isinstance(x, Y)
+        @dont_look_inside
+        def make(i):
+            if i == 1:
+                return X()
+            if i == 2:
+                return Y()
+            return None
+        def f(a, b, check):
+            return g(make(a), check) + g(make(b), check) * 10
+        res = self.interp_operations(f, [1, 2, 1])
+        assert res == 10
+        self.check_operations_history(guard_nonnull=0, guard_nonnull_class=0,
+                                      guard_class=2,
+                                      assert_not_none=2) # before optimization

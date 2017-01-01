@@ -6,7 +6,7 @@ from collections import OrderedDict, defaultdict
 
 from rpython.annotator.model import (
     SomeInteger, SomeChar, SomeBool, SomeString, SomeTuple,
-    SomeUnicodeCodePoint, SomeFloat, unionof, SomeUnicodeString,
+    SomeUnicodeCodePoint, SomeFloat, union, SomeUnicodeString,
     SomePBC, SomeInstance, SomeDict, SomeList, SomeWeakRef, SomeIterator,
     SomeOrderedDict, SomeByteArray, add_knowntypedata, s_ImpossibleValue,)
 from rpython.annotator.bookkeeper import (
@@ -166,14 +166,14 @@ def builtin_min(*s_values):
         s_iter = s_values[0].iter()
         return s_iter.next()
     else:
-        return unionof(*s_values)
+        return union(*s_values)
 
 def builtin_max(*s_values):
     if len(s_values) == 1: # xxx do we support this?
         s_iter = s_values[0].iter()
         return s_iter.next()
     else:
-        s = unionof(*s_values)
+        s = union(*s_values)
         if type(s) is SomeInteger and not s.nonneg:
             nonneg = False
             for s1 in s_values:

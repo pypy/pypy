@@ -244,12 +244,26 @@ class AppTestOperator:
         assert methodcaller("method", 4, 5)(x) == (4, 5)
         assert methodcaller("method", 4, arg2=42)(x) == (4, 42)
 
+    def test_methodcaller_self(self):
+        from operator import methodcaller
+        class X:
+            def method(myself, self):
+                return self * 6
+        assert methodcaller("method", self=7)(X()) == 42
+
     def test_index(self):
         import operator
         assert operator.index(42) == 42
         assert operator.__index__(42) == 42
         exc = raises(TypeError, operator.index, "abc")
         assert str(exc.value) == "'str' object cannot be interpreted as an index"
+
+    def test_index_int_subclass(self):
+        import operator
+        class myint(int):
+            def __index__(self):
+                return 13289
+        assert operator.index(myint(7)) == 7
 
     def test_compare_digest(self):
         import operator

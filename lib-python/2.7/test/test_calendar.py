@@ -291,6 +291,27 @@ class CalendarTestCase(unittest.TestCase):
         # see #15421
         list(calendar.Calendar().itermonthdates(datetime.MAXYEAR, 12))
 
+    def test_itermonthdays(self):
+        for firstweekday in range(7):
+            cal = calendar.Calendar(firstweekday)
+            # Test the extremes, see #28253 and #26650
+            for y, m in [(1, 1), (9999, 12)]:
+                days = list(cal.itermonthdays(y, m))
+                self.assertIn(len(days), (35, 42))
+        # Test a short month
+        cal = calendar.Calendar(firstweekday=3)
+        days = list(cal.itermonthdays(2001, 2))
+        self.assertEqual(days, list(range(1, 29)))
+
+    def test_itermonthdays2(self):
+        for firstweekday in range(7):
+            cal = calendar.Calendar(firstweekday)
+            # Test the extremes, see #28253 and #26650
+            for y, m in [(1, 1), (9999, 12)]:
+                days = list(cal.itermonthdays2(y, m))
+                self.assertEqual(days[0][1], firstweekday)
+                self.assertEqual(days[-1][1], (firstweekday - 1) % 7)
+
 
 class MonthCalendarTestCase(unittest.TestCase):
     def setUp(self):
@@ -513,8 +534,8 @@ class CommandLineTestCase(unittest.TestCase):
     def test_option_encoding(self):
         self.assertFailure('-e')
         self.assertFailure('--encoding')
-        stdout = self.run_ok('--encoding', 'rot-13', '2004')
-        self.assertEqual(stdout.strip(), conv(result_2004_text.encode('rot-13')).strip())
+        stdout = self.run_ok('--encoding', 'utf-16-le', '2004')
+        self.assertEqual(stdout.strip(), conv(result_2004_text.encode('utf-16-le')).strip())
 
     def test_option_locale(self):
         self.assertFailure('-L')

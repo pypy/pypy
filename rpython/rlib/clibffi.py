@@ -359,12 +359,13 @@ def make_struct_ffitype_e(size, aligment, field_types, track_allocation=True):
     tpe.members[n] = lltype.nullptr(FFI_TYPE_P.TO)
     return tpe
 
+@specialize.memo()
 def cast_type_to_ffitype(tp):
     """ This function returns ffi representation of rpython type tp
     """
     return TYPE_MAP[tp]
-cast_type_to_ffitype._annspecialcase_ = 'specialize:memo'
 
+@specialize.argtype(1)
 def push_arg_as_ffiptr(ffitp, arg, ll_buf):
     # This is for primitive types.  Note that the exact type of 'arg' may be
     # different from the expected 'c_size'.  To cope with that, we fall back
@@ -396,7 +397,6 @@ def push_arg_as_ffiptr(ffitp, arg, ll_buf):
                 arg >>= 8
         else:
             raise AssertionError
-push_arg_as_ffiptr._annspecialcase_ = 'specialize:argtype(1)'
 
 
 # type defs for callback and closure userdata
@@ -471,12 +471,12 @@ FUNCFLAG_PYTHONAPI = 4
 FUNCFLAG_USE_ERRNO = 8
 FUNCFLAG_USE_LASTERROR = 16
 
+@specialize.arg(1)     # hack :-/
 def get_call_conv(flags, from_jit):
     if _WIN32 and not _WIN64 and (flags & FUNCFLAG_CDECL == 0):
         return FFI_STDCALL
     else:
         return FFI_DEFAULT_ABI
-get_call_conv._annspecialcase_ = 'specialize:arg(1)'     # hack :-/
 
 
 class AbstractFuncPtr(object):
@@ -600,6 +600,7 @@ class FuncPtr(AbstractFuncPtr):
         else:
             self.restype_size = -1
 
+    @specialize.argtype(1)
     def push_arg(self, value):
         #if self.pushed_args == self.argnum:
         #    raise TypeError("Too many arguments, eats %d, pushed %d" %
@@ -619,7 +620,6 @@ class FuncPtr(AbstractFuncPtr):
         push_arg_as_ffiptr(self.argtypes[self.pushed_args], value,
                            self.ll_args[self.pushed_args])
         self.pushed_args += 1
-    push_arg._annspecialcase_ = 'specialize:argtype(1)'
 
     def _check_args(self):
         if self.pushed_args < self.argnum:
@@ -628,6 +628,7 @@ class FuncPtr(AbstractFuncPtr):
     def _clean_args(self):
         self.pushed_args = 0
 
+    @specialize.arg(1)
     def call(self, RES_TP):
         self._check_args()
         ffires = c_ffi_call(self.ll_cif, self.funcsym,
@@ -646,7 +647,6 @@ class FuncPtr(AbstractFuncPtr):
         self._clean_args()
         check_fficall_result(ffires, self.flags)
         return res
-    call._annspecialcase_ = 'specialize:arg(1)'
 
     def __del__(self):
         if self.ll_args:

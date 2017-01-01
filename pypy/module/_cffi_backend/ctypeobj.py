@@ -19,7 +19,6 @@ class W_CType(W_Root):
     # XXX this could be improved with an elidable method get_size()
     # that raises in case it's still -1...
 
-    cast_anything = False
     is_primitive_integer = False
     is_nonfunc_pointer_or_array = False
     is_indirect_arg_for_call_python = False

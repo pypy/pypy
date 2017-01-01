@@ -1729,6 +1729,23 @@ class TestRPBC(BaseRtypingTest):
         res = self.interpret(f, [])
         assert res == 42
 
+    def test_equality_of_frozen_pbcs_inside_data_structures(self):
+        class A:
+            def _freeze_(self):
+                return True
+        a1 = A()
+        a2 = A()
+        def f():
+            return [a1] == [a1]
+        def g(i):
+            x1 = [a1, a2][i]
+            x2 = [a1, a2][i]
+            return (x1,) == (x2,)
+        res = self.interpret(f, [])
+        assert res == True
+        res = self.interpret(g, [1])
+        assert res == True
+
 # ____________________________________________________________
 
 def test_hlinvoke_simple():

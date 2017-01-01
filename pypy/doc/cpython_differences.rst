@@ -449,6 +449,51 @@ Miscellaneous
   support (see ``multiline_input()``).  On the other hand,
   ``parse_and_bind()`` calls are ignored (issue `#2072`_).
 
+* ``sys.getsizeof()`` always raises ``TypeError``.  This is because a
+  memory profiler using this function is most likely to give results
+  inconsistent with reality on PyPy.  It would be possible to have
+  ``sys.getsizeof()`` return a number (with enough work), but that may
+  or may not represent how much memory the object uses.  It doesn't even
+  make really sense to ask how much *one* object uses, in isolation with
+  the rest of the system.  For example, instances have maps, which are
+  often shared across many instances; in this case the maps would
+  probably be ignored by an implementation of ``sys.getsizeof()``, but
+  their overhead is important in some cases if they are many instances
+  with unique maps.  Conversely, equal strings may share their internal
+  string data even if they are different objects---or empty containers
+  may share parts of their internals as long as they are empty.  Even
+  stranger, some lists create objects as you read them; if you try to
+  estimate the size in memory of ``range(10**6)`` as the sum of all
+  items' size, that operation will by itself create one million integer
+  objects that never existed in the first place.  Note that some of
+  these concerns also exist on CPython, just less so.  For this reason
+  we explicitly don't implement ``sys.getsizeof()``.
+
+* The ``timeit`` module behaves differently under PyPy: it prints the average
+  time and the standard deviation, instead of the minimum, since the minimum is
+  often misleading.
+
+* The ``get_config_vars`` method of ``sysconfig`` and ``distutils.sysconfig``
+  are not complete. On POSIX platforms, CPython fishes configuration variables
+  from the Makefile used to build the interpreter. PyPy should bake the values
+  in during compilation, but does not do that yet.
+
+* ``"%d" % x`` and ``"%x" % x`` and similar constructs, where ``x`` is
+  an instance of a subclass of ``long`` that overrides the special
+  methods ``__str__`` or ``__hex__`` or ``__oct__``: PyPy doesn't call
+  the special methods; CPython does---but only if it is a subclass of
+  ``long``, not ``int``.  CPython's behavior is really messy: e.g. for
+  ``%x`` it calls ``__hex__()``, which is supposed to return a string
+  like ``-0x123L``; then the ``0x`` and the final ``L`` are removed, and
+  the rest is kept.  If you return an unexpected string from
+  ``__hex__()`` you get an exception (or a crash before CPython 2.7.13).
+
+* The ``sqlite`` module was updated on 2.7.13 to no longer reset all
+  cursors when there is a commit.  This causes troubles for PyPy (and
+  potentially for CPython too), and so for now we didn't port this change:
+  see http://bugs.python.org/issue29006.
+
 .. _`is ignored in PyPy`: http://bugs.python.org/issue14621
 .. _`little point`: http://events.ccc.de/congress/2012/Fahrplan/events/5152.en.html
 .. _`#2072`: https://bitbucket.org/pypy/pypy/issue/2072/
+

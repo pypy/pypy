@@ -1,21 +1,20 @@
 import sys
-import os
-import py
 
-from rpython.jit.backend.llsupport import symbolic, jitframe, rewrite
-from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler, debug_bridge)
+from rpython.jit.backend.llsupport import jitframe, rewrite
+from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler)
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
-from rpython.jit.metainterp.history import (Const, VOID, ConstInt)
-from rpython.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
+from rpython.jit.metainterp.history import (AbstractFailDescr, INT, REF, FLOAT,
+        Const, VOID)
 from rpython.jit.metainterp.compile import ResumeGuardDescr
 from rpython.rlib.rjitlog import rjitlog as jl
-from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper import rclass
 from rpython.rlib.jit import AsmInfo
 from rpython.jit.backend.model import CompiledLoopToken
+from rpython.jit.backend.x86.jump import remap_frame_layout_mixed
 from rpython.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs,
     gpr_reg_mgr_cls, xmm_reg_mgr_cls)
 from rpython.jit.backend.llsupport.regalloc import (get_scale, valid_addressing_size)
@@ -108,9 +107,20 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         single_neg_const = '\x00\x00\x00\x80\x00\x00\x00\x80\x00\x00\x00\x80\x00\x00\x00\x80'
         zero_const = '\x00' * 16
         #
+        two_64bit_ones = '\x01\x00\x00\x00\x00\x00\x00\x00' * 2
+        four_32bit_ones = '\x01\x00\x00\x00' * 4
+        eight_16bit_ones = '\x01\x00' * 8
+        sixteen_8bit_ones = '\x01' * 16
+
+
+
+
+
+        #
         data = neg_const + abs_const + \
                single_neg_const + single_abs_const + \
-               zero_const
+               zero_const + sixteen_8bit_ones + eight_16bit_ones + \
+               four_32bit_ones + two_64bit_ones
         datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr, [])
         float_constants = datablockwrapper.malloc_aligned(len(data), alignment=16)
         datablockwrapper.done()
@@ -122,6 +132,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.single_float_const_neg_addr = float_constants + 32
         self.single_float_const_abs_addr = float_constants + 48
         self.expand_byte_mask_addr = float_constants + 64
+        self.element_ones = [float_constants + 80 + 16*i for i in range(4)]
 
     def set_extra_stack_depth(self, mc, value):
         if self._is_asmgcc():
@@ -174,8 +185,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # copy registers to the frame, with the exception of the
         # 'cond_call_register_arguments' and eax, because these have already
         # been saved by the caller.  Note that this is not symmetrical:
-        # these 5 registers are saved by the caller but restored here at
-        # the end of this function.
+        # these 5 registers are saved by the caller but 4 of them are
+        # restored here at the end of this function.
         self._push_all_regs_to_frame(mc, cond_call_register_arguments + [eax],
                                      supports_floats, callee_only)
         # the caller already did push_gcmap(store=True)
@@ -198,7 +209,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             mc.ADD(esp, imm(WORD * 7))
         self.set_extra_stack_depth(mc, 0)
         self.pop_gcmap(mc)   # cancel the push_gcmap(store=True) in the caller
-        self._pop_all_regs_from_frame(mc, [], supports_floats, callee_only)
+        self._pop_all_regs_from_frame(mc, [eax], supports_floats, callee_only)
         mc.RET()
         return mc.materialize(self.cpu, [])
 
@@ -466,6 +477,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                       operations, looptoken, log):
         '''adds the following attributes to looptoken:
                _ll_function_addr    (address of the generated func, as an int)
+               _ll_raw_start        (jitlog: address of the first byte to asm memory)
                _ll_loop_code       (debug: addr of the start of the ResOps)
                _x86_fullsize        (debug: full size including failure)
         '''
@@ -539,10 +551,11 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             looptoken._x86_fullsize = full_size
             looptoken._x86_ops_offset = ops_offset
         looptoken._ll_function_addr = rawstart + functionpos
+        looptoken._ll_raw_start = rawstart
 
-        if logger:
-            log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
-            log.write(inputargs, operations, ops_offset=ops_offset)
+        if log and logger:
+            l = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
+            l.write(inputargs, operations, ops_offset=ops_offset)
 
             # legacy
             if logger.logger_ops:
@@ -594,6 +607,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         fullsize = self.mc.get_relative_pos()
         #
         rawstart = self.materialize_loop(original_loop_token)
+        original_loop_token._ll_raw_start = rawstart
         self.patch_gcref_table(original_loop_token, rawstart)
         self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE,
                                 rawstart)
@@ -659,7 +673,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         bridge_locs = self.rebuild_faillocs_from_descr(bridge_faildescr, version.inputargs)
         #import pdb; pdb.set_trace()
         guard_accum_info = faildescr.rd_vector_info
-        # O(n^2), but usually you only have at most 1 fail argument
+        # O(n**2), but usually you only have at most 1 fail argument
         while guard_accum_info:
             bridge_accum_info = bridge_faildescr.rd_vector_info
             while bridge_accum_info:
@@ -670,17 +684,25 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 bridge_accum_info = bridge_accum_info.next()
             guard_accum_info = guard_accum_info.next()
 
-        # register mapping is most likely NOT valid, thus remap it in this
-        # short piece of assembler
+        # register mapping is most likely NOT valid, thus remap it
+        src_locations1 = []
+        dst_locations1 = []
+        src_locations2 = []
+        dst_locations2 = []
+
+        # Build the four lists
         assert len(guard_locs) == len(bridge_locs)
-        for i,gloc in enumerate(guard_locs):
-            bloc = bridge_locs[i]
-            bstack = bloc.location_code() == 'b'
-            gstack = gloc.location_code() == 'b'
-            if bstack and gstack:
-                pass
-            elif gloc is not bloc:
-                self.mov(gloc, bloc)
+        for i,src_loc in enumerate(guard_locs):
+            dst_loc = bridge_locs[i]
+            if not src_loc.is_float():
+                src_locations1.append(src_loc)
+                dst_locations1.append(dst_loc)
+            else:
+                src_locations2.append(src_loc)
+                dst_locations2.append(dst_loc)
+        remap_frame_layout_mixed(self, src_locations1, dst_locations1, X86_64_SCRATCH_REG,
+                                 src_locations2, dst_locations2, X86_64_XMM_SCRATCH_REG)
+
         offset = self.mc.get_relative_pos()
         self.mc.JMP_l(0)
         self.mc.writeimm32(0)
@@ -1065,7 +1087,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             assert mc.get_relative_pos() <= 13
         mc.copy_to_raw_memory(oldadr)
         # log the redirection of the call_assembler_* operation
-        jl.redirect_assembler(oldlooptoken, newlooptoken, target)
+        asm_adr = newlooptoken._ll_raw_start
+        jl.redirect_assembler(oldlooptoken, newlooptoken, asm_adr)
 
     def dump(self, text):
         if not self.verbose:
@@ -1703,7 +1726,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.implement_guard(guard_token)
         # If the previous operation was a COND_CALL, overwrite its conditional
         # jump to jump over this GUARD_NO_EXCEPTION as well, if we can
-        if self._find_nearby_operation(-1).getopnum() == rop.COND_CALL:
+        if self._find_nearby_operation(-1).getopnum() in (
+                rop.COND_CALL, rop.COND_CALL_VALUE_I, rop.COND_CALL_VALUE_R):
             jmp_adr = self.previous_cond_call_jcond
             offset = self.mc.get_relative_pos() - jmp_adr
             if offset <= 127:
@@ -2381,7 +2405,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     def label(self):
         self._check_frame_depth_debug(self.mc)
 
-    def cond_call(self, op, gcmap, imm_func, arglocs):
+    def cond_call(self, gcmap, imm_func, arglocs, resloc=None):
         assert self.guard_success_cc >= 0
         self.mc.J_il8(rx86.invert_condition(self.guard_success_cc), 0)
                                                             # patched later
@@ -2394,11 +2418,14 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # plus the register 'eax'
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         should_be_saved = self._regalloc.rm.reg_bindings.values()
+        restore_eax = False
         for gpr in cond_call_register_arguments + [eax]:
-            if gpr not in should_be_saved:
+            if gpr not in should_be_saved or gpr is resloc:
                 continue
             v = gpr_reg_mgr_cls.all_reg_indexes[gpr.value]
             self.mc.MOV_br(v * WORD + base_ofs, gpr.value)
+            if gpr is eax:
+                restore_eax = True
         #
         # load the 0-to-4 arguments into these registers
         from rpython.jit.backend.x86.jump import remap_frame_layout
@@ -2422,8 +2449,16 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 floats = True
         cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
         self.mc.CALL(imm(follow_jump(cond_call_adr)))
+        # if this is a COND_CALL_VALUE, we need to move the result in place
+        if resloc is not None and resloc is not eax:
+            self.mc.MOV(resloc, eax)
         # restoring the registers saved above, and doing pop_gcmap(), is left
-        # to the cond_call_slowpath helper.  We never have any result value.
+        # to the cond_call_slowpath helper.  We must only restore eax, if
+        # needed.
+        if restore_eax:
+            v = gpr_reg_mgr_cls.all_reg_indexes[eax.value]
+            self.mc.MOV_rb(eax.value, v * WORD + base_ofs)
+        #
         offset = self.mc.get_relative_pos() - jmp_adr
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_adr-1, chr(offset))

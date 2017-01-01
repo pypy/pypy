@@ -349,6 +349,8 @@ class RegisterManager(object):
         assert len(self.temp_boxes) == 0
         if self.longevity:
             for v in self.reg_bindings:
+                if v not in self.longevity:
+                    llop.debug_print(lltype.Void, "variable %s not in longevity\n" % v.repr({}))
                 assert self.longevity[v][1] > self.position
 
     def try_allocate_reg(self, v, selected_reg=None, need_lower_byte=False):
@@ -759,6 +761,8 @@ class BaseRegalloc(object):
         if (opnum != rop.GUARD_TRUE and opnum != rop.GUARD_FALSE
                                     and opnum != rop.COND_CALL):
             return False
+        # NB: don't list COND_CALL_VALUE_I/R here, these two variants
+        # of COND_CALL don't accept a cc as input
         if next_op.getarg(0) is not op:
             return False
         if self.longevity[op][1] > i + 1:

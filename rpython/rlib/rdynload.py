@@ -3,7 +3,7 @@
 
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib.rarithmetic import r_uint
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
@@ -34,6 +34,7 @@ if _FREEBSD or _NETBSD or _WIN32:
 else:
     libraries = ['dl']
 
+# this 'eci' is also used in pypy/module/sys/initpath.py
 eci = ExternalCompilationInfo(
     pre_include_bits = pre_include_bits,
     includes = includes,
@@ -91,8 +92,9 @@ if not _WIN32:
             return ""
         return rffi.charp2str(res)
 
+    @not_rpython
     def _dlerror_on_dlopen_untranslated(name):
-        "NOT_RPYTHON: aaargh"
+        # aaargh
         import ctypes
         name = rffi.charp2str(name)
         try:

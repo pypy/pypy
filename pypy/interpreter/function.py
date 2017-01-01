@@ -117,7 +117,8 @@ class Function(W_Root):
                                               list(args_w[1:])))
         return self.call_args(Arguments(self.space, list(args_w)))
 
-    def funccall_valuestack(self, nargs, frame): # speed hack
+    def funccall_valuestack(self, nargs, frame, methodcall=False): # speed hack
+        # methodcall is only for better error messages
         from pypy.interpreter import gateway
         from pypy.interpreter.pycode import PyCode
 
@@ -164,7 +165,7 @@ class Function(W_Root):
             args = frame.make_arguments(nargs-1)
             return code.funcrun_obj(self, w_obj, args)
 
-        args = frame.make_arguments(nargs)
+        args = frame.make_arguments(nargs, methodcall=methodcall)
         return self.call_args(args)
 
     @jit.unroll_safe
@@ -246,16 +247,15 @@ class Function(W_Root):
     def descr_function_repr(self):
         return self.getrepr(self.space, 'function %s' % (self.name,))
 
-    # delicate
-    _all = {'': None}
 
     def _cleanup_(self):
+        # delicate
         from pypy.interpreter.gateway import BuiltinCode
         if isinstance(self.code, BuiltinCode):
             # we have been seen by other means so rtyping should not choke
             # on us
             identifier = self.code.identifier
-            previous = Function._all.get(identifier, self)
+            previous = self.space._builtin_functions_by_identifier.get(identifier, self)
             assert previous is self, (
                 "duplicate function ids with identifier=%r: %r and %r" % (
                 identifier, previous, self))
@@ -263,10 +263,10 @@ class Function(W_Root):
         return False
 
     def add_to_table(self):
-        Function._all[self.code.identifier] = self
+        self.space._builtin_functions_by_identifier[self.code.identifier] = self
 
-    def find(identifier):
-        return Function._all[identifier]
+    def find(space, identifier):
+        return space._builtin_functions_by_identifier[identifier]
     find = staticmethod(find)
 
     def descr_function__reduce__(self, space):
@@ -610,7 +610,7 @@ class Method(W_Root):
 
 class StaticMethod(W_Root):
     """The staticmethod objects."""
-    _immutable_fields_ = ['w_function']
+    _immutable_fields_ = ['w_function?']
 
     def __init__(self, w_function):
         self.w_function = w_function
@@ -621,13 +621,16 @@ class StaticMethod(W_Root):
 
     def descr_staticmethod__new__(space, w_subtype, w_function):
         instance = space.allocate_instance(StaticMethod, w_subtype)
-        instance.__init__(w_function)
-        return space.wrap(instance)
+        instance.__init__(space.w_None)
+        return instance
+
+    def descr_init(self, space, w_function):
+        self.w_function = w_function
 
 
 class ClassMethod(W_Root):
     """The classmethod objects."""
-    _immutable_fields_ = ['w_function']
+    _immutable_fields_ = ['w_function?']
 
     def __init__(self, w_function):
         self.w_function = w_function
@@ -640,8 +643,11 @@ class ClassMethod(W_Root):
 
     def descr_classmethod__new__(space, w_subtype, w_function):
         instance = space.allocate_instance(ClassMethod, w_subtype)
-        instance.__init__(w_function)
-        return space.wrap(instance)
+        instance.__init__(space.w_None)
+        return instance
+
+    def descr_init(self, space, w_function):
+        self.w_function = w_function
 
 class FunctionWithFixedCode(Function):
     can_change_code = False

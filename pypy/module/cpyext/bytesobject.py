@@ -14,43 +14,33 @@ from pypy.objspace.std.bytesobject import W_BytesObject
 ## Implementation of PyBytesObject
 ## ================================
 ##
-## The problem
-## -----------
+## PyBytesObject has its own ob_sval buffer, so we have two copies of a string;
+## one in the PyBytesObject returned from various C-API functions and another
+## in the corresponding RPython object.
 ##
-## PyString_AsString() must return a (non-movable) pointer to the underlying
-## ob_sval, whereas pypy strings are movable.  C code may temporarily store
-## this address and use it, as long as it owns a reference to the PyObject.
-## There is no "release" function to specify that the pointer is not needed
-## any more.
+## The following calls can create a PyBytesObject without a correspoinding
+## RPython object:
 ##
-## Also, the pointer may be used to fill the initial value of string. This is
-## valid only when the string was just allocated, and is not used elsewhere.
+## PyBytes_FromStringAndSize(NULL, n) / PyString_FromStringAndSize(NULL, n)
 ##
-## Solution
-## --------
+## In the PyBytesObject returned, the ob_sval buffer may be modified as
+## long as the freshly allocated PyBytesObject is not "forced" via a call
+## to any of the more sophisticated C-API functions. 
 ##
-## PyBytesObject contains two additional members: the ob_size and an array
-## char ob_sval which holds a \x0 terminated string.
-##
-## - A string allocated by pypy will be converted into a PyBytesObject with a
-##   buffer holding \x0.  The first time PyString_AsString() is called, the 
-##   PyStringObject is reallocated, and the string copied into the buffer. The
-##   ob_size reflects the length of the string.
-##
-## - A string allocated with PyString_FromStringAndSize(NULL, size) will
-##   allocate a PyBytesObject structure, and a buffer with the specified
-##   size+1, as part of the object. The buffer is then supposed to be immutable.
-##
-##-  A buffer obtained from PyString_AS_STRING() could be mutable iff
-##   there is no corresponding pypy object for the string
-##
-## - _PyString_Resize() works only on not-yet-pypy'd strings, and returns a
-##   similar object.
-##
-## - PyString_Size() doesn't need to force the object.
+## Care has been taken in implementing the functions below, so that
+## if they are called with a non-forced PyBytesObject, they will not 
+## unintentionally force the creation of a RPython object. As long as only these
+## are used, the ob_sval buffer is still modifiable:
+## 
+## PyBytes_AsString / PyString_AsString 
+## PyBytes_AS_STRING / PyString_AS_STRING
+## PyBytes_AsStringAndSize / PyString_AsStringAndSize
+## PyBytes_Size / PyString_Size
+## PyBytes_Resize / PyString_Resize
+## _PyBytes_Resize / _PyString_Resize (raises if called with a forced object)
 ##
 ## - There could be an (expensive!) check in from_ref() that the buffer still
-##   corresponds to the pypy gc-managed string.
+##   corresponds to the pypy gc-managed string, 
 ##
 
 PyBytesObjectStruct = lltype.ForwardReference()
@@ -83,7 +73,7 @@ def new_empty_str(space, length):
     py_str.c_ob_sstate = rffi.cast(rffi.INT, 0) # SSTATE_NOT_INTERNED
     return py_str
 
-def bytes_attach(space, py_obj, w_obj):
+def bytes_attach(space, py_obj, w_obj, w_userdata=None):
     """
     Copy RPython string object contents to a PyBytesObject. The
     c_ob_sval must not be modified.
@@ -177,9 +167,6 @@ def PyString_AsStringAndSize(space, ref, data, length):
             raise oefmt(space.w_TypeError,
                         "expected string or Unicode object, %T found",
                         from_ref(space, ref))
-    if not pyobj_has_w_obj(ref):
-        # force the ref
-        bytes_realize(space, ref)
     ref_str = rffi.cast(PyBytesObject, ref)
     data[0] = ref_str.c_ob_sval
     if length:

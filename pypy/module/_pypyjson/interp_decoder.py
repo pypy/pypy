@@ -1,6 +1,6 @@
 import sys
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, always_inline
 from rpython.rlib import rfloat, runicode
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import oefmt
@@ -188,6 +188,7 @@ class JSONDecoder(object):
         self.pos = i
         return self.space.call_function(self.space.w_int, self.space.wrap(s))
 
+    @always_inline
     def parse_integer(self, i):
         "Parse a decimal number with an optional minus sign"
         sign = 1
@@ -218,7 +219,6 @@ class JSONDecoder(object):
         # overflowed
         ovf_maybe = (count >= OVF_DIGITS)
         return i, ovf_maybe, sign * intval
-    parse_integer._always_inline_ = True
 
     def decode_array(self, i):
         w_list = self.space.newlist([])

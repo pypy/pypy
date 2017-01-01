@@ -476,6 +476,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 GCClass.rawrefcount_create_link_pyobj,
                 [s_gc, s_gcref, SomeAddress()],
                 annmodel.s_None)
+            self.rawrefcount_mark_deallocating = getfn(
+                GCClass.rawrefcount_mark_deallocating,
+                [s_gc, s_gcref, SomeAddress()],
+                annmodel.s_None)
             self.rawrefcount_from_obj_ptr = getfn(
                 GCClass.rawrefcount_from_obj, [s_gc, s_gcref], SomeAddress(),
                 inline = True)
@@ -540,6 +544,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                              annmodel.SomeInteger(),
                                              s_gcref],
                                             annmodel.s_None)
+
+        self.ignore_finalizer_ptr = None
+        if hasattr(GCClass, 'ignore_finalizer'):
+            self.ignore_finalizer_ptr = getfn(GCClass.ignore_finalizer,
+                                              [s_gc, SomeAddress()],
+                                              annmodel.s_None)
 
     def create_custom_trace_funcs(self, gc, rtyper):
         custom_trace_funcs = tuple(rtyper.custom_trace_funcs)
@@ -679,7 +689,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         #
         return newgcdependencies
 
-    def get_finish_tables(self):
+    def enum_type_info_members(self):
         # We must first make sure that the type_info_group's members
         # are all followed.  Do it repeatedly while new members show up.
         # Once it is really done, do finish_tables().
@@ -688,6 +698,15 @@ class BaseFrameworkGCTransformer(GCTransformer):
             curtotal = len(self.layoutbuilder.type_info_group.members)
             yield self.layoutbuilder.type_info_group.members[seen:curtotal]
             seen = curtotal
+
+    def get_finish_helpers(self):
+        for dep in self.enum_type_info_members():
+            yield dep
+        yield self.finish_helpers()
+
+    def get_finish_tables(self):
+        for dep in self.enum_type_info_members():
+            yield dep
         yield self.finish_tables()
 
     def write_typeid_list(self):
@@ -1272,6 +1291,14 @@ class BaseFrameworkGCTransformer(GCTransformer):
                   [self.rawrefcount_create_link_pyobj_ptr, self.c_const_gc,
                    v_gcobj, v_pyobject])
 
+    def gct_gc_rawrefcount_mark_deallocating(self, hop):
+        [v_gcobj, v_pyobject] = hop.spaceop.args
+        assert v_gcobj.concretetype == llmemory.GCREF
+        assert v_pyobject.concretetype == llmemory.Address
+        hop.genop("direct_call",
+                  [self.rawrefcount_mark_deallocating, self.c_const_gc,
+                   v_gcobj, v_pyobject])
+
     def gct_gc_rawrefcount_from_obj(self, hop):
         [v_gcobj] = hop.spaceop.args
         assert v_gcobj.concretetype == llmemory.GCREF
@@ -1550,6 +1577,13 @@ class BaseFrameworkGCTransformer(GCTransformer):
                           resulttype=llmemory.Address)
         hop.genop("cast_adr_to_ptr", [v_adr],
                   resultvar = hop.spaceop.result)
+
+    def gct_gc_ignore_finalizer(self, hop):
+        if self.ignore_finalizer_ptr is not None:
+            v_adr = hop.genop("cast_ptr_to_adr", [hop.spaceop.args[0]],
+                              resulttype=llmemory.Address)
+            hop.genop("direct_call", [self.ignore_finalizer_ptr,
+                                      self.c_const_gc, v_adr])
 
 
 class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):

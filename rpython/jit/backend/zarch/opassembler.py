@@ -9,6 +9,7 @@ from rpython.jit.backend.zarch.helper.regalloc import (check_imm,
 from rpython.jit.metainterp.history import (ConstInt)
 from rpython.jit.backend.zarch.codebuilder import ZARCHGuardToken, InstrBuilder
 from rpython.jit.backend.llsupport import symbolic, jitframe
+from rpython.rlib.rjitlog import rjitlog as jl
 import rpython.jit.backend.zarch.conditions as c
 import rpython.jit.backend.zarch.registers as r
 import rpython.jit.backend.zarch.locations as l
@@ -373,10 +374,12 @@ class CallOpAssembler(object):
     _COND_CALL_SAVE_REGS = [r.r11, r.r2, r.r3, r.r4, r.r5]
 
     def emit_cond_call(self, op, arglocs, regalloc):
+        resloc = arglocs[0]
+        arglocs = arglocs[1:]
+
         fcond = self.guard_success_cc
         self.guard_success_cc = c.cond_none
         assert fcond.value != c.cond_none.value
-        fcond = c.negate(fcond)
 
         jmp_adr = self.mc.get_relative_pos()
         self.mc.reserve_cond_jump() # patched later to a relative branch
@@ -410,6 +413,8 @@ class CallOpAssembler(object):
         self.mc.BASR(r.r14, r.r14)
         # restoring the registers saved above, and doing pop_gcmap(), is left
         # to the cond_call_slowpath helper.  We never have any result value.
+        if resloc is not None:
+            self.mc.LGR(resloc, r.SCRATCH2)
         relative_target = self.mc.currpos() - jmp_adr
         pmc = OverwritingBuilder(self.mc, jmp_adr, 1)
         pmc.BRCL(fcond, l.imm(relative_target))
@@ -417,6 +422,9 @@ class CallOpAssembler(object):
         # might be overridden again to skip over the following
         # guard_no_exception too
         self.previous_cond_call_jcond = jmp_adr, fcond
+
+    emit_cond_call_value_i = emit_cond_call
+    emit_cond_call_value_r = emit_cond_call
 
 class AllocOpAssembler(object):
     _mixin_ = True
@@ -1155,6 +1163,8 @@ class ForceOpAssembler(object):
         mc.load_imm(r.SCRATCH, target)
         mc.BCR(c.ANY, r.SCRATCH)
         mc.copy_to_raw_memory(oldadr)
+        #
+        jl.redirect_assembler(oldlooptoken, newlooptoken, newlooptoken.number)
 
 
 class MiscOpAssembler(object):

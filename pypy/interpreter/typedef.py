@@ -106,9 +106,12 @@ def default_identity_hash(space, w_obj):
 # So we create a few interp-level subclasses of W_XxxObject, which add
 # some combination of features. This is done using mapdict.
 
-# we need two subclasses of the app-level type, one to add mapdict, and then one
-# to add del to not slow down the GC.
+# Note that nowadays, we need not "a few" but only one subclass.  It
+# adds mapdict, which flexibly allows all features.  We handle the
+# presence or absence of an app-level '__del__' by calling
+# register_finalizer() or not.
 
+@specialize.memo()
 def get_unique_interplevel_subclass(space, cls):
     "NOT_RPYTHON: initialization-time only"
     assert cls.typedef.acceptable_as_base_class
@@ -119,7 +122,6 @@ def get_unique_interplevel_subclass(space, cls):
         assert cls not in _unique_subclass_cache
         _unique_subclass_cache[cls] = subcls
         return subcls
-get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
 _unique_subclass_cache = {}
 
 def _getusercls(cls, reallywantdict=False):
@@ -686,15 +688,17 @@ It can be called either on the class (e.g. C.f()) or on an instance
 (e.g. C().f()).  The instance is ignored except for its class.""",
     __get__ = interp2app(StaticMethod.descr_staticmethod_get),
     __new__ = interp2app(StaticMethod.descr_staticmethod__new__.im_func),
+    __init__=interp2app(StaticMethod.descr_init),
     __func__= interp_attrproperty_w('w_function', cls=StaticMethod),
     )
 
 ClassMethod.typedef = TypeDef(
     'classmethod',
-    __new__ = interp2app(ClassMethod.descr_classmethod__new__.im_func),
-    __get__ = interp2app(ClassMethod.descr_classmethod_get),
-    __func__= interp_attrproperty_w('w_function', cls=ClassMethod),
-    __doc__ = """classmethod(function) -> class method
+    __new__=interp2app(ClassMethod.descr_classmethod__new__.im_func),
+    __init__=interp2app(ClassMethod.descr_init),
+    __get__=interp2app(ClassMethod.descr_classmethod_get),
+    __func__=interp_attrproperty_w('w_function', cls=ClassMethod),
+    __doc__="""classmethod(function) -> class method
 
 Convert a function to be a class method.
 
@@ -766,12 +770,12 @@ Cell.typedef = TypeDef("cell",
 )
 assert not Cell.typedef.acceptable_as_base_class  # no __new__
 
-Ellipsis.typedef = TypeDef("Ellipsis",
+Ellipsis.typedef = TypeDef("ellipsis",
     __repr__ = interp2app(Ellipsis.descr__repr__),
 )
 assert not Ellipsis.typedef.acceptable_as_base_class  # no __new__
 
-NotImplemented.typedef = TypeDef("NotImplemented",
+NotImplemented.typedef = TypeDef("NotImplementedType",
     __repr__ = interp2app(NotImplemented.descr__repr__),
 )
 assert not NotImplemented.typedef.acceptable_as_base_class  # no __new__

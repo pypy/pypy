@@ -108,6 +108,7 @@ syscall_kevent = rffi.llexternal(
 
 class W_Kqueue(W_Root):
     def __init__(self, space, kqfd):
+        self.space = space
         self.kqfd = kqfd
         self.register_finalizer(space)
 
@@ -132,6 +133,7 @@ class W_Kqueue(W_Root):
             kqfd = self.kqfd
             self.kqfd = -1
             socketclose_no_errno(kqfd)
+            self.may_unregister_rpython_finalizer(self.space)
 
     def check_closed(self, space):
         if self.get_closed():

@@ -21,6 +21,7 @@ RPY_EXTERN char *_RPython_ThreadLocals_Build(void);
 
 RPY_EXTERN void _RPython_ThreadLocals_Acquire(void);
 RPY_EXTERN void _RPython_ThreadLocals_Release(void);
+RPY_EXTERN int _RPython_ThreadLocals_AcquireTimeout(int max_wait_iterations);
 
 /* Must acquire/release the thread-local lock around a series of calls
    to the following function */
@@ -48,14 +49,14 @@ RPY_EXTERN __thread struct pypy_threadlocal_s pypy_threadlocal;
 
 #define OP_THREADLOCALREF_ADDR(r)               \
     do {                                        \
-        r = (char *)&pypy_threadlocal;          \
+        r = (void *)&pypy_threadlocal;          \
         if (pypy_threadlocal.ready != 42)       \
             r = _RPython_ThreadLocals_Build();  \
     } while (0)
 
 #define _OP_THREADLOCALREF_ADDR_SIGHANDLER(r)   \
     do {                                        \
-        r = (char *)&pypy_threadlocal;          \
+        r = (void *)&pypy_threadlocal;          \
         if (pypy_threadlocal.ready != 42)       \
             r = NULL;                           \
     } while (0)
@@ -65,6 +66,8 @@ RPY_EXTERN __thread struct pypy_threadlocal_s pypy_threadlocal;
         (void)_RPython_ThreadLocals_Build();
 
 #define RPY_THREADLOCALREF_GET(FIELD)   pypy_threadlocal.FIELD
+
+#define _RPy_ThreadLocals_Get()  (&pypy_threadlocal)
 
 
 /* ------------------------------------------------------------ */
@@ -89,14 +92,14 @@ typedef DWORD pthread_key_t;
 
 #define OP_THREADLOCALREF_ADDR(r)               \
     do {                                        \
-        r = (char *)_RPy_ThreadLocals_Get();    \
+        r = (void *)_RPy_ThreadLocals_Get();    \
         if (!r)                                 \
             r = _RPython_ThreadLocals_Build();  \
     } while (0)
 
 #define _OP_THREADLOCALREF_ADDR_SIGHANDLER(r)   \
     do {                                        \
-        r = (char *)_RPy_ThreadLocals_Get();    \
+        r = (void *)_RPy_ThreadLocals_Get();    \
     } while (0)
 
 #define RPY_THREADLOCALREF_ENSURE()             \

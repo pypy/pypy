@@ -85,7 +85,6 @@ class AppTestIntObject(AppTestCpythonExtensionBase):
                 if (!PyArg_ParseTuple(args, "Oi", &name, &intval))
                     return NULL;
 
-                PyType_Ready(&Enum_Type);
                 enumObj = PyObject_New(EnumObject, &Enum_Type);
                 if (!enumObj) {
                     return NULL;
@@ -120,8 +119,7 @@ class AppTestIntObject(AppTestCpythonExtensionBase):
             };
 
             PyTypeObject Enum_Type = {
-                PyObject_HEAD_INIT(0)
-                /*ob_size*/             0,
+                PyVarObject_HEAD_INIT(NULL, 0)
                 /*tp_name*/             "Enum",
                 /*tp_basicsize*/        sizeof(EnumObject),
                 /*tp_itemsize*/         0,
@@ -161,7 +159,8 @@ class AppTestIntObject(AppTestCpythonExtensionBase):
                 /*tp_new*/              0
             };
             """, more_init = '''
-            Enum_Type.tp_base = &PyInt_Type;
+                Enum_Type.tp_base = &PyInt_Type;
+                if (PyType_Ready(&Enum_Type) < 0) INITERROR;
             ''')
 
         a = module.newEnum("ULTIMATE_ANSWER", 42)

@@ -5,7 +5,6 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, from_ref, Py_DecRef, make_typedescr)
 from pypy.module.cpyext.frameobject import PyFrameObject
-from rpython.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter import pycode
@@ -29,7 +28,7 @@ def init_traceback(space):
                    dealloc=traceback_dealloc)
 
 
-def traceback_attach(space, py_obj, w_obj):
+def traceback_attach(space, py_obj, w_obj, w_userdata=None):
     py_traceback = rffi.cast(PyTracebackObject, py_obj)
     traceback = space.interp_w(PyTraceback, w_obj)
     if traceback.next is None:

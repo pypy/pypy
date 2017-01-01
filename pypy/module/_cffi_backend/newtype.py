@@ -303,6 +303,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
     fields_dict = {}
     w_ctype._custom_field_pos = False
     with_var_array = False
+    with_packed_change = False
 
     for i in range(len(fields_w)):
         w_field = fields_w[i]
@@ -333,7 +334,8 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
         #
         # update the total alignment requirement, but skip it if the
         # field is an anonymous bitfield or if SF_PACKED
-        falign = 1 if sflags & SF_PACKED else ftype.alignof()
+        falignorg = ftype.alignof()
+        falign = 1 if sflags & SF_PACKED else falignorg
         do_align = True
         if (sflags & SF_GCC_ARM_BITFIELDS) == 0 and fbitsize >= 0:
             if (sflags & SF_MSVC_BITFIELDS) == 0:
@@ -353,13 +355,16 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
         if fbitsize < 0:
             # not a bitfield: common case
 
-            if isinstance(ftype, ctypearray.W_CTypeArray) and ftype.length==0:
+            if isinstance(ftype, ctypearray.W_CTypeArray) and ftype.length<=0:
                 bs_flag = ctypestruct.W_CField.BS_EMPTY_ARRAY
             else:
                 bs_flag = ctypestruct.W_CField.BS_REGULAR
 
             # align this field to its own 'falign' by inserting padding
+            boffsetorg = (boffset + falignorg*8-1) & ~(falignorg*8-1)
             boffset = (boffset + falign*8-1) & ~(falign*8-1)
+            if boffsetorg != boffset:
+                with_packed_change = True
 
             if foffset >= 0:
                 # a forced field position: ignore the offset just computed,
@@ -372,6 +377,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
             if (fname == '' and
                     isinstance(ftype, ctypestruct.W_CTypeStructOrUnion)):
                 # a nested anonymous struct or union
+                # note: it seems we only get here with ffi.verify()
                 srcfield2names = {}
                 ftype.force_lazy_struct()
                 for name, srcfld in ftype._fields_dict.items():
@@ -530,6 +536,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
     w_ctype._fields_dict = fields_dict
     #w_ctype._custom_field_pos = ...set above already
     w_ctype._with_var_array = with_var_array
+    w_ctype._with_packed_change = with_packed_change
 
 # ____________________________________________________________
 

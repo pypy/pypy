@@ -737,6 +737,9 @@ def op_unlikely(x):
     assert isinstance(x, bool)
     return x
 
+def op_gc_ignore_finalizer(obj):
+    pass
+
 # ____________________________________________________________
 
 def get_op_impl(opname):

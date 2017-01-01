@@ -44,7 +44,7 @@ def init_methodobject(space):
                    attach=cfunction_attach,
                    dealloc=cfunction_dealloc)
 
-def cfunction_attach(space, py_obj, w_obj):
+def cfunction_attach(space, py_obj, w_obj, w_userdata=None):
     assert isinstance(w_obj, W_PyCFunctionObject)
     py_func = rffi.cast(PyCFunctionObject, py_obj)
     py_func.c_m_ml = w_obj.ml
@@ -311,7 +311,7 @@ def PyStaticMethod_New(space, w_func):
 def PyClassMethod_New(space, w_func):
     return space.wrap(ClassMethod(w_func))
 
-@cpython_api([PyObject, lltype.Ptr(PyMethodDef)], PyObject)
+@cpython_api([PyTypeObjectPtr, lltype.Ptr(PyMethodDef)], PyObject)
 def PyDescr_NewMethod(space, w_type, method):
     return space.wrap(W_PyCMethodObject(space, method, w_type))
 

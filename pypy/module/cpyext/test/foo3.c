@@ -4,9 +4,7 @@
 PyObject* foo3type_tp_new(PyTypeObject* metatype, PyObject* args, PyObject* kwds)
 {
     PyObject* newType;
-    /*printf("in foo3type_tp_new, preprocessing...\n"); */
     newType = PyType_Type.tp_new(metatype, args, kwds);
-    /*printf("in foo3type_tp_new, postprocessing...\n"); */
     return newType;
 }
 
@@ -81,4 +79,5 @@ initfoo3(void)
         return;
     if (PyDict_SetItemString(d, "footype", (PyObject *)&footype) < 0)
         return;
+    Py_INCREF(&footype);
 }

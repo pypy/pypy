@@ -110,4 +110,4 @@ def test_startrev_on_default():
         "hg log -r %s --template '{branch}'" % startrev)
     if errcode != 0:
         py.test.skip('no Mercurial repo')
-    assert wc_branch == 'default'
+    assert wc_branch in ('default', "'default'") # sometimes the ' leaks (windows)

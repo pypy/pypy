@@ -10,6 +10,7 @@ rpydir = str(py.path.local(rpython.__file__).join('..'))
 class BasePosix(Platform):
     exe_ext = ''
     make_cmd = 'make'
+    so_prefixes = ('lib', '')
 
     relevant_environ = ('CPATH', 'LIBRARY_PATH', 'C_INCLUDE_PATH')
 

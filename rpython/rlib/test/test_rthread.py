@@ -16,6 +16,14 @@ def test_lock():
     res = ok1 and not ok2 and ok3
     assert res == 1
 
+def test_lock_is_aquired():
+    l = allocate_lock()
+    ok1 = l.acquire(True)
+    assert l.is_acquired() == True
+    assert l.is_acquired() == True
+    l.release()
+    assert l.is_acquired() == False
+
 def test_thread_error():
     l = allocate_lock()
     try:

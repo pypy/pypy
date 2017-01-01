@@ -194,8 +194,10 @@ class DictTests:
                            'guard_true': 4, 'jump': 1,
                            'new_with_vtable': 2, 'getinteriorfield_gc_i': 2,
                            'setfield_gc': 14, 'int_gt': 2, 'int_sub': 2,
-                           'call_i': 6, 'call_n': 2, 'call_r': 2, 'int_ge': 2,
-                           'guard_no_exception': 8, 'new': 2})
+                           'call_i': 4, 'call_n': 2, 'call_r': 2, 'int_ge': 2,
+                           'cond_call_value_i': 2, 'strhash': 4,
+                           'guard_no_exception': 8, 'new': 2,
+                           'guard_nonnull': 2})
 
     def test_unrolling_of_dict_iter(self):
         driver = JitDriver(greens = [], reds = ['n'])
@@ -272,7 +274,7 @@ class DictTests:
 
         res = self.meta_interp(f, [10])
         assert res == f(10)
-        self.check_simple_loop(call_i=4, call_n=1)
+        self.check_simple_loop(call_i=3, cond_call_value_i=1, call_n=1)
 
     def test_dict_array_write_invalidates_caches(self):
         driver = JitDriver(greens = [], reds = 'auto')
@@ -294,7 +296,7 @@ class DictTests:
         exp = f(10)
         res = self.meta_interp(f, [10])
         assert res == exp
-        self.check_simple_loop(call_i=5, call_n=2)
+        self.check_simple_loop(call_i=4, cond_call_value_i=1, call_n=2)
 
     def test_dict_double_lookup_2(self):
         driver = JitDriver(greens = [], reds = 'auto')
@@ -313,7 +315,7 @@ class DictTests:
 
         res = self.meta_interp(f, [10])
         assert res == f(10)
-        self.check_simple_loop(call_i=2, call_n=1)
+        self.check_simple_loop(call_i=1, cond_call_value_i=1, call_n=1)
 
     def test_dict_eq_can_release_gil(self):
         from rpython.rtyper.lltypesystem import lltype, rffi

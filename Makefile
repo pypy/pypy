@@ -40,4 +40,4 @@ endif
 # http://lists.gnu.org/archive/html/help-make/2010-08/msg00106.html
 
 cffi_imports: pypy-c
-	PYTHONPATH=. ./pypy-c pypy/tool/build_cffi_imports.py
+	PYTHONPATH=. ./pypy-c pypy/tool/build_cffi_imports.py || /bin/true

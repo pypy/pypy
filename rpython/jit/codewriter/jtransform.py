@@ -200,8 +200,12 @@ class Transformer(object):
             or v.concretetype != lltype.Bool):
             return False
         for op in block.operations[::-1]:
-            if v in op.args:
-                return False   # variable is also used in cur block
+            # check if variable is used in block
+            for arg in op.args:
+                if arg == v:
+                    return False
+                if isinstance(arg, ListOfKind) and v in arg.content:
+                    return False
             if v is op.result:
                 if op.opname not in ('int_lt', 'int_le', 'int_eq', 'int_ne',
                                      'int_gt', 'int_ge',
@@ -278,6 +282,12 @@ class Transformer(object):
 
     def rewrite_op_jit_record_exact_class(self, op):
         return SpaceOperation("record_exact_class", [op.args[0], op.args[1]], None)
+
+    def rewrite_op_debug_assert_not_none(self, op):
+        if isinstance(op.args[0], Variable):
+            return SpaceOperation('assert_not_none', [op.args[0]], None)
+        else:
+            return []
 
     def rewrite_op_cast_bool_to_int(self, op): pass
     def rewrite_op_cast_bool_to_uint(self, op): pass
@@ -364,7 +374,7 @@ class Transformer(object):
         return getattr(self, 'handle_%s_indirect_call' % kind)(op)
 
     def rewrite_call(self, op, namebase, initialargs, args=None,
-                     calldescr=None):
+                     calldescr=None, force_ir=False):
         """Turn 'i0 = direct_call(fn, i1, i2, ref1, ref2)'
            into 'i0 = xxx_call_ir_i(fn, descr, [i1,i2], [ref1,ref2])'.
            The name is one of '{residual,direct}_call_{r,ir,irf}_{i,r,f,v}'."""
@@ -374,8 +384,9 @@ class Transformer(object):
         lst_i, lst_r, lst_f = self.make_three_lists(args)
         reskind = getkind(op.result.concretetype)[0]
         if lst_f or reskind == 'f': kinds = 'irf'
-        elif lst_i: kinds = 'ir'
+        elif lst_i or force_ir: kinds = 'ir'
         else: kinds = 'r'
+        if force_ir: assert kinds == 'ir'    # no 'f'
         sublists = []
         if 'i' in kinds: sublists.append(lst_i)
         if 'r' in kinds: sublists.append(lst_r)
@@ -588,6 +599,8 @@ class Transformer(object):
         log.WARNING('ignoring hint %r at %r' % (hints, self.graph))
 
     def _rewrite_raw_malloc(self, op, name, args):
+        # NB. the operation 'raw_malloc' is not supported; this is for
+        # the operation 'malloc'/'malloc_varsize' with {flavor: 'gc'}
         d = op.args[1].value.copy()
         d.pop('flavor')
         add_memory_pressure = d.pop('add_memory_pressure', False)
@@ -784,12 +797,20 @@ class Transformer(object):
                                                 arrayfielddescr,
                                                 arraydescr)
             return []
+        # check for the string or unicode hash field
+        STRUCT = v_inst.concretetype.TO
+        if STRUCT == rstr.STR:
+            assert c_fieldname.value == 'hash'
+            return SpaceOperation('strhash', [v_inst], op.result)
+        elif STRUCT == rstr.UNICODE:
+            assert c_fieldname.value == 'hash'
+            return SpaceOperation('unicodehash', [v_inst], op.result)
         # check for _immutable_fields_ hints
-        immut = v_inst.concretetype.TO._immutable_field(c_fieldname.value)
+        immut = STRUCT._immutable_field(c_fieldname.value)
         need_live = False
         if immut:
             if (self.callcontrol is not None and
-                self.callcontrol.could_be_green_field(v_inst.concretetype.TO,
+                self.callcontrol.could_be_green_field(STRUCT,
                                                       c_fieldname.value)):
                 pure = '_greenfield'
                 need_live = True
@@ -797,10 +818,9 @@ class Transformer(object):
                 pure = '_pure'
         else:
             pure = ''
-        self.check_field_access(v_inst.concretetype.TO)
-        argname = getattr(v_inst.concretetype.TO, '_gckind', 'gc')
-        descr = self.cpu.fielddescrof(v_inst.concretetype.TO,
-                                      c_fieldname.value)
+        self.check_field_access(STRUCT)
+        argname = getattr(STRUCT, '_gckind', 'gc')
+        descr = self.cpu.fielddescrof(STRUCT, c_fieldname.value)
         kind = getkind(RESULT)[0]
         if argname != 'gc':
             assert argname == 'raw'
@@ -817,7 +837,7 @@ class Transformer(object):
         if immut in (IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY):
             op1.opname += "_pure"
             descr1 = self.cpu.fielddescrof(
-                v_inst.concretetype.TO,
+                STRUCT,
                 quasiimmut.get_mutate_field_name(c_fieldname.value))
             return [SpaceOperation('-live-', [], None),
                    SpaceOperation('record_quasiimmut_field',
@@ -1564,7 +1584,7 @@ class Transformer(object):
             return []
         return getattr(self, 'handle_jit_marker__%s' % key)(op, jitdriver)
 
-    def rewrite_op_jit_conditional_call(self, op):
+    def _rewrite_op_cond_call(self, op, rewritten_opname):
         have_floats = False
         for arg in op.args:
             if getkind(arg.concretetype) == 'float':
@@ -1575,12 +1595,17 @@ class Transformer(object):
         callop = SpaceOperation('direct_call', op.args[1:], op.result)
         calldescr = self.callcontrol.getcalldescr(callop)
         assert not calldescr.get_extra_info().check_forces_virtual_or_virtualizable()
-        op1 = self.rewrite_call(op, 'conditional_call',
+        op1 = self.rewrite_call(op, rewritten_opname,
                                 op.args[:2], args=op.args[2:],
-                                calldescr=calldescr)
+                                calldescr=calldescr, force_ir=True)
         if self.callcontrol.calldescr_canraise(calldescr):
             op1 = [op1, SpaceOperation('-live-', [], None)]
         return op1
+
+    def rewrite_op_jit_conditional_call(self, op):
+        return self._rewrite_op_cond_call(op, 'conditional_call')
+    def rewrite_op_jit_conditional_call_value(self, op):
+        return self._rewrite_op_cond_call(op, 'conditional_call_value')
 
     def handle_jit_marker__jit_merge_point(self, op, jitdriver):
         assert self.portal_jd is not None, (

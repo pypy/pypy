@@ -34,6 +34,7 @@ class W_CTypeStructOrUnion(W_CType):
     _fields_dict = None
     _custom_field_pos = False
     _with_var_array = False
+    _with_packed_changed = False
 
     def __init__(self, space, name):
         W_CType.__init__(self, space, -1, name, len(name))
@@ -210,7 +211,7 @@ class W_CField(W_Root):
         return W_CField(self.ctype, offset + self.offset,
                         self.bitshift, self.bitsize, self.flags | fflags)
 
-    def read(self, cdata):
+    def read(self, cdata, w_cdata):
         cdata = rffi.ptradd(cdata, self.offset)
         if self.bitshift == self.BS_REGULAR:
             return self.ctype.convert_to_object(cdata)
@@ -218,6 +219,14 @@ class W_CField(W_Root):
             from pypy.module._cffi_backend import ctypearray
             ctype = self.ctype
             assert isinstance(ctype, ctypearray.W_CTypeArray)
+            structobj = w_cdata.get_structobj()
+            if structobj is not None:
+                # variable-length array
+                size = structobj.allocated_length - self.offset
+                if size >= 0:
+                    arraylen = size // ctype.ctitem.size
+                    return cdataobj.W_CDataSliced(ctype.space, cdata, ctype,
+                                                  arraylen)
             return cdataobj.W_CData(ctype.space, cdata, ctype.ctptr)
         else:
             return self.convert_bitfield_to_object(cdata)

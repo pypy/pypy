@@ -63,7 +63,7 @@ def new_empty_tuple(space, length):
         p[i] = lltype.nullptr(PyObject.TO)
     return py_obj
 
-def tuple_attach(space, py_obj, w_obj):
+def tuple_attach(space, py_obj, w_obj, w_userdata=None):
     """
     Fills a newly allocated PyTupleObject with the given tuple object. The
     buffer must not be modified.
