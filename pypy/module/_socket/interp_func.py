@@ -98,7 +98,8 @@ def getservbyport(space, port, w_proto):
         proto = space.str_w(w_proto)
 
     if port < 0 or port > 0xffff:
-        raise oefmt(space.w_ValueError, "getservbyport: port must be 0-65535.")
+        raise oefmt(space.w_OverflowError,
+                    "getservbyport: port must be 0-65535.")
 
     try:
         service = rsocket.getservbyport(port, proto)

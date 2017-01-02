@@ -83,11 +83,6 @@ def test_getservbyport():
                          "(_socket, port): return _socket.getservbyport(port)")
     assert space.unwrap(name) == "smtp"
 
-    from pypy.interpreter.error import OperationError
-    exc = raises(OperationError, space.appexec,
-           [w_socket], "(_socket): return _socket.getservbyport(-1)")
-    assert exc.value.match(space, space.w_ValueError)
-
 def test_getprotobyname():
     name = "tcp"
     w_n = space.appexec([w_socket, space.wrap(name)],
@@ -324,6 +319,10 @@ class AppTestSocket:
         import _socket
         assert _socket.socket.__name__ == 'socket'
         assert _socket.socket.__module__ == '_socket'
+
+    def test_getservbyport(self):
+        import _socket
+        raises(OverflowError, _socket.getservbyport, -1)
 
     def test_ntoa_exception(self):
         import _socket
