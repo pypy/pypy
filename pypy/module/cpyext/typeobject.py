@@ -275,25 +275,38 @@ def update_all_slots(space, w_type, pto):
         search_dict_w = None
 
     for method_name, slot_name, slot_names, slot_apifunc in slotdefs_for_tp_slots:
+        slot_func_helper = None
         if search_dict_w is None:
             # built-in types: expose as many slots as possible, even
             # if it happens to come from some parent class
             slot_apifunc = None # use get_slot_tp_function 
         else:
-            # use the slot_apifunc (userslots) to lookup at runtime
-            pass
+            # For heaptypes, w_type.layout.typedef will be object's typedef, and
+            # get_slot_tp_function will fail
+            w_descr = search_dict_w.get(method_name, None)
+            if w_descr: 
+                # use the slot_apifunc (userslots) to lookup at runtime
+                pass
+            elif len(slot_names) ==1:
+                # 'inherit' from tp_base
+                slot_func_helper = getattr(pto.c_tp_base, slot_names[0])
+            else:
+                struct = getattr(pto.c_tp_base, slot_names[0])
+                if struct:
+                    slot_func_helper = getattr(struct, slot_names[1])
 
-        if typedef is not None:
-            if slot_apifunc is None:
-                slot_apifunc = get_slot_tp_function(space, typedef, slot_name)
-        if not slot_apifunc:
-            if not we_are_translated():
-                if slot_name not in missing_slots:
-                    missing_slots[slot_name] = w_type.getname(space)
-                    print "missing slot %r/%r, discovered on %r" % (
-                        method_name, slot_name, w_type.getname(space))
-            continue
-        slot_func_helper = slot_apifunc.get_llhelper(space)
+        if not slot_func_helper:
+            if typedef is not None:
+                if slot_apifunc is None:
+                    slot_apifunc = get_slot_tp_function(space, typedef, slot_name)
+            if not slot_apifunc:
+                if not we_are_translated():
+                    if slot_name not in missing_slots:
+                        missing_slots[slot_name] = w_type.getname(space)
+                        print "missing slot %r/%r, discovered on %r" % (
+                            method_name, slot_name, w_type.getname(space))
+                continue
+            slot_func_helper = slot_apifunc.get_llhelper(space)
 
         # XXX special case wrapper-functions and use a "specific" slot func
 
@@ -526,18 +539,18 @@ def subtype_dealloc(space, obj):
     # w_obj is an instance of w_A or one of its subclasses. So climb up the
     # inheritance chain until base.c_tp_dealloc is exactly this_func, and then
     # continue on up until they differ.
-    print 'subtype_dealloc, start from', rffi.charp2str(base.c_tp_name)
+    #print 'subtype_dealloc, start from', rffi.charp2str(base.c_tp_name)
     while base.c_tp_dealloc != this_func_ptr:
         base = base.c_tp_base
         assert base
-        print '                 ne move to', rffi.charp2str(base.c_tp_name)
+        #print '                 ne move to', rffi.charp2str(base.c_tp_name)
         w_obj = from_ref(space, rffi.cast(PyObject, base))
     while base.c_tp_dealloc == this_func_ptr:
         base = base.c_tp_base
         assert base
-        print '                 eq move to', rffi.charp2str(base.c_tp_name)
+        #print '                 eq move to', rffi.charp2str(base.c_tp_name)
         w_obj = from_ref(space, rffi.cast(PyObject, base))
-    print '                   end with', rffi.charp2str(base.c_tp_name)
+    #print '                   end with', rffi.charp2str(base.c_tp_name)
     dealloc = base.c_tp_dealloc
     # XXX call tp_del if necessary
     generic_cpy_call(space, dealloc, obj)
@@ -718,13 +731,6 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
 
     typedescr = get_typedescr(w_type.layout.typedef)
 
-    # dealloc
-    if space.gettypeobject(w_type.layout.typedef) is w_type:
-        # only for the exact type, like 'space.w_tuple' or 'space.w_list'
-        pto.c_tp_dealloc = typedescr.get_dealloc().get_llhelper(space)
-    else:
-        # for all subtypes, use subtype_dealloc()
-        pto.c_tp_dealloc = llslot(space, subtype_dealloc)
     if space.is_w(w_type, space.w_str):
         pto.c_tp_itemsize = 1
     elif space.is_w(w_type, space.w_tuple):
@@ -754,6 +760,17 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
     # c_tp_compare and more?
     w_base = best_base(space, w_type.bases_w)
     pto.c_tp_base = rffi.cast(PyTypeObjectPtr, make_ref(space, w_base))
+
+    # dealloc
+    if space.gettypeobject(w_type.layout.typedef) is w_type:
+        # only for the exact type, like 'space.w_tuple' or 'space.w_list'
+        pto.c_tp_dealloc = typedescr.get_dealloc().get_llhelper(space)
+    else:
+        # for all subtypes, use base's dealloc (requires sorting in attach_all)
+        pto.c_tp_dealloc = pto.c_tp_base.c_tp_dealloc
+        if not pto.c_tp_dealloc:
+            # strange, but happens (ABCMeta)
+            pto.c_tp_dealloc = llslot(space, subtype_dealloc)
 
     if builder.cpyext_type_init is not None:
         builder.cpyext_type_init.append((pto, w_type))
