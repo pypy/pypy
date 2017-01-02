@@ -4,7 +4,6 @@
 Py_complex
 PyComplex_AsCComplex(PyObject *obj)
 {
-    printf("asdfgg");
     Py_complex result;
     _PyComplex_AsCComplex(obj, &result);
     return result;
