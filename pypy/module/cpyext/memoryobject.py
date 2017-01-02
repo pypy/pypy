@@ -11,7 +11,6 @@ from pypy.interpreter.error import oefmt
 from pypy.objspace.std.memoryobject import W_MemoryView
 from pypy.module.cpyext.object import _dealloc
 from pypy.module.cpyext.import_ import PyImport_Import
-from pypy.module.cpyext.buffer import CBuffer
 
 PyMemoryView_Check, PyMemoryView_CheckExact = build_type_checkers("MemoryView")
 
