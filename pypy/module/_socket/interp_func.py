@@ -22,8 +22,8 @@ def gethostname(space):
     return space.fsdecode(space.newbytes(res))
 
 def encode_idna(space, w_host):
-    # call unicode.encode(host, 'idna'), and not host.encode('idna') in
-    # case type(host) is not unicode
+    # call unicode.encode(host, 'idna'), and not host.encode('idna') in case
+    # type(host) is not unicode.  See also interp_socket.idna_converter()
     return space.bytes_w(space.call_method(space.w_unicode, 'encode',
                                            w_host, space.wrap('idna')))
 

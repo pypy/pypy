@@ -428,7 +428,8 @@ class AppTestSocket:
     def test_socket_connect_typeerrors(self):
         tests = [
             "",
-            ("80"),
+            "80",
+            ("80",),
             ("80", "80"),
             (80, 80),
         ]
@@ -682,12 +683,16 @@ class AppTestSocket:
         s1.close()
         s2.close()
 
-    def test_gethostbyname_unicode(self):
+    def test_hostname_unicode(self):
         import _socket
         domain = u"испытание.pythontest.net"
         _socket.gethostbyname(domain)
         _socket.gethostbyname_ex(domain)
         _socket.getaddrinfo(domain, 0, _socket.AF_UNSPEC, _socket.SOCK_STREAM)
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+        s.connect((domain, 80))
+        s.close()
+        raises(TypeError, s.connect, (domain + '\x00', 80))
 
 
 class AppTestNetlink:

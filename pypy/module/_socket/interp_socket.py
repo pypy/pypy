@@ -85,11 +85,35 @@ def fill_from_object(addr, space, w_address):
     else:
         raise NotImplementedError
 
+def idna_converter(space, w_host):
+    # Converts w_host to a byte string.  Similar to encode_idna()
+    # but accepts more types and refuses NULL bytes.
+    if space.isinstance_w(w_host, space.w_unicode):
+        try:
+            w_s = space.encode_unicode_object(w_host, 'ascii', None)
+        except OperationError as e:
+            if not e.match(space, space.w_UnicodeEncodeError):
+                raise
+            w_s = space.encode_unicode_object(w_host, 'idna', None)
+        s = space.bytes_w(w_s)
+    elif space.isinstance_w(w_host, space.w_bytes):
+        s = space.bytes_w(w_host)
+    elif space.isinstance_w(w_host, space.w_bytearray):
+        s = space.charbuf_w(w_host)
+    else:
+        raise oefmt(space.w_TypeError,
+                    "string or unicode text buffer expected, not %T", w_host)
+    if '\x00' in s:
+        raise oefmt(space.w_TypeError,
+                    "host name must not contain null character")
+    return s
+
+
 # XXX Hack to seperate rpython and pypy
 def addr_from_object(family, fd, space, w_address):
     if family == rsocket.AF_INET:
         w_host, w_port = space.unpackiterable(w_address, 2)
-        host = space.str_w(w_host)
+        host = idna_converter(space, w_host)
         port = space.int_w(w_port)
         port = make_ushort_port(space, port)
         return rsocket.INETAddress(host, port)
@@ -99,7 +123,7 @@ def addr_from_object(family, fd, space, w_address):
             raise oefmt(space.w_TypeError,
                         "AF_INET6 address must be a tuple of length 2 "
                         "to 4, not %d", len(pieces_w))
-        host = space.str_w(pieces_w[0])
+        host = idna_converter(space, pieces_w[0])
         port = space.int_w(pieces_w[1])
         port = make_ushort_port(space, port)
         if len(pieces_w) > 2: flowinfo = space.int_w(pieces_w[2])
