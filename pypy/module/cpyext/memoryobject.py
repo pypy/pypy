@@ -215,29 +215,3 @@ def PyMemoryView_GET_BASE(space, w_obj):
     # XXX needed for numpy on py3k
     raise NotImplementedError('PyMemoryView_GET_BASE')
 
-#XXX this function was removed in PyPy2, double-check that XXX
-#@cpython_api([PyObject], lltype.Ptr(Py_buffer), error=CANNOT_FAIL)
-#def PyMemoryView_GET_BUFFER(space, w_obj):
-#    """Return a pointer to the buffer-info structure wrapped by the given
-#    object.  The object must be a memoryview instance; this macro doesn't
-#    check its type, you must do it yourself or you will risk crashes."""
-#    view = lltype.malloc(Py_buffer, flavor='raw', zero=True)
-#    if not isinstance(w_obj, W_MemoryView):
-#        return view
-#    ndim = w_obj.buf.getndim()
-#    if ndim >= Py_MAX_NDIMS:
-#        # XXX warn?
-#        return view
-#    fill_Py_buffer(space, w_obj.buf, view)
-#    try:
-#        view.c_buf = rffi.cast(rffi.VOIDP, w_obj.buf.get_raw_address())
-#        view.c_obj = make_ref(space, w_obj)
-#        rffi.setintfield(view, 'c_readonly', w_obj.buf.readonly)
-#        isstr = False
-#    except ValueError:
-#        w_s = w_obj.descr_tobytes(space)
-#        view.c_obj = make_ref(space, w_s)
-#        view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(space.str_w(w_s), track_allocation=False))
-#        rffi.setintfield(view, 'c_readonly', 1)
-#        isstr = True
-#    return view
