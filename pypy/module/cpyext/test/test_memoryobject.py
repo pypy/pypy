@@ -36,6 +36,30 @@ class TestMemoryViewObject(BaseApiTest):
             assert space.eq_w(space.getattr(w_mv, w_f), 
                               space.getattr(w_memoryview, w_f))
 
+
+class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
+    def test_fillWithObject(self):
+        module = self.import_extension('foo', [
+                ("fillinfo", "METH_VARARGS",
+                 """
+                 Py_buffer buf;
+                 PyObject *str = PyBytes_FromString("hello, world.");
+                 if (PyBuffer_FillInfo(&buf, str, PyBytes_AsString(str), 13,
+                                       0, 0)) {
+                     return NULL;
+                 }
+
+                 /* Get rid of our own reference to the object, but
+                  * the Py_buffer should still have a reference.
+                  */
+                 Py_DECREF(str);
+
+                 return PyMemoryView_FromBuffer(&buf);
+                 """)])
+        result = module.fillinfo()
+        assert b"hello, world." == result
+        del result
+
 class AppTestBufferProtocol(AppTestCpythonExtensionBase):
     def test_buffer_protocol_app(self):
         import struct
