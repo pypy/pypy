@@ -10,7 +10,8 @@ only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_
 class TestMemoryViewObject(BaseApiTest):
     def test_fromobject(self, space, api):
         w_hello = space.newbytes("hello")
-        assert api.PyObject_CheckBuffer(w_hello)
+        # implemented as a C macro
+        #assert api.PyObject_CheckBuffer(w_hello)
         w_view = api.PyMemoryView_FromObject(w_hello)
         w_char = space.call_method(w_view, '__getitem__', space.wrap(0))
         assert space.eq_w(w_char, space.wrap('h'))
@@ -123,7 +124,7 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         arr = module.PyMyArray(10)
         ten = foo.get_len(arr)
         assert ten == 10
-        ten = foo.get_len('1234567890')
+        ten = foo.get_len(b'1234567890')
         assert ten == 10
         ten = foo.test_buffer(arr)
         assert ten == 10
