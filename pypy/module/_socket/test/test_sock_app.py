@@ -495,7 +495,8 @@ class AppTestSocket:
     def test_socket_connect_typeerrors(self):
         tests = [
             "",
-            ("80"),
+            "80",
+            ("80",),
             ("80", "80"),
             (80, 80),
         ]
