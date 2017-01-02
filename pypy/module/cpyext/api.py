@@ -1,5 +1,6 @@
 import ctypes
 import sys, os
+from collections import defaultdict
 
 import py
 
@@ -364,8 +365,8 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
         func_name = func.func_name
         if header is not None:
             c_name = None
-            assert func_name not in FUNCTIONS, (
-                "%s already registered" % func_name)
+            if func_name in FUNCTIONS_BY_HEADER[header]:
+                raise ValueError("%s already registered" % func_name)
         else:
             c_name = func_name
         api_function = ApiFunction(argtypes, restype, func, error,
@@ -463,9 +464,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
             return res
 
         if header is not None:
-            if header == DEFAULT_HEADER:
-                FUNCTIONS[func_name] = api_function
-            FUNCTIONS_BY_HEADER.setdefault(header, {})[func_name] = api_function
+            FUNCTIONS_BY_HEADER[header][func_name] = api_function
         INTERPLEVEL_API[func_name] = unwrapper_catch  # used in tests
         return unwrapper  # used in 'normal' RPython code.
     return decorate
@@ -489,8 +488,7 @@ def register_global(name, typ, expr, header=None):
     GLOBALS[name] = (typ, expr)
 
 INTERPLEVEL_API = {}
-FUNCTIONS = {}
-FUNCTIONS_BY_HEADER = {}
+FUNCTIONS_BY_HEADER = defaultdict(dict)
 
 # These are C symbols which cpyext will export, but which are defined in .c
 # files somewhere in the implementation of cpyext (rather than being defined in
@@ -1404,7 +1402,7 @@ def setup_micronumpy(space):
     from pypy.module.cpyext.ndarrayobject import HEADER
     global FUNCTIONS_BY_HEADER, separate_module_files
     for func_name in ['PyArray_Type', '_PyArray_FILLWBYTE', '_PyArray_ZEROS']:
-        FUNCTIONS_BY_HEADER.setdefault(HEADER, {})[func_name] = None
+        FUNCTIONS_BY_HEADER[HEADER][func_name] = None
     register_global("PyArray_Type",
         'PyTypeObject*',  "space.gettypeobject(W_NDimArray.typedef)",
         header=HEADER)
