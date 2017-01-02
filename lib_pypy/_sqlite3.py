@@ -374,12 +374,6 @@ class Connection(object):
                 if cursor is not None:
                     cursor._reset = True
 
-    def _reset_other_statements(self, excepted):
-        for weakref in self.__statements:
-            statement = weakref()
-            if statement is not None and statement is not excepted:
-                statement._reset()
-
     @_check_thread_wrap
     @_check_closed_wrap
     def __call__(self, sql):
@@ -434,6 +428,16 @@ class Connection(object):
         self._check_closed()
         if not self._in_transaction:
             return
+
+        # The following line is a KNOWN DIFFERENCE with CPython 2.7.13.
+        # More precisely, the corresponding line was removed in the
+        # version 2.7.13 of CPython, but this is causing troubles for
+        # PyPy (and potentially for CPython too):
+        #
+        #     http://bugs.python.org/issue29006
+        #
+        # So for now, we keep this line.
+        self.__do_all_statements(Statement._reset, False)
 
         statement_star = _ffi.new('sqlite3_stmt **')
         ret = _lib.sqlite3_prepare_v2(self._db, b"COMMIT", -1,
@@ -862,24 +866,7 @@ class Cursor(object):
                 self.__statement._set_params(params)
 
                 # Actually execute the SQL statement
-
-                # NOTE: if we get SQLITE_LOCKED, it's probably because
-                # one of the cursors created previously is still alive
-                # and not reset and the operation we're trying to do
-                # makes Sqlite unhappy about that.  In that case, we
-                # automatically reset all cursors and try again.  This
-                # is not what CPython does!  It is a workaround for a
-                # new feature of 2.7.13.  Previously, all cursors would
-                # be reset at commit(), which makes it unlikely to have
-                # cursors lingering around.  Since 2.7.13, cursors stay
-                # around instead.  This causes problems here---at least:
-                # this is the only place shown by pysqlite tests, and I
-                # can only hope there is no other.
-
                 ret = _lib.sqlite3_step(self.__statement._statement)
-                if ret == _lib.SQLITE_LOCKED:
-                    self.__connection._reset_other_statements(self.__statement)
-                    ret = _lib.sqlite3_step(self.__statement._statement)
 
                 if ret == _lib.SQLITE_ROW:
                     if multiple:

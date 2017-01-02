@@ -1,18 +1,15 @@
 import py, os, sys
+import subprocess
 
 from pypy.module.cppyy import interp_cppyy, executor
+from .support import setup_make
 
 
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("example01Dict.so"))
 
 def setup_module(mod):
-    if sys.platform == 'win32':
-        py.test.skip("win32 not supported so far")
-    import pypy.module.cppyy.capi.loadable_capi as lcapi
-    err = os.system("cd '%s' && make example01Dict.so" % currpath)
-    if err:
-        raise OSError("'make' failed (see stderr)")
+    setup_make("example01Dict.so")
 
 class TestCPPYYImplementation:
     def test01_class_query(self, space):

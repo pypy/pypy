@@ -6,7 +6,6 @@ class BSD(posix.BasePosix):
     DEFAULT_CC = 'clang'
 
     so_ext = 'so'
-    so_prefixes = ('lib', '')
     make_cmd = 'gmake'
 
     standalone_only = []

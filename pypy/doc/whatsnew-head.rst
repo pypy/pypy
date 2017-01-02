@@ -77,3 +77,16 @@ segfaults, but trying to use the ``PyGetSetDescrObject`` will probably fail.
 .. branch: stdlib-2.7.13
 
 Updated the implementation to match CPython 2.7.13 instead of 2.7.13.
+
+.. branch: issue2444
+
+Fix ``PyObject_GetBuffer`` and ``PyMemoryView_GET_BUFFER``, which leaked
+memory and held references. Add a finalizer to CPyBuffer, add a
+PyMemoryViewObject with a PyBuffer attached so that the call to 
+``PyMemoryView_GET_BUFFER`` does not leak a PyBuffer-sized piece of memory.
+Properly call ``bf_releasebuffer`` when not ``NULL``.
+
+.. branch: boehm-rawrefcount
+
+Support translations of cpyext with the Boehm GC (for special cases like
+revdb).

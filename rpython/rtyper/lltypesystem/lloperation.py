@@ -494,6 +494,7 @@ LL_OPERATIONS = {
     'gc_rawrefcount_mark_deallocating': LLOp(),
     'gc_rawrefcount_from_obj':          LLOp(sideeffects=False),
     'gc_rawrefcount_to_obj':            LLOp(sideeffects=False),
+    'gc_rawrefcount_next_dead':         LLOp(),
 
     # ------- JIT & GC interaction, only for some GCs ----------
 

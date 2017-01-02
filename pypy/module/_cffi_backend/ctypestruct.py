@@ -34,6 +34,7 @@ class W_CTypeStructOrUnion(W_CType):
     _fields_dict = None
     _custom_field_pos = False
     _with_var_array = False
+    _with_packed_changed = False
 
     def __init__(self, space, name):
         W_CType.__init__(self, space, -1, name, len(name))

@@ -1,6 +1,5 @@
 import ctypes
 import sys, os
-import atexit
 
 import py
 
@@ -18,7 +17,6 @@ from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.gensupp import NameManager
 from rpython.tool.udir import udir
-from rpython.translator import platform
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError, oefmt, raise_import_error
 from pypy.interpreter.baseobjspace import W_Root
@@ -487,6 +485,12 @@ def cpython_struct(name, fields, forward=None, level=1):
     TYPES[configname] = forward
     return forward
 
+GLOBALS = {}
+def register_global(name, typ, expr, header=None):
+    if header is not None:
+        name = '%s#%s' % (name, header)
+    GLOBALS[name] = (typ, expr)
+
 INTERPLEVEL_API = {}
 FUNCTIONS = {}
 FUNCTIONS_BY_HEADER = {}
@@ -546,17 +550,22 @@ SYMBOLS_C = [
     '_Py_QnewFlag', 'Py_Py3kWarningFlag', 'Py_HashRandomizationFlag', '_Py_PackageContext',
 ]
 TYPES = {}
-GLOBALS = { # this needs to include all prebuilt pto, otherwise segfaults occur
-    '_Py_NoneStruct#%s' % pypy_decl: ('PyObject*', 'space.w_None'),
-    '_Py_TrueStruct#%s' % pypy_decl: ('PyObject*', 'space.w_True'),
-    '_Py_ZeroStruct#%s' % pypy_decl: ('PyObject*', 'space.w_False'),
-    '_Py_NotImplementedStruct#%s' % pypy_decl: ('PyObject*', 'space.w_NotImplemented'),
-    '_Py_EllipsisObject#%s' % pypy_decl: ('PyObject*', 'space.w_Ellipsis'),
-    'PyDateTimeAPI': ('PyDateTime_CAPI*', 'None'),
-    }
 FORWARD_DECLS = []
 INIT_FUNCTIONS = []
 BOOTSTRAP_FUNCTIONS = []
+
+# this needs to include all prebuilt pto, otherwise segfaults occur
+register_global('_Py_NoneStruct',
+    'PyObject*', 'space.w_None', header=pypy_decl)
+register_global('_Py_TrueStruct',
+    'PyObject*', 'space.w_True', header=pypy_decl)
+register_global('_Py_ZeroStruct',
+    'PyObject*', 'space.w_False', header=pypy_decl)
+register_global('_Py_NotImplementedStruct',
+    'PyObject*', 'space.w_NotImplemented', header=pypy_decl)
+register_global('_Py_EllipsisObject',
+    'PyObject*', 'space.w_Ellipsis', header=pypy_decl)
+register_global('PyDateTimeAPI', 'PyDateTime_CAPI*', 'None')
 
 def build_exported_objects():
     # Standard exceptions
@@ -570,7 +579,7 @@ def build_exported_objects():
             # FIXME: aliases of OSError cause a clash of names via
             # export_struct
             continue
-        GLOBALS['PyExc_' + exc_name] = (
+        register_global('PyExc_' + exc_name,
             'PyTypeObject*',
             'space.gettypeobject(interp_exceptions.W_%s.typedef)'% (exc_name, ))
 
@@ -603,7 +612,7 @@ def build_exported_objects():
         'PyWrapperDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCMethodObject.typedef)',
         'PyInstanceMethod_Type': 'space.gettypeobject(cpyext.classobject.InstanceMethod.typedef)',
         }.items():
-        GLOBALS['%s#%s' % (cpyname, pypy_decl)] = ('PyTypeObject*', pypyexpr)
+        register_global(cpyname, 'PyTypeObject*', pypyexpr, header=pypy_decl)
 
     for cpyname in '''PyMethodObject PyListObject PyLongObject'''.split():
         FORWARD_DECLS.append('typedef struct { PyObject_HEAD } %s'
@@ -638,18 +647,18 @@ Py_buffer = cpython_struct(
         ('len', Py_ssize_t),
         ('itemsize', Py_ssize_t),
 
-        ('readonly', lltype.Signed),
-        ('ndim', lltype.Signed),
+        ('readonly', rffi.INT_real),
+        ('ndim', rffi.INT_real),
         ('format', rffi.CCHARP),
         ('shape', Py_ssize_tP),
         ('strides', Py_ssize_tP),
+        ('suboffsets', Py_ssize_tP),
         ('_format', rffi.CFixedArray(rffi.UCHAR, Py_MAX_FMT)),
         ('_shape', rffi.CFixedArray(Py_ssize_t, Py_MAX_NDIMS)),
         ('_strides', rffi.CFixedArray(Py_ssize_t, Py_MAX_NDIMS)),
-        ('suboffsets', Py_ssize_tP),
         #('smalltable', rffi.CFixedArray(Py_ssize_t, 2)),
-        ('internal', rffi.VOIDP)
-        ))
+        ('internal', rffi.VOIDP),
+))
 Py_bufferP = lltype.Ptr(Py_buffer)
 
 @specialize.memo()
@@ -1020,14 +1029,12 @@ def c_function_signature(db, func):
 def build_bridge(space):
     "NOT_RPYTHON"
     from pypy.module.cpyext.pyobject import make_ref
-
-    use_micronumpy = setup_micronumpy(space)
-
-    export_symbols = list(FUNCTIONS) + SYMBOLS_C + list(GLOBALS)
     from rpython.translator.c.database import LowLevelDatabase
+    use_micronumpy = setup_micronumpy(space)
     db = LowLevelDatabase()
+    prefix ='cpyexttest'
 
-    generate_macros(export_symbols, prefix='cpyexttest')
+    functions = generate_decls_and_callbacks(db, prefix=prefix)
 
     # Structure declaration code
     members = []
@@ -1047,9 +1054,6 @@ def build_bridge(space):
     } _pypyAPI;
     RPY_EXTERN struct PyPyAPI* pypyAPI = &_pypyAPI;
     """ % dict(members=structmembers)
-
-    functions = generate_decls_and_callbacks(db, export_symbols,
-                                            prefix='cpyexttest')
 
     global_objects = []
     for name, (typ, expr) in GLOBALS.iteritems():
@@ -1077,7 +1081,7 @@ def build_bridge(space):
             '\n' +
             '\n'.join(functions))
 
-    eci = build_eci(True, export_symbols, code, use_micronumpy)
+    eci = build_eci(True, code, use_micronumpy)
     eci = eci.compile_shared_lib(
         outputfilename=str(udir / "module_cache" / "pypyapi"))
     modulename = py.path.local(eci.libraries[-1])
@@ -1098,7 +1102,6 @@ def build_bridge(space):
     run_bootstrap_functions(space)
 
     # load the bridge, and init structure
-    import ctypes
     bridge = ctypes.CDLL(str(modulename), mode=ctypes.RTLD_GLOBAL)
 
     space.fromcache(State).install_dll(eci)
@@ -1118,7 +1121,7 @@ def build_bridge(space):
 
         INTERPLEVEL_API[name] = w_obj
 
-        name = name.replace('Py', 'cpyexttest')
+        name = name.replace('Py', prefix)
         if isptr:
             ptr = ctypes.c_void_p.in_dll(bridge, name)
             if typ == 'PyObject*':
@@ -1146,12 +1149,6 @@ def build_bridge(space):
     pypyAPI = ctypes.POINTER(ctypes.c_void_p).in_dll(bridge, 'pypyAPI')
 
     # implement structure initialization code
-    #for name, func in FUNCTIONS.iteritems():
-    #    if name.startswith('cpyext_'): # XXX hack
-    #        continue
-    #    pypyAPI[structindex[name]] = ctypes.cast(
-    #        ll2ctypes.lltype2ctypes(func.get_llhelper(space)),
-    #        ctypes.c_void_p)
     for header, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         for name, func in header_functions.iteritems():
             if name.startswith('cpyext_') or func is None: # XXX hack
@@ -1219,13 +1216,13 @@ def mangle_name(prefix, name):
     else:
         return None
 
-def generate_macros(export_symbols, prefix):
+def generate_decls_and_callbacks(db, api_struct=True, prefix=''):
     "NOT_RPYTHON"
     pypy_macros = []
-    renamed_symbols = []
+    export_symbols = sorted(FUNCTIONS) + sorted(SYMBOLS_C) + sorted(GLOBALS)
     for name in export_symbols:
         if '#' in name:
-            name,header = name.split('#')
+            name, header = name.split('#')
         else:
             header = pypy_decl
         newname = mangle_name(prefix, name)
@@ -1234,8 +1231,6 @@ def generate_macros(export_symbols, prefix):
             pypy_macros.append('#define %s %s' % (name, newname))
         if name.startswith("PyExc_"):
             pypy_macros.append('#define _%s _%s' % (name, newname))
-        renamed_symbols.append(newname)
-    export_symbols[:] = renamed_symbols
 
     # Generate defines
     for macro_name, size in [
@@ -1255,8 +1250,6 @@ def generate_macros(export_symbols, prefix):
     pypy_macros_h = udir.join('pypy_macros.h')
     pypy_macros_h.write('\n'.join(pypy_macros))
 
-def generate_decls_and_callbacks(db, export_symbols, api_struct=True, prefix=''):
-    "NOT_RPYTHON"
     # implement function callbacks and generate function decls
     functions = []
     decls = {}
@@ -1342,7 +1335,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "bytesobject.c",
                          ]
 
-def build_eci(building_bridge, export_symbols, code, use_micronumpy=False):
+def build_eci(building_bridge, code, use_micronumpy=False):
     "NOT_RPYTHON"
     # Build code and get pointer to the structure
     kwds = {}
@@ -1414,31 +1407,29 @@ def setup_micronumpy(space):
         return use_micronumpy
     # import registers api functions by side-effect, we also need HEADER
     from pypy.module.cpyext.ndarrayobject import HEADER
-    global GLOBALS, FUNCTIONS_BY_HEADER, separate_module_files
+    global FUNCTIONS_BY_HEADER, separate_module_files
     for func_name in ['PyArray_Type', '_PyArray_FILLWBYTE', '_PyArray_ZEROS']:
         FUNCTIONS_BY_HEADER.setdefault(HEADER, {})[func_name] = None
-    GLOBALS["PyArray_Type#%s" % HEADER] = ('PyTypeObject*', "space.gettypeobject(W_NDimArray.typedef)")
+    register_global("PyArray_Type",
+        'PyTypeObject*',  "space.gettypeobject(W_NDimArray.typedef)",
+        header=HEADER)
     separate_module_files.append(source_dir / "ndarrayobject.c")
     return use_micronumpy
 
 def setup_library(space):
     "NOT_RPYTHON"
-    use_micronumpy = setup_micronumpy(space)
-    export_symbols = sorted(FUNCTIONS) + sorted(SYMBOLS_C) + sorted(GLOBALS)
     from rpython.translator.c.database import LowLevelDatabase
+    use_micronumpy = setup_micronumpy(space)
     db = LowLevelDatabase()
     prefix = 'PyPy'
 
-    generate_macros(export_symbols, prefix=prefix)
-
-    functions = generate_decls_and_callbacks(db, [], api_struct=False,
-                                            prefix=prefix)
+    functions = generate_decls_and_callbacks(db, api_struct=False, prefix=prefix)
     code = "#include <Python.h>\n"
     if use_micronumpy:
         code += "#include <pypy_numpy.h> /* api.py line 1290 */\n"
     code  += "\n".join(functions)
 
-    eci = build_eci(False, export_symbols, code, use_micronumpy)
+    eci = build_eci(False, code, use_micronumpy)
 
     space.fromcache(State).install_dll(eci)
 
@@ -1594,7 +1585,7 @@ def generic_cpy_call_expect_null(space, func, *args):
 
 @specialize.memo()
 def make_generic_cpy_call(FT, expect_null):
-    from pypy.module.cpyext.pyobject import make_ref, from_ref, Py_DecRef
+    from pypy.module.cpyext.pyobject import make_ref, from_ref
     from pypy.module.cpyext.pyobject import is_pyobj, as_pyobj
     from pypy.module.cpyext.pyobject import get_w_obj_and_decref
     from pypy.module.cpyext.pyerrors import PyErr_Occurred

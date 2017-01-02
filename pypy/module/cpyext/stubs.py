@@ -13,7 +13,6 @@ PyModuleDef = rffi.VOIDP
 PyMethodDef = rffi.VOIDP
 PyGetSetDef = rffi.VOIDP
 PyMemberDef = rffi.VOIDP
-Py_buffer = rffi.VOIDP
 va_list = rffi.VOIDP
 wrapperbase = rffi.VOIDP
 FILE = rffi.VOIDP

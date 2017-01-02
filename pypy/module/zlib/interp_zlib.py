@@ -3,7 +3,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty_bytes, interp_attrproperty
 from pypy.interpreter.error import OperationError, oefmt
-from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib.rarithmetic import intmask, r_uint, r_uint32
 from rpython.rlib.objectmodel import keepalive_until_here
 
 from rpython.rlib import rzlib
@@ -17,7 +17,7 @@ def crc32(space, string, start = rzlib.CRC32_DEFAULT_START):
     An optional starting value can be specified.  The returned checksum is
     an integer.
     """
-    ustart = r_uint(start)
+    ustart = r_uint(r_uint32(start))
     checksum = rzlib.crc32(string, ustart)
     return space.wrap(checksum)
 
@@ -30,7 +30,7 @@ def adler32(space, string, start=rzlib.ADLER32_DEFAULT_START):
     An optional starting value can be specified.  The returned checksum is
     an integer.
     """
-    ustart = r_uint(start)
+    ustart = r_uint(r_uint32(start))
     checksum = rzlib.adler32(string, ustart)
     return space.wrap(checksum)
 
