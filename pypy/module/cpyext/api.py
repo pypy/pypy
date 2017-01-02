@@ -1220,7 +1220,7 @@ def mangle_name(prefix, name):
 def generate_decls_and_callbacks(db, api_struct=True, prefix=''):
     "NOT_RPYTHON"
     pypy_macros = []
-    export_symbols = sorted(FUNCTIONS) + sorted(SYMBOLS_C) + sorted(GLOBALS)
+    export_symbols = sorted(SYMBOLS_C) + sorted(GLOBALS)
     for name in export_symbols:
         if '#' in name:
             name, header = name.split('#')
@@ -1272,13 +1272,9 @@ def generate_decls_and_callbacks(db, api_struct=True, prefix=''):
         for name, func in sorted(header_functions.iteritems()):
             if not func:
                 continue
-            if header == DEFAULT_HEADER:
-                _name = name
-            else:
-                # this name is not included in pypy_macros.h
-                _name = mangle_name(prefix, name)
-                assert _name is not None, 'error converting %s' % name
-                header.append("#define %s %s" % (name, _name))
+            _name = mangle_name(prefix, name)
+            assert _name is not None, 'error converting %s' % name
+            header.append("#define %s %s" % (name, _name))
             restype, args = c_function_signature(db, func)
             header.append("PyAPI_FUNC(%s) %s(%s);" % (restype, _name, args))
             if api_struct:
@@ -1476,7 +1472,7 @@ def setup_library(space):
         for name, func in header_functions.iteritems():
             if not func:
                 continue
-            newname = mangle_name('PyPy', name) or name
+            newname = mangle_name(prefix, name) or name
             deco = entrypoint_lowlevel("cpyext", func.argtypes, newname,
                                         relax=True)
             deco(func.get_wrapper(space))
