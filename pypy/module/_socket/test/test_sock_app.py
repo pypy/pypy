@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import sys, os
 import pytest
 from pypy.tool.pytest.objspace import gettestobjspace
@@ -680,6 +681,11 @@ class AppTestSocket:
         assert posix.get_inheritable(s2.fileno()) is False
         s1.close()
         s2.close()
+
+    def test_gethostbyname_unicode(self):
+        import _socket
+        domain = u"испытание.pythontest.net"
+        _socket.gethostbyname(domain)
 
 
 class AppTestNetlink:

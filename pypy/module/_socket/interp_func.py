@@ -21,12 +21,16 @@ def gethostname(space):
         raise converted_error(space, e)
     return space.fsdecode(space.newbytes(res))
 
-@unwrap_spec(host=str)
-def gethostbyname(space, host):
+def encode_idna(space, w_host):
+    return space.bytes_w(space.call_method(space.w_unicode, 'encode',
+                                           w_host, space.wrap('idna')))
+
+def gethostbyname(space, w_host):
     """gethostbyname(host) -> address
 
     Return the IP address (a string of the form '255.255.255.255') for a host.
     """
+    host = encode_idna(space, w_host)
     try:
         addr = rsocket.gethostbyname(host)
         ip = addr.get_host()
