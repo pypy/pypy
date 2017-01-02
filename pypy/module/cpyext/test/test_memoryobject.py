@@ -62,7 +62,7 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
                     return NULL;
                 vlen = view.len / view.itemsize;
                 PyBuffer_Release(&view);
-                return PyInt_FromLong(vlen);
+                return PyLong_FromLong(vlen);
              """),
             ("test_buffer", "METH_VARARGS",
              """
@@ -70,10 +70,10 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
                 PyObject* obj = PyTuple_GetItem(args, 0);
                 PyObject* memoryview = PyMemoryView_FromObject(obj);
                 if (memoryview == NULL)
-                    return PyInt_FromLong(-1);
+                    return PyLong_FromLong(-1);
                 view = PyMemoryView_GET_BUFFER(memoryview);
                 Py_DECREF(memoryview);
-                return PyInt_FromLong(view->len / view->itemsize);
+                return PyLong_FromLong(view->len / view->itemsize);
             """)])
         module = self.import_module(name='buffer_test')
         arr = module.PyMyArray(10)
