@@ -1,6 +1,21 @@
-import itertools, os, subprocess
+import itertools, os, subprocess, py
 from hypothesis import given, strategies
 from rpython.tool.udir import udir
+
+
+def setup_module():
+    filename = str(udir.join("test-rawrefcount-boehm-check.c"))
+    with open(filename, "w") as f:
+        print >> f, '#include "gc/gc_mark.h"'
+        print >> f, 'void *testing(void) {'
+        print >> f, '    return &GC_set_start_callback;'
+        print >> f, '}'
+
+    err = os.system("cd '%s' && gcc -c test-rawrefcount-boehm-check.c"
+                    % (udir,))
+    if err != 0:
+        py.test.skip("Boehm GC not installed or too old version")
+
 
 
 TEST_CODE = r"""
