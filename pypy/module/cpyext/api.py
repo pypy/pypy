@@ -41,6 +41,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib import rawrefcount
 from rpython.rlib import rthread
 from rpython.rlib.debug import fatalerror_notb
+from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 
 DEBUG_WRAPPER = True
 
@@ -1164,6 +1165,34 @@ def build_bridge(space):
     setup_init_functions(eci, translating=False)
     return modulename.new(ext='')
 
+def attach_recusively(space, static_pyobjs, static_objs_w, attached_objs, i):
+    # Start at i but make sure all the base classes are already attached
+    from pypy.module.cpyext.pyobject import get_typedescr, make_ref
+    if i in attached_objs:
+        return
+    py_obj = static_pyobjs[i]
+    w_obj = static_objs_w[i]
+    w_base = None
+    # w_obj can be NotImplemented, which is not a W_TypeObject
+    if isinstance(w_obj, W_TypeObject):
+        bases_w = w_obj.bases_w
+        if bases_w:
+            w_base = find_best_base(bases_w)
+        if w_base:
+            try:
+                j = static_objs_w.index(w_base)
+            except ValueError:
+                j = -1
+            if j >=0 and j not in attached_objs:
+                attach_recusively(space, static_pyobjs, static_objs_w,
+                                                 attached_objs, j)
+    w_type = space.type(w_obj)
+    typedescr = get_typedescr(w_type.layout.typedef)
+    py_obj.c_ob_type = rffi.cast(PyTypeObjectPtr,
+                                 make_ref(space, w_type))
+    typedescr.attach(space, py_obj, w_obj)
+    attached_objs.append(i)
+
 
 class StaticObjectBuilder:
     def __init__(self, space):
@@ -1185,7 +1214,6 @@ class StaticObjectBuilder:
 
     def attach_all(self):
         # this is RPython, called once in pypy-c when it imports cpyext
-        from pypy.module.cpyext.pyobject import get_typedescr, make_ref
         from pypy.module.cpyext.typeobject import finish_type_1, finish_type_2
         from pypy.module.cpyext.pyobject import track_reference
         #
@@ -1196,14 +1224,9 @@ class StaticObjectBuilder:
             track_reference(space, static_pyobjs[i], static_objs_w[i])
         #
         self.cpyext_type_init = []
+        attached_objs = []
         for i in range(len(static_objs_w)):
-            py_obj = static_pyobjs[i]
-            w_obj = static_objs_w[i]
-            w_type = space.type(w_obj)
-            typedescr = get_typedescr(w_type.layout.typedef)
-            py_obj.c_ob_type = rffi.cast(PyTypeObjectPtr,
-                                         make_ref(space, w_type))
-            typedescr.attach(space, py_obj, w_obj)
+            attach_recusively(space, static_pyobjs, static_objs_w, attached_objs, i)
         cpyext_type_init = self.cpyext_type_init
         self.cpyext_type_init = None
         for pto, w_type in cpyext_type_init:
