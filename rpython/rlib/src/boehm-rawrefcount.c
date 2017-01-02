@@ -258,7 +258,7 @@ static void boehm_is_about_to_collect(void)
             assert(p->ob_refcnt >= REFCNT_FROM_PYPY);
 
 #ifdef TEST_BOEHM_RAWREFCOUNT
-            printf("plist[%d].gcenc: %p ", (int)i, plist[i].gcenc);
+            printf("plist[%d].gcenc: %p ", (int)i, (void *)plist[i].gcenc);
 #endif
 
             if ((plist[i].gcenc & 1) ^ (p->ob_refcnt == REFCNT_FROM_PYPY)) {
@@ -272,7 +272,7 @@ static void boehm_is_about_to_collect(void)
             }
             gcenc_union |= plist[i].gcenc;
 #ifdef TEST_BOEHM_RAWREFCOUNT
-            printf("-> %p\n", plist[i].gcenc);
+            printf("-> %p\n", (void *)plist[i].gcenc);
 #endif
     }
         plist = plist[0].next_in_bucket;
