@@ -966,6 +966,9 @@ class LLFrame(object):
     def op_gc_rawrefcount_mark_deallocating(self, *args):
         raise NotImplementedError("gc_rawrefcount_mark_deallocating")
 
+    def op_gc_rawrefcount_next_dead(self, *args):
+        raise NotImplementedError("gc_rawrefcount_next_dead")
+
     def op_do_malloc_fixedsize(self):
         raise NotImplementedError("do_malloc_fixedsize")
     def op_do_malloc_fixedsize_clear(self):
