@@ -686,6 +686,7 @@ class AppTestSocket:
         import _socket
         domain = u"испытание.pythontest.net"
         _socket.gethostbyname(domain)
+        _socket.gethostbyname_ex(domain)
 
 
 class AppTestNetlink:

@@ -45,13 +45,13 @@ def common_wrapgethost(space, (name, aliases, address_list)):
                            space.newlist(aliases),
                            space.newlist(address_list)])
 
-@unwrap_spec(host=str)
-def gethostbyname_ex(space, host):
+def gethostbyname_ex(space, w_host):
     """gethostbyname_ex(host) -> (name, aliaslist, addresslist)
 
     Return the true host name, a list of aliases, and a list of IP addresses,
     for a host.  The host argument is a string giving a host name or IP number.
     """
+    host = encode_idna(space, w_host)
     try:
         res = rsocket.gethostbyname_ex(host)
     except SocketError as e:
