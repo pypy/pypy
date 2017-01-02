@@ -1975,7 +1975,7 @@ class AppTestRecompiler:
                 return s;
             }
         """, packed=True, min_version=(1, 8, 3))
-        assert lib.f().y == chr(40)
+        assert ord(lib.f().y) == 40
         assert lib.f().x == 200
         e = raises(NotImplementedError, lib.g, 0)
         assert str(e.value) == (

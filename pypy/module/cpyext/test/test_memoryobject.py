@@ -5,7 +5,7 @@ from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rlib.buffer import StringBuffer
 
-only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names" 
+only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names"
 
 class TestMemoryViewObject(BaseApiTest):
     def test_fromobject(self, space, api):
@@ -31,10 +31,10 @@ class TestMemoryViewObject(BaseApiTest):
         o = rffi.charp2str(view.c_buf)
         assert o == 'hello'
         w_mv = api.PyMemoryView_FromBuffer(view)
-        for f in ('format', 'itemsize', 'ndim', 'readonly', 
+        for f in ('format', 'itemsize', 'ndim', 'readonly',
                   'shape', 'strides', 'suboffsets'):
             w_f = space.wrap(f)
-            assert space.eq_w(space.getattr(w_mv, w_f), 
+            assert space.eq_w(space.getattr(w_mv, w_f),
                               space.getattr(w_memoryview, w_f))
 
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
@@ -70,11 +70,6 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         assert y.shape == (10,)
         assert len(y) == 10
         assert y[3] == 3
-        s = y[3]
-        assert len(s) == struct.calcsize('i')
-        assert s == struct.pack('i', 3)
-        viewlen = module.test_buffer(arr)
-        assert viewlen == y.itemsize * len(y)
 
     def test_buffer_protocol_capi(self):
         foo = self.import_extension('foo', [
@@ -128,15 +123,15 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         shape, strides = get_buffer_info(arr, ['C_CONTIGUOUS'])
         assert strides[-1] == 8
         dt1 = np.dtype(
-             [('a', 'b'), ('b', 'i'), 
-              ('sub0', np.dtype('b,i')), 
-              ('sub1', np.dtype('b,i')), 
-              ('sub2', np.dtype('b,i')), 
-              ('sub3', np.dtype('b,i')), 
-              ('sub4', np.dtype('b,i')), 
-              ('sub5', np.dtype('b,i')), 
-              ('sub6', np.dtype('b,i')), 
-              ('sub7', np.dtype('b,i')), 
+             [('a', 'b'), ('b', 'i'),
+              ('sub0', np.dtype('b,i')),
+              ('sub1', np.dtype('b,i')),
+              ('sub2', np.dtype('b,i')),
+              ('sub3', np.dtype('b,i')),
+              ('sub4', np.dtype('b,i')),
+              ('sub5', np.dtype('b,i')),
+              ('sub6', np.dtype('b,i')),
+              ('sub7', np.dtype('b,i')),
               ('c', 'i')],
              )
         x = np.arange(dt1.itemsize, dtype='int8').view(dt1)

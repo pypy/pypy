@@ -213,4 +213,3 @@ def PyMemoryView_GET_BASE(space, w_obj):
     # return the obj field of the Py_buffer created by PyMemoryView_GET_BUFFER
     # XXX needed for numpy on py3k
     raise NotImplementedError('PyMemoryView_GET_BASE')
-
