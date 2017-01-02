@@ -60,24 +60,6 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
         assert b"hello, world." == result
         del result
 
-    def test_fill_from_NULL_pointer(self):
-        module = self.import_extension('foo', [
-                ("fillinfo_NULL", "METH_VARARGS",
-                 """
-                 Py_buffer info;
-                 if (PyBuffer_FillInfo(&info, NULL, NULL, 1, 1,
-                                       PyBUF_FULL_RO) < 0) {
-                     return NULL;
-                 }
-                 return PyMemoryView_FromBuffer(&info);
-                 """)])
-        exc = raises(ValueError, module.fillinfo_NULL)
-        assert 'NULL' in str(exc.value)
-
-    @pytest.mark.skipif(True, reason='write a test for this')
-    def test_get_base_and_get_buffer(self, space, api):
-        assert False # XXX test PyMemoryView_GET_BASE, PyMemoryView_GET_BUFFER
-
 class AppTestBufferProtocol(AppTestCpythonExtensionBase):
     def test_buffer_protocol_app(self):
         import struct
