@@ -22,6 +22,8 @@ def gethostname(space):
     return space.fsdecode(space.newbytes(res))
 
 def encode_idna(space, w_host):
+    # call unicode.encode(host, 'idna'), and not host.encode('idna') in
+    # case type(host) is not unicode
     return space.bytes_w(space.call_method(space.w_unicode, 'encode',
                                            w_host, space.wrap('idna')))
 
@@ -276,8 +278,7 @@ def getaddrinfo(space, w_host, w_port,
     elif space.isinstance_w(w_host, space.w_bytes):
         host = space.bytes_w(w_host)
     elif space.isinstance_w(w_host, space.w_unicode):
-        w_shost = space.call_method(w_host, "encode", space.wrap("idna"))
-        host = space.bytes_w(w_shost)
+        host = encode_idna(space, w_host)
     else:
         raise oefmt(space.w_TypeError,
                     "getaddrinfo() argument 1 must be string or None")
