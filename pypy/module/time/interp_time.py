@@ -237,6 +237,7 @@ HAS_MONOTONIC = (_WIN or _MACOSX or
                  (HAS_CLOCK_GETTIME and (HAS_CLOCK_HIGHRES or HAS_CLOCK_MONOTONIC)))
 tm = cConfig.tm
 glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
+glob_tm_zone = lltype.nullptr(rffi.CCHARP.TO)
 
 if _WIN:
     _GetSystemTimeAsFileTime = rwin32.winexternal('GetSystemTimeAsFileTime',
@@ -602,9 +603,15 @@ def _gettmarg(space, w_tup, allowNone=True):
     rffi.setintfield(glob_buf, 'c_tm_gmtoff', 0)
     if HAS_TM_ZONE :
         if len(tup_w) >= 10:
-            # XXX str2charp leaks the object
+            # NOTE this is not cleanly solved, the global variable glob_tm_zone
+            # saves the string that is later deleted when this function is called again
+            # an refactoring of this module could remove this
             tm_zone = encode_utf8(space, space.unicode_w(tup_w[9]), allow_surrogates=True)
-            glob_buf.c_tm_zone = rffi.str2charp(tm_zone, track_allocation=False)
+            malloced_str = rffi.str2charp(tm_zone, track_allocation=False)
+            if glob_tm_zone != lltype.nullptr(rffi.CCHARP.TO):
+                rffi.freecharp(glob_tm_zone, track_allocation=False)
+            glob_tm_zone = malloced_str
+            glob_buf.c_tm_zone = malloced_str
         if len(tup_w) >= 11:
             rffi.setintfield(glob_buf, 'c_tm_gmtoff', space.c_int_w(tup_w[10]))
 
