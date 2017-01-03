@@ -11,6 +11,10 @@ class State:
         self.init_filters(space)
         self.w_once_registry = space.newdict()
         self.w_default_action = space.wrap("default")
+        self.filters_mutated(space)
+
+    def filters_mutated(self, space):
+        self.w_filters_version = space.call_function(space.w_object)
 
     def init_filters(self, space):
         filters_w = []
@@ -32,6 +36,8 @@ class State:
         filters_w.append(create_filter(
             space, space.w_BytesWarning, action))
 
+        # note: in CPython, resource usage warnings are enabled by default
+        # in pydebug mode
         filters_w.append(create_filter(
             space, space.w_ResourceWarning, "ignore"))
 
@@ -61,19 +67,52 @@ def get_category(space, w_message, w_category):
         w_category = space.w_UserWarning
 
     # Validate category
-    if not space.abstract_issubclass_w(w_category, space.w_Warning):
+    try:
+        if not space.abstract_issubclass_w(w_category, space.w_Warning):
+            raise oefmt(space.w_ValueError,
+                        "category is not a subclass of Warning")
+    except OperationError as e:
+        if e.async(space):
+            raise
         raise oefmt(space.w_ValueError,
-                    "category is not a subclass of Warning")
+                    "category must be a Warning subclass, not '%T'",
+                    w_category)
 
     return w_category
+
+def is_internal_frame(space, frame):
+    if frame is None:
+        return False
+    code = frame.getcode()
+    if code is None or code.co_filename is None:
+        return False
+    # XXX XXX HAAAACK copied directly from CPython, which I'm particularly
+    # unhappy about, but I can't do anything more than say "bah"
+    return "importlib" in code.co_filename and "_bootstrap" in code.co_filename
+
+def next_external_frame(space, frame):
+    ec = space.getexecutioncontext()
+    while True:
+        frame = ec.getnextframe_nohidden(frame)
+        if frame is None or not is_internal_frame(space, frame):
+            return frame
 
 def setup_context(space, stacklevel):
     # Setup globals and lineno
     ec = space.getexecutioncontext()
+
+    # Direct copy of CPython's logic, which has grown its own notion of
+    # "internal frames".  xxx not sure I understand this logic.
     frame = ec.gettopframe_nohidden()
-    while frame and stacklevel > 1:
-        frame = ec.getnextframe_nohidden(frame)
-        stacklevel -= 1
+    if stacklevel <= 0 or is_internal_frame(space, frame):
+        while stacklevel > 1 and frame:
+            frame = ec.getnextframe_nohidden(frame)
+            stacklevel -= 1
+    else:
+        while stacklevel > 1 and frame:
+            frame = next_external_frame(space, frame)
+            stacklevel -= 1
+
     if frame:
         w_globals = frame.get_w_globals()
         lineno = frame.get_last_lineno()
@@ -116,8 +155,7 @@ def setup_context(space, stacklevel):
             w_filename = w_module
     else:
         lc_filename = filename.lower()
-        if (lc_filename.endswith(".pyc") or 
-            lc_filename.endswith(".pyo")):
+        if lc_filename.endswith(".pyc"):
             # strip last character
             w_filename = space.wrap(filename[:-1])
 
@@ -173,27 +211,30 @@ def update_registry(space, w_registry, w_text, w_category):
     return already_warned(space, w_registry, w_key, should_set=True)
 
 def already_warned(space, w_registry, w_key, should_set=False):
-    try:
-        w_warned = space.getitem(w_registry, w_key)
-    except OperationError as e:
-        if not e.match(space, space.w_KeyError):
-            raise
-        if should_set:
-            space.setitem(w_registry, w_key, space.w_True)
-        return False
+    w_version_obj = space.finditem_str(w_registry, "version")
+    state = space.fromcache(State)
+    if w_version_obj is not state.w_filters_version:
+        space.call_method(w_registry, "clear")
+        space.setitem_str(w_registry, "version", state.w_filters_version)
     else:
-        return space.is_true(w_warned)
+        w_already_warned = space.finditem(w_registry, w_key)
+        if w_already_warned is not None and space.is_true(w_already_warned):
+            return True
+    # This warning wasn't found in the registry, set it.
+    if should_set:
+        space.setitem(w_registry, w_key, space.w_True)
+    return False
 
 def normalize_module(space, w_filename):
-    if not space.is_true(w_filename):
+    filename = space.identifier_w(w_filename)
+    if len(filename) == 0:
         return space.wrap("<unknown>")
-
-    filename = space.str_w(w_filename)
     if filename.endswith(".py"):
         n = len(filename) - 3
         assert n >= 0
         filename = filename[:n]
-    return space.wrap(filename)
+        return space.newutf8(filename)
+    return w_filename
 
 def show_warning(space, w_filename, lineno, w_text, w_category,
                  w_sourceline=None):
@@ -308,6 +349,7 @@ def do_warn_explicit(space, w_category, w_message, context_w,
 
 @unwrap_spec(stacklevel=int)
 def warn(space, w_message, w_category=None, stacklevel=1):
+    "Issue a warning, or maybe ignore it or raise an exception."
     w_category = get_category(space, w_message, w_category);
     do_warn(space, w_message, w_category, stacklevel)
 
@@ -350,9 +392,13 @@ def get_source_line(space, w_globals, lineno):
              w_module_globals = WrappedDefault(None))
 def warn_explicit(space, w_message, w_category, w_filename, lineno,
                   w_module=None, w_registry=None, w_module_globals=None):
+    "Low-level inferface to warnings functionality."
 
     w_source_line = get_source_line(space, w_module_globals, lineno)
 
     do_warn_explicit(space, w_category, w_message,
                      (w_filename, lineno, w_module, w_registry),
                      w_source_line)
+
+def filters_mutated(space):
+    space.fromcache(State).filters_mutated(space)
