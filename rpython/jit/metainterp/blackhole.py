@@ -6,6 +6,7 @@ from rpython.jit.metainterp import jitexc
 from rpython.jit.metainterp.history import MissingValue
 from rpython.rlib import longlong2float
 from rpython.rlib.debug import ll_assert, make_sure_not_resized
+from rpython.rlib.debug import check_annotation
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.rarithmetic import intmask, LONG_BIT, r_uint, ovfcheck
 from rpython.rlib.unroll import unrolling_iterable
@@ -183,7 +184,7 @@ class BlackholeInterpBuilder(object):
                 if lltype.typeOf(result) is lltype.Bool:
                     result = int(result)
                 assert lltype.typeOf(result) is lltype.Signed
-                self.registers_i[ord(code[position])] = result
+                self.registers_i[ord(code[position])] = plain_int(result)
                 position += 1
             elif resulttype == 'r':
                 # argcode should be 'r' too
@@ -213,7 +214,7 @@ class BlackholeInterpBuilder(object):
                     if lltype.typeOf(result) is lltype.Bool:
                         result = int(result)
                     assert lltype.typeOf(result) is lltype.Signed
-                    self.registers_i[ord(code[position])] = result
+                    self.registers_i[ord(code[position])] = plain_int(result)
                     position += 1
             elif resulttype == 'L':
                 assert result >= 0
@@ -251,6 +252,23 @@ def check_shift_count(b):
         if b < 0 or b >= LONG_BIT:
             raise ValueError("Shift count, %d,  not in valid range, 0 .. %d." % (b, LONG_BIT-1))
 
+def check_list_of_plain_integers(s_arg, bookkeeper):
+    """Check that 'BlackhopeInterpreter.registers_i' is annotated as a
+    non-resizable list of plain integers (and not r_int's for example)."""
+    from rpython.annotator import model as annmodel
+    assert isinstance(s_arg, annmodel.SomeList)
+    s_arg.listdef.never_resize()
+    assert s_arg.listdef.listitem.s_value.knowntype is int
+
+def _check_int(s_arg, bookkeeper):
+    assert s_arg.knowntype is int
+
+def plain_int(x):
+    """Check that 'x' is annotated as a plain integer (and not r_int)"""
+    check_annotation(x, _check_int)
+    return x
+
+
 class BlackholeInterpreter(object):
 
     def __init__(self, builder, count_interpreter):
@@ -277,6 +295,7 @@ class BlackholeInterpreter(object):
         self.tmpreg_r = default_r
         self.tmpreg_f = default_f
         self.jitcode = None
+        check_annotation(self.registers_i, check_list_of_plain_integers)
 
     def __repr__(self):
         return '<BHInterp #%d>' % self.count_interpreter
@@ -295,7 +314,7 @@ class BlackholeInterpreter(object):
 
     def setarg_i(self, index, value):
         assert lltype.typeOf(value) is lltype.Signed
-        self.registers_i[index] = value
+        self.registers_i[index] = plain_int(value)
 
     def setarg_r(self, index, value):
         assert lltype.typeOf(value) == llmemory.GCREF
@@ -1573,7 +1592,8 @@ class BlackholeInterpreter(object):
     # 'xxx_call_yyy' instructions from the caller frame
     def _setup_return_value_i(self, result):
         assert lltype.typeOf(result) is lltype.Signed
-        self.registers_i[ord(self.jitcode.code[self.position-1])] = result
+        self.registers_i[ord(self.jitcode.code[self.position-1])] = plain_int(
+                                                                        result)
     def _setup_return_value_r(self, result):
         assert lltype.typeOf(result) == llmemory.GCREF
         self.registers_r[ord(self.jitcode.code[self.position-1])] = result
