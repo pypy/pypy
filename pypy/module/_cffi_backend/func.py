@@ -143,8 +143,7 @@ def invalid_input_buffer_type(space, w_x):
 def _from_buffer(space, w_ctype, w_x):
     if invalid_input_buffer_type(space, w_x):
         raise oefmt(space.w_TypeError,
-                        "from_buffer() cannot return the address of the "
-                        "raw string within a str or unicode object")
+                        "from_buffer() cannot return the address a unicode")
     buf = _fetch_as_read_buffer(space, w_x)
     if space.isinstance_w(w_x, space.w_str):
         _cdata = get_raw_address_of_string(space, w_x)

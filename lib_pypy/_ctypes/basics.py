@@ -88,9 +88,12 @@ class _CDataMeta(type):
         if isinstance(obj, (str, unicode)):
             # hack, buffer(str) will always return a readonly buffer.
             # CPython calls PyObject_AsWriteBuffer(...) here!
-            # str cannot be modified, thus rase a type error in this case
+            # str cannot be modified, thus raise a type error in this case
             raise TypeError("Cannot use %s as modifiable buffer" % str(type(obj)))
 
+        # why not just call memoryview(obj)[offset:]?
+        # array in Python 2.7 does not support the buffer protocol and will
+        # fail, even though buffer is supported
         buf = buffer(obj, offset, size)
 
         if len(buf) < size:
