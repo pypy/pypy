@@ -1836,8 +1836,12 @@ class ObjSpace(object):
         return fd
 
     def warn(self, w_msg, w_warningcls, stacklevel=2):
-        from pypy.module._warnings.interp_warnings import warn
-        warn(self, w_msg, w_warningcls, self.newint(stacklevel - 1))
+        from pypy.module._warnings.interp_warnings import do_warn
+
+        # 'w_warningcls' must a Warning subclass
+        if not we_are_translated():
+            assert self.issubtype_w(w_warningcls, self.w_Warning)
+        do_warn(self, w_msg, w_warningcls, stacklevel - 1)
 
 
 class AppExecCache(SpaceCache):
