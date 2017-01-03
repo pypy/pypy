@@ -468,10 +468,8 @@ class AppTestSocket:
             swapped = func(mask)
             assert swapped & mask == mask
             raises(OverflowError, func, -1)
-            raises(OverflowError, func, -1L)
             if size > 16:    # else, values too large are ignored
                 raises(OverflowError, func, 2 ** size)
-                raises(OverflowError, func, 2L ** size)
 
     def test_newsocket(self):
         import socket
