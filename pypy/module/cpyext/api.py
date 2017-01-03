@@ -572,7 +572,9 @@ def build_exported_objects():
     # PyExc_AttributeError, PyExc_OverflowError, PyExc_ImportError,
     # PyExc_NameError, PyExc_MemoryError, PyExc_RuntimeError,
     # PyExc_UnicodeEncodeError, PyExc_UnicodeDecodeError, ...
-    for exc_name in exceptions.Module.interpleveldefs.keys():
+    global all_exceptions
+    all_exceptions = list(exceptions.Module.interpleveldefs)
+    for exc_name in all_exceptions:
         register_global('PyExc_' + exc_name,
             'PyTypeObject*',
             'space.gettypeobject(interp_exceptions.W_%s.typedef)'% (exc_name, ))
@@ -1055,15 +1057,8 @@ def build_bridge(space):
     """ % dict(members=structmembers)
 
     global_objects = []
-    for name, (typ, expr) in GLOBALS.iteritems():
-        if '#' in name:
-            continue
-        if typ == 'PyDateTime_CAPI*':
-            continue
-        elif name.startswith('PyExc_'):
-            global_objects.append('%s _%s;' % (typ[:-1], name))
-        else:
-            global_objects.append('%s %s = NULL;' % (typ, name))
+    for name in all_exceptions:
+        global_objects.append('PyTypeObject _PyExc_%s;' % name)
     global_code = '\n'.join(global_objects)
 
     prologue = ("#include <Python.h>\n"
