@@ -711,6 +711,8 @@ class GeneralModuleTests(unittest.TestCase):
 
     def testSendtoErrors(self):
         # Testing that sendto doesn't masks failures. See #10169.
+        # PyPy note: made the test accept broader messages: PyPy's
+        # messages are equivalent but worded differently.
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.addCleanup(s.close)
         s.bind(('', 0))
@@ -718,33 +720,37 @@ class GeneralModuleTests(unittest.TestCase):
         # 2 args
         with self.assertRaises(TypeError) as cm:
             s.sendto('\u2620', sockname)
-        self.assertEqual(str(cm.exception),
-                         "a bytes-like object is required, not 'str'")
+        self.assertIn(str(cm.exception),
+                      ["a bytes-like object is required, not 'str'", # cpython
+                       "'str' does not support the buffer interface"]) # pypy
         with self.assertRaises(TypeError) as cm:
             s.sendto(5j, sockname)
-        self.assertEqual(str(cm.exception),
-                         "a bytes-like object is required, not 'complex'")
+        self.assertIn(str(cm.exception),
+                      ["a bytes-like object is required, not 'complex'",
+                       "'complex' does not support the buffer interface"])
         with self.assertRaises(TypeError) as cm:
             s.sendto(b'foo', None)
-        self.assertIn('not NoneType',str(cm.exception))
+        self.assertIn('NoneType', str(cm.exception))
         # 3 args
         with self.assertRaises(TypeError) as cm:
             s.sendto('\u2620', 0, sockname)
-        self.assertEqual(str(cm.exception),
-                         "a bytes-like object is required, not 'str'")
+        self.assertIn(str(cm.exception),
+                      ["a bytes-like object is required, not 'str'",
+                       "'str' does not support the buffer interface"])
         with self.assertRaises(TypeError) as cm:
             s.sendto(5j, 0, sockname)
-        self.assertEqual(str(cm.exception),
-                         "a bytes-like object is required, not 'complex'")
+        self.assertIn(str(cm.exception),
+                      ["a bytes-like object is required, not 'complex'",
+                       "'complex' does not support the buffer interface"])
         with self.assertRaises(TypeError) as cm:
             s.sendto(b'foo', 0, None)
-        self.assertIn('not NoneType', str(cm.exception))
+        self.assertIn('NoneType', str(cm.exception))
         with self.assertRaises(TypeError) as cm:
             s.sendto(b'foo', 'bar', sockname)
-        self.assertIn('an integer is required', str(cm.exception))
+        self.assertIn('integer', str(cm.exception))
         with self.assertRaises(TypeError) as cm:
             s.sendto(b'foo', None, None)
-        self.assertIn('an integer is required', str(cm.exception))
+        self.assertIn('integer', str(cm.exception))
         # wrong number of args
         with self.assertRaises(TypeError) as cm:
             s.sendto(b'foo')
