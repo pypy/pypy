@@ -327,11 +327,11 @@ class OperationError(Exception):
         """Set the current traceback."""
         self._application_traceback = traceback
 
-    def remove_traceback_module_frames(self, module_name):
+    def remove_traceback_module_frames(self, *module_names):
         from pypy.interpreter.pytraceback import PyTraceback
         tb = self._application_traceback
         while tb is not None and isinstance(tb, PyTraceback):
-            if tb.frame.pycode.co_filename != module_name:
+            if tb.frame.pycode.co_filename not in module_names:
                 break
             tb = tb.next
         self._application_traceback = tb

@@ -15,7 +15,9 @@ def import_with_frames_removed(space, __args__):
         return space.call_args(
             space.fromcache(FrozenCache).w_frozen_import, __args__)
     except OperationError as e:
-        e.remove_traceback_module_frames('<frozen importlib._bootstrap>')
+        e.remove_traceback_module_frames(
+              '<frozen importlib._bootstrap>',
+              '<frozen importlib._bootstrap_external>')
         raise
 import_with_frames_removed = interp2app(import_with_frames_removed,
                                         app_name='__import__')
