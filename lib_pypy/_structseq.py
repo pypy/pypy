@@ -46,12 +46,16 @@ class structseqtype(type):
 
         extra_fields = sorted(fields_by_index.items())
         n_sequence_fields = 0
+        invis_fields = []
         if 'n_sequence_fields' in dict:
             n_sequence_fields = dict['n_sequence_fields']
             extra_fields = extra_fields[n_sequence_fields:]
             seq = n_sequence_fields
             # pop all fields that are still in sequence!
             while extra_fields and extra_fields[0][0] == seq:
+                field = extra_fields[0][1]
+                field.index = None
+                invis_fields.append(field)
                 extra_fields.pop(0)
                 seq += 1
         else:
@@ -68,6 +72,7 @@ class structseqtype(type):
 
         assert '__new__' not in dict
         dict['_extra_fields'] = tuple(extra_fields)
+        dict['_invis_fields'] = tuple(invis_fields)
         dict['__new__'] = structseq_new
         dict['__reduce__'] = structseq_reduce
         dict['__setattr__'] = structseq_setattr
@@ -101,7 +106,12 @@ def structseq_new(cls, sequence, dict={}):
                 msg = "exactly"
             raise TypeError("expected a sequence with %s %d items. has %d" \
                             % (msg, real_count, length))
-        for field, value in zip(cls._extra_fields, sequence[visible_count:]):
+        for field, value in zip(cls._invis_fields, sequence[visible_count:real_count]):
+            name = field.__name__
+            if name in dict:
+                raise TypeError("duplicate value for %r" % (name,))
+            dict[name] = value
+        for field, value in zip(cls._extra_fields, sequence[real_count:]):
             name = field.__name__
             if name in dict:
                 raise TypeError("duplicate value for %r" % (name,))
