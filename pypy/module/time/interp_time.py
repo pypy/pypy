@@ -606,6 +606,7 @@ def _gettmarg(space, w_tup, allowNone=True):
             # NOTE this is not cleanly solved, the global variable glob_tm_zone
             # saves the string that is later deleted when this function is called again
             # an refactoring of this module could remove this
+            global glob_tm_zone
             tm_zone = encode_utf8(space, space.unicode_w(tup_w[9]), allow_surrogates=True)
             malloced_str = rffi.str2charp(tm_zone, track_allocation=False)
             if glob_tm_zone != lltype.nullptr(rffi.CCHARP.TO):
