@@ -1,6 +1,12 @@
 import itertools, os, subprocess, py
 from hypothesis import given, strategies
 from rpython.tool.udir import udir
+from rpython.rlib import rawrefcount, rgc
+from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
+from rpython.rlib.test.test_rawrefcount import W_Root, PyObject, PyObjectS
+from rpython.rtyper.lltypesystem import lltype
+from rpython.translator.c.test.test_standalone import StandaloneTests
+from rpython.config.translationoption import get_combined_translation_config
 
 
 def compile_test(basename):
@@ -248,3 +254,55 @@ def test_random(code):
             del links_p2g[p]
         else:
             assert False, repr(line)
+
+
+class TestBoehmTranslated(StandaloneTests):
+
+    def test_full_translation(self):
+
+        def make_ob():
+            p = W_Root(42)
+            ob = lltype.malloc(PyObjectS, flavor='raw', zero=True)
+            rawrefcount.create_link_pypy(p, ob)
+            ob.c_ob_refcnt += REFCNT_FROM_PYPY
+            assert rawrefcount.from_obj(PyObject, p) == ob
+            assert rawrefcount.to_obj(W_Root, ob) == p
+            return ob
+
+        prebuilt_p = W_Root(-42)
+        prebuilt_ob = lltype.malloc(PyObjectS, flavor='raw', zero=True,
+                                    immortal=True)
+
+        def entry_point(argv):
+            rawrefcount.create_link_pypy(prebuilt_p, prebuilt_ob)
+            prebuilt_ob.c_ob_refcnt += REFCNT_FROM_PYPY
+            oblist = [make_ob() for i in range(50)]
+            rgc.collect()
+            deadlist = []
+            while True:
+                ob = rawrefcount.next_dead(PyObject)
+                if not ob: break
+                if ob.c_ob_refcnt != 1:
+                    print "next_dead().ob_refcnt != 1"
+                    return 1
+                deadlist.append(ob)
+            if len(deadlist) == 0:
+                print "no dead object"
+                return 1
+            if len(deadlist) < 30:
+                print "not enough dead objects"
+                return 1
+            for ob in deadlist:
+                if ob not in oblist:
+                    print "unexpected value for dead pointer"
+                    return 1
+                oblist.remove(ob)
+            print "OK!"
+            lltype.free(ob, flavor='raw')
+            return 0
+
+        self.config = get_combined_translation_config(translating=True)
+        self.config.translation.gc = "boehm"
+        t, cbuilder = self.compile(entry_point)
+        data = cbuilder.cmdexec('hi there')
+        assert data.startswith('OK!\n')
