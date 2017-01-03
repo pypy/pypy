@@ -1836,11 +1836,8 @@ class ObjSpace(object):
         return fd
 
     def warn(self, w_msg, w_warningcls, stacklevel=2):
-        self.appexec([w_msg, w_warningcls, self.wrap(stacklevel)],
-                     """(msg, warningcls, stacklevel):
-            import _warnings
-            _warnings.warn(msg, warningcls, stacklevel=stacklevel)
-        """)
+        from pypy.module._warnings.interp_warnings import warn
+        warn(self, w_msg, w_warningcls, self.newint(stacklevel - 1))
 
 
 class AppExecCache(SpaceCache):
