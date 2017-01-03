@@ -3,17 +3,26 @@ from hypothesis import given, strategies
 from rpython.tool.udir import udir
 
 
+def compile_test(basename):
+    srcdir = os.path.dirname(os.path.dirname(
+        os.path.abspath(os.path.join(__file__))))
+    srcdir = os.path.join(srcdir, 'src')
+
+    err = os.system("cd '%s' && gcc -Werror -lgc -I%s -o %s %s.c"
+                    % (udir, srcdir, basename, basename))
+    return err
+
 def setup_module():
     filename = str(udir.join("test-rawrefcount-boehm-check.c"))
     with open(filename, "w") as f:
         print >> f, '#include "gc/gc_mark.h"'
-        print >> f, 'void *testing(void) {'
-        print >> f, '    return &GC_set_start_callback;'
+        print >> f, '#include <stdio.h>'
+        print >> f, 'int main(void) {'
+        print >> f, '    printf("%p", &GC_set_start_callback);'
+        print >> f, '    return 0;'
         print >> f, '}'
 
-    err = os.system("cd '%s' && gcc -c test-rawrefcount-boehm-check.c"
-                    % (udir,))
-    if err != 0:
+    if compile_test("test-rawrefcount-boehm-check") != 0:
         py.test.skip("Boehm GC not installed or too old version")
 
 
@@ -180,13 +189,9 @@ def test_random(code):
         print >> f, code
         print >> f, '}'
 
-    srcdir = os.path.dirname(os.path.dirname(
-        os.path.abspath(os.path.join(__file__))))
-    srcdir = os.path.join(srcdir, 'src')
-
-    err = os.system("cd '%s' && gcc -Werror -lgc -I%s -o test-rawrefcount-boehm"
-                    " test-rawrefcount-boehm.c" % (udir, srcdir))
-    assert err == 0
+    err = compile_test("test-rawrefcount-boehm")
+    if err != 0:
+        raise OSError("gcc failed")
     p = subprocess.Popen("./test-rawrefcount-boehm", stdout=subprocess.PIPE,
                          cwd=str(udir))
     stdout, _ = p.communicate()
