@@ -46,11 +46,14 @@ class structseqtype(type):
 
         extra_fields = sorted(fields_by_index.items())
         n_sequence_fields = 0
-        extra_off = 0
         if 'n_sequence_fields' in dict:
             n_sequence_fields = dict['n_sequence_fields']
-            extra_fields = extra_fields[:n_sequence_fields]
-            extra_off = n_fields - n_sequence_fields
+            extra_fields = extra_fields[n_sequence_fields:]
+            seq = n_sequence_fields
+            # pop all fields that are still in sequence!
+            while extra_fields and extra_fields[0][0] == seq:
+                extra_fields.pop(0)
+                seq += 1
         else:
             while extra_fields and extra_fields[0][0] == n_sequence_fields:
                 extra_fields.pop(0)
@@ -59,13 +62,12 @@ class structseqtype(type):
         dict['n_sequence_fields'] = n_sequence_fields
         dict['n_unnamed_fields'] = 0     # no fully anonymous fields in PyPy
 
-        extra_fields = [field for index, field in extra_fields[extra_off:]]
+        extra_fields = [field for index, field in extra_fields]
         for i,field in enumerate(extra_fields):
             field.index = None     # no longer relevant
 
         assert '__new__' not in dict
         dict['_extra_fields'] = tuple(extra_fields)
-        dict['_extra_off'] = extra_off
         dict['__new__'] = structseq_new
         dict['__reduce__'] = structseq_reduce
         dict['__setattr__'] = structseq_setattr
@@ -89,7 +91,7 @@ def structseq_new(cls, sequence, dict={}):
             msg = "at least"
         else:
             msg = "exactly"
-        raise TypeError("expected a sequence with %s %d items. has %d 1" % (
+        raise TypeError("expected a sequence with %s %d items. has %d" % (
             msg, visible_count, length))
     if length > visible_count:
         if length > real_count:
@@ -97,15 +99,14 @@ def structseq_new(cls, sequence, dict={}):
                 msg = "at most"
             else:
                 msg = "exactly"
-            raise TypeError("expected a sequence with %s %d items. has %d 2" \
+            raise TypeError("expected a sequence with %s %d items. has %d" \
                             % (msg, real_count, length))
         for field, value in zip(cls._extra_fields, sequence[visible_count:]):
             name = field.__name__
             if name in dict:
                 raise TypeError("duplicate value for %r" % (name,))
             dict[name] = value
-        extra_off = cls._extra_off
-        sequence = sequence[:visible_count+extra_off]
+        sequence = sequence[:visible_count]
     result = tuple.__new__(cls, sequence)
     object.__setattr__(result, '__dict__', dict)
     for field in cls._extra_fields:
@@ -124,9 +125,11 @@ def structseq_setattr(self, attr, value):
 
 def structseq_repr(self):
     fields = {}
+    visible_count = self.n_sequence_fields
     for field in type(self).__dict__.values():
-        if isinstance(field, structseqfield):
+        if isinstance(field, structseqfield) and \
+           field._index <= visible_count:
             fields[field._index] = field
     parts = ["%s=%r" % (fields[index].__name__, value)
-             for index, value in enumerate(self)]
+            for index, value in enumerate(self[:visible_count])]
     return "%s(%s)" % (self._name, ", ".join(parts))

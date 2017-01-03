@@ -597,16 +597,16 @@ def _gettmarg(space, w_tup, allowNone=True):
     rffi.setintfield(glob_buf, 'c_tm_wday', space.c_int_w(tup_w[6]))
     rffi.setintfield(glob_buf, 'c_tm_yday', tm_yday)
     rffi.setintfield(glob_buf, 'c_tm_isdst', space.c_int_w(tup_w[8]))
-    if HAS_TM_ZONE:
-        #tm_zone = encode_utf8(space, space.unicode_w(tup_w[9]), allow_surrogates=True)
-        #glob_buf.c_tm_zone = rffi.str2charp(tm_zone)
-        # TODO using str2charp allocates an object that is never freed
-        # find a solution for this memory leak
-        glob_buf.c_tm_zone = lltype.nullptr(rffi.CCHARP.TO)
-        rffi.setintfield(glob_buf, 'c_tm_gmtoff', space.c_int_w(tup_w[10]))
-    else:
-        glob_buf.c_tm_zone = lltype.nullptr(rffi.CCHARP.TO)
-        rffi.setintfield(glob_buf, 'c_tm_gmtoff', 0)
+    #
+    glob_buf.c_tm_zone = lltype.nullptr(rffi.CCHARP.TO)
+    rffi.setintfield(glob_buf, 'c_tm_gmtoff', 0)
+    if HAS_TM_ZONE :
+        if len(tup_w) >= 10:
+            # XXX str2charp leaks the object
+            tm_zone = encode_utf8(space, space.unicode_w(tup_w[9]), allow_surrogates=True)
+            glob_buf.c_tm_zone = rffi.str2charp(tm_zone, track_allocation=False)
+        if len(tup_w) >= 11:
+            rffi.setintfield(glob_buf, 'c_tm_gmtoff', space.c_int_w(tup_w[10]))
 
     # tm_wday does not need checking of its upper-bound since taking "%
     #  7" in _gettmarg() automatically restricts the range.
