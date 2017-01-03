@@ -18,6 +18,16 @@ class AppTestWarnings:
         _warnings.warn("some message", Warning)
         _warnings.warn(("some message",1), Warning)
 
+    def test_use_builtin__warnings(self):
+        """Check that the stdlib warnings.py module manages to import our
+        _warnings module.  If something is missing, it doesn't, and silently
+        continues.  Then things don't reliably work: either the
+        functionality of the pure Python version is subtly different, or
+        more likely we get confusion because of a half-imported _warnings.
+        """
+        import warnings
+        assert not hasattr(warnings, '_filters_version')
+
     def test_lineno(self):
         import warnings, _warnings, sys
         with warnings.catch_warnings(record=True) as w:
