@@ -136,6 +136,8 @@ def addr_from_object(family, fd, space, w_address):
         # Not using space.fsencode_w since Linux allows embedded NULs.
         if space.isinstance_w(w_address, space.w_unicode):
             w_address = space.fsencode(w_address)
+        elif space.isinstance_w(w_address, space.w_bytearray):
+            w_address = space.newbytes(space.charbuf_w(w_address))
         bytelike = space.bytes_w(w_address) # getarg_w('y*', w_address)
         return rsocket.UNIXAddress(bytelike)
     if rsocket.HAS_AF_NETLINK and family == rsocket.AF_NETLINK:

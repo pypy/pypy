@@ -577,7 +577,9 @@ class AppTestSocket:
         oldcwd = os.getcwd()
         os.chdir(self.udir)
         try:
-            sockpath = 'app_test_unix_socket_connect'
+          for sockpath in ['app_test_unix_socket_connect',
+                           b'b_app_test_unix_socket_connect',
+                           bytearray(b'ba_app_test_unix_socket_connect')]:
 
             serversock = _socket.socket(_socket.AF_UNIX)
             serversock.bind(sockpath)
