@@ -8,17 +8,21 @@ class struct_time(metaclass=structseqtype):
     __module__ = 'time'
     name = 'time.struct_time'
 
-    tm_year   = structseqfield(0)
-    tm_mon    = structseqfield(1)
-    tm_mday   = structseqfield(2)
-    tm_hour   = structseqfield(3)
-    tm_min    = structseqfield(4)
-    tm_sec    = structseqfield(5)
-    tm_wday   = structseqfield(6)
-    tm_yday   = structseqfield(7)
-    tm_isdst  = structseqfield(8)
-    tm_gmtoff = structseqfield(9)
-    tm_zone   = structseqfield(10)
+    n_sequence_fields = 9
+
+    tm_year   = structseqfield(0, "year, for example, 1993")
+    tm_mon    = structseqfield(1, "month of year, range [1, 12]")
+    tm_mday   = structseqfield(2, "day of month, range [1, 31]")
+    tm_hour   = structseqfield(3, "hours, range [0, 23]")
+    tm_min    = structseqfield(4, "minutes, range [0, 59]")
+    tm_sec    = structseqfield(5, "seconds, range [0, 61])")
+    tm_wday   = structseqfield(6, "day of week, range [0, 6], Monday is 0")
+    tm_yday   = structseqfield(7, "day of year, range [1, 366]")
+    tm_isdst  = structseqfield(8, "1 if summer time is in effect, 0 if not"
+                                  ", and -1 if unknown")
+    tm_zone   = structseqfield(9, "abbreviation of timezone name")
+    tm_gmtoff = structseqfield(10,"offset from UTC in seconds")
+
 
 def strptime(string, format="%a %b %d %H:%M:%S %Y"):
     """strptime(string, format) -> struct_time

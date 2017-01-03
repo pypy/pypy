@@ -41,22 +41,31 @@ class structseqtype(type):
                 assert field._index not in fields_by_index
                 fields_by_index[field._index] = field
                 field.__name__ = name
-        dict['n_fields'] = len(fields_by_index)
+        n_fields = len(fields_by_index)
+        dict['n_fields'] = n_fields
 
         extra_fields = sorted(fields_by_index.items())
         n_sequence_fields = 0
-        while extra_fields and extra_fields[0][0] == n_sequence_fields:
-            extra_fields.pop(0)
-            n_sequence_fields += 1
+        extra_off = 0
+        if 'n_sequence_fields' in dict:
+            n_sequence_fields = dict['n_sequence_fields']
+            extra_fields = extra_fields[:n_sequence_fields]
+            extra_off = n_fields - n_sequence_fields
+        else:
+            while extra_fields and extra_fields[0][0] == n_sequence_fields:
+                extra_fields.pop(0)
+                n_sequence_fields += 1
+
         dict['n_sequence_fields'] = n_sequence_fields
         dict['n_unnamed_fields'] = 0     # no fully anonymous fields in PyPy
 
-        extra_fields = [field for index, field in extra_fields]
-        for field in extra_fields:
+        extra_fields = [field for index, field in extra_fields[extra_off:]]
+        for i,field in enumerate(extra_fields):
             field.index = None     # no longer relevant
 
         assert '__new__' not in dict
         dict['_extra_fields'] = tuple(extra_fields)
+        dict['_extra_off'] = extra_off
         dict['__new__'] = structseq_new
         dict['__reduce__'] = structseq_reduce
         dict['__setattr__'] = structseq_setattr
@@ -70,34 +79,40 @@ builtin_dict = dict
 def structseq_new(cls, sequence, dict={}):
     sequence = tuple(sequence)
     dict = builtin_dict(dict)
-    N = cls.n_sequence_fields
-    if len(sequence) < N:
-        if N < cls.n_fields:
+    # visible fields
+    visible_count = cls.n_sequence_fields
+    # total fields (unnamed are not yet supported, extra fields not included)
+    real_count = cls.n_fields
+    length = len(sequence)
+    if length < visible_count:
+        if visible_count < real_count:
             msg = "at least"
         else:
             msg = "exactly"
-        raise TypeError("expected a sequence with %s %d items" % (
-            msg, N))
-    if len(sequence) > N:
-        if len(sequence) > cls.n_fields:
-            if N < cls.n_fields:
+        raise TypeError("expected a sequence with %s %d items. has %d 1" % (
+            msg, visible_count, length))
+    if length > visible_count:
+        if length > real_count:
+            if visible_count < real_count:
                 msg = "at most"
             else:
                 msg = "exactly"
-            raise TypeError("expected a sequence with %s %d items" % (
-                msg, cls.n_fields))
-        for field, value in zip(cls._extra_fields, sequence[N:]):
+            raise TypeError("expected a sequence with %s %d items. has %d 2" \
+                            % (msg, real_count, length))
+        for field, value in zip(cls._extra_fields, sequence[visible_count:]):
             name = field.__name__
             if name in dict:
                 raise TypeError("duplicate value for %r" % (name,))
             dict[name] = value
-        sequence = sequence[:N]
+        extra_off = cls._extra_off
+        sequence = sequence[:visible_count+extra_off]
     result = tuple.__new__(cls, sequence)
     object.__setattr__(result, '__dict__', dict)
     for field in cls._extra_fields:
         name = field.__name__
         if name not in dict:
             dict[name] = field._default(result)
+
     return result
 
 def structseq_reduce(self):

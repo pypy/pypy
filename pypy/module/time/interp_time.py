@@ -1,8 +1,10 @@
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rtyper.lltypesystem import rffi
-from pypy.interpreter.error import OperationError, oefmt, strerror as _strerror, exception_from_saved_errno
+from pypy.interpreter.error import (OperationError, oefmt,
+        strerror as _strerror, exception_from_saved_errno)
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter import timeutils
+from pypy.interpreter.unicodehelper import decode_utf8, encode_utf8
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import intmask, r_ulonglong, r_longfloat, widen
 from rpython.rlib.rtime import (GETTIMEOFDAY_NO_TZ, TIMEVAL,
@@ -200,6 +202,8 @@ if _MACOSX:
 
 # XXX: optionally support the 2 additional tz fields
 _STRUCT_TM_ITEMS = 9
+if HAS_TM_ZONE:
+    _STRUCT_TM_ITEMS = 11
 
 class cConfig:
     pass
@@ -542,12 +546,14 @@ def _tm_to_tuple(space, t):
         space.wrap(rffi.getintfield(t, 'c_tm_yday') + 1), # want january, 1 == 1
         space.wrap(rffi.getintfield(t, 'c_tm_isdst'))]
 
+    if HAS_TM_ZONE:
+        # CPython calls PyUnicode_DecodeLocale here should we do the same?
+        tm_zone = decode_utf8(space, rffi.charp2str(t.c_tm_zone), allow_surrogates=True)
+        time_tuple.append(space.newunicode(tm_zone))
+        time_tuple.append(space.wrap(rffi.getintfield(t, 'c_tm_gmtoff')))
     w_struct_time = _get_module_object(space, 'struct_time')
     w_time_tuple = space.newtuple(time_tuple)
     w_obj = space.call_function(w_struct_time, w_time_tuple)
-    if HAS_TM_ZONE:
-        space.setattr(w_obj, space.wrap("tm_gmoff"), space.wrap(rffi.getintfield(t, 'c_tm_gmtoff')))
-        space.setattr(w_obj, space.wrap("tm_zone"), space.wrap(rffi.getintfield(t, 'c_tm_zone')))
     return w_obj
 
 def _gettmarg(space, w_tup, allowNone=True):
@@ -568,9 +574,9 @@ def _gettmarg(space, w_tup, allowNone=True):
         return pbuf
 
     tup_w = space.fixedview(w_tup)
-    if len(tup_w) != 9:
+    if len(tup_w) < 9:
         raise oefmt(space.w_TypeError,
-                    "argument must be sequence of length 9, not %d",
+                    "argument must be sequence of at least length 9, not %d",
                     len(tup_w))
 
     y = space.c_int_w(tup_w[0])
@@ -591,13 +597,16 @@ def _gettmarg(space, w_tup, allowNone=True):
     rffi.setintfield(glob_buf, 'c_tm_wday', space.c_int_w(tup_w[6]))
     rffi.setintfield(glob_buf, 'c_tm_yday', tm_yday)
     rffi.setintfield(glob_buf, 'c_tm_isdst', space.c_int_w(tup_w[8]))
-    if _POSIX:
-        if _CYGWIN:
-            pass
-        else:
-            # actually never happens, but makes annotator happy
-            glob_buf.c_tm_zone = lltype.nullptr(rffi.CCHARP.TO)
-            rffi.setintfield(glob_buf, 'c_tm_gmtoff', 0)
+    if HAS_TM_ZONE:
+        #tm_zone = encode_utf8(space, space.unicode_w(tup_w[9]), allow_surrogates=True)
+        #glob_buf.c_tm_zone = rffi.str2charp(tm_zone)
+        # TODO using str2charp allocates an object that is never freed
+        # find a solution for this memory leak
+        glob_buf.c_tm_zone = lltype.nullptr(rffi.CCHARP.TO)
+        rffi.setintfield(glob_buf, 'c_tm_gmtoff', space.c_int_w(tup_w[10]))
+    else:
+        glob_buf.c_tm_zone = lltype.nullptr(rffi.CCHARP.TO)
+        rffi.setintfield(glob_buf, 'c_tm_gmtoff', 0)
 
     # tm_wday does not need checking of its upper-bound since taking "%
     #  7" in _gettmarg() automatically restricts the range.
