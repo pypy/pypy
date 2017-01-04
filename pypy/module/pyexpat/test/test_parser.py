@@ -213,7 +213,8 @@ class AppTestPyexpat:
 
 class AppTestPyexpat2:
     spaceconfig = dict(usemodules=['_rawffi', 'pyexpat', 'itertools',
-                                   '_socket', 'time', 'struct', 'binascii'])
+                                   '_socket', 'time', 'struct', 'binascii',
+                                   'select'])
 
     def test_django_bug(self):
         xml_str = '<?xml version="1.0" standalone="no"?><!DOCTYPE example SYSTEM "http://example.com/example.dtd"><root/>'
