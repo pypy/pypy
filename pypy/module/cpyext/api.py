@@ -1258,14 +1258,14 @@ def generate_decls_and_callbacks(db, prefix='', translating=False):
             assert _name is not None, 'error converting %s' % name
             header.append("#define %s %s" % (name, _name))
             restype, args = c_function_signature(db, func)
-            header.append("PyAPI_FUNC(%s) %s(%s);" % (restype, _name, args))
+            header.append("PyAPI_FUNC(%s) %s(%s);" % (restype, name, args))
             if not translating:
                 callargs = ', '.join('arg%d' % (i,)
                                     for i in range(len(func.argtypes)))
                 if func.restype is lltype.Void:
-                    body = "{ _pypyAPI.%s(%s); }" % (_name, callargs)
+                    body = "{ _pypyAPI.%s(%s); }" % (name, callargs)
                 else:
-                    body = "{ return _pypyAPI.%s(%s); }" % (_name, callargs)
+                    body = "{ return _pypyAPI.%s(%s); }" % (name, callargs)
                 functions.append('%s %s(%s)\n%s' % (restype, name, args, body))
 
     for name in VA_TP_LIST:
