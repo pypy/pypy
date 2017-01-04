@@ -14,6 +14,7 @@ class State:
         self.reset()
         self.programname = lltype.nullptr(rffi.CCHARP.TO)
         self.version = lltype.nullptr(rffi.CCHARP.TO)
+        self.builder = None
         if space.config.translation.gc != "boehm":
             pyobj_dealloc_action = PyObjDeallocAction(space)
             self.dealloc_trigger = lambda: pyobj_dealloc_action.fire()
@@ -84,17 +85,15 @@ class State:
 
     def startup(self, space):
         "This function is called when the program really starts"
-
         from pypy.module.cpyext.typeobject import setup_new_method_def
         from pypy.module.cpyext.api import INIT_FUNCTIONS
-        from pypy.module.cpyext.api import init_static_data_translated
 
         if we_are_translated():
             if space.config.translation.gc != "boehm":
                 rawrefcount.init(
                     llhelper(rawrefcount.RAWREFCOUNT_DEALLOC_TRIGGER,
                     self.dealloc_trigger))
-            init_static_data_translated(space)
+            self.builder.attach_all(space)
 
         setup_new_method_def(space)
 

@@ -1101,7 +1101,7 @@ def build_bridge(space):
     space.fromcache(State).install_dll(eci)
 
     # populate static data
-    builder = space.fromcache(StaticObjectBuilder)
+    builder = space.fromcache(State).builder = TestingObjBuilder()
     for name, (typ, expr) in GLOBALS.iteritems():
         from pypy.module import cpyext    # for the eval() below
         w_obj = eval(expr)
@@ -1138,7 +1138,7 @@ def build_bridge(space):
             builder.prepare(py_obj, w_obj)
         else:
             assert False, "Unknown static object: %s %s" % (typ, name)
-    builder.attach_all()
+    builder.attach_all(space)
 
     pypyAPI = ctypes.POINTER(ctypes.c_void_p).in_dll(bridge, 'pypyAPI')
 
@@ -1156,9 +1156,8 @@ def build_bridge(space):
     return modulename.new(ext='')
 
 
-class StaticObjectBuilder:
-    def __init__(self, space):
-        self.space = space
+class StaticObjectBuilder(object):
+    def __init__(self):
         self.static_pyobjs = []
         self.static_objs_w = []
         self.cpyext_type_init = None
@@ -1174,13 +1173,12 @@ class StaticObjectBuilder:
         self.static_pyobjs.append(py_obj)
         self.static_objs_w.append(w_obj)
 
-    def attach_all(self):
+    def attach_all(self, space):
         # this is RPython, called once in pypy-c when it imports cpyext
         from pypy.module.cpyext.pyobject import get_typedescr, make_ref
         from pypy.module.cpyext.typeobject import finish_type_1, finish_type_2
         from pypy.module.cpyext.pyobject import track_reference
         #
-        space = self.space
         static_pyobjs = self.get_static_pyobjs()
         static_objs_w = self.static_objs_w
         for i in range(len(static_objs_w)):
@@ -1200,6 +1198,12 @@ class StaticObjectBuilder:
         for pto, w_type in cpyext_type_init:
             finish_type_1(space, pto)
             finish_type_2(space, pto, w_type)
+
+class TestingObjBuilder(StaticObjectBuilder):
+    """The StaticObjectBuilder used in tests."""
+
+class TranslationObjBuilder(StaticObjectBuilder):
+    """The StaticObjectBuilder used during translation."""
 
 
 def mangle_name(prefix, name):
@@ -1416,7 +1420,7 @@ def setup_library(space):
     setup_va_functions(eci)
 
     # emit uninitialized static data
-    builder = space.fromcache(StaticObjectBuilder)
+    builder = space.fromcache(State).builder = TranslationObjBuilder()
     lines = ['PyObject *pypy_static_pyobjs[] = {\n']
     include_lines = ['RPY_EXTERN PyObject *pypy_static_pyobjs[];\n']
     for name, (typ, expr) in sorted(GLOBALS.items()):
@@ -1463,9 +1467,6 @@ def setup_library(space):
     trunk_include = pypydir.dirpath() / 'include'
     copy_header_files(trunk_include, use_micronumpy)
 
-def init_static_data_translated(space):
-    builder = space.fromcache(StaticObjectBuilder)
-    builder.attach_all()
 
 def _load_from_cffi(space, name, path, initptr):
     from pypy.module._cffi_backend import cffi1_module
