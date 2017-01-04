@@ -209,6 +209,9 @@ class FakeObjSpace(ObjSpace):
     def newunicode(self, x):
         return w_some_obj()
 
+    def newutf8(self, x):
+        return w_some_obj()
+
     @specialize.argtype(1)
     def wrap(self, x):
         if not we_are_translated():
