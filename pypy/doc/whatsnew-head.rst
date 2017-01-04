@@ -81,3 +81,9 @@ Properly call ``bf_releasebuffer`` when not ``NULL``.
 
 Support translations of cpyext with the Boehm GC (for special cases like
 revdb).
+
+.. branch: strbuf-as-buffer
+
+Implement StringBuffer.get_raw_address (missing feature for the buffer protocol).
+More generally it is now possible to obtain the address of any object (if it
+is readonly) without pinning it.
