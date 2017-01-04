@@ -31,7 +31,6 @@ class AppTestPyexpat:
         for attr in ('buffer_text', 'namespace_prefixes', 'ordered_attributes',
                      'specified_attributes'):
             test_setget(p, attr)
-        test_setget(p, 'returns_unicode', True)
 
     def test_version(self):
         import pyexpat
