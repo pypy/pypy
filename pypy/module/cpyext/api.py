@@ -1213,18 +1213,10 @@ def mangle_name(prefix, name):
 def generate_decls_and_callbacks(db, api_struct=True, prefix=''):
     "NOT_RPYTHON"
     pypy_macros = []
-    export_symbols = sorted(SYMBOLS_C)
-    for name in export_symbols:
-        if '#' in name:
-            name, header = name.split('#')
-        else:
-            header = pypy_decl
+    for name in SYMBOLS_C:
         newname = mangle_name(prefix, name)
         assert newname, name
-        if header == pypy_decl:
-            pypy_macros.append('#define %s %s' % (name, newname))
-        if name.startswith("PyExc_"):
-            pypy_macros.append('#define _%s _%s' % (name, newname))
+        pypy_macros.append('#define %s %s' % (name, newname))
 
     # Generate defines
     for macro_name, size in [
