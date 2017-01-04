@@ -237,7 +237,6 @@ HAS_MONOTONIC = (_WIN or _MACOSX or
                  (HAS_CLOCK_GETTIME and (HAS_CLOCK_HIGHRES or HAS_CLOCK_MONOTONIC)))
 tm = cConfig.tm
 glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
-glob_tm_zone = lltype.nullptr(rffi.CCHARP.TO)
 
 if _WIN:
     _GetSystemTimeAsFileTime = rwin32.winexternal('GetSystemTimeAsFileTime',
@@ -549,11 +548,14 @@ def _tm_to_tuple(space, t):
 
     if HAS_TM_ZONE:
         # CPython calls PyUnicode_DecodeLocale here should we do the same?
-        tm_zone = decode_utf8(space, rffi.charp2str(t.c_tm_zone), allow_surrogates=True)
-        time_tuple.append(space.newunicode(tm_zone))
-        time_tuple.append(space.wrap(rffi.getintfield(t, 'c_tm_gmtoff')))
+        tm_zone = decode_utf8(space, rffi.charp2str(t.c_tm_zone),
+                              allow_surrogates=True)
+        extra = [space.newunicode(tm_zone),
+                 space.wrap(rffi.getintfield(t, 'c_tm_gmtoff'))]
+        w_time_tuple = space.newtuple(time_tuple + extra)
+    else:
+        w_time_tuple = space.newtuple(time_tuple)
     w_struct_time = _get_module_object(space, 'struct_time')
-    w_time_tuple = space.newtuple(time_tuple)
     w_obj = space.call_function(w_struct_time, w_time_tuple)
     return w_obj
 
@@ -599,19 +601,19 @@ def _gettmarg(space, w_tup, allowNone=True):
     rffi.setintfield(glob_buf, 'c_tm_yday', tm_yday)
     rffi.setintfield(glob_buf, 'c_tm_isdst', space.c_int_w(tup_w[8]))
     #
+    old_tm_zone = glob_buf.c_tm_zone
     glob_buf.c_tm_zone = lltype.nullptr(rffi.CCHARP.TO)
     rffi.setintfield(glob_buf, 'c_tm_gmtoff', 0)
     if HAS_TM_ZONE :
         if len(tup_w) >= 10:
-            # NOTE this is not cleanly solved, the global variable glob_tm_zone
-            # saves the string that is later deleted when this function is called again
-            # an refactoring of this module could remove this
-            global glob_tm_zone
+            # NOTE this is not cleanly solved!
+            # it saves the string that is later deleted when this
+            # function is called again. A refactoring of this module
+            # could remove this
             tm_zone = encode_utf8(space, space.unicode_w(tup_w[9]), allow_surrogates=True)
             malloced_str = rffi.str2charp(tm_zone, track_allocation=False)
-            if glob_tm_zone != lltype.nullptr(rffi.CCHARP.TO):
-                rffi.freecharp(glob_tm_zone, track_allocation=False)
-            glob_tm_zone = malloced_str
+            if old_tm_zone != lltype.nullptr(rffi.CCHARP.TO):
+                rffi.free_charp(old_tm_zone, track_allocation=False)
             glob_buf.c_tm_zone = malloced_str
         if len(tup_w) >= 11:
             rffi.setintfield(glob_buf, 'c_tm_gmtoff', space.c_int_w(tup_w[10]))
