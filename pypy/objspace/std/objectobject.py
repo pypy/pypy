@@ -170,18 +170,7 @@ def descr_set___class__(space, w_obj, w_newcls):
 
 
 def descr__repr__(space, w_obj):
-    w_type = space.type(w_obj)
-    classname = w_type.name.decode('utf-8')
-    if w_type.is_heaptype():
-        w_module = w_type.lookup("__module__")
-        if w_module is not None:
-            try:
-                modulename = space.unicode_w(w_module)
-            except OperationError as e:
-                if not e.match(space, space.w_TypeError):
-                    raise
-            else:
-                classname = u'%s.%s' % (modulename, classname)
+    classname = space.getfulltypename(w_obj)
     return w_obj.getrepr(space, u'%s object' % (classname,))
 
 

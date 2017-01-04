@@ -709,3 +709,18 @@ class StdObjSpace(ObjSpace):
     def is_overloaded(self, w_obj, tp, method):
         return (self.lookup(w_obj, method) is not
                 self.lookup_in_type(tp, method))
+
+    def getfulltypename(self, w_obj):
+        w_type = self.type(w_obj)
+        classname = w_type.name.decode('utf-8')
+        if w_type.is_heaptype():
+            w_module = w_type.lookup("__module__")
+            if w_module is not None:
+                try:
+                    modulename = self.unicode_w(w_module)
+                except OperationError as e:
+                    if not e.match(self, self.w_TypeError):
+                        raise
+                else:
+                    classname = u'%s.%s' % (modulename, classname)
+        return classname
