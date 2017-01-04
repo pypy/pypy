@@ -963,11 +963,7 @@ def setup_va_functions(eci):
                                TP, compilation_info=eci)
         globals()['va_get_%s' % name_no_star] = func
 
-def setup_init_functions(eci, translating):
-    if translating:
-        prefix = 'PyPy'
-    else:
-        prefix = 'cpyexttest'
+def setup_init_functions(eci, prefix):
     # jump through hoops to avoid releasing the GIL during initialization
     # of the cpyext module.  The C functions are called with no wrapper,
     # but must not do anything like calling back PyType_Ready().  We
@@ -1029,13 +1025,13 @@ def c_function_signature(db, func):
 # Do not call this more than once per process
 def build_bridge(space):
     "NOT_RPYTHON"
-    from pypy.module.cpyext.pyobject import make_ref
     from rpython.translator.c.database import LowLevelDatabase
     use_micronumpy = setup_micronumpy(space)
     db = LowLevelDatabase()
-    prefix ='cpyexttest'
+    prefix = 'cpyexttest'
 
-    functions = generate_decls_and_callbacks(db, prefix=prefix)
+    functions = generate_decls_and_callbacks(
+            db, prefix=prefix, translating=False)
 
     # Structure declaration code
     members = []
@@ -1075,7 +1071,7 @@ def build_bridge(space):
             '\n' +
             '\n'.join(functions))
 
-    eci = build_eci(True, code, use_micronumpy)
+    eci = build_eci(code, use_micronumpy, translating=False)
     eci = eci.compile_shared_lib(
         outputfilename=str(udir / "module_cache" / "pypyapi"))
     space.fromcache(State).install_dll(eci)
@@ -1149,7 +1145,7 @@ def build_bridge(space):
                 ctypes.c_void_p)
     setup_va_functions(eci)
 
-    setup_init_functions(eci, translating=False)
+    setup_init_functions(eci, prefix)
     return modulename.new(ext='')
 
 
@@ -1211,7 +1207,7 @@ def mangle_name(prefix, name):
     else:
         return None
 
-def generate_decls_and_callbacks(db, api_struct=True, prefix=''):
+def generate_decls_and_callbacks(db, prefix='', translating=False):
     "NOT_RPYTHON"
     pypy_macros = []
     for name in SYMBOLS_C:
@@ -1263,7 +1259,7 @@ def generate_decls_and_callbacks(db, api_struct=True, prefix=''):
             header.append("#define %s %s" % (name, _name))
             restype, args = c_function_signature(db, func)
             header.append("PyAPI_FUNC(%s) %s(%s);" % (restype, _name, args))
-            if api_struct:
+            if not translating:
                 callargs = ', '.join('arg%d' % (i,)
                                     for i in range(len(func.argtypes)))
                 if func.restype is lltype.Void:
@@ -1271,6 +1267,7 @@ def generate_decls_and_callbacks(db, api_struct=True, prefix=''):
                 else:
                     body = "{ return _pypyAPI.%s(%s); }" % (_name, callargs)
                 functions.append('%s %s(%s)\n%s' % (restype, name, args, body))
+
     for name in VA_TP_LIST:
         name_no_star = process_va_name(name)
         header = ('%s pypy_va_get_%s(va_list* vp)' %
@@ -1318,14 +1315,16 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pymem.c",
                          ]
 
-def build_eci(building_bridge, code, use_micronumpy=False):
+def build_eci(code, use_micronumpy=False, translating=False):
     "NOT_RPYTHON"
     # Build code and get pointer to the structure
     kwds = {}
 
     compile_extra=['-DPy_BUILD_CORE']
 
-    if building_bridge:
+    if translating:
+        kwds["includes"] = ['Python.h'] # this is our Python.h
+    else:
         if sys.platform == "win32":
             # '%s' undefined; assuming extern returning int
             compile_extra.append("/we4013")
@@ -1335,8 +1334,6 @@ def build_eci(building_bridge, code, use_micronumpy=False):
         elif sys.platform.startswith('linux'):
             compile_extra.append("-Werror=implicit-function-declaration")
             compile_extra.append('-g')
-    else:
-        kwds["includes"] = ['Python.h'] # this is our Python.h
 
     # Generate definitions for global structures
     structs = ["#include <Python.h>"]
@@ -1403,13 +1400,15 @@ def setup_library(space):
     db = LowLevelDatabase()
     prefix = 'PyPy'
 
-    functions = generate_decls_and_callbacks(db, api_struct=False, prefix=prefix)
+    functions = generate_decls_and_callbacks(
+            db, prefix=prefix, translating=True)
+
     code = "#include <Python.h>\n"
     if use_micronumpy:
         code += "#include <pypy_numpy.h> /* api.py line 1290 */\n"
     code  += "\n".join(functions)
 
-    eci = build_eci(False, code, use_micronumpy)
+    eci = build_eci(code, use_micronumpy, translating=True)
     space.fromcache(State).install_dll(eci)
 
     run_bootstrap_functions(space)
@@ -1459,7 +1458,7 @@ def setup_library(space):
                                         relax=True)
             deco(func.get_wrapper(space))
 
-    setup_init_functions(eci, translating=True)
+    setup_init_functions(eci, prefix)
     trunk_include = pypydir.dirpath() / 'include'
     copy_header_files(trunk_include, use_micronumpy)
 
