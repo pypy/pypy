@@ -1078,6 +1078,7 @@ def build_bridge(space):
     eci = build_eci(True, code, use_micronumpy)
     eci = eci.compile_shared_lib(
         outputfilename=str(udir / "module_cache" / "pypyapi"))
+    space.fromcache(State).install_dll(eci)
     modulename = py.path.local(eci.libraries[-1])
 
     def dealloc_trigger():
@@ -1098,46 +1099,42 @@ def build_bridge(space):
     # load the bridge, and init structure
     bridge = ctypes.CDLL(str(modulename), mode=ctypes.RTLD_GLOBAL)
 
-    space.fromcache(State).install_dll(eci)
 
     # populate static data
     builder = space.fromcache(State).builder = TestingObjBuilder()
     for name, (typ, expr) in GLOBALS.iteritems():
+        if '#' in name:
+            name, header = name.split('#')
+            assert typ in ('PyObject*', 'PyTypeObject*', 'PyIntObject*')
+            isptr = False
+        elif name.startswith('PyExc_'):
+            isptr = False
+        elif typ == 'PyDateTime_CAPI*':
+            isptr = True
+        else:
+            raise ValueError("Unknown static data: %s %s" % (typ, name))
+
         from pypy.module import cpyext    # for the eval() below
         w_obj = eval(expr)
-        if '#' in name:
-            name = name.split('#')[0]
-            isptr = False
-        else:
-            isptr = True
-        if name.startswith('PyExc_'):
-            isptr = False
-
         INTERPLEVEL_API[name] = w_obj
 
-        name = name.replace('Py', prefix)
+        mname = mangle_name(prefix, name)
         if isptr:
-            ptr = ctypes.c_void_p.in_dll(bridge, name)
-            if typ == 'PyObject*':
-                value = make_ref(space, w_obj)
-            elif typ == 'PyDateTime_CAPI*':
-                value = w_obj
-            else:
-                assert False, "Unknown static pointer: %s %s" % (typ, name)
+            assert typ == 'PyDateTime_CAPI*'
+            value = w_obj
+            ptr = ctypes.c_void_p.in_dll(bridge, mname)
             ptr.value = ctypes.cast(ll2ctypes.lltype2ctypes(value),
                                     ctypes.c_void_p).value
-        elif typ in ('PyObject*', 'PyTypeObject*', 'PyIntObject*'):
-            if name.startswith('PyPyExc_') or name.startswith('cpyexttestExc_'):
+        else:
+            if name.startswith('PyExc_'):
                 # we already have the pointer
-                in_dll = ll2ctypes.get_ctypes_type(PyObject).in_dll(bridge, name)
+                in_dll = ll2ctypes.get_ctypes_type(PyObject).in_dll(bridge, mname)
                 py_obj = ll2ctypes.ctypes2lltype(PyObject, in_dll)
             else:
                 # we have a structure, get its address
-                in_dll = ll2ctypes.get_ctypes_type(PyObject.TO).in_dll(bridge, name)
+                in_dll = ll2ctypes.get_ctypes_type(PyObject.TO).in_dll(bridge, mname)
                 py_obj = ll2ctypes.ctypes2lltype(PyObject, ctypes.pointer(in_dll))
             builder.prepare(py_obj, w_obj)
-        else:
-            assert False, "Unknown static object: %s %s" % (typ, name)
     builder.attach_all(space)
 
     pypyAPI = ctypes.POINTER(ctypes.c_void_p).in_dll(bridge, 'pypyAPI')
@@ -1413,7 +1410,6 @@ def setup_library(space):
     code  += "\n".join(functions)
 
     eci = build_eci(False, code, use_micronumpy)
-
     space.fromcache(State).install_dll(eci)
 
     run_bootstrap_functions(space)
@@ -1436,7 +1432,7 @@ def setup_library(space):
         elif typ == 'PyDateTime_CAPI*':
             continue
         else:
-            assert False, "Unknown static data: %s %s" % (typ, name)
+            raise ValueError("Unknown static data: %s %s" % (typ, name))
 
         from pypy.module import cpyext     # for the eval() below
         w_obj = eval(expr)
