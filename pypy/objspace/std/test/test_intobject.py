@@ -150,7 +150,7 @@ class TestW_IntObject:
         v = f1.descr_pow(self.space, f2, f3)
         assert v.intval == pow(x, y, z)
         f1, f2, f3 = [iobj.W_IntObject(i) for i in (10, -1, 42)]
-        self.space.raises_w(self.space.w_TypeError,
+        self.space.raises_w(self.space.w_ValueError,
                             f1.descr_pow, self.space, f2, f3)
         f1, f2, f3 = [iobj.W_IntObject(i) for i in (10, 5, 0)]
         self.space.raises_w(self.space.w_ValueError,
