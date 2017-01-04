@@ -1213,7 +1213,7 @@ def mangle_name(prefix, name):
 def generate_decls_and_callbacks(db, api_struct=True, prefix=''):
     "NOT_RPYTHON"
     pypy_macros = []
-    export_symbols = sorted(SYMBOLS_C) + sorted(GLOBALS)
+    export_symbols = sorted(SYMBOLS_C)
     for name in export_symbols:
         if '#' in name:
             name, header = name.split('#')
@@ -1292,8 +1292,7 @@ def generate_decls_and_callbacks(db, api_struct=True, prefix=''):
         elif name.startswith('PyExc_'):
             typ = 'PyObject*'
             header = pypy_decl
-        if header != pypy_decl:
-            decls[header].append('#define %s %s' % (name, mangle_name(prefix, name)))
+        decls[header].append('#define %s %s' % (name, mangle_name(prefix, name)))
         decls[header].append('PyAPI_DATA(%s) %s;' % (typ, name))
 
     for header_name in FUNCTIONS_BY_HEADER.keys():
@@ -1433,10 +1432,8 @@ def setup_library(space):
             name, header = name.split('#')
             assert typ in ('PyObject*', 'PyTypeObject*', 'PyIntObject*')
             typ = typ[:-1]
-            if header != pypy_decl:
-                # since the #define is not in pypy_macros, do it here
-                mname = mangle_name(prefix, name)
-                include_lines.append('#define %s %s\n' % (name, mname))
+            mname = mangle_name(prefix, name)
+            include_lines.append('#define %s %s\n' % (name, mname))
         elif name.startswith('PyExc_'):
             typ = 'PyTypeObject'
             name = '_' + name
