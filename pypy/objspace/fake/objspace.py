@@ -358,6 +358,9 @@ class FakeObjSpace(ObjSpace):
     def lookup_in_type(self, w_type, name):
         return w_some_obj()
 
+    def warn(self, w_msg, w_warningcls, stacklevel=2):
+        pass
+
     # ----------
 
     def translates(self, func=None, argtypes=None, seeobj_w=[], **kwds):
