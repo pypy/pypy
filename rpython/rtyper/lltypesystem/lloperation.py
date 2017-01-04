@@ -496,6 +496,8 @@ LL_OPERATIONS = {
     'gc_rawrefcount_to_obj':            LLOp(sideeffects=False),
     'gc_rawrefcount_next_dead':         LLOp(),
 
+    'gc_move_out_of_nursery':           LLOp(),
+
     # ------- JIT & GC interaction, only for some GCs ----------
 
     'gc_adr_of_nursery_free' : LLOp(),

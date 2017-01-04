@@ -32,7 +32,7 @@ class Test(unittest.TestCase):
         del a; gc.collect(); gc.collect(); gc.collect()
         self.assertEqual(x[:], expected)
 
-        self.assertRaises((TypeError, ValueError),
+        self.assertRaises(TypeError,
                           (c_char * 16).from_buffer, "a" * 16)
 
     def test_fom_buffer_with_offset(self):
