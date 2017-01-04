@@ -857,11 +857,11 @@ class AppTestMMap:
         except SystemError:
             skip("resizing not supported")
         assert m.tell() == 5000
-        assert m.read(14) == ''
-        assert m.read(-1) == ''
+        assert m.read(14) == b''
+        assert m.read(-1) == b''
         raises(ValueError, m.read_byte)
-        assert m.readline() == ''
-        raises(ValueError, m.write_byte, 'b')
-        raises(ValueError, m.write, 'abc')
+        assert m.readline() == b''
+        raises(ValueError, m.write_byte, ord(b'b'))
+        raises(ValueError, m.write, b'abc')
         assert m.tell() == 5000
         m.close()
