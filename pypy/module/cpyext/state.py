@@ -54,21 +54,25 @@ class State:
                         "Function returned an error result without setting an "
                         "exception")
 
-    def build_api(self, space):
-        """NOT_RPYTHON
-        This function is called when at object space creation,
-        and drives the compilation of the cpyext library
-        """
-        from pypy.module.cpyext import api
-        state = self.space.fromcache(State)
+    def setup_rawrefcount(self):
+        space = self.space
         if not self.space.config.translating:
-            state.api_lib = str(api.build_bridge(self.space))
+            def dealloc_trigger():
+                from pypy.module.cpyext.pyobject import PyObject, decref
+                print 'dealloc_trigger...'
+                while True:
+                    ob = rawrefcount.next_dead(PyObject)
+                    if not ob:
+                        break
+                    print 'deallocating PyObject', ob
+                    decref(space, ob)
+                print 'dealloc_trigger DONE'
+                return "RETRY"
+            rawrefcount.init(dealloc_trigger)
         else:
-            api.setup_library(self.space)
-            #
-            if self.space.config.translation.gc == "boehm":
-                action = BoehmPyObjDeallocAction(self.space)
-                self.space.actionflag.register_periodic_action(action,
+            if space.config.translation.gc == "boehm":
+                action = BoehmPyObjDeallocAction(space)
+                space.actionflag.register_periodic_action(action,
                     use_bytecode_counter=True)
             else:
                 pyobj_dealloc_action = PyObjDeallocAction(space)
@@ -76,6 +80,17 @@ class State:
                 rawrefcount.init(
                     llhelper(rawrefcount.RAWREFCOUNT_DEALLOC_TRIGGER,
                     self.dealloc_trigger))
+
+    def build_api(self):
+        """NOT_RPYTHON
+        This function is called when at object space creation,
+        and drives the compilation of the cpyext library
+        """
+        from pypy.module.cpyext import api
+        if not self.space.config.translating:
+            self.api_lib = str(api.build_bridge(self.space))
+        else:
+            api.setup_library(self.space)
 
     def install_dll(self, eci):
         """NOT_RPYTHON

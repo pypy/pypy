@@ -1068,24 +1068,10 @@ def build_bridge(space):
     space.fromcache(State).install_dll(eci)
     modulename = py.path.local(eci.libraries[-1])
 
-    def dealloc_trigger():
-        from pypy.module.cpyext.pyobject import decref
-        print 'dealloc_trigger...'
-        while True:
-            ob = rawrefcount.next_dead(PyObject)
-            if not ob:
-                break
-            print 'deallocating PyObject', ob
-            decref(space, ob)
-        print 'dealloc_trigger DONE'
-        return "RETRY"
-    rawrefcount.init(dealloc_trigger)
-
     run_bootstrap_functions(space)
 
     # load the bridge, and init structure
     bridge = ctypes.CDLL(str(modulename), mode=ctypes.RTLD_GLOBAL)
-
 
     # populate static data
     builder = space.fromcache(State).builder = TestingObjBuilder()

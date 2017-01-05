@@ -13,7 +13,9 @@ class Module(MixedModule):
     atexit_funcs = []
 
     def setup_after_space_initialization(self):
-        self.space.fromcache(State).build_api(self.space)
+        state = self.space.fromcache(State)
+        state.setup_rawrefcount()
+        state.build_api()
 
     def startup(self, space):
         space.fromcache(State).startup(space)
