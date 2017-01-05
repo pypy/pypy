@@ -1022,9 +1022,6 @@ def build_bridge(space):
     structindex = {}
     for header, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         for name, func in header_functions.iteritems():
-            if not func:
-                # added only for the macro, not the decl
-                continue
             restype, args = c_function_signature(db, func)
             callargs = ', '.join('arg%d' % (i,)
                                 for i in range(len(func.argtypes)))
@@ -1115,8 +1112,6 @@ def build_bridge(space):
     # implement structure initialization code
     for header, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         for name, func in header_functions.iteritems():
-            if name.startswith('cpyext_') or func is None: # XXX hack
-                continue
             pypyAPI[structindex[name]] = ctypes.cast(
                 ll2ctypes.lltype2ctypes(func.get_llhelper(space)),
                 ctypes.c_void_p)
@@ -1226,8 +1221,6 @@ def generate_decls_and_callbacks(db, prefix=''):
             header = decls[header_name]
 
         for name, func in sorted(header_functions.iteritems()):
-            if not func:
-                continue
             _name = mangle_name(prefix, name)
             header.append("#define %s %s" % (name, _name))
             restype, args = c_function_signature(db, func)
@@ -1341,9 +1334,7 @@ def setup_micronumpy(space):
         return use_micronumpy
     # import registers api functions by side-effect, we also need HEADER
     from pypy.module.cpyext.ndarrayobject import HEADER
-    global FUNCTIONS_BY_HEADER, separate_module_files
-    for func_name in ['PyArray_Type', '_PyArray_FILLWBYTE', '_PyArray_ZEROS']:
-        FUNCTIONS_BY_HEADER[HEADER][func_name] = None
+    global separate_module_files
     register_global("PyArray_Type",
         'PyTypeObject*',  "space.gettypeobject(W_NDimArray.typedef)",
         header=HEADER)
@@ -1405,8 +1396,6 @@ def setup_library(space):
 
     for header, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         for name, func in header_functions.iteritems():
-            if not func:
-                continue
             newname = mangle_name(prefix, name)
             deco = entrypoint_lowlevel("cpyext", func.argtypes, newname,
                                         relax=True)
