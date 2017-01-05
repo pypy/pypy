@@ -2,7 +2,6 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter import executioncontext
-from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.rdynload import DLLHANDLE
 from rpython.rlib import rawrefcount
@@ -15,9 +14,6 @@ class State:
         self.programname = lltype.nullptr(rffi.CCHARP.TO)
         self.version = lltype.nullptr(rffi.CCHARP.TO)
         self.builder = None
-        if space.config.translation.gc != "boehm":
-            pyobj_dealloc_action = PyObjDeallocAction(space)
-            self.dealloc_trigger = lambda: pyobj_dealloc_action.fire()
 
     def reset(self):
         from pypy.module.cpyext.modsupport import PyMethodDef
@@ -74,6 +70,12 @@ class State:
                 action = BoehmPyObjDeallocAction(self.space)
                 self.space.actionflag.register_periodic_action(action,
                     use_bytecode_counter=True)
+            else:
+                pyobj_dealloc_action = PyObjDeallocAction(space)
+                self.dealloc_trigger = lambda: pyobj_dealloc_action.fire()
+                rawrefcount.init(
+                    llhelper(rawrefcount.RAWREFCOUNT_DEALLOC_TRIGGER,
+                    self.dealloc_trigger))
 
     def install_dll(self, eci):
         """NOT_RPYTHON
@@ -89,10 +91,6 @@ class State:
         from pypy.module.cpyext.api import INIT_FUNCTIONS
 
         if we_are_translated():
-            if space.config.translation.gc != "boehm":
-                rawrefcount.init(
-                    llhelper(rawrefcount.RAWREFCOUNT_DEALLOC_TRIGGER,
-                    self.dealloc_trigger))
             self.builder.attach_all(space)
 
         setup_new_method_def(space)

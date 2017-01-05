@@ -1,5 +1,4 @@
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.interpreter import gateway
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext import api
 
