@@ -219,7 +219,7 @@ class W_Root(object):
             # cpyext types that may have only old buffer interface
             w_impl = space.lookup(self, '__wbuffer__')
         if w_impl is not None:
-            w_result = space.get_and_call_function(w_impl, self, 
+            w_result = space.get_and_call_function(w_impl, self,
                                         space.newint(flags))
             if space.isinstance_w(w_result, space.w_buffer):
                 return w_result.buffer_w(space, flags)
@@ -665,9 +665,6 @@ class ObjSpace(object):
 
     def setup_builtin_modules(self):
         "NOT_RPYTHON: only for initializing the space."
-        if self.config.objspace.usemodules.cpyext:
-            from pypy.module.cpyext.state import State
-            self.fromcache(State).build_api(self)
         self.getbuiltinmodule('sys')
         self.getbuiltinmodule('imp')
         self.getbuiltinmodule('__builtin__')
