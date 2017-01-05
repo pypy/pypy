@@ -1178,6 +1178,18 @@ def mangle_name(prefix, name):
     else:
         raise ValueError("Error converting '%s'" % name)
 
+def write_header(header_name, decls):
+    lines = [
+        '#define Signed   long           /* xxx temporary fix */',
+        '#define Unsigned unsigned long  /* xxx temporary fix */',
+        '',] + decls + [
+        '',
+        '#undef Signed    /* xxx temporary fix */',
+        '#undef Unsigned  /* xxx temporary fix */',
+        '']
+    decl_h = udir.join(header_name)
+    decl_h.write('\n'.join(lines))
+
 def generate_decls_and_callbacks(db, prefix=''):
     "NOT_RPYTHON"
     pypy_macros = []
@@ -1204,22 +1216,12 @@ def generate_decls_and_callbacks(db, prefix=''):
     pypy_macros_h.write('\n'.join(pypy_macros))
 
     # generate function decls
-    decls = {}
-    pypy_decls = decls[pypy_decl] = []
-    pypy_decls.append('#define Signed   long           /* xxx temporary fix */\n')
-    pypy_decls.append('#define Unsigned unsigned long  /* xxx temporary fix */\n')
-
+    decls = defaultdict(list)
     for decl in FORWARD_DECLS:
-        pypy_decls.append("%s;" % (decl,))
+        decls[pypy_decl].append("%s;" % (decl,))
 
     for header_name, header_functions in FUNCTIONS_BY_HEADER.iteritems():
-        if header_name not in decls:
-            header = decls[header_name] = []
-            header.append('#define Signed   long           /* xxx temporary fix */\n')
-            header.append('#define Unsigned unsigned long  /* xxx temporary fix */\n')
-        else:
-            header = decls[header_name]
-
+        header = decls[header_name]
         for name, func in sorted(header_functions.iteritems()):
             _name = mangle_name(prefix, name)
             header.append("#define %s %s" % (name, _name))
@@ -1236,14 +1238,8 @@ def generate_decls_and_callbacks(db, prefix=''):
         decls[header].append('#define %s %s' % (name, mangle_name(prefix, name)))
         decls[header].append('PyAPI_DATA(%s) %s;' % (typ, name))
 
-    for header_name in FUNCTIONS_BY_HEADER.keys():
-        header = decls[header_name]
-        header.append('#undef Signed    /* xxx temporary fix */\n')
-        header.append('#undef Unsigned  /* xxx temporary fix */\n')
-
     for header_name, header_decls in decls.iteritems():
-        decl_h = udir.join(header_name)
-        decl_h.write('\n'.join(header_decls))
+        write_header(header_name, header_decls)
 
 separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pyerrors.c",
