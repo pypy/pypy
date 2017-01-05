@@ -1014,9 +1014,10 @@ def build_bridge(space):
     db = LowLevelDatabase()
     prefix = 'cpyexttest'
 
-    functions = generate_decls_and_callbacks(db, prefix=prefix)
+    generate_decls_and_callbacks(db, prefix=prefix)
 
     # Structure declaration code
+    functions = []
     members = []
     structindex = {}
     for header, header_functions in FUNCTIONS_BY_HEADER.iteritems():
@@ -1222,8 +1223,7 @@ def generate_decls_and_callbacks(db, prefix=''):
     pypy_macros_h = udir.join('pypy_macros.h')
     pypy_macros_h.write('\n'.join(pypy_macros))
 
-    # implement function callbacks and generate function decls
-    functions = []
+    # generate function decls
     decls = {}
     pypy_decls = decls[pypy_decl] = []
     pypy_decls.append('#define Signed   long           /* xxx temporary fix */\n')
@@ -1267,7 +1267,6 @@ def generate_decls_and_callbacks(db, prefix=''):
     for header_name, header_decls in decls.iteritems():
         decl_h = udir.join(header_name)
         decl_h.write('\n'.join(header_decls))
-    return functions
 
 separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pyerrors.c",
@@ -1374,12 +1373,11 @@ def setup_library(space):
     db = LowLevelDatabase()
     prefix = 'PyPy'
 
-    functions = generate_decls_and_callbacks(db, prefix=prefix)
+    generate_decls_and_callbacks(db, prefix=prefix)
 
     code = "#include <Python.h>\n"
     if use_micronumpy:
         code += "#include <pypy_numpy.h> /* api.py line 1290 */\n"
-    code  += "\n".join(functions)
 
     eci = build_eci(code, use_micronumpy, translating=True)
     space.fromcache(State).install_dll(eci)
