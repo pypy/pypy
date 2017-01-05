@@ -77,9 +77,6 @@ class State:
             else:
                 pyobj_dealloc_action = PyObjDeallocAction(space)
                 self.dealloc_trigger = lambda: pyobj_dealloc_action.fire()
-                rawrefcount.init(
-                    llhelper(rawrefcount.RAWREFCOUNT_DEALLOC_TRIGGER,
-                    self.dealloc_trigger))
 
     def build_api(self):
         """NOT_RPYTHON
@@ -106,6 +103,12 @@ class State:
         from pypy.module.cpyext.api import INIT_FUNCTIONS
 
         if we_are_translated():
+            if space.config.translation.gc != "boehm":
+                # This must be called in RPython, the untranslated version
+                # does something different. Sigh.
+                rawrefcount.init(
+                    llhelper(rawrefcount.RAWREFCOUNT_DEALLOC_TRIGGER,
+                    self.dealloc_trigger))
             self.builder.attach_all(space)
 
         setup_new_method_def(space)
