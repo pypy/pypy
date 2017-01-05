@@ -72,7 +72,6 @@ class CConfig2:
 class CConfig_constants:
     _compilation_info_ = CConfig._compilation_info_
 
-VA_LIST_P = rffi.VOIDP # rffi.COpaquePtr('va_list')
 CONST_STRING = lltype.Ptr(lltype.Array(lltype.Char,
                                        hints={'nolength': True}),
                           use_cache=False)
@@ -674,12 +673,6 @@ def is_PyObject(TYPE):
 # a pointer to PyObject
 PyObjectP = rffi.CArrayPtr(PyObject)
 
-VA_TP_LIST = {}
-#{'int': lltype.Signed,
-#              'PyObject*': PyObject,
-#              'PyObject**': PyObjectP,
-#              'int*': rffi.INTP}
-
 def configure_types():
     for config in (CConfig, CConfig2):
         for name, TYPE in rffi_platform.configure(config).iteritems():
@@ -953,15 +946,6 @@ def make_wrapper_second_level(space, argtypesw, restype,
     wrapper_second_level._dont_inline_ = True
     return wrapper_second_level
 
-def process_va_name(name):
-    return name.replace('*', '_star')
-
-def setup_va_functions(eci):
-    for name, TP in VA_TP_LIST.iteritems():
-        name_no_star = process_va_name(name)
-        func = rffi.llexternal('pypy_va_get_%s' % name_no_star, [VA_LIST_P],
-                               TP, compilation_info=eci)
-        globals()['va_get_%s' % name_no_star] = func
 
 def setup_init_functions(eci, prefix):
     # jump through hoops to avoid releasing the GIL during initialization
@@ -1149,7 +1133,6 @@ def build_bridge(space):
             pypyAPI[structindex[name]] = ctypes.cast(
                 ll2ctypes.lltype2ctypes(func.get_llhelper(space)),
                 ctypes.c_void_p)
-    setup_va_functions(eci)
 
     setup_init_functions(eci, prefix)
     return modulename.new(ext='')
@@ -1265,13 +1248,6 @@ def generate_decls_and_callbacks(db, prefix=''):
             header.append("#define %s %s" % (name, _name))
             restype, args = c_function_signature(db, func)
             header.append("PyAPI_FUNC(%s) %s(%s);" % (restype, name, args))
-
-    for name in VA_TP_LIST:
-        name_no_star = process_va_name(name)
-        header = ('%s pypy_va_get_%s(va_list* vp)' %
-                  (name, name_no_star))
-        pypy_decls.append('RPY_EXTERN ' + header + ';')
-        functions.append(header + '\n{return va_arg(*vp, %s);}\n' % name)
 
     for name, (typ, expr) in GLOBALS.iteritems():
         if '#' in name:
@@ -1409,7 +1385,6 @@ def setup_library(space):
     space.fromcache(State).install_dll(eci)
 
     run_bootstrap_functions(space)
-    setup_va_functions(eci)
 
     # emit uninitialized static data
     builder = space.fromcache(State).builder = TranslationObjBuilder()
