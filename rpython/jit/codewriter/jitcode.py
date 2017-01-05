@@ -1,6 +1,7 @@
 from rpython.jit.metainterp.history import AbstractDescr, ConstInt
 from rpython.jit.codewriter import heaptracker
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rarithmetic import base_int
 
 
 class JitCode(AbstractDescr):
@@ -21,6 +22,10 @@ class JitCode(AbstractDescr):
               liveness=None, startpoints=None, alllabels=None,
               resulttypes=None):
         self.code = code
+        for x in constants_i:
+            assert not isinstance(x, base_int), (
+                "found constant %r of type %r, must not appear in "
+                "JitCode.constants_i" % (x, type(x)))
         # if the following lists are empty, use a single shared empty list
         self.constants_i = constants_i or self._empty_i
         self.constants_r = constants_r or self._empty_r

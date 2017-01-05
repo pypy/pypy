@@ -76,3 +76,14 @@ memory and held references. Add a finalizer to CPyBuffer, add a
 PyMemoryViewObject with a PyBuffer attached so that the call to 
 ``PyMemoryView_GET_BUFFER`` does not leak a PyBuffer-sized piece of memory.
 Properly call ``bf_releasebuffer`` when not ``NULL``.
+
+.. branch: boehm-rawrefcount
+
+Support translations of cpyext with the Boehm GC (for special cases like
+revdb).
+
+.. branch: strbuf-as-buffer
+
+Implement StringBuffer.get_raw_address (missing feature for the buffer protocol).
+More generally it is now possible to obtain the address of any object (if it
+is readonly) without pinning it.

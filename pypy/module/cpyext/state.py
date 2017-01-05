@@ -1,7 +1,7 @@
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.executioncontext import AsyncAction
+from pypy.interpreter import executioncontext
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.rdynload import DLLHANDLE
@@ -14,8 +14,9 @@ class State:
         self.reset()
         self.programname = lltype.nullptr(rffi.CCHARP.TO)
         self.version = lltype.nullptr(rffi.CCHARP.TO)
-        pyobj_dealloc_action = PyObjDeallocAction(space)
-        self.dealloc_trigger = lambda: pyobj_dealloc_action.fire()
+        if space.config.translation.gc != "boehm":
+            pyobj_dealloc_action = PyObjDeallocAction(space)
+            self.dealloc_trigger = lambda: pyobj_dealloc_action.fire()
 
     def reset(self):
         from pypy.module.cpyext.modsupport import PyMethodDef
@@ -67,6 +68,11 @@ class State:
             state.api_lib = str(api.build_bridge(self.space))
         else:
             api.setup_library(self.space)
+            #
+            if self.space.config.translation.gc == "boehm":
+                action = BoehmPyObjDeallocAction(self.space)
+                self.space.actionflag.register_periodic_action(action,
+                    use_bytecode_counter=True)
 
     def install_dll(self, eci):
         """NOT_RPYTHON
@@ -84,8 +90,10 @@ class State:
         from pypy.module.cpyext.api import init_static_data_translated
 
         if we_are_translated():
-            rawrefcount.init(llhelper(rawrefcount.RAWREFCOUNT_DEALLOC_TRIGGER,
-                                      self.dealloc_trigger))
+            if space.config.translation.gc != "boehm":
+                rawrefcount.init(
+                    llhelper(rawrefcount.RAWREFCOUNT_DEALLOC_TRIGGER,
+                    self.dealloc_trigger))
             init_static_data_translated(space)
 
         setup_new_method_def(space)
@@ -143,15 +151,23 @@ class State:
         self.extensions[path] = w_copy
 
 
-class PyObjDeallocAction(AsyncAction):
+def _rawrefcount_perform(space):
+    from pypy.module.cpyext.pyobject import PyObject, decref
+    while True:
+        py_obj = rawrefcount.next_dead(PyObject)
+        if not py_obj:
+            break
+        decref(space, py_obj)
+
+class PyObjDeallocAction(executioncontext.AsyncAction):
     """An action that invokes _Py_Dealloc() on the dying PyObjects.
     """
-
     def perform(self, executioncontext, frame):
-        from pypy.module.cpyext.pyobject import PyObject, decref
+        _rawrefcount_perform(self.space)
 
-        while True:
-            py_obj = rawrefcount.next_dead(PyObject)
-            if not py_obj:
-                break
-            decref(self.space, py_obj)
+class BoehmPyObjDeallocAction(executioncontext.PeriodicAsyncAction):
+    # This variant is used with Boehm, which doesn't have the explicit
+    # callback.  Instead we must periodically check ourselves.
+    def perform(self, executioncontext, frame):
+        if we_are_translated():
+            _rawrefcount_perform(self.space)

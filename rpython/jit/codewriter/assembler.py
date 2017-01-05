@@ -5,6 +5,7 @@ from rpython.jit.codewriter.format import format_assembler
 from rpython.jit.codewriter.jitcode import SwitchDictDescr, JitCode
 from rpython.jit.codewriter import heaptracker, longlong
 from rpython.rlib.objectmodel import ComputedIntSymbolic
+from rpython.rlib.rarithmetic import r_int
 from rpython.flowspace.model import Constant
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper import rclass
@@ -82,6 +83,8 @@ class Assembler(object):
             if not isinstance(value, (llmemory.AddressAsInt,
                                       ComputedIntSymbolic)):
                 value = lltype.cast_primitive(lltype.Signed, value)
+                if type(value) is r_int:
+                    value = int(value)
                 if allow_short:
                     try:
                         short_num = -128 <= value <= 127

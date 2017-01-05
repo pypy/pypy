@@ -3419,24 +3419,28 @@ def test_from_buffer_not_str_unicode():
     BCharA = new_array_type(BCharP, None)
     p1 = from_buffer(BCharA, b"foo")
     assert p1 == from_buffer(BCharA, b"foo")
-    import gc; gc.collect()
-    assert p1 == from_buffer(BCharA, b"foo")
     py.test.raises(TypeError, from_buffer, BCharA, u+"foo")
     try:
         from __builtin__ import buffer
     except ImportError:
         pass
     else:
-        # from_buffer(buffer(b"foo")) does not work, because it's not
-        # implemented on pypy; only from_buffer(b"foo") works.
-        py.test.raises(TypeError, from_buffer, BCharA, buffer(b"foo"))
-        py.test.raises(TypeError, from_buffer, BCharA, buffer(u+"foo"))
+        contents = from_buffer(BCharA, buffer(b"foo"))
+        for i in range(len(contents)):
+            assert contents[i] == p1[i]
+        p4 = from_buffer(BCharA, b"f\x00\x00\x00o\x00\x00\x00o\x00\x00\x00")
+        contents = from_buffer(BCharA, buffer(u+"foo"))
+        for i in range(len(contents)):
+            assert contents[i] == p4[i]
     try:
         from __builtin__ import memoryview
     except ImportError:
         pass
     else:
-        py.test.raises(TypeError, from_buffer, BCharA, memoryview(b"foo"))
+        contents = from_buffer(BCharA, memoryview(b"foo"))
+        for i in range(len(contents)):
+            assert contents[i] == p1[i]
+
 
 def test_from_buffer_bytearray():
     a = bytearray(b"xyz")
