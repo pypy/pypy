@@ -437,6 +437,7 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
                 PyStringArrType_Type.tp_flags = Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE;
                 PyStringArrType_Type.tp_itemsize = sizeof(char);
                 PyStringArrType_Type.tp_base = &PyString_Type;
+                PyStringArrType_Type.tp_hash = PyString_Type.tp_hash;
                 if (PyType_Ready(&PyStringArrType_Type) < 0) INITERROR;
             ''')
 

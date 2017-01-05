@@ -88,7 +88,10 @@ def bytes_attach(space, py_obj, w_obj, w_userdata=None):
     with rffi.scoped_nonmovingbuffer(s) as s_ptr:
         rffi.c_memcpy(py_str.c_ob_sval, s_ptr, len_s)
     py_str.c_ob_sval[len_s] = '\0'
-    py_str.c_ob_shash = space.hash_w(w_obj)
+    # if py_obj has a tp_hash, this will try to call it, but the objects are
+    # not fully linked yet
+    #py_str.c_ob_shash = space.hash_w(w_obj)
+    py_str.c_ob_shash = space.hash_w(space.newbytes(s))
     py_str.c_ob_sstate = rffi.cast(rffi.INT, 1) # SSTATE_INTERNED_MORTAL
 
 def bytes_realize(space, py_obj):
@@ -101,7 +104,9 @@ def bytes_realize(space, py_obj):
     w_type = from_ref(space, rffi.cast(PyObject, py_obj.c_ob_type))
     w_obj = space.allocate_instance(W_BytesObject, w_type)
     w_obj.__init__(s)
-    py_str.c_ob_shash = space.hash_w(w_obj)
+    # if py_obj has a tp_hash, this will try to call it but the object is
+    # not realized yet
+    py_str.c_ob_shash = space.hash_w(space.newbytes(s))
     py_str.c_ob_sstate = rffi.cast(rffi.INT, 1) # SSTATE_INTERNED_MORTAL
     track_reference(space, py_obj, w_obj)
     return w_obj
