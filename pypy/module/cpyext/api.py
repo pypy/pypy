@@ -1195,14 +1195,13 @@ def mangle_name(prefix, name):
     elif name.startswith('_Py'):
         return '_' + prefix + name[3:]
     else:
-        return None
+        raise ValueError("Error converting '%s'" % name)
 
 def generate_decls_and_callbacks(db, prefix=''):
     "NOT_RPYTHON"
     pypy_macros = []
     for name in SYMBOLS_C:
         newname = mangle_name(prefix, name)
-        assert newname, name
         pypy_macros.append('#define %s %s' % (name, newname))
 
     # Generate defines
@@ -1244,7 +1243,6 @@ def generate_decls_and_callbacks(db, prefix=''):
             if not func:
                 continue
             _name = mangle_name(prefix, name)
-            assert _name is not None, 'error converting %s' % name
             header.append("#define %s %s" % (name, _name))
             restype, args = c_function_signature(db, func)
             header.append("PyAPI_FUNC(%s) %s(%s);" % (restype, name, args))
@@ -1423,7 +1421,7 @@ def setup_library(space):
         for name, func in header_functions.iteritems():
             if not func:
                 continue
-            newname = mangle_name(prefix, name) or name
+            newname = mangle_name(prefix, name)
             deco = entrypoint_lowlevel("cpyext", func.argtypes, newname,
                                         relax=True)
             deco(func.get_wrapper(space))
