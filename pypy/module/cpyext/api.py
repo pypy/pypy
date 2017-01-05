@@ -1030,8 +1030,7 @@ def build_bridge(space):
     db = LowLevelDatabase()
     prefix = 'cpyexttest'
 
-    functions = generate_decls_and_callbacks(
-            db, prefix=prefix, translating=False)
+    functions = generate_decls_and_callbacks(db, prefix=prefix)
 
     # Structure declaration code
     members = []
@@ -1042,6 +1041,13 @@ def build_bridge(space):
                 # added only for the macro, not the decl
                 continue
             restype, args = c_function_signature(db, func)
+            callargs = ', '.join('arg%d' % (i,)
+                                for i in range(len(func.argtypes)))
+            if func.restype is lltype.Void:
+                body = "{ _pypyAPI.%s(%s); }" % (name, callargs)
+            else:
+                body = "{ return _pypyAPI.%s(%s); }" % (name, callargs)
+            functions.append('%s %s(%s)\n%s' % (restype, name, args, body))
             members.append('%s (*%s)(%s);' % (restype, name, args))
             structindex[name] = len(structindex)
     structmembers = '\n'.join(members)
@@ -1207,7 +1213,7 @@ def mangle_name(prefix, name):
     else:
         return None
 
-def generate_decls_and_callbacks(db, prefix='', translating=False):
+def generate_decls_and_callbacks(db, prefix=''):
     "NOT_RPYTHON"
     pypy_macros = []
     for name in SYMBOLS_C:
@@ -1259,14 +1265,6 @@ def generate_decls_and_callbacks(db, prefix='', translating=False):
             header.append("#define %s %s" % (name, _name))
             restype, args = c_function_signature(db, func)
             header.append("PyAPI_FUNC(%s) %s(%s);" % (restype, name, args))
-            if not translating:
-                callargs = ', '.join('arg%d' % (i,)
-                                    for i in range(len(func.argtypes)))
-                if func.restype is lltype.Void:
-                    body = "{ _pypyAPI.%s(%s); }" % (name, callargs)
-                else:
-                    body = "{ return _pypyAPI.%s(%s); }" % (name, callargs)
-                functions.append('%s %s(%s)\n%s' % (restype, name, args, body))
 
     for name in VA_TP_LIST:
         name_no_star = process_va_name(name)
@@ -1400,8 +1398,7 @@ def setup_library(space):
     db = LowLevelDatabase()
     prefix = 'PyPy'
 
-    functions = generate_decls_and_callbacks(
-            db, prefix=prefix, translating=True)
+    functions = generate_decls_and_callbacks(db, prefix=prefix)
 
     code = "#include <Python.h>\n"
     if use_micronumpy:
