@@ -1770,11 +1770,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             # clear the arena between the last pinned object (or arena start)
             # and the pinned object
-            pinned_obj_size = llarena.getfakearenaaddress(cur) - prev
+            free_range_size = llarena.getfakearenaaddress(cur) - prev
             if self.gc_nursery_debug:
-                llarena.arena_reset(prev, pinned_obj_size, 3)
+                llarena.arena_reset(prev, free_range_size, 3)
             else:
-                llarena.arena_reset(prev, pinned_obj_size, 0)
+                llarena.arena_reset(prev, free_range_size, 0)
             #
             # clean up object's flags
             obj = cur + size_gc_header
@@ -1784,7 +1784,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             nursery_barriers.append(cur)
             #
             # update 'prev' to the end of the 'cur' object
-            prev = prev + pinned_obj_size + \
+            prev = prev + free_range_size + \
                 (size_gc_header + self.get_size(obj))
         #
         # reset everything after the last pinned object till the end of the arena
