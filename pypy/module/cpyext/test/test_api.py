@@ -89,9 +89,9 @@ class TestConversion(BaseApiTest):
     def test_typedef(self, space):
         from rpython.translator.c.database import LowLevelDatabase
         db = LowLevelDatabase()
-        assert (api.c_function_signature(db, api.FUNCTIONS['PyPy_TypedefTest1'])
+        assert (api.c_function_signature(db, PyPy_TypedefTest1.api_func)
                 == ('Py_ssize_t', 'Py_ssize_t arg0'))
-        assert (api.c_function_signature(db, api.FUNCTIONS['PyPy_TypedefTest2'])
+        assert (api.c_function_signature(db, PyPy_TypedefTest2.api_func)
                 == ('Py_ssize_t *', 'Py_ssize_t *arg0'))
 
         PyPy_TypedefTest1(space, 0)
@@ -100,7 +100,7 @@ class TestConversion(BaseApiTest):
         PyPy_TypedefTest2(space, ppos)
         lltype.free(ppos, flavor='raw')
 
-@pytest.mark.skipif(os.environ.get('USER')=='root', 
+@pytest.mark.skipif(os.environ.get('USER')=='root',
                     reason='root can write to all files')
 def test_copy_header_files(tmpdir):
     api.copy_header_files(tmpdir, True)

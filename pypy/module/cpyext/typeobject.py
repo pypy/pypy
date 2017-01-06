@@ -87,7 +87,7 @@ def make_GetSet(space, getsetprop):
     py_getsetdef.c_set = rffi.cast(setter, 0)
     py_getsetdef.c_closure = rffi.cast(rffi.VOIDP, 0)
     return py_getsetdef
-    
+
 
 class W_MemberDescr(GetSetProperty):
     name = 'member_descriptor'
@@ -740,7 +740,7 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
 
     pto.c_tp_free = llslot(space, PyObject_Free)
     pto.c_tp_alloc = llslot(space, PyType_GenericAlloc)
-    builder = space.fromcache(StaticObjectBuilder)
+    builder = space.fromcache(State).builder
     if ((pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE) != 0
             and builder.cpyext_type_init is None):
             # this ^^^ is not None only during startup of cpyext.  At that

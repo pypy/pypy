@@ -87,3 +87,7 @@ revdb).
 Implement StringBuffer.get_raw_address (missing feature for the buffer protocol).
 More generally it is now possible to obtain the address of any object (if it
 is readonly) without pinning it.
+
+.. branch: cpyext-cleanup
+
+Refactor cpyext initialisation.

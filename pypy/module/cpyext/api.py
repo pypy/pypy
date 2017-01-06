@@ -1,5 +1,6 @@
 import ctypes
 import sys, os
+from collections import defaultdict
 
 import py
 
@@ -72,7 +73,6 @@ class CConfig2:
 class CConfig_constants:
     _compilation_info_ = CConfig._compilation_info_
 
-VA_LIST_P = rffi.VOIDP # rffi.COpaquePtr('va_list')
 CONST_STRING = lltype.Ptr(lltype.Array(lltype.Char,
                                        hints={'nolength': True}),
                           use_cache=False)
@@ -365,8 +365,8 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
         func_name = func.func_name
         if header is not None:
             c_name = None
-            assert func_name not in FUNCTIONS, (
-                "%s already registered" % func_name)
+            if func_name in FUNCTIONS_BY_HEADER[header]:
+                raise ValueError("%s already registered" % func_name)
         else:
             c_name = func_name
         api_function = ApiFunction(argtypes, restype, func, error,
@@ -464,9 +464,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
             return res
 
         if header is not None:
-            if header == DEFAULT_HEADER:
-                FUNCTIONS[func_name] = api_function
-            FUNCTIONS_BY_HEADER.setdefault(header, {})[func_name] = api_function
+            FUNCTIONS_BY_HEADER[header][func_name] = api_function
         INTERPLEVEL_API[func_name] = unwrapper_catch  # used in tests
         return unwrapper  # used in 'normal' RPython code.
     return decorate
@@ -490,8 +488,7 @@ def register_global(name, typ, expr, header=None):
     GLOBALS[name] = (typ, expr)
 
 INTERPLEVEL_API = {}
-FUNCTIONS = {}
-FUNCTIONS_BY_HEADER = {}
+FUNCTIONS_BY_HEADER = defaultdict(dict)
 
 # These are C symbols which cpyext will export, but which are defined in .c
 # files somewhere in the implementation of cpyext (rather than being defined in
@@ -526,6 +523,8 @@ SYMBOLS_C = [
     'PyCapsule_GetName', 'PyCapsule_GetDestructor', 'PyCapsule_GetContext',
     'PyCapsule_SetPointer', 'PyCapsule_SetName', 'PyCapsule_SetDestructor',
     'PyCapsule_SetContext', 'PyCapsule_Import', 'PyCapsule_Type', '_Py_get_capsule_type',
+
+    'PyComplex_AsCComplex', 'PyComplex_FromCComplex',
 
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
 
@@ -573,7 +572,9 @@ def build_exported_objects():
     # PyExc_AttributeError, PyExc_OverflowError, PyExc_ImportError,
     # PyExc_NameError, PyExc_MemoryError, PyExc_RuntimeError,
     # PyExc_UnicodeEncodeError, PyExc_UnicodeDecodeError, ...
-    for exc_name in exceptions.Module.interpleveldefs.keys():
+    global all_exceptions
+    all_exceptions = list(exceptions.Module.interpleveldefs)
+    for exc_name in all_exceptions:
         register_global('PyExc_' + exc_name,
             'PyTypeObject*',
             'space.gettypeobject(interp_exceptions.W_%s.typedef)'% (exc_name, ))
@@ -616,14 +617,6 @@ def build_exported_objects():
         FORWARD_DECLS.append('typedef struct { PyObject_HEAD } %s'
                              % (cpyname, ))
 build_exported_objects()
-
-def get_structtype_for_ctype(ctype):
-    from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
-    from pypy.module.cpyext.cdatetime import PyDateTime_CAPI
-    from pypy.module.cpyext.intobject import PyIntObject
-    return {"PyObject*": PyObject, "PyTypeObject*": PyTypeObjectPtr,
-            "PyIntObject*": PyIntObject,
-            "PyDateTime_CAPI*": lltype.Ptr(PyDateTime_CAPI)}[ctype]
 
 # Note: as a special case, "PyObject" is the pointer type in RPython,
 # corresponding to "PyObject *" in C.  We do that only for PyObject.
@@ -672,12 +665,6 @@ def is_PyObject(TYPE):
 
 # a pointer to PyObject
 PyObjectP = rffi.CArrayPtr(PyObject)
-
-VA_TP_LIST = {}
-#{'int': lltype.Signed,
-#              'PyObject*': PyObject,
-#              'PyObject**': PyObjectP,
-#              'int*': rffi.INTP}
 
 def configure_types():
     for config in (CConfig, CConfig2):
@@ -953,21 +940,8 @@ def make_wrapper_second_level(space, argtypesw, restype,
     wrapper_second_level._dont_inline_ = True
     return wrapper_second_level
 
-def process_va_name(name):
-    return name.replace('*', '_star')
 
-def setup_va_functions(eci):
-    for name, TP in VA_TP_LIST.iteritems():
-        name_no_star = process_va_name(name)
-        func = rffi.llexternal('pypy_va_get_%s' % name_no_star, [VA_LIST_P],
-                               TP, compilation_info=eci)
-        globals()['va_get_%s' % name_no_star] = func
-
-def setup_init_functions(eci, translating):
-    if translating:
-        prefix = 'PyPy'
-    else:
-        prefix = 'cpyexttest'
+def setup_init_functions(eci, prefix):
     # jump through hoops to avoid releasing the GIL during initialization
     # of the cpyext module.  The C functions are called with no wrapper,
     # but must not do anything like calling back PyType_Ready().  We
@@ -1029,23 +1003,27 @@ def c_function_signature(db, func):
 # Do not call this more than once per process
 def build_bridge(space):
     "NOT_RPYTHON"
-    from pypy.module.cpyext.pyobject import make_ref
     from rpython.translator.c.database import LowLevelDatabase
     use_micronumpy = setup_micronumpy(space)
     db = LowLevelDatabase()
-    prefix ='cpyexttest'
+    prefix = 'cpyexttest'
 
-    functions = generate_decls_and_callbacks(db, prefix=prefix)
+    generate_decls_and_callbacks(db, prefix=prefix)
 
     # Structure declaration code
+    functions = []
     members = []
     structindex = {}
     for header, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         for name, func in header_functions.iteritems():
-            if not func:
-                # added only for the macro, not the decl
-                continue
             restype, args = c_function_signature(db, func)
+            callargs = ', '.join('arg%d' % (i,)
+                                for i in range(len(func.argtypes)))
+            if func.restype is lltype.Void:
+                body = "{ _pypyAPI.%s(%s); }" % (name, callargs)
+            else:
+                body = "{ return _pypyAPI.%s(%s); }" % (name, callargs)
+            functions.append('%s %s(%s)\n%s' % (restype, name, args, body))
             members.append('%s (*%s)(%s);' % (restype, name, args))
             structindex[name] = len(structindex)
     structmembers = '\n'.join(members)
@@ -1057,15 +1035,8 @@ def build_bridge(space):
     """ % dict(members=structmembers)
 
     global_objects = []
-    for name, (typ, expr) in GLOBALS.iteritems():
-        if '#' in name:
-            continue
-        if typ == 'PyDateTime_CAPI*':
-            continue
-        elif name.startswith('PyExc_'):
-            global_objects.append('%s _%s;' % (typ[:-1], name))
-        else:
-            global_objects.append('%s %s = NULL;' % (typ, name))
+    for name in all_exceptions:
+        global_objects.append('PyTypeObject _PyExc_%s;' % name)
     global_code = '\n'.join(global_objects)
 
     prologue = ("#include <Python.h>\n"
@@ -1082,84 +1053,64 @@ def build_bridge(space):
             '\n' +
             '\n'.join(functions))
 
-    eci = build_eci(True, code, use_micronumpy)
+    eci = build_eci(code, use_micronumpy, translating=False)
     eci = eci.compile_shared_lib(
         outputfilename=str(udir / "module_cache" / "pypyapi"))
+    space.fromcache(State).install_dll(eci)
     modulename = py.path.local(eci.libraries[-1])
-
-    def dealloc_trigger():
-        from pypy.module.cpyext.pyobject import decref
-        print 'dealloc_trigger...'
-        while True:
-            ob = rawrefcount.next_dead(PyObject)
-            if not ob:
-                break
-            print 'deallocating PyObject', ob
-            decref(space, ob)
-        print 'dealloc_trigger DONE'
-        return "RETRY"
-    rawrefcount.init(dealloc_trigger)
 
     run_bootstrap_functions(space)
 
     # load the bridge, and init structure
     bridge = ctypes.CDLL(str(modulename), mode=ctypes.RTLD_GLOBAL)
 
-    space.fromcache(State).install_dll(eci)
-
     # populate static data
-    builder = space.fromcache(StaticObjectBuilder)
+    builder = space.fromcache(State).builder = TestingObjBuilder()
     for name, (typ, expr) in GLOBALS.iteritems():
+        if '#' in name:
+            name, header = name.split('#')
+            assert typ in ('PyObject*', 'PyTypeObject*', 'PyIntObject*')
+            isptr = False
+        elif name.startswith('PyExc_'):
+            isptr = False
+        elif typ == 'PyDateTime_CAPI*':
+            isptr = True
+        else:
+            raise ValueError("Unknown static data: %s %s" % (typ, name))
+
         from pypy.module import cpyext    # for the eval() below
         w_obj = eval(expr)
-        if '#' in name:
-            name = name.split('#')[0]
-            isptr = False
-        else:
-            isptr = True
-        if name.startswith('PyExc_'):
-            isptr = False
-
         INTERPLEVEL_API[name] = w_obj
 
-        name = name.replace('Py', prefix)
+        mname = mangle_name(prefix, name)
         if isptr:
-            ptr = ctypes.c_void_p.in_dll(bridge, name)
-            if typ == 'PyObject*':
-                value = make_ref(space, w_obj)
-            elif typ == 'PyDateTime_CAPI*':
-                value = w_obj
-            else:
-                assert False, "Unknown static pointer: %s %s" % (typ, name)
+            assert typ == 'PyDateTime_CAPI*'
+            value = w_obj
+            ptr = ctypes.c_void_p.in_dll(bridge, mname)
             ptr.value = ctypes.cast(ll2ctypes.lltype2ctypes(value),
                                     ctypes.c_void_p).value
-        elif typ in ('PyObject*', 'PyTypeObject*', 'PyIntObject*'):
-            if name.startswith('PyPyExc_') or name.startswith('cpyexttestExc_'):
+        else:
+            if name.startswith('PyExc_'):
                 # we already have the pointer
-                in_dll = ll2ctypes.get_ctypes_type(PyObject).in_dll(bridge, name)
+                in_dll = ll2ctypes.get_ctypes_type(PyObject).in_dll(bridge, mname)
                 py_obj = ll2ctypes.ctypes2lltype(PyObject, in_dll)
             else:
                 # we have a structure, get its address
-                in_dll = ll2ctypes.get_ctypes_type(PyObject.TO).in_dll(bridge, name)
+                in_dll = ll2ctypes.get_ctypes_type(PyObject.TO).in_dll(bridge, mname)
                 py_obj = ll2ctypes.ctypes2lltype(PyObject, ctypes.pointer(in_dll))
             builder.prepare(py_obj, w_obj)
-        else:
-            assert False, "Unknown static object: %s %s" % (typ, name)
-    builder.attach_all()
+    builder.attach_all(space)
 
     pypyAPI = ctypes.POINTER(ctypes.c_void_p).in_dll(bridge, 'pypyAPI')
 
     # implement structure initialization code
     for header, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         for name, func in header_functions.iteritems():
-            if name.startswith('cpyext_') or func is None: # XXX hack
-                continue
             pypyAPI[structindex[name]] = ctypes.cast(
                 ll2ctypes.lltype2ctypes(func.get_llhelper(space)),
                 ctypes.c_void_p)
-    setup_va_functions(eci)
 
-    setup_init_functions(eci, translating=False)
+    setup_init_functions(eci, prefix)
     return modulename.new(ext='')
 
 def attach_recusively(space, static_pyobjs, static_objs_w, attached_objs, i):
@@ -1191,9 +1142,8 @@ def attach_recusively(space, static_pyobjs, static_objs_w, attached_objs, i):
     attached_objs.append(i)
 
 
-class StaticObjectBuilder:
-    def __init__(self, space):
-        self.space = space
+class StaticObjectBuilder(object):
+    def __init__(self):
         self.static_pyobjs = []
         self.static_objs_w = []
         self.cpyext_type_init = None
@@ -1209,12 +1159,11 @@ class StaticObjectBuilder:
         self.static_pyobjs.append(py_obj)
         self.static_objs_w.append(w_obj)
 
-    def attach_all(self):
+    def attach_all(self, space):
         # this is RPython, called once in pypy-c when it imports cpyext
         from pypy.module.cpyext.typeobject import finish_type_1, finish_type_2
         from pypy.module.cpyext.pyobject import track_reference
         #
-        space = self.space
         static_pyobjs = self.get_static_pyobjs()
         static_objs_w = self.static_objs_w
         for i in range(len(static_objs_w)):
@@ -1230,6 +1179,12 @@ class StaticObjectBuilder:
             finish_type_1(space, pto)
             finish_type_2(space, pto, w_type)
 
+class TestingObjBuilder(StaticObjectBuilder):
+    """The StaticObjectBuilder used in tests."""
+
+class TranslationObjBuilder(StaticObjectBuilder):
+    """The StaticObjectBuilder used during translation."""
+
 
 def mangle_name(prefix, name):
     if name.startswith('Py'):
@@ -1237,23 +1192,26 @@ def mangle_name(prefix, name):
     elif name.startswith('_Py'):
         return '_' + prefix + name[3:]
     else:
-        return None
+        raise ValueError("Error converting '%s'" % name)
 
-def generate_decls_and_callbacks(db, api_struct=True, prefix=''):
+def write_header(header_name, decls):
+    lines = [
+        '#define Signed   long           /* xxx temporary fix */',
+        '#define Unsigned unsigned long  /* xxx temporary fix */',
+        '',] + decls + [
+        '',
+        '#undef Signed    /* xxx temporary fix */',
+        '#undef Unsigned  /* xxx temporary fix */',
+        '']
+    decl_h = udir.join(header_name)
+    decl_h.write('\n'.join(lines))
+
+def generate_decls_and_callbacks(db, prefix=''):
     "NOT_RPYTHON"
     pypy_macros = []
-    export_symbols = sorted(FUNCTIONS) + sorted(SYMBOLS_C) + sorted(GLOBALS)
-    for name in export_symbols:
-        if '#' in name:
-            name, header = name.split('#')
-        else:
-            header = pypy_decl
+    for name in SYMBOLS_C:
         newname = mangle_name(prefix, name)
-        assert newname, name
-        if header == pypy_decl:
-            pypy_macros.append('#define %s %s' % (name, newname))
-        if name.startswith("PyExc_"):
-            pypy_macros.append('#define _%s _%s' % (name, newname))
+        pypy_macros.append('#define %s %s' % (name, newname))
 
     # Generate defines
     for macro_name, size in [
@@ -1273,50 +1231,18 @@ def generate_decls_and_callbacks(db, api_struct=True, prefix=''):
     pypy_macros_h = udir.join('pypy_macros.h')
     pypy_macros_h.write('\n'.join(pypy_macros))
 
-    # implement function callbacks and generate function decls
-    functions = []
-    decls = {}
-    pypy_decls = decls[pypy_decl] = []
-    pypy_decls.append('#define Signed   long           /* xxx temporary fix */\n')
-    pypy_decls.append('#define Unsigned unsigned long  /* xxx temporary fix */\n')
-
+    # generate function decls
+    decls = defaultdict(list)
     for decl in FORWARD_DECLS:
-        pypy_decls.append("%s;" % (decl,))
+        decls[pypy_decl].append("%s;" % (decl,))
 
     for header_name, header_functions in FUNCTIONS_BY_HEADER.iteritems():
-        if header_name not in decls:
-            header = decls[header_name] = []
-            header.append('#define Signed   long           /* xxx temporary fix */\n')
-            header.append('#define Unsigned unsigned long  /* xxx temporary fix */\n')
-        else:
-            header = decls[header_name]
-
+        header = decls[header_name]
         for name, func in sorted(header_functions.iteritems()):
-            if not func:
-                continue
-            if header == DEFAULT_HEADER:
-                _name = name
-            else:
-                # this name is not included in pypy_macros.h
-                _name = mangle_name(prefix, name)
-                assert _name is not None, 'error converting %s' % name
-                header.append("#define %s %s" % (name, _name))
+            _name = mangle_name(prefix, name)
+            header.append("#define %s %s" % (name, _name))
             restype, args = c_function_signature(db, func)
-            header.append("PyAPI_FUNC(%s) %s(%s);" % (restype, _name, args))
-            if api_struct:
-                callargs = ', '.join('arg%d' % (i,)
-                                    for i in range(len(func.argtypes)))
-                if func.restype is lltype.Void:
-                    body = "{ _pypyAPI.%s(%s); }" % (_name, callargs)
-                else:
-                    body = "{ return _pypyAPI.%s(%s); }" % (_name, callargs)
-                functions.append('%s %s(%s)\n%s' % (restype, name, args, body))
-    for name in VA_TP_LIST:
-        name_no_star = process_va_name(name)
-        header = ('%s pypy_va_get_%s(va_list* vp)' %
-                  (name, name_no_star))
-        pypy_decls.append('RPY_EXTERN ' + header + ';')
-        functions.append(header + '\n{return va_arg(*vp, %s);}\n' % name)
+            header.append("PyAPI_FUNC(%s) %s(%s);" % (restype, name, args))
 
     for name, (typ, expr) in GLOBALS.iteritems():
         if '#' in name:
@@ -1325,19 +1251,11 @@ def generate_decls_and_callbacks(db, api_struct=True, prefix=''):
         elif name.startswith('PyExc_'):
             typ = 'PyObject*'
             header = pypy_decl
-        if header != pypy_decl:
-            decls[header].append('#define %s %s' % (name, mangle_name(prefix, name)))
+        decls[header].append('#define %s %s' % (name, mangle_name(prefix, name)))
         decls[header].append('PyAPI_DATA(%s) %s;' % (typ, name))
 
-    for header_name in FUNCTIONS_BY_HEADER.keys():
-        header = decls[header_name]
-        header.append('#undef Signed    /* xxx temporary fix */\n')
-        header.append('#undef Unsigned  /* xxx temporary fix */\n')
-
     for header_name, header_decls in decls.iteritems():
-        decl_h = udir.join(header_name)
-        decl_h.write('\n'.join(header_decls))
-    return functions
+        write_header(header_name, header_decls)
 
 separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pyerrors.c",
@@ -1349,6 +1267,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pythonrun.c",
                          source_dir / "sysmodule.c",
                          source_dir / "bufferobject.c",
+                         source_dir / "complexobject.c",
                          source_dir / "cobject.c",
                          source_dir / "structseq.c",
                          source_dir / "capsule.c",
@@ -1358,14 +1277,16 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pymem.c",
                          ]
 
-def build_eci(building_bridge, code, use_micronumpy=False):
+def build_eci(code, use_micronumpy=False, translating=False):
     "NOT_RPYTHON"
     # Build code and get pointer to the structure
     kwds = {}
 
     compile_extra=['-DPy_BUILD_CORE']
 
-    if building_bridge:
+    if translating:
+        kwds["includes"] = ['Python.h'] # this is our Python.h
+    else:
         if sys.platform == "win32":
             # '%s' undefined; assuming extern returning int
             compile_extra.append("/we4013")
@@ -1375,8 +1296,6 @@ def build_eci(building_bridge, code, use_micronumpy=False):
         elif sys.platform.startswith('linux'):
             compile_extra.append("-Werror=implicit-function-declaration")
             compile_extra.append('-g')
-    else:
-        kwds["includes"] = ['Python.h'] # this is our Python.h
 
     # Generate definitions for global structures
     structs = ["#include <Python.h>"]
@@ -1427,9 +1346,7 @@ def setup_micronumpy(space):
         return use_micronumpy
     # import registers api functions by side-effect, we also need HEADER
     from pypy.module.cpyext.ndarrayobject import HEADER
-    global FUNCTIONS_BY_HEADER, separate_module_files
-    for func_name in ['PyArray_Type', '_PyArray_FILLWBYTE', '_PyArray_ZEROS']:
-        FUNCTIONS_BY_HEADER.setdefault(HEADER, {})[func_name] = None
+    global separate_module_files
     register_global("PyArray_Type",
         'PyTypeObject*',  "space.gettypeobject(W_NDimArray.typedef)",
         header=HEADER)
@@ -1443,21 +1360,19 @@ def setup_library(space):
     db = LowLevelDatabase()
     prefix = 'PyPy'
 
-    functions = generate_decls_and_callbacks(db, api_struct=False, prefix=prefix)
+    generate_decls_and_callbacks(db, prefix=prefix)
+
     code = "#include <Python.h>\n"
     if use_micronumpy:
         code += "#include <pypy_numpy.h> /* api.py line 1290 */\n"
-    code  += "\n".join(functions)
 
-    eci = build_eci(False, code, use_micronumpy)
-
+    eci = build_eci(code, use_micronumpy, translating=True)
     space.fromcache(State).install_dll(eci)
 
     run_bootstrap_functions(space)
-    setup_va_functions(eci)
 
     # emit uninitialized static data
-    builder = space.fromcache(StaticObjectBuilder)
+    builder = space.fromcache(State).builder = TranslationObjBuilder()
     lines = ['PyObject *pypy_static_pyobjs[] = {\n']
     include_lines = ['RPY_EXTERN PyObject *pypy_static_pyobjs[];\n']
     for name, (typ, expr) in sorted(GLOBALS.items()):
@@ -1465,17 +1380,15 @@ def setup_library(space):
             name, header = name.split('#')
             assert typ in ('PyObject*', 'PyTypeObject*', 'PyIntObject*')
             typ = typ[:-1]
-            if header != pypy_decl:
-                # since the #define is not in pypy_macros, do it here
-                mname = mangle_name(prefix, name)
-                include_lines.append('#define %s %s\n' % (name, mname))
+            mname = mangle_name(prefix, name)
+            include_lines.append('#define %s %s\n' % (name, mname))
         elif name.startswith('PyExc_'):
             typ = 'PyTypeObject'
             name = '_' + name
         elif typ == 'PyDateTime_CAPI*':
             continue
         else:
-            assert False, "Unknown static data: %s %s" % (typ, name)
+            raise ValueError("Unknown static data: %s %s" % (typ, name))
 
         from pypy.module import cpyext     # for the eval() below
         w_obj = eval(expr)
@@ -1495,20 +1408,15 @@ def setup_library(space):
 
     for header, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         for name, func in header_functions.iteritems():
-            if not func:
-                continue
-            newname = mangle_name('PyPy', name) or name
+            newname = mangle_name(prefix, name)
             deco = entrypoint_lowlevel("cpyext", func.argtypes, newname,
                                         relax=True)
             deco(func.get_wrapper(space))
 
-    setup_init_functions(eci, translating=True)
+    setup_init_functions(eci, prefix)
     trunk_include = pypydir.dirpath() / 'include'
     copy_header_files(trunk_include, use_micronumpy)
 
-def init_static_data_translated(space):
-    builder = space.fromcache(StaticObjectBuilder)
-    builder.attach_all()
 
 def _load_from_cffi(space, name, path, initptr):
     from pypy.module._cffi_backend import cffi1_module

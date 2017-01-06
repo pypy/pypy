@@ -1320,7 +1320,8 @@ if not we_are_translated():
         def __init__(self, string):
             self.ptr = str2charp(string, track_allocation=False)
         def __del__(self):
-            free_charp(self.ptr, track_allocation=False)
+            if free_charp is not None:    # CPython shutdown
+                free_charp(self.ptr, track_allocation=False)
 
     TEST_RAW_ADDR_KEEP_ALIVE = {}
 
