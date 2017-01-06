@@ -344,13 +344,54 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
     - set `gil` to "acquire", "release" or "around" to acquire the GIL,
       release the GIL, or both
     """
+    if isinstance(restype, lltype.Typedef):
+        real_restype = restype.OF
+    else:
+        real_restype = restype
+    expect_integer = (isinstance(real_restype, lltype.Primitive) and
+                      rffi.cast(restype, 0) == 0)
     def decorate(func):
-        return _create_api_func(func, argtypes, restype, error, header, gil,
-            result_borrowed, result_is_ll)
+        if header is not None:
+            if func.__name__ in FUNCTIONS_BY_HEADER[header]:
+                raise ValueError("%s already registered" % func.__name__)
+        if header is not None:
+            c_name = None
+        else:
+            c_name = func.__name__
+
+        unwrapper = _create_api_func(
+            func, argtypes, restype, error, c_name, gil, result_borrowed,
+            result_is_ll)
+
+        # ZZZ is this whole logic really needed???  It seems to be only
+        # for RPython code calling PyXxx() functions directly.  I would
+        # think that usually directly calling the function is clean
+        # enough now
+        def unwrapper_catch(space, *args):
+            try:
+                res = unwrapper(space, *args)
+            except OperationError as e:
+                if not hasattr(unwrapper.api_func, "error_value"):
+                    raise
+                state = space.fromcache(State)
+                state.set_exception(e)
+                if is_PyObject(restype):
+                    return None
+                else:
+                    return unwrapper.api_func.error_value
+            got_integer = isinstance(res, (int, long, float))
+            assert got_integer == expect_integer, (
+                'got %r not integer' % (res,))
+            return res
+
+        if header is not None:
+            FUNCTIONS_BY_HEADER[header][func.__name__] = unwrapper.api_func
+            INTERPLEVEL_API[func.__name__] = unwrapper_catch  # used in tests
+        return unwrapper
     return decorate
 
 def _create_api_func(
-        func, argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
+        func, argtypes, restype, error=_NOT_SPECIFIED, c_name=None,
         gil=None, result_borrowed=False, result_is_ll=False):
     if isinstance(restype, lltype.Typedef):
         real_restype = restype.OF
@@ -364,17 +405,8 @@ def _create_api_func(
             error = CANNOT_FAIL
     if type(error) is int:
         error = rffi.cast(real_restype, error)
-    expect_integer = (isinstance(real_restype, lltype.Primitive) and
-                      rffi.cast(restype, 0) == 0)
 
     func._always_inline_ = 'try'
-    func_name = func.func_name
-    if header is not None:
-        c_name = None
-        if func_name in FUNCTIONS_BY_HEADER[header]:
-            raise ValueError("%s already registered" % func_name)
-    else:
-        c_name = func_name
     api_function = ApiFunction(argtypes, restype, func, error,
                                 c_name=c_name, gil=gil,
                                 result_borrowed=result_borrowed,
@@ -447,32 +479,7 @@ def _create_api_func(
 
     unwrapper.func = func
     unwrapper.api_func = api_function
-
-    # ZZZ is this whole logic really needed???  It seems to be only
-    # for RPython code calling PyXxx() functions directly.  I would
-    # think that usually directly calling the function is clean
-    # enough now
-    def unwrapper_catch(space, *args):
-        try:
-            res = unwrapper(space, *args)
-        except OperationError as e:
-            if not hasattr(api_function, "error_value"):
-                raise
-            state = space.fromcache(State)
-            state.set_exception(e)
-            if is_PyObject(restype):
-                return None
-            else:
-                return api_function.error_value
-        got_integer = isinstance(res, (int, long, float))
-        assert got_integer == expect_integer, (
-            'got %r not integer' % (res,))
-        return res
-
-    if header is not None:
-        FUNCTIONS_BY_HEADER[header][func_name] = api_function
-        INTERPLEVEL_API[func_name] = unwrapper_catch  # used in tests
-    return unwrapper  # used in 'normal' RPython code.
+    return unwrapper
 
 
 def cpython_struct(name, fields, forward=None, level=1):
