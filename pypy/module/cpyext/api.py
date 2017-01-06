@@ -344,6 +344,14 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
     - set `gil` to "acquire", "release" or "around" to acquire the GIL,
       release the GIL, or both
     """
+    def decorate(func):
+        return _create_api_func(func, argtypes, restype, error, header, gil,
+            result_borrowed, result_is_ll)
+    return decorate
+
+def _create_api_func(
+        func, argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
+        gil=None, result_borrowed=False, result_is_ll=False):
     if isinstance(restype, lltype.Typedef):
         real_restype = restype.OF
     else:
@@ -359,7 +367,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
     expect_integer = (isinstance(real_restype, lltype.Primitive) and
                       rffi.cast(restype, 0) == 0)
 
-    def decorate(func):
+    if True:  # preserve indentation
         func._always_inline_ = 'try'
         func_name = func.func_name
         if header is not None:
@@ -466,7 +474,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
             FUNCTIONS_BY_HEADER[header][func_name] = api_function
         INTERPLEVEL_API[func_name] = unwrapper_catch  # used in tests
         return unwrapper  # used in 'normal' RPython code.
-    return decorate
+
 
 def cpython_struct(name, fields, forward=None, level=1):
     configname = name.replace(' ', '__')
