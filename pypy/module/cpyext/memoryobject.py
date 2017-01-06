@@ -35,12 +35,13 @@ def memory_attach(space, py_obj, w_obj, w_userdata=None):
     """
     Fills a newly allocated PyMemoryViewObject with the given W_MemoryView object.
     """
+    assert isinstance(w_obj, W_MemoryView)
     py_obj = rffi.cast(PyMemoryViewObject, py_obj)
     view = py_obj.c_view
     ndim = w_obj.buf.getndim()
     if ndim >= Py_MAX_NDIMS:
         # XXX warn?
-        return view
+        return
     fill_Py_buffer(space, w_obj.buf, view)
     try:
         view.c_buf = rffi.cast(rffi.VOIDP, w_obj.buf.get_raw_address())
@@ -108,7 +109,7 @@ def PyMemoryView_GET_BUFFER(space, pyobj):
     object.  The object must be a memoryview instance; this macro doesn't
     check its type, you must do it yourself or you will risk crashes."""
     # XXX move to a c-macro
-    py_memobj = rffi.cast(PyMemoryViewObject, pyobj) # no inc_ref
+    py_memobj = rffi.cast(PyMemoryViewObject, pyobj)
     return py_memobj.c_view
 
 def fill_Py_buffer(space, buf, view):
