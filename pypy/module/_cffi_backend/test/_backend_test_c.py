@@ -1,7 +1,7 @@
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.9.1", ("This test_c.py file is for testing a version"
+assert __version__ == "1.9.2", ("This test_c.py file is for testing a version"
                                 " of cffi that differs from the one that we"
                                 " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -1084,9 +1084,13 @@ def test_cannot_call_with_a_autocompleted_struct():
     BFunc = new_function_type((BStruct,), BDouble)   # internally not callable
     dummy_func = cast(BFunc, 42)
     e = py.test.raises(NotImplementedError, dummy_func, "?")
-    msg = ("ctype \'struct foo\' not supported as argument (it is a struct "
-           'declared with "...;", but the C calling convention may depend on '
-           'the missing fields)')
+    msg = ("ctype 'struct foo' not supported as argument.  It is a struct "
+           'declared with "...;", but the C calling convention may depend '
+           "on the missing fields; or, it contains anonymous struct/unions.  "
+           "Such structs are only supported as argument if the function is "
+           "'API mode' and non-variadic (i.e. declared inside ffibuilder."
+           "cdef()+ffibuilder.set_source() and not taking a final '...' "
+           "argument)")
     assert str(e.value) == msg
 
 def test_new_charp():
@@ -3423,16 +3427,26 @@ def test_from_buffer_not_str_unicode():
     except ImportError:
         pass
     else:
-        # from_buffer(buffer(b"foo")) does not work, because it's not
-        # implemented on pypy; only from_buffer(b"foo") works.
-        py.test.raises(TypeError, from_buffer, BCharA, buffer(b"foo"))
-        py.test.raises(TypeError, from_buffer, BCharA, buffer(u+"foo"))
+        # Python 2 only
+        contents = from_buffer(BCharA, buffer(b"foo"))
+        assert len(contents) == len(p1)
+        for i in range(len(contents)):
+            assert contents[i] == p1[i]
+        p4 = buffer(u+"foo")
+        contents = from_buffer(BCharA, buffer(u+"foo"))
+        assert len(contents) == len(p4)
+        for i in range(len(contents)):
+            assert contents[i] == p4[i]
     try:
         from __builtin__ import memoryview
     except ImportError:
         pass
     else:
-        py.test.raises(TypeError, from_buffer, BCharA, memoryview(b"foo"))
+        contents = from_buffer(BCharA, memoryview(b"foo"))
+        assert len(contents) == len(p1)
+        for i in range(len(contents)):
+            assert contents[i] == p1[i]
+
 
 def test_from_buffer_bytearray():
     a = bytearray(b"xyz")

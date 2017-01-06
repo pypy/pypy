@@ -11,7 +11,8 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 # Expose these here (public interface)
 from rpython.rtyper.debug import (
-    ll_assert, FatalError, fatalerror, fatalerror_notb, debug_print_traceback)
+    ll_assert, FatalError, fatalerror, fatalerror_notb, debug_print_traceback,
+    ll_assert_not_none)
 
 
 class DebugLog(list):

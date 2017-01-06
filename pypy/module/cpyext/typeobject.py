@@ -32,7 +32,7 @@ from pypy.module.cpyext.slotdefs import (
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
 from pypy.module.cpyext.typeobjectdefs import (
-    PyGetSetDef, PyMemberDef, newfunc,
+    PyGetSetDef, PyMemberDef, newfunc, getter, setter,
     PyNumberMethods, PyMappingMethods, PySequenceMethods, PyBufferProcs)
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 
@@ -61,6 +61,7 @@ class W_GetSetPropertyEx(GetSetProperty):
         self.w_type = w_type
         doc = set = get = None
         if doc:
+            # XXX dead code?
             doc = rffi.charp2str(getset.c_doc)
         if getset.c_get:
             get = GettersAndSetters.getter.im_func
@@ -72,6 +73,21 @@ class W_GetSetPropertyEx(GetSetProperty):
 
 def PyDescr_NewGetSet(space, getset, w_type):
     return space.wrap(W_GetSetPropertyEx(getset, w_type))
+
+def make_GetSet(space, getsetprop):
+    py_getsetdef = lltype.malloc(PyGetSetDef, flavor='raw')
+    doc = getsetprop.doc
+    if doc:
+        py_getsetdef.c_doc = rffi.str2charp(doc)
+    else:
+        py_getsetdef.c_doc = rffi.cast(rffi.CCHARP, 0)
+    py_getsetdef.c_name = rffi.str2charp(getsetprop.getname(space))
+    # XXX FIXME - actually assign these !!!
+    py_getsetdef.c_get = rffi.cast(getter, 0)
+    py_getsetdef.c_set = rffi.cast(setter, 0)
+    py_getsetdef.c_closure = rffi.cast(rffi.VOIDP, 0)
+    return py_getsetdef
+
 
 class W_MemberDescr(GetSetProperty):
     name = 'member_descriptor'
@@ -158,7 +174,7 @@ def init_memberdescrobject(space):
                    realize=methoddescr_realize,
                    )
 
-def memberdescr_attach(space, py_obj, w_obj):
+def memberdescr_attach(space, py_obj, w_obj, w_userdata=None):
     """
     Fills a newly allocated PyMemberDescrObject with the given W_MemberDescr
     object. The values must not be modified.
@@ -177,17 +193,21 @@ def memberdescr_realize(space, obj):
     track_reference(space, obj, w_obj)
     return w_obj
 
-def getsetdescr_attach(space, py_obj, w_obj):
+def getsetdescr_attach(space, py_obj, w_obj, w_userdata=None):
     """
     Fills a newly allocated PyGetSetDescrObject with the given W_GetSetPropertyEx
     object. The values must not be modified.
     """
     py_getsetdescr = rffi.cast(PyGetSetDescrObject, py_obj)
+    if isinstance(w_obj, GetSetProperty):
+        py_getsetdef = make_GetSet(space, w_obj)
+        assert space.isinstance_w(w_userdata, space.w_type)
+        w_obj = W_GetSetPropertyEx(py_getsetdef, w_userdata)
     # XXX assign to d_dname, d_type?
     assert isinstance(w_obj, W_GetSetPropertyEx)
     py_getsetdescr.c_d_getset = w_obj.getset
 
-def methoddescr_attach(space, py_obj, w_obj):
+def methoddescr_attach(space, py_obj, w_obj, w_userdata=None):
     py_methoddescr = rffi.cast(PyMethodDescrObject, py_obj)
     # XXX assign to d_dname, d_type?
     assert isinstance(w_obj, W_PyCFunctionObject)
@@ -663,7 +683,7 @@ def type_alloc(space, w_metatype, itemsize=0):
 
     return rffi.cast(PyObject, heaptype)
 
-def type_attach(space, py_obj, w_type):
+def type_attach(space, py_obj, w_type, w_userdata=None):
     """
     Fills a newly allocated PyTypeObject from an existing type.
     """
@@ -691,7 +711,7 @@ def type_attach(space, py_obj, w_type):
 
     pto.c_tp_free = llslot(space, PyObject_Free)
     pto.c_tp_alloc = llslot(space, PyType_GenericAlloc)
-    builder = space.fromcache(StaticObjectBuilder)
+    builder = space.fromcache(State).builder
     if ((pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE) != 0
             and builder.cpyext_type_init is None):
             # this ^^^ is not None only during startup of cpyext.  At that
@@ -890,7 +910,9 @@ def finish_type_2(space, pto, w_obj):
     if w_obj.is_cpytype():
         Py_DecRef(space, pto.c_tp_dict)
     w_dict = w_obj.getdict(space)
-    pto.c_tp_dict = make_ref(space, w_dict)
+    # pass in the w_obj to convert any values that are
+    # unbound GetSetProperty into bound PyGetSetDescrObject
+    pto.c_tp_dict = make_ref(space, w_dict, w_obj)
 
 @cpython_api([PyTypeObjectPtr, PyTypeObjectPtr], rffi.INT_real, error=CANNOT_FAIL)
 def PyType_IsSubtype(space, a, b):

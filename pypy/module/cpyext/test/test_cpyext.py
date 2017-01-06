@@ -27,8 +27,9 @@ def PyPy_Crash2(space):
 
 class TestApi:
     def test_signature(self):
-        assert 'PyModule_Check' in api.FUNCTIONS
-        assert api.FUNCTIONS['PyModule_Check'].argtypes == [api.PyObject]
+        common_functions = api.FUNCTIONS_BY_HEADER[api.pypy_decl]
+        assert 'PyModule_Check' in common_functions
+        assert common_functions['PyModule_Check'].argtypes == [api.PyObject]
 
 
 class SpaceCompiler(SystemCompilationInfo):

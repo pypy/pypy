@@ -551,6 +551,13 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                               [s_gc, SomeAddress()],
                                               annmodel.s_None)
 
+        self.move_out_of_nursery_ptr = None
+        if hasattr(GCClass, 'move_out_of_nursery'):
+            self.move_out_of_nursery_ptr = getfn(GCClass.move_out_of_nursery,
+                                              [s_gc, SomeAddress()],
+                                              SomeAddress())
+
+
     def create_custom_trace_funcs(self, gc, rtyper):
         custom_trace_funcs = tuple(rtyper.custom_trace_funcs)
         rtyper.custom_trace_funcs = custom_trace_funcs
@@ -1584,6 +1591,17 @@ class BaseFrameworkGCTransformer(GCTransformer):
                               resulttype=llmemory.Address)
             hop.genop("direct_call", [self.ignore_finalizer_ptr,
                                       self.c_const_gc, v_adr])
+
+    def gct_gc_move_out_of_nursery(self, hop):
+        if self.move_out_of_nursery_ptr is not None:
+            v_adr = hop.genop("cast_ptr_to_adr", [hop.spaceop.args[0]],
+                              resulttype=llmemory.Address)
+            v_ret = hop.genop("direct_call", [self.move_out_of_nursery_ptr,
+                                      self.c_const_gc, v_adr],
+                                      resulttype=llmemory.Address)
+            hop.genop("cast_adr_to_ptr", [v_ret],
+                      resultvar = hop.spaceop.result)
+
 
 
 class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):

@@ -1,15 +1,12 @@
 import py, os, sys
+from .support import setup_make
 
 
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("datatypesDict.so"))
 
 def setup_module(mod):
-    if sys.platform == 'win32':
-        py.test.skip("win32 not supported so far")
-    err = os.system("cd '%s' && make datatypesDict.so" % currpath)
-    if err:
-        raise OSError("'make' failed (see stderr)")
+    setup_make("datatypesDict.so")
 
 class AppTestDATATYPES:
     spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])

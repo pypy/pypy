@@ -1,4 +1,4 @@
-import py
+import py, sys
 
 @py.test.mark.tryfirst
 def pytest_runtest_setup(item):

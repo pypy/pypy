@@ -89,9 +89,9 @@ class TestConversion(BaseApiTest):
     def test_typedef(self, space):
         from rpython.translator.c.database import LowLevelDatabase
         db = LowLevelDatabase()
-        assert (api.c_function_signature(db, api.FUNCTIONS['PyPy_TypedefTest1'])
+        assert (api.c_function_signature(db, PyPy_TypedefTest1.api_func)
                 == ('Signed', 'Signed arg0'))
-        assert (api.c_function_signature(db, api.FUNCTIONS['PyPy_TypedefTest2'])
+        assert (api.c_function_signature(db, PyPy_TypedefTest2.api_func)
                 == ('Signed *', 'Signed *arg0'))
 
         PyPy_TypedefTest1(space, 0)

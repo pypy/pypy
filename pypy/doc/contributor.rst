@@ -1,3 +1,9 @@
+#encoding utf-8
+
+Contributors
+------------
+::
+
   Armin Rigo
   Maciej Fijalkowski
   Carl Friedrich Bolz
@@ -307,7 +313,7 @@
   Mads Kiilerich
   Antony Lee
   Jason Madden
-  Daniel Neuh‰user
+  Daniel Neuh√§user
   reubano@gmail.com
   Yaroslav Fedevych
   Jim Hunziker

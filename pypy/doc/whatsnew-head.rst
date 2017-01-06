@@ -45,3 +45,49 @@ Refactor FunctionDesc.specialize() and related code (RPython annotator).
 
 Assign ``tp_doc`` to the new TypeObject's type dictionary ``__doc__`` key
 so it will be picked up by app-level objects of that type
+
+.. branch: cling-support
+
+Module cppyy now uses cling as its backend (Reflex has been removed). The
+user-facing interface and main developer tools (genreflex, selection files,
+class loader, etc.) remain the same.  A libcppyy_backend.so library is still
+needed but is now available through PyPI with pip: PyPy-cppyy-backend.
+
+The Cling-backend brings support for modern C++ (11, 14, etc.), dynamic
+template instantations, and improved integration with CFFI for better
+performance.  It also provides interactive C++ (and bindings to that).
+
+.. branch: better-PyDict_Next
+
+Improve the performance of ``PyDict_Next``. When trying ``PyDict_Next`` on a
+typedef dict, the test exposed a problem converting a ``GetSetProperty`` to a
+``PyGetSetDescrObject``. The other direction seem to be fully implemented.
+This branch made a minimal effort to convert the basic fields to avoid
+segfaults, but trying to use the ``PyGetSetDescrObject`` will probably fail.
+
+.. branch: stdlib-2.7.13
+
+Updated the implementation to match CPython 2.7.13 instead of 2.7.13.
+
+.. branch: issue2444
+
+Fix ``PyObject_GetBuffer`` and ``PyMemoryView_GET_BUFFER``, which leaked
+memory and held references. Add a finalizer to CPyBuffer, add a
+PyMemoryViewObject with a PyBuffer attached so that the call to 
+``PyMemoryView_GET_BUFFER`` does not leak a PyBuffer-sized piece of memory.
+Properly call ``bf_releasebuffer`` when not ``NULL``.
+
+.. branch: boehm-rawrefcount
+
+Support translations of cpyext with the Boehm GC (for special cases like
+revdb).
+
+.. branch: strbuf-as-buffer
+
+Implement StringBuffer.get_raw_address (missing feature for the buffer protocol).
+More generally it is now possible to obtain the address of any object (if it
+is readonly) without pinning it.
+
+.. branch: cpyext-cleanup
+
+Refactor cpyext initialisation.

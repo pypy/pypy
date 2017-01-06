@@ -521,6 +521,10 @@ class LLFrame(object):
         if not x:
             raise LLAssertFailure(msg)
 
+    def op_debug_assert_not_none(self, x):
+        if not x:
+            raise LLAssertFailure("ll_assert_not_none() failed")
+
     def op_debug_fatalerror(self, ll_msg, ll_exc=None):
         msg = ''.join(ll_msg.chars)
         if ll_exc is None:
@@ -962,6 +966,9 @@ class LLFrame(object):
     def op_gc_rawrefcount_mark_deallocating(self, *args):
         raise NotImplementedError("gc_rawrefcount_mark_deallocating")
 
+    def op_gc_rawrefcount_next_dead(self, *args):
+        raise NotImplementedError("gc_rawrefcount_next_dead")
+
     def op_do_malloc_fixedsize(self):
         raise NotImplementedError("do_malloc_fixedsize")
     def op_do_malloc_fixedsize_clear(self):
@@ -1130,6 +1137,9 @@ class LLFrame(object):
         exc_data.exc_type = lltype.typeOf(etype)._defl()
         exc_data.exc_value = lltype.typeOf(evalue)._defl()
         return bool(etype)
+
+    def op_gc_move_out_of_nursery(self, obj):
+        raise NotImplementedError("gc_move_out_of_nursery")
 
 
 class Tracer(object):

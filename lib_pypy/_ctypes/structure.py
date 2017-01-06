@@ -229,8 +229,10 @@ class StructOrUnion(_CData):
     __metaclass__ = StructOrUnionMeta
 
     def __new__(cls, *args, **kwds):
+        from _ctypes import union
         self = super(_CData, cls).__new__(cls)
-        if '_abstract_' in cls.__dict__:
+        if ('_abstract_' in cls.__dict__ or cls is Structure 
+                                         or cls is union.Union):
             raise TypeError("abstract class")
         if hasattr(cls, '_ffistruct_'):
             self.__dict__['_buffer'] = self._ffistruct_(autofree=True)
