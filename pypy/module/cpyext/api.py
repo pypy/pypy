@@ -411,11 +411,6 @@ def _create_api_func(
                                 c_name=c_name, gil=gil,
                                 result_borrowed=result_borrowed,
                                 result_is_ll=result_is_ll)
-    func.api_func = api_function
-
-    if error is _NOT_SPECIFIED:
-        raise ValueError("function %s has no return value for exceptions"
-                            % func)
     names = api_function.argnames
     types_names_enum_ui = unrolling_iterable(enumerate(
         zip(api_function.argtypes,
