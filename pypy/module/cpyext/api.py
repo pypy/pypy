@@ -471,7 +471,7 @@ def _create_api_func(
 
     if header is not None:
         FUNCTIONS_BY_HEADER[header][func_name] = api_function
-    INTERPLEVEL_API[func_name] = unwrapper_catch  # used in tests
+        INTERPLEVEL_API[func_name] = unwrapper_catch  # used in tests
     return unwrapper  # used in 'normal' RPython code.
 
 
