@@ -4,6 +4,7 @@ from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rlib.buffer import StringBuffer
+from pypy.module.cpyext.pyobject import from_ref
 
 only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names" 
 
@@ -11,7 +12,7 @@ class TestMemoryViewObject(BaseApiTest):
     def test_fromobject(self, space, api):
         w_hello = space.newbytes("hello")
         assert api.PyObject_CheckBuffer(w_hello)
-        w_view = api.PyMemoryView_FromObject(w_hello)
+        w_view = from_ref(space, api.PyMemoryView_FromObject(w_hello))
         w_char = space.call_method(w_view, '__getitem__', space.wrap(0))
         assert space.eq_w(w_char, space.wrap('h'))
         w_bytes = space.call_method(w_view, "tobytes")
@@ -19,7 +20,7 @@ class TestMemoryViewObject(BaseApiTest):
 
     def test_frombuffer(self, space, api):
         w_buf = space.newbuffer(StringBuffer("hello"))
-        w_memoryview = api.PyMemoryView_FromObject(w_buf)
+        w_memoryview = from_ref(space, api.PyMemoryView_FromObject(w_buf))
         view = api.PyMemoryView_GET_BUFFER(w_memoryview)
         assert view.c_ndim == 1
         f = rffi.charp2str(view.c_format)
