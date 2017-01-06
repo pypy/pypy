@@ -248,6 +248,10 @@ class OperationError(Exception):
 
     def write_unraisable(self, space, where, w_object=None,
                          with_traceback=False, extra_line=''):
+        # Note: since Python 3.5, unraisable exceptions are always
+        # printed with a traceback.  Setting 'with_traceback=False'
+        # only asks for a different format, starting with the message
+        # "Exception Xxx ignored".
         if w_object is None:
             objrepr = ''
         else:
@@ -257,31 +261,32 @@ class OperationError(Exception):
                 objrepr = "<object repr() failed>"
         #
         try:
-            if with_traceback:
-                try:
-                    self.normalize_exception(space)
-                except OperationError:
-                    pass
-                w_t = self.w_type
-                w_v = self.get_w_value(space)
-                w_tb = space.wrap(self.get_traceback())
-                space.appexec([space.wrap(where),
-                               space.wrap(objrepr),
-                               space.wrap(extra_line),
-                               w_t, w_v, w_tb],
-                """(where, objrepr, extra_line, t, v, tb):
-                    import sys, traceback
-                    if where or objrepr:
-                        sys.stderr.write('From %s%s:\\n' % (where, objrepr))
-                    if extra_line:
-                        sys.stderr.write(extra_line)
-                    traceback.print_exception(t, v, tb)
-                """)
+            try:
+                self.normalize_exception(space)
+            except OperationError:
+                pass
+            w_t = self.w_type
+            w_v = self.get_w_value(space)
+            w_tb = space.wrap(self.get_traceback())
+            if where or objrepr:
+                if with_traceback:
+                    first_line = 'From %s%s:\n' % (where, objrepr)
+                else:
+                    first_line = 'Exception ignored in: %s%s\n' % (
+                        where, objrepr)
             else:
-                msg = 'Exception %s in %s%s ignored\n' % (
-                    self.errorstr(space, use_repr=True), where, objrepr)
-                space.call_method(space.sys.get('stderr'), 'write',
-                                  space.wrap(msg))
+                first_line = ''
+            space.appexec([space.wrap(first_line),
+                           space.wrap(extra_line),
+                           w_t, w_v, w_tb],
+            """(first_line, extra_line, t, v, tb):
+                import sys
+                sys.stderr.write(first_line)
+                if extra_line:
+                    sys.stderr.write(extra_line)
+                import traceback
+                traceback.print_exception(t, v, tb)
+            """)
         except OperationError:
             pass   # ignored
 
