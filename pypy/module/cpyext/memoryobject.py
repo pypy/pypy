@@ -201,7 +201,7 @@ def PyBuffer_IsContiguous(space, view, fort):
         return (_IsCContiguous(view) or _IsFortranContiguous(view))
     return 0
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, result_is_ll=True)
 def PyMemoryView_FromObject(space, w_obj):
     w_memview = space.call_method(space.builtin, "memoryview", w_obj)
     py_memview = make_ref(space, w_memview, w_obj)
