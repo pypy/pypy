@@ -190,6 +190,11 @@ FORWARDSTUB = lltype.GcStruct('forwarding_stub',
 FORWARDSTUBPTR = lltype.Ptr(FORWARDSTUB)
 NURSARRAY = lltype.Array(llmemory.Address)
 
+GCTL = lltype.Struct('GCThreadLocal',
+                     ('nursery_free', llmemory.Address),
+                     ('nursery_top', llmemory.Address),
+                     hints={'thread_local': True})
+
 # ____________________________________________________________
 
 class IncrementalMiniMarkGC(MovingGCBase):
@@ -269,11 +274,22 @@ class IncrementalMiniMarkGC(MovingGCBase):
         "card_page_indices": 128,
 
         # Objects whose total size is at least 'large_object' bytes are
-        # allocated out of the nursery immediately, as old objects.  The
-        # minimal allocated size of the nursery is 2x the following
-        # number (by default, at least 132KB on 32-bit and 264KB on 64-bit).
-        "large_object": (16384+512)*WORD,
+        # allocated out of the nursery immediately, as old objects.
+        "large_object": 13000,
+
+        # Thread-local Block size: the nursery is divided into blocks of
+        # at most this size each, and allocations go on in a
+        # thread-local manner inside each block.  "large_object" must be
+        # significantly smaller, but at the same time the total nursery
+        # size must be many times bigger than "tl_block_size"; the minimum
+        # allocated nursery size is 2 times "tl_block_size".
+        # "cache_line_min" is used to round the actual thread-local
+        # blocks to a cache line, to avoid pointless cache conflicts.
+        "tl_block_size": 32768,
+        "cache_line_min": 256,
         }
+
+    tl = lltype.malloc(GCTL, flavor='raw', immortal=True)
 
     def __init__(self, config,
                  read_from_env=False,
@@ -286,6 +302,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                  growth_rate_max=2.5,   # for tests
                  card_page_indices=0,
                  large_object=8*WORD,
+                 tl_block_size=9*WORD,
+                 cache_line_min=1*WORD,
                  ArenaCollectionClass=None,
                  **kwds):
         "NOT_RPYTHON"
@@ -313,10 +331,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # 'large_object' limit how big objects can be in the nursery, so
         # it gives a lower bound on the allowed size of the nursery.
         self.nonlarge_max = large_object - 1
+        self.tl_block_size = tl_block_size
+        self.cache_line_min = cache_line_min
         #
         self.nursery      = llmemory.NULL
-        self.nursery_free = llmemory.NULL
-        self.nursery_top  = llmemory.NULL
+        self.tl.nursery_free = llmemory.NULL
+        self.tl.nursery_top  = llmemory.NULL
         self.debug_tiny_nursery = -1
         self.debug_rotating_nurseries = lltype.nullptr(NURSARRAY)
         self.extra_threshold = 0
@@ -437,7 +457,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         else:
             #
             defaultsize = self.nursery_size
-            minsize = 2 * (self.nonlarge_max + 1)
+            minsize = 2 * self.tl_block_size
             self.nursery_size = minsize
             self.allocate_nursery()
             #
@@ -513,6 +533,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Estimate this number conservatively
             bigobj = self.nonlarge_max + 1
             self.max_number_of_pinned_objects = self.nursery_size / (bigobj * 2)
+        #
+        # Round up
+        ll_assert((self.cache_line_min & (self.cache_line_min - 1)) == 0,
+                  "cache_line_min is not a power a two")
+        self.tl_block_size = ((self.tl_block_size + self.cache_line_min - 1)
+                              & ~(self.cache_line_min - 1))
+
 
     def _nursery_memory_size(self):
         extra = self.nonlarge_max + 1
@@ -532,10 +559,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         debug_start("gc-set-nursery-size")
         debug_print("nursery size:", self.nursery_size)
         self.nursery = self._alloc_nursery()
-        # the current position in the nursery:
-        self.nursery_free = self.nursery
-        # the end of the nursery:
-        self.nursery_top = self.nursery + self.nursery_size
         # initialize the threshold
         self.min_heap_size = max(self.min_heap_size, self.nursery_size *
                                               self.major_collection_threshold)
@@ -608,7 +631,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             llarena.arena_protect(newnurs, self._nursery_memory_size(), False)
             self.nursery = newnurs
-            self.nursery_top = self.nursery + self.nursery_size
             debug_print("switching from nursery", oldnurs,
                         "to nursery", self.nursery,
                         "size", self.nursery_size)
@@ -651,10 +673,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             # Get the memory from the nursery.  If there is not enough space
             # there, do a collect first.
-            result = self.nursery_free
+            result = self.tl.nursery_free
             ll_assert(result != llmemory.NULL, "uninitialized nursery")
-            self.nursery_free = new_free = result + totalsize
-            if new_free > self.nursery_top:
+            self.tl.nursery_free = new_free = result + totalsize
+            if new_free > self.tl.nursery_top:
                 result = self.collect_and_reserve(totalsize)
             #
             # Build the object.
@@ -711,10 +733,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             # Get the memory from the nursery.  If there is not enough space
             # there, do a collect first.
-            result = self.nursery_free
+            result = self.tl.nursery_free
             ll_assert(result != llmemory.NULL, "uninitialized nursery")
-            self.nursery_free = new_free = result + totalsize
-            if new_free > self.nursery_top:
+            self.tl.nursery_free = new_free = result + totalsize
+            if new_free > self.tl.nursery_top:
                 result = self.collect_and_reserve(totalsize)
             #
             # Build the object.
@@ -802,13 +824,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
         Otherwise do a minor collection, and possibly some steps of a
         major collection, and finally reserve totalsize bytes.
         """
-
         minor_collection_count = 0
+        must_downgrade_gil = False
         while True:
-            self.nursery_free = llmemory.NULL      # debug: don't use me
+            self.tl.nursery_free = llmemory.NULL      # debug: don't use me
             # note: no "raise MemoryError" between here and the next time
             # we initialize nursery_free!
 
+            self._gc_lock()
             if self.nursery_barriers.non_empty():
                 # Pinned object in front of nursery_top. Try reserving totalsize
                 # by jumping into the next, yet unused, area inside the
@@ -822,7 +845,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 #     v     v    v  jump over this
                 # +---------+--------+--------+--------+-----------+ }
                 # | used    | pinned | empty  | pinned |  empty    | }- nursery
-                # +---------+--------+--------+--------+-----------+ }
+                # +---------+--------B--------B--------B-----------B }
                 #                       ^- try reserving totalsize in here next
                 #
                 # All pinned objects are represented by entries in
@@ -833,15 +856,21 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # totalsize) starts at the end of the pinned object and ends at
                 # nursery's end.
                 #
-                # find the size of the pinned object after nursery_top
-                size_gc_header = self.gcheaderbuilder.size_gc_header
-                pinned_obj_size = size_gc_header + self.get_size(
-                        self.nursery_top + size_gc_header)
+                # In the diagram above, self.nursery_barriers contains
+                # four addresses which match the four "B".
                 #
                 # update used nursery space to allocate objects
-                self.nursery_free = self.nursery_top + pinned_obj_size
-                self.nursery_top = self.nursery_barriers.popleft()
+                self.tl.nursery_free = self.nursery_barriers.popleft()
+                self.tl.nursery_top = self.nursery_barriers.popleft()
+                self._gc_unlock()
+                prev_gil = False
             else:
+                self._gc_unlock()
+                if not llop.gil_is_exclusive(lltype.Bool):
+                    ll_assert(not must_downgrade_gil,
+                              "collect_and_reverse: bad gil state")
+                    must_downgrade_gil = llop.gil_wait(lltype.Bool)
+                    continue      # waited, maybe the situation changed
                 minor_collection_count += 1
                 if minor_collection_count == 1:
                     self.minor_collection_with_major_progress()
@@ -868,16 +897,18 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Tried to do something about nursery_free overflowing
             # nursery_top before this point. Try to reserve totalsize now.
             # If this succeeds break out of loop.
-            result = self.nursery_free
-            if self.nursery_free + totalsize <= self.nursery_top:
-                self.nursery_free = result + totalsize
-                ll_assert(self.nursery_free <= self.nursery_top, "nursery overflow")
+            result = self.tl.nursery_free
+            if self.tl.nursery_free + totalsize <= self.tl.nursery_top:
+                self.tl.nursery_free = result + totalsize
+                ll_assert(self.tl.nursery_free <= self.tl.nursery_top, "nursery overflow")
                 break
             #
+        if must_downgrade_gil:
+            llop.gil_downgrade(lltype.Void)
         #
         if self.debug_tiny_nursery >= 0:   # for debugging
-            if self.nursery_top - self.nursery_free > self.debug_tiny_nursery:
-                self.nursery_free = self.nursery_top - self.debug_tiny_nursery
+            if self.tl.nursery_top - self.tl.nursery_free > self.debug_tiny_nursery:
+                self.tl.nursery_free = self.tl.nursery_top - self.debug_tiny_nursery
         #
         return result
     collect_and_reserve._dont_inline_ = True
@@ -1037,7 +1068,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if self.next_major_collection_threshold < 0:
             # cannot trigger a full collection now, but we can ensure
             # that one will occur very soon
-            self.nursery_free = self.nursery_top
+            self.tl.nursery_free = self.tl.nursery_top
 
     def can_optimize_clean_setarrayitems(self):
         if self.card_page_indices > 0:
@@ -1144,7 +1175,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # Check if the object at 'addr' is young.
         if not self.is_valid_gc_object(addr):
             return False     # filter out tagged pointers explicitly.
-        if self.nursery <= addr < self.nursery_top:
+        if self.nursery <= addr < self.nursery + self.nursery_size:
             return True      # addr is in the nursery
         # Else, it may be in the set 'young_rawmalloced_objects'
         return (bool(self.young_rawmalloced_objects) and
@@ -1756,51 +1787,82 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # pointer.
         size_gc_header = self.gcheaderbuilder.size_gc_header
         nursery_barriers = self.AddressDeque()
-        prev = self.nursery
-        self.surviving_pinned_objects.sort()
+        if self.surviving_pinned_objects.non_empty():
+            self.surviving_pinned_objects.sort()
+            next_pinned_object = self.surviving_pinned_objects.pop()
+        else:
+            next_pinned_object = llmemory.NULL
         ll_assert(
             self.pinned_objects_in_nursery == \
             self.surviving_pinned_objects.length(),
             "pinned_objects_in_nursery != surviving_pinned_objects.length()")
-        while self.surviving_pinned_objects.non_empty():
+
+        # The following loop divides the nursery into small blocks whose
+        # size is generally about 'self.tl_block_size', but skipping
+        # over any pinned object.  Depending on the position of pinned
+        # objects, it is possible that one or two of these blocks are
+        # unusable because they are too small, but it should not matter.
+        prev = self.nursery
+        full_end = self.nursery + self.nursery_size
+
+        while True:
+            # Round up 'prev' to a multiple of 'cache_line_min'
+            prev_num = llmemory.cast_adr_to_int(prev)
+            prev += (-prev_num) & (self.cache_line_min - 1)
             #
-            cur = self.surviving_pinned_objects.pop()
-            ll_assert(
-                cur >= prev, "pinned objects encountered in backwards order")
+            # Compute the next TL block limit as 'cur1' and 'cur2'.
+            # These two addresses are normally equal to each other,
+            # but if there is a pinned object, then 'cur1' is the
+            # start of the pinned object and 'cur2' the end.
             #
-            # clear the arena between the last pinned object (or arena start)
-            # and the pinned object
-            pinned_obj_size = llarena.getfakearenaaddress(cur) - prev
-            if self.gc_nursery_debug:
-                llarena.arena_reset(prev, pinned_obj_size, 3)
+            if full_end - prev <= block_size:
+                cur1 = full_end
             else:
-                llarena.arena_reset(prev, pinned_obj_size, 0)
+                cur1 = prev + block_size
             #
-            # clean up object's flags
-            obj = cur + size_gc_header
-            self.header(obj).tid &= ~GCFLAG_VISITED
+            if next_pinned_object and next_pinned_object <= cur1:
+                cur1 = next_pinned_object
+                if self.surviving_pinned_objects.non_empty():
+                    next_pinned_object = self.surviving_pinned_objects.pop()
+                else:
+                    next_pinned_object = llmemory.NULL
+                ll_assert(cur1 >= prev,
+                          "pinned objects encountered in backwards order")
+                # clean up object's flags
+                obj = cur1 + size_gc_header
+                self.header(obj).tid &= ~GCFLAG_VISITED
+                # set up 'cur1' and 'cur2'
+                cur1 = llarena.getfakearenaaddress(cur1)
+                cur2 = cur1 + (size_gc_header + self.get_size(obj))
+            else:
+                # no pinned object in this TL block.
+                cur2 = cur1
+            #
+            # clear this block in the arena
+            free_range_size = cur1 - prev
+            if self.gc_nursery_debug:
+                llarena.arena_reset(prev, free_range_size, 3)
+            else:
+                llarena.arena_reset(prev, free_range_size, 0)
             #
             # create a new nursery barrier for the pinned object
-            nursery_barriers.append(cur)
+            nursery_barriers.append(cur1)    # pinned object
+            if cur1 == full_end:
+                break
+            nursery_barriers.append(cur2)    # end of pinned object
             #
-            # update 'prev' to the end of the 'cur' object
-            prev = prev + pinned_obj_size + \
-                (size_gc_header + self.get_size(obj))
+            # update 'prev' for the next iteration
+            prev = cur2
         #
-        # reset everything after the last pinned object till the end of the arena
+        ll_assert(not next_pinned_object, "bad pinned object location")
         if self.gc_nursery_debug:
-            llarena.arena_reset(prev, self.nursery + self.nursery_size - prev, 3)
             if not nursery_barriers.non_empty():   # no pinned objects
                 self.debug_rotate_nursery()
-        else:
-            llarena.arena_reset(prev, self.nursery + self.nursery_size - prev, 0)
-        #
-        # always add the end of the nursery to the list
-        nursery_barriers.append(self.nursery + self.nursery_size)
         #
         self.nursery_barriers = nursery_barriers
         self.surviving_pinned_objects.delete()
         #
+        XXX must clear out the other threads nursery_free/nursery_top
         self.nursery_free = self.nursery
         self.nursery_top = self.nursery_barriers.popleft()
         #
