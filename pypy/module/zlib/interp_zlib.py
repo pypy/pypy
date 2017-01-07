@@ -122,9 +122,7 @@ class Compress(ZLibObject):
         ZLibObject.__init__(self, space)
         try:
             self.stream = rzlib.deflateInit(level, method, wbits,
-                                            memLevel, strategy)
-            if zdict is not None:
-                rzlib.deflateSetDictionary(self.stream, zdict)
+                                            memLevel, strategy, zdict=zdict)
         except rzlib.RZlibError as e:
             raise zlib_error(space, e.msg)
         except ValueError:
@@ -242,7 +240,7 @@ class Decompress(ZLibObject):
         self.unconsumed_tail = ''
         self.eof = False
         try:
-            self.stream = rzlib.inflateInit(wbits)
+            self.stream = rzlib.inflateInit(wbits, zdict=zdict)
         except rzlib.RZlibError as e:
             raise zlib_error(space, e.msg)
         except ValueError:
