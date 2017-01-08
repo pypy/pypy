@@ -923,8 +923,10 @@ class __extend__(pyframe.PyFrame):
 
     @dont_inline
     def _load_global_failed(self, w_varname):
+        # CPython Issue #17032: The "global" in the "NameError: global
+        # name 'x' is not defined" error message has been removed.
         raise oefmt(self.space.w_NameError,
-                    "global name %R is not defined", w_varname)
+                    "name %R is not defined", w_varname)
 
     @always_inline
     def LOAD_GLOBAL(self, nameindex, next_instr):
