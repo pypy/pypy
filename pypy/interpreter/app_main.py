@@ -586,7 +586,7 @@ def run_command_line(interactive,
 
     pythonwarnings = readenv and os.getenv('PYTHONWARNINGS')
     if pythonwarnings:
-        warnoptions.extend(pythonwarnings.split(','))
+        warnoptions = pythonwarnings.split(',') + warnoptions
     if warnoptions:
         sys.warnoptions[:] = warnoptions
         from warnings import _processoptions
