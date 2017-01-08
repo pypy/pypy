@@ -6,12 +6,12 @@ import os
 import errno
 
 from pypy.interpreter.error import (
-    OperationError, exception_from_saved_errno, oefmt)
+    OperationError, exception_from_saved_errno, oefmt, wrap_oserror)
 from pypy.interpreter.executioncontext import (AsyncAction, AbstractActionFlag,
     PeriodicAsyncAction)
 from pypy.interpreter.gateway import unwrap_spec
 
-from rpython.rlib import jit, rgc
+from rpython.rlib import jit, rgc, rposix, rposix_stat
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import intmask, widen
 from rpython.rlib.rsignal import *
@@ -241,7 +241,7 @@ def signal(space, signum, w_handler):
 
 
 @jit.dont_look_inside
-@unwrap_spec(fd=int)
+@unwrap_spec(fd="c_int")
 def set_wakeup_fd(space, fd):
     """Sets the fd to be written to (with the signal number) when a signal
     comes in.  Returns the old fd.  A library can use this to
@@ -254,11 +254,19 @@ def set_wakeup_fd(space, fd):
                     "set_wakeup_fd only works in main thread or with "
                     "__pypy__.thread.enable_signals()")
     if fd != -1:
+        if not rposix.is_valid_fd(fd):
+            raise oefmt(space.w_ValueError, "invalid fd")
         try:
             os.fstat(fd)
+            flags = rposix.get_status_flags(fd)
         except OSError as e:
             if e.errno == errno.EBADF:
                 raise oefmt(space.w_ValueError, "invalid fd")
+            raise wrap_oserror(space, e, eintr_retry=False)
+        if flags & rposix.O_NONBLOCK == 0:
+            raise oefmt(space.w_ValueError,
+                        "the fd %d must be in non-blocking mode", fd)
+
     old_fd = pypysig_set_wakeup_fd(fd, False)
     return space.wrap(intmask(old_fd))
 
