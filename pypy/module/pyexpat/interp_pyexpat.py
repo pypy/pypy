@@ -741,7 +741,7 @@ information passed to the ExternalEntityRefHandler."""
     def get_buffer_size(self, space):
         return space.wrap(self.buffer_size)
     def set_buffer_size(self, space, w_value):
-        value = space.getindex_w(w_value, space.w_TypeError)
+        value = space.getindex_w(w_value, space.w_OverflowError)
         if value <= 0:
             raise oefmt(space.w_ValueError,
                         "buffer_size must be greater than zero")

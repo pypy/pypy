@@ -89,7 +89,7 @@ class AppTestPyexpat:
         p = pyexpat.ParserCreate()
         p.buffer_size = 150
         assert p.buffer_size == 150
-        raises((ValueError, TypeError),
+        raises(OverflowError,
                setattr, p, 'buffer_size', sys.maxsize + 1)
 
     def test_encoding_xml(self):
