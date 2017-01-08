@@ -1009,6 +1009,7 @@ import gc; gc.collect()
         rc, out, err = assert_python_ok("-c", code)
         self.assertEqual(err, b'-c:7: UserWarning: test')
 
+    @support.cpython_only
     def test_late_resource_warning(self):
         # Issue #21925: Emitting a ResourceWarning late during the Python
         # shutdown must be logged.
