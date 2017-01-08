@@ -561,8 +561,9 @@ class CWarnTests(WarnTests, unittest.TestCase):
     # As an early adopter, we sanity check the
     # test.support.import_fresh_module utility function
     def test_accelerated(self):
+        import types
         self.assertFalse(original_warnings is self.module)
-        self.assertFalse(hasattr(self.module.warn, '__code__'))
+        self.assertIs(type(self.module.warn), types.BuiltinFunctionType)
 
 class PyWarnTests(WarnTests, unittest.TestCase):
     module = py_warnings
@@ -570,8 +571,9 @@ class PyWarnTests(WarnTests, unittest.TestCase):
     # As an early adopter, we sanity check the
     # test.support.import_fresh_module utility function
     def test_pure_python(self):
+        import types
         self.assertFalse(original_warnings is self.module)
-        self.assertTrue(hasattr(self.module.warn, '__code__'))
+        self.assertIs(type(self.module.warn), types.FunctionType)
 
 
 class WCmdLineTests(BaseTest):
