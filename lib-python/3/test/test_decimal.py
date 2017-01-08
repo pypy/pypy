@@ -4808,15 +4808,24 @@ class CWhitebox(unittest.TestCase):
         self.assertRaises(OverflowError, Context, Emax=int_max+1)
         self.assertRaises(OverflowError, Context, Emin=-int_max-2)
         self.assertRaises(OverflowError, Context, clamp=int_max+1)
-        self.assertRaises(OverflowError, Context, capitals=int_max+1)
+        self.assertRaises((OverflowError, ValueError),
+                                         Context, capitals=int_max+1)
 
         # OverflowError, general ValueError
         for attr in ('prec', 'Emin', 'Emax', 'capitals', 'clamp'):
-            self.assertRaises(OverflowError, setattr, c, attr, int_max+1)
-            self.assertRaises(OverflowError, setattr, c, attr, -int_max-2)
+            if attr == 'capitals':
+                err = (OverflowError, ValueError)
+            else:
+                err = OverflowError
+            self.assertRaises(err, setattr, c, attr, int_max+1)
+            self.assertRaises(err, setattr, c, attr, -int_max-2)
             if sys.platform != 'win32':
-                self.assertRaises(ValueError, setattr, c, attr, int_max)
-                self.assertRaises(ValueError, setattr, c, attr, -int_max-1)
+                if attr == 'clamp':
+                    err = (ValueError, OverflowError)
+                else:
+                    err = ValueError
+                self.assertRaises(err, setattr, c, attr, int_max)
+                self.assertRaises(err, setattr, c, attr, -int_max-1)
 
         # OverflowError: _unsafe_setprec, _unsafe_setemin, _unsafe_setemax
         if C.MAX_PREC == 425000000:
@@ -4845,8 +4854,9 @@ class CWhitebox(unittest.TestCase):
             self.assertRaises(ValueError, setattr, c, attr, 2)
             self.assertRaises(TypeError, setattr, c, attr, [1,2,3])
             if HAVE_CONFIG_64:
-                self.assertRaises(ValueError, setattr, c, attr, 2**32)
-                self.assertRaises(ValueError, setattr, c, attr, 2**32+1)
+                err = (ValueError, OverflowError)
+                self.assertRaises(err, setattr, c, attr, 2**32)
+                self.assertRaises(err, setattr, c, attr, 2**32+1)
 
         # Invalid local context
         self.assertRaises(TypeError, exec, 'with localcontext("xyz"): pass',
