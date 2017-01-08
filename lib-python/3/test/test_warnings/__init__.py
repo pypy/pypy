@@ -1003,12 +1003,11 @@ class A:
     def __del__(self):
         warn("test")
 
-a=A()
+A()
+import gc; gc.collect()
         """
         rc, out, err = assert_python_ok("-c", code)
-        # note: "__main__" filename is not correct, it should be the name
-        # of the script
-        self.assertEqual(err, b'__main__:7: UserWarning: test')
+        self.assertEqual(err, b'-c:7: UserWarning: test')
 
     def test_late_resource_warning(self):
         # Issue #21925: Emitting a ResourceWarning late during the Python
