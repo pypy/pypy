@@ -4185,7 +4185,9 @@ class CheckAttributes(unittest.TestCase):
 
         x = [s for s in dir(C.Context()) if '__' in s or not s.startswith('_')]
         y = [s for s in dir(P.Context()) if '__' in s or not s.startswith('_')]
-        self.assertEqual(set(x) - set(y), set())
+        extra = set(x) - set(y)
+        extra.discard('__slots__')
+        self.assertEqual(extra, set())
 
     def test_decimal_attributes(self):
 
