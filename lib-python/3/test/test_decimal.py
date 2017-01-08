@@ -4039,6 +4039,11 @@ class ContextInputValidation(unittest.TestCase):
         self.assertRaises(TypeError, Context, flags=(0,1))
         self.assertRaises(TypeError, Context, traps=(1,0))
 
+    def test_context_from_signaldict(self):
+        ctx = self.decimal.Context()
+        ctx2 = self.decimal.Context(flags=ctx.flags)
+        assert ctx.flags == ctx2.flags
+
 class CContextInputValidation(ContextInputValidation):
     decimal = C
 class PyContextInputValidation(ContextInputValidation):
