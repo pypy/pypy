@@ -1086,26 +1086,30 @@ class Context(object):
 
         if traps is None:
             ctx.traps = dc.traps
-        elif not isinstance(traps, dict):
+        elif isinstance(traps, list):
             ctx.traps = 0
             for signal in traps:
                 ctx.traps |= _SIGNALS[signal]
-        else:
+        elif isinstance(traps, dict):
             ctx.traps = 0
             for signal, value in traps.items():
                 if value:
                     ctx.traps |= _SIGNALS[signal]
+        else:
+            self.traps = traps
 
         if flags is None:
             ctx.status = 0
-        elif not isinstance(flags, dict):
+        elif isinstance(flags, list):
             ctx.status = 0
             for signal in flags:
                 ctx.status |= _SIGNALS[signal]
-        else:
+        elif isinstance(flags, dict):
             for signal, value in flags.items():
                 if value:
                     ctx.status |= _SIGNALS[signal]
+        else:
+            self.flags = flags
 
     def clear_flags(self):
         self._ctx.status = 0
