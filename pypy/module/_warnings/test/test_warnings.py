@@ -80,3 +80,10 @@ class AppTestWarnings:
         _warnings.warn('test', UserWarning)
         globals()['__file__'] = None
         _warnings.warn('test', UserWarning)
+
+    def test_bad_category(self):
+        import _warnings
+        raises(TypeError, _warnings.warn, "text", 123)
+        class Foo:
+            pass
+        raises(TypeError, _warnings.warn, "text", Foo)

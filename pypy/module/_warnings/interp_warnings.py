@@ -69,12 +69,12 @@ def get_category(space, w_message, w_category):
     # Validate category
     try:
         if not space.abstract_issubclass_w(w_category, space.w_Warning):
-            raise oefmt(space.w_ValueError,
+            raise oefmt(space.w_TypeError,
                         "category is not a subclass of Warning")
     except OperationError as e:
         if e.async(space):
             raise
-        raise oefmt(space.w_ValueError,
+        raise oefmt(space.w_TypeError,
                     "category must be a Warning subclass, not '%T'",
                     w_category)
 
