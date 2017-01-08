@@ -35,7 +35,7 @@ import locale
 from test.support import (run_unittest, run_doctest, is_resource_enabled,
                           requires_IEEE_754, requires_docstrings)
 from test.support import (check_warnings, import_fresh_module, TestFailed,
-                          run_with_locale, cpython_only)
+                          run_with_locale, cpython_only, check_impl_detail)
 import random
 import time
 import warnings
@@ -5452,6 +5452,7 @@ class SignatureTest(unittest.TestCase):
 
         POS = inspect._ParameterKind.POSITIONAL_ONLY
         POS_KWD = inspect._ParameterKind.POSITIONAL_OR_KEYWORD
+        KWONLY = inspect._ParameterKind.KEYWORD_ONLY
 
         # Type heuristic (type annotations would help!):
         pdict = {C: {'other': C.Decimal(1),
@@ -5489,6 +5490,8 @@ class SignatureTest(unittest.TestCase):
                     args.append(pdict[module][name])
                 elif param.kind == POS_KWD:
                     kwargs[name] = pdict[module][name]
+                elif param.kind == KWONLY:
+                    pass
                 else:
                     raise TestFailed("unexpected parameter kind")
             return args, kwargs
@@ -5517,15 +5520,26 @@ class SignatureTest(unittest.TestCase):
                     p_names = list(p_sig.parameters.keys())
                     c_names = [tr(x) for x in c_sig.parameters.keys()]
 
-                    self.assertEqual(c_names, p_names,
-                                     msg="parameter name mismatch in %s" % p_func)
-
                     p_kind = [x.kind for x in p_sig.parameters.values()]
                     c_kind = [x.kind for x in c_sig.parameters.values()]
 
+                    if check_impl_detail(pypy=True):
+                        # PyPy only: _decimal.py has some methods with
+                        # an extra keyword-only argument 'strict', which
+                        # we ignore here
+                        if c_names[-1:] == ['strict'] and c_kind[-1] == KWONLY:
+                            del c_names[-1]
+                            del c_kind[-1]
+
+                    self.assertEqual(c_names, p_names,
+                                     msg="parameter name mismatch in %s" % p_func)
+
                     # 'self' parameter:
                     self.assertIs(p_kind[0], POS_KWD)
-                    self.assertIs(c_kind[0], POS)
+                    if check_impl_detail(cpython=True):
+                        self.assertIs(c_kind[0], POS)
+                    else:
+                        self.assertIs(c_kind[0], POS_KWD)
 
                     # remaining parameters:
                     if ty == 'Decimal':

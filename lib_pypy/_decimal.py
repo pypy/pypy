@@ -1264,7 +1264,7 @@ class Context(object):
         return Decimal._from_float(value, self, exact=False)
 
     # operations
-    def _convert_unaryop(self, a, strict=True):
+    def _convert_unaryop(self, a, *, strict=True):
         if isinstance(a, Decimal):
             return a
         elif isinstance(a, int):
@@ -1274,7 +1274,7 @@ class Context(object):
         else:
             return NotImplemented
 
-    def _convert_binop(self, a, b, strict=True):
+    def _convert_binop(self, a, b, *, strict=True):
         a = self._convert_unaryop(a, strict=strict)
         b = self._convert_unaryop(b, strict=strict)
         if b is NotImplemented:
@@ -1441,7 +1441,7 @@ class Context(object):
             _mpdec.mpd_qfinalize(result._mpd, ctx, status_ptr)
         return result
 
-    def divmod(self, a, b, strict=True):
+    def divmod(self, a, b, *, strict=True):
         a, b = self._convert_binop(a, b, strict=strict)
         if a is NotImplemented:
             return NotImplemented
@@ -1452,7 +1452,7 @@ class Context(object):
                                ctx, status_ptr)
         return q, r
 
-    def power(self, a, b, modulo=None, strict=True):
+    def power(self, a, b, modulo=None, *, strict=True):
         a, b = self._convert_binop(a, b, strict=strict)
         if a is NotImplemented:
             return NotImplemented
