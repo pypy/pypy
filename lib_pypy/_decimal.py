@@ -1260,8 +1260,8 @@ class Context(object):
     def create_decimal(self, num="0"):
         return Decimal._from_object(num, self, exact=False)
 
-    def create_decimal_from_float(self, value):
-        return Decimal._from_float(value, self, exact=False)
+    def create_decimal_from_float(self, f):
+        return Decimal._from_float(f, self, exact=False)
 
     # operations
     def _convert_unaryop(self, a, *, strict=True):
