@@ -102,9 +102,10 @@ __libmpdec_version__ = _ffi.string(_mpdec.mpd_version())
 # Default context
 
 import threading
-local = threading.local()
+__local = threading.local()
+del threading
 
-def getcontext(*, _local=local):
+def getcontext():
     """Returns this thread's context.
     
     If this thread does not yet have a context, returns
@@ -112,10 +113,10 @@ def getcontext(*, _local=local):
     New contexts are copies of DefaultContext.
     """
     try:
-        return _local.__decimal_context__
+        return __local.__decimal_context__
     except AttributeError:
         context = Context()
-        _local.__decimal_context__ = context
+        __local.__decimal_context__ = context
         return context
 
 def _getcontext(context=None):
@@ -125,17 +126,14 @@ def _getcontext(context=None):
         raise TypeError
     return context
 
-def setcontext(context, *, _local=local):
+def setcontext(context):
     """Set this thread's context to context."""
     if context in (DefaultContext, BasicContext, ExtendedContext):
         context = context.copy()
         context.clear_flags()
     if not isinstance(context, Context):
         raise TypeError
-    _local.__decimal_context__ = context
-
-
-del local, threading
+    __local.__decimal_context__ = context
 
 def localcontext(ctx=None):
     """Return a context manager for a copy of the supplied context.
@@ -1042,7 +1040,9 @@ class Context(object):
 
     __slots__ = ('_ctx', '_capitals')
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, prec=None, rounding=None, Emin=None, Emax=None,
+                capitals=None, clamp=None, flags=None, traps=None):
+        # NOTE: the arguments are ignored here, they are used in __init__()
         self = object.__new__(cls)
         self._ctx = ctx = _ffi.new("struct mpd_context_t*")
         # Default context
