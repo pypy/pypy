@@ -423,6 +423,12 @@ class AppTestStruct(object):
         raises(struct.error, s.iter_unpack, b'123')
         raises(struct.error, struct.iter_unpack, 'h', b'12345')
 
+    def test_iter_unpack_empty_struct(self):
+        struct = self.struct
+        s = struct.Struct('')
+        raises(struct.error, s.iter_unpack, b'')
+        raises(struct.error, s.iter_unpack, b'?')
+
     def test___float__(self):
         class MyFloat(object):
             def __init__(self, x):
