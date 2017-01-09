@@ -447,9 +447,12 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
         else:
             c_name = func.__name__
 
-        unwrapper = _create_api_func(
+        api_function = _create_api_func(
             func, argtypes, restype, error, c_name, gil, result_borrowed,
             result_is_ll)
+        unwrapper = api_function.get_unwrapper()
+        unwrapper.func = func
+        unwrapper.api_func = api_function
 
         # ZZZ is this whole logic really needed???  It seems to be only
         # for RPython code calling PyXxx() functions directly.  I would
@@ -473,7 +476,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
             return res
 
         if header is not None:
-            FUNCTIONS_BY_HEADER[header][func.__name__] = unwrapper.api_func
+            FUNCTIONS_BY_HEADER[header][func.__name__] = api_function
             INTERPLEVEL_API[func.__name__] = unwrapper_catch  # used in tests
         return unwrapper
     return decorate
@@ -495,14 +498,9 @@ def _create_api_func(
         error = rffi.cast(real_restype, error)
 
     func._always_inline_ = 'try'
-    api_function = ApiFunction(argtypes, restype, func, error,
-                                c_name=c_name, gil=gil,
-                                result_borrowed=result_borrowed,
-                                result_is_ll=result_is_ll)
-    unwrapper = api_function.get_unwrapper()
-    unwrapper.func = func
-    unwrapper.api_func = api_function
-    return unwrapper
+    return ApiFunction(
+        argtypes, restype, func, error, c_name=c_name, gil=gil,
+        result_borrowed=result_borrowed, result_is_ll=result_is_ll)
 
 
 def cpython_struct(name, fields, forward=None, level=1):
