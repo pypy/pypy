@@ -405,7 +405,25 @@ class Y:
     __class__ = 42
 def testing():
     return Y.__dict__['__class__']
-'''
+''', '''
+class X:
+    foobar = 42
+    def f(self):
+        return __class__.__dict__['foobar']
+def testing():
+    return X().f()
+''',
+#--------XXX the following case is not implemented for now
+#'''
+#class X:
+#    foobar = 42
+#    def f(self):
+#        class Y:
+#            Xcls = __class__
+#        return Y.Xcls.__dict__['foobar']
+#def testing():
+#    return X().f()
+#'''
         ]:
             space.call_args(w_filterwarnings, filter_arg)
             pycode = self.compiler.compile(code, '<tmp>', 'exec', 0)
