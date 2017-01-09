@@ -4,10 +4,11 @@ import os
 import time
 from zipfile import ZIP_STORED
 
+from pypy.interpreter.test.test_fsencode import BaseFSEncodeTest
 from rpython.tool.udir import udir
 
 
-class AppTestZipimport:
+class AppTestZipimport(BaseFSEncodeTest):
     """ A bit structurized tests stolen and adapted from
     cpy's regression tests
     """
@@ -19,6 +20,7 @@ class AppTestZipimport:
 
     @classmethod
     def make_class(cls):
+        BaseFSEncodeTest.setup_class.im_func(cls)
         space = cls.space
         w = space.wrap
 
