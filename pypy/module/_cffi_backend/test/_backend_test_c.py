@@ -3427,16 +3427,26 @@ def test_from_buffer_not_str_unicode():
     except ImportError:
         pass
     else:
-        # from_buffer(buffer(b"foo")) does not work, because it's not
-        # implemented on pypy; only from_buffer(b"foo") works.
-        py.test.raises(TypeError, from_buffer, BCharA, buffer(b"foo"))
-        py.test.raises(TypeError, from_buffer, BCharA, buffer(u+"foo"))
+        # Python 2 only
+        contents = from_buffer(BCharA, buffer(b"foo"))
+        assert len(contents) == len(p1)
+        for i in range(len(contents)):
+            assert contents[i] == p1[i]
+        p4 = buffer(u+"foo")
+        contents = from_buffer(BCharA, buffer(u+"foo"))
+        assert len(contents) == len(p4)
+        for i in range(len(contents)):
+            assert contents[i] == p4[i]
     try:
         from __builtin__ import memoryview
     except ImportError:
         pass
     else:
-        py.test.raises(TypeError, from_buffer, BCharA, memoryview(b"foo"))
+        contents = from_buffer(BCharA, memoryview(b"foo"))
+        assert len(contents) == len(p1)
+        for i in range(len(contents)):
+            assert contents[i] == p1[i]
+
 
 def test_from_buffer_bytearray():
     a = bytearray(b"xyz")

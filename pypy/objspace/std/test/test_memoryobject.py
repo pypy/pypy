@@ -185,9 +185,10 @@ class AppTestMemoryView:
         assert m[2] == 1
 
     def test_pypy_raw_address_base(self):
-        raises(ValueError, memoryview(b"foobar")._pypy_raw_address)
-        a = memoryview(bytearray(b"foobar"))._pypy_raw_address()
+        a = memoryview("foobar")._pypy_raw_address()
         assert a != 0
+        b = memoryview(bytearray("foobar"))._pypy_raw_address()
+        assert b != 0
 
     def test_hex(self):
         assert memoryview(b"abc").hex() == u'616263'

@@ -874,6 +874,16 @@ class AppTestBytesObject:
         s = b"a" * (2**16)
         raises(OverflowError, s.replace, b"", s)
 
+    def test_replace_issue2448(self):
+        # CPython's replace() method has a bug that makes
+        #   ''.replace('', 'x')  gives a different answer than
+        #   ''.replace('', 'x', 1000).  This is the case in all
+        # known versions, at least until 2.7.13.  Some people
+        # call that a feature on the CPython issue report and
+        # the discussion dies out, so it might never be fixed.
+        assert ''.replace('', 'x') == 'x'
+        assert ''.replace('', 'x', 1000) == ''
+
     def test_getslice(self):
         s = b"abc"
         assert s[:] == b"abc"

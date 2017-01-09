@@ -428,11 +428,6 @@ Miscellaneous
   ``datetime.date`` is the superclass of ``datetime.datetime``).
   Anyway, the proper fix is arguably to use a regular method call in
   the first place: ``datetime.date.today().strftime(...)``
-
-* the ``__dict__`` attribute of new-style classes returns a normal dict, as
-  opposed to a dict proxy like in CPython. Mutating the dict will change the
-  type and vice versa. For builtin types, a dictionary will be returned that
-  cannot be changed (but still looks and behaves like a normal dictionary).
   
 * some functions and attributes of the ``gc`` module behave in a
   slightly different way: for example, ``gc.enable`` and

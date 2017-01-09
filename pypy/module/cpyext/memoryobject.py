@@ -37,8 +37,24 @@ def memory_attach(space, py_obj, w_obj, w_userdata=None):
     """
     Fills a newly allocated PyMemoryViewObject with the given W_MemoryView object.
     """
+    assert isinstance(w_obj, W_MemoryView)
     py_obj = rffi.cast(PyMemoryViewObject, py_obj)
-    py_obj.c_view.c_obj = rffi.cast(PyObject, 0)
+    view = py_obj.c_view
+    ndim = w_obj.buf.getndim()
+    if ndim >= Py_MAX_NDIMS:
+        # XXX warn?
+        return
+    fill_Py_buffer(space, w_obj.buf, view)
+    try:
+        view.c_buf = rffi.cast(rffi.VOIDP, w_obj.buf.get_raw_address())
+        view.c_obj = make_ref(space, w_userdata)
+        rffi.setintfield(view, 'c_readonly', w_obj.buf.readonly)
+    except ValueError:
+        w_s = w_obj.descr_tobytes(space)
+        view.c_obj = make_ref(space, w_s)
+        view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(space.str_w(w_s),
+                                             track_allocation=False))
+        rffi.setintfield(view, 'c_readonly', 1)
 
 def memory_realize(space, py_obj):
     """
@@ -79,29 +95,13 @@ def PyObject_GetBuffer(space, exporter, view, flags):
     return generic_cpy_call(space, pb.c_bf_getbuffer, exporter, view, flags)
 
 @cpython_api([PyObject], Py_bufferP, error=CANNOT_FAIL)
-def PyMemoryView_GET_BUFFER(space, w_obj):
+def PyMemoryView_GET_BUFFER(space, pyobj):
     """Return a pointer to the buffer-info structure wrapped by the given
     object.  The object must be a memoryview instance; this macro doesn't
     check its type, you must do it yourself or you will risk crashes."""
-    if not isinstance(w_obj, W_MemoryView):
-        return lltype.nullptr(Py_buffer)
-    py_memobj = rffi.cast(PyMemoryViewObject, as_pyobj(space, w_obj)) # no inc_ref
-    view = py_memobj.c_view
-    ndim = w_obj.buf.getndim()
-    if ndim >= Py_MAX_NDIMS:
-        # XXX warn?
-        return view
-    fill_Py_buffer(space, w_obj.buf, view)
-    try:
-        view.c_buf = rffi.cast(rffi.VOIDP, w_obj.buf.get_raw_address())
-        #view.c_obj = make_ref(space, w_obj) # NO - this creates a ref cycle!
-        rffi.setintfield(view, 'c_readonly', w_obj.buf.readonly)
-    except ValueError:
-        w_s = w_obj.descr_tobytes(space)
-        view.c_obj = make_ref(space, w_s)
-        view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(space.str_w(w_s), track_allocation=False))
-        rffi.setintfield(view, 'c_readonly', 1)
-    return view
+    # XXX move to a c-macro
+    py_memobj = rffi.cast(PyMemoryViewObject, pyobj)
+    return py_memobj.c_view
 
 def fill_Py_buffer(space, buf, view):
     # c_buf, c_obj have been filled in
@@ -193,9 +193,11 @@ def PyBuffer_IsContiguous(space, view, fort):
         return (_IsCContiguous(view) or _IsFortranContiguous(view))
     return 0
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, result_is_ll=True)
 def PyMemoryView_FromObject(space, w_obj):
-    return space.call_method(space.builtin, "memoryview", w_obj)
+    w_memview = space.call_method(space.builtin, "memoryview", w_obj)
+    py_memview = make_ref(space, w_memview, w_obj)
+    return py_memview
 
 @cpython_api([Py_bufferP], PyObject)
 def PyMemoryView_FromBuffer(space, view):
@@ -203,6 +205,7 @@ def PyMemoryView_FromBuffer(space, view):
     The memoryview object then owns the buffer represented by view, which
     means you shouldn't try to call PyBuffer_Release() yourself: it
     will be done on deallocation of the memoryview object."""
+	assert view.c_obj
     w_obj = from_ref(space, view.c_obj)
     if isinstance(w_obj, W_MemoryView):
         return w_obj

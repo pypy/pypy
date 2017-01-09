@@ -494,7 +494,7 @@ class W_Socket(W_Root):
         while True:
             try:
                 addr = self.addr_from_object(space, w_addr)
-                count = self.sock.sendto(data, flags, addr)
+                count = self.sock.sendto(data, len(data), flags, addr)
                 break
             except SocketError as e:
                 converted_error(space, e, eintr_retry=True)

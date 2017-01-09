@@ -541,6 +541,10 @@ class StringMethods(object):
 
         sub = self._op_val(space, w_old)
         by = self._op_val(space, w_new)
+        # the following two lines are for being bug-to-bug compatible
+        # with CPython: see issue #2448
+        if count >= 0 and len(input) == 0:
+            return self._empty()
         try:
             res = replace(input, sub, by, count)
         except OverflowError:

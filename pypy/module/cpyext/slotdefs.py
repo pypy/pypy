@@ -7,7 +7,7 @@ from rpython.rlib.rarithmetic import widen
 from rpython.rlib import rgc # Force registration of gc.collect
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, PyObject, Py_ssize_t,
-    Py_buffer, mangle_name, pypy_decl)
+    pypy_decl, Py_buffer, Py_bufferP)
 from pypy.module.cpyext.typeobjectdefs import (
     unaryfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc,
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
@@ -342,7 +342,7 @@ class CPyBuffer(Buffer):
         else:
             #do not call twice
             return
-        if self.releasebufferproc:        
+        if self.releasebufferproc:
             func_target = rffi.cast(releasebufferproc, self.releasebufferproc)
             with lltype.scoped_alloc(Py_buffer) as pybuf:
                 pybuf.c_buf = self.ptr
@@ -407,7 +407,7 @@ def wrap_getreadbuffer(space, w_self, w_args, func):
         size = generic_cpy_call(space, func_target, w_self, index, ptr)
         if size < 0:
             space.fromcache(State).check_and_raise_exception(always=True)
-        buf = CPyBuffer(space, ptr[0], size, w_self, 
+        buf = CPyBuffer(space, ptr[0], size, w_self,
                                releasebuffer=releasebuffer)
         fq.register_finalizer(buf)
         return space.newbuffer(buf)
@@ -516,7 +516,7 @@ def build_slot_tp_function(space, typedef, name):
     w_type = space.gettypeobject(typedef)
 
     header = pypy_decl
-    if mangle_name('', typedef.name) is None:
+    if not (name.startswith('Py') or name.startswith('_Py')):
         header = None
     handled = False
     # unary functions

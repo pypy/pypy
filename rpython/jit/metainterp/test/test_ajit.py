@@ -4613,3 +4613,10 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         self.check_operations_history(guard_nonnull=0, guard_nonnull_class=0,
                                       guard_class=2,
                                       assert_not_none=2) # before optimization
+
+    def test_call_time_clock(self):
+        import time
+        def g():
+            time.clock()
+            return 0
+        self.interp_operations(g, [])
