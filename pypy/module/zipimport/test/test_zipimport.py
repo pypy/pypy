@@ -4,11 +4,10 @@ import os
 import time
 from zipfile import ZIP_STORED
 
-from pypy.module.imp.test.support import BaseImportTest
 from rpython.tool.udir import udir
 
 
-class AppTestZipimport(BaseImportTest):
+class AppTestZipimport:
     """ A bit structurized tests stolen and adapted from
     cpy's regression tests
     """
@@ -20,7 +19,6 @@ class AppTestZipimport(BaseImportTest):
 
     @classmethod
     def make_class(cls):
-        BaseImportTest.setup_class.im_func(cls)
         space = cls.space
         w = space.wrap
 
