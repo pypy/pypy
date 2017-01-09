@@ -214,6 +214,8 @@ def PyMemoryView_FromBuffer(space, view):
     The memoryview object then owns the buffer, which means you shouldn't
     try to release it yourself: it will be released on deallocation of the
     memoryview object."""
+    # XXX this should allocate a PyMemoryViewObject and
+    # copy view into obj.c_view, without creating a new view.c_obj
     assert view.c_obj
     w_obj = from_ref(space, view.c_obj)
     if isinstance(w_obj, W_MemoryView):
