@@ -3,7 +3,7 @@ from pypy.module.cpyext.api import (cpython_api, Py_buffer, CANNOT_FAIL,
                          Py_ssize_tP, PyObjectFields, cpython_struct,
                          bootstrap_function, Py_bufferP)
 from pypy.module.cpyext.pyobject import (PyObject, make_ref, as_pyobj, incref,
-             decref, from_ref, make_typedescr)
+             decref, from_ref, make_typedescr, get_typedescr, track_reference)
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import widen
 from pypy.objspace.std.memoryobject import W_MemoryView
@@ -28,7 +28,7 @@ def init_memoryobject(space):
                    basestruct=PyMemoryViewObject.TO,
                    attach=memory_attach,
                    dealloc=memory_dealloc,
-                   #realize=memory_realize,
+                   realize=memory_realize,
                   )
 
 def memory_attach(space, py_obj, w_obj, w_userdata=None):
@@ -54,11 +54,31 @@ def memory_attach(space, py_obj, w_obj, w_userdata=None):
                                              track_allocation=False))
         rffi.setintfield(view, 'c_readonly', 1)
 
-def memory_realize(space, py_obj):
+def memory_realize(space, obj):
     """
     Creates the memory object in the interpreter
     """
-    raise oefmt(space.w_NotImplementedError, "cannot call this yet")
+    from pypy.module.cpyext.slotdefs import CPyBuffer
+    py_mem = rffi.cast(PyMemoryViewObject, obj)
+    view = py_mem.c_view
+    shape = None
+    if view.c_shape:
+        shape = [view.c_shape[i] for i in range(view.c_ndim)]
+    strides = None
+    if view.c_strides:
+        strides = [view.c_strides[i] for i in range(view.c_ndim)]
+    format = None
+    if view.c_format:
+        format = rffi.charp2str(view.c_format)
+    buf = CPyBuffer(space, view.c_buf, view.c_len, from_ref(space, view.c_obj),
+                    format=format, shape=shape, strides=strides,
+                    ndim=view.c_ndim, itemsize=view.c_itemsize,
+                    readonly=view.c_readonly)
+    w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
+    w_obj = space.allocate_instance(W_MemoryView, w_type)
+    w_obj.__init__(buf)
+    track_reference(space, obj, w_obj)
+    return w_obj
 
 @cpython_api([PyObject], lltype.Void, header=None)
 def memory_dealloc(space, py_obj):
@@ -208,7 +228,7 @@ def PyMemoryView_FromObject(space, w_obj):
     py_memview = make_ref(space, w_memview, w_obj)
     return py_memview
 
-@cpython_api([Py_bufferP], PyObject)
+@cpython_api([Py_bufferP], PyObject, result_is_ll=True)
 def PyMemoryView_FromBuffer(space, view):
     """Create a memoryview object wrapping the given buffer-info structure view.
     The memoryview object then owns the buffer, which means you shouldn't
@@ -216,11 +236,27 @@ def PyMemoryView_FromBuffer(space, view):
     memoryview object."""
     # XXX this should allocate a PyMemoryViewObject and
     # copy view into obj.c_view, without creating a new view.c_obj
-    assert view.c_obj
-    w_obj = from_ref(space, view.c_obj)
-    if isinstance(w_obj, W_MemoryView):
-        return w_obj
-    return space.call_method(space.builtin, "memoryview", w_obj)
+    typedescr = get_typedescr(W_MemoryView.typedef)
+    py_obj = typedescr.allocate(space, space.w_memoryview)
+    py_mem = rffi.cast(PyMemoryViewObject, py_obj)
+    for f in ('c_buf', 'c_obj', 'c_len', 'c_itemsize', 'c_readonly', 'c_ndim', 'c_format'):
+        setattr(py_mem.c_view, f, getattr(view, f))
+    if view.c_strides == rffi.cast(Py_ssize_tP, view.c__strides):
+        py_mem.c_view.c_strides = rffi.cast(Py_ssize_tP, py_mem.c_view.c__strides)
+        for i in range(view.c_ndim):
+            py_mem.c_view.c_strides[i] = view.c_strides[i]
+    else:
+        # some externally allocated memory chunk
+        py_mem.c_view.c_strides = view.c_strides
+    if view.c_shape == rffi.cast(Py_ssize_tP, view.c__shape):
+        py_mem.c_view.c_shape = rffi.cast(Py_ssize_tP, py_mem.c_view.c__shape)
+        for i in range(view.c_ndim):
+            py_mem.c_view.c_shape[i] = view.c_shape[i]
+    else:
+        # some externally allocated memory chunk
+        py_mem.c_view.c_shape = view.c_shape
+    # XXX ignore suboffsets?
+    return py_obj
 
 @cpython_api([PyObject], PyObject)
 def PyMemoryView_GET_BASE(space, w_obj):

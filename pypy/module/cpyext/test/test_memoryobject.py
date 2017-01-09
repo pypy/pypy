@@ -30,7 +30,7 @@ class TestMemoryViewObject(BaseApiTest):
         assert view.c_len == 5
         o = rffi.charp2str(view.c_buf)
         assert o == 'hello'
-        w_mv = api.PyMemoryView_FromBuffer(view)
+        w_mv = from_ref(space, api.PyMemoryView_FromBuffer(view))
         for f in ('format', 'itemsize', 'ndim', 'readonly', 
                   'shape', 'strides', 'suboffsets'):
             w_f = space.wrap(f)
