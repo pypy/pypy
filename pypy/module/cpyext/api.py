@@ -329,6 +329,53 @@ class ApiFunction(object):
             wrapper.c_name = cpyext_namespace.uniquename(self.c_name)
         return wrapper
 
+    def get_unwrapper(self):
+        names = self.argnames
+        argtypesw = zip(self.argtypes,
+                        [_name.startswith("w_") for _name in self.argnames])
+        types_names_enum_ui = unrolling_iterable(enumerate(argtypesw))
+
+        @specialize.ll()
+        def unwrapper(space, *args):
+            from pypy.module.cpyext.pyobject import is_pyobj
+            from pypy.module.cpyext.pyobject import from_ref, as_pyobj
+            newargs = ()
+            keepalives = ()
+            assert len(args) == len(self.argtypes)
+            for i, (ARG, is_wrapped) in types_names_enum_ui:
+                input_arg = args[i]
+                if is_PyObject(ARG) and not is_wrapped:
+                    # build a 'PyObject *' (not holding a reference)
+                    if not is_pyobj(input_arg):
+                        keepalives += (input_arg,)
+                        arg = rffi.cast(ARG, as_pyobj(space, input_arg))
+                    else:
+                        arg = rffi.cast(ARG, input_arg)
+                elif ARG == rffi.VOIDP and not is_wrapped:
+                    # unlike is_PyObject case above, we allow any kind of
+                    # argument -- just, if it's an object, we assume the
+                    # caller meant for it to become a PyObject*.
+                    if input_arg is None or isinstance(input_arg, W_Root):
+                        keepalives += (input_arg,)
+                        arg = rffi.cast(ARG, as_pyobj(space, input_arg))
+                    else:
+                        arg = rffi.cast(ARG, input_arg)
+                elif (is_PyObject(ARG) or ARG == rffi.VOIDP) and is_wrapped:
+                    # build a W_Root, possibly from a 'PyObject *'
+                    if is_pyobj(input_arg):
+                        arg = from_ref(space, input_arg)
+                    else:
+                        arg = input_arg
+                else:
+                    # arg is not declared as PyObject, no magic
+                    arg = input_arg
+                newargs += (arg, )
+            try:
+                return self.callable(space, *newargs)
+            finally:
+                keepalive_until_here(*keepalives)
+        return unwrapper
+
     def get_c_restype(self, c_writer):
         return c_writer.gettype(self.restype).replace('@', '').strip()
 
@@ -452,67 +499,7 @@ def _create_api_func(
                                 c_name=c_name, gil=gil,
                                 result_borrowed=result_borrowed,
                                 result_is_ll=result_is_ll)
-    names = api_function.argnames
-    types_names_enum_ui = unrolling_iterable(enumerate(
-        zip(api_function.argtypes,
-            [tp_name.startswith("w_") for tp_name in names])))
-
-    @specialize.ll()
-    def unwrapper(space, *args):
-        from pypy.module.cpyext.pyobject import Py_DecRef, is_pyobj
-        from pypy.module.cpyext.pyobject import from_ref, as_pyobj
-        newargs = ()
-        keepalives = ()
-        assert len(args) == len(api_function.argtypes)
-        for i, (ARG, is_wrapped) in types_names_enum_ui:
-            input_arg = args[i]
-            if is_PyObject(ARG) and not is_wrapped:
-                # build a 'PyObject *' (not holding a reference)
-                if not is_pyobj(input_arg):
-                    keepalives += (input_arg,)
-                    arg = rffi.cast(ARG, as_pyobj(space, input_arg))
-                else:
-                    arg = rffi.cast(ARG, input_arg)
-            elif ARG == rffi.VOIDP and not is_wrapped:
-                # unlike is_PyObject case above, we allow any kind of
-                # argument -- just, if it's an object, we assume the
-                # caller meant for it to become a PyObject*.
-                if input_arg is None or isinstance(input_arg, W_Root):
-                    keepalives += (input_arg,)
-                    arg = rffi.cast(ARG, as_pyobj(space, input_arg))
-                else:
-                    arg = rffi.cast(ARG, input_arg)
-            elif (is_PyObject(ARG) or ARG == rffi.VOIDP) and is_wrapped:
-                # build a W_Root, possibly from a 'PyObject *'
-                if is_pyobj(input_arg):
-                    arg = from_ref(space, input_arg)
-                else:
-                    arg = input_arg
-
-                    ## ZZZ: for is_pyobj:
-                    ## try:
-                    ##     arg = from_ref(space,
-                    ##                rffi.cast(PyObject, input_arg))
-                    ## except TypeError, e:
-                    ##     err = oefmt(space.w_TypeError,
-                    ##                 "could not cast arg to PyObject")
-                    ##     if not catch_exception:
-                    ##         raise err
-                    ##     state = space.fromcache(State)
-                    ##     state.set_exception(err)
-                    ##     if is_PyObject(restype):
-                    ##         return None
-                    ##     else:
-                    ##         return api_function.error_value
-            else:
-                # arg is not declared as PyObject, no magic
-                arg = input_arg
-            newargs += (arg, )
-        try:
-            return func(space, *newargs)
-        finally:
-            keepalive_until_here(*keepalives)
-
+    unwrapper = api_function.get_unwrapper()
     unwrapper.func = func
     unwrapper.api_func = api_function
     return unwrapper
