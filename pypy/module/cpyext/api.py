@@ -1253,6 +1253,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "missing.c",
                          source_dir / "pymem.c",
                          source_dir / "bytesobject.c",
+                         source_dir / "complexobject.c",
                          ]
 
 def build_eci(code, use_micronumpy=False, translating=False):
