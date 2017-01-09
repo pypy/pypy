@@ -44,6 +44,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
                 ("fillinfo", "METH_VARARGS",
                  """
                  Py_buffer buf;
+                 PyObject * ret = NULL;
                  PyObject *str = PyBytes_FromString("hello, world.");
                  if (PyBuffer_FillInfo(&buf, str, PyBytes_AsString(str), 13,
                                        0, 0)) {
@@ -55,7 +56,14 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
                   */
                  Py_DECREF(str);
 
-                 return PyMemoryView_FromBuffer(&buf);
+                 ret = PyMemoryView_FromBuffer(&buf);
+                 if (((PyMemoryViewObject*)ret)->view.obj != buf.obj)
+                 {
+                    PyErr_SetString(PyExc_ValueError, "leaked ref");
+                    Py_DECREF(ret);
+                    return NULL;
+                 }
+                 return ret;
                  """)])
         result = module.fillinfo()
         assert b"hello, world." == result
