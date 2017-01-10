@@ -58,7 +58,7 @@ def memory_realize(space, obj):
     """
     Creates the memory object in the interpreter
     """
-    from pypy.module.cpyext.slotdefs import CPyBuffer
+    from pypy.module.cpyext.slotdefs import CPyBuffer, fq
     py_mem = rffi.cast(PyMemoryViewObject, obj)
     view = py_mem.c_view
     shape = None
@@ -67,13 +67,16 @@ def memory_realize(space, obj):
     strides = None
     if view.c_strides:
         strides = [view.c_strides[i] for i in range(view.c_ndim)]
-    format = None
+    format = 'B'
     if view.c_format:
         format = rffi.charp2str(view.c_format)
     buf = CPyBuffer(space, view.c_buf, view.c_len, from_ref(space, view.c_obj),
                     format=format, shape=shape, strides=strides,
                     ndim=view.c_ndim, itemsize=view.c_itemsize,
                     readonly=view.c_readonly)
+    # Ensure view.c_buf is released upon object finalization
+    fq.register_finalizer(buf)
+    # Allow subclassing W_MemeoryView
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     w_obj = space.allocate_instance(W_MemoryView, w_type)
     w_obj.__init__(buf)
@@ -239,8 +242,14 @@ def PyMemoryView_FromBuffer(space, view):
     typedescr = get_typedescr(W_MemoryView.typedef)
     py_obj = typedescr.allocate(space, space.w_memoryview)
     py_mem = rffi.cast(PyMemoryViewObject, py_obj)
-    for f in ('c_buf', 'c_obj', 'c_len', 'c_itemsize', 'c_readonly', 'c_ndim', 'c_format'):
-        setattr(py_mem.c_view, f, getattr(view, f))
+    mview = py_mem.c_view
+    mview.c_buf = view.c_buf
+    mview.c_obj = view.c_obj
+    mview.c_len = view.c_len
+    mview.c_itemsize = view.c_itemsize
+    mview.c_readonly = view.c_readonly
+    mview.c_ndim = view.c_ndim
+    mview.c_format = view.c_format
     if view.c_strides == rffi.cast(Py_ssize_tP, view.c__strides):
         py_mem.c_view.c_strides = rffi.cast(Py_ssize_tP, py_mem.c_view.c__strides)
         for i in range(view.c_ndim):

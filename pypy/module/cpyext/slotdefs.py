@@ -324,7 +324,7 @@ class CPyBuffer(Buffer):
 
     def __init__(self, space, ptr, size, w_obj, format='B', shape=None,
                 strides=None, ndim=1, itemsize=1, readonly=True,
-                releasebuffer=None):
+                releasebufferproc=rffi.cast(rffi.VOIDP, 0)):
         self.space = space
         self.ptr = ptr
         self.size = size
@@ -342,7 +342,7 @@ class CPyBuffer(Buffer):
         self.ndim = ndim
         self.itemsize = itemsize
         self.readonly = readonly
-        self.releasebufferproc = releasebuffer
+        self.releasebufferproc = releasebufferproc
 
     def releasebuffer(self):
         if self.pyobj:
@@ -360,7 +360,10 @@ class CPyBuffer(Buffer):
                 for i in range(self.ndim):
                     pybuf.c_shape[i] = self.shape[i]
                     pybuf.c_strides[i] = self.strides[i]
-                pybuf.c_format = rffi.str2charp(self.format)
+                if self.format:
+                    pybuf.c_format = rffi.str2charp(self.format)
+                else:
+                    pybuf.c_format = rffi.str2charp("B")
                 generic_cpy_call(self.space, func_target, self.pyobj, pybuf)
             self.releasebufferproc = rffi.cast(rffi.VOIDP, 0)
 
@@ -407,9 +410,9 @@ def wrap_getreadbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(readbufferproc, func)
     py_obj = make_ref(space, w_self)
     py_type = py_obj.c_ob_type
-    releasebuffer = rffi.cast(rffi.VOIDP, 0)
+    rbp = rffi.cast(rffi.VOIDP, 0)
     if py_type.c_tp_as_buffer:
-        releasebuffer = rffi.cast(rffi.VOIDP, py_type.c_tp_as_buffer.c_bf_releasebuffer)
+        rbp = rffi.cast(rffi.VOIDP, py_type.c_tp_as_buffer.c_bf_releasebuffer)
     decref(space, py_obj)
     with lltype.scoped_alloc(rffi.VOIDPP.TO, 1) as ptr:
         index = rffi.cast(Py_ssize_t, 0)
@@ -417,7 +420,7 @@ def wrap_getreadbuffer(space, w_self, w_args, func):
         if size < 0:
             space.fromcache(State).check_and_raise_exception(always=True)
         buf = CPyBuffer(space, ptr[0], size, w_self,
-                               releasebuffer=releasebuffer)
+                               releasebufferproc=rbp)
         fq.register_finalizer(buf)
         return space.newbuffer(buf)
 
@@ -426,16 +429,16 @@ def wrap_getwritebuffer(space, w_self, w_args, func):
     py_obj = make_ref(space, w_self)
     py_type = py_obj.c_ob_type
     decref(space, py_obj)
-    releasebuffer = rffi.cast(rffi.VOIDP, 0)
+    rbp = rffi.cast(rffi.VOIDP, 0)
     if py_type.c_tp_as_buffer:
-        releasebuffer = rffi.cast(rffi.VOIDP, py_type.c_tp_as_buffer.c_bf_releasebuffer)
+        rbp = rffi.cast(rffi.VOIDP, py_type.c_tp_as_buffer.c_bf_releasebuffer)
     with lltype.scoped_alloc(rffi.VOIDPP.TO, 1) as ptr:
         index = rffi.cast(Py_ssize_t, 0)
         size = generic_cpy_call(space, func_target, w_self, index, ptr)
         if size < 0:
             space.fromcache(State).check_and_raise_exception(always=True)
         buf = CPyBuffer(space, ptr[0], size, w_self, readonly=False,
-                               releasebuffer=releasebuffer)
+                               releasebufferproc=rbp)
         fq.register_finalizer(buf)
         return space.newbuffer(buf)
 
@@ -443,9 +446,9 @@ def wrap_getbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(getbufferproc, func)
     py_obj = make_ref(space, w_self)
     py_type = py_obj.c_ob_type
-    releasebuffer = rffi.cast(rffi.VOIDP, 0)
+    rbp = rffi.cast(rffi.VOIDP, 0)
     if py_type.c_tp_as_buffer:
-        releasebuffer = rffi.cast(rffi.VOIDP, py_type.c_tp_as_buffer.c_bf_releasebuffer)
+        rbp = rffi.cast(rffi.VOIDP, py_type.c_tp_as_buffer.c_bf_releasebuffer)
     decref(space, py_obj)
     with lltype.scoped_alloc(Py_buffer) as pybuf:
         _flags = 0
@@ -471,7 +474,7 @@ def wrap_getbuffer(space, w_self, w_args, func):
                             ndim=ndim, shape=shape, strides=strides,
                             itemsize=pybuf.c_itemsize,
                             readonly=widen(pybuf.c_readonly),
-                            releasebuffer = releasebuffer)
+                            releasebufferproc = rbp)
         fq.register_finalizer(buf)
         return space.newbuffer(buf)
 
