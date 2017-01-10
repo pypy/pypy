@@ -91,3 +91,8 @@ is readonly) without pinning it.
 .. branch: cpyext-cleanup
 
 Refactor cpyext initialisation.
+
+.. branch: cpyext-from2
+
+Fix a test failure introduced by strbuf-as-buffer
+

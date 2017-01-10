@@ -56,7 +56,7 @@ class AppTestMemoryView:
         assert u"abc" != memoryview("abc")
 
     def test_pypy_raw_address_base(self):
-        a = memoryview("foobar")._pypy_raw_address()
+        a = memoryview(b"foobar")._pypy_raw_address()
         assert a != 0
-        b = memoryview(bytearray("foobar"))._pypy_raw_address()
+        b = memoryview(bytearray(b"foobar"))._pypy_raw_address()
         assert b != 0

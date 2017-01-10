@@ -33,6 +33,10 @@ class AbstractStringRepr(Repr):
             value, len(value), 'strict', final=True,
             errorhandler=self.ll_raise_unicode_exception_decode,
             allow_surrogates=False, result=result)
+        # XXX should it really be 'allow_surrogates=False'?  In RPython,
+        # unicode.decode('utf-8') happily accepts surrogates.  This
+        # makes it hard to test untranslated (it's the cause of a
+        # failure in lib-python's test_warnings on PyPy3, for example)
         return self.ll.llunicode(result.build())
 
     @staticmethod
