@@ -317,7 +317,11 @@ class AsyncFunctionScope(FunctionScope):
                           yield_node.col_offset)
         
     def note_await(self, await_node):
-        pass
+        # Compatibility with CPython 3.5: set the CO_GENERATOR flag in
+        # addition to the CO_COROUTINE flag if the function uses the
+        # "await" keyword.  Don't do it if the function does not.  In
+        # that case, CO_GENERATOR is ignored anyway.
+        self.is_generator = True
 
 
 class ClassScope(Scope):

@@ -375,7 +375,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             l += 1
         return l
 
-    def _visit_function(self, func, function_code_generator, extra_flag):
+    def _visit_function(self, func, function_code_generator):
         self.update_position(func.lineno, True)
         # Load decorators first, but apply them after the function is created.
         self.visit_sequence(func.decorator_list)
@@ -392,7 +392,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         oparg |= num_annotations << 16
         code, qualname = self.sub_scope(function_code_generator, func.name,
                                         func, func.lineno)
-        code.co_flags |= extra_flag
         self._make_function(code, oparg, qualname=qualname)
         # Apply decorators.
         if func.decorator_list:
@@ -401,11 +400,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.name_op(func.name, ast.Store)
 
     def visit_FunctionDef(self, func):
-        self._visit_function(func, FunctionCodeGenerator, 0)
+        self._visit_function(func, FunctionCodeGenerator)
 
     def visit_AsyncFunctionDef(self, func):
-        self._visit_function(func, AsyncFunctionCodeGenerator,
-                             consts.CO_COROUTINE)
+        self._visit_function(func, AsyncFunctionCodeGenerator)
 
     def visit_Lambda(self, lam):
         self.update_position(lam.lineno)
@@ -1568,6 +1566,10 @@ class AsyncFunctionCodeGenerator(AbstractFunctionCodeGenerator):
         if func.body:
             for i in range(start, len(func.body)):
                 func.body[i].walkabout(self)
+
+    def _get_code_flags(self):
+        flags = AbstractFunctionCodeGenerator._get_code_flags(self)
+        return flags | consts.CO_COROUTINE
 
 class LambdaCodeGenerator(AbstractFunctionCodeGenerator):
 
