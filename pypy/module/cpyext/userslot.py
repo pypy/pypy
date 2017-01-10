@@ -12,23 +12,23 @@ track changes to an app-level Python class (addition or removal of
 
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.argument import Arguments
-from pypy.module.cpyext.api import cpython_api, PyObject, Py_ssize_t
+from pypy.module.cpyext.api import slot_function, PyObject, Py_ssize_t
 from pypy.module.cpyext.api import PyTypeObjectPtr
 from rpython.rtyper.lltypesystem import rffi, lltype
 
-@cpython_api([PyObject], Py_ssize_t, error=-1, header=None)
+@slot_function([PyObject], Py_ssize_t, error=-1)
 def slot_sq_length(space, w_obj):
     return space.int_w(space.len(w_obj))
 
-@cpython_api([PyObject], lltype.Signed, header=None, error=-1)
+@slot_function([PyObject], lltype.Signed, error=-1)
 def slot_tp_hash(space, w_obj):
     return space.int_w(space.hash(w_obj))
 
-@cpython_api([PyObject, Py_ssize_t], PyObject, header=None)
+@slot_function([PyObject, Py_ssize_t], PyObject)
 def slot_sq_item(space, w_obj, index):
     return space.getitem(w_obj, space.wrap(index))
 
-@cpython_api([PyTypeObjectPtr, PyObject, PyObject], PyObject, header=None)
+@slot_function([PyTypeObjectPtr, PyObject, PyObject], PyObject)
 def slot_tp_new(space, w_type, w_args, w_kwds):
     # XXX problem - we need to find the actual __new__ function to call.
     #     but we have no 'self' argument. Theoretically, self will be
@@ -51,61 +51,61 @@ def slot_tp_new(space, w_type, w_args, w_kwds):
 
 # unary functions
 
-@cpython_api([PyObject], PyObject, header=None)
+@slot_function([PyObject], PyObject)
 def slot_tp_str(space, w_obj):
     return space.str(w_obj)
 
-@cpython_api([PyObject], PyObject, header=None)
+@slot_function([PyObject], PyObject)
 def slot_tp_repr(space, w_obj):
     return space.repr(w_obj)
 
 #binary functions
 
-@cpython_api([PyObject, PyObject], PyObject, header=None)
+@slot_function([PyObject, PyObject], PyObject)
 def slot_nb_add(space, w_obj1, w_obj2):
     return space.add(w_obj1, w_obj2)
 
-@cpython_api([PyObject, PyObject], PyObject, header=None)
+@slot_function([PyObject, PyObject], PyObject)
 def slot_nb_subtract(space, w_obj1, w_obj2):
     return space.sub(w_obj1, w_obj2)
 
-@cpython_api([PyObject, PyObject], PyObject, header=None)
+@slot_function([PyObject, PyObject], PyObject)
 def slot_nb_multiply(space, w_obj1, w_obj2):
     return space.mul(w_obj1, w_obj2)
 
-@cpython_api([PyObject, PyObject], PyObject, header=None)
+@slot_function([PyObject, PyObject], PyObject)
 def slot_nb_divide(space, w_obj1, w_obj2):
     return space.div(w_obj1, w_obj2)
 
-@cpython_api([PyObject, PyObject], PyObject, header=None)
+@slot_function([PyObject, PyObject], PyObject)
 def slot_nb_inplace_add(space, w_obj1, w_obj2):
     return space.add(w_obj1, w_obj2)
 
-@cpython_api([PyObject, PyObject], PyObject, header=None)
+@slot_function([PyObject, PyObject], PyObject)
 def slot_nb_inplace_subtract(space, w_obj1, w_obj2):
     return space.sub(w_obj1, w_obj2)
 
-@cpython_api([PyObject, PyObject], PyObject, header=None)
+@slot_function([PyObject, PyObject], PyObject)
 def slot_nb_inplace_multiply(space, w_obj1, w_obj2):
     return space.mul(w_obj1, w_obj2)
 
-@cpython_api([PyObject, PyObject], PyObject, header=None)
+@slot_function([PyObject, PyObject], PyObject)
 def slot_nb_inplace_divide(space, w_obj1, w_obj2):
     return space.div(w_obj1, w_obj2)
 
-@cpython_api([PyObject, PyObject], PyObject, header=None)
+@slot_function([PyObject, PyObject], PyObject)
 def slot_sq_concat(space, w_obj1, w_obj2):
     return space.add(w_obj1, w_obj2)
 
-@cpython_api([PyObject, PyObject], PyObject, header=None)
+@slot_function([PyObject, PyObject], PyObject)
 def slot_sq_inplace_concat(space, w_obj1, w_obj2):
     return space.add(w_obj1, w_obj2)
 
-@cpython_api([PyObject, PyObject], PyObject, header=None)
+@slot_function([PyObject, PyObject], PyObject)
 def slot_mp_subscript(space, w_obj1, w_obj2):
     return space.getitem(w_obj1, w_obj2)
 
-@cpython_api([PyObject, PyObject], PyObject, header=None)
+@slot_function([PyObject, PyObject], PyObject)
 def slot_tp_getattr(space, w_obj1, w_obj2):
     return space.getattr(w_obj1, w_obj2)
 
