@@ -75,6 +75,20 @@ class AppTestObject:
             (NamedInt, ('Name',), dict(value=42)),
             dict(_name='Name'), None, None)
 
+    def test_reduce_ex_does_getattr(self):
+        seen = []
+        class X:
+            def __getattribute__(self, name):
+                seen.append(name)
+                return object.__getattribute__(self, name)
+        X().__reduce_ex__(2)
+        # it is the case at least on CPython 3.5.2, like PyPy:
+        assert '__reduce__' in seen
+        # but these methods, which are also called, are not looked up
+        # with getattr:
+        assert '__getnewargs__' not in seen
+        assert '__getnewargs_ex__' not in seen
+
     def test_default_format(self):
         class x(object):
             def __str__(self):
