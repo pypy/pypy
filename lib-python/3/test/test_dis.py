@@ -230,6 +230,9 @@ dis_compound_stmt_str = """\
              26 RETURN_VALUE
 """
 
+# XXX PyPy change: the original output has SETUP_EXCEPT, SETUP_FINALLY,
+# POP_EXCEPT, END_FINALLY in that order.  The pops don't match the
+# setups.  In PyPy the POP_EXCEPT is moved after the END_FINALLY.
 dis_traceback = """\
 %3d           0 SETUP_EXCEPT            12 (to 15)
 
@@ -247,18 +250,18 @@ dis_traceback = """\
              25 POP_TOP
              26 STORE_FAST               0 (e)
              29 POP_TOP
-             30 SETUP_FINALLY           14 (to 47)
+             30 SETUP_FINALLY           13 (to 46)
 
 %3d          33 LOAD_FAST                0 (e)
              36 LOAD_ATTR                1 (__traceback__)
              39 STORE_FAST               1 (tb)
              42 POP_BLOCK
-             43 POP_EXCEPT
-             44 LOAD_CONST               0 (None)
-        >>   47 LOAD_CONST               0 (None)
-             50 STORE_FAST               0 (e)
-             53 DELETE_FAST              0 (e)
-             56 END_FINALLY
+             43 LOAD_CONST               0 (None)
+        >>   46 LOAD_CONST               0 (None)
+             49 STORE_FAST               0 (e)
+             52 DELETE_FAST              0 (e)
+             55 END_FINALLY
+             56 POP_EXCEPT
              57 JUMP_FORWARD             1 (to 61)
         >>   60 END_FINALLY
 
