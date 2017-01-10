@@ -151,6 +151,9 @@ class AppTestFileIO:
         import _io
         a = bytearray(b'x' * 10)
         f = _io.FileIO(self.tmpfile, 'r+')
+        f.seek(5)
+        f.write(b'\x00' * 5)
+        f.seek(0)
         assert f.readinto(a) == 10
         f.seek(0)
         m = memoryview(bytearray(b"helloworld"))
