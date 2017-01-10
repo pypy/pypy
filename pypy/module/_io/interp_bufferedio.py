@@ -1010,16 +1010,6 @@ class W_BufferedRWPair(W_BufferedIOBase):
             self.w_writer = None
             raise
 
-    def _finalize_(self):
-        # Don't call the base __del__: do not close the files!
-        # Usually the _finalize_() method is not called at all because
-        # we set 'needs_to_finalize = False' in this class, so
-        # W_IOBase.__init__() won't call register_finalizer().
-        # However, this method might still be called: if the user
-        # makes an app-level subclass and adds a custom __del__.
-        pass
-    needs_to_finalize = False
-
     # forward to reader
     for method in ['read', 'peek', 'read1', 'readinto', 'readable']:
         locals()[method + '_w'] = make_forwarding_method(
@@ -1051,6 +1041,10 @@ class W_BufferedRWPair(W_BufferedIOBase):
 
         if e:
             raise e
+
+    def needs_finalizer(self):
+        # self.w_writer and self.w_reader have their own finalizer
+        return type(self) is not W_BufferedRWPair
 
     def isatty_w(self, space):
         if space.is_true(space.call_method(self.w_writer, "isatty")):

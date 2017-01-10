@@ -248,6 +248,10 @@ class W_StringIO(W_TextIOBase):
     def close_w(self, space):
         self.buf = None
 
+    def needs_finalizer(self):
+        # 'self.buf = None' is not necessary when the object goes away
+        return type(self) is not W_StringIO
+
     def closed_get_w(self, space):
         return space.wrap(self.buf is None)
 

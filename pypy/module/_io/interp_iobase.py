@@ -60,7 +60,7 @@ class W_IOBase(W_Root):
         self.__IOBase_closed = False
         if add_to_autoflusher:
             get_autoflusher(space).add(self)
-        if self.needs_to_finalize:
+        if self.needs_finalizer():
             self.register_finalizer(space)
 
     def getdict(self, space):
@@ -75,6 +75,18 @@ class W_IOBase(W_Root):
         return False
 
     def _finalize_(self):
+        # Note: there is only this empty _finalize_() method here, but
+        # we still need register_finalizer() so that descr_del() is
+        # called.  IMPORTANT: this is not the recommended way to have a
+        # finalizer!  It makes the finalizer appear as __del__() from
+        # app-level, and the user can call __del__() explicitly, or
+        # override it, with or without calling the parent's __del__().
+        # This matches 'tp_finalize' in CPython >= 3.4.  So far (3.5),
+        # this is the only built-in class with a 'tp_finalize' slot that
+        # can be subclassed.
+        pass
+
+    def descr_del(self):
         space = self.space
         w_closed = space.findattr(self, space.wrap('closed'))
         try:
@@ -90,7 +102,6 @@ class W_IOBase(W_Root):
             # equally as bad, and potentially more frequent (because of
             # shutdown issues).
             pass
-    needs_to_finalize = True
 
     def _CLOSED(self):
         # Use this macro whenever you want to check the internal `closed`
@@ -127,6 +138,11 @@ class W_IOBase(W_Root):
             space.call_method(self, "flush")
         finally:
             self.__IOBase_closed = True
+
+    def needs_finalizer(self):
+        # can return False if we know that the precise close() method
+        # of this class will have no effect
+        return True
 
     def _dealloc_warn_w(self, space, w_source):
         """Called when the io is implicitly closed via the deconstructor"""
@@ -318,6 +334,8 @@ W_IOBase.typedef = TypeDef(
                             doc="True if the file is closed"),
     __dict__ = GetSetProperty(descr_get_dict, descr_set_dict, cls=W_IOBase),
     __weakref__ = make_weakref_descr(W_IOBase),
+    __del__ = interp2app(W_IOBase.descr_del),
+    __confirm_applevel_del__ = True,
 
     readline = interp2app(W_IOBase.readline_w),
     readlines = interp2app(W_IOBase.readlines_w),

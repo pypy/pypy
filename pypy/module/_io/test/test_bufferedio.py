@@ -337,13 +337,33 @@ class AppTestBufferedWriter:
         b.flush()
         assert self.readfile() == b'x' * 40
 
-    def test_destructor(self):
+    def test_destructor_1(self):
         import _io
 
         record = []
         class MyIO(_io.BufferedWriter):
             def __del__(self):
                 record.append(1)
+                # doesn't call the inherited __del__, so file not closed
+            def close(self):
+                record.append(2)
+                super(MyIO, self).close()
+            def flush(self):
+                record.append(3)
+                super(MyIO, self).flush()
+        raw = _io.FileIO(self.tmpfile, 'w')
+        MyIO(raw)
+        import gc; gc.collect()
+        assert record == [1]
+
+    def test_destructor_2(self):
+        import _io
+
+        record = []
+        class MyIO(_io.BufferedWriter):
+            def __del__(self):
+                record.append(1)
+                super(MyIO, self).__del__()
             def close(self):
                 record.append(2)
                 super(MyIO, self).close()

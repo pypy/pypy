@@ -80,7 +80,7 @@ class AppTestIoModule:
         bufio.flush()
         assert f.getvalue() == b"ABC"
 
-    def test_destructor(self):
+    def test_destructor_1(self):
         import io
         io.IOBase()
 
@@ -88,6 +88,26 @@ class AppTestIoModule:
         class MyIO(io.IOBase):
             def __del__(self):
                 record.append(1)
+                # doesn't call the inherited __del__, so file not closed
+            def close(self):
+                record.append(2)
+                super(MyIO, self).close()
+            def flush(self):
+                record.append(3)
+                super(MyIO, self).flush()
+        MyIO()
+        import gc; gc.collect()
+        assert record == [1]
+
+    def test_destructor_2(self):
+        import io
+        io.IOBase()
+
+        record = []
+        class MyIO(io.IOBase):
+            def __del__(self):
+                record.append(1)
+                super(MyIO, self).__del__()
             def close(self):
                 record.append(2)
                 super(MyIO, self).close()

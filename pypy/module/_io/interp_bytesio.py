@@ -166,6 +166,10 @@ class W_BytesIO(W_BufferedIOBase):
     def close_w(self, space):
         self.close()
 
+    def needs_finalizer(self):
+        # self.close() is not necessary when the object goes away
+        return type(self) is not W_BytesIO
+
     def closed_get_w(self, space):
         return space.wrap(self.is_closed())
 

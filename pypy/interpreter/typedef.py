@@ -13,7 +13,7 @@ from rpython.tool.sourcetools import compile2, func_with_new_name
 
 class TypeDef(object):
     def __init__(self, __name, __base=None, __total_ordering__=None,
-                 __buffer=None, **rawdict):
+                 __buffer=None, __confirm_applevel_del__=False, **rawdict):
         "NOT_RPYTHON: initialization-time only"
         self.name = __name
         if __base is None:
@@ -29,7 +29,8 @@ class TypeDef(object):
         self.heaptype = False
         self.hasdict = '__dict__' in rawdict
         # no __del__: use an RPython _finalize_() method and register_finalizer
-        assert '__del__' not in rawdict
+        if not __confirm_applevel_del__:
+            assert '__del__' not in rawdict
         self.weakrefable = '__weakref__' in rawdict
         self.doc = rawdict.get('__doc__', None)
         for base in bases:
