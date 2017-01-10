@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t, Py_ssize_tP,
-    PyVarObject, Py_buffer, size_t,
+    PyVarObject, Py_buffer, size_t, slot_function,
     Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
     Py_GE, CONST_STRING, CONST_STRINGP, FILEP, fwrite)
 from pypy.module.cpyext.pyobject import (
@@ -54,7 +54,7 @@ def _PyObject_NewVar(space, type, itemcount):
         w_obj = PyObject_InitVar(space, py_objvar, type, itemcount)
     return py_obj
 
-@cpython_api([PyObject], lltype.Void)
+@slot_function([PyObject], lltype.Void)
 def PyObject_dealloc(space, obj):
     return _dealloc(space, obj)
 
@@ -511,7 +511,7 @@ def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
 @cpython_api([lltype.Ptr(Py_buffer)], lltype.Void, error=CANNOT_FAIL)
 def PyBuffer_Release(space, view):
     """
-    Release the buffer view. This should be called when the buffer is 
+    Release the buffer view. This should be called when the buffer is
     no longer being used as it may free memory from it
     """
     Py_DecRef(space, view.c_obj)

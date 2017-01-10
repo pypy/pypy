@@ -329,66 +329,19 @@ class ApiFunction(object):
             wrapper.c_name = cpyext_namespace.uniquename(self.c_name)
         return wrapper
 
-DEFAULT_HEADER = 'pypy_decl.h'
-def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
-                gil=None, result_borrowed=False, result_is_ll=False):
-    """
-    Declares a function to be exported.
-    - `argtypes`, `restype` are lltypes and describe the function signature.
-    - `error` is the value returned when an applevel exception is raised. The
-      special value 'CANNOT_FAIL' (also when restype is Void) turns an eventual
-      exception into a wrapped SystemError.  Unwrapped exceptions also cause a
-      SytemError.
-    - `header` is the header file to export the function in, Set to None to get
-      a C function pointer, but not exported by the API headers.
-    - set `gil` to "acquire", "release" or "around" to acquire the GIL,
-      release the GIL, or both
-    """
-    if isinstance(restype, lltype.Typedef):
-        real_restype = restype.OF
-    else:
-        real_restype = restype
-
-    if error is _NOT_SPECIFIED:
-        if isinstance(real_restype, lltype.Ptr):
-            error = lltype.nullptr(real_restype.TO)
-        elif real_restype is lltype.Void:
-            error = CANNOT_FAIL
-    if type(error) is int:
-        error = rffi.cast(real_restype, error)
-    expect_integer = (isinstance(real_restype, lltype.Primitive) and
-                      rffi.cast(restype, 0) == 0)
-
-    def decorate(func):
-        func._always_inline_ = 'try'
-        func_name = func.func_name
-        if header is not None:
-            c_name = None
-            if func_name in FUNCTIONS_BY_HEADER[header]:
-                raise ValueError("%s already registered" % func_name)
-        else:
-            c_name = func_name
-        api_function = ApiFunction(argtypes, restype, func, error,
-                                   c_name=c_name, gil=gil,
-                                   result_borrowed=result_borrowed,
-                                   result_is_ll=result_is_ll)
-        func.api_func = api_function
-
-        if error is _NOT_SPECIFIED:
-            raise ValueError("function %s has no return value for exceptions"
-                             % func)
-        names = api_function.argnames
-        types_names_enum_ui = unrolling_iterable(enumerate(
-            zip(api_function.argtypes,
-                [tp_name.startswith("w_") for tp_name in names])))
+    def get_unwrapper(self):
+        names = self.argnames
+        argtypesw = zip(self.argtypes,
+                        [_name.startswith("w_") for _name in self.argnames])
+        types_names_enum_ui = unrolling_iterable(enumerate(argtypesw))
 
         @specialize.ll()
         def unwrapper(space, *args):
-            from pypy.module.cpyext.pyobject import Py_DecRef, is_pyobj
+            from pypy.module.cpyext.pyobject import is_pyobj
             from pypy.module.cpyext.pyobject import from_ref, as_pyobj
             newargs = ()
             keepalives = ()
-            assert len(args) == len(api_function.argtypes)
+            assert len(args) == len(self.argtypes)
             for i, (ARG, is_wrapped) in types_names_enum_ui:
                 input_arg = args[i]
                 if is_PyObject(ARG) and not is_wrapped:
@@ -413,31 +366,79 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
                         arg = from_ref(space, input_arg)
                     else:
                         arg = input_arg
-
-                        ## ZZZ: for is_pyobj:
-                        ## try:
-                        ##     arg = from_ref(space,
-                        ##                rffi.cast(PyObject, input_arg))
-                        ## except TypeError, e:
-                        ##     err = oefmt(space.w_TypeError,
-                        ##                 "could not cast arg to PyObject")
-                        ##     if not catch_exception:
-                        ##         raise err
-                        ##     state = space.fromcache(State)
-                        ##     state.set_exception(err)
-                        ##     if is_PyObject(restype):
-                        ##         return None
-                        ##     else:
-                        ##         return api_function.error_value
                 else:
                     # arg is not declared as PyObject, no magic
                     arg = input_arg
                 newargs += (arg, )
             try:
-                return func(space, *newargs)
+                return self.callable(space, *newargs)
             finally:
                 keepalive_until_here(*keepalives)
+        return unwrapper
 
+    def get_c_restype(self, c_writer):
+        return c_writer.gettype(self.restype).replace('@', '').strip()
+
+    def get_c_args(self, c_writer):
+        args = []
+        for i, argtype in enumerate(self.argtypes):
+            if argtype is CONST_STRING:
+                arg = 'const char *@'
+            elif argtype is CONST_STRINGP:
+                arg = 'const char **@'
+            elif argtype is CONST_WSTRING:
+                arg = 'const wchar_t *@'
+            else:
+                arg = c_writer.gettype(argtype)
+            arg = arg.replace('@', 'arg%d' % (i,)).strip()
+            args.append(arg)
+        args = ', '.join(args) or "void"
+        return args
+
+    def get_api_decl(self, name, c_writer):
+        restype = self.get_c_restype(c_writer)
+        args = self.get_c_args(c_writer)
+        return "PyAPI_FUNC({restype}) {name}({args});".format(**locals())
+
+    def get_ptr_decl(self, name, c_writer):
+        restype = self.get_c_restype(c_writer)
+        args = self.get_c_args(c_writer)
+        return "{restype} (*{name})({args});".format(**locals())
+
+    def get_ctypes_impl(self, name, c_writer):
+        restype = self.get_c_restype(c_writer)
+        args = self.get_c_args(c_writer)
+        callargs = ', '.join('arg%d' % (i,)
+                            for i in range(len(self.argtypes)))
+        if self.restype is lltype.Void:
+            body = "{ _pypyAPI.%s(%s); }" % (name, callargs)
+        else:
+            body = "{ return _pypyAPI.%s(%s); }" % (name, callargs)
+        return '%s %s(%s)\n%s' % (restype, name, args, body)
+
+
+DEFAULT_HEADER = 'pypy_decl.h'
+def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
+                gil=None, result_borrowed=False, result_is_ll=False):
+    """
+    Declares a function to be exported.
+    - `argtypes`, `restype` are lltypes and describe the function signature.
+    - `error` is the value returned when an applevel exception is raised. The
+      special value 'CANNOT_FAIL' (also when restype is Void) turns an eventual
+      exception into a wrapped SystemError.  Unwrapped exceptions also cause a
+      SytemError.
+    - `header` is the header file to export the function in.
+    - set `gil` to "acquire", "release" or "around" to acquire the GIL,
+      release the GIL, or both
+    """
+    assert header is not None
+    def decorate(func):
+        if func.__name__ in FUNCTIONS_BY_HEADER[header]:
+            raise ValueError("%s already registered" % func.__name__)
+        api_function = _create_api_func(
+            func, argtypes, restype, error, gil=gil,
+            result_borrowed=result_borrowed, result_is_ll=result_is_ll)
+        unwrapper = api_function.get_unwrapper()
         unwrapper.func = func
         unwrapper.api_func = api_function
 
@@ -449,24 +450,63 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
             try:
                 res = unwrapper(space, *args)
             except OperationError as e:
-                if not hasattr(api_function, "error_value"):
+                if not hasattr(unwrapper.api_func, "error_value"):
                     raise
                 state = space.fromcache(State)
                 state.set_exception(e)
                 if is_PyObject(restype):
                     return None
                 else:
-                    return api_function.error_value
+                    return unwrapper.api_func.error_value
             got_integer = isinstance(res, (int, long, float))
+            if isinstance(restype, lltype.Typedef):
+                real_restype = restype.OF
+            else:
+                real_restype = restype
+            expect_integer = (isinstance(real_restype, lltype.Primitive) and
+                            rffi.cast(restype, 0) == 0)
             assert got_integer == expect_integer, (
                 'got %r not integer' % (res,))
             return res
 
         if header is not None:
-            FUNCTIONS_BY_HEADER[header][func_name] = api_function
-        INTERPLEVEL_API[func_name] = unwrapper_catch  # used in tests
-        return unwrapper  # used in 'normal' RPython code.
+            FUNCTIONS_BY_HEADER[header][func.__name__] = api_function
+            INTERPLEVEL_API[func.__name__] = unwrapper_catch  # used in tests
+        return unwrapper
     return decorate
+
+def slot_function(argtypes, restype, error=_NOT_SPECIFIED):
+    def decorate(func):
+        c_name = func.__name__
+        api_function = _create_api_func(func, argtypes, restype, error, c_name)
+        unwrapper = api_function.get_unwrapper()
+        unwrapper.func = func
+        unwrapper.api_func = api_function
+        return unwrapper
+    return decorate
+
+
+def _create_api_func(
+        func, argtypes, restype, error=_NOT_SPECIFIED, c_name=None,
+        gil=None, result_borrowed=False, result_is_ll=False):
+    if isinstance(restype, lltype.Typedef):
+        real_restype = restype.OF
+    else:
+        real_restype = restype
+
+    if error is _NOT_SPECIFIED:
+        if isinstance(real_restype, lltype.Ptr):
+            error = lltype.nullptr(real_restype.TO)
+        elif real_restype is lltype.Void:
+            error = CANNOT_FAIL
+    if type(error) is int:
+        error = rffi.cast(real_restype, error)
+
+    func._always_inline_ = 'try'
+    return ApiFunction(
+        argtypes, restype, func, error, c_name=c_name, gil=gil,
+        result_borrowed=result_borrowed, result_is_ll=result_is_ll)
+
 
 def cpython_struct(name, fields, forward=None, level=1):
     configname = name.replace(' ', '__')
@@ -978,23 +1018,6 @@ def run_bootstrap_functions(space):
     for func in BOOTSTRAP_FUNCTIONS:
         func(space)
 
-def c_function_signature(db, func):
-    restype = db.gettype(func.restype).replace('@', '').strip()
-    args = []
-    for i, argtype in enumerate(func.argtypes):
-        if argtype is CONST_STRING:
-            arg = 'const char *@'
-        elif argtype is CONST_STRINGP:
-            arg = 'const char **@'
-        elif argtype is CONST_WSTRING:
-            arg = 'const wchar_t *@'
-        else:
-            arg = db.gettype(argtype)
-        arg = arg.replace('@', 'arg%d' % (i,)).strip()
-        args.append(arg)
-    args = ', '.join(args) or "void"
-    return restype, args
-
 #_____________________________________________________
 # Build the bridge DLL, Allow extension DLLs to call
 # back into Pypy space functions
@@ -1014,15 +1037,8 @@ def build_bridge(space):
     structindex = {}
     for header, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         for name, func in header_functions.iteritems():
-            restype, args = c_function_signature(db, func)
-            callargs = ', '.join('arg%d' % (i,)
-                                for i in range(len(func.argtypes)))
-            if func.restype is lltype.Void:
-                body = "{ _pypyAPI.%s(%s); }" % (name, callargs)
-            else:
-                body = "{ return _pypyAPI.%s(%s); }" % (name, callargs)
-            functions.append('%s %s(%s)\n%s' % (restype, name, args, body))
-            members.append('%s (*%s)(%s);' % (restype, name, args))
+            functions.append(func.get_ctypes_impl(name, db))
+            members.append(func.get_ptr_decl(name, db))
             structindex[name] = len(structindex)
     structmembers = '\n'.join(members)
     struct_declaration_code = """\
@@ -1217,8 +1233,7 @@ def generate_decls_and_callbacks(db, prefix=''):
         for name, func in sorted(header_functions.iteritems()):
             _name = mangle_name(prefix, name)
             header.append("#define %s %s" % (name, _name))
-            restype, args = c_function_signature(db, func)
-            header.append("PyAPI_FUNC(%s) %s(%s);" % (restype, name, args))
+            header.append(func.get_api_decl(name, db))
 
     for name, (typ, expr) in GLOBALS.iteritems():
         if '#' in name:
