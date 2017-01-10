@@ -282,6 +282,12 @@ class AppTestFileIO:
         if fd1 != fd2:
             raises(OSError, posix.close, fd1)
 
+    def test_opener_negative(self):
+        import _io
+        def opener(*args):
+            return -1
+        raises(ValueError, _io.FileIO, "foo", 'r', opener=opener)
+
 
 def test_flush_at_exit():
     from pypy import conftest

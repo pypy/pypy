@@ -194,6 +194,11 @@ class W_FileIO(W_RawIOBase):
                 w_fd = space.call_function(w_opener, w_name, space.wrap(flags))
                 try:
                     self.fd = space.int_w(w_fd)
+                    if self.fd < 0:
+                        # The opener returned a negative result instead
+                        # of raising an exception
+                        raise oefmt(space.w_ValueError,
+                                    "opener returned %d", self.fd)
                     fd_is_own = True
                 except OperationError as e:
                     if not e.match(space, space.w_TypeError):
