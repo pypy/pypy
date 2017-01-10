@@ -234,6 +234,9 @@ class AppTestUnicodeString:
         assert ('\u019b\u1d00\u1d86\u0221\u1fb7'.capitalize() ==
                 '\u019b\u1d00\u1d86\u0221\u1fb7')
 
+    def test_changed_in_unicodedata_version_8(self):
+        assert u'\u025C'.upper() == u'\uA7AB'
+
     def test_isprintable(self):
         assert "".isprintable()
         assert " ".isprintable()
