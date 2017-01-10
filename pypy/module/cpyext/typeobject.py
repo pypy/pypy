@@ -2,21 +2,20 @@ import os
 
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize, we_are_translated
-from rpython.rlib.rstring import rsplit
 from rpython.rtyper.lltypesystem import rffi, lltype
 
 from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
 from pypy.interpreter.error import oefmt
-from pypy.interpreter.typedef import (GetSetProperty, TypeDef,
-        interp_attrproperty, interp_attrproperty, interp2app)
+from pypy.interpreter.typedef import (
+    GetSetProperty, TypeDef, interp_attrproperty, interp2app)
 from pypy.module.__builtin__.abstractinst import abstract_issubclass_w
 from pypy.module.cpyext import structmemberdefs
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, Py_ssize_t, Py_ssize_tP,
-    generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
+    slot_function, generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
     Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
-    Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers, StaticObjectBuilder,
-    PyObjectFields, Py_TPFLAGS_BASETYPE, PyTypeObject, PyTypeObjectPtr,
+    Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers,
+    PyObjectFields, PyTypeObject, PyTypeObjectPtr,
     Py_TPFLAGS_HAVE_NEWBUFFER, Py_TPFLAGS_CHECKTYPES,
     Py_TPFLAGS_HAVE_INPLACEOPS)
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
@@ -373,7 +372,7 @@ def add_operators(space, dict_w, pto):
     if pto.c_tp_new:
         add_tp_new_wrapper(space, dict_w, pto)
 
-@cpython_api([PyObject, PyObject, PyObject], PyObject, header=None)
+@slot_function([PyObject, PyObject, PyObject], PyObject)
 def tp_new_wrapper(space, self, w_args, w_kwds):
     self_pytype = rffi.cast(PyTypeObjectPtr, self)
     tp_new = self_pytype.c_tp_new
@@ -527,7 +526,7 @@ def init_typeobject(space):
                    realize=type_realize,
                    dealloc=type_dealloc)
 
-@cpython_api([PyObject], lltype.Void, header=None)
+@slot_function([PyObject], lltype.Void)
 def subtype_dealloc(space, obj):
     pto = obj.c_ob_type
     base = pto
@@ -558,15 +557,13 @@ def subtype_dealloc(space, obj):
     # hopefully this does not clash with the memory model assumed in
     # extension modules
 
-@cpython_api([PyObject, Py_ssize_tP], lltype.Signed, header=None,
-             error=CANNOT_FAIL)
+@slot_function([PyObject, Py_ssize_tP], lltype.Signed, error=CANNOT_FAIL)
 def bf_segcount(space, w_obj, ref):
     if ref:
         ref[0] = space.len_w(w_obj)
     return 1
 
-@cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
-             header=None, error=-1)
+@slot_function([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed, error=-1)
 def bf_getreadbuffer(space, w_buf, segment, ref):
     from rpython.rlib.buffer import StringBuffer
     if segment != 0:
@@ -579,13 +576,11 @@ def bf_getreadbuffer(space, w_buf, segment, ref):
     ref[0] = address
     return len(buf)
 
-@cpython_api([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed,
-             header=None, error=-1)
+@slot_function([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed, error=-1)
 def bf_getcharbuffer(space, w_buf, segment, ref):
     return bf_getreadbuffer(space, w_buf, segment, rffi.cast(rffi.VOIDPP, ref))
 
-@cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
-             header=None, error=-1)
+@slot_function([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed, error=-1)
 def bf_getwritebuffer(space, w_buf, segment, ref):
     if segment != 0:
         raise oefmt(space.w_SystemError,
@@ -594,8 +589,7 @@ def bf_getwritebuffer(space, w_buf, segment, ref):
     ref[0] = buf.get_raw_address()
     return len(buf)
 
-@cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
-             header=None, error=-1)
+@slot_function([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed, error=-1)
 def str_getreadbuffer(space, w_str, segment, ref):
     from pypy.module.cpyext.bytesobject import PyString_AsString
     if segment != 0:
@@ -607,11 +601,10 @@ def str_getreadbuffer(space, w_str, segment, ref):
     Py_DecRef(space, pyref)
     return space.len_w(w_str)
 
-@cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
-             header=None, error=-1)
+@slot_function([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed, error=-1)
 def unicode_getreadbuffer(space, w_str, segment, ref):
     from pypy.module.cpyext.unicodeobject import (
-                PyUnicode_AS_UNICODE, PyUnicode_GET_DATA_SIZE)
+        PyUnicode_AS_UNICODE, PyUnicode_GET_DATA_SIZE)
     if segment != 0:
         raise oefmt(space.w_SystemError,
                     "accessing non-existent unicode segment")
@@ -621,13 +614,11 @@ def unicode_getreadbuffer(space, w_str, segment, ref):
     Py_DecRef(space, pyref)
     return PyUnicode_GET_DATA_SIZE(space, w_str)
 
-@cpython_api([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed,
-             header=None, error=-1)
+@slot_function([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed, error=-1)
 def str_getcharbuffer(space, w_buf, segment, ref):
     return str_getreadbuffer(space, w_buf, segment, rffi.cast(rffi.VOIDPP, ref))
 
-@cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
-             header=None, error=-1)
+@slot_function([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed, error=-1)
 def buf_getreadbuffer(space, pyref, segment, ref):
     from pypy.module.cpyext.bufferobject import PyBufferObject
     if segment != 0:
@@ -637,8 +628,7 @@ def buf_getreadbuffer(space, pyref, segment, ref):
     ref[0] = py_buf.c_b_ptr
     return py_buf.c_b_size
 
-@cpython_api([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed,
-             header=None, error=-1)
+@slot_function([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed, error=-1)
 def buf_getcharbuffer(space, w_buf, segment, ref):
     return buf_getreadbuffer(space, w_buf, segment, rffi.cast(rffi.VOIDPP, ref))
 
@@ -678,7 +668,7 @@ def setup_buffer_procs(space, w_type, pto):
     pto.c_tp_flags |= Py_TPFLAGS_HAVE_GETCHARBUFFER
     pto.c_tp_flags |= Py_TPFLAGS_HAVE_NEWBUFFER
 
-@cpython_api([PyObject], lltype.Void, header=None)
+@slot_function([PyObject], lltype.Void)
 def type_dealloc(space, obj):
     from pypy.module.cpyext.object import _dealloc
     obj_pto = rffi.cast(PyTypeObjectPtr, obj)

@@ -4,6 +4,7 @@ from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rlib.buffer import StringBuffer
+from pypy.module.cpyext.pyobject import from_ref
 
 only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names" 
 
@@ -11,7 +12,7 @@ class TestMemoryViewObject(BaseApiTest):
     def test_fromobject(self, space, api):
         w_hello = space.newbytes("hello")
         assert api.PyObject_CheckBuffer(w_hello)
-        w_view = api.PyMemoryView_FromObject(w_hello)
+        w_view = from_ref(space, api.PyMemoryView_FromObject(w_hello))
         w_char = space.call_method(w_view, '__getitem__', space.wrap(0))
         assert space.eq_w(w_char, space.wrap('h'))
         w_bytes = space.call_method(w_view, "tobytes")
@@ -19,7 +20,7 @@ class TestMemoryViewObject(BaseApiTest):
 
     def test_frombuffer(self, space, api):
         w_buf = space.newbuffer(StringBuffer("hello"))
-        w_memoryview = api.PyMemoryView_FromObject(w_buf)
+        w_memoryview = from_ref(space, api.PyMemoryView_FromObject(w_buf))
         view = api.PyMemoryView_GET_BUFFER(w_memoryview)
         assert view.c_ndim == 1
         f = rffi.charp2str(view.c_format)
@@ -29,7 +30,7 @@ class TestMemoryViewObject(BaseApiTest):
         assert view.c_len == 5
         o = rffi.charp2str(view.c_buf)
         assert o == 'hello'
-        w_mv = api.PyMemoryView_FromBuffer(view)
+        w_mv = from_ref(space, api.PyMemoryView_FromBuffer(view))
         for f in ('format', 'itemsize', 'ndim', 'readonly', 
                   'shape', 'strides', 'suboffsets'):
             w_f = space.wrap(f)
@@ -43,6 +44,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
                 ("fillinfo", "METH_VARARGS",
                  """
                  Py_buffer buf;
+                 PyObject * ret = NULL;
                  PyObject *str = PyBytes_FromString("hello, world.");
                  if (PyBuffer_FillInfo(&buf, str, PyBytes_AsString(str), 13,
                                        0, 0)) {
@@ -54,7 +56,14 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
                   */
                  Py_DECREF(str);
 
-                 return PyMemoryView_FromBuffer(&buf);
+                 ret = PyMemoryView_FromBuffer(&buf);
+                 if (((PyMemoryViewObject*)ret)->view.obj != buf.obj)
+                 {
+                    PyErr_SetString(PyExc_ValueError, "leaked ref");
+                    Py_DECREF(ret);
+                    return NULL;
+                 }
+                 return ret;
                  """)])
         result = module.fillinfo()
         assert b"hello, world." == result

@@ -89,5 +89,15 @@ More generally it is now possible to obtain the address of any object (if it
 is readonly) without pinning it.
 
 .. branch: cpyext-cleanup
+.. branch: api_func-refactor
 
 Refactor cpyext initialisation.
+
+.. branch: cpyext-from2
+
+Fix a test failure introduced by strbuf-as-buffer
+
+.. branch: cpyext-FromBuffer
+
+Do not recreate the object in PyMemoryView_FromBuffer, rather pass it to
+the returned PyMemoryViewObject, to take ownership of it. Fixes a ref leak.
