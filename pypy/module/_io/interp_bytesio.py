@@ -83,9 +83,6 @@ class W_BytesIO(W_BufferedIOBase):
         limit = convert_size(space, w_limit)
         return space.newbytes(self.readline(limit))
 
-    def read1_w(self, space, w_size):
-        return self.read_w(space, w_size)
-
     def readinto_w(self, space, w_buffer):
         self._check_closed(space)
         rwbuffer = space.getarg_w('w*', w_buffer)
@@ -203,9 +200,10 @@ W_BytesIO.typedef = TypeDef(
     __init__  = interp2app(W_BytesIO.descr_init),
 
     read = interp2app(W_BytesIO.read_w),
-    read1 = interp2app(W_BytesIO.read1_w),
+    read1 = interp2app(W_BytesIO.read_w),
     readline = interp2app(W_BytesIO.readline_w),
     readinto = interp2app(W_BytesIO.readinto_w),
+    readinto1 = interp2app(W_BytesIO.readinto_w),
     write = interp2app(W_BytesIO.write_w),
     truncate = interp2app(W_BytesIO.truncate_w),
     getbuffer = interp2app(W_BytesIO.getbuffer_w),

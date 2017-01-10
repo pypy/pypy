@@ -152,19 +152,28 @@ class AppTestBufferedReader:
 
     def test_readinto(self):
         import _io
-        a = bytearray(b'x' * 10)
-        raw = _io.FileIO(self.tmpfile)
-        f = _io.BufferedReader(raw)
-        assert f.readinto(a) == 5
-        f.seek(0)
-        m = memoryview(bytearray(b"hello"))
-        assert f.readinto(m) == 5
-        exc = raises(TypeError, f.readinto, u"hello")
-        assert str(exc.value) == "must be read-write buffer, not str"
-        exc = raises(TypeError, f.readinto, memoryview(b"hello"))
-        assert str(exc.value) == "must be read-write buffer, not memoryview"
-        f.close()
-        assert a == b'a\nb\ncxxxxx'
+        for methodname in ["readinto", "readinto1"]:
+            a = bytearray(b'x' * 10)
+            raw = _io.FileIO(self.tmpfile)
+            f = _io.BufferedReader(raw)
+            readinto = getattr(f, methodname)
+            assert readinto(a) == 5
+            f.seek(0)
+            m = memoryview(bytearray(b"hello"))
+            assert readinto(m) == 5
+            #
+            exc = raises(TypeError, readinto, u"hello")
+            msg = str(exc.value)
+            print(msg)
+            assert " read-write b" in msg and msg.endswith(", not str")
+            #
+            exc = raises(TypeError, readinto, memoryview(b"hello"))
+            msg = str(exc.value)
+            print(msg)
+            assert " read-write b" in msg and msg.endswith(", not memoryview")
+            #
+            f.close()
+            assert a == b'a\nb\ncxxxxx'
 
     def test_readinto_buffer_overflow(self):
         import _io

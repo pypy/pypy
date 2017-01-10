@@ -98,23 +98,31 @@ class AppTestBytesIO:
 
     def test_readinto(self):
         import _io
-
-        b = _io.BytesIO(b"hello")
-        a1 = bytearray(b't')
-        a2 = bytearray(b'testing')
-        assert b.readinto(a1) == 1
-        assert b.readinto(a2) == 4
-        b.seek(0)
-        m = memoryview(bytearray(b"world"))
-        assert b.readinto(m) == 5
-        exc = raises(TypeError, b.readinto, u"hello")
-        assert str(exc.value) == "must be read-write buffer, not str"
-        exc = raises(TypeError, b.readinto, memoryview(b"hello"))
-        assert str(exc.value) == "must be read-write buffer, not memoryview"
-        b.close()
-        assert a1 == b"h"
-        assert a2 == b"elloing"
-        raises(ValueError, b.readinto, bytearray(b"hello"))
+        for methodname in ["readinto", "readinto1"]:
+            b = _io.BytesIO(b"hello")
+            readinto = getattr(b, methodname)
+            a1 = bytearray(b't')
+            a2 = bytearray(b'testing')
+            assert readinto(a1) == 1
+            assert readinto(a2) == 4
+            b.seek(0)
+            m = memoryview(bytearray(b"world"))
+            assert readinto(m) == 5
+            #
+            exc = raises(TypeError, readinto, u"hello")
+            msg = str(exc.value)
+            print(msg)
+            assert " read-write b" in msg and msg.endswith(", not str")
+            #
+            exc = raises(TypeError, readinto, memoryview(b"hello"))
+            msg = str(exc.value)
+            print(msg)
+            assert " read-write b" in msg and msg.endswith(", not memoryview")
+            #
+            b.close()
+            assert a1 == b"h"
+            assert a2 == b"elloing"
+            raises(ValueError, readinto, bytearray(b"hello"))
 
     def test_getbuffer(self):
         import _io

@@ -107,18 +107,25 @@ state."""
         self._unsupportedoperation(space, "detach")
 
     def readinto_w(self, space, w_buffer):
+        return self._readinto(space, w_buffer, "read")
+
+    def readinto1_w(self, space, w_buffer):
+        return self._readinto(space, w_buffer, "read1")
+
+    def _readinto(self, space, w_buffer, methodname):
         rwbuffer = space.getarg_w('w*', w_buffer)
         length = rwbuffer.getlength()
-        w_data = space.call_method(self, "read", space.wrap(length))
+        w_data = space.call_method(self, methodname, space.wrap(length))
 
         if not space.isinstance_w(w_data, space.w_str):
-            raise oefmt(space.w_TypeError, "read() should return bytes")
+            raise oefmt(space.w_TypeError, "%s() should return bytes",
+                        methodname)
         data = space.bytes_w(w_data)
         if len(data) > length:
             raise oefmt(space.w_ValueError,
-                        "read() returned too much data: "
+                        "%s() returned too much data: "
                         "%d bytes requested, %d returned",
-                        length, len(data))
+                        methodname, length, len(data))
         rwbuffer.setslice(0, data)
         return space.wrap(len(data))
 
@@ -144,6 +151,7 @@ implementation, but wrap one.
     write = interp2app(W_BufferedIOBase.write_w),
     detach = interp2app(W_BufferedIOBase.detach_w),
     readinto = interp2app(W_BufferedIOBase.readinto_w),
+    readinto1 = interp2app(W_BufferedIOBase.readinto1_w),
 )
 
 class RawBuffer(Buffer):
