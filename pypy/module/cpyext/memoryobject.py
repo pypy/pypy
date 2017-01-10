@@ -61,19 +61,20 @@ def memory_realize(space, obj):
     from pypy.module.cpyext.slotdefs import CPyBuffer, fq
     py_mem = rffi.cast(PyMemoryViewObject, obj)
     view = py_mem.c_view
+    ndim = widen(view.c_ndim)
     shape = None
     if view.c_shape:
-        shape = [view.c_shape[i] for i in range(view.c_ndim)]
+        shape = [view.c_shape[i] for i in range(ndim)]
     strides = None
     if view.c_strides:
-        strides = [view.c_strides[i] for i in range(view.c_ndim)]
+        strides = [view.c_strides[i] for i in range(ndim)]
     format = 'B'
     if view.c_format:
         format = rffi.charp2str(view.c_format)
     buf = CPyBuffer(space, view.c_buf, view.c_len, from_ref(space, view.c_obj),
                     format=format, shape=shape, strides=strides,
-                    ndim=view.c_ndim, itemsize=view.c_itemsize,
-                    readonly=view.c_readonly)
+                    ndim=ndim, itemsize=view.c_itemsize,
+                    readonly=widen(view.c_readonly))
     # Ensure view.c_buf is released upon object finalization
     fq.register_finalizer(buf)
     # Allow subclassing W_MemeoryView
