@@ -155,10 +155,17 @@ class AppTestFileIO:
         f.seek(0)
         m = memoryview(bytearray(b"helloworld"))
         assert f.readinto(m) == 10
+        #
         exc = raises(TypeError, f.readinto, u"hello")
-        assert str(exc.value) == "must be read-write buffer, not str"
+        msg = str(exc.value)
+        print(msg)
+        assert " read-write b" in msg and msg.endswith(", not str")
+        #
         exc = raises(TypeError, f.readinto, memoryview(b"hello"))
-        assert str(exc.value) == "must be read-write buffer, not memoryview"
+        msg = str(exc.value)
+        print(msg)
+        assert " read-write b" in msg and msg.endswith(", not memoryview")
+        #
         f.close()
         assert a == b'a\nb\nc\0\0\0\0\0'
         #
