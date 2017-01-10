@@ -163,3 +163,28 @@ def test_gettype(tmpdir):
     res = parse_source(decl, eci=eci, configure_now=True)
     assert res.gettype('Py_ssize_t') == rffi.SSIZE_T
     assert res.gettype('TestFloatObject *').TO.c_ob_refcnt == rffi.SSIZE_T
+
+def test_parse_funcdecl(tmpdir):
+    decl = """
+    typedef ssize_t Py_ssize_t;
+
+    #define PyObject_HEAD  \
+        Py_ssize_t ob_refcnt;        \
+        Py_ssize_t ob_pypy_link;     \
+
+    typedef struct {
+        PyObject_HEAD
+        double ob_fval;
+    } TestFloatObject;
+
+    typedef TestFloatObject* (*func_t)(int, int);
+    """
+    hdr = tmpdir / 'header.h'
+    hdr.write(decl)
+    eci = ExternalCompilationInfo(
+        include_dirs=[str(tmpdir)], includes=['sys/types.h', 'header.h'])
+    res = parse_source(decl, eci=eci, configure_now=True)
+    name, FUNC = res.parse_func("func_t some_func(TestFloatObject*)")
+    assert name == 'some_func'
+    assert FUNC.RESULT == res.gettype('func_t')
+    assert FUNC.ARGS == (res.gettype('TestFloatObject *'),)

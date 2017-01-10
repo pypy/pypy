@@ -783,6 +783,16 @@ class ParsedSource(object):
             result = result.TYPE
         return result
 
+    def parse_func(self, cdecl):
+        cdecl = cdecl.strip()
+        if cdecl[-1] != ';':
+            cdecl += ';'
+        ast, _, _ = self.ctx._parse(cdecl)
+        decl = ast.ext[-1]
+        tp, quals = self.ctx._get_type_and_quals(decl.type, name=decl.name)
+        FUNCP = self.convert_type(tp.as_function_pointer())
+        return decl.name, FUNCP.TO
+
 
 def parse_source(source, includes=None, eci=None, configure_now=False):
     ctx = Parser()
