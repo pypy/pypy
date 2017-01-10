@@ -176,6 +176,16 @@ class AppTestBytesObject:
     def test_format_bytes(self):
         assert b'<%s>' % b'abc' == b'<abc>'
 
+    def test_formatting_not_tuple(self):
+        class mydict(dict):
+            pass
+        assert b'xxx' % mydict() == b'xxx'
+        assert b'xxx' % [] == b'xxx'       # [] considered as a mapping(!)
+        raises(TypeError, "b'xxx' % 'foo'")
+        raises(TypeError, "b'xxx' % b'foo'")
+        raises(TypeError, "b'xxx' % bytearray()")
+        raises(TypeError, "b'xxx' % 53")
+
     def test_split(self):
         assert b"".split() == []
         assert b"".split(b'x') == [b'']

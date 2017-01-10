@@ -912,6 +912,16 @@ class AppTestUnicodeString:
         # Printable character
         assert '%r' % chr(0xe9) == "'\xe9'"
 
+    def test_formatting_not_tuple(self):
+        class mydict(dict):
+            pass
+        assert 'xxx' % mydict() == 'xxx'
+        assert 'xxx' % b'foo' == 'xxx'   # b'foo' considered as a mapping(!)
+        assert 'xxx' % bytearray() == 'xxx'   # same
+        assert 'xxx' % [] == 'xxx'       # [] considered as a mapping(!)
+        raises(TypeError, "'xxx' % 'foo'")
+        raises(TypeError, "'xxx' % 53")
+
     def test_str_subclass(self):
         class Foo9(str):
             def __str__(self):

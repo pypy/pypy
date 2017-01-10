@@ -583,11 +583,21 @@ def mod_format(space, w_format, w_values, fmt_type=FORMAT_STR):
         # we check directly for dict to avoid obscure checking
         # in simplest case
         if space.isinstance_w(w_values, space.w_dict) or \
-           (space.lookup(w_values, '__getitem__') and
-           not space.isinstance_w(w_values, space.w_unicode)):
+             _looks_like_a_mapping(space, w_values, fmt_type):
             return format(space, w_format, [w_values], w_values, fmt_type)
         else:
             return format(space, w_format, [w_values], None, fmt_type)
+
+def _looks_like_a_mapping(space, w_x, fmt_type):
+    if not space.lookup(w_x, '__getitem__'):
+        return False
+    if space.isinstance_w(w_x, space.w_unicode):
+        return False
+    if fmt_type != FORMAT_UNICODE:  # (S6) in http://bugs.python.org/issue28885
+        if (space.isinstance_w(w_x, space.w_bytes) or
+            space.isinstance_w(w_x, space.w_bytearray)):
+            return False
+    return True
 
 # ____________________________________________________________
 # Formatting helpers
