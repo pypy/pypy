@@ -427,29 +427,17 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
       special value 'CANNOT_FAIL' (also when restype is Void) turns an eventual
       exception into a wrapped SystemError.  Unwrapped exceptions also cause a
       SytemError.
-    - `header` is the header file to export the function in, Set to None to get
-      a C function pointer, but not exported by the API headers.
+    - `header` is the header file to export the function in.
     - set `gil` to "acquire", "release" or "around" to acquire the GIL,
       release the GIL, or both
     """
-    if isinstance(restype, lltype.Typedef):
-        real_restype = restype.OF
-    else:
-        real_restype = restype
-    expect_integer = (isinstance(real_restype, lltype.Primitive) and
-                      rffi.cast(restype, 0) == 0)
+    assert header is not None
     def decorate(func):
-        if header is not None:
-            if func.__name__ in FUNCTIONS_BY_HEADER[header]:
-                raise ValueError("%s already registered" % func.__name__)
-        if header is not None:
-            c_name = None
-        else:
-            c_name = func.__name__
-
+        if func.__name__ in FUNCTIONS_BY_HEADER[header]:
+            raise ValueError("%s already registered" % func.__name__)
         api_function = _create_api_func(
-            func, argtypes, restype, error, c_name, gil, result_borrowed,
-            result_is_ll)
+            func, argtypes, restype, error, gil=gil,
+            result_borrowed=result_borrowed, result_is_ll=result_is_ll)
         unwrapper = api_function.get_unwrapper()
         unwrapper.func = func
         unwrapper.api_func = api_function
@@ -471,6 +459,12 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
                 else:
                     return unwrapper.api_func.error_value
             got_integer = isinstance(res, (int, long, float))
+            if isinstance(restype, lltype.Typedef):
+                real_restype = restype.OF
+            else:
+                real_restype = restype
+            expect_integer = (isinstance(real_restype, lltype.Primitive) and
+                            rffi.cast(restype, 0) == 0)
             assert got_integer == expect_integer, (
                 'got %r not integer' % (res,))
             return res
@@ -480,6 +474,17 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
             INTERPLEVEL_API[func.__name__] = unwrapper_catch  # used in tests
         return unwrapper
     return decorate
+
+def slot_function(argtypes, restype, error=_NOT_SPECIFIED):
+    def decorate(func):
+        c_name = func.__name__
+        api_function = _create_api_func(func, argtypes, restype, error, c_name)
+        unwrapper = api_function.get_unwrapper()
+        unwrapper.func = func
+        unwrapper.api_func = api_function
+        return unwrapper
+    return decorate
+
 
 def _create_api_func(
         func, argtypes, restype, error=_NOT_SPECIFIED, c_name=None,

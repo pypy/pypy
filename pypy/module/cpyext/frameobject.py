@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, bootstrap_function, PyObjectFields, cpython_struct,
-    CANNOT_FAIL)
+    CANNOT_FAIL, slot_function)
 from pypy.module.cpyext.pyobject import (
     PyObject, Py_DecRef, make_ref, from_ref, track_reference,
     make_typedescr, get_typedescr)
@@ -39,7 +39,7 @@ def frame_attach(space, py_obj, w_obj, w_userdata=None):
     py_frame.c_f_locals = make_ref(space, frame.get_w_locals())
     rffi.setintfield(py_frame, 'c_f_lineno', frame.getorcreatedebug().f_lineno)
 
-@cpython_api([PyObject], lltype.Void, header=None)
+@slot_function([PyObject], lltype.Void)
 def frame_dealloc(space, py_obj):
     py_frame = rffi.cast(PyFrameObject, py_obj)
     py_code = rffi.cast(PyObject, py_frame.c_f_code)

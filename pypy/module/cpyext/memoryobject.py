@@ -1,9 +1,9 @@
-from pypy.module.cpyext.api import (cpython_api, Py_buffer, CANNOT_FAIL,
-                         Py_MAX_FMT, Py_MAX_NDIMS, build_type_checkers,
-                         Py_ssize_tP, PyObjectFields, cpython_struct,
-                         bootstrap_function, Py_bufferP)
-from pypy.module.cpyext.pyobject import (PyObject, make_ref, as_pyobj, incref,
-             decref, from_ref, make_typedescr)
+from pypy.module.cpyext.api import (
+    cpython_api, Py_buffer, CANNOT_FAIL, Py_MAX_FMT, Py_MAX_NDIMS,
+    build_type_checkers, Py_ssize_tP, PyObjectFields, cpython_struct,
+    bootstrap_function, Py_bufferP, slot_function)
+from pypy.module.cpyext.pyobject import (
+    PyObject, make_ref, as_pyobj, incref, decref, from_ref, make_typedescr)
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import widen
 from pypy.objspace.std.memoryobject import W_MemoryView
@@ -44,7 +44,7 @@ def memory_realize(space, py_obj):
     """
     raise oefmt(space.w_NotImplementedError, "cannot call this yet")
 
-@cpython_api([PyObject], lltype.Void, header=None)
+@slot_function([PyObject], lltype.Void)
 def memory_dealloc(space, py_obj):
     mem_obj = rffi.cast(PyMemoryViewObject, py_obj)
     if mem_obj.c_view.c_obj:
