@@ -1,7 +1,8 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t, Py_ssize_tP,
-    PyVarObject, Py_buffer, size_t,
+    PyVarObject, Py_buffer, size_t, slot_function,
+    PyBUF_FORMAT, PyBUF_ND, PyBUF_STRIDES,
     Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
     Py_GE, CONST_STRING, CONST_STRINGP, FILEP, fwrite)
 from pypy.module.cpyext.pyobject import (
@@ -58,7 +59,7 @@ def _PyObject_NewVar(space, type, itemcount):
         w_obj = PyObject_InitVar(space, py_objvar, type, itemcount)
     return py_obj
 
-@cpython_api([PyObject], lltype.Void)
+@slot_function([PyObject], lltype.Void)
 def PyObject_dealloc(space, obj):
     return _dealloc(space, obj)
 
@@ -489,22 +490,28 @@ def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
     Fills in a buffer-info structure correctly for an exporter that can only
     share a contiguous chunk of memory of "unsigned bytes" of the given
     length. Returns 0 on success and -1 (with raising an error) on error.
-
-    This is not a complete re-implementation of the CPython API; it only
-    provides a subset of CPython's behavior.
     """
     if rffi.cast(lltype.Signed, flags) & PyBUF_WRITABLE and readonly:
         raise oefmt(space.w_ValueError, "Object is not writable")
     view.c_buf = buf
     view.c_len = length
     view.c_obj = obj
-    Py_IncRef(space, obj)
+    if obj:
+        Py_IncRef(space, obj)
     view.c_itemsize = 1
     rffi.setintfield(view, 'c_readonly', readonly)
-    rffi.setintfield(view, 'c_ndim', 0)
+    rffi.setintfield(view, 'c_ndim', 1)
     view.c_format = lltype.nullptr(rffi.CCHARP.TO)
+    if (flags & PyBUF_FORMAT) == PyBUF_FORMAT:
+        view.c_format = rffi.str2charp("B")
     view.c_shape = lltype.nullptr(Py_ssize_tP.TO)
+    if (flags & PyBUF_ND) == PyBUF_ND:
+        view.c_shape = rffi.cast(Py_ssize_tP, view.c__shape)
+        view.c_shape[0] = view.c_len
     view.c_strides = lltype.nullptr(Py_ssize_tP.TO)
+    if (flags & PyBUF_STRIDES) == PyBUF_STRIDES:
+        view.c_strides = rffi.cast(Py_ssize_tP, view.c__strides)
+        view.c_strides[0] = view.c_itemsize
     view.c_suboffsets = lltype.nullptr(Py_ssize_tP.TO)
     view.c_internal = lltype.nullptr(rffi.VOIDP.TO)
 

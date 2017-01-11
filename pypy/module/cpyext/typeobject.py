@@ -2,21 +2,20 @@ import os
 
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rstring import rsplit
 from rpython.rtyper.lltypesystem import rffi, lltype
 
 from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
 from pypy.interpreter.error import oefmt
-from pypy.interpreter.typedef import (GetSetProperty, TypeDef,
-        interp_attrproperty, interp_attrproperty, interp2app)
+from pypy.interpreter.typedef import (
+    GetSetProperty, TypeDef, interp_attrproperty, interp2app)
 from pypy.module.__builtin__.abstractinst import abstract_issubclass_w
 from pypy.module.cpyext import structmemberdefs
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, Py_ssize_t, Py_ssize_tP,
-    generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING, Py_buffer,
+    slot_function, generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING, Py_buffer,
     Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
-    Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers, StaticObjectBuilder,
-    PyObjectFields, Py_TPFLAGS_BASETYPE, PyTypeObject, PyTypeObjectPtr,
+    Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers,
+    PyObjectFields, PyTypeObject, PyTypeObjectPtr,
     Py_TPFLAGS_HAVE_INPLACEOPS)
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
     W_PyCWrapperObject, PyCFunction_NewEx, PyCFunction_typedef, PyMethodDef,
@@ -345,7 +344,7 @@ def add_operators(space, dict_w, pto):
     if pto.c_tp_new:
         add_tp_new_wrapper(space, dict_w, pto)
 
-@cpython_api([PyObject, PyObject, PyObject], PyObject, header=None)
+@slot_function([PyObject, PyObject, PyObject], PyObject)
 def tp_new_wrapper(space, self, w_args, w_kwds):
     self_pytype = rffi.cast(PyTypeObjectPtr, self)
     tp_new = self_pytype.c_tp_new
@@ -504,7 +503,7 @@ def init_typeobject(space):
                    realize=type_realize,
                    dealloc=type_dealloc)
 
-@cpython_api([PyObject], lltype.Void, header=None)
+@slot_function([PyObject], lltype.Void)
 def subtype_dealloc(space, obj):
     pto = obj.c_ob_type
     base = pto
@@ -519,8 +518,7 @@ def subtype_dealloc(space, obj):
     # hopefully this does not clash with the memory model assumed in
     # extension modules
 
-@cpython_api([PyObject, lltype.Ptr(Py_buffer), rffi.INT_real], rffi.INT_real,
-              header=None, error=-1)
+@slot_function([PyObject, lltype.Ptr(Py_buffer), rffi.INT_real], rffi.INT_real, error=-1)
 def bytes_getbuffer(space, w_str, view, flags):
     from pypy.module.cpyext.bytesobject import PyBytes_AsString
     from pypy.module.cpyext.object import PyBuffer_FillInfo
@@ -528,8 +526,7 @@ def bytes_getbuffer(space, w_str, view, flags):
     return PyBuffer_FillInfo(space, view, w_str, c_buf,
                              space.len_w(w_str), 1, flags)
 
-@cpython_api([PyObject, lltype.Ptr(Py_buffer), rffi.INT_real], rffi.INT_real,
-              header=None, error=-1)
+@slot_function([PyObject, lltype.Ptr(Py_buffer), rffi.INT_real], rffi.INT_real, error=-1)
 def bf_getbuffer(space, w_obj, view, flags):
     from pypy.module.cpyext.object import PyBuffer_FillInfo
     buf = space.buffer_w(w_obj, rffi.cast(lltype.Signed, flags))
@@ -550,7 +547,7 @@ def setup_buffer_procs(space, w_type, pto):
     pto.c_tp_as_buffer = c_buf
     pto.c_tp_flags |= Py_TPFLAGS_HAVE_GETCHARBUFFER
 
-@cpython_api([PyObject], lltype.Void, header=None)
+@slot_function([PyObject], lltype.Void)
 def type_dealloc(space, obj):
     from pypy.module.cpyext.object import _dealloc
     obj_pto = rffi.cast(PyTypeObjectPtr, obj)

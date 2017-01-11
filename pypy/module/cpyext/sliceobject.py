@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
-    CANNOT_FAIL, Py_ssize_t, Py_ssize_tP, PyObjectFields)
+    CANNOT_FAIL, Py_ssize_t, Py_ssize_tP, PyObjectFields, slot_function)
 from pypy.module.cpyext.pyobject import (
     Py_DecRef, PyObject, make_ref, make_typedescr)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
@@ -36,7 +36,7 @@ def slice_attach(space, py_obj, w_obj, w_userdata=None):
     py_slice.c_stop = make_ref(space, w_obj.w_stop)
     py_slice.c_step = make_ref(space, w_obj.w_step)
 
-@cpython_api([PyObject], lltype.Void, header=None)
+@slot_function([PyObject], lltype.Void)
 def slice_dealloc(space, py_obj):
     """Frees allocated PySliceObject resources.
     """
