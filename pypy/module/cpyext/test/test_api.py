@@ -1,4 +1,5 @@
 import py, pytest
+import contextlib
 from rpython.rtyper.lltypesystem import lltype
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.module.cpyext.state import State
@@ -9,6 +10,13 @@ from pypy.module.cpyext.test.test_cpyext import freeze_refcnts, LeakCheckingTest
 from pypy.interpreter.error import OperationError
 from rpython.rlib import rawrefcount
 import os
+
+@contextlib.contextmanager
+def raises_w(space, expected_exc):
+    with pytest.raises(OperationError) as excinfo:
+        yield
+    operror = excinfo.value
+    assert operror.w_type is getattr(space, 'w_' + expected_exc.__name__)
 
 class BaseApiTest(LeakCheckingTest):
     def setup_class(cls):
