@@ -8,6 +8,7 @@ from pypy.interpreter.gateway import (interp2app, BuiltinCode, unwrap_spec,
 
 from rpython.rlib.jit import promote
 from rpython.rlib.objectmodel import compute_identity_hash, specialize
+from rpython.rlib.objectmodel import instantiate
 from rpython.tool.sourcetools import compile2, func_with_new_name
 
 
@@ -250,10 +251,12 @@ def _make_objclass_getter(cls):
 
 class GetSetProperty(W_Root):
     _immutable_fields_ = ["fget", "fset", "fdel"]
+    name = '<generic property>'
+    w_objclass = None
 
     @specialize.arg(7)
     def __init__(self, fget, fset=None, fdel=None, doc=None,
-                 cls=None, use_closure=False, tag=None, w_type=None):
+                 cls=None, use_closure=False, tag=None):
         objclass_getter, cls = make_objclass_getter(tag, fget, cls)
         fget = make_descr_typecheck_wrapper((tag, 0), fget,
                                             cls=cls, use_closure=use_closure)
@@ -261,15 +264,24 @@ class GetSetProperty(W_Root):
                                             cls=cls, use_closure=use_closure)
         fdel = make_descr_typecheck_wrapper((tag, 2), fdel,
                                             cls=cls, use_closure=use_closure)
+        self._init(fget, fset, fdel, doc, cls, objclass_getter, use_closure)
+
+    def _init(self, fget, fset, fdel, doc, cls, objclass_getter, use_closure):
         self.fget = fget
         self.fset = fset
         self.fdel = fdel
         self.doc = doc
         self.reqcls = cls
-        self.name = '<generic property>'
         self.objclass_getter = objclass_getter
-        self.w_type = w_type
         self.use_closure = use_closure
+
+    def copy_for_type(self, w_objclass):
+        new = instantiate(GetSetProperty)
+        new._init(self.fget, self.fset, self.fdel, self.doc, self.reqcls,
+                  None, self.use_closure)
+        new.name = self.name
+        new.w_objclass = w_objclass
+        return new
 
     @unwrap_spec(w_cls = WrappedDefault(None))
     def descr_property_get(self, space, w_obj, w_cls=None):
@@ -319,8 +331,8 @@ class GetSetProperty(W_Root):
                                                space.wrap(self.name)]))
 
     def descr_get_objclass(space, property):
-        if property.w_type is not None:
-            return property.w_type
+        if property.w_objclass is not None:
+            return property.w_objclass
         if property.objclass_getter is not None:
             return property.objclass_getter(space)
         # NB. this is an AttributeError to make inspect.py happy
@@ -470,13 +482,9 @@ def descr_get_weakref(space, w_obj):
         return space.w_None
     return lifeline.get_any_weakref(space)
 
-def make_dict_descr_for_type(w_type):
-    descr = GetSetProperty(descr_get_dict, descr_set_dict, descr_del_dict,
-                           w_type=w_type,
-                           doc="dictionary for instance variables")
-    descr.name = '__dict__'
-    return descr
-dict_descr = make_dict_descr_for_type(None)
+dict_descr = GetSetProperty(descr_get_dict, descr_set_dict, descr_del_dict,
+                            doc="dictionary for instance variables")
+dict_descr.name = '__dict__'
 
 
 def generic_ne(space, w_obj1, w_obj2):
@@ -506,12 +514,9 @@ def fget_co_consts(space, code): # unwrapping through unwrap_spec
     w_docstring = code.getdocstring(space)
     return space.newtuple([w_docstring])
 
-def make_weakref_descr_for_type(w_type):
-    descr = GetSetProperty(descr_get_weakref, w_type=w_type,
-                           doc="list of weak references to the object")
-    descr.name = '__weakref__'
-    return descr
-weakref_descr = make_weakref_descr_for_type(None)
+weakref_descr = GetSetProperty(descr_get_weakref,
+                               doc="list of weak references to the object")
+weakref_descr.name = '__weakref__'
 
 def make_weakref_descr(cls):
     """Make instances of the W_Root subclass 'cls' weakrefable.
