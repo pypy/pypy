@@ -491,7 +491,8 @@ def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
     share a contiguous chunk of memory of "unsigned bytes" of the given
     length. Returns 0 on success and -1 (with raising an error) on error.
     """
-    if rffi.cast(lltype.Signed, flags) & PyBUF_WRITABLE and readonly:
+    flags = rffi.cast(lltype.Signed, flags)
+    if flags & PyBUF_WRITABLE and readonly:
         raise oefmt(space.w_ValueError, "Object is not writable")
     view.c_buf = buf
     view.c_len = length
