@@ -29,7 +29,10 @@ class TestPosixStatFunctions:
             check(os.environ['TEMP'])
         else:
             check('/')
-            check('/tmp')
+            check('/dev')
+            # don't test with /tmp, because if another process is also
+            # creating files in /tmp it is more likely that the mtime
+            # we get during successive calls was actually changed
         check(sys.executable)
 
     def test_fstat(self):
