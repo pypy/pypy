@@ -1456,3 +1456,9 @@ class AppTestComparesByIdentity:
     def test_duplicate_slot_name(self):
         class X:   # does not raise
             __slots__ = 'a', 'a'
+
+    def test_descriptor_objclass(self):
+        class X(object):
+            pass
+        assert X.__dict__['__dict__'].__objclass__ is X
+        assert X.__dict__['__weakref__'].__objclass__ is X
