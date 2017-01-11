@@ -4,7 +4,8 @@ from pypy.interpreter.baseobjspace import W_Root, SpaceCache
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.function import Function, StaticMethod
 from pypy.interpreter.typedef import (
-    weakref_descr, GetSetProperty, dict_descr, Member, TypeDef)
+    make_weakref_descr_for_type, GetSetProperty, weakref_descr,
+    make_dict_descr_for_type, Member, TypeDef)
 from pypy.interpreter.astcompiler.misc import mangle
 from pypy.module.__builtin__ import abstractinst
 
@@ -1117,12 +1118,14 @@ def create_slot(w_self, slot_name, index_next_extra_slot):
 
 def create_dict_slot(w_self):
     if not w_self.hasdict:
+        dict_descr = make_dict_descr_for_type(w_self)
         w_self.dict_w.setdefault('__dict__',
                                  w_self.space.wrap(dict_descr))
         w_self.hasdict = True
 
 def create_weakref_slot(w_self):
     if not w_self.weakrefable:
+        weakref_descr = make_weakref_descr_for_type(w_self)
         w_self.dict_w.setdefault('__weakref__',
                                  w_self.space.wrap(weakref_descr))
         w_self.weakrefable = True

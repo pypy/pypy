@@ -221,10 +221,6 @@ def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
     exec source.compile() in miniglobals
     return miniglobals['descr_typecheck_%s' % func.__name__]
 
-def unknown_objclass_getter(space):
-    # NB. this is an AttributeError to make inspect.py happy
-    raise oefmt(space.w_AttributeError, "generic property has no __objclass__")
-
 @specialize.arg(0)
 def make_objclass_getter(tag, func, cls):
     if func and hasattr(func, 'im_func'):
@@ -235,7 +231,7 @@ def make_objclass_getter(tag, func, cls):
 @specialize.memo()
 def _make_objclass_getter(cls):
     if not cls:
-        return unknown_objclass_getter, cls
+        return None, cls
     miniglobals = {}
     if isinstance(cls, str):
         assert cls.startswith('<'), "pythontype typecheck should begin with <"
@@ -257,7 +253,7 @@ class GetSetProperty(W_Root):
 
     @specialize.arg(7)
     def __init__(self, fget, fset=None, fdel=None, doc=None,
-                 cls=None, use_closure=False, tag=None):
+                 cls=None, use_closure=False, tag=None, w_type=None):
         objclass_getter, cls = make_objclass_getter(tag, fget, cls)
         fget = make_descr_typecheck_wrapper((tag, 0), fget,
                                             cls=cls, use_closure=use_closure)
@@ -272,6 +268,7 @@ class GetSetProperty(W_Root):
         self.reqcls = cls
         self.name = '<generic property>'
         self.objclass_getter = objclass_getter
+        self.w_type = w_type
         self.use_closure = use_closure
 
     @unwrap_spec(w_cls = WrappedDefault(None))
@@ -322,7 +319,14 @@ class GetSetProperty(W_Root):
                                                space.wrap(self.name)]))
 
     def descr_get_objclass(space, property):
-        return property.objclass_getter(space)
+        if property.w_type is not None:
+            return property.w_type
+        if property.objclass_getter is not None:
+            return property.objclass_getter(space)
+        # NB. this is an AttributeError to make inspect.py happy
+        raise oefmt(space.w_AttributeError,
+                    "generic property has no __objclass__")
+
 
 def interp_attrproperty(name, cls, doc=None):
     "NOT_RPYTHON: initialization-time only"
@@ -466,9 +470,13 @@ def descr_get_weakref(space, w_obj):
         return space.w_None
     return lifeline.get_any_weakref(space)
 
-dict_descr = GetSetProperty(descr_get_dict, descr_set_dict, descr_del_dict,
-                            doc="dictionary for instance variables (if defined)")
-dict_descr.name = '__dict__'
+def make_dict_descr_for_type(w_type):
+    descr = GetSetProperty(descr_get_dict, descr_set_dict, descr_del_dict,
+                           w_type=w_type,
+                           doc="dictionary for instance variables")
+    descr.name = '__dict__'
+    return descr
+dict_descr = make_dict_descr_for_type(None)
 
 
 def generic_ne(space, w_obj1, w_obj2):
@@ -498,9 +506,12 @@ def fget_co_consts(space, code): # unwrapping through unwrap_spec
     w_docstring = code.getdocstring(space)
     return space.newtuple([w_docstring])
 
-weakref_descr = GetSetProperty(descr_get_weakref,
-                    doc="list of weak references to the object (if defined)")
-weakref_descr.name = '__weakref__'
+def make_weakref_descr_for_type(w_type):
+    descr = GetSetProperty(descr_get_weakref, w_type=w_type,
+                           doc="list of weak references to the object")
+    descr.name = '__weakref__'
+    return descr
+weakref_descr = make_weakref_descr_for_type(None)
 
 def make_weakref_descr(cls):
     """Make instances of the W_Root subclass 'cls' weakrefable.
