@@ -3,7 +3,6 @@ Python locks, based on true threading locks provided by the OS.
 """
 
 import time
-import weakref
 from rpython.rlib import rthread
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.baseobjspace import W_Root

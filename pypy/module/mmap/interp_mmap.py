@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from rpython.rlib import rmmap, rarithmetic, objectmodel
 from rpython.rlib.buffer import Buffer
@@ -282,6 +282,7 @@ W_MMap.typedef = TypeDef("mmap.mmap",
     __setitem__ = interp2app(W_MMap.descr_setitem),
     __enter__ = interp2app(W_MMap.descr_enter),
     __exit__ = interp2app(W_MMap.descr_exit),
+    __weakref__ = make_weakref_descr(W_MMap),
 
     closed = GetSetProperty(W_MMap.closed_get),
 )
