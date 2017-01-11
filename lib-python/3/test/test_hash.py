@@ -43,7 +43,7 @@ def pysiphash(uint64):
 
 def skip_unless_internalhash(test):
     """Skip decorator for tests that depend on SipHash24 or FNV"""
-    ok = sys.hash_info.algorithm in {"fnv", "siphash24"}
+    ok = sys.hash_info.algorithm in {"fnv", "siphash24", "rpython"}
     msg = "Requires SipHash24 or FNV"
     return test if ok else unittest.skip(msg)(test)
 
@@ -175,7 +175,6 @@ class HashRandomizationTests:
     def get_hash_command(self, repr_):
         return 'print(hash(eval(%a)))' % repr_
 
-    @impl_detail("PyPy does not support hash randomization", pypy=False)
     def get_hash(self, repr_, seed=None):
         env = os.environ.copy()
         env['__cleanenv'] = True  # signal to assert_python not to do a copy
@@ -190,6 +189,7 @@ class HashRandomizationTests:
         stdout = out[1].strip()
         return int(stdout)
 
+    @impl_detail("PyPy does not support hash randomization", pypy=False)
     def test_randomized_hash(self):
         # two runs should return different hashes
         run1 = self.get_hash(self.repr_, seed='random')
@@ -241,7 +241,26 @@ class StringlikeHashRandomizationTests(HashRandomizationTests):
             # seed 42, 'äú∑ℇ'
             [-283066365, -4576729883824601543, -271871407,
              -3927695501187247084],
-        ]
+        ],
+        'rpython': [
+            # This is for PyPy.  NOTE: PyPy does not support hash
+            # randomization for now, so the results don't depend on the seed.
+            # seed 0, 'abc'
+            [-1600925533, 1453079729188098211, -1600925533,
+             1453079729188098211],
+            # seed 42, 'abc'
+            [-1600925533, 1453079729188098211, -1600925533,
+             1453079729188098211],
+            # seed 42, 'abcdefghijk'
+            [112677275, -7109391839480295013, 112677275,
+             -7109391839480295013],
+            # seed 0, 'äú∑ℇ'
+            [-272186246, 6456588004676256890, -272186246,
+             6456588004676256890],
+            # seed 42, 'äú∑ℇ'
+            [-272186246, 6456588004676256890, -272186246,
+             6456588004676256890],
+        ],
     }
 
     def get_expected_hash(self, position, length):
@@ -261,7 +280,8 @@ class StringlikeHashRandomizationTests(HashRandomizationTests):
         known_hash_of_obj = self.get_expected_hash(0, 3)
 
         # Randomization is enabled by default:
-        self.assertNotEqual(self.get_hash(self.repr_), known_hash_of_obj)
+        if check_impl_detail(pypy=False):
+            self.assertNotEqual(self.get_hash(self.repr_), known_hash_of_obj)
 
         # It can also be disabled by setting the seed to 0:
         self.assertEqual(self.get_hash(self.repr_, seed=0), known_hash_of_obj)
@@ -287,6 +307,7 @@ class StrHashRandomizationTests(StringlikeHashRandomizationTests,
     repr_long = repr('abcdefghijk')
     repr_ucs2 = repr('äú∑ℇ')
 
+    @impl_detail("hash('') == -2 on PyPy", pypy=False)
     @skip_unless_internalhash
     def test_empty_string(self):
         self.assertEqual(hash(""), 0)
