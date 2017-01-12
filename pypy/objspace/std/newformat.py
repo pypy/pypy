@@ -165,6 +165,12 @@ def make_template_formatting_class(for_unicode):
                         conversion = None
                         i += 1
                     return s[start:end_name], conversion, i
+                elif c == "[":
+                    while i + 1 < end and s[i + 1] != "]":
+                        i += 1
+                elif c == "{":
+                    raise oefmt(self.space.w_ValueError,
+                                "unexpected '{' in field name")
                 i += 1
             return s[start:end], None, end
 

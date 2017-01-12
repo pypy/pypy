@@ -195,6 +195,11 @@ class BaseStringFormatTests:
         assert self.s('x{[3]}y').format(['a', 'b', 'c', 'd', 'e']) == 'xdy'
         assert self.s('x{[[]}y').format({'[': 'a'}) == 'xay'
         assert self.s('x{[{]}y').format({'{': 'a'}) == 'xay'
+        assert self.s("x{[:]}y").format({":" : "a"}) == "xay"
+        assert self.s("x{[!]}y").format({"!" : "a"}) == "xay"
+        raises(ValueError, self.s("{a{}b}").format, 42)
+        raises(ValueError, self.s("{a{b}").format, 42)
+        raises(ValueError, self.s("{[}").format, 42)
 
 
 class AppTestUnicodeFormat(BaseStringFormatTests):
