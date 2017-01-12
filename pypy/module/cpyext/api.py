@@ -123,6 +123,7 @@ METH_COEXIST METH_STATIC METH_CLASS Py_TPFLAGS_BASETYPE Py_MAX_FMT
 METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O Py_TPFLAGS_HAVE_INPLACEOPS
 Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_HAVE_CLASS Py_TPFLAGS_HAVE_NEWBUFFER
 Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_TPFLAGS_CHECKTYPES Py_MAX_NDIMS
+PyBUF_FORMAT PyBUF_ND PyBUF_STRIDES
 """.split()
 for name in constant_names:
     setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))
@@ -244,14 +245,13 @@ cpyext_glob_tid_ptr = lltype.malloc(rffi.CArray(lltype.Signed), 1,
 cpyext_namespace = NameManager('cpyext_')
 
 class ApiFunction(object):
-    def __init__(self, argtypes, restype, callable, error=_NOT_SPECIFIED,
+    def __init__(self, argtypes, restype, callable, error=CANNOT_FAIL,
                  c_name=None, gil=None, result_borrowed=False, result_is_ll=False):
         self.argtypes = argtypes
         self.restype = restype
         self.functype = lltype.Ptr(lltype.FuncType(argtypes, restype))
         self.callable = callable
-        if error is not _NOT_SPECIFIED:
-            self.error_value = error
+        self.error_value = error
         self.c_name = c_name
 
         # extract the signature from the (CPython-level) code object
@@ -291,7 +291,7 @@ class ApiFunction(object):
 
         argtypesw = zip(self.argtypes,
                         [_name.startswith("w_") for _name in self.argnames])
-        error_value = getattr(self, "error_value", CANNOT_FAIL)
+        error_value = self.error_value
         if (isinstance(self.restype, lltype.Ptr)
                 and error_value is not CANNOT_FAIL):
             assert lltype.typeOf(error_value) == self.restype
@@ -429,12 +429,12 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
     def decorate(func):
         if func.__name__ in FUNCTIONS_BY_HEADER[header]:
             raise ValueError("%s already registered" % func.__name__)
-        api_function = _create_api_func(
-            func, argtypes, restype, error, gil=gil,
+        func._always_inline_ = 'try'
+        api_function = ApiFunction(
+            argtypes, restype, func,
+            error=_compute_error(error, restype), gil=gil,
             result_borrowed=result_borrowed, result_is_ll=result_is_ll)
-        unwrapper = api_function.get_unwrapper()
-        unwrapper.func = func
-        unwrapper.api_func = api_function
+        FUNCTIONS_BY_HEADER[header][func.__name__] = api_function
 
         # ZZZ is this whole logic really needed???  It seems to be only
         # for RPython code calling PyXxx() functions directly.  I would
@@ -462,32 +462,33 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
             assert got_integer == expect_integer, (
                 'got %r not integer' % (res,))
             return res
+        INTERPLEVEL_API[func.__name__] = unwrapper_catch  # used in tests
 
-        if header is not None:
-            FUNCTIONS_BY_HEADER[header][func.__name__] = api_function
-            INTERPLEVEL_API[func.__name__] = unwrapper_catch  # used in tests
-        return unwrapper
-    return decorate
-
-def slot_function(argtypes, restype, error=_NOT_SPECIFIED):
-    def decorate(func):
-        c_name = func.__name__
-        api_function = _create_api_func(func, argtypes, restype, error, c_name)
         unwrapper = api_function.get_unwrapper()
         unwrapper.func = func
         unwrapper.api_func = api_function
         return unwrapper
     return decorate
 
+def slot_function(argtypes, restype, error=_NOT_SPECIFIED):
+    def decorate(func):
+        func._always_inline_ = 'try'
+        api_function = ApiFunction(
+            argtypes, restype, func,
+            error=_compute_error(error, restype),
+            c_name=func.__name__)
+        unwrapper = api_function.get_unwrapper()
+        unwrapper.func = func
+        unwrapper.api_func = api_function
+        return unwrapper
+    return decorate
 
-def _create_api_func(
-        func, argtypes, restype, error=_NOT_SPECIFIED, c_name=None,
-        gil=None, result_borrowed=False, result_is_ll=False):
+def _compute_error(error, restype):
+    """Convert error specification to actual error value of type restype."""
     if isinstance(restype, lltype.Typedef):
         real_restype = restype.OF
     else:
         real_restype = restype
-
     if error is _NOT_SPECIFIED:
         if isinstance(real_restype, lltype.Ptr):
             error = lltype.nullptr(real_restype.TO)
@@ -495,11 +496,7 @@ def _create_api_func(
             error = CANNOT_FAIL
     if type(error) is int:
         error = rffi.cast(real_restype, error)
-
-    func._always_inline_ = 'try'
-    return ApiFunction(
-        argtypes, restype, func, error, c_name=c_name, gil=gil,
-        result_borrowed=result_borrowed, result_is_ll=result_is_ll)
+    return error
 
 
 def cpython_struct(name, fields, forward=None, level=1):

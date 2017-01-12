@@ -1117,14 +1117,16 @@ def create_slot(w_self, slot_name, index_next_extra_slot):
 
 def create_dict_slot(w_self):
     if not w_self.hasdict:
+        descr = dict_descr.copy_for_type(w_self)
         w_self.dict_w.setdefault('__dict__',
-                                 w_self.space.wrap(dict_descr))
+                                 w_self.space.wrap(descr))
         w_self.hasdict = True
 
 def create_weakref_slot(w_self):
     if not w_self.weakrefable:
+        descr = weakref_descr.copy_for_type(w_self)
         w_self.dict_w.setdefault('__weakref__',
-                                 w_self.space.wrap(weakref_descr))
+                                 w_self.space.wrap(descr))
         w_self.weakrefable = True
 
 def valid_slot_name(slot_name):

@@ -97,3 +97,7 @@ Refactor cpyext initialisation.
 
 Fix a test failure introduced by strbuf-as-buffer
 
+.. branch: cpyext-FromBuffer
+
+Do not recreate the object in PyMemoryView_FromBuffer, rather pass it to
+the returned PyMemoryViewObject, to take ownership of it. Fixes a ref leak.
