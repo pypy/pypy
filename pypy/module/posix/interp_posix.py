@@ -148,11 +148,15 @@ def _unwrap_path(space, w_value, allow_fd=True):
     try:
         path_b = space.fsencode_w(w_value)
         return Path(-1, path_b, None, w_value)
-    except OperationError:
+    except OperationError as e:
+        if not e.match(space, space.w_TypeError):
+            raise
         if allow_fd:
             fd = unwrap_fd(space, w_value, "string, bytes or integer")
             return Path(fd, None, None, w_value)
-    raise oefmt(space.w_TypeError, "illegal type for path parameter")
+    raise oefmt(space.w_TypeError,
+                "illegal type for path parameter (expected "
+                "string or bytes, got %T)", w_value)
 
 class _PathOrFd(Unwrapper):
     def unwrap(self, space, w_value):

@@ -78,3 +78,8 @@ class TestFSEncode(BaseFSEncodeTest):
 
             assert space.fsencode_w(w_enc) == space.bytes_w(w_enc)
             assert space.eq_w(space.wrap_fsdecoded(space.bytes_w(w_enc)), w_st2)
+
+    def test_null_byte(self):
+        space = self.space
+        w_u = space.newunicode(u'abc\x00def')
+        space.raises_w(space.w_ValueError, space.fsencode, w_u)

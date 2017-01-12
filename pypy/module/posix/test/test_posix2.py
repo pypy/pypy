@@ -202,6 +202,8 @@ class AppTestPosix:
         excinfo = raises(TypeError, self.posix.stat, 2.)
         assert "should be string, bytes or integer, not float" in str(excinfo.value)
         raises(ValueError, self.posix.stat, -1)
+        raises(ValueError, self.posix.stat, b"abc\x00def")
+        raises(ValueError, self.posix.stat, u"abc\x00def")
 
     if hasattr(__import__(os.name), "statvfs"):
         def test_statvfs(self):
