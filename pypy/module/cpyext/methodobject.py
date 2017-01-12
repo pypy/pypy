@@ -67,7 +67,7 @@ class W_PyCFunctionObject(W_Root):
             raise oefmt(space.w_TypeError,
                         "%s() takes no keyword arguments", self.name)
 
-        func = rffi.cast(PyCFunction, self.ml.c_ml_meth)
+        func = self.ml.c_ml_meth
         length = space.int_w(space.len(w_args))
         if flags & METH_KEYWORDS:
             func = rffi.cast(PyCFunctionKwArgs, self.ml.c_ml_meth)
@@ -337,4 +337,3 @@ def Py_FindMethod(space, table, w_obj, name_ptr):
     if name == "__methods__":
         return space.newlist(method_list_w)
     raise OperationError(space.w_AttributeError, space.wrap(name))
-
