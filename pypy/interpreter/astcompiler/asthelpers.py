@@ -182,5 +182,5 @@ class __extend__(ast.Ellipsis):
 
 class __extend__(ast.NameConstant):
 
-    _description = "keyword"
+    _description = "name constant"
     constant = True

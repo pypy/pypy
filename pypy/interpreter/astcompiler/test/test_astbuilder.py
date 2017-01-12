@@ -812,7 +812,7 @@ class TestAstBuilder:
             for template in invalid:
                 input = template % (name,)
                 exc = py.test.raises(SyntaxError, self.get_ast, input).value
-                assert exc.msg == "assignment to keyword"
+                assert exc.msg == "cannot assign to %s" % (name,)
 
     def test_lambda(self):
         lam = self.get_first_expr("lambda x: expr")

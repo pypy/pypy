@@ -126,7 +126,7 @@ class ASTBuilder(object):
         try:
             misc.check_forbidden_name(name)
         except misc.ForbiddenNameAssignment as e:
-            self.error("assignment to keyword", node)
+            self.error("cannot assign to %s" % (e.name,), node)
 
     def new_identifier(self, name):
         return misc.new_identifier(self.space, name)
@@ -138,7 +138,7 @@ class ASTBuilder(object):
         except ast.UnacceptableExpressionContext as e:
             self.error_ast(e.msg, e.node)
         except misc.ForbiddenNameAssignment as e:
-            self.error_ast("assignment to keyword", e.node)
+            self.error_ast("cannot assign to %s" % (e.name,), e.node)
 
     def handle_del_stmt(self, del_node):
         targets = self.handle_exprlist(del_node.get_child(1), ast.Del)
