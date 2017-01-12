@@ -31,9 +31,9 @@ Errors from set_context():
 Traceback (most recent call last):
 SyntaxError: invalid syntax
 
->>> None = 1
+>>> None = 1                                 # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: can't assign to keyword
+SyntaxError: can't assign to ...
 
 It's a syntax error to assign to the empty tuple.  Why isn't it an
 error to assign to the empty list?  It will always raise some error at
@@ -234,9 +234,9 @@ More set_context():
 >>> (x for x in x) += 1
 Traceback (most recent call last):
 SyntaxError: can't assign to generator expression
->>> None += 1
+>>> None += 1                              # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: can't assign to keyword
+SyntaxError: can't assign to ...
 >>> f() += 1
 Traceback (most recent call last):
 SyntaxError: can't assign to function call
@@ -501,17 +501,17 @@ SyntaxError: can't assign to literal
 
 Corner-cases that used to fail to raise the correct error:
 
-    >>> def f(*, x=lambda __debug__:0): pass
+    >>> def f(*, x=lambda __debug__:0): pass          # doctest: +ELLIPSIS
     Traceback (most recent call last):
-    SyntaxError: assignment to keyword
+    SyntaxError: ...assign... to ...
 
-    >>> def f(*args:(lambda __debug__:0)): pass
+    >>> def f(*args:(lambda __debug__:0)): pass       # doctest: +ELLIPSIS
     Traceback (most recent call last):
-    SyntaxError: assignment to keyword
+    SyntaxError: ...assign... to ...
 
-    >>> def f(**kwargs:(lambda __debug__:0)): pass
+    >>> def f(**kwargs:(lambda __debug__:0)): pass    # doctest: +ELLIPSIS
     Traceback (most recent call last):
-    SyntaxError: assignment to keyword
+    SyntaxError: ...assign... to ...
 
     >>> with (lambda *:0): pass
     Traceback (most recent call last):
@@ -519,13 +519,13 @@ Corner-cases that used to fail to raise the correct error:
 
 Corner-cases that used to crash:
 
-    >>> def f(**__debug__): pass
+    >>> def f(**__debug__): pass                      # doctest: +ELLIPSIS
     Traceback (most recent call last):
-    SyntaxError: assignment to keyword
+    SyntaxError: ...assign... to ...
 
-    >>> def f(*xx, __debug__): pass
+    >>> def f(*xx, __debug__): pass                   # doctest: +ELLIPSIS
     Traceback (most recent call last):
-    SyntaxError: assignment to keyword
+    SyntaxError: ...assign... to ...
 
 """
 
