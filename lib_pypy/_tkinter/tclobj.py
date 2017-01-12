@@ -185,7 +185,7 @@ class Tcl_Obj(object):
 
     def __repr__(self):
         return "<%s object at 0x%x>" % (
-            self.typename, tkffi.cast("intptr_t", self._value))
+            self.typename, int(tkffi.cast("intptr_t", self._value)))
 
     def __eq__(self, other):
         if not isinstance(other, Tcl_Obj):
