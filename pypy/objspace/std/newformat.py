@@ -122,6 +122,11 @@ def make_template_formatting_class(for_unicode):
                             nested -= 1
                             if not nested:
                                 break
+                        elif c == "[":
+                            i += 1
+                            while i < end and s[i] != "]":
+                                i += 1
+                            continue
                         i += 1
                     if nested:
                         raise oefmt(space.w_ValueError, "Unmatched '{'")
@@ -214,7 +219,10 @@ def make_template_formatting_class(for_unicode):
                 try:
                     w_arg = self.args[index]
                 except IndexError:
-                    raise oefmt(space.w_IndexError, "out of range")
+                    raise oefmt(space.w_IndexError,
+                                "out of range: index %d but only %d argument%s",
+                                index, len(self.args),
+                                "s" if len(self.args) != 1 else "")
             return self._resolve_lookups(w_arg, name, i, end)
 
         @jit.unroll_safe
