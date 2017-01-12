@@ -20,21 +20,21 @@ def convert_bool(space, w_obj):
         return True
     raise oefmt(space.w_TypeError, "attribute value type must be bool")
 
-integer_converters = unrolling_iterable([
-    (T_SHORT,  rffi.SHORT,  PyLong_AsLong),
-    (T_INT,    rffi.INT,    PyLong_AsLong),
-    (T_LONG,   rffi.LONG,   PyLong_AsLong),
-    (T_USHORT, rffi.USHORT, PyLong_AsUnsignedLong),
-    (T_UINT,   rffi.UINT,   PyLong_AsUnsignedLong),
-    (T_ULONG,  rffi.ULONG,  PyLong_AsUnsignedLong),
-    (T_BYTE,   rffi.SIGNEDCHAR, PyLong_AsLong),
-    (T_UBYTE,  rffi.UCHAR,  PyLong_AsUnsignedLong),
-    (T_BOOL,   rffi.UCHAR,  convert_bool),
-    (T_FLOAT,  rffi.FLOAT,  PyFloat_AsDouble),
-    (T_DOUBLE, rffi.DOUBLE, PyFloat_AsDouble),
-    (T_LONGLONG,  rffi.LONGLONG,  PyLong_AsLongLong),
-    (T_ULONGLONG, rffi.ULONGLONG, PyLong_AsUnsignedLongLong),
-    (T_PYSSIZET, rffi.SSIZE_T, PyLong_AsSsize_t),
+integer_converters = unrolling_iterable([                     # range checking
+    (T_SHORT,  rffi.SHORT,  PyLong_AsLong,                    True),
+    (T_INT,    rffi.INT,    PyLong_AsLong,                    True),
+    (T_LONG,   rffi.LONG,   PyLong_AsLong,                    False),
+    (T_USHORT, rffi.USHORT, PyLong_AsUnsignedLong,            True),
+    (T_UINT,   rffi.UINT,   PyLong_AsUnsignedLong,            True),
+    (T_ULONG,  rffi.ULONG,  PyLong_AsUnsignedLong,            False),
+    (T_BYTE,   rffi.SIGNEDCHAR, PyLong_AsLong,                True),
+    (T_UBYTE,  rffi.UCHAR,  PyLong_AsUnsignedLong,            True),
+    (T_BOOL,   rffi.UCHAR,  convert_bool,                     False),
+    (T_FLOAT,  rffi.FLOAT,  PyFloat_AsDouble,                 False),
+    (T_DOUBLE, rffi.DOUBLE, PyFloat_AsDouble,                 False),
+    (T_LONGLONG,  rffi.LONGLONG,  PyLong_AsLongLong,          False),
+    (T_ULONGLONG, rffi.ULONGLONG, PyLong_AsUnsignedLongLong,  False),
+    (T_PYSSIZET, rffi.SSIZE_T, PyLong_AsSsize_t,              False),
     ])
 
 _HEADER = 'pypy_structmember_decl.h'
@@ -47,7 +47,7 @@ def PyMember_GetOne(space, obj, w_member):
 
     member_type = rffi.cast(lltype.Signed, w_member.c_type)
     for converter in integer_converters:
-        typ, lltyp, _ = converter
+        typ, lltyp, _, _ = converter
         if typ == member_type:
             result = rffi.cast(rffi.CArrayPtr(lltyp), addr)
             if lltyp is rffi.FLOAT:
@@ -112,11 +112,16 @@ def PyMember_SetOne(space, obj, w_member, w_value):
                         "can't delete numeric/char attribute")
 
     for converter in integer_converters:
-        typ, lltyp, getter = converter
+        typ, lltyp, getter, range_checking = converter
         if typ == member_type:
             value = getter(space, w_value)
             array = rffi.cast(rffi.CArrayPtr(lltyp), addr)
-            array[0] = rffi.cast(lltyp, value)
+            casted = rffi.cast(lltyp, value)
+            if range_checking:
+                if rffi.cast(lltype.typeOf(value), casted) != value:
+                    space.warn(space.wrap("structmember: truncation of value"),
+                               space.w_RuntimeWarning)
+            array[0] = casted
             return 0
 
     if member_type == T_CHAR:
