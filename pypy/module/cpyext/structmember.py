@@ -13,6 +13,13 @@ from pypy.module.cpyext.longobject import (
 from pypy.module.cpyext.typeobjectdefs import PyMemberDef
 from rpython.rlib.unroll import unrolling_iterable
 
+def convert_bool(space, w_obj):
+    if space.is_w(w_obj, space.w_False):
+        return False
+    if space.is_w(w_obj, space.w_True):
+        return True
+    raise oefmt(space.w_TypeError, "attribute value type must be bool")
+
 integer_converters = unrolling_iterable([
     (T_SHORT,  rffi.SHORT,  PyLong_AsLong),
     (T_INT,    rffi.INT,    PyLong_AsLong),
@@ -22,7 +29,7 @@ integer_converters = unrolling_iterable([
     (T_ULONG,  rffi.ULONG,  PyLong_AsUnsignedLong),
     (T_BYTE,   rffi.SIGNEDCHAR, PyLong_AsLong),
     (T_UBYTE,  rffi.UCHAR,  PyLong_AsUnsignedLong),
-    (T_BOOL,   rffi.UCHAR,  PyLong_AsLong),
+    (T_BOOL,   rffi.UCHAR,  convert_bool),
     (T_FLOAT,  rffi.FLOAT,  PyFloat_AsDouble),
     (T_DOUBLE, rffi.DOUBLE, PyFloat_AsDouble),
     (T_LONGLONG,  rffi.LONGLONG,  PyLong_AsLongLong),
