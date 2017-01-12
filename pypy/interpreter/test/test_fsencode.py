@@ -82,4 +82,8 @@ class TestFSEncode(BaseFSEncodeTest):
     def test_null_byte(self):
         space = self.space
         w_u = space.newunicode(u'abc\x00def')
-        space.raises_w(space.w_ValueError, space.fsencode, w_u)
+        # this can behave in two different ways depending on how
+        # much initialized the space is: space.fsencode() can raise
+        # ValueError directly, or return a wrapped bytes with the 0
+        # embedded---and then space.fsencode_w() should raise ValueError.
+        space.raises_w(space.w_ValueError, space.fsencode_w, w_u)
