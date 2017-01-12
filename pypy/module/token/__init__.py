@@ -22,6 +22,11 @@ def _init_tokens():
     Module.interpleveldefs["tok_name"] = "space.wrap(%r)" % (tok_name,)
     Module.interpleveldefs["N_TOKENS"] = "space.wrap(%d)" % len(tok_name)
     all_names = Module.interpleveldefs.keys()
+    # obscure, but these names are not in CPython's token module
+    # so we remove them from 'token.__all__' otherwise they end up
+    # twice in 'tokenize.__all__'
+    all_names.remove('COMMENT')
+    all_names.remove('NL')
     Module.interpleveldefs["__all__"] = "space.wrap(%r)" % (all_names,)
 
 _init_tokens()
