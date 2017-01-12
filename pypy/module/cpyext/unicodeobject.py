@@ -205,9 +205,8 @@ def PyUnicode_GET_DATA_SIZE(space, w_obj):
 
 @cpython_api([rffi.VOIDP], Py_ssize_t, error=CANNOT_FAIL)
 def PyUnicode_GET_SIZE(space, w_obj):
-    """Return the size of the object.  o has to be a PyUnicodeObject (not
+    """Return the size of the object.  obj is a PyUnicodeObject (not
     checked)."""
-    assert isinstance(w_obj, unicodeobject.W_UnicodeObject)
     return space.len_w(w_obj)
 
 @cpython_api([rffi.VOIDP], rffi.CWCHARP, error=CANNOT_FAIL)
