@@ -67,8 +67,13 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
     if updating:
         rawmode += "+"
 
-    if universal and (writing or appending):
-        raise oefmt(space.w_ValueError, "can't use U and writing mode at once")
+    if universal:
+        if writing or appending:
+            raise oefmt(space.w_ValueError,
+                        "can't use U and writing mode at once")
+        space.warn(space.wrap("'U' mode is deprecated ('r' has the same "
+                              "effect in Python 3.x)"),
+                   space.w_DeprecationWarning)
     if text and binary:
         raise oefmt(space.w_ValueError,
                     "can't have text and binary mode at once")

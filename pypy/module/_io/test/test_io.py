@@ -225,17 +225,21 @@ class AppTestOpen:
 
     def test_attributes(self):
         import _io
+        import warnings
 
         with _io.open(self.tmpfile, "wb", buffering=0) as f:
             assert f.mode == "wb"
 
-        with _io.open(self.tmpfile, "U") as f:
-            assert f.name == self.tmpfile
-            assert f.buffer.name == self.tmpfile
-            assert f.buffer.raw.name == self.tmpfile
-            assert f.mode == "U"
-            assert f.buffer.mode == "rb"
-            assert f.buffer.raw.mode == "rb"
+        with warnings.catch_warnings(record=True) as l:
+            warnings.simplefilter("always")
+            with _io.open(self.tmpfile, "U") as f:
+                assert f.name == self.tmpfile
+                assert f.buffer.name == self.tmpfile
+                assert f.buffer.raw.name == self.tmpfile
+                assert f.mode == "U"
+                assert f.buffer.mode == "rb"
+                assert f.buffer.raw.mode == "rb"
+        assert isinstance(l[0].message, DeprecationWarning)
 
         with _io.open(self.tmpfile, "w+") as f:
             assert f.mode == "w+"
