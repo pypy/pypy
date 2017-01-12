@@ -246,13 +246,15 @@ cpyext_namespace = NameManager('cpyext_')
 
 class ApiFunction(object):
     def __init__(self, argtypes, restype, callable, error=CANNOT_FAIL,
-                 c_name=None, gil=None, result_borrowed=False, result_is_ll=False):
+                 c_name=None, cdecl=None, gil=None,
+                 result_borrowed=False, result_is_ll=False):
         self.argtypes = argtypes
         self.restype = restype
         self.functype = lltype.Ptr(lltype.FuncType(argtypes, restype))
         self.callable = callable
         self.error_value = error
         self.c_name = c_name
+        self.cdecl = cdecl
 
         # extract the signature from the (CPython-level) code object
         from pypy.interpreter import pycode
@@ -371,6 +373,8 @@ class ApiFunction(object):
         return unwrapper
 
     def get_c_restype(self, c_writer):
+        if self.cdecl:
+            return self.cdecl.split(self.c_name)[0].strip()
         return c_writer.gettype(self.restype).replace('@', '').strip()
 
     def get_c_args(self, c_writer):
@@ -464,6 +468,20 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
             return res
         INTERPLEVEL_API[func.__name__] = unwrapper_catch  # used in tests
 
+        unwrapper = api_function.get_unwrapper()
+        unwrapper.func = func
+        unwrapper.api_func = api_function
+        return unwrapper
+    return decorate
+
+def api_decl(cdecl, cts, error=_NOT_SPECIFIED, header=DEFAULT_HEADER):
+    def decorate(func):
+        func._always_inline_ = 'try'
+        name, FUNC = cts.parse_func(cdecl)
+        api_function = ApiFunction(
+            FUNC.ARGS, FUNC.RESULT, func,
+            error=_compute_error(error, FUNC.RESULT), cdecl=cdecl)
+        FUNCTIONS_BY_HEADER[header][name] = api_function
         unwrapper = api_function.get_unwrapper()
         unwrapper.func = func
         unwrapper.api_func = api_function
