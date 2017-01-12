@@ -193,6 +193,12 @@ class AppTestMemoryView:
     def test_hex(self):
         assert memoryview(b"abc").hex() == u'616263'
 
+    def test_hex_long(self):
+        x = b'0' * 200000
+        m1 = memoryview(x)
+        m2 = m1[::-1]
+        assert m2.hex() == '30' * 200000
+
     def test_memoryview_cast(self):
         m1 = memoryview(b'abcdefgh')
         m2 = m1.cast('I')
