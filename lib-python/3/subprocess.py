@@ -849,7 +849,7 @@ class Popen(object):
 
         # --- PyPy hack, see _pypy_install_libs_after_virtualenv() ---
         # match arguments passed by different versions of virtualenv
-        if args[1:] in (
+        if type(args) is list and args[1:] in (
             ['-c', 'import sys; print(sys.prefix)'],        # 1.6 10ba3f3c
             ['-c', "\nimport sys\nprefix = sys.prefix\n"    # 1.7 0e9342ce
              "if sys.version_info[0] == 3:\n"
