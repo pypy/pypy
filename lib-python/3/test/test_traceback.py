@@ -8,6 +8,7 @@ import unittest
 import re
 from test import support
 from test.support import TESTFN, Error, captured_output, unlink, cpython_only
+from test.support import impl_detail
 from test.support.script_helper import assert_python_ok
 import textwrap
 
@@ -179,6 +180,7 @@ class SyntaxTracebackCases(unittest.TestCase):
         # Issue #18960: coding spec should has no effect
         do_test("0\n# coding: GBK\n", "h\xe9 ho", 'utf-8', 5)
 
+    @impl_detail(pypy=False)   # __del__ is typically not called at shutdown
     def test_print_traceback_at_exit(self):
         # Issue #22599: Ensure that it is possible to use the traceback module
         # to display an exception at Python exit
@@ -681,8 +683,12 @@ class TestFrame(unittest.TestCase):
 class TestStack(unittest.TestCase):
 
     def test_walk_stack(self):
-        s = list(traceback.walk_stack(None))
-        self.assertGreater(len(s), 10)
+        def deeper():
+            return list(traceback.walk_stack(None))
+        s1 = list(traceback.walk_stack(None))
+        s2 = deeper()
+        self.assertEqual(len(s2) - len(s1), 1)
+        self.assertEqual(s2[1:], s1)
 
     def test_walk_tb(self):
         try:
