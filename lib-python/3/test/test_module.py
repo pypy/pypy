@@ -2,7 +2,7 @@
 import unittest
 import weakref
 from test.support import gc_collect
-from test.support import check_impl_detail
+from test.support import check_impl_detail, impl_detail
 from test.support.script_helper import assert_python_ok
 
 import sys
@@ -217,6 +217,7 @@ a = A(destroyed)"""
         self.assertEqual(r[-len(ends_with):], ends_with,
                          '{!r} does not end with {!r}'.format(r, ends_with))
 
+    @impl_detail(pypy=False)   # __del__ is typically not called at shutdown
     def test_module_finalization_at_shutdown(self):
         # Module globals and builtins should still be available during shutdown
         rc, out, err = assert_python_ok("-c", "from test import final_a")
