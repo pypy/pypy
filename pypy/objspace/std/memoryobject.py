@@ -675,7 +675,13 @@ class W_MemoryView(W_Root):
     def descr_hex(self, space):
         from pypy.objspace.std.bytearrayobject import _array_to_hexstring
         self._check_released(space)
-        return _array_to_hexstring(space, self.buf)
+        if isinstance(self.buf, SubBuffer):
+            step = self.strides[0]
+            return _array_to_hexstring(space, self.buf.buffer,
+                                       self.buf.offset, step,
+                                       self.getlength())
+        else:
+            return _array_to_hexstring(space, self.buf, 0, 1, self.getlength())
 
 def is_byte_format(char):
     return char == 'b' or char == 'B' or char == 'c'
