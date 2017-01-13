@@ -542,8 +542,13 @@ def move_out_of_nursery(obj):
         become identical to the one returned.
 
         NOTE: Only use for immutable objects!
+
+        NOTE: Might fail on some GCs!  You have to check again
+        can_move() afterwards.  It should always work with the default
+        GC.  With Boehm, can_move() is always False so
+        move_out_of_nursery() should never be called in the first place.
     """
-    pass
+    return obj
 
 class MoveOutOfNurseryEntry(ExtRegistryEntry):
     _about_ = move_out_of_nursery
