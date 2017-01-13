@@ -2077,6 +2077,8 @@ def _signature_from_builtin(cls, func, skip_bound_arg=True):
 
     s = getattr(func, "__text_signature__", None)
     if not s:
+        if func is object:  # XXX PyPy hack until we support __text_signature__
+            return '()'     # in the same cases as CPython
         raise ValueError("no signature found for builtin {!r}".format(func))
 
     return _signature_fromstr(cls, func, s, skip_bound_arg)
