@@ -19,7 +19,6 @@ typedef struct {
 } PyVarObject;
 
 struct _typeobject;
-
 typedef void (*freefunc)(void *);
 typedef void (*destructor)(PyObject *);
 typedef int (*printfunc)(PyObject *, FILE *, int);

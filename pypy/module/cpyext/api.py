@@ -51,6 +51,7 @@ source_dir = pypydir / 'module' / 'cpyext' / 'src'
 translator_c_dir = py.path.local(cdir)
 include_dirs = [
     include_dir,
+    parse_dir,
     translator_c_dir,
     udir,
     ]
