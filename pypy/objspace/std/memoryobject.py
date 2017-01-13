@@ -13,6 +13,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty,  make_weakref_desc
 from pypy.module.struct.formatiterator import UnpackFormatIterator, PackFormatIterator
 from pypy.objspace.std.bytesobject import getbytevalue
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.objectmodel import always_inline
 
 MEMORYVIEW_MAX_DIM = 64
 MEMORYVIEW_SCALAR   = 0x0001
@@ -571,19 +572,26 @@ class W_MemoryView(W_Root):
         flags = 0
         if ndim == 0:
             flags |= MEMORYVIEW_SCALAR | MEMORYVIEW_C | MEMORYVIEW_FORTRAN
-        if ndim == 1:
-            shape = buf.getshape()
-            strides = buf.getstrides()
-            if len(shape) > 0 and shape[0] == 1 and \
-               len(strides) > 0 and strides[0] == buf.getitemsize():
+        elif ndim == 1:
+            shape = self.getshape()
+            strides = self.getstrides()
+            if shape[0] == 1 or strides[0] == self.getitemsize():
                 flags |= MEMORYVIEW_C | MEMORYVIEW_SCALAR
-        # TODO for now?
-        flags |= MEMORYVIEW_C
-        # TODO if buf.is_contiguous('C'):
-        # TODO     flags |= MEMORYVIEW_C
-        # TODO elif buf.is_contiguous('F'):
-        # TODO     flags |= MEMORYVIEW_FORTRAN
+        else:
+            ndim = self.getndim()
+            shape = self.getshape()
+            strides = self.getstrides()
+            itemsize = self.getitemsize()
+            if _pybuffer_iscontiguous(None, ndim, shape, strides,
+                                      itemsize, 'C'):
+                flags |= MEMORYVIEW_C
+            if _pybuffer_iscontiguous(None, ndim, shape, strides,
+                                      itemsize, 'F'):
+                flags |= MEMORYVIEW_C
 
+        if self.suboffsets:
+            flags |= MEMORYVIEW_PIL
+            flags &= ~(MEMORYVIEW_C|MEMORYVIEW_FORTRAN)
         # TODO missing suboffsets
 
         self.flags = flags
@@ -675,19 +683,17 @@ class W_MemoryView(W_Root):
     def descr_hex(self, space):
         from pypy.objspace.std.bytearrayobject import _array_to_hexstring
         self._check_released(space)
-        if isinstance(self.buf, SubBuffer):
-            step = self.strides[0]
-            return _array_to_hexstring(space, self.buf.buffer,
-                                       self.buf.offset, step,
-                                       self.getlength())
-        else:
+        if memory_view_c_contiguous(space, self.flags):
             return _array_to_hexstring(space, self.buf, 0, 1, self.getlength())
+        else:
+            bytes = self.as_str()
+            return _array_to_hexstring(space, bytes, 0, 1, len(bytes), True)
 
 def is_byte_format(char):
     return char == 'b' or char == 'B' or char == 'c'
 
 def memory_view_c_contiguous(space, flags):
-    return flags & (space.BUF_CONTIG_RO|MEMORYVIEW_C) != 0
+    return flags & (MEMORYVIEW_SCALAR|MEMORYVIEW_C)
 
 W_MemoryView.typedef = TypeDef(
     "memoryview",
@@ -721,3 +727,51 @@ Create a new memoryview object which references the given object.
     _pypy_raw_address = interp2app(W_MemoryView.descr_pypy_raw_address),
     )
 W_MemoryView.typedef.acceptable_as_base_class = False
+
+def _IsFortranContiguous(ndim, shape, strides, itemsize):
+    if ndim == 0:
+        return 1
+    if not strides:
+        return ndim == 1
+    sd = itemsize
+    if ndim == 1:
+        return shape[0] == 1 or sd == strides[0]
+    for i in range(ndim):
+        dim = shape[i]
+        if dim == 0:
+            return 1
+        if strides[i] != sd:
+            return 0
+        sd *= dim
+    return 1
+
+def _IsCContiguous(ndim, shape, strides, itemsize):
+    if ndim == 0:
+        return 1
+    if not strides:
+        return ndim == 1
+    sd = itemsize
+    if ndim == 1:
+        return shape[0] == 1 or sd == strides[0]
+    for i in range(ndim - 1, -1, -1):
+        dim = shape[i]
+        if dim == 0:
+            return 1
+        if strides[i] != sd:
+            return 0
+        sd *= dim
+    return 1
+
+@always_inline
+def _pybuffer_iscontiguous(suboffsets, ndim, shape, strides, itemsize, fort):
+    if suboffsets:
+        return 0
+    if (fort == 'C'):
+        return _IsCContiguous(ndim, shape, strides, itemsize)
+    elif (fort == 'F'):
+        return _IsFortranContiguous(ndim, shape, strides, itemsize)
+    elif (fort == 'A'):
+        return (_IsCContiguous(ndim, shape, strides, itemsize) or \
+                _IsFortranContiguous(ndim, shape, strides, itemsize))
+    return 0
+

@@ -8,7 +8,7 @@ from rpython.rlib.buffer import Buffer
 from pypy.conftest import option
 
 class AppTestMemoryView:
-    spaceconfig = dict(usemodules=['array'])
+    spaceconfig = dict(usemodules=['array', 'sys'])
 
     def test_basic(self):
         v = memoryview(b"abc")
@@ -198,6 +198,16 @@ class AppTestMemoryView:
         m1 = memoryview(x)
         m2 = m1[::-1]
         assert m2.hex() == '3130' * 100000
+
+    def test_hex_2(self):
+        import array
+        import sys
+        m1 = memoryview(array.array('i', [1,2,3,4]))
+        m2 = m1[::-1]
+        if sys.byteorder == 'little':
+            assert m2.hex() == "04000000030000000200000001000000"
+        else:
+            assert m2.hex() == "00000004000000030000000200000001"
 
     def test_memoryview_cast(self):
         m1 = memoryview(b'abcdefgh')
@@ -391,7 +401,10 @@ class AppTestMemoryViewMockBuffer(object):
         assert view.format == 'b'
         assert cview.format == 'i'
         #
-        assert cview.cast('b').cast('q').cast('b').tolist() == []
+        a = cview.cast('b')
+        b = a.cast('q')
+        c = b.cast('b')
+        assert c.tolist() == []
         #
         assert cview.format == 'i'
         raises(TypeError, "cview.cast('i')")
@@ -399,7 +412,7 @@ class AppTestMemoryViewMockBuffer(object):
     def test_cast_with_shape(self):
         empty = self.MockArray([1,0,2,0,3,0],
                     dim=1, fmt='h', size=2,
-                    strides=[8], shape=[6])
+                    strides=[2], shape=[6])
         view = memoryview(empty)
         byteview = view.cast('b')
         assert byteview.tolist() == [1,0,0,0,2,0,0,0,3,0,0,0]
