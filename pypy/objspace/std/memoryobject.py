@@ -582,10 +582,10 @@ class W_MemoryView(W_Root):
             shape = self.getshape()
             strides = self.getstrides()
             itemsize = self.getitemsize()
-            if _pybuffer_iscontiguous(None, ndim, shape, strides,
+            if PyBuffer_isContiguous(None, ndim, shape, strides,
                                       itemsize, 'C'):
                 flags |= MEMORYVIEW_C
-            if _pybuffer_iscontiguous(None, ndim, shape, strides,
+            if PyBuffer_isContiguous(None, ndim, shape, strides,
                                       itemsize, 'F'):
                 flags |= MEMORYVIEW_C
 
@@ -762,8 +762,7 @@ def _IsCContiguous(ndim, shape, strides, itemsize):
         sd *= dim
     return 1
 
-@always_inline
-def _pybuffer_iscontiguous(suboffsets, ndim, shape, strides, itemsize, fort):
+def PyBuffer_isContiguous(suboffsets, ndim, shape, strides, itemsize, fort):
     if suboffsets:
         return 0
     if (fort == 'C'):
