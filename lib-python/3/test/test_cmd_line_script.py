@@ -188,11 +188,21 @@ class CmdLineTest(unittest.TestCase):
             stderr = p.stdout
         try:
             # Drain stderr until prompt
-            while True:
-                data = stderr.read(len(sys.ps1))
-                if data == sys.ps1.encode('utf-8'):
-                    break
-                stderr.readline()
+            if support.check_impl_detail(pypy=True):
+                ps1 = b">>>> "
+                # PyPy: the prompt is still printed to stdout, like it
+                # is in CPython 2.7.  This messes up the logic below
+                # if stdout and stderr are different.  Skip for now.
+                if separate_stderr:
+                    self.skipTest("the prompt is still written to "
+                                  "stdout in pypy")
+            else:
+                ps1 = b">>> "
+            # logic fixed to support the case of lines that are shorter
+            # than len(ps1) characters
+            got = b""
+            while not got.endswith(ps1):
+                got += stderr.read(1)
             yield p
         finally:
             kill_python(p)
