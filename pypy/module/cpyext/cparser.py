@@ -6,6 +6,7 @@ try:
 except ImportError:
     import pycparser
 import weakref, re
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rfile import FILEP
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rfficache, rffi_platform
@@ -675,17 +676,15 @@ class DelayedStruct(object):
 
 
 class ParsedSource(object):
-    def __init__(self, source, parser, definitions=None, macros=None, eci=None):
+    def __init__(self, source, parser, definitions=None, macros=None, headers=None):
         from pypy.module.cpyext.api import configure_eci
         self.source = source
         self.definitions = definitions if definitions is not None else {}
         self.macros = macros if macros is not None else {}
         self.structs = {}
         self.ctx = parser
-        if eci is None:
-            eci = configure_eci
-        self._Config = type(
-            'Config', (object,), {'_compilation_info_': eci})
+        self.headers = headers if headers is not None else ['sys/types.h']
+        self._Config = type('Config', (object,), {})
         self._TYPES = {}
         self.includes = []
 
@@ -728,6 +727,16 @@ class ParsedSource(object):
             cpython_struct(type_name, struct.fields, forward=struct.TYPE)
         return struct.TYPE
 
+    def build_eci(self):
+        all_sources = [x.source for x in self.includes] + [self.source]
+        all_headers = self.headers
+        for x in self.includes:
+            for hdr in x.headers:
+                if hdr not in all_headers:
+                    all_headers.append(hdr)
+        return ExternalCompilationInfo(
+            post_include_bits=all_sources, includes=all_headers)
+
     def configure_types(self, configure_now=False):
         for name, (obj, quals) in self.ctx._declarations.iteritems():
             if obj in self.ctx._included_declarations:
@@ -738,6 +747,7 @@ class ParsedSource(object):
             elif name.startswith('macro '):
                 name = name[6:]
                 self.add_macro(name, obj)
+        self._Config._compilation_info_ = self.build_eci()
         for name, TYPE in rffi_platform.configure(self._Config).iteritems():
             if name in self._TYPES:
                 self._TYPES[name].become(TYPE)
@@ -794,9 +804,9 @@ class ParsedSource(object):
         return decl.name, FUNCP.TO
 
 
-def parse_source(source, includes=None, eci=None, configure_now=False):
+def parse_source(source, includes=None, headers=None, configure_now=False):
     ctx = Parser()
-    src = ParsedSource(source, ctx, eci=eci)
+    src = ParsedSource(source, ctx, headers=headers)
     if includes is not None:
         for header in includes:
             src.include(header)

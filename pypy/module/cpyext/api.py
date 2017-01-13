@@ -974,7 +974,7 @@ typedef struct _typeobject {
 
 } PyTypeObject;
 
-""", configure_now=True)
+""", headers=['sys/types.h', 'stdarg.h', 'stdio.h'], configure_now=True)
 
 Py_ssize_t = object_h.gettype('Py_ssize_t')
 Py_ssize_tP = object_h.gettype('Py_ssize_t *')
