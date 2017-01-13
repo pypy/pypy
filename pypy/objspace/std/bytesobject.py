@@ -678,7 +678,7 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def descr_hex(self, space):
         from pypy.objspace.std.bytearrayobject import _array_to_hexstring
-        return _array_to_hexstring(space, self._value, 0, 1, len(self._value), True)
+        return _array_to_hexstring(space, StringBuffer(self._value), 0, 1, len(self._value))
 
     def descr_mod(self, space, w_values):
         return mod_format(space, self, w_values, fmt_type=FORMAT_BYTES)

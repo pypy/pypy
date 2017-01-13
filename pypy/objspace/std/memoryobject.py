@@ -3,7 +3,7 @@ Implementation of the 'buffer' and 'memoryview' types.
 """
 import operator
 
-from rpython.rlib.buffer import Buffer, SubBuffer
+from rpython.rlib.buffer import Buffer, SubBuffer, StringBuffer
 from rpython.rlib.objectmodel import compute_hash
 from rpython.rlib.rstruct.error import StructError
 from pypy.interpreter.baseobjspace import W_Root
@@ -687,7 +687,7 @@ class W_MemoryView(W_Root):
             return _array_to_hexstring(space, self.buf, 0, 1, self.getlength())
         else:
             bytes = self.as_str()
-            return _array_to_hexstring(space, bytes, 0, 1, len(bytes), True)
+            return _array_to_hexstring(space, StringBuffer(bytes), 0, 1, len(bytes))
 
 def is_byte_format(char):
     return char == 'b' or char == 'B' or char == 'c'
