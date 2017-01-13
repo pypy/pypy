@@ -189,8 +189,8 @@ class CmdLineTest(unittest.TestCase):
         try:
             # Drain stderr until prompt
             while True:
-                data = stderr.read(4)
-                if data == b">>> ":
+                data = stderr.read(len(sys.ps1))
+                if data == sys.ps1.encode('utf-8'):
                     break
                 stderr.readline()
             yield p

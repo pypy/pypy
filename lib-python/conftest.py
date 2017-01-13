@@ -138,7 +138,7 @@ testmap = [
     RegrTest('test_cmath.py', core=True),
     RegrTest('test_cmd.py'),
     RegrTest('test_cmd_line.py'),
-    RegrTest('test_cmd_line_script.py', skip="XXX: deadlocks?"),
+    RegrTest('test_cmd_line_script.py'),
     RegrTest('test_code.py', core=True),
     RegrTest('test_code_module.py'),
     RegrTest('test_codeccallbacks.py', core=True),
