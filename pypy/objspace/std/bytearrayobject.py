@@ -483,7 +483,7 @@ class W_BytearrayObject(W_Root):
 
     def descr_hex(self, space):
         data = self.getdata()
-        return _array_to_hexstring(space, data, len(data), True)
+        return _array_to_hexstring(space, data, 0, 1, len(data), True)
 
     def descr_mod(self, space, w_values):
         return mod_format(space, self, w_values, fmt_type=FORMAT_BYTEARRAY)
