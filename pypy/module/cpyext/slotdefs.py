@@ -562,7 +562,7 @@ def build_slot_tp_function(space, typedef, name):
             slot_fn = w_type.getdictvalue(space, attr)
             if slot_fn is None:
                 return
-            @slot_function([PyObject], lltype.Signed, header=header, error=-1)
+            @slot_function([PyObject], lltype.Signed, error=-1)
             @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
             def slot_func(space, w_obj):
                 return space.int_w(space.call_function(slot_fn, w_obj))
