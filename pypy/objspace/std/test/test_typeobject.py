@@ -1329,3 +1329,6 @@ class AppTestComparesByIdentity:
             pass
         assert X.__dict__['__dict__'].__objclass__ is X
         assert X.__dict__['__weakref__'].__objclass__ is X
+        assert object.__dict__['__class__'].__objclass__ is object
+        assert int.__dict__['imag'].__objclass__ is int
+        assert file.closed.__objclass__ is file
