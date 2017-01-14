@@ -350,6 +350,14 @@ class UnrollOptimizer(Optimization):
             self.send_extra_operation(jump_op.copy_and_change(rop.JUMP,
                                       args=args + extra,
                                       descr=target_token))
+
+            # XXX see test_issue2465 for a case where the following occurs
+            # XXX (it would be better to really understand the problem
+            # XXX and fix it, but I am failing so far)
+            if label_op is not None and len(args + extra) != label_op.numargs():
+                del self.optimizer._newoperations[-1]    # remove the JUMP
+                raise InvalidLoop
+
             return None # explicit because the return can be non-None
         return virtual_state
 

@@ -276,12 +276,15 @@ class GetSetProperty(W_Root):
         self.use_closure = use_closure
 
     def copy_for_type(self, w_objclass):
-        new = instantiate(GetSetProperty)
-        new._init(self.fget, self.fset, self.fdel, self.doc, self.reqcls,
-                  None, self.use_closure)
-        new.name = self.name
-        new.w_objclass = w_objclass
-        return new
+        if self.objclass_getter is None:
+            new = instantiate(GetSetProperty)
+            new._init(self.fget, self.fset, self.fdel, self.doc, self.reqcls,
+                      None, self.use_closure)
+            new.name = self.name
+            new.w_objclass = w_objclass
+            return new
+        else:
+            return self
 
     @unwrap_spec(w_cls = WrappedDefault(None))
     def descr_property_get(self, space, w_obj, w_cls=None):

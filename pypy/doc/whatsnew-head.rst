@@ -102,6 +102,10 @@ Fix a test failure introduced by strbuf-as-buffer
 Do not recreate the object in PyMemoryView_FromBuffer, rather pass it to
 the returned PyMemoryViewObject, to take ownership of it. Fixes a ref leak.
 
+.. branch: issue2464
+
+Give (almost?) all GetSetProperties a valid __objclass__.
+
 .. branch: missing-tp_new
 
 Improve mixing app-level classes in c-extensions, especially if the app-level

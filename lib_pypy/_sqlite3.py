@@ -220,7 +220,7 @@ class Connection(object):
         self.__statements_counter = 0
         self.__rawstatements = set()
         self._statement_cache = _StatementCache(self, cached_statements)
-        self.__statements_already_committed = weakref.WeakSet()
+        self.__statements_already_committed = []
 
         self.__func_cache = {}
         self.__aggregates = {}
@@ -365,10 +365,12 @@ class Connection(object):
                     cursor._reset = True
 
     def _reset_already_committed_statements(self):
-        lst = list(self.__statements_already_committed)
-        self.__statements_already_committed.clear()
-        for statement in lst:
-            statement._reset()
+        lst = self.__statements_already_committed
+        self.__statements_already_committed = []
+        for weakref in lst:
+            statement = weakref()
+            if statement is not None:
+                statement._reset()
 
     @_check_thread_wrap
     @_check_closed_wrap
@@ -432,14 +434,11 @@ class Connection(object):
         # the way and cause the "drop table" to fail.  On CPython the
         # problem is much less important because typically all the old
         # statements are freed already by reference counting.  So here,
-        # we add all the still-alive statements to a WeakSet which is
-        # usually ignored, except if we get SQLITE_LOCKED
+        # we copy all the still-alive statements to another list which
+        # is usually ignored, except if we get SQLITE_LOCKED
         # afterwards---at which point we reset all statements in this
-        # WeakSet.
-        for weakref in self.__statements:
-            statement = weakref()
-            if statement is not None:
-                self.__statements_already_committed.add(statement)
+        # list.
+        self.__statements_already_committed = self.__statements[:]
 
         statement_star = _ffi.new('sqlite3_stmt **')
         ret = _lib.sqlite3_prepare_v2(self._db, b"COMMIT", -1,
