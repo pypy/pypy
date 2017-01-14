@@ -1323,3 +1323,9 @@ class AppTestComparesByIdentity:
         assert not self.compares_by_identity(X)
         del X.__eq__
         assert self.compares_by_identity(X)
+
+    def test_descriptor_objclass(self):
+        class X(object):
+            pass
+        assert X.__dict__['__dict__'].__objclass__ is X
+        assert X.__dict__['__weakref__'].__objclass__ is X

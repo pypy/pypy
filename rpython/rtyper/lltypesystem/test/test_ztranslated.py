@@ -37,7 +37,10 @@ def long_str(lstr):
     return ptr
 
 def main(argv=[]):
-    use_str()
+    try:
+        use_str()
+    except ValueError:
+        return 42
     gc.collect()
     mystr = b"12341234aa"*4096*10
     #debug_assert(not rgc.can_move(mystr), "long string can move... why?")
@@ -56,4 +59,15 @@ def target(driver, args):
 
 def test_compiled_incminimark():
     fn = compile(main, [], gcpolicy="incminimark")
-    fn()
+    res = fn()
+    assert res == 0
+
+def test_compiled_semispace():
+    fn = compile(main, [], gcpolicy="semispace")
+    res = fn()
+    assert res == 42    # get_raw_address_of_string() raises ValueError
+
+def test_compiled_boehm():
+    fn = compile(main, [], gcpolicy="boehm")
+    res = fn()
+    assert res == 0

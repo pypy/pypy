@@ -1601,6 +1601,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                       resulttype=llmemory.Address)
             hop.genop("cast_adr_to_ptr", [v_ret],
                       resultvar = hop.spaceop.result)
+        else:
+            hop.rename("same_as")
 
 
 
