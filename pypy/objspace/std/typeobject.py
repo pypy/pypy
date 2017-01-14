@@ -1312,10 +1312,13 @@ class TypeCache(SpaceCache):
     def build(self, typedef):
         "NOT_RPYTHON: initialization-time only."
         from pypy.objspace.std.objectobject import W_ObjectObject
+        from pypy.interpreter.typedef import GetSetProperty
+        from rpython.rlib.objectmodel import instantiate
 
         space = self.space
         rawdict = typedef.rawdict
         lazyloaders = {}
+        w_type = instantiate(W_TypeObject)
 
         # compute the bases
         if typedef is W_ObjectObject.typedef:
@@ -1327,13 +1330,16 @@ class TypeCache(SpaceCache):
         # wrap everything
         dict_w = {}
         for descrname, descrvalue in rawdict.items():
+            # special case for GetSetProperties' __objclass__:
+            if isinstance(descrvalue, GetSetProperty):
+                descrvalue = descrvalue.copy_for_type(w_type)
             dict_w[descrname] = space.wrap(descrvalue)
 
         if typedef.applevel_subclasses_base is not None:
             overridetypedef = typedef.applevel_subclasses_base.typedef
         else:
             overridetypedef = typedef
-        w_type = W_TypeObject(space, typedef.name, bases_w, dict_w,
+        w_type.__init__(space, typedef.name, bases_w, dict_w,
                               overridetypedef=overridetypedef,
                               is_heaptype=overridetypedef.heaptype)
         if typedef is not overridetypedef:

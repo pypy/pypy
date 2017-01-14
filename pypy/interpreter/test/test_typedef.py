@@ -140,7 +140,11 @@ class TestTypeDef:
             pass
         def fget(self, space, w_self):
             assert self is prop
-        prop = typedef.GetSetProperty(fget, use_closure=True)
+        # NB. this GetSetProperty is not copied when creating the
+        # W_TypeObject because of 'cls'.  Without it, a duplicate of the
+        # GetSetProperty is taken and it is given the w_objclass that is
+        # the W_TypeObject
+        prop = typedef.GetSetProperty(fget, use_closure=True, cls=W_SomeType)
         W_SomeType.typedef = typedef.TypeDef(
             'some_type',
             x=prop)
