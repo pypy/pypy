@@ -296,7 +296,8 @@ def enable_allworkingmodules(config):
     if config.translation.sandbox:
         modules = default_modules
     if config.translation.reverse_debugger:
-        modules -= reverse_debugger_disable_modules
+        for mod in reverse_debugger_disable_modules:
+            setattr(config.objspace.usemodules, mod, False)
     # ignore names from 'essential_modules', notably 'exceptions', which
     # may not be present in config.objspace.usemodules at all
     modules = [name for name in modules if name not in essential_modules]
