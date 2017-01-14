@@ -68,6 +68,7 @@ typedef PY_LONG_LONG        Py_intptr_t;
 #   error "Python needs a typedef for Py_uintptr_t in pyport.h."
 #endif /* HAVE_UINTPTR_T */
 
+
 /*******************************
  * stat() and fstat() fiddling *
  *******************************/

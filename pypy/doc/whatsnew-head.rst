@@ -101,3 +101,14 @@ Fix a test failure introduced by strbuf-as-buffer
 
 Do not recreate the object in PyMemoryView_FromBuffer, rather pass it to
 the returned PyMemoryViewObject, to take ownership of it. Fixes a ref leak.
+
+.. branch: missing-tp_new
+
+Improve mixing app-level classes in c-extensions, especially if the app-level
+class has a ``tp_new`` or ``tp_dealloc``. The issue is that c-extensions expect
+all the method slots to be filled with a function pointer, where app-level will
+search up the mro for an appropriate function at runtime. With this branch we
+now fill many more slots in the c-extenion type objects.
+Also fix for c-extension type that calls ``tp_hash`` during initialization
+(str, unicode types), and fix instantiating c-extension types from built-in
+classes by enforcing an order of instaniation.
