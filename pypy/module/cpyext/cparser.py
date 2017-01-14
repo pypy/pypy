@@ -749,6 +749,8 @@ class ParsedSource(object):
                 self.add_macro(name, obj)
         self._Config._compilation_info_ = self.build_eci()
         for name, TYPE in rffi_platform.configure(self._Config).iteritems():
+            # hack: prevent the source from being pasted into common_header.h
+            del TYPE._hints['eci']
             if name in self._TYPES:
                 self._TYPES[name].become(TYPE)
 
