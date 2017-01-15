@@ -350,14 +350,6 @@ class UnrollOptimizer(Optimization):
             self.send_extra_operation(jump_op.copy_and_change(rop.JUMP,
                                       args=args + extra,
                                       descr=target_token))
-
-            # XXX see test_issue2465 for a case where the following occurs
-            # XXX (it would be better to really understand the problem
-            # XXX and fix it, but I am failing so far)
-            if label_op is not None and len(args + extra) != label_op.numargs():
-                del self.optimizer._newoperations[-1]    # remove the JUMP
-                raise InvalidLoop
-
             return None # explicit because the return can be non-None
         return virtual_state
 
@@ -413,7 +405,8 @@ class UnrollOptimizer(Optimization):
                 i += 1
                 self.optimizer.send_extra_operation(op)
             # force all of them except the virtuals
-            for arg in args_no_virtuals + short_jump_args:
+            for arg in (args_no_virtuals +
+                        self._map_args(mapping, short_jump_args)):
                 self.optimizer.force_box(self.get_box_replacement(arg))
             self.optimizer.flush()
             # done unless "short" has grown again
