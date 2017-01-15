@@ -246,6 +246,15 @@ class W_FloatObject(W_Root):
     @staticmethod
     @unwrap_spec(s=str)
     def descr_fromhex(space, w_cls, s):
+        """float.fromhex(string) -> float
+
+        Create a floating-point number from a hexadecimal string.
+        >>> float.fromhex('0x1.ffffp10')
+        2047.984375
+        >>> float.fromhex('-0x1p-1074')
+        -5e-324
+
+        """
         length = len(s)
         i = 0
         value = 0.0
@@ -592,6 +601,20 @@ class W_FloatObject(W_Root):
         return space.wrap(math.floor(v) == v)
 
     def descr_as_integer_ratio(self, space):
+        """float.as_integer_ratio() -> (int, int)
+
+        Return a pair of integers, whose ratio is exactly equal to the
+        original float and with a positive denominator.  Raise
+        OverflowError on infinities and a ValueError on NaNs.
+
+        >>> (10.0).as_integer_ratio()
+        (10, 1)
+        >>> (0.0).as_integer_ratio()
+        (0, 1)
+        >>> (-.25).as_integer_ratio()
+        (-1, 4)
+
+        """
         value = self.floatval
         try:
             num, den = float_as_rbigint_ratio(value)
@@ -608,6 +631,17 @@ class W_FloatObject(W_Root):
         return space.newtuple([space.int(w_num), space.int(w_den)])
 
     def descr_hex(self, space):
+        """float.hex() -> string
+
+        Return a hexadecimal representation of a floating-point
+        number.
+
+        >>> (-0.1).hex()
+        '-0x1.999999999999ap-4'
+        >>> 3.14159.hex()
+        '0x1.921f9f01b866ep+1'
+
+        """
         TOHEX_NBITS = rfloat.DBL_MANT_DIG + 3 - (rfloat.DBL_MANT_DIG + 2) % 4
         value = self.floatval
         if not isfinite(value):
