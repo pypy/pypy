@@ -143,6 +143,12 @@ class AppTestBytesIO:
         memio.close()
         raises(ValueError, memio.getbuffer)
 
+    def test_read1(self):
+        import _io
+        memio = _io.BytesIO(b"1234567890")
+        raises(TypeError, memio.read1)
+        assert memio.read() == b"1234567890"
+
     def test_readline(self):
         import _io
         f = _io.BytesIO(b'abc\ndef\nxyzzy\nfoo\x00bar\nanother line')
