@@ -255,7 +255,7 @@ class TestString(BaseTestPyPyC):
         log = self.run("""
         def main(n):
             for i in range(n):
-                unicode(str(i))
+                (b"x" * (i & 15)).decode('ascii')
             return i
         """, [1000])
         loop, = log.loops_by_filename(self.filepath)
@@ -263,11 +263,13 @@ class TestString(BaseTestPyPyC):
         i49 = int_lt(i47, i24)
         guard_true(i49, descr=...)
         i50 = int_add(i47, 1)
-        setfield_gc(p15, i50, descr=<FieldS pypy.module.__builtin__.functional.W_XRangeIterator.inst_current 8>)
-        guard_not_invalidated(descr=...)
-        p80 = call_r(ConstClass(ll_str__IntegerR_SignedConst_Signed), i47, descr=<Callr . i EF=3>)
+        i53 = int_and(i47, 15)
+        setfield_gc(p15, i50, descr=<FieldS pypy.module.__builtin__.functional.W_IntRangeIterator.inst_current 8>)
+        i55 = int_le(i53, 0)
+        guard_false(i55, descr=...)
+        p80 = call_r(ConstClass(ll_char_mul__Char_Signed), 120, i53, descr=<Callr . ii EF=3>)
         guard_no_exception(descr=...)
-        guard_nonnull(p80, descr=...)
+        guard_not_invalidated(descr=...)
         p53 = call_r(ConstClass(fast_str_decode_ascii), p80, descr=<Callr . r EF=4>)
         guard_no_exception(descr=...)
         guard_nonnull(p53, descr=...)
