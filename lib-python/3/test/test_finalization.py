@@ -171,7 +171,12 @@ class SimpleFinalizationTest(TestBase, unittest.TestCase):
             gc.collect()
             self.assert_del_calls(ids)
             self.assert_survivors(ids)
-            self.assertIsNot(wr(), None)
+            if support.check_impl_detail():
+                # CPython >= 3.4 changed this, but not in all cases
+                # (see the similar test in SelfCycleFinalizationTest).
+                # PyPy cannot tell apart the two cases, so we picked the
+                # cycle behavior, as it is the historical one.
+                self.assertIsNot(wr(), None)
             self.clear_survivors()
             gc.collect()
             self.assert_del_calls(ids)

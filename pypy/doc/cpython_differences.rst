@@ -166,6 +166,13 @@ and the callback will not be invoked.  (Issue `#2030`__)
 .. __: https://docs.python.org/2/library/weakref.html
 .. __: https://bitbucket.org/pypy/pypy/issue/2030/
 
+A new difference: before CPython 3.4, a weakref to ``x`` was always
+cleared before the ``x.__del__()`` method was called.  Since CPython 3.4
+the picture is more muddy.  Often, the weakref is still alive while
+``x.__del__()`` runs, but not always (e.g. not in case of reference
+cycles).  In PyPy3 we have kept the more consistent pre-3.4 behavior; we
+can't do something really different if there are cycles or not.
+
 ---------------------------------
 
 There are a few extra implications from the difference in the GC.  Most
