@@ -77,8 +77,8 @@ Module xyz does not work in the sandboxed PyPy?
 You cannot import *any* extension module in a `sandboxed PyPy`_,
 sorry.  Even the built-in modules available are very limited.
 Sandboxing in PyPy is a good proof of concept, and is without a doubt
-safe IMHO, however it is only a proof of concept.  It currently requires
-some work from a motivated developer. Until then it can only be used for "pure Python"
+safe IMHO, however it is only a proof of concept.  It currently requires 
+some work from a motivated developer. However, until then it can only be used for "pure Python"
 examples: programs that import mostly nothing (or only pure Python
 modules, recursively).
 
