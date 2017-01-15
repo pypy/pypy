@@ -364,7 +364,8 @@ class CycleChainFinalizationTest(TestBase, unittest.TestCase):
             ids = [id(s) for s in nodes]
             wrs = [weakref.ref(s) for s in nodes]
             del nodes
-            gc.collect()
+            for cls in classes:   # PyPy: needs several collections for a chain
+                gc.collect()      # of objects all with a __del__()
             self.assert_del_calls(ids)
             self.assert_survivors([])
             self.assertEqual([wr() for wr in wrs], [None] * N)
