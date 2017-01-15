@@ -209,8 +209,15 @@ class SimpleFinalizationTest(TestBase, unittest.TestCase):
             self.assert_survivors(ids)
             self.clear_survivors()
             gc.collect()
-            self.assert_del_calls(ids * 2)
-            self.assert_survivors(ids)
+            if support.check_impl_detail():
+                # CPython: the __del__ method has been called again
+                self.assert_del_calls(ids * 2)
+                self.assert_survivors(ids)
+            else:
+                # PyPy (and likely others): the __del__ method is only
+                # called once
+                self.assert_del_calls(ids)
+                self.assert_survivors([])
 
 
 class SelfCycleBase:
