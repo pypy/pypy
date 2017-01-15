@@ -79,7 +79,7 @@ sorry.  Even the built-in modules available are very limited.
 Sandboxing in PyPy is a good proof of concept, and is without a doubt
 safe IMHO, however it is only a proof of concept.  It currently requires 
 some work from a motivated developer. However, until then it can only be used for "pure Python"
-examples: programs that import mostly nothing (or only pure Python
+example: programs that import mostly nothing (or only pure Python
 modules, recursively).
 
 .. _`sandboxed PyPy`: sandbox.html
