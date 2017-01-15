@@ -373,6 +373,11 @@ class CycleChainFinalizationTest(TestBase, unittest.TestCase):
             self.assert_del_calls(ids)
 
     def check_resurrecting_chain(self, classes):
+        if support.check_impl_detail(pypy=True):
+            self.skipTest("in CPython, in a cycle of objects with __del__(), "
+                          "all the __del__() are called even if some of them "
+                          "resurrect.  In PyPy the recurrection will stop "
+                          "the other objects from being considered as dead.")
         N = len(classes)
         with SimpleBase.test():
             nodes = self.build_chain(classes)
