@@ -1332,3 +1332,4 @@ class AppTestComparesByIdentity:
         assert object.__dict__['__class__'].__objclass__ is object
         assert int.__dict__['imag'].__objclass__ is int
         assert file.closed.__objclass__ is file
+        assert type.__dict__['__name__'].__objclass__ is type
