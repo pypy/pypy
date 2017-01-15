@@ -80,7 +80,7 @@ class TestString(BaseTestPyPyC):
             i113 = call_may_force_i(ConstClass(str_decode_utf_8_impl), p103, 1, ConstPtr(null), 1, 0, 0, p104, descr=<Calli . ririiir EF=7>)
             guard_not_forced(descr=...)
             guard_no_exception(descr=...)
-            p116 = call_r(ConstClass(ll_build_trampoline__v1351___simple_call__function_), p104, descr=<Callr . r EF=5>)
+            p116 = call_r(ConstClass(ll_build_trampoline__), p104, descr=<Callr . r EF=5>)
             guard_no_exception(descr=...)
             guard_nonnull(p116, descr=...)
             p118 = getfield_gc_r(ConstPtr(ptr117), descr=<FieldP pypy.objspace.std.unicodeobject.W_UnicodeObject.inst__utf8 .>)
