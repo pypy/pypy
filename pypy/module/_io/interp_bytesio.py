@@ -121,6 +121,7 @@ class W_BytesIO(W_BufferedIOBase):
         return space.wrap(size)
 
     def getbuffer_w(self, space):
+        self._check_closed(space)
         return space.wrap(W_MemoryView(BytesIOBuffer(self)))
 
     def getvalue_w(self, space):

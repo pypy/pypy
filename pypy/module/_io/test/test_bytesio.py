@@ -140,6 +140,8 @@ class AppTestBytesIO:
         # After the buffer gets released, we can resize the BytesIO again
         del buf
         memio.truncate()
+        memio.close()
+        raises(ValueError, memio.getbuffer)
 
     def test_readline(self):
         import _io
