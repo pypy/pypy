@@ -291,8 +291,15 @@ def initstdio(encoding=None, unbuffered=False):
     try:
         if encoding and ':' in encoding:
             encoding, errors = encoding.split(':', 1)
+            encoding = encoding or None
+            errors = errors or None
         else:
             errors = None
+        if not (encoding or errors):
+            # stdin/out default to surrogateescape in C locale
+            import _locale
+            if _locale.setlocale(_locale.LC_CTYPE, None) == 'C':
+                errors = 'surrogateescape'
 
         sys.stderr = sys.__stderr__ = create_stdio(
             2, True, "<stderr>", encoding, 'backslashreplace', unbuffered)
