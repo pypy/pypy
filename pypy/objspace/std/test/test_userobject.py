@@ -221,8 +221,9 @@ class AppTestUserObject:
         class Foo(object):
             pass
         Foo.__module__ = 'a.b.c'
+        Foo.__qualname__ = 'd.Foo'
         s = repr(Foo())
-        assert s.startswith('<a.b.c.Foo object at ')
+        assert s.startswith('<a.b.c.d.Foo object at ')
 
     def test_repr_nonascii(self):
         Japan = type('日本', (), dict(__module__='日本国'))
