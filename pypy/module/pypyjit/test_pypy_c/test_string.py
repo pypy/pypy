@@ -218,6 +218,7 @@ class TestString(BaseTestPyPyC):
         assert loop.match_by_id('calltwo', '')    # nothing
 
     def test_move_method_call_out_of_loop(self):
+        # XXX not implemented: lower() on unicodes is not considered elidable
         def main(n):
             lst = []
             s = 'Hello %d' % n
