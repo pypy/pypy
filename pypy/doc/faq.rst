@@ -26,7 +26,7 @@ Is PyPy a drop in replacement for CPython?
 
 Almost!
 
-The mostly likely stumbling block for any given project is support for
+The most likely stumbling block for any given project is support for
 :ref:`extension modules <extension-modules>`.  PyPy supports a continually growing
 number of extension modules, but so far mostly only those found in the
 standard library.
