@@ -245,7 +245,7 @@ class TestString(BaseTestPyPyC):
         i45 = int_lt(i43, i26)
         guard_true(i45, descr=...)
         i46 = int_add(i43, 1)
-        setfield_gc(p15, i46, descr=<FieldS pypy.module.__builtin__.functional.W_XRangeIterator.inst_current 8>)
+        setfield_gc(p15, i46, descr=<FieldS pypy.module.__builtin__.functional.W_IntRangeIterator.inst_current 8>)
         guard_not_invalidated(descr=...)
         --TICK--
         jump(..., descr=...)
