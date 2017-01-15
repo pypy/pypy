@@ -362,6 +362,9 @@ class StdObjSpace(ObjSpace):
     def newutf8(self, string):
         return self.newunicode(decode_utf8(self, string))
 
+    def newtext(self, s):
+        return self.newunicode(decode_utf8(self, s, allow_surrogates=True))
+
     def newunicode(self, uni):
         return W_UnicodeObject(uni)
 

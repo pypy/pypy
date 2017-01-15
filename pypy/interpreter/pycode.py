@@ -318,13 +318,13 @@ class PyCode(eval.Code):
         return space.newtuple(self.co_names_w)
 
     def fget_co_varnames(self, space):
-        return space.newtuple([space.wrap(name) for name in self.co_varnames])
+        return space.newtuple([space.newtext(name) for name in self.co_varnames])
 
     def fget_co_cellvars(self, space):
-        return space.newtuple([space.wrap(name) for name in self.co_cellvars])
+        return space.newtuple([space.newtext(name) for name in self.co_cellvars])
 
     def fget_co_freevars(self, space):
-        return space.newtuple([space.wrap(name) for name in self.co_freevars])
+        return space.newtuple([space.newtext(name) for name in self.co_freevars])
 
     def descr_code__eq__(self, w_other):
         space = self.space
