@@ -291,10 +291,10 @@ def initstdio(encoding=None, unbuffered=False):
     try:
         if encoding and ':' in encoding:
             encoding, errors = encoding.split(':', 1)
-            encoding = encoding or None
             errors = errors or None
         else:
             errors = None
+        encoding = encoding or None
         if not (encoding or errors):
             # stdin/out default to surrogateescape in C locale
             import _locale
