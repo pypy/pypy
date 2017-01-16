@@ -105,3 +105,6 @@ the returned PyMemoryViewObject, to take ownership of it. Fixes a ref leak.
 .. branch: issue2464
 
 Give (almost?) all GetSetProperties a valid __objclass__.
+
+.. branch: TreeStain/fixed-typo-line-29-mostly-to-most-1484469416419
+.. branch: TreeStain/main-lines-changed-in-l77-l83-made-para-1484471558033
