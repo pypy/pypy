@@ -1126,7 +1126,7 @@ def build_bridge(space):
     setup_init_functions(eci, prefix)
     return modulename.new(ext='')
 
-def attach_recusively(space, static_pyobjs, static_objs_w, attached_objs, i):
+def attach_recursively(space, static_pyobjs, static_objs_w, attached_objs, i):
     # Start at i but make sure all the base classes are already attached
     from pypy.module.cpyext.pyobject import get_typedescr, make_ref
     if i in attached_objs:
@@ -1145,7 +1145,7 @@ def attach_recusively(space, static_pyobjs, static_objs_w, attached_objs, i):
             except ValueError:
                 j = -1
             if j >=0 and j not in attached_objs:
-                attach_recusively(space, static_pyobjs, static_objs_w,
+                attach_recursively(space, static_pyobjs, static_objs_w,
                                                  attached_objs, j)
     w_type = space.type(w_obj)
     typedescr = get_typedescr(w_type.layout.typedef)
@@ -1185,7 +1185,7 @@ class StaticObjectBuilder(object):
         self.cpyext_type_init = []
         attached_objs = []
         for i in range(len(static_objs_w)):
-            attach_recusively(space, static_pyobjs, static_objs_w, attached_objs, i)
+            attach_recursively(space, static_pyobjs, static_objs_w, attached_objs, i)
         cpyext_type_init = self.cpyext_type_init
         self.cpyext_type_init = None
         for pto, w_type in cpyext_type_init:
