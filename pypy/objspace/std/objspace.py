@@ -715,8 +715,8 @@ class StdObjSpace(ObjSpace):
 
     def getfulltypename(self, w_obj):
         w_type = self.type(w_obj)
-        classname = w_type.getqualname(self)
         if w_type.is_heaptype():
+            classname = w_type.getqualname(self)
             w_module = w_type.lookup("__module__")
             if w_module is not None:
                 try:
@@ -726,4 +726,6 @@ class StdObjSpace(ObjSpace):
                         raise
                 else:
                     classname = u'%s.%s' % (modulename, classname)
+        else:
+            classname = w_type.name.decode('utf-8')
         return classname
