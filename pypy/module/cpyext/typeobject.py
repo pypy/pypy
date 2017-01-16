@@ -32,7 +32,7 @@ from pypy.module.cpyext.slotdefs import (
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
 from pypy.module.cpyext.typeobjectdefs import (
-    PyGetSetDef, PyMemberDef, newfunc, getter, setter,
+    PyGetSetDef, PyMemberDef,
     PyNumberMethods, PySequenceMethods, PyBufferProcs)
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 
@@ -42,7 +42,6 @@ WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
 PyType_Check, PyType_CheckExact = build_type_checkers("Type", "w_type")
 
 cts.parse_header(parse_dir / 'cpyext_typeobject.h')
-PyHeapTypeObjectStruct = cts.gettype('PyHeapTypeObject')
 PyHeapTypeObject = cts.gettype('PyHeapTypeObject *')
 
 
@@ -75,9 +74,9 @@ def make_GetSet(space, getsetprop):
         py_getsetdef.c_doc = rffi.cast(rffi.CCHARP, 0)
     py_getsetdef.c_name = rffi.str2charp(getsetprop.getname(space))
     # XXX FIXME - actually assign these !!!
-    py_getsetdef.c_get = rffi.cast(getter, 0)
-    py_getsetdef.c_set = rffi.cast(setter, 0)
-    py_getsetdef.c_closure = rffi.cast(rffi.VOIDP, 0)
+    py_getsetdef.c_get = cts.cast('getter', 0)
+    py_getsetdef.c_set = cts.cast('setter', 0)
+    py_getsetdef.c_closure = cts.cast('void*', 0)
     return py_getsetdef
 
 
@@ -178,7 +177,7 @@ def memberdescr_attach(space, py_obj, w_obj, w_userdata=None):
 
 def memberdescr_realize(space, obj):
     # XXX NOT TESTED When is this ever called?
-    member = rffi.cast(lltype.Ptr(PyMemberDef), obj)
+    member = cts.cast('PyMemberDef*', obj)
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     w_obj = space.allocate_instance(W_MemberDescr, w_type)
     w_obj.__init__(member, w_type)
@@ -701,7 +700,7 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
             # things are not initialized yet.  So in this case, simply use
             # str2charp() and "leak" the string.
         w_typename = space.getattr(w_type, space.wrap('__name__'))
-        heaptype = rffi.cast(PyHeapTypeObject, pto)
+        heaptype = cts.cast('PyHeapTypeObject*', pto)
         heaptype.c_ht_name = make_ref(space, w_typename)
         from pypy.module.cpyext.bytesobject import PyString_AsString
         pto.c_tp_name = PyString_AsString(space, heaptype.c_ht_name)
@@ -730,7 +729,7 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
     # will be filled later on with the correct value
     # may not be 0
     if space.is_w(w_type, space.w_object):
-        pto.c_tp_new = rffi.cast(newfunc, 1)
+        pto.c_tp_new = cts.cast('newfunc', 1)
     update_all_slots(space, w_type, pto)
     pto.c_tp_flags |= Py_TPFLAGS_READY
     return pto
@@ -847,7 +846,8 @@ def _type_realize(space, py_obj):
         if not py_type.c_tp_as_sequence:
             py_type.c_tp_as_sequence = base.c_tp_as_sequence
             py_type.c_tp_flags |= base.c_tp_flags & Py_TPFLAGS_HAVE_INPLACEOPS
-        if not py_type.c_tp_as_mapping: py_type.c_tp_as_mapping = base.c_tp_as_mapping
+        if not py_type.c_tp_as_mapping:
+            py_type.c_tp_as_mapping = base.c_tp_as_mapping
         #if not py_type.c_tp_as_buffer: py_type.c_tp_as_buffer = base.c_tp_as_buffer
 
     return w_obj
