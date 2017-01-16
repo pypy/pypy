@@ -1,3 +1,6 @@
+from rpython.flowspace.model import const
+from rpython.flowspace.objspace import build_flow
+from rpython.translator.simplify import simplify_graph
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.cparser import parse_source, CTypeSpace
 
@@ -164,6 +167,7 @@ def test_gettype():
     cts = parse_source(decl)
     assert cts.gettype('Py_ssize_t') == rffi.SSIZE_T
     assert cts.gettype('TestFloatObject *').TO.c_ob_refcnt == rffi.SSIZE_T
+    assert cts.cast('Py_ssize_t', 42) == rffi.cast(rffi.SSIZE_T, 42)
 
 def test_parse_funcdecl():
     decl = """
@@ -185,3 +189,16 @@ def test_parse_funcdecl():
     assert name == 'some_func'
     assert FUNC.RESULT == cts.gettype('func_t')
     assert FUNC.ARGS == (cts.gettype('TestFloatObject *'),)
+
+def test_translate_cast():
+    cdef = "typedef ssize_t Py_ssize_t;"
+    cts = parse_source(cdef)
+
+    def f():
+        return cts.cast('Py_ssize_t*', 0)
+    graph = build_flow(f)
+    simplify_graph(graph)
+    assert len(graph.startblock.operations) == 1
+    op = graph.startblock.operations[0]
+    assert op.args[0] == const(rffi.cast)
+    assert op.args[1].value is cts.gettype('Py_ssize_t*')

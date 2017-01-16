@@ -10,6 +10,9 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rfile import FILEP
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rfficache, rffi_platform
+from rpython.flowspace.model import Constant, const
+from rpython.flowspace.specialcase import register_flow_sc
+from rpython.flowspace.flowcontext import FlowingError
 
 _r_comment = re.compile(r"/\*.*?\*/|//([^\n\\]|\\.)*?$",
                         re.DOTALL | re.MULTILINE)
@@ -699,6 +702,7 @@ class CTypeSpace(object):
         self.includes = []
         self.struct_typedefs = {}
         self._handled = set()
+        self._frozen = False
         if includes is not None:
             for header in includes:
                 self.include(header)
@@ -740,8 +744,8 @@ class CTypeSpace(object):
         self.structs[obj] = struct
         if obj.fldtypes is not None:
             struct.fields = zip(
-                 obj.fldnames,
-                 [self.convert_field(field) for field in obj.fldtypes])
+                obj.fldnames,
+                [self.convert_field(field) for field in obj.fldtypes])
         return struct
 
     def convert_field(self, obj):
@@ -833,6 +837,9 @@ class CTypeSpace(object):
             result = result.TYPE
         return result
 
+    def cast(self, cdecl, value):
+        return rffi.cast(self.gettype(cdecl), value)
+
     def parse_func(self, cdecl):
         cdecl = cdecl.strip()
         if cdecl[-1] != ';':
@@ -842,6 +849,20 @@ class CTypeSpace(object):
         tp, quals = self.ctx._get_type_and_quals(decl.type, name=decl.name)
         FUNCP = self.convert_type(tp.as_function_pointer())
         return decl.name, FUNCP.TO
+
+    def _freeze_(self):
+        if self._frozen:
+            return True
+
+        @register_flow_sc(self.cast)
+        def sc_cast(ctx, v_decl, v_arg):
+            if not isinstance(v_decl, Constant):
+                raise FlowingError(
+                    "The first argument of cts.cast() must be a constant.")
+            TP = self.gettype(v_decl.value)
+            return ctx.appcall(rffi.cast, const(TP), v_arg)
+        self._frozen = True
+        return True
 
 
 def parse_source(source, includes=None, headers=None, configure_now=True):
