@@ -516,14 +516,19 @@ class AppTestMethod:
         class A(object):
             def f(self):
                 pass
-        assert repr(A().f).startswith("<bound method A.f of <")
-        assert repr(A().f).endswith(">>")
-        class B:
-            def f(self):
-                pass
-        assert repr(B().f).startswith("<bound method B.f of <")
+        assert repr(A().f).startswith("<bound method %s.f of <" %
+                                      A.__qualname__)
         assert repr(A().f).endswith(">>")
 
+    def test_method_repr_2(self):
+        class ClsA(object):
+            def f(self):
+                pass
+        class ClsB(ClsA):
+            pass
+        r = repr(ClsB().f)
+        assert "ClsA.f of <" in r
+        assert "ClsB object at " in r
 
     def test_method_call(self):
         class C(object):

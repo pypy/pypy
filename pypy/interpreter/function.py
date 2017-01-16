@@ -535,11 +535,18 @@ class Method(W_Root):
 
     def descr_method_repr(self):
         space = self.space
-        name = self.w_function.getname(self.space)
-        w_class = space.type(self.w_instance)
-        typename = w_class.getname(self.space)
+        w_name = space.findattr(self.w_function, space.wrap('__qualname__'))
+        if w_name is None:
+            name = self.w_function.getname(self.space)
+        else:
+            try:
+                name = space.unicode_w(w_name)
+            except OperationError as e:
+                if not e.match(space, space.w_TypeError):
+                    raise
+                name = '?'
         objrepr = space.unicode_w(space.repr(self.w_instance))
-        s = u'<bound method %s.%s of %s>' % (typename, name, objrepr)
+        s = u'<bound method %s of %s>' % (name, objrepr)
         return space.wrap(s)
 
     def descr_method_getattribute(self, w_attr):
