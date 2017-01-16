@@ -11,13 +11,13 @@ from pypy.module.cpyext.api import (
     CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_NOARGS, METH_O,
     METH_STATIC, METH_VARARGS, PyObject, PyObjectFields, bootstrap_function,
     build_type_checkers, cpython_api, cpython_struct, generic_cpy_call,
-    PyTypeObjectPtr, slot_function, object_h, api_decl)
+    PyTypeObjectPtr, slot_function, cts, api_decl)
 from pypy.module.cpyext.pyobject import (
     Py_DecRef, from_ref, make_ref, as_pyobj, make_typedescr)
 
-PyMethodDef = object_h.gettype('PyMethodDef')
-PyCFunction = object_h.gettype('PyCFunction')
-PyCFunctionKwArgs = object_h.gettype('PyCFunctionWithKeywords')
+PyMethodDef = cts.gettype('PyMethodDef')
+PyCFunction = cts.gettype('PyCFunction')
+PyCFunctionKwArgs = cts.gettype('PyCFunctionWithKeywords')
 PyCFunctionObjectStruct = cpython_struct(
     'PyCFunctionObject',
     PyObjectFields + (
@@ -282,7 +282,7 @@ W_PyCWrapperObject.typedef.acceptable_as_base_class = False
 def PyCFunction_NewEx(space, ml, w_self, w_name):
     return space.wrap(W_PyCFunctionObject(space, ml, w_self, w_name))
 
-@api_decl("PyCFunction PyCFunction_GetFunction(PyObject *)", object_h)
+@api_decl("PyCFunction PyCFunction_GetFunction(PyObject *)", cts)
 def PyCFunction_GetFunction(space, w_obj):
     try:
         cfunction = space.interp_w(W_PyCFunctionObject, w_obj)

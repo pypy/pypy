@@ -40,7 +40,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib import rawrefcount
 from rpython.rlib import rthread
 from rpython.rlib.debug import fatalerror_notb
-from pypy.module.cpyext.cparser import parse_source
+from pypy.module.cpyext.cparser import CTypeSpace
 
 DEBUG_WRAPPER = True
 
@@ -671,30 +671,30 @@ def build_exported_objects():
 build_exported_objects()
 
 object_cdef = (parse_dir / 'cpyext_object.h').read()
-object_h = parse_source(object_cdef,
-    headers=['sys/types.h', 'stdarg.h', 'stdio.h'])
+cts = CTypeSpace(headers=['sys/types.h', 'stdarg.h', 'stdio.h'])
+cts.parse_source(object_cdef)
 
-Py_ssize_t = object_h.gettype('Py_ssize_t')
-Py_ssize_tP = object_h.gettype('Py_ssize_t *')
+Py_ssize_t = cts.gettype('Py_ssize_t')
+Py_ssize_tP = cts.gettype('Py_ssize_t *')
 size_t = rffi.ULONG
 ADDR = lltype.Signed
 
 # Note: as a special case, "PyObject" is the pointer type in RPython,
 # corresponding to "PyObject *" in C.  We do that only for PyObject.
 # For example, "PyTypeObject" is the struct type even in RPython.
-PyTypeObject = object_h.gettype('PyTypeObject')
-PyTypeObjectPtr = object_h.gettype('PyTypeObject *')
-PyObjectStruct = object_h.gettype('PyObject')
-PyObject = object_h.gettype('PyObject *')
+PyTypeObject = cts.gettype('PyTypeObject')
+PyTypeObjectPtr = cts.gettype('PyTypeObject *')
+PyObjectStruct = cts.gettype('PyObject')
+PyObject = cts.gettype('PyObject *')
 PyObjectFields = (("ob_refcnt", lltype.Signed),
                   ("ob_pypy_link", lltype.Signed),
                   ("ob_type", PyTypeObjectPtr))
 PyVarObjectFields = PyObjectFields + (("ob_size", Py_ssize_t), )
-PyVarObjectStruct = object_h.gettype('PyVarObject')
-PyVarObject = object_h.gettype('PyVarObject *')
+PyVarObjectStruct = cts.gettype('PyVarObject')
+PyVarObject = cts.gettype('PyVarObject *')
 
-Py_buffer = object_h.gettype('Py_buffer')
-Py_bufferP = object_h.gettype('Py_buffer *')
+Py_buffer = cts.gettype('Py_buffer')
+Py_bufferP = cts.gettype('Py_buffer *')
 
 
 @specialize.memo()

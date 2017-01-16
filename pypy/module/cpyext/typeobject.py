@@ -17,7 +17,7 @@ from pypy.module.cpyext.api import (
     Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers,
     PyObjectFields, PyTypeObject, PyTypeObjectPtr,
     Py_TPFLAGS_HAVE_NEWBUFFER, Py_TPFLAGS_CHECKTYPES,
-    Py_TPFLAGS_HAVE_INPLACEOPS, object_h, parse_dir)
+    Py_TPFLAGS_HAVE_INPLACEOPS, cts, parse_dir)
 from pypy.module.cpyext.cparser import parse_source
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
     W_PyCWrapperObject, PyCFunction_NewEx, PyCFunction, PyMethodDef,
@@ -42,9 +42,9 @@ WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
 PyType_Check, PyType_CheckExact = build_type_checkers("Type", "w_type")
 
 cdef = (parse_dir / 'cpyext_typeobject.h').read()
-typeobject_h = parse_source(cdef, includes=[object_h])
-PyHeapTypeObjectStruct = typeobject_h.gettype('PyHeapTypeObject')
-PyHeapTypeObject = typeobject_h.gettype('PyHeapTypeObject *')
+cts.parse_source(cdef)
+PyHeapTypeObjectStruct = cts.gettype('PyHeapTypeObject')
+PyHeapTypeObject = cts.gettype('PyHeapTypeObject *')
 
 
 class W_GetSetPropertyEx(GetSetProperty):
