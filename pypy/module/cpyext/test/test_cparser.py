@@ -11,7 +11,7 @@ def test_configure():
         double ob_fval;
     } TestFloatObject;
     """
-    res = parse_source(decl, configure_now=True)
+    res = parse_source(decl)
     TestFloatObject = res.definitions['TestFloatObject']
     assert isinstance(TestFloatObject, lltype.Struct)
     assert TestFloatObject.c_ob_refcnt == rffi.SSIZE_T
@@ -59,10 +59,10 @@ def test_include():
         Type *type;
     } Object;
     """
-    hdr1 = parse_source(cdef1, configure_now=True)
+    hdr1 = parse_source(cdef1)
     Type = hdr1.definitions['Type']
     assert isinstance(Type, lltype.Struct)
-    hdr2 = parse_source(cdef2, includes=[hdr1], configure_now=True)
+    hdr2 = parse_source(cdef2, includes=[hdr1])
     assert 'Type' not in hdr2.definitions
     Object = hdr2.definitions['Object']
     assert Object.c_type.TO is Type
@@ -85,7 +85,7 @@ def test_incomplete():
     """
     foo_h = parse_source(cdef)
     Object = foo_h.gettype('Object')
-    assert isinstance(Object, lltype.ForwardReference)
+    assert isinstance(Object, lltype.Struct)
 
 def test_recursive():
     cdef = """
@@ -106,7 +106,7 @@ def test_recursive():
         Object *obj;
     } Type;
     """
-    foo_h = parse_source(cdef, configure_now=True)
+    foo_h = parse_source(cdef)
     Object = foo_h.definitions['Object']
     assert isinstance(Object, lltype.Struct)
     hash(Object)
@@ -117,7 +117,7 @@ def test_const():
         const char * const foo;
     } bar;
     """
-    hdr = parse_source(cdef, configure_now=True)
+    hdr = parse_source(cdef)
     assert hdr.definitions['bar'].c_foo == rffi.CONST_CCHARP != rffi.CCHARP
 
 def test_gettype():
@@ -133,7 +133,7 @@ def test_gettype():
         double ob_fval;
     } TestFloatObject;
     """
-    res = parse_source(decl, configure_now=True)
+    res = parse_source(decl)
     assert res.gettype('Py_ssize_t') == rffi.SSIZE_T
     assert res.gettype('TestFloatObject *').TO.c_ob_refcnt == rffi.SSIZE_T
 
@@ -152,7 +152,7 @@ def test_parse_funcdecl():
 
     typedef TestFloatObject* (*func_t)(int, int);
     """
-    res = parse_source(decl, configure_now=True)
+    res = parse_source(decl)
     name, FUNC = res.parse_func("func_t some_func(TestFloatObject*)")
     assert name == 'some_func'
     assert FUNC.RESULT == res.gettype('func_t')

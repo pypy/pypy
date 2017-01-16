@@ -703,13 +703,13 @@ class ParsedSource(object):
         self.structs.update(other.structs)
         self.includes.append(other)
 
-    def add_typedef(self, name, obj, quals, configure_now=False):
+    def add_typedef(self, name, obj, quals):
         assert name not in self.definitions
         tp = self.convert_type(obj, quals)
         if isinstance(tp, DelayedStruct):
             if tp.type_name is None:
                 tp.type_name = name
-            tp = self.realize_struct(tp, configure_now=configure_now)
+            tp = self.realize_struct(tp)
         self.definitions[name] = tp
 
     def add_macro(self, name, value):
@@ -734,16 +734,12 @@ class ParsedSource(object):
             tp = tp.TYPE
         return tp
 
-    def realize_struct(self, struct, configure_now=False):
-        from pypy.module.cpyext.api import cpython_struct
+    def realize_struct(self, struct):
         type_name = struct.get_type_name()
         configname = type_name.replace(' ', '__')
-        if configure_now:
-            setattr(self._Config, configname,
-                rffi_platform.Struct(type_name, struct.fields))
-            self._TYPES[configname] = struct.TYPE
-        else:
-            cpython_struct(type_name, struct.fields, forward=struct.TYPE)
+        setattr(self._Config, configname,
+            rffi_platform.Struct(type_name, struct.fields))
+        self._TYPES[configname] = struct.TYPE
         return struct.TYPE
 
     def build_eci(self):
@@ -756,13 +752,13 @@ class ParsedSource(object):
         return ExternalCompilationInfo(
             post_include_bits=all_sources, includes=all_headers)
 
-    def configure_types(self, configure_now=False):
+    def configure_types(self):
         for name, (obj, quals) in self.ctx._declarations.iteritems():
             if obj in self.ctx._included_declarations:
                 continue
             if name.startswith('typedef '):
                 name = name[8:]
-                self.add_typedef(name, obj, quals, configure_now=configure_now)
+                self.add_typedef(name, obj, quals)
             elif name.startswith('macro '):
                 name = name[6:]
                 self.add_macro(name, obj)
@@ -825,12 +821,12 @@ class ParsedSource(object):
         return decl.name, FUNCP.TO
 
 
-def parse_source(source, includes=None, headers=None, configure_now=False):
+def parse_source(source, includes=None, headers=None, configure_now=True):
     ctx = Parser()
     src = ParsedSource(source, ctx, headers=headers)
     if includes is not None:
         for header in includes:
             src.include(header)
     ctx.parse(source)
-    src.configure_types(configure_now=configure_now)
+    src.configure_types()
     return src

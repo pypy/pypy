@@ -672,7 +672,7 @@ build_exported_objects()
 
 object_cdef = (parse_dir / 'cpyext_object.h').read()
 object_h = parse_source(object_cdef,
-    headers=['sys/types.h', 'stdarg.h', 'stdio.h'], configure_now=True)
+    headers=['sys/types.h', 'stdarg.h', 'stdio.h'])
 
 Py_ssize_t = object_h.gettype('Py_ssize_t')
 Py_ssize_tP = object_h.gettype('Py_ssize_t *')
