@@ -685,9 +685,9 @@ class DelayedStruct(object):
 
 
 class CTypeSpace(object):
-    def __init__(self, source, parser=None, definitions=None, macros=None,
+    def __init__(self, parser=None, definitions=None, macros=None,
                  headers=None, includes=None):
-        self.source = source
+        self.sources = []
         self.definitions = definitions if definitions is not None else {}
         self.macros = macros if macros is not None else {}
         self.structs = {}
@@ -697,6 +697,7 @@ class CTypeSpace(object):
         self._TYPES = {}
         self.includes = []
         self.struct_typedefs = {}
+        self._handled = set()
         if includes is not None:
             for header in includes:
                 self.include(header)
@@ -705,6 +706,11 @@ class CTypeSpace(object):
         self.ctx.include(other.ctx)
         self.structs.update(other.structs)
         self.includes.append(other)
+
+    def parse_source(self, source):
+        self.sources.append(source)
+        self.ctx.parse(source)
+        self.configure_types()
 
     def add_typedef(self, name, obj, quals):
         assert name not in self.definitions
@@ -746,7 +752,10 @@ class CTypeSpace(object):
         return struct.TYPE
 
     def build_eci(self):
-        all_sources = [x.source for x in self.includes] + [self.source]
+        all_sources = []
+        for cts in self.includes:
+            all_sources.extend(cts.sources)
+        all_sources.extend(self.sources)
         all_headers = self.headers
         for x in self.includes:
             for hdr in x.headers:
@@ -759,6 +768,9 @@ class CTypeSpace(object):
         for name, (obj, quals) in self.ctx._declarations.iteritems():
             if obj in self.ctx._included_declarations:
                 continue
+            if name in self._handled:
+                continue
+            self._handled.add(name)
             if name.startswith('typedef '):
                 name = name[8:]
                 self.add_typedef(name, obj, quals)
@@ -771,6 +783,7 @@ class CTypeSpace(object):
             del TYPE._hints['eci']
             if name in self._TYPES:
                 self._TYPES[name].become(TYPE)
+                del self._TYPES[name]
 
     def convert_type(self, obj, quals=0):
         if isinstance(obj, model.PrimitiveType):
@@ -825,7 +838,6 @@ class CTypeSpace(object):
 
 
 def parse_source(source, includes=None, headers=None, configure_now=True):
-    src = CTypeSpace(source, headers=headers, includes=includes)
-    src.ctx.parse(source)
-    src.configure_types()
-    return src
+    cts = CTypeSpace(headers=headers, includes=includes)
+    cts.parse_source(source)
+    return cts

@@ -1,5 +1,5 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.module.cpyext.cparser import parse_source
+from pypy.module.cpyext.cparser import parse_source, CTypeSpace
 
 def test_configure():
     decl = """
@@ -65,6 +65,34 @@ def test_include():
     cts2 = parse_source(cdef2, includes=[cts1])
     assert 'Type' not in cts2.definitions
     Object = cts2.definitions['Object']
+    assert Object.c_type.TO is Type
+
+def test_multiple_sources():
+    cdef1 = """
+    typedef ssize_t Py_ssize_t;
+
+    #define PyObject_HEAD  \
+        Py_ssize_t ob_refcnt;        \
+        Py_ssize_t ob_pypy_link;     \
+
+    typedef struct {
+        char *name;
+    } Type;
+    """
+    cdef2 = """
+    typedef struct {
+        PyObject_HEAD
+        Py_ssize_t ob_foo;
+        Type *type;
+    } Object;
+    """
+    cts = CTypeSpace()
+    cts.parse_source(cdef1)
+    Type = cts.definitions['Type']
+    assert isinstance(Type, lltype.Struct)
+    assert 'Object' not in cts.definitions
+    cts.parse_source(cdef2)
+    Object = cts.definitions['Object']
     assert Object.c_type.TO is Type
 
 def test_incomplete():
