@@ -142,14 +142,14 @@ def _copy_header_files(headers, dstdir):
         target.chmod(0444) # make the file read-only, to make sure that nobody
                            # edits it by mistake
 
-def copy_header_files(dstdir, copy_numpy_headers):
+def copy_header_files(cts, dstdir, copy_numpy_headers):
     # XXX: 20 lines of code to recursively copy a directory, really??
     assert dstdir.check(dir=True)
     headers = include_dir.listdir('*.h') + include_dir.listdir('*.inl')
     for name in ["pypy_macros.h"] + FUNCTIONS_BY_HEADER.keys():
         headers.append(udir.join(name))
-    headers.append(parse_dir / 'cpyext_object.h')
-    headers.append(parse_dir / 'cpyext_typeobject.h')
+    for path in cts.parsed_headers:
+        headers.append(path)
     _copy_header_files(headers, dstdir)
 
     if copy_numpy_headers:
@@ -670,9 +670,8 @@ def build_exported_objects():
                              % (cpyname, ))
 build_exported_objects()
 
-object_cdef = (parse_dir / 'cpyext_object.h').read()
 cts = CTypeSpace(headers=['sys/types.h', 'stdarg.h', 'stdio.h'])
-cts.parse_source(object_cdef)
+cts.parse_header(parse_dir / 'cpyext_object.h')
 
 Py_ssize_t = cts.gettype('Py_ssize_t')
 Py_ssize_tP = cts.gettype('Py_ssize_t *')
@@ -1410,7 +1409,7 @@ def setup_library(space):
 
     setup_init_functions(eci, prefix)
     trunk_include = pypydir.dirpath() / 'include'
-    copy_header_files(trunk_include, use_micronumpy)
+    copy_header_files(cts, trunk_include, use_micronumpy)
 
 
 def _load_from_cffi(space, name, path, initptr):

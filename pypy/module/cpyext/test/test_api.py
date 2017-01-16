@@ -5,7 +5,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.api import (
     slot_function, cpython_api, copy_header_files, INTERPLEVEL_API,
-    Py_ssize_t, Py_ssize_tP, PyObject)
+    Py_ssize_t, Py_ssize_tP, PyObject, cts)
 from pypy.module.cpyext.test.test_cpyext import freeze_refcnts, LeakCheckingTest
 from pypy.interpreter.error import OperationError
 from rpython.rlib import rawrefcount
@@ -113,7 +113,7 @@ class TestConversion(BaseApiTest):
 @pytest.mark.skipif(os.environ.get('USER')=='root',
                     reason='root can write to all files')
 def test_copy_header_files(tmpdir):
-    copy_header_files(tmpdir, True)
+    copy_header_files(cts, tmpdir, True)
     def check(name):
         f = tmpdir.join(name)
         assert f.check(file=True)

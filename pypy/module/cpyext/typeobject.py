@@ -41,8 +41,7 @@ WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
 
 PyType_Check, PyType_CheckExact = build_type_checkers("Type", "w_type")
 
-cdef = (parse_dir / 'cpyext_typeobject.h').read()
-cts.parse_source(cdef)
+cts.parse_header(parse_dir / 'cpyext_typeobject.h')
 PyHeapTypeObjectStruct = cts.gettype('PyHeapTypeObject')
 PyHeapTypeObject = cts.gettype('PyHeapTypeObject *')
 
