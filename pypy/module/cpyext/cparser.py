@@ -861,6 +861,14 @@ class CTypeSpace(object):
                     "The first argument of cts.cast() must be a constant.")
             TP = self.gettype(v_decl.value)
             return ctx.appcall(rffi.cast, const(TP), v_arg)
+
+        @register_flow_sc(self.gettype)
+        def sc_gettype(ctx, v_decl):
+            if not isinstance(v_decl, Constant):
+                raise FlowingError(
+                    "The argument of cts.gettype() must be a constant.")
+            return const(self.gettype(v_decl.value))
+
         self._frozen = True
         return True
 

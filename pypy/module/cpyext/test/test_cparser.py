@@ -202,3 +202,17 @@ def test_translate_cast():
     op = graph.startblock.operations[0]
     assert op.args[0] == const(rffi.cast)
     assert op.args[1].value is cts.gettype('Py_ssize_t*')
+
+def test_translate_gettype():
+    cdef = "typedef ssize_t Py_ssize_t;"
+    cts = parse_source(cdef)
+
+    def f():
+        return cts.gettype('Py_ssize_t*')
+    graph = build_flow(f)
+    simplify_graph(graph)
+    # Check that the result is constant-folded
+    assert graph.startblock.operations == []
+    [link] = graph.startblock.exits
+    assert link.target is graph.returnblock
+    assert link.args[0] == const(rffi.CArrayPtr(rffi.SSIZE_T))
