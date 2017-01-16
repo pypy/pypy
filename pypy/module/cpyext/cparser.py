@@ -668,8 +668,17 @@ def cname_to_lltype(name):
 class DelayedStruct(object):
     def __init__(self, name, fields, TYPE):
         self.struct_name = name
+        self.type_name = None
         self.fields = fields
         self.TYPE = TYPE
+
+    def get_type_name(self):
+        if self.type_name is not None:
+            return self.type_name
+        elif not self.struct_name.startswith('$'):
+            return 'struct %s' % self.struct_name
+        else:
+            raise ValueError('Anonymous struct')
 
     def __repr__(self):
         return "<struct {struct_name}>".format(**vars(self))
@@ -687,6 +696,7 @@ class ParsedSource(object):
         self._Config = type('Config', (object,), {})
         self._TYPES = {}
         self.includes = []
+        self.struct_typedefs = {}
 
     def include(self, other):
         self.ctx.include(other.ctx)
@@ -697,7 +707,9 @@ class ParsedSource(object):
         assert name not in self.definitions
         tp = self.convert_type(obj, quals)
         if isinstance(tp, DelayedStruct):
-            tp = self.realize_struct(tp, name, configure_now=configure_now)
+            if tp.type_name is None:
+                tp.type_name = name
+            tp = self.realize_struct(tp, configure_now=configure_now)
         self.definitions[name] = tp
 
     def add_macro(self, name, value):
@@ -713,11 +725,18 @@ class ParsedSource(object):
         if obj.fldtypes is not None:
             struct.fields = zip(
                  obj.fldnames,
-                 [self.convert_type(field) for field in obj.fldtypes])
+                 [self.convert_field(field) for field in obj.fldtypes])
         return struct
 
-    def realize_struct(self, struct, type_name, configure_now=False):
+    def convert_field(self, obj):
+        tp = self.convert_type(obj)
+        if isinstance(tp, DelayedStruct):
+            tp = tp.TYPE
+        return tp
+
+    def realize_struct(self, struct, configure_now=False):
         from pypy.module.cpyext.api import cpython_struct
+        type_name = struct.get_type_name()
         configname = type_name.replace(' ', '__')
         if configure_now:
             setattr(self._Config, configname,
