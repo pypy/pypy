@@ -685,17 +685,21 @@ class DelayedStruct(object):
 
 
 class CTypeSpace(object):
-    def __init__(self, source, parser, definitions=None, macros=None, headers=None):
+    def __init__(self, source, parser=None, definitions=None, macros=None,
+                 headers=None, includes=None):
         self.source = source
         self.definitions = definitions if definitions is not None else {}
         self.macros = macros if macros is not None else {}
         self.structs = {}
-        self.ctx = parser
+        self.ctx = parser if parser else Parser()
         self.headers = headers if headers is not None else ['sys/types.h']
         self._Config = type('Config', (object,), {})
         self._TYPES = {}
         self.includes = []
         self.struct_typedefs = {}
+        if includes is not None:
+            for header in includes:
+                self.include(header)
 
     def include(self, other):
         self.ctx.include(other.ctx)
@@ -821,11 +825,7 @@ class CTypeSpace(object):
 
 
 def parse_source(source, includes=None, headers=None, configure_now=True):
-    ctx = Parser()
-    src = CTypeSpace(source, ctx, headers=headers)
-    if includes is not None:
-        for header in includes:
-            src.include(header)
-    ctx.parse(source)
+    src = CTypeSpace(source, headers=headers, includes=includes)
+    src.ctx.parse(source)
     src.configure_types()
     return src
