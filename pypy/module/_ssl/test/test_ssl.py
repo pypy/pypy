@@ -175,8 +175,8 @@ class AppTestConnectedSSL:
     }
 
     def setup_method(self, method):
-        # https://www.verisign.net/
-        ADDR = "www.verisign.net", 443
+        # https://gmail.com/
+        ADDR = "gmail.com", 443
 
         self.w_s = self.space.appexec([self.space.wrap(ADDR)], """(ADDR):
             import socket
@@ -193,6 +193,17 @@ class AppTestConnectedSSL:
         # So do some clean-up now without waiting for them to die
         from ..interp_ssl import SOCKET_STORAGE
         SOCKET_STORAGE._dict.clear()
+
+    def test_warmup_connection(self):
+        # not sure it is gmail.com's fault, but on some machines the
+        # very first connection attempt fails.  So we make one here and
+        # ignore the result.  The first real test is test_connect().
+        import socket, ssl
+        try:
+            ss = socket.ssl(self.s)
+            self.s.close()
+        except ssl.SSLError:
+            pass
 
     def test_connect(self):
         import socket, gc
