@@ -149,6 +149,7 @@ def copy_header_files(dstdir, copy_numpy_headers):
     for name in ["pypy_macros.h"] + FUNCTIONS_BY_HEADER.keys():
         headers.append(udir.join(name))
     headers.append(parse_dir / 'cpyext_object.h')
+    headers.append(parse_dir / 'cpyext_typeobject.h')
     _copy_header_files(headers, dstdir)
 
     if copy_numpy_headers:

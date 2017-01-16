@@ -17,7 +17,8 @@ from pypy.module.cpyext.api import (
     Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers,
     PyObjectFields, PyTypeObject, PyTypeObjectPtr,
     Py_TPFLAGS_HAVE_NEWBUFFER, Py_TPFLAGS_CHECKTYPES,
-    Py_TPFLAGS_HAVE_INPLACEOPS)
+    Py_TPFLAGS_HAVE_INPLACEOPS, object_h, parse_dir)
+from pypy.module.cpyext.cparser import parse_source
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
     W_PyCWrapperObject, PyCFunction_NewEx, PyCFunction, PyMethodDef,
     W_PyCMethodObject, W_PyCFunctionObject)
@@ -32,7 +33,7 @@ from pypy.module.cpyext.state import State
 from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
 from pypy.module.cpyext.typeobjectdefs import (
     PyGetSetDef, PyMemberDef, newfunc, getter, setter,
-    PyNumberMethods, PyMappingMethods, PySequenceMethods, PyBufferProcs)
+    PyNumberMethods, PySequenceMethods, PyBufferProcs)
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 
 
@@ -40,18 +41,11 @@ WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
 
 PyType_Check, PyType_CheckExact = build_type_checkers("Type", "w_type")
 
-PyHeapTypeObjectStruct = lltype.ForwardReference()
-PyHeapTypeObject = lltype.Ptr(PyHeapTypeObjectStruct)
-PyHeapTypeObjectFields = (
-    ("ht_type", PyTypeObject),
-    ("ht_name", PyObject),
-    ("as_number", PyNumberMethods),
-    ("as_mapping", PyMappingMethods),
-    ("as_sequence", PySequenceMethods),
-    ("as_buffer", PyBufferProcs),
-    )
-cpython_struct("PyHeapTypeObject", PyHeapTypeObjectFields, PyHeapTypeObjectStruct,
-               level=2)
+cdef = (parse_dir / 'cpyext_typeobject.h').read()
+typeobject_h = parse_source(cdef, includes=[object_h], configure_now=True)
+PyHeapTypeObjectStruct = typeobject_h.gettype('PyHeapTypeObject')
+PyHeapTypeObject = typeobject_h.gettype('PyHeapTypeObject *')
+
 
 class W_GetSetPropertyEx(GetSetProperty):
     def __init__(self, getset, w_type):
