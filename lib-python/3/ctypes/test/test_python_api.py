@@ -1,4 +1,5 @@
 from ctypes import *
+from ctypes.test import xfail
 import unittest, sys
 from test import support
 
