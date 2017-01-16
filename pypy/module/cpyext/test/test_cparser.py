@@ -11,8 +11,8 @@ def test_configure():
         double ob_fval;
     } TestFloatObject;
     """
-    res = parse_source(decl)
-    TestFloatObject = res.definitions['TestFloatObject']
+    cts = parse_source(decl)
+    TestFloatObject = cts.definitions['TestFloatObject']
     assert isinstance(TestFloatObject, lltype.Struct)
     assert TestFloatObject.c_ob_refcnt == rffi.SSIZE_T
     assert TestFloatObject.c_ob_pypy_link == rffi.SSIZE_T
@@ -20,8 +20,8 @@ def test_configure():
 
 def test_simple():
     decl = "typedef ssize_t Py_ssize_t;"
-    hdr = parse_source(decl)
-    assert hdr.definitions == {'Py_ssize_t': rffi.SSIZE_T}
+    cts = parse_source(decl)
+    assert cts.definitions == {'Py_ssize_t': rffi.SSIZE_T}
 
 def test_macro():
     decl = """
@@ -36,9 +36,9 @@ def test_macro():
         double ob_fval;
     } PyFloatObject;
     """
-    hdr = parse_source(decl)
-    assert 'PyFloatObject' in hdr.definitions
-    assert 'PyObject_HEAD' in hdr.macros
+    cts = parse_source(decl)
+    assert 'PyFloatObject' in cts.definitions
+    assert 'PyObject_HEAD' in cts.macros
 
 def test_include():
     cdef1 = """
@@ -59,12 +59,12 @@ def test_include():
         Type *type;
     } Object;
     """
-    hdr1 = parse_source(cdef1)
-    Type = hdr1.definitions['Type']
+    cts1 = parse_source(cdef1)
+    Type = cts1.definitions['Type']
     assert isinstance(Type, lltype.Struct)
-    hdr2 = parse_source(cdef2, includes=[hdr1])
-    assert 'Type' not in hdr2.definitions
-    Object = hdr2.definitions['Object']
+    cts2 = parse_source(cdef2, includes=[cts1])
+    assert 'Type' not in cts2.definitions
+    Object = cts2.definitions['Object']
     assert Object.c_type.TO is Type
 
 def test_incomplete():
@@ -83,8 +83,8 @@ def test_incomplete():
     } Buffer;
 
     """
-    foo_h = parse_source(cdef)
-    Object = foo_h.gettype('Object')
+    cts = parse_source(cdef)
+    Object = cts.gettype('Object')
     assert isinstance(Object, lltype.Struct)
 
 def test_recursive():
@@ -106,8 +106,8 @@ def test_recursive():
         Object *obj;
     } Type;
     """
-    foo_h = parse_source(cdef)
-    Object = foo_h.definitions['Object']
+    cts = parse_source(cdef)
+    Object = cts.definitions['Object']
     assert isinstance(Object, lltype.Struct)
     hash(Object)
 
@@ -117,8 +117,8 @@ def test_const():
         const char * const foo;
     } bar;
     """
-    hdr = parse_source(cdef)
-    assert hdr.definitions['bar'].c_foo == rffi.CONST_CCHARP != rffi.CCHARP
+    cts = parse_source(cdef)
+    assert cts.definitions['bar'].c_foo == rffi.CONST_CCHARP != rffi.CCHARP
 
 def test_gettype():
     decl = """
@@ -133,9 +133,9 @@ def test_gettype():
         double ob_fval;
     } TestFloatObject;
     """
-    res = parse_source(decl)
-    assert res.gettype('Py_ssize_t') == rffi.SSIZE_T
-    assert res.gettype('TestFloatObject *').TO.c_ob_refcnt == rffi.SSIZE_T
+    cts = parse_source(decl)
+    assert cts.gettype('Py_ssize_t') == rffi.SSIZE_T
+    assert cts.gettype('TestFloatObject *').TO.c_ob_refcnt == rffi.SSIZE_T
 
 def test_parse_funcdecl():
     decl = """
@@ -152,8 +152,8 @@ def test_parse_funcdecl():
 
     typedef TestFloatObject* (*func_t)(int, int);
     """
-    res = parse_source(decl)
-    name, FUNC = res.parse_func("func_t some_func(TestFloatObject*)")
+    cts = parse_source(decl)
+    name, FUNC = cts.parse_func("func_t some_func(TestFloatObject*)")
     assert name == 'some_func'
-    assert FUNC.RESULT == res.gettype('func_t')
-    assert FUNC.ARGS == (res.gettype('TestFloatObject *'),)
+    assert FUNC.RESULT == cts.gettype('func_t')
+    assert FUNC.ARGS == (cts.gettype('TestFloatObject *'),)

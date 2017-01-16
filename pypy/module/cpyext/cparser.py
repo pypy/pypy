@@ -684,9 +684,8 @@ class DelayedStruct(object):
         return "<struct {struct_name}>".format(**vars(self))
 
 
-class ParsedSource(object):
+class CTypeSpace(object):
     def __init__(self, source, parser, definitions=None, macros=None, headers=None):
-        from pypy.module.cpyext.api import configure_eci
         self.source = source
         self.definitions = definitions if definitions is not None else {}
         self.macros = macros if macros is not None else {}
@@ -823,7 +822,7 @@ class ParsedSource(object):
 
 def parse_source(source, includes=None, headers=None, configure_now=True):
     ctx = Parser()
-    src = ParsedSource(source, ctx, headers=headers)
+    src = CTypeSpace(source, ctx, headers=headers)
     if includes is not None:
         for header in includes:
             src.include(header)
