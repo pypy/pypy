@@ -527,12 +527,12 @@ class _SSLSocket(object):
             return None
 
         comp_method = lib.SSL_get_current_compression(self.ssl);
-        if comp_method == ffi.NULL: # or comp_method.type == lib.NID_undef:
+        if comp_method == ffi.NULL: # or lib.SSL_COMP_get_type(comp_method) == lib.NID_undef:
             return None
         short_name = lib.SSL_COMP_get_name(comp_method)
         if short_name == ffi.NULL:
             return None
-        return _fs_decode(_str_from_buf(short_name))
+        return _cstr_decode_fs(short_name)
 
     def version(self):
         if self.ssl == ffi.NULL:
