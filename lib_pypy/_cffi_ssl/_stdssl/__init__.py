@@ -527,7 +527,7 @@ class _SSLSocket(object):
             return None
 
         comp_method = lib.SSL_get_current_compression(self.ssl);
-        if comp_method == ffi.NULL: # or comp_method.type == lib.NID_undef:
+        if comp_method == ffi.NULL: # or lib.SSL_COMP_get_type(comp_method) == lib.NID_undef:
             return None
         short_name = lib.SSL_COMP_get_name(comp_method)
         if short_name == ffi.NULL:
