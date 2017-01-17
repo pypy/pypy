@@ -7,9 +7,9 @@ from rpython.rlib.rarithmetic import widen
 from rpython.rlib import rgc # Force registration of gc.collect
 from pypy.module.cpyext.api import (
     slot_function, generic_cpy_call, PyObject, Py_ssize_t, Py_TPFLAGS_CHECKTYPES,
-    pypy_decl, Py_buffer, Py_bufferP)
+    pypy_decl, Py_buffer, Py_bufferP, PyTypeObjectPtr)
 from pypy.module.cpyext.typeobjectdefs import (
-    unaryfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc,
+    unaryfunc, ternaryfunc, binaryfunc,
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
     ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
     cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc, objobjargproc,

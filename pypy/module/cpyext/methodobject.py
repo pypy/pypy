@@ -11,23 +11,13 @@ from pypy.module.cpyext.api import (
     CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_NOARGS, METH_O,
     METH_STATIC, METH_VARARGS, PyObject, PyObjectFields, bootstrap_function,
     build_type_checkers, cpython_api, cpython_struct, generic_cpy_call,
-    PyTypeObjectPtr, slot_function)
+    PyTypeObjectPtr, slot_function, cts, api_decl)
 from pypy.module.cpyext.pyobject import (
     Py_DecRef, from_ref, make_ref, as_pyobj, make_typedescr)
 
-PyCFunction_typedef = rffi.COpaquePtr(typedef='PyCFunction')
-PyCFunction = lltype.Ptr(lltype.FuncType([PyObject, PyObject], PyObject))
-PyCFunctionKwArgs = lltype.Ptr(lltype.FuncType([PyObject, PyObject, PyObject],
-                                               PyObject))
-
-PyMethodDef = cpython_struct(
-    'PyMethodDef',
-    [('ml_name', rffi.CONST_CCHARP),
-     ('ml_meth', PyCFunction_typedef),
-     ('ml_flags', rffi.INT_real),
-     ('ml_doc', rffi.CONST_CCHARP),
-     ])
-
+PyMethodDef = cts.gettype('PyMethodDef')
+PyCFunction = cts.gettype('PyCFunction')
+PyCFunctionKwArgs = cts.gettype('PyCFunctionWithKeywords')
 PyCFunctionObjectStruct = cpython_struct(
     'PyCFunctionObject',
     PyObjectFields + (
@@ -77,7 +67,7 @@ class W_PyCFunctionObject(W_Root):
             raise oefmt(space.w_TypeError,
                         "%s() takes no keyword arguments", self.name)
 
-        func = rffi.cast(PyCFunction, self.ml.c_ml_meth)
+        func = self.ml.c_ml_meth
         length = space.int_w(space.len(w_args))
         if flags & METH_KEYWORDS:
             func = rffi.cast(PyCFunctionKwArgs, self.ml.c_ml_meth)
@@ -292,7 +282,7 @@ W_PyCWrapperObject.typedef.acceptable_as_base_class = False
 def PyCFunction_NewEx(space, ml, w_self, w_name):
     return space.wrap(W_PyCFunctionObject(space, ml, w_self, w_name))
 
-@cpython_api([PyObject], PyCFunction_typedef)
+@api_decl("PyCFunction PyCFunction_GetFunction(PyObject *)", cts)
 def PyCFunction_GetFunction(space, w_obj):
     try:
         cfunction = space.interp_w(W_PyCFunctionObject, w_obj)
@@ -347,4 +337,3 @@ def Py_FindMethod(space, table, w_obj, name_ptr):
     if name == "__methods__":
         return space.newlist(method_list_w)
     raise OperationError(space.w_AttributeError, space.wrap(name))
-

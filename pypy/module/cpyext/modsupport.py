@@ -50,7 +50,7 @@ def _Py_InitPyPyModule(space, name, methods, doc, w_self, apiver):
     cache.  CPython includes some extra checking here to make sure the module
     being initialized lines up with what's expected, but we don't.
     """
-    from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
+    from pypy.module.cpyext.api import PyTypeObjectPtr
     modname = rffi.charp2str(name)
     state = space.fromcache(State)
     f_name, f_path = state.package_context

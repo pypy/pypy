@@ -41,37 +41,35 @@ from rpython.rlib import rawrefcount
 from rpython.rlib import rthread
 from rpython.rlib.debug import fatalerror_notb
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
+from pypy.module.cpyext.cparser import CTypeSpace
 
 DEBUG_WRAPPER = True
 
-# update these for other platforms
-Py_ssize_t = lltype.Typedef(rffi.SSIZE_T, 'Py_ssize_t')
-Py_ssize_tP = rffi.CArrayPtr(Py_ssize_t)
-size_t = rffi.ULONG
-ADDR = lltype.Signed
-
 pypydir = py.path.local(pypydir)
 include_dir = pypydir / 'module' / 'cpyext' / 'include'
+parse_dir = pypydir / 'module' / 'cpyext' / 'parse'
 source_dir = pypydir / 'module' / 'cpyext' / 'src'
 translator_c_dir = py.path.local(cdir)
 include_dirs = [
     include_dir,
+    parse_dir,
     translator_c_dir,
     udir,
     ]
 
-class CConfig:
-    _compilation_info_ = ExternalCompilationInfo(
+configure_eci = ExternalCompilationInfo(
         include_dirs=include_dirs,
         includes=['Python.h', 'stdarg.h', 'structmember.h'],
-        compile_extra=['-DPy_BUILD_CORE'],
-        )
+        compile_extra=['-DPy_BUILD_CORE'])
+
+class CConfig:
+    _compilation_info_ = configure_eci
 
 class CConfig2:
-    _compilation_info_ = CConfig._compilation_info_
+    _compilation_info_ = configure_eci
 
 class CConfig_constants:
-    _compilation_info_ = CConfig._compilation_info_
+    _compilation_info_ = configure_eci
 
 CONST_STRING = lltype.Ptr(lltype.Array(lltype.Char,
                                        hints={'nolength': True}),
@@ -118,6 +116,9 @@ def is_valid_fp(fp):
     return is_valid_fd(c_fileno(fp))
 
 pypy_decl = 'pypy_decl.h'
+udir.join(pypy_decl).write("/* Will be filled later */\n")
+udir.join('pypy_structmember_decl.h').write("/* Will be filled later */\n")
+udir.join('pypy_macros.h').write("/* Will be filled later */\n")
 
 constant_names = """
 Py_TPFLAGS_READY Py_TPFLAGS_READYING Py_TPFLAGS_HAVE_GETCHARBUFFER
@@ -129,9 +130,6 @@ PyBUF_FORMAT PyBUF_ND PyBUF_STRIDES
 """.split()
 for name in constant_names:
     setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))
-udir.join(pypy_decl).write("/* Will be filled later */\n")
-udir.join('pypy_structmember_decl.h').write("/* Will be filled later */\n")
-udir.join('pypy_macros.h').write("/* Will be filled later */\n")
 globals().update(rffi_platform.configure(CConfig_constants))
 
 def _copy_header_files(headers, dstdir):
@@ -145,12 +143,14 @@ def _copy_header_files(headers, dstdir):
         target.chmod(0444) # make the file read-only, to make sure that nobody
                            # edits it by mistake
 
-def copy_header_files(dstdir, copy_numpy_headers):
+def copy_header_files(cts, dstdir, copy_numpy_headers):
     # XXX: 20 lines of code to recursively copy a directory, really??
     assert dstdir.check(dir=True)
     headers = include_dir.listdir('*.h') + include_dir.listdir('*.inl')
     for name in ["pypy_macros.h"] + FUNCTIONS_BY_HEADER.keys():
         headers.append(udir.join(name))
+    for path in cts.parsed_headers:
+        headers.append(path)
     _copy_header_files(headers, dstdir)
 
     if copy_numpy_headers:
@@ -251,13 +251,15 @@ cpyext_namespace = NameManager('cpyext_')
 
 class ApiFunction(object):
     def __init__(self, argtypes, restype, callable, error=CANNOT_FAIL,
-                 c_name=None, gil=None, result_borrowed=False, result_is_ll=False):
+                 c_name=None, cdecl=None, gil=None,
+                 result_borrowed=False, result_is_ll=False):
         self.argtypes = argtypes
         self.restype = restype
         self.functype = lltype.Ptr(lltype.FuncType(argtypes, restype))
         self.callable = callable
         self.error_value = error
         self.c_name = c_name
+        self.cdecl = cdecl
 
         # extract the signature from the (CPython-level) code object
         from pypy.interpreter import pycode
@@ -272,8 +274,6 @@ class ApiFunction(object):
         self.gil = gil
         self.result_borrowed = result_borrowed
         self.result_is_ll = result_is_ll
-        if result_is_ll:    # means 'returns a low-level PyObject pointer'
-            assert is_PyObject(restype)
         #
         def get_llhelper(space):
             return llhelper(self.functype, self.get_wrapper(space))
@@ -378,6 +378,8 @@ class ApiFunction(object):
         return unwrapper
 
     def get_c_restype(self, c_writer):
+        if self.cdecl:
+            return self.cdecl.split(self.c_name)[0].strip()
         return c_writer.gettype(self.restype).replace('@', '').strip()
 
     def get_c_args(self, c_writer):
@@ -471,6 +473,20 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
             return res
         INTERPLEVEL_API[func.__name__] = unwrapper_catch  # used in tests
 
+        unwrapper = api_function.get_unwrapper()
+        unwrapper.func = func
+        unwrapper.api_func = api_function
+        return unwrapper
+    return decorate
+
+def api_decl(cdecl, cts, error=_NOT_SPECIFIED, header=DEFAULT_HEADER):
+    def decorate(func):
+        func._always_inline_ = 'try'
+        name, FUNC = cts.parse_func(cdecl)
+        api_function = ApiFunction(
+            FUNC.ARGS, FUNC.RESULT, func,
+            error=_compute_error(error, FUNC.RESULT), cdecl=cdecl)
+        FUNCTIONS_BY_HEADER[header][name] = api_function
         unwrapper = api_function.get_unwrapper()
         unwrapper.func = func
         unwrapper.api_func = api_function
@@ -655,41 +671,31 @@ def build_exported_objects():
                              % (cpyname, ))
 build_exported_objects()
 
+cts = CTypeSpace(headers=['sys/types.h', 'stdarg.h', 'stdio.h'])
+cts.parse_header(parse_dir / 'cpyext_object.h')
+
+Py_ssize_t = cts.gettype('Py_ssize_t')
+Py_ssize_tP = cts.gettype('Py_ssize_t *')
+size_t = rffi.ULONG
+ADDR = lltype.Signed
+
 # Note: as a special case, "PyObject" is the pointer type in RPython,
 # corresponding to "PyObject *" in C.  We do that only for PyObject.
 # For example, "PyTypeObject" is the struct type even in RPython.
-PyTypeObject = lltype.ForwardReference()
-PyTypeObjectPtr = lltype.Ptr(PyTypeObject)
-PyObjectStruct = lltype.ForwardReference()
-PyObject = lltype.Ptr(PyObjectStruct)
+PyTypeObject = cts.gettype('PyTypeObject')
+PyTypeObjectPtr = cts.gettype('PyTypeObject *')
+PyObjectStruct = cts.gettype('PyObject')
+PyObject = cts.gettype('PyObject *')
 PyObjectFields = (("ob_refcnt", lltype.Signed),
                   ("ob_pypy_link", lltype.Signed),
                   ("ob_type", PyTypeObjectPtr))
 PyVarObjectFields = PyObjectFields + (("ob_size", Py_ssize_t), )
-cpython_struct('PyObject', PyObjectFields, PyObjectStruct)
-PyVarObjectStruct = cpython_struct("PyVarObject", PyVarObjectFields)
-PyVarObject = lltype.Ptr(PyVarObjectStruct)
+PyVarObjectStruct = cts.gettype('PyVarObject')
+PyVarObject = cts.gettype('PyVarObject *')
 
-Py_buffer = cpython_struct(
-    "Py_buffer", (
-        ('buf', rffi.VOIDP),
-        ('obj', PyObject),
-        ('len', Py_ssize_t),
-        ('itemsize', Py_ssize_t),
+Py_buffer = cts.gettype('Py_buffer')
+Py_bufferP = cts.gettype('Py_buffer *')
 
-        ('readonly', rffi.INT_real),
-        ('ndim', rffi.INT_real),
-        ('format', rffi.CCHARP),
-        ('shape', Py_ssize_tP),
-        ('strides', Py_ssize_tP),
-        ('suboffsets', Py_ssize_tP),
-        ('_format', rffi.CFixedArray(rffi.UCHAR, Py_MAX_FMT)),
-        ('_shape', rffi.CFixedArray(Py_ssize_t, Py_MAX_NDIMS)),
-        ('_strides', rffi.CFixedArray(Py_ssize_t, Py_MAX_NDIMS)),
-        #('smalltable', rffi.CFixedArray(Py_ssize_t, 2)),
-        ('internal', rffi.VOIDP),
-))
-Py_bufferP = lltype.Ptr(Py_buffer)
 
 @specialize.memo()
 def is_PyObject(TYPE):
@@ -1409,7 +1415,7 @@ def setup_library(space):
         include_lines.append('RPY_EXPORTED %s %s;\n' % (typ, name))
 
     lines.append('};\n')
-    eci2 = CConfig._compilation_info_.merge(ExternalCompilationInfo(
+    eci2 = configure_eci.merge(ExternalCompilationInfo(
         separate_module_sources = [''.join(lines)],
         post_include_bits = [''.join(include_lines)],
         ))
@@ -1427,7 +1433,7 @@ def setup_library(space):
 
     setup_init_functions(eci, prefix)
     trunk_include = pypydir.dirpath() / 'include'
-    copy_header_files(trunk_include, use_micronumpy)
+    copy_header_files(cts, trunk_include, use_micronumpy)
 
 
 def _load_from_cffi(space, name, path, initptr):
