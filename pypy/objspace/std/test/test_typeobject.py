@@ -1334,3 +1334,6 @@ class AppTestComparesByIdentity:
         assert file.closed.__objclass__ is file
         assert type.__dict__['__name__'].__objclass__ is type
         assert type.__dict__['__doc__'].__objclass__ is type
+        #
+        assert type.__dict__['__name__'].__name__ == '__name__'
+        assert type.__dict__['__doc__'].__name__ == '__doc__'
