@@ -664,6 +664,7 @@ def add_inttypes():
 
 add_inttypes()
 CNAME_TO_LLTYPE['int'] = rffi.INT_real
+CNAME_TO_LLTYPE['wchar_t'] = lltype.UniChar
 
 def cname_to_lltype(name):
     return CNAME_TO_LLTYPE[name]

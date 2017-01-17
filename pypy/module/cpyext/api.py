@@ -671,7 +671,7 @@ def build_exported_objects():
                              % (cpyname, ))
 build_exported_objects()
 
-cts = CTypeSpace(headers=['sys/types.h', 'stdarg.h', 'stdio.h'])
+cts = CTypeSpace(headers=['sys/types.h', 'stdarg.h', 'stdio.h', 'stddef.h'])
 cts.parse_header(parse_dir / 'cpyext_object.h')
 
 Py_ssize_t = cts.gettype('Py_ssize_t')
