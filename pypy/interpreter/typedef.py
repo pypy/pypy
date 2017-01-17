@@ -251,12 +251,11 @@ def _make_objclass_getter(cls):
 
 class GetSetProperty(W_Root):
     _immutable_fields_ = ["fget", "fset", "fdel"]
-    name = '<generic property>'
     w_objclass = None
 
     @specialize.arg(7)
     def __init__(self, fget, fset=None, fdel=None, doc=None,
-                 cls=None, use_closure=False, tag=None):
+                 cls=None, use_closure=False, tag=None, name=None):
         objclass_getter, cls = make_objclass_getter(tag, fget, cls)
         fget = make_descr_typecheck_wrapper((tag, 0), fget,
                                             cls=cls, use_closure=use_closure)
@@ -264,9 +263,11 @@ class GetSetProperty(W_Root):
                                             cls=cls, use_closure=use_closure)
         fdel = make_descr_typecheck_wrapper((tag, 2), fdel,
                                             cls=cls, use_closure=use_closure)
-        self._init(fget, fset, fdel, doc, cls, objclass_getter, use_closure)
+        self._init(fget, fset, fdel, doc, cls, objclass_getter, use_closure,
+                   name)
 
-    def _init(self, fget, fset, fdel, doc, cls, objclass_getter, use_closure):
+    def _init(self, fget, fset, fdel, doc, cls, objclass_getter, use_closure,
+              name):
         self.fget = fget
         self.fset = fset
         self.fdel = fdel
@@ -275,13 +276,13 @@ class GetSetProperty(W_Root):
         self.qualname = None
         self.objclass_getter = objclass_getter
         self.use_closure = use_closure
+        self.name = name if name is not None else '<generic property>'
 
     def copy_for_type(self, w_objclass):
         if self.objclass_getter is None:
             new = instantiate(GetSetProperty)
             new._init(self.fget, self.fset, self.fdel, self.doc, self.reqcls,
-                      None, self.use_closure)
-            new.name = self.name
+                      None, self.use_closure, self.name)
             new.w_objclass = w_objclass
             return new
         else:

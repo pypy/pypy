@@ -1466,3 +1466,6 @@ class AppTestComparesByIdentity:
         assert int.__dict__['imag'].__objclass__ is int
         assert type.__dict__['__name__'].__objclass__ is type
         assert type.__dict__['__doc__'].__objclass__ is type
+        #
+        assert type.__dict__['__name__'].__name__ == '__name__'
+        assert type.__dict__['__doc__'].__name__ == '__doc__'

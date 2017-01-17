@@ -16,9 +16,10 @@ from pypy.module.cpyext.api import (
     Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
     Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers,
     PyObjectFields, PyTypeObject, PyTypeObjectPtr,
-    Py_TPFLAGS_HAVE_INPLACEOPS)
+    Py_TPFLAGS_HAVE_INPLACEOPS, cts, parse_dir)
+from pypy.module.cpyext.cparser import parse_source
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
-    W_PyCWrapperObject, PyCFunction_NewEx, PyCFunction_typedef, PyMethodDef,
+    W_PyCWrapperObject, PyCFunction_NewEx, PyCFunction, PyMethodDef,
     W_PyCMethodObject, W_PyCFunctionObject)
 from pypy.module.cpyext.modsupport import convert_method_defs
 from pypy.module.cpyext.pyobject import (
@@ -30,8 +31,8 @@ from pypy.module.cpyext.slotdefs import (
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
 from pypy.module.cpyext.typeobjectdefs import (
-    PyGetSetDef, PyMemberDef, newfunc, getter, setter,
-    PyNumberMethods, PyMappingMethods, PySequenceMethods, PyBufferProcs)
+    PyGetSetDef, PyMemberDef, PyMappingMethods,
+    PyNumberMethods, PySequenceMethods, PyBufferProcs)
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 
 
@@ -39,18 +40,9 @@ from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 
 PyType_Check, PyType_CheckExact = build_type_checkers("Type", "w_type")
 
-PyHeapTypeObjectStruct = lltype.ForwardReference()
-PyHeapTypeObject = lltype.Ptr(PyHeapTypeObjectStruct)
-PyHeapTypeObjectFields = (
-    ("ht_type", PyTypeObject),
-    ("ht_name", PyObject),
-    ("as_number", PyNumberMethods),
-    ("as_mapping", PyMappingMethods),
-    ("as_sequence", PySequenceMethods),
-    ("as_buffer", PyBufferProcs),
-    )
-cpython_struct("PyHeapTypeObject", PyHeapTypeObjectFields, PyHeapTypeObjectStruct,
-               level=2)
+cts.parse_header(parse_dir / 'cpyext_typeobject.h')
+PyHeapTypeObject = cts.gettype('PyHeapTypeObject *')
+
 
 class W_GetSetPropertyEx(GetSetProperty):
     def __init__(self, getset, w_type):
@@ -81,9 +73,9 @@ def make_GetSet(space, getsetprop):
         py_getsetdef.c_doc = rffi.cast(rffi.CCHARP, 0)
     py_getsetdef.c_name = rffi.str2charp(getsetprop.getname(space).encode('utf-8'))
     # XXX FIXME - actually assign these !!!
-    py_getsetdef.c_get = rffi.cast(getter, 0)
-    py_getsetdef.c_set = rffi.cast(setter, 0)
-    py_getsetdef.c_closure = rffi.cast(rffi.VOIDP, 0)
+    py_getsetdef.c_get = cts.cast('getter', 0)
+    py_getsetdef.c_set = cts.cast('setter', 0)
+    py_getsetdef.c_closure = cts.cast('void*', 0)
     return py_getsetdef
 
 
@@ -184,7 +176,7 @@ def memberdescr_attach(space, py_obj, w_obj, w_userdata=None):
 
 def memberdescr_realize(space, obj):
     # XXX NOT TESTED When is this ever called?
-    member = rffi.cast(lltype.Ptr(PyMemberDef), obj)
+    member = cts.cast('PyMemberDef*', obj)
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     w_obj = space.allocate_instance(W_MemberDescr, w_type)
     w_obj.__init__(member, w_type)
@@ -277,12 +269,12 @@ def update_all_slots(space, w_type, pto):
         if search_dict_w is None:
             # built-in types: expose as many slots as possible, even
             # if it happens to come from some parent class
-            slot_apifunc = None # use get_slot_tp_function 
+            slot_apifunc = None # use get_slot_tp_function
         else:
             # For heaptypes, w_type.layout.typedef will be object's typedef, and
             # get_slot_tp_function will fail
             w_descr = search_dict_w.get(method_name, None)
-            if w_descr: 
+            if w_descr:
                 # use the slot_apifunc (userslots) to lookup at runtime
                 pass
             elif len(slot_names) ==1:
@@ -412,8 +404,7 @@ def get_new_method_def(space):
 
 def setup_new_method_def(space):
     ptr = get_new_method_def(space)
-    ptr.c_ml_meth = rffi.cast(
-        PyCFunction_typedef, llslot(space, tp_new_wrapper))
+    ptr.c_ml_meth = rffi.cast(PyCFunction, llslot(space, tp_new_wrapper))
 
 def add_tp_new_wrapper(space, dict_w, pto):
     if "__new__" in dict_w:
@@ -529,7 +520,7 @@ def subtype_dealloc(space, obj):
     base = pto
     this_func_ptr = llslot(space, subtype_dealloc)
     w_obj = from_ref(space, rffi.cast(PyObject, base))
-    # This wrapper is created on a specific type, call it w_A. 
+    # This wrapper is created on a specific type, call it w_A.
     # We wish to call the dealloc function from one of the base classes of w_A,
     # the first of which is not this function itself.
     # w_obj is an instance of w_A or one of its subclasses. So climb up the
@@ -653,12 +644,13 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
             # things are not initialized yet.  So in this case, simply use
             # str2charp() and "leak" the string.
         w_typename = space.getattr(w_type, space.wrap('__name__'))
-        heaptype = rffi.cast(PyHeapTypeObject, pto)
+        heaptype = cts.cast('PyHeapTypeObject*', pto)
         heaptype.c_ht_name = make_ref(space, w_typename)
         from pypy.module.cpyext.unicodeobject import _PyUnicode_AsString
-        pto.c_tp_name = _PyUnicode_AsString(space, heaptype.c_ht_name)
+        pto.c_tp_name = cts.cast('const char *',
+            _PyUnicode_AsString(space, heaptype.c_ht_name))
     else:
-        pto.c_tp_name = rffi.str2charp(w_type.name)
+        pto.c_tp_name = cts.cast('const char*', rffi.str2charp(w_type.name))
     # uninitialized fields:
     # c_tp_print
     # XXX implement
@@ -693,7 +685,7 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
     if space.is_w(w_type, space.w_object):
         # will be filled later on with the correct value
         # may not be 0
-        pto.c_tp_new = rffi.cast(newfunc, 1)
+        pto.c_tp_new = cts.cast('newfunc', 1)
     update_all_slots(space, w_type, pto)
     if not pto.c_tp_new:
         base_object_pyo = make_ref(space, space.w_object)
@@ -808,7 +800,8 @@ def _type_realize(space, py_obj):
         if not py_type.c_tp_as_sequence:
             py_type.c_tp_as_sequence = base.c_tp_as_sequence
             py_type.c_tp_flags |= base.c_tp_flags & Py_TPFLAGS_HAVE_INPLACEOPS
-        if not py_type.c_tp_as_mapping: py_type.c_tp_as_mapping = base.c_tp_as_mapping
+        if not py_type.c_tp_as_mapping:
+            py_type.c_tp_as_mapping = base.c_tp_as_mapping
         #if not py_type.c_tp_as_buffer: py_type.c_tp_as_buffer = base.c_tp_as_buffer
 
     return w_obj
