@@ -360,7 +360,8 @@ def add_operators(space, dict_w, pto):
                 wrapper_func_kwds, doc, func_voidp, offset=offset)
         dict_w[method_name] = space.wrap(w_obj)
     if pto.c_tp_doc:
-        dict_w['__doc__'] = space.newbytes(rffi.charp2str(pto.c_tp_doc))
+        dict_w['__doc__'] = space.newbytes(
+            rffi.charp2str(cts.cast('char*', pto.c_tp_doc)))
     if pto.c_tp_new:
         add_tp_new_wrapper(space, dict_w, pto)
 
@@ -487,7 +488,7 @@ class W_PyCTypeObject(W_TypeObject):
         convert_getset_defs(space, dict_w, pto.c_tp_getset, self)
         convert_member_defs(space, dict_w, pto.c_tp_members, self)
 
-        name = rffi.charp2str(pto.c_tp_name)
+        name = rffi.charp2str(cts.cast('char*', pto.c_tp_name))
         flag_heaptype = pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE
         if flag_heaptype:
             minsize = rffi.sizeof(PyHeapTypeObject.TO)
@@ -506,7 +507,8 @@ class W_PyCTypeObject(W_TypeObject):
               not (pto.c_tp_as_sequence and pto.c_tp_as_sequence.c_sq_slice)):
             self.flag_map_or_seq = 'M'
         if pto.c_tp_doc:
-            self.w_doc = space.wrap(rffi.charp2str(pto.c_tp_doc))
+            self.w_doc = space.newbytes(
+                rffi.charp2str(cts.cast('char*', pto.c_tp_doc)))
 
 @bootstrap_function
 def init_typeobject(space):
@@ -800,7 +802,7 @@ def type_realize(space, py_obj):
     try:
         w_obj = _type_realize(space, py_obj)
     finally:
-        name = rffi.charp2str(pto.c_tp_name)
+        name = rffi.charp2str(cts.cast('char*', pto.c_tp_name))
         pto.c_tp_flags &= ~Py_TPFLAGS_READYING
     pto.c_tp_flags |= Py_TPFLAGS_READY
     return w_obj
@@ -907,7 +909,7 @@ def finish_type_1(space, pto):
     base = pto.c_tp_base
     base_pyo = rffi.cast(PyObject, pto.c_tp_base)
     if base and not base.c_tp_flags & Py_TPFLAGS_READY:
-        name = rffi.charp2str(base.c_tp_name)
+        name = rffi.charp2str(cts.cast('char*', base.c_tp_name))
         type_realize(space, base_pyo)
     if base and not pto.c_ob_type: # will be filled later
         pto.c_ob_type = base.c_ob_type
