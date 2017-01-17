@@ -107,9 +107,7 @@ class JSONDecoder(object):
         elif ch.isdigit():
             return self.decode_numeric(i)
         else:
-            raise DecoderError(
-                "No JSON object could be decoded: unexpected '%s' at" % ch,
-                i)
+            raise DecoderError("Unexpected '%s' at" % ch, i)
 
     def decode_null(self, i):
         if (self.ll_chars[i]   == 'u' and

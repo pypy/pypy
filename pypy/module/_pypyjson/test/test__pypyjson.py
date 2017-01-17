@@ -218,15 +218,15 @@ class AppTest(object):
     def test_error_position(self):
         import _pypyjson
         test_cases = [
-            ('[,', "No JSON object could be decoded: unexpected ',' at", 1),
-            ('{"spam":[}', "No JSON object could be decoded: unexpected '}' at", 9),
+            ('[,', "Unexpected ',' at", 1),
+            ('{"spam":[}', "Unexpected '}' at", 9),
             ('[42:', "Unexpected ':' when decoding array", 3),
             ('[42 "spam"', "Unexpected '\"' when decoding array", 4),
-            ('[42,]', "No JSON object could be decoded: unexpected ']' at", 4),
+            ('[42,]', "Unexpected ']' at", 4),
             ('{"spam":[42}', "Unexpected '}' when decoding array", 11),
             ('["]', 'Unterminated string starting at', 1),
             ('["spam":', "Unexpected ':' when decoding array", 7),
-            ('[{]', "No JSON object could be decoded: unexpected ']' at", 2),
+            ('[{]', "Unexpected ']' at", 2),
         ]
         for inputtext, errmsg, errpos in test_cases:
             exc = raises(ValueError, _pypyjson.loads, inputtext)
