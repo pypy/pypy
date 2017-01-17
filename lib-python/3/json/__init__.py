@@ -322,7 +322,8 @@ def loads(s, encoding=None, cls=None, object_hook=None, parse_float=None,
     if (cls is None and object_hook is None and
             parse_int is None and parse_float is None and
             parse_constant is None and object_pairs_hook is None and not kw):
-        return _pypyjson.loads(s) if _pypyjson else _default_decoder.decode(s)
+        return (_pypyjson.loads(s, JSONDecodeError)
+                if _pypyjson else _default_decoder.decode(s))
     if cls is None:
         cls = JSONDecoder
     if object_hook is not None:

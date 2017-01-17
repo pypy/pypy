@@ -222,3 +222,10 @@ class AppTest(object):
         (a, b), (c, d) = sorted(rval[0]), sorted(rval[1])
         assert a is c
         assert b is d
+
+    def test_custom_error_class(self):
+        import _pypyjson
+        class MyError(Exception):
+            pass
+        exc = raises(MyError, _pypyjson.loads, 'nul', MyError)
+        assert exc.value.args == ('Error when decoding null at', 'nul', 1)
