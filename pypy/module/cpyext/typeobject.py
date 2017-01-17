@@ -732,9 +732,10 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         heaptype = cts.cast('PyHeapTypeObject*', pto)
         heaptype.c_ht_name = make_ref(space, w_typename)
         from pypy.module.cpyext.bytesobject import PyString_AsString
-        pto.c_tp_name = PyString_AsString(space, heaptype.c_ht_name)
+        pto.c_tp_name = cts.cast('const char *',
+            PyString_AsString(space, heaptype.c_ht_name))
     else:
-        pto.c_tp_name = rffi.str2charp(w_type.name)
+        pto.c_tp_name = cts.cast('const char*', rffi.str2charp(w_type.name))
     # uninitialized fields:
     # c_tp_print
     # XXX implement

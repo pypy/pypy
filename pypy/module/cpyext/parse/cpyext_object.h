@@ -226,7 +226,7 @@ typedef struct PyMemberDef {
 
 typedef struct _typeobject {
 	PyObject_VAR_HEAD
-	/* const */ char *tp_name; /* For printing, in format "<module>.<name>" */
+	const char *tp_name; /* For printing, in format "<module>.<name>" */
 	Py_ssize_t tp_basicsize, tp_itemsize; /* For allocation */
 
 	/* Methods to implement standard operations */
@@ -258,7 +258,7 @@ typedef struct _typeobject {
 	/* Flags to define presence of optional/expanded features */
 	long tp_flags;
 
-	/*const*/ char *tp_doc; /* Documentation string */
+	const char *tp_doc; /* Documentation string */
 
 	/* Assigned meaning in release 2.0 */
 	/* call function for all accessible objects */
