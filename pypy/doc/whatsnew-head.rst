@@ -101,3 +101,21 @@ Fix a test failure introduced by strbuf-as-buffer
 
 Do not recreate the object in PyMemoryView_FromBuffer, rather pass it to
 the returned PyMemoryViewObject, to take ownership of it. Fixes a ref leak.
+
+.. branch: issue2464
+
+Give (almost?) all GetSetProperties a valid __objclass__.
+
+.. branch: TreeStain/fixed-typo-line-29-mostly-to-most-1484469416419
+.. branch: TreeStain/main-lines-changed-in-l77-l83-made-para-1484471558033
+
+.. branch: missing-tp_new
+
+Improve mixing app-level classes in c-extensions, especially if the app-level
+class has a ``tp_new`` or ``tp_dealloc``. The issue is that c-extensions expect
+all the method slots to be filled with a function pointer, where app-level will
+search up the mro for an appropriate function at runtime. With this branch we
+now fill many more slots in the c-extenion type objects.
+Also fix for c-extension type that calls ``tp_hash`` during initialization
+(str, unicode types), and fix instantiating c-extension types from built-in
+classes by enforcing an order of instaniation.

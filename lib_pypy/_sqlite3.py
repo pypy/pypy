@@ -220,6 +220,7 @@ class Connection(object):
         self.__statements_counter = 0
         self.__rawstatements = set()
         self._statement_cache = _StatementCache(self, cached_statements)
+        self.__statements_already_committed = []
 
         self.__func_cache = {}
         self.__aggregates = {}
@@ -363,6 +364,14 @@ class Connection(object):
                 if cursor is not None:
                     cursor._reset = True
 
+    def _reset_already_committed_statements(self):
+        lst = self.__statements_already_committed
+        self.__statements_already_committed = []
+        for weakref in lst:
+            statement = weakref()
+            if statement is not None:
+                statement._reset()
+
     @_check_thread_wrap
     @_check_closed_wrap
     def __call__(self, sql):
@@ -418,15 +427,18 @@ class Connection(object):
         if not self._in_transaction:
             return
 
-        # The following line is a KNOWN DIFFERENCE with CPython 2.7.13.
-        # More precisely, the corresponding line was removed in the
-        # version 2.7.13 of CPython, but this is causing troubles for
-        # PyPy (and potentially for CPython too):
-        #
-        #     http://bugs.python.org/issue29006
-        #
-        # So for now, we keep this line.
-        self.__do_all_statements(Statement._reset, False)
+        # PyPy fix for non-refcounting semantics: since 2.7.13 (and in
+        # <= 2.6.x), the statements are not automatically reset upon
+        # commit.  However, if this is followed by some specific SQL
+        # operations like "drop table", these open statements come in
+        # the way and cause the "drop table" to fail.  On CPython the
+        # problem is much less important because typically all the old
+        # statements are freed already by reference counting.  So here,
+        # we copy all the still-alive statements to another list which
+        # is usually ignored, except if we get SQLITE_LOCKED
+        # afterwards---at which point we reset all statements in this
+        # list.
+        self.__statements_already_committed = self.__statements[:]
 
         statement_star = _ffi.new('sqlite3_stmt **')
         ret = _lib.sqlite3_prepare_v2(self._db, b"COMMIT", -1,
@@ -827,7 +839,17 @@ class Cursor(object):
                 self.__statement._set_params(params)
 
                 # Actually execute the SQL statement
+
                 ret = _lib.sqlite3_step(self.__statement._statement)
+
+                # PyPy: if we get SQLITE_LOCKED, it's probably because
+                # one of the cursors created previously is still alive
+                # and not reset and the operation we're trying to do
+                # makes Sqlite unhappy about that.  In that case, we
+                # automatically reset all old cursors and try again.
+                if ret == _lib.SQLITE_LOCKED:
+                    self.__connection._reset_already_committed_statements()
+                    ret = _lib.sqlite3_step(self.__statement._statement)
 
                 if ret == _lib.SQLITE_ROW:
                     if multiple:

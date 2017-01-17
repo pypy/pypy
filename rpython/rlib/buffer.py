@@ -112,6 +112,7 @@ class StringBuffer(Buffer):
 
     def get_raw_address(self):
         from rpython.rtyper.lltypesystem import rffi
+        # may still raise ValueError on some GCs
         return rffi.get_raw_address_of_string(self.value)
 
 class SubBuffer(Buffer):

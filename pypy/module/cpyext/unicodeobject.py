@@ -65,9 +65,10 @@ def new_empty_unicode(space, length):
 def unicode_attach(space, py_obj, w_obj, w_userdata=None):
     "Fills a newly allocated PyUnicodeObject with a unicode string"
     py_unicode = rffi.cast(PyUnicodeObject, py_obj)
-    py_unicode.c_length = len(space.unicode_w(w_obj))
+    s = space.unicode_w(w_obj)
+    py_unicode.c_length = len(s)
     py_unicode.c_str = lltype.nullptr(rffi.CWCHARP.TO)
-    py_unicode.c_hash = space.hash_w(w_obj)
+    py_unicode.c_hash = space.hash_w(space.newunicode(s))
     py_unicode.c_defenc = lltype.nullptr(PyObject.TO)
 
 def unicode_realize(space, py_obj):
@@ -80,7 +81,7 @@ def unicode_realize(space, py_obj):
     w_type = from_ref(space, rffi.cast(PyObject, py_obj.c_ob_type))
     w_obj = space.allocate_instance(unicodeobject.W_UnicodeObject, w_type)
     w_obj.__init__(s)
-    py_uni.c_hash = space.hash_w(w_obj)
+    py_uni.c_hash = space.hash_w(space.newunicode(s))
     track_reference(space, py_obj, w_obj)
     return w_obj
 
@@ -205,9 +206,8 @@ def PyUnicode_GET_DATA_SIZE(space, w_obj):
 
 @cpython_api([rffi.VOIDP], Py_ssize_t, error=CANNOT_FAIL)
 def PyUnicode_GET_SIZE(space, w_obj):
-    """Return the size of the object.  o has to be a PyUnicodeObject (not
+    """Return the size of the object.  obj is a PyUnicodeObject (not
     checked)."""
-    assert isinstance(w_obj, unicodeobject.W_UnicodeObject)
     return space.len_w(w_obj)
 
 @cpython_api([rffi.VOIDP], rffi.CWCHARP, error=CANNOT_FAIL)

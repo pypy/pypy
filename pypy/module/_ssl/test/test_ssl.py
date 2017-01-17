@@ -194,6 +194,17 @@ class AppTestConnectedSSL:
         from ..interp_ssl import SOCKET_STORAGE
         SOCKET_STORAGE._dict.clear()
 
+    def test_warmup_connection(self):
+        # not sure it is gmail.com's fault, but on some machines the
+        # very first connection attempt fails.  So we make one here and
+        # ignore the result.  The first real test is test_connect().
+        import socket, ssl
+        try:
+            ss = socket.ssl(self.s)
+            self.s.close()
+        except ssl.SSLError:
+            pass
+
     def test_connect(self):
         import socket, gc
         ss = socket.ssl(self.s)

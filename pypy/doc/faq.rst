@@ -26,16 +26,16 @@ Is PyPy a drop in replacement for CPython?
 
 Almost!
 
-The mostly likely stumbling block for any given project is support for
+The most likely stumbling block for any given project is support for
 :ref:`extension modules <extension-modules>`.  PyPy supports a continually growing
 number of extension modules, but so far mostly only those found in the
 standard library.
 
 The language features (including builtin types and functions) are very
-complete and well tested, so if your project does not use many
+refined and well tested, so if your project doesn't use many
 extension modules there is a good chance that it will work with PyPy.
 
-We list the differences we know about in :doc:`cpython differences <cpython_differences>`.
+We list the known differences in :doc:`cpython differences <cpython_differences>`.
 
 
 Module xyz does not work with PyPy: ImportError
@@ -76,10 +76,10 @@ Module xyz does not work in the sandboxed PyPy?
 
 You cannot import *any* extension module in a `sandboxed PyPy`_,
 sorry.  Even the built-in modules available are very limited.
-Sandboxing in PyPy is a good proof of concept, really safe IMHO, but
-it is only a proof of concept.  It seriously requires someone working
-on it.  Before this occurs, it can only be used it for "pure Python"
-examples: programs that import mostly nothing (or only pure Python
+Sandboxing in PyPy is a good proof of concept, and is without a doubt
+safe IMHO, however it is only a proof of concept.  It currently requires 
+some work from a motivated developer. However, until then it can only be used for "pure Python"
+example: programs that import mostly nothing (or only pure Python
 modules, recursively).
 
 .. _`sandboxed PyPy`: sandbox.html

@@ -358,10 +358,14 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
 
                 data = PyString_AS_STRING(args);
                 len = PyString_GET_SIZE(args);
-                if (data == NULL || len < 1)
+                if (data == NULL)
                     Py_RETURN_NONE;
                 obj = PyArray_Scalar(data, len);
                 return obj;
+             """),
+            ("get_len", "METH_O",
+             """
+                return PyLong_FromLong(PyObject_Size(args));
              """),
             ], prologue="""
                 #include <Python.h>
@@ -438,12 +442,16 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
                 PyStringArrType_Type.tp_flags = Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE;
                 PyStringArrType_Type.tp_itemsize = sizeof(char);
                 PyStringArrType_Type.tp_base = &PyString_Type;
+                PyStringArrType_Type.tp_hash = PyString_Type.tp_hash;
                 if (PyType_Ready(&PyStringArrType_Type) < 0) INITERROR;
             ''')
 
         a = module.newsubstr('abc')
         assert type(a).__name__ == 'string_'
         assert a == 'abc'
+        assert 3 == module.get_len(a)
+        b = module.newsubstr('')
+        assert 0 == module.get_len(b)
 
 class TestBytes(BaseApiTest):
     def test_bytes_resize(self, space):

@@ -18,6 +18,7 @@ from pypy.module.cpyext.pyobject import make_ref, decref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.memoryobject import fill_Py_buffer
 from pypy.module.cpyext.state import State
+from pypy.module.cpyext import userslot
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.argument import Arguments
 from rpython.rlib.buffer import Buffer
@@ -512,6 +513,10 @@ SLOTS = {}
 
 @specialize.memo()
 def get_slot_tp_function(space, typedef, name):
+    """Return a description of the slot C function to use for the built-in
+    type for 'typedef'.  The 'name' is the slot name.  This is a memo
+    function that, after translation, returns one of a built-in finite set.
+    """
     key = (typedef, name)
     try:
         return SLOTS[key]
@@ -550,6 +555,19 @@ def build_slot_tp_function(space, typedef, name):
             def slot_func(space, w_self):
                 return space.call_function(slot_fn, w_self)
             handled = True
+
+    for tp_name, attr in [('tp_hash', '__hash__'),
+                         ]:
+        if name == tp_name:
+            slot_fn = w_type.getdictvalue(space, attr)
+            if slot_fn is None:
+                return
+            @slot_function([PyObject], lltype.Signed, error=-1)
+            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+            def slot_func(space, w_obj):
+                return space.int_w(space.call_function(slot_fn, w_obj))
+            handled = True
+
 
     # binary functions
     for tp_name, attr in [('tp_as_number.c_nb_add', '__add__'),
@@ -755,7 +773,7 @@ def FLSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC, FLAGS):
         else:
             assert False
 
-    function = globals().get(FUNCTION, None)
+    function = getattr(userslot, FUNCTION or '!missing', None)
     assert FLAGS == 0 or FLAGS == PyWrapperFlag_KEYWORDS
     if FLAGS:
         if wrapper is Ellipsis:
@@ -818,7 +836,7 @@ slotdefs_str = r"""
 static slotdef slotdefs[] = {
         SQSLOT("__len__", sq_length, slot_sq_length, wrap_lenfunc,
                "x.__len__() <==> len(x)"),
-        SQSLOT("__add__", sq_concat, NULL, wrap_binaryfunc,
+        SQSLOT("__add__", sq_concat, slot_sq_concat, wrap_binaryfunc,
           "x.__add__(y) <==> x+y"),
         SQSLOT("__mul__", sq_repeat, NULL, wrap_indexargfunc,
           "x.__mul__(n) <==> x*n"),
@@ -966,9 +984,7 @@ static slotdef slotdefs[] = {
                "x.__call__(...) <==> x(...)", PyWrapperFlag_KEYWORDS),
         TPSLOT("__getattribute__", tp_getattro, slot_tp_getattr_hook,
                wrap_binaryfunc, "x.__getattribute__('name') <==> x.name"),
-        TPSLOT("__getattribute__", tp_getattr, NULL, NULL, ""),
-        TPSLOT("__getattr__", tp_getattro, slot_tp_getattr_hook, NULL, ""),
-        TPSLOT("__getattr__", tp_getattr, NULL, NULL, ""),
+        TPSLOT("__getattr__", tp_getattro, slot_tp_getattr, NULL, ""),
         TPSLOT("__setattr__", tp_setattro, slot_tp_setattro, wrap_setattr,
                "x.__setattr__('name', value) <==> x.name = value"),
         TPSLOT("__setattr__", tp_setattr, NULL, NULL, ""),
