@@ -2,6 +2,7 @@ from pypy.interpreter import gateway
 from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.api import generic_cpy_call
 from pypy.module.cpyext.pyobject import make_ref, from_ref
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 
@@ -634,26 +635,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert module.tp_init(list, x, ("hi",)) is None
         assert x == ["h", "i"]
 
-    def test_tp_str(self):
-        module = self.import_extension('foo', [
-           ("tp_str", "METH_VARARGS",
-            '''
-                 PyTypeObject *type = (PyTypeObject *)PyTuple_GET_ITEM(args, 0);
-                 PyObject *obj = PyTuple_GET_ITEM(args, 1);
-                 if (!type->tp_str)
-                 {
-                     PyErr_SetNone(PyExc_ValueError);
-                     return NULL;
-                 }
-                 return type->tp_str(obj);
-             '''
-             )
-            ])
-        class D(int):
-            def __str__(self):
-                return "more text"
-        assert module.tp_str(int, D(42)) == "42"
-
     def test_mp_ass_subscript(self):
         module = self.import_extension('foo', [
            ("new_obj", "METH_NOARGS",
@@ -942,9 +923,12 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert (d + a) == 5
         assert pow(d,b) == 16
 
-    def test_tp_new_in_subclass_of_type(self):
+    def test_tp_new_in_subclass(self):
+        import datetime
         module = self.import_module(name='foo3')
         module.footype("X", (object,), {})
+        a = module.datetimetype(1, 1, 1)
+        assert isinstance(a, module.datetimetype)
 
     def test_app_subclass_of_c_type(self):
         import sys
@@ -1130,7 +1114,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         # class X(object, metaclass=FooType): pass
         X = FooType('X', (object,), {})
 
-        print(repr(X))
         X()
 
     def test_multiple_inheritance3(self):

@@ -199,9 +199,8 @@ def PyUnicode_GET_DATA_SIZE(space, w_obj):
 
 @cpython_api([rffi.VOIDP], Py_ssize_t, error=CANNOT_FAIL)
 def PyUnicode_GET_SIZE(space, w_obj):
-    """Return the size of the object.  o has to be a PyUnicodeObject (not
+    """Return the size of the object.  obj is a PyUnicodeObject (not
     checked)."""
-    assert isinstance(w_obj, unicodeobject.W_UnicodeObject)
     return space.len_w(w_obj)
 
 @cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
@@ -600,6 +599,7 @@ def make_conversion_functions(suffix, encoding):
         if not PyUnicode_Check(space, w_unicode):
             PyErr_BadArgument(space)
         return unicodeobject.encode_object(space, w_unicode, encoding, "strict")
+    globals()['PyUnicode_As%sString' % suffix] = PyUnicode_AsXXXString
 
     @cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING], PyObject)
     @func_renamer('PyUnicode_Decode%s' % suffix)

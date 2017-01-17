@@ -1336,6 +1336,8 @@ def get_raw_address_of_string(string):
     as key is alive. If key goes out of scope, the buffer will eventually
     be freed. `string` cannot go out of scope until the RawBytes object
     referencing it goes out of scope.
+
+    NOTE: may raise ValueError on some GCs, but not the default one.
     """
     assert isinstance(string, str)
     from rpython.rtyper.annlowlevel import llstr
@@ -1346,6 +1348,8 @@ def get_raw_address_of_string(string):
     if we_are_translated():
         if rgc.can_move(string):
             string = rgc.move_out_of_nursery(string)
+            if rgc.can_move(string):
+                raise ValueError("cannot make string immovable")
 
         # string cannot move now! return the address
         lldata = llstr(string)

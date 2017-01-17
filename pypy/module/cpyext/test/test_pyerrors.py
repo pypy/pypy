@@ -90,7 +90,7 @@ class TestExceptions(BaseApiTest):
         api.PyErr_WriteUnraisable(w_where)
         space.call_method(space.sys.get('stderr'), "flush")
         out, err = capfd.readouterr()
-        assert "Exception ValueError: 'message' in 'location' ignored" == err.strip()
+        assert "Exception ignored in: 'location'\nValueError: message" == err.strip()
 
     @pytest.mark.skipif(True, reason='not implemented yet')
     def test_interrupt_occurred(self, space, api):

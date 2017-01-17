@@ -277,12 +277,15 @@ class GetSetProperty(W_Root):
         self.use_closure = use_closure
 
     def copy_for_type(self, w_objclass):
-        new = instantiate(GetSetProperty)
-        new._init(self.fget, self.fset, self.fdel, self.doc, self.reqcls,
-                  None, self.use_closure)
-        new.name = self.name
-        new.w_objclass = w_objclass
-        return new
+        if self.objclass_getter is None:
+            new = instantiate(GetSetProperty)
+            new._init(self.fget, self.fset, self.fdel, self.doc, self.reqcls,
+                      None, self.use_closure)
+            new.name = self.name
+            new.w_objclass = w_objclass
+            return new
+        else:
+            return self
 
     @unwrap_spec(w_cls = WrappedDefault(None))
     def descr_property_get(self, space, w_obj, w_cls=None):
@@ -513,7 +516,7 @@ def descr_get_weakref(space, w_obj):
     return lifeline.get_any_weakref(space)
 
 dict_descr = GetSetProperty(descr_get_dict, descr_set_dict, descr_del_dict,
-                            doc="dictionary for instance variables")
+                            doc="dictionary for instance variables (if defined)")
 dict_descr.name = '__dict__'
 
 
@@ -548,7 +551,7 @@ def fget_co_consts(space, code): # unwrapping through unwrap_spec
     return space.newtuple([w_docstring])
 
 weakref_descr = GetSetProperty(descr_get_weakref,
-                               doc="list of weak references to the object")
+                    doc="list of weak references to the object (if defined)")
 weakref_descr.name = '__weakref__'
 
 def make_weakref_descr(cls):

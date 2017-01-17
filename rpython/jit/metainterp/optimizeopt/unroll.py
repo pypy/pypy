@@ -405,7 +405,8 @@ class UnrollOptimizer(Optimization):
                 i += 1
                 self.optimizer.send_extra_operation(op)
             # force all of them except the virtuals
-            for arg in args_no_virtuals + short_jump_args:
+            for arg in (args_no_virtuals +
+                        self._map_args(mapping, short_jump_args)):
                 self.optimizer.force_box(self.get_box_replacement(arg))
             self.optimizer.flush()
             # done unless "short" has grown again

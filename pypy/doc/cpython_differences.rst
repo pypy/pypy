@@ -496,11 +496,6 @@ Miscellaneous
   the rest is kept.  If you return an unexpected string from
   ``__hex__()`` you get an exception (or a crash before CPython 2.7.13).
 
-* The ``sqlite`` module was updated on 2.7.13 to no longer reset all
-  cursors when there is a commit.  This causes troubles for PyPy (and
-  potentially for CPython too), and so for now we didn't port this change:
-  see http://bugs.python.org/issue29006.
-
 .. _`is ignored in PyPy`: http://bugs.python.org/issue14621
 .. _`little point`: http://events.ccc.de/congress/2012/Fahrplan/events/5152.en.html
 .. _`#2072`: https://bitbucket.org/pypy/pypy/issue/2072/

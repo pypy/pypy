@@ -901,6 +901,7 @@ W_BytesObject.typedef = TypeDef(
 W_BytesObject.typedef.flag_sequence_bug_compat = True
 
 
+@jit.elidable
 def string_escape_encode(s, quotes):
     buf = StringBuilder(len(s) + 2)
 

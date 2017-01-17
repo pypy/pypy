@@ -90,11 +90,10 @@ def PyList_Insert(space, w_list, index, w_item):
     return 0
 
 @cpython_api([rffi.VOIDP], Py_ssize_t, error=CANNOT_FAIL)
-def PyList_GET_SIZE(space, w_list):
+def PyList_GET_SIZE(space, w_obj):
     """Macro form of PyList_Size() without error checking.
     """
-    assert isinstance(w_list, W_ListObject)
-    return w_list.length()
+    return space.len_w(w_obj)
 
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)

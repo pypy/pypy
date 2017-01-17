@@ -109,7 +109,7 @@ class JSONDecoder(object):
         else:
             raise DecoderError(
                 "No JSON object could be decoded: unexpected '%s' at" % ch,
-                self.pos)
+                i)
 
     def decode_null(self, i):
         if (self.ll_chars[i]   == 'u' and
@@ -247,7 +247,7 @@ class JSONDecoder(object):
                 raise DecoderError("Unterminated array starting at", start)
             else:
                 raise DecoderError("Unexpected '%s' when decoding array" % ch,
-                                   self.pos)
+                                   i-1)
 
     def decode_object(self, i):
         start = i
@@ -287,7 +287,7 @@ class JSONDecoder(object):
                 raise DecoderError("Unterminated object starting at", start)
             else:
                 raise DecoderError("Unexpected '%s' when decoding object" % ch,
-                                   self.pos)
+                                   i-1)
 
 
     def decode_string(self, i):
@@ -312,18 +312,17 @@ class JSONDecoder(object):
                 self.last_type = TYPE_STRING
                 self.pos = i
                 return self.space.wrap(content_unicode)
-            elif ch == '\\':
-                content_so_far = self.getslice(start, i-1)
+            elif ch == '\\' or ch < '\x20':
                 self.pos = i-1
-                return self.decode_string_escaped(start, content_so_far)
-            elif ch < '\x20':
-                raise DecoderError("Invalid control character at", self.pos-1)
+                return self.decode_string_escaped(start)
 
 
-    def decode_string_escaped(self, start, content_so_far):
-        builder = StringBuilder(len(content_so_far)*2) # just an estimate
-        builder.append(content_so_far)
+    def decode_string_escaped(self, start):
         i = self.pos
+        builder = StringBuilder((i - start) * 2) # just an estimate
+        assert start >= 0
+        assert i >= 0
+        builder.append_slice(self.s, start, i)
         while True:
             ch = self.ll_chars[i]
             i += 1
@@ -336,27 +335,31 @@ class JSONDecoder(object):
                 return self.space.wrap(content_unicode)
             elif ch == '\\':
                 i = self.decode_escape_sequence(i, builder)
-            elif ch == '\0':
-                raise DecoderError("Unterminated string starting at", start)
+            elif ch < '\x20':
+                if ch == '\0':
+                    raise DecoderError("Unterminated string starting at",
+                                       start - 1)
+                else:
+                    raise DecoderError("Invalid control character at", i-1)
             else:
-                builder.append_multiple_char(ch, 1) # we should implement append_char
+                builder.append(ch)
 
     def decode_escape_sequence(self, i, builder):
         ch = self.ll_chars[i]
         i += 1
-        put = builder.append_multiple_char
-        if ch == '\\':  put('\\', 1)
-        elif ch == '"': put('"' , 1)
-        elif ch == '/': put('/' , 1)
-        elif ch == 'b': put('\b', 1)
-        elif ch == 'f': put('\f', 1)
-        elif ch == 'n': put('\n', 1)
-        elif ch == 'r': put('\r', 1)
-        elif ch == 't': put('\t', 1)
+        put = builder.append
+        if ch == '\\':  put('\\')
+        elif ch == '"': put('"' )
+        elif ch == '/': put('/' )
+        elif ch == 'b': put('\b')
+        elif ch == 'f': put('\f')
+        elif ch == 'n': put('\n')
+        elif ch == 'r': put('\r')
+        elif ch == 't': put('\t')
         elif ch == 'u':
             return self.decode_escape_sequence_unicode(i, builder)
         else:
-            raise DecoderError("Invalid \\escape: %s" % ch, self.pos-1)
+            raise DecoderError("Invalid \\escape: %s" % ch, i-1)
         return i
 
     def decode_escape_sequence_unicode(self, i, builder):
