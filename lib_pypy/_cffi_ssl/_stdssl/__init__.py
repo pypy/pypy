@@ -532,7 +532,7 @@ class _SSLSocket(object):
         short_name = lib.SSL_COMP_get_name(comp_method)
         if short_name == ffi.NULL:
             return None
-        return _fs_decode(_str_from_buf(short_name))
+        return _cstr_decode_fs(short_name)
 
     def version(self):
         if self.ssl == ffi.NULL:
