@@ -119,3 +119,9 @@ now fill many more slots in the c-extenion type objects.
 Also fix for c-extension type that calls ``tp_hash`` during initialization
 (str, unicode types), and fix instantiating c-extension types from built-in
 classes by enforcing an order of instaniation.
+
+.. branch: rffi-parser-2
+
+rffi structures in cpyext can now be created by parsing simple C headers.
+Additionally, the cts object that holds the parsed information can act like
+cffi's ffi objects, with the methods cts.cast() and cts.gettype().
