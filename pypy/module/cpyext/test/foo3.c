@@ -137,7 +137,7 @@ initfoo3(void)
     PyObject *mod, *d;
     PyObject *module = NULL;
     module = PyImport_ImportModule("datetime");
-    typ = PyObject_GetAttr(module, PyString_FromString("datetime"));
+    typ = PyObject_GetAttrString(module, "datetime");
     Py_DECREF(module);
     if (!PyType_Check(typ)) {
         PyErr_Format(PyExc_TypeError, "datetime.datetime is not a type object");
