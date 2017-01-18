@@ -249,6 +249,9 @@ typedef union _gc_head {
     char dummy;
 } PyGC_Head;
 
+/* dummy GC macros */
+#define _PyGC_FINALIZED(o) 1
+
 /* Utility macro to help write tp_traverse functions.
  * To use this macro, the tp_traverse function must name its arguments
  * "visit" and "arg".  This is intended to keep tp_traverse functions
