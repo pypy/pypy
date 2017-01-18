@@ -665,6 +665,11 @@ class ObjSpace(object):
 
     def setup_builtin_modules(self):
         "NOT_RPYTHON: only for initializing the space."
+        if self.config.objspace.usemodules.cpyext:
+            # Special-case this to have state.install_dll() called early, which
+            # is required to initialise sys on Windows.
+            from pypy.module.cpyext.state import State
+            self.fromcache(State).build_api()
         self.getbuiltinmodule('sys')
         self.getbuiltinmodule('imp')
         self.getbuiltinmodule('__builtin__')
