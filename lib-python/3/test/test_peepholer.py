@@ -4,7 +4,7 @@ import sys
 from io import StringIO
 import unittest
 from math import copysign
-from test.support import cpython_only
+from test.support import cpython_only, impl_detail
 
 from test.bytecode_helper import BytecodeTestCase
 
@@ -76,16 +76,19 @@ class TestTranforms(BytecodeTestCase):
             self.assertNotInBytecode(code, 'UNPACK_TUPLE')
 
     def test_folding_of_tuples_of_constants(self):
-        # On CPython, "a,b,c=1,2,3" turns into "a,b,c=<constant (1,2,3)>"
-        # but on PyPy, it turns into "a=1;b=2;c=3".
         for line, elem in (
             ('a = 1,2,3', (1, 2, 3)),
             ('("a","b","c")', ('a', 'b', 'c')),
-            #('a,b,c = 1,2,3', (1, 2, 3)),
+            ('a,b,c = 1,2,3', (1, 2, 3)),
             ('(None, 1, None)', (None, 1, None)),
             ('((1, 2), 3, 4)', ((1, 2), 3, 4)),
             ):
             code = compile(line,'','single')
+            if line == 'a,b,c = 1,2,3' and impl_detail(pypy=True):
+                # On CPython, "a,b,c=1,2,3" turns into
+                # "a,b,c=<constant (1,2,3)>"
+                # but on PyPy, it turns into "a=1;b=2;c=3".
+                continue
             self.assertInBytecode(code, 'LOAD_CONST', elem)
             self.assertNotInBytecode(code, 'BUILD_TUPLE')
 
