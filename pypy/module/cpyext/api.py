@@ -583,6 +583,8 @@ SYMBOLS_C = [
 
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
 
+    'PyImport_ImportModuleLevel',
+
     'PyOS_getsig', 'PyOS_setsig',
     'PyThread_get_thread_ident', 'PyThread_allocate_lock', 'PyThread_free_lock',
     'PyThread_acquire_lock', 'PyThread_release_lock',
@@ -1296,6 +1298,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pymem.c",
                          source_dir / "bytesobject.c",
                          source_dir / "complexobject.c",
+                         source_dir / "import.c",
                          ]
 
 def build_eci(code, use_micronumpy=False, translating=False):

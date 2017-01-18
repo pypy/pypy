@@ -52,7 +52,7 @@ def PyImport_ImportModuleNoBlock(space, name):
 
 
 @api_decl(
-    '''PyObject * PyImport_ImportModuleLevelObject(
+    '''PyObject* PyImport_ImportModuleLevelObject(
         PyObject *name, PyObject *given_globals, PyObject *locals,
         PyObject *given_fromlist, int level)''', cts)
 def PyImport_ImportModuleLevelObject(space, w_name, w_glob, w_loc, w_fromlist, level):

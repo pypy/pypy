@@ -686,38 +686,6 @@ def PyGen_New(space, frame):
     NULL."""
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP, PyObject, PyObject, PyObject], PyObject)
-def PyImport_ImportModuleEx(space, name, globals, locals, fromlist):
-    """
-
-
-
-    Import a module.  This is best described by referring to the built-in Python
-    function __import__(), as the standard __import__() function calls
-    this function directly.
-
-    The return value is a new reference to the imported module or top-level
-    package, or NULL with an exception set on failure.  Like for
-    __import__(), the return value when a submodule of a package was
-    requested is normally the top-level package, unless a non-empty fromlist
-    was given.
-
-    Failing imports remove incomplete module objects, like with
-    PyImport_ImportModule()."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, PyObject, PyObject, PyObject, rffi.INT_real], PyObject)
-def PyImport_ImportModuleLevel(space, name, globals, locals, fromlist, level):
-    """Import a module.  This is best described by referring to the built-in Python
-    function __import__(), as the standard __import__() function calls
-    this function directly.
-
-    The return value is a new reference to the imported module or top-level package,
-    or NULL with an exception set on failure.  Like for __import__(),
-    the return value when a submodule of a package was requested is normally the
-    top-level package, unless a non-empty fromlist was given."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, PyObject, rffi.CCHARP, rffi.CCHARP], PyObject)
 def PyImport_ExecCodeModuleWithPathnames(space, name, co, pathname, cpathname):
     """Like PyImport_ExecCodeModuleEx(), but the __cached__
