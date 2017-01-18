@@ -234,6 +234,7 @@ else:
         _ptyh = 'pty.h'
     includes = ['unistd.h',  'sys/types.h', 'sys/wait.h',
                 'utime.h', 'sys/time.h', 'sys/times.h',
+                'sys/resource.h',
                 'grp.h', 'dirent.h', 'sys/stat.h', 'fcntl.h',
                 'signal.h', 'sys/utsname.h', _ptyh]
     if sys.platform.startswith('freebsd'):
@@ -249,6 +250,9 @@ class CConfig:
     SEEK_SET = rffi_platform.DefinedConstantInteger('SEEK_SET')
     SEEK_CUR = rffi_platform.DefinedConstantInteger('SEEK_CUR')
     SEEK_END = rffi_platform.DefinedConstantInteger('SEEK_END')
+    PRIO_PROCESS = rffi_platform.DefinedConstantInteger('PRIO_PROCESS')
+    PRIO_PGRP = rffi_platform.DefinedConstantInteger('PRIO_PGRP')
+    PRIO_USER = rffi_platform.DefinedConstantInteger('PRIO_USER')
     O_NONBLOCK = rffi_platform.DefinedConstantInteger('O_NONBLOCK')
     OFF_T_SIZE = rffi_platform.SizeOf('off_t')
 
@@ -261,6 +265,7 @@ class CConfig:
     if not _WIN32:
         UID_T = rffi_platform.SimpleType('uid_t', rffi.UINT)
         GID_T = rffi_platform.SimpleType('gid_t', rffi.UINT)
+        ID_T = rffi_platform.SimpleType('id_t', rffi.UINT)
         TIOCGWINSZ = rffi_platform.DefinedConstantInteger('TIOCGWINSZ')
 
         TMS = rffi_platform.Struct(
@@ -1733,6 +1738,22 @@ if not _WIN32:
     @replace_os_function('setresgid')
     def setresgid(rgid, egid, sgid):
         handle_posix_error('setresgid', c_setresgid(rgid, egid, sgid))
+
+    c_getpriority = external('getpriority', [rffi.INT, ID_T], rffi.INT,
+                             save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+    c_setpriority = external('setpriority', [rffi.INT, ID_T, rffi.INT],
+                             rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO)
+
+    def getpriority(which, who):
+        result = widen(c_getpriority(which, who))
+        error = get_saved_errno()
+        if error != 0:
+            raise OSError(error, 'getpriority failed')
+        return result
+
+    def setpriority(which, who, prio):
+        handle_posix_error('setpriority', c_setpriority(which, who, prio))
+
 
 #___________________________________________________________________
 
