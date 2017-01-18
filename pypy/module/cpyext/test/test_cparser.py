@@ -190,6 +190,17 @@ def test_parse_funcdecl():
     assert FUNC.RESULT == cts.gettype('func_t')
     assert FUNC.ARGS == (cts.gettype('TestFloatObject *'),)
 
+def test_wchar_t():
+    cdef = """
+    typedef struct { wchar_t* x; } test;
+    """
+    cts = parse_source(cdef, headers=['stddef.h'])
+    obj = lltype.malloc(cts.gettype('test'), flavor='raw')
+    obj.c_x = cts.cast('wchar_t*', 0)
+    obj.c_x =  lltype.nullptr(rffi.CWCHARP.TO)
+    lltype.free(obj, flavor='raw')
+
+
 def test_translate_cast():
     cdef = "typedef ssize_t Py_ssize_t;"
     cts = parse_source(cdef)

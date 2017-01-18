@@ -83,6 +83,7 @@ class State:
         This function is called when at object space creation,
         and drives the compilation of the cpyext library
         """
+        self.setup_rawrefcount()
         from pypy.module.cpyext import api
         if not self.space.config.translating:
             self.api_lib = str(api.build_bridge(self.space))

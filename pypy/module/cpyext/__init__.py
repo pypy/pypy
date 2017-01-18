@@ -12,11 +12,6 @@ class Module(MixedModule):
 
     atexit_funcs = []
 
-    def setup_after_space_initialization(self):
-        state = self.space.fromcache(State)
-        state.setup_rawrefcount()
-        state.build_api()
-
     def startup(self, space):
         space.fromcache(State).startup(space)
         method = pypy.module.cpyext.typeobject.get_new_method_def(space)

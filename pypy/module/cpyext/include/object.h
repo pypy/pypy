@@ -7,9 +7,19 @@
 extern "C" {
 #endif
 
-#define Py_RETURN_NONE return Py_INCREF(Py_None), Py_None
-
+/* Hack: MSVC doesn't support ssize_t */
+#ifdef _WIN32
+#define ssize_t long
+#endif
 #include <cpyext_object.h>
+#ifdef _WIN32
+#undef ssize_t
+#endif
+
+#define PY_SSIZE_T_MAX ((Py_ssize_t)(((size_t)-1)>>1))
+#define PY_SSIZE_T_MIN (-PY_SSIZE_T_MAX-1)
+
+#define Py_RETURN_NONE return Py_INCREF(Py_None), Py_None
 
 /*
 CPython has this for backwards compatibility with really old extensions, and now
@@ -77,7 +87,6 @@ not implemented for a given type combination.
 #define Py_NE 3
 #define Py_GT 4
 #define Py_GE 5
-
 
 /* Py3k buffer interface, adapted for PyPy */
     /* Flags for getting buffers */
