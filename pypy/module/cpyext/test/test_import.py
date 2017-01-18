@@ -40,6 +40,12 @@ class TestImport(BaseApiTest):
         stat = PyImport_ReloadModule(space, stat)
         assert space.getattr(stat, space.wrap("S_IMODE"))
 
+    def test_ImportModuleLevelObject(self, space):
+        w_mod = PyImport_ImportModuleLevelObject(
+            space, space.wrap('stat'), None, None, None, 0)
+        assert w_mod
+        assert space.getattr(w_mod, space.wrap("S_IMODE"))
+
     def test_lock(self, space):
         # "does not crash"
         _PyImport_AcquireLock(space, )
