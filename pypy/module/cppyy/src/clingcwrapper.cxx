@@ -522,7 +522,7 @@ Char_t* Cppyy::CallS(
    if ( FastCall( method, args, self, (void*)cppresult ) ) {
 	  cstr = cppstring_to_cstring( *cppresult );
       *length = cppresult->size();
-      cppresult->std::string::~string();
+      cppresult->std::string::~basic_string();
    } else
       *length = 0;
    free( (void*)cppresult ); 
@@ -712,7 +712,7 @@ ptrdiff_t Cppyy::GetBaseOffset( TCppType_t derived, TCppType_t base,
          msg << "failed offset calculation between " << cb->GetName() << " and " << cd->GetName();
          // TODO: propagate this warning to caller w/o use of Python C-API
          // PyErr_Warn( PyExc_RuntimeWarning, const_cast<char*>( msg.str().c_str() ) );
-         std::cerr << "Warning: " << msg << '\n';
+         std::cerr << "Warning: " << msg.str() << '\n';
       }
 
    // return -1 to signal caller NOT to apply offset
