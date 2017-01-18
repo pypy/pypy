@@ -1900,6 +1900,29 @@ def setresgid(space, rgid, egid, sgid):
     except OSError as e:
         raise wrap_oserror(space, e, eintr_retry=False)
 
+@unwrap_spec(which=int, who=int)
+def getpriority(space, which, who):
+    """ getpriority(which, who) -> int
+
+    Get program scheduling priority.
+    """
+    try:
+        returned_priority = rposix.getpriority(which, who)
+    except OSError as e:
+        raise wrap_oserror(space, e, eintr_retry=False)
+    return space.wrap(returned_priority)
+
+@unwrap_spec(which=int, who=int, priority=int)
+def setpriority(space, which, who, priority):
+    """ setpriority(which, who, priority)
+
+    Set program scheduling priority.
+    """
+    try:
+        rposix.setpriority(which, who, priority)
+    except OSError as e:
+        raise wrap_oserror(space, e, eintr_retry=False)
+
 def declare_new_w_star(name):
     if name in ('WEXITSTATUS', 'WSTOPSIG', 'WTERMSIG'):
         @unwrap_spec(status=c_int)

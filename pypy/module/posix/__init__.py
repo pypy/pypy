@@ -206,6 +206,13 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['get_blocking'] = 'interp_posix.get_blocking'
         interpleveldefs['set_blocking'] = 'interp_posix.set_blocking'
 
+    if hasattr(rposix, 'getpriority'):
+        interpleveldefs['getpriority'] = 'interp_posix.getpriority'
+        interpleveldefs['setpriority'] = 'interp_posix.setpriority'
+        for _name in ['PRIO_PROCESS', 'PRIO_PGRP', 'PRIO_USER']:
+            assert getattr(rposix, _name) is not None, "missing %r" % (_name,)
+            interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
+
     for _name in ["O_CLOEXEC"]:
         if getattr(rposix, _name) is not None:
             interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
