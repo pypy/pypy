@@ -1,3 +1,4 @@
+import sys
 from collections import OrderedDict
 from cffi import api, model
 from cffi.commontypes import COMMON_TYPES, resolve_common_type
@@ -665,6 +666,8 @@ def add_inttypes():
 add_inttypes()
 CNAME_TO_LLTYPE['int'] = rffi.INT_real
 CNAME_TO_LLTYPE['wchar_t'] = lltype.UniChar
+if 'ssize_t' not in CNAME_TO_LLTYPE:  # on Windows
+    CNAME_TO_LLTYPE['ssize_t'] = CNAME_TO_LLTYPE['long']
 
 def cname_to_lltype(name):
     return CNAME_TO_LLTYPE[name]
@@ -773,8 +776,13 @@ class CTypeSpace(object):
             for hdr in x.headers:
                 if hdr not in all_headers:
                     all_headers.append(hdr)
+        if sys.platform == 'win32':
+            compile_extra = ['-Dssize_t=long']
+        else:
+            compile_extra = []
         return ExternalCompilationInfo(
-            post_include_bits=all_sources, includes=all_headers)
+            post_include_bits=all_sources, includes=all_headers,
+            compile_extra=compile_extra)
 
     def configure_types(self):
         for name, (obj, quals) in self.ctx._declarations.iteritems():
