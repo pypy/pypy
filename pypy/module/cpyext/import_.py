@@ -56,6 +56,7 @@ def PyImport_ImportModuleNoBlock(space, name):
         PyObject *name, PyObject *given_globals, PyObject *locals,
         PyObject *given_fromlist, int level)''', cts)
 def PyImport_ImportModuleLevelObject(space, w_name, w_glob, w_loc, w_fromlist, level):
+    level = rffi.cast(lltype.Signed, level)
     if w_glob is None:
         w_glob = space.newdict()
     else:
