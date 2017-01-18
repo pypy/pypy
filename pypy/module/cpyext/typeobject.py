@@ -14,9 +14,9 @@ from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, Py_ssize_t, Py_ssize_tP,
     slot_function, generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING, Py_buffer,
     Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
-    Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers,
+    build_type_checkers,
     PyObjectFields, PyTypeObject, PyTypeObjectPtr,
-    Py_TPFLAGS_HAVE_INPLACEOPS, cts, parse_dir)
+    cts, parse_dir)
 from pypy.module.cpyext.cparser import parse_source
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
     W_PyCWrapperObject, PyCFunction_NewEx, PyCFunction, PyMethodDef,
@@ -421,7 +421,6 @@ def inherit_special(space, pto, base_pto):
         pto.c_tp_basicsize = base_pto.c_tp_basicsize
     if pto.c_tp_itemsize < base_pto.c_tp_itemsize:
         pto.c_tp_itemsize = base_pto.c_tp_itemsize
-    pto.c_tp_flags |= base_pto.c_tp_flags & Py_TPFLAGS_HAVE_INPLACEOPS
 
 def check_descr(space, w_self, w_type):
     if not space.isinstance_w(w_self, w_type):
@@ -574,7 +573,6 @@ def setup_buffer_procs(space, w_type, pto):
     else:
         c_buf.c_bf_getbuffer = llslot(space, bf_getbuffer)
     pto.c_tp_as_buffer = c_buf
-    pto.c_tp_flags |= Py_TPFLAGS_HAVE_GETCHARBUFFER
 
 @slot_function([PyObject], lltype.Void)
 def type_dealloc(space, obj):
@@ -798,10 +796,8 @@ def _type_realize(space, py_obj):
         # XXX refactor - parts of this are done in finish_type_2 -> inherit_slots
         if not py_type.c_tp_as_number:
             py_type.c_tp_as_number = base.c_tp_as_number
-            py_type.c_tp_flags |= base.c_tp_flags & Py_TPFLAGS_HAVE_INPLACEOPS
         if not py_type.c_tp_as_sequence:
             py_type.c_tp_as_sequence = base.c_tp_as_sequence
-            py_type.c_tp_flags |= base.c_tp_flags & Py_TPFLAGS_HAVE_INPLACEOPS
         if not py_type.c_tp_as_mapping:
             py_type.c_tp_as_mapping = base.c_tp_as_mapping
         #if not py_type.c_tp_as_buffer: py_type.c_tp_as_buffer = base.c_tp_as_buffer

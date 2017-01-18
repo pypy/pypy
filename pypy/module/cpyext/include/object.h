@@ -150,31 +150,6 @@ Code can use PyType_HasFeature(type_ob, flag_value) to test whether the
 given type object has a specified feature.
 */
 
-/* PyBufferProcs contains bf_getcharbuffer */
-#define Py_TPFLAGS_HAVE_GETCHARBUFFER  (1L<<0)
-
-/* PySequenceMethods contains sq_contains */
-#define Py_TPFLAGS_HAVE_SEQUENCE_IN (1L<<1)
-
-/* This is here for backwards compatibility.  Extensions that use the old GC
- * API will still compile but the objects will not be tracked by the GC. */
-#define Py_TPFLAGS_GC 0 /* used to be (1L<<2) */
-
-/* PySequenceMethods and PyNumberMethods contain in-place operators */
-#define Py_TPFLAGS_HAVE_INPLACEOPS (1L<<3)
-
-/* tp_richcompare is defined */
-#define Py_TPFLAGS_HAVE_RICHCOMPARE (1L<<5)
-
-/* Objects which are weakly referencable if their tp_weaklistoffset is >0 */
-#define Py_TPFLAGS_HAVE_WEAKREFS (1L<<6)
-
-/* tp_iter is defined */
-#define Py_TPFLAGS_HAVE_ITER (1L<<7)
-
-/* New members introduced by Python 2.2 exist */
-#define Py_TPFLAGS_HAVE_CLASS (1L<<8)
-
 /* Set if the type object is dynamically allocated */
 #define Py_TPFLAGS_HEAPTYPE (1L<<9)
 
@@ -197,9 +172,6 @@ given type object has a specified feature.
 #define Py_TPFLAGS_HAVE_STACKLESS_EXTENSION 0
 #endif
 
-/* Objects support nb_index in PyNumberMethods */
-#define Py_TPFLAGS_HAVE_INDEX (1L<<17)
-
 /* Objects support type attribute cache */
 #define Py_TPFLAGS_HAVE_VERSION_TAG   (1L<<18)
 #define Py_TPFLAGS_VALID_VERSION_TAG  (1L<<19)
@@ -208,33 +180,32 @@ given type object has a specified feature.
 #define Py_TPFLAGS_IS_ABSTRACT (1L<<20)
 
 /* These flags are used to determine if a type is a subclass. */
-#define Py_TPFLAGS_INT_SUBCLASS		(1L<<23)
-#define Py_TPFLAGS_LONG_SUBCLASS	(1L<<24)
-#define Py_TPFLAGS_LIST_SUBCLASS	(1L<<25)
-#define Py_TPFLAGS_TUPLE_SUBCLASS	(1L<<26)
-#define Py_TPFLAGS_STRING_SUBCLASS	(1L<<27)
-#define Py_TPFLAGS_UNICODE_SUBCLASS	(1L<<28)
-#define Py_TPFLAGS_DICT_SUBCLASS	(1L<<29)
-#define Py_TPFLAGS_BASE_EXC_SUBCLASS	(1L<<30)
-#define Py_TPFLAGS_TYPE_SUBCLASS	(1L<<31)
+#define Py_TPFLAGS_LONG_SUBCLASS        (1UL << 24)
+#define Py_TPFLAGS_LIST_SUBCLASS        (1UL << 25)
+#define Py_TPFLAGS_TUPLE_SUBCLASS       (1UL << 26)
+#define Py_TPFLAGS_BYTES_SUBCLASS       (1UL << 27)
+#define Py_TPFLAGS_UNICODE_SUBCLASS     (1UL << 28)
+#define Py_TPFLAGS_DICT_SUBCLASS        (1UL << 29)
+#define Py_TPFLAGS_BASE_EXC_SUBCLASS    (1UL << 30)
+#define Py_TPFLAGS_TYPE_SUBCLASS        (1UL << 31)
 
-#define Py_TPFLAGS_DEFAULT_EXTERNAL ( \
-                             Py_TPFLAGS_HAVE_GETCHARBUFFER | \
-                             Py_TPFLAGS_HAVE_SEQUENCE_IN | \
-                             Py_TPFLAGS_HAVE_INPLACEOPS | \
-                             Py_TPFLAGS_HAVE_RICHCOMPARE | \
-                             Py_TPFLAGS_HAVE_WEAKREFS | \
-                             Py_TPFLAGS_HAVE_ITER | \
-                             Py_TPFLAGS_HAVE_CLASS | \
-                             Py_TPFLAGS_HAVE_STACKLESS_EXTENSION | \
-                             Py_TPFLAGS_HAVE_INDEX | \
-                             0)
-#define Py_TPFLAGS_DEFAULT_CORE (Py_TPFLAGS_DEFAULT_EXTERNAL | \
-                                 Py_TPFLAGS_HAVE_VERSION_TAG)
+#define Py_TPFLAGS_DEFAULT  ( \
+                 Py_TPFLAGS_HAVE_STACKLESS_EXTENSION | \
+                 Py_TPFLAGS_HAVE_VERSION_TAG | \
+                0)
 
-#define Py_TPFLAGS_DEFAULT Py_TPFLAGS_DEFAULT_EXTERNAL
+/* NOTE: The following flags reuse lower bits (removed as part of the
+ * Python 3.0 transition). */
 
+/* Type structure has tp_finalize member (3.4) */
+#define Py_TPFLAGS_HAVE_FINALIZE (1UL << 0)
+
+#ifdef Py_LIMITED_API
+#define PyType_HasFeature(t,f)  ((PyType_GetFlags(t) & (f)) != 0)
+#else
 #define PyType_HasFeature(t,f)  (((t)->tp_flags & (f)) != 0)
+#endif
+#define PyType_FastSubclass(t,f)  PyType_HasFeature(t,f)
 
 /* objimpl.h ----------------------------------------------*/
 #define PyObject_New(type, typeobj) \
