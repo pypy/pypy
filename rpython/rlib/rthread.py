@@ -373,6 +373,10 @@ class ThreadLocalField(object):
     def _freeze_(self):
         return True
 
+@jit.loop_invariant
+def get_threadlocal_base():
+    return llop.threadlocalref_addr(llmemory.Address)
+
 
 class ThreadLocalReference(ThreadLocalField):
     # A thread-local that points to an object.  The object stored in such

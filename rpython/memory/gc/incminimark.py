@@ -72,6 +72,7 @@ from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask, r_uint
 from rpython.rlib.rarithmetic import LONG_BIT_SHIFT
 from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib import rthread
 from rpython.memory.gc.minimarkpage import out_of_memory
 
 #
@@ -190,10 +191,9 @@ FORWARDSTUB = lltype.GcStruct('forwarding_stub',
 FORWARDSTUBPTR = lltype.Ptr(FORWARDSTUB)
 NURSARRAY = lltype.Array(llmemory.Address)
 
-GCTL = lltype.Struct('GCThreadLocal',
-                     ('nursery_free', llmemory.Address),
-                     ('nursery_top', llmemory.Address),
-                     hints={'thread_local': True})
+NURSERY_FREE = rthread.ThreadLocalField(llmemory.Address, 'nursery_free')
+NURSERY_TOP  = rthread.ThreadLocalField(llmemory.Address, 'nursery_top')
+NEXT_NUBLOCK = rthread.ThreadLocalField(llmemory.Address, 'next_nublock')
 
 # ____________________________________________________________
 
@@ -275,7 +275,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
         # Objects whose total size is at least 'large_object' bytes are
         # allocated out of the nursery immediately, as old objects.
-        "large_object": 13000,
+        "large_object": 26000,
 
         # Thread-local Block size: the nursery is divided into blocks of
         # at most this size each, and allocations go on in a
@@ -285,11 +285,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # allocated nursery size is 2 times "tl_block_size".
         # "cache_line_min" is used to round the actual thread-local
         # blocks to a cache line, to avoid pointless cache conflicts.
-        "tl_block_size": 32768,
+        "tl_block_size": 65536,
         "cache_line_min": 256,
         }
-
-    tl = lltype.malloc(GCTL, flavor='raw', immortal=True)
 
     def __init__(self, config,
                  read_from_env=False,
@@ -335,8 +333,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.cache_line_min = cache_line_min
         #
         self.nursery      = llmemory.NULL
-        self.tl.nursery_free = llmemory.NULL
-        self.tl.nursery_top  = llmemory.NULL
+        self.nublocks     = llmemory.NULL # <= linked list of threadlocal_base
+                                          # for all active nursery consumers
         self.debug_tiny_nursery = -1
         self.debug_rotating_nurseries = lltype.nullptr(NURSARRAY)
         self.extra_threshold = 0
@@ -539,6 +537,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                   "cache_line_min is not a power a two")
         self.tl_block_size = ((self.tl_block_size + self.cache_line_min - 1)
                               & ~(self.cache_line_min - 1))
+        self.gil_gc_color = llop.new_gil_color(lltype.Signed)
 
 
     def _nursery_memory_size(self):
@@ -636,6 +635,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
                         "size", self.nursery_size)
             debug_stop("gc-debug")
 
+    get_nursery_free = NURSERY_FREE.getraw
+    set_nursery_free = NURSERY_FREE.setraw
+
+    get_nursery_top = NURSERY_TOP.getraw
+    set_nursery_top = NURSERY_TOP.setraw
+
+    get_next_nublock = NEXT_NUBLOCK.getraw
+    set_next_nublock = NEXT_NUBLOCK.setraw
+
 
     def malloc_fixedsize(self, typeid, size,
                                needs_finalizer=False,
@@ -673,10 +681,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             # Get the memory from the nursery.  If there is not enough space
             # there, do a collect first.
-            result = self.tl.nursery_free
-            ll_assert(result != llmemory.NULL, "uninitialized nursery")
-            self.tl.nursery_free = new_free = result + totalsize
-            if new_free > self.tl.nursery_top:
+            result = self.get_nursery_free()
+            #ll_assert(result != llmemory.NULL, "uninitialized nursery")
+            new_free = result + totalsize
+            self.set_nursery_free(new_free)
+            if new_free > self.get_nursery_top():
                 result = self.collect_and_reserve(totalsize)
             #
             # Build the object.
@@ -733,10 +742,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             # Get the memory from the nursery.  If there is not enough space
             # there, do a collect first.
-            result = self.tl.nursery_free
-            ll_assert(result != llmemory.NULL, "uninitialized nursery")
-            self.tl.nursery_free = new_free = result + totalsize
-            if new_free > self.tl.nursery_top:
+            result = self.get_nursery_free()
+            #ll_assert(result != llmemory.NULL, "uninitialized nursery")
+            new_free = result + totalsize
+            self.set_nursery_free(new_free)
+            if new_free > self.get_nursery_top():
                 result = self.collect_and_reserve(totalsize)
             #
             # Build the object.
@@ -825,13 +835,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
         major collection, and finally reserve totalsize bytes.
         """
         minor_collection_count = 0
-        must_downgrade_gil = False
+        old_color = 0
+        self._gc_lock()
+
         while True:
-            self.tl.nursery_free = llmemory.NULL      # debug: don't use me
+            self.set_nursery_free(llmemory.NULL)      # debug: don't use me
             # note: no "raise MemoryError" between here and the next time
             # we initialize nursery_free!
 
-            self._gc_lock()
             if self.nursery_barriers.non_empty():
                 # Pinned object in front of nursery_top. Try reserving totalsize
                 # by jumping into the next, yet unused, area inside the
@@ -860,16 +871,17 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # four addresses which match the four "B".
                 #
                 # update used nursery space to allocate objects
-                self.tl.nursery_free = self.nursery_barriers.popleft()
-                self.tl.nursery_top = self.nursery_barriers.popleft()
-                self._gc_unlock()
-                prev_gil = False
+                self.set_nursery_free(self.nursery_barriers.popleft())
+                self.set_nursery_top(self.nursery_barriers.popleft())
+                if self.get_nursery_top() == llmemory.NULL:
+                    # needs to add this threadlocal to the nublocks list
+                    self.set_next_nublock(self.nublocks)
+                    self.nublocks = rthread.get_threadlocal_base()
             else:
-                self._gc_unlock()
-                if not llop.gil_is_exclusive(lltype.Bool):
-                    ll_assert(not must_downgrade_gil,
-                              "collect_and_reverse: bad gil state")
-                    must_downgrade_gil = llop.gil_wait(lltype.Bool)
+                if llop.get_gil_share_count(lltype.Signed) > 1:
+                    assert old_color == 0
+                    old_color = llop.get_gil_color(lltype.Signed)
+                    llop.set_gil_color(lltype.Void, self.gil_gc_color)
                     continue      # waited, maybe the situation changed
                 minor_collection_count += 1
                 if minor_collection_count == 1:
@@ -897,14 +909,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Tried to do something about nursery_free overflowing
             # nursery_top before this point. Try to reserve totalsize now.
             # If this succeeds break out of loop.
-            result = self.tl.nursery_free
-            if self.tl.nursery_free + totalsize <= self.tl.nursery_top:
-                self.tl.nursery_free = result + totalsize
-                ll_assert(self.tl.nursery_free <= self.tl.nursery_top, "nursery overflow")
+            result = self.get_nursery_free()
+            if result + totalsize <= self.get_nursery_top():
+                self.set_nursery_free(result + totalsize)
                 break
             #
-        if must_downgrade_gil:
-            llop.gil_downgrade(lltype.Void)
+        self._gc_unlock()
+        if old_color != 0:
+            llop.set_gil_color(lltype.Void, old_color)
         #
         if self.debug_tiny_nursery >= 0:   # for debugging
             if self.tl.nursery_top - self.tl.nursery_free > self.debug_tiny_nursery:
