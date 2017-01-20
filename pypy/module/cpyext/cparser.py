@@ -347,14 +347,12 @@ class Parser(object):
         if isinstance(typenode, pycparser.c_ast.TypeDecl):
             quals = self._extract_quals(typenode)
             type = typenode.type
-            # first, dereference typedefs, if we have it already parsed, we're good
-            if (isinstance(type, pycparser.c_ast.IdentifierType) and
-                len(type.names) == 1 and
-                ('typedef ' + type.names[0]) in self._declarations):
-                tp, base_quals = self._declarations['typedef ' + type.names[0]]
-                quals |= base_quals
-                return tp, quals
             if isinstance(type, pycparser.c_ast.IdentifierType):
+                # first, dereference typedefs, if we have it already parsed, we're good
+                if (len(type.names) == 1 and
+                    ('typedef ' + type.names[0]) in self._declarations):
+                    tp0, quals0 = self._declarations['typedef ' + type.names[0]]
+                    return tp0, (quals | quals0)
                 # assume a primitive type.  get it from .names, but reduce
                 # synonyms to a single chosen combination
                 names = list(type.names)
