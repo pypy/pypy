@@ -326,15 +326,6 @@ class Parser(object):
         return model.PointerType(type, quals)
 
     def _get_type_and_quals(self, typenode, name=None, partial_length_ok=False):
-        # first, dereference typedefs, if we have it already parsed, we're good
-        if (isinstance(typenode, pycparser.c_ast.TypeDecl) and
-            isinstance(typenode.type, pycparser.c_ast.IdentifierType) and
-            len(typenode.type.names) == 1 and
-            ('typedef ' + typenode.type.names[0]) in self._declarations):
-            tp, quals = self._declarations['typedef ' + typenode.type.names[0]]
-            quals |= self._extract_quals(typenode)
-            return tp, quals
-        #
         if isinstance(typenode, pycparser.c_ast.ArrayDecl):
             # array type
             if typenode.dim is None:
@@ -356,6 +347,13 @@ class Parser(object):
         if isinstance(typenode, pycparser.c_ast.TypeDecl):
             quals = self._extract_quals(typenode)
             type = typenode.type
+            # first, dereference typedefs, if we have it already parsed, we're good
+            if (isinstance(type, pycparser.c_ast.IdentifierType) and
+                len(type.names) == 1 and
+                ('typedef ' + type.names[0]) in self._declarations):
+                tp, base_quals = self._declarations['typedef ' + type.names[0]]
+                quals |= base_quals
+                return tp, quals
             if isinstance(type, pycparser.c_ast.IdentifierType):
                 # assume a primitive type.  get it from .names, but reduce
                 # synonyms to a single chosen combination
