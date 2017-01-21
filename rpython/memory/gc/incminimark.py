@@ -879,9 +879,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
                     self.nublocks = rthread.get_threadlocal_base()
             else:
                 if llop.get_gil_share_count(lltype.Signed) > 1:
-                    assert old_color == 0
+                    self._gc_unlock()
+                    ll_assert(old_color == 0, "old_color != 0")
                     old_color = llop.get_gil_color(lltype.Signed)
                     llop.set_gil_color(lltype.Void, self.gil_gc_color)
+                    self._gc_lock()
                     continue      # waited, maybe the situation changed
                 minor_collection_count += 1
                 if minor_collection_count == 1:
