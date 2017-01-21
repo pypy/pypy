@@ -192,6 +192,15 @@ class UnknownFloatType(BasePrimitiveType):
         raise NotImplementedError("float type '%s' can only be used after "
                                   "compilation" % self.name)
 
+class DefinedType(BaseType):
+    _attrs_ = ('name', )
+
+    def __init__(self, name, realtype, quals):
+        self.name = name
+        self.realtype = realtype
+        self.quals = quals
+        self.c_name_with_marker = name + '&'
+
 
 class BaseFunctionType(BaseType):
     _attrs_ = ('args', 'result', 'ellipsis', 'abi')

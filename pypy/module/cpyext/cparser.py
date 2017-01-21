@@ -189,13 +189,7 @@ class Parser(object):
                 if isinstance(decl, pycparser.c_ast.Decl):
                     self._parse_decl(decl)
                 elif isinstance(decl, pycparser.c_ast.Typedef):
-                    if not decl.name:
-                        raise CDefError("typedef does not declare any name",
-                                        decl)
-                    quals = 0
-                    realtype, quals = self._get_type_and_quals(
-                        decl.type, name=decl.name, partial_length_ok=True)
-                    self._declare('typedef ' + decl.name, realtype, quals=quals)
+                    self._parse_typedef(decl)
                 elif decl.__class__.__name__ == 'Pragma':
                     pass    # skip pragma, only in pycparser 2.15
                 else:
@@ -244,6 +238,14 @@ class Parser(object):
         else:
             tag = 'function '
         self._declare(tag + decl.name, tp)
+
+    def _parse_typedef(self, decl):
+        if not decl.name:
+            raise CDefError("typedef does not declare any name", decl)
+        realtype, quals = self._get_type_and_quals(
+            decl.type, name=decl.name, partial_length_ok=True)
+        tp = model.DefinedType(decl.name, realtype, quals)
+        self._declare('typedef ' + decl.name, tp)
 
     def _parse_decl(self, decl):
         node = decl.type
@@ -802,6 +804,8 @@ class CTypeSpace(object):
                 del self._TYPES[name]
 
     def convert_type(self, obj, quals=0):
+        if isinstance(obj, model.DefinedType):
+            return self.convert_type(obj.realtype, obj.quals)
         if isinstance(obj, model.PrimitiveType):
             return cname_to_lltype(obj.name)
         elif isinstance(obj, model.StructType):
