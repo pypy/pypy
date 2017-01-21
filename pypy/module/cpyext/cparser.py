@@ -856,8 +856,7 @@ class CTypeSpace(object):
         ast, _, _ = self.ctx._parse(cdecl)
         decl = ast.ext[-1]
         tp, quals = self.ctx._get_type_and_quals(decl.type, name=decl.name)
-        FUNCP = self.convert_type(tp.as_function_pointer())
-        return decl.name, FUNCP.TO
+        return FunctionDeclaration(decl.name, tp)
 
     def _freeze_(self):
         if self._frozen:
@@ -881,6 +880,16 @@ class CTypeSpace(object):
         self._frozen = True
         return True
 
+class FunctionDeclaration(object):
+    def __init__(self, name, tp):
+        self.name = name
+        self.tp = tp
+
+    def get_llargs(self, cts):
+        return [cts.convert_type(arg) for arg in self.tp.args]
+
+    def get_llresult(self, cts):
+        return cts.convert_type(self.tp.result)
 
 def parse_source(source, includes=None, headers=None, configure_now=True):
     cts = CTypeSpace(headers=headers, includes=includes)
