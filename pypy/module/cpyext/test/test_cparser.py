@@ -185,10 +185,27 @@ def test_parse_funcdecl():
     typedef TestFloatObject* (*func_t)(int, int);
     """
     cts = parse_source(decl)
-    name, FUNC = cts.parse_func("func_t some_func(TestFloatObject*)")
-    assert name == 'some_func'
-    assert FUNC.RESULT == cts.gettype('func_t')
-    assert FUNC.ARGS == (cts.gettype('TestFloatObject *'),)
+    func_decl = cts.parse_func("func_t * some_func(TestFloatObject*)")
+    assert func_decl.name == 'some_func'
+    assert func_decl.get_llresult(cts) == cts.gettype('func_t*')
+    assert func_decl.get_llargs(cts) == [cts.gettype('TestFloatObject *')]
+
+def test_write_func():
+    from ..api import ApiFunction
+    from rpython.translator.c.database import LowLevelDatabase
+    db = LowLevelDatabase()
+    cdef = """
+    typedef ssize_t Py_ssize_t;
+    """
+    cts = parse_source(cdef)
+    cdecl = "Py_ssize_t * some_func(Py_ssize_t*)"
+    decl = cts.parse_func(cdecl)
+    api_function = ApiFunction(
+        decl.get_llargs(cts), decl.get_llresult(cts), lambda space, x: None,
+        cdecl=decl)
+    assert (api_function.get_api_decl('some_func', db) ==
+            "PyAPI_FUNC(Py_ssize_t *) some_func(Py_ssize_t * arg0);")
+
 
 def test_wchar_t():
     cdef = """

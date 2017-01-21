@@ -1,12 +1,12 @@
-import sys
 from collections import OrderedDict
-from cffi import api, model
-from cffi.commontypes import COMMON_TYPES, resolve_common_type
+from . import cmodel as model
+from .commontypes import COMMON_TYPES, resolve_common_type
+from .error import FFIError, CDefError
 try:
     from cffi import _pycparser as pycparser
 except ImportError:
     import pycparser
-import weakref, re
+import weakref, re, sys
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rfile import FILEP
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -161,7 +161,7 @@ class Parser(object):
             msg = 'cannot parse "%s"\n%s' % (line.strip(), msg)
         else:
             msg = 'parse error\n%s' % (msg,)
-        raise api.CDefError(msg)
+        raise CDefError(msg)
 
     def parse(self, csource, override=False, packed=False, dllexport=False):
         prev_options = self._options
@@ -189,18 +189,12 @@ class Parser(object):
                 if isinstance(decl, pycparser.c_ast.Decl):
                     self._parse_decl(decl)
                 elif isinstance(decl, pycparser.c_ast.Typedef):
-                    if not decl.name:
-                        raise api.CDefError("typedef does not declare any name",
-                                            decl)
-                    quals = 0
-                    realtype, quals = self._get_type_and_quals(
-                        decl.type, name=decl.name, partial_length_ok=True)
-                    self._declare('typedef ' + decl.name, realtype, quals=quals)
+                    self._parse_typedef(decl)
                 elif decl.__class__.__name__ == 'Pragma':
                     pass    # skip pragma, only in pycparser 2.15
                 else:
-                    raise api.CDefError("unrecognized construct", decl)
-        except api.FFIError as e:
+                    raise CDefError("unrecognized construct", decl)
+        except FFIError as e:
             msg = self._convert_pycparser_error(e, csource)
             if msg:
                 e.args = (e.args[0] + "\n    *** Err: %s" % msg,)
@@ -210,7 +204,7 @@ class Parser(object):
         if key in self._int_constants:
             if self._int_constants[key] == val:
                 return     # ignore identical double declarations
-            raise api.FFIError(
+            raise FFIError(
                 "multiple declarations of constant: %s" % (key,))
         self._int_constants[key] = val
 
@@ -245,6 +239,14 @@ class Parser(object):
             tag = 'function '
         self._declare(tag + decl.name, tp)
 
+    def _parse_typedef(self, decl):
+        if not decl.name:
+            raise CDefError("typedef does not declare any name", decl)
+        realtype, quals = self._get_type_and_quals(
+            decl.type, name=decl.name, partial_length_ok=True)
+        tp = model.DefinedType(decl.name, realtype, quals)
+        self._declare('typedef ' + decl.name, tp)
+
     def _parse_decl(self, decl):
         node = decl.type
         if isinstance(node, pycparser.c_ast.FuncDecl):
@@ -259,8 +261,8 @@ class Parser(object):
             elif isinstance(node, pycparser.c_ast.Enum):
                 self._get_struct_union_enum_type('enum', node)
             elif not decl.name:
-                raise api.CDefError("construct does not declare any variable",
-                                    decl)
+                raise CDefError("construct does not declare any variable",
+                                decl)
             #
             if decl.name:
                 tp, quals = self._get_type_and_quals(node,
@@ -292,7 +294,7 @@ class Parser(object):
         ast, _, _ = self._parse('void __dummy(\n%s\n);' % cdecl)
         exprnode = ast.ext[-1].type.args.params[0]
         if isinstance(exprnode, pycparser.c_ast.ID):
-            raise api.CDefError("unknown identifier '%s'" % (exprnode.name,))
+            raise CDefError("unknown identifier '%s'" % (exprnode.name,))
         return self._get_type_and_quals(exprnode.type)
 
     def _declare(self, name, obj, included=False, quals=0):
@@ -326,15 +328,6 @@ class Parser(object):
         return model.PointerType(type, quals)
 
     def _get_type_and_quals(self, typenode, name=None, partial_length_ok=False):
-        # first, dereference typedefs, if we have it already parsed, we're good
-        if (isinstance(typenode, pycparser.c_ast.TypeDecl) and
-            isinstance(typenode.type, pycparser.c_ast.IdentifierType) and
-            len(typenode.type.names) == 1 and
-            ('typedef ' + typenode.type.names[0]) in self._declarations):
-            tp, quals = self._declarations['typedef ' + typenode.type.names[0]]
-            quals |= self._extract_quals(typenode)
-            return tp, quals
-        #
         if isinstance(typenode, pycparser.c_ast.ArrayDecl):
             # array type
             if typenode.dim is None:
@@ -357,6 +350,11 @@ class Parser(object):
             quals = self._extract_quals(typenode)
             type = typenode.type
             if isinstance(type, pycparser.c_ast.IdentifierType):
+                # first, dereference typedefs, if we have it already parsed, we're good
+                if (len(type.names) == 1 and
+                    ('typedef ' + type.names[0]) in self._declarations):
+                    tp0, quals0 = self._declarations['typedef ' + type.names[0]]
+                    return tp0, (quals | quals0)
                 # assume a primitive type.  get it from .names, but reduce
                 # synonyms to a single chosen combination
                 names = list(type.names)
@@ -413,14 +411,14 @@ class Parser(object):
             return self._get_struct_union_enum_type('union', typenode, name,
                                                     nested=True), 0
         #
-        raise api.FFIError(":%d: bad or unsupported type declaration" %
+        raise FFIError(":%d: bad or unsupported type declaration" %
                 typenode.coord.line)
 
     def _parse_function_type(self, typenode, funcname=None):
         params = list(getattr(typenode.args, 'params', []))
         for i, arg in enumerate(params):
             if not hasattr(arg, 'type'):
-                raise api.CDefError("%s arg %d: unknown type '%s'"
+                raise CDefError("%s arg %d: unknown type '%s'"
                     " (if you meant to use the old C syntax of giving"
                     " untyped arguments, it is not supported)"
                     % (funcname or 'in expression', i + 1,
@@ -434,7 +432,7 @@ class Parser(object):
         if ellipsis:
             params.pop()
             if not params:
-                raise api.CDefError(
+                raise CDefError(
                     "%s: a function with only '(...)' as argument"
                     " is not correct C" % (funcname or 'in expression'))
         args = [self._as_func_arg(*self._get_type_and_quals(argdeclnode.type))
@@ -533,7 +531,7 @@ class Parser(object):
             return tp
         #
         if tp.fldnames is not None:
-            raise api.CDefError("duplicate declaration of struct %s" % name)
+            raise CDefError("duplicate declaration of struct %s" % name)
         fldnames = []
         fldtypes = []
         fldbitsize = []
@@ -570,7 +568,7 @@ class Parser(object):
 
     def _make_partial(self, tp, nested):
         if not isinstance(tp, model.StructOrUnion):
-            raise api.CDefError("%s cannot be partial" % (tp,))
+            raise CDefError("%s cannot be partial" % (tp,))
         if not tp.has_c_name() and not nested:
             raise NotImplementedError("%s is partial but has no C name" %(tp,))
         tp.partial = True
@@ -590,7 +588,7 @@ class Parser(object):
                     len(s) == 3 or (len(s) == 4 and s[1] == "\\")):
                 return ord(s[-2])
             else:
-                raise api.CDefError("invalid constant %r" % (s,))
+                raise CDefError("invalid constant %r" % (s,))
         #
         if (isinstance(exprnode, pycparser.c_ast.UnaryOp) and
                 exprnode.op == '+'):
@@ -609,12 +607,12 @@ class Parser(object):
             if partial_length_ok:
                 self._partial_length = True
                 return '...'
-            raise api.FFIError(":%d: unsupported '[...]' here, cannot derive "
-                               "the actual array length in this context"
-                               % exprnode.coord.line)
+            raise FFIError(":%d: unsupported '[...]' here, cannot derive "
+                           "the actual array length in this context"
+                           % exprnode.coord.line)
         #
-        raise api.FFIError(":%d: unsupported expression: expected a "
-                           "simple numeric constant" % exprnode.coord.line)
+        raise FFIError(":%d: unsupported expression: expected a "
+                       "simple numeric constant" % exprnode.coord.line)
 
     def _build_enum_type(self, explicit_name, decls):
         if decls is not None:
@@ -806,6 +804,8 @@ class CTypeSpace(object):
                 del self._TYPES[name]
 
     def convert_type(self, obj, quals=0):
+        if isinstance(obj, model.DefinedType):
+            return self.convert_type(obj.realtype, obj.quals)
         if isinstance(obj, model.PrimitiveType):
             return cname_to_lltype(obj.name)
         elif isinstance(obj, model.StructType):
@@ -856,8 +856,7 @@ class CTypeSpace(object):
         ast, _, _ = self.ctx._parse(cdecl)
         decl = ast.ext[-1]
         tp, quals = self.ctx._get_type_and_quals(decl.type, name=decl.name)
-        FUNCP = self.convert_type(tp.as_function_pointer())
-        return decl.name, FUNCP.TO
+        return FunctionDeclaration(decl.name, tp)
 
     def _freeze_(self):
         if self._frozen:
@@ -881,6 +880,16 @@ class CTypeSpace(object):
         self._frozen = True
         return True
 
+class FunctionDeclaration(object):
+    def __init__(self, name, tp):
+        self.name = name
+        self.tp = tp
+
+    def get_llargs(self, cts):
+        return [cts.convert_type(arg) for arg in self.tp.args]
+
+    def get_llresult(self, cts):
+        return cts.convert_type(self.tp.result)
 
 def parse_source(source, includes=None, headers=None, configure_now=True):
     cts = CTypeSpace(headers=headers, includes=includes)

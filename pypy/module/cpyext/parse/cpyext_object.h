@@ -1,5 +1,5 @@
 
-typedef ssize_t Py_ssize_t;
+typedef long Py_ssize_t;
 
 #define PyObject_HEAD  \
     Py_ssize_t ob_refcnt;        \

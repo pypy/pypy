@@ -382,10 +382,14 @@ class ApiFunction(object):
 
     def get_c_restype(self, c_writer):
         if self.cdecl:
-            return self.cdecl.split(self.c_name)[0].strip()
+            return self.cdecl.tp.result.get_c_name()
         return c_writer.gettype(self.restype).replace('@', '').strip()
 
     def get_c_args(self, c_writer):
+        if self.cdecl:
+            args = [tp.get_c_name('arg%d' % i) for i, tp in
+                enumerate(self.cdecl.tp.args)]
+            return ', '.join(args) or "void"
         args = []
         for i, argtype in enumerate(self.argtypes):
             if argtype is CONST_STRING:
@@ -482,14 +486,15 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
         return unwrapper
     return decorate
 
-def api_decl(cdecl, cts, error=_NOT_SPECIFIED, header=DEFAULT_HEADER):
+def api_decl(cdef, cts, error=_NOT_SPECIFIED, header=DEFAULT_HEADER):
     def decorate(func):
         func._always_inline_ = 'try'
-        name, FUNC = cts.parse_func(cdecl)
+        cdecl = cts.parse_func(cdef)
+        RESULT = cdecl.get_llresult(cts)
         api_function = ApiFunction(
-            FUNC.ARGS, FUNC.RESULT, func,
-            error=_compute_error(error, FUNC.RESULT), cdecl=cdecl)
-        FUNCTIONS_BY_HEADER[header][name] = api_function
+            cdecl.get_llargs(cts), RESULT, func,
+            error=_compute_error(error, RESULT), cdecl=cdecl)
+        FUNCTIONS_BY_HEADER[header][cdecl.name] = api_function
         unwrapper = api_function.get_unwrapper()
         unwrapper.func = func
         unwrapper.api_func = api_function
