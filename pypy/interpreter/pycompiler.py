@@ -150,7 +150,8 @@ class PythonAstCompiler(PyCodeCompiler):
         space = self.space
         try:
             parse_tree = self.parser.parse_source(source, info)
-            mod = astbuilder.ast_from_node(space, parse_tree, info)
+            mod = astbuilder.ast_from_node(space, parse_tree, info,
+                                           recursive_parser=self.parser)
         except parseerror.TabError as e:
             raise OperationError(space.w_TabError,
                                  e.wrap_info(space))

@@ -7,9 +7,9 @@ from pypy.interpreter.pyparser import parsestring
 from rpython.rlib.objectmodel import always_inline, we_are_translated
 
 
-def ast_from_node(space, node, compile_info):
+def ast_from_node(space, node, compile_info, recursive_parser=None):
     """Turn a parse tree, node, to AST."""
-    ast = ASTBuilder(space, node, compile_info).build_ast()
+    ast = ASTBuilder(space, node, compile_info, recursive_parser).build_ast()
     #
     # When we are not translated, we send this ast to validate_ast.
     # The goal is to check that validate_ast doesn't crash on valid
@@ -54,10 +54,11 @@ operator_map = misc.dict_to_switch({
 
 class ASTBuilder(object):
 
-    def __init__(self, space, n, compile_info):
+    def __init__(self, space, n, compile_info, recursive_parser=None):
         self.space = space
         self.compile_info = compile_info
         self.root_node = n
+        self.recursive_parser = recursive_parser
 
     def build_ast(self):
         """Convert an top level parse tree node into an AST mod."""
@@ -1206,40 +1207,93 @@ class ASTBuilder(object):
         joined_pieces.append(node(w_string, atom_node.get_lineno(),
                                             atom_node.get_column()))
 
-    def _f_string_expr(self, joined_pieces, u, start, atom_node):
+    def _f_constant_string(self, joined_pieces, u, atom_node):
+        self._add_constant_string(joined_pieces, self.space.newunicode(u),
+                                  atom_node)
+
+    def _f_string_compile(self, source, atom_node):
         # Note: a f-string is kept as a single literal up to here.
         # At this point only, we recursively call the AST compiler
         # on all the '{expr}' parts.  The 'expr' part is not parsed
         # or even tokenized together with the rest of the source code!
-        ...
+        from pypy.interpreter.pyparser import pyparse
+
+        if self.recursive_parser is None:
+            self.error("internal error: parser not available for parsing "
+                       "the expressions inside the f-string", atom_node)
+        source = source.encode('utf-8')
+
+        info = pyparse.CompileInfo("<fstring>", "eval",
+                                   consts.PyCF_SOURCE_IS_UTF8 |
+                                   consts.PyCF_IGNORE_COOKIE,
+                                   optimize=self.compile_info.optimize)
+        parse_tree = self.recursive_parser.parse_source(source, info)
+        return ast_from_node(self.space, parse_tree, info)
+
+    def _f_string_expr(self, joined_pieces, u, start, atom_node):
+        conversion = -1     # the conversion char.  -1 if not specified.
+        nested_depth = 0    # nesting level for braces/parens/brackets in exprs
+        p = start
+        while p < len(u):
+            ch = u[p]
+            p += 1
+            if ch in u'[{(':
+                nested_depth += 1
+            elif nested_depth > 0 and ch in u']})':
+                nested_depth -= 1
+            elif nested_depth == 0 and ch in u'!:}':
+                # special-case '!='
+                if ch == u'!' and p < len(u) and u[p] == u'=':
+                    continue
+                break     # normal way out of this loop
+            # XXX forbid comment, but how?
+        else:
+            raise self.error("f-string: unterminated '{' expression")
+        if nested_depth > 0:
+            self.error("f-string: mismatched '(', '{' or '['")
+        if ch == u'!':
+            XXX
+        if ch == u':':
+            XXX
+        assert ch == u'}'
+        end_f_string = p
+        p -= 1      # drop the final '}'
+        assert p >= start
+        expr = self._f_string_compile(u[start:p], atom_node)
+        assert isinstance(expr, ast.Expression)
+        joined_pieces.append(expr.body)
+        return end_f_string
 
     def _parse_f_string(self, joined_pieces, w_string, atom_node):
         space = self.space
         u = space.unicode_w(w_string)
-        conversion = -1     # the conversion char.  -1 if not specified.
-        nested_depth = 0    # nesting level for braces/parens/brackets in exprs
         start = 0
         p1 = u.find(u'{')
-        p2 = u.find(u'}')
-        while p1 >= 0 or p2 >= 0:
-            if p1 >= 0 and (p2 < 0 or p1 < p2):
-                pn = p1 + 1
-                if pn < len(u) and u[pn] == u'{':    # '{{' => single '{'
-                    self._add_constant_string(space.newunicode(u[start:pn]))
-                    start = pn + 1
-                else:
-                    start = self._f_string_expr(joined_pieces, u, pn, atom_node)
-                p1 = u.find(u'{', start)
-            else:
-                assert p2 >= 0 and (p1 < 0 or p2 < p1)
+        while True:
+            if p1 < 0:
+                p1 = len(u)
+            p2 = u.find(u'}', start, p1)
+            if p2 >= 0:
                 pn = p2 + 1
                 if pn < len(u) and u[pn] == u'}':    # '}}' => single '}'
-                    self._add_constant_string(space.newunicode(u[start:pn]))
+                    self._f_constant_string(joined_pieces, u[start:pn],
+                                            atom_node)
                     start = pn + 1
                 else:
-                    self.error("unexpected '}' in f-string", atom_node)
-                p2 = u.find(u'}', start)
-        self._add_constant_string(space.newunicode(u[start:]))
+                    self.error("f-string: unexpected '}'", atom_node)
+                continue
+            if p1 == len(u):
+                self._f_constant_string(joined_pieces, u[start:], atom_node)
+                break     # no more '{' or '}' left
+            pn = p1 + 1
+            if pn < len(u) and u[pn] == u'{':    # '{{' => single '{'
+                self._f_constant_string(joined_pieces, u[start:pn], atom_node)
+                start = pn + 1
+            else:
+                assert u[p1] == u'{'
+                start = self._f_string_expr(joined_pieces, u, pn, atom_node)
+                assert u[start - 1] == u'}'
+            p1 = u.find(u'{', start)
 
     def handle_atom(self, atom_node):
         first_child = atom_node.get_child(0)
@@ -1290,11 +1344,12 @@ class ASTBuilder(object):
             values = [node for node in joined_pieces
                            if not (isinstance(node, ast.Str) and not node.s)]
             if len(values) > 1:
-                return ast.JoinedStr(values)
+                return ast.JoinedStr(values, atom_node.get_lineno(),
+                                             atom_node.get_column())
             elif len(values) == 1:
                 return values[0]
             else:
-                assert len(joined_pieces) > 0    # but all empty strings
+                assert len(joined_pieces) > 0    # they are all empty strings
                 return joined_pieces[0]
         #
         elif first_child_type == tokens.NUMBER:

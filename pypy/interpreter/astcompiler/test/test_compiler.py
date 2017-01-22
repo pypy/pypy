@@ -20,7 +20,7 @@ def generate_function_code(expr, space):
     p = pyparse.PythonParser(space)
     info = pyparse.CompileInfo("<test>", 'exec')
     cst = p.parse_source(expr, info)
-    ast = astbuilder.ast_from_node(space, cst, info)
+    ast = astbuilder.ast_from_node(space, cst, info, recursive_parser=p)
     function_ast = optimize.optimize_ast(space, ast.body[0], info)
     function_ast = ast.body[0]
     assert isinstance(function_ast, FunctionDef)
