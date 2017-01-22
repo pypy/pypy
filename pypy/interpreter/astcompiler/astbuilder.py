@@ -1189,7 +1189,58 @@ class ASTBuilder(object):
             value = self.handle_expr(node.get_child(i+2))
             i += 3
         return (i,key,value)
-    
+
+    def _add_constant_string(self, joined_pieces, w_string, atom_node):
+        space = self.space
+        is_unicode = space.isinstance_w(w_string, space.w_unicode)
+        # Implement implicit string concatenation.
+        if joined_pieces:
+            prev = joined_pieces[-1]
+            if is_unicode and isinstance(prev, ast.Str):
+                w_string = space.add(prev.s, w_string)
+                del joined_pieces[-1]
+            elif not is_unicode and isinstance(prev, ast.Bytes):
+                w_string = space.add(prev.s, w_string)
+                del joined_pieces[-1]
+        node = ast.Str if is_unicode else ast.Bytes
+        joined_pieces.append(node(w_string, atom_node.get_lineno(),
+                                            atom_node.get_column()))
+
+    def _f_string_expr(self, joined_pieces, u, start, atom_node):
+        # Note: a f-string is kept as a single literal up to here.
+        # At this point only, we recursively call the AST compiler
+        # on all the '{expr}' parts.  The 'expr' part is not parsed
+        # or even tokenized together with the rest of the source code!
+        ...
+
+    def _parse_f_string(self, joined_pieces, w_string, atom_node):
+        space = self.space
+        u = space.unicode_w(w_string)
+        conversion = -1     # the conversion char.  -1 if not specified.
+        nested_depth = 0    # nesting level for braces/parens/brackets in exprs
+        start = 0
+        p1 = u.find(u'{')
+        p2 = u.find(u'}')
+        while p1 >= 0 or p2 >= 0:
+            if p1 >= 0 and (p2 < 0 or p1 < p2):
+                pn = p1 + 1
+                if pn < len(u) and u[pn] == u'{':    # '{{' => single '{'
+                    self._add_constant_string(space.newunicode(u[start:pn]))
+                    start = pn + 1
+                else:
+                    start = self._f_string_expr(joined_pieces, u, pn, atom_node)
+                p1 = u.find(u'{', start)
+            else:
+                assert p2 >= 0 and (p1 < 0 or p2 < p1)
+                pn = p2 + 1
+                if pn < len(u) and u[pn] == u'}':    # '}}' => single '}'
+                    self._add_constant_string(space.newunicode(u[start:pn]))
+                    start = pn + 1
+                else:
+                    self.error("unexpected '}' in f-string", atom_node)
+                p2 = u.find(u'}', start)
+        self._add_constant_string(space.newunicode(u[start:]))
+
     def handle_atom(self, atom_node):
         first_child = atom_node.get_child(0)
         first_child_type = first_child.type
@@ -1207,35 +1258,45 @@ class ASTBuilder(object):
                                 first_child.get_column())
             return ast.NameConstant(w_singleton, first_child.get_lineno(),
                                 first_child.get_column())
+        #
         elif first_child_type == tokens.STRING:
             space = self.space
             encoding = self.compile_info.encoding
-            try:
-                sub_strings_w = [
-                    parsestring.parsestr(
-                            space, encoding, atom_node.get_child(i).get_value())
-                        for i in range(atom_node.num_children())]
-            except error.OperationError as e:
-                if not (e.match(space, space.w_UnicodeError) or
-                        e.match(space, space.w_ValueError)):
-                    raise
-                # Unicode/ValueError in literal: turn into SyntaxError
-                self.error(e.errorstr(space), atom_node)
-                sub_strings_w = [] # please annotator
-            # Implement implicit string concatenation.
-            w_string = sub_strings_w[0]
-            for i in range(1, len(sub_strings_w)):
+            joined_pieces = []
+            for i in range(atom_node.num_children()):
                 try:
-                    w_string = space.add(w_string, sub_strings_w[i])
+                    w_next, saw_f = parsestring.parsestr(
+                            space, encoding, atom_node.get_child(i).get_value())
                 except error.OperationError as e:
-                    if not e.match(space, space.w_TypeError):
+                    if not (e.match(space, space.w_UnicodeError) or
+                            e.match(space, space.w_ValueError)):
                         raise
+                    # Unicode/ValueError in literal: turn into SyntaxError
+                    raise self.error(e.errorstr(space), atom_node)
+                if not saw_f:
+                    self._add_constant_string(joined_pieces, w_next, atom_node)
+                else:
+                    self._parse_f_string(joined_pieces, w_next, atom_node)
+            if len(joined_pieces) == 1:   # <= the common path
+                return joined_pieces[0]   # ast.Str, Bytes or FormattedValue
+            # with more than one piece, it is a combination of Str and
+            # FormattedValue pieces---if there is a Bytes, then we got
+            # an invalid mixture of bytes and unicode literals
+            for node in joined_pieces:
+                if isinstance(node, ast.Bytes):
                     self.error("cannot mix bytes and nonbytes literals",
-                              atom_node)
-                # UnicodeError in literal: turn into SyntaxError
-            strdata = space.isinstance_w(w_string, space.w_unicode)
-            node = ast.Str if strdata else ast.Bytes
-            return node(w_string, atom_node.get_lineno(), atom_node.get_column())
+                               atom_node)
+            # remove empty Strs
+            values = [node for node in joined_pieces
+                           if not (isinstance(node, ast.Str) and not node.s)]
+            if len(values) > 1:
+                return ast.JoinedStr(values)
+            elif len(values) == 1:
+                return values[0]
+            else:
+                assert len(joined_pieces) > 0    # but all empty strings
+                return joined_pieces[0]
+        #
         elif first_child_type == tokens.NUMBER:
             num_value = self.parse_number(first_child.get_value())
             return ast.Num(num_value, atom_node.get_lineno(), atom_node.get_column())

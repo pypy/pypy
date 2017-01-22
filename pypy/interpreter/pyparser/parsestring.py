@@ -5,7 +5,8 @@ from rpython.rlib.rstring import StringBuilder
 
 
 def parsestr(space, encoding, s):
-    """Parses a string or unicode literal, and return a wrapped value.
+    """Parses a string or unicode literal, and return a pair
+    (wrapped value, f_string_flag).
 
     If encoding=None, the source string is ascii only.
     In other cases, the source string is in utf-8 encoding.
@@ -23,6 +24,7 @@ def parsestr(space, encoding, s):
     rawmode = False
     unicode_literal = True
     saw_u = False
+    saw_f = False
 
     # string decoration handling
     if quote == 'b' or quote == 'B':
@@ -37,6 +39,10 @@ def parsestr(space, encoding, s):
         ps += 1
         quote = s[ps]
         rawmode = True
+    elif quote == 'f' or quote == 'F':
+        ps += 1
+        quote = s[ps]
+        saw_f = True
 
     if not saw_u:
         if quote == 'r' or quote == 'R':
@@ -47,6 +53,10 @@ def parsestr(space, encoding, s):
             ps += 1
             quote = s[ps]
             unicode_literal = False
+        elif quote == 'f' or quote == 'F':
+            ps += 1
+            quote = s[ps]
+            saw_f = True
 
     if quote != "'" and quote != '"':
         raise_app_valueerror(space,
@@ -64,6 +74,10 @@ def parsestr(space, encoding, s):
                                         'unmatched triple quotes in literal')
         q -= 2
 
+    if saw_f:
+        # forbid any '\' inside '{' and '}' pairs
+        pass # XXX DO IT
+
     if unicode_literal and not rawmode: # XXX Py_UnicodeFlag is ignored for now
         if encoding is None:
             assert 0 <= ps <= q
@@ -71,7 +85,7 @@ def parsestr(space, encoding, s):
         else:
             substr = decode_unicode_utf8(space, s, ps, q)
         v = unicodehelper.decode_unicode_escape(space, substr)
-        return space.wrap(v)
+        return space.wrap(v), saw_f
 
     assert 0 <= ps <= q
     substr = s[ps : q]
@@ -85,13 +99,13 @@ def parsestr(space, encoding, s):
 
     if rawmode or '\\' not in substr:
         if not unicode_literal:
-            return space.newbytes(substr)
+            return space.newbytes(substr), saw_f
         else:
             v = unicodehelper.decode_utf8(space, substr)
-            return space.wrap(v)
+            return space.wrap(v), saw_f
 
     v = PyString_DecodeEscape(space, substr, 'strict', encoding)
-    return space.newbytes(v)
+    return space.newbytes(v), saw_f
 
 def decode_unicode_utf8(space, s, ps, q):
     # ****The Python 2.7 version, producing UTF-32 escapes****

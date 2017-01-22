@@ -1384,3 +1384,9 @@ class TestOptimizations:
         code, blocks = generate_function_code(source, self.space)
         # there is a stack computation error
         assert blocks[0].instructions[3].arg == 0
+
+    def test_fstring(self):
+        source = """def f(x):
+            return f'ab{x}cd'
+        """
+        code, blocks = generate_function_code(source, self.space)
