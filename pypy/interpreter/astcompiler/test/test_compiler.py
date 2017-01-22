@@ -1168,6 +1168,8 @@ class TestCompiler:
         yield self.st, """z = f'}}'""", 'z', '}'
         yield self.st, """z = f'x{{y'""", 'z', 'x{y'
         yield self.st, """z = f'x}}y'""", 'z', 'x}y'
+        yield self.st, """z = f'{{{4*10}}}'""", 'z', '{40}'
+        yield self.st, r"""z = fr'x={4*10}\n'""", 'z', 'x=40\\n'
 
         yield self.st, """x = 'hi'; z = f'{x}'""", 'z', 'hi'
         yield self.st, """x = 'hi'; z = f'{x!s}'""", 'z', 'hi'
