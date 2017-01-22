@@ -115,8 +115,6 @@ not implemented for a given type combination.
 
 #include <cpyext_typeobject.h>
 
-#define PyObject_Bytes PyObject_Str
-
 /* Flag bits for printing: */
 #define Py_PRINT_RAW    1       /* No string quotes etc. */
 
