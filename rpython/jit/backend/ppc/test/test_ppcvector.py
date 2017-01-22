@@ -1,10 +1,10 @@
 import py
 from rpython.jit.backend.ppc.test import test_basic
-from rpython.jit.metainterp.test import test_vector
+from rpython.jit.metainterp.test import test_zvector
 from rpython.jit.backend.ppc.detect_feature import detect_vsx
 
 
-class TestBasic(test_basic.JitPPCMixin, test_vector.VectorizeTests):
+class TestBasic(test_basic.JitPPCMixin, test_zvector.VectorizeTests):
     # for the individual tests see
     # ====> ../../../metainterp/test/test_basic.py
     def setup_method(self, method):
