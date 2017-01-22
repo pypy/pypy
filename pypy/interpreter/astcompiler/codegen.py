@@ -1499,7 +1499,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_FormattedValue(self, fmt):
         fmt.value.walkabout(self)
-        self.emit_op_arg(ops.FORMAT_VALUE, 0)
+        arg = 0
+        if fmt.conversion == ord('s'): arg = consts.FVC_STR
+        if fmt.conversion == ord('r'): arg = consts.FVC_REPR
+        if fmt.conversion == ord('a'): arg = consts.FVC_ASCII
+        self.emit_op_arg(ops.FORMAT_VALUE, arg)
 
 
 class TopLevelCodeGenerator(PythonCodeGenerator):

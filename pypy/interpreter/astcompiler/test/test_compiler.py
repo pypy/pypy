@@ -1164,6 +1164,15 @@ class TestCompiler:
 
     def test_fstring(self):
         yield self.st, """x = 42; z = f'ab{x}cd'""", 'z', 'ab42cd'
+        yield self.st, """z = f'{{'""", 'z', '{'
+        yield self.st, """z = f'}}'""", 'z', '}'
+        yield self.st, """z = f'x{{y'""", 'z', 'x{y'
+        yield self.st, """z = f'x}}y'""", 'z', 'x}y'
+
+        yield self.st, """x = 'hi'; z = f'{x}'""", 'z', 'hi'
+        yield self.st, """x = 'hi'; z = f'{x!s}'""", 'z', 'hi'
+        yield self.st, """x = 'hi'; z = f'{x!r}'""", 'z', "'hi'"
+        yield self.st, """x = 'hi'; z = f'{x!a}'""", 'z', "'hi'"
 
 
 class AppTestCompiler:

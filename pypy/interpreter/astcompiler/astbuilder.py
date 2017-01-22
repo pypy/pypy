@@ -1249,18 +1249,26 @@ class ASTBuilder(object):
                 break     # normal way out of this loop
             # XXX forbid comment, but how?
         else:
-            raise self.error("f-string: unterminated '{' expression")
+            ch = u'\x00'
+        #
         if nested_depth > 0:
-            self.error("f-string: mismatched '(', '{' or '['")
+            self.error("f-string: mismatched '(', '{' or '['", atom_node)
+        end_expression = p - 1
         if ch == u'!':
-            XXX
+            if p + 1 < len(u):
+                conversion = ord(u[p])
+                ch = u[p + 1]
+                p += 2
+            if conversion not in (ord('s'), ord('r'), ord('a')):
+                self.error("f-string: invalid conversion character: "
+                           "expected 's', 'r', or 'a'", atom_node)
         if ch == u':':
             XXX
-        assert ch == u'}'
+        if ch != u'}':
+            self.error("f-string: expecting '}'", atom_node)
         end_f_string = p
-        p -= 1      # drop the final '}'
-        assert p >= start
-        expr = self._f_string_compile(u[start:p], atom_node)
+        assert end_expression >= start
+        expr = self._f_string_compile(u[start:end_expression], atom_node)
         assert isinstance(expr, ast.Expression)
         fval = ast.FormattedValue(expr.body, conversion, format_spec,
                                   atom_node.get_lineno(),
@@ -1284,7 +1292,7 @@ class ASTBuilder(object):
                                             atom_node)
                     start = pn + 1
                 else:
-                    self.error("f-string: unexpected '}'", atom_node)
+                    self.error("f-string: single '}' is not allowed", atom_node)
                 continue
             self._f_constant_string(joined_pieces, u[start:p1], atom_node)
             if p1 == len(u):

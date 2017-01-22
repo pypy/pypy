@@ -1612,8 +1612,19 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_awaitable)
 
     def FORMAT_VALUE(self, oparg, next_instr):
+        from pypy.interpreter.astcompiler import consts
         space = self.space
         w_value = self.popvalue()
+        #
+        conversion = oparg & consts.FVC_MASK
+        if conversion == consts.FVC_STR:
+            w_value = space.str(w_value)
+        elif conversion == consts.FVC_REPR:
+            w_value = space.repr(w_value)
+        elif conversion == consts.FVC_ASCII:
+            from pypy.objspace.std.unicodeobject import ascii_from_object
+            w_value = ascii_from_object(space, w_value)
+        #
         w_res = space.format(w_value, space.newunicode(u''))
         self.pushvalue(w_res)
 
