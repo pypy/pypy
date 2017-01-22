@@ -1614,6 +1614,11 @@ class __extend__(pyframe.PyFrame):
     def FORMAT_VALUE(self, oparg, next_instr):
         from pypy.interpreter.astcompiler import consts
         space = self.space
+        #
+        if (oparg & consts.FVS_MASK) == consts.FVS_HAVE_SPEC:
+            w_spec = self.popvalue()
+        else:
+            w_spec = space.newunicode(u'')
         w_value = self.popvalue()
         #
         conversion = oparg & consts.FVC_MASK
@@ -1625,7 +1630,7 @@ class __extend__(pyframe.PyFrame):
             from pypy.objspace.std.unicodeobject import ascii_from_object
             w_value = ascii_from_object(space, w_value)
         #
-        w_res = space.format(w_value, space.newunicode(u''))
+        w_res = space.format(w_value, w_spec)
         self.pushvalue(w_res)
 
     @jit.unroll_safe

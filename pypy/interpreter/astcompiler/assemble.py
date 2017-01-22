@@ -759,7 +759,8 @@ def _compute_CALL_METHOD(arg):
     return -_num_args(arg) - 1
 
 def _compute_FORMAT_VALUE(arg):
-    #if arg contains some flag: return -1
+    if (arg & consts.FVS_MASK) == consts.FVS_HAVE_SPEC:
+        return -1
     return 0
 
 def _compute_BUILD_STRING(arg):

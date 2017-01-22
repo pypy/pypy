@@ -1176,6 +1176,9 @@ class TestCompiler:
 
         yield self.st, """x = 'hi'; z = f'''{\nx}'''""", 'z', 'hi'
 
+        yield self.st, """x = 'hi'; z = f'{x:5}'""", 'z', 'hi   '
+        yield self.st, """x = 42;   z = f'{x:5}'""", 'z', '   42'
+
     def test_fstring_error(self):
         raises(SyntaxError, self.run, "f'{}'")
         raises(SyntaxError, self.run, "f'{   \t   }'")

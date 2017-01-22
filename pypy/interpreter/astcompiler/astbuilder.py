@@ -1238,7 +1238,7 @@ class ASTBuilder(object):
         parse_tree = self.recursive_parser.parse_source(source, info)
         return ast_from_node(self.space, parse_tree, info)
 
-    def _f_string_expr(self, joined_pieces, u, start, atom_node):
+    def _f_string_expr(self, joined_pieces, u, start, atom_node, rec=0):
         conversion = -1     # the conversion char.  -1 if not specified.
         format_spec = None
         nested_depth = 0    # nesting level for braces/parens/brackets in exprs
@@ -1270,7 +1270,14 @@ class ASTBuilder(object):
                 self.error("f-string: invalid conversion character: "
                            "expected 's', 'r', or 'a'", atom_node)
         if ch == u':':
-            XXX
+            if rec >= 2:
+                self.error("f-string: expressions nested too deeply", atom_node)
+            subpieces = []
+            p = self._parse_f_string(subpieces, u, p, atom_node, rec + 1)
+            format_spec = self._f_string_to_ast_node(subpieces, atom_node)
+            ch = u[p] if p >= 0 else u'\x00'
+            p += 1
+
         if ch != u'}':
             self.error("f-string: expecting '}'", atom_node)
         end_f_string = p
@@ -1283,36 +1290,50 @@ class ASTBuilder(object):
         joined_pieces.append(fval)
         return end_f_string
 
-    def _parse_f_string(self, joined_pieces, w_string, atom_node):
+    def _parse_f_string(self, joined_pieces, u, start, atom_node, rec=0):
         space = self.space
-        u = space.unicode_w(w_string)
-        start = 0
-        p1 = u.find(u'{')
+        p1 = u.find(u'{', start)
+        prestart = start
         while True:
             if p1 < 0:
                 p1 = len(u)
             p2 = u.find(u'}', start, p1)
             if p2 >= 0:
+                self._f_constant_string(joined_pieces, u[prestart:p2],
+                                        atom_node)
                 pn = p2 + 1
                 if pn < len(u) and u[pn] == u'}':    # '}}' => single '}'
-                    self._f_constant_string(joined_pieces, u[start:pn],
-                                            atom_node)
                     start = pn + 1
-                else:
-                    self.error("f-string: single '}' is not allowed", atom_node)
-                continue
-            self._f_constant_string(joined_pieces, u[start:p1], atom_node)
+                    prestart = pn
+                    continue
+                return p2     # found a single '}', stop here
+            self._f_constant_string(joined_pieces, u[prestart:p1], atom_node)
             if p1 == len(u):
-                break     # no more '{' or '}' left
+                return -1     # no more '{' or '}' left
             pn = p1 + 1
             if pn < len(u) and u[pn] == u'{':    # '{{' => single '{'
-                start = pn
-                p1 = u.find(u'{', start + 1)
+                start = pn + 1
+                prestart = pn
             else:
                 assert u[p1] == u'{'
-                start = self._f_string_expr(joined_pieces, u, pn, atom_node)
+                start = self._f_string_expr(joined_pieces, u, pn,
+                                            atom_node, rec)
                 assert u[start - 1] == u'}'
-                p1 = u.find(u'{', start)
+                prestart = start
+            p1 = u.find(u'{', start)
+
+    def _f_string_to_ast_node(self, joined_pieces, atom_node):
+        # remove empty Strs
+        values = [node for node in joined_pieces
+                       if not (isinstance(node, ast.Str) and not node.s)]
+        if len(values) > 1:
+            return ast.JoinedStr(values, atom_node.get_lineno(),
+                                         atom_node.get_column())
+        elif len(values) == 1:
+            return values[0]
+        else:
+            assert len(joined_pieces) > 0    # they are all empty strings
+            return joined_pieces[0]
 
     def handle_atom(self, atom_node):
         first_child = atom_node.get_child(0)
@@ -1349,7 +1370,12 @@ class ASTBuilder(object):
                 if not saw_f:
                     self._add_constant_string(joined_pieces, w_next, atom_node)
                 else:
-                    self._parse_f_string(joined_pieces, w_next, atom_node)
+                    p = self._parse_f_string(joined_pieces,
+                                             space.unicode_w(w_next), 0,
+                                             atom_node)
+                    if p != -1:
+                        self.error("f-string: single '}' is not allowed",
+                                   atom_node)
             if len(joined_pieces) == 1:   # <= the common path
                 return joined_pieces[0]   # ast.Str, Bytes or FormattedValue
             # with more than one piece, it is a combination of Str and
@@ -1359,17 +1385,7 @@ class ASTBuilder(object):
                 if isinstance(node, ast.Bytes):
                     self.error("cannot mix bytes and nonbytes literals",
                                atom_node)
-            # remove empty Strs
-            values = [node for node in joined_pieces
-                           if not (isinstance(node, ast.Str) and not node.s)]
-            if len(values) > 1:
-                return ast.JoinedStr(values, atom_node.get_lineno(),
-                                             atom_node.get_column())
-            elif len(values) == 1:
-                return values[0]
-            else:
-                assert len(joined_pieces) > 0    # they are all empty strings
-                return joined_pieces[0]
+            return self._f_string_to_ast_node(joined_pieces, atom_node)
         #
         elif first_child_type == tokens.NUMBER:
             num_value = self.parse_number(first_child.get_value())

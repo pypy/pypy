@@ -1503,6 +1503,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if fmt.conversion == ord('s'): arg = consts.FVC_STR
         if fmt.conversion == ord('r'): arg = consts.FVC_REPR
         if fmt.conversion == ord('a'): arg = consts.FVC_ASCII
+        if fmt.format_spec is not None:
+            arg |= consts.FVS_HAVE_SPEC
+            fmt.format_spec.walkabout(self)
         self.emit_op_arg(ops.FORMAT_VALUE, arg)
 
 
