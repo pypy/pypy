@@ -108,7 +108,7 @@ def setup_directory_structure(space):
     # create compiled/x.py and a corresponding pyc file
     p = setuppkg("compiled", x = "x = 84")
     if conftest.option.runappdirect:
-        import marshal, stat, struct, os, imp
+        import marshal, stat, struct, imp
         code = py.code.Source(p.join("x.py").read()).compile()
         s3 = marshal.dumps(code)
         s2 = struct.pack("<i", os.stat(str(p.join("x.py")))[stat.ST_MTIME])
@@ -137,6 +137,15 @@ def setup_directory_structure(space):
     except py.error.ENOENT:
         pass
     p.join('x.py').rename(p.join('x.pyw'))
+
+    if hasattr(p, "mksymlinkto"):
+        p = root.join("devnullpkg")
+        p.ensure(dir=True)
+        p.join("__init__.py").mksymlinkto(os.devnull)
+
+    p = root.join("onlypyw")
+    p.ensure(dir=True)
+    p.join("__init__.pyw")
 
     return str(root)
 
@@ -794,6 +803,15 @@ class AppTestImport:
         finally:
             reload(sys)
         assert not output
+
+    def test_dir_with_only_pyw(self):
+        def imp():
+            import onlypyw
+        raises(ImportError, imp)
+
+    @pytest.mark.skipif(not hasattr(py.path.local, "mksymlinkto"), reason="requires symlinks")
+    def test_dev_null_init_file(self):
+        import devnullpkg
 
 
 class TestAbi:

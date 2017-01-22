@@ -64,12 +64,25 @@ def log_pyverbose(space, level, message):
         space.call_method(w_stderr, "write", space.wrap(message))
 
 def file_exists(path):
-    """Tests whether the given path is an existing regular file."""
+    "Test whether the given path is an existing regular file."
     return os.path.isfile(path) and case_ok(path)
+
+def path_exists(path):
+    "Test whether the given path exists."
+    return os.path.exists(path) and case_ok(path)
 
 def has_so_extension(space):
     return (space.config.objspace.usemodules.cpyext or
             space.config.objspace.usemodules._cffi_backend)
+
+def has_init_module(space, filepart):
+    "Return True if the directory filepart qualifies as a package."
+    init = os.path.join(filepart, "__init__")
+    if path_exists(init + ".py"):
+        return True
+    if space.config.objspace.lonepycfiles and path_exists(init + ".pyc"):
+        return True
+    return False
 
 def find_modtype(space, filepart):
     """Check which kind of module to import for the given filepart,
@@ -565,9 +578,7 @@ def find_module(space, modulename, w_modulename, partname, w_path,
             filepart = os.path.join(path, partname)
             log_pyverbose(space, 2, "# trying %s" % (filepart,))
             if os.path.isdir(filepart) and case_ok(filepart):
-                initfile = os.path.join(filepart, '__init__')
-                modtype, _, _ = find_modtype(space, initfile)
-                if modtype in (PY_SOURCE, PY_COMPILED):
+                if has_init_module(space, filepart):
                     return FindInfo(PKG_DIRECTORY, filepart, None)
                 else:
                     msg = ("Not importing directory '%s' missing __init__.py" %
