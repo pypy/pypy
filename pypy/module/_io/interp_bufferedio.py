@@ -305,11 +305,10 @@ class BufferedMixin:
 
     @unwrap_spec(pos=r_longlong, whence=int)
     def seek_w(self, space, pos, whence=0):
-        self._check_init(space)
+        self._check_closed(space, "seek of closed file")
         if whence not in (0, 1, 2):
             raise oefmt(space.w_ValueError,
                         "whence must be between 0 and 2, not %d", whence)
-        self._check_closed(space, "seek of closed file")
         check_seekable_w(space, self.w_raw)
         if whence != 2 and self.readable:
             # Check if seeking leaves us inside the current buffer, so as to
@@ -462,7 +461,6 @@ class BufferedMixin:
     # Read methods
 
     def read_w(self, space, w_size=None):
-        self._check_init(space)
         self._check_closed(space, "read of closed file")
         size = convert_size(space, w_size)
 
@@ -482,7 +480,7 @@ class BufferedMixin:
 
     @unwrap_spec(size=int)
     def peek_w(self, space, size=0):
-        self._check_init(space)
+        self._check_closed(space, "peek of closed file")
         with self.lock:
             if self.writable:
                 self._flush_and_rewind_unlocked(space)
@@ -509,7 +507,6 @@ class BufferedMixin:
 
     @unwrap_spec(size=int)
     def read1_w(self, space, size):
-        self._check_init(space)
         self._check_closed(space, "read of closed file")
 
         if size < 0:
@@ -690,7 +687,6 @@ class BufferedMixin:
         return None
 
     def readline_w(self, space, w_limit=None):
-        self._check_init(space)
         self._check_closed(space, "readline of closed file")
 
         limit = convert_size(space, w_limit)
@@ -766,7 +762,6 @@ class BufferedMixin:
             self.read_end = self.pos
 
     def write_w(self, space, w_data):
-        self._check_init(space)
         self._check_closed(space, "write to closed file")
         data = space.getarg_w('y*', w_data).as_str()
         size = len(data)
@@ -873,7 +868,6 @@ class BufferedMixin:
         return space.wrap(written)
 
     def flush_w(self, space):
-        self._check_init(space)
         self._check_closed(space, "flush of closed file")
         with self.lock:
             self._flush_and_rewind_unlocked(space)
