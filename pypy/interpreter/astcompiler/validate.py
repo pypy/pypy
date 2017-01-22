@@ -447,3 +447,11 @@ class AstValidator(ast.ASTVisitor):
             node.single is not space.w_True and
             node.single is not space.w_False):
             raise ValidationError("singleton must be True, False, or None")
+
+    def visit_JoinedStr(self, node):
+        self._validate_exprs(node.values)
+
+    def visit_FormattedValue(self, node):
+        self._validate_expr(node.value)
+        if node.format_spec:
+            self._validate_expr(node.format_spec)

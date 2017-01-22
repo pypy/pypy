@@ -1491,6 +1491,16 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             sub.value.walkabout(self)
         self._compile_slice(sub.slice, sub.ctx)
 
+    def visit_JoinedStr(self, joinedstr):
+        self.update_position(joinedstr.lineno)
+        for node in joinedstr.values:
+            node.walkabout(self)
+        self.emit_op_arg(ops.BUILD_STRING, len(joinedstr.values))
+
+    def visit_FormattedValue(self, fmt):
+        fmt.value.walkabout(self)
+        self.emit_op_arg(ops.FORMAT_VALUE, 0)
+
 
 class TopLevelCodeGenerator(PythonCodeGenerator):
 

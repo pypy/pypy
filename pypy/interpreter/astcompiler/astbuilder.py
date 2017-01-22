@@ -1232,6 +1232,7 @@ class ASTBuilder(object):
 
     def _f_string_expr(self, joined_pieces, u, start, atom_node):
         conversion = -1     # the conversion char.  -1 if not specified.
+        format_spec = None
         nested_depth = 0    # nesting level for braces/parens/brackets in exprs
         p = start
         while p < len(u):
@@ -1261,7 +1262,10 @@ class ASTBuilder(object):
         assert p >= start
         expr = self._f_string_compile(u[start:p], atom_node)
         assert isinstance(expr, ast.Expression)
-        joined_pieces.append(expr.body)
+        fval = ast.FormattedValue(expr.body, conversion, format_spec,
+                                  atom_node.get_lineno(),
+                                  atom_node.get_column())
+        joined_pieces.append(fval)
         return end_f_string
 
     def _parse_f_string(self, joined_pieces, w_string, atom_node):
