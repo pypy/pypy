@@ -2226,7 +2226,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         # 'threshold_objects_made_old', is used inside comparisons
         # with 'size_objects_made_old' to know when we must do
-        # several major GC steps (i.e. several consecurive calls
+        # several major GC steps (i.e. several consecutive calls
         # to the present function).  Here is the target that
         # we try to aim to: either (A1) or (A2)
         #
