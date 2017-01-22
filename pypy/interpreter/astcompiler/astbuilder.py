@@ -1218,14 +1218,22 @@ class ASTBuilder(object):
         # or even tokenized together with the rest of the source code!
         from pypy.interpreter.pyparser import pyparse
 
+        # complain if 'source' is only whitespace or an empty string
+        for c in source:
+            if c not in ' \t\n\r\v\f':
+                break
+        else:
+            self.error("f-string: empty expression not allowed", atom_node)
+
         if self.recursive_parser is None:
             self.error("internal error: parser not available for parsing "
                        "the expressions inside the f-string", atom_node)
-        source = source.encode('utf-8')
+        source = '(%s)' % source.encode('utf-8')
 
         info = pyparse.CompileInfo("<fstring>", "eval",
                                    consts.PyCF_SOURCE_IS_UTF8 |
-                                   consts.PyCF_IGNORE_COOKIE,
+                                   consts.PyCF_IGNORE_COOKIE |
+                                   consts.PyCF_REFUSE_COMMENTS,
                                    optimize=self.compile_info.optimize)
         parse_tree = self.recursive_parser.parse_source(source, info)
         return ast_from_node(self.space, parse_tree, info)
@@ -1247,7 +1255,6 @@ class ASTBuilder(object):
                 if ch == u'!' and p < len(u) and u[p] == u'=':
                     continue
                 break     # normal way out of this loop
-            # XXX forbid comment, but how?
         else:
             ch = u'\x00'
         #

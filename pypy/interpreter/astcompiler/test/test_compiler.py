@@ -1174,6 +1174,15 @@ class TestCompiler:
         yield self.st, """x = 'hi'; z = f'{x!r}'""", 'z', "'hi'"
         yield self.st, """x = 'hi'; z = f'{x!a}'""", 'z', "'hi'"
 
+        yield self.st, """x = 'hi'; z = f'''{\nx}'''""", 'z', 'hi'
+
+    def test_fstring_error(self):
+        raises(SyntaxError, self.run, "f'{}'")
+        raises(SyntaxError, self.run, "f'{   \t   }'")
+        raises(SyntaxError, self.run, "f'{5#}'")
+        raises(SyntaxError, self.run, "f'{5)#}'")
+        raises(SyntaxError, self.run, "f'''{5)\n#}'''")
+
 
 class AppTestCompiler:
 

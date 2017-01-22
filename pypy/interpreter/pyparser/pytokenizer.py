@@ -187,6 +187,9 @@ def generate_tokens(lines, flags):
                 continue
             if line[pos] == '#':
                 # skip full-line comment, but still check that it is valid utf-8
+                if flags & consts.PyCF_REFUSE_COMMENTS:
+                    raise TokenError("comments not allowed here",
+                                     line, lnum, pos, token_list)
                 if not verify_utf8(line):
                     raise bad_utf8("comment",
                                    line, lnum, pos, token_list, flags)
@@ -257,6 +260,9 @@ def generate_tokens(lines, flags):
                     last_comment = ''
                 elif initial == '#':
                     # skip comment, but still check that it is valid utf-8
+                    if flags & consts.PyCF_REFUSE_COMMENTS:
+                        raise TokenError("comments not allowed here",
+                                         line, lnum, start, token_list)
                     if not verify_utf8(token):
                         raise bad_utf8("comment",
                                        line, lnum, start, token_list, flags)
