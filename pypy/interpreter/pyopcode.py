@@ -434,6 +434,10 @@ class __extend__(pyframe.PyFrame):
                 self.GET_AITER(oparg, next_instr)
             elif opcode == opcodedesc.GET_ANEXT.index:
                 self.GET_ANEXT(oparg, next_instr)
+            elif opcode == opcodedesc.FORMAT_VALUE.index:
+                self.FORMAT_VALUE(oparg, next_instr)
+            elif opcode == opcodedesc.BUILD_STRING.index:
+                self.BUILD_STRING(oparg, next_instr)
             else:
                 self.MISSING_OPCODE(oparg, next_instr)
 
@@ -1606,6 +1610,23 @@ class __extend__(pyframe.PyFrame):
                         "'async for' received an invalid object "
                         "from __anext__: %T", w_next_iter)
         self.pushvalue(w_awaitable)
+
+    def FORMAT_VALUE(self, oparg, next_instr):
+        space = self.space
+        w_value = self.popvalue()
+        w_res = space.format(w_value, space.newunicode(u''))
+        self.pushvalue(w_res)
+
+    @jit.unroll_safe
+    def BUILD_STRING(self, itemcount, next_instr):
+        space = self.space
+        lst = []
+        for i in range(itemcount-1, -1, -1):
+            w_item = self.peekvalue(i)
+            lst.append(space.unicode_w(w_item))
+        self.dropvalues(itemcount)
+        w_res = space.newunicode(u''.join(lst))
+        self.pushvalue(w_res)
 
 ### ____________________________________________________________ ###
 

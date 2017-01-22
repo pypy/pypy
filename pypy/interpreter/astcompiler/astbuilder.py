@@ -1286,18 +1286,18 @@ class ASTBuilder(object):
                 else:
                     self.error("f-string: unexpected '}'", atom_node)
                 continue
+            self._f_constant_string(joined_pieces, u[start:p1], atom_node)
             if p1 == len(u):
-                self._f_constant_string(joined_pieces, u[start:], atom_node)
                 break     # no more '{' or '}' left
             pn = p1 + 1
             if pn < len(u) and u[pn] == u'{':    # '{{' => single '{'
-                self._f_constant_string(joined_pieces, u[start:pn], atom_node)
-                start = pn + 1
+                start = pn
+                p1 = u.find(u'{', start + 1)
             else:
                 assert u[p1] == u'{'
                 start = self._f_string_expr(joined_pieces, u, pn, atom_node)
                 assert u[start - 1] == u'}'
-            p1 = u.find(u'{', start)
+                p1 = u.find(u'{', start)
 
     def handle_atom(self, atom_node):
         first_child = atom_node.get_child(0)

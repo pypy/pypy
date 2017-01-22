@@ -12,7 +12,7 @@ def compile_with_astcompiler(expr, mode, space):
     p = pyparse.PythonParser(space)
     info = pyparse.CompileInfo("<test>", mode)
     cst = p.parse_source(expr, info)
-    ast = astbuilder.ast_from_node(space, cst, info)
+    ast = astbuilder.ast_from_node(space, cst, info, recursive_parser=p)
     return codegen.compile_ast(space, ast, info)
 
 def generate_function_code(expr, space):
@@ -1161,6 +1161,9 @@ class TestCompiler:
             return X.y
         """
         yield self.st, source, "f()", 43
+
+    def test_fstring(self):
+        yield self.st, """x = 42; z = f'ab{x}cd'""", 'z', 'ab42cd'
 
 
 class AppTestCompiler:

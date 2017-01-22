@@ -758,6 +758,13 @@ def _compute_CALL_FUNCTION_VAR_KW(arg):
 def _compute_CALL_METHOD(arg):
     return -_num_args(arg) - 1
 
+def _compute_FORMAT_VALUE(arg):
+    #if arg contains some flag: return -1
+    return 0
+
+def _compute_BUILD_STRING(arg):
+    return 1 - arg
+
 
 _stack_effect_computers = {}
 for name, func in globals().items():
