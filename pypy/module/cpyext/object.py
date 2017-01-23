@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t, Py_ssize_tP,
-    PyVarObject, Py_buffer, size_t, slot_function,
+    PyVarObject, Py_buffer, size_t, slot_function, api_decl, cts,
     PyBUF_FORMAT, PyBUF_ND, PyBUF_STRIDES,
     Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
     Py_GE, CONST_STRING, CONST_STRINGP, FILEP, fwrite)
@@ -11,6 +11,7 @@ from pypy.module.cpyext.pyobject import (
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
 from pypy.objspace.std.typeobject import W_TypeObject
+from pypy.objspace.std.bytesobject import invoke_bytes_method
 from pypy.interpreter.error import OperationError, oefmt
 import pypy.module.__builtin__.operation as operation
 
@@ -246,6 +247,19 @@ def PyObject_Str(space, w_obj):
     if w_obj is None:
         return space.wrap("<NULL>")
     return space.str(w_obj)
+
+@api_decl("PyObject * PyObject_Bytes(PyObject *v)", cts)
+def PyObject_Bytes(space, w_obj):
+    if w_obj is None:
+        return space.newbytes("<NULL>")
+    if space.type(w_obj) is space.w_bytes:
+        return w_obj
+    w_result = invoke_bytes_method(space, w_obj)
+    if w_result is not None:
+        return w_result
+    # return PyBytes_FromObject(space, w_obj)
+    buffer = space.buffer_w(w_obj, space.BUF_FULL_RO)
+    return space.newbytes(buffer.as_str())
 
 @cpython_api([PyObject], PyObject)
 def PyObject_Repr(space, w_obj):

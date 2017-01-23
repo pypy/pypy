@@ -296,6 +296,20 @@ class AppTestObject(AppTestCpythonExtensionBase):
         a = module.empty_format('hello')
         assert isinstance(a, str)
 
+    def test_Bytes(self):
+        class sub1(bytes):
+            pass
+        class sub2(bytes):
+            def __bytes__(self):
+                return self
+        module = self.import_extension('test_Bytes', [
+            ('asbytes', 'METH_O',
+             """
+                return PyObject_Bytes(args);
+             """)])
+        assert type(module.asbytes(sub1(b''))) is bytes
+        assert type(module.asbytes(sub2(b''))) is sub2
+
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     """
     PyBuffer_FillInfo populates the fields of a Py_buffer from its arguments.
