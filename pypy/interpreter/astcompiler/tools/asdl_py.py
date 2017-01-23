@@ -145,7 +145,7 @@ class ASTNodeVisitor(ASDLVisitor):
             if allow_none:
                 wrapper += " if %s is not None else space.w_None" % (value,)
             return wrapper
-        
+
     def get_value_extractor(self, field, value):
         if field.type in self.data.simple_types:
             return "%s.from_object(space, %s)" % (field.type, value)
@@ -207,7 +207,7 @@ class ASTNodeVisitor(ASDLVisitor):
                 lines.append("if _%s is None:" % (field.name,))
                 lines.append("    raise_required_value(space, w_node, '%s')"
                              % (field.name,))
-            
+
         return lines
 
     def make_converters(self, fields, name, extras=None):
@@ -245,7 +245,7 @@ class ASTNodeVisitor(ASDLVisitor):
             if extras:
                 base_args = ", ".join(str(field.name) for field in extras)
                 self.emit("%s.__init__(self, %s)" % (base, base_args), 2)
-    
+
     def make_mutate_over(self, cons, name):
         self.emit("def mutate_over(self, visitor):", 1)
         for field in cons.fields:
@@ -276,7 +276,7 @@ class ASTNodeVisitor(ASDLVisitor):
         self.emit("")
         self.make_mutate_over(cons, cons.name)
         self.make_converters(cons.fields, cons.name, extra_attributes)
-        self.emit("State.ast_type(%r, '%s', %s)" % 
+        self.emit("State.ast_type(%r, '%s', %s)" %
                   (cons.name, base, [f.name for f in cons.fields]))
         self.emit("")
 
@@ -357,7 +357,7 @@ class GenericASTVisitorVisitor(ASDLVisitor):
         self.emit("")
 
     def visitField(self, field):
-        if (field.type not in asdl.builtin_types and 
+        if (field.type not in asdl.builtin_types and
             field.type not in self.data.simple_types):
             level = 2
             template = "node.%s.walkabout(self)"
@@ -558,7 +558,7 @@ class State:
         self.w_AST = space.gettypeobject(W_AST.typedef)
         for (name, base, fields, attributes) in self.AST_TYPES:
             self.make_new_type(space, name, base, fields, attributes)
-        
+
     def make_new_type(self, space, name, base, fields, attributes):
         w_base = getattr(self, 'w_%s' % base)
         w_dict = space.newdict()
@@ -570,7 +570,7 @@ class State:
             space.setitem_str(w_dict, "_attributes",
                               space.newtuple([space.wrap(a) for a in attributes]))
         w_type = space.call_function(
-            space.w_type, 
+            space.w_type,
             space.wrap(name), space.newtuple([w_base]), w_dict)
         setattr(self, 'w_%s' % name, w_type)
 

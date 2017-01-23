@@ -8,6 +8,7 @@ Generate Python bytecode from a Abstract Syntax Tree.
 # please.
 import struct
 
+from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.astcompiler import ast, assemble, symtable, consts, misc
 from pypy.interpreter.astcompiler import optimize # For side effects
 from pypy.interpreter.pyparser.error import SyntaxError

@@ -763,6 +763,15 @@ class AppTestImport(BaseFSEncodeTest):
         finally:
             os.rmdir(name)
 
+    def test_dir_with_only_pyw(self):
+        def imp():
+            import onlypyw
+        raises(ImportError, imp)
+
+    @pytest.mark.skipif(not hasattr(py.path.local, "mksymlinkto"), reason="requires symlinks")
+    def test_dev_null_init_file(self):
+        import devnullpkg
+
 
 class TestAbi:
     def test_abi_tag(self):
