@@ -453,7 +453,7 @@ def get_field(space, w_node, name, optional):
 
 class AST(object):
     __metaclass__ = extendabletype
-    #_attrs_ = ['lineno', 'col_offset']
+    _attrs_ = ['lineno', 'col_offset']
 
     def walkabout(self, visitor):
         raise AssertionError("walkabout() implementation not provided")
