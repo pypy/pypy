@@ -825,9 +825,15 @@ class EventLoopTestsMixin:
         server = self.loop.run_until_complete(f)
         self.assertEqual(len(server.sockets), 1)
         sock = server.sockets[0]
-        self.assertFalse(
-            sock.getsockopt(
-                socket.SOL_SOCKET, socket.SO_REUSEPORT))
+        try:
+            self.assertFalse(
+                sock.getsockopt(
+                    socket.SOL_SOCKET, socket.SO_REUSEPORT))
+        except OSError:
+            raise unittest.SkipTest(
+                "Python's socket module was compiled using modern headers "
+                "thus defining SO_REUSEPORT but this process is running "
+                "under an older kernel that does not support SO_REUSEPORT.")
         server.close()
 
         test_utils.run_briefly(self.loop)
