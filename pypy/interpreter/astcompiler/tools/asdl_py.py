@@ -85,7 +85,7 @@ class ASTNodeVisitor(ASDLVisitor):
             self.emit("class %s(AST):" % (base,))
             if sum.attributes:
                 self.emit("")
-                args = ", ".join(attr.name.value for attr in sum.attributes)
+                args = ", ".join(attr.name for attr in sum.attributes)
                 self.emit("def __init__(self, %s):" % (args,), 1)
                 for attr in sum.attributes:
                     self.visit(attr)
@@ -101,8 +101,8 @@ class ASTNodeVisitor(ASDLVisitor):
                           % (typ.name,), 3)
             self.emit("raise oefmt(space.w_TypeError,", 2)
             self.emit("        \"Expected %s node, got %%T\", w_node)" % (base,), 2)
-            self.emit("State.ast_type('%r', 'AST', None, %s)" %
-                      (base, [repr(attr.name) for attr in sum.attributes]))
+            self.emit("State.ast_type(%r, 'AST', None, %s)" %
+                      (base, [attr.name for attr in sum.attributes]))
             self.emit("")
             for cons in sum.types:
                 self.visit(cons, base, sum.attributes)
@@ -118,37 +118,37 @@ class ASTNodeVisitor(ASDLVisitor):
         self.emit("visitor.visit_%s(self)" % (name,), 2)
         self.emit("")
         self.make_converters(product.fields, name)
-        self.emit("State.ast_type('%r', 'AST', %s)" %
-                  (name, [repr(f.name) for f in product.fields]))
+        self.emit("State.ast_type(%r, 'AST', %s)" %
+                  (name, [f.name for f in product.fields]))
         self.emit("")
 
     def get_value_converter(self, field, value):
-        if field.type.value in self.data.simple_types:
+        if field.type in self.data.simple_types:
             return "%s_to_class[%s - 1]().to_object(space)" % (field.type, value)
-        elif field.type.value in ("object", "string"):
+        elif field.type in ("object", "singleton", "string", "bytes"):
             return value
-        elif field.type.value in ("identifier", "int", "bool"):
+        elif field.type in ("identifier", "int", "bool"):
             return "space.wrap(%s)" % (value,)
         else:
             wrapper = "%s.to_object(space)" % (value,)
             if field.opt:
                 wrapper += " if %s is not None else space.w_None" % (value,)
             return wrapper
-        
+
     def get_value_extractor(self, field, value):
-        if field.type.value in self.data.simple_types:
+        if field.type in self.data.simple_types:
             return "%s.from_object(space, %s)" % (field.type, value)
-        elif field.type.value in ("object",):
+        elif field.type in ("object","singleton"):
             return value
-        elif field.type.value in ("string",):
+        elif field.type in ("string","bytes"):
             return "check_string(space, %s)" % (value,)
-        elif field.type.value in ("identifier",):
+        elif field.type in ("identifier",):
             if field.opt:
                 return "space.str_or_None_w(%s)" % (value,)
             return "space.realstr_w(%s)" % (value,)
-        elif field.type.value in ("int",):
+        elif field.type in ("int",):
             return "space.int_w(%s)" % (value,)
-        elif field.type.value in ("bool",):
+        elif field.type in ("bool",):
             return "space.bool_w(%s)" % (value,)
         else:
             return "%s.from_object(space, %s)" % (field.type, value)
@@ -179,6 +179,11 @@ class ASTNodeVisitor(ASDLVisitor):
         else:
             value = self.get_value_extractor(field, "w_%s" % (field.name,))
             lines = ["_%s = %s" % (field.name, value)]
+            if not field.opt and field.type not in ("int",):
+                lines.append("if _%s is None:" % (field.name,))
+                lines.append("    raise_required_value(space, w_node, '%s')"
+                             % (field.name,))
+
         return lines
 
     def make_converters(self, fields, name, extras=None):
@@ -216,12 +221,12 @@ class ASTNodeVisitor(ASDLVisitor):
             if extras:
                 base_args = ", ".join(str(field.name) for field in extras)
                 self.emit("%s.__init__(self, %s)" % (base, base_args), 2)
-    
+
     def make_mutate_over(self, cons, name):
         self.emit("def mutate_over(self, visitor):", 1)
         for field in cons.fields:
-            if (field.type.value not in asdl.builtin_types and
-                field.type.value not in self.data.simple_types):
+            if (field.type not in asdl.builtin_types and
+                field.type not in self.data.simple_types):
                 if field.opt or field.seq:
                     level = 3
                     self.emit("if self.%s:" % (field.name,), 2)
@@ -247,8 +252,8 @@ class ASTNodeVisitor(ASDLVisitor):
         self.emit("")
         self.make_mutate_over(cons, cons.name)
         self.make_converters(cons.fields, cons.name, extra_attributes)
-        self.emit("State.ast_type('%r', '%s', %s)" % 
-                  (cons.name, base, [repr(f.name) for f in cons.fields]))
+        self.emit("State.ast_type(%r, '%s', %s)" %
+                  (cons.name, base, [f.name for f in cons.fields]))
         self.emit("")
 
     def visitField(self, field):
@@ -320,8 +325,8 @@ class GenericASTVisitorVisitor(ASDLVisitor):
         self.emit("")
 
     def visitField(self, field):
-        if (field.type.value not in asdl.builtin_types and 
-            field.type.value not in self.data.simple_types):
+        if (field.type not in asdl.builtin_types and
+            field.type not in self.data.simple_types):
             level = 2
             template = "node.%s.walkabout(self)"
             if field.seq:
@@ -362,7 +367,7 @@ class ASDLData(object):
             if isinstance(tp.value, asdl.Sum):
                 sum = tp.value
                 if is_simple_sum(sum):
-                    simple_types.add(tp.name.value)
+                    simple_types.add(tp.name)
                 else:
                     attrs = [field for field in sum.attributes]
                     for cons in sum.types:
@@ -370,7 +375,7 @@ class ASDLData(object):
                         cons_attributes[cons] = attrs
             else:
                 prod = tp.value
-                prod_simple.add(tp.name.value)
+                prod_simple.add(tp.name)
                 add_masks(prod.fields, prod)
         prod_simple.update(simple_types)
         self.cons_attributes = cons_attributes
@@ -391,10 +396,9 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 
 
-def raise_attriberr(space, w_obj, name):
-    raise oefmt(space.w_AttributeError,
-                "'%T' object has no attribute '%s'", w_obj, name)
-
+def raise_required_value(space, w_obj, name):
+    raise oefmt(space.w_ValueError,
+                "field %s is required for %T", name, w_obj)
 
 def check_string(space, w_obj):
     if not (space.isinstance_w(w_obj, space.w_str) or
@@ -522,7 +526,7 @@ class State:
         self.w_AST = space.gettypeobject(W_AST.typedef)
         for (name, base, fields, attributes) in self.AST_TYPES:
             self.make_new_type(space, name, base, fields, attributes)
-        
+
     def make_new_type(self, space, name, base, fields, attributes):
         w_base = getattr(self, 'w_%s' % base)
         w_dict = space.newdict()
@@ -534,7 +538,7 @@ class State:
             space.setitem_str(w_dict, "_attributes",
                               space.newtuple([space.wrap(a) for a in attributes]))
         w_type = space.call_function(
-            space.w_type, 
+            space.w_type,
             space.wrap(name), space.newtuple([w_base]), w_dict)
         setattr(self, 'w_%s' % name, w_type)
 
