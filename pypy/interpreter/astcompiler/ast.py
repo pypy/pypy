@@ -31,6 +31,7 @@ def get_field(space, w_node, name, optional):
 
 class AST(object):
     __metaclass__ = extendabletype
+    _attrs_ = ['lineno', 'col_offset']
 
     def walkabout(self, visitor):
         raise AssertionError("walkabout() implementation not provided")
@@ -184,7 +185,8 @@ class Module(mod):
 
     def mutate_over(self, visitor):
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                self.body[i] = self.body[i].mutate_over(visitor)
         return visitor.visit_Module(self)
 
     def to_object(self, space):
@@ -217,7 +219,8 @@ class Interactive(mod):
 
     def mutate_over(self, visitor):
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                self.body[i] = self.body[i].mutate_over(visitor)
         return visitor.visit_Interactive(self)
 
     def to_object(self, space):
@@ -279,7 +282,8 @@ class Suite(mod):
 
     def mutate_over(self, visitor):
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                self.body[i] = self.body[i].mutate_over(visitor)
         return visitor.visit_Suite(self)
 
     def to_object(self, space):
@@ -377,9 +381,11 @@ class FunctionDef(stmt):
     def mutate_over(self, visitor):
         self.args = self.args.mutate_over(visitor)
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                self.body[i] = self.body[i].mutate_over(visitor)
         if self.decorator_list:
-            visitor._mutate_sequence(self.decorator_list)
+            for i in range(len(self.decorator_list)):
+                self.decorator_list[i] = self.decorator_list[i].mutate_over(visitor)
         return visitor.visit_FunctionDef(self)
 
     def to_object(self, space):
@@ -445,11 +451,14 @@ class ClassDef(stmt):
 
     def mutate_over(self, visitor):
         if self.bases:
-            visitor._mutate_sequence(self.bases)
+            for i in range(len(self.bases)):
+                self.bases[i] = self.bases[i].mutate_over(visitor)
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                self.body[i] = self.body[i].mutate_over(visitor)
         if self.decorator_list:
-            visitor._mutate_sequence(self.decorator_list)
+            for i in range(len(self.decorator_list)):
+                self.decorator_list[i] = self.decorator_list[i].mutate_over(visitor)
         return visitor.visit_ClassDef(self)
 
     def to_object(self, space):
@@ -552,7 +561,8 @@ class Delete(stmt):
 
     def mutate_over(self, visitor):
         if self.targets:
-            visitor._mutate_sequence(self.targets)
+            for i in range(len(self.targets)):
+                self.targets[i] = self.targets[i].mutate_over(visitor)
         return visitor.visit_Delete(self)
 
     def to_object(self, space):
@@ -595,7 +605,8 @@ class Assign(stmt):
 
     def mutate_over(self, visitor):
         if self.targets:
-            visitor._mutate_sequence(self.targets)
+            for i in range(len(self.targets)):
+                self.targets[i] = self.targets[i].mutate_over(visitor)
         self.value = self.value.mutate_over(visitor)
         return visitor.visit_Assign(self)
 
@@ -701,7 +712,8 @@ class Print(stmt):
         if self.dest:
             self.dest = self.dest.mutate_over(visitor)
         if self.values:
-            visitor._mutate_sequence(self.values)
+            for i in range(len(self.values)):
+                self.values[i] = self.values[i].mutate_over(visitor)
         return visitor.visit_Print(self)
 
     def to_object(self, space):
@@ -758,9 +770,11 @@ class For(stmt):
         self.target = self.target.mutate_over(visitor)
         self.iter = self.iter.mutate_over(visitor)
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                self.body[i] = self.body[i].mutate_over(visitor)
         if self.orelse:
-            visitor._mutate_sequence(self.orelse)
+            for i in range(len(self.orelse)):
+                self.orelse[i] = self.orelse[i].mutate_over(visitor)
         return visitor.visit_For(self)
 
     def to_object(self, space):
@@ -826,9 +840,11 @@ class While(stmt):
     def mutate_over(self, visitor):
         self.test = self.test.mutate_over(visitor)
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                self.body[i] = self.body[i].mutate_over(visitor)
         if self.orelse:
-            visitor._mutate_sequence(self.orelse)
+            for i in range(len(self.orelse)):
+                self.orelse[i] = self.orelse[i].mutate_over(visitor)
         return visitor.visit_While(self)
 
     def to_object(self, space):
@@ -888,9 +904,11 @@ class If(stmt):
     def mutate_over(self, visitor):
         self.test = self.test.mutate_over(visitor)
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                self.body[i] = self.body[i].mutate_over(visitor)
         if self.orelse:
-            visitor._mutate_sequence(self.orelse)
+            for i in range(len(self.orelse)):
+                self.orelse[i] = self.orelse[i].mutate_over(visitor)
         return visitor.visit_If(self)
 
     def to_object(self, space):
@@ -952,7 +970,8 @@ class With(stmt):
         if self.optional_vars:
             self.optional_vars = self.optional_vars.mutate_over(visitor)
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                self.body[i] = self.body[i].mutate_over(visitor)
         return visitor.visit_With(self)
 
     def to_object(self, space):
@@ -1057,11 +1076,14 @@ class TryExcept(stmt):
 
     def mutate_over(self, visitor):
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                self.body[i] = self.body[i].mutate_over(visitor)
         if self.handlers:
-            visitor._mutate_sequence(self.handlers)
+            for i in range(len(self.handlers)):
+                self.handlers[i] = self.handlers[i].mutate_over(visitor)
         if self.orelse:
-            visitor._mutate_sequence(self.orelse)
+            for i in range(len(self.orelse)):
+                self.orelse[i] = self.orelse[i].mutate_over(visitor)
         return visitor.visit_TryExcept(self)
 
     def to_object(self, space):
@@ -1122,9 +1144,11 @@ class TryFinally(stmt):
 
     def mutate_over(self, visitor):
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                self.body[i] = self.body[i].mutate_over(visitor)
         if self.finalbody:
-            visitor._mutate_sequence(self.finalbody)
+            for i in range(len(self.finalbody)):
+                self.finalbody[i] = self.finalbody[i].mutate_over(visitor)
         return visitor.visit_TryFinally(self)
 
     def to_object(self, space):
@@ -1220,7 +1244,8 @@ class Import(stmt):
 
     def mutate_over(self, visitor):
         if self.names:
-            visitor._mutate_sequence(self.names)
+            for i in range(len(self.names)):
+                self.names[i] = self.names[i].mutate_over(visitor)
         return visitor.visit_Import(self)
 
     def to_object(self, space):
@@ -1264,7 +1289,8 @@ class ImportFrom(stmt):
 
     def mutate_over(self, visitor):
         if self.names:
-            visitor._mutate_sequence(self.names)
+            for i in range(len(self.names)):
+                self.names[i] = self.names[i].mutate_over(visitor)
         return visitor.visit_ImportFrom(self)
 
     def to_object(self, space):
@@ -1595,7 +1621,8 @@ class BoolOp(expr):
 
     def mutate_over(self, visitor):
         if self.values:
-            visitor._mutate_sequence(self.values)
+            for i in range(len(self.values)):
+                self.values[i] = self.values[i].mutate_over(visitor)
         return visitor.visit_BoolOp(self)
 
     def to_object(self, space):
@@ -1842,9 +1869,11 @@ class Dict(expr):
 
     def mutate_over(self, visitor):
         if self.keys:
-            visitor._mutate_sequence(self.keys)
+            for i in range(len(self.keys)):
+                self.keys[i] = self.keys[i].mutate_over(visitor)
         if self.values:
-            visitor._mutate_sequence(self.values)
+            for i in range(len(self.values)):
+                self.values[i] = self.values[i].mutate_over(visitor)
         return visitor.visit_Dict(self)
 
     def to_object(self, space):
@@ -1895,7 +1924,8 @@ class Set(expr):
 
     def mutate_over(self, visitor):
         if self.elts:
-            visitor._mutate_sequence(self.elts)
+            for i in range(len(self.elts)):
+                self.elts[i] = self.elts[i].mutate_over(visitor)
         return visitor.visit_Set(self)
 
     def to_object(self, space):
@@ -1939,7 +1969,8 @@ class ListComp(expr):
     def mutate_over(self, visitor):
         self.elt = self.elt.mutate_over(visitor)
         if self.generators:
-            visitor._mutate_sequence(self.generators)
+            for i in range(len(self.generators)):
+                self.generators[i] = self.generators[i].mutate_over(visitor)
         return visitor.visit_ListComp(self)
 
     def to_object(self, space):
@@ -1989,7 +2020,8 @@ class SetComp(expr):
     def mutate_over(self, visitor):
         self.elt = self.elt.mutate_over(visitor)
         if self.generators:
-            visitor._mutate_sequence(self.generators)
+            for i in range(len(self.generators)):
+                self.generators[i] = self.generators[i].mutate_over(visitor)
         return visitor.visit_SetComp(self)
 
     def to_object(self, space):
@@ -2041,7 +2073,8 @@ class DictComp(expr):
         self.key = self.key.mutate_over(visitor)
         self.value = self.value.mutate_over(visitor)
         if self.generators:
-            visitor._mutate_sequence(self.generators)
+            for i in range(len(self.generators)):
+                self.generators[i] = self.generators[i].mutate_over(visitor)
         return visitor.visit_DictComp(self)
 
     def to_object(self, space):
@@ -2097,7 +2130,8 @@ class GeneratorExp(expr):
     def mutate_over(self, visitor):
         self.elt = self.elt.mutate_over(visitor)
         if self.generators:
-            visitor._mutate_sequence(self.generators)
+            for i in range(len(self.generators)):
+                self.generators[i] = self.generators[i].mutate_over(visitor)
         return visitor.visit_GeneratorExp(self)
 
     def to_object(self, space):
@@ -2185,7 +2219,8 @@ class Compare(expr):
     def mutate_over(self, visitor):
         self.left = self.left.mutate_over(visitor)
         if self.comparators:
-            visitor._mutate_sequence(self.comparators)
+            for i in range(len(self.comparators)):
+                self.comparators[i] = self.comparators[i].mutate_over(visitor)
         return visitor.visit_Compare(self)
 
     def to_object(self, space):
@@ -2247,9 +2282,11 @@ class Call(expr):
     def mutate_over(self, visitor):
         self.func = self.func.mutate_over(visitor)
         if self.args:
-            visitor._mutate_sequence(self.args)
+            for i in range(len(self.args)):
+                self.args[i] = self.args[i].mutate_over(visitor)
         if self.keywords:
-            visitor._mutate_sequence(self.keywords)
+            for i in range(len(self.keywords)):
+                self.keywords[i] = self.keywords[i].mutate_over(visitor)
         if self.starargs:
             self.starargs = self.starargs.mutate_over(visitor)
         if self.kwargs:
@@ -2580,7 +2617,8 @@ class List(expr):
 
     def mutate_over(self, visitor):
         if self.elts:
-            visitor._mutate_sequence(self.elts)
+            for i in range(len(self.elts)):
+                self.elts[i] = self.elts[i].mutate_over(visitor)
         return visitor.visit_List(self)
 
     def to_object(self, space):
@@ -2629,7 +2667,8 @@ class Tuple(expr):
 
     def mutate_over(self, visitor):
         if self.elts:
-            visitor._mutate_sequence(self.elts)
+            for i in range(len(self.elts)):
+                self.elts[i] = self.elts[i].mutate_over(visitor)
         return visitor.visit_Tuple(self)
 
     def to_object(self, space):
@@ -2857,7 +2896,8 @@ class ExtSlice(slice):
 
     def mutate_over(self, visitor):
         if self.dims:
-            visitor._mutate_sequence(self.dims)
+            for i in range(len(self.dims)):
+                self.dims[i] = self.dims[i].mutate_over(visitor)
         return visitor.visit_ExtSlice(self)
 
     def to_object(self, space):
@@ -3216,7 +3256,8 @@ class comprehension(AST):
         self.target = self.target.mutate_over(visitor)
         self.iter = self.iter.mutate_over(visitor)
         if self.ifs:
-            visitor._mutate_sequence(self.ifs)
+            for i in range(len(self.ifs)):
+                self.ifs[i] = self.ifs[i].mutate_over(visitor)
         return visitor.visit_comprehension(self)
 
     def walkabout(self, visitor):
@@ -3286,7 +3327,8 @@ class ExceptHandler(excepthandler):
         if self.name:
             self.name = self.name.mutate_over(visitor)
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                self.body[i] = self.body[i].mutate_over(visitor)
         return visitor.visit_ExceptHandler(self)
 
     def to_object(self, space):
@@ -3335,9 +3377,11 @@ class arguments(AST):
 
     def mutate_over(self, visitor):
         if self.args:
-            visitor._mutate_sequence(self.args)
+            for i in range(len(self.args)):
+                self.args[i] = self.args[i].mutate_over(visitor)
         if self.defaults:
-            visitor._mutate_sequence(self.defaults)
+            for i in range(len(self.defaults)):
+                self.defaults[i] = self.defaults[i].mutate_over(visitor)
         return visitor.visit_arguments(self)
 
     def walkabout(self, visitor):
@@ -3455,10 +3499,6 @@ class ASTVisitor(object):
 
     def default_visitor(self, node):
         raise NodeVisitorNotImplemented
-
-    def _mutate_sequence(self, seq):
-        for i in range(len(seq)):
-            seq[i] = seq[i].mutate_over(self)
 
     def visit_Module(self, node):
         return self.default_visitor(node)

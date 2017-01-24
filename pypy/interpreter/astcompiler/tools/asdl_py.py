@@ -233,12 +233,17 @@ class ASTNodeVisitor(ASDLVisitor):
                 else:
                     level = 2
                 if field.seq:
-                    sub = (field.name,)
-                    self.emit("visitor._mutate_sequence(self.%s)" % sub, level)
+                    sub = field.name
+                    self.emit("for i in range(len(self.{})):".format(sub),
+                        level)
+                    self.emit(
+                        "self.{0}[i] = self.{0}[i].mutate_over(visitor)".format(sub),
+                        level + 1)
                 else:
-                    sub = (field.name, field.name)
-                    self.emit("self.%s = self.%s.mutate_over(visitor)" % sub,
-                              level)
+                    sub = field.name
+                    self.emit(
+                        "self.{0} = self.{0}.mutate_over(visitor)".format(sub),
+                        level)
         self.emit("return visitor.visit_%s(self)" % (name,), 2)
         self.emit("")
 
@@ -273,10 +278,6 @@ class ASTVisitorVisitor(ASDLVisitor):
         self.emit("")
         self.emit("def default_visitor(self, node):", 1)
         self.emit("raise NodeVisitorNotImplemented", 2)
-        self.emit("")
-        self.emit("def _mutate_sequence(self, seq):", 1)
-        self.emit("for i in range(len(seq)):", 2)
-        self.emit("seq[i] = seq[i].mutate_over(self)", 3)
         self.emit("")
         super(ASTVisitorVisitor, self).visitModule(mod)
         self.emit("")
@@ -419,6 +420,7 @@ def get_field(space, w_node, name, optional):
 
 class AST(object):
     __metaclass__ = extendabletype
+    _attrs_ = ['lineno', 'col_offset']
 
     def walkabout(self, visitor):
         raise AssertionError("walkabout() implementation not provided")
