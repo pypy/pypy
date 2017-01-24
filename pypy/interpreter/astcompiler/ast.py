@@ -3879,9 +3879,11 @@ State.ast_type('arguments', 'AST', ['args', 'vararg', 'kwonlyargs', 'kw_defaults
 
 class arg(AST):
 
-    def __init__(self, arg, annotation):
+    def __init__(self, arg, annotation, lineno, col_offset):
         self.arg = arg
         self.annotation = annotation
+        self.lineno = lineno
+        self.col_offset = col_offset
 
     def mutate_over(self, visitor):
         if self.annotation:
@@ -3897,19 +3899,27 @@ class arg(AST):
         space.setattr(w_node, space.wrap('arg'), w_arg)
         w_annotation = self.annotation.to_object(space) if self.annotation is not None else space.w_None  # expr
         space.setattr(w_node, space.wrap('annotation'), w_annotation)
+        w_lineno = space.wrap(self.lineno)  # int
+        space.setattr(w_node, space.wrap('lineno'), w_lineno)
+        w_col_offset = space.wrap(self.col_offset)  # int
+        space.setattr(w_node, space.wrap('col_offset'), w_col_offset)
         return w_node
 
     @staticmethod
     def from_object(space, w_node):
         w_arg = get_field(space, w_node, 'arg', False)
         w_annotation = get_field(space, w_node, 'annotation', True)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
         _arg = space.identifier_w(w_arg)
         if _arg is None:
             raise_required_value(space, w_node, 'arg')
         _annotation = expr.from_object(space, w_annotation)
-        return arg(_arg, _annotation)
+        _lineno = space.int_w(w_lineno)
+        _col_offset = space.int_w(w_col_offset)
+        return arg(_arg, _annotation, _lineno, _col_offset)
 
-State.ast_type('arg', 'AST', ['arg', 'annotation'])
+State.ast_type('arg', 'AST', ['arg', 'annotation'], ['lineno', 'col_offset'])
 
 class keyword(AST):
 

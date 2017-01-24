@@ -56,6 +56,7 @@ class ASTNodeVisitor(ASDLVisitor):
 
     def visitSum(self, sum, base):
         if is_simple_sum(sum):
+            assert not sum.attributes
             self.emit("class %s(AST):" % (base,))
             self.emit("@staticmethod", 1)
             self.emit("def from_object(space, w_node):", 1)
@@ -111,15 +112,19 @@ class ASTNodeVisitor(ASDLVisitor):
     def visitProduct(self, product, name):
         self.emit("class %s(AST):" % (name,))
         self.emit("")
-        self.make_constructor(product.fields, product)
+        self.make_constructor(product.fields + product.attributes, product)
         self.emit("")
         self.make_mutate_over(product, name)
         self.emit("def walkabout(self, visitor):", 1)
         self.emit("visitor.visit_%s(self)" % (name,), 2)
         self.emit("")
-        self.make_converters(product.fields, name)
-        self.emit("State.ast_type(%r, 'AST', %s)" %
-                  (name, [f.name for f in product.fields]))
+        self.make_converters(product.fields + product.attributes, name)
+        if product.attributes:
+            attr_names = ', %s' % ([a.name for a in product.attributes],)
+        else:
+            attr_names = ''
+        self.emit("State.ast_type(%r, 'AST', %s%s)" %
+                  (name, [f.name for f in product.fields], attr_names))
         self.emit("")
 
     def get_value_converter(self, field, value):

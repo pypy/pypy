@@ -665,7 +665,8 @@ class ASTBuilder(object):
                 argname = name_node.get_value()
                 argname = self.new_identifier(argname)
                 self.check_forbidden_name(argname, name_node)
-                kwonly.append(ast.arg(argname, ann))
+                kwonly.append(ast.arg(argname, ann, arg.get_lineno(),
+                                                    arg.get_column()))
                 i += 2
             elif arg_type == tokens.DOUBLESTAR:
                 return i
@@ -678,7 +679,7 @@ class ASTBuilder(object):
         ann = None
         if arg_node.num_children() == 3:
             ann = self.handle_expr(arg_node.get_child(2))
-        return ast.arg(name, ann)
+        return ast.arg(name, ann, arg_node.get_lineno(), arg_node.get_column())
 
     def handle_stmt(self, stmt):
         stmt_type = stmt.type
