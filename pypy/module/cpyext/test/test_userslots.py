@@ -42,7 +42,7 @@ class TestAppLevelObject(BaseApiTest):
         w_year = space.getattr(w_obj, space.newbytes('year'))
         assert space.int_w(w_year) == 1
 
-        w_obj = generic_cpy_call(space, py_datetype.c_tp_new, py_datetype, 
+        w_obj = generic_cpy_call(space, py_datetype.c_tp_new, py_datetype,
                                  arg, space.newdict({}))
         w_year = space.getattr(w_obj, space.newbytes('year'))
         assert space.int_w(w_year) == 1
@@ -137,25 +137,23 @@ class AppTestUserSlots(AppTestCpythonExtensionBase):
                     return datetime_cls->tp_new(t, a, k);
                 }
 
-                static void 
+                static void
                 _timestamp_dealloc(PyObject *op)
                 {
                     foocnt --;
                     datetime_cls->tp_dealloc(op);
                 }
-                 
+
 
                 static PyTypeObject _Timestamp = {
-                    PyObject_HEAD_INIT(NULL)
-                    0,                            /* ob_size */
+                    PyVarObject_HEAD_INIT(NULL, 0)
                     "foo._Timestamp",   /* tp_name*/
                     0,                  /* tp_basicsize*/
                     0,                  /* tp_itemsize */
                     _timestamp_dealloc  /* tp_dealloc  */
                 };
                 static PyTypeObject Timestamp = {
-                    PyObject_HEAD_INIT(NULL)
-                    0,                            /* ob_size */
+                    PyVarObject_HEAD_INIT(NULL, 0)
                     "foo.Timestamp",   /* tp_name*/
                     0,                  /* tp_basicsize*/
                     0                  /* tp_itemsize */
@@ -179,7 +177,7 @@ class AppTestUserSlots(AppTestCpythonExtensionBase):
                 Timestamp.tp_dealloc = datetime_cls->tp_dealloc;
                 if (PyType_Ready(&Timestamp) < 0) INITERROR;
             ''')
-        # _Timestamp has __new__, __del__ and 
+        # _Timestamp has __new__, __del__ and
         #      inherits from datetime.datetime
         # Timestamp has __new__, default __del__ (subtype_dealloc) and
         #      inherits from _Timestamp
