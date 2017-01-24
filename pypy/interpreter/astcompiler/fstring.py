@@ -352,7 +352,7 @@ def string_parse_literal(astbuilder, atom_node):
         # Unicode/ValueError in literal: turn into SyntaxError
         e.normalize_exception(space)
         errmsg = space.str_w(space.str(e.get_w_value(space)))
-        raise self.error('(%s) %s' % (kind, errmsg), atom_node)
+        raise astbuilder.error('(%s) %s' % (kind, errmsg), atom_node)
 
     if len(joined_pieces) == 1:   # <= the common path
         return joined_pieces[0]   # ast.Str, Bytes or FormattedValue
