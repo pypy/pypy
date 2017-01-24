@@ -9,9 +9,10 @@ from rpython.rlib.objectmodel import specialize
 
 
 class W_STType(W_Root):
-    def __init__(self, tree, mode):
+    def __init__(self, tree, mode, recursive_parser=None):
         self.tree = tree
         self.mode = mode
+        self.recursive_parser = recursive_parser
 
     @specialize.arg(3)
     def _build_app_tree(self, space, node, seq_maker, with_lineno, with_column):
@@ -52,7 +53,7 @@ class W_STType(W_Root):
     def descr_compile(self, space, filename="<syntax-tree>"):
         info = pyparse.CompileInfo(filename, self.mode)
         try:
-            ast = ast_from_node(space, self.tree, info)
+            ast = ast_from_node(space, self.tree, info, self.recursive_parser)
             result = compile_ast(space, ast, info)
         except error.IndentationError as e:
             raise OperationError(space.w_IndentationError,
@@ -82,7 +83,7 @@ def parse_python(space, source, mode):
     except error.SyntaxError as e:
         raise OperationError(space.w_SyntaxError,
                              e.wrap_info(space))
-    return space.wrap(W_STType(tree, mode))
+    return space.wrap(W_STType(tree, mode, recursive_parser=parser))
 
 
 @unwrap_spec(source=str)

@@ -1502,6 +1502,23 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             sub.value.walkabout(self)
         self._compile_slice(sub.slice, sub.ctx)
 
+    def visit_JoinedStr(self, joinedstr):
+        self.update_position(joinedstr.lineno)
+        for node in joinedstr.values:
+            node.walkabout(self)
+        self.emit_op_arg(ops.BUILD_STRING, len(joinedstr.values))
+
+    def visit_FormattedValue(self, fmt):
+        fmt.value.walkabout(self)
+        arg = 0
+        if fmt.conversion == ord('s'): arg = consts.FVC_STR
+        if fmt.conversion == ord('r'): arg = consts.FVC_REPR
+        if fmt.conversion == ord('a'): arg = consts.FVC_ASCII
+        if fmt.format_spec is not None:
+            arg |= consts.FVS_HAVE_SPEC
+            fmt.format_spec.walkabout(self)
+        self.emit_op_arg(ops.FORMAT_VALUE, arg)
+
 
 class TopLevelCodeGenerator(PythonCodeGenerator):
 

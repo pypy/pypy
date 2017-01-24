@@ -434,6 +434,10 @@ class __extend__(pyframe.PyFrame):
                 self.GET_AITER(oparg, next_instr)
             elif opcode == opcodedesc.GET_ANEXT.index:
                 self.GET_ANEXT(oparg, next_instr)
+            elif opcode == opcodedesc.FORMAT_VALUE.index:
+                self.FORMAT_VALUE(oparg, next_instr)
+            elif opcode == opcodedesc.BUILD_STRING.index:
+                self.BUILD_STRING(oparg, next_instr)
             else:
                 self.MISSING_OPCODE(oparg, next_instr)
 
@@ -1606,6 +1610,39 @@ class __extend__(pyframe.PyFrame):
                         "'async for' received an invalid object "
                         "from __anext__: %T", w_next_iter)
         self.pushvalue(w_awaitable)
+
+    def FORMAT_VALUE(self, oparg, next_instr):
+        from pypy.interpreter.astcompiler import consts
+        space = self.space
+        #
+        if (oparg & consts.FVS_MASK) == consts.FVS_HAVE_SPEC:
+            w_spec = self.popvalue()
+        else:
+            w_spec = space.newunicode(u'')
+        w_value = self.popvalue()
+        #
+        conversion = oparg & consts.FVC_MASK
+        if conversion == consts.FVC_STR:
+            w_value = space.str(w_value)
+        elif conversion == consts.FVC_REPR:
+            w_value = space.repr(w_value)
+        elif conversion == consts.FVC_ASCII:
+            from pypy.objspace.std.unicodeobject import ascii_from_object
+            w_value = ascii_from_object(space, w_value)
+        #
+        w_res = space.format(w_value, w_spec)
+        self.pushvalue(w_res)
+
+    @jit.unroll_safe
+    def BUILD_STRING(self, itemcount, next_instr):
+        space = self.space
+        lst = []
+        for i in range(itemcount-1, -1, -1):
+            w_item = self.peekvalue(i)
+            lst.append(space.unicode_w(w_item))
+        self.dropvalues(itemcount)
+        w_res = space.newunicode(u''.join(lst))
+        self.pushvalue(w_res)
 
 ### ____________________________________________________________ ###
 

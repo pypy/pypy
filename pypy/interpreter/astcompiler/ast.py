@@ -1733,6 +1733,10 @@ class expr(AST):
             return Num.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Str):
             return Str.from_object(space, w_node)
+        if space.isinstance_w(w_node, get(space).w_FormattedValue):
+            return FormattedValue.from_object(space, w_node)
+        if space.isinstance_w(w_node, get(space).w_JoinedStr):
+            return JoinedStr.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Bytes):
             return Bytes.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_NameConstant):
@@ -2637,6 +2641,100 @@ class Str(expr):
         return Str(_s, _lineno, _col_offset)
 
 State.ast_type('Str', 'expr', ['s'])
+
+
+class FormattedValue(expr):
+
+    def __init__(self, value, conversion, format_spec, lineno, col_offset):
+        self.value = value
+        self.conversion = conversion
+        self.format_spec = format_spec
+        expr.__init__(self, lineno, col_offset)
+
+    def walkabout(self, visitor):
+        visitor.visit_FormattedValue(self)
+
+    def mutate_over(self, visitor):
+        self.value = self.value.mutate_over(visitor)
+        if self.format_spec:
+            self.format_spec = self.format_spec.mutate_over(visitor)
+        return visitor.visit_FormattedValue(self)
+
+    def to_object(self, space):
+        w_node = space.call_function(get(space).w_FormattedValue)
+        w_value = self.value.to_object(space)  # expr
+        space.setattr(w_node, space.wrap('value'), w_value)
+        w_conversion = space.wrap(self.conversion)  # int
+        space.setattr(w_node, space.wrap('conversion'), w_conversion)
+        w_format_spec = self.format_spec.to_object(space) if self.format_spec is not None else space.w_None  # expr
+        space.setattr(w_node, space.wrap('format_spec'), w_format_spec)
+        w_lineno = space.wrap(self.lineno)  # int
+        space.setattr(w_node, space.wrap('lineno'), w_lineno)
+        w_col_offset = space.wrap(self.col_offset)  # int
+        space.setattr(w_node, space.wrap('col_offset'), w_col_offset)
+        return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        w_value = get_field(space, w_node, 'value', False)
+        w_conversion = get_field(space, w_node, 'conversion', True)
+        w_format_spec = get_field(space, w_node, 'format_spec', True)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        _value = expr.from_object(space, w_value)
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
+        _conversion = space.int_w(w_conversion)
+        _format_spec = expr.from_object(space, w_format_spec)
+        _lineno = space.int_w(w_lineno)
+        _col_offset = space.int_w(w_col_offset)
+        return FormattedValue(_value, _conversion, _format_spec, _lineno, _col_offset)
+
+State.ast_type('FormattedValue', 'expr', ['value', 'conversion', 'format_spec'])
+
+
+class JoinedStr(expr):
+
+    def __init__(self, values, lineno, col_offset):
+        self.values = values
+        expr.__init__(self, lineno, col_offset)
+
+    def walkabout(self, visitor):
+        visitor.visit_JoinedStr(self)
+
+    def mutate_over(self, visitor):
+        if self.values:
+            for i in range(len(self.values)):
+                if self.values[i] is not None:
+                    self.values[i] = self.values[i].mutate_over(visitor)
+        return visitor.visit_JoinedStr(self)
+
+    def to_object(self, space):
+        w_node = space.call_function(get(space).w_JoinedStr)
+        if self.values is None:
+            values_w = []
+        else:
+            values_w = [node.to_object(space) for node in self.values] # expr
+        w_values = space.newlist(values_w)
+        space.setattr(w_node, space.wrap('values'), w_values)
+        w_lineno = space.wrap(self.lineno)  # int
+        space.setattr(w_node, space.wrap('lineno'), w_lineno)
+        w_col_offset = space.wrap(self.col_offset)  # int
+        space.setattr(w_node, space.wrap('col_offset'), w_col_offset)
+        return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        w_values = get_field(space, w_node, 'values', False)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        values_w = space.unpackiterable(w_values)
+        _values = [expr.from_object(space, w_item) for w_item in values_w]
+        _lineno = space.int_w(w_lineno)
+        _col_offset = space.int_w(w_col_offset)
+        return JoinedStr(_values, _lineno, _col_offset)
+
+State.ast_type('JoinedStr', 'expr', ['values'])
 
 
 class Bytes(expr):
@@ -4022,6 +4120,10 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_Str(self, node):
         return self.default_visitor(node)
+    def visit_FormattedValue(self, node):
+        return self.default_visitor(node)
+    def visit_JoinedStr(self, node):
+        return self.default_visitor(node)
     def visit_Bytes(self, node):
         return self.default_visitor(node)
     def visit_NameConstant(self, node):
@@ -4250,6 +4352,14 @@ class GenericASTVisitor(ASTVisitor):
 
     def visit_Str(self, node):
         pass
+
+    def visit_FormattedValue(self, node):
+        node.value.walkabout(self)
+        if node.format_spec:
+            node.format_spec.walkabout(self)
+
+    def visit_JoinedStr(self, node):
+        self.visit_sequence(node.values)
 
     def visit_Bytes(self, node):
         pass
