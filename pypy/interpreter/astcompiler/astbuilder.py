@@ -1249,10 +1249,10 @@ class ASTBuilder(object):
                     (n_maker_children > 1 and
                      maker.get_child(1).type == tokens.COMMA)):
                     # a set display
-                    return self.handle_setdisplay(maker)
+                    return self.handle_setdisplay(maker, atom_node)
                 elif n_maker_children > 1 and maker.get_child(1).type == syms.comp_for:
                     # a set comprehension
-                    return self.handle_setcomp(maker)
+                    return self.handle_setcomp(maker, atom_node)
                 elif (n_maker_children > (3-is_dict) and
                       maker.get_child(3-is_dict).type == syms.comp_for):
                     # a dictionary comprehension
@@ -1260,10 +1260,10 @@ class ASTBuilder(object):
                         raise self.error("dict unpacking cannot be used in "
                                          "dict comprehension", atom_node)
                     
-                    return self.handle_dictcomp(maker)
+                    return self.handle_dictcomp(maker, atom_node)
                 else:
                     # a dictionary display
-                    return self.handle_dictdisplay(maker)
+                    return self.handle_dictdisplay(maker, atom_node)
         else:
             raise AssertionError("unknown atom")
 
@@ -1361,22 +1361,22 @@ class ASTBuilder(object):
         return ast.ListComp(elt, comps, listcomp_node.get_lineno(),
                             listcomp_node.get_column())
 
-    def handle_setcomp(self, set_maker):
+    def handle_setcomp(self, set_maker, atom_node):
         ch = set_maker.get_child(0)
         elt = self.handle_expr(ch)
         if isinstance(elt, ast.Starred):
             self.error("iterable unpacking cannot be used in comprehension", ch)
         comps = self.comprehension_helper(set_maker.get_child(1))
-        return ast.SetComp(elt, comps, set_maker.get_lineno(),
-                           set_maker.get_column())
+        return ast.SetComp(elt, comps, atom_node.get_lineno(),
+                                       atom_node.get_column())
 
-    def handle_dictcomp(self, dict_maker):
+    def handle_dictcomp(self, dict_maker, atom_node):
         i, key, value = self.handle_dictelement(dict_maker, 0)
         comps = self.comprehension_helper(dict_maker.get_child(i))
-        return ast.DictComp(key, value, comps, dict_maker.get_lineno(),
-                            dict_maker.get_column())
+        return ast.DictComp(key, value, comps, atom_node.get_lineno(),
+                                               atom_node.get_column())
     
-    def handle_dictdisplay(self, node):
+    def handle_dictdisplay(self, node, atom_node):
         keys = []
         values = []
         i = 0
@@ -1385,16 +1385,18 @@ class ASTBuilder(object):
             keys.append(key)
             values.append(value)
             i += 1
-        return ast.Dict(keys, values, node.get_lineno(), node.get_column())
+        return ast.Dict(keys, values, atom_node.get_lineno(),
+                                      atom_node.get_column())
     
-    def handle_setdisplay(self, node):
+    def handle_setdisplay(self, node, atom_node):
         elts = []
         i = 0
         while i < node.num_children():
             expr = self.handle_expr(node.get_child(i))
             elts.append(expr)
             i += 2
-        return ast.Set(elts, node.get_lineno(), node.get_column())
+        return ast.Set(elts, atom_node.get_lineno(),
+                             atom_node.get_column())
 
     def handle_exprlist(self, exprlist, context):
         exprs = []
