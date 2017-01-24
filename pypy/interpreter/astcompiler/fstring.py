@@ -50,8 +50,10 @@ def f_string_compile(astbuilder, source, atom_node):
                                consts.PyCF_SOURCE_IS_UTF8 |
                                consts.PyCF_IGNORE_COOKIE,
                                optimize=astbuilder.compile_info.optimize)
-    parse_tree = astbuilder.recursive_parser.parse_source(source, info)
-    return ast_from_node(astbuilder.space, parse_tree, info)
+    parser = astbuilder.recursive_parser
+    parse_tree = parser.parse_source(source, info)
+    return ast_from_node(astbuilder.space, parse_tree, info,
+                         recursive_parser=parser)
 
 
 def unexpected_end_of_string(astbuilder, atom_node):
@@ -257,7 +259,8 @@ def fstring_find_literal(astbuilder, fstr, atom_node, rec):
 
     fstr.current_index = i
     literal = builder.build()
-    if not fstr.raw_mode:
+    if not fstr.raw_mode and u'\\' in literal:
+        literal = literal.encode('utf-8')
         literal = unicodehelper.decode_unicode_escape(astbuilder.space, literal)
     return literal
 
@@ -281,7 +284,10 @@ def fstring_find_literal_and_expr(astbuilder, fstr, atom_node, rec):
 
 
 def parse_f_string(astbuilder, joined_pieces, fstr, atom_node, rec=0):
-    space = astbuilder.space
+    # In our case, parse_f_string() and fstring_find_literal_and_expr()
+    # could be merged into a single function with a clearer logic.  It's
+    # done this way to follow CPython's source code more closely.
+
     while True:
         literal, expr = fstring_find_literal_and_expr(astbuilder, fstr,
                                                       atom_node, rec)

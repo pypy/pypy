@@ -1184,6 +1184,8 @@ class TestCompiler:
 
         yield self.st, """z=f'{"}"}'""", 'z', '}'
 
+        yield self.st, """z=f'{f"{0}"*3}'""", 'z', '000'
+
     def test_fstring_error(self):
         raises(SyntaxError, self.run, "f'{}'")
         raises(SyntaxError, self.run, "f'{   \t   }'")
