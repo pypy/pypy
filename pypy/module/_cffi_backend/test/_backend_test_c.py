@@ -1,9 +1,9 @@
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.9.2", ("This test_c.py file is for testing a version"
-                                " of cffi that differs from the one that we"
-                                " get from 'import _cffi_backend'")
+assert __version__ == "1.10.0", ("This test_c.py file is for testing a version"
+                                 " of cffi that differs from the one that we"
+                                 " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
     type_or_class = "type"
     mandatory_b_prefix = ''
@@ -885,6 +885,15 @@ def test_call_function_0():
     py.test.raises(OverflowError, f, 128, 0)
     py.test.raises(OverflowError, f, 0, 128)
 
+def test_call_function_0_pretend_bool_result():
+    BSignedChar = new_primitive_type("signed char")
+    BBool = new_primitive_type("_Bool")
+    BFunc0 = new_function_type((BSignedChar, BSignedChar), BBool, False)
+    f = cast(BFunc0, _testfunc(0))
+    assert f(40, -39) is True
+    assert f(40, -40) is False
+    py.test.raises(ValueError, f, 40, 2)
+
 def test_call_function_1():
     BInt = new_primitive_type("int")
     BLong = new_primitive_type("long")
@@ -1046,6 +1055,17 @@ def test_call_function_23_bis():
     f = cast(BFunc23, _testfunc(23))
     res = f(b"foo")
     assert res == 1000 * ord(b'f')
+
+def test_call_function_23_bool_array():
+    # declaring the function as int(_Bool*)
+    BBool = new_primitive_type("_Bool")
+    BBoolP = new_pointer_type(BBool)
+    BInt = new_primitive_type("int")
+    BFunc23 = new_function_type((BBoolP,), BInt, False)
+    f = cast(BFunc23, _testfunc(23))
+    res = f(b"\x01\x01")
+    assert res == 1000
+    py.test.raises(ValueError, f, b"\x02\x02")
 
 def test_cannot_pass_struct_with_array_of_length_0():
     BInt = new_primitive_type("int")
@@ -2617,13 +2637,38 @@ def test_bool():
     py.test.raises(OverflowError, newp, BBoolP, 2)
     py.test.raises(OverflowError, newp, BBoolP, -1)
     BCharP = new_pointer_type(new_primitive_type("char"))
-    p = newp(BCharP, b'X')
+    p = newp(BCharP, b'\x01')
     q = cast(BBoolP, p)
-    assert q[0] == ord(b'X')
+    assert q[0] is True
+    p = newp(BCharP, b'\x00')
+    q = cast(BBoolP, p)
+    assert q[0] is False
     py.test.raises(TypeError, string, cast(BBool, False))
     BDouble = new_primitive_type("double")
     assert int(cast(BBool, cast(BDouble, 0.1))) == 1
     assert int(cast(BBool, cast(BDouble, 0.0))) == 0
+    BBoolA = new_array_type(BBoolP, None)
+    p = newp(BBoolA, b'\x01\x00')
+    assert p[0] is True
+    assert p[1] is False
+
+def test_bool_forbidden_cases():
+    BBool = new_primitive_type("_Bool")
+    BBoolP = new_pointer_type(BBool)
+    BBoolA = new_array_type(BBoolP, None)
+    BCharP = new_pointer_type(new_primitive_type("char"))
+    p = newp(BCharP, b'X')
+    q = cast(BBoolP, p)
+    py.test.raises(ValueError, "q[0]")
+    py.test.raises(TypeError, newp, BBoolP, b'\x00')
+    assert newp(BBoolP, 0)[0] is False
+    assert newp(BBoolP, 1)[0] is True
+    py.test.raises(OverflowError, newp, BBoolP, 2)
+    py.test.raises(OverflowError, newp, BBoolP, -1)
+    py.test.raises(ValueError, newp, BBoolA, b'\x00\x01\x02')
+    py.test.raises(OverflowError, newp, BBoolA, [0, 1, 2])
+    py.test.raises(TypeError, string, newp(BBoolP, 1))
+    py.test.raises(TypeError, string, newp(BBoolA, [1]))
 
 def test_typeoffsetof():
     BChar = new_primitive_type("char")
@@ -3663,7 +3708,7 @@ def test_unpack():
             ("int16_t", [-2**15, 2**15-1]),
             ("int32_t", [-2**31, 2**31-1]),
             ("int64_t", [-2**63, 2**63-1]),
-            ("_Bool", [0, 1]),
+            ("_Bool", [False, True]),
             ("float", [0.0, 10.5]),
             ("double", [12.34, 56.78]),
             ]:
@@ -3733,7 +3778,7 @@ def test_cdata_dir():
 
 def test_char_pointer_conversion():
     import warnings
-    assert __version__.startswith(("1.8", "1.9")), (
+    assert __version__.startswith(("1.8", "1.9", "1.10")), (
         "consider turning the warning into an error")
     BCharP = new_pointer_type(new_primitive_type("char"))
     BIntP = new_pointer_type(new_primitive_type("int"))

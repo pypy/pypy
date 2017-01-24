@@ -1216,12 +1216,16 @@ class ASTBuilder(object):
                             space, encoding, atom_node.get_child(i).get_value())
                         for i in range(atom_node.num_children())]
             except error.OperationError as e:
-                if not (e.match(space, space.w_UnicodeError) or
-                        e.match(space, space.w_ValueError)):
+                if e.match(space, space.w_UnicodeError):
+                    kind = 'unicode error'
+                elif e.match(space, space.w_ValueError):
+                    kind = 'value error'
+                else:
                     raise
                 # Unicode/ValueError in literal: turn into SyntaxError
-                self.error(e.errorstr(space), atom_node)
-                sub_strings_w = [] # please annotator
+                e.normalize_exception(space)
+                errmsg = space.str_w(space.str(e.get_w_value(space)))
+                raise self.error('(%s) %s' % (kind, errmsg), atom_node)
             # Implement implicit string concatenation.
             w_string = sub_strings_w[0]
             for i in range(1, len(sub_strings_w)):
