@@ -7,6 +7,11 @@ from pypy.module.test_lib_pypy.cffi_tests.udir import udir
 from pypy.module.test_lib_pypy.cffi_tests.support import u, long
 from pypy.module.test_lib_pypy.cffi_tests.support import FdWriteCapture, StdErrCapture
 
+try:
+    import importlib
+except ImportError:
+    importlib = None
+
 
 def check_type_table(input, expected_output, included=None):
     ffi = FFI()
@@ -27,6 +32,7 @@ def verify(ffi, module_name, source, *args, **kwds):
         kwds.setdefault('source_extension', '.cpp')
         source = 'extern "C" {\n%s\n}' % (source,)
     else:
+        # add '-Werror' to the existing 'extra_compile_args' flags
         kwds['extra_compile_args'] = (kwds.get('extra_compile_args', []) +
                                       ['-Werror'])
     return recompiler._verify(ffi, module_name, source, *args, **kwds)
@@ -521,6 +527,8 @@ def test_module_name_in_package():
         assert len(os.listdir(str(package_dir))) > 0
         assert os.path.exists(str(package_dir.join('mymod.c')))
         package_dir.join('__init__.py').write('')
+        #
+        getattr(importlib, 'invalidate_caches', object)()
         #
         sys.path.insert(0, str(udir))
         import test_module_name_in_package.mymod
@@ -2160,7 +2168,7 @@ def test_call_with_packed_struct():
             return s;
         }
     """)
-    assert lib.f().y == chr(40)
+    assert ord(lib.f().y) == 40
     assert lib.f().x == 200
     e = py.test.raises(NotImplementedError, lib.g, 0)
     assert str(e.value) == (
@@ -2169,3 +2177,15 @@ def test_call_with_packed_struct():
         "  Such structs are only supported as return value if the function is "
         "'API mode' and non-variadic (i.e. declared inside ffibuilder.cdef()"
         "+ffibuilder.set_source() and not taking a final '...' argument)")
+
+def test_gcc_visibility_hidden():
+    if sys.platform == 'win32':
+        py.test.skip("test for gcc/clang")
+    ffi = FFI()
+    ffi.cdef("""
+    int f(int);
+    """)
+    lib = verify(ffi, "test_gcc_visibility_hidden", """
+    int f(int a) { return a + 40; }
+    """, extra_compile_args=['-fvisibility=hidden'])
+    assert lib.f(2) == 42
