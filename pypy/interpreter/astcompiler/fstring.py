@@ -1,6 +1,8 @@
 from pypy.interpreter.astcompiler import ast, consts
 from pypy.interpreter.pyparser import parsestring
 from pypy.interpreter import error
+from pypy.interpreter import unicodehelper
+from rpython.rlib.rstring import UnicodeBuilder
 
 
 def add_constant_string(astbuilder, joined_pieces, w_string, atom_node):
@@ -46,96 +48,261 @@ def f_string_compile(astbuilder, source, atom_node):
 
     info = pyparse.CompileInfo("<fstring>", "eval",
                                consts.PyCF_SOURCE_IS_UTF8 |
-                               consts.PyCF_IGNORE_COOKIE |
-                               consts.PyCF_REFUSE_COMMENTS,
+                               consts.PyCF_IGNORE_COOKIE,
                                optimize=astbuilder.compile_info.optimize)
     parse_tree = astbuilder.recursive_parser.parse_source(source, info)
     return ast_from_node(astbuilder.space, parse_tree, info)
 
-def f_string_expr(astbuilder, joined_pieces, u, start, atom_node, rec=0):
-    conversion = -1     # the conversion char.  -1 if not specified.
+
+def unexpected_end_of_string(astbuilder, atom_node):
+    astbuilder.error("f-string: expecting '}'", atom_node)
+
+
+def fstring_find_expr(astbuilder, fstr, atom_node, rec):
+    # Parse the f-string at fstr.current_index.  We know it starts an
+    # expression (so it must be at '{'). Returns the FormattedValue node,
+    # which includes the expression, conversion character, and
+    # format_spec expression.
+    conversion = -1      # the conversion char.  -1 if not specified.
     format_spec = None
-    nested_depth = 0    # nesting level for braces/parens/brackets in exprs
-    p = start
-    while p < len(u):
-        ch = u[p]
-        p += 1
-        if ch in u'[{(':
+
+    # 0 if we're not in a string, else the quote char we're trying to
+    # match (single or double quote).
+    quote_char = 0
+
+    # If we're inside a string, 1=normal, 3=triple-quoted.
+    string_type = 0
+
+    # Keep track of nesting level for braces/parens/brackets in
+    # expressions.
+    nested_depth = 0
+
+    # Can only nest one level deep.
+    if rec >= 2:
+        astbuilder.error("f-string: expressions nested too deeply", atom_node)
+
+    # The first char must be a left brace, or we wouldn't have gotten
+    # here. Skip over it.
+    u = fstr.unparsed
+    i = fstr.current_index
+    assert u[i] == u'{'
+    i += 1
+
+    expr_start = i
+    while i < len(u):
+
+        # Loop invariants.
+        assert nested_depth >= 0
+        if quote_char:
+            assert string_type == 1 or string_type == 3
+        else:
+            assert string_type == 0
+
+        ch = u[i]
+        # Nowhere inside an expression is a backslash allowed.
+        if ch == u'\\':
+            # Error: can't include a backslash character, inside
+            # parens or strings or not.
+            astbuilder.error("f-string expression part "
+                             "cannot include a backslash", atom_node)
+
+        if quote_char:
+            # We're inside a string. See if we're at the end.
+            # <a long comment goes here about how we're duplicating
+            # some existing logic>
+            if ord(ch) == quote_char:
+                # Does this match the string_type (single or triple
+                # quoted)?
+                if string_type == 3:
+                    if i + 2 < len(u) and u[i + 1] == u[i + 2] == ch:
+                        # We're at the end of a triple quoted string.
+                        i += 3
+                        string_type = 0
+                        quote_char = 0
+                        continue
+                else:
+                    # We're at the end of a normal string.
+                    i += 1
+                    string_type = 0
+                    quote_char = 0
+                    continue
+        elif ch == u"'" or ch == u'"':
+            # Is this a triple quoted string?
+            if i + 2 < len(u) and u[i + 1] == u[i + 2] == ch:
+                string_type = 3
+                i += 2
+            else:
+                # Start of a normal string.
+                string_type = 1
+            # Start looking for the end of the string.
+            quote_char = ord(ch)
+        elif ch in u"[{(":
             nested_depth += 1
-        elif nested_depth > 0 and ch in u']})':
+        elif nested_depth != 0 and ch in u"]})":
             nested_depth -= 1
-        elif nested_depth == 0 and ch in u'!:}':
-            # special-case '!='
-            if ch == u'!' and p < len(u) and u[p] == u'=':
+        elif ch == u'#':
+            # Error: can't include a comment character, inside parens
+            # or not.
+            astbuilder.error("f-string expression part cannot include '#'",
+                             atom_node)
+        elif nested_depth == 0 and ch in u"!:}":
+            # First, test for the special case of "!=". Since '=' is
+            # not an allowed conversion character, nothing is lost in
+            # this test.
+            if ch == '!' and i + 1 < len(u) and u[i+1] == u'=':
+                # This isn't a conversion character, just continue.
+                i += 1
                 continue
-            break     # normal way out of this loop
-    else:
-        ch = u'\x00'
-    #
-    if nested_depth > 0:
+            # Normal way out of this loop.
+            break
+        #else:
+        #   This isn't a conversion character, just continue.
+        i += 1
+
+    # If we leave this loop in a string or with mismatched parens, we
+    # don't care. We'll get a syntax error when compiling the
+    # expression. But, we can produce a better error message, so
+    # let's just do that.
+    if quote_char:
+        astbuilder.error("f-string: unterminated string", atom_node)
+
+    if nested_depth:
         astbuilder.error("f-string: mismatched '(', '{' or '['", atom_node)
-    end_expression = p - 1
-    if ch == u'!':
-        if p + 1 < len(u):
-            conversion = ord(u[p])
-            ch = u[p + 1]
-            p += 2
+
+    if i >= len(u):
+        unexpected_end_of_string(astbuilder, atom_node)
+
+    # Compile the expression as soon as possible, so we show errors
+    # related to the expression before errors related to the
+    # conversion or format_spec.
+    expr = f_string_compile(astbuilder, u[expr_start:i], atom_node)
+    assert isinstance(expr, ast.Expression)
+
+    # Check for a conversion char, if present.
+    if u[i] == u'!':
+        i += 1
+        if i >= len(u):
+            unexpected_end_of_string(astbuilder, atom_node)
+
+        conversion = ord(u[i])
+        i += 1
         if conversion not in (ord('s'), ord('r'), ord('a')):
             astbuilder.error("f-string: invalid conversion character: "
                              "expected 's', 'r', or 'a'", atom_node)
-    if ch == u':':
-        if rec >= 2:
-            astbuilder.error("f-string: expressions nested too deeply",
-                             atom_node)
-        subpieces = []
-        p = parse_f_string(astbuilder, subpieces, u, p, atom_node, rec + 1)
-        format_spec = f_string_to_ast_node(astbuilder, subpieces, atom_node)
-        ch = u[p] if p >= 0 else u'\x00'
-        p += 1
 
-    if ch != u'}':
-        astbuilder.error("f-string: expecting '}'", atom_node)
-    end_f_string = p
-    assert end_expression >= start
-    expr = f_string_compile(astbuilder, u[start:end_expression], atom_node)
-    assert isinstance(expr, ast.Expression)
-    fval = ast.FormattedValue(expr.body, conversion, format_spec,
+    # Check for the format spec, if present.
+    if i >= len(u):
+        unexpected_end_of_string(astbuilder, atom_node)
+    if u[i] == u':':
+        i += 1
+        if i >= len(u):
+            unexpected_end_of_string(astbuilder, atom_node)
+        fstr.current_index = i
+        subpieces = []
+        parse_f_string(astbuilder, subpieces, fstr, atom_node, rec + 1)
+        format_spec = f_string_to_ast_node(astbuilder, subpieces, atom_node)
+        i = fstr.current_index
+
+    if i >= len(u) or u[i] != u'}':
+        unexpected_end_of_string(astbuilder, atom_node)
+
+    # We're at a right brace. Consume it.
+    i += 1
+    fstr.current_index = i
+
+    # And now create the FormattedValue node that represents this
+    # entire expression with the conversion and format spec.
+    return ast.FormattedValue(expr.body, conversion, format_spec,
                               atom_node.get_lineno(),
                               atom_node.get_column())
-    joined_pieces.append(fval)
-    return end_f_string
 
-def parse_f_string(astbuilder, joined_pieces, u, start, atom_node, rec=0):
+
+def fstring_find_literal(astbuilder, fstr, atom_node, rec):
+    # Return the next literal part.  Updates the current index inside 'fstr'.
+    # Differs from CPython: this version handles double-braces on its own.
+    u = fstr.unparsed
+    literal_start = fstr.current_index
+    in_named_escape = False
+
+    # Get any literal string. It ends when we hit an un-doubled left
+    # brace (which isn't part of a unicode name escape such as
+    # "\N{EULER CONSTANT}"), or the end of the string.
+    i = literal_start
+    builder = UnicodeBuilder()
+    while i < len(u):
+        ch = u[i]
+        if (not in_named_escape and ch == u'{' and i - literal_start >= 2
+                and u[i - 2] == u'\\' and u[i - 1] == u'N'):
+            in_named_escape = True
+        elif in_named_escape and ch == u'}':
+            in_named_escape = False
+        elif ch == u'{' or ch == u'}':
+            # Check for doubled braces, but only at the top level. If
+            # we checked at every level, then f'{0:{3}}' would fail
+            # with the two closing braces.
+            if rec == 0 and i + 1 < len(u) and u[i + 1] == ch:
+                i += 1   # skip over the second brace
+            elif rec == 0 and ch == u'}':
+                # Where a single '{' is the start of a new expression, a
+                # single '}' is not allowed.
+                astbuilder.error("f-string: single '}' is not allowed",
+                                 atom_node)
+            else:
+                # We're either at a '{', which means we're starting another
+                # expression; or a '}', which means we're at the end of this
+                # f-string (for a nested format_spec).
+                break
+        builder.append(ch)
+        i += 1
+
+    fstr.current_index = i
+    literal = builder.build()
+    if not fstr.raw_mode:
+        literal = unicodehelper.decode_unicode_escape(astbuilder.space, literal)
+    return literal
+
+
+def fstring_find_literal_and_expr(astbuilder, fstr, atom_node, rec):
+    # Return a tuple with the next literal part, and optionally the
+    # following expression node.  Updates the current index inside 'fstr'.
+    literal = fstring_find_literal(astbuilder, fstr, atom_node, rec)
+
+    u = fstr.unparsed
+    i = fstr.current_index
+    if i >= len(u) or u[i] == u'}':
+        # We're at the end of the string or the end of a nested
+        # f-string: no expression.
+        expr = None
+    else:
+        # We must now be the start of an expression, on a '{'.
+        assert u[i] == u'{'
+        expr = fstring_find_expr(astbuilder, fstr, atom_node, rec)
+    return literal, expr
+
+
+def parse_f_string(astbuilder, joined_pieces, fstr, atom_node, rec=0):
     space = astbuilder.space
-    p1 = u.find(u'{', start)
-    prestart = start
     while True:
-        if p1 < 0:
-            p1 = len(u)
-        p2 = u.find(u'}', start, p1)
-        if p2 >= 0:
-            f_constant_string(astbuilder, joined_pieces, u[prestart:p2],
-                              atom_node)
-            pn = p2 + 1
-            if pn < len(u) and u[pn] == u'}':    # '}}' => single '}'
-                start = pn + 1
-                prestart = pn
-                continue
-            return p2     # found a single '}', stop here
-        f_constant_string(astbuilder, joined_pieces, u[prestart:p1], atom_node)
-        if p1 == len(u):
-            return -1     # no more '{' or '}' left
-        pn = p1 + 1
-        if pn < len(u) and u[pn] == u'{':    # '{{' => single '{'
-            start = pn + 1
-            prestart = pn
-        else:
-            assert u[p1] == u'{'
-            start = f_string_expr(astbuilder, joined_pieces, u, pn,
-                                  atom_node, rec)
-            assert u[start - 1] == u'}'
-            prestart = start
-        p1 = u.find(u'{', start)
+        literal, expr = fstring_find_literal_and_expr(astbuilder, fstr,
+                                                      atom_node, rec)
+
+        # add the literal part
+        f_constant_string(astbuilder, joined_pieces, literal, atom_node)
+
+        if expr is None:
+            break         # We're done with this f-string.
+
+        joined_pieces.append(expr)
+
+    # If recurse_lvl is zero, then we must be at the end of the
+    # string. Otherwise, we must be at a right brace.
+    if rec == 0 and fstr.current_index < len(fstr.unparsed) - 1:
+        astbuilder.error("f-string: unexpected end of string", atom_node)
+
+    if rec != 0 and (fstr.current_index >= len(fstr.unparsed) or
+                     fstr.unparsed[fstr.current_index] != u'}'):
+        astbuilder.error("f-string: expecting '}'", atom_node)
+
 
 def f_string_to_ast_node(astbuilder, joined_pieces, atom_node):
     # remove empty Strs
@@ -150,13 +317,14 @@ def f_string_to_ast_node(astbuilder, joined_pieces, atom_node):
         assert len(joined_pieces) > 0    # they are all empty strings
         return joined_pieces[0]
 
+
 def string_parse_literal(astbuilder, atom_node):
     space = astbuilder.space
     encoding = astbuilder.compile_info.encoding
     joined_pieces = []
     for i in range(atom_node.num_children()):
         try:
-            w_next, saw_f = parsestring.parsestr(
+            w_next = parsestring.parsestr(
                     space, encoding, atom_node.get_child(i).get_value())
         except error.OperationError as e:
             if not (e.match(space, space.w_UnicodeError) or
@@ -164,15 +332,10 @@ def string_parse_literal(astbuilder, atom_node):
                 raise
             # Unicode/ValueError in literal: turn into SyntaxError
             raise astbuilder.error(e.errorstr(space), atom_node)
-        if not saw_f:
+        if not isinstance(w_next, parsestring.W_FString):
             add_constant_string(astbuilder, joined_pieces, w_next, atom_node)
         else:
-            p = parse_f_string(astbuilder, joined_pieces,
-                                     space.unicode_w(w_next), 0,
-                                     atom_node)
-            if p != -1:
-                astbuilder.error("f-string: single '}' is not allowed",
-                                 atom_node)
+            parse_f_string(astbuilder, joined_pieces, w_next, atom_node)
     if len(joined_pieces) == 1:   # <= the common path
         return joined_pieces[0]   # ast.Str, Bytes or FormattedValue
     # with more than one piece, it is a combination of Str and
