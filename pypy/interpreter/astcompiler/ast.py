@@ -2704,7 +2704,9 @@ class JoinedStr(expr):
 
     def mutate_over(self, visitor):
         if self.values:
-            visitor._mutate_sequence(self.values)
+            for i in range(len(self.values)):
+                if self.values[i] is not None:
+                    self.values[i] = self.values[i].mutate_over(visitor)
         return visitor.visit_JoinedStr(self)
 
     def to_object(self, space):
