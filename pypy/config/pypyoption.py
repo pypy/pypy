@@ -196,6 +196,11 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                default=False,
                requires=[("objspace.usemodules.cpyext", False)]),
 
+    BoolOption("fstrings",
+               "if you are really convinced that f-strings are a security "
+               "issue, you can disable them here",
+               default=True),
+
     OptionDescription("std", "Standard Object Space Options", [
         BoolOption("withtproxy", "support transparent proxies",
                    default=True),

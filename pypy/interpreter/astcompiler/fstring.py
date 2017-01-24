@@ -292,6 +292,16 @@ def parse_f_string(astbuilder, joined_pieces, fstr, atom_node, rec=0):
     # could be merged into a single function with a clearer logic.  It's
     # done this way to follow CPython's source code more closely.
 
+    space = astbuilder.space
+    if not space.config.objspace.fstrings:
+        raise oefmt(space.w_SystemError,
+                    "f-strings have been disabled in this version of pypy "
+                    "with the translation option --no-objspace-fstrings.  "
+                    "The PyPy team (and CPython) thinks f-strings don't "
+                    "add any security risks, but we leave it to you to "
+                    "convince whoever translated this pypy that it is "
+                    "really the case")
+
     while True:
         literal, expr = fstring_find_literal_and_expr(astbuilder, fstr,
                                                       atom_node, rec)
