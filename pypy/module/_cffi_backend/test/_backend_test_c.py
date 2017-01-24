@@ -737,8 +737,14 @@ def test_struct_instance():
     BInt = new_primitive_type("int")
     BStruct = new_struct_type("struct foo")
     BStructPtr = new_pointer_type(BStruct)
-    p = cast(BStructPtr, 0)
-    py.test.raises(AttributeError, "p.a1")    # opaque
+    p = cast(BStructPtr, 42)
+    e = py.test.raises(AttributeError, "p.a1")    # opaque
+    assert str(e.value) == ("cdata 'struct foo *' points to an opaque type: "
+                            "cannot read fields")
+    e = py.test.raises(AttributeError, "p.a1 = 10")    # opaque
+    assert str(e.value) == ("cdata 'struct foo *' points to an opaque type: "
+                            "cannot write fields")
+
     complete_struct_or_union(BStruct, [('a1', BInt, -1),
                                        ('a2', BInt, -1)])
     p = newp(BStructPtr, None)
@@ -749,8 +755,29 @@ def test_struct_instance():
     assert s.a2 == 123
     py.test.raises(OverflowError, "s.a1 = sys.maxsize+1")
     assert s.a1 == 0
-    py.test.raises(AttributeError, "p.foobar")
-    py.test.raises(AttributeError, "s.foobar")
+    e = py.test.raises(AttributeError, "p.foobar")
+    assert str(e.value) == "cdata 'struct foo *' has no field 'foobar'"
+    e = py.test.raises(AttributeError, "p.foobar = 42")
+    assert str(e.value) == "cdata 'struct foo *' has no field 'foobar'"
+    e = py.test.raises(AttributeError, "s.foobar")
+    assert str(e.value) == "cdata 'struct foo' has no field 'foobar'"
+    e = py.test.raises(AttributeError, "s.foobar = 42")
+    assert str(e.value) == "cdata 'struct foo' has no field 'foobar'"
+    j = cast(BInt, 42)
+    e = py.test.raises(AttributeError, "j.foobar")
+    assert str(e.value) == "cdata 'int' has no attribute 'foobar'"
+    e = py.test.raises(AttributeError, "j.foobar = 42")
+    assert str(e.value) == "cdata 'int' has no attribute 'foobar'"
+    j = cast(new_pointer_type(BInt), 42)
+    e = py.test.raises(AttributeError, "j.foobar")
+    assert str(e.value) == "cdata 'int *' has no attribute 'foobar'"
+    e = py.test.raises(AttributeError, "j.foobar = 42")
+    assert str(e.value) == "cdata 'int *' has no attribute 'foobar'"
+    pp = newp(new_pointer_type(BStructPtr), p)
+    e = py.test.raises(AttributeError, "pp.a1")
+    assert str(e.value) == "cdata 'struct foo * *' has no attribute 'a1'"
+    e = py.test.raises(AttributeError, "pp.a1 = 42")
+    assert str(e.value) == "cdata 'struct foo * *' has no attribute 'a1'"
 
 def test_union_instance():
     BInt = new_primitive_type("int")
