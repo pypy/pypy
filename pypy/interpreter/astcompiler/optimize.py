@@ -6,6 +6,7 @@ from pypy.tool import stdlib_opcode as ops
 from pypy.interpreter.error import OperationError
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.runicode import MAXUNICODE
+from rpython.rlib.objectmodel import specialize
 
 
 def optimize_ast(space, tree, compile_info):
@@ -70,7 +71,7 @@ class __extend__(ast.Const):
 class __extend__(ast.NameConstant):
 
     def as_constant(self):
-        return self.single
+        return self.value
 
 class __extend__(ast.Index):
     def as_constant(self):
@@ -177,6 +178,7 @@ class OptimizingVisitor(ast.ASTVisitor):
         self.space = space
         self.compile_info = compile_info
 
+    @specialize.argtype(1)
     def default_visitor(self, node):
         return node
 

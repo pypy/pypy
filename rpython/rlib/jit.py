@@ -637,8 +637,6 @@ class JitDriver(object):
             raise AttributeError("no 'greens' or 'reds' supplied")
         if virtualizables is not None:
             self.virtualizables = virtualizables
-        if get_unique_id is not None:
-            assert is_recursive, "get_unique_id and is_recursive must be specified at the same time"
         for v in self.virtualizables:
             assert v in self.reds
         # if reds are automatic, they won't be passed to jit_merge_point, so
@@ -653,6 +651,7 @@ class JitDriver(object):
         assert set_jitcell_at is None, "set_jitcell_at no longer used"
         self.get_printable_location = get_printable_location
         self.get_location = get_location
+        self.has_unique_id = (get_unique_id is not None)
         if get_unique_id is None:
             get_unique_id = lambda *args: 0
         self.get_unique_id = get_unique_id

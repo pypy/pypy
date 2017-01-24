@@ -96,7 +96,18 @@ def test_oefmt_utf8(space):
 def test_errorstr(space):
     operr = OperationError(space.w_ValueError, space.wrap("message"))
     assert operr.errorstr(space) == "ValueError: message"
-    assert operr.errorstr(space, use_repr=True) == "ValueError: 'message'"
+    assert operr.errorstr(space, use_repr=True) == (
+        "ValueError: ValueError('message',)")
+    operr = OperationError(space.w_ValueError, space.w_None)
+    assert operr.errorstr(space) == "ValueError"
+    operr = OperationError(space.w_ValueError,
+        space.newtuple([space.wrap(6), space.wrap(7)]))
+    assert operr.errorstr(space) == "ValueError: (6, 7)"
+    operr = OperationError(space.w_UnicodeDecodeError,
+        space.wrap(('unicodeescape', r'\\x', 0, 2, r'truncated \\xXX escape')))
+    assert operr.errorstr(space) == (
+        "UnicodeDecodeError: 'unicodeescape' codec can't decode "
+        "bytes in position 0-1: truncated \\\\xXX escape")
 
 def test_wrap_oserror():
     class FakeSpace:

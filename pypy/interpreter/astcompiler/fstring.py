@@ -343,11 +343,16 @@ def string_parse_literal(astbuilder, atom_node):
                 parse_f_string(astbuilder, joined_pieces, w_next, atom_node)
 
     except error.OperationError as e:
-        if not (e.match(space, space.w_UnicodeError) or
-                e.match(space, space.w_ValueError)):
+        if e.match(space, space.w_UnicodeError):
+            kind = 'unicode error'
+        elif e.match(space, space.w_ValueError):
+            kind = 'value error'
+        else:
             raise
         # Unicode/ValueError in literal: turn into SyntaxError
-        raise astbuilder.error(e.errorstr(space), atom_node)
+        e.normalize_exception(space)
+        errmsg = space.str_w(space.str(e.get_w_value(space)))
+        raise self.error('(%s) %s' % (kind, errmsg), atom_node)
 
     if len(joined_pieces) == 1:   # <= the common path
         return joined_pieces[0]   # ast.Str, Bytes or FormattedValue

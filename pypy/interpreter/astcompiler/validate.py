@@ -46,7 +46,7 @@ class __extend__(ast.expr):
             raise ValidationError(
                 "expression which can't be assigned to in %s context" %
                 expr_context_name(ctx))
-        
+
 
 class __extend__(ast.Name):
 
@@ -286,12 +286,12 @@ class AstValidator(ast.ASTVisitor):
 
     def visit_Import(self, node):
         self._validate_nonempty_seq(node.names, "names", "Import")
-        
+
     def visit_ImportFrom(self, node):
         if node.level < -1:
             raise ValidationError("ImportFrom level less than -1")
         self._validate_nonempty_seq(node.names, "names", "ImportFrom")
-        
+
     def visit_Global(self, node):
         self._validate_nonempty_seq_s(node.names, "names", "Global")
 
@@ -353,6 +353,7 @@ class AstValidator(ast.ASTVisitor):
         if not generators:
             raise ValidationError("comprehension with no generators")
         for comp in generators:
+            assert isinstance(comp, ast.comprehension)
             self._validate_expr(comp.target, ast.Store)
             self._validate_expr(comp.iter)
             self._validate_exprs(comp.ifs)
@@ -443,9 +444,9 @@ class AstValidator(ast.ASTVisitor):
 
     def visit_NameConstant(self, node):
         space = self.space
-        if (node.single is not space.w_None and
-            node.single is not space.w_True and
-            node.single is not space.w_False):
+        if (node.value is not space.w_None and
+            node.value is not space.w_True and
+            node.value is not space.w_False):
             raise ValidationError("singleton must be True, False, or None")
 
     def visit_JoinedStr(self, node):

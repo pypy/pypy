@@ -31,6 +31,7 @@ def get_field(space, w_node, name, optional):
 
 class AST(object):
     __metaclass__ = extendabletype
+    _attrs_ = ['lineno', 'col_offset']
 
     def walkabout(self, visitor):
         raise AssertionError("walkabout() implementation not provided")
@@ -138,7 +139,7 @@ class State:
         self.w_AST = space.gettypeobject(W_AST.typedef)
         for (name, base, fields, attributes) in self.AST_TYPES:
             self.make_new_type(space, name, base, fields, attributes)
-        
+
     def make_new_type(self, space, name, base, fields, attributes):
         w_base = getattr(self, 'w_%s' % base)
         w_dict = space.newdict()
@@ -150,7 +151,7 @@ class State:
             space.setitem_str(w_dict, "_attributes",
                               space.newtuple([space.wrap(a) for a in attributes]))
         w_type = space.call_function(
-            space.w_type, 
+            space.w_type,
             space.wrap(name), space.newtuple([w_base]), w_dict)
         setattr(self, 'w_%s' % name, w_type)
 
@@ -184,7 +185,9 @@ class Module(mod):
 
     def mutate_over(self, visitor):
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                if self.body[i] is not None:
+                    self.body[i] = self.body[i].mutate_over(visitor)
         return visitor.visit_Module(self)
 
     def to_object(self, space):
@@ -217,7 +220,9 @@ class Interactive(mod):
 
     def mutate_over(self, visitor):
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                if self.body[i] is not None:
+                    self.body[i] = self.body[i].mutate_over(visitor)
         return visitor.visit_Interactive(self)
 
     def to_object(self, space):
@@ -279,7 +284,9 @@ class Suite(mod):
 
     def mutate_over(self, visitor):
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                if self.body[i] is not None:
+                    self.body[i] = self.body[i].mutate_over(visitor)
         return visitor.visit_Suite(self)
 
     def to_object(self, space):
@@ -380,9 +387,13 @@ class FunctionDef(stmt):
     def mutate_over(self, visitor):
         self.args = self.args.mutate_over(visitor)
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                if self.body[i] is not None:
+                    self.body[i] = self.body[i].mutate_over(visitor)
         if self.decorator_list:
-            visitor._mutate_sequence(self.decorator_list)
+            for i in range(len(self.decorator_list)):
+                if self.decorator_list[i] is not None:
+                    self.decorator_list[i] = self.decorator_list[i].mutate_over(visitor)
         if self.returns:
             self.returns = self.returns.mutate_over(visitor)
         return visitor.visit_FunctionDef(self)
@@ -456,9 +467,13 @@ class AsyncFunctionDef(stmt):
     def mutate_over(self, visitor):
         self.args = self.args.mutate_over(visitor)
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                if self.body[i] is not None:
+                    self.body[i] = self.body[i].mutate_over(visitor)
         if self.decorator_list:
-            visitor._mutate_sequence(self.decorator_list)
+            for i in range(len(self.decorator_list)):
+                if self.decorator_list[i] is not None:
+                    self.decorator_list[i] = self.decorator_list[i].mutate_over(visitor)
         if self.returns:
             self.returns = self.returns.mutate_over(visitor)
         return visitor.visit_AsyncFunctionDef(self)
@@ -531,13 +546,21 @@ class ClassDef(stmt):
 
     def mutate_over(self, visitor):
         if self.bases:
-            visitor._mutate_sequence(self.bases)
+            for i in range(len(self.bases)):
+                if self.bases[i] is not None:
+                    self.bases[i] = self.bases[i].mutate_over(visitor)
         if self.keywords:
-            visitor._mutate_sequence(self.keywords)
+            for i in range(len(self.keywords)):
+                if self.keywords[i] is not None:
+                    self.keywords[i] = self.keywords[i].mutate_over(visitor)
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                if self.body[i] is not None:
+                    self.body[i] = self.body[i].mutate_over(visitor)
         if self.decorator_list:
-            visitor._mutate_sequence(self.decorator_list)
+            for i in range(len(self.decorator_list)):
+                if self.decorator_list[i] is not None:
+                    self.decorator_list[i] = self.decorator_list[i].mutate_over(visitor)
         return visitor.visit_ClassDef(self)
 
     def to_object(self, space):
@@ -649,7 +672,9 @@ class Delete(stmt):
 
     def mutate_over(self, visitor):
         if self.targets:
-            visitor._mutate_sequence(self.targets)
+            for i in range(len(self.targets)):
+                if self.targets[i] is not None:
+                    self.targets[i] = self.targets[i].mutate_over(visitor)
         return visitor.visit_Delete(self)
 
     def to_object(self, space):
@@ -692,7 +717,9 @@ class Assign(stmt):
 
     def mutate_over(self, visitor):
         if self.targets:
-            visitor._mutate_sequence(self.targets)
+            for i in range(len(self.targets)):
+                if self.targets[i] is not None:
+                    self.targets[i] = self.targets[i].mutate_over(visitor)
         self.value = self.value.mutate_over(visitor)
         return visitor.visit_Assign(self)
 
@@ -799,9 +826,13 @@ class For(stmt):
         self.target = self.target.mutate_over(visitor)
         self.iter = self.iter.mutate_over(visitor)
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                if self.body[i] is not None:
+                    self.body[i] = self.body[i].mutate_over(visitor)
         if self.orelse:
-            visitor._mutate_sequence(self.orelse)
+            for i in range(len(self.orelse)):
+                if self.orelse[i] is not None:
+                    self.orelse[i] = self.orelse[i].mutate_over(visitor)
         return visitor.visit_For(self)
 
     def to_object(self, space):
@@ -869,9 +900,13 @@ class AsyncFor(stmt):
         self.target = self.target.mutate_over(visitor)
         self.iter = self.iter.mutate_over(visitor)
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                if self.body[i] is not None:
+                    self.body[i] = self.body[i].mutate_over(visitor)
         if self.orelse:
-            visitor._mutate_sequence(self.orelse)
+            for i in range(len(self.orelse)):
+                if self.orelse[i] is not None:
+                    self.orelse[i] = self.orelse[i].mutate_over(visitor)
         return visitor.visit_AsyncFor(self)
 
     def to_object(self, space):
@@ -937,9 +972,13 @@ class While(stmt):
     def mutate_over(self, visitor):
         self.test = self.test.mutate_over(visitor)
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                if self.body[i] is not None:
+                    self.body[i] = self.body[i].mutate_over(visitor)
         if self.orelse:
-            visitor._mutate_sequence(self.orelse)
+            for i in range(len(self.orelse)):
+                if self.orelse[i] is not None:
+                    self.orelse[i] = self.orelse[i].mutate_over(visitor)
         return visitor.visit_While(self)
 
     def to_object(self, space):
@@ -999,9 +1038,13 @@ class If(stmt):
     def mutate_over(self, visitor):
         self.test = self.test.mutate_over(visitor)
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                if self.body[i] is not None:
+                    self.body[i] = self.body[i].mutate_over(visitor)
         if self.orelse:
-            visitor._mutate_sequence(self.orelse)
+            for i in range(len(self.orelse)):
+                if self.orelse[i] is not None:
+                    self.orelse[i] = self.orelse[i].mutate_over(visitor)
         return visitor.visit_If(self)
 
     def to_object(self, space):
@@ -1059,9 +1102,13 @@ class With(stmt):
 
     def mutate_over(self, visitor):
         if self.items:
-            visitor._mutate_sequence(self.items)
+            for i in range(len(self.items)):
+                if self.items[i] is not None:
+                    self.items[i] = self.items[i].mutate_over(visitor)
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                if self.body[i] is not None:
+                    self.body[i] = self.body[i].mutate_over(visitor)
         return visitor.visit_With(self)
 
     def to_object(self, space):
@@ -1113,9 +1160,13 @@ class AsyncWith(stmt):
 
     def mutate_over(self, visitor):
         if self.items:
-            visitor._mutate_sequence(self.items)
+            for i in range(len(self.items)):
+                if self.items[i] is not None:
+                    self.items[i] = self.items[i].mutate_over(visitor)
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                if self.body[i] is not None:
+                    self.body[i] = self.body[i].mutate_over(visitor)
         return visitor.visit_AsyncWith(self)
 
     def to_object(self, space):
@@ -1213,13 +1264,21 @@ class Try(stmt):
 
     def mutate_over(self, visitor):
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                if self.body[i] is not None:
+                    self.body[i] = self.body[i].mutate_over(visitor)
         if self.handlers:
-            visitor._mutate_sequence(self.handlers)
+            for i in range(len(self.handlers)):
+                if self.handlers[i] is not None:
+                    self.handlers[i] = self.handlers[i].mutate_over(visitor)
         if self.orelse:
-            visitor._mutate_sequence(self.orelse)
+            for i in range(len(self.orelse)):
+                if self.orelse[i] is not None:
+                    self.orelse[i] = self.orelse[i].mutate_over(visitor)
         if self.finalbody:
-            visitor._mutate_sequence(self.finalbody)
+            for i in range(len(self.finalbody)):
+                if self.finalbody[i] is not None:
+                    self.finalbody[i] = self.finalbody[i].mutate_over(visitor)
         return visitor.visit_Try(self)
 
     def to_object(self, space):
@@ -1333,7 +1392,9 @@ class Import(stmt):
 
     def mutate_over(self, visitor):
         if self.names:
-            visitor._mutate_sequence(self.names)
+            for i in range(len(self.names)):
+                if self.names[i] is not None:
+                    self.names[i] = self.names[i].mutate_over(visitor)
         return visitor.visit_Import(self)
 
     def to_object(self, space):
@@ -1377,7 +1438,9 @@ class ImportFrom(stmt):
 
     def mutate_over(self, visitor):
         if self.names:
-            visitor._mutate_sequence(self.names)
+            for i in range(len(self.names)):
+                if self.names[i] is not None:
+                    self.names[i] = self.names[i].mutate_over(visitor)
         return visitor.visit_ImportFrom(self)
 
     def to_object(self, space):
@@ -1710,7 +1773,9 @@ class BoolOp(expr):
 
     def mutate_over(self, visitor):
         if self.values:
-            visitor._mutate_sequence(self.values)
+            for i in range(len(self.values)):
+                if self.values[i] is not None:
+                    self.values[i] = self.values[i].mutate_over(visitor)
         return visitor.visit_BoolOp(self)
 
     def to_object(self, space):
@@ -1957,9 +2022,13 @@ class Dict(expr):
 
     def mutate_over(self, visitor):
         if self.keys:
-            visitor._mutate_sequence(self.keys)
+            for i in range(len(self.keys)):
+                if self.keys[i] is not None:
+                    self.keys[i] = self.keys[i].mutate_over(visitor)
         if self.values:
-            visitor._mutate_sequence(self.values)
+            for i in range(len(self.values)):
+                if self.values[i] is not None:
+                    self.values[i] = self.values[i].mutate_over(visitor)
         return visitor.visit_Dict(self)
 
     def to_object(self, space):
@@ -2010,7 +2079,9 @@ class Set(expr):
 
     def mutate_over(self, visitor):
         if self.elts:
-            visitor._mutate_sequence(self.elts)
+            for i in range(len(self.elts)):
+                if self.elts[i] is not None:
+                    self.elts[i] = self.elts[i].mutate_over(visitor)
         return visitor.visit_Set(self)
 
     def to_object(self, space):
@@ -2054,7 +2125,9 @@ class ListComp(expr):
     def mutate_over(self, visitor):
         self.elt = self.elt.mutate_over(visitor)
         if self.generators:
-            visitor._mutate_sequence(self.generators)
+            for i in range(len(self.generators)):
+                if self.generators[i] is not None:
+                    self.generators[i] = self.generators[i].mutate_over(visitor)
         return visitor.visit_ListComp(self)
 
     def to_object(self, space):
@@ -2104,7 +2177,9 @@ class SetComp(expr):
     def mutate_over(self, visitor):
         self.elt = self.elt.mutate_over(visitor)
         if self.generators:
-            visitor._mutate_sequence(self.generators)
+            for i in range(len(self.generators)):
+                if self.generators[i] is not None:
+                    self.generators[i] = self.generators[i].mutate_over(visitor)
         return visitor.visit_SetComp(self)
 
     def to_object(self, space):
@@ -2156,7 +2231,9 @@ class DictComp(expr):
         self.key = self.key.mutate_over(visitor)
         self.value = self.value.mutate_over(visitor)
         if self.generators:
-            visitor._mutate_sequence(self.generators)
+            for i in range(len(self.generators)):
+                if self.generators[i] is not None:
+                    self.generators[i] = self.generators[i].mutate_over(visitor)
         return visitor.visit_DictComp(self)
 
     def to_object(self, space):
@@ -2212,7 +2289,9 @@ class GeneratorExp(expr):
     def mutate_over(self, visitor):
         self.elt = self.elt.mutate_over(visitor)
         if self.generators:
-            visitor._mutate_sequence(self.generators)
+            for i in range(len(self.generators)):
+                if self.generators[i] is not None:
+                    self.generators[i] = self.generators[i].mutate_over(visitor)
         return visitor.visit_GeneratorExp(self)
 
     def to_object(self, space):
@@ -2376,7 +2455,9 @@ class Compare(expr):
     def mutate_over(self, visitor):
         self.left = self.left.mutate_over(visitor)
         if self.comparators:
-            visitor._mutate_sequence(self.comparators)
+            for i in range(len(self.comparators)):
+                if self.comparators[i] is not None:
+                    self.comparators[i] = self.comparators[i].mutate_over(visitor)
         return visitor.visit_Compare(self)
 
     def to_object(self, space):
@@ -2436,9 +2517,13 @@ class Call(expr):
     def mutate_over(self, visitor):
         self.func = self.func.mutate_over(visitor)
         if self.args:
-            visitor._mutate_sequence(self.args)
+            for i in range(len(self.args)):
+                if self.args[i] is not None:
+                    self.args[i] = self.args[i].mutate_over(visitor)
         if self.keywords:
-            visitor._mutate_sequence(self.keywords)
+            for i in range(len(self.keywords)):
+                if self.keywords[i] is not None:
+                    self.keywords[i] = self.keywords[i].mutate_over(visitor)
         return visitor.visit_Call(self)
 
     def to_object(self, space):
@@ -2689,8 +2774,8 @@ State.ast_type('Bytes', 'expr', ['s'])
 
 class NameConstant(expr):
 
-    def __init__(self, single, lineno, col_offset):
-        self.single = single
+    def __init__(self, value, lineno, col_offset):
+        self.value = value
         expr.__init__(self, lineno, col_offset)
 
     def walkabout(self, visitor):
@@ -2701,8 +2786,8 @@ class NameConstant(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_NameConstant)
-        w_single = self.single  # singleton
-        space.setattr(w_node, space.wrap('single'), w_single)
+        w_value = self.value  # singleton
+        space.setattr(w_node, space.wrap('value'), w_value)
         w_lineno = space.wrap(self.lineno)  # int
         space.setattr(w_node, space.wrap('lineno'), w_lineno)
         w_col_offset = space.wrap(self.col_offset)  # int
@@ -2711,17 +2796,17 @@ class NameConstant(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_single = get_field(space, w_node, 'single', False)
+        w_value = get_field(space, w_node, 'value', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _single = w_single
-        if _single is None:
-            raise_required_value(space, w_node, 'single')
+        _value = w_value
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return NameConstant(_single, _lineno, _col_offset)
+        return NameConstant(_value, _lineno, _col_offset)
 
-State.ast_type('NameConstant', 'expr', ['single'])
+State.ast_type('NameConstant', 'expr', ['value'])
 
 
 class Ellipsis(expr):
@@ -2960,7 +3045,9 @@ class List(expr):
 
     def mutate_over(self, visitor):
         if self.elts:
-            visitor._mutate_sequence(self.elts)
+            for i in range(len(self.elts)):
+                if self.elts[i] is not None:
+                    self.elts[i] = self.elts[i].mutate_over(visitor)
         return visitor.visit_List(self)
 
     def to_object(self, space):
@@ -3009,7 +3096,9 @@ class Tuple(expr):
 
     def mutate_over(self, visitor):
         if self.elts:
-            visitor._mutate_sequence(self.elts)
+            for i in range(len(self.elts)):
+                if self.elts[i] is not None:
+                    self.elts[i] = self.elts[i].mutate_over(visitor)
         return visitor.visit_Tuple(self)
 
     def to_object(self, space):
@@ -3215,7 +3304,9 @@ class ExtSlice(slice):
 
     def mutate_over(self, visitor):
         if self.dims:
-            visitor._mutate_sequence(self.dims)
+            for i in range(len(self.dims)):
+                if self.dims[i] is not None:
+                    self.dims[i] = self.dims[i].mutate_over(visitor)
         return visitor.visit_ExtSlice(self)
 
     def to_object(self, space):
@@ -3583,7 +3674,9 @@ class comprehension(AST):
         self.target = self.target.mutate_over(visitor)
         self.iter = self.iter.mutate_over(visitor)
         if self.ifs:
-            visitor._mutate_sequence(self.ifs)
+            for i in range(len(self.ifs)):
+                if self.ifs[i] is not None:
+                    self.ifs[i] = self.ifs[i].mutate_over(visitor)
         return visitor.visit_comprehension(self)
 
     def walkabout(self, visitor):
@@ -3651,7 +3744,9 @@ class ExceptHandler(excepthandler):
         if self.type:
             self.type = self.type.mutate_over(visitor)
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                if self.body[i] is not None:
+                    self.body[i] = self.body[i].mutate_over(visitor)
         return visitor.visit_ExceptHandler(self)
 
     def to_object(self, space):
@@ -3702,17 +3797,25 @@ class arguments(AST):
 
     def mutate_over(self, visitor):
         if self.args:
-            visitor._mutate_sequence(self.args)
+            for i in range(len(self.args)):
+                if self.args[i] is not None:
+                    self.args[i] = self.args[i].mutate_over(visitor)
         if self.vararg:
             self.vararg = self.vararg.mutate_over(visitor)
         if self.kwonlyargs:
-            visitor._mutate_sequence(self.kwonlyargs)
+            for i in range(len(self.kwonlyargs)):
+                if self.kwonlyargs[i] is not None:
+                    self.kwonlyargs[i] = self.kwonlyargs[i].mutate_over(visitor)
         if self.kw_defaults:
-            visitor._mutate_sequence(self.kw_defaults)
+            for i in range(len(self.kw_defaults)):
+                if self.kw_defaults[i] is not None:
+                    self.kw_defaults[i] = self.kw_defaults[i].mutate_over(visitor)
         if self.kwarg:
             self.kwarg = self.kwarg.mutate_over(visitor)
         if self.defaults:
-            visitor._mutate_sequence(self.defaults)
+            for i in range(len(self.defaults)):
+                if self.defaults[i] is not None:
+                    self.defaults[i] = self.defaults[i].mutate_over(visitor)
         return visitor.visit_arguments(self)
 
     def walkabout(self, visitor):
@@ -3922,11 +4025,6 @@ class ASTVisitor(object):
 
     def default_visitor(self, node):
         raise NodeVisitorNotImplemented
-
-    def _mutate_sequence(self, seq):
-        for i in range(len(seq)):
-            if seq[i] is not None:
-                seq[i] = seq[i].mutate_over(self)
 
     def visit_Module(self, node):
         return self.default_visitor(node)

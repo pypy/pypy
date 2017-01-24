@@ -1,5 +1,7 @@
 import sys, types
 from .lock import allocate_lock
+from .error import CDefError
+from . import model
 
 try:
     callable
@@ -14,17 +16,6 @@ except NameError:
     # Python 3.x
     basestring = str
 
-
-class FFIError(Exception):
-    pass
-
-class CDefError(Exception):
-    def __str__(self):
-        try:
-            line = 'line %d: ' % (self.args[1].coord.line,)
-        except (AttributeError, TypeError, IndexError):
-            line = ''
-        return '%s%s' % (line, self.args[0])
 
 
 class FFI(object):
@@ -49,18 +40,27 @@ class FFI(object):
         """Create an FFI instance.  The 'backend' argument is used to
         select a non-default backend, mostly for tests.
         """
-        from . import cparser, model
         if backend is None:
             # You need PyPy (>= 2.0 beta), or a CPython (>= 2.6) with
             # _cffi_backend.so compiled.
             import _cffi_backend as backend
             from . import __version__
-            assert backend.__version__ == __version__, \
-               "version mismatch, %s != %s" % (backend.__version__, __version__)
+            if backend.__version__ != __version__:
+                # bad version!  Try to be as explicit as possible.
+                if hasattr(backend, '__file__'):
+                    # CPython
+                    raise Exception("Version mismatch: this is the 'cffi' package version %s, located in %r.  When we import the top-level '_cffi_backend' extension module, we get version %s, located in %r.  The two versions should be equal; check your installation." % (
+                        __version__, __file__,
+                        backend.__version__, backend.__file__))
+                else:
+                    # PyPy
+                    raise Exception("Version mismatch: this is the 'cffi' package version %s, located in %r.  This interpreter comes with a built-in '_cffi_backend' module, which is version %s.  The two versions should be equal; check your installation." % (
+                        __version__, __file__, backend.__version__))
             # (If you insist you can also try to pass the option
             # 'backend=backend_ctypes.CTypesBackend()', but don't
             # rely on it!  It's probably not going to work well.)
 
+        from . import cparser
         self._backend = backend
         self._lock = allocate_lock()
         self._parser = cparser.Parser()
@@ -212,7 +212,7 @@ class FFI(object):
 
     def offsetof(self, cdecl, *fields_or_indexes):
         """Return the offset of the named field inside the given
-        structure or array, which must be given as a C type name.  
+        structure or array, which must be given as a C type name.
         You can give several field names in case of nested structures.
         You can also give numeric values which correspond to array
         items, in case of an array type.
@@ -300,7 +300,7 @@ class FFI(object):
         return self._backend.string(cdata, maxlen)
 
     def unpack(self, cdata, length):
-        """Unpack an array of C data of the given length, 
+        """Unpack an array of C data of the given length,
         returning a Python string/unicode/list.
 
         If 'cdata' is a pointer to 'char', returns a byte string.
@@ -452,7 +452,6 @@ class FFI(object):
         return self._backend.getwinerror(code)
 
     def _pointer_to(self, ctype):
-        from . import model
         with self._lock:
             return model.pointer_cache(self, ctype)
 
@@ -764,7 +763,6 @@ def _load_backend_lib(backend, name, flags):
         return backend.load_library(path, flags)
 
 def _make_ffi_library(ffi, libname, flags):
-    import os
     backend = ffi._backend
     backendlib = _load_backend_lib(backend, libname, flags)
     #
@@ -802,7 +800,6 @@ def _make_ffi_library(ffi, libname, flags):
         if accessors_version[0] is ffi._cdef_version:
             return
         #
-        from . import model
         for key, (tp, _) in ffi._parser._declarations.items():
             if not isinstance(tp, model.EnumType):
                 tag, name = key.split(' ', 1)

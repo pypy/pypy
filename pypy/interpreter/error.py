@@ -80,6 +80,7 @@ class OperationError(Exception):
 
     def errorstr(self, space, use_repr=False):
         "The exception class and value, as a string."
+        self.normalize_exception(space)
         w_value = self.get_w_value(space)
         if space is None:
             # this part NOT_RPYTHON
