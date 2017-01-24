@@ -15,6 +15,10 @@ PyAPI_FUNC(void *) PyMem_Malloc(size_t);
 #define PyMem_Free  PyMem_FREE
 #define PyMem_Realloc  PyMem_REALLOC
 
+#define PyMem_RawMalloc PyMem_Malloc
+#define PyMem_RawFree PyMem_Free
+#define PyMem_RawRealloc PyMem_Realloc
+
 /*
  * Type-oriented memory interface
  * ==============================
