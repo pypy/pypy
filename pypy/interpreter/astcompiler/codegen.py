@@ -1246,7 +1246,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_NameConstant(self, node):
         self.update_position(node.lineno)
-        self.load_const(node.single)
+        self.load_const(node.value)
 
     def visit_keyword(self, keyword):
         if keyword.arg is not None:

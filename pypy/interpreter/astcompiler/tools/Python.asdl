@@ -71,8 +71,7 @@ module Python
          | Num(object n) -- a number as a PyObject.
          | Str(string s) -- need to specify raw, unicode, etc?
          | Bytes(bytes s)
-         -- PyPy mod. first argument name must not be value
-         | NameConstant(singleton single)
+         | NameConstant(singleton value)
          | Ellipsis
 
          -- the following expression can appear in assignment context

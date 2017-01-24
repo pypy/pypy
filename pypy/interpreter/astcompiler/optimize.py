@@ -71,7 +71,7 @@ class __extend__(ast.Const):
 class __extend__(ast.NameConstant):
 
     def as_constant(self):
-        return self.single
+        return self.value
 
 class __extend__(ast.Index):
     def as_constant(self):

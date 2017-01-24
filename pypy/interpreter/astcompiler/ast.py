@@ -2678,8 +2678,8 @@ State.ast_type('Bytes', 'expr', ['s'])
 
 class NameConstant(expr):
 
-    def __init__(self, single, lineno, col_offset):
-        self.single = single
+    def __init__(self, value, lineno, col_offset):
+        self.value = value
         expr.__init__(self, lineno, col_offset)
 
     def walkabout(self, visitor):
@@ -2690,8 +2690,8 @@ class NameConstant(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_NameConstant)
-        w_single = self.single  # singleton
-        space.setattr(w_node, space.wrap('single'), w_single)
+        w_value = self.value  # singleton
+        space.setattr(w_node, space.wrap('value'), w_value)
         w_lineno = space.wrap(self.lineno)  # int
         space.setattr(w_node, space.wrap('lineno'), w_lineno)
         w_col_offset = space.wrap(self.col_offset)  # int
@@ -2700,17 +2700,17 @@ class NameConstant(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_single = get_field(space, w_node, 'single', False)
+        w_value = get_field(space, w_node, 'value', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _single = w_single
-        if _single is None:
-            raise_required_value(space, w_node, 'single')
+        _value = w_value
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return NameConstant(_single, _lineno, _col_offset)
+        return NameConstant(_value, _lineno, _col_offset)
 
-State.ast_type('NameConstant', 'expr', ['single'])
+State.ast_type('NameConstant', 'expr', ['value'])
 
 
 class Ellipsis(expr):

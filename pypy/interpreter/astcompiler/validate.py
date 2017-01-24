@@ -444,7 +444,7 @@ class AstValidator(ast.ASTVisitor):
 
     def visit_NameConstant(self, node):
         space = self.space
-        if (node.single is not space.w_None and
-            node.single is not space.w_True and
-            node.single is not space.w_False):
+        if (node.value is not space.w_None and
+            node.value is not space.w_True and
+            node.value is not space.w_False):
             raise ValidationError("singleton must be True, False, or None")
