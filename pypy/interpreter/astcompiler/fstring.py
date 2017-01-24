@@ -260,8 +260,12 @@ def fstring_find_literal(astbuilder, fstr, atom_node, rec):
     fstr.current_index = i
     literal = builder.build()
     if not fstr.raw_mode and u'\\' in literal:
+        # xxx messy
+        space = astbuilder.space
         literal = literal.encode('utf-8')
-        literal = unicodehelper.decode_unicode_escape(astbuilder.space, literal)
+        literal = parsestring.decode_unicode_utf8(space, literal, 0,
+                                                  len(literal))
+        literal = unicodehelper.decode_unicode_escape(space, literal)
     return literal
 
 
@@ -328,22 +332,26 @@ def string_parse_literal(astbuilder, atom_node):
     space = astbuilder.space
     encoding = astbuilder.compile_info.encoding
     joined_pieces = []
-    for i in range(atom_node.num_children()):
-        try:
+    try:
+        for i in range(atom_node.num_children()):
             w_next = parsestring.parsestr(
                     space, encoding, atom_node.get_child(i).get_value())
-        except error.OperationError as e:
-            if not (e.match(space, space.w_UnicodeError) or
-                    e.match(space, space.w_ValueError)):
-                raise
-            # Unicode/ValueError in literal: turn into SyntaxError
-            raise astbuilder.error(e.errorstr(space), atom_node)
-        if not isinstance(w_next, parsestring.W_FString):
-            add_constant_string(astbuilder, joined_pieces, w_next, atom_node)
-        else:
-            parse_f_string(astbuilder, joined_pieces, w_next, atom_node)
+            if not isinstance(w_next, parsestring.W_FString):
+                add_constant_string(astbuilder, joined_pieces, w_next,
+                                    atom_node)
+            else:
+                parse_f_string(astbuilder, joined_pieces, w_next, atom_node)
+
+    except error.OperationError as e:
+        if not (e.match(space, space.w_UnicodeError) or
+                e.match(space, space.w_ValueError)):
+            raise
+        # Unicode/ValueError in literal: turn into SyntaxError
+        raise astbuilder.error(e.errorstr(space), atom_node)
+
     if len(joined_pieces) == 1:   # <= the common path
         return joined_pieces[0]   # ast.Str, Bytes or FormattedValue
+
     # with more than one piece, it is a combination of Str and
     # FormattedValue pieces---if there is a Bytes, then we got
     # an invalid mixture of bytes and unicode literals

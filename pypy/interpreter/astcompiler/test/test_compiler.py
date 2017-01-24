@@ -1192,6 +1192,7 @@ class TestCompiler:
         raises(SyntaxError, self.run, "f'{5#}'")
         raises(SyntaxError, self.run, "f'{5)#}'")
         raises(SyntaxError, self.run, "f'''{5)\n#}'''")
+        raises(SyntaxError, self.run, "f'\\x'")
 
 
 class AppTestCompiler:
