@@ -71,6 +71,10 @@ class VersionTag(object):
 class MethodCache(object):
 
     def __init__(self, space):
+        # Note: these attributes never change which object they contain,
+        # so reading 'cache.versions' for example is constant-folded.
+        # The actual list in 'cache.versions' is not a constant, of
+        # course.
         SIZE = 1 << space.config.objspace.std.methodcachesizeexp
         self.versions = [None] * SIZE
         self.names = [None] * SIZE

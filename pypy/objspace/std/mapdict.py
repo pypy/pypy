@@ -436,6 +436,9 @@ class MapAttrCache(object):
         for i in range(len(self.cached_attrs)):
             self.cached_attrs[i] = None
 
+    def _cleanup_(self):
+        self.clear()
+
 # ____________________________________________________________
 # object implementation
 
