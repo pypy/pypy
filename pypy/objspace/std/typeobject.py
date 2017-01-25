@@ -88,6 +88,9 @@ class MethodCache(object):
         for i in range(len(self.lookup_where)):
             self.lookup_where[i] = None_None
 
+    def _cleanup_(self):
+        self.clear()
+
 class _Global(object):
     weakref_warning_printed = False
 _global = _Global()
