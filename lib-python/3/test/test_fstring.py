@@ -150,7 +150,7 @@ f'{a * x()}'"""
         # Inside of strings, don't interpret doubled brackets.
         self.assertEqual(f'{"{{}}"}', '{{}}')
 
-        self.assertAllRaise(TypeError, 'unhashable type',
+        self.assertAllRaise(TypeError, 'unhashable',
                             ["f'{ {{}} }'", # dict in a set
                              ])
 
@@ -413,7 +413,7 @@ f'{a * x()}'"""
 
         # lambda doesn't work without parens, because the colon
         #  makes the parser think it's a format_spec
-        self.assertAllRaise(SyntaxError, 'unexpected EOF while parsing',
+        self.assertAllRaise(SyntaxError, 'unexpected EOF while parsing|invalid syntax',
                             ["f'{lambda x:x}'",
                              ])
 
@@ -748,11 +748,11 @@ f'{a * x()}'"""
 
     def test_errors(self):
         # see issue 26287
-        self.assertAllRaise(TypeError, 'unsupported',
+        self.assertAllRaise(TypeError, 'unsupported|non-empty format string',
                             [r"f'{(lambda: 0):x}'",
                              r"f'{(0,):x}'",
                              ])
-        self.assertAllRaise(ValueError, 'Unknown format code',
+        self.assertAllRaise(ValueError, 'Unknown format code|unknown presentation',
                             [r"f'{1000:j}'",
                              r"f'{1000:j}'",
                             ])
