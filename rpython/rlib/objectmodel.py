@@ -614,6 +614,9 @@ def ll_hash_string(ll_s):
     This version is called from lltypesystem/rstr.py, and 'll_s' is a
     rstr.STR or rstr.UNICODE.
     """
+    if not we_are_translated():
+        global HASH_ALGORITHM_FIXED
+        HASH_ALGORITHM_FIXED = True
     if HASH_ALGORITHM == "rpython":
         return _hash_string_rpython(ll_s.chars)
     if HASH_ALGORITHM == "siphash24":

@@ -44,11 +44,13 @@ def new_malloc(TP, name):
 mallocstr = new_malloc(STR, 'mallocstr')
 mallocunicode = new_malloc(UNICODE, 'mallocunicode')
 
+@specialize.memo()
 def emptystrfun():
-    return emptystr
+    return string_repr.convert_const("")
 
+@specialize.memo()
 def emptyunicodefun():
-    return emptyunicode
+    return unicode_repr.convert_const(u'')
 
 def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
     @specialize.arg(0)
@@ -1280,8 +1282,6 @@ unichar_repr = UniCharRepr()
 char_repr.ll = LLHelpers
 unichar_repr.ll = LLHelpers
 unicode_repr = UnicodeRepr()
-emptystr = string_repr.convert_const("")
-emptyunicode = unicode_repr.convert_const(u'')
 
 StringRepr.repr = string_repr
 UnicodeRepr.repr = unicode_repr
@@ -1340,14 +1340,6 @@ def ll_getnextindex(iter):
 string_repr.iterator_repr = StringIteratorRepr()
 unicode_repr.iterator_repr = UnicodeIteratorRepr()
 
-# these should be in rclass, but circular imports prevent (also it's
-# not that insane that a string constant is built in this file).
-
-instance_str_prefix = string_repr.convert_const("<")
-instance_str_infix  = string_repr.convert_const(" object at 0x")
-instance_str_suffix = string_repr.convert_const(">")
-
-null_str = string_repr.convert_const("NULL")
-
-unboxed_instance_str_prefix = string_repr.convert_const("<unboxed ")
-unboxed_instance_str_suffix = string_repr.convert_const(">")
+@specialize.memo()
+def conststr(s):
+    return string_repr.convert_const(s)
