@@ -128,15 +128,6 @@ def PyObject_GetBuffer(space, w_obj, view, flags):
     view.c_obj = make_ref(space, w_obj)
     return ret
 
-@cpython_api([PyObject], Py_bufferP, error=CANNOT_FAIL)
-def PyMemoryView_GET_BUFFER(space, pyobj):
-    """Return a pointer to the buffer-info structure wrapped by the given
-    object.  The object must be a memoryview instance; this macro doesn't
-    check its type, you must do it yourself or you will risk crashes."""
-    # XXX move to a c-macro
-    py_memobj = rffi.cast(PyMemoryViewObject, pyobj)
-    return py_memobj.c_view
-
 def fill_Py_buffer(space, buf, view):
     # c_buf, c_obj have been filled in
     ndim = buf.getndim()
@@ -268,10 +259,4 @@ def PyMemoryView_FromBuffer(space, view):
         py_mem.c_view.c_shape = view.c_shape
     # XXX ignore suboffsets?
     return py_obj
-
-@cpython_api([PyObject], PyObject)
-def PyMemoryView_GET_BASE(space, w_obj):
-    # return the obj field of the Py_buffer created by PyMemoryView_GET_BUFFER
-    # XXX needed for numpy on py3k
-    raise NotImplementedError('PyMemoryView_GET_BASE')
 
