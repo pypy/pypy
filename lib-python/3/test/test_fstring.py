@@ -541,29 +541,43 @@ f'{a * x()}'"""
         self.assertEqual(f'{f"{y}"*3}', '555')
 
     def test_invalid_string_prefixes(self):
-        self.assertAllRaise(SyntaxError, 'unexpected EOF while parsing',
-                            ["fu''",
-                             "uf''",
-                             "Fu''",
-                             "fU''",
-                             "Uf''",
-                             "uF''",
-                             "ufr''",
-                             "urf''",
-                             "fur''",
-                             "fru''",
-                             "rfu''",
-                             "ruf''",
-                             "FUR''",
-                             "Fur''",
-                             "fb''",
-                             "fB''",
-                             "Fb''",
-                             "FB''",
-                             "bf''",
-                             "bF''",
-                             "Bf''",
-                             "BF''",
+        # CPython checks that "fu''" etc. all gives 'unexpected EOF while
+        # parsing'.  Why doesn't it give 'invalid syntax'?  In fact:
+        #   eval("fu''")     => unexpected EOF while parsing
+        #   exec("fu''")     => invalid syntax
+        #   eval("fu'xxx'")  => invalid syntax
+        #   exec("fu'xxx'")  => invalid syntax
+        #   eval("fu''''''") => invalid syntax
+        #   exec("fu''''''") => invalid syntax
+        # so CPython does give an 'invalid syntax' in all cases except
+        # a very corner case, and it happens to be the one tested for
+        # here in CPython's version of the test.
+        #
+        # In light of that, I changed the test to check for a regular
+        # 'invalid syntax' case, which works on both CPython and PyPy.
+        self.assertAllRaise(SyntaxError, 'invalid syntax',
+                            ["fu' '",
+                             "uf' '",
+                             "Fu' '",
+                             "fU' '",
+                             "Uf' '",
+                             "uF' '",
+                             "ufr' '",
+                             "urf' '",
+                             "fur' '",
+                             "fru' '",
+                             "rfu' '",
+                             "ruf' '",
+                             "FUR' '",
+                             "Fur' '",
+                             "fb' '",
+                             "fB' '",
+                             "Fb' '",
+                             "FB' '",
+                             "bf' '",
+                             "bF' '",
+                             "Bf' '",
+                             "BF' '",
                              ])
 
     def test_leading_trailing_spaces(self):
