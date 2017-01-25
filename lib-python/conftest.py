@@ -225,6 +225,7 @@ testmap = [
     RegrTest('test_format.py', core=True),
     RegrTest('test_fractions.py'),
     RegrTest('test_frame.py'),
+    RegrTest('test_fstring.py'),
     RegrTest('test_ftplib.py'),
     RegrTest('test_funcattrs.py', core=True),
     RegrTest('test_functools.py'),
