@@ -606,25 +606,34 @@ class TestTypedTestCase(object):
         objectmodel.set_hash_algorithm(algo)
         s = "hello"
         u = u"world"
+        v = u"\u1234\u2318+\u2bcd\u2102"
         hash_s = compute_hash(s)
         hash_u = compute_hash(u)
+        hash_v = compute_hash(v)
+        assert hash_s == compute_hash(u"hello")   # same hash because it's
+        assert hash_u == compute_hash("world")    #    a latin-1 unicode
         #
         def fn(length):
             assert length >= 1
             return str((compute_hash(s),
                         compute_hash(u),
+                        compute_hash(v),
                         compute_hash(s[0] + s[1:length]),
-                        compute_hash(u[0] + u[1:length])))
+                        compute_hash(u[0] + u[1:length]),
+                        compute_hash(v[0] + v[1:length]),
+                        ))
 
-        assert fn(5) == str((hash_s, hash_u, hash_s, hash_u))
+        assert fn(5) == str((hash_s, hash_u, hash_v, hash_s, hash_u, hash_v))
 
         f = self.getcompiled(fn, [int])
         res = f(5)
         res = [int(a) for a in res[1:-1].split(",")]
         assert res[0] == hash_s
         assert res[1] == hash_u
-        assert res[2] == hash_s
-        assert res[3] == hash_u
+        assert res[2] == hash_v
+        assert res[3] == hash_s
+        assert res[4] == hash_u
+        assert res[5] == hash_v
 
     def test_hash_string_rpython(self):
         self._test_hash_string("rpython")

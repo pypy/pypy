@@ -556,22 +556,20 @@ def _hash_string_siphash24(s):
     from rpython.rtyper.lltypesystem import lltype, rffi
     from rpython.rlib.rarithmetic import intmask
 
-    if isinstance(s, str):
-        pass
-    elif isinstance(s, unicode):
-        if rffi.sizeof(lltype.UniChar) == 4:
-            kind = "I"
+    if not isinstance(s, str):
+        if isinstance(s, unicode):
+            lst = map(ord, s)
         else:
-            kind = "H"
-        s = array.array(kind, map(ord, s)).tostring()
-    else:
-        if lltype.typeOf(s).TO.chars.OF == lltype.Char:
+            lst = map(ord, s.chars)    # for rstr.STR or UNICODE
+        # NOTE: a latin-1 unicode string must have the same hash as the
+        # corresponding byte string.
+        if all(n <= 0xFF for n in lst):
             kind = "B"
         elif rffi.sizeof(lltype.UniChar) == 4:
             kind = "I"
         else:
             kind = "H"
-        s = array.array(kind, map(ord, s.chars)).tostring()
+        s = array.array(kind, lst).tostring()
     ptr = rffi.str2charp(s)
     x = siphash24(ptr, len(s))
     rffi.free_charp(ptr)
@@ -580,16 +578,33 @@ def _hash_string_siphash24(s):
 def ll_hash_string_siphash24(ll_s):
     """Called from lltypesystem/rstr.py.  'll_s' is a rstr.STR or UNICODE."""
     from rpython.rlib.rsiphash import siphash24
-    from rpython.rtyper.lltypesystem import lltype, rffi, rstr
+    from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
     from rpython.rlib.rarithmetic import intmask
 
     length = len(ll_s.chars)
-    # no GC operation from here!
     if lltype.typeOf(ll_s).TO.chars.OF == lltype.Char:
+        # no GC operation from here!
         addr = rstr._get_raw_buf_string(rstr.STR, ll_s, 0)
     else:
-        addr = rstr._get_raw_buf_unicode(rstr.UNICODE, ll_s, 0)
-        length *= rffi.sizeof(rstr.UNICODE.chars.OF)
+        # NOTE: a latin-1 unicode string must have the same hash as the
+        # corresponding byte string.  If the unicode is all within
+        # 0-255, then we need to allocate a byte buffer and copy the
+        # latin-1 encoding in it manually.
+        for i in range(length):
+            if ord(ll_s.chars[i]) > 0xFF:
+                # no GC operation from here!
+                addr = rstr._get_raw_buf_unicode(rstr.UNICODE, ll_s, 0)
+                length *= rffi.sizeof(rstr.UNICODE.chars.OF)
+                break
+        else:
+            p = lltype.malloc(rffi.CCHARP.TO, length, flavor='raw')
+            i = 0
+            while i < length:
+                p[i] = chr(ord(ll_s.chars[i]))
+                i += 1
+            x = siphash24(llmemory.cast_ptr_to_adr(p), length)
+            lltype.free(p, flavor='raw')
+            return intmask(x)
     x = siphash24(addr, length)
     keepalive_until_here(ll_s)
     return intmask(x)
