@@ -1,9 +1,6 @@
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 class AppTestMmap(AppTestCpythonExtensionBase):
-    spaceconfig = {
-        'usemodules': (AppTestCpythonExtensionBase.spaceconfig['usemodules']
-                       + ['mmap'])}
     def test_mmap_buffer(self):
         module = self.import_extension('mmap_buffer', [
             ('isbuffer', 'METH_O',
