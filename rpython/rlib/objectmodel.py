@@ -520,10 +520,22 @@ def current_object_addr_as_int(x):
 # ----------
 
 HASH_ALGORITHM = "rpython"  # XXX Is there a better name?
+HASH_ALGORITHM_FIXED = False
 
-def _hash_string(s):
-    """The algorithm behind compute_hash() for a string or a unicode."""
+@not_rpython
+def set_hash_algorithm(algo):
+    """Must be called very early, before any string is hashed with
+    compute_hash()!"""
+    global HASH_ALGORITHM
+    if HASH_ALGORITHM != algo:
+        assert not HASH_ALGORITHM_FIXED, "compute_hash() already called!"
+        assert algo in ("rpython", "siphash24")
+        HASH_ALGORITHM = algo
+
+
+def _hash_string_rpython(s):
     from rpython.rlib.rarithmetic import intmask
+
     length = len(s)
     if length == 0:
         return -1
@@ -534,6 +546,83 @@ def _hash_string(s):
         i += 1
     x ^= length
     return intmask(x)
+
+
+@not_rpython
+def _hash_string_siphash24(s):
+    """This version is called when untranslated only."""
+    import array
+    from rpython.rlib.rsiphash import siphash24
+    from rpython.rtyper.lltypesystem import lltype, rffi
+    from rpython.rlib.rarithmetic import intmask
+
+    if isinstance(s, str):
+        pass
+    elif isinstance(s, unicode):
+        if rffi.sizeof(lltype.UniChar) == 4:
+            kind = "I"
+        else:
+            kind = "H"
+        s = array.array(kind, map(ord, s)).tostring()
+    else:
+        if lltype.typeOf(s).TO.chars.OF == lltype.Char:
+            kind = "B"
+        elif rffi.sizeof(lltype.UniChar) == 4:
+            kind = "I"
+        else:
+            kind = "H"
+        s = array.array(kind, map(ord, s.chars)).tostring()
+    ptr = rffi.str2charp(s)
+    x = siphash24(ptr, len(s))
+    rffi.free_charp(ptr)
+    return intmask(x)
+
+def ll_hash_string_siphash24(ll_s):
+    """Called from lltypesystem/rstr.py.  'll_s' is a rstr.STR or UNICODE."""
+    from rpython.rlib.rsiphash import siphash24
+    from rpython.rtyper.lltypesystem import lltype, rffi, rstr
+    from rpython.rlib.rarithmetic import intmask
+
+    length = len(ll_s.chars)
+    # no GC operation from here!
+    if lltype.typeOf(ll_s).TO.chars.OF == lltype.Char:
+        addr = rstr._get_raw_buf_string(rstr.STR, ll_s, 0)
+    else:
+        addr = rstr._get_raw_buf_unicode(rstr.UNICODE, ll_s, 0)
+        length *= rffi.sizeof(rstr.UNICODE.chars.OF)
+    x = siphash24(addr, length)
+    keepalive_until_here(ll_s)
+    return intmask(x)
+ll_hash_string_siphash24._jit_look_inside_ = False
+
+
+@not_rpython
+def _hash_string(s):
+    """The algorithm behind compute_hash() for a string or a unicode.
+    This version is only for untranslated usage, and 's' is a str or unicode.
+    """
+    global HASH_ALGORITHM_FIXED
+    HASH_ALGORITHM_FIXED = True
+    if HASH_ALGORITHM == "rpython":
+        return _hash_string_rpython(s)
+    if HASH_ALGORITHM == "siphash24":
+        return _hash_string_siphash24(s)
+    raise NotImplementedError
+
+def ll_hash_string(ll_s):
+    """The algorithm behind compute_hash() for a string or a unicode.
+    This version is called from lltypesystem/rstr.py, and 'll_s' is a
+    rstr.STR or rstr.UNICODE.
+    """
+    if HASH_ALGORITHM == "rpython":
+        return _hash_string_rpython(ll_s.chars)
+    if HASH_ALGORITHM == "siphash24":
+        if we_are_translated():
+            return ll_hash_string_siphash24(ll_s)
+        else:
+            return _hash_string_siphash24(ll_s)
+    raise NotImplementedError
+
 
 def _hash_float(f):
     """The algorithm behind compute_hash() for a float.

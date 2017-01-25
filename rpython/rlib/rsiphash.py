@@ -2,6 +2,7 @@ import sys, os, struct
 from contextlib import contextmanager
 from rpython.rlib import rarithmetic
 from rpython.rlib.objectmodel import not_rpython, always_inline
+from rpython.rlib.rgc import no_collect
 from rpython.rlib.rarithmetic import r_uint64
 from rpython.rlib.rawstorage import misaligned_is_fine
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
@@ -73,11 +74,11 @@ def _double_round(v0, v1, v2, v3):
     return v0, v1, v2, v3
 
 
-def siphash24(ptr, size):
-    """Takes a CCHARP pointer and a size.  Returns the hash as a r_uint64,
+@no_collect
+def siphash24(addr_in, size):
+    """Takes an address pointer and a size.  Returns the hash as a r_uint64,
     which can then be casted to the expected type."""
 
-    addr_in = llmemory.cast_ptr_to_adr(ptr)
     direct = (misaligned_is_fine or
                  (rffi.cast(lltype.Signed, addr_in) & 7) == 0)
 

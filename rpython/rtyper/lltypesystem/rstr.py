@@ -3,7 +3,7 @@ from weakref import WeakValueDictionary
 from rpython.annotator import model as annmodel
 from rpython.rlib import jit, types
 from rpython.rlib.objectmodel import (malloc_zero_filled, we_are_translated,
-    _hash_string, keepalive_until_here, specialize, enforceargs)
+    ll_hash_string, keepalive_until_here, specialize, enforceargs)
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.error import TyperError
@@ -136,15 +136,19 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
     copy_raw_to_string = func_with_new_name(copy_raw_to_string,
                                               'copy_raw_to_%s' % name)
 
-    return copy_string_to_raw, copy_raw_to_string, copy_string_contents
+    return (copy_string_to_raw, copy_raw_to_string, copy_string_contents,
+            _get_raw_buf)
 
 (copy_string_to_raw,
  copy_raw_to_string,
- copy_string_contents) = _new_copy_contents_fun(STR, STR, Char, 'string')
+ copy_string_contents,
+ _get_raw_buf_string) = _new_copy_contents_fun(STR, STR, Char, 'string')
 
 (copy_unicode_to_raw,
  copy_raw_to_unicode,
- copy_unicode_contents) = _new_copy_contents_fun(UNICODE, UNICODE, UniChar, 'unicode')
+ copy_unicode_contents,
+ _get_raw_buf_unicode) = _new_copy_contents_fun(UNICODE, UNICODE, UniChar,
+                                                'unicode')
 
 CONST_STR_CACHE = WeakValueDictionary()
 CONST_UNICODE_CACHE = WeakValueDictionary()
@@ -382,7 +386,7 @@ class LLHelpers(AbstractLLHelpers):
         # but our malloc initializes the memory to zero, so we use zero as the
         # special non-computed-yet value.  Also, jit.conditional_call_elidable
         # always checks for zero, for now.
-        x = _hash_string(s.chars)
+        x = ll_hash_string(s)
         if x == 0:
             x = 29872897
         s.hash = x

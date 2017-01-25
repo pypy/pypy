@@ -1,5 +1,5 @@
 from rpython.rlib.rsiphash import siphash24, choosen_seed
-from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import llmemory, rffi
 
 
 CASES = [
@@ -32,8 +32,8 @@ def check(s):
     q = rffi.str2charp('?' + s)
     with choosen_seed(0x8a9f065a358479f4, 0x11cb1e9ee7f40e1f,
                       test_misaligned_path=True):
-        x = siphash24(p, len(s))
-        y = siphash24(rffi.ptradd(q, 1), len(s))
+        x = siphash24(llmemory.cast_ptr_to_adr(p), len(s))
+        y = siphash24(llmemory.cast_ptr_to_adr(rffi.ptradd(q, 1)), len(s))
     rffi.free_charp(p)
     rffi.free_charp(q)
     assert x == y

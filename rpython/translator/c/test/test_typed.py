@@ -1,8 +1,12 @@
 from __future__ import with_statement
 
 import math
-import sys
+import sys, os
 
+if __name__ == '__main__':
+    # hack for test_hash_string_siphash24()
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__),
+                                    '..', '..', '..', '..'))
 import py
 
 from rpython.rlib.rstackovf import StackOverflow
@@ -597,6 +601,40 @@ class TestTypedTestCase(object):
         assert res[3] == compute_hash(d)
         assert res[4] == compute_hash(("Hi", None, (7.5, 2, d)))
 
+    def _test_hash_string(self, algo):
+        from rpython.rlib import objectmodel
+        objectmodel.set_hash_algorithm(algo)
+        s = "hello"
+        u = u"world"
+        hash_s = compute_hash(s)
+        hash_u = compute_hash(u)
+        #
+        def fn(length):
+            assert length >= 1
+            return str((compute_hash(s),
+                        compute_hash(u),
+                        compute_hash(s[0] + s[1:length]),
+                        compute_hash(u[0] + u[1:length])))
+
+        assert fn(5) == str((hash_s, hash_u, hash_s, hash_u))
+
+        f = self.getcompiled(fn, [int])
+        res = f(5)
+        res = [int(a) for a in res[1:-1].split(",")]
+        assert res[0] == hash_s
+        assert res[1] == hash_u
+        assert res[2] == hash_s
+        assert res[3] == hash_u
+
+    def test_hash_string_rpython(self):
+        self._test_hash_string("rpython")
+
+    def test_hash_string_siphash24(self):
+        import subprocess
+        subprocess.check_call([sys.executable, __file__, "siphash24",
+                               self.__class__.__module__,
+                               self.__class__.__name__])
+
     def test_list_basic_ops(self):
         def list_basic_ops(i, j):
             l = [1, 2, 3]
@@ -896,3 +934,11 @@ class TestTypedTestCase(object):
         f = self.getcompiled(func, [int])
         res = f(2)
         assert res == 1     # and not 2
+
+
+if __name__ == '__main__':
+    # for test_hash_string_siphash24()
+    algo, clsmodule, clsname = sys.argv[1:]
+    mod = __import__(clsmodule, None, None, [clsname])
+    cls = getattr(mod, clsname)
+    cls()._test_hash_string(algo)
