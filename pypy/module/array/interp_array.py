@@ -539,7 +539,7 @@ class W_ArrayBase(W_Root):
             return space.wrap(s)
 
 W_ArrayBase.typedef = TypeDef(
-    'array.array',
+    'array.array', None, None, 'read-write',
     __new__ = interp2app(w_array),
 
     __len__ = interp2app(W_ArrayBase.descr_len),

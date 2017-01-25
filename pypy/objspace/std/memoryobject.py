@@ -696,7 +696,7 @@ def memory_view_c_contiguous(space, flags):
     return flags & (MEMORYVIEW_SCALAR|MEMORYVIEW_C)
 
 W_MemoryView.typedef = TypeDef(
-    "memoryview",
+    "memoryview", None, None, "read-write",
     __doc__ = """\
 Create a new memoryview object which references the given object.
 """,

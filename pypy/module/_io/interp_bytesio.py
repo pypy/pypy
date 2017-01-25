@@ -203,7 +203,7 @@ class W_BytesIO(W_BufferedIOBase):
             space.call_method(self.getdict(space), "update", w_dict)
 
 W_BytesIO.typedef = TypeDef(
-    '_io.BytesIO', W_BufferedIOBase.typedef,
+    '_io.BytesIO', W_BufferedIOBase.typedef, None, 'read-write',
     __new__  = interp2app(W_BytesIO.descr_new.im_func),
     __init__  = interp2app(W_BytesIO.descr_init),
 
