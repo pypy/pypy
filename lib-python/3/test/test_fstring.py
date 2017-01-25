@@ -545,10 +545,9 @@ f'{a * x()}'"""
         # parsing'.  Why doesn't it give 'invalid syntax'?  In fact:
         #   eval("fu''")     => unexpected EOF while parsing
         #   exec("fu''")     => invalid syntax
+        #   eval("fu'' ")    => invalid syntax
         #   eval("fu'xxx'")  => invalid syntax
-        #   exec("fu'xxx'")  => invalid syntax
         #   eval("fu''''''") => invalid syntax
-        #   exec("fu''''''") => invalid syntax
         # so CPython does give an 'invalid syntax' in all cases except
         # a very corner case, and it happens to be the one tested for
         # here in CPython's version of the test.
