@@ -21,6 +21,9 @@ else:
 # that as easily because many details may rely on getting the same hash
 # value before and after translation.  We can, however, pick a random
 # seed once per translation, which should already be quite good.
+#
+# XXX no, it is not: e.g. all Ubuntu installations of the same Ubuntu
+# would get the same seed.  That's not good enough.
 
 @not_rpython
 def select_random_seed():
