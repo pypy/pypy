@@ -1170,6 +1170,7 @@ class MappingSpace(object):
         self.reference = self.new_reference()
         self.ll_key = r_key.convert_const
         self.ll_value = r_value.convert_const
+        self.removed_keys = []
         r_tuple = TupleRepr(rtyper, [r_key, r_value])
         self.TUPLE = r_tuple.lowleveltype
 
@@ -1185,6 +1186,7 @@ class MappingSpace(object):
         self.ll_delitem(self.l_dict, ll_key)
         del self.reference[key]
         assert not self.ll_contains(self.l_dict, ll_key)
+        self.removed_keys.append(key)
 
     def copydict(self):
         self.l_dict = self.ll_copy(self.l_dict)
@@ -1192,6 +1194,8 @@ class MappingSpace(object):
 
     def cleardict(self):
         self.ll_clear(self.l_dict)
+        for key in self.reference:
+            self.removed_keys.append(key)
         self.reference.clear()
         assert self.ll_len(self.l_dict) == 0
 
@@ -1207,15 +1211,27 @@ class MappingSpace(object):
                 if self.ll_key(key) == ll_key:
                     assert self.ll_value(value) == ll_value
                     del self.reference[key]
+                    self.removed_keys.append(key)
                     break
             else:
                 raise AssertionError("popitem() returned unexpected key")
+
+    def removeindex(self):
+        pass     # overridden in test_rordereddict
 
     def fullcheck(self):
         assert self.ll_len(self.l_dict) == len(self.reference)
         for key, value in self.reference.iteritems():
             assert (self.ll_getitem(self.l_dict, self.ll_key(key)) ==
                 self.ll_value(value))
+        for key in self.removed_keys:
+            if key not in self.reference:
+                try:
+                    self.ll_getitem(self.l_dict, self.ll_key(key))
+                except KeyError:
+                    pass
+                else:
+                    raise AssertionError("removed key still shows up")
 
 class MappingSM(GenericStateMachine):
     def __init__(self):
@@ -1238,7 +1254,7 @@ class MappingSM(GenericStateMachine):
         if not self.space:
             return builds(Action, just('setup'), tuples(st_keys, st_values))
         global_actions = [Action('copydict', ()), Action('cleardict', ()),
-                          Action('popitem', ())]
+                          Action('popitem', ()), Action('removeindex', ())]
         if self.space.reference:
             return (
                 self.st_setitem() | sampled_from(global_actions) |

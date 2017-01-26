@@ -202,14 +202,17 @@ class TestRDictDirect(object):
         assert ll_d.num_ever_used_items == 0
         assert ll_d.lookup_function_no == rordereddict.FUNC_BYTE   # reset
 
-    def test_direct_enter_and_del(self):
+    def _get_int_dict(self):
         def eq(a, b):
             return a == b
 
-        DICT = rordereddict.get_ll_dict(lltype.Signed, lltype.Signed,
+        return rordereddict.get_ll_dict(lltype.Signed, lltype.Signed,
                                  ll_fasthash_function=intmask,
                                  ll_hash_function=intmask,
                                  ll_eq_function=eq)
+
+    def test_direct_enter_and_del(self):
+        DICT = self._get_int_dict()
         ll_d = rordereddict.ll_newdict(DICT)
         numbers = [i * rordereddict.DICT_INITSIZE + 1 for i in range(8)]
         for num in numbers:
@@ -303,6 +306,38 @@ class TestRDictDirect(object):
         rordereddict.ll_prepare_dict_update(ll_d, 7)
         # used to get UninitializedMemoryAccess
 
+    def test_bug_resize_counter(self):
+        DICT = self._get_int_dict()
+        ll_d = rordereddict.ll_newdict(DICT)
+        rordereddict.ll_dict_setitem(ll_d, 0, 0)
+        rordereddict.ll_dict_delitem(ll_d, 0)
+        rordereddict.ll_dict_setitem(ll_d, 0, 0)
+        rordereddict.ll_dict_delitem(ll_d, 0)
+        rordereddict.ll_dict_setitem(ll_d, 0, 0)
+        rordereddict.ll_dict_delitem(ll_d, 0)
+        rordereddict.ll_dict_setitem(ll_d, 0, 0)
+        rordereddict.ll_dict_delitem(ll_d, 0)
+        rordereddict.ll_dict_setitem(ll_d, 1, 0)
+        rordereddict.ll_dict_setitem(ll_d, 0, 0)
+        rordereddict.ll_dict_setitem(ll_d, 2, 0)
+        rordereddict.ll_dict_delitem(ll_d, 1)
+        rordereddict.ll_dict_delitem(ll_d, 0)
+        rordereddict.ll_dict_delitem(ll_d, 2)
+        rordereddict.ll_dict_setitem(ll_d, 0, 0)
+        rordereddict.ll_dict_delitem(ll_d, 0)
+        rordereddict.ll_dict_setitem(ll_d, 0, 0)
+        rordereddict.ll_dict_delitem(ll_d, 0)
+        rordereddict.ll_dict_setitem(ll_d, 0, 0)
+        rordereddict.ll_dict_setitem(ll_d, 1, 0)
+        d = ll_d
+        idx = d.indexes._obj.container
+        num_nonfrees = 0
+        for i in range(idx.getlength()):
+            got = idx.getitem(i)   # 0: unused; 1: deleted
+            num_nonfrees += (got > 0)
+        assert d.resize_counter <= idx.getlength() * 2 - num_nonfrees * 3
+
+
 class TestRDictDirectDummyKey(TestRDictDirect):
     class dummykeyobj:
         ll_dummy_value = llstr("dupa")
@@ -377,6 +412,12 @@ class ODictSpace(MappingSpace):
             key, value = self.reference.popitem()
             assert self.ll_key(key) == ll_key
             assert self.ll_value(value) == ll_value
+            self.removed_keys.append(key)
+
+    def removeindex(self):
+        # remove the index, as done e.g. during translation for prebuilt
+        # dicts
+        rodct.ll_remove_index(self.l_dict)
 
     def fullcheck(self):
         # overridden to also check key order
@@ -387,6 +428,35 @@ class ODictSpace(MappingSpace):
             assert self.ll_key(key) == ll_key
             assert (self.ll_getitem(self.l_dict, self.ll_key(key)) ==
                 self.ll_value(self.reference[key]))
+        for key in self.removed_keys:
+            if key not in self.reference:
+                try:
+                    self.ll_getitem(self.l_dict, self.ll_key(key))
+                except KeyError:
+                    pass
+                else:
+                    raise AssertionError("removed key still shows up")
+        # check some internal invariants
+        d = self.l_dict
+        num_lives = 0
+        for i in range(d.num_ever_used_items):
+            if d.entries.valid(i):
+                num_lives += 1
+        assert num_lives == d.num_live_items
+        fun = d.lookup_function_no & rordereddict.FUNC_MASK
+        if fun == rordereddict.FUNC_NO_INDEX:
+            assert not d.indexes
+        else:
+            assert d.indexes
+            idx = d.indexes._obj.container
+            num_lives = 0
+            num_nonfrees = 0
+            for i in range(idx.getlength()):
+                got = idx.getitem(i)   # 0: unused; 1: deleted
+                num_nonfrees += (got > 0)
+                num_lives += (got > 1)
+            assert num_lives == d.num_live_items
+            assert 0 < d.resize_counter <= idx.getlength()*2 - num_nonfrees*3
 
 
 class ODictSM(MappingSM):
@@ -394,4 +464,4 @@ class ODictSM(MappingSM):
 
 def test_hypothesis():
     run_state_machine_as_test(
-        ODictSM, settings(max_examples=50000, stateful_step_count=100))
+        ODictSM, settings(max_examples=500, stateful_step_count=100))

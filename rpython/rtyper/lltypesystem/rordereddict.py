@@ -642,19 +642,17 @@ def _ll_dict_setitem_lookup_done(d, key, value, hash, i):
             except:
                 ll_remove_index(d)
                 raise
-        rc = d.resize_counter - 3
-        if rc <= 0:
+        if d.resize_counter <= 3:
             try:
                 ll_dict_resize(d)
                 reindexed = True
             except:
                 ll_remove_index(d)
                 raise
-            rc = d.resize_counter - 3
-            ll_assert(rc > 0, "ll_dict_resize failed?")
         if reindexed:
             ll_call_insert_clean_function(d, hash, d.num_ever_used_items)
-        #
+        rc = d.resize_counter - 3
+        ll_assert(rc > 0, "ll_dict_resize failed?")
         d.resize_counter = rc
         entry = d.entries[d.num_ever_used_items]
         entry.key = key
@@ -799,7 +797,7 @@ def ll_dict_remove_deleted_items(d):
     # then maybe it is a better idea to keep it instead of reallocating
     # an identical index very soon.  In this case we update the index now.
     if bool(d.indexes):
-        new_estimate = d.num_live_items  * 2
+        new_estimate = d.num_live_items * 2
         new_size = DICT_INITSIZE
         while new_size <= new_estimate:
             new_size *= 2
@@ -842,12 +840,13 @@ def _ll_dict_del(d, index):
         # also possible that there are more dead items immediately behind the
         # last one, we reclaim all the dead items at the end of the ordereditem
         # at the same point.
-        i = d.num_ever_used_items - 2
-        while i >= 0 and not d.entries.valid(i):
+        i = index
+        while True:
             i -= 1
-        j = i + 1
-        assert j >= 0
-        d.num_ever_used_items = j
+            assert i >= 0
+            if d.entries.valid(i):    # must be at least one
+                break
+        d.num_ever_used_items = i + 1
 
     # If the dictionary is more than 75% dead items, then clean up the
     # deleted items and remove the index.
@@ -1065,7 +1064,6 @@ def ll_newdict(DICT):
     ll_remove_index(d)
     d.num_live_items = 0
     d.num_ever_used_items = 0
-    d.resize_counter = DICT_INITSIZE * 2
     return d
 OrderedDictRepr.ll_newdict = staticmethod(ll_newdict)
 
@@ -1232,7 +1230,6 @@ def ll_dict_clear(d):
     ll_remove_index(d)
     d.num_live_items = 0
     d.num_ever_used_items = 0
-    d.resize_counter = DICT_INITSIZE * 2
     # old_entries.delete() XXX
 ll_dict_clear.oopspec = 'odict.clear(d)'
 
