@@ -876,7 +876,7 @@ def _ll_dict_resize_to(d, num_extra):
         ll_dict_reindex(d, new_size)
 
 def ll_dict_create_index(d):
-    if d.num_live_items == 0:
+    if d.num_live_items < DICT_INITSIZE * 2 // 3:
         new_size = DICT_INITSIZE     # fast path
     else:
         # Use a more conservative estimate than _ll_dict_resize_to() here.
