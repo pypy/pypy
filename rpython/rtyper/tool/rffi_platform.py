@@ -214,30 +214,7 @@ def configure(CConfig, ignore_errors=False):
             entries.append((key, value))
 
     if entries:   # can be empty if there are only CConfigSingleEntries
-        writer = _CWriter(eci)
-        writer.write_header()
-        for key, entry in entries:
-            writer.write_entry(key, entry)
-
-        writer.start_main()
-        for key, entry in entries:
-            writer.write_entry_main(key)
-        writer.close()
-
-        infolist = list(run_example_code(writer.path, eci,
-                                         ignore_errors=ignore_errors))
-        assert len(infolist) == len(entries)
-
-        resultinfo = {}
-        resultentries = {}
-        for info, (key, entry) in zip(infolist, entries):
-            resultinfo[key] = info
-            resultentries[entry] = key
-
-        result = ConfigResult(eci, resultinfo, resultentries)
-        for name, entry in entries:
-            result.get_entry_result(entry)
-        res = result.get_result()
+        res = configure_entries(entries, eci, ignore_errors=ignore_errors)
     else:
         res = {}
 
@@ -249,6 +226,33 @@ def configure(CConfig, ignore_errors=False):
             res[key] = value.question(writer.ask_gcc)
 
     return res
+
+
+def configure_entries(entries, eci, ignore_errors=False):
+    writer = _CWriter(eci)
+    writer.write_header()
+    for key, entry in entries:
+        writer.write_entry(key, entry)
+
+    writer.start_main()
+    for key, entry in entries:
+        writer.write_entry_main(key)
+    writer.close()
+
+    infolist = list(run_example_code(
+        writer.path, eci, ignore_errors=ignore_errors))
+    assert len(infolist) == len(entries)
+
+    resultinfo = {}
+    resultentries = {}
+    for info, (key, entry) in zip(infolist, entries):
+        resultinfo[key] = info
+        resultentries[entry] = key
+
+    result = ConfigResult(eci, resultinfo, resultentries)
+    for name, entry in entries:
+        result.get_entry_result(entry)
+    return result.get_result()
 
 # ____________________________________________________________
 
