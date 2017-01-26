@@ -72,6 +72,10 @@ class VersionTag(object):
 class MethodCache(object):
 
     def __init__(self, space):
+        # Note: these attributes never change which object they contain,
+        # so reading 'cache.versions' for example is constant-folded.
+        # The actual list in 'cache.versions' is not a constant, of
+        # course.
         SIZE = 1 << space.config.objspace.std.methodcachesizeexp
         self.versions = [None] * SIZE
         self.names = [None] * SIZE
@@ -88,6 +92,9 @@ class MethodCache(object):
             self.names[i] = None
         for i in range(len(self.lookup_where)):
             self.lookup_where[i] = None_None
+
+    def _cleanup_(self):
+        self.clear()
 
 class _Global(object):
     weakref_warning_printed = False

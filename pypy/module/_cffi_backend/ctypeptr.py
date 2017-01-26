@@ -348,7 +348,10 @@ class W_CTypePointer(W_CTypePtrBase):
         return result
 
     def getcfield(self, attr):
-        return self.ctitem.getcfield(attr)
+        from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion
+        if isinstance(self.ctitem, W_CTypeStructOrUnion):
+            return self.ctitem.getcfield(attr)
+        return W_CType.getcfield(self, attr)
 
     def typeoffsetof_field(self, fieldname, following):
         if following == 0:

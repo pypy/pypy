@@ -161,18 +161,18 @@ class W_CTypeStructOrUnion(W_CType):
         return self._fields_dict[attr]
 
     def getcfield(self, attr):
-        ready = self._fields_dict is not None
-        if not ready and self.size >= 0:
+        # Returns a W_CField.  Error cases: returns None if we are an
+        # opaque struct; or raises KeyError if the particular field
+        # 'attr' does not exist.  The point of not directly building the
+        # error here is to get the exact ctype in the error message: it
+        # might be of the kind 'struct foo' or 'struct foo *'.
+        if self._fields_dict is None:
+            if self.size < 0:
+                return None
             self.force_lazy_struct()
-            ready = True
-        if ready:
-            self = jit.promote(self)
-            attr = jit.promote_string(attr)
-            try:
-                return self._getcfield_const(attr)
-            except KeyError:
-                pass
-        return W_CType.getcfield(self, attr)
+        self = jit.promote(self)
+        attr = jit.promote_string(attr)
+        return self._getcfield_const(attr)    # <= KeyError here
 
     def cdata_dir(self):
         if self.size < 0:

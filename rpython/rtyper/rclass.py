@@ -840,18 +840,18 @@ class InstanceRepr(Repr):
         from rpython.rtyper.lltypesystem.ll_str import ll_int2hex
         from rpython.rlib.rarithmetic import r_uint
         if not i:
-            return rstr.null_str
+            return rstr.conststr("NULL")
         instance = cast_pointer(OBJECTPTR, i)
         # Two choices: the first gives a fast answer but it can change
         # (typically only once) during the life of the object.
         #uid = r_uint(cast_ptr_to_int(i))
         uid = r_uint(llop.gc_id(lltype.Signed, i))
         #
-        res = rstr.instance_str_prefix
+        res = rstr.conststr("<")
         res = rstr.ll_strconcat(res, instance.typeptr.name)
-        res = rstr.ll_strconcat(res, rstr.instance_str_infix)
+        res = rstr.ll_strconcat(res, rstr.conststr(" object at 0x"))
         res = rstr.ll_strconcat(res, ll_int2hex(uid, False))
-        res = rstr.ll_strconcat(res, rstr.instance_str_suffix)
+        res = rstr.ll_strconcat(res, rstr.conststr(">"))
         return res
 
     def get_ll_eq_function(self):
@@ -1091,7 +1091,6 @@ def attr_reverse_size((_, T)):
         return -sizeof(T)
     except StandardError:
         return None
-
 
 # ____________________________________________________________
 #
