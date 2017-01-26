@@ -131,8 +131,8 @@ _memory_alignment = None
 # General interface
 
 class ConfigResult:
-    def __init__(self, CConfig, info, entries):
-        self.CConfig = CConfig
+    def __init__(self, eci, info, entries):
+        self.eci = eci
         self.result = {}
         self.info = info
         self.entries = entries
@@ -154,15 +154,14 @@ class ConfigResult:
 class _CWriter(object):
     """ A simple class which aggregates config parts
     """
-    def __init__(self, CConfig):
+    def __init__(self, eci):
         self.path = uniquefilepath()
         self.f = self.path.open("w")
-        self.config = CConfig
+        self.eci = eci
 
     def write_header(self):
         f = self.f
-        CConfig = self.config
-        CConfig._compilation_info_.write_c_header(f)
+        self.eci.write_c_header(f)
         print >> f, C_HEADER
         print >> f
 
@@ -194,8 +193,7 @@ class _CWriter(object):
         self.start_main()
         self.f.write(question + "\n")
         self.close()
-        eci = self.config._compilation_info_
-        try_compile_cache([self.path], eci)
+        try_compile_cache([self.path], self.eci)
 
 def configure(CConfig, ignore_errors=False):
     """Examine the local system by running the C compiler.
@@ -208,6 +206,7 @@ def configure(CConfig, ignore_errors=False):
         assert not hasattr(CConfig, attr), \
             "Found legacy attribute %s on CConfig" % attr
 
+    eci = CConfig._compilation_info_
     entries = []
     for key in dir(CConfig):
         value = getattr(CConfig, key)
@@ -215,7 +214,7 @@ def configure(CConfig, ignore_errors=False):
             entries.append((key, value))
 
     if entries:   # can be empty if there are only CConfigSingleEntries
-        writer = _CWriter(CConfig)
+        writer = _CWriter(eci)
         writer.write_header()
         for key, entry in entries:
             writer.write_entry(key, entry)
@@ -225,7 +224,6 @@ def configure(CConfig, ignore_errors=False):
             writer.write_entry_main(key)
         writer.close()
 
-        eci = CConfig._compilation_info_
         infolist = list(run_example_code(writer.path, eci,
                                          ignore_errors=ignore_errors))
         assert len(infolist) == len(entries)
@@ -236,7 +234,7 @@ def configure(CConfig, ignore_errors=False):
             resultinfo[key] = info
             resultentries[entry] = key
 
-        result = ConfigResult(CConfig, resultinfo, resultentries)
+        result = ConfigResult(eci, resultinfo, resultentries)
         for name, entry in entries:
             result.get_entry_result(entry)
         res = result.get_result()
@@ -246,7 +244,7 @@ def configure(CConfig, ignore_errors=False):
     for key in dir(CConfig):
         value = getattr(CConfig, key)
         if isinstance(value, CConfigSingleEntry):
-            writer = _CWriter(CConfig)
+            writer = _CWriter(eci)
             writer.write_header()
             res[key] = value.question(writer.ask_gcc)
 
@@ -344,7 +342,7 @@ class Struct(CConfigEntry):
         allfields = tuple(['c_' + name for name, _ in fields])
         padfields = tuple(padfields)
         name = self.name
-        eci = config_result.CConfig._compilation_info_
+        eci = config_result.eci
         padding_drop = PaddingDrop(name, allfields, padfields, eci)
         hints = {'align': info['align'],
                  'size': info['size'],
