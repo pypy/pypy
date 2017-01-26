@@ -196,10 +196,11 @@ class TestRDictDirect(object):
         num = rordereddict._ll_dictnext(ll_iter)
         ll_key = ll_d.entries[num].key
         assert hlstr(ll_key) == "j"
-        assert ll_d.lookup_function_no == 4    # 1 free item found at the start
+        assert ll_d.lookup_function_no == (   # 1 free item found at the start
+            (1 << rordereddict.FUNC_SHIFT) | rordereddict.FUNC_BYTE)
         rordereddict.ll_dict_delitem(ll_d, llstr("j"))
         assert ll_d.num_ever_used_items == 0
-        assert ll_d.lookup_function_no == 0    # reset
+        assert ll_d.lookup_function_no == rordereddict.FUNC_BYTE   # reset
 
     def test_direct_enter_and_del(self):
         def eq(a, b):

@@ -46,20 +46,25 @@ from rpython.rtyper.annlowlevel import llhelper
 @jit.look_inside_iff(lambda d, key, hash, flag: jit.isvirtual(d))
 @jit.oopspec('ordereddict.lookup(d, key, hash, flag)')
 def ll_call_lookup_function(d, key, hash, flag):
-    fun = d.lookup_function_no & FUNC_MASK
-    # This likely() here forces gcc to compile the check for fun == FUNC_BYTE
-    # first.  Otherwise, this is a regular switch and gcc (at least 4.7)
-    # compiles this as a series of checks, with the FUNC_BYTE case last.
-    # It sounds minor, but it is worth 6-7% on a PyPy microbenchmark.
-    if likely(fun == FUNC_BYTE):
-        return ll_dict_lookup(d, key, hash, flag, TYPE_BYTE)
-    elif fun == FUNC_SHORT:
-        return ll_dict_lookup(d, key, hash, flag, TYPE_SHORT)
-    elif IS_64BIT and fun == FUNC_INT:
-        return ll_dict_lookup(d, key, hash, flag, TYPE_INT)
-    elif fun == FUNC_LONG:
-        return ll_dict_lookup(d, key, hash, flag, TYPE_LONG)
-    assert False
+    while True:
+        fun = d.lookup_function_no & FUNC_MASK
+        # This likely() here forces gcc to compile the check for fun==FUNC_BYTE
+        # first.  Otherwise, this is a regular switch and gcc (at least 4.7)
+        # compiles this as a series of checks, with the FUNC_BYTE case last.
+        # It sounds minor, but it is worth 6-7% on a PyPy microbenchmark.
+        if likely(fun == FUNC_BYTE):
+            return ll_dict_lookup(d, key, hash, flag, TYPE_BYTE)
+        elif fun == FUNC_SHORT:
+            return ll_dict_lookup(d, key, hash, flag, TYPE_SHORT)
+        elif IS_64BIT and fun == FUNC_INT:
+            return ll_dict_lookup(d, key, hash, flag, TYPE_INT)
+        elif fun == FUNC_LONG:
+            return ll_dict_lookup(d, key, hash, flag, TYPE_LONG)
+        elif fun == FUNC_NO_INDEX:
+            ll_dict_create_index(d)
+            # then, retry
+        else:
+            assert False
 
 def get_ll_dict(DICTKEY, DICTVALUE, get_custom_eq_hash=None, DICT=None,
                 ll_fasthash_function=None, ll_hash_function=None,
@@ -254,7 +259,6 @@ class OrderedDictRepr(AbstractDictRepr):
                     llvalue = r_value.convert_const(dictvalue)
                     _ll_dict_insertclean(l_dict, llkey, llvalue,
                                          dictkeycontainer.hash)
-                return l_dict
 
             else:
                 for dictkey, dictvalue in dictobj.items():
@@ -262,7 +266,9 @@ class OrderedDictRepr(AbstractDictRepr):
                     llvalue = r_value.convert_const(dictvalue)
                     _ll_dict_insertclean(l_dict, llkey, llvalue,
                                          l_dict.keyhash(llkey))
-                return l_dict
+
+            ll_remove_index(l_dict)
+            return l_dict
 
     def rtype_len(self, hop):
         v_dict, = hop.inputargs(self)
@@ -458,16 +464,26 @@ DICTINDEX_BYTE = lltype.Ptr(lltype.GcArray(rffi.UCHAR))
 
 IS_64BIT = sys.maxint != 2 ** 31 - 1
 
-FUNC_SHIFT = 2
-FUNC_MASK  = 0x03  # two bits
 if IS_64BIT:
-    FUNC_BYTE, FUNC_SHORT, FUNC_INT, FUNC_LONG = range(4)
+    FUNC_SHIFT = 3
+    FUNC_MASK  = 0x07  # three bits
+    FUNC_NO_INDEX, FUNC_BYTE, FUNC_SHORT, FUNC_INT, FUNC_LONG = range(5)
 else:
-    FUNC_BYTE, FUNC_SHORT, FUNC_LONG = range(3)
+    FUNC_SHIFT = 2
+    FUNC_MASK  = 0x03  # two bits
+    FUNC_NO_INDEX, FUNC_BYTE, FUNC_SHORT, FUNC_LONG = range(4)
 TYPE_BYTE  = rffi.UCHAR
 TYPE_SHORT = rffi.USHORT
 TYPE_INT   = rffi.UINT
 TYPE_LONG  = lltype.Unsigned
+
+NULL = lltype.nullptr(llmemory.GCREF.TO)
+
+def ll_remove_index(d):
+    # Used in MemoryError situation, or when translating prebuilt dicts.
+    # Remove the index completely.
+    d.indexes = NULL
+    d.lookup_function_no = FUNC_NO_INDEX
 
 def ll_malloc_indexes_and_choose_lookup(d, n):
     # keep in sync with ll_clear_indexes() below
@@ -503,22 +519,30 @@ def ll_clear_indexes(d, n):
         rgc.ll_arrayclear(lltype.cast_opaque_ptr(DICTINDEX_INT, d.indexes))
     elif fun == FUNC_LONG:
         rgc.ll_arrayclear(lltype.cast_opaque_ptr(DICTINDEX_LONG, d.indexes))
+    elif fun == FUNC_NO_INDEX:
+        # nothing to clear in this case
+        ll_assert(not d.indexes,
+                  "ll_clear_indexes: FUNC_NO_INDEX but d.indexes != NULL")
     else:
         assert False
 
 @jit.dont_look_inside
 def ll_call_insert_clean_function(d, hash, i):
-    fun = d.lookup_function_no & FUNC_MASK
-    if fun == FUNC_BYTE:
-        ll_dict_store_clean(d, hash, i, TYPE_BYTE)
-    elif fun == FUNC_SHORT:
-        ll_dict_store_clean(d, hash, i, TYPE_SHORT)
-    elif IS_64BIT and fun == FUNC_INT:
-        ll_dict_store_clean(d, hash, i, TYPE_INT)
-    elif fun == FUNC_LONG:
-        ll_dict_store_clean(d, hash, i, TYPE_LONG)
-    else:
-        assert False
+    while True:
+        fun = d.lookup_function_no & FUNC_MASK
+        if fun == FUNC_BYTE:
+            return ll_dict_store_clean(d, hash, i, TYPE_BYTE)
+        elif fun == FUNC_SHORT:
+            return ll_dict_store_clean(d, hash, i, TYPE_SHORT)
+        elif IS_64BIT and fun == FUNC_INT:
+            return ll_dict_store_clean(d, hash, i, TYPE_INT)
+        elif fun == FUNC_LONG:
+            return ll_dict_store_clean(d, hash, i, TYPE_LONG)
+        elif fun == FUNC_NO_INDEX:
+            ll_dict_create_index(d)
+            # then, retry
+        else:
+            assert False
 
 def ll_call_delete_by_entry_index(d, hash, i):
     fun = d.lookup_function_no & FUNC_MASK
@@ -530,6 +554,8 @@ def ll_call_delete_by_entry_index(d, hash, i):
         ll_dict_delete_by_entry_index(d, hash, i, TYPE_INT)
     elif fun == FUNC_LONG:
         ll_dict_delete_by_entry_index(d, hash, i, TYPE_LONG)
+    elif fun == FUNC_NO_INDEX:
+        pass   # there is no 'indexes', so nothing to delete
     else:
         assert False
 
@@ -614,7 +640,7 @@ def _ll_dict_setitem_lookup_done(d, key, value, hash, i):
             try:
                 reindexed = ll_dict_grow(d)
             except:
-                _ll_dict_rescue(d)
+                ll_remove_index(d)
                 raise
         rc = d.resize_counter - 3
         if rc <= 0:
@@ -622,7 +648,7 @@ def _ll_dict_setitem_lookup_done(d, key, value, hash, i):
                 ll_dict_resize(d)
                 reindexed = True
             except:
-                _ll_dict_rescue(d)
+                ll_remove_index(d)
                 raise
             rc = d.resize_counter - 3
             ll_assert(rc > 0, "ll_dict_resize failed?")
@@ -639,14 +665,6 @@ def _ll_dict_setitem_lookup_done(d, key, value, hash, i):
             entry.f_valid = True
         d.num_ever_used_items += 1
         d.num_live_items += 1
-
-@jit.dont_look_inside
-def _ll_dict_rescue(d):
-    # MemoryError situation!  The 'indexes' contains an invalid entry
-    # at this point.  But we can call ll_dict_reindex() with the
-    # following arguments, ensuring no further malloc occurs.
-    ll_dict_reindex(d, _ll_len_of_d_indexes(d))
-_ll_dict_rescue._dont_inline_ = True
 
 def _ll_dict_insertclean(d, key, value, hash):
     # never translated
@@ -775,7 +793,20 @@ def ll_dict_remove_deleted_items(d):
     else:
         d.entries = newitems
 
-    ll_dict_reindex(d, _ll_len_of_d_indexes(d))
+    # Estimate the index size we would like to have now.  If the new
+    # estimate changed from before, we need to throw away the old index
+    # anyway, so simply remove it for now.  If the size is the same,
+    # then maybe it is a better idea to keep it instead of reallocating
+    # an identical index very soon.  In this case we update the index now.
+    if bool(d.indexes):
+        new_estimate = d.num_live_items  * 2
+        new_size = DICT_INITSIZE
+        while new_size <= new_estimate:
+            new_size *= 2
+        if _ll_len_of_d_indexes(d) == new_size:
+            ll_dict_reindex(d, new_size)
+        else:
+            ll_remove_index(d)
 
 
 def ll_dict_delitem(d, key):
@@ -818,10 +849,10 @@ def _ll_dict_del(d, index):
         assert j >= 0
         d.num_ever_used_items = j
 
-    # If the dictionary is at least 87.5% dead items, then consider shrinking
-    # it.
-    if d.num_live_items + DICT_INITSIZE <= len(d.entries) / 8:
-        ll_dict_resize(d)
+    # If the dictionary is more than 75% dead items, then clean up the
+    # deleted items and remove the index.
+    if d.num_live_items + DICT_INITSIZE < len(d.entries) / 4:
+        ll_dict_remove_deleted_items(d)
 
 def ll_dict_resize(d):
     # make a 'new_size' estimate and shrink it if there are many
@@ -839,10 +870,20 @@ def _ll_dict_resize_to(d, num_extra):
     while new_size <= new_estimate:
         new_size *= 2
 
-    if new_size < _ll_len_of_d_indexes(d):
+    if bool(d.indexes) and new_size < _ll_len_of_d_indexes(d):
         ll_dict_remove_deleted_items(d)
     else:
         ll_dict_reindex(d, new_size)
+
+def ll_dict_create_index(d):
+    if d.num_live_items == 0:
+        new_size = DICT_INITSIZE     # fast path
+    else:
+        new_estimate = d.num_live_items  * 2
+        new_size = DICT_INITSIZE
+        while new_size <= new_estimate:
+            new_size *= 2
+    ll_dict_reindex(d, new_size)
 
 def ll_dict_reindex(d, new_size):
     if bool(d.indexes) and _ll_len_of_d_indexes(d) == new_size:
@@ -1013,7 +1054,9 @@ def _ll_empty_array(DICT):
 def ll_newdict(DICT):
     d = DICT.allocate()
     d.entries = _ll_empty_array(DICT)
-    ll_malloc_indexes_and_choose_lookup(d, DICT_INITSIZE)
+    # Don't allocate an 'indexes' for empty dict.  It seems a typical
+    # program contains tons of empty dicts, so this might be a memory win.
+    ll_remove_index(d)
     d.num_live_items = 0
     d.num_ever_used_items = 0
     d.resize_counter = DICT_INITSIZE * 2
@@ -1170,7 +1213,7 @@ def ll_dict_copy(dict):
             d_entry.f_hash = entry.f_hash
         i += 1
 
-    ll_dict_reindex(newdict, _ll_len_of_d_indexes(dict))
+    ll_remove_index(newdict)
     return newdict
 ll_dict_copy.oopspec = 'odict.copy(dict)'
 
@@ -1180,7 +1223,7 @@ def ll_dict_clear(d):
     DICT = lltype.typeOf(d).TO
     old_entries = d.entries
     d.entries = _ll_empty_array(DICT)
-    ll_malloc_indexes_and_choose_lookup(d, DICT_INITSIZE)
+    ll_remove_index(d)
     d.num_live_items = 0
     d.num_ever_used_items = 0
     d.resize_counter = DICT_INITSIZE * 2
