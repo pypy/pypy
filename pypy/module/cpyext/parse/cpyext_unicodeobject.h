@@ -17,6 +17,62 @@ typedef unsigned char Py_UCS1;
 
 /* --- Unicode Type ------------------------------------------------------- */
 
+typedef struct {
+        /*
+           SSTATE_NOT_INTERNED (0)
+           SSTATE_INTERNED_MORTAL (1)
+           SSTATE_INTERNED_IMMORTAL (2)
+
+           If interned != SSTATE_NOT_INTERNED, the two references from the
+           dictionary to this object are *not* counted in ob_refcnt.
+         */
+        unsigned int interned;
+        /* Character size:
+
+           - PyUnicode_WCHAR_KIND (0):
+
+             * character type = wchar_t (16 or 32 bits, depending on the
+               platform)
+
+           - PyUnicode_1BYTE_KIND (1):
+
+             * character type = Py_UCS1 (8 bits, unsigned)
+             * all characters are in the range U+0000-U+00FF (latin1)
+             * if ascii is set, all characters are in the range U+0000-U+007F
+               (ASCII), otherwise at least one character is in the range
+               U+0080-U+00FF
+
+           - PyUnicode_2BYTE_KIND (2):
+
+             * character type = Py_UCS2 (16 bits, unsigned)
+             * all characters are in the range U+0000-U+FFFF (BMP)
+             * at least one character is in the range U+0100-U+FFFF
+
+           - PyUnicode_4BYTE_KIND (4):
+
+             * character type = Py_UCS4 (32 bits, unsigned)
+             * all characters are in the range U+0000-U+10FFFF
+             * at least one character is in the range U+10000-U+10FFFF
+         */
+        unsigned int kind;
+        /* Compact is with respect to the allocation scheme. Compact unicode
+           objects only require one memory block while non-compact objects use
+           one block for the PyUnicodeObject struct and another for its data
+           buffer. */
+        unsigned int compact;
+        /* The string only contains characters in the range U+0000-U+007F (ASCII)
+           and the kind is PyUnicode_1BYTE_KIND. If ascii is set and compact is
+           set, use the PyASCIIObject structure. */
+        unsigned int ascii;
+        /* The ready flag indicates whether the object layout is initialized
+           completely. This means that this is either a compact object, or
+           the data pointer is filled out. The bit is redundant, and helps
+           to minimize the test in PyUnicode_IS_READY(). */
+        unsigned int ready;
+        /* Padding to ensure that PyUnicode_DATA() is always aligned to
+           4 bytes (see issue #19537 on m68k). */
+        /* not on PyPy */
+    } _PyASCIIObject_state_t;
 
 /* ASCII-only strings created through PyUnicode_New use the PyASCIIObject
    structure. state.ascii and state.compact are set, and the data
@@ -99,62 +155,7 @@ typedef struct {
     PyObject_HEAD
     Py_ssize_t length;          /* Number of code points in the string */
     //Py_hash_t hash;             /* Hash value; -1 if not set */
-    struct {
-        /*
-           SSTATE_NOT_INTERNED (0)
-           SSTATE_INTERNED_MORTAL (1)
-           SSTATE_INTERNED_IMMORTAL (2)
-
-           If interned != SSTATE_NOT_INTERNED, the two references from the
-           dictionary to this object are *not* counted in ob_refcnt.
-         */
-        unsigned int interned:2;
-        /* Character size:
-
-           - PyUnicode_WCHAR_KIND (0):
-
-             * character type = wchar_t (16 or 32 bits, depending on the
-               platform)
-
-           - PyUnicode_1BYTE_KIND (1):
-
-             * character type = Py_UCS1 (8 bits, unsigned)
-             * all characters are in the range U+0000-U+00FF (latin1)
-             * if ascii is set, all characters are in the range U+0000-U+007F
-               (ASCII), otherwise at least one character is in the range
-               U+0080-U+00FF
-
-           - PyUnicode_2BYTE_KIND (2):
-
-             * character type = Py_UCS2 (16 bits, unsigned)
-             * all characters are in the range U+0000-U+FFFF (BMP)
-             * at least one character is in the range U+0100-U+FFFF
-
-           - PyUnicode_4BYTE_KIND (4):
-
-             * character type = Py_UCS4 (32 bits, unsigned)
-             * all characters are in the range U+0000-U+10FFFF
-             * at least one character is in the range U+10000-U+10FFFF
-         */
-        unsigned int kind:3;
-        /* Compact is with respect to the allocation scheme. Compact unicode
-           objects only require one memory block while non-compact objects use
-           one block for the PyUnicodeObject struct and another for its data
-           buffer. */
-        unsigned int compact:1;
-        /* The string only contains characters in the range U+0000-U+007F (ASCII)
-           and the kind is PyUnicode_1BYTE_KIND. If ascii is set and compact is
-           set, use the PyASCIIObject structure. */
-        unsigned int ascii:1;
-        /* The ready flag indicates whether the object layout is initialized
-           completely. This means that this is either a compact object, or
-           the data pointer is filled out. The bit is redundant, and helps
-           to minimize the test in PyUnicode_IS_READY(). */
-        unsigned int ready:1;
-        /* Padding to ensure that PyUnicode_DATA() is always aligned to
-           4 bytes (see issue #19537 on m68k). */
-        unsigned int :24;
-    } state;
+    _PyASCIIObject_state_t state;
     wchar_t *wstr;              /* wchar_t representation (null-terminated) */
 } PyASCIIObject;
 
@@ -175,12 +176,7 @@ typedef struct {
    block, and copied into the data block using _PyUnicode_Ready. */
 typedef struct {
     PyCompactUnicodeObject _base;
-    union {
-        void *any;
-        Py_UCS1 *latin1;
-        Py_UCS2 *ucs2;
-        Py_UCS4 *ucs4;
-    } data;                     /* Canonical, smallest-form Unicode buffer */
+    void* data;                     /* Canonical, smallest-form Unicode buffer */
 } PyUnicodeObject;
 
 
