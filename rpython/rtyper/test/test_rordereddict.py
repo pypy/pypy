@@ -345,6 +345,7 @@ class ODictSpace(MappingSpace):
     ll_contains = staticmethod(rodct.ll_dict_contains)
     ll_copy = staticmethod(rodct.ll_dict_copy)
     ll_clear = staticmethod(rodct.ll_dict_clear)
+    ll_popitem = staticmethod(rodct.ll_dict_popitem)
 
     def newdict(self, repr):
         return rodct.ll_newdict(repr.DICT)
@@ -363,6 +364,20 @@ class ODictSpace(MappingSpace):
                 break
         return keys_ll
 
+    def popitem(self):
+        # overridden to check that we're getting the most recent key,
+        # not a random one
+        try:
+            ll_tuple = self.ll_popitem(self.TUPLE, self.l_dict)
+        except KeyError:
+            assert len(self.reference) == 0
+        else:
+            ll_key = ll_tuple.item0
+            ll_value = ll_tuple.item1
+            key, value = self.reference.popitem()
+            assert self.ll_key(key) == ll_key
+            assert self.ll_value(value) == ll_value
+
     def fullcheck(self):
         # overridden to also check key order
         assert self.ll_len(self.l_dict) == len(self.reference)
@@ -379,4 +394,4 @@ class ODictSM(MappingSM):
 
 def test_hypothesis():
     run_state_machine_as_test(
-        ODictSM, settings(max_examples=500, stateful_step_count=100))
+        ODictSM, settings(max_examples=50000, stateful_step_count=100))

@@ -1155,6 +1155,8 @@ st_values = sampled_from(keytypes_s + [SomeString(can_be_None=True)])
 
 class MappingSpace(object):
     def __init__(self, s_key, s_value):
+        from rpython.rtyper.rtuple import TupleRepr
+
         self.s_key = s_key
         self.s_value = s_value
         rtyper = PseudoRTyper()
@@ -1168,6 +1170,8 @@ class MappingSpace(object):
         self.reference = self.new_reference()
         self.ll_key = r_key.convert_const
         self.ll_value = r_value.convert_const
+        r_tuple = TupleRepr(rtyper, [r_key, r_value])
+        self.TUPLE = r_tuple.lowleveltype
 
     def setitem(self, key, value):
         ll_key = self.ll_key(key)
@@ -1190,6 +1194,22 @@ class MappingSpace(object):
         self.ll_clear(self.l_dict)
         self.reference.clear()
         assert self.ll_len(self.l_dict) == 0
+
+    def popitem(self):
+        try:
+            ll_tuple = self.ll_popitem(self.TUPLE, self.l_dict)
+        except KeyError:
+            assert len(self.reference) == 0
+        else:
+            ll_key = ll_tuple.item0
+            ll_value = ll_tuple.item1
+            for key, value in self.reference.iteritems():
+                if self.ll_key(key) == ll_key:
+                    assert self.ll_value(value) == ll_value
+                    del self.reference[key]
+                    break
+            else:
+                raise AssertionError("popitem() returned unexpected key")
 
     def fullcheck(self):
         assert self.ll_len(self.l_dict) == len(self.reference)
@@ -1217,7 +1237,8 @@ class MappingSM(GenericStateMachine):
     def steps(self):
         if not self.space:
             return builds(Action, just('setup'), tuples(st_keys, st_values))
-        global_actions = [Action('copydict', ()), Action('cleardict', ())]
+        global_actions = [Action('copydict', ()), Action('cleardict', ()),
+                          Action('popitem', ())]
         if self.space.reference:
             return (
                 self.st_setitem() | sampled_from(global_actions) |
@@ -1249,6 +1270,7 @@ class DictSpace(MappingSpace):
     ll_contains = staticmethod(rdict.ll_contains)
     ll_copy = staticmethod(rdict.ll_copy)
     ll_clear = staticmethod(rdict.ll_clear)
+    ll_popitem = staticmethod(rdict.ll_popitem)
 
     def newdict(self, repr):
         return rdict.ll_newdict(repr.DICT)
