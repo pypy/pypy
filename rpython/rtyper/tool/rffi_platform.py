@@ -131,25 +131,20 @@ _memory_alignment = None
 # General interface
 
 class ConfigResult:
-    def __init__(self, eci, info, entries):
+    def __init__(self, eci, info):
         self.eci = eci
-        self.result = {}
         self.info = info
-        self.entries = entries
+        self.result = {}
 
     def get_entry_result(self, entry):
         try:
             return self.result[entry]
         except KeyError:
             pass
-        name = self.entries[entry]
-        info = self.info[name]
+        info = self.info[entry]
         self.result[entry] = entry.build_result(info, self)
         return self.result[entry]
 
-    def get_result(self):
-        return dict([(name, self.result[entry])
-                     for entry, name in self.entries.iteritems()])
 
 class _CWriter(object):
     """ A simple class which aggregates config parts
@@ -207,16 +202,18 @@ def configure(CConfig, ignore_errors=False):
             "Found legacy attribute %s on CConfig" % attr
 
     eci = CConfig._compilation_info_
-    entries = []
+    entries = {}
     for key in dir(CConfig):
         value = getattr(CConfig, key)
         if isinstance(value, CConfigEntry):
-            entries.append((key, value))
+            entries[key] = value
 
+    res = {}
     if entries:   # can be empty if there are only CConfigSingleEntries
-        res = configure_entries(entries, eci, ignore_errors=ignore_errors)
-    else:
-        res = {}
+        results = configure_entries(
+            entries.values(), eci, ignore_errors=ignore_errors)
+        for name, result in zip(entries, results):
+            res[name] = result
 
     for key in dir(CConfig):
         value = getattr(CConfig, key)
@@ -231,12 +228,12 @@ def configure(CConfig, ignore_errors=False):
 def configure_entries(entries, eci, ignore_errors=False):
     writer = _CWriter(eci)
     writer.write_header()
-    for key, entry in entries:
-        writer.write_entry(key, entry)
+    for i, entry in enumerate(entries):
+        writer.write_entry(str(i), entry)
 
     writer.start_main()
-    for key, entry in entries:
-        writer.write_entry_main(key)
+    for i, entry in enumerate(entries):
+        writer.write_entry_main(str(i))
     writer.close()
 
     infolist = list(run_example_code(
@@ -244,15 +241,11 @@ def configure_entries(entries, eci, ignore_errors=False):
     assert len(infolist) == len(entries)
 
     resultinfo = {}
-    resultentries = {}
-    for info, (key, entry) in zip(infolist, entries):
-        resultinfo[key] = info
-        resultentries[entry] = key
+    for info, entry in zip(infolist, entries):
+        resultinfo[entry] = info
 
-    result = ConfigResult(eci, resultinfo, resultentries)
-    for name, entry in entries:
-        result.get_entry_result(entry)
-    return result.get_result()
+    result = ConfigResult(eci, resultinfo)
+    return [result.get_entry_result(entry) for entry in entries]
 
 # ____________________________________________________________
 
