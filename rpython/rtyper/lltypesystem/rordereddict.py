@@ -879,9 +879,15 @@ def ll_dict_create_index(d):
     if d.num_live_items == 0:
         new_size = DICT_INITSIZE     # fast path
     else:
-        new_estimate = d.num_live_items  * 2
+        # Use a more conservative estimate than _ll_dict_resize_to() here.
+        # This function is called when initially creating the index (so,
+        # for prebuilt dicts, the chance is that it will never grow);
+        # after we got a MemoryError; and when throwing the index away
+        # because of heavy shrinking of the dict.  The minimum value
+        # here is such that 'new_estimate * 2 - num_live_items * 3 > 0'.
+        new_estimate = (d.num_live_items * 3) // 2 + 1
         new_size = DICT_INITSIZE
-        while new_size <= new_estimate:
+        while new_size < new_estimate:
             new_size *= 2
     ll_dict_reindex(d, new_size)
 
