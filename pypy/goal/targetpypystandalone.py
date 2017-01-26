@@ -231,7 +231,9 @@ class PyPyTarget(object):
         self.translateconfig = translateconfig
 
         # change the default for this option
-        config.translation.suggest(hash="siphash24")
+        # XXX disabled until we fix the real problem: a per-translation
+        # seed for siphash is bad
+        #config.translation.suggest(hash="siphash24")
 
         # set up the objspace optimizations based on the --opt argument
         from pypy.config.pypyoption import set_pypy_opt_level
