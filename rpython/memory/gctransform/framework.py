@@ -1518,7 +1518,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         hdr = self.gc_header_for(o, needs_hash)
         return hdr._obj
 
-    def get_prebuilt_hash(self, obj):
+    def DISABLED_get_prebuilt_hash(self, obj):
         # for prebuilt objects that need to have their hash stored and
         # restored.  Note that only structures that are StructNodes all
         # the way have their hash stored (and not e.g. structs with var-

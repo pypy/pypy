@@ -11,7 +11,7 @@ from rpython.rtyper import rmodel
 class BoehmGCTransformer(GCTransformer):
     malloc_zero_filled = True
     FINALIZER_PTR = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Void))
-    HDR = lltype.Struct("header", ("hash", lltype.Signed))
+    HDR = lltype.Struct("header")
 
     def __init__(self, translator, inline=False):
         super(BoehmGCTransformer, self).__init__(translator, inline=inline)
@@ -33,9 +33,7 @@ class BoehmGCTransformer(GCTransformer):
 
         def ll_identityhash(addr):
             obj = llmemory.cast_adr_to_ptr(addr, HDRPTR)
-            h = obj.hash
-            if h == 0:
-                obj.hash = h = ~llmemory.cast_adr_to_int(addr)
+            h = ~llmemory.cast_adr_to_int(addr)
             return h
 
         if self.translator:
@@ -196,7 +194,7 @@ class BoehmGCTransformer(GCTransformer):
 
     def gcheader_initdata(self, obj):
         hdr = lltype.malloc(self.HDR, immortal=True)
-        hdr.hash = lltype.identityhash_nocache(obj._as_ptr())
+        #hdr.hash = lltype.identityhash_nocache(obj._as_ptr())
         return hdr._obj
 
 

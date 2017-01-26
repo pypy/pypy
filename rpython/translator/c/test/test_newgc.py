@@ -780,7 +780,7 @@ class UsingFrameworkTest(object):
         c = C()
         d = D()
         h_d = compute_hash(d)     # force to be cached on 'd', but not on 'c'
-        h_t = compute_hash(("Hi", None, (7.5, 2, d)))
+        h_t = compute_hash(("Hi", None, (7.5, 2)))
         S = lltype.GcStruct('S', ('x', lltype.Signed),
                                  ('a', lltype.Array(lltype.Signed)))
         s = lltype.malloc(S, 15, zero=True)
@@ -789,10 +789,10 @@ class UsingFrameworkTest(object):
         def f():
             if compute_hash(c) != compute_identity_hash(c):
                 return 12
-            if compute_hash(d) != h_d:
+            if compute_hash(d) == h_d:     # likely *not* preserved
                 return 13
-            if compute_hash(("Hi", None, (7.5, 2, d))) != h_t:
-                return 14
+            if compute_hash(("Hi", None, (7.5, 2))) != h_t:
+                return 14   # ^^ true as long as we're not using e.g. siphash24
             c2 = C()
             h_c2 = compute_hash(c2)
             if compute_hash(c2) != h_c2:
