@@ -699,7 +699,7 @@ class CTypeSpace(object):
         self.headers = headers if headers is not None else ['sys/types.h']
         self.parsed_headers = []
         self.sources = []
-        self._Config = type('Config', (object,), {})
+        self._config_entries = []
         self._TYPES = {}
         self.includes = []
         self.struct_typedefs = {}
@@ -759,8 +759,9 @@ class CTypeSpace(object):
     def realize_struct(self, struct):
         type_name = struct.get_type_name()
         configname = type_name.replace(' ', '__')
-        setattr(self._Config, configname,
-            rffi_platform.Struct(type_name, struct.fields))
+        assert not any(x[0] == configname for x in self._config_entries)
+        self._config_entries.append(
+            (configname, rffi_platform.Struct(type_name, struct.fields)))
         self._TYPES[configname] = struct.TYPE
         return struct.TYPE
 
@@ -795,13 +796,17 @@ class CTypeSpace(object):
             elif name.startswith('macro '):
                 name = name[6:]
                 self.add_macro(name, obj)
-        self._Config._compilation_info_ = self.build_eci()
-        for name, TYPE in rffi_platform.configure(self._Config).iteritems():
+        if not self._config_entries:
+            return
+        eci = self.build_eci()
+        result = rffi_platform.configure_entries(self._config_entries, eci)
+        for name, TYPE in result.iteritems():
             # hack: prevent the source from being pasted into common_header.h
             del TYPE._hints['eci']
             if name in self._TYPES:
                 self._TYPES[name].become(TYPE)
                 del self._TYPES[name]
+        self._config_entries[:] = []
 
     def convert_type(self, obj, quals=0):
         if isinstance(obj, model.DefinedType):
