@@ -104,7 +104,12 @@ def test_errorstr(space):
         space.newtuple([space.wrap(6), space.wrap(7)]))
     assert operr.errorstr(space) == "ValueError: (6, 7)"
     operr = OperationError(space.w_UnicodeDecodeError,
-        space.wrap(('unicodeescape', r'\\x', 0, 2, r'truncated \\xXX escape')))
+        space.newtuple([
+            space.wrap('unicodeescape'),
+            space.newbytes(r'\\x'),
+            space.newint(0),
+            space.newint(2),
+            space.wrap(r'truncated \\xXX escape')]))
     assert operr.errorstr(space) == (
         "UnicodeDecodeError: 'unicodeescape' codec can't decode "
         "bytes in position 0-1: truncated \\\\xXX escape")
