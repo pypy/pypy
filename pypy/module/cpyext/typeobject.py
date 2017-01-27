@@ -645,9 +645,9 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         w_typename = space.getattr(w_type, space.wrap('__name__'))
         heaptype = cts.cast('PyHeapTypeObject*', pto)
         heaptype.c_ht_name = make_ref(space, w_typename)
-        from pypy.module.cpyext.unicodeobject import _PyUnicode_AsString
+        from pypy.module.cpyext.unicodeobject import PyUnicode_AsUTF8
         pto.c_tp_name = cts.cast('const char *',
-            _PyUnicode_AsString(space, heaptype.c_ht_name))
+            PyUnicode_AsUTF8(space, heaptype.c_ht_name))
     else:
         pto.c_tp_name = cts.cast('const char*', rffi.str2charp(w_type.name))
     # uninitialized fields:

@@ -10,6 +10,8 @@ extern "C" {
 PyAPI_FUNC(PyObject *) PyUnicode_FromFormatV(const char *format, va_list vargs);
 PyAPI_FUNC(PyObject *) PyUnicode_FromFormat(const char *format, ...);
 
+#define _PyUnicode_AsString PyUnicode_AsUTF8
+
 PyAPI_FUNC(wchar_t*) PyUnicode_AsWideCharString(PyObject *unicode, Py_ssize_t *size);
 
 Py_LOCAL_INLINE(size_t) Py_UNICODE_strlen(const Py_UNICODE *u)

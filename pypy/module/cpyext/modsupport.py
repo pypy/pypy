@@ -28,7 +28,7 @@ def PyModule_Create2(space, module, api_version):
     """Create a new module object, given the definition in module, assuming the
     API version module_api_version.  If that version does not match the version
     of the running interpreter, a RuntimeWarning is emitted.
-    
+
     Most uses of this function should be using PyModule_Create()
     instead; only use this if you are sure you need it."""
 
@@ -123,5 +123,5 @@ def PyModule_GetName(space, w_mod):
     # and returns a "char *" inside this PyStringObject.
     if not isinstance(w_mod, Module):
         raise oefmt(space.w_SystemError, "PyModule_GetName(): not a module")
-    from pypy.module.cpyext.unicodeobject import _PyUnicode_AsString
-    return _PyUnicode_AsString(space, as_pyobj(space, w_mod.w_name))
+    from pypy.module.cpyext.unicodeobject import PyUnicode_AsUTF8
+    return PyUnicode_AsUTF8(space, as_pyobj(space, w_mod.w_name))
