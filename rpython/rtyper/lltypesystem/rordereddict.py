@@ -1266,10 +1266,14 @@ def ll_dict_clear(d):
     DICT = lltype.typeOf(d).TO
     old_entries = d.entries
     d.entries = _ll_empty_array(DICT)
+    # note: we can't remove the index here, because it is possible that
+    # crazy Python code calls d.clear() from the method __eq__() called
+    # from ll_dict_lookup(d).  Instead, stick to the rule that once a
+    # dictionary has got an index, it will always have one.
+    ll_malloc_indexes_and_choose_lookup(d, DICT_INITSIZE)
     d.num_live_items = 0
     d.num_ever_used_items = 0
-    ll_no_initial_index(d)
-    d.resize_counter = 0
+    d.resize_counter = DICT_INITSIZE * 2
     # old_entries.delete() XXX
 ll_dict_clear.oopspec = 'odict.clear(d)'
 
