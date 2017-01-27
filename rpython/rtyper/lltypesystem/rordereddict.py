@@ -1280,7 +1280,7 @@ ll_dict_clear.oopspec = 'odict.clear(d)'
 def ll_dict_update(dic1, dic2):
     if dic1 == dic2:
         return
-    ll_ensure_indexes(dic2)
+    ll_ensure_indexes(dic2)    # needed for entries.hash() below
     ll_prepare_dict_update(dic1, dic2.num_live_items)
     i = 0
     while i < dic2.num_ever_used_items:
