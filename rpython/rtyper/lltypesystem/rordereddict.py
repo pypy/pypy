@@ -539,6 +539,10 @@ def ll_call_insert_clean_function(d, hash, i):
         elif fun == FUNC_LONG:
             return ll_dict_store_clean(d, hash, i, TYPE_LONG)
         elif fun == FUNC_NO_INDEX:
+            # NB. this case might be reachable or not, but I didn't manage
+            # to get here.  Maybe it is not actually reachable right now
+            # but it depends on details.  Better keep it written down
+            # just in case the details change later.
             ll_dict_create_index(d)
             # then, retry
         else:
@@ -903,12 +907,35 @@ def ll_dict_reindex(d, new_size):
     entries = d.entries
     i = 0
     ibound = d.num_ever_used_items
-    while i < ibound:
-        if entries.valid(i):
-            hash = entries.hash(i)
-            ll_call_insert_clean_function(d, hash, i)
-        i += 1
-    #old_entries.delete() XXXX!
+    #
+    # Write four loops, moving the check for the value of 'fun' out of
+    # the loops.  A small speed-up, it also avoids the (unreachable)
+    # recursive call from here to ll_call_insert_clean_function() to
+    # ll_dict_create_index() back to here.
+    fun = d.lookup_function_no     # == lookup_function_no & FUNC_MASK
+    if fun == FUNC_BYTE:
+        while i < ibound:
+            if entries.valid(i):
+                ll_dict_store_clean(d, entries.hash(i), i, TYPE_BYTE)
+            i += 1
+    elif fun == FUNC_SHORT:
+        while i < ibound:
+            if entries.valid(i):
+                ll_dict_store_clean(d, entries.hash(i), i, TYPE_SHORT)
+            i += 1
+    elif IS_64BIT and fun == FUNC_INT:
+        while i < ibound:
+            if entries.valid(i):
+                ll_dict_store_clean(d, entries.hash(i), i, TYPE_INT)
+            i += 1
+    elif fun == FUNC_LONG:
+        while i < ibound:
+            if entries.valid(i):
+                ll_dict_store_clean(d, entries.hash(i), i, TYPE_LONG)
+            i += 1
+    else:
+        assert False
+
 
 # ------- a port of CPython's dictobject.c's lookdict implementation -------
 PERTURB_SHIFT = 5
