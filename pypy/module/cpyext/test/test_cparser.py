@@ -142,6 +142,20 @@ def test_recursive():
     assert isinstance(Object, lltype.Struct)
     hash(Object)
 
+def test_nested_struct():
+    cdef = """
+    typedef struct {
+        int x;
+    } foo;
+    typedef struct {
+        foo y;
+    } bar;
+    """
+    cts = parse_source(cdef)
+    bar = cts.gettype('bar')
+    assert isinstance(bar, lltype.Struct)
+    hash(bar)  # bar is hashable
+
 def test_const():
     cdef = """
     typedef struct {

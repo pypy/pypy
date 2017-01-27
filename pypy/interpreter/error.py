@@ -80,7 +80,8 @@ class OperationError(Exception):
 
     def errorstr(self, space, use_repr=False):
         "The exception class and value, as a string."
-        self.normalize_exception(space)
+        if not use_repr:    # see write_unraisable()
+            self.normalize_exception(space)
         w_value = self.get_w_value(space)
         if space is None:
             # this part NOT_RPYTHON
@@ -276,6 +277,11 @@ class OperationError(Exception):
                     first_line = 'Exception ignored in: %s%s\n' % (
                         where, objrepr)
             else:
+                # Note that like CPython, we don't normalize the
+                # exception here.  So from `'foo'.index('bar')` you get
+                # "Exception ValueError: 'substring not found' in x ignored"
+                # but from `raise ValueError('foo')` you get
+                # "Exception ValueError: ValueError('foo',) in x ignored"
                 first_line = ''
             space.appexec([space.wrap(first_line),
                            space.wrap(extra_line),
