@@ -785,7 +785,6 @@ class InstanceRepr(Repr):
     def initialize_prebuilt_instance(self, value, classdef, result):
         # must fill in the hash cache before the other ones
         # (see test_circular_hash_initialization)
-        self.initialize_prebuilt_hash(value, result)
         self._initialize_data_flattenrec(self.initialize_prebuilt_data,
                                          value, classdef, result)
 
@@ -942,11 +941,6 @@ class InstanceRepr(Repr):
             # OBJECT part
             rclass = getclassrepr(self.rtyper, classdef)
             result.typeptr = rclass.getvtable()
-
-    def initialize_prebuilt_hash(self, value, result):
-        llattrvalue = getattr(value, '__precomputed_identity_hash', None)
-        if llattrvalue is not None:
-            lltype.init_identity_hash(result, llattrvalue)
 
     def getfieldrepr(self, attr):
         """Return the repr used for the given attribute."""

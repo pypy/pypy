@@ -623,52 +623,6 @@ class StructNode(ContainerNode):
 
 assert not USESLOTS or '__dict__' not in dir(StructNode)
 
-class GcStructNodeWithHash(StructNode):
-    # for the outermost level of nested structures, if it has a _hash_cache_.
-    nodekind = 'struct'
-    if USESLOTS:
-        __slots__ = ()
-
-    def get_hash_typename(self):
-        return 'struct _hashT_%s @' % self.name
-
-    def forward_declaration(self):
-        T = self.getTYPE()
-        assert self.typename == self.implementationtypename  # no array part
-        hash_typename = self.get_hash_typename()
-        hash_offset = self.db.gctransformer.get_hash_offset(T)
-        yield '%s {' % cdecl(hash_typename, '')
-        yield '\tunion {'
-        yield '\t\t%s;' % cdecl(self.implementationtypename, 'head')
-        yield '\t\tchar pad[%s];' % name_signed(hash_offset, self.db)
-        yield '\t} u;'
-        yield '\tlong hash;'
-        yield '};'
-        yield '%s;' % (
-            forward_cdecl(hash_typename, '_hash_' + self.name,
-                          self.db.standalone, self.is_thread_local()),)
-        yield '#define %s _hash_%s.u.head' % (self.name, self.name)
-
-    def implementation(self):
-        hash_typename = self.get_hash_typename()
-        hash = self.db.gctransformer.get_prebuilt_hash(self.obj)
-        assert hash is not None
-        lines = list(self.initializationexpr())
-        lines.insert(0, '%s = { {' % (
-            cdecl(hash_typename, '_hash_' + self.name,
-                  self.is_thread_local()),))
-        lines.append('}, %s /* hash */ };' % name_signed(hash, self.db))
-        return lines
-
-def gcstructnode_factory(db, T, obj):
-    if (db.gctransformer and
-            db.gctransformer.get_prebuilt_hash(obj) is not None):
-        DISABLED
-        cls = GcStructNodeWithHash
-    else:
-        cls = StructNode
-    return cls(db, T, obj)
-
 
 class ArrayNode(ContainerNode):
     nodekind = 'array'
@@ -1058,7 +1012,7 @@ class GroupNode(ContainerNode):
 
 ContainerNodeFactory = {
     Struct:       StructNode,
-    GcStruct:     gcstructnode_factory,
+    GcStruct:     StructNode,
     Array:        ArrayNode,
     GcArray:      ArrayNode,
     FixedSizeArray: FixedSizeArrayNode,

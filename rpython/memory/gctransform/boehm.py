@@ -194,7 +194,6 @@ class BoehmGCTransformer(GCTransformer):
 
     def gcheader_initdata(self, obj):
         hdr = lltype.malloc(self.HDR, immortal=True)
-        #hdr.hash = lltype.identityhash_nocache(obj._as_ptr())
         return hdr._obj
 
 

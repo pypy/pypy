@@ -484,17 +484,11 @@ def compute_identity_hash(x):
     """RPython equivalent of object.__hash__(x).  This returns the
     so-called 'identity hash', which is the non-overridable default hash
     of Python.  Can be called for any RPython-level object that turns
-    into a GC object, but not NULL.  The value is not guaranteed to be the
-    same before and after translation, except for RPython instances on the
-    lltypesystem.
+    into a GC object, but not NULL.  The value will be different before
+    and after translation.
     """
     assert x is not None
-    result = object.__hash__(x)
-    try:
-        x.__dict__['__precomputed_identity_hash'] = result
-    except (TypeError, AttributeError):
-        pass
-    return result
+    return object.__hash__(x)
 
 def compute_unique_id(x):
     """RPython equivalent of id(x).  The 'x' must be an RPython-level
