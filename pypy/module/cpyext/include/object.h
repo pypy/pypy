@@ -113,8 +113,6 @@ not implemented for a given type combination.
 #define PyBUF_SHADOW 0x400
 /* end Py3k buffer interface */
 
-#include <cpyext_typeobject.h>
-
 /* Flag bits for printing: */
 #define Py_PRINT_RAW    1       /* No string quotes etc. */
 
