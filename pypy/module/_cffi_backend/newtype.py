@@ -23,13 +23,14 @@ alignment_of_pointer = alignment(rffi.CCHARP)
 # ____________________________________________________________
 
 class UniqueCache:
+    for_testing = False    # set to True on the class level in test_c.py
+
     def __init__(self, space):
         self.ctvoid = None      # Cache for the 'void' type
         self.ctvoidp = None     # Cache for the 'void *' type
         self.ctchara = None     # Cache for the 'char[]' type
         self.primitives = {}    # Cache for {name: primitive_type}
         self.functions = []     # see _new_function_type()
-        self.for_testing = False
 
 def _clean_cache(space):
     "NOT_RPYTHON"
