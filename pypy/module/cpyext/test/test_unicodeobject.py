@@ -28,7 +28,7 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                  }
 #ifdef PYPY_VERSION
                  // Slightly silly test that tp_basicsize is reasonable.
-                 if(s->ob_type->tp_basicsize != sizeof(void*)*6)
+                 if(s->ob_type->tp_basicsize != sizeof(void*)*12)
                      result = s->ob_type->tp_basicsize;
 #endif  // PYPY_VERSION
                  Py_DECREF(s);
@@ -284,22 +284,23 @@ class TestUnicode(BaseApiTest):
     def test_unicode_resize(self, space):
         py_uni = new_empty_unicode(space, 10)
         ar = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
-        py_uni.c_buffer[0] = u'a'
-        py_uni.c_buffer[1] = u'b'
-        py_uni.c_buffer[2] = u'c'
+        buf = get_wbuffer(py_uni)
+        buf[0] = u'a'
+        buf[1] = u'b'
+        buf[2] = u'c'
         ar[0] = rffi.cast(PyObject, py_uni)
         PyUnicode_Resize(space, ar, 3)
         py_uni = rffi.cast(PyUnicodeObject, ar[0])
-        assert py_uni.c_length == 3
-        assert py_uni.c_buffer[1] == u'b'
-        assert py_uni.c_buffer[3] == u'\x00'
+        assert get_wsize(py_uni) == 3
+        assert get_wbuffer(py_uni)[1] == u'b'
+        assert get_wbuffer(py_uni)[3] == u'\x00'
         # the same for growing
         ar[0] = rffi.cast(PyObject, py_uni)
         PyUnicode_Resize(space, ar, 10)
         py_uni = rffi.cast(PyUnicodeObject, ar[0])
-        assert py_uni.c_length == 10
-        assert py_uni.c_buffer[1] == 'b'
-        assert py_uni.c_buffer[10] == '\x00'
+        assert get_wsize(py_uni) == 10
+        assert get_wbuffer(py_uni)[1] == 'b'
+        assert get_wbuffer(py_uni)[10] == '\x00'
         Py_DecRef(space, ar[0])
         lltype.free(ar, flavor='raw')
 

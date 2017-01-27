@@ -49,17 +49,17 @@ def new_empty_unicode(space, length):
     py_uni = rffi.cast(PyUnicodeObject, py_obj)
 
     buflen = length + 1
-    py_uni.c_length = length
-    py_uni.c_buffer = lltype.malloc(rffi.CWCHARP.TO, buflen,
-                                    flavor='raw', zero=True,
-                                    add_memory_pressure=True)
+    set_wsize(py_uni, length)
+    set_wbuffer(py_uni,
+        lltype.malloc(
+            rffi.CWCHARP.TO, buflen, flavor='raw', zero=True,
+            add_memory_pressure=True))
     return py_uni
 
 def unicode_attach(space, py_obj, w_obj, w_userdata=None):
     "Fills a newly allocated PyUnicodeObject with a unicode string"
-    py_unicode = rffi.cast(PyUnicodeObject, py_obj)
-    py_unicode.c_length = len(space.unicode_w(w_obj))
-    py_unicode.c_buffer = lltype.nullptr(rffi.CWCHARP.TO)
+    set_wsize(py_obj, len(space.unicode_w(w_obj)))
+    set_wbuffer(py_obj, lltype.nullptr(rffi.CWCHARP.TO))
 
 def unicode_realize(space, py_obj):
     """
@@ -67,7 +67,7 @@ def unicode_realize(space, py_obj):
     be modified after this call.
     """
     py_uni = rffi.cast(PyUnicodeObject, py_obj)
-    s = rffi.wcharpsize2unicode(py_uni.c_buffer, py_uni.c_length)
+    s = rffi.wcharpsize2unicode(get_wbuffer(py_uni), get_wsize(py_uni))
     w_type = from_ref(space, rffi.cast(PyObject, py_obj.c_ob_type))
     w_obj = space.allocate_instance(unicodeobject.W_UnicodeObject, w_type)
     w_obj.__init__(s)
@@ -76,13 +76,36 @@ def unicode_realize(space, py_obj):
 
 @slot_function([PyObject], lltype.Void)
 def unicode_dealloc(space, py_obj):
-    py_unicode = rffi.cast(PyUnicodeObject, py_obj)
-    if py_unicode.c_buffer:
-        lltype.free(py_unicode.c_buffer, flavor="raw")
-    if py_unicode.c_utf8buffer:
-        lltype.free(py_unicode.c_utf8buffer, flavor="raw")
+    if get_wbuffer(py_obj):
+        lltype.free(get_wbuffer(py_obj), flavor="raw")
+    if get_utf8(py_obj):
+        lltype.free(get_utf8(py_obj), flavor="raw")
     from pypy.module.cpyext.object import _dealloc
     _dealloc(space, py_obj)
+
+def get_utf8(py_obj):
+    py_obj = cts.cast('PyCompactUnicodeObject*', py_obj)
+    return py_obj.c_utf8
+
+def set_utf8(py_obj, buf):
+    py_obj = cts.cast('PyCompactUnicodeObject*', py_obj)
+    py_obj.c_utf8 = buf
+
+def get_wsize(py_obj):
+    py_obj = cts.cast('PyCompactUnicodeObject*', py_obj)
+    return py_obj.c_wstr_length
+
+def set_wsize(py_obj, value):
+    py_obj = cts.cast('PyCompactUnicodeObject*', py_obj)
+    py_obj.c_wstr_length = value
+
+def get_wbuffer(py_obj):
+    py_obj = cts.cast('PyASCIIObject*', py_obj)
+    return py_obj.c_wstr
+
+def set_wbuffer(py_obj, wbuf):
+    py_obj = cts.cast('PyASCIIObject*', py_obj)
+    py_obj.c_wstr = wbuf
 
 @cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISSPACE(space, ch):
@@ -216,13 +239,12 @@ def PyUnicode_IS_READY(space, w_obj):
 def PyUnicode_AS_UNICODE(space, ref):
     """Return a pointer to the internal Py_UNICODE buffer of the object.  ref
     has to be a PyUnicodeObject (not checked)."""
-    ref_unicode = rffi.cast(PyUnicodeObject, ref)
-    if not ref_unicode.c_buffer:
+    if not get_wbuffer(ref):
         # Copy unicode buffer
         w_unicode = from_ref(space, rffi.cast(PyObject, ref))
         u = space.unicode_w(w_unicode)
-        ref_unicode.c_buffer = rffi.unicode2wcharp(u)
-    return ref_unicode.c_buffer
+        set_wbuffer(ref, rffi.unicode2wcharp(u))
+    return get_wbuffer(ref)
 
 @cpython_api([PyObject], rffi.CWCHARP)
 def PyUnicode_AsUnicode(space, ref):
@@ -237,14 +259,14 @@ def PyUnicode_AsUnicode(space, ref):
 @api_decl("char * PyUnicode_AsUTF8(PyObject *unicode)", cts)
 def PyUnicode_AsUTF8(space, ref):
     ref_unicode = rffi.cast(PyUnicodeObject, ref)
-    if not ref_unicode.c_utf8buffer:
+    if not get_utf8(ref_unicode):
         # Copy unicode buffer
         w_unicode = from_ref(space, ref)
         w_encoded = unicodeobject.encode_object(space, w_unicode, "utf-8",
                                                 "strict")
         s = space.bytes_w(w_encoded)
-        ref_unicode.c_utf8buffer = rffi.str2charp(s)
-    return ref_unicode.c_utf8buffer
+        set_utf8(ref_unicode, rffi.str2charp(s))
+    return get_utf8(ref_unicode)
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyUnicode_GetSize(space, ref):
@@ -254,8 +276,7 @@ def PyUnicode_GetSize(space, ref):
     Please migrate to using PyUnicode_GetLength().
     """
     if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_unicode:
-        ref = rffi.cast(PyUnicodeObject, ref)
-        return ref.c_length
+        return get_wsize(ref)
     else:
         w_obj = from_ref(space, ref)
         return space.len_w(w_obj)
@@ -280,7 +301,7 @@ def PyUnicode_AsWideChar(space, ref, buf, size):
     required by the application."""
     ref = rffi.cast(PyUnicodeObject, ref)
     c_buffer = PyUnicode_AS_UNICODE(space, rffi.cast(rffi.VOIDP, ref))
-    c_length = ref.c_length
+    c_length = get_wsize(ref)
 
     # If possible, try to copy the 0-termination as well
     if size > c_length:
@@ -566,7 +587,7 @@ def PyUnicode_FromOrdinal(space, ordinal):
 def PyUnicode_Resize(space, ref, newsize):
     # XXX always create a new string so far
     py_uni = rffi.cast(PyUnicodeObject, ref[0])
-    if not py_uni.c_buffer:
+    if not get_wbuffer(py_uni):
         raise oefmt(space.w_SystemError,
                     "PyUnicode_Resize called on already created string")
     try:
@@ -576,11 +597,11 @@ def PyUnicode_Resize(space, ref, newsize):
         ref[0] = lltype.nullptr(PyObject.TO)
         raise
     to_cp = newsize
-    oldsize = py_uni.c_length
+    oldsize = get_wsize(py_uni)
     if oldsize < newsize:
         to_cp = oldsize
     for i in range(to_cp):
-        py_newuni.c_buffer[i] = py_uni.c_buffer[i]
+        get_wbuffer(py_newuni)[i] = get_wbuffer(py_uni)[i]
     Py_DecRef(space, ref[0])
     ref[0] = rffi.cast(PyObject, py_newuni)
     return 0
