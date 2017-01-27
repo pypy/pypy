@@ -415,9 +415,10 @@ class ODictSpace(MappingSpace):
             self.removed_keys.append(key)
 
     def removeindex(self):
-        # remove the index, as done e.g. during translation for prebuilt
-        # dicts
-        rodct.ll_remove_index(self.l_dict)
+        # remove the index, as done during translation for prebuilt dicts
+        # (but cannot be done if we already removed a key)
+        if not self.removed_keys:
+            rodct.ll_no_initial_index(self.l_dict)
 
     def fullcheck(self):
         # overridden to also check key order
@@ -444,7 +445,7 @@ class ODictSpace(MappingSpace):
                 num_lives += 1
         assert num_lives == d.num_live_items
         fun = d.lookup_function_no & rordereddict.FUNC_MASK
-        if fun == rordereddict.FUNC_NO_INDEX:
+        if fun == rordereddict.FUNC_MUST_REINDEX:
             assert not d.indexes
         else:
             assert d.indexes
