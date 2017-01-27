@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from itertools import izip
 from . import cmodel as model
 from .commontypes import COMMON_TYPES, resolve_common_type
 from .error import FFIError, CDefError
@@ -103,7 +104,7 @@ def _common_type_names(csource):
 class Parser(object):
 
     def __init__(self):
-        self._declarations = {}
+        self._declarations = OrderedDict()
         self._included_declarations = set()
         self._anonymous_counter = 0
         self._structnode2type = weakref.WeakKeyDictionary()
@@ -796,7 +797,7 @@ class CTypeSpace(object):
             return
         eci = self.build_eci()
         result = rffi_platform.configure_entries(list(self._config_entries), eci)
-        for entry, TYPE in zip(self._config_entries, result):
+        for entry, TYPE in izip(self._config_entries, result):
             # hack: prevent the source from being pasted into common_header.h
             del TYPE._hints['eci']
             self._config_entries[entry].become(TYPE)

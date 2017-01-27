@@ -245,7 +245,8 @@ def configure_entries(entries, eci, ignore_errors=False):
         resultinfo[entry] = info
 
     result = ConfigResult(eci, resultinfo)
-    return [result.get_entry_result(entry) for entry in entries]
+    for entry in entries:
+        yield result.get_entry_result(entry)
 
 # ____________________________________________________________
 
