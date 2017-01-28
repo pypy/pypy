@@ -12,7 +12,9 @@ from rpython.rlib import exports
 from rpython.rlib.rfloat import isfinite, isinf
 
 
-def needs_gcheader(T):
+def needs_gcheader(gctransformer, T):
+    if getattr(gctransformer, 'NO_HEADER', False):   # for boehm
+        return False
     if not isinstance(T, ContainerType):
         return False
     if T._gckind != 'gc':
@@ -87,7 +89,7 @@ class StructDefNode(NodeWithDependencies):
         STRUCT = self.STRUCT
         if self.varlength is not None:
             self.normalizedtypename = db.gettype(STRUCT, who_asks=self)
-        if needs_gcheader(self.STRUCT):
+        if needs_gcheader(db.gctransformer, self.STRUCT):
             HDR = db.gcpolicy.struct_gcheader_definition(self)
             if HDR is not None:
                 gc_field = ("_gcheader", db.gettype(HDR, who_asks=self))
@@ -213,7 +215,7 @@ class ArrayDefNode(NodeWithDependencies):
         self.computegcinfo(db.gcpolicy)
         if self.varlength is not None:
             self.normalizedtypename = db.gettype(ARRAY, who_asks=self)
-        if needs_gcheader(ARRAY):
+        if needs_gcheader(db.gctransformer, ARRAY):
             HDR = db.gcpolicy.array_gcheader_definition(self)
             if HDR is not None:
                 gc_field = ("_gcheader", db.gettype(HDR, who_asks=self))
@@ -546,8 +548,8 @@ class StructNode(ContainerNode):
 
     def __init__(self, db, T, obj):
         ContainerNode.__init__(self, db, T, obj)
-        if needs_gcheader(T):
-            gct = self.db.gctransformer
+        gct = self.db.gctransformer
+        if needs_gcheader(gct, T):
             if gct is not None:
                 self.gc_init = gct.gcheader_initdata(self.obj)
             else:
@@ -577,7 +579,7 @@ class StructNode(ContainerNode):
 
         data = []
 
-        if needs_gcheader(T):
+        if needs_gcheader(self.db.gctransformer, T):
             data.append(('gcheader', self.gc_init))
 
         for name in defnode.fieldnames:
@@ -631,8 +633,8 @@ class ArrayNode(ContainerNode):
 
     def __init__(self, db, T, obj):
         ContainerNode.__init__(self, db, T, obj)
-        if needs_gcheader(T):
-            gct = self.db.gctransformer
+        gct = self.db.gctransformer
+        if needs_gcheader(gct, T):
             if gct is not None:
                 self.gc_init = gct.gcheader_initdata(self.obj)
             else:
@@ -655,7 +657,7 @@ class ArrayNode(ContainerNode):
     def initializationexpr(self, decoration=''):
         T = self.getTYPE()
         yield '{'
-        if needs_gcheader(T):
+        if needs_gcheader(self.db.gctransformer, T):
             lines = generic_initializationexpr(self.db, self.gc_init, 'gcheader',
                                                '%sgcheader' % (decoration,))
             for line in lines:

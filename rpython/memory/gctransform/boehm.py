@@ -11,7 +11,7 @@ from rpython.rtyper import rmodel
 class BoehmGCTransformer(GCTransformer):
     malloc_zero_filled = True
     FINALIZER_PTR = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Void))
-    HDR = lltype.Struct("header")
+    NO_HEADER = True
 
     def __init__(self, translator, inline=False):
         super(BoehmGCTransformer, self).__init__(translator, inline=inline)
@@ -29,10 +29,7 @@ class BoehmGCTransformer(GCTransformer):
         ll_malloc_varsize_no_length = mh.ll_malloc_varsize_no_length
         ll_malloc_varsize = mh.ll_malloc_varsize
 
-        HDRPTR = lltype.Ptr(self.HDR)
-
         def ll_identityhash(addr):
-            obj = llmemory.cast_adr_to_ptr(addr, HDRPTR)
             h = ~llmemory.cast_adr_to_int(addr)
             return h
 
@@ -191,10 +188,6 @@ class BoehmGCTransformer(GCTransformer):
         v_int = hop.genop('cast_ptr_to_int', [hop.spaceop.args[0]],
                           resulttype = lltype.Signed)
         hop.genop('int_invert', [v_int], resultvar=hop.spaceop.result)
-
-    def gcheader_initdata(self, obj):
-        hdr = lltype.malloc(self.HDR, immortal=True)
-        return hdr._obj
 
 
 ########## weakrefs ##########

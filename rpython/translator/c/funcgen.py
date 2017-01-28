@@ -645,7 +645,7 @@ class FunctionCodeGenerator(object):
     OP_CAST_OPAQUE_PTR = OP_CAST_POINTER
 
     def OP_LENGTH_OF_SIMPLE_GCARRAY_FROM_OPAQUE(self, op):
-        return ('%s = *(long *)(((char *)%s) + sizeof(struct pypy_header0));'
+        return ('%s = *(long *)(((char *)%s) + RPY_SIZE_OF_GCHEADER);'
                 '  /* length_of_simple_gcarray_from_opaque */'
             % (self.expr(op.result), self.expr(op.args[0])))
 

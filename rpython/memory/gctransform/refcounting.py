@@ -76,7 +76,6 @@ class RefcountingGCTransformer(GCTransformer):
         ll_malloc_varsize = mh.ll_malloc_varsize
 
         def ll_identityhash(addr):
-            obj = llmemory.cast_adr_to_ptr(addr, HDRPTR)
             h = llmemory.cast_adr_to_int(addr)
             return h
 

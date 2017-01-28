@@ -485,7 +485,7 @@ def compute_identity_hash(x):
     so-called 'identity hash', which is the non-overridable default hash
     of Python.  Can be called for any RPython-level object that turns
     into a GC object, but not NULL.  The value will be different before
-    and after translation.
+    and after translation (WARNING: this is a change with older RPythons!)
     """
     assert x is not None
     return object.__hash__(x)

@@ -610,10 +610,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
     def special_funcptr_for_type(self, TYPE):
         return self.layoutbuilder.special_funcptr_for_type(TYPE)
 
-    def gc_header_for(self, obj):
-        hdr = self.gcdata.gc.gcheaderbuilder.header_of_object(obj)
-        return hdr
-
     def get_hash_offset(self, T):
         type_id = self.get_type_id(T)
         assert not self.gcdata.q_is_varsize(type_id)
@@ -1504,7 +1500,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
     def gcheader_initdata(self, obj):
         o = lltype.top_container(obj)
-        hdr = self.gc_header_for(o)
+        hdr = self.gcdata.gc.gcheaderbuilder.header_of_object(o)
         return hdr._obj
 
     def get_finalizer_queue_index(self, hop):
