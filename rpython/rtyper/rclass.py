@@ -170,7 +170,6 @@ OBJECT_VTABLE.become(Struct('object_vtable',
                             ('subclassrange_max', Signed),
                             ('rtti', Ptr(RuntimeTypeInfo)),
                             ('name', Ptr(rstr.STR)),
-                            ('hash', Signed),
                             ('instantiate', Ptr(FuncType([], OBJECTPTR))),
                             hints={'immutable': True}))
 # non-gc case
@@ -338,7 +337,6 @@ class ClassRepr(Repr):
 
     def fill_vtable_root(self, vtable):
         """Initialize the head of the vtable."""
-        vtable.hash = hash(self)
         # initialize the 'subclassrange_*' and 'name' fields
         if self.classdef is not None:
             #vtable.parenttypeptr = self.rbase.getvtable()
