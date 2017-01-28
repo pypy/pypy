@@ -8,7 +8,7 @@ from rpython.translator.c.support import USESLOTS # set to False if necessary wh
 from rpython.translator.c.support import cdecl, forward_cdecl, somelettersfrom
 from rpython.translator.c.support import c_char_array_constant, barebonearray
 from rpython.translator.c.primitive import PrimitiveType, name_signed
-from rpython.rlib import exports
+from rpython.rlib import exports, objectmodel
 from rpython.rlib.rfloat import isfinite, isinf
 
 
@@ -585,12 +585,20 @@ class StructNode(ContainerNode):
         for name in defnode.fieldnames:
             data.append((name, getattr(self.obj, name)))
 
+        if T._hints.get('remove_hash'):
+            # hack for rstr.STR and UNICODE
+            if objectmodel.HASH_ALGORITHM != "rpython":
+                i = 0
+                while data[i][0] != 'hash':
+                    i += 1
+                data[i] = ('hash', 0)
+
         # Reasonably, you should only initialise one of the fields of a union
         # in C.  This is possible with the syntax '.fieldname value' or
         # '.fieldname = value'.  But here we don't know which of the
         # fields need initialization, so XXX we pick the first one
         # arbitrarily.
-        if hasattr(T, "_hints") and T._hints.get('union'):
+        if T._hints.get('union'):
             data = data[0:1]
 
         if 'get_padding_drop' in T._hints:

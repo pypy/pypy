@@ -513,7 +513,7 @@ def current_object_addr_as_int(x):
 
 # ----------
 
-HASH_ALGORITHM = "rpython"  # XXX Is there a better name?
+HASH_ALGORITHM = "rpython"    # the default, no source of randomness possible
 HASH_ALGORITHM_FIXED = False
 
 @not_rpython
