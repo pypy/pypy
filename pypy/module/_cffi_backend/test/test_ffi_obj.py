@@ -1,4 +1,22 @@
+from pypy.module._cffi_backend import newtype
 from pypy.module._cffi_backend.newtype import _clean_cache
+
+
+class TestFFIObj:
+    spaceconfig = dict(usemodules=('_cffi_backend', 'array'))
+
+    def teardown_method(self, meth):
+        _clean_cache(self.space)
+
+    def test_new_function_type_during_translation(self):
+        space = self.space
+        BInt = newtype.new_primitive_type(space, "int")
+        BFunc = newtype.new_function_type(space, space.wrap([BInt]), BInt)
+        assert BFunc is newtype.new_function_type(space,space.wrap([BInt]),BInt)
+        unique_cache = space.fromcache(newtype.UniqueCache)
+        unique_cache._cleanup_()
+        assert BFunc is newtype.new_function_type(space,space.wrap([BInt]),BInt)
+
 
 class AppTestFFIObj:
     spaceconfig = dict(usemodules=('_cffi_backend', 'array'))
