@@ -1,6 +1,13 @@
+import sys, os
+
+if __name__ == '__main__':
+    # hack for test_translation_prebuilt_2()
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__),
+                                    '..', '..', '..'))
+
 import py
 from rpython.annotator.model import UnionError
-from rpython.rlib import rgc
+from rpython.rlib import rgc, nonconst
 from rpython.rlib.rweakref import RWeakValueDictionary
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.translator.c.test.test_genc import compile
@@ -215,7 +222,7 @@ def test_key_instance():
     f()
     interpret(f, [])
 
-def test_translation_prebuilt():
+def test_translation_prebuilt_1():
     class K:
         pass
     d = RWeakValueDictionary(K, X)
@@ -229,3 +236,25 @@ def test_translation_prebuilt():
     f()
     fc = compile(f, [], gcpolicy="boehm", rweakref=True)
     fc()
+
+def _test_translation_prebuilt_2():
+    from rpython.rlib import objectmodel
+    objectmodel.set_hash_algorithm("siphash24")
+    d = RWeakValueDictionary(str, X)
+    k1 = "key1"; k2 = "key2"
+    x1 = X(); x2 = X()
+    d.set(k1, x1)
+    d.set(k2, x2)
+    def f():
+        i = nonconst.NonConstant(1)
+        assert d.get("key%d" % (i,)) is x1
+        assert d.get("key%d" % (i+1,)) is x2
+    fc = compile(f, [], gcpolicy="boehm", rweakref=True)
+    fc()
+
+def test_translation_prebuilt_2():
+    import subprocess
+    subprocess.check_call([sys.executable, __file__])
+
+if __name__ == "__main__":
+    _test_translation_prebuilt_2()
