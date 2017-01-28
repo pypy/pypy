@@ -1,4 +1,6 @@
+import os
 from rpython.rlib.rsiphash import siphash24, choosen_seed
+from rpython.rlib.rsiphash import initialize_from_env, seed
 from rpython.rtyper.lltypesystem import llmemory, rffi
 
 
@@ -42,3 +44,24 @@ def check(s):
 def test_siphash24():
     for expected, string in CASES:
         assert check(string) == expected
+
+def test_fix_seed():
+    p = rffi.str2charp("foo")
+    adr = llmemory.cast_ptr_to_adr(p)
+
+    os.environ['PYTHONHASHSEED'] = '0'
+    initialize_from_env()
+    assert siphash24(adr, 3) == 15988776847138518036 # checked with CPython 3.5
+
+    os.environ['PYTHONHASHSEED'] = '123'
+    initialize_from_env()
+    assert siphash24(adr, 3) == 12577370453467666022 # checked with CPython 3.5
+
+    os.environ['PYTHONHASHSEED'] = 'random'
+    initialize_from_env()
+    hash1 = siphash24(adr, 3)
+    initialize_from_env()
+    hash2 = siphash24(adr, 3)
+    assert hash1 != hash2
+
+    rffi.free_charp(p)

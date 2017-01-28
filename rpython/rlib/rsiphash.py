@@ -1,9 +1,10 @@
-import sys, os, struct
+import sys, os
 from contextlib import contextmanager
-from rpython.rlib import rarithmetic
+from rpython.rlib import rarithmetic, rurandom
 from rpython.rlib.objectmodel import not_rpython, always_inline
+from rpython.rlib.objectmodel import we_are_translated, dont_inline
 from rpython.rlib.rgc import no_collect
-from rpython.rlib.rarithmetic import r_uint64
+from rpython.rlib.rarithmetic import r_uint64, r_uint32, r_uint
 from rpython.rlib.rawstorage import misaligned_is_fine
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -16,37 +17,82 @@ else:
     _le64toh = rarithmetic.byteswap
 
 
-# Initialize the values of the secret seed: two 64-bit constants.
-# CPython picks a new seed every time 'python' starts.  PyPy cannot do
-# that as easily because many details may rely on getting the same hash
-# value before and after translation.  We can, however, pick a random
-# seed once per translation, which should already be quite good.
-#
-# XXX no, it is not: e.g. all Ubuntu installations of the same Ubuntu
-# would get the same seed.  That's not good enough.
+class Seed:
+    k0l = k1l = r_uint64(0)
+    initialized = False
+seed = Seed()
 
-@not_rpython
-def select_random_seed():
-    global k0, k1    # note: the globals k0, k1 are already byte-swapped
-    v0, v1 = struct.unpack("QQ", os.urandom(16))
-    k0 = r_uint64(v0)
-    k1 = r_uint64(v1)
 
-select_random_seed()
+def select_random_seed(s):
+    """'s' is a string of length 16"""
+    seed.k0l = (
+      ord(s[0]) | ord(s[1]) << 8 | ord(s[2]) << 16 | ord(s[3]) << 24 |
+      ord(s[4]) << 32 | ord(s[5]) << 40 | ord(s[6]) << 48 | ord(s[7]) << 56)
+    seed.k1l = (
+      ord(s[8]) | ord(s[9]) << 8 | ord(s[10]) << 16 | ord(s[11]) << 24 |
+      ord(s[12]) << 32 | ord(s[13]) << 40 | ord(s[14]) << 48 | ord(s[15]) << 56)
+
+
+random_ctx = rurandom.init_urandom()
+
+def lcg_urandom(value):
+    # Quite unsure what the point of this function is, given that a hash
+    # seed of the form '%s\x00\x00\x00..' should be just as hard to
+    # guess as this one.  We copy it anyway from CPython for the case
+    # where 'value' is a 32-bit unsigned number, but if it is not, we
+    # fall back to the '%s\x00\x00\x00..' form.
+    if value == '0':
+        value = ''
+    try:
+        x = r_uint(r_uint32(value))
+    except (ValueError, OverflowError):
+        x = r_uint(0)
+    if str(x) == value:
+        s = ''
+        for index in range(16):
+            x *= 214013
+            x += 2531011
+            x = r_uint(r_uint32(x))
+            s += chr((x >> 16) & 0xff)
+    else:
+        if len(value) < 16:
+            s = value + '\x00' * (16 - len(value))
+        else:
+            s = value[:16]
+    return s
+
+env_var_name = "PYTHONHASHSEED"
+
+@dont_inline
+def initialize_from_env():
+    # This uses the same algorithms as CPython 3.5.  The environment
+    # variable we read also defaults to "PYTHONHASHSEED".  If needed,
+    # a different RPython interpreter can patch the value of the
+    # global variable 'env_var_name', or completely patch this function
+    # with a different one.
+    value = os.environ.get(env_var_name)
+    if len(value) > 0 and value != "random":
+        s = lcg_urandom(value)
+    else:
+        s = rurandom.urandom(random_ctx, 16)
+    select_random_seed(s)
+    seed.initialized = True
+
 
 @contextmanager
 def choosen_seed(new_k0, new_k1, test_misaligned_path=False):
-    global k0, k1, misaligned_is_fine
-    old = k0, k1, misaligned_is_fine
-    k0 = _le64toh(r_uint64(new_k0))
-    k1 = _le64toh(r_uint64(new_k1))
+    """For tests."""
+    global misaligned_is_fine
+    old = seed.k0l, seed.k1l, misaligned_is_fine
+    seed.k0l = _le64toh(r_uint64(new_k0))
+    seed.k1l = _le64toh(r_uint64(new_k1))
     if test_misaligned_path:
         misaligned_is_fine = False
     yield
-    k0, k1, misaligned_is_fine = old
+    seed.k0l, seed.k1l, misaligned_is_fine = old
 
 def get_current_seed():
-    return _le64toh(k0), _le64toh(k1)
+    return _le64toh(seed.k0l), _le64toh(seed.k1l)
 
 
 magic0 = r_uint64(0x736f6d6570736575)
@@ -82,15 +128,18 @@ def siphash24(addr_in, size):
     """Takes an address pointer and a size.  Returns the hash as a r_uint64,
     which can then be casted to the expected type."""
 
-    direct = (misaligned_is_fine or
-                 (rffi.cast(lltype.Signed, addr_in) & 7) == 0)
-
+    if we_are_translated() and not seed.initialized:
+        initialize_from_env()
+    k0 = seed.k0l
+    k1 = seed.k1l
     b = r_uint64(size) << 56
     v0 = k0 ^ magic0
     v1 = k1 ^ magic1
     v2 = k0 ^ magic2
     v3 = k1 ^ magic3
 
+    direct = (misaligned_is_fine or
+                 (rffi.cast(lltype.Signed, addr_in) & 7) == 0)
     index = 0
     if direct:
         while size >= 8:
@@ -113,7 +162,6 @@ def siphash24(addr_in, size):
                 r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 6)) << 48 |
                 r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 7)) << 56
             )
-            mi = _le64toh(mi)
             size -= 8
             index += 8
             v3 ^= mi

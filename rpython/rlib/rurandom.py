@@ -57,6 +57,8 @@ if sys.platform == 'win32':
                              immortal=True, zero=True)
 
     def urandom(context, n, signal_checker=None):
+        # NOTE: no dictionaries here: rsiphash24 calls this to
+        # initialize the random seed of string hashes
         provider = context[0]
         if not provider:
             # This handle is never explicitly released. The operating
@@ -139,6 +141,8 @@ else:  # Posix implementation
 
     def urandom(context, n, signal_checker=None):
         "Read n bytes from /dev/urandom."
+        # NOTE: no dictionaries here: rsiphash24 calls this to
+        # initialize the random seed of string hashes
         result = []
         if SYS_getrandom is not None:
             n = _getrandom(n, result, signal_checker)
