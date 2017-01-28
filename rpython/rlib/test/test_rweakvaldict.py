@@ -3,6 +3,7 @@ from rpython.annotator.model import UnionError
 from rpython.rlib import rgc
 from rpython.rlib.rweakref import RWeakValueDictionary
 from rpython.rtyper.test.test_llinterp import interpret
+from rpython.translator.c.test.test_genc import compile
 
 class X(object):
     pass
@@ -213,3 +214,18 @@ def test_key_instance():
         assert d.get(keys[3]) is None
     f()
     interpret(f, [])
+
+def test_translation_prebuilt():
+    class K:
+        pass
+    d = RWeakValueDictionary(K, X)
+    k1 = K(); k2 = K()
+    x1 = X(); x2 = X()
+    d.set(k1, x1)
+    d.set(k2, x2)
+    def f():
+        assert d.get(k1) is x1
+        assert d.get(k2) is x2
+    f()
+    fc = compile(f, [], gcpolicy="boehm", rweakref=True)
+    fc()
