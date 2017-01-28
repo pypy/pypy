@@ -610,11 +610,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
     def special_funcptr_for_type(self, TYPE):
         return self.layoutbuilder.special_funcptr_for_type(TYPE)
 
-    def get_hash_offset(self, T):
-        type_id = self.get_type_id(T)
-        assert not self.gcdata.q_is_varsize(type_id)
-        return self.gcdata.q_fixed_size(type_id)
-
     def finish_tables(self):
         group = self.layoutbuilder.close_table()
         log.info("assigned %s typeids" % (len(group.members), ))

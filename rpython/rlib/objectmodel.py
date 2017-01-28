@@ -465,8 +465,14 @@ def compute_hash(x):
 
     Note that this can return 0 or -1 too.
 
-    It returns the same number, both before and after translation.
-    Dictionaries don't need to be rehashed after translation.
+    NOTE: It returns a different number before and after translation!
+    Dictionaries will be rehashed when the translated program starts.
+    Be careful about other places that store or depend on a hash value:
+    if such a place can exist before translation, you should add for
+    example a _cleanup_() method to clear this cache during translation.
+
+    (Nowadays we could completely remove compute_hash() and decide that
+    hash(x) is valid RPython instead, at least for the types listed here.)
     """
     if isinstance(x, (str, unicode)):
         return _hash_string(x)
