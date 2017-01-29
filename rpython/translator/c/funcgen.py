@@ -940,3 +940,9 @@ class FunctionCodeGenerator(object):
                 cdecl(typename, ''),
                 self.expr(op.args[0]),
                 self.expr(op.result))
+
+    def OP_CALL_AT_STARTUP(self, op):
+        assert isinstance(op.args[0], Constant)
+        func = self.expr(op.args[0])
+        self.db.call_at_startup.add(func)
+        return '/* call_at_startup %s */' % (func,)

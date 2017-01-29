@@ -822,6 +822,9 @@ def gen_startupcode(f, database):
             for line in lines:
                 print >> f, '\t'+line
 
+    for extra in database.call_at_startup:
+        print >> f, '\t%s();\t/* call_at_startup */' % (extra,)
+
     print >> f, '}'
 
 def commondefs(defines):

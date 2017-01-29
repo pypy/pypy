@@ -539,6 +539,7 @@ LL_OPERATIONS = {
     'decode_arg_def':       LLOp(canraise=(Exception,)),
     'getslice':             LLOp(canraise=(Exception,)),
     'check_and_clear_exc':  LLOp(),
+    'call_at_startup':      LLOp(),
 
     'threadlocalref_addr':  LLOp(),                   # get (or make) addr of tl
     'threadlocalref_get':   LLOp(sideeffects=False),  # read field (no check)
