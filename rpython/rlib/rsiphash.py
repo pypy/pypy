@@ -1,13 +1,21 @@
+"""
+This module implements siphash-2-4, the hashing algorithm for strings
+and unicodes.  You can use it explicitly by calling siphash24() with
+a byte string, or you can use enable_siphash24() to enable the use
+of siphash-2-4 on all RPython strings and unicodes in your program
+after translation.
+"""
 import sys, os
 from contextlib import contextmanager
 from rpython.rlib import rarithmetic, rurandom
 from rpython.rlib.objectmodel import not_rpython, always_inline
 from rpython.rlib.objectmodel import we_are_translated, dont_inline
-from rpython.rlib.rgc import no_collect
+from rpython.rlib import rgc, jit
 from rpython.rlib.rarithmetic import r_uint64, r_uint32, r_uint
 from rpython.rlib.rawstorage import misaligned_is_fine
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.extregistry import ExtRegistryEntry
 
 
 if sys.byteorder == 'little':
@@ -19,18 +27,23 @@ else:
 
 class Seed:
     k0l = k1l = r_uint64(0)
-    initialized = False
 seed = Seed()
 
 
+def _decode64(s):
+    return (r_uint64(ord(s[0])) |
+            r_uint64(ord(s[1])) << 8 |
+            r_uint64(ord(s[2])) << 16 |
+            r_uint64(ord(s[3])) << 24 |
+            r_uint64(ord(s[4])) << 32 |
+            r_uint64(ord(s[5])) << 40 |
+            r_uint64(ord(s[6])) << 48 |
+            r_uint64(ord(s[7])) << 56)
+
 def select_random_seed(s):
     """'s' is a string of length 16"""
-    seed.k0l = (
-      ord(s[0]) | ord(s[1]) << 8 | ord(s[2]) << 16 | ord(s[3]) << 24 |
-      ord(s[4]) << 32 | ord(s[5]) << 40 | ord(s[6]) << 48 | ord(s[7]) << 56)
-    seed.k1l = (
-      ord(s[8]) | ord(s[9]) << 8 | ord(s[10]) << 16 | ord(s[11]) << 24 |
-      ord(s[12]) << 32 | ord(s[13]) << 40 | ord(s[14]) << 48 | ord(s[15]) << 56)
+    seed.k0l = _decode64(s)
+    seed.k1l = _decode64(s[8:16])
 
 
 random_ctx = rurandom.init_urandom()
@@ -63,20 +76,85 @@ def lcg_urandom(value):
 
 env_var_name = "PYTHONHASHSEED"
 
-@dont_inline
 def initialize_from_env():
     # This uses the same algorithms as CPython 3.5.  The environment
     # variable we read also defaults to "PYTHONHASHSEED".  If needed,
     # a different RPython interpreter can patch the value of the
-    # global variable 'env_var_name', or completely patch this function
-    # with a different one.
+    # global variable 'env_var_name', or just pass a different init
+    # function to enable_siphash24().
     value = os.environ.get(env_var_name)
     if len(value) > 0 and value != "random":
         s = lcg_urandom(value)
     else:
         s = rurandom.urandom(random_ctx, 16)
     select_random_seed(s)
-    seed.initialized = True
+
+_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
+
+def enable_siphash24(*init):
+    """
+    Enable the use of siphash-2-4 for all RPython strings and unicodes
+    in the translated program.  You must call this function anywhere
+    from your interpreter (from a place that is annotated).  Optionally,
+    you can pass a function to call to initialize the state; the default
+    is 'initialize_from_env' above.  Don't call this more than once.
+    """
+    _internal_enable_siphash24()
+    if init:
+        (init_func,) = init
+    else:
+        init_func = initialize_from_env
+    llop.call_at_startup(lltype.Void, llexternal(_FUNC, init_func))
+
+def _internal_enable_siphash24():
+    pass
+
+class Entry(ExtRegistryEntry):
+    _about_ = _internal_enable_siphash24
+
+    def compute_result_annotation(self):
+        translator = self.bookkeeper.annotator.translator
+        if hasattr(translator, 'll_hash_string'):
+            assert translator.ll_hash_string == ll_hash_string_siphash24
+        else:
+            translator.ll_hash_string = ll_hash_string_siphash24
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+
+@rgc.no_collect
+def ll_hash_string_siphash24(ll_s):
+    """Called indirectly from lltypesystem/rstr.py, by redirection from
+    objectmodel.ll_string_hash().
+    """
+    from rpython.rlib.rarithmetic import intmask
+
+    # This function is entirely @rgc.no_collect.
+    length = len(ll_s.chars)
+    if lltype.typeOf(ll_s).TO.chars.OF == lltype.Char:   # regular STR
+        addr = rstr._get_raw_buf_string(rstr.STR, ll_s, 0)
+    else:
+        # NOTE: a latin-1 unicode string must have the same hash as the
+        # corresponding byte string.  If the unicode is all within
+        # 0-255, then we need to allocate a byte buffer and copy the
+        # latin-1 encoding in it manually.
+        for i in range(length):
+            if ord(ll_s.chars[i]) > 0xFF:
+                addr = rstr._get_raw_buf_unicode(rstr.UNICODE, ll_s, 0)
+                length *= rffi.sizeof(rstr.UNICODE.chars.OF)
+                break
+        else:
+            p = lltype.malloc(rffi.CCHARP.TO, length, flavor='raw')
+            i = 0
+            while i < length:
+                p[i] = chr(ord(ll_s.chars[i]))
+                i += 1
+            x = _siphash24(llmemory.cast_ptr_to_adr(p), length)
+            lltype.free(p, flavor='raw')
+            return intmask(x)
+    x = _siphash24(addr, length)
+    keepalive_until_here(ll_s)
+    return intmask(x)
 
 
 @contextmanager
@@ -123,13 +201,11 @@ def _double_round(v0, v1, v2, v3):
     return v0, v1, v2, v3
 
 
-@no_collect
-def siphash24(addr_in, size):
+@rgc.no_collect
+def _siphash24(addr_in, size):
     """Takes an address pointer and a size.  Returns the hash as a r_uint64,
     which can then be casted to the expected type."""
 
-    if we_are_translated() and not seed.initialized:
-        initialize_from_env()
     k0 = seed.k0l
     k1 = seed.k1l
     b = r_uint64(size) << 56
@@ -206,3 +282,13 @@ def siphash24(addr_in, size):
     v0, v1, v2, v3 = _double_round(v0, v1, v2, v3)
 
     return (v0 ^ v1) ^ (v2 ^ v3)
+
+
+@jit.dont_look_inside
+def siphash24(s):
+    """'s' is a normal string.  Returns its siphash-2-4 as a r_uint64.
+    Don't forget to cast the result to a regular integer if needed,
+    e.g. with rarithmetic.intmask().
+    """
+    with rffi.scoped_nonmovingbuffer(s) as p:
+        return _siphash24(llmemory.cast_ptr_to_adr(p), len(s))

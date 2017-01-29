@@ -169,10 +169,7 @@ class BaseLLStringRepr(Repr):
             for i in range(len(value)):
                 p.chars[i] = cast_primitive(self.base, value[i])
             p.hash = 0
-            if objectmodel.HASH_ALGORITHM == "rpython":
-                self.ll.ll_strhash(p)   # precompute the hash
-                # but it is pointless if this hash wouldn't end up in the
-                # C code anyway: see "remove_hash" in translator/c/node.py
+            self.ll.ll_strhash(p)   # precompute the hash
             self.CACHE[value] = p
             return p
 

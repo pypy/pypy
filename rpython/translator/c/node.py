@@ -586,8 +586,10 @@ class StructNode(ContainerNode):
             data.append((name, getattr(self.obj, name)))
 
         if T._hints.get('remove_hash'):
-            # hack for rstr.STR and UNICODE
-            if objectmodel.HASH_ALGORITHM != "rpython":
+            # hack for rstr.STR and UNICODE: remove their .hash value
+            # and write 0 in the C sources, if we're using a non-default
+            # hash function.
+            if hasattr(self.db.translator, 'll_hash_string'):
                 i = 0
                 while data[i][0] != 'hash':
                     i += 1

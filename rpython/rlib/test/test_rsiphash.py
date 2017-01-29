@@ -1,5 +1,5 @@
 import os
-from rpython.rlib.rsiphash import siphash24, choosen_seed
+from rpython.rlib.rsiphash import siphash24, _siphash24, choosen_seed
 from rpython.rlib.rsiphash import initialize_from_env, seed
 from rpython.rtyper.lltypesystem import llmemory, rffi
 
@@ -30,13 +30,11 @@ CASES = [
 ]
 
 def check(s):
-    p = rffi.str2charp(s)
     q = rffi.str2charp('?' + s)
     with choosen_seed(0x8a9f065a358479f4, 0x11cb1e9ee7f40e1f,
                       test_misaligned_path=True):
-        x = siphash24(llmemory.cast_ptr_to_adr(p), len(s))
-        y = siphash24(llmemory.cast_ptr_to_adr(rffi.ptradd(q, 1)), len(s))
-    rffi.free_charp(p)
+        x = siphash24(s)
+        y = _siphash24(llmemory.cast_ptr_to_adr(rffi.ptradd(q, 1)), len(s))
     rffi.free_charp(q)
     assert x == y
     return x
@@ -46,22 +44,27 @@ def test_siphash24():
         assert check(string) == expected
 
 def test_fix_seed():
-    p = rffi.str2charp("foo")
-    adr = llmemory.cast_ptr_to_adr(p)
+    old_val = os.environ.get('PYTHONHASHSEED', None)
+    try:
+        os.environ['PYTHONHASHSEED'] = '0'
+        initialize_from_env()
+        assert siphash24("foo") == 15988776847138518036
+        # value checked with CPython 3.5
 
-    os.environ['PYTHONHASHSEED'] = '0'
-    initialize_from_env()
-    assert siphash24(adr, 3) == 15988776847138518036 # checked with CPython 3.5
+        os.environ['PYTHONHASHSEED'] = '123'
+        initialize_from_env()
+        assert siphash24("foo") == 12577370453467666022
+        # value checked with CPython 3.5
 
-    os.environ['PYTHONHASHSEED'] = '123'
-    initialize_from_env()
-    assert siphash24(adr, 3) == 12577370453467666022 # checked with CPython 3.5
-
-    os.environ['PYTHONHASHSEED'] = 'random'
-    initialize_from_env()
-    hash1 = siphash24(adr, 3)
-    initialize_from_env()
-    hash2 = siphash24(adr, 3)
-    assert hash1 != hash2
-
-    rffi.free_charp(p)
+        for env in ['', 'random']:
+            os.environ['PYTHONHASHSEED'] = env
+            initialize_from_env()
+            hash1 = siphash24("foo")
+            initialize_from_env()
+            hash2 = siphash24("foo")
+            assert hash1 != hash2     # extremely unlikely
+    finally:
+        if old_val is None:
+            del os.environ['PYTHONHASHSEED']
+        else:
+            os.environ['PYTHONHASHSEED'] = old_val
