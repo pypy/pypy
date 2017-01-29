@@ -888,13 +888,18 @@ def ll_dict_rehash_after_translation(d):
     assert d.num_live_items == d.num_ever_used_items
     assert not d.indexes
     #
-    # recompute all hashes, if they are stored in d.entries
+    # recompute all hashes.  Needed if they are stored in d.entries,
+    # but do it anyway: otherwise, e.g. a string-keyed dictionary
+    # won't have a fasthash on its strings if their hash is still
+    # uncomputed.
     ENTRY = lltype.typeOf(d.entries).TO.OF
-    if hasattr(ENTRY, 'f_hash'):
-        for i in range(d.num_ever_used_items):
-            assert d.entries.valid(i)
-            d_entry = d.entries[i]
-            d_entry.f_hash = d.keyhash(d_entry.key)
+    for i in range(d.num_ever_used_items):
+        assert d.entries.valid(i)
+        d_entry = d.entries[i]
+        h = d.keyhash(d_entry.key)
+        if hasattr(ENTRY, 'f_hash'):
+            d_entry.f_hash = h
+        #else: purely for the side-effect it can have on d_entry.key
     #
     # Use the smallest acceptable size for ll_dict_reindex
     new_size = DICT_INITSIZE

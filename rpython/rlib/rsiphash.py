@@ -74,7 +74,7 @@ def initialize_from_env():
                                           rffi.cast(rffi.ULONG, -1))):
             os.write(2,
                 "PYTHONHASHSEED must be \"random\" or an integer "
-                "in range [0; 4294967295]")
+                "in range [0; 4294967295]\n")
             os._exit(1)
         if not seed:
             # disable the randomized hash
@@ -149,7 +149,9 @@ def ll_hash_string_siphash24(ll_s):
         # NOTE: a latin-1 unicode string must have the same hash as the
         # corresponding byte string.  If the unicode is all within
         # 0-255, then we need to allocate a byte buffer and copy the
-        # latin-1 encoding in it manually.
+        # latin-1 encoding in it manually.  Note also that we give a
+        # different hash result than CPython on ucs4 platforms, for
+        # unicode strings where CPython uses 2 bytes per character.
         for i in range(length):
             if ord(ll_s.chars[i]) > 0xFF:
                 addr = rstr._get_raw_buf_unicode(rstr.UNICODE, ll_s, 0)

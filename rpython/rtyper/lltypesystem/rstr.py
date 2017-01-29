@@ -3,7 +3,7 @@ from weakref import WeakValueDictionary
 from rpython.annotator import model as annmodel
 from rpython.rlib import jit, types, objectmodel
 from rpython.rlib.objectmodel import (malloc_zero_filled, we_are_translated,
-    ll_hash_string, keepalive_until_here, specialize, enforceargs)
+    ll_hash_string, keepalive_until_here, specialize, enforceargs, dont_inline)
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.error import TyperError
@@ -383,6 +383,7 @@ class LLHelpers(AbstractLLHelpers):
             return 0
 
     @staticmethod
+    @dont_inline
     def _ll_strhash(s):
         # unlike CPython, there is no reason to avoid to return -1
         # but our malloc initializes the memory to zero, so we use zero as the

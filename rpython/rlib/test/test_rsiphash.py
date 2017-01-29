@@ -74,38 +74,72 @@ def test_fix_seed():
 
 def test_translated():
     d1 = {"foo": 123}
-    d2 = {u"foo": 456, u"\u1234": 789}
+    d2 = {u"foo": 456, u"\u1234\u5678": 789}
+    class G:
+        pass
+    g = G()
+    g.v1 = d1.copy()
+    g.v2 = d2.copy()
 
-    def entrypoint():
+    def fetch(n):
+        if n == 0: return d1.get("foo", -1)
+        if n == 1: return g.v1.get("foo", -1)
+        if n == 2: return compute_hash("foo")
+        if n == 3: return d2.get(u"foo", -1)
+        if n == 4: return g.v2.get(u"foo", -1)
+        if n == 5: return compute_hash(u"foo")
+        if n == 6: return d2.get(u"\u1234\u5678", -1)
+        if n == 7: return g.v2.get(u"\u1234\u5678", -1)
+        if n == 8: return compute_hash(u"\u1234\u5678")
+        assert 0
+
+    def entrypoint(n):
         enable_siphash24()
-        return '%d %d %d %d %d %d' % (
-            d1.get("foo", -1),     compute_hash("bar"),
-            d2.get(u"foo", -1),    compute_hash(u"foo"),
-            d2.get(u"\u1234", -1), compute_hash(u"\u1234"))
+        g.v1["bar"] = -2
+        g.v2[u"bar"] = -2
+        if n >= 0:    # get items one by one, because otherwise it may
+                      # be the case that one line influences the next
+            return str(fetch(n))
+        else:
+            # ...except in random mode, because we want all results
+            # to be computed with the same seed
+            return ' '.join([str(fetch(n)) for n in range(9)])
 
-    fn = compile(entrypoint, [])
+    fn = compile(entrypoint, [int])
+
+    def getall():
+        return [int(fn(i)) for i in range(9)]
 
     old_val = os.environ.get('PYTHONHASHSEED', None)
     try:
         os.environ['PYTHONHASHSEED'] = '0'
-        s1 = fn()
-        assert map(int, s1.split()) == [
-            123, intmask(15988776847138518036),
-            456, intmask(15988776847138518036),
-            789, intmask(16003099094427356855)]
+        s1 = getall()
+        assert s1[:8] == [
+            123, 123, intmask(15988776847138518036),
+            456, 456, intmask(15988776847138518036),
+            789, 789]
+        assert s1[8] in [intmask(17593683438421985039),    # ucs2 mode
+                         intmask(94801584261658677)]       # ucs4 mode
 
         os.environ['PYTHONHASHSEED'] = '3987654321'
-        s1 = fn()
-        assert map(int, s1.split()) == [
-            123, intmask(5890804383681474441),
-            456, intmask(5890804383681474441),
-            789, intmask(10331001347733193222)]
+        s1 = getall()
+        assert s1[:8] == [
+            123, 123, intmask(5890804383681474441),
+            456, 456, intmask(5890804383681474441),
+            789, 789]
+        assert s1[8] in [intmask(4192582507672183374),     # ucs2 mode
+                         intmask(7179255293164649778)]     # ucs4 mode
 
         for env in ['', 'random']:
             os.environ['PYTHONHASHSEED'] = env
-            s1 = fn()
-            s2 = fn()
-            assert s1 != s2
+            s1 = map(int, fn(-1).split())
+            s2 = map(int, fn(-1).split())
+            assert s1[0:2]+s1[3:5]+s1[6:8] == [123, 123, 456, 456, 789, 789]
+            assert s1[2] == s1[5]
+            assert s2[0:2]+s2[3:5]+s2[6:8] == [123, 123, 456, 456, 789, 789]
+            assert s2[2] == s2[5]
+            #
+            assert len(set([s1[2], s2[2], s1[8], s2[8]])) == 4
 
     finally:
         if old_val is None:
