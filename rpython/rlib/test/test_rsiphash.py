@@ -1,7 +1,10 @@
 import os
 from rpython.rlib.rsiphash import siphash24, _siphash24, choosen_seed
-from rpython.rlib.rsiphash import initialize_from_env, seed
+from rpython.rlib.rsiphash import initialize_from_env, enable_siphash24
+from rpython.rlib.objectmodel import compute_hash
+from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import llmemory, rffi
+from rpython.translator.c.test.test_genc import compile
 
 
 CASES = [
@@ -51,9 +54,9 @@ def test_fix_seed():
         assert siphash24("foo") == 15988776847138518036
         # value checked with CPython 3.5
 
-        os.environ['PYTHONHASHSEED'] = '123'
+        os.environ['PYTHONHASHSEED'] = '4000000000'
         initialize_from_env()
-        assert siphash24("foo") == 12577370453467666022
+        assert siphash24("foo") == 13829150778707464258
         # value checked with CPython 3.5
 
         for env in ['', 'random']:
@@ -63,6 +66,47 @@ def test_fix_seed():
             initialize_from_env()
             hash2 = siphash24("foo")
             assert hash1 != hash2     # extremely unlikely
+    finally:
+        if old_val is None:
+            del os.environ['PYTHONHASHSEED']
+        else:
+            os.environ['PYTHONHASHSEED'] = old_val
+
+def test_translated():
+    d1 = {"foo": 123}
+    d2 = {u"foo": 456, u"\u1234": 789}
+
+    def entrypoint():
+        enable_siphash24()
+        return '%d %d %d %d %d %d' % (
+            d1.get("foo", -1),     compute_hash("bar"),
+            d2.get(u"foo", -1),    compute_hash(u"foo"),
+            d2.get(u"\u1234", -1), compute_hash(u"\u1234"))
+
+    fn = compile(entrypoint, [])
+
+    old_val = os.environ.get('PYTHONHASHSEED', None)
+    try:
+        os.environ['PYTHONHASHSEED'] = '0'
+        s1 = fn()
+        assert map(int, s1.split()) == [
+            123, intmask(15988776847138518036),
+            456, intmask(15988776847138518036),
+            789, intmask(16003099094427356855)]
+
+        os.environ['PYTHONHASHSEED'] = '3987654321'
+        s1 = fn()
+        assert map(int, s1.split()) == [
+            123, intmask(5890804383681474441),
+            456, intmask(5890804383681474441),
+            789, intmask(10331001347733193222)]
+
+        for env in ['', 'random']:
+            os.environ['PYTHONHASHSEED'] = env
+            s1 = fn()
+            s2 = fn()
+            assert s1 != s2
+
     finally:
         if old_val is None:
             del os.environ['PYTHONHASHSEED']

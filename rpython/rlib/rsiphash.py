@@ -5,17 +5,19 @@ a byte string, or you can use enable_siphash24() to enable the use
 of siphash-2-4 on all RPython strings and unicodes in your program
 after translation.
 """
-import sys, os
+import sys, os, errno
 from contextlib import contextmanager
 from rpython.rlib import rarithmetic, rurandom
 from rpython.rlib.objectmodel import not_rpython, always_inline
 from rpython.rlib.objectmodel import we_are_translated, dont_inline
-from rpython.rlib import rgc, jit
+from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib import rgc, jit, rposix
 from rpython.rlib.rarithmetic import r_uint64, r_uint32, r_uint
 from rpython.rlib.rawstorage import misaligned_is_fine
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.extregistry import ExtRegistryEntry
+from rpython.rtyper.annlowlevel import llhelper
 
 
 if sys.byteorder == 'little':
@@ -47,32 +49,8 @@ def select_random_seed(s):
 
 
 random_ctx = rurandom.init_urandom()
-
-def lcg_urandom(value):
-    # Quite unsure what the point of this function is, given that a hash
-    # seed of the form '%s\x00\x00\x00..' should be just as hard to
-    # guess as this one.  We copy it anyway from CPython for the case
-    # where 'value' is a 32-bit unsigned number, but if it is not, we
-    # fall back to the '%s\x00\x00\x00..' form.
-    if value == '0':
-        value = ''
-    try:
-        x = r_uint(r_uint32(value))
-    except (ValueError, OverflowError):
-        x = r_uint(0)
-    if str(x) == value:
-        s = ''
-        for index in range(16):
-            x *= 214013
-            x += 2531011
-            x = r_uint(r_uint32(x))
-            s += chr((x >> 16) & 0xff)
-    else:
-        if len(value) < 16:
-            s = value + '\x00' * (16 - len(value))
-        else:
-            s = value[:16]
-    return s
+strtoul = rffi.llexternal("strtoul", [rffi.CCHARP, rffi.CCHARPP, rffi.INT],
+                          rffi.ULONG, save_err=rffi.RFFI_SAVE_ERRNO)
 
 env_var_name = "PYTHONHASHSEED"
 
@@ -83,11 +61,45 @@ def initialize_from_env():
     # global variable 'env_var_name', or just pass a different init
     # function to enable_siphash24().
     value = os.environ.get(env_var_name)
-    if len(value) > 0 and value != "random":
-        s = lcg_urandom(value)
+    if value and value != "random":
+        with rffi.scoped_view_charp(value) as ptr:
+            with lltype.scoped_alloc(rffi.CCHARPP.TO, 1) as endptr:
+                endptr[0] = ptr
+                seed = strtoul(ptr, endptr, 10)
+                full = endptr[0][0] == '\x00'
+        seed = lltype.cast_primitive(lltype.Unsigned, seed)
+        if not full or seed > r_uint(4294967295) or (
+            rposix.get_saved_errno() == errno.ERANGE and
+            seed == lltype.cast_primitive(lltype.Unsigned,
+                                          rffi.cast(rffi.ULONG, -1))):
+            os.write(2,
+                "PYTHONHASHSEED must be \"random\" or an integer "
+                "in range [0; 4294967295]")
+            os._exit(1)
+        if not seed:
+            # disable the randomized hash
+            s = '\x00' * 16
+        else:
+            s = lcg_urandom(seed)
     else:
-        s = rurandom.urandom(random_ctx, 16)
+        try:
+            s = rurandom.urandom(random_ctx, 16)
+        except Exception as e:
+            os.write(2,
+                "%s: failed to get random numbers to initialize Python\n" %
+                (e.__class__.__name__,))
+            os._exit(1)
+            raise   # makes the annotator happy
     select_random_seed(s)
+
+def lcg_urandom(x):
+    s = ''
+    for index in range(16):
+        x *= 214013
+        x += 2531011
+        s += chr((x >> 16) & 0xff)
+    return s
+
 
 _FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
@@ -104,7 +116,7 @@ def enable_siphash24(*init):
         (init_func,) = init
     else:
         init_func = initialize_from_env
-    llop.call_at_startup(lltype.Void, llexternal(_FUNC, init_func))
+    llop.call_at_startup(lltype.Void, llhelper(_FUNC, init_func))
 
 def _internal_enable_siphash24():
     pass
