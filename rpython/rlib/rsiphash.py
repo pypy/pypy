@@ -14,6 +14,7 @@ from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib import rgc, jit, rposix
 from rpython.rlib.rarithmetic import r_uint64, r_uint32, r_uint
 from rpython.rlib.rawstorage import misaligned_is_fine
+from rpython.rlib.nonconst import NonConstant
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -116,6 +117,8 @@ def enable_siphash24(*init):
         (init_func,) = init
     else:
         init_func = initialize_from_env
+    if NonConstant(0):
+        init_func()   # pre-annotate it
     llop.call_at_startup(lltype.Void, llhelper(_FUNC, init_func))
 
 def _internal_enable_siphash24():
