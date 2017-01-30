@@ -201,10 +201,6 @@ translation_optiondescription = OptionDescription(
     StrOption("icon", "Path to the (Windows) icon to use for the executable"),
     StrOption("libname",
               "Windows: name and possibly location of the lib file to create"),
-    ChoiceOption("hash",
-                 "The hash to use for strings",
-                 ["rpython", "siphash24"],
-                 default="rpython", cmdline="--hash"),
 
     OptionDescription("backendopt", "Backend Optimization Options", [
         # control inlining
@@ -393,12 +389,6 @@ def set_opt_level(config, level):
     if config.translation.gcrootfinder == "asmgcc":
         if sys.platform == "darwin" or sys.platform =="win32":
             raise ConfigError("'asmgcc' not supported on this platform")
-
-def apply_extra_settings(config):
-    # make the setting of config.hash definitive
-    from rpython.rlib.objectmodel import set_hash_algorithm
-    config.translation.hash = config.translation.hash
-    set_hash_algorithm(config.translation.hash)
 
 # ----------------------------------------------------------------
 

@@ -521,6 +521,12 @@ def current_object_addr_as_int(x):
 
 def _hash_string(s):
     """The default algorithm behind compute_hash() for a string or a unicode.
+    This is a modified Fowler-Noll-Vo (FNV) hash.  According to Wikipedia,
+    FNV needs carefully-computed constants called FNV primes and FNV offset
+    basis, which are absent from the present algorithm.  Nevertheless,
+    this matches CPython 2.7 without -R, which has proven a good hash in
+    practice (even if not crypographical nor randomizable).
+
     There is a mechanism to use another one in programs after translation.
     See rsiphash.py, which implements the algorithm of CPython >= 3.4.
     """

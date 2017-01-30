@@ -196,6 +196,13 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                default=False,
                requires=[("objspace.usemodules.cpyext", False)]),
 
+    ChoiceOption("hash",
+                 "The hash function to use for strings: fnv from CPython 2.7"
+                 " or siphash24 from CPython >= 3.4",
+                 ["fnv", "siphash24"],
+                 default="fnv",
+                 cmdline="--hash"),
+
     OptionDescription("std", "Standard Object Space Options", [
         BoolOption("withtproxy", "support transparent proxies",
                    default=True),
