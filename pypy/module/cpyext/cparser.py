@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from itertools import izip
 from . import cmodel as model
 from .commontypes import COMMON_TYPES, resolve_common_type
 from .error import FFIError, CDefError
@@ -103,7 +104,7 @@ def _common_type_names(csource):
 class Parser(object):
 
     def __init__(self):
-        self._declarations = {}
+        self._declarations = OrderedDict()
         self._included_declarations = set()
         self._anonymous_counter = 0
         self._structnode2type = weakref.WeakKeyDictionary()
@@ -699,8 +700,7 @@ class CTypeSpace(object):
         self.headers = headers if headers is not None else ['sys/types.h']
         self.parsed_headers = []
         self.sources = []
-        self._Config = type('Config', (object,), {})
-        self._TYPES = {}
+        self._config_entries = OrderedDict()
         self.includes = []
         self.struct_typedefs = {}
         self._handled = set()
@@ -758,10 +758,8 @@ class CTypeSpace(object):
 
     def realize_struct(self, struct):
         type_name = struct.get_type_name()
-        configname = type_name.replace(' ', '__')
-        setattr(self._Config, configname,
-            rffi_platform.Struct(type_name, struct.fields))
-        self._TYPES[configname] = struct.TYPE
+        entry = rffi_platform.Struct(type_name, struct.fields)
+        self._config_entries[entry] = struct.TYPE
         return struct.TYPE
 
     def build_eci(self):
@@ -795,13 +793,15 @@ class CTypeSpace(object):
             elif name.startswith('macro '):
                 name = name[6:]
                 self.add_macro(name, obj)
-        self._Config._compilation_info_ = self.build_eci()
-        for name, TYPE in rffi_platform.configure(self._Config).iteritems():
+        if not self._config_entries:
+            return
+        eci = self.build_eci()
+        result = rffi_platform.configure_entries(list(self._config_entries), eci)
+        for entry, TYPE in izip(self._config_entries, result):
             # hack: prevent the source from being pasted into common_header.h
             del TYPE._hints['eci']
-            if name in self._TYPES:
-                self._TYPES[name].become(TYPE)
-                del self._TYPES[name]
+            self._config_entries[entry].become(TYPE)
+        self._config_entries.clear()
 
     def convert_type(self, obj, quals=0):
         if isinstance(obj, model.DefinedType):

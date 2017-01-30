@@ -1243,6 +1243,9 @@ def _servername_callback(ssl, ad, arg):
     struct = SERVERNAME_CALLBACKS.get(rffi.cast(lltype.Signed, arg))
     w_ctx = struct.w_ctx
     space = struct.space
+    # annotation: ensures that we ignore the case 'space is None'
+    # (it would propagate to a few methods like errorstr())
+    assert w_ctx is not None and space is not None
     w_callback = struct.w_set_hostname
     if not w_ctx.servername_callback:
         # Possible race condition.

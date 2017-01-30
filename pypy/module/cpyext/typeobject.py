@@ -41,7 +41,6 @@ from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 
 PyType_Check, PyType_CheckExact = build_type_checkers("Type", "w_type")
 
-cts.parse_header(parse_dir / 'cpyext_typeobject.h')
 PyHeapTypeObject = cts.gettype('PyHeapTypeObject *')
 
 
