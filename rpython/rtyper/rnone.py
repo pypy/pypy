@@ -25,6 +25,8 @@ class NoneRepr(Repr):
     def get_ll_hash_function(self):
         return ll_none_hash
 
+    get_ll_fasthash_function = get_ll_hash_function
+
     rtype_simple_call = none_call
     rtype_call_args = none_call
 

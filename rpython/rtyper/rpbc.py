@@ -16,7 +16,7 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.rtyper.lltypesystem.lltype import (
     typeOf, Void, ForwardReference, Struct, Bool, Char, Ptr, malloc, nullptr,
-    Array, Signed, cast_pointer, getfunctionptr)
+    Array, Signed, cast_pointer, getfunctionptr, cast_ptr_to_int)
 from rpython.rtyper.rmodel import (Repr, inputconst, CanBeNull, mangle,
     warning, impossible_repr)
 from rpython.tool.pairtype import pair, pairtype
@@ -1072,10 +1072,7 @@ class ClassesPBCRepr(Repr):
 
 
 def ll_cls_hash(cls):
-    if not cls:
-        return 0
-    else:
-        return cls.hash
+    return cast_ptr_to_int(cls)
 
 class __extend__(pairtype(ClassesPBCRepr, rclass.ClassRepr)):
     def convert_from_to((r_clspbc, r_cls), v, llops):

@@ -1,9 +1,9 @@
 from weakref import WeakValueDictionary
 
 from rpython.annotator import model as annmodel
-from rpython.rlib import jit, types
+from rpython.rlib import jit, types, objectmodel
 from rpython.rlib.objectmodel import (malloc_zero_filled, we_are_translated,
-    ll_hash_string, keepalive_until_here, specialize, enforceargs)
+    ll_hash_string, keepalive_until_here, specialize, enforceargs, dont_inline)
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.error import TyperError
@@ -383,6 +383,7 @@ class LLHelpers(AbstractLLHelpers):
             return 0
 
     @staticmethod
+    @dont_inline
     def _ll_strhash(s):
         # unlike CPython, there is no reason to avoid to return -1
         # but our malloc initializes the memory to zero, so we use zero as the
@@ -400,6 +401,7 @@ class LLHelpers(AbstractLLHelpers):
 
     @staticmethod
     def ll_strfasthash(s):
+        ll_assert(s.hash != 0, "ll_strfasthash: hash==0")
         return s.hash     # assumes that the hash is already computed
 
     @staticmethod
@@ -1258,7 +1260,8 @@ STR.become(GcStruct('rpy_string', ('hash',  Signed),
                               'gethash': LLHelpers.ll_strhash,
                               'length': LLHelpers.ll_length,
                               'find': LLHelpers.ll_find,
-                              'rfind': LLHelpers.ll_rfind}))
+                              'rfind': LLHelpers.ll_rfind},
+                    hints={'remove_hash': True}))
 UNICODE.become(GcStruct('rpy_unicode', ('hash', Signed),
                         ('chars', Array(UniChar, hints={'immutable': True})),
                         adtmeths={'malloc' : staticAdtMethod(mallocunicode),
@@ -1266,8 +1269,8 @@ UNICODE.become(GcStruct('rpy_unicode', ('hash', Signed),
                                   'copy_contents' : staticAdtMethod(copy_unicode_contents),
                                   'copy_contents_from_str' : staticAdtMethod(copy_unicode_contents),
                                   'gethash': LLHelpers.ll_strhash,
-                                  'length': LLHelpers.ll_length}
-                        ))
+                                  'length': LLHelpers.ll_length},
+                    hints={'remove_hash': True}))
 
 
 # TODO: make the public interface of the rstr module cleaner

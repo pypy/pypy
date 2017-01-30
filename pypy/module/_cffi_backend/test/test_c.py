@@ -37,6 +37,7 @@ class AppTestC(object):
     def setup_class(cls):
         testfuncs_w = []
         keepalive_funcs = []
+        UniqueCache.for_testing = True
 
         test_lib_c = tmpdir.join('_test_lib.c')
         src_test_lib_c = py.path.local(__file__).dirpath().join('_test_lib.c')
@@ -100,11 +101,12 @@ class AppTestC(object):
             _all_test_c.find_and_load_library = func
             _all_test_c._testfunc = testfunc
         """)
-        UniqueCache.for_testing = True
 
     def teardown_method(self, method):
-        UniqueCache.for_testing = False
         _clean_cache(self.space)
+
+    def teardown_class(cls):
+        UniqueCache.for_testing = False
 
 
 all_names = ', '.join(Module.interpleveldefs.keys())

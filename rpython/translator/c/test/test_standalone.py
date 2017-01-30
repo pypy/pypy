@@ -1062,6 +1062,28 @@ class TestStandalone(StandaloneTests):
         out = cbuilder.cmdexec('')
         assert out.strip() == expected
 
+    def test_call_at_startup(self):
+        from rpython.rtyper.lltypesystem import lltype
+        from rpython.rtyper.lltypesystem.lloperation import llop
+        from rpython.rtyper.annlowlevel import llhelper
+        class State:
+            seen = 0
+        state = State()
+        def startup():
+            state.seen += 1
+        F = lltype.Ptr(lltype.FuncType([], lltype.Void))
+        def entry_point(argv):
+            state.seen += 100
+            assert state.seen == 101
+            print 'ok'
+            ll = llhelper(F, startup)
+            llop.call_at_startup(lltype.Void, ll)
+            return 0
+
+        t, cbuilder = self.compile(entry_point)
+        out = cbuilder.cmdexec('')
+        assert out.strip() == 'ok'
+
 
 class TestMaemo(TestStandalone):
     def setup_class(cls):

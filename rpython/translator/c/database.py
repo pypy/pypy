@@ -60,6 +60,7 @@ class LowLevelDatabase(object):
         self.completed = False
 
         self.instrument_ncounter = 0
+        self.call_at_startup = set()
 
     def gettypedefnode(self, T, varlength=None):
         if varlength is None:

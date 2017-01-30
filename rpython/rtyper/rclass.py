@@ -170,7 +170,6 @@ OBJECT_VTABLE.become(Struct('object_vtable',
                             ('subclassrange_max', Signed),
                             ('rtti', Ptr(RuntimeTypeInfo)),
                             ('name', Ptr(rstr.STR)),
-                            ('hash', Signed),
                             ('instantiate', Ptr(FuncType([], OBJECTPTR))),
                             hints={'immutable': True}))
 # non-gc case
@@ -338,7 +337,6 @@ class ClassRepr(Repr):
 
     def fill_vtable_root(self, vtable):
         """Initialize the head of the vtable."""
-        vtable.hash = hash(self)
         # initialize the 'subclassrange_*' and 'name' fields
         if self.classdef is not None:
             #vtable.parenttypeptr = self.rbase.getvtable()
@@ -785,7 +783,6 @@ class InstanceRepr(Repr):
     def initialize_prebuilt_instance(self, value, classdef, result):
         # must fill in the hash cache before the other ones
         # (see test_circular_hash_initialization)
-        self.initialize_prebuilt_hash(value, result)
         self._initialize_data_flattenrec(self.initialize_prebuilt_data,
                                          value, classdef, result)
 
@@ -942,11 +939,6 @@ class InstanceRepr(Repr):
             # OBJECT part
             rclass = getclassrepr(self.rtyper, classdef)
             result.typeptr = rclass.getvtable()
-
-    def initialize_prebuilt_hash(self, value, result):
-        llattrvalue = getattr(value, '__precomputed_identity_hash', None)
-        if llattrvalue is not None:
-            lltype.init_identity_hash(result, llattrvalue)
 
     def getfieldrepr(self, attr):
         """Return the repr used for the given attribute."""
