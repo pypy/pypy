@@ -600,7 +600,7 @@ class TestTypedTestCase(object):
         assert res[2] != compute_hash(c)     # likely
         assert res[3] != compute_hash(d)     # likely *not* preserved
         assert res[4] == compute_hash(("Hi", None, (7.5, 2)))
-        # ^^ true as long as we're using the 'rpython' hash for strings
+        # ^^ true as long as we're using the default 'fnv' hash for strings
         #    and not e.g. siphash24
 
     def _test_hash_string(self, algo):
