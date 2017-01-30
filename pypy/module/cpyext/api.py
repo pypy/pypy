@@ -682,7 +682,7 @@ build_exported_objects()
 
 
 class CpyextTypeSpace(CTypeSpace):
-    def decl(self, cdef):
+    def decl(self, cdef, error=_NOT_SPECIFIED, header=DEFAULT_HEADER):
         def decorate(func):
             return api_func_from_cdef(
                     func, cdef, self, error=error, header=header)
