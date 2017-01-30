@@ -11,7 +11,7 @@ from pypy.module.cpyext.api import (
     CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_NOARGS, METH_O,
     METH_STATIC, METH_VARARGS, PyObject, PyObjectFields, bootstrap_function,
     build_type_checkers, cpython_api, cpython_struct, generic_cpy_call,
-    PyTypeObjectPtr, slot_function, cts, api_decl)
+    PyTypeObjectPtr, slot_function, cts)
 from pypy.module.cpyext.pyobject import (
     Py_DecRef, from_ref, make_ref, as_pyobj, make_typedescr)
 
@@ -282,7 +282,7 @@ W_PyCWrapperObject.typedef.acceptable_as_base_class = False
 def PyCFunction_NewEx(space, ml, w_self, w_name):
     return space.wrap(W_PyCFunctionObject(space, ml, w_self, w_name))
 
-@api_decl("PyCFunction PyCFunction_GetFunction(PyObject *)", cts)
+@cts.decl("PyCFunction PyCFunction_GetFunction(PyObject *)")
 def PyCFunction_GetFunction(space, w_obj):
     try:
         cfunction = space.interp_w(W_PyCFunctionObject, w_obj)
