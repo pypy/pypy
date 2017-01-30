@@ -193,6 +193,7 @@ class FunctionCodeGenerator(object):
 
     def gen_block(self, block):
         if 1:      # (preserve indentation)
+            self._current_block = block
             myblocknum = self.blocknum[block]
             if block in self.inlinable_blocks:
                 # debug comment
@@ -942,7 +943,16 @@ class FunctionCodeGenerator(object):
                 self.expr(op.result))
 
     def OP_CALL_AT_STARTUP(self, op):
-        assert isinstance(op.args[0], Constant)
-        func = self.expr(op.args[0])
+        c = op.args[0]
+        if not isinstance(c, Constant):
+            # Bah, maybe it comes from a same_as(const) just before...
+            # Can occur if running without backendopts
+            for op1 in self._current_block.operations:
+                if op1.result is op.args[0]:
+                    assert op1.opname == "same_as"
+                    c = op1.args[0]
+                    break
+            assert isinstance(c, Constant)
+        func = self.expr(c)
         self.db.call_at_startup.add(func)
         return '/* call_at_startup %s */' % (func,)

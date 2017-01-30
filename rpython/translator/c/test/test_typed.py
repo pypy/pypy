@@ -2,11 +2,6 @@ from __future__ import with_statement
 
 import math
 import sys, os
-
-if __name__ == '__main__':
-    # hack for test_hash_string_siphash24()
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__),
-                                    '..', '..', '..', '..'))
 import py
 
 from rpython.rlib.rstackovf import StackOverflow
@@ -604,8 +599,6 @@ class TestTypedTestCase(object):
         #    and not e.g. siphash24
 
     def _test_hash_string(self, algo):
-        from rpython.rlib import objectmodel
-        objectmodel.set_hash_algorithm(algo)
         s = "hello"
         u = u"world"
         v = u"\u1234\u2318+\u2bcd\u2102"
@@ -616,6 +609,9 @@ class TestTypedTestCase(object):
         assert hash_u == compute_hash("world")    #    a latin-1 unicode
         #
         def fn(length):
+            if algo == "siphash24":
+                from rpython.rlib import rsiphash
+                rsiphash.enable_siphash24()
             assert length >= 1
             return str((compute_hash(s),
                         compute_hash(u),
@@ -630,21 +626,23 @@ class TestTypedTestCase(object):
         f = self.getcompiled(fn, [int])
         res = f(5)
         res = [int(a) for a in res[1:-1].split(",")]
-        assert res[0] == hash_s
-        assert res[1] == hash_u
-        assert res[2] == hash_v
-        assert res[3] == hash_s
-        assert res[4] == hash_u
-        assert res[5] == hash_v
+        if algo == "fnv":
+            assert res[0] == hash_s
+            assert res[1] == hash_u
+            assert res[2] == hash_v
+        else:
+            assert res[0] != hash_s
+            assert res[1] != hash_u
+            assert res[2] != hash_v
+        assert res[3] == res[0]
+        assert res[4] == res[1]
+        assert res[5] == res[2]
 
-    def test_hash_string_rpython(self):
-        self._test_hash_string("rpython")
+    def test_hash_string_fnv(self):
+        self._test_hash_string("fnv")
 
     def test_hash_string_siphash24(self):
-        import subprocess
-        subprocess.check_call([sys.executable, __file__, "siphash24",
-                               self.__class__.__module__,
-                               self.__class__.__name__])
+        self._test_hash_string("siphash24")
 
     def test_list_basic_ops(self):
         def list_basic_ops(i, j):
@@ -945,11 +943,3 @@ class TestTypedTestCase(object):
         f = self.getcompiled(func, [int])
         res = f(2)
         assert res == 1     # and not 2
-
-
-if __name__ == '__main__':
-    # for test_hash_string_siphash24()
-    algo, clsmodule, clsname = sys.argv[1:]
-    mod = __import__(clsmodule, None, None, [clsname])
-    cls = getattr(mod, clsname)
-    cls()._test_hash_string(algo)
