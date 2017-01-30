@@ -547,6 +547,13 @@ class SymtableBuilder(ast.GenericASTVisitor):
         for item in list(consider):
             item.walkabout(self)
         self.pop_scope()
+        # http://bugs.python.org/issue10544: was never fixed in CPython,
+        # but we can at least issue a SyntaxWarning in the meantime
+        if new_scope.is_generator:
+            msg = ("'yield' inside a list or generator comprehension behaves "
+                   "unexpectedly (http://bugs.python.org/issue10544)")
+            misc.syntax_warning(self.space, msg, self.compile_info.filename,
+                                node.lineno, node.col_offset)
 
     def visit_ListComp(self, listcomp):
         self._visit_comprehension(listcomp, listcomp.generators, listcomp.elt)

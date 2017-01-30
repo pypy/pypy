@@ -2,7 +2,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.unicodedata import unicodedb
 from pypy.module.cpyext.api import (
-    CANNOT_FAIL, Py_ssize_t, build_type_checkers, cpython_api, api_decl,
+    CANNOT_FAIL, Py_ssize_t, build_type_checkers, cpython_api,
     bootstrap_function, CONST_STRING,
     CONST_WSTRING, Py_CLEANUP_SUPPORTED, slot_function, cts, parse_dir)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
@@ -256,7 +256,7 @@ def PyUnicode_AsUnicode(space, ref):
         raise oefmt(space.w_TypeError, "expected unicode object")
     return PyUnicode_AS_UNICODE(space, rffi.cast(rffi.VOIDP, ref))
 
-@api_decl("char * PyUnicode_AsUTF8(PyObject *unicode)", cts)
+@cts.decl("char * PyUnicode_AsUTF8(PyObject *unicode)")
 def PyUnicode_AsUTF8(space, ref):
     ref_unicode = rffi.cast(PyUnicodeObject, ref)
     if not get_utf8(ref_unicode):

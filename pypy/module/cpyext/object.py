@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t, Py_ssize_tP,
-    PyVarObject, Py_buffer, size_t, slot_function, api_decl, cts,
+    PyVarObject, Py_buffer, size_t, slot_function, cts,
     PyBUF_FORMAT, PyBUF_ND, PyBUF_STRIDES,
     Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
     Py_GE, CONST_STRING, CONST_STRINGP, FILEP, fwrite)
@@ -248,7 +248,7 @@ def PyObject_Str(space, w_obj):
         return space.wrap("<NULL>")
     return space.str(w_obj)
 
-@api_decl("PyObject * PyObject_Bytes(PyObject *v)", cts)
+@cts.decl("PyObject * PyObject_Bytes(PyObject *v)")
 def PyObject_Bytes(space, w_obj):
     if w_obj is None:
         return space.newbytes("<NULL>")

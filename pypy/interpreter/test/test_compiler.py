@@ -343,6 +343,7 @@ class TestPythonAstCompiler:
             assert ex.match(self.space, self.space.w_SyntaxError)
 
     def test_globals_warnings(self):
+        # also tests some other constructions that give a warning
         space = self.space
         w_mod = space.appexec((), '():\n import warnings\n return warnings\n') #sys.getmodule('warnings')
         w_filterwarnings = space.getattr(w_mod, space.wrap('filterwarnings'))
@@ -364,6 +365,18 @@ def wrong3():
     print x
     x = 2
     global x
+''', '''
+def wrong_listcomp():
+    return [(yield 42) for i in j]
+''', '''
+def wrong_gencomp():
+    return ((yield 42) for i in j)
+''', '''
+def wrong_dictcomp():
+    return {(yield 42):2 for i in j}
+''', '''
+def wrong_setcomp():
+    return {(yield 42) for i in j}
 '''):
 
             space.call_args(w_filterwarnings, filter_arg)
