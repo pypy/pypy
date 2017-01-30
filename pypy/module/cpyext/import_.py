@@ -1,6 +1,5 @@
 from pypy.module.cpyext.api import (
-    cpython_api, PyObject, CONST_STRING, CANNOT_FAIL,
-    cts, api_decl)
+    cpython_api, PyObject, CONST_STRING, CANNOT_FAIL, cts)
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.module import Module
@@ -51,10 +50,10 @@ def PyImport_ImportModuleNoBlock(space, name):
     return PyImport_Import(space, space.wrap(rffi.charp2str(name)))
 
 
-@api_decl(
+@cts.decl(
     '''PyObject* PyImport_ImportModuleLevelObject(
         PyObject *name, PyObject *given_globals, PyObject *locals,
-        PyObject *given_fromlist, int level)''', cts)
+        PyObject *given_fromlist, int level)''')
 def PyImport_ImportModuleLevelObject(space, w_name, w_glob, w_loc, w_fromlist, level):
     level = rffi.cast(lltype.Signed, level)
     if w_glob is None:
