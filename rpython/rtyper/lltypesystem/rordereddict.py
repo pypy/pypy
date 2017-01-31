@@ -523,6 +523,7 @@ def ll_clear_indexes(d, n):
 
 @jit.dont_look_inside
 def ll_call_insert_clean_function(d, hash, i):
+    assert i >= 0
     fun = d.lookup_function_no & FUNC_MASK
     if fun == FUNC_BYTE:
         ll_dict_store_clean(d, hash, i, TYPE_BYTE)
