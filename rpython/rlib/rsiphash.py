@@ -88,7 +88,7 @@ def initialize_from_env():
         except Exception as e:
             os.write(2,
                 "%s: failed to get random numbers to initialize Python\n" %
-                (e.__class__.__name__,))
+                (str(e),))
             os._exit(1)
             raise   # makes the annotator happy
     select_random_seed(s)
