@@ -2127,6 +2127,12 @@ def nice(space, increment):
         raise wrap_oserror(space, e, eintr_retry=False)
     return space.wrap(res)
 
+class SigCheck:
+    pass
+_sigcheck = SigCheck()
+def _signal_checker():
+    _sigcheck.space.getexecutioncontext().checksignals()
+
 @unwrap_spec(size=int)
 def urandom(space, size):
     """urandom(size) -> str
@@ -2134,9 +2140,12 @@ def urandom(space, size):
     Return a string of 'size' random bytes suitable for cryptographic use.
     """
     context = get(space).random_context
-    signal_checker = space.getexecutioncontext().checksignals
     try:
-        return space.newbytes(rurandom.urandom(context, n, signal_checker))
+        # urandom() takes a final argument that should be a regular function,
+        # not a bound method like 'getexecutioncontext().checksignals'.
+        # Otherwise, we can't use it from several independent places.
+        _sigcheck.space = space
+        return space.newbytes(rurandom.urandom(context, n, _signal_checker))
     except OSError as e:
         # 'rurandom' should catch and retry internally if it gets EINTR
         # (at least in os.read(), which is probably enough in practice)

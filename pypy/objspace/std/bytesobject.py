@@ -3,7 +3,7 @@
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin, newlist_hint,
-    resizelist_hint, HASH_ALGORITHM)
+    resizelist_hint)
 from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.rstring import StringBuilder
 

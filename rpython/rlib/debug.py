@@ -441,7 +441,7 @@ static void pypy__allow_attach(void) {
             except OSError as e:
                 os.write(2, "Could not start GDB: %s" % (
                     os.strerror(e.errno)))
-                raise SystemExit
+                os._exit(1)
         else:
             time.sleep(1)  # give the GDB time to attach
 

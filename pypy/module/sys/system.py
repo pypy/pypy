@@ -5,7 +5,6 @@ import os
 from pypy.objspace.std.complexobject import HASH_IMAG
 from pypy.objspace.std.floatobject import HASH_INF, HASH_NAN
 from pypy.objspace.std.intobject import HASH_MODULUS
-from pypy.objspace.std.bytesobject import HASH_ALGORITHM
 from pypy.interpreter import gateway
 from rpython.rlib import rbigint, rfloat
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -79,11 +78,22 @@ def get_int_info(space):
     return space.call_function(w_int_info, space.newtuple(info_w))
 
 def get_hash_info(space):
-    HASH_HASH_BITS = 8 * rffi.sizeof(lltype.Signed)
-    HASH_SEED_BITS = 0    # XXX don't know what this is supposed to be
+    HASH_ALGORITHM = space.config.objspace.hash
+    if space.config.objspace.hash == "fnv":
+        HASH_HASH_BITS = 8 * rffi.sizeof(lltype.Signed)
+        HASH_SEED_BITS = 0
+        #   CPython has  ^ > 0  here, but the seed of "fnv" is of limited
+        #   use, so we don't implement it
+    elif space.config.objspace.hash == "siphash24":
+        HASH_HASH_BITS = 64
+        HASH_SEED_BITS = 128
+    else:
+        assert 0, "please add the parameters for this different hash function"
+
+    HASH_WIDTH = 8 * rffi.sizeof(lltype.Signed)
     HASH_CUTOFF = 0
     info_w = [
-        space.wrap(8 * rffi.sizeof(lltype.Signed)),
+        space.wrap(HASH_WIDTH),
         space.wrap(HASH_MODULUS),
         space.wrap(HASH_INF),
         space.wrap(HASH_NAN),

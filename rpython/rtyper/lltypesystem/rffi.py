@@ -829,7 +829,7 @@ def make_string_mappings(strtype):
         return assert_str0(charpsize2str(cp, size))
     charp2str._annenforceargs_ = [lltype.SomePtr(TYPEP)]
 
-    # str -> char*, bool, bool
+    # str -> char*, flag
     # Can't inline this because of the raw address manipulation.
     @jit.dont_look_inside
     def get_nonmovingbuffer(data):

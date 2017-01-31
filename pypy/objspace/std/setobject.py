@@ -563,6 +563,11 @@ set_typedef = W_SetObject.typedef
 class W_FrozensetObject(W_BaseSetObject):
     hash = 0
 
+    def _cleanup_(self):
+        # in case there are frozenset objects existing during
+        # translation, make sure we don't translate a cached hash
+        self.hash = 0
+
     def is_w(self, space, w_other):
         if not isinstance(w_other, W_FrozensetObject):
             return False
