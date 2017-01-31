@@ -134,3 +134,12 @@ classes by enforcing an order of instaniation.
 rffi structures in cpyext can now be created by parsing simple C headers.
 Additionally, the cts object that holds the parsed information can act like
 cffi's ffi objects, with the methods cts.cast() and cts.gettype().
+
+.. branch: rpython-hash
+
+Don't freeze hashes in the translated pypy.  In practice, that means
+that we can now translate PyPy with the option --hash=siphash24 and get
+the same hashes as CPython 3.5, which can be randomized (in a
+crypographically good way).  It is the default in PyPy3.  The default of
+PyPy2 remains unchanged: there are user programs out there that depend
+on constant hashes (or even sometimes on specific hash results).
