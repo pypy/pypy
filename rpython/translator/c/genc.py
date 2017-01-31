@@ -156,6 +156,10 @@ class CBuilder(object):
         for obj in exports.EXPORTS_obj2name.keys():
             db.getcontainernode(obj)
         exports.clear()
+
+        for ll_func in db.translator._call_at_startup:
+            db.get(ll_func)
+
         db.complete()
 
         self.collect_compilation_info(db)
@@ -822,8 +826,8 @@ def gen_startupcode(f, database):
             for line in lines:
                 print >> f, '\t'+line
 
-    for extra in database.call_at_startup:
-        print >> f, '\t%s();\t/* call_at_startup */' % (extra,)
+    for ll_init in database.translator._call_at_startup:
+        print >> f, '\t%s();\t/* call_at_startup */' % (database.get(ll_init),)
 
     print >> f, '}'
 

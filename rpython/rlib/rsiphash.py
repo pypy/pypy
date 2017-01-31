@@ -59,8 +59,8 @@ def initialize_from_env():
     # This uses the same algorithms as CPython 3.5.  The environment
     # variable we read also defaults to "PYTHONHASHSEED".  If needed,
     # a different RPython interpreter can patch the value of the
-    # global variable 'env_var_name', or just pass a different init
-    # function to enable_siphash24().
+    # global variable 'env_var_name', or just patch the whole
+    # initialize_from_env() function.
     value = os.environ.get(env_var_name)
     if value and value != "random":
         with rffi.scoped_view_charp(value) as ptr:
@@ -74,8 +74,8 @@ def initialize_from_env():
             seed == lltype.cast_primitive(lltype.Unsigned,
                                           rffi.cast(rffi.ULONG, -1))):
             os.write(2,
-                "PYTHONHASHSEED must be \"random\" or an integer "
-                "in range [0; 4294967295]\n")
+                "%s must be \"random\" or an integer "
+                "in range [0; 4294967295]\n" % (env_var_name,))
             os._exit(1)
         if not seed:
             # disable the randomized hash
@@ -104,28 +104,16 @@ def lcg_urandom(x):
 
 _FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
-def enable_siphash24(*init):
+def enable_siphash24():
     """
     Enable the use of siphash-2-4 for all RPython strings and unicodes
     in the translated program.  You must call this function anywhere
-    from your interpreter (from a place that is annotated).  Optionally,
-    you can pass a function to call to initialize the state; the default
-    is 'initialize_from_env' above.  Don't call this more than once.
+    from your interpreter (from a place that is annotated).  Don't call
+    more than once.
     """
-    _internal_enable_siphash24()
-    if init:
-        (init_func,) = init
-    else:
-        init_func = initialize_from_env
-    if NonConstant(0):
-        init_func()   # pre-annotate it
-    llop.call_at_startup(lltype.Void, llhelper(_FUNC, init_func))
-
-def _internal_enable_siphash24():
-    pass
 
 class Entry(ExtRegistryEntry):
-    _about_ = _internal_enable_siphash24
+    _about_ = enable_siphash24
 
     def compute_result_annotation(self):
         translator = self.bookkeeper.annotator.translator
@@ -133,9 +121,19 @@ class Entry(ExtRegistryEntry):
             assert translator.ll_hash_string == ll_hash_string_siphash24
         else:
             translator.ll_hash_string = ll_hash_string_siphash24
+        bk = self.bookkeeper
+        s_callable = bk.immutablevalue(initialize_from_env)
+        key = (enable_siphash24,)
+        bk.emulate_pbc_call(key, s_callable, [])
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
+        bk = hop.rtyper.annotator.bookkeeper
+        s_callable = bk.immutablevalue(initialize_from_env)
+        r_callable = hop.rtyper.getrepr(s_callable)
+        ll_init = r_callable.get_unique_llfn().value
+        bk.annotator.translator._call_at_startup.append(ll_init)
+
 
 @rgc.no_collect
 def ll_hash_string_siphash24(ll_s):
