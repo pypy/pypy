@@ -384,6 +384,7 @@ class LLHelpers(AbstractLLHelpers):
 
     @staticmethod
     @dont_inline
+    @jit.dont_look_inside
     def _ll_strhash(s):
         # unlike CPython, there is no reason to avoid to return -1
         # but our malloc initializes the memory to zero, so we use zero as the
