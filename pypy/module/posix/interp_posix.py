@@ -1324,6 +1324,12 @@ def nice(space, inc):
         raise wrap_oserror(space, e)
     return space.wrap(res)
 
+class SigCheck:
+    pass
+_sigcheck = SigCheck()
+def _signal_checker():
+    _sigcheck.space.getexecutioncontext().checksignals()
+
 @unwrap_spec(n=int)
 def urandom(space, n):
     """urandom(n) -> str
@@ -1331,9 +1337,12 @@ def urandom(space, n):
     Return a string of n random bytes suitable for cryptographic use.
     """
     context = get(space).random_context
-    signal_checker = space.getexecutioncontext().checksignals
     try:
-        return space.wrap(rurandom.urandom(context, n, signal_checker))
+        # urandom() takes a final argument that should be a regular function,
+        # not a bound method like 'getexecutioncontext().checksignals'.
+        # Otherwise, we can't use it from several independent places.
+        _sigcheck.space = space
+        return space.wrap(rurandom.urandom(context, n, _signal_checker))
     except OSError as e:
         raise wrap_oserror(space, e)
 

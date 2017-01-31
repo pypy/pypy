@@ -166,7 +166,6 @@ def test_compute_hash():
     foo = Foo()
     h = compute_hash(foo)
     assert h == object.__hash__(foo)
-    assert h == getattr(foo, '__precomputed_identity_hash')
     assert compute_hash(None) == 0
 
 def test_compute_hash_float():
@@ -182,7 +181,6 @@ def test_compute_identity_hash():
     foo = Foo()
     h = compute_identity_hash(foo)
     assert h == object.__hash__(foo)
-    assert h == getattr(foo, '__precomputed_identity_hash')
 
 def test_compute_unique_id():
     from rpython.rlib.rarithmetic import intmask
@@ -409,36 +407,6 @@ class TestObjectModel(BaseRtypingTest):
 
         res = self.interpret(f, [])
         assert res == 1
-
-    def test_compute_hash_across_translation(self):
-        class Foo(object):
-            pass
-        q = Foo()
-
-        def f(i):
-            assert compute_hash(None) == 0
-            assert compute_hash(i) == h_42
-            assert compute_hash(i + 1.0) == h_43_dot_0
-            assert compute_hash((i + 3) / 6.0) == h_7_dot_5
-            assert compute_hash("Hello" + str(i)) == h_Hello42
-            if i == 42:
-                p = None
-            else:
-                p = Foo()
-            assert compute_hash(p) == h_None
-            assert compute_hash(("world", None, i, 7.5)) == h_tuple
-            assert compute_hash(q) == h_q
-            return i * 2
-        h_42 = compute_hash(42)
-        h_43_dot_0 = compute_hash(43.0)
-        h_7_dot_5 = compute_hash(7.5)
-        h_Hello42 = compute_hash("Hello42")
-        h_None = compute_hash(None)
-        h_tuple = compute_hash(("world", None, 42, 7.5))
-        h_q = compute_hash(q)
-
-        res = self.interpret(f, [42])
-        assert res == 84
 
     def test_fetch_translated_config(self):
         assert fetch_translated_config() is None

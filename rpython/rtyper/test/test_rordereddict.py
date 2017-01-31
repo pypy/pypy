@@ -196,19 +196,23 @@ class TestRDictDirect(object):
         num = rordereddict._ll_dictnext(ll_iter)
         ll_key = ll_d.entries[num].key
         assert hlstr(ll_key) == "j"
-        assert ll_d.lookup_function_no == 4    # 1 free item found at the start
+        assert ll_d.lookup_function_no == (   # 1 free item found at the start
+            (1 << rordereddict.FUNC_SHIFT) | rordereddict.FUNC_BYTE)
         rordereddict.ll_dict_delitem(ll_d, llstr("j"))
         assert ll_d.num_ever_used_items == 0
-        assert ll_d.lookup_function_no == 0    # reset
+        assert ll_d.lookup_function_no == rordereddict.FUNC_BYTE   # reset
 
-    def test_direct_enter_and_del(self):
+    def _get_int_dict(self):
         def eq(a, b):
             return a == b
 
-        DICT = rordereddict.get_ll_dict(lltype.Signed, lltype.Signed,
+        return rordereddict.get_ll_dict(lltype.Signed, lltype.Signed,
                                  ll_fasthash_function=intmask,
                                  ll_hash_function=intmask,
                                  ll_eq_function=eq)
+
+    def test_direct_enter_and_del(self):
+        DICT = self._get_int_dict()
         ll_d = rordereddict.ll_newdict(DICT)
         numbers = [i * rordereddict.DICT_INITSIZE + 1 for i in range(8)]
         for num in numbers:
@@ -302,6 +306,38 @@ class TestRDictDirect(object):
         rordereddict.ll_prepare_dict_update(ll_d, 7)
         # used to get UninitializedMemoryAccess
 
+    def test_bug_resize_counter(self):
+        DICT = self._get_int_dict()
+        ll_d = rordereddict.ll_newdict(DICT)
+        rordereddict.ll_dict_setitem(ll_d, 0, 0)
+        rordereddict.ll_dict_delitem(ll_d, 0)
+        rordereddict.ll_dict_setitem(ll_d, 0, 0)
+        rordereddict.ll_dict_delitem(ll_d, 0)
+        rordereddict.ll_dict_setitem(ll_d, 0, 0)
+        rordereddict.ll_dict_delitem(ll_d, 0)
+        rordereddict.ll_dict_setitem(ll_d, 0, 0)
+        rordereddict.ll_dict_delitem(ll_d, 0)
+        rordereddict.ll_dict_setitem(ll_d, 1, 0)
+        rordereddict.ll_dict_setitem(ll_d, 0, 0)
+        rordereddict.ll_dict_setitem(ll_d, 2, 0)
+        rordereddict.ll_dict_delitem(ll_d, 1)
+        rordereddict.ll_dict_delitem(ll_d, 0)
+        rordereddict.ll_dict_delitem(ll_d, 2)
+        rordereddict.ll_dict_setitem(ll_d, 0, 0)
+        rordereddict.ll_dict_delitem(ll_d, 0)
+        rordereddict.ll_dict_setitem(ll_d, 0, 0)
+        rordereddict.ll_dict_delitem(ll_d, 0)
+        rordereddict.ll_dict_setitem(ll_d, 0, 0)
+        rordereddict.ll_dict_setitem(ll_d, 1, 0)
+        d = ll_d
+        idx = d.indexes._obj.container
+        num_nonfrees = 0
+        for i in range(idx.getlength()):
+            got = idx.getitem(i)   # 0: unused; 1: deleted
+            num_nonfrees += (got > 0)
+        assert d.resize_counter <= idx.getlength() * 2 - num_nonfrees * 3
+
+
 class TestRDictDirectDummyKey(TestRDictDirect):
     class dummykeyobj:
         ll_dummy_value = llstr("dupa")
@@ -344,6 +380,7 @@ class ODictSpace(MappingSpace):
     ll_contains = staticmethod(rodct.ll_dict_contains)
     ll_copy = staticmethod(rodct.ll_dict_copy)
     ll_clear = staticmethod(rodct.ll_dict_clear)
+    ll_popitem = staticmethod(rodct.ll_dict_popitem)
 
     def newdict(self, repr):
         return rodct.ll_newdict(repr.DICT)
@@ -362,6 +399,27 @@ class ODictSpace(MappingSpace):
                 break
         return keys_ll
 
+    def popitem(self):
+        # overridden to check that we're getting the most recent key,
+        # not a random one
+        try:
+            ll_tuple = self.ll_popitem(self.TUPLE, self.l_dict)
+        except KeyError:
+            assert len(self.reference) == 0
+        else:
+            ll_key = ll_tuple.item0
+            ll_value = ll_tuple.item1
+            key, value = self.reference.popitem()
+            assert self.ll_key(key) == ll_key
+            assert self.ll_value(value) == ll_value
+            self.removed_keys.append(key)
+
+    def removeindex(self):
+        # remove the index, as done during translation for prebuilt dicts
+        # (but cannot be done if we already removed a key)
+        if not self.removed_keys:
+            rodct.ll_no_initial_index(self.l_dict)
+
     def fullcheck(self):
         # overridden to also check key order
         assert self.ll_len(self.l_dict) == len(self.reference)
@@ -371,6 +429,35 @@ class ODictSpace(MappingSpace):
             assert self.ll_key(key) == ll_key
             assert (self.ll_getitem(self.l_dict, self.ll_key(key)) ==
                 self.ll_value(self.reference[key]))
+        for key in self.removed_keys:
+            if key not in self.reference:
+                try:
+                    self.ll_getitem(self.l_dict, self.ll_key(key))
+                except KeyError:
+                    pass
+                else:
+                    raise AssertionError("removed key still shows up")
+        # check some internal invariants
+        d = self.l_dict
+        num_lives = 0
+        for i in range(d.num_ever_used_items):
+            if d.entries.valid(i):
+                num_lives += 1
+        assert num_lives == d.num_live_items
+        fun = d.lookup_function_no & rordereddict.FUNC_MASK
+        if fun == rordereddict.FUNC_MUST_REINDEX:
+            assert not d.indexes
+        else:
+            assert d.indexes
+            idx = d.indexes._obj.container
+            num_lives = 0
+            num_nonfrees = 0
+            for i in range(idx.getlength()):
+                got = idx.getitem(i)   # 0: unused; 1: deleted
+                num_nonfrees += (got > 0)
+                num_lives += (got > 1)
+            assert num_lives == d.num_live_items
+            assert 0 < d.resize_counter <= idx.getlength()*2 - num_nonfrees*3
 
 
 class ODictSM(MappingSM):

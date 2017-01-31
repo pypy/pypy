@@ -465,8 +465,14 @@ def compute_hash(x):
 
     Note that this can return 0 or -1 too.
 
-    It returns the same number, both before and after translation.
-    Dictionaries don't need to be rehashed after translation.
+    NOTE: It returns a different number before and after translation!
+    Dictionaries will be rehashed when the translated program starts.
+    Be careful about other places that store or depend on a hash value:
+    if such a place can exist before translation, you should add for
+    example a _cleanup_() method to clear this cache during translation.
+
+    (Nowadays we could completely remove compute_hash() and decide that
+    hash(x) is valid RPython instead, at least for the types listed here.)
     """
     if isinstance(x, (str, unicode)):
         return _hash_string(x)
@@ -484,17 +490,11 @@ def compute_identity_hash(x):
     """RPython equivalent of object.__hash__(x).  This returns the
     so-called 'identity hash', which is the non-overridable default hash
     of Python.  Can be called for any RPython-level object that turns
-    into a GC object, but not NULL.  The value is not guaranteed to be the
-    same before and after translation, except for RPython instances on the
-    lltypesystem.
+    into a GC object, but not NULL.  The value will be different before
+    and after translation (WARNING: this is a change with older RPythons!)
     """
     assert x is not None
-    result = object.__hash__(x)
-    try:
-        x.__dict__['__precomputed_identity_hash'] = result
-    except (TypeError, AttributeError):
-        pass
-    return result
+    return object.__hash__(x)
 
 def compute_unique_id(x):
     """RPython equivalent of id(x).  The 'x' must be an RPython-level
@@ -519,21 +519,17 @@ def current_object_addr_as_int(x):
 
 # ----------
 
-HASH_ALGORITHM = "rpython"  # XXX Is there a better name?
-HASH_ALGORITHM_FIXED = False
+def _hash_string(s):
+    """The default algorithm behind compute_hash() for a string or a unicode.
+    This is a modified Fowler-Noll-Vo (FNV) hash.  According to Wikipedia,
+    FNV needs carefully-computed constants called FNV primes and FNV offset
+    basis, which are absent from the present algorithm.  Nevertheless,
+    this matches CPython 2.7 without -R, which has proven a good hash in
+    practice (even if not crypographical nor randomizable).
 
-@not_rpython
-def set_hash_algorithm(algo):
-    """Must be called very early, before any string is hashed with
-    compute_hash()!"""
-    global HASH_ALGORITHM
-    if HASH_ALGORITHM != algo:
-        assert not HASH_ALGORITHM_FIXED, "compute_hash() already called!"
-        assert algo in ("rpython", "siphash24")
-        HASH_ALGORITHM = algo
-
-
-def _hash_string_rpython(s):
+    There is a mechanism to use another one in programs after translation.
+    See rsiphash.py, which implements the algorithm of CPython >= 3.4.
+    """
     from rpython.rlib.rarithmetic import intmask
 
     length = len(s)
@@ -547,100 +543,8 @@ def _hash_string_rpython(s):
     x ^= length
     return intmask(x)
 
-
-@not_rpython
-def _hash_string_siphash24(s):
-    """This version is called when untranslated only."""
-    import array
-    from rpython.rlib.rsiphash import siphash24
-    from rpython.rtyper.lltypesystem import lltype, rffi
-    from rpython.rlib.rarithmetic import intmask
-
-    if not isinstance(s, str):
-        if isinstance(s, unicode):
-            lst = map(ord, s)
-        else:
-            lst = map(ord, s.chars)    # for rstr.STR or UNICODE
-        # NOTE: a latin-1 unicode string must have the same hash as the
-        # corresponding byte string.
-        if all(n <= 0xFF for n in lst):
-            kind = "B"
-        elif rffi.sizeof(lltype.UniChar) == 4:
-            kind = "I"
-        else:
-            kind = "H"
-        s = array.array(kind, lst).tostring()
-    ptr = rffi.str2charp(s)
-    x = siphash24(ptr, len(s))
-    rffi.free_charp(ptr)
-    return intmask(x)
-
-def ll_hash_string_siphash24(ll_s):
-    """Called from lltypesystem/rstr.py.  'll_s' is a rstr.STR or UNICODE."""
-    from rpython.rlib.rsiphash import siphash24
-    from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
-    from rpython.rlib.rarithmetic import intmask
-
-    length = len(ll_s.chars)
-    if lltype.typeOf(ll_s).TO.chars.OF == lltype.Char:
-        # no GC operation from here!
-        addr = rstr._get_raw_buf_string(rstr.STR, ll_s, 0)
-    else:
-        # NOTE: a latin-1 unicode string must have the same hash as the
-        # corresponding byte string.  If the unicode is all within
-        # 0-255, then we need to allocate a byte buffer and copy the
-        # latin-1 encoding in it manually.
-        for i in range(length):
-            if ord(ll_s.chars[i]) > 0xFF:
-                # no GC operation from here!
-                addr = rstr._get_raw_buf_unicode(rstr.UNICODE, ll_s, 0)
-                length *= rffi.sizeof(rstr.UNICODE.chars.OF)
-                break
-        else:
-            p = lltype.malloc(rffi.CCHARP.TO, length, flavor='raw')
-            i = 0
-            while i < length:
-                p[i] = chr(ord(ll_s.chars[i]))
-                i += 1
-            x = siphash24(llmemory.cast_ptr_to_adr(p), length)
-            lltype.free(p, flavor='raw')
-            return intmask(x)
-    x = siphash24(addr, length)
-    keepalive_until_here(ll_s)
-    return intmask(x)
-ll_hash_string_siphash24._jit_look_inside_ = False
-
-
-@not_rpython
-def _hash_string(s):
-    """The algorithm behind compute_hash() for a string or a unicode.
-    This version is only for untranslated usage, and 's' is a str or unicode.
-    """
-    global HASH_ALGORITHM_FIXED
-    HASH_ALGORITHM_FIXED = True
-    if HASH_ALGORITHM == "rpython":
-        return _hash_string_rpython(s)
-    if HASH_ALGORITHM == "siphash24":
-        return _hash_string_siphash24(s)
-    raise NotImplementedError
-
 def ll_hash_string(ll_s):
-    """The algorithm behind compute_hash() for a string or a unicode.
-    This version is called from lltypesystem/rstr.py, and 'll_s' is a
-    rstr.STR or rstr.UNICODE.
-    """
-    if not we_are_translated():
-        global HASH_ALGORITHM_FIXED
-        HASH_ALGORITHM_FIXED = True
-    if HASH_ALGORITHM == "rpython":
-        return _hash_string_rpython(ll_s.chars)
-    if HASH_ALGORITHM == "siphash24":
-        if we_are_translated():
-            return ll_hash_string_siphash24(ll_s)
-        else:
-            return _hash_string_siphash24(ll_s)
-    raise NotImplementedError
-
+    return _hash_string(ll_s.chars)
 
 def _hash_float(f):
     """The algorithm behind compute_hash() for a float.
@@ -696,6 +600,21 @@ class Entry(ExtRegistryEntry):
         ll_fn = r_obj.get_ll_hash_function()
         hop.exception_is_here()
         return hop.gendirectcall(ll_fn, v_obj)
+
+class Entry(ExtRegistryEntry):
+    _about_ = ll_hash_string
+    # this is only used when annotating the code in rstr.py, and so
+    # it always occurs after the RPython program signalled its intent
+    # to use a different hash.  The code below overwrites the use of
+    # ll_hash_string() to make the annotator think a possibly different
+    # function was called.
+
+    def compute_annotation(self):
+        from rpython.annotator import model as annmodel
+        bk = self.bookkeeper
+        translator = bk.annotator.translator
+        fn = getattr(translator, 'll_hash_string', ll_hash_string)
+        return annmodel.SomePBC([bk.getdesc(fn)])
 
 class Entry(ExtRegistryEntry):
     _about_ = compute_identity_hash

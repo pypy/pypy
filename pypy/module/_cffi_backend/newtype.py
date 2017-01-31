@@ -23,13 +23,34 @@ alignment_of_pointer = alignment(rffi.CCHARP)
 # ____________________________________________________________
 
 class UniqueCache:
+    for_testing = False    # set to True on the class level in test_c.py
+
     def __init__(self, space):
         self.ctvoid = None      # Cache for the 'void' type
         self.ctvoidp = None     # Cache for the 'void *' type
         self.ctchara = None     # Cache for the 'char[]' type
         self.primitives = {}    # Cache for {name: primitive_type}
         self.functions = []     # see _new_function_type()
-        self.for_testing = False
+        self.functions_packed = None     # only across translation
+
+    def _cleanup_(self):
+        import gc
+        assert self.functions_packed is None
+        # Note: a full PyPy translation may still have
+        # 'self.functions == []' at this point, possibly depending
+        # on details.  Code tested directly in test_ffi_obj
+        gc.collect()
+        funcs = []
+        for weakdict in self.functions:
+            funcs += weakdict._dict.values()
+        del self.functions[:]
+        self.functions_packed = funcs if len(funcs) > 0 else None
+
+    def unpack_functions(self):
+        for fct in self.functions_packed:
+            _record_function_type(self, fct)
+        self.functions_packed = None
+
 
 def _clean_cache(space):
     "NOT_RPYTHON"
@@ -622,7 +643,7 @@ def _func_key_hash(unique_cache, fargs, fresult, ellipsis, abi):
     for w_arg in fargs:
         y = compute_identity_hash(w_arg)
         x = intmask((1000003 * x) ^ y)
-    x ^= (ellipsis - abi)
+    x ^= ellipsis + 2 * abi
     if unique_cache.for_testing:    # constant-folded to False in translation;
         x &= 3                      # but for test, keep only 2 bits of hash
     return x
@@ -646,6 +667,8 @@ def _get_function_type(space, fargs, fresult, ellipsis, abi):
     # one such dict, but in case of hash collision, there might be
     # more.
     unique_cache = space.fromcache(UniqueCache)
+    if unique_cache.functions_packed is not None:
+        unique_cache.unpack_functions()
     func_hash = _func_key_hash(unique_cache, fargs, fresult, ellipsis, abi)
     for weakdict in unique_cache.functions:
         ctype = weakdict.get(func_hash)
@@ -674,13 +697,18 @@ def _build_function_type(space, fargs, fresult, ellipsis, abi):
     #
     fct = ctypefunc.W_CTypeFunc(space, fargs, fresult, ellipsis, abi)
     unique_cache = space.fromcache(UniqueCache)
-    func_hash = _func_key_hash(unique_cache, fargs, fresult, ellipsis, abi)
+    _record_function_type(unique_cache, fct)
+    return fct
+
+def _record_function_type(unique_cache, fct):
+    from pypy.module._cffi_backend import ctypefunc
+    #
+    func_hash = _func_key_hash(unique_cache, fct.fargs, fct.ctitem,
+                               fct.ellipsis, fct.abi)
     for weakdict in unique_cache.functions:
         if weakdict.get(func_hash) is None:
-            weakdict.set(func_hash, fct)
             break
     else:
         weakdict = rweakref.RWeakValueDictionary(int, ctypefunc.W_CTypeFunc)
         unique_cache.functions.append(weakdict)
-        weakdict.set(func_hash, fct)
-    return fct
+    weakdict.set(func_hash, fct)

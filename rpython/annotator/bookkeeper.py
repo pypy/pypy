@@ -287,7 +287,7 @@ class Bookkeeper(object):
                     for ek, ev in items:
                         result.dictdef.generalize_key(self.immutablevalue(ek))
                         result.dictdef.generalize_value(self.immutablevalue(ev))
-                        result.dictdef.seen_prebuilt_key(ek)
+                        #dictdef.seen_prebuilt_key(ek)---not needed any more
                     seen_elements = len(items)
                     # if the dictionary grew during the iteration,
                     # start over again
