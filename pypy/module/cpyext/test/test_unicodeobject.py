@@ -226,13 +226,11 @@ class TestUnicode(BaseApiTest):
 
     def test_AS(self, space):
         word = space.wrap(u'spam')
-        array = rffi.cast(rffi.CWCHARP, PyUnicode_AS_DATA(space, word))
-        array2 = PyUnicode_AS_UNICODE(space, word)
-        array3 = PyUnicode_AsUnicode(space, word)
+        array = rffi.cast(rffi.CWCHARP, PyUnicode_AsUnicode(space, word))
+        array2 = PyUnicode_AsUnicode(space, word)
         for (i, char) in enumerate(space.unwrap(word)):
             assert array[i] == char
             assert array2[i] == char
-            assert array3[i] == char
         with raises_w(space, TypeError):
             PyUnicode_AsUnicode(space, space.newbytes('spam'))
 
@@ -625,7 +623,7 @@ class TestUnicode(BaseApiTest):
         count1 = space.int_w(space.len(w_x))
         target_chunk = lltype.malloc(rffi.CWCHARP.TO, count1, flavor='raw')
 
-        x_chunk = PyUnicode_AS_UNICODE(space, w_x)
+        x_chunk = PyUnicode_AsUnicode(space, w_x)
         Py_UNICODE_COPY(space, target_chunk, x_chunk, 4)
         w_y = space.wrap(rffi.wcharpsize2unicode(target_chunk, 4))
 

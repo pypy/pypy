@@ -7,6 +7,20 @@ extern "C" {
 
 #include <cpyext_unicodeobject.h>
 
+/* Alias for PyUnicode_AsUnicode().  This will create a wchar_t/Py_UNICODE
+   representation on demand.  Using this macro is very inefficient now,
+   try to port your code to use the new PyUnicode_*BYTE_DATA() macros or
+   use PyUnicode_WRITE() and PyUnicode_READ(). */
+
+#define PyUnicode_AS_UNICODE(op) \
+    (assert(PyUnicode_Check(op)), \
+     (((PyASCIIObject *)(op))->wstr) ? (((PyASCIIObject *)(op))->wstr) : \
+      PyUnicode_AsUnicode((PyObject *)(op)))
+
+#define PyUnicode_AS_DATA(op) \
+    ((const char *)(PyUnicode_AS_UNICODE(op)))
+
+
 PyAPI_FUNC(PyObject *) PyUnicode_FromFormatV(const char *format, va_list vargs);
 PyAPI_FUNC(PyObject *) PyUnicode_FromFormat(const char *format, ...);
 
