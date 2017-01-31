@@ -644,6 +644,25 @@ class TestTypedTestCase(object):
     def test_hash_string_siphash24(self):
         self._test_hash_string("siphash24")
 
+    def test_iterkeys_with_hash_on_prebuilt_dict(self):
+        from rpython.rlib import objectmodel
+        prebuilt_d = {"hello": 10, "world": 20}
+        #
+        def fn(n):
+            from rpython.rlib import rsiphash
+            rsiphash.enable_siphash24()
+            #assert str(n) not in prebuilt_d <- this made the test pass,
+            #       before the fix which was that iterkeys_with_hash()
+            #       didn't do the initial rehashing on its own
+            for key, h in objectmodel.iterkeys_with_hash(prebuilt_d):
+                print key, h
+                assert h == compute_hash(key)
+            return 42
+
+        f = self.getcompiled(fn, [int])
+        res = f(0)
+        assert res == 42
+
     def test_list_basic_ops(self):
         def list_basic_ops(i, j):
             l = [1, 2, 3]
