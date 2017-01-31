@@ -311,6 +311,7 @@ def _PyUnicode_Ready(space, w_obj):
             set_utf8(py_obj, 0)
             set_utf8_len(py_obj, 0)
     elif maxchar < 65536:
+        # XXX: assumes that sizeof(wchar_t) == 4
         ucs2_str = unicode_encode_utf_16(
             w_obj._value, len(w_obj._value), errors='strict')
         ucs2_data = cts.cast('Py_UCS2 *', rffi.str2charp(ucs2_str))
@@ -320,6 +321,7 @@ def _PyUnicode_Ready(space, w_obj):
         set_utf8(py_obj, 0)
         set_utf8_len(py_obj, 0)
     else:
+        # XXX: assumes that sizeof(wchar_t) == 4
         ucs4_data = get_wbuffer(py_obj)
         set_data(py_obj, ucs4_data)
         set_len(py_obj, get_wsize(py_obj))
@@ -331,7 +333,15 @@ def _PyUnicode_Ready(space, w_obj):
 @cpython_api([rffi.VOIDP], rffi.CWCHARP, error=CANNOT_FAIL)
 def PyUnicode_AS_UNICODE(space, ref):
     """Return a pointer to the internal Py_UNICODE buffer of the object.  ref
-    has to be a PyUnicodeObject (not checked)."""
+    has to be a PyUnicodeObject (not checked).
+
+    CPython description:
+
+    Alias for PyUnicode_AsUnicode().  This will create a wchar_t/Py_UNICODE
+    representation on demand.  Using this macro is very inefficient now,
+    try to port your code to use the new PyUnicode_*BYTE_DATA() macros or
+    use PyUnicode_WRITE() and PyUnicode_READ().
+    """
     if not get_wbuffer(ref):
         # Copy unicode buffer
         w_unicode = from_ref(space, rffi.cast(PyObject, ref))
