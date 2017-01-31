@@ -9,6 +9,7 @@ from pypy.module.cpyext.pyobject import Py_DecRef, from_ref
 from rpython.rtyper.lltypesystem import rffi, lltype
 import sys, py
 from pypy.module.cpyext.unicodeobject import *
+from pypy.module.cpyext.unicodeobject import _PyUnicode_Ready
 
 class AppTestUnicodeObject(AppTestCpythonExtensionBase):
     def test_unicodeobject(self):
@@ -759,3 +760,32 @@ class TestUnicode(BaseApiTest):
                 PyUnicode_Splitlines(space, w_str, 0)))
         assert r"['a\n', 'b\n', 'c\n', 'd']" == space.unwrap(space.repr(
                 PyUnicode_Splitlines(space, w_str, 1)))
+
+    def test_Ready(self, space):
+        w_str = space.wrap(u'abc')  # ASCII
+        py_str = as_pyobj(space, w_str)
+        assert get_kind(py_str) == 0
+        _PyUnicode_Ready(space, w_str)
+        assert get_kind(py_str) == 1
+        assert get_ascii(py_str) == 1
+
+        w_str = space.wrap(u'café')  # latin1
+        py_str = as_pyobj(space, w_str)
+        assert get_kind(py_str) == 0
+        _PyUnicode_Ready(space, w_str)
+        assert get_kind(py_str) == 1
+        assert get_ascii(py_str) == 0
+
+        w_str = space.wrap(u'Росси́я')  # UCS2
+        py_str = as_pyobj(space, w_str)
+        assert get_kind(py_str) == 0
+        _PyUnicode_Ready(space, w_str)
+        assert get_kind(py_str) == 2
+        assert get_ascii(py_str) == 0
+
+        w_str = space.wrap(u'***\U0001f4a9***')  # UCS4
+        py_str = as_pyobj(space, w_str)
+        assert get_kind(py_str) == 0
+        _PyUnicode_Ready(space, w_str)
+        assert get_kind(py_str) == 4
+        assert get_ascii(py_str) == 0
