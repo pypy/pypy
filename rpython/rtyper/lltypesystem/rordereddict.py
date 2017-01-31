@@ -338,11 +338,15 @@ class OrderedDictRepr(AbstractDictRepr):
         return DictIteratorRepr(self, "items").newiter(hop)
 
     def rtype_method_iterkeys_with_hash(self, hop):
-        hop.exception_cannot_occur()
+        v_dic, = hop.inputargs(self)
+        hop.exception_is_here()
+        hop.gendirectcall(ll_ensure_indexes, v_dic)
         return DictIteratorRepr(self, "keys_with_hash").newiter(hop)
 
     def rtype_method_iteritems_with_hash(self, hop):
-        hop.exception_cannot_occur()
+        v_dic, = hop.inputargs(self)
+        hop.exception_is_here()
+        hop.gendirectcall(ll_ensure_indexes, v_dic)
         return DictIteratorRepr(self, "items_with_hash").newiter(hop)
 
     def rtype_method_clear(self, hop):
