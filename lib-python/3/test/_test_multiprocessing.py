@@ -2795,6 +2795,7 @@ class _TestHeap(BaseTestCase):
             self.assertTrue((arena != narena and nstart == 0) or
                             (stop == nstart))
 
+    @test.support.cpython_only
     def test_free_from_gc(self):
         # Check that freeing of blocks by the garbage collector doesn't deadlock
         # (issue #12352).
