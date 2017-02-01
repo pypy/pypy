@@ -941,18 +941,3 @@ class FunctionCodeGenerator(object):
                 cdecl(typename, ''),
                 self.expr(op.args[0]),
                 self.expr(op.result))
-
-    def OP_CALL_AT_STARTUP(self, op):
-        c = op.args[0]
-        if not isinstance(c, Constant):
-            # Bah, maybe it comes from a same_as(const) just before...
-            # Can occur if running without backendopts
-            for op1 in self._current_block.operations:
-                if op1.result is op.args[0]:
-                    assert op1.opname == "same_as"
-                    c = op1.args[0]
-                    break
-            assert isinstance(c, Constant)
-        func = self.expr(c)
-        self.db.call_at_startup.add(func)
-        return '/* call_at_startup %s */' % (func,)
