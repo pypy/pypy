@@ -204,6 +204,11 @@ class Function(W_Root):
             self.w_func_dict = space.newdict(instance=True)
         return self.w_func_dict
 
+    def getdictvalue(self, space, attr):
+        if not self.can_change_code:
+            return None
+        return W_Root.getdictvalue(self, space, attr)
+
     def setdict(self, space, w_dict):
         if not self.can_change_code:
             raise oefmt(space.w_AttributeError,
