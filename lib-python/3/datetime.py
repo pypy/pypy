@@ -706,7 +706,7 @@ class date:
 
     @classmethod
     def fromordinal(cls, n):
-        """Contruct a date from a proleptic Gregorian ordinal.
+        """Construct a date from a proleptic Gregorian ordinal.
 
         January 1 of year 1 is day 1.  Only the year, month and day are
         non-zero in the result.
@@ -1149,14 +1149,14 @@ class time:
             if not tzoff:  # zero or None
                 self._hashcode = hash(self._getstate()[0])
             else:
-                h, m = divmod(timedelta(hours=self.hour, minutes=self.minute) - tzoff,
-                              timedelta(hours=1))
-                assert not m % timedelta(minutes=1), "whole minute"
-                m //= timedelta(minutes=1)
-                if 0 <= h < 24:
-                    self._hashcode = hash(time(h, m, self.second, self.microsecond))
-                else:
-                    self._hashcode = hash((h, m, self.second, self.microsecond))
+                # PyPy: uses the same algo as _datetimemodule.c, which
+                # unlike the pure Python version always relies on the
+                # nondeterministic hash on strings
+                seconds = self.hour * 3600 + self.minute * 60 + self.second
+                temp1 = timedelta(seconds=self.seconds,
+                                  microseconds=self.microseconds)
+                temp2 = temp1 - tzoff
+                self._hashcode = hash(temp2)
         return self._hashcode
 
     # Conversion to string
