@@ -1,6 +1,7 @@
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.runicode import unicode_encode_latin_1, unicode_encode_utf_16
+from rpython.rlib.rarithmetic import widen
 
 from pypy.module.unicodedata import unicodedb
 from pypy.module.cpyext.api import (
@@ -258,7 +259,7 @@ def PyUnicode_GetMax(space):
 def _PyUnicode_Ready(space, w_obj):
     assert isinstance(w_obj, unicodeobject.W_UnicodeObject)
     py_obj = as_pyobj(space, w_obj)
-    assert get_kind(py_obj) == WCHAR_KIND
+    assert widen(get_kind(py_obj)) == WCHAR_KIND
     maxchar = 0
     for c in w_obj._value:
         if ord(c) > maxchar:
