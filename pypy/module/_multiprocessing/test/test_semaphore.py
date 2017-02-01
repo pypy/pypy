@@ -22,10 +22,13 @@ class AppTestSemaphore:
     @py.test.mark.skipif("sys.platform == 'win32'")
     def test_sem_unlink(self):
         from _multiprocessing import sem_unlink
+        import errno
         try:
             sem_unlink("non-existent")
-        except OSError:
-            pass
+        except OSError as e:
+            assert e.errno in (errno.ENOENT, errno.EINVAL)
+        else:
+            assert 0, "should have raised"
 
     def test_semaphore(self):
         from _multiprocessing import SemLock

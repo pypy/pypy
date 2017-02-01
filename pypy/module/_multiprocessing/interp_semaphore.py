@@ -216,9 +216,10 @@ else:
 
     def semaphore_unlink(space, w_name):
         name = space.str_w(w_name)
-        res = _sem_unlink(name)
-        if res < 0:
-            raise oefmt(space.w_OSError, "sem unlink failed with errno: %d", rposix.get_saved_errno())
+        try:
+            sem_unlink(name)
+        except OSError as e:
+            raise wrap_oserror(space, e)
 
 class CounterState:
     def __init__(self, space):
