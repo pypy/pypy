@@ -41,7 +41,7 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                  int result = 0;
 
                  if(PyUnicode_GetLength(s) != 11) {
-                     result = -PyUnicode_GetSize(s);
+                     result = -PyUnicode_GetLength(s);
                  }
                  Py_DECREF(s);
                  return PyLong_FromLong(result);
@@ -213,10 +213,8 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
 
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space):
-        assert PyUnicode_GET_SIZE(space, space.wrap(u'späm')) == 4
         assert PyUnicode_GetSize(space, space.wrap(u'späm')) == 4
         unichar = rffi.sizeof(Py_UNICODE)
-        assert PyUnicode_GET_DATA_SIZE(space, space.wrap(u'späm')) == 4 * unichar
 
         encoding = rffi.charp2str(PyUnicode_GetDefaultEncoding(space, ))
         w_default_encoding = space.call_function(
@@ -629,7 +627,7 @@ class TestUnicode(BaseApiTest):
 
         assert space.eq_w(w_y, space.wrap(u"abcd"))
 
-        size = PyUnicode_GET_SIZE(space, w_x)
+        size = PyUnicode_GetSize(space, w_x)
         Py_UNICODE_COPY(space, target_chunk, x_chunk, size)
         w_y = space.wrap(rffi.wcharpsize2unicode(target_chunk, size))
 
