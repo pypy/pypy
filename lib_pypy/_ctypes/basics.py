@@ -102,7 +102,11 @@ class _CDataMeta(type):
                 % (len(buf) + offset, size + offset))
         raw_addr = buf._pypy_raw_address()
         result = self.from_address(raw_addr)
-        result._ensure_objects()['ffffffff'] = obj
+        objects = result._ensure_objects()
+        if objects is not None:
+            objects['ffffffff'] = obj
+        else:   # case e.g. of a primitive type like c_int
+            result._objects = obj
         return result
 
     def from_buffer_copy(self, obj, offset=0):
