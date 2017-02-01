@@ -160,10 +160,14 @@ class AppTestFunctionIntrospection:
     def test_write_code_builtin_forbidden(self):
         def f(*args):
             return 42
-        if hasattr('dir', '__code__'):
-            # only on PyPy, CPython does not expose these attrs
-            raises(TypeError, "dir.__code__ = f.__code__")
-            raises(TypeError, "list().append.__func__.__code__ = f.__code__")
+        raises(TypeError, "dir.__code__ = f.__code__")
+        raises(TypeError, "list.append.__code__ = f.__code__")
+
+    def test_write_extra_attributes_builtin_forbidden(self):
+        raises(AttributeError, "dir.abcd = 5")
+        raises(AttributeError, "list.append.im_func.efgh = 6")
+        raises(AttributeError, "dir.__dict__")
+        raises(AttributeError, "dir.__dict__ = {}")
 
     def test_set_module_to_name_eagerly(self):
         skip("fails on PyPy but works on CPython.  Unsure we want to care")
