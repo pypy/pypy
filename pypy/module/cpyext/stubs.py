@@ -1008,7 +1008,8 @@ def PySys_SetArgvEx(space, argc, argv, updatepath):
 
 @cpython_api([rffi.INT_real, CWCHARPP], lltype.Void)
 def PySys_SetArgv(space, argc, argv):
-    """This function works like PySys_SetArgvEx() with updatepath set to 1."""
+    """This function works like PySys_SetArgvEx() with updatepath set
+    to 1 unless the python interpreter was started with the option -I."""
     raise NotImplementedError
 
 @cpython_api([rffi.CWCHARP], lltype.Void)
