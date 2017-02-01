@@ -168,6 +168,8 @@ class AppTestFunctionIntrospection:
         raises(AttributeError, "list.append.im_func.efgh = 6")
         raises(AttributeError, "dir.__dict__")
         raises(AttributeError, "dir.__dict__ = {}")
+        c = all.__call__   # this should work
+        assert c([4, 5, 6]) is True
 
     def test_set_module_to_name_eagerly(self):
         skip("fails on PyPy but works on CPython.  Unsure we want to care")
