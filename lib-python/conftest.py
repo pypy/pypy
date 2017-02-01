@@ -261,7 +261,7 @@ testmap = [
     RegrTest('test_imaplib.py'),
     RegrTest('test_imghdr.py'),
     RegrTest('test_import'),
-    RegrTest('test_importlib', skip='XXX segfaults'),
+    RegrTest('test_importlib'),
     RegrTest('test_imp.py', core=True, usemodules='thread'),
     RegrTest('test_index.py'),
     RegrTest('test_inspect.py', usemodules="struct unicodedata"),
