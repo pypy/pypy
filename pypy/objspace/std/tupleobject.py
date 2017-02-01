@@ -196,12 +196,20 @@ class W_AbstractTupleObject(W_Root):
         items = self.tolist()
         length = len(items)
         start, stop, step, slicelength = w_index.indices4(space, length)
+        if step == 1:
+            subitems = items[start:stop]
+        else:
+            subitems = self._getslice_advanced(items, start, step, slicelength)
+        return space.newtuple(subitems)
+
+    @staticmethod
+    def _getslice_advanced(items, start, step, slicelength):
         assert slicelength >= 0
         subitems = [None] * slicelength
         for i in range(slicelength):
             subitems[i] = items[start]
             start += step
-        return space.newtuple(subitems)
+        return subitems
 
     def descr_getnewargs(self, space):
         return space.newtuple([space.newtuple(self.tolist())])
