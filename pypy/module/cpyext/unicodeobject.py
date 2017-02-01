@@ -115,6 +115,9 @@ def get_ascii(py_obj):
 def set_ascii(py_obj, value):
     get_state(py_obj).c_ascii = cts.cast('unsigned int', value)
 
+def set_ready(py_obj, value):
+    get_state(py_obj).c_ready = cts.cast('unsigned int', value)
+
 def get_wbuffer(py_obj):
     py_obj = cts.cast('PyASCIIObject*', py_obj)
     return py_obj.c_wstr
@@ -253,31 +256,6 @@ def PyUnicode_GetMax(space):
     """Get the maximum ordinal for a Unicode character."""
     return runicode.UNICHR(runicode.MAXUNICODE)
 
-@cpython_api([rffi.VOIDP], Py_ssize_t, error=CANNOT_FAIL)
-def PyUnicode_GET_DATA_SIZE(space, w_obj):
-    """Return the size of the object's internal buffer in bytes.  o has to be a
-    PyUnicodeObject (not checked)."""
-    return rffi.sizeof(Py_UNICODE) * PyUnicode_GET_SIZE(space, w_obj)
-
-@cpython_api([rffi.VOIDP], Py_ssize_t, error=CANNOT_FAIL)
-def PyUnicode_GET_SIZE(space, w_obj):
-    """Return the size of the object.  obj is a PyUnicodeObject (not
-    checked)."""
-    return space.len_w(w_obj)
-
-@cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
-def PyUnicode_GET_LENGTH(space, w_obj):
-    """Return the length of the Unicode string, in code points.
-    o has to be a Unicode object in the "canonical" representation
-    (not checked)."""
-    assert isinstance(w_obj, unicodeobject.W_UnicodeObject)
-    return space.len_w(w_obj)
-
-@cpython_api([PyObject], rffi.INT, error=CANNOT_FAIL)
-def PyUnicode_IS_READY(space, w_obj):
-    # PyPy is always ready.
-    return space.w_True
-
 @cts.decl("int _PyUnicode_Ready(PyObject *unicode)", error=-1)
 def _PyUnicode_Ready(space, w_obj):
     assert isinstance(w_obj, unicodeobject.W_UnicodeObject)
@@ -304,6 +282,7 @@ def _PyUnicode_Ready(space, w_obj):
             set_ascii(py_obj, 0)
             set_utf8(py_obj, 0)
             set_utf8_len(py_obj, 0)
+        set_ready(py_obj, 1)
     elif maxchar < 65536:
         # XXX: assumes that sizeof(wchar_t) == 4
         ucs2_str = unicode_encode_utf_16(
@@ -314,6 +293,7 @@ def _PyUnicode_Ready(space, w_obj):
         set_kind(py_obj, _2BYTE_KIND)
         set_utf8(py_obj, 0)
         set_utf8_len(py_obj, 0)
+        set_ready(py_obj, 1)
     else:
         # XXX: assumes that sizeof(wchar_t) == 4
         ucs4_data = get_wbuffer(py_obj)
@@ -322,6 +302,7 @@ def _PyUnicode_Ready(space, w_obj):
         set_kind(py_obj, _4BYTE_KIND)
         set_utf8(py_obj, 0)
         set_utf8_len(py_obj, 0)
+        set_ready(py_obj, 1)
 
 
 @cpython_api([PyObject], rffi.CWCHARP)
