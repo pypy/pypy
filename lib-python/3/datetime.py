@@ -1145,18 +1145,17 @@ class time:
     def __hash__(self):
         """Hash."""
         if self._hashcode == -1:
+            # PyPy: uses the same algo as _datetimemodule.c, which
+            # unlike the pure Python version always relies on the
+            # nondeterministic hash on strings
+            temp1 = timedelta(hours=self._hour,
+                              minutes=self._minute,
+                              seconds=self._second,
+                              microseconds=self._microsecond)
             tzoff = self.utcoffset()
-            if not tzoff:  # zero or None
-                self._hashcode = hash(self._getstate()[0])
-            else:
-                # PyPy: uses the same algo as _datetimemodule.c, which
-                # unlike the pure Python version always relies on the
-                # nondeterministic hash on strings
-                seconds = self.hour * 3600 + self.minute * 60 + self.second
-                temp1 = timedelta(seconds=self.seconds,
-                                  microseconds=self.microseconds)
-                temp2 = temp1 - tzoff
-                self._hashcode = hash(temp2)
+            if tzoff:  # not zero, not None
+                temp1 -= tzoff
+            self._hashcode = hash(temp1)
         return self._hashcode
 
     # Conversion to string
