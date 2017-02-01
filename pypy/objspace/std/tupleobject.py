@@ -196,7 +196,10 @@ class W_AbstractTupleObject(W_Root):
         items = self.tolist()
         length = len(items)
         start, stop, step, slicelength = w_index.indices4(space, length)
-        if step == 1:
+        if slicelength == 0:
+            subitems = []
+        elif step == 1:
+            assert 0 <= start <= stop
             subitems = items[start:stop]
         else:
             subitems = self._getslice_advanced(items, start, step, slicelength)
