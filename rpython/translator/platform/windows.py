@@ -379,9 +379,9 @@ class MsvcPlatform(Platform):
             no_precompile = []
             for f in list(no_precompile_cfiles):
                 f = m.pathrel(py.path.local(f))
-                if f not in no_precompile and f.endswith('.c'):
+                if f not in no_precompile and (f.endswith('.c') or f.endswith('.cpp')):
                     no_precompile.append(f)
-                    target = f[:-1] + 'obj'
+                    target = f[:f.rfind('.')] + '.obj'
                     rules.append((target, f,
                         '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) '
                         '/Fo%s /c %s $(INCLUDEDIRS)' %(target, f)))
