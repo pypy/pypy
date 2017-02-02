@@ -225,14 +225,14 @@ class W_Root(object):
     def buffer_w(self, space, flags):
         if _does_override_buffer_w_ex(self.__class__):
             return self.buffer_w_ex(space, flags)[0]
-        return self._buffer(space, flags).buffer_w(space, flags)
+        return self.__buffer_w(space, flags).buffer_w(space, flags)
 
     def buffer_w_ex(self, space, flags):
         if _does_override_buffer_w(self.__class__):
             return self.buffer_w(space, flags), 'B', 1
-        return self._buffer(space, flags).buffer_w_ex(space, flags)
+        return self.__buffer_w(space, flags).buffer_w_ex(space, flags)
 
-    def _buffer(self, space, flags):
+    def __buffer_w(self, space, flags):
         if flags & space.BUF_WRITABLE:
             w_impl = space.lookup(self, '__wbuffer__')
         else:

@@ -201,6 +201,9 @@ class BaseGCTransformer(object):
         self.var_last_needed_in = None
         self.curr_block = None
 
+    def start_transforming_graph(self, graph):
+        pass    # for asmgcc.py
+
     def transform_graph(self, graph):
         if graph in self.minimal_transform:
             if self.minimalgctransformer:
@@ -210,6 +213,7 @@ class BaseGCTransformer(object):
         if graph in self.seen_graphs:
             return
         self.seen_graphs.add(graph)
+        self.start_transforming_graph(graph)
 
         self.links_to_split = {} # link -> vars to pop_alive across the link
 
