@@ -742,9 +742,6 @@ def op_gc_ignore_finalizer(obj):
 def op_gc_move_out_of_nursery(obj):
     return obj
 
-def op_call_at_startup(init_func):
-    pass    # do nothing
-
 # ____________________________________________________________
 
 def get_op_impl(opname):
