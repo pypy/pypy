@@ -15,6 +15,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 
 RECURSIVE_MUTEX, SEMAPHORE = range(2)
+sys_platform = sys.platform
 
 if sys.platform == 'win32':
     from rpython.rlib import rwin32
@@ -331,6 +332,11 @@ else:
         rgc.add_memory_pressure(SEM_T_SIZE)
         return sem
 
+    def reopen_semaphore(name):
+        sem = sem_open(name, 0, 0600, 0)
+        rgc.add_memory_pressure(SEM_T_SIZE)
+        return sem
+
     def delete_semaphore(handle):
         _sem_close_no_errno(handle)
 
@@ -523,10 +529,10 @@ class W_SemLock(W_Root):
     def rebuild(space, w_cls, w_handle, kind, maxvalue, w_name):
         name = space.str_or_None_w(w_name)
         #
-        if sys.platform != 'win32' and name is not None:
+        if sys_platform != 'win32' and name is not None:
             # like CPython, in this case ignore 'w_handle'
             try:
-                handle = create_semaphore(space, name, 0, maxvalue)
+                handle = reopen_semaphore(name)
             except OSError as e:
                 raise wrap_oserror(space, e)
         else:
