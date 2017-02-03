@@ -13,7 +13,6 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import oefmt, wrap_oserror
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
-from pypy.module._multiprocessing.interp_connection import w_handle
 
 RECURSIVE_MUTEX, SEMAPHORE = range(2)
 
@@ -455,7 +454,8 @@ class W_SemLock(W_Root):
         return space.newint(self.maxvalue)
 
     def handle_get(self, space):
-        return w_handle(space, self.handle)
+        h = rffi.cast(rffi.INTPTR_T, self.handle)
+        return space.wrap(h)
 
     def get_count(self, space):
         return space.wrap(self.count)
