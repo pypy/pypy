@@ -79,6 +79,12 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         res = [1, 2, 3] * arr
         assert res == [2, 4, 6]
 
+    def test_string_buf(self):
+        module = self.import_module(name='array')
+        arr = module.array('u', '123')
+        view = memoryview(arr)
+        assert view.itemsize == 4
+
     def test_subclass(self):
         import struct
         module = self.import_module(name='array')
