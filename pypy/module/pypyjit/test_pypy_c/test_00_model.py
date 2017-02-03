@@ -21,6 +21,7 @@ class BaseTestPyPyC(object):
     def setup_class(cls):
         pypy_c = pytest.config.option.pypy_c or None
         if pypy_c is not None:
+            pypy_c = os.path.expanduser(pypy_c)
             assert os.path.exists(pypy_c), (
                 "--pypy specifies %r, which does not exist" % (pypy_c,))
             out = subprocess.check_output([pypy_c, '-c',
