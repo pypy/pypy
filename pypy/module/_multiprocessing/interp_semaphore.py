@@ -522,8 +522,18 @@ class W_SemLock(W_Root):
     @unwrap_spec(kind=int, maxvalue=int)
     def rebuild(space, w_cls, w_handle, kind, maxvalue, w_name):
         name = space.str_or_None_w(w_name)
+        #
+        if sys.platform != 'win32' and name is not None:
+            # like CPython, in this case ignore 'w_handle'
+            try:
+                handle = create_semaphore(space, name, 0, maxvalue)
+            except OSError as e:
+                raise wrap_oserror(space, e)
+        else:
+            handle = handle_w(space, w_handle)
+        #
         self = space.allocate_instance(W_SemLock, w_cls)
-        self.__init__(space, handle_w(space, w_handle), kind, maxvalue, name)
+        self.__init__(space, handle, kind, maxvalue, name)
         return space.wrap(self)
 
     def enter(self, space):

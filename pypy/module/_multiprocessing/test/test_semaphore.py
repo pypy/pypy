@@ -108,7 +108,9 @@ class AppTestSemaphore:
         maxvalue = 1
         sem = SemLock(kind, value, maxvalue, "4", unlink=True)
 
-        sem2 = SemLock._rebuild(sem.handle, kind, value, "10")
+        sem2 = SemLock._rebuild(sem.handle, kind, value, "92")
+        assert sem.handle != sem2.handle
+        sem2 = SemLock._rebuild(sem.handle, kind, value, None)
         assert sem.handle == sem2.handle
 
     def test_semaphore_contextmanager(self):
