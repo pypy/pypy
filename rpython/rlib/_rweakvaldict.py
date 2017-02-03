@@ -119,7 +119,7 @@ class WeakValueDictRepr(Repr):
     @jit.dont_look_inside
     def ll_get(self, d, llkey):
         if d.resize_counter < 0:
-            self.ll_weakdict_resize(d)  # initialize prebuilt dicts at runtime
+            self.ll_weakdict_rehash_after_translation(d)
         hash = self.ll_keyhash(llkey)
         i = rdict.ll_dict_lookup(d, llkey, hash) & rdict.MASK
         #llop.debug_print(lltype.Void, i, 'get')
@@ -139,7 +139,7 @@ class WeakValueDictRepr(Repr):
     @jit.dont_look_inside
     def ll_set_nonnull(self, d, llkey, llvalue):
         if d.resize_counter < 0:
-            self.ll_weakdict_resize(d)  # initialize prebuilt dicts at runtime
+            self.ll_weakdict_rehash_after_translation(d)
         hash = self.ll_keyhash(llkey)
         valueref = weakref_create(llvalue)    # GC effects here, before the rest
         i = rdict.ll_dict_lookup(d, llkey, hash) & rdict.MASK
@@ -156,7 +156,7 @@ class WeakValueDictRepr(Repr):
     @jit.dont_look_inside
     def ll_set_null(self, d, llkey):
         if d.resize_counter < 0:
-            self.ll_weakdict_resize(d)  # initialize prebuilt dicts at runtime
+            self.ll_weakdict_rehash_after_translation(d)
         hash = self.ll_keyhash(llkey)
         i = rdict.ll_dict_lookup(d, llkey, hash) & rdict.MASK
         if d.entries.everused(i):
@@ -179,6 +179,15 @@ class WeakValueDictRepr(Repr):
                 num_items += 1
         d.num_items = num_items
         rdict.ll_dict_resize(d)
+
+    def ll_weakdict_rehash_after_translation(self, d):
+        # recompute all hashes.  See comment in rordereddict.py,
+        # ll_dict_rehash_after_translation().
+        entries = d.entries
+        for i in range(len(entries)):
+            self.ll_keyhash(entries[i].key)
+        self.ll_weakdict_resize(d)
+        assert d.resize_counter >= 0
 
 def specialize_make_weakdict(hop):
     hop.exception_cannot_occur()
