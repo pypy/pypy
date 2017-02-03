@@ -295,7 +295,7 @@ class StdObjSpace(ObjSpace):
         return W_LongObject.fromint(self, val)
 
     @specialize.argtype(1)
-    def newlong_from_rarith_int(self, val): # val is an rarithmetic type 
+    def newlong_from_rarith_int(self, val): # val is an rarithmetic type
         return W_LongObject.fromrarith_int(val)
 
     def newlong_from_rbigint(self, val):
@@ -350,8 +350,8 @@ class StdObjSpace(ObjSpace):
     def newseqiter(self, w_obj):
         return W_SeqIterObject(w_obj)
 
-    def newbuffer(self, w_obj):
-        return W_MemoryView(w_obj)
+    def newbuffer(self, w_obj, itemsize=1):
+        return W_MemoryView(w_obj, itemsize=itemsize)
 
     def newbytes(self, s):
         return W_BytesObject(s)

@@ -196,7 +196,7 @@ class FakeObjSpace(ObjSpace):
     def newseqiter(self, x):
         return w_some_obj()
 
-    def newbuffer(self, x):
+    def newbuffer(self, x, itemsize=1):
         return w_some_obj()
 
     def marshal_w(self, w_obj):

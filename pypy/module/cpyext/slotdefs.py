@@ -471,7 +471,7 @@ def wrap_getbuffer(space, w_self, w_args, func):
                             readonly=widen(pybuf.c_readonly),
                             releasebufferproc = rbp)
         fq.register_finalizer(buf)
-        return space.newbuffer(buf)
+        return space.newbuffer(buf, itemsize=buf.itemsize)
 
 def get_richcmp_func(OP_CONST):
     def inner(space, w_self, w_args, func):
