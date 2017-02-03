@@ -230,7 +230,7 @@ def test_translation_prebuilt_1():
     fc = compile(f, [], gcpolicy="boehm", rweakref=True)
     fc()
 
-def _test_translation_prebuilt_2():
+def test_translation_prebuilt_2():
     from rpython.rlib import rsiphash
     d = RWeakValueDictionary(str, X)
     k1 = "key1"; k2 = "key2"
