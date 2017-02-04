@@ -821,9 +821,7 @@ def ll_dict_delitem_with_hash(d, key, hash):
         raise KeyError
     _ll_dict_del(d, hash, index)
 
-@jit.look_inside_iff(lambda d, h, i: jit.isvirtual(d) and jit.isconstant(i))
-def _ll_dict_del(d, hash, index):
-    ll_call_delete_by_entry_index(d, hash, index, DELETED)
+def _ll_dict_del_entry(d, index):
     d.entries.mark_deleted(index)
     d.num_live_items -= 1
     # clear the key and the value if they are GC pointers
@@ -834,6 +832,11 @@ def _ll_dict_del(d, hash, index):
         entry.key = lltype.nullptr(ENTRY.key.TO)
     if ENTRIES.must_clear_value:
         entry.value = lltype.nullptr(ENTRY.value.TO)
+
+@jit.look_inside_iff(lambda d, h, i: jit.isvirtual(d) and jit.isconstant(i))
+def _ll_dict_del(d, hash, index):
+    ll_call_delete_by_entry_index(d, hash, index, DELETED)
+    _ll_dict_del_entry(d, index)
 
     if d.num_live_items == 0:
         # Dict is now empty.  Reset these fields.
@@ -1427,8 +1430,12 @@ def ll_dict_pop_default(dic, key, dfl):
     return value
 
 def ll_dict_move_to_end(d, key, last):
-    assert last #XXX
+    if last:
+        ll_dict_move_to_end_really(d, key)
+    else:
+        ll_dict_move_to_beginning(d, key)
 
+def ll_dict_move_to_end_really(d, key):
     hash = d.keyhash(key)
     old_index = d.lookup_function(d, key, hash, FLAG_LOOKUP)
     if old_index < 0:
@@ -1438,17 +1445,10 @@ def ll_dict_move_to_end(d, key, last):
         return
 
     # remove the entry at the old position
-    ENTRIES = lltype.typeOf(d.entries).TO
-    ENTRY = ENTRIES.OF
     old_entry = d.entries[old_index]
     key = old_entry.key
     value = old_entry.value
-    d.entries.mark_deleted(old_index)
-    d.num_live_items -= 1
-    if ENTRIES.must_clear_key:
-        old_entry.key = lltype.nullptr(ENTRY.key.TO)
-    if ENTRIES.must_clear_value:
-        old_entry.value = lltype.nullptr(ENTRY.value.TO)
+    _ll_dict_del_entry(d, old_index)
 
     # note a corner case: it is possible that 'replace_with' is just too
     # large to fit in the type T used so far for the index.  But in that
@@ -1458,3 +1458,89 @@ def ll_dict_move_to_end(d, key, last):
     ll_call_delete_by_entry_index(d, hash, old_index,
             replace_with = VALID_OFFSET + d.num_ever_used_items)
     _ll_dict_setitem_lookup_done(d, key, value, hash, -1)
+
+def ll_dict_move_to_beginning(d, key):
+    # In this function, we might do a bit more than the strict minimum
+    # of walks over parts of the array, trying to keep the code at least
+    # semi-reasonable, while the goal is still amortized constant-time
+    # over many calls.
+
+    # Call ll_dict_remove_deleted_items() first if there are too many
+    # deleted items.  Not a perfect solution, because lookup_function()
+    # might do random things with the dict and create many new deleted
+    # items.  Still, should be fine, because nothing crucially depends
+    # on this: the goal is to avoid the dictionary's list growing
+    # forever.
+    if d.num_live_items < len(d.entries) // 2 - 16:
+        ll_dict_remove_deleted_items(d)
+
+    hash = d.keyhash(key)
+    old_index = d.lookup_function(d, key, hash, FLAG_LOOKUP)
+    if old_index <= 0:
+        if old_index < 0:
+            raise KeyError
+        else:
+            return
+
+    # the goal of the following is to set 'idst' to the number of
+    # deleted entries at the beginning, ensuring 'idst > 0'
+    must_reindex = False
+    if d.entries.valid(0):
+        # the first entry is valid, so we need to make room before.
+        new_allocated = _overallocate_entries_len(d.num_ever_used_items)
+        idst = ((new_allocated - d.num_ever_used_items) * 3) // 4
+        ll_assert(idst > 0, "overallocate did not do enough")
+        newitems = lltype.malloc(lltype.typeOf(d).TO.entries.TO, new_allocated)
+        rgc.ll_arraycopy(d.entries, newitems, 0, idst, d.num_ever_used_items)
+        d.entries = newitems
+        i = 0
+        while i < idst:
+            d.entries.mark_deleted(i)
+            i += 1
+        d.num_ever_used_items += idst
+        old_index += idst
+        must_reindex = True
+        idst -= 1
+    else:
+        idst = d.lookup_function_no >> FUNC_SHIFT
+        # All entries in range(0, idst) are deleted.  Check if more are
+        while not d.entries.valid(idst):
+            idst += 1
+        if idst == old_index:
+            d.lookup_function_no = ((d.lookup_function_no & FUNC_MASK) |
+                                    (old_index << FUNC_SHIFT))
+            return
+        idst -= 1
+        d.lookup_function_no = ((d.lookup_function_no & FUNC_MASK) |
+                                (idst << FUNC_SHIFT))
+
+    # remove the entry at the old position
+    ll_assert(d.entries.valid(old_index),
+              "ll_dict_move_to_beginning: lost old_index")
+    ENTRY = lltype.typeOf(d.entries).TO.OF
+    old_entry = d.entries[old_index]
+    key = old_entry.key
+    value = old_entry.value
+    if hasattr(ENTRY, 'f_hash'):
+        ll_assert(old_entry.f_hash == hash,
+                  "ll_dict_move_to_beginning: bad hash")
+    _ll_dict_del_entry(d, old_index)
+
+    # put the entry at its new position
+    ll_assert(not d.entries.valid(idst),
+              "ll_dict_move_to_beginning: overwriting idst")
+    new_entry = d.entries[idst]
+    new_entry.key = key
+    new_entry.value = value
+    if hasattr(ENTRY, 'f_hash'):
+        new_entry.f_hash = hash
+    if hasattr(ENTRY, 'f_valid'):
+        new_entry.f_valid = True
+    d.num_live_items += 1
+
+    # fix the index
+    if must_reindex:
+        ll_dict_reindex(d, _ll_len_of_d_indexes(d))
+    else:
+        ll_call_delete_by_entry_index(d, hash, old_index,
+                replace_with = VALID_OFFSET + idst)

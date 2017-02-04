@@ -360,12 +360,12 @@ class TestRDictDirect(object):
             elif case == 3:
                 py.test.raises(KeyError, rordereddict.ll_dict_move_to_end,
                                                  ll_d, 3, True)
-            #elif case == 4:
-            #    rordereddict.ll_dict_move_to_end(ll_d, 2, False)
-            #    assert content() == [(2, 22), (1, 11)]
-            #elif case == 5:
-            #    rordereddict.ll_dict_move_to_end(ll_d, 1, False)
-            #    assert content() == [(1, 11), (2, 22)]
+            elif case == 4:
+                rordereddict.ll_dict_move_to_end(ll_d, 2, False)
+                assert content() == [(2, 22), (1, 11)]
+            elif case == 5:
+                rordereddict.ll_dict_move_to_end(ll_d, 1, False)
+                assert content() == [(1, 11), (2, 22)]
 
 
 class TestRDictDirectDummyKey(TestRDictDirect):
@@ -409,14 +409,6 @@ class TestOrderedRDict(BaseTestRDict):
                 assert d1.keys() == ['key2', 'key1']
                 objectmodel.move_to_end(d1, 'key2')
                 assert d1.keys() == ['key1', 'key2']
-        func()
-        self.interpret(func, [])
-
-    def test_move_to_beginning(self):
-        def func():
-            d1 = OrderedDict()
-            d1['key1'] = 'value1'
-            d1['key2'] = 'value2'
             for i in range(20):
                 objectmodel.move_to_end(d1, 'key2', last=False)
                 assert d1.keys() == ['key2', 'key1']
