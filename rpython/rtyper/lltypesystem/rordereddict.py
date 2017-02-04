@@ -543,6 +543,8 @@ def ll_call_insert_clean_function(d, hash, i):
         assert False
 
 def ll_call_delete_by_entry_index(d, hash, i):
+    # only called from _ll_dict_del, whose @jit.look_inside_iff
+    # condition should control when we get inside here with the jit
     fun = d.lookup_function_no & FUNC_MASK
     if fun == FUNC_BYTE:
         ll_dict_delete_by_entry_index(d, hash, i, TYPE_BYTE)
@@ -805,13 +807,14 @@ def ll_dict_delitem(d, key):
     ll_dict_delitem_with_hash(d, key, d.keyhash(key))
 
 def ll_dict_delitem_with_hash(d, key, hash):
-    index = d.lookup_function(d, key, hash, FLAG_DELETE)
+    index = d.lookup_function(d, key, hash, FLAG_LOOKUP)
     if index < 0:
         raise KeyError
-    _ll_dict_del(d, index)
+    _ll_dict_del(d, hash, index)
 
-@jit.look_inside_iff(lambda d, i: jit.isvirtual(d) and jit.isconstant(i))
-def _ll_dict_del(d, index):
+@jit.look_inside_iff(lambda d, h, i: jit.isvirtual(d) and jit.isconstant(i))
+def _ll_dict_del(d, hash, index):
+    ll_call_delete_by_entry_index(d, hash, index)
     d.entries.mark_deleted(index)
     d.num_live_items -= 1
     # clear the key and the value if they are GC pointers
@@ -963,7 +966,6 @@ MIN_INDEXES_MINUS_ENTRIES = VALID_OFFSET + 1
 
 FLAG_LOOKUP = 0
 FLAG_STORE = 1
-FLAG_DELETE = 2
 
 @specialize.memo()
 def _ll_ptr_to_array_of(T):
@@ -985,8 +987,6 @@ def ll_dict_lookup(d, key, hash, store_flag, T):
     if index >= VALID_OFFSET:
         checkingkey = entries[index - VALID_OFFSET].key
         if direct_compare and checkingkey == key:
-            if store_flag == FLAG_DELETE:
-                indexes[i] = rffi.cast(T, DELETED)
             return index - VALID_OFFSET   # found the entry
         if d.keyeq is not None and entries.hash(index - VALID_OFFSET) == hash:
             # correct hash, maybe the key is e.g. a different pointer to
@@ -1000,8 +1000,6 @@ def ll_dict_lookup(d, key, hash, store_flag, T):
                     # the compare did major nasty stuff to the dict: start over
                     return ll_dict_lookup(d, key, hash, store_flag, T)
             if found:
-                if store_flag == FLAG_DELETE:
-                    indexes[i] = rffi.cast(T, DELETED)
                 return index - VALID_OFFSET
         deletedslot = -1
     elif index == DELETED:
@@ -1030,8 +1028,6 @@ def ll_dict_lookup(d, key, hash, store_flag, T):
         elif index >= VALID_OFFSET:
             checkingkey = entries[index - VALID_OFFSET].key
             if direct_compare and checkingkey == key:
-                if store_flag == FLAG_DELETE:
-                    indexes[i] = rffi.cast(T, DELETED)
                 return index - VALID_OFFSET   # found the entry
             if d.keyeq is not None and entries.hash(index - VALID_OFFSET) == hash:
                 # correct hash, maybe the key is e.g. a different pointer to
@@ -1044,8 +1040,6 @@ def ll_dict_lookup(d, key, hash, store_flag, T):
                         # the compare did major nasty stuff to the dict: start over
                         return ll_dict_lookup(d, key, hash, store_flag, T)
                 if found:
-                    if store_flag == FLAG_DELETE:
-                        indexes[i] = rffi.cast(T, DELETED)
                     return index - VALID_OFFSET
         elif deletedslot == -1:
             deletedslot = intmask(i)
@@ -1066,6 +1060,10 @@ def ll_dict_store_clean(d, hash, index, T):
         perturb >>= PERTURB_SHIFT
     indexes[i] = rffi.cast(T, index + VALID_OFFSET)
 
+# the following function is only called from _ll_dict_del, whose
+# @jit.look_inside_iff condition should control when we get inside
+# here with the jit
+@jit.unroll_safe
 def ll_dict_delete_by_entry_index(d, hash, locate_index, T):
     # Another simplified version of ll_dict_lookup() which locates a
     # hashtable entry with the given 'index' stored in it, and deletes it.
@@ -1390,8 +1388,6 @@ def _ll_getnextitem(dic):
             break
         dic.num_ever_used_items -= 1
 
-    # we must remove the precise entry in the hashtable that points to 'i'
-    ll_call_delete_by_entry_index(dic, entries.hash(i), i)
     return i
 
 def ll_dict_popitem(ELEM, dic):
@@ -1400,21 +1396,23 @@ def ll_dict_popitem(ELEM, dic):
     r = lltype.malloc(ELEM.TO)
     r.item0 = recast(ELEM.TO.item0, entry.key)
     r.item1 = recast(ELEM.TO.item1, entry.value)
-    _ll_dict_del(dic, i)
+    _ll_dict_del(dic, dic.entries.hash(i), i)
     return r
 
 def ll_dict_pop(dic, key):
-    index = dic.lookup_function(dic, key, dic.keyhash(key), FLAG_DELETE)
+    hash = dic.keyhash(key)
+    index = dic.lookup_function(dic, key, hash, FLAG_LOOKUP)
     if index < 0:
         raise KeyError
     value = dic.entries[index].value
-    _ll_dict_del(dic, index)
+    _ll_dict_del(dic, hash, index)
     return value
 
 def ll_dict_pop_default(dic, key, dfl):
-    index = dic.lookup_function(dic, key, dic.keyhash(key), FLAG_DELETE)
+    hash = dic.keyhash(key)
+    index = dic.lookup_function(dic, key, hash, FLAG_LOOKUP)
     if index < 0:
         return dfl
     value = dic.entries[index].value
-    _ll_dict_del(dic, index)
+    _ll_dict_del(dic, hash, index)
     return value
