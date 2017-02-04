@@ -407,6 +407,15 @@ class OrderedDictRepr(AbstractDictRepr):
         hop.exception_is_here()
         hop.gendirectcall(ll_dict_delitem_with_hash, v_dict, v_key, v_hash)
 
+    def rtype_method_move_to_end(self, hop):
+        v_dict, v_key, v_last = hop.inputargs(
+            self, self.key_repr, lltype.Bool)
+        if not self.custom_eq_hash:
+            hop.has_implicit_exception(KeyError)  # record that we know about it
+        hop.exception_is_here()
+        hop.gendirectcall(ll_dict_move_to_end, v_dict, v_key, v_last)
+
+
 class __extend__(pairtype(OrderedDictRepr, rmodel.Repr)):
 
     def rtype_getitem((r_dict, r_key), hop):
@@ -542,18 +551,18 @@ def ll_call_insert_clean_function(d, hash, i):
         ll_assert(False, "ll_call_insert_clean_function(): invalid lookup_fun")
         assert False
 
-def ll_call_delete_by_entry_index(d, hash, i):
+def ll_call_delete_by_entry_index(d, hash, i, replace_with):
     # only called from _ll_dict_del, whose @jit.look_inside_iff
     # condition should control when we get inside here with the jit
     fun = d.lookup_function_no & FUNC_MASK
     if fun == FUNC_BYTE:
-        ll_dict_delete_by_entry_index(d, hash, i, TYPE_BYTE)
+        ll_dict_delete_by_entry_index(d, hash, i, replace_with, TYPE_BYTE)
     elif fun == FUNC_SHORT:
-        ll_dict_delete_by_entry_index(d, hash, i, TYPE_SHORT)
+        ll_dict_delete_by_entry_index(d, hash, i, replace_with, TYPE_SHORT)
     elif IS_64BIT and fun == FUNC_INT:
-        ll_dict_delete_by_entry_index(d, hash, i, TYPE_INT)
+        ll_dict_delete_by_entry_index(d, hash, i, replace_with, TYPE_INT)
     elif fun == FUNC_LONG:
-        ll_dict_delete_by_entry_index(d, hash, i, TYPE_LONG)
+        ll_dict_delete_by_entry_index(d, hash, i, replace_with, TYPE_LONG)
     else:
         # can't be still FUNC_MUST_REINDEX here
         ll_assert(False, "ll_call_delete_by_entry_index(): invalid lookup_fun")
@@ -814,7 +823,7 @@ def ll_dict_delitem_with_hash(d, key, hash):
 
 @jit.look_inside_iff(lambda d, h, i: jit.isvirtual(d) and jit.isconstant(i))
 def _ll_dict_del(d, hash, index):
-    ll_call_delete_by_entry_index(d, hash, index)
+    ll_call_delete_by_entry_index(d, hash, index, DELETED)
     d.entries.mark_deleted(index)
     d.num_live_items -= 1
     # clear the key and the value if they are GC pointers
@@ -1064,7 +1073,7 @@ def ll_dict_store_clean(d, hash, index, T):
 # @jit.look_inside_iff condition should control when we get inside
 # here with the jit
 @jit.unroll_safe
-def ll_dict_delete_by_entry_index(d, hash, locate_index, T):
+def ll_dict_delete_by_entry_index(d, hash, locate_index, replace_with, T):
     # Another simplified version of ll_dict_lookup() which locates a
     # hashtable entry with the given 'index' stored in it, and deletes it.
     # This *should* be safe against evil user-level __eq__/__hash__
@@ -1081,7 +1090,7 @@ def ll_dict_delete_by_entry_index(d, hash, locate_index, T):
         i = (i << 2) + i + perturb + 1
         i = i & mask
         perturb >>= PERTURB_SHIFT
-    indexes[i] = rffi.cast(T, DELETED)
+    indexes[i] = rffi.cast(T, replace_with)
 
 # ____________________________________________________________
 #
@@ -1416,3 +1425,35 @@ def ll_dict_pop_default(dic, key, dfl):
     value = dic.entries[index].value
     _ll_dict_del(dic, hash, index)
     return value
+
+def ll_dict_move_to_end(d, key, last):
+    assert last #XXX
+
+    hash = d.keyhash(key)
+    old_index = d.lookup_function(d, key, hash, FLAG_LOOKUP)
+    if old_index < 0:
+        raise KeyError
+
+    if old_index == d.num_ever_used_items - 1:
+        return
+
+    # remove the entry at the old position
+    ENTRIES = lltype.typeOf(d.entries).TO
+    ENTRY = ENTRIES.OF
+    old_entry = d.entries[old_index]
+    key = old_entry.key
+    value = old_entry.value
+    d.entries.mark_deleted(old_index)
+    if ENTRIES.must_clear_key:
+        old_entry.key = lltype.nullptr(ENTRY.key.TO)
+    if ENTRIES.must_clear_value:
+        old_entry.value = lltype.nullptr(ENTRY.value.TO)
+
+    # note a corner case: it is possible that 'replace_with' is just too
+    # large to fit in the type T used so far for the index.  But in that
+    # case, the list 'd.entries' is full, and the following call to
+    # _ll_dict_setitem_lookup_done() will necessarily reindex the dict.
+    # So in that case, this value of 'replace_with' should be ignored.
+    ll_call_delete_by_entry_index(d, hash, old_index,
+            replace_with = VALID_OFFSET + d.num_ever_used_items)
+    _ll_dict_setitem_lookup_done(d, key, value, hash, -1)
