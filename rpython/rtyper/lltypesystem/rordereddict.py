@@ -1444,6 +1444,7 @@ def ll_dict_move_to_end(d, key, last):
     key = old_entry.key
     value = old_entry.value
     d.entries.mark_deleted(old_index)
+    d.num_live_items -= 1
     if ENTRIES.must_clear_key:
         old_entry.key = lltype.nullptr(ENTRY.key.TO)
     if ENTRIES.must_clear_value:
