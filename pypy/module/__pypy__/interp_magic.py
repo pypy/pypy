@@ -9,7 +9,7 @@ from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.setobject import W_BaseSetObject
 from pypy.objspace.std.typeobject import MethodCache
 from pypy.objspace.std.mapdict import MapAttrCache
-from rpython.rlib import rposix, rgc
+from rpython.rlib import rposix, rgc, rstack
 
 
 def internal_repr(space, w_object):
@@ -176,3 +176,7 @@ def normalize_exc(space, w_type, w_value=None, w_tb=None):
     operr = OperationError(w_type, w_value, w_tb)
     operr.normalize_exception(space)
     return operr.get_w_value(space)
+
+def stack_almost_full(space):
+    """Return True if the stack is more than 15/16th full."""
+    return space.wrap(rstack.stack_almost_full())

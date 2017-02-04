@@ -281,6 +281,8 @@ def test_no_random_effects_for_rotateLeft():
 
 def test_elidable_kinds():
     from rpython.jit.backend.llgraph.runner import LLGraphCPU
+    from rpython.rlib.objectmodel import compute_hash
+    from rpython.rlib.rsiphash import enable_siphash24
 
     @jit.elidable
     def f1(n, m):
@@ -293,12 +295,17 @@ def test_elidable_kinds():
         if n > m:
             raise ValueError
         return n + m
+    @jit.elidable
+    def f4(n, m):
+        return compute_hash(str(n) + str(m))
 
     def f(n, m):
         a = f1(n, m)
         b = f2(n, m)
         c = f3(n, m)
-        return a + len(b) + c
+        d = f4(n, m)
+        enable_siphash24()
+        return a + len(b) + c + d
 
     rtyper = support.annotate(f, [7, 9])
     jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
@@ -309,7 +316,8 @@ def test_elidable_kinds():
     for index, expected in [
             (0, EffectInfo.EF_ELIDABLE_CANNOT_RAISE),
             (1, EffectInfo.EF_ELIDABLE_OR_MEMORYERROR),
-            (2, EffectInfo.EF_ELIDABLE_CAN_RAISE)]:
+            (2, EffectInfo.EF_ELIDABLE_CAN_RAISE),
+            (3, EffectInfo.EF_ELIDABLE_OR_MEMORYERROR)]:
         call_op = f_graph.startblock.operations[index]
         assert call_op.opname == 'direct_call'
         call_descr = cc.getcalldescr(call_op)

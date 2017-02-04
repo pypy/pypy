@@ -2795,6 +2795,7 @@ class _TestHeap(BaseTestCase):
             self.assertTrue((arena != narena and nstart == 0) or
                             (stop == nstart))
 
+    @test.support.cpython_only
     def test_free_from_gc(self):
         # Check that freeing of blocks by the garbage collector doesn't deadlock
         # (issue #12352).
@@ -2893,12 +2894,14 @@ class _TestFinalize(BaseTestCase):
         a = Foo()
         util.Finalize(a, conn.send, args=('a',))
         del a           # triggers callback for a
+        import gc; gc.collect()
 
         b = Foo()
         close_b = util.Finalize(b, conn.send, args=('b',))
         close_b()       # triggers callback for b
         close_b()       # does nothing because callback has already been called
         del b           # does nothing because callback has already been called
+        import gc; gc.collect()
 
         c = Foo()
         util.Finalize(c, conn.send, args=('c',))

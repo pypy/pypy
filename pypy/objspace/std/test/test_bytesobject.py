@@ -98,6 +98,9 @@ class TestW_BytesObject:
 
 class AppTestBytesObject:
 
+    def setup_class(cls):
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
+
     def test_constructor(self):
         assert bytes() == b''
         assert bytes(3) == b'\0\0\0'
@@ -789,6 +792,8 @@ class AppTestBytesObject:
         raises(LookupError, 'hello'.encode, 'base64')
 
     def test_hash(self):
+        if self.runappdirect:
+            skip("randomized hash by default")
         # check that we have the same hash as CPython for at least 31 bits
         # (but don't go checking CPython's special case -1)
         # disabled: assert hash('') == 0 --- different special case

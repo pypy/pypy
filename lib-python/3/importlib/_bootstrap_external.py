@@ -238,6 +238,12 @@ _code_type = type(_write_atomic.__code__)
 # different than CPython's, always < 3000.  We get the 4-bytes string
 # here via a hack: MAGIC_NUMBER is set in the module from
 # module/_frozen_importlib/__init__.py before the module is executed.
+# FOR TESTS ONLY, we make it default to imp.get_magic().
+try:
+    MAGIC_NUMBER
+except NameError:
+    import imp
+    MAGIC_NUMBER = imp.get_magic()
 
 _RAW_MAGIC_NUMBER = int.from_bytes(MAGIC_NUMBER, 'little')  # For import.c
 

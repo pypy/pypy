@@ -7,7 +7,7 @@ from errno import EINTR
 
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, specialize
-from rpython.rlib import rstackovf
+from rpython.rlib import rstack, rstackovf
 
 from pypy.interpreter import debug
 
@@ -60,6 +60,7 @@ class OperationError(Exception):
         "Check if this is an exception that should better not be caught."
         return (self.match(space, space.w_SystemExit) or
                 self.match(space, space.w_KeyboardInterrupt))
+        # note: an extra case is added in OpErrFmtNoArgs
 
     def __str__(self):
         "NOT_RPYTHON: Convenience for tracebacks."
@@ -511,6 +512,16 @@ class OpErrFmtNoArgs(OperationError):
 
     def _compute_value(self, space):
         return self._value.decode('utf-8')
+
+    def async(self, space):
+        # also matches a RuntimeError("maximum rec.") if the stack is
+        # still almost full, because in this case it might be a better
+        # idea to propagate the exception than eat it
+        if (self.w_type is space.w_RecursionError and
+            self._value == "maximum recursion depth exceeded" and
+            rstack.stack_almost_full()):
+            return True
+        return OperationError.async(self, space)
 
 @specialize.memo()
 def get_operr_class(valuefmt):

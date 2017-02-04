@@ -11,8 +11,7 @@ import py
 from rpython.config.config import (to_optparse, OptionDescription, BoolOption,
     ArbitraryOption, StrOption, IntOption, Config, ChoiceOption, OptHelpFormatter)
 from rpython.config.translationoption import (get_combined_translation_config,
-    set_opt_level, OPT_LEVELS, DEFAULT_OPT_LEVEL, set_platform, CACHE_DIR,
-    apply_extra_settings)
+    set_opt_level, OPT_LEVELS, DEFAULT_OPT_LEVEL, set_platform, CACHE_DIR)
 
 # clean up early rpython/_cache
 try:
@@ -177,9 +176,6 @@ def parse_options_and_load_target():
     # based on the config
     if 'handle_config' in targetspec_dic:
         targetspec_dic['handle_config'](config, translateconfig)
-
-    # apply extra settings
-    apply_extra_settings(config)
 
     return targetspec_dic, translateconfig, config, args
 

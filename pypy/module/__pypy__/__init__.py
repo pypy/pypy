@@ -88,6 +88,7 @@ class Module(MixedModule):
         '_promote'                   : 'interp_magic._promote',
         'normalize_exc'             : 'interp_magic.normalize_exc',
         'StdErrPrinter'             : 'interp_stderrprinter.W_StdErrPrinter',
+        'stack_almost_full'         : 'interp_magic.stack_almost_full',
     }
 
     submodules = {

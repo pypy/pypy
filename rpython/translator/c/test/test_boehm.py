@@ -381,7 +381,7 @@ class TestUsingBoehm(AbstractGCTestClass):
                         current_object_addr_as_int(d2),
                         compute_hash(c),
                         compute_hash(d),
-                        compute_hash(("Hi", None, (7.5, 2, d)))))
+                        compute_hash(("Hi", None, (7.5, 2)))))
 
         f = self.getcompiled(fn)
         res = f()
@@ -390,8 +390,10 @@ class TestUsingBoehm(AbstractGCTestClass):
         # xxx the next line is too precise, checking the exact implementation
         assert res[0] == ~res[1]
         assert res[2] != compute_hash(c)     # likely
-        assert res[3] == compute_hash(d)
-        assert res[4] == compute_hash(("Hi", None, (7.5, 2, d)))
+        assert res[3] != compute_hash(d)     # likely *not* preserved
+        assert res[4] == compute_hash(("Hi", None, (7.5, 2)))
+        # ^^ true as long as we're using the default 'fnv' hash for strings
+        #    and not e.g. siphash24
 
     def test_finalizer_queue(self):
         class A(object):

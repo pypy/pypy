@@ -194,6 +194,15 @@ class W_Weakref(W_WeakrefBase):
         W_WeakrefBase.__init__(self, space, w_obj, w_callable)
         self.w_hash = None
 
+    def _cleanup_(self):
+        # When a prebuilt weakref is frozen inside a translation, if
+        # this weakref has got an already-cached w_hash, then throw it
+        # away.  That's because the hash value will change after
+        # translation.  It will be recomputed the first time we ask for
+        # it.  Note that such a frozen weakref, if not dead, will point
+        # to a frozen object, so it will never die.
+        self.w_hash = None
+
     def descr__init__weakref(self, space, w_obj, w_callable=None,
                              __args__=None):
         if __args__.arguments_w:

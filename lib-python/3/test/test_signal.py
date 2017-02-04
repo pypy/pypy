@@ -358,6 +358,8 @@ class WakeupSignalTests(unittest.TestCase):
 
         assert_python_ok('-c', code)
 
+    @support.impl_detail("pypy writes the message to fd 2, not to sys.stderr",
+                         pypy=False)
     @unittest.skipIf(_testcapi is None, 'need _testcapi')
     def test_wakeup_write_error(self):
         # Issue #16105: write() errors in the C signal handler should not

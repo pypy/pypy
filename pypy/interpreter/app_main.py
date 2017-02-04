@@ -728,8 +728,26 @@ def run_command_line(interactive,
             if IS_WINDOWS:
                 filename = filename.lower()
             if filename.endswith('.pyc') or filename.endswith('.pyo'):
+                # We don't actually load via SourcelessFileLoader
+                # because '__main__' must not be listed inside
+                # 'importlib._bootstrap._module_locks' (it deadlocks
+                # test_multiprocessing_main_handling.test_script_compiled)
+                from importlib._bootstrap_external import MAGIC_NUMBER
+                import marshal
                 loader = SourcelessFileLoader('__main__', filename)
-                args = (loader.load_module, loader.name)
+                mainmodule.__loader__ = loader
+                @hidden_applevel
+                def execfile(filename, namespace):
+                    with open(filename, 'rb') as f:
+                        if f.read(4) != MAGIC_NUMBER:
+                            raise RuntimeError("Bad magic number in .pyc file")
+                        if len(f.read(8)) != 8:
+                            raise RuntimeError("Truncated .pyc file")
+                        co = marshal.load(f)
+                    if type(co) is not type((lambda:0).__code__):
+                        raise RuntimeError("Bad code object in .pyc file")
+                    exec_(co, namespace)
+                args = (execfile, filename, mainmodule.__dict__)
             else:
                 filename = sys.argv[0]
                 for hook in sys.path_hooks:

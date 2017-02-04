@@ -71,7 +71,10 @@ class TestDicts(BaseTestPyPyC):
             guard_no_exception(descr=...)
             guard_nonnull(p10, descr=...)
             i99 = unicodehash(p10)
-            i12 = cond_call_value_i(i99, ConstClass(_ll_strhash__rpy_unicodePtr), p10, descr=<Calli . r EF=2>)
+            # NOTE: with siphash24, notably on unicodes, computing the hash
+            # may raise MemoryError
+            i12 = cond_call_value_i(i99, ConstClass(_ll_strhash__rpy_unicodePtr), p10, descr=<Calli . r EF=5>)
+            guard_no_exception(descr=...)
             p13 = new(descr=...)
             p15 = new_array_clear(16, descr=<ArrayU 1>)
             {{{

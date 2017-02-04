@@ -13,9 +13,9 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import oefmt, wrap_oserror
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
-from pypy.module._multiprocessing.interp_connection import w_handle
 
 RECURSIVE_MUTEX, SEMAPHORE = range(2)
+sys_platform = sys.platform
 
 if sys.platform == 'win32':
     from rpython.rlib import rwin32
@@ -216,9 +216,10 @@ else:
 
     def semaphore_unlink(space, w_name):
         name = space.str_w(w_name)
-        res = _sem_unlink(name)
-        if res < 0:
-            raise oefmt(space.w_OSError, "sem unlink failed with errno: %d", rposix.get_saved_errno())
+        try:
+            sem_unlink(name)
+        except OSError as e:
+            raise wrap_oserror(space, e)
 
 class CounterState:
     def __init__(self, space):
@@ -328,6 +329,11 @@ if sys.platform == 'win32':
 else:
     def create_semaphore(space, name, val, max):
         sem = sem_open(name, os.O_CREAT | os.O_EXCL, 0600, val)
+        rgc.add_memory_pressure(SEM_T_SIZE)
+        return sem
+
+    def reopen_semaphore(name):
+        sem = sem_open(name, 0, 0600, 0)
         rgc.add_memory_pressure(SEM_T_SIZE)
         return sem
 
@@ -454,7 +460,8 @@ class W_SemLock(W_Root):
         return space.newint(self.maxvalue)
 
     def handle_get(self, space):
-        return w_handle(space, self.handle)
+        h = rffi.cast(rffi.INTPTR_T, self.handle)
+        return space.wrap(h)
 
     def get_count(self, space):
         return space.wrap(self.count)
@@ -521,8 +528,18 @@ class W_SemLock(W_Root):
     @unwrap_spec(kind=int, maxvalue=int)
     def rebuild(space, w_cls, w_handle, kind, maxvalue, w_name):
         name = space.str_or_None_w(w_name)
+        #
+        if sys_platform != 'win32' and name is not None:
+            # like CPython, in this case ignore 'w_handle'
+            try:
+                handle = reopen_semaphore(name)
+            except OSError as e:
+                raise wrap_oserror(space, e)
+        else:
+            handle = handle_w(space, w_handle)
+        #
         self = space.allocate_instance(W_SemLock, w_cls)
-        self.__init__(space, handle_w(space, w_handle), kind, maxvalue, name)
+        self.__init__(space, handle, kind, maxvalue, name)
         return space.wrap(self)
 
     def enter(self, space):

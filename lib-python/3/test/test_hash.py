@@ -43,7 +43,7 @@ def pysiphash(uint64):
 
 def skip_unless_internalhash(test):
     """Skip decorator for tests that depend on SipHash24 or FNV"""
-    ok = sys.hash_info.algorithm in {"fnv", "siphash24", "rpython"}
+    ok = sys.hash_info.algorithm in {"fnv", "siphash24"}
     msg = "Requires SipHash24 or FNV"
     return test if ok else unittest.skip(msg)(test)
 
@@ -189,7 +189,6 @@ class HashRandomizationTests:
         stdout = out[1].strip()
         return int(stdout)
 
-    @impl_detail("PyPy does not support hash randomization", pypy=False)
     def test_randomized_hash(self):
         # two runs should return different hashes
         run1 = self.get_hash(self.repr_, seed='random')
@@ -197,10 +196,6 @@ class HashRandomizationTests:
         self.assertNotEqual(run1, run2)
 
 class StringlikeHashRandomizationTests(HashRandomizationTests):
-    if check_impl_detail(pypy=True):
-        EMPTY_STRING_HASH = -2
-    else:
-        EMPTY_STRING_HASH = 0
     repr_ = None
     repr_long = None
 
@@ -242,9 +237,9 @@ class StringlikeHashRandomizationTests(HashRandomizationTests):
             [-283066365, -4576729883824601543, -271871407,
              -3927695501187247084],
         ],
-        'rpython': [
-            # This is for PyPy.  NOTE: PyPy does not support hash
-            # randomization for now, so the results don't depend on the seed.
+        'fnv-pypy': [
+            # This is for PyPy, whose fnv algorithm does not support hash
+            # randomization, so the results don't depend on the seed.
             # seed 0, 'abc'
             [-1600925533, 1453079729188098211, -1600925533,
              1453079729188098211],
@@ -273,6 +268,8 @@ class StringlikeHashRandomizationTests(HashRandomizationTests):
         else:
             assert(sys.byteorder == 'big')
             platform = 3 if IS_64BIT else 2
+        if algorithm == 'fnv' and check_impl_detail(pypy=True):
+            algorithm = 'fnv-pypy'
         return self.known_hashes[algorithm][position][platform]
 
     def test_null_hash(self):
@@ -280,8 +277,7 @@ class StringlikeHashRandomizationTests(HashRandomizationTests):
         known_hash_of_obj = self.get_expected_hash(0, 3)
 
         # Randomization is enabled by default:
-        if check_impl_detail(pypy=False):
-            self.assertNotEqual(self.get_hash(self.repr_), known_hash_of_obj)
+        self.assertNotEqual(self.get_hash(self.repr_), known_hash_of_obj)
 
         # It can also be disabled by setting the seed to 0:
         self.assertEqual(self.get_hash(self.repr_, seed=0), known_hash_of_obj)
@@ -307,11 +303,12 @@ class StrHashRandomizationTests(StringlikeHashRandomizationTests,
     repr_long = repr('abcdefghijk')
     repr_ucs2 = repr('äú∑ℇ')
 
-    @impl_detail("hash('') == -2 on PyPy", pypy=False)
+    @impl_detail("hash('') != 0 on PyPy", pypy=False)
     @skip_unless_internalhash
     def test_empty_string(self):
         self.assertEqual(hash(""), 0)
 
+    @impl_detail("hash(ucs2) differs on PyPy if unichar is 4 bytes", pypy=False)
     @skip_unless_internalhash
     def test_ucs2_string(self):
         h = self.get_expected_hash(3, 6)
@@ -324,18 +321,20 @@ class BytesHashRandomizationTests(StringlikeHashRandomizationTests,
     repr_ = repr(b'abc')
     repr_long = repr(b'abcdefghijk')
 
+    @impl_detail("hash('') != 0 on PyPy", pypy=False)
     @skip_unless_internalhash
     def test_empty_string(self):
-        self.assertEqual(hash(b""), self.EMPTY_STRING_HASH)
+        self.assertEqual(hash(b""), 0)
 
 class MemoryviewHashRandomizationTests(StringlikeHashRandomizationTests,
                                        unittest.TestCase):
     repr_ = "memoryview(b'abc')"
     repr_long = "memoryview(b'abcdefghijk')"
 
+    @impl_detail("hash('') != 0 on PyPy", pypy=False)
     @skip_unless_internalhash
     def test_empty_string(self):
-        self.assertEqual(hash(memoryview(b"")), self.EMPTY_STRING_HASH)
+        self.assertEqual(hash(memoryview(b"")), 0)
 
 class DatetimeTests(HashRandomizationTests):
     def get_hash_command(self, repr_):
