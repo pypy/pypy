@@ -9,6 +9,7 @@ from pypy.module.cpyext.pyobject import Py_DecRef, from_ref
 from rpython.rtyper.lltypesystem import rffi, lltype
 import sys, py
 from pypy.module.cpyext.unicodeobject import *
+from pypy.module.cpyext.unicodeobject import _PyUnicode_Ready
 
 class AppTestUnicodeObject(AppTestCpythonExtensionBase):
     def test_unicodeobject(self):
@@ -28,7 +29,7 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                  }
 #ifdef PYPY_VERSION
                  // Slightly silly test that tp_basicsize is reasonable.
-                 if(s->ob_type->tp_basicsize != sizeof(void*)*6)
+                 if(s->ob_type->tp_basicsize != sizeof(void*)*12)
                      result = s->ob_type->tp_basicsize;
 #endif  // PYPY_VERSION
                  Py_DECREF(s);
@@ -40,7 +41,7 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                  int result = 0;
 
                  if(PyUnicode_GetLength(s) != 11) {
-                     result = -PyUnicode_GetSize(s);
+                     result = -PyUnicode_GetLength(s);
                  }
                  Py_DECREF(s);
                  return PyLong_FromLong(result);
@@ -212,10 +213,8 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
 
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space):
-        assert PyUnicode_GET_SIZE(space, space.wrap(u'späm')) == 4
         assert PyUnicode_GetSize(space, space.wrap(u'späm')) == 4
         unichar = rffi.sizeof(Py_UNICODE)
-        assert PyUnicode_GET_DATA_SIZE(space, space.wrap(u'späm')) == 4 * unichar
 
         encoding = rffi.charp2str(PyUnicode_GetDefaultEncoding(space, ))
         w_default_encoding = space.call_function(
@@ -225,13 +224,11 @@ class TestUnicode(BaseApiTest):
 
     def test_AS(self, space):
         word = space.wrap(u'spam')
-        array = rffi.cast(rffi.CWCHARP, PyUnicode_AS_DATA(space, word))
-        array2 = PyUnicode_AS_UNICODE(space, word)
-        array3 = PyUnicode_AsUnicode(space, word)
+        array = rffi.cast(rffi.CWCHARP, PyUnicode_AsUnicode(space, word))
+        array2 = PyUnicode_AsUnicode(space, word)
         for (i, char) in enumerate(space.unwrap(word)):
             assert array[i] == char
             assert array2[i] == char
-            assert array3[i] == char
         with raises_w(space, TypeError):
             PyUnicode_AsUnicode(space, space.newbytes('spam'))
 
@@ -284,22 +281,23 @@ class TestUnicode(BaseApiTest):
     def test_unicode_resize(self, space):
         py_uni = new_empty_unicode(space, 10)
         ar = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
-        py_uni.c_buffer[0] = u'a'
-        py_uni.c_buffer[1] = u'b'
-        py_uni.c_buffer[2] = u'c'
+        buf = get_wbuffer(py_uni)
+        buf[0] = u'a'
+        buf[1] = u'b'
+        buf[2] = u'c'
         ar[0] = rffi.cast(PyObject, py_uni)
         PyUnicode_Resize(space, ar, 3)
         py_uni = rffi.cast(PyUnicodeObject, ar[0])
-        assert py_uni.c_length == 3
-        assert py_uni.c_buffer[1] == u'b'
-        assert py_uni.c_buffer[3] == u'\x00'
+        assert get_wsize(py_uni) == 3
+        assert get_wbuffer(py_uni)[1] == u'b'
+        assert get_wbuffer(py_uni)[3] == u'\x00'
         # the same for growing
         ar[0] = rffi.cast(PyObject, py_uni)
         PyUnicode_Resize(space, ar, 10)
         py_uni = rffi.cast(PyUnicodeObject, ar[0])
-        assert py_uni.c_length == 10
-        assert py_uni.c_buffer[1] == 'b'
-        assert py_uni.c_buffer[10] == '\x00'
+        assert get_wsize(py_uni) == 10
+        assert get_wbuffer(py_uni)[1] == 'b'
+        assert get_wbuffer(py_uni)[10] == '\x00'
         Py_DecRef(space, ar[0])
         lltype.free(ar, flavor='raw')
 
@@ -623,13 +621,13 @@ class TestUnicode(BaseApiTest):
         count1 = space.int_w(space.len(w_x))
         target_chunk = lltype.malloc(rffi.CWCHARP.TO, count1, flavor='raw')
 
-        x_chunk = PyUnicode_AS_UNICODE(space, w_x)
+        x_chunk = PyUnicode_AsUnicode(space, w_x)
         Py_UNICODE_COPY(space, target_chunk, x_chunk, 4)
         w_y = space.wrap(rffi.wcharpsize2unicode(target_chunk, 4))
 
         assert space.eq_w(w_y, space.wrap(u"abcd"))
 
-        size = PyUnicode_GET_SIZE(space, w_x)
+        size = PyUnicode_GetSize(space, w_x)
         Py_UNICODE_COPY(space, target_chunk, x_chunk, size)
         w_y = space.wrap(rffi.wcharpsize2unicode(target_chunk, size))
 
@@ -758,3 +756,32 @@ class TestUnicode(BaseApiTest):
                 PyUnicode_Splitlines(space, w_str, 0)))
         assert r"['a\n', 'b\n', 'c\n', 'd']" == space.unwrap(space.repr(
                 PyUnicode_Splitlines(space, w_str, 1)))
+
+    def test_Ready(self, space):
+        w_str = space.wrap(u'abc')  # ASCII
+        py_str = as_pyobj(space, w_str)
+        assert get_kind(py_str) == 0
+        _PyUnicode_Ready(space, w_str)
+        assert get_kind(py_str) == 1
+        assert get_ascii(py_str) == 1
+
+        w_str = space.wrap(u'café')  # latin1
+        py_str = as_pyobj(space, w_str)
+        assert get_kind(py_str) == 0
+        _PyUnicode_Ready(space, w_str)
+        assert get_kind(py_str) == 1
+        assert get_ascii(py_str) == 0
+
+        w_str = space.wrap(u'Росси́я')  # UCS2
+        py_str = as_pyobj(space, w_str)
+        assert get_kind(py_str) == 0
+        _PyUnicode_Ready(space, w_str)
+        assert get_kind(py_str) == 2
+        assert get_ascii(py_str) == 0
+
+        w_str = space.wrap(u'***\U0001f4a9***')  # UCS4
+        py_str = as_pyobj(space, w_str)
+        assert get_kind(py_str) == 0
+        _PyUnicode_Ready(space, w_str)
+        assert get_kind(py_str) == 4
+        assert get_ascii(py_str) == 0
