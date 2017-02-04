@@ -102,16 +102,20 @@ class AppTestSemaphore:
         assert res == False
 
     def test_semaphore_rebuild(self):
-        from _multiprocessing import SemLock
+        from _multiprocessing import SemLock, sem_unlink
         kind = self.SEMAPHORE
         value = 1
         maxvalue = 1
-        sem = SemLock(kind, value, maxvalue, "4", unlink=True)
-
-        sem2 = SemLock._rebuild(sem.handle, kind, value, "92")
-        assert sem.handle != sem2.handle
-        sem2 = SemLock._rebuild(sem.handle, kind, value, None)
-        assert sem.handle == sem2.handle
+        sem = SemLock(kind, value, maxvalue, "4.2", unlink=False)
+        try:
+            sem2 = SemLock._rebuild(-1, kind, value, "4.2")
+            #assert sem.handle != sem2.handle---even though they come
+            # from different calls to sem_open(), on Linux at least,
+            # they are the same pointer
+            sem2 = SemLock._rebuild(sem.handle, kind, value, None)
+            assert sem.handle == sem2.handle
+        finally:
+            sem_unlink("4.2")
 
     def test_semaphore_contextmanager(self):
         from _multiprocessing import SemLock
