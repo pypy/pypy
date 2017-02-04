@@ -198,21 +198,10 @@ class Function(W_Root):
 
     def getdict(self, space):
         if self.w_func_dict is None:
-            if not self.can_change_code:
-                raise oefmt(space.w_AttributeError,
-                            "cannot set extra attributes on built-in functions")
             self.w_func_dict = space.newdict(instance=True)
         return self.w_func_dict
 
-    def getdictvalue(self, space, attr):
-        if not self.can_change_code:
-            return None
-        return W_Root.getdictvalue(self, space, attr)
-
     def setdict(self, space, w_dict):
-        if not self.can_change_code:
-            raise oefmt(space.w_AttributeError,
-                        "cannot set __dict__ on built-in functions")
         if not space.isinstance_w(w_dict, space.w_dict):
             raise oefmt(space.w_TypeError,
                         "setting function's dictionary to a non-dict")
@@ -671,7 +660,7 @@ class BuiltinFunction(Function):
         Function.__init__(self, func.space, func.code, func.w_func_globals,
                           func.defs_w, func.closure, func.name)
         self.w_doc = func.w_doc
-        #self.w_func_dict = func.w_func_dict---nowadays, always None
+        self.w_func_dict = func.w_func_dict
         self.w_module = func.w_module
 
     def descr_builtinfunction__new__(space, w_subtype):
