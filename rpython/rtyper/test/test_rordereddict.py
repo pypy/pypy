@@ -421,6 +421,7 @@ class TestOrderedRDict(BaseTestRDict):
 class ODictSpace(MappingSpace):
     MappingRepr = rodct.OrderedDictRepr
     new_reference = OrderedDict
+    moved_around = False
     ll_getitem = staticmethod(rodct.ll_dict_getitem)
     ll_setitem = staticmethod(rodct.ll_dict_setitem)
     ll_delitem = staticmethod(rodct.ll_dict_delitem)
@@ -465,8 +466,22 @@ class ODictSpace(MappingSpace):
     def removeindex(self):
         # remove the index, as done during translation for prebuilt dicts
         # (but cannot be done if we already removed a key)
-        if not self.removed_keys:
+        if not self.removed_keys and not self.moved_around:
             rodct.ll_no_initial_index(self.l_dict)
+
+    def move_to_end(self, key, last=True):
+        ll_key = self.ll_key(key)
+        rodct.ll_dict_move_to_end(self.l_dict, ll_key, last)
+        value = self.reference.pop(key)
+        if last:
+            self.reference[key] = value
+        else:
+            items = self.reference.items()
+            self.reference.clear()
+            self.reference[key] = value
+            self.reference.update(items)
+        # prevent ll_no_initial_index()
+        self.moved_around = True
 
     def fullcheck(self):
         # overridden to also check key order

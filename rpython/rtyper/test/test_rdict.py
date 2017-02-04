@@ -1188,6 +1188,12 @@ class MappingSpace(object):
         assert not self.ll_contains(self.l_dict, ll_key)
         self.removed_keys.append(key)
 
+    def move_to_end(self, key, last=True):
+        "For test_rordereddict"
+
+    def move_to_beginning(self, key):
+        self.move_to_end(key, last=False)
+
     def copydict(self):
         self.l_dict = self.ll_copy(self.l_dict)
         assert self.ll_len(self.l_dict) == len(self.reference)
@@ -1250,6 +1256,15 @@ class MappingSM(GenericStateMachine):
         return builds(Action,
             just('delitem'), tuples(sampled_from(self.space.reference)))
 
+    def st_move_to_end(self):
+        return builds(Action,
+            just('move_to_end'), tuples(sampled_from(self.space.reference)))
+
+    def st_move_to_beginning(self):
+        return builds(Action,
+            just('move_to_beginning'),
+                tuples(sampled_from(self.space.reference)))
+
     def steps(self):
         if not self.space:
             return builds(Action, just('setup'), tuples(st_keys, st_values))
@@ -1258,7 +1273,8 @@ class MappingSM(GenericStateMachine):
         if self.space.reference:
             return (
                 self.st_setitem() | sampled_from(global_actions) |
-                self.st_updateitem() | self.st_delitem())
+                self.st_updateitem() | self.st_delitem() |
+                self.st_move_to_end() | self.st_move_to_beginning())
         else:
             return (self.st_setitem() | sampled_from(global_actions))
 

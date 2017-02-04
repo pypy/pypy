@@ -1263,18 +1263,8 @@ def ll_dict_copy(dict):
     if hasattr(DICT, 'fnkeyhash'):
         newdict.fnkeyhash = dict.fnkeyhash
 
-    i = 0
-    while i < newdict.num_ever_used_items:
-        d_entry = newdict.entries[i]
-        entry = dict.entries[i]
-        ENTRY = lltype.typeOf(newdict.entries).TO.OF
-        d_entry.key = entry.key
-        if hasattr(ENTRY, 'f_valid'):
-            d_entry.f_valid = entry.f_valid
-        d_entry.value = entry.value
-        if hasattr(ENTRY, 'f_hash'):
-            d_entry.f_hash = entry.f_hash
-        i += 1
+    rgc.ll_arraycopy(dict.entries, newdict.entries, 0, 0,
+                     newdict.num_ever_used_items)
 
     ll_dict_reindex(newdict, _ll_len_of_d_indexes(dict))
     return newdict
