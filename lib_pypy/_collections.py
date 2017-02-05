@@ -439,3 +439,8 @@ class defaultdict(dict):
         return (type(self), (self.default_factory,), None, None,
                 iter(self.items()))
 
+
+try:
+    from _pypy_collections import OrderedDict
+except ImportError:
+    pass
