@@ -1,7 +1,8 @@
 import py
+import random
 from collections import OrderedDict
 
-from hypothesis import settings
+from hypothesis import settings, given, strategies
 from hypothesis.stateful import run_state_machine_as_test
 
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -145,14 +146,18 @@ class TestRDictDirect(object):
         ll_d = rordereddict.ll_newdict(DICT)
         rordereddict.ll_dict_setitem(ll_d, llstr("k"), 1)
         rordereddict.ll_dict_setitem(ll_d, llstr("j"), 2)
-        ITER = rordereddict.get_ll_dictiter(lltype.Ptr(DICT))
+        assert [hlstr(entry.key) for entry in self._ll_iter(ll_d)] == ["k", "j"]
+
+    def _ll_iter(self, ll_d):
+        ITER = rordereddict.get_ll_dictiter(lltype.typeOf(ll_d))
         ll_iter = rordereddict.ll_dictiter(ITER, ll_d)
         ll_dictnext = rordereddict._ll_dictnext
-        num = ll_dictnext(ll_iter)
-        assert hlstr(ll_d.entries[num].key) == "k"
-        num = ll_dictnext(ll_iter)
-        assert hlstr(ll_d.entries[num].key) == "j"
-        py.test.raises(StopIteration, ll_dictnext, ll_iter)
+        while True:
+            try:
+                num = ll_dictnext(ll_iter)
+            except StopIteration:
+                break
+            yield ll_d.entries[num]
 
     def test_popitem(self):
         DICT = self._get_str_dict()
@@ -337,6 +342,31 @@ class TestRDictDirect(object):
             num_nonfrees += (got > 0)
         assert d.resize_counter <= idx.getlength() * 2 - num_nonfrees * 3
 
+    @given(strategies.lists(strategies.integers(min_value=1, max_value=5)))
+    def test_direct_move_to_end(self, lst):
+        DICT = self._get_int_dict()
+        ll_d = rordereddict.ll_newdict(DICT)
+        rordereddict.ll_dict_setitem(ll_d, 1, 11)
+        rordereddict.ll_dict_setitem(ll_d, 2, 22)
+        def content():
+            return [(entry.key, entry.value) for entry in self._ll_iter(ll_d)]
+        for case in lst:
+            if case == 1:
+                rordereddict.ll_dict_move_to_end(ll_d, 1, True)
+                assert content() == [(2, 22), (1, 11)]
+            elif case == 2:
+                rordereddict.ll_dict_move_to_end(ll_d, 2, True)
+                assert content() == [(1, 11), (2, 22)]
+            elif case == 3:
+                py.test.raises(KeyError, rordereddict.ll_dict_move_to_end,
+                                                 ll_d, 3, True)
+            elif case == 4:
+                rordereddict.ll_dict_move_to_end(ll_d, 2, False)
+                assert content() == [(2, 22), (1, 11)]
+            elif case == 5:
+                rordereddict.ll_dict_move_to_end(ll_d, 1, False)
+                assert content() == [(1, 11), (2, 22)]
+
 
 class TestRDictDirectDummyKey(TestRDictDirect):
     class dummykeyobj:
@@ -369,10 +399,29 @@ class TestOrderedRDict(BaseTestRDict):
         res = self.interpret(func, [5])
         assert res == 6
 
+    def test_move_to_end(self):
+        def func():
+            d1 = OrderedDict()
+            d1['key1'] = 'value1'
+            d1['key2'] = 'value2'
+            for i in range(20):
+                objectmodel.move_to_end(d1, 'key1')
+                assert d1.keys() == ['key2', 'key1']
+                objectmodel.move_to_end(d1, 'key2')
+                assert d1.keys() == ['key1', 'key2']
+            for i in range(20):
+                objectmodel.move_to_end(d1, 'key2', last=False)
+                assert d1.keys() == ['key2', 'key1']
+                objectmodel.move_to_end(d1, 'key1', last=False)
+                assert d1.keys() == ['key1', 'key2']
+        func()
+        self.interpret(func, [])
+
 
 class ODictSpace(MappingSpace):
     MappingRepr = rodct.OrderedDictRepr
     new_reference = OrderedDict
+    moved_around = False
     ll_getitem = staticmethod(rodct.ll_dict_getitem)
     ll_setitem = staticmethod(rodct.ll_dict_setitem)
     ll_delitem = staticmethod(rodct.ll_dict_delitem)
@@ -417,8 +466,22 @@ class ODictSpace(MappingSpace):
     def removeindex(self):
         # remove the index, as done during translation for prebuilt dicts
         # (but cannot be done if we already removed a key)
-        if not self.removed_keys:
+        if not self.removed_keys and not self.moved_around:
             rodct.ll_no_initial_index(self.l_dict)
+
+    def move_to_end(self, key, last=True):
+        ll_key = self.ll_key(key)
+        rodct.ll_dict_move_to_end(self.l_dict, ll_key, last)
+        value = self.reference.pop(key)
+        if last:
+            self.reference[key] = value
+        else:
+            items = self.reference.items()
+            self.reference.clear()
+            self.reference[key] = value
+            self.reference.update(items)
+        # prevent ll_no_initial_index()
+        self.moved_around = True
 
     def fullcheck(self):
         # overridden to also check key order
