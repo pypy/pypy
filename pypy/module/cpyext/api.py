@@ -571,6 +571,7 @@ SYMBOLS_C = [
     '_Py_BuildValue_SizeT', '_Py_VaBuildValue_SizeT',
 
     'PyErr_Format', 'PyErr_NewException', 'PyErr_NewExceptionWithDoc',
+    'PyErr_WarnFormat',
     'PySys_WriteStdout', 'PySys_WriteStderr',
 
     'PyEval_CallFunction', 'PyEval_CallMethod', 'PyObject_CallFunction',
@@ -1321,6 +1322,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "bytesobject.c",
                          source_dir / "complexobject.c",
                          source_dir / "import.c",
+                         source_dir / "_warnings.c",
                          ]
 
 def build_eci(code, use_micronumpy=False, translating=False):

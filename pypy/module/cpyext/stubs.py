@@ -405,14 +405,6 @@ def PyErr_WarnExplicit(space, category, message, filename, lineno, module, regis
     (sys.getfilesystemencoding())."""
     raise NotImplementedError
 
-@cpython_api([PyObject, Py_ssize_t, rffi.CCHARP, ], rffi.INT_real, error=-1)
-def PyErr_WarnFormat(space, category, stack_level, format, ):
-    """Function similar to PyErr_WarnEx(), but use
-    PyUnicode_FromFormat() to format the warning message.  format is
-    an ASCII-encoded string.
-    """
-    raise NotImplementedError
-
 
 @cpython_api([rffi.INT_real], rffi.INT_real, error=-1)
 def PySignal_SetWakeupFd(space, fd):
