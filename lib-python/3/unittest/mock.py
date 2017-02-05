@@ -64,6 +64,8 @@ class _slotted(object):
     __slots__ = ['a']
 
 
+# Do not use this tuple.  It was never documented as a public API.
+# It will be removed.  It has no obvious signs of users on github.
 DescriptorTypes = (
     type(_slotted.a),
     property,
@@ -744,7 +746,7 @@ class NonCallableMock(Base):
 
     def _call_matcher(self, _call):
         """
-        Given a call (or simply a (args, kwargs) tuple), return a
+        Given a call (or simply an (args, kwargs) tuple), return a
         comparison key suitable for matching with other calls.
         This is a best effort method which relies on the spec's signature,
         if available, or falls back on the arguments themselves.
@@ -1694,6 +1696,7 @@ _non_defaults = {
     '__reduce__', '__reduce_ex__', '__getinitargs__', '__getnewargs__',
     '__getstate__', '__setstate__', '__getformat__', '__setformat__',
     '__repr__', '__dir__', '__subclasses__', '__format__',
+    '__getnewargs_ex__',
 }
 
 
@@ -2129,7 +2132,7 @@ def create_autospec(spec, spec_set=False, instance=False, _parent=None,
     _kwargs.update(kwargs)
 
     Klass = MagicMock
-    if type(spec) in DescriptorTypes:
+    if inspect.isdatadescriptor(spec):
         # descriptors don't have a spec
         # because we don't know what type they return
         _kwargs = {}

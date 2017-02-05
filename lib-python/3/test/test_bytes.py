@@ -1233,6 +1233,16 @@ class ByteArrayTest(BaseBytesTest, unittest.TestCase):
 
     test_exhausted_iterator = test.list_tests.CommonTest.test_exhausted_iterator
 
+    def test_iterator_length_hint(self):
+        # Issue 27443: __length_hint__ can return negative integer
+        ba = bytearray(b'ab')
+        it = iter(ba)
+        next(it)
+        ba.clear()
+        # Shouldn't raise an error
+        self.assertEqual(list(it), [])
+
+
 class AssortedBytesTest(unittest.TestCase):
     #
     # Test various combinations of bytes and bytearray
@@ -1248,6 +1258,15 @@ class AssortedBytesTest(unittest.TestCase):
             self.assertEqual(f(b"abc"), "b'abc'")
             self.assertEqual(f(b"'"), '''b"'"''') # '''
             self.assertEqual(f(b"'\""), r"""b'\'"'""") # '
+
+    @check_bytes_warnings
+    def test_format(self):
+        for b in b'abc', bytearray(b'abc'):
+            self.assertEqual(format(b), str(b))
+            self.assertEqual(format(b, ''), str(b))
+            with self.assertRaisesRegex(TypeError,
+                                        r'\b%s\b' % re.escape(type(b).__name__)):
+                format(b, 's')
 
     def test_compare_bytes_to_bytearray(self):
         self.assertEqual(b"abc" == bytes(b"abc"), True)

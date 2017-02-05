@@ -184,6 +184,19 @@ class TestBasicOps(unittest.TestCase):
         for proto in range(pickle.HIGHEST_PROTOCOL + 1):
             self.pickletest(proto, chain('abc', 'def'), compare=list('abcdef'))
 
+    def test_chain_setstate(self):
+        self.assertRaises(TypeError, chain().__setstate__, ())
+        self.assertRaises(TypeError, chain().__setstate__, [])
+        self.assertRaises(TypeError, chain().__setstate__, 0)
+        self.assertRaises(TypeError, chain().__setstate__, ([],))
+        self.assertRaises(TypeError, chain().__setstate__, (iter([]), []))
+        it = chain()
+        it.__setstate__((iter(['abc', 'def']),))
+        self.assertEqual(list(it), ['a', 'b', 'c', 'd', 'e', 'f'])
+        it = chain()
+        it.__setstate__((iter(['abc', 'def']), iter(['ghi'])))
+        self.assertEqual(list(it), ['ghi', 'a', 'b', 'c', 'd', 'e', 'f'])
+
     def test_combinations(self):
         self.assertRaises(TypeError, combinations, 'abc')       # missing r argument
         self.assertRaises(TypeError, combinations, 'abc', 2, 1) # too many arguments
@@ -511,12 +524,18 @@ class TestBasicOps(unittest.TestCase):
         self.assertEqual(take(2, zip('abc',count(-3))), [('a', -3), ('b', -2)])
         self.assertRaises(TypeError, count, 2, 3, 4)
         self.assertRaises(TypeError, count, 'a')
-        self.assertEqual(list(islice(count(maxsize-5), 10)),
+        self.assertEqual(take(10, count(maxsize-5)),
                          list(range(maxsize-5, maxsize+5)))
-        self.assertEqual(list(islice(count(-maxsize-5), 10)),
+        self.assertEqual(take(10, count(-maxsize-5)),
                          list(range(-maxsize-5, -maxsize+5)))
-        self.assertEqual(list(islice(count(10, maxsize+5), 3)),
-                         list(range(10, 10+3*(maxsize+5), maxsize+5)))
+        self.assertEqual(take(3, count(3.25)), [3.25, 4.25, 5.25])
+        self.assertEqual(take(3, count(3.25-4j)), [3.25-4j, 4.25-4j, 5.25-4j])
+        self.assertEqual(take(3, count(Decimal('1.1'))),
+                         [Decimal('1.1'), Decimal('2.1'), Decimal('3.1')])
+        self.assertEqual(take(3, count(Fraction(2, 3))),
+                         [Fraction(2, 3), Fraction(5, 3), Fraction(8, 3)])
+        BIGINT = 1<<1000
+        self.assertEqual(take(3, count(BIGINT)), [BIGINT, BIGINT+1, BIGINT+2])
         c = count(3)
         self.assertEqual(repr(c), 'count(3)')
         next(c)
@@ -524,8 +543,10 @@ class TestBasicOps(unittest.TestCase):
         c = count(-9)
         self.assertEqual(repr(c), 'count(-9)')
         next(c)
-        self.assertEqual(repr(count(10.25)), 'count(10.25)')
         self.assertEqual(next(c), -8)
+        self.assertEqual(repr(count(10.25)), 'count(10.25)')
+        self.assertEqual(repr(count(10.0)), 'count(10.0)')
+        self.assertEqual(type(next(count(10.0))), float)
         for i in (-sys.maxsize-5, -sys.maxsize+5 ,-10, -1, 0, 10, sys.maxsize-5, sys.maxsize+5):
             # Test repr
             r1 = repr(count(i))
@@ -549,16 +570,22 @@ class TestBasicOps(unittest.TestCase):
                          [('a', 2), ('b', 5), ('c', 8)])
         self.assertEqual(lzip('abc',count(step=-1)),
                          [('a', 0), ('b', -1), ('c', -2)])
+        self.assertRaises(TypeError, count, 'a', 'b')
         self.assertEqual(lzip('abc',count(2,0)), [('a', 2), ('b', 2), ('c', 2)])
         self.assertEqual(lzip('abc',count(2,1)), [('a', 2), ('b', 3), ('c', 4)])
         self.assertEqual(lzip('abc',count(2,3)), [('a', 2), ('b', 5), ('c', 8)])
         self.assertEqual(take(20, count(maxsize-15, 3)), take(20, range(maxsize-15, maxsize+100, 3)))
         self.assertEqual(take(20, count(-maxsize-15, 3)), take(20, range(-maxsize-15,-maxsize+100, 3)))
+        self.assertEqual(take(3, count(10, maxsize+5)),
+                         list(range(10, 10+3*(maxsize+5), maxsize+5)))
+        self.assertEqual(take(3, count(2, 1.25)), [2, 3.25, 4.5])
         self.assertEqual(take(3, count(2, 3.25-4j)), [2, 5.25-4j, 8.5-8j])
         self.assertEqual(take(3, count(Decimal('1.1'), Decimal('.1'))),
                          [Decimal('1.1'), Decimal('1.2'), Decimal('1.3')])
         self.assertEqual(take(3, count(Fraction(2,3), Fraction(1,7))),
                          [Fraction(2,3), Fraction(17,21), Fraction(20,21)])
+        BIGINT = 1<<1000
+        self.assertEqual(take(3, count(step=BIGINT)), [0, BIGINT, 2*BIGINT])
         self.assertEqual(repr(take(3, count(10, 2.5))), repr([10, 12.5, 15.0]))
         c = count(3, 5)
         self.assertEqual(repr(c), 'count(3, 5)')
@@ -576,6 +603,10 @@ class TestBasicOps(unittest.TestCase):
         self.assertEqual(repr(count(10.5, 1.25)), 'count(10.5, 1.25)')
         self.assertEqual(repr(count(10.5, 1)), 'count(10.5)')           # suppress step=1 when it's an int
         self.assertEqual(repr(count(10.5, 1.00)), 'count(10.5, 1.0)')   # do show float values lilke 1.0
+        self.assertEqual(repr(count(10, 1.00)), 'count(10, 1.0)')
+        c = count(10, 1.0)
+        self.assertEqual(type(next(c)), int)
+        self.assertEqual(type(next(c)), float)
         for i in (-sys.maxsize-5, -sys.maxsize+5 ,-10, -1, 0, 10, sys.maxsize-5, sys.maxsize+5):
             for j in  (-sys.maxsize-5, -sys.maxsize+5 ,-10, -1, 0, 1, 10, sys.maxsize-5, sys.maxsize+5):
                 # Test repr
@@ -612,6 +643,25 @@ class TestBasicOps(unittest.TestCase):
             next(c)
         for proto in range(pickle.HIGHEST_PROTOCOL + 1):
             self.pickletest(proto, cycle('abc'))
+
+    def test_cycle_setstate(self):
+        self.assertRaises(TypeError, cycle('').__setstate__, ())
+        self.assertRaises(TypeError, cycle('').__setstate__, [])
+        self.assertRaises(TypeError, cycle('').__setstate__, 0)
+        self.assertRaises(TypeError, cycle('').__setstate__, ([],))
+        self.assertRaises(TypeError, cycle('').__setstate__, ((), 0))
+        it = cycle('abc')
+        it.__setstate__((['de', 'fg'], 0))
+        self.assertEqual(list(islice(it, 15)),
+                         ['a', 'b', 'c', 'de', 'fg',
+                          'a', 'b', 'c', 'de', 'fg',
+                          'a', 'b', 'c', 'de', 'fg'])
+        it = cycle('abc')
+        it.__setstate__((['de', 'fg'], 1))
+        self.assertEqual(list(islice(it, 15)),
+                         ['a', 'b', 'c', 'de', 'fg',
+                          'de', 'fg', 'de', 'fg', 'de',
+                          'fg', 'de', 'fg', 'de', 'fg'])
 
     def test_groupby(self):
         # Check whether it accepts arguments correctly

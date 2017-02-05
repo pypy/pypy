@@ -136,7 +136,7 @@ _MAXHEADERS = 100
 #
 # VCHAR defined in http://tools.ietf.org/html/rfc5234#appendix-B.1
 
-# the patterns for both name and value are more leniant than RFC
+# the patterns for both name and value are more lenient than RFC
 # definitions to allow for backwards compatibility
 _is_legal_header_name = re.compile(rb'[^:\s][^:\r\n]*').fullmatch
 _is_illegal_header_value = re.compile(rb'\n(?![ \t])|\r(?![ \t\n])').search
@@ -935,7 +935,8 @@ class HTTPConnection:
         if message_body is not None:
             self.send(message_body)
 
-    def putrequest(self, method, url, skip_host=0, skip_accept_encoding=0):
+    def putrequest(self, method, url, skip_host=False,
+                   skip_accept_encoding=False):
         """Send a request to the server.
 
         `method' specifies an HTTP request method, e.g. 'GET'.

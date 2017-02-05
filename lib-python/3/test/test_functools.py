@@ -1,4 +1,5 @@
 import abc
+import builtins
 import collections
 import copy
 from itertools import permutations
@@ -217,6 +218,33 @@ class TestPartialC(TestPartial, unittest.TestCase):
                       ['{}({!r}, {}, {})'.format(name, capture, args_repr, kwargs_repr)
                        for kwargs_repr in kwargs_reprs])
 
+    def test_recursive_repr(self):
+        if self.partial is c_functools.partial:
+            name = 'functools.partial'
+        else:
+            name = self.partial.__name__
+
+        f = self.partial(capture)
+        f.__setstate__((f, (), {}, {}))
+        try:
+            self.assertEqual(repr(f), '%s(%s(...))' % (name, name))
+        finally:
+            f.__setstate__((capture, (), {}, {}))
+
+        f = self.partial(capture)
+        f.__setstate__((capture, (f,), {}, {}))
+        try:
+            self.assertEqual(repr(f), '%s(%r, %s(...))' % (name, capture, name))
+        finally:
+            f.__setstate__((capture, (), {}, {}))
+
+        f = self.partial(capture)
+        f.__setstate__((capture, (), {'a': f}, {}))
+        try:
+            self.assertEqual(repr(f), '%s(%r, a=%s(...))' % (name, capture, name))
+        finally:
+            f.__setstate__((capture, (), {}, {}))
+
     def test_pickle(self):
         f = self.partial(signature, ['asdf'], bar=[True])
         f.attr = []
@@ -296,6 +324,40 @@ class TestPartialC(TestPartial, unittest.TestCase):
         r = f(2)
         self.assertEqual(r, ((1, 2), {}))
         self.assertIs(type(r[0]), tuple)
+
+    def test_recursive_pickle(self):
+        f = self.partial(capture)
+        f.__setstate__((f, (), {}, {}))
+        try:
+            for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+                with self.assertRaises(RecursionError):
+                    pickle.dumps(f, proto)
+        finally:
+            f.__setstate__((capture, (), {}, {}))
+
+        f = self.partial(capture)
+        f.__setstate__((capture, (f,), {}, {}))
+        try:
+            for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+                f_copy = pickle.loads(pickle.dumps(f, proto))
+                try:
+                    self.assertIs(f_copy.args[0], f_copy)
+                finally:
+                    f_copy.__setstate__((capture, (), {}, {}))
+        finally:
+            f.__setstate__((capture, (), {}, {}))
+
+        f = self.partial(capture)
+        f.__setstate__((capture, (), {'a': f}, {}))
+        try:
+            for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+                f_copy = pickle.loads(pickle.dumps(f, proto))
+                try:
+                    self.assertIs(f_copy.keywords['a'], f_copy)
+                finally:
+                    f_copy.__setstate__((capture, (), {}, {}))
+        finally:
+            f.__setstate__((capture, (), {}, {}))
 
     # Issue 6083: Reference counting bug
     def test_setstate_refcount(self):
@@ -993,7 +1055,7 @@ class TestTotalOrdering(unittest.TestCase):
                 a <= b
 
     def test_pickle(self):
-        for proto in range(4, pickle.HIGHEST_PROTOCOL + 1):
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
             for name in '__lt__', '__gt__', '__le__', '__ge__':
                 with self.subTest(method=name, proto=proto):
                     method = getattr(Orderable_LT, name)
@@ -1100,6 +1162,37 @@ class TestLRU:
         self.assertEqual(hits, 12)
         self.assertEqual(misses, 4)
         self.assertEqual(currsize, 2)
+
+    def test_lru_reentrancy_with_len(self):
+        # Test to make sure the LRU cache code isn't thrown-off by
+        # caching the built-in len() function.  Since len() can be
+        # cached, we shouldn't use it inside the lru code itself.
+        old_len = builtins.len
+        try:
+            builtins.len = self.module.lru_cache(4)(len)
+            for i in [0, 0, 1, 2, 3, 3, 4, 5, 6, 1, 7, 2, 1]:
+                self.assertEqual(len('abcdefghijklmn'[:i]), i)
+        finally:
+            builtins.len = old_len
+
+    def test_lru_type_error(self):
+        # Regression test for issue #28653.
+        # lru_cache was leaking when one of the arguments
+        # wasn't cacheable.
+
+        @functools.lru_cache(maxsize=None)
+        def infinite_cache(o):
+            pass
+
+        @functools.lru_cache(maxsize=10)
+        def limited_cache(o):
+            pass
+
+        with self.assertRaises(TypeError):
+            infinite_cache([])
+
+        with self.assertRaises(TypeError):
+            limited_cache([])
 
     def test_lru_with_maxsize_none(self):
         @self.module.lru_cache(maxsize=None)

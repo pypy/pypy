@@ -342,7 +342,9 @@ isn't, there should be a syntax error.
      ...
    SyntaxError: 'break' outside loop
 
-This should probably raise a better error than a SystemError (or none at all).
+This raises a SyntaxError, it used to raise a SystemError.
+Context for this change can be found on issue #27514
+
 In 2.5 there was a missing exception and an assert was triggered in a debug
 build.  The number of blocks must be greater than CO_MAXBLOCKS.  SF #1565514
 
@@ -370,7 +372,7 @@ build.  The number of blocks must be greater than CO_MAXBLOCKS.  SF #1565514
    ...                      break
    Traceback (most recent call last):
      ...
-   SystemError: too many statically nested blocks
+   SyntaxError: too many statically nested blocks
 
 Misuse of the nonlocal statement can lead to a few unique syntax errors.
 
@@ -538,7 +540,7 @@ from test import support
 class SyntaxTestCase(unittest.TestCase):
 
     def _check_error(self, code, errtext,
-                     filename="<testcase>", mode="exec", subclass=None):
+                     filename="<testcase>", mode="exec", subclass=None, lineno=None, offset=None):
         """Check that compiling code raises SyntaxError with errtext.
 
         errtest is a regular expression that must be present in the
@@ -553,6 +555,11 @@ class SyntaxTestCase(unittest.TestCase):
             mo = re.search(errtext, str(err))
             if mo is None:
                 self.fail("SyntaxError did not contain '%r'" % (errtext,))
+            self.assertEqual(err.filename, filename)
+            if lineno is not None:
+                self.assertEqual(err.lineno, lineno)
+            if offset is not None:
+                self.assertEqual(err.offset, offset)
         else:
             self.fail("compile() did not raise SyntaxError")
 
@@ -563,7 +570,7 @@ class SyntaxTestCase(unittest.TestCase):
         self._check_error("del f()", "delete")
 
     def test_global_err_then_warn(self):
-        # Bug tickler:  The SyntaxError raised for one global statement
+        # Bug #763201:  The SyntaxError raised for one global statement
         # shouldn't be clobbered by a SyntaxWarning issued for a later one.
         source = """if 1:
             def error(a):
@@ -573,7 +580,7 @@ class SyntaxTestCase(unittest.TestCase):
                 global b  # SyntaxWarning
             """
         warnings.filterwarnings(action='ignore', category=SyntaxWarning)
-        self._check_error(source, "global")
+        self._check_error(source, "global", lineno=3, offset=16)
         warnings.filters.pop(0)
 
     def test_break_outside_loop(self):

@@ -10,6 +10,7 @@ import os
 import os.path
 import py_compile
 import subprocess
+import io
 
 import textwrap
 from test import support
@@ -426,8 +427,9 @@ class CmdLineTest(unittest.TestCase):
         # Exercise error reporting for various invalid package executions
         tests = (
             ('builtins', br'No code object available'),
-            ('builtins.x', br'Error while finding spec.*AttributeError'),
-            ('builtins.x.y', br'Error while finding spec.*'
+            ('builtins.x', br'Error while finding module specification.*'
+                br'AttributeError'),
+            ('builtins.x.y', br'Error while finding module specification.*'
                 br'ImportError.*No module named.*not a package'),
             ('os.path', br'loader.*cannot handle'),
             ('importlib', br'No module named.*'
@@ -450,7 +452,8 @@ class CmdLineTest(unittest.TestCase):
             with open('test_pkg/__init__.pyc', 'wb'):
                 pass
             err = self.check_dash_m_failure('test_pkg')
-            self.assertRegex(err, br'Error while finding spec.*'
+            self.assertRegex(err,
+                br'Error while finding module specification.*'
                 br'ImportError.*bad magic number')
             self.assertNotIn(b'is a package', err)
             self.assertNotIn(b'Traceback', err)
@@ -537,6 +540,38 @@ class CmdLineTest(unittest.TestCase):
             exitcode, stdout, stderr = assert_python_failure(script_name)
             text = stderr.decode('ascii')
             self.assertEqual(text, "some text")
+
+    def test_syntaxerror_unindented_caret_position(self):
+        script = "1 + 1 = 2\n"
+        with support.temp_dir() as script_dir:
+            script_name = _make_test_script(script_dir, 'script', script)
+            exitcode, stdout, stderr = assert_python_failure(script_name)
+            text = io.TextIOWrapper(io.BytesIO(stderr), 'ascii').read()
+            # Confirm that the caret is located under the first 1 character
+            self.assertIn("\n    1 + 1 = 2\n    ^", text)
+
+    def test_syntaxerror_indented_caret_position(self):
+        script = textwrap.dedent("""\
+            if True:
+                1 + 1 = 2
+            """)
+        with support.temp_dir() as script_dir:
+            script_name = _make_test_script(script_dir, 'script', script)
+            exitcode, stdout, stderr = assert_python_failure(script_name)
+            text = io.TextIOWrapper(io.BytesIO(stderr), 'ascii').read()
+            # Confirm that the caret is located under the first 1 character
+            self.assertIn("\n    1 + 1 = 2\n    ^", text)
+
+            # Try the same with a form feed at the start of the indented line
+            script = (
+                "if True:\n"
+                "\f    1 + 1 = 2\n"
+            )
+            script_name = _make_test_script(script_dir, "script", script)
+            exitcode, stdout, stderr = assert_python_failure(script_name)
+            text = io.TextIOWrapper(io.BytesIO(stderr), "ascii").read()
+            self.assertNotIn("\f", text)
+            self.assertIn("\n    1 + 1 = 2\n    ^", text)
 
 
 def test_main():

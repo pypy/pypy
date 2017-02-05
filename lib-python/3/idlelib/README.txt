@@ -16,7 +16,7 @@ and omissions and lag behind changes in idlelib.
 
 
 IDLELIB FILES
-Implemetation files not in IDLE MENU are marked (nim).
+Implementation files not in IDLE MENU are marked (nim).
 Deprecated files and objects are listed separately as the end.
 
 Startup
@@ -161,14 +161,15 @@ Edit
   Show surrounding parens  # ParenMatch (& Hyperparser)
 
 Shell  # PyShell
-  View Last Restart  # PyShell.?
-  Restart Shell  # PyShell.?
+  View Last Restart    # PyShell.PyShell.view_restart_mark
+  Restart Shell        # PyShell.PyShell.restart_shell
+  Interrupt Execution  # pyshell.PyShell.cancel_callback
 
 Debug (Shell only)
   Go to File/Line
-  Debugger  # Debugger, RemoteDebugger
-  Stack Viewer  # StackViewer
-  Auto-open Stack Viewer  # StackViewer
+  Debugger               # Debugger, RemoteDebugger, PyShell.toggle_debuger
+  Stack Viewer           # StackViewer, PyShell.open_stack_viewer
+  Auto-open Stack Viewer # StackViewer
 
 Format (Editor only)
   Indent Region

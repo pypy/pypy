@@ -200,6 +200,9 @@ class ParseArgsTestCase(unittest.TestCase):
                 self.checkError([opt, '2', '-T'], "don't go together")
                 self.checkError([opt, '2', '-l'], "don't go together")
                 self.checkError([opt, '2', '-M', '4G'], "don't go together")
+                self.checkError([opt, '0', '-T'], "don't go together")
+                self.checkError([opt, '0', '-l'], "don't go together")
+                self.checkError([opt, '0', '-M', '4G'], "don't go together")
 
     def test_coverage(self):
         for opt in '-T', '--coverage':
@@ -269,6 +272,16 @@ class ParseArgsTestCase(unittest.TestCase):
         self.assertTrue(ns.quiet)
         self.assertEqual(ns.verbose, 0)
         self.assertEqual(ns.args, ['foo'])
+
+    def test_arg_option_arg(self):
+        ns = regrtest._parse_args(['test_unaryop', '-v', 'test_binop'])
+        self.assertEqual(ns.verbose, 1)
+        self.assertEqual(ns.args, ['test_unaryop', 'test_binop'])
+
+    def test_unknown_option(self):
+        self.checkError(['--unknown-option'],
+                        'unrecognized arguments: --unknown-option')
+
 
 
 if __name__ == '__main__':

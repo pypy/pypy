@@ -6,6 +6,7 @@ import weakref
 import operator
 import contextlib
 import copy
+import time
 
 from test import support
 from test.support import script_helper
@@ -70,6 +71,29 @@ class TestBase(unittest.TestCase):
 
     def callback(self, ref):
         self.cbcalled += 1
+
+
+@contextlib.contextmanager
+def collect_in_thread(period=0.0001):
+    """
+    Ensure GC collections happen in a different thread, at a high frequency.
+    """
+    threading = support.import_module('threading')
+    please_stop = False
+
+    def collect():
+        while not please_stop:
+            time.sleep(period)
+            gc.collect()
+
+    with support.disable_gc():
+        t = threading.Thread(target=collect)
+        t.start()
+        try:
+            yield
+        finally:
+            please_stop = True
+            t.join()
 
 
 class ReferencesTestCase(TestBase):
@@ -589,6 +613,7 @@ class ReferencesTestCase(TestBase):
         del c1, c2, C, D
         gc.collect()
 
+    @support.requires_type_collecting
     def test_callback_in_cycle_resurrection(self):
         import gc
 
@@ -843,6 +868,14 @@ class ReferencesTestCase(TestBase):
         ref1 = weakref.ref(x, callback)
         with self.assertRaises(AttributeError):
             ref1.__callback__ = lambda ref: None
+
+    def test_callback_gcs(self):
+        class ObjectWithDel(Object):
+            def __del__(self): pass
+        x = ObjectWithDel(1)
+        ref1 = weakref.ref(x, lambda ref: support.gc_collect())
+        del x
+        support.gc_collect()
 
 
 class SubclassableWeakrefTestCase(TestBase):
@@ -1623,6 +1656,35 @@ class MappingTestCase(TestBase):
     def test_make_weak_keyed_dict_repr(self):
         dict = weakref.WeakKeyDictionary()
         self.assertRegex(repr(dict), '<WeakKeyDictionary at 0x.*>')
+
+    def test_threaded_weak_valued_setdefault(self):
+        d = weakref.WeakValueDictionary()
+        with collect_in_thread():
+            for i in range(100000):
+                x = d.setdefault(10, RefCycle())
+                self.assertIsNot(x, None)  # we never put None in there!
+                del x
+
+    def test_threaded_weak_valued_pop(self):
+        d = weakref.WeakValueDictionary()
+        with collect_in_thread():
+            for i in range(100000):
+                d[10] = RefCycle()
+                x = d.pop(10, 10)
+                self.assertIsNot(x, None)  # we never put None in there!
+
+    def test_threaded_weak_valued_consistency(self):
+        # Issue #28427: old keys should not remove new values from
+        # WeakValueDictionary when collecting from another thread.
+        d = weakref.WeakValueDictionary()
+        with collect_in_thread():
+            for i in range(200000):
+                o = RefCycle()
+                d[10] = o
+                # o is still alive, so the dict can't be empty
+                self.assertEqual(len(d), 1)
+                o = None  # lose ref
+
 
 from test import mapping_tests
 

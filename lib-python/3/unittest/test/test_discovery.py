@@ -275,7 +275,7 @@ class TestDiscovery(unittest.TestCase):
         self.assertEqual(Module.load_tests_args,
                          [(loader, [], 'test*.py')])
 
-    def test_find_tests_customise_via_package_pattern(self):
+    def test_find_tests_customize_via_package_pattern(self):
         # This test uses the example 'do-nothing' load_tests from
         # https://docs.python.org/3/library/unittest.html#load-tests-protocol
         # to make sure that that actually works.
@@ -349,7 +349,7 @@ class TestDiscovery(unittest.TestCase):
         suite = list(loader._find_tests(abspath('/foo'), 'test*.py'))
 
         # We should have loaded tests from both my_package and
-        # my_pacakge.test_module, and also run the load_tests hook in both.
+        # my_package.test_module, and also run the load_tests hook in both.
         # (normally this would be nested TestSuites.)
         self.assertEqual(suite,
                          [['my_package load_tests', [],
