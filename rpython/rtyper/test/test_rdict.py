@@ -1191,7 +1191,7 @@ class MappingSpace(object):
     def move_to_end(self, key, last=True):
         "For test_rordereddict"
 
-    def move_to_beginning(self, key):
+    def move_to_first(self, key):
         self.move_to_end(key, last=False)
 
     def copydict(self):
@@ -1260,9 +1260,9 @@ class MappingSM(GenericStateMachine):
         return builds(Action,
             just('move_to_end'), tuples(sampled_from(self.space.reference)))
 
-    def st_move_to_beginning(self):
+    def st_move_to_first(self):
         return builds(Action,
-            just('move_to_beginning'),
+            just('move_to_first'),
                 tuples(sampled_from(self.space.reference)))
 
     def steps(self):
@@ -1274,7 +1274,7 @@ class MappingSM(GenericStateMachine):
             return (
                 self.st_setitem() | sampled_from(global_actions) |
                 self.st_updateitem() | self.st_delitem() |
-                self.st_move_to_end() | self.st_move_to_beginning())
+                self.st_move_to_end() | self.st_move_to_first())
         else:
             return (self.st_setitem() | sampled_from(global_actions))
 

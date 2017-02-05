@@ -1421,11 +1421,11 @@ def ll_dict_pop_default(dic, key, dfl):
 
 def ll_dict_move_to_end(d, key, last):
     if last:
-        ll_dict_move_to_end_really(d, key)
+        ll_dict_move_to_last(d, key)
     else:
-        ll_dict_move_to_beginning(d, key)
+        ll_dict_move_to_first(d, key)
 
-def ll_dict_move_to_end_really(d, key):
+def ll_dict_move_to_last(d, key):
     hash = d.keyhash(key)
     old_index = d.lookup_function(d, key, hash, FLAG_LOOKUP)
     if old_index < 0:
@@ -1449,7 +1449,7 @@ def ll_dict_move_to_end_really(d, key):
             replace_with = VALID_OFFSET + d.num_ever_used_items)
     _ll_dict_setitem_lookup_done(d, key, value, hash, -1)
 
-def ll_dict_move_to_beginning(d, key):
+def ll_dict_move_to_first(d, key):
     # In this function, we might do a bit more than the strict minimum
     # of walks over parts of the array, trying to keep the code at least
     # semi-reasonable, while the goal is still amortized constant-time
@@ -1506,19 +1506,19 @@ def ll_dict_move_to_beginning(d, key):
 
     # remove the entry at the old position
     ll_assert(d.entries.valid(old_index),
-              "ll_dict_move_to_beginning: lost old_index")
+              "ll_dict_move_to_first: lost old_index")
     ENTRY = lltype.typeOf(d.entries).TO.OF
     old_entry = d.entries[old_index]
     key = old_entry.key
     value = old_entry.value
     if hasattr(ENTRY, 'f_hash'):
         ll_assert(old_entry.f_hash == hash,
-                  "ll_dict_move_to_beginning: bad hash")
+                  "ll_dict_move_to_first: bad hash")
     _ll_dict_del_entry(d, old_index)
 
     # put the entry at its new position
     ll_assert(not d.entries.valid(idst),
-              "ll_dict_move_to_beginning: overwriting idst")
+              "ll_dict_move_to_first: overwriting idst")
     new_entry = d.entries[idst]
     new_entry.key = key
     new_entry.value = value
