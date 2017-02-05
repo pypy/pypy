@@ -258,8 +258,6 @@ class AppTestFFIObj:
         assert ffi.buffer(a)[:] == b'\x05\x06\x07'
         assert ffi.buffer(cdata=a, size=2)[:] == b'\x05\x06'
         assert type(ffi.buffer(a)) is ffi.buffer
-        assert ffi.buffer(cdata=a, size=2)[:] == b'\x05\x06'
-        assert type(ffi.buffer(a)) is ffi.buffer
 
     def test_ffi_from_buffer(self):
         import _cffi_backend as _cffi1_backend
