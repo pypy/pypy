@@ -1,4 +1,5 @@
 from __pypy__ import reversed_dict, move_to_end
+from _operator import eq as _eq
 from reprlib import recursive_repr as _recursive_repr
 
 class OrderedDict(dict):
