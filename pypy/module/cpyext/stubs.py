@@ -660,17 +660,6 @@ def _PyObject_GC_UNTRACK(space, op):
     extension modules."""
     raise NotImplementedError
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyGen_Check(space, ob):
-    """Return true if ob is a generator object; ob must not be NULL."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyGen_CheckExact(space, ob):
-    """Return true if ob's type is PyGen_Type is a generator object; ob must not
-    be NULL."""
-    raise NotImplementedError
-
 @cpython_api([PyFrameObject], PyObject)
 def PyGen_New(space, frame):
     """Create and return a new generator object based on the frame object. A

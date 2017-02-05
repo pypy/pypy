@@ -1131,6 +1131,7 @@ class BackendTests:
             b = ffi.buffer(a)
         except NotImplementedError as e:
             py.test.skip(str(e))
+        assert type(b) is ffi.buffer
         content = b[:]
         assert len(content) == len(b) == 2
         if sys.byteorder == 'little':

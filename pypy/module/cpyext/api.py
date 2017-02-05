@@ -1078,7 +1078,8 @@ def build_bridge(space):
     struct PyPyAPI {
     %(members)s
     } _pypyAPI;
-    RPY_EXTERN struct PyPyAPI* pypyAPI = &_pypyAPI;
+    RPY_EXTERN struct PyPyAPI* pypyAPI;
+    struct PyPyAPI* pypyAPI = &_pypyAPI;
     """ % dict(members=structmembers)
 
     global_objects = []
