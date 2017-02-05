@@ -2,7 +2,7 @@
 
 __all__ = ['CancelledError', 'TimeoutError',
            'InvalidStateError',
-           'Future', 'wrap_future',
+           'Future', 'wrap_future', 'isfuture',
            ]
 
 import concurrent.futures._base
@@ -110,6 +110,17 @@ class _TracebackLogger:
             self.loop.call_exception_handler({'message': msg})
 
 
+def isfuture(obj):
+    """Check for a Future.
+
+    This returns True when obj is a Future instance or is advertising
+    itself as duck-type compatible by setting _asyncio_future_blocking.
+    See comment in Future for more details.
+    """
+    return (hasattr(obj.__class__, '_asyncio_future_blocking') and
+            obj._asyncio_future_blocking is not None)
+
+
 class Future:
     """This class is *almost* compatible with concurrent.futures.Future.
 
@@ -134,7 +145,15 @@ class Future:
     _loop = None
     _source_traceback = None
 
-    _blocking = False  # proper use of future (yield vs yield from)
+    # This field is used for a dual purpose:
+    # - Its presence is a marker to declare that a class implements
+    #   the Future protocol (i.e. is intended to be duck-type compatible).
+    #   The value must also be not-None, to enable a subclass to declare
+    #   that it is not compatible by setting this to None.
+    # - It is set by __iter__() below so that Task._step() can tell
+    #   the difference between `yield from Future()` (correct) vs.
+    #   `yield Future()` (incorrect).
+    _asyncio_future_blocking = False
 
     _log_traceback = False   # Used for Python 3.4 and later
     _tb_logger = None        # Used for Python 3.3 only
@@ -357,7 +376,7 @@ class Future:
 
     def __iter__(self):
         if not self.done():
-            self._blocking = True
+            self._asyncio_future_blocking = True
             yield self  # This tells Task to wait for completion.
         assert self.done(), "yield from wasn't used with future"
         return self.result()  # May raise too.
@@ -415,15 +434,17 @@ def _chain_future(source, destination):
     If destination is cancelled, source gets cancelled too.
     Compatible with both asyncio.Future and concurrent.futures.Future.
     """
-    if not isinstance(source, (Future, concurrent.futures.Future)):
+    if not isfuture(source) and not isinstance(source,
+                                               concurrent.futures.Future):
         raise TypeError('A future is required for source argument')
-    if not isinstance(destination, (Future, concurrent.futures.Future)):
+    if not isfuture(destination) and not isinstance(destination,
+                                                    concurrent.futures.Future):
         raise TypeError('A future is required for destination argument')
-    source_loop = source._loop if isinstance(source, Future) else None
-    dest_loop = destination._loop if isinstance(destination, Future) else None
+    source_loop = source._loop if isfuture(source) else None
+    dest_loop = destination._loop if isfuture(destination) else None
 
     def _set_state(future, other):
-        if isinstance(future, Future):
+        if isfuture(future):
             _copy_future_state(other, future)
         else:
             _set_concurrent_future_state(future, other)
@@ -447,7 +468,7 @@ def _chain_future(source, destination):
 
 def wrap_future(future, *, loop=None):
     """Wrap concurrent.futures.Future object."""
-    if isinstance(future, Future):
+    if isfuture(future):
         return future
     assert isinstance(future, concurrent.futures.Future), \
         'concurrent.futures.Future is expected, got {!r}'.format(future)

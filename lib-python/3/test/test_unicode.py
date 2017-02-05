@@ -4,7 +4,7 @@ Written by Marc-Andre Lemburg (mal@lemburg.com).
 
 (c) Copyright CNRI, All Rights Reserved. NO WARRANTY.
 
-"""#"
+"""
 import _string
 import codecs
 import itertools
@@ -2275,6 +2275,124 @@ class UnicodeTest(string_tests.CommonTest,
         self.assertEqual("%s" % s, '__str__ overridden')
         self.assertEqual("{}".format(s), '__str__ overridden')
 
+    def test_subclass_add(self):
+        class S(str):
+            def __add__(self, o):
+                return "3"
+        self.assertEqual(S("4") + S("5"), "3")
+        class S(str):
+            def __iadd__(self, o):
+                return "3"
+        s = S("1")
+        s += "4"
+        self.assertEqual(s, "3")
+
+    def test_getnewargs(self):
+        text = 'abc'
+        args = text.__getnewargs__()
+        if support.check_impl_detail():
+            self.assertIsNot(args[0], text)
+        self.assertEqual(args[0], text)
+        self.assertEqual(len(args), 1)
+
+    def test_resize(self):
+        for length in range(1, 100, 7):
+            # generate a fresh string (refcount=1)
+            text = 'a' * length + 'b'
+
+            with support.check_warnings(('unicode_internal codec has been '
+                                         'deprecated', DeprecationWarning)):
+                # fill wstr internal field
+                abc = text.encode('unicode_internal')
+                self.assertEqual(abc.decode('unicode_internal'), text)
+
+                # resize text: wstr field must be cleared and then recomputed
+                text += 'c'
+                abcdef = text.encode('unicode_internal')
+                self.assertNotEqual(abc, abcdef)
+                self.assertEqual(abcdef.decode('unicode_internal'), text)
+
+    def test_compare(self):
+        # Issue #17615
+        N = 10
+        ascii = 'a' * N
+        ascii2 = 'z' * N
+        latin = '\x80' * N
+        latin2 = '\xff' * N
+        bmp = '\u0100' * N
+        bmp2 = '\uffff' * N
+        astral = '\U00100000' * N
+        astral2 = '\U0010ffff' * N
+        strings = (
+            ascii, ascii2,
+            latin, latin2,
+            bmp, bmp2,
+            astral, astral2)
+        for text1, text2 in itertools.combinations(strings, 2):
+            equal = (text1 is text2)
+            self.assertEqual(text1 == text2, equal)
+            self.assertEqual(text1 != text2, not equal)
+
+            if equal:
+                self.assertTrue(text1 <= text2)
+                self.assertTrue(text1 >= text2)
+
+                # text1 is text2: duplicate strings to skip the "str1 == str2"
+                # optimization in unicode_compare_eq() and really compare
+                # character per character
+                copy1 = duplicate_string(text1)
+                copy2 = duplicate_string(text2)
+                self.assertIsNot(copy1, copy2)
+
+                self.assertTrue(copy1 == copy2)
+                self.assertFalse(copy1 != copy2)
+
+                self.assertTrue(copy1 <= copy2)
+                self.assertTrue(copy2 >= copy2)
+
+        self.assertTrue(ascii < ascii2)
+        self.assertTrue(ascii < latin)
+        self.assertTrue(ascii < bmp)
+        self.assertTrue(ascii < astral)
+        self.assertFalse(ascii >= ascii2)
+        self.assertFalse(ascii >= latin)
+        self.assertFalse(ascii >= bmp)
+        self.assertFalse(ascii >= astral)
+
+        self.assertFalse(latin < ascii)
+        self.assertTrue(latin < latin2)
+        self.assertTrue(latin < bmp)
+        self.assertTrue(latin < astral)
+        self.assertTrue(latin >= ascii)
+        self.assertFalse(latin >= latin2)
+        self.assertFalse(latin >= bmp)
+        self.assertFalse(latin >= astral)
+
+        self.assertFalse(bmp < ascii)
+        self.assertFalse(bmp < latin)
+        self.assertTrue(bmp < bmp2)
+        self.assertTrue(bmp < astral)
+        self.assertTrue(bmp >= ascii)
+        self.assertTrue(bmp >= latin)
+        self.assertFalse(bmp >= bmp2)
+        self.assertFalse(bmp >= astral)
+
+        self.assertFalse(astral < ascii)
+        self.assertFalse(astral < latin)
+        self.assertFalse(astral < bmp2)
+        self.assertTrue(astral < astral2)
+        self.assertTrue(astral >= ascii)
+        self.assertTrue(astral >= latin)
+        self.assertTrue(astral >= bmp2)
+        self.assertFalse(astral >= astral2)
+
+    def test_free_after_iterating(self):
+        support.check_free_after_iterating(self, iter, str)
+        support.check_free_after_iterating(self, reversed, str)
+
+
+class CAPITest(unittest.TestCase):
+
     # Test PyUnicode_FromFormat()
     def test_from_format(self):
         support.import_module('ctypes')
@@ -2498,7 +2616,7 @@ class UnicodeTest(string_tests.CommonTest,
                      b'repr=%V', None, b'abc\xff')
 
         # not supported: copy the raw format string. these tests are just here
-        # to check for crashs and should not be considered as specifications
+        # to check for crashes and should not be considered as specifications
         check_format('%s',
                      b'%1%s', b'abc')
         check_format('%1abc',
@@ -2570,17 +2688,65 @@ class UnicodeTest(string_tests.CommonTest,
         self.assertEqual(size, nchar)
         self.assertEqual(wchar, nonbmp + '\0')
 
-    def test_subclass_add(self):
-        class S(str):
-            def __add__(self, o):
-                return "3"
-        self.assertEqual(S("4") + S("5"), "3")
-        class S(str):
-            def __iadd__(self, o):
-                return "3"
-        s = S("1")
-        s += "4"
-        self.assertEqual(s, "3")
+    # Test PyUnicode_AsUCS4()
+    @support.cpython_only
+    def test_asucs4(self):
+        from _testcapi import unicode_asucs4
+        for s in ['abc', '\xa1\xa2', '\u4f60\u597d', 'a\U0001f600',
+                  'a\ud800b\udfffc', '\ud834\udd1e']:
+            l = len(s)
+            self.assertEqual(unicode_asucs4(s, l, 1), s+'\0')
+            self.assertEqual(unicode_asucs4(s, l, 0), s+'\uffff')
+            self.assertEqual(unicode_asucs4(s, l+1, 1), s+'\0\uffff')
+            self.assertEqual(unicode_asucs4(s, l+1, 0), s+'\0\uffff')
+            self.assertRaises(SystemError, unicode_asucs4, s, l-1, 1)
+            self.assertRaises(SystemError, unicode_asucs4, s, l-2, 0)
+            s = '\0'.join([s, s])
+            self.assertEqual(unicode_asucs4(s, len(s), 1), s+'\0')
+            self.assertEqual(unicode_asucs4(s, len(s), 0), s+'\uffff')
+
+    # Test PyUnicode_CopyCharacters()
+    @support.cpython_only
+    def test_copycharacters(self):
+        from _testcapi import unicode_copycharacters
+
+        strings = [
+            'abcde', '\xa1\xa2\xa3\xa4\xa5',
+            '\u4f60\u597d\u4e16\u754c\uff01',
+            '\U0001f600\U0001f601\U0001f602\U0001f603\U0001f604'
+        ]
+
+        for idx, from_ in enumerate(strings):
+            # wide -> narrow: exceed maxchar limitation
+            for to in strings[:idx]:
+                self.assertRaises(
+                    SystemError,
+                    unicode_copycharacters, to, 0, from_, 0, 5
+                )
+            # same kind
+            for from_start in range(5):
+                self.assertEqual(
+                    unicode_copycharacters(from_, 0, from_, from_start, 5),
+                    (from_[from_start:from_start+5].ljust(5, '\0'),
+                     5-from_start)
+                )
+            for to_start in range(5):
+                self.assertEqual(
+                    unicode_copycharacters(from_, to_start, from_, to_start, 5),
+                    (from_[to_start:to_start+5].rjust(5, '\0'),
+                     5-to_start)
+                )
+            # narrow -> wide
+            # Tests omitted since this creates invalid strings.
+
+        s = strings[0]
+        self.assertRaises(IndexError, unicode_copycharacters, s, 6, s, 0, 5)
+        self.assertRaises(IndexError, unicode_copycharacters, s, -1, s, 0, 5)
+        self.assertRaises(IndexError, unicode_copycharacters, s, 0, s, 6, 5)
+        self.assertRaises(IndexError, unicode_copycharacters, s, 0, s, -1, 5)
+        self.assertRaises(SystemError, unicode_copycharacters, s, 1, s, 0, 5)
+        self.assertRaises(SystemError, unicode_copycharacters, s, 0, s, 0, -1)
+        self.assertRaises(SystemError, unicode_copycharacters, s, 0, b'', 0, 0)
 
     @support.cpython_only
     def test_encode_decimal(self):
@@ -2610,105 +2776,6 @@ class UnicodeTest(string_tests.CommonTest,
         self.assertEqual(transform_decimal('123\u20ac'),
                          '123\u20ac')
 
-    def test_getnewargs(self):
-        text = 'abc'
-        args = text.__getnewargs__()
-        if support.check_impl_detail():
-            self.assertIsNot(args[0], text)
-        self.assertEqual(args[0], text)
-        self.assertEqual(len(args), 1)
-
-    def test_resize(self):
-        for length in range(1, 100, 7):
-            # generate a fresh string (refcount=1)
-            text = 'a' * length + 'b'
-
-            with support.check_warnings(('unicode_internal codec has been '
-                                         'deprecated', DeprecationWarning)):
-                # fill wstr internal field
-                abc = text.encode('unicode_internal')
-                self.assertEqual(abc.decode('unicode_internal'), text)
-
-                # resize text: wstr field must be cleared and then recomputed
-                text += 'c'
-                abcdef = text.encode('unicode_internal')
-                self.assertNotEqual(abc, abcdef)
-                self.assertEqual(abcdef.decode('unicode_internal'), text)
-
-    def test_compare(self):
-        # Issue #17615
-        N = 10
-        ascii = 'a' * N
-        ascii2 = 'z' * N
-        latin = '\x80' * N
-        latin2 = '\xff' * N
-        bmp = '\u0100' * N
-        bmp2 = '\uffff' * N
-        astral = '\U00100000' * N
-        astral2 = '\U0010ffff' * N
-        strings = (
-            ascii, ascii2,
-            latin, latin2,
-            bmp, bmp2,
-            astral, astral2)
-        for text1, text2 in itertools.combinations(strings, 2):
-            equal = (text1 is text2)
-            self.assertEqual(text1 == text2, equal)
-            self.assertEqual(text1 != text2, not equal)
-
-            if equal:
-                self.assertTrue(text1 <= text2)
-                self.assertTrue(text1 >= text2)
-
-                # text1 is text2: duplicate strings to skip the "str1 == str2"
-                # optimization in unicode_compare_eq() and really compare
-                # character per character
-                copy1 = duplicate_string(text1)
-                copy2 = duplicate_string(text2)
-                self.assertIsNot(copy1, copy2)
-
-                self.assertTrue(copy1 == copy2)
-                self.assertFalse(copy1 != copy2)
-
-                self.assertTrue(copy1 <= copy2)
-                self.assertTrue(copy2 >= copy2)
-
-        self.assertTrue(ascii < ascii2)
-        self.assertTrue(ascii < latin)
-        self.assertTrue(ascii < bmp)
-        self.assertTrue(ascii < astral)
-        self.assertFalse(ascii >= ascii2)
-        self.assertFalse(ascii >= latin)
-        self.assertFalse(ascii >= bmp)
-        self.assertFalse(ascii >= astral)
-
-        self.assertFalse(latin < ascii)
-        self.assertTrue(latin < latin2)
-        self.assertTrue(latin < bmp)
-        self.assertTrue(latin < astral)
-        self.assertTrue(latin >= ascii)
-        self.assertFalse(latin >= latin2)
-        self.assertFalse(latin >= bmp)
-        self.assertFalse(latin >= astral)
-
-        self.assertFalse(bmp < ascii)
-        self.assertFalse(bmp < latin)
-        self.assertTrue(bmp < bmp2)
-        self.assertTrue(bmp < astral)
-        self.assertTrue(bmp >= ascii)
-        self.assertTrue(bmp >= latin)
-        self.assertFalse(bmp >= bmp2)
-        self.assertFalse(bmp >= astral)
-
-        self.assertFalse(astral < ascii)
-        self.assertFalse(astral < latin)
-        self.assertFalse(astral < bmp2)
-        self.assertTrue(astral < astral2)
-        self.assertTrue(astral >= ascii)
-        self.assertTrue(astral >= latin)
-        self.assertTrue(astral >= bmp2)
-        self.assertFalse(astral >= astral2)
-
     @support.cpython_only
     def test_pep393_utf8_caching_bug(self):
         # Issue #25709: Problem with string concatenation and utf-8 cache
@@ -2725,10 +2792,6 @@ class UnicodeTest(string_tests.CommonTest,
                 self.assertEqual(getargs_s_hash(s), chr(k).encode() * (i + 1))
                 # Check that the second call returns the same result
                 self.assertEqual(getargs_s_hash(s), chr(k).encode() * (i + 1))
-
-    def test_free_after_iterating(self):
-        support.check_free_after_iterating(self, iter, str)
-        support.check_free_after_iterating(self, reversed, str)
 
 
 class StringModuleTest(unittest.TestCase):

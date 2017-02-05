@@ -325,9 +325,6 @@ def _create_parser():
     group.add_argument('-P', '--pgo', dest='pgo', action='store_true',
                        help='enable Profile Guided Optimization training')
 
-    parser.add_argument('args', nargs=argparse.REMAINDER,
-                        help=argparse.SUPPRESS)
-
     return parser
 
 def relative_filename(string):
@@ -373,15 +370,21 @@ def _parse_args(args, **kwargs):
         ns.use_resources = []
 
     parser = _create_parser()
-    parser.parse_args(args=args, namespace=ns)
+    # Issue #14191: argparse doesn't support "intermixed" positional and
+    # optional arguments. Use parse_known_args() as workaround.
+    ns.args = parser.parse_known_args(args=args, namespace=ns)[1]
+    for arg in ns.args:
+        if arg.startswith('-'):
+            parser.error("unrecognized arguments: %s" % arg)
+            sys.exit(1)
 
     if ns.single and ns.fromfile:
         parser.error("-s and -f don't go together!")
-    if ns.use_mp and ns.trace:
+    if ns.use_mp is not None and ns.trace:
         parser.error("-T and -j don't go together!")
-    if ns.use_mp and ns.findleaks:
+    if ns.use_mp is not None and ns.findleaks:
         parser.error("-l and -j don't go together!")
-    if ns.use_mp and ns.memlimit:
+    if ns.use_mp is not None and ns.memlimit:
         parser.error("-M and -j don't go together!")
     if ns.failfast and not (ns.verbose or ns.verbose3):
         parser.error("-G/--failfast needs either -v or -W")
@@ -989,7 +992,7 @@ def runtest(test, verbose, quiet,
                 sys.stderr = stream
                 result = runtest_inner(test, verbose, quiet, huntrleaks,
                                        display_failure=False, pgo=pgo)
-                if result[0] == FAILED and not pgo:
+                if result[0] != PASSED and not pgo:
                     output = stream.getvalue()
                     orig_stderr.write(output)
                     orig_stderr.flush()
@@ -1049,7 +1052,7 @@ class saved_test_environment:
 
     resources = ('sys.argv', 'cwd', 'sys.stdin', 'sys.stdout', 'sys.stderr',
                  'os.environ', 'sys.path', 'sys.path_hooks', '__import__',
-                 'warnings.filters', 'asyncore.socket_map',
+                 'asyncore.socket_map',
                  'logging._handlers', 'logging._handlerList', 'sys.gettrace',
                  'sys.warnoptions',
                  # multiprocessing.process._cleanup() may release ref
@@ -1114,12 +1117,6 @@ class saved_test_environment:
         return builtins.__import__
     def restore___import__(self, import_):
         builtins.__import__ = import_
-
-    def get_warnings_filters(self):
-        return id(warnings.filters), warnings.filters, warnings.filters[:]
-    def restore_warnings_filters(self, saved_filters):
-        warnings.filters = saved_filters[1]
-        warnings.filters[:] = saved_filters[2]
 
     def get_asyncore_socket_map(self):
         asyncore = sys.modules.get('asyncore')
@@ -1258,6 +1255,7 @@ class saved_test_environment:
     def __exit__(self, exc_type, exc_val, exc_tb):
         saved_values = self.saved_values
         del self.saved_values
+        support.gc_collect()  # Some resources use weak references
         for name, get, restore in self.resource_info():
             current = get()
             original = saved_values.pop(name)
@@ -1288,6 +1286,7 @@ def runtest_inner(test, verbose, quiet,
         else:
             # Always import it from the test package
             abstest = 'test.' + test
+        clear_caches()
         with saved_test_environment(test, verbose, quiet, pgo=pgo) as environment:
             start_time = time.time()
             the_module = importlib.import_module(abstest)
@@ -1460,16 +1459,8 @@ def dash_R(the_module, test, indirect_test, huntrleaks):
 
 def dash_R_cleanup(fs, ps, pic, zdc, abcs):
     import gc, copyreg
-    import _strptime, linecache
-    import urllib.parse, urllib.request, mimetypes, doctest
-    import struct, filecmp, collections.abc
-    from distutils.dir_util import _path_created
+    import collections.abc
     from weakref import WeakSet
-
-    # Clear the warnings registry, so they can be displayed again
-    for mod in sys.modules.values():
-        if hasattr(mod, '__warningregistry__'):
-            del mod.__warningregistry__
 
     # Restore some original values.
     warnings.filters[:] = fs
@@ -1497,6 +1488,22 @@ def dash_R_cleanup(fs, ps, pic, zdc, abcs):
             obj._abc_cache.clear()
             obj._abc_negative_cache.clear()
 
+    clear_caches()
+
+    # Collect cyclic trash and read memory statistics immediately after.
+    func1 = sys.getallocatedblocks
+    func2 = sys.gettotalrefcount
+    gc.collect()
+    return func1(), func2()
+
+def clear_caches():
+    import gc
+
+    # Clear the warnings registry, so they can be displayed again
+    for mod in sys.modules.values():
+        if hasattr(mod, '__warningregistry__'):
+            del mod.__warningregistry__
+
     # Flush standard output, so that buffered data is sent to the OS and
     # associated Python objects are reclaimed.
     for stream in (sys.stdout, sys.stderr, sys.__stdout__, sys.__stderr__):
@@ -1504,29 +1511,88 @@ def dash_R_cleanup(fs, ps, pic, zdc, abcs):
             stream.flush()
 
     # Clear assorted module caches.
-    _path_created.clear()
-    re.purge()
-    _strptime._regex_cache.clear()
-    urllib.parse.clear_cache()
-    urllib.request.urlcleanup()
-    linecache.clearcache()
-    mimetypes._default_mime_types()
-    filecmp._cache.clear()
-    struct._clearcache()
-    doctest.master = None
+    # Don't worry about resetting the cache if the module is not loaded
     try:
-        import ctypes
-    except ImportError:
-        # Don't worry about resetting the cache if ctypes is not supported
+        distutils_dir_util = sys.modules['distutils.dir_util']
+    except KeyError:
+        pass
+    else:
+        distutils_dir_util._path_created.clear()
+
+    re.purge()
+
+    try:
+        _strptime = sys.modules['_strptime']
+    except KeyError:
+        pass
+    else:
+        _strptime._regex_cache.clear()
+
+    try:
+        urllib_parse = sys.modules['urllib.parse']
+    except KeyError:
+        pass
+    else:
+        urllib_parse.clear_cache()
+
+    try:
+        urllib_request = sys.modules['urllib.request']
+    except KeyError:
+        pass
+    else:
+        urllib_request.urlcleanup()
+
+    try:
+        linecache = sys.modules['linecache']
+    except KeyError:
+        pass
+    else:
+        linecache.clearcache()
+
+    try:
+        mimetypes = sys.modules['mimetypes']
+    except KeyError:
+        pass
+    else:
+        mimetypes._default_mime_types()
+
+    try:
+        filecmp = sys.modules['filecmp']
+    except KeyError:
+        pass
+    else:
+        filecmp._cache.clear()
+
+    try:
+        struct = sys.modules['struct']
+    except KeyError:
+        pass
+    else:
+        struct._clearcache()
+
+    try:
+        doctest = sys.modules['doctest']
+    except KeyError:
+        pass
+    else:
+        doctest.master = None
+
+    try:
+        ctypes = sys.modules['ctypes']
+    except KeyError:
         pass
     else:
         ctypes._reset_cache()
 
-    # Collect cyclic trash and read memory statistics immediately after.
-    func1 = sys.getallocatedblocks
-    func2 = sys.gettotalrefcount
+    try:
+        typing = sys.modules['typing']
+    except KeyError:
+        pass
+    else:
+        for f in typing._cleanups:
+            f()
+
     gc.collect()
-    return func1(), func2()
 
 def warm_caches():
     # char cache

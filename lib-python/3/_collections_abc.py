@@ -29,8 +29,8 @@ __name__ = "collections.abc"
 # so that they will pass tests like:
 #       it = iter(somebytearray)
 #       assert isinstance(it, Iterable)
-# Note:  in other implementations, these types many not be distinct
-# and they make have their own implementation specific types that
+# Note:  in other implementations, these types might not be distinct
+# and they may have their own implementation specific types that
 # are not included on this list.
 bytes_iterator = type(iter(b''))
 bytearray_iterator = type(iter(bytearray()))
@@ -41,6 +41,7 @@ dict_itemiterator = type(iter({}.items()))
 list_iterator = type(iter([]))
 list_reverseiterator = type(iter(reversed([])))
 range_iterator = type(iter(range(0)))
+longrange_iterator = type(iter(range(1 << 1000)))
 set_iterator = type(iter(set()))
 str_iterator = type(iter(""))
 tuple_iterator = type(iter(()))
@@ -234,6 +235,7 @@ Iterator.register(dict_itemiterator)
 Iterator.register(list_iterator)
 Iterator.register(list_reverseiterator)
 Iterator.register(range_iterator)
+Iterator.register(longrange_iterator)
 Iterator.register(set_iterator)
 Iterator.register(str_iterator)
 Iterator.register(tuple_iterator)

@@ -22,6 +22,7 @@ class StreamReaderTests(test_utils.TestCase):
     DATA = b'line1\nline2\nline3\n'
 
     def setUp(self):
+        super().setUp()
         self.loop = asyncio.new_event_loop()
         self.set_event_loop(self.loop)
 
@@ -831,7 +832,7 @@ os.close(fd)
         stream._waiter = asyncio.Future(loop=self.loop)
         self.assertRegex(
             repr(stream),
-            "<StreamReader w=<Future pending[\S ]*>>")
+            r"<StreamReader w=<Future pending[\S ]*>>")
         stream._waiter.set_result(None)
         self.loop.run_until_complete(stream._waiter)
         stream._waiter = None

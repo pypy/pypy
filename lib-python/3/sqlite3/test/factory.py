@@ -58,8 +58,20 @@ class CursorFactoryTests(unittest.TestCase):
         self.con.close()
 
     def CheckIsInstance(self):
-        cur = self.con.cursor(factory=MyCursor)
+        cur = self.con.cursor()
+        self.assertIsInstance(cur, sqlite.Cursor)
+        cur = self.con.cursor(MyCursor)
         self.assertIsInstance(cur, MyCursor)
+        cur = self.con.cursor(factory=lambda con: MyCursor(con))
+        self.assertIsInstance(cur, MyCursor)
+
+    def CheckInvalidFactory(self):
+        # not a callable at all
+        self.assertRaises(TypeError, self.con.cursor, None)
+        # invalid callable with not exact one argument
+        self.assertRaises(TypeError, self.con.cursor, lambda: None)
+        # invalid callable returning non-cursor
+        self.assertRaises(TypeError, self.con.cursor, lambda con: None)
 
 class RowFactoryTestsBackwardsCompat(unittest.TestCase):
     def setUp(self):

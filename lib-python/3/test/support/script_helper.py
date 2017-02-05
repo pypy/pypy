@@ -73,22 +73,26 @@ def run_python_until_end(*args, **env_vars):
     # Need to preserve the original environment, for in-place testing of
     # shared library builds.
     env = os.environ.copy()
+    # set TERM='' unless the TERM environment variable is passed explicitly
+    # see issues #11390 and #18300
+    if 'TERM' not in env_vars:
+        env['TERM'] = ''
     # But a special flag that can be set to override -- in this case, the
     # caller is responsible to pass the full environment.
     if env_vars.pop('__cleanenv', None):
         env = {}
     env.update(env_vars)
     cmd_line.extend(args)
-    p = subprocess.Popen(cmd_line, stdin=subprocess.PIPE,
+    proc = subprocess.Popen(cmd_line, stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                          env=env)
-    try:
-        out, err = p.communicate()
-    finally:
-        subprocess._cleanup()
-        p.stdout.close()
-        p.stderr.close()
-    rc = p.returncode
+    with proc:
+        try:
+            out, err = proc.communicate()
+        finally:
+            proc.kill()
+            subprocess._cleanup()
+    rc = proc.returncode
     err = strip_python_stderr(err)
     return _PythonRunResult(rc, out, err), cmd_line
 

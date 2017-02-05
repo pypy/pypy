@@ -6,6 +6,7 @@ __all__ = ['AbstractEventLoopPolicy',
            'get_event_loop_policy', 'set_event_loop_policy',
            'get_event_loop', 'set_event_loop', 'new_event_loop',
            'get_child_watcher', 'set_child_watcher',
+           '_set_running_loop', '_get_running_loop',
            ]
 
 import functools
@@ -35,23 +36,25 @@ def _get_function_source(func):
     return None
 
 
-def _format_args(args):
-    """Format function arguments.
+def _format_args_and_kwargs(args, kwargs):
+    """Format function arguments and keyword arguments.
 
     Special case for a single parameter: ('hello',) is formatted as ('hello').
     """
     # use reprlib to limit the length of the output
-    args_repr = reprlib.repr(args)
-    if len(args) == 1 and args_repr.endswith(',)'):
-        args_repr = args_repr[:-2] + ')'
-    return args_repr
+    items = []
+    if args:
+        items.extend(reprlib.repr(arg) for arg in args)
+    if kwargs:
+        items.extend('{}={}'.format(k, reprlib.repr(v))
+                     for k, v in kwargs.items())
+    return '(' + ', '.join(items) + ')'
 
 
-def _format_callback(func, args, suffix=''):
+def _format_callback(func, args, kwargs, suffix=''):
     if isinstance(func, functools.partial):
-        if args is not None:
-            suffix = _format_args(args) + suffix
-        return _format_callback(func.func, func.args, suffix)
+        suffix = _format_args_and_kwargs(args, kwargs) + suffix
+        return _format_callback(func.func, func.args, func.keywords, suffix)
 
     if hasattr(func, '__qualname__'):
         func_repr = getattr(func, '__qualname__')
@@ -60,14 +63,13 @@ def _format_callback(func, args, suffix=''):
     else:
         func_repr = repr(func)
 
-    if args is not None:
-        func_repr += _format_args(args)
+    func_repr += _format_args_and_kwargs(args, kwargs)
     if suffix:
         func_repr += suffix
     return func_repr
 
 def _format_callback_source(func, args):
-    func_repr = _format_callback(func, args)
+    func_repr = _format_callback(func, args, None)
     source = _get_function_source(func)
     if source:
         func_repr += ' at %s:%s' % source
@@ -81,7 +83,6 @@ class Handle:
                  '_source_traceback', '_repr', '__weakref__')
 
     def __init__(self, callback, args, loop):
-        assert not isinstance(callback, Handle), 'A Handle is not a callback'
         self._loop = loop
         self._callback = callback
         self._args = args
@@ -246,6 +247,10 @@ class AbstractEventLoop:
 
         No other methods should be called after this one.
         """
+        raise NotImplementedError
+
+    def shutdown_asyncgens(self):
+        """Shutdown all active asynchronous generators."""
         raise NotImplementedError
 
     # Methods scheduling callbacks.  All these return Handles.
@@ -603,6 +608,30 @@ _event_loop_policy = None
 _lock = threading.Lock()
 
 
+# A TLS for the running event loop, used by _get_running_loop.
+class _RunningLoop(threading.local):
+    _loop = None
+_running_loop = _RunningLoop()
+
+
+def _get_running_loop():
+    """Return the running event loop or None.
+
+    This is a low-level function intended to be used by event loops.
+    This function is thread-specific.
+    """
+    return _running_loop._loop
+
+
+def _set_running_loop(loop):
+    """Set the running event loop.
+
+    This is a low-level function intended to be used by event loops.
+    This function is thread-specific.
+    """
+    _running_loop._loop = loop
+
+
 def _init_event_loop_policy():
     global _event_loop_policy
     with _lock:
@@ -628,7 +657,17 @@ def set_event_loop_policy(policy):
 
 
 def get_event_loop():
-    """Equivalent to calling get_event_loop_policy().get_event_loop()."""
+    """Return an asyncio event loop.
+
+    When called from a coroutine or a callback (e.g. scheduled with call_soon
+    or similar API), this function will always return the running event loop.
+
+    If there is no running event loop set, the function will return
+    the result of `get_event_loop_policy().get_event_loop()` call.
+    """
+    current_loop = _get_running_loop()
+    if current_loop is not None:
+        return current_loop
     return get_event_loop_policy().get_event_loop()
 
 

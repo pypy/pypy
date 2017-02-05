@@ -258,7 +258,7 @@ class socket(_socket.socket):
                 raise _GiveupOnSendfile(err)  # not a regular file
             try:
                 fsize = os.fstat(fileno).st_size
-            except OSError:
+            except OSError as err:
                 raise _GiveupOnSendfile(err)  # not a regular file
             if not fsize:
                 return 0  # empty file
@@ -519,6 +519,7 @@ else:
         finally:
             lsock.close()
         return (ssock, csock)
+    __all__.append("socketpair")
 
 socketpair.__doc__ = """socketpair([family[, type[, proto]]]) -> (socket object, socket object)
 Create a pair of socket objects from the sockets returned by the platform

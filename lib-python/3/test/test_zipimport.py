@@ -513,6 +513,19 @@ class UncompressedZipImportTestCase(ImportHooksBaseTestCase):
                  "some.data": (NOW, "some data")}
         self.doTest(pyc_ext, files, TESTMOD)
 
+    def testDefaultOptimizationLevel(self):
+        # zipimport should use the default optimization level (#28131)
+        src = """if 1:  # indent hack
+        def test(val):
+            assert(val)
+            return val\n"""
+        files = {TESTMOD + '.py': (NOW, src)}
+        self.makeZip(files)
+        sys.path.insert(0, TEMP_ZIP)
+        mod = importlib.import_module(TESTMOD)
+        self.assertEqual(mod.test(1), 1)
+        self.assertRaises(AssertionError, mod.test, False)
+
     def testImport_WithStuff(self):
         # try importing from a zipfile which contains additional
         # stuff at the beginning of the file
@@ -596,9 +609,22 @@ class UncompressedZipImportTestCase(ImportHooksBaseTestCase):
         z.writestr(zinfo, test_src)
         z.close()
         try:
-            zipimport.zipimporter(filename)
+            zipimport.zipimporter(filename).load_module(TESTMOD)
         finally:
             os.remove(filename)
+
+    def testBytesPath(self):
+        filename = support.TESTFN + ".zip"
+        self.addCleanup(support.unlink, filename)
+        with ZipFile(filename, "w") as z:
+            zinfo = ZipInfo(TESTMOD + ".py", time.localtime(NOW))
+            zinfo.compress_type = self.compression
+            z.writestr(zinfo, test_src)
+
+        zipimport.zipimporter(filename)
+        zipimport.zipimporter(os.fsencode(filename))
+        zipimport.zipimporter(bytearray(os.fsencode(filename)))
+        zipimport.zipimporter(memoryview(os.fsencode(filename)))
 
 
 @support.requires_zlib
@@ -620,6 +646,8 @@ class BadFileZipImportTestCase(unittest.TestCase):
     def testBadArgs(self):
         self.assertRaises(TypeError, zipimport.zipimporter, None)
         self.assertRaises(TypeError, zipimport.zipimporter, TESTMOD, kwd=None)
+        self.assertRaises(TypeError, zipimport.zipimporter,
+                          list(os.fsencode(TESTMOD)))
 
     def testFilenameTooLong(self):
         self.assertZipFailure('A' * 33000)

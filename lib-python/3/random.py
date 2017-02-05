@@ -96,10 +96,12 @@ class Random(_random.Random):
         None or no argument seeds from current time or from an operating
         system specific randomness source if available.
 
-        For version 2 (the default), all of the bits are used if *a* is a str,
-        bytes, or bytearray.  For version 1, the hash() of *a* is used instead.
-
         If *a* is an int, all bits are used.
+
+        For version 2 (the default), all of the bits are used if *a* is a str,
+        bytes, or bytearray.  For version 1 (provided for reproducing random
+        sequences from older versions of Python), the algorithm for str and
+        bytes generates a narrower range of seeds.
 
         """
 
@@ -111,6 +113,13 @@ class Random(_random.Random):
             except NotImplementedError:
                 import time
                 a = int(time.time() * 256) # use fractional seconds
+
+        if version == 1 and isinstance(a, (str, bytes)):
+            x = ord(a[0]) << 7 if a else 0
+            for c in a:
+                x = ((1000003 * x) ^ ord(c)) & 0xFFFFFFFFFFFFFFFF
+            x ^= len(a)
+            a = -2 if x == -1 else x
 
         if version == 2:
             if isinstance(a, (str, bytes, bytearray)):
