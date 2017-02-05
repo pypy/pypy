@@ -1515,14 +1515,6 @@ def Py_FdIsInteractive(space, fp, filename):
     one of the strings '<stdin>' or '???'."""
     raise NotImplementedError
 
-@cpython_api([], lltype.Void)
-def PyOS_AfterFork(space):
-    """Function to update some internal state after a process fork; this should be
-    called in the new process if the Python interpreter will continue to be used.
-    If a new executable is loaded into the new process, this function does not need
-    to be called."""
-    raise NotImplementedError
-
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyOS_CheckStack(space):
     """Return true when the interpreter runs out of stack space.  This is a reliable
