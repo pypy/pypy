@@ -7,7 +7,7 @@ from rpython.rlib.objectmodel import (
     resizelist_hint, is_annotation_constant, always_inline, NOT_CONSTANT,
     iterkeys_with_hash, iteritems_with_hash, contains_with_hash,
     setitem_with_hash, getitem_with_hash, delitem_with_hash, import_from_mixin,
-    fetch_translated_config, try_inline)
+    fetch_translated_config, try_inline, move_to_end)
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.test.test_llinterp import interpret
@@ -678,6 +678,16 @@ def test_rdict_with_hash():
 
     assert f(29) == 0
     interpret(f, [27])
+
+def test_rordereddict_move_to_end():
+    d = OrderedDict()
+    d['key1'] = 'val1'
+    d['key2'] = 'val2'
+    d['key3'] = 'val3'
+    move_to_end(d, 'key1')
+    assert d.items() == [('key2', 'val2'), ('key3', 'val3'), ('key1', 'val1')]
+    move_to_end(d, 'key1', last=False)
+    assert d.items() == [('key1', 'val1'), ('key2', 'val2'), ('key3', 'val3')]
 
 def test_import_from_mixin():
     class M:    # old-style
