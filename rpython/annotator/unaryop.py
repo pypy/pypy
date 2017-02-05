@@ -575,6 +575,10 @@ class __extend__(SomeDict):
         pair(self, s_key).delitem()
     method_delitem_with_hash.can_only_throw = _dict_can_only_throw_keyerror
 
+    def method_delitem_if_value_is(self, s_key, s_value):
+        pair(self, s_key).setitem(s_value)
+        pair(self, s_key).delitem()
+
 class __extend__(SomeOrderedDict):
 
     def method_move_to_end(self, s_key, s_last):

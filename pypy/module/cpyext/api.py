@@ -126,7 +126,7 @@ METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O
 Py_TPFLAGS_HEAPTYPE
 Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_MAX_NDIMS
 Py_CLEANUP_SUPPORTED
-PyBUF_FORMAT PyBUF_ND PyBUF_STRIDES
+PyBUF_FORMAT PyBUF_ND PyBUF_STRIDES PyBUF_WRITABLE PyBUF_SIMPLE
 """.split()
 for name in constant_names:
     setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))

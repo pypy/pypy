@@ -7,7 +7,7 @@ from rpython.rlib.objectmodel import (
     resizelist_hint, is_annotation_constant, always_inline, NOT_CONSTANT,
     iterkeys_with_hash, iteritems_with_hash, contains_with_hash,
     setitem_with_hash, getitem_with_hash, delitem_with_hash, import_from_mixin,
-    fetch_translated_config, try_inline, move_to_end)
+    fetch_translated_config, try_inline, delitem_if_value_is, move_to_end)
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.test.test_llinterp import interpret
@@ -656,6 +656,24 @@ def test_delitem_with_hash():
             pass
         else:
             raise AssertionError
+        return 0
+
+    f(29)
+    interpret(f, [27])
+
+def test_delitem_if_value_is():
+    class X:
+        pass
+    def f(i):
+        x42 = X()
+        x612 = X()
+        d = {i + .5: x42, i + .6: x612}
+        delitem_if_value_is(d, i + .5, x612)
+        assert (i + .5) in d
+        delitem_if_value_is(d, i + .5, x42)
+        assert (i + .5) not in d
+        delitem_if_value_is(d, i + .5, x612)
+        assert (i + .5) not in d
         return 0
 
     f(29)

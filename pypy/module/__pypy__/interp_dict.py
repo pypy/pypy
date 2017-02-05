@@ -59,3 +59,16 @@ def move_to_end(space, w_obj, w_key, last=True):
     if not isinstance(w_obj, W_DictMultiObject):
         raise OperationError(space.w_TypeError, space.w_None)
     return w_obj.nondescr_move_to_end(space, w_key, last)
+
+def delitem_if_value_is(space, w_obj, w_key, w_value):
+    """Atomic equivalent to: 'if dict.get(key) is value: del dict[key]'.
+
+    SPECIAL USE CASES ONLY!  Avoid using on dicts which are specialized,
+    e.g. to int or str keys, because it switches to the object strategy.
+    Also, the 'is' operation is really pointer equality, so avoid using
+    it if 'value' is an immutable object like int or str.
+    """
+    from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+    if not isinstance(w_obj, W_DictMultiObject):
+        raise OperationError(space.w_TypeError, space.w_None)
+    return w_obj.nondescr_delitem_if_value_is(space, w_key, w_value)

@@ -263,6 +263,14 @@ class W_DictMultiObject(W_Root):
                     for i in range(len(keys_w)):
                         self.setitem(keys_w[i], values_w[i])
 
+    def nondescr_delitem_if_value_is(self, space, w_key, w_value):
+        """Not exposed directly to app-level, but used by
+        _weakref._remove_dead_weakref and via __pypy__.delitem_if_value_is().
+        """
+        strategy = self.ensure_object_strategy()
+        d = strategy.unerase(self.dstorage)
+        objectmodel.delitem_if_value_is(d, w_key, w_value)
+
     def descr_clear(self, space):
         """D.clear() -> None.  Remove all items from D."""
         self.clear()
@@ -314,11 +322,12 @@ class W_DictMultiObject(W_Root):
         F: D[k] = F[k]"""
         init_or_update(space, self, __args__, 'dict.update')
 
-    def ensure_object_strategy(self):    # for cpyext
+    def ensure_object_strategy(self):    # also called by cpyext
         object_strategy = self.space.fromcache(ObjectDictStrategy)
         strategy = self.get_strategy()
         if strategy is not object_strategy:
             strategy.switch_to_object_strategy(self)
+        return object_strategy
 
 
 class W_DictObject(W_DictMultiObject):

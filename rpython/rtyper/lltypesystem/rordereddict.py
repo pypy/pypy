@@ -407,6 +407,12 @@ class OrderedDictRepr(AbstractDictRepr):
         hop.exception_is_here()
         hop.gendirectcall(ll_dict_delitem_with_hash, v_dict, v_key, v_hash)
 
+    def rtype_method_delitem_if_value_is(self, hop):
+        v_dict, v_key, v_value = hop.inputargs(
+            self, self.key_repr, self.value_repr)
+        hop.exception_cannot_occur()
+        hop.gendirectcall(ll_dict_delitem_if_value_is, v_dict, v_key, v_value)
+
     def rtype_method_move_to_end(self, hop):
         v_dict, v_key, v_last = hop.inputargs(
             self, self.key_repr, lltype.Bool)
@@ -819,6 +825,15 @@ def ll_dict_delitem_with_hash(d, key, hash):
     index = d.lookup_function(d, key, hash, FLAG_LOOKUP)
     if index < 0:
         raise KeyError
+    _ll_dict_del(d, hash, index)
+
+def ll_dict_delitem_if_value_is(d, key, value):
+    hash = d.keyhash(key)
+    index = d.lookup_function(d, key, hash, FLAG_LOOKUP)
+    if index < 0:
+        return
+    if d.entries[index].value != value:
+        return
     _ll_dict_del(d, hash, index)
 
 def _ll_dict_del_entry(d, index):
