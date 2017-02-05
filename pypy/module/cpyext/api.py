@@ -126,7 +126,7 @@ METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O
 Py_TPFLAGS_HEAPTYPE
 Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_MAX_NDIMS
 Py_CLEANUP_SUPPORTED
-PyBUF_FORMAT PyBUF_ND PyBUF_STRIDES
+PyBUF_FORMAT PyBUF_ND PyBUF_STRIDES PyBUF_WRITABLE PyBUF_SIMPLE
 """.split()
 for name in constant_names:
     setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))
@@ -571,6 +571,7 @@ SYMBOLS_C = [
     '_Py_BuildValue_SizeT', '_Py_VaBuildValue_SizeT',
 
     'PyErr_Format', 'PyErr_NewException', 'PyErr_NewExceptionWithDoc',
+    'PyErr_WarnFormat',
     'PySys_WriteStdout', 'PySys_WriteStderr',
 
     'PyEval_CallFunction', 'PyEval_CallMethod', 'PyObject_CallFunction',
@@ -612,6 +613,9 @@ SYMBOLS_C = [
     'Py_FrozenFlag', 'Py_TabcheckFlag', 'Py_UnicodeFlag', 'Py_IgnoreEnvironmentFlag',
     'Py_DivisionWarningFlag', 'Py_DontWriteBytecodeFlag', 'Py_NoUserSiteDirectory',
     '_Py_QnewFlag', 'Py_Py3kWarningFlag', 'Py_HashRandomizationFlag', '_Py_PackageContext',
+
+    'PyMem_RawMalloc', 'PyMem_RawCalloc', 'PyMem_RawRealloc', 'PyMem_RawFree',
+    'PyMem_Malloc', 'PyMem_Calloc', 'PyMem_Realloc', 'PyMem_Free',
 ]
 TYPES = {}
 FORWARD_DECLS = []
@@ -1074,7 +1078,8 @@ def build_bridge(space):
     struct PyPyAPI {
     %(members)s
     } _pypyAPI;
-    RPY_EXTERN struct PyPyAPI* pypyAPI = &_pypyAPI;
+    RPY_EXTERN struct PyPyAPI* pypyAPI;
+    struct PyPyAPI* pypyAPI = &_pypyAPI;
     """ % dict(members=structmembers)
 
     global_objects = []
@@ -1318,6 +1323,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "bytesobject.c",
                          source_dir / "complexobject.c",
                          source_dir / "import.c",
+                         source_dir / "_warnings.c",
                          ]
 
 def build_eci(code, use_micronumpy=False, translating=False):

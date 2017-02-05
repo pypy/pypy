@@ -270,6 +270,29 @@ class AppTest_DictObject:
         del d[key]
         raises(RuntimeError, next, it)
 
+    def test_move_to_end(self):
+        import __pypy__
+        raises(KeyError, __pypy__.move_to_end, {}, 'foo')
+        raises(KeyError, __pypy__.move_to_end, {}, 'foo', last=True)
+        raises(KeyError, __pypy__.move_to_end, {}, 'foo', last=False)
+        def kwdict(**k):
+            return k
+        for last in [False, True]:
+            for d, key in [({1: 2, 3: 4, 5: 6}, 3),
+                           ({"a": 5, "b": 2, "c": 6}, "b"),
+                           (kwdict(d=7, e=8, f=9), "e")]:
+                other_keys = [k for k in d if k != key]
+                __pypy__.move_to_end(d, key, last=last)
+                if not self.on_pypy:
+                    # when running tests on CPython, the underlying
+                    # dicts are not ordered.  We don't get here if
+                    # we're running tests on PyPy or with -A.
+                    assert set(d.keys()) == set(other_keys + [key])
+                elif last:
+                    assert list(d) == other_keys + [key]
+                else:
+                    assert list(d) == [key] + other_keys
+
     def test_keys(self):
         d = {1: 2, 3: 4}
         kys = list(d.keys())

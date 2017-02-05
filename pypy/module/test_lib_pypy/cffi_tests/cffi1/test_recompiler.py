@@ -37,6 +37,11 @@ def verify(ffi, module_name, source, *args, **kwds):
                                       ['-Werror'])
     return recompiler._verify(ffi, module_name, source, *args, **kwds)
 
+def test_set_source_no_slashes():
+    ffi = FFI()
+    py.test.raises(ValueError, ffi.set_source, "abc/def", None)
+    py.test.raises(ValueError, ffi.set_source, "abc/def", "C code")
+
 
 def test_type_table_func():
     check_type_table("double sin(double);",

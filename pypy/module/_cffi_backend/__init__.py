@@ -50,7 +50,7 @@ class Module(MixedModule):
 
         'string': 'func.string',
         'unpack': 'func.unpack',
-        'buffer': 'cbuffer.buffer',
+        'buffer': 'cbuffer.MiniBuffer',
         'memmove': 'func.memmove',
 
         'get_errno': 'cerrno.get_errno',

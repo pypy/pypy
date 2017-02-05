@@ -78,6 +78,7 @@ class Module(MixedModule):
         'add_memory_pressure'       : 'interp_magic.add_memory_pressure',
         'newdict'                   : 'interp_dict.newdict',
         'reversed_dict'             : 'interp_dict.reversed_dict',
+        'move_to_end'               : 'interp_dict.move_to_end',
         'strategy'                  : 'interp_magic.strategy',  # dict,set,list
         'set_debug'                 : 'interp_magic.set_debug',
         'locals_to_fast'            : 'interp_magic.locals_to_fast',

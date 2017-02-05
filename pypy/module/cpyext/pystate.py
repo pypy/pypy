@@ -1,6 +1,7 @@
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, CConfig, cpython_struct)
 from pypy.module.cpyext.pyobject import PyObject, Py_DecRef, make_ref, from_ref
+from pypy.interpreter.error import OperationError
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rthread
 from rpython.rlib.objectmodel import we_are_translated
@@ -317,3 +318,16 @@ def PyThreadState_DeleteCurrent(space):
     be held.  The thread state must have been reset with a previous call to
     PyThreadState_Clear()."""
 
+@cpython_api([], lltype.Void)
+def PyOS_AfterFork(space):
+    """Function to update some internal state after a process fork; this should be
+    called in the new process if the Python interpreter will continue to be used.
+    If a new executable is loaded into the new process, this function does not need
+    to be called."""
+    if not space.config.translation.thread:
+        return
+    from pypy.module.thread import os_thread
+    try:
+        os_thread.reinit_threads(space)
+    except OperationError as e:
+        e.write_unraisable(space, "PyOS_AfterFork()")

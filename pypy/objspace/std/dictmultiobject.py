@@ -232,6 +232,37 @@ class W_DictMultiObject(W_Root):
             w_keys = self.w_keys()
             return space.call_method(w_keys, '__reversed__')
 
+    def nondescr_move_to_end(self, space, w_key, last_flag):
+        """Not exposed directly to app-level, but via __pypy__.move_to_end().
+        """
+        strategy = self.get_strategy()
+        if strategy.has_move_to_end:
+            strategy.move_to_end(self, w_key, last_flag)
+        else:
+            # fall-back
+            w_value = self.getitem(w_key)
+            if w_value is None:
+                space.raise_key_error(w_key)
+            else:
+                self.delitem(w_key)
+                if last_flag:
+                    self.setitem(w_key, w_value)
+                else:
+                    # *very slow* fall-back
+                    keys_w = []
+                    values_w = []
+                    iteratorimplementation = self.iteritems()
+                    while True:
+                        w_k, w_v = iteratorimplementation.next_item()
+                        if w_k is None:
+                            break
+                        keys_w.append(w_k)
+                        values_w.append(w_v)
+                    self.clear()
+                    self.setitem(w_key, w_value)
+                    for i in range(len(keys_w)):
+                        self.setitem(keys_w[i], values_w[i])
+
     def descr_clear(self, space):
         """D.clear() -> None.  Remove all items from D."""
         self.clear()
@@ -499,7 +530,9 @@ class DictStrategy(object):
         raise NotImplementedError
 
     has_iterreversed = False
-    # no 'getiterreversed': no default implementation available
+    has_move_to_end = False
+    # no 'getiterreversed' and no 'move_to_end': no default
+    # implementation available
 
     def rev_update1_dict_dict(self, w_dict, w_updatedict):
         iteritems = self.iteritems(w_dict)
@@ -783,6 +816,9 @@ def create_iterator_classes(dictimpl,
         dictimpl.iterreversed = iterreversed
         dictimpl.has_iterreversed = True
 
+    if hasattr(dictimpl, 'move_to_end'):
+        dictimpl.has_move_to_end = True
+
     @jit.look_inside_iff(lambda self, w_dict, w_updatedict:
                          w_dict_unrolling_heuristic(w_dict))
     def rev_update1_dict_dict(self, w_dict, w_updatedict):
@@ -961,6 +997,15 @@ class AbstractTypedStrategy(object):
 
     def getiterreversed(self, w_dict):
         return objectmodel.reversed_dict(self.unerase(w_dict.dstorage))
+
+    def move_to_end(self, w_dict, w_key, last_flag):
+        if self.is_correct_type(w_key):
+            d = self.unerase(w_dict.dstorage)
+            key = self.unwrap(w_key)
+            objectmodel.move_to_end(d, key, last_flag)
+        else:
+            self.switch_to_object_strategy(w_dict)
+            w_dict.nondescr_move_to_end(w_dict.space, w_key, last_flag)
 
     def prepare_update(self, w_dict, num_extra):
         objectmodel.prepare_dict_update(self.unerase(w_dict.dstorage),

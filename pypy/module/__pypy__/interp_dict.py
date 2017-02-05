@@ -44,3 +44,18 @@ def reversed_dict(space, w_obj):
     if not isinstance(w_obj, W_DictMultiObject):
         raise OperationError(space.w_TypeError, space.w_None)
     return w_obj.nondescr_reversed_dict(space)
+
+@unwrap_spec(last=bool)
+def move_to_end(space, w_obj, w_key, last=True):
+    """Move the key in a dictionary object into the first or last position.
+
+    This is a __pypy__ function instead of being simply done by calling
+    dict.move_to_end(), for CPython compatibility: dictionaries are only
+    ordered on PyPy.  You should use the collections.OrderedDict class for
+    cases where ordering is important.  That class implements the
+    move_to_end() method by calling __pypy__.move_to_end().
+    """
+    from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+    if not isinstance(w_obj, W_DictMultiObject):
+        raise OperationError(space.w_TypeError, space.w_None)
+    return w_obj.nondescr_move_to_end(space, w_key, last)

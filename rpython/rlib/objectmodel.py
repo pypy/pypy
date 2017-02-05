@@ -934,6 +934,24 @@ def delitem_with_hash(d, key, h):
         return
     d.delitem_with_hash(key, h)
 
+def _untranslated_move_to_end(d, key, last):
+    "NOT_RPYTHON"
+    value = d.pop(key)
+    if last:
+        d[key] = value
+    else:
+        items = d.items()
+        d.clear()
+        d[key] = value
+        d.update(items)
+
+@specialize.call_location()
+def move_to_end(d, key, last=True):
+    if not we_are_translated():
+        _untranslated_move_to_end(d, key, last)
+        return
+    d.move_to_end(key, last)
+
 # ____________________________________________________________
 
 def import_from_mixin(M, special_methods=['__init__', '__del__']):
