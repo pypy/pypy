@@ -189,10 +189,6 @@ class W_ArrayInstance(W_DataInstance):
         for i in range(len(value)):
             ll_buffer[start + i] = value[i]
 
-    def buffer_w_ex(self, space, flags):
-        buf = self.buffer_w(space, flags)
-        return buf, buf.getformat(), buf.getitemsize()
-
 
 W_ArrayInstance.typedef = TypeDef(
     'ArrayInstance',

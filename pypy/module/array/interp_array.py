@@ -259,10 +259,6 @@ class W_ArrayBase(W_Root):
     def buffer_w(self, space, flags):
         return ArrayBuffer(self, False)
 
-    def buffer_w_ex(self, space, flags):
-        buf = self.buffer_w(space, flags)
-        return buf, buf.getformat(), buf.getitemsize()
-
     def descr_append(self, space, w_x):
         """ append(x)
 

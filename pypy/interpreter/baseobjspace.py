@@ -25,15 +25,6 @@ unpackiterable_driver = jit.JitDriver(name='unpackiterable',
                                       reds=['items', 'w_iterator'])
 
 
-@specialize.memo()
-def _does_override_buffer_w(type):
-    return type.buffer_w != W_Root.buffer_w
-
-@specialize.memo()
-def _does_override_buffer_w_ex(type):
-    return type.buffer_w_ex != W_Root.buffer_w_ex
-
-
 class W_Root(object):
     """This is the abstract root class of all wrapped objects that live
     in a 'normal' object space like StdObjSpace."""
@@ -223,14 +214,7 @@ class W_Root(object):
         return None
 
     def buffer_w(self, space, flags):
-        if _does_override_buffer_w_ex(self.__class__):
-            return self.buffer_w_ex(space, flags)[0]
         return self.__buffer_w(space, flags).buffer_w(space, flags)
-
-    def buffer_w_ex(self, space, flags):
-        if _does_override_buffer_w(self.__class__):
-            return self.buffer_w(space, flags), 'B', 1
-        return self.__buffer_w(space, flags).buffer_w_ex(space, flags)
 
     def __buffer_w(self, space, flags):
         if flags & space.BUF_WRITABLE:
@@ -1465,15 +1449,6 @@ class ObjSpace(object):
         # New buffer interface, returns a buffer based on flags (PyObject_GetBuffer)
         try:
             return w_obj.buffer_w(self, flags)
-        except BufferInterfaceNotFound:
-            raise oefmt(self.w_TypeError,
-                        "'%T' does not support the buffer interface", w_obj)
-
-    def buffer_w_ex(self, w_obj, flags):
-        # New buffer interface, returns a buffer based on flags (PyObject_GetBuffer)
-        # Returns extra information: (buffer, typecode, itemsize)
-        try:
-            return w_obj.buffer_w_ex(self, flags)
         except BufferInterfaceNotFound:
             raise oefmt(self.w_TypeError,
                         "'%T' does not support the buffer interface", w_obj)
