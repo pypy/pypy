@@ -283,6 +283,14 @@ class W_DictMultiObject(W_Root):
             w_keys = self.w_keys()
             return space.call_method(w_keys, '__reversed__')
 
+    def nondescr_delitem_if_value_is(self, space, w_key, w_value):
+        """Not exposed directly to app-level, but used by
+        _weakref._remove_dead_weakref and via __pypy__.delitem_if_value_is().
+        """
+        strategy = self.ensure_object_strategy()
+        d = strategy.unerase(self.dstorage)
+        objectmodel.delitem_if_value_is(d, w_key, w_value)
+
     def descr_viewitems(self, space):
         """D.viewitems() -> a set-like object providing a view on D's items"""
         return W_DictViewItemsObject(space, self)
@@ -350,11 +358,12 @@ class W_DictMultiObject(W_Root):
         F: D[k] = F[k]"""
         init_or_update(space, self, __args__, 'dict.update')
 
-    def ensure_object_strategy(self):    # for cpyext
+    def ensure_object_strategy(self):    # also called by cpyext
         object_strategy = self.space.fromcache(ObjectDictStrategy)
         strategy = self.get_strategy()
         if strategy is not object_strategy:
             strategy.switch_to_object_strategy(self)
+        return object_strategy
 
 
 class W_DictObject(W_DictMultiObject):

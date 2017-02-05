@@ -271,6 +271,20 @@ class AppTest_DictObject:
         del d[key]
         raises(RuntimeError, it.next)
 
+    def test_delitem_if_value_is(self):
+        import __pypy__
+        class X:
+            pass
+        x2 = X()
+        x3 = X()
+        d = {2: x2, 3: x3}
+        __pypy__.delitem_if_value_is(d, 2, x3)
+        assert d == {2: x2, 3: x3}
+        __pypy__.delitem_if_value_is(d, 2, x2)
+        assert d == {3: x3}
+        __pypy__.delitem_if_value_is(d, 2, x3)
+        assert d == {3: x3}
+
     def test_keys(self):
         d = {1: 2, 3: 4}
         kys = d.keys()

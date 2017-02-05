@@ -79,6 +79,7 @@ class Module(MixedModule):
         'add_memory_pressure'       : 'interp_magic.add_memory_pressure',
         'newdict'                   : 'interp_dict.newdict',
         'reversed_dict'             : 'interp_dict.reversed_dict',
+        'delitem_if_value_is'       : 'interp_dict.delitem_if_value_is',
         'strategy'                  : 'interp_magic.strategy',  # dict,set,list
         'specialized_zip_2_lists'   : 'interp_magic.specialized_zip_2_lists',
         'set_debug'                 : 'interp_magic.set_debug',
