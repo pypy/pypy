@@ -934,6 +934,20 @@ def delitem_with_hash(d, key, h):
         return
     d.delitem_with_hash(key, h)
 
+@specialize.call_location()
+def delitem_if_value_is(d, key, value):
+    """Same as 'if d.get(key) is value: del d[key]'.  It is safe even in
+    case 'd' is an r_dict and the lookup involves callbacks that might
+    release the GIL."""
+    if not we_are_translated():
+        try:
+            if d[key] is value:
+                del d[key]
+        except KeyError:
+            pass
+        return
+    d.delitem_if_value_is(key, value)
+
 def _untranslated_move_to_end(d, key, last):
     "NOT_RPYTHON"
     value = d.pop(key)
