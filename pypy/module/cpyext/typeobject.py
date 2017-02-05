@@ -548,14 +548,14 @@ def subtype_dealloc(space, obj):
 @slot_function([PyObject, lltype.Ptr(Py_buffer), rffi.INT_real], rffi.INT_real, error=-1)
 def bytes_getbuffer(space, w_str, view, flags):
     from pypy.module.cpyext.bytesobject import PyBytes_AsString
-    from pypy.module.cpyext.object import PyBuffer_FillInfo
+    from pypy.module.cpyext.buffer import PyBuffer_FillInfo
     c_buf = rffi.cast(rffi.VOIDP, PyBytes_AsString(space, w_str))
     return PyBuffer_FillInfo(space, view, w_str, c_buf,
                              space.len_w(w_str), 1, flags)
 
 @slot_function([PyObject, lltype.Ptr(Py_buffer), rffi.INT_real], rffi.INT_real, error=-1)
 def bf_getbuffer(space, w_obj, view, flags):
-    from pypy.module.cpyext.object import PyBuffer_FillInfo
+    from pypy.module.cpyext.buffer import PyBuffer_FillInfo
     buf = space.buffer_w(w_obj, rffi.cast(lltype.Signed, flags))
     c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
     return PyBuffer_FillInfo(space, view, w_obj, c_buf,
