@@ -2288,6 +2288,7 @@ def test_buffer():
     buf = buffer(c)
     assert repr(buf).startswith('<_cffi_backend.buffer object at 0x')
     assert bytes(buf) == b"hi there\x00"
+    assert type(buf) is buffer
     if sys.version_info < (3,):
         assert str(buf) == "hi there\x00"
         assert unicode(buf) == u+"hi there\x00"

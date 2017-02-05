@@ -56,19 +56,8 @@ class MiniBuffer(W_Buffer):
                 e.w_type = space.w_ValueError
             raise
 
-MiniBuffer.typedef = TypeDef(
-    "_cffi_backend.buffer",
-    __len__ = interp2app(MiniBuffer.descr_len),
-    __getitem__ = interp2app(MiniBuffer.descr_getitem),
-    __setitem__ = interp2app(MiniBuffer.descr_setitem),
-    __weakref__ = make_weakref_descr(MiniBuffer),
-    __str__ = interp2app(MiniBuffer.descr_str),
-    )
-MiniBuffer.typedef.acceptable_as_base_class = False
-
-
 @unwrap_spec(w_cdata=cdataobj.W_CData, size=int)
-def buffer(space, w_cdata, size=-1):
+def MiniBuffer___new__(space, w_subtype, w_cdata, size=-1):
     ctype = w_cdata.ctype
     if isinstance(ctype, ctypeptr.W_CTypePointer):
         if size < 0:
@@ -89,3 +78,25 @@ def buffer(space, w_cdata, size=-1):
                     "don't know the size pointed to by '%s'", ctype.name)
     ptr = w_cdata.unsafe_escaping_ptr()    # w_cdata kept alive by MiniBuffer()
     return space.wrap(MiniBuffer(LLBuffer(ptr, size), w_cdata))
+
+MiniBuffer.typedef = TypeDef(
+    "_cffi_backend.buffer",
+    __new__ = interp2app(MiniBuffer___new__),
+    __len__ = interp2app(MiniBuffer.descr_len),
+    __getitem__ = interp2app(MiniBuffer.descr_getitem),
+    __setitem__ = interp2app(MiniBuffer.descr_setitem),
+    __weakref__ = make_weakref_descr(MiniBuffer),
+    __str__ = interp2app(MiniBuffer.descr_str),
+    __doc__ = """ffi.buffer(cdata[, byte_size]):
+Return a read-write buffer object that references the raw C data
+pointed to by the given 'cdata'.  The 'cdata' must be a pointer or an
+array.  Can be passed to functions expecting a buffer, or directly
+manipulated with:
+
+    buf[:]          get a copy of it in a regular string, or
+    buf[idx]        as a single character
+    buf[:] = ...
+    buf[idx] = ...  change the content
+""",
+    )
+MiniBuffer.typedef.acceptable_as_base_class = False
