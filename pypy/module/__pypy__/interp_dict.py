@@ -57,3 +57,14 @@ def delitem_if_value_is(space, w_obj, w_key, w_value):
     if not isinstance(w_obj, W_DictMultiObject):
         raise OperationError(space.w_TypeError, space.w_None)
     return w_obj.nondescr_delitem_if_value_is(space, w_key, w_value)
+
+@unwrap_spec(last=bool)
+def move_to_end(space, w_obj, w_key, last=True):
+    """Move the key in a dictionary object into the first or last position.
+
+    This is used in Python 3.x to implement OrderedDict.move_to_end().
+    """
+    from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+    if not isinstance(w_obj, W_DictMultiObject):
+        raise OperationError(space.w_TypeError, space.w_None)
+    return w_obj.nondescr_move_to_end(space, w_key, last)
