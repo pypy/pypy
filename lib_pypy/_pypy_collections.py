@@ -28,7 +28,7 @@ class OrderedDict(dict):
         else:
             it = dict.__iter__(self)
             try:
-                k = it.next()
+                k = next(it)
             except StopIteration:
                 raise KeyError('dictionary is empty')
             return (k, self.pop(k))
