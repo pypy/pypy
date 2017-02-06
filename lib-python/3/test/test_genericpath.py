@@ -282,7 +282,9 @@ class TestGenericTest(GenericTest, unittest.TestCase):
             with self.subTest(attr=attr):
                 with self.assertRaises(ValueError) as cm:
                     getattr(self.pathmodule, attr)('/tmp\x00abcds')
-                self.assertIn('embedded null', str(cm.exception))
+                s = str(cm.exception)
+                if s != 'argument must be a string without NUL characters':
+                    self.assertIn('embedded null', s)
 
 # Following TestCase is not supposed to be run from test_genericpath.
 # It is inherited by other test modules (macpath, ntpath, posixpath).
