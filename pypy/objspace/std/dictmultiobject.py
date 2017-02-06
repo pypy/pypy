@@ -1013,7 +1013,10 @@ class AbstractTypedStrategy(object):
         if self.is_correct_type(w_key):
             d = self.unerase(w_dict.dstorage)
             key = self.unwrap(w_key)
-            objectmodel.move_to_end(d, key, last_flag)
+            try:
+                objectmodel.move_to_end(d, key, last_flag)
+            except KeyError:
+                w_dict.space.raise_key_error(w_key)
         else:
             self.switch_to_object_strategy(w_dict)
             w_dict.nondescr_move_to_end(w_dict.space, w_key, last_flag)

@@ -292,6 +292,7 @@ class AppTest_DictObject:
                     assert list(d) == other_keys + [key]
                 else:
                     assert list(d) == [key] + other_keys
+                raises(KeyError, __pypy__.move_to_end, d, key * 3, last=last)
 
     def test_delitem_if_value_is(self):
         import __pypy__
