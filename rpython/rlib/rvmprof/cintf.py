@@ -14,16 +14,40 @@ class VMProfPlatformUnsupported(Exception):
 
 ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rvmprof')
 SRC = ROOT.join('src')
+UDIS86 = ROOT.join('libudis86')
+BACKTRACE = ROOT.join('libbacktrace')
 
 if sys.platform.startswith('linux'):
+    extra_compile = [
+       BACKTRACE.join('backtrace.c'),
+       BACKTRACE.join('state.c'),
+       BACKTRACE.join('elf.c'),
+       BACKTRACE.join('dwarf.c'),
+       BACKTRACE.join('fileline.c'),
+       BACKTRACE.join('mmap.c'),
+       BACKTRACE.join('mmapio.c'),
+       BACKTRACE.join('posix.c'),
+       BACKTRACE.join('sort.c'),
+    ]
     _libs = ['dl']
 else:
+    extra_compile = []
     _libs = []
 eci_kwds = dict(
     include_dirs = [SRC],
     includes = ['rvmprof.h', 'vmprof_stack.h'],
     libraries = _libs,
-    separate_module_files = [SRC.join('rvmprof.c')],
+    separate_module_files = [
+        SRC.join('rvmprof.c'),
+        SRC.join('compat.c'),
+        SRC.join('machine.c'),
+        SRC.join('symboltable.c'),
+        SRC.join('stack.c'),
+        # udis86
+        SRC.join('libudis86/decode.c'),
+        SRC.join('libudis86/itab.c'),
+        SRC.join('libudis86/udis86.c'),
+    ] + extra_compile,
     post_include_bits=['#define RPYTHON_VMPROF\n'],
     )
 global_eci = ExternalCompilationInfo(**eci_kwds)
