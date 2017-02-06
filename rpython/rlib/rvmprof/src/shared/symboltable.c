@@ -1,16 +1,28 @@
 #include "symboltable.h"
 
-#include "_vmprof.h"
+#include "vmprof.h"
 #include "machine.h"
 
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <dlfcn.h>
 #ifdef VMPROF_LINUX
 #define _GNU_SOURCE 1
 #include <link.h>
+// copied from man page...
+typedef struct {
+   const char *dli_fname;  /* Pathname of shared object that
+                              contains address */
+   void       *dli_fbase;  /* Base address at which shared
+                              object is loaded */
+   const char *dli_sname;  /* Name of symbol whose definition
+                              overlaps addr */
+   void       *dli_saddr;  /* Exact address of symbol named
+                              in dli_sname */
+} Dl_info;
 #endif
-#include <dlfcn.h>
 
 #ifdef _PY_TEST
 #define LOG(...) printf(__VA_ARGS__)
@@ -220,7 +232,7 @@ int vmp_resolve_addr(void * addr, char * name, int name_len, int * lineno, char 
         name[name_len-1] = 0;
     }
     lookup_vmprof_debug_info(name, info.dli_fbase, srcfile, srcfile_len, lineno);
-#elif defined(__unix__)
+#elif defined(VMPROF_LINUX)
     if (bstate == NULL) {
         bstate = backtrace_create_state (NULL, 1, backtrace_error_cb, NULL);
     }

@@ -141,3 +141,37 @@ void *volatile _PyThreadState_Current;
 #  define _Py_atomic_load_relaxed(pp)  (*(pp))
 #endif
 
+#ifndef RPYTHON_LL2CTYPES
+static PY_STACK_FRAME_T *get_vmprof_stack(void)
+{
+    struct pypy_threadlocal_s *tl;
+    _OP_THREADLOCALREF_ADDR_SIGHANDLER(tl);
+    if (tl == NULL)
+        return NULL;
+    else
+        return tl->vmprof_tl_stack;
+}
+#else
+static PY_STACK_FRAME_T *get_vmprof_stack(void)
+{
+    return 0;
+}
+#endif
+
+#ifdef RPYTHON_VMPROF
+RPY_EXTERN
+intptr_t vmprof_get_traceback(void *stack, void *ucontext,
+                              intptr_t *result_p, intptr_t result_length)
+{
+    int n;
+#ifdef _WIN32
+    intptr_t pc = 0;   /* XXX implement me */
+#else
+    intptr_t pc = ucontext ? (intptr_t)GetPC((ucontext_t *)ucontext) : 0;
+#endif
+    if (stack == NULL)
+        stack = get_vmprof_stack();
+    n = get_stack_trace(stack, result_p, result_length - 2, pc);
+    return (intptr_t)n;
+}
+#endif

@@ -52,14 +52,16 @@ int vmp_profiles_python_lines(void) {
     return _vmp_profiles_lines;
 }
 
-static PyFrameObject * _write_python_stack_entry(PyFrameObject * frame, void ** result, int * depth)
+static PY_STACK_FRAME_T * _write_python_stack_entry(PY_STACK_FRAME_T * frame, void ** result, int * depth)
 {
     int len;
     int addr;
     int j;
     long line;
     char *lnotab;
+    intptr_t addr;
 
+#ifndef RPYTHON_VMPROF // pypy does not support line profiling
     if (vmp_profiles_python_lines()) {
         // In the line profiling mode we save a line number for every frame.
         // Actual line number isn't stored in the frame directly (f_lineno
@@ -92,17 +94,41 @@ static PyFrameObject * _write_python_stack_entry(PyFrameObject * frame, void ** 
             *depth = *depth + 1;
         }
     }
-    result[*depth] = (void*)CODE_ADDR_TO_UID(frame->f_code);
+    result[*depth] = (void*)CODE_ADDR_TO_UID(FRAME_CODE(frame));
     *depth = *depth + 1;
+#else
+    //result[*depth] = (void*)CODE_ADDR_TO_UID(FRAME_CODE(frame));
+    //*depth = *depth + 1;
+#ifdef PYPY_JIT_CODEMAP
+    if (pypy_find_codemap_at_addr((intptr_t)pc, &addr)) {
+        // the bottom part is jitted, means we can fill up the first part
+        // from the JIT
+        *depth = vmprof_write_header_for_jit_addr(result, *depth, pc, max_depth);
+        stack = stack->next; // skip the first item as it contains garbage
+    }
+#endif
+    while (n < max_depth - 1 && stack) {
+        if (stack->kind == VMPROF_CODE_TAG) {
+            result[n] = stack->kind;
+            result[n + 1] = stack->value;
+            n += 2;
+        }
+#ifdef PYPY_JIT_CODEMAP
+        else if (stack->kind == VMPROF_JITTED_TAG) {
+            pc = ((intptr_t*)(stack->value - sizeof(intptr_t)))[0];
+            n = vmprof_write_header_for_jit_addr(result, n, pc, max_depth);
+        }
+#endif
+#endif
 
-    return frame->f_back;
+    return FRAME_STEP(frame);
 }
 
 int vmp_walk_and_record_python_stack_only(PY_STACK_FRAME_T *frame, void ** result,
-                                     int max_depth, int depth)
+                                     int max_depth, int depth, intptr_t pc)
 {
     while (depth < max_depth && frame) {
-        frame = _write_python_stack_entry(frame, result, &depth);
+        frame = _write_python_stack_entry(frame, result, &depth, pc);
     }
     return depth;
 }
@@ -120,7 +146,7 @@ int _write_native_stack(void* addr, void ** result, int depth) {
 #endif
 
 int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
-                                     int max_depth, int native_skip) {
+                              int max_depth, int native_skip, intptr_t pc) {
     // called in signal handler
 #ifdef VMP_SUPPORTS_NATIVE_PROFILING
     intptr_t func_addr;
@@ -129,7 +155,7 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
     unw_proc_info_t pip;
 
     if (!vmp_native_enabled()) {
-        return vmp_walk_and_record_python_stack_only(frame, result, max_depth, 0);
+        return vmp_walk_and_record_python_stack_only(frame, result, max_depth, 0, pc);
     }
 
     unw_getcontext(&uc);
@@ -147,7 +173,7 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
         native_skip--;
     }
 
-    PyFrameObject * top_most_frame = frame;
+    PY_STACK_FRAME_T * top_most_frame = frame;
     int depth = 0;
     while (depth < max_depth) {
         unw_get_proc_info(&cursor, &pip);
@@ -179,7 +205,7 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
                 if (top_most_frame == NULL) {
                     break;
                 }
-                top_most_frame = _write_python_stack_entry(top_most_frame, result, &depth);
+                top_most_frame = _write_python_stack_entry(top_most_frame, result, &depth, pc);
             }
         } else if (vmp_ignore_ip((intptr_t)func_addr)) {
             // this is an instruction pointer that should be ignored,
@@ -208,7 +234,7 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
     // they should not be consumed, because the let native symbols flow forward.
     return depth; //vmp_walk_and_record_python_stack_only(top_most_frame, result, max_depth, depth);
 #else
-    return vmp_walk_and_record_python_stack_only(frame, result, max_depth, 0);
+    return vmp_walk_and_record_python_stack_only(frame, result, max_depth, 0, pc);
 #endif
 }
 

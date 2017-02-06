@@ -12,11 +12,20 @@
 #include <stdint.h>
 #endif
 
+#ifndef RPY_EXTERN
+#define RPY_EXTERN RPY_EXPORTED
+#endif
+#ifdef _WIN32
+#define RPY_EXPORTED __declspec(dllexport)
+#else
+#define RPY_EXPORTED  extern __attribute__((visibility("default")))
+#endif
+
 
 RPY_EXTERN char *vmprof_init(int fd, double interval, int memory,
                      int lines, const char *interp_name, int native);
 RPY_EXTERN void vmprof_ignore_signals(int);
-RPY_EXTERN int vmprof_enable(void);
+RPY_EXTERN int vmprof_enable(int memory);
 RPY_EXTERN int vmprof_disable(void);
 RPY_EXTERN int vmprof_register_virtual_function(char *, long, int);
 RPY_EXTERN void* vmprof_stack_new(void);

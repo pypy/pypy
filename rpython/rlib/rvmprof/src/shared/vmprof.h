@@ -38,6 +38,8 @@
 #include "vmprof_stack.h"
 #define PY_STACK_FRAME_T vmprof_stack_t
 #define PY_EVAL_RETURN_T void
+#define PY_THREAD_STATE_T void
+#define FRAME_STEP(f) f->next
 #else
 // for cpython
 #include "_vmprof.h"
@@ -45,4 +47,6 @@
 #include <frameobject.h>
 #define PY_STACK_FRAME_T PyFrameObject
 #define PY_EVAL_RETURN_T PyObject
+#define PY_THREAD_STATE_T PyThreadState
+#define FRAME_STEP(f) f->f_back
 #endif

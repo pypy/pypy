@@ -1,10 +1,13 @@
 #include "compat.h"
 
-#include "_vmprof.h"
-
+#include <string.h>
+#include <assert.h>
 #if VMPROF_WINDOWS
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+#else
+#include <time.h>
+#include <sys/time.h>
 #endif
 
 static int _vmp_profile_fileno = -1;

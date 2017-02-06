@@ -1,6 +1,6 @@
 #include "machine.h"
 
-#include "_vmprof.h"
+#include "vmprof.h"
 #include <stdio.h>
 
 int vmp_machine_bits(void)

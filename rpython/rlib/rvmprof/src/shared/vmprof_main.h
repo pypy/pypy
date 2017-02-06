@@ -89,25 +89,27 @@ static char atfork_hook_installed = 0;
  * *************************************************************
  */
 
-#ifndef RPYTHON_VMPROF
-static int get_stack_trace(PyThreadState * current, void** result, int max_depth)
+int get_stack_trace(PY_THREAD_STATE_T * current, void** result, int max_depth, intptr_t pc)
 {
-    PyFrameObject *frame;
+    PY_STACK_FRAME_T * frame;
     if (!current) {
         return 0;
     }
+#ifdef RPYTHON_VMPROF
+    frame = get_vmprof_stack();
+#else
     frame = current->frame;
+#endif
     // skip over
     // _sigtramp
     // sigprof_handler
     // vmp_walk_and_record_stack
 #ifdef __unix__
-    return vmp_walk_and_record_stack(frame, result, max_depth, 4);
+    return vmp_walk_and_record_stack(frame, result, max_depth, 4, pc);
 #else
-    return vmp_walk_and_record_stack(frame, result, max_depth, 3);
+    return vmp_walk_and_record_stack(frame, result, max_depth, 3, pc);
 #endif
 }
-#endif
 
 /* *************************************************************
  * the signal handler
@@ -124,18 +126,20 @@ static void segfault_handler(int arg)
     longjmp(restore_point, SIGSEGV);
 }
 
-int _vmprof_sample_stack(struct profbuf_s *p, PyThreadState *tstate)
+int _vmprof_sample_stack(struct profbuf_s *p, PY_THREAD_STATE_T * tstate, ucontext_t * uc)
 {
     int depth;
     struct prof_stacktrace_s *st = (struct prof_stacktrace_s *)p->data;
     st->marker = MARKER_STACKTRACE;
     st->count = 1;
-    depth = get_stack_trace(tstate, st->stack, MAX_STACK_DEPTH-1);
+#ifdef RPYTHON_VMPROF
+    depth = get_stack_trace(get_vmprof_stack(), st->stack, MAX_STACK_DEPTH-1, (intptr_t)GetPC(uc));
+#else
+    depth = get_stack_trace(tstate, st->stack, MAX_STACK_DEPTH-1, NULL);
+#endif
     if (depth == 0) {
         return 0;
     }
-    //st->stack[0] = GetPC((ucontext_t*)ucontext);
-    // we gonna need that for pypy
     st->depth = depth;
     st->stack[depth++] = tstate;
     long rss = get_current_proc_rss();
@@ -150,10 +154,10 @@ int _vmprof_sample_stack(struct profbuf_s *p, PyThreadState *tstate)
 
 static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
 {
-#ifdef RPYTHON_VMPROF
-    PyThreadState * tstate = NULL;
-#endif
+    int commit;
+    PY_THREAD_STATE_T * tstate = NULL;
     void (*prevhandler)(int);
+#ifndef RPYTHON_VMPROF
     // TERRIBLE HACK AHEAD
     // on OS X, the thread local storage is sometimes uninitialized
     // when the signal handler runs - it means it's impossible to read errno
@@ -170,11 +174,7 @@ static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
     int fault_code = setjmp(restore_point);
     if (fault_code == 0) {
         pthread_self();
-#ifdef RPYTHON_VMPROF
-        frame = vmporf_get_traceback();
-#else
         tstate = PyGILState_GetThisThreadState();
-#endif
     } else {
         signal(SIGSEGV, prevhandler);
         __sync_lock_release(&spinlock);
@@ -182,6 +182,8 @@ static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
     }
     signal(SIGSEGV, prevhandler);
     __sync_lock_release(&spinlock);
+#endif
+
     long val = __sync_fetch_and_add(&signal_handler_value, 2L);
 
     if ((val & 1) == 0) {
@@ -193,7 +195,11 @@ static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
         if (p == NULL) {
             /* ignore this signal: there are no free buffers right now */
         } else {
-            int commit = _vmprof_sample_stack(p, tstate);
+#ifdef RPYTHON_VMPORF
+            commit = _vmprof_sample_stack(p, NULL, (ucontext_t*)ucontext);
+#else
+            commit = _vmprof_sample_stack(p, tstate, (ucontext_t*)ucontext);
+#endif
             if (commit) {
                 commit_buffer(fd, p);
             } else {

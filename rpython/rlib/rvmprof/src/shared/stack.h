@@ -3,7 +3,7 @@
 #include "vmprof.h"
 
 int vmp_walk_and_record_stack(PY_STACK_FRAME_T * frame, void **data,
-                              int max_depth, int native_skip);
+                              int max_depth, int native_skip, intptr_t pc);
 
 int vmp_native_enabled(void);
 int vmp_native_enable(void);
