@@ -122,7 +122,9 @@ class W_DictMultiObject(W_Root):
         return w_obj
 
     @staticmethod
-    def descr_fromkeys(space, w_type, w_keys, w_fill=None):
+    def descr_fromkeys(space, w_type, w_iterable, w_value=None):
+        w_keys = w_iterable  # \
+        w_fill = w_value     # / rename the arguments for app-level
         if w_fill is None:
             w_fill = space.w_None
         if space.is_w(w_type, space.w_dict):
