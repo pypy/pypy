@@ -198,7 +198,7 @@ def _encode_filter_properties(filterspec):
     filter = parse_filter_spec(filterspec)
     size = ffi.new("uint32_t*")
     catch_lzma_error(m.lzma_properties_size, size, filter)
-    result = ffi.new('char[]', size[0])
+    result = ffi.new('uint8_t[]', size[0])
     catch_lzma_error(m.lzma_properties_encode, filter, result)
     return ffi.buffer(result)[:]
 
