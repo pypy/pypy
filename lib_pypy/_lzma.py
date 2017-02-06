@@ -108,7 +108,7 @@ def is_check_supported(check):
     Always returns True for CHECK_NONE and CHECK_CRC32."""
     return bool(m.lzma_check_is_supported(check))
 
-def catch_lzma_error(fun, *args):
+def catch_lzma_error(fun, *args, ignore_buf_error=False):
     try:
         lzret = fun(*args)
     except:
@@ -124,6 +124,8 @@ def catch_lzma_error(fun, *args):
     elif lzret == m.LZMA_OPTIONS_ERROR:
         raise LZMAError("Invalid or unsupported options")
     elif lzret == m.LZMA_BUF_ERROR:
+        if ignore_buf_error:
+            return m.LZMA_OK
         raise LZMAError("Insufficient buffer space")
     elif lzret == m.LZMA_PROG_ERROR:
         raise LZMAError("Internal error")
@@ -589,6 +591,9 @@ class LZMADecompressor(object):
         lzs.next_in = buf
         lzs.avail_in = buf_len
 
+        if buf_len == 0:
+            return b""
+
         bufsiz = self._bufsiz
         if not (max_length < 0 or max_length > io.DEFAULT_BUFFER_SIZE):
             bufsiz = max_length
@@ -733,7 +738,7 @@ class LZMACompressor(object):
         lzs = self.lzs
 
         lzs.next_in = input_ = ffi.new('uint8_t[]', to_bytes(data))
-        lzs.avail_in = len(data)
+        lzs.avail_in = input_len = len(data)
         outs = [ffi.new('uint8_t[]', BUFSIZ)]
         lzs.next_out, = outs
         lzs.avail_out = BUFSIZ
@@ -742,7 +747,8 @@ class LZMACompressor(object):
 
         while True:
             next_out_pos = int(ffi.cast('intptr_t', lzs.next_out))
-            ret = catch_lzma_error(m.lzma_code, lzs, action)
+            ret = catch_lzma_error(m.lzma_code, lzs, action,
+                      ignore_buf_error=(input_len==0 and lzs.avail_out > 0))
             data_size = int(ffi.cast('intptr_t', lzs.next_out)) - next_out_pos
             if (action == m.LZMA_RUN and lzs.avail_in == 0) or \
                 (action == m.LZMA_FINISH and ret == m.LZMA_STREAM_END):
