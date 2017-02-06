@@ -259,6 +259,25 @@ class AppTestFFIObj:
         assert ffi.buffer(cdata=a, size=2)[:] == b'\x05\x06'
         assert type(ffi.buffer(a)) is ffi.buffer
 
+    def test_ffi_buffer_comparisons(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        ba = bytearray(range(100, 110))
+        assert ba == memoryview(ba)    # justification for the following
+        a = ffi.new("uint8_t[]", list(ba))
+        c = ffi.new("uint8_t[]", [99] + list(ba))
+        b_full = ffi.buffer(a)
+        b_short = ffi.buffer(a, 3)
+        b_mid = ffi.buffer(a, 6)
+        b_other = ffi.buffer(c, 6)
+        content = b_full[:]
+        assert content == b_full == ba
+        assert b_short < b_mid < b_full
+        assert b_other < b_short < b_mid < b_full
+        assert ba > b_mid > ba[0:2]
+        assert b_short != ba[1:4]
+        assert b_short != 42
+
     def test_ffi_from_buffer(self):
         import _cffi_backend as _cffi1_backend
         import array
