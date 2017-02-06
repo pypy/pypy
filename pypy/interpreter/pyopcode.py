@@ -1470,8 +1470,13 @@ class __extend__(pyframe.PyFrame):
         for i in range(itemcount-1, -1, -1):
             w_item = self.peekvalue(i)
             if not space.ismapping_w(w_item):
-                raise oefmt(space.w_TypeError,
-                            "'%T' object is not a mapping", w_item)
+                if not with_call:
+                    raise oefmt(space.w_TypeError,
+                                "'%T' object is not a mapping", w_item)
+                else:
+                    raise oefmt(space.w_TypeError,
+                                "argument after ** must be a mapping, not %T",
+                                w_item)
             if with_call:
                 expected_length += space.len_w(w_item)
             space.call_method(w_dict, 'update', w_item)

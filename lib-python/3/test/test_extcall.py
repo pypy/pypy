@@ -57,7 +57,7 @@ Here we add keyword arguments
     Traceback (most recent call last):
         ...
     TypeError: ...got multiple values for keyword argument 'a'
-    >>> f(1, 2, a=3, **{'a': 4}, **{'a': 5})
+    >>> f(1, 2, a=3, **{'a': 4}, **{'a': 5})               #doctest: +ELLIPSIS
     Traceback (most recent call last):
         ...
     TypeError: ...got multiple values for keyword argument 'a'
