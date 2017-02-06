@@ -1,10 +1,20 @@
-#ifdef _WIN32
-typedef long intptr_t;
+#pragma once
+
+#include "vmprof.h"
+
+#define SINGLE_BUF_SIZE (8192 - 2 * sizeof(unsigned int))
+
+#ifdef VMPROF_WINDOWS
+#include "msiinttypes/inttypes.h"
+#include "msiinttypes/stdint.h"
 #else
-# include <stdint.h>
+#include <inttypes.h>
+#include <stdint.h>
 #endif
 
-RPY_EXTERN char *vmprof_init(int, double, char *);
+
+RPY_EXTERN char *vmprof_init(int fd, double interval, int memory,
+                     int lines, const char *interp_name, int native);
 RPY_EXTERN void vmprof_ignore_signals(int);
 RPY_EXTERN int vmprof_enable(void);
 RPY_EXTERN int vmprof_disable(void);

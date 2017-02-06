@@ -14,11 +14,13 @@ class VMProfPlatformUnsupported(Exception):
 
 ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rvmprof')
 SRC = ROOT.join('src')
+SHARED = SRC.join('shared')
 UDIS86 = ROOT.join('libudis86')
 BACKTRACE = ROOT.join('libbacktrace')
 
+compile_extra = ['-DRPYTHON_LL2CTYPES','-DRPYTHON_VMPROF']
 if sys.platform.startswith('linux'):
-    extra_compile = [
+    separate_module_files = [
        BACKTRACE.join('backtrace.c'),
        BACKTRACE.join('state.c'),
        BACKTRACE.join('elf.c'),
@@ -30,38 +32,44 @@ if sys.platform.startswith('linux'):
        BACKTRACE.join('sort.c'),
     ]
     _libs = ['dl']
-else:
-    extra_compile = []
+    compile_extra += ['-DVMPROF_UNIX']
+elif sys.platform == 'darwin':
+    compile_extra += ['-DVMPROF_UNIX']
+    separate_module_files = []
     _libs = []
+else:
+    # windows
+    separate_module_files = []
+    _libs = []
+
 eci_kwds = dict(
-    include_dirs = [SRC],
+    include_dirs = [SRC, SHARED, BACKTRACE, UDIS86],
     includes = ['rvmprof.h', 'vmprof_stack.h'],
     libraries = _libs,
     separate_module_files = [
         SRC.join('rvmprof.c'),
-        SRC.join('compat.c'),
-        SRC.join('machine.c'),
-        SRC.join('symboltable.c'),
-        SRC.join('stack.c'),
+        SHARED.join('compat.c'),
+        SHARED.join('machine.c'),
+        SHARED.join('symboltable.c'),
+        SHARED.join('stack.c'),
         # udis86
-        SRC.join('libudis86/decode.c'),
-        SRC.join('libudis86/itab.c'),
-        SRC.join('libudis86/udis86.c'),
-    ] + extra_compile,
-    post_include_bits=['#define RPYTHON_VMPROF\n'],
+        SHARED.join('libudis86/decode.c'),
+        SHARED.join('libudis86/itab.c'),
+        SHARED.join('libudis86/udis86.c'),
+    ] + separate_module_files,
+    post_include_bits=[],
+    compile_extra=compile_extra
     )
 global_eci = ExternalCompilationInfo(**eci_kwds)
 
 
 def setup():
-    compile_extra = ['-DRPYTHON_LL2CTYPES']
-    platform.verify_eci(ExternalCompilationInfo(
-        compile_extra=compile_extra,
-        **eci_kwds))
+    platform.verify_eci(ExternalCompilationInfo(**eci_kwds))
 
     eci = global_eci
     vmprof_init = rffi.llexternal("vmprof_init",
-                                  [rffi.INT, rffi.DOUBLE, rffi.CCHARP],
+                                  [rffi.INT, rffi.DOUBLE, rffi.INT, rffi.INT,
+                                   rffi.CCHARP, rffi.INT],
                                   rffi.CCHARP, compilation_info=eci)
     vmprof_enable = rffi.llexternal("vmprof_enable", [], rffi.INT,
                                     compilation_info=eci,

@@ -18,9 +18,8 @@
 #  include "rvmprof.h"
 #endif
 
-
-#if defined(__unix__) || defined(__APPLE__)
-#include "vmprof_main.h"
+#ifdef VMPROF_UNIX
+#include "shared/vmprof_main.h"
 #else
-#include "vmprof_main_win32.h"
+#include "shared/vmprof_main_win32.h"
 #endif
