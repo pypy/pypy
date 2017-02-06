@@ -783,6 +783,9 @@ class r_dict(object):
     def setdefault(self, key, default):
         return self._dict.setdefault(_r_dictkey(self, key), default)
 
+    def pop(self, key, *default):
+        return self._dict.pop(_r_dictkey(self, key), *default)
+
     def popitem(self):
         dk, value = self._dict.popitem()
         return dk.key, value
