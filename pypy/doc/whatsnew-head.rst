@@ -143,3 +143,11 @@ the same hashes as CPython 3.5, which can be randomized (in a
 crypographically good way).  It is the default in PyPy3.  The default of
 PyPy2 remains unchanged: there are user programs out there that depend
 on constant hashes (or even sometimes on specific hash results).
+
+.. branch: dict-move-to-end
+
+Our dicts, which are always ordered, now have an extra "method" for
+Python 3.x which moves an item to first or last position.  In PyPy 3.5
+it is the standard ``OrderedDict.move_to_end()`` method, but the
+behavior is also available on Python 2.x or for the ``dict`` type by
+calling ``__pypy__.move_to_end(dict, key, last=True)``.

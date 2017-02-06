@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import oefmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
@@ -75,6 +75,62 @@ class MiniBuffer(W_Root):
             self.buffer.setslice(start, value.as_str())
 
 
+    def _comparison_helper(self, space, w_other, mode):
+        if space.isinstance_w(w_other, space.w_unicode):
+            return space.w_NotImplemented
+        try:
+            other_buf = space.buffer_w(w_other, space.BUF_SIMPLE)
+        except OperationError as e:
+            if e.async(space):
+                raise
+            return space.w_NotImplemented
+        my_buf = self.buffer
+        my_len = len(my_buf)
+        other_len = len(other_buf)
+        if other_len != my_len:
+            if mode == 'E':
+                return space.w_False
+            if mode == 'N':
+                return space.w_True
+        cmp = _memcmp(my_buf, other_buf, min(my_len, other_len))
+        if cmp == 0:
+            if my_len < other_len:
+                cmp = -1
+            elif my_len > other_len:
+                cmp = 1
+
+        if   mode == 'L': res = cmp <  0
+        elif mode == 'l': res = cmp <= 0
+        elif mode == 'E': res = cmp == 0
+        elif mode == 'N': res = cmp != 0
+        elif mode == 'G': res = cmp >  0
+        elif mode == 'g': res = cmp >= 0
+        else: raise AssertionError
+
+        return space.newbool(res)
+
+    def descr_eq(self, space, w_other):
+        return self._comparison_helper(space, w_other, 'E')
+    def descr_ne(self, space, w_other):
+        return self._comparison_helper(space, w_other, 'N')
+    def descr_lt(self, space, w_other):
+        return self._comparison_helper(space, w_other, 'L')
+    def descr_le(self, space, w_other):
+        return self._comparison_helper(space, w_other, 'l')
+    def descr_gt(self, space, w_other):
+        return self._comparison_helper(space, w_other, 'G')
+    def descr_ge(self, space, w_other):
+        return self._comparison_helper(space, w_other, 'g')
+
+def _memcmp(buf1, buf2, length):
+    # XXX very slow
+    for i in range(length):
+        if buf1[i] < buf2[i]:
+            return -1
+        if buf1[i] > buf2[i]:
+            return 1
+    return 0
+
 @unwrap_spec(w_cdata=cdataobj.W_CData, size=int)
 def MiniBuffer___new__(space, w_subtype, w_cdata, size=-1):
     ctype = w_cdata.ctype
@@ -104,6 +160,12 @@ MiniBuffer.typedef = TypeDef(
     __len__ = interp2app(MiniBuffer.descr_len),
     __getitem__ = interp2app(MiniBuffer.descr_getitem),
     __setitem__ = interp2app(MiniBuffer.descr_setitem),
+    __eq__ = interp2app(MiniBuffer.descr_eq),
+    __ne__ = interp2app(MiniBuffer.descr_ne),
+    __lt__ = interp2app(MiniBuffer.descr_lt),
+    __le__ = interp2app(MiniBuffer.descr_le),
+    __gt__ = interp2app(MiniBuffer.descr_gt),
+    __ge__ = interp2app(MiniBuffer.descr_ge),
     __weakref__ = make_weakref_descr(MiniBuffer),
     __doc__ = """ffi.buffer(cdata[, byte_size]):
 Return a read-write buffer object that references the raw C data
