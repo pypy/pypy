@@ -7,7 +7,7 @@ from rpython.rlib.rstring import StringBuilder
 
 class W_FString(W_Root):
     def __init__(self, unparsed, raw_mode):
-        assert isinstance(unparsed, unicode)
+        assert isinstance(unparsed, str)    # utf-8 encoded string
         self.unparsed = unparsed     # but the quotes are removed
         self.raw_mode = raw_mode
         self.current_index = 0       # for astcompiler.fstring
@@ -85,14 +85,13 @@ def parsestr(space, encoding, s):
         q -= 2
 
     if unicode_literal and not rawmode: # XXX Py_UnicodeFlag is ignored for now
+        assert 0 <= ps <= q
+        if saw_f:
+            return W_FString(s[ps:q], rawmode)
         if encoding is None:
-            assert 0 <= ps <= q
             substr = s[ps:q]
         else:
             substr = decode_unicode_utf8(space, s, ps, q)
-        if saw_f:
-            v = unicodehelper.decode_utf8(space, substr)
-            return W_FString(v, rawmode)
         v = unicodehelper.decode_unicode_escape(space, substr)
         return space.wrap(v)
 
@@ -109,10 +108,10 @@ def parsestr(space, encoding, s):
     if rawmode or '\\' not in substr:
         if not unicode_literal:
             return space.newbytes(substr)
+        elif saw_f:
+            return W_FString(substr, rawmode)
         else:
             v = unicodehelper.decode_utf8(space, substr)
-            if saw_f:
-                return W_FString(v, rawmode)
             return space.wrap(v)
 
     v = PyString_DecodeEscape(space, substr, 'strict', encoding)

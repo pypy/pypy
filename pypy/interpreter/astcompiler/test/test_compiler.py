@@ -1194,6 +1194,38 @@ class TestCompiler:
         raises(SyntaxError, self.run, "f'''{5)\n#}'''")
         raises(SyntaxError, self.run, "f'\\x'")
 
+    def test_fstring_encoding(self):
+        src = """# -*- coding: latin-1 -*-\nz=ord(f'{"\xd8"}')\n"""
+        yield self.st, src, 'z', 0xd8
+        src = """# -*- coding: utf-8 -*-\nz=ord(f'{"\xc3\x98"}')\n"""
+        yield self.st, src, 'z', 0xd8
+
+        src = """z=ord(f'\\xd8')"""
+        yield self.st, src, 'z', 0xd8
+        src = """z=ord(f'\\u00d8')"""
+        yield self.st, src, 'z', 0xd8
+
+        src = """# -*- coding: latin-1 -*-\nz=ord(f'\xd8')\n"""
+        yield self.st, src, 'z', 0xd8
+        src = """# -*- coding: utf-8 -*-\nz=ord(f'\xc3\x98')\n"""
+        yield self.st, src, 'z', 0xd8
+
+    def test_fstring_encoding_r(self):
+        src = """# -*- coding: latin-1 -*-\nz=ord(fr'{"\xd8"}')\n"""
+        yield self.st, src, 'z', 0xd8
+        src = """# -*- coding: utf-8 -*-\nz=ord(rf'{"\xc3\x98"}')\n"""
+        yield self.st, src, 'z', 0xd8
+
+        src = """z=fr'\\xd8'"""
+        yield self.st, src, 'z', "\\xd8"
+        src = """z=rf'\\u00d8'"""
+        yield self.st, src, 'z', "\\u00d8"
+
+        src = """# -*- coding: latin-1 -*-\nz=ord(rf'\xd8')\n"""
+        yield self.st, src, 'z', 0xd8
+        src = """# -*- coding: utf-8 -*-\nz=ord(fr'\xc3\x98')\n"""
+        yield self.st, src, 'z', 0xd8
+
 
 class AppTestCompiler:
 
