@@ -2,7 +2,8 @@
 try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
 
-from reprlib import recursive_repr as _recursive_repr
+try: from reprlib import recursive_repr as _recursive_repr
+except ImportError: _recursive_repr = lambda: (lambda f: f)
 
 
 sentinel = object()
