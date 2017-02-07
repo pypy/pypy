@@ -283,21 +283,15 @@ class W_DictMultiObject(W_Root):
         w_value = self.getitem(w_key)
         return w_value if w_value is not None else w_default
 
-    @unwrap_spec(defaults_w='args_w')
-    def descr_pop(self, space, w_key, defaults_w):
+    def descr_pop(self, space, w_key, w_default=None):
         """D.pop(k[,d]) -> v, remove specified key and return the
         corresponding value\nIf key is not found, d is returned if given,
         otherwise KeyError is raised
         """
-        len_defaults = len(defaults_w)
-        if len_defaults > 1:
-            raise oefmt(space.w_TypeError,
-                        "pop expected at most 2 arguments, got %d",
-                        1 + len_defaults)
         w_item = self.getitem(w_key)
         if w_item is None:
-            if len_defaults > 0:
-                return defaults_w[0]
+            if w_default is not None:
+                return w_default
             else:
                 space.raise_key_error(w_key)
         else:
