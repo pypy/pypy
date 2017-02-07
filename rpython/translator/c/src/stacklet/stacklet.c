@@ -5,8 +5,8 @@
 #include "src/stacklet/stacklet.h"
 
 #include <stddef.h>
-#include <assert.h>
 #include <string.h>
+#include <stdio.h>
 
 /************************************************************
  * platform specific code
@@ -69,12 +69,17 @@ struct stacklet_thread_s {
     struct stacklet_s *g_target;
 };
 
+#define _check(x)  do { if (!(x)) _check_failed(#x); } while (0)
+
+static void _check_failed(const char *check)
+{
+    fprintf(stderr, "FATAL: stacklet: %s failed\n", check);
+    abort();
+}
+
 static void check_valid(struct stacklet_s *g)
 {
-    if (g->stack_saved < 0) {
-        fprintf(stderr, "FATAL: stacklet: memory corruption\n");
-        abort();
-    }
+    _check(g->stack_saved >= 0);
 }
 
 /***************************************************************/
@@ -105,7 +110,7 @@ static void g_save(struct stacklet_s* g, char* stop
     ptrdiff_t sz1 = g->stack_saved;
     ptrdiff_t sz2 = stop - g->stack_start;
     check_valid(g);
-    assert(stop <= g->stack_stop);
+    _check(stop <= g->stack_stop);
 
     if (sz2 > sz1) {
         char *c = (char *)(g + 1);
@@ -235,7 +240,7 @@ static void *g_restore_state(void *new_stack_pointer, void *rawthrd)
     ptrdiff_t stack_saved = g->stack_saved;
     check_valid(g);
 
-    assert(new_stack_pointer == g->stack_start);
+    _check(new_stack_pointer == g->stack_start);
 #if STACK_DIRECTION == 0
     memcpy(g->stack_start, g+1, stack_saved);
 #else
@@ -267,7 +272,7 @@ static void g_initialstub(struct stacklet_thread_s *thrd,
         thrd->g_target = result;
         _stacklet_switchstack(g_destroy_state, g_restore_state, thrd);
 
-        assert(!"stacklet: we should not return here");
+        _check_failed("we should not return here");
         abort();
     }
     /* The second time it returns. */
@@ -301,7 +306,7 @@ stacklet_handle stacklet_new(stacklet_thread_handle thrd,
                              stacklet_run_fn run, void *run_arg)
 {
     long stackmarker;
-    assert((char *)NULL < (char *)&stackmarker);
+    _check((char *)NULL < (char *)&stackmarker);
     if (thrd->g_current_stack_stop <= (char *)&stackmarker)
         thrd->g_current_stack_stop = ((char *)&stackmarker) + 1;
 
@@ -365,8 +370,8 @@ char **_stacklet_translate_pointer(stacklet_handle context, char **ptr)
       /* out-of-stack pointer!  it's only ok if we are the main stacklet
          and we are reading past the end, because the main stacklet's
          stack stop is not exactly known. */
-      assert(delta >= 0);
-      assert(((long)context->stack_stop) & 1);
+      _check(delta >= 0);
+      _check(((long)context->stack_stop) & 1);
   }
   return ptr;
 }
