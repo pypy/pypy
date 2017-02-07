@@ -169,8 +169,9 @@ intptr_t vmprof_get_traceback(void *stack, void *ucontext,
 #else
     intptr_t pc = ucontext ? (intptr_t)GetPC((ucontext_t *)ucontext) : 0;
 #endif
-    if (stack == NULL)
+    if (stack == NULL) {
         stack = get_vmprof_stack();
+    }
     n = get_stack_trace(stack, result_p, result_length - 2, pc);
     return (intptr_t)n;
 }

@@ -94,7 +94,7 @@ int get_stack_trace(PY_THREAD_STATE_T * current, void** result, int max_depth, i
     PY_STACK_FRAME_T * frame;
 #ifdef RPYTHON_VMPROF
     // do nothing here, 
-    current = (PY_STACK_FRAME_T*)frame;
+    frame = (PY_STACK_FRAME_T*)current;
 #else
     if (!current) {
         return 0;
