@@ -53,7 +53,7 @@ eci_kwds = dict(
         SHARED.join('compat.c'),
         SHARED.join('machine.c'),
         SHARED.join('symboltable.c'),
-        SHARED.join('stack.c'),
+        SHARED.join('vmp_stack.c'),
         # udis86
         SHARED.join('libudis86/decode.c'),
         SHARED.join('libudis86/itab.c'),

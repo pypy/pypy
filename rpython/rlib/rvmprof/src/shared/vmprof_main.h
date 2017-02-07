@@ -35,7 +35,7 @@
 
 #include "vmprof.h"
 
-#include "stack.h"
+#include "vmp_stack.h"
 #include "vmprof_getpc.h"
 #include "vmprof_mt.h"
 #include "vmprof_common.h"

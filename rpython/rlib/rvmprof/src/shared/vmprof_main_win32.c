@@ -1,7 +1,7 @@
 
 #include "windows.h"
 #include "compat.h"
-#include "stack.h"
+#include "vmp_stack.h"
 
 HANDLE write_mutex;
 

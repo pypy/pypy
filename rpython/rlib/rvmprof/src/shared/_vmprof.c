@@ -21,7 +21,7 @@ static volatile int is_enabled = 0;
 #else
 #include "vmprof_main_win32.h"
 #endif
-#include "stack.h"
+#include "vmp_stack.h"
 
 static destructor Original_code_dealloc = 0;
 PyObject* (*_default_eval_loop)(PyFrameObject *, int) = 0;
