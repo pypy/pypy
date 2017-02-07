@@ -555,11 +555,10 @@ def bytes_getbuffer(space, w_str, view, flags):
 
 @slot_function([PyObject, lltype.Ptr(Py_buffer), rffi.INT_real], rffi.INT_real, error=-1)
 def bf_getbuffer(space, w_obj, view, flags):
-    from pypy.module.cpyext.buffer import PyBuffer_FillInfo
+    from pypy.module.cpyext.buffer import fill_buffer
     buf = space.buffer_w(w_obj, rffi.cast(lltype.Signed, flags))
-    c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
-    return PyBuffer_FillInfo(space, view, w_obj, c_buf,
-                             space.len_w(w_obj), 0, flags)
+    fill_buffer(space, view, buf, as_pyobj(space, w_obj))
+    return 0
 
 def setup_buffer_procs(space, w_type, pto):
     bufspec = w_type.layout.typedef.buffer

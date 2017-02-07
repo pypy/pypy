@@ -84,6 +84,9 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         arr = module.array('u', '123')
         view = memoryview(arr)
         assert view.itemsize == 4
+        assert module.write_buffer_len(arr) == 12
+        assert len(module.readbuffer_as_string(arr)) == 12
+        assert len(module.readbuffer_as_string(view)) == 12
 
     def test_subclass(self):
         import struct
