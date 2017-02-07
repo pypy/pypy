@@ -1,7 +1,7 @@
 #include "trampoline.h"
 
+#include "vmprof.h"
 #include "machine.h"
-#include "_vmprof.h"
 
 #define _GNU_SOURCE 1
 #include <string.h>
@@ -141,6 +141,9 @@ int _redirect_trampoline_and_back(char * eval, char * trump, char * vmprof_eval)
     while (bytes < needed_bytes) {
         unsigned int res = vmp_machine_code_instr_length(ptr);
         if (res == 0) {
+            fprintf(stderr, "could not determine length of instr for trampoline\n");
+            fprintf(stderr, " %x %x %x %x %x\n", ptr[0], ptr[1],
+                            ptr[2], ptr[3], ptr[4]);
             return 1;
         }
 #ifdef X86_32
@@ -180,6 +183,7 @@ int vmp_patch_callee_trampoline(void * callee_addr, void * vmprof_eval, void ** 
     int pagesize;
 
     if (g_trampoline != NULL) {
+        fprintf(stderr, "trampoline already patched\n");
         return 0; // already patched
     }
 
@@ -195,11 +199,13 @@ int vmp_patch_callee_trampoline(void * callee_addr, void * vmprof_eval, void ** 
     char * page = (char*)mmap(NULL, pagesize, PROT_READ|PROT_WRITE|PROT_EXEC,
                               MAP_ANON | MAP_PRIVATE, 0, 0);
     if (page == NULL) {
+        fprintf(stderr, "could not allocate page for trampoline\n");
         return -1;
     }
 
     char * a = (char*)callee_addr;
     if (_redirect_trampoline_and_back(a, page, vmprof_eval) != 0) {
+        fprintf(stderr, "could not redirect eval->vmprof_eval->trampoline->eval+off\n");
         return -1;
     }
 
@@ -224,33 +230,4 @@ int vmp_patch_callee_trampoline(void * callee_addr, void * vmprof_eval, void ** 
 int vmp_unpatch_callee_trampoline(void * callee_addr)
 {
     return 0; // currently the trampoline is not removed
-
-    //if (!g_patched) {
-    //    return -1;
-    //}
-
-    //int result;
-    //int pagesize = sysconf(_SC_PAGESIZE);
-    //errno = 0;
-
-    //result = mprotect(PAGE_ALIGNED(callee_addr, pagesize), pagesize*2, PROT_READ|PROT_WRITE);
-    //if (result != 0) {
-    //    fprintf(stderr, "read|write protecting callee_addr\n");
-    //    return 1;
-    //}
-
-    //// copy back, assume everything is as if nothing ever happened!!
-    //(void)memcpy(callee_addr, g_trampoline, g_trampoline_length);
-
-    //result = mprotect(PAGE_ALIGNED(callee_addr, pagesize), pagesize*2, PROT_READ|PROT_EXEC);
-    //if (result != 0) {
-    //    fprintf(stderr, "read|exec protecting callee addr\n");
-    //    return 1;
-    //}
-
-    //munmap(g_trampoline, pagesize);
-    //g_trampoline = NULL;
-    //g_trampoline_length = 0;
-
-    //return 0;
 }

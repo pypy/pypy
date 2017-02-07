@@ -18,7 +18,7 @@ SHARED = SRC.join('shared')
 UDIS86 = SHARED.join('libudis86')
 BACKTRACE = SHARED.join('libbacktrace')
 
-compile_extra = ['-DRPYTHON_LL2CTYPES','-DRPYTHON_VMPROF']
+compile_extra = ['-DRPYTHON_VMPROF', '-g', '-O1']
 if sys.platform.startswith('linux'):
     separate_module_files = [
        BACKTRACE.join('backtrace.c'),
@@ -66,14 +66,17 @@ global_eci = ExternalCompilationInfo(**eci_kwds)
 
 
 def setup():
-    platform.verify_eci(ExternalCompilationInfo(**eci_kwds))
+    eci_kwds['compile_extra'].append('-DRPYTHON_LL2CTYPES')
+    platform.verify_eci(ExternalCompilationInfo(
+                        **eci_kwds))
 
     eci = global_eci
     vmprof_init = rffi.llexternal("vmprof_init",
                                   [rffi.INT, rffi.DOUBLE, rffi.INT, rffi.INT,
                                    rffi.CCHARP, rffi.INT],
                                   rffi.CCHARP, compilation_info=eci)
-    vmprof_enable = rffi.llexternal("vmprof_enable", [rffi.INT], rffi.INT,
+    vmprof_enable = rffi.llexternal("vmprof_enable", [rffi.INT, rffi.INT],
+                                    rffi.INT,
                                     compilation_info=eci,
                                     save_err=rffi.RFFI_SAVE_ERRNO)
     vmprof_disable = rffi.llexternal("vmprof_disable", [], rffi.INT,

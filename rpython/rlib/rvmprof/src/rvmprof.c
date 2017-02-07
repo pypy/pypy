@@ -3,8 +3,6 @@
 #ifdef RPYTHON_LL2CTYPES
    /* only for testing: ll2ctypes sets RPY_EXTERN from the command-line */
 
-static volatile int is_enabled = 0;
-
 #else
 #  include "common_header.h"
 #  include "structdef.h"
@@ -47,3 +45,17 @@ PY_EVAL_RETURN_T * vmprof_eval(PY_STACK_FRAME_T *f, int throwflag)
     return NULL; // TODO _default_eval_loop(f, throwflag);
 }
 #endif
+
+void dump_native_symbols(int fileno)
+{
+// TODO    PyObject * mod = NULL;
+// TODO
+// TODO    mod = PyImport_ImportModuleNoBlock("vmprof");
+// TODO    if (mod == NULL)
+// TODO        goto error;
+// TODO
+// TODO    PyObject_CallMethod(mod, "dump_native_symbols", "(l)", fileno);
+// TODO
+// TODOerror:
+// TODO    Py_XDECREF(mod);
+}

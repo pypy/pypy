@@ -141,6 +141,7 @@ void *volatile _PyThreadState_Current;
 #  define _Py_atomic_load_relaxed(pp)  (*(pp))
 #endif
 
+#ifdef RPYTHON_VMPROF
 #ifndef RPYTHON_LL2CTYPES
 static PY_STACK_FRAME_T *get_vmprof_stack(void)
 {
@@ -158,7 +159,6 @@ static PY_STACK_FRAME_T *get_vmprof_stack(void)
 }
 #endif
 
-#ifdef RPYTHON_VMPROF
 RPY_EXTERN
 intptr_t vmprof_get_traceback(void *stack, void *ucontext,
                               intptr_t *result_p, intptr_t result_length)

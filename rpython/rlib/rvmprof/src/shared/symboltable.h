@@ -1,5 +1,7 @@
 #pragma once
 
+#define _GNU_SOURCE 1
+
 /**
  * Extract all the known symbols from the current process and
  * log them to the file descriptor. To read them see binary.py funcs:

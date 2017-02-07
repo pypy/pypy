@@ -10,6 +10,8 @@ from rpython.rlib.rweaklist import RWeakListMixin
 
 MAX_FUNC_NAME = 1023
 
+PLAT_WINDOWS = sys.platform == 'win32'
+
 # ____________________________________________________________
 
 # keep in sync with vmprof_stack.h
@@ -132,6 +134,8 @@ class VMProf(object):
         if self.is_enabled:
             raise VMProfError("vmprof is already enabled")
 
+        if PLAT_WINDOWS:
+            native = 0 # force disabled on Windows
         lines = 0 # not supported on PyPy currently
 
         p_error = self.cintf.vmprof_init(fileno, interval, lines, memory, "pypy", native)
@@ -139,7 +143,7 @@ class VMProf(object):
             raise VMProfError(rffi.charp2str(p_error))
 
         self._gather_all_code_objs()
-        res = self.cintf.vmprof_enable(memory)
+        res = self.cintf.vmprof_enable(memory, native)
         if res < 0:
             raise VMProfError(os.strerror(rposix.get_saved_errno()))
         self.is_enabled = True

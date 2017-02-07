@@ -12,6 +12,8 @@ module _vmprof
 #include "_vmprof.h"
 
 static volatile int is_enabled = 0;
+static destructor Original_code_dealloc = 0;
+static PyObject* (*_default_eval_loop)(PyFrameObject *, int) = 0;
 
 #if VMPROF_UNIX
 #include "trampoline.h"
@@ -22,9 +24,6 @@ static volatile int is_enabled = 0;
 #include "vmprof_main_win32.h"
 #endif
 #include "vmp_stack.h"
-
-static destructor Original_code_dealloc = 0;
-PyObject* (*_default_eval_loop)(PyFrameObject *, int) = 0;
 
 #ifdef VMPROF_UNIX
 #ifdef __clang__
@@ -150,30 +149,6 @@ static void cpyprof_code_dealloc(PyObject *co)
     Original_code_dealloc(co);
 }
 
-#ifdef VMP_SUPPORTS_NATIVE_PROFILING
-static void init_cpyprof(int native)
-{
-    // skip this if native should not be enabled
-    if (!native) {
-        vmp_native_disable();
-        return;
-    }
-#if CPYTHON_HAS_FRAME_EVALUATION
-    PyThreadState *tstate = PyThreadState_GET();
-    tstate->interp->eval_frame = vmprof_eval;
-    _default_eval_loop = _PyEval_EvalFrameDefault;
-#else
-    if (vmp_patch_callee_trampoline(PyEval_EvalFrameEx,
-                vmprof_eval, (void*)&_default_eval_loop) == 0) {
-    } else {
-        fprintf(stderr, "FATAL: could not insert trampline, try with --no-native\n");
-        // TODO dump the first few bytes and tell them to create an issue!
-        exit(-1);
-    }
-#endif
-    vmp_native_enable();
-}
-#endif
 
 void dump_native_symbols(int fileno)
 {
@@ -189,22 +164,6 @@ error:
     Py_XDECREF(mod);
 }
 
-#ifdef VMP_SUPPORTS_NATIVE_PROFILING
-static void disable_cpyprof(void)
-{
-    vmp_native_disable();
-#if CPYTHON_HAS_FRAME_EVALUATION
-    PyThreadState *tstate = PyThreadState_GET();
-    tstate->interp->eval_frame = _PyEval_EvalFrameDefault;
-#else
-    if (vmp_unpatch_callee_trampoline(PyEval_EvalFrameEx) > 0) {
-        fprintf(stderr, "FATAL: could not remove trampoline\n");
-        exit(-1);
-    }
-#endif
-    dump_native_symbols(vmp_profile_fileno());
-}
-#endif
 
 
 static PyObject *enable_vmprof(PyObject* self, PyObject *args)
@@ -229,10 +188,6 @@ static PyObject *enable_vmprof(PyObject* self, PyObject *args)
 
     vmp_profile_lines(lines);
 
-#ifdef VMP_SUPPORTS_NATIVE_PROFILING
-    init_cpyprof(native);
-#endif
-
     if (!Original_code_dealloc) {
         Original_code_dealloc = PyCode_Type.tp_dealloc;
         PyCode_Type.tp_dealloc = &cpyprof_code_dealloc;
@@ -244,7 +199,7 @@ static PyObject *enable_vmprof(PyObject* self, PyObject *args)
         return NULL;
     }
 
-    if (vmprof_enable(memory) < 0) {
+    if (vmprof_enable(memory, native) < 0) {
         PyErr_SetFromErrno(PyExc_OSError);
         return NULL;
     }
@@ -265,9 +220,6 @@ disable_vmprof(PyObject *module, PyObject *noarg)
     is_enabled = 0;
     vmprof_ignore_signals(1);
     emit_all_code_objects();
-#ifdef VMP_SUPPORTS_NATIVE_PROFILING
-    disable_cpyprof();
-#endif
 
     if (vmprof_disable() < 0) {
         PyErr_SetFromErrno(PyExc_OSError);
@@ -319,7 +271,7 @@ sample_stack_now(PyObject *module, PyObject *args)
         vmprof_ignore_signals(0);
         return NULL;
     }
-    entry_count = vmp_walk_and_record_stack(tstate->frame, m, MAX_STACK_DEPTH-1, 0);
+    entry_count = vmp_walk_and_record_stack(tstate->frame, m, MAX_STACK_DEPTH-1, 0, 0);
 
     for (i = 0; i < entry_count; i++) {
         routine_ip = m[i];

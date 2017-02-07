@@ -92,12 +92,13 @@ static char atfork_hook_installed = 0;
 int get_stack_trace(PY_THREAD_STATE_T * current, void** result, int max_depth, intptr_t pc)
 {
     PY_STACK_FRAME_T * frame;
+#ifdef RPYTHON_VMPROF
+    // do nothing here, 
+    current = (PY_STACK_FRAME_T*)frame;
+#else
     if (!current) {
         return 0;
     }
-#ifdef RPYTHON_VMPROF
-    frame = get_vmprof_stack();
-#else
     frame = current->frame;
 #endif
     // skip over
@@ -135,7 +136,7 @@ int _vmprof_sample_stack(struct profbuf_s *p, PY_THREAD_STATE_T * tstate, uconte
 #ifdef RPYTHON_VMPROF
     depth = get_stack_trace(get_vmprof_stack(), st->stack, MAX_STACK_DEPTH-1, (intptr_t)GetPC(uc));
 #else
-    depth = get_stack_trace(tstate, st->stack, MAX_STACK_DEPTH-1, NULL);
+    depth = get_stack_trace(tstate, st->stack, MAX_STACK_DEPTH-1, (intptr_t)NULL);
 #endif
     if (depth == 0) {
         return 0;
@@ -264,14 +265,18 @@ static int remove_sigprof_timer(void) {
 static void atfork_disable_timer(void) {
     if (profile_interval_usec > 0) {
         remove_sigprof_timer();
+#ifndef RPYTHON_VMPROF
         is_enabled = 0;
+#endif
     }
 }
 
 static void atfork_enable_timer(void) {
     if (profile_interval_usec > 0) {
         install_sigprof_timer();
+#ifndef RPYTHON_VMPROF
         is_enabled = 1;
+#endif
     }
 }
 
@@ -302,9 +307,56 @@ static int install_pthread_atfork_hooks(void) {
     return 0;
 }
 
-RPY_EXTERN
-int vmprof_enable(int memory)
+#ifdef VMP_SUPPORTS_NATIVE_PROFILING
+void init_cpyprof(int native)
 {
+    // skip this if native should not be enabled
+    if (!native) {
+        vmp_native_disable();
+        return;
+    }
+#if CPYTHON_HAS_FRAME_EVALUATION
+    PyThreadState *tstate = PyThreadState_GET();
+    tstate->interp->eval_frame = vmprof_eval;
+    _default_eval_loop = _PyEval_EvalFrameDefault;
+#elif defined(RPYTHON_VMPROF)
+    // TODO nothing?
+#else
+    if (vmp_patch_callee_trampoline(PyEval_EvalFrameEx,
+                vmprof_eval, (void*)&_default_eval_loop) == 0) {
+    } else {
+        fprintf(stderr, "FATAL: could not insert trampline, try with --no-native\n");
+        // TODO dump the first few bytes and tell them to create an issue!
+        exit(-1);
+    }
+#endif
+    vmp_native_enable();
+}
+
+static void disable_cpyprof(void)
+{
+    vmp_native_disable();
+#if CPYTHON_HAS_FRAME_EVALUATION
+    PyThreadState *tstate = PyThreadState_GET();
+    tstate->interp->eval_frame = _PyEval_EvalFrameDefault;
+#elif defined(RPYTHON_VMPROF)
+    // TODO nothing?
+#else
+    if (vmp_unpatch_callee_trampoline(PyEval_EvalFrameEx) > 0) {
+        fprintf(stderr, "FATAL: could not remove trampoline\n");
+        exit(-1);
+    }
+#endif
+    dump_native_symbols(vmp_profile_fileno());
+}
+#endif
+
+RPY_EXTERN
+int vmprof_enable(int memory, int native)
+{
+#ifdef VMP_SUPPORTS_NATIVE_PROFILING
+    init_cpyprof(native);
+#endif
     assert(vmp_profile_fileno() >= 0);
     assert(prepare_interval_usec > 0);
     profile_interval_usec = prepare_interval_usec;
@@ -326,7 +378,7 @@ int vmprof_enable(int memory)
 }
 
 
-static int close_profile(void)
+int close_profile(void)
 {
     (void)vmp_write_time_now(MARKER_TRAILER);
 
@@ -341,6 +393,9 @@ int vmprof_disable(void)
 {
     vmprof_ignore_signals(1);
     profile_interval_usec = 0;
+#ifdef VMP_SUPPORTS_NATIVE_PROFILING
+    disable_cpyprof();
+#endif
 
     if (remove_sigprof_timer() == -1)
         return -1;
