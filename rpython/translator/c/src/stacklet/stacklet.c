@@ -34,7 +34,7 @@
 /************************************************************/
 
 struct stacklet_s {
-    /* The portion of the real stack claimed by this paused tealet. */
+    /* The portion of the real stack claimed by this paused stacklet. */
     char *stack_start;                /* the "near" end of the stack */
     char *stack_stop;                 /* the "far" end of the stack */
 
@@ -69,6 +69,14 @@ struct stacklet_thread_s {
     struct stacklet_s *g_target;
 };
 
+static void check_valid(struct stacklet_s *g)
+{
+    if (g->stack_saved < 0) {
+        fprintf(stderr, "FATAL: stacklet: memory corruption\n");
+        abort();
+    }
+}
+
 /***************************************************************/
 
 static void g_save(struct stacklet_s* g, char* stop
@@ -96,6 +104,7 @@ static void g_save(struct stacklet_s* g, char* stop
      */
     ptrdiff_t sz1 = g->stack_saved;
     ptrdiff_t sz2 = stop - g->stack_start;
+    check_valid(g);
     assert(stop <= g->stack_stop);
 
     if (sz2 > sz1) {
@@ -146,11 +155,13 @@ static void g_clear_stack(struct stacklet_s *g_target,
 {
     struct stacklet_s *current = thrd->g_stack_chain_head;
     char *target_stop = g_target->stack_stop;
+    check_valid(g_target);
 
-    /* save and unlink tealets that are completely within
+    /* save and unlink stacklets that are completely within
        the area to clear. */
     while (current != NULL && current->stack_stop <= target_stop) {
         struct stacklet_s *prev = current->stack_prev;
+        check_valid(current);
         current->stack_prev = NULL;
         if (current != g_target) {
             /* don't bother saving away g_target, because
@@ -222,6 +233,7 @@ static void *g_restore_state(void *new_stack_pointer, void *rawthrd)
     struct stacklet_thread_s *thrd = (struct stacklet_thread_s *)rawthrd;
     struct stacklet_s *g = thrd->g_target;
     ptrdiff_t stack_saved = g->stack_saved;
+    check_valid(g);
 
     assert(new_stack_pointer == g->stack_start);
 #if STACK_DIRECTION == 0
@@ -230,6 +242,7 @@ static void *g_restore_state(void *new_stack_pointer, void *rawthrd)
     memcpy(g->stack_start - stack_saved, g+1, stack_saved);
 #endif
     thrd->g_current_stack_stop = g->stack_stop;
+    g->stack_saved = -13;   /* debugging */
     free(g);
     return EMPTY_STACKLET_HANDLE;
 }
@@ -250,6 +263,7 @@ static void g_initialstub(struct stacklet_thread_s *thrd,
         result = run(thrd->g_source, run_arg);
 
         /* Then switch to 'result'. */
+        check_valid(result);
         thrd->g_target = result;
         _stacklet_switchstack(g_destroy_state, g_restore_state, thrd);
 
@@ -300,6 +314,7 @@ stacklet_handle stacklet_switch(stacklet_handle target)
 {
     long stackmarker;
     stacklet_thread_handle thrd = target->stack_thrd;
+    check_valid(target);
     if (thrd->g_current_stack_stop <= (char *)&stackmarker)
         thrd->g_current_stack_stop = ((char *)&stackmarker) + 1;
 
@@ -310,6 +325,7 @@ stacklet_handle stacklet_switch(stacklet_handle target)
 
 void stacklet_destroy(stacklet_handle target)
 {
+    check_valid(target);
     if (target->stack_prev != NULL) {
         /* 'target' appears to be in the chained list 'unsaved_stack',
            so remove it from there.  Note that if 'thrd' was already
@@ -319,12 +335,15 @@ void stacklet_destroy(stacklet_handle target)
            we don't even read 'stack_thrd', already deallocated. */
         stacklet_thread_handle thrd = target->stack_thrd;
         struct stacklet_s **pp = &thrd->g_stack_chain_head;
-        for (; *pp != NULL; pp = &(*pp)->stack_prev)
+        for (; *pp != NULL; pp = &(*pp)->stack_prev) {
+            check_valid(*pp);
             if (*pp == target) {
                 *pp = target->stack_prev;
                 break;
             }
+        }
     }
+    target->stack_saved = -11;   /* debugging */
     free(target);
 }
 
@@ -334,6 +353,7 @@ char **_stacklet_translate_pointer(stacklet_handle context, char **ptr)
   long delta;
   if (context == NULL)
     return ptr;
+  check_valid(context);
   delta = p - context->stack_start;
   if (((unsigned long)delta) < ((unsigned long)context->stack_saved)) {
       /* a pointer to a saved away word */
