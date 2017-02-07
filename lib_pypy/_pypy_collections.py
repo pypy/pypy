@@ -1,6 +1,8 @@
 from __pypy__ import reversed_dict, move_to_end
 from _operator import eq as _eq
 from reprlib import recursive_repr as _recursive_repr
+import _collections_abc
+
 
 class OrderedDict(dict):
     '''Dictionary that remembers insertion order.
@@ -82,16 +84,16 @@ class OrderedDict(dict):
         return _OrderedDictValuesView(self)
 
 
-class _OrderedDictKeysView(KeysView):
+class _OrderedDictKeysView(_collections_abc.KeysView):
     def __reversed__(self):
         yield from reversed_dict(self._mapping)
 
-class _OrderedDictItemsView(ItemsView):
+class _OrderedDictItemsView(_collections_abc.ItemsView):
     def __reversed__(self):
         for key in reversed_dict(self._mapping):
             yield (key, self._mapping[key])
 
-class _OrderedDictValuesView(ValuesView):
+class _OrderedDictValuesView(_collections_abc.ValuesView):
     def __reversed__(self):
         for key in reversed_dict(self._mapping):
             yield self._mapping[key]
