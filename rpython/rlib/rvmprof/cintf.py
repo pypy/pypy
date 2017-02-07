@@ -15,8 +15,8 @@ class VMProfPlatformUnsupported(Exception):
 ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rvmprof')
 SRC = ROOT.join('src')
 SHARED = SRC.join('shared')
-UDIS86 = ROOT.join('libudis86')
-BACKTRACE = ROOT.join('libbacktrace')
+UDIS86 = SHARED.join('libudis86')
+BACKTRACE = SHARED.join('libbacktrace')
 
 compile_extra = ['-DRPYTHON_LL2CTYPES','-DRPYTHON_VMPROF']
 if sys.platform.startswith('linux'):
@@ -31,7 +31,7 @@ if sys.platform.startswith('linux'):
        BACKTRACE.join('posix.c'),
        BACKTRACE.join('sort.c'),
     ]
-    _libs = ['dl']
+    _libs = ['dl', 'unwind']
     compile_extra += ['-DVMPROF_UNIX']
     compile_extra += ['-DVMPROF_LINUX']
 elif sys.platform == 'darwin':

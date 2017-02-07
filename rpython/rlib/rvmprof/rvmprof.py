@@ -122,7 +122,7 @@ class VMProf(object):
         self._gather_all_code_objs = gather_all_code_objs
 
     @jit.dont_look_inside
-    def enable(self, fileno, interval):
+    def enable(self, fileno, interval, memory=0):
         """Enable vmprof.  Writes go to the given 'fileno'.
         The sampling interval is given by 'interval' as a number of
         seconds, as a float which must be smaller than 1.0.
@@ -132,12 +132,15 @@ class VMProf(object):
         if self.is_enabled:
             raise VMProfError("vmprof is already enabled")
 
-        p_error = self.cintf.vmprof_init(fileno, interval, "pypy")
+        lines = 0
+        native = 0
+
+        p_error = self.cintf.vmprof_init(fileno, interval, lines, memory, "pypy", native)
         if p_error:
             raise VMProfError(rffi.charp2str(p_error))
 
         self._gather_all_code_objs()
-        res = self.cintf.vmprof_enable()
+        res = self.cintf.vmprof_enable(memory)
         if res < 0:
             raise VMProfError(os.strerror(rposix.get_saved_errno()))
         self.is_enabled = True

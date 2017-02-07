@@ -42,6 +42,4 @@
 
 #define CPYTHON_HAS_FRAME_EVALUATION PY_VERSION_HEX >= 0x30600B0
 
-PyObject* vmprof_eval(PyFrameObject *f, int throwflag);
-
 int vmp_write_all(const char *buf, size_t bufsize);

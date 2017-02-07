@@ -40,6 +40,8 @@
 #define PY_EVAL_RETURN_T void
 #define PY_THREAD_STATE_T void
 #define FRAME_STEP(f) f->next
+#define FRAME_CODE(f) f->
+PY_EVAL_RETURN_T * vmprof_eval(PY_STACK_FRAME_T *f, int throwflag);
 #else
 // for cpython
 #include "_vmprof.h"
@@ -49,4 +51,8 @@
 #define PY_EVAL_RETURN_T PyObject
 #define PY_THREAD_STATE_T PyThreadState
 #define FRAME_STEP(f) f->f_back
+#define FRAME_CODE(f) f->f_code
+PY_EVAL_RETURN_T * vmprof_eval(PY_STACK_FRAME_T *f, int throwflag);
 #endif
+
+

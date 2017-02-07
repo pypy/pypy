@@ -6,8 +6,10 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <stddef.h>
+#include <assert.h>
 
 #include "vmprof.h"
 #include "compat.h"
@@ -59,7 +61,6 @@ static PY_STACK_FRAME_T * _write_python_stack_entry(PY_STACK_FRAME_T * frame, vo
     int j;
     long line;
     char *lnotab;
-    intptr_t addr;
 
 #ifndef RPYTHON_VMPROF // pypy does not support line profiling
     if (vmp_profiles_python_lines()) {
@@ -99,26 +100,20 @@ static PY_STACK_FRAME_T * _write_python_stack_entry(PY_STACK_FRAME_T * frame, vo
 #else
     //result[*depth] = (void*)CODE_ADDR_TO_UID(FRAME_CODE(frame));
     //*depth = *depth + 1;
+
+    if (frame->kind == VMPROF_CODE_TAG) {
+        int n = *depth;
+        result[n++] = (void*)frame->kind;
+        result[n++] = (void*)frame->value;
+        *depth = n;
+    }
 #ifdef PYPY_JIT_CODEMAP
-    if (pypy_find_codemap_at_addr((intptr_t)pc, &addr)) {
-        // the bottom part is jitted, means we can fill up the first part
-        // from the JIT
-        *depth = vmprof_write_header_for_jit_addr(result, *depth, pc, max_depth);
-        stack = stack->next; // skip the first item as it contains garbage
+    else if (frame->kind == VMPROF_JITTED_TAG) {
+        intptr_t pc = ((intptr_t*)(frame->value - sizeof(intptr_t)))[0];
+        n = vmprof_write_header_for_jit_addr(result, n, pc, max_depth);
     }
 #endif
-    while (n < max_depth - 1 && stack) {
-        if (stack->kind == VMPROF_CODE_TAG) {
-            result[n] = stack->kind;
-            result[n + 1] = stack->value;
-            n += 2;
-        }
-#ifdef PYPY_JIT_CODEMAP
-        else if (stack->kind == VMPROF_JITTED_TAG) {
-            pc = ((intptr_t*)(stack->value - sizeof(intptr_t)))[0];
-            n = vmprof_write_header_for_jit_addr(result, n, pc, max_depth);
-        }
-#endif
+
 #endif
 
     return FRAME_STEP(frame);
@@ -128,7 +123,7 @@ int vmp_walk_and_record_python_stack_only(PY_STACK_FRAME_T *frame, void ** resul
                                      int max_depth, int depth, intptr_t pc)
 {
     while (depth < max_depth && frame) {
-        frame = _write_python_stack_entry(frame, result, &depth, pc);
+        frame = _write_python_stack_entry(frame, result, &depth);
     }
     return depth;
 }
@@ -147,6 +142,17 @@ int _write_native_stack(void* addr, void ** result, int depth) {
 
 int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
                               int max_depth, int native_skip, intptr_t pc) {
+
+//#ifdef PYPY_JIT_CODEMAP
+//    intptr_t codemap_addr;
+//    if (pypy_find_codemap_at_addr((intptr_t)pc, &codemap_addr)) {
+//        // the bottom part is jitted, means we can fill up the first part
+//        // from the JIT
+//        depth = vmprof_write_header_for_jit_addr(result, depth, pc, max_depth);
+//        frame = FRAME_STEP(frame); // skip the first item as it contains garbage
+//    }
+//#endif
+
     // called in signal handler
 #ifdef VMP_SUPPORTS_NATIVE_PROFILING
     intptr_t func_addr;
@@ -173,8 +179,8 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
         native_skip--;
     }
 
-    PY_STACK_FRAME_T * top_most_frame = frame;
     int depth = 0;
+    PY_STACK_FRAME_T * top_most_frame = frame;
     while (depth < max_depth) {
         unw_get_proc_info(&cursor, &pip);
 
@@ -205,7 +211,7 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
                 if (top_most_frame == NULL) {
                     break;
                 }
-                top_most_frame = _write_python_stack_entry(top_most_frame, result, &depth, pc);
+                top_most_frame = _write_python_stack_entry(top_most_frame, result, &depth);
             }
         } else if (vmp_ignore_ip((intptr_t)func_addr)) {
             // this is an instruction pointer that should be ignored,
