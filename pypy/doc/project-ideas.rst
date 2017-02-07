@@ -38,6 +38,21 @@ projects, or anything else in PyPy, pop up on IRC or write to us on the
 .. _mailing list: http://mail.python.org/mailman/listinfo/pypy-dev
 
 
+Explicit typing in RPython
+--------------------------
+
+RPython is mostly based around type inference, but there are many cases where
+specifying types explicitly is useful. We would like to be able to optionally 
+specify the exact types of the arguments to any function. We already have
+solutions in that space, ``@rpython.rlib.objectmodel.enforceargs`` and
+``@rpython.rlib.signature.signature``, but they are inconvenient and limited. 
+For instance, they do not easily allow to express the type "dict with ints as
+keys and lists of instances of Foo as values".
+
+Additionally, we would like to be able to specify the types of instance
+attributes. Unlike the function case, this is likely to require some
+refactoring of the annotator. 
+
 Make bytearray type fast
 ------------------------
 
