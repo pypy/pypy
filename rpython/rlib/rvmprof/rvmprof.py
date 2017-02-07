@@ -214,6 +214,7 @@ def vmprof_execute_code(name, get_code_fn, result_class=None,
                 return decorated_jitted_function(unique_id, *args)
 
         decorated_function.__name__ = func.__name__ + '_rvmprof'
+        decorated_function.c_name = '__vmprof_eval_vmprof'
         return decorated_function
 
     return decorate

@@ -14,6 +14,7 @@ module _vmprof
 static volatile int is_enabled = 0;
 static destructor Original_code_dealloc = 0;
 static PyObject* (*_default_eval_loop)(PyFrameObject *, int) = 0;
+void dump_native_symbols(int fileno);
 
 #if VMPROF_UNIX
 #include "trampoline.h"

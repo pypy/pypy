@@ -41,7 +41,9 @@
 #define PY_THREAD_STATE_T void
 #define FRAME_STEP(f) f->next
 #define FRAME_CODE(f) f->
-PY_EVAL_RETURN_T * vmprof_eval(PY_STACK_FRAME_T *f, int throwflag);
+typedef long Signed;
+RPY_EXTERN Signed __vmprof_eval_vmprof();
+#define VMPROF_EVAL() __vmprof_eval_vmprof
 #else
 #define RPY_EXTERN
 // for cpython
@@ -54,6 +56,7 @@ PY_EVAL_RETURN_T * vmprof_eval(PY_STACK_FRAME_T *f, int throwflag);
 #define FRAME_STEP(f) f->f_back
 #define FRAME_CODE(f) f->f_code
 PY_EVAL_RETURN_T * vmprof_eval(PY_STACK_FRAME_T *f, int throwflag);
+#define VMPROF_EVAL() vmprof_eval
 #endif
 
 

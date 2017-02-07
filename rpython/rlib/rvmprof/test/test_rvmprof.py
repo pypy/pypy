@@ -147,3 +147,78 @@ def test_enable():
     finally:
         assert os.path.exists(tmpfilename)
         os.unlink(tmpfilename)
+
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.lltypesystem import rffi, lltype
+def test_native():
+    eci = ExternalCompilationInfo(compile_extra=['-g','-O2'],
+            separate_module_sources=["""
+            RPY_EXTERN int native_func(void) {
+                return 42;
+            }
+            """])
+
+    native_func = rffi.llexternal("native_func", [], rffi.INT,
+                                  compilation_info=eci)
+
+    class MyCode:
+        pass
+    def get_name(code):
+        return 'py:code:52:x'
+
+    try:
+        rvmprof.register_code_object_class(MyCode, get_name)
+    except rvmprof.VMProfPlatformUnsupported as e:
+        py.test.skip(str(e))
+
+    @rvmprof.vmprof_execute_code("xcode1", lambda code, num: code)
+    def main(code, num):
+        if num > 0:
+            return main(code, num-1)
+        else:
+            for i in range(100):
+                native_func()
+            return native_func()
+
+    tmpfilename = str(udir.join('test_rvmprof'))
+
+    def f():
+        if NonConstant(False):
+            # Hack to give os.open() the correct annotation
+            os.open('foo', 1, 1)
+        code = MyCode()
+        rvmprof.register_code(code, get_name)
+        fd = os.open(tmpfilename, os.O_WRONLY | os.O_CREAT, 0666)
+        if we_are_translated():
+            num = 100000000
+            period = 0.0001
+        else:
+            num = 10000
+            period = 0.9
+        rvmprof.enable(fd, period, native=1)
+        res = main(code, num)
+        #assert res == 499999500000
+        rvmprof.disable()
+        os.close(fd)
+        return 0
+
+    def check_profile(filename):
+        from vmprof import read_profile
+
+        prof = read_profile(filename)
+        assert prof.get_tree().name.startswith("py:")
+        assert prof.get_tree().count
+
+    #assert f() == 0
+    #assert os.path.exists(tmpfilename)
+    fn = compile(f, [], gcpolicy="minimark")
+    assert fn() == 0
+    try:
+        import vmprof
+    except ImportError:
+        py.test.skip("vmprof unimportable")
+    else:
+        check_profile(tmpfilename)
+    finally:
+        assert os.path.exists(tmpfilename)
+        os.unlink(tmpfilename)
