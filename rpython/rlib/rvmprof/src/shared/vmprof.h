@@ -1,5 +1,7 @@
 #pragma once
 
+#include <unistd.h>
+
 // common defines
 #define MARKER_STACKTRACE '\x01'
 #define MARKER_VIRTUAL_IP '\x02'
@@ -21,6 +23,7 @@
 #define PROFILE_MEMORY '\x01'
 #define PROFILE_LINES  '\x02'
 #define PROFILE_NATIVE '\x04'
+#define PROFILE_RPYTHON '\x08'
 
 #ifdef VMPROF_UNIX
 #define VMP_SUPPORTS_NATIVE_PROFILING
@@ -41,6 +44,9 @@
 #define PY_THREAD_STATE_T void
 #define FRAME_STEP(f) f->next
 #define FRAME_CODE(f) f->
+// Is there is a way to tell the compiler
+// that this prototype can have ANY return value. Just removing
+// the return type will default to int
 typedef long Signed;
 RPY_EXTERN Signed __vmprof_eval_vmprof();
 #define VMPROF_EVAL() __vmprof_eval_vmprof

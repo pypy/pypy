@@ -21,7 +21,6 @@
 #define RPY_EXPORTED  extern __attribute__((visibility("default")))
 #endif
 
-
 RPY_EXTERN char *vmprof_init(int fd, double interval, int memory,
                      int lines, const char *interp_name, int native);
 RPY_EXTERN void vmprof_ignore_signals(int);

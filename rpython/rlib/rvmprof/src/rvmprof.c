@@ -16,16 +16,3 @@
 #include "shared/vmprof_main_win32.h"
 #endif
 
-void dump_native_symbols(int fileno)
-{
-// TODO    PyObject * mod = NULL;
-// TODO
-// TODO    mod = PyImport_ImportModuleNoBlock("vmprof");
-// TODO    if (mod == NULL)
-// TODO        goto error;
-// TODO
-// TODO    PyObject_CallMethod(mod, "dump_native_symbols", "(l)", fileno);
-// TODO
-// TODOerror:
-// TODO    Py_XDECREF(mod);
-}

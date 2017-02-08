@@ -183,7 +183,7 @@ int vmp_patch_callee_trampoline(void * callee_addr, void * vmprof_eval, void ** 
     int pagesize;
 
     if (g_trampoline != NULL) {
-        fprintf(stderr, "trampoline already patched\n");
+        //fprintf(stderr, "trampoline already patched\n");
         return 0; // already patched
     }
 

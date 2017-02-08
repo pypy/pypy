@@ -46,7 +46,7 @@ else:
 
 eci_kwds = dict(
     include_dirs = [SRC, SHARED, BACKTRACE, UDIS86],
-    includes = ['rvmprof.h', 'vmprof_stack.h'],
+    includes = ['rvmprof.h','vmprof_stack.h'],
     libraries = _libs,
     separate_module_files = [
         SRC.join('rvmprof.c'),
@@ -97,6 +97,7 @@ def setup():
                                   _nowrapper=True)
 
     return CInterface(locals())
+
 
 
 class CInterface(object):

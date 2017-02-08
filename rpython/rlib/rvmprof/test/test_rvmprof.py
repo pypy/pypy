@@ -154,7 +154,11 @@ def test_native():
     eci = ExternalCompilationInfo(compile_extra=['-g','-O2'],
             separate_module_sources=["""
             RPY_EXTERN int native_func(void) {
-                return 42;
+                int j = 0;
+                for (int i = 0; i < 420000; i++) {
+                    j += 1;
+                }
+                return j;
             }
             """])
 
@@ -176,8 +180,6 @@ def test_native():
         if num > 0:
             return main(code, num-1)
         else:
-            for i in range(100):
-                native_func()
             return native_func()
 
     tmpfilename = str(udir.join('test_rvmprof'))
@@ -188,15 +190,12 @@ def test_native():
             os.open('foo', 1, 1)
         code = MyCode()
         rvmprof.register_code(code, get_name)
-        fd = os.open(tmpfilename, os.O_WRONLY | os.O_CREAT, 0666)
-        if we_are_translated():
-            num = 100000000
-            period = 0.0001
-        else:
-            num = 10000
-            period = 0.9
+        fd = os.open(tmpfilename, os.O_RDWR | os.O_CREAT, 0666)
+        num = 10000
+        period = 0.0001
         rvmprof.enable(fd, period, native=1)
-        res = main(code, num)
+        for i in range(num):
+            res = main(code, 10)
         #assert res == 499999500000
         rvmprof.disable()
         os.close(fd)
@@ -204,10 +203,13 @@ def test_native():
 
     def check_profile(filename):
         from vmprof import read_profile
+        from vmprof.show import PrettyPrinter
 
         prof = read_profile(filename)
-        assert prof.get_tree().name.startswith("py:")
-        assert prof.get_tree().count
+        tree = prof.get_tree()
+        p = PrettyPrinter()
+        p._print_tree(tree)
+        assert tree.name.startswith("n:pypy_g_main")
 
     #assert f() == 0
     #assert os.path.exists(tmpfilename)

@@ -170,11 +170,6 @@ void lookup_vmprof_debug_info(const char * name, const void * h,
     }
 }
 
-#else
-// other platforms than linux & mac os x
-void dump_all_known_symbols(int fd) {
-    // oh, nothing to do!! a not supported platform
-}
 #endif
 
 #ifdef __unix__
@@ -247,3 +242,193 @@ int vmp_resolve_addr(void * addr, char * name, int name_len, int * lineno, char 
 #endif
     return 0;
 }
+
+#ifdef RPYTHON_VMPROF
+
+#define WORD_SIZE sizeof(long)
+#define ADDR_SIZE sizeof(void*)
+#define MAXLEN 1024
+
+void _dump_native_symbol(int fileno, void * addr, char * sym, int linenumber, char * filename) {
+    char natsym[64];
+    off_t pos_before;
+    struct str {
+        void * addr;
+        // NOTE windows 64, not supported yet
+        long size;
+        char str[1024];
+    } s;
+    pos_before = lseek(fileno, 0, SEEK_CUR);
+    lseek(fileno, 0, SEEK_END);
+
+    s.addr = addr;
+    /* must mach '<lang>:<name>:<line>:<file>'
+     * 'n' has been chosen as lang here, because the symbol
+     * can be generated from several languages (e.g. C, C++, ...)
+     */
+    // MARKER_NATIVE_SYMBOLS is \x08
+    write(fileno, "\x08", 1);
+    if (sym == NULL || sym[0] == '\x00') {
+        snprintf(natsym, 64, "<native symbol %p>", addr);
+        sym = natsym;
+    }
+    if (filename != NULL) {
+        s.size = snprintf(s.str, 1024, "n:%s:%d:%s", sym, linenumber, filename);
+    } else {
+        s.size = snprintf(s.str, 1024, "n:%s:%d:-", sym, linenumber);
+    }
+    write(fileno, &s, sizeof(void*)+sizeof(long)+s.size);
+
+    lseek(fileno, pos_before, SEEK_SET);
+}
+
+int _skip_string(int fileno)
+{
+    long chars;
+    int count = read(fileno, &chars, sizeof(long));
+    LOG("reading string of %d chars\n", chars);
+    if (count <= 0) {
+        return 1;
+    }
+    lseek(fileno, chars, SEEK_CUR);
+
+    return 0;
+}
+
+int _skip_header(int fileno, int * version, int * flags)
+{
+    unsigned char r[4];
+    (void)read(fileno, r, 4);
+    unsigned char count = r[3];
+    *version = (r[0] & 0xff) << 8 | (r[1] & 0xff);
+    *flags = r[2];
+    lseek(fileno, (int)count, SEEK_CUR);
+    return 0;
+}
+
+long _read_word(int fileno)
+{
+    long w;
+    read(fileno, &w, WORD_SIZE);
+    return w;
+}
+
+void * _read_addr(int fileno)
+{
+    void * a;
+    read(fileno, &a, ADDR_SIZE);
+    return a;
+}
+
+int _skip_word(int fileno)
+{
+    lseek(fileno, WORD_SIZE, SEEK_CUR);
+    return 0;
+}
+
+int _skip_addr(int fileno)
+{
+    lseek(fileno, ADDR_SIZE, SEEK_CUR);
+    return 0;
+}
+
+int _skip_time_and_zone(int fileno)
+{
+    lseek(fileno, sizeof(int64_t)*2 + 8, SEEK_CUR);
+    return 0;
+}
+
+
+void dump_native_symbols(int fileno)
+{
+    // only call this function
+    off_t orig_pos, cur_pos;
+    char marker;
+    ssize_t count;
+    int version;
+    int flags;
+    int memory, lines, native;
+    orig_pos = lseek(fileno, 0, SEEK_CUR);
+
+    lseek(fileno, 5*WORD_SIZE, SEEK_SET);
+
+    while (1) {
+        LOG("pre read\n");
+        count = read(fileno, &marker, 1);
+        LOG("post read\n");
+        if (count <= 0) {
+            break;
+        }
+        cur_pos = lseek(fileno, 0, SEEK_CUR);
+        LOG("posss 0x%llx %d\n", cur_pos-1, cur_pos-1);
+        switch (marker) {
+            case MARKER_HEADER: {
+                LOG("header 0x%llx\n", cur_pos);
+                if (_skip_header(fileno, &version, &flags) != 0) {
+                    return;
+                }
+                memory = (flags & PROFILE_MEMORY) != 0;
+                native = (flags & PROFILE_NATIVE) != 0;
+                lines = (flags & PROFILE_LINES) != 0;
+                break;
+            } case MARKER_META: {
+                LOG("meta 0x%llx\n", cur_pos);
+                if (_skip_string(fileno) != 0) { return; }
+                if (_skip_string(fileno) != 0) { return; }
+                break;
+            } case MARKER_TIME_N_ZONE:
+              case MARKER_TRAILER: {
+                LOG("tnz or trailer 0x%llx\n", cur_pos);
+                if (_skip_time_and_zone(fileno) != 0) { return; }
+                break;
+            } case MARKER_VIRTUAL_IP:
+              case MARKER_NATIVE_SYMBOLS: {
+                LOG("virtip 0x%llx\n", cur_pos);
+                if (_skip_addr(fileno) != 0) { return; }
+                if (_skip_string(fileno) != 0) { return; }
+                break;
+            } case MARKER_STACKTRACE: {
+                long trace_count = _read_word(fileno);
+                long depth = _read_word(fileno);
+
+                LOG("stack 0x%llx %d %d\n", cur_pos, trace_count, depth);
+
+                for (long i = depth/2-1; i >= 0; i--) {
+                    long kind = (long)_read_addr(fileno);
+                    void * addr = _read_addr(fileno);
+                    if (kind == VMPROF_NATIVE_TAG) {
+                        LOG("found kind %p\n", addr);
+                        char name[MAXLEN];
+                        char srcfile[MAXLEN];
+                        name[0] = 0;
+                        srcfile[0] = 0;
+                        int lineno = 0;
+                        if (vmp_resolve_addr(addr, name, MAXLEN, &lineno, srcfile, MAXLEN) == 0) {
+                            LOG("dumping add %p, name %s, %s:%d\n", addr, name, srcfile, lineno);
+                            _dump_native_symbol(fileno, addr, name, lineno, srcfile);
+                        }
+                    }
+                }
+                LOG("passed  memory %d \n", memory);
+
+                if (_skip_addr(fileno) != 0) { return; } // thread id
+                if (memory) {
+                    if (_skip_addr(fileno) != 0) { return; } // profile memory
+                }
+
+                break;
+            } default: {
+                fprintf(stderr, "unknown marker 0x%x\n", marker);
+                return;
+            }
+        }
+
+        cur_pos = lseek(fileno, 0, SEEK_CUR);
+        if (cur_pos >= orig_pos) {
+            break;
+        }
+    }
+
+    lseek(fileno, 0, SEEK_END);
+}
+#endif

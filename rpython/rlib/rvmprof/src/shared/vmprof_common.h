@@ -106,6 +106,9 @@ static int opened_profile(const char *interp_name, int memory, int lines, int na
     header.interp_name[2] = VERSION_TIMESTAMP;
     header.interp_name[3] = memory*PROFILE_MEMORY + lines*PROFILE_LINES + \
                             native*PROFILE_NATIVE;
+#ifdef RPYTHON_VMPROF
+    header.interp_name[3] += PROFILE_RPYTHON;
+#endif
     header.interp_name[4] = (char)namelen;
 
     memcpy(&header.interp_name[5], interp_name, namelen);
