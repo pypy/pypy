@@ -397,11 +397,12 @@ class RandomWeAreJittedTestMixin(object):
     def setup_method(self, meth):
         global _we_are_jitted_interpreted
         seed = random.random()
-        print "seed", seed
-        random.seed(seed)
+        print "RandomWeAreJittedTestMixin: seed", seed
+        r = random.Random()
+        r.seed(seed)
         self.orig_we_are_jitted = _we_are_jitted_interpreted
         def _we_are_jitted_interpreted_random():
-            result = random.random() > 0.5
+            result = r.random() > 0.5
             return result
         _we_are_jitted_interpreted = _we_are_jitted_interpreted_random
 
