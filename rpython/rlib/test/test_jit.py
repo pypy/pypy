@@ -4,7 +4,7 @@ from rpython.conftest import option
 from rpython.annotator.model import UnionError
 from rpython.rlib.jit import (hint, we_are_jitted, JitDriver, elidable_promote,
     JitHintError, oopspec, isconstant, conditional_call,
-    elidable, unroll_safe, dont_look_inside, conditional_call_edliable,
+    elidable, unroll_safe, dont_look_inside, conditional_call_elidable,
     enter_portal_frame, leave_portal_frame, elidable_compatible,
     RandomWeAreJittedTestMixin)
 from rpython.rlib.rarithmetic import r_uint
