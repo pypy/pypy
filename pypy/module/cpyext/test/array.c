@@ -2871,7 +2871,17 @@ readbuffer_as_string(PyObject *self, PyObject *args)
     return PyBytes_FromStringAndSize((char*)ptr, size);
 }
 
-
+static PyObject *
+write_buffer_len(PyObject * self, PyObject * obj)
+{
+    void* buf;
+    Py_ssize_t buf_len;
+    if (PyObject_AsWriteBuffer(obj, &buf, &buf_len) < 0) {
+        PyErr_SetString(PyExc_ValueError, "bad value");
+        return NULL;
+    }
+    return PyLong_FromLong(buf_len);
+}
 
 /*********************** Install Module **************************/
 
@@ -2880,6 +2890,7 @@ static PyMethodDef a_methods[] = {
      PyDoc_STR("Internal. Used for pickling support.")},
     {"switch_multiply",   (PyCFunction)switch_multiply, METH_NOARGS, NULL},
     {"readbuffer_as_string",   (PyCFunction)readbuffer_as_string, METH_VARARGS, NULL},
+    {"write_buffer_len", write_buffer_len, METH_O, NULL},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 

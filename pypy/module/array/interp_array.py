@@ -256,8 +256,8 @@ class W_ArrayBase(W_Root):
         if oldbuffer:
             lltype.free(oldbuffer, flavor='raw')
 
-    def buffer_w_ex(self, space, flags):
-        return ArrayBuffer(self, False), self.typecode, self.itemsize
+    def buffer_w(self, space, flags):
+        return ArrayBuffer(self, False)
 
     def descr_append(self, space, w_x):
         """ append(x)

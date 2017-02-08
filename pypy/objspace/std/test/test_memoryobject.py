@@ -345,9 +345,6 @@ class W_MockArray(W_Root):
         return MockBuffer(space, self.w_list, self.w_dim, self.w_fmt, \
                           self.w_size, self.w_strides, self.w_shape)
 
-    def buffer_w_ex(self, space, flags):
-        return self.buffer_w(space, flags), space.str_w(self.w_fmt), space.int_w(self.w_size)
-
 W_MockArray.typedef = TypeDef("MockArray",
     __new__ = interp2app(W_MockArray.descr_new),
 )
