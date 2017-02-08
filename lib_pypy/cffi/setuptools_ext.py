@@ -1,4 +1,5 @@
 import os
+import sys
 
 try:
     basestring
@@ -74,8 +75,14 @@ def _set_py_limited_api(Extension, kwds):
     Add py_limited_api to kwds if setuptools >= 26 is in use.
     Do not alter the setting if it already exists.
     Setuptools takes care of ignoring the flag on Python 2 and PyPy.
+
+    CPython itself should ignore the flag in a debugging version
+    (by not listing .abi3.so in the extensions it supports), but
+    it doesn't so far, creating troubles.  That's why we check
+    for "not hasattr(sys, 'gettotalrefcount')" (the 2.7 compatible equivalent
+    of 'd' not in sys.abiflags). (http://bugs.python.org/issue28401)
     """
-    if 'py_limited_api' not in kwds:
+    if 'py_limited_api' not in kwds and not hasattr(sys, 'gettotalrefcount'):
         import setuptools
         try:
             setuptools_major_version = int(setuptools.__version__.partition('.')[0])

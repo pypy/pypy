@@ -82,7 +82,8 @@ class W_BytearrayObject(W_Root):
         return False
 
     @staticmethod
-    def _op_val(space, w_other):
+    def _op_val(space, w_other, strict=None):
+        # bytearray does not enforce the strict restriction (on strip at least)
         return space.buffer_w(w_other, space.BUF_SIMPLE).as_str()
 
     def _chr(self, char):
@@ -1253,6 +1254,7 @@ class BytearrayBuffer(Buffer):
 
 @specialize.argtype(1)
 def _memcmp(selfvalue, buffer, length):
+    # XXX that's very slow if selfvalue or buffer are Buffer objects
     for i in range(length):
         if selfvalue[i] < buffer[i]:
             return -1

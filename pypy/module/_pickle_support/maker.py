@@ -46,9 +46,14 @@ def seqiter_new(space, w_seq, w_index):
     return W_SeqIterObject(w_seq, space.int_w(w_index))
 
 def reverseseqiter_new(space, w_seq, w_index):
-    w_len = space.len(w_seq)
-    index = space.int_w(w_index) - space.int_w(w_len)
-    return W_ReverseSeqIterObject(space, w_seq, index)
+    w_rev = instantiate(W_ReverseSeqIterObject)
+    if space.is_w(w_seq, space.w_None):
+        w_rev.w_seq = None
+        w_rev.index = -1
+    else:
+        w_rev.w_seq = w_seq
+        w_rev.index = space.int_w(w_index)
+    return w_rev
 
 def frame_new(space):
     new_frame = instantiate(space.FrameClass)   # XXX fish
@@ -72,7 +77,7 @@ def xrangeiter_new(space, current, remaining, step):
 def builtin_code(space, identifier):
     from pypy.interpreter import gateway
     try:
-        return gateway.BuiltinCode.find(identifier)
+        return gateway.BuiltinCode.find(space, identifier)
     except KeyError:
         raise oefmt(space.w_RuntimeError,
                     "cannot unpickle builtin code: %s", identifier)
@@ -81,7 +86,7 @@ def builtin_code(space, identifier):
 def builtin_function(space, identifier):
     from pypy.interpreter import function
     try:
-        return function.Function.find(identifier)
+        return function.Function.find(space, identifier)
     except KeyError:
         raise oefmt(space.w_RuntimeError,
                     "cannot unpickle builtin function: %s", identifier)

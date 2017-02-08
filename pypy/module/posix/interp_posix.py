@@ -226,13 +226,13 @@ def build_stat_result(space, st):
     w_keywords = space.newdict()
     stat_float_times = space.fromcache(StatState).stat_float_times
     for i, (name, TYPE) in FIELDS:
-        value = getattr(st, name)
-        if name in ('st_atime', 'st_mtime', 'st_ctime'):
-            value = int(value)   # rounded to an integer for indexed access
-        w_value = space.wrap(value)
         if i < rposix_stat.N_INDEXABLE_FIELDS:
+            # get the first 10 items by indexing; this gives us
+            # 'st_Xtime' as an integer, too
+            w_value = space.wrap(st[i])
             lst[i] = w_value
-        else:
+        elif name.startswith('st_'):    # exclude 'nsec_Xtime'
+            w_value = space.wrap(getattr(st, name))
             space.setitem(w_keywords, space.wrap(name), w_value)
 
     # non-rounded values for name-based access
@@ -243,13 +243,8 @@ def build_stat_result(space, st):
                       space.wrap('st_mtime'), space.wrap(st.st_mtime))
         space.setitem(w_keywords,
                       space.wrap('st_ctime'), space.wrap(st.st_ctime))
-    else:
-        space.setitem(w_keywords,
-                      space.wrap('st_atime'), space.wrap(int(st.st_atime)))
-        space.setitem(w_keywords,
-                      space.wrap('st_mtime'), space.wrap(int(st.st_mtime)))
-        space.setitem(w_keywords,
-                      space.wrap('st_ctime'), space.wrap(int(st.st_ctime)))
+    #else:
+    #   filled by the __init__ method
 
     w_tuple = space.newtuple(lst)
     w_stat_result = space.getattr(space.getbuiltinmodule(os.name),
@@ -312,7 +307,8 @@ class StatState(object):
     def __init__(self, space):
         self.stat_float_times = True
 
-def stat_float_times(space, w_value=None):
+@unwrap_spec(newval=int)
+def stat_float_times(space, newval=-1):
     """stat_float_times([newval]) -> oldval
 
 Determine whether os.[lf]stat represents time stamps as float objects.
@@ -322,10 +318,10 @@ If newval is omitted, return the current setting.
 """
     state = space.fromcache(StatState)
 
-    if w_value is None:
+    if newval == -1:
         return space.wrap(state.stat_float_times)
     else:
-        state.stat_float_times = space.bool_w(w_value)
+        state.stat_float_times = (newval != 0)
 
 
 @unwrap_spec(fd=c_int)
@@ -1328,6 +1324,12 @@ def nice(space, inc):
         raise wrap_oserror(space, e)
     return space.wrap(res)
 
+class SigCheck:
+    pass
+_sigcheck = SigCheck()
+def _signal_checker():
+    _sigcheck.space.getexecutioncontext().checksignals()
+
 @unwrap_spec(n=int)
 def urandom(space, n):
     """urandom(n) -> str
@@ -1336,7 +1338,11 @@ def urandom(space, n):
     """
     context = get(space).random_context
     try:
-        return space.wrap(rurandom.urandom(context, n))
+        # urandom() takes a final argument that should be a regular function,
+        # not a bound method like 'getexecutioncontext().checksignals'.
+        # Otherwise, we can't use it from several independent places.
+        _sigcheck.space = space
+        return space.wrap(rurandom.urandom(context, n, _signal_checker))
     except OSError as e:
         raise wrap_oserror(space, e)
 

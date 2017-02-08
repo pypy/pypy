@@ -233,6 +233,7 @@ class W_Socket(W_Root):
         except SocketError:
             # cpython doesn't return any errors on close
             pass
+        self.may_unregister_rpython_finalizer(space)
 
     def connect_w(self, space, w_addr):
         """connect(address)
@@ -423,7 +424,7 @@ class W_Socket(W_Root):
             w_addr = w_param3
         try:
             addr = self.addr_from_object(space, w_addr)
-            count = self.sock.sendto(data, flags, addr)
+            count = self.sock.sendto(data, len(data), flags, addr)
         except SocketError as e:
             raise converted_error(space, e)
         return space.wrap(count)
@@ -479,6 +480,14 @@ class W_Socket(W_Root):
 
     @unwrap_spec(nbytes=int, flags=int)
     def recv_into_w(self, space, w_buffer, nbytes=0, flags=0):
+        """recv_into(buffer, [nbytes[, flags]]) -> nbytes_read
+
+        A version of recv() that stores its data into a buffer rather than creating
+        a new string.  Receive up to buffersize bytes from the socket.  If buffersize
+        is not specified (or 0), receive up to the size available in the given buffer.
+
+        See recv() for documentation about the flags.
+        """
         rwbuffer = space.getarg_w('w*', w_buffer)
         lgt = rwbuffer.getlength()
         if nbytes == 0 or nbytes > lgt:
@@ -490,6 +499,10 @@ class W_Socket(W_Root):
 
     @unwrap_spec(nbytes=int, flags=int)
     def recvfrom_into_w(self, space, w_buffer, nbytes=0, flags=0):
+        """recvfrom_into(buffer[, nbytes[, flags]]) -> (nbytes, address info)
+
+        Like recv_into(buffer[, nbytes[, flags]]) but also return the sender's address info.
+        """
         rwbuffer = space.getarg_w('w*', w_buffer)
         lgt = rwbuffer.getlength()
         if nbytes == 0:

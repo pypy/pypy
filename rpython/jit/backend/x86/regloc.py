@@ -589,6 +589,9 @@ class LocationCodeBuilder(object):
             self._scratch_register_value = value
         self.MOV_ri(X86_64_SCRATCH_REG.value, value)
 
+    def trap(self):
+        self.INT3()
+
     def begin_reuse_scratch_register(self):
         # --NEVER CALLED (only from a specific test)--
         # Flag the beginning of a block where it is okay to reuse the value

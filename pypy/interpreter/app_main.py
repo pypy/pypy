@@ -33,6 +33,7 @@ PyPy options and arguments:
 --info : print translation information about this PyPy executable
 -X track-resources : track the creation of files and sockets and display
                      a warning if they are not closed explicitly
+-X faulthandler    : attempt to display tracebacks when PyPy crashes
 """
 # Missing vs CPython: PYTHONHOME, PYTHONCASEOK
 USAGE2 = """
@@ -233,12 +234,22 @@ def set_jit_option(options, jitparam, *args):
         import pypyjit
         pypyjit.set_param(jitparam)
 
+def run_faulthandler():
+    if 'faulthandler' in sys.builtin_module_names:
+        import faulthandler
+        try:
+            faulthandler.enable(2)   # manually set to stderr
+        except ValueError:
+            pass      # ignore "2 is not a valid file descriptor"
+
 def set_runtime_options(options, Xparam, *args):
     if Xparam == 'track-resources':
         sys.pypy_set_track_resources(True)
+    elif Xparam == 'faulthandler':
+        run_faulthandler()
     else:
         print >> sys.stderr, 'usage: %s -X [options]' % (get_sys_executable(),)
-        print >> sys.stderr, '[options] can be: track-resources'
+        print >> sys.stderr, '[options] can be: track-resources, faulthandler'
         raise SystemExit
 
 class CommandLineError(Exception):
@@ -263,6 +274,10 @@ def set_unbuffered_io():
 
 def set_fully_buffered_io():
     sys.stdout = sys.__stdout__ = fdopen(1, 'w')
+
+def initstdio(unbuffered=False):
+    if unbuffered:
+        set_unbuffered_io()
 
 # ____________________________________________________________
 # Main entry point
@@ -526,6 +541,9 @@ def parse_command_line(argv):
         if sys.py3kwarning:
             print >> sys.stderr, (
                 "Warning: pypy does not implement py3k warnings")
+
+    if os.getenv('PYTHONFAULTHANDLER'):
+        run_faulthandler()
 
 ##    if not we_are_translated():
 ##        for key in sorted(options):

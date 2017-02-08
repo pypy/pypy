@@ -6,6 +6,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rarithmetic import intmask
 
 @specialize.memo()
 def make_win32_traits(traits):
@@ -213,12 +214,24 @@ def make_longlong(high, low):
     return (rffi.r_longlong(high) << 32) + rffi.r_longlong(low)
 
 # Seconds between 1.1.1601 and 1.1.1970
-secs_between_epochs = rffi.r_longlong(11644473600)
+secs_between_epochs = 11644473600.0
+hns_between_epochs = rffi.r_longlong(116444736000000000)  # units of 100 nsec
 
 def FILE_TIME_to_time_t_float(filetime):
     ft = make_longlong(filetime.c_dwHighDateTime, filetime.c_dwLowDateTime)
     # FILETIME is in units of 100 nsec
     return float(ft) * (1.0 / 10000000.0) - secs_between_epochs
+
+def FILE_TIME_to_time_t_nsec(filetime):
+    """Like the previous function, but returns a pair: (integer part
+    'time_t' as a r_longlong, fractional part as an int measured in
+    nanoseconds).
+    """
+    ft = make_longlong(filetime.c_dwHighDateTime, filetime.c_dwLowDateTime)
+    ft -= hns_between_epochs
+    int_part = ft / 10000000
+    frac_part = ft - (int_part * 10000000)
+    return (int_part, intmask(frac_part) * 100)
 
 def time_t_to_FILE_TIME(time, filetime):
     ft = rffi.r_longlong((time + secs_between_epochs) * 10000000)

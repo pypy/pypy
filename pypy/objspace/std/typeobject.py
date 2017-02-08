@@ -71,6 +71,10 @@ class VersionTag(object):
 class MethodCache(object):
 
     def __init__(self, space):
+        # Note: these attributes never change which object they contain,
+        # so reading 'cache.versions' for example is constant-folded.
+        # The actual list in 'cache.versions' is not a constant, of
+        # course.
         SIZE = 1 << space.config.objspace.std.methodcachesizeexp
         self.versions = [None] * SIZE
         self.names = [None] * SIZE
@@ -87,6 +91,9 @@ class MethodCache(object):
             self.names[i] = None
         for i in range(len(self.lookup_where)):
             self.lookup_where[i] = None_None
+
+    def _cleanup_(self):
+        self.clear()
 
 class _Global(object):
     weakref_warning_printed = False
@@ -162,7 +169,8 @@ class W_TypeObject(W_Root):
 
     @dont_look_inside
     def __init__(self, space, name, bases_w, dict_w,
-                 overridetypedef=None, force_new_layout=False):
+                 overridetypedef=None, force_new_layout=False,
+                 is_heaptype=True):
         self.space = space
         self.name = name
         self.bases_w = bases_w
@@ -172,7 +180,7 @@ class W_TypeObject(W_Root):
         self.weakrefable = False
         self.w_doc = space.w_None
         self.weak_subclasses = []
-        self.flag_heaptype = False
+        self.flag_heaptype = is_heaptype
         self.flag_cpytype = False
         self.flag_abstract = False
         self.flag_sequence_bug_compat = False
@@ -682,25 +690,34 @@ class W_TypeObject(W_Root):
 
 
 def descr__new__(space, w_typetype, w_name, w_bases=None, w_dict=None):
-    "This is used to create user-defined classes only."
-    # XXX check types
-
+    """This is used to create user-defined classes only."""
     w_typetype = _precheck_for_new(space, w_typetype)
 
     # special case for type(x)
-    if (space.is_w(space.type(w_typetype), space.w_type) and w_bases is None and
-        w_dict is None):
+    if (space.is_w(space.type(w_typetype), space.w_type) and
+        w_bases is None and w_dict is None):
         return space.type(w_name)
-    else:
-        return _create_new_type(space, w_typetype, w_name, w_bases, w_dict)
+    return _create_new_type(space, w_typetype, w_name, w_bases, w_dict)
+
+
+def _check_new_args(space, w_name, w_bases, w_dict):
+    if w_bases is None or w_dict is None:
+        raise oefmt(space.w_TypeError, "type() takes 1 or 3 arguments")
+    if not space.isinstance_w(w_name, space.w_str):
+        raise oefmt(space.w_TypeError,
+                    "type() argument 1 must be string, not %T", w_name)
+    if not space.isinstance_w(w_bases, space.w_tuple):
+        raise oefmt(space.w_TypeError,
+                    "type() argument 2 must be tuple, not %T", w_bases)
+    if not space.isinstance_w(w_dict, space.w_dict):
+        raise oefmt(space.w_TypeError,
+                    "type() argument 3 must be dict, not %T", w_dict)
 
 
 def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
     # this is in its own function because we want the special case 'type(x)'
     # above to be seen by the jit.
-    if w_bases is None or w_dict is None:
-        raise oefmt(space.w_TypeError, "type() takes 1 or 3 arguments")
-
+    _check_new_args(space, w_name, w_bases, w_dict)
     bases_w = space.fixedview(w_bases)
 
     w_winner = w_typetype
@@ -726,6 +743,8 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
 
     name = space.str_w(w_name)
     assert isinstance(name, str)
+    if '\x00' in name:
+        raise oefmt(space.w_ValueError, "type name must not contain null characters")
     dict_w = {}
     dictkeys_w = space.listview(w_dict)
     for w_key in dictkeys_w:
@@ -733,7 +752,7 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
         dict_w[key] = space.getitem(w_dict, w_key)
     w_type = space.allocate_instance(W_TypeObject, w_typetype)
     W_TypeObject.__init__(w_type, space, name, bases_w or [space.w_object],
-                          dict_w)
+                          dict_w, is_heaptype=True)
     w_type.ready()
     return w_type
 
@@ -741,6 +760,16 @@ def _precheck_for_new(space, w_type):
     if not isinstance(w_type, W_TypeObject):
         raise oefmt(space.w_TypeError, "X is not a type object (%T)", w_type)
     return w_type
+
+
+def descr__init__(space, w_type, __args__):
+    if __args__.keywords:
+        raise oefmt(space.w_TypeError,
+                    "type.__init__() takes no keyword arguments")
+    if len(__args__.arguments_w) not in (1, 3):
+        raise oefmt(space.w_TypeError,
+                    "type.__init__() takes 1 or 3 arguments")
+
 
 # ____________________________________________________________
 
@@ -758,9 +787,13 @@ def descr_set__name__(space, w_type, w_value):
     w_type = _check(space, w_type)
     if not w_type.is_heaptype():
         raise oefmt(space.w_TypeError, "can't set %N.__name__", w_type)
+    if not space.isinstance_w(w_value, space.w_str):
+        raise oefmt(space.w_TypeError,
+                    "can only assign string to %N.__name__, not '%T'",
+                    w_type, w_value)
     name = space.str_w(w_value)
     if '\x00' in name:
-        raise oefmt(space.w_ValueError, "__name__ must not contain null bytes")
+        raise oefmt(space.w_ValueError, "type name must not contain null characters")
     w_type.name = name
 
 def descr_get__mro__(space, w_type):
@@ -930,12 +963,13 @@ def type_get_dict(space, w_cls):
 
 W_TypeObject.typedef = TypeDef("type",
     __new__ = gateway.interp2app(descr__new__),
+    __init__ = gateway.interp2app(descr__init__),
     __name__ = GetSetProperty(descr_get__name__, descr_set__name__),
     __bases__ = GetSetProperty(descr_get__bases__, descr_set__bases__),
     __base__ = GetSetProperty(descr__base),
     __mro__ = GetSetProperty(descr_get__mro__),
     __dict__=GetSetProperty(type_get_dict),
-    __doc__ = GetSetProperty(descr__doc),
+    __doc__ = GetSetProperty(descr__doc, cls=W_TypeObject, name='__doc__'),
     mro = gateway.interp2app(descr_mro),
     __flags__ = GetSetProperty(descr__flags),
     __module__ = GetSetProperty(descr_get__module, descr_set__module),
@@ -1094,14 +1128,16 @@ def create_slot(w_self, slot_name, index_next_extra_slot):
 
 def create_dict_slot(w_self):
     if not w_self.hasdict:
+        descr = dict_descr.copy_for_type(w_self)
         w_self.dict_w.setdefault('__dict__',
-                                 w_self.space.wrap(dict_descr))
+                                 w_self.space.wrap(descr))
         w_self.hasdict = True
 
 def create_weakref_slot(w_self):
     if not w_self.weakrefable:
+        descr = weakref_descr.copy_for_type(w_self)
         w_self.dict_w.setdefault('__weakref__',
-                                 w_self.space.wrap(weakref_descr))
+                                 w_self.space.wrap(descr))
         w_self.weakrefable = True
 
 def valid_slot_name(slot_name):
@@ -1116,7 +1152,6 @@ def setup_user_defined_type(w_self, force_new_layout):
     if len(w_self.bases_w) == 0:
         w_self.bases_w = [w_self.space.w_object]
     w_bestbase = check_and_find_best_base(w_self.space, w_self.bases_w)
-    w_self.flag_heaptype = True
     for w_base in w_self.bases_w:
         if not isinstance(w_base, W_TypeObject):
             continue
@@ -1137,7 +1172,6 @@ def setup_builtin_type(w_self, instancetypedef):
     w_self.weakrefable = instancetypedef.weakrefable
     w_self.w_doc = w_self.space.wrap(instancetypedef.doc)
     ensure_common_attributes(w_self)
-    w_self.flag_heaptype = instancetypedef.heaptype
     #
     # usually 'instancetypedef' is new, i.e. not seen in any base,
     # but not always (see Exception class)
@@ -1289,10 +1323,13 @@ class TypeCache(SpaceCache):
     def build(self, typedef):
         "NOT_RPYTHON: initialization-time only."
         from pypy.objspace.std.objectobject import W_ObjectObject
+        from pypy.interpreter.typedef import GetSetProperty
+        from rpython.rlib.objectmodel import instantiate
 
         space = self.space
         rawdict = typedef.rawdict
         lazyloaders = {}
+        w_type = instantiate(W_TypeObject)
 
         # compute the bases
         if typedef is W_ObjectObject.typedef:
@@ -1304,14 +1341,18 @@ class TypeCache(SpaceCache):
         # wrap everything
         dict_w = {}
         for descrname, descrvalue in rawdict.items():
+            # special case for GetSetProperties' __objclass__:
+            if isinstance(descrvalue, GetSetProperty):
+                descrvalue = descrvalue.copy_for_type(w_type)
             dict_w[descrname] = space.wrap(descrvalue)
 
         if typedef.applevel_subclasses_base is not None:
             overridetypedef = typedef.applevel_subclasses_base.typedef
         else:
             overridetypedef = typedef
-        w_type = W_TypeObject(space, typedef.name, bases_w, dict_w,
-                              overridetypedef=overridetypedef)
+        w_type.__init__(space, typedef.name, bases_w, dict_w,
+                              overridetypedef=overridetypedef,
+                              is_heaptype=overridetypedef.heaptype)
         if typedef is not overridetypedef:
             w_type.w_doc = space.wrap(typedef.doc)
         if hasattr(typedef, 'flag_sequence_bug_compat'):

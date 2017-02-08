@@ -1,7 +1,9 @@
 import unittest
+from test import test_support as support
 from test.test_support import TESTFN, run_unittest, import_module, unlink, requires
 import binascii
 import os
+import pickle
 import random
 from test.test_support import precisionbigmemtest, _1G, _4G
 import sys
@@ -80,6 +82,16 @@ class ChecksumTestCase(unittest.TestCase):
                          zlib.crc32('spam',  (2**31)))
 
 
+# Issue #10276 - check that inputs >=4GB are handled correctly.
+class ChecksumBigBufferTestCase(unittest.TestCase):
+
+    @precisionbigmemtest(size=_4G + 4, memuse=1, dry_run=False)
+    def test_big_buffer(self, size):
+        data = b"nyan" * (_1G + 1)
+        self.assertEqual(zlib.crc32(data) & 0xFFFFFFFF, 1044521549)
+        self.assertEqual(zlib.adler32(data) & 0xFFFFFFFF, 2256789997)
+
+
 class ExceptionTestCase(unittest.TestCase):
     # make sure we generate some expected errors
     def test_badlevel(self):
@@ -103,6 +115,15 @@ class ExceptionTestCase(unittest.TestCase):
         # verify failure on calling decompressobj.flush with bad params
         self.assertRaises(ValueError, zlib.decompressobj().flush, 0)
         self.assertRaises(ValueError, zlib.decompressobj().flush, -1)
+
+    @support.cpython_only
+    def test_overflow(self):
+        with self.assertRaisesRegexp(OverflowError, 'int too large'):
+            zlib.decompress(b'', 15, sys.maxsize + 1)
+        with self.assertRaisesRegexp(OverflowError, 'int too large'):
+            zlib.decompressobj().decompress(b'', sys.maxsize + 1)
+        with self.assertRaisesRegexp(OverflowError, 'int too large'):
+            zlib.decompressobj().flush(sys.maxsize + 1)
 
 
 class BaseCompressTestCase(object):
@@ -143,7 +164,7 @@ class CompressTestCase(BaseCompressTestCase, unittest.TestCase):
         self.assertEqual(zlib.decompress(x), data)
 
     def test_incomplete_stream(self):
-        # An useful error message is given
+        # A useful error message is given
         x = zlib.compress(HAMLET_SCENE)
         self.assertRaisesRegexp(zlib.error,
             "Error -5 while decompressing data: incomplete or truncated stream",
@@ -159,6 +180,28 @@ class CompressTestCase(BaseCompressTestCase, unittest.TestCase):
     @precisionbigmemtest(size=_1G + 1024 * 1024, memuse=2)
     def test_big_decompress_buffer(self, size):
         self.check_big_decompress_buffer(size, zlib.decompress)
+
+    @precisionbigmemtest(size=_4G, memuse=1)
+    def test_large_bufsize(self, size):
+        # Test decompress(bufsize) parameter greater than the internal limit
+        data = HAMLET_SCENE * 10
+        compressed = zlib.compress(data, 1)
+        self.assertEqual(zlib.decompress(compressed, 15, size), data)
+
+    def test_custom_bufsize(self):
+        data = HAMLET_SCENE * 10
+        compressed = zlib.compress(data, 1)
+        self.assertEqual(zlib.decompress(compressed, 15, CustomInt()), data)
+
+    @unittest.skipUnless(sys.maxsize > 2**32, 'requires 64bit platform')
+    @precisionbigmemtest(size=_4G + 100, memuse=4)
+    def test_64bit_compress(self, size):
+        data = b'x' * size
+        try:
+            comp = zlib.compress(data, 0)
+            self.assertEqual(zlib.decompress(comp), data)
+        finally:
+            comp = data = None
 
 
 class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
@@ -311,6 +354,22 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         self.assertRaises(ValueError, dco.decompress, "", -1)
         self.assertEqual('', dco.unconsumed_tail)
 
+    def test_maxlen_large(self):
+        # Sizes up to sys.maxsize should be accepted, although zlib is
+        # internally limited to expressing sizes with unsigned int
+        data = HAMLET_SCENE * 10
+        DEFAULTALLOC = 16 * 1024
+        self.assertGreater(len(data), DEFAULTALLOC)
+        compressed = zlib.compress(data, 1)
+        dco = zlib.decompressobj()
+        self.assertEqual(dco.decompress(compressed, sys.maxsize), data)
+
+    def test_maxlen_custom(self):
+        data = HAMLET_SCENE * 10
+        compressed = zlib.compress(data, 1)
+        dco = zlib.decompressobj()
+        self.assertEqual(dco.decompress(compressed, CustomInt()), data[:100])
+
     def test_clear_unconsumed_tail(self):
         # Issue #12050: calling decompress() without providing max_length
         # should clear the unconsumed_tail attribute.
@@ -409,6 +468,22 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         data = zlib.compress(input2)
         self.assertEqual(dco.flush(), input1[1:])
 
+    @precisionbigmemtest(size=_4G, memuse=1)
+    def test_flush_large_length(self, size):
+        # Test flush(length) parameter greater than internal limit UINT_MAX
+        input = HAMLET_SCENE * 10
+        data = zlib.compress(input, 1)
+        dco = zlib.decompressobj()
+        dco.decompress(data, 1)
+        self.assertEqual(dco.flush(size), input[1:])
+
+    def test_flush_custom_length(self):
+        input = HAMLET_SCENE * 10
+        data = zlib.compress(input, 1)
+        dco = zlib.decompressobj()
+        dco.decompress(data, 1)
+        self.assertEqual(dco.flush(CustomInt()), input[1:])
+
     @requires_Compress_copy
     def test_compresscopy(self):
         # Test copying a compression object
@@ -496,6 +571,16 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         d.flush()
         self.assertRaises(ValueError, d.copy)
 
+    def test_compresspickle(self):
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            with self.assertRaises((TypeError, pickle.PicklingError)):
+                pickle.dumps(zlib.compressobj(zlib.Z_BEST_COMPRESSION), proto)
+
+    def test_decompresspickle(self):
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            with self.assertRaises((TypeError, pickle.PicklingError)):
+                pickle.dumps(zlib.decompressobj(), proto)
+
     # Memory use of the following functions takes into account overallocation
 
     @precisionbigmemtest(size=_1G + 1024 * 1024, memuse=3)
@@ -509,6 +594,87 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         d = zlib.decompressobj()
         decompress = lambda s: d.decompress(s) + d.flush()
         self.check_big_decompress_buffer(size, decompress)
+
+    @unittest.skipUnless(sys.maxsize > 2**32, 'requires 64bit platform')
+    @precisionbigmemtest(size=_4G + 100, memuse=4)
+    def test_64bit_compress(self, size):
+        data = b'x' * size
+        co = zlib.compressobj(0)
+        do = zlib.decompressobj()
+        try:
+            comp = co.compress(data) + co.flush()
+            uncomp = do.decompress(comp) + do.flush()
+            self.assertEqual(uncomp, data)
+        finally:
+            comp = uncomp = data = None
+
+    @unittest.skipUnless(sys.maxsize > 2**32, 'requires 64bit platform')
+    @precisionbigmemtest(size=_4G + 100, memuse=3)
+    def test_large_unused_data(self, size):
+        data = b'abcdefghijklmnop'
+        unused = b'x' * size
+        comp = zlib.compress(data) + unused
+        do = zlib.decompressobj()
+        try:
+            uncomp = do.decompress(comp) + do.flush()
+            self.assertEqual(unused, do.unused_data)
+            self.assertEqual(uncomp, data)
+        finally:
+            unused = comp = do = None
+
+    @unittest.skipUnless(sys.maxsize > 2**32, 'requires 64bit platform')
+    @precisionbigmemtest(size=_4G + 100, memuse=5)
+    def test_large_unconsumed_tail(self, size):
+        data = b'x' * size
+        do = zlib.decompressobj()
+        try:
+            comp = zlib.compress(data, 0)
+            uncomp = do.decompress(comp, 1) + do.flush()
+            self.assertEqual(uncomp, data)
+            self.assertEqual(do.unconsumed_tail, b'')
+        finally:
+            comp = uncomp = data = None
+
+    def test_wbits(self):
+        co = zlib.compressobj(1, zlib.DEFLATED, 15)
+        zlib15 = co.compress(HAMLET_SCENE) + co.flush()
+        self.assertEqual(zlib.decompress(zlib15, 15), HAMLET_SCENE)
+        self.assertEqual(zlib.decompress(zlib15, 32 + 15), HAMLET_SCENE)
+        with self.assertRaisesRegexp(zlib.error, 'invalid window size'):
+            zlib.decompress(zlib15, 14)
+        dco = zlib.decompressobj(32 + 15)
+        self.assertEqual(dco.decompress(zlib15), HAMLET_SCENE)
+        dco = zlib.decompressobj(14)
+        with self.assertRaisesRegexp(zlib.error, 'invalid window size'):
+            dco.decompress(zlib15)
+
+        co = zlib.compressobj(1, zlib.DEFLATED, 9)
+        zlib9 = co.compress(HAMLET_SCENE) + co.flush()
+        self.assertEqual(zlib.decompress(zlib9, 9), HAMLET_SCENE)
+        self.assertEqual(zlib.decompress(zlib9, 15), HAMLET_SCENE)
+        self.assertEqual(zlib.decompress(zlib9, 32 + 9), HAMLET_SCENE)
+        dco = zlib.decompressobj(32 + 9)
+        self.assertEqual(dco.decompress(zlib9), HAMLET_SCENE)
+
+        co = zlib.compressobj(1, zlib.DEFLATED, -15)
+        deflate15 = co.compress(HAMLET_SCENE) + co.flush()
+        self.assertEqual(zlib.decompress(deflate15, -15), HAMLET_SCENE)
+        dco = zlib.decompressobj(-15)
+        self.assertEqual(dco.decompress(deflate15), HAMLET_SCENE)
+
+        co = zlib.compressobj(1, zlib.DEFLATED, -9)
+        deflate9 = co.compress(HAMLET_SCENE) + co.flush()
+        self.assertEqual(zlib.decompress(deflate9, -9), HAMLET_SCENE)
+        self.assertEqual(zlib.decompress(deflate9, -15), HAMLET_SCENE)
+        dco = zlib.decompressobj(-9)
+        self.assertEqual(dco.decompress(deflate9), HAMLET_SCENE)
+
+        co = zlib.compressobj(1, zlib.DEFLATED, 16 + 15)
+        gzip = co.compress(HAMLET_SCENE) + co.flush()
+        self.assertEqual(zlib.decompress(gzip, 16 + 15), HAMLET_SCENE)
+        self.assertEqual(zlib.decompress(gzip, 32 + 15), HAMLET_SCENE)
+        dco = zlib.decompressobj(32 + 15)
+        self.assertEqual(dco.decompress(gzip), HAMLET_SCENE)
 
 
 def genblock(seed, length, step=1024, generator=random):
@@ -600,9 +766,15 @@ LAERTES
 """
 
 
+class CustomInt:
+    def __int__(self):
+        return 100
+
+
 def test_main():
     run_unittest(
         ChecksumTestCase,
+        ChecksumBigBufferTestCase,
         ExceptionTestCase,
         CompressTestCase,
         CompressObjectTestCase

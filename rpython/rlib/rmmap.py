@@ -10,7 +10,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rposix
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import intmask
 
@@ -239,12 +239,12 @@ elif _MS_WINDOWS:
     _, _VirtualProtect_safe = winexternal('VirtualProtect',
                                   [rffi.VOIDP, rffi.SIZE_T, DWORD, LPDWORD],
                                   BOOL)
+    @specialize.ll()
     def VirtualProtect(addr, size, mode, oldmode_ptr):
         return _VirtualProtect_safe(addr,
                                rffi.cast(rffi.SIZE_T, size),
                                rffi.cast(DWORD, mode),
                                oldmode_ptr)
-    VirtualProtect._annspecialcase_ = 'specialize:ll'
     VirtualFree, VirtualFree_safe = winexternal('VirtualFree',
                               [rffi.VOIDP, rffi.SIZE_T, DWORD], BOOL)
 
@@ -507,6 +507,8 @@ class MMap(object):
         return rffi.ptradd(self.data, offset)
 
     def getslice(self, start, length):
+        if length < 0:
+            return ''
         return rffi.charpsize2str(self.getptr(start), length)
 
     def setslice(self, start, newdata):
@@ -549,8 +551,9 @@ class MMap(object):
             if not has_mremap:
                 raise RValueError("mmap: resizing not available--no mremap()")
 
-            # resize the underlying file first
-            os.ftruncate(self.fd, self.offset + newsize)
+            # resize the underlying file first, if there is one
+            if self.fd >= 0:
+                os.ftruncate(self.fd, self.offset + newsize)
 
             # now resize the mmap
             newdata = c_mremap(self.getptr(0), self.size, newsize,

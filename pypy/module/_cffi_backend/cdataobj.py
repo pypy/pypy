@@ -323,17 +323,28 @@ class W_CData(W_Root):
         #
         return self._add_or_sub(w_other, -1)
 
-    def getcfield(self, w_attr):
-        return self.ctype.getcfield(self.space.str_w(w_attr))
+    def getcfield(self, w_attr, mode):
+        space = self.space
+        attr = space.str_w(w_attr)
+        try:
+            cfield = self.ctype.getcfield(attr)
+        except KeyError:
+            raise oefmt(space.w_AttributeError, "cdata '%s' has no field '%s'",
+                        self.ctype.name, attr)
+        if cfield is None:
+            raise oefmt(space.w_AttributeError,
+                        "cdata '%s' points to an opaque type: cannot %s fields",
+                        self.ctype.name, mode)
+        return cfield
 
     def getattr(self, w_attr):
-        cfield = self.getcfield(w_attr)
+        cfield = self.getcfield(w_attr, mode="read")
         with self as ptr:
-            w_res = cfield.read(ptr)
+            w_res = cfield.read(ptr, self)
         return w_res
 
     def setattr(self, w_attr, w_value):
-        cfield = self.getcfield(w_attr)
+        cfield = self.getcfield(w_attr, mode="write")
         with self as ptr:
             cfield.write(ptr, w_value)
 
@@ -397,7 +408,7 @@ class W_CData(W_Root):
         space = self.space
         if space.is_none(w_destructor):
             if isinstance(self, W_CDataGCP):
-                self.w_destructor = None
+                self.detach_destructor()
                 return space.w_None
             raise oefmt(space.w_TypeError,
                         "Can remove destructor only on a object "
@@ -432,6 +443,9 @@ class W_CData(W_Root):
         lst = ct.cdata_dir()
         return space.newlist([space.wrap(s) for s in lst])
 
+    def get_structobj(self):
+        return None
+
 
 class W_CDataMem(W_CData):
     """This is used only by the results of cffi.cast('int', x)
@@ -453,28 +467,36 @@ class W_CDataNewOwning(W_CData):
     by newp().  They create and free their own memory according to an
     allocator."""
 
-    # the 'length' is either >= 0 for arrays, or -1 for pointers.
-    _attrs_ = ['length']
-    _immutable_fields_ = ['length']
+    # the 'allocated_length' is >= 0 for arrays; for var-sized
+    # structures it is the total size in bytes; otherwise it is -1.
+    _attrs_ = ['allocated_length']
+    _immutable_fields_ = ['allocated_length']
 
     def __init__(self, space, cdata, ctype, length=-1):
         W_CData.__init__(self, space, cdata, ctype)
-        self.length = length
+        self.allocated_length = length
 
     def _repr_extra(self):
         return self._repr_extra_owning()
 
     def _sizeof(self):
         ctype = self.ctype
-        if self.length >= 0:
+        if self.allocated_length >= 0:
             from pypy.module._cffi_backend import ctypearray
-            assert isinstance(ctype, ctypearray.W_CTypeArray)
-            return self.length * ctype.ctitem.size
+            if isinstance(ctype, ctypearray.W_CTypeArray):
+                return self.allocated_length * ctype.ctitem.size
+            else:
+                return self.allocated_length    # var-sized struct size
         else:
             return ctype.size
 
     def get_array_length(self):
-        return self.length
+        from pypy.module._cffi_backend import ctypearray
+        assert isinstance(self.ctype, ctypearray.W_CTypeArray)
+        return self.allocated_length
+
+    def get_structobj(self):
+        return self
 
 
 class W_CDataNewStd(W_CDataNewOwning):
@@ -508,11 +530,18 @@ class W_CDataPtrToStructOrUnion(W_CData):
         self.structobj = structobj
 
     def _repr_extra(self):
-        return self._repr_extra_owning()
+        return self.structobj._repr_extra_owning()
 
     def _do_getitem(self, ctype, i):
         assert i == 0
         return self.structobj
+
+    def get_structobj(self):
+        structobj = self.structobj
+        if isinstance(structobj, W_CDataNewOwning):
+            return structobj
+        else:
+            return None
 
 
 class W_CDataSliced(W_CData):
@@ -585,6 +614,10 @@ class W_CDataGCP(W_CData):
         if w_destructor is not None:
             self.w_destructor = None
             self.space.call_function(w_destructor, self.w_original_cdata)
+
+    def detach_destructor(self):
+        self.w_destructor = None
+        self.may_unregister_rpython_finalizer(self.space)
 
 
 W_CData.typedef = TypeDef(

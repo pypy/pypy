@@ -234,6 +234,7 @@ def test_ffi_buffer():
     a = ffi.new("signed char[]", [5, 6, 7])
     assert ffi.buffer(a)[:] == b'\x05\x06\x07'
     assert ffi.buffer(cdata=a, size=2)[:] == b'\x05\x06'
+    assert type(ffi.buffer(a)) is ffi.buffer
 
 def test_ffi_from_buffer():
     import array
@@ -361,7 +362,8 @@ def test_ffi_new_allocator_2():
         retries += 1
         assert retries <= 5
         import gc; gc.collect()
-    assert seen == [40, 40, raw1, raw2]
+    assert (seen == [40, 40, raw1, raw2] or
+            seen == [40, 40, raw2, raw1])
     assert repr(seen[2]) == "<cdata 'char[]' owning 41 bytes>"
     assert repr(seen[3]) == "<cdata 'char[]' owning 41 bytes>"
 
@@ -503,3 +505,7 @@ def test_unpack():
     assert ffi.unpack(p+1, 7) == b"bc\x00def\x00"
     p = ffi.new("int[]", [-123456789])
     assert ffi.unpack(p, 1) == [-123456789]
+
+def test_negative_array_size():
+    ffi = _cffi1_backend.FFI()
+    py.test.raises(ffi.error, ffi.cast, "int[-5]", 0)

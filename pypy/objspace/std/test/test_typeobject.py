@@ -890,10 +890,11 @@ class AppTestTypeObject(jit.RandomWeAreJittedTestMixin):
         Abc.__name__ = 'Def'
         assert Abc.__name__ == 'Def'
         raises(TypeError, "Abc.__name__ = 42")
+        raises(TypeError, "Abc.__name__ = u'A'")
         try:
             Abc.__name__ = 'G\x00hi'
         except ValueError as e:
-            assert str(e) == "__name__ must not contain null bytes"
+            assert str(e) == "type name must not contain null characters"
         else:
             assert False
 
@@ -1116,6 +1117,14 @@ class AppTestTypeObject(jit.RandomWeAreJittedTestMixin):
             __bases__ = (int,)
         assert int.__subclasscheck__(AbstractClass()) is True
 
+    def test_bad_args(self):
+        import UserDict
+        raises(TypeError, type, 'A', (), dict={})
+        raises(TypeError, type, 'A', [], {})
+        raises(TypeError, type, 'A', (), UserDict.UserDict())
+        raises(ValueError, type, 'A\x00B', (), {})
+        raises(TypeError, type, u'A', (), {})
+
 
 class AppTestWithMethodCacheCounter:
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
@@ -1204,7 +1213,7 @@ class TestNewShortcut:
         assert w_B.w_new_function is not None
         w_b = space.call_function(w_B)
 
-        w_m = space.call_function(w_M, space.wrap('C'), space.newlist([]),
+        w_m = space.call_function(w_M, space.wrap('C'), space.newtuple([]),
                                   space.newdict())
         assert w_M.w_new_function is not None
 
@@ -1328,3 +1337,17 @@ class AppTestComparesByIdentity(jit.RandomWeAreJittedTestMixin):
         assert not self.compares_by_identity(X)
         del X.__eq__
         assert self.compares_by_identity(X)
+
+    def test_descriptor_objclass(self):
+        class X(object):
+            pass
+        assert X.__dict__['__dict__'].__objclass__ is X
+        assert X.__dict__['__weakref__'].__objclass__ is X
+        assert object.__dict__['__class__'].__objclass__ is object
+        assert int.__dict__['imag'].__objclass__ is int
+        assert file.closed.__objclass__ is file
+        assert type.__dict__['__name__'].__objclass__ is type
+        assert type.__dict__['__doc__'].__objclass__ is type
+        #
+        assert type.__dict__['__name__'].__name__ == '__name__'
+        assert type.__dict__['__doc__'].__name__ == '__doc__'

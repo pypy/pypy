@@ -12,7 +12,7 @@ from rpython.jit.metainterp.optimizeopt.shortpreamble import PreambleOp
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.resoperation import rop, ResOperation, OpHelpers,\
      AbstractResOp, GuardResOp
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, we_are_debug
 from rpython.jit.metainterp.optimizeopt import info
         
 
@@ -128,7 +128,7 @@ class AbstractCachedEntry(object):
                     if a is optheap.postponed_op:
                         optheap.emit_postponed_op()
                         break
-            optheap.next_optimization.propagate_forward(op)
+            optheap.emit_extra(op, emit=False)
             if not can_cache:
                 return
             # Once it is done, we can put at least one piece of information
@@ -172,7 +172,7 @@ class CachedField(AbstractCachedEntry):
 
     def _getfield(self, opinfo, descr, optheap, true_force=True):
         res = opinfo.getfield(descr, optheap)
-        if not we_are_translated() and res:
+        if we_are_debug() and res:
             if isinstance(opinfo, info.AbstractStructPtrInfo):
                 assert opinfo in self.cached_infos
         if isinstance(res, PreambleOp):
@@ -202,7 +202,7 @@ class ArrayCachedItem(AbstractCachedEntry):
 
     def _getfield(self, opinfo, descr, optheap, true_force=True):
         res = opinfo.getitem(descr, self.index, optheap)
-        if not we_are_translated() and res:
+        if we_are_debug() and res:
             if isinstance(opinfo, info.ArrayPtrInfo):
                 assert opinfo in self.cached_infos
         if (isinstance(res, PreambleOp) and
@@ -259,7 +259,7 @@ class OptHeap(Optimization):
         if self.postponed_op:
             postponed_op = self.postponed_op
             self.postponed_op = None
-            self.next_optimization.propagate_forward(postponed_op)
+            self.emit_extra(postponed_op, emit=False)
 
     def produce_potential_short_preamble_ops(self, sb):
         descrkeys = self.cached_fields.keys()
@@ -312,7 +312,7 @@ class OptHeap(Optimization):
             cf = submap[index] = ArrayCachedItem(index)
         return cf
 
-    def emit_operation(self, op):        
+    def emit(self, op):
         self.emitting_operation(op)
         self.emit_postponed_op()
         opnum = op.opnum
@@ -320,7 +320,7 @@ class OptHeap(Optimization):
             or rop.is_ovf(opnum)):
             self.postponed_op = op
         else:
-            Optimization.emit_operation(self, op)
+            return Optimization.emit(self, op)
 
     def emitting_operation(self, op):
         if rop.has_no_side_effect(op.opnum):
@@ -370,7 +370,7 @@ class OptHeap(Optimization):
         if oopspecindex == EffectInfo.OS_DICT_LOOKUP:
             if self._optimize_CALL_DICT_LOOKUP(op):
                 return
-        self.emit_operation(op)
+        return self.emit(op)
     optimize_CALL_F = optimize_CALL_I
     optimize_CALL_R = optimize_CALL_I
     optimize_CALL_N = optimize_CALL_I
@@ -428,7 +428,7 @@ class OptHeap(Optimization):
     def optimize_GUARD_NO_EXCEPTION(self, op):
         if self.last_emitted_operation is REMOVED:
             return
-        self.emit_operation(op)
+        return self.emit(op)
 
     optimize_GUARD_EXCEPTION = optimize_GUARD_NO_EXCEPTION
 
@@ -543,11 +543,20 @@ class OptHeap(Optimization):
             return
         # default case: produce the operation
         self.make_nonnull(op.getarg(0))
-        self.emit_operation(op)
+        # return self.emit(op)
+        return self.emit(op)
+
+    def postprocess_GETFIELD_GC_I(self, op):
         # then remember the result of reading the field
-        structinfo.setfield(descr, op.getarg(0), op, optheap=self, cf=cf)
+        structinfo = self.ensure_ptr_info_arg0(op)
+        cf = self.field_cache(op.getdescr())
+        structinfo.setfield(op.getdescr(), op.getarg(0), op, optheap=self,
+                            cf=cf)
     optimize_GETFIELD_GC_R = optimize_GETFIELD_GC_I
     optimize_GETFIELD_GC_F = optimize_GETFIELD_GC_I
+
+    postprocess_GETFIELD_GC_R = postprocess_GETFIELD_GC_I
+    postprocess_GETFIELD_GC_F = postprocess_GETFIELD_GC_I
 
     def optimize_SETFIELD_GC(self, op):
         self.setfield(op)
@@ -582,15 +591,25 @@ class OptHeap(Optimization):
                                          self.getintbound(op.getarg(1)))
         # default case: produce the operation
         self.make_nonnull(op.getarg(0))
-        self.emit_operation(op)
+        # return self.emit(op)
+        return self.emit(op)
+
+    def postprocess_GETARRAYITEM_GC_I(self, op):
         # then remember the result of reading the array item
-        if cf is not None:
+        arrayinfo = self.ensure_ptr_info_arg0(op)
+        indexb = self.getintbound(op.getarg(1))
+        if indexb.is_constant():
+            index = indexb.getint()
+            cf = self.arrayitem_cache(op.getdescr(), index)
             arrayinfo.setitem(op.getdescr(), indexb.getint(),
                               self.get_box_replacement(op.getarg(0)),
                               self.get_box_replacement(op), optheap=self,
                               cf=cf)
     optimize_GETARRAYITEM_GC_R = optimize_GETARRAYITEM_GC_I
     optimize_GETARRAYITEM_GC_F = optimize_GETARRAYITEM_GC_I
+
+    postprocess_GETARRAYITEM_GC_R = postprocess_GETARRAYITEM_GC_I
+    postprocess_GETARRAYITEM_GC_F = postprocess_GETARRAYITEM_GC_I
 
     def optimize_GETARRAYITEM_GC_PURE_I(self, op):
         arrayinfo = self.ensure_ptr_info_arg0(op)
@@ -610,7 +629,7 @@ class OptHeap(Optimization):
             self.force_lazy_setarrayitem(op.getdescr(), self.getintbound(op.getarg(1)))
         # default case: produce the operation
         self.make_nonnull(op.getarg(0))
-        self.emit_operation(op)
+        return self.emit(op)
 
     optimize_GETARRAYITEM_GC_PURE_R = optimize_GETARRAYITEM_GC_PURE_I
     optimize_GETARRAYITEM_GC_PURE_F = optimize_GETARRAYITEM_GC_PURE_I
@@ -634,7 +653,7 @@ class OptHeap(Optimization):
             # variable index, so make sure the lazy setarrayitems are done
             self.force_lazy_setarrayitem(op.getdescr(), indexb, can_cache=False)
             # and then emit the operation
-            self.emit_operation(op)
+            return self.emit(op)
 
     def optimize_QUASIIMMUT_FIELD(self, op):
         # Pattern: QUASIIMMUT_FIELD(s, descr=QuasiImmutDescr)
@@ -681,9 +700,11 @@ class OptHeap(Optimization):
         if self._seen_guard_not_invalidated:
             return
         self._seen_guard_not_invalidated = True
-        self.emit_operation(op)
+        return self.emit(op)
 
 
 dispatch_opt = make_dispatcher_method(OptHeap, 'optimize_',
-        default=OptHeap.emit_operation)
+                                      default=OptHeap.emit)
 OptHeap.propagate_forward = dispatch_opt
+dispatch_postprocess = make_dispatcher_method(OptHeap, 'postprocess_')
+OptHeap.propagate_postprocess = dispatch_postprocess

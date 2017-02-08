@@ -43,6 +43,7 @@ from rpython.jit.backend import detect_cpu
 try:
     if detect_cpu.autodetect().startswith('x86'):
         working_modules.add('_vmprof')
+        working_modules.add('faulthandler')
 except detect_cpu.ProcessorAutodetectError:
     pass
 
@@ -67,6 +68,8 @@ if sys.platform == "win32":
 
     if "cppyy" in working_modules:
         working_modules.remove("cppyy")  # not tested on win32
+    if "faulthandler" in working_modules:
+        working_modules.remove("faulthandler")  # missing details
 
     # The _locale module is needed by site.py on Windows
     default_modules.add("_locale")
@@ -89,6 +92,7 @@ module_dependencies = {
                          ('objspace.usemodules.thread', True)],
     'cpyext': [('objspace.usemodules.array', True)],
     'cppyy': [('objspace.usemodules.cpyext', True)],
+    'faulthandler': [('objspace.usemodules._vmprof', True)],
     }
 module_suggests = {
     # the reason you want _rawffi is for ctypes, which
@@ -114,7 +118,8 @@ module_import_dependencies = {
     "_hashlib"  : ["pypy.module._ssl.interp_ssl"],
     "_minimal_curses": ["pypy.module._minimal_curses.fficurses"],
     "_continuation": ["rpython.rlib.rstacklet"],
-    "_vmprof" : ["pypy.module._vmprof.interp_vmprof"],
+    "_vmprof"      : ["pypy.module._vmprof.interp_vmprof"],
+    "faulthandler" : ["pypy.module._vmprof.interp_vmprof"],
     }
 
 def get_module_validator(modname):
@@ -184,6 +189,19 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
     BoolOption("disable_call_speedhacks",
                "make sure that all calls go through space.call_args",
                default=False),
+
+    BoolOption("disable_entrypoints",
+               "Disable external entry points, notably the"
+               " cpyext module and cffi's embedding mode.",
+               default=False,
+               requires=[("objspace.usemodules.cpyext", False)]),
+
+    ChoiceOption("hash",
+                 "The hash function to use for strings: fnv from CPython 2.7"
+                 " or siphash24 from CPython >= 3.4",
+                 ["fnv", "siphash24"],
+                 default="fnv",
+                 cmdline="--hash"),
 
     OptionDescription("std", "Standard Object Space Options", [
         BoolOption("withtproxy", "support transparent proxies",

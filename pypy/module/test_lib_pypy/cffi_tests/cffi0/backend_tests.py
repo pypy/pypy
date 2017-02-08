@@ -1131,6 +1131,7 @@ class BackendTests:
             b = ffi.buffer(a)
         except NotImplementedError as e:
             py.test.skip(str(e))
+        assert type(b) is ffi.buffer
         content = b[:]
         assert len(content) == len(b) == 2
         if sys.byteorder == 'little':
@@ -1225,6 +1226,26 @@ class BackendTests:
         f.readinto(ffi.buffer(b, 1000 * ffi.sizeof("int")))
         assert list(a)[:1000] + [0] * (len(a)-1000) == list(b)
         f.close()
+
+    def test_ffi_buffer_comparisons(self):
+        ffi = FFI(backend=self.Backend())
+        ba = bytearray(range(100, 110))
+        assert ba == memoryview(ba)    # justification for the following
+        a = ffi.new("uint8_t[]", list(ba))
+        c = ffi.new("uint8_t[]", [99] + list(ba))
+        try:
+            b_full = ffi.buffer(a)
+            b_short = ffi.buffer(a, 3)
+            b_mid = ffi.buffer(a, 6)
+            b_other = ffi.buffer(c, 6)
+        except NotImplementedError as e:
+            py.test.skip(str(e))
+        else:
+            content = b_full[:]
+            assert content == b_full == ba
+            assert b_other < b_short < b_mid < b_full
+            assert ba > b_mid > ba[0:2]
+            assert b_short != ba[1:4]
 
     def test_array_in_struct(self):
         ffi = FFI(backend=self.Backend())
@@ -1356,15 +1377,15 @@ class BackendTests:
         assert ffi.getctype("e1*") == 'e1 *'
 
     def test_opaque_enum(self):
+        import warnings
         ffi = FFI(backend=self.Backend())
         ffi.cdef("enum foo;")
-        from cffi import __version_info__
-        if __version_info__ < (1, 8):
-            py.test.skip("re-enable me in version 1.8")
-        e = py.test.raises(CDefError, ffi.cast, "enum foo", -1)
-        assert str(e.value) == (
-            "'enum foo' has no values explicitly defined: refusing to guess "
-            "which integer type it is meant to be (unsigned/signed, int/long)")
+        with warnings.catch_warnings(record=True) as log:
+            n = ffi.cast("enum foo", -1)
+            assert int(n) == 0xffffffff
+        assert str(log[0].message) == (
+            "'enum foo' has no values explicitly defined; "
+            "guessing that it is equivalent to 'unsigned int'")
 
     def test_new_ctype(self):
         ffi = FFI(backend=self.Backend())

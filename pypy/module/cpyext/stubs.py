@@ -10,11 +10,7 @@ Py_ssize_t = rffi.SSIZE_T
 PyMethodDef = rffi.VOIDP
 PyGetSetDef = rffi.VOIDP
 PyMemberDef = rffi.VOIDP
-Py_buffer = rffi.VOIDP
 va_list = rffi.VOIDP
-PyDateTime_Date = rffi.VOIDP
-PyDateTime_DateTime = rffi.VOIDP
-PyDateTime_Time = rffi.VOIDP
 wrapperbase = rffi.VOIDP
 FILE = rffi.VOIDP
 PyFileObject = rffi.VOIDP
@@ -39,14 +35,6 @@ def PyBuffer_FillContiguousStrides(space, ndim, shape, strides, itemsize, fortra
     """Fill the strides array with byte-strides of a contiguous (C-style if
     fortran is 'C' or Fortran-style if fortran is 'F' array of the
     given shape with the given number of bytes per element."""
-    raise NotImplementedError
-
-@cpython_api([Py_buffer], PyObject)
-def PyMemoryView_FromBuffer(space, view):
-    """Create a memoryview object wrapping the given buffer-info structure view.
-    The memoryview object then owns the buffer, which means you shouldn't
-    try to release it yourself: it will be released on deallocation of the
-    memoryview object."""
     raise NotImplementedError
 
 @cpython_api([PyObject, rffi.INT_real, lltype.Char], PyObject)
@@ -705,17 +693,6 @@ def _PyObject_GC_TRACK(space, op):
 def _PyObject_GC_UNTRACK(space, op):
     """A macro version of PyObject_GC_UnTrack().  It should not be used for
     extension modules."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyGen_Check(space, ob):
-    """Return true if ob is a generator object; ob must not be NULL."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyGen_CheckExact(space, ob):
-    """Return true if ob's type is PyGen_Type is a generator object; ob must not
-    be NULL."""
     raise NotImplementedError
 
 @cpython_api([PyFrameObject], PyObject)
@@ -1484,18 +1461,6 @@ def PyFrozenSet_Check(space, p):
     raise NotImplementedError
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyAnySet_Check(space, p):
-    """Return true if p is a set object, a frozenset object, or an
-    instance of a subtype."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyAnySet_CheckExact(space, p):
-    """Return true if p is a set object or a frozenset object but
-    not an instance of a subtype."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyFrozenSet_CheckExact(space, p):
     """Return true if p is a frozenset object but not an instance of a
     subtype."""
@@ -1548,14 +1513,6 @@ def Py_FdIsInteractive(space, fp, filename):
     is true.  If the global flag Py_InteractiveFlag is true, this function
     also returns true if the filename pointer is NULL or if the name is equal to
     one of the strings '<stdin>' or '???'."""
-    raise NotImplementedError
-
-@cpython_api([], lltype.Void)
-def PyOS_AfterFork(space):
-    """Function to update some internal state after a process fork; this should be
-    called in the new process if the Python interpreter will continue to be used.
-    If a new executable is loaded into the new process, this function does not need
-    to be called."""
     raise NotImplementedError
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
@@ -2229,22 +2186,4 @@ def PyEval_EvalFrameEx(space, f, throwflag):
     The additional throwflag parameter can mostly be ignored - if true, then
     it causes an exception to immediately be thrown; this is used for the
     throw() methods of generator objects."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyWeakref_Check(space, ob):
-    """Return true if ob is either a reference or proxy object.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyWeakref_CheckRef(space, ob):
-    """Return true if ob is a reference object.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyWeakref_CheckProxy(space, ob):
-    """Return true if ob is a proxy object.
-    """
     raise NotImplementedError

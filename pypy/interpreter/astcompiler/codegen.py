@@ -7,6 +7,7 @@ Generate Python bytecode from a Abstract Syntax Tree.
 # you figure out a way to remove them, great, but try a translation first,
 # please.
 
+from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.astcompiler import ast, assemble, symtable, consts, misc
 from pypy.interpreter.astcompiler import optimize # For side effects
 from pypy.interpreter.pyparser.error import SyntaxError
@@ -1027,11 +1028,17 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_ListComp(self, lc):
         self.update_position(lc.lineno)
-        if len(lc.generators) != 1 or lc.generators[0].ifs:
+        if len(lc.generators) == 1:
+            comp = lc.generators[0]
+            assert isinstance(comp, ast.comprehension)
+            if comp.ifs:
+                single = False
+                self.emit_op_arg(ops.BUILD_LIST, 0)
+            else:
+                single = True
+        else:
             single = False
             self.emit_op_arg(ops.BUILD_LIST, 0)
-        else:
-            single = True
         self._listcomp_generator(lc.generators, 0, lc.elt, single=single)
 
     def _comp_generator(self, node, generators, gen_index):

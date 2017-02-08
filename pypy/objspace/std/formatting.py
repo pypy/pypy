@@ -2,6 +2,7 @@
 import sys
 
 from rpython.rlib import jit
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import INT_MAX
 from rpython.rlib.rfloat import DTSF_ALT, formatd, isnan, isinf
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
@@ -344,6 +345,7 @@ def make_formatter_subclass(do_unicode):
                         "unsupported format character '%s' (%s) at index %d",
                         s, hex(ord(c)), self.fmtpos - 1)
 
+        @specialize.argtype(1)
         def std_wp(self, r):
             length = len(r)
             if do_unicode and isinstance(r, str):
@@ -369,7 +371,6 @@ def make_formatter_subclass(do_unicode):
             if padding > 0:
                 result.append_multiple_char(const(' '), padding)
             # add any remaining padding at the right
-        std_wp._annspecialcase_ = 'specialize:argtype(1)'
 
         def std_wp_number(self, r, prefix=''):
             result = self.result
@@ -548,9 +549,11 @@ def maybe_float(space, w_value):
 
 def format_num_helper_generator(fmt, digits):
     def format_num_helper(space, w_value):
-        try:
+        if (not space.isinstance_w(w_value, space.w_int) and
+            not space.isinstance_w(w_value, space.w_long)):
+          try:
             w_value = maybe_int(space, w_value)
-        except OperationError:
+          except OperationError:
             try:
                 w_value = space.long(w_value)
             except OperationError as operr:

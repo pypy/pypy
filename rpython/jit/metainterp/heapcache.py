@@ -234,7 +234,8 @@ class HeapCache(object):
               opnum != rop.PTR_EQ and
               opnum != rop.PTR_NE and
               opnum != rop.INSTANCE_PTR_EQ and
-              opnum != rop.INSTANCE_PTR_NE):
+              opnum != rop.INSTANCE_PTR_NE and
+              opnum != rop.ASSERT_NOT_NONE):
             for box in argboxes:
                 self._escape_box(box)
 
@@ -267,7 +268,8 @@ class HeapCache(object):
             opnum == rop.SETFIELD_RAW or
             opnum == rop.SETARRAYITEM_RAW or
             opnum == rop.SETINTERIORFIELD_RAW or
-            opnum == rop.RAW_STORE):
+            opnum == rop.RAW_STORE or
+            opnum == rop.ASSERT_NOT_NONE):
             return
         if (rop._OVF_FIRST <= opnum <= rop._OVF_LAST or
             rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST or
@@ -275,6 +277,7 @@ class HeapCache(object):
             return
         if (OpHelpers.is_plain_call(opnum) or
             OpHelpers.is_call_loopinvariant(opnum) or
+            OpHelpers.is_cond_call_value(opnum) or
             opnum == rop.COND_CALL):
             effectinfo = descr.get_extra_info()
             ef = effectinfo.extraeffect
@@ -374,7 +377,7 @@ class HeapCache(object):
     def class_now_known(self, box):
         if isinstance(box, Const):
             return
-        self._set_flag(box, HF_KNOWN_CLASS)
+        self._set_flag(box, HF_KNOWN_CLASS | HF_KNOWN_NULLITY)
 
     def is_nullity_known(self, box):
         if isinstance(box, Const):
@@ -412,7 +415,8 @@ class HeapCache(object):
     def new(self, box):
         assert isinstance(box, RefFrontendOp)
         self.update_version(box)
-        add_flags(box, HF_LIKELY_VIRTUAL | HF_SEEN_ALLOCATION | HF_IS_UNESCAPED)
+        add_flags(box, HF_LIKELY_VIRTUAL | HF_SEEN_ALLOCATION | HF_IS_UNESCAPED
+                       | HF_KNOWN_NULLITY)
 
     def new_array(self, box, lengthbox):
         self.new(box)

@@ -428,11 +428,6 @@ Miscellaneous
   ``datetime.date`` is the superclass of ``datetime.datetime``).
   Anyway, the proper fix is arguably to use a regular method call in
   the first place: ``datetime.date.today().strftime(...)``
-
-* the ``__dict__`` attribute of new-style classes returns a normal dict, as
-  opposed to a dict proxy like in CPython. Mutating the dict will change the
-  type and vice versa. For builtin types, a dictionary will be returned that
-  cannot be changed (but still looks and behaves like a normal dictionary).
   
 * some functions and attributes of the ``gc`` module behave in a
   slightly different way: for example, ``gc.enable`` and
@@ -469,7 +464,26 @@ Miscellaneous
   these concerns also exist on CPython, just less so.  For this reason
   we explicitly don't implement ``sys.getsizeof()``.
 
+* The ``timeit`` module behaves differently under PyPy: it prints the average
+  time and the standard deviation, instead of the minimum, since the minimum is
+  often misleading.
+
+* The ``get_config_vars`` method of ``sysconfig`` and ``distutils.sysconfig``
+  are not complete. On POSIX platforms, CPython fishes configuration variables
+  from the Makefile used to build the interpreter. PyPy should bake the values
+  in during compilation, but does not do that yet.
+
+* ``"%d" % x`` and ``"%x" % x`` and similar constructs, where ``x`` is
+  an instance of a subclass of ``long`` that overrides the special
+  methods ``__str__`` or ``__hex__`` or ``__oct__``: PyPy doesn't call
+  the special methods; CPython does---but only if it is a subclass of
+  ``long``, not ``int``.  CPython's behavior is really messy: e.g. for
+  ``%x`` it calls ``__hex__()``, which is supposed to return a string
+  like ``-0x123L``; then the ``0x`` and the final ``L`` are removed, and
+  the rest is kept.  If you return an unexpected string from
+  ``__hex__()`` you get an exception (or a crash before CPython 2.7.13).
 
 .. _`is ignored in PyPy`: http://bugs.python.org/issue14621
 .. _`little point`: http://events.ccc.de/congress/2012/Fahrplan/events/5152.en.html
 .. _`#2072`: https://bitbucket.org/pypy/pypy/issue/2072/
+

@@ -16,7 +16,11 @@ class Logger(object):
         if not have_debug_prints():
             return
         inputargs, ops = self._unpack_trace(trace)
-        self.log_loop(inputargs, ops, memo=memo)
+        debug_start("jit-log-noopt")
+        debug_print("# Traced loop or bridge with", len(ops), "ops")
+        logops = self._log_operations(inputargs, ops, None, memo)
+        debug_stop("jit-log-noopt")
+        return logops
 
     def _unpack_trace(self, trace):
         ops = []
@@ -28,6 +32,7 @@ class Logger(object):
     def log_loop(self, inputargs, operations, number=0, type=None,
                  ops_offset=None, name='', memo=None):
         if type is None:
+            # XXX this case not normally used any more, I think
             debug_start("jit-log-noopt-loop")
             debug_print("# Loop", number, '(%s)' % name, ":", "noopt",
                         "with", len(operations), "ops")
@@ -59,6 +64,7 @@ class Logger(object):
                    descr=None, ops_offset=None, memo=None):
         from rpython.jit.metainterp.compile import GuardCompatibleDescr
         if extra == "noopt":
+            # XXX this case no longer used
             debug_start("jit-log-noopt-bridge")
             debug_print("# bridge out of Guard",
                         "0x%x" % compute_unique_id(descr),

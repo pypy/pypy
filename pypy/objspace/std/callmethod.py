@@ -98,20 +98,21 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
     if w_value is None:
         w_value = space.getattr(w_obj, w_name)
     f.pushvalue(w_value)
-    f.pushvalue(None)
+    f.pushvalue_none()
 
 @jit.unroll_safe
 def CALL_METHOD(f, oparg, *ignored):
     # opargs contains the arg, and kwarg count, excluding the implicit 'self'
     n_args = oparg & 0xff
     n_kwargs = (oparg >> 8) & 0xff
-    w_self = f.peekvalue(n_args + (2 * n_kwargs))
+    w_self = f.peekvalue_maybe_none(n_args + (2 * n_kwargs))
     n = n_args + (w_self is not None)
 
     if not n_kwargs:
         w_callable = f.peekvalue(n_args + (2 * n_kwargs) + 1)
         try:
-            w_result = f.space.call_valuestack(w_callable, n, f)
+            w_result = f.space.call_valuestack(
+                    w_callable, n, f, methodcall=w_self is not None)
         finally:
             f.dropvalues(n_args + 2)
     else:
@@ -128,9 +129,11 @@ def CALL_METHOD(f, oparg, *ignored):
             keywords_w[n_kwargs] = w_value
 
         arguments = f.popvalues(n)    # includes w_self if it is not None
-        args = f.argument_factory(arguments, keywords, keywords_w, None, None)
+        args = f.argument_factory(
+                arguments, keywords, keywords_w, None, None,
+                methodcall=w_self is not None)
         if w_self is None:
-            f.popvalue()    # removes w_self, which is None
+            f.popvalue_maybe_none()    # removes w_self, which is None
         w_callable = f.popvalue()
         if f.get_is_being_profiled() and function.is_builtin_code(w_callable):
             w_result = f.space.call_args_and_c_profile(f, w_callable, args)

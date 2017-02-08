@@ -193,11 +193,23 @@ class W_Weakref(W_WeakrefBase):
         W_WeakrefBase.__init__(self, space, w_obj, w_callable)
         self.w_hash = None
 
+    def _cleanup_(self):
+        # When a prebuilt weakref is frozen inside a translation, if
+        # this weakref has got an already-cached w_hash, then throw it
+        # away.  That's because the hash value will change after
+        # translation.  It will be recomputed the first time we ask for
+        # it.  Note that such a frozen weakref, if not dead, will point
+        # to a frozen object, so it will never die.
+        self.w_hash = None
+
     def descr__init__weakref(self, space, w_obj, w_callable=None,
                              __args__=None):
         if __args__.arguments_w:
             raise oefmt(space.w_TypeError,
                         "__init__ expected at most 2 arguments")
+        if __args__.keywords:
+            raise oefmt(space.w_TypeError,
+                        "ref() does not take keyword arguments")
 
     def descr_hash(self):
         if self.w_hash is not None:
@@ -214,7 +226,7 @@ class W_Weakref(W_WeakrefBase):
             return self.space.w_None
         return w_obj
 
-    def descr__eq__(self, space, w_ref2):
+    def compare(self, space, w_ref2, invert):
         if not isinstance(w_ref2, W_Weakref):
             return space.w_NotImplemented
         ref1 = self
@@ -222,11 +234,18 @@ class W_Weakref(W_WeakrefBase):
         w_obj1 = ref1.dereference()
         w_obj2 = ref2.dereference()
         if w_obj1 is None or w_obj2 is None:
-            return space.is_(ref1, ref2)
-        return space.eq(w_obj1, w_obj2)
+            w_res = space.is_(ref1, ref2)
+        else:
+            w_res = space.eq(w_obj1, w_obj2)
+        if invert:
+            w_res = space.not_(w_res)
+        return w_res
+
+    def descr__eq__(self, space, w_ref2):
+        return self.compare(space, w_ref2, invert=False)
 
     def descr__ne__(self, space, w_ref2):
-        return space.not_(space.eq(self, w_ref2))
+        return self.compare(space, w_ref2, invert=True)
 
 def getlifeline(space, w_obj):
     lifeline = w_obj.getweakref()

@@ -26,16 +26,16 @@ Is PyPy a drop in replacement for CPython?
 
 Almost!
 
-The mostly likely stumbling block for any given project is support for
+The most likely stumbling block for any given project is support for
 :ref:`extension modules <extension-modules>`.  PyPy supports a continually growing
 number of extension modules, but so far mostly only those found in the
 standard library.
 
 The language features (including builtin types and functions) are very
-complete and well tested, so if your project does not use many
+refined and well tested, so if your project doesn't use many
 extension modules there is a good chance that it will work with PyPy.
 
-We list the differences we know about in :doc:`cpython differences <cpython_differences>`.
+We list the known differences in :doc:`cpython differences <cpython_differences>`.
 
 
 Module xyz does not work with PyPy: ImportError
@@ -76,10 +76,10 @@ Module xyz does not work in the sandboxed PyPy?
 
 You cannot import *any* extension module in a `sandboxed PyPy`_,
 sorry.  Even the built-in modules available are very limited.
-Sandboxing in PyPy is a good proof of concept, really safe IMHO, but
-it is only a proof of concept.  It seriously requires someone working
-on it.  Before this occurs, it can only be used it for "pure Python"
-examples: programs that import mostly nothing (or only pure Python
+Sandboxing in PyPy is a good proof of concept, and is without a doubt
+safe IMHO, however it is only a proof of concept.  It currently requires 
+some work from a motivated developer. However, until then it can only be used for "pure Python"
+example: programs that import mostly nothing (or only pure Python
 modules, recursively).
 
 .. _`sandboxed PyPy`: sandbox.html
@@ -89,6 +89,10 @@ modules, recursively).
 
 Do CPython Extension modules work with PyPy?
 --------------------------------------------
+
+**First note that some Linux distributions (e.g. Ubuntu, Debian) split
+PyPy into several packages.  If you installed a package called "pypy",
+then you may also need to install "pypy-dev" for the following to work.**
 
 We have experimental support for CPython extension modules, so
 they run with minor changes.  This has been a part of PyPy since
@@ -397,3 +401,28 @@ debugging an annoying PyPy problem usually involves quite a lot of gdb
 in auto-generated C code, and at least some knowledge about the
 various components involved, from PyPy's own RPython source code to
 the GC and possibly the JIT.
+
+
+Why doesn't PyPy move to GitHub, Gitlab, ...?
+----------------------------------------------
+
+We've been quite happy with bitbucket.org. Moving version control systems and
+hosting is a lot of hard work: On the one hand, PyPy's mercurial history is
+long and gnarly. On the other hand, all our infrastructure (buildbots,
+benchmarking, etc) would have to be adapted. So unless somebody steps up and
+volunteers to do all that work, it will likely not happen.
+
+
+What is needed for Windows 64 support of PyPy?
+-----------------------------------------------
+
+First, please note that the Windows 32 PyPy binary works just fine on Windows
+64. The only problem is that it only supports up to 4GB of heap per process.
+
+As to real Windows 64 support: Currently we don't have an active PyPy developer
+whose main development platform is Windows. So if you are interested in getting
+Windows 64 support, we encourage you to volunteer `to make it happen`_! Another
+option would be to pay some PyPy developers to implement Windows 64 support,
+but so far there doesn't seem to be an overwhelming commercial interest in it.
+
+.. _`to make it happen`: windows.html#what-is-missing-for-a-full-64-bit-translation

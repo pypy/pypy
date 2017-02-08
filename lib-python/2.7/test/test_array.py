@@ -18,17 +18,39 @@ class ArraySubclassWithKwargs(array.array):
         array.array.__init__(self, typecode)
 
 tests = [] # list to accumulate all tests
-typecodes = "cubBhHiIlLfd"
+typecodes = "cbBhHiIlLfd"
+if test_support.have_unicode:
+    typecodes += "u"
 
-class BadConstructorTest(unittest.TestCase):
+class MiscTest(unittest.TestCase):
 
-    def test_constructor(self):
+    def test_bad_constructor(self):
         self.assertRaises(TypeError, array.array)
         self.assertRaises(TypeError, array.array, spam=42)
         self.assertRaises(TypeError, array.array, 'xx')
+        self.assertRaises(TypeError, array.array, '')
+        self.assertRaises(TypeError, array.array, 1)
         self.assertRaises(ValueError, array.array, 'x')
+        self.assertRaises(ValueError, array.array, '\x80')
 
-tests.append(BadConstructorTest)
+    @test_support.requires_unicode
+    def test_unicode_constructor(self):
+        self.assertRaises(TypeError, array.array, u'xx')
+        self.assertRaises(TypeError, array.array, u'')
+        self.assertRaises(ValueError, array.array, u'x')
+        self.assertRaises(ValueError, array.array, u'\x80')
+
+    def test_empty(self):
+        # Exercise code for handling zero-length arrays
+        a = array.array('B')
+        a[:] = a
+        self.assertEqual(len(a), 0)
+        self.assertEqual(len(a + a), 0)
+        self.assertEqual(len(a * 3), 0)
+        a += a
+        self.assertEqual(len(a), 0)
+
+tests.append(MiscTest)
 
 class BaseTest(unittest.TestCase):
     # Required class attributes (provided by subclasses
@@ -235,6 +257,7 @@ class BaseTest(unittest.TestCase):
         self.assertRaises(TypeError, a.tostring, 42)
         self.assertRaises(TypeError, b.fromstring)
         self.assertRaises(TypeError, b.fromstring, 42)
+        self.assertRaises(ValueError, a.fromstring, a)
         b.fromstring(a.tostring())
         self.assertEqual(a, b)
         if a.itemsize>1:
@@ -834,6 +857,7 @@ class CharacterTest(StringTest):
         self.assertEqual(s.color, "red")
         self.assertEqual(s.__dict__.keys(), ["color"])
 
+    @test_support.requires_unicode
     def test_nounicode(self):
         a = array.array(self.typecode, self.example)
         self.assertRaises(ValueError, a.fromunicode, unicode(''))
@@ -1045,6 +1069,17 @@ class UnsignedLongTest(UnsignedNumberTest):
     typecode = 'L'
     minitemsize = 4
 tests.append(UnsignedLongTest)
+
+
+@test_support.requires_unicode
+class UnicodeTypecodeTest(unittest.TestCase):
+    def test_unicode_typecode(self):
+        for typecode in typecodes:
+            a = array.array(unicode(typecode))
+            self.assertEqual(a.typecode, typecode)
+            self.assertIs(type(a.typecode), str)
+tests.append(UnicodeTypecodeTest)
+
 
 class FPTest(NumberTest):
     example = [-42.0, 0, 42, 1e5, -1e10]

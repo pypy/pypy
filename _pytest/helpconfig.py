@@ -1,8 +1,7 @@
 """ version info, help messages, tracing configuration.  """
 import py
 import pytest
-import os, inspect, sys
-from _pytest.core import varnames
+import os, sys
 
 def pytest_addoption(parser):
     group = parser.getgroup('debugconfig')
@@ -23,27 +22,28 @@ def pytest_addoption(parser):
                help="store internal tracing debug information in 'pytestdebug.log'.")
 
 
-def pytest_cmdline_parse(__multicall__):
-    config = __multicall__.execute()
+@pytest.hookimpl(hookwrapper=True)
+def pytest_cmdline_parse():
+    outcome = yield
+    config = outcome.get_result()
     if config.option.debug:
         path = os.path.abspath("pytestdebug.log")
-        f = open(path, 'w')
-        config._debugfile = f
-        f.write("versions pytest-%s, py-%s, python-%s\ncwd=%s\nargs=%s\n\n" %(
-            pytest.__version__, py.__version__, ".".join(map(str, sys.version_info)),
+        debugfile = open(path, 'w')
+        debugfile.write("versions pytest-%s, py-%s, "
+                "python-%s\ncwd=%s\nargs=%s\n\n" %(
+            pytest.__version__, py.__version__,
+            ".".join(map(str, sys.version_info)),
             os.getcwd(), config._origargs))
-        config.trace.root.setwriter(f.write)
+        config.trace.root.setwriter(debugfile.write)
+        undo_tracing = config.pluginmanager.enable_tracing()
         sys.stderr.write("writing pytestdebug information to %s\n" % path)
-    return config
-
-@pytest.mark.trylast
-def pytest_unconfigure(config):
-    if hasattr(config, '_debugfile'):
-        config._debugfile.close()
-        sys.stderr.write("wrote pytestdebug information to %s\n" %
-            config._debugfile.name)
-        config.trace.root.setwriter(None)
-
+        def unset_tracing():
+            debugfile.close()
+            sys.stderr.write("wrote pytestdebug information to %s\n" %
+                             debugfile.name)
+            config.trace.root.setwriter(None)
+            undo_tracing()
+        config.add_cleanup(unset_tracing)
 
 def pytest_cmdline_main(config):
     if config.option.version:
@@ -56,15 +56,15 @@ def pytest_cmdline_main(config):
                 sys.stderr.write(line + "\n")
         return 0
     elif config.option.help:
-        config.do_configure()
+        config._do_configure()
         showhelp(config)
-        config.do_unconfigure()
+        config._ensure_unconfigure()
         return 0
 
 def showhelp(config):
-    tw = py.io.TerminalWriter()
+    reporter = config.pluginmanager.get_plugin('terminalreporter')
+    tw = reporter._tw
     tw.write(config._parser.optparser.format_help())
-    tw.write(config._parser.optparser.format_epilog(None))
     tw.line()
     tw.line()
     #tw.sep( "=", "config file settings")
@@ -80,22 +80,27 @@ def showhelp(config):
         line = "  %-24s %s" %(spec, help)
         tw.line(line[:tw.fullwidth])
 
-    tw.line() ; tw.line()
-    #tw.sep("=")
+    tw.line()
+    tw.line("environment variables:")
+    vars = [
+        ("PYTEST_ADDOPTS", "extra command line options"),
+        ("PYTEST_PLUGINS", "comma-separated plugins to load during startup"),
+        ("PYTEST_DEBUG", "set to enable debug tracing of pytest's internals")
+    ]
+    for name, help in vars:
+        tw.line("  %-24s %s" % (name, help))
+    tw.line()
+    tw.line()
+
     tw.line("to see available markers type: py.test --markers")
     tw.line("to see available fixtures type: py.test --fixtures")
     tw.line("(shown according to specified file_or_dir or current dir "
             "if not specified)")
+
+    for warningreport in reporter.stats.get('warnings', []):
+        tw.line("warning : " + warningreport.message, red=True)
     return
 
-    tw.line("conftest.py options:")
-    tw.line()
-    conftestitems = sorted(config._parser._conftestdict.items())
-    for name, help in conftest_options + conftestitems:
-        line = "   %-15s  %s" %(name, help)
-        tw.line(line[:tw.fullwidth])
-    tw.line()
-    #tw.sep( "=")
 
 conftest_options = [
     ('pytest_plugins', 'list of plugin names to load'),
@@ -103,10 +108,10 @@ conftest_options = [
 
 def getpluginversioninfo(config):
     lines = []
-    plugininfo = config.pluginmanager._plugin_distinfo
+    plugininfo = config.pluginmanager.list_plugin_distinfo()
     if plugininfo:
         lines.append("setuptools registered plugins:")
-        for dist, plugin in plugininfo:
+        for plugin, dist in plugininfo:
             loc = getattr(plugin, '__file__', repr(plugin))
             content = "%s-%s at %s" % (dist.project_name, dist.version, loc)
             lines.append("  " + content)
@@ -124,7 +129,7 @@ def pytest_report_header(config):
 
     if config.option.traceconfig:
         lines.append("active plugins:")
-        items = config.pluginmanager._name2plugin.items()
+        items = config.pluginmanager.list_name_plugin()
         for name, plugin in items:
             if hasattr(plugin, '__file__'):
                 r = plugin.__file__
@@ -132,72 +137,3 @@ def pytest_report_header(config):
                 r = repr(plugin)
             lines.append("    %-20s: %s" %(name, r))
     return lines
-
-
-# =====================================================
-# validate plugin syntax and hooks
-# =====================================================
-
-def pytest_plugin_registered(manager, plugin):
-    methods = collectattr(plugin)
-    hooks = {}
-    for hookspec in manager.hook._hookspecs:
-        hooks.update(collectattr(hookspec))
-
-    stringio = py.io.TextIO()
-    def Print(*args):
-        if args:
-            stringio.write(" ".join(map(str, args)))
-        stringio.write("\n")
-
-    fail = False
-    while methods:
-        name, method = methods.popitem()
-        #print "checking", name
-        if isgenerichook(name):
-            continue
-        if name not in hooks:
-            if not getattr(method, 'optionalhook', False):
-                Print("found unknown hook:", name)
-                fail = True
-        else:
-            #print "checking", method
-            method_args = list(varnames(method))
-            if '__multicall__' in method_args:
-                method_args.remove('__multicall__')
-            hook = hooks[name]
-            hookargs = varnames(hook)
-            for arg in method_args:
-                if arg not in hookargs:
-                    Print("argument %r not available"  %(arg, ))
-                    Print("actual definition: %s" %(formatdef(method)))
-                    Print("available hook arguments: %s" %
-                            ", ".join(hookargs))
-                    fail = True
-                    break
-            #if not fail:
-            #    print "matching hook:", formatdef(method)
-        if fail:
-            name = getattr(plugin, '__name__', plugin)
-            raise PluginValidationError("%s:\n%s" % (name, stringio.getvalue()))
-
-class PluginValidationError(Exception):
-    """ plugin failed validation. """
-
-def isgenerichook(name):
-    return name == "pytest_plugins" or \
-           name.startswith("pytest_funcarg__")
-
-def collectattr(obj):
-    methods = {}
-    for apiname in dir(obj):
-        if apiname.startswith("pytest_"):
-            methods[apiname] = getattr(obj, apiname)
-    return methods
-
-def formatdef(func):
-    return "%s%s" % (
-        func.__name__,
-        inspect.formatargspec(*inspect.getargspec(func))
-    )
-

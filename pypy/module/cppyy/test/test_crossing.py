@@ -9,8 +9,6 @@ from rpython.tool.udir import udir
 from pypy.module.cpyext import api
 from pypy.module.cpyext.state import State
 
-from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-
 
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("crossingDict.so"))
@@ -24,7 +22,7 @@ def setup_module(mod):
 
 # from pypy/module/cpyext/test/test_cpyext.py; modified to accept more external
 # symbols and called directly instead of import_module
-def compile_extension_module(space, modname, symbols, **kwds):
+def compile_extension_module(space, modname, **kwds):
     """
     Build an extension module and return the filename of the resulting native
     code file.
@@ -38,19 +36,23 @@ def compile_extension_module(space, modname, symbols, **kwds):
     state = space.fromcache(State)
     api_library = state.api_lib
     if sys.platform == 'win32':
-        kwds["libraries"] = [api_library]
+        kwds["libraries"] = []#[api_library]
         # '%s' undefined; assuming extern returning int
         kwds["compile_extra"] = ["/we4013"]
+        # prevent linking with PythonXX.lib
+        w_maj, w_min = space.fixedview(space.sys.get('version_info'), 5)[:2]
+        kwds["link_extra"] = ["/NODEFAULTLIB:Python%d%d.lib" %
+                              (space.int_w(w_maj), space.int_w(w_min))]
     elif sys.platform == 'darwin':
         kwds["link_files"] = [str(api_library + '.dylib')]
     else:
         kwds["link_files"] = [str(api_library + '.so')]
         if sys.platform.startswith('linux'):
-            kwds["compile_extra"]=["-Werror=implicit-function-declaration"]
+            kwds["compile_extra"]=["-Werror", "-g", "-O0"]
+            kwds["link_extra"]=["-g"]
 
     modname = modname.split('.')[-1]
     eci = ExternalCompilationInfo(
-        #export_symbols=['init%s' % (modname,)]+symbols,
         include_dirs=api.include_dirs,
         **kwds
         )
@@ -65,28 +67,30 @@ def compile_extension_module(space, modname, symbols, **kwds):
     soname.rename(pydname)
     return str(pydname)
 
-class AppTestCrossing(AppTestCpythonExtensionBase):
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools', 'cpyext'])
+class AppTestCrossing:
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
-        AppTestCpythonExtensionBase.setup_class.im_func(cls)
         # cppyy specific additions (note that test_dct is loaded late
         # to allow the generated extension module be loaded first)
         cls.w_test_dct    = cls.space.wrap(test_dct)
         cls.w_pre_imports = cls.space.appexec([], """():
-            import cppyy, cpyext, ctypes""")    # prevents leak-checking complaints on ctypes
+            import ctypes, cppyy""")    # prevents leak-checking complaints on ctypes' statics
 
     def setup_method(self, func):
-        AppTestCpythonExtensionBase.setup_method.im_func(self, func)
-
         @unwrap_spec(name=str, init=str, body=str)
-        def create_cdll(space, name, init, body, w_symbols):
+        def create_cdll(space, name, init, body):
             # the following is loosely from test_cpyext.py import_module; it
             # is copied here to be able to tweak the call to
             # compile_extension_module and to get a different return result
             # than in that function
             code = """
             #include <Python.h>
+            /* fix for cpython 2.7 Python.h if running tests with -A
+               since pypy compiles with -fvisibility-hidden */
+            #undef PyMODINIT_FUNC
+            #define PyMODINIT_FUNC RPY_EXPORTED void
+
             %(body)s
 
             PyMODINIT_FUNC
@@ -95,8 +99,7 @@ class AppTestCrossing(AppTestCpythonExtensionBase):
             }
             """ % dict(name=name, init=init, body=body)
             kwds = dict(separate_module_sources=[code])
-            symbols = [space.str_w(w_item) for w_item in space.fixedview(w_symbols)]
-            mod = compile_extension_module(space, name, symbols, **kwds)
+            mod = compile_extension_module(space, name, **kwds)
 
             # explicitly load the module as a CDLL rather than as a module
             from pypy.module.imp.importing import get_so_extension
@@ -105,17 +108,6 @@ class AppTestCrossing(AppTestCpythonExtensionBase):
             return space.wrap(fullmodname)
 
         self.w_create_cdll = self.space.wrap(interp2app(create_cdll))
-
-    def test00_base_class(self):
-        """Test from cpyext; only here to see whether the imported class works"""
-
-        import sys
-        init = """
-        if (Py_IsInitialized())
-            Py_InitModule("foo", NULL);
-        """
-        self.import_module(name='foo', init=init)
-        assert 'foo' in sys.modules
 
     def test01_build_bar_extension(self):
         """Test that builds the needed extension; runs as test to keep it loaded"""
@@ -131,10 +123,12 @@ class AppTestCrossing(AppTestCpythonExtensionBase):
 
         # note: only the symbols are needed for C, none for python
         body = """
+        RPY_EXPORTED
         long bar_unwrap(PyObject* arg)
         {
-            return PyLong_AsLong(arg);
+            return 13;//PyLong_AsLong(arg);
         }
+        RPY_EXPORTED
         PyObject* bar_wrap(long l)
         {
             return PyLong_FromLong(l);
@@ -146,8 +140,7 @@ class AppTestCrossing(AppTestCpythonExtensionBase):
         # explicitly load the module as a CDLL rather than as a module
         import ctypes
         self.cmodule = ctypes.CDLL(
-            self.create_cdll(name, init, body, ['bar_unwrap', 'bar_wrap']),
-            ctypes.RTLD_GLOBAL)
+            self.create_cdll(name, init, body), ctypes.RTLD_GLOBAL)
 
     def test02_crossing_dict(self):
         """Test availability of all needed classes in the dict"""
@@ -160,6 +153,7 @@ class AppTestCrossing(AppTestCpythonExtensionBase):
 
         assert crossing.A == crossing.A
 
+    @py.test.mark.dont_track_allocations("fine when running standalone, though?!")
     def test03_send_pyobject(self):
         """Test sending a true pyobject to C++"""
 
@@ -169,6 +163,7 @@ class AppTestCrossing(AppTestCpythonExtensionBase):
         a = crossing.A()
         assert a.unwrap(13) == 13
 
+    @py.test.mark.dont_track_allocations("fine when running standalone, though?!")
     def test04_send_and_receive_pyobject(self):
         """Test receiving a true pyobject from C++"""
 

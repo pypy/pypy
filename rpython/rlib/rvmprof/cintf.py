@@ -30,9 +30,6 @@ global_eci = ExternalCompilationInfo(**eci_kwds)
 
 
 def setup():
-    if host_platform.machine() == 's390x':
-        raise VMProfPlatformUnsupported("rvmprof not supported on"
-                                        " s390x CPUs for now")
     compile_extra = ['-DRPYTHON_LL2CTYPES']
     platform.verify_eci(ExternalCompilationInfo(
         compile_extra=compile_extra,
@@ -56,6 +53,11 @@ def setup():
                                             [rffi.INT], lltype.Void,
                                             compilation_info=eci,
                                             _nowrapper=True)
+    vmprof_get_traceback = rffi.llexternal("vmprof_get_traceback",
+                                  [PVMPROFSTACK, llmemory.Address,
+                                   rffi.SIGNEDP, lltype.Signed],
+                                  lltype.Signed, compilation_info=eci,
+                                  _nowrapper=True)
 
     return CInterface(locals())
 
@@ -154,3 +156,9 @@ def empty_rvmprof_stack():
 
 def restore_rvmprof_stack(x):
     vmprof_tl_stack.setraw(x)
+
+#
+# traceback support
+
+def get_rvmprof_stack():
+    return vmprof_tl_stack.get_or_make_raw()

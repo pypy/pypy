@@ -322,7 +322,7 @@ containing test:
     >>> test.lineno + e2.lineno
     26
 
-If the docstring contains inconsistant leading whitespace in the
+If the docstring contains inconsistent leading whitespace in the
 expected output of an example, then `DocTest` will raise a ValueError:
 
     >>> docstring = r'''
@@ -951,7 +951,7 @@ the exception is in the output, but this will fail under Python 2:
         HTTPException: message
     TestResults(failed=1, attempted=2)
 
-But in Python 2 the module path is not included, an therefore a test must look
+But in Python 2 the module path is not included, and therefore a test must look
 like the following test to succeed in Python 2. But that test will fail under
 Python 3.
 
@@ -2113,7 +2113,7 @@ def test_DocTestSuite():
          ...
          AttributeError: 'module' object has no attribute 'sillySetup'
 
-       The setUp and tearDown funtions are passed test objects. Here
+       The setUp and tearDown functions are passed test objects. Here
        we'll use the setUp function to supply the missing variable y:
 
          >>> def setUp(test):
@@ -2259,7 +2259,7 @@ def test_DocFileSuite():
          ...
          AttributeError: 'module' object has no attribute 'sillySetup'
 
-       The setUp and tearDown funtions are passed test objects.
+       The setUp and tearDown functions are passed test objects.
        Here, we'll use a setUp function to set the favorite color in
        test_doctest.txt:
 
@@ -2582,7 +2582,7 @@ Windows line endings first:
     >>> fn = tempfile.mktemp()
     >>> with open(fn, 'wb') as f:
     ...     f.write('Test:\r\n\r\n  >>> x = 1 + 1\r\n\r\nDone.\r\n')
-    >>> doctest.testfile(fn, False)
+    >>> doctest.testfile(fn, module_relative=False, verbose=False)
     TestResults(failed=0, attempted=1)
     >>> os.remove(fn)
 
@@ -2591,7 +2591,7 @@ And now *nix line endings:
     >>> fn = tempfile.mktemp()
     >>> with open(fn, 'wb') as f:
     ...     f.write('Test:\n\n  >>> x = 1 + 1\n\nDone.\n')
-    >>> doctest.testfile(fn, False)
+    >>> doctest.testfile(fn, module_relative=False, verbose=False)
     TestResults(failed=0, attempted=1)
     >>> os.remove(fn)
 

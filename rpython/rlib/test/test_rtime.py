@@ -1,7 +1,9 @@
 
 from rpython.rtyper.test.tool import BaseRtypingTest
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib import rtime
 
-import time, sys
+import time, sys, py
 
 class TestTime(BaseRtypingTest):
     def test_time_time(self):
@@ -53,3 +55,27 @@ class TestTime(BaseRtypingTest):
         t1 = time.time()
         assert t0 <= t1
         assert t1 - t0 >= 0.15
+
+    def test_clock_gettime(self):
+        if not rtime.HAS_CLOCK_GETTIME:
+            py.test.skip("no clock_gettime()")
+        lst = []
+        for i in range(50):
+            with lltype.scoped_alloc(rtime.TIMESPEC) as a1:
+                res = rtime.c_clock_gettime(rtime.CLOCK_MONOTONIC, a1)
+                assert res == 0
+                t = (float(rffi.getintfield(a1, 'c_tv_sec')) +
+                     float(rffi.getintfield(a1, 'c_tv_nsec')) * 0.000000001)
+                lst.append(t)
+        assert lst == sorted(lst)
+
+    def test_clock_getres(self):
+        if not rtime.HAS_CLOCK_GETTIME:
+            py.test.skip("no clock_gettime()")
+        lst = []
+        with lltype.scoped_alloc(rtime.TIMESPEC) as a1:
+            res = rtime.c_clock_getres(rtime.CLOCK_MONOTONIC, a1)
+            assert res == 0
+            t = (float(rffi.getintfield(a1, 'c_tv_sec')) +
+                 float(rffi.getintfield(a1, 'c_tv_nsec')) * 0.000000001)
+        assert 0.0 < t <= 1.0

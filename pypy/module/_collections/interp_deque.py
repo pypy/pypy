@@ -1,4 +1,5 @@
 import sys
+from rpython.rlib.objectmodel import specialize
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
@@ -316,12 +317,12 @@ class W_Deque(W_Root):
             w_currently_in_repr = ec._py_repr = space.newdict()
         return dequerepr(space, w_currently_in_repr, space.wrap(self))
 
+    @specialize.arg(2)
     def compare(self, w_other, op):
         space = self.space
         if not isinstance(w_other, W_Deque):
             return space.w_NotImplemented
         return space.compare_by_iteration(space.wrap(self), w_other, op)
-    compare._annspecialcase_ = 'specialize:arg(2)'
 
     def lt(self, w_other):
         return self.compare(w_other, 'lt')

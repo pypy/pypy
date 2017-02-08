@@ -1,5 +1,5 @@
 
-from rpython.rlib.objectmodel import specialize, we_are_translated
+from rpython.rlib.objectmodel import specialize, we_are_translated, compute_hash
 from rpython.jit.metainterp.resoperation import AbstractValue, ResOperation,\
      rop, OpHelpers
 from rpython.jit.metainterp.history import ConstInt, Const
@@ -74,6 +74,9 @@ class PtrInfo(AbstractInfo):
     def getstrlen(self, op, string_optimizer, mode, create_ops=True):
         return None
 
+    def getstrhash(self, op, mode):
+        return None
+
     def copy_fields_to_const(self, constinfo, optheap):
         pass
 
@@ -137,7 +140,6 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
 
     def force_box(self, op, optforce):
         if self.is_virtual():
-            optforce.forget_numberings()
             #
             if self._is_immutable_and_filled_with_constants(optforce.optimizer):
                 constptr = optforce.optimizer.constant_fold(op)
@@ -147,7 +149,7 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
                 return constptr
             #
             op.set_forwarded(None)
-            optforce.emit_operation(op)
+            optforce.emit_extra(op)
             newop = optforce.getlastop()
             if newop is not op:
                 op.set_forwarded(newop)
@@ -225,7 +227,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
                 setfieldop = ResOperation(rop.SETFIELD_GC, [op, subbox],
                                           descr=fielddescr)
                 self._fields[i] = None
-                optforce.emit_operation(setfieldop)
+                optforce.emit_extra(setfieldop)
 
     def _force_at_the_end_of_preamble(self, op, optforce, rec):
         if self._fields is None:
@@ -412,7 +414,7 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
         # 'op = CALL_I(..., OS_RAW_MALLOC_VARSIZE_CHAR)'.
         # Emit now a CHECK_MEMORY_ERROR resop.
         check_op = ResOperation(rop.CHECK_MEMORY_ERROR, [op])
-        optforce.emit_operation(check_op)
+        optforce.emit_extra(check_op)
         #
         buffer = self._get_buffer()
         for i in range(len(buffer.offsets)):
@@ -422,7 +424,7 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
             itembox = buffer.values[i]
             setfield_op = ResOperation(rop.RAW_STORE,
                               [op, ConstInt(offset), itembox], descr=descr)
-            optforce.emit_operation(setfield_op)
+            optforce.emit_extra(setfield_op)
 
     def _visitor_walk_recursive(self, op, visitor, optimizer):
         itemboxes = [optimizer.get_box_replacement(box)
@@ -537,7 +539,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
                                  [op, ConstInt(i), subbox],
                                   descr=descr)
             self._items[i] = None
-            optforce.emit_operation(setop)
+            optforce.emit_extra(setop)
         optforce.pure_from_args(rop.ARRAYLEN_GC, [op], ConstInt(len(self._items)))
 
     def setitem(self, descr, index, struct, op, optheap=None, cf=None):
@@ -651,7 +653,7 @@ class ArrayStructInfo(ArrayPtrInfo):
                     setfieldop = ResOperation(rop.SETINTERIORFIELD_GC,
                                               [op, ConstInt(index), subbox],
                                               descr=fielddescr)
-                    optforce.emit_operation(setfieldop)
+                    optforce.emit_extra(setfieldop)
                     # heapcache does not work for interiorfields
                     # if it does, we would need a fix here
                 i += 1
@@ -792,6 +794,20 @@ class ConstPtrInfo(PtrInfo):
             if s is None:
                 return None
             return ConstInt(len(s))
+
+    def getstrhash(self, op, mode):
+        from rpython.jit.metainterp.optimizeopt import vstring
+
+        if mode is vstring.mode_string:
+            s = self._unpack_str(vstring.mode_string)
+            if s is None:
+                return None
+            return ConstInt(compute_hash(s))
+        else:
+            s = self._unpack_str(vstring.mode_unicode)
+            if s is None:
+                return None
+            return ConstInt(compute_hash(s))
 
     def string_copy_parts(self, op, string_optimizer, targetbox, offsetbox,
                           mode):

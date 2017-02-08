@@ -269,12 +269,15 @@ class AssemblerARM(ResOpAssembler):
         """
         mc = InstrBuilder(self.cpu.cpuinfo.arch_version)
         #
-        self._push_all_regs_to_jitframe(mc, [], self.cpu.supports_floats, callee_only)
+        # We don't save/restore r4; instead the return value (if any)
+        # will be stored there.
+        self._push_all_regs_to_jitframe(mc, [r.r4], self.cpu.supports_floats, callee_only)
         ## args are in their respective positions
         mc.PUSH([r.ip.value, r.lr.value])
         mc.BLX(r.r4.value)
+        mc.MOV_rr(r.r4.value, r.r0.value)
         self._reload_frame_if_necessary(mc)
-        self._pop_all_regs_from_jitframe(mc, [], supports_floats,
+        self._pop_all_regs_from_jitframe(mc, [r.r4], supports_floats,
                                       callee_only)
         # return
         mc.POP([r.ip.value, r.pc.value])

@@ -438,6 +438,10 @@ class LLtypeMixin(object):
                     oopspecindex=EffectInfo.OS_INT_PY_MOD)
     int_py_mod_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, ei)
 
+    FUNC = lltype.FuncType([], llmemory.GCREF)
+    ei = EffectInfo([], [], [], [], [], [], EffectInfo.EF_ELIDABLE_CAN_RAISE)
+    plain_r_calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, ei)
+
     namespace = locals()
 
 
@@ -573,6 +577,7 @@ class BaseTest(object):
         #
         compile_data.enable_opts = self.enable_opts
         state = optimize_trace(metainterp_sd, None, compile_data)
+        state[0]._check_no_forwarding()
         return state
 
     def _convert_call_pure_results(self, d):
@@ -621,7 +626,7 @@ class BaseTest(object):
         start_state, preamble_ops = self._do_optimize_loop(preamble_data)
         preamble_data.forget_optimization_info()
         loop_data = compile.UnrolledLoopData(preamble_data.trace,
-            celltoken, start_state, call_pure_results)
+            celltoken, start_state, runtime_boxes, call_pure_results)
         loop_info, ops = self._do_optimize_loop(loop_data)
         preamble = TreeLoop('preamble')
         preamble.inputargs = start_state.renamed_inputargs

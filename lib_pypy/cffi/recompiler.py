@@ -1,5 +1,6 @@
 import os, sys, io
 from . import ffiplatform, model
+from .error import VerificationError
 from .cffi_opcode import *
 
 VERSION = "0x2601"
@@ -211,7 +212,7 @@ class Recompiler:
                 method = getattr(self, '_generate_cpy_%s_%s' % (kind,
                                                                 step_name))
             except AttributeError:
-                raise ffiplatform.VerificationError(
+                raise VerificationError(
                     "not implemented in recompile(): %r" % name)
             try:
                 self._current_quals = quals
@@ -354,12 +355,12 @@ class Recompiler:
                     included_module_name, included_source = (
                         ffi_to_include._assigned_source[:2])
                 except AttributeError:
-                    raise ffiplatform.VerificationError(
+                    raise VerificationError(
                         "ffi object %r includes %r, but the latter has not "
                         "been prepared with set_source()" % (
                             self.ffi, ffi_to_include,))
                 if included_source is None:
-                    raise ffiplatform.VerificationError(
+                    raise VerificationError(
                         "not implemented yet: ffi.include() of a Python-based "
                         "ffi inside a C-based ffi")
                 prnt('  "%s",' % (included_module_name,))
@@ -391,6 +392,10 @@ class Recompiler:
         prnt()
         #
         # the init function
+        prnt('#ifdef __GNUC__')
+        prnt('#  pragma GCC visibility push(default)  /* for -fvisibility= */')
+        prnt('#endif')
+        prnt()
         prnt('#ifdef PYPY_VERSION')
         prnt('PyMODINIT_FUNC')
         prnt('_cffi_pypyinit_%s(const void *p[])' % (base_module_name,))
@@ -429,6 +434,10 @@ class Recompiler:
             self.module_name, version))
         prnt('}')
         prnt('#endif')
+        prnt()
+        prnt('#ifdef __GNUC__')
+        prnt('#  pragma GCC visibility pop')
+        prnt('#endif')
 
     def _to_py(self, x):
         if isinstance(x, str):
@@ -456,12 +465,12 @@ class Recompiler:
                 included_module_name, included_source = (
                     ffi_to_include._assigned_source[:2])
             except AttributeError:
-                raise ffiplatform.VerificationError(
+                raise VerificationError(
                     "ffi object %r includes %r, but the latter has not "
                     "been prepared with set_source()" % (
                         self.ffi, ffi_to_include,))
             if included_source is not None:
-                raise ffiplatform.VerificationError(
+                raise VerificationError(
                     "not implemented yet: ffi.include() of a C-based "
                     "ffi inside a Python-based ffi")
             prnt('from %s import ffi as _ffi%d' % (included_module_name, i))
@@ -587,8 +596,11 @@ class Recompiler:
     # ----------
     # typedefs
 
+    def _typedef_type(self, tp, name):
+        return self._global_type(tp, "(*(%s *)0)" % (name,))
+
     def _generate_cpy_typedef_collecttype(self, tp, name):
-        self._do_collect_type(tp)
+        self._do_collect_type(self._typedef_type(tp, name))
 
     def _generate_cpy_typedef_decl(self, tp, name):
         pass
@@ -598,6 +610,7 @@ class Recompiler:
         self._lsts["typename"].append(TypenameExpr(name, type_index))
 
     def _generate_cpy_typedef_ctx(self, tp, name):
+        tp = self._typedef_type(tp, name)
         self._typedef_ctx(tp, name)
         if getattr(tp, "origin", None) == "unknown_type":
             self._struct_ctx(tp, tp.name, approxname=None)
@@ -827,7 +840,7 @@ class Recompiler:
                 prnt('  { %s = &p->%s; (void)tmp; }' % (
                     ftype.get_c_name('*tmp', 'field %r'%fname, quals=fqual),
                     fname))
-            except ffiplatform.VerificationError as e:
+            except VerificationError as e:
                 prnt('  /* %s */' % str(e))   # cannot verify it, ignore
         prnt('}')
         prnt('struct _cffi_align_%s { char x; %s y; };' % (approxname, cname))
@@ -990,7 +1003,7 @@ class Recompiler:
     def _generate_cpy_const(self, is_int, name, tp=None, category='const',
                             check_value=None):
         if (category, name) in self._seen_constants:
-            raise ffiplatform.VerificationError(
+            raise VerificationError(
                 "duplicate declaration of %s '%s'" % (category, name))
         self._seen_constants.add((category, name))
         #
@@ -1089,7 +1102,7 @@ class Recompiler:
     def _generate_cpy_macro_ctx(self, tp, name):
         if tp == '...':
             if self.target_is_python:
-                raise ffiplatform.VerificationError(
+                raise VerificationError(
                     "cannot use the syntax '...' in '#define %s ...' when "
                     "using the ABI mode" % (name,))
             check_value = None
@@ -1222,7 +1235,7 @@ class Recompiler:
 
     def _generate_cpy_extern_python_ctx(self, tp, name):
         if self.target_is_python:
-            raise ffiplatform.VerificationError(
+            raise VerificationError(
                 "cannot use 'extern \"Python\"' in the ABI mode")
         if tp.ellipsis:
             raise NotImplementedError("a vararg function is extern \"Python\"")
@@ -1303,7 +1316,7 @@ class Recompiler:
         if tp.length is None:
             self.cffi_types[index] = CffiOp(OP_OPEN_ARRAY, item_index)
         elif tp.length == '...':
-            raise ffiplatform.VerificationError(
+            raise VerificationError(
                 "type %s badly placed: the '...' array length can only be "
                 "used on global arrays or on fields of structures" % (
                     str(tp).replace('/*...*/', '...'),))

@@ -14,7 +14,7 @@ from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeBuiltinMethod,
     SomeFloat, SomeIterator, SomePBC, SomeNone, SomeTypeOf, s_ImpossibleValue,
     s_Bool, s_None, s_Int, unionof, add_knowntypedata,
-    SomeWeakRef, SomeUnicodeString, SomeByteArray)
+    SomeWeakRef, SomeUnicodeString, SomeByteArray, SomeOrderedDict)
 from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
 from rpython.annotator.binaryop import _clone ## XXX where to put this?
 from rpython.annotator.binaryop import _dict_can_only_throw_keyerror
@@ -574,6 +574,17 @@ class __extend__(SomeDict):
     def method_delitem_with_hash(self, s_key, s_hash):
         pair(self, s_key).delitem()
     method_delitem_with_hash.can_only_throw = _dict_can_only_throw_keyerror
+
+    def method_delitem_if_value_is(self, s_key, s_value):
+        pair(self, s_key).setitem(s_value)
+        pair(self, s_key).delitem()
+
+class __extend__(SomeOrderedDict):
+
+    def method_move_to_end(self, s_key, s_last):
+        assert s_Bool.contains(s_last)
+        pair(self, s_key).delitem()
+    method_move_to_end.can_only_throw = _dict_can_only_throw_keyerror
 
 @op.contains.register(SomeString)
 @op.contains.register(SomeUnicodeString)

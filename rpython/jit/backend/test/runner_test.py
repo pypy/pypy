@@ -2594,9 +2594,6 @@ class LLtypeBackendTest(BaseBackendTest):
             assert called == [(67, 89)]
 
     def test_cond_call_value(self):
-        if not self.cpu.supports_cond_call_value:
-            py.test.skip("missing supports_cond_call_value")
-
         def func_int(*args):
             called.append(args)
             return len(args) * 100 + 1000
@@ -2792,6 +2789,34 @@ class LLtypeBackendTest(BaseBackendTest):
             assert frame == deadframe
         deadframe2 = self.cpu.force(frame)
         assert self.cpu.get_int_value(deadframe2, 0) == 30
+
+    def test_guard_not_forced_2_float(self):
+        cpu = self.cpu
+        if not cpu.supports_floats:
+            py.test.skip("requires floats")
+        faildescr = BasicFailDescr(1)
+        finaldescr = BasicFinalDescr(0)
+        loop = parse("""
+        [f0]
+        f1 = float_add(f0, 2.5)
+        p2 = force_token()
+        guard_not_forced_2(descr=faildescr) [f1]
+        finish(p2, descr=finaldescr)
+        """, namespace=locals())
+        looptoken = JitCellToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        x = longlong.getfloatstorage(20.25)
+        deadframe = self.cpu.execute_token(looptoken, x)
+        fail = self.cpu.get_latest_descr(deadframe)
+        assert fail.identifier == 0
+        frame = self.cpu.get_ref_value(deadframe, 0)
+        # actually, we should get the same pointer in 'frame' and 'deadframe'
+        # but it is not the case on LLGraph
+        if not getattr(self.cpu, 'is_llgraph', False):
+            assert frame == deadframe
+        deadframe2 = self.cpu.force(frame)
+        x = self.cpu.get_float_value(deadframe2, 0)
+        assert longlong.getrealfloat(x) == 22.75
 
     def test_call_to_c_function(self):
         from rpython.rlib.libffi import CDLL, types, ArgChain, FUNCFLAG_CDECL

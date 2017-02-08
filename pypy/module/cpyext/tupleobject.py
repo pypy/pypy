@@ -1,11 +1,11 @@
 from pypy.interpreter.error import oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.debug import fatalerror_notb
-from pypy.module.cpyext.api import (cpython_api, Py_ssize_t, CANNOT_FAIL,
-                                    build_type_checkers, PyVarObjectFields,
-                                    cpython_struct, bootstrap_function)
-from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, Py_DecRef,
-    make_ref, from_ref, decref, incref, pyobj_has_w_obj,
+from pypy.module.cpyext.api import (
+    cpython_api, Py_ssize_t, build_type_checkers,
+    PyVarObjectFields, cpython_struct, bootstrap_function, slot_function)
+from pypy.module.cpyext.pyobject import (
+    PyObject, PyObjectP, make_ref, from_ref, decref, incref,
     track_reference, make_typedescr, get_typedescr)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.objspace.std.tupleobject import W_TupleObject
@@ -63,7 +63,7 @@ def new_empty_tuple(space, length):
         p[i] = lltype.nullptr(PyObject.TO)
     return py_obj
 
-def tuple_attach(space, py_obj, w_obj):
+def tuple_attach(space, py_obj, w_obj, w_userdata=None):
     """
     Fills a newly allocated PyTupleObject with the given tuple object. The
     buffer must not be modified.
@@ -74,7 +74,7 @@ def tuple_attach(space, py_obj, w_obj):
     if py_tup.c_ob_size < length:
         raise oefmt(space.w_ValueError,
             "tuple_attach called on object with ob_size %d but trying to store %d",
-            py_tup.c_ob_size, length) 
+            py_tup.c_ob_size, length)
     i = 0
     try:
         while i < length:
@@ -113,7 +113,7 @@ def tuple_realize(space, py_obj):
     track_reference(space, py_obj, w_obj)
     return w_obj
 
-@cpython_api([PyObject], lltype.Void, header=None)
+@slot_function([PyObject], lltype.Void)
 def tuple_dealloc(space, py_obj):
     """Frees allocated PyTupleObject resources.
     """

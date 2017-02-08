@@ -5,6 +5,7 @@ from rpython.rtyper.lltypesystem import lltype, rstr, llmemory
 from rpython.rlib.rarithmetic import ovfcheck, r_longlong, is_valid_int
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib.debug import fatalerror
 from rpython.jit.metainterp.history import check_descr
 from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID, AbstractDescr
 from rpython.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
@@ -326,6 +327,10 @@ def do_copyunicodecontent(cpu, _, srcbox, dstbox,
 def do_keepalive(cpu, _, x):
     pass
 
+def do_assert_not_none(cpu, _, box):
+    if not box.getref_base():
+        fatalerror("found during JITting: ll_assert_not_none() failed")
+
 # ____________________________________________________________
 
 
@@ -412,19 +417,13 @@ def _make_execute_list():
                          rop.SAVE_EXC_CLASS,
                          rop.SAVE_EXCEPTION,
                          rop.RESTORE_EXCEPTION,
-                         rop.VEC_RAW_LOAD_I,
-                         rop.VEC_RAW_LOAD_F,
-                         rop.VEC_RAW_STORE,
-                         rop.VEC_GETARRAYITEM_RAW_I,
-                         rop.VEC_GETARRAYITEM_RAW_F,
-                         rop.VEC_SETARRAYITEM_RAW,
-                         rop.VEC_GETARRAYITEM_GC_I,
-                         rop.VEC_GETARRAYITEM_GC_F,
-                         rop.VEC_SETARRAYITEM_GC,
+                         rop.VEC_LOAD_I,
+                         rop.VEC_LOAD_F,
                          rop.GC_LOAD_I,
                          rop.GC_LOAD_R,
                          rop.GC_LOAD_F,
                          rop.GC_LOAD_INDEXED_R,
+                         rop.VEC_STORE,
                          rop.GC_STORE,
                          rop.GC_STORE_INDEXED,
                          rop.LOAD_FROM_GC_TABLE,

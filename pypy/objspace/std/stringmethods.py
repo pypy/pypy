@@ -548,6 +548,10 @@ class StringMethods(object):
 
         sub = self._op_val(space, w_old)
         by = self._op_val(space, w_new)
+        # the following two lines are for being bug-to-bug compatible
+        # with CPython: see issue #2448
+        if count >= 0 and len(input) == 0:
+            return self._empty()
         try:
             res = replace(input, sub, by, count)
         except OverflowError:
@@ -649,10 +653,10 @@ class StringMethods(object):
             return self._starts_ends_overflow(prefix)
         return endswith(value, prefix, start, end)
 
-    def _strip(self, space, w_chars, left, right):
+    def _strip(self, space, w_chars, left, right, name='strip'):
         "internal function called by str_xstrip methods"
         value = self._val(space)
-        chars = self._op_val(space, w_chars)
+        chars = self._op_val(space, w_chars, strict=name)
 
         lpos = 0
         rpos = len(value)
@@ -689,17 +693,17 @@ class StringMethods(object):
     def descr_strip(self, space, w_chars=None):
         if space.is_none(w_chars):
             return self._strip_none(space, left=1, right=1)
-        return self._strip(space, w_chars, left=1, right=1)
+        return self._strip(space, w_chars, left=1, right=1, name='strip')
 
     def descr_lstrip(self, space, w_chars=None):
         if space.is_none(w_chars):
             return self._strip_none(space, left=1, right=0)
-        return self._strip(space, w_chars, left=1, right=0)
+        return self._strip(space, w_chars, left=1, right=0, name='lstrip')
 
     def descr_rstrip(self, space, w_chars=None):
         if space.is_none(w_chars):
             return self._strip_none(space, left=0, right=1)
-        return self._strip(space, w_chars, left=0, right=1)
+        return self._strip(space, w_chars, left=0, right=1, name='rstrip')
 
     def descr_swapcase(self, space):
         selfvalue = self._val(space)

@@ -1,4 +1,5 @@
 from rpython.rlib.rstring import StringBuilder
+from rpython.rlib import objectmodel
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
@@ -25,12 +26,12 @@ class W_Reader(W_Root):
     def iter_w(self):
         return self.space.wrap(self)
 
+    @objectmodel.dont_inline
     def error(self, msg):
         space = self.space
         w_module = space.getbuiltinmodule('_csv')
         w_error = space.getattr(w_module, space.wrap('Error'))
         raise oefmt(w_error, "line %d: %s", self.line_num, msg)
-    error._dont_inline_ = True
 
     def add_char(self, field_builder, c):
         assert field_builder is not None

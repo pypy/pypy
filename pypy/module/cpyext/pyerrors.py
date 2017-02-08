@@ -150,12 +150,12 @@ def PyErr_SetFromErrnoWithFilename(space, w_type, llfilename):
     Return value: always NULL."""
     # XXX Doesn't actually do anything with PyErr_CheckSignals.
     if llfilename:
-        w_filename = rffi.charp2str(llfilename)
-        filename = space.wrap(w_filename)
+        filename = rffi.charp2str(llfilename)
+        w_filename = space.wrap(filename)
     else:
-        filename = space.w_None
+        w_filename = space.w_None
 
-    PyErr_SetFromErrnoWithFilenameObject(space, w_type, filename)
+    PyErr_SetFromErrnoWithFilenameObject(space, w_type, w_filename)
 
 @cpython_api([PyObject, PyObject], PyObject)
 @jit.dont_look_inside       # direct use of _get_errno()

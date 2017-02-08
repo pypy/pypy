@@ -9,7 +9,7 @@ from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.setobject import W_BaseSetObject
 from pypy.objspace.std.typeobject import MethodCache
 from pypy.objspace.std.mapdict import MapAttrCache
-from rpython.rlib import rposix, rgc
+from rpython.rlib import rposix, rgc, rstack
 
 
 def internal_repr(space, w_object):
@@ -86,7 +86,9 @@ def lookup_special(space, w_obj, meth):
         return space.w_None
     return space.get(w_descr, w_obj)
 
-def do_what_I_mean(space):
+def do_what_I_mean(space, w_crash=None):
+    if not space.is_none(w_crash):
+        raise ValueError    # RPython-level, uncaught
     return space.wrap(42)
 
 
@@ -188,3 +190,7 @@ def _promote(space, w_obj):
     else:
         jit.promote(w_obj)
     return w_obj
+
+def stack_almost_full(space):
+    """Return True if the stack is more than 15/16th full."""
+    return space.wrap(rstack.stack_almost_full())

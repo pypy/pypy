@@ -1190,6 +1190,20 @@ class AppTestWithMapDictAndCounters(object):
         got = a.method()
         assert got == 43
 
+    def test_dict_order(self):
+        # the __dict__ order is not strictly enforced, but in
+        # simple cases like that, we want to follow the order of
+        # creation of the attributes
+        class A(object):
+            pass
+        a = A()
+        a.x = 5
+        a.z = 6
+        a.y = 7
+        assert list(a.__dict__) == ['x', 'z', 'y']
+        assert a.__dict__.values() == [5, 6, 7]
+        assert list(a.__dict__.iteritems()) == [('x', 5), ('z', 6), ('y', 7)]
+
     def test_bug_method_change(self):
         class A(object):
             def method(self):

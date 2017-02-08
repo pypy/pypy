@@ -129,9 +129,9 @@ class AppTestPosix:
         assert st[4] == st.st_uid
         assert st[5] == st.st_gid
         assert st[6] == st.st_size
-        assert st[7] == int(st.st_atime)
-        assert st[8] == int(st.st_mtime)
-        assert st[9] == int(st.st_ctime)
+        assert st[7] == int(st.st_atime)   # in complete corner cases, rounding
+        assert st[8] == int(st.st_mtime)   # here could maybe get the wrong
+        assert st[9] == int(st.st_ctime)   # integer...
 
         assert stat.S_IMODE(st.st_mode) & stat.S_IRUSR
         assert stat.S_IMODE(st.st_mode) & stat.S_IWUSR
@@ -141,13 +141,12 @@ class AppTestPosix:
         assert st.st_size == 14
         assert st.st_nlink == 1
 
-        #if sys.platform.startswith('linux'):
-        #    # expects non-integer timestamps - it's unlikely that they are
-        #    # all three integers
-        #    assert ((st.st_atime, st.st_mtime, st.st_ctime) !=
-        #            (st[7],       st[8],       st[9]))
-        #    assert st.st_blksize * st.st_blocks >= st.st_size
+        assert not hasattr(st, 'nsec_atime')
+
         if sys.platform.startswith('linux'):
+            assert isinstance(st.st_atime, float)
+            assert isinstance(st.st_mtime, float)
+            assert isinstance(st.st_ctime, float)
             assert hasattr(st, 'st_rdev')
 
     def test_stat_float_times(self):
@@ -160,11 +159,14 @@ class AppTestPosix:
             st = posix.stat(path)
             assert isinstance(st.st_mtime, float)
             assert st[7] == int(st.st_atime)
+            assert posix.stat_float_times(-1) is True
 
             posix.stat_float_times(False)
             st = posix.stat(path)
             assert isinstance(st.st_mtime, (int, long))
             assert st[7] == st.st_atime
+            assert posix.stat_float_times(-1) is False
+
         finally:
             posix.stat_float_times(current)
 
@@ -1016,7 +1018,8 @@ class AppTestPosix:
             pid1, status1 = os.waitpid(pid, 0)
             assert pid1 == pid
             assert os.WIFEXITED(status1)
-            assert os.WEXITSTATUS(status1) == myprio + 3
+            expected = min(myprio + 3, 19)
+            assert os.WEXITSTATUS(status1) == expected
 
     if hasattr(os, 'symlink'):
         def test_symlink(self):
@@ -1157,12 +1160,19 @@ class AppTestEnvironment(object):
     def setup_class(cls):
         cls.w_path = space.wrap(str(path))
 
-    def test_environ(self):
-        import posix
-        assert posix.environ['PATH']
-        del posix.environ['PATH']
-        def fn(): posix.environ['PATH']
-        raises(KeyError, fn)
+    if sys.platform != 'win32':
+        def test_environ(self):
+            import posix
+            assert posix.environ['PATH']
+            del posix.environ['PATH']
+            def fn(): posix.environ['PATH']
+            raises(KeyError, fn)
+    else:
+        def test_environ(self):
+            import nt
+            assert 'ADLDJSSLDFKJSD' not in nt.environ
+            def fn(): nt.environ['ADLDJSSLDFKJSD']
+            raises(KeyError, fn)
 
     if hasattr(__import__(os.name), "unsetenv"):
         def test_unsetenv_nonexisting(self):
@@ -1184,6 +1194,8 @@ class AppTestEnvironment(object):
 
 class AppTestPosixUnicode:
     def setup_class(cls):
+        if sys.platform == 'win32':
+            py.test.skip("Posix-only tests")
         if cls.runappdirect:
             # Can't change encoding
             try:

@@ -124,8 +124,8 @@ def test_socketpair_inheritable():
         py.test.skip('No socketpair on Windows')
     for inh in [False, True]:
         s1, s2 = socketpair(inheritable=inh)
-        assert rposix.get_inheritable(s1.fd) == inh
-        assert rposix.get_inheritable(s2.fd) == inh
+        assert sock_get_inheritable(s1.fd) == inh
+        assert sock_get_inheritable(s2.fd) == inh
         s1.close()
         s2.close()
 
@@ -320,7 +320,7 @@ def test_simple_udp():
     s2.bind(INETAddress('127.0.0.1', INADDR_ANY))
     addr2 = s2.getsockname()
 
-    s1.sendto('?', 0, addr2)
+    s1.sendto('?', 1, 0, addr2)
     buf = s2.recv(100)
     assert buf == '?'
     s2.connect(addr)
@@ -391,7 +391,7 @@ def test_nonblocking():
 def test_inheritable():
     for inh in [False, True]:
         s1 = RSocket(inheritable=inh)
-        assert rposix.get_inheritable(s1.fd) == inh
+        assert sock_get_inheritable(s1.fd) == inh
         s1.close()
 
 def test_getaddrinfo_http():

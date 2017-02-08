@@ -32,6 +32,7 @@ from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper import rclass
 from rpython.jit.backend.arm import callbuilder
 from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib.rjitlog import rjitlog as jl
 
 
 class ArmGuardToken(GuardToken):
@@ -377,7 +378,13 @@ class ResOpAssembler(BaseAssembler):
         return fcond
 
     def emit_op_cond_call(self, op, arglocs, regalloc, fcond):
-        [call_loc] = arglocs
+        call_loc = arglocs[0]
+        if len(arglocs) == 2:
+            res_loc = arglocs[1]     # cond_call_value
+        else:
+            res_loc = None           # cond_call
+        # useless to list res_loc in the gcmap, because if the call is
+        # done it means res_loc was initially NULL
         gcmap = regalloc.get_gcmap([call_loc])
 
         assert call_loc is r.r4
@@ -398,8 +405,13 @@ class ResOpAssembler(BaseAssembler):
                 floats = True
         cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
         self.mc.BL(cond_call_adr)
+        # if this is a COND_CALL_VALUE, we need to move the result in place
+        # from its current location (which is, unusually, in r4: see
+        # cond_call_slowpath)
+        if res_loc is not None and res_loc is not r.r4:
+            self.mc.MOV_rr(res_loc.value, r.r4.value)
+        #
         self.pop_gcmap(self.mc)
-        # never any result value
         cond = c.get_opposite_of(self.guard_success_cc)
         self.guard_success_cc = c.cond_none
         pmc = OverwritingBuilder(self.mc, jmp_adr, WORD)
@@ -408,6 +420,9 @@ class ResOpAssembler(BaseAssembler):
         # guard_no_exception too
         self.previous_cond_call_jcond = jmp_adr, cond
         return fcond
+
+    emit_op_cond_call_value_i = emit_op_cond_call
+    emit_op_cond_call_value_r = emit_op_cond_call
 
     def emit_op_jump(self, op, arglocs, regalloc, fcond):
         target_token = op.getdescr()
@@ -1033,6 +1048,8 @@ class ResOpAssembler(BaseAssembler):
         mc = InstrBuilder(self.cpu.cpuinfo.arch_version)
         mc.B(target)
         mc.copy_to_raw_memory(oldadr)
+        #
+        jl.redirect_assembler(oldlooptoken, newlooptoken, newlooptoken.number)
 
     def emit_op_guard_not_forced(self, op, arglocs, regalloc, fcond):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')

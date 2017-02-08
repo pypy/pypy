@@ -2,6 +2,8 @@ import sys
 
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.module.imp.importing import get_pyc_magic
+from rpython.rlib import rtime
+
 
 class BuildersModule(MixedModule):
     appleveldefs = {}
@@ -14,16 +16,11 @@ class BuildersModule(MixedModule):
 class TimeModule(MixedModule):
     appleveldefs = {}
     interpleveldefs = {}
-    if sys.platform.startswith("linux") or 'bsd' in sys.platform:
-        from pypy.module.__pypy__ import interp_time
+    if rtime.HAS_CLOCK_GETTIME:
         interpleveldefs["clock_gettime"] = "interp_time.clock_gettime"
         interpleveldefs["clock_getres"] = "interp_time.clock_getres"
-        for name in [
-            "CLOCK_REALTIME", "CLOCK_MONOTONIC", "CLOCK_MONOTONIC_RAW",
-            "CLOCK_PROCESS_CPUTIME_ID", "CLOCK_THREAD_CPUTIME_ID"
-        ]:
-            if getattr(interp_time, name) is not None:
-                interpleveldefs[name] = "space.wrap(interp_time.%s)" % name
+        for name in rtime.ALL_DEFINED_CLOCKS:
+            interpleveldefs[name] = "space.wrap(%d)" % getattr(rtime, name)
 
 
 class ThreadModule(MixedModule):
@@ -82,6 +79,8 @@ class Module(MixedModule):
         'add_memory_pressure'       : 'interp_magic.add_memory_pressure',
         'newdict'                   : 'interp_dict.newdict',
         'reversed_dict'             : 'interp_dict.reversed_dict',
+        'delitem_if_value_is'       : 'interp_dict.delitem_if_value_is',
+        'move_to_end'               : 'interp_dict.move_to_end',
         'strategy'                  : 'interp_magic.strategy',  # dict,set,list
         'specialized_zip_2_lists'   : 'interp_magic.specialized_zip_2_lists',
         'set_debug'                 : 'interp_magic.set_debug',
@@ -91,6 +90,7 @@ class Module(MixedModule):
                           'interp_magic.save_module_content_for_future_reload',
         'decode_long'               : 'interp_magic.decode_long',
         '_promote'                   : 'interp_magic._promote',
+        'stack_almost_full'         : 'interp_magic.stack_almost_full',
     }
     if sys.platform == 'win32':
         interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'

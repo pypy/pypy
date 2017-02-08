@@ -79,9 +79,19 @@ BOM64_BE = BOM_UTF32_BE
 ### Codec base classes (defining the API)
 
 class CodecInfo(tuple):
+    """Codec details when looking up the codec registry"""
+
+    # Private API to allow Python to blacklist the known non-Unicode
+    # codecs in the standard library. A more general mechanism to
+    # reliably distinguish test encodings from other codecs will hopefully
+    # be defined for Python 3.5
+    #
+    # See http://bugs.python.org/issue19619
+    _is_text_encoding = True # Assume codecs are text encodings by default
 
     def __new__(cls, encode, decode, streamreader=None, streamwriter=None,
-        incrementalencoder=None, incrementaldecoder=None, name=None):
+        incrementalencoder=None, incrementaldecoder=None, name=None,
+        _is_text_encoding=None):
         self = tuple.__new__(cls, (encode, decode, streamreader, streamwriter))
         self.name = name
         self.encode = encode
@@ -90,6 +100,8 @@ class CodecInfo(tuple):
         self.incrementaldecoder = incrementaldecoder
         self.streamwriter = streamwriter
         self.streamreader = streamreader
+        if _is_text_encoding is not None:
+            self._is_text_encoding = _is_text_encoding
         return self
 
     def __repr__(self):
@@ -126,8 +138,8 @@ class Codec:
             'strict' handling.
 
             The method may not store state in the Codec instance. Use
-            StreamCodec for codecs which have to keep state in order to
-            make encoding/decoding efficient.
+            StreamWriter for codecs which have to keep state in order to
+            make encoding efficient.
 
             The encoder must be able to handle zero length input and
             return an empty object of the output object type in this
@@ -149,8 +161,8 @@ class Codec:
             'strict' handling.
 
             The method may not store state in the Codec instance. Use
-            StreamCodec for codecs which have to keep state in order to
-            make encoding/decoding efficient.
+            StreamReader for codecs which have to keep state in order to
+            make decoding efficient.
 
             The decoder must be able to handle zero length input and
             return an empty object of the output object type in this
@@ -240,7 +252,7 @@ class IncrementalDecoder(object):
     """
     def __init__(self, errors='strict'):
         """
-        Creates a IncrementalDecoder instance.
+        Creates an IncrementalDecoder instance.
 
         The IncrementalDecoder may use different error handling schemes by
         providing the errors keyword argument. See the module docstring
@@ -1000,7 +1012,7 @@ def iterencode(iterator, encoding, errors='strict', **kwargs):
     """
     Encoding iterator.
 
-    Encodes the input strings from the iterator using a IncrementalEncoder.
+    Encodes the input strings from the iterator using an IncrementalEncoder.
 
     errors and kwargs are passed through to the IncrementalEncoder
     constructor.
@@ -1018,7 +1030,7 @@ def iterdecode(iterator, encoding, errors='strict', **kwargs):
     """
     Decoding iterator.
 
-    Decodes the input strings from the iterator using a IncrementalDecoder.
+    Decodes the input strings from the iterator using an IncrementalDecoder.
 
     errors and kwargs are passed through to the IncrementalDecoder
     constructor.
