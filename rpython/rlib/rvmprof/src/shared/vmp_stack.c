@@ -138,7 +138,7 @@ int _write_native_stack(void* addr, void ** result, int depth) {
 #endif
 
 int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
-                              int max_depth, int native_skip, intptr_t pc) {
+                              int max_depth, intptr_t pc) {
 
     // called in signal handler
 #ifdef VMP_SUPPORTS_NATIVE_PROFILING
@@ -155,15 +155,17 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
     int ret = unw_init_local(&cursor, &uc);
     if (ret < 0) {
         // could not initialize lib unwind cursor and context
-        return -1;
+        return 0;
     }
 
-    while (native_skip > 0) {
+    while (1) {
+        if (unw_is_signal_frame(&cursor)) {
+            break;
+        }
         int err = unw_step(&cursor);
         if (err <= 0) {
             return 0;
         }
-        native_skip--;
     }
 
     //printf("stack trace:\n");
@@ -209,31 +211,39 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
 #else
             {
 #endif
-                if (top_most_frame == NULL) {
-                    break;
+                if (top_most_frame != NULL) {
+                    top_most_frame = _write_python_stack_entry(top_most_frame, result, &depth);
+                } else {
+                    // Signals can occur at the two places (1) and (2), that will
+                    // have added a stack entry, but the function __vmprof_eval_vmprof
+                    // is not entered. This behaviour will swallow one Python stack frames
+                    //
+                    // (1) PyPy: enter_code happened, but __vmprof_eval_vmprof was not called
+                    // (2) PyPy: __vmprof_eval_vmprof was returned, but exit_code was not called
+                    //
+                    // destroy this sample, as it would display a strage sample
+                    return 0;
                 }
-                top_most_frame = _write_python_stack_entry(top_most_frame, result, &depth);
             }
         } else if (vmp_ignore_ip((intptr_t)func_addr)) {
-            // this is an instruction pointer that should be ignored,
+            // this is an instruction pointer that should be ignored
             // (that is any function name in the mapping range of
-            //  cpython, but of course not extenstions in site-packages))
-            //printf("ignoring %s\n", info.dli_sname);
+            //  cpython or libpypy-c.so, but of course not
+            //  extenstions in site-packages)
         } else {
             // mark native routines with the first bit set,
             // this is possible because compiler align to 8 bytes.
             //
-
 #ifdef PYPY_JIT_CODEMAP
             if (func_addr == 0 && top_most_frame->kind == VMPROF_JITTED_TAG) {
                 intptr_t pc = ((intptr_t*)(frame->value - sizeof(intptr_t)))[0];
-                n = vmprof_write_header_for_jit_addr(result, n, pc, max_depth);
+                depth = vmprof_write_header_for_jit_addr(result, depth, pc, max_depth);
                 frame = FRAME_STEP(frame);
-            } else if (func_addr != 0) {
+            } else if (func_addr != 0x0) {
                 depth = _write_native_stack((void*)(func_addr | 0x1), result, depth);
             }
 #else
-            if (func_addr != 0) {
+            if (func_addr != 0x0) {
                 depth = _write_native_stack((void*)(func_addr | 0x1), result, depth);
             }
 #endif
@@ -241,8 +251,10 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
 
         int err = unw_step(&cursor);
         if (err == 0) {
+            //printf("sample ended\n");
             break;
         } else if (err < 0) {
+            //printf("sample is broken\n");
             return 0; // this sample is broken, cannot walk it fully
         }
     }

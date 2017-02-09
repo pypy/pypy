@@ -151,7 +151,7 @@ def test_enable():
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.lltypesystem import rffi, lltype
 def test_native():
-    eci = ExternalCompilationInfo(compile_extra=['-g','-O2'],
+    eci = ExternalCompilationInfo(compile_extra=['-g','-O1'],
             separate_module_sources=["""
             RPY_EXTERN int native_func(void) {
                 int j = 0;
@@ -209,10 +209,24 @@ def test_native():
         tree = prof.get_tree()
         p = PrettyPrinter()
         p._print_tree(tree)
-        assert tree.name.startswith("n:pypy_g_main")
+        def walk(tree, symbols):
+            symbols.append(tree.name)
+            if len(tree.children) == 0:
+                return
+            assert len(tree.children) == 1
+            for child in tree.children.values():
+                walk(child, symbols)
+        symbols = []
+        walk(tree, symbols)
+        not_found = ['n:pypy_g_main', 'n:native_func', 'n:pypy_g_f',
+            'n:pypy_g_main']
+        for sym in symbols:
+            for i,name in enumerate(not_found):
+                if sym.startswith(name):
+                    del not_found[i]
+                    break
+        assert not_found == []
 
-    #assert f() == 0
-    #assert os.path.exists(tmpfilename)
     fn = compile(f, [], gcpolicy="minimark")
     assert fn() == 0
     try:

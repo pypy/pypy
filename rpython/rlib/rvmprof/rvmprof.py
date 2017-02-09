@@ -204,11 +204,21 @@ def vmprof_execute_code(name, get_code_fn, result_class=None,
             unique_id = get_code_fn(*args)._vmprof_unique_id
             unique_id = rffi.cast(lltype.Signed, unique_id)
             # ^^^ removes the "known non-negative" hint for annotation
+            #
+            # Signals can occur at the two places (1) and (2), that will
+            # have added a stack entry, but the function __vmprof_eval_vmprof
+            # is not entered. This behaviour will swallow one Python stack frame
+            #
+            # Current fix: vmprof will discard this sample. those happen
+            # very infrequent
+            #
             if not jit.we_are_jitted():
                 x = enter_code(unique_id)
+                # (1) signal here
                 try:
                     return func(*args)
                 finally:
+                    # (2) signal here
                     leave_code(x)
             else:
                 return decorated_jitted_function(unique_id, *args)

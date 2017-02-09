@@ -347,7 +347,7 @@ void dump_native_symbols(int fileno)
     ssize_t count;
     int version;
     int flags;
-    int memory, lines, native;
+    int memory = 0, lines = 0, native = 0;
     orig_pos = lseek(fileno, 0, SEEK_CUR);
 
     lseek(fileno, 5*WORD_SIZE, SEEK_SET);

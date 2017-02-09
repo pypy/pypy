@@ -101,15 +101,7 @@ int get_stack_trace(PY_THREAD_STATE_T * current, void** result, int max_depth, i
     }
     frame = current->frame;
 #endif
-    // skip over
-    // _sigtramp
-    // sigprof_handler
-    // vmp_walk_and_record_stack
-#ifdef __unix__
-    return vmp_walk_and_record_stack(frame, result, max_depth, 4, pc);
-#else
-    return vmp_walk_and_record_stack(frame, result, max_depth, 3, pc);
-#endif
+    return vmp_walk_and_record_stack(frame, result, max_depth, pc);
 }
 
 /* *************************************************************
