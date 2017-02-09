@@ -6,8 +6,8 @@ long pypy_yield_codemap_at_addr(void *codemap_raw, long addr,
 
 #define MAX_INLINE_DEPTH  384
 
-static long vmprof_write_header_for_jit_addr(intptr_t *result, long n,
-                                             intptr_t addr, int max_depth)
+long vmprof_write_header_for_jit_addr(intptr_t *result, long n,
+                                      intptr_t addr, int max_depth)
 {
 #ifdef PYPY_JIT_CODEMAP
     void *codemap;

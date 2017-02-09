@@ -138,7 +138,7 @@ int _write_native_stack(void* addr, void ** result, int depth) {
 #endif
 
 int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
-                              int max_depth, intptr_t pc) {
+                              int max_depth, int signal, intptr_t pc) {
 
     // called in signal handler
 #ifdef VMP_SUPPORTS_NATIVE_PROFILING
@@ -158,7 +158,7 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
         return 0;
     }
 
-    while (1) {
+    while (signal) {
         if (unw_is_signal_frame(&cursor)) {
             break;
         }
