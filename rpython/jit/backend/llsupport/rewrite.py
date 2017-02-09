@@ -981,10 +981,8 @@ class GcRewriterAssembler(object):
         from rpython.jit.backend.llsupport import guard_compat
         # don't use _gcref_index here: we need our own index for
         # the _backend_choices object
-        c = op.getarg(1)
-        assert isinstance(c, ConstPtr)
         descr = op.getdescr()
-        bchoices = guard_compat.initial_bchoices(descr, c.value)
+        bchoices = guard_compat.initial_bchoices(descr)
         bcindex = len(self.gcrefs_output_list)
         gcref = lltype.cast_opaque_ptr(llmemory.GCREF, bchoices)
         self.gcrefs_output_list.append(gcref)

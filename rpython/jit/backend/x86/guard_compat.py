@@ -126,8 +126,10 @@ from rpython.jit.backend.llsupport.guard_compat import _real_number
 #     JMP *[RSP+array_element_2]         # may jump to guard_compat_recovery
 #
 #
-# invoke_find_compatible(bchoices, new_gcref, jitframe):
+# invoke_find_compatible(p_arg, jitframe):
 #     IN PSEUDO-CODE:
+#     bchoices = p_arg[0]
+#     new_gcref = p_arg[1]
 #     result = bchoices.bc_faildescr.find_compatible(cpu, new_gcref)
 #     if result == 0:
 #         result = descr._backend_failure_recovery
@@ -183,7 +185,6 @@ def build_once_search_tree(assembler):
 
     mc = codebuf.MachineCodeBlockWrapper()
     mc.force_frame_size(frame_size)
-    mc.INT3()
     if IS_X86_32:    # save edi as an extra scratch register
         XXX
         mc.MOV_sr(3*WORD, rdi)
@@ -240,20 +241,21 @@ def build_once_search_tree(assembler):
         mc.MOV_rs(rdi, 3*WORD)
 
     # The _backend_choices object is still referenced from [RSP+16]
-    # (which becomes [RSP+8] after the POP), where it is the first of a
-    # two-words array passed as argument to invoke_find_compatible().
-    # The second word is the value, from RAX, which we store now.
-    mc.MOV_sr(3*WORD, rax)                  # MOV [RSP+24], RAX
+    # (which becomes [RSP+8] after the POP), where it is the second of a
+    # three-words array passed as argument to invoke_find_compatible().
+    # The first word is the value, from RAX, which we store in (*)
+    # below.
 
     # restore RAX and RCX
     mc.MOV_rs(rcx, 1*WORD)                  # MOV RCX, [RSP+8]
+    mc.MOV_sr(1*WORD, rax)                  # MOV [RSP+8], RAX   (*)
     mc.POP_r(rax)                           # POP RAX
 
     # save all registers to the jitframe RBP
     assembler._push_all_regs_to_frame(mc, [], withfloats=True)
 
     if IS_X86_64:
-        mc.LEA_rs(rdi, 2 * WORD)            # LEA RDI, [RSP+8]
+        mc.MOV_rr(rdi, regloc.esp.value)    # MOV RDI, RSP
         mc.MOV_rr(regloc.esi.value,         # MOV RSI, RBP
                   regloc.ebp.value)
     elif IS_X86_32:
@@ -273,13 +275,13 @@ def build_once_search_tree(assembler):
     # restore them all.
     assembler._pop_all_regs_from_frame(mc, [], withfloats=True)
 
-    # jump to 'array_element_2'.  In case this goes to
-    # guard_compat_recovery, we also reload the _backend_choices
-    # object from 'array_element_1' (the GC may have moved it, or
-    # it may be a completely new object).
+    # jump to the result, which is passed as the third word of the
+    # array.  In case this goes to guard_compat_recovery, we also reload
+    # the _backend_choices object from the second word of the array (the
+    # GC may have moved it, or it may be a completely new object).
     if IS_X86_64:
-        mc.MOV_rs(r11, 1*WORD)              # MOV R11, [RSP+8]
-        mc.JMP_s(2*WORD)                    # JMP *[RSP+16]
+        mc.MOV_rs(r11, 0)                   # MOV R11, [RSP]
+        mc.JMP_s(2 * WORD)                  # JMP *[RSP+16]
     elif IS_X86_32:
         XXX
         mc.JMP_s(0)

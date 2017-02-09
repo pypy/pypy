@@ -32,14 +32,16 @@ def test_guard_compat():
     mc.SUB(regloc.esp, regloc.imm(144 - 2*WORD)) # make a frame, and align stack
     mc.MOV(regloc.ebp, regloc.ecx)
     #
+    mc.MOV(regloc.ecx, regloc.imm(0xdddd))
     mc.PUSH(regloc.imm(0xaaaa))
     # jump to guard_compat_search_tree, but carefully: don't overwrite R11
     mc.MOV(regloc.esi, regloc.imm(cpu.assembler.guard_compat_search_tree))
     mc.JMP_r(regloc.esi.value)
+    mc.INT3()
     sequel = mc.get_relative_pos()
     #
     mc.force_frame_size(144)
-    mc.SUB(regloc.eax, regloc.edx)
+    mc.SUB(regloc.eax, regloc.ecx)
     mc.ADD(regloc.esp, regloc.imm(144 - 2*WORD))
     mc.POP(regloc.ebp)
     mc.RET()
@@ -61,8 +63,7 @@ def test_guard_compat():
         rawstart + 4 * WORD)
 
     guard_compat_descr = GuardCompatibleDescr()
-    bchoices = initial_bchoices(guard_compat_descr,
-                                rffi.cast(llmemory.GCREF, 111111))
+    bchoices = initial_bchoices(guard_compat_descr)
     llop.raw_store(lltype.Void, rawstart, 3 * WORD, bchoices)
 
     class FakeGuardToken:
@@ -77,6 +78,10 @@ def test_guard_compat():
                            lambda index: rawstart + index * WORD,
                            lltype.nullptr(llmemory.GCREF.TO),
                            9999)
+
+    # fill in the first choice manually
+    bchoices.bc_list[0].gcref = r_uint(111111)
+    bchoices.bc_list[0].asmaddr = rawstart + sequel
 
     # ---- ready ----
 

@@ -97,24 +97,29 @@ def gcref_to_unsigned(gcref):
     return rffi.cast(lltype.Unsigned, gcref)
 
 
+P_ARG = lltype.Struct('P_ARG', ('new_gcref', llmemory.GCREF),
+                               ('bchoices', lltype.Ptr(BACKEND_CHOICES)),
+                               ('jump_to', lltype.Signed))
+
 INVOKE_FIND_COMPATIBLE_FUNC = lltype.Ptr(lltype.FuncType(
-                [lltype.Ptr(BACKEND_CHOICES), llmemory.GCREF,
-                 lltype.Ptr(jitframe.JITFRAME)],
+                [lltype.Ptr(P_ARG), lltype.Ptr(jitframe.JITFRAME)],
                 lltype.Signed))
 
 @specialize.memo()
 def make_invoke_find_compatible(cpu):
-    def invoke_find_compatible(bchoices, new_gcref, jitframe):
+    def invoke_find_compatible(p_arg, jitframe):
+        bchoices = p_arg.bchoices
+        new_gcref = p_arg.new_gcref
         descr = bchoices.bc_faildescr
         descr = cast_gcref_to_instance(GuardCompatibleDescr, descr)
         try:
-            jitframe.jf_gcmap = descr._backend_gcmap
+            jitframe.jf_gcmap = bchoices.bc_gcmap
             result = descr.find_compatible(cpu, new_gcref)
             if result == 0:
-                result = descr._backend_failure_recovery
+                result = cpu.assembler.guard_compat_recovery
             else:
                 if result == -1:
-                    result = descr._backend_sequel_label
+                    result = descr.adr_jump_offset
                 bchoices = add_in_tree(bchoices, new_gcref, result)
                 # ---no GC operation---
                 choices_addr = descr._backend_choices_addr  # GC table
@@ -129,9 +134,10 @@ def make_invoke_find_compatible(cpu):
             if not we_are_translated():
                 import sys, pdb
                 pdb.post_mortem(sys.exc_info()[2])
-            result = descr._backend_failure_recovery
+            result = cpu.assembler.guard_compat_recovery
         jitframe.jf_gcmap = lltype.nullptr(lltype.typeOf(jitframe.jf_gcmap).TO)
-        return result
+        p_arg.bchoices = bchoices
+        p_arg.jump_to = result
     return invoke_find_compatible
 
 def add_in_tree(bchoices, new_gcref, new_asmaddr):
@@ -175,7 +181,7 @@ def add_in_tree(bchoices, new_gcref, new_asmaddr):
     pairs_quicksort(addr, length)
     return bchoices
 
-def initial_bchoices(guard_compat_descr, initial_gcref):
+def initial_bchoices(guard_compat_descr):
     bchoices = lltype.malloc(BACKEND_CHOICES, 1)
     bchoices.bc_faildescr = cast_instance_to_gcref(guard_compat_descr)
     bchoices.bc_gc_table_tracer = lltype.nullptr(llmemory.GCREF.TO)   # (*)
