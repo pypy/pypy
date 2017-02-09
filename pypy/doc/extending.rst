@@ -14,7 +14,7 @@ directly useful to most messy to use with PyPy):
 
 * Write them in C++ and bind them through  :doc:`cppyy <cppyy>` using Cling.
 
-* Write them in as `RPython mixed modules`_.
+* Write them as `RPython mixed modules`_.
 
 
 CFFI

@@ -462,7 +462,12 @@ class FFI(object):
         field or array item in the structure or array, recursively in
         case of nested structures.
         """
-        ctype = self._backend.typeof(cdata)
+        try:
+            ctype = self._backend.typeof(cdata)
+        except TypeError:
+            if '__addressof__' in type(cdata).__dict__:
+                return type(cdata).__addressof__(cdata, *fields_or_indexes)
+            raise
         if fields_or_indexes:
             ctype, offset = self._typeoffsetof(ctype, *fields_or_indexes)
         else:
@@ -775,10 +780,7 @@ def _make_ffi_library(ffi, libname, flags):
         key = 'function ' + name
         tp, _ = ffi._parser._declarations[key]
         BType = ffi._get_cached_btype(tp)
-        try:
-            value = backendlib.load_function(BType, name)
-        except KeyError as e:
-            raise AttributeError('%s: %s' % (name, e))
+        value = backendlib.load_function(BType, name)
         library.__dict__[name] = value
     #
     def accessor_variable(name):
@@ -791,6 +793,21 @@ def _make_ffi_library(ffi, libname, flags):
             lambda self: read_variable(BType, name),
             lambda self, value: write_variable(BType, name, value)))
     #
+    def addressof_var(name):
+        try:
+            return addr_variables[name]
+        except KeyError:
+            with ffi._lock:
+                if name not in addr_variables:
+                    key = 'variable ' + name
+                    tp, _ = ffi._parser._declarations[key]
+                    BType = ffi._get_cached_btype(tp)
+                    if BType.kind != 'array':
+                        BType = model.pointer_cache(ffi, BType)
+                    p = backendlib.load_function(BType, name)
+                    addr_variables[name] = p
+            return addr_variables[name]
+    #
     def accessor_constant(name):
         raise NotImplementedError("non-integer constant '%s' cannot be "
                                   "accessed from a dlopen() library" % (name,))
@@ -800,6 +817,7 @@ def _make_ffi_library(ffi, libname, flags):
     #
     accessors = {}
     accessors_version = [False]
+    addr_variables = {}
     #
     def update_accessors():
         if accessors_version[0] is ffi._cdef_version:
@@ -850,6 +868,18 @@ def _make_ffi_library(ffi, libname, flags):
             with ffi._lock:
                 update_accessors()
                 return accessors.keys()
+        def __addressof__(self, name):
+            if name in library.__dict__:
+                return library.__dict__[name]
+            if name in FFILibrary.__dict__:
+                return addressof_var(name)
+            make_accessor(name)
+            if name in library.__dict__:
+                return library.__dict__[name]
+            if name in FFILibrary.__dict__:
+                return addressof_var(name)
+            raise AttributeError("cffi library has no function or "
+                                 "global variable named '%s'" % (name,))
     #
     if libname is not None:
         try:
