@@ -18,22 +18,12 @@
 #endif
 
 
-void * g_symbol = 0;
-
+#ifdef RPYTHON_LL2CTYPES
+#define IS_VMPROF_EVAL(ptr) 0
+#else
+extern void * __vmprof_eval_vmprof;
 int IS_VMPROF_EVAL(void * ptr)
 {
-#ifdef RPYTHON_LL2CTYPES
-    return 0;
-#else
-
-    if (g_symbol == NULL) {
-        g_symbol = dlsym(RTLD_GLOBAL, "__vmprof_eval_vmprof");
-        if (g_symbol == NULL) {
-            fprintf(stderr, "symbol __vmprof_eval_vmprof could not be found\n");
-            exit(-1);
-        }
-    }
-
-    return ptr == g_symbol;
-#endif
+    return ptr == __vmprof_eval_vmprof;
 }
+#endif

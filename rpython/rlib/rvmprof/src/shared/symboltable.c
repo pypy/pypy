@@ -390,10 +390,11 @@ void dump_native_symbols(int fileno)
             } case MARKER_STACKTRACE: {
                 long trace_count = _read_word(fileno);
                 long depth = _read_word(fileno);
+                long i;
 
                 LOG("stack 0x%llx %d %d\n", cur_pos, trace_count, depth);
 
-                for (long i = depth/2-1; i >= 0; i--) {
+                for (i = depth/2-1; i >= 0; i--) {
                     long kind = (long)_read_addr(fileno);
                     void * addr = _read_addr(fileno);
                     if (kind == VMPROF_NATIVE_TAG) {

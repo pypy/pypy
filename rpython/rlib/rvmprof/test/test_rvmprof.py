@@ -213,7 +213,6 @@ def test_native():
             symbols.append(tree.name)
             if len(tree.children) == 0:
                 return
-            assert len(tree.children) == 1
             for child in tree.children.values():
                 walk(child, symbols)
         symbols = []

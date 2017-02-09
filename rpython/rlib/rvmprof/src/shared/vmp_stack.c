@@ -105,6 +105,12 @@ static PY_STACK_FRAME_T * _write_python_stack_entry(PY_STACK_FRAME_T * frame, vo
         result[n++] = (void*)frame->value;
         *depth = n;
     }
+#ifdef PYPY_JIT_CODEMAP
+    else if (frame->kind == VMPROF_JITTED_TAG) {
+        intptr_t pc = ((intptr_t*)(frame->value - sizeof(intptr_t)))[0];
+        *depth = vmprof_write_header_for_jit_addr(result, *depth, pc, max_depth);
+    }
+#endif
 
 
 #endif
@@ -236,7 +242,7 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
             //
 #ifdef PYPY_JIT_CODEMAP
             if (func_addr == 0 && top_most_frame->kind == VMPROF_JITTED_TAG) {
-                intptr_t pc = ((intptr_t*)(frame->value - sizeof(intptr_t)))[0];
+                intptr_t pc = ((intptr_t*)(top_most_frame->value - sizeof(intptr_t)))[0];
                 depth = vmprof_write_header_for_jit_addr(result, depth, pc, max_depth);
                 frame = FRAME_STEP(frame);
             } else if (func_addr != 0x0) {
