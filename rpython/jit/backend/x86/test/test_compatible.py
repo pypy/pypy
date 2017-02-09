@@ -19,39 +19,42 @@ def test_guard_compat():
         mc.writechar('\x00')   # 4 gctable entries; 'bchoices' will be #3
     #
     if IS_X86_64:
-        mc.MOV(regloc.ecx, regloc.edx)
-        mc.MOV(regloc.edx, regloc.edi)
-        mc.MOV(regloc.eax, regloc.esi)
+        mc.MOV(regloc.ecx, regloc.edx)    # jitframe
+        mc.MOV(regloc.r11, regloc.edi)    # _backend_choices
+        mc.MOV(regloc.eax, regloc.esi)    # guarded value
     elif IS_X86_32:
+        XXX
         mc.MOV_rs(regloc.edx.value, 4)
         mc.MOV_rs(regloc.eax.value, 8)
         mc.MOV_rs(regloc.ecx.value, 12)
     #
     mc.PUSH(regloc.ebp)
-    mc.SUB(regloc.esp, regloc.imm(148 - 2*WORD)) # make a frame, and align stack
+    mc.SUB(regloc.esp, regloc.imm(144 - 2*WORD)) # make a frame, and align stack
     mc.MOV(regloc.ebp, regloc.ecx)
     #
-    mc.PUSH(regloc.imm(0xdddd))
     mc.PUSH(regloc.imm(0xaaaa))
-    mc.JMP(regloc.imm(cpu.assembler.guard_compat_search_tree))
+    # jump to guard_compat_search_tree, but carefully: don't overwrite R11
+    mc.MOV(regloc.esi, regloc.imm(cpu.assembler.guard_compat_search_tree))
+    mc.JMP_r(regloc.esi.value)
     sequel = mc.get_relative_pos()
     #
-    mc.force_frame_size(148)
+    mc.force_frame_size(144)
     mc.SUB(regloc.eax, regloc.edx)
-    mc.ADD(regloc.esp, regloc.imm(148 - 2*WORD))
+    mc.ADD(regloc.esp, regloc.imm(144 - 2*WORD))
     mc.POP(regloc.ebp)
     mc.RET()
     #
     extra_paths = []
     for i in range(11):
-        mc.force_frame_size(148)
+        mc.force_frame_size(144)
         extra_paths.append(mc.get_relative_pos())
         mc.MOV(regloc.eax, regloc.imm(1000000 + i))
-        mc.ADD(regloc.esp, regloc.imm(148 - 2*WORD))
+        mc.ADD(regloc.esp, regloc.imm(144 - 2*WORD))
         mc.POP(regloc.ebp)
         mc.RET()
     failure = extra_paths[10]
     rawstart = mc.materialize(cpu, [])
+    print 'rawstart:', hex(rawstart)
     call_me = rffi.cast(lltype.Ptr(lltype.FuncType(
         [lltype.Ptr(BACKEND_CHOICES), llmemory.GCREF,
          lltype.Ptr(jitframe.JITFRAME)], lltype.Signed)),
@@ -63,16 +66,17 @@ def test_guard_compat():
     llop.raw_store(lltype.Void, rawstart, 3 * WORD, bchoices)
 
     class FakeGuardToken:
-        guard_compat_bindex = 3
-        pos_jump_offset = sequel
-        pos_recovery_stub = failure
+        #pos_jump_offset = sequel
+        #pos_recovery_stub = failure
         gcmap = rffi.cast(lltype.Ptr(jitframe.GCMAP), 0x10111213)
         faildescr = guard_compat_descr
     guard_token = FakeGuardToken()
+    guard_compat_descr._backend_choices_addr = 3
 
-    patch_guard_compatible(guard_token, rawstart,
+    patch_guard_compatible(guard_token,
                            lambda index: rawstart + index * WORD,
-                           lltype.nullptr(llmemory.GCREF.TO))
+                           lltype.nullptr(llmemory.GCREF.TO),
+                           9999)
 
     # ---- ready ----
 

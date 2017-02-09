@@ -782,9 +782,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             addr = rawstart + tok.pos_jump_offset
             tok.faildescr.adr_jump_offset = addr
             if tok.guard_compatible():
-                guard_compat.patch_guard_compatible(tok, rawstart,
-                                                    self._addr_from_gc_table,
-                                                    self.gc_table_tracer)
+                guard_compat.patch_guard_compatible(
+                    tok, self._addr_from_gc_table,
+                    self.gc_table_tracer, self.guard_compat_search_tree)
                 continue
             descr = tok.faildescr
             if descr.loop_version():
@@ -1832,18 +1832,11 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             self.mc.UCOMISD(locs[0], locs[1])
         else:
             self.mc.CMP(locs[0], locs[1])
+        guard_token._guard_value_on = locs[0].value
         self.guard_success_cc = rx86.Conditions['E']
         self.implement_guard(guard_token)
 
-    def genop_guard_guard_compatible(self, guard_op, guard_token, locs, ign):
-        loc_reg, loc_imm, loc_reg2 = locs
-        assert isinstance(loc_reg, RegLoc)
-        assert isinstance(loc_imm, ImmedLoc)    # index of 'backend_choices'
-        assert isinstance(loc_reg2, RegLoc)
-        self.load_reg_from_gc_table(loc_reg2.value, loc_imm.value)
-        guard_compat.generate_guard_compatible(self, guard_token,
-                                               loc_reg.value, loc_imm.value,
-                                               loc_reg2.value)
+    genop_guard_guard_compatible = genop_guard_guard_value
 
     def _cmp_guard_class(self, locs):
         loc_ptr = locs[0]
@@ -1982,6 +1975,11 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                              guardtok.faildescr, regalloc)
         #
         faildescrindex, target = self.store_info_on_descr(startpos, guardtok)
+        if guardtok.guard_compatible():
+            assert startpos == self.mc.get_relative_pos()
+            guard_compat.generate_recovery_stub(self, guardtok)
+            xXXXx
+        #
         self.push_from_gc_table(faildescrindex)
         self.push_gcmap(self.mc, guardtok.gcmap, push=True)
         self.mc.JMP(imm(target))

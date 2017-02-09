@@ -269,6 +269,11 @@ class BaseAssembler(object):
         guardtok.faildescr.rd_locs = positions
         return faildescrindex, target
 
+    def get_target_for_failure_recovery_of_guard_compat(self):
+        exc = False
+        withfloats = True
+        return self.failure_recovery_code[exc + 2 * withfloats]
+
     def enter_portal_frame(self, op):
         if self.cpu.HAS_CODEMAP:
             self.codemap_builder.enter_portal_frame(op.getarg(0).getint(),

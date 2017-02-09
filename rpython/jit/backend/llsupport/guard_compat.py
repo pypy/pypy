@@ -18,14 +18,18 @@ PAIR = lltype.Struct('PAIR', ('gcref', lltype.Unsigned),   # a GC ref or -1
                              ('asmaddr', lltype.Signed))
 BACKEND_CHOICES = lltype.GcStruct('BACKEND_CHOICES',
                         ('bc_faildescr', llmemory.GCREF),
+                        ('bc_gcmap', lltype.Ptr(jitframe.GCMAP)),
                         ('bc_gc_table_tracer', llmemory.GCREF),
+                        ('bc_search_tree', lltype.Signed),
                         ('bc_most_recent', PAIR),
                         ('bc_list', lltype.Array(PAIR)))
 
 def _getofs(name):
     return llmemory.offsetof(BACKEND_CHOICES, name)
 BCFAILDESCR = _getofs('bc_faildescr')
+BCGCMAP = _getofs('bc_gcmap')
 BCGCTABLETRACER = _getofs('bc_gc_table_tracer')
+BCSEARCHTREE = _getofs('bc_search_tree')
 BCMOSTRECENT = _getofs('bc_most_recent')
 BCLIST = _getofs('bc_list')
 del _getofs
@@ -175,12 +179,9 @@ def initial_bchoices(guard_compat_descr, initial_gcref):
     bchoices = lltype.malloc(BACKEND_CHOICES, 1)
     bchoices.bc_faildescr = cast_instance_to_gcref(guard_compat_descr)
     bchoices.bc_gc_table_tracer = lltype.nullptr(llmemory.GCREF.TO)   # (*)
-    bchoices.bc_most_recent.gcref = gcref_to_unsigned(initial_gcref)
-    bchoices.bc_most_recent.asmaddr = -43  # (*)
-    bchoices.bc_list[0].gcref = gcref_to_unsigned(initial_gcref)
-    bchoices.bc_list[0].asmaddr = -43  # (*)
+    bchoices.bc_most_recent.gcref = r_uint(-1)
+    bchoices.bc_list[0].gcref = r_uint(-1)
     llop.gc_writebarrier(lltype.Void, bchoices)
-    # entries with (*) are fixed in patch_guard_compatible()
     return bchoices
 
 def descr_to_bchoices(descr):
@@ -191,32 +192,31 @@ def descr_to_bchoices(descr):
     # ---no GC operation end---
     return bchoices
 
-def patch_guard_compatible(guard_token, rawstart, get_addr_in_gc_table,
-                           gc_table_tracer):
-    # go to the address in the gctable, number 'bindex'
-    bindex = guard_token.guard_compat_bindex
-    choices_addr = get_addr_in_gc_table(bindex)
-    sequel_label = rawstart + guard_token.pos_jump_offset
-    failure_recovery = rawstart + guard_token.pos_recovery_stub
-    gcmap = guard_token.gcmap
-    # choices_addr:     points to bchoices in the GC table
-    # sequel_label:     "sequel:" label above
-    # failure_recovery: failure recovery address
+def patch_guard_compatible(guard_token, get_addr_in_gc_table,
+                           gc_table_tracer, search_tree_addr):
     guard_compat_descr = guard_token.faildescr
     assert isinstance(guard_compat_descr, GuardCompatibleDescr)
+    #
+    # read the initial value of '_backend_choices_addr', which is used
+    # to store the index of the '_backend_choices' gc object in the gc
+    # table
+    bindex = guard_compat_descr._backend_choices_addr
+    #
+    # go to this address in the gctable
+    choices_addr = get_addr_in_gc_table(bindex)
+    #
+    # now fix '_backend_choices_addr' to really point to the raw address
+    # in the gc table
     guard_compat_descr._backend_choices_addr = choices_addr
-    guard_compat_descr._backend_sequel_label = sequel_label
-    guard_compat_descr._backend_failure_recovery = failure_recovery
-    guard_compat_descr._backend_gcmap = gcmap
     #
     bchoices = descr_to_bchoices(guard_compat_descr)
     assert len(bchoices.bc_list) == 1
     assert (cast_gcref_to_instance(GuardCompatibleDescr, bchoices.bc_faildescr)
             is guard_compat_descr)
+    bchoices.bc_gcmap = guard_token.gcmap
     bchoices.bc_gc_table_tracer = lltype.cast_opaque_ptr(llmemory.GCREF,
                                                          gc_table_tracer)
-    bchoices.bc_most_recent.asmaddr = sequel_label
-    bchoices.bc_list[0].asmaddr = sequel_label
+    bchoices.bc_search_tree = search_tree_addr
 
 def invalidate_pair(bchoices, pair_ofs):
     gcref_base = lltype.cast_opaque_ptr(llmemory.GCREF, bchoices)

@@ -478,17 +478,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         y = self.loc(op.getarg(1))
         self.perform_guard(op, [x, y], None)
 
-    def consider_guard_compatible(self, op):
-        op.getdescr().make_a_counter_per_value(op, -1)   # -1 not used here
-        args = op.getarglist()
-        assert args[0].type == REF             # only supported case for now
-        assert isinstance(args[1], ConstInt)   # by rewrite.py
-        tmp_box = TempVar()
-        x = self.rm.make_sure_var_in_reg(args[0])
-        y = self.loc(args[1])
-        z = self.rm.force_allocate_reg(tmp_box, args)
-        self.rm.possibly_free_var(tmp_box)
-        self.perform_guard(op, [x, y, z], None)
+    consider_guard_compatible = consider_guard_value
 
     def consider_guard_class(self, op):
         assert not isinstance(op.getarg(0), Const)

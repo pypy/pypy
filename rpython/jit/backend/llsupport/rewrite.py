@@ -364,8 +364,7 @@ class GcRewriterAssembler(object):
                 self.handle_call_assembler(op)
                 continue
             if op.getopnum() == rop.GUARD_COMPATIBLE:
-                self.handle_guard_compatible(op)
-                continue
+                self.prepare_guard_compatible(op)
             if op.getopnum() == rop.JUMP or op.getopnum() == rop.FINISH:
                 self.emit_pending_zeros()
             #
@@ -978,8 +977,10 @@ class GcRewriterAssembler(object):
             self.gcrefs_recently_loaded[index] = load_op
         return load_op
 
-    def handle_guard_compatible(self, op):
+    def prepare_guard_compatible(self, op):
         from rpython.jit.backend.llsupport import guard_compat
+        # don't use _gcref_index here: we need our own index for
+        # the _backend_choices object
         c = op.getarg(1)
         assert isinstance(c, ConstPtr)
         descr = op.getdescr()
@@ -987,9 +988,8 @@ class GcRewriterAssembler(object):
         bcindex = len(self.gcrefs_output_list)
         gcref = lltype.cast_opaque_ptr(llmemory.GCREF, bchoices)
         self.gcrefs_output_list.append(gcref)
-        new_op = op.copy_and_change(rop.GUARD_COMPATIBLE,
-                                    [op.getarg(0), ConstInt(bcindex)])
-        self.emit_op(new_op)
+        assert isinstance(descr, guard_compat.GuardCompatibleDescr)
+        descr._backend_choices_addr = bcindex  # fixed in patch_guard_compatible
 
 @always_inline
 def cpu_simplify_scale(cpu, index_box, factor, offset):

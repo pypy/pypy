@@ -1,5 +1,5 @@
 from rpython.rtyper.annlowlevel import llhelper
-from rpython.jit.backend.x86 import rx86, codebuf, regloc
+from rpython.jit.backend.x86 import rx86, codebuf, regloc, callbuilder
 from rpython.jit.backend.x86.regalloc import gpr_reg_mgr_cls
 from rpython.jit.backend.x86.arch import WORD, IS_X86_64, IS_X86_32
 from rpython.jit.backend.x86.arch import DEFAULT_FRAME_BYTES
@@ -17,27 +17,8 @@ from rpython.jit.backend.llsupport.guard_compat import _real_number
 #     CMP reg, reg2
 #     JNE recovery_stub
 #   sequel:
-#     <reg2 not used any more>
 #
-# The difference is that 'recovery_stub' does not jump to one of the
-# 'failure_recovery_code' versions, but instead it jumps to
-# 'expand_guard_compatible'.  The latter calls invoke_find_compatible.
-# The result is one of:
-#
-#   * 0: bail out.  We jump to the 'failure_recovery_code'.
-#
-#   * -1: continue running on the same path.  We patch ofs(const-ptr)
-#     to contain the new value, and jump to 'sequel'.
-#
-#   * otherwise, it's the address of a bridge.  We jump to that bridge.
-#
-# This is the basic idea, but not the truth.  Things are more
-# complicated because we cache in the assembler the
-# invoke_find_compatible call results.  'expand_guard_compatible'
-# actually allocates a '_backend_choices' object, copies on it
-# various data it got from the recovery_stub, then patches the
-# recovery stub to this (the original recovery stub was padded if
-# necessary to have enough room):
+# The difference is in the 'recovery_stub':
 #
 #   recovery_stub:
 #     MOV R11, [RIP + ofs(_backend_choices)]
@@ -52,9 +33,8 @@ from rpython.jit.backend.llsupport.guard_compat import _real_number
 # The faildescr for the GUARD_COMPATIBLE is a GuardCompatibleDescr.
 # Fields relevant for this discussion:
 #
-#     - _backend_ptr_addr: points inside the GC table, to ofs(const-ptr).
-#                          ofs(_backend_choices) is just afterwards.
-#                          Initially _backend_choices is NULL.
+#     - _backend_choices_addr: points inside the GC table, to
+#                              ofs(_backend_choices)
 #     - adr_jump_offset: raw address of the 'sequel' label (this field
 #                        is the same as on any other GuardDescr)
 #
@@ -94,8 +74,8 @@ from rpython.jit.backend.llsupport.guard_compat import _real_number
 # When find_compatible() returns 0, it is not stored in bc_list,
 # but still stored in bc_most_recent, with 'guard_compat_recovery'
 # as the 'asmaddr'.  Here is 'guard_compat_recovery': it emulates
-# generate_quick_failure() from assembler.py, and so it plays the role
-# of the original (patched) recovery stub.
+# the non-GUARD_COMPATIBLE case of generate_quick_failure() from
+# assembler.py.
 #
 #   guard_compat_recovery:
 #     PUSH R11
@@ -105,8 +85,8 @@ from rpython.jit.backend.llsupport.guard_compat import _real_number
 # Here is the x86-64 runtime code to walk the tree:
 #
 #   search_tree:
-#     MOV [ESP+8], RCX                     # save the original value
-#     MOV [ESP+16], R11                    # save the _backend_choices object
+#     MOV [RSP+8], RCX                     # save the original value
+#     MOV [RSP+16], R11                    # save the _backend_choices object
 #     MOV RCX, [R11 + bc_list.length]      # a power of two minus one
 #     ADD R11, $bc_list.items
 #     JMP loop
@@ -126,22 +106,24 @@ from rpython.jit.backend.llsupport.guard_compat import _real_number
 #
 #   found:
 #     MOV R11, [R11 + 8*RCX]             # address to jump to next
-#     MOV RCX, [ESP+16]                  # reload the _backend_choices object
+#     MOV RCX, [RSP+16]                  # reload the _backend_choices object
 #     MOV [RCX + bc_most_recent], RAX
 #     MOV [RCX + bc_most_recent + 8], R11
-#     MOV RCX, [ESP+8]                   # restore saved value
+#     MOV RCX, [RSP+8]                   # restore saved value
 #     POP RAX                            # pushed by the caller
-#     JMP *R11
+#     JMP *R11                           # can't jump to guard_compat_recovery
 #
 #   not_found:
 #     <save all registers to the jitframe RBP,
 #         reading and popping the original RAX and RCX off the stack>
-#     <call invoke_find_compatible(_backend_choices=[RSP], value=RAX),
-#                                  jitframe=RBP>
+#     <build an array of two words on the stack, with _backend_choices
+#         and value; the 'value' will be overwritten by
+#         invoke_find_compatible with the address to jump to next>
+#     <call invoke_find_compatible(p_arg=RSP, jitframe=RBP>
 #     <_reload_frame_if_necessary>
-#     MOV R11, RAX
 #     <restore all registers>
-#     JMP *R11
+#     MOV R11, [RSP+array_element_1]     # reload the _backend_choices object
+#     JMP *[RSP+array_element_2]         # may jump to guard_compat_recovery
 #
 #
 # invoke_find_compatible(bchoices, new_gcref, jitframe):
@@ -168,7 +150,7 @@ from rpython.jit.backend.llsupport.guard_compat import _real_number
 # Other issues: compile_bridge() called on a GuardCompatibleDescr must
 # not to do any patching, but instead it needs to clear
 # bchoices.bc_most_recent.  Otherwise, we will likely directly jump to
-# <failure_recovery> next time, if the newly added gcref is still in
+# <guard_compat_recovery> next time, if the newly added gcref is still in
 # bc_most_recent.gcref.  (We can't add it to bc_most_recent or bc_list
 # from compile_bridge(), because we don't know what the gcref should
 # be, but it doesn't matter.)
@@ -186,29 +168,36 @@ def _fix_forward_label(mc, jmp_location):
     mc.overwrite(jmp_location-1, chr(offset))
 
 def build_once(assembler):
+    build_once_search_tree(assembler)
+    build_once_guard_compat_recovery(assembler)
+
+def build_once_search_tree(assembler):
     """Generate the 'search_tree' block of code"""
     rax = regloc.eax.value
-    rdx = regloc.edx.value
+    rcx = regloc.ecx.value
     rdi = regloc.edi.value
     r11 = regloc.r11.value
-    frame_size = DEFAULT_FRAME_BYTES + 2 * WORD
-    # contains two extra words on the stack:
-    #    - saved RDX
+    frame_size = DEFAULT_FRAME_BYTES + 1 * WORD
+    # contains one extra word on the stack:
     #    - saved RAX
 
     mc = codebuf.MachineCodeBlockWrapper()
     mc.force_frame_size(frame_size)
+    mc.INT3()
     if IS_X86_32:    # save edi as an extra scratch register
+        XXX
         mc.MOV_sr(3*WORD, rdi)
         r11 = rdi    # r11 doesn't exist on 32-bit, use "edi" instead
 
+    mc.MOV_sr(1*WORD, rcx)                  # MOV [RSP+8], ECX
+    mc.MOV_sr(2*WORD, r11)                  # MOV [RSP+16], R11
+
     ofs1 = _real_number(BCLIST + BCLISTLENGTHOFS)
     ofs2 = _real_number(BCLIST + BCLISTITEMSOFS)
-    mc.MOV_sr(2*WORD, rdx)                  # MOV [RSP+16], RDX
-    mc.MOV_rm(r11, (rdx, ofs1))             # MOV R11, [RDX + bc_list.length]
-    # in the sequel, "RDX + bc_list.items" is a pointer to the leftmost
+    mc.MOV_rm(rcx, (r11, ofs1))             # MOV RCX, [R11 + bc_list.length]
+    # in the sequel, "R11 + bc_list.items" is a pointer to the leftmost
     # array item of the range still under consideration.  The length of
-    # this range is R11, which is always a power-of-two-minus-1.
+    # this range is RCX, which is always a power-of-two-minus-1.
     mc.JMP_l8(0)                            # JMP loop
     jmp_location = mc.get_relative_pos()
     mc.force_frame_size(frame_size)
@@ -216,28 +205,29 @@ def build_once(assembler):
     SH = 3 if IS_X86_64 else 2
 
     right_label = mc.get_relative_pos()
-    mc.LEA_ra(rdx, (rdx, r11, SH, WORD))    # LEA RDX, [RDX + 8*R11 + 8]
+    mc.LEA_ra(r11, (r11, rcx, SH, WORD))    # LEA R11, [R11 + 8*RCX + 8]
     left_label = mc.get_relative_pos()
-    mc.SHR_ri(r11, 1)                       # SHR R11, 1
+    mc.SHR_ri(rcx, 1)                       # SHR RCX, 1
     mc.J_il8(rx86.Conditions['Z'], 0)       # JZ not_found
     jz_location = mc.get_relative_pos()
 
     _fix_forward_label(mc, jmp_location)    # loop:
-    mc.CMP_ra(rax, (rdx, r11, SH, ofs2-WORD))
-                                            # CMP RAX, [RDX + items + 8*R11 - 8]
+    mc.CMP_ra(rax, (r11, rcx, SH, ofs2-WORD))
+                                            # CMP RAX, [R11 + items + 8*RCX - 8]
     mc.J_il8(rx86.Conditions['A'], right_label - (mc.get_relative_pos() + 2))
     mc.J_il8(rx86.Conditions['NE'], left_label - (mc.get_relative_pos() + 2))
 
-    mc.MOV_ra(r11, (rdx, r11, SH, ofs2))    # MOV R11, [RDX + items + 8*R11]
-    mc.MOV_rs(rdx, 2*WORD)                  # MOV RDX, [RSP+16]
+    mc.MOV_ra(r11, (r11, rcx, SH, ofs2))    # MOV R11, [R11 + items + 8*RCX]
+    mc.MOV_rs(rcx, 2*WORD)                  # MOV RCX, [RSP+16]
     ofs = _real_number(BCMOSTRECENT)
-    mc.MOV_mr((rdx, ofs), rax)              # MOV [RDX+bc_most_recent], RAX
-    mc.MOV_mr((rdx, ofs+WORD), r11)         # MOV [RDX+bc_most_recent+8], R11
+    mc.MOV_mr((rcx, ofs), rax)              # MOV [RCX+bc_most_recent], RAX
+    mc.MOV_mr((rcx, ofs+WORD), r11)         # MOV [RCX+bc_most_recent+8], R11
+    mc.MOV_rs(rcx, 1*WORD)                  # MOV RCX, [RSP+8]
     mc.POP_r(rax)                           # POP RAX
-    mc.POP_r(rdx)                           # POP RDX
     if IS_X86_64:
         mc.JMP_r(r11)                       # JMP *R11
     elif IS_X86_32:
+        XXX
         mc.MOV_sr(0, r11) # r11==rdi here
         mc.MOV_rs(rdi, WORD)
         mc.JMP_s(0)
@@ -246,24 +236,28 @@ def build_once(assembler):
     _fix_forward_label(mc, jz_location)     # not_found:
 
     if IS_X86_32:
+        XXX
         mc.MOV_rs(rdi, 3*WORD)
 
-    # read and pop the original RAX and RDX off the stack
-    base_ofs = assembler.cpu.get_baseofs_of_frame_field()
-    v = gpr_reg_mgr_cls.all_reg_indexes[rax]
-    mc.POP_b(v * WORD + base_ofs)           # POP [RBP + saved_rax]
-    v = gpr_reg_mgr_cls.all_reg_indexes[rdx]
-    mc.POP_b(v * WORD + base_ofs)           # POP [RBP + saved_rdx]
-    # save all other registers to the jitframe RBP
-    assembler._push_all_regs_to_frame(mc, [regloc.eax, regloc.edx],
-                                      withfloats=True)
+    # The _backend_choices object is still referenced from [RSP+16]
+    # (which becomes [RSP+8] after the POP), where it is the first of a
+    # two-words array passed as argument to invoke_find_compatible().
+    # The second word is the value, from RAX, which we store now.
+    mc.MOV_sr(3*WORD, rax)                  # MOV [RSP+24], RAX
+
+    # restore RAX and RCX
+    mc.MOV_rs(rcx, 1*WORD)                  # MOV RCX, [RSP+8]
+    mc.POP_r(rax)                           # POP RAX
+
+    # save all registers to the jitframe RBP
+    assembler._push_all_regs_to_frame(mc, [], withfloats=True)
 
     if IS_X86_64:
-        mc.MOV_rs(rdi, 0)                   # MOV RDI, [RSP]
-        mc.MOV_rr(regloc.esi.value, rax)    # MOV RSI, RAX
-        mc.MOV_rr(regloc.edx.value,         # MOV RDX, RBP
+        mc.LEA_rs(rdi, 2 * WORD)            # LEA RDI, [RSP+8]
+        mc.MOV_rr(regloc.esi.value,         # MOV RSI, RBP
                   regloc.ebp.value)
     elif IS_X86_32:
+        XXX
         # argument #1 is already in [ESP]
         mc.MOV_sr(1 * WORD, rax)
         mc.MOV_sr(2 * WORD, regloc.ebp.value)
@@ -273,58 +267,89 @@ def build_once(assembler):
     llfunc = assembler.cpu.cast_ptr_to_int(llfunc)
     mc.CALL(regloc.imm(llfunc))             # CALL invoke_find_compatible
     assembler._reload_frame_if_necessary(mc)
-    if IS_X86_64:
-        mc.MOV_rr(r11, rax)                 # MOV R11, RAX
-    elif IS_X86_32:
-        mc.MOV_sr(0, rax)
 
     # restore the registers that the CALL has clobbered, plus the ones
     # containing GC pointers that may have moved.  That means we just
-    # restore them all.  (We restore RAX and RDX and RDI too.)
+    # restore them all.
     assembler._pop_all_regs_from_frame(mc, [], withfloats=True)
+
+    # jump to 'array_element_2'.  In case this goes to
+    # guard_compat_recovery, we also reload the _backend_choices
+    # object from 'array_element_1' (the GC may have moved it, or
+    # it may be a completely new object).
     if IS_X86_64:
-        mc.JMP_r(r11)                       # JMP *R11
+        mc.MOV_rs(r11, 1*WORD)              # MOV R11, [RSP+8]
+        mc.JMP_s(2*WORD)                    # JMP *[RSP+16]
     elif IS_X86_32:
+        XXX
         mc.JMP_s(0)
 
     assembler.guard_compat_search_tree = mc.materialize(assembler.cpu, [])
 
 
-def generate_guard_compatible(assembler, guard_token, reg, bindex, reg2):
-    mc = assembler.mc
-    rax = regloc.eax.value
-    rdx = regloc.edx.value
+def build_once_guard_compat_recovery(assembler):
+    """Generate the 'guard_compat_recovery' block of code"""
+    r11 = regloc.r11.value
+    mc = codebuf.MachineCodeBlockWrapper()
+
+    ofs = _real_number(BCGCMAP)
+    mc.PUSH_r(r11)
+    mc.PUSH_m((r11, ofs))
+    target = assembler.get_target_for_failure_recovery_of_guard_compat()
+    mc.JMP(regloc.imm(target))
+
+    assembler.guard_compat_recovery = mc.materialize(assembler.cpu, [])
+
+
+def generate_recovery_stub(assembler, guard_token):
+    r11 = regloc.r11.value
     frame_size = DEFAULT_FRAME_BYTES
 
+    descr = guard_token.faildescr
+    assert isinstance(descr, GuardCompatibleDescr)
+    assembler.load_reg_from_gc_table(r11, descr._backend_choices_addr)
+
+    mc = assembler.mc
+    reg = guard_token._guard_value_on
     ofs = _real_number(BCMOSTRECENT)
-    mc.CMP_rm(reg, (reg2, ofs))             # CMP reg, [reg2 + bc_most_recent]
+    mc.CMP_rm(reg, (r11, ofs))              # CMP reg, [R11 + bc_most_recent]
     mc.J_il8(rx86.Conditions['NE'], 0)      # JNE slow_case
     jne_location = mc.get_relative_pos()
 
-    mc.JMP_m((reg2, ofs + WORD))            # JMP *[reg2 + bc_most_recent + 8]
+    mc.JMP_m((r11, ofs + WORD))             # JMP *[R11 + bc_most_recent + 8]
     mc.force_frame_size(frame_size)
 
     _fix_forward_label(mc, jne_location)    # slow_case:
-    mc.PUSH_r(rdx)                          # PUSH RDX
     mc.PUSH_r(rax)                          # PUSH RAX
-    # manually move reg to RAX and reg2 to RDX
-    if reg2 == rax:
-        if reg == rdx:
-            mc.XCHG_rr(rax, rdx)
-            reg = rax
-        else:
-            mc.MOV_rr(rdx, rax)
-        reg2 = rdx
     if reg != rax:
-        assert reg2 != rax
-        mc.MOV_rr(rax, reg)
-    if reg2 != rdx:
-        mc.MOV_rr(rdx, reg2)
+        mc.MOV_rr(rax, reg)                 # MOV RAX, reg
 
-    mc.JMP(regloc.imm(assembler.guard_compat_search_tree))
-    mc.force_frame_size(frame_size)
+    ofs = _real_number(BCSEARCHTREE)
+    mc.JMP_m((r11, ofs))                    # JMP *[R11 + bc_search_tree]
 
-    # abuse this field to store the 'sequel' relative offset
-    guard_token.pos_jump_offset = mc.get_relative_pos()
-    guard_token.guard_compat_bindex = bindex
-    assembler.pending_guard_tokens.append(guard_token)
+
+#def generate_guard_compatible(assembler, guard_token, reg, reg2, gctable_index):
+#    mc = assembler.mc
+#    mc.CMP_rr(reg, reg2)                    # CMP reg, reg2
+#    mc.J_il8(rx86.Conditions['E'], 0)       # JE sequel
+#    je_location = mc.get_relative_pos()
+#
+#    self.push_from_gc_table(guard_token.faildescrindex)
+#    mc.JMP(regloc.imm(assembler.guard_compat_second_case))
+#
+#    padding_end = start_pos + size_general_case - 2
+#    while mc.get_relative_pos() < padding_end:
+#        mc.INT3()
+#
+#    padding_end = mc.get_relative_pos()    # in case it is actually bigger
+#    block_size = padding_end - start_pos + 2
+#    assert 0 < block_size <= 255
+#    mc.writechar(chr(block_size))
+#    assert 0 <= reg <= 15 and 0 <= reg2 <= 15
+#    mc.writechar(chr((reg2 << 4) | reg))
+#
+#    # abuse this field to store the 'sequel' relative offset
+#    guard_token.pos_jump_offset = mc.get_relative_pos()
+#    guard_token.guard_compat_bindex = gctable_index
+#    guard_token..............
+#    assembler.pending_guard_tokens.append(guard_token)
