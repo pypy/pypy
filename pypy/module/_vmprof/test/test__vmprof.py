@@ -43,7 +43,16 @@ class AppTestVMProf(object):
                     count += 1
                     i += 2 * WORD + size
                 elif s[i] == '\x06':
-                    i += 8+8+8
+                    print(s[i:i+24])
+                    i += 1+8+8+8
+                elif s[i] == '\x07':
+                    i += 1
+                    # skip string
+                    size, = struct.unpack("l", s[i:i + WORD])
+                    i += WORD+size
+                    # skip string
+                    size, = struct.unpack("l", s[i:i + WORD])
+                    i += WORD+size
                 else:
                     raise AssertionError(ord(s[i]))
             return count
