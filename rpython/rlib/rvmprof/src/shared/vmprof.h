@@ -44,12 +44,19 @@
 #define PY_THREAD_STATE_T void
 #define FRAME_STEP(f) f->next
 #define FRAME_CODE(f) f->
-// Is there is a way to tell the compiler
-// that this prototype can have ANY return value. Just removing
-// the return type will default to int
-typedef long Signed;
-RPY_EXTERN Signed __vmprof_eval_vmprof();
-#define IS_VMPROF_EVAL(PTR) PTR == (void*)__vmprof_eval_vmprof
+
+#ifdef RPYTHON_LL2CTYPES
+#  define IS_VMPROF_EVAL(PTR) 0
+#else
+    // Is there is a way to tell the compiler
+    // that this prototype can have ANY return value. Just removing
+    // the return type will default to int
+    typedef long Signed;
+    RPY_EXTERN Signed __vmprof_eval_vmprof();
+#  define IS_VMPROF_EVAL(PTR) PTR == (void*)__vmprof_eval_vmprof
+#endif
+
+
 #else
 #define RPY_EXTERN
 // for cpython

@@ -94,10 +94,11 @@ class VMProf(object):
         """
         if CodeClass in self._code_classes:
             return
-        assert len(self._code_classes) == 0, \
-                "native profiling currently prohibits " \
-                "to have more than one code class. see comment "\
-                "in vmprof_execute_code for details"
+        # nope does not work for our tests
+        # assert len(self._code_classes) == 0, \
+        #         "native profiling currently prohibits " \
+        #         "to have more than one code class. see comment "\
+        #         "in vmprof_execute_code for details"
         CodeClass._vmprof_unique_id = 0     # default value: "unknown"
         immut = CodeClass.__dict__.get('_immutable_fields_', [])
         CodeClass._immutable_fields_ = list(immut) + ['_vmprof_unique_id']

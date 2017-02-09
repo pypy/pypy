@@ -79,6 +79,9 @@ pyexpat
 _ssl
     libssl
 
+_vmprof
+    libunwind
+
 Make sure to have these libraries (with development headers) installed
 before building PyPy, otherwise the resulting binary will not contain
 these modules.  Furthermore, the following libraries should be present
