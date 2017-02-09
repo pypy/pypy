@@ -60,8 +60,9 @@ RPY_EXTERN
 char *vmprof_init(int fd, double interval, int memory,
                   int lines, const char *interp_name, int native)
 {
-    if (interval < 1e-6 || interval >= 1.0)
+    if (!(interval >= 1e-6 && interval < 1.0)) {   /* also if it is NaN */
         return "bad value for 'interval'";
+    }
     prepare_interval_usec = (int)(interval * 1000000.0);
 
     if (prepare_concurrent_bufs() < 0)

@@ -24,10 +24,11 @@ class AppTestVMProf(object):
             i += 5 * WORD # header
             assert s[i    ] == '\x05'    # MARKER_HEADER
             assert s[i + 1] == '\x00'    # 0
-            assert s[i + 2] == '\x02'    # VERSION_THREAD_ID
-            assert s[i + 3] == chr(4)    # len('pypy')
-            assert s[i + 4: i + 8] == 'pypy'
-            i += 8
+            assert s[i + 2] == '\x06'    # VERSION_TIMESTAMP
+            assert s[i + 3] == '\x08'    # PROFILE_RPYTHON
+            assert s[i + 4] == chr(4)    # len('pypy')
+            assert s[i + 5: i + 9] == 'pypy'
+            i += 9
             while i < len(s):
                 if s[i] == '\x03':
                     break
@@ -41,6 +42,8 @@ class AppTestVMProf(object):
                     _, size = struct.unpack("ll", s[i:i + 2 * WORD])
                     count += 1
                     i += 2 * WORD + size
+                elif s[i] == '\x06':
+                    i += 8+8+8
                 else:
                     raise AssertionError(ord(s[i]))
             return count
