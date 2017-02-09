@@ -175,7 +175,12 @@ intptr_t vmprof_get_traceback(void *stack, void *ucontext,
     if (stack == NULL) {
         stack = get_vmprof_stack();
     }
+    int enabled = vmp_native_enabled();
+    vmp_native_disable();
     n = get_stack_trace(stack, result_p, result_length - 2, pc);
+    if (enabled) {
+        vmp_native_enable();
+    }
     return (intptr_t)n;
 }
 #endif

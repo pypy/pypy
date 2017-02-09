@@ -194,7 +194,7 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
         //}
 
 
-        if ((void*)pip.start_ip == (void*)VMPROF_EVAL()) {
+        if (IS_VMPROF_EVAL((void*)pip.start_ip)) {
             // yes we found one stack entry of the python frames!
 #ifndef RPYTHON_VMPROF
             unw_word_t rbx = 0;

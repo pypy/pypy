@@ -1,5 +1,6 @@
 import sys, os
-from rpython.rlib.objectmodel import specialize, we_are_translated, not_rpython
+from rpython.rlib.objectmodel import (specialize, we_are_translated,
+        not_rpython, we_are_translated_to_c)
 from rpython.rlib import jit, rposix, rgc
 from rpython.rlib.rvmprof import cintf
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
@@ -177,6 +178,10 @@ def vmprof_execute_code(name, get_code_fn, result_class=None,
     arguments given to the decorated function.
 
     'result_class' is ignored (backward compatibility).
+
+    NOTE Native profiling: this function can only be called once during
+    translation. To remove this restriction, one needs to extend the macro
+    IS_VMPROF_EVAL in the repo vmprof/vmprof-python.git.
     """
     if _hack_update_stack_untranslated:
         from rpython.rtyper.annlowlevel import llhelper
@@ -209,8 +214,8 @@ def vmprof_execute_code(name, get_code_fn, result_class=None,
             # have added a stack entry, but the function __vmprof_eval_vmprof
             # is not entered. This behaviour will swallow one Python stack frame
             #
-            # Current fix: vmprof will discard this sample. those happen
-            # very infrequent
+            # Current fix: vmprof will discard this sample. (happens
+            # very infrequently)
             #
             if not jit.we_are_jitted():
                 x = enter_code(unique_id)
