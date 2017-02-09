@@ -54,7 +54,7 @@ int vmp_profiles_python_lines(void) {
     return _vmp_profiles_lines;
 }
 
-static PY_STACK_FRAME_T * _write_python_stack_entry(PY_STACK_FRAME_T * frame, void ** result, int * depth)
+static PY_STACK_FRAME_T * _write_python_stack_entry(PY_STACK_FRAME_T * frame, void ** result, int * depth, int max_depth)
 {
     int len;
     int addr;
@@ -122,7 +122,7 @@ int vmp_walk_and_record_python_stack_only(PY_STACK_FRAME_T *frame, void ** resul
                                      int max_depth, int depth, intptr_t pc)
 {
     while (depth < max_depth && frame) {
-        frame = _write_python_stack_entry(frame, result, &depth);
+        frame = _write_python_stack_entry(frame, result, &depth, max_depth);
     }
     return depth;
 }
@@ -218,7 +218,7 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
             {
 #endif
                 if (top_most_frame != NULL) {
-                    top_most_frame = _write_python_stack_entry(top_most_frame, result, &depth);
+                    top_most_frame = _write_python_stack_entry(top_most_frame, result, &depth, max_depth);
                 } else {
                     // Signals can occur at the two places (1) and (2), that will
                     // have added a stack entry, but the function __vmprof_eval_vmprof

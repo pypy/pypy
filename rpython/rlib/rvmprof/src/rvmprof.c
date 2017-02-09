@@ -19,7 +19,7 @@
 
 
 #ifdef RPYTHON_LL2CTYPES
-#define IS_VMPROF_EVAL(ptr) 0
+int IS_VMPROF_EVAL(void * ptr) { return 0; }
 #else
 extern void * __vmprof_eval_vmprof;
 int IS_VMPROF_EVAL(void * ptr)
