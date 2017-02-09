@@ -48,7 +48,7 @@ class AppTestVMProf(object):
         import _vmprof
         gc.collect()  # try to make the weakref list deterministic
         gc.collect()  # by freeing all dead code objects
-        _vmprof.enable(tmpfileno, 0.01)
+        _vmprof.enable(tmpfileno, 0.01, 0, 0, 0)
         _vmprof.disable()
         s = open(self.tmpfilename, 'rb').read()
         no_of_codes = count(s)
@@ -61,7 +61,7 @@ class AppTestVMProf(object):
 
         gc.collect()
         gc.collect()
-        _vmprof.enable(tmpfileno2, 0.01)
+        _vmprof.enable(tmpfileno2, 0.01, 0, 0, 0)
 
         exec """def foo2():
             pass
@@ -76,9 +76,9 @@ class AppTestVMProf(object):
 
     def test_enable_ovf(self):
         import _vmprof
-        raises(_vmprof.VMProfError, _vmprof.enable, 2, 0)
-        raises(_vmprof.VMProfError, _vmprof.enable, 2, -2.5)
-        raises(_vmprof.VMProfError, _vmprof.enable, 2, 1e300)
-        raises(_vmprof.VMProfError, _vmprof.enable, 2, 1e300 * 1e300)
+        raises(_vmprof.VMProfError, _vmprof.enable, 2, 0, 0, 0, 0)
+        raises(_vmprof.VMProfError, _vmprof.enable, 2, -2.5, 0, 0, 0)
+        raises(_vmprof.VMProfError, _vmprof.enable, 2, 1e300, 0, 0, 0)
+        raises(_vmprof.VMProfError, _vmprof.enable, 2, 1e300 * 1e300, 0, 0, 0)
         NaN = (1e300*1e300) / (1e300*1e300)
-        raises(_vmprof.VMProfError, _vmprof.enable, 2, NaN)
+        raises(_vmprof.VMProfError, _vmprof.enable, 2, NaN, 0, 0, 0)

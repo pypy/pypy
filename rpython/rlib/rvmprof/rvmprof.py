@@ -94,11 +94,6 @@ class VMProf(object):
         """
         if CodeClass in self._code_classes:
             return
-        # nope does not work for our tests
-        # assert len(self._code_classes) == 0, \
-        #         "native profiling currently prohibits " \
-        #         "to have more than one code class. see comment "\
-        #         "in vmprof_execute_code for details"
         CodeClass._vmprof_unique_id = 0     # default value: "unknown"
         immut = CodeClass.__dict__.get('_immutable_fields_', [])
         CodeClass._immutable_fields_ = list(immut) + ['_vmprof_unique_id']
@@ -184,10 +179,21 @@ def vmprof_execute_code(name, get_code_fn, result_class=None,
 
     'result_class' is ignored (backward compatibility).
 
-    NOTE Native profiling: this function can only be called once during
-    translation. It would require the macro IS_VMPROF_EVAL to check
-    the IP agains several (not one) symbols. The current symbol is called
-    __vmprof_eval_vmprof.
+    ====================================
+    TRANSLATION NOTE CALL THIS ONLY ONCE
+    ====================================
+
+    This function can only be called once during translation.
+    It generates a C function called __vmprof_eval_vmprof which is used by
+    the C source code as an extern function. This is necessary while walking
+    the native stack. If you see __vmprof_eval_vmprof defined twice during
+    translation, read on:
+
+    To remove this restriction do the following:
+
+    *) Extend the macro IS_VMPROF_EVAL in the vmprof source repo to check several
+       sybmols.
+    *) Give each function provided to this decorator a unique name in C
     """
     if _hack_update_stack_untranslated:
         from rpython.rtyper.annlowlevel import llhelper
