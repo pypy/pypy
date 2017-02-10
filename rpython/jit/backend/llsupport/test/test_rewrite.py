@@ -1439,19 +1439,28 @@ class TestFramework(RewriteTests):
 
     def test_guard_compatible(self):
         from rpython.jit.backend.llsupport import guard_compat
-        self.check_rewrite("""
-            [p0]
-            guard_compatible(p0, ConstPtr(myR1)) []
-            guard_compatible(p0, ConstPtr(myR1)) []
-            jump()
-        """, """
-            [p0]
-            guard_compatible(p0, 0) []
-            guard_compatible(p0, 2) []    # no sharing the number
-            jump()
-        """)
-        assert len(self.gcrefs) == 4
-        for i in [0, 2]:
-            # type-checking
+        org_GuardCompatibleDescr = guard_compat.GuardCompatibleDescr
+        try:
+            guard_compat.GuardCompatibleDescr = AbstractFailDescr
+            self.check_rewrite("""
+                [p0]
+                guard_compatible(p0, ConstPtr(myR1)) []
+                guard_compatible(p0, ConstPtr(myR1)) []
+                jump()
+            """, """
+                [p0]
+                p1 = load_from_gc_table(1)
+                guard_compatible(p0, p1) []
+                guard_compatible(p0, p1) []
+                jump()
+            """)
+        finally:
+            guard_compat.GuardCompatibleDescr = org_GuardCompatibleDescr
+        for i, expected in enumerate([
+                'struct BACKEND_CHOICES ',
+                'struct R ',
+                'BasicFailDescr',
+                'struct BACKEND_CHOICES ',
+                'BasicFailDescr']):
             x = self.gcrefs[i]
-            lltype.cast_opaque_ptr(lltype.Ptr(guard_compat.BACKEND_CHOICES), x)
+            assert expected in repr(x._obj.container)
