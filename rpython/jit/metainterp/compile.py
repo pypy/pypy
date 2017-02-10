@@ -1121,6 +1121,7 @@ class GuardCompatibleDescr(ResumeGuardDescr):
 
     _compatibility_conditions = None
     other_compat_conditions = []
+    fallback_jump_target = 0
 
     def __init__(self):
         # XXX think about what is being kept alive here
@@ -1134,7 +1135,8 @@ class GuardCompatibleDescr(ResumeGuardDescr):
         # to decide on
         # XXX it would be better to patch the guard properly in the backend,
         # but later
-        self.fallback_jump_target = 0
+        #self.fallback_jump_target = 0 (set on the class, annotator trick in
+        #                            case we don't see any GuardCompatibleDescr)
         # the next two attributes are for tracking where the guarded value came
         # from
         self.source_failarg_index = -1
