@@ -304,6 +304,7 @@ def build_once_guard_compat_recovery(assembler):
 
 
 def generate_recovery_stub(assembler, guard_token):
+    rax = regloc.eax.value
     r11 = regloc.r11.value
     frame_size = DEFAULT_FRAME_BYTES
 

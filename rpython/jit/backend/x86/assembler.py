@@ -1978,7 +1978,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         if guardtok.guard_compatible():
             assert startpos == self.mc.get_relative_pos()
             guard_compat.generate_recovery_stub(self, guardtok)
-            xXXXx
+            return startpos
         #
         self.push_from_gc_table(faildescrindex)
         self.push_gcmap(self.mc, guardtok.gcmap, push=True)
