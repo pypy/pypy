@@ -68,6 +68,16 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         assert module.test_is_unicode(u"")
         assert not module.test_is_unicode(())
 
+    def test_strlen(self):
+        module = self.import_extension('foo', [
+            ('strlen', "METH_O",
+             """
+                PyObject* s = PyObject_Str(args);
+                return PyLong_FromLong(PyUnicode_GetLength(s));
+             """)])
+        print(module.strlen(True))
+        assert module.strlen(True) == 4
+
     def test_unicode_buffer_init(self):
         module = self.import_extension('foo', [
             ("getunicode", "METH_NOARGS",
@@ -213,9 +223,6 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
 
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space):
-        assert PyUnicode_GetSize(space, space.wrap(u'späm')) == 4
-        unichar = rffi.sizeof(Py_UNICODE)
-
         encoding = rffi.charp2str(PyUnicode_GetDefaultEncoding(space, ))
         w_default_encoding = space.call_function(
             space.sys.get('getdefaultencoding')
@@ -627,7 +634,7 @@ class TestUnicode(BaseApiTest):
 
         assert space.eq_w(w_y, space.wrap(u"abcd"))
 
-        size = PyUnicode_GetSize(space, w_x)
+        size = get_wsize(as_pyobj(space, w_x))
         Py_UNICODE_COPY(space, target_chunk, x_chunk, size)
         w_y = space.wrap(rffi.wcharpsize2unicode(target_chunk, size))
 

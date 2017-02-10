@@ -217,6 +217,19 @@ enum PyUnicode_Kind {
 
 /* === Public API ========================================================= */
 
+/* Get the length of the Unicode object. */
+
+PyAPI_FUNC(Py_ssize_t) PyUnicode_GetLength(
+    PyObject *unicode
+);
+
+/* Get the number of Py_UNICODE units in the
+   string representation. */
+
+PyAPI_FUNC(Py_ssize_t) PyUnicode_GetSize(
+    PyObject *unicode           /* Unicode object */
+    );
+
 PyAPI_FUNC(PyObject *) PyUnicode_FromFormatV(
     const char *format,   /* ASCII-encoded string  */
     va_list vargs

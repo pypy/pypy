@@ -273,6 +273,7 @@ def _PyUnicode_Ready(space, w_obj):
             w_obj._value, len(w_obj._value), errors='strict'))
         set_data(py_obj, cts.cast('void*', ucs1_data))
         set_kind(py_obj, _1BYTE_KIND)
+        set_len(py_obj, get_wsize(py_obj))
         if maxchar < 128:
             set_ascii(py_obj, 1)
             set_utf8(py_obj, cts.cast('char*', get_data(py_obj)))
@@ -327,28 +328,6 @@ def PyUnicode_AsUTF8(space, ref):
         s = space.bytes_w(w_encoded)
         set_utf8(ref, rffi.str2charp(s))
     return get_utf8(ref)
-
-@cpython_api([PyObject], Py_ssize_t, error=-1)
-def PyUnicode_GetSize(space, ref):
-    """Return the size of the deprecated Py_UNICODE representation, in code
-    units (this includes surrogate pairs as 2 units).
-
-    Please migrate to using PyUnicode_GetLength().
-    """
-    if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_unicode:
-        return get_wsize(ref)
-    else:
-        w_obj = from_ref(space, ref)
-        return space.len_w(w_obj)
-
-@cpython_api([PyObject], Py_ssize_t, error=-1)
-def PyUnicode_GetLength(space, unicode):
-    """Return the length of the Unicode object, in code points."""
-    # XXX: this is a stub
-    if not PyUnicode_Check(space, unicode):
-        PyErr_BadArgument(space)
-    #PyUnicode_READY(w_unicode)
-    return get_len(unicode)
 
 @cpython_api([PyObject, rffi.CWCHARP, Py_ssize_t], Py_ssize_t, error=-1)
 def PyUnicode_AsWideChar(space, ref, buf, size):
