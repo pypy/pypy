@@ -151,7 +151,9 @@ def add_in_tree(bchoices, new_gcref, new_asmaddr):
         new_bchoices = lltype.malloc(BACKEND_CHOICES, length * 2 + 1)
         # --- no GC below: it would mess up the order of bc_list ---
         new_bchoices.bc_faildescr = bchoices.bc_faildescr
+        new_bchoices.bc_gcmap = bchoices.bc_gcmap
         new_bchoices.bc_gc_table_tracer = bchoices.bc_gc_table_tracer
+        new_bchoices.bc_search_tree = bchoices.bc_search_tree
         new_bchoices.bc_most_recent.gcref = bchoices.bc_most_recent.gcref
         new_bchoices.bc_most_recent.asmaddr = bchoices.bc_most_recent.asmaddr
         i = 0
