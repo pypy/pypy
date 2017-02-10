@@ -17,7 +17,7 @@
 static long prepare_interval_usec = 0;
 static long profile_interval_usec = 0;
 
-static int opened_profile(const char *interp_name, int memory, int lines, int native);
+static int opened_profile(const char *interp_name, int memory, int proflines, int native);
 
 #ifdef VMPROF_UNIX
 static struct profbuf_s *volatile current_codes;
@@ -58,7 +58,7 @@ typedef struct prof_stacktrace_s {
 
 RPY_EXTERN
 char *vmprof_init(int fd, double interval, int memory,
-                  int lines, const char *interp_name, int native)
+                  int proflines, const char *interp_name, int native)
 {
     if (!(interval >= 1e-6 && interval < 1.0)) {   /* also if it is NaN */
         return "bad value for 'interval'";
@@ -79,14 +79,14 @@ char *vmprof_init(int fd, double interval, int memory,
 #endif
     assert(fd >= 0);
     vmp_set_profile_fileno(fd);
-    if (opened_profile(interp_name, memory, lines, native) < 0) {
+    if (opened_profile(interp_name, memory, proflines, native) < 0) {
         vmp_set_profile_fileno(0);
         return strerror(errno);
     }
     return NULL;
 }
 
-static int opened_profile(const char *interp_name, int memory, int lines, int native)
+static int opened_profile(const char *interp_name, int memory, int proflines, int native)
 {
     int success;
     int bits;
@@ -105,7 +105,7 @@ static int opened_profile(const char *interp_name, int memory, int lines, int na
     header.interp_name[0] = MARKER_HEADER;
     header.interp_name[1] = '\x00';
     header.interp_name[2] = VERSION_TIMESTAMP;
-    header.interp_name[3] = memory*PROFILE_MEMORY + lines*PROFILE_LINES + \
+    header.interp_name[3] = memory*PROFILE_MEMORY + proflines*PROFILE_LINES + \
                             native*PROFILE_NATIVE;
 #ifdef RPYTHON_VMPROF
     header.interp_name[3] += PROFILE_RPYTHON;

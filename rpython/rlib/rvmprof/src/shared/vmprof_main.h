@@ -51,7 +51,7 @@
 /************************************************************/
 
 static void *(*mainloop_get_virtual_ip)(char *) = 0;
-static int opened_profile(const char *interp_name, int memory, int lines, int native);
+static int opened_profile(const char *interp_name, int memory, int proflines, int native);
 static void flush_codes(void);
 
 /************************************************************/

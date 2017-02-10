@@ -1,6 +1,5 @@
 import sys, os
-from rpython.rlib.objectmodel import (specialize, we_are_translated,
-        not_rpython, we_are_translated_to_c)
+from rpython.rlib.objectmodel import specialize, we_are_translated, not_rpython
 from rpython.rlib import jit, rposix, rgc
 from rpython.rlib.rvmprof import cintf
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
