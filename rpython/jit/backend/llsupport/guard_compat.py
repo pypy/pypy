@@ -116,7 +116,7 @@ def make_invoke_find_compatible(cpu):
                 result = cpu.assembler.guard_compat_recovery
             else:
                 if result == -1:
-                    result = descr.adr_jump_offset
+                    result = cpu.assembler.guard_compat_continue_running(descr)
                 bchoices = add_in_tree(bchoices, new_gcref, result)
                 # ---no GC operation---
                 choices_addr = descr._backend_choices_addr  # GC table

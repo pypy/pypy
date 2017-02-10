@@ -2084,6 +2084,12 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     def _build_guard_compat_slowpath(self):
         guard_compat.build_once(self)
 
+    def guard_compat_continue_running(self, descr):
+        # Return the code address that guard_compat.find_compatible() must
+        # use for the case "continue executing the same piece of code".
+        # It is the address just after the GUARD_COMPATIBLE instruction.
+        return descr.adr_jump_offset + 4
+
     def genop_finish(self, op, arglocs, result_loc):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         if len(arglocs) > 0:

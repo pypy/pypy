@@ -78,7 +78,7 @@ from rpython.jit.backend.llsupport.guard_compat import _real_number
 # assembler.py.
 #
 #   guard_compat_recovery:
-#     PUSH R11
+#     PUSH [R11 + bc_faildescr]
 #     PUSH [R11 + bc_gcmap]
 #     JMP target
 #
@@ -294,9 +294,10 @@ def build_once_guard_compat_recovery(assembler):
     r11 = regloc.r11.value
     mc = codebuf.MachineCodeBlockWrapper()
 
-    ofs = _real_number(BCGCMAP)
-    mc.PUSH_r(r11)
-    mc.PUSH_m((r11, ofs))
+    ofs1 = _real_number(BCFAILDESCR)
+    ofs2 = _real_number(BCGCMAP)
+    mc.PUSH_m((r11, ofs1))
+    mc.PUSH_m((r11, ofs2))
     target = assembler.get_target_for_failure_recovery_of_guard_compat()
     mc.JMP(regloc.imm(target))
 
@@ -329,30 +330,3 @@ def generate_recovery_stub(assembler, guard_token):
 
     ofs = _real_number(BCSEARCHTREE)
     mc.JMP_m((r11, ofs))                    # JMP *[R11 + bc_search_tree]
-
-
-#def generate_guard_compatible(assembler, guard_token, reg, reg2, gctable_index):
-#    mc = assembler.mc
-#    mc.CMP_rr(reg, reg2)                    # CMP reg, reg2
-#    mc.J_il8(rx86.Conditions['E'], 0)       # JE sequel
-#    je_location = mc.get_relative_pos()
-#
-#    self.push_from_gc_table(guard_token.faildescrindex)
-#    mc.JMP(regloc.imm(assembler.guard_compat_second_case))
-#
-#    padding_end = start_pos + size_general_case - 2
-#    while mc.get_relative_pos() < padding_end:
-#        mc.INT3()
-#
-#    padding_end = mc.get_relative_pos()    # in case it is actually bigger
-#    block_size = padding_end - start_pos + 2
-#    assert 0 < block_size <= 255
-#    mc.writechar(chr(block_size))
-#    assert 0 <= reg <= 15 and 0 <= reg2 <= 15
-#    mc.writechar(chr((reg2 << 4) | reg))
-#
-#    # abuse this field to store the 'sequel' relative offset
-#    guard_token.pos_jump_offset = mc.get_relative_pos()
-#    guard_token.guard_compat_bindex = gctable_index
-#    guard_token..............
-#    assembler.pending_guard_tokens.append(guard_token)
