@@ -501,11 +501,17 @@ def do_compile_loop(jd_id, unique_id, metainterp_sd, inputargs, operations,
                                       'compiling', None, name, memo)
     _log = metainterp_sd.jitlog.log_trace(jl.MARK_TRACE_OPT, metainterp_sd, None)
     _log.write(inputargs, operations)
-    return metainterp_sd.cpu.compile_loop(inputargs,
+    asminfo = metainterp_sd.cpu.compile_loop(inputargs,
                                           operations, looptoken,
                                           jd_id=jd_id, unique_id=unique_id,
-                                          log=log, name=name,
-                                          logger=metainterp_sd.jitlog)
+                                          log=log, name=name, logger=metainterp_sd.jitlog)
+
+    vmprof = metainterp_sd.vmprof
+    if vmprof:
+        vmprof.dyn_register_jit_page(asminfo.asmaddr,
+                                     asminfo.asmaddr+asminfo.asmlen, 1)
+
+    return asminfo
 
 def do_compile_bridge(metainterp_sd, faildescr, inputargs, operations,
                       original_loop_token, log=True, memo=None):
@@ -515,9 +521,14 @@ def do_compile_bridge(metainterp_sd, faildescr, inputargs, operations,
     _log = metainterp_sd.jitlog.log_trace(jl.MARK_TRACE_OPT, metainterp_sd, None)
     _log.write(inputargs, operations)
     assert isinstance(faildescr, AbstractFailDescr)
-    return metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations,
+    asminfo = metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations,
                                             original_loop_token, log=log,
                                             logger=metainterp_sd.jitlog)
+    vmprof = metainterp_sd.vmprof
+    if vmprof:
+        vmprof.dyn_register_jit_page(asminfo.asmaddr,
+                                     asminfo.asmaddr+asminfo.asmlen, 0)
+    return asminfo
 
 def forget_optimization_info(lst, reset_values=False):
     for item in lst:

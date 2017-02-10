@@ -160,6 +160,17 @@ class VMProf(object):
         if res < 0:
             raise VMProfError(os.strerror(rposix.get_saved_errno()))
 
+
+    def dyn_register_jit_page(self, addr, end_addr, loop, name=None):
+        if name is None:
+            cname = rffi.cast(rffi.CHARP, 0)
+        else:
+            cname = rffi.str2charp(name)
+        return self.cintf.vmp_dyn_register_jit_page(addr, end_addr, cname)
+
+    def dyn_cancel(self, ref):
+        self.cintf.vmp_dyn_cancel(ref)
+
     def _write_code_registration(self, uid, name):
         assert name.count(':') == 3 and len(name) <= MAX_FUNC_NAME, (
             "the name must be 'class:func_name:func_line:filename' "
@@ -249,9 +260,6 @@ def vmprof_execute_code(name, get_code_fn, result_class=None,
 @specialize.memo()
 def _was_registered(CodeClass):
     return hasattr(CodeClass, '_vmprof_unique_id')
-
-def register_jit_page(addr, end_addr, splits):
-    pass
 
 _vmprof_instance = None
 
