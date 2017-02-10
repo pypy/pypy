@@ -250,6 +250,8 @@ def vmprof_execute_code(name, get_code_fn, result_class=None,
 def _was_registered(CodeClass):
     return hasattr(CodeClass, '_vmprof_unique_id')
 
+def register_jit_page(addr, end_addr, splits):
+    pass
 
 _vmprof_instance = None
 

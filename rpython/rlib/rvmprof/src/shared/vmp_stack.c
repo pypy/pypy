@@ -241,7 +241,7 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
             // this is possible because compiler align to 8 bytes.
             //
 #ifdef PYPY_JIT_CODEMAP
-            if (func_addr == 0 && top_most_frame->kind == VMPROF_JITTED_TAG) {
+            if (top_most_frame->kind == VMPROF_JITTED_TAG) {
                 intptr_t pc = ((intptr_t*)(top_most_frame->value - sizeof(intptr_t)))[0];
                 depth = vmprof_write_header_for_jit_addr(result, depth, pc, max_depth);
                 frame = FRAME_STEP(frame);
@@ -291,9 +291,7 @@ int _ignore_symbols_from_path(const char * name) {
     // the native stack?
 #ifdef RPYTHON_VMPROF
     if (strstr(name, "libpypy-c.so") != NULL
-        || strstr(name, "pypy-c") != NULL
-        || strstr(name, "pypy") != NULL) {
-        printf("ignoring %s\n", name);
+        || strstr(name, "pypy-c") != NULL) {
         return 1;
     }
 #else

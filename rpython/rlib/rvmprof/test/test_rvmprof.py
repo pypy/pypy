@@ -237,3 +237,4 @@ def test_native():
     finally:
         assert os.path.exists(tmpfilename)
         os.unlink(tmpfilename)
+
