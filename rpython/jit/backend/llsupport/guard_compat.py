@@ -103,7 +103,7 @@ P_ARG = lltype.Struct('P_ARG', ('new_gcref', llmemory.GCREF),
 
 INVOKE_FIND_COMPATIBLE_FUNC = lltype.Ptr(lltype.FuncType(
                 [lltype.Ptr(P_ARG), lltype.Ptr(jitframe.JITFRAME)],
-                lltype.Signed))
+                lltype.Void))
 
 @specialize.memo()
 def make_invoke_find_compatible(cpu):

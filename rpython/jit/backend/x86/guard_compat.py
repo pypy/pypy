@@ -280,7 +280,7 @@ def build_once_search_tree(assembler):
     # the _backend_choices object from the second word of the array (the
     # GC may have moved it, or it may be a completely new object).
     if IS_X86_64:
-        mc.MOV_rs(r11, 0)                   # MOV R11, [RSP]
+        mc.MOV_rs(r11, 1 * WORD)            # MOV R11, [RSP]
         mc.JMP_s(2 * WORD)                  # JMP *[RSP+16]
     elif IS_X86_32:
         XXX
