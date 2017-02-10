@@ -785,7 +785,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 guard_compat.patch_guard_compatible(
                     tok, self._addr_from_gc_table,
                     self.gc_table_tracer, self.guard_compat_search_tree)
-                continue
             descr = tok.faildescr
             if descr.loop_version():
                 continue # patch them later

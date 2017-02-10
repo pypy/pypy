@@ -97,19 +97,16 @@ def gcref_to_unsigned(gcref):
     return rffi.cast(lltype.Unsigned, gcref)
 
 
-P_ARG = lltype.Struct('P_ARG', ('new_gcref', llmemory.GCREF),
-                               ('bchoices', lltype.Ptr(BACKEND_CHOICES)),
-                               ('jump_to', lltype.Signed))
-
 INVOKE_FIND_COMPATIBLE_FUNC = lltype.Ptr(lltype.FuncType(
-                [lltype.Ptr(P_ARG), lltype.Ptr(jitframe.JITFRAME)],
+                [rffi.SIGNEDP, lltype.Ptr(jitframe.JITFRAME)],
                 lltype.Void))
 
 @specialize.memo()
 def make_invoke_find_compatible(cpu):
     def invoke_find_compatible(p_arg, jitframe):
-        bchoices = p_arg.bchoices
-        new_gcref = p_arg.new_gcref
+        new_gcref = rffi.cast(llmemory.GCREF, p_arg[0])
+        bchoices = rffi.cast(lltype.Ptr(BACKEND_CHOICES), p_arg[1])
+        # ---GC operations cannot occur above---
         descr = bchoices.bc_faildescr
         descr = cast_gcref_to_instance(GuardCompatibleDescr, descr)
         try:
@@ -136,8 +133,9 @@ def make_invoke_find_compatible(cpu):
                 pdb.post_mortem(sys.exc_info()[2])
             result = cpu.assembler.guard_compat_recovery
         jitframe.jf_gcmap = lltype.nullptr(lltype.typeOf(jitframe.jf_gcmap).TO)
-        p_arg.bchoices = bchoices
-        p_arg.jump_to = result
+        # ---GC operations cannot occur below---
+        p_arg[0] = result
+        p_arg[1] = rffi.cast(lltype.Signed, bchoices)
     return invoke_find_compatible
 
 def add_in_tree(bchoices, new_gcref, new_asmaddr):

@@ -242,7 +242,7 @@ def build_once_search_tree(assembler):
 
     # The _backend_choices object is still referenced from [RSP+16]
     # (which becomes [RSP+8] after the POP), where it is the second of a
-    # three-words array passed as argument to invoke_find_compatible().
+    # two-words array passed as argument to invoke_find_compatible().
     # The first word is the value, from RAX, which we store in (*)
     # below.
 
@@ -275,13 +275,13 @@ def build_once_search_tree(assembler):
     # restore them all.
     assembler._pop_all_regs_from_frame(mc, [], withfloats=True)
 
-    # jump to the result, which is passed as the third word of the
+    # jump to the result, which is returned as the first word of the
     # array.  In case this goes to guard_compat_recovery, we also reload
     # the _backend_choices object from the second word of the array (the
     # GC may have moved it, or it may be a completely new object).
     if IS_X86_64:
-        mc.MOV_rs(r11, 1 * WORD)            # MOV R11, [RSP]
-        mc.JMP_s(2 * WORD)                  # JMP *[RSP+16]
+        mc.MOV_rs(r11, 1 * WORD)            # MOV R11, [RSP+8]
+        mc.JMP_s(0)                         # JMP *[RSP]
     elif IS_X86_32:
         XXX
         mc.JMP_s(0)
