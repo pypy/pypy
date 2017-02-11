@@ -16,11 +16,12 @@ class TestDirect(object):
         ffi.cdef("""
         int vmp_dyn_register_jit_page(intptr_t addr, intptr_t end_addr, const char * name);
         int vmp_dyn_cancel(int ref);
+        int vmp_dyn_teardown(void);
         """)
 
         with open(str(srcdir.join("shared/vmp_dynamic.c"))) as fd:
             ffi.set_source("rpython.rlib.rvmprof.test._test_dynamic", fd.read(),
-                    include_dirs=[str(srcdir.join('shared'))],
+                    include_dirs=[str(srcdir), str(srcdir.join('shared'))],
                     libraries=['unwind'])
 
         ffi.compile(verbose=True)
@@ -44,4 +45,28 @@ class TestDirect(object):
         lib.vmp_dyn_cancel(0)
         lib.vmp_dyn_cancel(1)
 
+    def test_register_dynamic_code_many(self):
+        lib = self.lib
+        ffi = self.ffi
+
+        refs = []
+        for i in range(5000):
+            ref = lib.vmp_dyn_register_jit_page(0x100*i, 0x200*i, ffi.NULL)
+            refs.append(ref)
+
+        for i in range(1000, 4000):
+            ref = refs[i]
+            lib.vmp_dyn_cancel(ref)
+
+        refs = refs[:1000] + refs[4000:]
+
+        for i in range(5000):
+            ref = lib.vmp_dyn_register_jit_page(0x100*i, 0x200*i, ffi.NULL)
+            refs.append(ref)
+
+        while refs:
+            ref = refs.pop()
+            lib.vmp_dyn_cancel(ref)
+
+        lib.vmp_dyn_teardown()
 

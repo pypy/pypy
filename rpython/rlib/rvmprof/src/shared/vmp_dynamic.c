@@ -9,8 +9,17 @@ static int g_has_holes = -1;
 static int g_dyn_entry_count_max = 0;
 static unw_dyn_info_t ** g_dyn_entries = 0;
 
+RPY_EXTERN
 int vmp_dyn_teardown(void)
 {
+    int i;
+    for (i = 0; i < g_dyn_entry_count; i++) {
+        unw_dyn_info_t * u = g_dyn_entries[i];
+        if (u != NULL) {
+            free(u);
+            g_dyn_entries[i] = NULL;
+        }
+    }
     if (g_dyn_entries != NULL) {
         free(g_dyn_entries);
     }
@@ -30,7 +39,7 @@ static void _vmp_dyn_resize(void) {
         g_dyn_entry_count_max *= 2;
         g_dyn_entries = (unw_dyn_info_t**)realloc(g_dyn_entries, sizeof(unw_dyn_info_t*) * g_dyn_entry_count_max);
         memset(g_dyn_entries + g_dyn_entry_count, 0,
-               sizeof(unw_dyn_info_t*)*g_dyn_entry_count_max - g_dyn_entry_count);
+               sizeof(unw_dyn_info_t*)*(g_dyn_entry_count_max - g_dyn_entry_count));
     }
 }
 
@@ -72,6 +81,7 @@ static void _vmp_free_dyn_info(unw_dyn_info_t * u)
     free(u);
 }
 
+RPY_EXTERN
 int vmp_dyn_register_jit_page(intptr_t addr, intptr_t end_addr,
                               const char * name)
 {
@@ -98,6 +108,7 @@ int vmp_dyn_register_jit_page(intptr_t addr, intptr_t end_addr,
     return ref;
 }
 
+RPY_EXTERN
 int vmp_dyn_cancel(int ref) {
     unw_dyn_info_t * u;
 

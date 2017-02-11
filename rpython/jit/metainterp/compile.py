@@ -160,9 +160,10 @@ def make_jitcell_token(jitdriver_sd):
     jitcell_token.outermost_jitdriver_sd = jitdriver_sd
     return jitcell_token
 
-def record_loop_or_bridge(metainterp_sd, loop):
+def record_loop_or_bridge(metainterp_sd, loop, asminfo):
     """Do post-backend recordings and cleanups on 'loop'.
     """
+    from rpython.rlib.rvmprof import rvmprof
     # get the original jitcell token corresponding to jitcell form which
     # this trace starts
     original_jitcell_token = loop.original_jitcell_token
@@ -172,6 +173,11 @@ def record_loop_or_bridge(metainterp_sd, loop):
     wref = weakref.ref(original_jitcell_token)
     clt = original_jitcell_token.compiled_loop_token
     clt.loop_token_wref = wref
+
+    rvmprof.dyn_register_jit_page(original_jitcell_token, asminfo.asmaddr,
+                                  asminfo.asmaddr+asminfo.asmlen)
+
+
     for op in loop.operations:
         descr = op.getdescr()
         # not sure what descr.index is about
@@ -242,9 +248,9 @@ def compile_simple_loop(metainterp, greenkey, trace, runtime_args, enable_opts,
     if not we_are_translated():
         loop.check_consistency()
     jitcell_token.target_tokens = [target_token]
-    send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop",
-                         runtime_args, metainterp.box_names_memo)
-    record_loop_or_bridge(metainterp_sd, loop)
+    asminfo = send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd,
+                    loop, "loop", runtime_args, metainterp.box_names_memo)
+    record_loop_or_bridge(metainterp_sd, loop, asminfo)
     return target_token
 
 def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
@@ -337,9 +343,9 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                        loop_info.extra_before_label + [loop_info.label_op] + loop_ops)
     if not we_are_translated():
         loop.check_consistency()
-    send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop",
-                         inputargs, metainterp.box_names_memo)
-    record_loop_or_bridge(metainterp_sd, loop)
+    asminfo = send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd,
+                    loop, "loop", inputargs, metainterp.box_names_memo)
+    record_loop_or_bridge(metainterp_sd, loop, asminfo)
     loop_info.post_loop_compilation(loop, jitdriver_sd, metainterp, jitcell_token)
     return start_descr
 
@@ -414,9 +420,9 @@ def compile_retrace(metainterp, greenkey, start,
         loop.quasi_immutable_deps = quasi_immutable_deps
 
     target_token = loop.operations[-1].getdescr()
-    resumekey.compile_and_attach(metainterp, loop, inputargs)
+    asminfo = resumekey.compile_and_attach(metainterp, loop, inputargs)
 
-    record_loop_or_bridge(metainterp_sd, loop)
+    record_loop_or_bridge(metainterp_sd, loop, asminfo)
     return target_token
 
 def get_box_replacement(op, allow_none=False):
@@ -506,11 +512,6 @@ def do_compile_loop(jd_id, unique_id, metainterp_sd, inputargs, operations,
                                           jd_id=jd_id, unique_id=unique_id,
                                           log=log, name=name, logger=metainterp_sd.jitlog)
 
-    vmprof = metainterp_sd.vmprof
-    if vmprof:
-        vmprof.dyn_register_jit_page(asminfo.asmaddr,
-                                     asminfo.asmaddr+asminfo.asmlen, 1)
-
     return asminfo
 
 def do_compile_bridge(metainterp_sd, faildescr, inputargs, operations,
@@ -524,10 +525,6 @@ def do_compile_bridge(metainterp_sd, faildescr, inputargs, operations,
     asminfo = metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations,
                                             original_loop_token, log=log,
                                             logger=metainterp_sd.jitlog)
-    vmprof = metainterp_sd.vmprof
-    if vmprof:
-        vmprof.dyn_register_jit_page(asminfo.asmaddr,
-                                     asminfo.asmaddr+asminfo.asmlen, 0)
     return asminfo
 
 def forget_optimization_info(lst, reset_values=False):
@@ -597,6 +594,8 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type,
     #
     if metainterp_sd.warmrunnerdesc is not None:    # for tests
         metainterp_sd.warmrunnerdesc.memory_manager.keep_loop_alive(original_jitcell_token)
+
+    return asminfo
 
 def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
                            operations, original_loop_token, memo):
@@ -843,10 +842,10 @@ class AbstractResumeGuardDescr(ResumeDescr):
             self._debug_subinputargs = new_loop.inputargs
             self._debug_suboperations = new_loop.operations
         propagate_original_jitcell_token(new_loop)
-        send_bridge_to_backend(metainterp.jitdriver_sd, metainterp.staticdata,
-                               self, inputargs, new_loop.operations,
-                               new_loop.original_jitcell_token,
-                               metainterp.box_names_memo)
+        return send_bridge_to_backend(metainterp.jitdriver_sd,
+                    metainterp.staticdata, self, inputargs,
+                    new_loop.operations, new_loop.original_jitcell_token,
+                    metainterp.box_names_memo)
 
     def make_a_counter_per_value(self, guard_value_op, index):
         assert guard_value_op.getopnum() == rop.GUARD_VALUE
@@ -1047,13 +1046,14 @@ class ResumeFromInterpDescr(ResumeDescr):
         jitdriver_sd = metainterp.jitdriver_sd
         new_loop.original_jitcell_token = jitcell_token = make_jitcell_token(jitdriver_sd)
         propagate_original_jitcell_token(new_loop)
-        send_loop_to_backend(self.original_greenkey, metainterp.jitdriver_sd,
-                             metainterp_sd, new_loop, "entry bridge",
-                             orig_inputargs, metainterp.box_names_memo)
+        asminfo = send_loop_to_backend(self.original_greenkey,
+                     metainterp.jitdriver_sd, metainterp_sd, new_loop,
+                     "entry bridge", orig_inputargs, metainterp.box_names_memo)
         # send the new_loop to warmspot.py, to be called directly the next time
         jitdriver_sd.warmstate.attach_procedure_to_interp(
             self.original_greenkey, jitcell_token)
         metainterp_sd.stats.add_jitcell_token(jitcell_token)
+        return asminfo
 
 
 def compile_trace(metainterp, resumekey, runtime_boxes):
@@ -1115,8 +1115,8 @@ def compile_trace(metainterp, resumekey, runtime_boxes):
     if info.final():
         new_trace.inputargs = info.inputargs
         target_token = new_trace.operations[-1].getdescr()
-        resumekey.compile_and_attach(metainterp, new_trace, inputargs)
-        record_loop_or_bridge(metainterp_sd, new_trace)
+        asminfo = resumekey.compile_and_attach(metainterp, new_trace, inputargs)
+        record_loop_or_bridge(metainterp_sd, new_trace, asminfo)
         return target_token
     new_trace.inputargs = info.renamed_inputargs
     metainterp.retrace_needed(new_trace, info)

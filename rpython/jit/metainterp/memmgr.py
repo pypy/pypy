@@ -2,6 +2,7 @@ import math
 from rpython.rlib.rarithmetic import r_int64
 from rpython.rlib.debug import debug_start, debug_print, debug_stop
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rvmprof import rvmprof
 
 #
 # Logic to decide which loops are old and not used any more.
@@ -70,6 +71,7 @@ class MemoryManager(object):
         for looptoken in self.alive_loops.keys():
             if (0 <= looptoken.generation < max_generation or
                 looptoken.invalidated):
+                rvmprof.vmp_dyn_cancel(looptoken)
                 del self.alive_loops[looptoken]
         newtotal = len(self.alive_loops)
         debug_print("Loop tokens freed: ", oldtotal - newtotal)

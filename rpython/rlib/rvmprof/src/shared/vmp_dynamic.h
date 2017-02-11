@@ -3,8 +3,10 @@
 #include <stdint.h>
 #include <libunwind.h>
 
-int vmp_dyn_register_jit_page(intptr_t addr, intptr_t end_addr,
+#include "rvmprof.h"
+
+RPY_EXTERN int vmp_dyn_register_jit_page(intptr_t addr, intptr_t end_addr,
                               const char * name);
-int vmp_dyn_cancel(int ref);
-int vmp_dyn_teardown(void);
+RPY_EXTERN int vmp_dyn_cancel(int ref);
+RPY_EXTERN int vmp_dyn_teardown(void);
 
