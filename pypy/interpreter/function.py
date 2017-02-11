@@ -368,6 +368,12 @@ class Function(W_Root):
         return space.newtuple(values_w)
 
     def fget_defaults_count(self, space):
+        # PyPy extension.  This is mostly to make inspect.py happy about
+        # methods like dict.pop(), which take a default but is None.
+        # Previously, inspect.py would build a signature saying that all
+        # arguments are required, and then unittest.mock would complain
+        # if we call it with less arguments.  Now inspect.py looks up
+        # '__defaults_count__' too.
         return space.newint(len(self.defs_w))
 
     def fset_func_defaults(self, space, w_defaults):
