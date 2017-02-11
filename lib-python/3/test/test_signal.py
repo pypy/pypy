@@ -580,9 +580,11 @@ class WakeupSocketSignalTests(unittest.TestCase):
 
         err = err.getvalue()
         if ('Exception ignored when trying to {action} to the signal wakeup fd'
-            not in err):
+            not in err) and {cpython_only}:
             raise AssertionError(err)
-        """.format(action=action)
+        """.format(action=action, cpython_only=support.check_impl_detail())
+        # note that PyPy produces the same error message, but sent to
+        # the real stderr instead of to sys.stderr.
         assert_python_ok('-c', code)
 
 
