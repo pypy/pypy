@@ -1064,8 +1064,9 @@ class ExceptionTests(unittest.TestCase):
                         self.assertIn("<exception str() failed>", report)
                     else:
                         # pypy: this is what lib-python's traceback.py gives
-                        self.assertIn("<unprintable BrokenExceptionDel object>",
-                                      report)
+                        self.assertRegex(report,
+                            ".*BrokenStrException: <unprintable"
+                            " BrokenStrException object>\n")
                 else:
                     self.assertIn("ValueError", report)
                     self.assertIn("del is broken", report)
@@ -1118,7 +1119,8 @@ class ImportErrorTests(unittest.TestCase):
         self.assertEqual(exc.name, 'somename')
         self.assertEqual(exc.path, 'somepath')
 
-        msg = "'invalid' is an invalid keyword argument for this function"
+        msg = ("'invalid' is an invalid keyword argument for this function"
+               "|ImportError does not take keyword arguments")  # PyPy message
         with self.assertRaisesRegex(TypeError, msg):
             ImportError('test', invalid='keyword')
 
@@ -1131,7 +1133,8 @@ class ImportErrorTests(unittest.TestCase):
         with self.assertRaisesRegex(TypeError, msg):
             ImportError(invalid='keyword')
 
-        msg = "'invalid|another' is an invalid keyword argument for this function"
+        msg = ("'invalid|another' is an invalid keyword argument for this function"
+               "|ImportError does not take keyword arguments")  # PyPy message
         with self.assertRaisesRegex(TypeError, msg):
             ImportError('test', invalid='keyword', another=True)
 
