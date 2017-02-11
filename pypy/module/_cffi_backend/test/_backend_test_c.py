@@ -365,7 +365,7 @@ def test_load_standard_library():
     x = find_and_load_library(None)
     BVoidP = new_pointer_type(new_void_type())
     assert x.load_function(BVoidP, 'strcpy')
-    py.test.raises(KeyError, x.load_function,
+    py.test.raises(AttributeError, x.load_function,
                    BVoidP, 'xxx_this_function_does_not_exist')
     # the next one is from 'libm', not 'libc', but we assume
     # that it is already loaded too, so it should work
