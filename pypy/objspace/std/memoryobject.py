@@ -565,7 +565,7 @@ class W_MemoryView(W_Root):
 
     def _init_flags(self):
         buf = self.buf
-        ndim = buf.getndim()
+        ndim = self.getndim()
         flags = 0
         if ndim == 0:
             flags |= MEMORYVIEW_SCALAR | MEMORYVIEW_C | MEMORYVIEW_FORTRAN
