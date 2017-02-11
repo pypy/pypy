@@ -722,14 +722,13 @@ class W_Cycle(W_Root):
         self.space = space
         self.saved_w = []
         self.w_iterable = space.iter(w_iterable)
-        self.index = 0
-        self.exhausted = False
+        self.index = 0    # 0 during the first iteration; > 0 afterwards
 
     def iter_w(self):
         return self.space.wrap(self)
 
     def next_w(self):
-        if self.exhausted:
+        if self.index > 0:
             if not self.saved_w:
                 raise OperationError(self.space.w_StopIteration, self.space.w_None)
             try:
@@ -744,15 +743,13 @@ class W_Cycle(W_Root):
                 w_obj = self.space.next(self.w_iterable)
             except OperationError as e:
                 if e.match(self.space, self.space.w_StopIteration):
-                    self.exhausted = True
+                    self.index = 1
                     if not self.saved_w:
                         raise
-                    self.index = 1
                     w_obj = self.saved_w[0]
                 else:
                     raise
             else:
-                self.index += 1
                 self.saved_w.append(w_obj)
         return w_obj
 
