@@ -816,3 +816,5 @@ class TestFunction:
         w_g = space.wrap(app_g)
         w_defs = space.getattr(w_g, space.wrap("__defaults__"))
         assert space.is_w(w_defs, space.w_None)
+        w_count = space.getattr(w_g, space.wrap("__defaults_count__"))
+        assert space.unwrap(w_count) == 1

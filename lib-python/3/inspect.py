@@ -2085,6 +2085,16 @@ def _signature_from_builtin(cls, func, skip_bound_arg=True):
     return _signature_fromstr(cls, func, s, skip_bound_arg)
 
 
+class _NoValue:
+    """Class of a marker object for PyPy only, used as the defaults for
+    built-in functions when there is really no Python object that could
+    be used."""
+    __slots__ = ()
+    def __repr__(self):
+        return '<no value>'
+_no_value = _NoValue()
+
+
 def _signature_from_function(cls, func):
     """Private helper: constructs Signature for the given python function."""
 
@@ -2113,7 +2123,10 @@ def _signature_from_function(cls, func):
     if defaults:
         pos_default_count = len(defaults)
     else:
-        pos_default_count = 0
+        # PyPy extension, for built-in functions that take optional
+        # arguments but without any Python object to use as default.
+        pos_default_count = getattr(func, '__defaults_count__', 0)
+        defaults = [_no_value] * pos_default_count
 
     parameters = []
 

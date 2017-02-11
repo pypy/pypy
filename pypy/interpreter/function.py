@@ -367,6 +367,9 @@ class Function(W_Root):
             return space.w_None
         return space.newtuple(values_w)
 
+    def fget_defaults_count(self, space):
+        return space.newint(len(self.defs_w))
+
     def fset_func_defaults(self, space, w_defaults):
         if space.is_w(w_defaults, space.w_None):
             self.defs_w = []
