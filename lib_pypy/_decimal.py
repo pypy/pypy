@@ -240,7 +240,7 @@ class Decimal(object):
 
     @classmethod
     def _from_str(cls, value, context, exact=True, strip=True):
-        s = value.encode('ascii', '_decimal_encode')
+        s = str.encode(value, 'ascii', '_decimal_encode')
         if b'\0' in s:
             s = b''  # empty string triggers ConversionSyntax.
         if strip:
@@ -256,6 +256,7 @@ class Decimal(object):
 
     @classmethod
     def _from_int(cls, value, context, exact=True):
+        value = int(value)     # in case it's a subclass of 'int'
         self = cls._new_empty()
         with _CatchConversions(self._mpd, context, exact) as (ctx, status_ptr):
             size = (((value|1).bit_length() + 15) // 16) + 5
@@ -332,6 +333,8 @@ class Decimal(object):
         # note: if 'cls' is a subclass of Decimal and 'value' is an int,
         # this will call cls(Decimal('42')) whereas _pydecimal.py will
         # call cls(42).  This is like CPython's _decimal module.
+        if not isinstance(value, (int, float)):
+            raise TypeError("argument must be int of float")
         result = cls._from_float(value, getcontext(), exact=True)
         if cls is Decimal:
             return result
@@ -342,6 +345,7 @@ class Decimal(object):
     def _from_float(cls, value, context, exact=True):
         if isinstance(value, int):
             return cls._from_int(value, context, exact=exact)
+        value = float(value)    # in case it's a subclass of 'float'
         sign = 0 if _math.copysign(1.0, value) == 1.0 else 1
 
         if _math.isnan(value):
