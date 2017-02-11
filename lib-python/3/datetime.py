@@ -1145,16 +1145,17 @@ class time:
     def __hash__(self):
         """Hash."""
         if self._hashcode == -1:
-            # PyPy: uses the same algo as _datetimemodule.c, which
-            # unlike the pure Python version always relies on the
-            # nondeterministic hash on strings
-            temp1 = timedelta(hours=self._hour,
-                              minutes=self._minute,
-                              seconds=self._second,
-                              microseconds=self._microsecond)
-            tzoff = self.utcoffset()
-            if tzoff:  # not zero, not None
-                temp1 -= tzoff
+            # PyPy: uses an algo that, like _datetimemodule.c and
+            # unlike the pure Python version, always relies on the
+            # nondeterministic hash on strings.  Well, if we have no
+            # tzoff, that is.  If we have tzoff then CPython's hashes
+            # are again deterministic.  I have no clue why.  We'll go
+            # for now for also being nondeterministic in this case.
+            temp1 = '%d@%d@%d@%d@%s' % (self._hour,
+                                        self._minute,
+                                        self._second,
+                                        self._microsecond,
+                                        self.utcoffset())
             self._hashcode = hash(temp1)
         return self._hashcode
 
