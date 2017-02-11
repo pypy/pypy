@@ -71,7 +71,7 @@ class MemoryManager(object):
         for looptoken in self.alive_loops.keys():
             if (0 <= looptoken.generation < max_generation or
                 looptoken.invalidated):
-                rvmprof.vmp_dyn_cancel(looptoken)
+                rvmprof.dyn_cancel(looptoken)
                 del self.alive_loops[looptoken]
         newtotal = len(self.alive_loops)
         debug_print("Loop tokens freed: ", oldtotal - newtotal)

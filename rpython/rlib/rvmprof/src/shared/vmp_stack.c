@@ -241,10 +241,15 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
             // this is possible because compiler align to 8 bytes.
             //
 #ifdef PYPY_JIT_CODEMAP
-            if (top_most_frame->kind == VMPROF_JITTED_TAG) {
+            if (pip.format == UNW_INFO_FORMAT_DYNAMIC) {
+                if (top_most_frame->kind != VMPROF_JITTED_TAG) {
+                    // if this is encountered frequently something is wrong with
+                    // the stack building
+                    return 0;
+                }
                 intptr_t pc = ((intptr_t*)(top_most_frame->value - sizeof(intptr_t)))[0];
                 depth = vmprof_write_header_for_jit_addr(result, depth, pc, max_depth);
-                frame = FRAME_STEP(frame);
+                top_most_frame = FRAME_STEP(top_most_frame);
             } else if (func_addr != 0x0) {
                 depth = _write_native_stack((void*)(func_addr | 0x1), result, depth);
             }
