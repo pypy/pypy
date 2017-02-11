@@ -1049,7 +1049,9 @@ def check_syntax_error(testcase, statement, *, lineno=None, offset=None):
     if lineno is not None:
         testcase.assertEqual(err.lineno, lineno)
     testcase.assertIsNotNone(err.offset)
-    if offset is not None:
+    # Don't check the offset on PyPy, it can often be slightly different
+    # than on CPython
+    if offset is not None and check_impl_detail():
         testcase.assertEqual(err.offset, offset)
 
 def open_urlresource(url, *args, **kw):
