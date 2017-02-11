@@ -428,14 +428,10 @@ class W_MemoryView(W_Root):
 
     def w_get_shape(self, space):
         self._check_released(space)
-        if self.getndim() == 0:
-            return space.w_None
         return space.newtuple([space.wrap(x) for x in self.getshape()])
 
     def w_get_strides(self, space):
         self._check_released(space)
-        if self.getndim() == 0:
-            return space.w_None
         return space.newtuple([space.wrap(x) for x in self.getstrides()])
 
     def w_get_suboffsets(self, space):

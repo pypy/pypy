@@ -323,11 +323,11 @@ class CPyBuffer(Buffer):
         self.w_obj = w_obj # kept alive
         self.pyobj = make_ref(space, w_obj)
         self.format = format
-        if not shape:
+        if shape is None:
             self.shape = [size]
         else:
             self.shape = shape
-        if not strides:
+        if strides is None:
             self.strides = [1]
         else:
             self.strides = strides
