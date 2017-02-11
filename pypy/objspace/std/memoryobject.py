@@ -117,6 +117,9 @@ class W_MemoryView(W_Root):
         return ''.join(self.copy_buffer())
 
     def copy_buffer(self):
+        if self.getndim() == 0:
+            itemsize = self.getitemsize()
+            return [self.buf.getslice(0, itemsize, 1, itemsize)]
         data = []
         self._copy_rec(0, data, 0)
         return data
@@ -126,12 +129,12 @@ class W_MemoryView(W_Root):
         shape = shapes[idim]
         strides = self.getstrides()
 
-        if self.getndim()-1 == idim:
-            self._copy_base(data,off)
+        if self.getndim() - 1 == idim:
+            self._copy_base(data, off)
             return
 
         for i in range(shape):
-            self._copy_rec(idim+1,data,off)
+            self._copy_rec(idim + 1, data, off)
             off += strides[idim]
 
     def _copy_base(self, data, off):

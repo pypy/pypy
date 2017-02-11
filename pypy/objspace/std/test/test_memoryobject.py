@@ -32,7 +32,7 @@ class AppTestMemoryView:
         assert len(v) == 1
         assert v.shape == ()
         assert v.strides == ()
-        #assert v.tobytes() == b'x'
+        assert v.tobytes() == b'x'
         #assert v[()] == b'x'[0]
 
     def test_rw(self):
