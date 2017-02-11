@@ -329,7 +329,14 @@ class Decimal(object):
 
     @classmethod
     def from_float(cls, value):
-        return cls._from_float(value, getcontext(), exact=True)
+        # note: if 'cls' is a subclass of Decimal and 'value' is an int,
+        # this will call cls(Decimal('42')) whereas _pydecimal.py will
+        # call cls(42).  This is like CPython's _decimal module.
+        result = cls._from_float(value, getcontext(), exact=True)
+        if cls is Decimal:
+            return result
+        else:
+            return cls(result)
 
     @classmethod
     def _from_float(cls, value, context, exact=True):
