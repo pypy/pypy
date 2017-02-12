@@ -735,6 +735,31 @@ class AppTest_DictMultiObject(AppTest_DictObject):
         setattr(a, s, 123)
         assert holder.seen is s
 
+    def test_internal_delitem(self):
+        class K:
+            def __hash__(self):
+                return 42
+            def __eq__(self, other):
+                if is_equal[0]:
+                    is_equal[0] -= 1
+                    return True
+                return False
+        is_equal = [0]
+        k1 = K()
+        k2 = K()
+        d = {k1: 1, k2: 2}
+        k3 = K()
+        is_equal = [1]
+        try:
+            x = d.pop(k3)
+        except RuntimeError:
+            # This used to give a Fatal RPython error: KeyError.
+            # Now at least it should raise an app-level RuntimeError,
+            # or just work.
+            assert len(d) == 2
+        else:
+            assert (x == 1 or x == 2) and len(d) == 1
+
 
 class AppTestDictViews:
     def test_dictview(self):

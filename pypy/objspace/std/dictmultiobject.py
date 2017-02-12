@@ -237,6 +237,14 @@ class W_DictMultiObject(W_Root):
         except KeyError:
             space.raise_key_error(w_key)
 
+    def internal_delitem(self, w_key):
+        try:
+            self.delitem(w_key)
+        except KeyError:
+            raise oefmt(self.space.w_RuntimeError,
+                        "an internal 'del' on the dictionary failed to find "
+                        "the key")
+
     def descr_reversed(self, space):
         raise oefmt(space.w_TypeError,
                     "argument to reversed() must be a sequence")
@@ -369,7 +377,7 @@ class W_DictMultiObject(W_Root):
             else:
                 space.raise_key_error(w_key)
         else:
-            self.delitem(w_key)
+            self.internal_delitem(w_key)
             return w_item
 
     def descr_popitem(self, space):
