@@ -27,6 +27,14 @@ class AppTestMemoryView:
         assert len(w) == 2
         exc = raises(TypeError, "memoryview('foobar')")
 
+    def test_0d(self):
+        v = memoryview(b'x').cast('B', ())
+        assert len(v) == 1
+        assert v.shape == ()
+        assert v.strides == ()
+        assert v.tobytes() == b'x'
+        #assert v[()] == b'x'[0]
+
     def test_rw(self):
         data = bytearray(b'abcefg')
         v = memoryview(data)

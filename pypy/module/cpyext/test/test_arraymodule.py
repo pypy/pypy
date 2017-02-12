@@ -69,6 +69,14 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
                                 b'\x03\0\0\0'
                                 b'\x04\0\0\0')
 
+    def test_0d_view(self):
+        module = self.import_module(name='array')
+        arr = module.array('B', b'\0\0\0\x01')
+        buf = memoryview(arr).cast('i', shape=())
+        assert bytes(buf) == b'\0\0\0\x01'
+        assert buf.shape == ()
+        assert buf.strides == ()
+
     def test_binop_mul_impl(self):
         # check that rmul is called
         module = self.import_module(name='array')
