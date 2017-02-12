@@ -365,6 +365,13 @@ class W_DictMultiObject(W_Root):
         corresponding value\nIf key is not found, d is returned if given,
         otherwise KeyError is raised
         """
+        strategy = self.get_strategy()
+        if strategy.has_pop:
+            try:
+                return strategy.pop(self, w_key, w_default)
+            except KeyError:
+                raise space.raise_key_error(w_key)
+        # fall-back
         w_item = self.getitem(w_key)
         if w_item is None:
             if w_default is not None:
@@ -616,6 +623,7 @@ class DictStrategy(object):
 
     has_iterreversed = False
     has_move_to_end = False
+    has_pop = False
     # ^^^ no default implementation available for these methods
 
     def rev_update1_dict_dict(self, w_dict, w_updatedict):
@@ -890,6 +898,9 @@ def create_iterator_classes(dictimpl):
     if hasattr(dictimpl, 'move_to_end'):
         dictimpl.has_move_to_end = True
 
+    if hasattr(dictimpl, 'pop'):
+        dictimpl.has_pop = True
+
     @jit.look_inside_iff(lambda self, w_dict, w_updatedict:
                          w_dict_unrolling_heuristic(w_dict))
     def rev_update1_dict_dict(self, w_dict, w_updatedict):
@@ -1027,6 +1038,21 @@ class AbstractTypedStrategy(object):
     def popitem(self, w_dict):
         key, value = self.unerase(w_dict.dstorage).popitem()
         return (self.wrap(key), value)
+
+    def pop(self, w_dict, w_key, w_default):
+        space = self.space
+        if self.is_correct_type(w_key):
+            key = self.unwrap(w_key)
+            d = self.unerase(w_dict.dstorage)
+            if w_default is None:
+                return d.pop(key)
+            else:
+                return d.pop(key, w_default)
+        elif self._never_equal_to(space.type(w_key)):
+            raise KeyError
+        else:
+            self.switch_to_object_strategy(w_dict)
+            return w_dict.get_strategy().pop(w_dict, w_key, w_default)
 
     def clear(self, w_dict):
         self.unerase(w_dict.dstorage).clear()

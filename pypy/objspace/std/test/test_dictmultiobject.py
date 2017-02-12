@@ -663,6 +663,18 @@ class AppTest_DictObject:
             else:
                 assert False, 'Expected KeyError'
 
+    def test_pop_switching_strategy(self):
+        class Foo:
+            def __hash__(self):
+                return hash("a")
+            def __eq__(self, other):
+                return other == "a"
+        d = {"a": 42}
+        x = d.pop(Foo())
+        assert x == 42 and len(d) == 0
+        d = {"b": 43}
+        raises(KeyError, d.pop, Foo())
+
     def test_no_len_on_dict_iter(self):
         iterable = {1: 2, 3: 4}
         raises(TypeError, len, iter(iterable))
