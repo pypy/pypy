@@ -1766,9 +1766,16 @@ class datetime(date):
             if tzoff is None:
                 self._hashcode = hash(self._getstate()[0])
             else:
+                # PyPy: uses an algo that relies on the hash of strings,
+                # giving a nondeterministic result.  CPython doesn't do
+                # that if there is a tzoff (but does if there is no
+                # tzoff).
                 days = _ymd2ord(self.year, self.month, self.day)
                 seconds = self.hour * 3600 + self.minute * 60 + self.second
-                self._hashcode = hash(timedelta(days, seconds, self.microsecond) - tzoff)
+                delta = timedelta(days, seconds, self.microsecond) - tzoff
+                temp1 = '%d&%d&%d' % (delta.days, delta.seconds,
+                                      delta.microseconds)
+                self._hashcode = hash(temp1)
         return self._hashcode
 
     # Pickle support.
