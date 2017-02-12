@@ -325,25 +325,23 @@ def parse_f_string(astbuilder, joined_pieces, fstr, atom_node, rec=0):
 
 
 def f_string_to_ast_node(astbuilder, joined_pieces, atom_node):
-    # remove empty Strs
+    # Remove empty Strs, but always return an ast.JoinedStr object.
+    # In this way it cannot be grabbed later for being used as a
+    # docstring.  In codegen.py we still special-case length-1 lists
+    # and avoid calling "BUILD_STRING 1" in this case.
     space = astbuilder.space
     values = [node for node in joined_pieces
                    if not isinstance(node, ast.Str)
                       or space.is_true(node.s)]
-    if len(values) > 1:
-        return ast.JoinedStr(values, atom_node.get_lineno(),
-                                     atom_node.get_column())
-    elif len(values) == 1:
-        return values[0]
-    else:
-        assert len(joined_pieces) > 0    # they are all empty strings
-        return joined_pieces[0]
+    return ast.JoinedStr(values, atom_node.get_lineno(),
+                                 atom_node.get_column())
 
 
 def string_parse_literal(astbuilder, atom_node):
     space = astbuilder.space
     encoding = astbuilder.compile_info.encoding
     joined_pieces = []
+    fmode = False
     try:
         for i in range(atom_node.num_children()):
             w_next = parsestring.parsestr(
@@ -353,6 +351,7 @@ def string_parse_literal(astbuilder, atom_node):
                                     atom_node)
             else:
                 parse_f_string(astbuilder, joined_pieces, w_next, atom_node)
+                fmode = True
 
     except error.OperationError as e:
         if e.match(space, space.w_UnicodeError):
@@ -366,7 +365,7 @@ def string_parse_literal(astbuilder, atom_node):
         errmsg = space.str_w(space.str(e.get_w_value(space)))
         raise astbuilder.error('(%s) %s' % (kind, errmsg), atom_node)
 
-    if len(joined_pieces) == 1:   # <= the common path
+    if not fmode and len(joined_pieces) == 1:   # <= the common path
         return joined_pieces[0]   # ast.Str, Bytes or FormattedValue
 
     # with more than one piece, it is a combination of Str and
@@ -376,4 +375,5 @@ def string_parse_literal(astbuilder, atom_node):
         if isinstance(node, ast.Bytes):
             astbuilder.error("cannot mix bytes and nonbytes literals",
                              atom_node)
+    assert fmode
     return f_string_to_ast_node(astbuilder, joined_pieces, atom_node)

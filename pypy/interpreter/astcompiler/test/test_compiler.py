@@ -417,6 +417,7 @@ class TestCompiler:
                 foo = Foo()
                 exec("'moduledoc'", foo.__dict__)
              ''',                            "moduledoc"),
+            ('''def foo(): f"abc"''',        None),
             ]:
             yield self.simple_test, source, "foo.__doc__", expected
 

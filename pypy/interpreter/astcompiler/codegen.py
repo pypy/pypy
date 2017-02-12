@@ -1506,7 +1506,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(joinedstr.lineno)
         for node in joinedstr.values:
             node.walkabout(self)
-        self.emit_op_arg(ops.BUILD_STRING, len(joinedstr.values))
+        if len(joinedstr.values) != 1:
+            self.emit_op_arg(ops.BUILD_STRING, len(joinedstr.values))
 
     def visit_FormattedValue(self, fmt):
         fmt.value.walkabout(self)
