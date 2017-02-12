@@ -91,6 +91,8 @@ class Module(MixedModule):
         'normalize_exc'             : 'interp_magic.normalize_exc',
         'StdErrPrinter'             : 'interp_stderrprinter.W_StdErrPrinter',
         'stack_almost_full'         : 'interp_magic.stack_almost_full',
+        'fsencode'                  : 'interp_magic.fsencode',
+        'fsdecode'                  : 'interp_magic.fsdecode',
     }
 
     submodules = {

@@ -180,3 +180,11 @@ def normalize_exc(space, w_type, w_value=None, w_tb=None):
 def stack_almost_full(space):
     """Return True if the stack is more than 15/16th full."""
     return space.wrap(rstack.stack_almost_full())
+
+def fsencode(space, w_obj):
+    """Direct access to the interp-level fsencode()"""
+    return space.fsencode(w_obj)
+
+def fsdecode(space, w_obj):
+    """Direct access to the interp-level fsdecode()"""
+    return space.fsdecode(w_obj)

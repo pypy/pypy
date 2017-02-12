@@ -87,3 +87,17 @@ class TestFSEncode(BaseFSEncodeTest):
         # ValueError directly, or return a wrapped bytes with the 0
         # embedded---and then space.fsencode_w() should raise ValueError.
         space.raises_w(space.w_ValueError, space.fsencode_w, w_u)
+
+    def test_interface_from___pypy__(self):
+        space = self.space
+        strs = [u"/home/bar/baz", u"c:\\"]
+        if self.special_char:
+            strs.append(self.special_char)
+        for st in strs:
+            w_st = space.newunicode(st)
+            w_enc = space.fsencode(w_st)
+            space.appexec([w_st, w_enc], """(u, s):
+                import __pypy__
+                assert __pypy__.fsencode(u) == s
+                assert __pypy__.fsdecode(s) == u
+            """)
