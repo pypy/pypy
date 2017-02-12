@@ -327,7 +327,7 @@ class W_DictMultiObject(W_Root):
             if w_value is None:
                 space.raise_key_error(w_key)
             else:
-                self.delitem(w_key)
+                self.internal_delitem(w_key)
                 if last_flag:
                     self.setitem(w_key, w_value)
                 else:
@@ -352,7 +352,7 @@ class W_DictMultiObject(W_Root):
         w_key, w_value = self.iteritems().next_item()
         if w_key is None:
             raise oefmt(space.w_KeyError, "popitem(): dictionary is empty")
-        self.delitem(w_key)
+        self.internal_delitem(w_key)
         return space.newtuple([w_key, w_value])
 
     def descr_clear(self, space):
