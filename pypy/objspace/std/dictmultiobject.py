@@ -338,6 +338,15 @@ class W_DictMultiObject(W_Root):
                     for i in range(len(keys_w)):
                         self.setitem(keys_w[i], values_w[i])
 
+    def nondescr_popitem_first(self, space):
+        """Not exposed directly to app-level, but via __pypy__.popitem_first().
+        """
+        w_key, w_value = self.iteritems().next_item()
+        if w_key is None:
+            raise oefmt(space.w_KeyError, "popitem(): dictionary is empty")
+        self.delitem(w_key)
+        return space.newtuple([w_key, w_value])
+
     def descr_clear(self, space):
         """D.clear() -> None.  Remove all items from D."""
         self.clear()
@@ -604,8 +613,7 @@ class DictStrategy(object):
 
     has_iterreversed = False
     has_move_to_end = False
-    # no 'getiterreversed' and no 'move_to_end': no default
-    # implementation available
+    # ^^^ no default implementation available for these methods
 
     def rev_update1_dict_dict(self, w_dict, w_updatedict):
         iteritems = self.iteritems(w_dict)

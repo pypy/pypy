@@ -267,9 +267,21 @@ class AppTest_DictObject:
         d = {1: 2, 3: 4, 5: 6}
         it = __pypy__.reversed_dict(d)
         key = it.next()
-        assert key in [1, 3, 5]
+        assert key in [1, 3, 5]   # on CPython, dicts are not ordered
         del d[key]
         raises(RuntimeError, it.next)
+
+    def test_dict_popitem_first(self):
+        import __pypy__
+        d = {"a": 5}
+        assert __pypy__.dict_popitem_first(d) == ("a", 5)
+        raises(KeyError, __pypy__.dict_popitem_first, d)
+
+        def kwdict(**k):
+            return k
+        d = kwdict(a=55)
+        assert __pypy__.dict_popitem_first(d) == ("a", 55)
+        raises(KeyError, __pypy__.dict_popitem_first, d)
 
     def test_delitem_if_value_is(self):
         import __pypy__
