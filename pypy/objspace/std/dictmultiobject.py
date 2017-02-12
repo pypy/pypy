@@ -102,13 +102,6 @@ class W_DictMultiObject(W_Root):
             result[key] = val
         return result
 
-    def missing_method(w_dict, space, w_key):
-        if not space.is_w(space.type(w_dict), space.w_dict):
-            w_missing = space.lookup(w_dict, '__missing__')
-            if w_missing is not None:
-                return space.get_and_call_function(w_missing, w_dict, w_key)
-        return None
-
     def initialize_content(self, list_pairs_w):
         for w_k, w_v in list_pairs_w:
             self.setitem(w_k, w_v)
@@ -222,9 +215,11 @@ class W_DictMultiObject(W_Root):
         if w_value is not None:
             return w_value
 
-        w_missing_item = self.missing_method(space, w_key)
-        if w_missing_item is not None:
-            return w_missing_item
+        # if there is a __missing__ method, call it
+        if not space.is_w(space.type(self), space.w_dict):
+            w_missing = space.lookup(self, '__missing__')
+            if w_missing is not None:
+                return space.get_and_call_function(w_missing, self, w_key)
 
         space.raise_key_error(w_key)
 
