@@ -1151,11 +1151,13 @@ class time:
             # tzoff, that is.  If we have tzoff then CPython's hashes
             # are again deterministic.  I have no clue why.  We'll go
             # for now for also being nondeterministic in this case.
-            temp1 = '%d@%d@%d@%d@%s' % (self._hour,
-                                        self._minute,
-                                        self._second,
-                                        self._microsecond,
-                                        self.utcoffset())
+            myhhmm = self._hour * 60 + self._minute
+            myoffset = self.utcoffset()
+            if myoffset is not None:
+                myhhmm -= myoffset // timedelta(minutes=1)
+            temp1 = '%d@%d@%d' % (myhhmm,
+                                  self._second,
+                                  self._microsecond)
             self._hashcode = hash(temp1)
         return self._hashcode
 
