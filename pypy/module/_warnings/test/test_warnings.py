@@ -87,3 +87,12 @@ class AppTestWarnings:
         class Foo:
             pass
         raises(TypeError, _warnings.warn, "text", Foo)
+
+    def test_surrogate_in_filename(self):
+        import _warnings, __pypy__
+        for filename in ("nonascii\xe9\u20ac", "surrogate\udc80"):
+            try:
+                __pypy__.fsencode(filename)
+            except UnicodeEncodeError:
+                continue
+            _warnings.warn_explicit("text", UserWarning, filename, 1)

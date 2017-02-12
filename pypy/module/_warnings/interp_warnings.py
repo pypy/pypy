@@ -140,7 +140,7 @@ def setup_context(space, stacklevel):
     # setup filename
     try:
         w_filename = space.getitem(w_globals, space.wrap("__file__"))
-        filename = space.str_w(w_filename)
+        filename = space.fsencode_w(w_filename)
     except OperationError as e:
         if space.str_w(w_module) == '__main__':
             w_argv = space.sys.getdictvalue(space, 'argv')
@@ -157,7 +157,7 @@ def setup_context(space, stacklevel):
         lc_filename = filename.lower()
         if lc_filename.endswith(".pyc"):
             # strip last character
-            w_filename = space.wrap(filename[:-1])
+            w_filename = space.fsdecode(space.newbytes(filename[:-1]))
 
     return (w_filename, lineno, w_module, w_registry)
 
@@ -242,9 +242,10 @@ def show_warning(space, w_filename, lineno, w_text, w_category,
     w_stderr = space.sys.get("stderr")
 
     # Print "filename:lineno: category: text\n"
-    message = "%s:%d: %s: %s\n" % (space.str_w(w_filename), lineno,
-                                   space.str_w(w_name), space.str_w(w_text))
-    space.call_method(w_stderr, "write", space.wrap(message))
+    message = u"%s:%d: %s: %s\n" % (space.unicode_w(w_filename), lineno,
+                                    space.unicode_w(w_name),
+                                    space.unicode_w(w_text))
+    space.call_method(w_stderr, "write", space.newunicode(message))
 
     # Print "  source_line\n"
     if not w_sourceline:
@@ -261,17 +262,17 @@ def show_warning(space, w_filename, lineno, w_text, w_category,
 
     if not w_sourceline:
         return
-    line = space.str_w(w_sourceline)
+    line = space.unicode_w(w_sourceline)
     if not line:
         return
 
-    message = "\n"
+    message = u"\n"
     for i in range(len(line)):
         c = line[i]
-        if c not in ' \t\014':
-            message = "  %s\n" % (line[i:],)
+        if c not in u' \t\014':
+            message = u"  %s\n" % (line[i:],)
             break
-    space.call_method(w_stderr, "write", space.wrap(message))
+    space.call_method(w_stderr, "write", space.newunicode(message))
 
 def do_warn(space, w_message, w_category, stacklevel):
     context_w = setup_context(space, stacklevel)
