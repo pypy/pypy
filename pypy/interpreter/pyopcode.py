@@ -557,13 +557,13 @@ class __extend__(pyframe.PyFrame):
     def raise_exc_unbound(self, varindex):
         varname = self.getfreevarname(varindex)
         if self.iscellvar(varindex):
-            message = "local variable '%s' referenced before assignment"%varname
-            w_exc_type = self.space.w_UnboundLocalError
+            raise oefmt(self.space.w_UnboundLocalError,
+                        "local variable '%s' referenced before assignment",
+                        varname)
         else:
-            message = ("free variable '%s' referenced before assignment"
-                       " in enclosing scope"%varname)
-            w_exc_type = self.space.w_NameError
-        raise OperationError(w_exc_type, self.space.wrap(message))
+            raise oefmt(self.space.w_NameError,
+                        "free variable '%s' referenced before assignment"
+                        " in enclosing scope", varname)
 
     def LOAD_CLOSURE(self, varindex, next_instr):
         # nested scopes: access the cell object
