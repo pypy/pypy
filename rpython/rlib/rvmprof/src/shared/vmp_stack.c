@@ -253,7 +253,8 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
             // this is possible because compiler align to 8 bytes.
             //
 #ifdef PYPY_JIT_CODEMAP
-            if (pip.format == UNW_INFO_FORMAT_DYNAMIC) {
+            // see vmp_dynamic.c on line ip->flags = DYN_JIT_FLAG
+            if (pip.flags == DYN_JIT_FLAG) {
                 if (top_most_frame->kind != VMPROF_JITTED_TAG) {
                     // if this is encountered frequently something is wrong with
                     // the stack building

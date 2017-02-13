@@ -100,7 +100,9 @@ int vmp_dyn_register_jit_page(intptr_t addr, intptr_t end_addr,
     unw_dyn_proc_info_t * ip = (unw_dyn_proc_info_t*)&(u->u);
     ip->name_ptr = (unw_word_t)name_cpy;
     ip->handler = 0;
-    ip->flags = 0;
+    // the docs say, we cannot use this field. but looking at libunwind, it just copies
+    // the value over when unw_get_proc_info is called. This should be fine to identify
+    ip->flags = DYN_JIT_FLAG;
     ip->regions = NULL;
 
     _U_dyn_register(u);
