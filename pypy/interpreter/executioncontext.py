@@ -336,7 +336,9 @@ class ExecutionContext(object):
                 try:
                     w_result = space.call_function(w_callback, frame, space.newtext(event), w_arg)
                     if space.is_w(w_result, space.w_None):
-                        d.w_f_trace = None
+                        # bug-to-bug compatibility with CPython
+                        # http://bugs.python.org/issue11992
+                        pass   #d.w_f_trace = None
                     else:
                         d.w_f_trace = w_result
                 except:

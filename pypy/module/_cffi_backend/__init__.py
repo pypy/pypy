@@ -3,7 +3,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib import rdynload, clibffi
 from rpython.rtyper.lltypesystem import rffi
 
-VERSION = "1.9.1"
+VERSION = "1.10.0"
 
 FFI_DEFAULT_ABI = clibffi.FFI_DEFAULT_ABI
 try:
@@ -50,7 +50,7 @@ class Module(MixedModule):
 
         'string': 'func.string',
         'unpack': 'func.unpack',
-        'buffer': 'cbuffer.buffer',
+        'buffer': 'cbuffer.MiniBuffer',
         'memmove': 'func.memmove',
 
         'get_errno': 'cerrno.get_errno',

@@ -1,5 +1,6 @@
 """The builtin str implementation"""
 
+from rpython.rlib import jit
 from rpython.rlib.jit import we_are_jitted
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin)
@@ -950,6 +951,7 @@ W_BytesObject.typedef = TypeDef(
 W_BytesObject.typedef.flag_sequence_bug_compat = True
 
 
+@jit.elidable
 def string_escape_encode(s, quote):
     buf = StringBuilder(len(s) + 2)
 

@@ -95,8 +95,8 @@ class AppTestFunctionIntrospection:
     def test_write_code_builtin_forbidden(self):
         def f(*args):
             return 42
-            raises(TypeError, "dir.func_code = f.func_code")
-            raises(TypeError, "list.append.im_func.func_code = f.func_code")
+        raises(TypeError, "dir.func_code = f.func_code")
+        raises(TypeError, "list.append.im_func.func_code = f.func_code")
 
     def test_set_module_to_name_eagerly(self):
         skip("fails on PyPy but works on CPython.  Unsure we want to care")

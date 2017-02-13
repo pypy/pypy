@@ -8,6 +8,7 @@ from pypy.interpreter.gateway import (interp2app, BuiltinCode, unwrap_spec,
 
 from rpython.rlib.jit import promote
 from rpython.rlib.objectmodel import compute_identity_hash, specialize
+from rpython.rlib.objectmodel import instantiate
 from rpython.tool.sourcetools import compile2, func_with_new_name
 
 
@@ -221,10 +222,6 @@ def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
     exec source.compile() in miniglobals
     return miniglobals['descr_typecheck_%s' % func.__name__]
 
-def unknown_objclass_getter(space):
-    # NB. this is an AttributeError to make inspect.py happy
-    raise oefmt(space.w_AttributeError, "generic property has no __objclass__")
-
 @specialize.arg(0)
 def make_objclass_getter(tag, func, cls):
     if func and hasattr(func, 'im_func'):
@@ -235,7 +232,7 @@ def make_objclass_getter(tag, func, cls):
 @specialize.memo()
 def _make_objclass_getter(cls):
     if not cls:
-        return unknown_objclass_getter, cls
+        return None, cls
     miniglobals = {}
     if isinstance(cls, str):
         assert cls.startswith('<'), "pythontype typecheck should begin with <"
@@ -254,10 +251,11 @@ def _make_objclass_getter(cls):
 
 class GetSetProperty(W_Root):
     _immutable_fields_ = ["fget", "fset", "fdel"]
+    w_objclass = None
 
     @specialize.arg(7)
     def __init__(self, fget, fset=None, fdel=None, doc=None,
-                 cls=None, use_closure=False, tag=None):
+                 cls=None, use_closure=False, tag=None, name=None):
         objclass_getter, cls = make_objclass_getter(tag, fget, cls)
         fget = make_descr_typecheck_wrapper((tag, 0), fget,
                                             cls=cls, use_closure=use_closure)
@@ -265,14 +263,29 @@ class GetSetProperty(W_Root):
                                             cls=cls, use_closure=use_closure)
         fdel = make_descr_typecheck_wrapper((tag, 2), fdel,
                                             cls=cls, use_closure=use_closure)
+        self._init(fget, fset, fdel, doc, cls, objclass_getter, use_closure,
+                   name)
+
+    def _init(self, fget, fset, fdel, doc, cls, objclass_getter, use_closure,
+              name):
         self.fget = fget
         self.fset = fset
         self.fdel = fdel
         self.doc = doc
         self.reqcls = cls
-        self.name = '<generic property>'
         self.objclass_getter = objclass_getter
         self.use_closure = use_closure
+        self.name = name if name is not None else '<generic property>'
+
+    def copy_for_type(self, w_objclass):
+        if self.objclass_getter is None:
+            new = instantiate(GetSetProperty)
+            new._init(self.fget, self.fset, self.fdel, self.doc, self.reqcls,
+                      None, self.use_closure, self.name)
+            new.w_objclass = w_objclass
+            return new
+        else:
+            return self
 
     @unwrap_spec(w_cls = WrappedDefault(None))
     def descr_property_get(self, space, w_obj, w_cls=None):
@@ -322,7 +335,14 @@ class GetSetProperty(W_Root):
                                                space.newtext(self.name)]))
 
     def descr_get_objclass(space, property):
-        return property.objclass_getter(space)
+        if property.w_objclass is not None:
+            return property.w_objclass
+        if property.objclass_getter is not None:
+            return property.objclass_getter(space)
+        # NB. this is an AttributeError to make inspect.py happy
+        raise oefmt(space.w_AttributeError,
+                    "generic property has no __objclass__")
+
 
 def interp_attrproperty(name, cls, doc=None, wrapfn=None):
     "NOT_RPYTHON: initialization-time only"

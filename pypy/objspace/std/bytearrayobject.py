@@ -1254,6 +1254,7 @@ class BytearrayBuffer(Buffer):
 
 @specialize.argtype(1)
 def _memcmp(selfvalue, buffer, length):
+    # XXX that's very slow if selfvalue or buffer are Buffer objects
     for i in range(length):
         if selfvalue[i] < buffer[i]:
             return -1

@@ -465,8 +465,14 @@ def compute_hash(x):
 
     Note that this can return 0 or -1 too.
 
-    It returns the same number, both before and after translation.
-    Dictionaries don't need to be rehashed after translation.
+    NOTE: It returns a different number before and after translation!
+    Dictionaries will be rehashed when the translated program starts.
+    Be careful about other places that store or depend on a hash value:
+    if such a place can exist before translation, you should add for
+    example a _cleanup_() method to clear this cache during translation.
+
+    (Nowadays we could completely remove compute_hash() and decide that
+    hash(x) is valid RPython instead, at least for the types listed here.)
     """
     if isinstance(x, (str, unicode)):
         return _hash_string(x)
@@ -484,17 +490,11 @@ def compute_identity_hash(x):
     """RPython equivalent of object.__hash__(x).  This returns the
     so-called 'identity hash', which is the non-overridable default hash
     of Python.  Can be called for any RPython-level object that turns
-    into a GC object, but not NULL.  The value is not guaranteed to be the
-    same before and after translation, except for RPython instances on the
-    lltypesystem.
+    into a GC object, but not NULL.  The value will be different before
+    and after translation (WARNING: this is a change with older RPythons!)
     """
     assert x is not None
-    result = object.__hash__(x)
-    try:
-        x.__dict__['__precomputed_identity_hash'] = result
-    except (TypeError, AttributeError):
-        pass
-    return result
+    return object.__hash__(x)
 
 def compute_unique_id(x):
     """RPython equivalent of id(x).  The 'x' must be an RPython-level
@@ -519,11 +519,19 @@ def current_object_addr_as_int(x):
 
 # ----------
 
-HASH_ALGORITHM = "rpython"  # XXX Is there a better name?
-
 def _hash_string(s):
-    """The algorithm behind compute_hash() for a string or a unicode."""
+    """The default algorithm behind compute_hash() for a string or a unicode.
+    This is a modified Fowler-Noll-Vo (FNV) hash.  According to Wikipedia,
+    FNV needs carefully-computed constants called FNV primes and FNV offset
+    basis, which are absent from the present algorithm.  Nevertheless,
+    this matches CPython 2.7 without -R, which has proven a good hash in
+    practice (even if not crypographical nor randomizable).
+
+    There is a mechanism to use another one in programs after translation.
+    See rsiphash.py, which implements the algorithm of CPython >= 3.4.
+    """
     from rpython.rlib.rarithmetic import intmask
+
     length = len(s)
     if length == 0:
         return -1
@@ -534,6 +542,9 @@ def _hash_string(s):
         i += 1
     x ^= length
     return intmask(x)
+
+def ll_hash_string(ll_s):
+    return _hash_string(ll_s.chars)
 
 def _hash_float(f):
     """The algorithm behind compute_hash() for a float.
@@ -589,6 +600,21 @@ class Entry(ExtRegistryEntry):
         ll_fn = r_obj.get_ll_hash_function()
         hop.exception_is_here()
         return hop.gendirectcall(ll_fn, v_obj)
+
+class Entry(ExtRegistryEntry):
+    _about_ = ll_hash_string
+    # this is only used when annotating the code in rstr.py, and so
+    # it always occurs after the RPython program signalled its intent
+    # to use a different hash.  The code below overwrites the use of
+    # ll_hash_string() to make the annotator think a possibly different
+    # function was called.
+
+    def compute_annotation(self):
+        from rpython.annotator import model as annmodel
+        bk = self.bookkeeper
+        translator = bk.annotator.translator
+        fn = getattr(translator, 'll_hash_string', ll_hash_string)
+        return annmodel.SomePBC([bk.getdesc(fn)])
 
 class Entry(ExtRegistryEntry):
     _about_ = compute_identity_hash
@@ -757,6 +783,9 @@ class r_dict(object):
     def setdefault(self, key, default):
         return self._dict.setdefault(_r_dictkey(self, key), default)
 
+    def pop(self, key, *default):
+        return self._dict.pop(_r_dictkey(self, key), *default)
+
     def popitem(self):
         dk, value = self._dict.popitem()
         return dk.key, value
@@ -907,6 +936,38 @@ def delitem_with_hash(d, key, h):
         del d[key]
         return
     d.delitem_with_hash(key, h)
+
+@specialize.call_location()
+def delitem_if_value_is(d, key, value):
+    """Same as 'if d.get(key) is value: del d[key]'.  It is safe even in
+    case 'd' is an r_dict and the lookup involves callbacks that might
+    release the GIL."""
+    if not we_are_translated():
+        try:
+            if d[key] is value:
+                del d[key]
+        except KeyError:
+            pass
+        return
+    d.delitem_if_value_is(key, value)
+
+def _untranslated_move_to_end(d, key, last):
+    "NOT_RPYTHON"
+    value = d.pop(key)
+    if last:
+        d[key] = value
+    else:
+        items = d.items()
+        d.clear()
+        d[key] = value
+        d.update(items)
+
+@specialize.call_location()
+def move_to_end(d, key, last=True):
+    if not we_are_translated():
+        _untranslated_move_to_end(d, key, last)
+        return
+    d.move_to_end(key, last)
 
 # ____________________________________________________________
 

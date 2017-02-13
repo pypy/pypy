@@ -265,22 +265,6 @@ It can be a string naming a C type, or a 'cdata' instance."""
         return self.space.newint(align)
 
 
-    @unwrap_spec(w_cdata=W_CData, size=int)
-    def descr_buffer(self, w_cdata, size=-1):
-        """\
-Return a read-write buffer object that references the raw C data
-ointed to by the given 'cdata'.  The 'cdata' must be a pointer or an
-array.  Can be passed to functions expecting a buffer, or directly
-manipulated with:
-
-    buf[:]          get a copy of it in a regular string, or
-    buf[idx]        as a single character
-    buf[:] = ...
-    buf[idx] = ...  change the content"""
-        #
-        return cbuffer.buffer(self.space, w_cdata, size)
-
-
     @unwrap_spec(w_name=WrappedDefault(None),
                  w_error=WrappedDefault(None),
                  w_onerror=WrappedDefault(None))
@@ -751,6 +735,9 @@ def make_error(space):
     return space.appexec([], """():
         return type('error', (Exception,), {'__module__': 'ffi'})""")
 
+def make_buffer(space):
+    return space.gettypefor(cbuffer.MiniBuffer)
+
 _extras = get_dict_rtld_constants()
 if sys.platform == 'win32':
     _extras['getwinerror'] = interp2app(W_FFIObject.descr_getwinerror)
@@ -770,7 +757,7 @@ W_FFIObject.typedef = TypeDef(
                                      cls=W_FFIObject),
         addressof   = interp2app(W_FFIObject.descr_addressof),
         alignof     = interp2app(W_FFIObject.descr_alignof),
-        buffer      = interp2app(W_FFIObject.descr_buffer),
+        buffer      = ClassAttr(make_buffer),
         callback    = interp2app(W_FFIObject.descr_callback),
         cast        = interp2app(W_FFIObject.descr_cast),
         def_extern  = interp2app(W_FFIObject.descr_def_extern),

@@ -118,12 +118,16 @@ def make_check_function(func_name, type_name):
                     """ % (type_name,)))
         except OperationError:
             return 0
+    return check, check_exact
 
-make_check_function("PyDateTime_Check", "datetime")
-make_check_function("PyDate_Check", "date")
-make_check_function("PyTime_Check", "time")
-make_check_function("PyDelta_Check", "timedelta")
-make_check_function("PyTZInfo_Check", "tzinfo")
+PyDateTime_Check, PyDateTime_CheckExact = make_check_function(
+    "PyDateTime_Check", "datetime")
+PyDate_Check, PyDate_CheckExact = make_check_function("PyDate_Check", "date")
+PyTime_Check, PyTime_CheckExact = make_check_function("PyTime_Check", "time")
+PyDelta_Check, PyDelta_CheckExact = make_check_function(
+    "PyDelta_Check", "timedelta")
+PyTZInfo_Check, PyTZInfo_CheckExact = make_check_function(
+    "PyTZInfo_Check", "tzinfo")
 
 # Constructors. They are better used as macros.
 

@@ -87,7 +87,7 @@ def make_typedescr(typedef, **kw):
     alloc     : allocate and basic initialization of a raw PyObject
     attach    : Function called to tie a raw structure to a pypy object
     realize   : Function called to create a pypy object from a raw struct
-    dealloc   : a cpython_api(header=None), similar to PyObject_dealloc
+    dealloc   : a @slot_function(), similar to PyObject_dealloc
     """
 
     tp_basestruct = kw.pop('basestruct', PyObject.TO)

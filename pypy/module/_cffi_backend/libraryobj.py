@@ -40,25 +40,22 @@ class W_Library(W_Root):
 
     @unwrap_spec(w_ctype=W_CType, name='text')
     def load_function(self, w_ctype, name):
-        from pypy.module._cffi_backend import ctypefunc, ctypeptr, ctypevoid
+        from pypy.module._cffi_backend import ctypeptr, ctypearray
         space = self.space
         #
-        ok = False
-        if isinstance(w_ctype, ctypefunc.W_CTypeFunc):
-            ok = True
-        if (isinstance(w_ctype, ctypeptr.W_CTypePointer) and
-            isinstance(w_ctype.ctitem, ctypevoid.W_CTypeVoid)):
-            ok = True
-        if not ok:
+        if not isinstance(w_ctype, ctypeptr.W_CTypePtrOrArray):
             raise oefmt(space.w_TypeError,
-                        "function cdata expected, got '%s'", w_ctype.name)
+                        "function or pointer or array cdata expected, got '%s'",
+                        w_ctype.name)
         #
         try:
             cdata = dlsym(self.handle, name)
         except KeyError:
-            raise oefmt(space.w_KeyError,
-                        "function '%s' not found in library '%s'",
+            raise oefmt(space.w_AttributeError,
+                        "function/symbol '%s' not found in library '%s'",
                         name, self.name)
+        if isinstance(w_ctype, ctypearray.W_CTypeArray) and w_ctype.length < 0:
+            w_ctype = w_ctype.ctptr
         return W_CData(space, rffi.cast(rffi.CCHARP, cdata), w_ctype)
 
     @unwrap_spec(w_ctype=W_CType, name='text')

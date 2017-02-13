@@ -267,9 +267,59 @@ class AppTest_DictObject:
         d = {1: 2, 3: 4, 5: 6}
         it = __pypy__.reversed_dict(d)
         key = it.next()
-        assert key in [1, 3, 5]
+        assert key in [1, 3, 5]   # on CPython, dicts are not ordered
         del d[key]
         raises(RuntimeError, it.next)
+
+    def test_dict_popitem_first(self):
+        import __pypy__
+        d = {"a": 5}
+        assert __pypy__.dict_popitem_first(d) == ("a", 5)
+        raises(KeyError, __pypy__.dict_popitem_first, d)
+
+        def kwdict(**k):
+            return k
+        d = kwdict(a=55)
+        assert __pypy__.dict_popitem_first(d) == ("a", 55)
+        raises(KeyError, __pypy__.dict_popitem_first, d)
+
+    def test_delitem_if_value_is(self):
+        import __pypy__
+        class X:
+            pass
+        x2 = X()
+        x3 = X()
+        d = {2: x2, 3: x3}
+        __pypy__.delitem_if_value_is(d, 2, x3)
+        assert d == {2: x2, 3: x3}
+        __pypy__.delitem_if_value_is(d, 2, x2)
+        assert d == {3: x3}
+        __pypy__.delitem_if_value_is(d, 2, x3)
+        assert d == {3: x3}
+
+    def test_move_to_end(self):
+        import __pypy__
+        raises(KeyError, __pypy__.move_to_end, {}, 'foo')
+        raises(KeyError, __pypy__.move_to_end, {}, 'foo', last=True)
+        raises(KeyError, __pypy__.move_to_end, {}, 'foo', last=False)
+        def kwdict(**k):
+            return k
+        for last in [False, True]:
+            for d, key in [({1: 2, 3: 4, 5: 6}, 3),
+                           ({"a": 5, "b": 2, "c": 6}, "b"),
+                           (kwdict(d=7, e=8, f=9), "e")]:
+                other_keys = [k for k in d if k != key]
+                __pypy__.move_to_end(d, key, last=last)
+                if not self.on_pypy:
+                    # when running tests on CPython, the underlying
+                    # dicts are not ordered.  We don't get here if
+                    # we're running tests on PyPy or with -A.
+                    assert set(d.keys()) == set(other_keys + [key])
+                elif last:
+                    assert list(d) == other_keys + [key]
+                else:
+                    assert list(d) == [key] + other_keys
+                raises(KeyError, __pypy__.move_to_end, d, key * 3, last=last)
 
     def test_keys(self):
         d = {1: 2, 3: 4}
@@ -613,6 +663,18 @@ class AppTest_DictObject:
             else:
                 assert False, 'Expected KeyError'
 
+    def test_pop_switching_strategy(self):
+        class Foo:
+            def __hash__(self):
+                return hash("a")
+            def __eq__(self, other):
+                return other == "a"
+        d = {"a": 42}
+        x = d.pop(Foo())
+        assert x == 42 and len(d) == 0
+        d = {"b": 43}
+        raises(KeyError, d.pop, Foo())
+
     def test_no_len_on_dict_iter(self):
         iterable = {1: 2, 3: 4}
         raises(TypeError, len, iter(iterable))
@@ -684,6 +746,31 @@ class AppTest_DictMultiObject(AppTest_DictObject):
         s = "abc"
         setattr(a, s, 123)
         assert holder.seen is s
+
+    def test_internal_delitem(self):
+        class K:
+            def __hash__(self):
+                return 42
+            def __eq__(self, other):
+                if is_equal[0]:
+                    is_equal[0] -= 1
+                    return True
+                return False
+        is_equal = [0]
+        k1 = K()
+        k2 = K()
+        d = {k1: 1, k2: 2}
+        k3 = K()
+        is_equal = [1]
+        try:
+            x = d.pop(k3)
+        except RuntimeError:
+            # This used to give a Fatal RPython error: KeyError.
+            # Now at least it should raise an app-level RuntimeError,
+            # or just work.
+            assert len(d) == 2
+        else:
+            assert (x == 1 or x == 2) and len(d) == 1
 
 
 class AppTestDictViews:

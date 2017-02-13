@@ -35,6 +35,7 @@ def create_entry_point(space, w_dict):
         w_run_toplevel = space.getitem(w_dict, space.newtext('run_toplevel'))
         w_initstdio = space.getitem(w_dict, space.newtext('initstdio'))
         withjit = space.config.objspace.usemodules.pypyjit
+        hashfunc = space.config.objspace.hash
     else:
         w_initstdio = space.appexec([], """():
             return lambda unbuffered: None
@@ -44,6 +45,10 @@ def create_entry_point(space, w_dict):
         if withjit:
             from rpython.jit.backend.hlinfo import highleveljitinfo
             highleveljitinfo.sys_executable = argv[0]
+
+        if hashfunc == "siphash24":
+            from rpython.rlib import rsiphash
+            rsiphash.enable_siphash24()
 
         #debug("entry point starting")
         #for arg in argv:
@@ -305,10 +310,10 @@ class PyPyTarget(object):
             config.objspace.lonepycfiles = False
 
         if config.objspace.usemodules.cpyext:
-            if config.translation.gc != 'incminimark':
+            if config.translation.gc not in ('incminimark', 'boehm'):
                 raise Exception("The 'cpyext' module requires the 'incminimark'"
-                                " GC.  You need either 'targetpypystandalone.py"
-                                " --withoutmod-cpyext' or '--gc=incminimark'")
+                    " or 'boehm' GC.  You need either 'targetpypystandalone.py"
+                    " --withoutmod-cpyext', or use one of these two GCs.")
 
         config.translating = True
 

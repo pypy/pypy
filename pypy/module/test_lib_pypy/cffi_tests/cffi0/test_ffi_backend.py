@@ -193,9 +193,12 @@ class TestBitfield:
         setattr(s, name, value)
         assert getattr(s, name) == value
         raw1 = ffi.buffer(s)[:]
+        buff1 = ffi.buffer(s)
         t = lib.try_with_value(fnames.index(name), value)
         raw2 = ffi.buffer(t, len(raw1))[:]
         assert raw1 == raw2
+        buff2 = ffi.buffer(t, len(buff1))
+        assert buff1 == buff2
 
     def test_bitfield_basic(self):
         self.check("int a; int b:9; int c:20; int y;", 8, 4, 12)

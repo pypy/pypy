@@ -1,7 +1,8 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     PyObjectFields, generic_cpy_call, CONST_STRING, CANNOT_FAIL, Py_ssize_t,
-    cpython_api, bootstrap_function, cpython_struct, build_type_checkers)
+    cpython_api, bootstrap_function, cpython_struct, build_type_checkers,
+    slot_function)
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, from_ref, Py_DecRef, make_typedescr)
 from rpython.rlib.unroll import unrolling_iterable
@@ -56,7 +57,7 @@ def function_attach(space, py_obj, w_obj, w_userdata=None):
     assert isinstance(w_obj, Function)
     py_func.c_func_name = make_ref(space, space.newtext(w_obj.name))
 
-@cpython_api([PyObject], lltype.Void, header=None)
+@slot_function([PyObject], lltype.Void)
 def function_dealloc(space, py_obj):
     py_func = rffi.cast(PyFunctionObject, py_obj)
     Py_DecRef(space, py_func.c_func_name)
@@ -75,7 +76,7 @@ def code_attach(space, py_obj, w_obj, w_userdata=None):
     rffi.setintfield(py_code, 'c_co_flags', co_flags)
     rffi.setintfield(py_code, 'c_co_argcount', w_obj.co_argcount)
 
-@cpython_api([PyObject], lltype.Void, header=None)
+@slot_function([PyObject], lltype.Void)
 def code_dealloc(space, py_obj):
     py_code = rffi.cast(PyCodeObject, py_obj)
     Py_DecRef(space, py_code.c_co_name)

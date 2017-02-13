@@ -10,11 +10,7 @@ Py_ssize_t = rffi.SSIZE_T
 PyMethodDef = rffi.VOIDP
 PyGetSetDef = rffi.VOIDP
 PyMemberDef = rffi.VOIDP
-Py_buffer = rffi.VOIDP
 va_list = rffi.VOIDP
-PyDateTime_Date = rffi.VOIDP
-PyDateTime_DateTime = rffi.VOIDP
-PyDateTime_Time = rffi.VOIDP
 wrapperbase = rffi.VOIDP
 FILE = rffi.VOIDP
 PyFileObject = rffi.VOIDP
@@ -697,17 +693,6 @@ def _PyObject_GC_TRACK(space, op):
 def _PyObject_GC_UNTRACK(space, op):
     """A macro version of PyObject_GC_UnTrack().  It should not be used for
     extension modules."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyGen_Check(space, ob):
-    """Return true if ob is a generator object; ob must not be NULL."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyGen_CheckExact(space, ob):
-    """Return true if ob's type is PyGen_Type is a generator object; ob must not
-    be NULL."""
     raise NotImplementedError
 
 @cpython_api([PyFrameObject], PyObject)
@@ -1528,14 +1513,6 @@ def Py_FdIsInteractive(space, fp, filename):
     is true.  If the global flag Py_InteractiveFlag is true, this function
     also returns true if the filename pointer is NULL or if the name is equal to
     one of the strings '<stdin>' or '???'."""
-    raise NotImplementedError
-
-@cpython_api([], lltype.Void)
-def PyOS_AfterFork(space):
-    """Function to update some internal state after a process fork; this should be
-    called in the new process if the Python interpreter will continue to be used.
-    If a new executable is loaded into the new process, this function does not need
-    to be called."""
     raise NotImplementedError
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)

@@ -1378,7 +1378,12 @@ def make_unicode_escape_function(pass_printable=False, unicode_output=False,
         CHR = chr
 
     def unicode_escape(s, size, errors, errorhandler=None):
-        # errorhandler is not used: this function cannot cause Unicode errors
+        # errors and errorhandler are not used: this function cannot cause
+        # Unicode errors
+        return _unicode_escape(s, size)
+
+    @jit.elidable
+    def _unicode_escape(s, size):
         result = STRING_BUILDER(size)
 
         if quotes:
@@ -1469,6 +1474,8 @@ def make_unicode_escape_function(pass_printable=False, unicode_output=False,
 # This function is also used by _codecs/interp_codecs.py
 (unicode_encode_unicode_escape, raw_unicode_escape_helper
  ) = make_unicode_escape_function()
+(_, raw_unicode_escape_helper_unicode
+) = make_unicode_escape_function(unicode_output=True)
 
 # ____________________________________________________________
 # Raw unicode escape

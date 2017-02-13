@@ -3704,25 +3704,6 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int])
         assert s.const == 0
 
-    def test_hash_sideeffect(self):
-        class X:
-            pass
-        x1 = X()
-        x2 = X()
-        x3 = X()
-        d = {(2, x1): 5, (3, x2): 7}
-        def f(n, m):
-            if   m == 1: x = x1
-            elif m == 2: x = x2
-            else:        x = x3
-            return d[n, x]
-        a = self.RPythonAnnotator()
-        s = a.build_types(f, [int, int])
-        assert s.knowntype == int
-        assert hasattr(x1, '__precomputed_identity_hash')
-        assert hasattr(x2, '__precomputed_identity_hash')
-        assert not hasattr(x3, '__precomputed_identity_hash')
-
     def test_contains_of_empty_dict(self):
         class A(object):
             def meth(self):

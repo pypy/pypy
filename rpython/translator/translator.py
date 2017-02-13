@@ -38,6 +38,7 @@ class TranslationContext(object):
         self.graphs = []      # [graph]
         self.callgraph = {}   # {opaque_tag: (caller-graph, callee-graph)}
         self._prebuilt_graphs = {}   # only used by the pygame viewer
+        self._call_at_startup = []
 
     def buildflowgraph(self, func, mute_dot=False):
         """Get the flow graph for a function."""

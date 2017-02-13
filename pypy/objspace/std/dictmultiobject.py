@@ -102,13 +102,6 @@ class W_DictMultiObject(W_Root):
             result[key] = val
         return result
 
-    def missing_method(w_dict, space, w_key):
-        if not space.is_w(space.type(w_dict), space.w_dict):
-            w_missing = space.lookup(w_dict, '__missing__')
-            if w_missing is not None:
-                return space.get_and_call_function(w_missing, w_dict, w_key)
-        return None
-
     def initialize_content(self, list_pairs_w):
         for w_k, w_v in list_pairs_w:
             self.setitem(w_k, w_v)
@@ -222,9 +215,11 @@ class W_DictMultiObject(W_Root):
         if w_value is not None:
             return w_value
 
-        w_missing_item = self.missing_method(space, w_key)
-        if w_missing_item is not None:
-            return w_missing_item
+        # if there is a __missing__ method, call it
+        if not space.is_w(space.type(self), space.w_dict):
+            w_missing = space.lookup(self, '__missing__')
+            if w_missing is not None:
+                return space.get_and_call_function(w_missing, self, w_key)
 
         space.raise_key_error(w_key)
 
@@ -236,6 +231,14 @@ class W_DictMultiObject(W_Root):
             self.delitem(w_key)
         except KeyError:
             space.raise_key_error(w_key)
+
+    def internal_delitem(self, w_key):
+        try:
+            self.delitem(w_key)
+        except KeyError:
+            raise oefmt(self.space.w_RuntimeError,
+                        "an internal 'del' on the dictionary failed to find "
+                        "the key")
 
     def descr_reversed(self, space):
         raise oefmt(space.w_TypeError,
@@ -283,6 +286,14 @@ class W_DictMultiObject(W_Root):
             w_keys = self.w_keys()
             return space.call_method(w_keys, '__reversed__')
 
+    def nondescr_delitem_if_value_is(self, space, w_key, w_value):
+        """Not exposed directly to app-level, but used by
+        _weakref._remove_dead_weakref and via __pypy__.delitem_if_value_is().
+        """
+        strategy = self.ensure_object_strategy()
+        d = strategy.unerase(self.dstorage)
+        objectmodel.delitem_if_value_is(d, w_key, w_value)
+
     def descr_viewitems(self, space):
         """D.viewitems() -> a set-like object providing a view on D's items"""
         return W_DictViewItemsObject(space, self)
@@ -299,6 +310,46 @@ class W_DictMultiObject(W_Root):
         """D.has_key(k) -> True if D has a key k, else False"""
         return space.newbool(self.getitem(w_key) is not None)
 
+    def nondescr_move_to_end(self, space, w_key, last_flag):
+        """Not exposed directly to app-level, but via __pypy__.move_to_end().
+        """
+        strategy = self.get_strategy()
+        if strategy.has_move_to_end:
+            strategy.move_to_end(self, w_key, last_flag)
+        else:
+            # fall-back
+            w_value = self.getitem(w_key)
+            if w_value is None:
+                space.raise_key_error(w_key)
+            else:
+                self.internal_delitem(w_key)
+                if last_flag:
+                    self.setitem(w_key, w_value)
+                else:
+                    # *very slow* fall-back
+                    keys_w = []
+                    values_w = []
+                    iteratorimplementation = self.iteritems()
+                    while True:
+                        w_k, w_v = iteratorimplementation.next_item()
+                        if w_k is None:
+                            break
+                        keys_w.append(w_k)
+                        values_w.append(w_v)
+                    self.clear()
+                    self.setitem(w_key, w_value)
+                    for i in range(len(keys_w)):
+                        self.setitem(keys_w[i], values_w[i])
+
+    def nondescr_popitem_first(self, space):
+        """Not exposed directly to app-level, but via __pypy__.popitem_first().
+        """
+        w_key, w_value = self.iteritems().next_item()
+        if w_key is None:
+            raise oefmt(space.w_KeyError, "popitem(): dictionary is empty")
+        self.internal_delitem(w_key)
+        return space.newtuple([w_key, w_value])
+
     def descr_clear(self, space):
         """D.clear() -> None.  Remove all items from D."""
         self.clear()
@@ -309,25 +360,26 @@ class W_DictMultiObject(W_Root):
         w_value = self.getitem(w_key)
         return w_value if w_value is not None else w_default
 
-    @unwrap_spec(defaults_w='args_w')
-    def descr_pop(self, space, w_key, defaults_w):
+    def descr_pop(self, space, w_key, w_default=None):
         """D.pop(k[,d]) -> v, remove specified key and return the
         corresponding value\nIf key is not found, d is returned if given,
         otherwise KeyError is raised
         """
-        len_defaults = len(defaults_w)
-        if len_defaults > 1:
-            raise oefmt(space.w_TypeError,
-                        "pop expected at most 2 arguments, got %d",
-                        1 + len_defaults)
+        strategy = self.get_strategy()
+        if strategy.has_pop:
+            try:
+                return strategy.pop(self, w_key, w_default)
+            except KeyError:
+                raise space.raise_key_error(w_key)
+        # fall-back
         w_item = self.getitem(w_key)
         if w_item is None:
-            if len_defaults > 0:
-                return defaults_w[0]
+            if w_default is not None:
+                return w_default
             else:
                 space.raise_key_error(w_key)
         else:
-            self.delitem(w_key)
+            self.internal_delitem(w_key)
             return w_item
 
     def descr_popitem(self, space):
@@ -350,11 +402,12 @@ class W_DictMultiObject(W_Root):
         F: D[k] = F[k]"""
         init_or_update(space, self, __args__, 'dict.update')
 
-    def ensure_object_strategy(self):    # for cpyext
+    def ensure_object_strategy(self):    # also called by cpyext
         object_strategy = self.space.fromcache(ObjectDictStrategy)
         strategy = self.get_strategy()
         if strategy is not object_strategy:
             strategy.switch_to_object_strategy(self)
+        return object_strategy
 
 
 class W_DictObject(W_DictMultiObject):
@@ -569,7 +622,9 @@ class DictStrategy(object):
         raise NotImplementedError
 
     has_iterreversed = False
-    # no 'getiterreversed': no default implementation available
+    has_move_to_end = False
+    has_pop = False
+    # ^^^ no default implementation available for these methods
 
     def rev_update1_dict_dict(self, w_dict, w_updatedict):
         iteritems = self.iteritems(w_dict)
@@ -840,6 +895,12 @@ def create_iterator_classes(dictimpl):
         dictimpl.iterreversed = iterreversed
         dictimpl.has_iterreversed = True
 
+    if hasattr(dictimpl, 'move_to_end'):
+        dictimpl.has_move_to_end = True
+
+    if hasattr(dictimpl, 'pop'):
+        dictimpl.has_pop = True
+
     @jit.look_inside_iff(lambda self, w_dict, w_updatedict:
                          w_dict_unrolling_heuristic(w_dict))
     def rev_update1_dict_dict(self, w_dict, w_updatedict):
@@ -978,6 +1039,21 @@ class AbstractTypedStrategy(object):
         key, value = self.unerase(w_dict.dstorage).popitem()
         return (self.wrap(key), value)
 
+    def pop(self, w_dict, w_key, w_default):
+        space = self.space
+        if self.is_correct_type(w_key):
+            key = self.unwrap(w_key)
+            d = self.unerase(w_dict.dstorage)
+            if w_default is None:
+                return d.pop(key)
+            else:
+                return d.pop(key, w_default)
+        elif self._never_equal_to(space.type(w_key)):
+            raise KeyError
+        else:
+            self.switch_to_object_strategy(w_dict)
+            return w_dict.get_strategy().pop(w_dict, w_key, w_default)
+
     def clear(self, w_dict):
         self.unerase(w_dict.dstorage).clear()
 
@@ -1003,6 +1079,18 @@ class AbstractTypedStrategy(object):
 
     def getiterreversed(self, w_dict):
         return objectmodel.reversed_dict(self.unerase(w_dict.dstorage))
+
+    def move_to_end(self, w_dict, w_key, last_flag):
+        if self.is_correct_type(w_key):
+            d = self.unerase(w_dict.dstorage)
+            key = self.unwrap(w_key)
+            try:
+                objectmodel.move_to_end(d, key, last_flag)
+            except KeyError:
+                w_dict.space.raise_key_error(w_key)
+        else:
+            self.switch_to_object_strategy(w_dict)
+            w_dict.nondescr_move_to_end(w_dict.space, w_key, last_flag)
 
     def prepare_update(self, w_dict, num_extra):
         objectmodel.prepare_dict_update(self.unerase(w_dict.dstorage),

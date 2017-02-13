@@ -3,12 +3,12 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.unicodedata import unicodedb
 from pypy.module.cpyext.api import (
     CANNOT_FAIL, Py_ssize_t, build_type_checkers, cpython_api,
-    bootstrap_function, PyObjectFields, cpython_struct, CONST_STRING,
-    CONST_WSTRING)
+    bootstrap_function, CONST_STRING,
+    CONST_WSTRING, slot_function, cts, parse_dir)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
-    make_typedescr, get_typedescr, as_pyobj)
+    make_typedescr, get_typedescr)
 from pypy.module.cpyext.bytesobject import PyString_Check
 from pypy.module.sys.interp_encoding import setdefaultencoding
 from pypy.module._codecs.interp_codecs import CodecState
@@ -19,12 +19,9 @@ import sys
 
 ## See comment in bytesobject.py.
 
-PyUnicodeObjectStruct = lltype.ForwardReference()
-PyUnicodeObject = lltype.Ptr(PyUnicodeObjectStruct)
-PyUnicodeObjectFields = (PyObjectFields +
-    (("str", rffi.CWCHARP), ("length", Py_ssize_t),
-     ("hash", rffi.LONG), ("defenc", PyObject)))
-cpython_struct("PyUnicodeObject", PyUnicodeObjectFields, PyUnicodeObjectStruct)
+cts.parse_header(parse_dir / 'cpyext_unicodeobject.h')
+PyUnicodeObject = cts.gettype('PyUnicodeObject*')
+Py_UNICODE = cts.gettype('Py_UNICODE')
 
 @bootstrap_function
 def init_unicodeobject(space):
@@ -41,7 +38,6 @@ default_encoding = lltype.malloc(rffi.CCHARP.TO, DEFAULT_ENCODING_SIZE,
 
 PyUnicode_Check, PyUnicode_CheckExact = build_type_checkers("Unicode", "w_unicode")
 
-Py_UNICODE = lltype.UniChar
 
 def new_empty_unicode(space, length):
     """
@@ -65,9 +61,10 @@ def new_empty_unicode(space, length):
 def unicode_attach(space, py_obj, w_obj, w_userdata=None):
     "Fills a newly allocated PyUnicodeObject with a unicode string"
     py_unicode = rffi.cast(PyUnicodeObject, py_obj)
-    py_unicode.c_length = len(space.unicode_w(w_obj))
+    s = space.unicode_w(w_obj)
+    py_unicode.c_length = len(s)
     py_unicode.c_str = lltype.nullptr(rffi.CWCHARP.TO)
-    py_unicode.c_hash = space.hash_w(w_obj)
+    py_unicode.c_hash = space.hash_w(space.newunicode(s))
     py_unicode.c_defenc = lltype.nullptr(PyObject.TO)
 
 def unicode_realize(space, py_obj):
@@ -80,11 +77,11 @@ def unicode_realize(space, py_obj):
     w_type = from_ref(space, rffi.cast(PyObject, py_obj.c_ob_type))
     w_obj = space.allocate_instance(unicodeobject.W_UnicodeObject, w_type)
     w_obj.__init__(s)
-    py_uni.c_hash = space.hash_w(w_obj)
+    py_uni.c_hash = space.hash_w(space.newunicode(s))
     track_reference(space, py_obj, w_obj)
     return w_obj
 
-@cpython_api([PyObject], lltype.Void, header=None)
+@slot_function([PyObject], lltype.Void)
 def unicode_dealloc(space, py_obj):
     py_unicode = rffi.cast(PyUnicodeObject, py_obj)
     Py_DecRef(space, py_unicode.c_defenc)
@@ -201,13 +198,12 @@ def PyUnicode_AS_DATA(space, ref):
 def PyUnicode_GET_DATA_SIZE(space, w_obj):
     """Return the size of the object's internal buffer in bytes.  o has to be a
     PyUnicodeObject (not checked)."""
-    return rffi.sizeof(lltype.UniChar) * PyUnicode_GET_SIZE(space, w_obj)
+    return rffi.sizeof(Py_UNICODE) * PyUnicode_GET_SIZE(space, w_obj)
 
 @cpython_api([rffi.VOIDP], Py_ssize_t, error=CANNOT_FAIL)
 def PyUnicode_GET_SIZE(space, w_obj):
-    """Return the size of the object.  o has to be a PyUnicodeObject (not
+    """Return the size of the object.  obj is a PyUnicodeObject (not
     checked)."""
-    assert isinstance(w_obj, unicodeobject.W_UnicodeObject)
     return space.len_w(w_obj)
 
 @cpython_api([rffi.VOIDP], rffi.CWCHARP, error=CANNOT_FAIL)
@@ -487,6 +483,7 @@ def make_conversion_functions(suffix, encoding):
         if not PyUnicode_Check(space, w_unicode):
             PyErr_BadArgument(space)
         return unicodeobject.encode_object(space, w_unicode, encoding, "strict")
+    globals()['PyUnicode_As%sString' % suffix] = PyUnicode_AsXXXString
 
     @cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING], PyObject)
     @func_renamer('PyUnicode_Decode%s' % suffix)

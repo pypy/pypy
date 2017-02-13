@@ -65,6 +65,8 @@ class FakeSpace(ObjSpace):
     w_KeyError = W_TypeObject("KeyError")
     w_SystemExit = W_TypeObject("SystemExit")
     w_KeyboardInterrupt = W_TypeObject("KeyboardInterrupt")
+    w_RuntimeError = W_TypeObject("RuntimeError")
+    w_RecursionError = W_TypeObject("RecursionError")   # py3.5
     w_VisibleDeprecationWarning = W_TypeObject("VisibleDeprecationWarning")
     w_None = W_Root()
 

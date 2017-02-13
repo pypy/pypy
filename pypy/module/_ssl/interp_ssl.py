@@ -420,6 +420,12 @@ class _SSLSocket(W_Root):
                 raise oefmt(space.w_ValueError, "size should not be negative")
             rwbuffer = None
 
+        if num_bytes <= 0:
+            if rwbuffer:
+                return space.wrap(0)
+            else:
+                return space.wrap("")
+
         with rffi.scoped_alloc_buffer(num_bytes) as buf:
             while True:
                 err = 0
@@ -897,10 +903,24 @@ def _get_peer_alt_names(space, certificate):
                         length = libssl_ASN1_STRING_length(as_)
                         w_t = space.newtuple([
                             v, space.newtext(rffi.charpsize2str(buf, length))])
+                    elif gntype == GEN_RID:
+                        with lltype.scoped_alloc(rffi.CCHARP.TO, 2048) as buf:
+                            d_rid = libssl_pypy_GENERAL_NAME_rid(name)
+                            length = libssl_i2t_ASN1_OBJECT(buf, 2047, d_rid)
+                            if length < 0:
+                                raise _ssl_seterror(space, None, 0)
+                            elif length >= 2048:
+                                v = "<INVALID>"
+                            else:
+                                v = rffi.charpsize2str(buf, length)
+                        w_t = space.newtuple([
+                            space.newtext("Registered ID"),
+                            space.call_function(space.w_unicode,
+                                                space.newtext(v))])
                     else:
                         # for everything else, we use the OpenSSL print form
                         if gntype not in (GEN_OTHERNAME, GEN_X400, GEN_EDIPARTY,
-                                          GEN_IPADD, GEN_RID):
+                                          GEN_IPADD):
                             space.warn(space.newtext("Unknown general name type"),
                                        space.w_RuntimeWarning)
                         libssl_BIO_reset(biobuf)
@@ -911,6 +931,9 @@ def _get_peer_alt_names(space, certificate):
                                 raise _ssl_seterror(space, None, 0)
 
                             v = rffi.charpsize2str(buf, length)
+                        if ':' not in v:
+                            raise oefmt(space.w_ValueError,
+                                        "Invalid value %s", v)
                         v1, v2 = v.split(':', 1)
                         w_t = space.newtuple([space.newtext(v1),
                                               space.newtext(v2)])
@@ -1220,6 +1243,9 @@ def _servername_callback(ssl, ad, arg):
     struct = SERVERNAME_CALLBACKS.get(rffi.cast(lltype.Signed, arg))
     w_ctx = struct.w_ctx
     space = struct.space
+    # annotation: ensures that we ignore the case 'space is None'
+    # (it would propagate to a few methods like errorstr())
+    assert w_ctx is not None and space is not None
     w_callback = struct.w_set_hostname
     if not w_ctx.servername_callback:
         # Possible race condition.

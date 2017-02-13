@@ -319,8 +319,9 @@ class StdObjSpace(ObjSpace):
     def newseqiter(self, w_obj):
         return W_SeqIterObject(w_obj)
 
-    def newbuffer(self, w_obj):
-        return W_Buffer(w_obj)
+    def newbuffer(self, obj):
+        ret = W_Buffer(obj)
+        return ret
 
     def newbytes(self, s):
         assert isinstance(s, str)

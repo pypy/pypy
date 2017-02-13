@@ -208,6 +208,9 @@ class TupleRepr(Repr):
     def get_ll_hash_function(self):
         return gen_hash_function(self.items_r)
 
+    # no get_ll_fasthash_function: the hash is a bit slow, better cache
+    # it inside dict entries
+
     ll_str = property(gen_str_function)
 
     def make_iterator_repr(self, variant=None):

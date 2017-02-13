@@ -67,6 +67,8 @@ class ArrayMeta(_CDataMeta):
     from_address = cdata_from_address
 
     def _sizeofinstances(self):
+        if self._ffiarray is None:
+            raise TypeError("abstract class")
         size, alignment = self._ffiarray.size_alignment(self._length_)
         return size
 

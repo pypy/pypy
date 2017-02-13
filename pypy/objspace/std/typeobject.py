@@ -71,6 +71,10 @@ class VersionTag(object):
 class MethodCache(object):
 
     def __init__(self, space):
+        # Note: these attributes never change which object they contain,
+        # so reading 'cache.versions' for example is constant-folded.
+        # The actual list in 'cache.versions' is not a constant, of
+        # course.
         SIZE = 1 << space.config.objspace.std.methodcachesizeexp
         self.versions = [None] * SIZE
         self.names = [None] * SIZE
@@ -87,6 +91,9 @@ class MethodCache(object):
             self.names[i] = None
         for i in range(len(self.lookup_where)):
             self.lookup_where[i] = None_None
+
+    def _cleanup_(self):
+        self.clear()
 
 class _Global(object):
     weakref_warning_printed = False
@@ -958,7 +965,7 @@ W_TypeObject.typedef = TypeDef("type",
     __base__ = GetSetProperty(descr__base),
     __mro__ = GetSetProperty(descr_get__mro__),
     __dict__=GetSetProperty(type_get_dict),
-    __doc__ = GetSetProperty(descr__doc),
+    __doc__ = GetSetProperty(descr__doc, cls=W_TypeObject, name='__doc__'),
     mro = gateway.interp2app(descr_mro),
     __flags__ = GetSetProperty(descr__flags),
     __module__ = GetSetProperty(descr_get__module, descr_set__module),
@@ -1117,12 +1124,14 @@ def create_slot(w_self, slot_name, index_next_extra_slot):
 
 def create_dict_slot(w_self):
     if not w_self.hasdict:
-        w_self.dict_w.setdefault('__dict__', dict_descr)
+        descr = dict_descr.copy_for_type(w_self)
+        w_self.dict_w.setdefault('__dict__', descr)
         w_self.hasdict = True
 
 def create_weakref_slot(w_self):
     if not w_self.weakrefable:
-        w_self.dict_w.setdefault('__weakref__', weakref_descr)
+        descr = weakref_descr.copy_for_type(w_self)
+        w_self.dict_w.setdefault('__weakref__', descr)
         w_self.weakrefable = True
 
 def valid_slot_name(slot_name):
@@ -1312,10 +1321,13 @@ class TypeCache(SpaceCache):
     def build(self, typedef):
         "NOT_RPYTHON: initialization-time only."
         from pypy.objspace.std.objectobject import W_ObjectObject
+        from pypy.interpreter.typedef import GetSetProperty
+        from rpython.rlib.objectmodel import instantiate
 
         space = self.space
         rawdict = typedef.rawdict
         lazyloaders = {}
+        w_type = instantiate(W_TypeObject)
 
         # compute the bases
         if typedef is W_ObjectObject.typedef:
@@ -1327,13 +1339,16 @@ class TypeCache(SpaceCache):
         # wrap everything
         dict_w = {}
         for descrname, descrvalue in rawdict.items():
+            # special case for GetSetProperties' __objclass__:
+            if isinstance(descrvalue, GetSetProperty):
+                descrvalue = descrvalue.copy_for_type(w_type)
             dict_w[descrname] = space.wrap(descrvalue)
 
         if typedef.applevel_subclasses_base is not None:
             overridetypedef = typedef.applevel_subclasses_base.typedef
         else:
             overridetypedef = typedef
-        w_type = W_TypeObject(space, typedef.name, bases_w, dict_w,
+        w_type.__init__(space, typedef.name, bases_w, dict_w,
                               overridetypedef=overridetypedef,
                               is_heaptype=overridetypedef.heaptype)
         if typedef is not overridetypedef:
