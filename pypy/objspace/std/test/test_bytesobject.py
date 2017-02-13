@@ -98,6 +98,9 @@ class TestW_BytesObject:
 
 class AppTestBytesObject:
 
+    def setup_class(cls):
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
+
     def test_constructor(self):
         assert bytes() == b''
         assert bytes(3) == b'\0\0\0'
@@ -175,6 +178,16 @@ class AppTestBytesObject:
 
     def test_format_bytes(self):
         assert b'<%s>' % b'abc' == b'<abc>'
+
+    def test_formatting_not_tuple(self):
+        class mydict(dict):
+            pass
+        assert b'xxx' % mydict() == b'xxx'
+        assert b'xxx' % [] == b'xxx'       # [] considered as a mapping(!)
+        raises(TypeError, "b'xxx' % 'foo'")
+        raises(TypeError, "b'xxx' % b'foo'")
+        raises(TypeError, "b'xxx' % bytearray()")
+        raises(TypeError, "b'xxx' % 53")
 
     def test_split(self):
         assert b"".split() == []
@@ -779,6 +792,8 @@ class AppTestBytesObject:
         raises(LookupError, 'hello'.encode, 'base64')
 
     def test_hash(self):
+        if self.runappdirect:
+            skip("randomized hash by default")
         # check that we have the same hash as CPython for at least 31 bits
         # (but don't go checking CPython's special case -1)
         # disabled: assert hash('') == 0 --- different special case
@@ -873,6 +888,16 @@ class AppTestBytesObject:
             skip("Wrong platform")
         s = b"a" * (2**16)
         raises(OverflowError, s.replace, b"", s)
+
+    def test_replace_issue2448(self):
+        # CPython's replace() method has a bug that makes
+        #   ''.replace('', 'x')  gives a different answer than
+        #   ''.replace('', 'x', 1000).  This is the case in all
+        # known versions, at least until 2.7.13.  Some people
+        # call that a feature on the CPython issue report and
+        # the discussion dies out, so it might never be fixed.
+        assert ''.replace('', 'x') == 'x'
+        assert ''.replace('', 'x', 1000) == ''
 
     def test_getslice(self):
         s = b"abc"

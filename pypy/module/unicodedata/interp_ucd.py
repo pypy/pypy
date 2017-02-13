@@ -9,7 +9,7 @@ from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.runicode import MAXUNICODE
-from rpython.rlib.unicodedata import unicodedb_6_1_0, unicodedb_3_2_0
+from rpython.rlib.unicodedata import unicodedb_8_0_0, unicodedb_3_2_0
 from rpython.rlib.runicode import code_to_unichr, ord_accepts_surrogate
 import sys
 
@@ -77,6 +77,7 @@ else:
 
 class UCD(W_Root):
     def __init__(self, unicodedb):
+        self._unicodedb = unicodedb
         self._lookup = unicodedb.lookup_with_alias
         self._lookup_named_sequence = unicodedb.lookup_named_sequence
         self._name = unicodedb.name
@@ -334,5 +335,5 @@ UCD.typedef = TypeDef("unicodedata.UCD",
                       **methods)
 
 ucd_3_2_0 = UCD(unicodedb_3_2_0)
-ucd_6_1_0 = UCD(unicodedb_6_1_0)
-ucd = ucd_6_1_0
+ucd_8_0_0 = UCD(unicodedb_8_0_0)
+ucd = ucd_8_0_0

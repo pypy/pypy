@@ -4,7 +4,7 @@ Implementation of the interpreter-level default import logic.
 
 import sys, os, stat
 
-from pypy.interpreter.module import Module
+from pypy.interpreter.module import Module, init_extra_module_attrs
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, generic_new_descr
 from pypy.interpreter.error import OperationError, oefmt
@@ -113,11 +113,13 @@ def _prepare_module(space, w_mod, filename, pkgdir):
     space.setattr(w_mod, w('__doc__'), space.w_None)
     if pkgdir is not None:
         space.setattr(w_mod, w('__path__'), space.newlist([w(pkgdir)]))
+    init_extra_module_attrs(space, w_mod)
 
 def add_module(space, w_name):
     w_mod = check_sys_modules(space, w_name)
     if w_mod is None:
         w_mod = space.wrap(Module(space, w_name))
+        init_extra_module_attrs(space, w_mod)
         space.sys.setmodule(w_mod)
     return w_mod
 

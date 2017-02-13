@@ -367,6 +367,15 @@ class Function(W_Root):
             return space.w_None
         return space.newtuple(values_w)
 
+    def fget_defaults_count(self, space):
+        # PyPy extension.  This is mostly to make inspect.py happy about
+        # methods like dict.pop(), which take a default but is None.
+        # Previously, inspect.py would build a signature saying that all
+        # arguments are required, and then unittest.mock would complain
+        # if we call it with less arguments.  Now inspect.py looks up
+        # '__defaults_count__' too.
+        return space.newint(len(self.defs_w))
+
     def fset_func_defaults(self, space, w_defaults):
         if space.is_w(w_defaults, space.w_None):
             self.defs_w = []
@@ -535,11 +544,18 @@ class Method(W_Root):
 
     def descr_method_repr(self):
         space = self.space
-        name = self.w_function.getname(self.space)
-        w_class = space.type(self.w_instance)
-        typename = w_class.getname(self.space)
+        w_name = space.findattr(self.w_function, space.wrap('__qualname__'))
+        if w_name is None:
+            name = self.w_function.getname(self.space)
+        else:
+            try:
+                name = space.unicode_w(w_name)
+            except OperationError as e:
+                if not e.match(space, space.w_TypeError):
+                    raise
+                name = u'?'
         objrepr = space.unicode_w(space.repr(self.w_instance))
-        s = u'<bound method %s.%s of %s>' % (typename, name, objrepr)
+        s = u'<bound method %s of %s>' % (name, objrepr)
         return space.wrap(s)
 
     def descr_method_getattribute(self, w_attr):

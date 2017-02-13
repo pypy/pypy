@@ -2,7 +2,7 @@ from pypy.interpreter.error import oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
-    PyVarObjectFields, Py_ssize_t, CONST_STRING, CANNOT_FAIL)
+    PyVarObjectFields, Py_ssize_t, CONST_STRING, CANNOT_FAIL, slot_function)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
@@ -25,14 +25,14 @@ from pypy.objspace.std.bytesobject import W_BytesObject
 ##
 ## In the PyBytesObject returned, the ob_sval buffer may be modified as
 ## long as the freshly allocated PyBytesObject is not "forced" via a call
-## to any of the more sophisticated C-API functions. 
+## to any of the more sophisticated C-API functions.
 ##
 ## Care has been taken in implementing the functions below, so that
-## if they are called with a non-forced PyBytesObject, they will not 
+## if they are called with a non-forced PyBytesObject, they will not
 ## unintentionally force the creation of a RPython object. As long as only these
 ## are used, the ob_sval buffer is still modifiable:
-## 
-## PyBytes_AsString / PyString_AsString 
+##
+## PyBytes_AsString / PyString_AsString
 ## PyBytes_AS_STRING / PyString_AS_STRING
 ## PyBytes_AsStringAndSize / PyString_AsStringAndSize
 ## PyBytes_Size / PyString_Size
@@ -40,7 +40,7 @@ from pypy.objspace.std.bytesobject import W_BytesObject
 ## _PyBytes_Resize / _PyString_Resize (raises if called with a forced object)
 ##
 ## - There could be an (expensive!) check in from_ref() that the buffer still
-##   corresponds to the pypy gc-managed string, 
+##   corresponds to the pypy gc-managed string,
 ##
 
 PyBytesObjectStruct = lltype.ForwardReference()
@@ -80,14 +80,18 @@ def bytes_attach(space, py_obj, w_obj, w_userdata=None):
     """
     py_str = rffi.cast(PyBytesObject, py_obj)
     s = space.str_w(w_obj)
-    if py_str.c_ob_size  < len(s):
+    len_s = len(s)
+    if py_str.c_ob_size  < len_s:
         raise oefmt(space.w_ValueError,
             "bytes_attach called on object with ob_size %d but trying to store %d",
-            py_str.c_ob_size, len(s))
+            py_str.c_ob_size, len_s)
     with rffi.scoped_nonmovingbuffer(s) as s_ptr:
-        rffi.c_memcpy(py_str.c_ob_sval, s_ptr, len(s))
-    py_str.c_ob_sval[len(s)] = '\0'
-    py_str.c_ob_shash = space.hash_w(w_obj)
+        rffi.c_memcpy(py_str.c_ob_sval, s_ptr, len_s)
+    py_str.c_ob_sval[len_s] = '\0'
+    # if py_obj has a tp_hash, this will try to call it, but the objects are
+    # not fully linked yet
+    #py_str.c_ob_shash = space.hash_w(w_obj)
+    py_str.c_ob_shash = space.hash_w(space.newbytes(s))
     py_str.c_ob_sstate = rffi.cast(rffi.INT, 1) # SSTATE_INTERNED_MORTAL
 
 def bytes_realize(space, py_obj):
@@ -100,12 +104,14 @@ def bytes_realize(space, py_obj):
     w_type = from_ref(space, rffi.cast(PyObject, py_obj.c_ob_type))
     w_obj = space.allocate_instance(W_BytesObject, w_type)
     w_obj.__init__(s)
-    py_str.c_ob_shash = space.hash_w(w_obj)
+    # if py_obj has a tp_hash, this will try to call it but the object is
+    # not realized yet
+    py_str.c_ob_shash = space.hash_w(space.newbytes(s))
     py_str.c_ob_sstate = rffi.cast(rffi.INT, 1) # SSTATE_INTERNED_MORTAL
     track_reference(space, py_obj, w_obj)
     return w_obj
 
-@cpython_api([PyObject], lltype.Void, header=None)
+@slot_function([PyObject], lltype.Void)
 def bytes_dealloc(space, py_obj):
     """Frees allocated PyBytesObject resources.
     """

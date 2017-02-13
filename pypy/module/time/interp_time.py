@@ -1,8 +1,10 @@
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rtyper.lltypesystem import rffi
-from pypy.interpreter.error import OperationError, oefmt, strerror as _strerror, exception_from_saved_errno
+from pypy.interpreter.error import (OperationError, oefmt,
+        strerror as _strerror, exception_from_saved_errno)
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter import timeutils
+from pypy.interpreter.unicodehelper import decode_utf8, encode_utf8
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import intmask, r_ulonglong, r_longfloat, widen
 from rpython.rlib.rtime import (GETTIMEOFDAY_NO_TZ, TIMEVAL,
@@ -164,6 +166,8 @@ class CConfig:
     CLOCKS_PER_SEC = platform.ConstantInteger("CLOCKS_PER_SEC")
     has_gettimeofday = platform.Has('gettimeofday')
 
+HAS_TM_ZONE = False
+
 if _POSIX:
     calling_conv = 'c'
     CConfig.timeval = platform.Struct("struct timeval",
@@ -180,6 +184,9 @@ if _POSIX:
             ("tm_mon", rffi.INT), ("tm_year", rffi.INT), ("tm_wday", rffi.INT),
             ("tm_yday", rffi.INT), ("tm_isdst", rffi.INT), ("tm_gmtoff", rffi.LONG),
             ("tm_zone", rffi.CCHARP)])
+
+        HAS_TM_ZONE = True
+
 elif _WIN:
     calling_conv = 'win'
     CConfig.tm = platform.Struct("struct tm", [("tm_sec", rffi.INT),
@@ -195,6 +202,8 @@ if _MACOSX:
 
 # XXX: optionally support the 2 additional tz fields
 _STRUCT_TM_ITEMS = 9
+if HAS_TM_ZONE:
+    _STRUCT_TM_ITEMS = 11
 
 class cConfig:
     pass
@@ -537,9 +546,18 @@ def _tm_to_tuple(space, t):
         space.wrap(rffi.getintfield(t, 'c_tm_yday') + 1), # want january, 1 == 1
         space.wrap(rffi.getintfield(t, 'c_tm_isdst'))]
 
+    if HAS_TM_ZONE:
+        # CPython calls PyUnicode_DecodeLocale here should we do the same?
+        tm_zone = decode_utf8(space, rffi.charp2str(t.c_tm_zone),
+                              allow_surrogates=True)
+        extra = [space.newunicode(tm_zone),
+                 space.wrap(rffi.getintfield(t, 'c_tm_gmtoff'))]
+        w_time_tuple = space.newtuple(time_tuple + extra)
+    else:
+        w_time_tuple = space.newtuple(time_tuple)
     w_struct_time = _get_module_object(space, 'struct_time')
-    w_time_tuple = space.newtuple(time_tuple)
-    return space.call_function(w_struct_time, w_time_tuple)
+    w_obj = space.call_function(w_struct_time, w_time_tuple)
+    return w_obj
 
 def _gettmarg(space, w_tup, allowNone=True):
     if space.is_none(w_tup):
@@ -559,9 +577,9 @@ def _gettmarg(space, w_tup, allowNone=True):
         return pbuf
 
     tup_w = space.fixedview(w_tup)
-    if len(tup_w) != 9:
+    if len(tup_w) < 9:
         raise oefmt(space.w_TypeError,
-                    "argument must be sequence of length 9, not %d",
+                    "argument must be sequence of at least length 9, not %d",
                     len(tup_w))
 
     y = space.c_int_w(tup_w[0])
@@ -582,13 +600,23 @@ def _gettmarg(space, w_tup, allowNone=True):
     rffi.setintfield(glob_buf, 'c_tm_wday', space.c_int_w(tup_w[6]))
     rffi.setintfield(glob_buf, 'c_tm_yday', tm_yday)
     rffi.setintfield(glob_buf, 'c_tm_isdst', space.c_int_w(tup_w[8]))
-    if _POSIX:
-        if _CYGWIN:
-            pass
-        else:
-            # actually never happens, but makes annotator happy
-            glob_buf.c_tm_zone = lltype.nullptr(rffi.CCHARP.TO)
-            rffi.setintfield(glob_buf, 'c_tm_gmtoff', 0)
+    #
+    old_tm_zone = glob_buf.c_tm_zone
+    glob_buf.c_tm_zone = lltype.nullptr(rffi.CCHARP.TO)
+    rffi.setintfield(glob_buf, 'c_tm_gmtoff', 0)
+    if HAS_TM_ZONE :
+        if len(tup_w) >= 10:
+            # NOTE this is not cleanly solved!
+            # it saves the string that is later deleted when this
+            # function is called again. A refactoring of this module
+            # could remove this
+            tm_zone = encode_utf8(space, space.unicode_w(tup_w[9]), allow_surrogates=True)
+            malloced_str = rffi.str2charp(tm_zone, track_allocation=False)
+            if old_tm_zone != lltype.nullptr(rffi.CCHARP.TO):
+                rffi.free_charp(old_tm_zone, track_allocation=False)
+            glob_buf.c_tm_zone = malloced_str
+        if len(tup_w) >= 11:
+            rffi.setintfield(glob_buf, 'c_tm_gmtoff', space.c_int_w(tup_w[10]))
 
     # tm_wday does not need checking of its upper-bound since taking "%
     #  7" in _gettmarg() automatically restricts the range.

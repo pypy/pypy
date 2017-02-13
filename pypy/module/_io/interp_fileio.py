@@ -145,7 +145,12 @@ class W_FileIO(W_RawIOBase):
 
     @unwrap_spec(mode=str, closefd=int)
     def descr_init(self, space, w_name, mode='r', closefd=True, w_opener=None):
-        self._close(space)
+        if self.fd >= 0:
+            if self.closefd:
+                self._close(space)
+            else:
+                self.fd = -1
+
         if space.isinstance_w(w_name, space.w_float):
             raise oefmt(space.w_TypeError,
                         "integer argument expected, got float")
@@ -168,43 +173,52 @@ class W_FileIO(W_RawIOBase):
             if fd >= 0:
                 self.fd = fd
                 self.closefd = bool(closefd)
-            elif space.is_none(w_opener):
+            else:
                 self.closefd = True
                 if not closefd:
                     raise oefmt(space.w_ValueError,
                                 "Cannot use closefd=False with file name")
 
-                from pypy.module.posix.interp_posix import dispatch_filename
-                while True:
+                if space.is_none(w_opener):
+                    from pypy.module.posix.interp_posix import dispatch_filename
+                    while True:
+                        try:
+                            self.fd = dispatch_filename(rposix.open)(
+                                space, w_name, flags, 0666)
+                            fd_is_own = True
+                            break
+                        except OSError as e:
+                            wrap_oserror2(space, e, w_name,
+                                          exception_name='w_IOError',
+                                          eintr_retry=True)
+                    if not rposix._WIN32:
+                        try:
+                            _open_inhcache.set_non_inheritable(self.fd)
+                        except OSError as e:
+                            raise wrap_oserror2(space, e, w_name,
+                                                eintr_retry=False)
+                else:
+                    w_fd = space.call_function(w_opener, w_name,
+                                               space.wrap(flags))
                     try:
-                        self.fd = dispatch_filename(rposix.open)(
-                            space, w_name, flags, 0666)
+                        self.fd = space.int_w(w_fd)
+                        if self.fd < 0:
+                            # The opener returned a negative result instead
+                            # of raising an exception
+                            raise oefmt(space.w_ValueError,
+                                        "opener returned %d", self.fd)
                         fd_is_own = True
-                        break
-                    except OSError as e:
-                        wrap_oserror2(space, e, w_name,
-                                      exception_name='w_IOError',
-                                      eintr_retry=True)
-                if not rposix._WIN32:
-                    try:
-                        _open_inhcache.set_non_inheritable(self.fd)
-                    except OSError as e:
-                        raise wrap_oserror2(space, e, w_name, eintr_retry=False)
-            else:
-                w_fd = space.call_function(w_opener, w_name, space.wrap(flags))
-                try:
-                    self.fd = space.int_w(w_fd)
-                    fd_is_own = True
-                except OperationError as e:
-                    if not e.match(space, space.w_TypeError):
-                        raise
-                    raise oefmt(space.w_TypeError,
-                                "expected integer from opener")
-                if not rposix._WIN32:
-                    try:
-                        rposix.set_inheritable(self.fd, False)
-                    except OSError as e:
-                        raise wrap_oserror2(space, e, w_name, eintr_retry=False)
+                    except OperationError as e:
+                        if not e.match(space, space.w_TypeError):
+                            raise
+                        raise oefmt(space.w_TypeError,
+                                    "expected integer from opener")
+                    if not rposix._WIN32:
+                        try:
+                            rposix.set_inheritable(self.fd, False)
+                        except OSError as e:
+                            raise wrap_oserror2(space, e, w_name,
+                                                eintr_retry=False)
 
             try:
                 st = os.fstat(self.fd)

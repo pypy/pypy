@@ -90,7 +90,7 @@ class TestExceptions(BaseApiTest):
         api.PyErr_WriteUnraisable(w_where)
         space.call_method(space.sys.get('stderr'), "flush")
         out, err = capfd.readouterr()
-        assert "Exception ValueError: 'message' in 'location' ignored" == err.strip()
+        assert "Exception ignored in: 'location'\nValueError: message" == err.strip()
 
     @pytest.mark.skipif(True, reason='not implemented yet')
     def test_interrupt_occurred(self, space, api):
@@ -428,3 +428,18 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             assert orig_exc_info == reset_sys_exc_info
             assert new_exc_info == (new_exc.__class__, new_exc, None)
             assert new_exc_info == new_sys_exc_info
+
+    def test_PyErr_WarnFormat(self):
+        import warnings
+
+        module = self.import_extension('foo', [
+                ("test", "METH_NOARGS",
+                 '''
+                 PyErr_WarnFormat(PyExc_UserWarning, 1, "foo %d bar", 42);
+                 Py_RETURN_NONE;
+                 '''),
+                ])
+        with warnings.catch_warnings(record=True) as l:
+            module.test()
+        assert len(l) == 1
+        assert "foo 42 bar" in str(l[0])

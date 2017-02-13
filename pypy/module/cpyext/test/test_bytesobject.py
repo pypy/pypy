@@ -1,14 +1,13 @@
 # encoding: utf-8
+import pytest
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.interpreter.error import OperationError
+from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.bytesobject import new_empty_str, PyBytesObject
 from pypy.module.cpyext.api import PyObjectP, PyObject, Py_ssize_tP, generic_cpy_call, Py_buffer
 from pypy.module.cpyext.pyobject import Py_DecRef, from_ref, make_ref, as_pyobj
-from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
-
-import py
-import sys
+from pypy.module.cpyext.api import PyTypeObjectPtr
 
 
 class AppTestBytesObject(AppTestCpythonExtensionBase):

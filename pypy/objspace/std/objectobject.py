@@ -18,25 +18,6 @@ def reduce_1(obj, proto):
     import copyreg
     return copyreg._reduce_ex(obj, proto)
 
-def _getnewargs(obj):
-
-    try:
-        getnewargs = obj.__getnewargs_ex__
-    except AttributeError:
-        try:
-            getnewargs = obj.__getnewargs__
-        except AttributeError:
-            args = ()
-        else:
-            args = getnewargs()
-        kwargs = None
-    else:
-        args, kwargs = getnewargs()
-
-    if not isinstance(args, tuple):
-        raise TypeError("__getnewargs__ should return a tuple")
-    return args, kwargs
-
 def _getstate(obj):
     cls = obj.__class__
 
@@ -60,13 +41,13 @@ def _getstate(obj):
         state = getstate()
     return state
 
-def reduce_2(obj, proto):
+def reduce_2(obj, proto, args, kwargs):
     cls = obj.__class__
 
     import copyreg
 
-    args, kwargs = _getnewargs(obj)
-
+    if not isinstance(args, tuple):
+        raise TypeError("__getnewargs__ should return a tuple")
     if not kwargs:
        newobj = copyreg.__newobj__
        args2 = (cls,) + args
@@ -170,18 +151,7 @@ def descr_set___class__(space, w_obj, w_newcls):
 
 
 def descr__repr__(space, w_obj):
-    w_type = space.type(w_obj)
-    classname = w_type.name.decode('utf-8')
-    if w_type.is_heaptype():
-        w_module = w_type.lookup("__module__")
-        if w_module is not None:
-            try:
-                modulename = space.unicode_w(w_module)
-            except OperationError as e:
-                if not e.match(space, space.w_TypeError):
-                    raise
-            else:
-                classname = u'%s.%s' % (modulename, classname)
+    classname = space.getfulltypename(w_obj)
     return w_obj.getrepr(space, u'%s object' % (classname,))
 
 
@@ -198,7 +168,18 @@ def descr__str__(space, w_obj):
 def descr__reduce__(space, w_obj, proto=0):
     w_proto = space.newint(proto)
     if proto >= 2:
-        return reduce_2(space, w_obj, w_proto)
+        w_descr = space.lookup(w_obj, '__getnewargs_ex__')
+        if w_descr is not None:
+            w_result = space.get_and_call_function(w_descr, w_obj)
+            w_args, w_kwargs = space.fixedview(w_result, 2)
+        else:
+            w_descr = space.lookup(w_obj, '__getnewargs__')
+            if w_descr is not None:
+                w_args = space.get_and_call_function(w_descr, w_obj)
+            else:
+                w_args = space.newtuple([])
+            w_kwargs = space.w_None
+        return reduce_2(space, w_obj, w_proto, w_args, w_kwargs)
     return reduce_1(space, w_obj, w_proto)
 
 @unwrap_spec(proto=int)

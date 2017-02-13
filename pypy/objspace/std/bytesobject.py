@@ -3,7 +3,7 @@
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin, newlist_hint,
-    resizelist_hint, HASH_ALGORITHM)
+    resizelist_hint)
 from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.rstring import StringBuilder
 
@@ -678,7 +678,7 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def descr_hex(self, space):
         from pypy.objspace.std.bytearrayobject import _array_to_hexstring
-        return _array_to_hexstring(space, StringBuffer(self._value))
+        return _array_to_hexstring(space, StringBuffer(self._value), 0, 1, len(self._value))
 
     def descr_mod(self, space, w_values):
         return mod_format(space, self, w_values, fmt_type=FORMAT_BYTES)
@@ -901,6 +901,7 @@ W_BytesObject.typedef = TypeDef(
 W_BytesObject.typedef.flag_sequence_bug_compat = True
 
 
+@jit.elidable
 def string_escape_encode(s, quotes):
     buf = StringBuilder(len(s) + 2)
 

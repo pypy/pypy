@@ -997,12 +997,12 @@ class RSocket(object):
                 if signal_checker is not None:
                     signal_checker()
 
-    def sendto(self, data, flags, address):
+    def sendto(self, data, length, flags, address):
         """Like send(data, flags) but allows specifying the destination
         address.  (Note that 'flags' is mandatory here.)"""
         self.wait_for_data(True)
         addr = address.lock()
-        res = _c.sendto(self.fd, data, len(data), flags,
+        res = _c.sendto(self.fd, data, length, flags,
                         addr, address.addrlen)
         address.unlock()
         if res < 0:

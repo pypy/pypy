@@ -483,7 +483,7 @@ class W_BytearrayObject(W_Root):
 
     def descr_hex(self, space):
         data = self.getdata()
-        return _array_to_hexstring(space, data, len(data), True)
+        return _array_to_hexstring(space, data, 0, 1, len(data), True)
 
     def descr_mod(self, space, w_values):
         return mod_format(space, self, w_values, fmt_type=FORMAT_BYTEARRAY)
@@ -578,18 +578,16 @@ def _hexstring_to_array(space, s):
 HEXDIGITS = "0123456789abcdef"
 PY_SIZE_T_MAX = intmask(2**(rffi.sizeof(rffi.SIZE_T)*8-1)-1)
 
-@specialize.arg(3) # raw access
-def _array_to_hexstring(space, buf, len=0, rawaccess=False):
-    if rawaccess:
-        length = len
-    else:
-        length = buf.getlength()
+@specialize.arg(5) # raw access
+def _array_to_hexstring(space, buf, start, step, length, rawaccess=False):
     hexstring = StringBuilder(length*2)
 
     if length > PY_SIZE_T_MAX/2:
         raise OperationError(space.w_MemoryError, space.w_None)
 
-    for i in range(length):
+    stepped = 0
+    i = start
+    while stepped < length:
         if rawaccess:
             byte = ord(buf[i])
         else:
@@ -598,6 +596,8 @@ def _array_to_hexstring(space, buf, len=0, rawaccess=False):
         hexstring.append(HEXDIGITS[c])
         c = (byte & 0xf)
         hexstring.append(HEXDIGITS[c])
+        i += step
+        stepped += 1
 
     return space.newtext(hexstring.build())
 
@@ -1324,6 +1324,7 @@ class BytearrayBuffer(Buffer):
 
 @specialize.argtype(1)
 def _memcmp(selfvalue, buffer, length):
+    # XXX that's very slow if selfvalue or buffer are Buffer objects
     for i in range(length):
         if selfvalue[i] < buffer[i]:
             return -1

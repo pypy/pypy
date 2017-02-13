@@ -259,7 +259,7 @@ class W_ZipImporter(W_Root):
                 pass
             except RZlibError as e:
                 # in this case, CPython raises the direct exception coming
-                # from the zlib module: let's to the same
+                # from the zlib module: let's do the same
                 raise zlib_error(space, e.msg)
             else:
                 if is_package:
@@ -292,7 +292,7 @@ class W_ZipImporter(W_Root):
             raise oefmt(space.w_IOError, "Error reading file")
         except RZlibError as e:
             # in this case, CPython raises the direct exception coming
-            # from the zlib module: let's to the same
+            # from the zlib module: let's do the same
             raise zlib_error(space, e.msg)
 
     def get_code(self, space, w_fullname):
@@ -428,7 +428,7 @@ def descr_new_zipimporter(space, w_type, w_name):
                     space.wrap_fsdecoded(filename))
     except RZlibError as e:
         # in this case, CPython raises the direct exception coming
-        # from the zlib module: let's to the same
+        # from the zlib module: let's do the same
         raise zlib_error(space, e.msg)
 
     prefix = name[len(filename):]

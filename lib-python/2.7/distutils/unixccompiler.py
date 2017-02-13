@@ -310,6 +310,10 @@ class UnixCCompiler(CCompiler):
                 static = os.path.join(sysroot, dir[1:], static_f)
                 xcode_stub = os.path.join(sysroot, dir[1:], xcode_stub_f)
 
+            # PyPy extension here: 'shared' usually ends in something
+            # like '.pypy-41.so'.  Try without the '.pypy-41' part too.
+            shared_no_pypy = re.sub(r'[.]pypy[^.]+([.][^.]+)$', r'\1', shared)
+
             # We're second-guessing the linker here, with not much hard
             # data to go on: GCC seems to prefer the shared library, so I'm
             # assuming that *all* Unix C compilers do.  And of course I'm
@@ -320,6 +324,8 @@ class UnixCCompiler(CCompiler):
                 return xcode_stub
             elif os.path.exists(shared):
                 return shared
+            elif os.path.exists(shared_no_pypy):
+                return shared_no_pypy
             elif os.path.exists(static):
                 return static
 

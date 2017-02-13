@@ -148,11 +148,15 @@ def _unwrap_path(space, w_value, allow_fd=True):
     try:
         path_b = space.fsencode_w(w_value)
         return Path(-1, path_b, None, w_value)
-    except OperationError:
+    except OperationError as e:
+        if not e.match(space, space.w_TypeError):
+            raise
         if allow_fd:
             fd = unwrap_fd(space, w_value, "string, bytes or integer")
             return Path(fd, None, None, w_value)
-    raise oefmt(space.w_TypeError, "illegal type for path parameter")
+    raise oefmt(space.w_TypeError,
+                "illegal type for path parameter (expected "
+                "string or bytes, got %T)", w_value)
 
 class _PathOrFd(Unwrapper):
     def unwrap(self, space, w_value):
@@ -976,11 +980,12 @@ dir_fd and follow_symlinks may not be implemented on your platform.
     if not rposix.HAVE_FCHMODAT:
         if not follow_symlinks:
             raise argument_unavailable(space, "chmod", "follow_symlinks")
-        try:
-            dispatch_filename(rposix.chmod)(space, w_path, mode)
-            return
-        except OSError as e:
-            raise wrap_oserror2(space, e, w_path, eintr_retry=False)
+        while True:
+            try:
+                dispatch_filename(rposix.chmod)(space, w_path, mode)
+                return
+            except OSError as e:
+                wrap_oserror2(space, e, w_path, eintr_retry=True)
 
     try:
         path = space.fsencode_w(w_path)
@@ -989,21 +994,25 @@ dir_fd and follow_symlinks may not be implemented on your platform.
             raise oefmt(space.w_TypeError,
                 "argument should be string, bytes or integer, not %T", w_path)
         fd = unwrap_fd(space, w_path)
-        # NB. CPython 3.5.2: unclear why os.chmod(fd) propagates EINTR
-        # to app-level, but os.fchmod(fd) retries automatically
-        try:
-            os.fchmod(fd, mode)
-        except OSError as e:
-            raise wrap_oserror(space, e, eintr_retry=False)
-    else:
+        # NB. in CPython 3.5.2, os.chmod(fd) propagates EINTR to app-level,
+        # but os.fchmod(fd) retries automatically.  This might be fixed in
+        # more recent CPythons.
+        while True:
+            try:
+                os.fchmod(fd, mode)
+                return
+            except OSError as e:
+                wrap_oserror(space, e, eintr_retry=True)
+    while True:
         try:
             _chmod_path(path, mode, dir_fd, follow_symlinks)
+            break
         except OSError as e:
             if not follow_symlinks and e.errno in (ENOTSUP, EOPNOTSUPP):
                 # fchmodat() doesn't actually implement follow_symlinks=False
                 # so raise NotImplementedError in this case
                 raise argument_unavailable(space, "chmod", "follow_symlinks")
-            raise wrap_oserror2(space, e, w_path, eintr_retry=False)
+            wrap_oserror2(space, e, w_path, eintr_retry=True)
 
 def _chmod_path(path, mode, dir_fd, follow_symlinks):
     if dir_fd != DEFAULT_DIR_FD or not follow_symlinks:
@@ -1016,8 +1025,6 @@ def fchmod(space, fd, mode):
     """\
     Change the access permissions of the file given by file descriptor fd.
     """
-    # NB. CPython 3.5.2: unclear why os.chmod(fd) propagates EINTR
-    # to app-level, but os.fchmod(fd) retries automatically
     while True:
         try:
             os.fchmod(fd, mode)
@@ -1893,6 +1900,29 @@ def setresgid(space, rgid, egid, sgid):
     except OSError as e:
         raise wrap_oserror(space, e, eintr_retry=False)
 
+@unwrap_spec(which=int, who=int)
+def getpriority(space, which, who):
+    """ getpriority(which, who) -> int
+
+    Get program scheduling priority.
+    """
+    try:
+        returned_priority = rposix.getpriority(which, who)
+    except OSError as e:
+        raise wrap_oserror(space, e, eintr_retry=False)
+    return space.wrap(returned_priority)
+
+@unwrap_spec(which=int, who=int, priority=int)
+def setpriority(space, which, who, priority):
+    """ setpriority(which, who, priority)
+
+    Set program scheduling priority.
+    """
+    try:
+        rposix.setpriority(which, who, priority)
+    except OSError as e:
+        raise wrap_oserror(space, e, eintr_retry=False)
+
 def declare_new_w_star(name):
     if name in ('WEXITSTATUS', 'WSTOPSIG', 'WTERMSIG'):
         @unwrap_spec(status=c_int)
@@ -2009,11 +2039,16 @@ dir_fd and follow_symlinks may not be implemented on your platform.
         if not follow_symlinks:
             raise oefmt(space.w_ValueError,
                 "chown: cannnot use fd and follow_symlinks together")
-        try:
-            os.fchown(fd, uid, gid)
-        except OSError as e:
-            raise wrap_oserror(space, e, eintr_retry=False)
-    else:
+        # NB. in CPython 3.5.2, os.chown(fd) propagates EINTR to app-level,
+        # but os.fchown(fd) retries automatically.  This might be fixed in
+        # more recent CPythons.
+        while True:
+            try:
+                os.fchown(fd, uid, gid)
+                return
+            except OSError as e:
+                wrap_oserror(space, e, eintr_retry=True)
+    while True:
         # String case
         try:
             if (rposix.HAVE_LCHOWN and
@@ -2026,8 +2061,9 @@ dir_fd and follow_symlinks may not be implemented on your platform.
                 assert follow_symlinks
                 assert dir_fd == DEFAULT_DIR_FD
                 os.chown(path, uid, gid)
+            break
         except OSError as e:
-            raise wrap_oserror2(space, e, w_path, eintr_retry=False)
+            wrap_oserror2(space, e, w_path, eintr_retry=True)
 
 
 @unwrap_spec(uid=c_uid_t, gid=c_gid_t)
@@ -2049,7 +2085,6 @@ def fchown(space, w_fd, uid, gid):
 
 Change the owner and group id of the file given by file descriptor
 fd to the numeric uid and gid.  Equivalent to os.chown(fd, uid, gid)."""
-    # same comment than about os.chmod(fd) vs. os.fchmod(fd)
     fd = space.c_filedescriptor_w(w_fd)
     while True:
         try:
@@ -2092,6 +2127,12 @@ def nice(space, increment):
         raise wrap_oserror(space, e, eintr_retry=False)
     return space.wrap(res)
 
+class SigCheck:
+    pass
+_sigcheck = SigCheck()
+def _signal_checker():
+    _sigcheck.space.getexecutioncontext().checksignals()
+
 @unwrap_spec(size=int)
 def urandom(space, size):
     """urandom(size) -> str
@@ -2099,9 +2140,12 @@ def urandom(space, size):
     Return a string of 'size' random bytes suitable for cryptographic use.
     """
     context = get(space).random_context
-    signal_checker = space.getexecutioncontext().checksignals
     try:
-        return space.newbytes(rurandom.urandom(context, n, signal_checker))
+        # urandom() takes a final argument that should be a regular function,
+        # not a bound method like 'getexecutioncontext().checksignals'.
+        # Otherwise, we can't use it from several independent places.
+        _sigcheck.space = space
+        return space.newbytes(rurandom.urandom(context, n, _signal_checker))
     except OSError as e:
         # 'rurandom' should catch and retry internally if it gets EINTR
         # (at least in os.read(), which is probably enough in practice)

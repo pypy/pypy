@@ -370,6 +370,19 @@ class W_CTypePrimitiveBool(W_CTypePrimitiveUnsigned):
         # bypass the method 'string' implemented in W_CTypePrimitive
         return W_CType.string(self, cdataobj, maxlen)
 
+    def convert_to_object(self, cdata):
+        space = self.space
+        value = ord(cdata[0])
+        if value < 2:
+            return space.newbool(value != 0)
+        else:
+            raise oefmt(space.w_ValueError,
+                        "got a _Bool of value %d, expected 0 or 1",
+                        value)
+
+    def unpack_list_of_int_items(self, ptr, length):
+        return None
+
 
 class W_CTypePrimitiveFloat(W_CTypePrimitive):
     _attrs_ = []

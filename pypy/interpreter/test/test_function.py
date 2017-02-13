@@ -160,10 +160,8 @@ class AppTestFunctionIntrospection:
     def test_write_code_builtin_forbidden(self):
         def f(*args):
             return 42
-        if hasattr('dir', '__code__'):
-            # only on PyPy, CPython does not expose these attrs
-            raises(TypeError, "dir.__code__ = f.__code__")
-            raises(TypeError, "list().append.__func__.__code__ = f.__code__")
+        raises(TypeError, "dir.__code__ = f.__code__")
+        raises(TypeError, "list.append.__code__ = f.__code__")
 
     def test_set_module_to_name_eagerly(self):
         skip("fails on PyPy but works on CPython.  Unsure we want to care")
@@ -516,14 +514,19 @@ class AppTestMethod:
         class A(object):
             def f(self):
                 pass
-        assert repr(A().f).startswith("<bound method A.f of <")
-        assert repr(A().f).endswith(">>")
-        class B:
-            def f(self):
-                pass
-        assert repr(B().f).startswith("<bound method B.f of <")
+        assert repr(A().f).startswith("<bound method %s.f of <" %
+                                      A.__qualname__)
         assert repr(A().f).endswith(">>")
 
+    def test_method_repr_2(self):
+        class ClsA(object):
+            def f(self):
+                pass
+        class ClsB(ClsA):
+            pass
+        r = repr(ClsB().f)
+        assert "ClsA.f of <" in r
+        assert "ClsB object at " in r
 
     def test_method_call(self):
         class C(object):
@@ -813,3 +816,5 @@ class TestFunction:
         w_g = space.wrap(app_g)
         w_defs = space.getattr(w_g, space.wrap("__defaults__"))
         assert space.is_w(w_defs, space.w_None)
+        w_count = space.getattr(w_g, space.wrap("__defaults_count__"))
+        assert space.unwrap(w_count) == 1

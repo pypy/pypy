@@ -1,9 +1,9 @@
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.9.1", ("This test_c.py file is for testing a version"
-                                " of cffi that differs from the one that we"
-                                " get from 'import _cffi_backend'")
+assert __version__ == "1.10.0", ("This test_c.py file is for testing a version"
+                                 " of cffi that differs from the one that we"
+                                 " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
     type_or_class = "type"
     mandatory_b_prefix = ''
@@ -365,7 +365,7 @@ def test_load_standard_library():
     x = find_and_load_library(None)
     BVoidP = new_pointer_type(new_void_type())
     assert x.load_function(BVoidP, 'strcpy')
-    py.test.raises(KeyError, x.load_function,
+    py.test.raises(AttributeError, x.load_function,
                    BVoidP, 'xxx_this_function_does_not_exist')
     # the next one is from 'libm', not 'libc', but we assume
     # that it is already loaded too, so it should work
@@ -737,8 +737,14 @@ def test_struct_instance():
     BInt = new_primitive_type("int")
     BStruct = new_struct_type("struct foo")
     BStructPtr = new_pointer_type(BStruct)
-    p = cast(BStructPtr, 0)
-    py.test.raises(AttributeError, "p.a1")    # opaque
+    p = cast(BStructPtr, 42)
+    e = py.test.raises(AttributeError, "p.a1")    # opaque
+    assert str(e.value) == ("cdata 'struct foo *' points to an opaque type: "
+                            "cannot read fields")
+    e = py.test.raises(AttributeError, "p.a1 = 10")    # opaque
+    assert str(e.value) == ("cdata 'struct foo *' points to an opaque type: "
+                            "cannot write fields")
+
     complete_struct_or_union(BStruct, [('a1', BInt, -1),
                                        ('a2', BInt, -1)])
     p = newp(BStructPtr, None)
@@ -749,8 +755,29 @@ def test_struct_instance():
     assert s.a2 == 123
     py.test.raises(OverflowError, "s.a1 = sys.maxsize+1")
     assert s.a1 == 0
-    py.test.raises(AttributeError, "p.foobar")
-    py.test.raises(AttributeError, "s.foobar")
+    e = py.test.raises(AttributeError, "p.foobar")
+    assert str(e.value) == "cdata 'struct foo *' has no field 'foobar'"
+    e = py.test.raises(AttributeError, "p.foobar = 42")
+    assert str(e.value) == "cdata 'struct foo *' has no field 'foobar'"
+    e = py.test.raises(AttributeError, "s.foobar")
+    assert str(e.value) == "cdata 'struct foo' has no field 'foobar'"
+    e = py.test.raises(AttributeError, "s.foobar = 42")
+    assert str(e.value) == "cdata 'struct foo' has no field 'foobar'"
+    j = cast(BInt, 42)
+    e = py.test.raises(AttributeError, "j.foobar")
+    assert str(e.value) == "cdata 'int' has no attribute 'foobar'"
+    e = py.test.raises(AttributeError, "j.foobar = 42")
+    assert str(e.value) == "cdata 'int' has no attribute 'foobar'"
+    j = cast(new_pointer_type(BInt), 42)
+    e = py.test.raises(AttributeError, "j.foobar")
+    assert str(e.value) == "cdata 'int *' has no attribute 'foobar'"
+    e = py.test.raises(AttributeError, "j.foobar = 42")
+    assert str(e.value) == "cdata 'int *' has no attribute 'foobar'"
+    pp = newp(new_pointer_type(BStructPtr), p)
+    e = py.test.raises(AttributeError, "pp.a1")
+    assert str(e.value) == "cdata 'struct foo * *' has no attribute 'a1'"
+    e = py.test.raises(AttributeError, "pp.a1 = 42")
+    assert str(e.value) == "cdata 'struct foo * *' has no attribute 'a1'"
 
 def test_union_instance():
     BInt = new_primitive_type("int")
@@ -884,6 +911,15 @@ def test_call_function_0():
     assert f(-100, -100) == -200 + 256
     py.test.raises(OverflowError, f, 128, 0)
     py.test.raises(OverflowError, f, 0, 128)
+
+def test_call_function_0_pretend_bool_result():
+    BSignedChar = new_primitive_type("signed char")
+    BBool = new_primitive_type("_Bool")
+    BFunc0 = new_function_type((BSignedChar, BSignedChar), BBool, False)
+    f = cast(BFunc0, _testfunc(0))
+    assert f(40, -39) is True
+    assert f(40, -40) is False
+    py.test.raises(ValueError, f, 40, 2)
 
 def test_call_function_1():
     BInt = new_primitive_type("int")
@@ -1047,6 +1083,17 @@ def test_call_function_23_bis():
     res = f(b"foo")
     assert res == 1000 * ord(b'f')
 
+def test_call_function_23_bool_array():
+    # declaring the function as int(_Bool*)
+    BBool = new_primitive_type("_Bool")
+    BBoolP = new_pointer_type(BBool)
+    BInt = new_primitive_type("int")
+    BFunc23 = new_function_type((BBoolP,), BInt, False)
+    f = cast(BFunc23, _testfunc(23))
+    res = f(b"\x01\x01")
+    assert res == 1000
+    py.test.raises(ValueError, f, b"\x02\x02")
+
 def test_cannot_pass_struct_with_array_of_length_0():
     BInt = new_primitive_type("int")
     BArray0 = new_array_type(new_pointer_type(BInt), 0)
@@ -1084,9 +1131,13 @@ def test_cannot_call_with_a_autocompleted_struct():
     BFunc = new_function_type((BStruct,), BDouble)   # internally not callable
     dummy_func = cast(BFunc, 42)
     e = py.test.raises(NotImplementedError, dummy_func, "?")
-    msg = ("ctype \'struct foo\' not supported as argument (it is a struct "
-           'declared with "...;", but the C calling convention may depend on '
-           'the missing fields)')
+    msg = ("ctype 'struct foo' not supported as argument.  It is a struct "
+           'declared with "...;", but the C calling convention may depend '
+           "on the missing fields; or, it contains anonymous struct/unions.  "
+           "Such structs are only supported as argument if the function is "
+           "'API mode' and non-variadic (i.e. declared inside ffibuilder."
+           "cdef()+ffibuilder.set_source() and not taking a final '...' "
+           "argument)")
     assert str(e.value) == msg
 
 def test_new_charp():
@@ -2237,6 +2288,7 @@ def test_buffer():
     buf = buffer(c)
     assert repr(buf).startswith('<_cffi_backend.buffer object at 0x')
     assert bytes(buf) == b"hi there\x00"
+    assert type(buf) is buffer
     if sys.version_info < (3,):
         assert str(buf) == "hi there\x00"
         assert unicode(buf) == u+"hi there\x00"
@@ -2613,13 +2665,38 @@ def test_bool():
     py.test.raises(OverflowError, newp, BBoolP, 2)
     py.test.raises(OverflowError, newp, BBoolP, -1)
     BCharP = new_pointer_type(new_primitive_type("char"))
-    p = newp(BCharP, b'X')
+    p = newp(BCharP, b'\x01')
     q = cast(BBoolP, p)
-    assert q[0] == ord(b'X')
+    assert q[0] is True
+    p = newp(BCharP, b'\x00')
+    q = cast(BBoolP, p)
+    assert q[0] is False
     py.test.raises(TypeError, string, cast(BBool, False))
     BDouble = new_primitive_type("double")
     assert int(cast(BBool, cast(BDouble, 0.1))) == 1
     assert int(cast(BBool, cast(BDouble, 0.0))) == 0
+    BBoolA = new_array_type(BBoolP, None)
+    p = newp(BBoolA, b'\x01\x00')
+    assert p[0] is True
+    assert p[1] is False
+
+def test_bool_forbidden_cases():
+    BBool = new_primitive_type("_Bool")
+    BBoolP = new_pointer_type(BBool)
+    BBoolA = new_array_type(BBoolP, None)
+    BCharP = new_pointer_type(new_primitive_type("char"))
+    p = newp(BCharP, b'X')
+    q = cast(BBoolP, p)
+    py.test.raises(ValueError, "q[0]")
+    py.test.raises(TypeError, newp, BBoolP, b'\x00')
+    assert newp(BBoolP, 0)[0] is False
+    assert newp(BBoolP, 1)[0] is True
+    py.test.raises(OverflowError, newp, BBoolP, 2)
+    py.test.raises(OverflowError, newp, BBoolP, -1)
+    py.test.raises(ValueError, newp, BBoolA, b'\x00\x01\x02')
+    py.test.raises(OverflowError, newp, BBoolA, [0, 1, 2])
+    py.test.raises(TypeError, string, newp(BBoolP, 1))
+    py.test.raises(TypeError, string, newp(BBoolA, [1]))
 
 def test_typeoffsetof():
     BChar = new_primitive_type("char")
@@ -3423,16 +3500,26 @@ def test_from_buffer_not_str_unicode():
     except ImportError:
         pass
     else:
-        # from_buffer(buffer(b"foo")) does not work, because it's not
-        # implemented on pypy; only from_buffer(b"foo") works.
-        py.test.raises(TypeError, from_buffer, BCharA, buffer(b"foo"))
-        py.test.raises(TypeError, from_buffer, BCharA, buffer(u+"foo"))
+        # Python 2 only
+        contents = from_buffer(BCharA, buffer(b"foo"))
+        assert len(contents) == len(p1)
+        for i in range(len(contents)):
+            assert contents[i] == p1[i]
+        p4 = buffer(u+"foo")
+        contents = from_buffer(BCharA, buffer(u+"foo"))
+        assert len(contents) == len(p4)
+        for i in range(len(contents)):
+            assert contents[i] == p4[i]
     try:
         from __builtin__ import memoryview
     except ImportError:
         pass
     else:
-        py.test.raises(TypeError, from_buffer, BCharA, memoryview(b"foo"))
+        contents = from_buffer(BCharA, memoryview(b"foo"))
+        assert len(contents) == len(p1)
+        for i in range(len(contents)):
+            assert contents[i] == p1[i]
+
 
 def test_from_buffer_bytearray():
     a = bytearray(b"xyz")
@@ -3649,7 +3736,7 @@ def test_unpack():
             ("int16_t", [-2**15, 2**15-1]),
             ("int32_t", [-2**31, 2**31-1]),
             ("int64_t", [-2**63, 2**63-1]),
-            ("_Bool", [0, 1]),
+            ("_Bool", [False, True]),
             ("float", [0.0, 10.5]),
             ("double", [12.34, 56.78]),
             ]:
@@ -3719,7 +3806,7 @@ def test_cdata_dir():
 
 def test_char_pointer_conversion():
     import warnings
-    assert __version__.startswith(("1.8", "1.9")), (
+    assert __version__.startswith(("1.8", "1.9", "1.10")), (
         "consider turning the warning into an error")
     BCharP = new_pointer_type(new_primitive_type("char"))
     BIntP = new_pointer_type(new_primitive_type("int"))

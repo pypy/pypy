@@ -36,6 +36,7 @@ def create_entry_point(space, w_dict):
         w_run_toplevel = space.getitem(w_dict, space.newtext('run_toplevel'))
         w_initstdio = space.getitem(w_dict, space.newtext('initstdio'))
         withjit = space.config.objspace.usemodules.pypyjit
+        hashfunc = space.config.objspace.hash
     else:
         w_initstdio = space.appexec([], """():
             return lambda unbuffered: None
@@ -45,6 +46,10 @@ def create_entry_point(space, w_dict):
         if withjit:
             from rpython.jit.backend.hlinfo import highleveljitinfo
             highleveljitinfo.sys_executable = argv[0]
+
+        if hashfunc == "siphash24":
+            from rpython.rlib import rsiphash
+            rsiphash.enable_siphash24()
 
         #debug("entry point starting")
         #for arg in argv:
@@ -229,6 +234,12 @@ class PyPyTarget(object):
             raise Exception("You have to specify the --opt level.\n"
                     "Try --opt=2 or --opt=jit, or equivalently -O2 or -Ojit .")
         self.translateconfig = translateconfig
+
+        # change the default for this option
+        # XXX disabled until we fix the real problem: a per-translation
+        # seed for siphash is bad
+        #config.translation.suggest(hash="siphash24")
+
         # set up the objspace optimizations based on the --opt argument
         from pypy.config.pypyoption import set_pypy_opt_level
         set_pypy_opt_level(config, translateconfig.opt)
@@ -309,10 +320,10 @@ class PyPyTarget(object):
             config.translation.jit = True
 
         if config.objspace.usemodules.cpyext:
-            if config.translation.gc != 'incminimark':
+            if config.translation.gc not in ('incminimark', 'boehm'):
                 raise Exception("The 'cpyext' module requires the 'incminimark'"
-                                " GC.  You need either 'targetpypystandalone.py"
-                                " --withoutmod-cpyext' or '--gc=incminimark'")
+                    " or 'boehm' GC.  You need either 'targetpypystandalone.py"
+                    " --withoutmod-cpyext', or use one of these two GCs.")
 
         config.translating = True
 

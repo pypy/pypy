@@ -269,6 +269,20 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
         # A string with arabic digits. 'BAD' is after the 6th character.
         assert module.from_unicode(u'  1\u0662\u0663\u0664BAD') == (1234, 4660)
 
+    def test_aslong(self):
+        module = self.import_extension('foo', [
+            ("as_long", "METH_O",
+             """
+                long n = PyLong_AsLong(args);
+                if (n == -1 && PyErr_Occurred()) {
+                    return NULL;
+                }
+                return PyLong_FromLong(n);
+             """)])
+        assert module.as_long(123) == 123
+        assert module.as_long(-1) == -1
+        assert module.as_long(1.23) == 1
+
     def test_strtol(self):
         module = self.import_extension('foo', [
             ("from_str", "METH_NOARGS",

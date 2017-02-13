@@ -4613,3 +4613,26 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         self.check_operations_history(guard_nonnull=0, guard_nonnull_class=0,
                                       guard_class=2,
                                       assert_not_none=2) # before optimization
+
+    def test_call_time_clock(self):
+        import time
+        def g():
+            time.clock()
+            return 0
+        self.interp_operations(g, [])
+
+    def test_issue2465(self):
+        driver = JitDriver(greens=[], reds=['i', 'a', 'b'])
+        class F(object):
+            def __init__(self, floatval):
+                self.floatval = floatval
+        def f(i):
+            a = F(0.0)
+            b = None
+            while i > 0:
+                driver.jit_merge_point(i=i, a=a, b=b)
+                b = F(a.floatval / 1.)
+                i -= 1
+            return i
+
+        self.meta_interp(f, [10])

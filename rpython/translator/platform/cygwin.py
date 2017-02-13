@@ -26,7 +26,6 @@ class BaseCygwin(BasePosix):
     shared_only = ('-fPIC',)
     so_ext = 'dll'
     exe_ext = 'exe'
-    so_prefixes = ('lib', '')
     
     def _args_for_shared(self, args):
         return ['-shared'] + args

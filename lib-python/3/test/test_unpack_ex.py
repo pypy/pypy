@@ -248,6 +248,11 @@ Overridden parameters
       ...
     TypeError: ...got multiple values for keyword argument 'x'
 
+    >>> f(x=5, **{'x': 3}, **{'x': 2})     # doctest:+ELLIPSIS
+    Traceback (most recent call last):
+      ...
+    TypeError: ...got multiple values for keyword argument 'x'
+
     >>> f(**{1: 3}, **{1: 5})     # doctest:+ELLIPSIS
     Traceback (most recent call last):
       ...

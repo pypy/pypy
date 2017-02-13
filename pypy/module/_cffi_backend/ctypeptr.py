@@ -84,6 +84,8 @@ class W_CTypePtrOrArray(W_CType):
                 raise oefmt(space.w_IndexError,
                             "initializer string is too long for '%s' (got %d "
                             "characters)", self.name, n)
+            if isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveBool):
+                self._must_be_string_of_zero_or_one(s)
             copy_string_to_raw(llstr(s), cdata, 0, n)
             if n != self.length:
                 cdata[n] = '\x00'
@@ -103,9 +105,16 @@ class W_CTypePtrOrArray(W_CType):
         else:
             raise self._convert_error("list or tuple", w_ob)
 
+    def _must_be_string_of_zero_or_one(self, s):
+        for c in s:
+            if ord(c) > 1:
+                raise oefmt(self.space.w_ValueError,
+                            "an array of _Bool can only contain \\x00 or \\x01")
+
     def string(self, cdataobj, maxlen):
         space = self.space
-        if isinstance(self.ctitem, ctypeprim.W_CTypePrimitive):
+        if (isinstance(self.ctitem, ctypeprim.W_CTypePrimitive) and
+               not isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveBool)):
             with cdataobj as ptr:
                 if not ptr:
                     raise oefmt(space.w_RuntimeError,
@@ -285,6 +294,8 @@ class W_CTypePointer(W_CTypePtrBase):
         if self.accept_str and space.isinstance_w(w_init, space.w_str):
             # special case to optimize strings passed to a "char *" argument
             value = space.bytes_w(w_init)
+            if isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveBool):
+                self._must_be_string_of_zero_or_one(value)
             keepalives[i] = value
             buf, buf_flag = rffi.get_nonmovingbuffer_final_null(value)
             rffi.cast(rffi.CCHARPP, cdata)[0] = buf
@@ -337,7 +348,10 @@ class W_CTypePointer(W_CTypePtrBase):
         return result
 
     def getcfield(self, attr):
-        return self.ctitem.getcfield(attr)
+        from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion
+        if isinstance(self.ctitem, W_CTypeStructOrUnion):
+            return self.ctitem.getcfield(attr)
+        return W_CType.getcfield(self, attr)
 
     def typeoffsetof_field(self, fieldname, following):
         if following == 0:

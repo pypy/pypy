@@ -56,6 +56,7 @@ class ASTNodeVisitor(ASDLVisitor):
 
     def visitSum(self, sum, base):
         if is_simple_sum(sum):
+            assert not sum.attributes
             self.emit("class %s(AST):" % (base,))
             self.emit("@staticmethod", 1)
             self.emit("def from_object(space, w_node):", 1)
@@ -111,15 +112,19 @@ class ASTNodeVisitor(ASDLVisitor):
     def visitProduct(self, product, name):
         self.emit("class %s(AST):" % (name,))
         self.emit("")
-        self.make_constructor(product.fields, product)
+        self.make_constructor(product.fields + product.attributes, product)
         self.emit("")
         self.make_mutate_over(product, name)
         self.emit("def walkabout(self, visitor):", 1)
         self.emit("visitor.visit_%s(self)" % (name,), 2)
         self.emit("")
-        self.make_converters(product.fields, name)
-        self.emit("State.ast_type(%r, 'AST', %s)" %
-                  (name, [f.name for f in product.fields]))
+        self.make_converters(product.fields + product.attributes, name)
+        if product.attributes:
+            attr_names = ', %s' % ([a.name for a in product.attributes],)
+        else:
+            attr_names = ''
+        self.emit("State.ast_type(%r, 'AST', %s%s)" %
+                  (name, [f.name for f in product.fields], attr_names))
         self.emit("")
 
     def get_value_converter(self, field, value):
@@ -147,7 +152,7 @@ class ASTNodeVisitor(ASDLVisitor):
             if allow_none:
                 wrapper += " if %s is not None else space.w_None" % (value,)
             return wrapper
-        
+
     def get_value_extractor(self, field, value):
         if field.type in self.data.simple_types:
             return "%s.from_object(space, %s)" % (field.type, value)
@@ -209,7 +214,7 @@ class ASTNodeVisitor(ASDLVisitor):
                 lines.append("if _%s is None:" % (field.name,))
                 lines.append("    raise_required_value(space, w_node, '%s')"
                              % (field.name,))
-            
+
         return lines
 
     def make_converters(self, fields, name, extras=None):
@@ -247,7 +252,7 @@ class ASTNodeVisitor(ASDLVisitor):
             if extras:
                 base_args = ", ".join(str(field.name) for field in extras)
                 self.emit("%s.__init__(self, %s)" % (base, base_args), 2)
-    
+
     def make_mutate_over(self, cons, name):
         self.emit("def mutate_over(self, visitor):", 1)
         for field in cons.fields:
@@ -259,12 +264,19 @@ class ASTNodeVisitor(ASDLVisitor):
                 else:
                     level = 2
                 if field.seq:
-                    sub = (field.name,)
-                    self.emit("visitor._mutate_sequence(self.%s)" % sub, level)
+                    sub = field.name
+                    self.emit("for i in range(len(self.{})):".format(sub),
+                        level)
+                    self.emit("if self.{}[i] is not None:".format(sub),
+                        level + 1)
+                    self.emit(
+                        "self.{0}[i] = self.{0}[i].mutate_over(visitor)".format(sub),
+                        level + 2)
                 else:
-                    sub = (field.name, field.name)
-                    self.emit("self.%s = self.%s.mutate_over(visitor)" % sub,
-                              level)
+                    sub = field.name
+                    self.emit(
+                        "self.{0} = self.{0}.mutate_over(visitor)".format(sub),
+                        level)
         self.emit("return visitor.visit_%s(self)" % (name,), 2)
         self.emit("")
 
@@ -278,7 +290,7 @@ class ASTNodeVisitor(ASDLVisitor):
         self.emit("")
         self.make_mutate_over(cons, cons.name)
         self.make_converters(cons.fields, cons.name, extra_attributes)
-        self.emit("State.ast_type(%r, '%s', %s)" % 
+        self.emit("State.ast_type(%r, '%s', %s)" %
                   (cons.name, base, [f.name for f in cons.fields]))
         self.emit("")
 
@@ -306,11 +318,6 @@ class ASTVisitorVisitor(ASDLVisitor):
         self.emit("")
         self.emit("def default_visitor(self, node):", 1)
         self.emit("raise NodeVisitorNotImplemented", 2)
-        self.emit("")
-        self.emit("def _mutate_sequence(self, seq):", 1)
-        self.emit("for i in range(len(seq)):", 2)
-        self.emit("if seq[i] is not None:", 3)
-        self.emit("seq[i] = seq[i].mutate_over(self)", 4)
         self.emit("")
         super(ASTVisitorVisitor, self).visitModule(mod)
         self.emit("")
@@ -359,7 +366,7 @@ class GenericASTVisitorVisitor(ASDLVisitor):
         self.emit("")
 
     def visitField(self, field):
-        if (field.type not in asdl.builtin_types and 
+        if (field.type not in asdl.builtin_types and
             field.type not in self.data.simple_types):
             level = 2
             template = "node.%s.walkabout(self)"
@@ -453,6 +460,7 @@ def get_field(space, w_node, name, optional):
 
 class AST(object):
     __metaclass__ = extendabletype
+    _attrs_ = ['lineno', 'col_offset']
 
     def walkabout(self, visitor):
         raise AssertionError("walkabout() implementation not provided")
@@ -560,7 +568,7 @@ class State:
         self.w_AST = space.gettypeobject(W_AST.typedef)
         for (name, base, fields, attributes) in self.AST_TYPES:
             self.make_new_type(space, name, base, fields, attributes)
-        
+
     def make_new_type(self, space, name, base, fields, attributes):
         w_base = getattr(self, 'w_%s' % base)
         w_dict = space.newdict()
@@ -572,7 +580,7 @@ class State:
             space.setitem_str(w_dict, "_attributes",
                               space.newtuple([space.newtext(a) for a in attributes]))
         w_type = space.call_function(
-            space.w_type, 
+            space.w_type,
             space.newtext(name), space.newtuple([w_base]), w_dict)
         setattr(self, 'w_%s' % name, w_type)
 

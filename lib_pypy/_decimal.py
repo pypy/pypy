@@ -102,9 +102,10 @@ __libmpdec_version__ = _ffi.string(_mpdec.mpd_version())
 # Default context
 
 import threading
-local = threading.local()
+__local = threading.local()
+del threading
 
-def getcontext(*, _local=local):
+def getcontext():
     """Returns this thread's context.
     
     If this thread does not yet have a context, returns
@@ -112,10 +113,10 @@ def getcontext(*, _local=local):
     New contexts are copies of DefaultContext.
     """
     try:
-        return _local.__decimal_context__
+        return __local.__decimal_context__
     except AttributeError:
         context = Context()
-        _local.__decimal_context__ = context
+        __local.__decimal_context__ = context
         return context
 
 def _getcontext(context=None):
@@ -125,17 +126,14 @@ def _getcontext(context=None):
         raise TypeError
     return context
 
-def setcontext(context, *, _local=local):
+def setcontext(context):
     """Set this thread's context to context."""
     if context in (DefaultContext, BasicContext, ExtendedContext):
         context = context.copy()
         context.clear_flags()
     if not isinstance(context, Context):
         raise TypeError
-    _local.__decimal_context__ = context
-
-
-del local, threading
+    __local.__decimal_context__ = context
 
 def localcontext(ctx=None):
     """Return a context manager for a copy of the supplied context.
@@ -242,7 +240,7 @@ class Decimal(object):
 
     @classmethod
     def _from_str(cls, value, context, exact=True, strip=True):
-        s = value.encode('ascii', '_decimal_encode')
+        s = str.encode(value, 'ascii', '_decimal_encode')
         if b'\0' in s:
             s = b''  # empty string triggers ConversionSyntax.
         if strip:
@@ -258,6 +256,7 @@ class Decimal(object):
 
     @classmethod
     def _from_int(cls, value, context, exact=True):
+        value = int(value)     # in case it's a subclass of 'int'
         self = cls._new_empty()
         with _CatchConversions(self._mpd, context, exact) as (ctx, status_ptr):
             size = (((value|1).bit_length() + 15) // 16) + 5
@@ -331,12 +330,22 @@ class Decimal(object):
 
     @classmethod
     def from_float(cls, value):
-        return cls._from_float(value, getcontext(), exact=True)
+        # note: if 'cls' is a subclass of Decimal and 'value' is an int,
+        # this will call cls(Decimal('42')) whereas _pydecimal.py will
+        # call cls(42).  This is like CPython's _decimal module.
+        if not isinstance(value, (int, float)):
+            raise TypeError("argument must be int of float")
+        result = cls._from_float(value, getcontext(), exact=True)
+        if cls is Decimal:
+            return result
+        else:
+            return cls(result)
 
     @classmethod
     def _from_float(cls, value, context, exact=True):
         if isinstance(value, int):
             return cls._from_int(value, context, exact=exact)
+        value = float(value)    # in case it's a subclass of 'float'
         sign = 0 if _math.copysign(1.0, value) == 1.0 else 1
 
         if _math.isnan(value):
@@ -1042,7 +1051,9 @@ class Context(object):
 
     __slots__ = ('_ctx', '_capitals')
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, prec=None, rounding=None, Emin=None, Emax=None,
+                capitals=None, clamp=None, flags=None, traps=None):
+        # NOTE: the arguments are ignored here, they are used in __init__()
         self = object.__new__(cls)
         self._ctx = ctx = _ffi.new("struct mpd_context_t*")
         # Default context
@@ -1086,26 +1097,30 @@ class Context(object):
 
         if traps is None:
             ctx.traps = dc.traps
-        elif not isinstance(traps, dict):
+        elif isinstance(traps, list):
             ctx.traps = 0
             for signal in traps:
                 ctx.traps |= _SIGNALS[signal]
-        else:
+        elif isinstance(traps, dict):
             ctx.traps = 0
             for signal, value in traps.items():
                 if value:
                     ctx.traps |= _SIGNALS[signal]
+        else:
+            self.traps = traps
 
         if flags is None:
             ctx.status = 0
-        elif not isinstance(flags, dict):
+        elif isinstance(flags, list):
             ctx.status = 0
             for signal in flags:
                 ctx.status |= _SIGNALS[signal]
-        else:
+        elif isinstance(flags, dict):
             for signal, value in flags.items():
                 if value:
                     ctx.status |= _SIGNALS[signal]
+        else:
+            self.flags = flags
 
     def clear_flags(self):
         self._ctx.status = 0
@@ -1256,11 +1271,11 @@ class Context(object):
     def create_decimal(self, num="0"):
         return Decimal._from_object(num, self, exact=False)
 
-    def create_decimal_from_float(self, value):
-        return Decimal._from_float(value, self, exact=False)
+    def create_decimal_from_float(self, f):
+        return Decimal._from_float(f, self, exact=False)
 
     # operations
-    def _convert_unaryop(self, a, strict=True):
+    def _convert_unaryop(self, a, *, strict=True):
         if isinstance(a, Decimal):
             return a
         elif isinstance(a, int):
@@ -1270,7 +1285,7 @@ class Context(object):
         else:
             return NotImplemented
 
-    def _convert_binop(self, a, b, strict=True):
+    def _convert_binop(self, a, b, *, strict=True):
         a = self._convert_unaryop(a, strict=strict)
         b = self._convert_unaryop(b, strict=strict)
         if b is NotImplemented:
@@ -1437,7 +1452,7 @@ class Context(object):
             _mpdec.mpd_qfinalize(result._mpd, ctx, status_ptr)
         return result
 
-    def divmod(self, a, b, strict=True):
+    def divmod(self, a, b, *, strict=True):
         a, b = self._convert_binop(a, b, strict=strict)
         if a is NotImplemented:
             return NotImplemented
@@ -1448,7 +1463,7 @@ class Context(object):
                                ctx, status_ptr)
         return q, r
 
-    def power(self, a, b, modulo=None, strict=True):
+    def power(self, a, b, modulo=None, *, strict=True):
         a, b = self._convert_binop(a, b, strict=strict)
         if a is NotImplemented:
             return NotImplemented

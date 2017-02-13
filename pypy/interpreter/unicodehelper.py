@@ -1,5 +1,5 @@
 import sys
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import runicode
 from pypy.module._codecs import interp_codecs
@@ -104,6 +104,8 @@ def fsencode(space, w_uni):
         from pypy.module._codecs.locale import (
             unicode_encode_locale_surrogateescape)
         uni = space.unicode_w(w_uni)
+        if u'\x00' in uni:
+            raise oefmt(space.w_ValueError, "embedded null character")
         bytes = unicode_encode_locale_surrogateescape(
             uni, errorhandler=encode_error_handler(space))
     else:

@@ -669,3 +669,10 @@ def test_set_status_flags():
     finally:
         os.close(fd1)
         os.close(fd2)
+
+@rposix_requires('getpriority')
+def test_getpriority():
+    # a "don't crash" kind of test only
+    prio = rposix.getpriority(rposix.PRIO_PROCESS, 0)
+    rposix.setpriority(rposix.PRIO_PROCESS, 0, prio)
+    py.test.raises(OSError, rposix.getpriority, rposix.PRIO_PGRP, 123456789)

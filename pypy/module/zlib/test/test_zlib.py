@@ -320,3 +320,13 @@ class AppTestZlib(object):
     def test_version(self):
         zlib = self.zlib
         assert zlib.ZLIB_VERSION[0] == zlib.ZLIB_RUNTIME_VERSION[0]
+
+    # CPython issue27164
+    def test_decompress_raw_with_dictionary(self):
+        zlib = self.zlib
+        zdict = b'abcdefghijklmnopqrstuvwxyz'
+        co = zlib.compressobj(wbits=-zlib.MAX_WBITS, zdict=zdict)
+        comp = co.compress(zdict) + co.flush()
+        dco = zlib.decompressobj(wbits=-zlib.MAX_WBITS, zdict=zdict)
+        uncomp = dco.decompress(comp) + dco.flush()
+        assert zdict == uncomp

@@ -1,15 +1,15 @@
 from pypy.interpreter.astcompiler import ast, consts, misc
 from pypy.interpreter.astcompiler import asthelpers # Side effects
+from pypy.interpreter.astcompiler import fstring
 from pypy.interpreter import error
 from pypy.interpreter.pyparser.pygram import syms, tokens
 from pypy.interpreter.pyparser.error import SyntaxError
-from pypy.interpreter.pyparser import parsestring
 from rpython.rlib.objectmodel import always_inline, we_are_translated
 
 
-def ast_from_node(space, node, compile_info):
+def ast_from_node(space, node, compile_info, recursive_parser=None):
     """Turn a parse tree, node, to AST."""
-    ast = ASTBuilder(space, node, compile_info).build_ast()
+    ast = ASTBuilder(space, node, compile_info, recursive_parser).build_ast()
     #
     # When we are not translated, we send this ast to validate_ast.
     # The goal is to check that validate_ast doesn't crash on valid
@@ -54,10 +54,11 @@ operator_map = misc.dict_to_switch({
 
 class ASTBuilder(object):
 
-    def __init__(self, space, n, compile_info):
+    def __init__(self, space, n, compile_info, recursive_parser=None):
         self.space = space
         self.compile_info = compile_info
         self.root_node = n
+        self.recursive_parser = recursive_parser
 
     def build_ast(self):
         """Convert an top level parse tree node into an AST mod."""
@@ -664,7 +665,8 @@ class ASTBuilder(object):
                 argname = name_node.get_value()
                 argname = self.new_identifier(argname)
                 self.check_forbidden_name(argname, name_node)
-                kwonly.append(ast.arg(argname, ann))
+                kwonly.append(ast.arg(argname, ann, arg.get_lineno(),
+                                                    arg.get_column()))
                 i += 2
             elif arg_type == tokens.DOUBLESTAR:
                 return i
@@ -677,7 +679,7 @@ class ASTBuilder(object):
         ann = None
         if arg_node.num_children() == 3:
             ann = self.handle_expr(arg_node.get_child(2))
-        return ast.arg(name, ann)
+        return ast.arg(name, ann, arg_node.get_lineno(), arg_node.get_column())
 
     def handle_stmt(self, stmt):
         stmt_type = stmt.type
@@ -1189,7 +1191,7 @@ class ASTBuilder(object):
             value = self.handle_expr(node.get_child(i+2))
             i += 3
         return (i,key,value)
-    
+
     def handle_atom(self, atom_node):
         first_child = atom_node.get_child(0)
         first_child_type = first_child.type
@@ -1207,35 +1209,10 @@ class ASTBuilder(object):
                                 first_child.get_column())
             return ast.NameConstant(w_singleton, first_child.get_lineno(),
                                 first_child.get_column())
+        #
         elif first_child_type == tokens.STRING:
-            space = self.space
-            encoding = self.compile_info.encoding
-            try:
-                sub_strings_w = [
-                    parsestring.parsestr(
-                            space, encoding, atom_node.get_child(i).get_value())
-                        for i in range(atom_node.num_children())]
-            except error.OperationError as e:
-                if not (e.match(space, space.w_UnicodeError) or
-                        e.match(space, space.w_ValueError)):
-                    raise
-                # Unicode/ValueError in literal: turn into SyntaxError
-                self.error(e.errorstr(space), atom_node)
-                sub_strings_w = [] # please annotator
-            # Implement implicit string concatenation.
-            w_string = sub_strings_w[0]
-            for i in range(1, len(sub_strings_w)):
-                try:
-                    w_string = space.add(w_string, sub_strings_w[i])
-                except error.OperationError as e:
-                    if not e.match(space, space.w_TypeError):
-                        raise
-                    self.error("cannot mix bytes and nonbytes literals",
-                              atom_node)
-                # UnicodeError in literal: turn into SyntaxError
-            strdata = space.isinstance_w(w_string, space.w_unicode)
-            node = ast.Str if strdata else ast.Bytes
-            return node(w_string, atom_node.get_lineno(), atom_node.get_column())
+            return fstring.string_parse_literal(self, atom_node)
+        #
         elif first_child_type == tokens.NUMBER:
             num_value = self.parse_number(first_child.get_value())
             return ast.Num(num_value, atom_node.get_lineno(), atom_node.get_column())
@@ -1272,10 +1249,10 @@ class ASTBuilder(object):
                     (n_maker_children > 1 and
                      maker.get_child(1).type == tokens.COMMA)):
                     # a set display
-                    return self.handle_setdisplay(maker)
+                    return self.handle_setdisplay(maker, atom_node)
                 elif n_maker_children > 1 and maker.get_child(1).type == syms.comp_for:
                     # a set comprehension
-                    return self.handle_setcomp(maker)
+                    return self.handle_setcomp(maker, atom_node)
                 elif (n_maker_children > (3-is_dict) and
                       maker.get_child(3-is_dict).type == syms.comp_for):
                     # a dictionary comprehension
@@ -1283,10 +1260,10 @@ class ASTBuilder(object):
                         raise self.error("dict unpacking cannot be used in "
                                          "dict comprehension", atom_node)
                     
-                    return self.handle_dictcomp(maker)
+                    return self.handle_dictcomp(maker, atom_node)
                 else:
                     # a dictionary display
-                    return self.handle_dictdisplay(maker)
+                    return self.handle_dictdisplay(maker, atom_node)
         else:
             raise AssertionError("unknown atom")
 
@@ -1384,22 +1361,22 @@ class ASTBuilder(object):
         return ast.ListComp(elt, comps, listcomp_node.get_lineno(),
                             listcomp_node.get_column())
 
-    def handle_setcomp(self, set_maker):
+    def handle_setcomp(self, set_maker, atom_node):
         ch = set_maker.get_child(0)
         elt = self.handle_expr(ch)
         if isinstance(elt, ast.Starred):
             self.error("iterable unpacking cannot be used in comprehension", ch)
         comps = self.comprehension_helper(set_maker.get_child(1))
-        return ast.SetComp(elt, comps, set_maker.get_lineno(),
-                           set_maker.get_column())
+        return ast.SetComp(elt, comps, atom_node.get_lineno(),
+                                       atom_node.get_column())
 
-    def handle_dictcomp(self, dict_maker):
+    def handle_dictcomp(self, dict_maker, atom_node):
         i, key, value = self.handle_dictelement(dict_maker, 0)
         comps = self.comprehension_helper(dict_maker.get_child(i))
-        return ast.DictComp(key, value, comps, dict_maker.get_lineno(),
-                            dict_maker.get_column())
+        return ast.DictComp(key, value, comps, atom_node.get_lineno(),
+                                               atom_node.get_column())
     
-    def handle_dictdisplay(self, node):
+    def handle_dictdisplay(self, node, atom_node):
         keys = []
         values = []
         i = 0
@@ -1408,16 +1385,18 @@ class ASTBuilder(object):
             keys.append(key)
             values.append(value)
             i += 1
-        return ast.Dict(keys, values, node.get_lineno(), node.get_column())
+        return ast.Dict(keys, values, atom_node.get_lineno(),
+                                      atom_node.get_column())
     
-    def handle_setdisplay(self, node):
+    def handle_setdisplay(self, node, atom_node):
         elts = []
         i = 0
         while i < node.num_children():
             expr = self.handle_expr(node.get_child(i))
             elts.append(expr)
             i += 2
-        return ast.Set(elts, node.get_lineno(), node.get_column())
+        return ast.Set(elts, atom_node.get_lineno(),
+                             atom_node.get_column())
 
     def handle_exprlist(self, exprlist, context):
         exprs = []

@@ -33,7 +33,8 @@ __all__ = [
 # See the EBNF at the top of the file to understand the logical connection
 # between the various node types.
 
-builtin_types = {'identifier', 'string', 'bytes', 'int', 'object', 'singleton'}
+builtin_types = {'identifier', 'string', 'bytes', 'int', 'bool', 'object',
+                 'singleton'}
 
 class AST:
     def __repr__(self):

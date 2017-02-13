@@ -283,6 +283,36 @@ class HeaderTests(TestCase):
         self.assertEqual(resp.getheader('First'), 'val')
         self.assertEqual(resp.getheader('Second'), 'val')
 
+    def test_parse_all_octets(self):
+        # Ensure no valid header field octet breaks the parser
+        body = (
+            b'HTTP/1.1 200 OK\r\n'
+            b"!#$%&'*+-.^_`|~: value\r\n"  # Special token characters
+            b'VCHAR: ' + bytes(range(0x21, 0x7E + 1)) + b'\r\n'
+            b'obs-text: ' + bytes(range(0x80, 0xFF + 1)) + b'\r\n'
+            b'obs-fold: text\r\n'
+            b' folded with space\r\n'
+            b'\tfolded with tab\r\n'
+            b'Content-Length: 0\r\n'
+            b'\r\n'
+        )
+        sock = FakeSocket(body)
+        resp = client.HTTPResponse(sock)
+        resp.begin()
+        self.assertEqual(resp.getheader('Content-Length'), '0')
+        self.assertEqual(resp.msg['Content-Length'], '0')
+        self.assertEqual(resp.getheader("!#$%&'*+-.^_`|~"), 'value')
+        self.assertEqual(resp.msg["!#$%&'*+-.^_`|~"], 'value')
+        vchar = ''.join(map(chr, range(0x21, 0x7E + 1)))
+        self.assertEqual(resp.getheader('VCHAR'), vchar)
+        self.assertEqual(resp.msg['VCHAR'], vchar)
+        self.assertIsNotNone(resp.getheader('obs-text'))
+        self.assertIn('obs-text', resp.msg)
+        for folded in (resp.getheader('obs-fold'), resp.msg['obs-fold']):
+            self.assertTrue(folded.startswith('text'))
+            self.assertIn(' folded with space', folded)
+            self.assertTrue(folded.endswith('folded with tab'))
+
     def test_invalid_headers(self):
         conn = client.HTTPConnection('example.com')
         conn.sock = FakeSocket('')
@@ -1242,7 +1272,7 @@ class SourceAddressTest(TestCase):
     def testHTTPSConnectionSourceAddress(self):
         self.conn = client.HTTPSConnection(HOST, self.port,
                 source_address=('', self.source_port))
-        # We don't test anything here other the constructor not barfing as
+        # We don't test anything here other than the constructor not barfing as
         # this code doesn't deal with setting up an active running SSL server
         # for an ssl_wrapped connect() to actually return from.
 
@@ -1402,6 +1432,7 @@ class HTTPSTest(TestCase):
             resp = h.getresponse()
             h.close()
             self.assertIn('nginx', resp.getheader('server'))
+            resp.close()
 
     @support.system_must_validate_cert
     def test_networked_trusted_by_default_cert(self):
@@ -1412,6 +1443,7 @@ class HTTPSTest(TestCase):
             h.request('GET', '/')
             resp = h.getresponse()
             content_type = resp.getheader('content-type')
+            resp.close()
             h.close()
             self.assertIn('text/html', content_type)
 
@@ -1427,6 +1459,7 @@ class HTTPSTest(TestCase):
             h.request('GET', '/')
             resp = h.getresponse()
             server_string = resp.getheader('server')
+            resp.close()
             h.close()
             self.assertIn('nginx', server_string)
 
@@ -1460,8 +1493,10 @@ class HTTPSTest(TestCase):
         context.verify_mode = ssl.CERT_REQUIRED
         context.load_verify_locations(CERT_localhost)
         h = client.HTTPSConnection('localhost', server.port, context=context)
+        self.addCleanup(h.close)
         h.request('GET', '/nonexistent')
         resp = h.getresponse()
+        self.addCleanup(resp.close)
         self.assertEqual(resp.status, 404)
 
     def test_local_bad_hostname(self):
@@ -1486,13 +1521,18 @@ class HTTPSTest(TestCase):
                                    check_hostname=False)
         h.request('GET', '/nonexistent')
         resp = h.getresponse()
+        resp.close()
+        h.close()
         self.assertEqual(resp.status, 404)
         # The context's check_hostname setting is used if one isn't passed to
         # HTTPSConnection.
         context.check_hostname = False
         h = client.HTTPSConnection('localhost', server.port, context=context)
         h.request('GET', '/nonexistent')
-        self.assertEqual(h.getresponse().status, 404)
+        resp = h.getresponse()
+        self.assertEqual(resp.status, 404)
+        resp.close()
+        h.close()
         # Passing check_hostname to HTTPSConnection should override the
         # context's setting.
         h = client.HTTPSConnection('localhost', server.port, context=context,

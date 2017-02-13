@@ -191,6 +191,16 @@ class BaseStringFormatTests:
         assert self.s('{0:\x00<12}').format(3+2.0j) == '(3+2j)' + '\x00' * 6
         assert self.s('{0:\x01<12}').format(3+2.0j) == '(3+2j)' + '\x01' * 6
 
+    def test_more_indexing_cases(self):
+        assert self.s('x{[3]}y').format(['a', 'b', 'c', 'd', 'e']) == 'xdy'
+        assert self.s('x{[[]}y').format({'[': 'a'}) == 'xay'
+        assert self.s('x{[{]}y').format({'{': 'a'}) == 'xay'
+        assert self.s("x{[:]}y").format({":" : "a"}) == "xay"
+        assert self.s("x{[!]}y").format({"!" : "a"}) == "xay"
+        raises(ValueError, self.s("{a{}b}").format, 42)
+        raises(ValueError, self.s("{a{b}").format, 42)
+        raises(ValueError, self.s("{[}").format, 42)
+
 
 class AppTestUnicodeFormat(BaseStringFormatTests):
     def setup_class(cls):

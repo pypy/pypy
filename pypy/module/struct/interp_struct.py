@@ -107,6 +107,10 @@ def unpack_from(space, format, w_buffer, offset=0):
 class W_UnpackIter(W_Root):
     def __init__(self, space, w_struct, w_buffer):
         buf = space.buffer_w(w_buffer, space.BUF_SIMPLE)
+        if w_struct.size <= 0:
+            raise oefmt(get_error(space),
+                "cannot iteratively unpack with a struct of length %d",
+                w_struct.size)
         if buf.getlength() % w_struct.size != 0:
             raise oefmt(get_error(space),
                 "iterative unpacking requires a bytes length multiple of %d",

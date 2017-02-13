@@ -132,6 +132,8 @@ class NetworkedNNTPTestsMixin:
         self.assertLessEqual(art_num, last)
         self._check_art_dict(art_dict)
 
+    @unittest.skipIf(True, 'temporarily skipped until a permanent solution'
+                           ' is found for issue #28971')
     def test_over(self):
         resp, count, first, last, name = self.server.group(self.GROUP_NAME)
         start = last - 10
@@ -1465,14 +1467,14 @@ class MockSocketTests(unittest.TestCase):
     def test_service_temporarily_unavailable(self):
         #Test service temporarily unavailable
         class Handler(NNTPv1Handler):
-            welcome = '400 Service temporarily unavilable'
+            welcome = '400 Service temporarily unavailable'
         self.check_constructor_error_conditions(
             Handler, nntplib.NNTPTemporaryError, Handler.welcome)
 
     def test_service_permanently_unavailable(self):
         #Test service permanently unavailable
         class Handler(NNTPv1Handler):
-            welcome = '502 Service permanently unavilable'
+            welcome = '502 Service permanently unavailable'
         self.check_constructor_error_conditions(
             Handler, nntplib.NNTPPermanentError, Handler.welcome)
 

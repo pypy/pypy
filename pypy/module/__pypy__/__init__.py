@@ -78,6 +78,9 @@ class Module(MixedModule):
         'add_memory_pressure'       : 'interp_magic.add_memory_pressure',
         'newdict'                   : 'interp_dict.newdict',
         'reversed_dict'             : 'interp_dict.reversed_dict',
+        'dict_popitem_first'        : 'interp_dict.dict_popitem_first',
+        'delitem_if_value_is'       : 'interp_dict.delitem_if_value_is',
+        'move_to_end'               : 'interp_dict.move_to_end',
         'strategy'                  : 'interp_magic.strategy',  # dict,set,list
         'set_debug'                 : 'interp_magic.set_debug',
         'locals_to_fast'            : 'interp_magic.locals_to_fast',
@@ -88,6 +91,9 @@ class Module(MixedModule):
         '_promote'                   : 'interp_magic._promote',
         'normalize_exc'             : 'interp_magic.normalize_exc',
         'StdErrPrinter'             : 'interp_stderrprinter.W_StdErrPrinter',
+        'stack_almost_full'         : 'interp_magic.stack_almost_full',
+        'fsencode'                  : 'interp_magic.fsencode',
+        'fsdecode'                  : 'interp_magic.fsdecode',
     }
 
     submodules = {

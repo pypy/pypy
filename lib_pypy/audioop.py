@@ -374,7 +374,7 @@ def tostereo(cp, size, fac1, fac2):
 
     sample_count = _sample_count(cp, size)
 
-    rv = ffi.new("unsigned char[]", len(cp) * 2)
+    rv = ffi.new("char[]", len(cp) * 2)
     lib.tostereo(rv, ffi.from_buffer(cp), len(cp), size, fac1, fac2)
     return ffi.buffer(rv)[:]
 
@@ -385,7 +385,7 @@ def add(cp1, cp2, size):
     if len(cp1) != len(cp2):
         raise error("Lengths should be the same")
 
-    rv = ffi.new("unsigned char[]", len(cp1))
+    rv = ffi.new("char[]", len(cp1))
     lib.add(rv, ffi.from_buffer(cp1), ffi.from_buffer(cp2), len(cp1), size)
     return ffi.buffer(rv)[:]
 
@@ -488,7 +488,7 @@ def ratecv(cp, size, nchannels, inrate, outrate, state, weightA=1, weightB=0):
     ceiling = (q + 1) * outrate
     nbytes = ceiling * bytes_per_frame
 
-    rv = ffi.new("unsigned char[]", nbytes)
+    rv = ffi.new("char[]", nbytes)
     trim_index = lib.ratecv(rv, cp, frame_count, size,
                             nchannels, inrate, outrate,
                             state_d, prev_i, cur_i,

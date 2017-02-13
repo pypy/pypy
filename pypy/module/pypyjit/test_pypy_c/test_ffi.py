@@ -421,7 +421,8 @@ class Test__ffi(BaseTestPyPyC):
         setfield_gc(p167, -1, descr=<FieldS pypy.module._cffi_backend.cdataobj.W_CDataNewOwning.inst_allocated_length .+>)
         i114 = int_ne(i160, i112)
         guard_false(i114, descr=...)
-        --TICK--
+        # NB. we get threads because '_hashlib' uses ffi callback/def_extern
+        --THREAD-TICK--
         i123 = arraylen_gc(p67, descr=<ArrayP .>)
         i119 = call_i(ConstClass(_ll_1_raw_malloc_varsize_zero__Signed), 6, descr=<Calli . i EF=5 OS=110>)
         check_memory_error(i119)

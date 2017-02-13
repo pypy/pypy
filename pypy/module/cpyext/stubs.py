@@ -13,7 +13,6 @@ PyModuleDef = rffi.VOIDP
 PyMethodDef = rffi.VOIDP
 PyGetSetDef = rffi.VOIDP
 PyMemberDef = rffi.VOIDP
-Py_buffer = rffi.VOIDP
 va_list = rffi.VOIDP
 wrapperbase = rffi.VOIDP
 FILE = rffi.VOIDP
@@ -406,14 +405,6 @@ def PyErr_WarnExplicit(space, category, message, filename, lineno, module, regis
     (sys.getfilesystemencoding())."""
     raise NotImplementedError
 
-@cpython_api([PyObject, Py_ssize_t, rffi.CCHARP, ], rffi.INT_real, error=-1)
-def PyErr_WarnFormat(space, category, stack_level, format, ):
-    """Function similar to PyErr_WarnEx(), but use
-    PyUnicode_FromFormat() to format the warning message.  format is
-    an ASCII-encoded string.
-    """
-    raise NotImplementedError
-
 
 @cpython_api([rffi.INT_real], rffi.INT_real, error=-1)
 def PySignal_SetWakeupFd(space, fd):
@@ -669,54 +660,11 @@ def _PyObject_GC_UNTRACK(space, op):
     extension modules."""
     raise NotImplementedError
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyGen_Check(space, ob):
-    """Return true if ob is a generator object; ob must not be NULL."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyGen_CheckExact(space, ob):
-    """Return true if ob's type is PyGen_Type is a generator object; ob must not
-    be NULL."""
-    raise NotImplementedError
-
 @cpython_api([PyFrameObject], PyObject)
 def PyGen_New(space, frame):
     """Create and return a new generator object based on the frame object. A
     reference to frame is stolen by this function. The parameter must not be
     NULL."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, PyObject, PyObject, PyObject], PyObject)
-def PyImport_ImportModuleEx(space, name, globals, locals, fromlist):
-    """
-
-
-
-    Import a module.  This is best described by referring to the built-in Python
-    function __import__(), as the standard __import__() function calls
-    this function directly.
-
-    The return value is a new reference to the imported module or top-level
-    package, or NULL with an exception set on failure.  Like for
-    __import__(), the return value when a submodule of a package was
-    requested is normally the top-level package, unless a non-empty fromlist
-    was given.
-
-    Failing imports remove incomplete module objects, like with
-    PyImport_ImportModule()."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, PyObject, PyObject, PyObject, rffi.INT_real], PyObject)
-def PyImport_ImportModuleLevel(space, name, globals, locals, fromlist, level):
-    """Import a module.  This is best described by referring to the built-in Python
-    function __import__(), as the standard __import__() function calls
-    this function directly.
-
-    The return value is a new reference to the imported module or top-level package,
-    or NULL with an exception set on failure.  Like for __import__(),
-    the return value when a submodule of a package was requested is normally the
-    top-level package, unless a non-empty fromlist was given."""
     raise NotImplementedError
 
 @cpython_api([rffi.CCHARP, PyObject, rffi.CCHARP, rffi.CCHARP], PyObject)
@@ -1041,7 +989,8 @@ def PySys_SetArgvEx(space, argc, argv, updatepath):
 
 @cpython_api([rffi.INT_real, CWCHARPP], lltype.Void)
 def PySys_SetArgv(space, argc, argv):
-    """This function works like PySys_SetArgvEx() with updatepath set to 1."""
+    """This function works like PySys_SetArgvEx() with updatepath set
+    to 1 unless the python interpreter was started with the option -I."""
     raise NotImplementedError
 
 @cpython_api([rffi.CWCHARP], lltype.Void)
@@ -1517,14 +1466,6 @@ def Py_FdIsInteractive(space, fp, filename):
     is true.  If the global flag Py_InteractiveFlag is true, this function
     also returns true if the filename pointer is NULL or if the name is equal to
     one of the strings '<stdin>' or '???'."""
-    raise NotImplementedError
-
-@cpython_api([], lltype.Void)
-def PyOS_AfterFork(space):
-    """Function to update some internal state after a process fork; this should be
-    called in the new process if the Python interpreter will continue to be used.
-    If a new executable is loaded into the new process, this function does not need
-    to be called."""
     raise NotImplementedError
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)

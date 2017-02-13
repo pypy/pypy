@@ -519,6 +519,8 @@ class ExtendedShortPreambleBuilder(AbstractShortPreambleBuilder):
         self.jump_args.append(preamble_op.preamble_op)
 
     def use_box(self, box, preamble_op, optimizer=None):
+        if not self.build_inplace:
+            raise InvalidLoop("Forcing boxes would modify an existing short preamble")
         jump_op = self.short.pop()
         AbstractShortPreambleBuilder.use_box(self, box, preamble_op, optimizer)
         self.short.append(jump_op)

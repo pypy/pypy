@@ -7,7 +7,7 @@ from errno import EINTR
 
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, specialize
-from rpython.rlib import rstackovf
+from rpython.rlib import rstack, rstackovf
 
 from pypy.interpreter import debug
 
@@ -60,6 +60,7 @@ class OperationError(Exception):
         "Check if this is an exception that should better not be caught."
         return (self.match(space, space.w_SystemExit) or
                 self.match(space, space.w_KeyboardInterrupt))
+        # note: an extra case is added in OpErrFmtNoArgs
 
     def __str__(self):
         "NOT_RPYTHON: Convenience for tracebacks."
@@ -80,6 +81,8 @@ class OperationError(Exception):
 
     def errorstr(self, space, use_repr=False):
         "The exception class and value, as a string."
+        if not use_repr:    # see write_unraisable()
+            self.normalize_exception(space)
         w_value = self.get_w_value(space)
         if space is None:
             # this part NOT_RPYTHON
@@ -248,6 +251,10 @@ class OperationError(Exception):
 
     def write_unraisable(self, space, where, w_object=None,
                          with_traceback=False, extra_line=''):
+        # Note: since Python 3.5, unraisable exceptions are always
+        # printed with a traceback.  Setting 'with_traceback=False'
+        # only asks for a different format, starting with the message
+        # "Exception Xxx ignored".
         if w_object is None:
             objrepr = ''
         else:
@@ -257,31 +264,37 @@ class OperationError(Exception):
                 objrepr = "<object repr() failed>"
         #
         try:
-            if with_traceback:
-                try:
-                    self.normalize_exception(space)
-                except OperationError:
-                    pass
-                w_t = self.w_type
-                w_v = self.get_w_value(space)
-                w_tb = space.wrap(self.get_traceback())
-                space.appexec([space.wrap(where),
-                               space.wrap(objrepr),
-                               space.wrap(extra_line),
-                               w_t, w_v, w_tb],
-                """(where, objrepr, extra_line, t, v, tb):
-                    import sys, traceback
-                    if where or objrepr:
-                        sys.stderr.write('From %s%s:\\n' % (where, objrepr))
-                    if extra_line:
-                        sys.stderr.write(extra_line)
-                    traceback.print_exception(t, v, tb)
-                """)
+            try:
+                self.normalize_exception(space)
+            except OperationError:
+                pass
+            w_t = self.w_type
+            w_v = self.get_w_value(space)
+            w_tb = space.wrap(self.get_traceback())
+            if where or objrepr:
+                if with_traceback:
+                    first_line = 'From %s%s:\n' % (where, objrepr)
+                else:
+                    first_line = 'Exception ignored in: %s%s\n' % (
+                        where, objrepr)
             else:
-                msg = 'Exception %s in %s%s ignored\n' % (
-                    self.errorstr(space, use_repr=True), where, objrepr)
-                space.call_method(space.sys.get('stderr'), 'write',
-                                  space.wrap(msg))
+                # Note that like CPython, we don't normalize the
+                # exception here.  So from `'foo'.index('bar')` you get
+                # "Exception ValueError: 'substring not found' in x ignored"
+                # but from `raise ValueError('foo')` you get
+                # "Exception ValueError: ValueError('foo',) in x ignored"
+                first_line = ''
+            space.appexec([space.wrap(first_line),
+                           space.wrap(extra_line),
+                           w_t, w_v, w_tb],
+            """(first_line, extra_line, t, v, tb):
+                import sys
+                sys.stderr.write(first_line)
+                if extra_line:
+                    sys.stderr.write(extra_line)
+                import traceback
+                traceback.print_exception(t, v, tb)
+            """)
         except OperationError:
             pass   # ignored
 
@@ -327,11 +340,11 @@ class OperationError(Exception):
         """Set the current traceback."""
         self._application_traceback = traceback
 
-    def remove_traceback_module_frames(self, module_name):
+    def remove_traceback_module_frames(self, *module_names):
         from pypy.interpreter.pytraceback import PyTraceback
         tb = self._application_traceback
         while tb is not None and isinstance(tb, PyTraceback):
-            if tb.frame.pycode.co_filename != module_name:
+            if tb.frame.pycode.co_filename not in module_names:
                 break
             tb = tb.next
         self._application_traceback = tb
@@ -499,6 +512,16 @@ class OpErrFmtNoArgs(OperationError):
 
     def _compute_value(self, space):
         return self._value.decode('utf-8')
+
+    def async(self, space):
+        # also matches a RuntimeError("maximum rec.") if the stack is
+        # still almost full, because in this case it might be a better
+        # idea to propagate the exception than eat it
+        if (self.w_type is space.w_RecursionError and
+            self._value == "maximum recursion depth exceeded" and
+            rstack.stack_almost_full()):
+            return True
+        return OperationError.async(self, space)
 
 @specialize.memo()
 def get_operr_class(valuefmt):

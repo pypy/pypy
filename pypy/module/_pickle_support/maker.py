@@ -27,7 +27,7 @@ def func_new(space):
     return space.wrap(fu)
 
 def module_new(space, w_name, w_dict):
-    new_mod = Module(space, w_name, w_dict, add_package=False)
+    new_mod = Module(space, w_name, w_dict)
     return space.wrap(new_mod)
 
 def method_new(space, __args__):

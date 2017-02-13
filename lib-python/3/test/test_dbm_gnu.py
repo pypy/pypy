@@ -90,8 +90,7 @@ class TestGdbm(unittest.TestCase):
 
         with self.assertRaises(gdbm.error) as cm:
             db.keys()
-        self.assertEqual(str(cm.exception),
-                         "GDBM object has already been closed")
+        self.assertIn("GDBM object has already been closed", str(cm.exception))
 
 if __name__ == '__main__':
     unittest.main()

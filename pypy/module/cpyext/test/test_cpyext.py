@@ -27,8 +27,9 @@ def PyPy_Crash2(space):
 
 class TestApi:
     def test_signature(self):
-        assert 'PyModule_Check' in api.FUNCTIONS
-        assert api.FUNCTIONS['PyModule_Check'].argtypes == [api.PyObject]
+        common_functions = api.FUNCTIONS_BY_HEADER[api.pypy_decl]
+        assert 'PyModule_Check' in common_functions
+        assert common_functions['PyModule_Check'].argtypes == [api.PyObject]
 
 
 class SpaceCompiler(SystemCompilationInfo):
@@ -86,7 +87,7 @@ def freeze_refcnts(self):
 class LeakCheckingTest(object):
     """Base class for all cpyext tests."""
     spaceconfig = dict(usemodules=['cpyext', 'thread', 'struct', 'array',
-                                   'itertools', 'time', 'binascii',
+                                   'itertools', 'time', 'binascii', 'mmap',
                                    ])
 
     enable_leak_checking = True
@@ -626,7 +627,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             refcnt_after = true_obj->ob_refcnt;
             Py_DECREF(true_obj);
             Py_DECREF(true_obj);
-            fprintf(stderr, "REFCNT %zd %zd\\n", refcnt, refcnt_after);
+            fprintf(stderr, "REFCNT %ld %ld\\n", refcnt, refcnt_after);
             return PyBool_FromLong(refcnt_after == refcnt + 2);
         }
         static PyObject* foo_bar(PyObject* self, PyObject *args)
@@ -642,7 +643,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
                 return NULL;
             refcnt_after = true_obj->ob_refcnt;
             Py_DECREF(tup);
-            fprintf(stderr, "REFCNT2 %zd %zd %zd\\n", refcnt, refcnt_after,
+            fprintf(stderr, "REFCNT2 %ld %ld %ld\\n", refcnt, refcnt_after,
                     true_obj->ob_refcnt);
             return PyBool_FromLong(refcnt_after == refcnt + 1 &&
                                    refcnt == true_obj->ob_refcnt);

@@ -202,6 +202,8 @@ class AppTestPosix:
         excinfo = raises(TypeError, self.posix.stat, 2.)
         assert "should be string, bytes or integer, not float" in str(excinfo.value)
         raises(ValueError, self.posix.stat, -1)
+        raises(ValueError, self.posix.stat, b"abc\x00def")
+        raises(ValueError, self.posix.stat, u"abc\x00def")
 
     if hasattr(__import__(os.name), "statvfs"):
         def test_statvfs(self):
@@ -850,6 +852,31 @@ class AppTestPosix:
         st = os.stat(self.path2 + 'test_largefile')
         assert st.st_size == 10000000000
     test_largefile.need_sparse_files = True
+
+    if hasattr(rposix, 'getpriority'):
+        def test_os_set_get_priority(self):
+            posix, os = self.posix, self.os
+            childpid = os.fork()
+            if childpid == 0:
+                # in the child (avoids changing the priority of the parent
+                # process)
+                orig_priority = posix.getpriority(posix.PRIO_PROCESS,
+                                                  os.getpid())
+                orig_grp_priority = posix.getpriority(posix.PRIO_PGRP,
+                                                      os.getpgrp())
+                posix.setpriority(posix.PRIO_PROCESS, os.getpid(),
+                                  orig_priority + 1)
+                new_priority = posix.getpriority(posix.PRIO_PROCESS,
+                                                 os.getpid())
+                assert new_priority == orig_priority + 1
+                assert posix.getpriority(posix.PRIO_PGRP, os.getpgrp()) == (
+                    orig_grp_priority)
+                os._exit(0)    # ok
+            #
+            pid1, status1 = os.waitpid(childpid, 0)
+            assert pid1 == childpid
+            assert os.WIFEXITED(status1)
+            assert os.WEXITSTATUS(status1) == 0   # else, test failure
 
     def test_write_buffer(self):
         os = self.posix

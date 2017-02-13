@@ -325,7 +325,9 @@ class ExecutionContext(object):
                 try:
                     w_result = space.call_function(w_callback, space.wrap(frame), space.wrap(event), w_arg)
                     if space.is_w(w_result, space.w_None):
-                        d.w_f_trace = None
+                        # bug-to-bug compatibility with CPython
+                        # http://bugs.python.org/issue11992
+                        pass   #d.w_f_trace = None
                     else:
                         d.w_f_trace = w_result
                 except:
@@ -574,9 +576,14 @@ class UserDelAction(AsyncAction):
             if self.gc_disabled(w_obj):
                 return
             try:
-                space.get_and_call_function(w_del, w_obj)
+                w_impl = space.get(w_del, w_obj)
             except Exception as e:
                 report_error(space, e, "method __del__ of ", w_obj)
+            else:
+                try:
+                    space.call_function(w_impl)
+                except Exception as e:
+                    report_error(space, e, '', w_impl)
 
         # Call the RPython-level _finalize_() method.
         try:

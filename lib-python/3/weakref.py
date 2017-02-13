@@ -31,6 +31,26 @@ __all__ = ["ref", "proxy", "getweakrefcount", "getweakrefs",
            "CallableProxyType", "ProxyTypes", "WeakValueDictionary",
            "WeakSet", "WeakMethod", "finalize"]
 
+try:
+    from __pypy__ import delitem_if_value_is as _delitem_if_value_is
+except ImportError:
+    def _delitem_if_value_is(d, key, value):
+        try:
+            if self.data[key] is value:  # fall-back: there is a potential
+                #             race condition in multithreaded programs HERE
+                del self.data[key]
+        except KeyError:
+            pass
+
+def _remove_dead_weakref(d, key):
+    try:
+        wr = d[key]
+    except KeyError:
+        pass
+    else:
+        if wr() is None:
+            _delitem_if_value_is(d, key, wr)
+
 
 class WeakMethod(ref):
     """
@@ -111,14 +131,9 @@ class WeakValueDictionary(collections.MutableMapping):
                 if self._iterating:
                     self._pending_removals.append(wr.key)
                 else:
-                    # Changed this for PyPy: made more resistent.  The
-                    # issue is that in some corner cases, self.data
-                    # might already be changed or removed by the time
-                    # this weakref's callback is called.  If that is
-                    # the case, we don't want to randomly kill an
-                    # unrelated entry.
-                    if self.data.get(wr.key) is wr:
-                        del self.data[wr.key]
+                    # Atomic removal is necessary since this function
+                    # can be called asynchronously by the GC
+                    _delitem_if_value_is(self.data, wr.key, wr)
         self._remove = remove
         # A list of keys to be removed
         self._pending_removals = []
@@ -132,9 +147,12 @@ class WeakValueDictionary(collections.MutableMapping):
         # We shouldn't encounter any KeyError, because this method should
         # always be called *before* mutating the dict.
         while l:
-            del d[l.pop()]
+            key = l.pop()
+            _remove_dead_weakref(d, key)
 
     def __getitem__(self, key):
+        if self._pending_removals:
+            self._commit_removals()
         o = self.data[key]()
         if o is None:
             raise KeyError(key)
@@ -147,16 +165,19 @@ class WeakValueDictionary(collections.MutableMapping):
         del self.data[key]
 
     def __len__(self):
+        if self._pending_removals:
+            self._commit_removals()
         # PyPy change: we can't rely on len(self.data) at all, because
         # the weakref callbacks may be called at an unknown later time.
-#        return len(self.data) - len(self._pending_removals)
-#
+        # original code was: return len(self.data)
         result = 0
         for wr in self.data.values():
             result += (wr() is not None)
         return result
 
     def __contains__(self, key):
+        if self._pending_removals:
+            self._commit_removals()
         try:
             o = self.data[key]()
         except KeyError:
@@ -172,6 +193,8 @@ class WeakValueDictionary(collections.MutableMapping):
         self.data[key] = KeyedRef(value, self._remove, key)
 
     def copy(self):
+        if self._pending_removals:
+            self._commit_removals()
         new = WeakValueDictionary()
         for key, wr in self.data.items():
             o = wr()
@@ -183,6 +206,8 @@ class WeakValueDictionary(collections.MutableMapping):
 
     def __deepcopy__(self, memo):
         from copy import deepcopy
+        if self._pending_removals:
+            self._commit_removals()
         new = self.__class__()
         for key, wr in self.data.items():
             o = wr()
@@ -191,6 +216,8 @@ class WeakValueDictionary(collections.MutableMapping):
         return new
 
     def get(self, key, default=None):
+        if self._pending_removals:
+            self._commit_removals()
         try:
             wr = self.data[key]
         except KeyError:
@@ -204,6 +231,8 @@ class WeakValueDictionary(collections.MutableMapping):
                 return o
 
     def items(self):
+        if self._pending_removals:
+            self._commit_removals()
         with _IterationGuard(self):
             for k, wr in self.data.items():
                 v = wr()
@@ -211,6 +240,8 @@ class WeakValueDictionary(collections.MutableMapping):
                     yield k, v
 
     def keys(self):
+        if self._pending_removals:
+            self._commit_removals()
         with _IterationGuard(self):
             for k, wr in self.data.items():
                 if wr() is not None:
@@ -228,10 +259,14 @@ class WeakValueDictionary(collections.MutableMapping):
         keep the values around longer than needed.
 
         """
+        if self._pending_removals:
+            self._commit_removals()
         with _IterationGuard(self):
             yield from self.data.values()
 
     def values(self):
+        if self._pending_removals:
+            self._commit_removals()
         with _IterationGuard(self):
             for wr in self.data.values():
                 obj = wr()
@@ -257,10 +292,10 @@ class WeakValueDictionary(collections.MutableMapping):
         if o is None:
             if args:
                 return args[0]
-            raise KeyError(key)
+            else:
+                raise KeyError(key)
         else:
             return o
-        # The logic above was fixed in PyPy
 
     def setdefault(self, key, default=None):
         try:
@@ -274,7 +309,6 @@ class WeakValueDictionary(collections.MutableMapping):
             return default
         else:
             return o
-        # The logic above was fixed in PyPy
 
     def update(*args, **kwargs):
         if not args:
@@ -305,6 +339,8 @@ class WeakValueDictionary(collections.MutableMapping):
         keep the values around longer than needed.
 
         """
+        if self._pending_removals:
+            self._commit_removals()
         return list(self.data.values())
 
 

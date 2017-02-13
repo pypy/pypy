@@ -343,6 +343,7 @@ class TestPythonAstCompiler:
             assert ex.match(self.space, self.space.w_SyntaxError)
 
     def test_globals_warnings(self):
+        # also tests some other constructions that give a warning
         space = self.space
         w_mod = space.appexec((), '():\n import warnings\n return warnings\n') #sys.getmodule('warnings')
         w_filterwarnings = space.getattr(w_mod, space.wrap('filterwarnings'))
@@ -364,6 +365,18 @@ def wrong3():
     print x
     x = 2
     global x
+''', '''
+def wrong_listcomp():
+    return [(yield 42) for i in j]
+''', '''
+def wrong_gencomp():
+    return ((yield 42) for i in j)
+''', '''
+def wrong_dictcomp():
+    return {(yield 42):2 for i in j}
+''', '''
+def wrong_setcomp():
+    return {(yield 42) for i in j}
 '''):
 
             space.call_args(w_filterwarnings, filter_arg)
@@ -405,7 +418,25 @@ class Y:
     __class__ = 42
 def testing():
     return Y.__dict__['__class__']
-'''
+''', '''
+class X:
+    foobar = 42
+    def f(self):
+        return __class__.__dict__['foobar']
+def testing():
+    return X().f()
+''',
+#--------XXX the following case is not implemented for now
+#'''
+#class X:
+#    foobar = 42
+#    def f(self):
+#        class Y:
+#            Xcls = __class__
+#        return Y.Xcls.__dict__['foobar']
+#def testing():
+#    return X().f()
+#'''
         ]:
             space.call_args(w_filterwarnings, filter_arg)
             pycode = self.compiler.compile(code, '<tmp>', 'exec', 0)
@@ -950,6 +981,7 @@ class AppTestCompiler(object):
         class 日本:
             pass
         assert 日本.__name__ == '日本'
+        assert 日本.__qualname__ == 'test_class_nonascii.<locals>.日本'
         assert '日本' in repr(日本)
         """
 

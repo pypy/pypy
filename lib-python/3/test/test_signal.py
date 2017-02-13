@@ -358,6 +358,8 @@ class WakeupSignalTests(unittest.TestCase):
 
         assert_python_ok('-c', code)
 
+    @support.impl_detail("pypy writes the message to fd 2, not to sys.stderr",
+                         pypy=False)
     @unittest.skipIf(_testcapi is None, 'need _testcapi')
     def test_wakeup_write_error(self):
         # Issue #16105: write() errors in the C signal handler should not
@@ -578,9 +580,11 @@ class WakeupSocketSignalTests(unittest.TestCase):
 
         err = err.getvalue()
         if ('Exception ignored when trying to {action} to the signal wakeup fd'
-            not in err):
+            not in err) and {cpython_only}:
             raise AssertionError(err)
-        """.format(action=action)
+        """.format(action=action, cpython_only=support.check_impl_detail())
+        # note that PyPy produces the same error message, but sent to
+        # the real stderr instead of to sys.stderr.
         assert_python_ok('-c', code)
 
 

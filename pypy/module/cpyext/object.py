@@ -1,22 +1,18 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t, Py_ssize_tP,
-    PyVarObject, Py_buffer, size_t,
+    cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t,
+    PyVarObject, size_t, slot_function, cts,
     Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
-    Py_GE, CONST_STRING, CONST_STRINGP, FILEP, fwrite)
+    Py_GE, CONST_STRING, FILEP, fwrite)
 from pypy.module.cpyext.pyobject import (
-    PyObject, PyObjectP, create_ref, from_ref, Py_IncRef, Py_DecRef,
-    get_typedescr, _Py_NewReference)
+    PyObject, PyObjectP, from_ref, Py_IncRef, Py_DecRef, get_typedescr)
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
 from pypy.objspace.std.typeobject import W_TypeObject
+from pypy.objspace.std.bytesobject import invoke_bytes_method
 from pypy.interpreter.error import OperationError, oefmt
 import pypy.module.__builtin__.operation as operation
 
-
-# from include/object.h
-PyBUF_SIMPLE = 0x0000
-PyBUF_WRITABLE = 0x0001
 
 @cpython_api([size_t], rffi.VOIDP)
 def PyObject_Malloc(space, size):
@@ -58,7 +54,7 @@ def _PyObject_NewVar(space, type, itemcount):
         w_obj = PyObject_InitVar(space, py_objvar, type, itemcount)
     return py_obj
 
-@cpython_api([PyObject], lltype.Void)
+@slot_function([PyObject], lltype.Void)
 def PyObject_dealloc(space, obj):
     return _dealloc(space, obj)
 
@@ -246,6 +242,19 @@ def PyObject_Str(space, w_obj):
         return space.wrap("<NULL>")
     return space.str(w_obj)
 
+@cts.decl("PyObject * PyObject_Bytes(PyObject *v)")
+def PyObject_Bytes(space, w_obj):
+    if w_obj is None:
+        return space.newbytes("<NULL>")
+    if space.type(w_obj) is space.w_bytes:
+        return w_obj
+    w_result = invoke_bytes_method(space, w_obj)
+    if w_result is not None:
+        return w_result
+    # return PyBytes_FromObject(space, w_obj)
+    buffer = space.buffer_w(w_obj, space.BUF_FULL_RO)
+    return space.newbytes(buffer.as_str())
+
 @cpython_api([PyObject], PyObject)
 def PyObject_Repr(space, w_obj):
     """Compute a string representation of object o.  Returns the string
@@ -429,36 +438,6 @@ def PyObject_Dir(space, w_o):
     is active then NULL is returned but PyErr_Occurred() will return false."""
     return space.call_function(space.builtin.get('dir'), w_o)
 
-@cpython_api([PyObject, CONST_STRINGP, Py_ssize_tP], rffi.INT_real, error=-1)
-def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
-    """Returns a pointer to a read-only memory location usable as
-    character-based input.  The obj argument must support the single-segment
-    character buffer interface.  On success, returns 0, sets buffer to the
-    memory location and size to the buffer length.  Returns -1 and sets a
-    TypeError on error.
-    """
-    pto = obj.c_ob_type
-
-    pb = pto.c_tp_as_buffer
-    if not (pb and pb.c_bf_getbuffer):
-        raise oefmt(space.w_TypeError,
-                    "expected an object with the buffer interface")
-    with lltype.scoped_alloc(Py_buffer) as view:
-        ret = generic_cpy_call(
-            space, pb.c_bf_getbuffer,
-            obj, view, rffi.cast(rffi.INT_real, PyBUF_SIMPLE))
-        if rffi.cast(lltype.Signed, ret) == -1:
-            return -1
-
-        bufferp[0] = rffi.cast(rffi.CCHARP, view.c_buf)
-        sizep[0] = view.c_len
-
-        if pb.c_bf_releasebuffer:
-            generic_cpy_call(space, pb.c_bf_releasebuffer,
-                             obj, view)
-        Py_DecRef(space, view.c_obj)
-    return 0
-
 # Also in include/object.h
 Py_PRINT_RAW = 1 # No string quotes etc.
 
@@ -477,35 +456,4 @@ def PyObject_Print(space, w_obj, fp, flags):
     data = space.str_w(w_str)
     with rffi.scoped_nonmovingbuffer(data) as buf:
         fwrite(buf, 1, count, fp)
-    return 0
-
-
-PyBUF_WRITABLE = 0x0001  # Copied from object.h
-
-@cpython_api([lltype.Ptr(Py_buffer), PyObject, rffi.VOIDP, Py_ssize_t,
-              lltype.Signed, lltype.Signed], rffi.INT, error=-1)
-def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
-    """
-    Fills in a buffer-info structure correctly for an exporter that can only
-    share a contiguous chunk of memory of "unsigned bytes" of the given
-    length. Returns 0 on success and -1 (with raising an error) on error.
-
-    This is not a complete re-implementation of the CPython API; it only
-    provides a subset of CPython's behavior.
-    """
-    if rffi.cast(lltype.Signed, flags) & PyBUF_WRITABLE and readonly:
-        raise oefmt(space.w_ValueError, "Object is not writable")
-    view.c_buf = buf
-    view.c_len = length
-    view.c_obj = obj
-    Py_IncRef(space, obj)
-    view.c_itemsize = 1
-    rffi.setintfield(view, 'c_readonly', readonly)
-    rffi.setintfield(view, 'c_ndim', 0)
-    view.c_format = lltype.nullptr(rffi.CCHARP.TO)
-    view.c_shape = lltype.nullptr(Py_ssize_tP.TO)
-    view.c_strides = lltype.nullptr(Py_ssize_tP.TO)
-    view.c_suboffsets = lltype.nullptr(Py_ssize_tP.TO)
-    view.c_internal = lltype.nullptr(rffi.VOIDP.TO)
-
     return 0

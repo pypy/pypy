@@ -70,10 +70,10 @@ def PyLong_AsUnsignedLongMask(space, w_long):
 @cpython_api([PyObject], lltype.Signed, error=-1)
 def PyLong_AsLong(space, w_long):
     """
-    Return a C long representation of the contents of pylong.  If
-    pylong is greater than LONG_MAX, an OverflowError is raised
-    and -1 will be returned."""
-    return space.int_w(w_long)
+    Get a C long int from an int object or any object that has an __int__
+    method.  Return -1 and set an error if overflow occurs.
+    """
+    return space.int_w(space.int(w_long))
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyLong_AsSsize_t(space, w_long):

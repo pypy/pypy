@@ -25,3 +25,15 @@ class Module(MixedModule):
         space = self.space
         space.getattr(self, space.wrap('defaultdict'))  # force importing
         space.delattr(self, space.wrap('__missing__'))
+
+    def startup(self, space):
+        # OrderedDict is normally present, but in some cases the line
+        # "from __pypy__ import reversed_dict, move_to_end" from
+        # _pypy_collections.py raises
+        space.appexec([space.wrap(self)], """(mod):
+            try:
+                from _pypy_collections import OrderedDict
+                mod.OrderedDict = OrderedDict
+            except ImportError:
+                pass
+        """)

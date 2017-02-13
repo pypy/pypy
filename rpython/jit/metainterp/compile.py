@@ -732,7 +732,8 @@ class AbstractResumeGuardDescr(ResumeDescr):
     TY_FLOAT        = 0x06
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
-        if self.must_compile(deadframe, metainterp_sd, jitdriver_sd):
+        if (self.must_compile(deadframe, metainterp_sd, jitdriver_sd)
+                and not rstack.stack_almost_full()):
             self.start_compiling()
             try:
                 self._trace_and_compile_from_bridge(deadframe, metainterp_sd,

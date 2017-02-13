@@ -151,14 +151,24 @@ class AppTestFileIO:
         import _io
         a = bytearray(b'x' * 10)
         f = _io.FileIO(self.tmpfile, 'r+')
+        f.seek(5)
+        f.write(b'\x00' * 5)
+        f.seek(0)
         assert f.readinto(a) == 10
         f.seek(0)
         m = memoryview(bytearray(b"helloworld"))
         assert f.readinto(m) == 10
+        #
         exc = raises(TypeError, f.readinto, u"hello")
-        assert str(exc.value) == "must be read-write buffer, not str"
+        msg = str(exc.value)
+        print(msg)
+        assert " read-write b" in msg and msg.endswith(", not str")
+        #
         exc = raises(TypeError, f.readinto, memoryview(b"hello"))
-        assert str(exc.value) == "must be read-write buffer, not memoryview"
+        msg = str(exc.value)
+        print(msg)
+        assert " read-write b" in msg and msg.endswith(", not memoryview")
+        #
         f.close()
         assert a == b'a\nb\nc\0\0\0\0\0'
         #
@@ -274,6 +284,12 @@ class AppTestFileIO:
         fd2 = f.fileno()
         if fd1 != fd2:
             raises(OSError, posix.close, fd1)
+
+    def test_opener_negative(self):
+        import _io
+        def opener(*args):
+            return -1
+        raises(ValueError, _io.FileIO, "foo", 'r', opener=opener)
 
 
 def test_flush_at_exit():

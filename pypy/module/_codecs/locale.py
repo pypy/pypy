@@ -54,7 +54,7 @@ def unicode_encode_locale_surrogateescape(u, errorhandler=None):
         with scoped_unicode2rawwcharp(u) as ubuf:
             sbuf = pypy_wchar2char(ubuf, errorposp)
         try:
-            if sbuf is None:
+            if not sbuf:
                 errorpos = rffi.cast(lltype.Signed, errorposp[0])
                 if errorpos == -1:
                     raise MemoryError
@@ -80,7 +80,7 @@ def str_decode_locale_surrogateescape(s, errorhandler=None):
         with rffi.scoped_str2charp(s) as sbuf:
             ubuf = pypy_char2wchar(sbuf, sizep)
         try:
-            if ubuf is None:
+            if not ubuf:
                 errmsg = _errmsg(u"pypy_char2wchar")
                 errorhandler('strict', 'filesystemencoding', errmsg, s, 0, 1)
             size = rffi.cast(lltype.Signed, sizep[0])
@@ -90,9 +90,8 @@ def str_decode_locale_surrogateescape(s, errorhandler=None):
 
 
 def _errmsg(what):
-    from rpython.rlib import rposix
-    errmsg = _strerror(rposix.get_errno())
-    return u"%s failed" % what if errmsg is None else errmsg
+    # I *think* that the functions in locale_codec.c don't set errno
+    return u"%s failed" % what
 
 
 class scoped_unicode2rawwcharp:

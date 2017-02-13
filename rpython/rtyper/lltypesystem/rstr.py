@@ -1,9 +1,9 @@
 from weakref import WeakValueDictionary
 
 from rpython.annotator import model as annmodel
-from rpython.rlib import jit, types
+from rpython.rlib import jit, types, objectmodel
 from rpython.rlib.objectmodel import (malloc_zero_filled, we_are_translated,
-    _hash_string, keepalive_until_here, specialize, enforceargs)
+    ll_hash_string, keepalive_until_here, specialize, enforceargs, dont_inline)
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.error import TyperError
@@ -44,11 +44,13 @@ def new_malloc(TP, name):
 mallocstr = new_malloc(STR, 'mallocstr')
 mallocunicode = new_malloc(UNICODE, 'mallocunicode')
 
+@specialize.memo()
 def emptystrfun():
-    return emptystr
+    return string_repr.convert_const("")
 
+@specialize.memo()
 def emptyunicodefun():
-    return emptyunicode
+    return unicode_repr.convert_const(u'')
 
 def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
     @specialize.arg(0)
@@ -136,15 +138,19 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
     copy_raw_to_string = func_with_new_name(copy_raw_to_string,
                                               'copy_raw_to_%s' % name)
 
-    return copy_string_to_raw, copy_raw_to_string, copy_string_contents
+    return (copy_string_to_raw, copy_raw_to_string, copy_string_contents,
+            _get_raw_buf)
 
 (copy_string_to_raw,
  copy_raw_to_string,
- copy_string_contents) = _new_copy_contents_fun(STR, STR, Char, 'string')
+ copy_string_contents,
+ _get_raw_buf_string) = _new_copy_contents_fun(STR, STR, Char, 'string')
 
 (copy_unicode_to_raw,
  copy_raw_to_unicode,
- copy_unicode_contents) = _new_copy_contents_fun(UNICODE, UNICODE, UniChar, 'unicode')
+ copy_unicode_contents,
+ _get_raw_buf_unicode) = _new_copy_contents_fun(UNICODE, UNICODE, UniChar,
+                                                'unicode')
 
 CONST_STR_CACHE = WeakValueDictionary()
 CONST_UNICODE_CACHE = WeakValueDictionary()
@@ -377,12 +383,14 @@ class LLHelpers(AbstractLLHelpers):
             return 0
 
     @staticmethod
+    @dont_inline
+    @jit.dont_look_inside
     def _ll_strhash(s):
         # unlike CPython, there is no reason to avoid to return -1
         # but our malloc initializes the memory to zero, so we use zero as the
         # special non-computed-yet value.  Also, jit.conditional_call_elidable
         # always checks for zero, for now.
-        x = _hash_string(s.chars)
+        x = ll_hash_string(s)
         if x == 0:
             x = 29872897
         s.hash = x
@@ -394,6 +402,7 @@ class LLHelpers(AbstractLLHelpers):
 
     @staticmethod
     def ll_strfasthash(s):
+        ll_assert(s.hash != 0, "ll_strfasthash: hash==0")
         return s.hash     # assumes that the hash is already computed
 
     @staticmethod
@@ -1252,7 +1261,8 @@ STR.become(GcStruct('rpy_string', ('hash',  Signed),
                               'gethash': LLHelpers.ll_strhash,
                               'length': LLHelpers.ll_length,
                               'find': LLHelpers.ll_find,
-                              'rfind': LLHelpers.ll_rfind}))
+                              'rfind': LLHelpers.ll_rfind},
+                    hints={'remove_hash': True}))
 UNICODE.become(GcStruct('rpy_unicode', ('hash', Signed),
                         ('chars', Array(UniChar, hints={'immutable': True})),
                         adtmeths={'malloc' : staticAdtMethod(mallocunicode),
@@ -1260,8 +1270,8 @@ UNICODE.become(GcStruct('rpy_unicode', ('hash', Signed),
                                   'copy_contents' : staticAdtMethod(copy_unicode_contents),
                                   'copy_contents_from_str' : staticAdtMethod(copy_unicode_contents),
                                   'gethash': LLHelpers.ll_strhash,
-                                  'length': LLHelpers.ll_length}
-                        ))
+                                  'length': LLHelpers.ll_length},
+                    hints={'remove_hash': True}))
 
 
 # TODO: make the public interface of the rstr module cleaner
@@ -1276,8 +1286,6 @@ unichar_repr = UniCharRepr()
 char_repr.ll = LLHelpers
 unichar_repr.ll = LLHelpers
 unicode_repr = UnicodeRepr()
-emptystr = string_repr.convert_const("")
-emptyunicode = unicode_repr.convert_const(u'')
 
 StringRepr.repr = string_repr
 UnicodeRepr.repr = unicode_repr
@@ -1336,14 +1344,6 @@ def ll_getnextindex(iter):
 string_repr.iterator_repr = StringIteratorRepr()
 unicode_repr.iterator_repr = UnicodeIteratorRepr()
 
-# these should be in rclass, but circular imports prevent (also it's
-# not that insane that a string constant is built in this file).
-
-instance_str_prefix = string_repr.convert_const("<")
-instance_str_infix  = string_repr.convert_const(" object at 0x")
-instance_str_suffix = string_repr.convert_const(">")
-
-null_str = string_repr.convert_const("NULL")
-
-unboxed_instance_str_prefix = string_repr.convert_const("<unboxed ")
-unboxed_instance_str_suffix = string_repr.convert_const(">")
+@specialize.memo()
+def conststr(s):
+    return string_repr.convert_const(s)

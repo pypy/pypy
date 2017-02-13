@@ -337,6 +337,8 @@ class W_DataShape(W_Root):
 
 
 class W_DataInstance(W_Root):
+    fmt = 'B'
+    itemsize = 1
     def __init__(self, space, size, address=r_uint(0)):
         if address:
             self.ll_buffer = rffi.cast(rffi.VOIDP, address)

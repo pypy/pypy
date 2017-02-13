@@ -33,3 +33,10 @@ Add pickling support for the itertools classes
 
 .. branch: py3k-update
 
+.. branch: py3.5-time
+
+.. branch: py3.5-ssl
+
+.. branch: PEP393
+
+Implement some level of compatibility with PEP 393 APIs.

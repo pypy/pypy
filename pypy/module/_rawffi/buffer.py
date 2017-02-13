@@ -14,6 +14,12 @@ class RawFFIBuffer(Buffer):
     def getlength(self):
         return self.datainstance.getrawsize()
 
+    def getformat(self):
+        return self.datainstance.fmt
+
+    def getitemsize(self):
+        return self.datainstance.itemsize
+
     def getitem(self, index):
         ll_buffer = self.datainstance.ll_buffer
         return ll_buffer[index]

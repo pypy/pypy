@@ -1131,6 +1131,7 @@ class BackendTests:
             b = ffi.buffer(a)
         except NotImplementedError as e:
             py.test.skip(str(e))
+        assert type(b) is ffi.buffer
         content = b[:]
         assert len(content) == len(b) == 2
         if sys.byteorder == 'little':
@@ -1225,6 +1226,26 @@ class BackendTests:
         f.readinto(ffi.buffer(b, 1000 * ffi.sizeof("int")))
         assert list(a)[:1000] + [0] * (len(a)-1000) == list(b)
         f.close()
+
+    def test_ffi_buffer_comparisons(self):
+        ffi = FFI(backend=self.Backend())
+        ba = bytearray(range(100, 110))
+        assert ba == memoryview(ba)    # justification for the following
+        a = ffi.new("uint8_t[]", list(ba))
+        c = ffi.new("uint8_t[]", [99] + list(ba))
+        try:
+            b_full = ffi.buffer(a)
+            b_short = ffi.buffer(a, 3)
+            b_mid = ffi.buffer(a, 6)
+            b_other = ffi.buffer(c, 6)
+        except NotImplementedError as e:
+            py.test.skip(str(e))
+        else:
+            content = b_full[:]
+            assert content == b_full == ba
+            assert b_other < b_short < b_mid < b_full
+            assert ba > b_mid > ba[0:2]
+            assert b_short != ba[1:4]
 
     def test_array_in_struct(self):
         ffi = FFI(backend=self.Backend())

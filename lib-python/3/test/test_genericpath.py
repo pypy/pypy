@@ -274,6 +274,17 @@ class TestGenericTest(GenericTest, unittest.TestCase):
     # and is only meant to be inherited by others.
     pathmodule = genericpath
 
+    def test_null_bytes(self):
+        for attr in GenericTest.common_attributes:
+            # os.path.commonprefix doesn't raise ValueError
+            if attr == 'commonprefix':
+                continue
+            with self.subTest(attr=attr):
+                with self.assertRaises(ValueError) as cm:
+                    getattr(self.pathmodule, attr)('/tmp\x00abcds')
+                s = str(cm.exception)
+                if s != 'argument must be a string without NUL characters':
+                    self.assertIn('embedded null', s)
 
 # Following TestCase is not supposed to be run from test_genericpath.
 # It is inherited by other test modules (macpath, ntpath, posixpath).

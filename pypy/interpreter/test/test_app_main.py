@@ -992,6 +992,30 @@ class TestNonInteractive:
             data = self.run(p, env=env)
             assert data == expected
 
+    def test_pythonioencoding2(self):
+        for encoding, expected in [
+            ("ascii:", "strict"),
+            (":surrogateescape", "surrogateescape"),
+        ]:
+            p = getscript_in_dir("import sys; print(sys.stdout.errors, end='')")
+            env = os.environ.copy()
+            env["PYTHONIOENCODING"] = encoding
+            data = self.run(p, env=env)
+            assert data == expected
+
+    def test_pythonioencoding_c_locale(self):
+        for encoding, expected in [
+            (None, "surrogateescape"),
+            ("", "surrogateescape")
+        ]:
+            p = getscript_in_dir("import sys; print(sys.stdout.errors, end='')")
+            env = os.environ.copy()
+            env["LC_ALL"] = "C"
+            if encoding is not None:
+                env["PYTHONIOENCODING"] = encoding
+            data = self.run(p, env=env)
+            assert data == "surrogateescape"
+
     def test_sys_exit_pythonioencoding(self):
         if sys.version_info < (2, 7):
             skip("test required Python >= 2.7")

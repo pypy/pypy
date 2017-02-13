@@ -364,6 +364,13 @@ class TestSymbolTable:
             scp = self.func_scope(input)
         scp = self.func_scope("def f():\n    return\n    yield x")
 
+    def test_async_def(self):
+        # CPython compatibility only; "is_generator" is otherwise ignored
+        scp = self.func_scope("async def f(): pass")
+        assert not scp.is_generator
+        scp = self.func_scope("async def f(): await 5")
+        assert scp.is_generator
+
     def test_yield_inside_try(self):
         scp = self.func_scope("def f(): yield x")
         assert not scp.has_yield_inside_try

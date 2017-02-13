@@ -6,4 +6,4 @@ the outputs for hg id of each are:
     2.7::
         a06454b1afa1 (2.7) v2.7.13
     3::
-        37a07cee5969 (3.5) v3.5.1
+        1880cb95a742 (3.5) v3.5.3

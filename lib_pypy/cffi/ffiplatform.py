@@ -1,14 +1,5 @@
 import sys, os
-
-
-class VerificationError(Exception):
-    """ An error raised when verification fails
-    """
-
-class VerificationMissing(Exception):
-    """ An error raised when incomplete structures are passed into
-    cdef, but no verification has been done
-    """
+from .error import VerificationError
 
 
 LIST_OF_FILE_NAMES = ['sources', 'include_dirs', 'library_dirs',

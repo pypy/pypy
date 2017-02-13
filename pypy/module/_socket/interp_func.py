@@ -1,6 +1,6 @@
 from rpython.rlib import rsocket
 from rpython.rlib.rsocket import SocketError, INVALID_SOCKET
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, r_longlong, r_uint32
 
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
@@ -21,12 +21,18 @@ def gethostname(space):
         raise converted_error(space, e)
     return space.fsdecode(space.newbytes(res))
 
-@unwrap_spec(host=str)
-def gethostbyname(space, host):
+def encode_idna(space, w_host):
+    # call unicode.encode(host, 'idna'), and not host.encode('idna') in case
+    # type(host) is not unicode.  See also interp_socket.idna_converter()
+    return space.bytes_w(space.call_method(space.w_unicode, 'encode',
+                                           w_host, space.wrap('idna')))
+
+def gethostbyname(space, w_host):
     """gethostbyname(host) -> address
 
     Return the IP address (a string of the form '255.255.255.255') for a host.
     """
+    host = encode_idna(space, w_host)
     try:
         addr = rsocket.gethostbyname(host)
         ip = addr.get_host()
@@ -41,26 +47,26 @@ def common_wrapgethost(space, (name, aliases, address_list)):
                            space.newlist(aliases),
                            space.newlist(address_list)])
 
-@unwrap_spec(host=str)
-def gethostbyname_ex(space, host):
+def gethostbyname_ex(space, w_host):
     """gethostbyname_ex(host) -> (name, aliaslist, addresslist)
 
     Return the true host name, a list of aliases, and a list of IP addresses,
     for a host.  The host argument is a string giving a host name or IP number.
     """
+    host = encode_idna(space, w_host)
     try:
         res = rsocket.gethostbyname_ex(host)
     except SocketError as e:
         raise converted_error(space, e)
     return common_wrapgethost(space, res)
 
-@unwrap_spec(host=str)
-def gethostbyaddr(space, host):
+def gethostbyaddr(space, w_host):
     """gethostbyaddr(host) -> (name, aliaslist, addresslist)
 
     Return the true host name, a list of aliases, and a list of IP addresses,
     for a host.  The host argument is a string giving a host name or IP number.
     """
+    host = encode_idna(space, w_host)
     try:
         res = rsocket.gethostbyaddr(host)
     except SocketError as e:
@@ -99,7 +105,8 @@ def getservbyport(space, port, w_proto):
         proto = space.str_w(w_proto)
 
     if port < 0 or port > 0xffff:
-        raise oefmt(space.w_ValueError, "getservbyport: port must be 0-65535.")
+        raise oefmt(space.w_OverflowError,
+                    "getservbyport: port must be 0-65535.")
 
     try:
         service = rsocket.getservbyport(port, proto)
@@ -169,40 +176,58 @@ def socketpair(space, family=rsocket.socketpair_default_family,
         space.wrap(W_Socket(space, sock2))
     ])
 
-# The following 4 functions refuse all negative numbers, like CPython 2.6.
-# They could also check that the argument is not too large, but CPython 2.6
-# is not doing that consistently.
-@unwrap_spec(x="c_uint")
+# The following 4 functions refuse all negative numbers.
+# They also check that the argument is not too large, but note that
+# CPython 2.7 is not doing that consistently (CPython 3.x does).
+LONGLONG_UINT32_MAX = r_longlong(2**32-1)
+
+@unwrap_spec(x="c_int")
 def ntohs(space, x):
     """ntohs(integer) -> integer
 
     Convert a 16-bit integer from network to host byte order.
     """
+    if x < 0:
+        raise oefmt(space.w_OverflowError,
+                    "can't convert negative number to unsigned long")
     return space.wrap(rsocket.ntohs(intmask(x)))
 
-@unwrap_spec(x="c_uint")
+@unwrap_spec(x=r_longlong)
 def ntohl(space, x):
     """ntohl(integer) -> integer
 
     Convert a 32-bit integer from network to host byte order.
     """
-    return space.wrap(rsocket.ntohl(x))
+    if x < r_longlong(0):
+        raise oefmt(space.w_OverflowError,
+                    "can't convert negative number to unsigned long")
+    if x > LONGLONG_UINT32_MAX:
+        raise oefmt(space.w_OverflowError, "long int larger than 32 bits")
+    return space.wrap(rsocket.ntohl(r_uint32(x)))
 
-@unwrap_spec(x="c_uint")
+@unwrap_spec(x="c_int")
 def htons(space, x):
     """htons(integer) -> integer
 
     Convert a 16-bit integer from host to network byte order.
     """
-    return space.wrap(rsocket.htons(intmask(x)))
+    if x < 0:
+        raise oefmt(space.w_OverflowError,
+                    "can't convert negative number to unsigned long")
+    return space.wrap(rsocket.htons(x))
 
-@unwrap_spec(x="c_uint")
+@unwrap_spec(x=r_longlong)
 def htonl(space, x):
     """htonl(integer) -> integer
 
     Convert a 32-bit integer from host to network byte order.
     """
-    return space.wrap(rsocket.htonl(x))
+    if x < r_longlong(0):
+        raise oefmt(space.w_OverflowError,
+                    "can't convert negative number to unsigned long")
+    if x > LONGLONG_UINT32_MAX:
+        raise oefmt(space.w_OverflowError, "long int larger than 32 bits")
+    return space.wrap(rsocket.htonl(r_uint32(x)))
 
 @unwrap_spec(ip=str)
 def inet_aton(space, ip):
@@ -272,8 +297,7 @@ def getaddrinfo(space, w_host, w_port,
     elif space.isinstance_w(w_host, space.w_bytes):
         host = space.bytes_w(w_host)
     elif space.isinstance_w(w_host, space.w_unicode):
-        w_shost = space.call_method(w_host, "encode", space.wrap("idna"))
-        host = space.bytes_w(w_shost)
+        host = encode_idna(space, w_host)
     else:
         raise oefmt(space.w_TypeError,
                     "getaddrinfo() argument 1 must be string or None")

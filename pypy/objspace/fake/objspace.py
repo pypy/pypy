@@ -196,7 +196,7 @@ class FakeObjSpace(ObjSpace):
     def newseqiter(self, x):
         return w_some_obj()
 
-    def newbuffer(self, x):
+    def newbuffer(self, x, itemsize=1):
         return w_some_obj()
 
     def marshal_w(self, w_obj):
@@ -208,6 +208,11 @@ class FakeObjSpace(ObjSpace):
 
     def newunicode(self, x):
         return w_some_obj()
+
+    def newutf8(self, x):
+        return w_some_obj()
+
+    newtext = newutf8
 
     @specialize.argtype(1)
     def wrap(self, x):
@@ -354,6 +359,9 @@ class FakeObjSpace(ObjSpace):
 
     def lookup_in_type(self, w_type, name):
         return w_some_obj()
+
+    def warn(self, w_msg, w_warningcls, stacklevel=2):
+        pass
 
     # ----------
 

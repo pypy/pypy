@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import sys, os
 import pytest
 from pypy.tool.pytest.objspace import gettestobjspace
@@ -82,11 +83,6 @@ def test_getservbyport():
     name = space.appexec([w_socket, space.wrap(port)],
                          "(_socket, port): return _socket.getservbyport(port)")
     assert space.unwrap(name) == "smtp"
-
-    from pypy.interpreter.error import OperationError
-    exc = raises(OperationError, space.appexec,
-           [w_socket], "(_socket): return _socket.getservbyport(-1)")
-    assert exc.value.match(space, space.w_ValueError)
 
 def test_getprotobyname():
     name = "tcp"
@@ -315,6 +311,11 @@ class AppTestSocket:
         assert _socket.socket.__name__ == 'socket'
         assert _socket.socket.__module__ == '_socket'
 
+    def test_overflow_errors(self):
+        import _socket
+        raises(OverflowError, _socket.getservbyport, -1)
+        raises(OverflowError, _socket.getservbyport, 65536)
+
     def test_ntoa_exception(self):
         import _socket
         raises(_socket.error, _socket.inet_ntoa, b"ab")
@@ -427,7 +428,8 @@ class AppTestSocket:
     def test_socket_connect_typeerrors(self):
         tests = [
             "",
-            ("80"),
+            "80",
+            ("80",),
             ("80", "80"),
             (80, 80),
         ]
@@ -451,44 +453,23 @@ class AppTestSocket:
     def test_NtoH(self):
         import sys
         import _socket as socket
-        # This just checks that htons etc. are their own inverse,
-        # when looking at the lower 16 or 32 bits.
+        # This checks that htons etc. are their own inverse,
+        # when looking at the lower 16 or 32 bits.  It also
+        # checks that we get OverflowErrors when calling with -1,
+        # or (for XtoXl()) with too large values.  For XtoXs()
+        # large values are silently truncated instead, like CPython.
         sizes = {socket.htonl: 32, socket.ntohl: 32,
                  socket.htons: 16, socket.ntohs: 16}
         for func, size in sizes.items():
             mask = (1 << size) - 1
-            for i in (0, 1, 0xffff, ~0xffff, 2, 0x01234567, 0x76543210):
+            for i in (0, 1, 0xffff, 0xffff0000, 2, 0x01234567, 0x76543210):
                 assert i & mask == func(func(i&mask)) & mask
 
             swapped = func(mask)
             assert swapped & mask == mask
-            try:
-                func(-1)
-            except (OverflowError, ValueError):
-                pass
-            else:
-                assert False
-            try:
-                func(sys.maxsize*2+2)
-            except OverflowError:
-                pass
-            else:
-                assert False
-
-    def test_NtoH_overflow(self):
-        skip("we are not checking for overflowing values yet")
-        import _socket as socket
-        # Checks that we cannot give too large values to htons etc.
-        # Skipped for now; CPython 2.6 is also not consistent.
-        sizes = {socket.htonl: 32, socket.ntohl: 32,
-                 socket.htons: 16, socket.ntohs: 16}
-        for func, size in sizes.items():
-            try:
-                func(1 << size)
-            except OverflowError:
-                pass
-            else:
-                assert False
+            raises(OverflowError, func, -1)
+            if size > 16:    # else, values too large are ignored
+                raises(OverflowError, func, 2 ** size)
 
     def test_newsocket(self):
         import socket
@@ -596,7 +577,9 @@ class AppTestSocket:
         oldcwd = os.getcwd()
         os.chdir(self.udir)
         try:
-            sockpath = 'app_test_unix_socket_connect'
+          for sockpath in ['app_test_unix_socket_connect',
+                           b'b_app_test_unix_socket_connect',
+                           bytearray(b'ba_app_test_unix_socket_connect')]:
 
             serversock = _socket.socket(_socket.AF_UNIX)
             serversock.bind(sockpath)
@@ -680,6 +663,19 @@ class AppTestSocket:
         assert posix.get_inheritable(s2.fileno()) is False
         s1.close()
         s2.close()
+
+    def test_hostname_unicode(self):
+        import _socket
+        domain = u"испытание.pythontest.net"
+        # XXX figure out why the idna encoding is sometimes missing in
+        # tests, notably if we run all tests instead of just this one
+        _socket.gethostbyname(domain)
+        _socket.gethostbyname_ex(domain)
+        _socket.getaddrinfo(domain, 0, _socket.AF_UNSPEC, _socket.SOCK_STREAM)
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+        s.connect((domain, 80))
+        s.close()
+        raises(TypeError, s.connect, (domain + '\x00', 80))
 
 
 class AppTestNetlink:

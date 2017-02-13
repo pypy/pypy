@@ -25,15 +25,6 @@ unpackiterable_driver = jit.JitDriver(name='unpackiterable',
                                       reds=['items', 'w_iterator'])
 
 
-@specialize.memo()
-def _does_override_buffer_w(type):
-    return type.buffer_w != W_Root.buffer_w
-
-@specialize.memo()
-def _does_override_buffer_w_ex(type):
-    return type.buffer_w_ex != W_Root.buffer_w_ex
-
-
 class W_Root(object):
     """This is the abstract root class of all wrapped objects that live
     in a 'normal' object space like StdObjSpace."""
@@ -223,16 +214,9 @@ class W_Root(object):
         return None
 
     def buffer_w(self, space, flags):
-        if _does_override_buffer_w_ex(self.__class__):
-            return self.buffer_w_ex(space, flags)[0]
-        return self._buffer(space, flags).buffer_w(space, flags)
+        return self.__buffer_w(space, flags).buffer_w(space, flags)
 
-    def buffer_w_ex(self, space, flags):
-        if _does_override_buffer_w(self.__class__):
-            return self.buffer_w(space, flags), 'B', 1
-        return self._buffer(space, flags).buffer_w_ex(space, flags)
-
-    def _buffer(self, space, flags):
+    def __buffer_w(self, space, flags):
         if flags & space.BUF_WRITABLE:
             w_impl = space.lookup(self, '__wbuffer__')
         else:
@@ -666,8 +650,10 @@ class ObjSpace(object):
     def setup_builtin_modules(self):
         "NOT_RPYTHON: only for initializing the space."
         if self.config.objspace.usemodules.cpyext:
+            # Special-case this to have state.install_dll() called early, which
+            # is required to initialise sys on Windows.
             from pypy.module.cpyext.state import State
-            self.fromcache(State).build_api(self)
+            self.fromcache(State).build_api()
         self.getbuiltinmodule('sys')
         self.getbuiltinmodule('_imp')
         self.getbuiltinmodule('_frozen_importlib')
@@ -1470,15 +1456,6 @@ class ObjSpace(object):
             raise oefmt(self.w_TypeError,
                         "'%T' does not support the buffer interface", w_obj)
 
-    def buffer_w_ex(self, w_obj, flags):
-        # New buffer interface, returns a buffer based on flags (PyObject_GetBuffer)
-        # Returns extra information: (buffer, typecode, itemsize)
-        try:
-            return w_obj.buffer_w_ex(self, flags)
-        except BufferInterfaceNotFound:
-            raise oefmt(self.w_TypeError,
-                        "'%T' does not support the buffer interface", w_obj)
-
     def readbuf_w(self, w_obj):
         # Old buffer interface, returns a readonly buffer (PyObject_AsReadBuffer)
         try:
@@ -1853,11 +1830,12 @@ class ObjSpace(object):
         return fd
 
     def warn(self, w_msg, w_warningcls, stacklevel=2):
-        self.appexec([w_msg, w_warningcls, self.wrap(stacklevel)],
-                     """(msg, warningcls, stacklevel):
-            import _warnings
-            _warnings.warn(msg, warningcls, stacklevel=stacklevel)
-        """)
+        from pypy.module._warnings.interp_warnings import do_warn
+
+        # 'w_warningcls' must a Warning subclass
+        if not we_are_translated():
+            assert self.issubtype_w(w_warningcls, self.w_Warning)
+        do_warn(self, w_msg, w_warningcls, stacklevel - 1)
 
 
 class AppExecCache(SpaceCache):

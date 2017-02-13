@@ -3,7 +3,7 @@ from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.objectmodel import specialize, always_inline
 from rpython.rlib import rfloat, runicode
 from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.interpreter.error import oefmt
+from pypy.interpreter.error import oefmt, OperationError
 from pypy.interpreter import unicodehelper
 
 OVF_DIGITS = len(str(sys.maxint))
@@ -42,6 +42,11 @@ def strslice2unicode_latin1(s, start, end):
         ll_res.chars[i] = cast_primitive(UniChar, ch)
     return hlunicode(ll_res)
 
+class DecoderError(Exception):
+    def __init__(self, msg, pos):
+        self.msg = msg
+        self.pos = pos
+
 TYPE_UNKNOWN = 0
 TYPE_STRING = 1
 class JSONDecoder(object):
@@ -76,10 +81,6 @@ class JSONDecoder(object):
                 break
         return i
 
-    @specialize.arg(1)
-    def _raise(self, msg, *args):
-        raise oefmt(self.space.w_ValueError, msg, *args)
-
     def decode_any(self, i):
         i = self.skip_whitespace(i)
         ch = self.ll_chars[i]
@@ -106,8 +107,7 @@ class JSONDecoder(object):
         elif ch.isdigit():
             return self.decode_numeric(i)
         else:
-            self._raise("No JSON object could be decoded: unexpected '%s' at char %d",
-                        ch, self.pos)
+            raise DecoderError("Unexpected '%s' at" % ch, i)
 
     def decode_null(self, i):
         if (self.ll_chars[i]   == 'u' and
@@ -115,7 +115,7 @@ class JSONDecoder(object):
             self.ll_chars[i+2] == 'l'):
             self.pos = i+3
             return self.space.w_None
-        self._raise("Error when decoding null at char %d", i)
+        raise DecoderError("Error when decoding null at", i)
 
     def decode_true(self, i):
         if (self.ll_chars[i]   == 'r' and
@@ -123,7 +123,7 @@ class JSONDecoder(object):
             self.ll_chars[i+2] == 'e'):
             self.pos = i+3
             return self.space.w_True
-        self._raise("Error when decoding true at char %d", i)
+        raise DecoderError("Error when decoding true at", i)
 
     def decode_false(self, i):
         if (self.ll_chars[i]   == 'a' and
@@ -132,7 +132,7 @@ class JSONDecoder(object):
             self.ll_chars[i+3] == 'e'):
             self.pos = i+4
             return self.space.w_False
-        self._raise("Error when decoding false at char %d", i)
+        raise DecoderError("Error when decoding false at", i)
 
     def decode_infinity(self, i, sign=1):
         if (self.ll_chars[i]   == 'n' and
@@ -144,14 +144,14 @@ class JSONDecoder(object):
             self.ll_chars[i+6] == 'y'):
             self.pos = i+7
             return self.space.wrap(rfloat.INFINITY * sign)
-        self._raise("Error when decoding Infinity at char %d", i)
+        raise DecoderError("Error when decoding Infinity at", i)
 
     def decode_nan(self, i):
         if (self.ll_chars[i]   == 'a' and
             self.ll_chars[i+1] == 'N'):
             self.pos = i+2
             return self.space.wrap(rfloat.NAN)
-        self._raise("Error when decoding NaN at char %d", i)
+        raise DecoderError("Error when decoding NaN at", i)
 
     def decode_numeric(self, i):
         start = i
@@ -161,7 +161,7 @@ class JSONDecoder(object):
         ch = self.ll_chars[i]
         if ch == '.':
             if not self.ll_chars[i+1].isdigit():
-                self._raise("Expected digit at char %d", i+1)
+                raise DecoderError("Expected digit at", i+1)
             return self.decode_float(start)
         elif ch == 'e' or ch == 'E':
             return self.decode_float(start)
@@ -215,7 +215,7 @@ class JSONDecoder(object):
                 break
         count = i - start
         if count == 0:
-            self._raise("Expected digit at char %d", i)
+            raise DecoderError("Expected digit at", i)
         # if the number has more digits than OVF_DIGITS, it might have
         # overflowed
         ovf_maybe = (count >= OVF_DIGITS)
@@ -242,10 +242,10 @@ class JSONDecoder(object):
             elif ch == ',':
                 pass
             elif ch == '\0':
-                self._raise("Unterminated array starting at char %d", start)
+                raise DecoderError("Unterminated array starting at", start)
             else:
-                self._raise("Unexpected '%s' when decoding array (char %d)",
-                            ch, self.pos)
+                raise DecoderError("Unexpected '%s' when decoding array" % ch,
+                                   i-1)
 
     def decode_object(self, i):
         start = i
@@ -261,13 +261,13 @@ class JSONDecoder(object):
             self.last_type = TYPE_UNKNOWN
             w_name = self.decode_any(i)
             if self.last_type != TYPE_STRING:
-                self._raise("Key name must be string for object starting at char %d", start)
+                raise DecoderError("Key name must be string for object starting at", start)
             w_name = self.memo.setdefault(self.space.unicode_w(w_name), w_name)
 
             i = self.skip_whitespace(self.pos)
             ch = self.ll_chars[i]
             if ch != ':':
-                self._raise("No ':' found at char %d", i)
+                raise DecoderError("No ':' found at", i)
             i += 1
             i = self.skip_whitespace(i)
             #
@@ -282,10 +282,10 @@ class JSONDecoder(object):
             elif ch == ',':
                 pass
             elif ch == '\0':
-                self._raise("Unterminated object starting at char %d", start)
+                raise DecoderError("Unterminated object starting at", start)
             else:
-                self._raise("Unexpected '%s' when decoding object (char %d)",
-                            ch, self.pos)
+                raise DecoderError("Unexpected '%s' when decoding object" % ch,
+                                   i-1)
 
 
     def decode_string(self, i):
@@ -310,18 +310,17 @@ class JSONDecoder(object):
                 self.last_type = TYPE_STRING
                 self.pos = i
                 return self.space.wrap(content_unicode)
-            elif ch == '\\':
-                content_so_far = self.getslice(start, i-1)
+            elif ch == '\\' or ch < '\x20':
                 self.pos = i-1
-                return self.decode_string_escaped(start, content_so_far)
-            elif ch < '\x20':
-                self._raise("Invalid control character at char %d", self.pos-1)
+                return self.decode_string_escaped(start)
 
 
-    def decode_string_escaped(self, start, content_so_far):
-        builder = StringBuilder(len(content_so_far)*2) # just an estimate
-        builder.append(content_so_far)
+    def decode_string_escaped(self, start):
         i = self.pos
+        builder = StringBuilder((i - start) * 2) # just an estimate
+        assert start >= 0
+        assert i >= 0
+        builder.append_slice(self.s, start, i)
         while True:
             ch = self.ll_chars[i]
             i += 1
@@ -334,27 +333,31 @@ class JSONDecoder(object):
                 return self.space.wrap(content_unicode)
             elif ch == '\\':
                 i = self.decode_escape_sequence(i, builder)
-            elif ch == '\0':
-                self._raise("Unterminated string starting at char %d", start)
+            elif ch < '\x20':
+                if ch == '\0':
+                    raise DecoderError("Unterminated string starting at",
+                                       start - 1)
+                else:
+                    raise DecoderError("Invalid control character at", i-1)
             else:
-                builder.append_multiple_char(ch, 1) # we should implement append_char
+                builder.append(ch)
 
     def decode_escape_sequence(self, i, builder):
         ch = self.ll_chars[i]
         i += 1
-        put = builder.append_multiple_char
-        if ch == '\\':  put('\\', 1)
-        elif ch == '"': put('"' , 1)
-        elif ch == '/': put('/' , 1)
-        elif ch == 'b': put('\b', 1)
-        elif ch == 'f': put('\f', 1)
-        elif ch == 'n': put('\n', 1)
-        elif ch == 'r': put('\r', 1)
-        elif ch == 't': put('\t', 1)
+        put = builder.append
+        if ch == '\\':  put('\\')
+        elif ch == '"': put('"' )
+        elif ch == '/': put('/' )
+        elif ch == 'b': put('\b')
+        elif ch == 'f': put('\f')
+        elif ch == 'n': put('\n')
+        elif ch == 'r': put('\r')
+        elif ch == 't': put('\t')
         elif ch == 'u':
             return self.decode_escape_sequence_unicode(i, builder)
         else:
-            self._raise("Invalid \\escape: %s (char %d)", ch, self.pos-1)
+            raise DecoderError("Invalid \\escape: %s" % ch, i-1)
         return i
 
     def decode_escape_sequence_unicode(self, i, builder):
@@ -370,9 +373,7 @@ class JSONDecoder(object):
                     val = self.decode_surrogate_pair(i, val)
                     i += 6
         except ValueError:
-            self._raise("Invalid \uXXXX escape (char %d)", i-1)
-            return # help the annotator to know that we'll never go beyond
-                   # this point
+            raise DecoderError("Invalid \\uXXXX escape", i-1)
         #
         uchr = runicode.code_to_unichr(val)     # may be a surrogate pair again
         utf8_ch = unicodehelper.encode_utf8(
@@ -389,7 +390,7 @@ class JSONDecoder(object):
         lowsurr = int(hexdigits, 16) # the possible ValueError is caugth by the caller
         return 0x10000 + (((highsurr - 0xd800) << 10) | (lowsurr - 0xdc00))
 
-def loads(space, w_s):
+def loads(space, w_s, w_errorcls=None):
     if space.isinstance_w(w_s, space.w_bytes):
         raise oefmt(space.w_TypeError, "Expected string, got %T", w_s)
     s = space.str_w(w_s)
@@ -399,9 +400,13 @@ def loads(space, w_s):
         i = decoder.skip_whitespace(decoder.pos)
         if i < len(s):
             start = i
-            end = len(s) - 1
-            raise oefmt(space.w_ValueError,
-                        "Extra data: char %d - %d", start, end)
+            raise DecoderError('Extra data', start)
         return w_res
+    except DecoderError as e:
+        if w_errorcls is None:
+            w_errorcls = space.w_ValueError
+        w_e = space.call_function(w_errorcls, space.wrap(e.msg), w_s,
+                                  space.wrap(e.pos))
+        raise OperationError(w_errorcls, w_e)
     finally:
         decoder.close()

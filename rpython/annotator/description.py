@@ -398,6 +398,8 @@ class MemoDesc(FunctionDesc):
         s_result = self.specialize(inputcells, op)
         if isinstance(s_result, FunctionGraph):
             s_result = s_result.getreturnvar().annotation
+            if s_result is None:
+                s_result = s_ImpossibleValue
         s_result = unionof(s_result, s_previous_result)
         return s_result
 

@@ -8,7 +8,7 @@ from rpython.rlib.buffer import Buffer
 from pypy.conftest import option
 
 class AppTestMemoryView:
-    spaceconfig = dict(usemodules=['array'])
+    spaceconfig = dict(usemodules=['array', 'sys'])
 
     def test_basic(self):
         v = memoryview(b"abc")
@@ -26,6 +26,14 @@ class AppTestMemoryView:
         assert isinstance(w, memoryview)
         assert len(w) == 2
         exc = raises(TypeError, "memoryview('foobar')")
+
+    def test_0d(self):
+        v = memoryview(b'x').cast('B', ())
+        assert len(v) == 1
+        assert v.shape == ()
+        assert v.strides == ()
+        assert v.tobytes() == b'x'
+        #assert v[()] == b'x'[0]
 
     def test_rw(self):
         data = bytearray(b'abcefg')
@@ -185,12 +193,29 @@ class AppTestMemoryView:
         assert m[2] == 1
 
     def test_pypy_raw_address_base(self):
-        raises(ValueError, memoryview(b"foobar")._pypy_raw_address)
-        a = memoryview(bytearray(b"foobar"))._pypy_raw_address()
+        a = memoryview(b"foobar")._pypy_raw_address()
         assert a != 0
+        b = memoryview(bytearray(b"foobar"))._pypy_raw_address()
+        assert b != 0
 
     def test_hex(self):
         assert memoryview(b"abc").hex() == u'616263'
+
+    def test_hex_long(self):
+        x = b'01' * 100000
+        m1 = memoryview(x)
+        m2 = m1[::-1]
+        assert m2.hex() == '3130' * 100000
+
+    def test_hex_2(self):
+        import array
+        import sys
+        m1 = memoryview(array.array('i', [1,2,3,4]))
+        m2 = m1[::-1]
+        if sys.byteorder == 'little':
+            assert m2.hex() == "04000000030000000200000001000000"
+        else:
+            assert m2.hex() == "00000004000000030000000200000001"
 
     def test_memoryview_cast(self):
         m1 = memoryview(b'abcdefgh')
@@ -328,9 +353,6 @@ class W_MockArray(W_Root):
         return MockBuffer(space, self.w_list, self.w_dim, self.w_fmt, \
                           self.w_size, self.w_strides, self.w_shape)
 
-    def buffer_w_ex(self, space, flags):
-        return self.buffer_w(space, flags), space.str_w(self.w_fmt), space.int_w(self.w_size)
-
 W_MockArray.typedef = TypeDef("MockArray",
     __new__ = interp2app(W_MockArray.descr_new),
 )
@@ -384,7 +406,10 @@ class AppTestMemoryViewMockBuffer(object):
         assert view.format == 'b'
         assert cview.format == 'i'
         #
-        assert cview.cast('b').cast('q').cast('b').tolist() == []
+        a = cview.cast('b')
+        b = a.cast('q')
+        c = b.cast('b')
+        assert c.tolist() == []
         #
         assert cview.format == 'i'
         raises(TypeError, "cview.cast('i')")
@@ -392,7 +417,7 @@ class AppTestMemoryViewMockBuffer(object):
     def test_cast_with_shape(self):
         empty = self.MockArray([1,0,2,0,3,0],
                     dim=1, fmt='h', size=2,
-                    strides=[8], shape=[6])
+                    strides=[2], shape=[6])
         view = memoryview(empty)
         byteview = view.cast('b')
         assert byteview.tolist() == [1,0,0,0,2,0,0,0,3,0,0,0]

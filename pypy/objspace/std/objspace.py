@@ -295,7 +295,7 @@ class StdObjSpace(ObjSpace):
         return W_LongObject.fromint(self, val)
 
     @specialize.argtype(1)
-    def newlong_from_rarith_int(self, val): # val is an rarithmetic type 
+    def newlong_from_rarith_int(self, val): # val is an rarithmetic type
         return W_LongObject.fromrarith_int(val)
 
     def newlong_from_rbigint(self, val):
@@ -354,8 +354,8 @@ class StdObjSpace(ObjSpace):
     def newseqiter(self, w_obj):
         return W_SeqIterObject(w_obj)
 
-    def newbuffer(self, w_obj):
-        return W_MemoryView(w_obj)
+    def newbuffer(self, w_obj, itemsize=1):
+        return W_MemoryView(w_obj, itemsize=itemsize)
 
     def newbytes(self, s):
         assert isinstance(s, str)
@@ -363,6 +363,9 @@ class StdObjSpace(ObjSpace):
 
     def newbytearray(self, l):
         return W_BytearrayObject(l)
+
+    def newtext(self, s):
+        return self.newunicode(decode_utf8(self, s, allow_surrogates=True))
 
     def newtext(self, s):
         return self.newunicode(decode_utf8(self, s, allow_surrogates=True))
@@ -715,3 +718,20 @@ class StdObjSpace(ObjSpace):
     def is_overloaded(self, w_obj, tp, method):
         return (self.lookup(w_obj, method) is not
                 self.lookup_in_type(tp, method))
+
+    def getfulltypename(self, w_obj):
+        w_type = self.type(w_obj)
+        if w_type.is_heaptype():
+            classname = w_type.getqualname(self)
+            w_module = w_type.lookup("__module__")
+            if w_module is not None:
+                try:
+                    modulename = self.unicode_w(w_module)
+                except OperationError as e:
+                    if not e.match(self, self.w_TypeError):
+                        raise
+                else:
+                    classname = u'%s.%s' % (modulename, classname)
+        else:
+            classname = w_type.name.decode('utf-8')
+        return classname

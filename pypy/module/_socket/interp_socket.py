@@ -85,11 +85,35 @@ def fill_from_object(addr, space, w_address):
     else:
         raise NotImplementedError
 
+def idna_converter(space, w_host):
+    # Converts w_host to a byte string.  Similar to encode_idna()
+    # but accepts more types and refuses NULL bytes.
+    if space.isinstance_w(w_host, space.w_unicode):
+        try:
+            w_s = space.encode_unicode_object(w_host, 'ascii', None)
+        except OperationError as e:
+            if not e.match(space, space.w_UnicodeEncodeError):
+                raise
+            w_s = space.encode_unicode_object(w_host, 'idna', None)
+        s = space.bytes_w(w_s)
+    elif space.isinstance_w(w_host, space.w_bytes):
+        s = space.bytes_w(w_host)
+    elif space.isinstance_w(w_host, space.w_bytearray):
+        s = space.charbuf_w(w_host)
+    else:
+        raise oefmt(space.w_TypeError,
+                    "string or unicode text buffer expected, not %T", w_host)
+    if '\x00' in s:
+        raise oefmt(space.w_TypeError,
+                    "host name must not contain null character")
+    return s
+
+
 # XXX Hack to seperate rpython and pypy
 def addr_from_object(family, fd, space, w_address):
     if family == rsocket.AF_INET:
         w_host, w_port = space.unpackiterable(w_address, 2)
-        host = space.str_w(w_host)
+        host = idna_converter(space, w_host)
         port = space.int_w(w_port)
         port = make_ushort_port(space, port)
         return rsocket.INETAddress(host, port)
@@ -99,7 +123,7 @@ def addr_from_object(family, fd, space, w_address):
             raise oefmt(space.w_TypeError,
                         "AF_INET6 address must be a tuple of length 2 "
                         "to 4, not %d", len(pieces_w))
-        host = space.str_w(pieces_w[0])
+        host = idna_converter(space, pieces_w[0])
         port = space.int_w(pieces_w[1])
         port = make_ushort_port(space, port)
         if len(pieces_w) > 2: flowinfo = space.int_w(pieces_w[2])
@@ -112,6 +136,8 @@ def addr_from_object(family, fd, space, w_address):
         # Not using space.fsencode_w since Linux allows embedded NULs.
         if space.isinstance_w(w_address, space.w_unicode):
             w_address = space.fsencode(w_address)
+        elif space.isinstance_w(w_address, space.w_bytearray):
+            w_address = space.newbytes(space.charbuf_w(w_address))
         bytelike = space.bytes_w(w_address) # getarg_w('y*', w_address)
         return rsocket.UNIXAddress(bytelike)
     if rsocket.HAS_AF_NETLINK and family == rsocket.AF_NETLINK:
@@ -468,7 +494,7 @@ class W_Socket(W_Root):
         while True:
             try:
                 addr = self.addr_from_object(space, w_addr)
-                count = self.sock.sendto(data, flags, addr)
+                count = self.sock.sendto(data, len(data), flags, addr)
                 break
             except SocketError as e:
                 converted_error(space, e, eintr_retry=True)
