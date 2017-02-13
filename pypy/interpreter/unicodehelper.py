@@ -39,6 +39,7 @@ def encode_error_handler(space):
 
 class RUnicodeEncodeError(Exception):
     def __init__(self, encoding, object, start, end, reason):
+        assert isinstance(object, unicode)
         self.encoding = encoding
         self.object = object
         self.start = start

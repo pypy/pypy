@@ -601,7 +601,7 @@ def wrap_encode_error(space, ue):
     raise OperationError(space.w_UnicodeEncodeError,
                          space.newtuple([
         space.newtext(ue.encoding),
-        space.newbytes(ue.object),
+        space.newunicode(ue.object),
         space.newint(ue.start),
         space.newint(ue.end),
         space.newtext(ue.reason)]))
