@@ -95,13 +95,21 @@ static int opened_profile(const char *interp_name, int memory, int proflines, in
         char interp_name[259];
     } header;
 
+    const char * machine;
+
+    machine = vmp_machine_os_name();
+
     size_t namelen = strnlen(interp_name, 255);
 
     header.hdr[0] = 0;
     header.hdr[1] = 3;
     header.hdr[2] = 0;
     header.hdr[3] = prepare_interval_usec;
-    header.hdr[4] = 0;
+    if (strstr(machine, "win") != 0) {
+        header.hdr[4] = 1;
+    } else {
+        header.hdr[4] = 0;
+    }
     header.interp_name[0] = MARKER_HEADER;
     header.interp_name[1] = '\x00';
     header.interp_name[2] = VERSION_TIMESTAMP;
@@ -122,7 +130,7 @@ static int opened_profile(const char *interp_name, int memory, int proflines, in
     (void)vmp_write_time_now(MARKER_TIME_N_ZONE);
 
     /* write some more meta information */
-    vmp_write_meta("os", vmp_machine_os_name());
+    vmp_write_meta("os", machine);
     bits = vmp_machine_bits();
     if (bits == 64) {
         vmp_write_meta("bits", "64");

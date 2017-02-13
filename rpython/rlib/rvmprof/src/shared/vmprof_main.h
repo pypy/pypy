@@ -89,7 +89,7 @@ static char atfork_hook_installed = 0;
  * *************************************************************
  */
 
-static int get_stack_trace(PY_THREAD_STATE_T * current, void** result, int max_depth, intptr_t pc)
+int get_stack_trace(PY_THREAD_STATE_T * current, void** result, int max_depth, intptr_t pc)
 {
     PY_STACK_FRAME_T * frame;
 #ifdef RPYTHON_VMPROF
@@ -119,7 +119,7 @@ static void segfault_handler(int arg)
     longjmp(restore_point, SIGSEGV);
 }
 
-static int _vmprof_sample_stack(struct profbuf_s *p, PY_THREAD_STATE_T * tstate, ucontext_t * uc)
+int _vmprof_sample_stack(struct profbuf_s *p, PY_THREAD_STATE_T * tstate, ucontext_t * uc)
 {
     int depth;
     struct prof_stacktrace_s *st = (struct prof_stacktrace_s *)p->data;
