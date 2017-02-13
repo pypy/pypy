@@ -94,7 +94,7 @@ def auto__ne__(space, w_self, w_other):
 def default_identity_hash(space, w_obj):
     w_unique_id = w_obj.immutable_unique_id(space)
     if w_unique_id is None:     # common case
-        return space.wrap(compute_identity_hash(w_obj))
+        return space.newint(compute_identity_hash(w_obj))
     else:
         return space.hash(w_unique_id)
 
@@ -296,7 +296,7 @@ class GetSetProperty(W_Root):
         if (space.is_w(w_obj, space.w_None)
             and not space.is_w(w_cls, space.type(space.w_None))):
             #print self, w_obj, w_cls
-            return space.wrap(self)
+            return self
         else:
             try:
                 return self.fget(self, space, w_obj)
@@ -304,7 +304,7 @@ class GetSetProperty(W_Root):
                 return w_obj.descr_call_mismatch(
                     space, '__getattribute__',
                     self.reqcls, Arguments(space, [w_obj,
-                                                   space.wrap(self.name)]))
+                                                   space.newtext(self.name)]))
 
     def descr_property_set(self, space, w_obj, w_value):
         """property.__set__(obj, value)
@@ -318,7 +318,7 @@ class GetSetProperty(W_Root):
             w_obj.descr_call_mismatch(
                 space, '__setattr__',
                 self.reqcls, Arguments(space, [w_obj,
-                                               space.wrap(self.name),
+                                               space.newtext(self.name),
                                                w_value]))
 
     def descr_property_del(self, space, w_obj):
@@ -333,7 +333,7 @@ class GetSetProperty(W_Root):
             w_obj.descr_call_mismatch(
                 space, '__delattr__',
                 self.reqcls, Arguments(space, [w_obj,
-                                               space.wrap(self.name)]))
+                                               space.newtext(self.name)]))
 
     def descr_get_qualname(self, space):
         if self.qualname is None:
@@ -362,6 +362,7 @@ class GetSetProperty(W_Root):
 
 def interp_attrproperty(name, cls, doc=None):
     "NOT_RPYTHON: initialization-time only"
+    # YYY needs some refactoring to get rid of the wrap
     def fget(space, obj):
         return space.wrap(getattr(obj, name))
     return GetSetProperty(fget, cls=cls, doc=doc)
@@ -421,13 +422,13 @@ class Member(W_Root):
         """member.__get__(obj[, type]) -> value
         Read the slot 'member' of the given 'obj'."""
         if space.is_w(w_obj, space.w_None):
-            return space.wrap(self)
+            return self
         else:
             self.typecheck(space, w_obj)
             w_result = w_obj.getslotvalue(self.index)
             if w_result is None:
                 raise OperationError(space.w_AttributeError,
-                                     space.wrap(self.name)) # XXX better message
+                                     space.newtext(self.name)) # XXX better message
             return w_result
 
     def descr_member_set(self, space, w_obj, w_value):
@@ -443,7 +444,7 @@ class Member(W_Root):
         success = w_obj.delslotvalue(self.index)
         if not success:
             raise OperationError(space.w_AttributeError,
-                                 space.wrap(self.name)) # XXX better message
+                                 space.newtext(self.name)) # XXX better message
 
 Member.typedef = TypeDef(
     "member_descriptor",
@@ -474,7 +475,7 @@ def generic_new_descr(W_Type):
     def descr_new(space, w_subtype, __args__):
         self = space.allocate_instance(W_Type, w_subtype)
         W_Type.__init__(self, space)
-        return space.wrap(self)
+        return self
     descr_new = func_with_new_name(descr_new, 'descr_new_%s' % W_Type.__name__)
     return interp2app(descr_new)
 
@@ -530,10 +531,10 @@ descr_generic_ne = interp2app(generic_ne)
 
 # co_xxx interface emulation for built-in code objects
 def fget_co_varnames(space, code): # unwrapping through unwrap_spec
-    return space.newtuple([space.wrap(name) for name in code.getvarnames()])
+    return space.newtuple([space.newtext(name) for name in code.getvarnames()])
 
 def fget_co_argcount(space, code): # unwrapping through unwrap_spec
-    return space.wrap(code.signature().num_argnames())
+    return space.newint(code.signature().num_argnames())
 
 def fget_zero(space, code):
     return space.wrap(0)
@@ -545,7 +546,7 @@ def fget_co_flags(space, code): # unwrapping through unwrap_spec
         flags |= CO_VARARGS
     if sig.has_kwarg():
         flags |= CO_VARKEYWORDS
-    return space.wrap(flags)
+    return space.newint(flags)
 
 def fget_co_consts(space, code): # unwrapping through unwrap_spec
     w_docstring = code.getdocstring(space)

@@ -194,7 +194,10 @@ def make_formatter_subclass(do_unicode):
             space = self.space
             if self.w_valuedict is None:
                 raise oefmt(space.w_TypeError, "format requires a mapping")
-            w_key = space.wrap(key)
+            if do_unicode:
+                w_key = space.newunicode(key)
+            else:
+                w_key = space.newbytes(key)
             return space.getitem(self.w_valuedict, w_key)
 
         def parse_fmt(self):
@@ -335,7 +338,7 @@ def make_formatter_subclass(do_unicode):
             length = len(r)
             if do_unicode and isinstance(r, str):
                 # convert string to unicode using the default encoding
-                r = self.space.unicode_w(self.space.wrap(r))
+                r = self.space.unicode_w(self.space.newbytes(r))
             prec = self.prec
             if prec == -1 and self.width == 0:
                 # fast path
@@ -454,7 +457,7 @@ def make_formatter_subclass(do_unicode):
             if do_unicode:
                 value = self.space.unicode_w(w_value)
             else:
-                value = self.space.str_w(w_value)
+                value = self.space.bytes_w(w_value)
             self.std_wp(value)
 
         def fmt_c(self, w_value):
@@ -569,11 +572,11 @@ def format(space, w_fmt, values_w, w_valuedict, fmt_type):
                 return space.newbytes(result)
             elif fmt_type == FORMAT_BYTEARRAY:
                 return space.newbytearray([c for c in result])
-            return space.wrap(result)
+            return space.newbytes(result)
     fmt = space.unicode_w(w_fmt)
     formatter = UnicodeFormatter(space, fmt, values_w, w_valuedict)
     result = formatter.format()
-    return space.wrap(result)
+    return space.newunicode(result)
 
 def mod_format(space, w_format, w_values, fmt_type=FORMAT_STR):
     if space.isinstance_w(w_values, space.w_tuple):

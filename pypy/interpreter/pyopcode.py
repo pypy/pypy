@@ -751,8 +751,8 @@ class __extend__(pyframe.PyFrame):
 
         w_globals, w_locals = ensure_ns(space, w_globals, w_locals, 'exec',
                                         self)
-        space.call_method(w_globals, 'setdefault', space.wrap('__builtins__'),
-                          space.wrap(self.get_builtin()))
+        space.call_method(w_globals, 'setdefault', space.newtext('__builtins__'),
+                          self.get_builtin())
 
         plain = (self.get_w_locals() is not None and
                  space.is_w(w_locals, self.get_w_locals()))
@@ -1756,9 +1756,8 @@ class FrameBlock(object):
 
     # internal pickling interface, not using the standard protocol
     def _get_state_(self, space):
-        w = space.wrap
-        return space.newtuple([w(self._opname), w(self.handlerposition),
-                               w(self.valuestackdepth)])
+        return space.newtuple([space.newtext(self._opname), space.newint(self.handlerposition),
+                               space.newint(self.valuestackdepth)])
 
     def handle(self, frame, unroller):
         """ Purely abstract method

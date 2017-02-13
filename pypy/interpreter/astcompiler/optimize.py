@@ -131,7 +131,7 @@ def _fold_pow(space, w_left, w_right):
     return space.pow(w_left, w_right, space.w_None)
 
 def _fold_not(space, operand):
-    return space.wrap(not space.is_true(operand))
+    return space.newbool(not space.is_true(operand))
 
 
 binary_folders = {
@@ -222,7 +222,7 @@ class OptimizingVisitor(ast.ASTVisitor):
                         break
                 else:
                     raise AssertionError("unknown unary operation")
-                w_minint = self.space.wrap(-sys.maxint - 1)
+                w_minint = self.space.newint(-sys.maxint - 1)
                 # This makes sure the result is an integer.
                 if self.space.eq_w(w_minint, w_const):
                     w_const = w_minint

@@ -7,6 +7,7 @@ from errno import EINTR
 
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib.objectmodel import dont_inline
 from rpython.rlib import rstack, rstackovf
 
 from pypy.interpreter import debug
@@ -16,7 +17,7 @@ AUTO_DEBUG = os.getenv('PYPY_DEBUG')
 RECORD_INTERPLEVEL_TRACEBACK = True
 
 def strerror(errno):
-    """Translate an error code to a message string."""
+    """Translate an error code to a unicode message string."""
     from pypy.module._codecs.locale import str_decode_locale_surrogateescape
     return str_decode_locale_surrogateescape(os.strerror(errno))
 
@@ -269,7 +270,7 @@ class OperationError(Exception):
                 pass
             w_t = self.w_type
             w_v = self.get_w_value(space)
-            w_tb = space.wrap(self.get_traceback())
+            w_tb = self.get_traceback()
             if where or objrepr:
                 if with_traceback:
                     first_line = 'From %s%s:\n' % (where, objrepr)
@@ -283,8 +284,8 @@ class OperationError(Exception):
                 # but from `raise ValueError('foo')` you get
                 # "Exception ValueError: ValueError('foo',) in x ignored"
                 first_line = ''
-            space.appexec([space.wrap(first_line),
-                           space.wrap(extra_line),
+            space.appexec([space.newtext(first_line),
+                           space.newtext(extra_line),
                            w_t, w_v, w_tb],
             """(first_line, extra_line, t, v, tb):
                 import sys
@@ -301,7 +302,7 @@ class OperationError(Exception):
         w_value = self._w_value
         if w_value is None:
             value = self._compute_value(space)
-            self._w_value = w_value = space.wrap(value)
+            self._w_value = w_value = space.newunicode(value)
         return w_value
 
     def _compute_value(self, space):
@@ -532,7 +533,7 @@ def get_operr_class(valuefmt):
 
 @specialize.arg(1)
 def oefmt(w_type, valuefmt, *args):
-    """Equivalent to OperationError(w_type, space.wrap(valuefmt % args)).
+    """Equivalent to OperationError(w_type, space.newtext(valuefmt % args)).
     More efficient in the (common) case where the value is not actually
     needed. Note that in the py3k branch the exception message will
     always be unicode.
@@ -578,11 +579,11 @@ else:
             msg = 'Windows Error %d' % winerror
         exc = space.w_WindowsError
         if w_filename is not None:
-            w_error = space.call_function(exc, space.wrap(winerror),
-                                          space.wrap(msg), w_filename)
+            w_error = space.call_function(exc, space.newint(winerror),
+                                          space.newtext(msg), w_filename)
         else:
-            w_error = space.call_function(exc, space.wrap(winerror),
-                                          space.wrap(msg))
+            w_error = space.call_function(exc, space.newint(winerror),
+                                          space.newtext(msg))
         return OperationError(exc, w_error)
 
 @specialize.arg(3, 6)
@@ -617,6 +618,7 @@ def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError',
         assert operror is not None   # tell the annotator we don't return None
         return operror
 
+@dont_inline
 def _wrap_oserror2_impl(space, e, w_filename, w_filename2, w_exc, eintr_retry):
     # move the common logic in its own function, instead of having it
     # duplicated 4 times in all 4 specialized versions of wrap_oserror2()
@@ -633,43 +635,43 @@ def _wrap_oserror2_impl(space, e, w_filename, w_filename2, w_exc, eintr_retry):
         msg = u'error %d' % errno
     if w_filename is not None:
         if w_filename2 is not None:
-            w_error = space.call_function(w_exc, space.wrap(errno),
-                                          space.wrap(msg), w_filename,
+            w_error = space.call_function(w_exc, space.newint(errno),
+                                          space.newunicode(msg), w_filename,
                                           space.w_None, w_filename2)
         else:
-            w_error = space.call_function(w_exc, space.wrap(errno),
-                                          space.wrap(msg), w_filename)
+            w_error = space.call_function(w_exc, space.newint(errno),
+                                          space.newunicode(msg), w_filename)
     else:
-        w_error = space.call_function(w_exc, space.wrap(errno),
-                                      space.wrap(msg))
+        w_error = space.call_function(w_exc, space.newint(errno),
+                                      space.newunicode(msg))
     operror = OperationError(w_exc, w_error)
     if eintr_retry:
         raise operror
     return operror
-_wrap_oserror2_impl._dont_inline_ = True
 
 @specialize.arg(3, 6)
+@dont_inline
 def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
                  w_exception_class=None, filename2=None, eintr_retry=False):
     w_filename = None
     w_filename2 = None
     if filename is not None:
-        w_filename = space.wrap(filename)
+        w_filename = space.wrap_fsdecoded(filename)
         if filename2 is not None:
-            w_filename2 = space.wrap(filename2)
+            w_filename2 = space.wrap_fsdecoded(filename2)
     return wrap_oserror2(space, e, w_filename,
                          exception_name=exception_name,
                          w_exception_class=w_exception_class,
                          w_filename2=w_filename2,
                          eintr_retry=eintr_retry)
-wrap_oserror._dont_inline_ = True
 
 def exception_from_saved_errno(space, w_type):
     from rpython.rlib.rposix import get_saved_errno
 
     errno = get_saved_errno()
     msg = strerror(errno)
-    w_error = space.call_function(w_type, space.wrap(errno), space.wrap(msg))
+    w_error = space.call_function(w_type, space.newint(errno),
+                                  space.newunicode(msg))
     return OperationError(w_type, w_error)
 
 def new_exception_class(space, name, w_bases=None, w_dict=None):
@@ -690,9 +692,9 @@ def new_exception_class(space, name, w_bases=None, w_dict=None):
     if w_dict is None:
         w_dict = space.newdict()
     w_exc = space.call_function(
-        space.w_type, space.wrap(name), w_bases, w_dict)
+        space.w_type, space.newtext(name), w_bases, w_dict)
     if module:
-        space.setattr(w_exc, space.wrap("__module__"), space.wrap(module))
+        space.setattr(w_exc, space.newtext("__module__"), space.newtext(module))
     return w_exc
 
 def new_import_error(space, w_msg, w_name, w_path):

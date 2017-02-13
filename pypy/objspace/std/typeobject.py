@@ -1154,7 +1154,7 @@ def create_slot(w_self, slot_name, index_next_extra_slot):
         slot_name = space.str_w(space.new_interned_str(slot_name))
         # in cpython it is ignored less, but we probably don't care
         member = Member(index_next_extra_slot, slot_name, w_self)
-        w_self.dict_w[slot_name] = space.wrap(member)
+        w_self.dict_w[slot_name] = member
         return True
     else:
         w_prev = w_self.dict_w[slot_name]
@@ -1168,15 +1168,13 @@ def create_slot(w_self, slot_name, index_next_extra_slot):
 def create_dict_slot(w_self):
     if not w_self.hasdict:
         descr = dict_descr.copy_for_type(w_self)
-        w_self.dict_w.setdefault('__dict__',
-                                 w_self.space.wrap(descr))
+        w_self.dict_w.setdefault('__dict__', descr)
         w_self.hasdict = True
 
 def create_weakref_slot(w_self):
     if not w_self.weakrefable:
         descr = weakref_descr.copy_for_type(w_self)
-        w_self.dict_w.setdefault('__weakref__',
-                                 w_self.space.wrap(descr))
+        w_self.dict_w.setdefault('__weakref__', descr)
         w_self.weakrefable = True
 
 def setup_user_defined_type(w_self, force_new_layout):
@@ -1201,7 +1199,11 @@ def setup_user_defined_type(w_self, force_new_layout):
 def setup_builtin_type(w_self, instancetypedef):
     w_self.hasdict = instancetypedef.hasdict
     w_self.weakrefable = instancetypedef.weakrefable
-    w_self.w_doc = w_self.space.wrap(instancetypedef.doc)
+    if isinstance(instancetypedef.doc, W_Root):
+        w_doc = instancetypedef.doc
+    else:
+        w_doc = w_self.space.newtext_or_none(instancetypedef.doc)
+    w_self.w_doc = w_doc
     ensure_common_attributes(w_self)
     #
     # usually 'instancetypedef' is new, i.e. not seen in any base,
@@ -1393,7 +1395,7 @@ class TypeCache(SpaceCache):
                               overridetypedef=overridetypedef,
                               is_heaptype=overridetypedef.heaptype)
         if typedef is not overridetypedef:
-            w_type.w_doc = space.wrap(typedef.doc)
+            w_type.w_doc = space.newtext_or_none(typedef.doc)
         else:
             # Set the __qualname__ of member functions
             for name in rawdict:
@@ -1401,8 +1403,9 @@ class TypeCache(SpaceCache):
                 if isinstance(w_obj, ClassMethod):
                     w_obj = w_obj.w_function
                 if isinstance(w_obj, FunctionWithFixedCode):
-                    qualname = w_type.getqualname(space) + '.' + name
-                    w_obj.fset_func_qualname(space, space.wrap(qualname))
+                    qualname = (w_type.getqualname(space).encode('utf-8')
+                                + '.' + name)
+                    w_obj.fset_func_qualname(space, space.newtext(qualname))
 
         if hasattr(typedef, 'flag_sequence_bug_compat'):
             w_type.flag_sequence_bug_compat = typedef.flag_sequence_bug_compat

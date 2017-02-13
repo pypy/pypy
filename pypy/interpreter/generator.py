@@ -42,7 +42,7 @@ class GeneratorOrCoroutine(W_Root):
 
     def descr__repr__(self, space):
         addrstring = self.getaddrstring(space)
-        return space.wrap(u"<%s object %s at 0x%s>" %
+        return space.newunicode(u"<%s object %s at 0x%s>" %
                           (unicode(self.KIND),
                            self.get_qualname(),
                            unicode(addrstring)))
@@ -188,7 +188,7 @@ return next yielded value or raise StopIteration."""
             frame._report_stopiteration_sometimes(w_yf, e)
             try:
                 w_stop_value = space.getattr(e.get_w_value(space),
-                                             space.wrap("value"))
+                                             space.newtext("value"))
             except OperationError as e:
                 if not e.match(space, space.w_AttributeError):
                     raise

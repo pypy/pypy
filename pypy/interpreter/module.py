@@ -73,7 +73,7 @@ class Module(W_Root):
     def descr_module__new__(space, w_subtype, __args__):
         module = space.allocate_instance(Module, w_subtype)
         Module.__init__(module, space, None)
-        return space.wrap(module)
+        return module
 
     def descr_module__init__(self, w_name, w_doc=None):
         space = self.space
@@ -86,7 +86,7 @@ class Module(W_Root):
         init_extra_module_attrs(space, space.wrap(self))
 
     def descr__reduce__(self, space):
-        w_name = space.finditem(self.w_dict, space.wrap('__name__'))
+        w_name = space.finditem(self.w_dict, space.newtext('__name__'))
         if (w_name is None or
             not space.isinstance_w(w_name, space.w_unicode)):
             # maybe raise exception here (XXX this path is untested)
@@ -110,7 +110,7 @@ class Module(W_Root):
                 w_name,
                 space.w_None,
                 space.w_None,
-                space.newtuple([space.wrap('')])
+                space.newtuple([space.newtext('')])
             ])
         ]
 
@@ -127,7 +127,7 @@ class Module(W_Root):
         except OperationError as e:
             if not e.match(space, space.w_AttributeError):
                 raise
-            w_name = space.finditem(self.w_dict, space.wrap('__name__'))
+            w_name = space.finditem(self.w_dict, space.newtext('__name__'))
             if w_name is None:
                 raise oefmt(space.w_AttributeError,
                     "module has no attribute %R", w_attr)
@@ -136,7 +136,7 @@ class Module(W_Root):
                     "module %R has no attribute %R", w_name, w_attr)
 
     def descr_module__dir__(self, space):
-        w_dict = space.getattr(self, space.wrap('__dict__'))
+        w_dict = space.getattr(self, space.newtext('__dict__'))
         if not space.isinstance_w(w_dict, space.w_dict):
             raise oefmt(space.w_TypeError, "%N.__dict__ is not a dictionary",
                         self)
