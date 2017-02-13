@@ -164,8 +164,10 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
         return 0;
     }
 
+#ifdef VMPROF_LINUX
     while (signal) {
-        if (unw_is_signal_frame(&cursor)) {
+        int is_signal_frame = unw_is_signal_frame(&cursor);
+        if (is_signal_frame) {
             break;
         }
         int err = unw_step(&cursor);
@@ -173,6 +175,16 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
             return 0;
         }
     }
+#else
+    // who would have guessed that unw_is_signal_frame does not work on mac os x
+    if (signal) {
+        unw_step(&cursor); // vmp_walk_and_record_stack
+        // get_stack_trace is inlined
+        unw_step(&cursor); // _vmprof_sample_stack
+        unw_step(&cursor); // sigprof_handler
+        unw_step(&cursor); // _sigtramp
+    }
+#endif
 
     //printf("stack trace:\n");
     int depth = 0;
@@ -265,7 +277,6 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
             //printf("sample ended\n");
             break;
         } else if (err < 0) {
-            //printf("sample is broken\n");
             return 0; // this sample is broken, cannot walk it fully
         }
     }

@@ -28,7 +28,7 @@ void dump_native_symbols(int fileno);
 
 #ifdef VMPROF_UNIX
 #ifdef __clang__
-__attribute__((disable_tail_calls))
+__attribute__((optnone))
 #elif defined(__GNUC__)
 __attribute__((optimize("O1")))
 #endif
