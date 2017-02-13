@@ -8,7 +8,7 @@ class Ellipsis(W_Root):
         return space.w_Ellipsis
 
     def descr__repr__(self, space):
-        return space.wrap('Ellipsis')
+        return space.newtext('Ellipsis')
 
     descr__reduce__ = descr__repr__
 
@@ -20,6 +20,6 @@ class NotImplemented(W_Root):
         return space.w_NotImplemented
 
     def descr__repr__(self, space):
-        return space.wrap('NotImplemented')
+        return space.newtext('NotImplemented')
 
     descr__reduce__ = descr__repr__

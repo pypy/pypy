@@ -86,7 +86,7 @@ class __extend__(pyframe.PyFrame):
             rstackovf.check_stack_overflow()
             next_instr = self.handle_asynchronous_error(ec,
                 self.space.w_RecursionError,
-                self.space.wrap("maximum recursion depth exceeded"))
+                self.space.newtext("maximum recursion depth exceeded"))
         return next_instr
 
     def handle_asynchronous_error(self, ec, w_type, w_value=None):
@@ -557,18 +557,17 @@ class __extend__(pyframe.PyFrame):
     def raise_exc_unbound(self, varindex):
         varname = self.getfreevarname(varindex)
         if self.iscellvar(varindex):
-            message = "local variable '%s' referenced before assignment"%varname
-            w_exc_type = self.space.w_UnboundLocalError
+            raise oefmt(self.space.w_UnboundLocalError,
+                        "local variable '%s' referenced before assignment",
+                        varname)
         else:
-            message = ("free variable '%s' referenced before assignment"
-                       " in enclosing scope"%varname)
-            w_exc_type = self.space.w_NameError
-        raise OperationError(w_exc_type, self.space.wrap(message))
+            raise oefmt(self.space.w_NameError,
+                        "free variable '%s' referenced before assignment"
+                        " in enclosing scope", varname)
 
     def LOAD_CLOSURE(self, varindex, next_instr):
         # nested scopes: access the cell object
-        cell = self._getcell(varindex)
-        w_value = self.space.wrap(cell)
+        w_value = self._getcell(varindex)
         self.pushvalue(w_value)
 
     def POP_TOP(self, oparg, next_instr):
@@ -1227,7 +1226,7 @@ class __extend__(pyframe.PyFrame):
         if isinstance(w_unroller, SApplicationException):
             # app-level exception
             operr = w_unroller.operr
-            w_traceback = self.space.wrap(operr.get_traceback())
+            w_traceback = operr.get_traceback()
             w_res = self.call_contextmanager_exit_function(
                 w_exitfunc,
                 operr.w_type,
@@ -1341,7 +1340,7 @@ class __extend__(pyframe.PyFrame):
         fn = function.Function(space, codeobj, self.get_w_globals(),
                                defaultarguments,
                                kw_defs_w, freevars, w_ann, qualname=qualname)
-        self.pushvalue(space.wrap(fn))
+        self.pushvalue(fn)
 
     def MAKE_FUNCTION(self, oparg, next_instr):
         return self._make_function(oparg)
@@ -1830,7 +1829,7 @@ class ExceptBlock(FrameBlock):
         assert isinstance(unroller, SApplicationException)
         operationerr = unroller.operr
         operationerr.normalize_exception(frame.space)
-        frame.pushvalue(frame.space.wrap(unroller))
+        frame.pushvalue(unroller)
         frame.pushvalue(operationerr.get_w_value(frame.space))
         frame.pushvalue(operationerr.w_type)
         # set the current value of sys_exc_info to operationerr,
@@ -1855,7 +1854,7 @@ class FinallyBlock(FrameBlock):
         if isinstance(unroller, SApplicationException):
             operationerr = unroller.operr
             operationerr.normalize_exception(frame.space)
-        frame.pushvalue(frame.space.wrap(unroller))
+        frame.pushvalue(unroller)
         # set the current value of sys_exc_info to operationerr,
         # saving the old value in a custom type of FrameBlock
         frame.save_and_change_sys_exc_info(operationerr)

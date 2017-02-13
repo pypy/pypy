@@ -190,7 +190,7 @@ def get_additional_entrypoints(space, w_initstdio):
             space.setitem(w_globals, space.newtext('__builtins__'),
                           space.builtin_modules['builtins'])
             space.setitem(w_globals, space.newtext('c_argument'),
-                          space.newbytes(c_argument))
+                          space.newint(c_argument))
             space.appexec([space.newtext(source), w_globals], """(src, glob):
                 import sys
                 stmt = compile(src, 'c callback', 'exec')

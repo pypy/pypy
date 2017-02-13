@@ -595,7 +595,7 @@ class ArgErrUnknownKwds(ArgErr):
                         except IndexError:
                             name = '?'
                         else:
-                            name = space.text_w(w_name)
+                            name = space.identifier_w(w_name)
                     break
         self.kwd_name = name
 

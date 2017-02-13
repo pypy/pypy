@@ -94,6 +94,7 @@ class DummySpace(object):
 
     def wrap(self, obj):
         return obj
+    newtext = wrap
 
     def str_w(self, s):
         return str(s)

@@ -28,15 +28,15 @@ class SyntaxError(Exception):
             if len(self.text) != offset:
                 text, _ = str_decode_utf_8(self.text, len(self.text),
                                            'replace')
-            w_text = space.wrap(text)
+            w_text = space.newtext(text)
         if self.filename is not None:
             w_filename = space.wrap_fsdecoded(self.filename)
         return space.newtuple([space.wrap(self.msg),
                                space.newtuple([w_filename,
-                                               space.wrap(self.lineno),
-                                               space.wrap(offset),
+                                               space.newint(self.lineno),
+                                               space.newint(offset),
                                                w_text,
-                                               space.wrap(self.lastlineno)])])
+                                               space.newint(self.lastlineno)])])
 
     def __str__(self):
         return "%s at pos (%d, %d) in %r" % (self.__class__.__name__,

@@ -52,7 +52,7 @@ class W_Root(object):
         w_dict = self.getdict(space)
         if w_dict is not None:
             try:
-                space.delitem(w_dict, space.wrap(attr))
+                space.delitem(w_dict, space.newtext(attr))
                 return True
             except OperationError as ex:
                 if not ex.match(space, space.w_KeyError):
@@ -78,7 +78,7 @@ class W_Root(object):
 
     def getname(self, space):
         try:
-            return space.unicode_w(space.getattr(self, space.wrap('__name__')))
+            return space.text_w(space.getattr(self, space.newtext('__name__')))
         except OperationError as e:
             if e.match(space, space.w_TypeError) or e.match(space, space.w_AttributeError):
                 return u'?'
@@ -105,7 +105,7 @@ class W_Root(object):
 
     def getrepr(self, space, info, moreinfo=u''):
         addrstring = unicode(self.getaddrstring(space))
-        return space.wrap(u"<%s at 0x%s%s>" % (info, addrstring, moreinfo))
+        return space.newunicode(u"<%s at 0x%s%s>" % (info, addrstring, moreinfo))
 
     def getslotvalue(self, index):
         raise NotImplementedError
@@ -1849,7 +1849,7 @@ class AppExecCache(SpaceCache):
         source = py.code.Source("def anonymous%s\n" % source)
         w_glob = space.newdict(module=True)
         space.exec_(str(source), w_glob, w_glob)
-        return space.getitem(w_glob, space.wrap('anonymous'))
+        return space.getitem(w_glob, space.newtext('anonymous'))
 
 
 # Table describing the regular part of the interface of object spaces,

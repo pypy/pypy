@@ -367,7 +367,7 @@ class PyCode(eval.Code):
         for name in self.co_varnames:  result ^= compute_hash(name)
         for name in self.co_freevars:  result ^= compute_hash(name)
         for name in self.co_cellvars:  result ^= compute_hash(name)
-        w_result = space.wrap(intmask(result))
+        w_result = space.newint(intmask(result))
         for w_name in self.co_names_w:
             w_result = space.xor(w_result, space.hash(w_name))
         for w_const in self.co_consts_w:
@@ -409,31 +409,30 @@ class PyCode(eval.Code):
         code = space.allocate_instance(PyCode, w_subtype)
         PyCode.__init__(code, space, argcount, kwonlyargcount, nlocals, stacksize, flags, codestring, consts_w[:], names,
                       varnames, filename, name, firstlineno, lnotab, freevars, cellvars, magic=magic)
-        return space.wrap(code)
+        return code
 
     def descr__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('code_new')
-        w        = space.wrap
         tup      = [
-            w(self.co_argcount),
-            w(self.co_kwonlyargcount),
-            w(self.co_nlocals),
-            w(self.co_stacksize),
-            w(self.co_flags),
+            space.newint(self.co_argcount),
+            space.newint(self.co_kwonlyargcount),
+            space.newint(self.co_nlocals),
+            space.newint(self.co_stacksize),
+            space.newint(self.co_flags),
             space.newbytes(self.co_code),
             space.newtuple(self.co_consts_w),
             space.newtuple(self.co_names_w),
-            space.newtuple([w(v) for v in self.co_varnames]),
-            w(self.co_filename),
-            w(self.co_name),
-            w(self.co_firstlineno),
+            space.newtuple([space.newtext(v) for v in self.co_varnames]),
+            space.newtext(self.co_filename),
+            space.newtext(self.co_name),
+            space.newint(self.co_firstlineno),
             space.newbytes(self.co_lnotab),
-            space.newtuple([w(v) for v in self.co_freevars]),
-            space.newtuple([w(v) for v in self.co_cellvars]),
-            w(self.magic),
+            space.newtuple([space.newtext(v) for v in self.co_freevars]),
+            space.newtuple([space.newtext(v) for v in self.co_cellvars]),
+            space.newint(self.magic),
         ]
         return space.newtuple([new_inst, space.newtuple(tup)])
 
@@ -452,6 +451,6 @@ class PyCode(eval.Code):
         # co_name should be an identifier
         name = self.co_name.decode('utf-8')
         fn = space.fsdecode_w(space.newbytes(self.co_filename))
-        return space.wrap(u'<code object %s at 0x%s, file "%s", line %d>' % (
+        return space.newunicode(u'<code object %s at 0x%s, file "%s", line %d>' % (
             name, unicode(self.getaddrstring(space)), fn,
             -1 if self.co_firstlineno == 0 else self.co_firstlineno))

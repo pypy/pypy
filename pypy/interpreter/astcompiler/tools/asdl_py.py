@@ -480,7 +480,7 @@ class _FieldsWrapper(W_Root):
         assert fields == []
 
     def __spacebind__(self, space):
-        return space.newtuple([])
+        return space.newtuple([space.newtext(field) for field in self.fields])
 
 
 class W_AST(W_Root):

@@ -293,7 +293,7 @@ class PyFrame(W_Root):
             self.f_generator_wref = rweakref.ref(gen)
         else:
             self.f_generator_nowref = gen
-        w_gen = space.wrap(gen)
+        w_gen = gen
 
         if w_wrapper is not None:
             if ec.in_coroutine_wrapper:
@@ -535,7 +535,7 @@ class PyFrame(W_Root):
             if w_value is not None:
                 self.space.setitem_str(d.w_locals, name, w_value)
             else:
-                w_name = self.space.wrap(name.decode('utf-8'))
+                w_name = self.space.newtext(name)
                 try:
                     self.space.delitem(d.w_locals, w_name)
                 except OperationError as e:
@@ -613,7 +613,7 @@ class PyFrame(W_Root):
         return None
 
     def fget_code(self, space):
-        return space.wrap(self.getcode())
+        return self.getcode()
 
     def fget_getdictscope(self, space):
         return self.getdictscope()
@@ -628,9 +628,9 @@ class PyFrame(W_Root):
     def fget_f_lineno(self, space):
         "Returns the line number of the instruction currently being executed."
         if self.get_w_f_trace() is None:
-            return space.wrap(self.get_last_lineno())
+            return space.newint(self.get_last_lineno())
         else:
-            return space.wrap(self.getorcreatedebug().f_lineno)
+            return space.newint(self.getorcreatedebug().f_lineno)
 
     def fset_f_lineno(self, space, w_new_lineno):
         "Change the line number of the instruction currently being executed."
@@ -774,10 +774,10 @@ class PyFrame(W_Root):
 
     def fget_f_back(self, space):
         f_back = ExecutionContext.getnextframe_nohidden(self)
-        return self.space.wrap(f_back)
+        return f_back
 
     def fget_f_lasti(self, space):
-        return self.space.wrap(self.last_instr)
+        return self.space.newint(self.last_instr)
 
     def fget_f_trace(self, space):
         return self.get_w_f_trace()
@@ -795,7 +795,7 @@ class PyFrame(W_Root):
 
     def fget_f_restricted(self, space):
         if space.config.objspace.honor__builtins__:
-            return space.wrap(self.builtin is not space.builtin)
+            return space.newbool(self.builtin is not space.builtin)
         return space.w_False
 
     def get_generator(self):

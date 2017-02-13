@@ -31,15 +31,14 @@ class Module(W_Root):
         statically inside the executable."""
         try:
             space = self.space
-            space.delitem(self.w_dict, space.wrap('__file__'))
+            space.delitem(self.w_dict, space.newtext('__file__'))
         except OperationError:
             pass
 
     def install(self):
         """NOT_RPYTHON: installs this module into space.builtin_modules"""
-        w_mod = self.space.wrap(self)
         modulename = self.space.str0_w(self.w_name)
-        self.space.builtin_modules[modulename] = w_mod
+        self.space.builtin_modules[modulename] = self
 
     def setup_after_space_initialization(self):
         """NOT_RPYTHON: to allow built-in modules to do some more setup

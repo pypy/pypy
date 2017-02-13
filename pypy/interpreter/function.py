@@ -249,7 +249,7 @@ class Function(W_Root):
         func = space.allocate_instance(Function, w_subtype)
         Function.__init__(func, space, code, w_globals, defs_w, None, closure,
                           None,name)
-        return space.wrap(func)
+        return func
 
     def descr_function_call(self, __args__):
         return self.call_args(__args__)
@@ -289,14 +289,13 @@ class Function(W_Root):
         if isinstance(code, BuiltinCode):
             new_inst = mod.get('builtin_function')
             return space.newtuple([new_inst,
-                                   space.newtuple([space.wrap(code.identifier)])])
+                                   space.newtuple([space.newtext(code.identifier)])])
 
         new_inst = mod.get('func_new')
-        w = space.wrap
         if self.closure is None:
             w_closure = space.w_None
         else:
-            w_closure = space.newtuple([w(cell) for cell in self.closure])
+            w_closure = space.newtuple([cell for cell in self.closure])
         if self.w_doc is None:
             w_doc = space.w_None
         else:
@@ -313,10 +312,10 @@ class Function(W_Root):
         nt = space.newtuple
         tup_base = []
         tup_state = [
-            w(self.name),
-            w(self.qualname),
+            space.newtext(self.name),
+            space.newunicode(self.qualname),
             w_doc,
-            w(self.code),
+            self.code,
             w_func_globals,
             w_closure,
             nt(self.defs_w),
@@ -337,8 +336,8 @@ class Function(W_Root):
                         "Wrong arguments to function.__setstate__")
 
         self.space = space
-        self.name = space.str_w(w_name)
-        self.qualname = space.str_w(w_qualname).decode("utf-8")
+        self.name = space.text_w(w_name)
+        self.qualname = space.unicode_w(w_qualname)
         self.code = space.interp_w(Code, w_code)
         if not space.is_w(w_closure, space.w_None):
             from pypy.interpreter.nestedscope import Cell
@@ -421,7 +420,7 @@ class Function(W_Root):
         self.w_doc = w_doc
 
     def fget_func_name(self, space):
-        return space.wrap(self.name.decode('utf-8'))
+        return space.newtext(self.name)
 
     def fset_func_name(self, space, w_name):
         if space.isinstance_w(w_name, space.w_unicode):
@@ -431,7 +430,7 @@ class Function(W_Root):
                         "__name__ must be set to a string object")
 
     def fget_func_qualname(self, space):
-        return space.wrap(self.qualname)
+        return space.newunicode(self.qualname)
 
     def fset_func_qualname(self, space, w_name):
         try:
@@ -448,7 +447,7 @@ class Function(W_Root):
     def fget___module__(self, space):
         if self.w_module is None:
             if self.w_func_globals is not None and not space.is_w(self.w_func_globals, space.w_None):
-                self.w_module = space.call_method(self.w_func_globals, "get", space.wrap("__name__"))
+                self.w_module = space.call_method(self.w_func_globals, "get", space.newtext("__name__"))
             else:
                 self.w_module = space.w_None
         return self.w_module
@@ -460,7 +459,7 @@ class Function(W_Root):
         self.w_module = space.w_None
 
     def fget_func_code(self, space):
-        return space.wrap(self.code)
+        return self.code
 
     def fset_func_code(self, space, w_code):
         from pypy.interpreter.pycode import PyCode
@@ -480,7 +479,7 @@ class Function(W_Root):
 
     def fget_func_closure(self, space):
         if self.closure is not None:
-            w_res = space.newtuple([space.wrap(i) for i in self.closure])
+            w_res = space.newtuple([cell for cell in self.closure])
         else:
             w_res = space.w_None
         return w_res
@@ -508,7 +507,7 @@ def descr_function_get(space, w_function, w_obj, w_cls=None):
     if w_obj is None or space.is_w(w_obj, space.w_None):
         return w_function
     else:
-        return space.wrap(Method(space, w_function, w_obj))
+        return Method(space, w_function, w_obj)
 
 
 class Method(W_Root):
@@ -527,7 +526,7 @@ class Method(W_Root):
             raise oefmt(space.w_TypeError, "self must not be None")
         method = space.allocate_instance(Method, w_subtype)
         Method.__init__(method, space, w_function, w_instance)
-        return space.wrap(method)
+        return method
 
     def __repr__(self):
         return u"bound method %s" % (self.w_function.getname(self.space),)
@@ -537,14 +536,14 @@ class Method(W_Root):
         return space.call_obj_args(self.w_function, self.w_instance, args)
 
     def descr_method_get(self, w_obj, w_cls=None):
-        return self.space.wrap(self)    # already bound
+        return self     # already bound
 
     def descr_method_call(self, __args__):
         return self.call_args(__args__)
 
     def descr_method_repr(self):
         space = self.space
-        w_name = space.findattr(self.w_function, space.wrap('__qualname__'))
+        w_name = space.findattr(self.w_function, space.newtext('__qualname__'))
         if w_name is None:
             name = self.w_function.getname(self.space)
         else:
@@ -556,14 +555,14 @@ class Method(W_Root):
                 name = u'?'
         objrepr = space.unicode_w(space.repr(self.w_instance))
         s = u'<bound method %s of %s>' % (name, objrepr)
-        return space.wrap(s)
+        return space.newunicode(s)
 
     def descr_method_getattribute(self, w_attr):
         space = self.space
         if space.str_w(w_attr) != '__doc__':
             try:
                 return space.call_method(space.w_object, '__getattribute__',
-                                         space.wrap(self), w_attr)
+                                         self, w_attr)
             except OperationError as e:
                 if not e.match(space, space.w_AttributeError):
                     raise
@@ -612,7 +611,7 @@ class Method(W_Root):
         if (isinstance(w_function, Function) and
                 isinstance(w_function.code, BuiltinCode)):
             new_inst = mod.get('builtin_method_new')
-            tup = [w_instance, space.wrap(w_function.name)]
+            tup = [w_instance, space.newtext(w_function.name)]
         else:
             new_inst = mod.get('method_new')
             tup = [self.w_function, w_instance]
@@ -678,7 +677,7 @@ class ClassMethod(W_Root):
     def descr_classmethod_get(self, space, w_obj, w_klass=None):
         if space.is_none(w_klass):
             w_klass = space.type(w_obj)
-        return space.wrap(Method(space, self.w_function, w_klass))
+        return Method(space, self.w_function, w_klass)
 
     def descr_classmethod__new__(space, w_subtype, w_function):
         instance = space.allocate_instance(ClassMethod, w_subtype)
@@ -713,10 +712,10 @@ class BuiltinFunction(Function):
                     "cannot create 'builtin_function' instances")
 
     def descr_function_repr(self):
-        return self.space.wrap('<built-in function %s>' % (self.name,))
+        return self.space.newtext('<built-in function %s>' % (self.name,))
 
     def descr__reduce__(self, space):
-        return space.wrap(self.qualname)
+        return space.newunicode(self.qualname)
 
 def is_builtin_code(w_func):
     from pypy.interpreter.gateway import BuiltinCode
