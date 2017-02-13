@@ -168,6 +168,7 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
     while (signal) {
         int is_signal_frame = unw_is_signal_frame(&cursor);
         if (is_signal_frame) {
+            unw_step(&cursor); // step once more discard signal frame
             break;
         }
         int err = unw_step(&cursor);
