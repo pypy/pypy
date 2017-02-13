@@ -30,7 +30,7 @@ class MixedModule(Module):
         Module.install(self)
         if hasattr(self, "submodules"):
             space = self.space
-            name = space.unwrap(self.w_name)
+            name = space.text_w(self.w_name)
             for sub_name, module_cls in self.submodules.iteritems():
                 if module_cls.submodule_name is None:
                     module_cls.submodule_name = sub_name

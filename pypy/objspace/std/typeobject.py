@@ -779,7 +779,7 @@ def _check(space, w_type, msg="descriptor is for 'type'"):
 
 def descr_get__name__(space, w_type):
     w_type = _check(space, w_type)
-    return space.newtext(w_type.getname(space))
+    return space.newunicode(w_type.getname(space))
 
 def descr_set__name__(space, w_type, w_value):
     w_type = _check(space, w_type)

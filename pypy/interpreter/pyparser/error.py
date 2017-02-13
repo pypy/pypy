@@ -28,7 +28,7 @@ class SyntaxError(Exception):
             if len(self.text) != offset:
                 text, _ = str_decode_utf_8(self.text, len(self.text),
                                            'replace')
-            w_text = space.newtext(text)
+            w_text = space.newunicode(text)
         if self.filename is not None:
             w_filename = space.wrap_fsdecoded(self.filename)
         return space.newtuple([space.wrap(self.msg),
