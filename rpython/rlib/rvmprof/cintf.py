@@ -106,9 +106,9 @@ def setup():
                                   lltype.Void, compilation_info=eci,
                                   _nowrapper=True)
 
-    vmp_dyn_cancel = rffi.llexternal("vmp_dyn_teardown", [lltype.Void],
-                                  rffi.INT, compilation_info=eci,
-                                  _nowrapper=True)
+    vmp_dyn_teardown = rffi.llexternal("vmp_dyn_teardown", [lltype.Void],
+                                       rffi.INT, compilation_info=eci,
+                                       _nowrapper=True)
 
     return CInterface(locals())
 

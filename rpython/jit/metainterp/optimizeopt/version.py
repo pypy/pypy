@@ -76,7 +76,7 @@ class LoopVersionInfo(BasicLoopInfo):
                                                  descr, vl.inputargs,
                                                  vl.operations, jitcell_token,
                                                  metainterp.box_names_memo)
-                record_loop_or_bridge(metainterp_sd, vl)
+                record_loop_or_bridge(metainterp_sd, vl, asminfo)
                 assert asminfo is not None
                 compiled[version] = (asminfo, descr, version, jitcell_token)
             else:
