@@ -330,11 +330,13 @@ class ComplexTest(unittest.TestCase):
         self.assertRaises(ValueError, complex, ")1+2j(")
         self.assertRaisesRegex(
             TypeError,
-            "first argument must be a string or a number, not 'dict'",
+            "first argument must be a string or a number, not 'dict'"  # cpython
+            "|unsupported operand type for float\(\): 'dict'",         # pypy
             complex, {1:2}, 1)
         self.assertRaisesRegex(
             TypeError,
-            "second argument must be a number, not 'dict'",
+            "second argument must be a number, not 'dict'"          # cpython
+            "|unsupported operand type for float\(\): 'dict'",      # pypy
             complex, 1, {1:2})
         # the following three are accepted by Python 2.6
         self.assertRaises(ValueError, complex, "1..1j")
