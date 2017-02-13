@@ -77,8 +77,7 @@ class W_Root(object):
 
     def getname(self, space):
         try:
-            # YYY should be text_w?
-            return space.bytes_w(space.getattr(self, space.newtext('__name__')))
+            return space.text_w(space.getattr(self, space.newtext('__name__')))
         except OperationError as e:
             if e.match(space, space.w_TypeError) or e.match(space, space.w_AttributeError):
                 return '?'
@@ -842,7 +841,7 @@ class ObjSpace(object):
 
     def new_interned_w_str(self, w_s):
         assert isinstance(w_s, W_Root)   # and is not None
-        s = self.bytes_w(w_s)
+        s = self.text_w(w_s)
         if not we_are_translated():
             assert type(s) is str
         w_s1 = self.interned_strings.get(s)
@@ -857,7 +856,7 @@ class ObjSpace(object):
             assert type(s) is str
         w_s1 = self.interned_strings.get(s)
         if w_s1 is None:
-            w_s1 = self.newbytes(s)
+            w_s1 = self.newtext(s)
             self.interned_strings.set(s, w_s1)
         return w_s1
 
@@ -1608,12 +1607,17 @@ class ObjSpace(object):
         return None if self.is_none(w_obj) else self.bytes_w(w_obj)
 
     def bytes_w(self, w_obj):
+        "Takes a bytes object and returns an unwrapped RPython bytestring."
         return w_obj.str_w(self)
-    text_w = bytes_w # equivalent to identifier_w on Python3
 
-    @not_rpython
+    def text_w(self, w_obj):
+        """Takes a string object (unicode in Python 3) and returns an
+        unwrapped RPython bytestring."""
+        return w_obj.str_w(self)
+
+    #@not_rpython    BACKCOMPAT: should be replaced with bytes_w or text_w
     def str_w(self, w_obj):
-        # XXX there are still some tests that call it
+        """For tests only."""
         return self.bytes_w(w_obj)
 
 
