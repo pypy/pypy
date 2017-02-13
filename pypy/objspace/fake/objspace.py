@@ -58,7 +58,10 @@ class W_MyObject(W_Root):
 
     def bigint_w(self, space, allow_conversion=True):
         from rpython.rlib.rbigint import rbigint
-        return rbigint.fromint(NonConstant(42))
+        x = 42
+        if we_are_translated():
+            x = NonConstant(x)
+        return rbigint.fromint(x)
 
 class W_MyListObj(W_MyObject):
     def append(self, w_other):
