@@ -422,9 +422,9 @@ class _SSLSocket(W_Root):
 
         if num_bytes <= 0:
             if rwbuffer:
-                return space.wrap(0)
+                return space.newint(0)
             else:
-                return space.wrap("")
+                return space.newbytes("")
 
         with rffi.scoped_alloc_buffer(num_bytes) as buf:
             while True:
