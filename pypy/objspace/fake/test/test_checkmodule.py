@@ -19,7 +19,7 @@ def test_wrap_interp2app():
     space = FakeObjSpace()
     assert len(space._seen_extras) == 0
     assert len(check) == 0
-    space.wrap(interp2app(lambda space: see()))
+    interp2app(lambda space: see()).spacebind(space)
     assert len(space._seen_extras) == 1
     assert len(check) == 0
     space.translates()

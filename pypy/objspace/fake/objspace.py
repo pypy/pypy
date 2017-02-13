@@ -123,6 +123,9 @@ BUILTIN_TYPES = ['int', 'str', 'float', 'long', 'tuple', 'list', 'dict',
                  'unicode', 'complex', 'slice', 'bool', 'basestring', 'object',
                  'bytearray', 'buffer', 'set', 'frozenset']
 
+INTERP_TYPES = ['function', 'builtin_function', 'module', 'getset_descriptor',
+                'instance', 'classobj']
+
 class FakeObjSpace(ObjSpace):
     is_fake_objspace = True
 
@@ -211,10 +214,8 @@ class FakeObjSpace(ObjSpace):
     @not_rpython
     def wrap(self, x):
         if not we_are_translated():
-            if isinstance(x, gateway.interp2app):
-                self._see_interp2app(x)
-            if isinstance(x, GetSetProperty):
-                self._see_getsetproperty(x)
+            if isinstance(x, W_Root):
+                x.spacebind(self)
         if isinstance(x, r_singlefloat):
             self._wrap_not_rpython(x)
         if isinstance(x, list):
@@ -225,6 +226,7 @@ class FakeObjSpace(ObjSpace):
 
     @not_rpython
     def _see_interp2app(self, interp2app):
+        """Called by GatewayCache.build()"""
         activation = interp2app._code.activation
         def check():
             scope_w = [w_some_obj()] * NonConstant(42)
@@ -235,6 +237,7 @@ class FakeObjSpace(ObjSpace):
 
     @not_rpython
     def _see_getsetproperty(self, getsetproperty):
+        """Called by GetSetProperty.spacebind()"""
         space = self
         def checkprop():
             getsetproperty.fget(getsetproperty, space, w_some_obj())
@@ -358,6 +361,7 @@ class FakeObjSpace(ObjSpace):
         ann = t.buildannotator()
         def _do_startup():
             self.threadlocals.enter_thread(self)
+            W_SliceObject(w_some_obj(), w_some_obj(), w_some_obj())
         ann.build_types(_do_startup, [], complete_now=False)
         if func is not None:
             ann.build_types(func, argtypes, complete_now=False)
@@ -418,7 +422,9 @@ class FakeObjSpace(ObjSpace):
 @specialize.memo()
 def see_typedef(space, typedef):
     assert isinstance(typedef, TypeDef)
-    if typedef.name not in BUILTIN_TYPES:
+    if typedef.name not in BUILTIN_TYPES and typedef.name not in INTERP_TYPES:
+        print
+        print '------ seeing typedef %r ------' % (typedef.name,)
         for name, value in typedef.rawdict.items():
             space.wrap(value)
 
