@@ -152,7 +152,7 @@ class KwargsDictStrategy(DictStrategy):
         storage = strategy.get_empty_storage()
         d_new = strategy.unerase(storage)
         for i in range(len(keys)):
-            d_new[self.decodekey_str(keys[i])] = values_w[i]
+            d_new[strategy.decodekey_str(keys[i])] = values_w[i]
         w_dict.set_strategy(strategy)
         w_dict.dstorage = storage
 
