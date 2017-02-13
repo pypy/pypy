@@ -25,6 +25,8 @@
 #define PROFILE_NATIVE '\x04'
 #define PROFILE_RPYTHON '\x08'
 
+#define DYN_JIT_FLAG 0xbeefbeef
+
 #ifdef VMPROF_UNIX
 #define VMP_SUPPORTS_NATIVE_PROFILING
 #endif

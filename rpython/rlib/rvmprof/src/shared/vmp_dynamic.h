@@ -5,8 +5,6 @@
 
 #include "rvmprof.h"
 
-#define DYN_JIT_FLAG 0xbeefbeef
-
 RPY_EXTERN int vmp_dyn_register_jit_page(intptr_t addr, intptr_t end_addr,
                               const char * name);
 RPY_EXTERN int vmp_dyn_cancel(int ref);
