@@ -95,10 +95,13 @@ class DummySpace(object):
     def wrap(self, obj):
         return obj
     newtext = wrap
+    newunicode = wrap
 
     def str_w(self, s):
         return str(s)
-    text_w = str_w
+
+    def text_w(self, s):
+        return self.str_w(s)
 
     def unicode_w(self, s):
         return unicode(s)

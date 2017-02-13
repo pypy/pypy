@@ -26,8 +26,8 @@ class W_AbstractBytesObject(W_Root):
             return True
         if self.user_overridden_class or w_other.user_overridden_class:
             return False
-        s1 = space.str_w(self)
-        s2 = space.str_w(w_other)
+        s1 = space.bytes_w(self)
+        s2 = space.bytes_w(w_other)
         if len(s2) > 1:
             return s1 is s2
         else:            # strings of len <= 1 are unique-ified
@@ -36,7 +36,7 @@ class W_AbstractBytesObject(W_Root):
     def immutable_unique_id(self, space):
         if self.user_overridden_class:
             return None
-        s = space.str_w(self)
+        s = space.bytes_w(self)
         if len(s) > 1:
             uid = compute_unique_id(s)
         else:            # strings of len <= 1 are unique-ified

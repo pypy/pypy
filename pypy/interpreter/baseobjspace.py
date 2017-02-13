@@ -630,7 +630,7 @@ class ObjSpace(object):
                 if not e.match(self, self.w_StopIteration):
                     raise
                 break
-            name = self.str_w(w_name)
+            name = self.text_w(w_name)
             if not name.startswith('__'):
                 excname = name
                 w_exc = self.getitem(w_dic, w_name)

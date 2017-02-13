@@ -518,7 +518,7 @@ class W_IntObject(W_AbstractIntObject):
         return _new_int(space, w_inttype, w_x, w_base)
 
     def descr_hash(self, space):
-        return space.wrap(_hash_int(self.intval))
+        return space.newint(_hash_int(self.intval))
 
     def as_w_long(self, space):
         return space.newlong(self.intval)
