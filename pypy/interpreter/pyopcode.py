@@ -1010,8 +1010,7 @@ class __extend__(pyframe.PyFrame):
 
         w_import = self.get_builtin().getdictvalue(space, '__import__')
         if w_import is None:
-            raise OperationError(space.w_ImportError,
-                                 space.wrap("__import__ not found"))
+            raise oefmt(space.w_ImportError, "__import__ not found")
         d = self.getdebug()
         if d is None:
             w_locals = None
