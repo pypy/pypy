@@ -741,7 +741,7 @@ class MapDictStrategy(DictStrategy):
         space = self.space
         w_lookup_type = space.type(w_key)
         if space.is_w(w_lookup_type, space.w_unicode):
-            return self.getitem_str(w_dict, space.str_w(w_key))
+            return self.getitem_str(w_dict, space.text_w(w_key))
         elif _never_equal_to_string(space, w_lookup_type):
             return None
         else:
@@ -760,7 +760,7 @@ class MapDictStrategy(DictStrategy):
     def setitem(self, w_dict, w_key, w_value):
         space = self.space
         if space.is_w(space.type(w_key), space.w_unicode):
-            self.setitem_str(w_dict, self.space.str_w(w_key), w_value)
+            self.setitem_str(w_dict, self.space.text_w(w_key), w_value)
         else:
             self.switch_to_object_strategy(w_dict)
             w_dict.setitem(w_key, w_value)
@@ -768,7 +768,7 @@ class MapDictStrategy(DictStrategy):
     def setdefault(self, w_dict, w_key, w_default):
         space = self.space
         if space.is_w(space.type(w_key), space.w_unicode):
-            key = space.str_w(w_key)
+            key = space.text_w(w_key)
             w_result = self.getitem_str(w_dict, key)
             if w_result is not None:
                 return w_result
@@ -783,7 +783,7 @@ class MapDictStrategy(DictStrategy):
         w_key_type = space.type(w_key)
         w_obj = self.unerase(w_dict.dstorage)
         if space.is_w(w_key_type, space.w_unicode):
-            key = self.space.str_w(w_key)
+            key = self.space.text_w(w_key)
             flag = w_obj.deldictvalue(space, key)
             if not flag:
                 raise KeyError
