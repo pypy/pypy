@@ -462,7 +462,7 @@ class Integer(Primitive):
     signed = True
 
     def to_builtin_type(self, space, box):
-        return space.newint(self.for_computation(self.unbox(box)))
+        return space.wrap(self.for_computation(self.unbox(box)))
 
     def _base_coerce(self, space, w_item):
         if w_item is None:
@@ -740,7 +740,7 @@ class Float(Primitive):
     strlen = 32
 
     def to_builtin_type(self, space, box):
-        return space.wrap(self.for_computation(self.unbox(box)))
+        return space.newfloat(self.for_computation(self.unbox(box)))
 
     def _coerce(self, space, w_item):
         if w_item is None:

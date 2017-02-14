@@ -196,6 +196,9 @@ class FakeSpace(ObjSpace):
         return StringObject(obj)
     newbytes = newtext
 
+    def newunicode(self, obj):
+        raise NotImplementedError
+
     def newlist(self, items):
         return ListObject(items)
 
@@ -667,7 +670,7 @@ class RangeConstant(Node):
 
     def execute(self, interp):
         w_list = interp.space.newlist(
-            [interp.space.wrap(float(i)) for i in range(self.v)]
+            [interp.space.newfloat(float(i)) for i in range(self.v)]
         )
         dtype = get_dtype_cache(interp.space).w_float64dtype
         return array(interp.space, w_list, w_dtype=dtype, w_order=None)
@@ -834,7 +837,7 @@ class FunctionCall(Node):
                 w_res = arr.descr_take(interp.space, arg)
             elif self.name == "searchsorted":
                 w_res = arr.descr_searchsorted(interp.space, arg,
-                                               interp.space.wrap('left'))
+                                               interp.space.newtext('left'))
             else:
                 assert False # unreachable code
         elif self.name in THREE_ARG_FUNCTIONS:

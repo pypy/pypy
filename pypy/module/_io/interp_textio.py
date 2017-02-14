@@ -65,7 +65,7 @@ class W_IncrementalNewlineDecoder(W_Root):
         # decode input (with the eventual \r from a previous pass)
         if not space.is_w(self.w_decoder, space.w_None):
             w_output = space.call_method(self.w_decoder, "decode",
-                                         w_input, space.newbool(final))
+                                         w_input, space.newbool(bool(final)))
         else:
             w_output = w_input
 
