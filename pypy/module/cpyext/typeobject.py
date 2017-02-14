@@ -61,7 +61,7 @@ class W_GetSetPropertyEx(GetSetProperty):
                                 tag="cpyext_1")
 
 def PyDescr_NewGetSet(space, getset, w_type):
-    return space.wrap(W_GetSetPropertyEx(getset, w_type))
+    return W_GetSetPropertyEx(getset, w_type)
 
 def make_GetSet(space, getsetprop):
     py_getsetdef = lltype.malloc(PyGetSetDef, flavor='raw')
@@ -244,7 +244,7 @@ def convert_member_defs(space, dict_w, members, w_type):
             if not name:
                 break
             name = rffi.charp2str(name)
-            w_descr = space.wrap(W_MemberDescr(member, w_type))
+            w_descr = W_MemberDescr(member, w_type)
             dict_w[name] = w_descr
             i += 1
 
@@ -356,9 +356,9 @@ def add_operators(space, dict_w, pto):
             continue
         w_obj = W_PyCWrapperObject(space, pto, method_name, wrapper_func,
                 wrapper_func_kwds, doc, func_voidp, offset=offset)
-        dict_w[method_name] = space.wrap(w_obj)
+        dict_w[method_name] = w_obj
     if pto.c_tp_doc:
-        dict_w['__doc__'] = space.newbytes(
+        dict_w['__doc__'] = space.newtext(
             rffi.charp2str(cts.cast('char*', pto.c_tp_doc)))
     if pto.c_tp_new:
         add_tp_new_wrapper(space, dict_w, pto)
@@ -502,7 +502,7 @@ class W_PyCTypeObject(W_TypeObject):
         elif pto.c_tp_as_mapping and pto.c_tp_as_mapping.c_mp_subscript:
             self.flag_map_or_seq = 'M'
         if pto.c_tp_doc:
-            self.w_doc = space.newbytes(
+            self.w_doc = space.newtext(
                 rffi.charp2str(cts.cast('char*', pto.c_tp_doc)))
 
 @bootstrap_function
@@ -641,7 +641,7 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
             # point we might get into troubles by doing make_ref() when
             # things are not initialized yet.  So in this case, simply use
             # str2charp() and "leak" the string.
-        w_typename = space.getattr(w_type, space.wrap('__name__'))
+        w_typename = space.getattr(w_type, space.newtext('__name__'))
         heaptype = cts.cast('PyHeapTypeObject*', pto)
         heaptype.c_ht_name = make_ref(space, w_typename)
         from pypy.module.cpyext.unicodeobject import PyUnicode_AsUTF8

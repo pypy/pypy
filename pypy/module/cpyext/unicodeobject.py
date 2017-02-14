@@ -416,7 +416,7 @@ def PyUnicode_FromUnicode(space, wchar_p, length):
     is NULL."""
     if wchar_p:
         s = rffi.wcharpsize2unicode(wchar_p, length)
-        return make_ref(space, space.wrap(s))
+        return make_ref(space, space.newunicode(s))
     else:
         return new_empty_unicode(space, length)
 
@@ -442,7 +442,7 @@ def PyUnicode_Decode(space, s, size, encoding, errors):
         # This tracks CPython 2.7, in CPython 3.4 'utf-8' is hardcoded instead
         encoding = PyUnicode_GetDefaultEncoding(space)
     w_str = space.newbytes(rffi.charpsize2str(s, size))
-    w_encoding = space.wrap(rffi.charp2str(encoding))
+    w_encoding = space.newtext(rffi.charp2str(encoding))
     if errors:
         w_errors = space.newbytes(rffi.charp2str(errors))
     else:
@@ -848,7 +848,7 @@ def PyUnicode_TransformDecimalToASCII(space, s, size):
             if decimal >= 0:
                 ch = unichr(ord('0') + decimal)
         result.append(ch)
-    return space.wrap(result.build())
+    return space.newunicode(result.build())
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-2)
 def PyUnicode_Compare(space, w_left, w_right):
