@@ -21,4 +21,4 @@ def crypt(space, word, salt):
     if not res:
         return space.w_None
     str_res = rffi.charp2str(res)
-    return space.wrap(str_res)
+    return space.newtext(str_res)

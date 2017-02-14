@@ -6,4 +6,4 @@ from rpython.rlib import rzipfile
 def crc32(space, data, oldcrc=0):
     "Compute the CRC-32 incrementally."
     crc = rzipfile.crc32(data, r_uint(oldcrc))
-    return space.wrap(crc)
+    return space.newint(crc)
