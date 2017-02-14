@@ -657,7 +657,7 @@ class StringMethods(object):
         prefix = self._op_val(space, w_prefix)
         return endswith(value, prefix, start, end)
 
-    def _strip(self, space, w_chars, left, right):
+    def _strip(self, space, w_chars, left, right, name='strip'):
         "internal function called by str_xstrip methods"
         value = self._val(space)
         chars = self._op_val(space, w_chars)
@@ -697,17 +697,17 @@ class StringMethods(object):
     def descr_strip(self, space, w_chars=None):
         if space.is_none(w_chars):
             return self._strip_none(space, left=1, right=1)
-        return self._strip(space, w_chars, left=1, right=1)
+        return self._strip(space, w_chars, left=1, right=1, name='strip')
 
     def descr_lstrip(self, space, w_chars=None):
         if space.is_none(w_chars):
             return self._strip_none(space, left=1, right=0)
-        return self._strip(space, w_chars, left=1, right=0)
+        return self._strip(space, w_chars, left=1, right=0, name='lstrip')
 
     def descr_rstrip(self, space, w_chars=None):
         if space.is_none(w_chars):
             return self._strip_none(space, left=0, right=1)
-        return self._strip(space, w_chars, left=0, right=1)
+        return self._strip(space, w_chars, left=0, right=1, name='rstrip')
 
     def descr_swapcase(self, space):
         selfvalue = self._val(space)

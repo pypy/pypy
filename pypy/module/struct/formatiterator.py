@@ -1,3 +1,5 @@
+from rpython.rlib.rarithmetic import (r_uint, r_ulonglong, r_longlong,
+                                      maxint, intmask)
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rstring import StringBuilder

@@ -100,6 +100,7 @@ def descr__new__(space, w_type, __args__):
     w_type = _precheck_for_new(space, w_type)
 
     if _excess_args(__args__):
+        w_parent_new, _ = space.lookup_in_type_where(w_type, '__new__')
         w_parent_init, _ = space.lookup_in_type_where(w_type, '__init__')
         w_parent_new, _ = space.lookup_in_type_where(w_type, '__new__')
         if (w_parent_init is space.w_object or
@@ -118,6 +119,7 @@ def descr___subclasshook__(space, __args__):
 def descr__init__(space, w_obj, __args__):
     if _excess_args(__args__):
         w_type = space.type(w_obj)
+        w_parent_init, _ = space.lookup_in_type_where(w_type, '__init__')
         w_parent_new, _ = space.lookup_in_type_where(w_type, '__new__')
         w_parent_init, _ = space.lookup_in_type_where(w_type, '__init__')
         if (w_parent_new is space.w_object or
