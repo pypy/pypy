@@ -61,10 +61,8 @@ class W_ZipCache(W_Root):
             if ZIPSEP != os.path.sep:
                 key = key.replace(ZIPSEP, os.path.sep)
             space.setitem(w_d, w_fs(key), space.newtuple([
-                w_fs(info.filename), space.newint(info.compress_type),
-                space.newint(info.compress_size),
-                space.newint(info.file_size), space.newint(info.file_offset),
-                space.newint(info.dostime),
+                w_fs(info.filename), space.newint(info.compress_type), space.newint(info.compress_size),
+                space.newint(info.file_size), space.newint(info.file_offset), space.newint(info.dostime),
                 space.newint(info.dosdate), space.newint(info.CRC)]))
         return w_d
 
