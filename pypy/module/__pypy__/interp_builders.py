@@ -42,12 +42,12 @@ def create_builder(name, strtype, builder_cls):
             if strtype is str:
                 return space.newbytes(s)
             else:
-                return space.wrap(s)
+                return space.newunicode(s)
 
         def descr_len(self, space):
             if self.builder is None:
                 raise oefmt(space.w_ValueError, "no length of built builder")
-            return space.wrap(self.builder.getlength())
+            return space.newint(self.builder.getlength())
 
     W_Builder.__name__ = "W_%s" % name
     W_Builder.typedef = TypeDef(name,

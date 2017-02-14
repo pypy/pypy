@@ -143,14 +143,14 @@ class JSONDecoder(object):
             self.ll_chars[i+5] == 't' and
             self.ll_chars[i+6] == 'y'):
             self.pos = i+7
-            return self.space.wrap(rfloat.INFINITY * sign)
+            return self.space.newfloat(rfloat.INFINITY * sign)
         raise DecoderError("Error when decoding Infinity at", i)
 
     def decode_nan(self, i):
         if (self.ll_chars[i]   == 'a' and
             self.ll_chars[i+1] == 'N'):
             self.pos = i+2
-            return self.space.wrap(rfloat.NAN)
+            return self.space.newfloat(rfloat.NAN)
         raise DecoderError("Error when decoding NaN at", i)
 
     def decode_numeric(self, i):
@@ -169,7 +169,7 @@ class JSONDecoder(object):
             return self.decode_int_slow(start)
 
         self.pos = i
-        return self.space.wrap(intval)
+        return self.space.newint(intval)
 
     def decode_float(self, i):
         from rpython.rlib import rdtoa
@@ -177,7 +177,7 @@ class JSONDecoder(object):
         floatval = rdtoa.dg_strtod(start, self.end_ptr)
         diff = rffi.cast(rffi.LONG, self.end_ptr[0]) - rffi.cast(rffi.LONG, start)
         self.pos = i + diff
-        return self.space.wrap(floatval)
+        return self.space.newfloat(floatval)
 
     def decode_int_slow(self, i):
         start = i
@@ -187,7 +187,7 @@ class JSONDecoder(object):
             i += 1
         s = self.getslice(start, i)
         self.pos = i
-        return self.space.call_function(self.space.w_int, self.space.wrap(s))
+        return self.space.call_function(self.space.w_int, self.space.newtext(s))
 
     @always_inline
     def parse_integer(self, i):
@@ -309,7 +309,7 @@ class JSONDecoder(object):
                     content_unicode = strslice2unicode_latin1(self.s, start, i-1)
                 self.last_type = TYPE_STRING
                 self.pos = i
-                return self.space.wrap(content_unicode)
+                return self.space.newunicode(content_unicode)
             elif ch == '\\' or ch < '\x20':
                 self.pos = i-1
                 return self.decode_string_escaped(start)
@@ -330,7 +330,7 @@ class JSONDecoder(object):
                     self.space, content_utf8, allow_surrogates=True)
                 self.last_type = TYPE_STRING
                 self.pos = i
-                return self.space.wrap(content_unicode)
+                return self.space.newunicode(content_unicode)
             elif ch == '\\':
                 i = self.decode_escape_sequence(i, builder)
             elif ch < '\x20':

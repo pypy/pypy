@@ -25,7 +25,7 @@ def encode_idna(space, w_host):
     # call unicode.encode(host, 'idna'), and not host.encode('idna') in case
     # type(host) is not unicode.  See also interp_socket.idna_converter()
     return space.bytes_w(space.call_method(space.w_unicode, 'encode',
-                                           w_host, space.wrap('idna')))
+                                           w_host, space.newtext('idna')))
 
 def gethostbyname(space, w_host):
     """gethostbyname(host) -> address
@@ -38,12 +38,12 @@ def gethostbyname(space, w_host):
         ip = addr.get_host()
     except SocketError as e:
         raise converted_error(space, e)
-    return space.wrap(ip)
+    return space.newtext(ip)
 
 def common_wrapgethost(space, (name, aliases, address_list)):
-    aliases = [space.wrap(alias) for alias in aliases]
-    address_list = [space.wrap(addr.get_host()) for addr in address_list]
-    return space.newtuple([space.wrap(name),
+    aliases = [space.newtext(alias) for alias in aliases]
+    address_list = [space.newtext(addr.get_host()) for addr in address_list]
+    return space.newtuple([space.newtext(name),
                            space.newlist(aliases),
                            space.newlist(address_list)])
 
@@ -89,7 +89,7 @@ def getservbyname(space, name, w_proto):
         port = rsocket.getservbyname(name, proto)
     except SocketError as e:
         raise converted_error(space, e)
-    return space.wrap(port)
+    return space.newint(port)
 
 @unwrap_spec(port=int, w_proto = WrappedDefault(None))
 def getservbyport(space, port, w_proto):
@@ -112,7 +112,7 @@ def getservbyport(space, port, w_proto):
         service = rsocket.getservbyport(port, proto)
     except SocketError as e:
         raise converted_error(space, e)
-    return space.wrap(service)
+    return space.newtext(service)
 
 @unwrap_spec(name=str)
 def getprotobyname(space, name):
@@ -124,7 +124,7 @@ def getprotobyname(space, name):
         proto = rsocket.getprotobyname(name)
     except SocketError as e:
         raise converted_error(space, e)
-    return space.wrap(proto)
+    return space.newint(proto)
 
 @unwrap_spec(flags=int)
 def getnameinfo(space, w_sockaddr, flags):
@@ -132,8 +132,8 @@ def getnameinfo(space, w_sockaddr, flags):
 
     Get host and port for a sockaddr."""
     try:
-        host = space.str_w((space.getitem(w_sockaddr, space.wrap(0))))
-        port = str(space.int_w(space.getitem(w_sockaddr, space.wrap(1))))
+        host = space.str_w((space.getitem(w_sockaddr, space.newint(0))))
+        port = str(space.int_w(space.getitem(w_sockaddr, space.newint(1))))
         lst = rsocket.getaddrinfo(host, port, rsocket.AF_UNSPEC,
                                   rsocket.SOCK_DGRAM, 0,
                                   rsocket.AI_NUMERICHOST)
@@ -145,7 +145,7 @@ def getnameinfo(space, w_sockaddr, flags):
         host, servport = rsocket.getnameinfo(addr, flags)
     except SocketError as e:
         raise converted_error(space, e)
-    return space.newtuple([space.wrap(host), space.wrap(servport)])
+    return space.newtuple([space.newtext(host), space.newtext(servport)])
 
 @unwrap_spec(fd=int)
 def dup(space, fd):
@@ -153,7 +153,7 @@ def dup(space, fd):
         newfd = rsocket.dup(fd, inheritable=False)
     except SocketError as e:
         raise converted_error(space, e)
-    return space.wrap(newfd)
+    return space.newint(newfd)
 
 @unwrap_spec(family=int, type=int, proto=int)
 def socketpair(space, family=rsocket.socketpair_default_family,
@@ -172,8 +172,8 @@ def socketpair(space, family=rsocket.socketpair_default_family,
     except SocketError as e:
         raise converted_error(space, e)
     return space.newtuple([
-        space.wrap(W_Socket(space, sock1)),
-        space.wrap(W_Socket(space, sock2))
+        W_Socket(space, sock1),
+        W_Socket(space, sock2)
     ])
 
 # The following 4 functions refuse all negative numbers.
@@ -190,7 +190,7 @@ def ntohs(space, x):
     if x < 0:
         raise oefmt(space.w_OverflowError,
                     "can't convert negative number to unsigned long")
-    return space.wrap(rsocket.ntohs(intmask(x)))
+    return space.newint(rsocket.ntohs(intmask(x)))
 
 @unwrap_spec(x=r_longlong)
 def ntohl(space, x):
@@ -203,7 +203,7 @@ def ntohl(space, x):
                     "can't convert negative number to unsigned long")
     if x > LONGLONG_UINT32_MAX:
         raise oefmt(space.w_OverflowError, "long int larger than 32 bits")
-    return space.wrap(rsocket.ntohl(r_uint32(x)))
+    return space.newint(rsocket.ntohl(r_uint32(x)))
 
 @unwrap_spec(x="c_int")
 def htons(space, x):
@@ -214,7 +214,7 @@ def htons(space, x):
     if x < 0:
         raise oefmt(space.w_OverflowError,
                     "can't convert negative number to unsigned long")
-    return space.wrap(rsocket.htons(x))
+    return space.newint(rsocket.htons(x))
 
 @unwrap_spec(x=r_longlong)
 def htonl(space, x):
@@ -227,7 +227,7 @@ def htonl(space, x):
                     "can't convert negative number to unsigned long")
     if x > LONGLONG_UINT32_MAX:
         raise oefmt(space.w_OverflowError, "long int larger than 32 bits")
-    return space.wrap(rsocket.htonl(r_uint32(x)))
+    return space.newint(rsocket.htonl(r_uint32(x)))
 
 @unwrap_spec(ip=str)
 def inet_aton(space, ip):
@@ -252,7 +252,7 @@ def inet_ntoa(space, packed):
         ip = rsocket.inet_ntoa(packed)
     except SocketError as e:
         raise converted_error(space, e)
-    return space.wrap(ip)
+    return space.newtext(ip)
 
 @unwrap_spec(family=int, ip=str)
 def inet_pton(space, family, ip):
@@ -280,7 +280,7 @@ def inet_ntop(space, family, packed):
     except ValueError:
         raise oefmt(space.w_ValueError,
                     "invalid length of packed IP address string")
-    return space.wrap(ip)
+    return space.newtext(ip)
 
 @unwrap_spec(family=int, type=int, proto=int, flags=int)
 def getaddrinfo(space, w_host, w_port,
@@ -319,10 +319,10 @@ def getaddrinfo(space, w_host, w_port,
                                   proto, flags)
     except SocketError as e:
         raise converted_error(space, e)
-    lst1 = [space.newtuple([space.wrap(family),
-                            space.wrap(socktype),
-                            space.wrap(protocol),
-                            space.wrap(canonname),
+    lst1 = [space.newtuple([space.newint(family),
+                            space.newint(socktype),
+                            space.newint(protocol),
+                            space.newtext(canonname),
                             addr_as_object(addr, INVALID_SOCKET, space)]) # -1 as per cpython
             for (family, socktype, protocol, canonname, addr) in lst]
     return space.newlist(lst1)
@@ -337,7 +337,7 @@ def getdefaulttimeout(space):
     timeout = rsocket.getdefaulttimeout()
     if timeout < 0.0:
         return space.w_None
-    return space.wrap(timeout)
+    return space.newfloat(timeout)
 
 def setdefaulttimeout(space, w_timeout):
     if space.is_w(w_timeout, space.w_None):

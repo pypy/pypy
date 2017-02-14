@@ -46,19 +46,19 @@ class CodecState(object):
                 w_input = space.newunicode(input)
             w_exc =  space.call_function(
                 w_cls,
-                space.wrap(encoding),
+                space.newtext(encoding),
                 w_input,
-                space.wrap(startpos),
-                space.wrap(endpos),
-                space.wrap(reason))
+                space.newint(startpos),
+                space.newint(endpos),
+                space.newtext(reason))
             w_res = space.call_function(w_errorhandler, w_exc)
             if (not space.isinstance_w(w_res, space.w_tuple)
                 or space.len_w(w_res) != 2
                 or not (space.isinstance_w(
-                            space.getitem(w_res, space.wrap(0)),
+                            space.getitem(w_res, space.newint(0)),
                             space.w_unicode) or
                         (not decode and space.isinstance_w(
-                            space.getitem(w_res, space.wrap(0)),
+                            space.getitem(w_res, space.newint(0)),
                             space.w_bytes)))):
                 if decode:
                     msg = ("decoding error handler must return "
@@ -66,7 +66,7 @@ class CodecState(object):
                 else:
                     msg = ("encoding error handler must return "
                            "(str/bytes, int) tuple")
-                raise OperationError(space.w_TypeError, space.wrap(msg))
+                raise OperationError(space.w_TypeError, space.newtext(msg))
 
             w_replace, w_newpos = space.fixedview(w_res, 2)
             try:
@@ -110,7 +110,7 @@ class CodecState(object):
             return self.unicodedata_handler
         try:
             w_unicodedata = space.getbuiltinmodule("unicodedata")
-            w_getcode = space.getattr(w_unicodedata, space.wrap("_get_code"))
+            w_getcode = space.getattr(w_unicodedata, space.newtext("_get_code"))
         except OperationError:
             return None
         else:
@@ -167,13 +167,13 @@ def _lookup_codec_loop(space, encoding, normalized_encoding):
         # registers new codecs.
         # This import uses the "builtin" import method, and is needed
         # to bootstrap the full importlib module.
-        w_import = space.getattr(space.builtin, space.wrap("__import__"))
-        space.call_function(w_import, space.wrap("encodings"))
+        w_import = space.getattr(space.builtin, space.newtext("__import__"))
+        space.call_function(w_import, space.newtext("encodings"))
         from pypy.module.sys.interp_encoding import base_encoding
         # May be 'utf-8'
         normalized_base = base_encoding.replace("-", "_").lower()
-        space.call_function(w_import, space.wrap("encodings." +
-                                                 normalized_base))
+        space.call_function(w_import, space.newtext("encodings." +
+                                                    normalized_base))
         state.codec_need_encodings = False
         if len(state.codec_search_path) == 0:
             raise oefmt(space.w_LookupError,
@@ -181,7 +181,7 @@ def _lookup_codec_loop(space, encoding, normalized_encoding):
                         "encoding")
     for w_search in state.codec_search_path:
         w_result = space.call_function(w_search,
-                                       space.wrap(normalized_encoding))
+                                       space.newtext(normalized_encoding))
         if not space.is_w(w_result, space.w_None):
             if not (space.isinstance_w(w_result, space.w_tuple) and
                     space.len_w(w_result) == 4):
@@ -198,9 +198,9 @@ def _lookup_codec_loop(space, encoding, normalized_encoding):
 
 def check_exception(space, w_exc):
     try:
-        w_start = space.getattr(w_exc, space.wrap('start'))
-        w_end = space.getattr(w_exc, space.wrap('end'))
-        w_obj = space.getattr(w_exc, space.wrap('object'))
+        w_start = space.getattr(w_exc, space.newtext('start'))
+        w_end = space.getattr(w_exc, space.newtext('end'))
+        w_obj = space.getattr(w_exc, space.newtext('object'))
     except OperationError as e:
         if not e.match(space, space.w_AttributeError):
             raise
@@ -220,23 +220,23 @@ def strict_errors(space, w_exc):
 
 def ignore_errors(space, w_exc):
     check_exception(space, w_exc)
-    w_end = space.getattr(w_exc, space.wrap('end'))
-    return space.newtuple([space.wrap(u''), w_end])
+    w_end = space.getattr(w_exc, space.newtext('end'))
+    return space.newtuple([space.newunicode(u''), w_end])
 
 def replace_errors(space, w_exc):
     check_exception(space, w_exc)
-    w_start = space.getattr(w_exc, space.wrap('start'))
-    w_end = space.getattr(w_exc, space.wrap('end'))
+    w_start = space.getattr(w_exc, space.newtext('start'))
+    w_end = space.getattr(w_exc, space.newtext('end'))
     size = space.int_w(w_end) - space.int_w(w_start)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
         text = u'?' * size
-        return space.newtuple([space.wrap(text), w_end])
+        return space.newtuple([space.newunicode(text), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
         text = u'\ufffd'
-        return space.newtuple([space.wrap(text), w_end])
+        return space.newtuple([space.newunicode(text), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeTranslateError):
         text = u'\ufffd' * size
-        return space.newtuple([space.wrap(text), w_end])
+        return space.newtuple([space.newunicode(text), w_end])
     else:
         raise oefmt(space.w_TypeError,
                     "don't know how to handle %T in error callback", w_exc)
@@ -244,9 +244,9 @@ def replace_errors(space, w_exc):
 def xmlcharrefreplace_errors(space, w_exc):
     check_exception(space, w_exc)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
-        obj = space.realunicode_w(space.getattr(w_exc, space.wrap('object')))
-        start = space.int_w(space.getattr(w_exc, space.wrap('start')))
-        w_end = space.getattr(w_exc, space.wrap('end'))
+        obj = space.realunicode_w(space.getattr(w_exc, space.newtext('object')))
+        start = space.int_w(space.getattr(w_exc, space.newtext('start')))
+        w_end = space.getattr(w_exc, space.newtext('end'))
         end = space.int_w(w_end)
         builder = UnicodeBuilder()
         pos = start
@@ -262,7 +262,7 @@ def xmlcharrefreplace_errors(space, w_exc):
             builder.append(unicode(str(code)))
             builder.append(u";")
             pos += 1
-        return space.newtuple([space.wrap(builder.build()), w_end])
+        return space.newtuple([space.newunicode(builder.build()), w_end])
     else:
         raise oefmt(space.w_TypeError,
                     "don't know how to handle %T in error callback", w_exc)
@@ -271,9 +271,9 @@ def backslashreplace_errors(space, w_exc):
     check_exception(space, w_exc)
     if (space.isinstance_w(w_exc, space.w_UnicodeEncodeError) or
         space.isinstance_w(w_exc, space.w_UnicodeTranslateError)):
-        obj = space.realunicode_w(space.getattr(w_exc, space.wrap('object')))
-        start = space.int_w(space.getattr(w_exc, space.wrap('start')))
-        w_end = space.getattr(w_exc, space.wrap('end'))
+        obj = space.realunicode_w(space.getattr(w_exc, space.newtext('object')))
+        start = space.int_w(space.getattr(w_exc, space.newtext('start')))
+        w_end = space.getattr(w_exc, space.newtext('end'))
         end = space.int_w(w_end)
         builder = UnicodeBuilder()
         pos = start
@@ -281,11 +281,11 @@ def backslashreplace_errors(space, w_exc):
             oc = ord(obj[pos])
             raw_unicode_escape_helper_unicode(builder, oc)
             pos += 1
-        return space.newtuple([space.wrap(builder.build()), w_end])
+        return space.newtuple([space.newunicode(builder.build()), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
-        obj = space.bytes_w(space.getattr(w_exc, space.wrap('object')))
-        start = space.int_w(space.getattr(w_exc, space.wrap('start')))
-        w_end = space.getattr(w_exc, space.wrap('end'))
+        obj = space.bytes_w(space.getattr(w_exc, space.newtext('object')))
+        start = space.int_w(space.getattr(w_exc, space.newtext('start')))
+        w_end = space.getattr(w_exc, space.newtext('end'))
         end = space.int_w(w_end)
         builder = UnicodeBuilder()
         pos = start
@@ -293,7 +293,7 @@ def backslashreplace_errors(space, w_exc):
             oc = ord(obj[pos])
             raw_unicode_escape_helper_unicode(builder, oc)
             pos += 1
-        return space.newtuple([space.wrap(builder.build()), w_end])
+        return space.newtuple([space.newunicode(builder.build()), w_end])
     else:
         raise oefmt(space.w_TypeError,
                     "don't know how to handle %T in error callback", w_exc)
@@ -301,9 +301,9 @@ def backslashreplace_errors(space, w_exc):
 def namereplace_errors(space, w_exc):
     check_exception(space, w_exc)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
-        obj = space.realunicode_w(space.getattr(w_exc, space.wrap('object')))
-        start = space.int_w(space.getattr(w_exc, space.wrap('start')))
-        w_end = space.getattr(w_exc, space.wrap('end'))
+        obj = space.realunicode_w(space.getattr(w_exc, space.newtext('object')))
+        start = space.int_w(space.getattr(w_exc, space.newtext('start')))
+        w_end = space.getattr(w_exc, space.newtext('end'))
         end = space.int_w(w_end)
         builder = UnicodeBuilder()
         pos = start
@@ -318,7 +318,7 @@ def namereplace_errors(space, w_exc):
                 builder.append(unicode(name))
                 builder.append(u'}')
             pos += 1
-        return space.newtuple([space.wrap(builder.build()), w_end])
+        return space.newtuple([space.newunicode(builder.build()), w_end])
     else:
         raise oefmt(space.w_TypeError,
                     "don't know how to handle %T in error callback", w_exc)
@@ -362,10 +362,10 @@ def get_standard_encoding(encoding):
 def surrogatepass_errors(space, w_exc):
     check_exception(space, w_exc)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
-        obj = space.realunicode_w(space.getattr(w_exc, space.wrap('object')))
-        start = space.int_w(space.getattr(w_exc, space.wrap('start')))
-        w_end = space.getattr(w_exc, space.wrap('end'))
-        encoding = space.str_w(space.getattr(w_exc, space.wrap('encoding')))
+        obj = space.realunicode_w(space.getattr(w_exc, space.newtext('object')))
+        start = space.int_w(space.getattr(w_exc, space.newtext('start')))
+        w_end = space.getattr(w_exc, space.newtext('end'))
+        encoding = space.str_w(space.getattr(w_exc, space.newtext('encoding')))
         bytelength, code = get_standard_encoding(encoding)
         if code == ENC_UNKNOWN:
             # Not supported, fail with original exception
@@ -401,9 +401,9 @@ def surrogatepass_errors(space, w_exc):
                 builder.append(chr(ch & 0xff))
         return space.newtuple([space.newbytes(builder.build()), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
-        start = space.int_w(space.getattr(w_exc, space.wrap('start')))
-        obj = space.bytes_w(space.getattr(w_exc, space.wrap('object')))
-        encoding = space.str_w(space.getattr(w_exc, space.wrap('encoding')))
+        start = space.int_w(space.getattr(w_exc, space.newtext('start')))
+        obj = space.bytes_w(space.getattr(w_exc, space.newtext('object')))
+        encoding = space.str_w(space.getattr(w_exc, space.newtext('encoding')))
         bytelength, code = get_standard_encoding(encoding)
         ch = 0
         # Try decoding a single surrogate character. If there are more,
@@ -432,8 +432,8 @@ def surrogatepass_errors(space, w_exc):
             ch = 0
         if ch == 0:
             raise OperationError(space.type(w_exc), w_exc)
-        return space.newtuple([space.wrap(unichr(ch)),
-                               space.wrap(start + bytelength)])
+        return space.newtuple([space.newunicode(unichr(ch)),
+                               space.newint(start + bytelength)])
     else:
         raise oefmt(space.w_TypeError,
                     "don't know how to handle %T in error callback", w_exc)
@@ -441,9 +441,9 @@ def surrogatepass_errors(space, w_exc):
 def surrogateescape_errors(space, w_exc):
     check_exception(space, w_exc)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
-        obj = space.realunicode_w(space.getattr(w_exc, space.wrap('object')))
-        start = space.int_w(space.getattr(w_exc, space.wrap('start')))
-        w_end = space.getattr(w_exc, space.wrap('end'))
+        obj = space.realunicode_w(space.getattr(w_exc, space.newtext('object')))
+        start = space.int_w(space.getattr(w_exc, space.newtext('start')))
+        w_end = space.getattr(w_exc, space.newtext('end'))
         end = space.int_w(w_end)
         res = ''
         pos = start
@@ -457,9 +457,9 @@ def surrogateescape_errors(space, w_exc):
         return space.newtuple([space.newbytes(res), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
         consumed = 0
-        start = space.int_w(space.getattr(w_exc, space.wrap('start')))
-        end = space.int_w(space.getattr(w_exc, space.wrap('end')))
-        obj = space.bytes_w(space.getattr(w_exc, space.wrap('object')))
+        start = space.int_w(space.getattr(w_exc, space.newtext('start')))
+        end = space.int_w(space.getattr(w_exc, space.newtext('end')))
+        obj = space.bytes_w(space.getattr(w_exc, space.newtext('object')))
         replace = u''
         while consumed < 4 and consumed < end - start:
             c = ord(obj[start+consumed])
@@ -471,8 +471,8 @@ def surrogateescape_errors(space, w_exc):
         if not consumed:
             # codec complained about ASCII byte.
             raise OperationError(space.type(w_exc), w_exc)
-        return space.newtuple([space.wrap(replace),
-                               space.wrap(start + consumed)])
+        return space.newtuple([space.newunicode(replace),
+                               space.newint(start + consumed)])
     else:
         raise oefmt(space.w_TypeError,
                     "don't know how to handle %T in error callback", w_exc)
@@ -495,13 +495,13 @@ def _wrap_codec_error(space, operr, action, encoding):
 
 def _call_codec(space, w_decoder, w_obj, action, encoding, errors):
     try:
-        w_res = space.call_function(w_decoder, w_obj, space.wrap(errors))
+        w_res = space.call_function(w_decoder, w_obj, space.newtext(errors))
     except OperationError as operr:
         raise _wrap_codec_error(space, operr, action, encoding)
     if (not space.isinstance_w(w_res, space.w_tuple) or space.len_w(w_res) != 2):
         raise oefmt(space.w_TypeError,
                     "encoder must return a tuple (object, integer)")
-    return space.getitem(w_res, space.wrap(0))
+    return space.getitem(w_res, space.newint(0))
 
 @unwrap_spec(errors=str)
 def lookup_error(space, errors):
@@ -535,13 +535,13 @@ def encode(space, w_obj, w_encoding=None, errors='strict'):
         encoding = space.sys.defaultencoding
     else:
         encoding = space.str_w(w_encoding)
-    w_encoder = space.getitem(lookup_codec(space, encoding), space.wrap(0))
+    w_encoder = space.getitem(lookup_codec(space, encoding), space.newint(0))
     return _call_codec(space, w_encoder, w_obj, "encoding", encoding, errors)
 
 @unwrap_spec(errors='str_or_None')
 def readbuffer_encode(space, w_data, errors='strict'):
     s = space.getarg_w('s#', w_data)
-    return space.newtuple([space.newbytes(s), space.wrap(len(s))])
+    return space.newtuple([space.newbytes(s), space.newint(len(s))])
 
 @unwrap_spec(errors=str)
 def decode(space, w_obj, w_encoding=None, errors='strict'):
@@ -558,7 +558,7 @@ def decode(space, w_obj, w_encoding=None, errors='strict'):
         encoding = space.sys.defaultencoding
     else:
         encoding = space.str_w(w_encoding)
-    w_decoder = space.getitem(lookup_codec(space, encoding), space.wrap(1))
+    w_decoder = space.getitem(lookup_codec(space, encoding), space.newint(1))
     return _call_codec(space, w_decoder, w_obj, "decoding", encoding, errors)
 
 @unwrap_spec(errors=str)
@@ -583,7 +583,7 @@ def lookup_text_codec(space, action, encoding):
     codec_info = lookup_codec(space, encoding)
     try:
         is_text_encoding = space.is_true(
-                space.getattr(codec_info, space.wrap('_is_text_encoding')))
+                space.getattr(codec_info, space.newtext('_is_text_encoding')))
     except OperationError as e:
         if e.match(space, space.w_AttributeError):
             is_text_encoding = True
@@ -599,14 +599,14 @@ def encode_text(space, w_obj, encoding, errors):
     if errors is None:
         errors = 'strict'
     w_encoder = space.getitem(
-        lookup_text_codec(space, "codecs.encode()", encoding), space.wrap(0))
+        lookup_text_codec(space, "codecs.encode()", encoding), space.newint(0))
     return _call_codec(space, w_encoder, w_obj, "encoding", encoding, errors)
 
 def decode_text(space, w_obj, encoding, errors):
     if errors is None:
         errors = 'strict'
     w_decoder = space.getitem(
-        lookup_text_codec(space, "codecs.decode()", encoding), space.wrap(1))
+        lookup_text_codec(space, "codecs.decode()", encoding), space.newint(1))
     return _call_codec(space, w_decoder, w_obj, "decoding", encoding, errors)
 
 # ____________________________________________________________
@@ -624,7 +624,7 @@ def make_encoder_wrapper(name):
         state = space.fromcache(CodecState)
         func = getattr(runicode, rname)
         result = func(uni, len(uni), errors, state.encode_error_handler)
-        return space.newtuple([space.newbytes(result), space.wrap(len(uni))])
+        return space.newtuple([space.newbytes(result), space.newint(len(uni))])
     wrap_encoder.func_name = rname
     globals()[name] = wrap_encoder
 
@@ -641,7 +641,7 @@ def make_decoder_wrapper(name):
         func = getattr(runicode, rname)
         result, consumed = func(string, len(string), errors,
                                 final, state.decode_error_handler)
-        return space.newtuple([space.wrap(result), space.wrap(consumed)])
+        return space.newtuple([space.newunicode(result), space.newint(consumed)])
     wrap_decoder.func_name = rname
     globals()[name] = wrap_decoder
 
@@ -684,7 +684,7 @@ if hasattr(runicode, 'str_decode_mbcs'):
         result = runicode.unicode_encode_mbcs(
             uni, len(uni), errors, state.encode_error_handler,
             force_replace=False)
-        return space.newtuple([space.newbytes(result), space.wrap(len(uni))])
+        return space.newtuple([space.newbytes(result), space.newint(len(uni))])
 
     @unwrap_spec(string='bufferstr', errors='str_or_None',
                  w_final=WrappedDefault(False))
@@ -697,7 +697,7 @@ if hasattr(runicode, 'str_decode_mbcs'):
             string, len(string), errors,
             final, state.decode_error_handler,
             force_ignore=False)
-        return space.newtuple([space.wrap(result), space.wrap(consumed)])
+        return space.newtuple([space.newunicode(result), space.newint(consumed)])
 
 # utf-8 functions are not regular, because we have to pass
 # "allow_surrogates=False"
@@ -709,7 +709,7 @@ def utf_8_encode(space, uni, errors="strict"):
     result = runicode.unicode_encode_utf_8(
         uni, len(uni), errors, state.encode_error_handler,
         allow_surrogates=False)
-    return space.newtuple([space.newbytes(result), space.wrap(len(uni))])
+    return space.newtuple([space.newbytes(result), space.newint(len(uni))])
 
 @unwrap_spec(string='bufferstr', errors='str_or_None',
              w_final = WrappedDefault(False))
@@ -722,7 +722,7 @@ def utf_8_decode(space, string, errors="strict", w_final=None):
         string, len(string), errors,
         final, state.decode_error_handler,
         allow_surrogates=False)
-    return space.newtuple([space.wrap(result), space.wrap(consumed)])
+    return space.newtuple([space.newunicode(result), space.newint(consumed)])
 
 @unwrap_spec(data='bufferstr', errors='str_or_None', byteorder=int,
              w_final=WrappedDefault(False))
@@ -742,8 +742,8 @@ def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
         consumed = 0
     res, consumed, byteorder = runicode.str_decode_utf_16_helper(
         data, len(data), errors, final, state.decode_error_handler, byteorder)
-    return space.newtuple([space.wrap(res), space.wrap(consumed),
-                           space.wrap(byteorder)])
+    return space.newtuple([space.newunicode(res), space.newint(consumed),
+                           space.newtext(byteorder)])
 
 @unwrap_spec(data='bufferstr', errors='str_or_None', byteorder=int,
              w_final=WrappedDefault(False))
@@ -761,8 +761,8 @@ def utf_32_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
         consumed = 0
     res, consumed, byteorder = runicode.str_decode_utf_32_helper(
         data, len(data), errors, final, state.decode_error_handler, byteorder)
-    return space.newtuple([space.wrap(res), space.wrap(consumed),
-                           space.wrap(byteorder)])
+    return space.newtuple([space.newunicode(res), space.newint(consumed),
+                           space.newtext(byteorder)])
 
 # ____________________________________________________________
 # Charmap
@@ -848,7 +848,7 @@ def charmap_decode(space, string, errors="strict", w_mapping=None):
     if errors is None:
         errors = 'strict'
     if len(string) == 0:
-        return space.newtuple([space.wrap(u''), space.wrap(0)])
+        return space.newtuple([space.newunicode(u''), space.newint(0)])
 
     if space.is_none(w_mapping):
         mapping = None
@@ -860,7 +860,7 @@ def charmap_decode(space, string, errors="strict", w_mapping=None):
     result, consumed = runicode.str_decode_charmap(
         string, len(string), errors,
         final, state.decode_error_handler, mapping)
-    return space.newtuple([space.wrap(result), space.wrap(consumed)])
+    return space.newtuple([space.newunicode(result), space.newint(consumed)])
 
 @unwrap_spec(uni=unicode, errors='str_or_None')
 def charmap_encode(space, uni, errors="strict", w_mapping=None):
@@ -875,7 +875,7 @@ def charmap_encode(space, uni, errors="strict", w_mapping=None):
     result = runicode.unicode_encode_charmap(
         uni, len(uni), errors,
         state.encode_error_handler, mapping)
-    return space.newtuple([space.newbytes(result), space.wrap(len(uni))])
+    return space.newtuple([space.newbytes(result), space.newint(len(uni))])
 
 
 @unwrap_spec(chars=unicode)
@@ -898,7 +898,7 @@ class UnicodeData_Handler:
     def call(self, name):
         space = self.space
         try:
-            w_code = space.call_function(self.w_getcode, space.wrap(name))
+            w_code = space.call_function(self.w_getcode, space.newtext(name))
         except OperationError as e:
             if not e.match(space, space.w_KeyError):
                 raise
@@ -920,7 +920,7 @@ def unicode_escape_decode(space, w_string, errors="strict", w_final=None):
         final, state.decode_error_handler,
         unicode_name_handler)
 
-    return space.newtuple([space.wrap(result), space.wrap(consumed)])
+    return space.newtuple([space.newunicode(result), space.newint(consumed)])
 
 # ____________________________________________________________
 # Raw Unicode escape (accepts bytes or str)
@@ -935,7 +935,7 @@ def raw_unicode_escape_decode(space, w_string, errors="strict", w_final=None):
     result, consumed = runicode.str_decode_raw_unicode_escape(
         string, len(string), errors,
         final, state.decode_error_handler)
-    return space.newtuple([space.wrap(result), space.wrap(consumed)])
+    return space.newtuple([space.newunicode(result), space.newint(consumed)])
 
 # ____________________________________________________________
 # Unicode-internal
@@ -949,22 +949,22 @@ def unicode_internal_decode(space, w_string, errors="strict"):
         return space.newtuple([w_string, space.len(w_string)])
 
     string = space.readbuf_w(w_string).as_str()
-    space.warn(space.wrap("unicode_internal codec has been deprecated"),
+    space.warn(space.newtext("unicode_internal codec has been deprecated"),
                space.w_DeprecationWarning)
 
     if len(string) == 0:
-        return space.newtuple([space.wrap(u''), space.wrap(0)])
+        return space.newtuple([space.newunicode(u''), space.newint(0)])
 
     final = True
     state = space.fromcache(CodecState)
     result, consumed = runicode.str_decode_unicode_internal(
         string, len(string), errors,
         final, state.decode_error_handler)
-    return space.newtuple([space.wrap(result), space.wrap(consumed)])
+    return space.newtuple([space.newunicode(result), space.newint(consumed)])
 
 @unwrap_spec(errors='str_or_None')
 def unicode_internal_encode(space, w_uni, errors="strict"):
-    space.warn(space.wrap("unicode_internal codec has been deprecated"),
+    space.warn(space.newtext("unicode_internal codec has been deprecated"),
                space.w_DeprecationWarning)
     if errors is None:
         errors = 'strict'
@@ -973,11 +973,11 @@ def unicode_internal_encode(space, w_uni, errors="strict"):
         state = space.fromcache(CodecState)
         result = runicode.unicode_encode_unicode_internal(
             uni, len(uni), errors, state.encode_error_handler)
-        return space.newtuple([space.newbytes(result), space.wrap(len(uni))])
+        return space.newtuple([space.newbytes(result), space.newint(len(uni))])
     else:
         # special case for this codec: bytes are returned as is
         string = space.readbuf_w(w_uni).as_str()
-        return space.newtuple([space.newbytes(string), space.wrap(len(string))])
+        return space.newtuple([space.newbytes(string), space.newint(len(string))])
 
 # ____________________________________________________________
 # support for the "string escape" translation
@@ -988,11 +988,11 @@ def escape_encode(space, w_data, errors='strict'):
     data = space.bytes_w(w_data)
     from pypy.objspace.std.bytesobject import string_escape_encode
     result = string_escape_encode(data, False)
-    return space.newtuple([space.newbytes(result), space.wrap(len(data))])
+    return space.newtuple([space.newbytes(result), space.newint(len(data))])
 
 @unwrap_spec(errors='str_or_None')
 def escape_decode(space, w_data, errors='strict'):
     data = space.getarg_w('s#', w_data)
     from pypy.interpreter.pyparser.parsestring import PyString_DecodeEscape
     result = PyString_DecodeEscape(space, data, errors, None)
-    return space.newtuple([space.newbytes(result), space.wrap(len(data))])
+    return space.newtuple([space.newbytes(result), space.newint(len(data))])

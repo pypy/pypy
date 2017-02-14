@@ -126,7 +126,7 @@ class W_BaseException(W_Root):
     def descr_str(self, space):
         lgt = len(self.args_w)
         if lgt == 0:
-            return space.wrap('')
+            return space.newtext('')
         elif lgt == 1:
             return space.str(self.args_w[0])
         else:
@@ -137,11 +137,11 @@ class W_BaseException(W_Root):
         w_base_type = space.gettypeobject(W_BaseException.typedef)
         w_base_str = w_base_type.dict_w["__str__"]
         if not space.is_w(w_str, w_base_str):
-            w_as_str = space.get_and_call_function(w_str, space.wrap(self))
+            w_as_str = space.get_and_call_function(w_str, self)
             return space.call_function(space.w_unicode, w_as_str)
         lgt = len(self.args_w)
         if lgt == 0:
-            return space.wrap(u"")
+            return space.newunicode(u"")
         if lgt == 1:
             return space.call_function(space.w_unicode, self.args_w[0])
         else:
@@ -155,7 +155,7 @@ class W_BaseException(W_Root):
         else:
             args_repr = u"()"
         clsname = self.getclass(space).getname(space)
-        return space.wrap(clsname + args_repr)
+        return space.newunicode(clsname + args_repr)
 
     def __repr__(self):
         """representation for debugging purposes"""
@@ -199,7 +199,7 @@ class W_BaseException(W_Root):
         return tb
 
     def descr_getsuppresscontext(self, space):
-        return space.wrap(self.suppress_context)
+        return space.newbool(self.suppress_context)
 
     def descr_setsuppresscontext(self, space, w_value):
         self.suppress_context = space.bool_w(w_value)
@@ -233,7 +233,7 @@ class W_BaseException(W_Root):
 
     def descr_with_traceback(self, space, w_traceback):
         self.descr_settraceback(space, w_traceback)
-        return space.wrap(self)
+        return self
 
 def _new(cls, basecls=None):
     if basecls is None:
@@ -243,7 +243,7 @@ def _new(cls, basecls=None):
         exc = space.allocate_instance(cls, w_subtype)
         basecls.__init__(exc, space)
         exc.args_w = args_w
-        return space.wrap(exc)
+        return exc
     descr_new_base_exception.func_name = 'descr_new_' + cls.__name__
     return interp2app(descr_new_base_exception)
 
@@ -368,7 +368,7 @@ class W_UnicodeTranslateError(W_UnicodeError):
                                                  w_end, w_reason])
 
     def descr_str(self, space):
-        return space.appexec([space.wrap(self)], r"""(self):
+        return space.appexec([self], r"""(self):
             if self.object is None:
                 return ""
             if self.end == self.start + 1:
@@ -399,7 +399,7 @@ W_LookupError = _new_exception('LookupError', W_Exception,
 
 def key_error_str(self, space):
     if len(self.args_w) == 0:
-        return space.wrap('')
+        return space.newtext('')
     elif len(self.args_w) == 1:
         return space.repr(self.args_w[0])
     else:
@@ -463,10 +463,10 @@ class W_OSError(W_Exception):
         # (see http://bugs.python.org/issue12555#msg148829 )
         if space.is_w(w_subtype, space.w_OSError):
             return False
-        if ((space.getattr(w_subtype, space.wrap('__init__')) !=
-             space.getattr(space.w_OSError, space.wrap('__init__'))) and
-            (space.getattr(w_subtype, space.wrap('__new__')) ==
-             space.getattr(space.w_OSError, space.wrap('__new__')))):
+        if ((space.getattr(w_subtype, space.newtext('__init__')) !=
+             space.getattr(space.w_OSError, space.newtext('__init__'))) and
+            (space.getattr(w_subtype, space.newtext('__new__')) ==
+             space.getattr(space.w_OSError, space.newtext('__new__')))):
             return True
         return False
 
@@ -515,7 +515,7 @@ class W_OSError(W_Exception):
         if not W_OSError._use_init(space, w_subtype):
             exc._init_error(space, args_w, w_errno, w_strerror, w_filename,
                             w_filename2)
-        return space.wrap(exc)
+        return exc
 
     def descr_init(self, space, __args__):
         args_w, kwds_w = __args__.unpack()
@@ -573,16 +573,16 @@ class W_OSError(W_Exception):
             strerror = space.unicode_w(space.str(self.w_strerror))
             if not space.is_w(self.w_filename, space.w_None):
                 if not space.is_w(self.w_filename2, space.w_None):
-                    return space.wrap(u"[Errno %s] %s: %s -> %s" % (
+                    return space.newunicode(u"[Errno %s] %s: %s -> %s" % (
                         errno,
                         strerror,
                         space.unicode_w(space.repr(self.w_filename)),
                         space.unicode_w(space.repr(self.w_filename2))))
-                return space.wrap(u"[Errno %s] %s: %s" % (
+                return space.newunicode(u"[Errno %s] %s: %s" % (
                     errno,
                     strerror,
                     space.unicode_w(space.repr(self.w_filename))))
-            return space.wrap(u"[Errno %s] %s" % (
+            return space.newunicode(u"[Errno %s] %s" % (
                 errno,
                 strerror,
             ))
@@ -591,7 +591,7 @@ class W_OSError(W_Exception):
     def descr_get_written(self, space):
         if self.written == -1:
             raise oefmt(space.w_AttributeError, "characters_written")
-        return space.wrap(self.written)
+        return space.newint(self.written)
 
     def descr_set_written(self, space, w_written):
         self.written = space.int_w(w_written)
@@ -630,7 +630,7 @@ class W_WindowsError(W_OSError):
         else:
             errno = self._winerror_to_errno.get(errno, self._default_errno)
         self.w_winerror = self.w_errno
-        self.w_errno = space.wrap(errno)
+        self.w_errno = space.newint(errno)
 
     def descr_str(self, space):
         if (not space.is_w(self.w_winerror, space.w_None) and
@@ -638,11 +638,11 @@ class W_WindowsError(W_OSError):
             winerror = space.int_w(self.w_winerror)
             strerror = space.unicode_w(self.w_strerror)
             if not space.is_w(self.w_filename, space.w_None):
-                return space.wrap(u"[Error %d] %s: %s" % (
+                return space.newunicode(u"[Error %d] %s: %s" % (
                     winerror,
                     strerror,
                     space.unicode_w(self.w_filename)))
-            return space.wrap(u"[Error %d] %s" % (winerror,
+            return space.newunicode(u"[Error %d] %s" % (winerror,
                                                   strerror))
         return W_BaseException.descr_str(self, space)
 
@@ -786,7 +786,7 @@ class W_SyntaxError(W_Exception):
             args_w = [self.args_w[0], w_tuple]
             args_repr = space.unicode_w(space.repr(space.newtuple(args_w)))
             clsname = self.getclass(space).getname(space)
-            return space.wrap(clsname + args_repr)
+            return space.newtext(clsname + args_repr)
         else:
             return W_Exception.descr_repr(self, space)
 
@@ -817,11 +817,11 @@ class W_SyntaxError(W_Exception):
             text = text[start:]
         # Check for legacy print statements
         if text.startswith(u"print "):
-            self.w_msg = space.wrap("Missing parentheses in call to 'print'")
+            self.w_msg = space.newtext("Missing parentheses in call to 'print'")
             return True
         # Check for legacy exec statements
         if text.startswith(u"exec "):
-            self.w_msg = space.wrap("Missing parentheses in call to 'exec'")
+            self.w_msg = space.newtext("Missing parentheses in call to 'exec'")
             return True
         return False
 

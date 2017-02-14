@@ -19,7 +19,7 @@ def crc32(space, string, start = rzlib.CRC32_DEFAULT_START):
     """
     ustart = r_uint(r_uint32(start))
     checksum = rzlib.crc32(string, ustart)
-    return space.wrap(checksum)
+    return space.newint(checksum)
 
 
 @unwrap_spec(string='bufferstr', start='truncatedint_w')
@@ -32,7 +32,7 @@ def adler32(space, string, start=rzlib.ADLER32_DEFAULT_START):
     """
     ustart = r_uint(r_uint32(start))
     checksum = rzlib.adler32(string, ustart)
-    return space.wrap(checksum)
+    return space.newint(checksum)
 
 
 class Cache:
@@ -41,7 +41,7 @@ class Cache:
 
 def zlib_error(space, msg):
     w_error = space.fromcache(Cache).w_error
-    return OperationError(w_error, space.wrap(msg))
+    return OperationError(w_error, space.newtext(msg))
 
 
 @unwrap_spec(string='bufferstr', level=int)
@@ -207,7 +207,7 @@ def Compress___new__(space, w_subtype, level=rzlib.Z_DEFAULT_COMPRESSION,
     stream = space.interp_w(Compress, stream)
     Compress.__init__(stream, space, level,
                       method, wbits, memLevel, strategy, zdict)
-    return space.wrap(stream)
+    return stream
 
 
 Compress.typedef = TypeDef(
@@ -334,10 +334,10 @@ def Decompress___new__(space, w_subtype, wbits=rzlib.MAX_WBITS, w_zdict=None):
     stream = space.allocate_instance(Decompress, w_subtype)
     stream = space.interp_w(Decompress, stream)
     Decompress.__init__(stream, space, wbits, zdict)
-    return space.wrap(stream)
+    return stream
 
 def default_buffer_size(space):
-    return space.wrap(rzlib.OUTPUT_BUFFER_SIZE)
+    return space.newint(rzlib.OUTPUT_BUFFER_SIZE)
 
 Decompress.typedef = TypeDef(
     'Decompress',

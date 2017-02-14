@@ -13,7 +13,7 @@ from rpython.rlib import rposix, rgc, rstack
 
 
 def internal_repr(space, w_object):
-    return space.wrap('%r' % (w_object,))
+    return space.newtext('%r' % (w_object,))
 
 
 def attach_gdb(space):
@@ -59,7 +59,7 @@ def builtinify(space, w_func):
     from pypy.interpreter.function import Function, BuiltinFunction
     func = space.interp_w(Function, w_func)
     bltn = BuiltinFunction(func)
-    return space.wrap(bltn)
+    return bltn
 
 def hidden_applevel(space, w_func):
     """Decorator that hides a function's frame from app-level"""
@@ -79,7 +79,7 @@ def lookup_special(space, w_obj, meth):
 def do_what_I_mean(space, w_crash=None):
     if not space.is_none(w_crash):
         raise ValueError    # RPython-level, uncaught
-    return space.wrap(42)
+    return space.newint(42)
 
 
 def strategy(space, w_obj):
@@ -95,7 +95,7 @@ def strategy(space, w_obj):
         name = w_obj.strategy.__class__.__name__
     else:
         raise oefmt(space.w_TypeError, "expecting dict or list or set object")
-    return space.wrap(name)
+    return space.newtext(name)
 
 
 @unwrap_spec(fd='c_int')
@@ -120,8 +120,8 @@ def set_debug(space, debug):
     debug = bool(debug)
     space.sys.debug = debug
     space.setitem(space.builtin.w_dict,
-                  space.wrap('__debug__'),
-                  space.wrap(debug))
+                  space.newtext('__debug__'),
+                  space.newbool(debug))
 
 @unwrap_spec(estimate=int)
 def add_memory_pressure(estimate):
@@ -179,7 +179,7 @@ def normalize_exc(space, w_type, w_value=None, w_tb=None):
 
 def stack_almost_full(space):
     """Return True if the stack is more than 15/16th full."""
-    return space.wrap(rstack.stack_almost_full())
+    return space.newbool(rstack.stack_almost_full())
 
 def fsencode(space, w_obj):
     """Direct access to the interp-level fsencode()"""

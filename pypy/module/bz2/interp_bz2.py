@@ -262,9 +262,8 @@ class OutBuffer(object):
 @unwrap_spec(compresslevel=int)
 def descr_compressor__new__(space, w_subtype, compresslevel=9):
     x = space.allocate_instance(W_BZ2Compressor, w_subtype)
-    x = space.interp_w(W_BZ2Compressor, x)
     W_BZ2Compressor.__init__(x, space, compresslevel)
-    return space.wrap(x)
+    return x
 
 class W_BZ2Compressor(W_Root):
     """BZ2Compressor([compresslevel=9]) -> compressor object
@@ -394,9 +393,8 @@ W_BZ2Compressor.typedef.acceptable_as_base_class = False
 
 def descr_decompressor__new__(space, w_subtype):
     x = space.allocate_instance(W_BZ2Decompressor, w_subtype)
-    x = space.interp_w(W_BZ2Decompressor, x)
     W_BZ2Decompressor.__init__(x, space)
-    return space.wrap(x)
+    return x
 
 class W_BZ2Decompressor(W_Root):
     """BZ2Decompressor() -> decompressor object
@@ -453,7 +451,7 @@ class W_BZ2Decompressor(W_Root):
     def needs_input_w(self, space):
         """ True if more input is needed before more decompressed
             data can be produced. """
-        return space.wrap(self.needs_input)
+        return space.newbool(self.needs_input)
 
     def eof_w(self, space):
         if self.running:

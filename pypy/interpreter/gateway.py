@@ -742,7 +742,7 @@ class BuiltinCode(Code):
         return self.sig
 
     def getdocstring(self, space):
-        return space.newtext(self.docstring)
+        return space.newtext_or_none(self.docstring)
 
     def funcrun(self, func, args):
         return BuiltinCode.funcrun_obj(self, func, None, args)
