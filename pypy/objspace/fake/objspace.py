@@ -213,6 +213,7 @@ class FakeObjSpace(ObjSpace):
         return w_some_obj()
 
     newtext = newutf8
+    newtext_or_none = newutf8
 
     @specialize.argtype(1)
     def wrap(self, x):
