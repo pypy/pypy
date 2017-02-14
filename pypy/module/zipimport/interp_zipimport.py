@@ -55,16 +55,17 @@ class W_ZipCache(W_Root):
         except KeyError:
             raise OperationError(space.w_KeyError, space.wrap_fsdecoded(name))
         assert isinstance(w_zipimporter, W_ZipImporter)
-        w = space.wrap
         w_fs = space.wrap_fsdecoded
         w_d = space.newdict()
         for key, info in w_zipimporter.zip_file.NameToInfo.iteritems():
             if ZIPSEP != os.path.sep:
                 key = key.replace(ZIPSEP, os.path.sep)
             space.setitem(w_d, w_fs(key), space.newtuple([
-                w_fs(info.filename), w(info.compress_type), w(info.compress_size),
-                w(info.file_size), w(info.file_offset), w(info.dostime),
-                w(info.dosdate), w(info.CRC)]))
+                w_fs(info.filename), space.newint(info.compress_type),
+                space.newint(info.compress_size),
+                space.newint(info.file_size), space.newint(info.file_offset),
+                space.newint(info.dostime),
+                space.newint(info.dosdate), space.newint(info.CRC)]))
         return w_d
 
     def keys(self, space):
@@ -148,10 +149,9 @@ class W_ZipImporter(W_Root):
             return fname
 
     def import_py_file(self, space, modname, filename, buf, pkgpath):
-        w = space.wrap
-        w_mod = w(Module(space, space.wrap_fsdecoded(modname)))
+        w_mod = Module(space, space.wrap_fsdecoded(modname))
         real_name = self.filename + os.path.sep + self.corr_zname(filename)
-        space.setattr(w_mod, w('__loader__'), space.wrap(self))
+        space.setattr(w_mod, space.newtext('__loader__'), self)
         importing._prepare_module(space, w_mod, real_name, pkgpath)
         co_filename = self.make_co_filename(filename)
         code_w = importing.parse_source_module(space, co_filename, buf)
@@ -159,7 +159,6 @@ class W_ZipImporter(W_Root):
         return w_mod
 
     def _parse_mtime(self, space, filename):
-        w = space.wrap
         try:
             info = self.zip_file.NameToInfo[filename]
             t = info.date_time
@@ -167,13 +166,15 @@ class W_ZipImporter(W_Root):
             return 0
         else:
             w_mktime = space.getattr(space.getbuiltinmodule('time'),
-                                     w('mktime'))
+                                     space.newtext('mktime'))
             # XXX this is incredible fishing around module limitations
             #     in order to compare timestamps of .py and .pyc files
             # we need time.mktime support on rpython level
+            w = space.newint
             all = [w(t[0]), w(t[1]), w(t[2]), w(t[3]), w(t[4]),
                    w(t[5]), w(0), w(1), w(-1)]
-            mtime = int(space.float_w(space.call_function(w_mktime, space.newtuple(all))))
+            mtime = int(space.float_w(space.call_function(
+                w_mktime, space.newtuple(all))))
             return mtime
 
     def check_newer_pyfile(self, space, filename, timestamp):
@@ -198,18 +199,17 @@ class W_ZipImporter(W_Root):
         return True
 
     def import_pyc_file(self, space, modname, filename, buf, pkgpath):
-        w = space.wrap
         magic = importing._get_long(buf[:4])
         timestamp = importing._get_long(buf[4:8])
         if not self.can_use_pyc(space, filename, magic, timestamp):
             return None
         # zipimport ignores the size field
         buf = buf[12:] # XXX ugly copy, should use sequential read instead
-        w_mod = w(Module(space, w(modname)))
+        w_mod = Module(space, space.newtext(modname))
         real_name = self.filename + os.path.sep + self.corr_zname(filename)
-        space.setattr(w_mod, w('__loader__'), space.wrap(self))
+        space.setattr(w_mod, space.newtext('__loader__'), self)
         importing._prepare_module(space, w_mod, real_name, pkgpath)
-        result = importing.load_compiled_module(space, w(modname), w_mod,
+        result = importing.load_compiled_module(space, space.newtext(modname), w_mod,
                                                 real_name, magic, timestamp,
                                                 buf)
         return result
@@ -228,7 +228,7 @@ class W_ZipImporter(W_Root):
         filename = self.make_filename(fullname)
         for _, _, ext in ENUMERATE_EXTS:
             if self.have_modulefile(space, filename + ext):
-                return space.wrap(self)
+                return self
 
     def make_filename(self, fullname):
         startpos = fullname.rfind('.') + 1 # 0 when not found
@@ -309,13 +309,13 @@ class W_ZipImporter(W_Root):
                                             magic, timestamp):
                         continue
                     # zipimport ignores the size field
-                    code_w = importing.read_compiled_module(
+                    w_code = importing.read_compiled_module(
                         space, filename + ext, source[12:])
                 else:
                     co_filename = self.make_co_filename(filename+ext)
-                    code_w = importing.parse_source_module(
+                    w_code = importing.parse_source_module(
                         space, co_filename, source)
-                return space.wrap(code_w)
+                return w_code
         raise oefmt(get_error(space),
                     "Cannot find source or code for %R in %R",
                     w_fullname, space.wrap_fsdecoded(self.name))
@@ -359,7 +359,7 @@ class W_ZipImporter(W_Root):
         filename = self.make_filename(fullname)
         for _, is_package, ext in ENUMERATE_EXTS:
             if self.have_modulefile(space, filename + ext):
-                return space.wrap(is_package)
+                return space.newbool(is_package)
         raise oefmt(get_error(space),
                     "Cannot find module %R in %R",
                     space.wrap_fsdecoded(filename),
@@ -436,7 +436,7 @@ def descr_new_zipimporter(space, w_type, w_name):
         prefix = prefix[1:]
     if prefix and not prefix.endswith(ZIPSEP) and not prefix.endswith(os.path.sep):
         prefix += ZIPSEP
-    w_result = space.wrap(W_ZipImporter(space, name, filename, zip_file, prefix))
+    w_result = W_ZipImporter(space, name, filename, zip_file, prefix)
     zip_cache.set(filename, w_result)
     return w_result
 
