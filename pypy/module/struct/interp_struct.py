@@ -27,15 +27,15 @@ def _calcsize(space, format):
     try:
         fmtiter.interpret(format)
     except StructOverflowError as e:
-        raise OperationError(space.w_OverflowError, space.wrap(e.msg))
+        raise OperationError(space.w_OverflowError, space.newtext(e.msg))
     except StructError as e:
-        raise OperationError(get_error(space), space.wrap(e.msg))
+        raise OperationError(get_error(space), space.newtext(e.msg))
     return fmtiter.totalsize
 
 
 @unwrap_spec(format=str)
 def calcsize(space, format):
-    return space.wrap(_calcsize(space, format))
+    return space.newint(_calcsize(space, format))
 
 
 def _pack(space, format, args_w):
@@ -47,9 +47,9 @@ def _pack(space, format, args_w):
     try:
         fmtiter.interpret(format)
     except StructOverflowError as e:
-        raise OperationError(space.w_OverflowError, space.wrap(e.msg))
+        raise OperationError(space.w_OverflowError, space.newtext(e.msg))
     except StructError as e:
-        raise OperationError(get_error(space), space.wrap(e.msg))
+        raise OperationError(get_error(space), space.newtext(e.msg))
     return fmtiter.result.build()
 
 
@@ -78,9 +78,9 @@ def _unpack(space, format, buf):
     try:
         fmtiter.interpret(format)
     except StructOverflowError as e:
-        raise OperationError(space.w_OverflowError, space.wrap(e.msg))
+        raise OperationError(space.w_OverflowError, space.newtext(e.msg))
     except StructError as e:
-        raise OperationError(get_error(space), space.wrap(e.msg))
+        raise OperationError(get_error(space), space.newtext(e.msg))
     return space.newtuple(fmtiter.result_w[:])
 
 

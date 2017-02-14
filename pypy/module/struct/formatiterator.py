@@ -148,7 +148,7 @@ class UnpackFormatIterator(FormatIterator):
         if isinstance(value, str):
             self.result_w.append(self.space.newbytes(value))
         else:
-            self.result_w.append(self.space.wrap(value))
+            self.result_w.append(self.space.wrap(value)) # YYY
 
     def get_pos(self):
         return self.pos
