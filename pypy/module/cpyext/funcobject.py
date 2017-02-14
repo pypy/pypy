@@ -140,7 +140,7 @@ def PyCode_New(space, argcount, kwonlyargcount, nlocals, stacksize, flags,
                   firstlineno=rffi.cast(lltype.Signed, firstlineno),
                   lnotab=space.bytes_w(w_lnotab),
                   freevars=unwrap_list_of_strings(space, w_freevars),
-                  cellvars=unwrap_list_of_strings(space, w_cellvars)))
+                  cellvars=unwrap_list_of_strings(space, w_cellvars))
 
 @cpython_api([CONST_STRING, CONST_STRING, rffi.INT_real], PyCodeObject)
 def PyCode_NewEmpty(space, filename, funcname, firstlineno):
@@ -160,7 +160,7 @@ def PyCode_NewEmpty(space, filename, funcname, firstlineno):
                   firstlineno=rffi.cast(lltype.Signed, firstlineno),
                   lnotab="",
                   freevars=[],
-                  cellvars=[]))
+                  cellvars=[])
 
 @cpython_api([PyCodeObject], Py_ssize_t, error=CANNOT_FAIL)
 def PyCode_GetNumFree(space, w_co):

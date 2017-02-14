@@ -192,30 +192,30 @@ class W_Structure(W_DataShape):
 
     @unwrap_spec(autofree=int)
     def descr_call(self, space, autofree=False):
-        return space.wrap(self.allocate(space, 1, bool(autofree)))
+        return self.allocate(space, 1, bool(autofree))
 
     def descr_repr(self, space):
         fieldnames = ' '.join(["'%s'" % name for name, _, _ in self.fields])
-        return space.wrap("<_rawffi.Structure %s (%d, %d)>" % (fieldnames,
-                                                               self.size,
-                                                               self.alignment))
+        return space.newtext("<_rawffi.Structure %s (%d, %d)>" % (fieldnames,
+                                                                  self.size,
+                                                                  self.alignment))
 
     @unwrap_spec(address=r_uint)
     def fromaddress(self, space, address):
-        return space.wrap(W_StructureInstance(space, self, address))
+        return W_StructureInstance(space, self, address)
 
     @unwrap_spec(attr=str)
     def descr_fieldoffset(self, space, attr):
         index = self.getindex(space, attr)
-        return space.wrap(self.ll_positions[index])
+        return space.newint(self.ll_positions[index])
 
     @unwrap_spec(attr=str)
     def descr_fieldsize(self, space, attr):
         index = self.getindex(space, attr)
         if self.ll_bitsizes and index < len(self.ll_bitsizes):
-            return space.wrap(self.ll_bitsizes[index])
+            return space.newint(self.ll_bitsizes[index])
         else:
-            return space.wrap(self.fields[index][1].size)
+            return space.newint(self.fields[index][1].size)
 
     # get the corresponding ffi_type
     ffi_struct = lltype.nullptr(clibffi.FFI_STRUCT_P.TO)
@@ -263,7 +263,7 @@ def descr_new_structure(space, w_type, w_shapeinfo, union=0, pack=0):
     else:
         fields = unpack_fields(space, w_shapeinfo)
         S = W_Structure(space, fields, 0, 0, union, pack)
-    return space.wrap(S)
+    return S
 
 W_Structure.typedef = TypeDef(
     'Structure',
@@ -348,7 +348,7 @@ class W_StructureInstance(W_DataInstance):
 
     def descr_repr(self, space):
         addr = rffi.cast(lltype.Unsigned, self.ll_buffer)
-        return space.wrap("<_rawffi struct %x>" % (addr,))
+        return space.newtext("<_rawffi struct %x>" % (addr,))
 
     @unwrap_spec(attr=str)
     def getattr(self, space, attr):
@@ -370,7 +370,7 @@ class W_StructureInstance(W_DataInstance):
     def descr_fieldaddress(self, space, attr):
         i = self.shape.getindex(space, attr)
         ptr = rffi.ptradd(self.ll_buffer, self.shape.ll_positions[i])
-        return space.wrap(rffi.cast(lltype.Unsigned, ptr))
+        return space.newint(rffi.cast(lltype.Unsigned, ptr))
 
     def getrawsize(self):
         return self.shape.size

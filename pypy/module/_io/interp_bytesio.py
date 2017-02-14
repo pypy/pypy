@@ -71,7 +71,7 @@ class W_BytesIO(W_BufferedIOBase):
         if self.is_closed():
             if message is None:
                 message = "I/O operation on closed file"
-            raise OperationError(space.w_ValueError, space.wrap(message))
+            raise OperationError(space.w_ValueError, space.newtext(message))
 
     def read_w(self, space, w_size=None):
         self._check_closed(space)
@@ -93,16 +93,16 @@ class W_BytesIO(W_BufferedIOBase):
 
         output = self.read(size)
         rwbuffer.setslice(0, output)
-        return space.wrap(len(output))
+        return space.newint(len(output))
 
     def write_w(self, space, w_data):
         self._check_closed(space)
         buf = space.buffer_w(w_data, space.BUF_CONTIG_RO).as_str()
         length = len(buf)
         if length <= 0:
-            return space.wrap(0)
+            return space.newint(0)
         self.write(buf)
-        return space.wrap(length)
+        return space.newint(length)
 
     def truncate_w(self, space, w_size=None):
         self._check_closed(space)
@@ -121,7 +121,7 @@ class W_BytesIO(W_BufferedIOBase):
             self.seek(0, 2)
         else:
             self.seek(pos)
-        return space.wrap(size)
+        return space.newint(size)
 
     def getbuffer_w(self, space):
         self._check_closed(space)
@@ -133,7 +133,7 @@ class W_BytesIO(W_BufferedIOBase):
 
     def tell_w(self, space):
         self._check_closed(space)
-        return space.wrap(self.tell())
+        return space.newint(self.tell())
 
     @unwrap_spec(pos=r_longlong, whence=int)
     def seek_w(self, space, pos, whence=0):
@@ -153,7 +153,7 @@ class W_BytesIO(W_BufferedIOBase):
                         "whence must be between 0 and 2, not %d", whence)
 
         self.seek(pos, whence)
-        return space.wrap(self.tell())
+        return space.newint(self.tell())
 
     def readable_w(self, space):
         self._check_closed(space)
@@ -175,13 +175,13 @@ class W_BytesIO(W_BufferedIOBase):
         return type(self) is not W_BytesIO
 
     def closed_get_w(self, space):
-        return space.wrap(self.is_closed())
+        return space.newbool(self.is_closed())
 
     def getstate_w(self, space):
         self._check_closed(space)
         return space.newtuple([
             space.newbytes(self.getvalue()),
-            space.wrap(self.tell()),
+            space.newint(self.tell()),
             self.getdict(space)])
 
     def setstate_w(self, space, w_state):

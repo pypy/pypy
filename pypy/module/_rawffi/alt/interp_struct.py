@@ -180,7 +180,7 @@ class W__StructInstance(W_Root):
 
     def getaddr(self, space):
         addr = rffi.cast(rffi.ULONG, self.rawmem)
-        return space.wrap(addr)
+        return space.newint(addr)
 
     def getfield(self, space, w_name):
         w_ffitype, offset = self.structdescr.get_type_and_offset_for_field(

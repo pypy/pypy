@@ -202,7 +202,7 @@ class ToAppLevelConverter(object):
             return self._longlong(w_ffitype)
         elif w_ffitype.is_signed():
             intval = self.get_signed(w_ffitype)
-            return space.wrap(intval)
+            return space.newint(intval)
         elif (w_ffitype is app_types.ulonglong or
               w_ffitype is app_types.ulong or (libffi.IS_32_BIT and
                                                w_ffitype is app_types.uint)):
@@ -216,19 +216,19 @@ class ToAppLevelConverter(object):
             # and app-evel <long>.  This is why we need to treat it separately
             # than the other unsigned types.
             uintval = self.get_unsigned(w_ffitype)
-            return space.wrap(uintval)
+            return space.newint(uintval)
         elif w_ffitype.is_unsigned(): # note that ulong is handled just before
             intval = self.get_unsigned_which_fits_into_a_signed(w_ffitype)
-            return space.wrap(intval)
+            return space.newint(intval)
         elif w_ffitype.is_pointer():
             uintval = self.get_pointer(w_ffitype)
-            return space.wrap(uintval)
+            return space.newint(uintval)
         elif w_ffitype.is_char():
             ucharval = self.get_char(w_ffitype)
             return space.newbytes(chr(ucharval))
         elif w_ffitype.is_unichar():
             wcharval = self.get_unichar(w_ffitype)
-            return space.wrap(unichr(wcharval))
+            return space.newunicode(unichr(wcharval))
         elif w_ffitype.is_double():
             return self._float(w_ffitype)
         elif w_ffitype.is_singlefloat():
@@ -253,10 +253,10 @@ class ToAppLevelConverter(object):
         # depending on whether longlongs are supported
         if w_ffitype is app_types.slonglong:
             longlongval = self.get_longlong(w_ffitype)
-            return self.space.wrap(longlongval)
+            return self.space.newint(longlongval)
         elif w_ffitype is app_types.ulonglong:
             ulonglongval = self.get_ulonglong(w_ffitype)
-            return self.space.wrap(ulonglongval)
+            return self.space.newint(ulonglongval)
         else:
             self.error(w_ffitype)
 
@@ -264,13 +264,13 @@ class ToAppLevelConverter(object):
         # a separate function, which can be seen by the jit or not,
         # depending on whether floats are supported
         floatval = self.get_float(w_ffitype)
-        return self.space.wrap(floatval)
+        return self.space.newfloat(floatval)
 
     def _singlefloat(self, w_ffitype):
         # a separate function, which can be seen by the jit or not,
         # depending on whether singlefloats are supported
         singlefloatval = self.get_singlefloat(w_ffitype)
-        return self.space.wrap(float(singlefloatval))
+        return self.space.newfloat(float(singlefloatval))
 
     def error(self, w_ffitype):
         raise oefmt(self.space.w_TypeError,

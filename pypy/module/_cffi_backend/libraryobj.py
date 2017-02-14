@@ -36,7 +36,7 @@ class W_Library(W_Root):
 
     def repr(self):
         space = self.space
-        return space.wrap("<clibrary '%s'>" % self.name)
+        return space.newtext("<clibrary '%s'>" % self.name)
 
     @unwrap_spec(w_ctype=W_CType, name=str)
     def load_function(self, w_ctype, name):
@@ -94,4 +94,4 @@ W_Library.typedef.acceptable_as_base_class = False
 @unwrap_spec(filename="str_or_None", flags=int)
 def load_library(space, filename, flags=0):
     lib = W_Library(space, filename, flags)
-    return space.wrap(lib)
+    return lib

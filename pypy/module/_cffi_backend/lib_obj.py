@@ -26,7 +26,7 @@ class W_LibObject(W_Root):
         self.libname = libname    # some string that gives the name of the lib
 
     def descr_repr(self):
-        return self.space.wrap("<Lib object for '%s'>" % self.libname)
+        return self.space.newtext("<Lib object for '%s'>" % self.libname)
 
     def make_includes_from(self, c_includes):
         space = self.space
@@ -35,7 +35,7 @@ class W_LibObject(W_Root):
         while c_includes[num]:
             include_name = rffi.charp2str(c_includes[num])
             try:
-                w_lib1 = space.appexec([space.wrap(include_name)], """(modname):
+                w_lib1 = space.appexec([space.newtext(include_name)], """(modname):
                     mod = __import__(modname, None, None, ['ffi', 'lib'])
                     return mod.lib""")
                 lib1 = space.interp_w(W_LibObject, w_lib1)
@@ -185,7 +185,7 @@ class W_LibObject(W_Root):
         return w_result
 
     def _get_attr(self, w_attr, is_getattr=False):
-        attr = self.space.str_w(w_attr)
+        attr = self.space.text_w(w_attr)
         try:
             w_value = self._get_attr_elidable(attr)
         except KeyError:
@@ -202,7 +202,7 @@ class W_LibObject(W_Root):
                     from pypy.interpreter.module import Module
                     return self.space.gettypeobject(Module.typedef)
                 if is_getattr and attr == '__name__':
-                    return self.space.wrap("%s.lib" % self.libname)
+                    return self.space.newtext("%s.lib" % self.libname)
                 raise oefmt(self.space.w_AttributeError,
                             "cffi library '%s' has no function, constant "
                             "or global variable named '%s'",

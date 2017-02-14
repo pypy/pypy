@@ -176,7 +176,7 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
                     "will be forbidden in the future (check that the types "
                     "are as you expect; use an explicit ffi.cast() if they "
                     "are correct)" % (other.name, self.name))
-                space.warn(space.wrap(msg), space.w_UserWarning)
+                space.warn(space.newtext(msg), space.w_UserWarning)
             else:
                 raise self._convert_error("compatible pointer", w_ob)
 
@@ -385,7 +385,7 @@ class W_CTypePointer(W_CTypePtrBase):
 
     def _fget(self, attrchar):
         if attrchar == 'i':     # item
-            return self.space.wrap(self.ctitem)
+            return self.ctitem
         return W_CTypePtrBase._fget(self, attrchar)
 
 # ____________________________________________________________

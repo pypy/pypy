@@ -257,9 +257,10 @@ for index, (name, params) in enumerate(HANDLERS.items()):
                 'w_arg%d = parser.w_convert_model(space, arg%d)' % (i, i))
             converters.append(
                 'XML_FreeContentModel(parser.itself, arg%d)' % (i,))
+        elif ARG == rffi.INT:
+            converters.append("w_arg%d = space.newint(arg%d)" % (i, i))
         else:
-            converters.append(
-                'w_arg%d = space.wrap(arg%d)' % (i, i))
+            assert 0, "missing conversion case"
         real_params.append(ARG)
     converters = '; '.join(converters)
 
@@ -411,13 +412,13 @@ XML_ExpatVersion = expat_external(
     'XML_ExpatVersion', [], rffi.CCHARP)
 
 def get_expat_version(space):
-    return space.wrap(rffi.charp2str(XML_ExpatVersion()))
+    return space.newtext(rffi.charp2str(XML_ExpatVersion()))
 
 def get_expat_version_info(space):
     return space.newtuple([
-        space.wrap(XML_MAJOR_VERSION),
-        space.wrap(XML_MINOR_VERSION),
-        space.wrap(XML_MICRO_VERSION)])
+        space.newint(XML_MAJOR_VERSION),
+        space.newint(XML_MINOR_VERSION),
+        space.newint(XML_MICRO_VERSION)])
 
 class Cache:
     def __init__(self, space):
@@ -544,8 +545,8 @@ getting the advantage of providing document type information to the parser.
         children = [self.w_convert_model(space, model.c_children[i])
                     for i in range(model.c_numchildren)]
         return space.newtuple([
-            space.wrap(model.c_type),
-            space.wrap(model.c_quant),
+            space.newint(model.c_type),
+            space.newint(model.c_quant),
             self.w_convert_charp(space, model.c_name),
             space.newtuple(children)])
 

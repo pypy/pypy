@@ -46,17 +46,17 @@ def sizeof(space, w_obj):
                         "ctype '%s' is of unknown size", w_obj.name)
     else:
         raise oefmt(space.w_TypeError, "expected a 'cdata' or 'ctype' object")
-    return space.wrap(size)
+    return space.newint(size)
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType)
 def alignof(space, w_ctype):
     align = w_ctype.alignof()
-    return space.wrap(align)
+    return space.newint(align)
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType, following=int)
 def typeoffsetof(space, w_ctype, w_field_or_index, following=0):
     ctype, offset = w_ctype.direct_typeoffsetof(w_field_or_index, following)
-    return space.newtuple([space.wrap(ctype), space.wrap(offset)])
+    return space.newtuple([space.wrap(ctype), space.newint(offset)])
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType, w_cdata=cdataobj.W_CData, offset=int)
 def rawaddressof(space, w_ctype, w_cdata, offset):
@@ -68,7 +68,7 @@ def rawaddressof(space, w_ctype, w_cdata, offset):
 def getcname(space, w_ctype, replace_with):
     p = w_ctype.name_position
     s = '%s%s%s' % (w_ctype.name[:p], replace_with, w_ctype.name[p:])
-    return space.wrap(s)
+    return space.newtext(s)
 
 # ____________________________________________________________
 

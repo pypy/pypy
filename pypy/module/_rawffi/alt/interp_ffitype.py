@@ -37,7 +37,7 @@ class W_FFIType(W_Root):
 
     def descr_sizeof(self, space):
         try:
-            return space.wrap(self.sizeof())
+            return space.newint(self.sizeof())
         except ValueError:
             raise oefmt(space.w_ValueError,
                         "Operation not permitted on an incomplete type")
@@ -49,7 +49,7 @@ class W_FFIType(W_Root):
         return intmask(self.get_ffitype().c_alignment)
 
     def repr(self, space):
-        return space.wrap(self.__repr__())
+        return space.newtext(self.__repr__())
 
     def __repr__(self):
         name = self.name

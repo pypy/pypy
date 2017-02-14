@@ -127,18 +127,18 @@ def can_cast(space, w_from, w_totype, casting='safe'):
         raise oefmt(space.w_TypeError,
             "did not understand one of the types; 'None' not accepted")
     if isinstance(w_from, W_NDimArray):
-        return space.wrap(can_cast_array(space, w_from, target, casting))
+        return space.newbool(can_cast_array(space, w_from, target, casting))
     elif is_scalar_w(space, w_from):
         w_scalar = as_scalar(space, w_from)
         w_arr = W_NDimArray.from_scalar(space, w_scalar)
-        return space.wrap(can_cast_array(space, w_arr, target, casting))
+        return space.newbool(can_cast_array(space, w_arr, target, casting))
 
     try:
         origin = as_dtype(space, w_from, allow_None=False)
     except TypeError:
         raise oefmt(space.w_TypeError,
             "did not understand one of the types; 'None' not accepted")
-    return space.wrap(can_cast_type(space, origin, target, casting))
+    return space.newbool(can_cast_type(space, origin, target, casting))
 
 kind_ordering = {
     Bool.kind: 0, ULong.kind: 1, Long.kind: 2,
@@ -326,7 +326,7 @@ def scalar2dtype(space, w_obj):
             space.int_w(w_obj)
         except OperationError as e:
             if e.match(space, space.w_OverflowError):
-                if space.is_true(space.le(w_obj, space.wrap(0))):
+                if space.is_true(space.le(w_obj, space.newint(0))):
                     return int64_dtype
                 return uint64_dtype
             raise

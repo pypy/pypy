@@ -23,15 +23,15 @@ def trap_eintr(space, error):
         return False
     try:
         w_value = error.get_w_value(space)
-        w_errno = space.getattr(w_value, space.wrap("errno"))
-        return space.eq_w(w_errno, space.wrap(EINTR))
+        w_errno = space.getattr(w_value, space.newtext("errno"))
+        return space.eq_w(w_errno, space.newint(EINTR))
     except OperationError:
         return False
 
 def unsupported(space, message):
     w_exc = space.getattr(space.getbuiltinmodule('_io'),
-                          space.wrap('UnsupportedOperation'))
-    return OperationError(w_exc, space.wrap(message))
+                          space.newtext('UnsupportedOperation'))
+    return OperationError(w_exc, space.newtext(message))
 
 # May be called with any object
 def check_readable_w(space, w_obj):
@@ -69,7 +69,7 @@ class W_IOBase(W_Root):
     def _closed(self, space):
         # This gets the derived attribute, which is *not* __IOBase_closed
         # in most cases!
-        w_closed = space.findattr(self, space.wrap('closed'))
+        w_closed = space.findattr(self, space.newtext('closed'))
         if w_closed is not None and space.is_true(w_closed):
             return True
         return False
@@ -88,7 +88,7 @@ class W_IOBase(W_Root):
 
     def descr_del(self):
         space = self.space
-        w_closed = space.findattr(self, space.wrap('closed'))
+        w_closed = space.findattr(self, space.newtext('closed'))
         try:
             # If `closed` doesn't exist or can't be evaluated as bool, then
             # the object is probably in an unusable state, so ignore.
@@ -117,7 +117,7 @@ class W_IOBase(W_Root):
             message = "I/O operation on closed file"
         if self._closed(space):
             raise OperationError(
-                space.w_ValueError, space.wrap(message))
+                space.w_ValueError, space.newtext(message))
 
     def check_closed_w(self, space):
         self._check_closed(space)
@@ -156,7 +156,7 @@ class W_IOBase(W_Root):
         self._unsupportedoperation(space, "seek")
 
     def tell_w(self, space):
-        return space.call_method(self, "seek", space.wrap(0), space.wrap(1))
+        return space.call_method(self, "seek", space.newint(0), space.newint(1))
 
     def truncate_w(self, space, w_size=None):
         self._unsupportedoperation(space, "truncate")
@@ -166,14 +166,14 @@ class W_IOBase(W_Root):
 
     def enter_w(self, space):
         self._check_closed(space)
-        return space.wrap(self)
+        return self
 
     def exit_w(self, space, __args__):
         space.call_method(self, "close")
 
     def iter_w(self, space):
         self._check_closed(space)
-        return space.wrap(self)
+        return self
 
     def next_w(self, space):
         w_line = space.call_method(self, "readline")
@@ -203,7 +203,7 @@ class W_IOBase(W_Root):
         # For backwards compatibility, a (slowish) readline().
         limit = convert_size(space, w_limit)
 
-        has_peek = space.findattr(self, space.wrap("peek"))
+        has_peek = space.findattr(self, space.newtext("peek"))
 
         builder = StringBuilder()
         size = 0
@@ -213,7 +213,7 @@ class W_IOBase(W_Root):
 
             if has_peek:
                 try:
-                    w_readahead = space.call_method(self, "peek", space.wrap(1))
+                    w_readahead = space.call_method(self, "peek", space.newint(1))
                 except OperationError as e:
                     if trap_eintr(space, e):
                         continue
@@ -243,7 +243,7 @@ class W_IOBase(W_Root):
                     nreadahead = n
 
             try:
-                w_read = space.call_method(self, "read", space.wrap(nreadahead))
+                w_read = space.call_method(self, "read", space.newint(nreadahead))
             except OperationError as e:
                 if trap_eintr(space, e):
                     continue
@@ -363,7 +363,7 @@ class W_RawIOBase(W_IOBase):
         while True:
             try:
                 w_data = space.call_method(self, "read",
-                                           space.wrap(DEFAULT_BUFFER_SIZE))
+                                           space.newint(DEFAULT_BUFFER_SIZE))
             except OperationError as e:
                 if trap_eintr(space, e):
                     continue

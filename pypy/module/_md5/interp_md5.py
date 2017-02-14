@@ -28,7 +28,7 @@ class W_MD5(W_Root):
     def copy_w(self):
         clone = W_MD5(self.space)
         clone._copyfrom(self)
-        return self.space.wrap(clone)
+        return clone
 
 
 @unwrap_spec(initialdata='bufferstr')

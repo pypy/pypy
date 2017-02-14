@@ -13,7 +13,7 @@ class W_Writer(W_Root):
     def __init__(self, space, dialect, w_fileobj):
         self.space = space
         self.dialect = dialect
-        self.w_filewrite = space.getattr(w_fileobj, space.wrap('write'))
+        self.w_filewrite = space.getattr(w_fileobj, space.newtext('write'))
         # precompute this
         special = dialect.delimiter + dialect.lineterminator
         if dialect.escapechar != '\0':
@@ -26,8 +26,8 @@ class W_Writer(W_Root):
     def error(self, msg):
         space = self.space
         w_module = space.getbuiltinmodule('_csv')
-        w_error = space.getattr(w_module, space.wrap('Error'))
-        raise OperationError(w_error, space.wrap(msg))
+        w_error = space.getattr(w_module, space.newtext('Error'))
+        raise OperationError(w_error, space.newtext(msg))
 
     def writerow(self, w_fields):
         """Construct and write a CSV record from a sequence of fields.
@@ -115,7 +115,7 @@ class W_Writer(W_Root):
         rec.append(dialect.lineterminator)
 
         line = rec.build()
-        return space.call_function(self.w_filewrite, space.wrap(line))
+        return space.call_function(self.w_filewrite, space.newtext(line))
 
     def writerows(self, w_seqseq):
         """Construct and write a series of sequences to a csv file.

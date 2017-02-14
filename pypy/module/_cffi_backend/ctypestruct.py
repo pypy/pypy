@@ -70,8 +70,8 @@ class W_CTypeStructOrUnion(W_CType):
             result = [None] * len(self._fields_list)
             for fname, field in self._fields_dict.iteritems():
                 i = self._fields_list.index(field)
-                result[i] = space.newtuple([space.wrap(fname),
-                                            space.wrap(field)])
+                result[i] = space.newtuple([space.newtext(fname),
+                                            field])
             return space.newlist(result)
         return W_CType._fget(self, attrchar)
 
@@ -93,7 +93,7 @@ class W_CTypeStructOrUnion(W_CType):
         try:
             cfield = self._getcfield_const(fieldname)
         except KeyError:
-            raise OperationError(space.w_KeyError, space.wrap(fieldname))
+            raise OperationError(space.w_KeyError, space.newtext(fieldname))
         if cfield.bitshift >= 0:
             raise oefmt(space.w_TypeError, "not supported for bitfields")
         return (cfield.ctype, cfield.offset)
@@ -280,14 +280,14 @@ class W_CField(W_Root):
                 shiftforsign = r_uint(1) << (self.bitsize - 1)
                 value = ((value >> self.bitshift) + shiftforsign) & valuemask
                 result = intmask(value) - intmask(shiftforsign)
-                return space.wrap(result)
+                return space.newint(result)
             else:
                 value = misc.read_raw_unsigned_data(cdata, ctype.size)
                 valuemask = (r_ulonglong(1) << self.bitsize) - 1
                 shiftforsign = r_ulonglong(1) << (self.bitsize - 1)
                 value = ((value >> self.bitshift) + shiftforsign) & valuemask
                 result = r_longlong(value) - r_longlong(shiftforsign)
-                return space.wrap(result)
+                return space.newint(result)
         #
         if isinstance(ctype, ctypeprim.W_CTypePrimitiveUnsigned):
             value_fits_long = ctype.value_fits_long
@@ -303,14 +303,14 @@ class W_CField(W_Root):
             valuemask = (r_uint(1) << self.bitsize) - 1
             value = (value >> self.bitshift) & valuemask
             if value_fits_long:
-                return space.wrap(intmask(value))
+                return space.newint(intmask(value))
             else:
-                return space.wrap(value)    # uint => wrapped long object
+                return space.newint(value)    # uint => wrapped long object
         else:
             value = misc.read_raw_unsigned_data(cdata, ctype.size)
             valuemask = (r_ulonglong(1) << self.bitsize) - 1
             value = (value >> self.bitshift) & valuemask
-            return space.wrap(value)      # ulonglong => wrapped long object
+            return space.newint(value)      # ulonglong => wrapped long object
 
     def convert_bitfield_from_object(self, cdata, w_ob):
         ctype = self.ctype

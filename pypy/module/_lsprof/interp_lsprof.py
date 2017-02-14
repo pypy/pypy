@@ -54,7 +54,7 @@ class W_StatsEntry(W_Root):
             calls_repr = "None"
         else:
             calls_repr = space.str_w(space.repr(self.w_calls))
-        return space.wrap('("%s", %d, %d, %f, %f, %s)' % (
+        return space.newtext('("%s", %d, %d, %f, %f, %s)' % (
             frame_repr, self.callcount, self.reccallcount,
             self.tt, self.it, calls_repr))
 
@@ -82,7 +82,7 @@ class W_StatsSubEntry(W_Root):
 
     def repr(self, space):
         frame_repr = space.str_w(space.repr(self.frame))
-        return space.wrap('("%s", %d, %d, %f, %f)' % (
+        return space.newtext('("%s", %d, %d, %f, %f)' % (
             frame_repr, self.callcount, self.reccallcount, self.tt, self.it))
 
     def get_code(self, space):
@@ -119,7 +119,7 @@ class ProfilerSubEntry(object):
                                 self.callcount, self.recursivecallcount,
                                 factor * float(self.ll_tt),
                                 factor * float(self.ll_it))
-        return space.wrap(w_sse)
+        return w_sse
 
     def _stop(self, tt, it):
         if not we_are_translated():
@@ -148,7 +148,7 @@ class ProfilerEntry(ProfilerSubEntry):
                             self.recursivecallcount,
                             factor * float(self.ll_tt),
                             factor * float(self.ll_it), w_sublist)
-        return space.wrap(w_se)
+        return w_se
 
     @jit.elidable
     def _get_or_make_subentry(self, entry, make=True):
@@ -245,7 +245,7 @@ class W_DelayedBuiltinStr(W_Root):
                 s = create_spec_for_object(space, self.w_type)
             else:
                 s = create_spec_for_method(space, self.w_func, self.w_type)
-            self.w_string = space.wrap(s)
+            self.w_string = space.newtext(s)
         return self.w_string
 
 W_DelayedBuiltinStr.typedef = TypeDef(
@@ -330,7 +330,7 @@ class W_Profiler(W_Root):
         self.total_timestamp -= read_timestamp()
         # set profiler hook
         c_setup_profiling()
-        space.getexecutioncontext().setllprofile(lsprof_call, space.wrap(self))
+        space.getexecutioncontext().setllprofile(lsprof_call, self)
 
     @jit.elidable
     def _get_or_make_entry(self, f_code, make=True):
@@ -437,7 +437,7 @@ def descr_new_profile(space, w_type, w_callable=None, time_unit=0.0,
                       subcalls=1, builtins=1):
     p = space.allocate_instance(W_Profiler, w_type)
     p.__init__(space, w_callable, time_unit, bool(subcalls), bool(builtins))
-    return space.wrap(p)
+    return p
 
 W_Profiler.typedef = TypeDef(
     '_lsprof.Profiler',
