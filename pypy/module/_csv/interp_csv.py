@@ -151,12 +151,12 @@ def W_Dialect___new__(space, w_subtype, w_dialect = None,
 def _get_escapechar(space, dialect):
     if dialect.escapechar == u'\0':
         return space.w_None
-    return space.newtext(dialect.escapechar)
+    return space.newunicode(dialect.escapechar)
 
 def _get_quotechar(space, dialect):
     if dialect.quotechar == u'\0':
         return space.w_None
-    return space.newtext(dialect.quotechar)
+    return space.newunicode(dialect.quotechar)
 
 
 W_Dialect.typedef = TypeDef(
@@ -164,12 +164,12 @@ W_Dialect.typedef = TypeDef(
         __new__ = interp2app(W_Dialect___new__),
 
         delimiter        = interp_attrproperty('delimiter', W_Dialect,
-            wrapfn='newtext'),
+            wrapfn='newunicode'),
         doublequote      = interp_attrproperty('doublequote', W_Dialect,
             wrapfn='newbool'),
         escapechar       = GetSetProperty(_get_escapechar, cls=W_Dialect),
         lineterminator   = interp_attrproperty('lineterminator', W_Dialect,
-            wrapfn='newtext'),
+            wrapfn='newunicode'),
         quotechar        = GetSetProperty(_get_quotechar, cls=W_Dialect),
         quoting          = interp_attrproperty('quoting', W_Dialect,
             wrapfn='newint'),

@@ -115,7 +115,7 @@ class W_Writer(W_Root):
         rec.append(dialect.lineterminator)
 
         line = rec.build()
-        return space.call_function(self.w_filewrite, space.newtext(line))
+        return space.call_function(self.w_filewrite, space.newunicode(line))
 
     def writerows(self, w_seqseq):
         """Construct and write a series of sequences to a csv file.

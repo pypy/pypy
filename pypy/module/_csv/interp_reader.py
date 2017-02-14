@@ -44,9 +44,9 @@ class W_Reader(W_Root):
         field = field_builder.build()
         if self.numeric_field:
             self.numeric_field = False
-            w_obj = space.call_function(space.w_float, space.newtext(field))
+            w_obj = space.call_function(space.w_float, space.newunicode(field))
         else:
-            w_obj = space.newtext(field)
+            w_obj = space.newunicode(field)
         self.fields_w.append(w_obj)
 
     def next_w(self):
