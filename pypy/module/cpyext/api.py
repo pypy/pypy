@@ -972,7 +972,7 @@ def make_wrapper_second_level(space, argtypesw, restype,
                 else:
                     message = str(e)
                 state.set_exception(OperationError(space.w_SystemError,
-                                                   space.wrap(message)))
+                                                   space.newtext(message)))
             else:
                 failed = False
 

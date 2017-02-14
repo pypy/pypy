@@ -123,7 +123,7 @@ class State:
             space = self.space
             argv = space.sys.get('argv')
             if space.len_w(argv):
-                argv0 = space.getitem(argv, space.wrap(0))
+                argv0 = space.getitem(argv, space.newint(0))
                 progname = space.unicode_w(argv0)
             else:
                 progname = u"pypy"
