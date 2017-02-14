@@ -58,7 +58,7 @@ def PyFile_SetBufSize(space, w_file, n):
 def PyFile_WriteString(space, s, w_p):
     """Write string s to file object p.  Return 0 on success or -1 on
     failure; the appropriate exception will be set."""
-    w_str = space.wrap(rffi.charp2str(s))
+    w_str = space.newtext(rffi.charp2str(s))
     space.call_method(w_p, "write", w_str)
     return 0
 
