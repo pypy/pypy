@@ -202,7 +202,7 @@ def _dump_rpy_heap(space, fd):
 def get_typeids_z(space):
     a = rgc.get_typeids_z()
     s = ''.join([a[i] for i in range(len(a))])
-    return space.newtext(s)
+    return space.newbytes(s)
 
 def get_typeids_list(space):
     l = rgc.get_typeids_list()
