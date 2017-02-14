@@ -81,7 +81,7 @@ class NumericExecutorMixin(object):
     _mixin_ = True
 
     def _wrap_object(self, space, obj):
-        return space.wrap(obj)
+        return getattr(space, self.wrapper)(obj)
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
         result = self.c_stubcall(space, cppmethod, cppthis, num_args, args)
@@ -105,7 +105,7 @@ class NumericRefExecutorMixin(object):
         self.do_assign = True
 
     def _wrap_object(self, space, obj):
-        return space.wrap(rffi.cast(self.c_type, obj))
+        return getattr(space, self.wrapper)(rffi.cast(self.c_type, obj))
 
     def _wrap_reference(self, space, rffiptr):
         if self.do_assign:
