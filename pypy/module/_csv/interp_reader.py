@@ -247,7 +247,8 @@ def csv_reader(space, w_iterator, w_dialect=None,
 W_Reader.typedef = TypeDef(
         '_csv.reader',
         dialect = interp_attrproperty_w('dialect', W_Reader),
-        line_num = interp_attrproperty('line_num', W_Reader),
+        line_num = interp_attrproperty('line_num', W_Reader,
+            wrapfn="newint"),
         __iter__ = interp2app(W_Reader.iter_w),
         __next__ = interp2app(W_Reader.next_w),
         __doc__ = """CSV reader

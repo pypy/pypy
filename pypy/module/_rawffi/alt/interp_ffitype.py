@@ -105,7 +105,8 @@ class W_FFIType(W_Root):
 
 W_FFIType.typedef = TypeDef(
     'FFIType',
-    name = interp_attrproperty('name', W_FFIType),
+    name = interp_attrproperty('name', W_FFIType,
+        wrapfn="newtext_or_none"),
     __repr__ = interp2app(W_FFIType.repr),
     deref_pointer = interp2app(W_FFIType.descr_deref_pointer),
     sizeof = interp2app(W_FFIType.descr_sizeof),

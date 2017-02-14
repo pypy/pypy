@@ -64,10 +64,14 @@ class W_StatsEntry(W_Root):
 W_StatsEntry.typedef = TypeDef(
     '_lsprof.StatsEntry',
     code = GetSetProperty(W_StatsEntry.get_code),
-    callcount = interp_attrproperty('callcount', W_StatsEntry),
-    reccallcount = interp_attrproperty('reccallcount', W_StatsEntry),
-    inlinetime = interp_attrproperty('it', W_StatsEntry),
-    totaltime = interp_attrproperty('tt', W_StatsEntry),
+    callcount = interp_attrproperty('callcount', W_StatsEntry,
+        wrapfn="newint"),
+    reccallcount = interp_attrproperty('reccallcount', W_StatsEntry,
+        wrapfn="newint"),
+    inlinetime = interp_attrproperty('it', W_StatsEntry,
+        wrapfn="newfloat"),
+    totaltime = interp_attrproperty('tt', W_StatsEntry,
+        wrapfn="newfloat"),
     calls = GetSetProperty(W_StatsEntry.get_calls),
     __repr__ = interp2app(W_StatsEntry.repr),
 )
@@ -91,10 +95,14 @@ class W_StatsSubEntry(W_Root):
 W_StatsSubEntry.typedef = TypeDef(
     '_lsprof.SubStatsEntry',
     code = GetSetProperty(W_StatsSubEntry.get_code),
-    callcount = interp_attrproperty('callcount', W_StatsSubEntry),
-    reccallcount = interp_attrproperty('reccallcount', W_StatsSubEntry),
-    inlinetime = interp_attrproperty('it', W_StatsSubEntry),
-    totaltime = interp_attrproperty('tt', W_StatsSubEntry),
+    callcount = interp_attrproperty('callcount', W_StatsSubEntry,
+        wrapfn="newint"),
+    reccallcount = interp_attrproperty('reccallcount', W_StatsSubEntry,
+        wrapfn="newint"),
+    inlinetime = interp_attrproperty('it', W_StatsSubEntry,
+        wrapfn="newfloat"),
+    totaltime = interp_attrproperty('tt', W_StatsSubEntry,
+        wrapfn="newfloat"),
     __repr__ = interp2app(W_StatsSubEntry.repr),
 )
 

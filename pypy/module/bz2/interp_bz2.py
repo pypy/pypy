@@ -4,7 +4,7 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.typedef import TypeDef, interp_attrproperty_bytes
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -543,7 +543,8 @@ W_BZ2Decompressor.typedef = TypeDef("_bz2.BZ2Decompressor",
     __doc__ = W_BZ2Decompressor.__doc__,
     __new__ = interp2app(descr_decompressor__new__),
     __getstate__ = interp2app(W_BZ2Decompressor.descr_getstate),
-    unused_data = interp_attrproperty_bytes("unused_data", W_BZ2Decompressor),
+    unused_data = interp_attrproperty("unused_data", W_BZ2Decompressor,
+        wrapfn="newbytes"),
     eof = GetSetProperty(W_BZ2Decompressor.eof_w),
     decompress = interp2app(W_BZ2Decompressor.decompress),
     needs_input = GetSetProperty(W_BZ2Decompressor.needs_input_w),

@@ -4,7 +4,7 @@ Struct and unions.
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.typedef import TypeDef, interp_attrproperty
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty, interp_attrproperty_w
 
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask
@@ -343,10 +343,10 @@ class W_CField(W_Root):
 
 W_CField.typedef = TypeDef(
     '_cffi_backend.CField',
-    type = interp_attrproperty('ctype', W_CField),
-    offset = interp_attrproperty('offset', W_CField),
-    bitshift = interp_attrproperty('bitshift', W_CField),
-    bitsize = interp_attrproperty('bitsize', W_CField),
-    flags = interp_attrproperty('flags', W_CField),
+    type = interp_attrproperty_w('ctype', W_CField),
+    offset = interp_attrproperty('offset', W_CField, wrapfn="newint"),
+    bitshift = interp_attrproperty('bitshift', W_CField, wrapfn="newint"),
+    bitsize = interp_attrproperty('bitsize', W_CField, wrapfn="newint"),
+    flags = interp_attrproperty('flags', W_CField, wrapfn="newint"),
     )
 W_CField.typedef.acceptable_as_base_class = False

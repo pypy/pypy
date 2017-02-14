@@ -6,8 +6,8 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 
 from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
 from pypy.interpreter.error import oefmt
-from pypy.interpreter.typedef import (
-    GetSetProperty, TypeDef, interp_attrproperty, interp2app)
+from pypy.interpreter.typedef import (GetSetProperty, TypeDef,
+        interp_attrproperty, interp2app)
 from pypy.module.__builtin__.abstractinst import abstract_issubclass_w
 from pypy.module.cpyext import structmemberdefs
 from pypy.module.cpyext.api import (
@@ -102,9 +102,11 @@ W_MemberDescr.typedef = TypeDef(
     __get__ = interp2app(GetSetProperty.descr_property_get),
     __set__ = interp2app(GetSetProperty.descr_property_set),
     __delete__ = interp2app(GetSetProperty.descr_property_del),
-    __name__ = interp_attrproperty('name', cls=GetSetProperty),
+    __name__ = interp_attrproperty('name', cls=GetSetProperty,
+        wrapfn="newtext_or_none"),
     __objclass__ = GetSetProperty(GetSetProperty.descr_get_objclass),
-    __doc__ = interp_attrproperty('doc', cls=GetSetProperty),
+    __doc__ = interp_attrproperty('doc', cls=GetSetProperty,
+        wrapfn="newtext_or_none"),
     )
 assert not W_MemberDescr.typedef.acceptable_as_base_class  # no __new__
 

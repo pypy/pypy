@@ -805,6 +805,11 @@ class ObjSpace(object):
                 raise
             return None
 
+    def wrap_none(self, w_obj):
+        if w_obj is None:
+            return self.w_None
+        return w_obj
+
     @signature(types.any(), types.bool(), returns=types.instance(W_Root))
     def newbool(self, b):
         if b:

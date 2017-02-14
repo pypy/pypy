@@ -163,14 +163,20 @@ W_Dialect.typedef = TypeDef(
         '_csv.Dialect',
         __new__ = interp2app(W_Dialect___new__),
 
-        delimiter        = interp_attrproperty('delimiter', W_Dialect),
-        doublequote      = interp_attrproperty('doublequote', W_Dialect),
+        delimiter        = interp_attrproperty('delimiter', W_Dialect,
+            wrapfn='newtext'),
+        doublequote      = interp_attrproperty('doublequote', W_Dialect,
+            wrapfn='newbool'),
         escapechar       = GetSetProperty(_get_escapechar, cls=W_Dialect),
-        lineterminator   = interp_attrproperty('lineterminator', W_Dialect),
+        lineterminator   = interp_attrproperty('lineterminator', W_Dialect,
+            wrapfn='newtext'),
         quotechar        = GetSetProperty(_get_quotechar, cls=W_Dialect),
-        quoting          = interp_attrproperty('quoting', W_Dialect),
-        skipinitialspace = interp_attrproperty('skipinitialspace', W_Dialect),
-        strict           = interp_attrproperty('strict', W_Dialect),
+        quoting          = interp_attrproperty('quoting', W_Dialect,
+            wrapfn='newint'),
+        skipinitialspace = interp_attrproperty('skipinitialspace', W_Dialect,
+            wrapfn='newbool'),
+        strict           = interp_attrproperty('strict', W_Dialect,
+            wrapfn='newbool'),
 
         __doc__ = """CSV dialect
 

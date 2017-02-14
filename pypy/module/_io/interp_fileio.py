@@ -531,7 +531,7 @@ W_FileIO.typedef = TypeDef(
     _dealloc_warn = interp2app(W_FileIO._dealloc_warn_w),
     name = interp_member_w('w_name', cls=W_FileIO),
     closefd = interp_attrproperty(
-        'closefd', cls=W_FileIO,
+        'closefd', cls=W_FileIO, wrapfn="newbool",
         doc="True if the file descriptor will be closed"),
     mode = GetSetProperty(W_FileIO.descr_get_mode,
                           doc="String giving the file mode"),

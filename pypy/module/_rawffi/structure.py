@@ -3,7 +3,7 @@ to app-level with apropriate interface
 """
 
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.typedef import interp_attrproperty
+from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._rawffi.interp_rawffi import segfault_exception, _MS_WINDOWS
@@ -271,8 +271,10 @@ W_Structure.typedef = TypeDef(
     __call__    = interp2app(W_Structure.descr_call),
     __repr__    = interp2app(W_Structure.descr_repr),
     fromaddress = interp2app(W_Structure.fromaddress),
-    size        = interp_attrproperty('size', W_Structure),
-    alignment   = interp_attrproperty('alignment', W_Structure),
+    size        = interp_attrproperty('size', W_Structure,
+        wrapfn="newint"),
+    alignment   = interp_attrproperty('alignment', W_Structure,
+        wrapfn="newint"),
     fieldoffset = interp2app(W_Structure.descr_fieldoffset),
     fieldsize   = interp2app(W_Structure.descr_fieldsize),
     size_alignment = interp2app(W_Structure.descr_size_alignment),
@@ -383,7 +385,7 @@ W_StructureInstance.typedef = TypeDef(
     __setattr__ = interp2app(W_StructureInstance.setattr),
     buffer      = GetSetProperty(W_StructureInstance.getbuffer),
     free        = interp2app(W_StructureInstance.free),
-    shape       = interp_attrproperty('shape', W_StructureInstance),
+    shape       = interp_attrproperty_w('shape', W_StructureInstance),
     byptr       = interp2app(W_StructureInstance.byptr),
     fieldaddress= interp2app(W_StructureInstance.descr_fieldaddress),
 )
@@ -404,7 +406,7 @@ W_StructureInstanceAutoFree.typedef = TypeDef(
     __getattr__ = interp2app(W_StructureInstance.getattr),
     __setattr__ = interp2app(W_StructureInstance.setattr),
     buffer      = GetSetProperty(W_StructureInstance.getbuffer),
-    shape       = interp_attrproperty('shape', W_StructureInstance),
+    shape       = interp_attrproperty_w('shape', W_StructureInstance),
     byptr       = interp2app(W_StructureInstance.byptr),
     fieldaddress= interp2app(W_StructureInstance.descr_fieldaddress),
 )

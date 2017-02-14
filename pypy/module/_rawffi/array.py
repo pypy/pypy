@@ -4,7 +4,7 @@ to app-level with apropriate interface
 """
 
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
+from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty_w
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._rawffi.interp_rawffi import segfault_exception
@@ -197,7 +197,7 @@ W_ArrayInstance.typedef = TypeDef(
     __getitem__ = interp2app(W_ArrayInstance.descr_getitem),
     __len__     = interp2app(W_ArrayInstance.getlength),
     buffer      = GetSetProperty(W_ArrayInstance.getbuffer),
-    shape       = interp_attrproperty('shape', W_ArrayInstance),
+    shape       = interp_attrproperty_w('shape', W_ArrayInstance),
     free        = interp2app(W_ArrayInstance.free),
     byptr       = interp2app(W_ArrayInstance.byptr),
     itemaddress = interp2app(W_ArrayInstance.descr_itemaddress),
@@ -221,7 +221,7 @@ W_ArrayInstanceAutoFree.typedef = TypeDef(
     __getitem__ = interp2app(W_ArrayInstance.descr_getitem),
     __len__     = interp2app(W_ArrayInstance.getlength),
     buffer      = GetSetProperty(W_ArrayInstance.getbuffer),
-    shape       = interp_attrproperty('shape', W_ArrayInstance),
+    shape       = interp_attrproperty_w('shape', W_ArrayInstance),
     byptr       = interp2app(W_ArrayInstance.byptr),
     itemaddress = interp2app(W_ArrayInstance.descr_itemaddress),
 )
