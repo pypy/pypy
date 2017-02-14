@@ -57,7 +57,7 @@ class BoolTypeMixin(object):
         return arg
 
     def _wrap_object(self, space, obj):
-        return space.wrap(bool(ord(rffi.cast(rffi.CHAR, obj))))
+        return space.newbool(bool(ord(rffi.cast(rffi.CHAR, obj))))
 
     def cffi_type(self, space):
         state = space.fromcache(State)
@@ -214,7 +214,7 @@ class FloatTypeMixin(object):
         return r_singlefloat(space.float_w(w_obj))
 
     def _wrap_object(self, space, obj):
-        return space.wrap(float(obj))
+        return space.newfloat(float(obj))
 
     def cffi_type(self, space):
         state = space.fromcache(State)

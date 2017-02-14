@@ -63,6 +63,10 @@ def setup_module(mod):
 class FakeBase(W_Root):
     typename = None
 
+class FakeBool(FakeBase):
+    typename = "bool"
+    def __init__(self, val):
+        self.val = val
 class FakeInt(FakeBase):
     typename = "int"
     def __init__(self, val):
@@ -152,6 +156,30 @@ class FakeSpace(object):
         if isinstance(obj, rffi.r_int):
             return FakeInt(int(obj))
         assert 0
+
+    @specialize.argtype(1)
+    def newbool(self, obj):
+        return FakeBool(obj)
+
+    @specialize.argtype(1)
+    def newint(self, obj):
+        return FakeInt(obj)
+
+    @specialize.argtype(1)
+    def newlong(self, obj):
+        return FakeInt(obj)
+
+    @specialize.argtype(1)
+    def newfloat(self, obj):
+        return FakeFloat(obj)
+
+    @specialize.argtype(1)
+    def newbytes(self, obj):
+        return FakeString(obj)
+
+    @specialize.argtype(1)
+    def newtext(self, obj):
+        return FakeString(obj)
 
     def float_w(self, w_obj, allow_conversion=True):
         assert isinstance(w_obj, FakeFloat)

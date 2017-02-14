@@ -73,7 +73,7 @@ class AppTestCrossing:
     def setup_class(cls):
         # cppyy specific additions (note that test_dct is loaded late
         # to allow the generated extension module be loaded first)
-        cls.w_test_dct    = cls.space.wrap(test_dct)
+        cls.w_test_dct    = cls.space.newtext(test_dct)
         cls.w_pre_imports = cls.space.appexec([], """():
             import ctypes, cppyy""")    # prevents leak-checking complaints on ctypes' statics
 
@@ -105,7 +105,7 @@ class AppTestCrossing:
             from pypy.module.imp.importing import get_so_extension
             fullmodname = os.path.join(
                 os.path.dirname(mod), name + get_so_extension(space))
-            return space.wrap(fullmodname)
+            return space.newtext(fullmodname)
 
         self.w_create_cdll = self.space.wrap(interp2app(create_cdll))
 
