@@ -9,8 +9,8 @@ from pypy.interpreter.typedef import (
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.module.cpyext.api import (
     CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_NOARGS, METH_O,
-    METH_STATIC, METH_VARARGS, PyObject, PyObjectFields, bootstrap_function,
-    build_type_checkers, cpython_api, cpython_struct, generic_cpy_call,
+    METH_STATIC, METH_VARARGS, PyObject, bootstrap_function,
+    build_type_checkers, cpython_api, generic_cpy_call,
     PyTypeObjectPtr, slot_function, cts)
 from pypy.module.cpyext.pyobject import (
     Py_DecRef, from_ref, make_ref, as_pyobj, make_typedescr)
@@ -18,14 +18,7 @@ from pypy.module.cpyext.pyobject import (
 PyMethodDef = cts.gettype('PyMethodDef')
 PyCFunction = cts.gettype('PyCFunction')
 PyCFunctionKwArgs = cts.gettype('PyCFunctionWithKeywords')
-PyCFunctionObjectStruct = cpython_struct(
-    'PyCFunctionObject',
-    PyObjectFields + (
-     ('m_ml', lltype.Ptr(PyMethodDef)),
-     ('m_self', PyObject),
-     ('m_module', PyObject),
-     ))
-PyCFunctionObject = lltype.Ptr(PyCFunctionObjectStruct)
+PyCFunctionObject = cts.gettype('PyCFunctionObject*')
 
 @bootstrap_function
 def init_methodobject(space):

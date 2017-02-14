@@ -7,14 +7,6 @@
 extern "C" {
 #endif
 
-typedef struct
-{
-    PyObject_HEAD
-    PyMethodDef *m_ml; /* Description of the C function to call */
-    PyObject    *m_self; /* Passed as 'self' arg to the C func, can be NULL */
-    PyObject    *m_module; /* The __module__ attribute, can be anything */
-} PyCFunctionObject;
-
 /* Flag passed to newmethodobject */
 #define METH_VARARGS  0x0001
 #define METH_KEYWORDS 0x0002
