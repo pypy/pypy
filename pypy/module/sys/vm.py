@@ -124,7 +124,7 @@ def exc_info_with_tb(space):
         return space.newtuple([space.w_None, space.w_None, space.w_None])
     else:
         return space.newtuple([operror.w_type, operror.get_w_value(space),
-                               operror.get_traceback()])
+                               operror.get_w_traceback(space)])
 
 def exc_info_without_tb(space, operror):
     return space.newtuple([operror.w_type, operror.get_w_value(space),

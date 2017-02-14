@@ -226,8 +226,8 @@ class OperationError(Exception):
                     w_value.w_traceback = tb
                 else:
                     # traceback has escaped
-                    space.setattr(w_value, space.wrap("__traceback__"),
-                                  space.wrap(self.get_traceback()))
+                    space.setattr(w_value, space.newtext("__traceback__"),
+                                  self.get_w_traceback(space))
         else:
             # the only case left here is (inst, None), from a 'raise inst'.
             w_inst = w_type
@@ -270,7 +270,7 @@ class OperationError(Exception):
                 pass
             w_t = self.w_type
             w_v = self.get_w_value(space)
-            w_tb = self.get_traceback()
+            w_tb = self.get_w_traceback(space)
             if where or objrepr:
                 if with_traceback:
                     first_line = 'From %s%s:\n' % (where, objrepr)
@@ -334,7 +334,14 @@ class OperationError(Exception):
         else:
             self._exception_getclass(space, w_cause, "exception causes")
         w_value = self.get_w_value(space)
-        space.setattr(w_value, space.wrap("__cause__"), w_cause)
+        space.setattr(w_value, space.newtext("__cause__"), w_cause)
+
+    def get_w_traceback(self, space):
+        """Return a traceback or w_None. """
+        tb = self.get_traceback()
+        if tb is None:
+            return space.w_None
+        return tb
 
     def set_traceback(self, traceback):
         """Set the current traceback."""
@@ -369,7 +376,7 @@ class OperationError(Exception):
         w_context = context.get_w_value(space)
         if not space.is_w(w_value, w_context):
             _break_context_cycle(space, w_value, w_context)
-            space.setattr(w_value, space.wrap('__context__'), w_context)
+            space.setattr(w_value, space.newtext('__context__'), w_context)
 
     # A simplified version of _PyErr_TrySetFromCause, which returns a
     # new exception of the same class, but with another error message.
@@ -414,11 +421,11 @@ def _break_context_cycle(space, w_value, w_context):
     This is O(chain length) but context chains are usually very short
     """
     while True:
-        w_next = space.getattr(w_context, space.wrap('__context__'))
+        w_next = space.getattr(w_context, space.newtext('__context__'))
         if space.is_w(w_next, space.w_None):
             break
         if space.is_w(w_next, w_value):
-            space.setattr(w_context, space.wrap('__context__'), space.w_None)
+            space.setattr(w_context, space.newtext('__context__'), space.w_None)
             break
         w_context = w_next
 
@@ -750,6 +757,6 @@ def get_converted_unexpected_exception(space, e):
             # when untranslated, we don't wrap into an app-level
             # SystemError (this makes debugging tests harder)
             raise
-        return OperationError(space.w_SystemError, space.wrap(
+        return OperationError(space.w_SystemError, space.newtext(
             "unexpected internal exception (please report a bug): %r%s" %
             (e, extra)))

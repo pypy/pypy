@@ -484,7 +484,8 @@ def register_builtin_error_handlers(space):
                   "backslashreplace", "surrogateescape", "surrogatepass",
                   "namereplace"):
         name = error + "_errors"
-        state.codec_error_registry[error] = space.wrap(interp2app(globals()[name]))
+        state.codec_error_registry[error] = interp2app(
+                globals()[name]).spacebind(space)
 
 
 def _wrap_codec_error(space, operr, action, encoding):

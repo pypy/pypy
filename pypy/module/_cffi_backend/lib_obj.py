@@ -243,7 +243,7 @@ class W_LibObject(W_Root):
                 if (op == cffi_opcode.OP_GLOBAL_VAR or
                     op == cffi_opcode.OP_GLOBAL_VAR_F):
                     continue
-            names_w.append(space.wrap(rffi.charp2str(g[i].c_name)))
+            names_w.append(space.newtext(rffi.charp2str(g[i].c_name)))
         return space.newlist(names_w)
 
     def full_dict_copy(self):
@@ -252,7 +252,7 @@ class W_LibObject(W_Root):
         g = self.ctx.c_globals
         w_result = space.newdict()
         for i in range(total):
-            w_attr = space.wrap(rffi.charp2str(g[i].c_name))
+            w_attr = space.newtext(rffi.charp2str(g[i].c_name))
             w_value = self._get_attr(w_attr)
             space.setitem(w_result, w_attr, w_value)
         return w_result
@@ -261,7 +261,7 @@ class W_LibObject(W_Root):
         # rebuild a string object from 'varname', to do typechecks and
         # to force a unicode back to a plain string
         space = self.space
-        w_value = self._get_attr(space.wrap(varname))
+        w_value = self._get_attr(space.newtext(varname))
         if isinstance(w_value, cglob.W_GlobSupport):
             # regular case: a global variable
             return w_value.address()

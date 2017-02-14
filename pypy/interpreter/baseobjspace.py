@@ -306,7 +306,10 @@ class W_Root(object):
         raise oefmt(space.w_TypeError,
                     "ord() expected string of length 1, but %T found", self)
 
-    def __spacebind__(self, space):
+    def spacebind(self, space):
+        """ Return a version of the object bound to a specific object space
+        instance. This is used for objects (like e.g. TypeDefs) that are
+        constructed before there is an object space instance. """
         return self
 
     def unwrap(self, space):

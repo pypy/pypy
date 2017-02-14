@@ -60,7 +60,7 @@ def callback(ll_args, ll_res, ll_userdata):
                         break
             unwrap_value(space, write_ptr, ptr, 0, letter, w_res)
     except OperationError as e:
-        tbprint(space, e.get_traceback(),
+        tbprint(space, e.get_w_traceback(space),
                 space.newtext(e.errorstr(space)))
         # force the result to be zero
         if callback_ptr.result is not None:

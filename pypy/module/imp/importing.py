@@ -256,7 +256,10 @@ def exec_code_module(space, w_mod, code_w, pathname, cpathname,
             w_pathname = get_sourcefile(space, pathname)
         else:
             w_pathname = space.wrap_fsdecoded(code_w.co_filename)
-        w_cpathname = space.wrap_fsdecoded(cpathname)
+        if cpathname is not None:
+            w_cpathname = space.wrap_fsdecoded(cpathname)
+        else:
+            w_cpathname = space.w_None
         space.setitem(w_dict, space.newtext("__file__"), w_pathname)
         space.setitem(w_dict, space.newtext("__cached__"), w_cpathname)
     code_w.exec_code(space, w_dict, w_dict)

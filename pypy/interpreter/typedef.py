@@ -466,7 +466,7 @@ class ClassAttr(W_Root):
     def __init__(self, function):
         self.function = function
 
-    def __spacebind__(self, space):
+    def spacebind(self, space):
         return self.function(space)
 
 # ____________________________________________________________

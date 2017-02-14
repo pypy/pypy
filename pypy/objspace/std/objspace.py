@@ -162,7 +162,7 @@ class StdObjSpace(ObjSpace):
         if isinstance(x, float):
             return W_FloatObject(x)
         if isinstance(x, W_Root):
-            w_result = x.__spacebind__(self)
+            w_result = x.spacebind(self)
             #print 'wrapping', x, '->', w_result
             return w_result
         if isinstance(x, base_int):

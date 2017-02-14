@@ -117,12 +117,11 @@ class W_CTypeFunc(W_CTypePtrBase):
 
     def _fget(self, attrchar):
         if attrchar == 'a':    # args
-            return self.space.newtuple([self.space.wrap(a)
-                                        for a in self.fargs])
+            return self.space.newtuple([a for a in self.fargs])
         if attrchar == 'r':    # result
             return self.ctitem
         if attrchar == 'E':    # ellipsis
-            return self.space.wrap(self.ellipsis)
+            return self.space.newbool(self.ellipsis)
         if attrchar == 'A':    # abi
             return self.space.newint(self.abi)
         return W_CTypePtrBase._fget(self, attrchar)

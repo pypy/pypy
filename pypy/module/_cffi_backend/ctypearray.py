@@ -97,7 +97,7 @@ class W_CTypeArray(W_CTypePtrOrArray):
 
     def _fget(self, attrchar):
         if attrchar == 'i':     # item
-            return self.space.wrap(self.ctitem)
+            return self.ctitem
         if attrchar == 'l':     # length
             if self.length >= 0:
                 return self.space.newint(self.length)

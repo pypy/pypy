@@ -312,7 +312,7 @@ class ExecutionContext(object):
                 operr.normalize_exception(space)
                 w_value = operr.get_w_value(space)
                 w_arg = space.newtuple([operr.w_type, w_value,
-                                        operr.get_traceback()])
+                                        operr.get_w_traceback(space)])
 
             d = frame.getorcreatedebug()
             if d.w_locals is not None:

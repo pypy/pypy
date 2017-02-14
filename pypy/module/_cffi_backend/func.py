@@ -56,7 +56,7 @@ def alignof(space, w_ctype):
 @unwrap_spec(w_ctype=ctypeobj.W_CType, following=int)
 def typeoffsetof(space, w_ctype, w_field_or_index, following=0):
     ctype, offset = w_ctype.direct_typeoffsetof(w_field_or_index, following)
-    return space.newtuple([space.wrap(ctype), space.newint(offset)])
+    return space.newtuple([ctype, space.newint(offset)])
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType, w_cdata=cdataobj.W_CData, offset=int)
 def rawaddressof(space, w_ctype, w_cdata, offset):
@@ -99,7 +99,7 @@ def _get_common_types(space, w_dict):
             break
         key = rffi.charp2str(p)
         value = rffi.charp2str(rffi.ptradd(p, len(key) + 1))
-        space.setitem_str(w_dict, key, space.wrap(value))
+        space.setitem_str(w_dict, key, space.newtext(value))
         index += 1
 
 # ____________________________________________________________

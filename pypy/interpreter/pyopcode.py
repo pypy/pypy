@@ -1226,7 +1226,7 @@ class __extend__(pyframe.PyFrame):
         if isinstance(w_unroller, SApplicationException):
             # app-level exception
             operr = w_unroller.operr
-            w_traceback = operr.get_traceback()
+            w_traceback = operr.get_w_traceback(self.space)
             w_res = self.call_contextmanager_exit_function(
                 w_exitfunc,
                 operr.w_type,
