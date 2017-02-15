@@ -581,7 +581,7 @@ entries '.' and '..' even if they are present in the directory."""
             result_w = [None] * len_result
             for i in range(len_result):
                 res = result[i]
-                w_bytes = space.newtext(res)
+                w_bytes = space.newunicode(res)
                 try:
                     result_w[i] = space.call_method(w_bytes,
                                                     "decode", w_fs_encoding)
