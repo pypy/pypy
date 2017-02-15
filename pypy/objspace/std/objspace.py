@@ -376,6 +376,7 @@ class StdObjSpace(ObjSpace):
         return self.newtext(s)
 
     def newunicode(self, uni):
+        assert uni is not None
         assert isinstance(uni, unicode)
         return W_UnicodeObject(uni)
 
