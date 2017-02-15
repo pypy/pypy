@@ -102,9 +102,6 @@ class DummySpace(object):
     def text_w(self, s):
         return self.str_w(s)
 
-    def text_w(self, s):
-        return self.str_w(s)
-
     def unicode_w(self, s):
         return unicode(s)
 
