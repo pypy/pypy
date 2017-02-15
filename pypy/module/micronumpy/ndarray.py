@@ -1263,7 +1263,7 @@ class __extend__(W_NDimArray):
                             op_name, self.get_dtype().get_name())
             shape = self.get_shape()
             if space.is_none(w_axis) or len(shape) <= 1:
-                return space.wrap(getattr(loop, op_name_flat)(self))
+                return space.newint(getattr(loop, op_name_flat)(self))
             else:
                 axis = space.int_w(w_axis)
                 assert axis >= 0
@@ -1340,7 +1340,7 @@ class __extend__(W_NDimArray):
         assert isinstance(multiarray, MixedModule)
         reconstruct = multiarray.get("_reconstruct")
         parameters = space.newtuple([self.getclass(space), space.newtuple(
-            [space.newint(0)]), space.wrap("b")])
+            [space.newint(0)]), space.newtext("b")])
 
         builder = StringBuilder()
         if self.get_dtype().is_object():

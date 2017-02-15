@@ -64,7 +64,7 @@ def _current_frames(space):
         w_topframe = space.w_None
         w_prevframe = None
         for f in frames:
-            w_nextframe = space.call_function(w_fake_frame, space.wrap(f))
+            w_nextframe = space.call_function(w_fake_frame, space.wrap_none(f))
             if w_prevframe is None:
                 w_topframe = w_nextframe
             else:

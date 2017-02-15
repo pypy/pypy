@@ -147,10 +147,17 @@ class UnpackFormatIterator(FormatIterator):
 
     @specialize.argtype(1)
     def appendobj(self, value):
-        if isinstance(value, str):
-            self.result_w.append(self.space.newbytes(value))
+        if isinstance(value, float):
+            w_value = self.space.newfloat(value)
+        elif isinstance(value, str):
+            w_value = self.space.newbytes(value)
+        elif isinstance(value, unicode):
+            w_value = self.space.newunicode(value)
+        elif isinstance(value, bool):
+            w_value = self.space.newbool(value)
         else:
-            self.result_w.append(self.space.wrap(value)) # YYY
+            w_value = self.space.newint(value)
+        self.result_w.append(w_value)
 
     def get_pos(self):
         return self.pos

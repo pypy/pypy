@@ -293,7 +293,7 @@ class W_Root(object):
             return w_result
         if space.isinstance_w(w_result, space.w_int):
             tp = space.type(w_result).name
-            space.warn(space.wrap(
+            space.warn(space.newtext(
                 "__int__ returned non-int (type %s).  "
                 "The ability to return an instance of a strict subclass of int "
                 "is deprecated, and may be removed in a future version of "
@@ -488,13 +488,13 @@ class ObjSpace(object):
         else:
             name = importname
 
-        mod = Module(self, self.wrap(name))
+        mod = Module(self, self.newtext(name))
         mod.install()
 
         return name
 
     def getbuiltinmodule(self, name, force_init=False, reuse=True):
-        w_name = self.wrap(name)
+        w_name = self.newtext(name)
         w_modules = self.sys.get('modules')
         if not force_init:
             assert reuse
@@ -520,7 +520,7 @@ class ObjSpace(object):
             if not reuse and w_mod.startup_called:
                 # create a copy of the module.  (see issue1514) eventlet
                 # patcher relies on this behaviour.
-                w_mod2 = self.wrap(Module(self, w_name))
+                w_mod2 = Module(self, w_name)
                 self.setitem(w_modules, w_name, w_mod2)
                 w_mod.getdict(self)  # unlazy w_initialdict
                 self.call_method(w_mod2.getdict(self), 'update',
@@ -566,26 +566,26 @@ class ObjSpace(object):
         "NOT_RPYTHON: only for initializing the space."
 
         from pypy.module.exceptions import Module
-        w_name = self.wrap('__exceptions__')
+        w_name = self.newtext('__exceptions__')
         self.exceptions_module = Module(self, w_name)
         self.exceptions_module.install()
 
         from pypy.module.imp import Module
-        w_name = self.wrap('_imp')
+        w_name = self.newtext('_imp')
         mod = Module(self, w_name)
         mod.install()
 
         from pypy.module.sys import Module
-        w_name = self.wrap('sys')
+        w_name = self.newtext('sys')
         self.sys = Module(self, w_name)
         self.sys.install()
 
         from pypy.module.__builtin__ import Module
-        w_name = self.wrap('builtins')
+        w_name = self.newtext('builtins')
         self.builtin = Module(self, w_name)
-        w_builtin = self.wrap(self.builtin)
+        w_builtin = self.builtin
         w_builtin.install()
-        self.setitem(self.builtin.w_dict, self.wrap('__builtins__'), w_builtin)
+        self.setitem(self.builtin.w_dict, self.newtext('__builtins__'), w_builtin)
 
         # exceptions was bootstrapped as '__exceptions__' but still
         # lives in pypy/module/exceptions, we rename it below for
@@ -599,7 +599,7 @@ class ObjSpace(object):
         types_w = (self.get_builtin_types().items() +
                    exception_types_w.items())
         for name, w_type in types_w:
-            self.setitem(self.builtin.w_dict, self.wrap(name), w_type)
+            self.setitem(self.builtin.w_dict, self.newtext(name), w_type)
 
         # install mixed modules
         for mixedname in self.get_builtinmodule_to_install():
@@ -610,10 +610,10 @@ class ObjSpace(object):
         installed_builtin_modules.append('__exceptions__')
         installed_builtin_modules.sort()
         w_builtin_module_names = self.newtuple(
-            [self.wrap(fn) for fn in installed_builtin_modules])
+            [self.newtext(fn) for fn in installed_builtin_modules])
 
         # force this value into the dict without unlazyfying everything
-        self.setitem(self.sys.w_dict, self.wrap('builtin_module_names'),
+        self.setitem(self.sys.w_dict, self.newtext('builtin_module_names'),
                      w_builtin_module_names)
 
     def get_builtin_types(self):
@@ -741,7 +741,7 @@ class ObjSpace(object):
     # may also override specific functions for performance.
 
     def not_(self, w_obj):
-        return self.wrap(not self.is_true(w_obj))
+        return self.newbool(not self.is_true(w_obj))
 
     def eq_w(self, w_obj1, w_obj2):
         """Implements equality with the double check 'x is y or x == y'."""
@@ -767,7 +767,7 @@ class ObjSpace(object):
         w_result = w_obj.immutable_unique_id(self)
         if w_result is None:
             # in the common case, returns an unsigned value
-            w_result = self.wrap(r_uint(compute_unique_id(w_obj)))
+            w_result = self.newint(r_uint(compute_unique_id(w_obj)))
         return w_result
 
     def hash_w(self, w_obj):
@@ -783,10 +783,10 @@ class ObjSpace(object):
         return self.is_true(self.contains(w_container, w_item))
 
     def setitem_str(self, w_obj, key, w_value):
-        return self.setitem(w_obj, self.wrap(key), w_value)
+        return self.setitem(w_obj, self.newtext(key), w_value)
 
     def finditem_str(self, w_obj, key):
-        return self.finditem(w_obj, self.wrap(key))
+        return self.finditem(w_obj, self.newtext(key))
 
     def finditem(self, w_obj, w_key):
         try:
@@ -1064,13 +1064,13 @@ class ObjSpace(object):
         return self.newlist([self.newbytes(s) for s in list_s])
 
     def newlist_unicode(self, list_u):
-        return self.newlist([self.wrap(u) for u in list_u])
+        return self.newlist([self.newunicode(u) for u in list_u])
 
     def newlist_int(self, list_i):
-        return self.newlist([self.wrap(i) for i in list_i])
+        return self.newlist([self.newint(i) for i in list_i])
 
     def newlist_float(self, list_f):
-        return self.newlist([self.wrap(f) for f in list_f])
+        return self.newlist([self.newfloat(f) for f in list_f])
 
     def newlist_hint(self, sizehint):
         from pypy.objspace.std.listobject import make_empty_list_with_size
@@ -1166,7 +1166,7 @@ class ObjSpace(object):
         return w_res
 
     def call_method(self, w_obj, methname, *arg_w):
-        w_meth = self.getattr(w_obj, self.wrap(methname))
+        w_meth = self.getattr(w_obj, self.newtext(methname))
         return self.call_function(w_meth, *arg_w)
 
     def raise_key_error(self, w_key):
@@ -1175,7 +1175,7 @@ class ObjSpace(object):
 
     def lookup(self, w_obj, name):
         w_type = self.type(w_obj)
-        w_mro = self.getattr(w_type, self.wrap("__mro__"))
+        w_mro = self.getattr(w_type, self.newtext("__mro__"))
         for w_supertype in self.fixedview(w_mro):
             w_value = w_supertype.getdictvalue(self, name)
             if w_value is not None:
@@ -1187,7 +1187,7 @@ class ObjSpace(object):
         return isinstance(w_obj, GeneratorIterator)
 
     def callable(self, w_obj):
-        return self.wrap(self.lookup(w_obj, "__call__") is not None)
+        return self.newbool(self.lookup(w_obj, "__call__") is not None)
 
     def issequence_w(self, w_obj):
         flag = self.type(w_obj).flag_map_or_seq
@@ -1230,7 +1230,7 @@ class ObjSpace(object):
 
     def isabstractmethod_w(self, w_obj):
         try:
-            w_result = self.getattr(w_obj, self.wrap("__isabstractmethod__"))
+            w_result = self.getattr(w_obj, self.newtext("__isabstractmethod__"))
         except OperationError as e:
             if e.match(self, self.w_AttributeError):
                 return False
@@ -1283,9 +1283,9 @@ class ObjSpace(object):
                                          hidden_applevel=hidden_applevel)
         if not isinstance(statement, PyCode):
             raise TypeError('space.exec_(): expected a string, code or PyCode object')
-        w_key = self.wrap('__builtins__')
+        w_key = self.newtext('__builtins__')
         if not self.contains_w(w_globals, w_key):
-            self.setitem(w_globals, w_key, self.wrap(self.builtin))
+            self.setitem(w_globals, w_key, self.builtin)
         return statement.exec_code(self, w_globals, w_locals)
 
     @specialize.arg(2)
@@ -1396,7 +1396,7 @@ class ObjSpace(object):
                 raise
             if not w_exception:
                 # w_index should be a long object, but can't be sure of that
-                if self.is_true(self.lt(w_index, self.wrap(0))):
+                if self.is_true(self.lt(w_index, self.newint(0))):
                     return -sys.maxint-1
                 else:
                     return sys.maxint
@@ -1820,7 +1820,7 @@ class ObjSpace(object):
         # with a fileno(), but not an object with an __int__().
         if not self.isinstance_w(w_fd, self.w_int):
             try:
-                w_fileno = self.getattr(w_fd, self.wrap("fileno"))
+                w_fileno = self.getattr(w_fd, self.newtext("fileno"))
             except OperationError as e:
                 if e.match(self, self.w_AttributeError):
                     raise oefmt(self.w_TypeError,

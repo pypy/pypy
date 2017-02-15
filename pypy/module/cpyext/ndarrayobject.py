@@ -264,7 +264,7 @@ def do_ufunc(space, funcs, data, types, ntypes, nin, nout, identity, name, doc,
     w_dtypes = space.newlist(dtypes_w)
     w_doc = rffi.charp2str(doc)
     w_name = rffi.charp2str(name)
-    w_identity = space.wrap(identity)
+    w_identity = space.newint(identity)
     ufunc_generic = ufuncs.frompyfunc(space, w_funcs, nin, nout, w_dtypes,
                  w_signature, w_identity, w_name, w_doc, stack_inputs=True)
     return ufunc_generic

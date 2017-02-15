@@ -1049,15 +1049,20 @@ def make_array(mytype):
             if mytype.typecode in 'bBhHil':
                 item = rffi.cast(lltype.Signed, item)
                 return space.newint(item)
-            elif mytype.typecode == 'f':
+            if mytype.typecode in 'ILqQ':
+                return space.newint(item)
+            elif mytype.typecode in 'fd':
                 item = float(item)
                 return space.newfloat(item)
+            elif mytype.typecode == 'c':
+                return space.newbytes(item)
             elif mytype.typecode == 'u':
                 if ord(item) >= 0x110000:
                     raise oefmt(space.w_ValueError,
                                 "array contains a unicode character out of "
                                 "range(0x110000)")
-            return space.wrap(item) # YYY
+                return space.newunicode(item)
+            assert 0, "unreachable"
 
         # interface
 
