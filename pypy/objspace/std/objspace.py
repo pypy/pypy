@@ -304,8 +304,8 @@ class StdObjSpace(ObjSpace):
         return W_ListObject.newlist_bytes(self, list_s)
 
     def newlist_text(self, list_t):
-        # XXX improve!
-        return self.newlist([self.newtext(t) for t in list_t])
+        return self.newlist_unicode([
+            decode_utf8(self, s, allow_surrogates=True) for s in list_t])
 
     def newlist_unicode(self, list_u):
         return W_ListObject.newlist_unicode(self, list_u)
@@ -352,9 +352,6 @@ class StdObjSpace(ObjSpace):
 
     def newbytearray(self, l):
         return W_BytearrayObject(l)
-
-    def newtext(self, s):
-        return self.newunicode(decode_utf8(self, s, allow_surrogates=True))
 
     def newtext(self, s):
         return self.newunicode(decode_utf8(self, s, allow_surrogates=True))
