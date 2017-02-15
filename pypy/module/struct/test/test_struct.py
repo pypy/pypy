@@ -530,6 +530,16 @@ class AppTestStruct(object):
                 format = byteorder+code
                 t = run_not_int_test(format)
 
+    def test_struct_with_bytes_as_format_string(self):
+        # why??
+        assert self.struct.calcsize(b'!ii') == 8
+        b = memoryview(bytearray(8))
+        self.struct.iter_unpack(b'ii', b)
+        self.struct.pack(b"ii", 45, 56)
+        self.struct.pack_into(b"ii", b, 0, 45, 56)
+        self.struct.unpack(b"ii", b"X" * 8)
+        assert self.struct.unpack_from(b"ii", b) == (45, 56)
+
 
 class AppTestStructBuffer(object):
     spaceconfig = dict(usemodules=['struct', '__pypy__'])
@@ -561,6 +571,7 @@ class AppTestStructBuffer(object):
         assert self.struct.unpack_from("ii", b, 2) == (17, 42)
         b[:sz] = self.struct.pack("ii", 18, 43)
         assert self.struct.unpack_from("ii", b) == (18, 43)
+        self.struct.Struct(b"ii")
 
 
 class AppTestFastPath(object):
