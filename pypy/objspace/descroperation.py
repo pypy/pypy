@@ -408,7 +408,7 @@ class DescrOperation(object):
             except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
-                return space.wrap(count)
+                return space.newint(count)
             if space.eq_w(w_next, w_item):
                 count += 1
 
@@ -424,7 +424,7 @@ class DescrOperation(object):
                 raise oefmt(space.w_ValueError,
                             "sequence.index(x): x not in sequence")
             if space.eq_w(w_next, w_item):
-                return space.wrap(index)
+                return space.newint(index)
             index += 1
 
     def hash(space, w_obj):
@@ -483,7 +483,7 @@ class DescrOperation(object):
             return w_result
         if space.isinstance_w(w_result, space.w_int):
             tp = space.type(w_result).name
-            space.warn(space.wrap(
+            space.warn(space.newtext(
                 "__index__ returned non-int (type %s).  "
                 "The ability to return an instance of a strict subclass of int "
                 "is deprecated, and may be removed in a future version of "

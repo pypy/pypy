@@ -180,7 +180,7 @@ def make_unsigned_flowinfo(space, flowinfo):
 
 # XXX Hack to seperate rpython and pypy
 def ipaddr_from_object(space, w_sockaddr):
-    host = space.str_w(space.getitem(w_sockaddr, space.newint(0)))
+    host = space.text_w(space.getitem(w_sockaddr, space.newint(0)))
     addr = rsocket.makeipaddr(host)
     fill_from_object(addr, space, w_sockaddr)
     return addr

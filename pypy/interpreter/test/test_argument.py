@@ -99,6 +99,8 @@ class DummySpace(object):
 
     def str_w(self, s):
         return str(s)
+    def text_w(self, s):
+        return self.str_w(s)
 
     def text_w(self, s):
         return self.str_w(s)

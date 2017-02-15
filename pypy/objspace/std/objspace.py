@@ -92,6 +92,8 @@ class StdObjSpace(ObjSpace):
             self.builtin_types[typedef.name] = w_type
             setattr(self, 'w_' + typedef.name, w_type)
             self._interplevel_classes[w_type] = cls
+        self.w_bytes = self.w_str
+        self.w_text = self.w_str # this is w_unicode on Py3
         self.w_dict.flag_map_or_seq = 'M'
         self.w_list.flag_map_or_seq = 'S'
         self.w_tuple.flag_map_or_seq = 'S'
@@ -132,7 +134,6 @@ class StdObjSpace(ObjSpace):
         assert typedef is not None
         return self.fromcache(TypeCache).getorbuild(typedef)
 
-    @not_rpython # only for tests
     def wrap(self, x):
         """ Wraps the Python value 'x' into one of the wrapper classes. This
         should only be used for tests, in real code you need to use the
@@ -153,7 +154,7 @@ class StdObjSpace(ObjSpace):
             try:
                 unicode_x = x.decode('ascii')
             except UnicodeDecodeError:
-                unicode_x = self._wrap_ascii_replace(x)
+                unicode_x = self._wrap_string_old(x)
             return self.newunicode(unicode_x)
         if isinstance(x, unicode):
             return self.newunicode(x)
@@ -167,24 +168,13 @@ class StdObjSpace(ObjSpace):
             return self.newint(x)
         return self._wrap_not_rpython(x)
 
-    def _wrap_ascii_replace(self, x):
-        # XXX should disappear soon?
-        # poor man's x.decode('ascii', 'replace'), since it's not
-        # supported by RPython
-        if not we_are_translated():
-            print 'WARNING: space.wrap() called on a non-ascii byte string: %r' % x
-        lst = []
-        for ch in x:
-            ch = ord(ch)
-            if ch > 127:
-                lst.append(u'\ufffd')
-            else:
-                lst.append(unichr(ch))
-        unicode_x = u''.join(lst)
-        return unicode_x
+    def _wrap_string_old(self, x):
+        # XXX should disappear soon
+        print 'WARNING: space.wrap() called on a non-ascii byte string: %r' % x
+        return self.newtext(x)
 
+    @not_rpython # only for tests
     def _wrap_not_rpython(self, x):
-        "NOT_RPYTHON"
         # _____ this code is here to support testing only _____
 
         # we might get there in non-translated versions if 'x' is
@@ -577,7 +567,7 @@ class StdObjSpace(ObjSpace):
         if isinstance(w_slice, W_SliceObject):
             a, b, c = w_slice.indices3(self, self.int_w(w_length))
             return (a, b, c)
-        w_indices = self.getattr(w_slice, self.newbytes('indices'))
+        w_indices = self.getattr(w_slice, self.newtext('indices'))
         w_tup = self.call_function(w_indices, w_length)
         l_w = self.unpackiterable(w_tup)
         if not len(l_w) == 3:

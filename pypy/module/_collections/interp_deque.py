@@ -184,7 +184,7 @@ class W_Deque(W_Root):
         copy.maxlen = self.maxlen
         copy.extend(self.iter())
         copy.extend(deque.iter())
-        return self.space.wrap(copy)
+        return copy
 
     def iadd(self, w_iterable):
         self.extend(w_iterable)
@@ -199,7 +199,7 @@ class W_Deque(W_Root):
         for _ in range(num):
             copied.extend(self)
 
-        return space.wrap(copied)
+        return copied
 
     def rmul(self, w_int):
         return self.mul(w_int)
@@ -208,10 +208,10 @@ class W_Deque(W_Root):
         space = self.space
         num = space.int_w(w_int)
         if self.len == 0 or num == 1:
-            return space.wrap(self)
+            return self
         if num <= 0:
             self.clear()
-            return space.wrap(self)
+            return self
         # use a copy to extend self
         copy = W_Deque(space)
         copy.maxlen = self.maxlen
@@ -220,7 +220,7 @@ class W_Deque(W_Root):
         for _ in range(num - 1):
             self.extend(copy)
 
-        return space.wrap(self)
+        return self
 
     def extendleft(self, w_iterable):
         "Extend the left side of the deque with elements from the iterable"
@@ -369,7 +369,7 @@ class W_Deque(W_Root):
                 if i < start:
                     continue
                 if space.eq_w(w_obj, w_x):
-                    return space.wrap(i)
+                    return space.newint(i)
                 self.checklock(lock)
             except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
@@ -642,7 +642,7 @@ class W_DequeIter(W_Root):
         return w_x
 
     def reduce(self):
-        w_i = self.space.wrap(self.deque.len - self.counter)
+        w_i = self.space.newint(self.deque.len - self.counter)
         return self.space.newtuple([self.space.gettypefor(W_DequeIter),
                                     self.space.newtuple([self.deque, w_i])])
 
@@ -710,7 +710,7 @@ class W_DequeRevIter(W_Root):
         return w_x
 
     def reduce(self):
-        w_i = self.space.wrap(self.deque.len - self.counter)
+        w_i = self.space.newint(self.deque.len - self.counter)
         return self.space.newtuple([self.space.gettypefor(W_DequeRevIter),
                                     self.space.newtuple([self.deque, w_i])])
 
