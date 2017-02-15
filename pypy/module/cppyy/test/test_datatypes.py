@@ -16,7 +16,7 @@ class AppTestDATATYPES:
         cls.w_datatypes = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))
-        cls.w_N = cls.space.wrap(5)  # should be imported from the dictionary
+        cls.w_N = cls.space.newint(5)  # should be imported from the dictionary
 
     def test01_load_reflection_cache(self):
         """Loading reflection info twice should result in the same object"""

@@ -1929,12 +1929,12 @@ class ObjectType(Primitive, BaseType):
 
     def str_format(self, box, add_quotes=True):
         if not add_quotes:
-            as_str = self.space.str_w(self.space.repr(self.unbox(box)))
+            as_str = self.space.text_w(self.space.repr(self.unbox(box)))
             as_strl = len(as_str) - 1
             if as_strl>1 and as_str[0] == "'" and as_str[as_strl] == "'":
                 as_str = as_str[1:as_strl]
             return as_str
-        return self.space.str_w(self.space.repr(self.unbox(box)))
+        return self.space.text_w(self.space.repr(self.unbox(box)))
 
     def runpack_str(self, space, s, native):
         raise oefmt(space.w_NotImplementedError,
@@ -2165,7 +2165,7 @@ class StringType(FlexibleType):
             return w_item
         if w_item is None:
             w_item = space.newbytes('')
-        arg = space.str_w(space.str(w_item))
+        arg = space.text_w(space.str(w_item))
         arr = VoidBoxStorage(dtype.elsize, dtype)
         with arr as storage:
             j = min(len(arg), dtype.elsize)
@@ -2314,7 +2314,7 @@ class UnicodeType(FlexibleType):
         assert isinstance(item, boxes.W_UnicodeBox)
         if add_quotes:
             w_unicode = self.to_builtin_type(self.space, item)
-            return self.space.str_w(self.space.repr(w_unicode))
+            return self.space.text_w(self.space.repr(w_unicode))
         else:
             # Same as W_UnicodeBox.descr_repr() but without quotes and prefix
             from rpython.rlib.runicode import unicode_encode_unicode_escape

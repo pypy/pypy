@@ -312,8 +312,8 @@ class W_Root(object):
         constructed before there is an object space instance. """
         return self
 
+    @not_rpython
     def unwrap(self, space):
-        """NOT_RPYTHON"""
         # _____ this code is here to support testing only _____
         return self
 
@@ -396,8 +396,9 @@ class ObjSpace(object):
     """Base class for the interpreter-level implementations of object spaces.
     http://pypy.readthedocs.org/en/latest/objspace.html"""
 
+    @not_rpython
     def __init__(self, config=None):
-        "NOT_RPYTHON: Basic initialization of objects."
+        "Basic initialization of objects."
         self.fromcache = InternalSpaceCache(self).getorbuild
         self.threadlocals = ThreadLocals()
         # set recursion limit
@@ -473,8 +474,9 @@ class ObjSpace(object):
         except AttributeError:
             return self.__class__.__name__
 
+    @not_rpython
     def setbuiltinmodule(self, importname):
-        """NOT_RPYTHON. load a lazy pypy/module and put it into sys.modules"""
+        """load a lazy pypy/module and put it into sys.modules"""
         if '.' in importname:
             fullname = importname
             importname = fullname.rsplit('.', 1)[1]
@@ -532,8 +534,8 @@ class ObjSpace(object):
             self.setitem(w_modules, w_name, w_mod)
         return w_mod
 
+    @not_rpython
     def get_builtinmodule_to_install(self):
-        """NOT_RPYTHON"""
         try:
             return self._builtinmodule_list
         except AttributeError:
@@ -562,8 +564,9 @@ class ObjSpace(object):
         'parser', 'fcntl', '_codecs', 'binascii'
     ]
 
+    @not_rpython
     def make_builtins(self):
-        "NOT_RPYTHON: only for initializing the space."
+        "only for initializing the space."
 
         from pypy.module.exceptions import Module
         w_name = self.newtext('__exceptions__')
@@ -621,8 +624,8 @@ class ObjSpace(object):
         objects."""
         raise NotImplementedError
 
+    @not_rpython
     def export_builtin_exceptions(self):
-        """NOT_RPYTHON"""
         w_dic = self.exceptions_module.getdict(self)
         exc_types_w = {}
         w_iter = self.iter(w_dic)
@@ -641,8 +644,8 @@ class ObjSpace(object):
                 setattr(self, "w_" + excname, w_exc)
         return exc_types_w
 
+    @not_rpython
     def install_mixedmodule(self, mixedname, installed_builtin_modules):
-        """NOT_RPYTHON"""
         modname = self.setbuiltinmodule(mixedname)
         if modname:
             assert modname not in installed_builtin_modules, (
@@ -650,8 +653,9 @@ class ObjSpace(object):
                 "app-level module %r" % (modname,))
             installed_builtin_modules.append(modname)
 
+    @not_rpython
     def setup_builtin_modules(self):
-        "NOT_RPYTHON: only for initializing the space."
+        "only for initializing the space."
         if self.config.objspace.usemodules.cpyext:
             # Special-case this to have state.install_dll() called early, which
             # is required to initialise sys on Windows.
@@ -664,8 +668,9 @@ class ObjSpace(object):
         for mod in self.builtin_modules.values():
             mod.setup_after_space_initialization()
 
+    @not_rpython
     def initialize(self):
-        """NOT_RPYTHON: Abstract method that should put some minimal
+        """Abstract method that should put some minimal
         content into the w_builtins."""
 
     def getexecutioncontext(self):
@@ -1260,14 +1265,16 @@ class ObjSpace(object):
     def exception_issubclass_w(self, w_cls1, w_cls2):
         return self.issubtype_w(w_cls1, w_cls2)
 
+    @not_rpython
     def new_exception_class(self, *args, **kwargs):
-        "NOT_RPYTHON; convenience method to create excceptions in modules"
+        "convenience method to create excceptions in modules"
         return new_exception_class(self, *args, **kwargs)
 
     # end of special support code
 
+    @not_rpython
     def eval(self, expression, w_globals, w_locals, hidden_applevel=False):
-        "NOT_RPYTHON: For internal debugging."
+        "For internal debugging."
         if isinstance(expression, str):
             compiler = self.createcompiler()
             expression = compiler.compile(expression, '?', 'eval', 0,
@@ -1276,9 +1283,10 @@ class ObjSpace(object):
             raise TypeError('space.eval(): expected a string, code or PyCode object')
         return expression.exec_code(self, w_globals, w_locals)
 
+    @not_rpython
     def exec_(self, statement, w_globals, w_locals, hidden_applevel=False,
               filename=None):
-        "NOT_RPYTHON: For internal debugging."
+        "For internal debugging."
         if filename is None:
             filename = '?'
         from pypy.interpreter.pycode import PyCode
@@ -1509,7 +1517,7 @@ class ObjSpace(object):
                 return None
             code = 's*'
         if code == 's*':
-            if self.isinstance_w(w_obj, self.w_str):
+            if self.isinstance_w(w_obj, self.w_bytes):
                 return StringBuffer(w_obj.bytes_w(self))
             if self.isinstance_w(w_obj, self.w_unicode):
                 return StringBuffer(w_obj.identifier_w(self))  # no surrogates
@@ -1518,7 +1526,7 @@ class ObjSpace(object):
             except BufferInterfaceNotFound:
                 self._getarg_error("bytes or buffer", w_obj)
         elif code == 's#':
-            if self.isinstance_w(w_obj, self.w_str):
+            if self.isinstance_w(w_obj, self.w_bytes):
                 return w_obj.bytes_w(self)
             if self.isinstance_w(w_obj, self.w_unicode):
                 return w_obj.identifier_w(self)    # no surrogates (forbidden)
@@ -1559,8 +1567,6 @@ class ObjSpace(object):
                 raise
         return self.buffer_w(w_obj, flags).as_str()
 
-    def str_or_None_w(self, w_obj):
-        return None if self.is_none(w_obj) else self.str_w(w_obj)
 
     def text_or_None_w(self, w_obj):
         return None if self.is_none(w_obj) else self.text_w(w_obj)
@@ -1852,8 +1858,8 @@ class ObjSpace(object):
 
 
 class AppExecCache(SpaceCache):
+    @not_rpython
     def build(cache, source):
-        """ NOT_RPYTHON """
         space = cache.space
         # XXX will change once we have our own compiler
         import py

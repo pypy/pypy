@@ -52,7 +52,7 @@ MultibyteCodec.typedef = TypeDef(
 MultibyteCodec.typedef.acceptable_as_base_class = False
 
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def getcodec(space, name):
     try:
         codec = c_codecs.getcodec(name)

@@ -48,7 +48,7 @@ class TestW_StdObjSpace:
         from pypy.objspace.std.iterobject import W_SeqIterObject
 
         space = self.space
-        assert space._get_interplevel_cls(space.w_str) is W_BytesObject
+        assert space._get_interplevel_cls(space.w_bytes) is W_BytesObject
         assert space._get_interplevel_cls(space.w_int) is W_AbstractIntObject
         class X(W_BytesObject):
             def __init__(self):
@@ -56,7 +56,7 @@ class TestW_StdObjSpace:
 
             typedef = None
 
-        assert space.isinstance_w(X(), space.w_str)
+        assert space.isinstance_w(X(), space.w_bytes)
 
         w_sequenceiterator = space.gettypefor(W_SeqIterObject)
         cls = space._get_interplevel_cls(w_sequenceiterator)
@@ -66,7 +66,7 @@ class TestW_StdObjSpace:
         from pypy.objspace.std.bytesobject import W_AbstractBytesObject
 
         space = gettestobjspace(withstrbuf=True)
-        cls = space._get_interplevel_cls(space.w_str)
+        cls = space._get_interplevel_cls(space.w_bytes)
         assert cls is W_AbstractBytesObject
 
     def test_wrap_various_unsigned_types(self):

@@ -7,7 +7,7 @@ from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, build_type_checkers, Py_ssize_t,
     Py_ssize_tP, CONST_STRING, PyObjectFields, cpython_struct,
     bootstrap_function, slot_function)
-from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, as_pyobj,
+from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, as_pyobj, 
         make_typedescr, track_reference, create_ref, from_ref, decref,
         Py_IncRef)
 from pypy.module.cpyext.object import _dealloc

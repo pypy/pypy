@@ -86,12 +86,12 @@ def parse_python(space, source, mode):
     return W_STType(tree, mode, recursive_parser=parser)
 
 
-@unwrap_spec(source=str)
+@unwrap_spec(source='text')
 def suite(space, source):
     return parse_python(space, source, 'exec')
 
 
-@unwrap_spec(source=str)
+@unwrap_spec(source='text')
 def expr(space, source):
     return parse_python(space, source, 'eval')
 

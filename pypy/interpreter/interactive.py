@@ -152,7 +152,7 @@ class PyPyConsole(code.InteractiveConsole):
                                if not k.startswith('w_')]))
             del local['locals']
             for w_name in self.space.unpackiterable(self.w_globals):
-                local['w_' + self.space.str_w(w_name)] = (
+                local['w_' + self.space.text_w(w_name)] = (
                     self.space.getitem(self.w_globals, w_name))
             code.interact(banner=banner, local=local)
             # copy back 'w_' names
@@ -169,13 +169,12 @@ class PyPyConsole(code.InteractiveConsole):
 
     def runsource(self, source, ignored_filename="<input>", symbol="single"):
         # the following hacked file name is recognized specially by error.py
-        hacked_filename = '<inline>\n' + source.encode(
-                                            'ascii', 'backslashreplace')
         compiler = self.space.getexecutioncontext().compiler
 
         # CPython 2.6 turns console input into unicode
         if isinstance(source, unicode):
             source = source.encode(sys.stdin.encoding)
+        hacked_filename = '<inline>\n' + source
 
         def doit():
             # compile the provided input

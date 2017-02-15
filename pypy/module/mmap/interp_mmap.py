@@ -245,7 +245,7 @@ if rmmap._POSIX:
 
 elif rmmap._MS_WINDOWS:
 
-    @unwrap_spec(fileno=int, length=int, tagname=str,
+    @unwrap_spec(fileno=int, length=int, tagname='text',
                  access=int, offset=OFF_T)
     def mmap(space, w_subtype, fileno, length, tagname="",
              access=rmmap._ACCESS_DEFAULT, offset=0):

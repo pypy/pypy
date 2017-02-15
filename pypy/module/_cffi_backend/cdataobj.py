@@ -232,10 +232,10 @@ class W_CData(W_Root):
         from pypy.module._cffi_backend import ctypeprim
         space = self.space
         if isinstance(ctitem, ctypeprim.W_CTypePrimitive) and ctitem.size == 1:
-            if space.isinstance_w(w_value, space.w_str):
+            if space.isinstance_w(w_value, space.w_bytes):
                 from rpython.rtyper.annlowlevel import llstr
                 from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
-                value = space.str_w(w_value)
+                value = space.bytes_w(w_value)
                 if len(value) != length:
                     raise oefmt(space.w_ValueError,
                                 "need a string of length %d, got %d",
@@ -325,7 +325,7 @@ class W_CData(W_Root):
 
     def getcfield(self, w_attr, mode):
         space = self.space
-        attr = space.str_w(w_attr)
+        attr = space.text_w(w_attr)
         try:
             cfield = self.ctype.getcfield(attr)
         except KeyError:
@@ -430,8 +430,8 @@ class W_CData(W_Root):
         with self as ptr:
             if not ptr:
                 raise oefmt(space.w_RuntimeError,
-                            "cannot use unpack() on %s",
-                            space.str_w(self.repr()))
+                            "cannot use unpack() on %R",
+                            self)
             w_result = ctype.ctitem.unpack_ptr(ctype, ptr, length)
         return w_result
 
@@ -576,7 +576,7 @@ class W_CDataHandle(W_CData):
 
     def _repr_extra(self):
         w_repr = self.space.repr(self.w_keepalive)
-        return "handle to %s" % (self.space.str_w(w_repr),)
+        return "handle to %s" % (self.space.text_w(w_repr),)
 
 
 class W_CDataFromBuffer(W_CData):

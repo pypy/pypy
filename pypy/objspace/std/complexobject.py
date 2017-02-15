@@ -164,7 +164,7 @@ def unpackcomplex(space, w_complex):
         return (space.float_w(real), space.float_w(imag))
     #
     # Check that it is not a string (on which space.float() would succeed).
-    if (space.isinstance_w(w_complex, space.w_str) or
+    if (space.isinstance_w(w_complex, space.w_bytes) or
         space.isinstance_w(w_complex, space.w_unicode)):
         raise oefmt(space.w_TypeError,
                     "complex number expected, got '%T'", w_complex)
@@ -278,7 +278,7 @@ class W_ComplexObject(W_Root):
             and space.is_w(space.type(w_real), space.w_complex)):
             return w_real
 
-        if space.isinstance_w(w_real, space.w_unicode):
+        if space.isinstance_w(w_real, space.w_text):
             # a string argument
             if not noarg2:
                 raise oefmt(space.w_TypeError, "complex() can't take second"

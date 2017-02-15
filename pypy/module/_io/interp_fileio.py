@@ -143,7 +143,7 @@ class W_FileIO(W_RawIOBase):
         W_FileIO.__init__(self, space)
         return self
 
-    @unwrap_spec(mode=str, closefd=int)
+    @unwrap_spec(mode='text', closefd=int)
     def descr_init(self, space, w_name, mode='r', closefd=True, w_opener=None):
         if self.fd >= 0:
             if self.closefd:

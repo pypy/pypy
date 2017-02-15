@@ -151,8 +151,8 @@ class W_FFIObject(W_Root):
     def ffi_type(self, w_x, accept):
         space = self.space
         if (accept & ACCEPT_STRING) and (
-                space.isinstance_w(w_x, space.w_unicode)):
-            string = space.str_w(w_x)
+                space.isinstance_w(w_x, space.w_text)):
+            string = space.text_w(w_x)
             consider_fn_as_fnptr = (accept & CONSIDER_FN_AS_FNPTR) != 0
             if jit.isconstant(string):
                 try:
@@ -174,7 +174,7 @@ class W_FFIObject(W_Root):
                     m1, s12, m2, s23, m3, w_x)
 
 
-    @unwrap_spec(module_name=str, _version=int, _types=str)
+    @unwrap_spec(module_name='text', _version=int, _types='text')
     def descr_init(self, module_name='?', _version=-1, _types='',
                    w__globals=None, w__struct_unions=None, w__enums=None,
                    w__typenames=None, w__includes=None):
@@ -226,7 +226,7 @@ function or global variable."""
         space = self.space
         if isinstance(w_arg, W_LibObject) and len(args_w) == 1:
             # case 3 in the docstring
-            return w_arg.address_of_func_or_global_var(space.str_w(args_w[0]))
+            return w_arg.address_of_func_or_global_var(space.text_w(args_w[0]))
         #
         w_ctype = self.ffi_type(w_arg, ACCEPT_CDATA)
         if len(args_w) == 0:
@@ -361,7 +361,7 @@ Later, when this new cdata object is garbage-collected,
         return w_cdata.with_gc(w_destructor)
 
 
-    @unwrap_spec(replace_with=str)
+    @unwrap_spec(replace_with='text')
     def descr_getctype(self, w_cdecl, replace_with=''):
         """\
 Return a string giving the C type 'cdecl', which may be itself a
@@ -598,7 +598,7 @@ segmentation fault)."""
         lib.cdlopen_close()
 
 
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='text')
     def descr_integer_const(self, name):
         """\
 Get the value of an integer constant.

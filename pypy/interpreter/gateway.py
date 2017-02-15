@@ -27,6 +27,9 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, r_int, r_ulonglong, r_uint
 from rpython.tool.sourcetools import func_with_new_name, compile2
 
+from rpython.rlib.signature import signature, finishsigs
+from rpython.rlib import types as sigtypes
+
 NO_DEFAULT = object()
 
 
@@ -153,7 +156,7 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit_bufferstr(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
-    def visit_str_or_None(self, el, app_sig):
+    def visit_str_or_None(self, el, app_sig):   # XXX kill me
         self.checked_space_method(el, app_sig)
 
     def visit_text_or_None(self, el, app_sig):
@@ -163,6 +166,9 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
         self.checked_space_method(el, app_sig)
 
     def visit_bytes(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
+    def visit_text(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
     def visit_fsencode(self, el, app_sig):
@@ -296,8 +302,8 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
     def visit_bufferstr(self, typ):
         self.run_args.append("space.bufferstr_w(%s)" % (self.scopenext(),))
 
-    def visit_str_or_None(self, typ):
-        self.run_args.append("space.str_or_None_w(%s)" % (self.scopenext(),))
+    def visit_str_or_None(self, typ):  #XXX kill me
+        self.run_args.append("space.text_or_None_w(%s)" % (self.scopenext(),))
 
     def visit_text_or_None(self, typ):
         self.run_args.append("space.text_or_None_w(%s)" % (self.scopenext(),))
@@ -307,6 +313,9 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
     def visit_bytes(self, typ):
         self.run_args.append("space.bytes_w(%s)" % (self.scopenext(),))
+
+    def visit_text(self, typ):
+        self.run_args.append("space.text_w(%s)" % (self.scopenext(),))
 
     def visit_fsencode(self, typ):
         self.run_args.append("space.fsencode_w(%s)" % (self.scopenext(),))
@@ -458,8 +467,8 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
     def visit_bufferstr(self, typ):
         self.unwrap.append("space.bufferstr_w(%s)" % (self.nextarg(),))
 
-    def visit_str_or_None(self, typ):
-        self.unwrap.append("space.str_or_None_w(%s)" % (self.nextarg(),))
+    def visit_str_or_None(self, typ):  #XXX kill me
+        self.unwrap.append("space.text_or_None_w(%s)" % (self.nextarg(),))
 
     def visit_text_or_None(self, typ):
         self.unwrap.append("space.text_or_None_w(%s)" % (self.nextarg(),))
@@ -469,6 +478,9 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
 
     def visit_bytes(self, typ):
         self.unwrap.append("space.bytes_w(%s)" % (self.nextarg(),))
+
+    def visit_text(self, typ):
+        self.unwrap.append("space.text_w(%s)" % (self.nextarg(),))
 
     def visit_fsencode(self, typ):
         self.unwrap.append("space.fsencode_w(%s)" % (self.nextarg(),))
@@ -839,11 +851,17 @@ class BuiltinCode0(BuiltinCode):
             w_result = space.w_None
         return w_result
 
+w_root_or_none = sigtypes.instance(W_Root, can_be_None=True)
 
+@finishsigs
 class BuiltinCode1(BuiltinCode):
     _immutable_ = True
     fast_natural_arity = 1
 
+    @signature(sigtypes.self(), sigtypes.any(),
+               w_root_or_none,
+               w_root_or_none,
+               returns=w_root_or_none)
     def fastcall_1(self, space, w_func, w1):
         try:
             w_result = self.fastfunc_1(space, w1)
@@ -860,10 +878,16 @@ class BuiltinCode1(BuiltinCode):
         return w_result
 
 
+@finishsigs
 class BuiltinCode2(BuiltinCode):
     _immutable_ = True
     fast_natural_arity = 2
 
+    @signature(sigtypes.self(), sigtypes.any(),
+               w_root_or_none,
+               w_root_or_none,
+               w_root_or_none,
+               returns=w_root_or_none)
     def fastcall_2(self, space, w_func, w1, w2):
         try:
             w_result = self.fastfunc_2(space, w1, w2)
@@ -880,10 +904,17 @@ class BuiltinCode2(BuiltinCode):
         return w_result
 
 
+@finishsigs
 class BuiltinCode3(BuiltinCode):
     _immutable_ = True
     fast_natural_arity = 3
 
+    @signature(sigtypes.self(), sigtypes.any(),
+               w_root_or_none,
+               w_root_or_none,
+               w_root_or_none,
+               w_root_or_none,
+               returns=w_root_or_none)
     def fastcall_3(self, space, func, w1, w2, w3):
         try:
             w_result = self.fastfunc_3(space, w1, w2, w3)
@@ -899,12 +930,20 @@ class BuiltinCode3(BuiltinCode):
             w_result = space.w_None
         return w_result
 
-
+@finishsigs
 class BuiltinCode4(BuiltinCode):
     _immutable_ = True
     fast_natural_arity = 4
 
+    @signature(sigtypes.self(), sigtypes.any(),
+               w_root_or_none,
+               w_root_or_none,
+               w_root_or_none,
+               w_root_or_none,
+               w_root_or_none,
+               returns=w_root_or_none)
     def fastcall_4(self, space, func, w1, w2, w3, w4):
+        from rpython.rlib.debug import check_annotation
         try:
             w_result = self.fastfunc_4(space, w1, w2, w3, w4)
         except DescrMismatch:
@@ -1025,7 +1064,9 @@ class interp2app(W_Root):
             if defaultval is not NO_DEFAULT:
                 if name != '__args__' and name != 'args_w':
                     if w_def is Ellipsis:
-                        if isinstance(defaultval, str) and spec not in [str]:
+                        if isinstance(defaultval, str) and (
+                                # XXX hackish
+                           spec == 'bytes' or isinstance(spec, WrappedDefault)):
                             w_def = space.newbytes(defaultval)
                         else:
                             w_def = space.wrap(defaultval)

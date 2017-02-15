@@ -205,7 +205,7 @@ class BaseConcreteArray(object):
         """ Return an index of single item if possible, otherwise raises
         IndexError
         """
-        if (space.isinstance_w(w_idx, space.w_str) or
+        if (space.isinstance_w(w_idx, space.w_text) or
             space.isinstance_w(w_idx, space.w_slice) or
             space.is_w(w_idx, space.w_None)):
             raise IndexError
@@ -238,7 +238,7 @@ class BaseConcreteArray(object):
     @jit.unroll_safe
     def _prepare_slice_args(self, space, w_idx):
         from pypy.module.micronumpy import boxes
-        if space.isinstance_w(w_idx, space.w_str):
+        if space.isinstance_w(w_idx, space.w_text):
             raise oefmt(space.w_IndexError, "only integers, slices (`:`), "
                 "ellipsis (`...`), numpy.newaxis (`None`) and integer or "
                 "boolean arrays are valid indices")

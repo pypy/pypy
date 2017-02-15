@@ -17,7 +17,7 @@ class StringMethods(object):
         assert start >= 0
         assert stop >= 0
         #if start == 0 and stop == len(s) and space.is_w(space.type(orig_obj),
-        #                                                space.w_str):
+        #                                                space.w_bytes):
         #    return orig_obj
         return self._new(s[start:stop])
 

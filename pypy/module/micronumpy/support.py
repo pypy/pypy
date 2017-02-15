@@ -205,7 +205,7 @@ def descr_set_docstring(space, w_obj, w_docstring):
         if space.is_none(w_docstring):
             doc = None
         else:
-            doc = space.str_w(w_docstring)
+            doc = space.text_w(w_docstring)
         w_obj.doc = doc
         return
     app_set_docstring(space, w_obj, w_docstring)

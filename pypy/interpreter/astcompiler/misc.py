@@ -127,6 +127,6 @@ def new_identifier(space, name):
         return name
 
     from pypy.module.unicodedata.interp_ucd import ucd
-    w_name = space.wrap(name.decode('utf-8'))
-    w_id = space.call_method(ucd, 'normalize', space.wrap('NFKC'), w_name)
-    return space.unicode_w(w_id).encode('utf-8')
+    w_name = space.newtext(name)
+    w_id = space.call_method(ucd, 'normalize', space.newtext('NFKC'), w_name)
+    return space.text_w(w_id)

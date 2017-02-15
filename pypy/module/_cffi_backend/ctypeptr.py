@@ -76,9 +76,9 @@ class W_CTypePtrOrArray(W_CType):
             else:
                 self._convert_array_from_listview(cdata, space.listview(w_ob))
         elif self.accept_str:
-            if not space.isinstance_w(w_ob, space.w_str):
+            if not space.isinstance_w(w_ob, space.w_bytes):
                 raise self._convert_error("bytes or list or tuple", w_ob)
-            s = space.str_w(w_ob)
+            s = space.bytes_w(w_ob)
             n = len(s)
             if self.length >= 0 and n > self.length:
                 raise oefmt(space.w_IndexError,
@@ -118,8 +118,8 @@ class W_CTypePtrOrArray(W_CType):
             with cdataobj as ptr:
                 if not ptr:
                     raise oefmt(space.w_RuntimeError,
-                                "cannot use string() on %s",
-                                space.str_w(cdataobj.repr()))
+                                "cannot use string() on %R",
+                                cdataobj)
                 #
                 from pypy.module._cffi_backend import ctypearray
                 length = maxlen
@@ -291,7 +291,7 @@ class W_CTypePointer(W_CTypePtrBase):
 
     def _prepare_pointer_call_argument(self, w_init, cdata, keepalives, i):
         space = self.space
-        if self.accept_str and space.isinstance_w(w_init, space.w_str):
+        if self.accept_str and space.isinstance_w(w_init, space.w_bytes):
             # special case to optimize strings passed to a "char *" argument
             value = space.bytes_w(w_init)
             if isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveBool):

@@ -135,7 +135,7 @@ class State:
         if not self.version:
             space = self.space
             w_version = space.sys.get('version')
-            version = space.str_w(w_version)
+            version = space.text_w(w_version)
             self.version = rffi.str2charp(version)
             lltype.render_immortal(self.version)
         return self.version

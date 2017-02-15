@@ -92,14 +92,17 @@ class StdObjSpace(ObjSpace):
             self.builtin_types[typedef.name] = w_type
             setattr(self, 'w_' + typedef.name, w_type)
             self._interplevel_classes[w_type] = cls
+        # The loop above sets space.w_str and space.w_bytes.
+        # We rename 'space.w_str' to 'space.w_unicode' and
+        # 'space.w_text'.
         self.w_dict.flag_map_or_seq = 'M'
         self.w_list.flag_map_or_seq = 'S'
         self.w_tuple.flag_map_or_seq = 'S'
         self.w_unicode = self.w_str
         self.w_text = self.w_str
-        self.w_str = self.w_bytes
+        self.w_str = self.w_bytes      # BACKCOMPAT kill me
         self.builtin_types['str'] = self.w_unicode
-        self.builtin_types['bytes'] = self.w_str
+        self.builtin_types['bytes'] = self.w_bytes
         self.builtin_types["NotImplemented"] = self.w_NotImplemented
         self.builtin_types["Ellipsis"] = self.w_Ellipsis
 

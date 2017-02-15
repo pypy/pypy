@@ -14,7 +14,7 @@ class Cache:
             "io.UnsupportedOperation",
             space.newtuple([space.w_ValueError, space.w_IOError]))
 
-@unwrap_spec(mode=str, buffering=int,
+@unwrap_spec(mode='text', buffering=int,
              encoding="str_or_None", errors="str_or_None",
              newline="str_or_None", closefd=int)
 def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,

@@ -572,8 +572,8 @@ def getdefaultencoding(space):
 
 
 def _get_encoding_and_errors(space, w_encoding, w_errors):
-    encoding = None if w_encoding is None else space.str_w(w_encoding)
-    errors = None if w_errors is None else space.str_w(w_errors)
+    encoding = None if w_encoding is None else space.text_w(w_encoding)
+    errors = None if w_errors is None else space.text_w(w_errors)
     return encoding, errors
 
 

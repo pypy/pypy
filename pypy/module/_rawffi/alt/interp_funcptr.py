@@ -20,9 +20,9 @@ if os.name == 'nt':
     def _getfunc(space, CDLL, w_name, w_argtypes, w_restype):
         argtypes_w, argtypes, w_restype, restype = unpack_argtypes(
             space, w_argtypes, w_restype)
-        if space.isinstance_w(w_name, space.w_unicode):
+        if space.isinstance_w(w_name, space.w_text):
             # XXX: support LoadLibraryW
-            name = space.str_w(w_name)
+            name = space.text_w(w_name)
             try:
                 func = CDLL.cdll.getpointer(name, argtypes, restype,
                                             flags = CDLL.flags)
@@ -52,9 +52,9 @@ if os.name == 'nt':
             raise oefmt(space.w_TypeError,
                         "function name must be a string or integer")
 else:
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='text')
     def _getfunc(space, CDLL, w_name, w_argtypes, w_restype):
-        name = space.str_w(w_name)
+        name = space.text_w(w_name)
         argtypes_w, argtypes, w_restype, restype = unpack_argtypes(
             space, w_argtypes, w_restype)
         try:
@@ -287,7 +287,7 @@ def unpack_argtypes(space, w_argtypes, w_restype):
     restype = unwrap_ffitype(space, w_restype, allow_void=True)
     return argtypes_w, argtypes, w_restype, restype
 
-@unwrap_spec(addr=r_uint, name=str, flags=int)
+@unwrap_spec(addr=r_uint, name='text', flags=int)
 def descr_fromaddr(space, w_cls, addr, name, w_argtypes,
                     w_restype, flags=libffi.FUNCFLAG_CDECL):
     argtypes_w, argtypes, w_restype, restype = unpack_argtypes(space,
@@ -331,7 +331,7 @@ class W_CDLL(W_Root):
     def getfunc(self, space, w_name, w_argtypes, w_restype):
         return _getfunc(space, self, w_name, w_argtypes, w_restype)
 
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='text')
     def getaddressindll(self, space, name):
         try:
             address_as_uint = rffi.cast(lltype.Unsigned,

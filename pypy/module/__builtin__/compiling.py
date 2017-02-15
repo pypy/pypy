@@ -10,7 +10,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.function import Function
 
-@unwrap_spec(filename='fsencode', mode=str, flags=int, dont_inherit=int,
+@unwrap_spec(filename='fsencode', mode='text', flags=int, dont_inherit=int,
              optimize=int)
 def compile(space, w_source, filename, mode, flags=0, dont_inherit=0,
             optimize=0):

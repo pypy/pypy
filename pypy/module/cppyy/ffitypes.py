@@ -41,15 +41,13 @@ class State(object):
         self.c_size_t    = nt.new_primitive_type(space, 'size_t')
         self.c_ptrdiff_t = nt.new_primitive_type(space, 'ptrdiff_t')
 
+
 class BoolTypeMixin(object):
     _mixin_     = True
     _immutable_fields_ = ['c_type', 'c_ptrtype']
 
     c_type      = rffi.UCHAR
     c_ptrtype   = rffi.UCHARP
-
-    def _wrap_object(self, space, obj):
-        return space.newbool(bool(ord(rffi.cast(rffi.CHAR, obj))))
 
     def _unwrap_object(self, space, w_obj):
         arg = space.c_int_w(w_obj)
@@ -84,7 +82,7 @@ class CharTypeMixin(object):
 
             value = rffi.cast(rffi.CHAR, space.c_int_w(w_value))
         else:
-            value = space.str_w(w_value)
+            value = space.bytes_w(w_value)
 
         if len(value) != 1:  
             raise oefmt(space.w_ValueError,
@@ -95,7 +93,7 @@ class CharTypeMixin(object):
         state = space.fromcache(State)
         return state.c_char
 
-class ShortTypeMixin(BaseIntTypeMixin):
+class ShortTypeMixin(object):
     _mixin_     = True
     _immutable_fields_ = ['c_type', 'c_ptrtype']
 
@@ -109,7 +107,7 @@ class ShortTypeMixin(BaseIntTypeMixin):
         state = space.fromcache(State)
         return state.c_short
 
-class UShortTypeMixin(BaseIntTypeMixin):
+class UShortTypeMixin(object):
     _mixin_     = True
     _immutable_fields_ = ['c_type', 'c_ptrtype']
 
@@ -123,7 +121,7 @@ class UShortTypeMixin(BaseIntTypeMixin):
         state = space.fromcache(State)
         return state.c_ushort
 
-class IntTypeMixin(BaseIntTypeMixin):
+class IntTypeMixin(object):
     _mixin_     = True
     _immutable_fields_ = ['c_type', 'c_ptrtype']
 
@@ -137,7 +135,7 @@ class IntTypeMixin(BaseIntTypeMixin):
         state = space.fromcache(State)
         return state.c_int
 
-class UIntTypeMixin(BaseLongTypeMixin):
+class UIntTypeMixin(object):
     _mixin_     = True
     _immutable_fields_ = ['c_type', 'c_ptrtype']
 
@@ -154,7 +152,7 @@ class UIntTypeMixin(BaseLongTypeMixin):
         state = space.fromcache(State)
         return state.c_uint
 
-class LongTypeMixin(BaseLongTypeMixin):
+class LongTypeMixin(object):
     _mixin_     = True
     _immutable_fields_ = ['c_type', 'c_ptrtype']
 
@@ -171,9 +169,7 @@ class LongTypeMixin(BaseLongTypeMixin):
         state = space.fromcache(State)
         return state.c_long
 
-# TODO: check ULong limits; actually, they fail if this is
-#  an BaseLongTypeMixin (i.e. use of space.ewlong) ... why??
-class ULongTypeMixin(BaseIntTypeMixin):
+class ULongTypeMixin(object):
     _mixin_     = True
     _immutable_fields_ = ['c_type', 'c_ptrtype']
 
@@ -190,7 +186,7 @@ class ULongTypeMixin(BaseIntTypeMixin):
         state = space.fromcache(State)
         return state.c_ulong
 
-class LongLongTypeMixin(BaseLongTypeMixin):
+class LongLongTypeMixin(object):
     _mixin_     = True
     _immutable_fields_ = ['c_type', 'c_ptrtype']
 
@@ -207,7 +203,7 @@ class LongLongTypeMixin(BaseLongTypeMixin):
         state = space.fromcache(State)
         return state.c_llong
 
-class ULongLongTypeMixin(BaseLongTypeMixin):
+class ULongLongTypeMixin(object):
     _mixin_     = True
     _immutable_fields_ = ['c_type', 'c_ptrtype']
 

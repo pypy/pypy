@@ -22,7 +22,7 @@ def attach_gdb(space):
     attach_gdb()
 
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def method_cache_counter(space, name):
     """Return a tuple (method_cache_hits, method_cache_misses) for calls to
     methods with the name."""
@@ -41,7 +41,7 @@ def reset_method_cache_counter(space):
     cache.misses = {}
     cache.hits = {}
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def mapdict_cache_counter(space, name):
     """Return a tuple (index_cache_hits, index_cache_misses) for lookups
     in the mapdict cache with the given attribute name."""
@@ -68,7 +68,7 @@ def hidden_applevel(space, w_func):
     func.getcode().hidden_applevel = True
     return w_func
 
-@unwrap_spec(meth=str)
+@unwrap_spec(meth='text')
 def lookup_special(space, w_obj, meth):
     """Lookup up a special method on an object."""
     w_descr = space.lookup(w_obj, meth)
@@ -143,7 +143,7 @@ def set_code_callback(space, w_callable):
     else:
         cache._code_hook = w_callable
 
-@unwrap_spec(string=str, byteorder=str, signed=int)
+@unwrap_spec(string='bytes', byteorder='text', signed=int)
 def decode_long(space, string, byteorder='little', signed=1):
     from rpython.rlib.rbigint import rbigint, InvalidEndiannessError
     try:
@@ -163,8 +163,8 @@ def _promote(space, w_obj):
         jit.promote(space.int_w(w_obj))
     elif space.is_w(space.type(w_obj), space.w_float):
         jit.promote(space.float_w(w_obj))
-    elif space.is_w(space.type(w_obj), space.w_str):
-        jit.promote_string(space.str_w(w_obj))
+    elif space.is_w(space.type(w_obj), space.w_bytes):
+        jit.promote_string(space.bytes_w(w_obj))
     elif space.is_w(space.type(w_obj), space.w_unicode):
         raise oefmt(space.w_TypeError, "promoting unicode unsupported")
     else:

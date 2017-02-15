@@ -17,8 +17,8 @@ ESCAPE_BEFORE_SPACE = [ESCAPE_DICT.get(chr(_i), '\\u%04x' % _i)
 
 
 def raw_encode_basestring_ascii(space, w_string):
-    if space.isinstance_w(w_string, space.w_str):
-        s = space.str_w(w_string)
+    if space.isinstance_w(w_string, space.w_bytes):
+        s = space.bytes_w(w_string)
         for i in range(len(s)):
             c = s[i]
             if c >= ' ' and c <= '~' and c != '"' and c != '\\':

@@ -75,7 +75,7 @@ def _curses_tparm(s, args):
     except _curses.error as e:
         raise curses_error(e.args[0])
 
-@unwrap_spec(capname=str)
+@unwrap_spec(capname='text')
 def tigetstr(space, capname):
     try:
         result = _curses_tigetstr(capname)

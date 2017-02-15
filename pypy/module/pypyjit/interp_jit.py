@@ -150,14 +150,14 @@ def set_param(space, __args__):
                     "set_param() takes at most 1 non-keyword argument, %d "
                     "given", len(args_w))
     if len(args_w) == 1:
-        text = space.str_w(args_w[0])
+        text = space.text_w(args_w[0])
         try:
             jit.set_user_param(None, text)
         except ValueError:
             raise oefmt(space.w_ValueError, "error in JIT parameters string")
     for key, w_value in kwds_w.items():
         if key == 'enable_opts':
-            jit.set_param(None, 'enable_opts', space.str_w(w_value))
+            jit.set_param(None, 'enable_opts', space.text_w(w_value))
         else:
             intval = space.int_w(w_value)
             for name, _ in unroll_parameters:

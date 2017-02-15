@@ -391,9 +391,7 @@ class JSONDecoder(object):
         return 0x10000 + (((highsurr - 0xd800) << 10) | (lowsurr - 0xdc00))
 
 def loads(space, w_s, w_errorcls=None):
-    if space.isinstance_w(w_s, space.w_bytes):
-        raise oefmt(space.w_TypeError, "Expected string, got %T", w_s)
-    s = space.str_w(w_s)
+    s = space.text_w(w_s)
     decoder = JSONDecoder(space, s)
     try:
         w_res = decoder.decode_any(0)
@@ -405,8 +403,8 @@ def loads(space, w_s, w_errorcls=None):
     except DecoderError as e:
         if w_errorcls is None:
             w_errorcls = space.w_ValueError
-        w_e = space.call_function(w_errorcls, space.wrap(e.msg), w_s,
-                                  space.wrap(e.pos))
+        w_e = space.call_function(w_errorcls, space.newtext(e.msg), w_s,
+                                  space.newint(e.pos))
         raise OperationError(w_errorcls, w_e)
     finally:
         decoder.close()

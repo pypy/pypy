@@ -453,7 +453,7 @@ def PyObject_Print(space, w_obj, fp, flags):
         w_str = space.repr(w_obj)
 
     count = space.len_w(w_str)
-    data = space.str_w(w_str)
+    data = space.text_w(w_str)
     with rffi.scoped_nonmovingbuffer(data) as buf:
         fwrite(buf, 1, count, fp)
     return 0

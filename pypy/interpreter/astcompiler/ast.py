@@ -13,7 +13,7 @@ def raise_required_value(space, w_obj, name):
                 "field %s is required for %T", name, w_obj)
 
 def check_string(space, w_obj):
-    if not (space.isinstance_w(w_obj, space.w_str) or
+    if not (space.isinstance_w(w_obj, space.w_bytes) or
             space.isinstance_w(w_obj, space.w_unicode)):
         raise oefmt(space.w_TypeError,
                     "AST string must be of type str or unicode")
@@ -1445,7 +1445,7 @@ class ImportFrom(stmt):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_ImportFrom)
-        w_module = space.newtext(self.module) if self.module is not None else space.w_None  # identifier
+        w_module = space.newtext_or_none(self.module)  # identifier
         space.setattr(w_node, space.newtext('module'), w_module)
         if self.names is None:
             names_w = []
@@ -1468,7 +1468,7 @@ class ImportFrom(stmt):
         w_level = get_field(space, w_node, 'level', True)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _module = space.str_or_None_w(w_module)
+        _module = space.text_or_None_w(w_module)
         names_w = space.unpackiterable(w_names)
         _names = [alias.from_object(space, w_item) for w_item in names_w]
         _level = space.int_w(w_level)
@@ -2663,15 +2663,15 @@ class FormattedValue(expr):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_FormattedValue)
         w_value = self.value.to_object(space)  # expr
-        space.setattr(w_node, space.wrap('value'), w_value)
-        w_conversion = space.wrap(self.conversion)  # int
-        space.setattr(w_node, space.wrap('conversion'), w_conversion)
+        space.setattr(w_node, space.newtext('value'), w_value)
+        w_conversion = space.newint(self.conversion)  # int
+        space.setattr(w_node, space.newtext('conversion'), w_conversion)
         w_format_spec = self.format_spec.to_object(space) if self.format_spec is not None else space.w_None  # expr
-        space.setattr(w_node, space.wrap('format_spec'), w_format_spec)
-        w_lineno = space.wrap(self.lineno)  # int
-        space.setattr(w_node, space.wrap('lineno'), w_lineno)
-        w_col_offset = space.wrap(self.col_offset)  # int
-        space.setattr(w_node, space.wrap('col_offset'), w_col_offset)
+        space.setattr(w_node, space.newtext('format_spec'), w_format_spec)
+        w_lineno = space.newint(self.lineno)  # int
+        space.setattr(w_node, space.newtext('lineno'), w_lineno)
+        w_col_offset = space.newint(self.col_offset)  # int
+        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         return w_node
 
     @staticmethod
@@ -2716,11 +2716,11 @@ class JoinedStr(expr):
         else:
             values_w = [node.to_object(space) for node in self.values] # expr
         w_values = space.newlist(values_w)
-        space.setattr(w_node, space.wrap('values'), w_values)
-        w_lineno = space.wrap(self.lineno)  # int
-        space.setattr(w_node, space.wrap('lineno'), w_lineno)
-        w_col_offset = space.wrap(self.col_offset)  # int
-        space.setattr(w_node, space.wrap('col_offset'), w_col_offset)
+        space.setattr(w_node, space.newtext('values'), w_values)
+        w_lineno = space.newint(self.lineno)  # int
+        space.setattr(w_node, space.newtext('lineno'), w_lineno)
+        w_col_offset = space.newint(self.col_offset)  # int
+        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         return w_node
 
     @staticmethod
@@ -2790,9 +2790,9 @@ class NameConstant(expr):
         w_node = space.call_function(get(space).w_NameConstant)
         w_value = self.value  # singleton
         space.setattr(w_node, space.newtext('value'), w_value)
-        w_lineno = space.wrap(self.lineno)  # int
+        w_lineno = space.newint(self.lineno)  # int
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
-        w_col_offset = space.wrap(self.col_offset)  # int
+        w_col_offset = space.newint(self.col_offset)  # int
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         return w_node
 
@@ -3755,7 +3755,7 @@ class ExceptHandler(excepthandler):
         w_node = space.call_function(get(space).w_ExceptHandler)
         w_type = self.type.to_object(space) if self.type is not None else space.w_None  # expr
         space.setattr(w_node, space.newtext('type'), w_type)
-        w_name = space.newtext(self.name) if self.name is not None else space.w_None  # identifier
+        w_name = space.newtext_or_none(self.name)  # identifier
         space.setattr(w_node, space.newtext('name'), w_name)
         if self.body is None:
             body_w = []
@@ -3777,7 +3777,7 @@ class ExceptHandler(excepthandler):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _type = expr.from_object(space, w_type)
-        _name = space.str_or_None_w(w_name)
+        _name = space.text_or_None_w(w_name)
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         _lineno = space.int_w(w_lineno)
@@ -3899,9 +3899,9 @@ class arg(AST):
         space.setattr(w_node, space.newtext('arg'), w_arg)
         w_annotation = self.annotation.to_object(space) if self.annotation is not None else space.w_None  # expr
         space.setattr(w_node, space.newtext('annotation'), w_annotation)
-        w_lineno = space.wrap(self.lineno)  # int
+        w_lineno = space.newint(self.lineno)  # int
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
-        w_col_offset = space.wrap(self.col_offset)  # int
+        w_col_offset = space.newint(self.col_offset)  # int
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         return w_node
 
@@ -3936,7 +3936,7 @@ class keyword(AST):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_keyword)
-        w_arg = space.newtext(self.arg) if self.arg is not None else space.w_None  # identifier
+        w_arg = space.newtext_or_none(self.arg)  # identifier
         space.setattr(w_node, space.newtext('arg'), w_arg)
         w_value = self.value.to_object(space)  # expr
         space.setattr(w_node, space.newtext('value'), w_value)
@@ -3946,7 +3946,7 @@ class keyword(AST):
     def from_object(space, w_node):
         w_arg = get_field(space, w_node, 'arg', True)
         w_value = get_field(space, w_node, 'value', False)
-        _arg = space.str_or_None_w(w_arg)
+        _arg = space.text_or_None_w(w_arg)
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
@@ -3970,7 +3970,7 @@ class alias(AST):
         w_node = space.call_function(get(space).w_alias)
         w_name = space.newtext(self.name)  # identifier
         space.setattr(w_node, space.newtext('name'), w_name)
-        w_asname = space.newtext(self.asname) if self.asname is not None else space.w_None  # identifier
+        w_asname = space.newtext_or_none(self.asname)  # identifier
         space.setattr(w_node, space.newtext('asname'), w_asname)
         return w_node
 
@@ -3981,7 +3981,7 @@ class alias(AST):
         _name = space.identifier_w(w_name)
         if _name is None:
             raise_required_value(space, w_node, 'name')
-        _asname = space.str_or_None_w(w_asname)
+        _asname = space.text_or_None_w(w_asname)
         return alias(_name, _asname)
 
 State.ast_type('alias', 'AST', ['name', 'asname'])

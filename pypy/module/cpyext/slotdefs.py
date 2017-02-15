@@ -145,7 +145,7 @@ def wrap_getattr(space, w_self, w_args, func):
     func_target = rffi.cast(getattrfunc, func)
     check_num_args(space, w_args, 1)
     args_w = space.fixedview(w_args)
-    name_ptr = rffi.str2charp(space.str_w(args_w[0]))
+    name_ptr = rffi.str2charp(space.text_w(args_w[0]))
     try:
         return generic_cpy_call(space, func_target, w_self, name_ptr)
     finally:
@@ -719,10 +719,11 @@ def build_slot_tp_function(space, typedef, name):
                     view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
                     view.c_obj = make_ref(space, w_obj)
                 except ValueError:
-                    w_s = space.newbytes(buf.as_str())
+                    s = buf.as_str()
+                    w_s = space.newbytes(s)
                     view.c_obj = make_ref(space, w_s)
                     view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(
-                                    space.str_w(w_s), track_allocation=False))
+                                           s, track_allocation=False))
                     rffi.setintfield(view, 'c_readonly', 1)
                 ret = fill_Py_buffer(space, buf, view)
                 return ret

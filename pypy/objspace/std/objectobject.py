@@ -201,7 +201,7 @@ def descr__reduce_ex__(space, w_obj, proto=0):
 def descr___format__(space, w_obj, w_format_spec):
     if space.isinstance_w(w_format_spec, space.w_unicode):
         w_as_str = space.call_function(space.w_unicode, w_obj)
-    elif space.isinstance_w(w_format_spec, space.w_str):
+    elif space.isinstance_w(w_format_spec, space.w_bytes):
         w_as_str = space.str(w_obj)
     else:
         raise oefmt(space.w_TypeError, "format_spec must be a string")

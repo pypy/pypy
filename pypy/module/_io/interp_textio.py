@@ -299,7 +299,7 @@ def _determine_encoding(space, encoding, w_buffer):
             raise
         return space.newtext('ascii')
     else:
-        if space.isinstance_w(w_encoding, space.w_unicode):
+        if space.isinstance_w(w_encoding, space.w_text):
             return w_encoding
 
     raise oefmt(space.w_IOError, "could not determine default encoding")
@@ -391,9 +391,8 @@ class W_TextIOWrapper(W_TextIOBase):
         else:
             newline = space.unicode_w(w_newline)
         if newline and newline not in (u'\n', u'\r\n', u'\r'):
-            r = space.str_w(space.repr(w_newline))
             raise oefmt(space.w_ValueError,
-                        "illegal newline value: %s", r)
+                        "illegal newline value: %R", w_newline)
 
         self.line_buffering = line_buffering
         self.write_through = write_through
@@ -596,7 +595,7 @@ class W_TextIOWrapper(W_TextIOBase):
                                     "read1" if self.has_read1 else "read",
                                     space.newint(self.chunk_size))
 
-        if not space.isinstance_w(w_input, space.w_str):
+        if not space.isinstance_w(w_input, space.w_bytes):
             msg = "decoder getstate() should have returned a bytes " \
                   "object not '%T'"
             raise oefmt(space.w_TypeError, msg, w_input)
@@ -908,9 +907,8 @@ class W_TextIOWrapper(W_TextIOBase):
                         whence)
 
         if space.is_true(space.lt(w_pos, space.newint(0))):
-            r = space.str_w(space.repr(w_pos))
             raise oefmt(space.w_ValueError,
-                        "negative seek position %s", r)
+                        "negative seek position %R", w_pos)
 
         space.call_method(self, "flush")
 
@@ -932,7 +930,7 @@ class W_TextIOWrapper(W_TextIOBase):
             # Just like _read_chunk, feed the decoder and save a snapshot.
             w_chunk = space.call_method(self.w_buffer, "read",
                                         space.newint(cookie.bytes_to_feed))
-            if not space.isinstance_w(w_chunk, space.w_str):
+            if not space.isinstance_w(w_chunk, space.w_bytes):
                 msg = "underlying read() should have returned " \
                       "a bytes object, not '%T'"
                 raise oefmt(space.w_TypeError, msg, w_chunk)

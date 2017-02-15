@@ -422,7 +422,7 @@ def make_formatter_subclass(do_unicode):
             if space.isinstance_w(w_result,
                                               space.w_unicode):
                 raise NeedUnicodeFormattingError
-            return space.str_w(w_result)
+            return space.bytes_w(w_result)
 
         def fmt_s(self, w_value):
             if not do_unicode:
@@ -560,7 +560,7 @@ def format(space, w_fmt, values_w, w_valuedict, fmt_type):
         if fmt_type == FORMAT_BYTEARRAY:
             fmt = w_fmt.buffer_w(space, 0).as_str()
         else:
-            fmt = space.str_w(w_fmt)
+            fmt = space.bytes_w(w_fmt)
         formatter = StringFormatter(space, fmt, values_w, w_valuedict)
         try:
             result = formatter.format()

@@ -31,7 +31,7 @@ class CPPMethodSort(CPPMethodBaseTimSort):
     def lt(self, a, b):
         return a.priority() < b.priority()
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def load_dictionary(space, name):
     try:
         cdll = capi.c_load_dictionary(name)
@@ -73,11 +73,11 @@ def get_nullptr(space):
         state.w_nullptr = nullarr
     return state.w_nullptr
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def resolve_name(space, name):
     return space.newtext(capi.c_resolve_name(space, name))
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def scope_byname(space, name):
     true_name = capi.c_resolve_name(space, name)
 
@@ -105,7 +105,7 @@ def scope_byname(space, name):
 
     return None
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def template_byname(space, name):
     state = space.fromcache(State)
     try:
@@ -441,9 +441,9 @@ class CPPTemplatedCall(CPPMethod):
         assert lltype.typeOf(cppthis) == capi.C_OBJECT
         for i in range(len(args_w)):
             try:
-                s = self.space.str_w(args_w[i])
+                s = self.space.text_w(args_w[i])
             except OperationError:
-                s = self.space.str_w(self.space.getattr(args_w[i], self.space.newtext('__name__')))
+                s = self.space.text_w(self.space.getattr(args_w[i], self.space.newtext('__name__')))
             s = capi.c_resolve_name(self.space, s)
             if s != self.templ_args[i]:
                 raise oefmt(self.space.w_TypeError,
@@ -896,9 +896,9 @@ class W_CPPNamespace(W_CPPScope):
 W_CPPNamespace.typedef = TypeDef(
     'CPPNamespace',
     get_method_names = interp2app(W_CPPNamespace.get_method_names),
-    get_overload = interp2app(W_CPPNamespace.get_overload, unwrap_spec=['self', str]),
+    get_overload = interp2app(W_CPPNamespace.get_overload, unwrap_spec=['self', 'text']),
     get_datamember_names = interp2app(W_CPPNamespace.get_datamember_names),
-    get_datamember = interp2app(W_CPPNamespace.get_datamember, unwrap_spec=['self', str]),
+    get_datamember = interp2app(W_CPPNamespace.get_datamember, unwrap_spec=['self', 'text']),
     is_namespace = interp2app(W_CPPNamespace.is_namespace),
     __dir__ = interp2app(W_CPPNamespace.ns__dir__),
 )
@@ -985,11 +985,11 @@ W_CPPClass.typedef = TypeDef(
     type_name = interp_attrproperty('name', W_CPPClass, wrapfn="newtext"),
     get_base_names = interp2app(W_CPPClass.get_base_names),
     get_method_names = interp2app(W_CPPClass.get_method_names),
-    get_overload = interp2app(W_CPPClass.get_overload, unwrap_spec=['self', str]),
+    get_overload = interp2app(W_CPPClass.get_overload, unwrap_spec=['self', 'text']),
     get_datamember_names = interp2app(W_CPPClass.get_datamember_names),
-    get_datamember = interp2app(W_CPPClass.get_datamember, unwrap_spec=['self', str]),
+    get_datamember = interp2app(W_CPPClass.get_datamember, unwrap_spec=['self', 'text']),
     is_namespace = interp2app(W_CPPClass.is_namespace),
-    dispatch = interp2app(W_CPPClass.dispatch, unwrap_spec=['self', str, str])
+    dispatch = interp2app(W_CPPClass.dispatch, unwrap_spec=['self', 'text', 'text'])
 )
 W_CPPClass.typedef.acceptable_as_base_class = False
 
@@ -1012,11 +1012,11 @@ W_ComplexCPPClass.typedef = TypeDef(
     type_name = interp_attrproperty('name', W_CPPClass, wrapfn="newtext"),
     get_base_names = interp2app(W_ComplexCPPClass.get_base_names),
     get_method_names = interp2app(W_ComplexCPPClass.get_method_names),
-    get_overload = interp2app(W_ComplexCPPClass.get_overload, unwrap_spec=['self', str]),
+    get_overload = interp2app(W_ComplexCPPClass.get_overload, unwrap_spec=['self', 'text']),
     get_datamember_names = interp2app(W_ComplexCPPClass.get_datamember_names),
-    get_datamember = interp2app(W_ComplexCPPClass.get_datamember, unwrap_spec=['self', str]),
+    get_datamember = interp2app(W_ComplexCPPClass.get_datamember, unwrap_spec=['self', 'text']),
     is_namespace = interp2app(W_ComplexCPPClass.is_namespace),
-    dispatch = interp2app(W_CPPClass.dispatch, unwrap_spec=['self', str, str])
+    dispatch = interp2app(W_CPPClass.dispatch, unwrap_spec=['self', 'text', 'text'])
 )
 W_ComplexCPPClass.typedef.acceptable_as_base_class = False
 
@@ -1032,7 +1032,7 @@ class W_CPPTemplateType(W_Root):
     @unwrap_spec(args_w='args_w')
     def __call__(self, args_w):
         # TODO: this is broken but unused (see pythonify.py)
-        fullname = "".join([self.name, '<', self.space.str_w(args_w[0]), '>'])
+        fullname = "".join([self.name, '<', self.space.text_w(args_w[0]), '>'])
         return scope_byname(self.space, fullname)
 
 W_CPPTemplateType.typedef = TypeDef(
@@ -1307,9 +1307,9 @@ def bind_object(space, w_obj, w_pycppclass, owns=False, cast=False):
         rawobject = rffi.cast(capi.C_OBJECT, space.uint_w(w_obj))
     w_cppclass = space.findattr(w_pycppclass, space.newtext("_cpp_proxy"))
     if not w_cppclass:
-        w_cppclass = scope_byname(space, space.str_w(w_pycppclass))
+        w_cppclass = scope_byname(space, space.text_w(w_pycppclass))
         if not w_cppclass:
             raise oefmt(space.w_TypeError,
-                        "no such class: %s", space.str_w(w_pycppclass))
+                        "no such class: %s", space.text_w(w_pycppclass))
     cppclass = space.interp_w(W_CPPClass, w_cppclass, can_be_None=False)
     return wrap_cppobject(space, rawobject, cppclass, do_cast=cast, python_owns=owns)

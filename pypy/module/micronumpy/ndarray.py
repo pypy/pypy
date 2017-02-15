@@ -250,8 +250,8 @@ class __extend__(W_NDimArray):
 
     def descr_getitem(self, space, w_idx):
         if self.get_dtype().is_record():
-            if space.isinstance_w(w_idx, space.w_str):
-                idx = space.str_w(w_idx)
+            if space.isinstance_w(w_idx, space.w_text):
+                idx = space.text_w(w_idx)
                 return self.getfield(space, idx)
         if space.is_w(w_idx, space.w_Ellipsis):
             return self.descr_view(space, space.type(self))
@@ -287,8 +287,8 @@ class __extend__(W_NDimArray):
 
     def descr_setitem(self, space, w_idx, w_value):
         if self.get_dtype().is_record():
-            if space.isinstance_w(w_idx, space.w_str):
-                idx = space.str_w(w_idx)
+            if space.isinstance_w(w_idx, space.w_text):
+                idx = space.text_w(w_idx)
                 view = self.getfield(space, idx)
                 w_value = convert_to_array(space, w_value)
                 view.implementation.setslice(space, w_value)
@@ -714,7 +714,7 @@ class __extend__(W_NDimArray):
         contig = self.implementation.astype(space, dtype, self.get_order())
         return contig.argsort(space, w_axis)
 
-    @unwrap_spec(order=str, casting=str, subok=bool, copy=bool)
+    @unwrap_spec(order='text', casting='text', subok=bool, copy=bool)
     def descr_astype(self, space, w_dtype, order='K', casting='unsafe', subok=True, copy=True):
         cur_dtype = self.get_dtype()
         new_dtype = space.interp_w(descriptor.W_Dtype, space.call_function(
@@ -735,10 +735,9 @@ class __extend__(W_NDimArray):
             # XXX Should not happen
             raise oefmt(space.w_ValueError, "new dtype has elsize of 0")
         if not can_cast_array(space, self, new_dtype, casting):
-            raise oefmt(space.w_TypeError, "Cannot cast array from %s to %s"
-                        "according to the rule %s",
-                        space.str_w(self.get_dtype().descr_repr(space)),
-                        space.str_w(new_dtype.descr_repr(space)), casting)
+            raise oefmt(space.w_TypeError, "Cannot cast array from %R to %R"
+                        "according to the rule %s", self.get_dtype(),
+                        new_dtype, casting)
         order  = order_converter(space, space.newtext(order), self.get_order())
         if (not copy and new_dtype == self.get_dtype()
                 and (order in (NPY.KEEPORDER, NPY.ANYORDER) or order == self.get_order())
@@ -850,7 +849,7 @@ class __extend__(W_NDimArray):
         raise oefmt(space.w_NotImplementedError,
                     "getfield not implemented yet")
 
-    @unwrap_spec(new_order=str)
+    @unwrap_spec(new_order='text')
     def descr_newbyteorder(self, space, new_order=NPY.SWAP):
         return self.descr_view(
             space, self.get_dtype().descr_newbyteorder(space, new_order))
@@ -924,7 +923,7 @@ class __extend__(W_NDimArray):
         raise oefmt(space.w_NotImplementedError,
                     "setflags not implemented yet")
 
-    @unwrap_spec(kind=str)
+    @unwrap_spec(kind='text')
     def descr_sort(self, space, w_axis=None, kind='quicksort', w_order=None):
         # happily ignore the kind
         # modify the array in-place

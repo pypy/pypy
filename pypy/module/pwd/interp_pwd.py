@@ -106,7 +106,7 @@ def getpwuid(space, w_uid):
             "%s: %d" % (msg, widen(uid))))
     return make_struct_passwd(space, pw)
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def getpwnam(space, name):
     """
     getpwnam(name) -> (pw_name,pw_passwd,pw_uid,

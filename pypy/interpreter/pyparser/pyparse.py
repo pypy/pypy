@@ -144,7 +144,7 @@ class PythonParser(parser.Parser):
                 if e.match(space, space.w_UnicodeDecodeError):
                     e.normalize_exception(space)
                     w_message = space.str(e.get_w_value(space))
-                    raise error.SyntaxError(space.str_w(w_message))
+                    raise error.SyntaxError(space.text_w(w_message))
                 raise
 
         flags = compile_info.flags

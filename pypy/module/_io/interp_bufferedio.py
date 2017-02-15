@@ -117,7 +117,7 @@ state."""
         length = rwbuffer.getlength()
         w_data = space.call_method(self, methodname, space.newint(length))
 
-        if not space.isinstance_w(w_data, space.w_str):
+        if not space.isinstance_w(w_data, space.w_bytes):
             raise oefmt(space.w_TypeError, "%s() should return bytes",
                         methodname)
         data = space.bytes_w(w_data)

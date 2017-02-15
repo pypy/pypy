@@ -73,7 +73,7 @@ def gethostbyaddr(space, w_host):
         raise converted_error(space, e)
     return common_wrapgethost(space, res)
 
-@unwrap_spec(name=str, w_proto = WrappedDefault(None))
+@unwrap_spec(name='text', w_proto = WrappedDefault(None))
 def getservbyname(space, name, w_proto):
     """getservbyname(servicename[, protocolname]) -> integer
 
@@ -84,7 +84,7 @@ def getservbyname(space, name, w_proto):
     if space.is_w(w_proto, space.w_None):
         proto = None
     else:
-        proto = space.str_w(w_proto)
+        proto = space.text_w(w_proto)
     try:
         port = rsocket.getservbyname(name, proto)
     except SocketError as e:
@@ -102,7 +102,7 @@ def getservbyport(space, port, w_proto):
     if space.is_w(w_proto, space.w_None):
         proto = None
     else:
-        proto = space.str_w(w_proto)
+        proto = space.text_w(w_proto)
 
     if port < 0 or port > 0xffff:
         raise oefmt(space.w_OverflowError,
@@ -114,7 +114,7 @@ def getservbyport(space, port, w_proto):
         raise converted_error(space, e)
     return space.newtext(service)
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def getprotobyname(space, name):
     """getprotobyname(name) -> integer
 
@@ -229,7 +229,7 @@ def htonl(space, x):
         raise oefmt(space.w_OverflowError, "long int larger than 32 bits")
     return space.newint(rsocket.htonl(r_uint32(x)))
 
-@unwrap_spec(ip=str)
+@unwrap_spec(ip='text')
 def inet_aton(space, ip):
     """inet_aton(string) -> packed 32-bit IP representation
 
@@ -254,7 +254,7 @@ def inet_ntoa(space, packed):
         raise converted_error(space, e)
     return space.newtext(ip)
 
-@unwrap_spec(family=int, ip=str)
+@unwrap_spec(family=int, ip='text')
 def inet_pton(space, family, ip):
     """inet_pton(family, ip) -> packed IP address string
 
@@ -267,7 +267,7 @@ def inet_pton(space, family, ip):
         raise converted_error(space, e)
     return space.newbytes(buf)
 
-@unwrap_spec(family=int, packed="bufferstr")
+@unwrap_spec(family=int, packed='bufferstr')
 def inet_ntop(space, family, packed):
     """inet_ntop(family, packed_ip) -> string formatted IP address
 

@@ -668,7 +668,7 @@ class W_BytesObject(W_AbstractBytesObject):
         return self._StringMethods_descr_join(space, w_list)
 
     def _join_return_one(self, space, w_obj):
-        return space.is_w(space.type(w_obj), space.w_str)
+        return space.is_w(space.type(w_obj), space.w_bytes)
 
     def descr_lower(self, space):
         return W_BytesObject(self._value.lower())

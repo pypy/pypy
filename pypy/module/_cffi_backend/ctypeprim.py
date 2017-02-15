@@ -25,14 +25,14 @@ class W_CTypePrimitive(W_CType):
 
     def extra_repr(self, cdata):
         w_ob = self.convert_to_object(cdata)
-        return self.space.str_w(self.space.repr(w_ob))
+        return self.space.text_w(self.space.repr(w_ob))
 
     def _alignof(self):
         return self.align
 
     def cast_str(self, w_ob):
         space = self.space
-        s = space.str_w(w_ob)
+        s = space.bytes_w(w_ob)
         if len(s) != 1:
             raise oefmt(space.w_TypeError,
                         "cannot cast string of length %d to ctype '%s'",
@@ -56,7 +56,7 @@ class W_CTypePrimitive(W_CType):
             ptr = w_ob.unsafe_escaping_ptr()
             value = rffi.cast(lltype.Signed, ptr)
             value = self._cast_result(value)
-        elif space.isinstance_w(w_ob, space.w_str):
+        elif space.isinstance_w(w_ob, space.w_bytes):
             value = self.cast_str(w_ob)
             value = self._cast_result(value)
         elif space.isinstance_w(w_ob, space.w_unicode):
@@ -76,7 +76,7 @@ class W_CTypePrimitive(W_CType):
 
     def _overflow(self, w_ob):
         space = self.space
-        s = space.str_w(space.str(w_ob))
+        s = space.text_w(space.str(w_ob))
         raise oefmt(space.w_OverflowError,
                     "integer %s does not fit '%s'", s, self.name)
 
@@ -396,7 +396,7 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
                             w_ob.ctype.name, self.name)
             w_ob = w_ob.convert_to_object()
         #
-        if space.isinstance_w(w_ob, space.w_str):
+        if space.isinstance_w(w_ob, space.w_bytes):
             value = self.cast_str(w_ob)
         elif space.isinstance_w(w_ob, space.w_unicode):
             value = self.cast_unicode(w_ob)

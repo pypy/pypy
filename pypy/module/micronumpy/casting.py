@@ -119,7 +119,7 @@ def _use_min_scalar(arrays_w, dtypes_w):
     return not all_scalars and max_array_kind >= max_scalar_kind
 
 
-@unwrap_spec(casting=str)
+@unwrap_spec(casting='text')
 def can_cast(space, w_from, w_totype, casting='safe'):
     try:
         target = as_dtype(space, w_totype, allow_None=False)
@@ -335,7 +335,7 @@ def scalar2dtype(space, w_obj):
         return float_dtype
     elif space.isinstance_w(w_obj, space.w_complex):
         return complex_dtype
-    elif space.isinstance_w(w_obj, space.w_str):
+    elif space.isinstance_w(w_obj, space.w_bytes):
         return variable_dtype(space, 'S%d' % space.len_w(w_obj))
     elif space.isinstance_w(w_obj, space.w_unicode):
         return new_unicode_dtype(space, space.len_w(w_obj))

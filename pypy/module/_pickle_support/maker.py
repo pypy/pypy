@@ -69,7 +69,7 @@ def intrangeiter_new(space, current, remaining, step):
     new_iter = W_IntRangeIterator(space, current, remaining, step)
     return new_iter
 
-@unwrap_spec(identifier=str)
+@unwrap_spec(identifier='text')
 def builtin_code(space, identifier):
     from pypy.interpreter import gateway
     try:
@@ -78,7 +78,7 @@ def builtin_code(space, identifier):
         raise oefmt(space.w_RuntimeError,
                     "cannot unpickle builtin code: %s", identifier)
 
-@unwrap_spec(identifier=str)
+@unwrap_spec(identifier='text')
 def builtin_function(space, identifier):
     from pypy.interpreter import function
     try:

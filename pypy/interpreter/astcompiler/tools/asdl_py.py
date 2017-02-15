@@ -137,10 +137,9 @@ class ASTNodeVisitor(ASDLVisitor):
         elif field.type == "int":
             return "space.newint(%s)" % (value,)
         elif field.type == "identifier":
-            wrapper = "space.newtext(%s)" % (value,)
             if field.opt:
-                wrapper += " if %s is not None else space.w_None" % (value,)
-            return wrapper
+                return "space.newtext_or_none(%s)" % (value,)
+            return "space.newtext(%s)" % (value,)
         else:
             wrapper = "%s.to_object(space)" % (value,)
             allow_none = field.opt
@@ -162,7 +161,7 @@ class ASTNodeVisitor(ASDLVisitor):
             return "check_string(space, %s)" % (value,)
         elif field.type in ("identifier",):
             if field.opt:
-                return "space.str_or_None_w(%s)" % (value,)
+                return "space.text_or_None_w(%s)" % (value,)
             return "space.identifier_w(%s)" % (value,)
         elif field.type in ("int",):
             return "space.int_w(%s)" % (value,)
@@ -442,7 +441,7 @@ def raise_required_value(space, w_obj, name):
                 "field %s is required for %T", name, w_obj)
 
 def check_string(space, w_obj):
-    if not (space.isinstance_w(w_obj, space.w_str) or
+    if not (space.isinstance_w(w_obj, space.w_bytes) or
             space.isinstance_w(w_obj, space.w_unicode)):
         raise oefmt(space.w_TypeError,
                     "AST string must be of type str or unicode")

@@ -235,7 +235,7 @@ class W_FloatObject(W_Root):
         return w_obj
 
     @staticmethod
-    @unwrap_spec(kind=str)
+    @unwrap_spec(kind='text')
     def descr___getformat__(space, w_cls, kind):
         if kind == "float":
             return space.newtext(_float_format)
@@ -244,7 +244,7 @@ class W_FloatObject(W_Root):
         raise oefmt(space.w_ValueError, "only float and double are valid")
 
     @staticmethod
-    @unwrap_spec(s=str)
+    @unwrap_spec(s='text')
     def descr_fromhex(space, w_cls, s):
         """float.fromhex(string) -> float
 

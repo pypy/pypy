@@ -32,7 +32,7 @@ def _calcsize(space, format):
     return fmtiter.totalsize
 
 
-@unwrap_spec(format=str)
+@unwrap_spec(format='text')
 def calcsize(space, format):
     return space.newint(_calcsize(space, format))
 
@@ -52,13 +52,13 @@ def _pack(space, format, args_w):
     return fmtiter.result.build()
 
 
-@unwrap_spec(format=str)
+@unwrap_spec(format='text')
 def pack(space, format, args_w):
     return space.newbytes(_pack(space, format, args_w))
 
 
 # XXX inefficient
-@unwrap_spec(format=str, offset=int)
+@unwrap_spec(format='text', offset=int)
 def pack_into(space, format, w_buffer, offset, args_w):
     res = _pack(space, format, args_w)
     buf = space.getarg_w('w*', w_buffer)
@@ -83,13 +83,13 @@ def _unpack(space, format, buf):
     return space.newtuple(fmtiter.result_w[:])
 
 
-@unwrap_spec(format=str)
+@unwrap_spec(format='text')
 def unpack(space, format, w_str):
     buf = space.getarg_w('s*', w_str)
     return _unpack(space, format, buf)
 
 
-@unwrap_spec(format=str, offset=int)
+@unwrap_spec(format='text', offset=int)
 def unpack_from(space, format, w_buffer, offset=0):
     size = _calcsize(space, format)
     buf = space.buffer_w(w_buffer, space.BUF_SIMPLE)
@@ -146,7 +146,7 @@ class W_Struct(W_Root):
         self.format = format
         self.size = _calcsize(space, format)
 
-    @unwrap_spec(format=str)
+    @unwrap_spec(format='text')
     def descr__new__(space, w_subtype, format):
         self = space.allocate_instance(W_Struct, w_subtype)
         W_Struct.__init__(self, space, format)

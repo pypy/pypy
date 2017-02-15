@@ -21,9 +21,9 @@ class TestObjSpace:
         w_result = space.isinstance(w_i, space.w_int)
         assert space.is_true(w_result)
         assert space.isinstance_w(w_i, space.w_int)
-        w_result = space.isinstance(w_i, space.w_str)
+        w_result = space.isinstance(w_i, space.w_bytes)
         assert not space.is_true(w_result)
-        assert not space.isinstance_w(w_i, space.w_str)
+        assert not space.isinstance_w(w_i, space.w_bytes)
 
     def test_newlist(self):
         w = self.space.wrap

@@ -542,9 +542,10 @@ class W_FlexibleBox(W_GenericBox):
 
 class W_VoidBox(W_FlexibleBox):
     def descr_getitem(self, space, w_item):
-        if (space.isinstance_w(w_item, space.w_unicode) or
-            space.isinstance_w(w_item, space.w_bytes)):
-            item = space.str_w(w_item)
+        if space.isinstance_w(w_item, space.w_text):
+            item = space.text_w(w_item)
+        elif space.isinstance_w(w_item, space.w_bytes):
+            item = space.bytes_w(w_item)   # XXX should it be supported?
         elif space.isinstance_w(w_item, space.w_int):
             indx = space.int_w(w_item)
             try:
@@ -574,9 +575,10 @@ class W_VoidBox(W_FlexibleBox):
         return space.newseqiter(self)
 
     def descr_setitem(self, space, w_item, w_value):
-        if (space.isinstance_w(w_item, space.w_bytes) or
-            space.isinstance_w(w_item, space.w_unicode)):
-            item = space.str_w(w_item)
+        if space.isinstance_w(w_item, space.w_text):
+            item = space.text_w(w_item)
+        elif space.isinstance_w(w_item, space.w_bytes):
+            item = space.bytes_w(w_item)   # XXX should it be supported?
         elif space.isinstance_w(w_item, space.w_int):
             indx = space.int_w(w_item)
             try:
@@ -611,7 +613,7 @@ class W_CharacterBox(W_FlexibleBox):
 class W_StringBox(W_CharacterBox):
     def descr__new__string_box(space, w_subtype, w_arg):
         from pypy.module.micronumpy.descriptor import new_string_dtype
-        arg = space.str_w(space.str(w_arg))
+        arg = space.text_w(space.str(w_arg))
         arr = VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
         for i in range(len(arg)):
             arr.storage[i] = arg[i]

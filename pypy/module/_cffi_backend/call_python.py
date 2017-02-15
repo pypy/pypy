@@ -91,7 +91,7 @@ def externpy_deco(space, w_ffi, w_python_callable, w_name, w_error, w_onerror):
 
     if space.is_w(w_name, space.w_None):
         w_name = space.getattr(w_python_callable, space.newtext('__name__'))
-    name = space.str_w(w_name)
+    name = space.text_w(w_name)
 
     ctx = ffi.ctxobj.ctx
     index = parse_c_type.search_in_globals(ctx, name)

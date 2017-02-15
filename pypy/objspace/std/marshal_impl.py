@@ -227,7 +227,7 @@ def marshal_float(space, w_float, m):
         m.put(pack_float(w_float.floatval))
     else:
         m.start(TYPE_FLOAT)
-        m.put_pascal(space.str_w(space.repr(w_float)))
+        m.put_pascal(space.text_w(space.repr(w_float)))
 
 @unmarshaller(TYPE_FLOAT)
 def unmarshal_float(space, u, tc):
@@ -249,8 +249,8 @@ def marshal_complex(space, w_complex, m):
         w_real = space.newfloat(w_complex.realval)
         w_imag = space.newfloat(w_complex.imagval)
         m.start(TYPE_COMPLEX)
-        m.put_pascal(space.str_w(space.repr(w_real)))
-        m.put_pascal(space.str_w(space.repr(w_imag)))
+        m.put_pascal(space.text_w(space.repr(w_real)))
+        m.put_pascal(space.text_w(space.repr(w_imag)))
 
 @unmarshaller(TYPE_COMPLEX)
 def unmarshal_complex(space, u, tc):

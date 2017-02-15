@@ -79,7 +79,7 @@ class W_CallbackPtr(W_DataInstance):
         self.argtypes = unpack_argshapes(space, w_args)
         ffiargs = [tp.get_basic_ffi_type() for tp in self.argtypes]
         if not space.is_w(w_result, space.w_None):
-            self.result = space.str_w(w_result)
+            self.result = space.text_w(w_result)
             ffiresult = letter2tp(space, self.result).get_basic_ffi_type()
         else:
             self.result = None

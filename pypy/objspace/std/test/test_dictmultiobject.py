@@ -1306,7 +1306,6 @@ class FakeSpace:
     StringObjectCls = FakeString
     UnicodeObjectCls = FakeUnicode
     w_dict = W_DictObject
-    w_text = unicode
     iter = iter
     fixedview = list
     listview  = list

@@ -10,7 +10,7 @@ else:
 c_crypt = rffi.llexternal('crypt', [rffi.CCHARP, rffi.CCHARP], rffi.CCHARP,
                           compilation_info=eci, releasegil=False)
 
-@unwrap_spec(word=str, salt=str)
+@unwrap_spec(word='text', salt='text')
 def crypt(space, word, salt):
     """word will usually be a user's password. salt is a 2-character string
     which will be used to select one of 4096 variations of DES. The characters

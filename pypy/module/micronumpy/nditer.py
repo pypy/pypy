@@ -53,7 +53,7 @@ class OpFlag(object):
 def parse_op_flag(space, lst):
     op_flag = OpFlag()
     for w_item in lst:
-        item = space.str_w(w_item)
+        item = space.text_w(w_item)
         if item == 'readonly':
             op_flag.rw = 'r'
         elif item == 'readwrite':
@@ -102,12 +102,12 @@ def parse_func_flags(space, nditer, w_flags):
             'Iter global flags must be a list or tuple of strings')
     lst = space.listview(w_flags)
     for w_item in lst:
-        if not space.isinstance_w(w_item, space.w_str) and not \
+        if not space.isinstance_w(w_item, space.w_bytes) and not \
                 space.isinstance_w(w_item, space.w_unicode):
             raise oefmt(space.w_TypeError,
                         "expected string or Unicode object, %T found",
                         w_item)
-        item = space.str_w(w_item)
+        item = space.text_w(w_item)
         if item == 'external_loop':
             nditer.external_loop = True
         elif item == 'buffered':
@@ -365,7 +365,7 @@ class W_NDIter(W_NumpyObject):
         self.op_axes = []
         self.allow_backward = allow_backward
         if not space.is_w(w_casting, space.w_None):
-            self.casting = space.str_w(w_casting)
+            self.casting = space.text_w(w_casting)
         else:
             self.casting = 'safe'
         # convert w_seq operands to a list of W_NDimArray
@@ -483,11 +483,9 @@ class W_NDIter(W_NumpyObject):
                             if not can_cast_array(
                                     space, self.seq[i], self_d, self.casting):
                                 raise oefmt(space.w_TypeError, "Iterator operand %d"
-                                    " dtype could not be cast from %s to %s"
-                                    " according to the rule '%s'", i, 
-                                    space.str_w(seq_d.descr_repr(space)),
-                                    space.str_w(self_d.descr_repr(space)),
-                                    self.casting)
+                                    " dtype could not be cast from %R to %R"
+                                    " according to the rule '%s'",
+                                    i, seq_d, self_d, self.casting)
                             order = support.get_order_as_CF(impl.order, self.order)
                             new_impl = impl.astype(space, self_d, order).copy(space)
                             self.seq[i] = W_NDimArray(new_impl)
@@ -501,11 +499,9 @@ class W_NDIter(W_NumpyObject):
                                     space, self_d, seq_d, self.casting):
                                 raise oefmt(space.w_TypeError, "Iterator"
                                     " requested dtype could not be cast from "
-                                    " %s to %s, the operand %d dtype, accord"
-                                    "ing to the rule '%s'", 
-                                    space.str_w(self_d.descr_repr(space)),
-                                    space.str_w(seq_d.descr_repr(space)),
-                                    i, self.casting)
+                                    " %R to %R, the operand %d dtype, accord"
+                                    "ing to the rule '%s'",
+                                    self_d, seq_d, i, self.casting)
         elif self.buffered and not (self.external_loop and len(self.seq)<2):
             for i in range(len(self.seq)):
                 if i not in outargs:

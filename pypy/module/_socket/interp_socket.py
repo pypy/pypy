@@ -149,14 +149,14 @@ def addr_from_object(family, fd, space, w_address):
             raise oefmt(space.w_TypeError,
                         "AF_PACKET address must be a tuple of length 2 "
                         "to 5, not %d", len(pieces_w))
-        ifname = space.str_w(pieces_w[0])
+        ifname = space.text_w(pieces_w[0])
         ifindex = rsocket.PacketAddress.get_ifindex_from_ifname(fd, ifname)
         protocol = space.int_w(pieces_w[1])
         if len(pieces_w) > 2: pkttype = space.int_w(pieces_w[2])
         else:                 pkttype = 0
         if len(pieces_w) > 3: hatype = space.int_w(pieces_w[3])
         else:                 hatype = 0
-        if len(pieces_w) > 4: haddr = space.str_w(pieces_w[4])
+        if len(pieces_w) > 4: haddr = space.text_w(pieces_w[4])
         else:                 haddr = ""
         if len(haddr) > 8:
             raise oefmt(space.w_ValueError,

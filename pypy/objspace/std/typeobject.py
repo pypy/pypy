@@ -653,7 +653,7 @@ class W_TypeObject(W_Root):
 
     def descr_repr(self, space):
         w_mod = self.get_module()
-        if w_mod is None or not space.isinstance_w(w_mod, space.w_unicode):
+        if w_mod is None or not space.isinstance_w(w_mod, space.w_text):
             mod = None
         else:
             mod = space.unicode_w(w_mod)

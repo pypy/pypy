@@ -101,8 +101,8 @@ def letter2tp(space, key):
 
 def unpack_simple_shape(space, w_shape):
     # 'w_shape' must be either a letter or a tuple (struct, 1).
-    if space.isinstance_w(w_shape, space.w_unicode):
-        letter = space.str_w(w_shape)
+    if space.isinstance_w(w_shape, space.w_text):
+        letter = space.text_w(w_shape)
         return letter2tp(space, letter)
     else:
         w_shapetype, w_length = space.fixedview(w_shape, expected_length=2)
@@ -112,8 +112,8 @@ def unpack_simple_shape(space, w_shape):
 def unpack_shape_with_length(space, w_shape):
     # Allow 'w_shape' to be a letter or any (shape, number).
     # The result is always a W_Array.
-    if space.isinstance_w(w_shape, space.w_unicode):
-        letter = space.str_w(w_shape)
+    if space.isinstance_w(w_shape, space.w_text):
+        letter = space.text_w(w_shape)
         return letter2tp(space, letter)
     else:
         w_shapetype, w_length = space.fixedview(w_shape, expected_length=2)
@@ -193,8 +193,8 @@ class W_CDLL(W_Root):
         else:
             ffi_restype = ffi_type_void
 
-        if space.isinstance_w(w_name, space.w_unicode):
-            name = space.str_w(w_name)
+        if space.isinstance_w(w_name, space.w_text):
+            name = space.text_w(w_name)
 
             try:
                 ptr = self.cdll.getrawpointer(name, ffi_argtypes, ffi_restype,
@@ -225,7 +225,7 @@ class W_CDLL(W_Root):
         space.setitem(self.w_cache, w_key, w_funcptr)
         return w_funcptr
 
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='text')
     def getaddressindll(self, space, name):
         try:
             address_as_uint = rffi.cast(lltype.Unsigned,
@@ -411,10 +411,10 @@ def unwrap_value(space, push_func, add_arg, argdesc, letter, w_arg):
         if space.isinstance_w(w_arg, space.w_int):
             val = getbytevalue(space, w_arg)
         else:
-            s = space.str_w(w_arg)
+            s = space.bytes_w(w_arg)
             if len(s) != 1:
                 raise oefmt(space.w_TypeError,
-                            "Expected string of length one as character")
+                            "Expected bytes of length one as character")
             val = s[0]
         push_func(add_arg, argdesc, val)
     elif letter == 'u':
@@ -565,7 +565,7 @@ W_FuncPtr.typedef = TypeDef(
 W_FuncPtr.typedef.acceptable_as_base_class = False
 
 def _create_new_accessor(func_name, name):
-    @unwrap_spec(tp_letter=str)
+    @unwrap_spec(tp_letter='text')
     def accessor(space, tp_letter):
         if len(tp_letter) != 1:
             raise oefmt(space.w_ValueError, "Expecting string of length one")

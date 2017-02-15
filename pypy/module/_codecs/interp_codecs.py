@@ -145,7 +145,7 @@ def register_codec(space, w_search_function):
         raise oefmt(space.w_TypeError, "argument must be callable")
 
 
-@unwrap_spec(encoding=str)
+@unwrap_spec(encoding='text')
 def lookup_codec(space, encoding):
     """lookup(encoding) -> (encoder, decoder, stream_reader, stream_writer)
     Looks up a codec tuple in the Python codec registry and returns
@@ -207,7 +207,7 @@ def check_exception(space, w_exc):
         raise oefmt(space.w_TypeError, "wrong exception")
 
     delta = space.int_w(w_end) - space.int_w(w_start)
-    if delta < 0 or not (space.isinstance_w(w_obj, space.w_str) or
+    if delta < 0 or not (space.isinstance_w(w_obj, space.w_bytes) or
                          space.isinstance_w(w_obj, space.w_unicode)):
         raise oefmt(space.w_TypeError, "wrong exception")
 
@@ -504,7 +504,7 @@ def _call_codec(space, w_decoder, w_obj, action, encoding, errors):
                     "encoder must return a tuple (object, integer)")
     return space.getitem(w_res, space.newint(0))
 
-@unwrap_spec(errors=str)
+@unwrap_spec(errors='text')
 def lookup_error(space, errors):
     """lookup_error(errors) -> handler
 
@@ -521,7 +521,7 @@ def lookup_error(space, errors):
     return w_err_handler
 
 
-@unwrap_spec(errors=str)
+@unwrap_spec(errors='text')
 def encode(space, w_obj, w_encoding=None, errors='strict'):
     """encode(obj, [encoding[,errors]]) -> object
 
@@ -544,7 +544,7 @@ def readbuffer_encode(space, w_data, errors='strict'):
     s = space.getarg_w('s#', w_data)
     return space.newtuple([space.newbytes(s), space.newint(len(s))])
 
-@unwrap_spec(errors=str)
+@unwrap_spec(errors='text')
 def decode(space, w_obj, w_encoding=None, errors='strict'):
     """decode(obj, [encoding[,errors]]) -> object
 
@@ -562,7 +562,7 @@ def decode(space, w_obj, w_encoding=None, errors='strict'):
     w_decoder = space.getitem(lookup_codec(space, encoding), space.newint(1))
     return _call_codec(space, w_decoder, w_obj, "decoding", encoding, errors)
 
-@unwrap_spec(errors=str)
+@unwrap_spec(errors='text')
 def register_error(space, errors, w_handler):
     """register_error(errors, handler)
 
@@ -984,9 +984,8 @@ def unicode_internal_encode(space, w_uni, errors="strict"):
 # support for the "string escape" translation
 # This is a bytes-to bytes transformation
 
-@unwrap_spec(errors='str_or_None')
-def escape_encode(space, w_data, errors='strict'):
-    data = space.bytes_w(w_data)
+@unwrap_spec(data='bytes', errors='str_or_None')
+def escape_encode(space, data, errors='strict'):
     from pypy.objspace.std.bytesobject import string_escape_encode
     result = string_escape_encode(data, False)
     return space.newtuple([space.newbytes(result), space.newint(len(data))])
