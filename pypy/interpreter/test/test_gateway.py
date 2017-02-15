@@ -265,7 +265,8 @@ class TestGateway:
     def test_interp2app_unwrap_spec_text(self):
         space = self.space
         def g(space, b):
-            return space.newbytes(b)
+            assert isinstance(b, str)
+            return space.newtext(b)
         app_g = gateway.interp2app(g, unwrap_spec=[gateway.ObjSpace, 'text'])
         app_g2 = gateway.interp2app(g, unwrap_spec=[gateway.ObjSpace, 'text'])
         assert app_g is app_g2
