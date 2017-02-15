@@ -94,7 +94,7 @@ class W_IOBase(W_Root):
             # the object is probably in an unusable state, so ignore.
             if w_closed is not None and not space.is_true(w_closed):
                 try:
-                    self._dealloc_warn_w(space, space.wrap(self))
+                    self._dealloc_warn_w(space, self)
                 finally:
                     space.call_method(self, "close")
         except OperationError:

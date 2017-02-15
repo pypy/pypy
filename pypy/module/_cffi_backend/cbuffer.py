@@ -50,7 +50,7 @@ class MiniBuffer(W_Root):
         return self.buffer
 
     def descr_len(self, space):
-        return space.wrap(self.buffer.getlength())
+        return space.newint(self.buffer.getlength())
 
     def descr_getitem(self, space, w_index):
         start, stop, step, size = space.decode_index4(w_index,

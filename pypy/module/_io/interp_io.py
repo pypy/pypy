@@ -23,7 +23,7 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
         W_BufferedWriter, W_BufferedReader)
 
     if not (space.isinstance_w(w_file, space.w_unicode) or
-            space.isinstance_w(w_file, space.w_str) or
+            space.isinstance_w(w_file, space.w_bytes) or
             space.isinstance_w(w_file, space.w_int)):
         raise oefmt(space.w_TypeError, "invalid file: %R", w_file)
 
@@ -88,7 +88,7 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
                     "binary mode doesn't take a newline argument")
     w_raw = space.call_function(
         space.gettypefor(W_FileIO), w_file, space.newtext(rawmode),
-        space.newbool(closefd), w_opener)
+        space.newbool(bool(closefd)), w_opener)
 
     isatty = space.is_true(space.call_method(w_raw, "isatty"))
     line_buffering = buffering == 1 or (buffering < 0 and isatty)

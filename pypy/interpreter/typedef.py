@@ -530,7 +530,7 @@ def fget_co_argcount(space, code): # unwrapping through unwrap_spec
     return space.newint(code.signature().num_argnames())
 
 def fget_zero(space, code):
-    return space.wrap(0)
+    return space.newint(0)
 
 def fget_co_flags(space, code): # unwrapping through unwrap_spec
     sig = code.signature()

@@ -783,7 +783,7 @@ dir_fd may not be implemented on your platform.
 def strerror(space, code):
     """Translate an error code to a message string."""
     try:
-        return space.newtext(_strerror(code))
+        return space.newunicode(_strerror(code))
     except ValueError:
         raise oefmt(space.w_ValueError, "strerror() argument out of range")
 

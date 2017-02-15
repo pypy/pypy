@@ -461,7 +461,7 @@ class W_SemLock(W_Root):
 
     def handle_get(self, space):
         h = rffi.cast(rffi.INTPTR_T, self.handle)
-        return space.wrap(h)
+        return space.newint(h)
 
     def get_count(self, space):
         return space.newint(self.count)

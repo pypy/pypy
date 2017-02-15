@@ -59,7 +59,7 @@ class W_BytesIO(W_BufferedIOBase):
     def descr_new(space, w_subtype, __args__):
         self = space.allocate_instance(W_BytesIO, w_subtype)
         W_BytesIO.__init__(self, space)
-        return space.wrap(self)
+        return self
 
     def descr_init(self, space, w_initial_bytes=None):
         self.init()
@@ -125,7 +125,7 @@ class W_BytesIO(W_BufferedIOBase):
 
     def getbuffer_w(self, space):
         self._check_closed(space)
-        return space.wrap(W_MemoryView(BytesIOBuffer(self)))
+        return W_MemoryView(BytesIOBuffer(self))
 
     def getvalue_w(self, space):
         self._check_closed(space)
