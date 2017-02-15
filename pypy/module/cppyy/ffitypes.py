@@ -41,24 +41,15 @@ class State(object):
         self.c_size_t    = nt.new_primitive_type(space, 'size_t')
         self.c_ptrdiff_t = nt.new_primitive_type(space, 'ptrdiff_t')
 
-class BaseIntTypeMixin(object):
-    _mixin_     = True
-    _immutable_fields_ = ['wrapper']
-
-    wrapper     = 'newint'
-
-class BaseLongTypeMixin(object):
-    _mixin_     = True
-    _immutable_fields_ = ['wrapper']
-
-    wrapper     = 'newlong'
-
 class BoolTypeMixin(object):
     _mixin_     = True
     _immutable_fields_ = ['c_type', 'c_ptrtype']
 
     c_type      = rffi.UCHAR
     c_ptrtype   = rffi.UCHARP
+
+    def _wrap_object(self, space, obj):
+        return space.newbool(bool(ord(rffi.cast(rffi.CHAR, obj))))
 
     def _unwrap_object(self, space, w_obj):
         arg = space.c_int_w(w_obj)
@@ -80,7 +71,9 @@ class CharTypeMixin(object):
 
     c_type      = rffi.CHAR
     c_ptrtype   = rffi.CCHARP           # there's no such thing as rffi.CHARP
-    wrapper     = 'newbytes'
+
+    def _wrap_object(self, space, obj):
+        return space.newbytes(obj)
 
     def _unwrap_object(self, space, w_value):
         # allow int to pass to char and make sure that str is of length 1
@@ -151,6 +144,9 @@ class UIntTypeMixin(BaseLongTypeMixin):
     c_type      = rffi.UINT
     c_ptrtype   = rffi.UINTP
 
+    def _wrap_object(self, space, obj):
+        return space.newlong_from_rarith_int(obj)
+
     def _unwrap_object(self, space, w_obj):
         return rffi.cast(self.c_type, space.uint_w(w_obj))
 
@@ -164,6 +160,9 @@ class LongTypeMixin(BaseLongTypeMixin):
 
     c_type      = rffi.LONG
     c_ptrtype   = rffi.LONGP
+
+    def _wrap_object(self, space, obj):
+        return space.newlong(obj)
 
     def _unwrap_object(self, space, w_obj):
         return space.int_w(w_obj)
@@ -181,6 +180,9 @@ class ULongTypeMixin(BaseIntTypeMixin):
     c_type      = rffi.ULONG
     c_ptrtype   = rffi.ULONGP
 
+    def _wrap_object(self, space, obj):
+        return space.newlong_from_rarith_int(obj)
+
     def _unwrap_object(self, space, w_obj):
         return space.uint_w(w_obj)
 
@@ -195,6 +197,9 @@ class LongLongTypeMixin(BaseLongTypeMixin):
     c_type      = rffi.LONGLONG
     c_ptrtype   = rffi.LONGLONGP
 
+    def _wrap_object(self, space, obj):
+        return space.newlong_from_rarith_int(obj)
+
     def _unwrap_object(self, space, w_obj):
         return space.r_longlong_w(w_obj)
 
@@ -208,6 +213,9 @@ class ULongLongTypeMixin(BaseLongTypeMixin):
 
     c_type      = rffi.ULONGLONG
     c_ptrtype   = rffi.ULONGLONGP
+
+    def _wrap_object(self, space, obj):
+        return space.newlong_from_rarith_int(obj)
 
     def _unwrap_object(self, space, w_obj):
         return space.r_ulonglong_w(w_obj)
@@ -240,8 +248,10 @@ class DoubleTypeMixin(object):
 
     c_type      = rffi.DOUBLE
     c_ptrtype   = rffi.DOUBLEP
-    wrapper     = 'newfloat'
     typecode    = 'd'
+
+    def _wrap_object(self, space, obj):
+        return space.newfloat(obj)
 
     def _unwrap_object(self, space, w_obj):
         return space.float_w(w_obj)

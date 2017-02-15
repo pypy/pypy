@@ -225,9 +225,6 @@ class PtrTypeConverterMixin(object):
 class NumericTypeConverterMixin(object):
     _mixin_ = True
 
-    def _wrap_object(self, space, obj):
-        return getattr(space, self.wrapper)(obj)
-
     def convert_argument_libffi(self, space, w_obj, address, call_local):
         x = rffi.cast(self.c_ptrtype, address)
         x[0] = self._unwrap_object(space, w_obj)

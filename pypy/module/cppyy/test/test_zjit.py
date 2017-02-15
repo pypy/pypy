@@ -1,7 +1,7 @@
 import py, os, sys
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rlib.objectmodel import specialize, instantiate
-from rpython.rlib import rarithmetic, jit
+from rpython.rlib import rarithmetic, rbigint, jit
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper import llinterp
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
@@ -158,11 +158,20 @@ class FakeSpace(object):
 
     @specialize.argtype(1)
     def newint(self, obj):
-        return FakeInt(rarithmetic.intmask(obj))
+        if not isinstance(obj, int):
+            return FakeLong(rbigint.rbigint.fromrarith_int(obj))
+        return FakeInt(obj)
 
     @specialize.argtype(1)
     def newlong(self, obj):
-        return FakeLong(rarithmetic.intmask(obj))
+        return FakeLong(rbigint.rbigint.fromint(obj))
+
+    @specialize.argtype(1)
+    def newlong_from_rarith_int(self, obj):
+        return FakeLong(rbigint.rbigint.fromrarith_int(obj))
+
+    def newlong_from_rbigint(self, val):
+        return FakeLong(obj)
 
     @specialize.argtype(1)
     def newfloat(self, obj):
@@ -202,10 +211,8 @@ class FakeSpace(object):
         return w_obj.val
 
     def uint_w(self, w_obj):
-        if isinstance(w_obj, FakeInt):
-            return rarithmetic.r_uint(w_obj.val)
         assert isinstance(w_obj, FakeLong)
-        return rarithmetic.r_uint(w_obj.val)
+        return rarithmetic.r_uint(w_obj.val.touint())
 
     def str_w(self, w_obj):
         assert isinstance(w_obj, FakeString)
