@@ -264,6 +264,7 @@ class AppTestStruct(object):
         assert pack(">?", False) == b'\x00'
         assert pack("@?", True) == b'\x01'
         assert pack("@?", False) == b'\x00'
+        assert self.struct.unpack("?", 'X')[0] is True
 
     def test_transitiveness(self):
         c = b'a'

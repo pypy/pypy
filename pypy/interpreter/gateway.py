@@ -1129,6 +1129,8 @@ class GatewayCache(SpaceCache):
             assert space._code_of_sys_exc_info is None
             space._code_of_sys_exc_info = code
         #
+        if hasattr(space, '_see_interp2app'):
+            space._see_interp2app(gateway)      # only for fake/objspace.py
         return fn
 
 

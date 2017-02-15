@@ -135,6 +135,11 @@ class StdObjSpace(ObjSpace):
         assert typedef is not None
         return self.fromcache(TypeCache).getorbuild(typedef)
 
+    # BACKCOMPAT: this function is still accepted for backward
+    # compatibility, but its usage should be progressively removed
+    # everywhere apart from tests.
+    #@not_rpython # only for tests
+    @specialize.argtype(1)
     def wrap(self, x):
         """ Wraps the Python value 'x' into one of the wrapper classes. This
         should only be used for tests, in real code you need to use the
@@ -182,6 +187,12 @@ class StdObjSpace(ObjSpace):
         # a long that fits the correct range.
         if is_valid_int(x):
             return self.newint(x)
+
+        return self._wrap_not_rpython(x)
+
+    def _wrap_not_rpython(self, x):
+        "NOT_RPYTHON"
+        # _____ this code is here to support testing only _____
 
         # wrap() of a container works on CPython, but the code is
         # not RPython.  Don't use -- it is kept around mostly for tests.

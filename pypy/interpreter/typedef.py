@@ -359,6 +359,11 @@ class GetSetProperty(W_Root):
         raise oefmt(space.w_AttributeError,
                     "generic property has no __objclass__")
 
+    def spacebind(self, space):
+        if hasattr(space, '_see_getsetproperty'):
+            space._see_getsetproperty(self)      # only for fake/objspace.py
+        return self
+
 
 def interp_attrproperty(name, cls, doc=None, wrapfn=None):
     "NOT_RPYTHON: initialization-time only"

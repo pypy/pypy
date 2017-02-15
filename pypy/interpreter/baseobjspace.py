@@ -1571,7 +1571,7 @@ class ObjSpace(object):
     def text_or_None_w(self, w_obj):
         return None if self.is_none(w_obj) else self.text_w(w_obj)
 
-    @not_rpython
+    #@not_rpython    BACKCOMPAT: should be replaced with bytes_w or text_w
     def str_w(self, w_obj):
         """
         if w_obj is unicode, call text_w() (i.e., return the UTF-8-nosg
