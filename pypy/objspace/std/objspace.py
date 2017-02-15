@@ -12,6 +12,7 @@ from rpython.rlib.objectmodel import instantiate, specialize, is_annotation_cons
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rarithmetic import base_int, widen, is_valid_int
 from rpython.rlib.objectmodel import import_from_mixin, we_are_translated
+from rpython.rlib.objectmodel import not_rpython
 from rpython.rlib import jit
 
 # Object imports
@@ -41,8 +42,9 @@ class StdObjSpace(ObjSpace):
     library in Restricted Python."""
     import_from_mixin(DescrOperation)
 
+    @not_rpython
     def initialize(self):
-        """NOT_RPYTHON: only for initializing the space
+        """only for initializing the space
 
         Setup all the object types and implementations.
         """
@@ -130,15 +132,11 @@ class StdObjSpace(ObjSpace):
         assert typedef is not None
         return self.fromcache(TypeCache).getorbuild(typedef)
 
-    @specialize.argtype(1)
+    @not_rpython # only for tests
     def wrap(self, x):
-        "Wraps the Python value 'x' into one of the wrapper classes."
-        # You might notice that this function is rather conspicuously
-        # not RPython.  We can get away with this because the function
-        # is specialized (see after the function body).  Also worth
-        # noting is that the isinstance's involving integer types
-        # behave rather differently to how you might expect during
-        # annotation (see pypy/annotation/builtin.py)
+        """ Wraps the Python value 'x' into one of the wrapper classes. This
+        should only be used for tests, in real code you need to use the
+        explicit new* methods."""
         if x is None:
             return self.w_None
         if isinstance(x, OperationError):
@@ -236,15 +234,15 @@ class StdObjSpace(ObjSpace):
             self.wrap("refusing to wrap cpython value %r" % (x,))
         )
 
+    @not_rpython
     def wrap_exception_cls(self, x):
-        """NOT_RPYTHON"""
         if hasattr(self, 'w_' + x.__name__):
             w_result = getattr(self, 'w_' + x.__name__)
             return w_result
         return None
 
+    @not_rpython
     def wraplong(self, x):
-        "NOT_RPYTHON"
         if self.config.objspace.std.withsmalllong:
             from rpython.rlib.rarithmetic import r_longlong
             try:
@@ -257,8 +255,8 @@ class StdObjSpace(ObjSpace):
                 return W_SmallLongObject(rx)
         return W_LongObject.fromlong(x)
 
+    @not_rpython
     def unwrap(self, w_obj):
-        """NOT_RPYTHON"""
         # _____ this code is here to support testing only _____
         if isinstance(w_obj, W_Root):
             return w_obj.unwrap(self)
@@ -579,7 +577,7 @@ class StdObjSpace(ObjSpace):
         if isinstance(w_slice, W_SliceObject):
             a, b, c = w_slice.indices3(self, self.int_w(w_length))
             return (a, b, c)
-        w_indices = self.getattr(w_slice, self.wrap('indices'))
+        w_indices = self.getattr(w_slice, self.newbytes('indices'))
         w_tup = self.call_function(w_indices, w_length)
         l_w = self.unpackiterable(w_tup)
         if not len(l_w) == 3:
@@ -679,7 +677,7 @@ class StdObjSpace(ObjSpace):
                 not w_obj.user_overridden_class):
             w_obj.setitem_str(key, w_value)
         else:
-            self.setitem(w_obj, self.wrap(key), w_value)
+            self.setitem(w_obj, self.newtext(key), w_value)
 
     def getindex_w(self, w_obj, w_exception, objdescr=None):
         if type(w_obj) is W_IntObject:

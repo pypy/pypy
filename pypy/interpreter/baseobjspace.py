@@ -783,9 +783,13 @@ class ObjSpace(object):
         return self.is_true(self.contains(w_container, w_item))
 
     def setitem_str(self, w_obj, key, w_value):
+        # key is a "text", i.e. a byte string (in python3 it
+        # represents a utf-8-encoded unicode)
         return self.setitem(w_obj, self.newtext(key), w_value)
 
     def finditem_str(self, w_obj, key):
+        # key is a "text", i.e. a byte string (in python3 it
+        # represents a utf-8-encoded unicode)
         return self.finditem(w_obj, self.newtext(key))
 
     def finditem(self, w_obj, w_key):
@@ -829,13 +833,14 @@ class ObjSpace(object):
         return w_u1
 
     def new_interned_str(self, s):
-        """Assumes an identifier (utf-8 encoded str)"""
+        # Assumes an identifier (utf-8 encoded str)
+        # returns a "text" object (ie str in python2 and unicode in python3)
         if not we_are_translated():
             assert type(s) is str
         u = s.decode('utf-8')
         w_s1 = self.interned_strings.get(u)
         if w_s1 is None:
-            w_s1 = self.wrap(u)
+            w_s1 = self.newtext(u)
             self.interned_strings.set(u, w_s1)
         return w_s1
 
@@ -1291,7 +1296,7 @@ class ObjSpace(object):
     @specialize.arg(2)
     def appexec(self, posargs_w, source):
         """ return value from executing given source at applevel.
-            EXPERIMENTAL. The source must look like
+            The source must look like
                '''(x, y):
                        do_stuff...
                        return result
