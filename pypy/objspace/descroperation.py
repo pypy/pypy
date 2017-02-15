@@ -65,7 +65,7 @@ def raiseattrerror(space, w_obj, w_name, w_descr=None):
 
 def get_attribute_name(space, w_obj, w_name):
     try:
-        return space.str_w(w_name)
+        return space.text_w(w_name)
     except OperationError as e:
         if e.match(space, space.w_UnicodeEncodeError):
             raiseattrerror(space, w_obj, w_name)

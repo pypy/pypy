@@ -1954,7 +1954,7 @@ def confname_w(space, w_name, namespace):
     # XXX slightly non-nice, reuses the sysconf of the underlying os module
     if space.isinstance_w(w_name, space.w_unicode):
         try:
-            num = namespace[space.str_w(w_name)]
+            num = namespace[space.text_w(w_name)]
         except KeyError:
             raise oefmt(space.w_ValueError, "unrecognized configuration name")
     else:

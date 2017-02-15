@@ -1230,6 +1230,7 @@ class FakeSpace:
             return unicode
         return type(w_obj)
     w_unicode = unicode
+    w_text = unicode
     w_bytes = str
 
     def text_w(self, u):

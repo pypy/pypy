@@ -1026,6 +1026,7 @@ class __extend__(pyframe.PyFrame):
     def IMPORT_NAME(self, nameindex, next_instr):
         space = self.space
         w_modulename = self.getname_w(nameindex)
+        modulename = self.space.text_w(w_modulename)
         w_fromlist = self.popvalue()
 
         w_flag = self.popvalue()
@@ -1046,6 +1047,7 @@ class __extend__(pyframe.PyFrame):
             w_locals = d.w_locals
         if w_locals is None:            # CPython does this
             w_locals = space.w_None
+        w_modulename = space.newtext(modulename)
         w_globals = self.get_w_globals()
         if w_flag is None:
             w_obj = space.call_function(w_import, w_modulename, w_globals,
@@ -1076,7 +1078,7 @@ class __extend__(pyframe.PyFrame):
                 raise
             try:
                 w_pkgname = space.getattr(
-                    w_module, space.newunicode(u'__name__'))
+                    w_module, space.newtext('__name__'))
                 w_fullname = space.newunicode(u'%s.%s' %
                     (space.unicode_w(w_pkgname), space.unicode_w(w_name)))
                 return space.getitem(space.sys.get('modules'), w_fullname)

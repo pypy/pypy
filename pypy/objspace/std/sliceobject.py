@@ -106,9 +106,9 @@ class W_SliceObject(W_Root):
 
     def descr_repr(self, space):
         return space.newtext("slice(%s, %s, %s)" % (
-            space.str_w(space.repr(self.w_start)),
-            space.str_w(space.repr(self.w_stop)),
-            space.str_w(space.repr(self.w_step))))
+            space.text_w(space.repr(self.w_start)),
+            space.text_w(space.repr(self.w_stop)),
+            space.text_w(space.repr(self.w_step))))
 
     def descr__reduce__(self, space):
         from pypy.objspace.std.sliceobject import W_SliceObject

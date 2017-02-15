@@ -97,9 +97,9 @@ class OperationError(Exception):
             else:
                 try:
                     if use_repr:
-                        exc_value = space.str_w(space.repr(w_value))
+                        exc_value = space.text_w(space.repr(w_value))
                     else:
-                        exc_value = space.str_w(space.str(w_value))
+                        exc_value = space.text_w(space.str(w_value))
                 except OperationError:
                     # oups, cannot __str__ the exception object
                     exc_value = ("<exception %s() failed>" %
@@ -259,7 +259,7 @@ class OperationError(Exception):
             objrepr = ''
         else:
             try:
-                objrepr = space.str_w(space.repr(w_object))
+                objrepr = space.text_w(space.repr(w_object))
             except OperationError:
                 objrepr = "<object repr() failed>"
         #

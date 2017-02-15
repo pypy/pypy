@@ -33,7 +33,7 @@ class MultibyteIncrementalBase(W_Root):
         return space.newtext(self.errors)
 
     def fset_errors(self, space, w_errors):
-        self.errors = space.str_w(w_errors)
+        self.errors = space.text_w(w_errors)
 
 
 class MultibyteIncrementalDecoder(MultibyteIncrementalBase):

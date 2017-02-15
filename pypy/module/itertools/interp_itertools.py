@@ -27,11 +27,11 @@ class W_Count(W_Root):
 
     def repr_w(self):
         space = self.space
-        c = space.str_w(space.repr(self.w_c))
+        c = space.text_w(space.repr(self.w_c))
         if self.single_argument():
             s = 'count(%s)' % (c,)
         else:
-            step = space.str_w(space.repr(self.w_step))
+            step = space.text_w(space.repr(self.w_step))
             s = 'count(%s, %s)' % (c, step)
         return self.space.newtext(s)
 
@@ -107,7 +107,7 @@ class W_Repeat(W_Root):
         return self.space.newint(self.count)
 
     def repr_w(self):
-        objrepr = self.space.str_w(self.space.repr(self.w_obj))
+        objrepr = self.space.text_w(self.space.repr(self.w_obj))
         if self.counting:
             s = 'repeat(%s, %d)' % (objrepr, self.count)
         else:

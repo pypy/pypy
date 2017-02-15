@@ -87,7 +87,7 @@ class FileReader(AbstractReaderWriter):
     def read(self, n):
         space = self.space
         w_ret = space.call_function(self.func, space.newint(n))
-        ret = space.str_w(w_ret)
+        ret = space.bytes_w(w_ret)
         if len(ret) < n:
             self.raise_eof()
         if len(ret) > n:

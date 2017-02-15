@@ -222,7 +222,7 @@ class Function(W_Root):
         if not space.isinstance_w(w_globals, space.w_dict):
             raise oefmt(space.w_TypeError, "expected dict")
         if not space.is_none(w_name):
-            name = space.str_w(w_name)
+            name = space.text_w(w_name)
         else:
             name = None
         if not space.is_none(w_argdefs):
@@ -423,8 +423,8 @@ class Function(W_Root):
         return space.newtext(self.name)
 
     def fset_func_name(self, space, w_name):
-        if space.isinstance_w(w_name, space.w_unicode):
-            self.name = space.str_w(w_name)
+        if space.isinstance_w(w_name, space.w_text):
+            self.name = space.text_w(w_name)
         else:
             raise oefmt(space.w_TypeError,
                         "__name__ must be set to a string object")
@@ -559,7 +559,7 @@ class Method(W_Root):
 
     def descr_method_getattribute(self, w_attr):
         space = self.space
-        if space.str_w(w_attr) != '__doc__':
+        if space.text_w(w_attr) != '__doc__':
             try:
                 return space.call_method(space.w_object, '__getattribute__',
                                          self, w_attr)

@@ -83,7 +83,7 @@ def create_entry_point(space, w_dict):
             except OperationError as e:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space).encode('utf-8'))
-                debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
+                debug(" operror-value: " + space.text_w(space.str(e.get_w_value(space))))
                 return 1
         finally:
             try:
@@ -91,7 +91,7 @@ def create_entry_point(space, w_dict):
             except OperationError as e:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space).encode('utf-8'))
-                debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
+                debug(" operror-value: " + space.text_w(space.str(e.get_w_value(space))))
                 return 1
         return exitcode
 
@@ -148,7 +148,7 @@ def get_additional_entrypoints(space, w_initstdio):
             if verbose:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space).encode('utf-8'))
-                debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
+                debug(" operror-value: " + space.text_w(space.str(e.get_w_value(space))))
             return rffi.cast(rffi.INT, -1)
         finally:
             if must_leave:
@@ -202,7 +202,7 @@ def get_additional_entrypoints(space, w_initstdio):
         except OperationError as e:
             debug("OperationError:")
             debug(" operror-type: " + e.w_type.getname(space).encode('utf-8'))
-            debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
+            debug(" operror-value: " + space.text_w(space.str(e.get_w_value(space))))
             return -1
         return 0
 

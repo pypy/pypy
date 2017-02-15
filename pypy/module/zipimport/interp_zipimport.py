@@ -299,7 +299,7 @@ class W_ZipImporter(W_Root):
         for compiled, _, ext in ENUMERATE_EXTS:
             if self.have_modulefile(space, filename + ext):
                 w_source = self.get_data(space, filename + ext)
-                source = space.str_w(w_source)
+                source = space.bytes_w(w_source)
                 if compiled:
                     magic = importing._get_long(source[:4])
                     timestamp = importing._get_long(source[4:8])

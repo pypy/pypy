@@ -786,7 +786,7 @@ class W_SyntaxError(W_Exception):
             args_w = [self.args_w[0], w_tuple]
             args_repr = space.unicode_w(space.repr(space.newtuple(args_w)))
             clsname = self.getclass(space).getname(space)
-            return space.newtext(clsname + args_repr)
+            return space.newunicode(clsname + args_repr)
         else:
             return W_Exception.descr_repr(self, space)
 

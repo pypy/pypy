@@ -380,7 +380,7 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
     module object.
     """
     log_pyverbose(space, 1, "import %s # compiled from %s\n" %
-                  (space.str_w(w_modulename), cpathname))
+                  (space.text_w(w_modulename), cpathname))
 
     if magic != get_pyc_magic(space):
         raise oefmt(space.w_ImportError, "Bad magic number in %s", cpathname)

@@ -36,7 +36,7 @@ class ModelModule(MixedModule):
         space = self.space
         for name in interp_pyexpat.xml_model_list:
             value = getattr(interp_pyexpat, name)
-            space.setattr(self, space.newtext(name), space.newtext(value))
+            space.setattr(self, space.newtext(name), space.wrap(value))
 
 class Module(MixedModule):
     "Python wrapper for Expat parser."

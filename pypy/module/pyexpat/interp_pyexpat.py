@@ -679,12 +679,12 @@ information passed to the ExternalEntityRefHandler."""
         if space.is_w(w_context, space.w_None):
             context = None
         else:
-            context = space.str_w(w_context)
+            context = space.text_w(w_context)
 
         if space.is_none(w_encoding):
             encoding = None
         else:
-            encoding = space.str_w(w_encoding)
+            encoding = space.text_w(w_encoding)
 
         xmlparser = XML_ExternalEntityParserCreate(
             self.itself, context, encoding)
@@ -816,8 +816,8 @@ def ParserCreate(space, w_encoding=None, w_namespace_separator=None,
 Return a new XML parser object."""
     if space.is_none(w_encoding):
         encoding = None
-    elif space.isinstance_w(w_encoding, space.w_unicode):
-        encoding = space.str_w(w_encoding)
+    elif space.isinstance_w(w_encoding, space.w_text):
+        encoding = space.text_w(w_encoding)
     else:
         raise oefmt(space.w_TypeError,
                     "ParserCreate() argument 1 must be str or None, not %T",
@@ -825,8 +825,8 @@ Return a new XML parser object."""
 
     if space.is_none(w_namespace_separator):
         namespace_separator = 0
-    elif space.isinstance_w(w_namespace_separator, space.w_unicode):
-        separator = space.str_w(w_namespace_separator)
+    elif space.isinstance_w(w_namespace_separator, space.w_text):
+        separator = space.text_w(w_namespace_separator)
         if len(separator) == 0:
             namespace_separator = 0
         elif len(separator) == 1:
