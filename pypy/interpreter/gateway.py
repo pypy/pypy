@@ -1066,7 +1066,8 @@ class interp2app(W_Root):
                     if w_def is Ellipsis:
                         if isinstance(defaultval, str) and (
                                 # XXX hackish
-                           spec == 'bytes' or isinstance(spec, WrappedDefault)):
+                                spec == 'bytes' or spec == 'bufferstr'
+                                or isinstance(spec, WrappedDefault)):
                             w_def = space.newbytes(defaultval)
                         else:
                             w_def = space.wrap(defaultval)
