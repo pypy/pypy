@@ -840,7 +840,7 @@ class ObjSpace(object):
         u = s.decode('utf-8')
         w_s1 = self.interned_strings.get(u)
         if w_s1 is None:
-            w_s1 = self.newtext(u)
+            w_s1 = self.newunicode(u)
             self.interned_strings.set(u, w_s1)
         return w_s1
 
