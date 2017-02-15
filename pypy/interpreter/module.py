@@ -83,7 +83,7 @@ class Module(W_Root):
         w_dict = self.w_dict
         space.setitem(w_dict, space.new_interned_str('__name__'), w_name)
         space.setitem(w_dict, space.new_interned_str('__doc__'), w_doc)
-        init_extra_module_attrs(space, space.wrap(self))
+        init_extra_module_attrs(space, self)
 
     def descr__reduce__(self, space):
         w_name = space.finditem(self.w_dict, space.newtext('__name__'))

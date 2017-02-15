@@ -1123,7 +1123,7 @@ class GatewayCache(SpaceCache):
         if not space.config.translating:
             fn.add_to_table()
         if gateway.as_classmethod:
-            fn = ClassMethod(space.wrap(fn))
+            fn = ClassMethod(fn)
         #
         from pypy.module.sys.vm import exc_info
         if code._bltin is exc_info:

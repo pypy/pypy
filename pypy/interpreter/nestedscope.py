@@ -46,7 +46,7 @@ class Cell(W_Root):
         if not isinstance(w_other, Cell):
             return space.w_NotImplemented
         if self.w_value is None or w_other.w_value is None:
-            return space.wrap(self.w_value == w_other.w_value)
+            return space.newbool(self.w_value == w_other.w_value)
         return space.eq(self.w_value, w_other.w_value)
 
     def descr__reduce__(self, space):

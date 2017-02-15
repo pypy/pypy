@@ -1517,6 +1517,9 @@ class ObjSpace(object):
                 return None
             code = 's*'
         if code == 's*':
+            # NOTE: 's*' is almost not used any more inside CPython 3.5.
+            # Try not to use it pointlessly: it accepts unicodes, which
+            # most API in CPython 3.x no longer do.
             if self.isinstance_w(w_obj, self.w_bytes):
                 return StringBuffer(w_obj.bytes_w(self))
             if self.isinstance_w(w_obj, self.w_unicode):
@@ -1526,6 +1529,9 @@ class ObjSpace(object):
             except BufferInterfaceNotFound:
                 self._getarg_error("bytes or buffer", w_obj)
         elif code == 's#':
+            # NOTE: 's#' is almost not used any more inside CPython 3.5.
+            # Try not to use it pointlessly: it accepts unicodes, which
+            # most API in CPython 3.x no longer do.
             if self.isinstance_w(w_obj, self.w_bytes):
                 return w_obj.bytes_w(self)
             if self.isinstance_w(w_obj, self.w_unicode):

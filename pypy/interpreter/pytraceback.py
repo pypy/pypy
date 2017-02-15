@@ -50,7 +50,7 @@ class PyTraceback(baseobjspace.W_Root):
         self.next = space.interp_w(PyTraceback, w_next, can_be_None=True)
 
     def descr__dir__(self, space):
-        return space.newlist([space.wrap(n) for n in
+        return space.newlist([space.newtext(n) for n in
             ['tb_frame', 'tb_next', 'tb_lasti', 'tb_lineno']])
 
 

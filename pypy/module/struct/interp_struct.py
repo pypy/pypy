@@ -102,7 +102,7 @@ def unpack(space, w_format, w_str):
     return do_unpack(space, format, w_str)
 
 def do_unpack(space, format, w_str):
-    buf = space.getarg_w('s*', w_str)
+    buf = space.getarg_w('y*', w_str)
     return _unpack(space, format, buf)
 
 

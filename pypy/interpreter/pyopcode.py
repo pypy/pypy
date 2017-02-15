@@ -533,7 +533,7 @@ class __extend__(pyframe.PyFrame):
         i = varindex - len(self.pycode.co_cellvars)
         assert i >= 0
         name = self.pycode.co_freevars[i]
-        w_value = space.finditem(self.debugdata.w_locals, space.wrap(name))
+        w_value = space.finditem(self.debugdata.w_locals, space.newtext(name))
         if w_value is None:
             self.LOAD_DEREF(varindex, next_instr)
         else:
@@ -726,7 +726,7 @@ class __extend__(pyframe.PyFrame):
         operror = OperationError(w_type, w_value)
         operror.normalize_exception(space)
         operror.set_cause(space, w_cause)
-        tb = space.getattr(w_value, space.wrap('__traceback__'))
+        tb = space.getattr(w_value, space.newtext('__traceback__'))
         if not space.is_w(tb, space.w_None):
             operror.set_traceback(tb)
         raise operror
@@ -1584,11 +1584,11 @@ class __extend__(pyframe.PyFrame):
                 raise oefmt(space.w_TypeError,
                             "'async for' received an invalid object "
                             "from __aiter__: %T", w_iter)
-            space.warn(space.wrap(
-                u"'%s' implements legacy __aiter__ protocol; "
-                u"__aiter__ should return an asynchronous "
-                u"iterator, not awaitable" %
-                    space.type(w_obj).name.decode('utf-8')),
+            space.warn(space.newtext(
+                "'%s' implements legacy __aiter__ protocol; "
+                "__aiter__ should return an asynchronous "
+                "iterator, not awaitable" %
+                    space.type(w_obj).name),
                 space.w_PendingDeprecationWarning)
         self.pushvalue(w_awaitable)
 

@@ -53,7 +53,7 @@ class W_MMap(W_Root):
     def find(self, w_tofind, w_start=None, w_end=None):
         self.check_valid()
         space = self.space
-        tofind = space.getarg_w('s#', w_tofind)
+        tofind = space.getarg_w('y*', w_tofind)
         if w_start is None:
             start = self.mmap.pos
         else:
@@ -67,7 +67,7 @@ class W_MMap(W_Root):
     def rfind(self, w_tofind, w_start=None, w_end=None):
         self.check_valid()
         space = self.space
-        tofind = space.getarg_w('s#', w_tofind)
+        tofind = space.getarg_w('y*', w_tofind)
         if w_start is None:
             start = self.mmap.pos
         else:
@@ -99,7 +99,7 @@ class W_MMap(W_Root):
 
     def write(self, w_data):
         self.check_valid()
-        data = self.space.getarg_w('s#', w_data)
+        data = self.space.getarg_w('y*', w_data)
         self.check_writeable()
         try:
             self.mmap.write(data)
