@@ -71,7 +71,7 @@ class OperationError(Exception):
             if self.__class__ is not OperationError and s is None:
                 s = self._compute_value(space)
             try:
-                s = space.str_w(s)
+                s = space.text_w(s)
             except Exception:
                 pass
         return '[%s: %s]' % (self.w_type, s)
