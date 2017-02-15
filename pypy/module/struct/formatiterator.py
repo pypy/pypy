@@ -165,6 +165,8 @@ class UnpackFormatIterator(FormatIterator):
                 w_value = self.space.newint(intmask(value))
             else:
                 w_value = self.space.newint(value)
+        elif isinstance(value, bool):
+            w_value = self.space.newbool(value)
         elif isinstance(value, int):
             w_value = self.space.newint(value)
         elif isinstance(value, float):
