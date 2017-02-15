@@ -70,7 +70,7 @@ def w_certEncodingType(space, encodingType):
     elif encodingType == PKCS_7_ASN_ENCODING:
         return space.newtext("pkcs_7_asn")
     else:
-        return space.newtext(encodingType)
+        return space.newint(encodingType)
 
 def w_parseKeyUsage(space, pCertCtx, flags):
     with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as size_ptr:
