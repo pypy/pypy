@@ -576,20 +576,28 @@ entries '.' and '..' even if they are present in the directory."""
         if space.isinstance_w(w_dirname, space.w_unicode):
             dirname = FileEncoder(space, w_dirname)
             result = rposix.listdir(dirname)
+            # NOTE: 'result' can be either a list of str or a list of
+            # unicodes, depending on the platform
             w_fs_encoding = getfilesystemencoding(space)
             len_result = len(result)
             result_w = [None] * len_result
             for i in range(len_result):
                 res = result[i]
-                w_bytes = space.newunicode(res)
-                try:
-                    result_w[i] = space.call_method(w_bytes,
-                                                    "decode", w_fs_encoding)
-                except OperationError as e:
-                    # fall back to the original byte string
-                    if e.async(space):
-                        raise
-                    result_w[i] = w_bytes
+                if isinstance(res, str):
+                    w_bytes = space.newtext(res)
+                    try:
+                        w_res = space.call_method(w_bytes,
+                                                  "decode", w_fs_encoding)
+                    except OperationError as e:
+                        # fall back to the original byte string
+                        if e.async(space):
+                            raise
+                        w_res = w_bytes
+                elif isinstance(res, unicode):
+                    w_res = space.newunicode(res)
+                else:
+                    assert False
+                result_w[i] = w_res
             return space.newlist(result_w)
         else:
             dirname = space.str0_w(w_dirname)
