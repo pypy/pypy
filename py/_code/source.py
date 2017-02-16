@@ -291,14 +291,10 @@ def deindent(lines, offset=None):
         while True:
             yield ''
 
-    r = readline_generator(lines)
-    try:
-        readline = r.next
-    except AttributeError:
-        readline = r.__next__
+    it = readline_generator(lines)
 
     try:
-        for _, _, (sline, _), (eline, _), _ in tokenize.generate_tokens(readline):
+        for _, _, (sline, _), (eline, _), _ in tokenize.generate_tokens(lambda: next(it)):
             if sline > len(lines):
                 break # End of input reached
             if sline > len(newlines):
@@ -317,12 +313,14 @@ def deindent(lines, offset=None):
     newlines.extend(lines[len(newlines):])
     return newlines
 
+
 def get_statement_startend(lineno, nodelist):
     from bisect import bisect_right
     # lineno starts at 0
     nextlineno = None
     while 1:
         lineno_list = [x.lineno-1 for x in nodelist] # ast indexes start at 1
+        #print lineno_list, [vars(x) for x in nodelist]
         insert_index = bisect_right(lineno_list, lineno)
         if insert_index >= len(nodelist):
             insert_index -= 1
@@ -341,7 +339,6 @@ def get_statement_startend(lineno, nodelist):
             start, end = nextnode.lineno-1, nextlineno
             start = min(lineno, start)
             assert start <= lineno  and (end is None or lineno < end)
-            #print "returning", start, end
             return start, end
 
 def getnodelist(node):
@@ -355,7 +352,6 @@ def getnodelist(node):
                 l.extend(attr)
             elif hasattr(attr, "lineno"):
                 l.append(attr)
-    #print "returning nodelist", l
     return l
 
 def getstatementrange_ast(lineno, source, assertion=False, astnode=None):
@@ -373,16 +369,34 @@ def getstatementrange_ast(lineno, source, assertion=False, astnode=None):
     # - ast-parsing strips comments
     # - else statements do not have a separate lineno
     # - there might be empty lines
+    # - we might have lesser indented code blocks at the end
     if end is None:
         end = len(source.lines)
+
+    if end > start + 1:
+        # make sure we don't span differently indented code blocks
+        # by using the BlockFinder helper used which inspect.getsource() uses itself
+        block_finder = inspect.BlockFinder()
+        # if we start with an indented line, put blockfinder to "started" mode
+        block_finder.started = source.lines[start][0].isspace()
+        it = ((x + "\n") for x in source.lines[start:end])
+        try:
+            for tok in tokenize.generate_tokens(lambda: next(it)):
+                block_finder.tokeneater(*tok)
+        except (inspect.EndOfBlock, IndentationError) as e:
+            end = block_finder.last + start
+        #except Exception:
+        #    pass
+
+    # the end might still point to a comment, correct it
     while end:
-        line = source.lines[end-1].lstrip()
-        if (not line or line.startswith("#") or line.startswith("else:") or
-            line.startswith("finally:")):
+        line = source.lines[end - 1].lstrip()
+        if line.startswith("#"):
             end -= 1
         else:
             break
     return astnode, start, end
+
 
 def getstatementrange_old(lineno, source, assertion=False):
     """ return (start, end) tuple which spans the minimal

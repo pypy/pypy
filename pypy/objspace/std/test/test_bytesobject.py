@@ -92,6 +92,7 @@ class AppTestBytesObject:
         raises(ValueError, 'a%Zb'.__mod__, ((23,),))
 
     def test_format(self):
+        import sys
         raises(TypeError, "foo".__mod__, "bar")
         raises(TypeError, u"foo".__mod__, "bar")
         raises(TypeError, "foo".__mod__, u"bar")
@@ -105,6 +106,22 @@ class AppTestBytesObject:
             assert result == "a foo b"
             assert isinstance(result, cls)
 
+        for format, arg, cls in [("a %s b", "foo", str),
+                                 (u"a %s b", u"foo", unicode)]:
+            raises(TypeError, arg.__rmod__, format[:2])
+            result = arg.__rmod__(format)
+            assert result == "a foo b"
+            assert isinstance(result, cls)
+        for format, arg, cls in [(u"a %s b", "foo", str),
+                                 ("a %s b", u"foo", unicode)]:
+            result = arg.__rmod__(format)
+            if '__pypy__' in sys.builtin_module_names:
+                raises(TypeError, arg.__rmod__, format[:2])
+                assert result == "a foo b"
+                assert isinstance(result, cls)
+            else:
+                assert result is NotImplemented
+
     def test_format_c_overflow(self):
         raises(OverflowError, b'{0:c}'.format, -1)
         raises(OverflowError, b'{0:c}'.format, 256)
@@ -114,6 +131,7 @@ class AppTestBytesObject:
             exc_info = raises(TypeError, int_format.__mod__, '123')
             expected = int_format + ' format: a number is required, not str'
             assert str(exc_info.value) == expected
+        raises(TypeError, "None % 'abc'") # __rmod__
 
     def test_split(self):
         assert b"".split() == []
@@ -258,9 +276,9 @@ class AppTestBytesObject:
         exc = raises(TypeError, s.strip, buffer(' '))
         assert str(exc.value) == 'strip arg must be None, str or unicode'
         exc = raises(TypeError, s.rstrip, buffer(' '))
-        assert str(exc.value) == 'strip arg must be None, str or unicode'
+        assert str(exc.value) == 'rstrip arg must be None, str or unicode'
         exc = raises(TypeError, s.lstrip, buffer(' '))
-        assert str(exc.value) == 'strip arg must be None, str or unicode'
+        assert str(exc.value) == 'lstrip arg must be None, str or unicode'
 
     def test_zfill(self):
         assert b'123'.zfill(2) == b'123'
@@ -791,6 +809,16 @@ class AppTestBytesObject:
         s = b"a" * (2**16)
         raises(OverflowError, s.replace, b"", s)
 
+    def test_replace_issue2448(self):
+        # CPython's replace() method has a bug that makes
+        #   ''.replace('', 'x')  gives a different answer than
+        #   ''.replace('', 'x', 1000).  This is the case in all
+        # known versions, at least until 2.7.13.  Some people
+        # call that a feature on the CPython issue report and
+        # the discussion dies out, so it might never be fixed.
+        assert ''.replace('', 'x') == 'x'
+        assert ''.replace('', 'x', 1000) == ''
+
     def test_getslice(self):
         assert "foobar".__getslice__(4, 4321) == "ar"
         s = b"abc"
@@ -809,6 +837,10 @@ class AppTestBytesObject:
         raises(TypeError, len, iter(iterable))
 
     def test___radd__(self):
+        raises(TypeError, "None + ''")
+        raises(AttributeError, "'abc'.__radd__('def')")
+
+
         class Foo(object):
             def __radd__(self, other):
                 return 42

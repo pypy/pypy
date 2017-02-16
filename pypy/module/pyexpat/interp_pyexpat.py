@@ -3,11 +3,11 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import rgc, jit
+from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
-from rpython.rlib.objectmodel import specialize
 
 import sys
 import weakref
@@ -524,8 +524,8 @@ getting the advantage of providing document type information to the parser.
             maxindex = XML_GetSpecifiedAttributeCount(self.itself)
         else:
             maxindex = 0
-        while attrs[maxindex]:
-            maxindex += 2 # copied
+            while attrs[maxindex]:
+                maxindex += 2 # copied
 
         if self.ordered_attributes:
             w_attrs = space.newlist([

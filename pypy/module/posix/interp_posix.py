@@ -307,7 +307,8 @@ class StatState(object):
     def __init__(self, space):
         self.stat_float_times = True
 
-def stat_float_times(space, w_value=None):
+@unwrap_spec(newval=int)
+def stat_float_times(space, newval=-1):
     """stat_float_times([newval]) -> oldval
 
 Determine whether os.[lf]stat represents time stamps as float objects.
@@ -317,10 +318,10 @@ If newval is omitted, return the current setting.
 """
     state = space.fromcache(StatState)
 
-    if w_value is None:
+    if newval == -1:
         return space.wrap(state.stat_float_times)
     else:
-        state.stat_float_times = space.bool_w(w_value)
+        state.stat_float_times = (newval != 0)
 
 
 @unwrap_spec(fd=c_int)
@@ -1323,6 +1324,12 @@ def nice(space, inc):
         raise wrap_oserror(space, e)
     return space.wrap(res)
 
+class SigCheck:
+    pass
+_sigcheck = SigCheck()
+def _signal_checker():
+    _sigcheck.space.getexecutioncontext().checksignals()
+
 @unwrap_spec(n=int)
 def urandom(space, n):
     """urandom(n) -> str
@@ -1331,7 +1338,11 @@ def urandom(space, n):
     """
     context = get(space).random_context
     try:
-        return space.wrap(rurandom.urandom(context, n))
+        # urandom() takes a final argument that should be a regular function,
+        # not a bound method like 'getexecutioncontext().checksignals'.
+        # Otherwise, we can't use it from several independent places.
+        _sigcheck.space = space
+        return space.wrap(rurandom.urandom(context, n, _signal_checker))
     except OSError as e:
         raise wrap_oserror(space, e)
 

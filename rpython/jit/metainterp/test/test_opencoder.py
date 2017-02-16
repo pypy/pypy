@@ -1,6 +1,5 @@
 import py
 from rpython.jit.metainterp.opencoder import Trace, untag, TAGINT, TAGBOX
-from rpython.jit.metainterp.opencoder import FrontendTagOverflow
 from rpython.jit.metainterp.resoperation import rop, AbstractResOp
 from rpython.jit.metainterp.history import ConstInt, IntFrontendOp
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
@@ -8,6 +7,7 @@ from rpython.jit.metainterp import resume
 from rpython.jit.metainterp.test.strategies import lists_of_operations
 from rpython.jit.metainterp.optimizeopt.test.test_util import BaseTest
 from rpython.jit.metainterp.history import TreeLoop, AbstractDescr
+from rpython.jit.metainterp.history import SwitchToBlackhole
 from hypothesis import given, strategies
 
 class JitCode(object):
@@ -209,5 +209,5 @@ class TestOpencoder(object):
     def test_tag_overflow(self):
         t = Trace([], metainterp_sd)
         i0 = FakeOp(100000)
-        py.test.raises(FrontendTagOverflow, t.record_op, rop.FINISH, [i0])
+        py.test.raises(SwitchToBlackhole, t.record_op, rop.FINISH, [i0])
         assert t.unpack() == ([], [])

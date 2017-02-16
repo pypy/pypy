@@ -319,6 +319,9 @@ class W_UnicodeObject(W_Root):
     def descr_mod(self, space, w_values):
         return mod_format(space, self, w_values, do_unicode=True)
 
+    def descr_rmod(self, space, w_values):
+        return mod_format(space, w_values, self, do_unicode=True)
+
     def descr_translate(self, space, w_table):
         selfvalue = self._value
         w_sys = space.getbuiltinmodule('sys')
@@ -632,6 +635,9 @@ class UnicodeDocstrings:
 
     def __mod__():
         """x.__mod__(y) <==> x%y"""
+
+    def __rmod__():
+        """x.__rmod__(y) <==> y%x"""
 
     def __mul__():
         """x.__mul__(n) <==> x*n"""
@@ -1096,6 +1102,8 @@ W_UnicodeObject.typedef = TypeDef(
                             doc=UnicodeDocstrings.__format__.__doc__),
     __mod__ = interp2app(W_UnicodeObject.descr_mod,
                          doc=UnicodeDocstrings.__mod__.__doc__),
+    __rmod__ = interp2app(W_UnicodeObject.descr_rmod,
+                         doc=UnicodeDocstrings.__rmod__.__doc__),
     __getnewargs__ = interp2app(W_UnicodeObject.descr_getnewargs,
                                 doc=UnicodeDocstrings.__getnewargs__.__doc__),
     _formatter_parser = interp2app(W_UnicodeObject.descr_formatter_parser),

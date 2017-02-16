@@ -6,7 +6,7 @@ from rpython.annotator.model import (SomeObject, SomeString, s_None, SomeChar,
     SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePBC)
 from rpython.rtyper.llannotation import SomePtr
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import newlist_hint, resizelist_hint, specialize
+from rpython.rlib.objectmodel import newlist_hint, resizelist_hint, specialize, not_rpython
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT as BLOOM_WIDTH
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.unicodedata import unicodedb_5_2_0 as unicodedb
@@ -516,37 +516,37 @@ INIT_SIZE = 100 # XXX tweak
 class AbstractStringBuilder(object):
     # This is not the real implementation!
 
+    @not_rpython
     def __init__(self, init_size=INIT_SIZE):
-        "NOT_RPYTHON"
         self._l = []
         self._size = 0
 
+    @not_rpython
     def _grow(self, size):
-        "NOT_RPYTHON"
         self._size += size
 
+    @not_rpython
     def append(self, s):
-        "NOT_RPYTHON"
         assert isinstance(s, self._tp)
         self._l.append(s)
         self._grow(len(s))
 
+    @not_rpython
     def append_slice(self, s, start, end):
-        "NOT_RPYTHON"
         assert isinstance(s, self._tp)
         assert 0 <= start <= end <= len(s)
         s = s[start:end]
         self._l.append(s)
         self._grow(len(s))
 
+    @not_rpython
     def append_multiple_char(self, c, times):
-        "NOT_RPYTHON"
         assert isinstance(c, self._tp)
         self._l.append(c * times)
         self._grow(times)
 
+    @not_rpython
     def append_charpsize(self, s, size):
-        "NOT_RPYTHON"
         assert size >= 0
         l = []
         for i in xrange(size):
@@ -554,15 +554,15 @@ class AbstractStringBuilder(object):
         self._l.append(self._tp("").join(l))
         self._grow(size)
 
+    @not_rpython
     def build(self):
-        "NOT_RPYTHON"
         result = self._tp("").join(self._l)
         assert len(result) == self._size
         self._l = [result]
         return result
 
+    @not_rpython
     def getlength(self):
-        "NOT_RPYTHON"
         return self._size
 
 

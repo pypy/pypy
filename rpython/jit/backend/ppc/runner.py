@@ -3,13 +3,15 @@ from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rlib import rgc
 from rpython.rlib.jit_hooks import LOOP_RUN_CONTAINER
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
+from rpython.jit.backend.ppc.vector_ext import AltiVectorExt
 from rpython.jit.backend.ppc.ppc_assembler import AssemblerPPC
 from rpython.jit.backend.ppc.arch import WORD
 from rpython.jit.backend.ppc.codebuilder import PPCBuilder
 from rpython.jit.backend.ppc import register as r
 
-
 class PPC_CPU(AbstractLLCPU):
+
+    vector_ext = AltiVectorExt()
 
     supports_floats = True
     # missing: supports_singlefloats

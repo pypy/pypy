@@ -110,7 +110,7 @@ class UnrolledLoopData(CompileData):
     """
     log_noopt = False
 
-    def __init__(self, trace, celltoken, state,
+    def __init__(self, trace, celltoken, state, runtime_boxes,
                  call_pure_results=None, enable_opts=None,
                  inline_short_preamble=True):
         self.trace = trace
@@ -119,6 +119,8 @@ class UnrolledLoopData(CompileData):
         self.state = state
         self.call_pure_results = call_pure_results
         self.inline_short_preamble = inline_short_preamble
+        assert runtime_boxes is not None
+        self.runtime_boxes = runtime_boxes
 
     def optimize(self, metainterp_sd, jitdriver_sd, optimizations, unroll):
         from rpython.jit.metainterp.optimizeopt.unroll import UnrollOptimizer
@@ -126,7 +128,11 @@ class UnrolledLoopData(CompileData):
         assert unroll # we should not be here if it's disabled
         opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, optimizations)
         return opt.optimize_peeled_loop(self.trace, self.celltoken, self.state,
-            self.call_pure_results, self.inline_short_preamble)
+            self.runtime_boxes, self.call_pure_results, self.inline_short_preamble)
+
+    def forget_optimization_info(self):
+        self.state.forget_optimization_info()
+        CompileData.forget_optimization_info(self)
 
 def show_procedures(metainterp_sd, procedure=None, error=None):
     # debugging
@@ -292,7 +298,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
     start_descr = TargetToken(jitcell_token,
                               original_jitcell_token=jitcell_token)
     jitcell_token.target_tokens = [start_descr]
-    loop_data = UnrolledLoopData(trace, jitcell_token, start_state,
+    loop_data = UnrolledLoopData(trace, jitcell_token, start_state, jumpargs,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts)
     try:
@@ -304,7 +310,8 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
         history.cut(cut_at)
         return None
 
-    if ((warmstate.vec and jitdriver_sd.vec) or warmstate.vec_all):
+    if ((warmstate.vec and jitdriver_sd.vec) or warmstate.vec_all) and \
+        metainterp.cpu.vector_ext and metainterp.cpu.vector_ext.is_enabled():
         from rpython.jit.metainterp.optimizeopt.vector import optimize_vector
         loop_info, loop_ops = optimize_vector(trace, metainterp_sd,
                                               jitdriver_sd, warmstate,
@@ -329,7 +336,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
         metainterp_sd.logger_ops.log_short_preamble([],
             label_token.short_preamble, metainterp.box_names_memo)
     loop.operations = ([start_label] + preamble_ops + loop_info.extra_same_as +
-                       [loop_info.label_op] + loop_ops)
+                       loop_info.extra_before_label + [loop_info.label_op] + loop_ops)
     if not we_are_translated():
         loop.check_consistency()
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop",
@@ -361,7 +368,7 @@ def compile_retrace(metainterp, greenkey, start,
     history.record(rop.JUMP, jumpargs[:], None, descr=loop_jitcell_token)
     enable_opts = jitdriver_sd.warmstate.enable_opts
     call_pure_results = metainterp.call_pure_results
-    loop_data = UnrolledLoopData(trace, loop_jitcell_token, start_state,
+    loop_data = UnrolledLoopData(trace, loop_jitcell_token, start_state, jumpargs,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts)
     try:
@@ -373,6 +380,7 @@ def compile_retrace(metainterp, greenkey, start,
         history.cut(cut)
         history.record(rop.JUMP, jumpargs[:], None, descr=loop_jitcell_token)
         loop_data = UnrolledLoopData(trace, loop_jitcell_token, start_state,
+                                     jumpargs,
                                      call_pure_results=call_pure_results,
                                      enable_opts=enable_opts,
                                      inline_short_preamble=False)
@@ -517,7 +525,7 @@ def forget_optimization_info(lst, reset_values=False):
     for item in lst:
         item.set_forwarded(None)
         # XXX we should really do it, but we need to remember the values
-        #     somehoe for ContinueRunningNormally
+        #     somehow for ContinueRunningNormally
         if reset_values:
             item.reset_value()
 
@@ -726,7 +734,8 @@ class AbstractResumeGuardDescr(ResumeDescr):
     TY_FLOAT        = 0x06
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
-        if self.must_compile(deadframe, metainterp_sd, jitdriver_sd):
+        if (self.must_compile(deadframe, metainterp_sd, jitdriver_sd)
+                and not rstack.stack_almost_full()):
             self.start_compiling()
             try:
                 self._trace_and_compile_from_bridge(deadframe, metainterp_sd,

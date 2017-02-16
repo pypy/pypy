@@ -1004,7 +1004,6 @@ class Regalloc(BaseRegalloc):
     def prepare_op_cond_call(self, op, fcond):
         # XXX don't force the arguments to be loaded in specific
         # locations before knowing if we can take the fast path
-        # XXX add cond_call_value support
         assert 2 <= op.numargs() <= 4 + 2
         tmpreg = self.get_scratch_reg(INT, selected_reg=r.r4)
         v = op.getarg(1)
@@ -1017,8 +1016,33 @@ class Regalloc(BaseRegalloc):
             arg = op.getarg(i)
             self.make_sure_var_in_reg(arg, args_so_far, selected_reg=reg)
             args_so_far.append(arg)
-        self.load_condition_into_cc(op.getarg(0))
-        return [tmpreg]
+
+        if op.type == 'v':
+            # a plain COND_CALL.  Calls the function when args[0] is
+            # true.  Often used just after a comparison operation.
+            self.load_condition_into_cc(op.getarg(0))
+            return [tmpreg]
+        else:
+            # COND_CALL_VALUE_I/R.  Calls the function when args[0]
+            # is equal to 0 or NULL.  Returns the result from the
+            # function call if done, or args[0] if it was not 0/NULL.
+            # Implemented by forcing the result to live in the same
+            # register as args[0], and overwriting it if we really do
+            # the call.
+
+            # Load the register for the result.  Possibly reuse 'args[0]'.
+            # But the old value of args[0], if it survives, is first
+            # spilled away.  We can't overwrite any of op.args[2:] here.
+            args = op.getarglist()
+            resloc = self.rm.force_result_in_reg(op, args[0],
+                                                 forbidden_vars=args[2:])
+            # Test the register for the result.
+            self.assembler.mc.CMP_ri(resloc.value, 0)
+            self.assembler.guard_success_cc = c.EQ
+            return [tmpreg, resloc]
+
+    prepare_op_cond_call_value_i = prepare_op_cond_call
+    prepare_op_cond_call_value_r = prepare_op_cond_call
 
     def prepare_op_force_token(self, op, fcond):
         # XXX for now we return a regular reg
@@ -1067,6 +1091,7 @@ class Regalloc(BaseRegalloc):
 
     def prepare_op_guard_not_forced_2(self, op, fcond):
         self.rm.before_call(op.getfailargs(), save_all_regs=True)
+        self.vfprm.before_call(op.getfailargs(), save_all_regs=True)
         fail_locs = self._prepare_guard(op)
         self.assembler.store_force_descr(op, fail_locs[1:], fail_locs[0].value)
         self.possibly_free_vars(op.getfailargs())

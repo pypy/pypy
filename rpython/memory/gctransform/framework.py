@@ -476,6 +476,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 GCClass.rawrefcount_create_link_pyobj,
                 [s_gc, s_gcref, SomeAddress()],
                 annmodel.s_None)
+            self.rawrefcount_mark_deallocating = getfn(
+                GCClass.rawrefcount_mark_deallocating,
+                [s_gc, s_gcref, SomeAddress()],
+                annmodel.s_None)
             self.rawrefcount_from_obj_ptr = getfn(
                 GCClass.rawrefcount_from_obj, [s_gc, s_gcref], SomeAddress(),
                 inline = True)
@@ -541,6 +545,19 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                              s_gcref],
                                             annmodel.s_None)
 
+        self.ignore_finalizer_ptr = None
+        if hasattr(GCClass, 'ignore_finalizer'):
+            self.ignore_finalizer_ptr = getfn(GCClass.ignore_finalizer,
+                                              [s_gc, SomeAddress()],
+                                              annmodel.s_None)
+
+        self.move_out_of_nursery_ptr = None
+        if hasattr(GCClass, 'move_out_of_nursery'):
+            self.move_out_of_nursery_ptr = getfn(GCClass.move_out_of_nursery,
+                                              [s_gc, SomeAddress()],
+                                              SomeAddress())
+
+
     def create_custom_trace_funcs(self, gc, rtyper):
         custom_trace_funcs = tuple(rtyper.custom_trace_funcs)
         rtyper.custom_trace_funcs = custom_trace_funcs
@@ -592,25 +609,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
     def special_funcptr_for_type(self, TYPE):
         return self.layoutbuilder.special_funcptr_for_type(TYPE)
-
-    def gc_header_for(self, obj, needs_hash=False):
-        hdr = self.gcdata.gc.gcheaderbuilder.header_of_object(obj)
-        withhash, flag = self.gcdata.gc.withhash_flag_is_in_field
-        x = getattr(hdr, withhash)
-        TYPE = lltype.typeOf(x)
-        x = lltype.cast_primitive(lltype.Signed, x)
-        if needs_hash:
-            x |= flag       # set the flag in the header
-        else:
-            x &= ~flag      # clear the flag in the header
-        x = lltype.cast_primitive(TYPE, x)
-        setattr(hdr, withhash, x)
-        return hdr
-
-    def get_hash_offset(self, T):
-        type_id = self.get_type_id(T)
-        assert not self.gcdata.q_is_varsize(type_id)
-        return self.gcdata.q_fixed_size(type_id)
 
     def finish_tables(self):
         group = self.layoutbuilder.close_table()
@@ -679,7 +677,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         #
         return newgcdependencies
 
-    def get_finish_tables(self):
+    def enum_type_info_members(self):
         # We must first make sure that the type_info_group's members
         # are all followed.  Do it repeatedly while new members show up.
         # Once it is really done, do finish_tables().
@@ -688,6 +686,15 @@ class BaseFrameworkGCTransformer(GCTransformer):
             curtotal = len(self.layoutbuilder.type_info_group.members)
             yield self.layoutbuilder.type_info_group.members[seen:curtotal]
             seen = curtotal
+
+    def get_finish_helpers(self):
+        for dep in self.enum_type_info_members():
+            yield dep
+        yield self.finish_helpers()
+
+    def get_finish_tables(self):
+        for dep in self.enum_type_info_members():
+            yield dep
         yield self.finish_tables()
 
     def write_typeid_list(self):
@@ -1272,6 +1279,14 @@ class BaseFrameworkGCTransformer(GCTransformer):
                   [self.rawrefcount_create_link_pyobj_ptr, self.c_const_gc,
                    v_gcobj, v_pyobject])
 
+    def gct_gc_rawrefcount_mark_deallocating(self, hop):
+        [v_gcobj, v_pyobject] = hop.spaceop.args
+        assert v_gcobj.concretetype == llmemory.GCREF
+        assert v_pyobject.concretetype == llmemory.Address
+        hop.genop("direct_call",
+                  [self.rawrefcount_mark_deallocating, self.c_const_gc,
+                   v_gcobj, v_pyobject])
+
     def gct_gc_rawrefcount_from_obj(self, hop):
         [v_gcobj] = hop.spaceop.args
         assert v_gcobj.concretetype == llmemory.GCREF
@@ -1480,21 +1495,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
     def gcheader_initdata(self, obj):
         o = lltype.top_container(obj)
-        needs_hash = self.get_prebuilt_hash(o) is not None
-        hdr = self.gc_header_for(o, needs_hash)
+        hdr = self.gcdata.gc.gcheaderbuilder.header_of_object(o)
         return hdr._obj
-
-    def get_prebuilt_hash(self, obj):
-        # for prebuilt objects that need to have their hash stored and
-        # restored.  Note that only structures that are StructNodes all
-        # the way have their hash stored (and not e.g. structs with var-
-        # sized arrays at the end).  'obj' must be the top_container.
-        TYPE = lltype.typeOf(obj)
-        if not isinstance(TYPE, lltype.GcStruct):
-            return None
-        if TYPE._is_varsize():
-            return None
-        return getattr(obj, '_hash_cache_', None)
 
     def get_finalizer_queue_index(self, hop):
         fq_tag = hop.spaceop.args[0].value
@@ -1550,6 +1552,26 @@ class BaseFrameworkGCTransformer(GCTransformer):
                           resulttype=llmemory.Address)
         hop.genop("cast_adr_to_ptr", [v_adr],
                   resultvar = hop.spaceop.result)
+
+    def gct_gc_ignore_finalizer(self, hop):
+        if self.ignore_finalizer_ptr is not None:
+            v_adr = hop.genop("cast_ptr_to_adr", [hop.spaceop.args[0]],
+                              resulttype=llmemory.Address)
+            hop.genop("direct_call", [self.ignore_finalizer_ptr,
+                                      self.c_const_gc, v_adr])
+
+    def gct_gc_move_out_of_nursery(self, hop):
+        if self.move_out_of_nursery_ptr is not None:
+            v_adr = hop.genop("cast_ptr_to_adr", [hop.spaceop.args[0]],
+                              resulttype=llmemory.Address)
+            v_ret = hop.genop("direct_call", [self.move_out_of_nursery_ptr,
+                                      self.c_const_gc, v_adr],
+                                      resulttype=llmemory.Address)
+            hop.genop("cast_adr_to_ptr", [v_ret],
+                      resultvar = hop.spaceop.result)
+        else:
+            hop.rename("same_as")
+
 
 
 class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):

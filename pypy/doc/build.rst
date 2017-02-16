@@ -56,6 +56,9 @@ a chroot using scratchbox2, see the `arm document`_ in the
 .. _`arm document`: http://rpython.readthedocs.org/en/latest/arm.html
 .. _`RPython documentation`: http://rpython.readthedocs.org
 
+The host Python needs to have CFFI installed. If translating on PyPy, CFFI is
+already installed. If translating on CPython, you need to install it, e.g. 
+using ``pip install cffi``.
 
 To build PyPy on Unix using the C translation backend, you need at least a C
 compiler and ``make`` installed. Further, some optional modules have additional
@@ -156,7 +159,8 @@ Various stdlib modules require a separate build step to create the cffi
 import libraries in the `out-of-line API mode`_. This is done by the following
 command::
 
-   PYTHONPATH=. ./pypy-c pypy/tool/build_cffi_imports.py
+   cd pypy/goal
+   PYTHONPATH=../.. ./pypy-c ../tool/build_cffi_imports.py
 
 .. _`out-of-line API mode`: http://cffi.readthedocs.org/en/latest/overview.html#real-example-api-level-out-of-line
 

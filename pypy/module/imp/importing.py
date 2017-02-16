@@ -64,12 +64,25 @@ def log_pyverbose(space, level, message):
         space.call_method(w_stderr, "write", space.wrap(message))
 
 def file_exists(path):
-    """Tests whether the given path is an existing regular file."""
+    "Test whether the given path is an existing regular file."
     return os.path.isfile(path) and case_ok(path)
+
+def path_exists(path):
+    "Test whether the given path exists."
+    return os.path.exists(path) and case_ok(path)
 
 def has_so_extension(space):
     return (space.config.objspace.usemodules.cpyext or
             space.config.objspace.usemodules._cffi_backend)
+
+def has_init_module(space, filepart):
+    "Return True if the directory filepart qualifies as a package."
+    init = os.path.join(filepart, "__init__")
+    if path_exists(init + ".py"):
+        return True
+    if space.config.objspace.lonepycfiles and path_exists(init + ".pyc"):
+        return True
+    return False
 
 def find_modtype(space, filepart):
     """Check which kind of module to import for the given filepart,
@@ -350,8 +363,13 @@ def absolute_import_try(space, modulename, baselevel, w_fromlist):
         # bit artificial code but important to not just unwrap w_fromlist
         # to get a better trace. if it is unwrapped, the immutability of the
         # tuple is lost
+        length = space.len_w(w_fromlist)
+        for i in range(length):
+            w_name = space.getitem(w_fromlist, space.wrap(i))
+            if not space.isinstance_w(w_name, space.w_str):
+                raise oefmt(space.w_TypeError,
+                    "'fromlist' items must be str, not %T", w_name)
         if w_path is not None:
-            length = space.len_w(w_fromlist)
             if length == 1 and space.eq_w(
                     space.getitem(w_fromlist, space.wrap(0)),
                     space.wrap('*')):
@@ -558,11 +576,9 @@ def find_module(space, modulename, w_modulename, partname, w_path,
 
             path = space.str0_w(w_pathitem)
             filepart = os.path.join(path, partname)
-            log_pyverbose(space, 2, "# trying %s" % (filepart,))
+            log_pyverbose(space, 2, "# trying %s\n" % (filepart,))
             if os.path.isdir(filepart) and case_ok(filepart):
-                initfile = os.path.join(filepart, '__init__')
-                modtype, _, _ = find_modtype(space, initfile)
-                if modtype in (PY_SOURCE, PY_COMPILED):
+                if has_init_module(space, filepart):
                     return FindInfo(PKG_DIRECTORY, filepart, None)
                 else:
                     msg = ("Not importing directory '%s' missing __init__.py" %

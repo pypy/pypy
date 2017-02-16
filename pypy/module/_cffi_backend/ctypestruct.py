@@ -34,6 +34,7 @@ class W_CTypeStructOrUnion(W_CType):
     _fields_dict = None
     _custom_field_pos = False
     _with_var_array = False
+    _with_packed_changed = False
 
     def __init__(self, space, name):
         W_CType.__init__(self, space, -1, name, len(name))
@@ -160,18 +161,18 @@ class W_CTypeStructOrUnion(W_CType):
         return self._fields_dict[attr]
 
     def getcfield(self, attr):
-        ready = self._fields_dict is not None
-        if not ready and self.size >= 0:
+        # Returns a W_CField.  Error cases: returns None if we are an
+        # opaque struct; or raises KeyError if the particular field
+        # 'attr' does not exist.  The point of not directly building the
+        # error here is to get the exact ctype in the error message: it
+        # might be of the kind 'struct foo' or 'struct foo *'.
+        if self._fields_dict is None:
+            if self.size < 0:
+                return None
             self.force_lazy_struct()
-            ready = True
-        if ready:
-            self = jit.promote(self)
-            attr = jit.promote_string(attr)
-            try:
-                return self._getcfield_const(attr)
-            except KeyError:
-                pass
-        return W_CType.getcfield(self, attr)
+        self = jit.promote(self)
+        attr = jit.promote_string(attr)
+        return self._getcfield_const(attr)    # <= KeyError here
 
     def cdata_dir(self):
         if self.size < 0:
@@ -210,7 +211,7 @@ class W_CField(W_Root):
         return W_CField(self.ctype, offset + self.offset,
                         self.bitshift, self.bitsize, self.flags | fflags)
 
-    def read(self, cdata):
+    def read(self, cdata, w_cdata):
         cdata = rffi.ptradd(cdata, self.offset)
         if self.bitshift == self.BS_REGULAR:
             return self.ctype.convert_to_object(cdata)
@@ -218,6 +219,14 @@ class W_CField(W_Root):
             from pypy.module._cffi_backend import ctypearray
             ctype = self.ctype
             assert isinstance(ctype, ctypearray.W_CTypeArray)
+            structobj = w_cdata.get_structobj()
+            if structobj is not None:
+                # variable-length array
+                size = structobj.allocated_length - self.offset
+                if size >= 0:
+                    arraylen = size // ctype.ctitem.size
+                    return cdataobj.W_CDataSliced(ctype.space, cdata, ctype,
+                                                  arraylen)
             return cdataobj.W_CData(ctype.space, cdata, ctype.ctptr)
         else:
             return self.convert_bitfield_to_object(cdata)

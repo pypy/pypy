@@ -336,7 +336,9 @@ class ExecutionContext(object):
                 try:
                     w_result = space.call_function(w_callback, space.wrap(frame), space.wrap(event), w_arg)
                     if space.is_w(w_result, space.w_None):
-                        d.w_f_trace = None
+                        # bug-to-bug compatibility with CPython
+                        # http://bugs.python.org/issue11992
+                        pass   #d.w_f_trace = None
                     else:
                         d.w_f_trace = w_result
                 except:
@@ -547,6 +549,8 @@ class UserDelAction(AsyncAction):
 
     @jit.dont_look_inside
     def _run_finalizers(self):
+        # called by perform() when we have to "perform" this action,
+        # and also directly at the end of gc.collect).
         while True:
             w_obj = self.space.finalizer_queue.next_dead()
             if w_obj is None:

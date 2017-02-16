@@ -1,5 +1,10 @@
 """ generic mechanism for marking and selecting python functions. """
-import py
+import inspect
+
+
+class MarkerError(Exception):
+
+    """Error in use of a pytest marker/attribute."""
 
 
 def pytest_namespace():
@@ -38,24 +43,30 @@ def pytest_addoption(parser):
 
 
 def pytest_cmdline_main(config):
+    import _pytest.config
     if config.option.markers:
-        config.do_configure()
-        tw = py.io.TerminalWriter()
+        config._do_configure()
+        tw = _pytest.config.create_terminal_writer(config)
         for line in config.getini("markers"):
             name, rest = line.split(":", 1)
             tw.write("@pytest.mark.%s:" % name, bold=True)
             tw.line(rest)
             tw.line()
-        config.do_unconfigure()
+        config._ensure_unconfigure()
         return 0
 pytest_cmdline_main.tryfirst = True
 
 
 def pytest_collection_modifyitems(items, config):
-    keywordexpr = config.option.keyword
+    keywordexpr = config.option.keyword.lstrip()
     matchexpr = config.option.markexpr
     if not keywordexpr and not matchexpr:
         return
+    # pytest used to allow "-" for negating
+    # but today we just allow "-" at the beginning, use "not" instead
+    # we probably remove "-" alltogether soon
+    if keywordexpr.startswith("-"):
+        keywordexpr = "not " + keywordexpr[1:]
     selectuntil = False
     if keywordexpr[-1:] == ":":
         selectuntil = True
@@ -122,7 +133,6 @@ def matchkeyword(colitem, keywordexpr):
     Additionally, matches on names in the 'extra_keyword_matches' set of
     any item, as well as names directly assigned to test functions.
     """
-    keywordexpr = keywordexpr.replace("-", "not ")
     mapped_names = set()
 
     # Add the names of the current item and any parent items
@@ -159,7 +169,7 @@ class MarkGenerator:
     """ Factory for :class:`MarkDecorator` objects - exposed as
     a ``pytest.mark`` singleton instance.  Example::
 
-         import py
+         import pytest
          @pytest.mark.slowtest
          def test_function():
             pass
@@ -244,15 +254,17 @@ class MarkDecorator:
             otherwise add *args/**kwargs in-place to mark information. """
         if args and not kwargs:
             func = args[0]
-            if len(args) == 1 and (istestfunc(func) or
-                                   hasattr(func, '__bases__')):
-                if hasattr(func, '__bases__'):
+            is_class = inspect.isclass(func)
+            if len(args) == 1 and (istestfunc(func) or is_class):
+                if is_class:
                     if hasattr(func, 'pytestmark'):
-                        l = func.pytestmark
-                        if not isinstance(l, list):
-                            func.pytestmark = [l, self]
-                        else:
-                            l.append(self)
+                        mark_list = func.pytestmark
+                        if not isinstance(mark_list, list):
+                            mark_list = [mark_list]
+                        # always work on a copy to avoid updating pytestmark
+                        # from a superclass by accident
+                        mark_list = mark_list + [self]
+                        func.pytestmark = mark_list
                     else:
                         func.pytestmark = [self]
                 else:
@@ -279,7 +291,7 @@ class MarkInfo:
         #: positional argument list, empty if none specified
         self.args = args
         #: keyword argument dictionary, empty if nothing specified
-        self.kwargs = kwargs
+        self.kwargs = kwargs.copy()
         self._arglist = [(args, kwargs.copy())]
 
     def __repr__(self):

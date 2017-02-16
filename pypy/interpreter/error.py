@@ -7,6 +7,7 @@ from errno import EINTR
 
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib import rstack, rstackovf
 
 from pypy.interpreter import debug
 
@@ -54,18 +55,25 @@ class OperationError(Exception):
         "Check if this is an exception that should better not be caught."
         return (self.match(space, space.w_SystemExit) or
                 self.match(space, space.w_KeyboardInterrupt))
+        # note: an extra case is added in OpErrFmtNoArgs
 
     def __str__(self):
         "NOT_RPYTHON: Convenience for tracebacks."
         s = self._w_value
-        if self.__class__ is not OperationError and s is None:
-            space = getattr(self.w_type, 'space')
-            if space is not None:
+        space = getattr(self.w_type, 'space', None)
+        if space is not None:
+            if self.__class__ is not OperationError and s is None:
                 s = self._compute_value(space)
+            try:
+                s = space.str_w(s)
+            except Exception:
+                pass
         return '[%s: %s]' % (self.w_type, s)
 
     def errorstr(self, space, use_repr=False):
         "The exception class and value, as a string."
+        if not use_repr:    # see write_unraisable()
+            self.normalize_exception(space)
         w_value = self.get_w_value(space)
         if space is None:
             # this part NOT_RPYTHON
@@ -73,11 +81,8 @@ class OperationError(Exception):
             exc_value = str(w_value)
         else:
             w = space.wrap
-            if space.is_w(space.type(self.w_type), space.w_str):
-                exc_typename = space.str_w(self.w_type)
-            else:
-                exc_typename = space.str_w(
-                    space.getattr(self.w_type, w('__name__')))
+            exc_typename = space.str_w(
+                space.getattr(self.w_type, w('__name__')))
             if space.is_w(w_value, space.w_None):
                 exc_value = ""
             else:
@@ -259,6 +264,11 @@ class OperationError(Exception):
                     traceback.print_exception(t, v, tb)
                 """)
             else:
+                # Note that like CPython, we don't normalize the
+                # exception here.  So from `'foo'.index('bar')` you get
+                # "Exception ValueError: 'substring not found' in x ignored"
+                # but from `raise ValueError('foo')` you get
+                # "Exception ValueError: ValueError('foo',) in x ignored"
                 msg = 'Exception %s in %s%s ignored\n' % (
                     self.errorstr(space, use_repr=True), where, objrepr)
                 space.call_method(space.sys.get('stderr'), 'write',
@@ -378,6 +388,16 @@ class OpErrFmtNoArgs(OperationError):
     def _compute_value(self, space):
         return self._value
 
+    def async(self, space):
+        # also matches a RuntimeError("maximum rec.") if the stack is
+        # still almost full, because in this case it might be a better
+        # idea to propagate the exception than eat it
+        if (self.w_type is space.w_RuntimeError and
+            self._value == "maximum recursion depth exceeded" and
+            rstack.stack_almost_full()):
+            return True
+        return OperationError.async(self, space)
+
 @specialize.memo()
 def get_operr_class(valuefmt):
     try:
@@ -437,6 +457,7 @@ else:
                                           space.wrap(msg))
         return OperationError(exc, w_error)
 
+@specialize.arg(3)
 def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError',
                   w_exception_class=None):
     assert isinstance(e, OSError)
@@ -464,8 +485,8 @@ def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError',
         w_error = space.call_function(exc, space.wrap(errno),
                                       space.wrap(msg))
     return OperationError(exc, w_error)
-wrap_oserror2._annspecialcase_ = 'specialize:arg(3)'
 
+@specialize.arg(3)
 def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
                  w_exception_class=None):
     if filename is not None:
@@ -476,7 +497,6 @@ def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
         return wrap_oserror2(space, e, None,
                              exception_name=exception_name,
                              w_exception_class=w_exception_class)
-wrap_oserror._annspecialcase_ = 'specialize:arg(3)'
 
 def exception_from_saved_errno(space, w_type):
     from rpython.rlib.rposix import get_saved_errno
@@ -508,3 +528,47 @@ def new_exception_class(space, name, w_bases=None, w_dict=None):
     if module:
         space.setattr(w_exc, space.wrap("__module__"), space.wrap(module))
     return w_exc
+
+@jit.dont_look_inside
+def get_converted_unexpected_exception(space, e):
+    """This is used in two places when we get an non-OperationError
+    RPython exception: from gateway.py when calling an interp-level
+    function raises; and from pyopcode.py when we're exiting the
+    interpretation of the frame with an exception.  Note that it
+    *cannot* be used in pyopcode.py: that place gets a
+    ContinueRunningNormally exception from the JIT, which must not end
+    up here!
+    """
+    try:
+        if not we_are_translated():
+            raise
+        raise e
+    except KeyboardInterrupt:
+        return OperationError(space.w_KeyboardInterrupt, space.w_None)
+    except MemoryError:
+        return OperationError(space.w_MemoryError, space.w_None)
+    except rstackovf.StackOverflow as e:
+        # xxx twisted logic which happens to give the result that we
+        # want: when untranslated, a RuntimeError or its subclass
+        # NotImplementedError is caught here.  Then
+        # check_stack_overflow() will re-raise it directly.  We see
+        # the result as this exception propagates directly.  But when
+        # translated, an RPython-level RuntimeError is turned into
+        # an app-level RuntimeError by the next case.
+        rstackovf.check_stack_overflow()
+        return oefmt(space.w_RuntimeError,
+                     "maximum recursion depth exceeded")
+    except RuntimeError:   # not on top of py.py
+        return OperationError(space.w_RuntimeError, space.w_None)
+    except:
+        if we_are_translated():
+            from rpython.rlib.debug import debug_print_traceback
+            debug_print_traceback()
+            extra = '; internal traceback was dumped to stderr'
+        else:
+            # when untranslated, we don't wrap into an app-level
+            # SystemError (this makes debugging tests harder)
+            raise
+        return OperationError(space.w_SystemError, space.wrap(
+            "unexpected internal exception (please report a bug): %r%s" %
+            (e, extra)))

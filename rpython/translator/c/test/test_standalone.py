@@ -1062,6 +1062,44 @@ class TestStandalone(StandaloneTests):
         out = cbuilder.cmdexec('')
         assert out.strip() == expected
 
+    def test_call_at_startup(self):
+        from rpython.rtyper.extregistry import ExtRegistryEntry
+
+        class State:
+            seen = 0
+        state = State()
+        def startup():
+            state.seen += 1
+        def enablestartup():
+            "NOT_RPYTHON"
+        def entry_point(argv):
+            state.seen += 100
+            assert state.seen == 101
+            print 'ok'
+            enablestartup()
+            return 0
+
+        class Entry(ExtRegistryEntry):
+            _about_ = enablestartup
+
+            def compute_result_annotation(self):
+                bk = self.bookkeeper
+                s_callable = bk.immutablevalue(startup)
+                key = (enablestartup,)
+                bk.emulate_pbc_call(key, s_callable, [])
+
+            def specialize_call(self, hop):
+                hop.exception_cannot_occur()
+                bk = hop.rtyper.annotator.bookkeeper
+                s_callable = bk.immutablevalue(startup)
+                r_callable = hop.rtyper.getrepr(s_callable)
+                ll_init = r_callable.get_unique_llfn().value
+                bk.annotator.translator._call_at_startup.append(ll_init)
+
+        t, cbuilder = self.compile(entry_point)
+        out = cbuilder.cmdexec('')
+        assert out.strip() == 'ok'
+
 
 class TestMaemo(TestStandalone):
     def setup_class(cls):

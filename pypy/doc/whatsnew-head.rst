@@ -1,77 +1,144 @@
 ==========================
-What's new in PyPy2.7 5.4+
+What's new in PyPy2.7 5.6+
 ==========================
 
-.. this is a revision shortly after release-pypy2.7-v5.4
-.. startrev: 522736f816dc
-
-.. branch: rpython-resync
-Backport rpython changes made directly on the py3k and py3.5 branches.
-
-.. branch: buffer-interface
-Implement PyObject_GetBuffer, PyMemoryView_GET_BUFFER, and handles memoryviews
-in numpypy
-
-.. branch: force-virtual-state
-Improve merging of virtual states in the JIT in order to avoid jumping to the
-preamble. Accomplished by allocating virtual objects where non-virtuals are
-expected.
-
-.. branch: conditional_call_value_3
-JIT residual calls: if the called function starts with a fast-path
-like "if x.foo != 0: return x.foo", then inline the check before
-doing the CALL.  For now, string hashing is about the only case.
-
-.. branch: search-path-from-libpypy
-
-The compiled pypy now looks for its lib-python/lib_pypy path starting
-from the location of the *libpypy-c* instead of the executable. This is
-arguably more consistent, and also it is what occurs anyway if you're
-embedding pypy.  Linux distribution packagers, take note!  At a minimum,
-the ``libpypy-c.so`` must really be inside the path containing
-``lib-python`` and ``lib_pypy``.  Of course, you can put a symlink to it
-from somewhere else.  You no longer have to do the same with the
-``pypy`` executable, as long as it finds its ``libpypy-c.so`` library.
-
-.. branch: _warnings
-
-CPython allows warning.warn(('something', 1), Warning), on PyPy this
-produced a "expected a readable buffer object" error. Test and fix.
-
-.. branch: stricter-strip
-
-CPython rejects 'a'.strip(buffer(' ')); only None, str or unicode are
-allowed as arguments. Test and fix for str and unicode
-
-.. branch: faulthandler
-
-Port the 'faulthandler' module to PyPy default.  This module is standard
-in Python 3.3 but can also be installed from CPython >= 2.6 from PyPI.
-
-.. branch: test-cpyext
-
-Refactor cpyext testing to be more pypy3-friendly.
-
-.. branch: better-error-missing-self
-
-Improve the error message when the user forgot the "self" argument of a method.
+.. this is a revision shortly after release-pypy2.7-v5.6
+.. startrev: 7e9787939641
 
 
-.. fb6bb835369e
-Change the ``timeit`` module: it now prints the average time and the standard
-deviation over 7 runs by default, instead of the minimum. The minimum is often
-misleading.
+Since a while now, PyPy preserves the order of dictionaries and sets.
+However, the set literal syntax ``{x, y, z}`` would by mistake build a
+set with the opposite order: ``set([z, y, x])``.  This has been fixed.
+Note that CPython is inconsistent too: in 2.7.12, ``{5, 5.0}`` would be
+``set([5.0])``, but in 2.7.trunk it is ``set([5])``.  PyPy's behavior
+changed in exactly the same way because of this fix.
 
-.. branch: unrecursive-opt
 
-Make optimiseopt iterative instead of recursive so it can be reasoned about
-more easily and debugging is faster.
+.. branch: rpython-error-to-systemerror
 
-.. branch: stdlib-2.7.11
+Any uncaught RPython exception (from a PyPy bug) is turned into an
+app-level SystemError.  This should improve the lot of users hitting an
+uncaught RPython error.
 
-Update stdlib to version 2.7.11
+.. branch: union-side-effects-2
 
-.. branch: vendor/stdlib
-.. branch: stdlib-2.7.12
+Try to improve the consistency of RPython annotation unions.
 
-Update stdlib to version 2.7.12
+.. branch: pytest-2.9.2
+
+.. branch: clean-exported-state
+
+Clean-ups in the jit optimizeopt
+
+.. branch: conditional_call_value_4
+
+Add jit.conditional_call_elidable(), a way to tell the JIT "conditonally
+call this function" returning a result.
+
+.. branch: desc-specialize
+
+Refactor FunctionDesc.specialize() and related code (RPython annotator).
+
+.. branch: raw-calloc
+
+.. branch: issue2446
+
+Assign ``tp_doc`` to the new TypeObject's type dictionary ``__doc__`` key
+so it will be picked up by app-level objects of that type
+
+.. branch: cling-support
+
+Module cppyy now uses cling as its backend (Reflex has been removed). The
+user-facing interface and main developer tools (genreflex, selection files,
+class loader, etc.) remain the same.  A libcppyy_backend.so library is still
+needed but is now available through PyPI with pip: PyPy-cppyy-backend.
+
+The Cling-backend brings support for modern C++ (11, 14, etc.), dynamic
+template instantations, and improved integration with CFFI for better
+performance.  It also provides interactive C++ (and bindings to that).
+
+.. branch: better-PyDict_Next
+
+Improve the performance of ``PyDict_Next``. When trying ``PyDict_Next`` on a
+typedef dict, the test exposed a problem converting a ``GetSetProperty`` to a
+``PyGetSetDescrObject``. The other direction seem to be fully implemented.
+This branch made a minimal effort to convert the basic fields to avoid
+segfaults, but trying to use the ``PyGetSetDescrObject`` will probably fail.
+
+.. branch: stdlib-2.7.13
+
+Updated the implementation to match CPython 2.7.13 instead of 2.7.13.
+
+.. branch: issue2444
+
+Fix ``PyObject_GetBuffer`` and ``PyMemoryView_GET_BUFFER``, which leaked
+memory and held references. Add a finalizer to CPyBuffer, add a
+PyMemoryViewObject with a PyBuffer attached so that the call to 
+``PyMemoryView_GET_BUFFER`` does not leak a PyBuffer-sized piece of memory.
+Properly call ``bf_releasebuffer`` when not ``NULL``.
+
+.. branch: boehm-rawrefcount
+
+Support translations of cpyext with the Boehm GC (for special cases like
+revdb).
+
+.. branch: strbuf-as-buffer
+
+Implement StringBuffer.get_raw_address (missing feature for the buffer protocol).
+More generally it is now possible to obtain the address of any object (if it
+is readonly) without pinning it.
+
+.. branch: cpyext-cleanup
+.. branch: api_func-refactor
+
+Refactor cpyext initialisation.
+
+.. branch: cpyext-from2
+
+Fix a test failure introduced by strbuf-as-buffer
+
+.. branch: cpyext-FromBuffer
+
+Do not recreate the object in PyMemoryView_FromBuffer, rather pass it to
+the returned PyMemoryViewObject, to take ownership of it. Fixes a ref leak.
+
+.. branch: issue2464
+
+Give (almost?) all GetSetProperties a valid __objclass__.
+
+.. branch: TreeStain/fixed-typo-line-29-mostly-to-most-1484469416419
+.. branch: TreeStain/main-lines-changed-in-l77-l83-made-para-1484471558033
+
+.. branch: missing-tp_new
+
+Improve mixing app-level classes in c-extensions, especially if the app-level
+class has a ``tp_new`` or ``tp_dealloc``. The issue is that c-extensions expect
+all the method slots to be filled with a function pointer, where app-level will
+search up the mro for an appropriate function at runtime. With this branch we
+now fill many more slots in the c-extenion type objects.
+Also fix for c-extension type that calls ``tp_hash`` during initialization
+(str, unicode types), and fix instantiating c-extension types from built-in
+classes by enforcing an order of instaniation.
+
+.. branch: rffi-parser-2
+
+rffi structures in cpyext can now be created by parsing simple C headers.
+Additionally, the cts object that holds the parsed information can act like
+cffi's ffi objects, with the methods cts.cast() and cts.gettype().
+
+.. branch: rpython-hash
+
+Don't freeze hashes in the translated pypy.  In practice, that means
+that we can now translate PyPy with the option --hash=siphash24 and get
+the same hashes as CPython 3.5, which can be randomized (in a
+crypographically good way).  It is the default in PyPy3.  The default of
+PyPy2 remains unchanged: there are user programs out there that depend
+on constant hashes (or even sometimes on specific hash results).
+
+.. branch: dict-move-to-end
+
+Our dicts, which are always ordered, now have an extra "method" for
+Python 3.x which moves an item to first or last position.  In PyPy 3.5
+it is the standard ``OrderedDict.move_to_end()`` method, but the
+behavior is also available on Python 2.x or for the ``dict`` type by
+calling ``__pypy__.move_to_end(dict, key, last=True)``.

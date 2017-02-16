@@ -327,6 +327,16 @@ def _encodeUCS4(result, ch):
 
 def unicode_encode_utf_8(s, size, errors, errorhandler=None,
                          allow_surrogates=allow_surrogate_by_default):
+    # In this function, allow_surrogates can be:
+    #
+    #  * True:  surrogates are always allowed.  A valid surrogate pair
+    #           is replaced with the non-BMP unicode char it stands for,
+    #           which is then encoded as 4 bytes.
+    #
+    #  * False: surrogates are always forbidden.
+    #
+    # See also unicode_encode_utf8sp().
+    #
     if errorhandler is None:
         errorhandler = default_unicode_error_encode
     return unicode_encode_utf_8_impl(s, size, errors, errorhandler,
@@ -389,6 +399,33 @@ def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
                 result.append((chr((0x80 | (ch & 0x3f)))))
             else:
                 _encodeUCS4(result, ch)
+    return result.build()
+
+def unicode_encode_utf8sp(s, size):
+    # Surrogate-preserving utf-8 encoding.  Any surrogate character
+    # turns into its 3-bytes encoding, whether it is paired or not.
+    # This should always be reversible, and the reverse is the regular
+    # str_decode_utf_8() with allow_surrogates=True.
+    assert(size >= 0)
+    result = StringBuilder(size)
+    pos = 0
+    while pos < size:
+        ch = ord(s[pos])
+        pos += 1
+        if ch < 0x80:
+            # Encode ASCII
+            result.append(chr(ch))
+        elif ch < 0x0800:
+            # Encode Latin-1
+            result.append(chr((0xc0 | (ch >> 6))))
+            result.append(chr((0x80 | (ch & 0x3f))))
+        elif ch < 0x10000:
+            # Encode UCS2 Unicode ordinals, and surrogates
+            result.append((chr((0xe0 | (ch >> 12)))))
+            result.append((chr((0x80 | ((ch >> 6) & 0x3f)))))
+            result.append((chr((0x80 | (ch & 0x3f)))))
+        else:
+            _encodeUCS4(result, ch)
     return result.build()
 
 # ____________________________________________________________
@@ -1341,7 +1378,12 @@ def make_unicode_escape_function(pass_printable=False, unicode_output=False,
         CHR = chr
 
     def unicode_escape(s, size, errors, errorhandler=None):
-        # errorhandler is not used: this function cannot cause Unicode errors
+        # errors and errorhandler are not used: this function cannot cause
+        # Unicode errors
+        return _unicode_escape(s, size)
+
+    @jit.elidable
+    def _unicode_escape(s, size):
         result = STRING_BUILDER(size)
 
         if quotes:
@@ -1432,6 +1474,8 @@ def make_unicode_escape_function(pass_printable=False, unicode_output=False,
 # This function is also used by _codecs/interp_codecs.py
 (unicode_encode_unicode_escape, raw_unicode_escape_helper
  ) = make_unicode_escape_function()
+(_, raw_unicode_escape_helper_unicode
+) = make_unicode_escape_function(unicode_output=True)
 
 # ____________________________________________________________
 # Raw unicode escape

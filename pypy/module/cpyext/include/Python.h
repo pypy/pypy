@@ -57,13 +57,6 @@
 #endif
 #include <stdlib.h>
 
-#ifndef _WIN32
-typedef intptr_t Py_ssize_t;
-#else
-typedef long Py_ssize_t;
-#endif
-#define PY_SSIZE_T_MAX ((Py_ssize_t)(((size_t)-1)>>1))
-#define PY_SSIZE_T_MIN (-PY_SSIZE_T_MAX-1)
 #define Py_SAFE_DOWNCAST(VALUE, WIDE, NARROW) (NARROW)(VALUE)
 
 #define Py_USING_UNICODE

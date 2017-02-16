@@ -18,7 +18,7 @@ class ConditionLocation(loc.ImmLocation):
 # normal branch instructions
 FLOAT = ConditionLocation(0x10)
 
-EQ = ConditionLocation(0x8)
+VEQI = EQ = ConditionLocation(0x8)
 LT = ConditionLocation(0x4)
 GT = ConditionLocation(0x2)
 OF = ConditionLocation(0x1) # overflow
@@ -27,7 +27,7 @@ LE = ConditionLocation(EQ.value | LT.value | OF.value)
 FLE = ConditionLocation(EQ.value | LT.value)
 GE = ConditionLocation(EQ.value | GT.value | OF.value)
 FGE = ConditionLocation(EQ.value | GT.value)
-NE = ConditionLocation(LT.value | GT.value | OF.value)
+VNEI = NE = ConditionLocation(LT.value | GT.value | OF.value)
 NO = ConditionLocation(0xe) # NO overflow
 
 FGT = ConditionLocation(GT.value | OF.value)

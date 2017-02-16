@@ -8,10 +8,9 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 
 
-def raise_attriberr(space, w_obj, name):
-    raise oefmt(space.w_AttributeError,
-                "'%T' object has no attribute '%s'", w_obj, name)
-
+def raise_required_value(space, w_obj, name):
+    raise oefmt(space.w_ValueError,
+                "field %s is required for %T", name, w_obj)
 
 def check_string(space, w_obj):
     if not (space.isinstance_w(w_obj, space.w_str) or
@@ -32,6 +31,7 @@ def get_field(space, w_node, name, optional):
 
 class AST(object):
     __metaclass__ = extendabletype
+    _attrs_ = ['lineno', 'col_offset']
 
     def walkabout(self, visitor):
         raise AssertionError("walkabout() implementation not provided")
@@ -139,7 +139,7 @@ class State:
         self.w_AST = space.gettypeobject(W_AST.typedef)
         for (name, base, fields, attributes) in self.AST_TYPES:
             self.make_new_type(space, name, base, fields, attributes)
-        
+
     def make_new_type(self, space, name, base, fields, attributes):
         w_base = getattr(self, 'w_%s' % base)
         w_dict = space.newdict()
@@ -151,7 +151,7 @@ class State:
             space.setitem_str(w_dict, "_attributes",
                               space.newtuple([space.wrap(a) for a in attributes]))
         w_type = space.call_function(
-            space.w_type, 
+            space.w_type,
             space.wrap(name), space.newtuple([w_base]), w_dict)
         setattr(self, 'w_%s' % name, w_type)
 
@@ -185,7 +185,8 @@ class Module(mod):
 
     def mutate_over(self, visitor):
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                self.body[i] = self.body[i].mutate_over(visitor)
         return visitor.visit_Module(self)
 
     def to_object(self, space):
@@ -218,7 +219,8 @@ class Interactive(mod):
 
     def mutate_over(self, visitor):
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                self.body[i] = self.body[i].mutate_over(visitor)
         return visitor.visit_Interactive(self)
 
     def to_object(self, space):
@@ -263,6 +265,8 @@ class Expression(mod):
     def from_object(space, w_node):
         w_body = get_field(space, w_node, 'body', False)
         _body = expr.from_object(space, w_body)
+        if _body is None:
+            raise_required_value(space, w_node, 'body')
         return Expression(_body)
 
 State.ast_type('Expression', 'mod', ['body'])
@@ -278,7 +282,8 @@ class Suite(mod):
 
     def mutate_over(self, visitor):
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                self.body[i] = self.body[i].mutate_over(visitor)
         return visitor.visit_Suite(self)
 
     def to_object(self, space):
@@ -376,9 +381,11 @@ class FunctionDef(stmt):
     def mutate_over(self, visitor):
         self.args = self.args.mutate_over(visitor)
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                self.body[i] = self.body[i].mutate_over(visitor)
         if self.decorator_list:
-            visitor._mutate_sequence(self.decorator_list)
+            for i in range(len(self.decorator_list)):
+                self.decorator_list[i] = self.decorator_list[i].mutate_over(visitor)
         return visitor.visit_FunctionDef(self)
 
     def to_object(self, space):
@@ -414,7 +421,11 @@ class FunctionDef(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _name = space.realstr_w(w_name)
+        if _name is None:
+            raise_required_value(space, w_node, 'name')
         _args = arguments.from_object(space, w_args)
+        if _args is None:
+            raise_required_value(space, w_node, 'args')
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         decorator_list_w = space.unpackiterable(w_decorator_list)
@@ -440,11 +451,14 @@ class ClassDef(stmt):
 
     def mutate_over(self, visitor):
         if self.bases:
-            visitor._mutate_sequence(self.bases)
+            for i in range(len(self.bases)):
+                self.bases[i] = self.bases[i].mutate_over(visitor)
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                self.body[i] = self.body[i].mutate_over(visitor)
         if self.decorator_list:
-            visitor._mutate_sequence(self.decorator_list)
+            for i in range(len(self.decorator_list)):
+                self.decorator_list[i] = self.decorator_list[i].mutate_over(visitor)
         return visitor.visit_ClassDef(self)
 
     def to_object(self, space):
@@ -484,6 +498,8 @@ class ClassDef(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _name = space.realstr_w(w_name)
+        if _name is None:
+            raise_required_value(space, w_node, 'name')
         bases_w = space.unpackiterable(w_bases)
         _bases = [expr.from_object(space, w_item) for w_item in bases_w]
         body_w = space.unpackiterable(w_body)
@@ -545,7 +561,8 @@ class Delete(stmt):
 
     def mutate_over(self, visitor):
         if self.targets:
-            visitor._mutate_sequence(self.targets)
+            for i in range(len(self.targets)):
+                self.targets[i] = self.targets[i].mutate_over(visitor)
         return visitor.visit_Delete(self)
 
     def to_object(self, space):
@@ -588,7 +605,8 @@ class Assign(stmt):
 
     def mutate_over(self, visitor):
         if self.targets:
-            visitor._mutate_sequence(self.targets)
+            for i in range(len(self.targets)):
+                self.targets[i] = self.targets[i].mutate_over(visitor)
         self.value = self.value.mutate_over(visitor)
         return visitor.visit_Assign(self)
 
@@ -617,6 +635,8 @@ class Assign(stmt):
         targets_w = space.unpackiterable(w_targets)
         _targets = [expr.from_object(space, w_item) for w_item in targets_w]
         _value = expr.from_object(space, w_value)
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Assign(_targets, _value, _lineno, _col_offset)
@@ -662,8 +682,14 @@ class AugAssign(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _target = expr.from_object(space, w_target)
+        if _target is None:
+            raise_required_value(space, w_node, 'target')
         _op = operator.from_object(space, w_op)
+        if _op is None:
+            raise_required_value(space, w_node, 'op')
         _value = expr.from_object(space, w_value)
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return AugAssign(_target, _op, _value, _lineno, _col_offset)
@@ -686,7 +712,8 @@ class Print(stmt):
         if self.dest:
             self.dest = self.dest.mutate_over(visitor)
         if self.values:
-            visitor._mutate_sequence(self.values)
+            for i in range(len(self.values)):
+                self.values[i] = self.values[i].mutate_over(visitor)
         return visitor.visit_Print(self)
 
     def to_object(self, space):
@@ -718,6 +745,8 @@ class Print(stmt):
         values_w = space.unpackiterable(w_values)
         _values = [expr.from_object(space, w_item) for w_item in values_w]
         _nl = space.bool_w(w_nl)
+        if _nl is None:
+            raise_required_value(space, w_node, 'nl')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Print(_dest, _values, _nl, _lineno, _col_offset)
@@ -741,9 +770,11 @@ class For(stmt):
         self.target = self.target.mutate_over(visitor)
         self.iter = self.iter.mutate_over(visitor)
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                self.body[i] = self.body[i].mutate_over(visitor)
         if self.orelse:
-            visitor._mutate_sequence(self.orelse)
+            for i in range(len(self.orelse)):
+                self.orelse[i] = self.orelse[i].mutate_over(visitor)
         return visitor.visit_For(self)
 
     def to_object(self, space):
@@ -779,7 +810,11 @@ class For(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _target = expr.from_object(space, w_target)
+        if _target is None:
+            raise_required_value(space, w_node, 'target')
         _iter = expr.from_object(space, w_iter)
+        if _iter is None:
+            raise_required_value(space, w_node, 'iter')
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         orelse_w = space.unpackiterable(w_orelse)
@@ -805,9 +840,11 @@ class While(stmt):
     def mutate_over(self, visitor):
         self.test = self.test.mutate_over(visitor)
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                self.body[i] = self.body[i].mutate_over(visitor)
         if self.orelse:
-            visitor._mutate_sequence(self.orelse)
+            for i in range(len(self.orelse)):
+                self.orelse[i] = self.orelse[i].mutate_over(visitor)
         return visitor.visit_While(self)
 
     def to_object(self, space):
@@ -840,6 +877,8 @@ class While(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _test = expr.from_object(space, w_test)
+        if _test is None:
+            raise_required_value(space, w_node, 'test')
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         orelse_w = space.unpackiterable(w_orelse)
@@ -865,9 +904,11 @@ class If(stmt):
     def mutate_over(self, visitor):
         self.test = self.test.mutate_over(visitor)
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                self.body[i] = self.body[i].mutate_over(visitor)
         if self.orelse:
-            visitor._mutate_sequence(self.orelse)
+            for i in range(len(self.orelse)):
+                self.orelse[i] = self.orelse[i].mutate_over(visitor)
         return visitor.visit_If(self)
 
     def to_object(self, space):
@@ -900,6 +941,8 @@ class If(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _test = expr.from_object(space, w_test)
+        if _test is None:
+            raise_required_value(space, w_node, 'test')
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         orelse_w = space.unpackiterable(w_orelse)
@@ -927,7 +970,8 @@ class With(stmt):
         if self.optional_vars:
             self.optional_vars = self.optional_vars.mutate_over(visitor)
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                self.body[i] = self.body[i].mutate_over(visitor)
         return visitor.visit_With(self)
 
     def to_object(self, space):
@@ -956,6 +1000,8 @@ class With(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _context_expr = expr.from_object(space, w_context_expr)
+        if _context_expr is None:
+            raise_required_value(space, w_node, 'context_expr')
         _optional_vars = expr.from_object(space, w_optional_vars)
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
@@ -1030,11 +1076,14 @@ class TryExcept(stmt):
 
     def mutate_over(self, visitor):
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                self.body[i] = self.body[i].mutate_over(visitor)
         if self.handlers:
-            visitor._mutate_sequence(self.handlers)
+            for i in range(len(self.handlers)):
+                self.handlers[i] = self.handlers[i].mutate_over(visitor)
         if self.orelse:
-            visitor._mutate_sequence(self.orelse)
+            for i in range(len(self.orelse)):
+                self.orelse[i] = self.orelse[i].mutate_over(visitor)
         return visitor.visit_TryExcept(self)
 
     def to_object(self, space):
@@ -1095,9 +1144,11 @@ class TryFinally(stmt):
 
     def mutate_over(self, visitor):
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                self.body[i] = self.body[i].mutate_over(visitor)
         if self.finalbody:
-            visitor._mutate_sequence(self.finalbody)
+            for i in range(len(self.finalbody)):
+                self.finalbody[i] = self.finalbody[i].mutate_over(visitor)
         return visitor.visit_TryFinally(self)
 
     def to_object(self, space):
@@ -1172,6 +1223,8 @@ class Assert(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _test = expr.from_object(space, w_test)
+        if _test is None:
+            raise_required_value(space, w_node, 'test')
         _msg = expr.from_object(space, w_msg)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
@@ -1191,7 +1244,8 @@ class Import(stmt):
 
     def mutate_over(self, visitor):
         if self.names:
-            visitor._mutate_sequence(self.names)
+            for i in range(len(self.names)):
+                self.names[i] = self.names[i].mutate_over(visitor)
         return visitor.visit_Import(self)
 
     def to_object(self, space):
@@ -1235,7 +1289,8 @@ class ImportFrom(stmt):
 
     def mutate_over(self, visitor):
         if self.names:
-            visitor._mutate_sequence(self.names)
+            for i in range(len(self.names)):
+                self.names[i] = self.names[i].mutate_over(visitor)
         return visitor.visit_ImportFrom(self)
 
     def to_object(self, space):
@@ -1315,6 +1370,8 @@ class Exec(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _body = expr.from_object(space, w_body)
+        if _body is None:
+            raise_required_value(space, w_node, 'body')
         _globals = expr.from_object(space, w_globals)
         _locals = expr.from_object(space, w_locals)
         _lineno = space.int_w(w_lineno)
@@ -1393,6 +1450,8 @@ class Expr(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _value = expr.from_object(space, w_value)
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Expr(_value, _lineno, _col_offset)
@@ -1562,7 +1621,8 @@ class BoolOp(expr):
 
     def mutate_over(self, visitor):
         if self.values:
-            visitor._mutate_sequence(self.values)
+            for i in range(len(self.values)):
+                self.values[i] = self.values[i].mutate_over(visitor)
         return visitor.visit_BoolOp(self)
 
     def to_object(self, space):
@@ -1588,6 +1648,8 @@ class BoolOp(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _op = boolop.from_object(space, w_op)
+        if _op is None:
+            raise_required_value(space, w_node, 'op')
         values_w = space.unpackiterable(w_values)
         _values = [expr.from_object(space, w_item) for w_item in values_w]
         _lineno = space.int_w(w_lineno)
@@ -1635,8 +1697,14 @@ class BinOp(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _left = expr.from_object(space, w_left)
+        if _left is None:
+            raise_required_value(space, w_node, 'left')
         _op = operator.from_object(space, w_op)
+        if _op is None:
+            raise_required_value(space, w_node, 'op')
         _right = expr.from_object(space, w_right)
+        if _right is None:
+            raise_required_value(space, w_node, 'right')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return BinOp(_left, _op, _right, _lineno, _col_offset)
@@ -1677,7 +1745,11 @@ class UnaryOp(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _op = unaryop.from_object(space, w_op)
+        if _op is None:
+            raise_required_value(space, w_node, 'op')
         _operand = expr.from_object(space, w_operand)
+        if _operand is None:
+            raise_required_value(space, w_node, 'operand')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return UnaryOp(_op, _operand, _lineno, _col_offset)
@@ -1719,7 +1791,11 @@ class Lambda(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _args = arguments.from_object(space, w_args)
+        if _args is None:
+            raise_required_value(space, w_node, 'args')
         _body = expr.from_object(space, w_body)
+        if _body is None:
+            raise_required_value(space, w_node, 'body')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Lambda(_args, _body, _lineno, _col_offset)
@@ -1766,8 +1842,14 @@ class IfExp(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _test = expr.from_object(space, w_test)
+        if _test is None:
+            raise_required_value(space, w_node, 'test')
         _body = expr.from_object(space, w_body)
+        if _body is None:
+            raise_required_value(space, w_node, 'body')
         _orelse = expr.from_object(space, w_orelse)
+        if _orelse is None:
+            raise_required_value(space, w_node, 'orelse')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return IfExp(_test, _body, _orelse, _lineno, _col_offset)
@@ -1787,9 +1869,11 @@ class Dict(expr):
 
     def mutate_over(self, visitor):
         if self.keys:
-            visitor._mutate_sequence(self.keys)
+            for i in range(len(self.keys)):
+                self.keys[i] = self.keys[i].mutate_over(visitor)
         if self.values:
-            visitor._mutate_sequence(self.values)
+            for i in range(len(self.values)):
+                self.values[i] = self.values[i].mutate_over(visitor)
         return visitor.visit_Dict(self)
 
     def to_object(self, space):
@@ -1840,7 +1924,8 @@ class Set(expr):
 
     def mutate_over(self, visitor):
         if self.elts:
-            visitor._mutate_sequence(self.elts)
+            for i in range(len(self.elts)):
+                self.elts[i] = self.elts[i].mutate_over(visitor)
         return visitor.visit_Set(self)
 
     def to_object(self, space):
@@ -1884,7 +1969,8 @@ class ListComp(expr):
     def mutate_over(self, visitor):
         self.elt = self.elt.mutate_over(visitor)
         if self.generators:
-            visitor._mutate_sequence(self.generators)
+            for i in range(len(self.generators)):
+                self.generators[i] = self.generators[i].mutate_over(visitor)
         return visitor.visit_ListComp(self)
 
     def to_object(self, space):
@@ -1910,6 +1996,8 @@ class ListComp(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _elt = expr.from_object(space, w_elt)
+        if _elt is None:
+            raise_required_value(space, w_node, 'elt')
         generators_w = space.unpackiterable(w_generators)
         _generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
         _lineno = space.int_w(w_lineno)
@@ -1932,7 +2020,8 @@ class SetComp(expr):
     def mutate_over(self, visitor):
         self.elt = self.elt.mutate_over(visitor)
         if self.generators:
-            visitor._mutate_sequence(self.generators)
+            for i in range(len(self.generators)):
+                self.generators[i] = self.generators[i].mutate_over(visitor)
         return visitor.visit_SetComp(self)
 
     def to_object(self, space):
@@ -1958,6 +2047,8 @@ class SetComp(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _elt = expr.from_object(space, w_elt)
+        if _elt is None:
+            raise_required_value(space, w_node, 'elt')
         generators_w = space.unpackiterable(w_generators)
         _generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
         _lineno = space.int_w(w_lineno)
@@ -1982,7 +2073,8 @@ class DictComp(expr):
         self.key = self.key.mutate_over(visitor)
         self.value = self.value.mutate_over(visitor)
         if self.generators:
-            visitor._mutate_sequence(self.generators)
+            for i in range(len(self.generators)):
+                self.generators[i] = self.generators[i].mutate_over(visitor)
         return visitor.visit_DictComp(self)
 
     def to_object(self, space):
@@ -2011,7 +2103,11 @@ class DictComp(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _key = expr.from_object(space, w_key)
+        if _key is None:
+            raise_required_value(space, w_node, 'key')
         _value = expr.from_object(space, w_value)
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
         generators_w = space.unpackiterable(w_generators)
         _generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
         _lineno = space.int_w(w_lineno)
@@ -2034,7 +2130,8 @@ class GeneratorExp(expr):
     def mutate_over(self, visitor):
         self.elt = self.elt.mutate_over(visitor)
         if self.generators:
-            visitor._mutate_sequence(self.generators)
+            for i in range(len(self.generators)):
+                self.generators[i] = self.generators[i].mutate_over(visitor)
         return visitor.visit_GeneratorExp(self)
 
     def to_object(self, space):
@@ -2060,6 +2157,8 @@ class GeneratorExp(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _elt = expr.from_object(space, w_elt)
+        if _elt is None:
+            raise_required_value(space, w_node, 'elt')
         generators_w = space.unpackiterable(w_generators)
         _generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
         _lineno = space.int_w(w_lineno)
@@ -2120,7 +2219,8 @@ class Compare(expr):
     def mutate_over(self, visitor):
         self.left = self.left.mutate_over(visitor)
         if self.comparators:
-            visitor._mutate_sequence(self.comparators)
+            for i in range(len(self.comparators)):
+                self.comparators[i] = self.comparators[i].mutate_over(visitor)
         return visitor.visit_Compare(self)
 
     def to_object(self, space):
@@ -2153,6 +2253,8 @@ class Compare(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _left = expr.from_object(space, w_left)
+        if _left is None:
+            raise_required_value(space, w_node, 'left')
         ops_w = space.unpackiterable(w_ops)
         _ops = [cmpop.from_object(space, w_item) for w_item in ops_w]
         comparators_w = space.unpackiterable(w_comparators)
@@ -2180,9 +2282,11 @@ class Call(expr):
     def mutate_over(self, visitor):
         self.func = self.func.mutate_over(visitor)
         if self.args:
-            visitor._mutate_sequence(self.args)
+            for i in range(len(self.args)):
+                self.args[i] = self.args[i].mutate_over(visitor)
         if self.keywords:
-            visitor._mutate_sequence(self.keywords)
+            for i in range(len(self.keywords)):
+                self.keywords[i] = self.keywords[i].mutate_over(visitor)
         if self.starargs:
             self.starargs = self.starargs.mutate_over(visitor)
         if self.kwargs:
@@ -2225,6 +2329,8 @@ class Call(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _func = expr.from_object(space, w_func)
+        if _func is None:
+            raise_required_value(space, w_node, 'func')
         args_w = space.unpackiterable(w_args)
         _args = [expr.from_object(space, w_item) for w_item in args_w]
         keywords_w = space.unpackiterable(w_keywords)
@@ -2267,6 +2373,8 @@ class Repr(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _value = expr.from_object(space, w_value)
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Repr(_value, _lineno, _col_offset)
@@ -2302,6 +2410,8 @@ class Num(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _n = w_n
+        if _n is None:
+            raise_required_value(space, w_node, 'n')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Num(_n, _lineno, _col_offset)
@@ -2337,6 +2447,8 @@ class Str(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _s = check_string(space, w_s)
+        if _s is None:
+            raise_required_value(space, w_node, 's')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Str(_s, _lineno, _col_offset)
@@ -2381,8 +2493,14 @@ class Attribute(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _value = expr.from_object(space, w_value)
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
         _attr = space.realstr_w(w_attr)
+        if _attr is None:
+            raise_required_value(space, w_node, 'attr')
         _ctx = expr_context.from_object(space, w_ctx)
+        if _ctx is None:
+            raise_required_value(space, w_node, 'ctx')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Attribute(_value, _attr, _ctx, _lineno, _col_offset)
@@ -2428,8 +2546,14 @@ class Subscript(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _value = expr.from_object(space, w_value)
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
         _slice = slice.from_object(space, w_slice)
+        if _slice is None:
+            raise_required_value(space, w_node, 'slice')
         _ctx = expr_context.from_object(space, w_ctx)
+        if _ctx is None:
+            raise_required_value(space, w_node, 'ctx')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Subscript(_value, _slice, _ctx, _lineno, _col_offset)
@@ -2469,7 +2593,11 @@ class Name(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _id = space.realstr_w(w_id)
+        if _id is None:
+            raise_required_value(space, w_node, 'id')
         _ctx = expr_context.from_object(space, w_ctx)
+        if _ctx is None:
+            raise_required_value(space, w_node, 'ctx')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Name(_id, _ctx, _lineno, _col_offset)
@@ -2489,7 +2617,8 @@ class List(expr):
 
     def mutate_over(self, visitor):
         if self.elts:
-            visitor._mutate_sequence(self.elts)
+            for i in range(len(self.elts)):
+                self.elts[i] = self.elts[i].mutate_over(visitor)
         return visitor.visit_List(self)
 
     def to_object(self, space):
@@ -2517,6 +2646,8 @@ class List(expr):
         elts_w = space.unpackiterable(w_elts)
         _elts = [expr.from_object(space, w_item) for w_item in elts_w]
         _ctx = expr_context.from_object(space, w_ctx)
+        if _ctx is None:
+            raise_required_value(space, w_node, 'ctx')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return List(_elts, _ctx, _lineno, _col_offset)
@@ -2536,7 +2667,8 @@ class Tuple(expr):
 
     def mutate_over(self, visitor):
         if self.elts:
-            visitor._mutate_sequence(self.elts)
+            for i in range(len(self.elts)):
+                self.elts[i] = self.elts[i].mutate_over(visitor)
         return visitor.visit_Tuple(self)
 
     def to_object(self, space):
@@ -2564,6 +2696,8 @@ class Tuple(expr):
         elts_w = space.unpackiterable(w_elts)
         _elts = [expr.from_object(space, w_item) for w_item in elts_w]
         _ctx = expr_context.from_object(space, w_ctx)
+        if _ctx is None:
+            raise_required_value(space, w_node, 'ctx')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Tuple(_elts, _ctx, _lineno, _col_offset)
@@ -2599,6 +2733,8 @@ class Const(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _value = w_value
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Const(_value, _lineno, _col_offset)
@@ -2760,7 +2896,8 @@ class ExtSlice(slice):
 
     def mutate_over(self, visitor):
         if self.dims:
-            visitor._mutate_sequence(self.dims)
+            for i in range(len(self.dims)):
+                self.dims[i] = self.dims[i].mutate_over(visitor)
         return visitor.visit_ExtSlice(self)
 
     def to_object(self, space):
@@ -2805,6 +2942,8 @@ class Index(slice):
     def from_object(space, w_node):
         w_value = get_field(space, w_node, 'value', False)
         _value = expr.from_object(space, w_value)
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
         return Index(_value)
 
 State.ast_type('Index', 'slice', ['value'])
@@ -3117,7 +3256,8 @@ class comprehension(AST):
         self.target = self.target.mutate_over(visitor)
         self.iter = self.iter.mutate_over(visitor)
         if self.ifs:
-            visitor._mutate_sequence(self.ifs)
+            for i in range(len(self.ifs)):
+                self.ifs[i] = self.ifs[i].mutate_over(visitor)
         return visitor.visit_comprehension(self)
 
     def walkabout(self, visitor):
@@ -3143,7 +3283,11 @@ class comprehension(AST):
         w_iter = get_field(space, w_node, 'iter', False)
         w_ifs = get_field(space, w_node, 'ifs', False)
         _target = expr.from_object(space, w_target)
+        if _target is None:
+            raise_required_value(space, w_node, 'target')
         _iter = expr.from_object(space, w_iter)
+        if _iter is None:
+            raise_required_value(space, w_node, 'iter')
         ifs_w = space.unpackiterable(w_ifs)
         _ifs = [expr.from_object(space, w_item) for w_item in ifs_w]
         return comprehension(_target, _iter, _ifs)
@@ -3183,7 +3327,8 @@ class ExceptHandler(excepthandler):
         if self.name:
             self.name = self.name.mutate_over(visitor)
         if self.body:
-            visitor._mutate_sequence(self.body)
+            for i in range(len(self.body)):
+                self.body[i] = self.body[i].mutate_over(visitor)
         return visitor.visit_ExceptHandler(self)
 
     def to_object(self, space):
@@ -3232,9 +3377,11 @@ class arguments(AST):
 
     def mutate_over(self, visitor):
         if self.args:
-            visitor._mutate_sequence(self.args)
+            for i in range(len(self.args)):
+                self.args[i] = self.args[i].mutate_over(visitor)
         if self.defaults:
-            visitor._mutate_sequence(self.defaults)
+            for i in range(len(self.defaults)):
+                self.defaults[i] = self.defaults[i].mutate_over(visitor)
         return visitor.visit_arguments(self)
 
     def walkabout(self, visitor):
@@ -3302,7 +3449,11 @@ class keyword(AST):
         w_arg = get_field(space, w_node, 'arg', False)
         w_value = get_field(space, w_node, 'value', False)
         _arg = space.realstr_w(w_arg)
+        if _arg is None:
+            raise_required_value(space, w_node, 'arg')
         _value = expr.from_object(space, w_value)
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
         return keyword(_arg, _value)
 
 State.ast_type('keyword', 'AST', ['arg', 'value'])
@@ -3332,6 +3483,8 @@ class alias(AST):
         w_name = get_field(space, w_node, 'name', False)
         w_asname = get_field(space, w_node, 'asname', True)
         _name = space.realstr_w(w_name)
+        if _name is None:
+            raise_required_value(space, w_node, 'name')
         _asname = space.str_or_None_w(w_asname)
         return alias(_name, _asname)
 
@@ -3346,10 +3499,6 @@ class ASTVisitor(object):
 
     def default_visitor(self, node):
         raise NodeVisitorNotImplemented
-
-    def _mutate_sequence(self, seq):
-        for i in range(len(seq)):
-            seq[i] = seq[i].mutate_over(self)
 
     def visit_Module(self, node):
         return self.default_visitor(node)

@@ -43,6 +43,17 @@ fields = { # bit margins are *inclusive*! (and bit 0 is
     "spr":    (11, 20),
     "TO":     ( 6, 10),
     "UIMM":   (16, 31),
+    "fvrT":   (6,  31, 'unsigned', regname._V, 'overlap'),
+    "fvrA":   (11, 29, 'unsigned', regname._V, 'overlap'),
+    "fvrB":   (16, 30, 'unsigned', regname._V, 'overlap'),
+    # low vector register T (low in a sense:
+    # can only address 32 vector registers)
+    "ivrT":   (6,  10, 'unsigned', regname._V),
+    # low vector register A
+    "ivrA":   (11, 15, 'unsigned', regname._V),
+    # low vector register B
+    "ivrB":   (16, 20, 'unsigned', regname._V),
+    "ivrC":   (21, 25, 'unsigned', regname._V),
     "XO1":    (21, 30),
     "XO2":    (22, 30),
     "XO3":    (26, 30),
@@ -50,7 +61,15 @@ fields = { # bit margins are *inclusive*! (and bit 0 is
     "XO5":    (27, 29),
     "XO6":    (21, 29),
     "XO7":    (27, 30),
+    "XO8":    (21, 31),
+    "XO9":    (21, 28),
+    "XO10":   (26, 31),
+    "XO11":   (22, 28),
+    "XO12":   (22, 31),
+    "XO13":   (24, 28),
+    "DM":     (22, 23),
     "LL":     ( 9, 10),
+    "SIM":    (11, 15),
 }
 
 
@@ -100,7 +119,6 @@ class sh(Field):
     def decode(self, inst):
         value = super(sh, self).decode(inst)
         return (value & 32) << 5 | (value >> 10 & 31)
-# other special fields?
 
 ppc_fields = {
     "LI":  IField("LI", *fields["LI"]),

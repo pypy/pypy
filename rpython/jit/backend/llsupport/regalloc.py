@@ -349,6 +349,8 @@ class RegisterManager(object):
         assert len(self.temp_boxes) == 0
         if self.longevity:
             for v in self.reg_bindings:
+                if v not in self.longevity:
+                    llop.debug_print(lltype.Void, "variable %s not in longevity\n" % v.repr({}))
                 assert self.longevity[v][1] > self.position
 
     def try_allocate_reg(self, v, selected_reg=None, need_lower_byte=False):

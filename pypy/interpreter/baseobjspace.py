@@ -183,6 +183,14 @@ class W_Root(object):
                 assert self._finalize_.im_func is not W_Root._finalize_.im_func
             space.finalizer_queue.register_finalizer(self)
 
+    def may_unregister_rpython_finalizer(self, space):
+        """Optimization hint only: if there is no user-defined __del__()
+        method, pass the hint ``don't call any finalizer'' to rgc.
+        """
+        if not self.getclass(space).hasuserdel:
+            from rpython.rlib import rgc
+            rgc.may_ignore_finalizer(self)
+
     # hooks that the mapdict implementations needs:
     def _get_mapdict_map(self):
         return None
@@ -207,15 +215,21 @@ class W_Root(object):
 
     def buffer_w(self, space, flags):
         w_impl = space.lookup(self, '__buffer__')
+        if w_impl is None:
+            # cpyext types that may have only old buffer interface
+            w_impl = space.lookup(self, '__wbuffer__')
         if w_impl is not None:
-            w_result = space.get_and_call_function(w_impl, self, 
+            w_result = space.get_and_call_function(w_impl, self,
                                         space.newint(flags))
             if space.isinstance_w(w_result, space.w_buffer):
                 return w_result.buffer_w(space, flags)
         raise BufferInterfaceNotFound
 
     def readbuf_w(self, space):
-        w_impl = space.lookup(self, '__buffer__')
+        # cpyext types that may have old buffer protocol
+        w_impl = space.lookup(self, '__rbuffer__')
+        if w_impl is None:
+            w_impl = space.lookup(self, '__buffer__')
         if w_impl is not None:
             w_result = space.get_and_call_function(w_impl, self,
                                         space.newint(space.BUF_FULL_RO))
@@ -224,7 +238,10 @@ class W_Root(object):
         raise BufferInterfaceNotFound
 
     def writebuf_w(self, space):
-        w_impl = space.lookup(self, '__buffer__')
+        # cpyext types that may have old buffer protocol
+        w_impl = space.lookup(self, '__wbuffer__')
+        if w_impl is None:
+            w_impl = space.lookup(self, '__buffer__')
         if w_impl is not None:
             w_result = space.get_and_call_function(w_impl, self,
                                         space.newint(space.BUF_FULL))
@@ -410,6 +427,8 @@ class ObjSpace(object):
         self.check_signal_action = None   # changed by the signal module
         make_finalizer_queue(W_Root, self)
         self._code_of_sys_exc_info = None
+
+        self._builtin_functions_by_identifier = {'': None}
 
         # can be overridden to a subclass
         self.initialize()
@@ -647,8 +666,10 @@ class ObjSpace(object):
     def setup_builtin_modules(self):
         "NOT_RPYTHON: only for initializing the space."
         if self.config.objspace.usemodules.cpyext:
+            # Special-case this to have state.install_dll() called early, which
+            # is required to initialise sys on Windows.
             from pypy.module.cpyext.state import State
-            self.fromcache(State).build_api(self)
+            self.fromcache(State).build_api()
         self.getbuiltinmodule('sys')
         self.getbuiltinmodule('imp')
         self.getbuiltinmodule('__builtin__')

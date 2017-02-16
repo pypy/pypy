@@ -12,8 +12,8 @@ extern "C" {
     typedef cppyy_scope_t cppyy_type_t;
     typedef unsigned long cppyy_object_t;
     typedef unsigned long cppyy_method_t;
-    typedef long cppyy_index_t;
-    typedef void* (*cppyy_methptrgetter_t)(cppyy_object_t);
+    typedef long          cppyy_index_t;
+    typedef void*         cppyy_funcaddr_t;
 
     /* name to opaque C++ scope representation -------------------------------- */
     RPY_EXTERN
@@ -25,8 +25,6 @@ extern "C" {
     char* cppyy_resolve_name(const char* cppitem_name);
     RPY_EXTERN
     cppyy_scope_t cppyy_get_scope(const char* scope_name);
-    RPY_EXTERN
-    cppyy_type_t cppyy_get_template(const char* template_name);
     RPY_EXTERN
     cppyy_type_t cppyy_actual_class(cppyy_type_t klass, cppyy_object_t obj);
 
@@ -57,11 +55,13 @@ extern "C" {
     float  cppyy_call_f(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
     RPY_EXTERN
     double cppyy_call_d(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
+    RPY_EXTERN
+    long double cppyy_call_ld(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
 
     RPY_EXTERN
     void*  cppyy_call_r(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
     RPY_EXTERN
-    char*  cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
+    char*  cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* args, size_t* length);
 
     RPY_EXTERN
     cppyy_object_t cppyy_constructor(cppyy_method_t method, cppyy_type_t klass, int nargs, void* args);
@@ -69,7 +69,7 @@ extern "C" {
     cppyy_object_t cppyy_call_o(cppyy_method_t method, cppyy_object_t self, int nargs, void* args, cppyy_type_t result_type);
 
     RPY_EXTERN
-    cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_scope_t scope, cppyy_index_t idx);
+    cppyy_funcaddr_t cppyy_get_function_address(cppyy_scope_t scope, cppyy_index_t idx);
 
     /* handling of function argument buffer ----------------------------------- */
     RPY_EXTERN
@@ -84,6 +84,10 @@ extern "C" {
     /* scope reflection information ------------------------------------------- */
     RPY_EXTERN
     int cppyy_is_namespace(cppyy_scope_t scope);
+    RPY_EXTERN
+    int cppyy_is_template(const char* template_name);
+    RPY_EXTERN
+    int cppyy_is_abstract(cppyy_type_t type);
     RPY_EXTERN
     int cppyy_is_enum(const char* type_name);
 
@@ -175,9 +179,16 @@ extern "C" {
     void cppyy_free(void* ptr);
 
     RPY_EXTERN
-    cppyy_object_t cppyy_charp2stdstring(const char* str);
+    cppyy_object_t cppyy_charp2stdstring(const char* str, size_t sz);
+    RPY_EXTERN
+    const char* cppyy_stdstring2charp(cppyy_object_t ptr, size_t* lsz);
     RPY_EXTERN
     cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr);
+
+    RPY_EXTERN
+    const char* cppyy_stdvector_valuetype(const char* clname);
+    RPY_EXTERN
+    size_t cppyy_stdvector_valuesize(const char* clname);
 
 #ifdef __cplusplus
 }

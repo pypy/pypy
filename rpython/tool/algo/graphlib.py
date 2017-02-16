@@ -25,18 +25,27 @@ def make_edge_dict(edge_list):
     return edges
 
 def depth_first_search(root, vertices, edges):
-    seen = {}
+    seen = set([root])
     result = []
-    def visit(vertex):
-        result.append(('start', vertex))
-        seen[vertex] = True
-        for edge in edges[vertex]:
-            w = edge.target
-            if w in vertices and w not in seen:
-                visit(w)
-        result.append(('stop', vertex))
-    visit(root)
-    return result
+    stack = []
+    while True:
+        result.append(('start', root))
+        stack.append((root, iter(edges[root])))
+        while True:
+            vertex, iterator = stack[-1]
+            try:
+                edge = next(iterator)
+            except StopIteration:
+                stack.pop()
+                result.append(('stop', vertex))
+                if not stack:
+                    return result
+            else:
+                w = edge.target
+                if w in vertices and w not in seen:
+                    seen.add(w)
+                    root = w
+                    break
 
 def vertices_reachable_from(root, vertices, edges):
     for event, v in depth_first_search(root, vertices, edges):
@@ -97,13 +106,20 @@ def all_cycles(root, vertices, edges):
             for edge in edges[v]:
                 if edge.target in vertices:
                     edgestack.append(edge)
-                    visit(edge.target)
+                    yield visit(edge.target)
                     edgestack.pop()
             stackpos[v] = None
         else:
             if stackpos[v] is not None:   # back-edge
                 result.append(edgestack[stackpos[v]:])
-    visit(root)
+
+    pending = [visit(root)]
+    while pending:
+        generator = pending[-1]
+        try:
+            pending.append(next(generator))
+        except StopIteration:
+            pending.pop()
     return result        
 
 
@@ -164,14 +180,20 @@ def is_acyclic(vertices, edges):
                 raise CycleFound
             if w in unvisited:
                 del unvisited[w]
-                visit(w)
+                yield visit(w)
         del visiting[vertex]
     try:
         unvisited = vertices.copy()
         while unvisited:
             visiting = {}
             root = unvisited.popitem()[0]
-            visit(root)
+            pending = [visit(root)]
+            while pending:
+                generator = pending[-1]
+                try:
+                    pending.append(next(generator))
+                except StopIteration:
+                    pending.pop()
     except CycleFound:
         return False
     else:

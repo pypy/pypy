@@ -321,8 +321,9 @@ class StdObjSpace(ObjSpace):
     def newseqiter(self, w_obj):
         return W_SeqIterObject(w_obj)
 
-    def newbuffer(self, w_obj):
-        return W_Buffer(w_obj)
+    def newbuffer(self, obj):
+        ret = W_Buffer(obj)
+        return ret
 
     def newbytes(self, s):
         return W_BytesObject(s)
@@ -338,6 +339,10 @@ class StdObjSpace(ObjSpace):
         w_type = self.type(w_obj)
         return w_type.lookup(name)
     lookup._annspecialcase_ = 'specialize:lookup'
+
+    def lookup_in_type(self, w_type, name):
+        w_src, w_descr = self.lookup_in_type_where(w_type, name)
+        return w_descr
 
     def lookup_in_type_where(self, w_type, name):
         return w_type.lookup_where(name)
@@ -626,6 +631,10 @@ class StdObjSpace(ObjSpace):
         from pypy.objspace.std.unicodeobject import unicode_from_object
         return unicode_from_object(self, w_obj)
 
+    def encode_unicode_object(self, w_unicode, encoding, errors):
+        from pypy.objspace.std.unicodeobject import encode_object
+        return encode_object(self, w_unicode, encoding, errors)
+
     def call_method(self, w_obj, methname, *arg_w):
         return callmethod.call_method_opt(self, w_obj, methname, *arg_w)
 
@@ -655,4 +664,4 @@ class StdObjSpace(ObjSpace):
     @specialize.arg(2, 3)
     def is_overloaded(self, w_obj, tp, method):
         return (self.lookup(w_obj, method) is not
-                self.lookup_in_type_where(tp, method)[1])
+                self.lookup_in_type(tp, method))
