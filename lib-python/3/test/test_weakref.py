@@ -1381,13 +1381,16 @@ class MappingTestCase(TestBase):
         o = Object(123456)
         with testcontext():
             n = len(dict)
-            dict.popitem()
+            # Since underlaying dict is ordered, first item is popped
+            dict.pop(next(dict.keys()))
             self.assertEqual(len(dict), n - 1)
             dict[o] = o
             self.assertEqual(len(dict), n)
+        # last item in objects is removed from dict in context shutdown
         with testcontext():
             self.assertEqual(len(dict), n - 1)
-            dict.pop(next(dict.keys()))
+            # Then, (o, o) is popped
+            dict.popitem()
             self.assertEqual(len(dict), n - 2)
         with testcontext():
             self.assertEqual(len(dict), n - 3)
@@ -1421,9 +1424,12 @@ class MappingTestCase(TestBase):
                 yield Object(v), v
             finally:
                 it = None           # should commit all removals
-        if not support.check_impl_detail(pypy=True):
-            # XXX: http://bugs.python.org/issue21173
-            self.check_weak_destroy_and_mutate_while_iterating(dict, testcontext)
+                gc.collect()
+        self.check_weak_destroy_and_mutate_while_iterating(dict, testcontext)
+        # Issue #21173: len() fragile when keys are both implicitly and
+        # explicitly removed.
+        dict, objects = self.make_weak_keyed_dict()
+        self.check_weak_del_and_len_while_iterating(dict, testcontext)
 
     def test_weak_values_destroy_while_iterating(self):
         # Issue #7105: iterators shouldn't crash when a key is implicitly removed
