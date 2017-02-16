@@ -66,13 +66,13 @@ class W_CData(W_Root):
             from pypy.module._cffi_backend import ctypestruct
             if isinstance(self.ctype, ctypestruct.W_CTypeStructOrUnion):
                 extra1 = ' &'
-        return self.space.wrap("<cdata '%s%s' %s>" % (
+        return self.space.newtext("<cdata '%s%s' %s>" % (
             self.ctype.name, extra1, extra2))
 
     def nonzero(self):
         with self as ptr:
             nonzero = self.ctype.nonzero(ptr)
-        return self.space.wrap(nonzero)
+        return self.space.newbool(nonzero)
 
     def int(self, space):
         with self as ptr:
@@ -95,7 +95,7 @@ class W_CData(W_Root):
         from pypy.module._cffi_backend import ctypearray
         space = self.space
         if isinstance(self.ctype, ctypearray.W_CTypeArray):
-            return space.wrap(self.get_array_length())
+            return space.newint(self.get_array_length())
         raise oefmt(space.w_TypeError,
                     "cdata of type '%s' has no len()", self.ctype.name)
 
@@ -137,7 +137,7 @@ class W_CData(W_Root):
         # alignment (to 4, 8, maybe 16 bytes), so we use the following
         # formula to avoid the trailing bits being always 0.
         h = h ^ (h >> 4)
-        return self.space.wrap(h)
+        return self.space.newint(h)
 
     def getitem(self, w_index):
         space = self.space
@@ -232,10 +232,10 @@ class W_CData(W_Root):
         from pypy.module._cffi_backend import ctypeprim
         space = self.space
         if isinstance(ctitem, ctypeprim.W_CTypePrimitive) and ctitem.size == 1:
-            if space.isinstance_w(w_value, space.w_str):
+            if space.isinstance_w(w_value, space.w_bytes):
                 from rpython.rtyper.annlowlevel import llstr
                 from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
-                value = space.str_w(w_value)
+                value = space.bytes_w(w_value)
                 if len(value) != length:
                     raise oefmt(space.w_ValueError,
                                 "need a string of length %d, got %d",
@@ -319,13 +319,13 @@ class W_CData(W_Root):
                         "pointer subtraction: the distance between the two "
                         "pointers is not a multiple of the item size")
                 diff //= itemsize
-            return space.wrap(diff)
+            return space.newint(diff)
         #
         return self._add_or_sub(w_other, -1)
 
     def getcfield(self, w_attr, mode):
         space = self.space
-        attr = space.str_w(w_attr)
+        attr = space.text_w(w_attr)
         try:
             cfield = self.ctype.getcfield(attr)
         except KeyError:
@@ -430,8 +430,8 @@ class W_CData(W_Root):
         with self as ptr:
             if not ptr:
                 raise oefmt(space.w_RuntimeError,
-                            "cannot use unpack() on %s",
-                            space.str_w(self.repr()))
+                            "cannot use unpack() on %R",
+                            self)
             w_result = ctype.ctitem.unpack_ptr(ctype, ptr, length)
         return w_result
 
@@ -441,7 +441,7 @@ class W_CData(W_Root):
         if isinstance(ct, W_CTypePointer):
             ct = ct.ctitem
         lst = ct.cdata_dir()
-        return space.newlist([space.wrap(s) for s in lst])
+        return space.newlist([space.newtext(s) for s in lst])
 
     def get_structobj(self):
         return None
@@ -576,7 +576,7 @@ class W_CDataHandle(W_CData):
 
     def _repr_extra(self):
         w_repr = self.space.repr(self.w_keepalive)
-        return "handle to %s" % (self.space.str_w(w_repr),)
+        return "handle to %s" % (self.space.text_w(w_repr),)
 
 
 class W_CDataFromBuffer(W_CData):

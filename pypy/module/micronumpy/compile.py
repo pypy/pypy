@@ -77,7 +77,8 @@ class FakeSpace(ObjSpace):
     w_long = W_TypeObject("long")
     w_tuple = W_TypeObject('tuple')
     w_slice = W_TypeObject("slice")
-    w_str = W_TypeObject("str")
+    w_bytes = W_TypeObject("str")
+    w_text = w_bytes
     w_unicode = W_TypeObject("unicode")
     w_complex = W_TypeObject("complex")
     w_dict = W_TypeObject("dict")
@@ -192,6 +193,13 @@ class FakeSpace(ObjSpace):
             return StringObject(obj)
         raise NotImplementedError
 
+    def newtext(self, obj):
+        return StringObject(obj)
+    newbytes = newtext
+
+    def newunicode(self, obj):
+        raise NotImplementedError
+
     def newlist(self, items):
         return ListObject(items)
 
@@ -199,7 +207,7 @@ class FakeSpace(ObjSpace):
         return ComplexObject(r, i)
 
     def newfloat(self, f):
-        return self.float(f)
+        return FloatObject(f)
 
     def newslice(self, start, stop, step):
         return SliceObject(self.int_w(start), self.int_w(stop),
@@ -291,10 +299,11 @@ class FakeSpace(ObjSpace):
     def index(self, w_obj):
         return self.wrap(self.int_w(w_obj))
 
-    def str_w(self, w_obj):
+    def bytes_w(self, w_obj):
         if isinstance(w_obj, StringObject):
             return w_obj.v
         raise NotImplementedError
+    text_w = bytes_w
 
     def unicode_w(self, w_obj):
         # XXX
@@ -403,9 +412,12 @@ class FakeSpace(ObjSpace):
     def newdict(self, module=True):
         return DictObject({})
 
+    @specialize.argtype(1)
     def newint(self, i):
         if isinstance(i, IntObject):
             return i
+        if isinstance(i, base_int):
+            return LongObject(i)
         return IntObject(i)
 
     def setitem(self, obj, index, value):
@@ -489,7 +501,7 @@ class SliceObject(W_Root):
         self.step = step
 
 class StringObject(W_Root):
-    tp = FakeSpace.w_str
+    tp = FakeSpace.w_bytes
     def __init__(self, v):
         self.v = v
 
@@ -662,7 +674,7 @@ class RangeConstant(Node):
 
     def execute(self, interp):
         w_list = interp.space.newlist(
-            [interp.space.wrap(float(i)) for i in range(self.v)]
+            [interp.space.newfloat(float(i)) for i in range(self.v)]
         )
         dtype = get_dtype_cache(interp.space).w_float64dtype
         return array(interp.space, w_list, w_dtype=dtype, w_order=None)
@@ -829,7 +841,7 @@ class FunctionCall(Node):
                 w_res = arr.descr_take(interp.space, arg)
             elif self.name == "searchsorted":
                 w_res = arr.descr_searchsorted(interp.space, arg,
-                                               interp.space.wrap('left'))
+                                               interp.space.newtext('left'))
             else:
                 assert False # unreachable code
         elif self.name in THREE_ARG_FUNCTIONS:

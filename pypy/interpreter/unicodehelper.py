@@ -9,11 +9,11 @@ def decode_error_handler(space):
     def raise_unicode_exception_decode(errors, encoding, msg, s,
                                        startingpos, endingpos):
         raise OperationError(space.w_UnicodeDecodeError,
-                             space.newtuple([space.wrap(encoding),
-                                             space.wrap(s),
-                                             space.wrap(startingpos),
-                                             space.wrap(endingpos),
-                                             space.wrap(msg)]))
+                             space.newtuple([space.newtext(encoding),
+                                             space.newbytes(s),
+                                             space.newint(startingpos),
+                                             space.newint(endingpos),
+                                             space.newtext(msg)]))
     return raise_unicode_exception_decode
 
 class RUnicodeEncodeError(Exception):

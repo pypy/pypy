@@ -33,7 +33,7 @@ class MixedModule(Module):
             for sub_name, module_cls in self.submodules.iteritems():
                 if module_cls.submodule_name is None:
                     module_cls.submodule_name = sub_name
-                module_name = space.wrap("%s.%s" % (name, sub_name))
+                module_name = space.newtext("%s.%s" % (name, sub_name))
                 m = module_cls(space, module_name)
                 m.install()
                 self.submodules_w.append(m)
@@ -49,7 +49,7 @@ class MixedModule(Module):
 
         for w_submodule in self.submodules_w:
             name = space.str0_w(w_submodule.w_name)
-            space.setitem(self.w_dict, space.wrap(name.split(".")[-1]), w_submodule)
+            space.setitem(self.w_dict, space.newtext(name.split(".")[-1]), w_submodule)
             space.getbuiltinmodule(name)
 
         if self.w_initialdict is None:
@@ -73,7 +73,7 @@ class MixedModule(Module):
         space = self.space
         w_value = self.getdictvalue(space, name)
         if w_value is None:
-            raise OperationError(space.w_AttributeError, space.wrap(name))
+            raise OperationError(space.w_AttributeError, space.newtext(name))
         return w_value
 
     def call(self, name, *args_w):
@@ -110,7 +110,7 @@ class MixedModule(Module):
                     bltin.w_module = self.w_name
                     func._builtinversion_ = bltin
                     bltin.name = name
-                w_value = space.wrap(bltin)
+                w_value = bltin
             space.setitem(self.w_dict, w_name, w_value)
             return w_value
 
@@ -154,11 +154,11 @@ class MixedModule(Module):
         loader = getinterpevalloader(pkgroot, spec)
         space = self.space
         w_obj = loader(space)
-        space.setattr(space.wrap(self), space.wrap(name), w_obj)
+        space.setattr(self, space.newtext(name), w_obj)
 
     @classmethod
     def get__doc__(cls, space):
-        return space.wrap(cls.__doc__)
+        return space.newtext_or_none(cls.__doc__)
 
 
 def getinterpevalloader(pkgroot, spec):
@@ -186,7 +186,7 @@ def getinterpevalloader(pkgroot, spec):
             else:
                 #print spec, "->", value
                 if hasattr(value, 'func_code'):  # semi-evil
-                    return space.wrap(gateway.interp2app(value))
+                    return gateway.interp2app(value).get_function(space)
 
                 try:
                     is_type = issubclass(value, W_Root)  # pseudo-evil

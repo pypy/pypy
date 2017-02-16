@@ -1175,16 +1175,20 @@ class FakeSpace:
         return l
     def newlist_bytes(self, l):
         return l
+    newlist_text = newlist_bytes
     DictObjectCls = W_DictObject
     def type(self, w_obj):
         if isinstance(w_obj, FakeString):
             return str
         return type(w_obj)
-    w_str = str
+    w_bytes = str
+    w_text = str
 
     def str_w(self, string):
         assert isinstance(string, str)
         return string
+    bytes_w = str_w
+    text_w = str_w
 
     def int_w(self, integer, allow_conversion=True):
         assert isinstance(integer, int)
@@ -1192,6 +1196,7 @@ class FakeSpace:
 
     def wrap(self, obj):
         return obj
+    newtext = newbytes = wrap
 
     def isinstance_w(self, obj, klass):
         return isinstance(obj, klass)

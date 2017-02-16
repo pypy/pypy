@@ -148,13 +148,13 @@ def wrap_inquirypred(space, w_self, w_args, func):
     res = rffi.cast(lltype.Signed, res)
     if res == -1:
         space.fromcache(State).check_and_raise_exception(always=True)
-    return space.wrap(bool(res))
+    return space.newbool(bool(res))
 
 def wrap_getattr(space, w_self, w_args, func):
     func_target = rffi.cast(getattrfunc, func)
     check_num_args(space, w_args, 1)
     args_w = space.fixedview(w_args)
-    name_ptr = rffi.str2charp(space.str_w(args_w[0]))
+    name_ptr = rffi.str2charp(space.text_w(args_w[0]))
     try:
         return generic_cpy_call(space, func_target, w_self, name_ptr)
     finally:
@@ -237,7 +237,7 @@ def wrap_ssizessizeobjargproc(space, w_self, w_args, func):
 def wrap_lenfunc(space, w_self, w_args, func):
     func_len = rffi.cast(lenfunc, func)
     check_num_args(space, w_args, 0)
-    return space.wrap(generic_cpy_call(space, func_len, w_self))
+    return space.newint(generic_cpy_call(space, func_len, w_self))
 
 def wrap_sq_item(space, w_self, w_args, func):
     func_target = rffi.cast(ssizeargfunc, func)
@@ -274,7 +274,7 @@ def wrap_objobjproc(space, w_self, w_args, func):
     res = rffi.cast(lltype.Signed, res)
     if res == -1:
         space.fromcache(State).check_and_raise_exception(always=True)
-    return space.wrap(bool(res))
+    return space.newbool(bool(res))
 
 def wrap_objobjargproc(space, w_self, w_args, func):
     func_target = rffi.cast(objobjargproc, func)
@@ -317,7 +317,7 @@ def wrap_hashfunc(space, w_self, w_args, func):
     res = generic_cpy_call(space, func_target, w_self)
     if res == -1:
         space.fromcache(State).check_and_raise_exception(always=True)
-    return space.wrap(res)
+    return space.newint(res)
 
 class CPyBuffer(Buffer):
     # Similar to Py_buffer
@@ -505,7 +505,7 @@ def wrap_cmpfunc(space, w_self, w_args, func):
                     "%T.__cmp__(x,y) requires y to be a '%T', not a '%T'",
                     w_self, w_self, w_other)
 
-    return space.wrap(generic_cpy_call(space, func_target, w_self, w_other))
+    return space.newint(generic_cpy_call(space, func_target, w_self, w_other))
 
 from rpython.rlib.nonconst import NonConstant
 
@@ -609,7 +609,7 @@ def build_slot_tp_function(space, typedef, name):
             @slot_function([PyObject, Py_ssize_t], PyObject)
             @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
             def slot_func(space, w_self, arg):
-                return space.call_function(slot_fn, w_self, space.wrap(arg))
+                return space.call_function(slot_fn, w_self, space.newint(arg))
             handled = True
 
     # ternary functions
@@ -726,10 +726,11 @@ def build_slot_tp_function(space, typedef, name):
                     view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
                     view.c_obj = make_ref(space, w_obj)
                 except ValueError:
-                    w_s = space.newbytes(buf.as_str())
+                    s = buf.as_str()
+                    w_s = space.newbytes(s)
                     view.c_obj = make_ref(space, w_s)
                     view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(
-                                    space.str_w(w_s), track_allocation=False))
+                                           s, track_allocation=False))
                     rffi.setintfield(view, 'c_readonly', 1)
                 ret = fill_Py_buffer(space, buf, view)
                 return ret

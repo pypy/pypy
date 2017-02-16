@@ -36,15 +36,14 @@ class Module(W_Root):
         statically inside the executable."""
         try:
             space = self.space
-            space.delitem(self.w_dict, space.wrap('__file__'))
+            space.delitem(self.w_dict, space.newtext('__file__'))
         except OperationError:
             pass
 
     def install(self):
         """NOT_RPYTHON: installs this module into space.builtin_modules"""
-        w_mod = self.space.wrap(self)
         modulename = self.space.str0_w(self.w_name)
-        self.space.builtin_modules[modulename] = w_mod
+        self.space.builtin_modules[modulename] = self
 
     def setup_after_space_initialization(self):
         """NOT_RPYTHON: to allow built-in modules to do some more setup
@@ -79,7 +78,7 @@ class Module(W_Root):
     def descr_module__new__(space, w_subtype, __args__):
         module = space.allocate_instance(Module, w_subtype)
         Module.__init__(module, space, None, add_package=False)
-        return space.wrap(module)
+        return module
 
     def descr_module__init__(self, w_name, w_doc=None):
         space = self.space
@@ -90,9 +89,9 @@ class Module(W_Root):
         space.setitem(self.w_dict, space.new_interned_str('__doc__'), w_doc)
 
     def descr__reduce__(self, space):
-        w_name = space.finditem(self.w_dict, space.wrap('__name__'))
+        w_name = space.finditem(self.w_dict, space.newtext('__name__'))
         if (w_name is None or
-            not space.isinstance_w(w_name, space.w_str)):
+            not space.isinstance_w(w_name, space.w_text)):
             # maybe raise exception here (XXX this path is untested)
             return space.w_None
         w_modules = space.sys.get('modules')
@@ -114,7 +113,7 @@ class Module(W_Root):
                 w_name,
                 space.w_None,
                 space.w_None,
-                space.newtuple([space.wrap('')])
+                space.newtuple([space.newtext('')])
             ])
         ]
 
@@ -123,14 +122,14 @@ class Module(W_Root):
     def descr_module__repr__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
         if self.w_name is not None:
-            name = space.str_w(space.repr(self.w_name))
+            name = space.text_w(space.repr(self.w_name))
         else:
             name = "'?'"
         if isinstance(self, MixedModule):
-            return space.wrap("<module %s (built-in)>" % name)
+            return space.newtext("<module %s (built-in)>" % name)
         try:
-            w___file__ = space.getattr(self, space.wrap('__file__'))
-            __file__ = space.str_w(space.repr(w___file__))
+            w___file__ = space.getattr(self, space.newtext('__file__'))
+            __file__ = space.text_w(space.repr(w___file__))
         except OperationError:
             __file__ = '?'
-        return space.wrap("<module %s from %s>" % (name, __file__))
+        return space.newtext("<module %s from %s>" % (name, __file__))

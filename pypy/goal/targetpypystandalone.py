@@ -31,9 +31,9 @@ def debug(msg):
 
 def create_entry_point(space, w_dict):
     if w_dict is not None: # for tests
-        w_entry_point = space.getitem(w_dict, space.wrap('entry_point'))
-        w_run_toplevel = space.getitem(w_dict, space.wrap('run_toplevel'))
-        w_initstdio = space.getitem(w_dict, space.wrap('initstdio'))
+        w_entry_point = space.getitem(w_dict, space.newtext('entry_point'))
+        w_run_toplevel = space.getitem(w_dict, space.newtext('run_toplevel'))
+        w_initstdio = space.getitem(w_dict, space.newtext('initstdio'))
         withjit = space.config.objspace.usemodules.pypyjit
         hashfunc = space.config.objspace.hash
     else:
@@ -65,8 +65,8 @@ def create_entry_point(space, w_dict):
         try:
             try:
                 space.startup()
-                w_executable = space.wrap(argv[0])
-                w_argv = space.newlist([space.wrap(s) for s in argv[1:]])
+                w_executable = space.newtext(argv[0])
+                w_argv = space.newlist([space.newtext(s) for s in argv[1:]])
                 w_exitcode = space.call_function(w_entry_point, w_executable, w_argv)
                 exitcode = space.int_w(w_exitcode)
                 # try to pull it all in
@@ -76,7 +76,7 @@ def create_entry_point(space, w_dict):
             except OperationError as e:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space))
-                debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
+                debug(" operror-value: " + space.text_w(space.str(e.get_w_value(space))))
                 return 1
         finally:
             try:
@@ -84,7 +84,7 @@ def create_entry_point(space, w_dict):
             except OperationError as e:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space))
-                debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
+                debug(" operror-value: " + space.text_w(space.str(e.get_w_value(space))))
                 return 1
         return exitcode
 
@@ -123,7 +123,7 @@ def get_additional_entrypoints(space, w_initstdio):
         try:
             # initialize sys.{path,executable,stdin,stdout,stderr}
             # (in unbuffered mode, to avoid troubles) and import site
-            space.appexec([w_path, space.wrap(home), w_initstdio],
+            space.appexec([w_path, space.newtext(home), w_initstdio],
             r"""(path, home, initstdio):
                 import sys
                 sys.path[:] = path
@@ -141,7 +141,7 @@ def get_additional_entrypoints(space, w_initstdio):
             if verbose:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space))
-                debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
+                debug(" operror-value: " + space.text_w(space.str(e.get_w_value(space))))
             return rffi.cast(rffi.INT, -1)
         finally:
             if must_leave:
@@ -180,11 +180,11 @@ def get_additional_entrypoints(space, w_initstdio):
     def _pypy_execute_source(source, c_argument):
         try:
             w_globals = space.newdict(module=True)
-            space.setitem(w_globals, space.wrap('__builtins__'),
+            space.setitem(w_globals, space.newtext('__builtins__'),
                           space.builtin_modules['__builtin__'])
-            space.setitem(w_globals, space.wrap('c_argument'),
-                          space.wrap(c_argument))
-            space.appexec([space.wrap(source), w_globals], """(src, glob):
+            space.setitem(w_globals, space.newtext('c_argument'),
+                          space.newint(c_argument))
+            space.appexec([space.newtext(source), w_globals], """(src, glob):
                 import sys
                 stmt = compile(src, 'c callback', 'exec')
                 if not hasattr(sys, '_pypy_execute_source'):
@@ -195,7 +195,7 @@ def get_additional_entrypoints(space, w_initstdio):
         except OperationError as e:
             debug("OperationError:")
             debug(" operror-type: " + e.w_type.getname(space))
-            debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
+            debug(" operror-value: " + space.text_w(space.str(e.get_w_value(space))))
             return -1
         return 0
 
@@ -323,7 +323,7 @@ class PyPyTarget(object):
         # obscure hack to stuff the translation options into the translated PyPy
         import pypy.module.sys
         options = make_dict(config)
-        wrapstr = 'space.wrap(%r)' % (options)
+        wrapstr = 'space.wrap(%r)' % (options) # import time
         pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
         if config.objspace.usemodules._cffi_backend:
             self.hack_for_cffi_modules(driver)

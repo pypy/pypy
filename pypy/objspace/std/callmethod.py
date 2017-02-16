@@ -44,7 +44,7 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
 
     w_type = space.type(w_obj)
     if w_type.has_object_getattribute():
-        name = space.str_w(w_name)
+        name = space.text_w(w_name)
         # bit of a mess to use these internal functions, but it allows the
         # mapdict caching below to work without an additional lookup
         version_tag = w_type.version_tag()
@@ -106,7 +106,7 @@ def CALL_METHOD(f, oparg, *ignored):
                 break
             w_value = f.popvalue()
             w_key = f.popvalue()
-            key = f.space.str_w(w_key)
+            key = f.space.text_w(w_key)
             keywords[n_kwargs] = key
             keywords_w[n_kwargs] = w_value
 
@@ -138,6 +138,6 @@ def call_method_opt(space, w_obj, methname, *arg_w):
                 # fast method path: a function object in the class,
                 # nothing in the instance
                 return space.call_function(w_descr, w_obj, *arg_w)
-    w_name = space.wrap(methname)
+    w_name = space.newtext(methname)
     w_meth = space.getattr(w_obj, w_name)
     return space.call_function(w_meth, *arg_w)

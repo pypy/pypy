@@ -278,9 +278,9 @@ class AppTestObject:
 def test_isinstance_shortcut():
     from pypy.objspace.std import objspace
     space = objspace.StdObjSpace()
-    w_a = space.wrap("a")
+    w_a = space.newtext("a")
     space.type = None
     # if it crashes, it means that space._type_isinstance didn't go through
     # the fast path, and tries to call type() (which is set to None just
     # above)
-    space.isinstance_w(w_a, space.w_str) # does not crash
+    space.isinstance_w(w_a, space.w_text) # does not crash

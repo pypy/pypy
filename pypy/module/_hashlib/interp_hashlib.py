@@ -24,32 +24,25 @@ def hash_name_mapper_callback(obj_name, userdata):
     # algorithms.
     if rffi.cast(lltype.Signed, obj_name[0].c_alias):
         return
-    try:
-        space = global_name_fetcher.space
-        w_name = space.wrap(rffi.charp2str(obj_name[0].c_name))
-        global_name_fetcher.meth_names.append(w_name)
-    except OperationError as e:
-        global_name_fetcher.w_error = e
+    name = rffi.charp2str(obj_name[0].c_name)
+    global_name_fetcher.meth_names.append(name)
 
 class NameFetcher:
-    def setup(self, space):
-        self.space = space
+    def setup(self):
         self.meth_names = []
-        self.w_error = None
     def _cleanup_(self):
         self.__dict__.clear()
 global_name_fetcher = NameFetcher()
 
 def fetch_names(space):
-    global_name_fetcher.setup(space)
+    global_name_fetcher.setup()
     ropenssl.init_digests()
     ropenssl.OBJ_NAME_do_all(ropenssl.OBJ_NAME_TYPE_MD_METH,
                              hash_name_mapper_callback, None)
-    if global_name_fetcher.w_error:
-        raise global_name_fetcher.w_error
     meth_names = global_name_fetcher.meth_names
     global_name_fetcher.meth_names = None
-    return space.call_function(space.w_frozenset, space.newlist(meth_names))
+    return space.call_function(space.w_frozenset, space.newlist(
+        [space.newtext(name) for name in meth_names]))
 
 class W_Hash(W_Root):
     NULL_CTX = lltype.nullptr(ropenssl.EVP_MD_CTX.TO)
@@ -95,7 +88,7 @@ class W_Hash(W_Root):
 
     def descr_repr(self, space):
         addrstring = self.getaddrstring(space)
-        return space.wrap("<%s HASH object at 0x%s>" % (
+        return space.newtext("<%s HASH object at 0x%s>" % (
             self.name, addrstring))
 
     @unwrap_spec(string='bufferstr')
@@ -123,18 +116,18 @@ class W_Hash(W_Root):
         for c in digest:
             result.append(hexdigits[(ord(c) >> 4) & 0xf])
             result.append(hexdigits[ ord(c)       & 0xf])
-        return space.wrap(result.build())
+        return space.newtext(result.build())
 
     def get_digest_size(self, space):
-        return space.wrap(self.digest_size)
+        return space.newint(self.digest_size)
 
     def get_block_size(self, space):
         digest_type = self.digest_type_by_name(space)
         block_size = ropenssl.EVP_MD_block_size(digest_type)
-        return space.wrap(block_size)
+        return space.newint(block_size)
 
     def get_name(self, space):
-        return space.wrap(self.name)
+        return space.newtext(self.name)
 
     def _digest(self, space):
         ctx = ropenssl.EVP_MD_CTX_new()
@@ -167,11 +160,11 @@ W_Hash.typedef = TypeDef(
 )
 W_Hash.typedef.acceptable_as_base_class = False
 
-@unwrap_spec(name=str, string='bufferstr')
+@unwrap_spec(name='text', string='bufferstr')
 def new(space, name, string=''):
     w_hash = W_Hash(space, name)
     w_hash.update(space, string)
-    return space.wrap(w_hash)
+    return w_hash
 
 # shortcut functions
 def make_new_hash(name, funcname):
@@ -188,7 +181,7 @@ for _name in algorithms:
 
 HAS_FAST_PKCS5_PBKDF2_HMAC = ropenssl.PKCS5_PBKDF2_HMAC is not None
 if HAS_FAST_PKCS5_PBKDF2_HMAC:
-    @unwrap_spec(name=str, password=str, salt=str, rounds=int,
+    @unwrap_spec(name='text', password='bytes', salt='bytes', rounds=int,
                  w_dklen=WrappedDefault(None))
     def pbkdf2_hmac(space, name, password, salt, rounds, w_dklen):
         digest = ropenssl.EVP_get_digestbyname(name)
@@ -207,4 +200,4 @@ if HAS_FAST_PKCS5_PBKDF2_HMAC:
                 dklen, buf.raw)
             if not r:
                 raise ValueError
-            return space.wrap(buf.str(dklen))
+            return space.newbytes(buf.str(dklen))

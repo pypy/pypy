@@ -51,7 +51,7 @@ def memory_attach(space, py_obj, w_obj, w_userdata=None):
     except ValueError:
         w_s = w_obj.descr_tobytes(space)
         view.c_obj = make_ref(space, w_s)
-        view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(space.str_w(w_s),
+        view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(space.bytes_w(w_s),
                                              track_allocation=False))
         rffi.setintfield(view, 'c_readonly', 1)
 
@@ -122,7 +122,7 @@ def PyObject_GetBuffer(space, w_obj, view, flags):
         if not space.isinstance_w(w_obj, space.w_str):
             # XXX Python 3?
             raise BufferError("could not create buffer from object")
-        view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(space.str_w(w_obj), track_allocation=False))
+        view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(space.bytes_w(w_obj), track_allocation=False))
         rffi.setintfield(view, 'c_readonly', 1)
     ret = fill_Py_buffer(space, buf, view)
     view.c_obj = make_ref(space, w_obj)

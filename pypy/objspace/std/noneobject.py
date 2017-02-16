@@ -11,7 +11,7 @@ class W_NoneObject(W_Root):
         return space.w_False
 
     def descr_repr(self, space):
-        return space.wrap('None')
+        return space.newtext('None')
 
 
 W_NoneObject.w_None = W_NoneObject()

@@ -2,7 +2,7 @@
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 
-@unwrap_spec(type=str)
+@unwrap_spec(type='text')
 def newdict(space, type):
     """ newdict(type)
 

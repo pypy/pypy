@@ -13,7 +13,7 @@ def interp_member_w(name, cls, doc=None):
     def fget(space, obj):
         w_value = getattr(obj, name)
         if w_value is None:
-            raise OperationError(space.w_AttributeError, space.wrap(name))
+            raise OperationError(space.w_AttributeError, space.newtext(name))
         else:
             return w_value
     def fset(space, obj, w_value):
@@ -21,7 +21,7 @@ def interp_member_w(name, cls, doc=None):
     def fdel(space, obj):
         w_value = getattr(obj, name)
         if w_value is None:
-            raise OperationError(space.w_AttributeError, space.wrap(name))
+            raise OperationError(space.w_AttributeError, space.newtext(name))
         setattr(obj, name, None)
 
     return GetSetProperty(fget, fset, fdel, cls=cls, doc=doc)
@@ -126,9 +126,9 @@ class W_FileIO(W_RawIOBase):
     def descr_new(space, w_subtype, __args__):
         self = space.allocate_instance(W_FileIO, w_subtype)
         W_FileIO.__init__(self, space)
-        return space.wrap(self)
+        return self
 
-    @unwrap_spec(mode=str, closefd=int)
+    @unwrap_spec(mode='text', closefd=int)
     def descr_init(self, space, w_name, mode='r', closefd=True):
         if space.isinstance_w(w_name, space.w_float):
             raise oefmt(space.w_TypeError,
@@ -174,7 +174,7 @@ class W_FileIO(W_RawIOBase):
                     fd_is_own = True
 
             self._dircheck(space, w_name)
-            space.setattr(self, space.wrap("name"), w_name)
+            space.setattr(self, space.newtext("name"), w_name)
 
             if self.appending:
                 # For consistent behaviour, we explicitly seek to the end of file
@@ -203,7 +203,7 @@ class W_FileIO(W_RawIOBase):
             return 'wb'
 
     def descr_get_mode(self, space):
-        return space.wrap(self._mode())
+        return space.newtext(self._mode())
 
     def _closed(self, space):
         return self.fd < 0
@@ -212,7 +212,7 @@ class W_FileIO(W_RawIOBase):
         if message is None:
             message = "I/O operation on closed file"
         if self.fd < 0:
-            raise OperationError(space.w_ValueError, space.wrap(message))
+            raise OperationError(space.w_ValueError, space.newtext(message))
 
     def _check_readable(self, space):
         if not self.readable:
@@ -270,7 +270,7 @@ class W_FileIO(W_RawIOBase):
         except OSError as e:
             raise wrap_oserror(space, e,
                                exception_name='w_IOError')
-        return space.wrap(pos)
+        return space.newint(pos)
 
     def tell_w(self, space):
         self._check_closed(space)
@@ -279,15 +279,15 @@ class W_FileIO(W_RawIOBase):
         except OSError as e:
             raise wrap_oserror(space, e,
                                exception_name='w_IOError')
-        return space.wrap(pos)
+        return space.newint(pos)
 
     def readable_w(self, space):
         self._check_closed(space)
-        return space.wrap(self.readable)
+        return space.newbool(self.readable)
 
     def writable_w(self, space):
         self._check_closed(space)
-        return space.wrap(self.writable)
+        return space.newbool(self.writable)
 
     def seekable_w(self, space):
         self._check_closed(space)
@@ -304,7 +304,7 @@ class W_FileIO(W_RawIOBase):
 
     def fileno_w(self, space):
         self._check_closed(space)
-        return space.wrap(self.fd)
+        return space.newint(self.fd)
 
     def isatty_w(self, space):
         self._check_closed(space)
@@ -312,21 +312,21 @@ class W_FileIO(W_RawIOBase):
             res = os.isatty(self.fd)
         except OSError as e:
             raise wrap_oserror(space, e, exception_name='w_IOError')
-        return space.wrap(res)
+        return space.newbool(res)
 
     def repr_w(self, space):
         if self.fd < 0:
-            return space.wrap("<_io.FileIO [closed]>")
+            return space.newtext("<_io.FileIO [closed]>")
 
         if self.w_name is None:
-            return space.wrap(
+            return space.newtext(
                 "<_io.FileIO fd=%d mode='%s'>" % (
                     self.fd, self._mode()))
         else:
             w_repr = space.repr(self.w_name)
-            return space.wrap(
+            return space.newtext(
                 "<_io.FileIO name=%s mode='%s'>" % (
-                    space.str_w(w_repr), self._mode()))
+                    space.text_w(w_repr), self._mode()))
 
     # ______________________________________________
 
@@ -343,7 +343,7 @@ class W_FileIO(W_RawIOBase):
             raise wrap_oserror(space, e,
                                exception_name='w_IOError')
 
-        return space.wrap(n)
+        return space.newint(n)
 
     def read_w(self, space, w_size=None):
         self._check_closed(space)
@@ -376,7 +376,7 @@ class W_FileIO(W_RawIOBase):
             raise wrap_oserror(space, e,
                                exception_name='w_IOError')
         rwbuffer.setslice(0, buf)
-        return space.wrap(len(buf))
+        return space.newint(len(buf))
 
     def readall_w(self, space):
         self._check_closed(space)
@@ -449,7 +449,8 @@ W_FileIO.typedef = TypeDef(
     fileno = interp2app(W_FileIO.fileno_w),
     isatty = interp2app(W_FileIO.isatty_w),
     name = interp_member_w('w_name', cls=W_FileIO),
-    closefd = interp_attrproperty('closefd', cls=W_FileIO),
+    closefd = interp_attrproperty('closefd', cls=W_FileIO,
+        wrapfn="newbool"),
     mode = GetSetProperty(W_FileIO.descr_get_mode),
     )
 

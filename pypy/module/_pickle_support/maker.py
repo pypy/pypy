@@ -15,7 +15,7 @@ from pypy.objspace.std.iterobject import W_SeqIterObject, W_ReverseSeqIterObject
 #      Stackless does use this so it might be needed here as well.
 
 def cell_new(space):
-    return space.wrap(instantiate(Cell))
+    return instantiate(Cell)
 
 def code_new(space, __args__):
     w_type = space.gettypeobject(PyCode.typedef)
@@ -24,11 +24,11 @@ def code_new(space, __args__):
 def func_new(space):
     fu = instantiate(Function)
     fu.w_func_dict = space.newdict()
-    return space.wrap(fu)
+    return fu
 
 def module_new(space, w_name, w_dict):
     new_mod = Module(space, w_name, w_dict, add_package=False)
-    return space.wrap(new_mod)
+    return new_mod
 
 def method_new(space, __args__):
     w_type = space.gettypeobject(Method.typedef)
@@ -57,23 +57,23 @@ def reverseseqiter_new(space, w_seq, w_index):
 
 def frame_new(space):
     new_frame = instantiate(space.FrameClass)   # XXX fish
-    return space.wrap(new_frame)
+    return new_frame
 
 def traceback_new(space):
     tb = instantiate(PyTraceback)
-    return space.wrap(tb)
+    return tb
 
 def generator_new(space):
     new_generator = instantiate(GeneratorIterator)
-    return space.wrap(new_generator)
+    return new_generator
 
 @unwrap_spec(current=int, remaining=int, step=int)
 def xrangeiter_new(space, current, remaining, step):
     from pypy.module.__builtin__.functional import W_XRangeIterator
     new_iter = W_XRangeIterator(space, current, remaining, step)
-    return space.wrap(new_iter)
+    return new_iter
 
-@unwrap_spec(identifier=str)
+@unwrap_spec(identifier='text')
 def builtin_code(space, identifier):
     from pypy.interpreter import gateway
     try:
@@ -82,7 +82,7 @@ def builtin_code(space, identifier):
         raise oefmt(space.w_RuntimeError,
                     "cannot unpickle builtin code: %s", identifier)
 
-@unwrap_spec(identifier=str)
+@unwrap_spec(identifier='text')
 def builtin_function(space, identifier):
     from pypy.interpreter import function
     try:
@@ -112,13 +112,12 @@ def slp_into_tuple_with_nulls(space, seq_w):
     a tuple with the positions of NULLs as first element.
     """
     tup = [None] * (len(seq_w) + 1)
-    w = space.wrap
     num = 1
     nulls = [None for i in seq_w if i is None]
     null_num = 0
     for w_obj in seq_w:
         if w_obj is None:
-            nulls[null_num] = w(num - 1)
+            nulls[null_num] = space.newint(num - 1)
             null_num += 1
             w_obj = space.w_None
         tup[num] = w_obj

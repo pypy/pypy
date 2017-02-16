@@ -445,27 +445,27 @@ class W_SemLock(W_Root):
         return w_handle(space, self.handle)
 
     def get_count(self, space):
-        return space.wrap(self.count)
+        return space.newint(self.count)
 
     def _ismine(self):
         return self.count > 0 and rthread.get_ident() == self.last_tid
 
     def is_mine(self, space):
-        return space.wrap(self._ismine())
+        return space.newbool(self._ismine())
 
     def is_zero(self, space):
         try:
             res = semlock_iszero(self, space)
         except OSError as e:
             raise wrap_oserror(space, e)
-        return space.wrap(res)
+        return space.newbool(res)
 
     def get_value(self, space):
         try:
             val = semlock_getvalue(self, space)
         except OSError as e:
             raise wrap_oserror(space, e)
-        return space.wrap(val)
+        return space.newint(val)
 
     @unwrap_spec(block=bool)
     def acquire(self, space, block=True, w_timeout=None):
@@ -510,7 +510,7 @@ class W_SemLock(W_Root):
     def rebuild(space, w_cls, w_handle, kind, maxvalue):
         self = space.allocate_instance(W_SemLock, w_cls)
         self.__init__(space, handle_w(space, w_handle), kind, maxvalue)
-        return space.wrap(self)
+        return self
 
     def enter(self, space):
         return self.acquire(space, w_timeout=space.w_None)
@@ -537,7 +537,7 @@ def descr_new(space, w_subtype, kind, value, maxvalue):
     self = space.allocate_instance(W_SemLock, w_subtype)
     self.__init__(space, handle, kind, maxvalue)
 
-    return space.wrap(self)
+    return self
 
 W_SemLock.typedef = TypeDef(
     "SemLock",
