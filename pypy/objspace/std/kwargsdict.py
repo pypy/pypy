@@ -31,7 +31,7 @@ class KwargsDictStrategy(DictStrategy):
         return _wrapkey(self.space, key)
 
     def unwrap(self, wrapped):
-        return self.space.str_w(wrapped)
+        return self.space.text_w(wrapped)
 
     def get_empty_storage(self):
         d = ([], [])
@@ -39,7 +39,7 @@ class KwargsDictStrategy(DictStrategy):
 
     def is_correct_type(self, w_obj):
         space = self.space
-        return space.is_w(space.type(w_obj), space.w_unicode)
+        return space.is_w(space.type(w_obj), space.w_text)
 
     def _never_equal_to(self, w_lookup_type):
         return False
@@ -115,9 +115,8 @@ class KwargsDictStrategy(DictStrategy):
             return w_dict.getitem(w_key)
 
     def w_keys(self, w_dict):
-        space = self.space
-        keys = self.unerase(w_dict.dstorage)[0]
-        return space.newlist_unicode([key.decode('utf-8') for key in keys])
+        l = self.unerase(w_dict.dstorage)[0]
+        return self.space.newlist_text(l[:])
 
     def values(self, w_dict):
         return self.unerase(w_dict.dstorage)[1][:] # to make non-resizable
@@ -152,7 +151,7 @@ class KwargsDictStrategy(DictStrategy):
         storage = strategy.get_empty_storage()
         d_new = strategy.unerase(storage)
         for i in range(len(keys)):
-            d_new[self.decodekey_str(keys[i])] = values_w[i]
+            d_new[strategy.decodekey_str(keys[i])] = values_w[i]
         w_dict.set_strategy(strategy)
         w_dict.dstorage = storage
 

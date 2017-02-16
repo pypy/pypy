@@ -19,10 +19,10 @@ def syntax_warning(space, msg, fn, lineno, offset):
 
     If the user has set this warning to raise an error, a SyntaxError will be
     raised."""
-    w_msg = space.wrap(msg)
+    w_msg = space.newtext(msg)
     w_filename = space.wrap_fsdecoded(fn)
-    w_lineno = space.wrap(lineno)
-    w_offset = space.wrap(offset)
+    w_lineno = space.newint(lineno)
+    w_offset = space.newint(offset)
     _emit_syntax_warning(space, w_msg, w_filename, w_lineno, w_offset)
 
 
@@ -127,6 +127,6 @@ def new_identifier(space, name):
         return name
 
     from pypy.module.unicodedata.interp_ucd import ucd
-    w_name = space.wrap(name.decode('utf-8'))
-    w_id = space.call_method(ucd, 'normalize', space.wrap('NFKC'), w_name)
-    return space.unicode_w(w_id).encode('utf-8')
+    w_name = space.newtext(name)
+    w_id = space.call_method(ucd, 'normalize', space.newtext('NFKC'), w_name)
+    return space.text_w(w_id)

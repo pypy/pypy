@@ -31,7 +31,7 @@ def PyEval_GetBuiltins(space):
     caller = space.getexecutioncontext().gettopframe_nohidden()
     if caller is not None:
         w_globals = caller.get_w_globals()
-        w_builtins = space.getitem(w_globals, space.wrap('__builtins__'))
+        w_builtins = space.getitem(w_globals, space.newtext('__builtins__'))
         if not space.isinstance_w(w_builtins, space.w_dict):
             w_builtins = w_builtins.getdict(space)
     else:

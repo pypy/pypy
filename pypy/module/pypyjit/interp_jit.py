@@ -150,14 +150,14 @@ def set_param(space, __args__):
                     "set_param() takes at most 1 non-keyword argument, %d "
                     "given", len(args_w))
     if len(args_w) == 1:
-        text = space.str_w(args_w[0])
+        text = space.text_w(args_w[0])
         try:
             jit.set_user_param(None, text)
         except ValueError:
             raise oefmt(space.w_ValueError, "error in JIT parameters string")
     for key, w_value in kwds_w.items():
         if key == 'enable_opts':
-            jit.set_param(None, 'enable_opts', space.str_w(w_value))
+            jit.set_param(None, 'enable_opts', space.text_w(w_value))
         else:
             intval = space.int_w(w_value)
             for name, _ in unroll_parameters:
@@ -214,7 +214,7 @@ W_NotFromAssembler.typedef.acceptable_as_base_class = False
 @dont_look_inside
 def get_jitcell_at_key(space, next_instr, is_being_profiled, w_pycode):
     ll_pycode = cast_instance_to_gcref(w_pycode)
-    return space.wrap(bool(jit_hooks.get_jitcell_at_key(
+    return space.newbool(bool(jit_hooks.get_jitcell_at_key(
        'pypyjit', r_uint(next_instr), int(bool(is_being_profiled)), ll_pycode)))
 
 @unwrap_spec(next_instr=int, is_being_profiled=int, w_pycode=PyCode)
@@ -270,7 +270,7 @@ def trace_next_iteration_hash(space, hash):
 #             return
 #         for i, op in enumerate(debug_info.operations):
 #             if op.is_guard():
-#                 w_t = space.newtuple([space.wrap(i), space.wrap(op.getopnum()), space.wrap(op.getdescr().get_jitcounter_hash())])
+#                 w_t = space.newtuple([space.newint(i), space.newint(op.getopnum()), space.newint(op.getdescr().get_jitcounter_hash())])
 #                 l_w.append(w_t)
 #         try:
 #             cache.in_recursion = True
@@ -288,7 +288,7 @@ def trace_next_iteration_hash(space, hash):
 #             return
 #         if not space.is_true(cache.w_compile_bridge):
 #             return
-#         w_hash = space.wrap(debug_info.fail_descr.get_jitcounter_hash())
+#         w_hash = space.newint(debug_info.fail_descr.get_jitcounter_hash())
 #         try:
 #             cache.in_recursion = True
 #             try:

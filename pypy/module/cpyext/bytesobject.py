@@ -52,7 +52,7 @@ cpython_struct("PyBytesObject", PyBytesObjectFields, PyBytesObjectStruct)
 @bootstrap_function
 def init_bytesobject(space):
     "Type description of PyBytesObject"
-    make_typedescr(space.w_str.layout.typedef,
+    make_typedescr(space.w_bytes.layout.typedef,
                    basestruct=PyBytesObject.TO,
                    attach=bytes_attach,
                    dealloc=bytes_dealloc,
@@ -79,7 +79,7 @@ def bytes_attach(space, py_obj, w_obj, w_userdata=None):
     c_ob_sval must not be modified.
     """
     py_str = rffi.cast(PyBytesObject, py_obj)
-    s = space.str_w(w_obj)
+    s = space.bytes_w(w_obj)
     len_s = len(s)
     if py_str.c_ob_size  < len_s:
         raise oefmt(space.w_ValueError,
@@ -138,7 +138,7 @@ def PyBytes_AsString(space, ref):
     return _PyBytes_AsString(space, ref)
 
 def _PyBytes_AsString(space, ref):
-    if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_str:
+    if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_bytes:
         pass    # typecheck returned "ok" without forcing 'ref' at all
     elif not PyBytes_Check(space, ref):   # otherwise, use the alternate way
         raise oefmt(space.w_TypeError,
@@ -176,7 +176,7 @@ def PyBytes_AsStringAndSize(space, ref, data, length):
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyBytes_Size(space, ref):
-    if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_str:
+    if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_bytes:
         ref = rffi.cast(PyBytesObject, ref)
         return ref.c_ob_size
     else:

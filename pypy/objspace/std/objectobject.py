@@ -100,6 +100,7 @@ def descr__new__(space, w_type, __args__):
     w_type = _precheck_for_new(space, w_type)
 
     if _excess_args(__args__):
+        w_parent_new, _ = space.lookup_in_type_where(w_type, '__new__')
         w_parent_init, _ = space.lookup_in_type_where(w_type, '__init__')
         w_parent_new, _ = space.lookup_in_type_where(w_type, '__new__')
         if (w_parent_init is space.w_object or
@@ -118,6 +119,7 @@ def descr___subclasshook__(space, __args__):
 def descr__init__(space, w_obj, __args__):
     if _excess_args(__args__):
         w_type = space.type(w_obj)
+        w_parent_init, _ = space.lookup_in_type_where(w_type, '__init__')
         w_parent_new, _ = space.lookup_in_type_where(w_type, '__new__')
         w_parent_init, _ = space.lookup_in_type_where(w_type, '__init__')
         if (w_parent_new is space.w_object or
@@ -166,7 +168,7 @@ def descr__str__(space, w_obj):
 
 @unwrap_spec(proto=int)
 def descr__reduce__(space, w_obj, proto=0):
-    w_proto = space.wrap(proto)
+    w_proto = space.newint(proto)
     if proto >= 2:
         w_descr = space.lookup(w_obj, '__getnewargs_ex__')
         if w_descr is not None:
@@ -184,7 +186,7 @@ def descr__reduce__(space, w_obj, proto=0):
 
 @unwrap_spec(proto=int)
 def descr__reduce_ex__(space, w_obj, proto=0):
-    w_st_reduce = space.wrap('__reduce__')
+    w_st_reduce = space.newtext('__reduce__')
     w_reduce = space.findattr(w_obj, w_st_reduce)
     if w_reduce is not None:
         # Check if __reduce__ has been overridden:
@@ -199,7 +201,7 @@ def descr__reduce_ex__(space, w_obj, proto=0):
 def descr___format__(space, w_obj, w_format_spec):
     if space.isinstance_w(w_format_spec, space.w_unicode):
         w_as_str = space.call_function(space.w_unicode, w_obj)
-    elif space.isinstance_w(w_format_spec, space.w_str):
+    elif space.isinstance_w(w_format_spec, space.w_bytes):
         w_as_str = space.str(w_obj)
     else:
         raise oefmt(space.w_TypeError, "format_spec must be a string")

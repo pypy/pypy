@@ -313,7 +313,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def _make_function(self, code, num_defaults=0, qualname=None):
         """Emit the opcodes to turn a code object into a function."""
-        w_qualname = self.space.wrap((qualname or code.co_name).decode('utf-8'))
+        w_qualname = self.space.newtext(qualname or code.co_name)
         if code.co_freevars:
             # Load cell and free vars to pass on.
             for free in code.co_freevars:
@@ -339,8 +339,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             if default:
                 kwonly = args.kwonlyargs[i]
                 assert isinstance(kwonly, ast.arg)
-                mangled = self.scope.mangle(kwonly.arg).decode('utf-8')
-                self.load_const(self.space.wrap(mangled))
+                mangled = self.scope.mangle(kwonly.arg)
+                self.load_const(self.space.newtext(mangled))
                 default.walkabout(self)
                 defaults += 1
         return defaults
@@ -375,8 +375,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if l:
             if l > 65534:
                 self.error("too many annotations", func)
-            w_tup = space.newtuple([space.wrap(name.decode('utf-8'))
-                                    for name in names])
+            w_tup = space.newtuple([space.newtext(name) for name in names])
             self.load_const(w_tup)
             l += 1
         return l
@@ -438,7 +437,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # 3. load a function (or closure) made from the code object
         self._make_function(code, qualname=qualname)
         # 4. load class name
-        self.load_const(self.space.wrap(cls.name.decode('utf-8')))
+        self.load_const(self.space.newtext(cls.name))
         # 5. generate the rest of the code for the call
         self._make_call(2, cls.bases, cls.keywords)
         # 6. apply decorators
@@ -808,7 +807,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         for alias in imp.names:
             assert isinstance(alias, ast.alias)
             level = 0
-            self.load_const(self.space.wrap(level))
+            self.load_const(self.space.newint(level))
             self.load_const(self.space.w_None)
             self.emit_op_name(ops.IMPORT_NAME, self.names, alias.name)
             # If there's no asname then we store the root module.  If there is
@@ -846,12 +845,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                         self.error("not a chance", imp)
                     self.error("future feature %s is not defined" %
                                (alias.name,), imp)
-        self.load_const(space.wrap(imp.level))
+        self.load_const(space.newint(imp.level))
         names_w = [None]*len(imp.names)
         for i in range(len(imp.names)):
             alias = imp.names[i]
             assert isinstance(alias, ast.alias)
-            names_w[i] = space.wrap(alias.name.decode('utf-8'))
+            names_w[i] = space.newtext(alias.name)
         self.load_const(space.newtuple(names_w))
         if imp.module:
             mod_name = imp.module
@@ -1250,7 +1249,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_keyword(self, keyword):
         if keyword.arg is not None:
-            self.load_const(self.space.wrap(keyword.arg.decode('utf-8')))
+            self.load_const(self.space.newtext(keyword.arg))
         keyword.value.walkabout(self)
 
     def _make_call(self, n, # args already pushed
@@ -1308,7 +1307,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     nsubkwargs += 1
                 elif nsubkwargs:
                     # A keyword argument and we already have a dict.
-                    self.load_const(self.space.wrap(kw.arg.decode('utf-8')))
+                    self.load_const(self.space.newtext(kw.arg))
                     kw.value.walkabout(self)
                     nseen += 1
                 else:
@@ -1651,7 +1650,7 @@ class ClassCodeGenerator(PythonCodeGenerator):
         # ... and store it as __module__
         self.name_op("__module__", ast.Store)
         # store the qualname
-        w_qualname = self.space.wrap(self.qualname.decode("utf-8"))
+        w_qualname = self.space.newtext(self.qualname)
         self.load_const(w_qualname)
         self.name_op("__qualname__", ast.Store)
         # compile the body proper

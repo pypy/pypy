@@ -33,7 +33,7 @@ class W_MMap(W_Root):
     def read_byte(self):
         self.check_valid()
         try:
-            return self.space.wrap(ord(self.mmap.read_byte()))
+            return self.space.newint(ord(self.mmap.read_byte()))
         except RValueError as v:
             raise mmap_error(self.space, v)
 
@@ -53,7 +53,7 @@ class W_MMap(W_Root):
     def find(self, w_tofind, w_start=None, w_end=None):
         self.check_valid()
         space = self.space
-        tofind = space.getarg_w('s#', w_tofind)
+        tofind = space.getarg_w('y*', w_tofind)
         if w_start is None:
             start = self.mmap.pos
         else:
@@ -62,12 +62,12 @@ class W_MMap(W_Root):
             end = self.mmap.size
         else:
             end = space.getindex_w(w_end, None)
-        return space.wrap(self.mmap.find(tofind, start, end))
+        return space.newint(self.mmap.find(tofind, start, end))
 
     def rfind(self, w_tofind, w_start=None, w_end=None):
         self.check_valid()
         space = self.space
-        tofind = space.getarg_w('s#', w_tofind)
+        tofind = space.getarg_w('y*', w_tofind)
         if w_start is None:
             start = self.mmap.pos
         else:
@@ -76,7 +76,7 @@ class W_MMap(W_Root):
             end = self.mmap.size
         else:
             end = space.getindex_w(w_end, None)
-        return space.wrap(self.mmap.find(tofind, start, end, True))
+        return space.newint(self.mmap.find(tofind, start, end, True))
 
     @unwrap_spec(pos=OFF_T, whence=int)
     def seek(self, pos, whence=0):
@@ -88,18 +88,18 @@ class W_MMap(W_Root):
 
     def tell(self):
         self.check_valid()
-        return self.space.wrap(self.mmap.tell())
+        return self.space.newint(self.mmap.tell())
 
     def descr_size(self):
         self.check_valid()
         try:
-            return self.space.wrap(self.mmap.file_size())
+            return self.space.newint(self.mmap.file_size())
         except OSError as e:
             raise mmap_error(self.space, e)
 
     def write(self, w_data):
         self.check_valid()
-        data = self.space.getarg_w('s#', w_data)
+        data = self.space.getarg_w('y*', w_data)
         self.check_writeable()
         try:
             self.mmap.write(data)
@@ -119,7 +119,7 @@ class W_MMap(W_Root):
     def flush(self, offset=0, size=0):
         self.check_valid()
         try:
-            return self.space.wrap(self.mmap.flush(offset, size))
+            return self.space.newint(self.mmap.flush(offset, size))
         except RValueError as v:
             raise mmap_error(self.space, v)
         except OSError as e:
@@ -146,10 +146,10 @@ class W_MMap(W_Root):
             # obscure: in this case, RValueError translates to an app-level
             # SystemError.
             raise OperationError(self.space.w_SystemError,
-                                 self.space.wrap(e.message))
+                                 self.space.newtext(e.message))
 
     def __len__(self):
-        return self.space.wrap(self.mmap.size)
+        return self.space.newint(self.mmap.size)
 
     def closed_get(self, space):
         try:
@@ -182,7 +182,7 @@ class W_MMap(W_Root):
         space = self.space
         start, stop, step, length = space.decode_index4(w_index, self.mmap.size)
         if step == 0:  # index only
-            return space.wrap(ord(self.mmap.getitem(start)))
+            return space.newint(ord(self.mmap.getitem(start)))
         elif step == 1:
             if stop - start < 0:
                 return space.newbytes("")
@@ -219,7 +219,7 @@ class W_MMap(W_Root):
 
     def descr_enter(self, space):
         self.check_valid()
-        return space.wrap(self)
+        return self
 
     def descr_exit(self, space, __args__):
         self.close()
@@ -241,11 +241,11 @@ if rmmap._POSIX:
             raise mmap_error(space, e)
         except RMMapError as e:
             raise mmap_error(space, e)
-        return space.wrap(self)
+        return self
 
 elif rmmap._MS_WINDOWS:
 
-    @unwrap_spec(fileno=int, length=int, tagname=str,
+    @unwrap_spec(fileno=int, length=int, tagname='text',
                  access=int, offset=OFF_T)
     def mmap(space, w_subtype, fileno, length, tagname="",
              access=rmmap._ACCESS_DEFAULT, offset=0):
@@ -258,7 +258,7 @@ elif rmmap._MS_WINDOWS:
             raise mmap_error(space, e)
         except RMMapError as e:
             raise mmap_error(space, e)
-        return space.wrap(self)
+        return self
 
 W_MMap.typedef = TypeDef("mmap.mmap", None, None, 'read-write',
     __new__ = interp2app(mmap),
@@ -298,14 +298,14 @@ ACCESS_COPY  = rmmap.ACCESS_COPY
 @objectmodel.dont_inline
 def mmap_error(space, e):
     if isinstance(e, RValueError):
-        return OperationError(space.w_ValueError, space.wrap(e.message))
+        return OperationError(space.w_ValueError, space.newtext(e.message))
     elif isinstance(e, RTypeError):
-        return OperationError(space.w_TypeError, space.wrap(e.message))
+        return OperationError(space.w_TypeError, space.newtext(e.message))
     elif isinstance(e, OSError):
         return wrap_oserror(space, e)
     else:
         # bogus 'e'?
-        return OperationError(space.w_SystemError, space.wrap('%s' % e))
+        return OperationError(space.w_SystemError, space.newtext('%s' % e))
 
 
 class MMapBuffer(Buffer):

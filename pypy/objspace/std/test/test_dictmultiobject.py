@@ -1218,6 +1218,8 @@ class FakeSpace:
         return l
     def newlist_bytes(self, l):
         return l
+    def newlist_text(self, l):
+        return l
     def newlist_unicode(self, l):
         return l
     DictObjectCls = W_DictObject
@@ -1227,22 +1229,21 @@ class FakeSpace:
         if isinstance(w_obj, FakeUnicode):
             return unicode
         return type(w_obj)
-    w_str = str
     w_unicode = unicode
+    w_text = unicode
+    w_bytes = str
 
-    def str_w(self, string):
-        if isinstance(string, unicode):
-            return string.encode('utf-8')
-        assert isinstance(string, str)
-        return string
+    def text_w(self, u):
+        assert isinstance(u, unicode)
+        return u.encode('utf-8')
 
     def bytes_w(self, string):
         assert isinstance(string, str)
         return string
 
-    def unicode_w(self, string):
-        assert isinstance(string, unicode)
-        return string
+    def unicode_w(self, u):
+        assert isinstance(u, unicode)
+        return u
 
     def int_w(self, integer, allow_conversion=True):
         assert isinstance(integer, int)
@@ -1252,6 +1253,14 @@ class FakeSpace:
         if isinstance(obj, str):
             return obj.decode('ascii')
         return obj
+
+    def newunicode(self, u):
+        assert isinstance(u, unicode)
+        return u
+
+    def newtext(self, string):
+        assert isinstance(string, str)
+        return string.decode('utf-8')
 
     def newbytes(self, obj):
         return obj
@@ -1297,7 +1306,6 @@ class FakeSpace:
     StringObjectCls = FakeString
     UnicodeObjectCls = FakeUnicode
     w_dict = W_DictObject
-    w_text = str
     iter = iter
     fixedview = list
     listview  = list
@@ -1440,7 +1448,7 @@ class BaseTestRDictImplementation:
     def test_devolve(self):
         impl = self.impl
         for x in xrange(100):
-            impl.setitem(self.fakespace.str_w(str(x)), x)
+            impl.setitem(self.fakespace.text_w(unicode(x)), x)
             impl.setitem(x, x)
         assert type(impl.get_strategy()) is ObjectDictStrategy
 
@@ -1504,10 +1512,10 @@ class TestUnicodeDictImplementation(BaseTestRDictImplementation):
         assert self.fakespace.view_as_kwargs(self.impl) == (["fish", "fish2"], [1000, 2000])
 
     def test_setitem_str(self):
-        self.impl.setitem_str(self.fakespace.str_w(self.string), 1000)
+        self.impl.setitem_str(self.fakespace.text_w(self.string), 1000)
         assert self.impl.length() == 1
         assert self.impl.getitem(self.string) == 1000
-        assert self.impl.getitem_str(self.string) == 1000
+        assert self.impl.getitem_str(str(self.string)) == 1000
         self.check_not_devolved()
 
 class TestBytesDictImplementation(BaseTestRDictImplementation):

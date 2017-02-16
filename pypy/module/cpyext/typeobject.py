@@ -6,8 +6,8 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 
 from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
 from pypy.interpreter.error import oefmt
-from pypy.interpreter.typedef import (
-    GetSetProperty, TypeDef, interp_attrproperty, interp2app)
+from pypy.interpreter.typedef import (GetSetProperty, TypeDef,
+        interp_attrproperty, interp2app)
 from pypy.module.__builtin__.abstractinst import abstract_issubclass_w
 from pypy.module.cpyext import structmemberdefs
 from pypy.module.cpyext.api import (
@@ -31,7 +31,7 @@ from pypy.module.cpyext.slotdefs import (
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
 from pypy.module.cpyext.typeobjectdefs import (
-    PyGetSetDef, PyMemberDef, PyMappingMethods,
+    PyGetSetDef, PyMemberDef, PyMappingMethods, getter, setter,
     PyNumberMethods, PySequenceMethods, PyBufferProcs)
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 
@@ -61,7 +61,7 @@ class W_GetSetPropertyEx(GetSetProperty):
                                 tag="cpyext_1")
 
 def PyDescr_NewGetSet(space, getset, w_type):
-    return space.wrap(W_GetSetPropertyEx(getset, w_type))
+    return W_GetSetPropertyEx(getset, w_type)
 
 def make_GetSet(space, getsetprop):
     py_getsetdef = lltype.malloc(PyGetSetDef, flavor='raw')
@@ -102,9 +102,11 @@ W_MemberDescr.typedef = TypeDef(
     __get__ = interp2app(GetSetProperty.descr_property_get),
     __set__ = interp2app(GetSetProperty.descr_property_set),
     __delete__ = interp2app(GetSetProperty.descr_property_del),
-    __name__ = interp_attrproperty('name', cls=GetSetProperty),
+    __name__ = interp_attrproperty('name', cls=GetSetProperty,
+        wrapfn="newtext_or_none"),
     __objclass__ = GetSetProperty(GetSetProperty.descr_get_objclass),
-    __doc__ = interp_attrproperty('doc', cls=GetSetProperty),
+    __doc__ = interp_attrproperty('doc', cls=GetSetProperty,
+        wrapfn="newtext_or_none"),
     )
 assert not W_MemberDescr.typedef.acceptable_as_base_class  # no __new__
 
@@ -244,7 +246,7 @@ def convert_member_defs(space, dict_w, members, w_type):
             if not name:
                 break
             name = rffi.charp2str(name)
-            w_descr = space.wrap(W_MemberDescr(member, w_type))
+            w_descr = W_MemberDescr(member, w_type)
             dict_w[name] = w_descr
             i += 1
 
@@ -356,9 +358,9 @@ def add_operators(space, dict_w, pto):
             continue
         w_obj = W_PyCWrapperObject(space, pto, method_name, wrapper_func,
                 wrapper_func_kwds, doc, func_voidp, offset=offset)
-        dict_w[method_name] = space.wrap(w_obj)
+        dict_w[method_name] = w_obj
     if pto.c_tp_doc:
-        dict_w['__doc__'] = space.newbytes(
+        dict_w['__doc__'] = space.newtext(
             rffi.charp2str(cts.cast('char*', pto.c_tp_doc)))
     if pto.c_tp_new:
         add_tp_new_wrapper(space, dict_w, pto)
@@ -502,7 +504,7 @@ class W_PyCTypeObject(W_TypeObject):
         elif pto.c_tp_as_mapping and pto.c_tp_as_mapping.c_mp_subscript:
             self.flag_map_or_seq = 'M'
         if pto.c_tp_doc:
-            self.w_doc = space.newbytes(
+            self.w_doc = space.newtext(
                 rffi.charp2str(cts.cast('char*', pto.c_tp_doc)))
 
 @bootstrap_function
@@ -625,7 +627,7 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
 
     typedescr = get_typedescr(w_type.layout.typedef)
 
-    if space.is_w(w_type, space.w_str):
+    if space.is_w(w_type, space.w_bytes):
         pto.c_tp_itemsize = 1
     elif space.is_w(w_type, space.w_tuple):
         pto.c_tp_itemsize = rffi.sizeof(PyObject)
@@ -641,7 +643,7 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
             # point we might get into troubles by doing make_ref() when
             # things are not initialized yet.  So in this case, simply use
             # str2charp() and "leak" the string.
-        w_typename = space.getattr(w_type, space.wrap('__name__'))
+        w_typename = space.getattr(w_type, space.newtext('__name__'))
         heaptype = cts.cast('PyHeapTypeObject*', pto)
         heaptype.c_ht_name = make_ref(space, w_typename)
         from pypy.module.cpyext.unicodeobject import PyUnicode_AsUTF8
@@ -872,9 +874,9 @@ def _PyType_Lookup(space, type, w_name):
     w_type = from_ref(space, rffi.cast(PyObject, type))
     assert isinstance(w_type, W_TypeObject)
 
-    if not space.isinstance_w(w_name, space.w_unicode):
+    if not space.isinstance_w(w_name, space.w_text):
         return None
-    name = space.str_w(w_name)
+    name = space.text_w(w_name)
     w_obj = w_type.lookup(name)
     # this assumes that w_obj is not dynamically created, but will stay alive
     # until w_type is modified or dies.  Assuming this, we return a borrowed ref

@@ -19,11 +19,11 @@ from rpython.rlib.rsre.rsre_char import CODESIZE, MAXREPEAT, MAXGROUPS, getlower
 
 @unwrap_spec(char_ord=int, flags=int)
 def w_getlower(space, char_ord, flags):
-    return space.wrap(getlower(char_ord, flags))
+    return space.newint(getlower(char_ord, flags))
 
 
 def w_getcodesize(space):
-    return space.wrap(CODESIZE)
+    return space.newint(CODESIZE)
 
 # use the same version of unicodedb as the standard objspace
 import pypy.objspace.std.unicodeobject
@@ -73,20 +73,20 @@ def allgroups_w(space, ctx, fmarks, num_groups, w_default):
 
 
 def import_re(space):
-    w_import = space.getattr(space.builtin, space.wrap("__import__"))
-    return space.call_function(w_import, space.wrap("re"))
+    w_import = space.getattr(space.builtin, space.newtext("__import__"))
+    return space.call_function(w_import, space.newtext("re"))
 
 def matchcontext(space, ctx):
     try:
         return rsre_core.match_context(ctx)
     except rsre_core.Error as e:
-        raise OperationError(space.w_RuntimeError, space.wrap(e.msg))
+        raise OperationError(space.w_RuntimeError, space.newtext(e.msg))
 
 def searchcontext(space, ctx):
     try:
         return rsre_core.search_context(ctx)
     except rsre_core.Error as e:
-        raise OperationError(space.w_RuntimeError, space.wrap(e.msg))
+        raise OperationError(space.w_RuntimeError, space.newtext(e.msg))
 
 # ____________________________________________________________
 #
@@ -128,7 +128,7 @@ class W_SRE_Pattern(W_Root):
         else:
             usep = u', '
             uflags = u'|'.join([item.decode('latin-1') for item in flag_items])
-        return space.wrap(u're.compile(%s%s%s)' % (u, usep, uflags))
+        return space.newunicode(u're.compile(%s%s%s)' % (u, usep, uflags))
 
     def fget_groupindex(self, space):
         w_groupindex = self.w_groupindex
@@ -234,7 +234,7 @@ class W_SRE_Pattern(W_Root):
             if not searchcontext(space, ctx):
                 break
             num_groups = self.num_groups
-            w_emptystr = space.wrap("")
+            w_emptystr = space.newtext("")
             if num_groups == 0:
                 w_item = slice_w(space, ctx, ctx.match_start, ctx.match_end,
                                  w_emptystr)
@@ -257,7 +257,7 @@ class W_SRE_Pattern(W_Root):
         # scanner() method.
         ctx = self.make_ctx(w_string, pos, endpos)
         scanner = W_SRE_Scanner(self, ctx)
-        return self.space.wrap(scanner)
+        return scanner
 
     @unwrap_spec(maxsplit=int)
     def split_w(self, w_string, maxsplit=0):
@@ -267,7 +267,7 @@ class W_SRE_Pattern(W_Root):
                 raise oefmt(space.w_ValueError,
                             "split() requires a non-empty pattern match.")
             space.warn(
-                space.wrap("split() requires a non-empty pattern match."),
+                space.newtext("split() requires a non-empty pattern match."),
                 space.w_FutureWarning)
         #
         splitlist = []
@@ -305,7 +305,7 @@ class W_SRE_Pattern(W_Root):
     def subn_w(self, w_repl, w_string, count=0):
         w_item, n = self.subx(w_repl, w_string, count)
         space = self.space
-        return space.newtuple([w_item, space.wrap(n)])
+        return space.newtuple([w_item, space.newint(n)])
 
     def subx(self, w_ptemplate, w_string, count):
         space = self.space
@@ -329,7 +329,7 @@ class W_SRE_Pattern(W_Root):
                     filter_as_string = buf.as_str()
                 literal = '\\' not in filter_as_string
                 use_builder = (
-                    space.isinstance_w(w_string, space.w_str) and literal)
+                    space.isinstance_w(w_string, space.w_bytes) and literal)
             if literal:
                 w_filter = w_ptemplate
                 filter_is_callable = False
@@ -341,7 +341,7 @@ class W_SRE_Pattern(W_Root):
                     w_ptemplate = space.newbytes(filter_as_string)
                 w_re = import_re(space)
                 w_filter = space.call_method(w_re, '_subx',
-                                             space.wrap(self), w_ptemplate)
+                                             self, w_ptemplate)
                 filter_is_callable = space.is_true(space.callable(w_filter))
         #
         # XXX this is a bit of a mess, but it improves performance a lot
@@ -459,7 +459,7 @@ def _sub_append_slice(ctx, space, use_builder, sublist_w,
 def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
               groups=0, w_groupindex=None, w_indexgroup=None):
     n = space.len_w(w_code)
-    code = [intmask(space.uint_w(space.getitem(w_code, space.wrap(i))))
+    code = [intmask(space.uint_w(space.getitem(w_code, space.newint(i))))
             for i in range(n)]
     #
     w_srepat = space.allocate_instance(W_SRE_Pattern, w_subtype)
@@ -494,9 +494,11 @@ W_SRE_Pattern.typedef = TypeDef(
     split        = interp2app(W_SRE_Pattern.split_w),
     sub          = interp2app(W_SRE_Pattern.sub_w),
     subn         = interp2app(W_SRE_Pattern.subn_w),
-    flags        = interp_attrproperty('flags', W_SRE_Pattern),
+    flags        = interp_attrproperty('flags', W_SRE_Pattern,
+        wrapfn="newint"),
     groupindex   = GetSetProperty(W_SRE_Pattern.fget_groupindex),
-    groups       = interp_attrproperty('num_groups', W_SRE_Pattern),
+    groups       = interp_attrproperty('num_groups', W_SRE_Pattern,
+        wrapfn="newint"),
     pattern      = interp_attrproperty_w('w_pattern', W_SRE_Pattern),
 )
 W_SRE_Pattern.typedef.acceptable_as_base_class = False
@@ -521,7 +523,7 @@ class W_SRE_Match(W_Root):
         u = space.unicode_w(space.repr(w_s))
         if len(u) > 50:
             u = u[:50]
-        return space.wrap(u'<_sre.SRE_Match object; span=(%d, %d), match=%s>' % 
+        return space.newunicode(u'<_sre.SRE_Match object; span=(%d, %d), match=%s>' % 
                           (start, end, u))
 
     def cannot_copy_w(self):
@@ -573,22 +575,22 @@ class W_SRE_Match(W_Root):
     def expand_w(self, w_template):
         space = self.space
         w_re = import_re(space)
-        return space.call_method(w_re, '_expand', space.wrap(self.srepat),
-                                 space.wrap(self), w_template)
+        return space.call_method(w_re, '_expand', self.srepat,
+                                 self, w_template)
 
     @unwrap_spec(w_groupnum=WrappedDefault(0))
     def start_w(self, w_groupnum):
-        return self.space.wrap(self.do_span(w_groupnum)[0])
+        return self.space.newint(self.do_span(w_groupnum)[0])
 
     @unwrap_spec(w_groupnum=WrappedDefault(0))
     def end_w(self, w_groupnum):
-        return self.space.wrap(self.do_span(w_groupnum)[1])
+        return self.space.newint(self.do_span(w_groupnum)[1])
 
     @unwrap_spec(w_groupnum=WrappedDefault(0))
     def span_w(self, w_groupnum):
         start, end = self.do_span(w_groupnum)
-        return self.space.newtuple([self.space.wrap(start),
-                                    self.space.wrap(end)])
+        return self.space.newtuple([self.space.newint(start),
+                                    self.space.newint(end)])
 
     def flatten_marks(self):
         if self.flatten_cache is None:
@@ -632,7 +634,7 @@ class W_SRE_Match(W_Root):
         if lastindex < 0:
             return space.w_None
         w_result = space.finditem(self.srepat.w_indexgroup,
-                                  space.wrap(lastindex))
+                                  space.newint(lastindex))
         if w_result is None:
             return space.w_None
         return w_result
@@ -640,14 +642,14 @@ class W_SRE_Match(W_Root):
     def fget_lastindex(self, space):
         lastindex = self._last_index()
         if lastindex >= 0:
-            return space.wrap(lastindex)
+            return space.newint(lastindex)
         return space.w_None
 
     def fget_pos(self, space):
-        return space.wrap(self.ctx.original_pos)
+        return space.newint(self.ctx.original_pos)
 
     def fget_endpos(self, space):
-        return space.wrap(self.ctx.end)
+        return space.newint(self.ctx.end)
 
     def fget_regs(self, space):
         space = self.space
@@ -655,11 +657,11 @@ class W_SRE_Match(W_Root):
         num_groups = self.srepat.num_groups
         result_w = [None] * (num_groups + 1)
         ctx = self.ctx
-        result_w[0] = space.newtuple([space.wrap(ctx.match_start),
-                                      space.wrap(ctx.match_end)])
+        result_w[0] = space.newtuple([space.newint(ctx.match_start),
+                                      space.newint(ctx.match_end)])
         for i in range(num_groups):
-            result_w[i + 1] = space.newtuple([space.wrap(fmarks[i*2]),
-                                              space.wrap(fmarks[i*2+1])])
+            result_w[i + 1] = space.newtuple([space.newint(fmarks[i*2]),
+                                              space.newint(fmarks[i*2+1])])
         return space.newtuple(result_w)
 
     def fget_string(self, space):
@@ -687,7 +689,7 @@ W_SRE_Match.typedef = TypeDef(
     span         = interp2app(W_SRE_Match.span_w),
     expand       = interp2app(W_SRE_Match.expand_w),
     #
-    re           = interp_attrproperty('srepat', W_SRE_Match),
+    re           = interp_attrproperty_w('srepat', W_SRE_Match),
     string       = GetSetProperty(W_SRE_Match.fget_string),
     pos          = GetSetProperty(W_SRE_Match.fget_pos),
     endpos       = GetSetProperty(W_SRE_Match.fget_endpos),
@@ -712,7 +714,7 @@ class W_SRE_Scanner(W_Root):
         # or matching succeeded so far.
 
     def iter_w(self):
-        return self.space.wrap(self)
+        return self
 
     def next_w(self):
         if self.ctx.match_start > self.ctx.end:
@@ -738,7 +740,7 @@ class W_SRE_Scanner(W_Root):
             nextstart += (ctx.match_start == nextstart)
             self.ctx = ctx.fresh_copy(nextstart)
             match = W_SRE_Match(self.srepat, ctx)
-            return self.space.wrap(match)
+            return match
         else:
             self.ctx.match_start += 1     # obscure corner case
             return None
@@ -749,6 +751,6 @@ W_SRE_Scanner.typedef = TypeDef(
     __next__ = interp2app(W_SRE_Scanner.next_w),
     match    = interp2app(W_SRE_Scanner.match_w),
     search   = interp2app(W_SRE_Scanner.search_w),
-    pattern  = interp_attrproperty('srepat', W_SRE_Scanner),
+    pattern  = interp_attrproperty_w('srepat', W_SRE_Scanner),
 )
 W_SRE_Scanner.typedef.acceptable_as_base_class = False

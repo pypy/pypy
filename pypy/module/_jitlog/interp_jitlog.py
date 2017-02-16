@@ -12,7 +12,7 @@ class Cache:
 
 def JitlogError(space, e):
     w_JitlogError = space.fromcache(Cache).w_JitlogError
-    return OperationError(w_JitlogError, space.wrap(e.msg))
+    return OperationError(w_JitlogError, space.newtext(e.msg))
 
 @unwrap_spec(fileno=int)
 def enable(space, fileno):

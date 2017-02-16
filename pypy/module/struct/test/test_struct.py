@@ -264,6 +264,8 @@ class AppTestStruct(object):
         assert pack(">?", False) == b'\x00'
         assert pack("@?", True) == b'\x01'
         assert pack("@?", False) == b'\x00'
+        assert self.struct.unpack("?", b'X')[0] is True
+        raises(TypeError, self.struct.unpack, "?", 'X')
 
     def test_transitiveness(self):
         c = b'a'
@@ -529,6 +531,17 @@ class AppTestStruct(object):
                     continue
                 format = byteorder+code
                 t = run_not_int_test(format)
+
+    def test_struct_with_bytes_as_format_string(self):
+        # why??
+        assert self.struct.calcsize(b'!ii') == 8
+        b = memoryview(bytearray(8))
+        self.struct.iter_unpack(b'ii', b)
+        self.struct.pack(b"ii", 45, 56)
+        self.struct.pack_into(b"ii", b, 0, 45, 56)
+        self.struct.unpack(b"ii", b"X" * 8)
+        assert self.struct.unpack_from(b"ii", b) == (45, 56)
+        self.struct.Struct(b"ii")
 
 
 class AppTestStructBuffer(object):

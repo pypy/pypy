@@ -105,13 +105,13 @@ def concatenate(space, w_args, w_axis=None):
         raise oefmt(space.w_ValueError, "need at least one array to concatenate")
     args_w = [convert_to_array(space, w_arg) for w_arg in args_w]
     if w_axis is None:
-        w_axis = space.wrap(0)
+        w_axis = space.newint(0)
     if space.is_none(w_axis):
         args_w = [w_arg.reshape(space,
                                 space.newlist([w_arg.descr_get_size(space)]),
                                 w_arg.get_order())
                   for w_arg in args_w]
-        w_axis = space.wrap(0)
+        w_axis = space.newint(0)
     dtype = args_w[0].get_dtype()
     shape = args_w[0].get_shape()[:]
     ndim = len(shape)
@@ -184,7 +184,7 @@ def repeat(space, w_arr, repeats, w_axis):
 
 
 def count_nonzero(space, w_obj):
-    return space.wrap(loop.count_all_true(convert_to_array(space, w_obj)))
+    return space.newint(loop.count_all_true(convert_to_array(space, w_obj)))
 
 
 def choose(space, w_arr, w_choices, w_out, w_mode):

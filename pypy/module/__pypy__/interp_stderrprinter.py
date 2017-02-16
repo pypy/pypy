@@ -34,8 +34,8 @@ class W_StdErrPrinter(W_Root):
         return space.wrap(res)
 
     def descr_write(self, space, w_data):
-        # Encode to UTF-8.
-        data = space.identifier_w(w_data)
+        # Encode to UTF-8-nosg.
+        data = space.text_w(w_data)
 
         try:
             n = os.write(self.fd, data)

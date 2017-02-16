@@ -12,6 +12,7 @@ from pypy.interpreter.gateway import (
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.unicodehelper import decode_utf8
 from pypy.objspace.std.util import negate
 
 
@@ -171,7 +172,7 @@ class W_DictMultiObject(W_Root):
     descr_ne = negate(descr_eq)
 
     def descr_len(self, space):
-        return space.wrap(self.length())
+        return space.newint(self.length())
 
     def descr_iter(self, space):
         return W_DictMultiIterKeysObject(space, self.iterkeys())
@@ -473,9 +474,6 @@ class DictStrategy(object):
 
     def get_empty_storage(self):
         raise NotImplementedError
-
-    def decodekey_str(self, key):
-        return key.decode('utf-8')
 
     @jit.look_inside_iff(lambda self, w_dict:
                          w_dict_unrolling_heuristic(w_dict))
@@ -947,7 +945,7 @@ class AbstractTypedStrategy(object):
 
     def setitem_str(self, w_dict, key, w_value):
         self.switch_to_object_strategy(w_dict)
-        w_dict.setitem(self.space.wrap(self.decodekey_str(key)), w_value)
+        w_dict.setitem(self.space.newtext(key), w_value)
 
     def setdefault(self, w_dict, w_key, w_default):
         if self.is_correct_type(w_key):
@@ -969,7 +967,7 @@ class AbstractTypedStrategy(object):
         return len(self.unerase(w_dict.dstorage))
 
     def getitem_str(self, w_dict, key):
-        return self.getitem(w_dict, self.space.wrap(self.decodekey_str(key)))
+        return self.getitem(w_dict, self.space.newtext(key))
 
     def getitem(self, w_dict, w_key):
         space = self.space
@@ -1087,7 +1085,7 @@ class ObjectDictStrategy(AbstractTypedStrategy, DictStrategy):
         return self.space.newlist(self.unerase(w_dict.dstorage).keys())
 
     def setitem_str(self, w_dict, s, w_value):
-        self.setitem(w_dict, self.space.wrap(self.decodekey_str(s)), w_value)
+        self.setitem(w_dict, self.space.newtext(s), w_value)
 
     def switch_to_object_strategy(self, w_dict):
         assert 0, "should be unreachable"
@@ -1108,7 +1106,7 @@ class BytesDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     def is_correct_type(self, w_obj):
         space = self.space
-        return space.is_w(space.type(w_obj), space.w_str)
+        return space.is_w(space.type(w_obj), space.w_bytes)
 
     def get_empty_storage(self):
         res = {}
@@ -1166,7 +1164,7 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
     unerase = staticmethod(unerase)
 
     def wrap(self, unwrapped):
-        return self.space.wrap(unwrapped)
+        return self.space.newunicode(unwrapped)
 
     def unwrap(self, wrapped):
         return self.space.unicode_w(wrapped)
@@ -1184,6 +1182,9 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
         return _never_equal_to_string(self.space, w_lookup_type)
 
     # we should implement the same shortcuts as we do for BytesDictStrategy
+
+    def decodekey_str(self, key):
+        return decode_utf8(self.space, key, allow_surrogates=True)
 
     def setitem_str(self, w_dict, key, w_value):
         assert key is not None
@@ -1208,7 +1209,7 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
         return self.space.newlist_unicode(self.listview_unicode(w_dict))
 
     def wrapkey(space, key):
-        return space.wrap(key)
+        return space.newunicode(key)
 
     @jit.look_inside_iff(lambda self, w_dict:
                          w_dict_unrolling_heuristic(w_dict))
@@ -1240,7 +1241,7 @@ class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
     unerase = staticmethod(unerase)
 
     def wrap(self, unwrapped):
-        return self.space.wrap(unwrapped)
+        return self.space.newint(unwrapped)
 
     def unwrap(self, wrapped):
         return self.space.int_w(wrapped)
@@ -1256,7 +1257,7 @@ class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
         space = self.space
         # XXX there are many more types
         return (space.is_w(w_lookup_type, space.w_NoneType) or
-                space.is_w(w_lookup_type, space.w_str) or
+                space.is_w(w_lookup_type, space.w_bytes) or
                 space.is_w(w_lookup_type, space.w_unicode)
                 )
 
@@ -1264,7 +1265,7 @@ class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
         return self.unerase(w_dict.dstorage).keys()
 
     def wrapkey(space, key):
-        return space.wrap(key)
+        return space.newint(key)
 
     def w_keys(self, w_dict):
         return self.space.newlist_int(self.listview_int(w_dict))
@@ -1276,7 +1277,7 @@ def update1(space, w_dict, w_data):
     if isinstance(w_data, W_DictMultiObject):    # optimization case only
         update1_dict_dict(space, w_dict, w_data)
         return
-    w_method = space.findattr(w_data, space.wrap("keys"))
+    w_method = space.findattr(w_data, space.newtext("keys"))
     if w_method is None:
         # no 'keys' method, so we assume it is a sequence of pairs
         data_w = space.listview(w_data)
@@ -1334,7 +1335,7 @@ class W_BaseDictMultiIterObject(W_Root):
         return self
 
     def descr_length_hint(self, space):
-        return space.wrap(self.iteratorimplementation.length())
+        return space.newint(self.iteratorimplementation.length())
 
     def descr_reduce(self, space):
         """
@@ -1436,7 +1437,7 @@ class W_DictViewObject(W_Root):
         typename = space.type(self).getname(space)
         w_seq = space.call_function(space.w_list, self)
         seq_repr = space.unicode_w(space.repr(w_seq))
-        return space.wrap(u"%s(%s)" % (typename, seq_repr))
+        return space.newunicode(u"%s(%s)" % (typename, seq_repr))
 
     def descr_len(self, space):
         return space.len(self.w_dict)

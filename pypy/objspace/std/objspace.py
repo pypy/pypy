@@ -12,6 +12,7 @@ from rpython.rlib.objectmodel import instantiate, specialize, is_annotation_cons
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rarithmetic import base_int, widen, is_valid_int
 from rpython.rlib.objectmodel import import_from_mixin, we_are_translated
+from rpython.rlib.objectmodel import not_rpython
 from rpython.rlib import jit
 
 # Object imports
@@ -41,8 +42,9 @@ class StdObjSpace(ObjSpace):
     library in Restricted Python."""
     import_from_mixin(DescrOperation)
 
+    @not_rpython
     def initialize(self):
-        """NOT_RPYTHON: only for initializing the space
+        """only for initializing the space
 
         Setup all the object types and implementations.
         """
@@ -90,14 +92,17 @@ class StdObjSpace(ObjSpace):
             self.builtin_types[typedef.name] = w_type
             setattr(self, 'w_' + typedef.name, w_type)
             self._interplevel_classes[w_type] = cls
+        # The loop above sets space.w_str and space.w_bytes.
+        # We rename 'space.w_str' to 'space.w_unicode' and
+        # 'space.w_text'.
         self.w_dict.flag_map_or_seq = 'M'
         self.w_list.flag_map_or_seq = 'S'
         self.w_tuple.flag_map_or_seq = 'S'
         self.w_unicode = self.w_str
         self.w_text = self.w_str
-        self.w_str = self.w_bytes
+        self.w_str = self.w_bytes      # BACKCOMPAT kill me
         self.builtin_types['str'] = self.w_unicode
-        self.builtin_types['bytes'] = self.w_str
+        self.builtin_types['bytes'] = self.w_bytes
         self.builtin_types["NotImplemented"] = self.w_NotImplemented
         self.builtin_types["Ellipsis"] = self.w_Ellipsis
 
@@ -130,15 +135,15 @@ class StdObjSpace(ObjSpace):
         assert typedef is not None
         return self.fromcache(TypeCache).getorbuild(typedef)
 
+    # BACKCOMPAT: this function is still accepted for backward
+    # compatibility, but its usage should be progressively removed
+    # everywhere apart from tests.
+    #@not_rpython # only for tests
     @specialize.argtype(1)
     def wrap(self, x):
-        "Wraps the Python value 'x' into one of the wrapper classes."
-        # You might notice that this function is rather conspicuously
-        # not RPython.  We can get away with this because the function
-        # is specialized (see after the function body).  Also worth
-        # noting is that the isinstance's involving integer types
-        # behave rather differently to how you might expect during
-        # annotation (see pypy/annotation/builtin.py)
+        """ Wraps the Python value 'x' into one of the wrapper classes. This
+        should only be used for tests, in real code you need to use the
+        explicit new* methods."""
         if x is None:
             return self.w_None
         if isinstance(x, OperationError):
@@ -155,55 +160,39 @@ class StdObjSpace(ObjSpace):
             try:
                 unicode_x = x.decode('ascii')
             except UnicodeDecodeError:
-                unicode_x = self._wrap_ascii_replace(x)
+                unicode_x = self._wrap_string_old(x)
             return self.newunicode(unicode_x)
         if isinstance(x, unicode):
             return self.newunicode(x)
         if isinstance(x, float):
             return W_FloatObject(x)
         if isinstance(x, W_Root):
-            w_result = x.__spacebind__(self)
+            w_result = x.spacebind(self)
             #print 'wrapping', x, '->', w_result
             return w_result
         if isinstance(x, base_int):
-            if self.config.objspace.std.withsmalllong:
-                from pypy.objspace.std.smalllongobject import W_SmallLongObject
-                from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
-                from rpython.rlib.rarithmetic import longlongmax
-                if (not isinstance(x, r_ulonglong)
-                    or x <= r_ulonglong(longlongmax)):
-                    return W_SmallLongObject(r_longlong(x))
-            x = widen(x)
-            if isinstance(x, int):
-                return self.newint(x)
-            else:
-                return W_LongObject.fromrarith_int(x)
+            return self.newint(x)
         return self._wrap_not_rpython(x)
 
-    def _wrap_ascii_replace(self, x):
-        # XXX should disappear soon?
-        # poor man's x.decode('ascii', 'replace'), since it's not
-        # supported by RPython
-        if not we_are_translated():
-            print 'WARNING: space.wrap() called on a non-ascii byte string: %r' % x
-        lst = []
-        for ch in x:
-            ch = ord(ch)
-            if ch > 127:
-                lst.append(u'\ufffd')
-            else:
-                lst.append(unichr(ch))
-        unicode_x = u''.join(lst)
-        return unicode_x
+    def _wrap_string_old(self, x):
+        # XXX should disappear soon
+        print 'WARNING: space.wrap() called on a non-ascii byte string: %r' % x
+        return self.newtext(x)
 
+    @not_rpython # only for tests
     def _wrap_not_rpython(self, x):
-        "NOT_RPYTHON"
         # _____ this code is here to support testing only _____
 
         # we might get there in non-translated versions if 'x' is
         # a long that fits the correct range.
         if is_valid_int(x):
             return self.newint(x)
+
+        return self._wrap_not_rpython(x)
+
+    def _wrap_not_rpython(self, x):
+        "NOT_RPYTHON"
+        # _____ this code is here to support testing only _____
 
         # wrap() of a container works on CPython, but the code is
         # not RPython.  Don't use -- it is kept around mostly for tests.
@@ -247,15 +236,15 @@ class StdObjSpace(ObjSpace):
             self.wrap("refusing to wrap cpython value %r" % (x,))
         )
 
+    @not_rpython
     def wrap_exception_cls(self, x):
-        """NOT_RPYTHON"""
         if hasattr(self, 'w_' + x.__name__):
             w_result = getattr(self, 'w_' + x.__name__)
             return w_result
         return None
 
+    @not_rpython
     def wraplong(self, x):
-        "NOT_RPYTHON"
         if self.config.objspace.std.withsmalllong:
             from rpython.rlib.rarithmetic import r_longlong
             try:
@@ -268,14 +257,25 @@ class StdObjSpace(ObjSpace):
                 return W_SmallLongObject(rx)
         return W_LongObject.fromlong(x)
 
+    @not_rpython
     def unwrap(self, w_obj):
-        """NOT_RPYTHON"""
         # _____ this code is here to support testing only _____
         if isinstance(w_obj, W_Root):
             return w_obj.unwrap(self)
         raise TypeError("cannot unwrap: %r" % w_obj)
 
+    @specialize.argtype(1)
     def newint(self, intval):
+        if self.config.objspace.std.withsmalllong and isinstance(intval, base_int):
+            from pypy.objspace.std.smalllongobject import W_SmallLongObject
+            from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
+            from rpython.rlib.rarithmetic import longlongmax
+            if (not isinstance(intval, r_ulonglong)
+                or intval <= r_ulonglong(longlongmax)):
+                return W_SmallLongObject(r_longlong(intval))
+        intval = widen(intval)
+        if not isinstance(intval, int):
+            return W_LongObject.fromrarith_int(intval)
         return wrapint(self, intval)
 
     def newfloat(self, floatval):
@@ -313,6 +313,10 @@ class StdObjSpace(ObjSpace):
 
     def newlist_bytes(self, list_s):
         return W_ListObject.newlist_bytes(self, list_s)
+
+    def newlist_text(self, list_t):
+        return self.newlist_unicode([
+            decode_utf8(self, s, allow_surrogates=True) for s in list_t])
 
     def newlist_unicode(self, list_u):
         return W_ListObject.newlist_unicode(self, list_u)
@@ -354,18 +358,23 @@ class StdObjSpace(ObjSpace):
         return W_MemoryView(w_obj, itemsize=itemsize)
 
     def newbytes(self, s):
+        assert isinstance(s, str)
         return W_BytesObject(s)
 
     def newbytearray(self, l):
         return W_BytearrayObject(l)
 
-    def newutf8(self, string):
-        return self.newunicode(decode_utf8(self, string))
-
     def newtext(self, s):
         return self.newunicode(decode_utf8(self, s, allow_surrogates=True))
 
+    def newtext_or_none(self, s):
+        if s is None:
+            return self.w_None
+        return self.newtext(s)
+
     def newunicode(self, uni):
+        assert uni is not None
+        assert isinstance(uni, unicode)
         return W_UnicodeObject(uni)
 
     def type(self, w_obj):
@@ -567,7 +576,7 @@ class StdObjSpace(ObjSpace):
         if isinstance(w_slice, W_SliceObject):
             a, b, c = w_slice.indices3(self, self.int_w(w_length))
             return (a, b, c)
-        w_indices = self.getattr(w_slice, self.wrap('indices'))
+        w_indices = self.getattr(w_slice, self.newtext('indices'))
         w_tup = self.call_function(w_indices, w_length)
         l_w = self.unpackiterable(w_tup)
         if not len(l_w) == 3:
@@ -667,7 +676,7 @@ class StdObjSpace(ObjSpace):
                 not w_obj.user_overridden_class):
             w_obj.setitem_str(key, w_value)
         else:
-            self.setitem(w_obj, self.wrap(key), w_value)
+            self.setitem(w_obj, self.newtext(key), w_value)
 
     def getindex_w(self, w_obj, w_exception, objdescr=None):
         if type(w_obj) is W_IntObject:

@@ -7,6 +7,10 @@ from rpython.tool.sourcetools import func_with_new_name
 
 
 def create_builder(name, strtype, builder_cls):
+    if strtype is str:
+        unwrap = 'bytes'
+    else:
+        unwrap = unicode
     class W_Builder(W_Root):
         def __init__(self, space, size):
             if size < 0:
@@ -23,12 +27,12 @@ def create_builder(name, strtype, builder_cls):
         def descr__new__(space, w_subtype, size=-1):
             return W_Builder(space, size)
 
-        @unwrap_spec(s=strtype)
+        @unwrap_spec(s=unwrap)
         def descr_append(self, space, s):
             self._check_done(space)
             self.builder.append(s)
 
-        @unwrap_spec(s=strtype, start=int, end=int)
+        @unwrap_spec(s=unwrap, start=int, end=int)
         def descr_append_slice(self, space, s, start, end):
             self._check_done(space)
             if not 0 <= start <= end <= len(s):
@@ -42,12 +46,12 @@ def create_builder(name, strtype, builder_cls):
             if strtype is str:
                 return space.newbytes(s)
             else:
-                return space.wrap(s)
+                return space.newunicode(s)
 
         def descr_len(self, space):
             if self.builder is None:
                 raise oefmt(space.w_ValueError, "no length of built builder")
-            return space.wrap(self.builder.getlength())
+            return space.newint(self.builder.getlength())
 
     W_Builder.__name__ = "W_%s" % name
     W_Builder.typedef = TypeDef(name,

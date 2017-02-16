@@ -93,7 +93,7 @@ def parsestr(space, encoding, s):
         else:
             substr = decode_unicode_utf8(space, s, ps, q)
         v = unicodehelper.decode_unicode_escape(space, substr)
-        return space.wrap(v)
+        return space.newunicode(v)
 
     assert 0 <= ps <= q
     substr = s[ps : q]
@@ -112,7 +112,7 @@ def parsestr(space, encoding, s):
             return W_FString(substr, rawmode)
         else:
             v = unicodehelper.decode_utf8(space, substr)
-            return space.wrap(v)
+            return space.newunicode(v)
 
     v = PyString_DecodeEscape(space, substr, 'strict', encoding)
     return space.newbytes(v)
@@ -261,9 +261,9 @@ def decode_utf8(space, s, ps, end):
 
 def decode_utf8_recode(space, s, ps, end, recode_encoding):
     u, ps = decode_utf8(space, s, ps, end)
-    w_v = unicodehelper.encode(space, space.wrap(u), recode_encoding)
+    w_v = unicodehelper.encode(space, space.newunicode(u), recode_encoding)
     v = space.bytes_w(w_v)
     return v, ps
 
 def raise_app_valueerror(space, msg):
-    raise OperationError(space.w_ValueError, space.wrap(msg))
+    raise OperationError(space.w_ValueError, space.newtext(msg))

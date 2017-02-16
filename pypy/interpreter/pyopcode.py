@@ -86,7 +86,7 @@ class __extend__(pyframe.PyFrame):
             rstackovf.check_stack_overflow()
             next_instr = self.handle_asynchronous_error(ec,
                 self.space.w_RecursionError,
-                self.space.wrap("maximum recursion depth exceeded"))
+                self.space.newtext("maximum recursion depth exceeded"))
         return next_instr
 
     def handle_asynchronous_error(self, ec, w_type, w_value=None):
@@ -469,7 +469,7 @@ class __extend__(pyframe.PyFrame):
         return self.getcode().co_consts_w[index]
 
     def getname_u(self, index):
-        return self.space.identifier_w(self.getname_w(index))
+        return self.space.text_w(self.getname_w(index))
 
     def getname_w(self, index):
         return self.getcode().co_names_w[index]
@@ -533,7 +533,7 @@ class __extend__(pyframe.PyFrame):
         i = varindex - len(self.pycode.co_cellvars)
         assert i >= 0
         name = self.pycode.co_freevars[i]
-        w_value = space.finditem(self.debugdata.w_locals, space.wrap(name))
+        w_value = space.finditem(self.debugdata.w_locals, space.newtext(name))
         if w_value is None:
             self.LOAD_DEREF(varindex, next_instr)
         else:
@@ -567,8 +567,7 @@ class __extend__(pyframe.PyFrame):
 
     def LOAD_CLOSURE(self, varindex, next_instr):
         # nested scopes: access the cell object
-        cell = self._getcell(varindex)
-        w_value = self.space.wrap(cell)
+        w_value = self._getcell(varindex)
         self.pushvalue(w_value)
 
     def POP_TOP(self, oparg, next_instr):
@@ -727,7 +726,7 @@ class __extend__(pyframe.PyFrame):
         operror = OperationError(w_type, w_value)
         operror.normalize_exception(space)
         operror.set_cause(space, w_cause)
-        tb = space.getattr(w_value, space.wrap('__traceback__'))
+        tb = space.getattr(w_value, space.newtext('__traceback__'))
         if not space.is_w(tb, space.w_None):
             operror.set_traceback(tb)
         raise operror
@@ -752,8 +751,8 @@ class __extend__(pyframe.PyFrame):
 
         w_globals, w_locals = ensure_ns(space, w_globals, w_locals, 'exec',
                                         self)
-        space.call_method(w_globals, 'setdefault', space.wrap('__builtins__'),
-                          space.wrap(self.get_builtin()))
+        space.call_method(w_globals, 'setdefault', space.newtext('__builtins__'),
+                          self.get_builtin())
 
         plain = (self.get_w_locals() is not None and
                  space.is_w(w_locals, self.get_w_locals()))
@@ -903,7 +902,7 @@ class __extend__(pyframe.PyFrame):
 
     def LOAD_NAME(self, nameindex, next_instr):
         w_varname = self.getname_w(nameindex)
-        varname = self.space.identifier_w(w_varname)
+        varname = self.space.text_w(w_varname)
         if self.getorcreatedebug().w_locals is not self.get_w_globals():
             w_value = self.space.finditem_str(self.getorcreatedebug().w_locals,
                                               varname)
@@ -935,7 +934,7 @@ class __extend__(pyframe.PyFrame):
     @always_inline
     def LOAD_GLOBAL(self, nameindex, next_instr):
         w_varname = self.getname_w(nameindex)
-        w_value = self._load_global(self.space.identifier_w(w_varname))
+        w_value = self._load_global(self.space.text_w(w_varname))
         if w_value is None:
             self._load_global_failed(w_varname)
         self.pushvalue(w_value)
@@ -1027,6 +1026,7 @@ class __extend__(pyframe.PyFrame):
     def IMPORT_NAME(self, nameindex, next_instr):
         space = self.space
         w_modulename = self.getname_w(nameindex)
+        modulename = self.space.text_w(w_modulename)
         w_fromlist = self.popvalue()
 
         w_flag = self.popvalue()
@@ -1047,6 +1047,7 @@ class __extend__(pyframe.PyFrame):
             w_locals = d.w_locals
         if w_locals is None:            # CPython does this
             w_locals = space.w_None
+        w_modulename = space.newtext(modulename)
         w_globals = self.get_w_globals()
         if w_flag is None:
             w_obj = space.call_function(w_import, w_modulename, w_globals,
@@ -1077,7 +1078,7 @@ class __extend__(pyframe.PyFrame):
                 raise
             try:
                 w_pkgname = space.getattr(
-                    w_module, space.newunicode(u'__name__'))
+                    w_module, space.newtext('__name__'))
                 w_fullname = space.newunicode(u'%s.%s' %
                     (space.unicode_w(w_pkgname), space.unicode_w(w_name)))
                 return space.getitem(space.sys.get('modules'), w_fullname)
@@ -1227,7 +1228,7 @@ class __extend__(pyframe.PyFrame):
         if isinstance(w_unroller, SApplicationException):
             # app-level exception
             operr = w_unroller.operr
-            w_traceback = self.space.wrap(operr.get_traceback())
+            w_traceback = operr.get_w_traceback(self.space)
             w_res = self.call_contextmanager_exit_function(
                 w_exitfunc,
                 operr.w_type,
@@ -1263,7 +1264,7 @@ class __extend__(pyframe.PyFrame):
                     break
                 w_value = self.popvalue()
                 w_key = self.popvalue()
-                key = self.space.identifier_w(w_key)
+                key = self.space.text_w(w_key)
                 keywords[n_keywords] = key
                 keywords_w[n_keywords] = w_value
         else:
@@ -1341,7 +1342,7 @@ class __extend__(pyframe.PyFrame):
         fn = function.Function(space, codeobj, self.get_w_globals(),
                                defaultarguments,
                                kw_defs_w, freevars, w_ann, qualname=qualname)
-        self.pushvalue(space.wrap(fn))
+        self.pushvalue(fn)
 
     def MAKE_FUNCTION(self, oparg, next_instr):
         return self._make_function(oparg)
@@ -1583,11 +1584,11 @@ class __extend__(pyframe.PyFrame):
                 raise oefmt(space.w_TypeError,
                             "'async for' received an invalid object "
                             "from __aiter__: %T", w_iter)
-            space.warn(space.wrap(
-                u"'%s' implements legacy __aiter__ protocol; "
-                u"__aiter__ should return an asynchronous "
-                u"iterator, not awaitable" %
-                    space.type(w_obj).name.decode('utf-8')),
+            space.warn(space.newtext(
+                "'%s' implements legacy __aiter__ protocol; "
+                "__aiter__ should return an asynchronous "
+                "iterator, not awaitable" %
+                    space.type(w_obj).name),
                 space.w_PendingDeprecationWarning)
         self.pushvalue(w_awaitable)
 
@@ -1757,9 +1758,8 @@ class FrameBlock(object):
 
     # internal pickling interface, not using the standard protocol
     def _get_state_(self, space):
-        w = space.wrap
-        return space.newtuple([w(self._opname), w(self.handlerposition),
-                               w(self.valuestackdepth)])
+        return space.newtuple([space.newtext(self._opname), space.newint(self.handlerposition),
+                               space.newint(self.valuestackdepth)])
 
     def handle(self, frame, unroller):
         """ Purely abstract method
@@ -1830,7 +1830,7 @@ class ExceptBlock(FrameBlock):
         assert isinstance(unroller, SApplicationException)
         operationerr = unroller.operr
         operationerr.normalize_exception(frame.space)
-        frame.pushvalue(frame.space.wrap(unroller))
+        frame.pushvalue(unroller)
         frame.pushvalue(operationerr.get_w_value(frame.space))
         frame.pushvalue(operationerr.w_type)
         # set the current value of sys_exc_info to operationerr,
@@ -1855,7 +1855,7 @@ class FinallyBlock(FrameBlock):
         if isinstance(unroller, SApplicationException):
             operationerr = unroller.operr
             operationerr.normalize_exception(frame.space)
-        frame.pushvalue(frame.space.wrap(unroller))
+        frame.pushvalue(unroller)
         # set the current value of sys_exc_info to operationerr,
         # saving the old value in a custom type of FrameBlock
         frame.save_and_change_sys_exc_info(operationerr)

@@ -1168,8 +1168,8 @@ class ASTBuilder(object):
                 raw = "0" + raw
         if negative:
             raw = "-" + raw
-        w_num_str = self.space.wrap(raw)
-        w_base = self.space.wrap(base)
+        w_num_str = self.space.newtext(raw)
+        w_base = self.space.newint(base)
         if raw[-1] in "jJ":
             tp = self.space.w_complex
             return self.space.call_function(tp, w_num_str)

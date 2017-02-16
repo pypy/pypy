@@ -155,7 +155,7 @@ will block until another thread unlocks it.  Deadlocks may ensue.""",
 def allocate_lock(space):
     """Create a new lock object.  (allocate() is an obsolete synonym.)
 See LockType.__doc__ for information about locks."""
-    return space.wrap(Lock(space))
+    return Lock(space)
 
 def _set_sentinel(space):
     """_set_sentinel() -> lock
@@ -169,7 +169,7 @@ def _set_sentinel(space):
     # after forking the lock must be recreated! forget the old lock
     lock = Lock(space)
     ec._sentinel_lock = lock
-    return space.wrap(lock)
+    return lock
 
 class W_RLock(W_Root):
     def __init__(self, space):
@@ -183,7 +183,7 @@ class W_RLock(W_Root):
     def descr__new__(space, w_subtype):
         self = space.allocate_instance(W_RLock, w_subtype)
         W_RLock.__init__(self, space)
-        return space.wrap(self)
+        return self
 
     def descr__repr__(self, space):
         classname = space.getfulltypename(self)
@@ -229,7 +229,7 @@ class W_RLock(W_Root):
             self.rlock_owner = tid
             self.rlock_count = 1
 
-        return space.wrap(r)
+        return space.newbool(r)
 
     def release_w(self, space):
         """Release the lock, allowing another thread that is blocked waiting for
@@ -280,7 +280,7 @@ class W_RLock(W_Root):
         count, self.rlock_count = self.rlock_count, 0
         owner, self.rlock_owner = self.rlock_owner, 0
         self.lock.release()
-        return space.newtuple([space.wrap(count), space.wrap(owner)])
+        return space.newtuple([space.newint(count), space.newint(owner)])
 
     def descr__enter__(self, space):
         self.acquire_w(space)

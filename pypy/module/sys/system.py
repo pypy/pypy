@@ -52,17 +52,17 @@ class thread_info(metaclass=structseqtype):
 
 def get_float_info(space):
     info_w = [
-        space.wrap(rfloat.DBL_MAX),
-        space.wrap(rfloat.DBL_MAX_EXP),
-        space.wrap(rfloat.DBL_MAX_10_EXP),
-        space.wrap(rfloat.DBL_MIN),
-        space.wrap(rfloat.DBL_MIN_EXP),
-        space.wrap(rfloat.DBL_MIN_10_EXP),
-        space.wrap(rfloat.DBL_DIG),
-        space.wrap(rfloat.DBL_MANT_DIG),
-        space.wrap(rfloat.DBL_EPSILON),
-        space.wrap(rfloat.FLT_RADIX),
-        space.wrap(rfloat.FLT_ROUNDS),
+        space.newfloat(rfloat.DBL_MAX),
+        space.newint(rfloat.DBL_MAX_EXP),
+        space.newint(rfloat.DBL_MAX_10_EXP),
+        space.newfloat(rfloat.DBL_MIN),
+        space.newint(rfloat.DBL_MIN_EXP),
+        space.newint(rfloat.DBL_MIN_10_EXP),
+        space.newint(rfloat.DBL_DIG),
+        space.newint(rfloat.DBL_MANT_DIG),
+        space.newfloat(rfloat.DBL_EPSILON),
+        space.newint(rfloat.FLT_RADIX),
+        space.newint(rfloat.FLT_ROUNDS),
     ]
     w_float_info = app.wget(space, "float_info")
     return space.call_function(w_float_info, space.newtuple(info_w))
@@ -71,8 +71,8 @@ def get_int_info(space):
     bits_per_digit = rbigint.SHIFT
     sizeof_digit = rffi.sizeof(rbigint.STORE_TYPE)
     info_w = [
-        space.wrap(bits_per_digit),
-        space.wrap(sizeof_digit),
+        space.newint(bits_per_digit),
+        space.newint(sizeof_digit),
     ]
     w_int_info = app.wget(space, "int_info")
     return space.call_function(w_int_info, space.newtuple(info_w))
@@ -107,7 +107,7 @@ def get_hash_info(space):
     return space.call_function(w_hash_info, space.newtuple(info_w))
 
 def get_float_repr_style(space):
-    return space.wrap("short")
+    return space.newtext("short")
 
 def get_thread_info(space):
     if not space.config.objspace.usemodules.thread:
@@ -132,7 +132,7 @@ def get_thread_info(space):
     return space.call_function(w_thread_info, space.newtuple(info_w))
 
 def getdlopenflags(space):
-    return space.wrap(space.sys.dlopenflags)
+    return space.newint(space.sys.dlopenflags)
 
 def setdlopenflags(space, w_flags):
     space.sys.dlopenflags = space.int_w(w_flags)

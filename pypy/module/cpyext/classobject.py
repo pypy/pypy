@@ -17,12 +17,12 @@ class InstanceMethod(W_Root):
     @staticmethod
     def descr_new(space, w_subtype, w_function):
         # instancemethod is not subclassable
-        return space.wrap(InstanceMethod(w_function))
+        return InstanceMethod(w_function)
 
     def descr_get(self, space, w_obj, w_klass=None):
         if space.is_none(w_obj):
             return self.w_function
-        return space.wrap(Method(space, self.w_function, w_obj))
+        return Method(space, self.w_function, w_obj)
 
     def descr_call(self, space, __args__):
         return space.call_args(self.w_function, __args__)
@@ -55,7 +55,7 @@ def PyInstanceMethod_New(space, w_func):
     """Return a new instance method object, with func being any
     callable object func is the function that will be called when the
     instance method is called."""
-    return space.wrap(InstanceMethod(w_func))
+    return InstanceMethod(w_func)
     
 
 @cpython_api([PyObject], PyObject)

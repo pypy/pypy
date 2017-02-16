@@ -20,9 +20,9 @@ if os.name == 'nt':
     def _getfunc(space, CDLL, w_name, w_argtypes, w_restype):
         argtypes_w, argtypes, w_restype, restype = unpack_argtypes(
             space, w_argtypes, w_restype)
-        if space.isinstance_w(w_name, space.w_unicode):
+        if space.isinstance_w(w_name, space.w_text):
             # XXX: support LoadLibraryW
-            name = space.str_w(w_name)
+            name = space.text_w(w_name)
             try:
                 func = CDLL.cdll.getpointer(name, argtypes, restype,
                                             flags = CDLL.flags)
@@ -52,9 +52,9 @@ if os.name == 'nt':
             raise oefmt(space.w_TypeError,
                         "function name must be a string or integer")
 else:
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='text')
     def _getfunc(space, CDLL, w_name, w_argtypes, w_restype):
-        name = space.str_w(w_name)
+        name = space.text_w(w_name)
         argtypes_w, argtypes, w_restype, restype = unpack_argtypes(
             space, w_argtypes, w_restype)
         try:
@@ -114,7 +114,7 @@ class W_FuncPtr(W_Root):
         try:
             return func_caller.do_and_wrap(self.w_restype)
         except StackCheckError as e:
-            raise OperationError(space.w_ValueError, space.wrap(e.message))
+            raise OperationError(space.w_ValueError, space.newtext(e.message))
         #return self._do_call(space, argchain)
 
     def free_temp_buffers(self, space):
@@ -129,7 +129,7 @@ class W_FuncPtr(W_Root):
         """
         Return the physical address in memory of the function
         """
-        return space.wrap(rffi.cast(rffi.LONG, self.func.funcsym))
+        return space.newint(rffi.cast(rffi.LONG, self.func.funcsym))
 
 
 class PushArgumentConverter(FromAppLevelConverter):
@@ -213,7 +213,7 @@ class CallFunctionConverter(ToAppLevelConverter):
         # the correct value, and to be sure to handle the signed/unsigned case
         # correctly, we need to cast the result to the correct type.  After
         # that, we cast it back to LONG, because this is what we want to pass
-        # to space.wrap in order to get a nice applevel <int>.
+        # to space.newint in order to get a nice applevel <int>.
         #
         restype = w_ffitype.get_ffitype()
         call = self.func.call
@@ -287,7 +287,7 @@ def unpack_argtypes(space, w_argtypes, w_restype):
     restype = unwrap_ffitype(space, w_restype, allow_void=True)
     return argtypes_w, argtypes, w_restype, restype
 
-@unwrap_spec(addr=r_uint, name=str, flags=int)
+@unwrap_spec(addr=r_uint, name='text', flags=int)
 def descr_fromaddr(space, w_cls, addr, name, w_argtypes,
                     w_restype, flags=libffi.FUNCFLAG_CDECL):
     argtypes_w, argtypes, w_restype, restype = unpack_argtypes(space,
@@ -331,7 +331,7 @@ class W_CDLL(W_Root):
     def getfunc(self, space, w_name, w_argtypes, w_restype):
         return _getfunc(space, self, w_name, w_argtypes, w_restype)
 
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='text')
     def getaddressindll(self, space, name):
         try:
             address_as_uint = rffi.cast(lltype.Unsigned,
@@ -339,14 +339,14 @@ class W_CDLL(W_Root):
         except KeyError:
             raise oefmt(space.w_ValueError,
                         "No symbol %s found in library %s", name, self.name)
-        return space.wrap(address_as_uint)
+        return space.newint(address_as_uint)
 
     def getidentifier(self, space):
-        return space.wrap(self.cdll.getidentifier())
+        return space.newint(self.cdll.getidentifier())
 
 @unwrap_spec(name='str_or_None', mode=int)
 def descr_new_cdll(space, w_type, name, mode=-1):
-    return space.wrap(W_CDLL(space, name, mode))
+    return W_CDLL(space, name, mode)
 
 
 W_CDLL.typedef = TypeDef(
@@ -365,7 +365,7 @@ class W_WinDLL(W_CDLL):
 
 @unwrap_spec(name='str_or_None', mode=int)
 def descr_new_windll(space, w_type, name, mode=-1):
-    return space.wrap(W_WinDLL(space, name, mode))
+    return W_WinDLL(space, name, mode)
 
 
 W_WinDLL.typedef = TypeDef(
@@ -380,4 +380,4 @@ W_WinDLL.typedef = TypeDef(
 # ========================================================================
 
 def get_libc(space):
-    return space.wrap(W_CDLL(space, get_libc_name(), -1))
+    return W_CDLL(space, get_libc_name(), -1)
