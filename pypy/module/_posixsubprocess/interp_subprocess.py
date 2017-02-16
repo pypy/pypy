@@ -220,7 +220,7 @@ def fork_exec(space, w_process_args, w_executable_list,
         if l_fds_to_keep:
             lltype.free(l_fds_to_keep, flavor='raw')
 
-    return space.wrap(pid)
+    return space.newint(pid)
 
 
 def cloexec_pipe(space):
@@ -233,6 +233,6 @@ def cloexec_pipe(space):
         if res != 0:
             raise exception_from_saved_errno(space, space.w_OSError)
 
-        return space.newtuple([space.wrap(fds[0]),
-                               space.wrap(fds[1]),
+        return space.newtuple([space.newint(fds[0]),
+                               space.newint(fds[1]),
                                ])

@@ -90,12 +90,12 @@ class W_MemoryView(W_Root):
     def _make_descr__cmp(name):
         def descr__cmp(self, space, w_other):
             if self.buf is None:
-                return space.wrap(getattr(operator, name)(self, w_other))
+                return space.newbool(getattr(operator, name)(self, w_other))
             if isinstance(w_other, W_MemoryView):
                 # xxx not the most efficient implementation
                 str1 = self.as_str()
                 str2 = w_other.as_str()
-                return space.wrap(getattr(operator, name)(str1, str2))
+                return space.newbool(getattr(operator, name)(str1, str2))
 
             try:
                 buf = space.buffer_w(w_other, space.BUF_CONTIG_RO)
@@ -106,7 +106,7 @@ class W_MemoryView(W_Root):
             else:
                 str1 = self.as_str()
                 str2 = buf.as_str()
-                return space.wrap(getattr(operator, name)(str1, str2))
+                return space.newbool(getattr(operator, name)(str1, str2))
         descr__cmp.func_name = name
         return descr__cmp
 
@@ -249,8 +249,8 @@ class W_MemoryView(W_Root):
         length = space.len_w(w_index)
         ndim = view.getndim()
         if length < ndim:
-            raise OperationError(space.w_NotImplementedError, \
-                    space.wrap("sub-views are not implemented"))
+            raise oefmt(space.w_NotImplementedError,
+                        "sub-views are not implemented")
 
         if length > ndim:
             raise oefmt(space.w_TypeError, \
@@ -407,23 +407,23 @@ class W_MemoryView(W_Root):
         if dim == 0:
             return space.newint(1)
         shape = self.getshape()
-        return space.wrap(shape[0])
+        return space.newint(shape[0])
 
     def w_get_nbytes(self, space):
         self._check_released(space)
-        return space.wrap(self.getlength())
+        return space.newint(self.getlength())
 
     def w_get_format(self, space):
         self._check_released(space)
-        return space.wrap(self.getformat())
+        return space.newtext(self.getformat())
 
     def w_get_itemsize(self, space):
         self._check_released(space)
-        return space.wrap(self.getitemsize())
+        return space.newint(self.getitemsize())
 
     def w_get_ndim(self, space):
         self._check_released(space)
-        return space.wrap(self.getndim())
+        return space.newint(self.getndim())
 
     def w_is_readonly(self, space):
         self._check_released(space)
@@ -431,11 +431,11 @@ class W_MemoryView(W_Root):
 
     def w_get_shape(self, space):
         self._check_released(space)
-        return space.newtuple([space.wrap(x) for x in self.getshape()])
+        return space.newtuple([space.newint(x) for x in self.getshape()])
 
     def w_get_strides(self, space):
         self._check_released(space)
-        return space.newtuple([space.wrap(x) for x in self.getstrides()])
+        return space.newtuple([space.newint(x) for x in self.getstrides()])
 
     def w_get_suboffsets(self, space):
         self._check_released(space)
@@ -455,7 +455,7 @@ class W_MemoryView(W_Root):
                 raise oefmt(space.w_ValueError,
                             "cannot hash writable memoryview object")
             self._hash = compute_hash(self.buf.as_str())
-        return space.wrap(self._hash)
+        return space.newint(self._hash)
 
     def descr_release(self, space):
         self.buf = None
@@ -481,8 +481,8 @@ class W_MemoryView(W_Root):
             # report the error using the RPython-level internal repr of self.buf
             msg = ("cannot find the underlying address of buffer that "
                    "is internally %r" % (self.buf,))
-            raise OperationError(space.w_ValueError, space.wrap(msg))
-        return space.wrap(rffi.cast(lltype.Signed, ptr))
+            raise OperationError(space.w_ValueError, space.newtext(msg))
+        return space.newint(rffi.cast(lltype.Signed, ptr))
 
     def get_native_fmtchar(self, fmt):
         from rpython.rtyper.lltypesystem import rffi
@@ -526,22 +526,22 @@ class W_MemoryView(W_Root):
         self._check_released(space)
 
         if not space.isinstance_w(w_format, space.w_unicode):
-            raise OperationError(space.w_TypeError, \
-                    space.wrap("memoryview: format argument must be a string"))
+            raise oefmt(space.w_TypeError,
+                        "memoryview: format argument must be a string")
 
         fmt = space.str_w(w_format)
         buf = self.buf
         ndim = 1
 
         if not memory_view_c_contiguous(space, self.flags):
-            raise OperationError(space.w_TypeError, \
-                    space.wrap("memoryview: casts are restricted" \
-                               " to C-contiguous views"))
+            raise oefmt(space.w_TypeError,
+                        "memoryview: casts are restricted"
+                        " to C-contiguous views")
 
         if (w_shape or buf.getndim() != 1) and self._zero_in_shape():
-            raise OperationError(space.w_TypeError, \
-                    space.wrap("memoryview: cannot casts view with" \
-                               " zeros in shape or strides"))
+            raise oefmt(space.w_TypeError,
+                        "memoryview: cannot casts view with"
+                        " zeros in shape or strides")
 
         itemsize = self.get_native_fmtchar(fmt)
         if w_shape:
@@ -554,8 +554,8 @@ class W_MemoryView(W_Root):
                         ndim)
             # yes access ndim as field
             if self.ndim > 1 and buf.getndim() != 1:
-                raise OperationError(space.w_TypeError, \
-                    space.wrap("memoryview: cast must be 1D -> ND or ND -> 1D"))
+                raise oefmt(space.w_TypeError,
+                            "memoryview: cast must be 1D -> ND or ND -> 1D")
 
         mv = W_MemoryView(buf, self.format, self.itemsize)
         origfmt = mv.getformat()
@@ -664,8 +664,8 @@ class W_MemoryView(W_Root):
             self._init_strides_from_shape()
 
         if length != self.buf.getlength():
-            raise OperationError(space.w_TypeError,
-                    space.wrap("memoryview: product(shape) * itemsize != buffer size"))
+            raise oefmt(space.w_TypeError,
+                        "memoryview: product(shape) * itemsize != buffer size")
 
         self._init_flags()
 

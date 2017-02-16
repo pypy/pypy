@@ -15,7 +15,7 @@ from pypy.interpreter.typedef import (
     GetSetProperty, TypeDef, make_weakref_descr)
 
 
-@unwrap_spec(typecode=str)
+@unwrap_spec(typecode='text')
 def w_array(space, w_cls, typecode, __args__):
     if len(__args__.arguments_w) > 1:
         raise oefmt(space.w_TypeError, "array() takes at most 2 arguments")
@@ -71,12 +71,12 @@ def w_array(space, w_cls, typecode, __args__):
 
 def descr_itemsize(space, self):
     assert isinstance(self, W_ArrayBase)
-    return space.wrap(self.itemsize)
+    return space.newint(self.itemsize)
 
 
 def descr_typecode(space, self):
     assert isinstance(self, W_ArrayBase)
-    return space.wrap(self.typecode)
+    return space.newtext(self.typecode)
 
 arr_eq_driver = jit.JitDriver(name='array_eq_driver', greens=['comp_func'],
                               reds='auto')
@@ -284,7 +284,7 @@ class W_ArrayBase(W_Root):
             w_item = self.w_getitem(space, i)
             if space.is_true(space.eq(w_item, w_val)):
                 cnt += 1
-        return space.wrap(cnt)
+        return space.newint(cnt)
 
     def descr_index(self, space, w_x):
         """ index(x)
@@ -294,7 +294,7 @@ class W_ArrayBase(W_Root):
         for i in range(self.len):
             w_item = self.w_getitem(space, i)
             if space.is_true(space.eq(w_item, w_x)):
-                return space.wrap(i)
+                return space.newint(i)
         raise oefmt(space.w_ValueError, "array.index(x): x not in list")
 
     def descr_reverse(self, space):
@@ -361,7 +361,7 @@ class W_ArrayBase(W_Root):
         This method is deprecated. Use tobytes instead.
         """
         msg = "tostring() is deprecated. Use tobytes() instead."
-        space.warn(space.wrap(msg), space.w_DeprecationWarning)
+        space.warn(space.newtext(msg), space.w_DeprecationWarning)
         return self.descr_tobytes(space)
 
     def descr_tobytes(self, space):
@@ -392,7 +392,7 @@ class W_ArrayBase(W_Root):
                         "array.fromstring(x): x cannot be self")
         s = space.getarg_w('s#', w_s)
         msg = "fromstring() is deprecated. Use frombytes() instead."
-        space.warn(space.wrap(msg), self.space.w_DeprecationWarning)
+        space.warn(space.newtext(msg), self.space.w_DeprecationWarning)
         self._frombytes(space, s)
 
     def descr_frombytes(self, space, w_s):
@@ -433,7 +433,7 @@ class W_ArrayBase(W_Root):
             size = ovfcheck(self.itemsize * n)
         except OverflowError:
             raise MemoryError
-        w_item = space.call_method(w_f, 'read', space.wrap(size))
+        w_item = space.call_method(w_f, 'read', space.newint(size))
         item = space.bytes_w(w_item)
         self._frombytes(space, item)
         if len(item) < size:
@@ -477,7 +477,7 @@ class W_ArrayBase(W_Root):
         """
         if self.typecode == 'u':
             buf = rffi.cast(UNICODE_ARRAY, self._buffer_as_unsigned())
-            return space.wrap(rffi.wcharpsize2unicode(buf, self.len))
+            return space.newunicode(rffi.wcharpsize2unicode(buf, self.len))
         else:
             raise oefmt(space.w_ValueError,
                         "tounicode() may only be called on type 'u' arrays")
@@ -490,15 +490,15 @@ class W_ArrayBase(W_Root):
         The length should be multiplied by the itemsize attribute to calculate
         the buffer length in bytes.
         """
-        w_ptr = space.wrap(self._buffer_as_unsigned())
-        w_len = space.wrap(self.len)
+        w_ptr = space.newint(self._buffer_as_unsigned())
+        w_len = space.newint(self.len)
         return space.newtuple([w_ptr, w_len])
 
     @unwrap_spec(protocol=int)
     def descr_reduce_ex(self, space, protocol):
         """Return state information for pickling."""
         try:
-            w_dict = space.getattr(self, space.wrap('__dict__'))
+            w_dict = space.getattr(self, space.newtext('__dict__'))
         except OperationError:
             w_dict = space.w_None
         from pypy.module.array import reconstructor
@@ -518,7 +518,7 @@ class W_ArrayBase(W_Root):
             w_list = self.descr_tolist(space)
             return space.newtuple([
                     space.type(self),
-                    space.newtuple([space.wrap(self.typecode), w_list]),
+                    space.newtuple([space.newtext(self.typecode), w_list]),
                     w_dict])
 
         w_bytes = self.descr_tobytes(space)
@@ -526,8 +526,8 @@ class W_ArrayBase(W_Root):
         return space.newtuple([
                 w_array_reconstructor,
                 space.newtuple([space.type(self),
-                                space.wrap(self.typecode),
-                                space.wrap(mformat_code),
+                                space.newtext(self.typecode),
+                                space.newint(mformat_code),
                                 w_bytes]),
                 w_dict])
 
@@ -567,7 +567,7 @@ class W_ArrayBase(W_Root):
         self._charbuf_stop()
 
     def descr_len(self, space):
-        return space.wrap(self.len)
+        return space.newint(self.len)
 
     def descr_eq(self, space, w_arr2):
         "x.__eq__(y) <==> x==y"
@@ -733,15 +733,15 @@ class W_ArrayBase(W_Root):
 
     def descr_repr(self, space):
         if self.len == 0:
-            return space.wrap("array('%s')" % self.typecode)
+            return space.newtext("array('%s')" % self.typecode)
         elif self.typecode == "u":
             r = space.repr(self.descr_tounicode(space))
             s = u"array('u', %s)" % space.unicode_w(r)
-            return space.wrap(s)
+            return space.newunicode(s)
         else:
             r = space.repr(self.descr_tolist(space))
-            s = "array('%s', %s)" % (self.typecode, space.str_w(r))
-            return space.wrap(s)
+            s = "array('%s', %s)" % (self.typecode, space.text_w(r))
+            return space.newtext(s)
 
 W_ArrayBase.typedef = TypeDef(
     'array.array', None, None, 'read-write',
@@ -807,6 +807,7 @@ class TypeCode(object):
         self.arraytype = lltype.Array(itemtype, hints={'nolength': True})
         self.arrayptrtype = lltype.Ptr(self.arraytype)
         self.unwrap, _, self.convert = unwrap.partition('.')
+        assert self.unwrap != 'str_w'
         self.signed = signed
         self.canoverflow = canoverflow
         self.w_class = None
@@ -932,7 +933,8 @@ def make_array(mytype):
                         if e.async(space):
                             raise
                         msg = "array item must be " + mytype.unwrap[:-2]
-                        raise OperationError(space.w_TypeError, space.wrap(msg))
+                        raise OperationError(space.w_TypeError,
+                                             space.newtext(msg))
                 else:
                     raise
             if mytype.convert:
@@ -943,7 +945,7 @@ def make_array(mytype):
                                 "unsigned %d-byte integer out of range",
                                 mytype.bytes)
                 return rffi.cast(mytype.itemtype, item)
-            if mytype.unwrap == 'str_w' or mytype.unwrap == 'unicode_w':
+            if mytype.unwrap == 'unicode_w':
                 if len(item) != 1:
                     raise oefmt(space.w_TypeError, "array item must be char")
                 item = item[0]
@@ -967,7 +969,7 @@ def make_array(mytype):
                     if not mytype.signed:
                         msg = 'un' + msg      # 'signed' => 'unsigned'
                     raise OperationError(self.space.w_OverflowError,
-                                         self.space.wrap(msg))
+                                         self.space.newtext(msg))
             return result
 
         def fromsequence(self, w_seq):
@@ -1046,14 +1048,21 @@ def make_array(mytype):
             keepalive_until_here(self)
             if mytype.typecode in 'bBhHil':
                 item = rffi.cast(lltype.Signed, item)
-            elif mytype.typecode == 'f':
+                return space.newint(item)
+            if mytype.typecode in 'ILqQ':
+                return space.newint(item)
+            elif mytype.typecode in 'fd':
                 item = float(item)
+                return space.newfloat(item)
+            elif mytype.typecode == 'c':
+                return space.newbytes(item)
             elif mytype.typecode == 'u':
                 if ord(item) >= 0x110000:
                     raise oefmt(space.w_ValueError,
                                 "array contains a unicode character out of "
                                 "range(0x110000)")
-            return space.wrap(item)
+                return space.newunicode(item)
+            assert 0, "unreachable"
 
         # interface
 
@@ -1172,4 +1181,4 @@ class State:
     def __init__(self, space):
         w_module = space.getbuiltinmodule('array')
         self.w_array_reconstructor = space.getattr(
-            w_module, space.wrap("_array_reconstructor"))
+            w_module, space.newtext("_array_reconstructor"))

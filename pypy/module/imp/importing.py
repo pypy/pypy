@@ -51,7 +51,7 @@ def log_pyverbose(space, level, message):
     verbose = space.sys.get_flag('verbose')
     if verbose >= level:
         w_stderr = space.sys.get('stderr')
-        space.call_method(w_stderr, "write", space.wrap(message))
+        space.call_method(w_stderr, "write", space.newtext(message))
 
 def has_so_extension(space):
     return (space.config.objspace.usemodules.cpyext or
@@ -88,10 +88,10 @@ def importhook(space, modulename, w_globals=None, w_locals=None, w_fromlist=None
             source = fp.read()
         pathname = "<frozen %s>" % modulename
         code_w = ec.compiler.compile(source, pathname, 'exec', 0)
-        w_mod = add_module(space, space.wrap(modulename))
+        w_mod = add_module(space, space.newtext(modulename))
         assert isinstance(w_mod, Module) # XXX why is that necessary?
         space.setitem(space.sys.get('modules'), w_mod.w_name, w_mod)
-        space.setitem(w_mod.w_dict, space.wrap('__name__'), w_mod.w_name)
+        space.setitem(w_mod.w_dict, space.newtext('__name__'), w_mod.w_name)
         code_w.exec_code(space, w_mod.w_dict, w_mod.w_dict)
         assert check_sys_modules_w(space, modulename)
     finally:
@@ -107,18 +107,17 @@ class _WIN32Path(object):
         return self.path
 
 def _prepare_module(space, w_mod, filename, pkgdir):
-    w = space.wrap
     space.sys.setmodule(w_mod)
-    space.setattr(w_mod, w('__file__'), space.wrap(filename))
-    space.setattr(w_mod, w('__doc__'), space.w_None)
+    space.setattr(w_mod, space.newtext('__file__'), space.newtext(filename))
+    space.setattr(w_mod, space.newtext('__doc__'), space.w_None)
     if pkgdir is not None:
-        space.setattr(w_mod, w('__path__'), space.newlist([w(pkgdir)]))
+        space.setattr(w_mod, space.newtext('__path__'), space.newlist([w(pkgdir)]))
     init_extra_module_attrs(space, w_mod)
 
 def add_module(space, w_name):
     w_mod = check_sys_modules(space, w_name)
     if w_mod is None:
-        w_mod = space.wrap(Module(space, w_name))
+        w_mod = Module(space, w_name)
         init_extra_module_attrs(space, w_mod)
         space.sys.setmodule(w_mod)
     return w_mod
@@ -248,17 +247,21 @@ def parse_source_module(space, pathname, source):
 
 def exec_code_module(space, w_mod, code_w, pathname, cpathname,
                      write_paths=True):
-    w_dict = space.getattr(w_mod, space.wrap('__dict__'))
+    w_dict = space.getattr(w_mod, space.newtext('__dict__'))
     space.call_method(w_dict, 'setdefault',
-                      space.wrap('__builtins__'),
-                      space.wrap(space.builtin))
+                      space.newtext('__builtins__'),
+                      space.builtin)
     if write_paths:
         if pathname is not None:
             w_pathname = get_sourcefile(space, pathname)
         else:
-            w_pathname = space.wrap(code_w.co_filename)
-        space.setitem(w_dict, space.wrap("__file__"), w_pathname)
-        space.setitem(w_dict, space.wrap("__cached__"), space.wrap(cpathname))
+            w_pathname = space.wrap_fsdecoded(code_w.co_filename)
+        if cpathname is not None:
+            w_cpathname = space.wrap_fsdecoded(cpathname)
+        else:
+            w_cpathname = space.w_None
+        space.setitem(w_dict, space.newtext("__file__"), w_pathname)
+        space.setitem(w_dict, space.newtext("__cached__"), w_cpathname)
     code_w.exec_code(space, w_dict, w_dict)
 
 def rightmost_sep(filename):
@@ -377,7 +380,7 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
     module object.
     """
     log_pyverbose(space, 1, "import %s # compiled from %s\n" %
-                  (space.str_w(w_modulename), cpathname))
+                  (space.text_w(w_modulename), cpathname))
 
     if magic != get_pyc_magic(space):
         raise oefmt(space.w_ImportError, "Bad magic number in %s", cpathname)

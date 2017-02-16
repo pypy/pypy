@@ -82,17 +82,17 @@ class W_BytearrayObject(W_Root):
         if index >= 0:
             index += self._offset
             if index >= len(self._data):
-                raise OperationError(space.w_IndexError, space.wrap(errmsg))
+                raise OperationError(space.w_IndexError, space.newtext(errmsg))
         else:
             index += len(self._data)    # count from the end
             if index < self._offset:
-                raise OperationError(space.w_IndexError, space.wrap(errmsg))
+                raise OperationError(space.w_IndexError, space.newtext(errmsg))
         check_nonneg(index)
         return index
 
     def _getitem_result(self, space, index):
         character = self._data[self._fixindex(space, index)]
-        return space.wrap(ord(character))
+        return space.newint(ord(character))
 
     def _val(self, space):
         return self.getdata()
@@ -179,7 +179,7 @@ class W_BytearrayObject(W_Root):
             raise oefmt(space.w_TypeError,
                         "ord() expected a character, but string of length %d "
                         "found", length)
-        return space.wrap(ord(self._data[self._offset]))
+        return space.newint(ord(self._data[self._offset]))
 
     @staticmethod
     def descr_new(space, w_bytearraytype, __args__):
@@ -192,8 +192,8 @@ class W_BytearrayObject(W_Root):
             w_dict = space.w_None
         return space.newtuple([
             space.type(self), space.newtuple([
-                space.wrap(''.join(self.getdata()).decode('latin-1')),
-                space.wrap('latin-1')]),
+                space.newunicode(''.join(self.getdata()).decode('latin-1')),
+                space.newtext('latin-1')]),
             w_dict])
 
     @staticmethod
@@ -254,11 +254,11 @@ class W_BytearrayObject(W_Root):
         buf.append(quote)
         buf.append(")")
 
-        return space.wrap(buf.build())
+        return space.newtext(buf.build())
 
     def descr_str(self, space):
         if space.sys.get_flag('bytes_warning'):
-            space.warn(space.wrap("str() on a bytearray instance"),
+            space.warn(space.newtext("str() on a bytearray instance"),
                        space.w_BytesWarning)
         return self.descr_repr(space)
 
@@ -441,7 +441,7 @@ class W_BytearrayObject(W_Root):
             raise oefmt(space.w_IndexError, "pop from empty bytearray")
         index = self._fixindex(space, index, "pop index out of range")
         result = self._data.pop(index)
-        return space.wrap(ord(result))
+        return space.newint(ord(result))
 
     def descr_remove(self, space, w_char):
         char = space.int_w(space.index(w_char))
@@ -499,7 +499,7 @@ class W_BytearrayObject(W_Root):
         return self._getitem_result(space, index)
 
     def descr_alloc(self, space):
-        return space.wrap(len(self._data) + 1)   # includes the _offset part
+        return space.newint(len(self._data) + 1)   # includes the _offset part
 
     def _convert_idx_params(self, space, w_start, w_end):
         # optimization: this version doesn't force getdata()
@@ -599,7 +599,7 @@ def _array_to_hexstring(space, buf, start, step, length, rawaccess=False):
         i += step
         stepped += 1
 
-    return space.wrap(hexstring.build())
+    return space.newtext(hexstring.build())
 
 class BytearrayDocstrings:
     """bytearray(iterable_of_ints) -> bytearray

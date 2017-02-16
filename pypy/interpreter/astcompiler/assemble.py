@@ -269,8 +269,8 @@ class PythonCodeMaker(ast.ASTVisitor):
             else:
                 w_key = space.newtuple([obj, space.w_float])
         elif space.is_w(w_type, space.w_complex):
-            w_real = space.getattr(obj, space.wrap("real"))
-            w_imag = space.getattr(obj, space.wrap("imag"))
+            w_real = space.getattr(obj, space.newtext("real"))
+            w_imag = space.getattr(obj, space.newtext("imag"))
             real = space.float_w(w_real)
             imag = space.float_w(w_imag)
             real_negzero = (real == 0.0 and
@@ -369,7 +369,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         space = self.space
         consts_w = [space.w_None] * space.len_w(w_consts)
         w_iter = space.iter(w_consts)
-        first = space.wrap(0)
+        first = space.newint(0)
         while True:
             try:
                 w_key = space.next(w_iter)

@@ -93,13 +93,13 @@ class PyPyConsole(code.InteractiveConsole):
 
         mainmodule = main.ensure__main__(space)
         self.w_globals = mainmodule.w_dict
-        space.setitem(self.w_globals, space.wrap('__builtins__'), space.builtin)
+        space.setitem(self.w_globals, space.newtext('__builtins__'), space.builtin)
         if completer:
             self.enable_command_line_completer()
 
         # forbidden:
         #space.exec_("__pytrace__ = 0", self.w_globals, self.w_globals)
-        space.setitem(self.w_globals, space.wrap('__pytrace__'),space.wrap(0))
+        space.setitem(self.w_globals, space.newtext('__pytrace__'),space.newint(0))
         self.tracelevel = 0
         self.console_locals = {}
 
@@ -152,14 +152,14 @@ class PyPyConsole(code.InteractiveConsole):
                                if not k.startswith('w_')]))
             del local['locals']
             for w_name in self.space.unpackiterable(self.w_globals):
-                local['w_' + self.space.str_w(w_name)] = (
+                local['w_' + self.space.text_w(w_name)] = (
                     self.space.getitem(self.w_globals, w_name))
             code.interact(banner=banner, local=local)
             # copy back 'w_' names
             for name in local:
                 if name.startswith('w_'):
                     self.space.setitem(self.w_globals,
-                                       self.space.wrap(name[2:]),
+                                       self.space.newtext(name[2:]),
                                        local[name])
             print '*** Leaving interpreter-level console ***'
             raise
@@ -169,13 +169,12 @@ class PyPyConsole(code.InteractiveConsole):
 
     def runsource(self, source, ignored_filename="<input>", symbol="single"):
         # the following hacked file name is recognized specially by error.py
-        hacked_filename = '<inline>\n' + source.encode(
-                                            'ascii', 'backslashreplace')
         compiler = self.space.getexecutioncontext().compiler
 
         # CPython 2.6 turns console input into unicode
         if isinstance(source, unicode):
             source = source.encode(sys.stdin.encoding)
+        hacked_filename = '<inline>\n' + source
 
         def doit():
             # compile the provided input

@@ -273,7 +273,7 @@ if _WIN:
                     
                     _setinfo(space, w_info, "GetSystemTimeAsFileTime()",
                              time_increment[0] * 1e-7, False, True)
-            return space.wrap(tv_sec + tv_usec * 1e-6)
+            return space.newfloat(tv_sec + tv_usec * 1e-6)
 else:
     if HAVE_GETTIMEOFDAY:
         if GETTIMEOFDAY_NO_TZ:
@@ -293,7 +293,7 @@ else:
                 if rffi.cast(rffi.LONG, errcode) == 0:
                     if w_info is not None:
                         _setinfo(space, w_info, "gettimeofday()", 1e-6, False, True)
-                    return space.wrap(
+                    return space.newfloat(
                         widen(timeval.c_tv_sec) +
                         widen(timeval.c_tv_usec) * 1e-6)
         if HAVE_FTIME:
@@ -304,11 +304,11 @@ else:
                 if w_info is not None:
                     _setinfo(space, w_info, "ftime()", 1e-3,
                              False, True) 
-            return space.wrap(result)
+            return space.newfloat(result)
         else:
             if w_info:
                 _setinfo(space, w_info, "time()", 1.0, False, True)
-            return space.wrap(c_time(lltype.nullptr(rffi.TIME_TP.TO)))
+            return space.newint(c_time(lltype.nullptr(rffi.TIME_TP.TO)))
 
 TM_P = lltype.Ptr(tm)
 c_time = external('time', [rffi.TIME_TP], rffi.TIME_T)
@@ -437,11 +437,11 @@ def _init_timezone(space):
                 daylight = int(janzone != julyzone)
                 tzname = [janname, julyname]
 
-    _set_module_object(space, "timezone", space.wrap(timezone))
-    _set_module_object(space, 'daylight', space.wrap(daylight))
-    tzname_w = [space.wrap(tzname[0]), space.wrap(tzname[1])]
+    _set_module_object(space, "timezone", space.newint(timezone))
+    _set_module_object(space, 'daylight', space.newint(daylight))
+    tzname_w = [space.newtext(tzname[0]), space.newtext(tzname[1])]
     _set_module_object(space, 'tzname', space.newtuple(tzname_w))
-    _set_module_object(space, 'altzone', space.wrap(altzone))
+    _set_module_object(space, 'altzone', space.newint(altzone))
 
 def _get_error_msg():
     errno = rposix.get_saved_errno()
@@ -508,12 +508,12 @@ else:
 
 def _get_module_object(space, obj_name):
     w_module = space.getbuiltinmodule('time')
-    w_obj = space.getattr(w_module, space.wrap(obj_name))
+    w_obj = space.getattr(w_module, space.newtext(obj_name))
     return w_obj
 
 def _set_module_object(space, obj_name, w_obj_value):
     w_module = space.getbuiltinmodule('time')
-    space.setattr(w_module, space.wrap(obj_name), w_obj_value)
+    space.setattr(w_module, space.newtext(obj_name), w_obj_value)
 
 def _get_inttime(space, w_seconds):
     # w_seconds can be a wrapped None (it will be automatically wrapped
@@ -536,22 +536,22 @@ def _get_inttime(space, w_seconds):
 
 def _tm_to_tuple(space, t):
     time_tuple = [
-        space.wrap(rffi.getintfield(t, 'c_tm_year') + 1900),
-        space.wrap(rffi.getintfield(t, 'c_tm_mon') + 1), # want january == 1
-        space.wrap(rffi.getintfield(t, 'c_tm_mday')),
-        space.wrap(rffi.getintfield(t, 'c_tm_hour')),
-        space.wrap(rffi.getintfield(t, 'c_tm_min')),
-        space.wrap(rffi.getintfield(t, 'c_tm_sec')),
-        space.wrap((rffi.getintfield(t, 'c_tm_wday') + 6) % 7), # want monday == 0
-        space.wrap(rffi.getintfield(t, 'c_tm_yday') + 1), # want january, 1 == 1
-        space.wrap(rffi.getintfield(t, 'c_tm_isdst'))]
+        space.newint(rffi.getintfield(t, 'c_tm_year') + 1900),
+        space.newint(rffi.getintfield(t, 'c_tm_mon') + 1), # want january == 1
+        space.newint(rffi.getintfield(t, 'c_tm_mday')),
+        space.newint(rffi.getintfield(t, 'c_tm_hour')),
+        space.newint(rffi.getintfield(t, 'c_tm_min')),
+        space.newint(rffi.getintfield(t, 'c_tm_sec')),
+        space.newint((rffi.getintfield(t, 'c_tm_wday') + 6) % 7), # want monday == 0
+        space.newint(rffi.getintfield(t, 'c_tm_yday') + 1), # want january, 1 == 1
+        space.newint(rffi.getintfield(t, 'c_tm_isdst'))]
 
     if HAS_TM_ZONE:
         # CPython calls PyUnicode_DecodeLocale here should we do the same?
         tm_zone = decode_utf8(space, rffi.charp2str(t.c_tm_zone),
                               allow_surrogates=True)
         extra = [space.newunicode(tm_zone),
-                 space.wrap(rffi.getintfield(t, 'c_tm_gmtoff'))]
+                 space.newint(rffi.getintfield(t, 'c_tm_gmtoff'))]
         w_time_tuple = space.newtuple(time_tuple + extra)
     else:
         w_time_tuple = space.newtuple(time_tuple)
@@ -573,7 +573,7 @@ def _gettmarg(space, w_tup, allowNone=True):
         lltype.free(t_ref, flavor='raw')
         if not pbuf:
             raise OperationError(space.w_ValueError,
-                                 space.wrap(_get_error_msg()))
+                space.newtext(_get_error_msg()))
         return pbuf
 
     tup_w = space.fixedview(w_tup)
@@ -671,7 +671,7 @@ def time(space, w_info=None):
                             res = 1e-9
                         _setinfo(space, w_info, "clock_gettime(CLOCK_REALTIME)",
                                  res, False, True)
-                return space.wrap(_timespec_to_seconds(timespec))
+                return space.newfloat(_timespec_to_seconds(timespec))
     else:
         return gettimeofday(space, w_info)
 
@@ -710,15 +710,15 @@ _mon_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
 def _asctime(space, t_ref):
     # Inspired by Open Group reference implementation available at
     # http://pubs.opengroup.org/onlinepubs/009695399/functions/asctime.html
-    w, getif = space.wrap, rffi.getintfield
-    args = [w(_wday_names[getif(t_ref, 'c_tm_wday')]),
-            w(_mon_names[getif(t_ref, 'c_tm_mon')]),
-            w(getif(t_ref, 'c_tm_mday')),
-            w(getif(t_ref, 'c_tm_hour')),
-            w(getif(t_ref, 'c_tm_min')),
-            w(getif(t_ref, 'c_tm_sec')),
-            w(getif(t_ref, 'c_tm_year'))]
-    return space.mod(w("%.3s %.3s%3d %.2d:%.2d:%.2d %d"),
+    getif = rffi.getintfield
+    args = [space.newtext(_wday_names[getif(t_ref, 'c_tm_wday')]),
+            space.newtext(_mon_names[getif(t_ref, 'c_tm_mon')]),
+            space.newint(getif(t_ref, 'c_tm_mday')),
+            space.newint(getif(t_ref, 'c_tm_hour')),
+            space.newint(getif(t_ref, 'c_tm_min')),
+            space.newint(getif(t_ref, 'c_tm_sec')),
+            space.newint(getif(t_ref, 'c_tm_year'))]
+    return space.mod(space.newtext("%.3s %.3s%3d %.2d:%.2d:%.2d %d"),
                      space.newtuple(args))
 
 def gmtime(space, w_seconds=None):
@@ -738,7 +738,7 @@ def gmtime(space, w_seconds=None):
     lltype.free(t_ref, flavor='raw')
 
     if not p:
-        raise OperationError(space.w_ValueError, space.wrap(_get_error_msg()))
+        raise OperationError(space.w_ValueError, space.newtext(_get_error_msg()))
     return _tm_to_tuple(space, p)
 
 def localtime(space, w_seconds=None):
@@ -755,7 +755,7 @@ def localtime(space, w_seconds=None):
     lltype.free(t_ref, flavor='raw')
 
     if not p:
-        raise OperationError(space.w_OSError, space.wrap(_get_error_msg()))
+        raise OperationError(space.w_OSError, space.newtext(_get_error_msg()))
     return _tm_to_tuple(space, p)
 
 def mktime(space, w_tup):
@@ -772,7 +772,7 @@ def mktime(space, w_tup):
     if tt == -1 and rffi.getintfield(buf, "c_tm_wday") == -1:
         raise oefmt(space.w_OverflowError, "mktime argument out of range")
 
-    return space.wrap(float(tt))
+    return space.newfloat(float(tt))
 
 if HAS_CLOCK_GETTIME:
     def _timespec_to_seconds(timespec):
@@ -785,7 +785,7 @@ if HAS_CLOCK_GETTIME:
             if ret != 0:
                 raise exception_from_saved_errno(space, space.w_OSError)
             secs = _timespec_to_seconds(timespec)
-        return space.wrap(secs)
+        return space.newfloat(secs)
 
     @unwrap_spec(clk_id='c_int', secs=float)
     def clock_settime(space, clk_id, secs):
@@ -805,7 +805,7 @@ if HAS_CLOCK_GETTIME:
             if ret != 0:
                 raise exception_from_saved_errno(space, space.w_OSError)
             secs = _timespec_to_seconds(timespec)
-        return space.wrap(secs)
+        return space.newfloat(secs)
 
 if _POSIX:
     def tzset(space):
@@ -826,7 +826,7 @@ if _POSIX:
         # reset timezone, altzone, daylight and tzname
         _init_timezone(space)
 
-@unwrap_spec(format=str)
+@unwrap_spec(format='text')
 def strftime(space, format, w_tup=None):
     """strftime(format[, tuple]) -> string
 
@@ -872,7 +872,7 @@ def strftime(space, format, w_tup=None):
                 # e.g. an empty format, or %Z when the timezone
                 # is unknown.
                 result = rffi.charp2strn(outbuf, intmask(buflen))
-                return space.wrap(result)
+                return space.newtext(result)
         finally:
             lltype.free(outbuf, flavor='raw')
         i += i
@@ -912,7 +912,7 @@ if HAS_MONOTONIC:
                             rwin32.lastSavedWindowsError("GetSystemTimeAdjustment"))
                     resolution = resolution * time_increment[0]
                 _setinfo(space, w_info, implementation, resolution, True, False)
-            return space.wrap(result)
+            return space.newfloat(result)
 
     elif _MACOSX:
         c_mach_timebase_info = external('mach_timebase_info',
@@ -935,7 +935,7 @@ if HAS_MONOTONIC:
                 _setinfo(space, w_info, "mach_absolute_time()", res, True, False)
             secs = nanosecs / 10**9
             rest = nanosecs % 10**9
-            return space.wrap(float(secs) + float(rest) * 1e-9)
+            return space.newfloat(float(secs) + float(rest) * 1e-9)
 
     else:
         assert _POSIX
@@ -985,7 +985,7 @@ if _WIN:
             if w_info is not None:
                 _setinfo(space, w_info, "QueryPerformanceCounter()", resolution,
                          True, False)
-            return space.wrap(float(diff) / time_state.divisor)
+            return space.newfloat(float(diff) / time_state.divisor)
 
     def perf_counter(space, w_info=None):
         try:
@@ -1025,7 +1025,7 @@ if _WIN:
                           r_ulonglong(user_time.c_dwHighDateTime) << 32)
         if w_info is not None:
             _setinfo(space, w_info, "GetProcessTimes()", 1e-7, True, False)
-        return space.wrap((float(kernel_time2) + float(user_time2)) * 1e-7)
+        return space.newfloat((float(kernel_time2) + float(user_time2)) * 1e-7)
 else:
     have_times = hasattr(rposix, 'c_times')
 
@@ -1051,7 +1051,7 @@ else:
                                 res = 1e-9
                         _setinfo(space, w_info,
                                  implementation, res, True, False)
-                    return space.wrap(_timespec_to_seconds(timespec))
+                    return space.newfloat(_timespec_to_seconds(timespec))
 
         if True: # XXX available except if it isn't?
             from rpython.rlib.rtime import (c_getrusage, RUSAGE, RUSAGE_SELF,
@@ -1062,8 +1062,8 @@ else:
                     if w_info is not None:
                         _setinfo(space, w_info,
                                  "getrusage(RUSAGE_SELF)", 1e-6, True, False)
-                    return space.wrap(decode_timeval(rusage.c_ru_utime) +
-                                      decode_timeval(rusage.c_ru_stime))
+                    return space.newfloat(decode_timeval(rusage.c_ru_utime) +
+                                          decode_timeval(rusage.c_ru_stime))
         if have_times:
             with lltype.scoped_alloc(rposix.TMS) as tms:
                 ret = rposix.c_times(tms)
@@ -1076,7 +1076,7 @@ else:
                         _setinfo(space, w_info, "times()",
                                  1.0 / rposix.CLOCK_TICKS_PER_SECOND,
                                  True, False)
-                    return space.wrap(cpu_time / rposix.CLOCK_TICKS_PER_SECOND)
+                    return space.newfloat(cpu_time / rposix.CLOCK_TICKS_PER_SECOND)
         return clock(space)
 
 _clock = external('clock', [], rposix.CLOCK_T)
@@ -1099,11 +1099,11 @@ def clock(space, w_info=None):
     if w_info is not None:
         _setinfo(space, w_info,
                  "clock()", 1.0 / CLOCKS_PER_SEC, True, False)
-    return space.wrap(float(value) / CLOCKS_PER_SEC)
+    return space.newfloat(float(value) / CLOCKS_PER_SEC)
 
 
 def _setinfo(space, w_info, impl, res, mono, adj):
-    space.setattr(w_info, space.wrap('implementation'), space.wrap(impl))
-    space.setattr(w_info, space.wrap('resolution'), space.wrap(res))
-    space.setattr(w_info, space.wrap('monotonic'), space.wrap(mono))
-    space.setattr(w_info, space.wrap('adjustable'), space.wrap(adj))
+    space.setattr(w_info, space.newtext('implementation'), space.newtext(impl))
+    space.setattr(w_info, space.newtext('resolution'), space.newfloat(res))
+    space.setattr(w_info, space.newtext('monotonic'), space.newbool(mono))
+    space.setattr(w_info, space.newtext('adjustable'), space.newbool(adj))

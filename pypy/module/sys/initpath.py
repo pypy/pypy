@@ -172,10 +172,10 @@ def pypy_find_stdlib(space, executable):
         if path is None:
             return space.w_None
     w_prefix = space.wrap_fsdecoded(prefix)
-    space.setitem(space.sys.w_dict, space.wrap('prefix'), w_prefix)
-    space.setitem(space.sys.w_dict, space.wrap('exec_prefix'), w_prefix)
-    space.setitem(space.sys.w_dict, space.wrap('base_prefix'), w_prefix)
-    space.setitem(space.sys.w_dict, space.wrap('base_exec_prefix'), w_prefix)
+    space.setitem(space.sys.w_dict, space.newtext('prefix'), w_prefix)
+    space.setitem(space.sys.w_dict, space.newtext('exec_prefix'), w_prefix)
+    space.setitem(space.sys.w_dict, space.newtext('base_prefix'), w_prefix)
+    space.setitem(space.sys.w_dict, space.newtext('base_exec_prefix'), w_prefix)
     return space.newlist([space.wrap_fsdecoded(p) for p in path])
 
 def pypy_initfsencoding(space):

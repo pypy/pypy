@@ -35,7 +35,7 @@ class IntMutableCell(MutableCell):
         self.intvalue = intvalue
 
     def unwrap_cell(self, space):
-        return space.wrap(self.intvalue)
+        return space.newint(self.intvalue)
 
     def __repr__(self):
         return "<IntMutableCell: %s>" % (self.intvalue, )
@@ -351,7 +351,7 @@ class W_TypeObject(W_Root):
         if name == "__del__" and name not in self.dict_w:
             msg = ("a __del__ method added to an existing type will not be "
                    "called")
-            space.warn(space.wrap(msg), space.w_RuntimeWarning)
+            space.warn(space.newtext(msg), space.w_RuntimeWarning)
         version_tag = self.version_tag()
         if version_tag is not None:
             w_curr = self._pure_getdictvalue_no_unwrapping(
@@ -547,7 +547,7 @@ class W_TypeObject(W_Root):
                 mod = self.name[:dot]
             else:
                 mod = "builtins"
-            return space.wrap(mod)
+            return space.newtext(mod)
 
     def getname(self, space):
         if self.is_heaptype():
@@ -653,17 +653,17 @@ class W_TypeObject(W_Root):
 
     def descr_repr(self, space):
         w_mod = self.get_module()
-        if w_mod is None or not space.isinstance_w(w_mod, space.w_unicode):
+        if w_mod is None or not space.isinstance_w(w_mod, space.w_text):
             mod = None
         else:
             mod = space.unicode_w(w_mod)
         if mod is not None and mod != u'builtins':
-            return space.wrap(u"<class '%s.%s'>" % (mod, self.getqualname(space)))
+            return space.newunicode(u"<class '%s.%s'>" % (mod, self.getqualname(space)))
         else:
-            return space.wrap(u"<class '%s'>" % (self.name.decode('utf-8')))
+            return space.newtext("<class '%s'>" % (self.name,))
 
     def descr_getattribute(self, space, w_name):
-        name = space.str_w(w_name)
+        name = space.text_w(w_name)
         w_descr = space.lookup(self, name)
         if w_descr is not None:
             if space.is_data_descr(w_descr):
@@ -719,19 +719,19 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
 
     w_winner = _calculate_metaclass(space, w_typetype, bases_w)
     if not space.is_w(w_winner, w_typetype):
-        newfunc = space.getattr(w_winner, space.wrap('__new__'))
-        if not space.is_w(newfunc, space.getattr(space.w_type, space.wrap('__new__'))):
+        newfunc = space.getattr(w_winner, space.newtext('__new__'))
+        if not space.is_w(newfunc, space.getattr(space.w_type, space.newtext('__new__'))):
             return space.call_function(newfunc, w_winner, w_name, w_bases, w_dict)
         w_typetype = w_winner
 
-    name = space.str_w(w_name)
+    name = space.text_w(w_name)
     assert isinstance(name, str)
     if '\x00' in name:
         raise oefmt(space.w_ValueError, "type name must not contain null characters")
     dict_w = {}
     dictkeys_w = space.listview(w_dict)
     for w_key in dictkeys_w:
-        key = space.str_w(w_key)
+        key = space.text_w(w_key)
         dict_w[key] = space.getitem(w_dict, w_key)
     w_type = space.allocate_instance(W_TypeObject, w_typetype)
     W_TypeObject.__init__(w_type, space, name, bases_w or [space.w_object],
@@ -773,13 +773,13 @@ def descr__init__(space, w_type, __args__):
 
 def _check(space, w_type, msg="descriptor is for 'type'"):
     if not isinstance(w_type, W_TypeObject):
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        raise OperationError(space.w_TypeError, space.newtext(msg))
     return w_type
 
 
 def descr_get__name__(space, w_type):
     w_type = _check(space, w_type)
-    return space.wrap(w_type.getname(space))
+    return space.newunicode(w_type.getname(space))
 
 def descr_set__name__(space, w_type, w_value):
     w_type = _check(space, w_type)
@@ -789,7 +789,7 @@ def descr_set__name__(space, w_type, w_value):
         raise oefmt(space.w_TypeError,
                     "can only assign string to %N.__name__, not '%T'",
                     w_type, w_value)
-    name = space.str_w(w_value)
+    name = space.text_w(w_value)
     if '\x00' in name:
         raise oefmt(space.w_ValueError, "type name must not contain null characters")
     w_type.name = name
@@ -893,7 +893,7 @@ def descr__base(space, w_type):
 
 def descr__doc(space, w_type):
     if space.is_w(w_type, space.w_type):
-        return space.wrap("""type(object) -> the object's type
+        return space.newtext("""type(object) -> the object's type
 type(name, bases, dict) -> a new type""")
     w_type = _check(space, w_type)
     if not w_type.is_heaptype():
@@ -927,7 +927,7 @@ def descr__flags(space, w_type):
         flags |= _CPYTYPE
     if w_type.flag_abstract:
         flags |= _ABSTRACT
-    return space.wrap(flags)
+    return space.newint(flags)
 
 def descr_get__module(space, w_type):
     w_type = _check(space, w_type)
@@ -1080,7 +1080,7 @@ def slot_w(space, w_name):
             "__slots__ items must be strings, not '%T'", w_name)
     if not _isidentifier(space.unicode_w(w_name)):
         raise oefmt(space.w_TypeError, "__slots__ must be identifiers")
-    return w_name.identifier_w(space)
+    return w_name.text_w(space)
 
 def create_all_slots(w_self, hasoldstylebase, w_bestbase, force_new_layout):
     from pypy.objspace.std.listobject import StringSort
@@ -1151,10 +1151,10 @@ def create_slot(w_self, slot_name, index_next_extra_slot):
     slot_name = mangle(slot_name, w_self.name)
     if slot_name not in w_self.dict_w:
         # Force interning of slot names.
-        slot_name = space.str_w(space.new_interned_str(slot_name))
+        slot_name = space.text_w(space.new_interned_str(slot_name))
         # in cpython it is ignored less, but we probably don't care
         member = Member(index_next_extra_slot, slot_name, w_self)
-        w_self.dict_w[slot_name] = space.wrap(member)
+        w_self.dict_w[slot_name] = member
         return True
     else:
         w_prev = w_self.dict_w[slot_name]
@@ -1168,15 +1168,13 @@ def create_slot(w_self, slot_name, index_next_extra_slot):
 def create_dict_slot(w_self):
     if not w_self.hasdict:
         descr = dict_descr.copy_for_type(w_self)
-        w_self.dict_w.setdefault('__dict__',
-                                 w_self.space.wrap(descr))
+        w_self.dict_w.setdefault('__dict__', descr)
         w_self.hasdict = True
 
 def create_weakref_slot(w_self):
     if not w_self.weakrefable:
         descr = weakref_descr.copy_for_type(w_self)
-        w_self.dict_w.setdefault('__weakref__',
-                                 w_self.space.wrap(descr))
+        w_self.dict_w.setdefault('__weakref__', descr)
         w_self.weakrefable = True
 
 def setup_user_defined_type(w_self, force_new_layout):
@@ -1201,7 +1199,11 @@ def setup_user_defined_type(w_self, force_new_layout):
 def setup_builtin_type(w_self, instancetypedef):
     w_self.hasdict = instancetypedef.hasdict
     w_self.weakrefable = instancetypedef.weakrefable
-    w_self.w_doc = w_self.space.wrap(instancetypedef.doc)
+    if isinstance(instancetypedef.doc, W_Root):
+        w_doc = instancetypedef.doc
+    else:
+        w_doc = w_self.space.newtext_or_none(instancetypedef.doc)
+    w_self.w_doc = w_doc
     ensure_common_attributes(w_self)
     #
     # usually 'instancetypedef' is new, i.e. not seen in any base,
@@ -1239,7 +1241,7 @@ def ensure_module_attr(w_self):
         caller = space.getexecutioncontext().gettopframe_nohidden()
         if caller is not None:
             w_globals = caller.get_w_globals()
-            w_name = space.finditem(w_globals, space.wrap('__name__'))
+            w_name = space.finditem(w_globals, space.newtext('__name__'))
             if w_name is not None:
                 w_self.dict_w['__module__'] = w_name
 
@@ -1393,7 +1395,7 @@ class TypeCache(SpaceCache):
                               overridetypedef=overridetypedef,
                               is_heaptype=overridetypedef.heaptype)
         if typedef is not overridetypedef:
-            w_type.w_doc = space.wrap(typedef.doc)
+            w_type.w_doc = space.newtext_or_none(typedef.doc)
         else:
             # Set the __qualname__ of member functions
             for name in rawdict:
@@ -1401,8 +1403,9 @@ class TypeCache(SpaceCache):
                 if isinstance(w_obj, ClassMethod):
                     w_obj = w_obj.w_function
                 if isinstance(w_obj, FunctionWithFixedCode):
-                    qualname = w_type.getqualname(space) + '.' + name
-                    w_obj.fset_func_qualname(space, space.wrap(qualname))
+                    qualname = (w_type.getqualname(space).encode('utf-8')
+                                + '.' + name)
+                    w_obj.fset_func_qualname(space, space.newtext(qualname))
 
         if hasattr(typedef, 'flag_sequence_bug_compat'):
             w_type.flag_sequence_bug_compat = typedef.flag_sequence_bug_compat

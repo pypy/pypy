@@ -17,11 +17,11 @@ def decode_error_handler(space):
     def raise_unicode_exception_decode(errors, encoding, msg, s,
                                        startingpos, endingpos):
         raise OperationError(space.w_UnicodeDecodeError,
-                             space.newtuple([space.wrap(encoding),
+                             space.newtuple([space.newtext(encoding),
                                              space.newbytes(s),
-                                             space.wrap(startingpos),
-                                             space.wrap(endingpos),
-                                             space.wrap(msg)]))
+                                             space.newint(startingpos),
+                                             space.newint(endingpos),
+                                             space.newtext(msg)]))
     return raise_unicode_exception_decode
 
 @specialize.memo()
@@ -30,15 +30,16 @@ def encode_error_handler(space):
     def raise_unicode_exception_encode(errors, encoding, msg, u,
                                        startingpos, endingpos):
         raise OperationError(space.w_UnicodeEncodeError,
-                             space.newtuple([space.wrap(encoding),
-                                             space.wrap(u),
-                                             space.wrap(startingpos),
-                                             space.wrap(endingpos),
-                                             space.wrap(msg)]))
+                             space.newtuple([space.newtext(encoding),
+                                             space.newunicode(u),
+                                             space.newint(startingpos),
+                                             space.newint(endingpos),
+                                             space.newtext(msg)]))
     return raise_unicode_exception_encode
 
 class RUnicodeEncodeError(Exception):
     def __init__(self, encoding, object, start, end, reason):
+        assert isinstance(object, unicode)
         self.encoding = encoding
         self.object = object
         self.start = start
@@ -81,8 +82,8 @@ def fsdecode(space, w_string):
         from pypy.module.sys.interp_encoding import getfilesystemencoding
         return space.call_method(w_string, 'decode',
                                  getfilesystemencoding(space),
-                                 space.wrap('surrogateescape'))
-    return space.wrap(uni)
+                                 space.newtext('surrogateescape'))
+    return space.newunicode(uni)
 
 def fsencode(space, w_uni):
     state = space.fromcache(interp_codecs.CodecState)
@@ -112,7 +113,7 @@ def fsencode(space, w_uni):
         from pypy.module.sys.interp_encoding import getfilesystemencoding
         return space.call_method(w_uni, 'encode',
                                  getfilesystemencoding(space),
-                                 space.wrap('surrogateescape'))
+                                 space.newtext('surrogateescape'))
     return space.newbytes(bytes)
 
 def encode(space, w_data, encoding=None, errors='strict'):
@@ -141,6 +142,7 @@ def decode_utf8(space, string, allow_surrogates=False):
     # i.e. surrogates are accepted and not treated specially at all.
     # If there happen to be two 3-bytes encoding a pair of surrogates,
     # you still get two surrogate unicode characters in the result.
+    assert isinstance(string, str)
     result, consumed = runicode.str_decode_utf_8(
         string, len(string), "strict",
         final=True, errorhandler=decode_error_handler(space),

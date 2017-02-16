@@ -7,7 +7,7 @@ from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, build_type_checkers, Py_ssize_t,
     Py_ssize_tP, CONST_STRING, PyObjectFields, cpython_struct,
     bootstrap_function, slot_function)
-from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, as_pyobj,
+from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, as_pyobj, 
         make_typedescr, track_reference, create_ref, from_ref, decref,
         Py_IncRef)
 from pypy.module.cpyext.object import _dealloc
@@ -129,7 +129,7 @@ def PyDict_DelItemString(space, w_dict, key_ptr):
         key = rffi.charp2str(key_ptr)
         # our dicts dont have a standardized interface, so we need
         # to go through the space
-        space.delitem(w_dict, space.wrap(key))
+        space.delitem(w_dict, space.newtext(key))
         return 0
     else:
         PyErr_BadInternalCall(space)

@@ -17,15 +17,15 @@ def PyFile_GetLine(space, w_obj, n):
     0, however, one line is read regardless of length, but EOFError is
     raised if the end of the file is reached immediately."""
     try:
-        w_readline = space.getattr(w_obj, space.wrap('readline'))
+        w_readline = space.getattr(w_obj, space.newtext('readline'))
     except OperationError:
         raise oefmt(space.w_TypeError,
             "argument must be a file, or have a readline() method.")
 
     n = rffi.cast(lltype.Signed, n)
-    if space.is_true(space.gt(space.wrap(n), space.wrap(0))):
-        return space.call_function(w_readline, space.wrap(n))
-    elif space.is_true(space.lt(space.wrap(n), space.wrap(0))):
+    if space.is_true(space.gt(space.newint(n), space.newint(0))):
+        return space.call_function(w_readline, space.newint(n))
+    elif space.is_true(space.lt(space.newint(n), space.newint(0))):
         return space.call_function(w_readline)
     else:
         # XXX Raise EOFError as specified
@@ -38,7 +38,7 @@ def PyFile_FromString(space, filename, mode):
     filename, with a file mode given by mode, where mode has the same
     semantics as the standard C routine fopen().  On failure, return NULL."""
     w_filename = space.newbytes(rffi.charp2str(filename))
-    w_mode = space.wrap(rffi.charp2str(mode))
+    w_mode = space.newtext(rffi.charp2str(mode))
     return space.call_method(space.builtin, 'open', w_filename, w_mode)
 
 @cpython_api([FILEP, CONST_STRING, CONST_STRING, rffi.VOIDP], PyObject)
@@ -79,5 +79,5 @@ def PyFile_WriteObject(space, w_obj, w_p, flags):
 @cpython_api([PyObject], PyObject)
 def PyFile_Name(space, w_p):
     """Return the name of the file specified by p as a string object."""
-    w_name = space.getattr(w_p, space.wrap("name"))
+    w_name = space.getattr(w_p, space.newtext("name"))
     return w_name     # borrowed ref, should be a W_StringObject from the file

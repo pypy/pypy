@@ -451,7 +451,7 @@ class W_SemLock(W_Root):
     def name_get(self, space):
         if self.name is None:
             return space.w_None
-        return space.newutf8(self.name)
+        return space.newtext(self.name)
 
     def kind_get(self, space):
         return space.newint(self.kind)
@@ -461,30 +461,30 @@ class W_SemLock(W_Root):
 
     def handle_get(self, space):
         h = rffi.cast(rffi.INTPTR_T, self.handle)
-        return space.wrap(h)
+        return space.newint(h)
 
     def get_count(self, space):
-        return space.wrap(self.count)
+        return space.newint(self.count)
 
     def _ismine(self):
         return self.count > 0 and rthread.get_ident() == self.last_tid
 
     def is_mine(self, space):
-        return space.wrap(self._ismine())
+        return space.newbool(self._ismine())
 
     def is_zero(self, space):
         try:
             res = semlock_iszero(self, space)
         except OSError as e:
             raise wrap_oserror(space, e)
-        return space.wrap(res)
+        return space.newbool(res)
 
     def get_value(self, space):
         try:
             val = semlock_getvalue(self, space)
         except OSError as e:
             raise wrap_oserror(space, e)
-        return space.wrap(val)
+        return space.newint(val)
 
     @unwrap_spec(block=bool)
     def acquire(self, space, block=True, w_timeout=None):
@@ -525,9 +525,8 @@ class W_SemLock(W_Root):
     def after_fork(self):
         self.count = 0
 
-    @unwrap_spec(kind=int, maxvalue=int)
-    def rebuild(space, w_cls, w_handle, kind, maxvalue, w_name):
-        name = space.str_or_None_w(w_name)
+    @unwrap_spec(kind=int, maxvalue=int, name='text_or_None')
+    def rebuild(space, w_cls, w_handle, kind, maxvalue, name):
         #
         if sys_platform != 'win32' and name is not None:
             # like CPython, in this case ignore 'w_handle'
@@ -540,7 +539,7 @@ class W_SemLock(W_Root):
         #
         self = space.allocate_instance(W_SemLock, w_cls)
         self.__init__(space, handle, kind, maxvalue, name)
-        return space.wrap(self)
+        return self
 
     def enter(self, space):
         return self.acquire(space, w_timeout=space.w_None)
@@ -570,7 +569,7 @@ def descr_new(space, w_subtype, kind, value, maxvalue, name, unlink):
     self = space.allocate_instance(W_SemLock, w_subtype)
     self.__init__(space, handle, kind, maxvalue, name)
 
-    return space.wrap(self)
+    return self
 
 W_SemLock.typedef = TypeDef(
     "SemLock",

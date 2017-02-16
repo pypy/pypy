@@ -50,7 +50,7 @@ class MiniBuffer(W_Root):
         return self.buffer
 
     def descr_len(self, space):
-        return space.wrap(self.buffer.getlength())
+        return space.newint(self.buffer.getlength())
 
     def descr_getitem(self, space, w_index):
         start, stop, step, size = space.decode_index4(w_index,
@@ -152,7 +152,7 @@ def MiniBuffer___new__(space, w_subtype, w_cdata, size=-1):
         raise oefmt(space.w_TypeError,
                     "don't know the size pointed to by '%s'", ctype.name)
     ptr = w_cdata.unsafe_escaping_ptr()    # w_cdata kept alive by MiniBuffer()
-    return space.wrap(MiniBuffer(LLBuffer(ptr, size), w_cdata))
+    return MiniBuffer(LLBuffer(ptr, size), w_cdata)
 
 MiniBuffer.typedef = TypeDef(
     "_cffi_backend.buffer",

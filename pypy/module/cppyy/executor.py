@@ -56,7 +56,7 @@ class PtrTypeExecutor(FunctionExecutor):
             raise NotImplementedError
         lresult = capi.c_call_l(space, cppmethod, cppthis, num_args, args)
         ptrval = rffi.cast(rffi.ULONG, lresult)
-        arr = space.interp_w(W_Array, unpack_simple_shape(space, space.wrap(self.typecode)))
+        arr = space.interp_w(W_Array, unpack_simple_shape(space, space.newtext(self.typecode)))
         if ptrval == 0:
             from pypy.module.cppyy import interp_cppyy
             return interp_cppyy.get_nullptr(space)
@@ -80,8 +80,8 @@ class VoidExecutor(FunctionExecutor):
 class NumericExecutorMixin(object):
     _mixin_ = True
 
-    def _wrap_object(self, space, obj):
-        return space.wrap(obj)
+    #def _wrap_object(self, space, obj):
+    #    return getattr(space, self.wrapper)(obj)
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
         result = self.c_stubcall(space, cppmethod, cppthis, num_args, args)
@@ -104,8 +104,8 @@ class NumericRefExecutorMixin(object):
         self.item = self._unwrap_object(space, w_item)
         self.do_assign = True
 
-    def _wrap_object(self, space, obj):
-        return space.wrap(rffi.cast(self.c_type, obj))
+    #def _wrap_object(self, space, obj):
+    #    return getattr(space, self.wrapper)(rffi.cast(self.c_type, obj))
 
     def _wrap_reference(self, space, rffiptr):
         if self.do_assign:
@@ -130,9 +130,9 @@ class CStringExecutor(FunctionExecutor):
         lresult = capi.c_call_l(space, cppmethod, cppthis, num_args, args)
         ccpresult = rffi.cast(rffi.CCHARP, lresult)
         if ccpresult == rffi.cast(rffi.CCHARP, 0):
-            return space.wrap("")
+            return space.newbytes("")
         result = rffi.charp2str(ccpresult)   # TODO: make it a choice to free
-        return space.wrap(result)
+        return space.newbytes(result)
 
 
 class ConstructorExecutor(FunctionExecutor):
@@ -141,7 +141,7 @@ class ConstructorExecutor(FunctionExecutor):
         from pypy.module.cppyy import interp_cppyy
         newthis = capi.c_constructor(space, cppmethod, cpptype, num_args, args)
         assert lltype.typeOf(newthis) == capi.C_OBJECT
-        return space.wrap(rffi.cast(rffi.LONG, newthis))   # really want ptrdiff_t here
+        return space.newlong(rffi.cast(rffi.LONG, newthis))   # really want ptrdiff_t here
 
 
 class InstancePtrExecutor(FunctionExecutor):
@@ -202,7 +202,7 @@ class StdStringExecutor(InstancePtrExecutor):
         cstr, cstr_len = capi.c_call_s(space, cppmethod, cppthis, num_args, args)
         pystr = rffi.charpsize2str(cstr, cstr_len)
         capi.c_free(space, rffi.cast(rffi.VOIDP, cstr))
-        return space.wrap(pystr)
+        return space.newbytes(pystr)
 
     def execute_libffi(self, space, cif_descr, funcaddr, buffer):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible

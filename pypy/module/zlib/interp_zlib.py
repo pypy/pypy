@@ -1,7 +1,7 @@
 import sys
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.typedef import TypeDef, interp_attrproperty_bytes, interp_attrproperty
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.rarithmetic import intmask, r_uint, r_uint32
 from rpython.rlib.objectmodel import keepalive_until_here
@@ -19,7 +19,7 @@ def crc32(space, string, start = rzlib.CRC32_DEFAULT_START):
     """
     ustart = r_uint(r_uint32(start))
     checksum = rzlib.crc32(string, ustart)
-    return space.wrap(checksum)
+    return space.newint(checksum)
 
 
 @unwrap_spec(string='bufferstr', start='truncatedint_w')
@@ -32,7 +32,7 @@ def adler32(space, string, start=rzlib.ADLER32_DEFAULT_START):
     """
     ustart = r_uint(r_uint32(start))
     checksum = rzlib.adler32(string, ustart)
-    return space.wrap(checksum)
+    return space.newint(checksum)
 
 
 class Cache:
@@ -41,7 +41,7 @@ class Cache:
 
 def zlib_error(space, msg):
     w_error = space.fromcache(Cache).w_error
-    return OperationError(w_error, space.wrap(msg))
+    return OperationError(w_error, space.newtext(msg))
 
 
 @unwrap_spec(string='bufferstr', level=int)
@@ -207,7 +207,7 @@ def Compress___new__(space, w_subtype, level=rzlib.Z_DEFAULT_COMPRESSION,
     stream = space.interp_w(Compress, stream)
     Compress.__init__(stream, space, level,
                       method, wbits, memLevel, strategy, zdict)
-    return space.wrap(stream)
+    return stream
 
 
 Compress.typedef = TypeDef(
@@ -334,19 +334,19 @@ def Decompress___new__(space, w_subtype, wbits=rzlib.MAX_WBITS, w_zdict=None):
     stream = space.allocate_instance(Decompress, w_subtype)
     stream = space.interp_w(Decompress, stream)
     Decompress.__init__(stream, space, wbits, zdict)
-    return space.wrap(stream)
+    return stream
 
 def default_buffer_size(space):
-    return space.wrap(rzlib.OUTPUT_BUFFER_SIZE)
+    return space.newint(rzlib.OUTPUT_BUFFER_SIZE)
 
 Decompress.typedef = TypeDef(
     'Decompress',
     __new__ = interp2app(Decompress___new__),
     decompress = interp2app(Decompress.decompress),
     flush = interp2app(Decompress.flush),
-    unused_data = interp_attrproperty_bytes('unused_data', Decompress),
-    unconsumed_tail = interp_attrproperty_bytes('unconsumed_tail', Decompress),
-    eof = interp_attrproperty('eof', Decompress),
+    unused_data = interp_attrproperty('unused_data', Decompress, wrapfn="newbytes"),
+    unconsumed_tail = interp_attrproperty('unconsumed_tail', Decompress, wrapfn="newbytes"),
+    eof = interp_attrproperty('eof', Decompress, wrapfn="newbool"),
     __doc__ = """decompressobj([wbits]) -- Return a decompressor object.
 
 Optional arg wbits is the window buffer size.

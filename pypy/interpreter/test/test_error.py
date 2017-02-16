@@ -120,6 +120,7 @@ def test_wrap_oserror():
         w_EnvironmentError = [EnvironmentError]
         def wrap(self, obj):
             return [obj]
+        newint = newtext = newunicode = wrap_fsdecoded = wrap
         def call_function(self, exc, w_errno, w_msg, w_filename=None):
             return (exc, w_errno, w_msg, w_filename)
     space = FakeSpace()

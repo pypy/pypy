@@ -128,7 +128,7 @@ class Handlers:
             if WIN32 and signum not in signal_values:
                 self.handlers_w[signum] = space.w_None
             else:
-                self.handlers_w[signum] = space.wrap(SIG_DFL)
+                self.handlers_w[signum] = space.newint(SIG_DFL)
 
 def _get_handlers(space):
     return space.fromcache(Handlers).handlers_w
@@ -146,8 +146,8 @@ def report_signal(space, n):
     pypysig_reinstall(n)
     # invoke the app-level handler
     ec = space.getexecutioncontext()
-    w_frame = space.wrap(ec.gettopframe_nohidden())
-    space.call_function(w_handler, space.wrap(n), w_frame)
+    w_frame = ec.gettopframe_nohidden()
+    space.call_function(w_handler, space.newint(n), w_frame)
 
 
 @unwrap_spec(signum=int)
@@ -183,7 +183,7 @@ def alarm(space, timeout):
 
     Arrange for SIGALRM to arrive after the given number of seconds.
     """
-    return space.wrap(c_alarm(timeout))
+    return space.newint(c_alarm(timeout))
 
 
 @jit.dont_look_inside
@@ -224,9 +224,9 @@ def signal(space, signum, w_handler):
                     "__pypy__.thread.enable_signals()")
     check_signum_in_range(space, signum)
 
-    if space.eq_w(w_handler, space.wrap(SIG_DFL)):
+    if space.eq_w(w_handler, space.newint(SIG_DFL)):
         pypysig_default(signum)
-    elif space.eq_w(w_handler, space.wrap(SIG_IGN)):
+    elif space.eq_w(w_handler, space.newint(SIG_IGN)):
         pypysig_ignore(signum)
     else:
         if not space.is_true(space.callable(w_handler)):
@@ -268,7 +268,7 @@ def set_wakeup_fd(space, fd):
                         "the fd %d must be in non-blocking mode", fd)
 
     old_fd = pypysig_set_wakeup_fd(fd, False)
-    return space.wrap(intmask(old_fd))
+    return space.newint(intmask(old_fd))
 
 
 @jit.dont_look_inside
@@ -298,8 +298,8 @@ def double_from_timeval(tv):
 
 
 def itimer_retval(space, val):
-    w_value = space.wrap(double_from_timeval(val.c_it_value))
-    w_interval = space.wrap(double_from_timeval(val.c_it_interval))
+    w_value = space.newfloat(double_from_timeval(val.c_it_value))
+    w_interval = space.newfloat(double_from_timeval(val.c_it_interval))
     return space.newtuple([w_value, w_interval])
 
 

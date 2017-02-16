@@ -44,14 +44,14 @@ def PyMapping_Items(space, w_obj):
 def PyMapping_GetItemString(space, w_obj, key):
     """Return element of o corresponding to the object key or NULL on failure.
     This is the equivalent of the Python expression o[key]."""
-    w_key = space.wrap(rffi.charp2str(key))
+    w_key = space.newtext(rffi.charp2str(key))
     return space.getitem(w_obj, w_key)
 
 @cpython_api([PyObject, CONST_STRING, PyObject], rffi.INT_real, error=-1)
 def PyMapping_SetItemString(space, w_obj, key, w_value):
     """Map the object key to the value v in object o. Returns -1 on failure.
     This is the equivalent of the Python statement o[key] = v."""
-    w_key = space.wrap(rffi.charp2str(key))
+    w_key = space.newtext(rffi.charp2str(key))
     space.setitem(w_obj, w_key, w_value)
     return 0
 
@@ -72,7 +72,7 @@ def PyMapping_HasKeyString(space, w_obj, key):
     This is equivalent to o[key], returning True on success and False
     on an exception.  This function always succeeds."""
     try:
-        w_key = space.wrap(rffi.charp2str(key))
+        w_key = space.newtext(rffi.charp2str(key))
         space.getitem(w_obj, w_key)
         return 1
     except:

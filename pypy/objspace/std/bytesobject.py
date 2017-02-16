@@ -26,8 +26,8 @@ class W_AbstractBytesObject(W_Root):
             return True
         if self.user_overridden_class or w_other.user_overridden_class:
             return False
-        s1 = space.str_w(self)
-        s2 = space.str_w(w_other)
+        s1 = space.bytes_w(self)
+        s2 = space.bytes_w(w_other)
         if len(s2) > 1:
             return s1 is s2
         else:            # strings of len <= 1 are unique-ified
@@ -36,7 +36,7 @@ class W_AbstractBytesObject(W_Root):
     def immutable_unique_id(self, space):
         if self.user_overridden_class:
             return None
-        s = space.str_w(self)
+        s = space.bytes_w(self)
         if len(s) > 1:
             uid = compute_unique_id(s)
         else:            # strings of len <= 1 are unique-ified
@@ -45,7 +45,7 @@ class W_AbstractBytesObject(W_Root):
             else:
                 base = 256           # empty string: base value 256
             uid = (base << IDTAG_SHIFT) | IDTAG_SPECIAL
-        return space.wrap(uid)
+        return space.newint(uid)
 
     def descr_add(self, space, w_other):
         """x.__add__(y) <==> x+y"""
@@ -441,7 +441,7 @@ class W_BytesObject(W_AbstractBytesObject):
             raise oefmt(space.w_TypeError,
                         "ord() expected a character, but bytes of length %d "
                         "found", len(self._value))
-        return space.wrap(ord(self._value[0]))
+        return space.newint(ord(self._value[0]))
 
     def _new(self, value):
         return W_BytesObject(value)
@@ -574,7 +574,7 @@ class W_BytesObject(W_AbstractBytesObject):
         return W_BytesObject(bytes)
 
     def descr_repr(self, space):
-        return space.wrap(string_escape_encode(self._value, True))
+        return space.newtext(string_escape_encode(self._value, True))
 
     def descr_str(self, space):
         if space.sys.get_flag('bytes_warning'):
@@ -584,7 +584,7 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def descr_hash(self, space):
         x = compute_hash(self._value)
-        return space.wrap(x)
+        return space.newint(x)
 
     def descr_eq(self, space, w_other):
         if space.config.objspace.std.withstrbuf:
@@ -668,7 +668,7 @@ class W_BytesObject(W_AbstractBytesObject):
         return self._StringMethods_descr_join(space, w_list)
 
     def _join_return_one(self, space, w_obj):
-        return space.is_w(space.type(w_obj), space.w_str)
+        return space.is_w(space.type(w_obj), space.w_bytes)
 
     def descr_lower(self, space):
         return W_BytesObject(self._value.lower())

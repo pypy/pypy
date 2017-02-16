@@ -137,7 +137,7 @@ def PyLong_AsLongAndOverflow(space, w_long, overflow_ptr):
     except OperationError as e:
         if not e.match(space, space.w_OverflowError):
             raise
-    if space.is_true(space.gt(w_long, space.wrap(0))):
+    if space.is_true(space.gt(w_long, space.newint(0))):
         overflow_ptr[0] = rffi.cast(rffi.INT_real, 1)
     else:
         overflow_ptr[0] = rffi.cast(rffi.INT_real, -1)
@@ -158,7 +158,7 @@ def PyLong_AsLongLongAndOverflow(space, w_long, overflow_ptr):
     except OperationError as e:
         if not e.match(space, space.w_OverflowError):
             raise
-    if space.is_true(space.gt(w_long, space.wrap(0))):
+    if space.is_true(space.gt(w_long, space.newint(0))):
         overflow_ptr[0] = rffi.cast(rffi.INT_real, 1)
     else:
         overflow_ptr[0] = rffi.cast(rffi.INT_real, -1)
@@ -167,7 +167,7 @@ def PyLong_AsLongLongAndOverflow(space, w_long, overflow_ptr):
 @cpython_api([lltype.Float], PyObject)
 def PyLong_FromDouble(space, val):
     """Return a new PyLongObject object from v, or NULL on failure."""
-    return space.int(space.wrap(val))
+    return space.int(space.newfloat(val))
 
 @cpython_api([PyObject], lltype.Float, error=-1.0)
 def PyLong_AsDouble(space, w_long):
@@ -188,8 +188,8 @@ def PyLong_FromString(space, str, pend, base):
     between 2 and 36, inclusive.  Leading spaces are ignored.  If there are
     no digits, ValueError will be raised."""
     s = rffi.charp2str(str)
-    w_str = space.wrap(s)
-    w_base = space.wrap(rffi.cast(lltype.Signed, base))
+    w_str = space.newtext(s)
+    w_base = space.newint(rffi.cast(lltype.Signed, base))
     if pend:
         pend[0] = rffi.ptradd(str, len(s))
     return space.call_function(space.w_int, w_str, w_base)
@@ -201,8 +201,8 @@ def PyLong_FromUnicode(space, u, length, base):
     string, length gives the number of characters, and base is the radix
     for the conversion.  The radix must be in the range [2, 36]; if it is
     out of range, ValueError will be raised."""
-    w_value = space.wrap(rffi.wcharpsize2unicode(u, length))
-    w_base = space.wrap(rffi.cast(lltype.Signed, base))
+    w_value = space.newunicode(rffi.wcharpsize2unicode(u, length))
+    w_base = space.newint(rffi.cast(lltype.Signed, base))
     return space.call_function(space.w_int, w_value, w_base)
 
 @cpython_api([rffi.VOIDP], PyObject)
@@ -214,7 +214,7 @@ def PyLong_FromVoidPtr(space, p):
     value = rffi.cast(ADDR, p)    # signed integer
     if value < 0:
         return space.newlong_from_rarith_int(rffi.cast(lltype.Unsigned, p))
-    return space.wrap(value)
+    return space.newint(value)
 
 @cpython_api([PyObject], rffi.VOIDP, error=lltype.nullptr(rffi.VOIDP.TO))
 def PyLong_AsVoidPtr(space, w_long):

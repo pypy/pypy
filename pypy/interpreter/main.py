@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError
 
 
 def ensure__main__(space):
-    w_main = space.wrap('__main__')
+    w_main = space.newtext('__main__')
     w_modules = space.sys.get('modules')
     try:
         return space.getitem(w_modules, w_main)
@@ -17,10 +17,9 @@ def ensure__main__(space):
 
 
 def compilecode(space, source, filename, cmd='exec'):
-    w = space.wrap
     w_code = space.builtin.call(
         'compile', space.newbytes(source), space.wrap_fsdecoded(filename),
-        w(cmd), w(0), w(0))
+        space.wrap(cmd), space.newint(0), space.newint(0))
     pycode = space.interp_w(eval.Code, w_code)
     return pycode
 
@@ -36,16 +35,14 @@ def _run_eval_string(source, filename, space, eval):
             from pypy.objspace.std import StdObjSpace
             space = StdObjSpace()
 
-        w = space.wrap
-
         pycode = compilecode(space, source, filename or '<string>', cmd)
 
         mainmodule = ensure__main__(space)
         w_globals = mainmodule.w_dict
 
-        space.setitem(w_globals, w('__builtins__'), space.builtin)
+        space.setitem(w_globals, space.newtext('__builtins__'), space.builtin)
         if filename is not None:
-            space.setitem(w_globals, w('__file__'),
+            space.setitem(w_globals, space.newtext('__file__'),
                           space.wrap_fsdecoded(filename))
 
         retval = pycode.exec_code(space, w_globals, w_globals)
@@ -85,16 +82,15 @@ def run_module(module_name, args, space=None):
     if space is None:
         from pypy.objspace.std import StdObjSpace
         space = StdObjSpace()
-    w = space.wrap
     argv = [module_name]
     if args is not None:
         argv.extend(args)
-    space.setitem(space.sys.w_dict, w('argv'), w(argv))
+    space.setitem(space.sys.w_dict, space.newtext('argv'), space.wrap(argv))
     w_import = space.builtin.get('__import__')
-    runpy = space.call_function(w_import, w('runpy'))
-    w_run_module = space.getitem(runpy.w_dict, w('run_module'))
-    return space.call_function(w_run_module, w(module_name), space.w_None,
-                               w('__main__'), space.w_True)
+    runpy = space.call_function(w_import, space.wrap('runpy'))
+    w_run_module = space.getitem(runpy.w_dict, space.wrap('run_module'))
+    return space.call_function(w_run_module, space.wrap(module_name), space.w_None,
+                               space.wrap('__main__'), space.w_True)
 
 
 def run_toplevel(space, f, verbose=False):
@@ -110,7 +106,7 @@ def run_toplevel(space, f, verbose=False):
         operationerr.normalize_exception(space)
         w_type = operationerr.w_type
         w_value = operationerr.get_w_value(space)
-        w_traceback = space.wrap(operationerr.get_traceback())
+        w_traceback = operationerr.get_w_traceback(space)
 
         # for debugging convenience we also insert the exception into
         # the interpreter-level sys.last_xxx
@@ -121,7 +117,7 @@ def run_toplevel(space, f, verbose=False):
             # exit if we catch a w_SystemExit
             if operationerr.match(space, space.w_SystemExit):
                 w_exitcode = space.getattr(w_value,
-                                           space.wrap('code'))
+                                           space.newtext('code'))
                 if space.is_w(w_exitcode, space.w_None):
                     exitcode = 0
                 else:
@@ -129,15 +125,15 @@ def run_toplevel(space, f, verbose=False):
                         exitcode = space.int_w(w_exitcode, allow_conversion=False)
                     except OperationError:
                         # not an integer: print it to stderr
-                        msg = space.str_w(space.str(w_exitcode))
+                        msg = space.text_w(space.str(w_exitcode))
                         print >> sys.stderr, msg
                         exitcode = 1
                 raise SystemExit(exitcode)
 
             # set the sys.last_xxx attributes
-            space.setitem(space.sys.w_dict, space.wrap('last_type'), w_type)
-            space.setitem(space.sys.w_dict, space.wrap('last_value'), w_value)
-            space.setitem(space.sys.w_dict, space.wrap('last_traceback'),
+            space.setitem(space.sys.w_dict, space.newtext('last_type'), w_type)
+            space.setitem(space.sys.w_dict, space.newtext('last_value'), w_value)
+            space.setitem(space.sys.w_dict, space.newtext('last_traceback'),
                           w_traceback)
 
             # call sys.excepthook if present

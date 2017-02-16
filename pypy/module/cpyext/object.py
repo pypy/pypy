@@ -123,7 +123,7 @@ def PyObject_GetAttrString(space, w_obj, name_ptr):
     value on success, or NULL on failure. This is the equivalent of the Python
     expression o.attr_name."""
     name = rffi.charp2str(name_ptr)
-    return space.getattr(w_obj, space.wrap(name))
+    return space.getattr(w_obj, space.newtext(name))
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyObject_HasAttr(space, w_obj, w_name):
@@ -137,7 +137,7 @@ def PyObject_HasAttr(space, w_obj, w_name):
 def PyObject_HasAttrString(space, w_obj, name_ptr):
     try:
         name = rffi.charp2str(name_ptr)
-        w_res = operation.hasattr(space, w_obj, space.wrap(name))
+        w_res = operation.hasattr(space, w_obj, space.newtext(name))
         return space.is_true(w_res)
     except OperationError:
         return 0
@@ -149,7 +149,7 @@ def PyObject_SetAttr(space, w_obj, w_name, w_value):
 
 @cpython_api([PyObject, CONST_STRING, PyObject], rffi.INT_real, error=-1)
 def PyObject_SetAttrString(space, w_obj, name_ptr, w_value):
-    w_name = space.wrap(rffi.charp2str(name_ptr))
+    w_name = space.newtext(rffi.charp2str(name_ptr))
     operation.setattr(space, w_obj, w_name, w_value)
     return 0
 
@@ -164,7 +164,7 @@ def PyObject_DelAttr(space, w_obj, w_name):
 def PyObject_DelAttrString(space, w_obj, name_ptr):
     """Delete attribute named attr_name, for object o. Returns -1 on failure.
     This is the equivalent of the Python statement del o.attr_name."""
-    w_name = space.wrap(rffi.charp2str(name_ptr))
+    w_name = space.newtext(rffi.charp2str(name_ptr))
     space.delattr(w_obj, w_name)
     return 0
 
@@ -239,7 +239,7 @@ def PyObject_Type(space, w_obj):
 @cpython_api([PyObject], PyObject)
 def PyObject_Str(space, w_obj):
     if w_obj is None:
-        return space.wrap("<NULL>")
+        return space.newtext("<NULL>")
     return space.str(w_obj)
 
 @cts.decl("PyObject * PyObject_Bytes(PyObject *v)")
@@ -262,13 +262,13 @@ def PyObject_Repr(space, w_obj):
     Python expression repr(o).  Called by the repr() built-in function and
     by reverse quotes."""
     if w_obj is None:
-        return space.wrap("<NULL>")
+        return space.newtext("<NULL>")
     return space.repr(w_obj)
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyObject_Format(space, w_obj, w_format_spec):
     if w_format_spec is None:
-        w_format_spec = space.wrap('')
+        w_format_spec = space.newtext('')
     w_ret = space.call_method(w_obj, '__format__', w_format_spec)
     if space.isinstance_w(w_format_spec, space.w_unicode):
         return space.unicode_from_object(w_ret)
@@ -290,7 +290,7 @@ def PyObject_Unicode(space, w_obj):
     the Python expression unicode(o).  Called by the unicode() built-in
     function."""
     if w_obj is None:
-        return space.wrap(u"<NULL>")
+        return space.newunicode(u"<NULL>")
     return space.call_function(space.w_unicode, w_obj)
 
 @cpython_api([PyObject, PyObject, rffi.INT_real], PyObject)
@@ -394,7 +394,7 @@ def PyObject_AsFileDescriptor(space, w_obj):
         fd = space.int_w(w_obj)
     except OperationError:
         try:
-            w_meth = space.getattr(w_obj, space.wrap('fileno'))
+            w_meth = space.getattr(w_obj, space.newtext('fileno'))
         except OperationError:
             raise oefmt(space.w_TypeError,
                         "argument must be an int, or have a fileno() method.")
@@ -418,7 +418,7 @@ def PyObject_Hash(space, w_obj):
 
 @cpython_api([rffi.DOUBLE], rffi.LONG, error=-1)
 def _Py_HashDouble(space, v):
-    return space.int_w(space.hash(space.wrap(v)))
+    return space.int_w(space.hash(space.newfloat(v)))
 
 @cpython_api([PyObject], lltype.Signed, error=-1)
 def PyObject_HashNotImplemented(space, o):
@@ -453,7 +453,7 @@ def PyObject_Print(space, w_obj, fp, flags):
         w_str = space.repr(w_obj)
 
     count = space.len_w(w_str)
-    data = space.str_w(w_str)
+    data = space.text_w(w_str)
     with rffi.scoped_nonmovingbuffer(data) as buf:
         fwrite(buf, 1, count, fp)
     return 0

@@ -355,7 +355,7 @@ def c_call_b(space, cppmethod, cppobject, nargs, cargs):
     return rffi.cast(rffi.UCHAR, space.c_uint_w(call_capi(space, 'call_b', args)))
 def c_call_c(space, cppmethod, cppobject, nargs, cargs):
     args = [_ArgH(cppmethod), _ArgH(cppobject), _ArgL(nargs), _ArgP(cargs)]
-    return rffi.cast(rffi.CHAR, space.str_w(call_capi(space, 'call_c', args))[0])
+    return rffi.cast(rffi.CHAR, space.text_w(call_capi(space, 'call_c', args))[0])
 def c_call_h(space, cppmethod, cppobject, nargs, cargs):
     args = [_ArgH(cppmethod), _ArgH(cppobject), _ArgL(nargs), _ArgP(cargs)]
     return rffi.cast(rffi.SHORT, space.int_w(call_capi(space, 'call_h', args)))
@@ -601,7 +601,7 @@ def stdstring_c_str(space, w_self):
 
     from pypy.module.cppyy import interp_cppyy
     cppstr = space.interp_w(interp_cppyy.W_CPPInstance, w_self, can_be_None=False)
-    return space.wrap(c_stdstring2charp(space, cppstr._rawobject))
+    return space.newtext(c_stdstring2charp(space, cppstr._rawobject))
 
 # setup pythonizations for later use at run-time
 _pythonizations = {}
@@ -616,14 +616,14 @@ def register_pythonizations(space):
     ]
 
     for f in allfuncs:
-        _pythonizations[f.__name__] = space.wrap(interp2app(f))
+        _pythonizations[f.__name__] = interp2app(f).spacebind(space)
 
 def _method_alias(space, w_pycppclass, m1, m2):
-    space.setattr(w_pycppclass, space.wrap(m1),
-                  space.getattr(w_pycppclass, space.wrap(m2)))
+    space.setattr(w_pycppclass, space.newtext(m1),
+                  space.getattr(w_pycppclass, space.newtext(m2)))
 
 def pythonize(space, name, w_pycppclass):
     if name == "string":
-        space.setattr(w_pycppclass, space.wrap("c_str"), _pythonizations["stdstring_c_str"])
+        space.setattr(w_pycppclass, space.newtext("c_str"), _pythonizations["stdstring_c_str"])
         _method_alias(space, w_pycppclass, "_cppyy_as_builtin", "c_str")
         _method_alias(space, w_pycppclass, "__str__",           "c_str")

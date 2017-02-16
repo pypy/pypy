@@ -8,8 +8,8 @@ def recode_to_utf8(space, bytes, encoding):
     if encoding == 'utf-8':
         return bytes
     w_text = space.call_method(space.newbytes(bytes), "decode",
-                               space.wrap(encoding))
-    w_recoded = space.call_method(w_text, "encode", space.wrap("utf-8"))
+                               space.newtext(encoding))
+    w_recoded = space.call_method(w_text, "encode", space.newtext("utf-8"))
     return space.bytes_w(w_recoded)
 
 def _normalize_encoding(encoding):
@@ -144,7 +144,7 @@ class PythonParser(parser.Parser):
                 if e.match(space, space.w_UnicodeDecodeError):
                     e.normalize_exception(space)
                     w_message = space.str(e.get_w_value(space))
-                    raise error.SyntaxError(space.str_w(w_message))
+                    raise error.SyntaxError(space.text_w(w_message))
                 raise
 
         flags = compile_info.flags

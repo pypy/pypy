@@ -4,7 +4,7 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.typedef import TypeDef, interp_attrproperty_bytes
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -262,9 +262,8 @@ class OutBuffer(object):
 @unwrap_spec(compresslevel=int)
 def descr_compressor__new__(space, w_subtype, compresslevel=9):
     x = space.allocate_instance(W_BZ2Compressor, w_subtype)
-    x = space.interp_w(W_BZ2Compressor, x)
     W_BZ2Compressor.__init__(x, space, compresslevel)
-    return space.wrap(x)
+    return x
 
 class W_BZ2Compressor(W_Root):
     """BZ2Compressor([compresslevel=9]) -> compressor object
@@ -394,9 +393,8 @@ W_BZ2Compressor.typedef.acceptable_as_base_class = False
 
 def descr_decompressor__new__(space, w_subtype):
     x = space.allocate_instance(W_BZ2Decompressor, w_subtype)
-    x = space.interp_w(W_BZ2Decompressor, x)
     W_BZ2Decompressor.__init__(x, space)
-    return space.wrap(x)
+    return x
 
 class W_BZ2Decompressor(W_Root):
     """BZ2Decompressor() -> decompressor object
@@ -453,7 +451,7 @@ class W_BZ2Decompressor(W_Root):
     def needs_input_w(self, space):
         """ True if more input is needed before more decompressed
             data can be produced. """
-        return space.wrap(self.needs_input)
+        return space.newbool(self.needs_input)
 
     def eof_w(self, space):
         if self.running:
@@ -545,7 +543,8 @@ W_BZ2Decompressor.typedef = TypeDef("_bz2.BZ2Decompressor",
     __doc__ = W_BZ2Decompressor.__doc__,
     __new__ = interp2app(descr_decompressor__new__),
     __getstate__ = interp2app(W_BZ2Decompressor.descr_getstate),
-    unused_data = interp_attrproperty_bytes("unused_data", W_BZ2Decompressor),
+    unused_data = interp_attrproperty("unused_data", W_BZ2Decompressor,
+        wrapfn="newbytes"),
     eof = GetSetProperty(W_BZ2Decompressor.eof_w),
     decompress = interp2app(W_BZ2Decompressor.decompress),
     needs_input = GetSetProperty(W_BZ2Decompressor.needs_input_w),

@@ -43,7 +43,7 @@ def PyModule_Create2(space, module, api_version):
     f_name, f_path = state.package_context
     if f_name is not None:
         modname = f_name
-    w_mod = space.wrap(Module(space, space.wrap(modname)))
+    w_mod = Module(space, space.newtext(modname))
     state.package_context = None, None
 
     if f_path is not None:
@@ -52,15 +52,15 @@ def PyModule_Create2(space, module, api_version):
         dict_w = {}
     convert_method_defs(space, dict_w, methods, None, w_mod, modname)
     for key, w_value in dict_w.items():
-        space.setattr(w_mod, space.wrap(key), w_value)
+        space.setattr(w_mod, space.newtext(key), w_value)
     if doc:
-        space.setattr(w_mod, space.wrap("__doc__"),
-                      space.wrap(doc))
+        space.setattr(w_mod, space.newtext("__doc__"),
+                      space.newtext(doc))
     return w_mod
 
 
 def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
-    w_name = space.wrap(name)
+    w_name = space.newtext_or_none(name)
     methods = rffi.cast(rffi.CArrayPtr(PyMethodDef), methods)
     if methods:
         i = -1
@@ -77,7 +77,7 @@ def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
                     raise oefmt(space.w_ValueError,
                             "module functions cannot set METH_CLASS or "
                             "METH_STATIC")
-                w_obj = space.wrap(W_PyCFunctionObject(space, method, w_self, w_name))
+                w_obj = W_PyCFunctionObject(space, method, w_self, w_name)
             else:
                 if methodname in dict_w and not (flags & METH_COEXIST):
                     continue
