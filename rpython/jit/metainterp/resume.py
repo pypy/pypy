@@ -1266,9 +1266,6 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         assert box.type == kind
         return box
 
-    def next_box_of_type(self, kind):
-        return self.decode_box(self.resumecodereader.next_item(), kind)
-
     def load_box_from_cpu(self, num, kind):
         if num < 0:
             num += len(self.liveboxes)
@@ -1297,7 +1294,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
             kind = FLOAT
         else:
             raise AssertionError(kind)
-        return self.decode_box(tagged, kind)
+        return self.decode_box(self.resumecodereader.next_item(), kind)
     next_box_of_type._annspecialcase_ = 'specialize:arg(1)'
 
     def write_an_int(self, index, box):
@@ -1408,7 +1405,6 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         # just reset the token, we'll force it later
         vinfo.reset_token_gcref(virtualizable)
         vinfo.write_from_resume_data_partial(virtualizable, self)
-        return index
 
     def load_next_value_of_type(self, TYPE):
         from rpython.jit.metainterp.warmstate import specialize_value

@@ -80,7 +80,7 @@ def unpack_numbering(numb):
     return l
 
 class Writer(object):
-    def __init__(self, size):
+    def __init__(self, size=0):
         self.current = objectmodel.newlist_hint(3 * size)
         self.grow(size)
         self.items = 0
@@ -109,6 +109,13 @@ class Writer(object):
         l = []
         append_numbering(l, self.items)
         self.current = l + self.current[1:]
+
+
+def create_numbering(l):
+    w = Writer()
+    for item in l:
+        w.append_int(item)
+    return w.create_numbering()
 
 
 class Reader(object):
