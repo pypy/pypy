@@ -695,7 +695,7 @@ def _getfullpathname(space, w_path):
         if space.isinstance_w(w_path, space.w_unicode):
             path = FileEncoder(space, w_path)
             fullpath = rposix.getfullpathname(path)
-            w_fullpath = space.newtext(fullpath)
+            w_fullpath = space.newunicode(fullpath)
         else:
             path = space.str0_w(w_path)
             fullpath = rposix.getfullpathname(path)
