@@ -8,7 +8,7 @@ from rpython.rlib.buffer import Buffer
 from pypy.conftest import option
 
 class AppTestMemoryView:
-    spaceconfig = dict(usemodules=['array', 'sys'])
+    spaceconfig = dict(usemodules=['array', 'sys', '_rawffi'])
 
     def test_basic(self):
         v = memoryview(b"abc")
@@ -279,6 +279,18 @@ class AppTestMemoryView:
         assert m2.strides == m1.strides
         assert m2.itemsize == m1.itemsize
         assert m2.shape == m1.shape
+
+    def test_cast_ctypes(self):
+        import _rawffi, sys
+        a = _rawffi.Array('i')(1)
+        a[0] = 0x01234567
+        m = memoryview(a).cast('B')
+        if sys.byteorder == 'little':
+            expected = 0x67, 0x45, 0x23, 0x01
+        else:
+            expected = 0x01, 0x23, 0x45, 0x67
+        assert (m[0], m[1], m[2], m[3]) == expected
+        a.free()
 
 class MockBuffer(Buffer):
     def __init__(self, space, w_arr, w_dim, w_fmt, \
