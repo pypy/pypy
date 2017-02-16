@@ -576,7 +576,7 @@ class W_MemoryView(W_Root):
             shape = self.getshape()
             strides = self.getstrides()
             if shape[0] == 1 or strides[0] == self.getitemsize():
-                flags |= MEMORYVIEW_C | MEMORYVIEW_SCALAR
+                flags |= MEMORYVIEW_C | MEMORYVIEW_FORTRAN
         else:
             ndim = self.getndim()
             shape = self.getshape()
@@ -587,7 +587,7 @@ class W_MemoryView(W_Root):
                 flags |= MEMORYVIEW_C
             if PyBuffer_isContiguous(None, ndim, shape, strides,
                                       itemsize, 'F'):
-                flags |= MEMORYVIEW_C
+                flags |= MEMORYVIEW_FORTRAN
 
         if self.suboffsets:
             flags |= MEMORYVIEW_PIL
