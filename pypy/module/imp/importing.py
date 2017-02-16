@@ -576,7 +576,7 @@ def find_module(space, modulename, w_modulename, partname, w_path,
 
             path = space.str0_w(w_pathitem)
             filepart = os.path.join(path, partname)
-            log_pyverbose(space, 2, "# trying %s" % (filepart,))
+            log_pyverbose(space, 2, "# trying %s\n" % (filepart,))
             if os.path.isdir(filepart) and case_ok(filepart):
                 if has_init_module(space, filepart):
                     return FindInfo(PKG_DIRECTORY, filepart, None)
