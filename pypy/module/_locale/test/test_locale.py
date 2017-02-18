@@ -115,8 +115,8 @@ class AppTestLocaleTrivia:
         ucase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
         _locale.setlocale(_locale.LC_ALL, self.language_utf8)
-        assert string.lowercase == lcase
-        assert string.uppercase == ucase
+        assert string.ascii_lowercase == lcase
+        assert string.ascii_uppercase == ucase
 
         _locale.setlocale(_locale.LC_ALL, self.language_en)
 
