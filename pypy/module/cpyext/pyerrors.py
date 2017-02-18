@@ -167,12 +167,12 @@ def PyErr_SetFromErrnoWithFilenameObject(space, w_type, w_value):
     if w_value:
         w_error = space.call_function(w_type,
                                       space.newint(errno),
-                                      space.newtext(msg),
+                                      space.newunicode(msg),
                                       w_value)
     else:
         w_error = space.call_function(w_type,
                                       space.newint(errno),
-                                      space.newtext(msg))
+                                      space.newunicode(msg))
     raise OperationError(w_type, w_error)
 
 @cpython_api([], rffi.INT_real, error=-1)

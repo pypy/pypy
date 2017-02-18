@@ -424,9 +424,6 @@ class W_UnicodeObject(W_Root):
     def descr_rmod(self, space, w_values):
         return mod_format(space, w_values, self, fmt_type=FORMAT_UNICODE)
 
-    def descr_rmod(self, space, w_values):
-        return mod_format(space, w_values, self, do_unicode=True)
-
     def descr_translate(self, space, w_table):
         selfvalue = self._value
         w_sys = space.getbuiltinmodule('sys')
@@ -617,7 +614,6 @@ def decode_object(space, w_obj, encoding, errors):
         encoding = getdefaultencoding(space)
     if errors is None or errors == 'strict':
         if encoding == 'ascii':
-            # XXX error handling
             s = space.charbuf_w(w_obj)
             try:
                 u = fast_str_decode_ascii(s)

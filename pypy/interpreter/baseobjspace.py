@@ -1553,6 +1553,13 @@ class ObjSpace(object):
                 return w_obj.buffer_w(self, self.BUF_SIMPLE)
             except BufferInterfaceNotFound:
                 self._getarg_error("bytes-like object", w_obj)
+        elif code == 'y#':
+            if self.isinstance_w(w_obj, self.w_bytes):
+                return w_obj.bytes_w(self)
+            try:
+                return w_obj.buffer_w(self, self.BUF_SIMPLE).as_str()
+            except BufferInterfaceNotFound:
+                self._getarg_error("bytes-like object", w_obj)
         else:
             assert False
 

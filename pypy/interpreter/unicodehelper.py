@@ -154,7 +154,7 @@ def encode_utf8(space, uni, allow_surrogates=False):
     # If allow_surrogates=True, then revert to the Python 2 behavior
     # which never raises UnicodeEncodeError.  Surrogate pairs are then
     # allowed, either paired or lone.  A paired surrogate is considered
-    # like the non-BMP character it stands for.  See also unicode_utf8sp().
+    # like the non-BMP character it stands for.  See also *_utf8sp().
     return runicode.unicode_encode_utf_8(
         uni, len(uni), "strict",
         errorhandler=encode_error_handler(space),

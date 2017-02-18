@@ -13,8 +13,6 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
-from pypy.interpreter.error import strerror as _strerror
-
 cwd = py.path.local(__file__).dirpath()
 eci = ExternalCompilationInfo(
     includes=[cwd.join('locale_codec.h')],

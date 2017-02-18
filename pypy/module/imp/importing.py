@@ -111,7 +111,8 @@ def _prepare_module(space, w_mod, filename, pkgdir):
     space.setattr(w_mod, space.newtext('__file__'), space.newtext(filename))
     space.setattr(w_mod, space.newtext('__doc__'), space.w_None)
     if pkgdir is not None:
-        space.setattr(w_mod, space.newtext('__path__'), space.newlist([w(pkgdir)]))
+        space.setattr(w_mod, space.newtext('__path__'),
+                      space.newlist([space.newtext(pkgdir)]))
     init_extra_module_attrs(space, w_mod)
 
 def add_module(space, w_name):

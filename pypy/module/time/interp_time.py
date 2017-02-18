@@ -573,7 +573,7 @@ def _gettmarg(space, w_tup, allowNone=True):
         lltype.free(t_ref, flavor='raw')
         if not pbuf:
             raise OperationError(space.w_ValueError,
-                space.newtext(_get_error_msg()))
+                                 space.newunicode(_get_error_msg()))
         return pbuf
 
     tup_w = space.fixedview(w_tup)
@@ -738,7 +738,8 @@ def gmtime(space, w_seconds=None):
     lltype.free(t_ref, flavor='raw')
 
     if not p:
-        raise OperationError(space.w_ValueError, space.newtext(_get_error_msg()))
+        raise OperationError(space.w_ValueError,
+                             space.newunicode(_get_error_msg()))
     return _tm_to_tuple(space, p)
 
 def localtime(space, w_seconds=None):
@@ -755,7 +756,8 @@ def localtime(space, w_seconds=None):
     lltype.free(t_ref, flavor='raw')
 
     if not p:
-        raise OperationError(space.w_OSError, space.newtext(_get_error_msg()))
+        raise OperationError(space.w_OSError,
+                             space.newunicode(_get_error_msg()))
     return _tm_to_tuple(space, p)
 
 def mktime(space, w_tup):
