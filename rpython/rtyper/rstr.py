@@ -9,7 +9,6 @@ from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.rfloat import FloatRepr
 from rpython.tool.pairtype import pairtype, pair
 from rpython.tool.sourcetools import func_with_new_name
-from rpython.rlib.rstring import UnicodeBuilder
 
 
 class AbstractStringRepr(Repr):
@@ -18,31 +17,21 @@ class AbstractStringRepr(Repr):
         Repr.__init__(self, *args)
         self.rstr_decode_utf_8 = None
 
-    def ensure_ll_decode_utf8(self):
-        from rpython.rlib.runicode import str_decode_utf_8_impl
-        self.rstr_decode_utf_8 = func_with_new_name(str_decode_utf_8_impl,
-                                                    'rstr_decode_utf_8_impl')
-
     @jit.elidable
     def ll_decode_utf8(self, llvalue):
         from rpython.rtyper.annlowlevel import hlstr
+        from rpython.rlib import runicode
         value = hlstr(llvalue)
         assert value is not None
-        result = UnicodeBuilder(len(value))
-        self.rstr_decode_utf_8(
-            value, len(value), 'strict', final=True,
-            errorhandler=self.ll_raise_unicode_exception_decode,
-            allow_surrogates=False, result=result)
+        errorhandler = runicode.default_unicode_error_decode
+        u, pos = runicode.str_decode_utf_8_elidable(
+            value, len(value), 'strict', True, errorhandler, False)
         # XXX should it really be 'allow_surrogates=False'?  In RPython,
         # unicode.decode('utf-8') happily accepts surrogates.  This
         # makes it hard to test untranslated (it's the cause of a
         # failure in lib-python's test_warnings on PyPy3, for example)
-        return self.ll.llunicode(result.build())
-
-    @staticmethod
-    def ll_raise_unicode_exception_decode(errors, encoding, msg, s,
-                                       startingpos, endingpos):
-        raise UnicodeDecodeError(encoding, s, startingpos, endingpos, msg)
+        # XXX maybe the whole ''.decode('utf-8') should be not RPython.
+        return self.ll.llunicode(u)
 
     def _str_reprs(self, hop):
         return hop.args_r[0].repr, hop.args_r[1].repr
@@ -351,7 +340,6 @@ class AbstractStringRepr(Repr):
         elif encoding == 'latin-1':
             return hop.gendirectcall(self.ll_decode_latin1, v_self)
         elif encoding == 'utf-8':
-            self.ensure_ll_decode_utf8()
             return hop.gendirectcall(self.ll_decode_utf8, v_self)
         else:
             raise TyperError("encoding %s not implemented" % (encoding, ))
@@ -394,11 +382,6 @@ class AbstractUnicodeRepr(AbstractStringRepr):
         AbstractStringRepr.__init__(self, *args)
         self.runicode_encode_utf_8 = None
 
-    def ensure_ll_encode_utf8(self):
-        from rpython.rlib.runicode import unicode_encode_utf_8_impl
-        self.runicode_encode_utf_8 = func_with_new_name(
-            unicode_encode_utf_8_impl, 'runicode_encode_utf_8')
-
     def rtype_method_upper(self, hop):
         raise TyperError("Cannot do toupper on unicode string")
 
@@ -408,18 +391,14 @@ class AbstractUnicodeRepr(AbstractStringRepr):
     @jit.elidable
     def ll_encode_utf8(self, ll_s):
         from rpython.rtyper.annlowlevel import hlunicode
+        from rpython.rlib import runicode
         s = hlunicode(ll_s)
         assert s is not None
-        bytes = self.runicode_encode_utf_8(
+        errorhandler = runicode.default_unicode_error_encode
+        bytes = runicode.unicode_encode_utf_8_elidable(
             s, len(s), 'strict',
-            errorhandler=self.ll_raise_unicode_exception_encode,
-            allow_surrogates=False)
+            errorhandler=errorhandler, allow_surrogates=False)
         return self.ll.llstr(bytes)
-
-    @staticmethod
-    def ll_raise_unicode_exception_encode(errors, encoding, msg, u,
-                                          startingpos, endingpos):
-        raise UnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
 
     def rtype_method_encode(self, hop):
         if not hop.args_s[1].is_constant():
@@ -436,7 +415,6 @@ class AbstractUnicodeRepr(AbstractStringRepr):
         elif encoding == "latin-1":
             return hop.gendirectcall(self.ll_encode_latin1, v_self)
         elif encoding == 'utf-8':
-            self.ensure_ll_encode_utf8()
             return hop.gendirectcall(self.ll_encode_utf8, v_self)
         else:
             raise TyperError("encoding %s not implemented" % (encoding, ))

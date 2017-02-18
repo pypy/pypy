@@ -188,7 +188,7 @@ class TestRUnicode(AbstractTestRstr, BaseRtypingTest):
             else:
                 errors = 'foo'
             # the annotation of y is SomeUnicodeString(can_be_None=False)
-            y, _ = str_decode_utf_8(x, len(x), errors, errorhandler)
+            y, _ = str_decode_utf_8(x, len(x), errors, errorhandler=errorhandler)
             return x.decode('utf-8') + y
 
         assert self.ll_to_string(self.interpret(f, [1])) == f(1)
