@@ -184,7 +184,10 @@ def PyThreadState_GetDict(space):
     Previously this could only be called when a current thread is active, and NULL
     meant that an exception was raised."""
     state = space.fromcache(InterpreterState)
-    return state.get_thread_state(space).c_dict
+    ts = state.get_thread_state(space)
+    if not ts:
+        return lltype.nullptr(PyObject.TO)
+    return ts.c_dict
 
 @cpython_api([PyThreadState], PyThreadState, error=CANNOT_FAIL)
 def PyThreadState_Swap(space, tstate):

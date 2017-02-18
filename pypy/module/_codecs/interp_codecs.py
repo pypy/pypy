@@ -707,7 +707,10 @@ def utf_8_encode(space, uni, errors="strict"):
     if errors is None:
         errors = 'strict'
     state = space.fromcache(CodecState)
-    result = runicode.unicode_encode_utf_8(
+    # NB. can't call unicode_encode_utf_8() directly because that's
+    # an @elidable function nowadays.  Instead, we need the _impl().
+    # (The problem is the errorhandler, which calls arbitrary Python.)
+    result = runicode.unicode_encode_utf_8_impl(
         uni, len(uni), errors, state.encode_error_handler,
         allow_surrogates=False)
     return space.newtuple([space.newbytes(result), space.newint(len(uni))])
@@ -719,7 +722,10 @@ def utf_8_decode(space, string, errors="strict", w_final=None):
         errors = 'strict'
     final = space.is_true(w_final)
     state = space.fromcache(CodecState)
-    result, consumed = runicode.str_decode_utf_8(
+    # NB. can't call str_decode_utf_8() directly because that's
+    # an @elidable function nowadays.  Instead, we need the _impl().
+    # (The problem is the errorhandler, which calls arbitrary Python.)
+    result, consumed = runicode.str_decode_utf_8_impl(
         string, len(string), errors,
         final, state.decode_error_handler,
         allow_surrogates=False)
