@@ -542,7 +542,7 @@ class StructTest(unittest.TestCase):
 
         # format lists containing only count spec should result in an error
         self.assertRaises(struct.error, struct.pack, '12345')
-        self.assertRaises(struct.error, struct.unpack, '12345', '')
+        self.assertRaises(struct.error, struct.unpack, '12345', b'')
         self.assertRaises(struct.error, struct.pack_into, '12345', store, 0)
         self.assertRaises(struct.error, struct.unpack_from, '12345', store, 0)
 
