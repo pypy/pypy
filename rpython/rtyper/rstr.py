@@ -23,7 +23,7 @@ class AbstractStringRepr(Repr):
         from rpython.rlib import runicode
         value = hlstr(llvalue)
         assert value is not None
-        errorhandler = runicode.default_unicode_error_decode
+        errorhandler = runicode.ll_unicode_error_decode
         u, pos = runicode.str_decode_utf_8_elidable(
             value, len(value), 'strict', True, errorhandler, True)
         # XXX maybe the whole ''.decode('utf-8') should be not RPython.
@@ -390,7 +390,7 @@ class AbstractUnicodeRepr(AbstractStringRepr):
         from rpython.rlib import runicode
         s = hlunicode(ll_s)
         assert s is not None
-        errorhandler = runicode.default_unicode_error_encode
+        errorhandler = runicode.ll_unicode_error_encode
         bytes = runicode.unicode_encode_utf_8_elidable(
             s, len(s), 'strict',
             errorhandler=errorhandler, allow_surrogates=True)
