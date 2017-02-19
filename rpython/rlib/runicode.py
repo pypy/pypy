@@ -110,9 +110,6 @@ def default_unicode_error_encode(errors, encoding, msg, u,
 def ll_unicode_error_decode(errors, encoding, msg, s, startingpos, endingpos):
     raise UnicodeDecodeError(encoding, s, startingpos, endingpos, msg)
 
-def ll_unicode_error_encode(errors, encoding, msg, u, startingpos, endingpos):
-    raise UnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
-
 # ____________________________________________________________
 # utf-8
 
@@ -357,7 +354,7 @@ def unicode_encode_utf_8(s, size, errors, errorhandler=None,
         s = NonConstant(u'?????')
         size = NonConstant(12345)
         errors = NonConstant('strict')
-        errorhandler = ll_unicode_error_encode
+        # no errorhandler needed for rtyper/rstr.py
         allow_surrogates = NonConstant(True)
     return unicode_encode_utf_8_elidable(s, size, errors, errorhandler,
                                          allow_surrogates=allow_surrogates)

@@ -699,7 +699,7 @@ class __extend__(SomeUnicodeString):
         if enc not in ('ascii', 'latin-1', 'utf-8'):
             raise AnnotatorError("Encoding %s not supported for unicode" % (enc,))
         return SomeString(no_nul=self.no_nul)
-    method_encode.can_only_throw = [UnicodeEncodeError]
+    method_encode.can_only_throw = []
 
 
 class __extend__(SomeString):
