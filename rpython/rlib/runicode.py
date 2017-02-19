@@ -139,12 +139,12 @@ def str_decode_utf_8(s, size, errors, final=False,
     # NB. a bit messy because rtyper/rstr.py also calls the same
     # function.  Make sure we annotate for the args it passes, too
     if NonConstant(False):
-        s = '?????'
-        size = 12345
-        errors = 'strict'
-        final = True
+        s = NonConstant('?????')
+        size = NonConstant(12345)
+        errors = NonConstant('strict')
+        final = NonConstant(True)
         errorhandler = default_unicode_error_decode
-        allow_surrogates = False
+        allow_surrogates = NonConstant(False)
     return str_decode_utf_8_elidable(s, size, errors, final, errorhandler,
                                      allow_surrogates=allow_surrogates)
 
@@ -356,11 +356,11 @@ def unicode_encode_utf_8(s, size, errors, errorhandler=None,
     # NB. a bit messy because rtyper/rstr.py also calls the same
     # function.  Make sure we annotate for the args it passes, too
     if NonConstant(False):
-        s = u'?????'
-        size = 12345
-        errors = 'strict'
+        s = NonConstant(u'?????')
+        size = NonConstant(12345)
+        errors = NonConstant('strict')
         errorhandler = default_unicode_error_encode
-        allow_surrogates = False
+        allow_surrogates = NonConstant(False)
     return unicode_encode_utf_8_elidable(s, size, errors, errorhandler,
                                          allow_surrogates=allow_surrogates)
 
