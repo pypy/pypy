@@ -378,7 +378,7 @@ def access(space, w_path, mode):
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
     else:
-        return space.newint(ok)
+        return space.newbool(ok)
 
 
 def times(space):
