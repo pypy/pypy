@@ -151,3 +151,11 @@ Python 3.x which moves an item to first or last position.  In PyPy 3.5
 it is the standard ``OrderedDict.move_to_end()`` method, but the
 behavior is also available on Python 2.x or for the ``dict`` type by
 calling ``__pypy__.move_to_end(dict, key, last=True)``.
+
+.. branch: space-newtext
+
+Internal refactoring of ``space.wrap()``, which is now replaced with
+explicitly-typed methods.  Notably, there are now ``space.newbytes()``
+and ``space.newtext()``: these two methods are identical on PyPy 2.7 but
+not on PyPy 3.x.  The latter is used to get an app-level unicode string
+by decoding the RPython string, assumed to be utf-8.

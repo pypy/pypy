@@ -492,7 +492,7 @@ class BasePosixUnicodeOrAscii:
 
 class TestPosixAscii(BasePosixUnicodeOrAscii):
     def _get_filename(self):
-        return str(udir.join('test_open_ascii'))
+        return unicode(udir.join('test_open_ascii'))
 
     @rposix_requires('openat')
     def test_openat(self):
