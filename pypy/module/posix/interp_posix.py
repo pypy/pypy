@@ -621,7 +621,7 @@ The mode argument can be F_OK to test existence, or the inclusive-OR
     except OSError as e:
         raise wrap_oserror2(space, e, w_path, eintr_retry=False)
     else:
-        return space.newint(ok)
+        return space.newbool(ok)
 
 
 def times(space):

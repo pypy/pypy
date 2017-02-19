@@ -362,11 +362,11 @@ class AppTestPosix:
         pdir = self.pdir + '/file1'
         posix = self.posix
 
-        assert posix.access(pdir, posix.R_OK)
-        assert posix.access(pdir, posix.W_OK)
+        assert posix.access(pdir, posix.R_OK) is True
+        assert posix.access(pdir, posix.W_OK) is True
         import sys
         if sys.platform != "win32":
-            assert not posix.access(pdir, posix.X_OK)
+            assert posix.access(pdir, posix.X_OK) is False
 
     def test_times(self):
         """
