@@ -771,6 +771,7 @@ def _build_basic_converters():
     for c_type, names, c_tc in type_info:
         class BasicConverter(ffitypes.typeid(c_type), IntTypeConverterMixin, TypeConverter):
             _immutable_ = True
+            typecode = c_tc
             def __init__(self, space, default):
                 self.default = rffi.cast(self.c_type, capi.c_strtoll(space, default))
         class ConstRefConverter(ConstRefNumericTypeConverterMixin, BasicConverter):
