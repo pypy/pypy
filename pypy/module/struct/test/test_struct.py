@@ -379,7 +379,7 @@ class AppTestStruct(object):
         assert bytes(b2) == self.struct.pack("ii", 17, 42) + (b'\x00' * 11)
 
         exc = raises(TypeError, self.struct.pack_into, "ii", b'test', 0, 17, 42)
-        assert str(exc.value) == "a read-write buffer is requried, not bytes"
+        assert str(exc.value) == "a read-write buffer is required, not bytes"
         exc = raises(self.struct.error, self.struct.pack_into, "ii", b[0:1], 0, 17, 42)
         assert str(exc.value) == "pack_into requires a buffer of at least 8 bytes"
 
