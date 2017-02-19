@@ -1507,7 +1507,7 @@ class ObjSpace(object):
         if self.is_none(w_obj):
             e = oefmt(self.w_TypeError, "a %s is required, not None", expected)
         else:
-            e = oefmt(self.w_TypeError, "a %s is requried, not %T", expected, w_obj)
+            e = oefmt(self.w_TypeError, "a %s is required, not %T", expected, w_obj)
         raise e
 
     @specialize.arg(1)
