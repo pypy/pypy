@@ -107,6 +107,12 @@ def default_unicode_error_encode(errors, encoding, msg, u,
         return u'', None, endingpos
     raise UnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
 
+def ll_unicode_error_decode(errors, encoding, msg, s, startingpos, endingpos):
+    raise UnicodeDecodeError(encoding, s, startingpos, endingpos, msg)
+
+def ll_unicode_error_encode(errors, encoding, msg, u, startingpos, endingpos):
+    raise UnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
+
 # ____________________________________________________________
 # utf-8
 
@@ -143,8 +149,8 @@ def str_decode_utf_8(s, size, errors, final=False,
         size = NonConstant(12345)
         errors = NonConstant('strict')
         final = NonConstant(True)
-        errorhandler = default_unicode_error_decode
-        allow_surrogates = NonConstant(False)
+        errorhandler = ll_unicode_error_decode
+        allow_surrogates = NonConstant(True)
     return str_decode_utf_8_elidable(s, size, errors, final, errorhandler,
                                      allow_surrogates=allow_surrogates)
 
@@ -359,8 +365,8 @@ def unicode_encode_utf_8(s, size, errors, errorhandler=None,
         s = NonConstant(u'?????')
         size = NonConstant(12345)
         errors = NonConstant('strict')
-        errorhandler = default_unicode_error_encode
-        allow_surrogates = NonConstant(False)
+        errorhandler = ll_unicode_error_encode
+        allow_surrogates = NonConstant(True)
     return unicode_encode_utf_8_elidable(s, size, errors, errorhandler,
                                          allow_surrogates=allow_surrogates)
 
