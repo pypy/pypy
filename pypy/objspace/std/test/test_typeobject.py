@@ -1412,6 +1412,8 @@ class AppTestNewShortcut:
         assert type.__ne__(dict, 42) is NotImplemented
         assert type.__eq__(int, int) == True
         assert type.__eq__(int, dict) is NotImplemented
+
+
 class AppTestComparesByIdentity:
 
     def setup_class(cls):
