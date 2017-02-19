@@ -1105,7 +1105,7 @@ class ASTBuilder(object):
                     raise
                 # UnicodeError in literal: turn into SyntaxError
                 e.normalize_exception(space)
-                errmsg = space.str_w(space.str(e.get_w_value(space)))
+                errmsg = space.text_w(space.str(e.get_w_value(space)))
                 raise self.error('(unicode error) %s' % errmsg, atom_node)
             # This implements implicit string concatenation.
             if len(sub_strings_w) > 1:
