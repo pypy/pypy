@@ -390,10 +390,8 @@ class AbstractUnicodeRepr(AbstractStringRepr):
         from rpython.rlib import runicode
         s = hlunicode(ll_s)
         assert s is not None
-        errorhandler = runicode.ll_unicode_error_encode
         bytes = runicode.unicode_encode_utf_8_elidable(
-            s, len(s), 'strict',
-            errorhandler=errorhandler, allow_surrogates=True)
+            s, len(s), 'strict', None, True)
         return self.ll.llstr(bytes)
 
     def rtype_method_encode(self, hop):
