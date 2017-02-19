@@ -25,11 +25,7 @@ class AbstractStringRepr(Repr):
         assert value is not None
         errorhandler = runicode.default_unicode_error_decode
         u, pos = runicode.str_decode_utf_8_elidable(
-            value, len(value), 'strict', True, errorhandler, False)
-        # XXX should it really be 'allow_surrogates=False'?  In RPython,
-        # unicode.decode('utf-8') happily accepts surrogates.  This
-        # makes it hard to test untranslated (it's the cause of a
-        # failure in lib-python's test_warnings on PyPy3, for example)
+            value, len(value), 'strict', True, errorhandler, True)
         # XXX maybe the whole ''.decode('utf-8') should be not RPython.
         return self.ll.llunicode(u)
 
@@ -397,7 +393,7 @@ class AbstractUnicodeRepr(AbstractStringRepr):
         errorhandler = runicode.default_unicode_error_encode
         bytes = runicode.unicode_encode_utf_8_elidable(
             s, len(s), 'strict',
-            errorhandler=errorhandler, allow_surrogates=False)
+            errorhandler=errorhandler, allow_surrogates=True)
         return self.ll.llstr(bytes)
 
     def rtype_method_encode(self, hop):
