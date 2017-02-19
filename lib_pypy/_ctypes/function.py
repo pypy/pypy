@@ -604,7 +604,8 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
         """
         # hack for performance: if restype is a "simple" primitive type, don't
         # allocate the buffer because it's going to be thrown away immediately
-        if self._is_primitive(restype) and not restype._is_pointer_like():
+        if (self._is_primitive(restype) and restype._type_ != '?'
+            and not restype._is_pointer_like()):
             return result
         #
         shape = restype._ffishape_

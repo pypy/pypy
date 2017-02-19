@@ -99,27 +99,39 @@ class W_CData(W_Root):
         raise oefmt(space.w_TypeError,
                     "cdata of type '%s' has no len()", self.ctype.name)
 
+    def _compare_mode(self, w_other):
+        from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitive
+        zero = rffi.cast(lltype.Unsigned, 0)
+        self_is_ptr = not isinstance(self.ctype, W_CTypePrimitive)
+        other_is_ptr = (isinstance(w_other, W_CData) and
+                           not isinstance(w_other.ctype, W_CTypePrimitive))
+        if other_is_ptr and self_is_ptr:
+            with self as ptr1, w_other as ptr2:
+                ptr1 = rffi.cast(lltype.Unsigned, ptr1)
+                ptr2 = rffi.cast(lltype.Unsigned, ptr2)
+            return (0, ptr1, ptr2, None, None)
+        elif other_is_ptr or self_is_ptr:
+            return (-1, zero, zero, None, None)
+        else:
+            w_ob1 = self.convert_to_object()
+            if isinstance(w_other, W_CData):
+                w_ob2 = w_other.convert_to_object()
+            else:
+                w_ob2 = w_other
+            return (1, zero, zero, w_ob1, w_ob2)
+
     def _make_comparison(name):
         op = getattr(operator, name)
-        requires_ordering = name not in ('eq', 'ne')
         #
         def _cmp(self, w_other):
-            from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitive
             space = self.space
-            if not isinstance(w_other, W_CData):
+            mode, adr1, adr2, w_ob1, w_ob2 = self._compare_mode(w_other)
+            if mode == 0:
+                return space.newbool(op(adr1, adr2))
+            elif mode == 1:
+                return getattr(space, name)(w_ob1, w_ob2)
+            else:
                 return space.w_NotImplemented
-
-            with self as ptr1, w_other as ptr2:
-                if requires_ordering:
-                    if (isinstance(self.ctype, W_CTypePrimitive) or
-                        isinstance(w_other.ctype, W_CTypePrimitive)):
-                        raise oefmt(space.w_TypeError,
-                                    "cannot do comparison on a primitive "
-                                    "cdata")
-                    ptr1 = rffi.cast(lltype.Unsigned, ptr1)
-                    ptr2 = rffi.cast(lltype.Unsigned, ptr2)
-                result = op(ptr1, ptr2)
-            return space.newbool(result)
         #
         return func_with_new_name(_cmp, name)
 
@@ -131,6 +143,11 @@ class W_CData(W_Root):
     ge = _make_comparison('ge')
 
     def hash(self):
+        from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitive
+        if isinstance(self.ctype, W_CTypePrimitive):
+            w_ob = self.convert_to_object()
+            if not isinstance(w_ob, W_CData):
+                return self.space.hash(w_ob)
         ptr = self.unsafe_escaping_ptr()
         h = rffi.cast(lltype.Signed, ptr)
         # To hash pointers in dictionaries.  Assumes that h shows some

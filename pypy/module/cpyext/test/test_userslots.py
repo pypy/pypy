@@ -39,12 +39,12 @@ class TestAppLevelObject(BaseApiTest):
         arg = space.newtuple([one, one, one])
         # call w_date.__new__
         w_obj = space.call_function(w_date, one, one, one)
-        w_year = space.getattr(w_obj, space.newbytes('year'))
+        w_year = space.getattr(w_obj, space.newtext('year'))
         assert space.int_w(w_year) == 1
 
         w_obj = generic_cpy_call(space, py_datetype.c_tp_new, py_datetype,
                                  arg, space.newdict({}))
-        w_year = space.getattr(w_obj, space.newbytes('year'))
+        w_year = space.getattr(w_obj, space.newtext('year'))
         assert space.int_w(w_year) == 1
 
 class AppTestUserSlots(AppTestCpythonExtensionBase):

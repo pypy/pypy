@@ -99,6 +99,15 @@ class TestFunctions(BaseCTypesTestChecker):
         result = f(0, 0, 0, 0, 0, 0)
         assert result == b'\x00'
 
+    def test_boolresult(self):
+        f = dll._testfunc_i_bhilfd
+        f.argtypes = [c_byte, c_short, c_int, c_long, c_float, c_double]
+        f.restype = c_bool
+        false_result = f(0, 0, 0, 0, 0, 0)
+        assert false_result is False
+        true_result = f(1, 0, 0, 0, 0, 0)
+        assert true_result is True
+
     def test_voidresult(self):
         f = dll._testfunc_v
         f.restype = None
