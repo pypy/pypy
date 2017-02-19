@@ -73,7 +73,10 @@ class AppTestImpModule:
         # passed in, whose value is ignored. We don't implement that.
         #raises(IOError, _imp.create_dynamic, FakeSpec(), "unused")
 
-        raises(ImportError, _imp.create_dynamic, FakeSpec(b'foo'))
+        # Note: On CPython, the following gives nonsense.  I suspect
+        # it's because the b'foo' is read with PyUnicode_Xxx()
+        # functions that don't check the type of the argument.
+        raises(TypeError, _imp.create_dynamic, FakeSpec(b'foo'))
 
     def test_suffixes(self):
         import imp
