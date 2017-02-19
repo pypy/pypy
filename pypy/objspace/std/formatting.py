@@ -457,7 +457,7 @@ def make_formatter_subclass(do_unicode):
             if do_unicode:
                 value = self.space.unicode_w(w_value)
             else:
-                value = self.space.bytes_w(w_value)
+                value = self.space.text_w(w_value)
             self.std_wp(value)
 
         def fmt_c(self, w_value):
