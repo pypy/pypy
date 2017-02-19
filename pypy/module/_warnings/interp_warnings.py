@@ -226,7 +226,7 @@ def already_warned(space, w_registry, w_key, should_set=False):
     return False
 
 def normalize_module(space, w_filename):
-    filename = space.identifier_w(w_filename)
+    filename = space.text_w(w_filename)
     if len(filename) == 0:
         return space.newtext("<unknown>")
     if filename.endswith(".py"):
