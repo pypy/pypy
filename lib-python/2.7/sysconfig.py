@@ -529,7 +529,9 @@ def get_config_vars(*args):
         for suffix, mode, type_ in imp.get_suffixes():
             if type_ == imp.C_EXTENSION:
                 _CONFIG_VARS['SOABI'] = suffix.split('.')[1]
-                break        
+                break
+        _CONFIG_VARS['INCLUDEPY'] = os.path.join(_CONFIG_VARS['prefix'],
+                                                 'include')
 
     if args:
         vals = []
