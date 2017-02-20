@@ -113,7 +113,7 @@ def _get_peer_alt_names(certificate):
                 v = "Registered ID"
                 buf = ffi.new("char[2048]")
 
-                length = lib.i2t_ASN1_OBJECT(buf, 2047, name.d.rid);
+                length = lib.OBJ_obj2txt(buf, 2047, name.d.rid, 0)
                 if length < 0:
                     # TODO _setSSLError(NULL, 0, __FILE__, __LINE__);
                     raise NotImplementedError
