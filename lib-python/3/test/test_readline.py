@@ -111,7 +111,8 @@ class TestHistoryManipulation (unittest.TestCase):
 
 class TestReadline(unittest.TestCase):
 
-    @unittest.skipIf(readline._READLINE_VERSION < 0x0601 and not is_editline,
+    @unittest.skipIf(getattr(readline, '_READLINE_VERSION', 0x0601) < 0x0601
+                     and not is_editline,
                      "not supported in this library version")
     def test_init(self):
         # Issue #19884: Ensure that the ANSI sequence "\033[1034h" is not
@@ -121,6 +122,9 @@ class TestReadline(unittest.TestCase):
                                               TERM='xterm-256color')
         self.assertEqual(stdout, b'')
 
+    @unittest.skipIf(not hasattr(readline,
+                                 'set_completion_display_matches_hook'),
+                     "function not reimplemented in pypy")
     def test_nonascii(self):
         try:
             readline.add_history("\xEB\xEF")
