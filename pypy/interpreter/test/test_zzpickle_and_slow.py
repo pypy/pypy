@@ -471,6 +471,10 @@ class AppTestInterpObjectPickling:
         assert 'finished' in repr(y)
         assert y.gi_code is None
 
+    def test_memoryview(self):
+        import pickle
+        raises(TypeError, pickle.dumps, memoryview(b"abc"))
+
 class XAppTestGeneratorCloning:
 
     def setup_class(cls):
@@ -663,4 +667,3 @@ class XAppTestFramePickling(object):
         assert tb.tb_next == result.tb_next
 
         restore_top_frame(tb.tb_frame, saved)
-
