@@ -72,7 +72,7 @@ class BaseStringFormatter(object):
 
     def fmt_X(self, w_value):
         "HEX formatting"
-        r = hex_num_helper(self.space, w_value)
+        r = hex_num_helper(self.space, w_value, fmt_for_error='%X')
         if self.f_alt:
             prefix = '0X'
         else:
@@ -618,14 +618,14 @@ def maybe_float(space, w_value):
 
 def format_num_helper_generator(fmt, digits, decoder=maybe_int,
                                 expect_text="a number"):
-    def format_num_helper(space, w_value):
+    def format_num_helper(space, w_value, fmt_for_error=fmt):
         if not space.isinstance_w(w_value, space.w_int):
             try:
                 w_value = decoder(space, w_value)
             except OperationError:
                 raise oefmt(space.w_TypeError,
                             "%s format: %s is required, not %T",
-                            fmt, expect_text, w_value)
+                            fmt_for_error, expect_text, w_value)
         try:
             value = space.int_w(w_value)
             return fmt % (value,)
