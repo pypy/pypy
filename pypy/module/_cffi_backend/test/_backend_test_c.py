@@ -3835,7 +3835,7 @@ def test_primitive_comparison():
         assert (b > a) is False
         assert (b >= a) is True
         assert hash(a) == hash(b)
-    def assert_lt(a, b):
+    def assert_lt(a, b, check_hash=True):
         assert (a == b) is False
         assert (b == a) is False
         assert (a != b) is True
@@ -3848,9 +3848,10 @@ def test_primitive_comparison():
         assert (b <= a) is False
         assert (b > a) is True
         assert (b >= a) is True
-        assert hash(a) != hash(b)    # (or at least, it is unlikely)
-    def assert_gt(a, b):
-        assert_lt(b, a)
+        if check_hash:
+            assert hash(a) != hash(b)    # (or at least, it is unlikely)
+    def assert_gt(a, b, check_hash=True):
+        assert_lt(b, a, check_hash)
     def assert_ne(a, b):
         assert (a == b) is False
         assert (b == a) is False
@@ -3889,8 +3890,8 @@ def test_primitive_comparison():
     assert_eq(cast(t3, 65), 65)
     assert_ne(cast(t3, 65), b'A')
     assert_ne(cast(t3, 65), cast(t1, 65))
-    assert_gt(cast(t4, -1), -1)
-    assert_gt(cast(t4, -1), cast(t2, -1))
+    assert_gt(cast(t4, -1), -1, check_hash=False)
+    assert_gt(cast(t4, -1), cast(t2, -1), check_hash=False)
     assert_gt(cast(t4, -1), 99999)
     assert_eq(cast(t4, -1), 256 ** size_of_int() - 1)
     assert_eq(cast(t5, 3.0), 3)
