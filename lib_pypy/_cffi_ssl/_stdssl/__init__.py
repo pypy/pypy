@@ -434,8 +434,10 @@ class _SSLSocket(object):
 
         sock = self.get_socket_or_connection_gone()
 
-        if not buffer_into:
+        if buffer_into is None:
             dest = ffi.new("char[]", length)
+            if length == 0:
+                return b""
             mem = dest
         else:
             mem = ffi.from_buffer(buffer_into)
@@ -443,6 +445,8 @@ class _SSLSocket(object):
                 length = len(buffer_into)
                 if length > sys.maxsize:
                     raise OverflowError("maximum length can't fit in a C 'int'")
+                if len(buffer_into) == 0:
+                    return 0
 
         if sock:
             timeout = _socket_timeout(sock)
@@ -1449,4 +1453,12 @@ if lib.OPENSSL_NPN_NEGOTIATED:
             return lib.SSL_TLSEXT_ERR_NOACK
 
         return lib.SSL_TLSEXT_ERR_OK
+
+if lib.Cryptography_HAS_EGD:
+    def RAND_egd(path):
+        bytecount = lib.RAND_egd_bytes(ffi.from_buffer(path), len(path))
+        if bytecount == -1:
+            raise SSLError("EGD connection failed or EGD did not return "
+                           "enough data to seed the PRNG");
+        return bytecount
 

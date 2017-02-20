@@ -133,7 +133,7 @@ def _get_peer_alt_names(certificate):
                 v = _bio_get_str(biobuf)
                 idx = v.find(":")
                 if idx == -1:
-                    return None
+                    raise ValueError("Invalid value %s", v)
                 peer_alt_names.append((v[:idx], v[idx+1:]))
 
         free_func_addr = ffi.addressof(lib, "GENERAL_NAME_free")
