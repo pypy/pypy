@@ -177,3 +177,29 @@ class AppTestCoroutine:
         assert str(w).startswith("coroutine ")
         assert str(w).endswith("foobaz' was never awaited")
         """
+
+    def test_async_for_with_tuple_subclass(self): """
+        class Done(Exception): pass
+
+        class AIter(tuple):
+            i = 0
+            def __aiter__(self):
+                return self
+            async def __anext__(self):
+                if self.i >= len(self):
+                    raise StopAsyncIteration
+                self.i += 1
+                return self[self.i - 1]
+
+        result = []
+        async def foo():
+            async for i in AIter([42]):
+                result.append(i)
+            raise Done
+
+        try:
+            foo().send(None)
+        except Done:
+            pass
+        assert result == [42]
+        """

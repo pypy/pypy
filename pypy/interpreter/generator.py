@@ -93,8 +93,7 @@ return next yielded value or raise StopIteration."""
             if space.is_w(w_result, space.w_None):
                 raise OperationError(space.w_StopIteration, space.w_None)
             else:
-                raise OperationError(space.w_StopIteration,
-                        space.call_function(space.w_StopIteration, w_result))
+                raise stopiteration_value(space, w_result)
         else:
             return w_result     # YIELDed
 
@@ -442,7 +441,14 @@ class AIterWrapper(W_Root):
         return self
 
     def descr__next__(self, space):
-        raise OperationError(space.w_StopIteration, self.w_aiter)
+        raise stopiteration_value(space, self.w_aiter)
+
+def stopiteration_value(space, w_value):
+    # Mess.  The obvious line, "OperationError(w_StopIteration, w_value)",
+    # fails for some types of w_value.  E.g. if it's a subclass of
+    # tuple, it will be unpacked as individual arguments.
+    raise OperationError(space.w_StopIteration,
+                         space.call_function(space.w_StopIteration, w_value))
 
 
 @specialize.memo()
