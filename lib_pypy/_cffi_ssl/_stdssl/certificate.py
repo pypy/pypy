@@ -109,6 +109,19 @@ def _get_peer_alt_names(certificate):
             elif _type == lib.GEN_URI:
                 v = _string_from_asn1(name.d.uniformResourceIdentifier)
                 peer_alt_names.append(("URI", v))
+            elif _type == lib.GEN_RID:
+                v = "Registered ID"
+                buf = ffi.new("char[2048]")
+
+                length = lib.i2t_ASN1_OBJECT(buf, 2047, name.d.rid);
+                if length < 0:
+                    # TODO _setSSLError(NULL, 0, __FILE__, __LINE__);
+                    raise NotImplementedError
+                elif length >= 2048:
+                    v = "<INVALID>"
+                else:
+                    v = _str_with_len(buf, length)
+                peer_alt_names.append(("Registered ID", v))
             else:
                 # for everything else, we use the OpenSSL print form
                 if _type not in (lib.GEN_OTHERNAME, lib.GEN_X400, \
