@@ -193,4 +193,4 @@ def _promote(space, w_obj):
 
 def stack_almost_full(space):
     """Return True if the stack is more than 15/16th full."""
-    return space.wrap(rstack.stack_almost_full())
+    return space.newbool(rstack.stack_almost_full())
