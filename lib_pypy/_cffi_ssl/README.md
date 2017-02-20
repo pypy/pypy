@@ -17,4 +17,4 @@ Copy over all the sources into the folder `lib_pypy/_cffi_ssl/*`. Updating the c
 
 # Crpytography version
 
-`c8f47ad2122efdd5e772aee13ed5d4c64e7d6086`
+Copied over release version `1.7.2`
