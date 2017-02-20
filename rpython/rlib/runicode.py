@@ -6,7 +6,6 @@ from rpython.rlib.unicodedata import unicodedb
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import jit
-from rpython.rlib.nonconst import NonConstant
 
 
 if rffi.sizeof(lltype.UniChar) == 4:
@@ -107,9 +106,6 @@ def default_unicode_error_encode(errors, encoding, msg, u,
         return u'', None, endingpos
     raise UnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
 
-def ll_unicode_error_decode(errors, encoding, msg, s, startingpos, endingpos):
-    raise UnicodeDecodeError(encoding, s, startingpos, endingpos, msg)
-
 # ____________________________________________________________
 # utf-8
 
@@ -131,15 +127,6 @@ def str_decode_utf_8(s, size, errors, final=False,
                      errorhandler=None, allow_surrogates=allow_surrogate_by_default):
     if errorhandler is None:
         errorhandler = default_unicode_error_decode
-    # NB. a bit messy because rtyper/rstr.py also calls the same
-    # function.  Make sure we annotate for the args it passes, too
-    if NonConstant(False):
-        s = NonConstant('?????')
-        size = NonConstant(12345)
-        errors = NonConstant('strict')
-        final = NonConstant(True)
-        errorhandler = ll_unicode_error_decode
-        allow_surrogates = NonConstant(True)
     return str_decode_utf_8_elidable(s, size, errors, final, errorhandler,
                                      allow_surrogates=allow_surrogates)
 
@@ -348,14 +335,6 @@ def unicode_encode_utf_8(s, size, errors, errorhandler=None,
     #
     if errorhandler is None:
         errorhandler = default_unicode_error_encode
-    # NB. a bit messy because rtyper/rstr.py also calls the same
-    # function.  Make sure we annotate for the args it passes, too
-    if NonConstant(False):
-        s = NonConstant(u'?????')
-        size = NonConstant(12345)
-        errors = NonConstant('strict')
-        # no errorhandler needed for rtyper/rstr.py
-        allow_surrogates = NonConstant(True)
     return unicode_encode_utf_8_elidable(s, size, errors, errorhandler,
                                          allow_surrogates=allow_surrogates)
 

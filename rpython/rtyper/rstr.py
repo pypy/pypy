@@ -13,17 +13,14 @@ from rpython.tool.sourcetools import func_with_new_name
 
 class AbstractStringRepr(Repr):
 
-    def __init__(self, *args):
-        Repr.__init__(self, *args)
-        self.rstr_decode_utf_8 = None
-
     @jit.elidable
     def ll_decode_utf8(self, llvalue):
         from rpython.rtyper.annlowlevel import hlstr
         from rpython.rlib import runicode
         value = hlstr(llvalue)
         assert value is not None
-        errorhandler = runicode.ll_unicode_error_decode
+        errorhandler = runicode.default_unicode_error_decode
+        # NB. keep the arguments in sync with annotator/unaryop.py
         u, pos = runicode.str_decode_utf_8_elidable(
             value, len(value), 'strict', True, errorhandler, True)
         # XXX maybe the whole ''.decode('utf-8') should be not RPython.
@@ -374,10 +371,6 @@ class AbstractStringRepr(Repr):
 
 class AbstractUnicodeRepr(AbstractStringRepr):
 
-    def __init__(self, *args):
-        AbstractStringRepr.__init__(self, *args)
-        self.runicode_encode_utf_8 = None
-
     def rtype_method_upper(self, hop):
         raise TyperError("Cannot do toupper on unicode string")
 
@@ -390,6 +383,7 @@ class AbstractUnicodeRepr(AbstractStringRepr):
         from rpython.rlib import runicode
         s = hlunicode(ll_s)
         assert s is not None
+        # NB. keep the arguments in sync with annotator/unaryop.py
         bytes = runicode.unicode_encode_utf_8_elidable(
             s, len(s), 'strict', None, True)
         return self.ll.llstr(bytes)

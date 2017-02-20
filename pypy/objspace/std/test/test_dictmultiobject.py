@@ -778,6 +778,8 @@ class AppTestDictViews:
         assert "a" in keys
         assert 10 not in keys
         assert "Z" not in keys
+        raises(TypeError, "[] in keys")     # [] is unhashable
+        raises(TypeError, keys.__contains__, [])
         assert d.keys() == d.keys()
         e = {1: 11, "a": "def"}
         assert d.keys() == e.keys()
@@ -803,6 +805,8 @@ class AppTestDictViews:
         assert () not in items
         assert (1,) not in items
         assert (1, 2, 3) not in items
+        raises(TypeError, "([], []) not in items")     # [] is unhashable
+        raises(TypeError, items.__contains__, ([], []))
         assert d.items() == d.items()
         e = d.copy()
         assert d.items() == e.items()

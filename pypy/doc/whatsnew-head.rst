@@ -159,3 +159,7 @@ explicitly-typed methods.  Notably, there are now ``space.newbytes()``
 and ``space.newtext()``: these two methods are identical on PyPy 2.7 but
 not on PyPy 3.x.  The latter is used to get an app-level unicode string
 by decoding the RPython string, assumed to be utf-8.
+
+.. branch: fix_bool_restype
+
+Fix for ``ctypes.c_bool``-returning ctypes functions

@@ -1536,9 +1536,26 @@ class W_DictViewItemsObject(W_DictViewObject, SetLikeDictView):
     def descr_iter(self, space):
         return W_DictMultiIterItemsObject(space, self.w_dict.iteritems())
 
+    def descr_contains(self, space, w_item):
+        if not space.isinstance_w(w_item, space.w_tuple):
+            return space.w_False
+        try:
+            w_key, w_value = space.fixedview_unroll(w_item, 2)
+        except OperationError as e:
+            if e.async(space):
+                raise
+            w_found = None
+        else:
+            w_found = self.w_dict.getitem(w_key)
+        if w_found is None:
+            return space.w_False
+        return space.eq(w_value, w_found)
+
 class W_DictViewKeysObject(W_DictViewObject, SetLikeDictView):
     def descr_iter(self, space):
         return W_DictMultiIterKeysObject(space, self.w_dict.iterkeys())
+    def descr_contains(self, space, w_key):
+        return self.w_dict.descr_contains(space, w_key)
 
 class W_DictViewValuesObject(W_DictViewObject):
     def descr_iter(self, space):
@@ -1549,6 +1566,7 @@ W_DictViewItemsObject.typedef = TypeDef(
     __repr__ = interp2app(W_DictViewItemsObject.descr_repr),
     __len__ = interp2app(W_DictViewItemsObject.descr_len),
     __iter__ = interp2app(W_DictViewItemsObject.descr_iter),
+    __contains__ = interp2app(W_DictViewItemsObject.descr_contains),
 
     __eq__ = interp2app(W_DictViewItemsObject.descr_eq),
     __ne__ = interp2app(W_DictViewItemsObject.descr_ne),
@@ -1573,6 +1591,7 @@ W_DictViewKeysObject.typedef = TypeDef(
     __repr__ = interp2app(W_DictViewKeysObject.descr_repr),
     __len__ = interp2app(W_DictViewKeysObject.descr_len),
     __iter__ = interp2app(W_DictViewKeysObject.descr_iter),
+    __contains__ = interp2app(W_DictViewKeysObject.descr_contains),
 
     __eq__ = interp2app(W_DictViewKeysObject.descr_eq),
     __ne__ = interp2app(W_DictViewKeysObject.descr_ne),
