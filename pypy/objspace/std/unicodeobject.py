@@ -7,7 +7,8 @@ from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.runicode import (
     make_unicode_escape_function, str_decode_ascii, str_decode_utf_8,
-    unicode_encode_ascii, unicode_encode_utf_8, fast_str_decode_ascii)
+    unicode_encode_ascii, unicode_encode_utf_8, fast_str_decode_ascii,
+    check_ascii, AsciiCheckError)
 
 from pypy.interpreter import unicodehelper
 from pypy.interpreter.baseobjspace import W_Root
@@ -23,21 +24,24 @@ from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 
 __all__ = ['W_UnicodeObject', 'wrapunicode', 'plain_str2unicode',
            'encode_object', 'decode_object', 'unicode_from_object',
-           'unicode_from_string', 'unicode_to_decimal_w']
+           'utf8_from_string', 'unicode_to_decimal_w']
 
 
 class W_UnicodeObject(W_Root):
     import_from_mixin(StringMethods)
-    _immutable_fields_ = ['_value']
+    _immutable_fields_ = ['_utf8']
 
-    @enforceargs(uni=unicode)
-    def __init__(self, unistr):
-        assert isinstance(unistr, unicode)
-        self._value = unistr
+    @enforceargs(utf8str=str)
+    def __init__(self, utf8str, ucs4str=None):
+        assert isinstance(utf8str, str)
+        if ucs4str is not None:
+            assert isinstance(ucs4str, unicode)
+        self._utf8 = utf8str
+        self._ucs4 = ucs4str
 
     def __repr__(self):
         """representation for debugging purposes"""
-        return "%s(%r)" % (self.__class__.__name__, self._value)
+        return "%s(%r)" % (self.__class__.__name__, self._utf8)
 
     def unwrap(self, space):
         # for testing
@@ -79,8 +83,8 @@ class W_UnicodeObject(W_Root):
     def str_w(self, space):
         return space.text_w(space.str(self))
 
-    def unicode_w(self, space):
-        return self._value
+    def utf8_w(self, space):
+        return self._utf8
 
     def readbuf_w(self, space):
         from rpython.rlib.rstruct.unichar import pack_unichar, UNICODE_SIZE
@@ -117,7 +121,7 @@ class W_UnicodeObject(W_Root):
     def _len(self):
         return len(self._value)
 
-    _val = unicode_w
+    _val = utf8_w
 
     @staticmethod
     def _use_rstr_ops(space, w_other):
@@ -128,9 +132,10 @@ class W_UnicodeObject(W_Root):
     @staticmethod
     def _op_val(space, w_other, strict=None):
         if isinstance(w_other, W_UnicodeObject):
-            return w_other._value
+            return w_other._utf8
         if space.isinstance_w(w_other, space.w_bytes):
-            return unicode_from_string(space, w_other)._value
+            return utf8_from_string(space, w_other)._utf8
+        yyy
         if strict:
             raise oefmt(space.w_TypeError,
                 "%s arg must be None, unicode or str", strict)
@@ -235,7 +240,7 @@ class W_UnicodeObject(W_Root):
         return encode_object(space, self, None, None)
 
     def descr_hash(self, space):
-        x = compute_hash(self._value)
+        x = compute_hash(self._utf8)
         return space.newint(x)
 
     def descr_eq(self, space, w_other):
@@ -564,17 +569,19 @@ def unicode_from_object(space, w_obj):
     return unicode_from_encoded_object(space, w_res, None, "strict")
 
 
-def unicode_from_string(space, w_bytes):
+def utf8_from_string(space, w_bytes):
     # this is a performance and bootstrapping hack
     encoding = getdefaultencoding(space)
     if encoding != 'ascii':
+        xxx
         return unicode_from_encoded_object(space, w_bytes, encoding, "strict")
     s = space.bytes_w(w_bytes)
     try:
-        return W_UnicodeObject(s.decode("ascii"))
-    except UnicodeDecodeError:
+        check_ascii(s)
+    except AsciiCheckError:
         # raising UnicodeDecodeError is messy, "please crash for me"
         return unicode_from_encoded_object(space, w_bytes, "ascii", "strict")
+    return W_UnicodeObject(s)
 
 
 class UnicodeDocstrings:
@@ -1121,7 +1128,7 @@ def _create_list_from_unicode(value):
     return [s for s in value]
 
 
-W_UnicodeObject.EMPTY = W_UnicodeObject(u'')
+W_UnicodeObject.EMPTY = W_UnicodeObject('')
 
 
 # Helper for converting int/long

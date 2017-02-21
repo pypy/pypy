@@ -57,6 +57,7 @@ def parsestr(space, encoding, s, unicode_literal=False):
             assert 0 <= ps <= q
             substr = s[ps:q]
         else:
+            xxx
             substr = decode_unicode_utf8(space, s, ps, q)
         if rawmode:
             v = unicodehelper.decode_raw_unicode_escape(space, substr)

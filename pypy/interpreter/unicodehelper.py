@@ -38,14 +38,16 @@ def encode(space, w_data, encoding=None, errors='strict'):
 def decode_unicode_escape(space, string):
     state = space.fromcache(interp_codecs.CodecState)
     unicodedata_handler = state.get_unicodedata_handler(space)
-    result, consumed = runicode.str_decode_unicode_escape(
+    # XXX pick better length, maybe
+    result, consumed = runicode.str_decode_utf8_escape(
         string, len(string), "strict",
         final=True, errorhandler=decode_error_handler(space),
         unicodedata_handler=unicodedata_handler)
     return result
 
 def decode_raw_unicode_escape(space, string):
-    result, consumed = runicode.str_decode_raw_unicode_escape(
+    # XXX pick better length, maybe
+    result, consumed = runicode.str_decode_raw_utf8_escape(
         string, len(string), "strict",
         final=True, errorhandler=decode_error_handler(space))
     return result

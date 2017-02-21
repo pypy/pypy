@@ -346,10 +346,10 @@ class StdObjSpace(ObjSpace):
             return self.w_None
         return self.newtext(s)
 
-    def newunicode(self, uni):
-        assert uni is not None
-        assert isinstance(uni, unicode)
-        return W_UnicodeObject(uni)
+    def newunicode(self, utf8s):
+        assert utf8s is not None
+        assert isinstance(utf8s, str)
+        return W_UnicodeObject(utf8s)
 
     def type(self, w_obj):
         jit.promote(w_obj.__class__)

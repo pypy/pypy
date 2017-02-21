@@ -1,11 +1,10 @@
 """The builtin str implementation"""
 
 from rpython.rlib import jit
-from rpython.rlib.jit import we_are_jitted
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin)
 from rpython.rlib.buffer import StringBuffer
-from rpython.rlib.rstring import StringBuilder, replace
+from rpython.rlib.rstring import StringBuilder
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -18,7 +17,7 @@ from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.unicodeobject import (
     decode_object, unicode_from_encoded_object,
-    unicode_from_string, getdefaultencoding)
+    getdefaultencoding)
 from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 
 
