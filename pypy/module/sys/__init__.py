@@ -141,7 +141,7 @@ class Module(MixedModule):
         from pypy.module.sys import system
         thread_info = system.get_thread_info(space)
         if thread_info is not None:
-            space.setitem(self.w_dict, space.wrap('thread_info'), thread_info)
+            space.setitem(self.w_dict, space.newtext('thread_info'), thread_info)
 
     def setup_after_space_initialization(self):
         "NOT_RPYTHON"
@@ -182,7 +182,7 @@ class Module(MixedModule):
 
     def _file_is_closed(self, space, w_file):
         try:
-            w_closed = space.getattr(w_file, space.wrap('closed'))
+            w_closed = space.getattr(w_file, space.newtext('closed'))
         except OperationError:
             return False
         return space.bool_w(w_closed)
