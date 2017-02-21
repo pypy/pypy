@@ -700,6 +700,27 @@ class TestUTF8Decoding(UnicodeTests):
             assert decoder(seq, len(seq), 'ignore', final=True
                            ) == (res, len(seq))
 
+    @settings(max_examples=10000)
+    @given(strategies.binary())
+    def test_str_check_utf8(self, s):
+        try:
+            u = s.decode("utf8")
+            valid = True
+        except UnicodeDecodeError as e:
+            valid = False
+        try:
+            result, length = runicode.str_decode_utf_8(s, len(s), None,
+                errorhandler=None, final=True, allow_surrogates=True)
+        except UnicodeDecodeError as a:
+            assert not valid
+            assert a.start == e.start
+            assert a.end == e.end
+            assert str(a) == str(e)
+        else:
+            assert valid
+            assert result == u
+            assert length == len(s)
+
 
 class TestEncoding(UnicodeTests):
     def test_all_ascii(self):
