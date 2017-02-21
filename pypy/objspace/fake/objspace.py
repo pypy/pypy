@@ -213,6 +213,7 @@ class FakeObjSpace(ObjSpace):
 
     newtext = newbytes
     newtext_or_none = newbytes
+    newfilename = newbytes
 
     @not_rpython
     def wrap(self, x):

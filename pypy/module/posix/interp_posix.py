@@ -501,7 +501,7 @@ def getlogin(space):
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
-        return space.newtext(cur)
+        return space.newfilename(cur)
 
 # ____________________________________________________________
 
@@ -915,7 +915,7 @@ def uname(space):
         r = os.uname()
     except OSError as e:
         raise wrap_oserror(space, e)
-    l_w = [space.newtext(i) for i in [r[0], r[1], r[2], r[3], r[4]]]
+    l_w = [space.newfilename(i) for i in [r[0], r[1], r[2], r[3], r[4]]]
     return space.newtuple(l_w)
 
 def getuid(space):
@@ -1226,7 +1226,7 @@ for name in rposix.WAIT_MACROS:
 @unwrap_spec(fd=c_int)
 def ttyname(space, fd):
     try:
-        return space.newtext(os.ttyname(fd))
+        return space.newfilename(os.ttyname(fd))
     except OSError as e:
         raise wrap_oserror(space, e)
 
@@ -1365,4 +1365,4 @@ def ctermid(space):
 
     Return the name of the controlling terminal for this process.
     """
-    return space.newtext(os.ctermid())
+    return space.newfilename(os.ctermid())

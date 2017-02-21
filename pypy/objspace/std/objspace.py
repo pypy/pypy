@@ -343,6 +343,10 @@ class StdObjSpace(ObjSpace):
             return self.w_None
         return self.newtext(s)
 
+    def newfilename(self, s):
+        assert isinstance(s, str) # on pypy3, this decodes the byte string
+        return W_BytesObject(s)   # with the filesystem encoding
+
     def newunicode(self, uni):
         assert uni is not None
         assert isinstance(uni, unicode)
