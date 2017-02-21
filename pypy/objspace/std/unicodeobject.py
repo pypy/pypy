@@ -32,11 +32,12 @@ class W_UnicodeObject(W_Root):
     _immutable_fields_ = ['_utf8']
 
     @enforceargs(utf8str=str)
-    def __init__(self, utf8str, ucs4str=None):
+    def __init__(self, utf8str, length, ucs4str=None):
         assert isinstance(utf8str, str)
         if ucs4str is not None:
             assert isinstance(ucs4str, unicode)
         self._utf8 = utf8str
+        self._length = length
         self._ucs4 = ucs4str
 
     def __repr__(self):
@@ -508,14 +509,13 @@ def decode_object(space, w_obj, encoding, errors):
         if encoding == 'ascii':
             # XXX error handling
             s = space.charbuf_w(w_obj)
-            xxx
             try:
-                u = fast_str_decode_ascii(s)
-            except ValueError:
-                eh = unicodehelper.decode_error_handler(space)
-                u = str_decode_ascii(     # try again, to get the error right
-                    s, len(s), None, final=True, errorhandler=eh)[0]
-            return space.newunicode(u)
+                rutf8.check_ascii(s)
+            except rutf8.AsciiCheckError as e:
+                unicodehelper.decode_error_handler(space)(None,
+                    'ascii', "ordinal not in range(128)", s, e.pos, e.pos+1)
+                assert False
+            return space.newunicode(s)
         if encoding == 'utf-8':
             yyy
             s = space.charbuf_w(w_obj)
@@ -1130,7 +1130,7 @@ def _create_list_from_unicode(value):
     return [s for s in value]
 
 
-W_UnicodeObject.EMPTY = W_UnicodeObject('')
+W_UnicodeObject.EMPTY = W_UnicodeObject('', 0)
 
 
 # Helper for converting int/long

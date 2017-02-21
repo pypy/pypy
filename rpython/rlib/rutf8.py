@@ -24,19 +24,21 @@ def unichr_as_utf8(code):
     raise ValueError
 
 class AsciiCheckError(Exception):
-    pass
+    def __init__(self, pos):
+        self.pos = pos
 
 def check_ascii(s):
     for i in range(0, len(s)):
         if ord(s[i]) & 0x80:
-            raise AsciiCheckError
+            raise AsciiCheckError(i)
 
 def str_decode_raw_utf8_escape(s, size, errors, final=False,
                                errorhandler=None):
+    lgt = 0
     if errorhandler is None:
         errorhandler = None # default_unicode_error_decode
     if size == 0:
-        return '', 0
+        return '', 0, 0
     result = StringBuilder(size)
     pos = 0
     while pos < size:
@@ -46,6 +48,7 @@ def str_decode_raw_utf8_escape(s, size, errors, final=False,
         if ch != '\\':
             result.append(ch)
             pos += 1
+            lgt += 1
             continue
 
         # \u-escapes are only interpreted iff the number of leading
@@ -55,10 +58,12 @@ def str_decode_raw_utf8_escape(s, size, errors, final=False,
             pos += 1
             if pos == size or s[pos] != '\\':
                 break
+            lgt += 1
             result.append('\\')
 
         # we have a backslash at the end of the string, stop here
         if pos >= size:
+            lgt += 1
             result.append('\\')
             break
 
@@ -67,6 +72,7 @@ def str_decode_raw_utf8_escape(s, size, errors, final=False,
             (s[pos] != 'u' and s[pos] != 'U')):
             result.append('\\')
             result.append(s[pos])
+            lgt += 2
             pos += 1
             continue
 
@@ -77,7 +83,7 @@ def str_decode_raw_utf8_escape(s, size, errors, final=False,
         pos = hexescape(result, s, pos, digits,
                         "rawunicodeescape", errorhandler, message, errors)
 
-    return result.build(), pos
+    return result.build(), pos, lgt
 
 def str_decode_utf8_escape(s, size, errors, final=False,
                               errorhandler=None,
@@ -88,6 +94,7 @@ def str_decode_utf8_escape(s, size, errors, final=False,
     if size == 0:
         return '', 0
 
+    lgt = 0
     builder = StringBuilder(size)
     pos = 0
     while pos < size:
@@ -97,6 +104,7 @@ def str_decode_utf8_escape(s, size, errors, final=False,
         if ch != '\\':
             builder.append(ch)
             pos += 1
+            lgt += 1
             continue
 
         # - Escapes
@@ -106,22 +114,23 @@ def str_decode_utf8_escape(s, size, errors, final=False,
             res, pos = errorhandler(errors, "unicodeescape",
                                     message, s, pos-1, size)
             builder.append(res)
+            lgt += 1
             continue
 
         ch = s[pos]
         pos += 1
         # \x escapes
         if ch == '\n': pass
-        elif ch == '\\': builder.append('\\')
-        elif ch == '\'': builder.append('\'')
-        elif ch == '\"': builder.append('\"')
-        elif ch == 'b' : builder.append('\b')
-        elif ch == 'f' : builder.append('\f')
-        elif ch == 't' : builder.append('\t')
-        elif ch == 'n' : builder.append('\n')
-        elif ch == 'r' : builder.append('\r')
-        elif ch == 'v' : builder.append('\v')
-        elif ch == 'a' : builder.append('\a')
+        elif ch == '\\': builder.append('\\'); lgt += 1
+        elif ch == '\'': builder.append('\''); lgt += 1
+        elif ch == '\"': builder.append('\"'); lgt += 1
+        elif ch == 'b' : builder.append('\b'); lgt += 1
+        elif ch == 'f' : builder.append('\f'); lgt += 1
+        elif ch == 't' : builder.append('\t'); lgt += 1
+        elif ch == 'n' : builder.append('\n'); lgt += 1
+        elif ch == 'r' : builder.append('\r'); lgt += 1
+        elif ch == 'v' : builder.append('\v'); lgt += 1
+        elif ch == 'a' : builder.append('\a'); lgt += 1
         elif '0' <= ch <= '7':
             xxx
             x = ord(ch) - ord('0')
@@ -199,5 +208,6 @@ def str_decode_utf8_escape(s, size, errors, final=False,
         else:
             builder.append('\\')
             builder.append(ch)
+            lgt += 2
 
-    return builder.build(), pos
+    return builder.build(), pos, lgt

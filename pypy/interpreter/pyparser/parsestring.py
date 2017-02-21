@@ -60,10 +60,10 @@ def parsestr(space, encoding, s, unicode_literal=False):
             xxx
             substr = decode_unicode_utf8(space, s, ps, q)
         if rawmode:
-            v = unicodehelper.decode_raw_unicode_escape(space, substr)
+            v, length = unicodehelper.decode_raw_unicode_escape(space, substr)
         else:
-            v = unicodehelper.decode_unicode_escape(space, substr)
-        return space.newunicode(v)
+            v, length = unicodehelper.decode_unicode_escape(space, substr)
+        return space.newunicode(v, length)
 
     need_encoding = (encoding is not None and
                      encoding != "utf-8" and encoding != "utf8" and

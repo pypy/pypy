@@ -398,7 +398,7 @@ def unmarshal_pycode(space, u, tc):
 
 @marshaller(W_UnicodeObject)
 def marshal_unicode(space, w_unicode, m):
-    s = unicodehelper.encode_utf8(space, space.unicode_w(w_unicode))
+    s = space.utf8_w(w_unicode)
     m.atom_str(TYPE_UNICODE, s)
 
 @unmarshaller(TYPE_UNICODE)
