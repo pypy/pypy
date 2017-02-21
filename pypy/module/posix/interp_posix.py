@@ -38,9 +38,9 @@ wrap_gid = wrap_uid
 
 def fsencode_w(space, w_obj):
     if space.isinstance_w(w_obj, space.w_unicode):
-        w_obj = space.call_method(w_obj, 'encode',
+        w_obj = space.call_method(space.w_unicode, 'encode', w_obj,
                                   getfilesystemencoding(space))
-    return space.str0_w(w_obj)
+    return space.bytes0_w(w_obj)
 
 class FileEncoder(object):
     is_unicode = True
@@ -63,7 +63,7 @@ class FileDecoder(object):
         self.w_obj = w_obj
 
     def as_bytes(self):
-        return self.space.str0_w(self.w_obj)
+        return self.space.bytes0_w(self.w_obj)
 
     def as_unicode(self):
         space = self.space
@@ -78,7 +78,7 @@ def dispatch_filename(func, tag=0):
             fname = FileEncoder(space, w_fname)
             return func(fname, *args)
         else:
-            fname = space.str0_w(w_fname)
+            fname = space.bytes0_w(w_fname)
             return func(fname, *args)
     return dispatch
 
@@ -398,7 +398,7 @@ def times(space):
                                space.newfloat(times[3]),
                                space.newfloat(times[4])])
 
-@unwrap_spec(cmd='str0')
+@unwrap_spec(cmd='text0')
 def system(space, cmd):
     """Execute the command (a string) in a subshell."""
     try:
@@ -430,7 +430,7 @@ def _getfullpathname(space, w_path):
             fullpath = rposix.getfullpathname(path)
             w_fullpath = space.newunicode(fullpath)
         else:
-            path = space.str0_w(w_path)
+            path = space.bytes0_w(w_path)
             fullpath = rposix.getfullpathname(path)
             w_fullpath = space.newbytes(fullpath)
     except OSError as e:
@@ -534,7 +534,7 @@ def _convertenviron(space, w_env):
     for key, value in os.environ.items():
         space.setitem(w_env, space.newtext(key), space.newtext(value))
 
-@unwrap_spec(name='str0', value='str0')
+@unwrap_spec(name='text0', value='text0')
 def putenv(space, name, value):
     """Change or add an environment variable."""
     if _WIN32 and len(name) > _MAX_ENV:
@@ -554,7 +554,7 @@ def putenv(space, name, value):
     except OSError as e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(name='str0')
+@unwrap_spec(name='text0')
 def unsetenv(space, name):
     """Delete an environment variable."""
     try:
@@ -600,7 +600,7 @@ entries '.' and '..' even if they are present in the directory."""
                 result_w[i] = w_res
             return space.newlist(result_w)
         else:
-            dirname = space.str0_w(w_dirname)
+            dirname = space.bytes0_w(w_dirname)
             result = rposix.listdir(dirname)
             # The list comprehension is a workaround for an obscure translation
             # bug.
@@ -820,7 +820,7 @@ def _env2interp(space, w_env):
     w_keys = space.call_method(w_env, 'keys')
     for w_key in space.unpackiterable(w_keys):
         w_value = space.getitem(w_env, w_key)
-        env[space.str0_w(w_key)] = space.str0_w(w_value)
+        env[space.text0_w(w_key)] = space.text0_w(w_value)
     return env
 
 def execve(space, w_command, w_args, w_env):

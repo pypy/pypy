@@ -172,7 +172,7 @@ def _get_relative_name(space, modulename, level, w_globals):
     ctxt_package = None
     if ctxt_w_package is not None and ctxt_w_package is not space.w_None:
         try:
-            ctxt_package = space.str0_w(ctxt_w_package)
+            ctxt_package = space.text0_w(ctxt_w_package)
         except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
@@ -220,7 +220,7 @@ def _get_relative_name(space, modulename, level, w_globals):
         ctxt_name = None
         if ctxt_w_name is not None:
             try:
-                ctxt_name = space.str0_w(ctxt_w_name)
+                ctxt_name = space.text0_w(ctxt_w_name)
             except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
@@ -263,7 +263,7 @@ def _get_relative_name(space, modulename, level, w_globals):
     return rel_modulename, rel_level
 
 
-@unwrap_spec(name='str0', level=int)
+@unwrap_spec(name='text0', level=int)
 def importhook(space, name, w_globals=None,
                w_locals=None, w_fromlist=None, level=-1):
     modulename = name
@@ -431,7 +431,7 @@ def _absolute_import(space, modulename, baselevel, w_fromlist, tentative):
                 for i in range(length):
                     w_name = space.getitem(w_fromlist, space.newint(i))
                     if try_getattr(space, w_mod, w_name) is None:
-                        load_part(space, w_path, prefix, space.str0_w(w_name),
+                        load_part(space, w_path, prefix, space.text0_w(w_name),
                                   w_mod, tentative=1)
         return w_mod
     else:
@@ -728,7 +728,7 @@ def reload(space, w_module):
         raise oefmt(space.w_TypeError, "reload() argument must be module")
 
     w_modulename = space.getattr(w_module, space.newtext("__name__"))
-    modulename = space.str0_w(w_modulename)
+    modulename = space.text0_w(w_modulename)
     if not space.is_w(check_sys_modules(space, w_modulename), w_module):
         raise oefmt(space.w_ImportError,
                     "reload(): module %s not in sys.modules", modulename)

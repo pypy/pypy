@@ -1622,15 +1622,22 @@ class ObjSpace(object):
         """For tests only."""
         return self.bytes_w(w_obj)
 
-
+    #@not_rpython    BACKCOMPAT
     def str0_w(self, w_obj):
-        "Like str_w, but rejects strings with NUL bytes."
+        return self.bytes0_w(w_obj)
+
+    def bytes0_w(self, w_obj):
+        "Like bytes_w, but rejects strings with NUL bytes."
         from rpython.rlib import rstring
         result = w_obj.str_w(self)
         if '\x00' in result:
             raise oefmt(self.w_TypeError,
                         "argument must be a string without NUL characters")
         return rstring.assert_str0(result)
+
+    def text0_w(self, w_obj):
+        "Like text_w, but rejects strings with NUL bytes."
+        return self.bytes0_w(w_obj)
 
     def int_w(self, w_obj, allow_conversion=True):
         """
