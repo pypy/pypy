@@ -190,6 +190,12 @@ class _StatementCache(object):
                 self.cache[sql] = stat
         return stat
 
+BEGIN_STATMENTS = (
+    "BEGIN ",
+    "BEGIN DEFERRED",
+    "BEGIN IMMEDIATE",
+    "BEGIN EXCLUSIVE",
+)
 
 class Connection(object):
     __initialized = False
@@ -691,7 +697,13 @@ class Connection(object):
         if val is None:
             self.commit()
         else:
-            self.__begin_statement = str("BEGIN " + val).encode('utf-8')
+            if not isinstance(val, str):
+                raise TypeError("isolation level must be " \
+                        "a string or None, not %s" % type(val).__name__)
+            stmt = str("BEGIN " + val).upper()
+            if stmt not in BEGIN_STATMENTS:
+                raise ValueError("invalid value for isolation_level")
+            self.__begin_statement = stmt.encode('utf-8')
         self._isolation_level = val
     isolation_level = property(__get_isolation_level, __set_isolation_level)
 
