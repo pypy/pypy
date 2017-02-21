@@ -872,10 +872,9 @@ class ResumeGuardCopiedDescr(AbstractResumeGuardDescr):
 
 
 class ResumeGuardDescr(AbstractResumeGuardDescr):
-    _attrs_ = ('rd_numb', 'rd_count', 'rd_consts', 'rd_virtuals',
+    _attrs_ = ('rd_numb', 'rd_consts', 'rd_virtuals',
                'rd_pendingfields', 'status')
     rd_numb = lltype.nullptr(NUMBERING)
-    rd_count = 0
     rd_consts = None
     rd_virtuals = None
     rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
@@ -884,7 +883,6 @@ class ResumeGuardDescr(AbstractResumeGuardDescr):
         if isinstance(other, ResumeGuardCopiedDescr):
             other = other.prev
         assert isinstance(other, ResumeGuardDescr)
-        self.rd_count = other.rd_count
         self.rd_consts = other.rd_consts
         self.rd_pendingfields = other.rd_pendingfields
         self.rd_virtuals = other.rd_virtuals
@@ -897,7 +895,6 @@ class ResumeGuardDescr(AbstractResumeGuardDescr):
 
     def store_final_boxes(self, guard_op, boxes, metainterp_sd):
         guard_op.setfailargs(boxes)
-        self.rd_count = len(boxes)
         self.store_hash(metainterp_sd)
 
     def clone(self):

@@ -36,7 +36,6 @@ class Storage:
     rd_consts = []
     rd_virtuals = None
     rd_pendingfields = None
-    rd_count = 0
 
 
 class FakeOptimizer(object):
@@ -302,12 +301,11 @@ def test_simple_read():
     c1, c2, c3 = [ConstInt(111), ConstInt(222), ConstInt(333)]
     storage = Storage()
     storage.rd_consts = [c1, c2, c3]
-    numb = Numbering([tag(0, TAGBOX), tagconst(0),
+    numb = Numbering([3, tag(0, TAGBOX), tagconst(0),
                        NULLREF, tag(0, TAGBOX), tag(1, TAGBOX)] +
-                       [tagconst(1), tagconst(2)] + 
+                       [tagconst(1), tagconst(2)] +
                        [tag(0, TAGBOX), tag(1, TAGBOX), tag(2, TAGBOX)])
     storage.rd_numb = numb
-    storage.rd_count = 3
     #
     cpu = MyCPU([42, gcref1, -66])
     metainterp = MyMetaInterp(cpu)
@@ -348,7 +346,7 @@ def assert_same(list1, list2):
 def test_simple_read_tagged_ints():
     storage = Storage()
     storage.rd_consts = []
-    numb = Numbering([tag(100, TAGINT)])
+    numb = Numbering([1, tag(100, TAGINT)])
     storage.rd_numb = numb
     #
     cpu = MyCPU([])
@@ -365,10 +363,9 @@ def test_prepare_virtuals():
             return s
     class FakeStorage(object):
         rd_virtuals = [FakeVinfo(), None]
-        rd_numb = Numbering([])
+        rd_numb = Numbering([1])
         rd_consts = []
         rd_pendingfields = None
-        rd_count = 0
     class FakeMetainterp(object):
         _already_allocated_resume_virtuals = None
         cpu = None
@@ -776,12 +773,12 @@ def test_ResumeDataLoopMemo_ints():
     assert untag(tagged) == (44, TAGINT)
     tagged = memo.getconst(ConstInt(-3))
     assert untag(tagged) == (-3, TAGINT)
-    const = ConstInt(50000)
+    const = ConstInt(5000000)
     tagged = memo.getconst(const)
     index, tagbits = untag(tagged)
     assert tagbits == TAGCONST
     assert memo.consts[index - TAG_CONST_OFFSET] is const
-    tagged = memo.getconst(ConstInt(50000))
+    tagged = memo.getconst(ConstInt(5000000))
     index2, tagbits = untag(tagged)
     assert tagbits == TAGCONST
     assert index2 == index
@@ -861,7 +858,7 @@ def test_ResumeDataLoopMemo_number():
     base = [0, 0, tag(0, TAGBOX), tag(1, TAGINT),
             tag(1, TAGBOX), tag(0, TAGBOX), tag(2, TAGINT)]
 
-    assert unpack_numbering(numb) == [16, 0, 0] + base + [0, 2, tag(3, TAGINT), tag(2, TAGBOX),
+    assert unpack_numbering(numb) == [17, 0, 0, 0] + base + [0, 2, tag(3, TAGINT), tag(2, TAGBOX),
                                       tag(0, TAGBOX), tag(1, TAGINT)]
     t.append(0)
     snap2 = t.create_top_snapshot(FakeJitCode("jitcode", 0), 2, Frame(env2),
@@ -875,7 +872,7 @@ def test_ResumeDataLoopMemo_number():
     assert numb_state2.liveboxes == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                                      b3: tag(2, TAGBOX)}
     assert numb_state2.liveboxes is not numb_state.liveboxes
-    assert unpack_numbering(numb2) == [16, 0, 0] + base + [0, 2, tag(3, TAGINT), tag(2, TAGBOX),
+    assert unpack_numbering(numb2) == [17, 0, 0, 0] + base + [0, 2, tag(3, TAGINT), tag(2, TAGBOX),
                                        tag(0, TAGBOX), tag(3, TAGINT)]
 
     t.append(0)
@@ -897,7 +894,7 @@ def test_ResumeDataLoopMemo_number():
     assert numb_state3.num_virtuals == 0
     
     assert numb_state3.liveboxes == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX)}
-    assert unpack_numbering(numb3) == ([16, 0, 2, tag(3, TAGINT), tag(4, TAGINT),
+    assert unpack_numbering(numb3) == ([17, 0, 0, 2, tag(3, TAGINT), tag(4, TAGINT),
                                        tag(0, TAGBOX), tag(3, TAGINT)] +
                                        base + [0, 2])
 
@@ -914,7 +911,7 @@ def test_ResumeDataLoopMemo_number():
     
     assert numb_state4.liveboxes == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                                      b4: tag(0, TAGVIRTUAL)}
-    assert unpack_numbering(numb4) == [16, 0, 2, tag(3, TAGINT), tag(0, TAGVIRTUAL),
+    assert unpack_numbering(numb4) == [17, 0, 0, 2, tag(3, TAGINT), tag(0, TAGVIRTUAL),
                                        tag(0, TAGBOX), tag(3, TAGINT)] + base + [0, 2]
 
     t.append(0)
@@ -933,7 +930,7 @@ def test_ResumeDataLoopMemo_number():
 
     assert numb_state5.liveboxes == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                                      b4: tag(0, TAGVIRTUAL), b5: tag(1, TAGVIRTUAL)}
-    assert unpack_numbering(numb5) == [21,
+    assert unpack_numbering(numb5) == [22, 0,
         3, tag(0, TAGBOX), tag(0, TAGVIRTUAL), tag(1, TAGVIRTUAL),
         0] + base + [
         2, 1, tag(3, TAGINT), tag(0, TAGVIRTUAL), tag(0, TAGBOX), tag(3, TAGINT)
@@ -954,14 +951,15 @@ def test_ResumeDataLoopMemo_random(lst):
     l = unpack_numbering(numb)
     assert l[0] == len(l)
     assert l[1] == 0
+    assert l[1] == 0
     assert l[2] == 0
     assert l[3] == 0
     assert l[4] == 0
     mapping = dict(zip(inpargs, i.inputargs))
     for i, item in enumerate(lst):
-        v, tag = untag(l[i + 5])
+        v, tag = untag(l[i + 6])
         if tag == TAGBOX:
-            assert l[i + 5] == numb_state.liveboxes[mapping[item]]
+            assert l[i + 6] == numb_state.liveboxes[mapping[item]]
         elif tag == TAGCONST:
             assert memo.consts[v].getint() == item.getint()
         elif tag == TAGINT:
@@ -1081,7 +1079,7 @@ def test_virtual_adder_int_constants():
     _next_section(reader, sys.maxint, 2**16, -65)
 
 def test_virtual_adder_memo_const_sharing():
-    b1s, b2s, b3s = [ConstInt(sys.maxint), ConstInt(2**16), ConstInt(-65)]
+    b1s, b2s, b3s = [ConstInt(sys.maxint), ConstInt(2**23), ConstInt(-65)]
     storage, t = make_storage(b1s, b2s, b3s)
     metainterp_sd = FakeMetaInterpStaticData()
     memo = ResumeDataLoopMemo(metainterp_sd)
@@ -1091,7 +1089,7 @@ def test_virtual_adder_memo_const_sharing():
     assert len(memo.consts) == 2
     assert storage.rd_consts is memo.consts
 
-    b1s, b2s, b3s = [ConstInt(sys.maxint), ConstInt(2**17), ConstInt(-65)]
+    b1s, b2s, b3s = [ConstInt(sys.maxint), ConstInt(2**24), ConstInt(-65)]
     storage2, t = make_storage(b1s, b2s, b3s)
     i = t.get_iter()
     modifier2 = ResumeDataVirtualAdder(FakeOptimizer(i), storage2, storage2,
@@ -1234,7 +1232,7 @@ def test_virtual_adder_make_virtual():
     liveboxes = []
     modifier._number_virtuals(liveboxes, FakeOptimizer(), 0)
     storage.rd_consts = memo.consts[:]
-    storage.rd_numb = Numbering([])
+    storage.rd_numb = Numbering([0])
     # resume
     b3t, b5t = [IntFrontendOp(0), RefFrontendOp(0)]
     b5t.setref_base(demo55o)
@@ -1305,7 +1303,7 @@ def test_virtual_adder_make_varray():
     modifier._number_virtuals(liveboxes, FakeOptimizer(), 0)
     dump_storage(storage, liveboxes)
     storage.rd_consts = memo.consts[:]
-    storage.rd_numb = Numbering([])
+    storage.rd_numb = Numbering([0])
     # resume
     b1t, b3t, b4t = [IntFrontendOp(0), IntFrontendOp(0), IntFrontendOp(0)]
     b1t.setint(11)
@@ -1358,7 +1356,7 @@ def test_virtual_adder_make_vstruct():
     modifier._number_virtuals(liveboxes, FakeOptimizer(), 0)
     dump_storage(storage, liveboxes)
     storage.rd_consts = memo.consts[:]
-    storage.rd_numb = Numbering([])
+    storage.rd_numb = Numbering([0])
     b4t = RefFrontendOp(0)
     newboxes = _resume_remap(liveboxes, [#b2s -- virtual
                                          b4s], b4t)
@@ -1404,7 +1402,7 @@ def test_virtual_adder_pending_fields():
     modifier._add_pending_fields(FakeOptimizer(), [
         ResOperation(rop.SETFIELD_GC, [b2s, b4s], descr=LLtypeMixin.nextdescr)])
     storage.rd_consts = memo.consts[:]
-    storage.rd_numb = Numbering([])
+    storage.rd_numb = Numbering([0])
     # resume
     demo55.next = lltype.nullptr(LLtypeMixin.NODE)
     b2t = RefFrontendOp(0)

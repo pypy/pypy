@@ -2,7 +2,8 @@
 """ Resume bytecode. It goes as following:
 
   # ----- resume section
-  [total size of resume section, unencoded]
+  [total size of resume section]
+  [number of failargs]
   [<length> <virtualizable object> <numb> <numb> <numb>]    if vinfo is not None
    -OR-
   [1 <ginfo object>]                                        if ginfo is not None

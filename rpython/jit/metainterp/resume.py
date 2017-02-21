@@ -256,7 +256,8 @@ class ResumeDataLoopMemo(object):
     def number(self, optimizer, position, trace):
         snapshot_iter = trace.get_snapshot_iter(position)
         numb_state = NumberingState(snapshot_iter.size)
-        numb_state.append_int(0) # patch later
+        numb_state.append_int(0) # patch later: size of resume section
+        numb_state.append_int(0) # patch later: number of failargs
 
         arr = snapshot_iter.vable_array
 
@@ -460,6 +461,8 @@ class ResumeDataVirtualAdder(VirtualVisitor):
 
         self._number_virtuals(liveboxes, optimizer, num_virtuals)
         self._add_pending_fields(optimizer, pending_setfields)
+
+        numb_state.patch(1, len(liveboxes))
 
         self._add_optimizer_sections(numb_state, liveboxes, liveboxes_from_env)
         storage.rd_numb = numb_state.create_numbering()
@@ -929,9 +932,9 @@ class AbstractResumeDataReader(object):
     def _init(self, cpu, storage):
         self.cpu = cpu
         self.resumecodereader = resumecode.Reader(storage.rd_numb)
-        count = self.resumecodereader.next_item()
-        self.items_resume_section = count
-        self.count = storage.rd_count
+        items_resume_section = self.resumecodereader.next_item()
+        self.items_resume_section = items_resume_section
+        self.count = self.resumecodereader.next_item()
         self.consts = storage.rd_consts
 
     def _prepare(self, storage):
@@ -1075,7 +1078,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         self._init(metainterp.cpu, storage)
         self.deadframe = deadframe
         self.metainterp = metainterp
-        self.liveboxes = [None] * storage.rd_count
+        self.liveboxes = [None] * self.count
         self._prepare(storage)
 
     def consume_boxes(self, info, boxes_i, boxes_r, boxes_f):
