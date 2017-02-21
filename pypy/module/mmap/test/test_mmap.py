@@ -536,8 +536,9 @@ class AppTestMMap:
         f.close()
 
     def test_memoryview(self):
-        from mmap import mmap
-        f = open(self.tmpname + "y", "bw+")
+        from mmap import mmap, PROT_READ
+        filename = self.tmpname + "y"
+        f = open(filename, "bw+")
         f.write(b"foobar")
         f.flush()
         m = mmap(f.fileno(), 6)
@@ -549,10 +550,18 @@ class AppTestMMap:
         del b  # For CPython: "exported pointers exist"
         m.close()
         f.close()
+        with open(filename, "rb") as f:
+            m = mmap(f.fileno(), 6, prot=PROT_READ)
+            b = memoryview(m)
+            assert b.readonly is True
+            assert b[:] == b"foobar"
+            del b
+            m.close()
 
     def test_offset(self):
         from mmap import mmap, ALLOCATIONGRANULARITY
-        f = open(self.tmpname + "y", "wb+")
+        filename = self.tmpname + "y"
+        f = open(filename, "wb+")
         f.write(b"foobar" * ALLOCATIONGRANULARITY)
         f.flush()
         size = ALLOCATIONGRANULARITY

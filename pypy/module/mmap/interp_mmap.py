@@ -20,8 +20,11 @@ class W_MMap(W_Root):
 
     def buffer_w(self, space, flags):
         self.check_valid()
-        return MMapBuffer(self.space, self.mmap,
-                          bool(flags & space.BUF_WRITABLE))
+        readonly = (self.mmap.access == ACCESS_READ)
+        write_required = bool(flags & space.BUF_WRITABLE)
+        if write_required and readonly:
+            raise oefmt(space.w_BufferError, "Object is not writable.")
+        return MMapBuffer(self.space, self.mmap, readonly)
 
     def writebuf_w(self, space):
         self.check_writeable()
