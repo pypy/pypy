@@ -704,7 +704,8 @@ class __extend__(SomeUnicodeString):
             s_func = bookkeeper.immutablevalue(
                              runicode.unicode_encode_utf_8_elidable)
             s_errors = bookkeeper.immutablevalue('strict')
-            s_errorhandler = bookkeeper.immutablevalue(None)
+            s_errorhandler = bookkeeper.immutablevalue(
+                                    runicode.default_unicode_error_encode)
             s_allow_surr = bookkeeper.immutablevalue(True)
             args = [self, self.len(), s_errors, s_errorhandler, s_allow_surr]
             bookkeeper.emulate_pbc_call(bookkeeper.position_key, s_func, args)
