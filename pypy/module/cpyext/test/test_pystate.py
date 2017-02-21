@@ -173,6 +173,26 @@ class AppTestThreads(AppTestCpythonExtensionBase):
         res = module.bounce()
         assert res == 4
 
+    def test_nested_pygilstate_ensure(self):
+        module = self.import_extension('foo', [
+            ("bounce", "METH_NOARGS",
+            """
+            PyGILState_STATE gilstate;
+            PyThreadState *tstate;
+            PyObject *dict;
+
+            if (PyEval_ThreadsInitialized() == 0)
+                PyEval_InitThreads();
+            dict = PyThreadState_GetDict();
+            gilstate = PyGILState_Ensure();
+            PyGILState_Release(gilstate);
+            if (PyThreadState_GetDict() != dict)
+                return PyLong_FromLong(-2);
+            return PyLong_FromLong(4);
+            """)])
+        res = module.bounce()
+        assert res == 4
+
     def test_threadsinitialized(self):
         module = self.import_extension('foo', [
                 ("test", "METH_NOARGS",
