@@ -471,7 +471,7 @@ class AppTestInterpObjectPickling:
         assert 'finished' in repr(y)
         assert y.gi_code is None
 
-    def test_memoryview(self):
+    def test_pickle_memoryview(self):
         import pickle
         raises(TypeError, pickle.dumps, memoryview(b"abc"))
 

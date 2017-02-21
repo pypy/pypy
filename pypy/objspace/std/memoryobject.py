@@ -689,6 +689,9 @@ class W_MemoryView(W_Root):
             bytes = self.as_str()
             return _array_to_hexstring(space, StringBuffer(bytes), 0, 1, len(bytes))
 
+    def descr___getstate__(self, space):
+        raise oefmt(space.w_TypeError, "cannot pickle memoryview objects")
+
 def is_byte_format(char):
     return char == 'b' or char == 'B' or char == 'c'
 
@@ -711,6 +714,7 @@ Create a new memoryview object which references the given object.
     __enter__   = interp2app(W_MemoryView.descr_enter),
     __exit__    = interp2app(W_MemoryView.descr_exit),
     __weakref__ = make_weakref_descr(W_MemoryView),
+    __getstate__= interp2app(W_MemoryView.descr___getstate__),
     cast        = interp2app(W_MemoryView.descr_cast),
     hex         = interp2app(W_MemoryView.descr_hex),
     tobytes     = interp2app(W_MemoryView.descr_tobytes),

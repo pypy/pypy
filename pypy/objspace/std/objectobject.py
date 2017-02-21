@@ -24,6 +24,9 @@ def _getstate(obj):
     try:
         getstate = obj.__getstate__
     except AttributeError:
+        # TODO restrict pickling of variable sized objects
+        # tp_itemsize != 0, for now e.g. memoryview is handled
+        # by raising a TypeError in __getstate__
         state = getattr(obj, "__dict__", None)
         names = slotnames(cls) # not checking for list
         if names is not None:
@@ -44,6 +47,9 @@ def _getstate(obj):
 def reduce_2(obj, proto, args, kwargs):
     cls = obj.__class__
 
+    if not hasattr(type(obj), "__new__"):
+        raise TypeError("can't pickle %s objects" % type(obj).__name__)
+
     import copyreg
 
     if not isinstance(args, tuple):
@@ -58,7 +64,6 @@ def reduce_2(obj, proto, args, kwargs):
        raise ValueError("must use protocol 4 or greater to copy this "
                         "object; since __getnewargs_ex__ returned "
                         "keyword arguments.")
-
     state = _getstate(obj)
     listitems = iter(obj) if isinstance(obj, list) else None
     dictitems = iter(obj.items()) if isinstance(obj, dict) else None
