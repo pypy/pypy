@@ -282,6 +282,8 @@ def PyGILState_Release(space, oldstate):
     else:
         assert ec.cpyext_gilstate_counter_noleave == 0
         assert oldstate == PyGILState_UNLOCKED
+        assert space.config.translation.thread
+        #      ^^^ otherwise, we should not reach this case
         ec.cpyext_threadstate_is_current = False
         space.threadlocals.leave_thread(space)
 
