@@ -133,6 +133,23 @@ def str_decode_utf_8(s, size, errors, final=False,
 def _invalid_cont_byte(ordch):
     return ordch>>6 != 0x2    # 0b10
 
+_invalid_byte_2_of_2 = _invalid_cont_byte
+_invalid_byte_3_of_3 = _invalid_cont_byte
+_invalid_byte_3_of_4 = _invalid_cont_byte
+_invalid_byte_4_of_4 = _invalid_cont_byte
+
+@enforceargs(allow_surrogates=bool)
+def _invalid_byte_2_of_3(ordch1, ordch2, allow_surrogates):
+    return (ordch2>>6 != 0x2 or    # 0b10
+            (ordch1 == 0xe0 and ordch2 < 0xa0)
+            # surrogates shouldn't be valid UTF-8!
+            or (ordch1 == 0xed and ordch2 > 0x9f and not allow_surrogates))
+
+def _invalid_byte_2_of_4(ordch1, ordch2):
+    return (ordch2>>6 != 0x2 or    # 0b10
+            (ordch1 == 0xf0 and ordch2 < 0x90) or
+            (ordch1 == 0xf4 and ordch2 > 0x8f))
+
 def str_decode_utf_8_impl(s, size, errors, final, errorhandler,
                           allow_surrogates):
     if size == 0:
@@ -153,20 +170,60 @@ def str_decode_utf_8_impl(s, size, errors, final, errorhandler,
         if pos + n > size:
             if not final:
                 break
+            # argh, this obscure block of code is mostly a copy of
+            # what follows :-(
             charsleft = size - pos - 1 # either 0, 1, 2
             # note: when we get the 'unexpected end of data' we need
             # to care about the pos returned; it can be lower than size,
             # in case we need to continue running this loop
-            endpos = pos + 1
-            if charsleft >= 1 and not _invalid_cont_byte(ord(s[pos+1])):
-                endpos = pos + 2
-                if charsleft >= 2 and not _invalid_cont_byte(ord(s[pos+2])):
-                    endpos = pos + 3
-            r, pos = errorhandler(errors, 'utf8',
-                                  'unexpected end of data',
-                                  s, pos, endpos)
-            result.append(r)
-            continue
+            if not charsleft:
+                # there's only the start byte and nothing else
+                r, pos = errorhandler(errors, 'utf8',
+                                      'unexpected end of data',
+                                      s, pos, pos+1)
+                result.append(r)
+                continue
+            ordch2 = ord(s[pos+1])
+            if n == 3:
+                # 3-bytes seq with only a continuation byte
+                if _invalid_byte_2_of_3(ordch1, ordch2, allow_surrogates):
+                    # second byte invalid, take the first and continue
+                    r, pos = errorhandler(errors, 'utf8',
+                                          'invalid continuation byte',
+                                          s, pos, pos+1)
+                    result.append(r)
+                    continue
+                else:
+                    # second byte valid, but third byte missing
+                    r, pos = errorhandler(errors, 'utf8',
+                                      'unexpected end of data',
+                                      s, pos, pos+2)
+                    result.append(r)
+                    continue
+            elif n == 4:
+                # 4-bytes seq with 1 or 2 continuation bytes
+                if _invalid_byte_2_of_4(ordch1, ordch2):
+                    # second byte invalid, take the first and continue
+                    r, pos = errorhandler(errors, 'utf8',
+                                          'invalid continuation byte',
+                                          s, pos, pos+1)
+                    result.append(r)
+                    continue
+                elif charsleft == 2 and _invalid_byte_3_of_4(ord(s[pos+2])):
+                    # third byte invalid, take the first two and continue
+                    r, pos = errorhandler(errors, 'utf8',
+                                          'invalid continuation byte',
+                                          s, pos, pos+2)
+                    result.append(r)
+                    continue
+                else:
+                    # there's only 1 or 2 valid cb, but the others are missing
+                    r, pos = errorhandler(errors, 'utf8',
+                                      'unexpected end of data',
+                                      s, pos, pos+charsleft+1)
+                    result.append(r)
+                    continue
+            raise AssertionError("unreachable")
 
         if n == 0:
             r, pos = errorhandler(errors, 'utf8',
@@ -179,7 +236,7 @@ def str_decode_utf_8_impl(s, size, errors, final, errorhandler,
 
         elif n == 2:
             ordch2 = ord(s[pos+1])
-            if _invalid_cont_byte(ordch2):
+            if _invalid_byte_2_of_2(ordch2):
                 r, pos = errorhandler(errors, 'utf8',
                                       'invalid continuation byte',
                                       s, pos, pos+1)
@@ -193,48 +250,41 @@ def str_decode_utf_8_impl(s, size, errors, final, errorhandler,
         elif n == 3:
             ordch2 = ord(s[pos+1])
             ordch3 = ord(s[pos+2])
-            if _invalid_cont_byte(ordch2):
+            if _invalid_byte_2_of_3(ordch1, ordch2, allow_surrogates):
                 r, pos = errorhandler(errors, 'utf8',
                                       'invalid continuation byte',
                                       s, pos, pos+1)
                 result.append(r)
                 continue
-            elif _invalid_cont_byte(ordch3):
+            elif _invalid_byte_3_of_3(ordch3):
                 r, pos = errorhandler(errors, 'utf8',
                                       'invalid continuation byte',
                                       s, pos, pos+2)
                 result.append(r)
                 continue
             # 1110xxxx 10yyyyyy 10zzzzzz -> 00000000 xxxxyyyy yyzzzzzz
-            c = (((ordch1 & 0x0F) << 12) +     # 0b00001111
-                 ((ordch2 & 0x3F) << 6) +      # 0b00111111
-                 (ordch3 & 0x3F))              # 0b00111111
-            if c < 2048 or (0xd800 <= c <= 0xdfff and not allow_surrogates):
-                r, pos = errorhandler(errors, 'utf8',
-                                      'invalid continuation byte',
-                                      s, pos, pos+2)
-                result.append(r)
-                continue
-            result.append(unichr(c))
+            result.append(unichr(((ordch1 & 0x0F) << 12) +     # 0b00001111
+                                 ((ordch2 & 0x3F) << 6) +      # 0b00111111
+                                 (ordch3 & 0x3F)))             # 0b00111111
             pos += 3
 
         elif n == 4:
             ordch2 = ord(s[pos+1])
             ordch3 = ord(s[pos+2])
             ordch4 = ord(s[pos+3])
-            if _invalid_cont_byte(ordch2):
+            if _invalid_byte_2_of_4(ordch1, ordch2):
                 r, pos = errorhandler(errors, 'utf8',
                                       'invalid continuation byte',
                                       s, pos, pos+1)
                 result.append(r)
                 continue
-            elif _invalid_cont_byte(ordch3):
+            elif _invalid_byte_3_of_4(ordch3):
                 r, pos = errorhandler(errors, 'utf8',
                                       'invalid continuation byte',
                                       s, pos, pos+2)
                 result.append(r)
                 continue
-            elif _invalid_cont_byte(ordch4):
+            elif _invalid_byte_4_of_4(ordch4):
                 r, pos = errorhandler(errors, 'utf8',
                                       'invalid continuation byte',
                                       s, pos, pos+3)
@@ -245,12 +295,6 @@ def str_decode_utf_8_impl(s, size, errors, final, errorhandler,
                  ((ordch2 & 0x3F) << 12) +      # 0b00111111
                  ((ordch3 & 0x3F) << 6) +       # 0b00111111
                  (ordch4 & 0x3F))               # 0b00111111
-            if c <= 65535 or c > 0x10ffff:
-                r, pos = errorhandler(errors, 'utf8',
-                                      'invalid continuation byte',
-                                      s, pos, pos+3)
-                result.append(r)
-                continue
             if c <= MAXUNICODE:
                 result.append(UNICHR(c))
             else:
