@@ -1863,9 +1863,6 @@ class MetaInterpStaticData(object):
 
     def setup_descrs(self, descrs):
         self.opcode_descrs = descrs
-        self.descrs_dct = {}
-        for index, descr in enumerate(descrs):
-            self.descrs_dct[descr] = index
 
     def setup_indirectcalltargets(self, indirectcalltargets):
         self.indirectcalltargets = list(indirectcalltargets)

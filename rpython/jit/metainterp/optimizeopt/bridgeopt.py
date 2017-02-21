@@ -75,12 +75,12 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
     # heap knowledge
     if optimizer.optheap:
         triples = optimizer.optheap.serialize_optheap(liveboxes_set)
+        # can only encode descrs that have a known index into
+        # metainterp_sd.all_descrs
+        triples = [triple for triple in triples if triple[1].descr_index != -1]
         numb_state.append_int(len(triples))
         for box1, descr, box2 in triples:
-            index = metainterp_sd.descrs_dct.get(descr, -1)
-            if index == -1:
-                # XXX XXX XXX fix length!
-                continue # just skip it, if the descr is not encodable
+            index = descr.descr_index
             numb_state.append_short(tag_box(box1, liveboxes_from_env, memo))
             numb_state.append_int(index)
             numb_state.append_short(tag_box(box2, liveboxes_from_env, memo))
@@ -117,8 +117,8 @@ def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, li
     for i in range(length):
         tagged = reader.next_item()
         box1 = decode_box(resumestorage, tagged, liveboxes, metainterp_sd.cpu)
-        tagged = reader.next_item()
-        descr = metainterp_sd.opcode_descrs[tagged]
+        index = reader.next_item()
+        descr = metainterp_sd.all_descrs[index]
         tagged = reader.next_item()
         box2 = decode_box(resumestorage, tagged, liveboxes, metainterp_sd.cpu)
         result.append((box1, descr, box2))
