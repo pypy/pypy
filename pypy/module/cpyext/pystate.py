@@ -41,8 +41,7 @@ def PyEval_RestoreThread(space, tstate):
     NULL.  If the lock has been created, the current thread must not have
     acquired it, otherwise deadlock ensues.  (This function is available even
     when thread support is disabled at compile time.)"""
-    ec = space.getexecutioncontext()
-    ec.cpyext_threadstate_is_current = True
+    PyThreadState_Swap(space, tstate)
 
 @cpython_api([], lltype.Void)
 def PyEval_InitThreads(space):
@@ -199,7 +198,11 @@ def PyThreadState_Swap(space, tstate):
     if not ec.cpyext_threadstate_is_current:
         old_tstate = lltype.nullptr(PyThreadState.TO)
     if tstate:
-        assert tstate == state.get_thread_state(space)
+        if tstate != state.get_thread_state(space):
+            print "Error in cpyext, CPython compatibility layer:"
+            print "PyThreadState_Swap() cannot be used to switch to another"
+            print "different PyThreadState right now"
+            raise AssertionError
         ec.cpyext_threadstate_is_current = True
     else:
         ec.cpyext_threadstate_is_current = False
@@ -279,8 +282,8 @@ def PyGILState_Release(space, oldstate):
     else:
         assert ec.cpyext_gilstate_counter_noleave == 0
         assert oldstate == PyGILState_UNLOCKED
+        ec.cpyext_threadstate_is_current = False
         space.threadlocals.leave_thread(space)
-    ec.cpyext_threadstate_is_current = False
 
 @cpython_api([], PyInterpreterState, error=CANNOT_FAIL)
 def PyInterpreterState_Head(space):
