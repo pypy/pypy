@@ -79,8 +79,8 @@ class AppTestThreads(AppTestCpythonExtensionBase):
                          return PyLong_FromLong(0);
                      }
 
-                     new_tstate = PyThreadState_Get(); /* fails on cpython */
-                     if (new_tstate != NULL) {
+                     PyObject* d = PyThreadState_GetDict(); /* fails on cpython */
+                     if (d != NULL) {
                          return PyLong_FromLong(1);
                      }
 
@@ -166,6 +166,26 @@ class AppTestThreads(AppTestCpythonExtensionBase):
                 return PyLong_FromLong(3);
             }
 
+            return PyLong_FromLong(4);
+            """)])
+        res = module.bounce()
+        assert res == 4
+
+    def test_nested_pygilstate_ensure(self):
+        module = self.import_extension('foo', [
+            ("bounce", "METH_NOARGS",
+            """
+            PyGILState_STATE gilstate;
+            PyThreadState *tstate;
+            PyObject *dict;
+
+            if (PyEval_ThreadsInitialized() == 0)
+                PyEval_InitThreads();
+            dict = PyThreadState_GetDict();
+            gilstate = PyGILState_Ensure();
+            PyGILState_Release(gilstate);
+            if (PyThreadState_GetDict() != dict)
+                return PyLong_FromLong(-2);
             return PyLong_FromLong(4);
             """)])
         res = module.bounce()

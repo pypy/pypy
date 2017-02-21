@@ -66,7 +66,7 @@ class BaseApiTest(LeakCheckingTest):
             raise
 
         try:
-            self.space.getexecutioncontext().cleanup_cpyext_threadstate()
+            self.space.getexecutioncontext().cleanup_cpyext_state()
         except AttributeError:
             pass
 

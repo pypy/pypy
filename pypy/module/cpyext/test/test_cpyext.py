@@ -105,7 +105,6 @@ class LeakCheckingTest(object):
             del obj
         import gc; gc.collect()
 
-        space.getexecutioncontext().cleanup_cpyext_state()
 
         for w_obj in state.non_heaptypes_w:
             Py_DecRef(space, w_obj)
@@ -182,6 +181,7 @@ class AppTestApi(LeakCheckingTest):
     def teardown_method(self, meth):
         if self.runappdirect:
             return
+        self.space.getexecutioncontext().cleanup_cpyext_state()
         self.cleanup_references(self.space)
         # XXX: like AppTestCpythonExtensionBase.teardown_method:
         # find out how to disable check_and_print_leaks() if the
@@ -372,6 +372,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             return
         for name in self.imported_module_names:
             self.unimport_module(name)
+        self.space.getexecutioncontext().cleanup_cpyext_state()
         self.cleanup_references(self.space)
         # XXX: find out how to disable check_and_print_leaks() if the
         # test failed...

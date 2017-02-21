@@ -135,10 +135,7 @@ class StdObjSpace(ObjSpace):
         assert typedef is not None
         return self.fromcache(TypeCache).getorbuild(typedef)
 
-    # BACKCOMPAT: this function is still accepted for backward
-    # compatibility, but its usage should be progressively removed
-    # everywhere apart from tests.
-    #@not_rpython # only for tests
+    @not_rpython # only for tests
     @specialize.argtype(1)
     def wrap(self, x):
         """ Wraps the Python value 'x' into one of the wrapper classes. This
