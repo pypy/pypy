@@ -951,7 +951,7 @@ class Cursor(object):
         if isinstance(sql, unicode):
             sql = sql.encode('utf-8')
         elif not isinstance(sql, str):
-            raise ValueError("script argument must be unicode or string.")
+            raise ValueError("script argument must be unicode.")
         statement_star = _ffi.new('sqlite3_stmt **')
         next_char = _ffi.new('char **')
 
