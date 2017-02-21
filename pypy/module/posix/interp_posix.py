@@ -857,18 +857,20 @@ Execute a path with arguments and environment, replacing current process.
         except OSError as e:
             raise wrap_oserror(space, e)
 
-@unwrap_spec(mode=int, path='str0')
-def spawnv(space, mode, path, w_args):
-    args = [space.str0_w(w_arg) for w_arg in space.unpackiterable(w_args)]
+@unwrap_spec(mode=int)
+def spawnv(space, mode, w_path, w_args):
+    path = fsencode_w(space, w_path)
+    args = [fsencode_w(space, w_arg) for w_arg in space.unpackiterable(w_args)]
     try:
         ret = os.spawnv(mode, path, args)
     except OSError as e:
         raise wrap_oserror(space, e)
     return space.newint(ret)
 
-@unwrap_spec(mode=int, path='str0')
-def spawnve(space, mode, path, w_args, w_env):
-    args = [space.str0_w(w_arg) for w_arg in space.unpackiterable(w_args)]
+@unwrap_spec(mode=int)
+def spawnve(space, mode, w_path, w_args, w_env):
+    path = fsencode_w(space, w_path)
+    args = [fsencode_w(space, w_arg) for w_arg in space.unpackiterable(w_args)]
     env = _env2interp(space, w_env)
     try:
         ret = os.spawnve(mode, path, args, env)
@@ -967,12 +969,12 @@ def setegid(space, arg):
     except OSError as e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(path='str0')
-def chroot(space, path):
+def chroot(space, w_path):
     """ chroot(path)
 
     Change root directory to path.
     """
+    path = fsencode_w(space, w_path)
     try:
         os.chroot(path)
     except OSError as e:
@@ -1257,8 +1259,8 @@ def fpathconf(space, fd, w_name):
         raise wrap_oserror(space, e)
     return space.newint(res)
 
-@unwrap_spec(path='str0')
-def pathconf(space, path, w_name):
+def pathconf(space, w_path, w_name):
+    path = fsencode_w(space, w_path)
     num = confname_w(space, w_name, os.pathconf_names)
     try:
         res = os.pathconf(path, num)
@@ -1274,18 +1276,20 @@ def confstr(space, w_name):
         raise wrap_oserror(space, e)
     return space.newtext(res)
 
-@unwrap_spec(path='str0', uid=c_uid_t, gid=c_gid_t)
-def chown(space, path, uid, gid):
+@unwrap_spec(uid=c_uid_t, gid=c_gid_t)
+def chown(space, w_path, uid, gid):
     """Change the owner and group id of path to the numeric uid and gid."""
+    path = fsencode_w(space, w_path)
     try:
         os.chown(path, uid, gid)
     except OSError as e:
         raise wrap_oserror(space, e, path)
 
-@unwrap_spec(path='str0', uid=c_uid_t, gid=c_gid_t)
-def lchown(space, path, uid, gid):
+@unwrap_spec(uid=c_uid_t, gid=c_gid_t)
+def lchown(space, w_path, uid, gid):
     """Change the owner and group id of path to the numeric uid and gid.
 This function will not follow symbolic links."""
+    path = fsencode_w(space, w_path)
     try:
         os.lchown(path, uid, gid)
     except OSError as e:
