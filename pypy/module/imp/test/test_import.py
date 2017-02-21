@@ -153,6 +153,15 @@ def setup_directory_structure(cls):
         pass
     p.join('x.py').rename(p.join('x.pyw'))
 
+    if hasattr(p, "mksymlinkto"):
+        p = root.join("devnullpkg")
+        p.ensure(dir=True)
+        p.join("__init__.py").mksymlinkto(os.devnull)
+
+    p = root.join("onlypyw")
+    p.ensure(dir=True)
+    p.join("__init__.pyw")
+
     return str(root)
 
 
