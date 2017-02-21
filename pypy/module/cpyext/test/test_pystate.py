@@ -69,8 +69,6 @@ class AppTestThreads(AppTestCpythonExtensionBase):
         assert module.get() == 3
 
     def test_basic_threadstate_dance(self):
-        if self.runappdirect:
-            py.test.xfail('segfault: on cpython cannot Get() a NULL tstate')
         module = self.import_extension('foo', [
                 ("dance", "METH_NOARGS",
                  """
@@ -83,8 +81,8 @@ class AppTestThreads(AppTestCpythonExtensionBase):
                          return PyLong_FromLong(0);
                      }
 
-                     new_tstate = PyThreadState_Get(); /* fails on cpython */
-                     if (new_tstate != NULL) {
+                     PyObject* d = PyThreadState_GetDict(); /* fails on cpython */
+                     if (d != NULL) {
                          return PyLong_FromLong(1);
                      }
 
