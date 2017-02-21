@@ -51,11 +51,12 @@ class BasePosix(Platform):
         return ["-Wl,--export-dynamic"]
 
     def _link(self, cc, ofiles, link_args, standalone, exe_name):
-        self._exe_name = str(exe_name)
         args = [str(ofile) for ofile in ofiles] + link_args
         args += ['-o', str(exe_name)]
         if not standalone:
+            self._exe_name = str(exe_name)
             args = self._args_for_shared(args)
+            del self._exe_name      # remove, otherwise __eq__() fails
         self._execute_c_compiler(cc, args, exe_name,
                                  cwd=str(exe_name.dirpath()))
         return exe_name

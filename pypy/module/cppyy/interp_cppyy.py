@@ -36,7 +36,7 @@ def load_dictionary(space, name):
     try:
         cdll = capi.c_load_dictionary(name)
         if not cdll:
-           raise OperationError(space.w_RuntimeError, space.wrap(str("could not load dictionary " + name)))
+           raise OperationError(space.w_RuntimeError, space.newtext(str("could not load dictionary " + name)))
 
     except rdynload.DLOpenError as e:
         if hasattr(space, "fake"):      # FakeSpace fails e.msg (?!)
