@@ -7,8 +7,8 @@ from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.runicode import (
     make_unicode_escape_function, str_decode_ascii, str_decode_utf_8,
-    unicode_encode_ascii, unicode_encode_utf_8, fast_str_decode_ascii,
-    check_ascii, AsciiCheckError)
+    unicode_encode_ascii, unicode_encode_utf_8, fast_str_decode_ascii)
+from rpython.rlib import rutf8
 
 from pypy.interpreter import unicodehelper
 from pypy.interpreter.baseobjspace import W_Root
@@ -579,8 +579,8 @@ def utf8_from_string(space, w_bytes):
         return unicode_from_encoded_object(space, w_bytes, encoding, "strict")
     s = space.bytes_w(w_bytes)
     try:
-        check_ascii(s)
-    except AsciiCheckError:
+        rutf8.check_ascii(s)
+    except rutf8.AsciiCheckError:
         # raising UnicodeDecodeError is messy, "please crash for me"
         return utf8_from_encoded_object(space, w_bytes, "ascii", "strict")
     return W_UnicodeObject(s)

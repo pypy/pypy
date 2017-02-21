@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib import runicode
+from rpython.rlib import runicode, rutf8
 from pypy.module._codecs import interp_codecs
 
 @specialize.memo()
@@ -39,7 +39,7 @@ def decode_unicode_escape(space, string):
     state = space.fromcache(interp_codecs.CodecState)
     unicodedata_handler = state.get_unicodedata_handler(space)
     # XXX pick better length, maybe
-    result, consumed = runicode.str_decode_utf8_escape(
+    result, consumed = rutf8.str_decode_utf8_escape(
         string, len(string), "strict",
         final=True, errorhandler=decode_error_handler(space),
         unicodedata_handler=unicodedata_handler)
@@ -47,7 +47,7 @@ def decode_unicode_escape(space, string):
 
 def decode_raw_unicode_escape(space, string):
     # XXX pick better length, maybe
-    result, consumed = runicode.str_decode_raw_utf8_escape(
+    result, consumed = rutf8.str_decode_raw_utf8_escape(
         string, len(string), "strict",
         final=True, errorhandler=decode_error_handler(space))
     return result

@@ -5,7 +5,7 @@ Interp-level implementation of the basic space operations.
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
-from rpython.rlib.runicode import UNICHR, unichr_as_utf8
+from rpython.rlib.rutf8 import unichr_as_utf8
 from rpython.rlib.rfloat import isnan, isinf, round_double
 from rpython.rlib import rfloat
 import __builtin__
