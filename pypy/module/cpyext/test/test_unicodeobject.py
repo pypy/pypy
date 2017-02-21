@@ -78,6 +78,20 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         print(module.strlen(True))
         assert module.strlen(True) == 4
 
+    def test_intern_inplace(self):
+        module = self.import_extension('foo', [
+            ("test_intern_inplace", "METH_O",
+             '''
+                 PyObject *s = args;
+                 Py_INCREF(s);
+                 PyUnicode_InternInPlace(&s);
+                 return s;
+             '''
+             )])
+        # This does not test much, but at least the refcounts are checked.
+        assert module.test_intern_inplace('s') == 's'
+
+
     def test_unicode_buffer_init(self):
         module = self.import_extension('foo', [
             ("getunicode", "METH_NOARGS",

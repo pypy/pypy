@@ -1858,28 +1858,6 @@ def PyUnicode_Contains(space, container, element):
     there was an error."""
     raise NotImplementedError
 
-@cpython_api([PyObjectP], lltype.Void)
-def PyUnicode_InternInPlace(space, string):
-    """Intern the argument *string in place.  The argument must be the address of a
-    pointer variable pointing to a Python unicode string object.  If there is an
-    existing interned string that is the same as *string, it sets *string to
-    it (decrementing the reference count of the old string object and incrementing
-    the reference count of the interned string object), otherwise it leaves
-    *string alone and interns it (incrementing its reference count).
-    (Clarification: even though there is a lot of talk about reference counts, think
-    of this function as reference-count-neutral; you own the object after the call
-    if and only if you owned it before the call.)"""
-    raise NotImplementedError
-
-
-@cpython_api([rffi.CCHARP], PyObject)
-def PyUnicode_InternFromString(space, v):
-    """A combination of PyUnicode_FromString() and
-    PyUnicode_InternInPlace(), returning either a new unicode string object
-    that has been interned, or a new ("owned") reference to an earlier interned
-    string object with the same value."""
-    raise NotImplementedError
-
 
 @cpython_api([rffi.INT_real, CWCHARPP], rffi.INT_real, error=1)
 def Py_Main(space, argc, argv):

@@ -587,6 +587,23 @@ def PyUnicode_FromString(space, s):
     w_str = space.newbytes(rffi.charp2str(s))
     return space.call_method(w_str, 'decode', space.newtext("utf-8"))
 
+@cpython_api([PyObjectP], lltype.Void)
+def PyUnicode_InternInPlace(space, string):
+    """Intern the argument *string in place.  The argument must be the address
+    of a pointer variable pointing to a Python unicode string object.  If there
+    is an existing interned string that is the same as *string, it sets *string
+    to it (decrementing the reference count of the old string object and
+    incrementing the reference count of the interned string object), otherwise
+    it leaves *string alone and interns it (incrementing its reference count).
+    (Clarification: even though there is a lot of talk about reference counts,
+    think of this function as reference-count-neutral; you own the object after
+    the call if and only if you owned it before the call.)"""
+    w_str = from_ref(space, string[0])
+    w_str = space.new_interned_w_str(w_str)
+    Py_DecRef(space, string[0])
+    string[0] = make_ref(space, w_str)
+
+
 @cpython_api([CONST_STRING], PyObject)
 def PyUnicode_InternFromString(space, s):
     """A combination of PyUnicode_FromString() and
