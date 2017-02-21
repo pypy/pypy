@@ -66,7 +66,7 @@ class FileDecoder(object):
         self.w_obj = w_obj
 
     def as_bytes(self):
-        return self.space.fsencode_w(self.w_obj)
+        return self.space.bytes0_w(self.w_obj)
 
     def as_unicode(self):
         return self.space.fsdecode_w(self.w_obj)
@@ -85,7 +85,7 @@ def make_dispatch_function(func, tag, allow_fd_fn=None):
             fname = FileEncoder(space, w_fname)
             return func(fname, *args)
         else:
-            fname = space.fsencode_w(w_fname)
+            fname = space.bytes0_w(w_fname)
             return func(fname, *args)
     return dispatch
 
@@ -697,7 +697,7 @@ def _getfullpathname(space, w_path):
             fullpath = rposix.getfullpathname(path)
             w_fullpath = space.newunicode(fullpath)
         else:
-            path = space.str0_w(w_path)
+            path = space.bytes0_w(w_path)
             fullpath = rposix.getfullpathname(path)
             w_fullpath = space.newbytes(fullpath)
     except OSError as e:
@@ -793,7 +793,7 @@ def getlogin(space):
         cur = os.getlogin()
     except OSError as e:
         raise wrap_oserror(space, e, eintr_retry=False)
-    return space.wrap_fsdecoded(cur)
+    return space.newfilename(cur)
 
 # ____________________________________________________________
 
@@ -884,7 +884,7 @@ On some platforms, path may also be specified as an open file descriptor;
     if space.is_none(w_path):
         w_path = space.newunicode(u".")
     if space.isinstance_w(w_path, space.w_bytes):
-        dirname = space.str0_w(w_path)
+        dirname = space.bytes0_w(w_path)
         try:
             result = rposix.listdir(dirname)
         except OSError as e:
@@ -915,7 +915,7 @@ On some platforms, path may also be specified as an open file descriptor;
         if _WIN32:
             result_w[i] = space.newunicode(result[i])
         else:
-            result_w[i] = space.wrap_fsdecoded(result[i])
+            result_w[i] = space.newfilename(result[i])
     return space.newlist(result_w)
 
 @unwrap_spec(fd=c_int)
@@ -1607,7 +1607,7 @@ def uname(space):
         r = os.uname()
     except OSError as e:
         raise wrap_oserror(space, e, eintr_retry=False)
-    l_w = [space.wrap_fsdecoded(i)
+    l_w = [space.newfilename(i)
            for i in [r[0], r[1], r[2], r[3], r[4]]]
     w_tuple = space.newtuple(l_w)
     w_uname_result = space.getattr(space.getbuiltinmodule(os.name),
@@ -1945,7 +1945,7 @@ for name in rposix.WAIT_MACROS:
 @unwrap_spec(fd=c_int)
 def ttyname(space, fd):
     try:
-        return space.wrap_fsdecoded(os.ttyname(fd))
+        return space.newfilename(os.ttyname(fd))
     except OSError as e:
         raise wrap_oserror(space, e, eintr_retry=False)
 
@@ -2156,7 +2156,7 @@ def ctermid(space):
 
     Return the name of the controlling terminal for this process.
     """
-    return space.wrap_fsdecoded(os.ctermid())
+    return space.newfilename(os.ctermid())
 
 @unwrap_spec(fd=c_int)
 def device_encoding(space, fd):

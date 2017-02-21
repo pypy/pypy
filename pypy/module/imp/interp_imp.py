@@ -72,7 +72,7 @@ def init_frozen(space, w_name):
     return None
 
 def is_builtin(space, w_name):
-    name = space.str0_w(w_name)
+    name = space.text0_w(w_name)
     if name not in space.builtin_modules:
         return space.newint(0)
     if space.finditem(space.sys.get('modules'), w_name) is not None:

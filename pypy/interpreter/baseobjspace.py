@@ -1602,6 +1602,7 @@ class ObjSpace(object):
     def bytes_w(self, w_obj):
         return w_obj.bytes_w(self)
 
+    #@not_rpython    BACKCOMPAT
     def str0_w(self, w_obj):
         "Like str_w, but rejects strings with NUL bytes."
         from rpython.rlib import rstring
@@ -1615,6 +1616,15 @@ class ObjSpace(object):
         "Like bytes_w, but rejects strings with NUL bytes."
         from rpython.rlib import rstring
         result = self.bytes_w(w_obj)
+        if '\x00' in result:
+            raise oefmt(self.w_ValueError,
+                        "argument must be a string without NUL characters")
+        return rstring.assert_str0(result)
+
+    def text0_w(self, w_obj):
+        "Like text_w, but rejects strings with NUL bytes."
+        from rpython.rlib import rstring
+        result = self.text_w(w_obj)
         if '\x00' in result:
             raise oefmt(self.w_ValueError,
                         "argument must be a string without NUL characters")
@@ -1717,8 +1727,9 @@ class ObjSpace(object):
             w_obj = self.fsdecode(w_obj)
         return self.unicode0_w(w_obj)
 
+    # BACKCOMPAT  -- replace me with newfilename()
     def wrap_fsdecoded(self, x):
-        return self.fsdecode(self.newbytes(x))
+        return self.newfilename(x)
 
     def bool_w(self, w_obj):
         # Unwraps a bool, also accepting an int for compatibility.

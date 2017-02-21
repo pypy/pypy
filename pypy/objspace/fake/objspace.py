@@ -217,11 +217,10 @@ class FakeObjSpace(ObjSpace):
     def newunicode(self, x):
         return w_some_obj()
 
-    def newutf8(self, x):
+    def newtext(self, x):
         return w_some_obj()
-
-    newtext = newutf8
-    newtext_or_none = newutf8
+    newtext_or_none = newtext
+    newfilename = newtext
 
     @not_rpython
     def wrap(self, x):

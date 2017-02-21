@@ -378,6 +378,9 @@ class StdObjSpace(ObjSpace):
             return self.w_None
         return self.newtext(s)
 
+    def newfilename(self, s):
+        return self.fsdecode(self.newbytes(s))
+
     def newunicode(self, uni):
         assert uni is not None
         assert isinstance(uni, unicode)
