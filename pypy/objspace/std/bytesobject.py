@@ -541,7 +541,7 @@ class W_BytesObject(W_AbstractBytesObject):
             if w_srctype is space.w_list or w_srctype is space.w_tuple:
                 length = space.len_w(w_source)
                 if jit.isconstant(length) and length == 1:
-                    w_item = space.getitem(w_source, space.wrap(0))
+                    w_item = space.getitem(w_source, space.newint(0))
                     value = getbytevalue(space, w_item)
                     return W_BytesObject(value)
             else:
@@ -578,7 +578,7 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def descr_str(self, space):
         if space.sys.get_flag('bytes_warning'):
-            space.warn(space.wrap("str() on a bytes instance"),
+            space.warn(space.newtext("str() on a bytes instance"),
                        space.w_BytesWarning)
         return self.descr_repr(space)
 

@@ -93,15 +93,15 @@ def get_hash_info(space):
     HASH_WIDTH = 8 * rffi.sizeof(lltype.Signed)
     HASH_CUTOFF = 0
     info_w = [
-        space.wrap(HASH_WIDTH),
-        space.wrap(HASH_MODULUS),
-        space.wrap(HASH_INF),
-        space.wrap(HASH_NAN),
-        space.wrap(HASH_IMAG),
-        space.wrap(HASH_ALGORITHM),
-        space.wrap(HASH_HASH_BITS),
-        space.wrap(HASH_SEED_BITS),
-        space.wrap(HASH_CUTOFF),
+        space.newint(HASH_WIDTH),
+        space.newint(HASH_MODULUS),
+        space.newint(HASH_INF),
+        space.newint(HASH_NAN),
+        space.newint(HASH_IMAG),
+        space.newtext(HASH_ALGORITHM),
+        space.newint(HASH_HASH_BITS),
+        space.newint(HASH_SEED_BITS),
+        space.newint(HASH_CUTOFF),
     ]
     w_hash_info = app.wget(space, "hash_info")
     return space.call_function(w_hash_info, space.newtuple(info_w))
@@ -114,10 +114,10 @@ def get_thread_info(space):
         return None
     from rpython.rlib import rthread
     if rthread.RPYTHREAD_NAME == "pthread":
-        w_lock = space.wrap("semaphore" if rthread.USE_SEMAPHORES
-                            else "mutex+cond")
+        w_lock = space.newtext("semaphore" if rthread.USE_SEMAPHORES
+                               else "mutex+cond")
         if rthread.CS_GNU_LIBPTHREAD_VERSION is not None:
-            w_version = space.wrap(
+            w_version = space.newtext(
                 os.confstr(rthread.CS_GNU_LIBPTHREAD_VERSION))
         else:
             w_version = space.w_None
@@ -125,7 +125,7 @@ def get_thread_info(space):
         w_lock = space.w_None
         w_version = space.w_None
     info_w = [
-        space.wrap(rthread.RPYTHREAD_NAME),
+        space.newtext(rthread.RPYTHREAD_NAME),
         w_lock, w_version,
     ]
     w_thread_info = app.wget(space, "thread_info")

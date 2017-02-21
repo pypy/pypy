@@ -329,7 +329,7 @@ class W_ZipImporter(W_Root):
                     w_data = self.get_data(space, fname)
                     # XXX CPython does not handle the coding cookie either.
                     return space.call_method(w_data, "decode",
-                                             space.wrap("utf-8"))
+                                             space.newtext("utf-8"))
                 else:
                     found = True
         if found:

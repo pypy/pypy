@@ -31,7 +31,7 @@ class SyntaxError(Exception):
             w_text = space.newunicode(text)
         if self.filename is not None:
             w_filename = space.wrap_fsdecoded(self.filename)
-        return space.newtuple([space.wrap(self.msg),
+        return space.newtuple([space.newtext(self.msg),
                                space.newtuple([w_filename,
                                                space.newint(self.lineno),
                                                space.newint(offset),

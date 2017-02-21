@@ -394,7 +394,7 @@ def _sigset_to_signals(space, mask):
         # the signal isn't a member of the mask or the signal was
         # invalid, and an invalid signal must have been our fault in
         # constructing the loop boundaries.
-        signals_w.append(space.wrap(sig))
+        signals_w.append(space.newint(sig))
     return space.call_function(space.w_set, space.newtuple(signals_w))
 
 def sigwait(space, w_signals):
@@ -404,7 +404,7 @@ def sigwait(space, w_signals):
             if ret != 0:
                 raise exception_from_saved_errno(space, space.w_OSError)
             signum = signum_ptr[0]
-    return space.wrap(signum)
+    return space.newint(signum)
 
 def sigpending(space):
     with lltype.scoped_alloc(c_sigset_t.TO) as mask:

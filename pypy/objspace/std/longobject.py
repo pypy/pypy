@@ -78,7 +78,7 @@ class W_AbstractLongObject(W_AbstractIntObject):
         return space.newint(_hash_long(space, self.asbigint()))
 
     def descr_str(self, space):
-        return space.wrap(self.asbigint().str())
+        return space.newtext(self.asbigint().str())
     descr_repr = descr_str
 
 

@@ -121,7 +121,7 @@ def PyMember_SetOne(space, obj, w_member, w_value):
             casted = rffi.cast(lltyp, value)
             if range_checking:
                 if rffi.cast(lltype.typeOf(value), casted) != value:
-                    space.warn(space.wrap("structmember: truncation of value"),
+                    space.warn(space.newtext("structmember: truncation of value"),
                                space.w_RuntimeWarning)
             array[0] = casted
             return 0

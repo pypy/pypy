@@ -226,9 +226,8 @@ def make_template_formatting_class(for_unicode):
                 w_arg = space.getitem(self.w_kwargs, w_kwarg)
             else:
                 if self.args is None:
-                    w_msg = space.wrap("Format string contains positional "
-                                       "fields")
-                    raise OperationError(space.w_ValueError, w_msg)
+                    raise oefmt(space.w_ValueError,
+                                "Format string contains positional fields")
                 try:
                     w_arg = self.args[index]
                 except IndexError:

@@ -147,7 +147,7 @@ class StringMethods(object):
             raise oefmt(space.w_IndexError, self._KIND1 + " index out of range")
         from pypy.objspace.std.bytesobject import W_BytesObject
         if isinstance(self, W_BytesObject):
-            return space.wrap(ord(character))
+            return space.newint(ord(character))
         return self._new(character)
 
     def descr_capitalize(self, space):

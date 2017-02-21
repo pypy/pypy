@@ -17,21 +17,21 @@ class W_StdErrPrinter(W_Root):
 
     def descr_repr(self, space):
         addrstring = unicode(self.getaddrstring(space))
-        return space.wrap(u"<StdErrPrinter(fd=%d) object at 0x%s>" %
-                          (self.fd, addrstring))
+        return space.newunicode(u"<StdErrPrinter(fd=%d) object at 0x%s>" %
+                                (self.fd, addrstring))
 
     def descr_noop(self, space):
         pass
 
     def descr_fileno(self, space):
-        return space.wrap(self.fd)
+        return space.newint(self.fd)
 
     def descr_isatty(self, space):
         try:
             res = os.isatty(self.fd)
         except OSError as e:
             raise wrap_oserror(space, e)
-        return space.wrap(res)
+        return space.newbool(res)
 
     def descr_write(self, space, w_data):
         # Encode to UTF-8-nosg.
@@ -43,16 +43,16 @@ class W_StdErrPrinter(W_Root):
             if e.errno == errno.EAGAIN:
                 return space.w_None
             raise wrap_oserror(space, e)
-        return space.wrap(n)
+        return space.newint(n)
 
     def descr_get_closed(self, space):
-        return space.wrap(False)
+        return space.newbool(False)
 
     def descr_get_encoding(self, space):
         return space.w_None
 
     def descr_get_mode(self, space):
-        return space.wrap(u'w')
+        return space.newtext('w')
 
 
 W_StdErrPrinter.typedef = TypeDef("StdErrPrinter",

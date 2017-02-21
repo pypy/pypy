@@ -751,7 +751,7 @@ def _calculate_metaclass(space, w_metaclass, bases_w):
             continue
         msg = ("metaclass conflict: the metaclass of a derived class must be "
                "a (non-strict) subclass of the metaclasses of all its bases")
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        raise oefmt(space.w_TypeError, msg)
     return w_winner
 
 def _precheck_for_new(space, w_type):
@@ -796,7 +796,7 @@ def descr_set__name__(space, w_type, w_value):
 
 def descr_get__qualname__(space, w_type):
     w_type = _check(space, w_type)
-    return space.wrap(w_type.getqualname(space))
+    return space.newunicode(w_type.getqualname(space))
 
 def descr_set__qualname__(space, w_type, w_value):
     w_type = _check(space, w_type)

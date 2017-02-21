@@ -58,7 +58,7 @@ class W_ScandirIterator(W_Root):
             rposix_scandir.closedir(self.dirp)
 
     def iter_w(self):
-        return self.space.wrap(self)
+        return self
 
     def fail(self, err=None):
         dirp = self.dirp
@@ -99,7 +99,7 @@ class W_ScandirIterator(W_Root):
         finally:
             self._in_next = False
         direntry = W_DirEntry(self, name, known_type, inode)
-        return space.wrap(direntry)
+        return direntry
 
 
 W_ScandirIterator.typedef = TypeDef(
@@ -139,7 +139,7 @@ class W_DirEntry(W_Root):
 
     def descr_repr(self, space):
         u = space.unicode_w(space.repr(self.w_name))
-        return space.wrap(u"<DirEntry %s>" % u)
+        return space.newunicode(u"<DirEntry %s>" % u)
 
     def fget_name(self, space):
         return self.w_name
@@ -272,16 +272,16 @@ class W_DirEntry(W_Root):
     @unwrap_spec(follow_symlinks=bool)
     def descr_is_dir(self, space, __kwonly__, follow_symlinks=True):
         """return True if the entry is a directory; cached per entry"""
-        return space.wrap(self.is_dir(follow_symlinks))
+        return space.newbool(self.is_dir(follow_symlinks))
 
     @unwrap_spec(follow_symlinks=bool)
     def descr_is_file(self, space, __kwonly__, follow_symlinks=True):
         """return True if the entry is a file; cached per entry"""
-        return space.wrap(self.is_file(follow_symlinks))
+        return space.newbool(self.is_file(follow_symlinks))
 
     def descr_is_symlink(self, space):
         """return True if the entry is a symbolic link; cached per entry"""
-        return space.wrap(self.is_symlink())
+        return space.newbool(self.is_symlink())
 
     @unwrap_spec(follow_symlinks=bool)
     def descr_stat(self, space, __kwonly__, follow_symlinks=True):
@@ -294,7 +294,7 @@ class W_DirEntry(W_Root):
         return build_stat_result(space, st)
 
     def descr_inode(self, space):
-        return space.wrap(self.inode)
+        return space.newint(self.inode)
 
 
 W_DirEntry.typedef = TypeDef(

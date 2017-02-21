@@ -419,7 +419,7 @@ def prepare_file_argument(space, w_fileobj):
         if fd < 0:
             raise oefmt(space.w_ValueError, "file has no OS file descriptor")
         fd = os.dup(fd)
-        mode = space.str_w(space.getattr(w_fileobj, space.wrap("mode")))
+        mode = space.text_w(space.getattr(w_fileobj, space.newtext("mode")))
         try:
             w_fileobj.cffi_fileobj = CffiFileObj(fd, mode)
         except OSError as e:
