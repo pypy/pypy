@@ -583,7 +583,7 @@ def utf8_from_string(space, w_bytes):
     except rutf8.AsciiCheckError:
         # raising UnicodeDecodeError is messy, "please crash for me"
         return utf8_from_encoded_object(space, w_bytes, "ascii", "strict")
-    return W_UnicodeObject(s)
+    return W_UnicodeObject(s, len(s))
 
 
 class UnicodeDocstrings:

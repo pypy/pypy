@@ -27,10 +27,10 @@ def unichr(space, code):
     "Return a Unicode string of one character with the given ordinal."
     # XXX this assumes unichr would be happy to return you surrogates
     try:
-        s = unichr_as_utf8(code)
+        s, lgt = unichr_as_utf8(code)
     except ValueError:
         raise oefmt(space.w_ValueError, "unichr() arg out of range")
-    return space.newunicode(s)
+    return space.newunicode(s, lgt)
 
 def len(space, w_obj):
     "len(object) -> integer\n\nReturn the number of items of a sequence or mapping."

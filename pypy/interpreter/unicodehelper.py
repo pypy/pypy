@@ -52,16 +52,15 @@ def decode_raw_unicode_escape(space, string):
         final=True, errorhandler=decode_error_handler(space))
     return result, length
 
-def decode_utf8(space, string):
+def check_utf8(space, string):
     # Surrogates are accepted and not treated specially at all.
     # If there happen to be two 3-bytes encoding a pair of surrogates,
     # you still get two surrogate unicode characters in the result.
     # These are the Python2 rules; Python3 differs.
-    result, consumed = runicode.str_decode_utf_8(
-        string, len(string), "strict",
-        final=True, errorhandler=decode_error_handler(space),
+    consumed, length = rutf8.str_check_utf8(
+        string, "strict", final=True, errorhandler=decode_error_handler(space),
         allow_surrogates=True)
-    return result
+    return length
 
 def encode_utf8(space, uni):
     # Note that this function never raises UnicodeEncodeError,
