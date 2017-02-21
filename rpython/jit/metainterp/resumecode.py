@@ -81,13 +81,10 @@ def unpack_numbering(numb):
 
 class Writer(object):
     def __init__(self, size=0):
-        self.current = objectmodel.newlist_hint(3 * size)
-        self.grow(size)
-        self.items = 0
+        self.current = objectmodel.newlist_hint(size)
 
     def append_short(self, item):
-        self.items += 1
-        append_numbering(self.current, item)
+        self.current.append(item)
 
     def append_int(self, item):
         short = rffi.cast(rffi.SHORT, item)
@@ -95,21 +92,19 @@ class Writer(object):
         return self.append_short(short)
 
     def create_numbering(self):
-        numb = lltype.malloc(NUMBERING, len(self.current))
-        for i, elt in enumerate(self.current):
+        final = objectmodel.newlist_hint(len(self.current) * 3)
+        for item in self.current:
+            append_numbering(final, item)
+        numb = lltype.malloc(NUMBERING, len(final))
+        for i, elt in enumerate(final):
             numb.code[i] = elt
         return numb
 
-    def grow(self, size):
-        pass
-
     def patch_current_size(self, index):
-        # mess :-(
-        assert rffi.cast(lltype.Signed, self.current[index]) == 0
-        l = []
-        append_numbering(l, self.items)
-        self.current = l + self.current[1:]
+        self.patch(index, len(self.current))
 
+    def patch(self, index, item):
+        self.current[index] = item
 
 def create_numbering(l):
     w = Writer()
