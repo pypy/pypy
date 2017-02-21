@@ -698,9 +698,10 @@ in the hardest way possible on the hosting operating system."""
     import signal
     rposix.kill(os.getpid(), signal.SIGABRT)
 
-@unwrap_spec(src='str0', dst='str0')
-def link(space, src, dst):
+def link(space, w_src, w_dst):
     "Create a hard link to a file."
+    src = fsencode_w(space, w_src)
+    dst = fsencode_w(space, w_dst)
     try:
         os.link(src, dst)
     except OSError as e:
@@ -713,9 +714,9 @@ def symlink(space, w_src, w_dst):
     except OSError as e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(path='str0')
-def readlink(space, path):
+def readlink(space, w_path):
     "Return a string representing the path to which the symbolic link points."
+    path = fsencode_w(space, w_path)
     try:
         result = os.readlink(path)
     except OSError as e:
