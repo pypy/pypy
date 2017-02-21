@@ -14,7 +14,8 @@ from rpython.tool.sourcetools import compile2, func_with_new_name
 
 class TypeDef(object):
     def __init__(self, __name, __base=None, __total_ordering__=None,
-                 __buffer=None, __confirm_applevel_del__=False, **rawdict):
+                 __buffer=None, __confirm_applevel_del__=False,
+                 variable_sized=False, **rawdict):
         "NOT_RPYTHON: initialization-time only"
         self.name = __name
         if __base is None:
@@ -44,6 +45,7 @@ class TypeDef(object):
         assert __total_ordering__ in (None, 'auto'), "Unknown value for __total_ordering"
         if __total_ordering__ == 'auto':
             self.auto_total_ordering()
+        self.variable_sized = variable_sized
 
     def add_entries(self, **rawdict):
         # xxx fix the names of the methods to match what app-level expects

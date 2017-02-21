@@ -24,9 +24,8 @@ def _getstate(obj):
     try:
         getstate = obj.__getstate__
     except AttributeError:
-        # TODO restrict pickling of variable sized objects
-        # tp_itemsize != 0, for now e.g. memoryview is handled
-        # by raising a TypeError in __getstate__
+        # and raises a TypeError if the condition holds true, this is done
+        # just before reduce_2 is called in pypy
         state = getattr(obj, "__dict__", None)
         names = slotnames(cls) # not checking for list
         if names is not None:
@@ -176,6 +175,7 @@ def descr__reduce__(space, w_obj, proto=0):
     w_proto = space.newint(proto)
     if proto >= 2:
         w_descr = space.lookup(w_obj, '__getnewargs_ex__')
+        hasargs = True
         if w_descr is not None:
             w_result = space.get_and_call_function(w_descr, w_obj)
             w_args, w_kwargs = space.fixedview(w_result, 2)
@@ -184,8 +184,17 @@ def descr__reduce__(space, w_obj, proto=0):
             if w_descr is not None:
                 w_args = space.get_and_call_function(w_descr, w_obj)
             else:
+                hasargs = False
                 w_args = space.newtuple([])
             w_kwargs = space.w_None
+        w_getstate = space.lookup(w_obj, '__get_state__')
+        if w_getstate is None:
+            required = not hasargs and \
+                       not space.isinstance_w(w_obj, space.w_list) and \
+                       not space.isinstance_w(w_obj, space.w_dict)
+            w_obj_type = space.type(w_obj)
+            if required and w_obj_type.layout.typedef.variable_sized:
+                raise oefmt(space.w_TypeError, "cannot pickle %N objects", w_obj_type)
         return reduce_2(space, w_obj, w_proto, w_args, w_kwargs)
     return reduce_1(space, w_obj, w_proto)
 
