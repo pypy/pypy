@@ -108,6 +108,7 @@ static const long SQLITE_OPEN_READWRITE;
 static const long SQLITE_OPEN_CREATE;
 
 const char *sqlite3_libversion(void);
+int sqlite3_libversion_number(void);
 
 typedef ... sqlite3;
 typedef ... sqlite3_stmt;

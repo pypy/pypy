@@ -245,6 +245,8 @@ class Connection(object):
         self.__collations = {}
         if check_same_thread:
             self.__thread_ident = threading.get_ident()
+        if not check_same_thread and _lib.sqlite3_libversion_number() < 3003001:
+            raise NotSupportedError("shared connections not available")
 
         self.Error = Error
         self.Warning = Warning
