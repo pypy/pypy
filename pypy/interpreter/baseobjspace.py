@@ -1639,6 +1639,14 @@ class ObjSpace(object):
         "Like text_w, but rejects strings with NUL bytes."
         return self.bytes0_w(w_obj)
 
+    def fsencode_w(self, w_obj):
+        "Like text0_w, but unicodes are encoded with the filesystem encoding."
+        if self.isinstance_w(w_obj, self.w_unicode):
+            from pypy.module.sys.interp_encoding import getfilesystemencoding
+            w_obj = self.call_method(self.w_unicode, 'encode', w_obj,
+                                     getfilesystemencoding(self))
+        return self.bytes0_w(w_obj)
+
     def int_w(self, w_obj, allow_conversion=True):
         """
         Unwrap an app-level int object into an interpret-level int.

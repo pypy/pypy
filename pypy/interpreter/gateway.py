@@ -163,6 +163,9 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit_text0(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
+    def visit_fsencode(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
     def visit_nonnegint(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
@@ -303,6 +306,9 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
     def visit_text0(self, typ):
         self.run_args.append("space.text0_w(%s)" % (self.scopenext(),))
+
+    def visit_fsencode(self, typ):
+        self.run_args.append("space.fsencode_w(%s)" % (self.scopenext(),))
 
     def visit_nonnegint(self, typ):
         self.run_args.append("space.gateway_nonnegint_w(%s)" % (
@@ -465,6 +471,9 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
 
     def visit_text0(self, typ):
         self.unwrap.append("space.text0_w(%s)" % (self.nextarg(),))
+
+    def visit_fsencode(self, typ):
+        self.unwrap.append("space.fsencode_w(%s)" % (self.nextarg(),))
 
     def visit_nonnegint(self, typ):
         self.unwrap.append("space.gateway_nonnegint_w(%s)" % (self.nextarg(),))
