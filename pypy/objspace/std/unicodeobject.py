@@ -59,9 +59,9 @@ class W_UnicodeObject(W_Root):
             return True
         if self.user_overridden_class or w_other.user_overridden_class:
             return False
-        s1 = space.unicode_w(self)
-        s2 = space.unicode_w(w_other)
-        if len(s2) > 1:
+        s1 = space.utf8_w(self)
+        s2 = space.utf8_w(w_other)
+        if len(s2) > 2:
             return s1 is s2
         else:            # strings of len <= 1 are unique-ified
             return s1 == s2
@@ -135,11 +135,10 @@ class W_UnicodeObject(W_Root):
             return w_other._utf8
         if space.isinstance_w(w_other, space.w_bytes):
             return utf8_from_string(space, w_other)._utf8
-        yyy
         if strict:
             raise oefmt(space.w_TypeError,
                 "%s arg must be None, unicode or str", strict)
-        return unicode_from_encoded_object(
+        return utf8_from_encoded_object(
             space, w_other, None, "strict")._value
 
     def _chr(self, char):
@@ -509,6 +508,7 @@ def decode_object(space, w_obj, encoding, errors):
         if encoding == 'ascii':
             # XXX error handling
             s = space.charbuf_w(w_obj)
+            xxx
             try:
                 u = fast_str_decode_ascii(s)
             except ValueError:
@@ -517,11 +517,13 @@ def decode_object(space, w_obj, encoding, errors):
                     s, len(s), None, final=True, errorhandler=eh)[0]
             return space.newunicode(u)
         if encoding == 'utf-8':
+            yyy
             s = space.charbuf_w(w_obj)
             eh = unicodehelper.decode_error_handler(space)
             return space.newunicode(str_decode_utf_8(
                     s, len(s), None, final=True, errorhandler=eh,
                     allow_surrogates=True)[0])
+    xxx
     w_codecs = space.getbuiltinmodule("_codecs")
     w_decode = space.getattr(w_codecs, space.newtext("decode"))
     if errors is None:
@@ -532,7 +534,7 @@ def decode_object(space, w_obj, encoding, errors):
     return w_retval
 
 
-def unicode_from_encoded_object(space, w_obj, encoding, errors):
+def utf8_from_encoded_object(space, w_obj, encoding, errors):
     # explicitly block bytearray on 2.7
     from .bytearrayobject import W_BytearrayObject
     if isinstance(w_obj, W_BytearrayObject):
@@ -580,7 +582,7 @@ def utf8_from_string(space, w_bytes):
         check_ascii(s)
     except AsciiCheckError:
         # raising UnicodeDecodeError is messy, "please crash for me"
-        return unicode_from_encoded_object(space, w_bytes, "ascii", "strict")
+        return utf8_from_encoded_object(space, w_bytes, "ascii", "strict")
     return W_UnicodeObject(s)
 
 

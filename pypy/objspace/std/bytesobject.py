@@ -16,7 +16,7 @@ from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.unicodeobject import (
-    decode_object, unicode_from_encoded_object,
+    decode_object, utf8_from_encoded_object,
     getdefaultencoding)
 from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 
