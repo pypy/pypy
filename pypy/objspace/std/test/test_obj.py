@@ -100,11 +100,8 @@ class AppTestObject:
     def test_format(self):
         class B:
             pass
-        try:
-            format(B(), 's')
-            assert False, "must not pass the previous call"
-        except TypeError as e:
-            assert 'B.__format__' in str(e)
+        excinfo = raises(TypeError, format, B(), 's')
+        assert 'B.__format__' in str(excinfo.value)
 
 
     def test_subclasshook(self):
