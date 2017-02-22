@@ -462,26 +462,17 @@ def encode_object(space, w_object, encoding, errors):
         w_encoder = space.sys.get_w_default_encoder()
     else:
         if errors is None or errors == 'strict':
-            try:
-                if encoding == 'ascii':
-                    u = space.unicode_w(w_object)
-                    eh = unicodehelper.raise_unicode_exception_encode
-                    return space.newbytes(unicode_encode_ascii(
-                            u, len(u), None, errorhandler=eh))
-                if encoding == 'utf-8':
-                    u = space.unicode_w(w_object)
-                    eh = unicodehelper.raise_unicode_exception_encode
-                    return space.newbytes(unicode_encode_utf_8(
-                            u, len(u), None, errorhandler=eh,
-                            allow_surrogates=True))
-            except unicodehelper.RUnicodeEncodeError as ue:
-                raise OperationError(space.w_UnicodeEncodeError,
-                                     space.newtuple([
-                    space.newtext(ue.encoding),
-                    space.newunicode(ue.object),
-                    space.newint(ue.start),
-                    space.newint(ue.end),
-                    space.newtext(ue.reason)]))
+            if encoding == 'ascii':
+                u = space.unicode_w(w_object)
+                eh = unicodehelper.encode_error_handler(space)
+                return space.newbytes(unicode_encode_ascii(
+                        u, len(u), None, errorhandler=eh))
+            if encoding == 'utf-8':
+                u = space.unicode_w(w_object)
+                eh = unicodehelper.encode_error_handler(space)
+                return space.newbytes(unicode_encode_utf_8(
+                        u, len(u), None, errorhandler=eh,
+                        allow_surrogates=True))
         from pypy.module._codecs.interp_codecs import lookup_codec
         w_encoder = space.getitem(lookup_codec(space, encoding), space.newint(0))
     if errors is None:
