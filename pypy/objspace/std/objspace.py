@@ -89,12 +89,15 @@ class StdObjSpace(ObjSpace):
         for typedef, cls in builtin_type_classes.items():
             w_type = self.gettypeobject(typedef)
             self.builtin_types[typedef.name] = w_type
-            if 1: # typedef.name != "str":      BACKCOMPAT
-                setattr(self, 'w_' + typedef.name, w_type)
-            if typedef.name == "str":
-                self.w_bytes = w_type
+            name = typedef.name
+            # we don't expose 'space.w_str' at all, to avoid confusion
+            # with Python 3.  Instead, in Python 2, it becomes
+            # space.w_bytes (or space.w_text).
+            if name == 'str':
+                name = 'bytes'
+            setattr(self, 'w_' + name, w_type)
             self._interplevel_classes[w_type] = cls
-        self.w_text = self.w_bytes # this is w_unicode on Py3
+        self.w_text = self.w_bytes   # 'space.w_text' is w_unicode on Py3
         self.w_dict.flag_map_or_seq = 'M'
         self.builtin_types["NotImplemented"] = self.w_NotImplemented
         self.builtin_types["Ellipsis"] = self.w_Ellipsis
