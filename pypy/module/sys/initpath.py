@@ -117,7 +117,7 @@ def compute_stdlib_path(state, prefix):
 
     if state is not None:    # 'None' for testing only
         lib_extensions = os.path.join(lib_pypy, '__extensions__')
-        state.w_lib_extensions = state.space.wrap_fsdecoded(lib_extensions)
+        state.w_lib_extensions = state.space.newfilename(lib_extensions)
         importlist.append(lib_extensions)
 
     importlist.append(lib_pypy)
@@ -149,12 +149,12 @@ def compute_stdlib_path_maybe(state, prefix):
 
 @unwrap_spec(executable='fsencode')
 def pypy_find_executable(space, executable):
-    return space.wrap_fsdecoded(find_executable(executable))
+    return space.newfilename(find_executable(executable))
 
 
 @unwrap_spec(filename='fsencode')
 def pypy_resolvedirof(space, filename):
-    return space.wrap_fsdecoded(resolvedirof(filename))
+    return space.newfilename(resolvedirof(filename))
 
 
 @unwrap_spec(executable='fsencode')
@@ -171,12 +171,12 @@ def pypy_find_stdlib(space, executable):
                 path, prefix = find_stdlib(get_state(space), dyn_path)
         if path is None:
             return space.w_None
-    w_prefix = space.wrap_fsdecoded(prefix)
+    w_prefix = space.newfilename(prefix)
     space.setitem(space.sys.w_dict, space.newtext('prefix'), w_prefix)
     space.setitem(space.sys.w_dict, space.newtext('exec_prefix'), w_prefix)
     space.setitem(space.sys.w_dict, space.newtext('base_prefix'), w_prefix)
     space.setitem(space.sys.w_dict, space.newtext('base_exec_prefix'), w_prefix)
-    return space.newlist([space.wrap_fsdecoded(p) for p in path])
+    return space.newlist([space.newfilename(p) for p in path])
 
 def pypy_initfsencoding(space):
     space.sys.filesystemencoding = _getfilesystemencoding(space)

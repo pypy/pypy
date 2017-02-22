@@ -663,9 +663,9 @@ def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
     w_filename = None
     w_filename2 = None
     if filename is not None:
-        w_filename = space.wrap_fsdecoded(filename)
+        w_filename = space.newfilename(filename)
         if filename2 is not None:
-            w_filename2 = space.wrap_fsdecoded(filename2)
+            w_filename2 = space.newfilename(filename2)
     return wrap_oserror2(space, e, w_filename,
                          exception_name=exception_name,
                          w_exception_class=w_exception_class,

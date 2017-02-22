@@ -43,7 +43,7 @@ def _run_eval_string(source, filename, space, eval):
         space.setitem(w_globals, space.newtext('__builtins__'), space.builtin)
         if filename is not None:
             space.setitem(w_globals, space.newtext('__file__'),
-                          space.wrap_fsdecoded(filename))
+                          space.newfilename(filename))
 
         retval = pycode.exec_code(space, w_globals, w_globals)
         if eval:

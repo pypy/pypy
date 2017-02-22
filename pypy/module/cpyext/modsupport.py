@@ -47,7 +47,7 @@ def PyModule_Create2(space, module, api_version):
     state.package_context = None, None
 
     if f_path is not None:
-        dict_w = {'__file__': space.wrap_fsdecoded(f_path)}
+        dict_w = {'__file__': space.newfilename(f_path)}
     else:
         dict_w = {}
     convert_method_defs(space, dict_w, methods, None, w_mod, modname)

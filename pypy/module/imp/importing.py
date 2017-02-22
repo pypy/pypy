@@ -256,9 +256,9 @@ def exec_code_module(space, w_mod, code_w, pathname, cpathname,
         if pathname is not None:
             w_pathname = get_sourcefile(space, pathname)
         else:
-            w_pathname = space.wrap_fsdecoded(code_w.co_filename)
+            w_pathname = space.newfilename(code_w.co_filename)
         if cpathname is not None:
-            w_cpathname = space.wrap_fsdecoded(cpathname)
+            w_cpathname = space.newfilename(cpathname)
         else:
             w_cpathname = space.w_None
         space.setitem(w_dict, space.newtext("__file__"), w_pathname)
@@ -329,7 +329,7 @@ def get_sourcefile(space, filename):
     start = len(filename) - 4
     stop = len(filename) - 1
     if not 0 <= start <= stop or filename[start:stop].lower() != ".py":
-        return space.wrap_fsdecoded(filename)
+        return space.newfilename(filename)
     py = make_source_pathname(filename)
     if py is None:
         py = filename[:-1]
@@ -339,8 +339,8 @@ def get_sourcefile(space, filename):
         pass
     else:
         if stat.S_ISREG(st.st_mode):
-            return space.wrap_fsdecoded(py)
-    return space.wrap_fsdecoded(filename)
+            return space.newfilename(py)
+    return space.newfilename(filename)
 
 def update_code_filenames(space, code_w, pathname, oldname=None):
     assert isinstance(code_w, PyCode)

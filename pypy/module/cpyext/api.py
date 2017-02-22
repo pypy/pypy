@@ -1495,9 +1495,9 @@ def load_extension_module(space, path, name):
             lltype.free(ll_libname, flavor='raw')
     except rdynload.DLOpenError as e:
         w_name = space.newunicode(name.decode('ascii'))
-        w_path = space.wrap_fsdecoded(path)
+        w_path = space.newfilename(path)
         raise raise_import_error(space,
-            space.wrap_fsdecoded(e.msg), w_name, w_path)
+            space.newfilename(e.msg), w_name, w_path)
     look_for = None
     #
     if space.config.objspace.usemodules._cffi_backend:
@@ -1528,9 +1528,9 @@ def load_extension_module(space, path, name):
         else:
             look_for = also_look_for
     msg = u"function %s not found in library %s" % (
-        unicode(look_for), space.unicode_w(space.wrap_fsdecoded(path)))
+        unicode(look_for), space.unicode_w(space.newfilename(path)))
     w_name = space.newunicode(name.decode('ascii'))
-    w_path = space.wrap_fsdecoded(path)
+    w_path = space.newfilename(path)
     raise_import_error(space, space.newunicode(msg), w_name, w_path)
 
 

@@ -147,7 +147,7 @@ def PyErr_SetFromErrnoWithFilename(space, w_type, llfilename):
     # XXX Doesn't actually do anything with PyErr_CheckSignals.
     if llfilename:
         filename = rffi.charp2str(llfilename)
-        w_filename = space.wrap_fsdecoded(filename)
+        w_filename = space.newfilename(filename)
     else:
         w_filename = space.w_None
 

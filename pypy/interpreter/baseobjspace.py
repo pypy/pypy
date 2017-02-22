@@ -1725,10 +1725,6 @@ class ObjSpace(object):
             w_obj = self.fsdecode(w_obj)
         return self.unicode0_w(w_obj)
 
-    # BACKCOMPAT  -- replace me with newfilename()
-    def wrap_fsdecoded(self, x):
-        return self.newfilename(x)
-
     def bool_w(self, w_obj):
         # Unwraps a bool, also accepting an int for compatibility.
         # For cases where you need to accept bools and ints and nothing

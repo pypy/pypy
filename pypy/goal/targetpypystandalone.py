@@ -71,8 +71,8 @@ def create_entry_point(space, w_dict):
                         rlocale.setlocale(rlocale.LC_CTYPE, '')
                     except rlocale.LocaleError:
                         pass
-                w_executable = space.wrap_fsdecoded(argv[0])
-                w_argv = space.newlist([space.wrap_fsdecoded(s)
+                w_executable = space.newfilename(argv[0])
+                w_argv = space.newlist([space.newfilename(s)
                                         for s in argv[1:]])
                 w_exitcode = space.call_function(w_entry_point, w_executable, w_argv)
                 exitcode = space.int_w(w_exitcode)
@@ -130,7 +130,7 @@ def get_additional_entrypoints(space, w_initstdio):
         try:
             # initialize sys.{path,executable,stdin,stdout,stderr}
             # (in unbuffered mode, to avoid troubles) and import site
-            space.appexec([w_path, space.wrap_fsdecoded(home), w_initstdio],
+            space.appexec([w_path, space.newfilename(home), w_initstdio],
             r"""(path, home, initstdio):
                 import sys
                 sys.path[:] = path
