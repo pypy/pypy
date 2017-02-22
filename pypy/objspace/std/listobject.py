@@ -94,7 +94,7 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
         else:
             return space.fromcache(BytesListStrategy)
 
-    elif type(w_firstobj) is W_UnicodeObject:
+    elif False and type(w_firstobj) is W_UnicodeObject: # disable unicode list strat
         # check for all-unicodes
         for i in range(1, len(list_w)):
             if type(list_w[i]) is not W_UnicodeObject:
@@ -195,6 +195,7 @@ class W_ListObject(W_Root):
 
     @staticmethod
     def newlist_unicode(space, list_u):
+        xxxx
         strategy = space.fromcache(UnicodeListStrategy)
         storage = strategy.erase(list_u)
         return W_ListObject.from_storage_and_strategy(space, storage, strategy)
@@ -958,8 +959,8 @@ class EmptyListStrategy(ListStrategy):
             strategy = self.space.fromcache(IntegerListStrategy)
         elif type(w_item) is W_BytesObject:
             strategy = self.space.fromcache(BytesListStrategy)
-        elif type(w_item) is W_UnicodeObject:
-            strategy = self.space.fromcache(UnicodeListStrategy)
+        #elif type(w_item) is W_UnicodeObject:
+        #    strategy = self.space.fromcache(UnicodeListStrategy)
         elif type(w_item) is W_FloatObject:
             strategy = self.space.fromcache(FloatListStrategy)
         else:
@@ -2005,7 +2006,7 @@ class UnicodeListStrategy(ListStrategy):
         return self.space.newunicode(stringval)
 
     def unwrap(self, w_string):
-        return self.space.unicode_w(w_string)
+        return self.space.utf8_w(w_string)
 
     erase, unerase = rerased.new_erasing_pair("unicode")
     erase = staticmethod(erase)

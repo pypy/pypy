@@ -16,7 +16,7 @@ from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.unicodeobject import (
-    decode_object, utf8_from_encoded_object,
+    decode_object, unicode_from_encoded_object,
     getdefaultencoding)
 from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 
@@ -717,7 +717,7 @@ class W_BytesObject(W_AbstractBytesObject):
             self_as_unicode = unicode_from_encoded_object(space, self, None,
                                                           None)
             return space.newbool(
-                self_as_unicode._value.find(w_sub._value) >= 0)
+                self_as_unicode._utf8.find(w_sub._utf8) >= 0)
         return self._StringMethods_descr_contains(space, w_sub)
 
     _StringMethods_descr_replace = descr_replace

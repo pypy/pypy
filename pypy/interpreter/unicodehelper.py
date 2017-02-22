@@ -58,7 +58,8 @@ def check_utf8(space, string):
     # you still get two surrogate unicode characters in the result.
     # These are the Python2 rules; Python3 differs.
     consumed, length = rutf8.str_check_utf8(
-        string, "strict", final=True, errorhandler=decode_error_handler(space),
+        string, len(string), "strict", final=True,
+        errorhandler=decode_error_handler(space),
         allow_surrogates=True)
     return length
 

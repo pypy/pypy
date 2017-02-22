@@ -243,7 +243,7 @@ def str_decode_utf8_escape(s, size, errors, final=False,
         errorhandler = default_unicode_error_decode
 
     if size == 0:
-        return '', 0
+        return '', 0, 0
 
     lgt = 0
     builder = StringBuilder(size)

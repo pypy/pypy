@@ -299,6 +299,7 @@ class StdObjSpace(ObjSpace):
     newlist_text = newlist_bytes
 
     def newlist_unicode(self, list_u):
+        return self.newlist(list_u)
         return W_ListObject.newlist_unicode(self, list_u)
 
     def newlist_int(self, list_i):

@@ -2,13 +2,13 @@
 
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin,
-    enforceargs)
+    enforceargs, newlist_hint)
 from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.runicode import (
     make_unicode_escape_function, str_decode_ascii, str_decode_utf_8,
     unicode_encode_ascii, unicode_encode_utf_8, fast_str_decode_ascii)
-from rpython.rlib import rutf8
+from rpython.rlib import rutf8, jit
 
 from pypy.interpreter import unicodehelper
 from pypy.interpreter.baseobjspace import W_Root
@@ -110,8 +110,8 @@ class W_UnicodeObject(W_Root):
                          "found", len(self._value))
         return space.newint(ord(self._value[0]))
 
-    def _new(self, value):
-        return W_UnicodeObject(value)
+    def _new(self, value, length):
+        return W_UnicodeObject(value, length)
 
     def _new_from_list(self, value):
         return W_UnicodeObject(u''.join(value))
@@ -120,7 +120,7 @@ class W_UnicodeObject(W_Root):
         return W_UnicodeObject.EMPTY
 
     def _len(self):
-        return len(self._value)
+        return self._length
 
     _val = utf8_w
 
@@ -135,18 +135,25 @@ class W_UnicodeObject(W_Root):
         if isinstance(w_other, W_UnicodeObject):
             return w_other._utf8
         if space.isinstance_w(w_other, space.w_bytes):
-            return utf8_from_string(space, w_other)._utf8
+            return unicode_from_string(space, w_other)._utf8
         if strict:
             raise oefmt(space.w_TypeError,
                 "%s arg must be None, unicode or str", strict)
-        return utf8_from_encoded_object(
-            space, w_other, None, "strict")._value
+        return unicode_from_encoded_object(
+            space, w_other, None, "strict")._utf8
+
+    def _convert_to_unicode(self, space, w_other):
+        if isinstance(w_other, W_UnicodeObject):
+            return w_other
+        if space.isinstance_w(w_other, space.w_bytes):
+            return unicode_from_string(space, w_other)
+        return unicode_from_encoded_object(space, w_other, None, "strict")
 
     def _chr(self, char):
         assert len(char) == 1
         return unicode(char)[0]
 
-    _builder = UnicodeBuilder
+    _builder = StringBuilder
 
     def _isupper(self, ch):
         return unicodedb.isupper(ord(ch))
@@ -423,6 +430,46 @@ class W_UnicodeObject(W_Root):
     def _starts_ends_overflow(self, prefix):
         return len(prefix) == 0
 
+    def descr_add(self, space, w_other):
+        try:
+            w_other = self._convert_to_unicode(space, w_other)
+        except OperationError as e:
+            if e.match(space, space.w_TypeError):
+                return space.w_NotImplemented
+            raise
+        return W_UnicodeObject(self._utf8 + w_other._utf8,
+                               self._length + w_other._length)
+
+    @jit.look_inside_iff(lambda self, space, list_w, size:
+                         jit.loop_unrolling_heuristic(list_w, size))
+    def _str_join_many_items(self, space, list_w, size):
+        value = self._utf8
+        lgt = self._length * (size - 1)
+
+        prealloc_size = len(value) * (size - 1)
+        unwrapped = newlist_hint(size)
+        for i in range(size):
+            w_s = list_w[i]
+            check_item = self._join_check_item(space, w_s)
+            if check_item == 1:
+                raise oefmt(space.w_TypeError,
+                            "sequence item %d: expected string, %T found",
+                            i, w_s)
+            elif check_item == 2:
+                return self._join_autoconvert(space, list_w)
+            # XXX Maybe the extra copy here is okay? It was basically going to
+            #     happen anyway, what with being placed into the builder
+            w_u = self._convert_to_unicode(space, w_s)
+            unwrapped.append(w_u._utf8)
+            lgt += w_u._length
+            prealloc_size += len(unwrapped[i])
+
+        sb = self._builder(prealloc_size)
+        for i in range(size):
+            if value and i != 0:
+                sb.append(value)
+            sb.append(unwrapped[i])
+        return self._new(sb.build(), lgt)
 
 def wrapunicode(space, uni):
     return W_UnicodeObject(uni)
@@ -515,7 +562,7 @@ def decode_object(space, w_obj, encoding, errors):
                 unicodehelper.decode_error_handler(space)(None,
                     'ascii', "ordinal not in range(128)", s, e.pos, e.pos+1)
                 assert False
-            return space.newunicode(s)
+            return space.newunicode(s, len(s))
         if encoding == 'utf-8':
             yyy
             s = space.charbuf_w(w_obj)
@@ -534,7 +581,7 @@ def decode_object(space, w_obj, encoding, errors):
     return w_retval
 
 
-def utf8_from_encoded_object(space, w_obj, encoding, errors):
+def unicode_from_encoded_object(space, w_obj, encoding, errors):
     # explicitly block bytearray on 2.7
     from .bytearrayobject import W_BytearrayObject
     if isinstance(w_obj, W_BytearrayObject):
@@ -571,7 +618,7 @@ def unicode_from_object(space, w_obj):
     return unicode_from_encoded_object(space, w_res, None, "strict")
 
 
-def utf8_from_string(space, w_bytes):
+def unicode_from_string(space, w_bytes):
     # this is a performance and bootstrapping hack
     encoding = getdefaultencoding(space)
     if encoding != 'ascii':
@@ -582,7 +629,7 @@ def utf8_from_string(space, w_bytes):
         rutf8.check_ascii(s)
     except rutf8.AsciiCheckError:
         # raising UnicodeDecodeError is messy, "please crash for me"
-        return utf8_from_encoded_object(space, w_bytes, "ascii", "strict")
+        return unicode_from_encoded_object(space, w_bytes, "ascii", "strict")
     return W_UnicodeObject(s, len(s))
 
 
