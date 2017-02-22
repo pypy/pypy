@@ -214,11 +214,11 @@ class TestObjSpace:
         assert space.unicode0_w(w(u"123")) == u"123"
         exc = space.raises_w(space.w_ValueError, space.unicode0_w, w(u"123\x004"))
 
-    def test_identifier_w(self):
+    def test_text_w(self):
         space = self.space
         x = u'àèì'
         w_name = space.wrap(x)
-        assert space.identifier_w(w_name) == x.encode('utf-8')
+        assert space.text_w(w_name) == x.encode('utf-8')
 
     def test_getindex_w(self):
         w_instance1 = self.space.appexec([], """():

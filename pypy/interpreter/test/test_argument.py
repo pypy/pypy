@@ -97,16 +97,11 @@ class DummySpace(object):
     newtext = wrap
     newunicode = wrap
 
-    def str_w(self, s):
-        return str(s)
     def text_w(self, s):
-        return self.str_w(s)
+        return self.unicode_w(s).encode('utf-8')
 
     def unicode_w(self, s):
         return unicode(s)
-
-    def identifier_w(self, s):
-        return self.unicode_w(s).encode('utf-8')
 
     def len(self, x):
         return len(x)

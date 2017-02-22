@@ -236,9 +236,6 @@ class W_Root(object):
     def unicode_w(self, space):
         self._typed_unwrap_error(space, "string")
 
-    def identifier_w(self, space):
-        self._typed_unwrap_error(space, "string")
-
     def text_w(self, space):
         self._typed_unwrap_error(space, "string")
 
@@ -1522,8 +1519,8 @@ class ObjSpace(object):
             # most API in CPython 3.x no longer do.
             if self.isinstance_w(w_obj, self.w_bytes):
                 return StringBuffer(w_obj.bytes_w(self))
-            if self.isinstance_w(w_obj, self.w_unicode):
-                return StringBuffer(w_obj.identifier_w(self))  # no surrogates
+            if self.isinstance_w(w_obj, self.w_unicode):  # NB. CPython forbids
+                return StringBuffer(w_obj.text_w(self))   # surrogates here
             try:
                 return w_obj.buffer_w(self, self.BUF_SIMPLE)
             except BufferInterfaceNotFound:
@@ -1534,8 +1531,8 @@ class ObjSpace(object):
             # most API in CPython 3.x no longer do.
             if self.isinstance_w(w_obj, self.w_bytes):
                 return w_obj.bytes_w(self)
-            if self.isinstance_w(w_obj, self.w_unicode):
-                return w_obj.identifier_w(self)    # no surrogates (forbidden)
+            if self.isinstance_w(w_obj, self.w_unicode):  # NB. CPython forbids
+                return w_obj.text_w(self)                 # surrogates here
             try:
                 return w_obj.buffer_w(self, self.BUF_SIMPLE).as_str()
             except BufferInterfaceNotFound:
@@ -1590,8 +1587,7 @@ class ObjSpace(object):
         encoded string). Else, call bytes_w().
 
         We should kill str_w completely and manually substitute it with
-        text_w/identifier_w/bytes_w at all call sites.  It remains for
-        now for tests only.
+        text_w/bytes_w at all call sites.  It remains for now for tests only.
         """
         if self.isinstance_w(w_obj, self.w_unicode):
             return w_obj.text_w(self)
@@ -1679,18 +1675,6 @@ class ObjSpace(object):
 
     realtext_w = text_w         # Python 2 compatibility
     realunicode_w = unicode_w
-
-    def identifier_w(self, w_obj):
-        """
-        Unwrap an object which is used as an identifier (i.e. names of
-        variables, methdods, functions, classes etc.). In py3k, identifiers
-        are unicode strings and are unwrapped as UTF-8 encoded byte strings.
-        This differs from space.text_w() because it raises an app-level
-        UnicodeEncodeError if the unicode string contains surrogates.
-        This corresponds exactly to 'str.encode(obj, "utf-8")' at app-level.
-        (XXX check what occurs on narrow builds or kill narrow builds!)
-        """
-        return w_obj.identifier_w(self)
 
     def fsencode(space, w_obj):
         from pypy.interpreter.unicodehelper import fsencode

@@ -45,7 +45,7 @@ class W_MyObject(W_Root):
 
     def text_w(self, space):
         return NonConstant("foobar")
-    identifier_w = bytes_w = text_w
+    bytes_w = text_w
 
     def unicode_w(self, space):
         return NonConstant(u"foobar")

@@ -433,7 +433,7 @@ class FunctionDef(stmt):
         w_returns = get_field(space, w_node, 'returns', True)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _name = space.identifier_w(w_name)
+        _name = space.text_w(w_name)
         if _name is None:
             raise_required_value(space, w_node, 'name')
         _args = arguments.from_object(space, w_args)
@@ -513,7 +513,7 @@ class AsyncFunctionDef(stmt):
         w_returns = get_field(space, w_node, 'returns', True)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _name = space.identifier_w(w_name)
+        _name = space.text_w(w_name)
         if _name is None:
             raise_required_value(space, w_node, 'name')
         _args = arguments.from_object(space, w_args)
@@ -606,7 +606,7 @@ class ClassDef(stmt):
         w_decorator_list = get_field(space, w_node, 'decorator_list', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _name = space.identifier_w(w_name)
+        _name = space.text_w(w_name)
         if _name is None:
             raise_required_value(space, w_node, 'name')
         bases_w = space.unpackiterable(w_bases)
@@ -1511,7 +1511,7 @@ class Global(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         names_w = space.unpackiterable(w_names)
-        _names = [space.identifier_w(w_item) for w_item in names_w]
+        _names = [space.text_w(w_item) for w_item in names_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Global(_names, _lineno, _col_offset)
@@ -1551,7 +1551,7 @@ class Nonlocal(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         names_w = space.unpackiterable(w_names)
-        _names = [space.identifier_w(w_item) for w_item in names_w]
+        _names = [space.text_w(w_item) for w_item in names_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Nonlocal(_names, _lineno, _col_offset)
@@ -2880,7 +2880,7 @@ class Attribute(expr):
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
-        _attr = space.identifier_w(w_attr)
+        _attr = space.text_w(w_attr)
         if _attr is None:
             raise_required_value(space, w_node, 'attr')
         _ctx = expr_context.from_object(space, w_ctx)
@@ -3022,7 +3022,7 @@ class Name(expr):
         w_ctx = get_field(space, w_node, 'ctx', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _id = space.identifier_w(w_id)
+        _id = space.text_w(w_id)
         if _id is None:
             raise_required_value(space, w_node, 'id')
         _ctx = expr_context.from_object(space, w_ctx)
@@ -3911,7 +3911,7 @@ class arg(AST):
         w_annotation = get_field(space, w_node, 'annotation', True)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _arg = space.identifier_w(w_arg)
+        _arg = space.text_w(w_arg)
         if _arg is None:
             raise_required_value(space, w_node, 'arg')
         _annotation = expr.from_object(space, w_annotation)
@@ -3978,7 +3978,7 @@ class alias(AST):
     def from_object(space, w_node):
         w_name = get_field(space, w_node, 'name', False)
         w_asname = get_field(space, w_node, 'asname', True)
-        _name = space.identifier_w(w_name)
+        _name = space.text_w(w_name)
         if _name is None:
             raise_required_value(space, w_node, 'name')
         _asname = space.text_or_none_w(w_asname)
