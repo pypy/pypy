@@ -1601,16 +1601,6 @@ class ObjSpace(object):
     def bytes_w(self, w_obj):
         return w_obj.bytes_w(self)
 
-    @not_rpython    # tests only; should be replaced with bytes0_w or text0_w
-    def str0_w(self, w_obj):
-        "Like str_w, but rejects strings with NUL bytes."
-        from rpython.rlib import rstring
-        result = self.str_w(w_obj)
-        if '\x00' in result:
-            raise oefmt(self.w_ValueError,
-                        "argument must be a string without NUL characters")
-        return rstring.assert_str0(result)
-
     def bytes0_w(self, w_obj):
         "Like bytes_w, but rejects strings with NUL bytes."
         from rpython.rlib import rstring

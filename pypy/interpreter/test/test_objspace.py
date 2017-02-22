@@ -206,11 +206,11 @@ class TestObjSpace:
         res = self.space.interp_w(Function, w(None), can_be_None=True)
         assert res is None
 
-    def test_str0_w(self):
+    def test_text0_w(self):
         space = self.space
         w = space.wrap
-        assert space.str0_w(w("123")) == "123"
-        exc = space.raises_w(space.w_ValueError, space.str0_w, w("123\x004"))
+        assert space.text0_w(w("123")) == "123"
+        exc = space.raises_w(space.w_ValueError, space.text0_w, w("123\x004"))
         assert space.unicode0_w(w(u"123")) == u"123"
         exc = space.raises_w(space.w_ValueError, space.unicode0_w, w(u"123\x004"))
 

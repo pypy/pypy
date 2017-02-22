@@ -95,12 +95,12 @@ class StdObjSpace(ObjSpace):
         # The loop above sets space.w_str and space.w_bytes.
         # We rename 'space.w_str' to 'space.w_unicode' and
         # 'space.w_text'.
+        self.w_unicode = self.w_str
+        self.w_text = self.w_str
+        del self.w_str
         self.w_dict.flag_map_or_seq = 'M'
         self.w_list.flag_map_or_seq = 'S'
         self.w_tuple.flag_map_or_seq = 'S'
-        self.w_unicode = self.w_str
-        self.w_text = self.w_str
-        self.w_str = self.w_bytes      # BACKCOMPAT kill me
         self.builtin_types['str'] = self.w_unicode
         self.builtin_types['bytes'] = self.w_bytes
         self.builtin_types["NotImplemented"] = self.w_NotImplemented
