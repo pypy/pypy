@@ -314,12 +314,12 @@ def encode(space, w_obj, w_encoding=None, errors='strict'):
     w_res = space.call_function(w_encoder, w_obj, space.newtext(errors))
     return space.getitem(w_res, space.newint(0))
 
-@unwrap_spec(errors='str_or_None')
+@unwrap_spec(errors='text_or_none')
 def readbuffer_encode(space, w_data, errors='strict'):
     s = space.getarg_w('s#', w_data)
     return space.newtuple([space.newbytes(s), space.newint(len(s))])
 
-@unwrap_spec(errors='str_or_None')
+@unwrap_spec(errors='text_or_none')
 def charbuffer_encode(space, w_data, errors='strict'):
     s = space.getarg_w('t#', w_data)
     return space.newtuple([space.newbytes(s), space.newint(len(s))])
@@ -373,7 +373,7 @@ from rpython.rlib import runicode
 def make_encoder_wrapper(name):
     rname = "unicode_encode_%s" % (name.replace("_encode", ""), )
     assert hasattr(runicode, rname)
-    @unwrap_spec(uni=unicode, errors='str_or_None')
+    @unwrap_spec(uni=unicode, errors='text_or_none')
     def wrap_encoder(space, uni, errors="strict"):
         if errors is None:
             errors = 'strict'
@@ -387,7 +387,7 @@ def make_encoder_wrapper(name):
 def make_decoder_wrapper(name):
     rname = "str_decode_%s" % (name.replace("_decode", ""), )
     assert hasattr(runicode, rname)
-    @unwrap_spec(string='bufferstr', errors='str_or_None',
+    @unwrap_spec(string='bufferstr', errors='text_or_none',
                  w_final=WrappedDefault(False))
     def wrap_decoder(space, string, errors="strict", w_final=None):
         if errors is None:
@@ -437,7 +437,7 @@ if hasattr(runicode, 'str_decode_mbcs'):
 
 # utf-8 functions are not regular, because we have to pass
 # "allow_surrogates=True"
-@unwrap_spec(uni=unicode, errors='str_or_None')
+@unwrap_spec(uni=unicode, errors='text_or_none')
 def utf_8_encode(space, uni, errors="strict"):
     if errors is None:
         errors = 'strict'
@@ -450,7 +450,7 @@ def utf_8_encode(space, uni, errors="strict"):
         allow_surrogates=True)
     return space.newtuple([space.newbytes(result), space.newint(len(uni))])
 
-@unwrap_spec(string='bufferstr', errors='str_or_None',
+@unwrap_spec(string='bufferstr', errors='text_or_none',
              w_final = WrappedDefault(False))
 def utf_8_decode(space, string, errors="strict", w_final=None):
     if errors is None:
@@ -466,7 +466,7 @@ def utf_8_decode(space, string, errors="strict", w_final=None):
         allow_surrogates=True)
     return space.newtuple([space.newunicode(result), space.newint(consumed)])
 
-@unwrap_spec(data='bufferstr', errors='str_or_None', byteorder=int,
+@unwrap_spec(data='bufferstr', errors='text_or_none', byteorder=int,
              w_final=WrappedDefault(False))
 def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
     if errors is None:
@@ -487,7 +487,7 @@ def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
     return space.newtuple([space.newunicode(res), space.newint(consumed),
                            space.newint(byteorder)])
 
-@unwrap_spec(data='bufferstr', errors='str_or_None', byteorder=int,
+@unwrap_spec(data='bufferstr', errors='text_or_none', byteorder=int,
              w_final=WrappedDefault(False))
 def utf_32_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
     final = space.is_true(w_final)
@@ -585,7 +585,7 @@ class Charmap_Encode:
             "character mapping must return integer, None or str")
 
 
-@unwrap_spec(string='bufferstr', errors='str_or_None')
+@unwrap_spec(string='bufferstr', errors='text_or_none')
 def charmap_decode(space, string, errors="strict", w_mapping=None):
     if errors is None:
         errors = 'strict'
@@ -604,7 +604,7 @@ def charmap_decode(space, string, errors="strict", w_mapping=None):
         final, state.decode_error_handler, mapping)
     return space.newtuple([space.newunicode(result), space.newint(consumed)])
 
-@unwrap_spec(uni=unicode, errors='str_or_None')
+@unwrap_spec(uni=unicode, errors='text_or_none')
 def charmap_encode(space, uni, errors="strict", w_mapping=None):
     if errors is None:
         errors = 'strict'
@@ -647,7 +647,7 @@ class UnicodeData_Handler:
             return -1
         return space.int_w(w_code)
 
-@unwrap_spec(string='bufferstr', errors='str_or_None',
+@unwrap_spec(string='bufferstr', errors='text_or_none',
              w_final=WrappedDefault(False))
 def unicode_escape_decode(space, string, errors="strict", w_final=None):
     if errors is None:
@@ -667,7 +667,7 @@ def unicode_escape_decode(space, string, errors="strict", w_final=None):
 # ____________________________________________________________
 # Unicode-internal
 
-@unwrap_spec(errors='str_or_None')
+@unwrap_spec(errors='text_or_none')
 def unicode_internal_decode(space, w_string, errors="strict"):
     if errors is None:
         errors = 'strict'
@@ -691,7 +691,7 @@ def unicode_internal_decode(space, w_string, errors="strict"):
 # support for the "string escape" codec
 # This is a bytes-to bytes transformation
 
-@unwrap_spec(data='bytes', errors='str_or_None')
+@unwrap_spec(data='bytes', errors='text_or_none')
 def escape_encode(space, data, errors='strict'):
     from pypy.objspace.std.bytesobject import string_escape_encode
     result = string_escape_encode(data, quote="'")
@@ -701,7 +701,7 @@ def escape_encode(space, data, errors='strict'):
     w_result = space.newbytes(result[start:end])
     return space.newtuple([w_result, space.newint(len(data))])
 
-@unwrap_spec(data='bytes', errors='str_or_None')
+@unwrap_spec(data='bytes', errors='text_or_none')
 def escape_decode(space, data, errors='strict'):
     from pypy.interpreter.pyparser.parsestring import PyString_DecodeEscape
     result = PyString_DecodeEscape(space, data, errors, None)

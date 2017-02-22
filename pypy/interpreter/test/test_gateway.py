@@ -377,7 +377,7 @@ class TestGateway:
             return space.wrap(s0+s1)
         app_g3_ss = gateway.interp2app_temp(g3_ss,
                                          unwrap_spec=[gateway.ObjSpace,
-                                                      'text', 'str_or_None'])
+                                                      'text', 'text_or_none'])
         w_app_g3_ss = space.wrap(app_g3_ss)
         assert self.space.eq_w(
             space.call(w_app_g3_ss,

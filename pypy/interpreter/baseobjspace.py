@@ -1604,9 +1604,9 @@ class ObjSpace(object):
         else:
             return buf.as_str()
 
-    def str_or_None_w(self, w_obj):
-        # YYY rename
-        return None if self.is_none(w_obj) else self.bytes_w(w_obj)
+    def text_or_none_w(self, w_obj):
+        # return text_w(w_obj) or None
+        return None if self.is_none(w_obj) else self.text_w(w_obj)
 
     def bytes_w(self, w_obj):
         "Takes a bytes object and returns an unwrapped RPython bytestring."
@@ -1647,6 +1647,9 @@ class ObjSpace(object):
                                      getfilesystemencoding(self))
         return self.bytes0_w(w_obj)
 
+    def fsencode_or_none_w(self, w_obj):
+        return None if self.is_none(w_obj) else self.fsencode_w(w_obj)
+
     def int_w(self, w_obj, allow_conversion=True):
         """
         Unwrap an app-level int object into an interpret-level int.
@@ -1681,9 +1684,9 @@ class ObjSpace(object):
         """
         return w_obj.float_w(self, allow_conversion)
 
-    def realstr_w(self, w_obj):
-        # YYY rename
-        # Like bytes_w, but only works if w_obj is really of type 'str'.
+    def realtext_w(self, w_obj):
+        # Like bytes_w(), but only works if w_obj is really of type 'str'.
+        # On Python 3 this is the same as text_w().
         if not self.isinstance_w(w_obj, self.w_bytes):
             raise oefmt(self.w_TypeError, "argument must be a string")
         return self.bytes_w(w_obj)
@@ -1702,8 +1705,8 @@ class ObjSpace(object):
         return rstring.assert_str0(result)
 
     def realunicode_w(self, w_obj):
-        # Like unicode_w, but only works if w_obj is really of type
-        # 'unicode'.
+        # Like unicode_w(), but only works if w_obj is really of type
+        # 'unicode'.  On Python 3 this is the same as unicode_w().
         if not self.isinstance_w(w_obj, self.w_unicode):
             raise oefmt(self.w_TypeError, "argument must be a unicode")
         return self.unicode_w(w_obj)

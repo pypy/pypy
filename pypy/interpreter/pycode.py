@@ -25,7 +25,7 @@ class BytecodeCorruption(Exception):
 
 # helper
 
-def unpack_text_tuple(space,w_str_tuple):
+def unpack_text_tuple(space, w_str_tuple):
     return [space.text_w(w_el) for w_el in space.unpackiterable(w_str_tuple)]
 
 

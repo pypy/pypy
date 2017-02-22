@@ -235,7 +235,7 @@ def open_cdll(space, name):
     except OSError as e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(name='str_or_None')
+@unwrap_spec(name='fsencode_or_none')
 def descr_new_cdll(space, w_type, name):
     cdll = open_cdll(space, name)
     return W_CDLL(space, name, cdll)

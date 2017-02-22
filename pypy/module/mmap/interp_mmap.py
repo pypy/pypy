@@ -183,7 +183,7 @@ class W_MMap(W_Root):
 
     def descr_setitem(self, w_index, w_value):
         space = self.space
-        value = space.realstr_w(w_value)
+        value = space.realtext_w(w_value)
         self.check_valid()
 
         self.check_writeable()
@@ -238,7 +238,7 @@ class W_MMap(W_Root):
         if not space.isinstance_w(w_item, space.w_bytes):
             raise oefmt(space.w_IndexError,
                         "mmap slice assignment must be a string")
-        value = space.realstr_w(w_item)
+        value = space.realtext_w(w_item)
         if len(value) != (j - i):
             raise oefmt(space.w_IndexError,
                         "mmap slice assignment is wrong size")
