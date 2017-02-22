@@ -63,7 +63,7 @@ def parsestr(space, encoding, s, unicode_literal=False):
             v, length = unicodehelper.decode_raw_unicode_escape(space, substr)
         else:
             v, length = unicodehelper.decode_unicode_escape(space, substr)
-        return space.newunicode(v, length)
+        return space.newutf8(v, length)
 
     need_encoding = (encoding is not None and
                      encoding != "utf-8" and encoding != "utf8" and

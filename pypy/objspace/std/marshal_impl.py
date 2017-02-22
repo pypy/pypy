@@ -405,7 +405,7 @@ def marshal_unicode(space, w_unicode, m):
 def unmarshal_unicode(space, u, tc):
     arg = u.get_str()
     length = unicodehelper.check_utf8(space, arg)
-    return space.newunicode(arg, length)
+    return space.newutf8(arg, length)
 
 @marshaller(W_SetObject)
 def marshal_set(space, w_set, m):

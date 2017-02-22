@@ -30,7 +30,7 @@ def unichr(space, code):
         s, lgt = unichr_as_utf8(code)
     except ValueError:
         raise oefmt(space.w_ValueError, "unichr() arg out of range")
-    return space.newunicode(s, lgt)
+    return space.newutf8(s, lgt)
 
 def len(space, w_obj):
     "len(object) -> integer\n\nReturn the number of items of a sequence or mapping."

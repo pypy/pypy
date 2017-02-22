@@ -347,7 +347,7 @@ class StdObjSpace(ObjSpace):
             return self.w_None
         return self.newtext(s)
 
-    def newunicode(self, utf8s, length):
+    def newutf8(self, utf8s, length):
         assert utf8s is not None
         assert isinstance(utf8s, str)
         return W_UnicodeObject(utf8s, length)

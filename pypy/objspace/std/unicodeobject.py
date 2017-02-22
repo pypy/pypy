@@ -562,7 +562,7 @@ def decode_object(space, w_obj, encoding, errors):
                 unicodehelper.decode_error_handler(space)(None,
                     'ascii', "ordinal not in range(128)", s, e.pos, e.pos+1)
                 assert False
-            return space.newunicode(s, len(s))
+            return space.newutf8(s, len(s))
         if encoding == 'utf-8':
             yyy
             s = space.charbuf_w(w_obj)
