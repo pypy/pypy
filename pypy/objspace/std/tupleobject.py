@@ -53,7 +53,7 @@ class W_AbstractTupleObject(W_Root):
             return None
         # empty tuple: base value 258
         uid = (258 << IDTAG_SHIFT) | IDTAG_SPECIAL
-        return space.wrap(uid)
+        return space.newint(uid)
 
     def __repr__(self):
         """representation for debugging purposes"""
@@ -102,9 +102,9 @@ class W_AbstractTupleObject(W_Root):
     def descr_repr(self, space):
         items = self.tolist()
         if len(items) == 1:
-            return space.wrap("(" + space.str_w(space.repr(items[0])) + ",)")
-        tmp = ", ".join([space.str_w(space.repr(item)) for item in items])
-        return space.wrap("(" + tmp + ")")
+            return space.newtext("(" + space.text_w(space.repr(items[0])) + ",)")
+        tmp = ", ".join([space.text_w(space.repr(item)) for item in items])
+        return space.newtext("(" + tmp + ")")
 
     def descr_hash(self, space):
         raise NotImplementedError
@@ -216,7 +216,7 @@ class W_AbstractTupleObject(W_Root):
         for w_item in self.tolist():
             if space.eq_w(w_item, w_obj):
                 count += 1
-        return space.wrap(count)
+        return space.newint(count)
 
     @unwrap_spec(w_start=WrappedDefault(0), w_stop=WrappedDefault(sys.maxint))
     @jit.look_inside_iff(lambda self, _1, _2, _3, _4: _unroll_condition(self))
@@ -229,7 +229,7 @@ class W_AbstractTupleObject(W_Root):
         for i in range(start, min(stop, length)):
             w_item = self.tolist()[i]
             if space.eq_w(w_item, w_obj):
-                return space.wrap(i)
+                return space.newint(i)
         raise oefmt(space.w_ValueError, "tuple.index(x): x not in tuple")
 
 W_AbstractTupleObject.typedef = TypeDef(
@@ -300,7 +300,7 @@ class W_TupleObject(W_AbstractTupleObject):
             z -= 1
             mult += 82520 + z + z
         x += 97531
-        return space.wrap(intmask(x))
+        return space.newint(intmask(x))
 
     def _descr_hash_jitdriver(self, space):
         mult = 1000003
@@ -314,7 +314,7 @@ class W_TupleObject(W_AbstractTupleObject):
             z -= 1
             mult += 82520 + z + z
         x += 97531
-        return space.wrap(intmask(x))
+        return space.newint(intmask(x))
 
     def descr_eq(self, space, w_other):
         if not isinstance(w_other, W_AbstractTupleObject):

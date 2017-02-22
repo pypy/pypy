@@ -30,7 +30,7 @@ def PyInstance_New(space, w_cls, w_arg, w_kw):
 
 @cpython_api([PyObject, PyObject], PyObject, error=CANNOT_FAIL)
 def _PyInstance_Lookup(space, w_instance, w_name):
-    name = space.str_w(w_name)
+    name = space.text_w(w_name)
     assert isinstance(w_instance, W_InstanceObject)
     w_result = w_instance.getdictvalue(space, name)
     if w_result is not None:

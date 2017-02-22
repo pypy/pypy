@@ -153,7 +153,7 @@ else:
     eptypesize("int_fast64_t",  8, _WCTSigned)
     eptypesize("uint_fast64_t", 8, _WCTUnsign)
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def new_primitive_type(space, name):
     return _new_primitive_type(space, name)
 
@@ -167,7 +167,7 @@ def _new_primitive_type(space, name):
     try:
         ctypecls, size, align = PRIMITIVE_TYPES[name]
     except KeyError:
-        raise OperationError(space.w_KeyError, space.wrap(name))
+        raise OperationError(space.w_KeyError, space.newtext(name))
     ctype = ctypecls(space, size, name, len(name), align)
     unique_cache.primitives[name] = ctype
     return ctype
@@ -280,11 +280,11 @@ def complete_sflags(sflags):
 # ____________________________________________________________
 
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def new_struct_type(space, name):
     return ctypestruct.W_CTypeStruct(space, name)
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def new_union_type(space, name):
     return ctypestruct.W_CTypeUnion(space, name)
 
@@ -331,7 +331,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
         field_w = space.fixedview(w_field)
         if not (2 <= len(field_w) <= 4):
             raise oefmt(space.w_TypeError, "bad field descr")
-        fname = space.str_w(field_w[0])
+        fname = space.text_w(field_w[0])
         ftype = space.interp_w(ctypeobj.W_CType, field_w[1])
         fbitsize = -1
         foffset = -1
@@ -590,13 +590,13 @@ def _new_chara_type(space):
 
 # ____________________________________________________________
 
-@unwrap_spec(name=str, w_basectype=ctypeobj.W_CType)
+@unwrap_spec(name='text', w_basectype=ctypeobj.W_CType)
 def new_enum_type(space, name, w_enumerators, w_enumvalues, w_basectype):
     enumerators_w = space.fixedview(w_enumerators)
     enumvalues_w  = space.fixedview(w_enumvalues)
     if len(enumerators_w) != len(enumvalues_w):
         raise oefmt(space.w_ValueError, "tuple args must have the same size")
-    enumerators = [space.str_w(w) for w in enumerators_w]
+    enumerators = [space.text_w(w) for w in enumerators_w]
     #
     if (not isinstance(w_basectype, ctypeprim.W_CTypePrimitiveSigned) and
         not isinstance(w_basectype, ctypeprim.W_CTypePrimitiveUnsigned)):

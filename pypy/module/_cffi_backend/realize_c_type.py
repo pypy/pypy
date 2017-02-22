@@ -131,15 +131,15 @@ def realize_global_int(ffi, g, gindex):
 
     if neg == 0:     # positive
         if value <= rffi.cast(rffi.ULONGLONG, sys.maxint):
-            return ffi.space.wrap(intmask(value))
+            return ffi.space.newint(intmask(value))
         else:
-            return ffi.space.wrap(value)
+            return ffi.space.newint(value)
     elif neg == 1:   # negative
         value = rffi.cast(rffi.LONGLONG, value)
         if value >= -sys.maxint-1:
-            return ffi.space.wrap(intmask(value))
+            return ffi.space.newint(intmask(value))
         else:
-            return ffi.space.wrap(value)
+            return ffi.space.newint(value)
 
     if neg == 2:
         got = "%d (0x%x)" % (value, value)
@@ -364,7 +364,7 @@ def _realize_c_enum(ffi, eindex):
             while p[j] != ',' and p[j] != '\x00':
                 j += 1
             enname = rffi.charpsize2str(p, j)
-            enumerators_w.append(space.wrap(enname))
+            enumerators_w.append(space.newtext(enname))
 
             gindex = parse_c_type.search_in_globals(ffi.ctxobj.ctx, enname)
             assert gindex >= 0
@@ -493,10 +493,10 @@ def do_realize_lazy_struct(w_ctype):
                                          field_name, "'")
 
         fields_w[i] = space.newtuple([
-            space.wrap(field_name),
+            space.newtext(field_name),
             w_ctf,
-            space.wrap(fbitsize),
-            space.wrap(field_offset)])
+            space.newint(fbitsize),
+            space.newint(field_offset)])
 
     sflags = 0
     c_flags = rffi.getintfield(s, 'c_flags')

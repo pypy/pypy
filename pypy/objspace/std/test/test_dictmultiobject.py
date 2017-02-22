@@ -806,6 +806,8 @@ class AppTestDictViews:
         assert "a" in keys
         assert 10 not in keys
         assert "Z" not in keys
+        raises(TypeError, "[] in keys")     # [] is unhashable
+        raises(TypeError, keys.__contains__, [])
         assert d.viewkeys() == d.viewkeys()
         e = {1: 11, "a": "def"}
         assert d.viewkeys() == e.viewkeys()
@@ -831,6 +833,8 @@ class AppTestDictViews:
         assert () not in items
         assert (1,) not in items
         assert (1, 2, 3) not in items
+        assert ([], []) not in items     # [] is unhashable, but no TypeError
+        assert not items.__contains__(([], []))
         assert d.viewitems() == d.viewitems()
         e = d.copy()
         assert d.viewitems() == e.viewitems()
@@ -1175,16 +1179,20 @@ class FakeSpace:
         return l
     def newlist_bytes(self, l):
         return l
+    newlist_text = newlist_bytes
     DictObjectCls = W_DictObject
     def type(self, w_obj):
         if isinstance(w_obj, FakeString):
             return str
         return type(w_obj)
-    w_str = str
+    w_bytes = str
+    w_text = str
 
     def str_w(self, string):
         assert isinstance(string, str)
         return string
+    bytes_w = str_w
+    text_w = str_w
 
     def int_w(self, integer, allow_conversion=True):
         assert isinstance(integer, int)
@@ -1192,6 +1200,7 @@ class FakeSpace:
 
     def wrap(self, obj):
         return obj
+    newtext = newbytes = wrap
 
     def isinstance_w(self, obj, klass):
         return isinstance(obj, klass)

@@ -188,11 +188,11 @@ class PtrTypeConverterMixin(object):
         return state.c_voidp
 
     def convert_argument(self, space, w_obj, address, call_local):
-        w_tc = space.findattr(w_obj, space.wrap('typecode'))
-        if w_tc is not None and space.str_w(w_tc) != self.typecode:
+        w_tc = space.findattr(w_obj, space.newtext('typecode'))
+        if w_tc is not None and space.text_w(w_tc) != self.typecode:
             raise oefmt(space.w_TypeError,
                         "expected %s pointer type, but received %s",
-                        self.typecode, space.str_w(w_tc))
+                        self.typecode, space.text_w(w_tc))
         x = rffi.cast(rffi.VOIDPP, address)
         try:
             x[0] = rffi.cast(rffi.VOIDP, get_rawbuffer(space, w_obj))
@@ -236,7 +236,7 @@ class NumericTypeConverterMixin(object):
     def from_memory(self, space, w_obj, w_pycppclass, offset):
         address = self._get_raw_address(space, w_obj, offset)
         rffiptr = rffi.cast(self.c_ptrtype, address)
-        return space.wrap(rffiptr[0])
+        return self._wrap_object(space, rffiptr[0])
 
     def to_memory(self, space, w_obj, w_value, offset):
         address = self._get_raw_address(space, w_obj, offset)
@@ -332,7 +332,7 @@ class CharConverter(ffitypes.typeid(rffi.CHAR), TypeConverter):
 
     def from_memory(self, space, w_obj, w_pycppclass, offset):
         address = rffi.cast(rffi.CCHARP, self._get_raw_address(space, w_obj, offset))
-        return space.wrap(address[0])
+        return space.newbytes(address[0])
 
     def to_memory(self, space, w_obj, w_value, offset):
         address = rffi.cast(rffi.CCHARP, self._get_raw_address(space, w_obj, offset))
@@ -395,7 +395,7 @@ class ConstLongDoubleRefConverter(ConstRefNumericTypeConverterMixin, LongDoubleC
 class CStringConverter(TypeConverter):
     def convert_argument(self, space, w_obj, address, call_local):
         x = rffi.cast(rffi.LONGP, address)
-        arg = space.str_w(w_obj)
+        arg = space.text_w(w_obj)
         x[0] = rffi.cast(rffi.LONG, rffi.str2charp(arg))
         ba = rffi.cast(rffi.CCHARP, address)
         ba[capi.c_function_arg_typeoffset(space)] = 'o'
@@ -403,7 +403,7 @@ class CStringConverter(TypeConverter):
     def from_memory(self, space, w_obj, w_pycppclass, offset):
         address = self._get_raw_address(space, w_obj, offset)
         charpptr = rffi.cast(rffi.CCHARPP, address)
-        return space.wrap(rffi.charp2str(charpptr[0]))
+        return space.newbytes(rffi.charp2str(charpptr[0]))
 
     def free_argument(self, space, arg, call_local):
         lltype.free(rffi.cast(rffi.CCHARPP, arg)[0], flavor='raw')
@@ -598,7 +598,7 @@ class StdStringConverter(InstanceConverter):
             arg = InstanceConverter._unwrap_object(self, space, w_obj)
             return capi.c_stdstring2stdstring(space, arg)
         else:
-            return capi.c_charp2stdstring(space, space.str_w(w_obj), space.len_w(w_obj))
+            return capi.c_charp2stdstring(space, space.text_w(w_obj), space.len_w(w_obj))
 
     def to_memory(self, space, w_obj, w_value, offset):
         try:
@@ -667,7 +667,7 @@ class MacroConverter(TypeConverter):
         # TODO: get the actual type info from somewhere ...
         address = self._get_raw_address(space, w_obj, offset)
         longptr = rffi.cast(rffi.LONGP, address)
-        return space.wrap(longptr[0])
+        return space.newlong(longptr[0])
 
 
 _converters = {}         # builtin and custom types
@@ -884,7 +884,7 @@ if capi.identify() == "CINT":
                 arg = InstanceConverter._unwrap_object(self, space, w_obj)
                 return capi.backend.c_TString2TString(space, arg)
             else:
-                return capi.backend.c_charp2TString(space, space.str_w(w_obj))
+                return capi.backend.c_charp2TString(space, space.text_w(w_obj))
 
         def free_argument(self, space, arg, call_local):
             capi.c_destruct(space, self.cppclass, rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, arg)[0]))

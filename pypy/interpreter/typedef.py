@@ -93,7 +93,7 @@ def auto__ne__(space, w_self, w_other):
 def default_identity_hash(space, w_obj):
     w_unique_id = w_obj.immutable_unique_id(space)
     if w_unique_id is None:     # common case
-        return space.wrap(compute_identity_hash(w_obj))
+        return space.newint(compute_identity_hash(w_obj))
     else:
         return space.hash(w_unique_id)
 
@@ -295,7 +295,7 @@ class GetSetProperty(W_Root):
         if (space.is_w(w_obj, space.w_None)
             and not space.is_w(w_cls, space.type(space.w_None))):
             #print self, w_obj, w_cls
-            return space.wrap(self)
+            return self
         else:
             try:
                 return self.fget(self, space, w_obj)
@@ -303,7 +303,7 @@ class GetSetProperty(W_Root):
                 return w_obj.descr_call_mismatch(
                     space, '__getattribute__',
                     self.reqcls, Arguments(space, [w_obj,
-                                                   space.wrap(self.name)]))
+                                                   space.newtext(self.name)]))
 
     def descr_property_set(self, space, w_obj, w_value):
         """property.__set__(obj, value)
@@ -317,7 +317,7 @@ class GetSetProperty(W_Root):
             w_obj.descr_call_mismatch(
                 space, '__setattr__',
                 self.reqcls, Arguments(space, [w_obj,
-                                               space.wrap(self.name),
+                                               space.newtext(self.name),
                                                w_value]))
 
     def descr_property_del(self, space, w_obj):
@@ -332,7 +332,7 @@ class GetSetProperty(W_Root):
             w_obj.descr_call_mismatch(
                 space, '__delattr__',
                 self.reqcls, Arguments(space, [w_obj,
-                                               space.wrap(self.name)]))
+                                               space.newtext(self.name)]))
 
     def descr_get_objclass(space, property):
         if property.w_objclass is not None:
@@ -343,11 +343,17 @@ class GetSetProperty(W_Root):
         raise oefmt(space.w_AttributeError,
                     "generic property has no __objclass__")
 
+    def spacebind(self, space):
+        if hasattr(space, '_see_getsetproperty'):
+            space._see_getsetproperty(self)      # only for fake/objspace.py
+        return self
 
-def interp_attrproperty(name, cls, doc=None):
+
+def interp_attrproperty(name, cls, doc=None, wrapfn=None):
     "NOT_RPYTHON: initialization-time only"
+    assert wrapfn is not None
     def fget(space, obj):
-        return space.wrap(getattr(obj, name))
+        return getattr(space, wrapfn)(getattr(obj, name))
     return GetSetProperty(fget, cls=cls, doc=doc)
 
 def interp_attrproperty_w(name, cls, doc=None):
@@ -366,9 +372,9 @@ GetSetProperty.typedef = TypeDef(
     __get__ = interp2app(GetSetProperty.descr_property_get),
     __set__ = interp2app(GetSetProperty.descr_property_set),
     __delete__ = interp2app(GetSetProperty.descr_property_del),
-    __name__ = interp_attrproperty('name', cls=GetSetProperty),
+    __name__ = interp_attrproperty('name', cls=GetSetProperty, wrapfn="newtext_or_none"),
     __objclass__ = GetSetProperty(GetSetProperty.descr_get_objclass),
-    __doc__ = interp_attrproperty('doc', cls=GetSetProperty),
+    __doc__ = interp_attrproperty('doc', cls=GetSetProperty, wrapfn="newtext_or_none"),
     )
 assert not GetSetProperty.typedef.acceptable_as_base_class  # no __new__
 
@@ -392,13 +398,13 @@ class Member(W_Root):
         """member.__get__(obj[, type]) -> value
         Read the slot 'member' of the given 'obj'."""
         if space.is_w(w_obj, space.w_None):
-            return space.wrap(self)
+            return self
         else:
             self.typecheck(space, w_obj)
             w_result = w_obj.getslotvalue(self.index)
             if w_result is None:
                 raise OperationError(space.w_AttributeError,
-                                     space.wrap(self.name)) # XXX better message
+                                     space.newtext(self.name)) # XXX better message
             return w_result
 
     def descr_member_set(self, space, w_obj, w_value):
@@ -414,14 +420,14 @@ class Member(W_Root):
         success = w_obj.delslotvalue(self.index)
         if not success:
             raise OperationError(space.w_AttributeError,
-                                 space.wrap(self.name)) # XXX better message
+                                 space.newtext(self.name)) # XXX better message
 
 Member.typedef = TypeDef(
     "member_descriptor",
     __get__ = interp2app(Member.descr_member_get),
     __set__ = interp2app(Member.descr_member_set),
     __delete__ = interp2app(Member.descr_member_del),
-    __name__ = interp_attrproperty('name', cls=Member),
+    __name__ = interp_attrproperty('name', cls=Member, wrapfn="newtext_or_none"),
     __objclass__ = interp_attrproperty_w('w_cls', cls=Member),
     )
 assert not Member.typedef.acceptable_as_base_class  # no __new__
@@ -436,7 +442,7 @@ class ClassAttr(W_Root):
     def __init__(self, function):
         self.function = function
 
-    def __spacebind__(self, space):
+    def spacebind(self, space):
         return self.function(space)
 
 # ____________________________________________________________
@@ -445,7 +451,7 @@ def generic_new_descr(W_Type):
     def descr_new(space, w_subtype, __args__):
         self = space.allocate_instance(W_Type, w_subtype)
         W_Type.__init__(self, space)
-        return space.wrap(self)
+        return self
     descr_new = func_with_new_name(descr_new, 'descr_new_%s' % W_Type.__name__)
     return interp2app(descr_new)
 
@@ -500,10 +506,10 @@ descr_generic_ne = interp2app(generic_ne)
 
 # co_xxx interface emulation for built-in code objects
 def fget_co_varnames(space, code): # unwrapping through unwrap_spec
-    return space.newtuple([space.wrap(name) for name in code.getvarnames()])
+    return space.newtuple([space.newtext(name) for name in code.getvarnames()])
 
 def fget_co_argcount(space, code): # unwrapping through unwrap_spec
-    return space.wrap(code.signature().num_argnames())
+    return space.newint(code.signature().num_argnames())
 
 def fget_co_flags(space, code): # unwrapping through unwrap_spec
     sig = code.signature()
@@ -512,7 +518,7 @@ def fget_co_flags(space, code): # unwrapping through unwrap_spec
         flags |= CO_VARARGS
     if sig.has_kwarg():
         flags |= CO_VARKEYWORDS
-    return space.wrap(flags)
+    return space.newint(flags)
 
 def fget_co_consts(space, code): # unwrapping through unwrap_spec
     w_docstring = code.getdocstring(space)
@@ -547,7 +553,7 @@ def make_weakref_descr(cls):
 
 
 Code.typedef = TypeDef('internal-code',
-    co_name = interp_attrproperty('co_name', cls=Code),
+    co_name = interp_attrproperty('co_name', cls=Code, wrapfn="newtext_or_none"),
     co_varnames = GetSetProperty(fget_co_varnames, cls=Code),
     co_argcount = GetSetProperty(fget_co_argcount, cls=Code),
     co_flags = GetSetProperty(fget_co_flags, cls=Code),
@@ -557,7 +563,7 @@ assert not Code.typedef.acceptable_as_base_class  # no __new__
 
 BuiltinCode.typedef = TypeDef('builtin-code',
     __reduce__   = interp2app(BuiltinCode.descr__reduce__),
-    co_name = interp_attrproperty('co_name', cls=BuiltinCode),
+    co_name = interp_attrproperty('co_name', cls=BuiltinCode, wrapfn="newtext_or_none"),
     co_varnames = GetSetProperty(fget_co_varnames, cls=BuiltinCode),
     co_argcount = GetSetProperty(fget_co_argcount, cls=BuiltinCode),
     co_flags = GetSetProperty(fget_co_flags, cls=BuiltinCode),
@@ -573,20 +579,20 @@ PyCode.typedef = TypeDef('code',
     __hash__ = interp2app(PyCode.descr_code__hash__),
     __reduce__ = interp2app(PyCode.descr__reduce__),
     __repr__ = interp2app(PyCode.repr),
-    co_argcount = interp_attrproperty('co_argcount', cls=PyCode),
-    co_nlocals = interp_attrproperty('co_nlocals', cls=PyCode),
-    co_stacksize = interp_attrproperty('co_stacksize', cls=PyCode),
-    co_flags = interp_attrproperty('co_flags', cls=PyCode),
-    co_code = interp_attrproperty('co_code', cls=PyCode),
+    co_argcount = interp_attrproperty('co_argcount', cls=PyCode, wrapfn="newint"),
+    co_nlocals = interp_attrproperty('co_nlocals', cls=PyCode, wrapfn="newint"),
+    co_stacksize = interp_attrproperty('co_stacksize', cls=PyCode, wrapfn="newint"),
+    co_flags = interp_attrproperty('co_flags', cls=PyCode, wrapfn="newint"),
+    co_code = interp_attrproperty('co_code', cls=PyCode, wrapfn="newbytes"),
     co_consts = GetSetProperty(PyCode.fget_co_consts),
     co_names = GetSetProperty(PyCode.fget_co_names),
     co_varnames = GetSetProperty(PyCode.fget_co_varnames),
     co_freevars = GetSetProperty(PyCode.fget_co_freevars),
     co_cellvars = GetSetProperty(PyCode.fget_co_cellvars),
-    co_filename = interp_attrproperty('co_filename', cls=PyCode),
-    co_name = interp_attrproperty('co_name', cls=PyCode),
-    co_firstlineno = interp_attrproperty('co_firstlineno', cls=PyCode),
-    co_lnotab = interp_attrproperty('co_lnotab', cls=PyCode),
+    co_filename = interp_attrproperty('co_filename', cls=PyCode, wrapfn="newtext"),
+    co_name = interp_attrproperty('co_name', cls=PyCode, wrapfn="newtext"),
+    co_firstlineno = interp_attrproperty('co_firstlineno', cls=PyCode, wrapfn="newint"),
+    co_lnotab = interp_attrproperty('co_lnotab', cls=PyCode, wrapfn="newbytes"),
     __weakref__ = make_weakref_descr(PyCode),
     )
 PyCode.typedef.acceptable_as_base_class = False
@@ -751,10 +757,10 @@ BuiltinFunction.typedef.acceptable_as_base_class = False
 PyTraceback.typedef = TypeDef("traceback",
     __reduce__ = interp2app(PyTraceback.descr__reduce__),
     __setstate__ = interp2app(PyTraceback.descr__setstate__),
-    tb_frame = interp_attrproperty('frame', cls=PyTraceback),
-    tb_lasti = interp_attrproperty('lasti', cls=PyTraceback),
+    tb_frame = interp_attrproperty_w('frame', cls=PyTraceback),
+    tb_lasti = interp_attrproperty('lasti', cls=PyTraceback, wrapfn="newint"),
     tb_lineno = GetSetProperty(PyTraceback.descr_tb_lineno),
-    tb_next = interp_attrproperty('next', cls=PyTraceback),
+    tb_next = interp_attrproperty_w('next', cls=PyTraceback),
     )
 assert not PyTraceback.typedef.acceptable_as_base_class  # no __new__
 
@@ -772,7 +778,7 @@ GeneratorIterator.typedef = TypeDef("generator",
                             descrmismatch='close'),
     __iter__   = interp2app(GeneratorIterator.descr__iter__,
                             descrmismatch='__iter__'),
-    gi_running = interp_attrproperty('running', cls=GeneratorIterator),
+    gi_running = interp_attrproperty('running', cls=GeneratorIterator, wrapfn="newbool"),
     gi_frame   = GetSetProperty(GeneratorIterator.descr_gi_frame),
     gi_code    = GetSetProperty(GeneratorIterator.descr_gi_code),
     __name__   = GetSetProperty(GeneratorIterator.descr__name__),

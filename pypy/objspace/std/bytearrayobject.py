@@ -72,7 +72,7 @@ class W_BytearrayObject(W_Root):
             character = self.data[index]
         except IndexError:
             raise oefmt(space.w_IndexError, "bytearray index out of range")
-        return space.wrap(ord(character))
+        return space.newint(ord(character))
 
     def _val(self, space):
         return self.data
@@ -146,7 +146,7 @@ class W_BytearrayObject(W_Root):
         return False
 
     def _join_check_item(self, space, w_obj):
-        if (space.isinstance_w(w_obj, space.w_str) or
+        if (space.isinstance_w(w_obj, space.w_bytes) or
             space.isinstance_w(w_obj, space.w_bytearray)):
             return 0
         return 1
@@ -156,7 +156,7 @@ class W_BytearrayObject(W_Root):
             raise oefmt(space.w_TypeError,
                         "ord() expected a character, but string of length %d "
                         "found", len(self.data))
-        return space.wrap(ord(self.data[0]))
+        return space.newint(ord(self.data[0]))
 
     @staticmethod
     def descr_new(space, w_bytearraytype, __args__):
@@ -169,22 +169,22 @@ class W_BytearrayObject(W_Root):
             w_dict = space.w_None
         return space.newtuple([
             space.type(self), space.newtuple([
-                space.wrap(''.join(self.data).decode('latin-1')),
-                space.wrap('latin-1')]),
+                space.newunicode(''.join(self.data).decode('latin-1')),
+                space.newtext('latin-1')]),
             w_dict])
 
     @staticmethod
     def descr_fromhex(space, w_bytearraytype, w_hexstring):
-        hexstring = space.str_w(w_hexstring)
+        hexstring = space.text_w(w_hexstring)
         data = _hexstring_to_array(space, hexstring)
         # in CPython bytearray.fromhex is a staticmethod, so
         # we ignore w_type and always return a bytearray
         return new_bytearray(space, space.w_bytearray, data)
 
-    @unwrap_spec(encoding='str_or_None', errors='str_or_None')
+    @unwrap_spec(encoding='text_or_none', errors='text_or_none')
     def descr_init(self, space, w_source=None, encoding=None, errors=None):
         if w_source is None:
-            w_source = space.wrap('')
+            w_source = space.newbytes('')
         if encoding is not None:
             from pypy.objspace.std.unicodeobject import encode_object
             # if w_source is an integer this correctly raises a
@@ -247,10 +247,10 @@ class W_BytearrayObject(W_Root):
         buf.append(quote)
         buf.append(")")
 
-        return space.wrap(buf.build())
+        return space.newtext(buf.build())
 
     def descr_str(self, space):
-        return space.wrap(''.join(self.data))
+        return space.newtext(''.join(self.data))
 
     def descr_eq(self, space, w_other):
         if isinstance(w_other, W_BytearrayObject):
@@ -424,7 +424,7 @@ class W_BytearrayObject(W_Root):
             if not self.data:
                 raise oefmt(space.w_IndexError, "pop from empty bytearray")
             raise oefmt(space.w_IndexError, "pop index out of range")
-        return space.wrap(ord(result))
+        return space.newint(ord(result))
 
     def descr_remove(self, space, w_char):
         char = space.int_w(space.index(w_char))
@@ -484,8 +484,8 @@ def _descr_contains_bytearray(data, space, char):
 
 
 def getbytevalue(space, w_value):
-    if space.isinstance_w(w_value, space.w_str):
-        string = space.str_w(w_value)
+    if space.isinstance_w(w_value, space.w_bytes):
+        string = space.bytes_w(w_value)
         if len(string) != 1:
             raise oefmt(space.w_ValueError, "string must be of size 1")
         return string[0]

@@ -644,7 +644,7 @@ def build_exported_objects():
     # Common types with their own struct
     for cpyname, pypyexpr in {
         "PyType_Type": "space.w_type",
-        "PyString_Type": "space.w_str",
+        "PyString_Type": "space.w_bytes",
         "PyUnicode_Type": "space.w_unicode",
         "PyBaseString_Type": "space.w_basestring",
         "PyDict_Type": "space.w_dict",
@@ -962,7 +962,7 @@ def make_wrapper_second_level(space, argtypesw, restype,
                 else:
                     message = str(e)
                 state.set_exception(OperationError(space.w_SystemError,
-                                                   space.wrap(message)))
+                                                   space.newtext(message)))
             else:
                 failed = False
 
@@ -1460,7 +1460,7 @@ def _load_from_cffi(space, name, path, initptr):
     from pypy.module._cffi_backend import cffi1_module
     cffi1_module.load_cffi1_module(space, name, path, initptr)
 
-@unwrap_spec(path=str, name=str)
+@unwrap_spec(path='text', name='text')
 def load_extension_module(space, path, name):
     # note: this is used both to load CPython-API-style C extension
     # modules (cpyext) and to load CFFI-style extension modules

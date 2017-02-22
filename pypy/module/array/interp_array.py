@@ -16,7 +16,7 @@ from pypy.interpreter.typedef import (
 from pypy.module._file.interp_file import W_File
 
 
-@unwrap_spec(typecode=str)
+@unwrap_spec(typecode='text')
 def w_array(space, w_cls, typecode, __args__):
     if len(__args__.arguments_w) > 1:
         raise oefmt(space.w_TypeError, "array() takes at most 2 arguments")
@@ -43,7 +43,7 @@ def w_array(space, w_cls, typecode, __args__):
     if len(__args__.arguments_w) > 0:
         w_initializer = __args__.arguments_w[0]
         w_initializer_type = space.type(w_initializer)
-        if w_initializer_type is space.w_str:
+        if w_initializer_type is space.w_bytes:
             a.descr_fromstring(space, w_initializer)
         elif w_initializer_type is space.w_list:
             a.descr_fromlist(space, w_initializer)
@@ -53,11 +53,11 @@ def w_array(space, w_cls, typecode, __args__):
 
 
 def descr_itemsize(space, self):
-    return space.wrap(self.itemsize)
+    return space.newint(self.itemsize)
 
 
 def descr_typecode(space, self):
-    return space.wrap(self.typecode)
+    return space.newtext(self.typecode)
 
 arr_eq_driver = jit.JitDriver(name='array_eq_driver', greens=['comp_func'],
                               reds='auto')
@@ -268,7 +268,7 @@ class W_ArrayBase(W_Root):
             w_item = self.w_getitem(space, i)
             if space.is_true(space.eq(w_item, w_val)):
                 cnt += 1
-        return space.wrap(cnt)
+        return space.newint(cnt)
 
     def descr_index(self, space, w_x):
         """ index(x)
@@ -278,7 +278,7 @@ class W_ArrayBase(W_Root):
         for i in range(self.len):
             w_item = self.w_getitem(space, i)
             if space.is_true(space.eq(w_item, w_x)):
-                return space.wrap(i)
+                return space.newint(i)
         raise oefmt(space.w_ValueError, "array.index(x): x not in list")
 
     def descr_reverse(self, space):
@@ -384,14 +384,14 @@ class W_ArrayBase(W_Root):
             size = ovfcheck(self.itemsize * n)
         except OverflowError:
             raise MemoryError
-        w_item = space.call_method(w_f, 'read', space.wrap(size))
+        w_item = space.call_method(w_f, 'read', space.newint(size))
         item = space.bytes_w(w_item)
         if len(item) < size:
             n = len(item) % self.itemsize
             elems = max(0, len(item) - (len(item) % self.itemsize))
             if n != 0:
                 item = item[0:elems]
-            self.descr_fromstring(space, space.wrap(item))
+            self.descr_fromstring(space, space.newbytes(item))
             raise oefmt(space.w_EOFError, "not enough items in file")
         self.descr_fromstring(space, w_item)
 
@@ -434,7 +434,7 @@ class W_ArrayBase(W_Root):
         """
         if self.typecode == 'u':
             buf = rffi.cast(UNICODE_ARRAY, self._buffer_as_unsigned())
-            return space.wrap(rffi.wcharpsize2unicode(buf, self.len))
+            return space.newunicode(rffi.wcharpsize2unicode(buf, self.len))
         else:
             raise oefmt(space.w_ValueError,
                         "tounicode() may only be called on type 'u' arrays")
@@ -447,8 +447,8 @@ class W_ArrayBase(W_Root):
         The length should be multiplied by the itemsize attribute to calculate
         the buffer length in bytes.
         """
-        w_ptr = space.wrap(self._buffer_as_unsigned())
-        w_len = space.wrap(self.len)
+        w_ptr = space.newint(self._buffer_as_unsigned())
+        w_len = space.newint(self.len)
         return space.newtuple([w_ptr, w_len])
 
     def descr_reduce(self, space):
@@ -456,11 +456,11 @@ class W_ArrayBase(W_Root):
         """
         if self.len > 0:
             w_s = self.descr_tostring(space)
-            args = [space.wrap(self.typecode), w_s]
+            args = [space.newtext(self.typecode), w_s]
         else:
-            args = [space.wrap(self.typecode)]
+            args = [space.newtext(self.typecode)]
         try:
-            w_dict = space.getattr(self, space.wrap('__dict__'))
+            w_dict = space.getattr(self, space.newtext('__dict__'))
         except OperationError:
             w_dict = space.w_None
         return space.newtuple([space.type(self), space.newtuple(args), w_dict])
@@ -501,7 +501,7 @@ class W_ArrayBase(W_Root):
         self._charbuf_stop()
 
     def descr_len(self, space):
-        return space.wrap(self.len)
+        return space.newint(self.len)
 
     def descr_eq(self, space, w_arr2):
         "x.__eq__(y) <==> x==y"
@@ -679,19 +679,19 @@ class W_ArrayBase(W_Root):
 
     def descr_repr(self, space):
         if self.len == 0:
-            return space.wrap("array('%s')" % self.typecode)
+            return space.newtext("array('%s')" % self.typecode)
         elif self.typecode == "c":
             r = space.repr(self.descr_tostring(space))
-            s = "array('%s', %s)" % (self.typecode, space.str_w(r))
-            return space.wrap(s)
+            s = "array('%s', %s)" % (self.typecode, space.text_w(r))
+            return space.newtext(s)
         elif self.typecode == "u":
             r = space.repr(self.descr_tounicode(space))
-            s = "array('%s', %s)" % (self.typecode, space.str_w(r))
-            return space.wrap(s)
+            s = "array('%s', %s)" % (self.typecode, space.text_w(r))
+            return space.newtext(s)
         else:
             r = space.repr(self.descr_tolist(space))
-            s = "array('%s', %s)" % (self.typecode, space.str_w(r))
-            return space.wrap(s)
+            s = "array('%s', %s)" % (self.typecode, space.text_w(r))
+            return space.newtext(s)
 
 W_ArrayBase.typedef = TypeDef(
     'array.array',
@@ -776,7 +776,7 @@ else:
     _UINTTypeCode = \
          TypeCode(rffi.UINT,          'int_w', True)
 types = {
-    'c': TypeCode(lltype.Char,        'str_w', method=''),
+    'c': TypeCode(lltype.Char,        'bytes_w', method=''),
     'u': TypeCode(lltype.UniChar,     'unicode_w', method=''),
     'b': TypeCode(rffi.SIGNEDCHAR,    'int_w', True, True),
     'B': TypeCode(rffi.UCHAR,         'int_w', True),
@@ -887,7 +887,7 @@ def make_array(mytype):
                                 "unsigned %d-byte integer out of range",
                                 mytype.bytes)
                 return rffi.cast(mytype.itemtype, item)
-            if mytype.unwrap == 'str_w' or mytype.unwrap == 'unicode_w':
+            if mytype.unwrap == 'bytes_w' or mytype.unwrap == 'unicode_w':
                 if len(item) != 1:
                     raise oefmt(space.w_TypeError, "array item must be char")
                 item = item[0]
@@ -911,7 +911,7 @@ def make_array(mytype):
                     if not mytype.signed:
                         msg = 'un' + msg      # 'signed' => 'unsigned'
                     raise OperationError(self.space.w_OverflowError,
-                                         self.space.wrap(msg))
+                                         self.space.newtext(msg))
             return result
 
         def fromsequence(self, w_seq):
@@ -990,9 +990,17 @@ def make_array(mytype):
             keepalive_until_here(self)
             if mytype.typecode in 'bBhHil':
                 item = rffi.cast(lltype.Signed, item)
-            elif mytype.typecode == 'f':
+                return space.newint(item)
+            if mytype.typecode in 'IL':
+                return space.newint(item)
+            elif mytype.typecode in 'fd':
                 item = float(item)
-            return space.wrap(item)
+                return space.newfloat(item)
+            elif mytype.typecode == 'c':
+                return space.newbytes(item)
+            elif mytype.typecode == 'u':
+                return space.newunicode(item)
+            assert 0, "unreachable"
 
         # interface
 

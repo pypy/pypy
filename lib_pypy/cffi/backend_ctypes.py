@@ -112,11 +112,20 @@ class CTypesData(object):
     def _make_cmp(name):
         cmpfunc = getattr(operator, name)
         def cmp(self, other):
-            if isinstance(other, CTypesData):
+            v_is_ptr = not isinstance(self, CTypesGenericPrimitive)
+            w_is_ptr = (isinstance(other, CTypesData) and
+                           not isinstance(other, CTypesGenericPrimitive))
+            if v_is_ptr and w_is_ptr:
                 return cmpfunc(self._convert_to_address(None),
                                other._convert_to_address(None))
-            else:
+            elif v_is_ptr or w_is_ptr:
                 return NotImplemented
+            else:
+                if isinstance(self, CTypesGenericPrimitive):
+                    self = self._value
+                if isinstance(other, CTypesGenericPrimitive):
+                    other = other._value
+                return cmpfunc(self, other)
         cmp.func_name = name
         return cmp
 
@@ -128,7 +137,7 @@ class CTypesData(object):
     __ge__ = _make_cmp('__ge__')
 
     def __hash__(self):
-        return hash(type(self)) ^ hash(self._convert_to_address(None))
+        return hash(self._convert_to_address(None))
 
     def _to_string(self, maxlen):
         raise TypeError("string(): %r" % (self,))
@@ -137,14 +146,8 @@ class CTypesData(object):
 class CTypesGenericPrimitive(CTypesData):
     __slots__ = []
 
-    def __eq__(self, other):
-        return self is other
-
-    def __ne__(self, other):
-        return self is not other
-
     def __hash__(self):
-        return object.__hash__(self)
+        return hash(self._value)
 
     def _get_own_repr(self):
         return repr(self._from_ctypes(self._value))

@@ -16,6 +16,7 @@ if sys.version_info < (3,):
                                        .replace(r'\\U', r'\U'))
     u = U()
     str2bytes = str
+    strict_compare = False
 else:
     type_or_class = "class"
     long = int
@@ -27,6 +28,7 @@ else:
     bitem2bchr = bytechr
     u = ""
     str2bytes = lambda s: bytes(s, "ascii")
+    strict_compare = True
 
 def size_of_int():
     BInt = new_primitive_type("int")
@@ -95,11 +97,11 @@ def test_cast_to_signed_char():
     x = cast(p, -66 + (1<<199)*256)
     assert repr(x) == "<cdata 'signed char' -66>"
     assert int(x) == -66
-    assert (x == cast(p, -66)) is False
-    assert (x != cast(p, -66)) is True
+    assert (x == cast(p, -66)) is True
+    assert (x != cast(p, -66)) is False
     q = new_primitive_type("short")
-    assert (x == cast(q, -66)) is False
-    assert (x != cast(q, -66)) is True
+    assert (x == cast(q, -66)) is True
+    assert (x != cast(q, -66)) is False
 
 def test_sizeof_type():
     py.test.raises(TypeError, sizeof, 42.5)
@@ -164,7 +166,7 @@ def test_float_types():
             assert float(cast(p, 1.1)) != 1.1     # rounding error
             assert float(cast(p, 1E200)) == INF   # limited range
 
-        assert cast(p, -1.1) != cast(p, -1.1)
+        assert cast(p, -1.1) == cast(p, -1.1)
         assert repr(float(cast(p, -0.0))) == '-0.0'
         assert float(cast(p, b'\x09')) == 9.0
         assert float(cast(p, u+'\x09')) == 9.0
@@ -208,7 +210,7 @@ def test_character_type():
     p = new_primitive_type("char")
     assert bool(cast(p, 'A')) is True
     assert bool(cast(p, '\x00')) is False    # since 1.7
-    assert cast(p, '\x00') != cast(p, -17*256)
+    assert cast(p, '\x00') == cast(p, -17*256)
     assert int(cast(p, 'A')) == 65
     assert long(cast(p, 'A')) == 65
     assert type(int(cast(p, 'A'))) is int
@@ -370,23 +372,6 @@ def test_load_standard_library():
     # the next one is from 'libm', not 'libc', but we assume
     # that it is already loaded too, so it should work
     assert x.load_function(BVoidP, 'sqrt')
-
-def test_hash_differences():
-    BChar = new_primitive_type("char")
-    BInt = new_primitive_type("int")
-    BFloat = new_primitive_type("float")
-    for i in range(1, 20):
-        x1 = cast(BChar, chr(i))
-        x2 = cast(BInt, i)
-        if hash(x1) != hash(x2):
-            break
-    else:
-        raise AssertionError("hashes are equal")
-    for i in range(1, 20):
-        if hash(cast(BFloat, i)) != hash(float(i)):
-            break
-    else:
-        raise AssertionError("hashes are equal")
 
 def test_no_len_on_nonarray():
     p = new_primitive_type("int")
@@ -2250,12 +2235,17 @@ def test_cmp():
     BVoidP = new_pointer_type(new_void_type())
     p = newp(BIntP, 123)
     q = cast(BInt, 124)
-    py.test.raises(TypeError, "p < q")
-    py.test.raises(TypeError, "p <= q")
     assert (p == q) is False
     assert (p != q) is True
-    py.test.raises(TypeError, "p > q")
-    py.test.raises(TypeError, "p >= q")
+    assert (q == p) is False
+    assert (q != p) is True
+    if strict_compare:
+        py.test.raises(TypeError, "p < q")
+        py.test.raises(TypeError, "p <= q")
+        py.test.raises(TypeError, "q < p")
+        py.test.raises(TypeError, "q <= p")
+        py.test.raises(TypeError, "p > q")
+        py.test.raises(TypeError, "p >= q")
     r = cast(BVoidP, p)
     assert (p <  r) is False
     assert (p <= r) is True
@@ -3829,3 +3819,87 @@ def test_char_pointer_conversion():
         assert len(w) == 2
     # check that the warnings are associated with lines in this file
     assert w[1].lineno == w[0].lineno + 4
+
+def test_primitive_comparison():
+    def assert_eq(a, b):
+        assert (a == b) is True
+        assert (b == a) is True
+        assert (a != b) is False
+        assert (b != a) is False
+        assert (a < b) is False
+        assert (a <= b) is True
+        assert (a > b) is False
+        assert (a >= b) is True
+        assert (b < a) is False
+        assert (b <= a) is True
+        assert (b > a) is False
+        assert (b >= a) is True
+        assert hash(a) == hash(b)
+    def assert_lt(a, b, check_hash=True):
+        assert (a == b) is False
+        assert (b == a) is False
+        assert (a != b) is True
+        assert (b != a) is True
+        assert (a < b) is True
+        assert (a <= b) is True
+        assert (a > b) is False
+        assert (a >= b) is False
+        assert (b < a) is False
+        assert (b <= a) is False
+        assert (b > a) is True
+        assert (b >= a) is True
+        if check_hash:
+            assert hash(a) != hash(b)    # (or at least, it is unlikely)
+    def assert_gt(a, b, check_hash=True):
+        assert_lt(b, a, check_hash)
+    def assert_ne(a, b):
+        assert (a == b) is False
+        assert (b == a) is False
+        assert (a != b) is True
+        assert (b != a) is True
+        if strict_compare:
+            py.test.raises(TypeError, "a < b")
+            py.test.raises(TypeError, "a <= b")
+            py.test.raises(TypeError, "a > b")
+            py.test.raises(TypeError, "a >= b")
+            py.test.raises(TypeError, "b < a")
+            py.test.raises(TypeError, "b <= a")
+            py.test.raises(TypeError, "b > a")
+            py.test.raises(TypeError, "b >= a")
+        elif a < b:
+            assert_lt(a, b)
+        else:
+            assert_lt(b, a)
+    assert_eq(5, 5)
+    assert_lt(3, 5)
+    assert_ne('5', 5)
+    #
+    t1 = new_primitive_type("char")
+    t2 = new_primitive_type("int")
+    t3 = new_primitive_type("unsigned char")
+    t4 = new_primitive_type("unsigned int")
+    t5 = new_primitive_type("float")
+    t6 = new_primitive_type("double")
+    assert_eq(cast(t1, 65), b'A')
+    assert_lt(cast(t1, 64), b'\x99')
+    assert_gt(cast(t1, 200), b'A')
+    assert_ne(cast(t1, 65), 65)
+    assert_eq(cast(t2, -25), -25)
+    assert_lt(cast(t2, -25), -24)
+    assert_gt(cast(t2, -25), -26)
+    assert_eq(cast(t3, 65), 65)
+    assert_ne(cast(t3, 65), b'A')
+    assert_ne(cast(t3, 65), cast(t1, 65))
+    assert_gt(cast(t4, -1), -1, check_hash=False)
+    assert_gt(cast(t4, -1), cast(t2, -1), check_hash=False)
+    assert_gt(cast(t4, -1), 99999)
+    assert_eq(cast(t4, -1), 256 ** size_of_int() - 1)
+    assert_eq(cast(t5, 3.0), 3)
+    assert_eq(cast(t5, 3.5), 3.5)
+    assert_lt(cast(t5, 3.3), 3.3)   # imperfect rounding
+    assert_eq(cast(t6, 3.3), 3.3)
+    assert_eq(cast(t5, 3.5), cast(t6, 3.5))
+    assert_lt(cast(t5, 3.1), cast(t6, 3.1))   # imperfect rounding
+    assert_eq(cast(t5, 7.0), cast(t3, 7))
+    assert_lt(cast(t5, 3.1), 3.101)
+    assert_gt(cast(t5, 3.1), 3)

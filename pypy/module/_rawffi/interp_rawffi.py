@@ -99,8 +99,8 @@ def letter2tp(space, key):
 
 def unpack_simple_shape(space, w_shape):
     # 'w_shape' must be either a letter or a tuple (struct, 1).
-    if space.isinstance_w(w_shape, space.w_str):
-        letter = space.str_w(w_shape)
+    if space.isinstance_w(w_shape, space.w_text):
+        letter = space.text_w(w_shape)
         return letter2tp(space, letter)
     else:
         w_shapetype, w_length = space.fixedview(w_shape, expected_length=2)
@@ -110,8 +110,8 @@ def unpack_simple_shape(space, w_shape):
 def unpack_shape_with_length(space, w_shape):
     # Allow 'w_shape' to be a letter or any (shape, number).
     # The result is always a W_Array.
-    if space.isinstance_w(w_shape, space.w_str):
-        letter = space.str_w(w_shape)
+    if space.isinstance_w(w_shape, space.w_text):
+        letter = space.text_w(w_shape)
         return letter2tp(space, letter)
     else:
         w_shapetype, w_length = space.fixedview(w_shape, expected_length=2)
@@ -163,10 +163,13 @@ class W_CDLL(W_Root):
         and restype
         """
         resshape = unpack_resshape(space, w_restype)
-        w = space.wrap
+        if resshape is None:
+            w_resshape = space.w_None
+        else:
+            w_resshape = resshape
         argtypes_w = space.fixedview(w_argtypes)
         w_argtypes = space.newtuple(argtypes_w)
-        w_key = space.newtuple([w_name, w_argtypes, w(resshape)])
+        w_key = space.newtuple([w_name, w_argtypes, w_resshape])
         try:
             return space.getitem(self.w_cache, w_key)
         except OperationError as e:
@@ -183,8 +186,8 @@ class W_CDLL(W_Root):
         else:
             ffi_restype = ffi_type_void
 
-        if space.isinstance_w(w_name, space.w_str):
-            name = space.str_w(w_name)
+        if space.isinstance_w(w_name, space.w_text):
+            name = space.text_w(w_name)
 
             try:
                 ptr = self.cdll.getrawpointer(name, ffi_argtypes, ffi_restype,
@@ -215,14 +218,14 @@ class W_CDLL(W_Root):
         space.setitem(self.w_cache, w_key, w_funcptr)
         return w_funcptr
 
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='text')
     def getaddressindll(self, space, name):
         try:
             address_as_uint = rffi.cast(lltype.Unsigned,
                                         self.cdll.getaddressindll(name))
         except KeyError:
             raise oefmt(space.w_ValueError, "Cannot find symbol %s", name)
-        return space.wrap(address_as_uint)
+        return space.newint(address_as_uint)
 
 def open_cdll(space, name):
     try:
@@ -232,17 +235,18 @@ def open_cdll(space, name):
     except OSError as e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(name='str_or_None')
+@unwrap_spec(name='fsencode_or_none')
 def descr_new_cdll(space, w_type, name):
     cdll = open_cdll(space, name)
-    return space.wrap(W_CDLL(space, name, cdll))
+    return W_CDLL(space, name, cdll)
 
 W_CDLL.typedef = TypeDef(
     'CDLL',
     __new__     = interp2app(descr_new_cdll),
     ptr         = interp2app(W_CDLL.ptr),
     getaddressindll = interp2app(W_CDLL.getaddressindll),
-    name        = interp_attrproperty('name', W_CDLL),
+    name        = interp_attrproperty('name', W_CDLL,
+        wrapfn="newtext_or_none"),
     __doc__     = """ C Dynamically loaded library
 use CDLL(libname) to create a handle to a C library (the argument is processed
 the same way as dlopen processes it). On such a library you can call:
@@ -304,8 +308,8 @@ def write_ptr(ptr, ofs, value):
 
 def segfault_exception(space, reason):
     w_mod = space.getbuiltinmodule("_rawffi")
-    w_exception = space.getattr(w_mod, space.wrap("SegfaultException"))
-    return OperationError(w_exception, space.wrap(reason))
+    w_exception = space.getattr(w_mod, space.newtext("SegfaultException"))
+    return OperationError(w_exception, space.newtext(reason))
 
 class W_DataShape(W_Root):
     _array_shapes = None
@@ -325,8 +329,8 @@ class W_DataShape(W_Root):
 
     @unwrap_spec(n=int)
     def descr_size_alignment(self, space, n=1):
-        return space.newtuple([space.wrap(self.size * n),
-                               space.wrap(self.alignment)])
+        return space.newtuple([space.newint(self.size * n),
+                               space.newint(self.alignment)])
 
 
 class W_DataInstance(W_Root):
@@ -342,7 +346,7 @@ class W_DataInstance(W_Root):
         self._ll_buffer = self.ll_buffer
 
     def getbuffer(self, space):
-        return space.wrap(rffi.cast(lltype.Unsigned, self.ll_buffer))
+        return space.newint(rffi.cast(lltype.Unsigned, self.ll_buffer))
 
     def buffer_advance(self, n):
         self.ll_buffer = rffi.ptradd(self.ll_buffer, n)
@@ -350,8 +354,8 @@ class W_DataInstance(W_Root):
     def byptr(self, space):
         from pypy.module._rawffi.array import ARRAY_OF_PTRS
         array = ARRAY_OF_PTRS.allocate(space, 1)
-        array.setitem(space, 0, space.wrap(self))
-        return space.wrap(array)
+        array.setitem(space, 0, self)
+        return array
 
     def free(self, space):
         if not self._ll_buffer:
@@ -404,7 +408,7 @@ def unwrap_value(space, push_func, add_arg, argdesc, letter, w_arg):
         push_func(add_arg, argdesc, rffi.cast(rffi.LONGDOUBLE,
                                               space.float_w(w_arg)))
     elif letter == "c":
-        s = space.str_w(w_arg)
+        s = space.bytes_w(w_arg)
         if len(s) != 1:
             raise oefmt(space.w_TypeError,
                         "Expected string of length one as character")
@@ -436,11 +440,17 @@ def wrap_value(space, func, add_arg, argdesc, letter):
         if letter == c:
             if c in TYPEMAP_PTR_LETTERS:
                 res = func(add_arg, argdesc, rffi.VOIDP)
-                return space.wrap(rffi.cast(lltype.Unsigned, res))
+                return space.newint(rffi.cast(lltype.Unsigned, res))
+            if c in TYPEMAP_NUMBER_LETTERS:
+                return space.newint(func(add_arg, argdesc, ll_type))
+            elif c == 'c':
+                return space.newbytes(func(add_arg, argdesc, ll_type))
+            elif c == 'u':
+                return space.newunicode(func(add_arg, argdesc, ll_type))
             elif c == 'f' or c == 'd' or c == 'g':
-                return space.wrap(float(func(add_arg, argdesc, ll_type)))
+                return space.newfloat(float(func(add_arg, argdesc, ll_type)))
             else:
-                return space.wrap(func(add_arg, argdesc, ll_type))
+                assert 0, "unreachable"
     raise oefmt(space.w_TypeError, "cannot directly read value")
 
 NARROW_INTEGER_TYPES = 'cbhiBIH?'
@@ -458,7 +468,7 @@ class W_FuncPtr(W_Root):
             self.narrow_integer = is_narrow_integer_type(resshape.itemcode.lower())
 
     def getbuffer(self, space):
-        return space.wrap(rffi.cast(lltype.Unsigned, self.ptr.funcsym))
+        return space.newint(rffi.cast(lltype.Unsigned, self.ptr.funcsym))
 
     def byptr(self, space):
         from pypy.module._rawffi.array import ARRAY_OF_PTRS
@@ -468,7 +478,7 @@ class W_FuncPtr(W_Root):
             # XXX this is needed, because functions tend to live forever
             #     hence our testing is not performing that well
             del tracker.alloced[rffi.cast(lltype.Signed, array.ll_buffer)]
-        return space.wrap(array)
+        return array
 
     def call(self, space, args_w):
         from pypy.module._rawffi.array import W_ArrayInstance
@@ -519,12 +529,12 @@ class W_FuncPtr(W_Root):
                     # we get a 8 byte value in big endian
                     n = rffi.sizeof(lltype.Signed) - result.shape.size
                     result.buffer_advance(n)
-                return space.wrap(result)
+                return result
             else:
                 self.ptr.call(args_ll, lltype.nullptr(rffi.VOIDP.TO))
                 return space.w_None
         except StackCheckError as e:
-            raise OperationError(space.w_ValueError, space.wrap(e.message))
+            raise OperationError(space.w_ValueError, space.newtext(e.message))
 
 @unwrap_spec(addr=r_uint, flags=int)
 def descr_new_funcptr(space, w_tp, addr, w_args, w_res, flags=FUNCFLAG_CDECL):
@@ -540,7 +550,7 @@ def descr_new_funcptr(space, w_tp, addr, w_args, w_res, flags=FUNCFLAG_CDECL):
                          flags)
     except LibFFIError:
         raise got_libffi_error(space)
-    return space.wrap(W_FuncPtr(space, ptr, argshapes, resshape))
+    return W_FuncPtr(space, ptr, argshapes, resshape)
 
 W_FuncPtr.typedef = TypeDef(
     'FuncPtr',
@@ -552,13 +562,13 @@ W_FuncPtr.typedef = TypeDef(
 W_FuncPtr.typedef.acceptable_as_base_class = False
 
 def _create_new_accessor(func_name, name):
-    @unwrap_spec(tp_letter=str)
+    @unwrap_spec(tp_letter='text')
     def accessor(space, tp_letter):
         if len(tp_letter) != 1:
             raise oefmt(space.w_ValueError, "Expecting string of length one")
         tp_letter = tp_letter[0] # fool annotator
         try:
-            return space.wrap(intmask(getattr(TYPEMAP[tp_letter], name)))
+            return space.newint(intmask(getattr(TYPEMAP[tp_letter], name)))
         except KeyError:
             raise oefmt(space.w_ValueError, "Unknown type specification %s",
                         tp_letter)
@@ -587,7 +597,7 @@ def wcharp2unicode(space, address, maxlength=-1):
         s = rffi.wcharp2unicode(wcharp_addr)
     else:
         s = rffi.wcharp2unicoden(wcharp_addr, maxlength)
-    return space.wrap(s)
+    return space.newunicode(s)
 
 @unwrap_spec(address=r_uint, maxlength=int)
 def charp2rawstring(space, address, maxlength=-1):
@@ -601,7 +611,7 @@ def wcharp2rawunicode(space, address, maxlength=-1):
     if maxlength == -1:
         return wcharp2unicode(space, address)
     s = rffi.wcharpsize2unicode(rffi.cast(rffi.CWCHARP, address), maxlength)
-    return space.wrap(s)
+    return space.newunicode(s)
 
 @unwrap_spec(address=r_uint, newcontent='bufferstr')
 def rawstring2charp(space, address, newcontent):
@@ -613,21 +623,21 @@ def rawstring2charp(space, address, newcontent):
 if _MS_WINDOWS:
     @unwrap_spec(code=int)
     def FormatError(space, code):
-        return space.wrap(rwin32.FormatError(code))
+        return space.newtext(rwin32.FormatError(code))
 
     @unwrap_spec(hresult=int)
     def check_HRESULT(space, hresult):
         if rwin32.FAILED(hresult):
-            raise OperationError(space.w_WindowsError, space.wrap(hresult))
-        return space.wrap(hresult)
+            raise OperationError(space.w_WindowsError, space.newint(hresult))
+        return space.newint(hresult)
 
 def get_libc(space):
     name = get_libc_name()
     cdll = open_cdll(space, name)
-    return space.wrap(W_CDLL(space, name, cdll))
+    return W_CDLL(space, name, cdll)
 
 def get_errno(space):
-    return space.wrap(rposix.get_saved_alterrno())
+    return space.newint(rposix.get_saved_alterrno())
 
 def set_errno(space, w_errno):
     rposix.set_saved_alterrno(space.int_w(w_errno))
@@ -636,7 +646,7 @@ if sys.platform == 'win32':
     # see also
     # https://bitbucket.org/pypy/pypy/issue/1944/ctypes-on-windows-getlasterror
     def get_last_error(space):
-        return space.wrap(rwin32.GetLastError_alt_saved())
+        return space.newint(rwin32.GetLastError_alt_saved())
     @unwrap_spec(error=int)
     def set_last_error(space, error):
         rwin32.SetLastError_alt_saved(error)
@@ -644,7 +654,7 @@ else:
     # always have at least a dummy version of these functions
     # (https://bugs.pypy.org/issue1242)
     def get_last_error(space):
-        return space.wrap(0)
+        return space.newint(0)
     @unwrap_spec(error=int)
     def set_last_error(space, error):
         pass

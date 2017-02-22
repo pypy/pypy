@@ -19,10 +19,10 @@ def syntax_warning(space, msg, fn, lineno, offset):
 
     If the user has set this warning to raise an error, a SyntaxError will be
     raised."""
-    w_msg = space.wrap(msg)
-    w_filename = space.wrap(fn)
-    w_lineno = space.wrap(lineno)
-    w_offset = space.wrap(offset)
+    w_msg = space.newtext(msg)
+    w_filename = space.newtext(fn)
+    w_lineno = space.newint(lineno)
+    w_offset = space.newint(offset)
     _emit_syntax_warning(space, w_msg, w_filename, w_lineno, w_offset)
 
 
@@ -110,9 +110,9 @@ def mangle(name, klass):
 
 def intern_if_common_string(space, w_const):
     # only intern identifier-like strings
-    if not space.is_w(space.type(w_const), space.w_str):
+    if not space.is_w(space.type(w_const), space.w_text):
         return w_const
-    for c in space.str_w(w_const):
+    for c in space.text_w(w_const):
         if not (c.isalnum() or c == '_'):
             return w_const
     return space.new_interned_w_str(w_const)

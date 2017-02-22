@@ -363,7 +363,7 @@ def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords,
     i = 0
     for w_key in keys_w:
         try:
-            key = space.str_w(w_key)
+            key = space.text_w(w_key)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 raise oefmt(space.w_TypeError, "keywords must be strings")
@@ -547,11 +547,11 @@ class ArgErrUnknownKwds(ArgErr):
                         except IndexError:
                             name = '?'
                         else:
-                            w_enc = space.wrap(space.sys.defaultencoding)
-                            w_err = space.wrap("replace")
+                            w_enc = space.newtext(space.sys.defaultencoding)
+                            w_err = space.newtext("replace")
                             w_name = space.call_method(w_name, "encode", w_enc,
                                                        w_err)
-                            name = space.str_w(w_name)
+                            name = space.text_w(w_name)
                     break
         self.kwd_name = name
 

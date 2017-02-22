@@ -80,7 +80,7 @@ class PackFormatIterator(FormatIterator):
                 else:
                     msg = "integer argument expected, got non-integer" \
                           " (implicit conversion using __int__ is deprecated)"
-                space.warn(space.wrap(msg), space.w_DeprecationWarning)
+                space.warn(space.newtext(msg), space.w_DeprecationWarning)
                 w_index = space.int(w_obj)   # wrapped float -> wrapped int or long
             if w_index is None:
                 raise StructError("cannot convert argument to integer")
@@ -98,7 +98,7 @@ class PackFormatIterator(FormatIterator):
 
     def accept_str_arg(self):
         w_obj = self.accept_obj_arg()
-        return self.space.str_w(w_obj)
+        return self.space.bytes_w(w_obj)
 
     def accept_unicode_arg(self):
         w_obj = self.accept_obj_arg()
@@ -151,18 +151,32 @@ class UnpackFormatIterator(FormatIterator):
     @specialize.argtype(1)
     def appendobj(self, value):
         # CPython tries hard to return int objects whenever it can, but
-        # space.wrap returns a long if we pass a r_uint, r_ulonglong or
+        # space.newint returns a long if we pass a r_uint, r_ulonglong or
         # r_longlong. So, we need special care in those cases.
         is_unsigned = (isinstance(value, r_uint) or
                        isinstance(value, r_ulonglong))
-        if is_unsigned and value <= maxint:
-            w_value = self.space.wrap(intmask(value))
-        elif isinstance(value, r_longlong) and -maxint-1 <= value <= maxint:
-            w_value = self.space.wrap(intmask(value))
+        if is_unsigned:
+            if value <= maxint:
+                w_value = self.space.newint(intmask(value))
+            else:
+                w_value = self.space.newint(value)
+        elif isinstance(value, r_longlong):
+            if value == r_longlong(intmask(value)):
+                w_value = self.space.newint(intmask(value))
+            else:
+                w_value = self.space.newint(value)
+        elif isinstance(value, bool):
+            w_value = self.space.newbool(value)
+        elif isinstance(value, int):
+            w_value = self.space.newint(value)
+        elif isinstance(value, float):
+            w_value = self.space.newfloat(value)
+        elif isinstance(value, str):
+            w_value = self.space.newbytes(value)
+        elif isinstance(value, unicode):
+            w_value = self.space.newunicode(value)
         else:
-            # generic type, just use space.wrap
-            w_value = self.space.wrap(value)
-        #
+            assert 0, "unreachable"
         self.result_w.append(w_value)
 
     def get_pos(self):

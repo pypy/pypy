@@ -36,9 +36,9 @@ class W_Library(W_Root):
 
     def repr(self):
         space = self.space
-        return space.wrap("<clibrary '%s'>" % self.name)
+        return space.newtext("<clibrary '%s'>" % self.name)
 
-    @unwrap_spec(w_ctype=W_CType, name=str)
+    @unwrap_spec(w_ctype=W_CType, name='text')
     def load_function(self, w_ctype, name):
         from pypy.module._cffi_backend import ctypeptr, ctypearray
         space = self.space
@@ -58,7 +58,7 @@ class W_Library(W_Root):
             w_ctype = w_ctype.ctptr
         return W_CData(space, rffi.cast(rffi.CCHARP, cdata), w_ctype)
 
-    @unwrap_spec(w_ctype=W_CType, name=str)
+    @unwrap_spec(w_ctype=W_CType, name='text')
     def read_variable(self, w_ctype, name):
         space = self.space
         try:
@@ -69,7 +69,7 @@ class W_Library(W_Root):
                         name, self.name)
         return w_ctype.convert_to_object(rffi.cast(rffi.CCHARP, cdata))
 
-    @unwrap_spec(w_ctype=W_CType, name=str)
+    @unwrap_spec(w_ctype=W_CType, name='text')
     def write_variable(self, w_ctype, name, w_value):
         space = self.space
         try:
@@ -91,7 +91,7 @@ W_Library.typedef = TypeDef(
 W_Library.typedef.acceptable_as_base_class = False
 
 
-@unwrap_spec(filename="str_or_None", flags=int)
+@unwrap_spec(filename="fsencode_or_none", flags=int)
 def load_library(space, filename, flags=0):
     lib = W_Library(space, filename, flags)
-    return space.wrap(lib)
+    return lib

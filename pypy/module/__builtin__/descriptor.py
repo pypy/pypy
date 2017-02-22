@@ -28,7 +28,7 @@ class W_Super(W_Root):
             objtype_name = "<%s object>" % self.w_objtype.getname(space)
         else:
             objtype_name = 'NULL'
-        return space.wrap("<super: <class '%s'>, %s>" % (
+        return space.newtext("<super: <class '%s'>, %s>" % (
             self.w_starttype.getname(space), objtype_name))
 
     def get(self, space, w_obj, w_type=None):
@@ -41,7 +41,7 @@ class W_Super(W_Root):
             return space.call_function(w_selftype, self.w_starttype, w_obj)
 
     def getattribute(self, space, w_name):
-        name = space.str_w(w_name)
+        name = space.text_w(w_name)
         # only use a special logic for bound super objects and not for
         # getting the __class__ of the super object itself.
         if self.w_objtype is not None and name != '__class__':
@@ -77,7 +77,7 @@ def _super_check(space, w_starttype, w_obj_or_type):
         return w_objtype
 
     try:
-        w_type = space.getattr(w_obj_or_type, space.wrap('__class__'))
+        w_type = space.getattr(w_obj_or_type, space.newtext('__class__'))
     except OperationError as e:
         if not e.match(space, space.w_AttributeError):
             raise
@@ -130,12 +130,12 @@ class W_Property(W_Root):
         # our __doc__ comes from the getter if we don't have an explicit one
         if (space.is_w(self.w_doc, space.w_None) and
             not space.is_w(self.w_fget, space.w_None)):
-            w_getter_doc = space.findattr(self.w_fget, space.wrap('__doc__'))
+            w_getter_doc = space.findattr(self.w_fget, space.newtext('__doc__'))
             if w_getter_doc is not None:
                 if type(self) is W_Property:
                     self.w_doc = w_getter_doc
                 else:
-                    space.setattr(self, space.wrap('__doc__'), w_getter_doc)
+                    space.setattr(self, space.newtext('__doc__'), w_getter_doc)
                 self.getter_doc = True
 
     def get(self, space, w_obj, w_objtype=None):

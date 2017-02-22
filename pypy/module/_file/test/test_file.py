@@ -12,7 +12,7 @@ def getfile(space):
     """)
 
 # the following function is used e.g. in test_resource_warning
-@unwrap_spec(regex=str, s=str)
+@unwrap_spec(regex='text', s='text')
 def regex_search(space, regex, s):
     import re
     import textwrap

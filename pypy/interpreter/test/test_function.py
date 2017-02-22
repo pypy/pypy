@@ -649,7 +649,7 @@ class TestMethod:
         assert meth4.call_args(args) == obj2
         # Check method returned from unbound_method.__get__()
         # --- with an incompatible class
-        w_meth5 = meth3.descr_method_get(space.wrap('hello'), space.w_str)
+        w_meth5 = meth3.descr_method_get(space.wrap('hello'), space.w_text)
         assert space.is_w(w_meth5, w_meth3)
         # Same thing, with an old-style class
         w_oldclass = space.call_function(
@@ -660,7 +660,7 @@ class TestMethod:
         # Reverse order of old/new styles
         w_meth7 = descr_function_get(space, func, space.w_None, w_oldclass)
         meth7 = space.unwrap(w_meth7)
-        w_meth8 = meth7.descr_method_get(space.wrap('hello'), space.w_str)
+        w_meth8 = meth7.descr_method_get(space.wrap('hello'), space.w_text)
         assert space.is_w(w_meth8, w_meth7)
 
 class TestShortcuts(object):

@@ -202,7 +202,7 @@ class W_DictMultiObject(W_Root):
     descr_ge = negate(descr_lt)
 
     def descr_len(self, space):
-        return space.wrap(self.length())
+        return space.newint(self.length())
 
     def descr_iter(self, space):
         return W_DictMultiIterKeysObject(space, self.iterkeys())
@@ -987,7 +987,7 @@ class AbstractTypedStrategy(object):
 
     def setitem_str(self, w_dict, key, w_value):
         self.switch_to_object_strategy(w_dict)
-        w_dict.setitem(self.space.wrap(key), w_value)
+        w_dict.setitem(self.space.newtext(key), w_value)
 
     def setdefault(self, w_dict, w_key, w_default):
         if self.is_correct_type(w_key):
@@ -1009,7 +1009,7 @@ class AbstractTypedStrategy(object):
         return len(self.unerase(w_dict.dstorage))
 
     def getitem_str(self, w_dict, key):
-        return self.getitem(w_dict, self.space.wrap(key))
+        return self.getitem(w_dict, self.space.newtext(key))
 
     def getitem(self, w_dict, w_key):
         space = self.space
@@ -1127,7 +1127,7 @@ class ObjectDictStrategy(AbstractTypedStrategy, DictStrategy):
         return self.space.newlist(self.unerase(w_dict.dstorage).keys())
 
     def setitem_str(self, w_dict, s, w_value):
-        self.setitem(w_dict, self.space.wrap(s), w_value)
+        self.setitem(w_dict, self.space.newtext(s), w_value)
 
     def switch_to_object_strategy(self, w_dict):
         assert 0, "should be unreachable"
@@ -1141,14 +1141,14 @@ class BytesDictStrategy(AbstractTypedStrategy, DictStrategy):
     unerase = staticmethod(unerase)
 
     def wrap(self, unwrapped):
-        return self.space.wrap(unwrapped)
+        return self.space.newbytes(unwrapped)
 
     def unwrap(self, wrapped):
-        return self.space.str_w(wrapped)
+        return self.space.bytes_w(wrapped)
 
     def is_correct_type(self, w_obj):
         space = self.space
-        return space.is_w(space.type(w_obj), space.w_str)
+        return space.is_w(space.type(w_obj), space.w_bytes)
 
     def get_empty_storage(self):
         res = {}
@@ -1181,7 +1181,7 @@ class BytesDictStrategy(AbstractTypedStrategy, DictStrategy):
         return self.space.newlist_bytes(self.listview_bytes(w_dict))
 
     def wrapkey(space, key):
-        return space.wrap(key)
+        return space.newbytes(key)
 
     @jit.look_inside_iff(lambda self, w_dict:
                          w_dict_unrolling_heuristic(w_dict))
@@ -1205,7 +1205,7 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
     unerase = staticmethod(unerase)
 
     def wrap(self, unwrapped):
-        return self.space.wrap(unwrapped)
+        return self.space.newunicode(unwrapped)
 
     def unwrap(self, wrapped):
         return self.space.unicode_w(wrapped)
@@ -1247,7 +1247,7 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
     ##     return self.space.newlist_bytes(self.listview_bytes(w_dict))
 
     def wrapkey(space, key):
-        return space.wrap(key)
+        return space.newunicode(key)
 
     ## @jit.look_inside_iff(lambda self, w_dict:
     ##                      w_dict_unrolling_heuristic(w_dict))
@@ -1271,7 +1271,7 @@ class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
     unerase = staticmethod(unerase)
 
     def wrap(self, unwrapped):
-        return self.space.wrap(unwrapped)
+        return self.space.newint(unwrapped)
 
     def unwrap(self, wrapped):
         return self.space.int_w(wrapped)
@@ -1287,7 +1287,7 @@ class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
         space = self.space
         # XXX there are many more types
         return (space.is_w(w_lookup_type, space.w_NoneType) or
-                space.is_w(w_lookup_type, space.w_str) or
+                space.is_w(w_lookup_type, space.w_bytes) or
                 space.is_w(w_lookup_type, space.w_unicode)
                 )
 
@@ -1295,7 +1295,7 @@ class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
         return self.unerase(w_dict.dstorage).keys()
 
     def wrapkey(space, key):
-        return space.wrap(key)
+        return space.newint(key)
 
     def w_keys(self, w_dict):
         return self.space.newlist_int(self.listview_int(w_dict))
@@ -1307,7 +1307,7 @@ def update1(space, w_dict, w_data):
     if isinstance(w_data, W_DictMultiObject):    # optimization case only
         update1_dict_dict(space, w_dict, w_data)
         return
-    w_method = space.findattr(w_data, space.wrap("keys"))
+    w_method = space.findattr(w_data, space.newtext("keys"))
     if w_method is None:
         # no 'keys' method, so we assume it is a sequence of pairs
         data_w = space.listview(w_data)
@@ -1388,7 +1388,7 @@ class W_BaseDictMultiIterObject(W_Root):
         return self
 
     def descr_length_hint(self, space):
-        return space.wrap(self.iteratorimplementation.length())
+        return space.newint(self.iteratorimplementation.length())
 
     def descr_reduce(self, space):
         """
@@ -1505,8 +1505,8 @@ class W_DictViewObject(W_Root):
     def descr_repr(self, space):
         w_seq = space.call_function(space.w_list, self)
         w_repr = space.repr(w_seq)
-        return space.wrap("%s(%s)" % (space.type(self).getname(space),
-                                      space.str_w(w_repr)))
+        return space.newtext("%s(%s)" % (space.type(self).getname(space),
+                                         space.text_w(w_repr)))
 
     def descr_len(self, space):
         return space.len(self.w_dict)
@@ -1585,9 +1585,25 @@ class W_DictViewItemsObject(W_DictViewObject, SetLikeDictView):
     def descr_iter(self, space):
         return W_DictMultiIterItemsObject(space, self.w_dict.iteritems())
 
+    def descr_contains(self, space, w_item):
+        if not space.isinstance_w(w_item, space.w_tuple):
+            return space.w_False
+        try:
+            w_key, w_value = space.fixedview_unroll(w_item, 2)
+            w_found = self.w_dict.getitem(w_key)
+        except OperationError as e:
+            if e.async(space):
+                raise
+            w_found = None
+        if w_found is None:
+            return space.w_False
+        return space.eq(w_value, w_found)
+
 class W_DictViewKeysObject(W_DictViewObject, SetLikeDictView):
     def descr_iter(self, space):
         return W_DictMultiIterKeysObject(space, self.w_dict.iterkeys())
+    def descr_contains(self, space, w_key):
+        return self.w_dict.descr_contains(space, w_key)
 
 class W_DictViewValuesObject(W_DictViewObject):
     def descr_iter(self, space):
@@ -1598,6 +1614,7 @@ W_DictViewItemsObject.typedef = TypeDef(
     __repr__ = interp2app(W_DictViewItemsObject.descr_repr),
     __len__ = interp2app(W_DictViewItemsObject.descr_len),
     __iter__ = interp2app(W_DictViewItemsObject.descr_iter),
+    __contains__ = interp2app(W_DictViewItemsObject.descr_contains),
 
     __eq__ = interp2app(W_DictViewItemsObject.descr_eq),
     __ne__ = interp2app(W_DictViewItemsObject.descr_ne),
@@ -1621,6 +1638,7 @@ W_DictViewKeysObject.typedef = TypeDef(
     __repr__ = interp2app(W_DictViewKeysObject.descr_repr),
     __len__ = interp2app(W_DictViewKeysObject.descr_len),
     __iter__ = interp2app(W_DictViewKeysObject.descr_iter),
+    __contains__ = interp2app(W_DictViewKeysObject.descr_contains),
 
     __eq__ = interp2app(W_DictViewKeysObject.descr_eq),
     __ne__ = interp2app(W_DictViewKeysObject.descr_ne),

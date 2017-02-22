@@ -14,7 +14,7 @@ class AppTestPYTHONIFY:
     spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
-        cls.w_test_dct  = cls.space.wrap(test_dct)
+        cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_example01 = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))
@@ -374,7 +374,7 @@ class AppTestPYTHONIFY_UI:
     spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
-        cls.w_test_dct  = cls.space.wrap(test_dct)
+        cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_example01 = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))

@@ -26,7 +26,7 @@ def slot_tp_hash(space, w_obj):
 
 @slot_function([PyObject, Py_ssize_t], PyObject)
 def slot_sq_item(space, w_obj, index):
-    return space.getitem(w_obj, space.wrap(index))
+    return space.getitem(w_obj, space.newint(index))
 
 @slot_function([PyTypeObjectPtr, PyObject, PyObject], PyObject)
 def slot_tp_new(space, w_type, w_args, w_kwds):
@@ -39,12 +39,12 @@ def slot_tp_new(space, w_type, w_args, w_kwds):
     #     we know (since we are in this function) that self is not a cpytype
     from pypy.module.cpyext.typeobject import W_PyCTypeObject
     w_type0 = w_type
-    mro_w = space.listview(space.getattr(w_type0, space.wrap('__mro__')))
+    mro_w = space.listview(space.getattr(w_type0, space.newtext('__mro__')))
     for w_m in mro_w[1:]:
         if not w_type0.is_cpytype():
             break
         w_type0 = w_m
-    w_impl = space.getattr(w_type0, space.wrap('__new__'))
+    w_impl = space.getattr(w_type0, space.newtext('__new__'))
     args = Arguments(space, [w_type],
                      w_stararg=w_args, w_starstararg=w_kwds)
     return space.call_args(w_impl, args)

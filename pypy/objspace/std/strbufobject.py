@@ -44,7 +44,7 @@ class W_StringBufferObject(W_AbstractBytesObject):
         return StringBuffer(self.force())
 
     def descr_len(self, space):
-        return space.wrap(self.length)
+        return space.newint(self.length)
 
     def descr_add(self, space, w_other):
         try:
