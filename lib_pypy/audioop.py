@@ -104,6 +104,10 @@ def _get_maxval(size, signed=True):
         return 0x7fff
     elif size == 2:
         return 0xffff
+    elif signed and size == 3:
+        return 0x7fffff
+    elif size == 3:
+        return 0xffffff
     elif signed and size == 4:
         return 0x7fffffff
     elif size == 4:
@@ -117,6 +121,8 @@ def _get_minval(size, signed=True):
         return -0x80
     elif size == 2:
         return -0x8000
+    elif size == 3:
+        return -0x800000
     elif size == 4:
         return -0x80000000
 
@@ -474,10 +480,14 @@ def lin2lin(cp, size, size2):
             sample <<= 24
         elif size == 2:
             sample <<= 16
+        elif size == 3:
+            sample <<= 8
         if size2 == 1:
             sample >>= 24
         elif size2 == 2:
             sample >>= 16
+        elif size2 == 3:
+            sample >>= 8
         sample = _overflow(sample, size2)
         _put_sample(result, size2, i, sample)
 
@@ -531,7 +541,8 @@ def ratecv(cp, size, nchannels, inrate, outrate, state, weightA=1, weightB=0):
     nbytes = ceiling * bytes_per_frame
 
     rv = ffi.new("char[]", nbytes)
-    trim_index = lib.ratecv(rv, cp, frame_count, size,
+    cpbuf = ffi.from_buffer(cp)
+    trim_index = lib.ratecv(rv, cpbuf, frame_count, size,
                             nchannels, inrate, outrate,
                             state_d, prev_i, cur_i,
                             weightA, weightB)
@@ -606,7 +617,8 @@ def lin2adpcm(cp, size, state):
     state = _check_state(state)
     rv = ffi.new("unsigned char[]", len(cp) // size // 2)
     state_ptr = ffi.new("int[]", state)
-    lib.lin2adcpm(rv, cp, len(cp), size, state_ptr)
+    cpbuf = ffi.cast("unsigned char*", ffi.from_buffer(cp))
+    lib.lin2adcpm(rv, cpbuf, len(cp), size, state_ptr)
     return ffi.buffer(rv)[:], tuple(state_ptr)
 
 
@@ -615,7 +627,8 @@ def adpcm2lin(cp, size, state):
     state = _check_state(state)
     rv = ffi.new("unsigned char[]", len(cp) * size * 2)
     state_ptr = ffi.new("int[]", state)
-    lib.adcpm2lin(rv, ffi.from_buffer(cp), len(cp), size, state_ptr)
+    cpbuf = ffi.cast("unsigned char*", ffi.from_buffer(cp))
+    lib.adcpm2lin(rv, cpbuf, len(cp), size, state_ptr)
     return ffi.buffer(rv)[:], tuple(state_ptr)
 
 def byteswap(cp, size):

@@ -389,7 +389,7 @@ int ratecv(char* rv, char* cp, size_t len, int size,
                 else if (size == 2)
                     cur_i[chan] = ((int)*SHORTP(cp, 0)) << 16;
                 else if (size == 3)
-                    cur_i[chan] = ((int)GETINT24(cp, 0)) << 16;
+                    cur_i[chan] = ((int)GETINT24(cp, 0)) << 8;
                 else if (size == 4)
                     cur_i[chan] = (int)*LONGP(cp, 0);
                 cp += size;
@@ -453,7 +453,7 @@ void tostereo(char* rv, char* cp, size_t len, int size,
 
         if ( size == 1 )      *CHARP(ncp, i*2+1) = (signed char)val2;
         else if ( size == 2 ) *SHORTP(ncp, i*2+2) = (short)val2;
-        else if ( size == 3 ) SETINT24(ncp, i*2, val1);
+        else if ( size == 3 ) SETINT24(ncp, i*2+3, val2);
         else if ( size == 4 ) *LONGP(ncp, i*2+4) = (Py_Int32)val2;
     }
 }
