@@ -1318,7 +1318,7 @@ class ImportFrom(stmt):
         w_level = get_field(space, w_node, 'level', True)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _module = space.realtext_w(w_module) if not space.is_none(w_module) else space.w_None
+        _module = space.realtext_w(w_module) if not space.is_none(w_module) else None
         names_w = space.unpackiterable(w_names)
         _names = [alias.from_object(space, w_item) for w_item in names_w]
         _level = space.int_w(w_level)
@@ -3415,8 +3415,8 @@ class arguments(AST):
         w_defaults = get_field(space, w_node, 'defaults', False)
         args_w = space.unpackiterable(w_args)
         _args = [expr.from_object(space, w_item) for w_item in args_w]
-        _vararg = space.realtext_w(w_vararg) if not space.is_none(w_vararg) else space.w_None
-        _kwarg = space.realtext_w(w_kwarg) if not space.is_none(w_kwarg) else space.w_None
+        _vararg = space.realtext_w(w_vararg) if not space.is_none(w_vararg) else None
+        _kwarg = space.realtext_w(w_kwarg) if not space.is_none(w_kwarg) else None
         defaults_w = space.unpackiterable(w_defaults)
         _defaults = [expr.from_object(space, w_item) for w_item in defaults_w]
         return arguments(_args, _vararg, _kwarg, _defaults)
@@ -3485,7 +3485,7 @@ class alias(AST):
         _name = space.realtext_w(w_name)
         if _name is None:
             raise_required_value(space, w_node, 'name')
-        _asname = space.realtext_w(w_asname) if not space.is_none(w_asname) else space.w_None
+        _asname = space.realtext_w(w_asname) if not space.is_none(w_asname) else None
         return alias(_name, _asname)
 
 State.ast_type('alias', 'AST', ['name', 'asname'])
