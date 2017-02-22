@@ -3,8 +3,6 @@ optimizer of the bridge attached to a guard. """
 
 from rpython.jit.metainterp import resumecode
 
-# XXX at the moment this is all quite ad-hoc. Could be delegated to the
-# different optimization passes
 
 # adds the following sections at the end of the resume code:
 #
@@ -22,9 +20,11 @@ from rpython.jit.metainterp import resumecode
 #
 # ----
 
+
+# maybe should be delegated to the optimization classes?
+
 def tag_box(box, liveboxes_from_env, memo):
     from rpython.jit.metainterp.history import Const
-    # XXX bit of code duplication (but it's a subset)
     if isinstance(box, Const):
         return memo.getconst(box)
     else:
@@ -35,6 +35,8 @@ def decode_box(resumestorage, tagged, liveboxes, cpu):
     from rpython.jit.metainterp.resume import NULLREF, TAG_CONST_OFFSET, tagged_eq
     from rpython.jit.metainterp.history import ConstInt
     num, tag = untag(tagged)
+    # NB: the TAGVIRTUAL case can't happen here, because this code runs after
+    # virtuals are already forced again
     if tag == TAGCONST:
         if tagged_eq(tagged, NULLREF):
             box = cpu.ts.CONST_NULL
@@ -49,13 +51,17 @@ def decode_box(resumestorage, tagged, liveboxes, cpu):
     return box
 
 def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_from_env, memo):
-    liveboxes_set = {}
+    available_boxes = {}
     for box in liveboxes:
         if box is not None and box in liveboxes_from_env:
-            liveboxes_set[box] = None
+            available_boxes[box] = None
     metainterp_sd = optimizer.metainterp_sd
 
-    # class knowledge
+    # class knowledge is stored as bits, true meaning the class is known, false
+    # means unknown. on deserializing we look at the bits, and read the runtime
+    # class for the known classes (which has to be the same in the bridge) and
+    # mark that as known. this works for guard_class too: the class is only
+    # known *after* the guard
     bitfield = 0
     shifts = 0
     for box in liveboxes:
@@ -72,9 +78,11 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
     if shifts:
         numb_state.append_int(bitfield << (6 - shifts))
 
-    # heap knowledge
+    # heap knowledge: we store triples of known heap fields in non-virtual
+    # structs
+    # XXX could be extended to arrays
     if optimizer.optheap:
-        triples = optimizer.optheap.serialize_optheap(liveboxes_set)
+        triples = optimizer.optheap.serialize_optheap(available_boxes)
         # can only encode descrs that have a known index into
         # metainterp_sd.all_descrs
         triples = [triple for triple in triples if triple[1].descr_index != -1]
@@ -112,6 +120,8 @@ def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, li
             optimizer.make_constant_class(box, cls)
 
     # heap knowledge
+    if not optimizer.optheap:
+        return
     length = reader.next_item()
     result = []
     for i in range(length):
@@ -122,5 +132,4 @@ def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, li
         tagged = reader.next_item()
         box2 = decode_box(resumestorage, tagged, liveboxes, metainterp_sd.cpu)
         result.append((box1, descr, box2))
-    if optimizer.optheap:
-        optimizer.optheap.deserialize_optheap(result)
+    optimizer.optheap.deserialize_optheap(result)

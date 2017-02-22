@@ -121,12 +121,12 @@ class Reader(object):
         self.items_read = 0 # number of items read
 
     def next_item(self):
-        result, self.cur_pos =  numb_next_item(self.code, self.cur_pos)
+        result, self.cur_pos = numb_next_item(self.code, self.cur_pos)
         self.items_read += 1
         return result
 
     def peek(self):
-        result, _ =  numb_next_item(self.code, self.cur_pos)
+        result, _ = numb_next_item(self.code, self.cur_pos)
         return result
 
     def jump(self, size):

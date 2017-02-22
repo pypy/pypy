@@ -97,7 +97,6 @@ def test_random_class_knowledge(boxes_known_classes):
 
     serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, {}, None)
 
-    #assert numb_state.current[:numb_state._pos] == [1, 0b0100000, 0]
     assert len(numb_state.create_numbering().code) == 2 + math.ceil(len(refboxes) / 6.0)
 
     dct = {box: cls

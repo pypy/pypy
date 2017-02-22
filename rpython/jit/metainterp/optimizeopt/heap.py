@@ -694,21 +694,20 @@ class OptHeap(Optimization):
         self._seen_guard_not_invalidated = True
         return self.emit(op)
 
-    def serialize_optheap(self, liveboxes_set):
-        # XXX wrong complexity?
+    def serialize_optheap(self, available_boxes):
         result = []
         for descr, cf in self.cached_fields.iteritems():
             if cf._lazy_set:
                 continue # XXX safe default for now
             parent_descr = descr.get_parent_descr()
             if not parent_descr.is_object():
-                continue
+                continue # XXX could be extended to non-instance objects
             for i, box1 in enumerate(cf.cached_structs):
-                if box1 not in liveboxes_set:
+                if box1 not in available_boxes:
                     continue
                 structinfo = cf.cached_infos[i]
                 box2 = structinfo.getfield(descr).get_box_replacement()
-                if isinstance(box2, Const) or box2 in liveboxes_set:
+                if isinstance(box2, Const) or box2 in available_boxes:
                     result.append((box1, descr, box2))
         return result
 
