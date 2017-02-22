@@ -18,8 +18,8 @@ def ensure__main__(space):
 
 def compilecode(space, source, filename, cmd='exec'):
     w_code = space.builtin.call(
-        'compile', space.newbytes(source), space.wrap_fsdecoded(filename),
-        space.wrap(cmd), space.newint(0), space.newint(0))
+        'compile', space.newbytes(source), space.newfilename(filename),
+        space.newtext(cmd), space.newint(0), space.newint(0))
     pycode = space.interp_w(eval.Code, w_code)
     return pycode
 
@@ -87,10 +87,11 @@ def run_module(module_name, args, space=None):
         argv.extend(args)
     space.setitem(space.sys.w_dict, space.newtext('argv'), space.wrap(argv))
     w_import = space.builtin.get('__import__')
-    runpy = space.call_function(w_import, space.wrap('runpy'))
-    w_run_module = space.getitem(runpy.w_dict, space.wrap('run_module'))
-    return space.call_function(w_run_module, space.wrap(module_name), space.w_None,
-                               space.wrap('__main__'), space.w_True)
+    runpy = space.call_function(w_import, space.newtext('runpy'))
+    w_run_module = space.getitem(runpy.w_dict, space.newtext('run_module'))
+    return space.call_function(w_run_module, space.newtext(module_name),
+                               space.w_None, space.newtext('__main__'),
+                               space.w_True)
 
 
 def run_toplevel(space, f, verbose=False):
