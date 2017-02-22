@@ -1471,3 +1471,6 @@ class AppTestComparesByIdentity:
         #
         assert type.__dict__['__name__'].__name__ == '__name__'
         assert type.__dict__['__doc__'].__name__ == '__doc__'
+
+    def test_type_construct_unicode_surrogate_issue(self):
+        raises(ValueError, type, 'A\udcdcb', (), {})
