@@ -150,6 +150,9 @@ def _invalid_byte_2_of_4(ordch1, ordch2):
             (ordch1 == 0xf0 and ordch2 < 0x90) or
             (ordch1 == 0xf4 and ordch2 > 0x8f))
 
+# NOTE: this is a slightly fixed algorithm when compared with
+# CPython2's.  It is closer to CPython3's.  See comments in
+# test_invalid_cb_for_3bytes_seq().
 def str_decode_utf_8_impl(s, size, errors, final, errorhandler,
                           allow_surrogates):
     if size == 0:
