@@ -724,7 +724,7 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
             return space.call_function(newfunc, w_winner, w_name, w_bases, w_dict)
         w_typetype = w_winner
 
-    name = space.identifier_w(w_name)
+    name = space.text_w(w_name) # NB. CPython forbids surrogates here
     assert isinstance(name, str)
     if '\x00' in name:
         raise oefmt(space.w_ValueError, "type name must not contain null characters")
