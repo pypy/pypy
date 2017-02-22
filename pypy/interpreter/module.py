@@ -42,7 +42,7 @@ class Module(W_Root):
 
     def install(self):
         """NOT_RPYTHON: installs this module into space.builtin_modules"""
-        modulename = self.space.str0_w(self.w_name)
+        modulename = self.space.text0_w(self.w_name)
         self.space.builtin_modules[modulename] = self
 
     def setup_after_space_initialization(self):

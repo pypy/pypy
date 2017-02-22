@@ -78,7 +78,7 @@ def find_module(space, w_name, w_path=None):
 def load_module(space, w_name, w_file, w_filename, w_info):
     w_suffix, w_filemode, w_modtype = space.unpackiterable(w_info, 3)
 
-    filename = space.str0_w(w_filename)
+    filename = space.fsencode_w(w_filename)
     filemode = space.text_w(w_filemode)
     if space.is_w(w_file, space.w_None):
         stream = None
@@ -95,7 +95,7 @@ def load_module(space, w_name, w_file, w_filename, w_info):
         space, w_name, find_info, reuse=True)
 
 def load_source(space, w_modulename, w_filename, w_file=None):
-    filename = space.str0_w(w_filename)
+    filename = space.fsencode_w(w_filename)
 
     stream = get_file(space, w_file, filename, 'U')
 
@@ -109,7 +109,7 @@ def load_source(space, w_modulename, w_filename, w_file=None):
         stream.close()
     return w_mod
 
-@unwrap_spec(filename='str0', check_afterwards=int)
+@unwrap_spec(filename='fsencode', check_afterwards=int)
 def _run_compiled_module(space, w_modulename, filename, w_file, w_module,
                          check_afterwards=False):
     # the function 'imp._run_compiled_module' is a pypy-only extension
@@ -125,14 +125,14 @@ def _run_compiled_module(space, w_modulename, filename, w_file, w_module,
         stream.close()
     return w_mod
 
-@unwrap_spec(filename='str0')
+@unwrap_spec(filename='fsencode')
 def load_compiled(space, w_modulename, filename, w_file=None):
     w_mod = Module(space, w_modulename)
     importing._prepare_module(space, w_mod, filename, None)
     return _run_compiled_module(space, w_modulename, filename, w_file, w_mod,
                                 check_afterwards=True)
 
-@unwrap_spec(filename='text')
+@unwrap_spec(filename='fsencode')
 def load_dynamic(space, w_modulename, filename, w_file=None):
     if not importing.has_so_extension(space):
         raise oefmt(space.w_ImportError, "Not implemented")

@@ -1617,12 +1617,12 @@ class ObjSpace(object):
         unwrapped RPython bytestring."""
         return w_obj.str_w(self)
 
-    #@not_rpython    BACKCOMPAT: should be replaced with bytes_w or text_w
+    @not_rpython    # tests only; should be replaced with bytes_w or text_w
     def str_w(self, w_obj):
         """For tests only."""
         return self.bytes_w(w_obj)
 
-    #@not_rpython    BACKCOMPAT
+    @not_rpython    # tests only; should be replaced with bytes0_w or text0_w
     def str0_w(self, w_obj):
         return self.bytes0_w(w_obj)
 
