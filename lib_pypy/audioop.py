@@ -13,9 +13,8 @@ class error(Exception):
 
 
 def _check_size(size):
-    if size != 1 and size != 2 and size != 4:
-        raise error("Size should be 1, 2 or 4")
-
+    if size < 1 or size > 4:
+        raise error("Size should be 1, 2, 3 or 4")
 
 def _check_params(length, size):
     _check_size(size)
