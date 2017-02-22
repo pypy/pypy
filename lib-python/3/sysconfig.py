@@ -578,6 +578,9 @@ def get_config_vars(*args):
             import _osx_support
             _osx_support.customize_config_vars(_CONFIG_VARS)
 
+        _CONFIG_VARS['INCLUDEPY'] = os.path.join(_CONFIG_VARS['prefix'],
+                                                 'include')
+
     if args:
         vals = []
         for name in args:
