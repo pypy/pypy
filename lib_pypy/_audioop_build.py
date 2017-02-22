@@ -301,6 +301,32 @@ static int stepsizeTable[89] = {
 #define CHARP(cp, i) ((signed char *)(cp+i))
 #define SHORTP(cp, i) ((short *)(cp+i))
 #define LONGP(cp, i) ((Py_Int32 *)(cp+i))
+
+#if WORDS_BIGENDIAN
+#define GETINT24(cp, i)  (                              \
+        ((unsigned char *)(cp) + (i))[2] +              \
+        (((unsigned char *)(cp) + (i))[1] << 8) +       \
+        (((signed char *)(cp) + (i))[0] << 16) )
+#else
+#define GETINT24(cp, i)  (                              \
+        ((unsigned char *)(cp) + (i))[0] +              \
+        (((unsigned char *)(cp) + (i))[1] << 8) +       \
+        (((signed char *)(cp) + (i))[2] << 16) )
+#endif
+
+#if WORDS_BIGENDIAN
+#define SETINT24(cp, i, val)  do {                              \
+        ((unsigned char *)(cp) + (i))[2] = (int)(val);          \
+        ((unsigned char *)(cp) + (i))[1] = (int)(val) >> 8;     \
+        ((signed char *)(cp) + (i))[0] = (int)(val) >> 16;      \
+    } while (0)
+#else
+#define SETINT24(cp, i, val)  do {                              \
+        ((unsigned char *)(cp) + (i))[0] = (int)(val);          \
+        ((unsigned char *)(cp) + (i))[1] = (int)(val) >> 8;     \
+        ((signed char *)(cp) + (i))[2] = (int)(val) >> 16;      \
+    } while (0)
+#endif
 """
 
 C_SOURCE = _AUDIOOP_C_MODULE + r"""
@@ -362,6 +388,8 @@ int ratecv(char* rv, char* cp, size_t len, int size,
                     cur_i[chan] = ((int)*CHARP(cp, 0)) << 24;
                 else if (size == 2)
                     cur_i[chan] = ((int)*SHORTP(cp, 0)) << 16;
+                else if (size == 3)
+                    cur_i[chan] = ((int)GETINT24(cp, 0)) << 16;
                 else if (size == 4)
                     cur_i[chan] = (int)*LONGP(cp, 0);
                 cp += size;
@@ -384,6 +412,8 @@ int ratecv(char* rv, char* cp, size_t len, int size,
                     *CHARP(ncp, 0) = (signed char)(cur_o >> 24);
                 else if (size == 2)
                     *SHORTP(ncp, 0) = (short)(cur_o >> 16);
+                else if (size == 3)
+                    SETINT24(ncp, 0, cur_o >> 8);
                 else if (size == 4)
                     *LONGP(ncp, 0) = (Py_Int32)(cur_o);
                 ncp += size;
@@ -407,6 +437,7 @@ void tostereo(char* rv, char* cp, size_t len, int size,
     for ( i=0; i < len; i += size ) {
         if ( size == 1 )      val = (int)*CHARP(cp, i);
         else if ( size == 2 ) val = (int)*SHORTP(cp, i);
+        else if ( size == 3 ) val = (int)GETINT24(cp, i);
         else if ( size == 4 ) val = (int)*LONGP(cp, i);
 
         fval = (double)val*fac1;
@@ -417,10 +448,12 @@ void tostereo(char* rv, char* cp, size_t len, int size,
 
         if ( size == 1 )      *CHARP(ncp, i*2) = (signed char)val1;
         else if ( size == 2 ) *SHORTP(ncp, i*2) = (short)val1;
+        else if ( size == 3 ) SETINT24(ncp, i*2, val1);
         else if ( size == 4 ) *LONGP(ncp, i*2) = (Py_Int32)val1;
 
         if ( size == 1 )      *CHARP(ncp, i*2+1) = (signed char)val2;
         else if ( size == 2 ) *SHORTP(ncp, i*2+2) = (short)val2;
+        else if ( size == 3 ) SETINT24(ncp, i*2, val1);
         else if ( size == 4 ) *LONGP(ncp, i*2+4) = (Py_Int32)val2;
     }
 }
@@ -437,10 +470,12 @@ void add(char* rv, char* cp1, char* cp2, size_t len1, int size)
     for ( i=0; i < len1; i += size ) {
         if ( size == 1 )      val1 = (int)*CHARP(cp1, i);
         else if ( size == 2 ) val1 = (int)*SHORTP(cp1, i);
+        else if ( size == 3 ) val1 = (int)GETINT24(cp1, i);
         else if ( size == 4 ) val1 = (int)*LONGP(cp1, i);
 
         if ( size == 1 )      val2 = (int)*CHARP(cp2, i);
         else if ( size == 2 ) val2 = (int)*SHORTP(cp2, i);
+        else if ( size == 3 ) val2 = (int)GETINT24(cp2, i);
         else if ( size == 4 ) val2 = (int)*LONGP(cp2, i);
 
         if (size < 4) {
@@ -459,6 +494,7 @@ void add(char* rv, char* cp1, char* cp2, size_t len1, int size)
 
         if ( size == 1 )      *CHARP(ncp, i) = (signed char)newval;
         else if ( size == 2 ) *SHORTP(ncp, i) = (short)newval;
+        else if ( size == 3 ) SETINT24(ncp, i, newval);
         else if ( size == 4 ) *LONGP(ncp, i) = (Py_Int32)newval;
     }
 }
@@ -479,6 +515,7 @@ void lin2adcpm(unsigned char* ncp, unsigned char* cp, size_t len,
     for ( i=0; i < len; i += size ) {
         if ( size == 1 )      val = ((int)*CHARP(cp, i)) << 8;
         else if ( size == 2 ) val = (int)*SHORTP(cp, i);
+        else if ( size == 3 ) val = ((int)GETINT24(cp, i)) >> 8;
         else if ( size == 4 ) val = ((int)*LONGP(cp, i)) >> 16;
 
         /* Step 1 - compute difference with previous value */
@@ -608,6 +645,7 @@ void adcpm2lin(unsigned char* ncp, unsigned char* cp, size_t len,
         /* Step 6 - Output value */
         if ( size == 1 ) *CHARP(ncp, i) = (signed char)(valpred >> 8);
         else if ( size == 2 ) *SHORTP(ncp, i) = (short)(valpred);
+        else if ( size == 3 ) SETINT24(ncp, i, valpred << 8);
         else if ( size == 4 ) *LONGP(ncp, i) = (Py_Int32)(valpred<<16);
     }
     state[0] = valpred;

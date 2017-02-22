@@ -1,10 +1,11 @@
+import sys
 import builtins
 import math
 import struct
-from fractions import gcd
+from math import gcd
 from _audioop_cffi import ffi, lib
 
-
+BIG_ENDIAN = sys.byteorder != 'little'
 _buffer = memoryview
 
 
@@ -47,18 +48,49 @@ def _struct_format(size, signed):
         return "b" if signed else "B"
     elif size == 2:
         return "h" if signed else "H"
+    elif size == 3:
+        raise NotImplementedError
     elif size == 4:
         return "i" if signed else "I"
 
+def _unpack_int24(buf):
+    if BIG_ENDIAN:
+        val = (buf[2] & 0xff) | \
+               ((buf[1] & 0xff) << 8) | \
+               ((buf[0] & 0xff) << 16)
+    else:
+        val = (buf[0] & 0xff) | \
+               ((buf[1] & 0xff) << 8) | \
+               ((buf[2] & 0xff) << 16)
+    if val & 0x800000:
+        val = val - 0x1000000
+    return val
+
+def _pack_int24(into, off, val):
+    buf = _buffer(into)
+    if BIG_ENDIAN:
+        buf[off+2] = val & 0xff
+        buf[off+1] = (val >> 8) & 0xff
+        buf[off+0] = (val >> 16) & 0xff
+    else:
+        buf[off+0] = val & 0xff
+        buf[off+1] = (val >> 8) & 0xff
+        buf[off+2] = (val >> 16) & 0xff
 
 def _get_sample(cp, size, i, signed=True):
-    fmt = _struct_format(size, signed)
     start = i * size
     end = start + size
-    return struct.unpack_from(fmt, _buffer(cp)[start:end])[0]
+    chars = _buffer(cp)[start:end]
+    if size == 3:
+        return _unpack_int24(chars)
+    fmt = _struct_format(size, signed)
+    return struct.unpack_from(fmt, chars)[0]
 
 
 def _put_sample(cp, size, i, val, signed=True):
+    if size == 3:
+        _pack_int24(cp, i*size, val)
+        return
     fmt = _struct_format(size, signed)
     struct.pack_into(fmt, cp, i * size, val)
 
@@ -108,8 +140,17 @@ def _overflow(val, size, signed=True):
     else:
         return val % (2**bits)
 
+def _check_bytes(cp):
+    # we have no argument clinic
+    try:
+        memoryview(cp)
+    except TypeError:
+        raise TypeError("a bytes-like object is required, not '%s'" % \
+                str(type(cp)))
+
 
 def getsample(cp, size, i):
+    # _check_bytes checked in _get_sample
     _check_params(len(cp), size)
     if not (0 <= i < len(cp) // size):
         raise error("Index out of range")
@@ -249,6 +290,7 @@ def findmax(cp, len2):
 
 
 def avgpp(cp, size):
+    _check_bytes(cp)
     _check_params(len(cp), size)
     sample_count = _sample_count(cp, size)
     if sample_count <= 2:
@@ -415,6 +457,7 @@ def reverse(cp, size):
 
 
 def lin2lin(cp, size, size2):
+    _check_bytes(cp)
     _check_params(len(cp), size)
     _check_size(size2)
 
@@ -504,6 +547,8 @@ def _get_lin_samples(cp, size):
             yield sample << 8
         elif size == 2:
             yield sample
+        elif size == 3:
+            yield sample >> 8
         elif size == 4:
             yield sample >> 16
 
@@ -513,6 +558,8 @@ def _put_lin_sample(result, size, i, sample):
         sample >>= 8
     elif size == 2:
         pass
+    elif size == 3:
+        sample <<= 8
     elif size == 4:
         sample <<= 16
     _put_sample(result, size, i, sample)
