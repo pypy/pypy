@@ -69,7 +69,7 @@ class MultibyteIncrementalDecoder(MultibyteIncrementalBase):
         return space.newunicode(output)
 
 
-@unwrap_spec(errors="str_or_None")
+@unwrap_spec(errors="text_or_none")
 def mbidecoder_new(space, w_subtype, errors=None):
     r = space.allocate_instance(MultibyteIncrementalDecoder, w_subtype)
     r.__init__(space, errors)
@@ -118,7 +118,7 @@ class MultibyteIncrementalEncoder(MultibyteIncrementalBase):
         return space.newbytes(output)
 
 
-@unwrap_spec(errors="str_or_None")
+@unwrap_spec(errors="text_or_none")
 def mbiencoder_new(space, w_subtype, errors=None):
     r = space.allocate_instance(MultibyteIncrementalEncoder, w_subtype)
     r.__init__(space, errors)

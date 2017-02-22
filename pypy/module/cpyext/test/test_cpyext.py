@@ -315,8 +315,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
 
             return space.wrap(pydname)
 
-        @unwrap_spec(name='text', init='str_or_None', body='text',
-                     filename='str_or_None', PY_SSIZE_T_CLEAN=bool)
+        @unwrap_spec(name='text', init='text_or_none', body='text',
+                     filename='fsencode_or_none', PY_SSIZE_T_CLEAN=bool)
         def import_module(space, name, init=None, body='',
                           filename=None, w_include_dirs=None,
                           PY_SSIZE_T_CLEAN=False):

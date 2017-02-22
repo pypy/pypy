@@ -156,10 +156,7 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit_bufferstr(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
-    def visit_str_or_None(self, el, app_sig):   # XXX kill me
-        self.checked_space_method(el, app_sig)
-
-    def visit_text_or_None(self, el, app_sig):
+    def visit_text_or_none(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
     def visit_bytes(self, el, app_sig):
@@ -175,6 +172,9 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
         self.checked_space_method(el, app_sig)
 
     def visit_fsencode(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
+    def visit_fsencode_or_none(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
     def visit_nonnegint(self, el, app_sig):
@@ -305,11 +305,8 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
     def visit_bufferstr(self, typ):
         self.run_args.append("space.bufferstr_w(%s)" % (self.scopenext(),))
 
-    def visit_str_or_None(self, typ):  #XXX kill me
-        self.run_args.append("space.text_or_None_w(%s)" % (self.scopenext(),))
-
-    def visit_text_or_None(self, typ):
-        self.run_args.append("space.text_or_None_w(%s)" % (self.scopenext(),))
+    def visit_text_or_none(self, typ):
+        self.run_args.append("space.text_or_none_w(%s)" % (self.scopenext(),))
 
     def visit_bytes(self, typ):
         self.run_args.append("space.bytes_w(%s)" % (self.scopenext(),))
@@ -325,6 +322,9 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
     def visit_fsencode(self, typ):
         self.run_args.append("space.fsencode_w(%s)" % (self.scopenext(),))
+
+    def visit_fsencode_or_none(self, typ):
+        self.run_args.append("space.fsencode_or_none_w(%s)" % (self.scopenext(),))
 
     def visit_nonnegint(self, typ):
         self.run_args.append("space.gateway_nonnegint_w(%s)" % (
@@ -473,11 +473,8 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
     def visit_bufferstr(self, typ):
         self.unwrap.append("space.bufferstr_w(%s)" % (self.nextarg(),))
 
-    def visit_str_or_None(self, typ):  #XXX kill me
-        self.unwrap.append("space.text_or_None_w(%s)" % (self.nextarg(),))
-
-    def visit_text_or_None(self, typ):
-        self.unwrap.append("space.text_or_None_w(%s)" % (self.nextarg(),))
+    def visit_text_or_none(self, typ):
+        self.unwrap.append("space.text_or_none_w(%s)" % (self.nextarg(),))
 
     def visit_bytes(self, typ):
         self.unwrap.append("space.bytes_w(%s)" % (self.nextarg(),))
@@ -493,6 +490,9 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
 
     def visit_fsencode(self, typ):
         self.unwrap.append("space.fsencode_w(%s)" % (self.nextarg(),))
+
+    def visit_fsencode_or_none(self, typ):
+        self.unwrap.append("space.fsencode_or_none_w(%s)" % (self.nextarg(),))
 
     def visit_nonnegint(self, typ):
         self.unwrap.append("space.gateway_nonnegint_w(%s)" % (self.nextarg(),))

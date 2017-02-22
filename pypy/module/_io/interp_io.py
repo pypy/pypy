@@ -15,8 +15,8 @@ class Cache:
             space.newtuple([space.w_ValueError, space.w_IOError]))
 
 @unwrap_spec(mode='text', buffering=int,
-             encoding="str_or_None", errors="str_or_None",
-             newline="str_or_None", closefd=int)
+             encoding="text_or_none", errors="text_or_none",
+             newline="text_or_none", closefd=int)
 def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
          newline=None, closefd=True, w_opener=None):
     from pypy.module._io.interp_bufferedio import (W_BufferedRandom,

@@ -1580,8 +1580,7 @@ class ObjSpace(object):
                 raise
         return self.buffer_w(w_obj, flags).as_str()
 
-
-    def text_or_None_w(self, w_obj):
+    def text_or_none_w(self, w_obj):
         return None if self.is_none(w_obj) else self.text_w(w_obj)
 
     @not_rpython    # tests only; should be replaced with bytes_w or text_w
@@ -1630,6 +1629,9 @@ class ObjSpace(object):
                         "argument must be a string without NUL characters")
         return rstring.assert_str0(result)
 
+    def fsencode_or_none_w(self, w_obj):
+        return None if self.is_none(w_obj) else self.fsencode_w(w_obj)
+
     def int_w(self, w_obj, allow_conversion=True):
         """
         Unwrap an app-level int object into an interpret-level int.
@@ -1677,13 +1679,6 @@ class ObjSpace(object):
                         "characters")
         return rstring.assert_str0(result)
 
-    def realunicode_w(self, w_obj):
-        # Like unicode_w, but only works if w_obj is really of type
-        # 'unicode'.
-        if not self.isinstance_w(w_obj, self.w_unicode):
-            raise oefmt(self.w_TypeError, "argument must be a unicode")
-        return self.unicode_w(w_obj)
-
     def text_w(self, w_obj):
         """
         Unwrap a unicode object and return a 'utf-8-nosg' byte string
@@ -1691,6 +1686,9 @@ class ObjSpace(object):
         one correspondance with the unicode.
         """
         return w_obj.text_w(self)
+
+    realtext_w = text_w         # Python 2 compatibility
+    realunicode_w = unicode_w
 
     def identifier_w(self, w_obj):
         """

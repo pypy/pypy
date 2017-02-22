@@ -374,7 +374,7 @@ class W_TextIOWrapper(W_TextIOBase):
                                               # of the stream
         self.snapshot = None
 
-    @unwrap_spec(encoding="str_or_None", line_buffering=int, write_through=int)
+    @unwrap_spec(encoding="text_or_none", line_buffering=int, write_through=int)
     def descr_init(self, space, w_buffer, encoding=None,
                    w_errors=None, w_newline=None, line_buffering=0,
                    write_through=0):

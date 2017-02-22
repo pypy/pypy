@@ -358,7 +358,7 @@ class W_UnicodeTranslateError(W_UnicodeError):
         space.realunicode_w(w_object)
         space.int_w(w_start)
         space.int_w(w_end)
-        space.text_w(w_reason)
+        space.realtext_w(w_reason)
         # assign attributes
         self.w_object = w_object
         self.w_start = w_start
@@ -908,11 +908,11 @@ class W_UnicodeDecodeError(W_UnicodeError):
             w_bytes = space.newbytes(space.bufferstr_w(w_object))
         else:
             w_bytes = w_object
-        space.text_w(w_encoding)
+        space.realtext_w(w_encoding)
         space.bytes_w(w_bytes)
         space.int_w(w_start)
         space.int_w(w_end)
-        space.text_w(w_reason)
+        space.realtext_w(w_reason)
         # assign attributes
         self.w_encoding = w_encoding
         self.w_object = w_bytes
@@ -1001,11 +1001,11 @@ class W_UnicodeEncodeError(W_UnicodeError):
 
     def descr_init(self, space, w_encoding, w_object, w_start, w_end, w_reason):
         # typechecking
-        space.text_w(w_encoding)
+        space.realtext_w(w_encoding)
         space.realunicode_w(w_object)
         space.int_w(w_start)
         space.int_w(w_end)
-        space.text_w(w_reason)
+        space.realtext_w(w_reason)
         # assign attributes
         self.w_encoding = w_encoding
         self.w_object = w_object

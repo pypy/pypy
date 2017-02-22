@@ -525,7 +525,7 @@ class W_SemLock(W_Root):
     def after_fork(self):
         self.count = 0
 
-    @unwrap_spec(kind=int, maxvalue=int, name='text_or_None')
+    @unwrap_spec(kind=int, maxvalue=int, name='text_or_none')
     def rebuild(space, w_cls, w_handle, kind, maxvalue, name):
         #
         if sys_platform != 'win32' and name is not None:

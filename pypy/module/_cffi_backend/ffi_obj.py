@@ -572,7 +572,7 @@ It can also be used on 'cdata' instance to get its C type."""
         return self.ffi_type(w_arg, ACCEPT_STRING | ACCEPT_CDATA)
 
 
-    @unwrap_spec(filename="str_or_None", flags=int)
+    @unwrap_spec(filename="fsencode_or_none", flags=int)
     def descr_dlopen(self, filename, flags=0):
         """\
 Load and return a dynamic library identified by 'name'.  The standard

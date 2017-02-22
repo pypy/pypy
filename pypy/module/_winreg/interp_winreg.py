@@ -688,7 +688,7 @@ key is the predefined handle to connect to.
 
 The return value is the handle of the opened key.
 If the function fails, an EnvironmentError exception is raised."""
-    machine = space.str_or_None_w(w_machine)
+    machine = space.text_or_none_w(w_machine)
     hkey = hkey_w(w_hkey, space)
     with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
         ret = rwinreg.RegConnectRegistry(machine, hkey, rethkey)

@@ -206,7 +206,7 @@ class W_BytearrayObject(W_Root):
         # we ignore w_type and always return a bytearray
         return new_bytearray(space, space.w_bytearray, data)
 
-    @unwrap_spec(encoding='text_or_None', errors='text_or_None')
+    @unwrap_spec(encoding='text_or_none', errors='text_or_none')
     def descr_init(self, space, w_source=None, encoding=None, errors=None):
         assert isinstance(self, W_BytearrayObject)
         data = [c for c in newbytesdata_w(space, w_source, encoding, errors)]

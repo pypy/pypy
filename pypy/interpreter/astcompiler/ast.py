@@ -1468,7 +1468,7 @@ class ImportFrom(stmt):
         w_level = get_field(space, w_node, 'level', True)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _module = space.text_or_None_w(w_module)
+        _module = space.text_or_none_w(w_module)
         names_w = space.unpackiterable(w_names)
         _names = [alias.from_object(space, w_item) for w_item in names_w]
         _level = space.int_w(w_level)
@@ -3777,7 +3777,7 @@ class ExceptHandler(excepthandler):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _type = expr.from_object(space, w_type)
-        _name = space.text_or_None_w(w_name)
+        _name = space.text_or_none_w(w_name)
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         _lineno = space.int_w(w_lineno)
@@ -3946,7 +3946,7 @@ class keyword(AST):
     def from_object(space, w_node):
         w_arg = get_field(space, w_node, 'arg', True)
         w_value = get_field(space, w_node, 'value', False)
-        _arg = space.text_or_None_w(w_arg)
+        _arg = space.text_or_none_w(w_arg)
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
@@ -3981,7 +3981,7 @@ class alias(AST):
         _name = space.identifier_w(w_name)
         if _name is None:
             raise_required_value(space, w_node, 'name')
-        _asname = space.text_or_None_w(w_asname)
+        _asname = space.text_or_none_w(w_asname)
         return alias(_name, _asname)
 
 State.ast_type('alias', 'AST', ['name', 'asname'])
