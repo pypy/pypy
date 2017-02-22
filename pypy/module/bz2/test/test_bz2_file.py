@@ -76,7 +76,7 @@ class AppTestBZ2File: #(CheckAllocation):
             cls.w_create_temp_file = cls.space.wrap(
                 gateway.interp2app(create_temp_file_w))
 
-            @gateway.unwrap_spec(data=bytes)
+            @gateway.unwrap_spec(data='bytes')
             def decompress_w(space, data):
                 return space.newbytes(decompress(cls, data))
             cls.w_decompress = cls.space.wrap(gateway.interp2app(decompress_w))

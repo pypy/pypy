@@ -114,7 +114,7 @@ def GetLastError(space):
 # __________________________________________________________
 # functions for the "win32" namespace
 
-@unwrap_spec(name=str, openmode=r_uint, pipemode=r_uint, maxinstances=r_uint,
+@unwrap_spec(name='text', openmode=r_uint, pipemode=r_uint, maxinstances=r_uint,
              outputsize=r_uint, inputsize=r_uint, timeout=r_uint)
 def CreateNamedPipe(space, name, openmode, pipemode, maxinstances,
                     outputsize, inputsize, timeout, w_security):
@@ -161,13 +161,13 @@ def SetNamedPipeHandleState(space, w_handle, w_pipemode, w_maxinstances,
         lltype.free(state, flavor='raw')
         lltype.free(statep, flavor='raw')
 
-@unwrap_spec(name=str, timeout=r_uint)
+@unwrap_spec(name='text', timeout=r_uint)
 def WaitNamedPipe(space, name, timeout):
     # Careful: zero means "default value specified by CreateNamedPipe()"
     if not _WaitNamedPipe(name, timeout):
         raise wrap_windowserror(space, rwin32.lastSavedWindowsError())
 
-@unwrap_spec(filename=str, access=r_uint, share=r_uint,
+@unwrap_spec(filename='fsencode', access=r_uint, share=r_uint,
              disposition=r_uint, flags=r_uint)
 def CreateFile(space, filename, access, share, w_security,
                disposition, flags, w_templatefile):

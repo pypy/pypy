@@ -101,7 +101,7 @@ class AppTestMD5Compare:
             import py
             py.test.skip('Unavailable under py3 runappdirect')
         else:
-            compare_host.unwrap_spec = [str, str, str]
+            compare_host.unwrap_spec = ['bytes', 'bytes', 'text']
             cls.w_compare_host = space.wrap(gateway.interp2app(compare_host))
 
     def w_compare(self, message):

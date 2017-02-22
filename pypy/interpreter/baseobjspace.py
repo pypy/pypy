@@ -1584,7 +1584,7 @@ class ObjSpace(object):
     def text_or_None_w(self, w_obj):
         return None if self.is_none(w_obj) else self.text_w(w_obj)
 
-    #@not_rpython    BACKCOMPAT: should be replaced with bytes_w or text_w
+    @not_rpython    # tests only; should be replaced with bytes_w or text_w
     def str_w(self, w_obj):
         """
         if w_obj is unicode, call text_w() (i.e., return the UTF-8-nosg
@@ -1602,7 +1602,7 @@ class ObjSpace(object):
     def bytes_w(self, w_obj):
         return w_obj.bytes_w(self)
 
-    #@not_rpython    BACKCOMPAT
+    @not_rpython    # tests only; should be replaced with bytes0_w or text0_w
     def str0_w(self, w_obj):
         "Like str_w, but rejects strings with NUL bytes."
         from rpython.rlib import rstring

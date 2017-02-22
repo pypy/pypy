@@ -56,7 +56,7 @@ def create_dynamic(space, w_spec, w_file=None):
 
 def create_builtin(space, w_spec):
     w_name = space.getattr(w_spec, space.newtext("name"))
-    name = space.str0_w(w_name)
+    name = space.text0_w(w_name)
     # force_init is needed to make reload actually reload instead of just
     # using the already-present module in sys.modules.
 

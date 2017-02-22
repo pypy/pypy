@@ -289,7 +289,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         if self.runappdirect:
             return
 
-        @unwrap_spec(name=str)
+        @unwrap_spec(name='text')
         def compile_module(space, name,
                            w_source_files=None,
                            w_source_strings=None):
@@ -315,7 +315,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
 
             return space.wrap(pydname)
 
-        @unwrap_spec(name=str, init='str_or_None', body=str,
+        @unwrap_spec(name='text', init='str_or_None', body='text',
                      filename='str_or_None', PY_SSIZE_T_CLEAN=bool)
         def import_module(space, name, init=None, body='',
                           filename=None, w_include_dirs=None,
@@ -327,12 +327,12 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             return w_result
 
 
-        @unwrap_spec(mod=str, name=str)
+        @unwrap_spec(mod='text', name='text')
         def load_module(space, mod, name):
             return self.sys_info.load_module(mod, name)
 
-        @unwrap_spec(modname=str, prologue=str,
-                             more_init=str, PY_SSIZE_T_CLEAN=bool)
+        @unwrap_spec(modname='text', prologue='text',
+                             more_init='text', PY_SSIZE_T_CLEAN=bool)
         def import_extension(space, modname, w_functions, prologue="",
                              w_include_dirs=None, more_init="", PY_SSIZE_T_CLEAN=False):
             functions = space.unwrap(w_functions)
