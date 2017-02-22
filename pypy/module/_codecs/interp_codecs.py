@@ -365,7 +365,7 @@ def surrogatepass_errors(space, w_exc):
         obj = space.realunicode_w(space.getattr(w_exc, space.newtext('object')))
         start = space.int_w(space.getattr(w_exc, space.newtext('start')))
         w_end = space.getattr(w_exc, space.newtext('end'))
-        encoding = space.str_w(space.getattr(w_exc, space.newtext('encoding')))
+        encoding = space.text_w(space.getattr(w_exc, space.newtext('encoding')))
         bytelength, code = get_standard_encoding(encoding)
         if code == ENC_UNKNOWN:
             # Not supported, fail with original exception
@@ -403,7 +403,7 @@ def surrogatepass_errors(space, w_exc):
     elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
         start = space.int_w(space.getattr(w_exc, space.newtext('start')))
         obj = space.bytes_w(space.getattr(w_exc, space.newtext('object')))
-        encoding = space.str_w(space.getattr(w_exc, space.newtext('encoding')))
+        encoding = space.text_w(space.getattr(w_exc, space.newtext('encoding')))
         bytelength, code = get_standard_encoding(encoding)
         ch = 0
         # Try decoding a single surrogate character. If there are more,

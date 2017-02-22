@@ -362,7 +362,7 @@ def string_parse_literal(astbuilder, atom_node):
             raise
         # Unicode/ValueError in literal: turn into SyntaxError
         e.normalize_exception(space)
-        errmsg = space.str_w(space.str(e.get_w_value(space)))
+        errmsg = space.text_w(space.str(e.get_w_value(space)))
         raise astbuilder.error('(%s) %s' % (kind, errmsg), atom_node)
 
     if not fmode and len(joined_pieces) == 1:   # <= the common path

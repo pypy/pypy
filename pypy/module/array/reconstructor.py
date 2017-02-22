@@ -71,7 +71,7 @@ MACHINE_FORMAT_CODE_MIN = min(format_descriptors)
 MACHINE_FORMAT_CODE_MAX = max(format_descriptors)
 
 
-@unwrap_spec(typecode=str, mformat_code=int)
+@unwrap_spec(typecode='text', mformat_code=int)
 def array_reconstructor(space, w_cls, typecode, mformat_code, w_items):
     # Fast path: machine format code corresponds to the
     # platform-independent typecode.

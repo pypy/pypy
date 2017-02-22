@@ -529,7 +529,7 @@ class W_MemoryView(W_Root):
             raise oefmt(space.w_TypeError,
                         "memoryview: format argument must be a string")
 
-        fmt = space.str_w(w_format)
+        fmt = space.text_w(w_format)
         buf = self.buf
         ndim = 1
 

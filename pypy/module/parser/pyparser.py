@@ -49,7 +49,7 @@ class W_STType(W_Root):
         return self._build_app_tree(space, self.tree, space.newlist,
                                     line_info, col_info)
 
-    @unwrap_spec(filename='str0')
+    @unwrap_spec(filename='fsencode')
     def descr_compile(self, space, filename="<syntax-tree>"):
         info = pyparse.CompileInfo(filename, self.mode)
         try:

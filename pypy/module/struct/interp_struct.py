@@ -208,7 +208,7 @@ W_UnpackIter.typedef = TypeDef("unpack_iterator",
     __length_hint__=interp2app(W_UnpackIter.descr_length_hint)
 )
 
-@unwrap_spec(format=str)
+@unwrap_spec(format='text')
 def iter_unpack(space, format, w_buffer):
     w_struct = W_Struct(space, format)
     return W_UnpackIter(space, w_struct, w_buffer)

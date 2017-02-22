@@ -19,7 +19,7 @@ def scandir(space, w_path=None):
     if space.is_none(w_path):
         w_path = space.newunicode(u".")
     if space.isinstance_w(w_path, space.w_bytes):
-        path_bytes = space.str0_w(w_path)
+        path_bytes = space.bytes0_w(w_path)
         result_is_bytes = True
     else:
         path_bytes = space.fsencode_w(w_path)

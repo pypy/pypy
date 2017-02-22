@@ -58,7 +58,7 @@ class W_AbstractIntObject(W_Root):
         return space.newlong_from_rbigint(b)
 
     @staticmethod
-    @unwrap_spec(byteorder=str, signed=bool)
+    @unwrap_spec(byteorder='text', signed=bool)
     def descr_from_bytes(space, w_inttype, w_obj, byteorder, signed=False):
         """int.from_bytes(bytes, byteorder, *, signed=False) -> int
 
@@ -97,7 +97,7 @@ class W_AbstractIntObject(W_Root):
             w_obj = space.call_function(w_inttype, w_obj)
         return w_obj
 
-    @unwrap_spec(nbytes=int, byteorder=str, signed=bool)
+    @unwrap_spec(nbytes=int, byteorder='text', signed=bool)
     def descr_to_bytes(self, space, nbytes, byteorder, signed=False):
         """to_bytes(...)
         int.to_bytes(length, byteorder, *, signed=False) -> bytes

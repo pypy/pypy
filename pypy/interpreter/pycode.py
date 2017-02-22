@@ -376,7 +376,7 @@ class PyCode(eval.Code):
 
     @unwrap_spec(argcount=int, kwonlyargcount=int, nlocals=int, stacksize=int, flags=int,
                  codestring='bytes',
-                 filename='str0', name='text', firstlineno=int,
+                 filename='fsencode', name='text', firstlineno=int,
                  lnotab='bytes', magic=int)
     def descr_code__new__(space, w_subtype,
                           argcount, kwonlyargcount, nlocals, stacksize, flags,

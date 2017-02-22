@@ -487,8 +487,8 @@ def make_formatter_subclass(do_unicode):
                     self.std_wp(s)
                 return
             if not do_unicode:
-                if space.isinstance_w(w_value, space.w_str):
-                    s = space.str_w(w_value)
+                if space.isinstance_w(w_value, space.w_bytes):
+                    s = space.bytes_w(w_value)
                 elif space.isinstance_w(w_value, space.w_bytearray):
                     s = w_value.buffer_w(space, 0).as_str()
                 else:

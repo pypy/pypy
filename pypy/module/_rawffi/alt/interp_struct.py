@@ -102,7 +102,7 @@ class W__StructDescr(W_Root):
         return W__StructInstance(self, allocate=False, autofree=True, rawmem=rawmem)
 
     def get_type_and_offset_for_field(self, space, w_name):
-        name = space.str_w(w_name)
+        name = space.text_w(w_name)
         try:
             return self._get_type_and_offset_for_field(space, name)
         except KeyError:

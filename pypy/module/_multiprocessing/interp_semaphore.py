@@ -215,7 +215,7 @@ else:
         return rffi.cast(SEM_T, space.int_w(w_handle))
 
     def semaphore_unlink(space, w_name):
-        name = space.str_w(w_name)
+        name = space.text_w(w_name)
         try:
             sem_unlink(name)
         except OSError as e:
@@ -550,7 +550,7 @@ class W_SemLock(W_Root):
     def _finalize_(self):
         delete_semaphore(self.handle)
 
-@unwrap_spec(kind=int, value=int, maxvalue=int, name=str, unlink=int)
+@unwrap_spec(kind=int, value=int, maxvalue=int, name='text', unlink=int)
 def descr_new(space, w_subtype, kind, value, maxvalue, name, unlink):
     if kind != RECURSIVE_MUTEX and kind != SEMAPHORE:
         raise oefmt(space.w_ValueError, "unrecognized kind")

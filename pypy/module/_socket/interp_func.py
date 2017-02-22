@@ -132,7 +132,7 @@ def getnameinfo(space, w_sockaddr, flags):
 
     Get host and port for a sockaddr."""
     try:
-        host = space.str_w((space.getitem(w_sockaddr, space.newint(0))))
+        host = space.text_w((space.getitem(w_sockaddr, space.newint(0))))
         port = str(space.int_w(space.getitem(w_sockaddr, space.newint(1))))
         lst = rsocket.getaddrinfo(host, port, rsocket.AF_UNSPEC,
                                   rsocket.SOCK_DGRAM, 0,
@@ -310,7 +310,7 @@ def getaddrinfo(space, w_host, w_port,
     elif space.isinstance_w(w_port, space.w_bytes):
         port = space.bytes_w(w_port)
     elif space.isinstance_w(w_port, space.w_unicode):
-        port = space.str_w(w_port)
+        port = space.text_w(w_port)
     else:
         raise oefmt(space.w_TypeError,
                     "getaddrinfo() argument 2 must be integer or string")

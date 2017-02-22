@@ -300,7 +300,7 @@ return next yielded value or raise StopIteration."""
 
     def descr_set__name__(self, space, w_name):
         if space.isinstance_w(w_name, space.w_unicode):
-            self._name = space.str_w(w_name)
+            self._name = space.text_w(w_name)
         else:
             raise oefmt(space.w_TypeError,
                         "__name__ must be set to a string object")

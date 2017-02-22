@@ -160,8 +160,8 @@ class W_SRE_Pattern(W_Root):
         if space.isinstance_w(w_string, space.w_unicode):
             unicodestr = space.unicode_w(w_string)
             length = len(unicodestr)
-        elif space.isinstance_w(w_string, space.w_str):
-            string = space.str_w(w_string)
+        elif space.isinstance_w(w_string, space.w_bytes):
+            string = space.bytes_w(w_string)
             length = len(string)
         else:
             buf = space.readbuf_w(w_string)
