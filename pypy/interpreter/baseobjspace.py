@@ -1622,10 +1622,6 @@ class ObjSpace(object):
         """For tests only."""
         return self.bytes_w(w_obj)
 
-    @not_rpython    # tests only; should be replaced with bytes0_w or text0_w
-    def str0_w(self, w_obj):
-        return self.bytes0_w(w_obj)
-
     def bytes0_w(self, w_obj):
         "Like bytes_w, but rejects strings with NUL bytes."
         from rpython.rlib import rstring
