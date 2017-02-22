@@ -1475,6 +1475,8 @@ class BuiltinTest(unittest.TestCase):
             with self.assertRaisesRegex(TypeError,
                                         r'\b%s\b' % re.escape(cls.__name__)):
                 format(obj, 's')
+
+
         # --------------------------------------------------------------------
 
         # make sure we can take a subclass of str as a format spec

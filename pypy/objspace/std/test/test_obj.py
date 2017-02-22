@@ -97,6 +97,16 @@ class AppTestObject:
         assert res == "Pickle"
         assert isinstance(res, str)
 
+    def test_format(self):
+        class B:
+            pass
+        try:
+            format(B(), 's')
+            assert False, "must not pass the previous call"
+        except TypeError as e:
+            assert 'B.__format__' in str(e)
+
+
     def test_subclasshook(self):
         class x(object):
             pass

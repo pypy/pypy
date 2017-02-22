@@ -221,7 +221,8 @@ def descr___format__(space, w_obj, w_format_spec):
         raise oefmt(space.w_TypeError, "format_spec must be a string")
     if space.len_w(w_format_spec) > 0:
         raise oefmt(space.w_TypeError,
-                    "non-empty format string passed to object.__format__")
+                     "unsupported format string passed to %T.__format__",
+                     w_obj);
     return space.format(w_as_str, w_format_spec)
 
 def descr__eq__(space, w_self, w_other):
