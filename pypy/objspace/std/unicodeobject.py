@@ -471,6 +471,29 @@ class W_UnicodeObject(W_Root):
             sb.append(unwrapped[i])
         return self._new(sb.build(), lgt)
 
+    @unwrap_spec(keepends=bool)
+    def descr_splitlines(self, space, keepends=False):
+        value = self._val(space)
+        length = len(value)
+        strs = []
+        pos = 0
+        while pos < length:
+            sol = pos
+            while pos < length and not self._islinebreak(value[pos]):
+                pos += 1
+            eol = pos
+            pos += 1
+            # read CRLF as one line break
+            if pos < length and value[eol] == '\r' and value[pos] == '\n':
+                pos += 1
+            if keepends:
+                eol = pos
+            strs.append(value[sol:eol])
+        if pos < length:
+            strs.append(value[pos:length])
+        return self._newlist_unwrapped(space, strs)
+
+
 def wrapunicode(space, uni):
     return W_UnicodeObject(uni)
 

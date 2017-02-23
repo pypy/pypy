@@ -1,5 +1,5 @@
 
-from hypothesis import given, strategies, settings
+from hypothesis import given, strategies, settings, example
 
 from rpython.rlib import rutf8, runicode
 
@@ -30,7 +30,7 @@ def error_handler(errors, encoding, msg, char, start, end):
 @given(strategies.binary())
 def test_str_check_utf8(s):
     try:
-        u = s.decode("utf8")
+        u, _ = runicode.str_decode_utf_8(s, len(s), None, final=True)
         valid = True
     except UnicodeDecodeError as e:
         valid = False
@@ -50,3 +50,17 @@ def test_str_check_utf8(s):
 def test_str_decode_raw_utf8_escape(uni):
     return # XXX fix details
     rutf8.str_decode_raw_utf8_escape(uni, len(uni), None)
+
+@given(strategies.characters())
+def test_next_pos(uni):
+    skips = []
+    for elem in uni:
+        skips.append(len(elem.encode('utf8')))
+    pos = 0
+    i = 0
+    utf8 = uni.encode('utf8')
+    while pos < len(utf8):
+        new_pos = rutf8.next_codepoint_pos(utf8, pos)
+        assert new_pos - pos == skips[i]
+        i += 1
+        pos = new_pos

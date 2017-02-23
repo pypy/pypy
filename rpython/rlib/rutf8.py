@@ -29,6 +29,15 @@ def unichr_as_utf8(code):
                 chr((0x80 | (code & 0x3f)))), lgt
     raise ValueError
 
+def next_codepoint_pos(code, pos):
+    """ Gives the position of the next codepoint after pos, -1
+    if it's the last one (assumes valid utf8)
+    """
+    chr1 = ord(code[pos])
+    if chr1 < 0x80:
+        return pos + 1
+    return pos + ord(runicode._utf8_code_length[chr1 - 0x80])
+
 class AsciiCheckError(Exception):
     def __init__(self, pos):
         self.pos = pos
