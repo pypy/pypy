@@ -5,7 +5,7 @@ from rpython.rlib.rarithmetic import r_uint, intmask, widen
 from rpython.rlib.unicodedata import unicodedb
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib import jit
+from rpython.rlib import jit, nonconst
 
 
 if rffi.sizeof(lltype.UniChar) == 4:
@@ -373,7 +373,12 @@ def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
                             pos += 1
                             _encodeUCS4(result, ch3)
                             continue
-                    if not allow_surrogates:
+                    # note: if the program only ever calls this with
+                    # allow_surrogates=True, then we'll never annotate
+                    # the following block of code, and errorhandler()
+                    # will never be called.  This causes RPython
+                    # problems.  Avoid it with the nonconst hack.
+                    if not allow_surrogates or nonconst.NonConstant(False):
                         ru, rs, pos = errorhandler(errors, 'utf8',
                                                    'surrogates not allowed',
                                                    s, pos-1, pos)

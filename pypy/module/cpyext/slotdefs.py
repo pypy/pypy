@@ -228,7 +228,10 @@ def wrap_ssizessizeobjargproc(space, w_self, w_args, func):
 def wrap_lenfunc(space, w_self, w_args, func):
     func_len = rffi.cast(lenfunc, func)
     check_num_args(space, w_args, 0)
-    return space.newint(generic_cpy_call(space, func_len, w_self))
+    res = generic_cpy_call(space, func_len, w_self)
+    if widen(res) == -1:
+        space.fromcache(State).check_and_raise_exception(always=True)
+    return space.newint(res)
 
 def wrap_sq_item(space, w_self, w_args, func):
     func_target = rffi.cast(ssizeargfunc, func)
