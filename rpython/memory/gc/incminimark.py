@@ -288,7 +288,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
                  card_page_indices=0,
                  large_object=8*WORD,
                  ArenaCollectionClass=None,
-                 offline_visited_flags=False,
                  **kwds):
         "NOT_RPYTHON"
         MovingGCBase.__init__(self, config, **kwds)
@@ -315,7 +314,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # 'large_object' limit how big objects can be in the nursery, so
         # it gives a lower bound on the allowed size of the nursery.
         self.nonlarge_max = large_object - 1
-        self.offline_visited_flags = offline_visited_flags
         #
         self.nursery      = llmemory.NULL
         self.nursery_free = llmemory.NULL
@@ -325,11 +323,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.extra_threshold = 0
         #
         # The ArenaCollection() handles the nonmovable objects allocation.
+        self.offline_visited_flags = config.gcforkfriendly
         if ArenaCollectionClass is None:
             from rpython.memory.gc import minimarkpage
             ArenaCollectionClass = minimarkpage.ArenaCollection
         self.ac = ArenaCollectionClass(arena_size, page_size,
-                                       small_request_threshold)
+                                       small_request_threshold,
+                                       self.offline_visited_flags)
         #
         # Used by minor collection: a list of (mostly non-young) objects that
         # (may) contain a pointer to a young object.  Populated by

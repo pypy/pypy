@@ -25,6 +25,7 @@ class UsingFrameworkTest(object):
     taggedpointers = False
     GC_CAN_MOVE = False
     GC_CAN_SHRINK_ARRAY = False
+    gcforkfriendly = False
 
     _isolated_func = None
     c_allfuncs = None
@@ -44,7 +45,8 @@ class UsingFrameworkTest(object):
 
         t = Translation(main, gc=cls.gcpolicy,
                         taggedpointers=cls.taggedpointers,
-                        gcremovetypeptr=cls.removetypeptr)
+                        gcremovetypeptr=cls.removetypeptr,
+                        gcforkfriendly=cls.gcforkfriendly)
         t.disable(['backendopt'])
         t.set_backend_extra_options(c_debug_defines=True)
         t.rtype()
@@ -1667,6 +1669,7 @@ class TestMiniMarkGC(TestSemiSpaceGC):
 
 class TestIncrementalMiniMarkGC(TestMiniMarkGC):
     gcpolicy = "incminimark"
+    gcforkfriendly = True
 
     def define_random_pin(self):
         class A:

@@ -2,7 +2,9 @@ import sys
 from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, rffi
 from rpython.rlib.rarithmetic import LONG_BIT, r_uint
 from rpython.rlib.objectmodel import we_are_translated, not_rpython
+from rpython.rlib.objectmodel import always_inline
 from rpython.rlib.debug import ll_assert, fatalerror
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 WORD = LONG_BIT // 8
 NULL = llmemory.NULL
@@ -89,7 +91,16 @@ class ArenaCollection(object):
     _alloc_flavor_ = "raw"
 
     @not_rpython
-    def __init__(self, arena_size, page_size, small_request_threshold):
+    def __init__(self, arena_size, page_size, small_request_threshold,
+                 offline_visited_flags=False):
+        # If we ask for 'offline_visited_flags', then we'll allocate
+        # arenas that are always OFFL_RATIO pages in size, and fully aligned.
+        # In this case, page_size should be 4096 or 8192.  The first page is
+        # used for the offline_visited_flags.  See rpy_allocate_new_arena().
+        if offline_visited_flags:
+            arena_size = OFFL_ARENA_SIZE - OFFL_SYSTEM_PAGE_SIZE
+        self.offline_visited_flags = offline_visited_flags
+        #
         # 'small_request_threshold' is the largest size that we
         # can ask with self.malloc().
         self.arena_size = arena_size
@@ -290,21 +301,30 @@ class ArenaCollection(object):
         if not we_are_translated():
             for a in self._all_arenas():
                 assert a.nfreepages == 0
+
+        if not self.offline_visited_flags:
+            #
+            # 'arena_base' points to the start of malloced memory; it might not
+            # be a page-aligned address
+            arena_base = llarena.arena_malloc(self.arena_size, False)
+            if not arena_base:
+                out_of_memory("out of memory: couldn't allocate the next arena")
+            arena_end = arena_base + self.arena_size
+            #
+            # 'firstpage' points to the first unused page
+            firstpage = start_of_page(arena_base + self.page_size - 1,
+                                      self.page_size)
+        else:
+            assert OFFL_SYSTEM_PAGE_SIZE == llarena.posixpagesize.get()
+            arena_base = rpy_allocate_new_arena()
+            arena_end = arena_base + OFFL_ARENA_SIZE
+            firstpage = arena_base + max(self.page_size, OFFL_SYSTEM_PAGE_SIZE)
         #
-        # 'arena_base' points to the start of malloced memory; it might not
-        # be a page-aligned address
-        arena_base = llarena.arena_malloc(self.arena_size, False)
-        if not arena_base:
-            out_of_memory("out of memory: couldn't allocate the next arena")
-        if not we_are_translated():
-            arena_base.arena._from_minimarkpage = True
-        arena_end = arena_base + self.arena_size
-        #
-        # 'firstpage' points to the first unused page
-        firstpage = start_of_page(arena_base + self.page_size - 1,
-                                  self.page_size)
         # 'npages' is the number of full pages just allocated
         npages = (arena_end - firstpage) // self.page_size
+
+        if not we_are_translated():
+            arena_base.arena._from_minimarkpage = True
         #
         # Allocate an ARENA object and initialize it
         arena = lltype.malloc(ARENA, flavor='raw', track_allocation=False)
@@ -399,7 +419,10 @@ class ArenaCollection(object):
                     #
                     # The whole arena is empty.  Free it.
                     llarena.arena_reset(arena.base, self.arena_size, 4)
-                    llarena.arena_free(arena.base)
+                    if not self.offline_visited_flags:
+                        llarena.arena_free(arena.base)
+                    else:
+                        rpy_free_arena(arena.base)
                     lltype.free(arena, flavor='raw', track_allocation=False)
                     #
                 else:
@@ -510,6 +533,9 @@ class ArenaCollection(object):
         surviving = 0    # initially
         skip_free_blocks = page.nfree
         #
+        if self.offline_visited_flags:
+            ok_to_free_func = self.get_unvisited
+        #
         while True:
             #
             if obj == freeblock:
@@ -555,6 +581,9 @@ class ArenaCollection(object):
         # Update the global total size of objects.
         self.total_memory_used += r_uint(surviving * block_size)
         #
+        if self.offline_visited_flags:
+            self.reset_block_of_visited_flags_for_one_page(page)
+        #
         # Return the number of surviving objects.
         return surviving
 
@@ -582,6 +611,50 @@ class ArenaCollection(object):
         except RuntimeError:
             return False
         return getattr(arena, '_from_minimarkpage', False)
+
+
+    @staticmethod
+    @always_inline
+    def get_visited(obj):
+        numeric = rffi.cast(lltype.Unsigned, obj)
+        base = rffi.cast(rffi.CCHARP, numeric & ~(OFFL_ARENA_SIZE - 1))
+        ofs = (numeric // OFFL_RATIO) & (OFFL_SYSTEM_PAGE_SIZE - 1)
+        singlebit = 1 << ((numeric // (OFFL_RATIO/8)) & 7)
+        return (ord(base[ofs]) & singlebit) != 0
+
+    @staticmethod
+    @always_inline
+    def set_visited(obj):
+        numeric = rffi.cast(lltype.Unsigned, obj)
+        base = rffi.cast(rffi.CCHARP, numeric & ~(OFFL_ARENA_SIZE - 1))
+        ofs = (numeric // OFFL_RATIO) & (OFFL_SYSTEM_PAGE_SIZE - 1)
+        singlebit = 1 << ((numeric // (OFFL_RATIO/8)) & 7)
+        base[ofs] = chr(ord(base[ofs]) | singlebit)
+
+    @staticmethod
+    @always_inline
+    def clear_visited(obj):
+        numeric = rffi.cast(lltype.Unsigned, obj)
+        base = rffi.cast(rffi.CCHARP, numeric & ~(OFFL_ARENA_SIZE - 1))
+        ofs = (numeric // OFFL_RATIO) & (OFFL_SYSTEM_PAGE_SIZE - 1)
+        singlebit = 1 << ((numeric // (OFFL_RATIO/8)) & 7)
+        base[ofs] = chr(ord(base[ofs]) & ~singlebit)
+
+    @staticmethod
+    @always_inline
+    def get_unvisited(obj):
+        numeric = rffi.cast(lltype.Unsigned, obj)
+        base = rffi.cast(rffi.CCHARP, numeric & ~(OFFL_ARENA_SIZE - 1))
+        ofs = (numeric // OFFL_RATIO) & (OFFL_SYSTEM_PAGE_SIZE - 1)
+        singlebit = 1 << ((numeric // (OFFL_RATIO/8)) & 7)
+        return (ord(base[ofs]) & singlebit) == 0
+
+    @staticmethod
+    def reset_block_of_visited_flags_for_one_page(page):
+        numeric = rffi.cast(lltype.Unsigned, page)
+        base = rffi.cast(rffi.CCHARP, numeric & ~(OFFL_ARENA_SIZE - 1))
+        ofs = (numeric // OFFL_RATIO) & (OFFL_SYSTEM_PAGE_SIZE - 1)
+        rpy_memset(base, 0, OFFL_SYSTEM_PAGE_SIZE // OFFL_RATIO)
 
 
 # ____________________________________________________________
@@ -615,3 +688,95 @@ def out_of_memory(errmsg):
     exception gracefully.
     """
     fatalerror(errmsg)
+
+
+# ____________________________________________________________
+# Helpers for the 'offline visited flags' mode
+
+
+# xxx make the number 4096 not hard-coded, but it has implications on
+# the other numbers too
+OFFL_SYSTEM_PAGE_SIZE = 4096
+OFFL_RATIO = WORD * 2 * 8
+OFFL_ARENA_SIZE = OFFL_SYSTEM_PAGE_SIZE * OFFL_RATIO
+
+# Idea: mmap N bytes, where N is just smaller than '2 * arena_size'.
+# This is just the right size to ensure that the allocated region
+# contains exactly one block of 'arena_size' pages that is fully
+# aligned to an address multiple of 'arena_size'.  Then we munmap
+# the extra bits at both ends.  This approach should ensure that
+# after the first arena was allocated, the next one is likely to be
+# placed by the system either just before or just after it; when
+# it is the case, the side that connects with the previous arena
+# is aligned already, and so we only have to remove the extra bit
+# at the other end.  This should ensure that our aligned arenas
+# grow next to each other (and in a single VMA, in Linux terms).
+
+# The number OFFL_RATIO comes from the fact that we can use one
+# visited bit for every two words of memory.  Most objects are at
+# least two words in length.  If we have a page that contains
+# single-word objects, then the visited bits clash: the same bit
+# is used for two objects.  However, that's a very minor problem,
+# because the objects are too small to contain further references
+# anyway, so at most we leak one of the two objects when the other
+# is still in use (i.e. at most one word of memory per word-sized
+# object alive).  So, OFFL_RATIO is equal to 64 on 32-bit and 128
+# on 64-bit machines.  That's also equal to the number of pages in
+# one arena: we reserve the first page for visited bits, and all
+# remaining pages are used for real objects.
+
+eci = ExternalCompilationInfo(
+    post_include_bits=[
+        'RPY_EXTERN void *rpy_allocate_new_arena(void);',
+        'RPY_EXTERN void rpy_free_arena(void *);',
+        'RPY_EXTERN char rpy_get_visited(void *);',
+        'RPY_EXTERN void rpy_set_visited(void *);',
+        'RPY_EXTERN void rpy_clear_visited(void *);',
+        ],
+    separate_module_sources=['''
+#include <stdlib.h>
+#include <sys/mman.h>
+
+#define OFFL_SYSTEM_PAGE_SIZE  %(OFFL_SYSTEM_PAGE_SIZE)d
+#define OFFL_RATIO             %(OFFL_RATIO)d
+#define OFFL_ARENA_SIZE        %(OFFL_ARENA_SIZE)d
+
+RPY_EXTERN void *rpy_allocate_new_arena(void)
+{
+    size_t arena_size = OFFL_ARENA_SIZE;
+    size_t map_size = arena_size * 2 - OFFL_SYSTEM_PAGE_SIZE;
+    void *p = mmap(NULL, map_size, PROT_READ | PROT_WRITE,
+                   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (p == MAP_FAILED) {
+        perror("Fatal RPython error: mmap");
+        abort();
+    }
+
+    char *result = (char *)((((long)p) + arena_size - 1) & ~(arena_size-1));
+    if (result > (char *)p)
+        munmap(p, result - (char *)p);
+    long free_end = ((char *)p + map_size) - (result + arena_size);
+    if (free_end > 0)
+        munmap(result + arena_size, free_end);
+
+    /* 'result' is freshly mmap()ed so it contains zeroes at this point */
+    return result;
+}
+
+RPY_EXTERN void rpy_free_arena(void *base)
+{
+    munmap(base, OFFL_ARENA_SIZE);
+}
+''' % globals()])
+
+rpy_allocate_new_arena = rffi.llexternal(
+    'rpy_allocate_new_arena', [], llmemory.Address,
+    compilation_info=eci, _nowrapper=True)
+
+rpy_free_arena = rffi.llexternal(
+    'rpy_free_arena', [llmemory.Address], lltype.Void,
+    compilation_info=eci, _nowrapper=True)
+
+rpy_memset = rffi.llexternal(
+    'memset', [rffi.CCHARP, lltype.Signed, lltype.Signed], lltype.Void,
+    _nowrapper=True)
