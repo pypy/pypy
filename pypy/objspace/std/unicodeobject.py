@@ -151,7 +151,7 @@ class W_UnicodeObject(W_Root):
 
     def _chr(self, char):
         assert len(char) == 1
-        return unicode(char)[0]
+        return char[0]
 
     _builder = StringBuilder
 
@@ -496,6 +496,26 @@ class W_UnicodeObject(W_Root):
                 lgt += 2
             strs_w.append(W_UnicodeObject(value[sol:eol], lgt))
         return space.newlist(strs_w)
+
+    @unwrap_spec(width=int)
+    def descr_zfill(self, space, width):
+        selfval = self._val(space)
+        if len(selfval) == 0:
+            return self._new(self._multi_chr(self._chr('0')) * width, width)
+        num_zeros = width - self._length
+        if num_zeros <= 0:
+            # cannot return self, in case it is a subclass of str
+            return self._new(selfval, self._length)
+        builder = self._builder(num_zeros + len(selfval))
+        if len(selfval) > 0 and (selfval[0] == '+' or selfval[0] == '-'):
+            # copy sign to first position
+            builder.append(selfval[0])
+            start = 1
+        else:
+            start = 0
+        builder.append_multiple_char(self._chr('0'), num_zeros)
+        builder.append_slice(selfval, start, len(selfval))
+        return self._new(builder.build(), width)
 
 
 def wrapunicode(space, uni):
