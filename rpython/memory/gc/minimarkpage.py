@@ -1,7 +1,7 @@
 import sys
 from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, rffi
 from rpython.rlib.rarithmetic import LONG_BIT, r_uint
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib.debug import ll_assert, fatalerror
 
 WORD = LONG_BIT // 8
@@ -88,6 +88,7 @@ PAGE_NULL = lltype.nullptr(PAGE_HEADER)
 class ArenaCollection(object):
     _alloc_flavor_ = "raw"
 
+    @not_rpython
     def __init__(self, arena_size, page_size, small_request_threshold):
         # 'small_request_threshold' is the largest size that we
         # can ask with self.malloc().
@@ -295,6 +296,8 @@ class ArenaCollection(object):
         arena_base = llarena.arena_malloc(self.arena_size, False)
         if not arena_base:
             out_of_memory("out of memory: couldn't allocate the next arena")
+        if not we_are_translated():
+            arena_base.arena._from_minimarkpage = True
         arena_end = arena_base + self.arena_size
         #
         # 'firstpage' points to the first unused page
@@ -568,6 +571,17 @@ class ArenaCollection(object):
         assert rem == 0, "page size_class misspecified?"
         nblocks = self.nblocks_for_size[size_class]
         return nblocks - num_initialized_blocks
+
+
+    @not_rpython
+    def _is_inside_minimarkpage(self, hdr):
+        # check that getfakearenaaddress() works and the
+        # arena is flagged as "from minimarkpage"
+        try:
+            arena = llarena.getfakearenaaddress(hdr).arena
+        except RuntimeError:
+            return False
+        return getattr(arena, '_from_minimarkpage', False)
 
 
 # ____________________________________________________________

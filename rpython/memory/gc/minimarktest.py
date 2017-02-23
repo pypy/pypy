@@ -28,6 +28,7 @@ class SimpleArenaCollection(object):
         ll_assert((nsize & (WORD-1)) == 0, "malloc: size is not aligned")
         #
         result = llarena.arena_malloc(nsize, False)
+        result.arena._from_minimarktest = True
         llarena.arena_reserve(result, size)
         self.all_objects.append((result, nsize))
         self.total_memory_used += nsize
@@ -56,3 +57,10 @@ class SimpleArenaCollection(object):
         self.mass_free_prepare()
         res = self.mass_free_incremental(ok_to_free_func, sys.maxint)
         assert res
+
+    def _is_inside_minimarkpage(self, hdr):
+        try:
+            arena = llarena.getfakearenaaddress(hdr).arena
+        except RuntimeError:
+            return False
+        return getattr(arena, '_from_minimarktest', False)

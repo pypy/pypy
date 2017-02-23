@@ -71,7 +71,7 @@ from rpython.memory.support import mangle_hash
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask, r_uint
 from rpython.rlib.rarithmetic import LONG_BIT_SHIFT
 from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.memory.gc.minimarkpage import out_of_memory
 
 #
@@ -135,9 +135,13 @@ GCFLAG_CARDS_SET    = first_gcflag << 7     # <- at least one card bit is set
 # note that GCFLAG_CARDS_SET is the most significant bit of a byte:
 # this is required for the JIT (x86)
 
-# The following flag is set on surviving raw-malloced young objects during
-# a minor collection.
-GCFLAG_VISITED_RMY   = first_gcflag << 8
+# The following flag is set on all *old* objects that are not allocated
+# with the normal minimarkpage mechanism.  During minor collections, it
+# is used to track surviving raw-malloced young objects (they don't have
+# the flag to start with, but it gets added if they survive).  Once the
+# minor collection is complete, all objects have the flag iff they are
+# not located inside the minimarkpage.
+GCFLAG_OLD_OUTSIDE_MINIMARKPAGE = first_gcflag << 8
 
 # The following flag is set on nursery objects to keep them in the nursery.
 # This means that a young object with this flag is not moved out
@@ -1002,7 +1006,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.young_rawmalloced_objects.add(result + size_gc_header)
             else:
                 self.old_rawmalloced_objects.append(result + size_gc_header)
-                extra_flags |= GCFLAG_TRACK_YOUNG_PTRS
+                extra_flags |= (GCFLAG_TRACK_YOUNG_PTRS |
+                                GCFLAG_OLD_OUTSIDE_MINIMARKPAGE)
         #
         # Common code to fill the header and length of the object.
         self.init_gc_object(result, typeid, extra_flags)
@@ -1126,7 +1131,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def init_gc_object_immortal(self, addr, typeid16, flags=0):
         # For prebuilt GC objects, the flags must contain
         # GCFLAG_NO_xxx_PTRS, at least initially.
-        flags |= GCFLAG_NO_HEAP_PTRS | GCFLAG_TRACK_YOUNG_PTRS
+        flags |= (GCFLAG_NO_HEAP_PTRS | GCFLAG_TRACK_YOUNG_PTRS
+                  | GCFLAG_OLD_OUTSIDE_MINIMARKPAGE)
         self.init_gc_object(addr, typeid16, flags)
 
     def is_in_nursery(self, addr):
@@ -1241,13 +1247,21 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if not self._is_pinned(obj):
             ll_assert(not self.is_in_nursery(obj),
                       "object in nursery after collection")
-            ll_assert(self.header(obj).tid & GCFLAG_VISITED_RMY == 0,
-                      "GCFLAG_VISITED_RMY after collection")
+            if not we_are_translated():
+                size_gc_header = self.gcheaderbuilder.size_gc_header
+                if self.ac._is_inside_minimarkpage(obj - size_gc_header):
+                    expected_flag = 0
+                else:
+                    expected_flag = GCFLAG_OLD_OUTSIDE_MINIMARKPAGE
+                assert ((self.header(obj).tid & GCFLAG_OLD_OUTSIDE_MINIMARKPAGE)
+                        == expected_flag)
             ll_assert(self.header(obj).tid & GCFLAG_PINNED == 0,
                       "GCFLAG_PINNED outside the nursery after collection")
         else:
             ll_assert(self.is_in_nursery(obj),
                       "pinned object not in nursery")
+            ll_assert((self.header(obj).tid & GCFLAG_OLD_OUTSIDE_MINIMARKPAGE)
+                      != 0, "pinned object must be OLD_OUTSIDE_MINIMARKPAGE")
 
         if self.gc_state == STATE_SCANNING:
             self._debug_check_object_scanning(obj)
@@ -1660,7 +1674,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         # First, find the roots that point to young objects.  All nursery
         # objects found are copied out of the nursery, and the occasional
-        # young raw-malloced object is flagged with GCFLAG_VISITED_RMY.
+        # young raw-malloced object is flagged with
+        # GCFLAG_OLD_OUTSIDE_MINIMARKPAGE.
         # Note that during this step, we ignore references to further
         # young objects; only objects directly referenced by roots
         # are copied out or flagged.  They are also added to the list
@@ -1702,7 +1717,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # All nursery objects they reference are copied out of the
             # nursery, and again added to 'old_objects_pointing_to_young'.
             # All young raw-malloced object found are flagged
-            # GCFLAG_VISITED_RMY.
+            # GCFLAG_OLD_OUTSIDE_MINIMARKPAGE.
             # We proceed until 'old_objects_pointing_to_young' is empty.
             self.collect_oldrefs_to_nursery()
             #
@@ -1979,7 +1994,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #print '_trace_drag_out(%x: %r)' % (hash(obj.ptr._obj), obj)
         #
         # If 'obj' is not in the nursery, nothing to change -- expect
-        # that we must set GCFLAG_VISITED_RMY on young raw-malloced objects.
+        # that we must set GCFLAG_OLD_OUTSIDE_MINIMARKPAGE on young
+        # raw-malloced objects.
         if not self.is_in_nursery(obj):
             # cache usage trade-off: I think that it is a better idea to
             # check if 'obj' is in young_rawmalloced_objects with an access
@@ -1993,6 +2009,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # copy the contents of the object? usually yes, but not for some
         # shadow objects
         copy = True
+        extra_flag = 0
         #
         size_gc_header = self.gcheaderbuilder.size_gc_header
         if self.header(obj).tid & (GCFLAG_HAS_SHADOW | GCFLAG_PINNED) == 0:
@@ -2003,7 +2020,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # into a new nonmovable location.
             totalsize = size_gc_header + self.get_size(obj)
             self.nursery_surviving_size += raw_malloc_usage(totalsize)
-            newhdr = self._malloc_out_of_nursery(totalsize)
+            newhdr, extra_flag = self._malloc_out_of_nursery(totalsize)
             #
         elif self.is_forwarded(obj):
             #
@@ -2032,7 +2049,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if hdr.tid & GCFLAG_VISITED:
                 return
             #
-            hdr.tid |= GCFLAG_VISITED
+            hdr.tid |= GCFLAG_VISITED | GCFLAG_OLD_OUTSIDE_MINIMARKPAGE
             #
             self.surviving_pinned_objects.append(
                 llarena.getfakearenaaddress(obj - size_gc_header))
@@ -2055,11 +2072,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             totalsize = size_gc_header + self.get_size(obj)
             self.nursery_surviving_size += raw_malloc_usage(totalsize)
+            extra_flag = (
+                self.header(newobj).tid & GCFLAG_OLD_OUTSIDE_MINIMARKPAGE)
         #
         # Copy it.  Note that references to other objects in the
         # nursery are kept unchanged in this step.
         if copy:
+            tid = self.header(obj).tid &~ GCFLAG_OLD_OUTSIDE_MINIMARKPAGE
             llmemory.raw_memcopy(obj - size_gc_header, newhdr, totalsize)
+            self.header(newhdr + size_gc_header).tid = tid | extra_flag
         #
         # Set the old object's tid to -42 (containing all flags) and
         # replace the old object's content with the target address.
@@ -2090,15 +2111,16 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _visit_young_rawmalloced_object(self, obj):
         # 'obj' points to a young, raw-malloced object.
         # Any young rawmalloced object never seen by the code here
-        # will end up without GCFLAG_VISITED_RMY, and be freed at the
+        # will end up without GCFLAG_OLD_OUTSIDE_MINIMARKPAGE,
+        # and be freed at the
         # end of the current minor collection.  Note that there was
         # a bug in which dying young arrays with card marks would
         # still be scanned before being freed, keeping a lot of
         # objects unnecessarily alive.
         hdr = self.header(obj)
-        if hdr.tid & GCFLAG_VISITED_RMY:
+        if hdr.tid & GCFLAG_OLD_OUTSIDE_MINIMARKPAGE:
             return
-        hdr.tid |= GCFLAG_VISITED_RMY
+        hdr.tid |= GCFLAG_OLD_OUTSIDE_MINIMARKPAGE
         #
         # Accounting
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -2126,10 +2148,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         'totalsize' that lives so far in the nursery."""
         if raw_malloc_usage(totalsize) <= self.small_request_threshold:
             # most common path
-            return self.ac.malloc(totalsize)
+            return (self.ac.malloc(totalsize), 0)
         else:
             # for nursery objects that are not small
-            return self._malloc_out_of_nursery_nonsmall(totalsize)
+            return (self._malloc_out_of_nursery_nonsmall(totalsize),
+                    GCFLAG_OLD_OUTSIDE_MINIMARKPAGE)
     _malloc_out_of_nursery._always_inline_ = True
 
     def _malloc_out_of_nursery_nonsmall(self, totalsize):
@@ -2154,9 +2177,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.young_rawmalloced_objects = self.null_address_dict()
 
     def _free_young_rawmalloced_obj(self, obj, ignored1, ignored2):
-        # If 'obj' has GCFLAG_VISITED_RMY, it was seen by _trace_drag_out
-        # and survives.  Otherwise, it dies.
-        self.free_rawmalloced_object_if_unvisited(obj, GCFLAG_VISITED_RMY)
+        # If 'obj' has GCFLAG_OLD_OUTSIDE_MINIMARKPAGE, it was seen by
+        # _trace_drag_out and survives.  Otherwise, it dies.
+        self.free_rawmalloced_object_if_unvisited(obj,
+            GCFLAG_OLD_OUTSIDE_MINIMARKPAGE, remove_flag=False)
 
     def remove_young_arrays_from_old_objects_pointing_to_young(self):
         old = self.old_objects_pointing_to_young
@@ -2434,9 +2458,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _reset_gcflag_visited(self, obj, ignored):
         self.header(obj).tid &= ~GCFLAG_VISITED
 
-    def free_rawmalloced_object_if_unvisited(self, obj, check_flag):
+    def free_rawmalloced_object_if_unvisited(self, obj, check_flag,
+                                             remove_flag=True):
         if self.header(obj).tid & check_flag:
-            self.header(obj).tid &= ~check_flag   # survives
+            if remove_flag:
+                self.header(obj).tid &= ~check_flag   # survives
             self.old_rawmalloced_objects.append(obj)
         else:
             size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -2590,8 +2616,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _allocate_shadow(self, obj, copy=False):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         size = self.get_size(obj)
-        shadowhdr = self._malloc_out_of_nursery(size_gc_header +
-                                                size)
+        shadowhdr, shadowflag = self._malloc_out_of_nursery(size_gc_header +
+                                                            size)
+
         # Initialize the shadow enough to be considered a
         # valid gc object.  If the original object stays
         # alive at the next minor collection, it will anyway
@@ -2614,6 +2641,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.header(obj).tid |= GCFLAG_SHADOW_INITIALIZED
             totalsize = size_gc_header + self.get_size(obj)
             llmemory.raw_memcopy(obj - size_gc_header, shadow, totalsize)
+
+        if shadowflag != 0:
+            self.header(shadow).tid |= shadowflag
 
         return shadow
 
@@ -2847,7 +2877,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             elif (bool(self.young_rawmalloced_objects) and
                   self.young_rawmalloced_objects.contains(pointing_to)):
                 # young weakref to a young raw-malloced object
-                if self.header(pointing_to).tid & GCFLAG_VISITED_RMY:
+                if (self.header(pointing_to).tid &
+                        GCFLAG_OLD_OUTSIDE_MINIMARKPAGE):
                     pass    # survives, but does not move
                 else:
                     (obj + offset).address[0] = llmemory.NULL
@@ -3035,7 +3066,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         elif (bool(self.young_rawmalloced_objects) and
               self.young_rawmalloced_objects.contains(obj)):
             # young weakref to a young raw-malloced object
-            if self.header(obj).tid & GCFLAG_VISITED_RMY:
+            if self.header(obj).tid & GCFLAG_OLD_OUTSIDE_MINIMARKPAGE:
                 surviving = True    # survives, but does not move
             else:
                 surviving = False
