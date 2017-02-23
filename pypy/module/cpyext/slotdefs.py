@@ -320,19 +320,30 @@ class CPyBuffer(Buffer):
         self.space = space
         self.ptr = ptr
         self.size = size
-        self.w_obj = w_obj # kept alive
+        self.w_obj = w_obj  # kept alive
         self.pyobj = make_ref(space, w_obj)
         self.format = format
-        if shape is None:
-            self.shape = [size]
-        else:
-            self.shape = shape
-        if strides is None:
-            self.strides = [1]
-        else:
-            self.strides = strides
         self.ndim = ndim
         self.itemsize = itemsize
+
+        # cf. Objects/memoryobject.c:init_shape_strides()
+        if ndim == 0:
+            self.shape = []
+            self.strides = []
+        elif ndim == 1:
+            if shape is None:
+                self.shape = [size // itemsize]
+            else:
+                self.shape = shape
+            if strides is None:
+                self.strides = [itemsize]
+            else:
+                self.strides = strides
+        else:
+            assert len(shape) == ndim
+            self.shape = shape
+            # XXX: missing init_strides_from_shape
+            self.strides = strides
         self.readonly = readonly
         self.releasebufferproc = releasebufferproc
 

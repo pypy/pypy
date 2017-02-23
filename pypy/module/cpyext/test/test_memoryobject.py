@@ -73,6 +73,28 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
         assert b"hello, world." == result
         del result
 
+    def test_0d(self):
+        module = self.import_extension('foo', [
+            ("create_view", "METH_VARARGS",
+             """
+             /* Create an approximation of the buffer for a 0d ndarray */
+             Py_buffer buf;
+             PyObject *str = PyBytes_FromString("hello, world.");
+             buf.buf = PyBytes_AsString(str);
+             buf.obj = str;
+             buf.readonly = 1;
+             buf.len = 13;
+             buf.itemsize = 13;
+             buf.ndim = 0;
+             buf.shape = NULL;
+             PyObject* ret = PyMemoryView_FromBuffer(&buf);
+             return ret;
+            """)])
+        result = module.create_view()
+        assert result.shape == ()
+        assert result.itemsize == 13
+        assert result.tobytes() == b'hello, world.'
+
 class AppTestBufferProtocol(AppTestCpythonExtensionBase):
     def test_buffer_protocol_app(self):
         module = self.import_module(name='buffer_test')
