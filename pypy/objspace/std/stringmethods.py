@@ -608,6 +608,7 @@ class StringMethods(object):
                 eol = pos
             strs.append(value[sol:eol])
         if pos < length:
+            # XXX is this code reachable ever?
             strs.append(value[pos:length])
         return self._newlist_unwrapped(space, strs)
 

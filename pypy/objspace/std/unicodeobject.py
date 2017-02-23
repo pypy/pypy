@@ -185,8 +185,8 @@ class W_UnicodeObject(W_Root):
     def _iscased(self, ch):
         return unicodedb.iscased(ord(ch))
 
-    def _islinebreak(self, ch):
-        return unicodedb.islinebreak(ord(ch))
+    def _islinebreak(self, s, pos):
+        return rutf8.check_newline_utf8(s, pos)
 
     def _upper(self, ch):
         return unichr(unicodedb.toupper(ord(ch)))
@@ -475,23 +475,27 @@ class W_UnicodeObject(W_Root):
     def descr_splitlines(self, space, keepends=False):
         value = self._val(space)
         length = len(value)
-        strs = []
+        strs_w = []
         pos = 0
         while pos < length:
             sol = pos
+            lgt = 0
             while pos < length and not self._islinebreak(value, pos):
                 pos = rutf8.next_codepoint_pos(value, pos)
+                lgt += 1
             eol = pos
-            pos += 1
+            if pos < length:
+                pos = rutf8.next_codepoint_pos(value, pos)
             # read CRLF as one line break
             if pos < length and value[eol] == '\r' and value[pos] == '\n':
                 pos += 1
+                if keepends:
+                    lgt += 1
             if keepends:
                 eol = pos
-            strs.append(value[sol:eol])
-        if pos < length:
-            strs.append(value[pos:length])
-        return self._newlist_unwrapped(space, strs)
+                lgt += 2
+            strs_w.append(W_UnicodeObject(value[sol:eol], lgt))
+        return space.newlist(strs_w)
 
 
 def wrapunicode(space, uni):
