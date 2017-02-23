@@ -4,7 +4,7 @@ from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin,
     enforceargs, newlist_hint)
 from rpython.rlib.buffer import StringBuffer
-from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
+from rpython.rlib.rstring import StringBuilder, split, rsplit
 from rpython.rlib.runicode import (
     make_unicode_escape_function, str_decode_ascii, str_decode_utf_8,
     unicode_encode_ascii, unicode_encode_utf_8, fast_str_decode_ascii)
@@ -120,6 +120,8 @@ class W_UnicodeObject(W_Root):
         return W_UnicodeObject.EMPTY
 
     def _len(self):
+        if self._length == -1:
+            self._length = self._compute_length()
         return self._length
 
     _val = utf8_w
@@ -438,13 +440,13 @@ class W_UnicodeObject(W_Root):
                 return space.w_NotImplemented
             raise
         return W_UnicodeObject(self._utf8 + w_other._utf8,
-                               self._length + w_other._length)
+                               self._len() + w_other._len())
 
     @jit.look_inside_iff(lambda self, space, list_w, size:
                          jit.loop_unrolling_heuristic(list_w, size))
     def _str_join_many_items(self, space, list_w, size):
         value = self._utf8
-        lgt = self._length * (size - 1)
+        lgt = self._len() * (size - 1)
 
         prealloc_size = len(value) * (size - 1)
         unwrapped = newlist_hint(size)
@@ -502,10 +504,10 @@ class W_UnicodeObject(W_Root):
         selfval = self._val(space)
         if len(selfval) == 0:
             return self._new(self._multi_chr(self._chr('0')) * width, width)
-        num_zeros = width - self._length
+        num_zeros = width - self._len()
         if num_zeros <= 0:
             # cannot return self, in case it is a subclass of str
-            return self._new(selfval, self._length)
+            return self._new(selfval, self._len())
         builder = self._builder(num_zeros + len(selfval))
         if len(selfval) > 0 and (selfval[0] == '+' or selfval[0] == '-'):
             # copy sign to first position
@@ -517,6 +519,36 @@ class W_UnicodeObject(W_Root):
         builder.append_slice(selfval, start, len(selfval))
         return self._new(builder.build(), width)
 
+    @unwrap_spec(maxsplit=int)
+    def descr_split(self, space, w_sep=None, maxsplit=-1):
+        # XXX maybe optimize?
+        res = []
+        value = self._val(space)
+        if space.is_none(w_sep):
+            res = split(value, maxsplit=maxsplit)
+            return space.newlist([W_UnicodeObject(s, -1) for s in res])
+
+        by = self._op_val(space, w_sep)
+        if len(by) == 0:
+            raise oefmt(space.w_ValueError, "empty separator")
+        res = split(value, by, maxsplit)
+
+        return space.newlist([W_UnicodeObject(s, -1) for s in res])
+
+    @unwrap_spec(maxsplit=int)
+    def descr_rsplit(self, space, w_sep=None, maxsplit=-1):
+        res = []
+        value = self._val(space)
+        if space.is_none(w_sep):
+            res = rsplit(value, maxsplit=maxsplit)
+            return space.newlist([W_UnicodeObject(s, -1) for s in res])
+
+        by = self._op_val(space, w_sep)
+        if len(by) == 0:
+            raise oefmt(space.w_ValueError, "empty separator")
+        res = rsplit(value, by, maxsplit)
+
+        return space.newlist([W_UnicodeObject(s, -1) for s in res])
 
 def wrapunicode(space, uni):
     return W_UnicodeObject(uni)
