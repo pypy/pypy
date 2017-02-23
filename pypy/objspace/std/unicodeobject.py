@@ -479,8 +479,8 @@ class W_UnicodeObject(W_Root):
         pos = 0
         while pos < length:
             sol = pos
-            while pos < length and not self._islinebreak(value[pos]):
-                pos += 1
+            while pos < length and not self._islinebreak(value, pos):
+                pos = rutf8.next_codepoint_pos(value, pos)
             eol = pos
             pos += 1
             # read CRLF as one line break

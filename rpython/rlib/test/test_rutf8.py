@@ -1,4 +1,5 @@
 
+import sys
 from hypothesis import given, strategies, settings, example
 
 from rpython.rlib import rutf8, runicode
@@ -64,3 +65,10 @@ def test_next_pos(uni):
         assert new_pos - pos == skips[i]
         i += 1
         pos = new_pos
+
+def test_check_newline_utf8():
+    for i in xrange(sys.maxunicode):
+        if runicode.unicodedb.islinebreak(i):
+            assert rutf8.check_newline_utf8(unichr(i).encode('utf8'), 0)
+        else:
+            assert not rutf8.check_newline_utf8(unichr(i).encode('utf8'), 0)

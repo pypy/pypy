@@ -50,6 +50,23 @@ def check_ascii(s):
 def default_unicode_error_check(*args):
     xxx
 
+def check_newline_utf8(s, pos):
+    chr1 = ord(s[pos])
+    if 0xa <= chr1 <= 0xd:
+        return True
+    if 0x1c <= chr1 <= 0x1e:
+        return True
+    if chr1 == 0xc2:
+        chr2 = ord(s[pos + 1])
+        return chr2 == 0x85
+    elif chr1 == 0xe2:
+        chr2 = ord(s[pos + 1])
+        if chr2 != 0x80:
+            return False
+        chr3 = ord(s[pos + 2])
+        return chr3 == 0xa8 or chr3 == 0xa9
+    return False
+
 # if you can't use the @elidable version, call str_check_utf8_impl()
 # directly
 @jit.elidable
