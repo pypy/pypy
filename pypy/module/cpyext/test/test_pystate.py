@@ -178,7 +178,6 @@ class AppTestThreads(AppTestCpythonExtensionBase):
             ("bounce", "METH_NOARGS",
             """
             PyGILState_STATE gilstate;
-            PyThreadState *tstate;
             PyObject *dict;
 
             if (PyEval_ThreadsInitialized() == 0)
