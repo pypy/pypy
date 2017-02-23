@@ -75,7 +75,7 @@ syntax: regexp
 ^compiled
 ^.git/
 .git/
-^.hypothesis/
+.hypothesis/
 ^release/
 ^rpython/_cache$
 
