@@ -452,7 +452,14 @@ Signed rpy_reverse_db_cast_ptr_to_int(struct pypy_header0 *obj)
                 warning_printed = 1;
             }
         }
-        return (Signed)(obj->h_uid);
+        /* on 64-bit, the range is large enough anyway, so shift 3 times
+           to get a result that is a multiple of 8.  The Boehm translation
+           will additionally return the 'int_invert' of that.  So
+           we add 7 to make the user-level id() be a multiple of 8. */
+        if (sizeof(obj->h_uid) == sizeof(Signed))
+            return (obj->h_uid << 3) + 7;
+        else
+            return (Signed)(obj->h_uid);
     }
 }
 
