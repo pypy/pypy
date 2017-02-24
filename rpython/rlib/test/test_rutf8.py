@@ -47,11 +47,6 @@ def test_str_check_utf8(s):
         assert consumed == len(s)
         assert length == len(u)
 
-@given(strategies.binary())
-def test_str_decode_raw_utf8_escape(uni):
-    return # XXX fix details
-    rutf8.str_decode_raw_utf8_escape(uni, len(uni), None)
-
 @given(strategies.characters())
 def test_next_pos(uni):
     skips = []
