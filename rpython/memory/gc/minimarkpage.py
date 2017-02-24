@@ -533,8 +533,8 @@ class ArenaCollection(object):
         surviving = 0    # initially
         skip_free_blocks = page.nfree
         #
-        if self.offline_visited_flags:
-            ok_to_free_func = self.get_unvisited
+        vblocknext = r_uint(0)
+        vblock = rffi.cast(rffi.ULONGLONG, -1)
         #
         while True:
             #
@@ -558,7 +558,16 @@ class ArenaCollection(object):
                 ll_assert(freeblock > obj,
                           "freeblocks are linked out of order")
                 #
-                if ok_to_free_func(obj):
+                if self.offline_visited_flags:
+                    if self.visited_flags_limit_reached(obj, vblocknext):
+                        vblocknext = (
+                            self.get_64bit_limit_for_next_visited_flags(obj))
+                        vblock = self.fetch_64bit_visited_flags(obj)
+                    vblockmask = self.get_64bit_mask_visited_flag(obj)
+                    ok = not (vblock & vblockmask)
+                else:
+                    ok = ok_to_free_func(obj)
+                if ok:
                     #
                     # The object should die.
                     llarena.arena_reset(obj, _dummy_size(block_size), 0)
@@ -580,9 +589,6 @@ class ArenaCollection(object):
         #
         # Update the global total size of objects.
         self.total_memory_used += r_uint(surviving * block_size)
-        #
-        if self.offline_visited_flags:
-            self.reset_block_of_visited_flags_for_one_page(page)
         #
         # Return the number of surviving objects.
         return surviving
@@ -615,46 +621,71 @@ class ArenaCollection(object):
 
     @staticmethod
     @always_inline
-    def get_visited(obj):
+    def get_64bit_ptr_visited_flags(obj):
         numeric = rffi.cast(lltype.Unsigned, obj)
         base = rffi.cast(rffi.CCHARP, numeric & ~(OFFL_ARENA_SIZE - 1))
-        ofs = (numeric // OFFL_RATIO) & (OFFL_SYSTEM_PAGE_SIZE - 1)
-        singlebit = 1 << ((numeric // (OFFL_RATIO/8)) & 7)
-        return (ord(base[ofs]) & singlebit) != 0
+        ofs = (numeric // OFFL_RATIO) & (OFFL_SYSTEM_PAGE_SIZE - 8)
+        return rffi.cast(rffi.ULONGLONGP, rffi.ptradd(base, ofs))
+
+    @staticmethod
+    @always_inline
+    def get_64bit_mask_visited_flag(obj):
+        numeric = rffi.cast(lltype.Unsigned, obj)
+        shift = (numeric // (OFFL_RATIO/8)) & 63
+        return rffi.cast(rffi.ULONGLONG, 1) << shift
+
+    @staticmethod
+    @always_inline
+    def get_visited(obj):
+        """test the visited flag corresponding to 'obj'"""
+        p = ArenaCollection.get_64bit_ptr_visited_flags(obj)
+        mask = ArenaCollection.get_64bit_mask_visited_flag(obj)
+        return (p[0] & mask) != 0
 
     @staticmethod
     @always_inline
     def set_visited(obj):
-        numeric = rffi.cast(lltype.Unsigned, obj)
-        base = rffi.cast(rffi.CCHARP, numeric & ~(OFFL_ARENA_SIZE - 1))
-        ofs = (numeric // OFFL_RATIO) & (OFFL_SYSTEM_PAGE_SIZE - 1)
-        singlebit = 1 << ((numeric // (OFFL_RATIO/8)) & 7)
-        base[ofs] = chr(ord(base[ofs]) | singlebit)
+        """set (to 1) the visited flag corresponding to 'obj'"""
+        p = ArenaCollection.get_64bit_ptr_visited_flags(obj)
+        mask = ArenaCollection.get_64bit_mask_visited_flag(obj)
+        p[0] |= mask
 
     @staticmethod
     @always_inline
     def clear_visited(obj):
-        numeric = rffi.cast(lltype.Unsigned, obj)
-        base = rffi.cast(rffi.CCHARP, numeric & ~(OFFL_ARENA_SIZE - 1))
-        ofs = (numeric // OFFL_RATIO) & (OFFL_SYSTEM_PAGE_SIZE - 1)
-        singlebit = 1 << ((numeric // (OFFL_RATIO/8)) & 7)
-        base[ofs] = chr(ord(base[ofs]) & ~singlebit)
+        """clear the visited flag corresponding to 'obj'"""
+        # (Note: should not be used too often.  Due to the fact that the
+        # same flag might be used for two objects if they are a single
+        # word each, this might occasionally clear too much.  It is
+        # still fine in this case because we clear the flag only to
+        # force re-visiting the object later during major collection)
+        p = ArenaCollection.get_64bit_ptr_visited_flags(obj)
+        mask = ArenaCollection.get_64bit_mask_visited_flag(obj)
+        p[0] &= ~mask
 
     @staticmethod
     @always_inline
-    def get_unvisited(obj):
+    def get_64bit_limit_for_next_visited_flags(obj):
+        """get a result that encodes the last possible position of an
+        object after 'obj' where the corresponding visited flag is in
+        the same 64-bit block as 'obj'."""
         numeric = rffi.cast(lltype.Unsigned, obj)
-        base = rffi.cast(rffi.CCHARP, numeric & ~(OFFL_ARENA_SIZE - 1))
-        ofs = (numeric // OFFL_RATIO) & (OFFL_SYSTEM_PAGE_SIZE - 1)
-        singlebit = 1 << ((numeric // (OFFL_RATIO/8)) & 7)
-        return (ord(base[ofs]) & singlebit) == 0
+        return numeric | (64 * OFFL_RATIO / 8 - 1)
 
     @staticmethod
-    def reset_block_of_visited_flags_for_one_page(page):
-        numeric = rffi.cast(lltype.Unsigned, page)
-        base = rffi.cast(rffi.CCHARP, numeric & ~(OFFL_ARENA_SIZE - 1))
-        ofs = (numeric // OFFL_RATIO) & (OFFL_SYSTEM_PAGE_SIZE - 1)
-        rpy_memset(base, 0, OFFL_SYSTEM_PAGE_SIZE // OFFL_RATIO)
+    @always_inline
+    def visited_flags_limit_reached(obj, vblocknext):
+        """return True if 'obj' is beyond the limit computed by
+        get_64bit_limit_for_next_visited_flags()."""
+        return rffi.cast(lltype.Unsigned, obj) > vblocknext
+
+    @staticmethod
+    @always_inline
+    def fetch_64bit_visited_flags(obj):
+        p = ArenaCollection.get_64bit_ptr_visited_flags(obj)
+        result = p[0]
+        p[0] = rffi.cast(rffi.ULONGLONG, 0)
+        return result
 
 
 # ____________________________________________________________
@@ -748,7 +779,7 @@ RPY_EXTERN void *rpy_allocate_new_arena(void)
     void *p = mmap(NULL, map_size, PROT_READ | PROT_WRITE,
                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (p == MAP_FAILED) {
-        perror("Fatal RPython error: mmap");
+        perror("Fatal RPython error: out of memory");
         abort();
     }
 
@@ -776,7 +807,3 @@ rpy_allocate_new_arena = rffi.llexternal(
 rpy_free_arena = rffi.llexternal(
     'rpy_free_arena', [llmemory.Address], lltype.Void,
     compilation_info=eci, _nowrapper=True)
-
-rpy_memset = rffi.llexternal(
-    'memset', [rffi.CCHARP, lltype.Signed, lltype.Signed], lltype.Void,
-    _nowrapper=True)
