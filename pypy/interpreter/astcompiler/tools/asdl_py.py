@@ -150,8 +150,9 @@ class ASTNodeVisitor(ASDLVisitor):
             return "check_string(space, %s)" % (value,)
         elif field.type in ("identifier",):
             if field.opt:
-                return "space.str_or_None_w(%s)" % (value,)
-            return "space.realstr_w(%s)" % (value,)
+                return ("space.realtext_w(%s) if not space.is_none(%s) "
+                        "else None" % (value, value))
+            return "space.realtext_w(%s)" % (value,)
         elif field.type in ("int",):
             return "space.int_w(%s)" % (value,)
         elif field.type in ("bool",):

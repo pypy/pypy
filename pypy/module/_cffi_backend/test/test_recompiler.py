@@ -6,7 +6,7 @@ from pypy.module._cffi_backend.newtype import _clean_cache
 import pypy.module.cpyext.api     # side-effect of pre-importing it
 
 
-@unwrap_spec(cdef=str, module_name=str, source=str, packed=int)
+@unwrap_spec(cdef='text', module_name='text', source='text', packed=int)
 def prepare(space, cdef, module_name, source, w_includes=None,
             w_extra_source=None, w_min_version=None, packed=False):
     try:

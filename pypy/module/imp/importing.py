@@ -364,7 +364,7 @@ def absolute_import_try(space, modulename, baselevel, w_fromlist):
         length = space.len_w(w_fromlist)
         for i in range(length):
             w_name = space.getitem(w_fromlist, space.newint(i))
-            if not space.isinstance_w(w_name, space.w_str):
+            if not space.isinstance_w(w_name, space.w_text):
                 raise oefmt(space.w_TypeError,
                     "'fromlist' items must be str, not %T", w_name)
         if w_path is not None:
@@ -491,7 +491,7 @@ class W_NullImporter(W_Root):
     def __init__(self, space):
         pass
 
-    @unwrap_spec(path='str0')
+    @unwrap_spec(path='fsencode')
     def descr_init(self, space, path):
         if not path:
             raise oefmt(space.w_ImportError, "empty pathname")
@@ -570,7 +570,7 @@ def find_module(space, modulename, w_modulename, partname, w_path,
                 if w_loader:
                     return FindInfo.fromLoader(w_loader)
 
-            path = space.str0_w(w_pathitem)
+            path = space.fsencode_w(w_pathitem)
             filepart = os.path.join(path, partname)
             log_pyverbose(space, 2, "# trying %s\n" % (filepart,))
             if os.path.isdir(filepart) and case_ok(filepart):

@@ -48,7 +48,7 @@ class MixedModule(Module):
             space.call_method(self.w_dict, 'update', self.w_initialdict)
 
         for w_submodule in self.submodules_w:
-            name = space.str0_w(w_submodule.w_name)
+            name = space.text0_w(w_submodule.w_name)
             space.setitem(self.w_dict, space.newtext(name.split(".")[-1]), w_submodule)
             space.getbuiltinmodule(name)
 

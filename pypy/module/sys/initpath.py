@@ -147,17 +147,17 @@ def compute_stdlib_path_maybe(state, prefix):
         return None
 
 
-@unwrap_spec(executable='str0')
+@unwrap_spec(executable='fsencode')
 def pypy_find_executable(space, executable):
     return space.newtext(find_executable(executable))
 
 
-@unwrap_spec(filename='str0')
+@unwrap_spec(filename='fsencode')
 def pypy_resolvedirof(space, filename):
     return space.newtext(resolvedirof(filename))
 
 
-@unwrap_spec(executable='str0')
+@unwrap_spec(executable='fsencode')
 def pypy_find_stdlib(space, executable):
     path, prefix = None, None
     if executable != '*':

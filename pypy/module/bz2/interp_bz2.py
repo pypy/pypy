@@ -328,7 +328,7 @@ def open_bz2file_as_stream(space, w_path, mode="r", buffering=-1,
         raise oefmt(space.w_ValueError, "cannot open in read-write mode")
     if basemode == "a":
         raise oefmt(space.w_ValueError, "cannot append to bz2 file")
-    stream = open_path_helper(space.str0_w(w_path), os_flags, False)
+    stream = open_path_helper(space.fsencode_w(w_path), os_flags, False)
     if reading:
         bz2stream = ReadBZ2Filter(space, stream, buffering)
         buffering = 0     # by construction, the ReadBZ2Filter acts like

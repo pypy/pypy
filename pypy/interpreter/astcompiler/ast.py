@@ -420,7 +420,7 @@ class FunctionDef(stmt):
         w_decorator_list = get_field(space, w_node, 'decorator_list', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _name = space.realstr_w(w_name)
+        _name = space.realtext_w(w_name)
         if _name is None:
             raise_required_value(space, w_node, 'name')
         _args = arguments.from_object(space, w_args)
@@ -497,7 +497,7 @@ class ClassDef(stmt):
         w_decorator_list = get_field(space, w_node, 'decorator_list', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _name = space.realstr_w(w_name)
+        _name = space.realtext_w(w_name)
         if _name is None:
             raise_required_value(space, w_node, 'name')
         bases_w = space.unpackiterable(w_bases)
@@ -1318,7 +1318,7 @@ class ImportFrom(stmt):
         w_level = get_field(space, w_node, 'level', True)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _module = space.str_or_None_w(w_module)
+        _module = space.realtext_w(w_module) if not space.is_none(w_module) else None
         names_w = space.unpackiterable(w_names)
         _names = [alias.from_object(space, w_item) for w_item in names_w]
         _level = space.int_w(w_level)
@@ -1413,7 +1413,7 @@ class Global(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         names_w = space.unpackiterable(w_names)
-        _names = [space.realstr_w(w_item) for w_item in names_w]
+        _names = [space.realtext_w(w_item) for w_item in names_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Global(_names, _lineno, _col_offset)
@@ -2495,7 +2495,7 @@ class Attribute(expr):
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
-        _attr = space.realstr_w(w_attr)
+        _attr = space.realtext_w(w_attr)
         if _attr is None:
             raise_required_value(space, w_node, 'attr')
         _ctx = expr_context.from_object(space, w_ctx)
@@ -2592,7 +2592,7 @@ class Name(expr):
         w_ctx = get_field(space, w_node, 'ctx', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _id = space.realstr_w(w_id)
+        _id = space.realtext_w(w_id)
         if _id is None:
             raise_required_value(space, w_node, 'id')
         _ctx = expr_context.from_object(space, w_ctx)
@@ -3415,8 +3415,8 @@ class arguments(AST):
         w_defaults = get_field(space, w_node, 'defaults', False)
         args_w = space.unpackiterable(w_args)
         _args = [expr.from_object(space, w_item) for w_item in args_w]
-        _vararg = space.str_or_None_w(w_vararg)
-        _kwarg = space.str_or_None_w(w_kwarg)
+        _vararg = space.realtext_w(w_vararg) if not space.is_none(w_vararg) else None
+        _kwarg = space.realtext_w(w_kwarg) if not space.is_none(w_kwarg) else None
         defaults_w = space.unpackiterable(w_defaults)
         _defaults = [expr.from_object(space, w_item) for w_item in defaults_w]
         return arguments(_args, _vararg, _kwarg, _defaults)
@@ -3448,7 +3448,7 @@ class keyword(AST):
     def from_object(space, w_node):
         w_arg = get_field(space, w_node, 'arg', False)
         w_value = get_field(space, w_node, 'value', False)
-        _arg = space.realstr_w(w_arg)
+        _arg = space.realtext_w(w_arg)
         if _arg is None:
             raise_required_value(space, w_node, 'arg')
         _value = expr.from_object(space, w_value)
@@ -3482,10 +3482,10 @@ class alias(AST):
     def from_object(space, w_node):
         w_name = get_field(space, w_node, 'name', False)
         w_asname = get_field(space, w_node, 'asname', True)
-        _name = space.realstr_w(w_name)
+        _name = space.realtext_w(w_name)
         if _name is None:
             raise_required_value(space, w_node, 'name')
-        _asname = space.str_or_None_w(w_asname)
+        _asname = space.realtext_w(w_asname) if not space.is_none(w_asname) else None
         return alias(_name, _asname)
 
 State.ast_type('alias', 'AST', ['name', 'asname'])

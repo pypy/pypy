@@ -11,7 +11,7 @@ class MultibyteCodec(W_Root):
         self.name = name
         self.codec = codec
 
-    @unwrap_spec(input='bytes', errors="str_or_None")
+    @unwrap_spec(input='bytes', errors="text_or_none")
     def decode(self, space, input, errors=None):
         if errors is None:
             errors = 'strict'
@@ -27,7 +27,7 @@ class MultibyteCodec(W_Root):
         return space.newtuple([space.newunicode(output),
                                space.newint(len(input))])
 
-    @unwrap_spec(input=unicode, errors="str_or_None")
+    @unwrap_spec(input=unicode, errors="text_or_none")
     def encode(self, space, input, errors=None):
         if errors is None:
             errors = 'strict'

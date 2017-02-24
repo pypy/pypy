@@ -78,7 +78,7 @@ class AppTestCrossing:
             import ctypes, cppyy""")    # prevents leak-checking complaints on ctypes' statics
 
     def setup_method(self, func):
-        @unwrap_spec(name=str, init=str, body=str)
+        @unwrap_spec(name='text', init='text', body='text')
         def create_cdll(space, name, init, body):
             # the following is loosely from test_cpyext.py import_module; it
             # is copied here to be able to tweak the call to

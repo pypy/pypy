@@ -119,7 +119,7 @@ def PyObject_GetBuffer(space, w_obj, view, flags):
     try:
         view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
     except ValueError:
-        if not space.isinstance_w(w_obj, space.w_str):
+        if not space.isinstance_w(w_obj, space.w_bytes):
             # XXX Python 3?
             raise BufferError("could not create buffer from object")
         view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(space.bytes_w(w_obj), track_allocation=False))

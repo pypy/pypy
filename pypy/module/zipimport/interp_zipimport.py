@@ -350,7 +350,7 @@ class W_ZipImporter(W_Root):
         space = self.space
         return space.newtext(self.filename)
 
-@unwrap_spec(name='str0')
+@unwrap_spec(name='text0')
 def descr_new_zipimporter(space, w_type, name):
     ok = False
     parts_ends = [i for i in range(0, len(name))
