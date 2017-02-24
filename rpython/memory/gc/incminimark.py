@@ -1254,15 +1254,17 @@ class IncrementalMiniMarkGC(MovingGCBase):
     @specialize.arg(2)
     def set_visited_and_other_flag(self, obj, other_flag):
         # Optimized 'set_visited(obj)' followed by setting 'other_flag' too
-        tid = self.header(obj).tid | other_flag
-        must_set_gcflag_visited = True
+        tid = self.header(obj).tid
+        add = GCFLAG_VISITED | other_flag
         if self.offline_visited_flags:
             if tid & GCFLAG_OLD_OUTSIDE_MINIMARKPAGE == 0:
                 self.ac.set_visited(obj)
-                must_set_gcflag_visited = False
-        if must_set_gcflag_visited:
-            tid |= GCFLAG_VISITED
-        self.header(obj).tid = tid
+                if tid & other_flag:
+                    return   # common case: 'other_flag' is already set
+                             # (not just an optimization: avoids writes
+                             # to this object, and thus fork-unsharing)
+                add = other_flag
+        self.header(obj).tid = tid | add
 
     def clear_visited(self, obj):
         # Clear the object's GCFLAG_VISITED flag, noting that it may be
