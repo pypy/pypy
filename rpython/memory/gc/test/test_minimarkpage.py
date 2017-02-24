@@ -38,7 +38,7 @@ def test_allocate_new_page():
         assert page.nfree == 0
         page1 = page.freeblock - hdrsize
         assert llmemory.cast_ptr_to_adr(page) == page1
-        assert page.nextpage == PAGE_NULL
+        assert ac.getnextpage(page) == PAGE_NULL
     #
     ac = ArenaCollection(arenasize, pagesize, 99)
     assert ac.num_uninitialized_pages == 0
@@ -83,7 +83,7 @@ def arena_collection_for_test(pagesize, pagelayout, fill_with_objects=False):
             chainedlists = ac.page_for_size
         else:
             chainedlists = ac.full_page_for_size
-        page.nextpage = chainedlists[size_class]
+        ac.setnextpage(page, chainedlists[size_class])
         page.arena = ac.current_arena
         chainedlists[size_class] = page
         if fill_with_objects:
@@ -285,7 +285,7 @@ def test_mass_free_partial_remains():
                                hdrsize + 2*WORD: False}
     page = getpage(ac, 0)
     assert page == ac.page_for_size[2]
-    assert page.nextpage == PAGE_NULL
+    assert ac.getnextpage(page) == PAGE_NULL
     assert ac._nuninitialized(page, 2) == 1
     assert page.nfree == 0
     chkob(ac, 0, 4*WORD, page.freeblock)
@@ -313,7 +313,7 @@ def test_mass_free_full_remains_full():
                                hdrsize + 4*WORD: False}
     page = getpage(ac, 0)
     assert page == ac.full_page_for_size[2]
-    assert page.nextpage == PAGE_NULL
+    assert ac.getnextpage(page) == PAGE_NULL
     assert ac._nuninitialized(page, 2) == 0
     assert page.nfree == 0
     assert freepages(ac) == NULL
@@ -331,7 +331,7 @@ def test_mass_free_full_is_partially_emptied():
     page = getpage(ac, 0)
     pageaddr = pagenum(ac, 0)
     assert page == ac.page_for_size[2]
-    assert page.nextpage == PAGE_NULL
+    assert ac.getnextpage(page) == PAGE_NULL
     assert ac._nuninitialized(page, 2) == 0
     assert page.nfree == 2
     assert page.freeblock == pageaddr + hdrsize + 2*WORD
@@ -356,7 +356,7 @@ def test_mass_free_half_page_remains():
     page = getpage(ac, 0)
     pageaddr = pagenum(ac, 0)
     assert page == ac.page_for_size[2]
-    assert page.nextpage == PAGE_NULL
+    assert ac.getnextpage(page) == PAGE_NULL
     assert ac._nuninitialized(page, 2) == 4
     assert page.nfree == 4
     assert page.freeblock == pageaddr + hdrsize + 2*WORD
@@ -384,7 +384,7 @@ def test_mass_free_half_page_becomes_more_free():
     page = getpage(ac, 0)
     pageaddr = pagenum(ac, 0)
     assert page == ac.page_for_size[2]
-    assert page.nextpage == PAGE_NULL
+    assert ac.getnextpage(page) == PAGE_NULL
     assert ac._nuninitialized(page, 2) == 4
     assert page.nfree == 6
     fb = page.freeblock

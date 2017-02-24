@@ -62,14 +62,6 @@ ARENA_NULL = lltype.nullptr(ARENA)
 
 PAGE_PTR = lltype.Ptr(lltype.ForwardReference())
 PAGE_HEADER = lltype.Struct('PageHeader',
-    # -- The following pointer makes a chained list of pages.  For non-full
-    #    pages, it is a chained list of pages having the same size class,
-    #    rooted in 'page_for_size[size_class]'.  For full pages, it is a
-    #    different chained list rooted in 'full_page_for_size[size_class]'.
-    #    For free pages, it is the list 'freepages' in the arena header.
-    ('nextpage', PAGE_PTR),
-    # -- The arena this page is part of.
-    ('arena', ARENA_PTR),
     # -- The number of free blocks.  The numbers of uninitialized and
     #    allocated blocks can be deduced from the context if needed.
     ('nfree', lltype.Signed),
@@ -77,11 +69,24 @@ PAGE_HEADER = lltype.Struct('PageHeader',
     #    first uninitialized block (pointing to data that is uninitialized,
     #    or to the end of the page).
     ('freeblock', llmemory.Address),
+    # -- The following pointer makes a chained list of pages.  For non-full
+    #    pages, it is a chained list of pages having the same size class,
+    #    rooted in 'page_for_size[size_class]'.  For full pages, it is a
+    #    different chained list rooted in 'full_page_for_size[size_class]'.
+    #    For free pages, it is the list 'freepages' in the arena header.
+    # == NOTE: with offline_visited_flags, this pointer contains an
+    #    indirection.  It is only written once, and so it must not be
+    #    the first word of the page, because that is overwritten with
+    #    a chained list when the page becomes free again.
+    ('nextpage', llmemory.Address),
+    # -- The arena this page is part of.
+    ('arena', ARENA_PTR),
     # -- The structure above is 4 words, which is a good value:
     #    '(1024-4) % N' is zero or very small for various small N's,
     #    i.e. there is not much wasted space.
     )
 PAGE_PTR.TO.become(PAGE_HEADER)
+PAGE_PTR_PTR = rffi.CArrayPtr(PAGE_PTR)
 PAGE_NULL = lltype.nullptr(PAGE_HEADER)
 
 # ----------
@@ -153,6 +158,13 @@ class ArenaCollection(object):
         # the additional bookkeeping stuff.
         self.total_memory_used = r_uint(0)
 
+        if not offline_visited_flags:
+            self.ARENA_WITH_OFFL = ARENA
+        else:
+            self.ARENA_WITH_OFFL = lltype.Struct('ArenaReferenceOffl',
+                ('arena_super', ARENA),
+                ('nextindirections', lltype.Array(PAGE_PTR)))
+
 
     def _new_page_ptr_list(self, length):
         return lltype.malloc(rffi.CArray(PAGE_PTR), length,
@@ -195,8 +207,8 @@ class ArenaCollection(object):
         if freeblock - pageaddr > self.page_size - nsize:
             # This was the last free block, so unlink the page from the
             # chained list and put it in the 'full_page_for_size' list.
-            self.page_for_size[size_class] = page.nextpage
-            page.nextpage = self.full_page_for_size[size_class]
+            self.page_for_size[size_class] = self.getnextpage(page)
+            self.setnextpage(page, self.full_page_for_size[size_class])
             self.full_page_for_size[size_class] = page
         #
         llarena.arena_reserve(result, _dummy_size(size))
@@ -227,6 +239,17 @@ class ArenaCollection(object):
             ll_assert(self.num_uninitialized_pages > 0,
                       "fully allocated arena found in self.current_arena")
             self.num_uninitialized_pages -= 1
+            #
+            if self.offline_visited_flags:
+                # initialize the 'page.nextpage' indirection
+                arena_with_offl = lltype.cast_pointer(
+                    lltype.Ptr(self.ARENA_WITH_OFFL), arena)
+                array = arena_with_offl.nextindirections
+                array = lltype.direct_arrayitems(array)
+                p = lltype.direct_ptradd(array, self.num_uninitialized_pages)
+                page = llmemory.cast_adr_to_ptr(result, PAGE_PTR)
+                page.nextpage = llmemory.cast_ptr_to_adr(p)
+            #
             if self.num_uninitialized_pages > 0:
                 freepages = result + self.page_size
             else:
@@ -248,7 +271,7 @@ class ArenaCollection(object):
         page.arena = arena
         page.nfree = 0
         page.freeblock = result + self.hdrsize
-        page.nextpage = PAGE_NULL
+        self.setnextpage(page, PAGE_NULL)
         ll_assert(self.page_for_size[size_class] == PAGE_NULL,
                   "allocate_new_page() called but a page is already waiting")
         self.page_for_size[size_class] = page
@@ -327,7 +350,12 @@ class ArenaCollection(object):
             arena_base.arena._from_minimarkpage = True
         #
         # Allocate an ARENA object and initialize it
-        arena = lltype.malloc(ARENA, flavor='raw', track_allocation=False)
+        if not self.offline_visited_flags:
+            arena = lltype.malloc(ARENA, flavor='raw', track_allocation=False)
+        else:
+            arena_with_offl = lltype.malloc(self.ARENA_WITH_OFFL, npages,
+                                         flavor='raw', track_allocation=False)
+            arena = arena_with_offl.arena_super
         arena.base = arena_base
         arena.nfreepages = 0        # they are all uninitialized pages
         arena.totalpages = npages
@@ -458,7 +486,7 @@ class ArenaCollection(object):
                 #
                 # Collect the page.
                 surviving = self.walk_page(page, block_size, ok_to_free_func)
-                nextpage = page.nextpage
+                nextpage = self.getnextpage(page)
                 #
                 if surviving == nblocks:
                     #
@@ -466,14 +494,14 @@ class ArenaCollection(object):
                     # 'remaining_full_pages' chained list.
                     ll_assert(step == 0,
                               "A non-full page became full while freeing")
-                    page.nextpage = remaining_full_pages
+                    self.setnextpage(page, remaining_full_pages)
                     remaining_full_pages = page
                     #
                 elif surviving > 0:
                     #
                     # There is at least 1 object surviving.  Re-insert
                     # the page in the 'remaining_partial_pages' chained list.
-                    page.nextpage = remaining_partial_pages
+                    self.setnextpage(page, remaining_partial_pages)
                     remaining_partial_pages = page
                     #
                 else:
@@ -617,6 +645,21 @@ class ArenaCollection(object):
         except RuntimeError:
             return False
         return getattr(arena, '_from_minimarkpage', False)
+
+
+    @always_inline
+    def getnextpage(self, page):
+        if not self.offline_visited_flags:
+            return llmemory.cast_adr_to_ptr(page.nextpage, PAGE_PTR)
+        else:
+            return llmemory.cast_adr_to_ptr(page.nextpage, PAGE_PTR_PTR)[0]
+
+    @always_inline
+    def setnextpage(self, page, nextp):
+        if not self.offline_visited_flags:
+            page.nextpage = llmemory.cast_ptr_to_adr(nextp)
+        else:
+            llmemory.cast_adr_to_ptr(page.nextpage, PAGE_PTR_PTR)[0] = nextp
 
 
     @staticmethod
