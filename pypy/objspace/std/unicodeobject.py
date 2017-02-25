@@ -136,14 +136,17 @@ class W_UnicodeObject(W_Root):
 
     @staticmethod
     def _op_val(space, w_other, strict=None):
-        return W_UnicodeObject.convert_arg_to_w_unicode(space, w_other)._utf8.decode('utf8')
+        return W_UnicodeObject.convert_arg_to_w_unicode(space, w_other, strict)._utf8.decode('utf8')
 
     @staticmethod
-    def convert_arg_to_w_unicode(space, w_other):
+    def convert_arg_to_w_unicode(space, w_other, strict=None):
         if isinstance(w_other, W_UnicodeObject):
             return w_other
         if space.isinstance_w(w_other, space.w_bytes):
             return unicode_from_string(space, w_other)
+        if strict:
+            raise oefmt(space.w_TypeError,
+                "%s arg must be None, unicode or str", strict)
         return unicode_from_encoded_object(space, w_other, None, "strict")
 
     def convert_to_w_unicode(self, space):
