@@ -371,15 +371,16 @@ def register_error(space, errors, w_handler):
 from rpython.rlib import runicode
 
 def make_encoder_wrapper(name):
-    rname = "unicode_encode_%s" % (name.replace("_encode", ""), )
-    assert hasattr(runicode, rname)
-    @unwrap_spec(uni='utf8', errors='str_or_None')
+    rname = "utf8_encode_%s" % (name.replace("_encode", ""), )
+    @unwrap_spec(utf8='utf8', errors='str_or_None')
     def wrap_encoder(space, utf8, utf8len, errors="strict"):
+        from pypy.interpreter import unicodehelper
+
         if errors is None:
             errors = 'strict'
         state = space.fromcache(CodecState)
-        func = getattr(runicode, rname)
-        result = func(utf8, len(utf8), utf8len,
+        func = getattr(unicodehelper, rname)
+        result = func(utf8, utf8len,
             errors, state.encode_error_handler)
         return space.newtuple([space.newbytes(result), space.newint(utf8len)])
     wrap_encoder.func_name = rname
@@ -438,10 +439,11 @@ if hasattr(runicode, 'str_decode_mbcs'):
 
 # utf-8 functions are not regular, because we have to pass
 # "allow_surrogates=True"
-@unwrap_spec(uni=unicode, errors='str_or_None')
-def utf_8_encode(space, uni, errors="strict"):
+@unwrap_spec(utf8='utf8', errors='str_or_None')
+def utf_8_encode(space, utf8, utf8len, errors="strict"):
     if errors is None:
         errors = 'strict'
+    xxx
     state = space.fromcache(CodecState)
     # NB. can't call unicode_encode_utf_8() directly because that's
     # an @elidable function nowadays.  Instead, we need the _impl().
@@ -605,8 +607,9 @@ def charmap_decode(space, string, errors="strict", w_mapping=None):
         final, state.decode_error_handler, mapping)
     return space.newtuple([space.newunicode(result), space.newint(consumed)])
 
-@unwrap_spec(uni=unicode, errors='str_or_None')
-def charmap_encode(space, uni, errors="strict", w_mapping=None):
+@unwrap_spec(utf8='utf8', errors='str_or_None')
+def charmap_encode(space, utf8, utf8len, errors="strict", w_mapping=None):
+    xxx
     if errors is None:
         errors = 'strict'
     if space.is_none(w_mapping):
@@ -621,9 +624,10 @@ def charmap_encode(space, uni, errors="strict", w_mapping=None):
     return space.newtuple([space.newbytes(result), space.newint(len(uni))])
 
 
-@unwrap_spec(chars=unicode)
-def charmap_build(space, chars):
+@unwrap_spec(chars='utf8')
+def charmap_build(space, chars, charslen):
     # XXX CPython sometimes uses a three-level trie
+    xxx
     w_charmap = space.newdict()
     for num in range(len(chars)):
         elem = chars[num]

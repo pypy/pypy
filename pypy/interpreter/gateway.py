@@ -159,6 +159,7 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
 
     def visit_utf8(self, el, app_sig):
         self.checked_space_method(el, app_sig)
+        self.orig_arg() # iterate
 
     def visit_nonnegint(self, el, app_sig):
         self.checked_space_method(el, app_sig)
@@ -607,6 +608,16 @@ def build_unwrap_spec(func, argnames, self_type=None):
                              "the name of an argument of the following "
                              "function" % (name,))
 
+    if kw_spec:
+        filtered = []
+        i = 0
+        while i < len(unwrap_spec):
+            elem = unwrap_spec[i]
+            filtered.append(elem)
+            if elem == 'utf8':
+                i += 1
+            i += 1
+        unwrap_spec = filtered
     return unwrap_spec
 
 

@@ -4,7 +4,7 @@ from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin,
     enforceargs, newlist_hint)
 from rpython.rlib.buffer import StringBuffer
-from rpython.rlib.rstring import StringBuilder, split, rsplit
+from rpython.rlib.rstring import StringBuilder, split, rsplit, UnicodeBuilder
 from rpython.rlib.runicode import (
     make_unicode_escape_function, str_decode_ascii, str_decode_utf_8,
     unicode_encode_ascii, unicode_encode_utf_8, fast_str_decode_ascii)
@@ -111,7 +111,7 @@ class W_UnicodeObject(W_Root):
         return space.newint(ord(self._value[0]))
 
     def _new(self, value):
-        return W_UnicodeObject(value.encode('utf8', len(value)))
+        return W_UnicodeObject(value.encode('utf8'), len(value))
 
     def _new_from_list(self, value):
         xxx
@@ -153,7 +153,7 @@ class W_UnicodeObject(W_Root):
         assert len(char) == 1
         return char[0]
 
-    _builder = StringBuilder
+    _builder = UnicodeBuilder
 
     def _isupper(self, ch):
         return unicodedb.isupper(ord(ch))
@@ -411,7 +411,8 @@ class W_UnicodeObject(W_Root):
 
     def descr_islower(self, space):
         cased = False
-        for uchar in self._value:
+        val = self._val(space)
+        for uchar in val:
             if (unicodedb.isupper(ord(uchar)) or
                 unicodedb.istitle(ord(uchar))):
                 return space.w_False
@@ -421,7 +422,7 @@ class W_UnicodeObject(W_Root):
 
     def descr_isupper(self, space):
         cased = False
-        for uchar in self._value:
+        for uchar in self._val(space):
             if (unicodedb.islower(ord(uchar)) or
                 unicodedb.istitle(ord(uchar))):
                 return space.w_False
@@ -466,7 +467,7 @@ class W_UnicodeObject(W_Root):
             lgt += w_u._length
             prealloc_size += len(unwrapped[i])
 
-        sb = self._builder(prealloc_size)
+        sb = StringBuilder(prealloc_size)
         for i in range(size):
             if value and i != 0:
                 sb.append(value)
@@ -508,7 +509,7 @@ class W_UnicodeObject(W_Root):
         if num_zeros <= 0:
             # cannot return self, in case it is a subclass of str
             return W_UnicodeObject(selfval, self._len())
-        builder = self._builder(num_zeros + len(selfval))
+        builder = StringBuilder(num_zeros + len(selfval))
         if len(selfval) > 0 and (selfval[0] == '+' or selfval[0] == '-'):
             # copy sign to first position
             builder.append(selfval[0])
@@ -568,9 +569,6 @@ class W_UnicodeObject(W_Root):
             d = 0
 
         return W_UnicodeObject(centered, self._len() + d)
-
-    def descr_title(self, space):
-        return 
 
 def wrapunicode(space, uni):
     return W_UnicodeObject(uni)

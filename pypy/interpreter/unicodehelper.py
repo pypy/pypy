@@ -74,3 +74,8 @@ def encode_utf8(space, uni):
         uni, len(uni), "strict",
         errorhandler=raise_unicode_exception_encode,
         allow_surrogates=True)
+
+def utf8_encode_ascii(utf8, utf8len, errors, errorhandler):
+    if len(utf8) == utf8len:
+        return utf8
+    xxx
