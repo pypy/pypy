@@ -66,7 +66,7 @@ class SnapshotIterator(object):
         assert isinstance(snapshot, TopSnapshot)
         self.vable_array = snapshot.vable_array
         self.vref_array = snapshot.vref_array
-        self.size = len(self.vable_array) + len(self.vref_array) + 2
+        self.size = len(self.vable_array) + len(self.vref_array) + 3
         jc_index, pc = unpack_uint(snapshot.packed_jitcode_pc)
         self.framestack = []
         if jc_index == 2**16-1:
