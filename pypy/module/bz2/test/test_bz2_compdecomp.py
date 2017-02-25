@@ -50,7 +50,7 @@ class AppTestBZ2Compressor(CheckAllocation):
         if cls.runappdirect:
             cls.w_decompress = decompress
         else:
-            @gateway.unwrap_spec(data=bytes)
+            @gateway.unwrap_spec(data='bytes')
             def decompress_w(space, data):
                 return space.newbytes(decompress(cls, data))
             cls.w_decompress = cls.space.wrap(gateway.interp2app(decompress_w))
@@ -228,7 +228,7 @@ class AppTestBZ2ModuleFunctions(CheckAllocation):
         if cls.runappdirect:
             cls.w_decompress = decompress
         else:
-            @gateway.unwrap_spec(data=bytes)
+            @gateway.unwrap_spec(data='bytes')
             def decompress_w(space, data):
                 return space.newbytes(decompress(cls, data))
             cls.w_decompress = cls.space.wrap(gateway.interp2app(decompress_w))
