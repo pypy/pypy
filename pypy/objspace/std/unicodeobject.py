@@ -136,15 +136,18 @@ class W_UnicodeObject(W_Root):
 
     @staticmethod
     def _op_val(space, w_other, strict=None):
-        return W_UnicodeObject._convert_to_unicode(space, w_other)._utf8.decode('utf8')
+        return W_UnicodeObject.convert_arg_to_w_unicode(space, w_other)._utf8.decode('utf8')
 
     @staticmethod
-    def _convert_to_unicode(space, w_other):
+    def convert_arg_to_w_unicode(space, w_other):
         if isinstance(w_other, W_UnicodeObject):
             return w_other
         if space.isinstance_w(w_other, space.w_bytes):
             return unicode_from_string(space, w_other)
         return unicode_from_encoded_object(space, w_other, None, "strict")
+
+    def convert_to_w_unicode(self, space):
+        return self
 
     def _chr(self, char):
         assert len(char) == 1
@@ -249,7 +252,7 @@ class W_UnicodeObject(W_Root):
 
     def descr_eq(self, space, w_other):
         try:
-            res = self._utf8 == self._convert_to_unicode(space, w_other)._utf8
+            res = self._utf8 == self.convert_arg_to_w_unicode(space, w_other)._utf8
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
@@ -265,7 +268,7 @@ class W_UnicodeObject(W_Root):
 
     def descr_ne(self, space, w_other):
         try:
-            res = self._utf8 != self._convert_to_unicode(space, w_other)._utf8
+            res = self._utf8 != self.convert_arg_to_w_unicode(space, w_other)._utf8
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
@@ -281,7 +284,7 @@ class W_UnicodeObject(W_Root):
 
     def descr_lt(self, space, w_other):
         try:
-            res = self._utf8 < self._convert_to_unicode(space, w_other)._utf8
+            res = self._utf8 < self.convert_arg_to_w_unicode(space, w_other)._utf8
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
@@ -290,7 +293,7 @@ class W_UnicodeObject(W_Root):
 
     def descr_le(self, space, w_other):
         try:
-            res = self._utf8 <= self._convert_to_unicode(space, w_other)._utf8
+            res = self._utf8 <= self.convert_arg_to_w_unicode(space, w_other)._utf8
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
@@ -299,7 +302,7 @@ class W_UnicodeObject(W_Root):
 
     def descr_gt(self, space, w_other):
         try:
-            res = self._utf8 > self._convert_to_unicode(space, w_other)._utf8
+            res = self._utf8 > self.convert_arg_to_w_unicode(space, w_other)._utf8
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
@@ -308,7 +311,7 @@ class W_UnicodeObject(W_Root):
 
     def descr_ge(self, space, w_other):
         try:
-            res = self._utf8 >= self._convert_to_unicode(space, w_other)._utf8
+            res = self._utf8 >= self.convert_arg_to_w_unicode(space, w_other)._utf8
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
@@ -431,7 +434,7 @@ class W_UnicodeObject(W_Root):
 
     def descr_add(self, space, w_other):
         try:
-            w_other = self._convert_to_unicode(space, w_other)
+            w_other = self.convert_arg_to_w_unicode(space, w_other)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
@@ -458,7 +461,7 @@ class W_UnicodeObject(W_Root):
                 return self._join_autoconvert(space, list_w)
             # XXX Maybe the extra copy here is okay? It was basically going to
             #     happen anyway, what with being placed into the builder
-            w_u = self._convert_to_unicode(space, w_s)
+            w_u = self.convert_arg_to_w_unicode(space, w_s)
             unwrapped.append(w_u._utf8)
             lgt += w_u._length
             prealloc_size += len(unwrapped[i])
@@ -525,7 +528,7 @@ class W_UnicodeObject(W_Root):
             res = split(value, maxsplit=maxsplit)
             return space.newlist([W_UnicodeObject(s, -1) for s in res])
 
-        by = self._convert_to_unicode(space, w_sep)._utf8
+        by = self.convert_arg_to_w_unicode(space, w_sep)._utf8
         if len(by) == 0:
             raise oefmt(space.w_ValueError, "empty separator")
         res = split(value, by, maxsplit)
@@ -540,7 +543,7 @@ class W_UnicodeObject(W_Root):
             res = rsplit(value, maxsplit=maxsplit)
             return space.newlist([W_UnicodeObject(s, -1) for s in res])
 
-        by = self._convert_to_unicode(space, w_sep)._utf8
+        by = self.convert_arg_to_w_unicode(space, w_sep)._utf8
         if len(by) == 0:
             raise oefmt(space.w_ValueError, "empty separator")
         res = rsplit(value, by, maxsplit)
@@ -550,7 +553,7 @@ class W_UnicodeObject(W_Root):
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
     def descr_center(self, space, width, w_fillchar):
         value = self._utf8
-        fillchar = self._convert_to_unicode(space, w_fillchar)._utf8
+        fillchar = self.convert_arg_to_w_unicode(space, w_fillchar)._utf8
         if len(fillchar) != 1:
             raise oefmt(space.w_TypeError,
                         "center() argument 2 must be a single character")

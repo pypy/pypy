@@ -535,21 +535,22 @@ class TestGateway:
         w_app_g3_r = space.wrap(app_g3_r)
         raises(gateway.OperationError,space.call_function,w_app_g3_r,w(1.0))
 
-    def test_interp2app_unwrap_spec_unicode(self):
+    def test_interp2app_unwrap_spec_utf8(self):
         space = self.space
         w = space.wrap
-        def g3_u(space, uni):
-            return space.wrap(len(uni))
+        def g3_u(space, utf8, utf8len):
+            return space.newtuple([space.wrap(len(utf8)), space.wrap(utf8len)])
         app_g3_u = gateway.interp2app_temp(g3_u,
                                          unwrap_spec=[gateway.ObjSpace,
-                                                      unicode])
+                                                      'utf8'])
         w_app_g3_u = space.wrap(app_g3_u)
+        encoded = u"gęść".encode('utf8')
         assert self.space.eq_w(
-            space.call_function(w_app_g3_u, w(u"foo")),
-            w(3))
+            space.call_function(w_app_g3_u, w(u"gęść")),
+            space.newtuple([w(len(encoded)), w(4)]))
         assert self.space.eq_w(
-            space.call_function(w_app_g3_u, w("baz")),
-            w(3))
+            space.call_function(w_app_g3_u, w("foo")),
+            space.newtuple([w(3), w(3)]))
         raises(gateway.OperationError, space.call_function, w_app_g3_u,
                w(None))
         raises(gateway.OperationError, space.call_function, w_app_g3_u,

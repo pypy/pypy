@@ -1,6 +1,6 @@
 """The builtin str implementation"""
 
-from rpython.rlib import jit
+from rpython.rlib import jit, rutf8
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin)
 from rpython.rlib.buffer import StringBuffer
@@ -52,9 +52,17 @@ class W_AbstractBytesObject(W_Root):
             uid = (base << IDTAG_SHIFT) | IDTAG_SPECIAL
         return space.newint(uid)
 
-    def unicode_w(self, space):
+    def convert_to_w_unicode(self, space):
         # Use the default encoding.
         encoding = getdefaultencoding(space)
+        if encoding == 'ascii':
+            try:
+                rutf8.check_ascii(self._value)
+                return space.newutf8(self._value, len(self._value))
+            except rutf8.AsciiCheckError:
+                xxx
+        else:
+            xxx
         return space.unicode_w(decode_object(space, self, encoding, None))
 
     def descr_add(self, space, w_other):

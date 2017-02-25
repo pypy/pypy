@@ -264,6 +264,9 @@ class W_Root(object):
     def utf8_w(self, space):
         self._typed_unwrap_error(space, "unicode")
 
+    def convert_to_w_unicode(self, space):
+        self._typed_unwrap_error(space, "unicode")        
+
     def bytearray_list_of_chars_w(self, space):
         self._typed_unwrap_error(space, "bytearray")
 
@@ -1676,8 +1679,12 @@ class ObjSpace(object):
     def utf8_w(self, w_obj):
         return w_obj.utf8_w(self)
 
+    def convert_to_w_unicode(self, w_obj):
+        return w_obj.convert_to_w_unicode(self)
+
     def unicode0_w(self, w_obj):
         "Like unicode_w, but rejects strings with NUL bytes."
+        xxxx
         from rpython.rlib import rstring
         result = w_obj.unicode_w(self)
         if u'\x00' in result:
@@ -1689,6 +1696,7 @@ class ObjSpace(object):
     def realunicode_w(self, w_obj):
         # Like unicode_w, but only works if w_obj is really of type
         # 'unicode'.
+        xxx
         if not self.isinstance_w(w_obj, self.w_unicode):
             raise oefmt(self.w_TypeError, "argument must be a unicode")
         return self.unicode_w(w_obj)
