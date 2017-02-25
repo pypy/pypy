@@ -237,7 +237,7 @@ class W_UnicodeObject(W_Root):
 
         assert isinstance(w_value, W_UnicodeObject)
         w_newobj = space.allocate_instance(W_UnicodeObject, w_unicodetype)
-        W_UnicodeObject.__init__(w_newobj, w_value._value)
+        W_UnicodeObject.__init__(w_newobj, w_value._utf8, w_value._length)
         return w_newobj
 
     def descr_repr(self, space):
@@ -340,8 +340,7 @@ class W_UnicodeObject(W_Root):
         return mod_format(space, w_values, self, do_unicode=True)
 
     def descr_translate(self, space, w_table):
-        xxx
-        selfvalue = self._value
+        selfvalue = self._utf8.decode("utf8")
         w_sys = space.getbuiltinmodule('sys')
         maxunicode = space.int_w(space.getattr(w_sys,
                                                space.newtext("maxunicode")))
@@ -365,12 +364,12 @@ class W_UnicodeObject(W_Root):
                                     hex(maxunicode + 1))
                     result.append(unichr(newval))
                 elif space.isinstance_w(w_newval, space.w_unicode):
-                    result.append(space.unicode_w(w_newval))
+                    result.append(space.utf8_w(w_newval).decode("utf8"))
                 else:
                     raise oefmt(space.w_TypeError,
                                 "character mapping must return integer, None "
                                 "or unicode")
-        return W_UnicodeObject(u''.join(result))
+        return W_UnicodeObject(u''.join(result).encode("utf8"), -1)
 
     def descr_encode(self, space, w_encoding=None, w_errors=None):
         encoding, errors = _get_encoding_and_errors(space, w_encoding,
@@ -1286,7 +1285,8 @@ W_UnicodeObject.EMPTY = W_UnicodeObject('', 0)
 def unicode_to_decimal_w(space, w_unistr):
     if not isinstance(w_unistr, W_UnicodeObject):
         raise oefmt(space.w_TypeError, "expected unicode, got '%T'", w_unistr)
-    unistr = w_unistr._value
+    unistr = w_unistr._utf8.decode("utf8")
+    # XXX speed up
     result = ['\0'] * len(unistr)
     digits = ['0', '1', '2', '3', '4',
               '5', '6', '7', '8', '9']

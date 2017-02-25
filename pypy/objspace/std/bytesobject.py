@@ -702,7 +702,7 @@ class W_BytesObject(W_AbstractBytesObject):
         if space.isinstance_w(w_prefix, space.w_unicode):
             self_as_unicode = unicode_from_encoded_object(space, self, None,
                                                           None)
-            return self_as_unicode._startswith(space, self_as_unicode._value,
+            return self_as_unicode._startswith(space, self_as_unicode._utf8.decode("utf8"),
                                                w_prefix, start, end)
         return self._StringMethods__startswith(space, value, w_prefix, start,
                                                end)
@@ -712,7 +712,7 @@ class W_BytesObject(W_AbstractBytesObject):
         if space.isinstance_w(w_suffix, space.w_unicode):
             self_as_unicode = unicode_from_encoded_object(space, self, None,
                                                           None)
-            return self_as_unicode._endswith(space, self_as_unicode._value,
+            return self_as_unicode._endswith(space, self_as_unicode._utf8.decode("utf8"),
                                              w_suffix, start, end)
         return self._StringMethods__endswith(space, value, w_suffix, start,
                                              end)
