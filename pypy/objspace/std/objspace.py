@@ -155,7 +155,7 @@ class StdObjSpace(ObjSpace):
         if isinstance(x, str):
             return self.newtext(x)
         if isinstance(x, unicode):
-            return self.newunicode(x)
+            return self.newutf8(x.encode('utf8'), len(x))
         if isinstance(x, float):
             return W_FloatObject(x)
         if isinstance(x, W_Root):
