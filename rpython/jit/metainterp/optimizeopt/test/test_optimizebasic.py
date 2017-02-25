@@ -4840,6 +4840,21 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_strunicode_loop(ops, expected)
 
+    def test_nonvirtual_newstr_strlen(self):
+        ops = """
+        [p0]
+        p1 = call_r(0, p0, s"X", descr=strconcatdescr)
+        i0 = strlen(p1)
+        finish(i0)
+        """
+        expected = """
+        [p0]
+        i2 = strlen(p0)
+        i4 = int_add(i2, 1)
+        finish(i4)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
     def test_copy_long_string_to_virtual(self):
         ops = """
         []
