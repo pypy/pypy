@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-#include <cpyext_unicodeobject.h>
+#include "cpyext_unicodeobject.h"
 
 /* Fast access macros */
 #ifndef Py_LIMITED_API

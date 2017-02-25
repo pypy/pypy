@@ -73,7 +73,7 @@
 
 #define Py_MEMCPY memcpy
 
-#include <pypy_macros.h>
+#include "pypy_macros.h"
 
 #define PyExc_EnvironmentError PyExc_OSError
 #define PyExc_IOError PyExc_OSError
@@ -144,7 +144,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-  #include <pypy_decl.h>
+  #include "pypy_decl.h"
 #ifdef __cplusplus
 }
 #endif
