@@ -229,6 +229,13 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert d[cmpr] == 72
         assert d[3] == 72
 
+    def test_hash_inheritance(self):
+        foo = self.import_module("foo")
+        assert hash(foo.UnicodeSubtype(u'xyz')) == hash(u'xyz')
+        assert foo.UnicodeSubtype.__hash__ is str.__hash__
+        assert hash(foo.UnicodeSubtype3(u'xyz')) == hash(u'xyz')
+        assert foo.UnicodeSubtype3.__hash__ is str.__hash__
+
     def test_descriptor(self):
         module = self.import_module("foo")
         prop = module.Property()
@@ -1139,8 +1146,8 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                   ((PyHeapTypeObject*)Base2)->ht_qualname = dummyname;
                   ((PyHeapTypeObject*)Base12)->ht_qualname = dummyname;
                 }
-                #endif 
-                #endif 
+                #endif
+                #endif
                 Base1->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
                 Base2->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
                 Base12->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE;
