@@ -437,3 +437,11 @@ option would be to pay some PyPy developers to implement Windows 64 support,
 but so far there doesn't seem to be an overwhelming commercial interest in it.
 
 .. _`to make it happen`: windows.html#what-is-missing-for-a-full-64-bit-translation
+
+
+How long will PyPy support Python2?
+-----------------------------------
+
+Since RPython is built on top of Python2 and that is extremely unlikely to
+change, the Python2 version of PyPy will be around "forever", i.e. as long as
+PyPy itself is around.
