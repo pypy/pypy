@@ -5,9 +5,7 @@ from rpython.rlib.objectmodel import (
     enforceargs, newlist_hint)
 from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.rstring import StringBuilder, split, rsplit, UnicodeBuilder
-from rpython.rlib.runicode import (
-    make_unicode_escape_function, str_decode_ascii, str_decode_utf_8,
-    unicode_encode_ascii, unicode_encode_utf_8, fast_str_decode_ascii)
+from rpython.rlib.runicode import make_unicode_escape_function
 from rpython.rlib import rutf8, jit
 
 from pypy.interpreter import unicodehelper
@@ -24,7 +22,7 @@ from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 
 __all__ = ['W_UnicodeObject', 'wrapunicode', 'plain_str2unicode',
            'encode_object', 'decode_object', 'unicode_from_object',
-           'utf8_from_string', 'unicode_to_decimal_w']
+           'unicode_from_string', 'unicode_to_decimal_w']
 
 
 class W_UnicodeObject(W_Root):

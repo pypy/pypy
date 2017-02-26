@@ -69,8 +69,6 @@ def next_codepoint_pos(code, pos):
 def codepoint_at_pos(code, pos):
     """ Give a codepoint in code at pos - assumes valid utf8, no checking!
     """
-    import pdb
-    pdb.set_trace()
     ordch1 = ord(code[pos])
     if ordch1 < 0x80:
         return ordch1
@@ -103,8 +101,10 @@ class AsciiCheckError(Exception):
     def __init__(self, pos):
         self.pos = pos
 
-def check_ascii(s):
-    for i in range(0, len(s)):
+def check_ascii(s, size=-1):
+    if size == -1:
+        size = len(s)
+    for i in range(0, size):
         if ord(s[i]) & 0x80:
             raise AsciiCheckError(i)
 
@@ -123,9 +123,8 @@ def utf8_encode_ascii(s, errors, encoding, msg, errorhandler):
         pos = next_codepoint_pos(s, pos)
     return res.build()
 
-def str_decode_ascii(s, errors, errorhandler):
+def str_decode_ascii(s, size, errors, errorhandler):
     # ASCII is equivalent to the first 128 ordinals in Unicode.
-    size = len(s)
     result = StringBuilder(size)
     pos = 0
     while pos < size:
