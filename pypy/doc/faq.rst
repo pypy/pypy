@@ -156,19 +156,30 @@ features (such as set comprehensions).
 Does PyPy have a GIL?  Why?
 -------------------------------------------------
 
-Yes, PyPy has a GIL.  Removing the GIL is very hard.  The problems are
-essentially the same as with CPython (including the fact that our
-garbage collectors are not thread-safe so far).  Fixing it is possible,
-as shown by Jython and IronPython, but difficult.  It would require
-adapting the whole source code of PyPy, including subtle decisions about
-whether some effects are ok or not for the user (i.e. the Python
-programmer).
+Yes, PyPy has a GIL.  Removing the GIL is very hard.  On top of CPython,
+you have two problems:  (1) GC, in this case reference counting; (2) the
+whole Python language.
 
-Instead, since 2012, there is work going on on a still very experimental
-:doc:`Software Transactional Memory <stm>` (STM) version of PyPy.  This should give
-an alternative PyPy which works without a GIL, while at the same time
-continuing to give the Python programmer the complete illusion of having
-one.
+For PyPy, the hard issue is (2): by that I mean issues like what occurs
+if a mutable object is changed from one thread and read from another
+concurrently.  This is a problem for *any* mutable type: it needs
+careful review and fixes (fine-grained locks, mostly) through the
+*whole* Python interpreter.  It is a major effort, although not
+completely impossible, as Jython/IronPython showed.  This includes
+subtle decisions about whether some effects are ok or not for the user
+(i.e. the Python programmer).
+
+CPython has additionally the problem (1) of reference counting.  With
+PyPy, this sub-problem is simpler: we need to make our GC
+multithread-aware.  This is easier to do efficiently in PyPy than in
+CPython.  It doesn't solve the issue (2), though.
+
+Note that since 2012 there is work going on on a still very experimental
+:doc:`Software Transactional Memory <stm>` (STM) version of PyPy.  This
+should give an alternative PyPy which works without a GIL, while at the
+same time continuing to give the Python programmer the complete illusion
+of having one.  This work is currently a bit stalled because of its own
+technical difficulties.
 
 
 Is PyPy more clever than CPython about Tail Calls?
