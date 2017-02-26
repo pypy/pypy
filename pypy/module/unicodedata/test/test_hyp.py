@@ -1,6 +1,6 @@
 import pytest
 try:
-    from hypothesis import given, strategies as st, example
+    from hypothesis import given, strategies as st, example, settings
 except ImportError:
     pytest.skip("hypothesis required")
 
@@ -40,6 +40,7 @@ compositions = [
 
 @pytest.mark.parametrize('NF1, NF2, NF3', compositions)
 @example(s=u'---\uafb8\u11a7---')  # issue 2289
+@settings(max_examples=1000)
 @given(s=st.text())
 def test_composition(s, space, NF1, NF2, NF3):
     norm1, norm2, norm3 = [make_normalization(space, form) for form in [NF1, NF2, NF3]]
