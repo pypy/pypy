@@ -1166,8 +1166,8 @@ def str_decode_charmap(s, size, errors, final=False,
         c = mapping.get(ch, ERROR_CHAR)
         if c == ERROR_CHAR:
             r, pos = errorhandler(errors, "charmap",
-                                  "character maps to <undefined>",
-                                  s,  pos, pos + 1)
+                                       "character maps to <undefined>",
+                                       s,  pos, pos + 1)
             result.append(r)
             continue
         result.append(c)

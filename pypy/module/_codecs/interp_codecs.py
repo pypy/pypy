@@ -604,6 +604,8 @@ class Charmap_Encode:
 
 @unwrap_spec(string='bufferstr', errors='str_or_None')
 def charmap_decode(space, string, errors="strict", w_mapping=None):
+    from pypy.interpreter.unicodehelper import DecodeWrapper
+
     if errors is None:
         errors = 'strict'
     if len(string) == 0:
@@ -618,12 +620,13 @@ def charmap_decode(space, string, errors="strict", w_mapping=None):
     state = space.fromcache(CodecState)
     result, consumed = runicode.str_decode_charmap(
         string, len(string), errors,
-        final, state.decode_error_handler, mapping)
+        final, DecodeWrapper(state.decode_error_handler).handle, mapping)
     return space.newtuple([space.newunicode(result), space.newint(consumed)])
 
 @unwrap_spec(utf8='utf8', errors='str_or_None')
 def charmap_encode(space, utf8, utf8len, errors="strict", w_mapping=None):
-    xxx
+    from pypy.interpreter.unicodehelper import EncodeWrapper
+
     if errors is None:
         errors = 'strict'
     if space.is_none(w_mapping):
@@ -632,20 +635,24 @@ def charmap_encode(space, utf8, utf8len, errors="strict", w_mapping=None):
         mapping = Charmap_Encode(space, w_mapping)
 
     state = space.fromcache(CodecState)
+    uni = utf8.decode('utf8')
     result = runicode.unicode_encode_charmap(
         uni, len(uni), errors,
-        state.encode_error_handler, mapping)
+        EncodeWrapper(state.encode_error_handler).handle, mapping)
     return space.newtuple([space.newbytes(result), space.newint(len(uni))])
 
 
 @unwrap_spec(chars='utf8')
 def charmap_build(space, chars, charslen):
     # XXX CPython sometimes uses a three-level trie
-    xxx
     w_charmap = space.newdict()
-    for num in range(len(chars)):
-        elem = chars[num]
-        space.setitem(w_charmap, space.newint(ord(elem)), space.newint(num))
+    pos = 0
+    num = 0
+    while num < charslen:
+        w_char = space.newint(rutf8.codepoint_at_pos(chars, pos))
+        space.setitem(w_charmap, w_char, space.newint(num))
+        pos = rutf8.next_codepoint_pos(chars, pos)
+        num += 1
     return w_charmap
 
 # ____________________________________________________________
@@ -690,6 +697,8 @@ def unicode_escape_decode(space, string, errors="strict", w_final=None):
 
 @unwrap_spec(errors='str_or_None')
 def unicode_internal_decode(space, w_string, errors="strict"):
+    from pypy.interpreter.unicodehelper import DecodeWrapper
+
     if errors is None:
         errors = 'strict'
     # special case for this codec: unicodes are returned as is
@@ -705,7 +714,7 @@ def unicode_internal_decode(space, w_string, errors="strict"):
     state = space.fromcache(CodecState)
     result, consumed = runicode.str_decode_unicode_internal(
         string, len(string), errors,
-        final, state.decode_error_handler)
+        final, DecodeWrapper(state.decode_error_handler).handle)
     return space.newtuple([space.newunicode(result), space.newint(consumed)])
 
 # ____________________________________________________________
