@@ -170,15 +170,15 @@ subtle decisions about whether some effects are ok or not for the user
 (i.e. the Python programmer).
 
 CPython has additionally the problem (1) of reference counting.  With
-PyPy, the problem is simpler: we need to make our GC multithread-aware.
-This is easier to do efficiently in PyPy than in CPython.  It doesn't
-solve the issue (2), though.
+PyPy, this sub-problem is simpler: we need to make our GC
+multithread-aware.  This is easier to do efficiently in PyPy than in
+CPython.  It doesn't solve the issue (2), though.
 
 Note that since 2012 there is work going on on a still very experimental
-:doc:`Software Transactional Memory <stm>` version of PyPy.  This should
-give an alternative PyPy which works without a GIL, while at the same
-time continuing to give the Python programmer the complete illusion of
-having one.  This work is currently a bit stalled because of its own
+:doc:`Software Transactional Memory <stm>` (STM) version of PyPy.  This
+should give an alternative PyPy which works without a GIL, while at the
+same time continuing to give the Python programmer the complete illusion
+of having one.  This work is currently a bit stalled because of its own
 technical difficulties.
 
 
