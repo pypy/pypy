@@ -66,6 +66,39 @@ def next_codepoint_pos(code, pos):
         return pos + 1
     return pos + ord(runicode._utf8_code_length[chr1 - 0x80])
 
+def codepoint_at_pos(code, pos):
+    """ Give a codepoint in code at pos - assumes valid utf8, no checking!
+    """
+    import pdb
+    pdb.set_trace()
+    ordch1 = ord(code[pos])
+    if ordch1 < 0x80:
+        return ordch1
+
+    n = ord(runicode._utf8_code_length[ordch1 - 0x80])
+    if n == 2:
+        ordch2 = ord(code[pos+1])
+        # 110yyyyy 10zzzzzz -> 00000000 00000yyy yyzzzzzz
+        return (((ordch1 & 0x1F) << 6) +    # 0b00011111
+                 (ordch2 & 0x3F))           # 0b00111111
+    elif n == 3:
+        ordch2 = ord(code[pos+1])
+        ordch3 = ord(code[pos+2])
+        # 1110xxxx 10yyyyyy 10zzzzzz -> 00000000 xxxxyyyy yyzzzzzz
+        return (((ordch1 & 0x0F) << 12) +     # 0b00001111
+                ((ordch2 & 0x3F) << 6) +      # 0b00111111
+                (ordch3 & 0x3F))              # 0b00111111
+    elif n == 4:
+        ordch2 = ord(code[pos+1])
+        ordch3 = ord(code[pos+2])
+        ordch4 = ord(code[pos+3])
+        # 11110www 10xxxxxx 10yyyyyy 10zzzzzz -> 000wwwxx xxxxyyyy yyzzzzzz
+        return (((ordch1 & 0x07) << 18) +      # 0b00000111
+                ((ordch2 & 0x3F) << 12) +      # 0b00111111
+                ((ordch3 & 0x3F) << 6) +       # 0b00111111
+                (ordch4 & 0x3F))               # 0b00111111
+    assert False, "unreachable"
+
 class AsciiCheckError(Exception):
     def __init__(self, pos):
         self.pos = pos
@@ -74,9 +107,6 @@ def check_ascii(s):
     for i in range(0, len(s)):
         if ord(s[i]) & 0x80:
             raise AsciiCheckError(i)
-
-def default_unicode_error_check(*args):
-    xxx
 
 def utf8_encode_ascii(s, errors, encoding, msg, errorhandler):
     res = StringBuilder(len(s))
@@ -108,14 +138,6 @@ def str_decode_ascii(s, errors, errorhandler):
             result.append(r)
         pos += 1
     return result.build(), pos, -1
-
-
-def default_unicode_error_decode(errors, encoding, message, s, pos, endpos, lgt):
-    if errors == 'replace':
-        return '\xef\xbf\xbd', endpos, lgt + 1 # u'\ufffd'
-    if errors == 'ignore':
-        return '', endpos, lgt
-    raise UnicodeDecodeError(encoding, s, pos, endpos, message)
 
 def check_newline_utf8(s, pos):
     chr1 = ord(s[pos])

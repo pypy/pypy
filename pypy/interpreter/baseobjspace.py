@@ -1682,6 +1682,9 @@ class ObjSpace(object):
     def unicode_w(self, w_obj):
         return self.utf8_w(w_obj).decode('utf8')
 
+    def realunicode_w(self, w_obj):
+        return self.realutf8_w(w_obj).decode('utf8')
+
     def newunicode(self, u):
         assert isinstance(u, unicode)
         return self.newutf8(u.encode("utf8"), len(u))

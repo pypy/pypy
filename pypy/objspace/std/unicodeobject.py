@@ -108,11 +108,11 @@ class W_UnicodeObject(W_Root):
         return _create_list_from_unicode(self._value)
 
     def ord(self, space):
-        if len(self._value) != 1:
+        if self._len() != 1:
             raise oefmt(space.w_TypeError,
                          "ord() expected a character, but string of length %d "
                          "found", len(self._value))
-        return space.newint(ord(self._value[0]))
+        return space.newint(rutf8.codepoint_at_pos(self._utf8, 0))
 
     def _new(self, value):
         return W_UnicodeObject(value.encode('utf8'), len(value))
@@ -503,7 +503,7 @@ class W_UnicodeObject(W_Root):
                     lgt += 1
             if keepends:
                 eol = pos
-                lgt += 2
+                lgt += 1
             strs_w.append(W_UnicodeObject(value[sol:eol], lgt))
         return space.newlist(strs_w)
 
