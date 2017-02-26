@@ -109,14 +109,11 @@ class EncodeWrapper(object):
         s, rs, p, lgt = self.orig(errors, encoding, msg, s.encode("utf8"), pos, endpos)
         return s, rs, p
 
-def utf8_encode_utf_7(utf8, utf8len, errors, errorhandler):
-    u = utf8.decode("utf8")
-    w = EncodeWrapper(errorhandler)
-    return runicode.unicode_encode_utf_7(u, len(u), errors, w.handle)
-
-def str_decode_utf_7(string, lgt, errors, final, errorhandler):
+# some irregular interfaces
+def str_decode_utf8(s, slen, errors, final, errorhandler):
     w = DecodeWrapper(errorhandler)
-    u, pos = runicode.str_decode_utf_7(string, lgt, errors, final, w.handle)
+    u, pos = runicode.str_decode_utf_8_impl(s, slen, errors, final, w.handle,
+        runicode.allow_surrogate_by_default)
     return u.encode('utf8'), pos, len(u)
 
 def str_decode_unicode_escape(s, slen, errors, final, errorhandler, ud_handler):
@@ -125,24 +122,30 @@ def str_decode_unicode_escape(s, slen, errors, final, errorhandler, ud_handler):
                                                 ud_handler)
     return u.encode('utf8'), pos, len(u)
 
-def str_decode_raw_unicode_escape(s, slen, errors, final, errorhandler):
-    w = DecodeWrapper(errorhandler)
-    u, pos = runicode.str_decode_raw_unicode_escape(s, slen, errors, final,
-                                                    w.handle)
-    return u.encode('utf8'), pos, len(u)
+def setup_new_encoders(encoding):
+    encoder_name = 'utf8_encode_' + encoding
+    encoder_call_name = 'unicode_encode_' + encoding
+    decoder_name = 'str_decode_' + encoding
+    def encoder(utf8, utf8len, errors, errorhandler):
+        u = utf8.decode("utf8")
+        w = EncodeWrapper(errorhandler)
+        return getattr(runicode, encoder_call_name)(u, len(u), errors,
+                       w.handle)
+    def decoder(s, slen, errors, final, errorhandler):
+        w = DecodeWrapper(errorhandler)
+        u, pos = getattr(runicode, decoder_name)(s, slen, errors, final, w.handle)
+        return u.encode('utf8'), pos, len(u)
+    encoder.__name__ = encoder_name
+    decoder.__name__ = decoder_name
+    if encoder_name not in globals():
+        globals()[encoder_name] = encoder
+    if decoder_name not in globals():
+        globals()[decoder_name] = decoder
 
-def str_decode_utf8(s, slen, errors, final, errorhandler):
-    w = DecodeWrapper(errorhandler)
-    u, pos = runicode.str_decode_utf_8_impl(s, slen, errors, final, w.handle,
-        runicode.allow_surrogate_by_default)
-    return u.encode('utf8'), pos, len(u)
+def setup():
+    for encoding in ['utf_7', 'unicode_escape', 'raw_unicode_escape',
+                     'utf_16', 'utf_16_le', 'utf_16_be', 'utf_32_le', 'utf_32',
+                     'utf_32_be', 'latin_1', 'unicode_internal']:
+        setup_new_encoders(encoding)
 
-def utf8_encode_utf_16(utf8, utf8len, errors, errorhandler):
-    w = EncodeWrapper(errorhandler)
-    u = utf8.decode("utf8")
-    return runicode.unicode_encode_utf_16(u, len(u), errors, w.handle)
-
-def utf8_encode_latin_1(utf8, utf8len, errors, errorhandler):
-    w = EncodeWrapper(errorhandler)
-    u = utf8.decode("utf8")
-    return runicode.unicode_encode_latin_1(u, len(u), errors, w.handle)
+setup()
