@@ -719,7 +719,7 @@ class W_UnicodeEncodeError(W_UnicodeError):
     def descr_init(self, space, w_encoding, w_object, w_start, w_end, w_reason):
         # typechecking
         space.realstr_w(w_encoding)
-        space.realunicode_w(w_object)
+        space.realutf8_w(w_object)
         space.int_w(w_start)
         space.int_w(w_end)
         space.realstr_w(w_reason)

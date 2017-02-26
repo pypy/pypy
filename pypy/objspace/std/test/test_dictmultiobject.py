@@ -142,6 +142,7 @@ class TestW_DictObject(object):
         assert self.space.listview_bytes(w_d) == ["a", "b"]
 
     def test_listview_unicode_dict(self):
+        py.test.skip("listview_unicode disabled")
         w = self.space.wrap
         w_d = self.space.newdict()
         w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(2))])
@@ -175,6 +176,7 @@ class TestW_DictObject(object):
         # XXX: it would be nice if the test passed without monkeypatch.undo(),
         # but we need space.newlist_unicode for it
         monkeypatch.undo() 
+        py.test.skip("listview_unicode disabled")
         w_d = self.space.newdict()
         w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(6))])
         w_l = self.space.call_method(w_d, "keys")

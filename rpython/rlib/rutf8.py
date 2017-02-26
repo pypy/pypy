@@ -1,9 +1,6 @@
 
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import runicode, jit
-from rpython.rlib.rarithmetic import r_uint
-from rpython.rlib.nonconst import NonConstant
-from rpython.tool.sourcetools import func_with_new_name
 
 def unichr_as_utf8(code):
     """ Encode code (numeric value) as utf8 encoded string
@@ -81,6 +78,38 @@ def check_ascii(s):
 def default_unicode_error_check(*args):
     xxx
 
+def utf8_encode_ascii(s, errors, encoding, msg, errorhandler):
+    res = StringBuilder(len(s))
+    u_pos = 0
+    pos = 0
+    while pos < len(s):
+        chr1 = s[pos]
+        if ord(chr1) < 0x80:
+            res.append(chr1)
+        else:
+            repl, _, _, _ = errorhandler(errors, encoding, msg, s, u_pos, u_pos + 1)
+            res.append(repl)
+        u_pos += 1
+        pos = next_codepoint_pos(s, pos)
+    return res.build()
+
+def str_decode_ascii(s, errors, errorhandler):
+    # ASCII is equivalent to the first 128 ordinals in Unicode.
+    size = len(s)
+    result = StringBuilder(size)
+    pos = 0
+    while pos < size:
+        c = s[pos]
+        if ord(c) < 128:
+            result.append(c)
+        else:
+            r, _, _ = errorhandler(errors, "ascii", "ordinal not in range(128)",
+                                   s,  pos, pos + 1)
+            result.append(r)
+        pos += 1
+    return result.build(), pos, -1
+
+
 def default_unicode_error_decode(errors, encoding, message, s, pos, endpos, lgt):
     if errors == 'replace':
         return '\xef\xbf\xbd', endpos, lgt + 1 # u'\ufffd'
@@ -105,30 +134,28 @@ def check_newline_utf8(s, pos):
         return chr3 == 0xa8 or chr3 == 0xa9
     return False
 
-# if you can't use the @elidable version, call str_check_utf8_impl()
-# directly
+class Utf8CheckError(Exception):
+    def __init__(self, msg, startpos, endpos):
+        self.msg = msg
+        self.startpos = startpos
+        self.endpos = endpos
+
 @jit.elidable
-def str_check_utf8(s, size, errors, final=False,
-                   errorhandler=None,
+def str_check_utf8(s, size, final=False,
                    allow_surrogates=runicode.allow_surrogate_by_default):
-    if errorhandler is None:
-        errorhandler = default_unicode_error_check
-    # XXX unclear, fix
+    """ A simplified version of utf8 encoder - it only works with 'strict'
+    error handling.
+    """
+    # XXX do the following in a cleaner way, e.g. via signature
     # NB. a bit messy because rtyper/rstr.py also calls the same
     # function.  Make sure we annotate for the args it passes, too
-    if NonConstant(False):
-        s = NonConstant('?????')
-        size = NonConstant(12345)
-        errors = NonConstant('strict')
-        final = NonConstant(True)
-        WTF # goes here
-        errorhandler = ll_unicode_error_decode
-        allow_surrogates = NonConstant(True)
-    return str_check_utf8_elidable(s, size, errors, final, errorhandler,
-                                   allow_surrogates=allow_surrogates)
-
-def str_check_utf8_impl(s, size, errors, final, errorhandler,
-                        allow_surrogates):
+    #if NonConstant(False):
+    #    s = NonConstant('?????')
+    #    size = NonConstant(12345)
+    #    errors = NonConstant('strict')
+    #    final = NonConstant(True)
+    #    errorhandler = ll_unicode_error_decode
+    #    allow_surrogates = NonConstant(True)
     if size == 0:
         return 0, 0
 
@@ -155,46 +182,43 @@ def str_check_utf8_impl(s, size, errors, final, errorhandler,
             # in case we need to continue running this loop
             if not charsleft:
                 # there's only the start byte and nothing else
-                errorhandler(errors, 'utf8', 'unexpected end of data',
-                             s, pos, pos+1)
+                raise Utf8CheckError('unexpected end of data', pos, pos + 1)
             ordch2 = ord(s[pos+1])
             if n == 3:
                 # 3-bytes seq with only a continuation byte
                 if runicode._invalid_byte_2_of_3(ordch1, ordch2, allow_surrogates):
                     # second byte invalid, take the first and continue
-                    errorhandler(errors, 'utf8', 'invalid continuation byte',
-                                 s, pos, pos+1)
+                    raise Utf8CheckError('invalid continuation byte', pos,
+                                         pos + 1)
                 else:
                     # second byte valid, but third byte missing
-                    errorhandler(errors, 'utf8', 'unexpected end of data',
-                                 s, pos, pos+2)
+                    raise Utf8CheckError('unexpected end of data', pos, pos + 2)
             elif n == 4:
                 # 4-bytes seq with 1 or 2 continuation bytes
                 if runicode._invalid_byte_2_of_4(ordch1, ordch2):
                     # second byte invalid, take the first and continue
-                    errorhandler(errors, 'utf8', 'invalid continuation byte',
-                                 s, pos, pos+1)
+                    raise Utf8CheckError('invalid continuation byte', pos,
+                                         pos + 1)
                 elif charsleft == 2 and runicode._invalid_byte_3_of_4(ord(s[pos+2])):
                     # third byte invalid, take the first two and continue
-                    errorhandler(errors, 'utf8', 'invalid continuation byte',
-                                 s, pos, pos+2)
+                    raise Utf8CheckError('invalid continuation byte', pos,
+                                         pos + 2)
                 else:
                     # there's only 1 or 2 valid cb, but the others are missing
-                    errorhandler(errors, 'utf8', 'unexpected end of data',
-                                 s, pos, pos+charsleft+1)
+                    raise Utf8CheckError('unexpected end of data', pos,
+                                         pos + charsleft + 1)
             raise AssertionError("unreachable")
 
         if n == 0:
-            errorhandler(errors, 'utf8', 'invalid start byte', s, pos, pos+1)
+            raise Utf8CheckError('invalid start byte', pos, pos + 1)
         elif n == 1:
             assert 0, "ascii should have gone through the fast path"
 
         elif n == 2:
             ordch2 = ord(s[pos+1])
             if runicode._invalid_byte_2_of_2(ordch2):
-                errorhandler(errors, 'utf8', 'invalid continuation byte',
-                             s, pos, pos+2)
-                assert False, "unreachable"
+                raise Utf8CheckError('invalid continuation byte', pos,
+                                     pos + 2)
             # 110yyyyy 10zzzzzz -> 00000000 00000yyy yyzzzzzz
             lgt += 1
             pos += 2
@@ -203,13 +227,11 @@ def str_check_utf8_impl(s, size, errors, final, errorhandler,
             ordch2 = ord(s[pos+1])
             ordch3 = ord(s[pos+2])
             if runicode._invalid_byte_2_of_3(ordch1, ordch2, allow_surrogates):
-                errorhandler(errors, 'utf8', 'invalid continuation byte',
-                             s, pos, pos+1)
-                assert False, "unreachable"
+                raise Utf8CheckError('invalid continuation byte', pos,
+                                     pos + 1)
             elif runicode._invalid_byte_3_of_3(ordch3):
-                errorhandler(errors, 'utf8', 'invalid continuation byte',
-                             s, pos, pos+2)
-                assert False, "unreachable"
+                raise Utf8CheckError('invalid continuation byte', pos,
+                                     pos + 2)
             # 1110xxxx 10yyyyyy 10zzzzzz -> 00000000 xxxxyyyy yyzzzzzz
             lgt += 1
             pos += 3
@@ -219,17 +241,14 @@ def str_check_utf8_impl(s, size, errors, final, errorhandler,
             ordch3 = ord(s[pos+2])
             ordch4 = ord(s[pos+3])
             if runicode._invalid_byte_2_of_4(ordch1, ordch2):
-                errorhandler(errors, 'utf8', 'invalid continuation byte',
-                             s, pos, pos+1)
-                assert False, "unreachable"
+                raise Utf8CheckError('invalid continuation byte', pos,
+                                     pos + 1)
             elif runicode._invalid_byte_3_of_4(ordch3):
-                errorhandler(errors, 'utf8', 'invalid continuation byte',
-                             s, pos, pos+2)
-                assert False, "unreachable"
+                raise Utf8CheckError('invalid continuation byte', pos,
+                                     pos + 2)
             elif runicode._invalid_byte_4_of_4(ordch4):
-                errorhandler(errors, 'utf8', 'invalid continuation byte',
-                             s, pos, pos+3)
-                assert False, "unreachable"
+                raise Utf8CheckError('invalid continuation byte', pos,
+                                     pos + 3)
             # 11110www 10xxxxxx 10yyyyyy 10zzzzzz -> 000wwwxx xxxxyyyy yyzzzzzz
             c = (((ordch1 & 0x07) << 18) +      # 0b00000111
                  ((ordch2 & 0x3F) << 12) +      # 0b00111111
@@ -243,5 +262,3 @@ def str_check_utf8_impl(s, size, errors, final, errorhandler,
             pos += 4
 
     return pos, lgt
-str_check_utf8_elidable = jit.elidable(
-    func_with_new_name(str_check_utf8_impl, "str_check_utf8_elidable"))

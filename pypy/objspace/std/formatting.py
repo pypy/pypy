@@ -511,7 +511,8 @@ def format(space, w_fmt, values_w, w_valuedict, do_unicode):
             pass
         else:
             return space.newbytes(result)
-    fmt = space.unicode_w(w_fmt)
+    # XXX for now, this is performance critical
+    fmt = space.utf8_w(w_fmt).decode("utf8")
     formatter = UnicodeFormatter(space, fmt, values_w, w_valuedict)
     result = formatter.format()
     return space.newunicode(result)

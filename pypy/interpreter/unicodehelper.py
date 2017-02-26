@@ -59,10 +59,12 @@ def check_utf8(space, string):
     # If there happen to be two 3-bytes encoding a pair of surrogates,
     # you still get two surrogate unicode characters in the result.
     # These are the Python2 rules; Python3 differs.
-    consumed, length = rutf8.str_check_utf8(
-        string, len(string), "strict", final=True,
-        errorhandler=decode_error_handler(space),
-        allow_surrogates=True)
+    try:
+        consumed, length = rutf8.str_check_utf8(string, len(string), True)
+    except rutf8.Utf8CheckError as e:
+        decode_error_handler(space)('strict', 'utf8', e.msg, string, e.startpos,
+                                    e.endpos)
+        raise False, "unreachable"
     return length
 
 def encode_utf8(space, uni):
@@ -78,4 +80,69 @@ def encode_utf8(space, uni):
 def utf8_encode_ascii(utf8, utf8len, errors, errorhandler):
     if len(utf8) == utf8len:
         return utf8
-    xxx
+    return rutf8.utf8_encode_ascii(utf8, errors, 'ascii',
+                                   'ordinal not in range (128)',
+                                   errorhandler)
+
+def str_decode_ascii(s, slen, errors, final, errorhandler):
+    try:
+        rutf8.check_ascii(s)
+        return s
+    except rutf8.AsciiCheckError:
+        return rutf8.str_decode_ascii(s, errors, errorhandler)
+
+# XXX wrappers, think about speed
+
+class DecodeWrapper(object):
+    def __init__(self, handler):
+        self.orig = handler
+
+    def handle(self, errors, encoding, msg, s, pos, endpos):
+        s, p, lgt = self.orig(errors, encoding, msg, s, pos, endpos)
+        return s.decode("utf8"), p
+
+class EncodeWrapper(object):
+    def __init__(self, handler):
+        self.orig = handler
+
+    def handle(self, errors, encoding, msg, s, pos, endpos):
+        s, rs, p, lgt = self.orig(errors, encoding, msg, s.encode("utf8"), pos, endpos)
+        return s, rs, p
+
+def utf8_encode_utf_7(utf8, utf8len, errors, errorhandler):
+    u = utf8.decode("utf8")
+    w = EncodeWrapper(errorhandler)
+    return runicode.unicode_encode_utf_7(u, len(u), errors, w.handle)
+
+def str_decode_utf_7(string, lgt, errors, final, errorhandler):
+    w = DecodeWrapper(errorhandler)
+    u, pos = runicode.str_decode_utf_7(string, lgt, errors, final, w.handle)
+    return u.encode('utf8'), pos, len(u)
+
+def str_decode_unicode_escape(s, slen, errors, final, errorhandler, ud_handler):
+    w = DecodeWrapper(errorhandler)
+    u, pos = runicode.str_decode_unicode_escape(s, slen, errors, final, w.handle,
+                                                ud_handler)
+    return u.encode('utf8'), pos, len(u)
+
+def str_decode_raw_unicode_escape(s, slen, errors, final, errorhandler):
+    w = DecodeWrapper(errorhandler)
+    u, pos = runicode.str_decode_raw_unicode_escape(s, slen, errors, final,
+                                                    w.handle)
+    return u.encode('utf8'), pos, len(u)
+
+def str_decode_utf8(s, slen, errors, final, errorhandler):
+    w = DecodeWrapper(errorhandler)
+    u, pos = runicode.str_decode_utf_8_impl(s, slen, errors, final, w.handle,
+        runicode.allow_surrogate_by_default)
+    return u.encode('utf8'), pos, len(u)
+
+def utf8_encode_utf_16(utf8, utf8len, errors, errorhandler):
+    w = EncodeWrapper(errorhandler)
+    u = utf8.decode("utf8")
+    return runicode.unicode_encode_utf_16(u, len(u), errors, w.handle)
+
+def utf8_encode_latin_1(utf8, utf8len, errors, errorhandler):
+    w = EncodeWrapper(errorhandler)
+    u = utf8.decode("utf8")
+    return runicode.unicode_encode_latin_1(u, len(u), errors, w.handle)

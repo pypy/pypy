@@ -799,8 +799,8 @@ class EmptySetStrategy(SetStrategy):
             strategy = self.space.fromcache(IntegerSetStrategy)
         elif type(w_key) is W_BytesObject:
             strategy = self.space.fromcache(BytesSetStrategy)
-        elif type(w_key) is W_UnicodeObject:
-            strategy = self.space.fromcache(UnicodeSetStrategy)
+        #elif type(w_key) is W_UnicodeObject:
+        #    strategy = self.space.fromcache(UnicodeSetStrategy)
         elif self.space.type(w_key).compares_by_identity():
             strategy = self.space.fromcache(IdentitySetStrategy)
         else:
@@ -1640,13 +1640,13 @@ def _pick_correct_strategy_unroll(space, w_set, w_iterable):
         return
 
     # check for unicode
-    for w_item in iterable_w:
-        if type(w_item) is not W_UnicodeObject:
-            break
-    else:
-        w_set.strategy = space.fromcache(UnicodeSetStrategy)
-        w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
-        return
+    #for w_item in iterable_w:
+    #    if type(w_item) is not W_UnicodeObject:
+    #        break
+    #else:
+    #    w_set.strategy = space.fromcache(UnicodeSetStrategy)
+    #    w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
+    #    return
 
     # check for compares by identity
     for w_item in iterable_w:

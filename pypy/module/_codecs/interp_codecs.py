@@ -1,4 +1,4 @@
-from rpython.rlib import jit
+from rpython.rlib import jit, rutf8
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rstring import UnicodeBuilder
 from rpython.rlib.runicode import code_to_unichr, MAXUNICODE
@@ -39,7 +39,7 @@ class CodecState(object):
                 w_input = space.newbytes(input)
             else:
                 w_cls = space.w_UnicodeEncodeError
-                w_input = space.newunicode(input)
+                w_input = space.newutf8(input, -1)
             w_exc =  space.call_function(
                 w_cls,
                 space.newtext(encoding),
@@ -65,8 +65,8 @@ class CodecState(object):
                 raise oefmt(space.w_IndexError,
                             "position %d from error handler out of bounds",
                             newpos)
-            replace = space.unicode_w(w_replace)
-            return replace, newpos
+            w_replace = space.convert_to_w_unicode(w_replace)
+            return w_replace._utf8, newpos, w_replace._length
         return call_errorhandler
 
     def make_decode_errorhandler(self, space):
@@ -76,9 +76,9 @@ class CodecState(object):
         errorhandler = self._make_errorhandler(space, False)
         def encode_call_errorhandler(errors, encoding, reason, input, startpos,
                                      endpos):
-            replace, newpos = errorhandler(errors, encoding, reason, input,
+            replace, newpos, lgt = errorhandler(errors, encoding, reason, input,
                                            startpos, endpos)
-            return replace, None, newpos
+            return replace, None, newpos, lgt
         return encode_call_errorhandler
 
     def get_unicodedata_handler(self, space):
@@ -190,7 +190,9 @@ def strict_errors(space, w_exc):
 def ignore_errors(space, w_exc):
     check_exception(space, w_exc)
     w_end = space.getattr(w_exc, space.newtext('end'))
-    return space.newtuple([space.newunicode(u''), w_end])
+    return space.newtuple([space.newutf8('', 0), w_end])
+
+REPLACEMENT = u'\ufffd'.encode('utf8')
 
 def replace_errors(space, w_exc):
     check_exception(space, w_exc)
@@ -198,14 +200,14 @@ def replace_errors(space, w_exc):
     w_end = space.getattr(w_exc, space.newtext('end'))
     size = space.int_w(w_end) - space.int_w(w_start)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
-        text = u'?' * size
-        return space.newtuple([space.newunicode(text), w_end])
+        text = '?' * size
+        return space.newtuple([space.newutf8(text, size), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
-        text = u'\ufffd'
-        return space.newtuple([space.newunicode(text), w_end])
+        text = REPLACEMENT
+        return space.newtuple([space.newutf8(text, 1), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeTranslateError):
-        text = u'\ufffd' * size
-        return space.newtuple([space.newunicode(text), w_end])
+        text = REPLACEMENT * size
+        return space.newtuple([space.newutf8(text, size), w_end])
     else:
         raise oefmt(space.w_TypeError,
                     "don't know how to handle %T in error callback", w_exc)
@@ -392,14 +394,17 @@ def make_decoder_wrapper(name):
     @unwrap_spec(string='bufferstr', errors='str_or_None',
                  w_final=WrappedDefault(False))
     def wrap_decoder(space, string, errors="strict", w_final=None):
+        from pypy.interpreter import unicodehelper
+
         if errors is None:
             errors = 'strict'
         final = space.is_true(w_final)
         state = space.fromcache(CodecState)
-        func = getattr(runicode, rname)
-        result, consumed = func(string, len(string), errors,
+        func = getattr(unicodehelper, rname)
+        result, consumed, length = func(string, len(string), errors,
                                 final, state.decode_error_handler)
-        return space.newtuple([space.newunicode(result), space.newint(consumed)])
+        return space.newtuple([space.newutf8(result, length),
+                               space.newint(consumed)])
     wrap_decoder.func_name = rname
     globals()[name] = wrap_decoder
 
@@ -441,33 +446,42 @@ if hasattr(runicode, 'str_decode_mbcs'):
 # "allow_surrogates=True"
 @unwrap_spec(utf8='utf8', errors='str_or_None')
 def utf_8_encode(space, utf8, utf8len, errors="strict"):
-    if errors is None:
-        errors = 'strict'
-    xxx
-    state = space.fromcache(CodecState)
-    # NB. can't call unicode_encode_utf_8() directly because that's
-    # an @elidable function nowadays.  Instead, we need the _impl().
-    # (The problem is the errorhandler, which calls arbitrary Python.)
-    result = runicode.unicode_encode_utf_8_impl(
-        uni, len(uni), errors, state.encode_error_handler,
-        allow_surrogates=True)
-    return space.newtuple([space.newbytes(result), space.newint(len(uni))])
+    return space.newtuple([space.newbytes(utf8), space.newint(utf8len)])
 
 @unwrap_spec(string='bufferstr', errors='str_or_None',
              w_final = WrappedDefault(False))
 def utf_8_decode(space, string, errors="strict", w_final=None):
+    from pypy.interpreter import unicodehelper
+
     if errors is None:
         errors = 'strict'
     final = space.is_true(w_final)
     state = space.fromcache(CodecState)
-    # NB. can't call str_decode_utf_8() directly because that's
-    # an @elidable function nowadays.  Instead, we need the _impl().
-    # (The problem is the errorhandler, which calls arbitrary Python.)
-    result, consumed = runicode.str_decode_utf_8_impl(
-        string, len(string), errors,
-        final, state.decode_error_handler,
-        allow_surrogates=True)
-    return space.newtuple([space.newunicode(result), space.newint(consumed)])
+    # call the fast version for checking
+    try:
+        consumed, lgt = rutf8.str_check_utf8(string, len(string), final)
+    except rutf8.Utf8CheckError as e:
+        if errors == 'strict':
+            # just raise
+            state.decode_error_handler(errors, 'utf8', e.msg, string,
+                                       e.startpos, e.endpos)
+            assert False, "raises"
+        # XXX do the way aroun runicode - we can optimize it later if we
+        # decide we care about obscure cases
+        res, consumed, lgt = unicodehelper.str_decode_utf8(string, len(string),
+            errors, final, state.decode_error_handler)
+        return space.newtuple([space.newutf8(res, lgt),
+                           space.newint(consumed)])
+    #result, consumed = runicode.str_decode_utf_8_impl(
+    #    string, len(string), errors,
+    #    final, state.decode_error_handler,
+    #    allow_surrogates=True)
+    if final or consumed == len(string):
+        return space.newtuple([space.newutf8(string, lgt),
+                               space.newint(consumed)])
+
+    return space.newtuple([space.newutf8(string[:consumed], lgt),
+                           space.newint(consumed)])
 
 @unwrap_spec(data='bufferstr', errors='str_or_None', byteorder=int,
              w_final=WrappedDefault(False))
@@ -655,6 +669,8 @@ class UnicodeData_Handler:
 @unwrap_spec(string='bufferstr', errors='str_or_None',
              w_final=WrappedDefault(False))
 def unicode_escape_decode(space, string, errors="strict", w_final=None):
+    from pypy.interpreter import unicodehelper
+
     if errors is None:
         errors = 'strict'
     final = space.is_true(w_final)
@@ -662,12 +678,12 @@ def unicode_escape_decode(space, string, errors="strict", w_final=None):
 
     unicode_name_handler = state.get_unicodedata_handler(space)
 
-    result, consumed = runicode.str_decode_unicode_escape(
+    result, consumed, lgt = unicodehelper.str_decode_unicode_escape(
         string, len(string), errors,
         final, state.decode_error_handler,
         unicode_name_handler)
 
-    return space.newtuple([space.newunicode(result), space.newint(consumed)])
+    return space.newtuple([space.newutf8(result, lgt), space.newint(consumed)])
 
 # ____________________________________________________________
 # Unicode-internal

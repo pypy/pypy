@@ -1679,6 +1679,13 @@ class ObjSpace(object):
     def utf8_w(self, w_obj):
         return w_obj.utf8_w(self)
 
+    def unicode_w(self, w_obj):
+        return self.utf8_w(w_obj).decode('utf8')
+
+    def newunicode(self, u):
+        assert isinstance(u, unicode)
+        return self.newutf8(u.encode("utf8"), len(u))
+
     def convert_to_w_unicode(self, w_obj):
         return w_obj.convert_to_w_unicode(self)
 
@@ -1693,13 +1700,12 @@ class ObjSpace(object):
                         "characters")
         return rstring.assert_str0(result)
 
-    def realunicode_w(self, w_obj):
-        # Like unicode_w, but only works if w_obj is really of type
+    def realutf8_w(self, w_obj):
+        # Like utf8_w, but only works if w_obj is really of type
         # 'unicode'.
-        xxx
         if not self.isinstance_w(w_obj, self.w_unicode):
             raise oefmt(self.w_TypeError, "argument must be a unicode")
-        return self.unicode_w(w_obj)
+        return self.utf8_w(w_obj)
 
     def bool_w(self, w_obj):
         # Unwraps a bool, also accepting an int for compatibility.

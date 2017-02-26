@@ -518,7 +518,7 @@ class AppTestUnicodeString:
         raises(TypeError, u'hello'.translate)
         raises(TypeError, u'abababc'.translate, {ord('a'):''})
 
-    def test_unicode_form_encoded_object(self):
+    def test_unicode_from_encoded_object(self):
         assert unicode('x', 'utf-8') == u'x'
         assert unicode('x', 'utf-8', 'strict') == u'x'
 

@@ -70,12 +70,14 @@ class W_UnicodeObject(W_Root):
     def immutable_unique_id(self, space):
         if self.user_overridden_class:
             return None
-        s = space.unicode_w(self)
-        if len(s) > 1:
+        s = space.utf8_w(self)
+        if len(s) > 2:
             uid = compute_unique_id(s)
         else:            # strings of len <= 1 are unique-ified
             if len(s) == 1:
                 base = ~ord(s[0])      # negative base values
+            elif len(s) == 2:
+                base = ~((ord(s[1]) << 8) | ord(s[0]))
             else:
                 base = 257       # empty unicode string: base value 257
             uid = (base << IDTAG_SHIFT) | IDTAG_SPECIAL
@@ -88,9 +90,11 @@ class W_UnicodeObject(W_Root):
         return self._utf8
 
     def readbuf_w(self, space):
+        # XXX for now
         from rpython.rlib.rstruct.unichar import pack_unichar, UNICODE_SIZE
-        builder = StringBuilder(len(self._value) * UNICODE_SIZE)
-        for unich in self._value:
+        v = self._utf8.decode("utf8")
+        builder = StringBuilder(len(v) * UNICODE_SIZE)
+        for unich in v:
             pack_unichar(unich, builder)
         return StringBuffer(builder.build())
 
@@ -331,7 +335,8 @@ class W_UnicodeObject(W_Root):
         formatter = newformat.unicode_formatter(space, spec)
         self2 = unicode_from_object(space, self)
         assert isinstance(self2, W_UnicodeObject)
-        return formatter.format_string(self2._value)
+        # XXX
+        return formatter.format_string(self2._utf8.decode("utf8"))
 
     def descr_mod(self, space, w_values):
         return mod_format(space, self, w_values, do_unicode=True)
@@ -617,21 +622,28 @@ def encode_object(space, w_object, encoding, errors):
         if errors is None or errors == 'strict':
             try:
                 if encoding == 'ascii':
-                    u = space.unicode_w(w_object)
-                    eh = unicodehelper.raise_unicode_exception_encode
-                    return space.newbytes(unicode_encode_ascii(
-                            u, len(u), None, errorhandler=eh))
+                    s = space.utf8_w(w_object)
+                    try:
+                        rutf8.check_ascii(s)
+                    except rutf8.AsciiCheckError as a:
+                        eh = unicodehelper.raise_unicode_exception_encode
+                        eh(None, "ascii", "ordinal not in range(128)", s,
+                            a.pos, a.pos + 1)
+                        assert False, "always raises"
+                    return space.newbytes(s)
                 if encoding == 'utf-8':
-                    u = space.unicode_w(w_object)
-                    eh = unicodehelper.raise_unicode_exception_encode
-                    return space.newbytes(unicode_encode_utf_8(
-                            u, len(u), None, errorhandler=eh,
-                            allow_surrogates=True))
+                    u = space.utf8_w(w_object)
+                    return space.newbytes(u)
+                    # XXX is this enough?
+                    #eh = unicodehelper.raise_unicode_exception_encode
+                    #return space.newbytes(unicode_encode_utf_8(
+                    #        u, len(u), None, errorhandler=eh,
+                    #        allow_surrogates=True))
             except unicodehelper.RUnicodeEncodeError as ue:
                 raise OperationError(space.w_UnicodeEncodeError,
                                      space.newtuple([
                     space.newtext(ue.encoding),
-                    space.newunicode(ue.object),
+                    space.newutf8(ue.object, -1),
                     space.newint(ue.start),
                     space.newint(ue.end),
                     space.newtext(ue.reason)]))
@@ -665,13 +677,15 @@ def decode_object(space, w_obj, encoding, errors):
                 assert False
             return space.newutf8(s, len(s))
         if encoding == 'utf-8':
-            yyy
             s = space.charbuf_w(w_obj)
             eh = unicodehelper.decode_error_handler(space)
-            return space.newunicode(str_decode_utf_8(
-                    s, len(s), None, final=True, errorhandler=eh,
-                    allow_surrogates=True)[0])
-    xxx
+            try:
+                _, lgt = rutf8.str_check_utf8(s, len(s), final=True,
+                                              allow_surrogates=True)
+            except rutf8.Utf8CheckError as e:
+                eh(None, 'utf8', e.msg, s, e.startpos, e.endpos)
+                assert False, "has to raise"
+            return space.newutf8(s, lgt)
     w_codecs = space.getbuiltinmodule("_codecs")
     w_decode = space.getattr(w_codecs, space.newtext("decode"))
     if errors is None:
@@ -723,7 +737,6 @@ def unicode_from_string(space, w_bytes):
     # this is a performance and bootstrapping hack
     encoding = getdefaultencoding(space)
     if encoding != 'ascii':
-        xxx
         return unicode_from_encoded_object(space, w_bytes, encoding, "strict")
     s = space.bytes_w(w_bytes)
     try:

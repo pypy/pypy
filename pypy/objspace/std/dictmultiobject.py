@@ -650,9 +650,9 @@ class EmptyDictStrategy(DictStrategy):
         if type(w_key) is self.space.StringObjectCls:
             self.switch_to_bytes_strategy(w_dict)
             return
-        elif type(w_key) is self.space.UnicodeObjectCls:
-            self.switch_to_unicode_strategy(w_dict)
-            return
+        #elif type(w_key) is self.space.UnicodeObjectCls:
+        #    self.switch_to_unicode_strategy(w_dict)
+        #    return
         w_type = self.space.type(w_key)
         if self.space.is_w(w_type, self.space.w_int):
             self.switch_to_int_strategy(w_dict)
@@ -668,6 +668,7 @@ class EmptyDictStrategy(DictStrategy):
         w_dict.dstorage = storage
 
     def switch_to_unicode_strategy(self, w_dict):
+        xxx
         strategy = self.space.fromcache(UnicodeDictStrategy)
         storage = strategy.get_empty_storage()
         w_dict.set_strategy(strategy)
