@@ -77,7 +77,7 @@ class TestPythonAstCompiler:
         """)
         assert self.space.unwrap(w_args) == (
             'unindent does not match any outer indentation level',
-            (None, 3, 0, ' y\n'))
+            ('<string>', 3, 0, ' y\n'))
 
     def test_getcodeflags(self):
         code = self.compiler.compile('from __future__ import division\n',
@@ -1331,6 +1331,18 @@ class AppTestExceptions:
             exec(source)
         except IndentationError as e:
             assert e.msg == 'unindent does not match any outer indentation level'
+        else:
+            raise Exception("DID NOT RAISE")
+
+    def test_outdentation_error_filename(self):
+        source = """if 1:
+         x
+        y
+        """
+        try:
+            exec(source)
+        except IndentationError as e:
+            assert e.filename == '<string>'
         else:
             raise Exception("DID NOT RAISE")
 

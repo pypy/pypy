@@ -152,6 +152,13 @@ it is the standard ``OrderedDict.move_to_end()`` method, but the
 behavior is also available on Python 2.x or for the ``dict`` type by
 calling ``__pypy__.move_to_end(dict, key, last=True)``.
 
+
+.. branch optinfo-into-bridges-3
+
+Improve the optimization of branchy Python code by retaining more information
+across failing guards.
+
+
 .. branch: space-newtext
 
 Internal refactoring of ``space.wrap()``, which is now replaced with
