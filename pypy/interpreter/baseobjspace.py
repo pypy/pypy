@@ -1581,7 +1581,9 @@ class ObjSpace(object):
         return None if self.is_none(w_obj) else self.text_w(w_obj)
 
     def bytes_w(self, w_obj):
-        "Takes a bytes object and returns an unwrapped RPython bytestring."
+        """ Takes an application level :py:class:`bytes`
+            (on PyPy2 this equals `str`) and returns a rpython byte string.
+        """
         return w_obj.bytes_w(self)
 
     def text_w(self, w_obj):

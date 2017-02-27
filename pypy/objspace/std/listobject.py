@@ -1945,7 +1945,7 @@ class IntOrFloatListStrategy(ListStrategy):
 class BytesListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
-    _none_value = None
+    _none_value = ""
 
     def wrap(self, stringval):
         return self.space.newbytes(stringval)
@@ -1977,7 +1977,7 @@ class BytesListStrategy(ListStrategy):
 class UnicodeListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
-    _none_value = None
+    _none_value = u""
 
     def wrap(self, stringval):
         assert stringval is not None
