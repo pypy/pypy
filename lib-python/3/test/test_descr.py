@@ -1022,20 +1022,21 @@ order (MRO) for bases """
         self.assertEqual(x.__dict__, {'foo': 1})
 
     def test_object_class_assignment_between_heaptypes_and_nonheaptypes(self):
-        class SubType(types.ModuleType):
-            a = 1
+        if support.check_impl_detail(pypy=False):
+            class SubType(types.ModuleType):
+                a = 1
 
-        m = types.ModuleType("m")
-        self.assertTrue(m.__class__ is types.ModuleType)
-        self.assertFalse(hasattr(m, "a"))
+            m = types.ModuleType("m")
+            self.assertTrue(m.__class__ is types.ModuleType)
+            self.assertFalse(hasattr(m, "a"))
 
-        m.__class__ = SubType
-        self.assertTrue(m.__class__ is SubType)
-        self.assertTrue(hasattr(m, "a"))
+            m.__class__ = SubType
+            self.assertTrue(m.__class__ is SubType)
+            self.assertTrue(hasattr(m, "a"))
 
-        m.__class__ = types.ModuleType
-        self.assertTrue(m.__class__ is types.ModuleType)
-        self.assertFalse(hasattr(m, "a"))
+            m.__class__ = types.ModuleType
+            self.assertTrue(m.__class__ is types.ModuleType)
+            self.assertFalse(hasattr(m, "a"))
 
         # Make sure that builtin immutable objects don't support __class__
         # assignment, because the object instances may be interned.
