@@ -2,7 +2,7 @@
 
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin,
-    enforceargs, newlist_hint)
+    enforceargs, newlist_hint, specialize)
 from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.rstring import StringBuilder, split, rsplit, UnicodeBuilder
 from rpython.rlib.runicode import make_unicode_escape_function
@@ -116,9 +116,8 @@ class W_UnicodeObject(W_Root):
         return W_UnicodeObject(value.encode('utf8'), len(value))
 
     def _new_from_list(self, value):
-        xxx
-        return W_UnicodeObject(u''.join(value))
-
+        u = u''.join(value)
+        return W_UnicodeObject(u.encode('utf8'), len(u))
     def _empty(self):
         return W_UnicodeObject.EMPTY
 
@@ -154,12 +153,13 @@ class W_UnicodeObject(W_Root):
     def convert_to_w_unicode(self, space):
         return self
 
+    @specialize.argtype(1)
     def _chr(self, char):
         assert len(char) == 1
         return char[0]
 
     def _multi_chr(self, unichar):
-        return unichar.encode('utf8')
+        return unichar
 
     _builder = UnicodeBuilder
 
@@ -387,7 +387,7 @@ class W_UnicodeObject(W_Root):
     def descr_join(self, space, w_list):
         l = space.listview_unicode(w_list)
         if l is not None:
-            xxx
+            assert False, "unreachable"
             if len(l) == 1:
                 return space.newunicode(l[0])
             return space.newunicode(self._utf8).join(l)
@@ -513,7 +513,7 @@ class W_UnicodeObject(W_Root):
     def descr_zfill(self, space, width):
         selfval = self._utf8
         if len(selfval) == 0:
-            return W_UnicodeObject(self._multi_chr(self._chr('0')) * width, width)
+            return W_UnicodeObject(self._chr('0') * width, width)
         num_zeros = width - self._len()
         if num_zeros <= 0:
             # cannot return self, in case it is a subclass of str
@@ -571,7 +571,7 @@ class W_UnicodeObject(W_Root):
         d = width - self._len()
         if d > 0:
             offset = d//2 + (d & width & 1)
-            fillchar = self._multi_chr(fillchar[0])
+            fillchar = fillchar[0]
             centered = offset * fillchar + value + (d - offset) * fillchar
         else:
             centered = value

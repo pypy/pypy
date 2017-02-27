@@ -77,6 +77,13 @@ def encode_utf8(space, uni):
         errorhandler=raise_unicode_exception_encode,
         allow_surrogates=True)
 
+def decode_utf8(space, s):
+    u, _ = runicode.str_decode_utf_8(s, len(s),
+        "strict", final=True,
+        errorhandler=decode_error_handler(space),
+        allow_surrogates=True)
+    return u.encode('utf8'), len(u)
+
 def utf8_encode_ascii(utf8, utf8len, errors, errorhandler):
     if len(utf8) == utf8len:
         return utf8

@@ -57,7 +57,6 @@ def parsestr(space, encoding, s, unicode_literal=False):
             assert 0 <= ps <= q
             substr = s[ps:q]
         else:
-            xxx
             substr = decode_unicode_utf8(space, s, ps, q)
         if rawmode:
             v, length = unicodehelper.decode_raw_unicode_escape(space, substr)
@@ -72,7 +71,8 @@ def parsestr(space, encoding, s, unicode_literal=False):
     substr = s[ps : q]
     if rawmode or '\\' not in s[ps:]:
         if need_encoding:
-            w_u = space.newunicode(unicodehelper.decode_utf8(space, substr))
+            utf, lgt = unicodehelper.decode_utf8(space, substr)
+            w_u = space.newutf8(utf, lgt)
             w_v = unicodehelper.encode(space, w_u, encoding)
             return w_v
         else:
@@ -222,8 +222,8 @@ def decode_utf8(space, s, ps, end):
     # while (s < end && *s != '\\') s++; */ /* inefficient for u".."
     while ps < end and ord(s[ps]) & 0x80:
         ps += 1
-    u = unicodehelper.decode_utf8(space, s[pt:ps])
-    return u, ps
+    utf, _ = unicodehelper.decode_utf8(space, s[pt:ps])
+    return utf.decode('utf8'), ps
 
 def decode_utf8_recode(space, s, ps, end, recode_encoding):
     u, ps = decode_utf8(space, s, ps, end)
