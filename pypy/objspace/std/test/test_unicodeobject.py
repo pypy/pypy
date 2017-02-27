@@ -35,8 +35,7 @@ class TestUnicodeObject:
         w_uni = space.wrap(u'abcd')
         assert space.text_w(w_uni) == 'abcd'
         w_uni = space.wrap(unichr(0xd921) + unichr(0xdddd))
-        assert space.text_w(w_uni) == '\xed\xa4\xa1\xed\xb7\x9d'
-        #                             ^^^ and not the 4-bytes combined character
+        raises(UnicodeEncodeError, space.text_w, w_uni)
 
 
 class AppTestUnicodeStringStdOnly:
