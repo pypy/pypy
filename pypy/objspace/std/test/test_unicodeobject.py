@@ -146,6 +146,7 @@ class AppTestUnicodeString:
         raises(ValueError, u'abc'.split, u'')
         raises(ValueError, 'abc'.split, u'')
         assert u'   a b c d'.split(None, 0) == [u'a b c d']
+        assert u'a\nb\u1680c'.split() == [u'a', u'b', u'c']
 
     def test_rsplit(self):
         assert u"".rsplit() == []
