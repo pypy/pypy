@@ -8,7 +8,7 @@ from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.runicode import (
     make_unicode_escape_function, str_decode_ascii, str_decode_utf_8,
     unicode_encode_ascii, unicode_encode_utf_8, fast_str_decode_ascii,
-    unicode_encode_utf8sp)
+    unicode_encode_utf8_forbid_surrogates, SurrogateError)
 from rpython.rlib import jit
 
 from pypy.interpreter import unicodehelper
@@ -82,7 +82,8 @@ class W_UnicodeObject(W_Root):
 
     def text_w(self, space):
         identifier = jit.conditional_call_elidable(
-                            self._utf8, g_encode_utf8, self._value)
+                            self._utf8, g_encode_utf8, space, self,
+                            self._value)
         if not jit.isconstant(self):
             self._utf8 = identifier
         return identifier
@@ -1255,9 +1256,17 @@ def _rpy_unicode_to_decimal_w(space, unistr):
     return u''.join(result)
 
 @jit.elidable
-def g_encode_utf8(value):
+def g_encode_utf8(space, w_value, value):
     """This is a global function because of jit.conditional_call_value"""
-    return unicode_encode_utf8sp(value, len(value))
+    try:
+        return unicode_encode_utf8_forbid_surrogates(value, len(value))
+    except SurrogateError as e:
+        raise OperationError(space.w_UnicodeEncodeError,
+                space.newtuple([space.newtext('utf-8'),
+                                w_value,
+                                space.newint(e.index-1),
+                                space.newint(e.index),
+                                space.newtext("surrogates not allowed")]))
 
 _repr_function, _ = make_unicode_escape_function(
     pass_printable=True, unicode_output=True, quotes=True, prefix='')

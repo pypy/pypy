@@ -433,7 +433,9 @@ def unicode_encode_utf8sp(s, size):
     return result.build()
 
 class SurrogateError(Exception):
-    pass
+    def __init__(self, char, index):
+        self.char = char
+        self.index = index
 
 def unicode_encode_utf8_forbid_surrogates(s, size):
     # Strict surrogate-forbidding utf-8 encoding.  Any surrogate character
@@ -454,7 +456,7 @@ def unicode_encode_utf8_forbid_surrogates(s, size):
             result.append(chr((0x80 | (ch & 0x3f))))
         elif ch < 0x10000:
             if 0xD800 <= ch <= 0xDFFF:
-                raise SurrogateError
+                raise SurrogateError(ch, pos)
             # Encode UCS2 Unicode ordinals
             result.append((chr((0xe0 | (ch >> 12)))))
             result.append((chr((0x80 | ((ch >> 6) & 0x3f)))))
