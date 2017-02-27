@@ -1580,6 +1580,21 @@ class ObjSpace(object):
     def text_or_none_w(self, w_obj):
         return None if self.is_none(w_obj) else self.text_w(w_obj)
 
+    def bytes_w(self, w_obj):
+        "Takes a bytes object and returns an unwrapped RPython bytestring."
+        return w_obj.bytes_w(self)
+
+    def text_w(self, w_obj):
+        """ PyPy2 takes either a :py:class:`str` and returns a
+            rpython byte string, or it takes an :py:class:`unicode`
+            and uses the systems default encoding to return a rpython
+            byte string.
+
+            On PyPy3 it takes a :py:class:`str` and it will return
+            an utf-8 encoded rpython string.
+        """
+        return w_obj.text_w(self)
+
     @not_rpython    # tests only; should be replaced with bytes_w or text_w
     def str_w(self, w_obj):
         """
@@ -1593,9 +1608,6 @@ class ObjSpace(object):
             return w_obj.text_w(self)
         else:
             return w_obj.bytes_w(self)
-
-    def bytes_w(self, w_obj):
-        return w_obj.bytes_w(self)
 
     def bytes0_w(self, w_obj):
         "Like bytes_w, but rejects strings with NUL bytes."
@@ -1664,14 +1676,6 @@ class ObjSpace(object):
                         "argument must be a unicode string without NUL "
                         "characters")
         return rstring.assert_str0(result)
-
-    def text_w(self, w_obj):
-        """
-        Unwrap a unicode object and return a 'utf-8-nosg' byte string
-        ('no surrogate').  This encoding always works and is in one-to-
-        one correspondance with the unicode.
-        """
-        return w_obj.text_w(self)
 
     realtext_w = text_w         # Python 2 compatibility
     realunicode_w = unicode_w
