@@ -81,9 +81,16 @@ class W_UnicodeObject(W_Root):
         return self._value
 
     def text_w(self, space):
-        identifier = jit.conditional_call_elidable(
-                            self._utf8, g_encode_utf8, space, self,
-                            self._value)
+        try:
+            identifier = jit.conditional_call_elidable(
+                                self._utf8, g_encode_utf8, self._value)
+        except SurrogateError as e:
+            raise OperationError(space.w_UnicodeEncodeError,
+                    space.newtuple([space.newtext('utf-8'),
+                                    self,
+                                    space.newint(e.index-1),
+                                    space.newint(e.index),
+                                    space.newtext("surrogates not allowed")]))
         if not jit.isconstant(self):
             self._utf8 = identifier
         return identifier
@@ -1256,17 +1263,9 @@ def _rpy_unicode_to_decimal_w(space, unistr):
     return u''.join(result)
 
 @jit.elidable
-def g_encode_utf8(space, w_value, value):
+def g_encode_utf8(value):
     """This is a global function because of jit.conditional_call_value"""
-    try:
-        return unicode_encode_utf8_forbid_surrogates(value, len(value))
-    except SurrogateError as e:
-        raise OperationError(space.w_UnicodeEncodeError,
-                space.newtuple([space.newtext('utf-8'),
-                                w_value,
-                                space.newint(e.index-1),
-                                space.newint(e.index),
-                                space.newtext("surrogates not allowed")]))
+    return unicode_encode_utf8_forbid_surrogates(value, len(value))
 
 _repr_function, _ = make_unicode_escape_function(
     pass_printable=True, unicode_output=True, quotes=True, prefix='')
