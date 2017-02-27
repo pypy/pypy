@@ -1613,8 +1613,14 @@ class ObjSpace(object):
         return w_obj.str_w(self)
 
     def text_w(self, w_obj):
-        """Takes a string object (unicode in Python 3) and returns an
-        unwrapped RPython bytestring."""
+        """ PyPy2 takes either a :py:class:`str` and returns a
+            rpython byte string, or it takes an :py:class:`unicode`
+            and uses the systems default encoding to return a rpython
+            byte string.
+
+            On PyPy3 it takes a :py:class:`str` and it will return
+            an utf-8 encoded rpython string.
+        """
         return w_obj.str_w(self)
 
     @not_rpython    # tests only; should be replaced with bytes_w or text_w
