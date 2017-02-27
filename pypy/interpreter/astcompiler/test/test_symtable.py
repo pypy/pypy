@@ -283,7 +283,6 @@ class TestSymbolTable:
     def test_global(self):
         scp = self.func_scope("def f():\n   global x\n   x = 4")
         assert scp.lookup("x") == symtable.SCOPE_GLOBAL_EXPLICIT
-        input = "def f(x):\n   global x"
         scp = self.func_scope("""def f():
     y = 3
     def x():
@@ -295,8 +294,29 @@ class TestSymbolTable:
         xscp, zscp = scp.children
         assert xscp.lookup("y") == symtable.SCOPE_GLOBAL_EXPLICIT
         assert zscp.lookup("y") == symtable.SCOPE_FREE
-        exc = py.test.raises(SyntaxError, self.func_scope, input).value
+
+        code = "def f(x):\n   global x"
+        exc = py.test.raises(SyntaxError, self.func_scope, code).value
+        assert exc.lineno == 2
         assert exc.msg == "name 'x' is parameter and global"
+
+    def test_global_nested(self):
+        code = """
+def f(x):
+    def g(x):
+        global x"""
+        exc = py.test.raises(SyntaxError, self.func_scope, code).value
+        assert exc.lineno == 4
+        assert exc.msg == "name 'x' is parameter and global"
+
+        scp = self.func_scope("""
+def f(x):
+    def g():
+        global x""")
+        g = scp.children[0]
+        assert g.name == 'g'
+        x = g.lookup_role('x')
+        assert x == symtable.SYM_GLOBAL
 
     def test_nonlocal(self):
         src = str(py.code.Source("""

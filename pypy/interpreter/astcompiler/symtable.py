@@ -8,7 +8,7 @@ from pypy.interpreter.pyparser.error import SyntaxError
 # These are for internal use only:
 SYM_BLANK = 0
 SYM_GLOBAL = 1
-SYM_ASSIGNED = 2 # Or deleted actually.
+SYM_ASSIGNED = 2  # Or deleted actually.
 SYM_PARAM = 2 << 1
 SYM_NONLOCAL = 2 << 2
 SYM_USED = 2 << 3
@@ -123,9 +123,6 @@ class Scope(object):
     def _finalize_name(self, name, flags, local, bound, free, globs):
         """Decide on the scope of a name."""
         if flags & SYM_GLOBAL:
-            if flags & SYM_PARAM:
-                err = "name '%s' is parameter and global" % (name,)
-                raise SyntaxError(err, self.lineno, self.col_offset)
             if flags & SYM_NONLOCAL:
                 err = "name '%s' is nonlocal and global" % (name,)
                 raise SyntaxError(err, self.lineno, self.col_offset)
@@ -293,7 +290,8 @@ class FunctionScope(Scope):
 
     def _pass_on_bindings(self, local, bound, globs, new_bound, new_globs):
         new_bound.update(local)
-        Scope._pass_on_bindings(self, local, bound, globs, new_bound, new_globs)
+        Scope._pass_on_bindings(self, local, bound, globs, new_bound,
+                                new_globs)
 
     def _finalize_cells(self, free):
         for name, role in self.symbols.iteritems():
@@ -496,14 +494,19 @@ class SymtableBuilder(ast.GenericASTVisitor):
                        "implemented in PyPy")
                 raise SyntaxError(msg, glob.lineno, glob.col_offset,
                                   filename=self.compile_info.filename)
+            if old_role & SYM_PARAM:
+                msg = "name '%s' is parameter and global" % (name,)
+                raise SyntaxError(msg, glob.lineno, glob.col_offset)
+
             if old_role & (SYM_USED | SYM_ASSIGNED):
                 if old_role & SYM_ASSIGNED:
-                    msg = "name '%s' is assigned to before global declaration" \
+                    msg = "name '%s' is assigned to before global declaration"\
                         % (name,)
                 else:
                     msg = "name '%s' is used prior to global declaration" % \
                         (name,)
-                misc.syntax_warning(self.space, msg, self.compile_info.filename,
+                misc.syntax_warning(self.space, msg,
+                                    self.compile_info.filename,
                                     glob.lineno, glob.col_offset)
             self.note_symbol(name, SYM_GLOBAL)
 
@@ -519,7 +522,8 @@ class SymtableBuilder(ast.GenericASTVisitor):
                 else:
                     msg = "name '%s' is used prior to nonlocal declaration" % \
                         (name,)
-                misc.syntax_warning(self.space, msg, self.compile_info.filename,
+                misc.syntax_warning(self.space, msg,
+                                    self.compile_info.filename,
                                     nonl.lineno, nonl.col_offset)
             self.note_symbol(name, SYM_NONLOCAL)
 
@@ -589,7 +593,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
 
     def visit_arguments(self, arguments):
         scope = self.scope
-        assert isinstance(scope, FunctionScope) # Annotator hint.
+        assert isinstance(scope, FunctionScope)  # Annotator hint.
         if arguments.args:
             self._handle_params(arguments.args, True)
         if arguments.kwonlyargs:
