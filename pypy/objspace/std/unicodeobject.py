@@ -158,6 +158,9 @@ class W_UnicodeObject(W_Root):
         assert len(char) == 1
         return char[0]
 
+    def _multi_chr(self, unichar):
+        return unichar.encode('utf8')
+
     _builder = UnicodeBuilder
 
     def _isupper(self, ch):
