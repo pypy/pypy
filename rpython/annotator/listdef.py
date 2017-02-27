@@ -107,6 +107,9 @@ class ListItem(object):
             self.bookkeeper.annotator.reflowfromposition(position_key)
 
     def generalize(self, s_other_value):
+        if hasattr(self.s_value, 'can_be_None') and not self.s_value.can_be_None and getattr(s_other_value, 'can_be_None', False):
+            import pdb
+            pdb.set_trace()
         s_new_value = unionof(self.s_value, s_other_value)
         updated = s_new_value != self.s_value
         if updated:

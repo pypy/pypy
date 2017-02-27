@@ -1032,7 +1032,7 @@ class EmptyListStrategy(ListStrategy):
 
         unilist = space.listview_unicode(w_iterable)
         if unilist is not None:
-            xxx
+            assert False, "disabled"
             w_list.strategy = strategy = space.fromcache(UnicodeListStrategy)
             # need to copy because intlist can share with w_iterable
             w_list.lstorage = strategy.erase(unilist[:])

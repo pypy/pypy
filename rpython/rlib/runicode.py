@@ -346,8 +346,6 @@ def unicode_encode_utf_8(s, size, errors, errorhandler=None,
     #
     # See also unicode_encode_utf8sp().
     #
-    if errorhandler is None:
-        errorhandler = default_unicode_error_encode
     # NB. a bit messy because rtyper/rstr.py also calls the same
     # function.  Make sure we annotate for the args it passes, too
     if NonConstant(False):
@@ -361,6 +359,9 @@ def unicode_encode_utf_8(s, size, errors, errorhandler=None,
 
 def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
                               allow_surrogates=False):
+    # XXX hack
+    if errorhandler is None:
+        errorhandler = default_unicode_error_encode
     assert(size >= 0)
     result = StringBuilder(size)
     pos = 0

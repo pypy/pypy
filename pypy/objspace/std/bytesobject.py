@@ -17,7 +17,7 @@ from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.unicodeobject import (
     decode_object, unicode_from_encoded_object,
-    getdefaultencoding)
+    getdefaultencoding, unicode_from_string)
 from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 
 
@@ -53,17 +53,7 @@ class W_AbstractBytesObject(W_Root):
         return space.newint(uid)
 
     def convert_to_w_unicode(self, space):
-        # Use the default encoding.
-        encoding = getdefaultencoding(space)
-        if encoding == 'ascii':
-            try:
-                rutf8.check_ascii(self._value)
-                return space.newutf8(self._value, len(self._value))
-            except rutf8.AsciiCheckError:
-                xxx
-        else:
-            xxx
-        return space.unicode_w(decode_object(space, self, encoding, None))
+        return unicode_from_string(space, self)
 
     def descr_add(self, space, w_other):
         """x.__add__(y) <==> x+y"""

@@ -10,7 +10,7 @@ class BuildersModule(MixedModule):
 
     interpleveldefs = {
         "StringBuilder": "interp_builders.W_StringBuilder",
-        "UnicodeBuilder": "interp_builders.W_UnicodeBuilder",
+        #"UnicodeBuilder": "interp_builders.W_UnicodeBuilder",
     }
 
 class TimeModule(MixedModule):

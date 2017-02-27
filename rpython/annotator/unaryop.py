@@ -671,7 +671,7 @@ class __extend__(SomeString,
         return getbookkeeper().newlist(s_item)
 
     def method_rsplit(self, patt, max=-1):
-        s_item = self.basestringclass(no_nul=self.no_nul)
+        s_item = self.basestringclass(no_nul=self.no_nul, can_be_None=False)
         return getbookkeeper().newlist(s_item)
 
     def method_replace(self, s1, s2):
@@ -696,7 +696,7 @@ class __extend__(SomeUnicodeString):
         if not s_enc.is_constant():
             raise AnnotatorError("Non-constant encoding not supported")
         enc = s_enc.const
-        if enc not in ('ascii', 'latin-1', 'utf-8'):
+        if enc not in ('ascii', 'latin-1', 'utf-8', 'utf8'):
             raise AnnotatorError("Encoding %s not supported for unicode" % (enc,))
         return SomeString(no_nul=self.no_nul)
     method_encode.can_only_throw = []
@@ -729,7 +729,7 @@ class __extend__(SomeString):
         if not s_enc.is_constant():
             raise AnnotatorError("Non-constant encoding not supported")
         enc = s_enc.const
-        if enc not in ('ascii', 'latin-1', 'utf-8'):
+        if enc not in ('ascii', 'latin-1', 'utf-8', 'utf8'):
             raise AnnotatorError("Encoding %s not supported for strings" % (enc,))
         return SomeUnicodeString(no_nul=self.no_nul)
     method_decode.can_only_throw = [UnicodeDecodeError]

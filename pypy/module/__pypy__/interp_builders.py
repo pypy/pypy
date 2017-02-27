@@ -64,4 +64,4 @@ def create_builder(name, strtype, builder_cls, newmethod):
     return W_Builder
 
 W_StringBuilder = create_builder("StringBuilder", str, StringBuilder, "newbytes")
-W_UnicodeBuilder = create_builder("UnicodeBuilder", unicode, UnicodeBuilder, "newunicode")
+#W_UnicodeBuilder = create_builder("UnicodeBuilder", unicode, UnicodeBuilder, "newunicode")

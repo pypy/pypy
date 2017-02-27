@@ -203,6 +203,7 @@ class W_UnicodeObject(W_Root):
         return unichr(unicodedb.totitle(ord(ch)))
 
     def _newlist_unwrapped(self, space, lst):
+        assert False, "should not be called"
         return space.newlist_unicode(lst)
 
     @staticmethod

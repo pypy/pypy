@@ -335,7 +335,7 @@ class AbstractStringRepr(Repr):
             return hop.gendirectcall(self.ll.ll_str2unicode, v_self)
         elif encoding == 'latin-1':
             return hop.gendirectcall(self.ll_decode_latin1, v_self)
-        elif encoding == 'utf-8':
+        elif encoding == 'utf-8' or encoding == 'utf8':
             return hop.gendirectcall(self.ll_decode_utf8, v_self)
         else:
             raise TyperError("encoding %s not implemented" % (encoding, ))
@@ -408,7 +408,7 @@ class AbstractUnicodeRepr(AbstractStringRepr):
             return hop.gendirectcall(self.ll_str, v_self)
         elif encoding == "latin-1":
             return hop.gendirectcall(self.ll_encode_latin1, v_self)
-        elif encoding == 'utf-8':
+        elif encoding == 'utf-8' or encoding == 'utf8':
             return hop.gendirectcall(self.ll_encode_utf8, v_self)
         else:
             raise TyperError("encoding %s not implemented" % (encoding, ))

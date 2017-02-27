@@ -486,6 +486,7 @@ def utf_8_decode(space, string, errors="strict", w_final=None):
 @unwrap_spec(data='bufferstr', errors='str_or_None', byteorder=int,
              w_final=WrappedDefault(False))
 def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
+    assert False, "fix in the future"
     if errors is None:
         errors = 'strict'
     final = space.is_true(w_final)
@@ -507,6 +508,7 @@ def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
 @unwrap_spec(data='bufferstr', errors='str_or_None', byteorder=int,
              w_final=WrappedDefault(False))
 def utf_32_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
+    assert False, "fix in the future"
     final = space.is_true(w_final)
     state = space.fromcache(CodecState)
     if byteorder == 0:
