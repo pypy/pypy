@@ -67,7 +67,7 @@ def check_sys_modules_w(space, modulename):
 lib_pypy = os.path.join(os.path.dirname(__file__),
                         '..', '..', '..', 'lib_pypy')
 
-@unwrap_spec(modulename='text0', level=int)
+@unwrap_spec(modulename='fsencode', level=int)
 def importhook(space, modulename, w_globals=None, w_locals=None, w_fromlist=None, level=0):
     # A minimal version, that can only import builtin and lib_pypy modules!
     assert w_locals is w_globals
