@@ -109,7 +109,7 @@ class W_UnicodeObject(W_Root):
         if self._len() != 1:
             raise oefmt(space.w_TypeError,
                          "ord() expected a character, but string of length %d "
-                         "found", len(self._value))
+                         "found", self._len())
         return space.newint(rutf8.codepoint_at_pos(self._utf8, 0))
 
     def _new(self, value):
@@ -125,6 +125,9 @@ class W_UnicodeObject(W_Root):
         if self._length == -1:
             self._length = self._compute_length()
         return self._length
+
+    def _compute_length(self):
+        return rutf8.compute_length_utf8(self._utf8)
 
     def _val(self, space):
         return self._utf8.decode('utf8')
@@ -156,7 +159,7 @@ class W_UnicodeObject(W_Root):
     @specialize.argtype(1)
     def _chr(self, char):
         assert len(char) == 1
-        return char[0]
+        return unichr(ord(char[0]))
 
     def _multi_chr(self, unichar):
         return unichar
@@ -513,7 +516,7 @@ class W_UnicodeObject(W_Root):
     def descr_zfill(self, space, width):
         selfval = self._utf8
         if len(selfval) == 0:
-            return W_UnicodeObject(self._chr('0') * width, width)
+            return W_UnicodeObject('0' * width, width)
         num_zeros = width - self._len()
         if num_zeros <= 0:
             # cannot return self, in case it is a subclass of str
@@ -525,7 +528,7 @@ class W_UnicodeObject(W_Root):
             start = 1
         else:
             start = 0
-        builder.append_multiple_char(self._chr('0'), num_zeros)
+        builder.append_multiple_char('0', num_zeros)
         builder.append_slice(selfval, start, len(selfval))
         return W_UnicodeObject(builder.build(), width)
 
@@ -536,14 +539,14 @@ class W_UnicodeObject(W_Root):
         value = self._utf8
         if space.is_none(w_sep):
             res = split(value, maxsplit=maxsplit)
-            return space.newlist([W_UnicodeObject(s, -1) for s in res])
+            return space.newlist_from_unicode(res)
 
         by = self.convert_arg_to_w_unicode(space, w_sep)._utf8
         if len(by) == 0:
             raise oefmt(space.w_ValueError, "empty separator")
         res = split(value, by, maxsplit)
 
-        return space.newlist([W_UnicodeObject(s, -1) for s in res])
+        return space.newlist_from_unicode(res)
 
     @unwrap_spec(maxsplit=int)
     def descr_rsplit(self, space, w_sep=None, maxsplit=-1):
@@ -551,14 +554,14 @@ class W_UnicodeObject(W_Root):
         value = self._utf8
         if space.is_none(w_sep):
             res = rsplit(value, maxsplit=maxsplit)
-            return space.newlist([W_UnicodeObject(s, -1) for s in res])
+            return space.newlist_from_unicode(res)
 
         by = self.convert_arg_to_w_unicode(space, w_sep)._utf8
         if len(by) == 0:
             raise oefmt(space.w_ValueError, "empty separator")
         res = rsplit(value, by, maxsplit)
 
-        return space.newlist([W_UnicodeObject(s, -1) for s in res])
+        return space.newlist_from_unicode(res)
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
     def descr_center(self, space, width, w_fillchar):

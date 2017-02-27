@@ -303,6 +303,13 @@ class StdObjSpace(ObjSpace):
         return self.newlist(list_u)
         return W_ListObject.newlist_unicode(self, list_u)
 
+    def newlist_from_unicode(self, lst):
+        res_w = []
+        for u in lst:
+            assert u is not None
+            res_w.append(self.newutf8(u, -1))
+        return self.newlist(res_w)
+
     def newlist_int(self, list_i):
         return W_ListObject.newlist_int(self, list_i)
 

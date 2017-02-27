@@ -66,6 +66,14 @@ def next_codepoint_pos(code, pos):
         return pos + 1
     return pos + ord(runicode._utf8_code_length[chr1 - 0x80])
 
+def compute_length_utf8(s):
+    pos = 0
+    lgt = 0
+    while pos < len(s):
+        pos = next_codepoint_pos(s, pos)
+        lgt += 1
+    return lgt
+
 def codepoint_at_pos(code, pos):
     """ Give a codepoint in code at pos - assumes valid utf8, no checking!
     """
