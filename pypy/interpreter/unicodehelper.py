@@ -42,7 +42,7 @@ def decode_unicode_escape(space, string):
     # XXX that guy does not belong in runicode (nor in rutf8)
     result_u, consumed = runicode.str_decode_unicode_escape(
         string, len(string), "strict",
-        final=True, errorhandler=decode_error_handler(space),
+        final=True, errorhandler=DecodeWrapper(decode_error_handler(space)).handle,
         unicodedata_handler=unicodedata_handler)
     return result_u.encode('utf8'), len(result_u)
 
@@ -51,7 +51,7 @@ def decode_raw_unicode_escape(space, string):
     # XXX that guy does not belong in runicode (nor in rutf8)
     result_u, consumed = runicode.str_decode_raw_unicode_escape(
         string, len(string), "strict",
-        final=True, errorhandler=decode_error_handler(space))
+        final=True, errorhandler=DecodeWrapper(decode_error_handler(space)).handle)
     return result_u.encode('utf8'), len(result_u)
 
 def check_utf8(space, string):
