@@ -631,7 +631,7 @@ class W_TypeObject(W_Root):
             if w_newdescr is None:    # see test_crash_mro_without_object_1
                 raise oefmt(space.w_TypeError, "cannot create '%N' instances",
                             self)
-            w_newfunc = space.get(w_newdescr, self)
+            w_newfunc = space.get(w_newdescr, space.w_None, w_type=self)
             if (space.config.objspace.std.newshortcut and
                 not we_are_jitted() and
                 isinstance(w_newtype, W_TypeObject)):
