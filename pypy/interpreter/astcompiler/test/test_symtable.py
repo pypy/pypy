@@ -295,17 +295,17 @@ class TestSymbolTable:
         assert xscp.lookup("y") == symtable.SCOPE_GLOBAL_EXPLICIT
         assert zscp.lookup("y") == symtable.SCOPE_FREE
 
-        code = "def f(x):\n   global x"
-        exc = py.test.raises(SyntaxError, self.func_scope, code).value
+        src = "def f(x):\n   global x"
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
         assert exc.lineno == 2
         assert exc.msg == "name 'x' is parameter and global"
 
     def test_global_nested(self):
-        code = """
+        src = """
 def f(x):
     def g(x):
         global x"""
-        exc = py.test.raises(SyntaxError, self.func_scope, code).value
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
         assert exc.lineno == 4
         assert exc.msg == "name 'x' is parameter and global"
 
@@ -319,14 +319,13 @@ def f(x):
         assert x == symtable.SYM_GLOBAL
 
     def test_nonlocal(self):
-        src = str(py.code.Source("""
-                     def f():
-                         nonlocal x
-                         global x
-                 """))
+        src = """
+x = 1
+def f():
+    nonlocal x"""
         exc = py.test.raises(SyntaxError, self.func_scope, src).value
-        assert exc.msg == "name 'x' is nonlocal and global"
-        #
+        assert exc.msg == "no binding for nonlocal 'x' found"
+
         src = str(py.code.Source("""
                      def f(x):
                          nonlocal x
@@ -344,6 +343,58 @@ def f(x):
         src = "nonlocal x"
         exc = py.test.raises(SyntaxError, self.func_scope, src).value
         assert exc.msg == "nonlocal declaration not allowed at module level"
+        assert exc.lineno == 1
+
+        src = "x = 2\nnonlocal x"
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.msg == "nonlocal declaration not allowed at module level"
+        assert exc.lineno == 2
+
+    def test_nonlocal_and_global(self):
+        """This test differs from CPython3 behaviour. CPython points to the
+        first occurance of the global/local expression. PyPy will point to the
+        last expression which makes the problem."""
+        src = """
+def f():
+    nonlocal x
+    global x"""
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.msg == "name 'x' is nonlocal and global"
+        assert exc.lineno == 4
+
+        src = """
+def f():
+    global x
+    nonlocal x """
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.msg == "name 'x' is nonlocal and global"
+        assert exc.lineno == 4
+
+    def test_nonlocal_nested(self):
+        scp = self.func_scope("""
+def f(x):
+    def g():
+        nonlocal x""")
+        g = scp.children[0]
+        x = g.lookup_role('x')
+        assert x == symtable.SYM_NONLOCAL
+
+        scp = self.func_scope("""
+def f():
+    def g():
+        nonlocal x
+    x = 1""")
+        g = scp.children[0]
+        x = g.lookup_role('x')
+        assert x == symtable.SYM_NONLOCAL
+
+        src = """
+def f(x):
+    def g(x):
+        nonlocal x"""
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.msg == "name 'x' is parameter and nonlocal"
+        assert exc.lineno == 4
 
     def test_optimization(self):
         assert not self.mod_scope("").can_be_optimized
