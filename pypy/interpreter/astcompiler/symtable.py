@@ -8,7 +8,7 @@ from pypy.interpreter.pyparser.error import SyntaxError
 # These are for internal use only:
 SYM_BLANK = 0
 SYM_GLOBAL = 1
-SYM_ASSIGNED = 2 # Or deleted actually.
+SYM_ASSIGNED = 2  # (DEF_LOCAL in CPython3). Or deleted actually.
 SYM_PARAM = 2 << 1
 SYM_NONLOCAL = 2 << 2
 SYM_USED = 2 << 3
@@ -123,12 +123,6 @@ class Scope(object):
     def _finalize_name(self, name, flags, local, bound, free, globs):
         """Decide on the scope of a name."""
         if flags & SYM_GLOBAL:
-            if flags & SYM_PARAM:
-                err = "name '%s' is parameter and global" % (name,)
-                raise SyntaxError(err, self.lineno, self.col_offset)
-            if flags & SYM_NONLOCAL:
-                err = "name '%s' is nonlocal and global" % (name,)
-                raise SyntaxError(err, self.lineno, self.col_offset)
             self.symbols[name] = SCOPE_GLOBAL_EXPLICIT
             globs[name] = None
             if bound:
@@ -137,12 +131,6 @@ class Scope(object):
                 except KeyError:
                     pass
         elif flags & SYM_NONLOCAL:
-            if flags & SYM_PARAM:
-                err = "name '%s' is parameter and nonlocal" % (name,)
-                raise SyntaxError(err, self.lineno, self.col_offset)
-            if bound is None:
-                err = "nonlocal declaration not allowed at module level"
-                raise SyntaxError(err, self.lineno, self.col_offset)
             if name not in bound:
                 err = "no binding for nonlocal '%s' found" % (name,)
                 raise SyntaxError(err, self.lineno, self.col_offset)
@@ -293,7 +281,8 @@ class FunctionScope(Scope):
 
     def _pass_on_bindings(self, local, bound, globs, new_bound, new_globs):
         new_bound.update(local)
-        Scope._pass_on_bindings(self, local, bound, globs, new_bound, new_globs)
+        Scope._pass_on_bindings(self, local, bound, globs, new_bound,
+                                new_globs)
 
     def _finalize_cells(self, free):
         for name, role in self.symbols.iteritems():
@@ -496,20 +485,38 @@ class SymtableBuilder(ast.GenericASTVisitor):
                        "implemented in PyPy")
                 raise SyntaxError(msg, glob.lineno, glob.col_offset,
                                   filename=self.compile_info.filename)
+            if old_role & SYM_PARAM:
+                msg = "name '%s' is parameter and global" % (name,)
+                raise SyntaxError(msg, glob.lineno, glob.col_offset)
+            if old_role & SYM_NONLOCAL:
+                msg = "name '%s' is nonlocal and global" % (name,)
+                raise SyntaxError(msg, glob.lineno, glob.col_offset)
+
             if old_role & (SYM_USED | SYM_ASSIGNED):
                 if old_role & SYM_ASSIGNED:
-                    msg = "name '%s' is assigned to before global declaration" \
+                    msg = "name '%s' is assigned to before global declaration"\
                         % (name,)
                 else:
                     msg = "name '%s' is used prior to global declaration" % \
                         (name,)
-                misc.syntax_warning(self.space, msg, self.compile_info.filename,
+                misc.syntax_warning(self.space, msg,
+                                    self.compile_info.filename,
                                     glob.lineno, glob.col_offset)
             self.note_symbol(name, SYM_GLOBAL)
 
     def visit_Nonlocal(self, nonl):
         for name in nonl.names:
             old_role = self.scope.lookup_role(name)
+            msg = ""
+            if old_role & SYM_GLOBAL:
+                msg = "name '%s' is nonlocal and global" % (name,)
+            if old_role & SYM_PARAM:
+                msg = "name '%s' is parameter and nonlocal" % (name,)
+            if type(self.scope) == ModuleScope:
+                msg = "nonlocal declaration not allowed at module level"
+            if msg is not "":
+                raise SyntaxError(msg, nonl.lineno, nonl.col_offset)
+
             if (old_role & (SYM_USED | SYM_ASSIGNED) and not
                     (name == '__class__' and
                      self.scope._hide_bound_from_nested_scopes)):
@@ -519,8 +526,10 @@ class SymtableBuilder(ast.GenericASTVisitor):
                 else:
                     msg = "name '%s' is used prior to nonlocal declaration" % \
                         (name,)
-                misc.syntax_warning(self.space, msg, self.compile_info.filename,
+                misc.syntax_warning(self.space, msg,
+                                    self.compile_info.filename,
                                     nonl.lineno, nonl.col_offset)
+
             self.note_symbol(name, SYM_NONLOCAL)
 
     def visit_Lambda(self, lamb):
@@ -589,7 +598,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
 
     def visit_arguments(self, arguments):
         scope = self.scope
-        assert isinstance(scope, FunctionScope) # Annotator hint.
+        assert isinstance(scope, FunctionScope)  # Annotator hint.
         if arguments.args:
             self._handle_params(arguments.args, True)
         if arguments.kwonlyargs:
