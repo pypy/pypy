@@ -73,16 +73,27 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
                 return obj;
              """),
             ("get_cnt", "METH_NOARGS",
-             'return PyLong_FromLong(cnt);')], prologue="""
+             'return PyLong_FromLong(cnt);'),
+            ("get_dealloc_cnt", "METH_NOARGS",
+             'return PyLong_FromLong(dealloc_cnt);'),
+        ],
+        prologue="""
                 static float test_data = 42.f;
                 static int cnt=0;
+                static int dealloc_cnt=0;
                 static PyHeapTypeObject * type=NULL;
 
+                void dealloc(PyObject *self) {
+                    dealloc_cnt++;
+                }
                 int getbuffer(PyObject *obj, Py_buffer *view, int flags) {
 
                     cnt ++;
                     memset(view, 0, sizeof(Py_buffer));
                     view->obj = obj;
+                    /* see the CPython docs for why we need this incref:
+                       https://docs.python.org/3.5/c-api/typeobj.html#c.PyBufferProcs.bf_getbuffer */
+                    Py_INCREF(obj);
                     view->ndim = 0;
                     view->buf = (void *) &test_data;
                     view->itemsize = sizeof(float);
@@ -96,7 +107,7 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
                 void releasebuffer(PyObject *obj, Py_buffer *view) { 
                     cnt --;
                 }
-            """, more_init="""
+            """, more_init="""            
                 type = (PyHeapTypeObject *) PyType_Type.tp_alloc(&PyType_Type, 0);
 
                 type->ht_type.tp_name = "Test";
@@ -106,6 +117,7 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
                                           Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_HAVE_NEWBUFFER;
                 type->ht_type.tp_flags &= ~Py_TPFLAGS_HAVE_GC;
 
+                type->ht_type.tp_dealloc = dealloc;
                 type->ht_type.tp_as_buffer = &type->as_buffer;
                 type->as_buffer.bf_getbuffer = getbuffer;
                 type->as_buffer.bf_releasebuffer = releasebuffer;
@@ -116,6 +128,8 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
         assert module.get_cnt() == 0
         a = memoryview(module.create_test())
         assert module.get_cnt() == 1
+        assert module.get_dealloc_cnt() == 0
         del a
-        gc.collect(); gc.collect(); gc.collect()
+        self.debug_collect()
         assert module.get_cnt() == 0
+        assert module.get_dealloc_cnt() == 1
