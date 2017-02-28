@@ -1431,8 +1431,15 @@ class TestThread(object):
         import time, gc
         from rpython.rlib import rthread, rposix
 
+        class X:
+            def __init__(self, prev):
+                self.prev = prev
+
         def bootstrap():
             rthread.gc_thread_start()
+            x = None
+            for i in range(1000):
+                x = X(x)
             os.write(1, "hi there\n")
             rthread.gc_thread_die()
 

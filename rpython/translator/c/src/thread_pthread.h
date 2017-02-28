@@ -84,3 +84,9 @@ void RPyThreadAfterFork(void);
 
 #define pypy_lock_test_and_set(ptr, value)  __sync_lock_test_and_set(ptr, value)
 #define pypy_lock_release(ptr)              __sync_lock_release(ptr)
+
+#if defined(__i386__) || defined(__amd64__)
+   static inline void pypy_spin_loop(void) { asm("pause" : : : "memory"); }
+#else
+#  define pypy_spin_loop()  /* nothing */
+#endif

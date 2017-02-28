@@ -58,4 +58,15 @@ static inline long *_RPyFetchFastGil(void) {
 //    return &rpy_fastgil;
 }
 
+typedef unsigned char rpy_spinlock_t;
+static inline void rpy_spinlock_acquire(rpy_spinlock_t *p)
+{
+    while (pypy_lock_test_and_set(p, 1) != 0)
+        pypy_spin_loop();
+}
+static inline void rpy_spinlock_release(rpy_spinlock_t *p)
+{
+    pypy_lock_release(p);
+}
+
 #endif
