@@ -7,6 +7,8 @@ syntax: glob
 .project
 .pydevproject
 __pycache__
+.venv
+.cache
 
 syntax: regexp
 ^testresult$
