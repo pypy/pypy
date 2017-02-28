@@ -1138,7 +1138,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # Check if the object at 'addr' is young.
         if not self.is_valid_gc_object(addr):
             return False     # filter out tagged pointers explicitly.
-        if self.nursery <= addr < self.nursery_top:
+        if self.is_in_nursery(addr):
             return True      # addr is in the nursery
         # Else, it may be in the set 'young_rawmalloced_objects'
         return (bool(self.young_rawmalloced_objects) and
