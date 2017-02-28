@@ -469,3 +469,15 @@ class _Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
+
+
+@specialize.arg(0)
+def enum_all_threadlocals(callback, arg):
+    p = llmemory.NULL
+    llop.threadlocalref_acquire(lltype.Void)
+    while True:
+        p = llop.threadlocalref_enum(llmemory.Address, p)
+        if not p:
+            break
+        callback(arg, p)
+    llop.threadlocalref_release(lltype.Void)

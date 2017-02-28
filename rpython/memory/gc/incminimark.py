@@ -1653,11 +1653,24 @@ class IncrementalMiniMarkGC(MovingGCBase):
     # ----------
     # Nursery collection
 
+    def zero_nursery_pointers_in_all_threads(self):
+        pass    # patched in test_thread
+
     def _minor_collection(self):
         """Perform a minor collection: find the objects from the nursery
         that remain alive and move them out."""
         #
         debug_start("gc-minor")
+        #
+        # First, write NULLs in all thread's nursery_free and
+        # nursery_top
+        if we_are_translated():
+            def zero_nursery_pointers(arg, tl):
+                (tl + NURSERY_FREE.offset).address[0] = llmemory.NULL
+                (tl + NURSERY_TOP.offset).address[0] = llmemory.NULL
+            rthread.enum_all_threadlocals(zero_nursery_pointers, None)
+        else:
+            self.zero_nursery_pointers_in_all_threads()
         #
         # All nursery barriers are invalid from this point on.  They
         # are evaluated anew as part of the minor collection.
