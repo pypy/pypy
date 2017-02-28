@@ -172,3 +172,7 @@ by decoding the RPython string, assumed to be utf-8.
 .. branch: fix_bool_restype
 
 Fix for ``ctypes.c_bool``-returning ctypes functions
+
+.. branch: py3.5-text-utf8
+
+space.text_w now encodes to utf-8 not preserving surrogates.
