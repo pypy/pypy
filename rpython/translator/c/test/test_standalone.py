@@ -1123,7 +1123,7 @@ class TestThread(object):
 
     def compile(self, entry_point, no__thread=True):
         t = TranslationContext(self.config)
-        t.config.translation.gc = "semispace"
+        t.config.translation.gc = "incminimark"
         t.config.translation.gcrootfinder = self.gcrootfinder
         t.config.translation.thread = True
         t.config.translation.no__thread = no__thread
@@ -1438,7 +1438,7 @@ class TestThread(object):
         def bootstrap():
             rthread.gc_thread_start()
             x = None
-            for i in range(1000):
+            for i in range(1000000):
                 x = X(x)
             os.write(1, "hi there\n")
             rthread.gc_thread_die()

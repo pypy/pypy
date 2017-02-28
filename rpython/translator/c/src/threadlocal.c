@@ -214,7 +214,7 @@ void RPython_ThreadLocals_ProgramInit(void)
 
 /* in this situation, we always have one full 'struct pypy_threadlocal_s'
    available, managed by gcc. */
-__thread struct pypy_threadlocal_s pypy_threadlocal;
+__thread struct pypy_threadlocal_s pypy_threadlocal = { 0 };
 
 char *_RPython_ThreadLocals_Build(void)
 {

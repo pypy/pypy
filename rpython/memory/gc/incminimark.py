@@ -506,7 +506,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if gc_increment_step > 0:
                 self.gc_increment_step = gc_increment_step
             else:
-                self.gc_increment_step = newsize * 4
+                self.gc_increment_step = r_uint(newsize) * 4
             #
             nursery_debug = env.read_uint_from_env('PYPY_GC_NURSERY_DEBUG')
             if nursery_debug > 0:
@@ -514,7 +514,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
             else:
                 self.gc_nursery_debug = False
             self._minor_collection()    # to empty the nursery
-            llarena.arena_free(self.nursery)
             self.nursery_size = newsize
             self.allocate_nursery()
         #
@@ -556,6 +555,17 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def allocate_nursery(self):
         debug_start("gc-set-nursery-size")
         debug_print("nursery size:", self.nursery_size)
+        #
+        if self.nursery:    # free the old nursery
+            llarena.arena_free(self.nursery)
+            self.nursery = llmemory.NULL
+            ll_assert(not self.surviving_pinned_objects.non_empty(),
+                      "pinned objects too early in the process")
+            self.nursery_barriers.delete()
+            self.nursery_barriers = self.AddressDeque()
+            self.set_nursery_free(llmemory.NULL)
+            self.set_nursery_top(llmemory.NULL)
+        #
         self.nursery = self._alloc_nursery()
         # initialize the threshold
         self.min_heap_size = max(self.min_heap_size, self.nursery_size *
@@ -645,10 +655,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     @property
     def nursery_top(self):
-        raise AssertionError, "fix caller"
+        XXX   # fix caller
     @property
     def nursery_free(self):
-        raise AssertionError, "fix caller"
+        XXX   # fix caller
 
 
     def malloc_fixedsize(self, typeid, size,
@@ -752,10 +762,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             # Get the memory from the nursery.  If there is not enough space
             # there, do a collect first.
-            result = self.nursery_free
-            ll_assert(result != llmemory.NULL, "uninitialized nursery")
-            self.nursery_free = new_free = result + totalsize
-            if new_free > self.nursery_top:
+            result = self.get_nursery_free()
+            if not we_are_translated() and result == llmemory.NULL:
+                # can't do arithmetic from NULL when non-translated
+                grab_next_block = True
+            else:
+                new_free = result + totalsize
+                self.set_nursery_free(new_free)
+                grab_next_block = new_free > self.get_nursery_top()
+            if grab_next_block:
                 result = self.collect_and_reserve(totalsize)
             #
             # Build the object.
@@ -916,8 +931,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
         #
         if self.debug_tiny_nursery >= 0:   # for debugging
-            if self.nursery_top - self.nursery_free > self.debug_tiny_nursery:
-                self.nursery_free = self.nursery_top - self.debug_tiny_nursery
+            if (self.get_nursery_top() - self.get_nursery_free() >
+                                                   self.debug_tiny_nursery):
+                self.set_nursery_free(self.get_nursery_top() -
+                                      self.debug_tiny_nursery)
         #
         rthread.release_NOAUTO(self.ll_lock)
         return result
@@ -1078,7 +1095,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if self.next_major_collection_threshold < 0:
             # cannot trigger a full collection now, but we can ensure
             # that one will occur very soon
-            self.nursery_free = self.nursery_top
+            self.set_nursery_free(self.get_nursery_top())
 
     def can_optimize_clean_setarrayitems(self):
         if self.card_page_indices > 0:
@@ -1185,7 +1202,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # Check if the object at 'addr' is young.
         if not self.is_valid_gc_object(addr):
             return False     # filter out tagged pointers explicitly.
-        if self.nursery <= addr < self.nursery_top:
+        if self.is_in_nursery(addr):
             return True      # addr is in the nursery
         # Else, it may be in the set 'young_rawmalloced_objects'
         return (bool(self.young_rawmalloced_objects) and
@@ -1675,8 +1692,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # nursery_top
         if we_are_translated():
             def zero_nursery_pointers(arg, tl):
-                (tl + NURSERY_FREE.offset).address[0] = llmemory.NULL
-                (tl + NURSERY_TOP.offset).address[0] = llmemory.NULL
+                (tl + NURSERY_FREE._offset).address[0] = llmemory.NULL
+                (tl + NURSERY_TOP._offset).address[0] = llmemory.NULL
             rthread.enum_all_threadlocals(zero_nursery_pointers, None)
         else:
             self.zero_nursery_pointers_in_all_threads()
@@ -2299,7 +2316,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         debug_print("starting gc state: ", GC_STATES[self.gc_state])
         # Debugging checks
         if self.pinned_objects_in_nursery == 0:
-            ll_assert(self.nursery_free == self.nursery,
+            ll_assert(self.get_nursery_free() == llmemory.NULL,
                       "nursery not empty in major_collection_step()")
         else:
             # XXX try to add some similar check to the above one for the case
