@@ -104,7 +104,7 @@ class ShadowStackRootWalker(BaseRootWalker):
         self.rootstackhook(collect_stack_root,
                            gcdata.root_stack_base, gcdata.root_stack_top)
 
-    def need_thread_support(self, gctransformer, getfn):
+    def need_thread_support_WITH_GIL(self, gctransformer, getfn):
         from rpython.rlib import rthread    # xxx fish
         gcdata = self.gcdata
         # the interfacing between the threads and the GC is done via
@@ -217,6 +217,49 @@ class ShadowStackRootWalker(BaseRootWalker):
                                             SomeAddress()],
                                            annmodel.s_None,
                                            minimal_transform=False)
+
+    def need_thread_support(self, gctransformer, getfn):  # NO GIL VERSION
+        from rpython.rlib import rthread
+        gcdata = self.gcdata
+        # the interfacing between the threads and the GC is done via
+        # two completely ad-hoc operations at the moment:
+        # gc_thread_run and gc_thread_die.  See docstrings below.
+
+        tl_shadowstack = rthread.ThreadLocalField(llmemory.Address,
+                                                  'shadowstack')
+
+        def thread_setup():
+            allocate_shadow_stack()
+
+        def thread_run():
+            # If it's the first time we see this thread, allocate
+            # a shadowstack.
+            if tl_shadowstack.get_or_make_raw() == llmemory.NULL:
+                allocate_shadow_stack()
+
+        def allocate_shadow_stack():
+            root_stack_depth = 163840
+            root_stack_size = sizeofaddr * root_stack_depth
+            ss = llmemory.raw_malloc(root_stack_size)
+            if not ss:
+                raise MemoryError
+            tl_shadowstack.setraw(ss)
+        allocate_shadow_stack._dont_inline_ = True
+
+        def thread_die():
+            """Called just before the final GIL release done by a dying
+            thread.  After a thread_die(), no more gc operation should
+            occur in this thread.
+            """
+            p = tl_shadowstack.get_or_make_raw()
+            tl_shadowstack.setraw(llmemory.NULL)
+            llmemory.raw_free(p)
+
+        self.thread_setup = thread_setup
+        self.thread_run_ptr = getfn(thread_run, [], annmodel.s_None,
+                                    inline=True, minimal_transform=False)
+        self.thread_die_ptr = getfn(thread_die, [], annmodel.s_None,
+                                    minimal_transform=False)
 
     def need_stacklet_support(self, gctransformer, getfn):
         from rpython.rlib import _stacklet_shadowstack

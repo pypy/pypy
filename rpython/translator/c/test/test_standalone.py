@@ -1427,6 +1427,46 @@ class TestThread(object):
                 and result.count('a') == 1
                 and result.count('d') == 6)
 
+    def test_thread_and_gc_nogil(self):
+        import time, gc
+        from rpython.rlib import rthread, rposix
+
+        def bootstrap():
+            rthread.gc_thread_start()
+            os.write(1, "hi there\n")
+            rthread.gc_thread_die()
+
+        def new_thread():
+            ident = rthread.start_new_thread(bootstrap, ())
+            return ident
+
+        def entry_point(argv):
+            os.write(1, "hello world\n")
+            # start 5 new threads
+            ident1 = new_thread()
+            ident2 = new_thread()
+            ident3 = new_thread()
+            ident4 = new_thread()
+            ident5 = new_thread()
+            # wait for the 5 threads to finish
+            time.sleep(1)
+            gc.collect()
+            return 0
+
+        def runme(no__thread):
+            t, cbuilder = self.compile(entry_point, no__thread=no__thread)
+            data = cbuilder.cmdexec('')
+            assert data.splitlines() == ['hello world',
+                                         '1 ok',
+                                         '2 ok',
+                                         '3 ok',
+                                         '4 ok',
+                                         '5 ok']
+
+        if SUPPORT__THREAD:
+            runme(no__thread=False)
+        runme(no__thread=True)
+
 
 class TestShared(StandaloneTests):
 

@@ -2,6 +2,7 @@
 #define __PYPY_THREAD_H
 #include "precommondefs.h"
 #include <assert.h>
+#include <stdlib.h>
 
 #define RPY_TIMEOUT_T long long
 
@@ -41,19 +42,20 @@ RPY_EXTERN void RPyGilAcquireSlowPath(long);
 # define RPY_FASTGIL_LOCKED(x)   (x != 0)
 #endif
 
-RPY_EXTERN long rpy_fastgil;
+//RPY_EXTERN long rpy_fastgil;
 
 static inline void _RPyGilAcquire(void) {
-    long old_fastgil = pypy_lock_test_and_set(&rpy_fastgil, 1);
-    if (old_fastgil != 0)
-        RPyGilAcquireSlowPath(old_fastgil);
+//    long old_fastgil = pypy_lock_test_and_set(&rpy_fastgil, 1);
+//    if (old_fastgil != 0)
+//        RPyGilAcquireSlowPath(old_fastgil);
 }
 static inline void _RPyGilRelease(void) {
-    assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
-    pypy_lock_release(&rpy_fastgil);
+//    assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
+//    pypy_lock_release(&rpy_fastgil);
 }
 static inline long *_RPyFetchFastGil(void) {
-    return &rpy_fastgil;
+    abort();
+//    return &rpy_fastgil;
 }
 
 #endif

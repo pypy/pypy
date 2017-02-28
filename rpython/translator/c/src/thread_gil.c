@@ -58,13 +58,13 @@ static void rpy_init_mutexes(void)
 
 void RPyGilAllocate(void)
 {
-    if (rpy_waiting_threads < 0) {
-        assert(rpy_waiting_threads == -42);
-        rpy_init_mutexes();
+//    if (rpy_waiting_threads < 0) {
+//        assert(rpy_waiting_threads == -42);
+//        rpy_init_mutexes();
 #ifdef HAVE_PTHREAD_ATFORK
-        pthread_atfork(NULL, NULL, rpy_init_mutexes);
+//        pthread_atfork(NULL, NULL, rpy_init_mutexes);
 #endif
-    }
+//    }
 }
 
 static void check_and_save_old_fastgil(long old_fastgil)
