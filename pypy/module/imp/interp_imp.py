@@ -5,6 +5,7 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pycode import PyCode
 from pypy.module._io.interp_iobase import W_IOBase
 from pypy.interpreter.streamutil import wrap_streamerror
+from pypy.interpreter.error import OperationError
 
 
 def extension_suffixes(space):
@@ -72,7 +73,11 @@ def init_frozen(space, w_name):
     return None
 
 def is_builtin(space, w_name):
-    name = space.text0_w(w_name)
+    try:
+        name = space.text0_w(w_name)
+    except OperationError:
+        return space.newint(0)
+
     if name not in space.builtin_modules:
         return space.newint(0)
     if space.finditem(space.sys.get('modules'), w_name) is not None:

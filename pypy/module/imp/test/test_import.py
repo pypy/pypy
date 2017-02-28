@@ -255,6 +255,10 @@ class AppTestImport(BaseFSEncodeTest):
     def test_import_keywords(self):
         __import__(name='sys', level=0)
 
+    def test_import_nonutf8_encodable(self):
+        exc = raises(ImportError, __import__, '\ud800')
+        assert exc.value.args[0].startswith("No module named ")
+
     def test_import_by_filename(self):
         import pkg.a
         filename = pkg.a.__file__
