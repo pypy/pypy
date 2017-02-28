@@ -4636,3 +4636,28 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             return i
 
         self.meta_interp(f, [10])
+
+    @py.test.skip("loops!")
+    def test_finalizer_bug(self):
+        from rpython.rlib import rgc
+        driver = JitDriver(greens=[], reds=[])
+        class Fin(object):
+            @rgc.must_be_light_finalizer
+            def __del__(self):
+                holder[0].field = 7
+        class Un(object):
+            def __init__(self):
+                self.field = 0
+        holder = [Un()]
+
+        def f():
+            while True:
+                driver.jit_merge_point()
+                holder[0].field = 0
+                Fin()
+                if holder[0].field:
+                    break
+            return holder[0].field
+
+        f() # finishes
+        self.meta_interp(f, [])
