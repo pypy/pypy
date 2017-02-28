@@ -1,5 +1,9 @@
 # Implementation of the "decimal" module, based on libmpdec library.
 
+__xname__ = __name__    # sys.modules lookup (--without-threads)
+__name__ = 'decimal'    # For pickling
+
+
 import collections as _collections
 import math as _math
 import numbers as _numbers
@@ -23,15 +27,13 @@ MIN_ETINY = MIN_EMIN - (MAX_PREC-1)
 # Errors
 
 class DecimalException(ArithmeticError):
-    __module__ = 'decimal'
     def handle(self, context, *args):
         pass
 
 class Clamped(DecimalException):
-    __module__ = 'decimal'
+    pass
 
 class InvalidOperation(DecimalException):
-    __module__ = 'decimal'
     def handle(self, context, *args):
         if args:
             ans = _dec_from_triple(args[0]._sign, args[0]._int, 'n', True)
@@ -39,41 +41,35 @@ class InvalidOperation(DecimalException):
         return _NaN
 
 class ConversionSyntax(InvalidOperation):
-    __module__ = 'decimal'
     def handle(self, context, *args):
         return _NaN
 
 class DivisionByZero(DecimalException, ZeroDivisionError):
-    __module__ = 'decimal'
     def handle(self, context, sign, *args):
         return _SignedInfinity[sign]
 
 class DivisionImpossible(InvalidOperation):
-    __module__ = 'decimal'
     def handle(self, context, *args):
         return _NaN
 
 class DivisionUndefined(InvalidOperation, ZeroDivisionError):
-    __module__ = 'decimal'
     def handle(self, context, *args):
         return _NaN
 
 class Inexact(DecimalException):
-    __module__ = 'decimal'
+    pass
 
 class InvalidContext(InvalidOperation):
-    __module__ = 'decimal'
     def handle(self, context, *args):
         return _NaN
 
 class Rounded(DecimalException):
-    __module__ = 'decimal'
+    pass
 
 class Subnormal(DecimalException):
-    __module__ = 'decimal'
+    pass
 
 class Overflow(Inexact, Rounded):
-    __module__ = 'decimal'
     def handle(self, context, sign, *args):
         if context.rounding in (ROUND_HALF_UP, ROUND_HALF_EVEN,
                                 ROUND_HALF_DOWN, ROUND_UP):
@@ -90,10 +86,10 @@ class Overflow(Inexact, Rounded):
                              context.Emax-context.prec+1)
 
 class Underflow(Inexact, Rounded, Subnormal):
-    __module__ = 'decimal'
+    pass
 
 class FloatOperation(DecimalException, TypeError):
-    __module__ = 'decimal'
+    pass
 
 
 __version__ = "1.70"
@@ -107,7 +103,7 @@ del threading
 
 def getcontext():
     """Returns this thread's context.
-    
+
     If this thread does not yet have a context, returns
     a new context and sets this thread's context.
     New contexts are copies of DefaultContext.
@@ -173,8 +169,6 @@ def _unsafe_check(name, lo, hi, value):
 _DEC_MINALLOC = 4
 
 class Decimal(object):
-    __module__ = 'decimal'
-
     __slots__ = ('_mpd', '_data')
 
     def __new__(cls, value="0", context=None):
@@ -326,7 +320,7 @@ class Decimal(object):
             builder.append(b'E')
             builder.append(str(exponent).encode())
 
-        return cls._from_bytes(b''.join(builder), context, exact=exact) 
+        return cls._from_bytes(b''.join(builder), context, exact=exact)
 
     @classmethod
     def from_float(cls, value):
@@ -481,7 +475,7 @@ class Decimal(object):
             numerator = Decimal._from_int(other.numerator, context)
             if not _mpdec.mpd_isspecial(self._mpd):
                 # multiplied = self * other.denominator
-                # 
+                #
                 # Prevent Overflow in the following multiplication.
                 # The result of the multiplication is
                 # only used in mpd_qcmp, which can handle values that
@@ -542,7 +536,7 @@ class Decimal(object):
         _mpdec.mpd_qset_ssize(p._mpd, self._PyHASH_MODULUS,
                               maxctx, status_ptr)
         ten = self._new_empty()
-        _mpdec.mpd_qset_ssize(ten._mpd, 10, 
+        _mpdec.mpd_qset_ssize(ten._mpd, 10,
                               maxctx, status_ptr)
         inv10_p = self._new_empty()
         _mpdec.mpd_qset_ssize(inv10_p._mpd, self._PyHASH_10INV,
@@ -755,7 +749,7 @@ class Decimal(object):
     number_class = _make_unary_operation('number_class')
 
     to_eng_string = _make_unary_operation('to_eng_string')
-    
+
     def fma(self, other, third, context=None):
         context = _getcontext(context)
         return context.fma(self, other, third)
@@ -790,7 +784,7 @@ class Decimal(object):
             result = int.from_bytes(s, 'little', signed=False)
         if _mpdec.mpd_isnegative(x._mpd) and not _mpdec.mpd_iszero(x._mpd):
             result = -result
-        return result        
+        return result
 
     def __int__(self):
         return self._to_int(_mpdec.MPD_ROUND_DOWN)
@@ -798,10 +792,10 @@ class Decimal(object):
     __trunc__ = __int__
 
     def __floor__(self):
-        return self._to_int(_mpdec.MPD_ROUND_FLOOR)        
+        return self._to_int(_mpdec.MPD_ROUND_FLOOR)
 
     def __ceil__(self):
-        return self._to_int(_mpdec.MPD_ROUND_CEILING)        
+        return self._to_int(_mpdec.MPD_ROUND_CEILING)
 
     def to_integral(self, rounding=None, context=None):
         context = _getcontext(context)
@@ -817,7 +811,7 @@ class Decimal(object):
         return result
 
     to_integral_value = to_integral
-        
+
     def to_integral_exact(self, rounding=None, context=None):
         context = _getcontext(context)
         workctx = context.copy()
@@ -886,7 +880,7 @@ class Decimal(object):
         if _mpdec.mpd_isspecial(self._mpd):
             return 0
         return _mpdec.mpd_adjexp(self._mpd)
-    
+
     @property
     def real(self):
         return self
@@ -916,7 +910,7 @@ class Decimal(object):
         fmt = specifier.encode('utf-8')
         context = getcontext()
 
-        replace_fillchar = False 
+        replace_fillchar = False
         if fmt and fmt[0] == 0:
             # NUL fill character: must be replaced with a valid UTF-8 char
             # before calling mpd_parse_fmt_str().
@@ -975,7 +969,7 @@ class Decimal(object):
             result = result.replace(b'\xff', b'\0')
         return result.decode('utf-8')
 
-        
+
 # Register Decimal as a kind of Number (an abstract base class).
 # However, do not register it as Real (because Decimals are not
 # interoperable with floats).
@@ -988,7 +982,7 @@ _DEC_DFLT_EMIN = -999999
 
 # Rounding
 _ROUNDINGS = {
-    'ROUND_DOWN': _mpdec.MPD_ROUND_DOWN, 
+    'ROUND_DOWN': _mpdec.MPD_ROUND_DOWN,
     'ROUND_HALF_UP': _mpdec.MPD_ROUND_HALF_UP,
     'ROUND_HALF_EVEN': _mpdec.MPD_ROUND_HALF_EVEN,
     'ROUND_CEILING': _mpdec.MPD_ROUND_CEILING,
@@ -1047,8 +1041,6 @@ class Context(object):
     clamp -  If 1, change exponents if too high (Default 0)
     """
 
-    __module__ = 'decimal'
-
     __slots__ = ('_ctx', '_capitals')
 
     def __new__(cls, prec=None, rounding=None, Emin=None, Emax=None,
@@ -1068,7 +1060,7 @@ class Context(object):
         ctx.round = _mpdec.MPD_ROUND_HALF_EVEN
         ctx.clamp = 0
         ctx.allcr = 1
-        
+
         self._capitals = 1
         return self
 
@@ -1291,7 +1283,7 @@ class Context(object):
         if b is NotImplemented:
             return b, b
         return a, b
-        
+
     def _make_unary_method(name, mpd_func_name):
         mpd_func = getattr(_mpdec, mpd_func_name)
 
@@ -1570,7 +1562,7 @@ class _SignalDict(_collections.abc.MutableMapping):
 
     def copy(self):
         return self._as_dict()
-        
+
     def __len__(self):
         return len(_SIGNALS)
 
@@ -1629,7 +1621,7 @@ class _CatchStatus:
     def __enter__(self):
         self.status_ptr = _ffi.new("uint32_t*")
         return self.context._ctx, self.status_ptr
-        
+
     def __exit__(self, *args):
         status = self.status_ptr[0]
         # May raise a DecimalException
