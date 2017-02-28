@@ -438,6 +438,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.old_objects_pointing_to_pinned = self.AddressStack()
         self.updated_old_objects_pointing_to_pinned = False
         #
+        # Allocate lock(s)
+        ll_lock = lltype.malloc(rthread.TLOCKP.TO, flavor='raw',
+                                track_allocation=False)
+        rthread.c_thread_lock_init(ll_lock)
+        self.ll_lock = ll_lock
+        #
         # Allocate a nursery.  In case of auto_nursery_size, start by
         # allocating a very small nursery, enough to do things like look
         # up the env var, which requires the GC; and then really
@@ -838,6 +844,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         major collection, and finally reserve totalsize bytes.
         """
 
+        rthread.acquire_NOAUTO(self.ll_lock, 1)
+
         minor_collection_count = 0
         while True:
             self.set_nursery_free(llmemory.NULL)      # debug: don't use me
@@ -911,6 +919,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if self.nursery_top - self.nursery_free > self.debug_tiny_nursery:
                 self.nursery_free = self.nursery_top - self.debug_tiny_nursery
         #
+        rthread.release_NOAUTO(self.ll_lock)
         return result
     collect_and_reserve._dont_inline_ = True
 
