@@ -15,7 +15,7 @@ PyPy is generally open to new ideas for Google Summer of Code. We are happy to a
 
 * **Explicit typing in RPython**: PyPy wants to have better ways to specify the signature and class attribute types in RPython. See more information about this topic below on this page.
 
-* **Virtual Reality (VR) visualisations for vmprof**: This is a very open topic with lots of freedom to explore data visualisation for profiles. No VR hardware would be needed for this project. Either Universities provide such hardware in any other case we potentially can lend the VR hardware setup.
+* **Virtual Reality (VR) visualisations for vmprof**: This is a very open topic with lots of freedom to explore data visualisation for profiles. No VR hardware would be needed for this project. Either universities provide such hardware or in any other case we potentially can lend the VR hardware setup.
 
 Simple tasks for newcomers
 --------------------------
