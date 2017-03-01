@@ -327,8 +327,9 @@ class CPyBuffer(Buffer):
     _immutable_ = True
 
     def __init__(self, space, ptr, size, w_obj, format='B', shape=None,
-                strides=None, ndim=1, itemsize=1, readonly=True,
-                releasebufferproc=rffi.cast(rffi.VOIDP, 0)):
+                 strides=None, ndim=1, itemsize=1, readonly=True,
+                 needs_decref=False,
+                 releasebufferproc=rffi.cast(rffi.VOIDP, 0)):
         self.space = space
         self.ptr = ptr
         self.size = size
@@ -346,14 +347,13 @@ class CPyBuffer(Buffer):
         self.ndim = ndim
         self.itemsize = itemsize
         self.readonly = readonly
+        self.needs_decref = needs_decref
         self.releasebufferproc = releasebufferproc
 
     def releasebuffer(self):
         if self.pyobj:
-            # the CPython docs mandates that you do an incref whenever you
-            # call bf_getbuffer. This is the corresponding decref:
-            #   https://docs.python.org/3.5/c-api/typeobj.html#c.PyBufferProcs.bf_getbuffer
-            decref(self.space, self.pyobj)
+            if self.needs_decref:
+                decref(self.space, self.pyobj)
             self.pyobj = lltype.nullptr(PyObject.TO)
         else:
             #do not call twice
@@ -477,10 +477,15 @@ def wrap_getbuffer(space, w_self, w_args, func):
             format = rffi.charp2str(pybuf.c_format)
         else:
             format = 'B'
+        # the CPython docs mandates that you do an incref whenever you call
+        # bf_getbuffer; so, we pass needs_decref=True to ensure that we don't
+        # leak we release the buffer:
+        # https://docs.python.org/3.5/c-api/typeobj.html#c.PyBufferProcs.bf_getbuffer
         buf = CPyBuffer(space, ptr, size, w_self, format=format,
                             ndim=ndim, shape=shape, strides=strides,
                             itemsize=pybuf.c_itemsize,
                             readonly=widen(pybuf.c_readonly),
+                            needs_decref=True,
                             releasebufferproc = rbp)
         fq.register_finalizer(buf)
         return space.newbuffer(buf)

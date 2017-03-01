@@ -72,8 +72,6 @@ def memory_realize(space, obj):
     format = 'B'
     if view.c_format:
         format = rffi.charp2str(view.c_format)
-    incref(space, view.c_obj) # we need this incref because
-                              # CPyBuffer.releasebuffer does a decref
     buf = CPyBuffer(space, view.c_buf, view.c_len, from_ref(space, view.c_obj),
                     format=format, shape=shape, strides=strides,
                     ndim=ndim, itemsize=view.c_itemsize,
