@@ -1,3 +1,4 @@
+
 import py
 import sys
 
@@ -63,6 +64,11 @@ class AppTestUnicodeString:
             assert type(a) == type(b)
         check(u'a' + 'b', u'ab')
         check('a' + u'b', u'ab')
+
+    def test_getitem(self):
+        assert u'abc'[2] == 'c'
+        raises(IndexError, u'abc'.__getitem__, 15)
+        assert u'g\u0105\u015b\u0107'[2] == u'\u015b'
 
     def test_join(self):
         def check(a, b):

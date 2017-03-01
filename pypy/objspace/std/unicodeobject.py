@@ -612,6 +612,17 @@ class W_UnicodeObject(W_Root):
 
     descr_rmul = descr_mul
 
+    def _getitem_result(self, space, index):
+        if self._ucs4 is None:
+            self._ucs4 = self._utf8.decode('utf-8')
+        try:
+            return W_UnicodeObject(self._ucs4[index].encode('utf-8'), 1)
+        except IndexError:
+            raise oefmt(space.w_IndexError, "string index out of range")
+
+    def descr_getnewargs(self, space):
+        return space.newtuple([W_UnicodeObject(self._utf8, self._length)])
+
 
 
 def wrapunicode(space, uni):

@@ -798,6 +798,7 @@ class StringMethods(object):
     def descr_getnewargs(self, space):
         return space.newtuple([self._new(self._val(space))])
 
+
 # ____________________________________________________________
 # helpers for slow paths, moved out because they contain loops
 
