@@ -16,17 +16,31 @@ from rpython.tool.pairtype import pairtype
 
 # -------------- public API for string functions -----------------------
 
-@specialize.argtype(0)
-def _isspace(char):
-    if isinstance(char, str):
-        return char.isspace()
+@specialize.ll_and_arg(2)
+def _isspace(s, pos, isutf8=0):
+    if isutf8:
+        from rpython.rlib import rutf8
+        char = rutf8.codepoint_at_pos(s, pos)
+        return unicodedb.isspace(char)
     else:
-        assert isinstance(char, unicode)
-        return unicodedb.isspace(ord(char))
+        char = s[pos]
+        if isinstance(char, str):
+            return char.isspace()
+        else:
+            assert isinstance(char, unicode)
+            return unicodedb.isspace(ord(char))
 
+@specialize.arg(2)
+def _incr(s, pos, isutf8):
+    from rpython.rlib.rutf8 import next_codepoint_pos
 
-@specialize.argtype(0, 1)
-def split(value, by=None, maxsplit=-1):
+    if isutf8:
+        return next_codepoint_pos(s, pos)
+    else:
+        return pos + 1        
+
+@specialize.ll_and_arg(3)
+def split(value, by=None, maxsplit=-1, isutf8=0):
     if by is None:
         length = len(value)
         i = 0
@@ -34,9 +48,9 @@ def split(value, by=None, maxsplit=-1):
         while True:
             # find the beginning of the next word
             while i < length:
-                if not _isspace(value[i]):
+                if not _isspace(value, i, isutf8):
                     break   # found
-                i += 1
+                i = _incr(value, i, isutf8)
             else:
                 break  # end of string, finished
 
@@ -44,16 +58,19 @@ def split(value, by=None, maxsplit=-1):
             if maxsplit == 0:
                 j = length   # take all the rest of the string
             else:
-                j = i + 1
-                while j < length and not _isspace(value[j]):
-                    j += 1
+                j = _incr(value, i, isutf8)
+                while j < length and not _isspace(value, j, isutf8):
+                    j = _incr(value, j, isutf8)
                 maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
             # the word is value[i:j]
             res.append(value[i:j])
 
             # continue to look from the character following the space after the word
-            i = j + 1
+            if j < length:
+                i = _incr(value, j, isutf8)
+            else:
+                break
         return res
 
     if isinstance(value, unicode):
@@ -66,6 +83,8 @@ def split(value, by=None, maxsplit=-1):
     bylen = len(by)
     if bylen == 0:
         raise ValueError("empty separator")
+    # XXX measure if preallocating the result list to the correct
+    #     size is faster, should be
 
     start = 0
     if bylen == 1:
@@ -102,8 +121,8 @@ def split(value, by=None, maxsplit=-1):
     return res
 
 
-@specialize.argtype(0, 1)
-def rsplit(value, by=None, maxsplit=-1):
+@specialize.ll_and_arg(3)
+def rsplit(value, by=None, maxsplit=-1, isutf8=0):
     if by is None:
         res = []
 

@@ -1134,6 +1134,8 @@ class MethodsPBCRepr(Repr):
         self.lowleveltype = self.r_im_self.lowleveltype
 
     def convert_const(self, method):
+        if method is None:
+            return nullptr(self.lowleveltype.TO)
         if getattr(method, 'im_func', None) is None:
             raise TyperError("not a bound method: %r" % method)
         return self.r_im_self.convert_const(method.im_self)

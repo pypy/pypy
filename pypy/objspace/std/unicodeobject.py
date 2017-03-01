@@ -42,15 +42,6 @@ class W_UnicodeObject(W_Root):
         """representation for debugging purposes"""
         return "%s(%r)" % (self.__class__.__name__, self._utf8)
 
-    def unwrap(self, space):
-        # for testing
-        return self._value
-
-    def create_if_subclassed(self):
-        if type(self) is W_UnicodeObject:
-            return self
-        return W_UnicodeObject(self._value)
-
     def is_w(self, space, w_other):
         if not isinstance(w_other, W_UnicodeObject):
             return False
@@ -103,6 +94,7 @@ class W_UnicodeObject(W_Root):
     charbuf_w = str_w
 
     def listview_unicode(self):
+        XXX # fix at some point
         return _create_list_from_unicode(self._value)
 
     def ord(self, space):
@@ -130,6 +122,8 @@ class W_UnicodeObject(W_Root):
         return rutf8.compute_length_utf8(self._utf8)
 
     def _val(self, space):
+        import pdb
+        pdb.set_trace()
         return self._utf8.decode('utf8')
 
     @staticmethod
@@ -534,11 +528,10 @@ class W_UnicodeObject(W_Root):
 
     @unwrap_spec(maxsplit=int)
     def descr_split(self, space, w_sep=None, maxsplit=-1):
-        # XXX maybe optimize?
         res = []
         value = self._utf8
         if space.is_none(w_sep):
-            res = split(value, maxsplit=maxsplit)
+            res = split(value, maxsplit=maxsplit, isutf8=1)
             return space.newlist_from_unicode(res)
 
         by = self.convert_arg_to_w_unicode(space, w_sep)._utf8
@@ -581,6 +574,12 @@ class W_UnicodeObject(W_Root):
             d = 0
 
         return W_UnicodeObject(centered, self._len() + d)
+
+    def descr_contains(self, space, w_sub):
+        value = self._utf8
+        w_other = self.convert_arg_to_w_unicode(space, w_sub)
+        return space.newbool(value.find(w_other._utf8) >= 0)
+
 
 def wrapunicode(space, uni):
     return W_UnicodeObject(uni)
