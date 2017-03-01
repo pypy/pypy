@@ -389,12 +389,6 @@ class __extend__(pairtype(FunctionsPBCRepr, FunctionsPBCRepr)):
             return v
         return NotImplemented
 
-class __extend__(pairtype(MethodsPBCRepr, MethodsPBCRepr)):
-    def convert_from_to((r_mpbc1, r_mpbc2), v, llops):
-        if r_mpbc1.lowleveltype == r_mpbc2.lowleveltype:
-            return v
-        return NotImplemented
-
 
 class SmallFunctionSetPBCRepr(FunctionReprBase):
     def __init__(self, rtyper, s_pbc):
@@ -1198,3 +1192,9 @@ class MethodsPBCRepr(Repr):
 
         # now hop2 looks like simple_call(function, self, args...)
         return hop2.dispatch()
+
+class __extend__(pairtype(MethodsPBCRepr, MethodsPBCRepr)):
+    def convert_from_to((r_mpbc1, r_mpbc2), v, llops):
+        if r_mpbc1.lowleveltype == r_mpbc2.lowleveltype:
+            return v
+        return NotImplemented
