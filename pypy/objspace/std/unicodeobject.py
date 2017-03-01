@@ -4,7 +4,8 @@ from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin,
     enforceargs, newlist_hint, specialize)
 from rpython.rlib.buffer import StringBuffer
-from rpython.rlib.rstring import StringBuilder, split, rsplit, UnicodeBuilder
+from rpython.rlib.rstring import StringBuilder, split, rsplit, UnicodeBuilder,\
+     replace
 from rpython.rlib.runicode import make_unicode_escape_function
 from rpython.rlib import rutf8, jit
 
@@ -577,6 +578,40 @@ class W_UnicodeObject(W_Root):
         value = self._utf8
         w_other = self.convert_arg_to_w_unicode(space, w_sub)
         return space.newbool(value.find(w_other._utf8) >= 0)
+
+
+    @unwrap_spec(count=int)
+    def descr_replace(self, space, w_old, w_new, count=-1):
+        input = self._utf8
+
+        w_sub = self.convert_arg_to_w_unicode(space, w_old)
+        w_by = self.convert_arg_to_w_unicode(space, w_new)
+        # the following two lines are for being bug-to-bug compatible
+        # with CPython: see issue #2448
+        if count >= 0 and len(input) == 0:
+            return self._empty()
+        try:
+            res = replace(input, w_sub._utf8, w_by._utf8, count)
+        except OverflowError:
+            raise oefmt(space.w_OverflowError, "replace string is too long")
+
+        return W_UnicodeObject(res, -1)
+
+    def descr_mul(self, space, w_times):
+        try:
+            times = space.getindex_w(w_times, space.w_OverflowError)
+        except OperationError as e:
+            if e.match(space, space.w_TypeError):
+                return space.w_NotImplemented
+            raise
+        if times <= 0:
+            return self._empty()
+        if len(self._utf8) == 1:
+            return W_UnicodeObject(self._utf8[0] * times, times)
+        return W_UnicodeObject(self._utf8 * times, times * self._len())
+
+    descr_rmul = descr_mul
+
 
 
 def wrapunicode(space, uni):
