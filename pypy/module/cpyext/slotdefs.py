@@ -14,7 +14,7 @@ from pypy.module.cpyext.typeobjectdefs import (
     ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
     cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc, objobjargproc,
     readbufferproc, getbufferproc, releasebufferproc, ssizessizeobjargproc)
-from pypy.module.cpyext.pyobject import make_ref, decref
+from pypy.module.cpyext.pyobject import make_ref, decref, as_pyobj
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.memoryobject import fill_Py_buffer
 from pypy.module.cpyext.state import State
@@ -333,7 +333,7 @@ class CPyBuffer(Buffer):
         self.ptr = ptr
         self.size = size
         self.w_obj = w_obj # kept alive
-        self.pyobj = make_ref(space, w_obj)
+        self.pyobj = as_pyobj(space, w_obj)
         self.format = format
         if not shape:
             self.shape = [size]
@@ -350,6 +350,9 @@ class CPyBuffer(Buffer):
 
     def releasebuffer(self):
         if self.pyobj:
+            # the CPython docs mandates that you do an incref whenever you
+            # call bf_getbuffer. This is the corresponding decref:
+            #   https://docs.python.org/3.5/c-api/typeobj.html#c.PyBufferProcs.bf_getbuffer
             decref(self.space, self.pyobj)
             self.pyobj = lltype.nullptr(PyObject.TO)
         else:
