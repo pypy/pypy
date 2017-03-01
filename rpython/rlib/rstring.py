@@ -30,7 +30,7 @@ def _isspace(s, pos, isutf8=0):
             assert isinstance(char, unicode)
             return unicodedb.isspace(ord(char))
 
-@specialize.arg(2)
+@specialize.ll_and_arg(2)
 def _incr(s, pos, isutf8):
     from rpython.rlib.rutf8 import next_codepoint_pos
 
@@ -130,7 +130,7 @@ def rsplit(value, by=None, maxsplit=-1, isutf8=0):
         while True:
             # starting from the end, find the end of the next word
             while i >= 0:
-                if not _isspace(value[i]):
+                if not _isspace(value, i):
                     break   # found
                 i -= 1
             else:
@@ -142,7 +142,7 @@ def rsplit(value, by=None, maxsplit=-1, isutf8=0):
                 j = -1   # take all the rest of the string
             else:
                 j = i - 1
-                while j >= 0 and not _isspace(value[j]):
+                while j >= 0 and not _isspace(value, j):
                     j -= 1
                 maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
