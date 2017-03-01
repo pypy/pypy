@@ -512,7 +512,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
                 msg = "name '%s' is nonlocal and global" % (name,)
             if old_role & SYM_PARAM:
                 msg = "name '%s' is parameter and nonlocal" % (name,)
-            if type(self.scope) == ModuleScope:
+            if isinstance(self.scope, ModuleScope):
                 msg = "nonlocal declaration not allowed at module level"
             if msg is not "":
                 raise SyntaxError(msg, nonl.lineno, nonl.col_offset)
