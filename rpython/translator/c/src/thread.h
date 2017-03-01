@@ -30,8 +30,15 @@ typedef enum RPyLockStatus {
 #endif /* !_WIN32 */
 
 RPY_EXTERN void RPyGilAllocate(void);
-RPY_EXTERN long RPyGilYieldThread(void);
-RPY_EXTERN void RPyGilAcquireSlowPath(long);
+RPY_EXTERN void RPyGilYieldThreadSlowPath(void);
+RPY_EXTERN void RPyGilAcquireSlowPath(void);
+RPY_EXTERN void RPyGilReleaseSlowPath(void);
+
+RPY_EXTERN void RPyGilEnterMasterSection(void);
+RPY_EXTERN void RPyGilLeaveMasterSection(void);
+RPY_EXTERN void RPyGilMasterRequestSafepoint(void);
+
+
 #define RPyGilAcquire _RPyGilAcquire
 #define RPyGilRelease _RPyGilRelease
 #define RPyFetchFastGil _RPyFetchFastGil
@@ -43,20 +50,32 @@ RPY_EXTERN void RPyGilAcquireSlowPath(long);
 #endif
 
 //RPY_EXTERN long rpy_fastgil;
+#include "threadlocal.h"
 
-static inline void _RPyGilAcquire(void) {
-//    long old_fastgil = pypy_lock_test_and_set(&rpy_fastgil, 1);
-//    if (old_fastgil != 0)
-//        RPyGilAcquireSlowPath(old_fastgil);
-}
-static inline void _RPyGilRelease(void) {
-//    assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
-//    pypy_lock_release(&rpy_fastgil);
-}
+#define _RPyGilAcquire() do { \
+        if (!__sync_bool_compare_and_swap(                  \
+                &RPY_THREADLOCALREF_GET(synclock), 0L, 1L)) \
+            RPyGilAcquireSlowPath();                        \
+    } while (0)
+
+#define _RPyGilRelease() do { \
+        assert(RPY_THREADLOCALREF_GET(synclock) != 0L); \
+    if (!__sync_bool_compare_and_swap(                  \
+            &RPY_THREADLOCALREF_GET(synclock), 1L, 0L)) \
+        RPyGilReleaseSlowPath();                        \
+    } while (0)
+
 static inline long *_RPyFetchFastGil(void) {
     abort();
 //    return &rpy_fastgil;
 }
+
+#define RPyGilYieldThread() do { \
+    assert(RPY_THREADLOCALREF_GET(synclock) & 1L); \
+    if (RPY_THREADLOCALREF_GET(synclock) == 3L) { \
+        RPyGilYieldThreadSlowPath(); \
+    } \
+    } while (0)
 
 typedef unsigned char rpy_spinlock_t;
 static inline void rpy_spinlock_acquire(rpy_spinlock_t *p)

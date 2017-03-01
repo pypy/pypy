@@ -227,9 +227,11 @@ class ShadowStackRootWalker(BaseRootWalker):
 
         tl_shadowstack = rthread.ThreadLocalField(llmemory.Address,
                                                   'shadowstack')
+        tl_synclock = rthread.ThreadLocalField(lltype.Signed, 'synclock')
 
         def thread_setup():
             allocate_shadow_stack()
+            tl_synclock.get_or_make_raw()
 
         def thread_run():
             # If it's the first time we see this thread, allocate

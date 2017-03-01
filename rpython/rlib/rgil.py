@@ -22,7 +22,7 @@ _gil_allocate = llexternal('RPyGilAllocate', [], lltype.Void,
                            _nowrapper=True, sandboxsafe=True,
                            compilation_info=eci)
 
-_gil_yield_thread = llexternal('RPyGilYieldThread', [], lltype.Signed,
+_gil_yield_thread = llexternal('RPyGilYieldThread', [], lltype.Void,
                                _nowrapper=True, sandboxsafe=True,
                                compilation_info=eci)
 
@@ -38,6 +38,20 @@ gil_fetch_fastgil = llexternal('RPyFetchFastGil', [], llmemory.Address,
                                _nowrapper=True, sandboxsafe=True,
                                compilation_info=eci)
 
+enter_master_section = llexternal(
+    'RPyGilEnterMasterSection', [], lltype.Void,
+    _nowrapper=True, sandboxsafe=True,
+    compilation_info=eci)
+
+leave_master_section = llexternal(
+    'RPyGilLeaveMasterSection', [], lltype.Void,
+    _nowrapper=True, sandboxsafe=True,
+    compilation_info=eci)
+
+master_request_safepoint = llexternal(
+    'RPyGilMasterRequestSafepoint', [], lltype.Void,
+    _nowrapper=True, sandboxsafe=True,
+    compilation_info=eci)
 # ____________________________________________________________
 
 
@@ -133,10 +147,11 @@ def yield_thread():
     # explicitly release the gil, in a way that tries to give more
     # priority to other threads (as opposed to continuing to run in
     # the same thread).
-    if _gil_yield_thread():
-        from rpython.rlib import rthread
-        rthread.gc_thread_run()
-        _after_thread_switch()
+    # if _gil_yield_thread():
+    #     from rpython.rlib import rthread
+    #     rthread.gc_thread_run()
+    #     _after_thread_switch()
+    _gil_yield_thread()
 yield_thread._gctransformer_hint_close_stack_ = True
 yield_thread._dont_reach_me_in_del_ = True
 yield_thread._dont_inline_ = True

@@ -9,11 +9,9 @@
 #include "common_header.h"
 #endif
 
-#ifdef PYPY_USE_ASMGCC
 # include "common_header.h"
 # include "structdef.h"
 # include "forwarddecl.h"
-#endif
 
 #ifdef _WIN32
 #include "src/thread_nt.c"

@@ -72,7 +72,7 @@ from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask, r_uint
 from rpython.rlib.rarithmetic import LONG_BIT_SHIFT
 from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
 from rpython.rlib.objectmodel import specialize, we_are_translated
-from rpython.rlib import rthread
+from rpython.rlib import rgil, rthread
 from rpython.memory.gc.minimarkpage import out_of_memory
 
 #
@@ -191,7 +191,7 @@ NURSARRAY = lltype.Array(llmemory.Address)
 
 NURSERY_FREE = rthread.ThreadLocalField(llmemory.Address, 'nursery_free')
 NURSERY_TOP  = rthread.ThreadLocalField(llmemory.Address, 'nursery_top')
-NEXT_NUBLOCK = rthread.ThreadLocalField(llmemory.Address, 'next_nublock')
+
 
 # ____________________________________________________________
 
@@ -438,11 +438,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.old_objects_pointing_to_pinned = self.AddressStack()
         self.updated_old_objects_pointing_to_pinned = False
         #
-        # Allocate lock(s)
-        ll_lock = lltype.malloc(rthread.TLOCKP.TO, flavor='raw',
-                                track_allocation=False)
-        rthread.c_thread_lock_init(ll_lock)
-        self.ll_lock = ll_lock
+        # # Allocate lock(s)
+        # ll_lock = lltype.malloc(rthread.TLOCKP.TO, flavor='raw',
+        #                         track_allocation=False)
+        # rthread.c_thread_lock_init(ll_lock)
+        # self.ll_lock = ll_lock
         #
         # Allocate a nursery.  In case of auto_nursery_size, start by
         # allocating a very small nursery, enough to do things like look
@@ -650,9 +650,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
     get_nursery_top = staticmethod(NURSERY_TOP.getraw)
     set_nursery_top = staticmethod(NURSERY_TOP.setraw)
 
-    get_next_nublock = staticmethod(NEXT_NUBLOCK.getraw)
-    set_next_nublock = staticmethod(NEXT_NUBLOCK.setraw)
-
     @property
     def nursery_top(self):
         XXX   # fix caller
@@ -859,7 +856,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         major collection, and finally reserve totalsize bytes.
         """
 
-        rthread.acquire_NOAUTO(self.ll_lock, 1)
+        # rthread.acquire_NOAUTO(self.ll_lock, 1)
+        rgil.enter_master_section()
 
         minor_collection_count = 0
         while True:
@@ -898,6 +896,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.set_nursery_free(self.nursery_barriers.popleft())
                 self.set_nursery_top(self.nursery_barriers.popleft())
             else:
+                rgil.master_request_safepoint()
+
                 minor_collection_count += 1
                 if minor_collection_count == 1:
                     self.minor_collection_with_major_progress()
@@ -936,7 +936,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.set_nursery_free(self.get_nursery_top() -
                                       self.debug_tiny_nursery)
         #
-        rthread.release_NOAUTO(self.ll_lock)
+        rgil.leave_master_section()
+        # rthread.release_NOAUTO(self.ll_lock)
         return result
     collect_and_reserve._dont_inline_ = True
 
