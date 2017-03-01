@@ -2,7 +2,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
-from rpython.rlib import rgc, jit
+from rpython.rlib import rgc, jit, rutf8
 from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
@@ -487,8 +487,15 @@ getting the advantage of providing document type information to the parser.
 
     def w_convert(self, space, s):
         if self.returns_unicode:
-            from pypy.interpreter.unicodehelper import decode_utf8
-            return space.newunicode(decode_utf8(space, s))
+            # I suppose this is a valid utf8, but there is noone to check
+            # and noone to catch an error either
+            try:
+                rutf8.str_check_utf8(s, len(s), final=True)
+                return space.newutf8(s, -1)
+            except rutf8.Utf8CheckError as e:
+                from pypy.interpreter import unicodehelper
+                unicodehelper.decode_error_handler(space)('strict', 'utf-8',
+                    e.msg, s, e.startpos, e.endpos)
         else:
             return space.newtext(s)
 

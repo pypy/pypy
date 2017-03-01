@@ -59,12 +59,12 @@ class Darwin(posix.BasePosix):
 
     def _include_dirs_for_openssl(self):
         return self._pkg_config("openssl", "--cflags-only-I",
-                                ['/usr/include'],
+                                ['/usr/include', '/usr/local/opt/openssl/include'],
                                 check_result_dir=True)
 
     def _library_dirs_for_openssl(self):
         return self._pkg_config("openssl", "--libs-only-L",
-                                ['/usr/lib'],
+                                ['/usr/lib', '/usr/local/opt/openssl/lib'],
                                 check_result_dir=True)
 
     def _frameworks(self, frameworks):
