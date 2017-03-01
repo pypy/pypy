@@ -100,6 +100,8 @@ class AppTestUnicodeString:
         assert u'\n\n'.splitlines() == [u'', u'']
         assert u'a\nb\nc'.splitlines(1) == [u'a\n', u'b\n', u'c']
         assert u'\na\nb\n'.splitlines(1) == [u'\n', u'a\n', u'b\n']
+        assert ((u'a' + '\xc2\x85'.decode('utf8') + u'b\n').splitlines() ==
+                ['a', 'b'])
 
     def test_zfill(self):
         assert u'123'.zfill(2) == u'123'
@@ -176,6 +178,7 @@ class AppTestUnicodeString:
         raises(ValueError, 'abc'.rsplit, u'')
         assert u'  a b c  '.rsplit(None, 0) == [u'  a b c']
         assert u''.rsplit('aaa') == [u'']
+        assert u'a\nb\u1680c'.rsplit() == [u'a', u'b', u'c']
 
     def test_split_rsplit_str_unicode(self):
         x = 'abc'.split(u'b')
