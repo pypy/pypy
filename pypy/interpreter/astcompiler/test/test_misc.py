@@ -15,7 +15,7 @@ def test_mangle():
 
 def app_test_warning_to_error_translation():
     import warnings
-    
+
     with warnings.catch_warnings():
         warnings.filterwarnings("error", module="<test string>")
         statement = """\
@@ -31,4 +31,4 @@ def wrong1():
            assert err.lineno is not None
            assert err.filename is not None
            assert err.offset is not None
-           assert err.message is not None
+           assert err.msg is not None
