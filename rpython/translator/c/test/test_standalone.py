@@ -1472,7 +1472,7 @@ class TestThread(object):
 
         if SUPPORT__THREAD:
             runme(no__thread=False)
-        runme(no__thread=True)
+        #runme(no__thread=True)
 
 
 class TestShared(StandaloneTests):

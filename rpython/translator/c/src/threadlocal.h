@@ -37,7 +37,7 @@ RPY_EXTERN struct pypy_threadlocal_s *_RPython_ThreadLocals_Head();
 
 
 /* ------------------------------------------------------------ */
-#ifdef USE___THREAD
+// XXX: #ifdef USE___THREAD
 /* ------------------------------------------------------------ */
 
 
@@ -71,47 +71,48 @@ RPY_EXTERN __thread struct pypy_threadlocal_s pypy_threadlocal;
 
 
 /* ------------------------------------------------------------ */
-#else
-/* ------------------------------------------------------------ */
+/* #else */
+/* /\* ------------------------------------------------------------ *\/ */
+/* # error "no." */
+/* /\* Threadlocals_build needs work *\/ */
+
+/* /\* Don't use '__thread'. *\/ */
+
+/* #ifdef _WIN32 */
+/* #  include <WinSock2.h> */
+/* #  include <windows.h> */
+/* #  define _RPy_ThreadLocals_Get()   TlsGetValue(pypy_threadlocal_key) */
+/* #  define _RPy_ThreadLocals_Set(x)  TlsSetValue(pypy_threadlocal_key, x) */
+/* typedef DWORD pthread_key_t; */
+/* #else */
+/* #  include <pthread.h> */
+/* #  define _RPy_ThreadLocals_Get()   pthread_getspecific(pypy_threadlocal_key) */
+/* #  define _RPy_ThreadLocals_Set(x)  pthread_setspecific(pypy_threadlocal_key, x) */
+/* #endif */
 
 
-/* Don't use '__thread'. */
+/* #define OP_THREADLOCALREF_ADDR(r)               \ */
+/*     do {                                        \ */
+/*         r = (void *)_RPy_ThreadLocals_Get();    \ */
+/*         if (!r)                                 \ */
+/*             r = _RPython_ThreadLocals_Build();  \ */
+/*     } while (0) */
 
-#ifdef _WIN32
-#  include <WinSock2.h>
-#  include <windows.h>
-#  define _RPy_ThreadLocals_Get()   TlsGetValue(pypy_threadlocal_key)
-#  define _RPy_ThreadLocals_Set(x)  TlsSetValue(pypy_threadlocal_key, x)
-typedef DWORD pthread_key_t;
-#else
-#  include <pthread.h>
-#  define _RPy_ThreadLocals_Get()   pthread_getspecific(pypy_threadlocal_key)
-#  define _RPy_ThreadLocals_Set(x)  pthread_setspecific(pypy_threadlocal_key, x)
-#endif
+/* #define _OP_THREADLOCALREF_ADDR_SIGHANDLER(r)   \ */
+/*     do {                                        \ */
+/*         r = (void *)_RPy_ThreadLocals_Get();    \ */
+/*     } while (0) */
 
+/* #define RPY_THREADLOCALREF_ENSURE()             \ */
+/*     if (!_RPy_ThreadLocals_Get())               \ */
+/*         (void)_RPython_ThreadLocals_Build(); */
 
-#define OP_THREADLOCALREF_ADDR(r)               \
-    do {                                        \
-        r = (void *)_RPy_ThreadLocals_Get();    \
-        if (!r)                                 \
-            r = _RPython_ThreadLocals_Build();  \
-    } while (0)
-
-#define _OP_THREADLOCALREF_ADDR_SIGHANDLER(r)   \
-    do {                                        \
-        r = (void *)_RPy_ThreadLocals_Get();    \
-    } while (0)
-
-#define RPY_THREADLOCALREF_ENSURE()             \
-    if (!_RPy_ThreadLocals_Get())               \
-        (void)_RPython_ThreadLocals_Build();
-
-#define RPY_THREADLOCALREF_GET(FIELD)           \
-    ((struct pypy_threadlocal_s *)_RPy_ThreadLocals_Get())->FIELD
+/* #define RPY_THREADLOCALREF_GET(FIELD)           \ */
+/*     ((struct pypy_threadlocal_s *)_RPy_ThreadLocals_Get())->FIELD */
 
 
-/* ------------------------------------------------------------ */
-#endif
+/* /\* ------------------------------------------------------------ *\/ */
+/* #endif */
 /* ------------------------------------------------------------ */
 
 

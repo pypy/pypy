@@ -231,7 +231,7 @@ class ShadowStackRootWalker(BaseRootWalker):
 
         def thread_setup():
             allocate_shadow_stack()
-            tl_synclock.setraw(1)  # acquire "gil"
+            tl_synclock.get_or_make_raw()  # reference the field at least once
 
         def thread_run():
             # If it's the first time we see this thread, allocate

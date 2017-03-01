@@ -101,7 +101,7 @@ static void _RPy_ThreadLocals_Init(void *p)
 {
     struct pypy_threadlocal_s *tls = (struct pypy_threadlocal_s *)p;
     struct pypy_threadlocal_s *oldnext;
-    memset(p, 0, sizeof(struct pypy_threadlocal_s));
+    // XXX: memset(p, 0, sizeof(struct pypy_threadlocal_s));
 
 #ifdef RPY_TLOFS_p_errno
     tls->p_errno = &errno;
