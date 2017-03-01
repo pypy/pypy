@@ -496,6 +496,11 @@ Miscellaneous
   the rest is kept.  If you return an unexpected string from
   ``__hex__()`` you get an exception (or a crash before CPython 2.7.13).
 
+* PyPy3: ``__class__`` attritube assignment between heaptypes and non heaptypes.
+  CPython allows that for module subtypes, but not for e.g. ``int``
+  or ``float`` subtypes. Currently PyPy does not support the
+  ``__class__`` attribute assignment for any non heaptype subtype.
+
 .. _`is ignored in PyPy`: http://bugs.python.org/issue14621
 .. _`little point`: http://events.ccc.de/congress/2012/Fahrplan/events/5152.en.html
 .. _`#2072`: https://bitbucket.org/pypy/pypy/issue/2072/

@@ -1746,6 +1746,29 @@ class TestRPBC(BaseRtypingTest):
         res = self.interpret(g, [1])
         assert res == True
 
+    def test_convert_from_anything_to_impossible(self):
+        def f1():
+            return 42
+        def f2():
+            raise ValueError
+        def f3():
+            raise ValueError
+        def f(i):
+            if i > 5:
+                f = f2
+            else:
+                f = f3
+            try:
+                f()
+            except ValueError:
+                pass
+            if i > 1:
+                f = f2
+            else:
+                f = f1
+            return f()
+        self.interpret(f, [-5])
+
 # ____________________________________________________________
 
 def test_hlinvoke_simple():
