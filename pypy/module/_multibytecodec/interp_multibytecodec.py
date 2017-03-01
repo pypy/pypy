@@ -18,30 +18,30 @@ class MultibyteCodec(W_Root):
         state = space.fromcache(CodecState)
         #
         try:
-            output = c_codecs.decode(self.codec, input, errors,
+            u_output = c_codecs.decode(self.codec, input, errors,
                                      state.decode_error_handler, self.name)
         except c_codecs.EncodeDecodeError as e:
             raise wrap_unicodedecodeerror(space, e, input, self.name)
         except RuntimeError:
             raise wrap_runtimeerror(space)
-        return space.newtuple([space.newunicode(output),
+        return space.newtuple([space.newunicode(u_output),
                                space.newint(len(input))])
 
-    @unwrap_spec(input=unicode, errors="str_or_None")
-    def encode(self, space, input, errors=None):
+    @unwrap_spec(input='utf8', errors="str_or_None")
+    def encode(self, space, input, inputlen, errors=None):
         if errors is None:
             errors = 'strict'
         state = space.fromcache(CodecState)
         #
         try:
-            output = c_codecs.encode(self.codec, input, errors,
+            output = c_codecs.encode(self.codec, input.decode('utf8'), errors,
                                      state.encode_error_handler, self.name)
         except c_codecs.EncodeDecodeError as e:
             raise wrap_unicodeencodeerror(space, e, input, self.name)
         except RuntimeError:
             raise wrap_runtimeerror(space)
         return space.newtuple([space.newbytes(output),
-                               space.newint(len(input))])
+                               space.newint(inputlen)])
 
 
 MultibyteCodec.typedef = TypeDef(
@@ -76,7 +76,7 @@ def wrap_unicodeencodeerror(space, e, input, name):
         space.w_UnicodeEncodeError,
         space.newtuple([
             space.newtext(name),
-            space.newunicode(input),
+            space.newutf8(input, -1),
             space.newint(e.start),
             space.newint(e.end),
             space.newtext(e.reason)]))

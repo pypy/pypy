@@ -126,6 +126,6 @@ def test_encode_jisx0208():
 def test_encode_custom_error_handler_bytes():
     c = getcodec("hz")
     def errorhandler(errors, enc, msg, t, startingpos, endingpos):
-        return None, '\xc3', endingpos
+        return None, '\xc3', endingpos, -1
     s = encode(c, u'abc\u1234def', 'foo', errorhandler)
     assert '\xc3' in s
