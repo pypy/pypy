@@ -60,8 +60,8 @@ _config_vars = None
 
 def _init_posix():
     """Initialize the module as appropriate for POSIX systems."""
-    so_list = [s[0] for s in imp.get_suffixes() if s[2] == imp.C_EXTENSION]
-    so_ext = (so_list or ['.so'])[0]
+    so_ext = [s[0] for s in imp.get_suffixes() if s[2] == imp.C_EXTENSION][0]
+
     g = {}
     g['CC'] = "gcc -pthread"
     g['CXX'] = "g++ -pthread"
@@ -69,8 +69,9 @@ def _init_posix():
     g['CFLAGS'] = "-DNDEBUG -O2"
     g['CCSHARED'] = "-fPIC"
     g['LDSHARED'] = "gcc -pthread -shared"
-    g['SO'] = so_ext
-    g['SHLIB_SUFFIX'] = g['SO']
+    g['EXT_SUFFIX'] = so_ext
+    g['SHLIB_SUFFIX'] = so_ext
+    g['SO'] = so_ext  # deprecated in Python 3, for backward compatibility
     g['AR'] = "ar"
     g['ARFLAGS'] = "rc"
     g['EXE'] = ""

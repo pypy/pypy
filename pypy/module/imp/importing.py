@@ -2,7 +2,7 @@
 Implementation of the interpreter-level default import logic.
 """
 
-import sys, os, stat
+import sys, os, stat, platform
 
 from pypy.interpreter.module import Module, init_extra_module_attrs
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -22,7 +22,7 @@ _WIN32 = sys.platform == 'win32'
 
 SO = '.pyd' if _WIN32 else '.so'
 PREFIX = 'pypy3-'
-DEFAULT_SOABI = '%s%d%d' % ((PREFIX,) + PYPY_VERSION[:2])
+DEFAULT_SOABI_BASE = '%s%d%d' % ((PREFIX,) + PYPY_VERSION[:2])
 
 PYC_TAG = '%s%d%d' % ((PREFIX,) + PYPY_VERSION[:2])   # 'pypy3-XY'
 
@@ -35,13 +35,24 @@ def get_so_extension(space):
     if space.config.objspace.soabi is not None:
         soabi = space.config.objspace.soabi
     else:
-        soabi = DEFAULT_SOABI
+        soabi = DEFAULT_SOABI_BASE
 
     if not soabi:
         return SO
 
     if not space.config.translating:
         soabi += 'i'
+
+    platform_name = sys.platform
+    if platform_name == 'linux2':
+        platform_name = 'linux'
+
+    soabi += '-' + platform.machine() + '-' + platform_name
+
+    if platform_name == 'linux':
+        soabi += '-gnu'
+        if sys.maxsize == (2**31 - 1) and platform.machine() == 'x86_64':
+            soabi += 'x32'
 
     return '.' + soabi + SO
 
