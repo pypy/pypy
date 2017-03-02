@@ -432,6 +432,12 @@ class TypeLayoutBuilder(object):
                 appendto = self.addresses_of_static_ptrs
             else:
                 return
+        elif hasattr(TYPE, "_hints") and TYPE._hints.get('is_excdata'):
+            # The exception data's value object is skipped: it's a thread-
+            # local data structure. We assume that objects are stored only
+            # temporarily there, so it is always cleared at the point where we
+            # collect the roots.
+            return
         else:
             appendto = self.addresses_of_static_ptrs_in_nongc
         for a in gc_pointers_inside(value, adr, mutable_only=True):
