@@ -136,7 +136,7 @@ static void threadloc_unlink(void *p)
     if (tls->ready == 42) {
         tls->next->prev = tls->prev;
         tls->prev->next = tls->next;
-        memset(tls, 0xDD, sizeof(struct pypy_threadlocal_s));  /* debug */
+        // XXX: called before a release_gil -> synclock set to 0xddddddd... memset(tls, 0xDD, sizeof(struct pypy_threadlocal_s));  /* debug */
         tls->ready = 0;
     }
     _RPython_ThreadLocals_Release();
