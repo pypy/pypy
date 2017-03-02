@@ -817,9 +817,11 @@ class AppTestDictViews:
         class BadEq(object):
             def __eq__(self, other):
                 raise ZeroDivisionError
+            def __hash__(self):
+                return 7
         k = BadEq()
         v = BadEq()
-        assert (k, v) in {k: v}.viewitems()
+        assert (k, v) in {k: v}.items()
 
     def test_dict_mixed_keys_items(self):
         d = {(1, 1): 11, (2, 2): 22}
