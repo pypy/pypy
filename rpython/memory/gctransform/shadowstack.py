@@ -94,6 +94,12 @@ class NoGilShadowStackRootWalker(BaseRootWalker):
             # XXX: only visit if nursery_free was not NULL
             base = (tl + tl_shadowstack._offset).address[0]
             top = (tl + tl_shadowstack_top._offset).address[0]
+            if base == llmemory.NULL or top == llmemory.NULL:
+                # gctransform/shadowstack.py does not set these two fields
+                # atomically. Hence, if one is still NULL, we don't need to
+                # walk that new thread's shadowstack (XXX: compiler may reorder
+                # without barriers)
+                return
             self.rootstackhook(collect_stack_root, base, top)
         self._walk_thread_stack = walk_thread_stack
 
