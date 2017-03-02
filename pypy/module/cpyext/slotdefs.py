@@ -748,8 +748,6 @@ def build_slot_tp_function(space, typedef, name):
                 ret = fill_Py_buffer(space, buf, view)
                 return ret
             return 0
-        # XXX remove this when it no longer crashes a translated PyPy
-        return
         slot_func = buff_w
     else:
         # missing: tp_as_number.nb_nonzero, tp_as_number.nb_coerce
