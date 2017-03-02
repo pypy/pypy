@@ -489,7 +489,6 @@ def pwrite(fd, data, offset):
     with rffi.scoped_nonmovingbuffer(data) as buf:
         return handle_posix_error('pwrite', c_pwrite(fd, buf, count, offset))
 
-
 c_ftruncate = external('ftruncate', [rffi.INT, rffi.LONGLONG], rffi.INT,
                        macro=_MACRO_ON_POSIX, save_err=rffi.RFFI_SAVE_ERRNO)
 c_fsync = external('fsync' if not _WIN32 else '_commit', [rffi.INT], rffi.INT,
