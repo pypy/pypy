@@ -52,18 +52,43 @@ RPY_EXTERN void RPyGilMasterRequestSafepoint(void);
 //RPY_EXTERN long rpy_fastgil;
 #include "threadlocal.h"
 
-#define _RPyGilAcquire() do { \
-        if (!__sync_bool_compare_and_swap(                  \
-                &RPY_THREADLOCALREF_GET(synclock), 0L, 1L)) \
-            RPyGilAcquireSlowPath();                        \
-    } while (0)
+/*
+  synclock is 3 bits:
+    bit 0: GIL acquired
+    bit 1: safepoint requested
+    bit 2: thread known and initialised (old)
 
-#define _RPyGilRelease() do { \
-        assert(RPY_THREADLOCALREF_GET(synclock) != 0L); \
-    if (!__sync_bool_compare_and_swap(                  \
-            &RPY_THREADLOCALREF_GET(synclock), 1L, 0L)) \
-        RPyGilReleaseSlowPath();                        \
-    } while (0)
+  synclock possible values:
+    000: new thread; GIL released; safepoint requested
+    010: INVALID VALUE
+    0?1: INVALID VALUE
+    100: old thread; GIL released
+    101: old thread; GIL acquired
+    110: old thread; GIL released; safepoint requested
+    111: old thread; GIL acquired; safepoint requested
+
+  synclock transitions:
+    acquire: (possible values: ??0)
+      FASTPATH: 100 -> 101
+      SLOWPATH: check safepoint; initialise new thread; ??? -> 101
+    release: (possible values: 1?1):
+      FASTPATH: 101 -> 100
+      SLOWPATH: signal "now at safepoint"; 111 -> 110
+ */
+
+#define _RPyGilAcquire() do {                                           \
+        assert((RPY_THREADLOCALREF_GET(synclock) & 0b001) == 0b0);      \
+    if (!__sync_bool_compare_and_swap(                                  \
+                &RPY_THREADLOCALREF_GET(synclock), 0b100L, 0b101L))     \
+        RPyGilAcquireSlowPath();                                        \
+        } while (0)
+
+#define _RPyGilRelease() do {                                       \
+        assert((RPY_THREADLOCALREF_GET(synclock) & 0b101) == 0b101);  \
+    if (!__sync_bool_compare_and_swap(                              \
+                &RPY_THREADLOCALREF_GET(synclock), 0b101L, 0b100L)) \
+        RPyGilReleaseSlowPath();                                    \
+        } while (0)
 
 static inline long *_RPyFetchFastGil(void) {
     abort();
@@ -72,7 +97,7 @@ static inline long *_RPyFetchFastGil(void) {
 
 #define RPyGilYieldThread() do { \
     assert(RPY_THREADLOCALREF_GET(synclock) & 1L); \
-    if (RPY_THREADLOCALREF_GET(synclock) == 3L) { \
+    if (RPY_THREADLOCALREF_GET(synclock) == 0b111L) { \
         RPyGilYieldThreadSlowPath(); \
     } \
     } while (0)

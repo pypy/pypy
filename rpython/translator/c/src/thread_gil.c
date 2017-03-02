@@ -1,13 +1,14 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <stdbool.h>
 #include "threadlocal.h"
 
 static pthread_mutex_t master_mutex;
 static pthread_mutex_t sync_mutex;
 static pthread_cond_t  sync_cond;
 
-static long counter_of_threes = 0;
+static long counter_of_sevens = 0;
 
 static long rpy_initialize = -42;
 
@@ -26,7 +27,7 @@ static void rpy_init_mutexes(void)
     if (err)
         abort();
 
-    counter_of_threes = 0; // XXX: fork?
+    counter_of_sevens = 0; // XXX: fork?
     rpy_initialize = 0;
 }
 
@@ -44,29 +45,35 @@ void RPyGilAllocate(void)
 
 void RPyGilAcquireSlowPath(void)
 {
-    assert(RPY_THREADLOCALREF_GET(synclock) == 2);
-
     /* wait until the master leaves the safe point */
     pthread_mutex_lock(&master_mutex);
-    RPY_THREADLOCALREF_GET(synclock) = 1;
+
+    long synclock = RPY_THREADLOCALREF_GET(synclock);
+    assert(synclock == 0b110 || synclock == 0b000);
+
+    bool is_new_thread = synclock == 000;
+    if (is_new_thread) {
+        // TODO
+    }
+
+    RPY_THREADLOCALREF_GET(synclock) = 0b101L;
     pthread_mutex_unlock(&master_mutex);
 }
 
 void RPyGilReleaseSlowPath(void)
 {
-    assert(RPY_THREADLOCALREF_GET(synclock) == 3);
-
     pthread_mutex_lock(&sync_mutex);
+    assert(RPY_THREADLOCALREF_GET(synclock) == 0b111L);
 
-    /* we are one of the THREES that the master is waiting for. Decrease the
+    /* we are one of the SEVENs that the master is waiting for. Decrease the
      * counter and signal the master if we are the last. */
-    counter_of_threes--;
-    if (counter_of_threes == 0)
+    counter_of_sevens--;
+    if (counter_of_sevens == 0)
         pthread_cond_signal(&sync_cond);
 
-    /* set to TWO, so that Acquire above will wait until the master is finished
+    /* set to 110, so that Acquire above will wait until the master is finished
      * with its safe point */
-    RPY_THREADLOCALREF_GET(synclock) = 2;
+    RPY_THREADLOCALREF_GET(synclock) = 0b110L;
     pthread_mutex_unlock(&sync_mutex);
     // continue without GIL
 }
@@ -92,7 +99,7 @@ void RPyGilLeaveMasterSection(void)
 void RPyGilMasterRequestSafepoint(void)
 {
     pthread_mutex_lock(&sync_mutex);
-    assert(counter_of_threes == 0);
+    assert(counter_of_sevens == 0);
 
     /* signal all threads to enter safepoints */
     OP_THREADLOCALREF_ACQUIRE(/* */);
@@ -105,22 +112,25 @@ void RPyGilMasterRequestSafepoint(void)
 
       retry:
         switch (t->synclock) {
-        case 3:
-            assert(!"unexpected synclock=3 found");
+        default:
+            fprintf(stderr, "ERROR: found synclock=%ld\n", t->synclock);
             abort();
-        case 2:
+        case 0b000L:
+            /* new thread, no need to explicitly request safepoint */
+            break;
+        case 0b110L:
             /* thread running in C code, already knows we want a safepoint */
             break;
-        case 0:
+        case 0b100L:
             /* thread running in C code, make sure it checks for and enters
              * the safepoint before acquiring the "gil" again */
-            if (__sync_bool_compare_and_swap(&t->synclock, 0, 2))
+            if (__sync_bool_compare_and_swap(&t->synclock, 0b100L, 0b110L))
                 break;
             goto retry;
-        case 1:
+        case 0b101L:
             /* thread running normally, place request to enter safepoint */
-            if (__sync_bool_compare_and_swap(&t->synclock, 1, 3)) {
-                counter_of_threes++;
+            if (__sync_bool_compare_and_swap(&t->synclock, 0b101L, 0b111L)) {
+                counter_of_sevens++;
                 t->nursery_top = NULL;
                 break;
             }
@@ -129,8 +139,8 @@ void RPyGilMasterRequestSafepoint(void)
     }
     OP_THREADLOCALREF_RELEASE(/* */);
 
-    /* wait until all THREES entered their safepoints */
-    while (counter_of_threes > 0) {
+    /* wait until all SEVENs entered their safepoints */
+    while (counter_of_sevens > 0) {
         pthread_cond_wait(&sync_cond, &sync_mutex);
     }
 
