@@ -1435,12 +1435,20 @@ class TestThread(object):
             def __init__(self, prev):
                 self.prev = prev
 
+        class State:
+            pass
+        state = State()
+
         def bootstrap():
             rthread.gc_thread_start()
             x = None
             for i in range(1000000):
                 x = X(x)
-            os.write(1, "hi there\n")
+
+            state.lock.acquire(True)
+            os.write(1, "counter=%d\n" % state.counter)
+            state.counter -= 1
+            state.lock.release()
             rthread.gc_thread_die()
 
         def new_thread():
@@ -1450,14 +1458,19 @@ class TestThread(object):
         def entry_point(argv):
             os.write(1, "hello world\n")
             # start 5 new threads
-            ident1 = new_thread()
-            ident2 = new_thread()
-            ident3 = new_thread()
-            ident4 = new_thread()
-            ident5 = new_thread()
-            # wait for the 5 threads to finish
-            time.sleep(1)
-            gc.collect()
+            TS = 30
+            state.lock = rthread.allocate_lock()
+            state.counter = TS
+
+            for _ in range(TS):
+                new_thread()
+
+            while True:
+                time.sleep(0.5)
+                gc.collect()
+                if state.counter == 0:
+                    break
+            os.write(1, "all threads done\n")
             return 0
 
         def runme(no__thread):

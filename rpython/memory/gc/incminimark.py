@@ -530,6 +530,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Estimate this number conservatively
             bigobj = self.nonlarge_max + 1
             self.max_number_of_pinned_objects = self.nursery_size / (bigobj * 2)
+        self.max_number_of_pinned_objects = 0   # XXX
         #
         # Round up
         ll_assert((self.cache_line_min & (self.cache_line_min - 1)) == 0,
@@ -2322,13 +2323,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         debug_start("gc-collect-step")
         debug_print("starting gc state: ", GC_STATES[self.gc_state])
         # Debugging checks
-        if self.pinned_objects_in_nursery == 0:
-            ll_assert(self.get_nursery_free() == llmemory.NULL,
+        ll_assert(self.get_nursery_free() == llmemory.NULL,
                       "nursery not empty in major_collection_step()")
-        else:
-            # XXX try to add some similar check to the above one for the case
-            # that the nursery still contains some pinned objects (groggi)
-            pass
         self.debug_check_consistency()
 
         #
