@@ -2023,7 +2023,7 @@ get_releasebuffer_cnt(void)
 }
 
 static void
-array_releasebuffer(arrayobject* self)
+array_releasebuffer(arrayobject* self, Py_buffer* view)
 {
     releasebuffer_cnt++;
     return;

@@ -2,7 +2,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import oefmt
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, Py_TPFLAGS_HAVE_NEWBUFFER, cts, Py_buffer,
-    Py_ssize_t, Py_ssize_tP,
+    Py_ssize_t, Py_ssize_tP, generic_cpy_call,
     PyBUF_WRITABLE, PyBUF_FORMAT, PyBUF_ND, PyBUF_STRIDES)
 from pypy.module.cpyext.pyobject import PyObject, Py_IncRef, Py_DecRef
 
@@ -60,6 +60,15 @@ def PyBuffer_Release(space, view):
     Release the buffer view. This should be called when the buffer is
     no longer being used as it may free memory from it
     """
-    Py_DecRef(space, view.c_obj)
+    obj = view.c_obj
+    if not obj:
+        return
+    assert obj.c_ob_type
+    as_buffer = obj.c_ob_type.c_tp_as_buffer
+    if as_buffer:
+        func = as_buffer.c_bf_releasebuffer
+        if func:
+            generic_cpy_call(space, func, obj, view)
+    Py_DecRef(space, obj)
     view.c_obj = lltype.nullptr(PyObject.TO)
     # XXX do other fields leak memory?
