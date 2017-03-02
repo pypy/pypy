@@ -14,7 +14,7 @@ class PyPyJitPolicy(JitPolicy):
             return True
         if '.' in modname:
             modname, rest = modname.split('.', 1)
-            if modname in ['unicodedata', 'gc', '_minimal_curses', 'cpyext']:
+            if modname in ['unicodedata', 'gc', '_minimal_curses']:
                 return False
         else:
             rest = ''

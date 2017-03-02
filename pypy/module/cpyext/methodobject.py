@@ -44,6 +44,7 @@ def cfunction_dealloc(space, py_obj):
 
 
 class W_PyCFunctionObject(W_Root):
+    # TODO create a slightly different class depending on the c_ml_flags
     def __init__(self, space, ml, w_self, w_module=None):
         self.ml = ml
         self.name = rffi.charp2str(rffi.cast(rffi.CCHARP,self.ml.c_ml_name))
@@ -56,6 +57,7 @@ class W_PyCFunctionObject(W_Root):
             w_self = self.w_self
         flags = rffi.cast(lltype.Signed, self.ml.c_ml_flags)
         flags &= ~(METH_CLASS | METH_STATIC | METH_COEXIST)
+        # XXX spent a lot of time
         if space.is_true(w_kw) and not flags & METH_KEYWORDS:
             raise oefmt(space.w_TypeError,
                         "%s() takes no keyword arguments", self.name)
@@ -192,8 +194,10 @@ def cwrapper_descr_call(space, w_self, __args__):
 
 
 def cfunction_descr_call(space, w_self, __args__):
+    # specialize depending on the W_PyCFunctionObject
     self = space.interp_w(W_PyCFunctionObject, w_self)
     args_w, kw_w = __args__.unpack()
+    # XXX __args__.unpack is slow
     w_args = space.newtuple(args_w)
     w_kw = space.newdict()
     for key, w_obj in kw_w.items():
