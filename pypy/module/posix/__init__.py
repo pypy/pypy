@@ -213,6 +213,11 @@ corresponding Unix manual entries for more information on calls."""
             assert getattr(rposix, _name) is not None, "missing %r" % (_name,)
             interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
 
+    if hasattr(rposix, 'pread'):
+        interpleveldefs['pread'] = 'interp_posix.pread'
+    if hasattr(rposix, 'pwrite'):
+       interpleveldefs['pwrite'] = 'interp_posix.pwrite'
+
     for _name in ["O_CLOEXEC"]:
         if getattr(rposix, _name) is not None:
             interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)

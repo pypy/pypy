@@ -836,6 +836,30 @@ class AppTestPosix:
                     os.chdir(localdir)
             raises(ValueError, os.fchdir, -1)
 
+    if hasattr(rposix, 'pread'):
+        def test_os_pread(self):
+            os = self.posix
+            fd = os.open(self.path2 + 'test_os_pread', os.O_RDWR | os.O_CREAT)
+            try:
+                os.write(fd, b'test')
+                os.lseek(fd, 0, 0)
+                assert os.pread(fd, 2, 1) == b'es'
+                assert os.read(fd, 2) == b'te'
+            finally:
+                os.close(fd)
+
+    if hasattr(rposix, 'pwrite'):
+        def test_os_pwrite(self):
+            os = self.posix
+            fd = os.open(self.path2 + 'test_os_pwrite', os.O_RDWR | os.O_CREAT)
+            try:
+                os.write(fd, b'test')
+                os.lseek(fd, 0, 0)
+                os.pwrite(fd, b'xx', 1)
+                assert os.read(fd, 4) == b'txxt'
+            finally:
+                os.close(fd)
+
     def test_largefile(self):
         os = self.posix
         fd = os.open(self.path2 + 'test_largefile',

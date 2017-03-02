@@ -254,6 +254,7 @@ class CConfig:
     PRIO_PGRP = rffi_platform.DefinedConstantInteger('PRIO_PGRP')
     PRIO_USER = rffi_platform.DefinedConstantInteger('PRIO_USER')
     O_NONBLOCK = rffi_platform.DefinedConstantInteger('O_NONBLOCK')
+    OFF_T = rffi_platform.SimpleType('off_t')
     OFF_T_SIZE = rffi_platform.SizeOf('off_t')
 
     HAVE_UTIMES = rffi_platform.Has('utimes')
@@ -462,6 +463,23 @@ def lseek(fd, pos, how):
         elif how == 2:
             how = SEEK_END
     return handle_posix_error('lseek', c_lseek(fd, pos, how))
+
+c_pread = external('pread',
+                  [rffi.INT, rffi.VOIDP, rffi.SIZE_T , OFF_T], rffi.SSIZE_T,
+                  save_err=rffi.RFFI_SAVE_ERRNO)
+c_pwrite = external('pwrite',
+                   [rffi.INT, rffi.VOIDP, rffi.SIZE_T, OFF_T], rffi.SSIZE_T,
+                   save_err=rffi.RFFI_SAVE_ERRNO)
+
+@replace_os_function('pread')
+@enforceargs(int, int, None)
+def pread(fd, count, offset):
+    if count < 0:
+        raise OSError(errno.EINVAL, None)
+    validate_fd(fd)
+    with rffi.scoped_alloc_buffer(count) as buf:
+        void_buf = rffi.cast(rffi.VOIDP, buf.raw)
+        return buf.str(handle_posix_error('pread', c_pread(fd, void_buf, count, offset)))
 
 c_ftruncate = external('ftruncate', [rffi.INT, rffi.LONGLONG], rffi.INT,
                        macro=_MACRO_ON_POSIX, save_err=rffi.RFFI_SAVE_ERRNO)
