@@ -556,7 +556,7 @@ class Method(W_Root):
                 return space.w_False
             if not space.eq_w(self.w_instance, w_other.w_instance):
                 return space.w_False
-        return space.eq(self.w_function, w_other.w_function)
+        return space.newbool(space.eq_w(self.w_function, w_other.w_function))
 
     def is_w(self, space, other):
         if not isinstance(other, Method):
