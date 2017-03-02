@@ -429,7 +429,7 @@ class W_UnicodeObject(W_Root):
                 elif space.isinstance_w(w_newval, space.w_int):
                     newval = space.int_w(w_newval)
                     if newval < 0 or newval > maxunicode:
-                        raise oefmt(space.w_TypeError,
+                        raise oefmt(space.w_ValueError,
                                     "character mapping must be in range(%s)",
                                     hex(maxunicode + 1))
                     result.append(unichr(newval))

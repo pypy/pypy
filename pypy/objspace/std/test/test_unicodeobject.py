@@ -500,6 +500,7 @@ class AppTestUnicodeString:
         assert u'x\ty'.expandtabs(-42) == u'xy'
 
     def test_translate(self):
+        import sys
         assert 'bbbc' == 'abababc'.translate({ord('a'):None})
         assert 'iiic' == 'abababc'.translate({ord('a'):None, ord('b'):ord('i')})
         assert 'iiix' == 'abababc'.translate({ord('a'):None, ord('b'):ord('i'), ord('c'):'x'})
@@ -511,6 +512,7 @@ class AppTestUnicodeString:
         assert 'abababc'.translate({ord('a'): ''}) == 'bbbc'
 
         raises(TypeError, 'hello'.translate)
+        raises(ValueError, "\xff".translate, {0xff: sys.maxunicode+1})
 
     def test_maketrans(self):
         assert 'abababc' == 'abababc'.translate({'b': '<i>'})
