@@ -392,12 +392,13 @@ def pwrite(space, fd, w_data, offset):
     """Write a string to a file descriptor at a given offset.
     """
     data = space.getarg_w('y*', w_data)
-    try:
-        res = os.write(fd, data.as_str())
-    except OSError as e:
-        raise wrap_oserror(space, e, eintr_retry=True)
-    else:
-        return space.newint(res)
+    while True:
+        try:
+            res = rposix.pwrite(fd, data.as_str(), offset)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+            return space.newint(res)
 
 # ____________________________________________________________
 
