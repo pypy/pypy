@@ -188,7 +188,7 @@ class W_Kqueue(W_Root):
                             raise oefmt(space.w_ValueError,
                                         "Timeout must be None or >= 0, got %s",
                                         str(_timeout))
-                        fill_timespec(_timeout, ptimeout)
+                        fill_timespec(_timeout, timeout)
                         timeout_at = timeutils.monotonic(space) + _timeout
                         ptimeout = timeout
                     else:
