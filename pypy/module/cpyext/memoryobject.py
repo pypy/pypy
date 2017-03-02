@@ -1,15 +1,18 @@
+from rpython.rlib.objectmodel import keepalive_until_here
+from pypy.interpreter.error import oefmt
 from pypy.module.cpyext.api import (
     cpython_api, Py_buffer, CANNOT_FAIL, Py_MAX_FMT, Py_MAX_NDIMS,
     build_type_checkers, Py_ssize_tP, PyObjectFields, cpython_struct,
-    bootstrap_function, Py_bufferP, slot_function)
+    bootstrap_function, Py_bufferP, slot_function, generic_cpy_call)
 from pypy.module.cpyext.pyobject import (
-    PyObject, make_ref, as_pyobj, incref, decref, from_ref, make_typedescr,
+    PyObject, make_ref, as_pyobj, decref, from_ref, make_typedescr,
     get_typedescr, track_reference)
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import widen
 from pypy.objspace.std.memoryobject import W_MemoryView
 from pypy.module.cpyext.object import _dealloc
 from pypy.module.cpyext.import_ import PyImport_Import
+from pypy.module.cpyext.buffer import PyObject_CheckBuffer
 
 PyMemoryView_Check, PyMemoryView_CheckExact = build_type_checkers("MemoryView")
 
@@ -114,18 +117,13 @@ def PyObject_GetBuffer(space, w_obj, view, flags):
     raise an error if the object can't support a simpler view of its memory.
 
     0 is returned on success and -1 on error."""
-    flags = widen(flags)
-    buf = space.buffer_w(w_obj, flags)
-    try:
-        view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
-    except ValueError:
-        if not space.isinstance_w(w_obj, space.w_bytes):
-            # XXX Python 3?
-            raise BufferError("could not create buffer from object")
-        view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(space.bytes_w(w_obj), track_allocation=False))
-        rffi.setintfield(view, 'c_readonly', 1)
-    ret = fill_Py_buffer(space, buf, view)
-    view.c_obj = make_ref(space, w_obj)
+    if not PyObject_CheckBuffer(space, w_obj):
+        raise oefmt(space.w_TypeError,
+                    "'%T' does not have the buffer interface", w_obj)
+    py_obj = as_pyobj(space, w_obj)
+    func = py_obj.c_ob_type.c_tp_as_buffer.c_bf_getbuffer
+    ret = generic_cpy_call(space, func, py_obj, view, flags)
+    keepalive_until_here(w_obj)
     return ret
 
 def fill_Py_buffer(space, buf, view):
@@ -259,4 +257,3 @@ def PyMemoryView_FromBuffer(space, view):
         py_mem.c_view.c_shape = view.c_shape
     # XXX ignore suboffsets?
     return py_obj
-
