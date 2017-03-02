@@ -7,7 +7,7 @@ from rpython.rlib.buffer import StringBuffer
 from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.memoryobject import PyMemoryViewObject
 
-only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names" 
+only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names"
 
 class TestMemoryViewObject(BaseApiTest):
     def test_fromobject(self, space, api):
@@ -35,10 +35,10 @@ class TestMemoryViewObject(BaseApiTest):
         assert o == 'hello'
         ref = api.PyMemoryView_FromBuffer(view)
         w_mv = from_ref(space, ref)
-        for f in ('format', 'itemsize', 'ndim', 'readonly', 
+        for f in ('format', 'itemsize', 'ndim', 'readonly',
                   'shape', 'strides', 'suboffsets'):
             w_f = space.wrap(f)
-            assert space.eq_w(space.getattr(w_mv, w_f), 
+            assert space.eq_w(space.getattr(w_mv, w_f),
                               space.getattr(w_memoryview, w_f))
         api.Py_DecRef(ref)
 
@@ -137,15 +137,15 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         shape, strides = get_buffer_info(arr, ['C_CONTIGUOUS'])
         assert strides[-1] == 8
         dt1 = np.dtype(
-             [('a', 'b'), ('b', 'i'), 
-              ('sub0', np.dtype('b,i')), 
-              ('sub1', np.dtype('b,i')), 
-              ('sub2', np.dtype('b,i')), 
-              ('sub3', np.dtype('b,i')), 
-              ('sub4', np.dtype('b,i')), 
-              ('sub5', np.dtype('b,i')), 
-              ('sub6', np.dtype('b,i')), 
-              ('sub7', np.dtype('b,i')), 
+             [('a', 'b'), ('b', 'i'),
+              ('sub0', np.dtype('b,i')),
+              ('sub1', np.dtype('b,i')),
+              ('sub2', np.dtype('b,i')),
+              ('sub3', np.dtype('b,i')),
+              ('sub4', np.dtype('b,i')),
+              ('sub5', np.dtype('b,i')),
+              ('sub6', np.dtype('b,i')),
+              ('sub7', np.dtype('b,i')),
               ('c', 'i')],
              )
         x = np.arange(dt1.itemsize, dtype='int8').view(dt1)
@@ -162,3 +162,75 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
                           " on too long format string"
         finally:
             warnings.resetwarnings()
+
+    def test_releasebuffer(self):
+        if not self.runappdirect:
+            skip("Fails due to ll2ctypes nonsense")
+        module = self.import_extension('foo', [
+            ("create_test", "METH_NOARGS",
+             """
+                PyObject *obj;
+                obj = PyObject_New(PyObject, (PyTypeObject*)type);
+                return obj;
+             """),
+            ("get_cnt", "METH_NOARGS",
+             'return PyLong_FromLong(cnt);'),
+            ("get_dealloc_cnt", "METH_NOARGS",
+             'return PyLong_FromLong(dealloc_cnt);'),
+        ],
+        prologue="""
+                static float test_data = 42.f;
+                static int cnt=0;
+                static int dealloc_cnt=0;
+                static PyHeapTypeObject * type=NULL;
+
+                void dealloc(PyObject *self) {
+                    dealloc_cnt++;
+                }
+                int getbuffer(PyObject *obj, Py_buffer *view, int flags) {
+
+                    cnt ++;
+                    memset(view, 0, sizeof(Py_buffer));
+                    view->obj = obj;
+                    /* see the CPython docs for why we need this incref:
+                       https://docs.python.org/3.5/c-api/typeobj.html#c.PyBufferProcs.bf_getbuffer */
+                    Py_INCREF(obj);
+                    view->ndim = 0;
+                    view->buf = (void *) &test_data;
+                    view->itemsize = sizeof(float);
+                    view->len = 1;
+                    view->strides = NULL;
+                    view->shape = NULL;
+                    view->format = "f";
+                    return 0;
+                }
+
+                void releasebuffer(PyObject *obj, Py_buffer *view) {
+                    cnt --;
+                }
+            """, more_init="""
+                type = (PyHeapTypeObject *) PyType_Type.tp_alloc(&PyType_Type, 0);
+
+                type->ht_type.tp_name = "Test";
+                type->ht_type.tp_basicsize = sizeof(PyObject);
+                type->ht_name = PyString_FromString("Test");
+                type->ht_type.tp_flags |= Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE |
+                                          Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_HAVE_NEWBUFFER;
+                type->ht_type.tp_flags &= ~Py_TPFLAGS_HAVE_GC;
+
+                type->ht_type.tp_dealloc = dealloc;
+                type->ht_type.tp_as_buffer = &type->as_buffer;
+                type->as_buffer.bf_getbuffer = getbuffer;
+                type->as_buffer.bf_releasebuffer = releasebuffer;
+
+                if (PyType_Ready(&type->ht_type) < 0) INITERROR;
+            """, )
+        import gc
+        assert module.get_cnt() == 0
+        a = memoryview(module.create_test())
+        assert module.get_cnt() == 1
+        assert module.get_dealloc_cnt() == 0
+        del a
+        self.debug_collect()
+        assert module.get_cnt() == 0
+        assert module.get_dealloc_cnt() == 1
