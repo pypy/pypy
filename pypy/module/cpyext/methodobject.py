@@ -204,25 +204,15 @@ def cwrapper_descr_call(space, w_self, __args__):
         space.setitem(w_kw, space.newtext(key), w_obj)
     return self.call(space, w_self, w_args, w_kw)
 
-def cfunction_descr_call_noargs(space, w_self, __args__):
+def cfunction_descr_call_noargs(space, w_self):
     # special case for calling with flags METH_NOARGS
-    self = space.interp_w(W_PyCFunctionObject, w_self)
-    length = len(__args__.arguments_w)
-    if length != 0:
-        raise oefmt(space.w_TypeError,
-                    "%s() takes no arguments", self.name)
+    self = space.interp_w(W_PyCFunctionObjectNoArgs, w_self)
     return self.call(space, None, None, None)
 
-def cfunction_descr_call_single_object(space, w_self, __args__):
+def cfunction_descr_call_single_object(space, w_self, w_o):
     # special case for calling with flags METH_O
     self = space.interp_w(W_PyCFunctionObjectSingleObject, w_self)
-    length = len(__args__.arguments_w)
-    if length != 1:
-        raise oefmt(space.w_TypeError,
-                    "%s() takes exactly one argument (%d given)",
-                    self.name, length)
-    o_w = __args__.firstarg()
-    return self.call(space, None, o_w, None)
+    return self.call(space, None, w_o, None)
 
 def cfunction_descr_call(space, w_self, __args__):
     # specialize depending on the W_PyCFunctionObject
@@ -273,7 +263,7 @@ W_PyCFunctionObject.typedef = TypeDef(
 W_PyCFunctionObject.typedef.acceptable_as_base_class = False
 
 W_PyCFunctionObjectNoArgs.typedef = TypeDef(
-    'builtin_function_or_method',
+    'builtin_function_or_method', W_PyCFunctionObject.typedef,
     __call__ = interp2app(cfunction_descr_call_noargs),
     __doc__ = GetSetProperty(W_PyCFunctionObjectNoArgs.get_doc),
     __module__ = interp_attrproperty_w('w_module', cls=W_PyCFunctionObjectNoArgs),
@@ -283,7 +273,7 @@ W_PyCFunctionObjectNoArgs.typedef = TypeDef(
 W_PyCFunctionObjectNoArgs.typedef.acceptable_as_base_class = False
 
 W_PyCFunctionObjectSingleObject.typedef = TypeDef(
-    'builtin_function_or_method',
+    'builtin_function_or_method', W_PyCFunctionObject.typedef,
     __call__ = interp2app(cfunction_descr_call_single_object),
     __doc__ = GetSetProperty(W_PyCFunctionObjectSingleObject.get_doc),
     __module__ = interp_attrproperty_w('w_module', cls=W_PyCFunctionObjectSingleObject),
