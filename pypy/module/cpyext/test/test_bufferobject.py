@@ -63,8 +63,10 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
         a = array.array('c', 'text')
         b = buffer(a)
         assert module.roundtrip(b) == 'text'
-        
+
     def test_releasebuffer(self):
+        if not self.runappdirect:
+            skip("Fails due to ll2ctypes nonsense")
         module = self.import_extension('foo', [
             ("create_test", "METH_NOARGS",
              """
@@ -104,10 +106,10 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
                     return 0;
                 }
 
-                void releasebuffer(PyObject *obj, Py_buffer *view) { 
+                void releasebuffer(PyObject *obj, Py_buffer *view) {
                     cnt --;
                 }
-            """, more_init="""            
+            """, more_init="""
                 type = (PyHeapTypeObject *) PyType_Type.tp_alloc(&PyType_Type, 0);
 
                 type->ht_type.tp_name = "Test";
