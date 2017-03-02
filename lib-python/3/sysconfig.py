@@ -416,7 +416,6 @@ def _generate_posix_vars():
 
 def _init_posix(vars):
     """Initialize the module as appropriate for POSIX systems."""
-    # _sysconfigdata is generated at build time, see _generate_posix_vars()
     from _sysconfigdata import build_time_vars
     vars.update(build_time_vars)
 
