@@ -53,7 +53,8 @@ void RPyGilAcquireSlowPath(void)
 
     bool is_new_thread = synclock == 000;
     if (is_new_thread) {
-        // TODO
+        // TODO: do the shadowstack.py:allocate_shadow_stack() here, then the
+        // walk_thread_stack() does not need to check for ss_top==NULL anymore.
     }
 
     RPY_THREADLOCALREF_GET(synclock) = 0b101L;
