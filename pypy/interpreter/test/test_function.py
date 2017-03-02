@@ -574,6 +574,18 @@ class AppTestMethod:
         assert A().m == X()
         assert X() == A().m
 
+    def test_method_equals_with_identity(self):
+        from types import MethodType
+        class CallableBadEq(object):
+            def __call__(self):
+                pass
+            def __eq__(self, other):
+                raise ZeroDivisionError
+        func = CallableBadEq()
+        meth = MethodType(func, object)
+        assert meth == meth
+        assert meth == MethodType(func, object)
+
     @pytest.mark.skipif("config.option.runappdirect")
     def test_method_identity(self):
         class A(object):

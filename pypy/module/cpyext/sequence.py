@@ -230,7 +230,7 @@ def PySequence_Index(space, w_seq, w_obj):
             if e.match(space, space.w_StopIteration):
                 break
             raise
-        if space.is_true(space.eq(w_next, w_obj)):
+        if space.eq_w(w_next, w_obj):
             return idx
         idx += 1
 

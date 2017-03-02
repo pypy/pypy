@@ -881,7 +881,7 @@ class W_TextIOWrapper(W_TextIOBase):
 
         if whence == 1:
             # seek relative to current position
-            if not space.is_true(space.eq(w_pos, space.newint(0))):
+            if not space.eq_w(w_pos, space.newint(0)):
                 self._unsupportedoperation(
                     space, "can't do nonzero cur-relative seeks")
             # Seeking to the current position should attempt to sync the
@@ -890,7 +890,7 @@ class W_TextIOWrapper(W_TextIOBase):
 
         elif whence == 2:
             # seek relative to end of file
-            if not space.is_true(space.eq(w_pos, space.newint(0))):
+            if not space.eq_w(w_pos, space.newint(0)):
                 self._unsupportedoperation(
                     space, "can't do nonzero end-relative seeks")
             space.call_method(self, "flush")

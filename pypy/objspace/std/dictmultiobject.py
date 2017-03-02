@@ -1549,7 +1549,7 @@ class W_DictViewItemsObject(W_DictViewObject, SetLikeDictView):
             w_found = self.w_dict.getitem(w_key)
         if w_found is None:
             return space.w_False
-        return space.eq(w_value, w_found)
+        return space.newbool(space.eq_w(w_value, w_found))
 
 class W_DictViewKeysObject(W_DictViewObject, SetLikeDictView):
     def descr_iter(self, space):
