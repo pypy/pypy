@@ -868,29 +868,6 @@ class _Pickler:
             return None
         return getattr, (themodule, '__dict__')
 
-    def save_function(self, obj):
-        try:
-            return self.save_global(obj)
-        except PicklingError:
-            pass
-        # Check copy_reg.dispatch_table
-        reduce = dispatch_table.get(type(obj))
-        if reduce:
-            rv = reduce(obj)
-        else:
-            # Check for a __reduce_ex__ method, fall back to __reduce__
-            reduce = getattr(obj, "__reduce_ex__", None)
-            if reduce:
-                rv = reduce(self.proto)
-            else:
-                reduce = getattr(obj, "__reduce__", None)
-                if reduce:
-                    rv = reduce()
-                else:
-                    raise e
-        return self.save_reduce(obj=obj, *rv)
-    dispatch[FunctionType] = save_function
-
     def save_set(self, obj):
         save = self.save
         write = self.write
@@ -1013,6 +990,7 @@ class _Pickler:
             return self.save_reduce(type, (...,), obj=obj)
         return self.save_global(obj)
 
+    dispatch[FunctionType] = save_global
     dispatch[type] = save_type
 
 
