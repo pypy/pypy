@@ -532,6 +532,47 @@ class AppTestInt(object):
         e = raises(ValueError, int, value)
         assert str(e.value) == "invalid literal for int() with base 10: %r" % value
 
+    def test_non_numeric_input_types(self):
+        # Test possible non-numeric types for the argument x, including
+        # subclasses of the explicitly documented accepted types.
+        class CustomStr(str): pass
+        class CustomBytes(bytes): pass
+        class CustomByteArray(bytearray): pass
+
+        factories = [
+            bytes,
+            bytearray,
+            lambda b: CustomStr(b.decode()),
+            CustomBytes,
+            CustomByteArray,
+            memoryview,
+        ]
+        try:
+            from array import array
+        except ImportError:
+            pass
+        else:
+            factories.append(lambda b: array('B', b))
+
+        for f in factories:
+            x = f(b'100')
+            assert int(x) == 100
+            if isinstance(x, (str, bytes, bytearray)):
+                assert int(x, 2) == 4
+            else:
+                try:
+                    int(x, 2)
+                except TypeError as e:
+                    assert "can't convert non-string" in str(e)
+                else:
+                    assert False, 'did not raise'
+            try:
+                int(f(b'A' * 0x10))
+            except ValueError as e:
+                assert "invalid literal" in str(e)
+            else:
+                assert False, 'did not raise'
+
     def test_fake_int_as_base(self):
         class MyInt(object):
             def __init__(self, x):
