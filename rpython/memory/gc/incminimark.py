@@ -897,6 +897,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.set_nursery_top(self.nursery_barriers.popleft())
             else:
                 rgil.master_request_safepoint()
+                # we are the only thread here; all others are in gc-safepoints
 
                 minor_collection_count += 1
                 if minor_collection_count == 1:

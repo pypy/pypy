@@ -11,6 +11,8 @@ from rpython.memory.gctransform.framework import (
      BaseFrameworkGCTransformer, BaseRootWalker, sizeofaddr)
 from rpython.rtyper.rbuiltin import gen_cast
 
+from rpython.rlib import rthread
+
 
 class ShadowStackFrameworkGCTransformer(BaseFrameworkGCTransformer):
     def annotate_walker_functions(self, getfn):
@@ -24,7 +26,8 @@ class ShadowStackFrameworkGCTransformer(BaseFrameworkGCTransformer):
                                    inline = True)
 
     def build_root_walker(self):
-        return ShadowStackRootWalker(self)
+        # XXX: select between GIL and NoGil variant
+        return NoGilShadowStackRootWalker(self)
 
     def push_roots(self, hop, keep_current_args=False):
         livevars = self.get_livevars_for_roots(hop, keep_current_args)
@@ -53,6 +56,108 @@ class ShadowStackFrameworkGCTransformer(BaseFrameworkGCTransformer):
                 v_newaddr = hop.genop("raw_load", [base_addr, c_k],
                                       resulttype=llmemory.Address)
                 hop.genop("gc_reload_possibly_moved", [v_newaddr, var])
+
+
+class NoGilShadowStackRootWalker(BaseRootWalker):
+    tl_shadowstack = rthread.ThreadLocalField(llmemory.Address, 'shadowstack')
+    tl_shadowstack_top = rthread.ThreadLocalField(llmemory.Address, 'shadowstack_top')
+    tl_synclock = rthread.ThreadLocalField(lltype.Signed, 'synclock')
+
+    def __init__(self, gctransformer):
+        BaseRootWalker.__init__(self, gctransformer)
+
+        tl_shadowstack_top = self.tl_shadowstack_top
+        tl_shadowstack = self.tl_shadowstack
+
+        def incr_stack(n):
+            top = tl_shadowstack_top.getraw()
+            tl_shadowstack_top.setraw(top + n * sizeofaddr)
+            return top
+        self.incr_stack = incr_stack
+
+        def decr_stack(n):
+            top = tl_shadowstack_top.getraw() - n * sizeofaddr
+            tl_shadowstack_top.setraw(top)
+            return top
+        self.decr_stack = decr_stack
+
+        def walk_stack_root(callback, start, end):
+            gc = self.gc
+            addr = end
+            while addr != start:
+                addr -= sizeofaddr
+                if gc.points_to_valid_gc_object(addr):
+                    callback(gc, addr)
+        self.rootstackhook = walk_stack_root
+
+        def walk_thread_stack(collect_stack_root, tl):
+            # XXX: only visit if nursery_free was not NULL
+            base = (tl + tl_shadowstack._offset).address[0]
+            top = (tl + tl_shadowstack_top._offset).address[0]
+            self.rootstackhook(collect_stack_root, base, top)
+        self._walk_thread_stack = walk_thread_stack
+
+    def push_stack(self, addr):
+        top = self.incr_stack(1)
+        top.address[0] = addr
+
+    def pop_stack(self):
+        top = self.decr_stack(1)
+        return top.address[0]
+
+
+    def walk_stack_roots(self, collect_stack_root, is_minor=False):
+        rthread.enum_all_threadlocals(self._walk_thread_stack,
+                                      collect_stack_root)
+
+    def need_thread_support(self, gctransformer, getfn):  # NO GIL VERSION
+        # the interfacing between the threads and the GC is done via
+        # two completely ad-hoc operations at the moment:
+        # gc_thread_run and gc_thread_die.  See docstrings below.
+
+        tl_shadowstack = self.tl_shadowstack
+        tl_shadowstack_top = self.tl_shadowstack_top
+        tl_synclock = self.tl_synclock
+
+        def thread_setup():
+            allocate_shadow_stack()
+            tl_synclock.get_or_make_raw()  # reference the field at least once
+
+        def thread_run():
+            # If it's the first time we see this thread, allocate
+            # a shadowstack.
+            if tl_shadowstack.get_or_make_raw() == llmemory.NULL:
+                allocate_shadow_stack()
+
+        def allocate_shadow_stack():
+            root_stack_depth = 163840
+            root_stack_size = sizeofaddr * root_stack_depth
+            ss = llmemory.raw_malloc(root_stack_size)
+            if not ss:
+                raise MemoryError
+            tl_shadowstack.setraw(ss)
+            tl_shadowstack_top.setraw(ss)
+        allocate_shadow_stack._dont_inline_ = True
+
+        def thread_die():
+            """Called just before the final GIL release done by a dying
+            thread.  After a thread_die(), no more gc operation should
+            occur in this thread.
+            """
+            p = tl_shadowstack.get_or_make_raw()
+            tl_shadowstack.setraw(llmemory.NULL)
+            tl_shadowstack_top.setraw(llmemory.NULL)
+            llmemory.raw_free(p)
+
+        self.thread_setup = thread_setup
+        self.thread_run_ptr = getfn(thread_run, [], annmodel.s_None,
+                                    inline=True, minimal_transform=False)
+        self.thread_die_ptr = getfn(thread_die, [], annmodel.s_None,
+                                    minimal_transform=False)
+
+    def need_stacklet_support(self, gctransformer, getfn):
+        from rpython.rlib import _stacklet_shadowstack
+        _stacklet_shadowstack.complete_destrptr(gctransformer)
 
 
 class ShadowStackRootWalker(BaseRootWalker):
@@ -104,7 +209,7 @@ class ShadowStackRootWalker(BaseRootWalker):
         self.rootstackhook(collect_stack_root,
                            gcdata.root_stack_base, gcdata.root_stack_top)
 
-    def need_thread_support_WITH_GIL(self, gctransformer, getfn):
+    def need_thread_support(self, gctransformer, getfn):
         from rpython.rlib import rthread    # xxx fish
         gcdata = self.gcdata
         # the interfacing between the threads and the GC is done via
@@ -217,51 +322,6 @@ class ShadowStackRootWalker(BaseRootWalker):
                                             SomeAddress()],
                                            annmodel.s_None,
                                            minimal_transform=False)
-
-    def need_thread_support(self, gctransformer, getfn):  # NO GIL VERSION
-        from rpython.rlib import rthread
-        gcdata = self.gcdata
-        # the interfacing between the threads and the GC is done via
-        # two completely ad-hoc operations at the moment:
-        # gc_thread_run and gc_thread_die.  See docstrings below.
-
-        tl_shadowstack = rthread.ThreadLocalField(llmemory.Address,
-                                                  'shadowstack')
-        tl_synclock = rthread.ThreadLocalField(lltype.Signed, 'synclock')
-
-        def thread_setup():
-            allocate_shadow_stack()
-            tl_synclock.get_or_make_raw()  # reference the field at least once
-
-        def thread_run():
-            # If it's the first time we see this thread, allocate
-            # a shadowstack.
-            if tl_shadowstack.get_or_make_raw() == llmemory.NULL:
-                allocate_shadow_stack()
-
-        def allocate_shadow_stack():
-            root_stack_depth = 163840
-            root_stack_size = sizeofaddr * root_stack_depth
-            ss = llmemory.raw_malloc(root_stack_size)
-            if not ss:
-                raise MemoryError
-            tl_shadowstack.setraw(ss)
-        allocate_shadow_stack._dont_inline_ = True
-
-        def thread_die():
-            """Called just before the final GIL release done by a dying
-            thread.  After a thread_die(), no more gc operation should
-            occur in this thread.
-            """
-            p = tl_shadowstack.get_or_make_raw()
-            tl_shadowstack.setraw(llmemory.NULL)
-            llmemory.raw_free(p)
-
-        self.thread_setup = thread_setup
-        self.thread_run_ptr = getfn(thread_run, [], annmodel.s_None,
-                                    inline=True, minimal_transform=False)
-        self.thread_die_ptr = getfn(thread_die, [], annmodel.s_None,
-                                    minimal_transform=False)
 
     def need_stacklet_support(self, gctransformer, getfn):
         from rpython.rlib import _stacklet_shadowstack
