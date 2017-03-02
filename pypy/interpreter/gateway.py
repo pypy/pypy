@@ -500,6 +500,8 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
         self.unwrap.append("space.truncatedint_w(%s)" % (self.nextarg(),))
 
     def make_fastfunc(unwrap_spec, func):
+        if hasattr(func, '__cpyext_dispatch_hack'):
+            raise FastFuncNotSupported
         unwrap_info = UnwrapSpec_FastFunc_Unwrap()
         unwrap_info.apply_over(unwrap_spec)
         narg = unwrap_info.n
@@ -692,6 +694,9 @@ class BuiltinCode(Code):
                 arity, fastfunc = UnwrapSpec_FastFunc_Unwrap.make_fastfunc(
                                                  unwrap_spec, func)
             except FastFuncNotSupported:
+                if hasattr(func, '__cpyext_dispatch_hack'):
+                    self.__class__ = BuiltinCPyExtCallHack
+                    self._func__args__ = []
                 if unwrap_spec == [ObjSpace, Arguments]:
                     self.__class__ = BuiltinCodePassThroughArguments0
                     self.func__args__ = func
@@ -769,6 +774,21 @@ class BuiltinCode(Code):
 
 # (verbose) performance hack below
 
+class BuiltinCPyExtCallHack(BuiltinCode):
+    _immutable_ = True
+
+    def fastcall_0(self, space, w_func):
+        # METH_NOARGS
+        try:
+            w_result = self.fastfunc_0(space)
+        except DescrMismatch:
+            raise oefmt(space.w_SystemError, "unexpected DescrMismatch error")
+        except Exception as e:
+            self.handle_exception(space, e)
+            w_result = None
+        if w_result is None:
+            w_result = space.w_None
+        return w_result
 
 class BuiltinCodePassThroughArguments0(BuiltinCode):
     _immutable_ = True

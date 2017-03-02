@@ -40,6 +40,14 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
              }
              '''
              ),
+            ('getarg_VARARGS', 'METH_VARARGS',
+             '''
+             PyObject * i;
+             i = PyLong_FromLong((long)PyObject_Length(args));
+             Py_INCREF(i);
+             return i;
+             '''
+             ),
             ('isCFunction', 'METH_O',
              '''
              if(PyCFunction_Check(args)) {
@@ -82,6 +90,10 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert mod.getarg_NO() is None
         raises(TypeError, mod.getarg_NO, 1)
         raises(TypeError, mod.getarg_NO, 1, 1)
+
+        assert mod.getarg_VARARGS() == 0
+        assert mod.getarg_VARARGS(1) == 1
+        raises(TypeError, mod.getarg_VARARGS, k=1)
 
         assert mod.getarg_OLD(1) == 1
         assert mod.getarg_OLD() is None
