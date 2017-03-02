@@ -842,6 +842,14 @@ class AppTestDictViews:
         assert d.viewitems() != e.viewitems()
         assert not d.viewitems() == 42
 
+    def test_dict_items_contains_with_identity(self):
+        class BadEq(object):
+            def __eq__(self, other):
+                raise ZeroDivisionError
+        k = BadEq()
+        v = BadEq()
+        assert (k, v) in {k: v}.viewitems()
+
     def test_dict_mixed_keys_items(self):
         d = {(1, 1): 11, (2, 2): 22}
         e = {1: 1, 2: 2}
