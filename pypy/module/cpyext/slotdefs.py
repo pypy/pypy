@@ -7,7 +7,7 @@ from rpython.rlib.rarithmetic import widen
 from rpython.rlib import rgc # Force registration of gc.collect
 from pypy.module.cpyext.api import (
     slot_function, generic_cpy_call, PyObject, Py_ssize_t, Py_TPFLAGS_CHECKTYPES,
-    pypy_decl, Py_buffer, Py_bufferP, PyTypeObjectPtr)
+    pypy_decl, Py_buffer, Py_bufferP, PyTypeObjectPtr, cts)
 from pypy.module.cpyext.typeobjectdefs import (
     unaryfunc, ternaryfunc, binaryfunc,
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
@@ -353,26 +353,27 @@ class CPyBuffer(Buffer):
     def releasebuffer(self):
         if self.pyobj:
             if self.needs_decref:
+                if self.releasebufferproc:
+                    func_target = rffi.cast(releasebufferproc, self.releasebufferproc)
+                    with lltype.scoped_alloc(Py_buffer) as pybuf:
+                        pybuf.c_buf = self.ptr
+                        pybuf.c_len = self.size
+                        pybuf.c_ndim = cts.cast('int', self.ndim)
+                        pybuf.c_shape = cts.cast('Py_ssize_t*', pybuf.c__shape)
+                        pybuf.c_strides = cts.cast('Py_ssize_t*', pybuf.c__strides)
+                        for i in range(self.ndim):
+                            pybuf.c_shape[i] = self.shape[i]
+                            pybuf.c_strides[i] = self.strides[i]
+                        if self.format:
+                            pybuf.c_format = rffi.str2charp(self.format)
+                        else:
+                            pybuf.c_format = rffi.str2charp("B")
+                        generic_cpy_call(self.space, func_target, self.pyobj, pybuf)
                 decref(self.space, self.pyobj)
             self.pyobj = lltype.nullptr(PyObject.TO)
         else:
             #do not call twice
             return
-        if self.releasebufferproc:
-            func_target = rffi.cast(releasebufferproc, self.releasebufferproc)
-            with lltype.scoped_alloc(Py_buffer) as pybuf:
-                pybuf.c_buf = self.ptr
-                pybuf.c_len = self.size
-                pybuf.c_ndim = rffi.cast(rffi.INT_real, self.ndim)
-                for i in range(self.ndim):
-                    pybuf.c_shape[i] = self.shape[i]
-                    pybuf.c_strides[i] = self.strides[i]
-                if self.format:
-                    pybuf.c_format = rffi.str2charp(self.format)
-                else:
-                    pybuf.c_format = rffi.str2charp("B")
-                generic_cpy_call(self.space, func_target, self.pyobj, pybuf)
-            self.releasebufferproc = rffi.cast(rffi.VOIDP, 0)
 
     def getlength(self):
         return self.size
