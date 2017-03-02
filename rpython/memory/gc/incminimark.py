@@ -800,6 +800,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def collect(self, gen=2):
         """Do a minor (gen=0), start a major (gen=1), or do a full
         major (gen>=2) collection."""
+        rgil.enter_master_section()
+        rgil.master_request_safepoint()
         if gen < 0:
             self._minor_collection()   # dangerous! no major GC cycle progress
         elif gen <= 1:
@@ -809,6 +811,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         else:
             self.minor_and_major_collection()
         self.rrc_invoke_callback()
+        rgil.leave_master_section()
 
 
     def minor_collection_with_major_progress(self, extrasize=0):
@@ -983,8 +986,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # then when the major collection finishes it will raise
         # MemoryError.
         if self.threshold_reached(raw_malloc_usage(totalsize)):
+            rgil.enter_master_section()
+            rgil.master_request_safepoint()
             self.minor_collection_with_major_progress(
                 raw_malloc_usage(totalsize) + self.nursery_size // 2)
+            rgil.leave_master_section()
         #
         # Check if the object would fit in the ArenaCollection.
         # Also, an object allocated from ArenaCollection must be old.
@@ -1829,6 +1835,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # pointer.
         size_gc_header = self.gcheaderbuilder.size_gc_header
         nursery_barriers = self.AddressDeque()
+        nursery_barriers.append(self.nursery)
         if self.surviving_pinned_objects.non_empty():
             self.surviving_pinned_objects.sort()
             next_pinned_object = self.surviving_pinned_objects.pop()
@@ -1904,8 +1911,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.nursery_barriers = nursery_barriers
         self.surviving_pinned_objects.delete()
         #
-        self.set_nursery_free(self.nursery)
-        self.set_nursery_top(self.nursery_barriers.popleft())
         #
         # clear GCFLAG_PINNED_OBJECT_PARENT_KNOWN from all parents in the list.
         self.old_objects_pointing_to_pinned.foreach(
