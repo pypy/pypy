@@ -1,4 +1,5 @@
 # encoding: utf-8
+from pypy.interpreter.gateway import interp2app
 from rpython.tool.udir import udir
 import os
 
@@ -14,6 +15,11 @@ class AppTestFileIO:
         self.w_posix = self.space.appexec([], """():
             import %s as m;
             return m""" % os.name)
+        def create_bigfile_w():
+            bigfile = udir.join('bigfile')
+            bigfile.write('a' * 1000, mode='wb')
+            return self.space.wrap(str(bigfile))
+        self.w_create_bigfile = self.space.wrap(interp2app(create_bigfile_w))
 
     def test_constructor(self):
         import _io
@@ -151,13 +157,10 @@ class AppTestFileIO:
         import _io
         a = bytearray(b'x' * 10)
         f = _io.FileIO(self.tmpfile, 'r+')
-        f.seek(5)
-        f.write(b'\x00' * 5)
-        f.seek(0)
         assert f.readinto(a) == 5
         f.seek(0)
         m = memoryview(bytearray(b"helloworld"))
-        assert f.readinto(m) == 10
+        assert f.readinto(m) == 5
         #
         exc = raises(TypeError, f.readinto, u"hello")
         msg = str(exc.value)
@@ -179,6 +182,13 @@ class AppTestFileIO:
         f.close()
         assert a == b'a\nbxxxxxxx'
 
+    def test_readinto_optimized(self):
+        import _io
+        a = bytearray(b'x' * 1024)
+        f = _io.FileIO(self.create_bigfile(), 'r+')
+        assert f.readinto(a) == 1000
+        assert a == b'a' * 1000 + b'x' * 24
+
     def test_nonblocking_read(self):
         try:
             import os, fcntl
@@ -194,6 +204,8 @@ class AppTestFileIO:
         assert f.read(10) is None
         a = bytearray(b'x' * 10)
         assert f.readinto(a) is None
+        a2 = bytearray(b'x' * 1024)
+        assert f.readinto(a2) is None
 
     def test_repr(self):
         import _io

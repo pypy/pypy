@@ -5,6 +5,8 @@ from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from rpython.rlib.buffer import Buffer, SubBuffer
+from rpython.rlib.rgc import (
+    nonmoving_raw_ptr_for_resizable_list, resizable_list_supporting_raw_ptr)
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import r_longlong, intmask
 from rpython.rlib import rposix
@@ -159,7 +161,7 @@ class RawBuffer(Buffer):
 
     def __init__(self, n):
         self.length = n
-        self.buf = ['\0'] * n
+        self.buf = resizable_list_supporting_raw_ptr(['\0'] * n)
         self.readonly = False
 
     def getlength(self):
