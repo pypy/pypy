@@ -12,15 +12,16 @@
 #include <windows.h>
 #endif
 #include "common_header.h"
+#include "structdef.h"
 #include "src/profiling.h"
 #include "src/debug_print.h"
 
-long pypy_have_debug_prints = -1;
 FILE *pypy_debug_file = NULL;
 static unsigned char debug_ready = 0;
 static unsigned char debug_profile = 0;
-static char *debug_start_colors_1 = "";
-static char *debug_start_colors_2 = "";
+static __thread char debug_start_colors_1[32];
+static __thread char debug_start_colors_2[28];
+__thread char pypy_debug_threadid[16] = {0};
 static char *debug_stop_colors = "";
 static char *debug_prefix = NULL;
 
@@ -90,8 +91,6 @@ static void pypy_debug_open(void)
       pypy_debug_file = stderr;
       if (isatty(2))
         {
-          debug_start_colors_1 = "\033[1m\033[31m";
-          debug_start_colors_2 = "\033[31m";
           debug_stop_colors = "\033[0m";
         }
     }
@@ -210,6 +209,40 @@ static void display_startstop(const char *prefix, const char *postfix,
           debug_stop_colors);
 }
 
+
+#define bool_cas __sync_bool_compare_and_swap
+static Signed threadcounter = 0;
+
+static void _prepare_display_colors(void)
+{
+    Signed counter;
+    char *p;
+    while (1) {
+        counter = threadcounter;
+        if (bool_cas(&threadcounter, counter, counter + 1))
+            break;
+    }
+    if (debug_stop_colors[0] == 0) {
+        /* not a tty output: no colors */
+        sprintf(debug_start_colors_1, "%d# ", (int)counter);
+        sprintf(debug_start_colors_2, "%d# ", (int)counter);
+        sprintf(pypy_debug_threadid, "%d#", (int)counter);
+    }
+    else {
+        /* tty output */
+        int color = 0;
+        color = 31 + (int)(counter % 7);
+        sprintf(debug_start_colors_1, "\033[%dm%d# \033[1m",
+                color, (int)counter);
+        sprintf(debug_start_colors_2, "\033[%dm%d# ",
+                color, (int)counter);
+#ifdef RPY_STM
+        sprintf(pypy_debug_threadid, "\033[%dm%d#\033[0m",
+                color, (int)counter);
+#endif
+    }
+}
+
 void pypy_debug_start(const char *category)
 {
   pypy_debug_ensure_opened();
@@ -229,6 +262,8 @@ void pypy_debug_start(const char *category)
       /* else make this subsection active */
       pypy_have_debug_prints |= 1;
     }
+  if (!debug_start_colors_1[0])
+    _prepare_display_colors();
   display_startstop("{", "", category, debug_start_colors_1);
 }
 

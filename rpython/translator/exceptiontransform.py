@@ -453,10 +453,12 @@ class ExceptionTransformer(object):
         EXCDATA = lltype.Struct('ExcData',
             ('exc_type',  self.lltype_of_exception_type),
             ('exc_value', self.lltype_of_exception_value),
+            ('have_debug_prints', lltype.Signed),
             hints={'thread_local': True, 'is_excdata': True})
         self.EXCDATA = EXCDATA
 
         exc_data = lltype.malloc(EXCDATA, immortal=True)
+        exc_data.have_debug_prints = -1
         null_type = lltype.nullptr(self.lltype_of_exception_type.TO)
         null_value = lltype.nullptr(self.lltype_of_exception_value.TO)
 

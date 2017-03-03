@@ -27,6 +27,10 @@
    removed from the environment and not passed to subprocesses.
 */
 
+RPY_EXTERN __thread struct pypy_ExcData0 pypy_g_ExcData;
+#define pypy_have_debug_prints    pypy_g_ExcData.ed_have_debug_prints
+
+
 /* macros used by the generated code */
 #define PYPY_HAVE_DEBUG_PRINTS    (pypy_have_debug_prints & 1 ? \
                                    (pypy_debug_ensure_opened(), 1) : 0)
@@ -48,7 +52,7 @@ RPY_EXTERN long pypy_debug_offset(void);
 RPY_EXTERN void pypy_debug_forked(long original_offset);
 RPY_EXTERN long pypy_have_debug_prints_for(const char *category_prefix);
 
-RPY_EXTERN long pypy_have_debug_prints;
+RPY_EXTERN __thread char pypy_debug_threadid[];
 RPY_EXPORTED FILE *pypy_debug_file;
 
 #define OP_LL_READ_TIMESTAMP(val) READ_TIMESTAMP(val)

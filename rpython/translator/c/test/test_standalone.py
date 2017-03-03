@@ -1442,9 +1442,9 @@ class TestThread(object):
         def bootstrap():
             rthread.gc_thread_start()
             x = None
-            for i in range(10000000):
+            for i in range(100000000):
                 x = X(x)
-                if i % 10001 == 0:
+                if i % 5001 == 0:
                     x = None
 
             state.lock.acquire(True)
