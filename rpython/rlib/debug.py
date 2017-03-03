@@ -1,6 +1,6 @@
 import sys
 import time
-
+import thread
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import is_valid_int
@@ -44,10 +44,16 @@ class DebugLog(list):
 _log = None       # patched from tests to be an object of class DebugLog
                   # or compatible
 
+_thread_numbering = {}
+def _get_thread_num():
+    thid = thread.get_ident()
+    if thid not in _thread_numbering:
+        _thread_numbering[thid] = len(_thread_numbering)
+    return _thread_numbering[thid]
+
 def debug_print(*args):
-    for arg in args:
-        print >> sys.stderr, arg,
-    print >> sys.stderr
+    msg = " ".join(map(str, args))
+    sys.stderr.write("%s# %s\n" % (_get_thread_num(), msg))
     if _log is not None:
         _log.debug_print(*args)
 
@@ -76,15 +82,17 @@ else:
 
 def debug_start(category):
     c = int(time.clock() * 100)
-    print >> sys.stderr, '%s[%x] {%s%s' % (_start_colors_1, c,
-                                           category, _stop_colors)
+    sys.stderr.write('%s%s# [%x] {%s%s\n' % (_start_colors_1,
+                                             _get_thread_num(), c,
+                                             category, _stop_colors))
     if _log is not None:
         _log.debug_start(category)
 
 def debug_stop(category):
     c = int(time.clock() * 100)
-    print >> sys.stderr, '%s[%x] %s}%s' % (_start_colors_2, c,
-                                           category, _stop_colors)
+    sys.stderr.write('%s%s# [%x] %s}%s\n' % (_start_colors_2,
+                                            _get_thread_num(), c,
+                                            category, _stop_colors))
     if _log is not None:
         _log.debug_stop(category)
 
@@ -441,7 +449,7 @@ static void pypy__allow_attach(void) {
             except OSError as e:
                 os.write(2, "Could not start GDB: %s" % (
                     os.strerror(e.errno)))
-                os._exit(1)
+                raise SystemExit
         else:
             time.sleep(1)  # give the GDB time to attach
 

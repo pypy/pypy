@@ -236,10 +236,9 @@ static void _prepare_display_colors(void)
                 color, (int)counter);
         sprintf(debug_start_colors_2, "\033[%dm%d# ",
                 color, (int)counter);
-#ifdef RPY_STM
+
         sprintf(pypy_debug_threadid, "\033[%dm%d#\033[0m",
                 color, (int)counter);
-#endif
     }
 }
 

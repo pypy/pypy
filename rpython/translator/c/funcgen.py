@@ -737,8 +737,8 @@ class FunctionCodeGenerator(object):
     def OP_DEBUG_PRINT(self, op):
         # XXX
         from rpython.rtyper.lltypesystem.rstr import STR
-        format = []
-        argv = []
+        format = ['%s']
+        argv = ['pypy_debug_threadid']
         free_line = ""
         for arg in op.args:
             T = arg.concretetype
