@@ -380,12 +380,13 @@ opened on a directory, not a file."""
 def pread(space, fd, length, offset):
     """Read a string to a file descriptor at a given offset.
     """
-    try:
-        s = rposix.pread(fd, length, offset)
-    except OSError as e:
-        raise wrap_oserror(space, e, eintr_retry=True)
-    else:
-       return space.newbytes(s)
+    while True:
+        try:
+            s = rposix.pread(fd, length, offset)
+        except OSError as e:
+            raise wrap_oserror(space, e, eintr_retry=True)
+        else:
+           return space.newbytes(s)
 
 @unwrap_spec(fd=c_int, offset=int)
 def pwrite(space, fd, w_data, offset):
