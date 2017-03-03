@@ -1432,8 +1432,9 @@ class TestThread(object):
         from rpython.rlib import rthread, rposix
 
         class X:
-            def __init__(self, prev):
+            def __init__(self, prev, i):
                 self.prev = prev
+                self.i = i
 
         class State:
             pass
@@ -1443,7 +1444,13 @@ class TestThread(object):
             rthread.gc_thread_start()
             x = None
             for i in range(100000000):
-                x = X(x)
+                prev_x = x
+
+                x = X(x, i)
+
+                if prev_x is not None:
+                    assert prev_x.i == i - 1
+
                 if i % 5001 == 0:
                     x = None
 
@@ -1467,11 +1474,15 @@ class TestThread(object):
             for _ in range(TS):
                 new_thread()
 
+            i = 0
             while True:
+                x = X(None, i)
                 time.sleep(0.1)
+                assert x.i == i
                 #gc.collect()
                 if state.counter == 0:
                     break
+                i += 1
             os.write(1, "all threads done\n")
             return 0
 

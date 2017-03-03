@@ -13,7 +13,7 @@ struct pypy_debug_alloc_s {
   const char *funcname;
 };
 
-static struct pypy_debug_alloc_s *pypy_debug_alloc_list = NULL;
+static  struct pypy_debug_alloc_s *pypy_debug_alloc_list = NULL;
 
 static rpy_spinlock_t pypy_debug_alloc_lock = 0;
 
@@ -35,7 +35,7 @@ void pypy_debug_alloc_stop(void *addr)
 {
   struct pypy_debug_alloc_s **p;
   if (!addr)
-	return;
+    return;
   rpy_spinlock_acquire(&pypy_debug_alloc_lock);
   for (p = &pypy_debug_alloc_list; *p; p = &((*p)->next))
     if ((*p)->addr == addr)

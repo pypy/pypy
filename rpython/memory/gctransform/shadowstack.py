@@ -90,6 +90,7 @@ class NoGilShadowStackRootWalker(BaseRootWalker):
                     callback(gc, addr)
         self.rootstackhook = walk_stack_root
 
+        from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
         def walk_thread_stack(collect_stack_root, tl):
             # XXX: only visit if nursery_free was not NULL
             base = (tl + tl_shadowstack._offset).address[0]
@@ -100,6 +101,7 @@ class NoGilShadowStackRootWalker(BaseRootWalker):
                 # walk that new thread's shadowstack (XXX: compiler may reorder
                 # without barriers)
                 return
+            debug_print("walk_stack", base, top)
             self.rootstackhook(collect_stack_root, base, top)
         self._walk_thread_stack = walk_thread_stack
 
