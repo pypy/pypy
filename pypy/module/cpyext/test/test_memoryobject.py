@@ -10,15 +10,6 @@ from pypy.module.cpyext.memoryobject import PyMemoryViewObject
 only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names"
 
 class TestMemoryViewObject(BaseApiTest):
-    def test_fromobject(self, space, api):
-        w_hello = space.newbytes("hello")
-        assert api.PyObject_CheckBuffer(w_hello)
-        w_view = from_ref(space, api.PyMemoryView_FromObject(w_hello))
-        w_char = space.call_method(w_view, '__getitem__', space.wrap(0))
-        assert space.eq_w(w_char, space.wrap('h'))
-        w_bytes = space.call_method(w_view, "tobytes")
-        assert space.unwrap(w_bytes) == "hello"
-
     def test_frombuffer(self, space, api):
         w_buf = space.newbuffer(StringBuffer("hello"))
         c_memoryview = rffi.cast(
@@ -74,6 +65,19 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
         del result
 
 class AppTestBufferProtocol(AppTestCpythonExtensionBase):
+    def test_fromobject(self):
+        foo = self.import_extension('foo', [
+            ("make_view", "METH_O",
+             """
+             if (!PyObject_CheckBuffer(args))
+                return Py_None;
+             return PyMemoryView_FromObject(args);
+             """)])
+        hello = b'hello'
+        mview = foo.make_view(hello)
+        assert mview[0] == hello[0]
+        assert mview.tobytes() == hello
+
     def test_buffer_protocol_app(self):
         import struct
         module = self.import_module(name='buffer_test')

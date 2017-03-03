@@ -574,6 +574,7 @@ SYMBOLS_C = [
     'PyObject_CallMethod', 'PyObject_CallFunctionObjArgs', 'PyObject_CallMethodObjArgs',
     '_PyObject_CallFunction_SizeT', '_PyObject_CallMethod_SizeT',
 
+    'PyObject_GetBuffer', 'PyBuffer_Release',
     'PyBuffer_FromMemory', 'PyBuffer_FromReadWriteMemory', 'PyBuffer_FromObject',
     'PyBuffer_FromReadWriteObject', 'PyBuffer_New', 'PyBuffer_Type', '_Py_get_buffer_type',
 
