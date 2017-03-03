@@ -1,9 +1,11 @@
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import (
-    OperationError, oefmt, wrap_oserror, wrap_oserror2)
+    OperationError, oefmt, wrap_oserror, wrap_oserror2, exception_from_errno)
 from rpython.rlib.rarithmetic import r_longlong
+from rpython.rlib.rposix import get_saved_errno
 from rpython.rlib.rstring import StringBuilder
+from rpython.rtyper.lltypesystem import lltype, rffi
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC
 import sys, os, stat, errno
 from pypy.module._io.interp_iobase import W_RawIOBase, convert_size
@@ -111,6 +113,15 @@ def new_buffersize(fd, currentsize):
         else:
             return currentsize + BIGCHUNK
     return currentsize + SMALLCHUNK
+
+
+_WIN32 = sys.platform.startswith('win')
+UNDERSCORE_ON_WIN32 = '_' if _WIN32 else ''
+
+os_read = rffi.llexternal(UNDERSCORE_ON_WIN32 + 'read',
+                          [rffi.INT, rffi.CCHARP, rffi.SIZE_T],
+                          rffi.SSIZE_T, save_err=rffi.RFFI_SAVE_ERRNO)
+
 
 class W_FileIO(W_RawIOBase):
     def __init__(self, space):
@@ -368,15 +379,38 @@ class W_FileIO(W_RawIOBase):
         self._check_readable(space)
         rwbuffer = space.getarg_w('w*', w_buffer)
         length = rwbuffer.getlength()
-        try:
-            buf = os.read(self.fd, length)
-        except OSError as e:
-            if e.errno == errno.EAGAIN:
-                return space.w_None
-            raise wrap_oserror(space, e,
-                               exception_name='w_IOError')
-        rwbuffer.setslice(0, buf)
-        return space.newint(len(buf))
+
+        target_address = lltype.nullptr(rffi.CCHARP.TO)
+        if length > 64:
+            try:
+                target_address = rwbuffer.get_raw_address()
+            except ValueError:
+                pass
+
+        if not target_address:
+            # unoptimized case
+            try:
+                buf = os.read(self.fd, length)
+            except OSError as e:
+                if e.errno == errno.EAGAIN:
+                    return space.w_None
+                raise wrap_oserror(space, e,
+                                   exception_name='w_IOError')
+            rwbuffer.setslice(0, buf)
+            return space.newint(len(buf))
+        else:
+            # optimized case: reading more than 64 bytes into a rwbuffer
+            # with a valid raw address
+            got = os_read(self.fd, target_address, length)
+            got = rffi.cast(lltype.Signed, got)
+            if got >= 0:
+                return space.newint(got)
+            else:
+                err = get_saved_errno()
+                if err == errno.EAGAIN:
+                    return space.w_None
+                raise exception_from_errno(space, space.w_IOError, err)
+            keepalive_until_here(rwbuffer)
 
     def readall_w(self, space):
         self._check_closed(space)

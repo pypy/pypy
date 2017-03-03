@@ -4,7 +4,8 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from rpython.rlib.rgc import nonmoving_raw_ptr_for_resizable_list
+from rpython.rlib.rgc import (
+    nonmoving_raw_ptr_for_resizable_list, resizable_list_supporting_raw_ptr)
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import r_longlong, intmask
@@ -162,7 +163,8 @@ class BufferedMixin:
             raise oefmt(space.w_ValueError,
                         "buffer size must be strictly positive")
 
-        self.buffer = ['\0'] * self.buffer_size
+        self.buffer = resizable_list_supporting_raw_ptr(['\0'] *
+                                                        self.buffer_size)
 
         self.lock = TryLock(space)
 
@@ -561,7 +563,7 @@ class BufferedMixin:
         if n <= current_size:
             return self._read_fast(n)
 
-        result_buffer = ['\0'] * n
+        result_buffer = resizable_list_supporting_raw_ptr(['\0'] * n)
         remaining = n
         written = 0
         if current_size:
