@@ -2,6 +2,7 @@ from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetPropert
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import (
     OperationError, oefmt, wrap_oserror, wrap_oserror2, exception_from_errno)
+from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.rposix import get_saved_errno
 from rpython.rlib.rstring import StringBuilder
