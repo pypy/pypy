@@ -5,12 +5,12 @@ import os
 class AppTestFileIO:
     spaceconfig = dict(usemodules=['_io'] + (['fcntl'] if os.name != 'nt' else []))
 
-    def setup_class(cls):
+    def setup_method(self, meth):
         tmpfile = udir.join('tmpfile')
         tmpfile.write("a\nb\nc", mode='wb')
-        cls.w_tmpfile = cls.space.wrap(str(tmpfile))
-        cls.w_tmpdir = cls.space.wrap(str(udir))
-        cls.w_posix = cls.space.appexec([], """():
+        self.w_tmpfile = self.space.wrap(str(tmpfile))
+        self.w_tmpdir = self.space.wrap(str(udir))
+        self.w_posix = self.space.appexec([], """():
             import %s as m;
             return m""" % os.name)
 
@@ -135,7 +135,7 @@ class AppTestFileIO:
         import _io
         a = bytearray('x' * 10)
         f = _io.FileIO(self.tmpfile, 'r+')
-        assert f.readinto(a) == 10
+        assert f.readinto(a) == 5
         exc = raises(TypeError, f.readinto, u"hello")
         assert str(exc.value) == "cannot use unicode as modifiable buffer"
         exc = raises(TypeError, f.readinto, buffer(b"hello"))
@@ -145,7 +145,7 @@ class AppTestFileIO:
         exc = raises(TypeError, f.readinto, memoryview(b"hello"))
         assert str(exc.value) == "must be read-write buffer, not memoryview"
         f.close()
-        assert a == 'a\nb\nc\0\0\0\0\0'
+        assert a == 'a\nb\ncxxxxx'
         #
         a = bytearray('x' * 10)
         f = _io.FileIO(self.tmpfile, 'r+')
