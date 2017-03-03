@@ -1532,7 +1532,7 @@ app_ptp = applevel(r"""
         return res
 """, filename=__file__).interphook('ptp')
 
-W_NDimArray.typedef = TypeDef("numpy.ndarray",
+W_NDimArray.typedef = TypeDef("numpy.ndarray", None, None, 'read-write',
     __new__ = interp2app(descr_new_array),
 
     __len__ = interp2app(W_NDimArray.descr_len),
