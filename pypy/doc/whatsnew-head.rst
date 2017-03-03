@@ -176,3 +176,9 @@ Fix for ``ctypes.c_bool``-returning ctypes functions
 .. branch: py3.5-text-utf8
 
 space.text_w now encodes to utf-8 not preserving surrogates.
+
+.. branch: fix-cpyext-releasebuffer
+
+Improve handling of the Py3-style buffer slots in cpyext: fix memoryviews
+keeping objects alive forever (missing decref), and make sure that
+bf_releasebuffer is called when it should, e.g. from PyBuffer_Release.

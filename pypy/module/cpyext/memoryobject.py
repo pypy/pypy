@@ -1,9 +1,11 @@
+from rpython.rlib.objectmodel import keepalive_until_here
+from pypy.interpreter.error import oefmt
 from pypy.module.cpyext.api import (
     cpython_api, Py_buffer, CANNOT_FAIL, Py_MAX_FMT, Py_MAX_NDIMS,
     build_type_checkers, Py_ssize_tP, PyObjectFields, cpython_struct,
-    bootstrap_function, Py_bufferP, generic_cpy_call, slot_function)
+    bootstrap_function, Py_bufferP, slot_function, generic_cpy_call)
 from pypy.module.cpyext.pyobject import (
-    PyObject, make_ref, as_pyobj, incref, decref, from_ref, make_typedescr,
+    PyObject, make_ref, as_pyobj, decref, from_ref, make_typedescr,
     get_typedescr, track_reference)
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import widen
@@ -93,30 +95,6 @@ def memory_dealloc(space, py_obj):
         decref(space, mem_obj.c_view.c_obj)
     mem_obj.c_view.c_obj = rffi.cast(PyObject, 0)
     _dealloc(space, py_obj)
-
-@cpython_api([PyObject, Py_bufferP, rffi.INT_real],
-             rffi.INT_real, error=-1)
-def PyObject_GetBuffer(space, exporter, view, flags):
-    """Send a request to exporter to fill in view as specified by flags. If the
-    exporter cannot provide a buffer of the exact type, it MUST raise
-    PyExc_BufferError, set view->obj to NULL and return -1.
-
-    On success, fill in view, set view->obj to a new reference to exporter and
-    return 0. In the case of chained buffer providers that redirect requests
-    to a single object, view->obj MAY refer to this object instead of exporter.
-
-    Successful calls to PyObject_GetBuffer() must be paired with calls to
-    PyBuffer_Release(), similar to malloc() and free(). Thus, after the
-    consumer is done with the buffer, PyBuffer_Release() must be called exactly
-    once.
-    """
-    # XXX compare this implementation with PyPy2's XXX
-    pb = exporter.c_ob_type.c_tp_as_buffer
-    if not pb or not pb.c_bf_getbuffer:
-        w_exporter = from_ref(space, exporter)
-        raise oefmt(space.w_TypeError,
-            "a bytes-like object is required, not '%T'", w_exporter)
-    return generic_cpy_call(space, pb.c_bf_getbuffer, exporter, view, flags)
 
 def fill_Py_buffer(space, buf, view):
     # c_buf, c_obj have been filled in

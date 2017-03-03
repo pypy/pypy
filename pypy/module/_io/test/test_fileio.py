@@ -6,12 +6,12 @@ import os
 class AppTestFileIO:
     spaceconfig = dict(usemodules=['_io'] + (['fcntl'] if os.name != 'nt' else []))
 
-    def setup_class(cls):
+    def setup_method(self, meth):
         tmpfile = udir.join('tmpfile')
         tmpfile.write("a\nb\nc", mode='wb')
-        cls.w_tmpfile = cls.space.wrap(str(tmpfile))
-        cls.w_tmpdir = cls.space.wrap(str(udir))
-        cls.w_posix = cls.space.appexec([], """():
+        self.w_tmpfile = self.space.wrap(str(tmpfile))
+        self.w_tmpdir = self.space.wrap(str(udir))
+        self.w_posix = self.space.appexec([], """():
             import %s as m;
             return m""" % os.name)
 
@@ -154,7 +154,7 @@ class AppTestFileIO:
         f.seek(5)
         f.write(b'\x00' * 5)
         f.seek(0)
-        assert f.readinto(a) == 10
+        assert f.readinto(a) == 5
         f.seek(0)
         m = memoryview(bytearray(b"helloworld"))
         assert f.readinto(m) == 10
@@ -170,7 +170,7 @@ class AppTestFileIO:
         assert " read-write b" in msg and msg.endswith(", not memoryview")
         #
         f.close()
-        assert a == b'a\nb\nc\0\0\0\0\0'
+        assert a == b'a\nb\ncxxxxx'
         #
         a = bytearray(b'x' * 10)
         f = _io.FileIO(self.tmpfile, 'r+')
