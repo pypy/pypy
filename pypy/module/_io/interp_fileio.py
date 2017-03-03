@@ -2,6 +2,7 @@ from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetPropert
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import (
     OperationError, oefmt, wrap_oserror, wrap_oserror2, exception_from_errno)
+from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.rposix import get_saved_errno
 from rpython.rlib.rstring import StringBuilder
@@ -485,6 +486,7 @@ class W_FileIO(W_RawIOBase):
             # with a valid raw address
             # XXX TODO(mjacob): implement PEP 475 here!
             got = os_read(self.fd, target_address, length)
+            keepalive_until_here(rwbuffer)
             got = rffi.cast(lltype.Signed, got)
             if got >= 0:
                 return space.newint(got)
@@ -493,7 +495,6 @@ class W_FileIO(W_RawIOBase):
                 if err == errno.EAGAIN:
                     return space.w_None
                 raise exception_from_errno(space, space.w_IOError, err)
-            keepalive_until_here(rwbuffer)
 
     def readall_w(self, space):
         self._check_closed(space)
