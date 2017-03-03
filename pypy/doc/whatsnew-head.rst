@@ -163,3 +163,9 @@ by decoding the RPython string, assumed to be utf-8.
 .. branch: fix_bool_restype
 
 Fix for ``ctypes.c_bool``-returning ctypes functions
+
+.. branch: fix-cpyext-releasebuffer
+
+Improve handling of the Py3-style buffer slots in cpyext: fix memoryviews
+keeping objects alive forever (missing decref), and make sure that
+bf_releasebuffer is called when it should, e.g. from PyBuffer_Release.
