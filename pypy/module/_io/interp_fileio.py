@@ -402,6 +402,7 @@ class W_FileIO(W_RawIOBase):
             # optimized case: reading more than 64 bytes into a rwbuffer
             # with a valid raw address
             got = os_read(self.fd, target_address, length)
+            keepalive_until_here(rwbuffer)
             got = rffi.cast(lltype.Signed, got)
             if got >= 0:
                 return space.newint(got)
@@ -410,7 +411,6 @@ class W_FileIO(W_RawIOBase):
                 if err == errno.EAGAIN:
                     return space.w_None
                 raise exception_from_errno(space, space.w_IOError, err)
-            keepalive_until_here(rwbuffer)
 
     def readall_w(self, space):
         self._check_closed(space)
