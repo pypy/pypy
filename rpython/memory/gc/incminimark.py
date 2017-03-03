@@ -279,8 +279,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # allocated nursery size is 2 times "tl_block_size".
         # "cache_line_min" is used to round the actual thread-local
         # blocks to a cache line, to avoid pointless cache conflicts.
-        "tl_block_size": 65536,
-        "cache_line_min": 256,
+        "tl_block_size": 131072,
+        "cache_line_min": 256,  # why not 64b?
         }
 
     def __init__(self, config,
@@ -900,6 +900,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.set_nursery_free(self.nursery_barriers.popleft())
                 self.set_nursery_top(self.nursery_barriers.popleft())
             else:
+                # XXX: if we have more threads than nursery_size/block_size,
+                # the thread(s) not getting any blocks will immediately request
+                # a minor collection, even if the blocks of other threads are
+                # still mostly empty.
+
                 rgil.master_request_safepoint()
                 # we are the only thread here; all others are in gc-safepoints
 

@@ -1442,8 +1442,10 @@ class TestThread(object):
         def bootstrap():
             rthread.gc_thread_start()
             x = None
-            for i in range(100000):
+            for i in range(10000000):
                 x = X(x)
+                if i % 10001 == 0:
+                    x = None
 
             state.lock.acquire(True)
             os.write(1, "counter=%d\n" % state.counter)
@@ -1458,7 +1460,7 @@ class TestThread(object):
         def entry_point(argv):
             os.write(1, "hello world\n")
             # start 5 new threads
-            TS = 100
+            TS = int(argv[1])
             state.lock = rthread.allocate_lock()
             state.counter = TS
 
@@ -1467,7 +1469,7 @@ class TestThread(object):
 
             while True:
                 time.sleep(0.1)
-                gc.collect()
+                #gc.collect()
                 if state.counter == 0:
                     break
             os.write(1, "all threads done\n")
@@ -1475,7 +1477,7 @@ class TestThread(object):
 
         def runme(no__thread):
             t, cbuilder = self.compile(entry_point, no__thread=no__thread)
-            data = cbuilder.cmdexec('')
+            data = cbuilder.cmdexec('5')
             assert data.splitlines() == ['hello world',
                                          '1 ok',
                                          '2 ok',
