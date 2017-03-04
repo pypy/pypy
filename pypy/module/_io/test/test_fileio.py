@@ -15,11 +15,10 @@ class AppTestFileIO:
         self.w_posix = self.space.appexec([], """():
             import %s as m;
             return m""" % os.name)
-        def create_bigfile_w():
+        if meth == self.test_readinto_optimized:
             bigfile = udir.join('bigfile')
             bigfile.write('a' * 1000, mode='wb')
-            return self.space.wrap(str(bigfile))
-        self.w_create_bigfile = self.space.wrap(interp2app(create_bigfile_w))
+            self.w_bigfile = self.space.wrap(self.space.wrap(str(bigfile)))
 
     def test_constructor(self):
         import _io
@@ -185,7 +184,7 @@ class AppTestFileIO:
     def test_readinto_optimized(self):
         import _io
         a = bytearray(b'x' * 1024)
-        f = _io.FileIO(self.create_bigfile(), 'r+')
+        f = _io.FileIO(self.bigfile, 'r+')
         assert f.readinto(a) == 1000
         assert a == b'a' * 1000 + b'x' * 24
 
