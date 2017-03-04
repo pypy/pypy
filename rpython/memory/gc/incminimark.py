@@ -930,15 +930,17 @@ class IncrementalMiniMarkGC(MovingGCBase):
                               "Calling minor_collection() twice is not "
                               "enough. Too many pinned objects?")
                     self._minor_collection()
+                continue
             #
             # Tried to do something about nursery_free overflowing
             # nursery_top before this point. Try to reserve totalsize now.
             # If this succeeds break out of loop.
+            rgil.leave_master_section()
             result = self.get_nursery_free()
             if result + totalsize <= self.get_nursery_top():
                 self.set_nursery_free(result + totalsize)
                 break
-            #
+            rgil.enter_master_section()
         #
         if self.debug_tiny_nursery >= 0:   # for debugging
             if (self.get_nursery_top() - self.get_nursery_free() >
@@ -946,7 +948,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.set_nursery_free(self.get_nursery_top() -
                                       self.debug_tiny_nursery)
         #
-        rgil.leave_master_section()
         # rthread.release_NOAUTO(self.wb_slowpath_lock)
         return result
     collect_and_reserve._dont_inline_ = True
