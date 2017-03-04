@@ -418,23 +418,30 @@ class W_UnicodeObject(W_Root):
 
     def descr_islower(self, space):
         cased = False
-        val = self._val(space)
-        for uchar in val:
-            if (unicodedb.isupper(ord(uchar)) or
-                unicodedb.istitle(ord(uchar))):
+        val = self._utf8
+        i = 0
+        while i < len(val):
+            uchar = rutf8.codepoint_at_pos(val, i)
+            if (unicodedb.isupper(uchar) or
+                unicodedb.istitle(uchar)):
                 return space.w_False
-            if not cased and unicodedb.islower(ord(uchar)):
+            if not cased and unicodedb.islower(uchar):
                 cased = True
+            i = rutf8.next_codepoint_pos(val, i)
         return space.newbool(cased)
 
     def descr_isupper(self, space):
         cased = False
-        for uchar in self._val(space):
-            if (unicodedb.islower(ord(uchar)) or
-                unicodedb.istitle(ord(uchar))):
+        i = 0
+        val = self._utf8
+        while i < len(val):
+            uchar = rutf8.codepoint_at_pos(val, i)
+            if (unicodedb.islower(uchar) or
+                unicodedb.istitle(uchar)):
                 return space.w_False
-            if not cased and unicodedb.isupper(ord(uchar)):
+            if not cased and unicodedb.isupper(uchar):
                 cased = True
+            i = rutf8.next_codepoint_pos(val, i)
         return space.newbool(cased)
 
     def _starts_ends_overflow(self, prefix):
@@ -538,7 +545,7 @@ class W_UnicodeObject(W_Root):
         by = self.convert_arg_to_w_unicode(space, w_sep)._utf8
         if len(by) == 0:
             raise oefmt(space.w_ValueError, "empty separator")
-        res = split(value, by, maxsplit)
+        res = split(value, by, maxsplit, isutf8=1)
 
         return space.newlist_from_unicode(res)
 
@@ -547,13 +554,13 @@ class W_UnicodeObject(W_Root):
         res = []
         value = self._utf8
         if space.is_none(w_sep):
-            res = rsplit(value, maxsplit=maxsplit)
+            res = rsplit(value, maxsplit=maxsplit, isutf8=1)
             return space.newlist_from_unicode(res)
 
         by = self.convert_arg_to_w_unicode(space, w_sep)._utf8
         if len(by) == 0:
             raise oefmt(space.w_ValueError, "empty separator")
-        res = rsplit(value, by, maxsplit)
+        res = rsplit(value, by, maxsplit, isutf8=1)
 
         return space.newlist_from_unicode(res)
 
