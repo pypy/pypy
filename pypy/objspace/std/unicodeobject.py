@@ -2,7 +2,7 @@
 
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin,
-    enforceargs, newlist_hint, specialize)
+    enforceargs, newlist_hint, specialize, we_are_translated)
 from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.rstring import StringBuilder, split, rsplit, UnicodeBuilder,\
      replace
@@ -38,6 +38,8 @@ class W_UnicodeObject(W_Root):
         self._utf8 = utf8str
         self._length = length
         self._ucs4 = ucs4str
+        if not we_are_translated() and length != -1:
+            assert rutf8.compute_length_utf8(utf8str) == length
 
     def __repr__(self):
         """representation for debugging purposes"""
@@ -628,6 +630,43 @@ class W_UnicodeObject(W_Root):
             return W_UnicodeObject(self._ucs4[index].encode('utf-8'), 1)
         except IndexError:
             raise oefmt(space.w_IndexError, "string index out of range")
+
+    @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
+    def descr_rjust(self, space, width, w_fillchar):
+        value = self._utf8
+        lgt = self._len()
+        w_fillchar = self.convert_arg_to_w_unicode(space, w_fillchar)
+        if w_fillchar._len() != 1:
+            raise oefmt(space.w_TypeError,
+                        "rjust() argument 2 must be a single character")
+        d = width - lgt
+        if d > 0:
+            if len(w_fillchar._utf8) == 1:
+                # speedup
+                value = d * w_fillchar._utf8[0] + value
+            else:
+                value = d * w_fillchar._utf8 + value
+            return W_UnicodeObject(value, width)
+
+        return W_UnicodeObject(value, lgt)
+
+    @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
+    def descr_ljust(self, space, width, w_fillchar):
+        value = self._utf8
+        w_fillchar = self.convert_arg_to_w_unicode(space, w_fillchar)
+        if w_fillchar._len() != 1:
+            raise oefmt(space.w_TypeError,
+                        "ljust() argument 2 must be a single character")
+        d = width - self._len()
+        if d > 0:
+            if len(w_fillchar._utf8) == 1:
+                # speedup
+                value = value + d * w_fillchar._utf8[0]
+            else:
+                value = value + d * w_fillchar._utf8
+            return W_UnicodeObject(value, width)
+
+        return W_UnicodeObject(value, self._len())
 
     def descr_getnewargs(self, space):
         return space.newtuple([W_UnicodeObject(self._utf8, self._length)])
