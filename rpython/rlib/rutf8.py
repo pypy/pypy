@@ -77,10 +77,11 @@ def next_codepoint_pos(code, pos):
 def prev_codepoint_pos(code, pos):
     """ Gives the position of the previous codepoint
     """
+    pos -= 1
     chr1 = ord(code[pos])
     if chr1 < 0x80:
-        return pos - 1
-    while ord(code[pos]) & 0xC0 == 0xC0:
+        return pos
+    while ord(code[pos]) & 0xC0 == 0x80:
         pos -= 1
     return pos
 

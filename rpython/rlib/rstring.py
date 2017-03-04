@@ -35,6 +35,8 @@ def _incr(s, pos, isutf8):
     from rpython.rlib.rutf8 import next_codepoint_pos
 
     if isutf8:
+        if pos == -1:
+            return 0
         return next_codepoint_pos(s, pos)
     else:
         return pos + 1
@@ -44,6 +46,8 @@ def _decr(s, pos, isutf8):
     from rpython.rlib.rutf8 import prev_codepoint_pos
 
     if isutf8:
+        if pos == 0:
+            return -1
         return prev_codepoint_pos(s, pos)
     else:
         return pos - 1
@@ -139,7 +143,7 @@ def rsplit(value, by=None, maxsplit=-1, isutf8=0):
         while True:
             # starting from the end, find the end of the next word
             while i >= 0:
-                if not _isspace(value, i):
+                if not _isspace(value, i, isutf8):
                     break   # found
                 i = _decr(value, i, isutf8)
             else:
@@ -151,17 +155,17 @@ def rsplit(value, by=None, maxsplit=-1, isutf8=0):
                 j = -1   # take all the rest of the string
             else:
                 j = _decr(value, i, isutf8)
-                while j >= 0 and not _isspace(value, j):
+                while j >= 0 and not _isspace(value, j, isutf8):
                     j = _decr(value, j, isutf8)
                 maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
             # the word is value[j+1:i+1]
-            if j < 0:
-                j1 = 0
-            else:
-                j1 = _incr(value, j, isutf8)
+            j1 = _incr(value, j, isutf8)
             assert j1 >= 0
-            res.append(value[j1:i+1])
+            i1 = _incr(value, i, isutf8)
+            res.append(value[j1:i1])
+            if j < 0:
+                break
 
             # continue to look from the character before the space before the word
             i = _decr(value, j, isutf8)
