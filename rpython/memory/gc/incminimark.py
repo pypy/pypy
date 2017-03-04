@@ -1607,6 +1607,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def writebarrier_before_copy(self, source_addr, dest_addr,
                                  source_start, dest_start, length):
+        rthread.acquire_NOAUTO(self.wb_slowpath_lock, True)
+        res = self._writebarrier_before_copy(source_addr, dest_addr, source_start, dest_start, length)
+        rthread.release_NOAUTO(self.wb_slowpath_lock)
+        return res
+
+    def _writebarrier_before_copy(self, source_addr, dest_addr,
+                                 source_start, dest_start, length):
         """ This has the same effect as calling writebarrier over
         each element in dest copied from source, except it might reset
         one of the following flags a bit too eagerly, which means we'll have
