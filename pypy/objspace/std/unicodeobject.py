@@ -125,8 +125,6 @@ class W_UnicodeObject(W_Root):
         return rutf8.compute_length_utf8(self._utf8)
 
     def _val(self, space):
-        import pdb
-        pdb.set_trace()
         return self._utf8.decode('utf8')
 
     @staticmethod
