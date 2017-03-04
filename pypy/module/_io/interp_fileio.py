@@ -4,7 +4,7 @@ from pypy.interpreter.error import (
     OperationError, oefmt, wrap_oserror, wrap_oserror2)
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import r_longlong
-from rpython.rlib.rposix import get_saved_errno
+from rpython.rlib.rposix import c_read, get_saved_errno
 from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import lltype, rffi
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC
@@ -114,14 +114,6 @@ def new_buffersize(fd, currentsize):
         else:
             return currentsize + BIGCHUNK
     return currentsize + SMALLCHUNK
-
-
-_WIN32 = sys.platform.startswith('win')
-UNDERSCORE_ON_WIN32 = '_' if _WIN32 else ''
-
-os_read = rffi.llexternal(UNDERSCORE_ON_WIN32 + 'read',
-                          [rffi.INT, rffi.CCHARP, rffi.SIZE_T],
-                          rffi.SSIZE_T, save_err=rffi.RFFI_SAVE_ERRNO)
 
 
 class W_FileIO(W_RawIOBase):
@@ -402,7 +394,7 @@ class W_FileIO(W_RawIOBase):
         else:
             # optimized case: reading more than 64 bytes into a rwbuffer
             # with a valid raw address
-            got = os_read(self.fd, target_address, length)
+            got = c_read(self.fd, target_address, length)
             keepalive_until_here(rwbuffer)
             got = rffi.cast(lltype.Signed, got)
             if got >= 0:
