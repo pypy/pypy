@@ -4,6 +4,7 @@ from rpython.translator import cdir
 import py, sys
 from rpython.rlib import jit, rgc
 from rpython.rlib.debug import ll_assert
+from rpython.rlib.objectmodel import enforceargs
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.objectmodel import CDefinedIntSymbolic, not_rpython
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -253,6 +254,7 @@ def free_ll_lock(ll_lock):
     c_thread_lock_dealloc_NOAUTO(ll_lock)
     lltype.free(ll_lock, flavor='raw', track_allocation=False)
 
+@enforceargs(None, bool)
 def acquire_NOAUTO(ll_lock, flag):
     flag = rffi.cast(rffi.INT, int(flag))
     res = c_thread_acquirelock_NOAUTO(ll_lock, flag)

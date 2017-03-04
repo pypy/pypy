@@ -438,11 +438,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.old_objects_pointing_to_pinned = self.AddressStack()
         self.updated_old_objects_pointing_to_pinned = False
         #
-        # # Allocate lock(s)
-        # ll_lock = lltype.malloc(rthread.TLOCKP.TO, flavor='raw',
-        #                         track_allocation=False)
-        # rthread.c_thread_lock_init(ll_lock)
-        # self.ll_lock = ll_lock
+        # Allocate lock(s)
+        wb_slowpath_lock = lltype.malloc(rthread.TLOCKP.TO, flavor='raw',
+                                         track_allocation=False)
+        rthread.c_thread_lock_init(wb_slowpath_lock)
+        self.wb_slowpath_lock = wb_slowpath_lock
         #
         # Allocate a nursery.  In case of auto_nursery_size, start by
         # allocating a very small nursery, enough to do things like look
@@ -860,7 +860,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         major collection, and finally reserve totalsize bytes.
         """
 
-        # rthread.acquire_NOAUTO(self.ll_lock, 1)
+        # rthread.acquire_NOAUTO(self.wb_slowpath_lock, 1)
         rgil.enter_master_section()
 
         minor_collection_count = 0
@@ -947,7 +947,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                                       self.debug_tiny_nursery)
         #
         rgil.leave_master_section()
-        # rthread.release_NOAUTO(self.ll_lock)
+        # rthread.release_NOAUTO(self.wb_slowpath_lock)
         return result
     collect_and_reserve._dont_inline_ = True
 
@@ -1476,6 +1476,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # make the code in write_barrier() marginally smaller
         # (which is important because it is inlined *everywhere*).
         def remember_young_pointer(addr_struct):
+            rthread.acquire_NOAUTO(self.wb_slowpath_lock, True)
+            if not llop.gc_bit(lltype.Signed, self.header(addr_struct),
+                               GCFLAG_TRACK_YOUNG_PTRS):
+                rthread.release_NOAUTO(self.wb_slowpath_lock)
+                return
+            #
             # 'addr_struct' is the address of the object in which we write.
             # We know that 'addr_struct' has GCFLAG_TRACK_YOUNG_PTRS so far.
             #
@@ -1507,6 +1513,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if objhdr.tid & GCFLAG_NO_HEAP_PTRS:
                 objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
                 self.prebuilt_root_objects.append(addr_struct)
+            #
+            rthread.release_NOAUTO(self.wb_slowpath_lock)
 
         remember_young_pointer._dont_inline_ = True
         self.remember_young_pointer = remember_young_pointer
@@ -1518,6 +1526,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _init_writebarrier_with_card_marker(self):
         DEBUG = self.DEBUG
         def remember_young_pointer_from_array2(addr_array, index):
+            rthread.acquire_NOAUTO(self.wb_slowpath_lock, True)
+            if not llop.gc_bit(lltype.Signed, self.header(addr_array),
+                               GCFLAG_TRACK_YOUNG_PTRS):
+                rthread.release_NOAUTO(self.wb_slowpath_lock)
+                return
+            #
             # 'addr_array' is the address of the object in which we write,
             # which must have an array part;  'index' is the index of the
             # item that is (or contains) the pointer that we write.
@@ -1536,6 +1550,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 if objhdr.tid & GCFLAG_NO_HEAP_PTRS:
                     objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
                     self.prebuilt_root_objects.append(addr_array)
+                rthread.release_NOAUTO(self.wb_slowpath_lock)
                 return
             #
             # 'addr_array' is a raw_malloc'ed array with card markers
@@ -1548,6 +1563,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             addr_byte = self.get_card(addr_array, byteindex)
             byte = ord(addr_byte.char[0])
             if byte & bitmask:
+                rthread.release_NOAUTO(self.wb_slowpath_lock)
                 return
             #
             # We set the flag (even if the newly written address does not
@@ -1559,6 +1575,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if objhdr.tid & GCFLAG_CARDS_SET == 0:
                 self.old_objects_with_cards_set.append(addr_array)
                 objhdr.tid |= GCFLAG_CARDS_SET
+            rthread.release_NOAUTO(self.wb_slowpath_lock)
 
         remember_young_pointer_from_array2._dont_inline_ = True
         ll_assert(self.card_page_indices > 0,
