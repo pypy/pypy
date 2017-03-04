@@ -235,6 +235,18 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
              """)])
         assert module.test_macro_invocations() == u''
 
+    def test_AsUTF8AndSize(self):
+        module = self.import_extension('foo', [
+             ("utf8", "METH_O",
+             """
+                Py_ssize_t size;
+                char *utf8 = PyUnicode_AsUTF8AndSize(args, &size);
+                return PyBytes_FromStringAndSize(utf8, size);
+             """)])
+        assert module.utf8('xyz') == b'xyz'
+        assert module.utf8('café') == 'café'.encode('utf-8')
+
+
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space):
         encoding = rffi.charp2str(PyUnicode_GetDefaultEncoding(space, ))
