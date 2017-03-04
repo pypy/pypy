@@ -1,7 +1,7 @@
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import (
-    OperationError, oefmt, wrap_oserror, wrap_oserror2, exception_from_errno)
+    OperationError, oefmt, wrap_oserror, wrap_oserror2)
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.rposix import get_saved_errno
@@ -411,7 +411,8 @@ class W_FileIO(W_RawIOBase):
                 err = get_saved_errno()
                 if err == errno.EAGAIN:
                     return space.w_None
-                raise exception_from_errno(space, space.w_IOError, err)
+                e = OSError(err, "read failed")
+                raise wrap_oserror(space, e, exception_name='w_IOError')
 
     def readall_w(self, space):
         self._check_closed(space)
