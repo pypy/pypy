@@ -68,7 +68,7 @@ def next_codepoint_pos(code, pos):
     chr1 = ord(code[pos])
     if chr1 < 0x80:
         return pos + 1
-    if 0xC2 >= chr1 <= 0xDF:
+    if 0xC2 <= chr1 <= 0xDF:
         return pos + 2
     if chr1 >= 0xE0 and chr1 <= 0xEF:
         return pos + 3
@@ -165,7 +165,7 @@ def str_decode_ascii(s, size, errors, errorhandler):
         pos += 1
     return result.build(), pos, -1
 
-def check_newline_utf8(s, pos):
+def islinebreak(s, pos):
     chr1 = ord(s[pos])
     if 0xa <= chr1 <= 0xd:
         return True
@@ -180,6 +180,41 @@ def check_newline_utf8(s, pos):
             return False
         chr3 = ord(s[pos + 2])
         return chr3 == 0xa8 or chr3 == 0xa9
+    return False
+
+def isspace(s, pos):
+    chr1 = ord(s[pos])
+    if (chr1 == ord(' ') or chr1 == ord('\n') or chr1 == ord('\t') or
+        chr1 == ord('\r')):
+        return True # common
+    if chr1 == 0x0b or chr1 == 0x0c or (chr1 >= 0x1c and chr1 <= 0x1f):
+        return True # less common
+    if chr1 < 0x80:
+        return False
+    # obscure cases
+    chr2 = ord(s[pos + 1])
+    if chr1 == 0xc2:
+        return chr2 == 0x85 or chr2 == 0xa0
+    if chr1 == 0xe2:
+        if chr2 == 0x81 and s[pos + 2] == '\x9f':
+            return True
+        if chr2 != 0x80:
+            return False
+        chr3 = ord(s[pos + 2])
+        if chr3 >= 0x80 and chr3 <= 0x8a:
+            return True
+        if chr3 == 0xa9 or chr3 == 0xa8 or chr3 == 0xaf:
+            return True
+        return False
+    if chr1 == 0xe1:
+        chr3 = ord(s[pos + 2])
+        if chr2 == 0x9a and chr3 == 0x80:
+            return True
+        if chr2 == 0xa0 and chr3 == 0x8e:
+            return True
+        return False
+    if chr1 == 0xe3 and chr2 == 0x80 and s[pos + 2] == '\x80':
+        return True
     return False
 
 class Utf8CheckError(Exception):

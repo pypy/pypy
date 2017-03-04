@@ -60,6 +60,13 @@ def test_next_pos(uni):
 def test_check_newline_utf8():
     for i in xrange(sys.maxunicode):
         if runicode.unicodedb.islinebreak(i):
-            assert rutf8.check_newline_utf8(unichr(i).encode('utf8'), 0)
+            assert rutf8.islinebreak(unichr(i).encode('utf8'), 0)
         else:
-            assert not rutf8.check_newline_utf8(unichr(i).encode('utf8'), 0)
+            assert not rutf8.islinebreak(unichr(i).encode('utf8'), 0)
+
+def test_isspace_utf8():
+    for i in xrange(sys.maxunicode):
+        if runicode.unicodedb.isspace(i):
+            assert rutf8.isspace(unichr(i).encode('utf8'), 0)
+        else:
+            assert not rutf8.isspace(unichr(i).encode('utf8'), 0)

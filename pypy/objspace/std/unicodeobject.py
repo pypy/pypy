@@ -194,7 +194,7 @@ class W_UnicodeObject(W_Root):
         return unicodedb.iscased(ord(ch))
 
     def _islinebreak(self, s, pos):
-        return rutf8.check_newline_utf8(s, pos)
+        return rutf8.islinebreak(s, pos)
 
     def _upper(self, ch):
         return unichr(unicodedb.toupper(ord(ch)))
@@ -667,6 +667,25 @@ class W_UnicodeObject(W_Root):
             return W_UnicodeObject(value, width)
 
         return W_UnicodeObject(value, self._len())
+
+    def _strip_none(self, space, left, right):
+        "internal function called by str_xstrip methods"
+        value = self._utf8
+
+        lpos = 0
+        rpos = self._len()
+
+        if left:
+            while lpos < rpos and self._isspace(value[lpos]):
+                lpos += 1
+
+        if right:
+            while rpos > lpos and self._isspace(value[rpos - 1]):
+                rpos -= 1
+
+        assert rpos >= lpos    # annotator hint, don't remove
+        return self._sliced(space, value, lpos, rpos, self)
+
 
     def descr_getnewargs(self, space):
         return space.newtuple([W_UnicodeObject(self._utf8, self._length)])
