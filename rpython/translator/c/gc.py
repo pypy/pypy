@@ -450,7 +450,7 @@ class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
         #
         yield ('typedef struct { void %s; } pypy_ss_t;'
                    % ', '.join(['*s%d' % i for i in range(numcolors)]))
-        yield 'pypy_ss_t *ss = (pypy_ss_t *)%s;' % gcpol_ss
+        yield 'pypy_ss_t *ss;'
         funcgen.gcpol_ss = gcpol_ss
 
     def OP_GC_PUSH_ROOTS(self, funcgen, op):
@@ -460,7 +460,8 @@ class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
         raise Exception("gc_pop_roots should be removed by postprocess_graph")
 
     def OP_GC_ENTER_ROOTS_FRAME(self, funcgen, op):
-        return '%s = (void *)(ss+1);' % funcgen.gcpol_ss
+        return 'ss = (pypy_ss_t *)%s; %s = (void *)(ss+1);' % (
+            funcgen.gcpol_ss, funcgen.gcpol_ss)
 
     def OP_GC_LEAVE_ROOTS_FRAME(self, funcgen, op):
         return '%s = (void *)ss;' % funcgen.gcpol_ss

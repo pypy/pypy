@@ -3,6 +3,7 @@ from rpython.rtyper.llannotation import SomePtr
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib import rgc
+from rpython.rlib.objectmodel import specialize
 from rpython.rtyper import rmodel
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import lltype, llmemory
@@ -57,6 +58,38 @@ class ShadowStackRootWalker(BaseRootWalker):
             return top
         self.decr_stack = decr_stack
 
+        @specialize.call_location()
+        def walk_stack_root(invoke, arg0, arg1, start, addr, is_minor):
+            skip = 0
+            while addr != start:
+                addr -= sizeofaddr
+                #XXX reintroduce support for tagged values?
+                #if gc.points_to_valid_gc_object(addr):
+                #    callback(gc, addr)
+
+                if skip & 1 == 0:
+                    content = addr.address[0]
+                    n = llmemory.cast_adr_to_int(content)
+                    if n & 1 == 0:
+                        if content:   # non-0, non-odd: a regular ptr
+                            invoke(arg0, arg1, addr)
+                    else:
+                        # odd number: a skip bitmask
+                        if n > 0:       # initially, an unmarked value
+                            if is_minor:
+                                newcontent = llmemory.cast_int_to_adr(-n)
+                                addr.address[0] = newcontent   # mark
+                            skip = n
+                        else:
+                            # a marked value
+                            if is_minor:
+                                return
+                            skip = -n
+                skip >>= 1
+        self.rootstackhook = walk_stack_root
+        self.invoke_collect_stack_root = specialize.call_location()(
+            lambda arg0, arg1, addr: arg0(self.gc, addr))
+
         self.shadow_stack_pool = ShadowStackPool(gcdata)
         rsd = gctransformer.root_stack_depth
         if rsd is not None:
@@ -75,36 +108,10 @@ class ShadowStackRootWalker(BaseRootWalker):
         BaseRootWalker.setup_root_walker(self)
 
     def walk_stack_roots(self, collect_stack_root, is_minor=False):
-        gc = self.gc
         gcdata = self.gcdata
-        start = gcdata.root_stack_base
-        addr = gcdata.root_stack_top
-        skip = 0
-        while addr != start:
-            addr -= sizeofaddr
-            #XXX reintroduce support for tagged values?
-            #if gc.points_to_valid_gc_object(addr):
-            #    callback(gc, addr)
-
-            if skip & 1 == 0:
-                content = addr.address[0]
-                n = llmemory.cast_adr_to_int(content)
-                if n & 1 == 0:
-                    if content:   # non-0, non-odd: a regular ptr
-                        collect_stack_root(gc, addr)
-                else:
-                    # odd number: a skip bitmask
-                    if n > 0:       # initially, an unmarked value
-                        if is_minor:
-                            newcontent = llmemory.cast_int_to_adr(-n)
-                            addr.address[0] = newcontent   # mark
-                        skip = n
-                    else:
-                        # a marked value
-                        if is_minor:
-                            return
-                        skip = -n
-            skip >>= 1
+        self.rootstackhook(self.invoke_collect_stack_root, collect_stack_root,
+                           None, gcdata.root_stack_base, gcdata.root_stack_top,
+                           is_minor=is_minor)
 
     def need_thread_support(self, gctransformer, getfn):
         from rpython.rlib import rthread    # xxx fish
@@ -322,11 +329,9 @@ def get_shadowstackref(root_walker, gctransformer):
 
     def customtrace(gc, obj, callback, arg):
         obj = llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR)
-        addr = obj.top
-        start = obj.base
-        while addr != start:
-            addr -= sizeofaddr
-            gc._trace_callback(callback, arg, addr)
+        root_walker.rootstackhook(gc._trace_callback, callback, arg,
+                                  obj.base, obj.top,
+                                  is_minor=False)   # xxx optimize?
 
     gc = gctransformer.gcdata.gc
     assert not hasattr(gc, 'custom_trace_dispatcher')
