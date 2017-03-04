@@ -238,9 +238,9 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
 
                 type->ht_type.tp_name = "Test";
                 type->ht_type.tp_basicsize = sizeof(PyObject);
-                type->ht_name = PyString_FromString("Test");
+                type->ht_name = PyUnicode_FromString("Test");
                 type->ht_type.tp_flags |= Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE |
-                                          Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_HAVE_NEWBUFFER;
+                                          Py_TPFLAGS_HEAPTYPE;
                 type->ht_type.tp_flags &= ~Py_TPFLAGS_HAVE_GC;
 
                 type->ht_type.tp_dealloc = dealloc;
