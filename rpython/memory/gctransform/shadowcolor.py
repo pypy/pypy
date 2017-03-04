@@ -20,6 +20,10 @@ def find_predecessors(graph, pending_pred):
     of the 'pending_pred', which is a list of (block, var) tuples.
     """
     entrymap = mkentrymap(graph)
+    if len(entrymap[graph.startblock]) != 1:
+        insert_empty_startblock(graph)
+        entrymap = mkentrymap(graph)
+
     pred = set([v for block, v in pending_pred])
 
     def add(block, v):
@@ -233,8 +237,9 @@ def move_pushes_earlier(graph, regalloc):
     if not regalloc:
         return
 
-    insert_empty_startblock(graph)
     entrymap = mkentrymap(graph)
+    assert len(entrymap[graph.startblock]) == 1
+
     inputvars = {}    # {inputvar: (its block, its index in inputargs)}
     for block in graph.iterblocks():
         for i, v in enumerate(block.inputargs):
