@@ -25,9 +25,6 @@ def test_check_ascii(s):
     else:
         assert not raised
 
-def error_handler(errors, encoding, msg, char, start, end):
-    raise UnicodeDecodeError(encoding, char, start, end, msg)
-
 @given(strategies.binary())
 def test_str_check_utf8(s):
     try:
@@ -36,11 +33,10 @@ def test_str_check_utf8(s):
     except UnicodeDecodeError as e:
         valid = False
     try:
-        consumed, length = rutf8.str_check_utf8(s, len(s), None,
-            errorhandler=error_handler, final=True)
-    except UnicodeDecodeError as a:
+        consumed, length = rutf8.str_check_utf8(s, len(s), final=True)
+    except rutf8.Utf8CheckError as a:
         assert not valid
-        assert a.start == e.start
+        assert a.startpos == e.start
         # assert a.end == e.end, ideally
     else:
         assert valid

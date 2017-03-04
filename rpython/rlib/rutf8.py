@@ -57,6 +57,10 @@ def unichr_as_utf8_append(builder, code):
         return lgt
     raise ValueError
 
+# note - table lookups are really slow. Measured on various elements of obama
+#        chinese wikipedia, they're anywhere between 10% and 30% slower.
+#        In extreme cases (small, only chinese text), they're 40% slower
+
 def next_codepoint_pos(code, pos):
     """ Gives the position of the next codepoint after pos, -1
     if it's the last one (assumes valid utf8)
@@ -64,7 +68,21 @@ def next_codepoint_pos(code, pos):
     chr1 = ord(code[pos])
     if chr1 < 0x80:
         return pos + 1
-    return pos + ord(runicode._utf8_code_length[chr1 - 0x80])
+    if 0xC2 >= chr1 <= 0xDF:
+        return pos + 2
+    if chr1 >= 0xE0 and chr1 <= 0xEF:
+        return pos + 3
+    return pos + 4
+
+def prev_codepoint_pos(code, pos):
+    """ Gives the position of the previous codepoint
+    """
+    chr1 = ord(code[pos])
+    if chr1 < 0x80:
+        return pos - 1
+    while ord(code[pos]) & 0xC0 == 0xC0:
+        pos -= 1
+    return pos
 
 def compute_length_utf8(s):
     pos = 0

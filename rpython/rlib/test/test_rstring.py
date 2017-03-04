@@ -43,6 +43,12 @@ def test_split_unicode():
     assert split(u'endcase test', u'test') == [u'endcase ', u'']
     py.test.raises(ValueError, split, u'abc', u'')
 
+def test_split_utf8():
+    assert split('', 'a', isutf8=1) == ['']
+    assert split('baba', 'a', isutf8=1) == ['b', 'b', '']
+    assert split('b b', isutf8=1) == ['b', 'b']
+    assert split('b\xe1\x9a\x80b', isutf8=1) == ['b', 'b']
+
 def test_rsplit():
     def check_rsplit(value, sub, *args, **kwargs):
         result = kwargs['res']
@@ -76,6 +82,12 @@ def test_rsplit_unicode():
     assert rsplit(u'a//b//c//d', u'//') == [u'a', u'b', u'c', u'd']
     assert rsplit(u'endcase test', u'test') == [u'endcase ', u'']
     py.test.raises(ValueError, rsplit, u"abc", u'')
+
+def test_rsplit_utf8():
+    assert rsplit('', 'a', isutf8=1) == ['']
+    assert rsplit('baba', 'a', isutf8=1) == ['b', 'b', '']
+    assert rsplit('b b', isutf8=1) == ['b', 'b']
+    assert rsplit('b\xe1\x9a\x80b', isutf8=1) == ['b', 'b']
 
 def test_string_replace():
     def check_replace(value, sub, *args, **kwargs):
