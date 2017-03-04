@@ -233,6 +233,7 @@ def move_pushes_earlier(graph, regalloc):
     if not regalloc:
         return
 
+    insert_empty_startblock(graph)
     entrymap = mkentrymap(graph)
     inputvars = {}    # {inputvar: (its block, its index in inputargs)}
     for block in graph.iterblocks():

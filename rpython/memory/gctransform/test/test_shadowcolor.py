@@ -671,6 +671,26 @@ def test_bug_1():
     add_enter_leave_roots_frame(graph, regalloc, Constant('fake gcdata'))
     postprocess_double_check(graph)
 
+def test_bug_2():
+    def f(w_tup):
+        while True:
+            llop.gc_push_roots(lltype.Void, w_tup)
+            llop.gc_pop_roots(lltype.Void, w_tup)
+
+    graph = make_graph(f, [llmemory.GCREF])
+    assert not graph.startblock.operations
+    # this test is about what occurs if the startblock of the graph
+    # is also reached from another block.  None of the 'simplify'
+    # functions actually remove that, but the JIT transformation can...
+    graph.startblock = graph.startblock.exits[0].target
+
+    regalloc = allocate_registers(graph)
+    expand_push_roots(graph, regalloc)
+    move_pushes_earlier(graph, regalloc)
+    expand_pop_roots(graph, regalloc)
+    add_enter_leave_roots_frame(graph, regalloc, Constant('fake gcdata'))
+    postprocess_double_check(graph)
+
 def test_add_enter_roots_frame_remove_empty():
     class W:
         pass
