@@ -8,11 +8,13 @@ from rpython.translator.c.support import USESLOTS # set to False if necessary wh
 from rpython.translator.c.support import cdecl, forward_cdecl, somelettersfrom
 from rpython.translator.c.support import c_char_array_constant, barebonearray
 from rpython.translator.c.primitive import PrimitiveType, name_signed
-from rpython.rlib import exports
+from rpython.rlib import exports, objectmodel
 from rpython.rlib.rfloat import isfinite, isinf
 
 
-def needs_gcheader(T):
+def needs_gcheader(gctransformer, T):
+    if getattr(gctransformer, 'NO_HEADER', False):   # for boehm
+        return False
     if not isinstance(T, ContainerType):
         return False
     if T._gckind != 'gc':
@@ -87,7 +89,7 @@ class StructDefNode(NodeWithDependencies):
         STRUCT = self.STRUCT
         if self.varlength is not None:
             self.normalizedtypename = db.gettype(STRUCT, who_asks=self)
-        if needs_gcheader(self.STRUCT):
+        if needs_gcheader(db.gctransformer, self.STRUCT):
             HDR = db.gcpolicy.struct_gcheader_definition(self)
             if HDR is not None:
                 gc_field = ("_gcheader", db.gettype(HDR, who_asks=self))
@@ -213,7 +215,7 @@ class ArrayDefNode(NodeWithDependencies):
         self.computegcinfo(db.gcpolicy)
         if self.varlength is not None:
             self.normalizedtypename = db.gettype(ARRAY, who_asks=self)
-        if needs_gcheader(ARRAY):
+        if needs_gcheader(db.gctransformer, ARRAY):
             HDR = db.gcpolicy.array_gcheader_definition(self)
             if HDR is not None:
                 gc_field = ("_gcheader", db.gettype(HDR, who_asks=self))
@@ -253,8 +255,11 @@ class ArrayDefNode(NodeWithDependencies):
             yield '\t' + cdecl(typename, fname) + ';'
         if not self.ARRAY._hints.get('nolength', False):
             yield '\tlong length;'
+        varlength = self.varlength
+        if varlength is not None:
+            varlength += self.ARRAY._hints.get('extra_item_after_alloc', 0)
         line = '%s;' % cdecl(self.itemtypename,
-                             'items[%s]' % deflength(self.varlength))
+                             'items[%s]' % deflength(varlength))
         if self.ARRAY.OF is Void:    # strange
             line = '/* array of void */'
             if self.ARRAY._hints.get('nolength', False):
@@ -543,8 +548,8 @@ class StructNode(ContainerNode):
 
     def __init__(self, db, T, obj):
         ContainerNode.__init__(self, db, T, obj)
-        if needs_gcheader(T):
-            gct = self.db.gctransformer
+        gct = self.db.gctransformer
+        if needs_gcheader(gct, T):
             if gct is not None:
                 self.gc_init = gct.gcheader_initdata(self.obj)
             else:
@@ -574,18 +579,28 @@ class StructNode(ContainerNode):
 
         data = []
 
-        if needs_gcheader(T):
+        if needs_gcheader(self.db.gctransformer, T):
             data.append(('gcheader', self.gc_init))
 
         for name in defnode.fieldnames:
             data.append((name, getattr(self.obj, name)))
+
+        if T._hints.get('remove_hash'):
+            # hack for rstr.STR and UNICODE: remove their .hash value
+            # and write 0 in the C sources, if we're using a non-default
+            # hash function.
+            if hasattr(self.db.translator, 'll_hash_string'):
+                i = 0
+                while data[i][0] != 'hash':
+                    i += 1
+                data[i] = ('hash', 0)
 
         # Reasonably, you should only initialise one of the fields of a union
         # in C.  This is possible with the syntax '.fieldname value' or
         # '.fieldname = value'.  But here we don't know which of the
         # fields need initialization, so XXX we pick the first one
         # arbitrarily.
-        if hasattr(T, "_hints") and T._hints.get('union'):
+        if T._hints.get('union'):
             data = data[0:1]
 
         if 'get_padding_drop' in T._hints:
@@ -620,51 +635,6 @@ class StructNode(ContainerNode):
 
 assert not USESLOTS or '__dict__' not in dir(StructNode)
 
-class GcStructNodeWithHash(StructNode):
-    # for the outermost level of nested structures, if it has a _hash_cache_.
-    nodekind = 'struct'
-    if USESLOTS:
-        __slots__ = ()
-
-    def get_hash_typename(self):
-        return 'struct _hashT_%s @' % self.name
-
-    def forward_declaration(self):
-        T = self.getTYPE()
-        assert self.typename == self.implementationtypename  # no array part
-        hash_typename = self.get_hash_typename()
-        hash_offset = self.db.gctransformer.get_hash_offset(T)
-        yield '%s {' % cdecl(hash_typename, '')
-        yield '\tunion {'
-        yield '\t\t%s;' % cdecl(self.implementationtypename, 'head')
-        yield '\t\tchar pad[%s];' % name_signed(hash_offset, self.db)
-        yield '\t} u;'
-        yield '\tlong hash;'
-        yield '};'
-        yield '%s;' % (
-            forward_cdecl(hash_typename, '_hash_' + self.name,
-                          self.db.standalone, self.is_thread_local()),)
-        yield '#define %s _hash_%s.u.head' % (self.name, self.name)
-
-    def implementation(self):
-        hash_typename = self.get_hash_typename()
-        hash = self.db.gctransformer.get_prebuilt_hash(self.obj)
-        assert hash is not None
-        lines = list(self.initializationexpr())
-        lines.insert(0, '%s = { {' % (
-            cdecl(hash_typename, '_hash_' + self.name,
-                  self.is_thread_local()),))
-        lines.append('}, %s /* hash */ };' % name_signed(hash, self.db))
-        return lines
-
-def gcstructnode_factory(db, T, obj):
-    if (db.gctransformer and
-            db.gctransformer.get_prebuilt_hash(obj) is not None):
-        cls = GcStructNodeWithHash
-    else:
-        cls = StructNode
-    return cls(db, T, obj)
-
 
 class ArrayNode(ContainerNode):
     nodekind = 'array'
@@ -673,8 +643,8 @@ class ArrayNode(ContainerNode):
 
     def __init__(self, db, T, obj):
         ContainerNode.__init__(self, db, T, obj)
-        if needs_gcheader(T):
-            gct = self.db.gctransformer
+        gct = self.db.gctransformer
+        if needs_gcheader(gct, T):
             if gct is not None:
                 self.gc_init = gct.gcheader_initdata(self.obj)
             else:
@@ -697,7 +667,7 @@ class ArrayNode(ContainerNode):
     def initializationexpr(self, decoration=''):
         T = self.getTYPE()
         yield '{'
-        if needs_gcheader(T):
+        if needs_gcheader(self.db.gctransformer, T):
             lines = generic_initializationexpr(self.db, self.gc_init, 'gcheader',
                                                '%sgcheader' % (decoration,))
             for line in lines:
@@ -1053,7 +1023,7 @@ class GroupNode(ContainerNode):
 
 ContainerNodeFactory = {
     Struct:       StructNode,
-    GcStruct:     gcstructnode_factory,
+    GcStruct:     StructNode,
     Array:        ArrayNode,
     GcArray:      ArrayNode,
     FixedSizeArray: FixedSizeArrayNode,

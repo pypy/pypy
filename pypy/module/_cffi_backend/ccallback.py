@@ -98,7 +98,7 @@ class W_ExternPython(W_CData):
 
     def _repr_extra(self):
         space = self.space
-        return 'calling ' + space.str_w(space.repr(self.w_callable))
+        return 'calling ' + space.text_w(space.repr(self.w_callable))
 
     def write_error_return_value(self, ll_res):
         error_string = self.error_string
@@ -183,7 +183,7 @@ class W_ExternPython(W_CData):
                 e.normalize_exception(space)
                 w_t = e.w_type
                 w_v = e.get_w_value(space)
-                w_tb = space.wrap(e.get_traceback())
+                w_tb = e.get_w_traceback(space)
                 w_res = space.call_function(self.w_onerror, w_t, w_v, w_tb)
                 if not space.is_none(w_res):
                     self.convert_result(ll_res, w_res)
@@ -220,6 +220,11 @@ class W_CDataCallback(W_ExternPython):
         if rffi.cast(lltype.Signed, res) != clibffi.FFI_OK:
             raise oefmt(space.w_SystemError,
                         "libffi failed to build this callback")
+        if closure_ptr.c_user_data != unique_id:
+            raise oefmt(space.w_SystemError,
+                "ffi_prep_closure(): bad user_data (it seems that the "
+                "version of the libffi library seen at runtime is "
+                "different from the 'ffi.h' file seen at compile-time)")
 
     def py_invoke(self, ll_res, ll_args):
         jitdriver1.jit_merge_point(callback=self,

@@ -172,7 +172,7 @@ def _truediv(space, x, y):
     # floating-point division
     a = float(x)
     b = float(y)
-    return space.wrap(a / b)
+    return space.newfloat(a / b)
 
 
 def _mod(space, x, y):
@@ -190,8 +190,7 @@ def _divmod(space, x, y):
         raise oefmt(space.w_ZeroDivisionError, "integer divmod by zero")
     # no overflow possible
     m = x % y
-    w = space.wrap
-    return space.newtuple([w(z), w(m)])
+    return space.newtuple([space.newint(z), space.newint(m)])
 
 
 def _divmod_ovf2small(space, x, y):
@@ -362,11 +361,13 @@ class W_IntObject(W_AbstractIntObject):
         return _new_int(space, w_inttype, w_x, w_base)
 
     def descr_hash(self, space):
-        # unlike CPython, we don't special-case the value -1 in most of
-        # our hash functions, so there is not much sense special-casing
-        # it here either.  Make sure this is consistent with the hash of
-        # floats and longs.
-        return self.int(space)
+        # For compatibility with CPython, we special-case -1
+        # Make sure this is consistent with the hash of floats and longs.
+        # The complete list of built-in types whose hash should be
+        # consistent is: int, long, bool, float, complex.
+        h = self.intval
+        h -= (h == -1)  # No explicit condition, to avoid JIT bridges
+        return wrapint(space, h)
 
     def _int(self, space):
         return self.int(space)
@@ -391,9 +392,7 @@ class W_IntObject(W_AbstractIntObject):
         return space.newtuple([self, w_other])
 
     def descr_long(self, space):
-        # XXX: should try smalllong
-        from pypy.objspace.std.longobject import W_LongObject
-        return W_LongObject.fromint(space, self.intval)
+        return space.newlong(self.intval)
 
     def descr_nonzero(self, space):
         return space.newbool(self.intval != 0)
@@ -423,10 +422,10 @@ class W_IntObject(W_AbstractIntObject):
         return space.newfloat(x)
 
     def descr_oct(self, space):
-        return space.wrap(oct(self.intval))
+        return space.newtext(oct(self.intval))
 
     def descr_hex(self, space):
-        return space.wrap(hex(self.intval))
+        return space.newtext(hex(self.intval))
 
     def descr_getnewargs(self, space):
         return space.newtuple([wrapint(space, self.intval)])
@@ -441,11 +440,11 @@ class W_IntObject(W_AbstractIntObject):
         while val:
             bits += 1
             val >>= 1
-        return space.wrap(bits)
+        return space.newint(bits)
 
     def descr_repr(self, space):
         res = str(self.intval)
-        return space.wrap(res)
+        return space.newtext(res)
     descr_str = func_with_new_name(descr_repr, 'descr_str')
 
     def descr_format(self, space, w_format_spec):
@@ -478,7 +477,7 @@ class W_IntObject(W_AbstractIntObject):
             result = _pow(space, x, y, z)
         except (OverflowError, ValueError):
             return _pow_ovf2long(space, x, y, w_modulus)
-        return space.wrap(result)
+        return space.newint(result)
 
     @unwrap_spec(w_modulus=WrappedDefault(None))
     def descr_rpow(self, space, w_base, w_modulus=None):
@@ -682,7 +681,11 @@ def _new_int(space, w_inttype, w_x, w_base=None):
             w_obj = w_value
             if space.lookup(w_obj, '__int__') is None:
                 w_obj = space.trunc(w_obj)
-            w_obj = space.int(w_obj)
+                if not (space.isinstance_w(w_obj, space.w_int) or
+                        space.isinstance_w(w_obj, space.w_long)):
+                    w_obj = space.int(w_obj)
+            else:
+                w_obj = space.int(w_obj)
             # 'int(x)' should return what x.__int__() returned, which should
             # be an int or long or a subclass thereof.
             if space.is_w(w_inttype, space.w_int):
@@ -691,9 +694,9 @@ def _new_int(space, w_inttype, w_x, w_base=None):
             # we cannot construct a subclass of int instance with an
             # an overflowing long
             value = space.int_w(w_obj, allow_conversion=False)
-        elif space.isinstance_w(w_value, space.w_str):
+        elif space.isinstance_w(w_value, space.w_bytes):
             value, w_longval = _string_to_int_or_long(space, w_value,
-                                                      space.str_w(w_value))
+                                                      space.text_w(w_value))
         elif space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
             string = unicode_to_decimal_w(space, w_value)
@@ -718,7 +721,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
             s = unicode_to_decimal_w(space, w_value)
         else:
             try:
-                s = space.str_w(w_value)
+                s = space.text_w(w_value)
             except OperationError as e:
                 raise oefmt(space.w_TypeError,
                             "int() can't convert non-string with explicit "

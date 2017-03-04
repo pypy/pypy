@@ -25,7 +25,6 @@ General
    architecture
    faq
 
-
 User Documentation
 ------------------
 
@@ -37,7 +36,6 @@ RPython.
 
    arm
    logging
-   s390x
 
 
 Writing your own interpreter in RPython
@@ -49,6 +47,7 @@ Writing your own interpreter in RPython
    rpython
    rlib
    rffi
+   examples
 
 
 RPython internals
@@ -61,6 +60,7 @@ RPython internals
    getting-started
    dir-reference
    jit/index
+   arch/index
    translation
    rtyper
    garbage_collection

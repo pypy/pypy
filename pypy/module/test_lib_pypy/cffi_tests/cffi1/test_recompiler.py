@@ -7,6 +7,11 @@ from pypy.module.test_lib_pypy.cffi_tests.udir import udir
 from pypy.module.test_lib_pypy.cffi_tests.support import u, long
 from pypy.module.test_lib_pypy.cffi_tests.support import FdWriteCapture, StdErrCapture
 
+try:
+    import importlib
+except ImportError:
+    importlib = None
+
 
 def check_type_table(input, expected_output, included=None):
     ffi = FFI()
@@ -27,9 +32,15 @@ def verify(ffi, module_name, source, *args, **kwds):
         kwds.setdefault('source_extension', '.cpp')
         source = 'extern "C" {\n%s\n}' % (source,)
     else:
+        # add '-Werror' to the existing 'extra_compile_args' flags
         kwds['extra_compile_args'] = (kwds.get('extra_compile_args', []) +
                                       ['-Werror'])
     return recompiler._verify(ffi, module_name, source, *args, **kwds)
+
+def test_set_source_no_slashes():
+    ffi = FFI()
+    py.test.raises(ValueError, ffi.set_source, "abc/def", None)
+    py.test.raises(ValueError, ffi.set_source, "abc/def", "C code")
 
 
 def test_type_table_func():
@@ -400,11 +411,14 @@ def test_misdeclared_field_1():
         pass    # ok, fail during compilation already (e.g. C++)
     else:
         assert ffi.sizeof("struct foo_s") == 24  # found by the actual C code
-        p = ffi.new("struct foo_s *")
-        # lazily build the fields and boom:
-        e = py.test.raises(ffi.error, "p.a")
-        assert str(e.value).startswith("struct foo_s: wrong size for field 'a' "
-                                       "(cdef says 20, but C compiler says 24)")
+        try:
+            # lazily build the fields and boom:
+            p = ffi.new("struct foo_s *")
+            p.a
+            assert False, "should have raised"
+        except ffi.error as e:
+            assert str(e).startswith("struct foo_s: wrong size for field 'a' "
+                                     "(cdef says 20, but C compiler says 24)")
 
 def test_open_array_in_struct():
     ffi = FFI()
@@ -412,8 +426,10 @@ def test_open_array_in_struct():
     verify(ffi, 'test_open_array_in_struct',
            "struct foo_s { int b; int a[]; };")
     assert ffi.sizeof("struct foo_s") == 4
-    p = ffi.new("struct foo_s *", [5, [10, 20, 30]])
+    p = ffi.new("struct foo_s *", [5, [10, 20, 30, 40]])
     assert p.a[2] == 30
+    assert ffi.sizeof(p) == ffi.sizeof("void *")
+    assert ffi.sizeof(p[0]) == 5 * ffi.sizeof("int")
 
 def test_math_sin_type():
     ffi = FFI()
@@ -516,6 +532,8 @@ def test_module_name_in_package():
         assert len(os.listdir(str(package_dir))) > 0
         assert os.path.exists(str(package_dir.join('mymod.c')))
         package_dir.join('__init__.py').write('')
+        #
+        getattr(importlib, 'invalidate_caches', object)()
         #
         sys.path.insert(0, str(udir))
         import test_module_name_in_package.mymod
@@ -852,9 +870,12 @@ def test_unpack_args():
     assert str(e2.value) == "foo0() takes no arguments (2 given)"
     assert str(e3.value) == "foo1() takes exactly one argument (0 given)"
     assert str(e4.value) == "foo1() takes exactly one argument (2 given)"
-    assert str(e5.value) == "foo2() takes exactly 2 arguments (0 given)"
-    assert str(e6.value) == "foo2() takes exactly 2 arguments (1 given)"
-    assert str(e7.value) == "foo2() takes exactly 2 arguments (3 given)"
+    assert str(e5.value) in ["foo2 expected 2 arguments, got 0",
+                             "foo2() takes exactly 2 arguments (0 given)"]
+    assert str(e6.value) in ["foo2 expected 2 arguments, got 1",
+                             "foo2() takes exactly 2 arguments (1 given)"]
+    assert str(e7.value) in ["foo2 expected 2 arguments, got 3",
+                             "foo2() takes exactly 2 arguments (3 given)"]
 
 def test_address_of_function():
     ffi = FFI()
@@ -996,6 +1017,7 @@ def test_struct_array_guess_length_2():
                  "struct foo_s { int x; int a[5][8]; int y; };")
     assert ffi.sizeof('struct foo_s') == 42 * ffi.sizeof('int')
     s = ffi.new("struct foo_s *")
+    assert ffi.typeof(s.a) == ffi.typeof("int[5][8]")
     assert ffi.sizeof(s.a) == 40 * ffi.sizeof('int')
     assert s.a[4][7] == 0
     py.test.raises(IndexError, 's.a[4][8]')
@@ -1010,7 +1032,7 @@ def test_struct_array_guess_length_3():
                  "struct foo_s { int x; int a[5][7]; int y; };")
     assert ffi.sizeof('struct foo_s') == 37 * ffi.sizeof('int')
     s = ffi.new("struct foo_s *")
-    assert ffi.typeof(s.a) == ffi.typeof("int(*)[7]")
+    assert ffi.typeof(s.a) == ffi.typeof("int[][7]")
     assert s.a[4][6] == 0
     py.test.raises(IndexError, 's.a[4][7]')
     assert ffi.typeof(s.a[0]) == ffi.typeof("int[7]")
@@ -1168,8 +1190,8 @@ def test_import_from_lib():
     assert MYFOO == 42
     assert hasattr(lib, '__dict__')
     assert lib.__all__ == ['MYFOO', 'mybar']   # but not 'myvar'
-    assert lib.__name__ == repr(lib)
-    assert lib.__class__ is type(lib)
+    assert lib.__name__ == '_CFFI_test_import_from_lib.lib'
+    assert lib.__class__ is type(sys)   # !! hack for help()
 
 def test_macro_var_callback():
     ffi = FFI()
@@ -1909,3 +1931,266 @@ def test_introspect_order():
     assert ffi.list_types() == (['CFFIb', 'CFFIbb', 'CFFIbbb'],
                                 ['CFFIa', 'CFFIcc', 'CFFIccc'],
                                 ['CFFIaa', 'CFFIaaa', 'CFFIg'])
+
+def test_bool_in_cpp():
+    # this works when compiled as C, but in cffi < 1.7 it fails as C++
+    ffi = FFI()
+    ffi.cdef("bool f(void);")
+    lib = verify(ffi, "test_bool_in_cpp", "char f(void) { return 2; }")
+    assert lib.f() == 1
+
+def test_bool_in_cpp_2():
+    ffi = FFI()
+    ffi.cdef('int add(int a, int b);')
+    lib = verify(ffi, "test_bool_bug_cpp", '''
+        typedef bool _Bool;  /* there is a Windows header with this line */
+        int add(int a, int b)
+        {
+            return a + b;
+        }''', source_extension='.cpp')
+    c = lib.add(2, 3)
+    assert c == 5
+
+def test_struct_field_opaque():
+    ffi = FFI()
+    ffi.cdef("struct a { struct b b; };")
+    e = py.test.raises(TypeError, verify,
+                       ffi, "test_struct_field_opaque", "?")
+    assert str(e.value) == ("struct a: field 'a.b' is of an opaque"
+                            " type (not declared in cdef())")
+    ffi = FFI()
+    ffi.cdef("struct a { struct b b[2]; };")
+    e = py.test.raises(TypeError, verify,
+                       ffi, "test_struct_field_opaque", "?")
+    assert str(e.value) == ("struct a: field 'a.b' is of an opaque"
+                            " type (not declared in cdef())")
+    ffi = FFI()
+    ffi.cdef("struct a { struct b b[]; };")
+    e = py.test.raises(TypeError, verify,
+                       ffi, "test_struct_field_opaque", "?")
+    assert str(e.value) == ("struct a: field 'a.b' is of an opaque"
+                            " type (not declared in cdef())")
+
+def test_function_arg_opaque():
+    py.test.skip("can currently declare a function with an opaque struct "
+                 "as argument, but AFAICT it's impossible to call it later")
+
+def test_function_returns_opaque():
+    ffi = FFI()
+    ffi.cdef("struct a foo(int);")
+    e = py.test.raises(TypeError, verify,
+                       ffi, "test_function_returns_opaque", "?")
+    assert str(e.value) == ("function foo: 'struct a' is used as result type,"
+                            " but is opaque")
+
+def test_function_returns_union():
+    ffi = FFI()
+    ffi.cdef("union u1 { int a, b; }; union u1 f1(int);")
+    lib = verify(ffi, "test_function_returns_union", """
+        union u1 { int a, b; };
+        static union u1 f1(int x) { union u1 u; u.b = x; return u; }
+    """)
+    assert lib.f1(51).a == 51
+
+def test_function_returns_partial_struct():
+    ffi = FFI()
+    ffi.cdef("struct aaa { int a; ...; }; struct aaa f1(int);")
+    lib = verify(ffi, "test_function_returns_partial_struct", """
+        struct aaa { int b, a, c; };
+        static struct aaa f1(int x) { struct aaa s = {0}; s.a = x; return s; }
+    """)
+    assert lib.f1(52).a == 52
+
+def test_typedef_array_dotdotdot():
+    ffi = FFI()
+    ffi.cdef("""
+        typedef int foo_t[...], bar_t[...];
+        int gv[...];
+        typedef int mat_t[...][...];
+        typedef int vmat_t[][...];
+        """)
+    lib = verify(ffi, "test_typedef_array_dotdotdot", """
+        typedef int foo_t[50], bar_t[50];
+        int gv[23];
+        typedef int mat_t[6][7];
+        typedef int vmat_t[][8];
+    """)
+    assert ffi.sizeof("foo_t") == 50 * ffi.sizeof("int")
+    assert ffi.sizeof("bar_t") == 50 * ffi.sizeof("int")
+    assert len(ffi.new("foo_t")) == 50
+    assert len(ffi.new("bar_t")) == 50
+    assert ffi.sizeof(lib.gv) == 23 * ffi.sizeof("int")
+    assert ffi.sizeof("mat_t") == 6 * 7 * ffi.sizeof("int")
+    assert len(ffi.new("mat_t")) == 6
+    assert len(ffi.new("mat_t")[3]) == 7
+    py.test.raises(ffi.error, ffi.sizeof, "vmat_t")
+    p = ffi.new("vmat_t", 4)
+    assert ffi.sizeof(p[3]) == 8 * ffi.sizeof("int")
+
+def test_call_with_custom_field_pos():
+    ffi = FFI()
+    ffi.cdef("""
+        struct foo { int x; ...; };
+        struct foo f(void);
+        struct foo g(int, ...);
+    """)
+    lib = verify(ffi, "test_call_with_custom_field_pos", """
+        struct foo { int y, x; };
+        struct foo f(void) {
+            struct foo s = { 40, 200 };
+            return s;
+        }
+        struct foo g(int a, ...) { }
+    """)
+    assert lib.f().x == 200
+    e = py.test.raises(NotImplementedError, lib.g, 0)
+    assert str(e.value) == (
+        'ctype \'struct foo\' not supported as return value.  It is a '
+        'struct declared with "...;", but the C calling convention may '
+        'depend on the missing fields; or, it contains anonymous '
+        'struct/unions.  Such structs are only supported '
+        'as return value if the function is \'API mode\' and non-variadic '
+        '(i.e. declared inside ffibuilder.cdef()+ffibuilder.set_source() '
+        'and not taking a final \'...\' argument)')
+
+def test_call_with_nested_anonymous_struct():
+    if sys.platform == 'win32':
+        py.test.skip("needs a GCC extension")
+    ffi = FFI()
+    ffi.cdef("""
+        struct foo { int a; union { int b, c; }; };
+        struct foo f(void);
+        struct foo g(int, ...);
+    """)
+    lib = verify(ffi, "test_call_with_nested_anonymous_struct", """
+        struct foo { int a; union { int b, c; }; };
+        struct foo f(void) {
+            struct foo s = { 40 };
+            s.b = 200;
+            return s;
+        }
+        struct foo g(int a, ...) { }
+    """)
+    assert lib.f().b == 200
+    e = py.test.raises(NotImplementedError, lib.g, 0)
+    assert str(e.value) == (
+        'ctype \'struct foo\' not supported as return value.  It is a '
+        'struct declared with "...;", but the C calling convention may '
+        'depend on the missing fields; or, it contains anonymous '
+        'struct/unions.  Such structs are only supported '
+        'as return value if the function is \'API mode\' and non-variadic '
+        '(i.e. declared inside ffibuilder.cdef()+ffibuilder.set_source() '
+        'and not taking a final \'...\' argument)')
+
+def test_call_with_bitfield():
+    ffi = FFI()
+    ffi.cdef("""
+        struct foo { int x:5; };
+        struct foo f(void);
+        struct foo g(int, ...);
+    """)
+    lib = verify(ffi, "test_call_with_bitfield", """
+        struct foo { int x:5; };
+        struct foo f(void) {
+            struct foo s = { 11 };
+            return s;
+        }
+        struct foo g(int a, ...) { }
+    """)
+    assert lib.f().x == 11
+    e = py.test.raises(NotImplementedError, lib.g, 0)
+    assert str(e.value) == (
+        "ctype 'struct foo' not supported as return value.  It is a struct "
+        "with bit fields, which libffi does not support.  Such structs are "
+        "only supported as return value if the function is 'API mode' and "
+        "non-variadic (i.e. declared inside ffibuilder.cdef()+ffibuilder."
+        "set_source() and not taking a final '...' argument)")
+
+def test_call_with_zero_length_field():
+    ffi = FFI()
+    ffi.cdef("""
+        struct foo { int a; int x[0]; };
+        struct foo f(void);
+        struct foo g(int, ...);
+    """)
+    lib = verify(ffi, "test_call_with_zero_length_field", """
+        struct foo { int a; int x[0]; };
+        struct foo f(void) {
+            struct foo s = { 42 };
+            return s;
+        }
+        struct foo g(int a, ...) { }
+    """)
+    assert lib.f().a == 42
+    e = py.test.raises(NotImplementedError, lib.g, 0)
+    assert str(e.value) == (
+        "ctype 'struct foo' not supported as return value.  It is a "
+        "struct with a zero-length array, which libffi does not support."
+        "  Such structs are only supported as return value if the function is "
+        "'API mode' and non-variadic (i.e. declared inside ffibuilder.cdef()"
+        "+ffibuilder.set_source() and not taking a final '...' argument)")
+
+def test_call_with_union():
+    ffi = FFI()
+    ffi.cdef("""
+        union foo { int a; char b; };
+        union foo f(void);
+        union foo g(int, ...);
+    """)
+    lib = verify(ffi, "test_call_with_union", """
+        union foo { int a; char b; };
+        union foo f(void) {
+            union foo s = { 42 };
+            return s;
+        }
+        union foo g(int a, ...) { }
+    """)
+    assert lib.f().a == 42
+    e = py.test.raises(NotImplementedError, lib.g, 0)
+    assert str(e.value) == (
+        "ctype 'union foo' not supported as return value by libffi.  "
+        "Unions are only supported as return value if the function is "
+        "'API mode' and non-variadic (i.e. declared inside ffibuilder.cdef()"
+        "+ffibuilder.set_source() and not taking a final '...' argument)")
+
+def test_call_with_packed_struct():
+    if sys.platform == 'win32':
+        py.test.skip("needs a GCC extension")
+    ffi = FFI()
+    ffi.cdef("""
+        struct foo { char y; int x; };
+        struct foo f(void);
+        struct foo g(int, ...);
+    """, packed=True)
+    lib = verify(ffi, "test_call_with_packed_struct", """
+        struct foo { char y; int x; } __attribute__((packed));
+        struct foo f(void) {
+            struct foo s = { 40, 200 };
+            return s;
+        }
+        struct foo g(int a, ...) {
+            struct foo s = { 41, 201 };
+            return s;
+        }
+    """)
+    assert ord(lib.f().y) == 40
+    assert lib.f().x == 200
+    e = py.test.raises(NotImplementedError, lib.g, 0)
+    assert str(e.value) == (
+        "ctype 'struct foo' not supported as return value.  It is a "
+        "'packed' structure, with a different layout than expected by libffi."
+        "  Such structs are only supported as return value if the function is "
+        "'API mode' and non-variadic (i.e. declared inside ffibuilder.cdef()"
+        "+ffibuilder.set_source() and not taking a final '...' argument)")
+
+def test_gcc_visibility_hidden():
+    if sys.platform == 'win32':
+        py.test.skip("test for gcc/clang")
+    ffi = FFI()
+    ffi.cdef("""
+    int f(int);
+    """)
+    lib = verify(ffi, "test_gcc_visibility_hidden", """
+    int f(int a) { return a + 40; }
+    """, extra_compile_args=['-fvisibility=hidden'])
+    assert lib.f(2) == 42

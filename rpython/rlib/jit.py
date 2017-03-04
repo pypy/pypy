@@ -3,7 +3,7 @@ import sys
 import py
 
 from rpython.rlib.nonconst import NonConstant
-from rpython.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, specialize
+from rpython.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, specialize, not_rpython, we_are_translated
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.sourcetools import rpython_wrapper
@@ -257,7 +257,9 @@ def not_in_trace(func):
     func.oopspec = "jit.not_in_trace()"   # note that 'func' may take arguments
     return func
 
+
 @oopspec("jit.isconstant(value)")
+@specialize.call_location()
 def isconstant(value):
     """
     While tracing, returns whether or not the value is currently known to be
@@ -267,9 +269,9 @@ def isconstant(value):
     This is for advanced usage only.
     """
     return NonConstant(False)
-isconstant._annspecialcase_ = "specialize:call_location"
 
 @oopspec("jit.isvirtual(value)")
+@specialize.call_location()
 def isvirtual(value):
     """
     Returns if this value is virtual, while tracing, it's relatively
@@ -278,7 +280,6 @@ def isvirtual(value):
     This is for advanced usage only.
     """
     return NonConstant(False)
-isvirtual._annspecialcase_ = "specialize:call_location"
 
 @specialize.call_location()
 def loop_unrolling_heuristic(lst, size, cutoff=2):
@@ -379,28 +380,27 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.inputconst(lltype.Signed, _we_are_jitted)
 
-
+@oopspec('jit.current_trace_length()')
 def current_trace_length():
     """During JIT tracing, returns the current trace length (as a constant).
     If not tracing, returns -1."""
     if NonConstant(False):
         return 73
     return -1
-current_trace_length.oopspec = 'jit.current_trace_length()'
 
+@oopspec('jit.debug(string, arg1, arg2, arg3, arg4)')
 def jit_debug(string, arg1=-sys.maxint-1, arg2=-sys.maxint-1,
                       arg3=-sys.maxint-1, arg4=-sys.maxint-1):
     """When JITted, cause an extra operation JIT_DEBUG to appear in
     the graphs.  Should not be left after debugging."""
     keepalive_until_here(string) # otherwise the whole function call is removed
-jit_debug.oopspec = 'jit.debug(string, arg1, arg2, arg3, arg4)'
 
+@oopspec('jit.assert_green(value)')
+@specialize.argtype(0)
 def assert_green(value):
     """Very strong assert: checks that 'value' is a green
     (a JIT compile-time constant)."""
     keepalive_until_here(value)
-assert_green._annspecialcase_ = 'specialize:argtype(0)'
-assert_green.oopspec = 'jit.assert_green(value)'
 
 class AssertGreenFailed(Exception):
     pass
@@ -435,6 +435,7 @@ def jit_callback(name):
 # ____________________________________________________________
 # VRefs
 
+@oopspec('virtual_ref(x)')
 @specialize.argtype(0)
 def virtual_ref(x):
     """Creates a 'vref' object that contains a reference to 'x'.  Calls
@@ -445,14 +446,13 @@ def virtual_ref(x):
     dereferenced (by the call syntax 'vref()'), it returns 'x', which is
     then forced."""
     return DirectJitVRef(x)
-virtual_ref.oopspec = 'virtual_ref(x)'
 
+@oopspec('virtual_ref_finish(x)')
 @specialize.argtype(1)
 def virtual_ref_finish(vref, x):
     """See docstring in virtual_ref(x)"""
     keepalive_until_here(x)   # otherwise the whole function call is removed
     _virtual_ref_finish(vref, x)
-virtual_ref_finish.oopspec = 'virtual_ref_finish(x)'
 
 def non_virtual_ref(x):
     """Creates a 'vref' that just returns x when called; nothing more special.
@@ -552,14 +552,11 @@ PARAMETER_DOCS = {
     'enable_opts': 'INTERNAL USE ONLY (MAY NOT WORK OR LEAD TO CRASHES): '
                    'optimizations to enable, or all = %s' % ENABLE_ALL_OPTS,
     'max_unroll_recursion': 'how many levels deep to unroll a recursive function',
-    'vec': 'turn on the vectorization optimization (vecopt). requires sse4.1',
-    'vec_all': 'try to vectorize trace loops that occur outside of the numpy library.',
-    'vec_cost': 'threshold for which traces to bail. 0 means the costs.',
-    'vec_length': 'the amount of instructions allowed in "all" traces.',
-    'vec_ratio': 'an integer (0-10 transfored into a float by X / 10.0) statements that have vector equivalents '
-                 'divided by the total number of trace instructions.',
-    'vec_guard_ratio': 'an integer (0-10 transfored into a float by X / 10.0) divided by the'
-                       ' total number of trace instructions.',
+    'vec': 'turn on the vectorization optimization (vecopt). ' \
+           'Supports x86 (SSE 4.1), powerpc (SVX), s390x SIMD',
+    'vec_cost': 'threshold for which traces to bail. Unpacking increases the counter,'\
+                ' vector operation decrease the cost',
+    'vec_all': 'try to vectorize trace loops that occur outside of the numpypy library',
 }
 
 PARAMETERS = {'threshold': 1039, # just above 1024, prime
@@ -578,9 +575,6 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'vec': 0,
               'vec_all': 0,
               'vec_cost': 0,
-              'vec_length': 60,
-              'vec_ratio': 2,
-              'vec_guard_ratio': 5,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
 
@@ -599,12 +593,32 @@ class JitDriver(object):
     inline_jit_merge_point = False
     _store_last_enter_jit = None
 
+    @not_rpython
     def __init__(self, greens=None, reds=None, virtualizables=None,
                  get_jitcell_at=None, set_jitcell_at=None,
                  get_printable_location=None, confirm_enter_jit=None,
                  can_never_inline=None, should_unroll_one_iteration=None,
                  name='jitdriver', check_untranslated=True, vectorize=False,
-                 get_unique_id=None, is_recursive=False):
+                 get_unique_id=None, is_recursive=False, get_location=None):
+        """get_location:
+              The return value is designed to provide enough information to express the
+              state of an interpreter when invoking jit_merge_point.
+              For a bytecode interperter such as PyPy this includes, filename, line number,
+              function name, and more information. However, it should also be able to express
+              the same state for an interpreter that evaluates an AST.
+              return paremter:
+                0 -> filename. An absolute path specifying the file the interpreter invoked.
+                               If the input source is no file it should start with the
+                               prefix: "string://<name>"
+                1 -> line number. The line number in filename. This should at least point to
+                                  the enclosing name. It can however point to the specific
+                                  source line of the instruction executed by the interpreter.
+                2 -> enclosing name. E.g. the function name.
+                3 -> index. 64 bit number indicating the execution progress. It can either be
+                     an offset to byte code, or an index to the node in an AST
+                4 -> operation name. a name further describing the current program counter.
+                     this can be either a byte code name or the name of an AST node
+        """
         if greens is not None:
             self.greens = greens
         self.name = name
@@ -623,8 +637,6 @@ class JitDriver(object):
             raise AttributeError("no 'greens' or 'reds' supplied")
         if virtualizables is not None:
             self.virtualizables = virtualizables
-        if get_unique_id is not None:
-            assert is_recursive, "get_unique_id and is_recursive must be specified at the same time"
         for v in self.virtualizables:
             assert v in self.reds
         # if reds are automatic, they won't be passed to jit_merge_point, so
@@ -638,6 +650,8 @@ class JitDriver(object):
         assert get_jitcell_at is None, "get_jitcell_at no longer used"
         assert set_jitcell_at is None, "set_jitcell_at no longer used"
         self.get_printable_location = get_printable_location
+        self.get_location = get_location
+        self.has_unique_id = (get_unique_id is not None)
         if get_unique_id is None:
             get_unique_id = lambda *args: 0
         self.get_unique_id = get_unique_id
@@ -788,6 +802,7 @@ class TraceLimitTooHigh(Exception):
     jit_opencoder_model
     """
 
+@specialize.arg(0)
 def set_user_param(driver, text):
     """Set the tunable JIT parameters from a user-supplied string
     following the format 'param=value,param=value', or 'off' to
@@ -823,7 +838,6 @@ def set_user_param(driver, text):
                     break
             else:
                 raise ValueError
-set_user_param._annspecialcase_ = 'specialize:arg(0)'
 
 # ____________________________________________________________
 #
@@ -878,6 +892,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
         driver = self.instance.im_self
         h = self.annotate_hook
         h(driver.get_printable_location, driver.greens, **kwds_s)
+        h(driver.get_location, driver.greens, **kwds_s)
 
     def annotate_hook(self, func, variables, args_s=[], **kwds_s):
         if func is None:
@@ -1125,6 +1140,9 @@ def record_exact_class(value, cls):
     """
     Assure the JIT that value is an instance of cls. This is a precise
     class check, like a guard_class.
+
+    See also debug.ll_assert_not_none(x), which asserts that x is not None
+    and also assures the JIT that it is the case.
     """
     assert type(value) is cls
 
@@ -1157,32 +1175,103 @@ class Entry(ExtRegistryEntry):
         return hop.gendirectcall(ll_record_exact_class, v_inst, v_cls)
 
 def _jit_conditional_call(condition, function, *args):
-    pass
+    pass           # special-cased below
 
 @specialize.call_location()
 def conditional_call(condition, function, *args):
+    """Does the same as:
+
+         if condition:
+             function(*args)
+
+    but is better for the JIT, in case the condition is often false
+    but could be true occasionally.  It allows the JIT to always produce
+    bridge-free code.  The function is never looked inside.
+    """
     if we_are_jitted():
         _jit_conditional_call(condition, function, *args)
     else:
         if condition:
             function(*args)
-conditional_call._always_inline_ = True
+conditional_call._always_inline_ = 'try'
+
+def _jit_conditional_call_value(value, function, *args):
+    return value    # special-cased below
+
+@specialize.call_location()
+def conditional_call_elidable(value, function, *args):
+    """Does the same as:
+
+        if value == <0 or None>:
+            value = function(*args)
+        return value
+
+    For the JIT.  Allows one branch which doesn't create a bridge,
+    typically used for caching.  The value and the function's return
+    type must match and cannot be a float: they must be either regular
+    'int', or something that turns into a pointer.
+
+    Even if the function is not marked @elidable, it is still treated
+    mostly like one.  The only difference is that (in heapcache.py)
+    we don't assume this function won't change anything observable.
+    This is useful for caches, as you can write:
+
+        def _compute_and_cache(...):
+            self.cache = ...compute...
+            return self.cache
+
+        x = jit.conditional_call_elidable(self.cache, _compute_and_cache, ...)
+
+    """
+    if we_are_translated() and we_are_jitted():
+        #^^^ the occasional test patches we_are_jitted() to True
+        return _jit_conditional_call_value(value, function, *args)
+    else:
+        if isinstance(value, int):
+            if value == 0:
+                value = function(*args)
+                assert isinstance(value, int)
+        else:
+            if value is None:
+                value = function(*args)
+                assert not isinstance(value, int)
+        return value
+conditional_call_elidable._always_inline_ = 'try'
 
 class ConditionalCallEntry(ExtRegistryEntry):
-    _about_ = _jit_conditional_call
+    _about_ = _jit_conditional_call, _jit_conditional_call_value
 
     def compute_result_annotation(self, *args_s):
-        self.bookkeeper.emulate_pbc_call(self.bookkeeper.position_key,
-                                         args_s[1], args_s[2:])
+        s_res = self.bookkeeper.emulate_pbc_call(self.bookkeeper.position_key,
+                                                 args_s[1], args_s[2:])
+        if self.instance == _jit_conditional_call_value:
+            from rpython.annotator import model as annmodel
+            # the result is either s_res, i.e. the function result, or
+            # it is args_s[0]-but-not-none.  The "not-none" part is
+            # only useful for pointer-like types, but it means that
+            # args_s[0] could be NULL without the result of the whole
+            # conditional_call_elidable() necessarily returning a result
+            # that can be NULL.
+            return annmodel.unionof(s_res, args_s[0].nonnoneify())
 
     def specialize_call(self, hop):
         from rpython.rtyper.lltypesystem import lltype
 
-        args_v = hop.inputargs(lltype.Bool, lltype.Void, *hop.args_r[2:])
+        if self.instance == _jit_conditional_call:
+            opname = 'jit_conditional_call'
+            COND = lltype.Bool
+            resulttype = None
+        elif self.instance == _jit_conditional_call_value:
+            opname = 'jit_conditional_call_value'
+            COND = hop.r_result
+            resulttype = hop.r_result.lowleveltype
+        else:
+            assert False
+        args_v = hop.inputargs(COND, lltype.Void, *hop.args_r[2:])
         args_v[1] = hop.args_r[1].get_concrete_llfn(hop.args_s[1],
                                                     hop.args_s[2:], hop.spaceop)
         hop.exception_is_here()
-        return hop.genop('jit_conditional_call', args_v)
+        return hop.genop(opname, args_v, resulttype=resulttype)
 
 def enter_portal_frame(unique_id):
     """call this when starting to interpret a function. calling this is not

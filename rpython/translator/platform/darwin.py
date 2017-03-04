@@ -31,8 +31,12 @@ class Darwin(posix.BasePosix):
         return self.rpath_flags
 
     def _args_for_shared(self, args):
+        if hasattr(self, '_exe_name'):
+            target = os.path.basename(self._exe_name)
+        else:
+            target = '$(TARGET)'     # inside a Makefile
         return (list(self.shared_only)
-                + ['-dynamiclib', '-install_name', '@rpath/$(TARGET)', '-undefined', 'dynamic_lookup', '-flat_namespace']
+                + ['-dynamiclib', '-install_name', '@rpath/' + target, '-undefined', 'dynamic_lookup', '-flat_namespace']
                 + args)
 
     def _include_dirs_for_libffi(self):

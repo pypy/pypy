@@ -78,7 +78,8 @@ class LLOp(object):
     def is_pure(self, args_v):
         if self.canfold:                # canfold => pure operation
             return True
-        if self is llop.debug_assert:   # debug_assert is pure enough
+        if (self is llop.debug_assert or     # debug_assert is pure enough
+            self is llop.debug_assert_not_none):
             return True
         # reading from immutable
         if self is llop.getfield or self is llop.getarrayitem:
@@ -166,8 +167,6 @@ class Entry(ExtRegistryEntry):
 # ____________________________________________________________
 #
 # This list corresponds to the operations implemented by the LLInterpreter.
-# Note that many exception-raising operations can be replaced by calls
-# to helper functions in rpython.rtyper.raisingops.
 # ***** Run test_lloperation after changes. *****
 
 LL_OPERATIONS = {
@@ -191,18 +190,14 @@ LL_OPERATIONS = {
 
     'int_is_true':          LLOp(canfold=True),
     'int_neg':              LLOp(canfold=True),
-    'int_neg_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
     'int_abs':              LLOp(canfold=True),
-    'int_abs_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
     'int_invert':           LLOp(canfold=True),
 
     'int_add':              LLOp(canfold=True),
     'int_sub':              LLOp(canfold=True),
     'int_mul':              LLOp(canfold=True),
-    'int_floordiv':         LLOp(canfold=True),
-    'int_floordiv_zer':     LLOp(canraise=(ZeroDivisionError,), tryfold=True),
-    'int_mod':              LLOp(canfold=True),
-    'int_mod_zer':          LLOp(canraise=(ZeroDivisionError,), tryfold=True),
+    'int_floordiv':         LLOp(canfold=True),  # C-like behavior for neg num
+    'int_mod':              LLOp(canfold=True),  # C-like behavior for neg num
     'int_lt':               LLOp(canfold=True),
     'int_le':               LLOp(canfold=True),
     'int_eq':               LLOp(canfold=True),
@@ -223,14 +218,6 @@ LL_OPERATIONS = {
               # ^^^ more efficient version when 2nd arg is nonneg
     'int_sub_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
     'int_mul_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
-    # the following operations overflow in one case: (-sys.maxint-1) // (-1)
-    'int_floordiv_ovf':     LLOp(canraise=(OverflowError,), tryfold=True),
-    'int_floordiv_ovf_zer': LLOp(canraise=(OverflowError, ZeroDivisionError),
-                                                            tryfold=True),
-    'int_mod_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
-    'int_mod_ovf_zer':      LLOp(canraise=(OverflowError, ZeroDivisionError),
-                                                            tryfold=True),
-    'int_lshift_ovf':       LLOp(canraise=(OverflowError,), tryfold=True),
 
     'uint_is_true':         LLOp(canfold=True),
     'uint_invert':          LLOp(canfold=True),
@@ -239,9 +226,7 @@ LL_OPERATIONS = {
     'uint_sub':             LLOp(canfold=True),
     'uint_mul':             LLOp(canfold=True),
     'uint_floordiv':        LLOp(canfold=True),
-    'uint_floordiv_zer':    LLOp(canraise=(ZeroDivisionError,), tryfold=True),
     'uint_mod':             LLOp(canfold=True),
-    'uint_mod_zer':         LLOp(canraise=(ZeroDivisionError,), tryfold=True),
     'uint_lt':              LLOp(canfold=True),
     'uint_le':              LLOp(canfold=True),
     'uint_eq':              LLOp(canfold=True),
@@ -280,9 +265,7 @@ LL_OPERATIONS = {
     'llong_sub':            LLOp(canfold=True),
     'llong_mul':            LLOp(canfold=True),
     'llong_floordiv':       LLOp(canfold=True),
-    'llong_floordiv_zer':   LLOp(canraise=(ZeroDivisionError,), tryfold=True),
     'llong_mod':            LLOp(canfold=True),
-    'llong_mod_zer':        LLOp(canraise=(ZeroDivisionError,), tryfold=True),
     'llong_lt':             LLOp(canfold=True),
     'llong_le':             LLOp(canfold=True),
     'llong_eq':             LLOp(canfold=True),
@@ -302,9 +285,7 @@ LL_OPERATIONS = {
     'ullong_sub':           LLOp(canfold=True),
     'ullong_mul':           LLOp(canfold=True),
     'ullong_floordiv':      LLOp(canfold=True),
-    'ullong_floordiv_zer':  LLOp(canraise=(ZeroDivisionError,), tryfold=True),
     'ullong_mod':           LLOp(canfold=True),
-    'ullong_mod_zer':       LLOp(canraise=(ZeroDivisionError,), tryfold=True),
     'ullong_lt':            LLOp(canfold=True),
     'ullong_le':            LLOp(canfold=True),
     'ullong_eq':            LLOp(canfold=True),
@@ -326,9 +307,7 @@ LL_OPERATIONS = {
     'lllong_sub':            LLOp(canfold=True),
     'lllong_mul':            LLOp(canfold=True),
     'lllong_floordiv':       LLOp(canfold=True),
-    'lllong_floordiv_zer':   LLOp(canraise=(ZeroDivisionError,), tryfold=True),
     'lllong_mod':            LLOp(canfold=True),
-    'lllong_mod_zer':        LLOp(canraise=(ZeroDivisionError,), tryfold=True),
     'lllong_lt':             LLOp(canfold=True),
     'lllong_le':             LLOp(canfold=True),
     'lllong_eq':             LLOp(canfold=True),
@@ -418,7 +397,6 @@ LL_OPERATIONS = {
     'raw_store':            LLOp(canrun=True),
     'bare_raw_store':       LLOp(),
     'gc_load_indexed':      LLOp(sideeffects=False, canrun=True),
-    'stack_malloc':         LLOp(), # mmh
     'track_alloc_start':    LLOp(),
     'track_alloc_stop':     LLOp(),
     'adr_add':              LLOp(canfold=True),
@@ -453,6 +431,7 @@ LL_OPERATIONS = {
     'jit_record_exact_class'  : LLOp(canrun=True),
     'jit_ffi_save_result':  LLOp(canrun=True),
     'jit_conditional_call': LLOp(),
+    'jit_conditional_call_value': LLOp(),
     'jit_enter_portal_frame': LLOp(canrun=True),
     'jit_leave_portal_frame': LLOp(canrun=True),
     'get_exception_addr':   LLOp(),
@@ -492,6 +471,7 @@ LL_OPERATIONS = {
     'gc_pin'              : LLOp(canrun=True),
     'gc_unpin'            : LLOp(canrun=True),
     'gc__is_pinned'        : LLOp(canrun=True),
+    'gc_bit'              : LLOp(sideeffects=False, canrun=True),
 
     'gc_get_rpy_roots'    : LLOp(),
     'gc_get_rpy_referents': LLOp(),
@@ -506,12 +486,17 @@ LL_OPERATIONS = {
     'gc_add_memory_pressure': LLOp(),
     'gc_fq_next_dead'     : LLOp(),
     'gc_fq_register'      : LLOp(),
+    'gc_ignore_finalizer' : LLOp(canrun=True),
 
     'gc_rawrefcount_init':              LLOp(),
     'gc_rawrefcount_create_link_pypy':  LLOp(),
     'gc_rawrefcount_create_link_pyobj': LLOp(),
+    'gc_rawrefcount_mark_deallocating': LLOp(),
     'gc_rawrefcount_from_obj':          LLOp(sideeffects=False),
     'gc_rawrefcount_to_obj':            LLOp(sideeffects=False),
+    'gc_rawrefcount_next_dead':         LLOp(),
+
+    'gc_move_out_of_nursery':           LLOp(),
 
     'gc_push_roots'        : LLOp(),  # temporary: list of roots to save
     'gc_pop_roots'         : LLOp(),  # temporary: list of roots to restore
@@ -569,17 +554,18 @@ LL_OPERATIONS = {
     'threadlocalref_enum':  LLOp(sideeffects=False),  # enum all threadlocalrefs
 
     # __________ debugging __________
-    'debug_view':           LLOp(),
-    'debug_print':          LLOp(canrun=True),
-    'debug_start':          LLOp(canrun=True),
-    'debug_stop':           LLOp(canrun=True),
-    'have_debug_prints':    LLOp(canrun=True),
-    'have_debug_prints_for':LLOp(canrun=True),
-    'debug_offset':         LLOp(canrun=True),
-    'debug_flush':          LLOp(canrun=True),
-    'debug_assert':         LLOp(tryfold=True),
-    'debug_fatalerror':     LLOp(canrun=True),
-    'debug_llinterpcall':   LLOp(canraise=(Exception,)),
+    'debug_view':               LLOp(),
+    'debug_print':              LLOp(canrun=True),
+    'debug_start':              LLOp(canrun=True),
+    'debug_stop':               LLOp(canrun=True),
+    'have_debug_prints':        LLOp(canrun=True),
+    'have_debug_prints_for':    LLOp(canrun=True),
+    'debug_offset':             LLOp(canrun=True),
+    'debug_flush':              LLOp(canrun=True),
+    'debug_assert':             LLOp(tryfold=True),
+    'debug_assert_not_none':    LLOp(tryfold=True),
+    'debug_fatalerror':         LLOp(canrun=True),
+    'debug_llinterpcall':       LLOp(canraise=(Exception,)),
                                     # Python func call 'res=arg[0](*arg[1:])'
                                     # in backends, abort() or whatever is fine
     'debug_start_traceback':   LLOp(),

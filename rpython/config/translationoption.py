@@ -188,6 +188,10 @@ translation_optiondescription = OptionDescription(
                "When true, enable the use of tagged pointers. "
                "If false, use normal boxing",
                default=False),
+    BoolOption("keepgoing",
+               "Continue annotating when errors are encountered, and report "
+               "them all at the end of the annotation phase",
+               default=False, cmdline="--keepgoing"),
     BoolOption("lldebug",
                "If true, makes an lldebug build", default=False,
                cmdline="--lldebug"),
@@ -213,11 +217,6 @@ translation_optiondescription = OptionDescription(
                    default=False),
         BoolOption("merge_if_blocks", "Merge if ... elif chains",
                    cmdline="--if-block-merge", default=True),
-        BoolOption("raisingop2direct_call",
-                   "Transform operations that can implicitly raise an "
-                   "exception into calls to functions that explicitly "
-                   "raise exceptions",
-                   default=False, cmdline="--raisingop2direct_call"),
         BoolOption("mallocs", "Remove mallocs", default=True),
         BoolOption("constfold", "Constant propagation",
                    default=True),
@@ -266,6 +265,9 @@ translation_optiondescription = OptionDescription(
                    "stack based virtual machines (only for backends that support it)",
                    default=True),
         BoolOption("storesink", "Perform store sinking", default=True),
+        BoolOption("replace_we_are_jitted",
+                   "Replace we_are_jitted() calls by False",
+                   default=False, cmdline=None),
         BoolOption("none",
                    "Do not run any backend optimizations",
                    requires=[('translation.backendopt.inline', False),

@@ -54,7 +54,7 @@ to zero) to stop - 1 by step (defaults to 1).  Use a negative step to
 get a list in decending order."""
 
     if w_y is None:
-        w_start = space.wrap(0)
+        w_start = space.newint(0)
         w_stop = w_x
     else:
         w_start = w_x
@@ -91,7 +91,7 @@ get a list in decending order."""
     res_w = [None] * howmany
     v = start
     for idx in range(howmany):
-        res_w[idx] = space.wrap(v)
+        res_w[idx] = space.newint(v)
         v += step
     return space.newlist(res_w)
 
@@ -145,8 +145,17 @@ def make_min_max(unroll):
         else:
             compare = space.lt
             jitdriver = min_jitdriver
+        any_kwds = bool(args.keywords)
         args_w = args.arguments_w
         if len(args_w) > 1:
+            if unroll and len(args_w) == 2 and not any_kwds:
+                # a fast path for the common case, useful for interpreted
+                # mode and to reduce the length of the jit trace
+                w0, w1 = args_w
+                if space.is_true(compare(w1, w0)):
+                    return w1
+                else:
+                    return w0
             w_sequence = space.newtuple(args_w)
         elif len(args_w):
             w_sequence = args_w[0]
@@ -155,8 +164,8 @@ def make_min_max(unroll):
                         "%s() expects at least one argument",
                         implementation_of)
         w_key = None
-        kwds = args.keywords
-        if kwds:
+        if any_kwds:
+            kwds = args.keywords
             if kwds[0] == "key" and len(kwds) == 1:
                 w_key = args.keywords_w[0]
             else:
@@ -255,10 +264,10 @@ class W_Enumerate(W_Root):
 
         self = space.allocate_instance(W_Enumerate, w_subtype)
         self.__init__(w_iter, start, w_start)
-        return space.wrap(self)
+        return self
 
     def descr___iter__(self, space):
-        return space.wrap(self)
+        return self
 
     def descr_next(self, space):
         from pypy.objspace.std.listobject import W_ListObject
@@ -280,14 +289,14 @@ class W_Enumerate(W_Root):
                 try:
                     newval = rarithmetic.ovfcheck(index + 1)
                 except OverflowError:
-                    w_index = space.wrap(index)
-                    self.w_index = space.add(w_index, space.wrap(1))
+                    w_index = space.newint(index)
+                    self.w_index = space.add(w_index, space.newint(1))
                     self.index = -1
                 else:
                     self.index = newval
-            w_index = space.wrap(index)
+            w_index = space.newint(index)
         else:
-            self.w_index = space.add(w_index, space.wrap(1))
+            self.w_index = space.add(w_index, space.newint(1))
         if w_item is None:
             w_item = space.next(self.w_iter_or_list)
         return space.newtuple([w_index, w_item])
@@ -299,7 +308,7 @@ class W_Enumerate(W_Root):
         w_new_inst = mod.get('enumerate_new')
         w_index = self.w_index
         if w_index is None:
-            w_index = space.wrap(self.index)
+            w_index = space.newint(self.index)
         w_info = space.newtuple([self.w_iter_or_list, w_index])
         return space.newtuple([w_new_inst, w_info])
 
@@ -310,7 +319,7 @@ def _make_enumerate(space, w_iter_or_list, w_index):
         w_index = None
     else:
         index = -1
-    return space.wrap(W_Enumerate(w_iter_or_list, index, w_index))
+    return W_Enumerate(w_iter_or_list, index, w_index)
 
 W_Enumerate.typedef = TypeDef("enumerate",
     __new__=interp2app(W_Enumerate.descr___new__.im_func),
@@ -324,14 +333,14 @@ def reversed(space, w_sequence):
     """Return a iterator that yields items of sequence in reverse."""
     w_reversed = None
     if space.is_oldstyle_instance(w_sequence):
-        w_reversed = space.findattr(w_sequence, space.wrap("__reversed__"))
+        w_reversed = space.findattr(w_sequence, space.newtext("__reversed__"))
     else:
         w_reversed_descr = space.lookup(w_sequence, "__reversed__")
         if w_reversed_descr is not None:
             w_reversed = space.get(w_reversed_descr, w_sequence)
     if w_reversed is not None:
         return space.call_function(w_reversed)
-    return space.wrap(W_ReversedIterator(space, w_sequence))
+    return W_ReversedIterator(space, w_sequence)
 
 
 class W_ReversedIterator(W_Root):
@@ -343,25 +352,31 @@ class W_ReversedIterator(W_Root):
         self.w_sequence = w_sequence
 
     def descr___iter__(self, space):
-        return space.wrap(self)
+        return self
 
     def descr_length(self, space):
-        return space.wrap(0 if self.remaining == -1 else self.remaining + 1)
+        return space.newint(0 if self.remaining == -1 else self.remaining + 1)
 
     def descr_next(self, space):
         if self.remaining >= 0:
-            w_index = space.wrap(self.remaining)
+            w_index = space.newint(self.remaining)
             try:
                 w_item = space.getitem(self.w_sequence, w_index)
             except OperationError as e:
-                if not e.match(space, space.w_StopIteration):
+                # Done
+                self.remaining = -1
+                self.w_sequence = None
+                if not (e.match(space, space.w_IndexError) or
+                        e.match(space, space.w_StopIteration)):
                     raise
+                raise OperationError(space.w_StopIteration, space.w_None)
             else:
                 self.remaining -= 1
                 return w_item
 
         # Done
         self.remaining = -1
+        self.w_sequence = None
         raise OperationError(space.w_StopIteration, space.w_None)
 
     def descr___reduce__(self, space):
@@ -369,7 +384,8 @@ class W_ReversedIterator(W_Root):
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
         w_new_inst = mod.get('reversed_new')
-        info_w = [self.w_sequence, space.wrap(self.remaining)]
+        w_seq = space.w_None if self.w_sequence is None else self.w_sequence
+        info_w = [w_seq, space.newint(self.remaining)]
         w_info = space.newtuple(info_w)
         return space.newtuple([w_new_inst, w_info])
 
@@ -385,9 +401,13 @@ W_ReversedIterator.typedef.acceptable_as_base_class = False
 def _make_reversed(space, w_seq, w_remaining):
     w_type = space.gettypeobject(W_ReversedIterator.typedef)
     iterator = space.allocate_instance(W_ReversedIterator, w_type)
-    iterator.w_sequence = w_seq
-    iterator.remaining = space.int_w(w_remaining)
-    return space.wrap(iterator)
+    if space.is_w(w_seq, space.w_None):
+        iterator.w_sequence = None
+        iterator.remaining = -1
+    else:
+        iterator.w_sequence = w_seq
+        iterator.remaining = space.int_w(w_remaining)
+    return iterator
 
 
 class W_XRange(W_Root):
@@ -411,9 +431,9 @@ class W_XRange(W_Root):
         else:
             stop = space.int_w(w_stop)
         howmany = get_len_of_range(space, start, stop, step)
-        obj = space.allocate_instance(W_XRange, w_subtype)
-        W_XRange.__init__(obj, space, start, howmany, step, promote_step)
-        return space.wrap(obj)
+        w_obj = space.allocate_instance(W_XRange, w_subtype)
+        W_XRange.__init__(w_obj, space, start, howmany, step, promote_step)
+        return w_obj
 
     def descr_repr(self):
         if self.start == 0 and self.step == 1:
@@ -422,10 +442,10 @@ class W_XRange(W_Root):
             s = "xrange(%d, %d)" % (self.start, self._get_stop())
         else:
             s = "xrange(%d, %d, %d)" %(self.start, self._get_stop(), self.step)
-        return self.space.wrap(s)
+        return self.space.newtext(s)
 
     def descr_len(self):
-        return self.space.wrap(self.len)
+        return self.space.newint(self.len)
 
     @unwrap_spec(i='index')
     def descr_getitem(self, i):
@@ -435,31 +455,31 @@ class W_XRange(W_Root):
         if i < 0:
             i += len
         if 0 <= i < len:
-            return space.wrap(self.start + i * self.step)
+            return space.newint(self.start + i * self.step)
         raise oefmt(space.w_IndexError, "xrange object index out of range")
 
     def descr_iter(self):
         if self.promote_step and self.step == 1:
             stop = self.start + self.len
-            return self.space.wrap(W_XRangeStepOneIterator(self.space,
-                                                           self.start,
-                                                           stop))
+            return W_XRangeStepOneIterator(self.space,
+                                           self.start,
+                                           stop)
         else:
-            return self.space.wrap(W_XRangeIterator(self.space, self.start,
-                                                    self.len, self.step))
+            return W_XRangeIterator(self.space, self.start,
+                                    self.len, self.step)
 
     def descr_reversed(self):
         last = self.start + (self.len - 1) * self.step
-        return self.space.wrap(W_XRangeIterator(self.space, last, self.len,
-                                                -self.step))
+        return W_XRangeIterator(self.space, last, self.len,
+                                -self.step)
 
     def descr_reduce(self):
         space = self.space
         return space.newtuple(
             [space.type(self),
-             space.newtuple([space.wrap(self.start),
-                             space.wrap(self._get_stop()),
-                             space.wrap(self.step)])
+             space.newtuple([space.newint(self.start),
+                             space.newint(self._get_stop()),
+                             space.newint(self.step)])
              ])
 
     def _get_stop(self):
@@ -492,7 +512,7 @@ class W_XRangeIterator(W_Root):
         self.step = step
 
     def descr_iter(self):
-        return self.space.wrap(self)
+        return self
 
     def descr_next(self):
         return self.next()
@@ -502,11 +522,11 @@ class W_XRangeIterator(W_Root):
             item = self.current
             self.current = item + self.step
             self.remaining -= 1
-            return self.space.wrap(item)
+            return self.space.newint(item)
         raise OperationError(self.space.w_StopIteration, self.space.w_None)
 
     def descr_len(self):
-        return self.space.wrap(self.get_remaining())
+        return self.space.newint(self.get_remaining())
 
     def descr_reduce(self):
         from pypy.interpreter.mixedmodule import MixedModule
@@ -514,10 +534,9 @@ class W_XRangeIterator(W_Root):
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('xrangeiter_new')
-        w        = space.wrap
         nt = space.newtuple
 
-        tup = [w(self.current), w(self.get_remaining()), w(self.step)]
+        tup = [space.newint(self.current), space.newint(self.get_remaining()), space.newint(self.step)]
         return nt([new_inst, nt(tup)])
 
     def get_remaining(self):
@@ -545,7 +564,7 @@ class W_XRangeStepOneIterator(W_XRangeIterator):
         if self.current < self.stop:
             item = self.current
             self.current = item + 1
-            return self.space.wrap(item)
+            return self.space.newint(item)
         raise OperationError(self.space.w_StopIteration, self.space.w_None)
 
     def get_remaining(self):

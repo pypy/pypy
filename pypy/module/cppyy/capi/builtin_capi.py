@@ -1,12 +1,11 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import jit
 
-import reflex_capi as backend
-#import cint_capi as backend
+import cling_capi as backend
 
 from pypy.module.cppyy.capi.capi_types import C_SCOPE, C_TYPE, C_OBJECT,\
-   C_METHOD, C_INDEX, C_INDEX_ARRAY, WLAVC_INDEX,\
-   C_METHPTRGETTER, C_METHPTRGETTER_PTR
+   C_METHOD, C_INDEX, C_INDEX_ARRAY, WLAVC_INDEX, C_FUNC_PTR
 
 identify  = backend.identify
 pythonize = backend.pythonize
@@ -52,13 +51,6 @@ _c_get_scope_opaque = rffi.llexternal(
     compilation_info=backend.eci)
 def c_get_scope_opaque(space, name):
     return _c_get_scope_opaque(name)
-_c_get_template = rffi.llexternal(
-    "cppyy_get_template",
-    [rffi.CCHARP], C_TYPE,
-    releasegil=ts_reflect,
-    compilation_info=backend.eci)
-def c_get_template(space, name):
-    return _c_get_template(name)
 _c_actual_class = rffi.llexternal(
     "cppyy_actual_class",
     [C_TYPE, C_OBJECT], C_TYPE,
@@ -154,6 +146,13 @@ _c_call_d = rffi.llexternal(
     compilation_info=backend.eci)
 def c_call_d(space, cppmethod, cppobject, nargs, args):
     return _c_call_d(cppmethod, cppobject, nargs, args)
+_c_call_ld = rffi.llexternal(
+    "cppyy_call_ld",
+    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.LONGDOUBLE,
+    releasegil=ts_call,
+    compilation_info=backend.eci)
+def c_call_ld(space, cppmethod, cppobject, nargs, args):
+    return _c_call_ld(cppmethod, cppobject, nargs, args)
 
 _c_call_r = rffi.llexternal(
     "cppyy_call_r",
@@ -164,11 +163,17 @@ def c_call_r(space, cppmethod, cppobject, nargs, args):
     return _c_call_r(cppmethod, cppobject, nargs, args)
 _c_call_s = rffi.llexternal(
     "cppyy_call_s",
-    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.CCHARP,
+    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP, rffi.SIZE_TP], rffi.CCHARP,
     releasegil=ts_call,
     compilation_info=backend.eci)
 def c_call_s(space, cppmethod, cppobject, nargs, args):
-    return _c_call_s(cppmethod, cppobject, nargs, args)
+    length = lltype.malloc(rffi.SIZE_TP.TO, 1, flavor='raw')
+    try:
+        cstr = _c_call_s(cppmethod, cppobject, nargs, args, length)
+        cstr_len = intmask(length[0])
+    finally:
+        lltype.free(length, flavor='raw')
+    return cstr, cstr_len
 
 _c_constructor = rffi.llexternal(
     "cppyy_constructor",
@@ -185,15 +190,14 @@ _c_call_o = rffi.llexternal(
 def c_call_o(space, method, cppobj, nargs, args, cppclass):
     return _c_call_o(method, cppobj, nargs, args, cppclass.handle)
 
-_c_get_methptr_getter = rffi.llexternal(
-    "cppyy_get_methptr_getter",
-    [C_SCOPE, C_INDEX], C_METHPTRGETTER_PTR,
+_c_get_function_address = rffi.llexternal(
+    "cppyy_get_function_address",
+    [C_SCOPE, C_INDEX], C_FUNC_PTR,
     releasegil=ts_reflect,
     compilation_info=backend.eci,
-    elidable_function=True,
     random_effects_on_gcobjs=False)
-def c_get_methptr_getter(space, cppscope, index):
-    return _c_get_methptr_getter(cppscope.handle, index)
+def c_get_function_address(space, cppscope, index):
+    return _c_get_function_address(cppscope.handle, index)
 
 # handling of function argument buffer ---------------------------------------
 _c_allocate_function_args = rffi.llexternal(
@@ -215,8 +219,8 @@ _c_function_arg_sizeof = rffi.llexternal(
     [], rffi.SIZE_T,
     releasegil=ts_memory,
     compilation_info=backend.eci,
-    elidable_function=True,
     random_effects_on_gcobjs=False)
+@jit.elidable
 def c_function_arg_sizeof(space):
     return _c_function_arg_sizeof()
 _c_function_arg_typeoffset = rffi.llexternal(
@@ -224,8 +228,8 @@ _c_function_arg_typeoffset = rffi.llexternal(
     [], rffi.SIZE_T,
     releasegil=ts_memory,
     compilation_info=backend.eci,
-    elidable_function=True,
     random_effects_on_gcobjs=False)
+@jit.elidable
 def c_function_arg_typeoffset(space):
     return _c_function_arg_typeoffset()
 
@@ -237,6 +241,20 @@ _c_is_namespace = rffi.llexternal(
     compilation_info=backend.eci)
 def c_is_namespace(space, scope):
     return _c_is_namespace(scope)
+_c_is_template = rffi.llexternal(
+    "cppyy_is_template",
+    [rffi.CCHARP], rffi.INT,
+    releasegil=ts_reflect,
+    compilation_info=backend.eci)
+def c_is_template(space, name):
+    return _c_is_template(name)
+_c_is_abstract = rffi.llexternal(
+    "cppyy_is_abstract",
+    [C_SCOPE], rffi.INT,
+    releasegil=ts_reflect,
+    compilation_info=backend.eci)
+def c_is_abstract(space, cpptype):
+    return _c_is_abstract(cpptype)
 _c_is_enum = rffi.llexternal(
     "cppyy_is_enum",
     [rffi.CCHARP], rffi.INT,
@@ -286,9 +304,8 @@ _c_is_subtype = rffi.llexternal(
     [C_TYPE, C_TYPE], rffi.INT,
     releasegil=ts_reflect,
     compilation_info=backend.eci,
-    elidable_function=True,
     random_effects_on_gcobjs=False)
-@jit.elidable_promote('2')
+@jit.elidable
 def c_is_subtype(space, derived, base):
     if derived == base:
         return 1
@@ -296,12 +313,11 @@ def c_is_subtype(space, derived, base):
 
 _c_base_offset = rffi.llexternal(
     "cppyy_base_offset",
-    [C_TYPE, C_TYPE, C_OBJECT, rffi.INT], rffi.SIZE_T,
+    [C_TYPE, C_TYPE, C_OBJECT, rffi.INT], rffi.LONG, # actually ptrdiff_t
     releasegil=ts_reflect,
     compilation_info=backend.eci,
-    elidable_function=True,
     random_effects_on_gcobjs=False)
-@jit.elidable_promote('1,2,4')
+@jit.elidable
 def c_base_offset(space, derived, base, address, direction):
     if derived == base:
         return 0
@@ -340,7 +356,7 @@ def c_method_indices_from_name(space, cppscope, name):
         i += 1
         py_indices.append(index)
         index = indices[i]
-    c_free(rffi.cast(rffi.VOIDP, indices))   # c_free defined below
+    c_free(space, rffi.cast(rffi.VOIDP, indices))      # c_free defined below
     return py_indices
 
 _c_method_name = rffi.llexternal(
@@ -474,7 +490,7 @@ def c_datamember_type(space, cppscope, datamember_index):
     return charp2str_free(space, _c_datamember_type(cppscope.handle, datamember_index))
 _c_datamember_offset = rffi.llexternal(
     "cppyy_datamember_offset",
-    [C_SCOPE, rffi.INT], rffi.SIZE_T,
+    [C_SCOPE, rffi.INT], rffi.LONG, # actually ptrdiff_t
     releasegil=ts_reflect,
     compilation_info=backend.eci)
 def c_datamember_offset(space, cppscope, datamember_index):
@@ -519,28 +535,29 @@ _c_strtoull = rffi.llexternal(
     compilation_info=backend.eci)
 def c_strtoull(space, svalue):
     return _c_strtoull(svalue)
-c_free = rffi.llexternal(
+_c_free = rffi.llexternal(
     "cppyy_free",
     [rffi.VOIDP], lltype.Void,
     releasegil=ts_memory,
     compilation_info=backend.eci)
+def c_free(space, voidp):
+    return _c_free(voidp)
 
 def charp2str_free(space, charp):
     string = rffi.charp2str(charp)
     voidp = rffi.cast(rffi.VOIDP, charp)
-    c_free(voidp)
+    _c_free(voidp)
     return string
 
 _c_charp2stdstring = rffi.llexternal(
     "cppyy_charp2stdstring",
-    [rffi.CCHARP], C_OBJECT,
+    [rffi.CCHARP, rffi.SIZE_T], C_OBJECT,
     releasegil=ts_helper,
     compilation_info=backend.eci)
-def c_charp2stdstring(space, svalue):
-    charp = rffi.str2charp(svalue)
-    result = _c_charp2stdstring(charp)
-    rffi.free_charp(charp)
-    return result
+def c_charp2stdstring(space, pystr, sz):
+    with rffi.scoped_view_charp(pystr) as cstr:
+        cppstr = _c_charp2stdstring(cstr, sz)
+    return cppstr
 _c_stdstring2stdstring = rffi.llexternal(
     "cppyy_stdstring2stdstring",
     [C_OBJECT], C_OBJECT,
@@ -548,3 +565,26 @@ _c_stdstring2stdstring = rffi.llexternal(
     compilation_info=backend.eci)
 def c_stdstring2stdstring(space, cppobject):
     return _c_stdstring2stdstring(cppobject)
+
+_c_stdvector_valuetype = rffi.llexternal(
+    "cppyy_stdvector_valuetype",
+    [rffi.CCHARP], rffi.CCHARP,
+    releasegil=ts_helper,
+    compilation_info=backend.eci)
+def c_stdvector_valuetype(space, pystr):
+    cstr = rffi.str2charp(pystr)
+    result = _c_stdvector_valuetype(cstr)
+    rffi.free_charp(cstr)
+    if result:
+        return charp2str_free(space, result)
+    return ""
+_c_stdvector_valuesize = rffi.llexternal(
+    "cppyy_stdvector_valuesize",
+    [rffi.CCHARP], rffi.SIZE_T,
+    releasegil=ts_helper,
+    compilation_info=backend.eci)
+def c_stdvector_valuesize(space, pystr):
+    cstr = rffi.str2charp(pystr)
+    result = _c_stdvector_valuesize(cstr)
+    rffi.free_charp(cstr)
+    return result

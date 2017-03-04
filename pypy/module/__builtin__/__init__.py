@@ -36,7 +36,7 @@ class Module(MixedModule):
         'None'          : '(space.w_None)',
         'False'         : '(space.w_False)',
         'True'          : '(space.w_True)',
-        'bytes'         : '(space.w_str)',
+        'bytes'         : '(space.w_bytes)',
 
         'file'          : 'state.get(space).w_file',
         'open'          : 'state.get(space).w_file',
@@ -86,8 +86,8 @@ class Module(MixedModule):
         'max'           : 'functional.max',
         'reversed'      : 'functional.reversed',
         'super'         : 'descriptor.W_Super',
-        'staticmethod'  : 'descriptor.StaticMethod',
-        'classmethod'   : 'descriptor.ClassMethod',
+        'staticmethod'  : 'pypy.interpreter.function.StaticMethod',
+        'classmethod'   : 'pypy.interpreter.function.ClassMethod',
         'property'      : 'descriptor.W_Property',
 
         'globals'       : 'interp_inspect.globals',
@@ -101,7 +101,7 @@ class Module(MixedModule):
         # this is obscure and slow
         space = self.space
         try:
-            w_builtin = space.getitem(w_globals, space.wrap('__builtins__'))
+            w_builtin = space.getitem(w_globals, space.newtext('__builtins__'))
         except OperationError as e:
             if not e.match(space, space.w_KeyError):
                 raise
@@ -114,7 +114,7 @@ class Module(MixedModule):
                 return w_builtin
         # no builtin! make a default one.  Give them None, at least.
         builtin = module.Module(space, None)
-        space.setitem(builtin.w_dict, space.wrap('None'), space.w_None)
+        space.setitem(builtin.w_dict, space.newtext('None'), space.w_None)
         return builtin
 
     def setup_after_space_initialization(self):

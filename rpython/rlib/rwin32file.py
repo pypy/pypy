@@ -6,6 +6,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rarithmetic import intmask
 
 @specialize.memo()
 def make_win32_traits(traits):
@@ -45,6 +46,8 @@ def make_win32_traits(traits):
             'INVALID_FILE_ATTRIBUTES')
         ERROR_SHARING_VIOLATION = platform.ConstantInteger(
             'ERROR_SHARING_VIOLATION')
+        MOVEFILE_REPLACE_EXISTING = platform.ConstantInteger(
+            'MOVEFILE_REPLACE_EXISTING')
         _S_IFDIR = platform.ConstantInteger('_S_IFDIR')
         _S_IFREG = platform.ConstantInteger('_S_IFREG')
         _S_IFCHR = platform.ConstantInteger('_S_IFCHR')
@@ -103,7 +106,7 @@ def make_win32_traits(traits):
                        FILE_WRITE_ATTRIBUTES OPEN_EXISTING FILE_FLAG_BACKUP_SEMANTICS
                        VOLUME_NAME_DOS VOLUME_NAME_NT
                        ERROR_FILE_NOT_FOUND ERROR_NO_MORE_FILES
-                       ERROR_SHARING_VIOLATION
+                       ERROR_SHARING_VIOLATION MOVEFILE_REPLACE_EXISTING
                     '''.split():
             locals()[name] = config[name]
         LPWIN32_FIND_DATA    = lltype.Ptr(WIN32_FIND_DATA)
@@ -199,9 +202,9 @@ def make_win32_traits(traits):
             rwin32.BOOL,
             save_err=rffi.RFFI_SAVE_LASTERROR)
 
-        MoveFile = external(
-            'MoveFile' + suffix,
-            [traits.CCHARP, traits.CCHARP],
+        MoveFileEx = external(
+            'MoveFileEx' + suffix,
+            [traits.CCHARP, traits.CCHARP, rwin32.DWORD],
             rwin32.BOOL,
             save_err=rffi.RFFI_SAVE_LASTERROR)
 
@@ -211,12 +214,24 @@ def make_longlong(high, low):
     return (rffi.r_longlong(high) << 32) + rffi.r_longlong(low)
 
 # Seconds between 1.1.1601 and 1.1.1970
-secs_between_epochs = rffi.r_longlong(11644473600)
+secs_between_epochs = 11644473600.0
+hns_between_epochs = rffi.r_longlong(116444736000000000)  # units of 100 nsec
 
 def FILE_TIME_to_time_t_float(filetime):
     ft = make_longlong(filetime.c_dwHighDateTime, filetime.c_dwLowDateTime)
     # FILETIME is in units of 100 nsec
     return float(ft) * (1.0 / 10000000.0) - secs_between_epochs
+
+def FILE_TIME_to_time_t_nsec(filetime):
+    """Like the previous function, but returns a pair: (integer part
+    'time_t' as a r_longlong, fractional part as an int measured in
+    nanoseconds).
+    """
+    ft = make_longlong(filetime.c_dwHighDateTime, filetime.c_dwLowDateTime)
+    ft -= hns_between_epochs
+    int_part = ft / 10000000
+    frac_part = ft - (int_part * 10000000)
+    return (int_part, intmask(frac_part) * 100)
 
 def time_t_to_FILE_TIME(time, filetime):
     ft = rffi.r_longlong((time + secs_between_epochs) * 10000000)

@@ -266,8 +266,8 @@ class PythonCodeMaker(ast.ASTVisitor):
             else:
                 w_key = space.newtuple([obj, space.w_float])
         elif space.is_w(w_type, space.w_complex):
-            w_real = space.getattr(obj, space.wrap("real"))
-            w_imag = space.getattr(obj, space.wrap("imag"))
+            w_real = space.getattr(obj, space.newtext("real"))
+            w_imag = space.getattr(obj, space.newtext("imag"))
             real = space.float_w(w_real)
             imag = space.float_w(w_imag)
             real_negzero = (real == 0.0 and
@@ -366,7 +366,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         space = self.space
         consts_w = [space.w_None] * space.len_w(w_consts)
         w_iter = space.iter(w_consts)
-        first = space.wrap(0)
+        first = space.newint(0)
         while True:
             try:
                 w_key = space.next(w_iter)
@@ -387,7 +387,8 @@ class PythonCodeMaker(ast.ASTVisitor):
     def _stacksize(self, blocks):
         """Compute co_stacksize."""
         for block in blocks:
-            block.initial_depth = 0
+            block.initial_depth = -99
+        blocks[0].initial_depth = 0
         # Assumes that it is sufficient to walk the blocks in 'post-order'.
         # This means we ignore all back-edges, but apart from that, we only
         # look into a block when all the previous blocks have been done.
@@ -406,8 +407,11 @@ class PythonCodeMaker(ast.ASTVisitor):
 
     def _do_stack_depth_walk(self, block):
         depth = block.initial_depth
+        if depth == -99:     # this block is never reached, skip
+             return 0
         for instr in block.instructions:
             depth += _opcode_stack_effect(instr.opcode, instr.arg)
+            assert depth >= 0
             if depth >= self._max_depth:
                 self._max_depth = depth
             jump_op = instr.opcode

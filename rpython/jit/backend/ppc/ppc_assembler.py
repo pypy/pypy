@@ -14,6 +14,7 @@ from rpython.jit.backend.ppc.helper.assembler import Saved_Volatiles
 from rpython.jit.backend.ppc.helper.regalloc import _check_imm_arg
 import rpython.jit.backend.ppc.register as r
 import rpython.jit.backend.ppc.condition as c
+from rpython.jit.metainterp.compile import ResumeGuardDescr
 from rpython.jit.backend.ppc.register import JITFRAME_FIXED_SIZE
 from rpython.jit.metainterp.history import AbstractFailDescr
 from rpython.jit.backend.llsupport import jitframe, rewrite
@@ -36,6 +37,8 @@ from rpython.jit.backend.ppc import callbuilder
 from rpython.rlib.jit import AsmInfo
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib.rjitlog import rjitlog as jl
+from rpython.jit.backend.ppc.jump import remap_frame_layout_mixed
 
 memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,
                                        rffi.SIZE_T], lltype.Void,
@@ -312,6 +315,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         #   * r2 is the gcmap
         #   * the old value of these regs must already be stored in the jitframe
         #   * on exit, all registers are restored from the jitframe
+        #   * the result of the call, if any, is moved to r2
 
         mc = PPCBuilder()
         self.mc = mc
@@ -344,7 +348,11 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         # Finish
         self._reload_frame_if_necessary(mc)
 
+        # Move the result, if any, to r2
+        mc.mr(r.SCRATCH2.value, r.r3.value)
+
         mc.mtlr(r.RCS1.value)     # restore LR
+
         self._pop_core_regs_from_jitframe(mc, saved_regs)
         if supports_floats:
             self._pop_fp_regs_from_jitframe(mc)
@@ -412,7 +420,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         # Check that we don't get NULL; if we do, we always interrupt the
         # current loop, as a "good enough" approximation (same as
         # emit_call_malloc_gc()).
-        self.propagate_memoryerror_if_r3_is_null()
+        self.propagate_memoryerror_if_reg_is_null(r.r3)
 
         mc.mtlr(r.RCS1.value)     # restore LR
         self._pop_core_regs_from_jitframe(mc, saved_regs)
@@ -594,9 +602,6 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
     def _build_propagate_exception_path(self):
-        if not self.cpu.propagate_exception_descr:
-            return
-
         self.mc = PPCBuilder()
         #
         # read and reset the current exception
@@ -771,7 +776,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         self.update_frame_depth(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         #
         size_excluding_failure_stuff = self.mc.get_relative_pos()
-        self.write_pending_failure_recoveries()
+        self.write_pending_failure_recoveries(regalloc)
         full_size = self.mc.get_relative_pos()
         #
         self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
@@ -797,9 +802,16 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             looptoken._ppc_fullsize = full_size
             looptoken._ppc_ops_offset = ops_offset
         looptoken._ll_function_addr = rawstart
+
         if logger:
-            logger.log_loop(inputargs, operations, 0, "rewritten",
-                            name=loopname, ops_offset=ops_offset)
+            log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
+            log.write(inputargs, operations, ops_offset=ops_offset)
+
+            # legacy
+            if logger.logger_ops:
+                logger.logger_ops.log_loop(inputargs, operations, 0,
+                                           "rewritten", name=loopname,
+                                           ops_offset=ops_offset)
 
         self.fixup_target_tokens(rawstart)
         self.teardown()
@@ -808,8 +820,10 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         #    name = "Loop # %s: %s" % (looptoken.number, loopname)
         #    self.cpu.profile_agent.native_code_written(name,
         #                                               rawstart, full_size)
+        #print(hex(rawstart))
+        #import pdb; pdb.set_trace()
         return AsmInfo(ops_offset, rawstart + looppos,
-                       size_excluding_failure_stuff - looppos)
+                       size_excluding_failure_stuff - looppos, rawstart + looppos)
 
     def _assemble(self, regalloc, inputargs, operations):
         self._regalloc = regalloc
@@ -850,10 +864,12 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         self.reserve_gcref_table(allgcrefs)
         startpos = self.mc.get_relative_pos()
 
+        self._update_at_exit(arglocs, inputargs, faildescr, regalloc)
+
         self._check_frame_depth(self.mc, regalloc.get_gcmap())
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
-        self.write_pending_failure_recoveries()
+        self.write_pending_failure_recoveries(regalloc)
         fullsize = self.mc.get_relative_pos()
         #
         self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
@@ -866,13 +882,23 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         ops_offset = self.mc.ops_offset
         frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
                           frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
+
         if logger:
-            logger.log_bridge(inputargs, operations, "rewritten",
-                              ops_offset=ops_offset)
+            log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
+            log.write(inputargs, operations, ops_offset)
+            # log that the already written bridge is stitched to a descr!
+            logger.log_patch_guard(descr_number, rawstart)
+
+            # legacy
+            if logger.logger_ops:
+                logger.logger_ops.log_bridge(inputargs, operations, "rewritten",
+                                          faildescr, ops_offset=ops_offset)
+
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
         self.teardown()
-        return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
+        return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos,
+                       startpos + rawstart)
 
     def reserve_gcref_table(self, allgcrefs):
         # allocate the gc table right now.  We write absolute loads in
@@ -926,7 +952,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         mc.store(r.SCRATCH.value, r.SPP.value, ofs)
 
-    def break_long_loop(self):
+    def break_long_loop(self, regalloc):
         # If the loop is too long, the guards in it will jump forward
         # more than 32 KB.  We use an approximate hack to know if we
         # should break the loop here with an unconditional "b" that
@@ -934,15 +960,20 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         jmp_pos = self.mc.currpos()
         self.mc.trap()
 
-        self.write_pending_failure_recoveries()
+        self.write_pending_failure_recoveries(regalloc)
 
         currpos = self.mc.currpos()
         pmc = OverwritingBuilder(self.mc, jmp_pos, 1)
         pmc.b(currpos - jmp_pos)
         pmc.overwrite()
 
-    def generate_quick_failure(self, guardtok):
+    def generate_quick_failure(self, guardtok, regalloc):
         startpos = self.mc.currpos()
+        # accum vecopt
+        self._update_at_exit(guardtok.fail_locs, guardtok.failargs,
+                             guardtok.faildescr, regalloc)
+        pos = self.mc.currpos()
+        guardtok.rel_recovery_prefix = pos - startpos
         faildescrindex, target = self.store_info_on_descr(startpos, guardtok)
         assert target != 0
         self.mc.load_imm(r.r2, target)
@@ -955,13 +986,13 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             self.mc.trap()
         return startpos
 
-    def write_pending_failure_recoveries(self):
+    def write_pending_failure_recoveries(self, regalloc):
         # for each pending guard, generate the code of the recovery stub
         # at the end of self.mc.
         for i in range(self.pending_guard_tokens_recovered,
                        len(self.pending_guard_tokens)):
             tok = self.pending_guard_tokens[i]
-            tok.pos_recovery_stub = self.generate_quick_failure(tok)
+            tok.pos_recovery_stub = self.generate_quick_failure(tok, regalloc)
         self.pending_guard_tokens_recovered = len(self.pending_guard_tokens)
 
     def patch_pending_failure_recoveries(self, rawstart):
@@ -972,7 +1003,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             addr = rawstart + tok.pos_jump_offset
             #
             # XXX see patch_jump_for_descr()
-            tok.faildescr.adr_jump_offset = rawstart + tok.pos_recovery_stub
+            tok.faildescr.adr_jump_offset = rawstart + tok.pos_recovery_stub + tok.rel_recovery_prefix
             #
             relative_target = tok.pos_recovery_stub - tok.pos_jump_offset
             #
@@ -1044,6 +1075,10 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
                 self.mc.lfd(reg, r.SPP.value, offset)
                 return
             assert 0, "not supported location"
+        elif prev_loc.is_vector_reg():
+            assert loc.is_vector_reg()
+            self.mc.vmr(loc.value, prev_loc.value, prev_loc.value)
+            return
         elif prev_loc.is_reg():
             reg = prev_loc.value
             # move to another register
@@ -1326,11 +1361,8 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         pmc.b(offset)    # jump always
         pmc.overwrite()
 
-    def propagate_memoryerror_if_r3_is_null(self):
-        # if self.propagate_exception_path == 0 (tests), this may jump to 0
-        # and segfaults.  too bad.  the alternative is to continue anyway
-        # with r3==0, but that will segfault too.
-        self.mc.cmp_op(0, r.r3.value, 0, imm=True)
+    def propagate_memoryerror_if_reg_is_null(self, reg_loc):
+        self.mc.cmp_op(0, reg_loc.value, 0, imm=True)
         self.mc.b_cond_abs(self.propagate_exception_path, c.EQ)
 
     def write_new_force_index(self):
@@ -1352,6 +1384,62 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             self.mc.load_imm(r.SCRATCH, fail_index)
             self.mc.store(r.SCRATCH.value, r.SPP.value, FORCE_INDEX_OFS)
 
+    def stitch_bridge(self, faildescr, target):
+        """ Stitching means that one can enter a bridge with a complete different register
+            allocation. This needs remapping which is done here for both normal registers
+            and accumulation registers.
+        """
+        asminfo, bridge_faildescr, version, looptoken = target
+        assert isinstance(bridge_faildescr, ResumeGuardDescr)
+        assert isinstance(faildescr, ResumeGuardDescr)
+        assert asminfo.rawstart != 0
+        self.mc = PPCBuilder()
+        allblocks = self.get_asmmemmgr_blocks(looptoken)
+        self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
+                                                   allblocks)
+        frame_info = self.datablockwrapper.malloc_aligned(
+            jitframe.JITFRAMEINFO_SIZE, alignment=WORD)
+
+        # if accumulation is saved at the guard, we need to update it here!
+        guard_locs = self.rebuild_faillocs_from_descr(faildescr, version.inputargs)
+        bridge_locs = self.rebuild_faillocs_from_descr(bridge_faildescr, version.inputargs)
+        guard_accum_info = faildescr.rd_vector_info
+        # O(n**2), but usually you only have at most 1 fail argument
+        while guard_accum_info:
+            bridge_accum_info = bridge_faildescr.rd_vector_info
+            while bridge_accum_info:
+                if bridge_accum_info.failargs_pos == guard_accum_info.failargs_pos:
+                    # the mapping might be wrong!
+                    if bridge_accum_info.location is not guard_accum_info.location:
+                        self.regalloc_mov(guard_accum_info.location, bridge_accum_info.location)
+                bridge_accum_info = bridge_accum_info.next()
+            guard_accum_info = guard_accum_info.next()
+
+        # register mapping is most likely NOT valid, thus remap it
+        src_locations1 = []
+        dst_locations1 = []
+        src_locations2 = []
+        dst_locations2 = []
+
+        # Build the four lists
+        assert len(guard_locs) == len(bridge_locs)
+        for i,src_loc in enumerate(guard_locs):
+            dst_loc = bridge_locs[i]
+            if not src_loc.is_fp_reg():
+                src_locations1.append(src_loc)
+                dst_locations1.append(dst_loc)
+            else:
+                src_locations2.append(src_loc)
+                dst_locations2.append(dst_loc)
+        remap_frame_layout_mixed(self, src_locations1, dst_locations1, r.SCRATCH,
+                                 src_locations2, dst_locations2, r.FP_SCRATCH)
+
+        offset = self.mc.get_relative_pos()
+        self.mc.b_abs(asminfo.rawstart)
+
+        rawstart = self.materialize_loop(looptoken)
+        # update the guard to jump right to this custom piece of assembler
+        self.patch_jump_for_descr(faildescr, rawstart)
 
 def notimplemented_op(self, op, arglocs, regalloc):
     msg = '[PPC/asm] %s not implemented\n' % op.getopname()

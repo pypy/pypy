@@ -50,10 +50,9 @@ class Local(W_Root):
         self.dicts[ec] = w_dict
         # call __init__
         try:
-            w_self = space.wrap(self)
-            w_type = space.type(w_self)
-            w_init = space.getattr(w_type, space.wrap("__init__"))
-            space.call_obj_args(w_init, w_self, self.initargs)
+            w_type = space.type(self)
+            w_init = space.getattr(w_type, space.newtext("__init__"))
+            space.call_obj_args(w_init, self, self.initargs)
         except:
             # failed, forget w_dict and propagate the exception
             del self.dicts[ec]
@@ -77,7 +76,7 @@ class Local(W_Root):
     def descr_local__new__(space, w_subtype, __args__):
         local = space.allocate_instance(Local, w_subtype)
         Local.__init__(local, space, __args__)
-        return space.wrap(local)
+        return local
 
     def descr_local__init__(self, space):
         # No arguments allowed

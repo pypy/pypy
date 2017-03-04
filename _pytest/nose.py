@@ -1,20 +1,30 @@
 """ run test suites written for nose. """
 
-import pytest, py
 import sys
+
+import py
+import pytest
 from _pytest import unittest
 
-def pytest_runtest_makereport(__multicall__, item, call):
-    SkipTest = getattr(sys.modules.get('nose', None), 'SkipTest', None)
-    if SkipTest:
-        if call.excinfo and call.excinfo.errisinstance(SkipTest):
-            # let's substitute the excinfo with a pytest.skip one
-            call2 = call.__class__(lambda:
-                        pytest.skip(str(call.excinfo.value)), call.when)
-            call.excinfo = call2.excinfo
+
+def get_skip_exceptions():
+    skip_classes = set()
+    for module_name in ('unittest', 'unittest2', 'nose'):
+        mod = sys.modules.get(module_name)
+        if hasattr(mod, 'SkipTest'):
+            skip_classes.add(mod.SkipTest)
+    return tuple(skip_classes)
 
 
-@pytest.mark.trylast
+def pytest_runtest_makereport(item, call):
+    if call.excinfo and call.excinfo.errisinstance(get_skip_exceptions()):
+        # let's substitute the excinfo with a pytest.skip one
+        call2 = call.__class__(lambda:
+                    pytest.skip(str(call.excinfo.value)), call.when)
+        call.excinfo = call2.excinfo
+
+
+@pytest.hookimpl(trylast=True)
 def pytest_runtest_setup(item):
     if is_potential_nosetest(item):
         if isinstance(item.parent, pytest.Generator):
@@ -38,13 +48,8 @@ def teardown_nose(item):
         #    #call_optional(item._nosegensetup, 'teardown')
         #    del item.parent._nosegensetup
 
+
 def pytest_make_collect_report(collector):
-    SkipTest = getattr(sys.modules.get('unittest', None), 'SkipTest', None)
-    if SkipTest is not None:
-        collector.skip_exceptions += (SkipTest,)
-    SkipTest = getattr(sys.modules.get('nose', None), 'SkipTest', None)
-    if SkipTest is not None:
-        collector.skip_exceptions += (SkipTest,)
     if isinstance(collector, pytest.Generator):
         call_optional(collector.obj, 'setup')
 

@@ -280,7 +280,7 @@ class ArrayDescr(ArrayOrFieldDescr):
     concrete_type = '\x00'
 
     def __init__(self, basesize, itemsize, lendescr, flag, is_pure=False, concrete_type='\x00'):
-        self.basesize = basesize
+        self.basesize = basesize    # this includes +1 for STR
         self.itemsize = itemsize
         self.lendescr = lendescr    # or None, if no length
         self.flag = flag
@@ -676,11 +676,10 @@ def get_call_descr(gccache, ARGS, RESULT, extrainfo=None):
 
 def unpack_arraydescr(arraydescr):
     assert isinstance(arraydescr, ArrayDescr)
-    ofs = arraydescr.basesize
+    ofs = arraydescr.basesize    # this includes +1 for STR
     size = arraydescr.itemsize
     sign = arraydescr.is_item_signed()
     return size, ofs, sign
-
 
 def unpack_fielddescr(fielddescr):
     assert isinstance(fielddescr, FieldDescr)

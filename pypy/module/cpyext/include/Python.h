@@ -2,6 +2,9 @@
 #define Py_PYTHON_H
 
 /* Compat stuff */
+#ifdef __GNUC__
+#define _GNU_SOURCE 1
+#endif
 #ifndef _WIN32
 # include <inttypes.h>
 # include <stdint.h>
@@ -52,16 +55,8 @@
 #ifndef DL_IMPORT
 #       define DL_IMPORT(RTYPE) RTYPE
 #endif
-
 #include <stdlib.h>
 
-#ifndef _WIN32
-typedef intptr_t Py_ssize_t;
-#else
-typedef long Py_ssize_t;
-#endif
-#define PY_SSIZE_T_MAX ((Py_ssize_t)(((size_t)-1)>>1))
-#define PY_SSIZE_T_MIN (-PY_SSIZE_T_MAX-1)
 #define Py_SAFE_DOWNCAST(VALUE, WIDE, NARROW) (NARROW)(VALUE)
 
 #define Py_USING_UNICODE
@@ -78,12 +73,13 @@ typedef long Py_ssize_t;
 
 #define Py_MEMCPY memcpy
 
-#include <pypy_macros.h>
+#include "pypy_macros.h"
 
 #include "patchlevel.h"
 #include "pyconfig.h"
 
 #include "object.h"
+#include "abstract.h"
 #include "pymath.h"
 #include "pyport.h"
 #include "warnings.h"
@@ -106,6 +102,7 @@ typedef long Py_ssize_t;
 #include "pythonrun.h"
 #include "pyerrors.h"
 #include "sysmodule.h"
+#include "bytearrayobject.h"
 #include "stringobject.h"
 #include "descrobject.h"
 #include "tupleobject.h"
@@ -141,7 +138,7 @@ typedef long Py_ssize_t;
 #ifdef __cplusplus
 extern "C" {
 #endif
-  #include <pypy_decl.h>
+  #include "pypy_decl.h"
 #ifdef __cplusplus
 }
 #endif

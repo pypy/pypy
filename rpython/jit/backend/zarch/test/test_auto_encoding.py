@@ -134,12 +134,14 @@ EVEN_REGS = range(0,16,2)
 REGNAMES = ['%%r%d' % i for i in REGS]
 FP_REGS = range(16)
 FP_REGNAMES = ['%%f%d' % i for i in FP_REGS]
+VEC_REGS = ['%%v%d' % i for i in range(16,32)]
 TEST_CASE_GENERATE = {
     '-':    [],
     'r':    REGS,
     'f':    FP_REGS,
     'eo':   EVEN_REGS,
     'r/m':  REGS,
+    'v':    VEC_REGS,
     'm':    range_of_bits(4),
     'i4':   range_of_bits(4, signed=True),
     'i8':   range_of_bits(8, signed=True),
@@ -204,7 +206,7 @@ class TestZARCH(object):
                 g.write('%s\n' % op)
                 oplist.append(op)
             g.write('\t.string "%s"\n' % END_TAG)
-        proc = subprocess.Popen(['as', '-m64', '-mzarch', '-march=zEC12',
+        proc = subprocess.Popen(['as', '-m64', '-mzarch', '-march=z196',
                                  inputname, '-o', filename],
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)
@@ -287,4 +289,6 @@ class TestZARCH(object):
 
     @py.test.mark.parametrize("name", codebuilder.all_instructions)
     def test_all(self, name):
+        if name.startswith('V'):
+            py.test.skip("objdump might not be able to assemble z13 instr.")
         self.complete_test(name)

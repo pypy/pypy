@@ -5,9 +5,9 @@ from pypy.interpreter import gateway, pycode
 from pypy.interpreter.error import OperationError, oefmt
 
 try:
-    from _pytest.assertion.newinterpret import interpret
+    from _pytest.assertion.reinterpret import reinterpret as interpret
 except ImportError:
-    from _pytest.assertion.oldinterpret import interpret
+    from _pytest.assertion.newinterpret import interpret
 
 # ____________________________________________________________
 
@@ -230,7 +230,7 @@ def _exc_info(space, err):
 def pypyraises(space, w_ExpectedException, w_expr, __args__):
     """A built-in function providing the equivalent of py.test.raises()."""
     args_w, kwds_w = __args__.unpack()
-    if space.isinstance_w(w_expr, space.w_str):
+    if space.isinstance_w(w_expr, space.w_text):
         if args_w:
             raise oefmt(space.w_TypeError,
                         "raises() takes no argument after a string expression")

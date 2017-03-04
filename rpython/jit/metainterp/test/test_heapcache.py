@@ -83,6 +83,19 @@ class TestHeapCache(object):
         assert not h.is_nullity_known(box1)
         assert not h.is_nullity_known(box2)
 
+    def test_known_nullity_more_cases(self):
+        h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        h.class_now_known(box1)
+        assert h.is_nullity_known(box1)
+
+        h.new(box2)
+        assert h.is_nullity_known(box2)
+
+        h.reset()
+        assert not h.is_nullity_known(box1)
+        assert not h.is_nullity_known(box2)
 
     def test_nonstandard_virtualizable(self):
         h = HeapCache()
@@ -797,3 +810,46 @@ class TestHeapCache(object):
         h.class_now_known(box1)     # interaction of the two families of flags
         assert not h.is_unescaped(box1)
         assert h.is_likely_virtual(box1)
+
+    def test_quasiimmut_seen(self):
+        h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        box3 = RefFrontendOp(3)
+        box4 = RefFrontendOp(4)
+        assert not h.is_quasi_immut_known(descr1, box1)
+        assert not h.is_quasi_immut_known(descr1, box2)
+        assert not h.is_quasi_immut_known(descr2, box3)
+        assert not h.is_quasi_immut_known(descr2, box4)
+        h.quasi_immut_now_known(descr1, box1)
+        assert h.is_quasi_immut_known(descr1, box1)
+        assert not h.is_quasi_immut_known(descr1, box2)
+        assert not h.is_quasi_immut_known(descr2, box3)
+        assert not h.is_quasi_immut_known(descr2, box4)
+        h.quasi_immut_now_known(descr1, box2)
+        assert h.is_quasi_immut_known(descr1, box1)
+        assert h.is_quasi_immut_known(descr1, box2)
+        assert not h.is_quasi_immut_known(descr2, box3)
+        assert not h.is_quasi_immut_known(descr2, box4)
+        h.quasi_immut_now_known(descr2, box3)
+        assert h.is_quasi_immut_known(descr1, box1)
+        assert h.is_quasi_immut_known(descr1, box2)
+        assert h.is_quasi_immut_known(descr2, box3)
+        assert not h.is_quasi_immut_known(descr2, box4)
+        h.quasi_immut_now_known(descr2, box4)
+        assert h.is_quasi_immut_known(descr1, box1)
+        assert h.is_quasi_immut_known(descr1, box2)
+        assert h.is_quasi_immut_known(descr2, box3)
+        assert h.is_quasi_immut_known(descr2, box4)
+
+        # invalidate the descr1 cache
+
+        h.setfield(box1, box3, descr1)
+        assert not h.is_quasi_immut_known(descr1, box1)
+        assert not h.is_quasi_immut_known(descr1, box2)
+
+        # a call invalidates everything
+        h.invalidate_caches(
+            rop.CALL_N, FakeCallDescr(FakeEffectinfo.EF_CAN_RAISE), [])
+        assert not h.is_quasi_immut_known(descr2, box3)
+        assert not h.is_quasi_immut_known(descr2, box4)

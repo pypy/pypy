@@ -9,6 +9,7 @@ from rpython.jit.backend.zarch.helper.regalloc import (check_imm,
 from rpython.jit.metainterp.history import (ConstInt)
 from rpython.jit.backend.zarch.codebuilder import ZARCHGuardToken, InstrBuilder
 from rpython.jit.backend.llsupport import symbolic, jitframe
+from rpython.rlib.rjitlog import rjitlog as jl
 import rpython.jit.backend.zarch.conditions as c
 import rpython.jit.backend.zarch.registers as r
 import rpython.jit.backend.zarch.locations as l
@@ -160,11 +161,15 @@ class IntOpAssembler(object):
         omc.BRC(c.ANY, l.imm(label_end - jmp_neither_lqlr_overflow))
         omc.overwrite()
 
-    emit_int_floordiv = gen_emit_div_mod('DSGR', 'DSG')
-    emit_uint_floordiv = gen_emit_div_mod('DLGR', 'DLG')
-    # NOTE division sets one register with the modulo value, thus
-    # the regalloc ensures the right register survives.
-    emit_int_mod = gen_emit_div_mod('DSGR', 'DSG')
+    def emit_uint_mul_high(self, op, arglocs, regalloc):
+        r0, _, a1 = arglocs
+        # _ carries the value, contents of r0 are ignored
+        assert not r0.is_imm()
+        assert not a1.is_imm()
+        if a1.is_core_reg():
+            self.mc.MLGR(r0, a1)
+        else:
+            self.mc.MLG(r0, a1)
 
     def emit_int_invert(self, op, arglocs, regalloc):
         l0, = arglocs
@@ -369,10 +374,12 @@ class CallOpAssembler(object):
     _COND_CALL_SAVE_REGS = [r.r11, r.r2, r.r3, r.r4, r.r5]
 
     def emit_cond_call(self, op, arglocs, regalloc):
+        resloc = arglocs[0]
+        arglocs = arglocs[1:]
+
         fcond = self.guard_success_cc
         self.guard_success_cc = c.cond_none
         assert fcond.value != c.cond_none.value
-        fcond = c.negate(fcond)
 
         jmp_adr = self.mc.get_relative_pos()
         self.mc.reserve_cond_jump() # patched later to a relative branch
@@ -383,8 +390,7 @@ class CallOpAssembler(object):
                 if reg in self._COND_CALL_SAVE_REGS]
         self._push_core_regs_to_jitframe(self.mc, should_be_saved)
 
-        # load gc map into unusual location: r0
-        self.load_gcmap(self.mc, r.SCRATCH2, regalloc.get_gcmap())
+        self.push_gcmap(self.mc, regalloc.get_gcmap())
         #
         # load the 0-to-4 arguments into these registers, with the address of
         # the function to call into r11
@@ -407,6 +413,8 @@ class CallOpAssembler(object):
         self.mc.BASR(r.r14, r.r14)
         # restoring the registers saved above, and doing pop_gcmap(), is left
         # to the cond_call_slowpath helper.  We never have any result value.
+        if resloc is not None:
+            self.mc.LGR(resloc, r.SCRATCH2)
         relative_target = self.mc.currpos() - jmp_adr
         pmc = OverwritingBuilder(self.mc, jmp_adr, 1)
         pmc.BRCL(fcond, l.imm(relative_target))
@@ -415,12 +423,14 @@ class CallOpAssembler(object):
         # guard_no_exception too
         self.previous_cond_call_jcond = jmp_adr, fcond
 
+    emit_cond_call_value_i = emit_cond_call
+    emit_cond_call_value_r = emit_cond_call
+
 class AllocOpAssembler(object):
     _mixin_ = True
 
-    def emit_call_malloc_gc(self, op, arglocs, regalloc):
-        self._emit_call(op, arglocs)
-        self.propagate_memoryerror_if_r2_is_null()
+    def emit_check_memory_error(self, op, arglocs, regalloc):
+        self.propagate_memoryerror_if_reg_is_null(arglocs[0])
 
     def emit_call_malloc_nursery(self, op, arglocs, regalloc):
         # registers r.RES and r.RSZ are allocated for this call
@@ -989,6 +999,7 @@ class MemoryOpAssembler(object):
             basesize, itemsize, _ = symbolic.get_array_token(rstr.STR,
                                         self.cpu.translate_support_code)
             assert itemsize == 1
+            basesize -= 1     # for the extra null character
             scale = 0
 
         # src and src_len are tmp registers
@@ -1152,6 +1163,8 @@ class ForceOpAssembler(object):
         mc.load_imm(r.SCRATCH, target)
         mc.BCR(c.ANY, r.SCRATCH)
         mc.copy_to_raw_memory(oldadr)
+        #
+        jl.redirect_assembler(oldlooptoken, newlooptoken, newlooptoken.number)
 
 
 class MiscOpAssembler(object):

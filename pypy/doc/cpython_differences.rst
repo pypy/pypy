@@ -99,17 +99,24 @@ Differences related to garbage collection strategies
 
 The garbage collectors used or implemented by PyPy are not based on
 reference counting, so the objects are not freed instantly when they are no
-longer reachable.  The most obvious effect of this is that files are not
+longer reachable.  The most obvious effect of this is that files (and sockets, etc) are not
 promptly closed when they go out of scope.  For files that are opened for
 writing, data can be left sitting in their output buffers for a while, making
 the on-disk file appear empty or truncated.  Moreover, you might reach your
 OS's limit on the number of concurrently opened files.
 
-Fixing this is essentially impossible without forcing a
+If you are debugging a case where a file in your program is not closed
+properly, you can use the ``-X track-resources`` command line option. If it is
+given, a ``ResourceWarning`` is produced for every file and socket that the
+garbage collector closes. The warning will contain the stack trace of the
+position where the file or socket was created, to make it easier to see which
+parts of the program don't close files explicitly.
+
+Fixing this difference to CPython is essentially impossible without forcing a
 reference-counting approach to garbage collection.  The effect that you
 get in CPython has clearly been described as a side-effect of the
 implementation and not a language design decision: programs relying on
-this are basically bogus.  It would anyway be insane to try to enforce
+this are basically bogus.  It would be a too strong restriction to try to enforce
 CPython's behavior in a language spec, given that it has no chance to be
 adopted by Jython or IronPython (or any other port of Python to Java or
 .NET).
@@ -134,7 +141,7 @@ of Python.
 
 Here are some more technical details.  This issue affects the precise
 time at which ``__del__`` methods are called, which
-is not reliable in PyPy (nor Jython nor IronPython).  It also means that
+is not reliable or timely in PyPy (nor Jython nor IronPython).  It also means that
 **weak references** may stay alive for a bit longer than expected.  This
 makes "weak proxies" (as returned by ``weakref.proxy()``) somewhat less
 useful: they will appear to stay alive for a bit longer in PyPy, and
@@ -315,13 +322,28 @@ integers ``x``. The rule applies for the following types:
 
  - ``complex``
 
+ - ``str`` (empty or single-character strings only)
+
+ - ``unicode`` (empty or single-character strings only)
+
+ - ``tuple`` (empty tuples only)
+
+ - ``frozenset`` (empty frozenset only)
+
 This change requires some changes to ``id`` as well. ``id`` fulfills the
 following condition: ``x is y <=> id(x) == id(y)``. Therefore ``id`` of the
 above types will return a value that is computed from the argument, and can
 thus be larger than ``sys.maxint`` (i.e. it can be an arbitrary long).
 
-Notably missing from the list above are ``str`` and ``unicode``.  If your
-code relies on comparing strings with ``is``, then it might break in PyPy.
+Note that strings of length 2 or greater can be equal without being
+identical.  Similarly, ``x is (2,)`` is not necessarily true even if
+``x`` contains a tuple and ``x == (2,)``.  The uniqueness rules apply
+only to the particular cases described above.  The ``str``, ``unicode``,
+``tuple`` and ``frozenset`` rules were added in PyPy 5.4; before that, a
+test like ``if x is "?"`` or ``if x is ()`` could fail even if ``x`` was
+equal to ``"?"`` or ``()``.  The new behavior added in PyPy 5.4 is
+closer to CPython's, which caches precisely the empty tuple/frozenset,
+and (generally but not always) the strings and unicodes of length <= 1.
 
 Note that for floats there "``is``" only one object per "bit pattern"
 of the float.  So ``float('nan') is float('nan')`` is true on PyPy,
@@ -406,11 +428,6 @@ Miscellaneous
   ``datetime.date`` is the superclass of ``datetime.datetime``).
   Anyway, the proper fix is arguably to use a regular method call in
   the first place: ``datetime.date.today().strftime(...)``
-
-* the ``__dict__`` attribute of new-style classes returns a normal dict, as
-  opposed to a dict proxy like in CPython. Mutating the dict will change the
-  type and vice versa. For builtin types, a dictionary will be returned that
-  cannot be changed (but still looks and behaves like a normal dictionary).
   
 * some functions and attributes of the ``gc`` module behave in a
   slightly different way: for example, ``gc.enable`` and
@@ -427,6 +444,51 @@ Miscellaneous
   support (see ``multiline_input()``).  On the other hand,
   ``parse_and_bind()`` calls are ignored (issue `#2072`_).
 
+* ``sys.getsizeof()`` always raises ``TypeError``.  This is because a
+  memory profiler using this function is most likely to give results
+  inconsistent with reality on PyPy.  It would be possible to have
+  ``sys.getsizeof()`` return a number (with enough work), but that may
+  or may not represent how much memory the object uses.  It doesn't even
+  make really sense to ask how much *one* object uses, in isolation with
+  the rest of the system.  For example, instances have maps, which are
+  often shared across many instances; in this case the maps would
+  probably be ignored by an implementation of ``sys.getsizeof()``, but
+  their overhead is important in some cases if they are many instances
+  with unique maps.  Conversely, equal strings may share their internal
+  string data even if they are different objects---or empty containers
+  may share parts of their internals as long as they are empty.  Even
+  stranger, some lists create objects as you read them; if you try to
+  estimate the size in memory of ``range(10**6)`` as the sum of all
+  items' size, that operation will by itself create one million integer
+  objects that never existed in the first place.  Note that some of
+  these concerns also exist on CPython, just less so.  For this reason
+  we explicitly don't implement ``sys.getsizeof()``.
+
+* The ``timeit`` module behaves differently under PyPy: it prints the average
+  time and the standard deviation, instead of the minimum, since the minimum is
+  often misleading.
+
+* The ``get_config_vars`` method of ``sysconfig`` and ``distutils.sysconfig``
+  are not complete. On POSIX platforms, CPython fishes configuration variables
+  from the Makefile used to build the interpreter. PyPy should bake the values
+  in during compilation, but does not do that yet.
+
+* ``"%d" % x`` and ``"%x" % x`` and similar constructs, where ``x`` is
+  an instance of a subclass of ``long`` that overrides the special
+  methods ``__str__`` or ``__hex__`` or ``__oct__``: PyPy doesn't call
+  the special methods; CPython does---but only if it is a subclass of
+  ``long``, not ``int``.  CPython's behavior is really messy: e.g. for
+  ``%x`` it calls ``__hex__()``, which is supposed to return a string
+  like ``-0x123L``; then the ``0x`` and the final ``L`` are removed, and
+  the rest is kept.  If you return an unexpected string from
+  ``__hex__()`` you get an exception (or a crash before CPython 2.7.13).
+
+* PyPy3: ``__class__`` attritube assignment between heaptypes and non heaptypes.
+  CPython allows that for module subtypes, but not for e.g. ``int``
+  or ``float`` subtypes. Currently PyPy does not support the
+  ``__class__`` attribute assignment for any non heaptype subtype.
+
 .. _`is ignored in PyPy`: http://bugs.python.org/issue14621
 .. _`little point`: http://events.ccc.de/congress/2012/Fahrplan/events/5152.en.html
 .. _`#2072`: https://bitbucket.org/pypy/pypy/issue/2072/
+

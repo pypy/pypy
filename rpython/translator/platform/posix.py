@@ -10,6 +10,7 @@ rpydir = str(py.path.local(rpython.__file__).join('..'))
 class BasePosix(Platform):
     exe_ext = ''
     make_cmd = 'make'
+    so_prefixes = ('lib', '')
 
     relevant_environ = ('CPATH', 'LIBRARY_PATH', 'C_INCLUDE_PATH')
 
@@ -53,7 +54,9 @@ class BasePosix(Platform):
         args = [str(ofile) for ofile in ofiles] + link_args
         args += ['-o', str(exe_name)]
         if not standalone:
+            self._exe_name = str(exe_name)
             args = self._args_for_shared(args)
+            del self._exe_name      # remove, otherwise __eq__() fails
         self._execute_c_compiler(cc, args, exe_name,
                                  cwd=str(exe_name.dirpath()))
         return exe_name

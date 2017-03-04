@@ -128,7 +128,8 @@ class AppTestBytesArray:
 
         b = bytearray('mississippi')
 
-        for strip_type in str, memoryview:
+        for strip_type in str, memoryview, buffer:
+            print 'strip_type', strip_type
             assert b.strip(strip_type('i')) == 'mississipp'
             assert b.strip(strip_type('m')) == 'ississippi'
             assert b.strip(strip_type('pi')) == 'mississ'
@@ -211,6 +212,7 @@ class AppTestBytesArray:
 
         check(bytearray('abc').replace('b', bytearray('d')), 'adc')
         check(bytearray('abc').replace('b', 'd'), 'adc')
+        check(bytearray('').replace('a', 'ab'), '')
 
         check(bytearray('abc').upper(), 'ABC')
         check(bytearray('ABC').lower(), 'abc')

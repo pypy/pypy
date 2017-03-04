@@ -53,8 +53,6 @@ class stat_result:
         st_flags = structseqfield(23, "user defined flags for file")
 
     def __init__(self, *args, **kw):
-        super(stat_result, self).__init__(*args, **kw)
-
         # If we have been initialized from a tuple,
         # st_?time might be set to None. Initialize it
         # from the int slots.

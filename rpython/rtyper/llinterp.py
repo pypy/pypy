@@ -521,6 +521,10 @@ class LLFrame(object):
         if not x:
             raise LLAssertFailure(msg)
 
+    def op_debug_assert_not_none(self, x):
+        if not x:
+            raise LLAssertFailure("ll_assert_not_none() failed")
+
     def op_debug_fatalerror(self, ll_msg, ll_exc=None):
         msg = ''.join(ll_msg.chars)
         if ll_exc is None:
@@ -560,6 +564,9 @@ class LLFrame(object):
         pass
 
     def op_jit_conditional_call(self, *args):
+        raise NotImplementedError("should not be called while not jitted")
+
+    def op_jit_conditional_call_value(self, *args):
         raise NotImplementedError("should not be called while not jitted")
 
     def op_get_exception_addr(self, *args):
@@ -956,6 +963,12 @@ class LLFrame(object):
     def op_gc_rawrefcount_create_link_pypy(self, *args):
         raise NotImplementedError("gc_rawrefcount_create_link_pypy")
 
+    def op_gc_rawrefcount_mark_deallocating(self, *args):
+        raise NotImplementedError("gc_rawrefcount_mark_deallocating")
+
+    def op_gc_rawrefcount_next_dead(self, *args):
+        raise NotImplementedError("gc_rawrefcount_next_dead")
+
     def op_do_malloc_fixedsize(self):
         raise NotImplementedError("do_malloc_fixedsize")
     def op_do_malloc_fixedsize_clear(self):
@@ -991,11 +1004,14 @@ class LLFrame(object):
     # __________________________________________________________
     # operations on addresses
 
-    def op_raw_malloc(self, size):
+    def op_raw_malloc(self, size, zero):
+        assert lltype.typeOf(size) == lltype.Signed
+        return llmemory.raw_malloc(size, zero=zero)
+
+    def op_boehm_malloc(self, size):
         assert lltype.typeOf(size) == lltype.Signed
         return llmemory.raw_malloc(size)
-
-    op_boehm_malloc = op_boehm_malloc_atomic = op_raw_malloc
+    op_boehm_malloc_atomic = op_boehm_malloc
 
     def op_boehm_register_finalizer(self, p, finalizer):
         pass
@@ -1063,9 +1079,6 @@ class LLFrame(object):
             assert offset.TYPE == ARGTYPE
             getattr(addr, str(ARGTYPE).lower())[offset.repeat] = value
 
-    def op_stack_malloc(self, size): # mmh
-        raise NotImplementedError("backend only")
-
     def op_track_alloc_start(self, addr):
         # we don't do tracking at this level
         checkadr(addr)
@@ -1076,91 +1089,34 @@ class LLFrame(object):
     # ____________________________________________________________
     # Overflow-detecting variants
 
-    def op_int_neg_ovf(self, x):
-        assert is_valid_int(x)
+    def op_int_add_ovf(self, x, y):
+        assert isinstance(x, (int, long, llmemory.AddressOffset))
+        assert isinstance(y, (int, long, llmemory.AddressOffset))
         try:
-            return ovfcheck(-x)
+            return ovfcheck(x + y)
         except OverflowError:
             self.make_llexception()
-
-    def op_int_abs_ovf(self, x):
-        assert is_valid_int(x)
-        try:
-            return ovfcheck(abs(x))
-        except OverflowError:
-            self.make_llexception()
-
-    def op_int_lshift_ovf(self, x, y):
-        assert is_valid_int(x)
-        assert is_valid_int(y)
-        try:
-            return ovfcheck(x << y)
-        except OverflowError:
-            self.make_llexception()
-
-    def _makefunc2(fn, operator, xtype, ytype=None):
-        import sys
-        d = sys._getframe(1).f_locals
-        if ytype is None:
-            ytype = xtype
-        if '_ovf' in fn:
-            checkfn = 'ovfcheck'
-        elif fn.startswith('op_int_'):
-            checkfn = 'intmask'
-        else:
-            checkfn = ''
-        if operator == '//':
-            code = '''r = %(checkfn)s(x // y)
-                if x^y < 0 and x%%y != 0:
-                    r += 1
-                return r
-                ''' % locals()
-        elif operator == '%':
-            ## overflow check on % does not work with emulated int
-            code = '''%(checkfn)s(x // y)
-                r = x %% y
-                if x^y < 0 and x%%y != 0:
-                    r -= y
-                return r
-                ''' % locals()
-        else:
-            code = 'return %(checkfn)s(x %(operator)s y)' % locals()
-        exec py.code.Source("""
-        def %(fn)s(self, x, y):
-            assert isinstance(x, %(xtype)s)
-            assert isinstance(y, %(ytype)s)
-            try:
-                %(code)s
-            except (OverflowError, ValueError, ZeroDivisionError):
-                self.make_llexception()
-        """ % locals()).compile() in globals(), d
-
-    _makefunc2('op_int_add_ovf', '+', '(int, long, llmemory.AddressOffset)')
-    _makefunc2('op_int_mul_ovf', '*', '(int, long, llmemory.AddressOffset)', '(int, long)')
-    _makefunc2('op_int_sub_ovf',          '-',  '(int, long)')
-    _makefunc2('op_int_floordiv_ovf',     '//', '(int, long)')  # XXX negative args
-    _makefunc2('op_int_floordiv_zer',     '//', '(int, long)')  # can get off-by-one
-    _makefunc2('op_int_floordiv_ovf_zer', '//', '(int, long)')  # (see op_int_floordiv)
-    _makefunc2('op_int_mod_ovf',          '%',  '(int, long)')
-    _makefunc2('op_int_mod_zer',          '%',  '(int, long)')
-    _makefunc2('op_int_mod_ovf_zer',      '%',  '(int, long)')
-
-    _makefunc2('op_uint_floordiv_zer',    '//', 'r_uint')
-    _makefunc2('op_uint_mod_zer',         '%',  'r_uint')
-
-    _makefunc2('op_llong_floordiv_zer',   '//', 'r_longlong')
-    _makefunc2('op_llong_mod_zer',        '%',  'r_longlong')
-
-    _makefunc2('op_ullong_floordiv_zer',  '//', 'r_ulonglong')
-    _makefunc2('op_ullong_mod_zer',       '%',  'r_ulonglong')
-
-    _makefunc2('op_lllong_floordiv_zer',   '//', 'r_longlonglong')
-    _makefunc2('op_lllong_mod_zer',        '%',  'r_longlonglong')
 
     def op_int_add_nonneg_ovf(self, x, y):
         if isinstance(y, int):
             assert y >= 0
         return self.op_int_add_ovf(x, y)
+
+    def op_int_sub_ovf(self, x, y):
+        assert isinstance(x, (int, long))
+        assert isinstance(y, (int, long))
+        try:
+            return ovfcheck(x - y)
+        except OverflowError:
+            self.make_llexception()
+
+    def op_int_mul_ovf(self, x, y):
+        assert isinstance(x, (int, long, llmemory.AddressOffset))
+        assert isinstance(y, (int, long, llmemory.AddressOffset))
+        try:
+            return ovfcheck(x * y)
+        except OverflowError:
+            self.make_llexception()
 
     def op_int_is_true(self, x):
         # special case
@@ -1181,6 +1137,9 @@ class LLFrame(object):
         exc_data.exc_type = lltype.typeOf(etype)._defl()
         exc_data.exc_value = lltype.typeOf(evalue)._defl()
         return bool(etype)
+
+    def op_gc_move_out_of_nursery(self, obj):
+        raise NotImplementedError("gc_move_out_of_nursery")
 
 
 class Tracer(object):

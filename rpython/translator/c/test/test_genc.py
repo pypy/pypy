@@ -1,4 +1,5 @@
 import ctypes
+import re
 from collections import OrderedDict
 
 import py
@@ -13,6 +14,7 @@ from rpython.rtyper.lltypesystem.lltype import *
 from rpython.rtyper.lltypesystem.rstr import STR
 from rpython.tool.nullpath import NullPyPathLocal
 from rpython.translator.c import genc
+from rpython.translator.backendopt.merge_if_blocks import merge_if_blocks
 from rpython.translator.interactive import Translation
 from rpython.translator.translator import TranslationContext, graphof
 
@@ -51,7 +53,8 @@ def parse_ulonglong(a):
                                            unsigned_ffffffff)
 
 def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
-            annotatorpolicy=None, thread=False, **kwds):
+            annotatorpolicy=None, thread=False,
+            return_stderr=False, **kwds):
     argtypes_unroll = unrolling_iterable(enumerate(argtypes))
 
     for argtype in argtypes:
@@ -137,7 +140,8 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
 
         stdout = t.driver.cbuilder.cmdexec(
             " ".join([llrepr_in(arg) for arg in args]),
-            expect_crash=(expected_exception_name is not None))
+            expect_crash=(expected_exception_name is not None),
+            err=return_stderr)
         #
         if expected_exception_name is not None:
             stdout, stderr = stdout
@@ -152,6 +156,8 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
             assert lastline == expected or prevline == expected
             return None
 
+        if return_stderr:
+            stdout, stderr = stdout
         output(stdout)
         stdout, lastline, empty = stdout.rsplit('\n', 2)
         assert empty == ''
@@ -166,6 +172,8 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
         else:
             assert mallocs - frees in expected_extra_mallocs
         #
+        if return_stderr:
+            return stderr
         if ll_res in [lltype.Signed, lltype.Unsigned, lltype.SignedLongLong,
                       lltype.UnsignedLongLong]:
             return int(res)
@@ -243,10 +251,11 @@ def test_string_arg():
 
 
 def test_dont_write_source_files():
-    def f(x):
-        return x*2
+    from rpython.annotator.listdef import s_list_of_strings
+    def f(argv):
+        return len(argv)*2
     t = TranslationContext()
-    t.buildannotator().build_types(f, [int])
+    t.buildannotator().build_types(f, [s_list_of_strings])
     t.buildrtyper().specialize()
 
     t.config.translation.countmallocs = True
@@ -603,3 +612,23 @@ def test_inhibit_tail_call():
     else:
         assert 0, "the call was not found in the C source"
     assert 'PYPY_INHIBIT_TAIL_CALL();' in lines[i+1]
+
+def get_generated_c_source(fn, types):
+    """Return the generated C source for fn."""
+    t = Translation(fn, types, backend="c")
+    t.annotate()
+    merge_if_blocks(t.driver.translator.graphs[0])
+    c_filename_path = t.source_c()
+    return t.driver.cbuilder.c_source_filename.join('..',
+                              'rpython_translator_c_test.c').read()
+
+def test_generated_c_source_no_gotos():
+    # We want simple functions to have no indirection/goto.
+    # Instead, PyPy can inline blocks when they aren't reused.
+
+    def main(x):
+        return x + 1
+
+    c_src = get_generated_c_source(main, [int])
+    assert 'goto' not in c_src
+    assert not re.search(r'block\w*:(?! \(inlined\))', c_src)

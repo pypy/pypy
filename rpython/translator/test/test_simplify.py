@@ -52,9 +52,11 @@ def test_remove_ovfcheck_floordiv():
             return -42
         except ZeroDivisionError:
             return -43
-    graph, _ = translate(f, [int, int])
+    graph, _ = translate(f, [int, int], backend_optimize=False)
     assert len(graph.startblock.operations) == 1
-    assert graph.startblock.operations[0].opname == 'int_floordiv_ovf_zer'
+    assert graph.startblock.operations[0].opname == 'direct_call'
+    assert 'int_py_div_ovf_zer' in repr(
+        graph.startblock.operations[0].args[0].value)
     assert len(graph.startblock.exits) == 3
     assert [link.target.operations for link in graph.startblock.exits[1:]] == \
            [(), ()]
@@ -68,9 +70,11 @@ def test_remove_ovfcheck_floordiv_2():
             return ovfcheck(x // y)
         except ZeroDivisionError:
             return -43
-    graph, _ = translate(f, [int, int])
+    graph, _ = translate(f, [int, int], backend_optimize=False)
     assert len(graph.startblock.operations) == 1
-    assert graph.startblock.operations[0].opname == 'int_floordiv_ovf_zer'
+    assert graph.startblock.operations[0].opname == 'direct_call'
+    assert 'int_py_div_ovf_zer' in repr(
+        graph.startblock.operations[0].args[0].value)
     assert len(graph.startblock.exits) == 3
     assert [link.target.operations for link in graph.startblock.exits[1:]] == \
            [(), ()]

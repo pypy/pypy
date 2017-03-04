@@ -9,11 +9,8 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.error import oefmt
-from rpython.rlib.rarithmetic import r_longlong
+from rpython.rlib.rarithmetic import r_longlong, ovfcheck_float_to_longlong
 
-
-LONGLONG_MAX = r_longlong(2 ** (r_longlong.BITS-1) - 1)
-TIMEOUT_MAX = LONGLONG_MAX
 
 RPY_LOCK_FAILURE, RPY_LOCK_ACQUIRED, RPY_LOCK_INTR = range(3)
 
@@ -30,9 +27,10 @@ def parse_acquire_args(space, blocking, timeout):
         microseconds = -1
     else:
         timeout *= 1e6
-        if timeout > float(TIMEOUT_MAX):
+        try:
+            microseconds = ovfcheck_float_to_longlong(timeout)
+        except OverflowError:
             raise oefmt(space.w_OverflowError, "timeout value is too large")
-        microseconds = r_longlong(timeout)
     return microseconds
 
 
@@ -45,7 +43,8 @@ def acquire_timed(space, lock, microseconds):
             # Run signal handlers if we were interrupted
             space.getexecutioncontext().checksignals()
             if microseconds >= 0:
-                microseconds = r_longlong(endtime - (time.time() * 1e6))
+                microseconds = r_longlong((endtime - (time.time() * 1e6))
+                                          + 0.999)
                 # Check for negative values, since those mean block
                 # forever
                 if microseconds <= 0:
@@ -161,4 +160,4 @@ will block until another thread unlocks it.  Deadlocks may ensue.""",
 def allocate_lock(space):
     """Create a new lock object.  (allocate() is an obsolete synonym.)
 See LockType.__doc__ for information about locks."""
-    return space.wrap(Lock(space))
+    return Lock(space)

@@ -29,6 +29,8 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.backend.ppc import callbuilder
 from rpython.rlib.rarithmetic import r_uint
+from rpython.jit.backend.ppc.vector_ext import VectorAssembler
+from rpython.rlib.rjitlog import rjitlog as jl
 
 class IntOpAssembler(object):
         
@@ -62,6 +64,12 @@ class IntOpAssembler(object):
         else:
             self.mc.mulld(res.value, l0.value, l1.value)
 
+    def emit_uint_mul_high(self, op, arglocs, regalloc):
+        l0, l1, res = arglocs
+        assert not l0.is_imm()
+        assert not l1.is_imm()
+        self.mc.mulhdu(res.value, l0.value, l1.value)
+
     def do_emit_int_binary_ovf(self, op, arglocs):
         l0, l1, res = arglocs[0], arglocs[1], arglocs[2]
         self.mc.load_imm(r.SCRATCH, 0)
@@ -79,24 +87,6 @@ class IntOpAssembler(object):
             self.mc.mullwox(*self.do_emit_int_binary_ovf(op, arglocs))
         else:
             self.mc.mulldox(*self.do_emit_int_binary_ovf(op, arglocs))
-
-    def emit_int_floordiv(self, op, arglocs, regalloc):
-        l0, l1, res = arglocs
-        if IS_PPC_32:
-            self.mc.divw(res.value, l0.value, l1.value)
-        else:
-            self.mc.divd(res.value, l0.value, l1.value)
-
-    def emit_int_mod(self, op, arglocs, regalloc):
-        l0, l1, res = arglocs
-        if IS_PPC_32:
-            self.mc.divw(r.r0.value, l0.value, l1.value)
-            self.mc.mullw(r.r0.value, r.r0.value, l1.value)
-        else:
-            self.mc.divd(r.r0.value, l0.value, l1.value)
-            self.mc.mulld(r.r0.value, r.r0.value, l1.value)
-        self.mc.subf(r.r0.value, r.r0.value, l0.value)
-        self.mc.mr(res.value, r.r0.value)
 
     def emit_int_and(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
@@ -130,13 +120,6 @@ class IntOpAssembler(object):
             self.mc.srw(res.value, l0.value, l1.value)
         else:
             self.mc.srd(res.value, l0.value, l1.value)
-    
-    def emit_uint_floordiv(self, op, arglocs, regalloc):
-        l0, l1, res = arglocs
-        if IS_PPC_32:
-            self.mc.divwu(res.value, l0.value, l1.value)
-        else:
-            self.mc.divdu(res.value, l0.value, l1.value)
 
     emit_int_le = gen_emit_cmp_op(c.LE)
     emit_int_lt = gen_emit_cmp_op(c.LT)
@@ -622,7 +605,11 @@ class CallOpAssembler(object):
             assert saveerrloc.is_imm()
             cb.emit_call_release_gil(saveerrloc.value)
         else:
-            cb.emit()
+            effectinfo = descr.get_extra_info()
+            if effectinfo is None or effectinfo.check_can_collect():
+                cb.emit()
+            else:
+                cb.emit_no_collect()
 
     def _genop_call(self, op, arglocs, regalloc):
         oopspecindex = regalloc.get_oopspecindex(op)
@@ -669,10 +656,12 @@ class CallOpAssembler(object):
     _COND_CALL_SAVE_REGS = [r.r3, r.r4, r.r5, r.r6, r.r12]
 
     def emit_cond_call(self, op, arglocs, regalloc):
+        resloc = arglocs[0]
+        arglocs = arglocs[1:]
+
         fcond = self.guard_success_cc
         self.guard_success_cc = c.cond_none
         assert fcond != c.cond_none
-        fcond = c.negate(fcond)
 
         jmp_adr = self.mc.get_relative_pos()
         self.mc.trap()        # patched later to a 'bc'
@@ -704,7 +693,10 @@ class CallOpAssembler(object):
         cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
         self.mc.bl_abs(cond_call_adr)
         # restoring the registers saved above, and doing pop_gcmap(), is left
-        # to the cond_call_slowpath helper.  We never have any result value.
+        # to the cond_call_slowpath helper.  If we have a result, move
+        # it from r2 to its expected location.
+        if resloc is not None:
+            self.mc.mr(resloc.value, r.SCRATCH2.value)
         relative_target = self.mc.currpos() - jmp_adr
         pmc = OverwritingBuilder(self.mc, jmp_adr, 1)
         BI, BO = c.encoding[fcond]
@@ -713,6 +705,9 @@ class CallOpAssembler(object):
         # might be overridden again to skip over the following
         # guard_no_exception too
         self.previous_cond_call_jcond = jmp_adr, BI, BO
+
+    emit_cond_call_value_i = emit_cond_call
+    emit_cond_call_value_r = emit_cond_call
 
 
 class FieldOpAssembler(object):
@@ -1009,6 +1004,7 @@ class StrOpAssembler(object):
             basesize, itemsize, _ = symbolic.get_array_token(rstr.STR,
                                         self.cpu.translate_support_code)
             assert itemsize == 1
+            basesize -= 1     # for the extra null character
             scale = 0
 
         self._emit_load_for_copycontent(r.r0, src_ptr_loc, src_ofs_loc, scale)
@@ -1040,9 +1036,8 @@ class AllocOpAssembler(object):
 
     _mixin_ = True
 
-    def emit_call_malloc_gc(self, op, arglocs, regalloc):
-        self._emit_call(op, arglocs)
-        self.propagate_memoryerror_if_r3_is_null()
+    def emit_check_memory_error(self, op, arglocs, regalloc):
+        self.propagate_memoryerror_if_reg_is_null(arglocs[0])
 
     def emit_call_malloc_nursery(self, op, arglocs, regalloc):
         # registers r.RES and r.RSZ are allocated for this call
@@ -1336,13 +1331,15 @@ class ForceOpAssembler(object):
         mc = PPCBuilder()
         mc.b_abs(target)
         mc.copy_to_raw_memory(oldadr)
+        jl.redirect_assembler(oldlooptoken, newlooptoken, newlooptoken.number)
 
 
 class OpAssembler(IntOpAssembler, GuardOpAssembler,
                   MiscOpAssembler, FieldOpAssembler,
                   StrOpAssembler, CallOpAssembler,
                   UnicodeOpAssembler, ForceOpAssembler,
-                  AllocOpAssembler, FloatOpAssembler):
+                  AllocOpAssembler, FloatOpAssembler,
+                  VectorAssembler):
     _mixin_ = True
 
     def nop(self):

@@ -12,6 +12,8 @@ from rpython.jit.backend.llsupport import llerrno
 from rpython.rtyper.lltypesystem import rffi
 from rpython.jit.backend.llsupport.descr import CallDescr
 
+CALL_RELEASE_GIL_STACK_OFF = 6*WORD
+
 class CallBuilder(AbstractCallBuilder):
     GPR_ARGS = [r.r2, r.r3, r.r4, r.r5, r.r6]
     FPR_ARGS =  [r.f0, r.f2, r.f4, r.f6]
@@ -85,8 +87,8 @@ class CallBuilder(AbstractCallBuilder):
         self.subtracted_to_sp += len(stack_params) * WORD
         base = len(stack_params) * WORD
         if self.is_call_release_gil:
-            self.subtracted_to_sp += 8*WORD
-            base += 8*WORD
+            self.subtracted_to_sp += CALL_RELEASE_GIL_STACK_OFF
+            base += CALL_RELEASE_GIL_STACK_OFF
         for idx,i in enumerate(stack_params):
             loc = arglocs[i]
             offset = STD_FRAME_SIZE_IN_BYTES - base + 8 * idx
@@ -187,7 +189,7 @@ class CallBuilder(AbstractCallBuilder):
         RSHADOWPTR = self.RSHADOWPTR
         RFASTGILPTR = self.RFASTGILPTR
         #
-        pos = STD_FRAME_SIZE_IN_BYTES - 7*WORD
+        pos = STD_FRAME_SIZE_IN_BYTES - CALL_RELEASE_GIL_STACK_OFF
         self.mc.STMG(r.r8, r.r13, l.addr(pos, r.SP))
         #
         # Save this thread's shadowstack pointer into r8, for later comparison
@@ -286,7 +288,7 @@ class CallBuilder(AbstractCallBuilder):
         if gcrootmap:
             if gcrootmap.is_shadow_stack and self.is_call_release_gil:
                 self.mc.LGR(r.SCRATCH, RSHADOWOLD)
-        pos = STD_FRAME_SIZE_IN_BYTES - 7*WORD
+        pos = STD_FRAME_SIZE_IN_BYTES - CALL_RELEASE_GIL_STACK_OFF
         self.mc.LMG(r.r8, r.r13, l.addr(pos, r.SP))
 
     def write_real_errno(self, save_err):

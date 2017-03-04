@@ -2,11 +2,9 @@ from pypy.interpreter import gateway
 from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.api import generic_cpy_call
 from pypy.module.cpyext.pyobject import make_ref, from_ref
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
-
-import pytest
-import sys
 
 class AppTestTypeObject(AppTestCpythonExtensionBase):
     def test_typeobject(self):
@@ -124,7 +122,6 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         obj = module.fooType.classmeth()
         assert obj is module.fooType
 
-    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='cpython segfaults')
     def test_new(self):
         # XXX cpython segfaults but if run singly (with -k test_new) this passes
         module = self.import_module(name='foo')
@@ -146,7 +143,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert fuu2(u"abc").baz().escape()
         raises(TypeError, module.fooType.object_member.__get__, 1)
 
-    def test_multiple_inheritance(self):
+    def test_multiple_inheritance1(self):
         module = self.import_module(name='foo')
         obj = module.UnicodeSubtype(u'xyz')
         obj2 = module.UnicodeSubtype2()
@@ -179,8 +176,6 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         x = module.MetaType('name', (), {})
         assert isinstance(x, type)
         assert isinstance(x, module.MetaType)
-        if self.runappdirect and '__pypy__' in sys.builtin_module_names:
-            skip('x is not callable when runappdirect??')
         x()
 
     def test_metaclass_compatible(self):
@@ -190,17 +185,16 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert type(module.fooType).__mro__ == (type, object)
         y = module.MetaType('other', (module.MetaType,), {})
         assert isinstance(y, module.MetaType)
-        if self.runappdirect and '__pypy__' in sys.builtin_module_names:
-            skip('y is not callable when runappdirect??')
         x = y('something', (type(y),), {})
         del x, y
 
     def test_metaclass_compatible2(self):
-        skip('type.__new__ does not check acceptable_as_base_class')
+        skip('fails even with -A, fooType has BASETYPE flag')
         # XXX FIX - must raise since fooType (which is a base type)
         # does not have flag Py_TPFLAGS_BASETYPE
         module = self.import_module(name='foo')
         raises(TypeError, module.MetaType, 'other', (module.fooType,), {})
+
     def test_sre(self):
         import sys
         for m in ['_sre', 'sre_compile', 'sre_constants', 'sre_parse', 're']:
@@ -289,11 +283,41 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
                      args->ob_type->tp_dict, "copy");
                  Py_INCREF(method);
                  return method;
+             '''),
+            ("get_type_dict", "METH_O",
              '''
-             )
+                PyObject* value = args->ob_type->tp_dict;
+                if (value == NULL) value = Py_None;
+                Py_INCREF(value);
+                return value;
+             '''),
             ])
         obj = foo.new()
         assert module.read_tp_dict(obj) == foo.fooType.copy
+        d = module.get_type_dict(obj)
+        assert type(d) is dict
+        d["_some_attribute"] = 1
+        assert type(obj)._some_attribute == 1
+        del d["_some_attribute"]
+
+        class A(object):
+            pass
+        obj = A()
+        d = module.get_type_dict(obj)
+        assert type(d) is dict
+        d["_some_attribute"] = 1
+        assert type(obj)._some_attribute == 1
+        del d["_some_attribute"]
+
+        d = module.get_type_dict(1)
+        assert type(d) is dict
+        try:
+            d["_some_attribute"] = 1
+        except TypeError:  # on PyPy, int.__dict__ is really immutable
+            pass
+        else:
+            assert int._some_attribute == 1
+            del d["_some_attribute"]
 
     def test_custom_allocation(self):
         foo = self.import_module("foo")
@@ -308,12 +332,34 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
                  PyHeapTypeObject *heaptype = (PyHeapTypeObject *)args;
                  Py_INCREF(heaptype->ht_name);
                  return heaptype->ht_name;
+             '''),
+            ("setattr", "METH_O",
              '''
-             )
+                int ret;
+                PyObject* name = PyString_FromString("mymodule");
+                PyObject *obj = PyType_Type.tp_alloc(&PyType_Type, 0);
+                PyHeapTypeObject *type = (PyHeapTypeObject*)obj;
+                if ((type->ht_type.tp_flags & Py_TPFLAGS_HEAPTYPE) == 0)
+                {
+                    PyErr_SetString(PyExc_ValueError,
+                                    "Py_TPFLAGS_HEAPTYPE not set");
+                    return NULL;
+                }
+                type->ht_type.tp_name = ((PyTypeObject*)args)->tp_name;
+                PyType_Ready(&type->ht_type);
+                ret = PyObject_SetAttrString((PyObject*)&type->ht_type,
+                                    "__module__", name);
+                Py_DECREF(name);
+                if (ret < 0)
+                    return NULL;
+                return PyLong_FromLong(ret);
+             '''),
             ])
         class C(object):
             pass
         assert module.name_by_heaptype(C) == "C"
+        assert module.setattr(C) == 0
+
 
     def test_type_dict(self):
         foo = self.import_module("foo")
@@ -362,7 +408,22 @@ class TestTypes(BaseApiTest):
 
         api.Py_DecRef(ref)
 
-    def test_multiple_inheritance(self, space, api):
+    def test_type_dict(self, space, api):
+        w_class = space.appexec([], """():
+            class A(object):
+                pass
+            return A
+            """)
+        ref = make_ref(space, w_class)
+
+        py_type = rffi.cast(PyTypeObjectPtr, ref)
+        w_dict = from_ref(space, py_type.c_tp_dict)
+        w_name = space.wrap('a')
+        space.setitem(w_dict, w_name, space.wrap(1))
+        assert space.int_w(space.getattr(w_class, w_name)) == 1
+        space.delitem(w_dict, w_name)
+
+    def test_multiple_inheritance2(self, space, api):
         w_class = space.appexec([], """():
             class A(object):
                 pass
@@ -376,9 +437,9 @@ class TestTypes(BaseApiTest):
         api.Py_DecRef(ref)
 
     def test_lookup(self, space, api):
-        w_type = space.w_str
+        w_type = space.w_bytes
         w_obj = api._PyType_Lookup(w_type, space.wrap("upper"))
-        assert space.is_w(w_obj, space.w_str.getdictvalue(space, "upper"))
+        assert space.is_w(w_obj, space.w_bytes.getdictvalue(space, "upper"))
 
         w_obj = api._PyType_Lookup(w_type, space.wrap("__invalid"))
         assert w_obj is None
@@ -603,44 +664,15 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert module.tp_init(list, x, ("hi",)) is None
         assert x == ["h", "i"]
 
-    def test_tp_str(self):
-        module = self.import_extension('foo', [
-           ("tp_str", "METH_VARARGS",
-            '''
-                 PyTypeObject *type = (PyTypeObject *)PyTuple_GET_ITEM(args, 0);
-                 PyObject *obj = PyTuple_GET_ITEM(args, 1);
-                 if (!type->tp_str)
-                 {
-                     PyErr_SetNone(PyExc_ValueError);
-                     return NULL;
-                 }
-                 return type->tp_str(obj);
-             '''
-             )
-            ])
-        class C:
-            def __str__(self):
-                return "text"
-        assert module.tp_str(type(C()), C()) == "text"
-        class D(int):
-            def __str__(self):
-                return "more text"
-        assert module.tp_str(int, D(42)) == "42"
-
     def test_mp_ass_subscript(self):
         module = self.import_extension('foo', [
            ("new_obj", "METH_NOARGS",
             '''
                 PyObject *obj;
-                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
-                Foo_Type.tp_as_mapping = &tp_as_mapping;
-                tp_as_mapping.mp_ass_subscript = mp_ass_subscript;
-                if (PyType_Ready(&Foo_Type) < 0) return NULL;
                 obj = PyObject_New(PyObject, &Foo_Type);
                 return obj;
             '''
-            )],
-            '''
+            )], prologue='''
             static int
             mp_ass_subscript(PyObject *self, PyObject *key, PyObject *value)
             {
@@ -655,6 +687,11 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 PyVarObject_HEAD_INIT(NULL, 0)
                 "foo.foo",
             };
+            ''', more_init = '''
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                Foo_Type.tp_as_mapping = &tp_as_mapping;
+                tp_as_mapping.mp_ass_subscript = mp_ass_subscript;
+                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
             ''')
         obj = module.new_obj()
         raises(ZeroDivisionError, obj.__setitem__, 5, None)
@@ -666,15 +703,10 @@ class AppTestSlots(AppTestCpythonExtensionBase):
            ("new_obj", "METH_NOARGS",
             '''
                 PyObject *obj;
-                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
-                Foo_Type.tp_as_sequence = &tp_as_sequence;
-                tp_as_sequence.sq_contains = sq_contains;
-                if (PyType_Ready(&Foo_Type) < 0) return NULL;
                 obj = PyObject_New(PyObject, &Foo_Type);
                 return obj;
             '''
-            )],
-            '''
+            )], prologue='''
             static int
             sq_contains(PyObject *self, PyObject *value)
             {
@@ -685,6 +717,11 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 PyVarObject_HEAD_INIT(NULL, 0)
                 "foo.foo",
             };
+            ''', more_init='''
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                Foo_Type.tp_as_sequence = &tp_as_sequence;
+                tp_as_sequence.sq_contains = sq_contains;
+                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
             ''')
         obj = module.new_obj()
         res = "foo" in obj
@@ -736,21 +773,16 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         x = list(it)
         assert x == [1]
 
-    def test_bool(self):
+    def test_intlike(self):
         module = self.import_extension('foo', [
             ("newInt", "METH_VARARGS",
              """
                 IntLikeObject *intObj;
                 int intval;
-                PyObject *name;
 
-                if (!PyArg_ParseTuple(args, "l", &intval))
+                if (!PyArg_ParseTuple(args, "i", &intval))
                     return NULL;
 
-                IntLike_Type.tp_flags |= Py_TPFLAGS_DEFAULT;
-                IntLike_Type.tp_as_number = &intlike_as_number;
-                intlike_as_number.nb_nonzero = intlike_nb_nonzero;
-                if (PyType_Ready(&IntLike_Type) < 0) return NULL;
                 intObj = PyObject_New(IntLikeObject, &IntLike_Type);
                 if (!intObj) {
                     return NULL;
@@ -758,8 +790,23 @@ class AppTestSlots(AppTestCpythonExtensionBase):
 
                 intObj->value = intval;
                 return (PyObject *)intObj;
-             """)],
-            """
+             """),
+            ("check", "METH_VARARGS", """
+                IntLikeObject *intObj;
+                int intval, isint;
+
+                if (!PyArg_ParseTuple(args, "i", &intval))
+                    return NULL;
+                intObj = PyObject_New(IntLikeObject, &IntLike_Type);
+                if (!intObj) {
+                    return NULL;
+                }
+                intObj->value = intval;
+                isint = PyNumber_Check((PyObject*)intObj);
+                Py_DECREF((PyObject*)intObj);
+                return PyInt_FromLong(isint);
+            """),
+            ], prologue= """
             typedef struct
             {
                 PyObject_HEAD
@@ -778,18 +825,32 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 return v->value;
             }
 
+            static PyObject*
+            intlike_nb_int(PyObject* o)
+            {
+                IntLikeObject *v = (IntLikeObject*)o;
+                return PyInt_FromLong(v->value);
+            }
+
             PyTypeObject IntLike_Type = {
-                PyObject_HEAD_INIT(0)
-                /*ob_size*/             0,
+                PyVarObject_HEAD_INIT(NULL, 0)
                 /*tp_name*/             "IntLike",
                 /*tp_basicsize*/        sizeof(IntLikeObject),
             };
             static PyNumberMethods intlike_as_number;
+            """, more_init="""
+            IntLike_Type.tp_flags |= Py_TPFLAGS_DEFAULT;
+            IntLike_Type.tp_as_number = &intlike_as_number;
+            intlike_as_number.nb_nonzero = intlike_nb_nonzero;
+            intlike_as_number.nb_int = intlike_nb_int;
+            PyType_Ready(&IntLike_Type);
             """)
         assert not bool(module.newInt(0))
         assert bool(module.newInt(1))
         raises(SystemError, bool, module.newInt(-1))
         raises(ValueError, bool, module.newInt(-42))
+        val = module.check(10);
+        assert val == 1
 
     def test_mathfunc(self):
         module = self.import_extension('foo', [
@@ -801,11 +862,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 if (!PyArg_ParseTuple(args, "l", &intval))
                     return NULL;
 
-                IntLike_Type.tp_as_number = &intlike_as_number;
-                IntLike_Type.tp_flags |= Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES;
-                intlike_as_number.nb_add = intlike_nb_add;
-                intlike_as_number.nb_power = intlike_nb_pow;
-                if (PyType_Ready(&IntLike_Type) < 0) return NULL;
                 intObj = PyObject_New(IntLikeObject, &IntLike_Type);
                 if (!intObj) {
                     return NULL;
@@ -822,8 +878,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 if (!PyArg_ParseTuple(args, "l", &intval))
                     return NULL;
 
-                IntLike_Type_NoOp.tp_flags |= Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES;
-                if (PyType_Ready(&IntLike_Type_NoOp) < 0) return NULL;
                 intObjNoOp = PyObject_New(IntLikeObjectNoOp, &IntLike_Type_NoOp);
                 if (!intObjNoOp) {
                     return NULL;
@@ -831,8 +885,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
 
                 intObjNoOp->ival = intval;
                 return (PyObject *)intObjNoOp;
-             """)], prologue=
-            """
+             """)], prologue="""
             #include <math.h>
             typedef struct
             {
@@ -867,8 +920,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
              }
 
             PyTypeObject IntLike_Type = {
-                PyObject_HEAD_INIT(0)
-                /*ob_size*/             0,
+                PyVarObject_HEAD_INIT(NULL, 0)
                 /*tp_name*/             "IntLike",
                 /*tp_basicsize*/        sizeof(IntLikeObject),
             };
@@ -881,11 +933,18 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             } IntLikeObjectNoOp;
 
             PyTypeObject IntLike_Type_NoOp = {
-                PyObject_HEAD_INIT(0)
-                /*ob_size*/             0,
+                PyVarObject_HEAD_INIT(NULL, 0)
                 /*tp_name*/             "IntLikeNoOp",
                 /*tp_basicsize*/        sizeof(IntLikeObjectNoOp),
             };
+            """, more_init="""
+                IntLike_Type.tp_as_number = &intlike_as_number;
+                IntLike_Type.tp_flags |= Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES;
+                intlike_as_number.nb_add = intlike_nb_add;
+                intlike_as_number.nb_power = intlike_nb_pow;
+                if (PyType_Ready(&IntLike_Type) < 0) INITERROR;
+                IntLike_Type_NoOp.tp_flags |= Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES;
+                if (PyType_Ready(&IntLike_Type_NoOp) < 0) INITERROR;
             """)
         a = module.newInt(1)
         b = module.newInt(2)
@@ -896,14 +955,15 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert (d + a) == 5
         assert pow(d,b) == 16
 
-    def test_tp_new_in_subclass_of_type(self):
+    def test_tp_new_in_subclass(self):
+        import datetime
         module = self.import_module(name='foo3')
-        #print('calling module.footype()...')
         module.footype("X", (object,), {})
+        a = module.datetimetype(1, 1, 1)
+        assert isinstance(a, module.datetimetype)
 
-    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='cpython fails')
     def test_app_subclass_of_c_type(self):
-        # on cpython, the size changes (6 bytes added)
+        import sys
         module = self.import_module(name='foo')
         size = module.size_of_instances(module.fooType)
         class f1(object):
@@ -913,7 +973,11 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         class bar(f1, f2):
             pass
         assert bar.__base__ is f2
-        assert module.size_of_instances(bar) == size
+        # On cpython, the size changes.
+        if '__pypy__' in sys.builtin_module_names:
+            assert module.size_of_instances(bar) == size
+        else:
+            assert module.size_of_instances(bar) >= size
 
     def test_app_cant_subclass_two_types(self):
         module = self.import_module(name='foo')
@@ -931,19 +995,11 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         else:
             raise AssertionError("did not get TypeError!")
 
-    def test_call_tp_dealloc_when_created_from_python(self):
+    def test_call_tp_dealloc(self):
         module = self.import_extension('foo', [
             ("fetchFooType", "METH_VARARGS",
              """
                 PyObject *o;
-                Foo_Type.tp_basicsize = sizeof(FooObject);
-                Foo_Type.tp_dealloc = &dealloc_foo;
-                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES
-                                    | Py_TPFLAGS_BASETYPE;
-                Foo_Type.tp_new = &new_foo;
-                Foo_Type.tp_free = &PyObject_Del;
-                if (PyType_Ready(&Foo_Type) < 0) return NULL;
-
                 o = PyObject_New(PyObject, &Foo_Type);
                 init_foo(o);
                 Py_DECREF(o);   /* calls dealloc_foo immediately */
@@ -962,8 +1018,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             ("getCounter", "METH_VARARGS",
              """
                 return PyInt_FromLong(foo_counter);
-             """)], prologue=
-            """
+             """)], prologue="""
             typedef struct {
                 PyObject_HEAD
                 int someval[99];
@@ -997,6 +1052,14 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 PyVarObject_HEAD_INIT(NULL, 0)
                 "foo.foo",
             };
+            """, more_init="""
+                Foo_Type.tp_basicsize = sizeof(FooObject);
+                Foo_Type.tp_dealloc = &dealloc_foo;
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES
+                                    | Py_TPFLAGS_BASETYPE;
+                Foo_Type.tp_new = &new_foo;
+                Foo_Type.tp_free = &PyObject_Del;
+                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
             """)
         Foo = module.fetchFooType()
         assert module.getCounter() == 1010
@@ -1038,14 +1101,10 @@ class AppTestSlots(AppTestCpythonExtensionBase):
            ("new_obj", "METH_NOARGS",
             '''
                 PyObject *obj;
-                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
-                Foo_Type.tp_call = &my_tp_call;
-                if (PyType_Ready(&Foo_Type) < 0) return NULL;
                 obj = PyObject_New(PyObject, &Foo_Type);
                 return obj;
             '''
-            )],
-            '''
+            )], prologue='''
             static PyObject *
             my_tp_call(PyObject *self, PyObject *args, PyObject *kwds)
             {
@@ -1055,6 +1114,10 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 PyVarObject_HEAD_INIT(NULL, 0)
                 "foo.foo",
             };
+            ''', more_init='''
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                Foo_Type.tp_call = &my_tp_call;
+                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
             ''')
         x = module.new_obj()
         assert x() == 42
@@ -1064,24 +1127,67 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
            ("getMetaClass", "METH_NOARGS",
             '''
-                PyObject *obj;
-                FooType_Type.tp_flags = Py_TPFLAGS_DEFAULT;
-                FooType_Type.tp_base = &PyType_Type;
-                if (PyType_Ready(&FooType_Type) < 0) return NULL;
                 Py_INCREF(&FooType_Type);
                 return (PyObject *)&FooType_Type;
             '''
-            )],
-            '''
+            )], prologue='''
             static PyTypeObject FooType_Type = {
                 PyVarObject_HEAD_INIT(NULL, 0)
                 "foo.Type",
             };
+            ''', more_init='''
+                FooType_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                FooType_Type.tp_base = &PyType_Type;
+                if (PyType_Ready(&FooType_Type) < 0) INITERROR;
             ''')
         FooType = module.getMetaClass()
         if not self.runappdirect:
             self._check_type_object(FooType)
         class X(object):
             __metaclass__ = FooType
-        print repr(X)
         X()
+
+    def test_multiple_inheritance3(self):
+        module = self.import_extension('foo', [
+           ("new_obj", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                PyTypeObject *Base1, *Base2, *Base12;
+                Base1 =  (PyTypeObject*)PyType_Type.tp_alloc(&PyType_Type, 0);
+                Base2 =  (PyTypeObject*)PyType_Type.tp_alloc(&PyType_Type, 0);
+                Base12 =  (PyTypeObject*)PyType_Type.tp_alloc(&PyType_Type, 0);
+                Base1->tp_name = "Base1";
+                Base2->tp_name = "Base2";
+                Base12->tp_name = "Base12";
+                Base1->tp_basicsize = sizeof(PyHeapTypeObject);
+                Base2->tp_basicsize = sizeof(PyHeapTypeObject);
+                Base12->tp_basicsize = sizeof(PyHeapTypeObject);
+                #ifndef PYPY_VERSION /* PyHeapTypeObject has no ht_qualname on PyPy */
+                #if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 3
+                {
+                  PyObject * dummyname = PyBytes_FromString("dummy name");
+                  ((PyHeapTypeObject*)Base1)->ht_qualname = dummyname;
+                  ((PyHeapTypeObject*)Base2)->ht_qualname = dummyname;
+                  ((PyHeapTypeObject*)Base12)->ht_qualname = dummyname;
+                }
+                #endif 
+                #endif 
+                Base1->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
+                Base2->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
+                Base12->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE;
+                Base12->tp_base = Base1;
+                Base12->tp_bases = PyTuple_Pack(2, Base1, Base2); 
+                Base12->tp_doc = "The Base12 type or object";
+                if (PyType_Ready(Base1) < 0) return NULL;
+                if (PyType_Ready(Base2) < 0) return NULL;
+                if (PyType_Ready(Base12) < 0) return NULL;
+                obj = PyObject_New(PyObject, Base12);
+                return obj;
+            '''
+            )])
+        obj = module.new_obj()
+        assert 'Base12' in str(obj)
+        assert type(obj).__doc__ == "The Base12 type or object"
+        assert obj.__doc__ == "The Base12 type or object"
+
+

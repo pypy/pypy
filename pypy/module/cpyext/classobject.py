@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     PyObjectFields, CANNOT_FAIL,
-    cpython_api, bootstrap_function, cpython_struct, build_type_checkers)
+    cpython_api, bootstrap_function, build_type_checkers)
 from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref, Py_DecRef, make_typedescr
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.module.__builtin__.interp_classobj import W_ClassObject, W_InstanceObject
@@ -30,7 +30,7 @@ def PyInstance_New(space, w_cls, w_arg, w_kw):
 
 @cpython_api([PyObject, PyObject], PyObject, error=CANNOT_FAIL)
 def _PyInstance_Lookup(space, w_instance, w_name):
-    name = space.str_w(w_name)
+    name = space.text_w(w_name)
     assert isinstance(w_instance, W_InstanceObject)
     w_result = w_instance.getdictvalue(space, name)
     if w_result is not None:

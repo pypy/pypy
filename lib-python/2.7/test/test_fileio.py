@@ -114,15 +114,15 @@ class AutoFileTests(unittest.TestCase):
 
     def testErrors(self):
         f = self.f
-        self.assertTrue(not f.isatty())
-        self.assertTrue(not f.closed)
+        self.assertFalse(f.isatty())
+        self.assertFalse(f.closed)
         #self.assertEqual(f.name, TESTFN)
         self.assertRaises(ValueError, f.read, 10) # Open for reading
         f.close()
         self.assertTrue(f.closed)
         f = _FileIO(TESTFN, 'r')
         self.assertRaises(TypeError, f.readinto, "")
-        self.assertTrue(not f.closed)
+        self.assertFalse(f.closed)
         f.close()
         self.assertTrue(f.closed)
 
@@ -314,7 +314,7 @@ class OtherFileTests(unittest.TestCase):
             self.assertEqual(f.writable(), True)
             if sys.platform != "darwin" and \
                'bsd' not in sys.platform and \
-               not sys.platform.startswith('sunos'):
+               not sys.platform.startswith(('sunos', 'aix')):
                 # Somehow /dev/tty appears seekable on some BSDs
                 self.assertEqual(f.seekable(), False)
             self.assertEqual(f.isatty(), True)
@@ -366,6 +366,11 @@ class OtherFileTests(unittest.TestCase):
                 self.assertEqual(f.read(), b"abc")
         finally:
             os.unlink(TESTFN)
+
+    def testConstructorHandlesNULChars(self):
+        fn_with_NUL = 'foo\0bar'
+        self.assertRaises(TypeError, _FileIO, fn_with_NUL, 'w')
+        self.assertRaises(TypeError, _FileIO, fn_with_NUL.encode('ascii'), 'w')
 
     def testInvalidFd(self):
         self.assertRaises(ValueError, _FileIO, -10)

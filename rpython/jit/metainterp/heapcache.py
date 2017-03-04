@@ -57,10 +57,16 @@ class CacheEntry(object):
         self.cache_anything = {}
         self.cache_seen_allocation = {}
 
+        # set of boxes that we've seen a quasi-immut for the field on. cleared
+        # on writes to the field.
+        self.quasiimmut_seen = None
+
     def _clear_cache_on_write(self, seen_allocation_of_target):
         if not seen_allocation_of_target:
             self.cache_seen_allocation.clear()
         self.cache_anything.clear()
+        if self.quasiimmut_seen is not None:
+            self.quasiimmut_seen.clear()
 
     def _seen_alloc(self, ref_box):
         if not isinstance(ref_box, RefFrontendOp):
@@ -92,6 +98,8 @@ class CacheEntry(object):
     def invalidate_unescaped(self):
         self._invalidate_unescaped(self.cache_anything)
         self._invalidate_unescaped(self.cache_seen_allocation)
+        if self.quasiimmut_seen is not None:
+            self.quasiimmut_seen.clear()
 
     def _invalidate_unescaped(self, d):
         for ref_box in d.keys():
@@ -222,7 +230,8 @@ class HeapCache(object):
               opnum != rop.PTR_EQ and
               opnum != rop.PTR_NE and
               opnum != rop.INSTANCE_PTR_EQ and
-              opnum != rop.INSTANCE_PTR_NE):
+              opnum != rop.INSTANCE_PTR_NE and
+              opnum != rop.ASSERT_NOT_NONE):
             for box in argboxes:
                 self._escape_box(box)
 
@@ -255,7 +264,8 @@ class HeapCache(object):
             opnum == rop.SETFIELD_RAW or
             opnum == rop.SETARRAYITEM_RAW or
             opnum == rop.SETINTERIORFIELD_RAW or
-            opnum == rop.RAW_STORE):
+            opnum == rop.RAW_STORE or
+            opnum == rop.ASSERT_NOT_NONE):
             return
         if (rop._OVF_FIRST <= opnum <= rop._OVF_LAST or
             rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST or
@@ -263,6 +273,7 @@ class HeapCache(object):
             return
         if (OpHelpers.is_plain_call(opnum) or
             OpHelpers.is_call_loopinvariant(opnum) or
+            OpHelpers.is_cond_call_value(opnum) or
             opnum == rop.COND_CALL):
             effectinfo = descr.get_extra_info()
             ef = effectinfo.extraeffect
@@ -362,7 +373,7 @@ class HeapCache(object):
     def class_now_known(self, box):
         if isinstance(box, Const):
             return
-        self._set_flag(box, HF_KNOWN_CLASS)
+        self._set_flag(box, HF_KNOWN_CLASS | HF_KNOWN_NULLITY)
 
     def is_nullity_known(self, box):
         if isinstance(box, Const):
@@ -392,7 +403,8 @@ class HeapCache(object):
     def new(self, box):
         assert isinstance(box, RefFrontendOp)
         self.update_version(box)
-        add_flags(box, HF_LIKELY_VIRTUAL | HF_SEEN_ALLOCATION | HF_IS_UNESCAPED)
+        add_flags(box, HF_LIKELY_VIRTUAL | HF_SEEN_ALLOCATION | HF_IS_UNESCAPED
+                       | HF_KNOWN_NULLITY)
 
     def new_array(self, box, lengthbox):
         self.new(box)
@@ -484,3 +496,18 @@ class HeapCache(object):
         if isinstance(oldbox, FrontendOp) and isinstance(newbox, Const):
             assert newbox.same_constant(constant_from_op(oldbox))
             oldbox.set_replaced_with_const()
+
+    def is_quasi_immut_known(self, fielddescr, box):
+        cache = self.heap_cache.get(fielddescr, None)
+        if cache is not None and cache.quasiimmut_seen is not None:
+            return box in cache.quasiimmut_seen
+        return False
+
+    def quasi_immut_now_known(self, fielddescr, box):
+        cache = self.heap_cache.get(fielddescr, None)
+        if cache is None:
+            cache = self.heap_cache[fielddescr] = CacheEntry(self)
+        if cache.quasiimmut_seen is not None:
+            cache.quasiimmut_seen[box] = None
+        else:
+            cache.quasiimmut_seen = {box: None}

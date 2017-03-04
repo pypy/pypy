@@ -2,7 +2,7 @@
 Character categories and charsets.
 """
 import sys
-from rpython.rlib.rlocale import tolower, isalnum
+from rpython.rlib.rlocale import tolower, toupper, isalnum
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import int_between
@@ -23,16 +23,15 @@ def set_unicode_db(newunicodedb):
 
 #### Constants
 
-# Identifying as _sre from Python 2.3 and onwards (at least up to 2.7)
-MAGIC = 20031017
-
 if sys.maxint > 2**32:
     MAXREPEAT = int(2**32 - 1)
+    MAXGROUPS = int(2**31 - 1)
 else:
     MAXREPEAT = int(2**31 - 1)
+    MAXGROUPS = int((2**31 / sys.maxint / 2) - 1)
 
 # In _sre.c this is bytesize of the code word type of the C implementation.
-# There it's 2 for normal Python builds and more for wide unicode builds (large 
+# There it's 2 for normal Python builds and more for wide unicode builds (large
 # enough to hold a 32-bit UCS-4 encoded character). Since here in pure Python
 # we only see re bytecodes as Python longs, we shouldn't have to care about the
 # codesize. But sre_compile will compile some stuff differently depending on the
@@ -66,6 +65,19 @@ def getlower(char_ord, flags):
     else:
         if int_between(ord('A'), char_ord, ord('Z') + 1):   # ASCII lower
             char_ord += ord('a') - ord('A')
+    return char_ord
+
+def getupper(char_ord, flags):
+    if flags & SRE_FLAG_LOCALE:
+        if char_ord < 256:      # cheating!  Well, CPython does too.
+            char_ord = toupper(char_ord)
+        return char_ord
+    elif flags & SRE_FLAG_UNICODE:
+        assert unicodedb is not None
+        char_ord = unicodedb.toupper(char_ord)
+    else:
+        if int_between(ord('a'), char_ord, ord('z') + 1):   # ASCII upper
+            char_ord += ord('A') - ord('a')
     return char_ord
 
 #### Category helpers
@@ -140,16 +152,17 @@ category_dispatch_unroll = unrolling_iterable(category_dispatch_table)
 ##### Charset evaluation
 
 @jit.unroll_safe
-def check_charset(pattern, ppos, char_code):
+def check_charset(ctx, ppos, char_code):
     """Checks whether a character matches set of arbitrary length.
     The set starts at pattern[ppos]."""
     negated = False
     result = False
+    pattern = ctx.pattern
     while True:
         opcode = pattern[ppos]
         for i, function in set_dispatch_unroll:
             if opcode == i:
-                newresult, ppos = function(pattern, ppos, char_code)
+                newresult, ppos = function(ctx, ppos, char_code)
                 result |= newresult
                 break
         else:
@@ -164,18 +177,21 @@ def check_charset(pattern, ppos, char_code):
         return not result
     return result
 
-def set_literal(pat, index, char_code):
+def set_literal(ctx, index, char_code):
     # <LITERAL> <code>
+    pat = ctx.pattern
     match = pat[index+1] == char_code
     return match, index + 2
 
-def set_category(pat, index, char_code):
+def set_category(ctx, index, char_code):
     # <CATEGORY> <code>
+    pat = ctx.pattern
     match = category_dispatch(pat[index+1], char_code)
     return match, index + 2
 
-def set_charset(pat, index, char_code):
+def set_charset(ctx, index, char_code):
     # <CHARSET> <bitmap> (16 bits per code word)
+    pat = ctx.pattern
     if CODESIZE == 2:
         match = char_code < 256 and \
                 (pat[index+1+(char_code >> 4)] & (1 << (char_code & 15)))
@@ -185,13 +201,25 @@ def set_charset(pat, index, char_code):
                 (pat[index+1+(char_code >> 5)] & (1 << (char_code & 31)))
         return match, index + 9   # skip bitmap
 
-def set_range(pat, index, char_code):
+def set_range(ctx, index, char_code):
     # <RANGE> <lower> <upper>
+    pat = ctx.pattern
     match = int_between(pat[index+1], char_code, pat[index+2] + 1)
     return match, index + 3
 
-def set_bigcharset(pat, index, char_code):
+def set_range_ignore(ctx, index, char_code):
+    # <RANGE_IGNORE> <lower> <upper>
+    # the char_code is already lower cased
+    pat = ctx.pattern
+    lower = pat[index + 1]
+    upper = pat[index + 2]
+    match1 = int_between(lower, char_code, upper + 1)
+    match2 = int_between(lower, getupper(char_code, ctx.flags), upper + 1)
+    return match1 | match2, index + 3
+
+def set_bigcharset(ctx, index, char_code):
     # <BIGCHARSET> <blockcount> <256 blockindices> <blocks>
+    pat = ctx.pattern
     count = pat[index+1]
     index += 2
 
@@ -225,7 +253,7 @@ def set_bigcharset(pat, index, char_code):
     index += count * (32 / CODESIZE)  # skip blocks
     return match, index
 
-def set_unicode_general_category(pat, index, char_code):
+def set_unicode_general_category(ctx, index, char_code):
     # Unicode "General category property code" (not used by Python).
     # A general category is two letters.  'pat[index+1]' contains both
     # the first character, and the second character shifted by 8.
@@ -234,6 +262,7 @@ def set_unicode_general_category(pat, index, char_code):
     # Negative matches are triggered by bit number 7.
     assert unicodedb is not None
     cat = unicodedb.category(char_code)
+    pat = ctx.pattern
     category_code = pat[index + 1]
     first_character = category_code & 0x7F
     second_character = (category_code >> 8) & 0x7F
@@ -261,6 +290,7 @@ set_dispatch_table = {
     11: set_bigcharset,
     19: set_literal,
     27: set_range,
+    32: set_range_ignore,
     70: set_unicode_general_category,
 }
 set_dispatch_unroll = unrolling_iterable(sorted(set_dispatch_table.items()))

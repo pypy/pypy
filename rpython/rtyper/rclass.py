@@ -170,7 +170,6 @@ OBJECT_VTABLE.become(Struct('object_vtable',
                             ('subclassrange_max', Signed),
                             ('rtti', Ptr(RuntimeTypeInfo)),
                             ('name', Ptr(rstr.STR)),
-                            ('hash', Signed),
                             ('instantiate', Ptr(FuncType([], OBJECTPTR))),
                             hints={'immutable': True}))
 # non-gc case
@@ -338,7 +337,6 @@ class ClassRepr(Repr):
 
     def fill_vtable_root(self, vtable):
         """Initialize the head of the vtable."""
-        vtable.hash = hash(self)
         # initialize the 'subclassrange_*' and 'name' fields
         if self.classdef is not None:
             #vtable.parenttypeptr = self.rbase.getvtable()
@@ -785,7 +783,6 @@ class InstanceRepr(Repr):
     def initialize_prebuilt_instance(self, value, classdef, result):
         # must fill in the hash cache before the other ones
         # (see test_circular_hash_initialization)
-        self.initialize_prebuilt_hash(value, result)
         self._initialize_data_flattenrec(self.initialize_prebuilt_data,
                                          value, classdef, result)
 
@@ -840,18 +837,18 @@ class InstanceRepr(Repr):
         from rpython.rtyper.lltypesystem.ll_str import ll_int2hex
         from rpython.rlib.rarithmetic import r_uint
         if not i:
-            return rstr.null_str
+            return rstr.conststr("NULL")
         instance = cast_pointer(OBJECTPTR, i)
         # Two choices: the first gives a fast answer but it can change
         # (typically only once) during the life of the object.
         #uid = r_uint(cast_ptr_to_int(i))
         uid = r_uint(llop.gc_id(lltype.Signed, i))
         #
-        res = rstr.instance_str_prefix
+        res = rstr.conststr("<")
         res = rstr.ll_strconcat(res, instance.typeptr.name)
-        res = rstr.ll_strconcat(res, rstr.instance_str_infix)
+        res = rstr.ll_strconcat(res, rstr.conststr(" object at 0x"))
         res = rstr.ll_strconcat(res, ll_int2hex(uid, False))
-        res = rstr.ll_strconcat(res, rstr.instance_str_suffix)
+        res = rstr.ll_strconcat(res, rstr.conststr(">"))
         return res
 
     def get_ll_eq_function(self):
@@ -942,11 +939,6 @@ class InstanceRepr(Repr):
             # OBJECT part
             rclass = getclassrepr(self.rtyper, classdef)
             result.typeptr = rclass.getvtable()
-
-    def initialize_prebuilt_hash(self, value, result):
-        llattrvalue = getattr(value, '__precomputed_identity_hash', None)
-        if llattrvalue is not None:
-            lltype.init_identity_hash(result, llattrvalue)
 
     def getfieldrepr(self, attr):
         """Return the repr used for the given attribute."""
@@ -1091,7 +1083,6 @@ def attr_reverse_size((_, T)):
         return -sizeof(T)
     except StandardError:
         return None
-
 
 # ____________________________________________________________
 #

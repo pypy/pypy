@@ -1,95 +1,171 @@
-=========================
-What's new in PyPy 5.1+
-=========================
+==========================
+What's new in PyPy2.7 5.6+
+==========================
 
-.. this is a revision shortly after release-5.1
-.. startrev: aa60332382a1
-
-.. branch: techtonik/introductionrst-simplify-explanation-abo-1460879168046
-
-.. branch: gcheader-decl
-
-Reduce the size of generated C sources.
+.. this is a revision shortly after release-pypy2.7-v5.6
+.. startrev: 7e9787939641
 
 
-.. branch: remove-objspace-options
+Since a while now, PyPy preserves the order of dictionaries and sets.
+However, the set literal syntax ``{x, y, z}`` would by mistake build a
+set with the opposite order: ``set([z, y, x])``.  This has been fixed.
+Note that CPython is inconsistent too: in 2.7.12, ``{5, 5.0}`` would be
+``set([5.0])``, but in 2.7.trunk it is ``set([5])``.  PyPy's behavior
+changed in exactly the same way because of this fix.
 
-Remove a number of options from the build process that were never tested and
-never set. Fix a performance bug in the method cache.
 
-.. branch: bitstring
+.. branch: rpython-error-to-systemerror
 
-JIT: use bitstrings to compress the lists of read or written descrs
-that we attach to EffectInfo.  Fixes a problem we had in
-remove-objspace-options.
+Any uncaught RPython exception (from a PyPy bug) is turned into an
+app-level SystemError.  This should improve the lot of users hitting an
+uncaught RPython error.
 
-.. branch: cpyext-for-merge
+.. branch: union-side-effects-2
 
-Update cpyext C-API support After this branch, we are almost able to support 
-upstream numpy via cpyext, so we created (yet another) fork of numpy at 
-github.com/pypy/numpy with the needed changes. Among the significant changes 
-to cpyext:
-  - allow c-snippet tests to be run with -A so we can verify we are compatible
-  - fix many edge cases exposed by fixing tests to run with -A
-  - issequence() logic matches cpython
-  - make PyStringObject and PyUnicodeObject field names compatible with cpython
-  - add prelminary support for PyDateTime_*
-  - support PyComplexObject, PyFloatObject, PyDict_Merge, PyDictProxy,
-    PyMemoryView_*, _Py_HashDouble, PyFile_AsFile, PyFile_FromFile,
-  - PyAnySet_CheckExact, PyUnicode_Concat
-  - improve support for PyGILState_Ensure, PyGILState_Release, and thread
-    primitives, also find a case where CPython will allow thread creation
-    before PyEval_InitThreads is run, dissallow on PyPy 
-  - create a PyObject-specific list strategy
-  - rewrite slot assignment for typeobjects
-  - improve tracking of PyObject to rpython object mapping
-  - support tp_as_{number, sequence, mapping, buffer} slots
+Try to improve the consistency of RPython annotation unions.
 
-(makes the pypy-c bigger; this was fixed subsequently by the
-share-cpyext-cpython-api branch)
+.. branch: pytest-2.9.2
 
-.. branch: share-mapdict-methods-2
+.. branch: clean-exported-state
 
-Reduce generated code for subclasses by using the same function objects in all
-generated subclasses.
+Clean-ups in the jit optimizeopt
 
-.. branch: share-cpyext-cpython-api
+.. branch: conditional_call_value_4
 
-.. branch: cpyext-auto-gil
+Add jit.conditional_call_elidable(), a way to tell the JIT "conditonally
+call this function" returning a result.
 
-CPyExt tweak: instead of "GIL not held when a CPython C extension module
-calls PyXxx", we now silently acquire/release the GIL.  Helps with
-CPython C extension modules that call some PyXxx() functions without
-holding the GIL (arguably, they are theorically buggy).
+.. branch: desc-specialize
 
-.. branch: cpyext-test-A
+Refactor FunctionDesc.specialize() and related code (RPython annotator).
 
-Get the cpyext tests to pass with "-A" (i.e. when tested directly with
-CPython).
+.. branch: raw-calloc
 
-.. branch: oefmt
+.. branch: issue2446
 
-.. branch: cpyext-werror
+Assign ``tp_doc`` to the new TypeObject's type dictionary ``__doc__`` key
+so it will be picked up by app-level objects of that type
 
-Compile c snippets with -Werror in cpyext
+.. branch: cling-support
 
-.. branch: gc-del-3
+Module cppyy now uses cling as its backend (Reflex has been removed). The
+user-facing interface and main developer tools (genreflex, selection files,
+class loader, etc.) remain the same.  A libcppyy_backend.so library is still
+needed but is now available through PyPI with pip: PyPy-cppyy-backend.
 
-Add rgc.FinalizerQueue, documented in pypy/doc/discussion/finalizer-order.rst.
-It is a more flexible way to make RPython finalizers.
+The Cling-backend brings support for modern C++ (11, 14, etc.), dynamic
+template instantations, and improved integration with CFFI for better
+performance.  It also provides interactive C++ (and bindings to that).
 
-.. branch: unpacking-cpython-shortcut
+.. branch: better-PyDict_Next
 
-.. branch: cleanups
+Improve the performance of ``PyDict_Next``. When trying ``PyDict_Next`` on a
+typedef dict, the test exposed a problem converting a ``GetSetProperty`` to a
+``PyGetSetDescrObject``. The other direction seem to be fully implemented.
+This branch made a minimal effort to convert the basic fields to avoid
+segfaults, but trying to use the ``PyGetSetDescrObject`` will probably fail.
 
-.. branch: cpyext-more-slots
+.. branch: stdlib-2.7.13
 
-.. branch: use-gc-del-3
+Updated the implementation to match CPython 2.7.13 instead of 2.7.13.
 
-Use the new rgc.FinalizerQueue mechanism to clean up the handling of
-``__del__`` methods.  Fixes notably issue #2287.  (All RPython
-subclasses of W_Root need to use FinalizerQueue now.)
+.. branch: issue2444
 
-.. branch: ufunc-outer
+Fix ``PyObject_GetBuffer`` and ``PyMemoryView_GET_BUFFER``, which leaked
+memory and held references. Add a finalizer to CPyBuffer, add a
+PyMemoryViewObject with a PyBuffer attached so that the call to 
+``PyMemoryView_GET_BUFFER`` does not leak a PyBuffer-sized piece of memory.
+Properly call ``bf_releasebuffer`` when not ``NULL``.
 
-Implement ufunc.outer on numpypy
+.. branch: boehm-rawrefcount
+
+Support translations of cpyext with the Boehm GC (for special cases like
+revdb).
+
+.. branch: strbuf-as-buffer
+
+Implement StringBuffer.get_raw_address (missing feature for the buffer protocol).
+More generally it is now possible to obtain the address of any object (if it
+is readonly) without pinning it.
+
+.. branch: cpyext-cleanup
+.. branch: api_func-refactor
+
+Refactor cpyext initialisation.
+
+.. branch: cpyext-from2
+
+Fix a test failure introduced by strbuf-as-buffer
+
+.. branch: cpyext-FromBuffer
+
+Do not recreate the object in PyMemoryView_FromBuffer, rather pass it to
+the returned PyMemoryViewObject, to take ownership of it. Fixes a ref leak.
+
+.. branch: issue2464
+
+Give (almost?) all GetSetProperties a valid __objclass__.
+
+.. branch: TreeStain/fixed-typo-line-29-mostly-to-most-1484469416419
+.. branch: TreeStain/main-lines-changed-in-l77-l83-made-para-1484471558033
+
+.. branch: missing-tp_new
+
+Improve mixing app-level classes in c-extensions, especially if the app-level
+class has a ``tp_new`` or ``tp_dealloc``. The issue is that c-extensions expect
+all the method slots to be filled with a function pointer, where app-level will
+search up the mro for an appropriate function at runtime. With this branch we
+now fill many more slots in the c-extenion type objects.
+Also fix for c-extension type that calls ``tp_hash`` during initialization
+(str, unicode types), and fix instantiating c-extension types from built-in
+classes by enforcing an order of instaniation.
+
+.. branch: rffi-parser-2
+
+rffi structures in cpyext can now be created by parsing simple C headers.
+Additionally, the cts object that holds the parsed information can act like
+cffi's ffi objects, with the methods cts.cast() and cts.gettype().
+
+.. branch: rpython-hash
+
+Don't freeze hashes in the translated pypy.  In practice, that means
+that we can now translate PyPy with the option --hash=siphash24 and get
+the same hashes as CPython 3.5, which can be randomized (in a
+crypographically good way).  It is the default in PyPy3.  The default of
+PyPy2 remains unchanged: there are user programs out there that depend
+on constant hashes (or even sometimes on specific hash results).
+
+.. branch: dict-move-to-end
+
+Our dicts, which are always ordered, now have an extra "method" for
+Python 3.x which moves an item to first or last position.  In PyPy 3.5
+it is the standard ``OrderedDict.move_to_end()`` method, but the
+behavior is also available on Python 2.x or for the ``dict`` type by
+calling ``__pypy__.move_to_end(dict, key, last=True)``.
+
+
+.. branch optinfo-into-bridges-3
+
+Improve the optimization of branchy Python code by retaining more information
+across failing guards.
+
+
+.. branch: space-newtext
+
+Internal refactoring of ``space.wrap()``, which is now replaced with
+explicitly-typed methods.  Notably, there are now ``space.newbytes()``
+and ``space.newtext()``: these two methods are identical on PyPy 2.7 but
+not on PyPy 3.x.  The latter is used to get an app-level unicode string
+by decoding the RPython string, assumed to be utf-8.
+
+.. branch: space-wrap
+
+.. branch: fix_bool_restype
+
+Fix for ``ctypes.c_bool``-returning ctypes functions
+
+.. branch: fix-cpyext-releasebuffer
+
+Improve handling of the Py3-style buffer slots in cpyext: fix memoryviews
+keeping objects alive forever (missing decref), and make sure that
+bf_releasebuffer is called when it should, e.g. from PyBuffer_Release.

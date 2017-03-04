@@ -2,14 +2,16 @@ import sys
 import weakref
 
 from rpython.jit.codewriter import support, heaptracker, longlong
-from rpython.jit.metainterp import resoperation, history
+from rpython.jit.metainterp import resoperation, history, jitexc
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.debug import have_debug_prints_for
 from rpython.rlib.jit import PARAMETERS
+from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.objectmodel import specialize, we_are_translated, r_dict
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib import rstack
 from rpython.rtyper.annlowlevel import (hlstr, cast_base_ptr_to_instance,
     cast_object_to_ptr)
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi
@@ -307,23 +309,14 @@ class WarmEnterState(object):
             if self.warmrunnerdesc.memory_manager:
                 self.warmrunnerdesc.memory_manager.max_unroll_recursion = value
 
-    def set_param_vec(self, value):
-        self.vec = bool(value)
+    def set_param_vec(self, ivalue):
+        self.vec = bool(ivalue)
 
-    def set_param_vec_all(self, value):
-        self.vec_all = bool(value)
+    def set_param_vec_all(self, ivalue):
+        self.vec_all = bool(ivalue)
 
-    def set_param_vec_cost(self, value):
-        self.vec_cost = bool(value)
-
-    def set_param_vec_length(self, value):
-        self.vec_length = int(value)
-
-    def set_param_vec_ratio(self, value):
-        self.vec_ratio = value / 10.0
-
-    def set_param_vec_guard_ratio(self, value):
-        self.vec_guard_ratio = value / 10.0
+    def set_param_vec_cost(self, ivalue):
+        self.vec_cost = ivalue
 
     def disable_noninlinable_function(self, greenkey):
         cell = self.JitCell.ensure_jit_cell_at_key(greenkey)
@@ -348,8 +341,9 @@ class WarmEnterState(object):
 
     def make_entry_point(self):
         "NOT_RPYTHON"
-        if hasattr(self, 'maybe_compile_and_run'):
-            return self.maybe_compile_and_run
+        from rpython.jit.metainterp import compile
+        if hasattr(self, 'entry_point_fns'):
+            return self.entry_point_fns
 
         warmrunnerdesc = self.warmrunnerdesc
         metainterp_sd = warmrunnerdesc.metainterp_sd
@@ -362,6 +356,8 @@ class WarmEnterState(object):
         confirm_enter_jit = self.confirm_enter_jit
         range_red_args = unrolling_iterable(
             range(num_green_args, num_green_args + jitdriver_sd.num_red_args))
+        name_red_args = unrolling_iterable(
+            [(i, 'arg%d' % i) for i in range(jitdriver_sd.num_red_args)])
         # get a new specialized copy of the method
         ARGS = []
         for kind in jitdriver_sd.red_args_types:
@@ -376,6 +372,7 @@ class WarmEnterState(object):
         func_execute_token = self.cpu.make_execute_token(*ARGS)
         cpu = self.cpu
         jitcounter = self.warmrunnerdesc.jitcounter
+        result_type = jitdriver_sd.result_type
 
         def execute_assembler(loop_token, *args):
             # Call the backend to run the 'looptoken' with the given
@@ -396,14 +393,31 @@ class WarmEnterState(object):
             #
             # Handle the failure
             fail_descr = cpu.get_latest_descr(deadframe)
-            fail_descr.handle_fail(deadframe, metainterp_sd, jitdriver_sd)
+            # First, a fast path to avoid raising and immediately catching
+            # a DoneWithThisFrame exception
+            if result_type == history.VOID:
+                if isinstance(fail_descr, compile.DoneWithThisFrameDescrVoid):
+                    return None
+            if result_type == history.INT:
+                if isinstance(fail_descr, compile.DoneWithThisFrameDescrInt):
+                    return fail_descr.get_result(cpu, deadframe)
+            if result_type == history.REF:
+                if isinstance(fail_descr, compile.DoneWithThisFrameDescrRef):
+                    return fail_descr.get_result(cpu, deadframe)
+            if result_type == history.FLOAT:
+                if isinstance(fail_descr, compile.DoneWithThisFrameDescrFloat):
+                    return fail_descr.get_result(cpu, deadframe)
             #
+            # General case
+            fail_descr.handle_fail(deadframe, metainterp_sd, jitdriver_sd)
             assert 0, "should have raised"
 
         def bound_reached(hash, cell, *args):
             if not confirm_enter_jit(*args):
                 return
             jitcounter.decay_all_counters()
+            if rstack.stack_almost_full():
+                return
             # start tracing
             from rpython.jit.metainterp.pyjitpl import MetaInterp
             metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
@@ -419,7 +433,8 @@ class WarmEnterState(object):
 
         def maybe_compile_and_run(increment_threshold, *args):
             """Entry point to the JIT.  Called at the point with the
-            can_enter_jit() hint.
+            can_enter_jit() hint, and at the start of a function
+            with a different threshold.
             """
             # Look for the cell corresponding to the current greenargs.
             # Search for the JitCell that is of the correct subclass of
@@ -437,14 +452,6 @@ class WarmEnterState(object):
                 # not found. increment the counter
                 if jitcounter.tick(hash, increment_threshold):
                     bound_reached(hash, None, *args)
-                return
-
-            # Workaround for issue #2200, maybe temporary.  This is not
-            # a proper fix, but only a hack that should work well enough
-            # for PyPy's main jitdriver...  See test_issue2200_recursion
-            from rpython.jit.metainterp.blackhole import workaround2200
-            if workaround2200.active:
-                workaround2200.active = False
                 return
 
             # Here, we have found 'cell'.
@@ -484,14 +491,27 @@ class WarmEnterState(object):
             execute_args = ()
             for i in range_red_args:
                 execute_args += (unspecialize_value(args[i]), )
-            # run it!  this executes until interrupted by an exception
-            execute_assembler(procedure_token, *execute_args)
-            assert 0, "should not reach this point"
+            # run it, but from outside in ll_portal_runner, not from here
+            # (this avoids RPython-level recursion with no corresponding
+            # app-level recursion, as shown by issues 2200 and 2335)
+            raise EnterJitAssembler(procedure_token, *execute_args)
+
+        class EnterJitAssembler(jitexc.JitException):
+            def __init__(self, procedure_token, *args):
+                self.procedure_token = procedure_token
+                for i, argname in name_red_args:
+                    setattr(self, argname, args[i])
+            def execute(self):
+                args = ()
+                for i, argname in name_red_args:
+                    args += (getattr(self, argname), )
+                return execute_assembler(self.procedure_token, *args)
 
         maybe_compile_and_run._dont_inline_ = True
-        self.maybe_compile_and_run = maybe_compile_and_run
         self.execute_assembler = execute_assembler
-        return maybe_compile_and_run
+        self.entry_point_fns = (maybe_compile_and_run,
+                                EnterJitAssembler)
+        return self.entry_point_fns
 
     # ----------
 
@@ -678,8 +698,35 @@ class WarmEnterState(object):
             drivername = jitdriver.name
         else:
             drivername = '<unknown jitdriver>'
-        get_location_ptr = self.jitdriver_sd._get_printable_location_ptr
-        if get_location_ptr is None:
+        # get_location returns 
+        get_location_ptr = getattr(self.jitdriver_sd, '_get_location_ptr', None)
+        if get_location_ptr is not None:
+            types = self.jitdriver_sd._get_loc_types
+            unwrap_greenkey = self.make_unwrap_greenkey()
+            unrolled_types = unrolling_iterable(enumerate(types))
+            def get_location(greenkey):
+                greenargs = unwrap_greenkey(greenkey)
+                fn = support.maybe_on_top_of_llinterp(rtyper, get_location_ptr)
+                value_tuple = fn(*greenargs)
+                values = []
+                for i, (sem_type,gen_type) in unrolled_types:
+                    if gen_type == "s":
+                        value = getattr(value_tuple, 'item' + str(i))
+                        values.append(jl.wrap(sem_type,gen_type,hlstr(value)))
+                    elif gen_type == "i":
+                        value = getattr(value_tuple, 'item' + str(i))
+                        values.append(jl.wrap(sem_type,gen_type,intmask(value)))
+                    else:
+                        raise NotImplementedError
+                return values
+            self.get_location_types = list(types)
+            self.get_location = get_location
+        else:
+            self.get_location_types = None
+            self.get_location = None
+        #
+        printable_loc_ptr = self.jitdriver_sd._get_printable_location_ptr
+        if printable_loc_ptr is None:
             missing = '(%s: no get_printable_location)' % drivername
             def get_location_str(greenkey):
                 return missing
@@ -695,7 +742,7 @@ class WarmEnterState(object):
                 if not have_debug_prints_for("jit-"):
                     return missing
                 greenargs = unwrap_greenkey(greenkey)
-                fn = support.maybe_on_top_of_llinterp(rtyper, get_location_ptr)
+                fn = support.maybe_on_top_of_llinterp(rtyper, printable_loc_ptr)
                 llres = fn(*greenargs)
                 if not we_are_translated() and isinstance(llres, str):
                     return llres

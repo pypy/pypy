@@ -135,6 +135,10 @@ class FakeBuiltinCallControl:
              EI.OS_RAW_MALLOC_VARSIZE_CHAR: ([INT], ARRAYPTR),
              EI.OS_RAW_FREE:             ([ARRAYPTR], lltype.Void),
              EI.OS_THREADLOCALREF_GET:   ([INT], INT),   # for example
+             EI.OS_INT_PY_DIV: ([INT, INT], INT),
+             EI.OS_INT_UDIV:   ([INT, INT], INT),
+             EI.OS_INT_PY_MOD: ([INT, INT], INT),
+             EI.OS_INT_UMOD:   ([INT, INT], INT),
             }
             argtypes = argtypes[oopspecindex]
             assert argtypes[0] == [v.concretetype for v in op.args[1:]]
@@ -239,6 +243,20 @@ def test_optimize_goto_if_not__ptr_iszero():
         assert block.exitswitch == (opname, v1, '-live-before')
         assert block.exits == exits
 
+def test_optimize_goto_if_not__argument_to_call():
+    for opname in ['ptr_iszero', 'ptr_nonzero']:
+        v1 = Variable()
+        v3 = Variable(); v3.concretetype = lltype.Bool
+        v4 = Variable()
+        block = Block([v1])
+        callop = SpaceOperation('residual_call_r_i',
+                ["fake", ListOfKind('int', [v3])], v4)
+        block.operations = [SpaceOperation(opname, [v1], v3), callop]
+        block.exitswitch = v3
+        block.exits = exits = [FakeLink(False), FakeLink(True)]
+        res = Transformer().optimize_goto_if_not(block)
+        assert not res
+
 def test_symmetric():
     ops = {'int_add': 'int_add',
            'int_or': 'int_or',
@@ -268,15 +286,17 @@ def test_symmetric():
                     assert op1.result == v3
                     assert op1.opname == name2[0]
 
-def test_symmetric_int_add_ovf():
+@py.test.mark.parametrize('opname', ['add_ovf', 'sub_ovf', 'mul_ovf'])
+def test_int_op_ovf(opname):
     v3 = varoftype(lltype.Signed)
     for v1 in [varoftype(lltype.Signed), const(42)]:
         for v2 in [varoftype(lltype.Signed), const(43)]:
-            op = SpaceOperation('int_add_nonneg_ovf', [v1, v2], v3)
+            op = SpaceOperation('int_' + opname, [v1, v2], v3)
             oplist = Transformer(FakeCPU()).rewrite_operation(op)
             op1, op0 = oplist
-            assert op0.opname == 'int_add_ovf'
-            if isinstance(v1, Constant) and isinstance(v2, Variable):
+            assert op0.opname == 'int_' + opname
+            if (isinstance(v1, Constant) and isinstance(v2, Variable)
+                    and opname != 'sub_ovf'):
                 assert op0.args == [v2, v1]
                 assert op0.result == v3
             else:
@@ -285,6 +305,34 @@ def test_symmetric_int_add_ovf():
             assert op1.opname == '-live-'
             assert op1.args == []
             assert op1.result is None
+
+def test_neg_ovf():
+    v3 = varoftype(lltype.Signed)
+    for v1 in [varoftype(lltype.Signed), const(42)]:
+        op = SpaceOperation('direct_call', [Constant('neg_ovf'), v1], v3)
+        oplist = Transformer(FakeCPU())._handle_int_special(op, 'int.neg_ovf',
+                                                            [v1])
+        op1, op0 = oplist
+        assert op0.opname == 'int_sub_ovf'
+        assert op0.args == [Constant(0), v1]
+        assert op0.result == v3
+        assert op1.opname == '-live-'
+        assert op1.args == []
+        assert op1.result is None
+
+@py.test.mark.parametrize('opname', ['py_div', 'udiv', 'py_mod', 'umod'])
+def test_int_op_residual(opname):
+    v3 = varoftype(lltype.Signed)
+    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+    for v1 in [varoftype(lltype.Signed), const(42)]:
+        for v2 in [varoftype(lltype.Signed), const(43)]:
+            op = SpaceOperation('direct_call', [Constant(opname), v1, v2], v3)
+            op0 = tr._handle_int_special(op, 'int.'+opname, [v1, v2])
+            assert op0.opname == 'residual_call_ir_i'
+            assert op0.args[0].value == opname  # pseudo-function as str
+            expected = ('int_' + opname).upper()
+            assert (op0.args[-1] == 'calldescr-%d' %
+                     getattr(effectinfo.EffectInfo, 'OS_' + expected))
 
 def test_calls():
     for RESTYPE, with_void, with_i, with_r, with_f in product(

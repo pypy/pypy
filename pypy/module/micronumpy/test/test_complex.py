@@ -495,8 +495,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         c = array([1.e+110, 1.e-110], dtype=complex128)
         d = floor_divide(c**2, c)
         assert (d == [1.e+110, 0]).all()
-        
-        
+
+
 
     def test_basic(self):
         import sys

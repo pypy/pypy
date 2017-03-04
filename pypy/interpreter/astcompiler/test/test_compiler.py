@@ -458,14 +458,17 @@ class TestCompiler:
         decl = str(decl) + "\n"
         yield self.st, decl, 'x', (1, 2, 3, 4)
 
+    def test_closure_error(self):
         source = """if 1:
         def f(a):
             del a
             def x():
                 a
         """
-        exc = py.test.raises(SyntaxError, self.run, source).value
-        assert exc.msg == "Can't delete variable used in nested scopes: 'a'"
+        with py.test.raises(SyntaxError) as excinfo:
+            self.run(source)
+        msg = excinfo.value.msg
+        assert msg == "Can't delete variable used in nested scopes: 'a'"
 
     def test_try_except_finally(self):
         yield self.simple_test, """
@@ -722,6 +725,19 @@ class TestCompiler:
         else:
             raise Exception("DID NOT RAISE")
 
+    def test_indent_error_filename(self):
+        source = py.code.Source("""
+        def f():
+          x
+         y
+        """)
+        try:
+            self.simple_test(source, None, None)
+        except IndentationError as e:
+            assert e.filename == '<test>'
+        else:
+            raise Exception("DID NOT RAISE")
+
     def test_kwargs_last(self):
         py.test.raises(SyntaxError, self.simple_test, "int(base=10, '2')",
                        None, None)
@@ -879,7 +895,20 @@ class TestCompiler:
         """
         self.simple_test(source, 'ok', 1)
 
-    def test_remove_docstring(self):
+    @py.test.mark.parametrize('expr, result', [
+        ("f1.__doc__", None),
+        ("f2.__doc__", 'docstring'),
+        ("f2()", 'docstring'),
+        ("f3.__doc__", None),
+        ("f3()", 'bar'),
+        ("C1.__doc__", None),
+        ("C2.__doc__", 'docstring'),
+        ("C3.field", 'not docstring'),
+        ("C4.field", 'docstring'),
+        ("C4.__doc__", 'docstring'),
+        ("C4.__doc__", 'docstring'),
+        ("__doc__", None),])
+    def test_remove_docstring(self, expr, result):
         source = '"module_docstring"\n' + """if 1:
         def f1():
             'docstring'
@@ -903,19 +932,7 @@ class TestCompiler:
         code_w.remove_docstrings(self.space)
         dict_w = self.space.newdict();
         code_w.exec_code(self.space, dict_w, dict_w)
-
-        yield self.check, dict_w, "f1.__doc__", None
-        yield self.check, dict_w, "f2.__doc__", 'docstring'
-        yield self.check, dict_w, "f2()", 'docstring'
-        yield self.check, dict_w, "f3.__doc__", None
-        yield self.check, dict_w, "f3()", 'bar'
-        yield self.check, dict_w, "C1.__doc__", None
-        yield self.check, dict_w, "C2.__doc__", 'docstring'
-        yield self.check, dict_w, "C3.field", 'not docstring'
-        yield self.check, dict_w, "C4.field", 'docstring'
-        yield self.check, dict_w, "C4.__doc__", 'docstring'
-        yield self.check, dict_w, "C4.__doc__", 'docstring'
-        yield self.check, dict_w, "__doc__", None
+        self.check(dict_w, expr, result)
 
     def test_assert_skipping(self):
         space = self.space
@@ -1111,7 +1128,7 @@ class TestOptimizations:
             return d['f'](5)
         """)
         assert 'generator' in space.str_w(space.repr(w_generator))
-        
+
     def test_list_comprehension(self):
         source = "def f(): [i for i in l]"
         source2 = "def f(): [i for i in l for j in l]"
@@ -1152,3 +1169,22 @@ class TestOptimizations:
             counts = self.count_instructions(source)
             assert ops.BUILD_SET not in counts
             assert ops.LOAD_CONST in counts
+
+    def test_dont_fold_huge_powers(self):
+        for source in (
+            "2 ** 3000",         # not constant-folded: too big
+            "(-2) ** 3000",
+            ):
+            source = 'def f(): %s' % source
+            counts = self.count_instructions(source)
+            assert ops.BINARY_POWER in counts
+
+        for source in (
+            "2 ** 2000",         # constant-folded
+            "2 ** -3000",
+            "1.001 ** 3000",
+            "1 ** 3000.0",
+            ):
+            source = 'def f(): %s' % source
+            counts = self.count_instructions(source)
+            assert ops.BINARY_POWER not in counts

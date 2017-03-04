@@ -1,6 +1,6 @@
-import py
+import py, os
 
-from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, llarena
 from rpython.rtyper.lltypesystem.llarena import (arena_malloc, arena_reset,
     arena_reserve, arena_free, round_up_for_allocation, ArenaError,
     arena_new_view, arena_shrink_obj, arena_protect, has_protect)
@@ -298,6 +298,29 @@ def test_arena_protect():
     assert p.x == 123
     p.x = 125
     assert p.x == 125
+
+def test_madvise_arena_free():
+    from rpython.rlib import rmmap
+
+    if os.name != 'posix':
+        py.test.skip("posix only")
+    pagesize = llarena.posixpagesize.get()
+    prev = rmmap.madvise_free
+    try:
+        seen = []
+        def my_madvise_free(addr, size):
+            assert lltype.typeOf(addr) == rmmap.PTR
+            seen.append((addr, size))
+        rmmap.madvise_free = my_madvise_free
+        llarena.madvise_arena_free(
+            rffi.cast(llmemory.Address, 123 * pagesize + 1),
+            pagesize * 7 - 2)
+    finally:
+        rmmap.madvise_free = prev
+    assert len(seen) == 1
+    addr, size = seen[0]
+    assert rffi.cast(lltype.Signed, addr) == 124 * pagesize
+    assert size == pagesize * 5
 
 
 class TestStandalone(test_standalone.StandaloneTests):

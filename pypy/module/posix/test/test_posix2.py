@@ -5,7 +5,7 @@ from __future__ import with_statement
 from pypy.objspace.std import StdObjSpace
 from rpython.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
-from pypy.conftest import pypydir
+from pypy import pypydir
 from rpython.translator.c.test.test_extfunc import need_sparse_files
 from rpython.rlib import rposix
 import os
@@ -13,14 +13,15 @@ import py
 import sys
 import signal
 
+USEMODULES = ['binascii', 'posix', 'struct', 'time']
+if os.name != 'nt':
+    USEMODULES += ['fcntl']
+else:
+    # On windows, os.popen uses the subprocess module
+    USEMODULES += ['_rawffi', 'thread', 'signal']
+
 def setup_module(mod):
-    usemodules = ['binascii', 'posix', 'struct', 'time']
-    if os.name != 'nt':
-        usemodules += ['fcntl']
-    else:
-        # On windows, os.popen uses the subprocess module
-        usemodules += ['_rawffi', 'thread', 'signal']
-    mod.space = gettestobjspace(usemodules=usemodules)
+    mod.space = gettestobjspace(usemodules=USEMODULES)
     mod.path = udir.join('posixtestfile.txt')
     mod.path.write("this is a test")
     mod.path2 = udir.join('test_posix2-')
@@ -49,9 +50,10 @@ GET_POSIX = "(): import %s as m ; return m" % os.name
 
 
 class AppTestPosix:
+    spaceconfig = {'usemodules': USEMODULES}
 
     def setup_class(cls):
-        cls.space = space
+        space = cls.space
         cls.w_runappdirect = space.wrap(cls.runappdirect)
         cls.w_posix = space.appexec([], GET_POSIX)
         cls.w_path = space.wrap(str(path))
@@ -127,9 +129,9 @@ class AppTestPosix:
         assert st[4] == st.st_uid
         assert st[5] == st.st_gid
         assert st[6] == st.st_size
-        assert st[7] == int(st.st_atime)
-        assert st[8] == int(st.st_mtime)
-        assert st[9] == int(st.st_ctime)
+        assert st[7] == int(st.st_atime)   # in complete corner cases, rounding
+        assert st[8] == int(st.st_mtime)   # here could maybe get the wrong
+        assert st[9] == int(st.st_ctime)   # integer...
 
         assert stat.S_IMODE(st.st_mode) & stat.S_IRUSR
         assert stat.S_IMODE(st.st_mode) & stat.S_IWUSR
@@ -139,13 +141,12 @@ class AppTestPosix:
         assert st.st_size == 14
         assert st.st_nlink == 1
 
-        #if sys.platform.startswith('linux'):
-        #    # expects non-integer timestamps - it's unlikely that they are
-        #    # all three integers
-        #    assert ((st.st_atime, st.st_mtime, st.st_ctime) !=
-        #            (st[7],       st[8],       st[9]))
-        #    assert st.st_blksize * st.st_blocks >= st.st_size
+        assert not hasattr(st, 'nsec_atime')
+
         if sys.platform.startswith('linux'):
+            assert isinstance(st.st_atime, float)
+            assert isinstance(st.st_mtime, float)
+            assert isinstance(st.st_ctime, float)
             assert hasattr(st, 'st_rdev')
 
     def test_stat_float_times(self):
@@ -158,11 +159,14 @@ class AppTestPosix:
             st = posix.stat(path)
             assert isinstance(st.st_mtime, float)
             assert st[7] == int(st.st_atime)
+            assert posix.stat_float_times(-1) is True
 
             posix.stat_float_times(False)
             st = posix.stat(path)
             assert isinstance(st.st_mtime, (int, long))
             assert st[7] == st.st_atime
+            assert posix.stat_float_times(-1) is False
+
         finally:
             posix.stat_float_times(current)
 
@@ -364,11 +368,11 @@ class AppTestPosix:
         pdir = self.pdir + '/file1'
         posix = self.posix
 
-        assert posix.access(pdir, posix.R_OK)
-        assert posix.access(pdir, posix.W_OK)
+        assert posix.access(pdir, posix.R_OK) is True
+        assert posix.access(pdir, posix.W_OK) is True
         import sys
         if sys.platform != "win32":
-            assert not posix.access(pdir, posix.X_OK)
+            assert posix.access(pdir, posix.X_OK) is False
 
     def test_times(self):
         """
@@ -409,6 +413,8 @@ class AppTestPosix:
             os.write(slave_fd, 'x\n')
             data = os.read(master_fd, 100)
             assert data.startswith('x')
+            os.close(master_fd)
+            os.close(slave_fd)
 
     if hasattr(__import__(os.name), "forkpty"):
         def test_forkpty(self):
@@ -617,10 +623,12 @@ class AppTestPosix:
             assert os.geteuid() == self.geteuid
 
     if hasattr(os, 'setuid'):
+        @py.test.mark.skipif("sys.version_info < (2, 7, 4)")
         def test_os_setuid_error(self):
             os = self.posix
-            raises(OverflowError, os.setuid, -2**31-1)
+            raises(OverflowError, os.setuid, -2)
             raises(OverflowError, os.setuid, 2**32)
+            raises(OSError, os.setuid, -1)
 
     if hasattr(os, 'getgid'):
         def test_os_getgid(self):
@@ -663,10 +671,14 @@ class AppTestPosix:
             raises(OSError, os.getpgid, 1234567)
 
     if hasattr(os, 'setgid'):
+        @py.test.mark.skipif("sys.version_info < (2, 7, 4)")
         def test_os_setgid_error(self):
             os = self.posix
-            raises(OverflowError, os.setgid, -2**31-1)
+            raises(OverflowError, os.setgid, -2)
             raises(OverflowError, os.setgid, 2**32)
+            raises(OSError, os.setgid, -1)
+            raises(OSError, os.setgid, -1L)
+            raises(OSError, os.setgid, 2**32-1)
 
     if hasattr(os, 'getsid'):
         def test_os_getsid(self):
@@ -1006,7 +1018,8 @@ class AppTestPosix:
             pid1, status1 = os.waitpid(pid, 0)
             assert pid1 == pid
             assert os.WIFEXITED(status1)
-            assert os.WEXITSTATUS(status1) == myprio + 3
+            expected = min(myprio + 3, 19)
+            assert os.WEXITSTATUS(status1) == expected
 
     if hasattr(os, 'symlink'):
         def test_symlink(self):
@@ -1145,22 +1158,25 @@ class AppTestPosix:
 
 class AppTestEnvironment(object):
     def setup_class(cls):
-        cls.space = space
-        cls.w_posix = space.appexec([], "(): import %s as m ; return m" % os.name)
-        cls.w_os = space.appexec([], "(): import os; return os")
         cls.w_path = space.wrap(str(path))
 
-    def test_environ(self):
-        posix = self.posix
-        os = self.os
-        assert posix.environ['PATH']
-        del posix.environ['PATH']
-        def fn(): posix.environ['PATH']
-        raises(KeyError, fn)
+    if sys.platform != 'win32':
+        def test_environ(self):
+            import posix
+            assert posix.environ['PATH']
+            del posix.environ['PATH']
+            def fn(): posix.environ['PATH']
+            raises(KeyError, fn)
+    else:
+        def test_environ(self):
+            import nt
+            assert 'ADLDJSSLDFKJSD' not in nt.environ
+            def fn(): nt.environ['ADLDJSSLDFKJSD']
+            raises(KeyError, fn)
 
     if hasattr(__import__(os.name), "unsetenv"):
         def test_unsetenv_nonexisting(self):
-            os = self.os
+            import os
             os.unsetenv("XYZABC") #does not raise
             try:
                 os.environ["ABCABC"]
@@ -1178,8 +1194,8 @@ class AppTestEnvironment(object):
 
 class AppTestPosixUnicode:
     def setup_class(cls):
-        cls.space = space
-        cls.w_posix = space.appexec([], GET_POSIX)
+        if sys.platform == 'win32':
+            py.test.skip("Posix-only tests")
         if cls.runappdirect:
             # Can't change encoding
             try:
@@ -1187,8 +1203,8 @@ class AppTestPosixUnicode:
             except UnicodeEncodeError:
                 py.test.skip("encoding not good enough")
         else:
-            cls.save_fs_encoding = space.sys.filesystemencoding
-            space.sys.filesystemencoding = "utf-8"
+            cls.save_fs_encoding = cls.space.sys.filesystemencoding
+            cls.space.sys.filesystemencoding = "utf-8"
 
     def teardown_class(cls):
         try:
@@ -1198,22 +1214,25 @@ class AppTestPosixUnicode:
 
     def test_stat_unicode(self):
         # test that passing unicode would not raise UnicodeDecodeError
+        import posix
         try:
-            self.posix.stat(u"ą")
+            posix.stat(u"ą")
         except OSError:
             pass
 
     def test_open_unicode(self):
         # Ensure passing unicode doesn't raise UnicodeEncodeError
+        import posix
         try:
-            self.posix.open(u"ą", self.posix.O_WRONLY)
+            posix.open(u"ą", posix.O_WRONLY)
         except OSError:
             pass
 
     def test_remove_unicode(self):
         # See 2 above ;)
+        import posix
         try:
-            self.posix.remove(u"ą")
+            posix.remove(u"ą")
         except OSError:
             pass
 

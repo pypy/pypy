@@ -14,6 +14,7 @@ from rpython.rlib import rposix
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.writeanalyze import ReadWriteAnalyzer
 from rpython.translator.backendopt.graphanalyze import DependencyTracker
+from rpython.translator.backendopt.collectanalyze import CollectAnalyzer
 
 
 class CallControl(object):
@@ -37,9 +38,9 @@ class CallControl(object):
             self.virtualizable_analyzer = VirtualizableAnalyzer(translator)
             self.quasiimmut_analyzer = QuasiImmutAnalyzer(translator)
             self.randomeffects_analyzer = RandomEffectsAnalyzer(translator)
-            self.seen = DependencyTracker(self.readwrite_analyzer)
-        else:
-            self.seen = None
+            self.collect_analyzer = CollectAnalyzer(translator)
+            self.seen_rw = DependencyTracker(self.readwrite_analyzer)
+            self.seen_gc = DependencyTracker(self.collect_analyzer)
         #
         for index, jd in enumerate(jitdrivers_sd):
             jd.index = index
@@ -294,9 +295,9 @@ class CallControl(object):
                     "but the function has no result" % (op, ))
         #
         effectinfo = effectinfo_from_writeanalyze(
-            self.readwrite_analyzer.analyze(op, self.seen), self.cpu,
+            self.readwrite_analyzer.analyze(op, self.seen_rw), self.cpu,
             extraeffect, oopspecindex, can_invalidate, call_release_gil_target,
-            extradescr,
+            extradescr, self.collect_analyzer.analyze(op, self.seen_gc),
         )
         #
         assert effectinfo is not None

@@ -8,9 +8,16 @@ import gc
 import os
 from subprocess import PIPE, Popen
 
+PY2 = (sys.version_info.major == 2)
+if PY2:
+    text = unicode
+else:
+    text = str
+
 def run_subprocess(executable, args, env=None, cwd=None):
     if isinstance(args, list):
-        args = [a.encode('latin1') for a in args]
+        args = [a.encode('latin1') if isinstance(a, text) else a
+                for a in args]
     return _run(executable, args, env, cwd)
 
 shell_default = False
@@ -70,24 +77,38 @@ if sys.platform != 'win32' and hasattr(os, 'fork') and not os.getenv("PYPY_DONT_
     _source = os.path.join(_source, 'runsubprocess.py')   # and not e.g. '.pyc'
 
     def spawn_subprocess():
-        global _child
+        global _child, child_stdin, child_stdout
         _child = Popen([sys.executable, _source], bufsize=0,
                        stdin=PIPE, stdout=PIPE, close_fds=True)
+        if PY2:
+            child_stdin = _child.stdin
+            child_stdout = _child.stdout
+        else:
+            # create TextIOWrappers which (hopefully) have the same newline
+            # behavior as the child's stdin / stdout
+            from io import TextIOWrapper
+            child_stdin = TextIOWrapper(_child.stdin,
+                                        newline=sys.stdin.newlines,
+                                        write_through=True)
+            child_stdout = TextIOWrapper(_child.stdout,
+                                         newline=sys.stdout.newlines)
     spawn_subprocess()
 
     def cleanup_subprocess():
-        global _child
+        global _child, child_stdin, child_stdout
         _child = None
+        child_stdin = None
+        child_stdout = None
     import atexit; atexit.register(cleanup_subprocess)
 
     def _run(*args):
         try:
-            _child.stdin.write('%r\n' % (args,))
+            child_stdin.write('%r\n' % (args,))
         except (OSError, IOError):
             # lost the child.  Try again...
             spawn_subprocess()
-            _child.stdin.write('%r\n' % (args,))
-        results = _child.stdout.readline()
+            child_stdin.write('%r\n' % (args,))
+        results = child_stdout.readline()
         assert results.startswith('(')
         results = eval(results)
         if results[0] is None:

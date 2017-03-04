@@ -3,10 +3,12 @@
 It uses 'pypy/goal/pypy-c' and parts of the rest of the working
 copy.  Usage:
 
-    package.py [--options] pypy-VER-PLATFORM
+    package.py [--options] --archive-name=pypy-VER-PLATFORM
 
 The output is found in the directory from --builddir,
 by default /tmp/usession-YOURNAME/build/.
+
+For a list of all options, see 'package.py --help'.
 """
 
 import shutil
@@ -61,6 +63,7 @@ def create_package(basedir, options, _fake=False):
     name = options.name
     if not name:
         name = 'pypy-nightly'
+    assert '/' not in name
     rename_pypy_c = options.pypy_c
     override_pypy_c = options.override_pypy_c
 
@@ -176,7 +179,7 @@ directory next to the dlls, as per build instructions."""
     shutil.copytree(str(basedir.join('lib_pypy')),
                     str(pypydir.join('lib_pypy')),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~',
-                                           '*.c', '*.o'))
+                                           '*_cffi.c', '*.o'))
     for file in ['README.rst',]:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     for file in ['_testcapimodule.c', '_ctypes_test.c']:
@@ -288,26 +291,12 @@ def package(*args, **kwds):
         help='destination dir for archive')
     parser.add_argument('--override_pypy_c', type=str, default='',
         help='use as pypy exe instead of pypy/goal/pypy-c')
-    # Positional arguments, for backward compatability with buldbots
-    parser.add_argument('extra_args', help='optional interface to positional arguments', nargs=argparse.REMAINDER,
-        metavar='[archive-name] [rename_pypy_c] [targetdir] [override_pypy_c]',
-        )
     options = parser.parse_args(args)
 
-    # Handle positional arguments, choke if both methods are used
-    for i,target, default in ([1, 'name', ''], [2, 'pypy_c', pypy_exe],
-                              [3, 'targetdir', ''], [4,'override_pypy_c', '']):
-        if len(options.extra_args)>i:
-            if getattr(options, target) != default:
-                print 'positional argument',i,target,'already has value',getattr(options, target)
-                parser.print_help()
-                return
-            setattr(options, target, options.extra_args[i])
     if os.environ.has_key("PYPY_PACKAGE_NOSTRIP"):
         options.nostrip = True
-
     if os.environ.has_key("PYPY_PACKAGE_WITHOUTTK"):
-        options.tk = True
+        options.no_tk = True
     if not options.builddir:
         # The import actually creates the udir directory
         from rpython.tool.udir import udir

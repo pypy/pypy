@@ -4,7 +4,7 @@ import sys
 from rpython.rlib import rposix, rposix_stat
 from rpython.rlib import objectmodel, rurandom
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import r_longlong, intmask
+from rpython.rlib.rarithmetic import r_longlong, intmask, r_uint
 from rpython.rlib.unroll import unrolling_iterable
 
 from pypy.interpreter.gateway import unwrap_spec
@@ -20,26 +20,21 @@ if _WIN32:
 
 c_int = "c_int"
 
-# CPython 2.7 semantics are too messy to follow exactly,
-# e.g. setuid(-2) works on 32-bit but not on 64-bit.  As a result,
-# we decided to just accept any 'int', i.e. any C signed long, and
-# check that they are in range(-2**31, 2**32).  In other words, we
-# accept any number that is either a signed or an unsigned C int.
-c_uid_t = int
-c_gid_t = int
-if sys.maxint == 2147483647:
-    def check_uid_range(space, num):
-        pass
-else:
-    def check_uid_range(space, num):
-        if num < -(1 << 31) or num >= (1 << 32):
-            raise oefmt(space.w_OverflowError, "integer out of range")
+# CPython 2.7 semantics used to be too messy, differing on 32-bit vs
+# 64-bit, but this was cleaned up in recent 2.7.x.  Now, any function
+# taking a uid_t or gid_t accepts numbers in range(-1, 2**32) as an
+# r_uint, with -1 being equivalent to 2**32-1.  Any function that
+# returns a uid_t or gid_t returns either an int or a long, depending
+# on whether it fits or not, but always positive.
+c_uid_t = 'c_uid_t'
+c_gid_t = 'c_uid_t'
 
-def fsencode_w(space, w_obj):
-    if space.isinstance_w(w_obj, space.w_unicode):
-        w_obj = space.call_method(w_obj, 'encode',
-                                  getfilesystemencoding(space))
-    return space.str0_w(w_obj)
+def wrap_uid(space, uid):
+    if uid <= r_uint(sys.maxint):
+        return space.newint(intmask(uid))
+    else:
+        return space.newint(uid)     # an unsigned number
+wrap_gid = wrap_uid
 
 class FileEncoder(object):
     is_unicode = True
@@ -49,7 +44,7 @@ class FileEncoder(object):
         self.w_obj = w_obj
 
     def as_bytes(self):
-        return fsencode_w(self.space, self.w_obj)
+        return self.space.fsencode_w(self.w_obj)
 
     def as_unicode(self):
         return self.space.unicode0_w(self.w_obj)
@@ -62,7 +57,7 @@ class FileDecoder(object):
         self.w_obj = w_obj
 
     def as_bytes(self):
-        return self.space.str0_w(self.w_obj)
+        return self.space.bytes0_w(self.w_obj)
 
     def as_unicode(self):
         space = self.space
@@ -77,7 +72,7 @@ def dispatch_filename(func, tag=0):
             fname = FileEncoder(space, w_fname)
             return func(fname, *args)
         else:
-            fname = space.str0_w(w_fname)
+            fname = space.bytes0_w(w_fname)
             return func(fname, *args)
     return dispatch
 
@@ -111,7 +106,7 @@ Return a file descriptor (a small integer)."""
             space, w_fname, flag, mode)
     except OSError as e:
         raise wrap_oserror2(space, e, w_fname)
-    return space.wrap(fd)
+    return space.newint(fd)
 
 @unwrap_spec(fd=c_int, pos=r_longlong, how=c_int)
 def lseek(space, fd, pos, how):
@@ -123,7 +118,7 @@ current position; if how == 2, to the end."""
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
-        return space.wrap(pos)
+        return space.newint(pos)
 
 @unwrap_spec(fd=c_int)
 def isatty(space, fd):
@@ -134,7 +129,7 @@ slave end of a terminal."""
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
-        return space.wrap(res)
+        return space.newbool(res)
 
 @unwrap_spec(fd=c_int, buffersize=int)
 def read(space, fd, buffersize):
@@ -144,7 +139,7 @@ def read(space, fd, buffersize):
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
-        return space.wrap(s)
+        return space.newbytes(s)
 
 @unwrap_spec(fd=c_int)
 def write(space, fd, w_data):
@@ -156,7 +151,7 @@ actually written, which may be smaller than len(data)."""
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
-        return space.wrap(res)
+        return space.newint(res)
 
 @unwrap_spec(fd=c_int)
 def close(space, fd):
@@ -179,9 +174,9 @@ def ftruncate(space, fd, length):
     except IOError as e:
         if not objectmodel.we_are_translated():
             # Python 2.6 raises an IOError here. Let's not repeat that mistake.
-            w_error = space.call_function(space.w_OSError, space.wrap(e.errno),
-                                          space.wrap(e.strerror),
-                                          space.wrap(e.filename))
+            w_error = space.call_function(space.w_OSError, space.newint(e.errno),
+                                          space.newtext(e.strerror),
+                                          space.newtext(e.filename))
             raise OperationError(space.w_OSError, w_error)
         raise AssertionError
     except OSError as e:
@@ -225,43 +220,38 @@ def build_stat_result(space, st):
     w_keywords = space.newdict()
     stat_float_times = space.fromcache(StatState).stat_float_times
     for i, (name, TYPE) in FIELDS:
-        value = getattr(st, name)
-        if name in ('st_atime', 'st_mtime', 'st_ctime'):
-            value = int(value)   # rounded to an integer for indexed access
-        w_value = space.wrap(value)
         if i < rposix_stat.N_INDEXABLE_FIELDS:
+            # get the first 10 items by indexing; this gives us
+            # 'st_Xtime' as an integer, too
+            w_value = space.newint(st[i])
             lst[i] = w_value
-        else:
-            space.setitem(w_keywords, space.wrap(name), w_value)
+        elif name.startswith('st_'):    # exclude 'nsec_Xtime'
+            w_value = space.newint(getattr(st, name))
+            space.setitem(w_keywords, space.newtext(name), w_value)
 
     # non-rounded values for name-based access
     if stat_float_times:
         space.setitem(w_keywords,
-                      space.wrap('st_atime'), space.wrap(st.st_atime))
+                      space.newtext('st_atime'), space.newfloat(st.st_atime))
         space.setitem(w_keywords,
-                      space.wrap('st_mtime'), space.wrap(st.st_mtime))
+                      space.newtext('st_mtime'), space.newfloat(st.st_mtime))
         space.setitem(w_keywords,
-                      space.wrap('st_ctime'), space.wrap(st.st_ctime))
-    else:
-        space.setitem(w_keywords,
-                      space.wrap('st_atime'), space.wrap(int(st.st_atime)))
-        space.setitem(w_keywords,
-                      space.wrap('st_mtime'), space.wrap(int(st.st_mtime)))
-        space.setitem(w_keywords,
-                      space.wrap('st_ctime'), space.wrap(int(st.st_ctime)))
+                      space.newtext('st_ctime'), space.newfloat(st.st_ctime))
+    #else:
+    #   filled by the __init__ method
 
     w_tuple = space.newtuple(lst)
     w_stat_result = space.getattr(space.getbuiltinmodule(os.name),
-                                  space.wrap('stat_result'))
+                                  space.newtext('stat_result'))
     return space.call_function(w_stat_result, w_tuple, w_keywords)
 
 
 def build_statvfs_result(space, st):
     vals_w = [None] * len(rposix_stat.STATVFS_FIELDS)
     for i, (name, _) in STATVFS_FIELDS:
-        vals_w[i] = space.wrap(getattr(st, name))
+        vals_w[i] = space.newint(getattr(st, name))
     w_tuple = space.newtuple(vals_w)
-    w_statvfs_result = space.getattr(space.getbuiltinmodule(os.name), space.wrap('statvfs_result'))
+    w_statvfs_result = space.getattr(space.getbuiltinmodule(os.name), space.newtext('statvfs_result'))
     return space.call_function(w_statvfs_result, w_tuple)
 
 
@@ -311,7 +301,8 @@ class StatState(object):
     def __init__(self, space):
         self.stat_float_times = True
 
-def stat_float_times(space, w_value=None):
+@unwrap_spec(newval=int)
+def stat_float_times(space, newval=-1):
     """stat_float_times([newval]) -> oldval
 
 Determine whether os.[lf]stat represents time stamps as float objects.
@@ -321,10 +312,10 @@ If newval is omitted, return the current setting.
 """
     state = space.fromcache(StatState)
 
-    if w_value is None:
-        return space.wrap(state.stat_float_times)
+    if newval == -1:
+        return space.newbool(state.stat_float_times)
     else:
-        state.stat_float_times = space.bool_w(w_value)
+        state.stat_float_times = (newval != 0)
 
 
 @unwrap_spec(fd=c_int)
@@ -355,7 +346,7 @@ descriptor."""
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
-        return space.wrap(newfd)
+        return space.newint(newfd)
 
 @unwrap_spec(old_fd=c_int, new_fd=c_int)
 def dup2(space, old_fd, new_fd):
@@ -381,7 +372,7 @@ def access(space, w_path, mode):
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
     else:
-        return space.wrap(ok)
+        return space.newbool(ok)
 
 
 def times(space):
@@ -395,13 +386,13 @@ def times(space):
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
-        return space.newtuple([space.wrap(times[0]),
-                               space.wrap(times[1]),
-                               space.wrap(times[2]),
-                               space.wrap(times[3]),
-                               space.wrap(times[4])])
+        return space.newtuple([space.newfloat(times[0]),
+                               space.newfloat(times[1]),
+                               space.newfloat(times[2]),
+                               space.newfloat(times[3]),
+                               space.newfloat(times[4])])
 
-@unwrap_spec(cmd='str0')
+@unwrap_spec(cmd='text0')
 def system(space, cmd):
     """Execute the command (a string) in a subshell."""
     try:
@@ -409,7 +400,7 @@ def system(space, cmd):
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
-        return space.wrap(rc)
+        return space.newint(rc)
 
 def unlink(space, w_path):
     """Remove a file (same as remove(path))."""
@@ -431,11 +422,11 @@ def _getfullpathname(space, w_path):
         if space.isinstance_w(w_path, space.w_unicode):
             path = FileEncoder(space, w_path)
             fullpath = rposix.getfullpathname(path)
-            w_fullpath = space.wrap(fullpath)
+            w_fullpath = space.newunicode(fullpath)
         else:
-            path = space.str0_w(w_path)
+            path = space.bytes0_w(w_path)
             fullpath = rposix.getfullpathname(path)
-            w_fullpath = space.wrap(fullpath)
+            w_fullpath = space.newbytes(fullpath)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
     else:
@@ -448,7 +439,7 @@ def getcwd(space):
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
-        return space.wrap(cur)
+        return space.newtext(cur)
 
 if _WIN32:
     def getcwdu(space):
@@ -458,7 +449,7 @@ if _WIN32:
         except OSError as e:
             raise wrap_oserror(space, e)
         else:
-            return space.wrap(cur)
+            return space.newunicode(cur)
 else:
     def getcwdu(space):
         """Return the current working directory as a unicode string."""
@@ -495,7 +486,7 @@ def strerror(space, errno):
         text = os.strerror(errno)
     except ValueError:
         raise oefmt(space.w_ValueError, "strerror() argument out of range")
-    return space.wrap(text)
+    return space.newtext(text)
 
 def getlogin(space):
     """Return the currently logged in user."""
@@ -504,14 +495,14 @@ def getlogin(space):
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
-        return space.wrap(cur)
+        return space.newfilename(cur)
 
 # ____________________________________________________________
 
 def getstatfields(space):
     # for app_posix.py: export the list of 'st_xxx' names that we know
     # about at RPython level
-    return space.newlist([space.wrap(name) for _, (name, _) in STAT_FIELDS])
+    return space.newlist([space.newtext(name) for _, (name, _) in STAT_FIELDS])
 
 
 class State:
@@ -535,21 +526,29 @@ def get(space):
 def _convertenviron(space, w_env):
     space.call_method(w_env, 'clear')
     for key, value in os.environ.items():
-        space.setitem(w_env, space.wrap(key), space.wrap(value))
+        space.setitem(w_env, space.newtext(key), space.newtext(value))
 
-@unwrap_spec(name='str0', value='str0')
+@unwrap_spec(name='text0', value='text0')
 def putenv(space, name, value):
     """Change or add an environment variable."""
     if _WIN32 and len(name) > _MAX_ENV:
         raise oefmt(space.w_ValueError,
                     "the environment variable is longer than %d bytes",
                     _MAX_ENV)
+    if _WIN32 and not objectmodel.we_are_translated() and value == '':
+        # special case: on Windows, _putenv("NAME=") really means that
+        # we want to delete NAME.  So that's what the os.environ[name]=''
+        # below will do after translation.  But before translation, it
+        # will cache the environment value '' instead of <missing> and
+        # then return that.  We need to avoid that.
+        del os.environ[name]
+        return
     try:
         os.environ[name] = value
     except OSError as e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(name='str0')
+@unwrap_spec(name='text0')
 def unsetenv(space, name):
     """Delete an environment variable."""
     try:
@@ -571,20 +570,31 @@ entries '.' and '..' even if they are present in the directory."""
         if space.isinstance_w(w_dirname, space.w_unicode):
             dirname = FileEncoder(space, w_dirname)
             result = rposix.listdir(dirname)
+            # NOTE: 'result' can be either a list of str or a list of
+            # unicodes, depending on the platform
             w_fs_encoding = getfilesystemencoding(space)
             len_result = len(result)
             result_w = [None] * len_result
             for i in range(len_result):
-                w_bytes = space.wrap(result[i])
-                try:
-                    result_w[i] = space.call_method(w_bytes,
-                                                    "decode", w_fs_encoding)
-                except OperationError as e:
-                    # fall back to the original byte string
-                    result_w[i] = w_bytes
+                res = result[i]
+                if isinstance(res, str):
+                    w_bytes = space.newtext(res)
+                    try:
+                        w_res = space.call_method(w_bytes,
+                                                  "decode", w_fs_encoding)
+                    except OperationError as e:
+                        # fall back to the original byte string
+                        if e.async(space):
+                            raise
+                        w_res = w_bytes
+                elif isinstance(res, unicode):
+                    w_res = space.newunicode(res)
+                else:
+                    assert False
+                result_w[i] = w_res
             return space.newlist(result_w)
         else:
-            dirname = space.str0_w(w_dirname)
+            dirname = space.bytes0_w(w_dirname)
             result = rposix.listdir(dirname)
             # The list comprehension is a workaround for an obscure translation
             # bug.
@@ -598,7 +608,7 @@ def pipe(space):
         fd1, fd2 = os.pipe()
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.newtuple([space.wrap(fd1), space.wrap(fd2)])
+    return space.newtuple([space.newint(fd1), space.newint(fd2)])
 
 @unwrap_spec(mode=c_int)
 def chmod(space, w_path, mode):
@@ -650,7 +660,7 @@ os.makedev()), otherwise it is ignored."""
 def umask(space, mask):
     "Set the current numeric umask and return the previous umask."
     prevmask = os.umask(mask)
-    return space.wrap(prevmask)
+    return space.newint(prevmask)
 
 def getpid(space):
     "Return the current process id."
@@ -658,7 +668,7 @@ def getpid(space):
         pid = os.getpid()
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.wrap(pid)
+    return space.newint(pid)
 
 @unwrap_spec(pid=c_int, sig=c_int)
 def kill(space, pid, sig):
@@ -682,7 +692,7 @@ in the hardest way possible on the hosting operating system."""
     import signal
     rposix.kill(os.getpid(), signal.SIGABRT)
 
-@unwrap_spec(src='str0', dst='str0')
+@unwrap_spec(src='fsencode', dst='fsencode')
 def link(space, src, dst):
     "Create a hard link to a file."
     try:
@@ -697,14 +707,14 @@ def symlink(space, w_src, w_dst):
     except OSError as e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(path='str0')
+@unwrap_spec(path='fsencode')
 def readlink(space, path):
     "Return a string representing the path to which the symbolic link points."
     try:
         result = os.readlink(path)
     except OSError as e:
         raise wrap_oserror(space, e, path)
-    return space.wrap(result)
+    return space.newtext(result)
 
 before_fork_hooks = []
 after_fork_child_hooks = []
@@ -757,7 +767,7 @@ def _run_forking_function(space, kind):
 
 def fork(space):
     pid, irrelevant = _run_forking_function(space, "F")
-    return space.wrap(pid)
+    return space.newint(pid)
 
 def openpty(space):
     "Open a pseudo-terminal, returning open fd's for both master and slave end."
@@ -765,12 +775,12 @@ def openpty(space):
         master_fd, slave_fd = os.openpty()
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.newtuple([space.wrap(master_fd), space.wrap(slave_fd)])
+    return space.newtuple([space.newint(master_fd), space.newint(slave_fd)])
 
 def forkpty(space):
     pid, master_fd = _run_forking_function(space, "P")
-    return space.newtuple([space.wrap(pid),
-                           space.wrap(master_fd)])
+    return space.newtuple([space.newint(pid),
+                           space.newint(master_fd)])
 
 @unwrap_spec(pid=c_int, options=c_int)
 def waitpid(space, pid, options):
@@ -782,13 +792,14 @@ def waitpid(space, pid, options):
         pid, status = os.waitpid(pid, options)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.newtuple([space.wrap(pid), space.wrap(status)])
+    return space.newtuple([space.newint(pid), space.newint(status)])
 
 @unwrap_spec(status=c_int)
 def _exit(space, status):
     os._exit(status)
 
-def execv(space, w_command, w_args):
+@unwrap_spec(command='fsencode')
+def execv(space, command, w_args):
     """ execv(path, args)
 
 Execute an executable path with arguments, replacing current process.
@@ -796,17 +807,18 @@ Execute an executable path with arguments, replacing current process.
         path: path of executable file
         args: iterable of strings
     """
-    execve(space, w_command, w_args, None)
+    execve(space, command, w_args, None)
 
 def _env2interp(space, w_env):
     env = {}
     w_keys = space.call_method(w_env, 'keys')
     for w_key in space.unpackiterable(w_keys):
         w_value = space.getitem(w_env, w_key)
-        env[space.str0_w(w_key)] = space.str0_w(w_value)
+        env[space.text0_w(w_key)] = space.text0_w(w_value)
     return env
 
-def execve(space, w_command, w_args, w_env):
+@unwrap_spec(command='fsencode')
+def execve(space, command, w_args, w_env):
     """ execve(path, args, env)
 
 Execute a path with arguments and environment, replacing current process.
@@ -815,13 +827,12 @@ Execute a path with arguments and environment, replacing current process.
         args: iterable of arguments
         env: dictionary of strings mapping to strings
     """
-    command = fsencode_w(space, w_command)
     try:
         args_w = space.unpackiterable(w_args)
         if len(args_w) < 1:
             raise oefmt(space.w_ValueError,
                         "execv() must have at least one argument")
-        args = [fsencode_w(space, w_arg) for w_arg in args_w]
+        args = [space.fsencode_w(w_arg) for w_arg in args_w]
     except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -840,24 +851,24 @@ Execute a path with arguments and environment, replacing current process.
         except OSError as e:
             raise wrap_oserror(space, e)
 
-@unwrap_spec(mode=int, path='str0')
+@unwrap_spec(mode=int, path='fsencode')
 def spawnv(space, mode, path, w_args):
-    args = [space.str0_w(w_arg) for w_arg in space.unpackiterable(w_args)]
+    args = [space.fsencode_w(w_arg) for w_arg in space.unpackiterable(w_args)]
     try:
         ret = os.spawnv(mode, path, args)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.wrap(ret)
+    return space.newint(ret)
 
-@unwrap_spec(mode=int, path='str0')
+@unwrap_spec(mode=int, path='fsencode')
 def spawnve(space, mode, path, w_args, w_env):
-    args = [space.str0_w(w_arg) for w_arg in space.unpackiterable(w_args)]
+    args = [space.fsencode_w(w_arg) for w_arg in space.unpackiterable(w_args)]
     env = _env2interp(space, w_env)
     try:
         ret = os.spawnve(mode, path, args, env)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.wrap(ret)
+    return space.newint(ret)
 
 def utime(space, w_path, w_tuple):
     """ utime(path, (atime, mtime))
@@ -896,7 +907,7 @@ def uname(space):
         r = os.uname()
     except OSError as e:
         raise wrap_oserror(space, e)
-    l_w = [space.wrap(i) for i in [r[0], r[1], r[2], r[3], r[4]]]
+    l_w = [space.newfilename(i) for i in [r[0], r[1], r[2], r[3], r[4]]]
     return space.newtuple(l_w)
 
 def getuid(space):
@@ -904,7 +915,7 @@ def getuid(space):
 
     Return the current process's user id.
     """
-    return space.wrap(os.getuid())
+    return wrap_uid(space, os.getuid())
 
 @unwrap_spec(arg=c_uid_t)
 def setuid(space, arg):
@@ -912,12 +923,10 @@ def setuid(space, arg):
 
     Set the current process's user id.
     """
-    check_uid_range(space, arg)
     try:
         os.setuid(arg)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.w_None
 
 @unwrap_spec(arg=c_uid_t)
 def seteuid(space, arg):
@@ -925,12 +934,10 @@ def seteuid(space, arg):
 
     Set the current process's effective user id.
     """
-    check_uid_range(space, arg)
     try:
         os.seteuid(arg)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.w_None
 
 @unwrap_spec(arg=c_gid_t)
 def setgid(space, arg):
@@ -938,12 +945,10 @@ def setgid(space, arg):
 
     Set the current process's group id.
     """
-    check_uid_range(space, arg)
     try:
         os.setgid(arg)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.w_None
 
 @unwrap_spec(arg=c_gid_t)
 def setegid(space, arg):
@@ -951,14 +956,12 @@ def setegid(space, arg):
 
     Set the current process's effective group id.
     """
-    check_uid_range(space, arg)
     try:
         os.setegid(arg)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.w_None
 
-@unwrap_spec(path='str0')
+@unwrap_spec(path='fsencode')
 def chroot(space, path):
     """ chroot(path)
 
@@ -975,21 +978,21 @@ def getgid(space):
 
     Return the current process's group id.
     """
-    return space.wrap(os.getgid())
+    return wrap_gid(space, os.getgid())
 
 def getegid(space):
     """ getegid() -> gid
 
     Return the current process's effective group id.
     """
-    return space.wrap(os.getegid())
+    return wrap_gid(space, os.getegid())
 
 def geteuid(space):
     """ geteuid() -> euid
 
     Return the current process's effective user id.
     """
-    return space.wrap(os.geteuid())
+    return wrap_uid(space, os.geteuid())
 
 def getgroups(space):
     """ getgroups() -> list of group IDs
@@ -1000,7 +1003,7 @@ def getgroups(space):
         list = os.getgroups()
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.newlist([space.wrap(e) for e in list])
+    return space.newlist([wrap_gid(space, e) for e in list])
 
 def setgroups(space, w_list):
     """ setgroups(list)
@@ -1009,15 +1012,13 @@ def setgroups(space, w_list):
     """
     list = []
     for w_gid in space.unpackiterable(w_list):
-        gid = space.int_w(w_gid)
-        check_uid_range(space, gid)
-        list.append(gid)
+        list.append(space.c_uid_t_w(w_gid))
     try:
         os.setgroups(list[:])
     except OSError as e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(username=str, gid=c_gid_t)
+@unwrap_spec(username='text', gid=c_gid_t)
 def initgroups(space, username, gid):
     """ initgroups(username, gid) -> None
     
@@ -1035,7 +1036,7 @@ def getpgrp(space):
 
     Return the current process group id.
     """
-    return space.wrap(os.getpgrp())
+    return space.newint(os.getpgrp())
 
 def setpgrp(space):
     """ setpgrp()
@@ -1053,7 +1054,7 @@ def getppid(space):
 
     Return the parent's process id.
     """
-    return space.wrap(os.getppid())
+    return space.newint(os.getppid())
 
 @unwrap_spec(pid=c_int)
 def getpgid(space, pid):
@@ -1065,7 +1066,7 @@ def getpgid(space, pid):
         pgid = os.getpgid(pid)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.wrap(pgid)
+    return space.newint(pgid)
 
 @unwrap_spec(pid=c_int, pgrp=c_int)
 def setpgid(space, pid, pgrp):
@@ -1085,13 +1086,10 @@ def setreuid(space, ruid, euid):
 
     Set the current process's real and effective user ids.
     """
-    check_uid_range(space, ruid)
-    check_uid_range(space, euid)
     try:
         os.setreuid(ruid, euid)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.w_None
 
 @unwrap_spec(rgid=c_gid_t, egid=c_gid_t)
 def setregid(space, rgid, egid):
@@ -1099,13 +1097,10 @@ def setregid(space, rgid, egid):
 
     Set the current process's real and effective group ids.
     """
-    check_uid_range(space, rgid)
-    check_uid_range(space, egid)
     try:
         os.setregid(rgid, egid)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.w_None
 
 @unwrap_spec(pid=c_int)
 def getsid(space, pid):
@@ -1117,7 +1112,7 @@ def getsid(space, pid):
         sid = os.getsid(pid)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.wrap(sid)
+    return space.newint(sid)
 
 def setsid(space):
     """ setsid()
@@ -1140,9 +1135,9 @@ def tcgetpgrp(space, fd):
         pgid = os.tcgetpgrp(fd)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.wrap(pgid)
+    return space.newint(pgid)
 
-@unwrap_spec(fd=c_int, pgid=c_gid_t)
+@unwrap_spec(fd=c_int, pgid=c_int)
 def tcsetpgrp(space, fd, pgid):
     """ tcsetpgrp(fd, pgid)
 
@@ -1162,9 +1157,9 @@ def getresuid(space):
         (ruid, euid, suid) = os.getresuid()
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.newtuple([space.wrap(ruid),
-                           space.wrap(euid),
-                           space.wrap(suid)])
+    return space.newtuple([wrap_uid(space, ruid),
+                           wrap_uid(space, euid),
+                           wrap_uid(space, suid)])
 
 def getresgid(space):
     """ getresgid() -> (rgid, egid, sgid)
@@ -1175,9 +1170,9 @@ def getresgid(space):
         (rgid, egid, sgid) = os.getresgid()
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.newtuple([space.wrap(rgid),
-                           space.wrap(egid),
-                           space.wrap(sgid)])
+    return space.newtuple([wrap_gid(space, rgid),
+                           wrap_gid(space, egid),
+                           wrap_gid(space, sgid)])
 
 @unwrap_spec(ruid=c_uid_t, euid=c_uid_t, suid=c_uid_t)
 def setresuid(space, ruid, euid, suid):
@@ -1205,7 +1200,7 @@ def declare_new_w_star(name):
     if name in ('WEXITSTATUS', 'WSTOPSIG', 'WTERMSIG'):
         @unwrap_spec(status=c_int)
         def WSTAR(space, status):
-            return space.wrap(getattr(os, name)(status))
+            return space.newint(getattr(os, name)(status))
     else:
         @unwrap_spec(status=c_int)
         def WSTAR(space, status):
@@ -1223,7 +1218,7 @@ for name in rposix.WAIT_MACROS:
 @unwrap_spec(fd=c_int)
 def ttyname(space, fd):
     try:
-        return space.wrap(os.ttyname(fd))
+        return space.newfilename(os.ttyname(fd))
     except OSError as e:
         raise wrap_oserror(space, e)
 
@@ -1232,7 +1227,7 @@ def confname_w(space, w_name, namespace):
     # XXX slightly non-nice, reuses the sysconf of the underlying os module
     if space.isinstance_w(w_name, space.w_basestring):
         try:
-            num = namespace[space.str_w(w_name)]
+            num = namespace[space.text_w(w_name)]
         except KeyError:
             raise oefmt(space.w_ValueError, "unrecognized configuration name")
     else:
@@ -1245,7 +1240,7 @@ def sysconf(space, w_name):
         res = os.sysconf(num)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.wrap(res)
+    return space.newint(res)
 
 @unwrap_spec(fd=c_int)
 def fpathconf(space, fd, w_name):
@@ -1254,16 +1249,16 @@ def fpathconf(space, fd, w_name):
         res = os.fpathconf(fd, num)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.wrap(res)
+    return space.newint(res)
 
-@unwrap_spec(path='str0')
+@unwrap_spec(path='fsencode')
 def pathconf(space, path, w_name):
     num = confname_w(space, w_name, os.pathconf_names)
     try:
         res = os.pathconf(path, num)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.wrap(res)
+    return space.newint(res)
 
 def confstr(space, w_name):
     num = confname_w(space, w_name, os.confstr_names)
@@ -1271,24 +1266,20 @@ def confstr(space, w_name):
         res = os.confstr(num)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.wrap(res)
+    return space.newtext(res)
 
-@unwrap_spec(path='str0', uid=c_uid_t, gid=c_gid_t)
+@unwrap_spec(path='fsencode', uid=c_uid_t, gid=c_gid_t)
 def chown(space, path, uid, gid):
     """Change the owner and group id of path to the numeric uid and gid."""
-    check_uid_range(space, uid)
-    check_uid_range(space, gid)
     try:
         os.chown(path, uid, gid)
     except OSError as e:
         raise wrap_oserror(space, e, path)
 
-@unwrap_spec(path='str0', uid=c_uid_t, gid=c_gid_t)
+@unwrap_spec(path='fsencode', uid=c_uid_t, gid=c_gid_t)
 def lchown(space, path, uid, gid):
     """Change the owner and group id of path to the numeric uid and gid.
 This function will not follow symbolic links."""
-    check_uid_range(space, uid)
-    check_uid_range(space, gid)
     try:
         os.lchown(path, uid, gid)
     except OSError as e:
@@ -1299,8 +1290,6 @@ def fchown(space, w_fd, uid, gid):
     """Change the owner and group id of the file given by file descriptor
 fd to the numeric uid and gid."""
     fd = space.c_filedescriptor_w(w_fd)
-    check_uid_range(space, uid)
-    check_uid_range(space, gid)
     try:
         os.fchown(fd, uid, gid)
     except OSError as e:
@@ -1311,24 +1300,24 @@ def getloadavg(space):
         load = os.getloadavg()
     except OSError:
         raise oefmt(space.w_OSError, "Load averages are unobtainable")
-    return space.newtuple([space.wrap(load[0]),
-                           space.wrap(load[1]),
-                           space.wrap(load[2])])
+    return space.newtuple([space.newfloat(load[0]),
+                           space.newfloat(load[1]),
+                           space.newfloat(load[2])])
 
 @unwrap_spec(major=c_int, minor=c_int)
 def makedev(space, major, minor):
     result = os.makedev(major, minor)
-    return space.wrap(result)
+    return space.newint(result)
 
 @unwrap_spec(device="c_uint")
 def major(space, device):
     result = os.major(intmask(device))
-    return space.wrap(result)
+    return space.newint(result)
 
 @unwrap_spec(device="c_uint")
 def minor(space, device):
     result = os.minor(intmask(device))
-    return space.wrap(result)
+    return space.newint(result)
 
 @unwrap_spec(inc=c_int)
 def nice(space, inc):
@@ -1337,7 +1326,13 @@ def nice(space, inc):
         res = os.nice(inc)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.wrap(res)
+    return space.newint(res)
+
+class SigCheck:
+    pass
+_sigcheck = SigCheck()
+def _signal_checker():
+    _sigcheck.space.getexecutioncontext().checksignals()
 
 @unwrap_spec(n=int)
 def urandom(space, n):
@@ -1347,7 +1342,11 @@ def urandom(space, n):
     """
     context = get(space).random_context
     try:
-        return space.wrap(rurandom.urandom(context, n))
+        # urandom() takes a final argument that should be a regular function,
+        # not a bound method like 'getexecutioncontext().checksignals'.
+        # Otherwise, we can't use it from several independent places.
+        _sigcheck.space = space
+        return space.newbytes(rurandom.urandom(context, n, _signal_checker))
     except OSError as e:
         raise wrap_oserror(space, e)
 
@@ -1356,4 +1355,4 @@ def ctermid(space):
 
     Return the name of the controlling terminal for this process.
     """
-    return space.wrap(os.ctermid())
+    return space.newfilename(os.ctermid())

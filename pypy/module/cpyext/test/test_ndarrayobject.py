@@ -1,10 +1,11 @@
 import py
+import os
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.micronumpy.ndarray import W_NDimArray
 from pypy.module.micronumpy.descriptor import get_dtype_cache
-import pypy.module.micronumpy.constants as NPY 
+import pypy.module.micronumpy.constants as NPY
 
 def scalar(space):
     dtype = get_dtype_cache(space).w_float64dtype
@@ -232,12 +233,14 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
         if cls.runappdirect:
             try:
                 import numpy
-                cls.w_numpy_include = [numpy.get_include()]
-            except:
+            except ImportError:
                 skip('numpy not importable')
+            cls.w_numpy_include = [numpy.get_include()]
         else:
-            cls.w_numpy_include = cls.space.wrap([])
-            
+            numpy_incl = os.path.abspath(os.path.dirname(__file__) +
+                                         '/../include/_numpypy')
+            assert os.path.exists(numpy_incl)
+            cls.w_numpy_include = cls.space.wrap([numpy_incl])
 
     def test_ndarray_object_c(self):
         mod = self.import_extension('foo', [
@@ -270,7 +273,7 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
                 {
                     /* Should have failed */
                     Py_DECREF(obj1);
-                    return NULL; 
+                    return NULL;
                 }
                 return obj1;
                 '''
@@ -297,22 +300,19 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
                 ),
                 ("test_DescrFromType", "METH_O",
                 """
-                    Signed typenum = PyInt_AsLong(args);
+                    long typenum = PyInt_AsLong(args);
                     return PyArray_DescrFromType(typenum);
                 """
                 ),
-                ], include_dirs=self.numpy_include, 
+                ], include_dirs=self.numpy_include,
                    prologue='''
-                #ifdef PYPY_VERSION
-                    #include <pypy_numpy.h>    
-                #endif
                 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
                 #include <numpy/arrayobject.h>
                 #ifdef PYPY_VERSION
                     #define PyArray_FromObject _PyArray_FromObject
                     #define PyArray_FromAny _PyArray_FromAny
                 #endif
-                ''', 
+                ''',
                     more_init = '''
                 #ifndef PYPY_VERSION
                     import_array();
@@ -346,14 +346,11 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
                     Py_INCREF(obj);
                     return obj;
                 '''),
-                ], include_dirs=self.numpy_include, 
+                ], include_dirs=self.numpy_include,
                    prologue='''
-                #ifdef PYPY_VERSION
-                    #include <pypy_numpy.h>    
-                #endif
                 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
                 #include <numpy/arrayobject.h>
-                ''', 
+                ''',
                     more_init = '''
                 #ifndef PYPY_VERSION
                     import_array();
@@ -400,15 +397,12 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
                 void *array_data[] = {NULL, NULL};
                 return PyUFunc_FromFuncAndDataAndSignature(funcs,
                                     array_data, types, 1, 1, 1, PyUFunc_None,
-                                    "float_3x3", 
-                                    "a ufunc that tests a more complicated signature", 
+                                    "float_3x3",
+                                    "a ufunc that tests a more complicated signature",
                                     0, "(m,m)->(m,m)");
                 """),
-                ], include_dirs=self.numpy_include, 
+                ], include_dirs=self.numpy_include,
                    prologue='''
-                #ifdef PYPY_VERSION
-                    #include <pypy_numpy.h>    
-                #endif
                 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
                 #include <numpy/arrayobject.h>
                 #ifndef PYPY_VERSION
@@ -477,7 +471,7 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
                             res += +10;
                     *((float *)args[1]) = res;
                 };
-                            
+
                 ''',  more_init = '''
                 #ifndef PYPY_VERSION
                     import_array();

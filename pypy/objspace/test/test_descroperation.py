@@ -25,7 +25,7 @@ class Test_DescrOperation:
             pass
         return Base, Sub""")
         w_base, w_sub = space.unpackiterable(w_tup)
-        assert space.is_true(space.issubtype(w_sub, w_base))
+        assert space.issubtype_w(w_sub, w_base)
         w_inst = space.call_function(w_sub)
         assert space.isinstance_w(w_inst, w_base)
 
@@ -315,7 +315,8 @@ class AppTest_Descroperation:
                 assert operate(A()) == "world" * n
             assert type(operate(A())) is str
             answer = 42
-            raises(TypeError, operate, A())
+            excinfo = raises(TypeError, operate, A())
+            assert "returned non-string (type 'int')" in str(excinfo.value)
 
     def test_missing_getattribute(self):
         class X(object):

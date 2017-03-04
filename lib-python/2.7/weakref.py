@@ -31,6 +31,26 @@ __all__ = ["ref", "proxy", "getweakrefcount", "getweakrefs",
            "WeakKeyDictionary", "ReferenceError", "ReferenceType", "ProxyType",
            "CallableProxyType", "ProxyTypes", "WeakValueDictionary", 'WeakSet']
 
+try:
+    from __pypy__ import delitem_if_value_is as _delitem_if_value_is
+except ImportError:
+    def _delitem_if_value_is(d, key, value):
+        try:
+            if self.data[key] is value:  # fall-back: there is a potential
+                #             race condition in multithreaded programs HERE
+                del self.data[key]
+        except KeyError:
+            pass
+
+def _remove_dead_weakref(d, key):
+    try:
+        wr = d[key]
+    except KeyError:
+        pass
+    else:
+        if wr() is None:
+            _delitem_if_value_is(d, key, wr)
+
 
 class WeakValueDictionary(UserDict.UserDict):
     """Mapping class that references values weakly.
@@ -44,21 +64,23 @@ class WeakValueDictionary(UserDict.UserDict):
     # objects are unwrapped on the way out, and we always wrap on the
     # way in).
 
-    def __init__(self, *args, **kw):
+    def __init__(*args, **kw):
+        if not args:
+            raise TypeError("descriptor '__init__' of 'WeakValueDictionary' "
+                            "object needs an argument")
+        self = args[0]
+        args = args[1:]
+        if len(args) > 1:
+            raise TypeError('expected at most 1 arguments, got %d' % len(args))
         def remove(wr, selfref=ref(self)):
             self = selfref()
             if self is not None:
                 if self._iterating:
                     self._pending_removals.append(wr.key)
                 else:
-                    # Changed this for PyPy: made more resistent.  The
-                    # issue is that in some corner cases, self.data
-                    # might already be changed or removed by the time
-                    # this weakref's callback is called.  If that is
-                    # the case, we don't want to randomly kill an
-                    # unrelated entry.
-                    if self.data.get(wr.key) is wr:
-                        del self.data[wr.key]
+                    # Atomic removal is necessary since this function
+                    # can be called asynchronously by the GC
+                    _delitem_if_value_is(self.data, wr.key, wr)
         self._remove = remove
         # A list of keys to be removed
         self._pending_removals = []
@@ -71,7 +93,8 @@ class WeakValueDictionary(UserDict.UserDict):
         # We shouldn't encounter any KeyError, because this method should
         # always be called *before* mutating the dict.
         while l:
-            del d[l.pop()]
+            key = l.pop()
+            _remove_dead_weakref(d, key)
 
     def __getitem__(self, key):
         o = self.data[key]()
@@ -206,10 +229,10 @@ class WeakValueDictionary(UserDict.UserDict):
         if o is None:
             if args:
                 return args[0]
-            raise KeyError, key
+            else:
+                raise KeyError, key
         else:
             return o
-        # The logic above was fixed in PyPy
 
     def setdefault(self, key, default=None):
         try:
@@ -223,9 +246,16 @@ class WeakValueDictionary(UserDict.UserDict):
             return default
         else:
             return o
-        # The logic above was fixed in PyPy
 
-    def update(self, dict=None, **kwargs):
+    def update(*args, **kwargs):
+        if not args:
+            raise TypeError("descriptor 'update' of 'WeakValueDictionary' "
+                            "object needs an argument")
+        self = args[0]
+        args = args[1:]
+        if len(args) > 1:
+            raise TypeError('expected at most 1 arguments, got %d' % len(args))
+        dict = args[0] if args else None
         if self._pending_removals:
             self._commit_removals()
         d = self.data

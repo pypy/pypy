@@ -51,7 +51,7 @@ class TestTupleObject(BaseApiTest):
         api._PyTuple_Resize(ar, 10)
         assert api.PyTuple_Size(ar[0]) == 10
         for i in range(3, 10):
-            rffi.cast(PyTupleObject, py_tuple).c_ob_item[i] = make_ref(
+            rffi.cast(PyTupleObject, ar[0]).c_ob_item[i] = make_ref(
                 space, space.wrap(42 + i))
         w_tuple = from_ref(space, ar[0])
         assert space.int_w(space.len(w_tuple)) == 10
@@ -130,7 +130,7 @@ class AppTestTuple(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("run", "METH_NOARGS",
              """
-                long prev, next;
+                long prev;
                 PyObject *t = PyTuple_New(1);
                 prev = Py_True->ob_refcnt;
                 Py_INCREF(Py_True);
@@ -151,3 +151,8 @@ class AppTestTuple(AppTestCpythonExtensionBase):
              """),
             ])
         module.run()
+
+    def test_tuple_subclass(self):
+        module = self.import_module(name='foo')
+        a = module.TupleLike([1, 2, 3])
+        assert module.is_TupleLike(a) == 1

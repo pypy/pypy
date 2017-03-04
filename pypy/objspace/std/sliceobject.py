@@ -12,13 +12,13 @@ from rpython.rlib import jit
 class W_SliceObject(W_Root):
     _immutable_fields_ = ['w_start', 'w_stop', 'w_step']
 
-    def __init__(w_self, w_start, w_stop, w_step):
+    def __init__(self, w_start, w_stop, w_step):
         assert w_start is not None
         assert w_stop is not None
         assert w_step is not None
-        w_self.w_start = w_start
-        w_self.w_stop = w_stop
-        w_self.w_step = w_step
+        self.w_start = w_start
+        self.w_stop = w_stop
+        self.w_step = w_step
 
     def unwrap(w_slice, space):
         return slice(space.unwrap(w_slice.w_start), space.unwrap(w_slice.w_stop), space.unwrap(w_slice.w_step))
@@ -105,10 +105,10 @@ class W_SliceObject(W_Root):
         return w_obj
 
     def descr_repr(self, space):
-        return space.wrap("slice(%s, %s, %s)" % (
-            space.str_w(space.repr(self.w_start)),
-            space.str_w(space.repr(self.w_stop)),
-            space.str_w(space.repr(self.w_step))))
+        return space.newtext("slice(%s, %s, %s)" % (
+            space.text_w(space.repr(self.w_start)),
+            space.text_w(space.repr(self.w_stop)),
+            space.text_w(space.repr(self.w_step))))
 
     def descr__reduce__(self, space):
         from pypy.objspace.std.sliceobject import W_SliceObject
@@ -155,8 +155,8 @@ class W_SliceObject(W_Root):
         """
         length = space.getindex_w(w_length, space.w_OverflowError)
         start, stop, step = self.indices3(space, length)
-        return space.newtuple([space.wrap(start), space.wrap(stop),
-                               space.wrap(step)])
+        return space.newtuple([space.newint(start), space.newint(stop),
+                               space.newint(step)])
 
 
 def slicewprop(name):

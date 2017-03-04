@@ -19,7 +19,6 @@ class W_CType(W_Root):
     # XXX this could be improved with an elidable method get_size()
     # that raises in case it's still -1...
 
-    cast_anything = False
     is_primitive_integer = False
     is_nonfunc_pointer_or_array = False
     is_indirect_arg_for_call_python = False
@@ -35,16 +34,13 @@ class W_CType(W_Root):
 
     def repr(self):
         space = self.space
-        return space.wrap("<ctype '%s'>" % (self.name,))
+        return space.newtext("<ctype '%s'>" % (self.name,))
 
     def extra_repr(self, cdata):
         if cdata:
             return '0x%x' % rffi.cast(lltype.Unsigned, cdata)
         else:
             return 'NULL'
-
-    def is_char_ptr_or_array(self):
-        return False
 
     def is_unichar_ptr_or_array(self):
         return False
@@ -86,7 +82,7 @@ class W_CType(W_Root):
         raise oefmt(space.w_TypeError, "cannot initialize cdata '%s'",
                     self.name)
 
-    def convert_argument_from_object(self, cdata, w_ob):
+    def convert_argument_from_object(self, cdata, w_ob, keepalives, i):
         self.convert_from_object(cdata, w_ob)
         return False
 
@@ -179,7 +175,7 @@ class W_CType(W_Root):
     def direct_typeoffsetof(self, w_field_or_index, following=0):
         space = self.space
         try:
-            fieldname = space.str_w(w_field_or_index)
+            fieldname = space.text_w(w_field_or_index)
         except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
@@ -233,18 +229,17 @@ class W_CType(W_Root):
     # __________ app-level attributes __________
     def dir(self):
         space = self.space
-        w_self = space.wrap(self)
-        lst = [space.wrap(name)
+        lst = [space.newtext(name)
                   for name in _name_of_attributes
-                  if space.findattr(w_self, space.wrap(name)) is not None]
+                  if space.findattr(self, space.newtext(name)) is not None]
         return space.newlist(lst)
 
     def _fget(self, attrchar):
         space = self.space
         if attrchar == 'k':     # kind
-            return space.wrap(self.kind)      # class attribute
+            return space.newtext(self.kind)      # class attribute
         if attrchar == 'c':     # cname
-            return space.wrap(self.name)
+            return space.newtext(self.name)
         raise oefmt(space.w_AttributeError,
                     "ctype '%s' has no such attribute", self.name)
 
@@ -259,6 +254,9 @@ class W_CType(W_Root):
     def fget_abi(self, space):      return self._fget('A')
     def fget_elements(self, space): return self._fget('e')
     def fget_relements(self, space):return self._fget('R')
+
+    def cdata_dir(self):
+        return []
 
 
 W_CType.typedef = TypeDef(

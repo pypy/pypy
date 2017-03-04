@@ -21,7 +21,6 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, applevel, interp2app, unwrap_spec)
-from pypy.interpreter.generator import GeneratorIterator
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.bytesobject import W_BytesObject
@@ -439,7 +438,7 @@ class W_ListObject(W_Root):
 
     def descr_repr(self, space):
         if self.length() == 0:
-            return space.wrap('[]')
+            return space.newtext('[]')
         ec = space.getexecutioncontext()
         w_currently_in_repr = ec._py_repr
         if w_currently_in_repr is None:
@@ -644,7 +643,7 @@ class W_ListObject(W_Root):
             if space.eq_w(self.getitem(i), w_value):
                 count += 1
             i += 1
-        return space.wrap(count)
+        return space.newint(count)
 
     @unwrap_spec(index=int)
     def descr_insert(self, space, index, w_value):
@@ -693,7 +692,7 @@ class W_ListObject(W_Root):
             i = self.find(w_value, i, stop)
         except ValueError:
             raise oefmt(space.w_ValueError, "%R is not in list", w_value)
-        return space.wrap(i)
+        return space.newint(i)
 
     @unwrap_spec(reverse=bool)
     def descr_sort(self, space, w_cmp=None, w_key=None, reverse=False):
@@ -795,7 +794,7 @@ class ListStrategy(object):
         tp = space.type(w_item)
         while i < stop and i < w_list.length():
             find_jmp.jit_merge_point(tp=tp)
-            if space.eq_w(w_list.getitem(i), w_item):
+            if space.eq_w(w_item, w_list.getitem(i)):
                 return i
             i += 1
         raise ValueError
@@ -860,10 +859,11 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def extend(self, w_list, w_any):
+        space = self.space
         if type(w_any) is W_ListObject or (isinstance(w_any, W_ListObject) and
-                                           self.space._uses_list_iter(w_any)):
+                                           space._uses_list_iter(w_any)):
             self._extend_from_list(w_list, w_any)
-        elif isinstance(w_any, GeneratorIterator):
+        elif space.is_generator(w_any):
             w_any.unpack_into_w(w_list)
         else:
             self._extend_from_iterable(w_list, w_any)
@@ -1066,7 +1066,7 @@ class BaseRangeListStrategy(ListStrategy):
         w_list.lstorage = strategy.erase(items)
 
     def wrap(self, intval):
-        return self.space.wrap(intval)
+        return self.space.newint(intval)
 
     def unwrap(self, w_int):
         return self.space.int_w(w_int)
@@ -1654,7 +1654,7 @@ class IntegerListStrategy(ListStrategy):
     _none_value = 0
 
     def wrap(self, intval):
-        return self.space.wrap(intval)
+        return self.space.newint(intval)
 
     def unwrap(self, w_int):
         return self.space.int_w(w_int)
@@ -1750,7 +1750,7 @@ class FloatListStrategy(ListStrategy):
     _none_value = 0.0
 
     def wrap(self, floatval):
-        return self.space.wrap(floatval)
+        return self.space.newfloat(floatval)
 
     def unwrap(self, w_float):
         return self.space.float_w(w_float)
@@ -1861,10 +1861,10 @@ class IntOrFloatListStrategy(ListStrategy):
     def wrap(self, llval):
         if longlong2float.is_int32_from_longlong_nan(llval):
             intval = longlong2float.decode_int32_from_longlong_nan(llval)
-            return self.space.wrap(intval)
+            return self.space.newint(intval)
         else:
             floatval = longlong2float.longlong2float(llval)
-            return self.space.wrap(floatval)
+            return self.space.newfloat(floatval)
 
     def unwrap(self, w_int_or_float):
         if type(w_int_or_float) is W_IntObject:
@@ -1966,13 +1966,13 @@ class IntOrFloatListStrategy(ListStrategy):
 class BytesListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
-    _none_value = None
+    _none_value = ""
 
     def wrap(self, stringval):
-        return self.space.wrap(stringval)
+        return self.space.newbytes(stringval)
 
     def unwrap(self, w_string):
-        return self.space.str_w(w_string)
+        return self.space.bytes_w(w_string)
 
     erase, unerase = rerased.new_erasing_pair("bytes")
     erase = staticmethod(erase)
@@ -1998,10 +1998,11 @@ class BytesListStrategy(ListStrategy):
 class UnicodeListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
-    _none_value = None
+    _none_value = u""
 
     def wrap(self, stringval):
-        return self.space.wrap(stringval)
+        assert stringval is not None
+        return self.space.newunicode(stringval)
 
     def unwrap(self, w_string):
         return self.space.unicode_w(w_string)

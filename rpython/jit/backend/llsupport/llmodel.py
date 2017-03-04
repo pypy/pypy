@@ -3,8 +3,9 @@ from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator
+from rpython.rtyper.annlowlevel import hlstr, hlunicode
 from rpython.rtyper.llannotation import lltype_to_annotation
-from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib.objectmodel import we_are_translated, specialize, compute_hash
 from rpython.jit.metainterp import history, compile
 from rpython.jit.metainterp.optimize import SpeculativeError
 from rpython.jit.codewriter import heaptracker, longlong
@@ -35,10 +36,7 @@ class AbstractLLCPU(AbstractCPU):
     # can an ISA instruction handle a factor to the offset?
     load_supported_factors = (1,)
 
-    vector_extension = False
-    vector_register_size = 0 # in bytes
-    vector_horizontal_operations = False
-    vector_pack_slots = False
+    vector_ext = None
 
     def __init__(self, rtyper, stats, opts, translate_support_code=False,
                  gcdescr=None):
@@ -113,7 +111,7 @@ class AbstractLLCPU(AbstractCPU):
                      unique_id=0, log=True, name='', logger=None):
         return self.assembler.assemble_loop(jd_id, unique_id, logger, name,
                                             inputargs, operations,
-                                            looptoken, log=log)
+                                            looptoken, log)
 
     def stitch_bridge(self, faildescr, target):
         self.assembler.stitch_bridge(faildescr, target)
@@ -408,6 +406,9 @@ class AbstractLLCPU(AbstractCPU):
         deadframe = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, deadframe)
         descr = deadframe.jf_descr
         res = history.AbstractDescr.show(self, descr)
+        if not we_are_translated():   # tests only: for missing
+            if res is None:           # propagate_exception_descr
+                raise MissingLatestDescrError
         assert isinstance(res, history.AbstractFailDescr)
         return res
 
@@ -663,6 +664,14 @@ class AbstractLLCPU(AbstractCPU):
         u = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), string)
         return len(u.chars)
 
+    def bh_strhash(self, string):
+        s = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), string)
+        return compute_hash(hlstr(s))
+
+    def bh_unicodehash(self, string):
+        u = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), string)
+        return compute_hash(hlunicode(u))
+
     def bh_strgetitem(self, string, index):
         s = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), string)
         return ord(s.chars[index])
@@ -754,9 +763,6 @@ class AbstractLLCPU(AbstractCPU):
             self.write_int_at_mem(res, self.vtable_offset, WORD, sizedescr.get_vtable())
         return res
 
-    def bh_new_raw_buffer(self, size):
-        return lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
-
     def bh_classof(self, struct):
         struct = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)
         result_adr = llmemory.cast_ptr_to_adr(struct.typeptr)
@@ -815,6 +821,9 @@ class AbstractLLCPU(AbstractCPU):
         # the 'i' return value is ignored (and nonsense anyway)
         calldescr.call_stub_i(func, args_i, args_r, args_f)
 
+
+class MissingLatestDescrError(Exception):
+    """For propagate_exception_descr in untranslated tests."""
 
 final_descr_rd_locs = [rffi.cast(rffi.USHORT, 0)]
 history.BasicFinalDescr.rd_locs = final_descr_rd_locs

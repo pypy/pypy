@@ -1969,9 +1969,10 @@ class _TestHeap(BaseTestCase):
         if not gc.isenabled():
             gc.enable()
             self.addCleanup(gc.disable)
-        #thresholds = gc.get_threshold()
-        #self.addCleanup(gc.set_threshold, *thresholds)
-        #gc.set_threshold(10)
+        if test_support.check_impl_detail(cpython=True):
+            thresholds = gc.get_threshold()
+            self.addCleanup(gc.set_threshold, *thresholds)
+            gc.set_threshold(10)
 
         # perform numerous block allocations, with cyclic references to make
         # sure objects are collected asynchronously by the gc

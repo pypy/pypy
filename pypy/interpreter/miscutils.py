@@ -33,6 +33,11 @@ class ThreadLocals:
     def getallvalues(self):
         return {0: self._value}
 
+    def _cleanup_(self):
+        # should still be unfilled at this point during translation.
+        # but in some corner cases it is not...  unsure why
+        self._value = None
+
 
 def make_weak_value_dictionary(space, keytype, valuetype):
     "NOT_RPYTHON"

@@ -138,11 +138,12 @@ class MixLevelHelperAnnotator(object):
         # get the graph of the mix-level helper ll_function and prepare it for
         # being annotated.  Annotation and RTyping should be done in a single shot
         # at the end with finish().
-        graph, args_s = self.rtyper.annotator.get_call_parameters(
-            ll_function, args_s, policy = self.policy)
+        ann = self.rtyper.annotator
+        with ann.using_policy(self.policy):
+            graph, args_s = ann.get_call_parameters(ll_function, args_s)
         for v_arg, s_arg in zip(graph.getargs(), args_s):
-            self.rtyper.annotator.setbinding(v_arg, s_arg)
-        self.rtyper.annotator.setbinding(graph.getreturnvar(), s_result)
+            ann.setbinding(v_arg, s_arg)
+        ann.setbinding(graph.getreturnvar(), s_result)
         #self.rtyper.annotator.annotated[graph.returnblock] = graph
         self.pending.append((ll_function, graph, args_s, s_result))
         return graph
@@ -224,16 +225,17 @@ class MixLevelHelperAnnotator(object):
         bk = ann.bookkeeper
         translator = ann.translator
         original_graph_count = len(translator.graphs)
-        for ll_function, graph, args_s, s_result in self.pending:
-            # mark the return block as already annotated, because the return var
-            # annotation was forced in getgraph() above.  This prevents temporary
-            # less general values reaching the return block from crashing the
-            # annotator (on the assert-that-new-binding-is-not-less-general).
-            ann.annotated[graph.returnblock] = graph
-            s_function = bk.immutablevalue(ll_function)
-            bk.emulate_pbc_call(graph, s_function, args_s)
-            self.newgraphs.add(graph)
-        ann.complete_helpers(self.policy)
+        with ann.using_policy(self.policy):
+            for ll_function, graph, args_s, s_result in self.pending:
+                # mark the return block as already annotated, because the return var
+                # annotation was forced in getgraph() above.  This prevents temporary
+                # less general values reaching the return block from crashing the
+                # annotator (on the assert-that-new-binding-is-not-less-general).
+                ann.annotated[graph.returnblock] = graph
+                s_function = bk.immutablevalue(ll_function)
+                bk.emulate_pbc_call(graph, s_function, args_s)
+                self.newgraphs.add(graph)
+            ann.complete_helpers()
         for ll_function, graph, args_s, s_result in self.pending:
             s_real_result = ann.binding(graph.getreturnvar())
             if s_real_result != s_result:
@@ -348,19 +350,30 @@ class LLHelperEntry(extregistry.ExtRegistryEntry):
     _about_ = llhelper
 
     def compute_result_annotation(self, s_F, s_callable):
+        from rpython.annotator.description import FunctionDesc
         assert s_F.is_constant()
-        assert s_callable.is_constant()
+        assert isinstance(s_callable, annmodel.SomePBC)
         F = s_F.const
         FUNC = F.TO
         args_s = [lltype_to_annotation(T) for T in FUNC.ARGS]
-        key = (llhelper, s_callable.const)
-        s_res = self.bookkeeper.emulate_pbc_call(key, s_callable, args_s)
-        assert lltype_to_annotation(FUNC.RESULT).contains(s_res)
+        for desc in s_callable.descriptions:
+            assert isinstance(desc, FunctionDesc)
+            assert desc.pyobj is not None
+            if s_callable.is_constant():
+                assert s_callable.const is desc.pyobj
+            key = (llhelper, desc.pyobj)
+            s_res = self.bookkeeper.emulate_pbc_call(key, s_callable, args_s)
+            assert lltype_to_annotation(FUNC.RESULT).contains(s_res)
         return SomePtr(F)
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
-        return hop.args_r[1].get_unique_llfn()
+        if hop.args_s[1].is_constant():
+            return hop.args_r[1].get_unique_llfn()
+        else:
+            F = hop.args_s[0].const
+            assert hop.args_r[1].lowleveltype == F
+            return hop.inputarg(hop.args_r[1], 1)
 
 # ____________________________________________________________
 

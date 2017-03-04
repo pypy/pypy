@@ -21,7 +21,8 @@ class Arguments(object):
     ###  Construction  ###
 
     def __init__(self, space, args_w, keywords=None, keywords_w=None,
-                 w_stararg=None, w_starstararg=None, keyword_names_w=None):
+                 w_stararg=None, w_starstararg=None, keyword_names_w=None,
+                 methodcall=False):
         self.space = space
         assert isinstance(args_w, list)
         self.arguments_w = args_w
@@ -41,6 +42,9 @@ class Arguments(object):
         # a flag that specifies whether the JIT can unroll loops that operate
         # on the keywords
         self._jit_few_keywords = self.keywords is None or jit.isconstant(len(self.keywords))
+        # a flag whether this is likely a method call, which doesn't change the
+        # behaviour but produces better error messages
+        self.methodcall = methodcall
 
     def __repr__(self):
         """ NOT_RPYTHON """
@@ -85,9 +89,10 @@ class Arguments(object):
         try:
             args_w = space.fixedview(w_stararg)
         except OperationError as e:
-            if e.match(space, space.w_TypeError):
+            if (e.match(space, space.w_TypeError) and
+                    not space.is_generator(w_stararg)):
                 raise oefmt(space.w_TypeError,
-                            "argument after * must be a sequence, not %T",
+                            "argument after * must be an iterable, not %T",
                             w_stararg)
             raise
         self.arguments_w = self.arguments_w + args_w
@@ -106,7 +111,9 @@ class Arguments(object):
                 self.keywords = self.keywords + keywords
                 self.keywords_w = self.keywords_w + values_w
             return
+        is_dict = False
         if space.isinstance_w(w_starstararg, space.w_dict):
+            is_dict = True
             keys_w = space.unpackiterable(w_starstararg)
         else:
             try:
@@ -120,7 +127,9 @@ class Arguments(object):
             keys_w = space.unpackiterable(w_keys)
         keywords_w = [None] * len(keys_w)
         keywords = [None] * len(keys_w)
-        _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords, keywords_w, self.keywords)
+        _do_combine_starstarargs_wrapped(
+            space, keys_w, w_starstararg, keywords, keywords_w, self.keywords,
+            is_dict)
         self.keyword_names_w = keys_w
         if self.keywords is None:
             self.keywords = keywords
@@ -207,7 +216,7 @@ class Arguments(object):
                 starargs_w = []
             scope_w[co_argcount] = self.space.newtuple(starargs_w)
         elif avail > co_argcount:
-            raise ArgErrCount(avail, num_kwds, signature, defaults_w, 0)
+            raise self.argerrcount(avail, num_kwds, signature, defaults_w, 0)
 
         # if a **kwargs argument is needed, create the dict
         w_kwds = None
@@ -241,7 +250,7 @@ class Arguments(object):
                             kwds_mapping, self.keyword_names_w, self._jit_few_keywords)
                 else:
                     if co_argcount == 0:
-                        raise ArgErrCount(avail, num_kwds, signature, defaults_w, 0)
+                        raise self.argerrcount(avail, num_kwds, signature, defaults_w, 0)
                     raise ArgErrUnknownKwds(self.space, num_remainingkwds, keywords,
                                             kwds_mapping, self.keyword_names_w)
 
@@ -265,9 +274,12 @@ class Arguments(object):
                 else:
                     missing += 1
             if missing:
-                raise ArgErrCount(avail, num_kwds, signature, defaults_w, missing)
+                raise self.argerrcount(avail, num_kwds, signature, defaults_w, missing)
 
-
+    def argerrcount(self, *args):
+        if self.methodcall:
+            return ArgErrCountMethod(*args)
+        return ArgErrCount(*args)
 
     def parse_into_scope(self, w_firstarg,
                          scope_w, fnname, signature, defaults_w=None):
@@ -347,11 +359,11 @@ def _check_not_duplicate_kwargs(space, existingkeywords, keywords, keywords_w):
                             key)
 
 def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords,
-        keywords_w, existingkeywords):
+        keywords_w, existingkeywords, is_dict):
     i = 0
     for w_key in keys_w:
         try:
-            key = space.str_w(w_key)
+            key = space.text_w(w_key)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 raise oefmt(space.w_TypeError, "keywords must be strings")
@@ -366,7 +378,16 @@ def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords,
                             "got multiple values for keyword argument '%s'",
                             key)
         keywords[i] = key
-        keywords_w[i] = space.getitem(w_starstararg, w_key)
+        if is_dict:
+            # issue 2435: bug-to-bug compatibility with cpython. for a subclass of
+            # dict, just ignore the __getitem__ and access the underlying dict
+            # directly
+            from pypy.objspace.descroperation import dict_getitem
+            w_descr = dict_getitem(space)
+            w_value = space.get_and_call_function(w_descr, w_starstararg, w_key)
+        else:
+            w_value = space.getitem(w_starstararg, w_key)
+        keywords_w[i] = w_value
         i += 1
 
 @jit.look_inside_iff(
@@ -478,6 +499,22 @@ class ArgErrCount(ArgErr):
                 num_args)
         return msg
 
+class ArgErrCountMethod(ArgErrCount):
+    """ A subclass of ArgErrCount that is used if the argument matching is done
+    as part of a method call, in which case more information is added to the
+    error message, if the cause of the error is likely a forgotten `self`
+    argument.
+    """
+
+    def getmsg(self):
+        msg = ArgErrCount.getmsg(self)
+        n = self.signature.num_argnames()
+        if (self.num_args == n + 1 and
+                (n == 0 or self.signature.argnames[0] != "self")):
+            msg += ". Did you forget 'self' in the function definition?"
+        return msg
+
+
 class ArgErrMultipleValues(ArgErr):
 
     def __init__(self, argname):
@@ -510,11 +547,11 @@ class ArgErrUnknownKwds(ArgErr):
                         except IndexError:
                             name = '?'
                         else:
-                            w_enc = space.wrap(space.sys.defaultencoding)
-                            w_err = space.wrap("replace")
+                            w_enc = space.newtext(space.sys.defaultencoding)
+                            w_err = space.newtext("replace")
                             w_name = space.call_method(w_name, "encode", w_enc,
                                                        w_err)
-                            name = space.str_w(w_name)
+                            name = space.text_w(w_name)
                     break
         self.kwd_name = name
 

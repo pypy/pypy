@@ -64,7 +64,7 @@ class TestListObject(BaseApiTest):
         assert space.unwrap(w_s) == [2, 1]
 
 class AppTestListObject(AppTestCpythonExtensionBase):
-    def test_listobject(self):
+    def test_basic_listobject(self):
         import sys
         module = self.import_extension('foo', [
             ("newlist", "METH_NOARGS",
@@ -104,6 +104,15 @@ class AppTestListObject(AppTestCpythonExtensionBase):
              Py_RETURN_NONE;
              """
              ),
+            ('test_tp_as_', "METH_NOARGS",
+             '''
+               PyObject *l = PyList_New(3);
+               int ok = l->ob_type->tp_as_sequence != NULL; /* 1 */
+               ok += 2 * (l->ob_type->tp_as_number == NULL); /* 2 */
+               Py_DECREF(l);
+               return PyLong_FromLong(ok); /* should be 3 */
+             '''
+             ),
             ])
         l = module.newlist()
         assert l == [3, -5, 1000]
@@ -136,6 +145,36 @@ class AppTestListObject(AppTestCpythonExtensionBase):
         l = [1, 2, 3]
         module.setlistitem(l,0)
         assert l == [None, 2, 3]
+
+        # tp_as_sequence should be filled, but tp_as_number should be NULL
+        assert module.test_tp_as_() == 3
+
+    def test_list_macros(self):
+        """The PyList_* macros cast, and calls expecting that build."""
+        module = self.import_extension('foo', [
+            ("test_macro_invocations", "METH_NOARGS",
+             """
+             PyObject* o = PyList_New(2);
+             PyListObject* l = (PyListObject*)o;
+
+
+             Py_INCREF(o);
+             PyList_SET_ITEM(o, 0, o);
+             Py_INCREF(o);
+             PyList_SET_ITEM(l, 1, o);
+
+             PyList_GET_ITEM(o, 0);
+             PyList_GET_ITEM(l, 1);
+
+             PyList_GET_SIZE(o);
+             PyList_GET_SIZE(l);
+
+             return o;
+             """
+            )
+        ])
+        x = module.test_macro_invocations()
+        assert x[0] is x[1] is x
 
     def test_get_item_macro(self):
         module = self.import_extension('foo', [

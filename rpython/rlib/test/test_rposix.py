@@ -59,6 +59,17 @@ class TestPosixFunction:
         compile(f, (str, float))(str(fname), t1)
         assert t1 == os.stat(str(fname)).st_mtime
 
+    def test_utime_negative_fraction(self):
+        def f(fname, t1):
+            os.utime(fname, (t1, t1))
+
+        fname = udir.join('test_utime_negative_fraction.txt')
+        fname.ensure()
+        t1 = -123.75
+        compile(f, (str, float))(str(fname), t1)
+        got = os.stat(str(fname)).st_mtime
+        assert got == -123 or got == -123.75
+
     @win_only
     def test__getfullpathname(self):
         posix = __import__(os.name)
@@ -99,9 +110,9 @@ class TestPosixFunction:
 
     def test_mkdir(self):
         filename = str(udir.join('test_mkdir.dir'))
-        rposix.mkdir(filename, 0)
+        rposix.mkdir(filename, 0777)
         with py.test.raises(OSError) as excinfo:
-            rposix.mkdir(filename, 0)
+            rposix.mkdir(filename, 0777)
         assert excinfo.value.errno == errno.EEXIST
         if sys.platform == 'win32':
             assert excinfo.type is WindowsError
@@ -112,9 +123,9 @@ class TestPosixFunction:
         filename = str(udir.join(relpath))
         dirfd = os.open(os.path.dirname(filename), os.O_RDONLY)
         try:
-            rposix.mkdirat(relpath, 0, dir_fd=dirfd)
+            rposix.mkdirat(relpath, 0777, dir_fd=dirfd)
             with py.test.raises(OSError) as excinfo:
-                rposix.mkdirat(relpath, 0, dir_fd=dirfd)
+                rposix.mkdirat(relpath, 0777, dir_fd=dirfd)
             assert excinfo.value.errno == errno.EEXIST
         finally:
             os.close(dirfd)
@@ -270,6 +281,12 @@ class TestPosixFunction:
     def test_isatty(self):
         assert rposix.isatty(-1) is False
 
+    @py.test.mark.skipif("not hasattr(rposix, 'makedev')")
+    def test_makedev(self):
+        dev = rposix.makedev(24, 7)
+        assert rposix.major(dev) == 24
+        assert rposix.minor(dev) == 7
+
 
 @py.test.mark.skipif("not hasattr(os, 'ttyname')")
 class TestOsExpect(ExpectTest):
@@ -334,6 +351,11 @@ class BasePosixUnicodeOrAscii:
             self.path  = UnicodeWithEncoding(self.ufilename)
             self.path2 = UnicodeWithEncoding(self.ufilename + ".new")
 
+    def _teardown_method(self, method):
+        for path in [self.ufilename + ".new", self.ufilename]:
+            if os.path.exists(path):
+                os.unlink(path)
+
     def test_open(self):
         def f():
             try:
@@ -385,6 +407,14 @@ class BasePosixUnicodeOrAscii:
     def test_rename(self):
         def f():
             return rposix.rename(self.path, self.path2)
+
+        interpret(f, [])
+        assert not os.path.exists(self.ufilename)
+        assert os.path.exists(self.ufilename + '.new')
+
+    def test_replace(self):
+        def f():
+            return rposix.replace(self.path, self.path2)
 
         interpret(f, [])
         assert not os.path.exists(self.ufilename)
@@ -446,16 +476,23 @@ class BasePosixUnicodeOrAscii:
         assert rposix.is_valid_fd(fd) == 0
 
     def test_putenv(self):
+        from rpython.rlib import rposix_environ
+
         def f():
             rposix.putenv(self.path, self.path)
             rposix.unsetenv(self.path)
 
-        interpret(f, []) # does not crash
+        interpret(f, [],     # does not crash
+                  malloc_check=rposix_environ.REAL_UNSETENV)
+        # If we have a real unsetenv(), check that it frees the string
+        # kept alive by putenv().  Otherwise, we can't check that,
+        # because unsetenv() will keep another string alive itself.
+    test_putenv.dont_track_allocations = True
 
 
 class TestPosixAscii(BasePosixUnicodeOrAscii):
     def _get_filename(self):
-        return str(udir.join('test_open_ascii'))
+        return unicode(udir.join('test_open_ascii'))
 
     @rposix_requires('openat')
     def test_openat(self):
@@ -539,6 +576,14 @@ def test_fdlistdir(tmpdir):
     # Note: fdlistdir() always closes dirfd
     assert result == ['file']
 
+@rposix_requires('fdlistdir')
+def test_fdlistdir_rewinddir(tmpdir):
+    tmpdir.join('file').write('text')
+    dirfd = os.open(str(tmpdir), os.O_RDONLY)
+    result1 = rposix.fdlistdir(os.dup(dirfd))
+    result2 = rposix.fdlistdir(dirfd)
+    assert result1 == result2 == ['file']
+
 @rposix_requires('symlinkat')
 def test_symlinkat(tmpdir):
     tmpdir.join('file').write('text')
@@ -559,3 +604,75 @@ def test_renameat(tmpdir):
         os.close(dirfd)
     assert tmpdir.join('file').check(exists=False)
     assert tmpdir.join('file2').check(exists=True)
+
+def test_set_inheritable():
+    fd1, fd2 = os.pipe()
+    rposix.set_inheritable(fd1, True)
+    assert rposix.get_inheritable(fd1) == True
+    rposix.set_inheritable(fd1, False)
+    assert rposix.get_inheritable(fd1) == False
+    os.close(fd1)
+    os.close(fd2)
+
+def test_SetNonInheritableCache():
+    cache = rposix.SetNonInheritableCache()
+    fd1, fd2 = os.pipe()
+    if sys.platform == 'win32':
+        rposix.set_inheritable(fd1, True)
+        rposix.set_inheritable(fd2, True)
+    assert rposix.get_inheritable(fd1) == True
+    assert rposix.get_inheritable(fd1) == True
+    assert cache.cached_inheritable == -1
+    cache.set_non_inheritable(fd1)
+    assert cache.cached_inheritable == 1
+    cache.set_non_inheritable(fd2)
+    assert cache.cached_inheritable == 1
+    assert rposix.get_inheritable(fd1) == False
+    assert rposix.get_inheritable(fd1) == False
+    os.close(fd1)
+    os.close(fd2)
+
+def test_dup_dup2_non_inheritable():
+    for preset in [False, True]:
+        fd1, fd2 = os.pipe()
+        rposix.set_inheritable(fd1, preset)
+        rposix.set_inheritable(fd2, preset)
+        fd3 = rposix.dup(fd1, True)
+        assert rposix.get_inheritable(fd3) == True
+        fd4 = rposix.dup(fd1, False)
+        assert rposix.get_inheritable(fd4) == False
+        rposix.dup2(fd2, fd4, False)
+        assert rposix.get_inheritable(fd4) == False
+        rposix.dup2(fd2, fd3, True)
+        assert rposix.get_inheritable(fd3) == True
+        os.close(fd1)
+        os.close(fd2)
+        os.close(fd3)
+        os.close(fd4)
+
+def test_sync():
+    if sys.platform != 'win32':
+        rposix.sync()
+
+def test_cpu_count():
+    cc = rposix.cpu_count()
+    assert cc >= 1
+
+@rposix_requires('set_status_flags')
+def test_set_status_flags():
+    fd1, fd2 = os.pipe()
+    try:
+        flags = rposix.get_status_flags(fd1)
+        assert flags & rposix.O_NONBLOCK == 0
+        rposix.set_status_flags(fd1, flags | rposix.O_NONBLOCK)
+        assert rposix.get_status_flags(fd1) & rposix.O_NONBLOCK != 0
+    finally:
+        os.close(fd1)
+        os.close(fd2)
+
+@rposix_requires('getpriority')
+def test_getpriority():
+    # a "don't crash" kind of test only
+    prio = rposix.getpriority(rposix.PRIO_PROCESS, 0)
+    rposix.setpriority(rposix.PRIO_PROCESS, 0, prio)
+    py.test.raises(OSError, rposix.getpriority, rposix.PRIO_PGRP, 123456789)

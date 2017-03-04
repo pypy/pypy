@@ -204,7 +204,7 @@ class TestTypedOptimizedSwitchTestCase:
 
 class TestTypedOptimizedRaisingOps:
     def getcompiled(self, func, argtypes):
-        return compile(func, argtypes, raisingop2direct_call=True)
+        return compile(func, argtypes)
 
     def test_int_floordiv_zer(self):
         def f(x):

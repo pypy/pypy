@@ -265,3 +265,12 @@ def test_string_to_float():
                 if s.strip(): # empty s raises OperationError directly
                     py.test.raises(ParseStringError, string_to_float, s)
     py.test.raises(ParseStringError, string_to_float, "")
+
+def test_log2():
+    from rpython.rlib import rfloat
+    assert rfloat.log2(1.0) == 0.0
+    assert rfloat.log2(2.0) == 1.0
+    assert rfloat.log2(2.0**1023) == 1023.0
+    assert 1.584 < rfloat.log2(3.0) < 1.585
+    py.test.raises(ValueError, rfloat.log2, 0)
+    py.test.raises(ValueError, rfloat.log2, -1)

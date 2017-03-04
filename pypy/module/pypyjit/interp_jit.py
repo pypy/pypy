@@ -6,6 +6,7 @@ This is transformed to become a JIT by code elsewhere: rpython/jit/*
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.jit import JitDriver, hint, we_are_jitted, dont_look_inside
 from rpython.rlib import jit, jit_hooks
+from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib.jit import current_trace_length, unroll_parameters,\
      JitHookInterface
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
@@ -41,6 +42,21 @@ def get_unique_id(next_instr, is_being_profiled, bytecode):
     from rpython.rlib import rvmprof
     return rvmprof.get_unique_id(bytecode)
 
+@jl.returns(jl.MP_FILENAME, jl.MP_LINENO,
+            jl.MP_SCOPE, jl.MP_INDEX, jl.MP_OPCODE)
+def get_location(next_instr, is_being_profiled, bytecode):
+    from pypy.tool.stdlib_opcode import opcode_method_names
+    from rpython.tool.error import offset2lineno
+    bcindex = ord(bytecode.co_code[next_instr])
+    opname = ""
+    if 0 <= bcindex < len(opcode_method_names):
+        opname = opcode_method_names[bcindex]
+    name = bytecode.co_name
+    if not name:
+        name = ""
+    line = offset2lineno(bytecode, intmask(next_instr))
+    return (bytecode.co_filename, line,
+            name, intmask(next_instr), opname)
 
 def should_unroll_one_iteration(next_instr, is_being_profiled, bytecode):
     return (bytecode.co_flags & CO_GENERATOR) != 0
@@ -51,6 +67,7 @@ class PyPyJitDriver(JitDriver):
     virtualizables = ['frame']
 
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
+                              get_location = get_location,
                               get_unique_id = get_unique_id,
                               should_unroll_one_iteration =
                               should_unroll_one_iteration,
@@ -132,14 +149,14 @@ def set_param(space, __args__):
                     "set_param() takes at most 1 non-keyword argument, %d "
                     "given", len(args_w))
     if len(args_w) == 1:
-        text = space.str_w(args_w[0])
+        text = space.text_w(args_w[0])
         try:
             jit.set_user_param(None, text)
         except ValueError:
             raise oefmt(space.w_ValueError, "error in JIT parameters string")
     for key, w_value in kwds_w.items():
         if key == 'enable_opts':
-            jit.set_param(None, 'enable_opts', space.str_w(w_value))
+            jit.set_param(None, 'enable_opts', space.text_w(w_value))
         else:
             intval = space.int_w(w_value)
             for name, _ in unroll_parameters:
@@ -196,7 +213,7 @@ W_NotFromAssembler.typedef.acceptable_as_base_class = False
 @dont_look_inside
 def get_jitcell_at_key(space, next_instr, is_being_profiled, w_pycode):
     ll_pycode = cast_instance_to_gcref(w_pycode)
-    return space.wrap(bool(jit_hooks.get_jitcell_at_key(
+    return space.newbool(bool(jit_hooks.get_jitcell_at_key(
         'pypyjit', r_uint(next_instr), int(is_being_profiled), ll_pycode)))
 
 @unwrap_spec(next_instr=int, is_being_profiled=bool, w_pycode=PyCode)
@@ -252,7 +269,7 @@ def trace_next_iteration_hash(space, hash):
 #             return
 #         for i, op in enumerate(debug_info.operations):
 #             if op.is_guard():
-#                 w_t = space.newtuple([space.wrap(i), space.wrap(op.getopnum()), space.wrap(op.getdescr().get_jitcounter_hash())])
+#                 w_t = space.newtuple([space.newint(i), space.newint(op.getopnum()), space.newint(op.getdescr().get_jitcounter_hash())])
 #                 l_w.append(w_t)
 #         try:
 #             cache.in_recursion = True
@@ -270,7 +287,7 @@ def trace_next_iteration_hash(space, hash):
 #             return
 #         if not space.is_true(cache.w_compile_bridge):
 #             return
-#         w_hash = space.wrap(debug_info.fail_descr.get_jitcounter_hash())
+#         w_hash = space.newint(debug_info.fail_descr.get_jitcounter_hash())
 #         try:
 #             cache.in_recursion = True
 #             try:

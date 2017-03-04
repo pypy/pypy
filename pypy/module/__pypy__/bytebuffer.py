@@ -4,6 +4,7 @@
 
 from rpython.rlib.buffer import Buffer
 from pypy.interpreter.gateway import unwrap_spec
+from rpython.rlib.rgc import nonmoving_raw_ptr_for_resizable_list
 
 
 class ByteBuffer(Buffer):
@@ -22,6 +23,8 @@ class ByteBuffer(Buffer):
     def setitem(self, index, char):
         self.data[index] = char
 
+    def get_raw_address(self):
+        return nonmoving_raw_ptr_for_resizable_list(self.data)
 
 @unwrap_spec(length=int)
 def bytebuffer(space, length):

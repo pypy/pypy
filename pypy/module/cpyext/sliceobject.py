@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
-    CANNOT_FAIL, Py_ssize_t, Py_ssize_tP, PyObjectFields)
+    CANNOT_FAIL, Py_ssize_t, Py_ssize_tP, PyObjectFields, slot_function)
 from pypy.module.cpyext.pyobject import (
     Py_DecRef, PyObject, make_ref, make_typedescr)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
@@ -25,7 +25,7 @@ def init_sliceobject(space):
                    attach=slice_attach,
                    dealloc=slice_dealloc)
 
-def slice_attach(space, py_obj, w_obj):
+def slice_attach(space, py_obj, w_obj, w_userdata=None):
     """
     Fills a newly allocated PySliceObject with the given slice object. The
     fields must not be modified.
@@ -36,16 +36,16 @@ def slice_attach(space, py_obj, w_obj):
     py_slice.c_stop = make_ref(space, w_obj.w_stop)
     py_slice.c_step = make_ref(space, w_obj.w_step)
 
-@cpython_api([PyObject], lltype.Void, header=None)
+@slot_function([PyObject], lltype.Void)
 def slice_dealloc(space, py_obj):
-    """Frees allocated PyStringObject resources.
+    """Frees allocated PyBytesObject resources.
     """
     py_slice = rffi.cast(PySliceObject, py_obj)
     Py_DecRef(space, py_slice.c_start)
     Py_DecRef(space, py_slice.c_stop)
     Py_DecRef(space, py_slice.c_step)
-    from pypy.module.cpyext.object import PyObject_dealloc
-    PyObject_dealloc(space, py_obj)
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)
 
 PySlice_Check, PySlice_CheckExact = build_type_checkers("Slice")
 
@@ -73,7 +73,7 @@ def PySlice_GetIndicesEx(space, w_slice, length, start_p, stop_p, step_p,
     length length, and store the length of the slice in slicelength.  Out
     of bounds indices are clipped in a manner consistent with the handling of
     normal slices.
-    
+
     Returns 0 on success and -1 on error with exception set."""
     if not PySlice_Check(space, w_slice):
         PyErr_BadInternalCall(space)
@@ -88,11 +88,11 @@ def PySlice_GetIndices(space, w_slice, length, start_p, stop_p, step_p):
     """Retrieve the start, stop and step indices from the slice object slice,
     assuming a sequence of length length. Treats indices greater than
     length as errors.
-    
+
     Returns 0 on success and -1 on error with no exception set (unless one of
     the indices was not None and failed to be converted to an integer,
     in which case -1 is returned with an exception set).
-    
+
     You probably do not want to use this function.  If you want to use slice
     objects in versions of Python prior to 2.3, you would probably do well to
     incorporate the source of PySlice_GetIndicesEx(), suitably renamed,

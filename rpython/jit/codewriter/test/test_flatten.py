@@ -14,7 +14,7 @@ from rpython.translator.unsimplify import varoftype
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_longlong, r_ulonglong
 from rpython.rlib.jit import dont_look_inside, _we_are_jitted, JitDriver
 from rpython.rlib.objectmodel import keepalive_until_here
-from rpython.rlib import jit
+from rpython.rlib import jit, debug
 
 
 class FakeRegAlloc:
@@ -140,7 +140,6 @@ class TestFlatten:
 
     def encoding_test(self, func, args, expected,
                       transform=False, liveness=False, cc=None, jd=None):
-        
         graphs = self.make_graphs(func, args)
         #graphs[0].show()
         if transform:
@@ -403,7 +402,7 @@ class TestFlatten:
 
         self.encoding_test(f, [65], """
         raise $<* struct object>
-        """)
+        """, transform=True)
 
     def test_exc_raise_2(self):
         def g(i):
@@ -467,6 +466,14 @@ class TestFlatten:
             int_return $True
         """, transform=True)
 
+    def test_assert_disappears(self):
+        def f(i):
+            assert i > 5
+            return i
+        self.encoding_test(f, [7], """
+            int_return %i0
+        """)
+
     def test_int_floordiv_ovf_zer(self):
         def f(i, j):
             assert i >= 0
@@ -478,7 +485,7 @@ class TestFlatten:
             except ZeroDivisionError:
                 return -42
         self.encoding_test(f, [7, 2], """
-            residual_call_ir_i $<* fn int_floordiv_ovf_zer>, I[%i0, %i1], R[], <Descr> -> %i2
+            residual_call_ir_i $<* fn ll_int_py_div_ovf_zer__Signed_Signed>, I[%i0, %i1], R[], <Descr> -> %i2
             -live-
             catch_exception L1
             int_return %i2
@@ -505,7 +512,7 @@ class TestFlatten:
                 return 42
         # XXX so far, this really produces a int_mod_ovf_zer...
         self.encoding_test(f, [7, 2], """
-            residual_call_ir_i $<* fn int_mod_ovf_zer>, I[%i0, %i1], R[], <Descr> -> %i2
+            residual_call_ir_i $<* fn ll_int_py_mod_ovf_zer__Signed_Signed>, I[%i0, %i1], R[], <Descr> -> %i2
             -live-
             catch_exception L1
             int_return %i2
@@ -542,6 +549,36 @@ class TestFlatten:
         self.encoding_test(f, [7, 2], """
             -live- %i0, %i1
             int_add_jump_if_ovf L1, %i0, %i1 -> %i2
+            int_return %i2
+            ---
+            L1:
+            int_return $42
+        """, transform=True, liveness=True)
+
+    def test_int_sub_ovf(self):
+        def f(i, j):
+            try:
+                return ovfcheck(i - j)
+            except OverflowError:
+                return 42
+        self.encoding_test(f, [7, 2], """
+            -live- %i0, %i1
+            int_sub_jump_if_ovf L1, %i0, %i1 -> %i2
+            int_return %i2
+            ---
+            L1:
+            int_return $42
+        """, transform=True, liveness=True)
+
+    def test_int_mul_ovf(self):
+        def f(i, j):
+            try:
+                return ovfcheck(i * j)
+            except OverflowError:
+                return 42
+        self.encoding_test(f, [7, 2], """
+            -live- %i0, %i1
+            int_mul_jump_if_ovf L1, %i0, %i1 -> %i2
             int_return %i2
             ---
             L1:
@@ -1081,6 +1118,31 @@ class TestFlatten:
                            transform=True)
         assert str(e.value).startswith("A virtualizable array is passed aroun")
         assert "<Descr>" in str(e.value)
+
+    def test_rvmprof_code(self):
+        from rpython.rlib.rvmprof import cintf
+        class MyFakeCallControl(FakeCallControl):
+            def guess_call_kind(self, op):
+                if 'jitted' in repr(op):
+                    return 'builtin'
+                return 'residual'
+        class X:
+            pass
+        def g(x, y):
+            debug.debug_print("foo")
+            return X()
+        @jit.oopspec("rvmprof.jitted(unique_id)")
+        def decorated_jitted_function(unique_id, *args):
+            return g(*args)
+        def f(id, x, y):
+            return decorated_jitted_function(id, x, y)
+        self.encoding_test(f, [42, 56, 74], """
+            rvmprof_code $0, %i0
+            residual_call_ir_r $<* fn g>, I[%i1, %i2], R[], <Descr> -> %r0
+            -live-
+            rvmprof_code $1, %i0
+            ref_return %r0
+        """, transform=True, cc=MyFakeCallControl())
 
 
 def check_force_cast(FROM, TO, operations, value):

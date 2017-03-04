@@ -4,6 +4,7 @@ from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.debug import make_sure_not_resized
+from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage, \
     raw_storage_getitem, raw_storage_setitem, RAW_STORAGE
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
@@ -204,7 +205,7 @@ class BaseConcreteArray(object):
         """ Return an index of single item if possible, otherwise raises
         IndexError
         """
-        if (space.isinstance_w(w_idx, space.w_str) or
+        if (space.isinstance_w(w_idx, space.w_text) or
             space.isinstance_w(w_idx, space.w_slice) or
             space.is_w(w_idx, space.w_None)):
             raise IndexError
@@ -232,12 +233,12 @@ class BaseConcreteArray(object):
         elif shape_len > 1:
             raise IndexError
         idx = support.index_w(space, w_idx)
-        return self._lookup_by_index(space, [space.wrap(idx)])
+        return self._lookup_by_index(space, [space.newint(idx)])
 
     @jit.unroll_safe
     def _prepare_slice_args(self, space, w_idx):
         from pypy.module.micronumpy import boxes
-        if space.isinstance_w(w_idx, space.w_str):
+        if space.isinstance_w(w_idx, space.w_text):
             raise oefmt(space.w_IndexError, "only integers, slices (`:`), "
                 "ellipsis (`...`), numpy.newaxis (`None`) and integer or "
                 "boolean arrays are valid indices")
@@ -302,7 +303,7 @@ class BaseConcreteArray(object):
                 copy = True
             w_ret = new_view(space, orig_arr, chunks)
             if copy:
-                w_ret = w_ret.descr_copy(space, space.wrap(w_ret.get_order()))
+                w_ret = w_ret.descr_copy(space, space.newint(w_ret.get_order()))
             return w_ret
 
     def descr_setitem(self, space, orig_arr, w_index, w_value):
@@ -365,7 +366,7 @@ class BaseConcreteArray(object):
         w_res = W_NDimArray.from_shape(space, [s, nd], index_type)
         loop.nonzero(w_res, self, box)
         w_res = w_res.implementation.swapaxes(space, w_res, 0, 1)
-        l_w = [w_res.descr_getitem(space, space.wrap(d)) for d in range(nd)]
+        l_w = [w_res.descr_getitem(space, space.newint(d)) for d in range(nd)]
         return space.newtuple(l_w)
 
     ##def get_storage(self):
@@ -377,7 +378,25 @@ class BaseConcreteArray(object):
     def __exit__(self, typ, value, traceback):
         keepalive_until_here(self)
 
-    def get_buffer(self, space, readonly):
+    def get_buffer(self, space, flags):
+        errtype = space.w_ValueError # should be BufferError, numpy does this instead
+        if ((flags & space.BUF_C_CONTIGUOUS) == space.BUF_C_CONTIGUOUS and 
+                not self.flags & NPY.ARRAY_C_CONTIGUOUS):
+           raise oefmt(errtype, "ndarray is not C-contiguous")
+        if ((flags & space.BUF_F_CONTIGUOUS) == space.BUF_F_CONTIGUOUS and 
+                not self.flags & NPY.ARRAY_F_CONTIGUOUS):
+           raise oefmt(errtype, "ndarray is not Fortran contiguous")
+        if ((flags & space.BUF_ANY_CONTIGUOUS) == space.BUF_ANY_CONTIGUOUS and
+                not (self.flags & NPY.ARRAY_F_CONTIGUOUS and 
+                     self.flags & NPY.ARRAY_C_CONTIGUOUS)):
+           raise oefmt(errtype, "ndarray is not contiguous")
+        if ((flags & space.BUF_STRIDES) != space.BUF_STRIDES and
+                not self.flags & NPY.ARRAY_C_CONTIGUOUS):
+           raise oefmt(errtype, "ndarray is not C-contiguous")
+        if ((flags & space.BUF_WRITABLE) == space.BUF_WRITABLE and
+            not self.flags & NPY.ARRAY_WRITEABLE):
+           raise oefmt(errtype, "buffer source array is read-only")
+        readonly = not (flags & space.BUF_WRITABLE) == space.BUF_WRITABLE
         return ArrayBuffer(self, readonly)
 
     def astype(self, space, dtype, order, copy=True):
@@ -695,6 +714,7 @@ class ArrayBuffer(Buffer):
                  index + self.impl.start)
 
     def setitem(self, index, v):
+        # XXX what if self.readonly?
         raw_storage_setitem(self.impl.storage, index + self.impl.start,
                             rffi.cast(lltype.Char, v))
 
@@ -704,3 +724,22 @@ class ArrayBuffer(Buffer):
     def get_raw_address(self):
         from rpython.rtyper.lltypesystem import rffi
         return rffi.ptradd(self.impl.storage, self.impl.start)
+
+    def getformat(self):
+        sb = StringBuilder()
+        self.impl.dtype.getformat(sb)
+        return sb.build()
+
+    def getitemsize(self):
+        return self.impl.dtype.elsize
+
+    def getndim(self):
+        return len(self.impl.shape)
+
+    def getshape(self):
+        return self.impl.shape
+
+    def getstrides(self):
+        return self.impl.strides
+
+

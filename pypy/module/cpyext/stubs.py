@@ -10,11 +10,7 @@ Py_ssize_t = rffi.SSIZE_T
 PyMethodDef = rffi.VOIDP
 PyGetSetDef = rffi.VOIDP
 PyMemberDef = rffi.VOIDP
-Py_buffer = rffi.VOIDP
 va_list = rffi.VOIDP
-PyDateTime_Date = rffi.VOIDP
-PyDateTime_DateTime = rffi.VOIDP
-PyDateTime_Time = rffi.VOIDP
 wrapperbase = rffi.VOIDP
 FILE = rffi.VOIDP
 PyFileObject = rffi.VOIDP
@@ -41,14 +37,6 @@ def PyBuffer_FillContiguousStrides(space, ndim, shape, strides, itemsize, fortra
     given shape with the given number of bytes per element."""
     raise NotImplementedError
 
-@cpython_api([Py_buffer], PyObject)
-def PyMemoryView_FromBuffer(space, view):
-    """Create a memoryview object wrapping the given buffer-info structure view.
-    The memoryview object then owns the buffer, which means you shouldn't
-    try to release it yourself: it will be released on deallocation of the
-    memoryview object."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, rffi.INT_real, lltype.Char], PyObject)
 def PyMemoryView_GetContiguous(space, obj, buffertype, order):
     """Create a memoryview object to a contiguous chunk of memory (in either
@@ -56,63 +44,6 @@ def PyMemoryView_GetContiguous(space, obj, buffertype, order):
     interface. If memory is contiguous, the memoryview object points to the
     original memory. Otherwise copy is made and the memoryview points to a
     new bytes object."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyByteArray_Check(space, o):
-    """Return true if the object o is a bytearray object or an instance of a
-    subtype of the bytearray type."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyByteArray_CheckExact(space, o):
-    """Return true if the object o is a bytearray object, but not an instance of a
-    subtype of the bytearray type."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyByteArray_FromObject(space, o):
-    """Return a new bytearray object from any object, o, that implements the
-    buffer protocol.
-
-    XXX expand about the buffer protocol, at least somewhere"""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, Py_ssize_t], PyObject)
-def PyByteArray_FromStringAndSize(space, string, len):
-    """Create a new bytearray object from string and its length, len.  On
-    failure, NULL is returned."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject], PyObject)
-def PyByteArray_Concat(space, a, b):
-    """Concat bytearrays a and b and return a new bytearray with the result."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], Py_ssize_t, error=-1)
-def PyByteArray_Size(space, bytearray):
-    """Return the size of bytearray after checking for a NULL pointer."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.CCHARP)
-def PyByteArray_AsString(space, bytearray):
-    """Return the contents of bytearray as a char array after checking for a
-    NULL pointer."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, Py_ssize_t], rffi.INT_real, error=-1)
-def PyByteArray_Resize(space, bytearray, len):
-    """Resize the internal buffer of bytearray to len."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.CCHARP)
-def PyByteArray_AS_STRING(space, bytearray):
-    """Macro version of PyByteArray_AsString()."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], Py_ssize_t, error=-1)
-def PyByteArray_GET_SIZE(space, bytearray):
-    """Macro version of PyByteArray_Size()."""
     raise NotImplementedError
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
@@ -762,17 +693,6 @@ def _PyObject_GC_TRACK(space, op):
 def _PyObject_GC_UNTRACK(space, op):
     """A macro version of PyObject_GC_UnTrack().  It should not be used for
     extension modules."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyGen_Check(space, ob):
-    """Return true if ob is a generator object; ob must not be NULL."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyGen_CheckExact(space, ob):
-    """Return true if ob's type is PyGen_Type is a generator object; ob must not
-    be NULL."""
     raise NotImplementedError
 
 @cpython_api([PyFrameObject], PyObject)
@@ -1541,18 +1461,6 @@ def PyFrozenSet_Check(space, p):
     raise NotImplementedError
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyAnySet_Check(space, p):
-    """Return true if p is a set object, a frozenset object, or an
-    instance of a subtype."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyAnySet_CheckExact(space, p):
-    """Return true if p is a set object or a frozenset object but
-    not an instance of a subtype."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyFrozenSet_CheckExact(space, p):
     """Return true if p is a frozenset object but not an instance of a
     subtype."""
@@ -1605,14 +1513,6 @@ def Py_FdIsInteractive(space, fp, filename):
     is true.  If the global flag Py_InteractiveFlag is true, this function
     also returns true if the filename pointer is NULL or if the name is equal to
     one of the strings '<stdin>' or '???'."""
-    raise NotImplementedError
-
-@cpython_api([], lltype.Void)
-def PyOS_AfterFork(space):
-    """Function to update some internal state after a process fork; this should be
-    called in the new process if the Python interpreter will continue to be used.
-    If a new executable is loaded into the new process, this function does not need
-    to be called."""
     raise NotImplementedError
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
@@ -2286,22 +2186,4 @@ def PyEval_EvalFrameEx(space, f, throwflag):
     The additional throwflag parameter can mostly be ignored - if true, then
     it causes an exception to immediately be thrown; this is used for the
     throw() methods of generator objects."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyWeakref_Check(space, ob):
-    """Return true if ob is either a reference or proxy object.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyWeakref_CheckRef(space, ob):
-    """Return true if ob is a reference object.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyWeakref_CheckProxy(space, ob):
-    """Return true if ob is a proxy object.
-    """
     raise NotImplementedError

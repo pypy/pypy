@@ -35,7 +35,7 @@ def _PyArray_Check(space, w_obj):
     w_obj_type = space.type(w_obj)
     w_type = space.gettypeobject(W_NDimArray.typedef)
     return (space.is_w(w_obj_type, w_type) or
-            space.is_true(space.issubtype(w_obj_type, w_type)))
+            space.issubtype_w(w_obj_type, w_type))
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL, header=HEADER)
 def _PyArray_CheckExact(space, w_obj):
@@ -173,7 +173,7 @@ def _PyArray_FromObject(space, w_obj, typenum, min_depth, max_depth):
                             0, NULL);
     except OperationError as e:
         if e.match(space, space.w_NotImplementedError):
-            errstr = space.str_w(e.get_w_value(space))
+            errstr = space.text_w(e.get_w_value(space))
             raise oefmt(space.w_NotImplementedError,
                         "_PyArray_FromObject %s", errstr[16:])
         raise
@@ -264,7 +264,7 @@ def do_ufunc(space, funcs, data, types, ntypes, nin, nout, identity, name, doc,
     w_dtypes = space.newlist(dtypes_w)
     w_doc = rffi.charp2str(doc)
     w_name = rffi.charp2str(name)
-    w_identity = space.wrap(identity)
+    w_identity = space.newint(identity)
     ufunc_generic = ufuncs.frompyfunc(space, w_funcs, nin, nout, w_dtypes,
                  w_signature, w_identity, w_name, w_doc, stack_inputs=True)
     return ufunc_generic

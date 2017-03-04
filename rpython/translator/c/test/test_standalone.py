@@ -17,6 +17,7 @@ from rpython.annotator.listdef import s_list_of_strings
 from rpython.tool.udir import udir
 from rpython.translator import cdir
 from rpython.conftest import option
+from rpython.rlib.jit import JitDriver
 
 def setup_module(module):
     if os.name == 'nt':
@@ -621,9 +622,10 @@ class TestStandalone(StandaloneTests):
         lines = err.strip().splitlines()
         idx = lines.index('Fatal RPython error: ValueError')   # assert found
         lines = lines[:idx+1]
-        assert len(lines) >= 4
-        l0, l1, l2 = lines[-4:-1]
+        assert len(lines) >= 5
+        l0, lx, l1, l2 = lines[-5:-1]
         assert l0 == 'RPython traceback:'
+        # lx is a bit strange with reference counting, ignoring it
         assert re.match(r'  File "\w+.c", line \d+, in entry_point', l1)
         assert re.match(r'  File "\w+.c", line \d+, in g', l2)
         #
@@ -632,8 +634,9 @@ class TestStandalone(StandaloneTests):
         lines2 = err2.strip().splitlines()
         idx = lines2.index('Fatal RPython error: KeyError')    # assert found
         lines2 = lines2[:idx+1]
-        l0, l1, l2 = lines2[-4:-1]
+        l0, lx, l1, l2 = lines2[-5:-1]
         assert l0 == 'RPython traceback:'
+        # lx is a bit strange with reference counting, ignoring it
         assert re.match(r'  File "\w+.c", line \d+, in entry_point', l1)
         assert re.match(r'  File "\w+.c", line \d+, in g', l2)
         assert lines2[-2] != lines[-2]    # different line number
@@ -660,9 +663,10 @@ class TestStandalone(StandaloneTests):
         lines = err.strip().splitlines()
         idx = lines.index('Fatal RPython error: KeyError')    # assert found
         lines = lines[:idx+1]
-        assert len(lines) >= 5
-        l0, l1, l2, l3 = lines[-5:-1]
+        assert len(lines) >= 6
+        l0, lx, l1, l2, l3 = lines[-6:-1]
         assert l0 == 'RPython traceback:'
+        # lx is a bit strange with reference counting, ignoring it
         assert re.match(r'  File "\w+.c", line \d+, in entry_point', l1)
         assert re.match(r'  File "\w+.c", line \d+, in h', l2)
         assert re.match(r'  File "\w+.c", line \d+, in g', l3)
@@ -697,9 +701,10 @@ class TestStandalone(StandaloneTests):
         lines = err.strip().splitlines()
         idx = lines.index('Fatal RPython error: KeyError')     # assert found
         lines = lines[:idx+1]
-        assert len(lines) >= 5
-        l0, l1, l2, l3 = lines[-5:-1]
+        assert len(lines) >= 6
+        l0, lx, l1, l2, l3 = lines[-6:-1]
         assert l0 == 'RPython traceback:'
+        # lx is a bit strange with reference counting, ignoring it
         assert re.match(r'  File "\w+.c", line \d+, in entry_point', l1)
         assert re.match(r'  File "\w+.c", line \d+, in h', l2)
         assert re.match(r'  File "\w+.c", line \d+, in g', l3)
@@ -733,9 +738,10 @@ class TestStandalone(StandaloneTests):
         lines = err.strip().splitlines()
         idx = lines.index('Fatal RPython error: ValueError')    # assert found
         lines = lines[:idx+1]
-        assert len(lines) >= 5
-        l0, l1, l2, l3 = lines[-5:-1]
+        assert len(lines) >= 6
+        l0, lx, l1, l2, l3 = lines[-6:-1]
         assert l0 == 'RPython traceback:'
+        # lx is a bit strange with reference counting, ignoring it
         assert re.match(r'  File "\w+.c", line \d+, in entry_point', l1)
         assert re.match(r'  File "\w+.c", line \d+, in h', l2)
         assert re.match(r'  File "\w+.c", line \d+, in raiseme', l3)
@@ -1056,6 +1062,44 @@ class TestStandalone(StandaloneTests):
         out = cbuilder.cmdexec('')
         assert out.strip() == expected
 
+    def test_call_at_startup(self):
+        from rpython.rtyper.extregistry import ExtRegistryEntry
+
+        class State:
+            seen = 0
+        state = State()
+        def startup():
+            state.seen += 1
+        def enablestartup():
+            "NOT_RPYTHON"
+        def entry_point(argv):
+            state.seen += 100
+            assert state.seen == 101
+            print 'ok'
+            enablestartup()
+            return 0
+
+        class Entry(ExtRegistryEntry):
+            _about_ = enablestartup
+
+            def compute_result_annotation(self):
+                bk = self.bookkeeper
+                s_callable = bk.immutablevalue(startup)
+                key = (enablestartup,)
+                bk.emulate_pbc_call(key, s_callable, [])
+
+            def specialize_call(self, hop):
+                hop.exception_cannot_occur()
+                bk = hop.rtyper.annotator.bookkeeper
+                s_callable = bk.immutablevalue(startup)
+                r_callable = hop.rtyper.getrepr(s_callable)
+                ll_init = r_callable.get_unique_llfn().value
+                bk.annotator.translator._call_at_startup.append(ll_init)
+
+        t, cbuilder = self.compile(entry_point)
+        out = cbuilder.cmdexec('')
+        assert out.strip() == 'ok'
+
 
 class TestMaemo(TestStandalone):
     def setup_class(cls):
@@ -1079,7 +1123,7 @@ class TestThread(object):
 
     def compile(self, entry_point, no__thread=True):
         t = TranslationContext(self.config)
-        t.config.translation.gc = "semispace"
+        t.config.translation.gc = "incminimark"
         t.config.translation.gcrootfinder = self.gcrootfinder
         t.config.translation.thread = True
         t.config.translation.no__thread = no__thread

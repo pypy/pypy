@@ -28,7 +28,7 @@ the 'rpython', 'pypy', 'ctype_configure', 'dotviewer', 'demo', 'lib_pypy',
     DEALINGS IN THE SOFTWARE.
 
 
-PyPy Copyright holders 2003-2016
+PyPy Copyright holders 2003-2017
 ----------------------------------- 
 
 Except when otherwise stated (look for LICENSE files or information at
@@ -43,17 +43,17 @@ copyrighted by one or more of the following people and organizations:
   Samuele Pedroni
   Matti Picus
   Alex Gaynor
-  Brian Kearns
   Philip Jenvey
-  Michael Hudson
   Ronan Lamy
-  David Schneider
+  Brian Kearns
+  Richard Plangger
+  Michael Hudson
   Manuel Jacob
+  David Schneider
   Holger Krekel
   Christian Tismer
   Hakan Ardo
   Benjamin Peterson
-  Richard Plangger
   Anders Chrigstrom
   Eric van Riet Paap
   Wim Lavrijsen
@@ -68,12 +68,13 @@ copyrighted by one or more of the following people and organizations:
   Niklaus Haldimann
   Camillo Bruni
   Laura Creighton
-  Toon Verwaest
   Romain Guillebert
+  Toon Verwaest
   Leonardo Santagada
   Seo Sanghyeon
   Ronny Pfannschmidt
   Justin Peel
+  Raffael Tfirst
   David Edelsohn
   Anders Hammarquist
   Jakub Gustak
@@ -88,30 +89,35 @@ copyrighted by one or more of the following people and organizations:
   Ludovic Aubry
   Jacob Hallen
   Jason Creighton
+  Mark Young
   Alex Martelli
+  Spenser Bauman
   Michal Bendowski
   stian
   Jan de Mooij
   Tyler Wade
+  Vincent Legoll
   Michael Foord
   Stephan Diehl
-  Vincent Legoll
   Stefan Schwarzer
   Valentino Volonghi
   Tomek Meka
+  Stefano Rivera
   Patrick Maupin
+  Devin Jeanpierre
   Bob Ippolito
   Bruno Gola
   David Malcolm
   Jean-Paul Calderone
   Timo Paulssen
+  Edd Barrett
   Squeaky
   Marius Gedminas
   Alexandre Fayolle
   Simon Burton
   Martin Matusiak
+  Nicolas Truessel
   Konstantin Lopuhin
-  Stefano Rivera
   Wenzhu Man
   John Witulski
   Laurence Tratt
@@ -120,15 +126,13 @@ copyrighted by one or more of the following people and organizations:
   Dario Bertini
   Mark Pearse
   Simon Cross
-  Edd Barrett
+  Jeremy Thurgood
   Andreas Stührk
+  Tobias Pape
   Jean-Philippe St. Pierre
   Guido van Rossum
   Pavel Vinogradov
-  Spenser Bauman
-  Jeremy Thurgood
   Paweł Piotr Przeradowski
-  Tobias Pape
   Paul deGrandis
   Ilya Osadchiy
   marky1991
@@ -140,7 +144,6 @@ copyrighted by one or more of the following people and organizations:
   Georg Brandl
   Bert Freudenberg
   Stian Andreassen
-  Mark Young
   Wanja Saatkamp
   Gerald Klix
   Mike Blume
@@ -153,17 +156,20 @@ copyrighted by one or more of the following people and organizations:
   Preston Timmons
   David Ripton
   Jeff Terrace
+  Tim Felgentreff
   Dusty Phillips
   Lukas Renggli
   Guenter Jantzen
+  William Leslie
   Ned Batchelder
-  Tim Felgentreff
   Anton Gulenko
   Amit Regmi
   Ben Young
+  Jasper Schulz
   Nicolas Chauvat
   Andrew Durdin
   Andrew Chambers
+  Sergey Matyunin
   Michael Schneider
   Nicholas Riley
   Jason Chu
@@ -171,26 +177,24 @@ copyrighted by one or more of the following people and organizations:
   Yichao Yu
   Rocco Moretti
   Gintautas Miliauskas
-  Devin Jeanpierre
   Michael Twomey
   Lucian Branescu Mihaila
+  anatoly techtonik
   Gabriel Lavoie
   Olivier Dormond
   Jared Grubb
   Karl Bartel
   Wouter van Heyst
-  Sebastian Pawluś
   Brian Dorsey
   Victor Stinner
   Andrews Medina
-  anatoly techtonik
-  Sergey Matyunin
+  Sebastian Pawluś
   Stuart Williams
-  Jasper Schulz
-  Christian Hudon
+  Daniel Patrick
+  Aaron Iles
   Toby Watson
   Antoine Pitrou
-  Aaron Iles
+  Christian Hudon
   Michael Cheng
   Justas Sadzevicius
   Gasper Zejn
@@ -198,8 +202,8 @@ copyrighted by one or more of the following people and organizations:
   Stanislaw Halik
   Mikael Schönenberg
   Berkin Ilbeyi
-  Elmo Mäntynen
   Faye Zhao
+  Elmo Mäntynen
   Jonathan David Riehl
   Anders Qvist
   Corbin Simpson
@@ -208,17 +212,20 @@ copyrighted by one or more of the following people and organizations:
   Alex Perry
   Vaibhav Sood
   Alan McIntyre
-  William Leslie
+  Reuben Cummings
   Alexander Sedov
+  p_zieschang@yahoo.de
   Attila Gobi
-  Jasper.Schulz
   Christopher Pope
+  Aaron Gallagher
+  Florin Papa
   Christian Tismer 
   Marc Abramowitz
   Dan Stromberg
   Arjun Naik
   Valentina Mukhamedzhanova
   Stefano Parmesan
+  touilleMan
   Alexis Daboville
   Jens-Uwe Mager
   Carl Meyer
@@ -228,12 +235,12 @@ copyrighted by one or more of the following people and organizations:
   Lukas Vacek
   Kunal Grover
   Andrew Dalke
-  Florin Papa
   Sylvain Thenault
   Jakub Stasiak
   Nathan Taylor
   Vladimir Kryachko
   Omer Katz
+  Mark Williams
   Jacek Generowicz
   Alejandro J. Cura
   Jacob Oscarson
@@ -249,6 +256,7 @@ copyrighted by one or more of the following people and organizations:
   Philipp Rustemeuer
   Henrik Vendelbo
   Richard Lancaster
+  Yasir Suhail
   Dan Buch
   Miguel de Val Borro
   Artur Lisiecki
@@ -261,6 +269,7 @@ copyrighted by one or more of the following people and organizations:
   Catalin Gabriel Manciu
   Tomo Cocoa
   Kim Jin Su
+  rafalgalczynski@gmail.com
   Toni Mattis
   Amber Brown
   Lucas Stadler
@@ -270,8 +279,9 @@ copyrighted by one or more of the following people and organizations:
   Yury V. Zaytsev
   Anna Katrina Dominguez
   Bobby Impollonia
-  timo@eistee.fritz.box
+  Vasantha Ganesh K
   Andrew Thompson
+  florinpapa
   Yusei Tahara
   Aaron Tubbs
   Ben Darnell
@@ -287,25 +297,24 @@ copyrighted by one or more of the following people and organizations:
   Michael Hudson-Doyle
   Anders Sigfridsson
   Nikolay Zinov
-  Yasir Suhail
   Jason Michalski
-  rafalgalczynski@gmail.com
   Floris Bruynooghe
   Laurens Van Houtven
   Akira Li
   Gustavo Niemeyer
   Stephan Busemann
-  florinpapa
   Rafał Gałczyński
   Matt Bogosian
+  timo
   Christian Muirhead
   Berker Peksag
   James Lan
   Volodymyr Vladymyrov
   shoma hosaka
-  Daniel Neuhäuser
   Ben Mather
   Niclas Olofsson
+  Matthew Miller
+  Rodrigo Araújo
   halgari
   Boglarka Vezer
   Chris Pressey
@@ -315,8 +324,9 @@ copyrighted by one or more of the following people and organizations:
   Dinu Gherman
   Chris Lambacher
   coolbutuseless@gmail.com
+  Daniil Yarancev
   Jim Baker
-  Rodrigo Araújo
+  Dan Crosta
   Nikolaos-Digenis Karagiannis
   James Robert
   Armin Ronacher
@@ -330,35 +340,37 @@ copyrighted by one or more of the following people and organizations:
   Tomer Chachamu
   Christopher Groskopf
   Asmo Soinio
-  Stefan Marr
   jiaaro
   Mads Kiilerich
-  opassembler.py
   Antony Lee
   Jason Madden
+  Daniel Neuh�user
+  reubano@gmail.com
   Yaroslav Fedevych
   Jim Hunziker
   Markus Unterwaditzer
   Even Wiik Thomassen
   jbs
   squeaky
-  Zearin
   soareschen
   Jonas Pfannschmidt
   Kurt Griffiths
   Mike Bayer
-  Matthew Miller
+  Stefan Marr
   Flavio Percoco
   Kristoffer Kleine
-  yasirs
   Michael Chermside
   Anna Ravencroft
+  pizi
+  remarkablerocket
   Andrey Churin
-  Dan Crosta
+  Zearin
+  Eli Stevens
   Tobias Diaz
   Julien Phalip
   Roman Podoliaka
   Dan Loewenherz
+  werat
 
   Heinrich-Heine University, Germany 
   Open End AB (formerly AB Strakt), Sweden

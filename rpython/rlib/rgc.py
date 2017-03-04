@@ -5,7 +5,7 @@ import types
 
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, enforceargs, specialize
-from rpython.rlib.objectmodel import CDefinedIntSymbolic
+from rpython.rlib.objectmodel import CDefinedIntSymbolic, not_rpython
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory
 
@@ -422,8 +422,9 @@ class FinalizerQueue(object):
         else:
             self._untranslated_register_finalizer(obj)
 
+    @not_rpython
     def _get_tag(self):
-        "NOT_RPYTHON: special-cased below"
+        "special-cased below"
 
     def _reset(self):
         import collections
@@ -526,18 +527,50 @@ class FqTagEntry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.inputconst(lltype.Signed, hop.s_result.const)
 
+@jit.dont_look_inside
+@specialize.argtype(0)
+def may_ignore_finalizer(obj):
+    """Optimization hint: says that it is valid for any finalizer
+    for 'obj' to be ignored, depending on the GC."""
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    llop.gc_ignore_finalizer(lltype.Void, obj)
+
+@jit.dont_look_inside
+def move_out_of_nursery(obj):
+    """ Returns another object which is a copy of obj; but at any point
+        (either now or in the future) the returned object might suddenly
+        become identical to the one returned.
+
+        NOTE: Only use for immutable objects!
+
+        NOTE: Might fail on some GCs!  You have to check again
+        can_move() afterwards.  It should always work with the default
+        GC.  With Boehm, can_move() is always False so
+        move_out_of_nursery() should never be called in the first place.
+    """
+    return obj
+
+class MoveOutOfNurseryEntry(ExtRegistryEntry):
+    _about_ = move_out_of_nursery
+
+    def compute_result_annotation(self, s_obj):
+        return s_obj
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop('gc_move_out_of_nursery', hop.args_v, resulttype=hop.r_result)
 
 # ____________________________________________________________
 
 
+@not_rpython
 def get_rpy_roots():
-    "NOT_RPYTHON"
     # Return the 'roots' from the GC.
     # The gc typically returns a list that ends with a few NULL_GCREFs.
     return [_GcRef(x) for x in gc.get_objects()]
 
+@not_rpython
 def get_rpy_referents(gcref):
-    "NOT_RPYTHON"
     x = gcref._x
     if isinstance(x, list):
         d = x
@@ -583,8 +616,8 @@ class AddMemoryPressureEntry(ExtRegistryEntry):
                          resulttype=lltype.Void)
 
 
+@not_rpython
 def get_rpy_memory_usage(gcref):
-    "NOT_RPYTHON"
     # approximate implementation using CPython's type info
     Class = type(gcref._x)
     size = Class.__basicsize__
@@ -592,8 +625,8 @@ def get_rpy_memory_usage(gcref):
         size += Class.__itemsize__ * len(gcref._x)
     return size
 
+@not_rpython
 def get_rpy_type_index(gcref):
-    "NOT_RPYTHON"
     from rpython.rlib.rarithmetic import intmask
     Class = gcref._x.__class__
     return intmask(id(Class))
@@ -607,33 +640,33 @@ def cast_gcref_to_int(gcref):
     else:
         return id(gcref._x)
 
+@not_rpython
 def dump_rpy_heap(fd):
-    "NOT_RPYTHON"
     raise NotImplementedError
 
+@not_rpython
 def get_typeids_z():
-    "NOT_RPYTHON"
     raise NotImplementedError
 
+@not_rpython
 def get_typeids_list():
-    "NOT_RPYTHON"
     raise NotImplementedError
 
+@not_rpython
 def has_gcflag_extra():
-    "NOT_RPYTHON"
     return True
 has_gcflag_extra._subopnum = 1
 
 _gcflag_extras = set()
 
+@not_rpython
 def get_gcflag_extra(gcref):
-    "NOT_RPYTHON"
     assert gcref   # not NULL!
     return gcref in _gcflag_extras
 get_gcflag_extra._subopnum = 2
 
+@not_rpython
 def toggle_gcflag_extra(gcref):
-    "NOT_RPYTHON"
     assert gcref   # not NULL!
     try:
         _gcflag_extras.remove(gcref)
@@ -801,12 +834,12 @@ class Entry(ExtRegistryEntry):
         return hop.genop('gc_get_rpy_type_index', vlist,
                          resulttype = hop.r_result)
 
+@not_rpython
 def _is_rpy_instance(gcref):
-    "NOT_RPYTHON"
     raise NotImplementedError
 
+@not_rpython
 def _get_llcls_from_cls(Class):
-    "NOT_RPYTHON"
     raise NotImplementedError
 
 class Entry(ExtRegistryEntry):
@@ -1001,3 +1034,293 @@ class GetTypeidEntry(ExtRegistryEntry):
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
         return hop.genop('gc_gettypeid', hop.args_v, resulttype=lltype.Signed)
+
+# ____________________________________________________________
+
+
+class _rawptr_missing_item(object):
+    pass
+_rawptr_missing_item = _rawptr_missing_item()
+
+
+class _ResizableListSupportingRawPtr(list):
+    """Calling this class is a no-op after translation.
+
+    Before translation, it returns a new instance of
+    _ResizableListSupportingRawPtr, on which
+    rgc.nonmoving_raw_ptr_for_resizable_list() might be
+    used if needed.  For now, only supports lists of chars.
+    """
+    __slots__ = ('_raw_items',)   # either None or a rffi.CCHARP
+
+    def __init__(self, lst):
+        self._raw_items = None
+        self.__from_list(lst)
+
+    def __resize(self):
+        """Called before an operation changes the size of the list"""
+        if self._raw_items is not None:
+            list.__init__(self, self.__as_list())
+            self._raw_items = None
+
+    def __from_list(self, lst):
+        """Initialize the list from a copy of the list 'lst'."""
+        assert isinstance(lst, list)
+        for x in lst:
+            assert isinstance(x, str) and len(x) == 1
+        if self is lst:
+            return
+        if len(self) != len(lst):
+            self.__resize()
+        if self._raw_items is None:
+            list.__init__(self, lst)
+        else:
+            assert len(self) == self._raw_items._obj.getlength() == len(lst)
+            for i in range(len(self)):
+                self._raw_items[i] = lst[i]
+
+    def __as_list(self):
+        """Return a list (the same or a different one) which contains the
+        items in the regular way."""
+        if self._raw_items is None:
+            return self
+        length = self._raw_items._obj.getlength()
+        assert length == len(self)
+        return [self._raw_items[i] for i in range(length)]
+
+    def __getitem__(self, index):
+        if self._raw_items is None:
+            return list.__getitem__(self, index)
+        if index < 0:
+            index += len(self)
+        if not (0 <= index < len(self)):
+            raise IndexError
+        return self._raw_items[index]
+
+    def __setitem__(self, index, new):
+        if self._raw_items is None:
+            return list.__setitem__(self, index, new)
+        if index < 0:
+            index += len(self)
+        if not (0 <= index < len(self)):
+            raise IndexError
+        self._raw_items[index] = new
+
+    def __delitem__(self, index):
+        self.__resize()
+        list.__delitem__(self, index)
+
+    def __getslice__(self, i, j):
+        return list.__getslice__(self.__as_list(), i, j)
+
+    def __setslice__(self, i, j, new):
+        lst = self.__as_list()
+        list.__setslice__(lst, i, j, new)
+        self.__from_list(lst)
+
+    def __delslice__(self, i, j):
+        lst = self.__as_list()
+        list.__delslice__(lst, i, j)
+        self.__from_list(lst)
+
+    def __iter__(self):
+        try:
+            i = 0
+            while True:
+                yield self[i]
+                i += 1
+        except IndexError:
+            pass
+
+    def __reversed__(self):
+        i = len(self)
+        while i > 0:
+            i -= 1
+            yield self[i]
+
+    def __contains__(self, item):
+        return list.__contains__(self.__as_list(), item)
+
+    def __add__(self, other):
+        if isinstance(other, _ResizableListSupportingRawPtr):
+            other = other.__as_list()
+        return list.__add__(self.__as_list(), other)
+
+    def __radd__(self, other):
+        if isinstance(other, _ResizableListSupportingRawPtr):
+            other = other.__as_list()
+        return list.__add__(other, self.__as_list())
+
+    def __iadd__(self, other):
+        self.__resize()
+        return list.__iadd__(self, other)
+
+    def __eq__(self, other):
+        return list.__eq__(self.__as_list(), other)
+    def __ne__(self, other):
+        return list.__ne__(self.__as_list(), other)
+    def __ge__(self, other):
+        return list.__ge__(self.__as_list(), other)
+    def __gt__(self, other):
+        return list.__gt__(self.__as_list(), other)
+    def __le__(self, other):
+        return list.__le__(self.__as_list(), other)
+    def __lt__(self, other):
+        return list.__lt__(self.__as_list(), other)
+
+    def __mul__(self, other):
+        return list.__mul__(self.__as_list(), other)
+
+    def __rmul__(self, other):
+        return list.__mul__(self.__as_list(), other)
+
+    def __imul__(self, other):
+        self.__resize()
+        return list.__imul__(self, other)
+
+    def __repr__(self):
+        return '_ResizableListSupportingRawPtr(%s)' % (
+            list.__repr__(self.__as_list()),)
+
+    def append(self, object):
+        self.__resize()
+        return list.append(self, object)
+
+    def count(self, value):
+        return list.count(self.__as_list(), value)
+
+    def extend(self, iterable):
+        self.__resize()
+        return list.extend(self, iterable)
+
+    def index(self, value, *start_stop):
+        return list.index(self.__as_list(), value, *start_stop)
+
+    def insert(self, index, object):
+        self.__resize()
+        return list.insert(self, index, object)
+
+    def pop(self, *opt_index):
+        self.__resize()
+        return list.pop(self, *opt_index)
+
+    def remove(self, value):
+        self.__resize()
+        return list.remove(self, value)
+
+    def reverse(self):
+        lst = self.__as_list()
+        list.reverse(lst)
+        self.__from_list(lst)
+
+    def sort(self, *args, **kwds):
+        lst = self.__as_list()
+        list.sort(lst, *args, **kwds)
+        self.__from_list(lst)
+
+    def _nonmoving_raw_ptr_for_resizable_list(self):
+        if self._raw_items is None:
+            existing_items = list(self)
+            from rpython.rtyper.lltypesystem import lltype, rffi
+            self._raw_items = lltype.malloc(rffi.CCHARP.TO, len(self),
+                                           flavor='raw', immortal=True)
+            self.__from_list(existing_items)
+            assert self._raw_items is not None
+        return self._raw_items
+
+def resizable_list_supporting_raw_ptr(lst):
+    return _ResizableListSupportingRawPtr(lst)
+
+def nonmoving_raw_ptr_for_resizable_list(lst):
+    assert isinstance(lst, _ResizableListSupportingRawPtr)
+    return lst._nonmoving_raw_ptr_for_resizable_list()
+
+
+def _check_resizable_list_of_chars(s_list):
+    from rpython.annotator import model as annmodel
+    from rpython.rlib import debug
+    if annmodel.s_None.contains(s_list):
+        return    # "None", will likely be generalized later
+    if not isinstance(s_list, annmodel.SomeList):
+        raise Exception("not a list, got %r" % (s_list,))
+    if not isinstance(s_list.listdef.listitem.s_value,
+                      (annmodel.SomeChar, annmodel.SomeImpossibleValue)):
+        raise debug.NotAListOfChars
+    s_list.listdef.resize()    # must be resizable
+
+class Entry(ExtRegistryEntry):
+    _about_ = resizable_list_supporting_raw_ptr
+
+    def compute_result_annotation(self, s_list):
+        _check_resizable_list_of_chars(s_list)
+        return s_list
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.inputarg(hop.args_r[0], 0)
+
+class Entry(ExtRegistryEntry):
+    _about_ = nonmoving_raw_ptr_for_resizable_list
+
+    def compute_result_annotation(self, s_list):
+        from rpython.rtyper.lltypesystem import lltype, rffi
+        from rpython.rtyper.llannotation import SomePtr
+        _check_resizable_list_of_chars(s_list)
+        return SomePtr(rffi.CCHARP)
+
+    def specialize_call(self, hop):
+        v_list = hop.inputarg(hop.args_r[0], 0)
+        hop.exception_cannot_occur()   # ignoring MemoryError
+        return hop.gendirectcall(ll_nonmovable_raw_ptr_for_resizable_list,
+                                 v_list)
+
+@jit.dont_look_inside
+def ll_nonmovable_raw_ptr_for_resizable_list(ll_list):
+    """
+    WARNING: dragons ahead.
+    Return the address of the internal char* buffer of 'll_list', which
+    must be a resizable list of chars.
+
+    This makes sure that the list items are non-moving, if necessary by
+    first copying the GcArray inside 'll_list.items' outside the GC
+    nursery.  The returned 'char *' pointer is guaranteed to be valid
+    until one of these occurs:
+
+       * 'll_list' gets garbage-collected; or
+       * you do an operation on 'll_list' that changes its size.
+    """
+    from rpython.rtyper.lltypesystem import lltype, rffi
+    array = ll_list.items
+    if can_move(array):
+        length = ll_list.length
+        new_array = lltype.malloc(lltype.typeOf(ll_list).TO.items.TO, length,
+                                  nonmovable=True)
+        ll_arraycopy(array, new_array, 0, 0, length)
+        ll_list.items = new_array
+        array = new_array
+    ptr = lltype.direct_arrayitems(array)
+    # ptr is a Ptr(FixedSizeArray(Char, 1)).  Cast it to a rffi.CCHARP
+    return rffi.cast(rffi.CCHARP, ptr)
+
+@jit.dont_look_inside
+@no_collect
+@specialize.ll()
+def ll_write_final_null_char(s):
+    """'s' is a low-level STR; writes a terminating NULL character after
+    the other characters in 's'.  Warning, this only works because of
+    the 'extra_item_after_alloc' hack inside the definition of STR.
+    """
+    from rpython.rtyper.lltypesystem import rffi
+    PSTR = lltype.typeOf(s)
+    assert has_final_null_char(PSTR) == 1
+    n = llmemory.offsetof(PSTR.TO, 'chars')
+    n += llmemory.itemoffsetof(PSTR.TO.chars, 0)
+    n = llmemory.raw_malloc_usage(n)
+    n += len(s.chars)
+    # no GC operation from here!
+    ptr = rffi.cast(rffi.CCHARP, s)
+    ptr[n] = '\x00'
+
+@specialize.memo()
+def has_final_null_char(PSTR):
+    return PSTR.TO.chars._hints.get('extra_item_after_alloc', 0)

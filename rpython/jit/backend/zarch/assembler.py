@@ -8,6 +8,7 @@ from rpython.jit.backend.zarch import registers as r
 from rpython.jit.backend.zarch import locations as l
 from rpython.jit.backend.zarch.pool import LiteralPool
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.jit.backend.llsupport.jump import remap_frame_layout_mixed
 from rpython.jit.backend.zarch.codebuilder import (InstrBuilder,
         OverwritingBuilder)
 from rpython.jit.backend.zarch.helper.regalloc import check_imm_value
@@ -22,6 +23,7 @@ from rpython.jit.backend.zarch.opassembler import OpAssembler
 from rpython.jit.backend.zarch.regalloc import Regalloc
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.compile import ResumeGuardDescr
 from rpython.rlib.debug import (debug_print, debug_start, debug_stop,
                                 have_debug_prints)
 from rpython.jit.metainterp.history import (INT, REF, FLOAT, TargetToken)
@@ -32,11 +34,14 @@ from rpython.rlib.longlong2float import float2longlong
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rlib.jit import AsmInfo
+from rpython.rlib.rjitlog import rjitlog as jl
+from rpython.jit.backend.zarch import vector_ext
 
 class JitFrameTooDeep(Exception):
     pass
 
-class AssemblerZARCH(BaseAssembler, OpAssembler):
+class AssemblerZARCH(BaseAssembler, OpAssembler,
+                     vector_ext.VectorAssembler):
 
     def __init__(self, cpu, translate_support_code=False):
         BaseAssembler.__init__(self, cpu, translate_support_code)
@@ -128,8 +133,14 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.failure_recovery_code[exc + 2 * withfloats] = rawstart
         self.mc = None
 
-    def generate_quick_failure(self, guardtok):
+    def generate_quick_failure(self, guardtok, regalloc):
         startpos = self.mc.currpos()
+        # accum vecopt
+        self._update_at_exit(guardtok.fail_locs, guardtok.failargs,
+                             guardtok.faildescr, regalloc)
+        pos = self.mc.currpos()
+        guardtok.rel_recovery_prefix = pos - startpos
+
         faildescrindex, target = self.store_info_on_descr(startpos, guardtok)
         assert target != 0
 
@@ -309,17 +320,15 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         # signature of this _frame_realloc_slowpath function:
         #   * on entry, r0 is the new size
-        #   * on entry, r1 is the gcmap
         #   * no managed register must be modified
 
-        ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        mc.STG(r.SCRATCH, l.addr(ofs2, r.SPP))
+        # caller already did push_gcmap(store=True)
 
         self._push_core_regs_to_jitframe(mc, r.MANAGED_REGS)
         self._push_fp_regs_to_jitframe(mc)
 
 
-        # First argument is SPP (= r31), which is the jitframe
+        # First argument is SPP, which is the jitframe
         mc.LGR(r.r2, r.SPP)
 
         # no need to move second argument (frame_depth),
@@ -347,6 +356,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             mc.load(r.r5, r.r5, 0)
             mc.store(r.r2, r.r5, -WORD)
 
+        self.pop_gcmap(mc) # cancel the push_gcmap(store=True) in the caller
         self._pop_core_regs_from_jitframe(mc, r.MANAGED_REGS)
         self._pop_fp_regs_from_jitframe(mc)
 
@@ -357,9 +367,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.mc = None
 
     def _build_propagate_exception_path(self):
-        if not self.cpu.propagate_exception_descr:
-            return
-
         self.mc = InstrBuilder()
         #
         # read and reset the current exception
@@ -386,14 +393,13 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # signature of these cond_call_slowpath functions:
         #   * on entry, r11 contains the function to call
         #   * r2, r3, r4, r5 contain arguments for the call
-        #   * r0 is the gcmap
+        #   * gcmap is pushed
         #   * the old value of these regs must already be stored in the jitframe
         #   * on exit, all registers are restored from the jitframe
+        #   * the result of the call is moved to register r1
 
         mc = InstrBuilder()
         self.mc = mc
-        ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        mc.STG(r.SCRATCH2, l.addr(ofs2,r.SPP))
         mc.store_link()
         mc.push_std_frame()
 
@@ -411,6 +417,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
                        reg is not r.r4 and
                        reg is not r.r5 and
                        reg is not r.r11]
+        # the caller already did push_gcmap(store=True)
         self._push_core_regs_to_jitframe(mc, regs)
         if supports_floats:
             self._push_fp_regs_to_jitframe(mc)
@@ -419,6 +426,10 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         # Finish
         self._reload_frame_if_necessary(mc)
+
+        self.pop_gcmap(mc) # cancel the push_gcmap(store=True) in the caller
+
+        mc.LGR(r.SCRATCH2, r.RES)
 
         self._pop_core_regs_from_jitframe(mc, saved_regs)
         if supports_floats:
@@ -449,12 +460,11 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc.store_link()
         mc.push_std_frame()
         #
-        ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        mc.STG(r.r1, l.addr(ofs2, r.SPP))
         saved_regs = [reg for reg in r.MANAGED_REGS
                           if reg is not r.RES and reg is not r.RSZ]
         self._push_core_regs_to_jitframe(mc, saved_regs)
         self._push_fp_regs_to_jitframe(mc)
+        # the caller already did push_gcmap(store=True)
         #
         if kind == 'fixed':
             addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
@@ -489,7 +499,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # Check that we don't get NULL; if we do, we always interrupt the
         # current loop, as a "good enough" approximation (same as
         # emit_call_malloc_gc()).
-        self.propagate_memoryerror_if_r2_is_null(True)
+        self.propagate_memoryerror_if_reg_is_null(r.r2, True)
 
         self._pop_core_regs_from_jitframe(mc, saved_regs)
         self._pop_fp_regs_from_jitframe(mc)
@@ -588,7 +598,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         #       sum -> (14 bytes)
         mc.write('\x00'*14)
         mc.load_imm(r.RETURN, self._frame_realloc_slowpath)
-        self.load_gcmap(mc, r.r1, gcmap)
+        self.push_gcmap(mc, gcmap, store=True)
         mc.raw_call()
 
         self.frame_depth_to_patch.append((patch_pos, mc.currpos()))
@@ -640,7 +650,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         #
         size_excluding_failure_stuff = self.mc.get_relative_pos()
         #
-        self.write_pending_failure_recoveries()
+        self.write_pending_failure_recoveries(regalloc)
         full_size = self.mc.get_relative_pos()
         #
         self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
@@ -674,17 +684,21 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             looptoken._zarch_rawstart = rawstart
             looptoken._zarch_fullsize = full_size
             looptoken._zarch_ops_offset = ops_offset
+
         if logger:
-            logger.log_loop(inputargs, operations, 0, "rewritten",
-                            name=loopname, ops_offset=ops_offset)
+            log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
+            log.write(inputargs, operations, ops_offset=ops_offset)
+
+            # legacy
+            if logger.logger_ops:
+                logger.logger_ops.log_loop(inputargs, operations, 0,
+                                           "rewritten", name=loopname,
+                                           ops_offset=ops_offset)
 
         self.fixup_target_tokens(rawstart)
         self.teardown()
-        # oprofile support
-        #if self.cpu.profile_agent is not None:
-        #    name = "Loop # %s: %s" % (looptoken.number, loopname)
-        #    self.cpu.profile_agent.native_code_written(name,
-        #                                               rawstart, full_size)
+        #print(hex(rawstart+looppos))
+        #import pdb; pdb.set_trace()
         return AsmInfo(ops_offset, rawstart + looppos,
                        size_excluding_failure_stuff - looppos, rawstart)
 
@@ -710,13 +724,14 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # reserve gcref table is handled in pre_assemble
         self.pool.pre_assemble(self, operations, allgcrefs, bridge=True)
         startpos = self.mc.get_relative_pos()
+        self._update_at_exit(arglocs, inputargs, faildescr, regalloc)
         self._check_frame_depth(self.mc, regalloc.get_gcmap())
         bridgestartpos = self.mc.get_relative_pos()
         self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - bridgestartpos))
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
         #self.pool.post_assemble(self)
-        self.write_pending_failure_recoveries()
+        self.write_pending_failure_recoveries(regalloc)
         fullsize = self.mc.get_relative_pos()
         #
         self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
@@ -739,9 +754,18 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         ops_offset = self.mc.ops_offset
         frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
                           frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
+
         if logger:
-            logger.log_bridge(inputargs, operations, "rewritten",
-                              ops_offset=ops_offset)
+            log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
+            log.write(inputargs, operations, ops_offset)
+            # log that the already written bridge is stitched to a descr!
+            logger.log_patch_guard(descr_number, rawstart)
+
+            # legacy
+            if logger.logger_ops:
+                logger.logger_ops.log_bridge(inputargs, operations, "rewritten",
+                                          faildescr, ops_offset=ops_offset)
+
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
         self.teardown()
@@ -797,12 +821,12 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             self.mc.BRC(condition, l.imm(off)) # branch over XGR
             self.mc.XGR(result_loc, result_loc)
 
-    def propagate_memoryerror_if_r2_is_null(self, pop_one_stackframe=False):
+    def propagate_memoryerror_if_reg_is_null(self, reg, pop_one_stackframe=False):
         # if self.propagate_exception_path == 0 (tests), this may jump to 0
         # and segfaults.  too bad.  the alternative is to continue anyway
-        # with r2==0, but that will segfault too.
+        # with reg==0, but that will segfault too.
         jmp_pos = self.mc.get_relative_pos()
-        # bails to propagate exception path if r2 != 0
+        # bails to propagate exception path if reg != 0
         self.mc.reserve_cond_jump()
 
         self.mc.load_imm(r.RETURN, self.propagate_exception_path)
@@ -812,7 +836,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         curpos = self.mc.currpos()
         pmc = OverwritingBuilder(self.mc, jmp_pos, 1)
-        pmc.CGIJ(r.r2, l.imm(0), c.NE, l.imm(curpos - jmp_pos))
+        pmc.CGIJ(reg, l.imm(0), c.NE, l.imm(curpos - jmp_pos))
         pmc.overwrite()
 
     def regalloc_push(self, loc, already_pushed):
@@ -867,7 +891,11 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         mc.STG(r.SCRATCH, l.addr(ofs, r.SPP))
 
-    def break_long_loop(self):
+    def pop_gcmap(self, mc):
+        ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        mc.LG(r.SCRATCH, l.addr(ofs, r.SPP))
+
+    def break_long_loop(self, regalloc):
         # If the loop is too long, the guards in it will jump forward
         # more than 32 KB.  We use an approximate hack to know if we
         # should break the loop here with an unconditional "b" that
@@ -875,7 +903,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         jmp_pos = self.mc.currpos()
         self.mc.reserve_cond_jump()
 
-        self.write_pending_failure_recoveries()
+        self.write_pending_failure_recoveries(regalloc)
 
         currpos = self.mc.currpos()
         pmc = OverwritingBuilder(self.mc, jmp_pos, 1)
@@ -899,6 +927,10 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         return frame_depth
 
     def regalloc_mov(self, prev_loc, loc):
+        if prev_loc.is_vector_reg():
+            assert loc.is_vector_reg()
+            self.mc.VLR(loc, prev_loc)
+            return
         if prev_loc.is_imm():
             value = prev_loc.getint()
             # move immediate value to register
@@ -973,7 +1005,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
                 return
             # move from fp register to memory
             elif loc.is_stack():
-                assert loc.type == FLOAT, "target not float location"
+                assert prev_loc.type == FLOAT, "source is not a float location"
                 offset = loc.value
                 self.mc.STDY(prev_loc, l.addr(offset, r.SPP))
                 return
@@ -986,13 +1018,13 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         baseofs = self.cpu.get_baseofs_of_frame_field()
         self.current_clt.frame_info.update_frame_depth(baseofs, frame_depth)
 
-    def write_pending_failure_recoveries(self):
+    def write_pending_failure_recoveries(self, regalloc):
         # for each pending guard, generate the code of the recovery stub
         # at the end of self.mc.
         for i in range(self.pending_guard_tokens_recovered,
                        len(self.pending_guard_tokens)):
             tok = self.pending_guard_tokens[i]
-            tok.pos_recovery_stub = self.generate_quick_failure(tok)
+            tok.pos_recovery_stub = self.generate_quick_failure(tok, regalloc)
         self.pending_guard_tokens_recovered = len(self.pending_guard_tokens)
 
     def materialize_loop(self, looptoken):
@@ -1027,7 +1059,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         for tok in self.pending_guard_tokens:
             addr = rawstart + tok.pos_jump_offset
             #
-            tok.faildescr.adr_jump_offset = rawstart + tok.pos_recovery_stub
+            tok.faildescr.adr_jump_offset = rawstart + tok.pos_recovery_stub + tok.rel_recovery_prefix
             relative_target = tok.pos_recovery_stub - tok.pos_jump_offset
             #
             if not tok.guard_not_invalidated():
@@ -1339,7 +1371,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         # new value of nursery_free_adr in RSZ and the adr of the new object
         # in RES.
-        self.load_gcmap(mc, r.r1, gcmap)
+        self.push_gcmap(mc, gcmap, store=True)
         mc.branch_absolute(self.malloc_slowpath)
 
         # here r1 holds nursery_free_addr
@@ -1375,7 +1407,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         # new value of nursery_free_adr in RSZ and the adr of the new object
         # in RES.
-        self.load_gcmap(mc, r.r1, gcmap)
+        self.push_gcmap(mc, gcmap, store=True)
         mc.branch_absolute(self.malloc_slowpath)
 
         offset = mc.currpos() - fast_jmp_pos
@@ -1468,7 +1500,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         pmc.overwrite()
         #
         # save the gcmap
-        self.load_gcmap(mc, r.r1, gcmap)
+        self.push_gcmap(mc, gcmap, store=True)
         #
         # load the function into r14 and jump
         if kind == rewrite.FLAG_ARRAY:
@@ -1517,9 +1549,65 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         pmc.BRC(c.ANY, l.imm(offset))    # jump always
         pmc.overwrite()
 
+    def stitch_bridge(self, faildescr, target):
+        """ Stitching means that one can enter a bridge with a complete different register
+            allocation. This needs remapping which is done here for both normal registers
+            and accumulation registers.
+        """
+        asminfo, bridge_faildescr, version, looptoken = target
+        assert isinstance(bridge_faildescr, ResumeGuardDescr)
+        assert isinstance(faildescr, ResumeGuardDescr)
+        assert asminfo.rawstart != 0
+        self.mc = InstrBuilder()
+        allblocks = self.get_asmmemmgr_blocks(looptoken)
+        self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
+                                                   allblocks)
+        frame_info = self.datablockwrapper.malloc_aligned(
+            jitframe.JITFRAMEINFO_SIZE, alignment=WORD)
+
+        # if accumulation is saved at the guard, we need to update it here!
+        guard_locs = self.rebuild_faillocs_from_descr(faildescr, version.inputargs)
+        bridge_locs = self.rebuild_faillocs_from_descr(bridge_faildescr, version.inputargs)
+        guard_accum_info = faildescr.rd_vector_info
+        # O(n**2), but usually you only have at most 1 fail argument
+        while guard_accum_info:
+            bridge_accum_info = bridge_faildescr.rd_vector_info
+            while bridge_accum_info:
+                if bridge_accum_info.failargs_pos == guard_accum_info.failargs_pos:
+                    # the mapping might be wrong!
+                    if bridge_accum_info.location is not guard_accum_info.location:
+                        self.regalloc_mov(guard_accum_info.location, bridge_accum_info.location)
+                bridge_accum_info = bridge_accum_info.next()
+            guard_accum_info = guard_accum_info.next()
+
+        # register mapping is most likely NOT valid, thus remap it
+        src_locations1 = []
+        dst_locations1 = []
+        src_locations2 = []
+        dst_locations2 = []
+
+        # Build the four lists
+        assert len(guard_locs) == len(bridge_locs)
+        for i,src_loc in enumerate(guard_locs):
+            dst_loc = bridge_locs[i]
+            if not src_loc.is_fp_reg():
+                src_locations1.append(src_loc)
+                dst_locations1.append(dst_loc)
+            else:
+                src_locations2.append(src_loc)
+                dst_locations2.append(dst_loc)
+        remap_frame_layout_mixed(self, src_locations1, dst_locations1, r.SCRATCH,
+                                 src_locations2, dst_locations2, r.FP_SCRATCH, WORD)
+
+        self.mc.b_abs(asminfo.asmaddr)
+
+        rawstart = self.materialize_loop(looptoken)
+        # update the guard to jump right to this custom piece of assembler
+        self.patch_jump_for_descr(faildescr, rawstart)
+
 def notimplemented_op(asm, op, arglocs, regalloc):
+    msg = "[zarch/asm] %s not implemented\n" % op.getopname()
     if we_are_translated():
-        msg = "[ZARCH/asm] %s not implemented\n" % op.getopname()
         llop.debug_print(lltype.Void, msg)
     raise NotImplementedError(msg)
 

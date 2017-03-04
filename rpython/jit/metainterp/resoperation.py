@@ -52,6 +52,10 @@ class AbstractValue(object):
         llop.debug_print(lltype.Void, "setting forwarded on:", self.__class__.__name__)
         raise SettingForwardedOnAbstractValue()
 
+    def clear_forwarded(self):
+        if self.get_forwarded() is not None:
+            self.set_forwarded(None)
+
     @specialize.arg(1)
     def get_box_replacement(op, not_const=False):
         # Read the chain "op, op._forwarded, op._forwarded._forwarded..."
@@ -748,7 +752,6 @@ class InputArgRef(RefOp, AbstractInputArg):
 
     def __init__(self, r=lltype.nullptr(llmemory.GCREF.TO)):
         self.setref_base(r)
-        self.datatype = 'r'
 
     def reset_value(self):
         self.setref_base(lltype.nullptr(llmemory.GCREF.TO))
@@ -955,9 +958,7 @@ _oplist = [
     'INT_ADD/2/i',
     'INT_SUB/2/i',
     'INT_MUL/2/i',
-    'INT_FLOORDIV/2/i',
-    'UINT_FLOORDIV/2/i',
-    'INT_MOD/2/i',
+    'UINT_MUL_HIGH/2/i',       # a * b as a double-word, keep the high word
     'INT_AND/2/i',
     'INT_OR/2/i',
     'INT_XOR/2/i',
@@ -996,6 +997,7 @@ _oplist = [
     '_VEC_ARITHMETIC_LAST',
     'VEC_FLOAT_EQ/2b/i',
     'VEC_FLOAT_NE/2b/i',
+    'VEC_FLOAT_XOR/2/f',
     'VEC_INT_IS_TRUE/1b/i',
     'VEC_INT_NE/2b/i',
     'VEC_INT_EQ/2b/i',
@@ -1076,11 +1078,9 @@ _oplist = [
 
     '_RAW_LOAD_FIRST',
     'GETARRAYITEM_GC/2d/rfi',
-    'VEC_GETARRAYITEM_GC/2d/fi',
     'GETARRAYITEM_RAW/2d/fi',
-    'VEC_GETARRAYITEM_RAW/2d/fi',
     'RAW_LOAD/2d/fi',
-    'VEC_RAW_LOAD/2d/fi',
+    'VEC_LOAD/4d/fi',
     '_RAW_LOAD_LAST',
 
     'GETINTERIORFIELD_GC/2d/rfi',
@@ -1096,6 +1096,8 @@ _oplist = [
     '_MALLOC_LAST',
     'FORCE_TOKEN/0/r',    # historical name; nowadays, returns the jitframe
     'VIRTUAL_REF/2/r',    # removed before it's passed to the backend
+    'STRHASH/1/i',        # only reading the .hash field, might be zero so far
+    'UNICODEHASH/1/i',    #     (unless applied on consts, where .hash is forced)
     # this one has no *visible* side effect, since the virtualizable
     # must be forced, however we need to execute it anyway
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
@@ -1113,11 +1115,9 @@ _oplist = [
     'INCREMENT_DEBUG_COUNTER/1/n',
     '_RAW_STORE_FIRST',
     'SETARRAYITEM_GC/3d/n',
-    'VEC_SETARRAYITEM_GC/3d/n',
     'SETARRAYITEM_RAW/3d/n',
-    'VEC_SETARRAYITEM_RAW/3d/n',
     'RAW_STORE/3d/n',
-    'VEC_RAW_STORE/3d/n',
+    'VEC_STORE/5d/n',
     '_RAW_STORE_LAST',
     'SETINTERIORFIELD_GC/3d/n',
     'SETINTERIORFIELD_RAW/3d/n',    # right now, only used by tests
@@ -1142,6 +1142,7 @@ _oplist = [
     'COPYSTRCONTENT/5/n',       # src, dst, srcstart, dststart, length
     'COPYUNICODECONTENT/5/n',
     'QUASIIMMUT_FIELD/1d/n',    # [objptr], descr=SlowMutateDescr
+    'ASSERT_NOT_NONE/1/n',      # [objptr]
     'RECORD_EXACT_CLASS/2/n',   # [objptr, clsptr]
     'KEEPALIVE/1/n',
     'SAVE_EXCEPTION/0/r',
@@ -1151,15 +1152,15 @@ _oplist = [
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     '_CALL_FIRST',
     'CALL/*d/rfin',
-    'COND_CALL/*d/n',
-    # a conditional call, with first argument as a condition
+    'COND_CALL/*d/n',   # a conditional call, with first argument as a condition
+    'COND_CALL_VALUE/*d/ri',  # "return a0 or a1(a2, ..)", a1 elidable
     'CALL_ASSEMBLER/*d/rfin',  # call already compiled assembler
     'CALL_MAY_FORCE/*d/rfin',
     'CALL_LOOPINVARIANT/*d/rfin',
     'CALL_RELEASE_GIL/*d/fin',
     # release the GIL and "close the stack" for asmgcc
     'CALL_PURE/*d/rfin',             # removed before it's passed to the backend
-    'CALL_MALLOC_GC/*d/r',      # like CALL, but NULL => propagate MemoryError
+    'CHECK_MEMORY_ERROR/1/n',   # after a CALL: NULL => propagate MemoryError
     'CALL_MALLOC_NURSERY/1/r',  # nursery malloc, const number of bytes, zeroed
     'CALL_MALLOC_NURSERY_VARSIZE/3d/r',
     'CALL_MALLOC_NURSERY_VARSIZE_FRAME/1/r',
@@ -1189,6 +1190,14 @@ _cast_ops = {
     'INT_SIGNEXT': ('i', 0, 'i', 0, 0),
     'VEC_INT_SIGNEXT': ('i', 0, 'i', 0, 0),
 }
+
+import platform
+if not platform.machine().startswith('x86'):
+    # Uh, that should be moved to vector_ext really!
+    _cast_ops['CAST_FLOAT_TO_INT'] = ('f', 8, 'i', 8, 2)
+    _cast_ops['VEC_CAST_FLOAT_TO_INT'] = ('f', 8, 'i', 8, 2)
+    _cast_ops['CAST_INT_TO_FLOAT'] = ('i', 8, 'f', 8, 2)
+    _cast_ops['VEC_CAST_INT_TO_FLOAT'] = ('i', 8, 'f', 8, 2)
 
 # ____________________________________________________________
 
@@ -1267,6 +1276,15 @@ class rop(object):
         return rop.CALL_LOOPINVARIANT_N
 
     @staticmethod
+    def cond_call_value_for_descr(descr):
+        tp = descr.get_normalized_result_type()
+        if tp == 'i':
+            return rop.COND_CALL_VALUE_I
+        elif tp == 'r':
+            return rop.COND_CALL_VALUE_R
+        assert False, tp
+
+    @staticmethod
     def getfield_pure_for_descr(descr):
         if descr.is_pointer_field():
             return rop.GETFIELD_GC_PURE_R
@@ -1317,6 +1335,16 @@ class rop(object):
         elif tp == 'f':
             return rop.CALL_F
         return rop.CALL_N
+
+    @staticmethod
+    def call_pure_for_type(tp):
+        if tp == 'i':
+            return rop.CALL_PURE_I
+        elif tp == 'r':
+            return rop.CALL_PURE_R
+        elif tp == 'f':
+            return rop.CALL_PURE_F
+        return rop.CALL_PURE_N
 
     @staticmethod
     def is_guard(opnum):
@@ -1438,6 +1466,11 @@ class rop(object):
         return (opnum == rop.CALL_RELEASE_GIL_I or
                 opnum == rop.CALL_RELEASE_GIL_F or
                 opnum == rop.CALL_RELEASE_GIL_N)
+
+    @staticmethod
+    def is_cond_call_value(opnum):
+        return (opnum == rop.COND_CALL_VALUE_I or
+                opnum == rop.COND_CALL_VALUE_R)
 
     @staticmethod
     def is_ovf(opnum):
@@ -1713,19 +1746,19 @@ _opboolreflex = {
     rop.PTR_NE: rop.PTR_NE,
 }
 _opvector = {
-    rop.RAW_LOAD_I:         rop.VEC_RAW_LOAD_I,
-    rop.RAW_LOAD_F:         rop.VEC_RAW_LOAD_F,
-    rop.GETARRAYITEM_RAW_I: rop.VEC_GETARRAYITEM_RAW_I,
-    rop.GETARRAYITEM_RAW_F: rop.VEC_GETARRAYITEM_RAW_F,
-    rop.GETARRAYITEM_GC_I: rop.VEC_GETARRAYITEM_GC_I,
-    rop.GETARRAYITEM_GC_F: rop.VEC_GETARRAYITEM_GC_F,
+    rop.RAW_LOAD_I:         rop.VEC_LOAD_I,
+    rop.RAW_LOAD_F:         rop.VEC_LOAD_F,
+    rop.GETARRAYITEM_RAW_I: rop.VEC_LOAD_I,
+    rop.GETARRAYITEM_RAW_F: rop.VEC_LOAD_F,
+    rop.GETARRAYITEM_GC_I: rop.VEC_LOAD_I,
+    rop.GETARRAYITEM_GC_F: rop.VEC_LOAD_F,
     # note that there is no _PURE operation for vector operations.
     # reason: currently we do not care if it is pure or not!
-    rop.GETARRAYITEM_GC_PURE_I: rop.VEC_GETARRAYITEM_GC_I,
-    rop.GETARRAYITEM_GC_PURE_F: rop.VEC_GETARRAYITEM_GC_F,
-    rop.RAW_STORE:        rop.VEC_RAW_STORE,
-    rop.SETARRAYITEM_RAW: rop.VEC_SETARRAYITEM_RAW,
-    rop.SETARRAYITEM_GC: rop.VEC_SETARRAYITEM_GC,
+    rop.GETARRAYITEM_GC_PURE_I: rop.VEC_LOAD_I,
+    rop.GETARRAYITEM_GC_PURE_F: rop.VEC_LOAD_F,
+    rop.RAW_STORE:        rop.VEC_STORE,
+    rop.SETARRAYITEM_RAW: rop.VEC_STORE,
+    rop.SETARRAYITEM_GC: rop.VEC_STORE,
 
     rop.INT_ADD:   rop.VEC_INT_ADD,
     rop.INT_SUB:   rop.VEC_INT_SUB,

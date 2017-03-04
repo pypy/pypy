@@ -21,6 +21,7 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.longlong2float import (float2longlong,
         DOUBLE_ARRAY_PTR, singlefloat2uint_emulator)
+from rpython.rlib.rarithmetic import r_uint, intmask
 import ctypes
 
 CPU = getcpuclass()
@@ -155,12 +156,20 @@ class TestRunningAssembler(object):
         s64 = bin(fac_data[1])[2:]
         print(f64)
         print(s64)
+        for i,c in enumerate(f64):
+            print('index: %d is set? %s' % (i,c))
+
+        assert f64[1] == '1' # The z/Architecture architectural mode is installed.
+        assert f64[2] == '1' # The z/Architecture architectural mode is active.
         assert f64[18] == '1' # long displacement facility
+        assert f64[21] == '1' # extended immediate facility
+        assert f64[34] == '1' # general instruction facility
+        assert f64[41] == '1' # floating-point-support-enhancement
 
     def test_load_byte_zero_extend(self):
         adr = self.a.datablockwrapper.malloc_aligned(16, 16)
         data = rffi.cast(rffi.CArrayPtr(rffi.ULONG), adr)
-        data[0] = rffi.cast(rffi.ULONG,0xffffFFFFffffFF02)
+        data[0] = rffi.cast(rffi.ULONG, intmask(0xffffFFFFffffFF02))
         self.a.mc.load_imm(r.r3, adr+7)
         self.a.mc.LLGC(r.r2, loc.addr(0,r.r3))
         self.a.mc.BCR(con.ANY, r.r14)
@@ -169,7 +178,7 @@ class TestRunningAssembler(object):
     def test_load_byte_and_imm(self):
         adr = self.a.datablockwrapper.malloc_aligned(16, 16)
         data = rffi.cast(rffi.CArrayPtr(rffi.ULONG), adr)
-        data[0] = rffi.cast(rffi.ULONG,0xffffFFFFffff0001)
+        data[0] = rffi.cast(rffi.ULONG, intmask(0xffffFFFFffff0001))
         self.a.mc.load_imm(r.r3, adr)
         self.a.mc.LG(r.r2, loc.addr(0,r.r3))
         self.a.mc.LLGC(r.r2, loc.addr(7,r.r3))
@@ -189,7 +198,7 @@ class TestRunningAssembler(object):
     @py.test.mark.parametrize('p', [2**32,2**32+1,2**63-1,2**63-2,0,1,2,3,4,5,6,7,8,10001])
     def test_align_withroll(self, p):
         self.a.mc.load_imm(r.r2, p & 0xffffFFFFffffFFFF)
-        self.a.mc.RISBGN(r.r2, r.r2, loc.imm(0), loc.imm(0x80 | 60), loc.imm(0))
+        self.a.mc.RISBG(r.r2, r.r2, loc.imm(0), loc.imm(0x80 | 60), loc.imm(0))
         self.a.mc.BCR(con.ANY, r.r14)
         assert run_asm(self.a) == rffi.cast(rffi.ULONG,p) & ~(7)
 
@@ -214,7 +223,7 @@ class TestRunningAssembler(object):
         n = 13
         l = loc
         self.a.mc.load_imm(r.r2, 7<<n)
-        self.a.mc.RISBGN(r.r2, r.r2, l.imm(61), l.imm(0x80 | 63), l.imm(64-n))
+        self.a.mc.RISBG(r.r2, r.r2, l.imm(61), l.imm(0x80 | 63), l.imm(64-n))
         self.a.mc.BCR(con.ANY, r.r14)
         assert run_asm(self.a) == 7
 
@@ -222,7 +231,7 @@ class TestRunningAssembler(object):
         n = 16
         l = loc
         self.a.mc.load_imm(r.r2, 0xffFFffFF)
-        self.a.mc.RISBGN(r.r2, r.r2, l.imm(60), l.imm(0x80 | 63), l.imm(64-n))
+        self.a.mc.RISBG(r.r2, r.r2, l.imm(60), l.imm(0x80 | 63), l.imm(64-n))
         self.a.mc.BCR(con.ANY, r.r14)
         assert run_asm(self.a) == 15
 

@@ -21,7 +21,7 @@ def PyList_New(space, len):
     """
     return space.newlist([None] * len)
 
-@cpython_api([PyObject, Py_ssize_t, PyObject], PyObject, error=CANNOT_FAIL,
+@cpython_api([rffi.VOIDP, Py_ssize_t, PyObject], PyObject, error=CANNOT_FAIL,
              result_borrowed=True)
 def PyList_SET_ITEM(space, w_list, index, w_item):
     """Macro form of PyList_SetItem() without error checking. This is normally
@@ -62,12 +62,14 @@ def PyList_GetItem(space, w_list, index):
     position must be positive, indexing from the end of the list is not
     supported.  If pos is out of bounds, return NULL and set an
     IndexError exception."""
+    from pypy.module.cpyext.sequence import CPyListStrategy
     if not isinstance(w_list, W_ListObject):
         PyErr_BadInternalCall(space)
     if index < 0 or index >= w_list.length():
         raise oefmt(space.w_IndexError, "list index out of range")
-    w_list.ensure_object_strategy()  # make sure we can return a borrowed obj
-    # XXX ^^^ how does this interact with CPyListStrategy?
+    cpy_strategy = space.fromcache(CPyListStrategy)
+    if w_list.strategy is not cpy_strategy:
+        w_list.ensure_object_strategy() # make sure we can return a borrowed obj
     w_res = w_list.getitem(index)
     return w_res     # borrowed ref
 
@@ -84,15 +86,14 @@ def PyList_Insert(space, w_list, index, w_item):
     """Insert the item item into list list in front of index index.  Return
     0 if successful; return -1 and set an exception if unsuccessful.
     Analogous to list.insert(index, item)."""
-    space.call_method(space.w_list, "insert", w_list, space.wrap(index), w_item)
+    space.call_method(space.w_list, "insert", w_list, space.newint(index), w_item)
     return 0
 
-@cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
-def PyList_GET_SIZE(space, w_list):
+@cpython_api([rffi.VOIDP], Py_ssize_t, error=CANNOT_FAIL)
+def PyList_GET_SIZE(space, w_obj):
     """Macro form of PyList_Size() without error checking.
     """
-    assert isinstance(w_list, W_ListObject)
-    return w_list.length()
+    return space.len_w(w_obj)
 
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
@@ -134,8 +135,8 @@ def PyList_GetSlice(space, w_list, low, high):
     and high.  Return NULL and set an exception if unsuccessful.  Analogous
     to list[low:high].  Negative indices, as when slicing from Python, are not
     supported."""
-    w_start = space.wrap(low)
-    w_stop = space.wrap(high)
+    w_start = space.newint(low)
+    w_stop = space.newint(high)
     return space.getslice(w_list, w_start, w_stop)
 
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
@@ -145,8 +146,8 @@ def PyList_SetSlice(space, w_list, low, high, w_sequence):
     be NULL, indicating the assignment of an empty list (slice deletion).
     Return 0 on success, -1 on failure.  Negative indices, as when
     slicing from Python, are not supported."""
-    w_start = space.wrap(low)
-    w_stop = space.wrap(high)
+    w_start = space.newint(low)
+    w_stop = space.newint(high)
     if w_sequence:
         space.setslice(w_list, w_start, w_stop, w_sequence)
     else:

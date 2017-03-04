@@ -16,7 +16,7 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.rtyper.lltypesystem.lltype import (
     typeOf, Void, ForwardReference, Struct, Bool, Char, Ptr, malloc, nullptr,
-    Array, Signed, cast_pointer, getfunctionptr)
+    Array, Signed, cast_pointer, getfunctionptr, cast_ptr_to_int)
 from rpython.rtyper.rmodel import (Repr, inputconst, CanBeNull, mangle,
     warning, impossible_repr)
 from rpython.tool.pairtype import pair, pairtype
@@ -362,9 +362,9 @@ class FunctionRepr(FunctionReprBase):
     def get_concrete_llfn(self, s_pbc, args_s, op):
         bk = self.rtyper.annotator.bookkeeper
         funcdesc, = s_pbc.descriptions
-        args = simple_args(args_s)
         with bk.at_position(None):
-            graph = funcdesc.get_graph(args, op)
+            argspec = simple_args(args_s)
+            graph = funcdesc.get_graph(argspec, op)
         llfn = self.rtyper.getcallable(graph)
         return inputconst(typeOf(llfn), llfn)
 
@@ -414,7 +414,7 @@ class SmallFunctionSetPBCRepr(FunctionReprBase):
         if self.s_pbc.can_be_None:
             self.descriptions.insert(0, None)
         POINTER_TABLE = Array(self.pointer_repr.lowleveltype,
-                              hints={'nolength': True})
+                              hints={'nolength': True, 'immutable': True})
         pointer_table = malloc(POINTER_TABLE, len(self.descriptions),
                                immortal=True)
         for i, desc in enumerate(self.descriptions):
@@ -564,7 +564,7 @@ def conversion_table(r_from, r_to):
     if r_to in r_from._conversion_tables:
         return r_from._conversion_tables[r_to]
     else:
-        t = malloc(Array(Char, hints={'nolength': True}),
+        t = malloc(Array(Char, hints={'nolength': True, 'immutable': True}),
                    len(r_from.descriptions), immortal=True)
         l = []
         for i, d in enumerate(r_from.descriptions):
@@ -577,7 +577,7 @@ def conversion_table(r_from, r_to):
         if l == range(len(r_from.descriptions)):
             r = None
         else:
-            r = inputconst(Ptr(Array(Char, hints={'nolength': True})), t)
+            r = inputconst(typeOf(t), t)
         r_from._conversion_tables[r_to] = r
         return r
 
@@ -646,6 +646,9 @@ class SingleFrozenPBCRepr(Repr):
     def ll_str(self, x):
         return self.getstr()
 
+    def get_ll_eq_function(self):
+        return None
+
 
 class MultipleFrozenPBCReprBase(CanBeNull, Repr):
     def convert_const(self, pbc):
@@ -653,6 +656,9 @@ class MultipleFrozenPBCReprBase(CanBeNull, Repr):
             return self.null_instance()
         frozendesc = self.rtyper.annotator.bookkeeper.getdesc(pbc)
         return self.convert_desc(frozendesc)
+
+    def get_ll_eq_function(self):
+        return None
 
 class MultipleUnrelatedFrozenPBCRepr(MultipleFrozenPBCReprBase):
     """For a SomePBC of frozen PBCs that have no common access set.
@@ -1066,10 +1072,7 @@ class ClassesPBCRepr(Repr):
 
 
 def ll_cls_hash(cls):
-    if not cls:
-        return 0
-    else:
-        return cls.hash
+    return cast_ptr_to_int(cls)
 
 class __extend__(pairtype(ClassesPBCRepr, rclass.ClassRepr)):
     def convert_from_to((r_clspbc, r_cls), v, llops):

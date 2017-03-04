@@ -16,7 +16,11 @@ class Logger(object):
         if not have_debug_prints():
             return
         inputargs, ops = self._unpack_trace(trace)
-        self.log_loop(inputargs, ops, memo=memo)
+        debug_start("jit-log-noopt")
+        debug_print("# Traced loop or bridge with", len(ops), "ops")
+        logops = self._log_operations(inputargs, ops, None, memo)
+        debug_stop("jit-log-noopt")
+        return logops
 
     def _unpack_trace(self, trace):
         ops = []
@@ -28,6 +32,7 @@ class Logger(object):
     def log_loop(self, inputargs, operations, number=0, type=None,
                  ops_offset=None, name='', memo=None):
         if type is None:
+            # XXX this case not normally used any more, I think
             debug_start("jit-log-noopt-loop")
             debug_print("# Loop", number, '(%s)' % name, ":", "noopt",
                         "with", len(operations), "ops")
@@ -58,6 +63,7 @@ class Logger(object):
     def log_bridge(self, inputargs, operations, extra=None,
                    descr=None, ops_offset=None, memo=None):
         if extra == "noopt":
+            # XXX this case no longer used
             debug_start("jit-log-noopt-bridge")
             debug_print("# bridge out of Guard",
                         "0x%x" % compute_unique_id(descr),
@@ -98,6 +104,7 @@ class Logger(object):
     def log_abort_loop(self, trace, memo=None):
         debug_start("jit-abort-log")
         if not have_debug_prints():
+            debug_stop("jit-abort-log")
             return
         inputargs, operations = self._unpack_trace(trace)
         logops = self._log_operations(inputargs, operations, ops_offset=None,

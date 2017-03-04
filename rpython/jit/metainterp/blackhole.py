@@ -6,7 +6,8 @@ from rpython.jit.metainterp import jitexc
 from rpython.jit.metainterp.history import MissingValue
 from rpython.rlib import longlong2float
 from rpython.rlib.debug import ll_assert, make_sure_not_resized
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.debug import check_annotation
+from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.rarithmetic import intmask, LONG_BIT, r_uint, ovfcheck
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
@@ -64,6 +65,7 @@ class BlackholeInterpBuilder(object):
             assert self._insns[value] is None
             self._insns[value] = key
         self.op_catch_exception = insns.get('catch_exception/L', -1)
+        self.op_rvmprof_code = insns.get('rvmprof_code/ii', -1)
         #
         all_funcs = []
         for key in self._insns:
@@ -131,20 +133,8 @@ class BlackholeInterpBuilder(object):
                 elif argtype == 'I' or argtype == 'R' or argtype == 'F':
                     assert argcodes[next_argcode] == argtype
                     next_argcode = next_argcode + 1
-                    length = ord(code[position])
-                    position += 1
-                    value = []
-                    for i in range(length):
-                        index = ord(code[position+i])
-                        if   argtype == 'I': reg = self.registers_i[index]
-                        elif argtype == 'R': reg = self.registers_r[index]
-                        elif argtype == 'F': reg = self.registers_f[index]
-                        if not we_are_translated():
-                            assert not isinstance(reg, MissingValue), (
-                                name, self.jitcode, position)
-                        value.append(reg)
-                    make_sure_not_resized(value)
-                    position += length
+                    value = self._get_list_of_values(code, position, argtype)
+                    position += 1 + len(value)
                 elif argtype == 'self':
                     value = self
                 elif argtype == 'cpu':
@@ -194,7 +184,7 @@ class BlackholeInterpBuilder(object):
                 if lltype.typeOf(result) is lltype.Bool:
                     result = int(result)
                 assert lltype.typeOf(result) is lltype.Signed
-                self.registers_i[ord(code[position])] = result
+                self.registers_i[ord(code[position])] = plain_int(result)
                 position += 1
             elif resulttype == 'r':
                 # argcode should be 'r' too
@@ -224,7 +214,7 @@ class BlackholeInterpBuilder(object):
                     if lltype.typeOf(result) is lltype.Bool:
                         result = int(result)
                     assert lltype.typeOf(result) is lltype.Signed
-                    self.registers_i[ord(code[position])] = result
+                    self.registers_i[ord(code[position])] = plain_int(result)
                     position += 1
             elif resulttype == 'L':
                 assert result >= 0
@@ -262,6 +252,23 @@ def check_shift_count(b):
         if b < 0 or b >= LONG_BIT:
             raise ValueError("Shift count, %d,  not in valid range, 0 .. %d." % (b, LONG_BIT-1))
 
+def check_list_of_plain_integers(s_arg, bookkeeper):
+    """Check that 'BlackhopeInterpreter.registers_i' is annotated as a
+    non-resizable list of plain integers (and not r_int's for example)."""
+    from rpython.annotator import model as annmodel
+    assert isinstance(s_arg, annmodel.SomeList)
+    s_arg.listdef.never_resize()
+    assert s_arg.listdef.listitem.s_value.knowntype is int
+
+def _check_int(s_arg, bookkeeper):
+    assert s_arg.knowntype is int
+
+def plain_int(x):
+    """Check that 'x' is annotated as a plain integer (and not r_int)"""
+    check_annotation(x, _check_int)
+    return x
+
+
 class BlackholeInterpreter(object):
 
     def __init__(self, builder, count_interpreter):
@@ -270,6 +277,7 @@ class BlackholeInterpreter(object):
         self.dispatch_loop      = builder.dispatch_loop
         self.descrs             = builder.descrs
         self.op_catch_exception = builder.op_catch_exception
+        self.op_rvmprof_code    = builder.op_rvmprof_code
         self.count_interpreter  = count_interpreter
         #
         if we_are_translated():
@@ -287,6 +295,7 @@ class BlackholeInterpreter(object):
         self.tmpreg_r = default_r
         self.tmpreg_f = default_f
         self.jitcode = None
+        check_annotation(self.registers_i, check_list_of_plain_integers)
 
     def __repr__(self):
         return '<BHInterp #%d>' % self.count_interpreter
@@ -305,7 +314,7 @@ class BlackholeInterpreter(object):
 
     def setarg_i(self, index, value):
         assert lltype.typeOf(value) is lltype.Signed
-        self.registers_i[index] = value
+        self.registers_i[index] = plain_int(value)
 
     def setarg_r(self, index, value):
         assert lltype.typeOf(value) == llmemory.GCREF
@@ -373,8 +382,31 @@ class BlackholeInterpreter(object):
                 target = ord(code[position+1]) | (ord(code[position+2])<<8)
                 self.position = target
                 return
+            if opcode == self.op_rvmprof_code:
+                # call the 'jit_rvmprof_code(1)' for rvmprof, but then
+                # continue popping frames.  Decode the 'rvmprof_code' insn
+                # manually here.
+                from rpython.rlib.rvmprof import cintf
+                arg1 = self.registers_i[ord(code[position + 1])]
+                arg2 = self.registers_i[ord(code[position + 2])]
+                assert arg1 == 1
+                cintf.jit_rvmprof_code(arg1, arg2)
         # no 'catch_exception' insn follows: just reraise
         reraise(e)
+
+    def handle_rvmprof_enter(self):
+        code = self.jitcode.code
+        position = self.position
+        opcode = ord(code[position])
+        if opcode == self.op_rvmprof_code:
+            arg1 = self.registers_i[ord(code[position + 1])]
+            arg2 = self.registers_i[ord(code[position + 2])]
+            if arg1 == 1:
+                # we are resuming at a position that will do a
+                # jit_rvmprof_code(1), when really executed.  That's a
+                # hint for the need for a jit_rvmprof_code(0).
+                from rpython.rlib.rvmprof import cintf
+                cintf.jit_rvmprof_code(0, arg2)
 
     def copy_constants(self, registers, constants):
         """Copy jitcode.constants[0] to registers[255],
@@ -408,6 +440,14 @@ class BlackholeInterpreter(object):
     def bhimpl_int_mul(a, b):
         return intmask(a * b)
 
+    @arguments("i", "i", returns="i")
+    def bhimpl_uint_mul_high(a, b):
+        from rpython.jit.metainterp.optimizeopt import intdiv
+        a = r_uint(a)
+        b = r_uint(b)
+        c = intdiv.unsigned_mul_high(a, b)
+        return intmask(c)
+
     @arguments("L", "i", "i", returns="iL")
     def bhimpl_int_add_jump_if_ovf(label, a, b):
         try:
@@ -428,19 +468,6 @@ class BlackholeInterpreter(object):
             return ovfcheck(a * b), -1
         except OverflowError:
             return 0, label
-
-    @arguments("i", "i", returns="i")
-    def bhimpl_int_floordiv(a, b):
-        return llop.int_floordiv(lltype.Signed, a, b)
-
-    @arguments("i", "i", returns="i")
-    def bhimpl_uint_floordiv(a, b):
-        c = llop.uint_floordiv(lltype.Unsigned, r_uint(a), r_uint(b))
-        return intmask(c)
-
-    @arguments("i", "i", returns="i")
-    def bhimpl_int_mod(a, b):
-        return llop.int_mod(lltype.Signed, a, b)
 
     @arguments("i", "i", returns="i")
     def bhimpl_int_and(a, b):
@@ -554,6 +581,10 @@ class BlackholeInterpreter(object):
     def bhimpl_cast_int_to_ptr(i):
         ll_assert((i & 1) == 1, "bhimpl_cast_int_to_ptr: not an odd int")
         return lltype.cast_int_to_ptr(llmemory.GCREF, i)
+
+    @arguments("r")
+    def bhimpl_assert_not_none(a):
+        assert a
 
     @arguments("r", "i")
     def bhimpl_record_exact_class(a, b):
@@ -1148,120 +1179,98 @@ class BlackholeInterpreter(object):
 
     @arguments("cpu", "i", "R", "d", returns="i")
     def bhimpl_residual_call_r_i(cpu, func, args_r, calldescr):
-        workaround2200.active = True
         return cpu.bh_call_i(func, None, args_r, None, calldescr)
     @arguments("cpu", "i", "R", "d", returns="r")
     def bhimpl_residual_call_r_r(cpu, func, args_r, calldescr):
-        workaround2200.active = True
         return cpu.bh_call_r(func, None, args_r, None, calldescr)
     @arguments("cpu", "i", "R", "d")
     def bhimpl_residual_call_r_v(cpu, func, args_r, calldescr):
-        workaround2200.active = True
         return cpu.bh_call_v(func, None, args_r, None, calldescr)
 
     @arguments("cpu", "i", "I", "R", "d", returns="i")
     def bhimpl_residual_call_ir_i(cpu, func, args_i, args_r, calldescr):
-        workaround2200.active = True
         return cpu.bh_call_i(func, args_i, args_r, None, calldescr)
     @arguments("cpu", "i", "I", "R", "d", returns="r")
     def bhimpl_residual_call_ir_r(cpu, func, args_i, args_r, calldescr):
-        workaround2200.active = True
         return cpu.bh_call_r(func, args_i, args_r, None, calldescr)
     @arguments("cpu", "i", "I", "R", "d")
     def bhimpl_residual_call_ir_v(cpu, func, args_i, args_r, calldescr):
-        workaround2200.active = True
         return cpu.bh_call_v(func, args_i, args_r, None, calldescr)
 
     @arguments("cpu", "i", "I", "R", "F", "d", returns="i")
     def bhimpl_residual_call_irf_i(cpu, func, args_i,args_r,args_f,calldescr):
-        workaround2200.active = True
         return cpu.bh_call_i(func, args_i, args_r, args_f, calldescr)
     @arguments("cpu", "i", "I", "R", "F", "d", returns="r")
     def bhimpl_residual_call_irf_r(cpu, func, args_i,args_r,args_f,calldescr):
-        workaround2200.active = True
         return cpu.bh_call_r(func, args_i, args_r, args_f, calldescr)
     @arguments("cpu", "i", "I", "R", "F", "d", returns="f")
     def bhimpl_residual_call_irf_f(cpu, func, args_i,args_r,args_f,calldescr):
-        workaround2200.active = True
         return cpu.bh_call_f(func, args_i, args_r, args_f, calldescr)
     @arguments("cpu", "i", "I", "R", "F", "d")
     def bhimpl_residual_call_irf_v(cpu, func, args_i,args_r,args_f,calldescr):
-        workaround2200.active = True
         return cpu.bh_call_v(func, args_i, args_r, args_f, calldescr)
-
-    # conditional calls - note that they cannot return stuff
-    @arguments("cpu", "i", "i", "I", "d")
-    def bhimpl_conditional_call_i_v(cpu, condition, func, args_i, calldescr):
-        if condition:
-            cpu.bh_call_v(func, args_i, None, None, calldescr)
-
-    @arguments("cpu", "i", "i", "R", "d")
-    def bhimpl_conditional_call_r_v(cpu, condition, func, args_r, calldescr):
-        if condition:
-            cpu.bh_call_v(func, None, args_r, None, calldescr)
 
     @arguments("cpu", "i", "i", "I", "R", "d")
     def bhimpl_conditional_call_ir_v(cpu, condition, func, args_i, args_r,
                                      calldescr):
+        # conditional calls - condition is a flag, and they cannot return stuff
         if condition:
             cpu.bh_call_v(func, args_i, args_r, None, calldescr)
 
-    @arguments("cpu", "i", "i", "I", "R", "F", "d")
-    def bhimpl_conditional_call_irf_v(cpu, condition, func, args_i, args_r,
-                                      args_f, calldescr):
-        if condition:
-            cpu.bh_call_v(func, args_i, args_r, args_f, calldescr)
+    @arguments("cpu", "i", "i", "I", "R", "d", returns="i")
+    def bhimpl_conditional_call_value_ir_i(cpu, value, func, args_i, args_r,
+                                           calldescr):
+        if value == 0:
+            value = cpu.bh_call_i(func, args_i, args_r, None, calldescr)
+        return value
+
+    @arguments("cpu", "r", "i", "I", "R", "d", returns="r")
+    def bhimpl_conditional_call_value_ir_r(cpu, value, func, args_i, args_r,
+                                           calldescr):
+        if not value:
+            value = cpu.bh_call_r(func, args_i, args_r, None, calldescr)
+        return value
 
     @arguments("cpu", "j", "R", returns="i")
     def bhimpl_inline_call_r_i(cpu, jitcode, args_r):
-        workaround2200.active = True
         return cpu.bh_call_i(jitcode.get_fnaddr_as_int(),
                              None, args_r, None, jitcode.calldescr)
     @arguments("cpu", "j", "R", returns="r")
     def bhimpl_inline_call_r_r(cpu, jitcode, args_r):
-        workaround2200.active = True
         return cpu.bh_call_r(jitcode.get_fnaddr_as_int(),
                              None, args_r, None, jitcode.calldescr)
     @arguments("cpu", "j", "R")
     def bhimpl_inline_call_r_v(cpu, jitcode, args_r):
-        workaround2200.active = True
         return cpu.bh_call_v(jitcode.get_fnaddr_as_int(),
                              None, args_r, None, jitcode.calldescr)
 
     @arguments("cpu", "j", "I", "R", returns="i")
     def bhimpl_inline_call_ir_i(cpu, jitcode, args_i, args_r):
-        workaround2200.active = True
         return cpu.bh_call_i(jitcode.get_fnaddr_as_int(),
                              args_i, args_r, None, jitcode.calldescr)
     @arguments("cpu", "j", "I", "R", returns="r")
     def bhimpl_inline_call_ir_r(cpu, jitcode, args_i, args_r):
-        workaround2200.active = True
         return cpu.bh_call_r(jitcode.get_fnaddr_as_int(),
                              args_i, args_r, None, jitcode.calldescr)
     @arguments("cpu", "j", "I", "R")
     def bhimpl_inline_call_ir_v(cpu, jitcode, args_i, args_r):
-        workaround2200.active = True
         return cpu.bh_call_v(jitcode.get_fnaddr_as_int(),
                              args_i, args_r, None, jitcode.calldescr)
 
     @arguments("cpu", "j", "I", "R", "F", returns="i")
     def bhimpl_inline_call_irf_i(cpu, jitcode, args_i, args_r, args_f):
-        workaround2200.active = True
         return cpu.bh_call_i(jitcode.get_fnaddr_as_int(),
                              args_i, args_r, args_f, jitcode.calldescr)
     @arguments("cpu", "j", "I", "R", "F", returns="r")
     def bhimpl_inline_call_irf_r(cpu, jitcode, args_i, args_r, args_f):
-        workaround2200.active = True
         return cpu.bh_call_r(jitcode.get_fnaddr_as_int(),
                              args_i, args_r, args_f, jitcode.calldescr)
     @arguments("cpu", "j", "I", "R", "F", returns="f")
     def bhimpl_inline_call_irf_f(cpu, jitcode, args_i, args_r, args_f):
-        workaround2200.active = True
         return cpu.bh_call_f(jitcode.get_fnaddr_as_int(),
                              args_i, args_r, args_f, jitcode.calldescr)
     @arguments("cpu", "j", "I", "R", "F")
     def bhimpl_inline_call_irf_v(cpu, jitcode, args_i, args_r, args_f):
-        workaround2200.active = True
         return cpu.bh_call_v(jitcode.get_fnaddr_as_int(),
                              args_i, args_r, args_f, jitcode.calldescr)
 
@@ -1509,6 +1518,9 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "r", "r", "i", "i", "i")
     def bhimpl_copystrcontent(cpu, src, dst, srcstart, dststart, length):
         cpu.bh_copystrcontent(src, dst, srcstart, dststart, length)
+    @arguments("cpu", "r", returns="i")
+    def bhimpl_strhash(cpu, string):
+        return cpu.bh_strhash(string)
 
     @arguments("cpu", "i", returns="r")
     def bhimpl_newunicode(cpu, length):
@@ -1525,6 +1537,14 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "r", "r", "i", "i", "i")
     def bhimpl_copyunicodecontent(cpu, src, dst, srcstart, dststart, length):
         cpu.bh_copyunicodecontent(src, dst, srcstart, dststart, length)
+    @arguments("cpu", "r", returns="i")
+    def bhimpl_unicodehash(cpu, unicode):
+        return cpu.bh_unicodehash(unicode)
+
+    @arguments("i", "i")
+    def bhimpl_rvmprof_code(leaving, unique_id):
+        from rpython.rlib.rvmprof import cintf
+        cintf.jit_rvmprof_code(leaving, unique_id)
 
     # ----------
     # helpers to resume running in blackhole mode when a guard failed
@@ -1548,8 +1568,6 @@ class BlackholeInterpreter(object):
             if not self.nextblackholeinterp:
                 self._exit_frame_with_exception(current_exc)
             return current_exc
-        finally:
-            workaround2200.active = False
         #
         # pass the frame's return value to the caller
         caller = self.nextblackholeinterp
@@ -1574,7 +1592,8 @@ class BlackholeInterpreter(object):
     # 'xxx_call_yyy' instructions from the caller frame
     def _setup_return_value_i(self, result):
         assert lltype.typeOf(result) is lltype.Signed
-        self.registers_i[ord(self.jitcode.code[self.position-1])] = result
+        self.registers_i[ord(self.jitcode.code[self.position-1])] = plain_int(
+                                                                        result)
     def _setup_return_value_r(self, result):
         assert lltype.typeOf(result) == llmemory.GCREF
         self.registers_r[ord(self.jitcode.code[self.position-1])] = result
@@ -1650,6 +1669,24 @@ class BlackholeInterpreter(object):
             if box is not None:
                 self.setarg_f(i, box.getfloatstorage())
 
+    @specialize.arg(3)
+    def _get_list_of_values(self, code, position, argtype):
+        length = ord(code[position])
+        position += 1
+        value = []
+        for i in range(length):
+            index = ord(code[position+i])
+            if   argtype == 'I': reg = self.registers_i[index]
+            elif argtype == 'R': reg = self.registers_r[index]
+            elif argtype == 'F': reg = self.registers_f[index]
+            else: assert 0
+            if not we_are_translated():
+                assert not isinstance(reg, MissingValue), (
+                    name, self.jitcode, position)
+            value.append(reg)
+        make_sure_not_resized(value)
+        return value
+
 # ____________________________________________________________
 
 def _run_forever(blackholeinterp, current_exc):
@@ -1722,10 +1759,3 @@ def convert_and_run_from_pyjitpl(metainterp, raising_exception=False):
     #
     _run_forever(firstbh, current_exc)
 convert_and_run_from_pyjitpl._dont_inline_ = True
-
-# ____________________________________________________________
-
-class WorkaroundIssue2200(object):
-    pass
-workaround2200 = WorkaroundIssue2200()
-workaround2200.active = False

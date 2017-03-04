@@ -166,7 +166,16 @@ def _setup_ctypes_cache():
         })
 
     if '__int128_t' in rffi.TYPES:
-        _ctypes_cache[rffi.__INT128_T] = ctypes.c_longlong # XXX: Not right at all. But for some reason, It started by while doing JIT compile after a merge with default. Can't extend ctypes, because thats a python standard, right?
+        class c_int128(ctypes.Array):   # based on 2 ulongs
+            _type_ = ctypes.c_uint64
+            _length_ = 2
+            @property
+            def value(self):
+                res = self[0] | (self[1] << 64)
+                if res >= (1 << 127):
+                    res -= 1 << 128
+                return res
+        _ctypes_cache[rffi.__INT128_T] = c_int128
 
     # for unicode strings, do not use ctypes.c_wchar because ctypes
     # automatically converts arrays into unicode strings.
@@ -241,7 +250,9 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
 
         if not A._hints.get('nolength'):
             _fields_ = [('length', lentype),
-                        ('items',  max_n * ctypes_item)]
+                        ('items',
+                           (max_n + A._hints.get('extra_item_after_alloc', 0))
+                           * ctypes_item)]
         else:
             _fields_ = [('items',  max_n * ctypes_item)]
 
@@ -685,6 +696,9 @@ class _array_of_unknown_length(_parentable_mixin, lltype._parentable):
     def getbounds(self):
         # we have no clue, so we allow whatever index
         return 0, maxint
+
+    def shrinklength(self, newlength):
+        raise NotImplementedError
 
     def getitem(self, index, uninitialized_ok=False):
         res = self._storage.contents._getitem(index, boundscheck=False)

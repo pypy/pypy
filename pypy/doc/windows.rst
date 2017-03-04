@@ -20,6 +20,22 @@ of success with the mingw32 port of gcc.
 
 .. _our downloads: http://pypy.org/download.html
 
+Installing Visual Compiler v9 (for Python 2.7)
+----------------------------------------------
+
+This compiler, while the standard one for Python 2.7, is depricated. Microsoft has
+made it available as the `Microsoft Visual C++ Compiler for Python 2.7`_ (the link
+was checked in Nov 2016). Note that the compiler suite will be installed in
+``C:\Users\<user name>\AppData\Local\Programs\Common\Microsoft\Visual C++ for Python``.
+Using a current version of ``setuptools`` will be able to find it there. For
+Windows 10, you must right-click the download, and under ``Properties`` ->
+``Compatibility`` mark it as ``Run run this program in comatibility mode for``
+``Previous version...``. Also, you must download and install the ``.Net Framework 3.5``,
+otherwise ``mt.exe`` will silently fail. Installation will begin automatically
+by running the mt.exe command by hand from a DOS window (that is how the author
+discovered the problem).
+
+.. _Microsoft Visual C++ Compiler for Python 2.7: https://www.microsoft.com/en-us/download/details.aspx?id=44266
 
 Translating PyPy with Visual Studio
 -----------------------------------
@@ -237,6 +253,15 @@ runtime by running::
 Now you should have a tcktk\bin, tcltk\lib, and tcltk\include directory ready
 for use. The release packaging script will pick up the tcltk runtime in the lib
 directory and put it in the archive.
+
+The lzma compression library
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Python 3.3 ship with CFFI wrappers for the lzma library, which can be
+downloaded from this site http://tukaani.org/xz. Python 3.3-3.5 use version
+5.0.5, a prebuilt version can be downloaded from
+http://tukaani.org/xz/xz-5.0.5-windows.zip, check the signature
+http://tukaani.org/xz/xz-5.0.5-windows.zip.sig
 
 
 Using the mingw compiler
