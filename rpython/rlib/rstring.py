@@ -20,8 +20,7 @@ from rpython.tool.pairtype import pairtype
 def _isspace(s, pos, isutf8=0):
     if isutf8:
         from rpython.rlib import rutf8
-        char = rutf8.codepoint_at_pos(s, pos)
-        return unicodedb.isspace(char)
+        return rutf8.isspace(s, pos)
     else:
         char = s[pos]
         if isinstance(char, str):
