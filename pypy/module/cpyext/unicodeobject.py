@@ -306,8 +306,8 @@ def _PyUnicode_Ready(space, w_obj):
     set_ready(py_obj, 1)
     return 0
 
-@cpython_api([PyObject], rffi.CWCHARP)
-def PyUnicode_AsUnicode(space, ref):
+@cts.decl("Py_UNICODE * PyUnicode_AsUnicodeAndSize(PyObject *unicode, Py_ssize_t *size)")
+def PyUnicode_AsUnicodeAndSize(space, ref, psize):
     """Return a read-only pointer to the Unicode object's internal Py_UNICODE
     buffer, NULL if unicode is not a Unicode object."""
     # Don't use PyUnicode_Check, it will realize the object :-(
@@ -319,7 +319,14 @@ def PyUnicode_AsUnicode(space, ref):
         w_unicode = from_ref(space, rffi.cast(PyObject, ref))
         u = space.unicode_w(w_unicode)
         set_wbuffer(ref, rffi.unicode2wcharp(u))
+        set_wsize(ref, len(u))
+    if psize:
+        psize[0] = get_wsize(ref)
     return get_wbuffer(ref)
+
+@cts.decl("Py_UNICODE * PyUnicode_AsUnicode(PyObject *unicode)")
+def PyUnicode_AsUnicode(space, ref):
+    return PyUnicode_AsUnicodeAndSize(space, ref, cts.cast('Py_ssize_t *', 0))
 
 @cts.decl("char * PyUnicode_AsUTF8AndSize(PyObject *unicode, Py_ssize_t *psize)")
 def PyUnicode_AsUTF8AndSize(space, ref, psize):
