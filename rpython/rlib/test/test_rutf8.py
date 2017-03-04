@@ -70,3 +70,15 @@ def test_isspace_utf8():
             assert rutf8.isspace(unichr(i).encode('utf8'), 0)
         else:
             assert not rutf8.isspace(unichr(i).encode('utf8'), 0)
+
+@given(strategies.integers(min_value=0, max_value=sys.maxunicode),
+       strategies.characters())
+def test_utf8_in_chars(i, uni):
+    if not uni:
+        return
+    if unichr(i) in uni:
+        response = True
+    else:
+        response = False
+    r = rutf8.utf8_in_chars(unichr(i).encode('utf8'), 0, uni.encode('utf8'))
+    assert r == response

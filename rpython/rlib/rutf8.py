@@ -217,6 +217,24 @@ def isspace(s, pos):
         return True
     return False
 
+def utf8_in_chars(value, pos, chars):
+    """ equivalent of u'x' in u'xyz', just done in utf8
+    """
+    lgt = next_codepoint_pos(value, pos) - pos
+    i = 0
+    while i < len(chars):
+        j = next_codepoint_pos(chars, i)
+        if j - i != lgt:
+            i = j
+            continue
+        for k in range(lgt):
+            if value[k + pos] != chars[i + k]:
+                break
+        else:
+            return True
+        i = j
+    return False
+
 class Utf8CheckError(Exception):
     def __init__(self, msg, startpos, endpos):
         self.msg = msg

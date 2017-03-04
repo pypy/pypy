@@ -125,6 +125,8 @@ class W_UnicodeObject(W_Root):
         return rutf8.compute_length_utf8(self._utf8)
 
     def _val(self, space):
+        #import pdb
+        #pdb.set_trace()
         return self._utf8.decode('utf8')
 
     @staticmethod
@@ -511,7 +513,8 @@ class W_UnicodeObject(W_Root):
             if keepends:
                 eol = pos
                 lgt += 1
-            strs_w.append(W_UnicodeObject(value[sol:eol], lgt))
+            # XXX find out why lgt calculation is off
+            strs_w.append(W_UnicodeObject(value[sol:eol], -1))
         return space.newlist(strs_w)
 
     @unwrap_spec(width=int)
@@ -666,24 +669,58 @@ class W_UnicodeObject(W_Root):
 
         return W_UnicodeObject(value, self._len())
 
+    def _utf8_sliced(self, start, stop, lgt):
+        assert start >= 0
+        assert stop >= 0
+        #if start == 0 and stop == len(s) and space.is_w(space.type(orig_obj),
+        #                                                space.w_bytes):
+        #    return orig_obj
+        return W_UnicodeObject(self._utf8[start:stop], lgt)
+
     def _strip_none(self, space, left, right):
         "internal function called by str_xstrip methods"
         value = self._utf8
 
         lpos = 0
-        rpos = self._len()
+        rpos = len(value)
+        lgt = self._len()
 
         if left:
-            while lpos < rpos and self._isspace(value[lpos]):
-                lpos += 1
+            while lpos < rpos and rutf8.isspace(value, lpos):
+                lpos = rutf8.next_codepoint_pos(value, lpos)
+                lgt -= 1
 
         if right:
-            while rpos > lpos and self._isspace(value[rpos - 1]):
-                rpos -= 1
+            while rpos > lpos and rutf8.isspace(value,
+                                         rutf8.prev_codepoint_pos(value, rpos)):
+                rpos = rutf8.prev_codepoint_pos(value, rpos)
+                lgt -= 1
 
         assert rpos >= lpos    # annotator hint, don't remove
-        return self._sliced(space, value, lpos, rpos, self)
+        return self._utf8_sliced(lpos, rpos, lgt)
 
+    def _strip(self, space, w_chars, left, right, name='strip'):
+        "internal function called by str_xstrip methods"
+        value = self._utf8
+        chars = self.convert_arg_to_w_unicode(space, w_chars, strict=name)._utf8
+
+        lpos = 0
+        rpos = len(value)
+        lgt = self._len()
+
+        if left:
+            while lpos < rpos and rutf8.utf8_in_chars(value, lpos, chars):
+                lpos = rutf8.next_codepoint_pos(value, lpos)
+                lgt -= 1
+
+        if right:
+            while rpos > lpos and rutf8.utf8_in_chars(value,
+                    rutf8.prev_codepoint_pos(value, rpos), chars):
+                rpos = rutf8.prev_codepoint_pos(value, rpos)
+                lgt -= 1
+
+        assert rpos >= lpos    # annotator hint, don't remove
+        return self._utf8_sliced(lpos, rpos, lgt)
 
     def descr_getnewargs(self, space):
         return space.newtuple([W_UnicodeObject(self._utf8, self._length)])
