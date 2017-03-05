@@ -169,3 +169,14 @@ Fix for ``ctypes.c_bool``-returning ctypes functions
 Improve handling of the Py3-style buffer slots in cpyext: fix memoryviews
 keeping objects alive forever (missing decref), and make sure that
 bf_releasebuffer is called when it should, e.g. from PyBuffer_Release.
+
+.. branch: fix-global
+
+Fix bug (bad reported info) when asked to translate SyntaxWarning to
+SyntaxError.
+
+.. branch: optinfo-into-bridges-3
+
+Improve the optimization of branchy Python code by retaining more
+information across failing guards. This is done by appending some
+carefully encoded extra information into the resume code.
