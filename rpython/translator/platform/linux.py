@@ -14,7 +14,7 @@ class BaseLinux(BasePosix):
     extra_libs = ('-lrt',)
     cflags = tuple(
              ['-O3', '-pthread', '-fomit-frame-pointer',
-              '-Wall', '-Wno-unused']
+              '-Wall', '-Wno-unused', '-Wno-address']
              + os.environ.get('CFLAGS', '').split())
     standalone_only = ()
     shared_only = ('-fPIC',)
