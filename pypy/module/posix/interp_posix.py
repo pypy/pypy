@@ -24,7 +24,6 @@ from pypy.interpreter.executioncontext import ExecutionContext
 
 
 _WIN32 = sys.platform == 'win32'
-_LINUX = sys.platform.startswith('linux')
 if _WIN32:
     from rpython.rlib import rwin32
 
@@ -2357,8 +2356,9 @@ def sendfile(space, out, in_, w_offset, count):
     # "in" would require all sorts of special cases.  I hope nobody
     # relies on the strange name of CPython.
 
-    # XXX only supports the common arguments for now (BSD takes more)
-    if _LINUX and space.is_none(w_offset):
+    # XXX only supports the common arguments for now (BSD takes more).
+    # Until that is fixed, we only expose sendfile() on linux.
+    if space.is_none(w_offset):     # linux only
         while True:
             try:
                 res = rposix.sendfile_no_offset(out, in_, count)

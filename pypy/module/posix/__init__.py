@@ -213,7 +213,7 @@ corresponding Unix manual entries for more information on calls."""
             assert getattr(rposix, _name) is not None, "missing %r" % (_name,)
             interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
 
-    if hasattr(rposix, 'sendfile'):
+    if sys.platform.startswith('linux'): #hasattr(rposix, 'sendfile'):
         interpleveldefs['sendfile'] = 'interp_posix.sendfile'
 
     for _name in ["O_CLOEXEC"]:
