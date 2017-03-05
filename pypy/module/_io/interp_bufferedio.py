@@ -16,6 +16,7 @@ from pypy.module._io.interp_iobase import (
     check_readable_w, check_writable_w, check_seekable_w)
 from pypy.module._io.interp_io import W_BlockingIOError
 from rpython.rlib import rthread
+from rpython.rtyper.lltypesystem import rffi
 
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
 
@@ -123,7 +124,8 @@ class RawBuffer(Buffer):
         self.buf[self.start + index] = char
 
     def get_raw_address(self):
-        return nonmoving_raw_ptr_for_resizable_list(self.buf)
+        ptr = nonmoving_raw_ptr_for_resizable_list(self.buf)
+        return rffi.ptradd(ptr, self.start)
 
 class BufferedMixin:
     _mixin_ = True
