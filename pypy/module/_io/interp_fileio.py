@@ -1,10 +1,10 @@
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import (
-    OperationError, oefmt, wrap_oserror, wrap_oserror2, exception_from_errno)
+    OperationError, oefmt, wrap_oserror, wrap_oserror2)
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import r_longlong
-from rpython.rlib.rposix import get_saved_errno
+from rpython.rlib.rposix import c_read, get_saved_errno
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import rposix
 from rpython.rlib.rposix_stat import STAT_FIELD_TYPES
@@ -128,14 +128,6 @@ def new_buffersize(fd, currentsize):
         else:
             return currentsize + BIGCHUNK
     return currentsize + SMALLCHUNK
-
-
-_WIN32 = sys.platform.startswith('win')
-UNDERSCORE_ON_WIN32 = '_' if _WIN32 else ''
-
-os_read = rffi.llexternal(UNDERSCORE_ON_WIN32 + 'read',
-                          [rffi.INT, rffi.CCHARP, rffi.SIZE_T],
-                          rffi.SSIZE_T, save_err=rffi.RFFI_SAVE_ERRNO)
 
 
 class W_FileIO(W_RawIOBase):
@@ -485,7 +477,7 @@ class W_FileIO(W_RawIOBase):
             # optimized case: reading more than 64 bytes into a rwbuffer
             # with a valid raw address
             # XXX TODO(mjacob): implement PEP 475 here!
-            got = os_read(self.fd, target_address, length)
+            got = c_read(self.fd, target_address, length)
             keepalive_until_here(rwbuffer)
             got = rffi.cast(lltype.Signed, got)
             if got >= 0:
@@ -494,7 +486,8 @@ class W_FileIO(W_RawIOBase):
                 err = get_saved_errno()
                 if err == errno.EAGAIN:
                     return space.w_None
-                raise exception_from_errno(space, space.w_IOError, err)
+                e = OSError(err, "read failed")
+                raise wrap_oserror(space, e, exception_name='w_IOError')
 
     def readall_w(self, space):
         self._check_closed(space)

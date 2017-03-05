@@ -12,6 +12,9 @@ class AppTestBufferedReader:
         tmpfile = udir.join('tmpfile')
         tmpfile.write("a\nb\nc", mode='wb')
         cls.w_tmpfile = cls.space.wrap(str(tmpfile))
+        bigtmpfile = udir.join('bigtmpfile')
+        bigtmpfile.write("a\nb\nc" * 20, mode='wb')
+        cls.w_bigtmpfile = cls.space.wrap(str(bigtmpfile))
 
     def test_simple_read(self):
         import _io
@@ -287,7 +290,21 @@ class AppTestBufferedReader:
         raises(_io.UnsupportedOperation, bufio.tell)
 
 class AppTestBufferedReaderWithThreads(AppTestBufferedReader):
-    spaceconfig = dict(usemodules=['_io', 'thread'])
+    spaceconfig = dict(usemodules=['_io', 'thread', 'time'])
+
+    def test_readinto_small_parts(self):
+        import _io, os, thread, time
+        read_fd, write_fd = os.pipe()
+        raw = _io.FileIO(read_fd)
+        f = _io.BufferedReader(raw)
+        a = bytearray(b'x' * 10)
+        os.write(write_fd, b"abcde")
+        def write_more():
+            time.sleep(0.5)
+            os.write(write_fd, b"fghij")
+        thread.start_new_thread(write_more, ())
+        assert f.readinto(a) == 10
+        assert a == 'abcdefghij'
 
 
 class AppTestBufferedWriter:

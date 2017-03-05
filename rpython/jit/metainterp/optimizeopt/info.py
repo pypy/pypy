@@ -773,24 +773,33 @@ class ConstPtrInfo(PtrInfo):
         from rpython.jit.metainterp.optimizeopt.intutils import ConstIntBound,\
                 IntLowerBound
 
-        if mode is None:
+        length = self.getstrlen1(mode)
+        if length < 0:
             # XXX we can do better if we know it's an array
             return IntLowerBound(0)
-        else:
-            return ConstIntBound(self.getstrlen1(mode))
+        return ConstIntBound(length)
 
     def getstrlen(self, op, string_optimizer, mode):
-        return ConstInt(self.getstrlen1(mode))
+        length = self.getstrlen1(mode)
+        if length < 0:
+            return None
+        return ConstInt(length)
 
     def getstrlen1(self, mode):
         from rpython.jit.metainterp.optimizeopt import vstring
-        
+
         if mode is vstring.mode_string:
             s = self._unpack_str(vstring.mode_string)
+            if s is None:
+                return -1
+            return len(s)
+        elif mode is vstring.mode_unicode:
+            s = self._unpack_str(vstring.mode_unicode)            
+            if s is None:
+                return -1
             return len(s)
         else:
-            s = self._unpack_str(vstring.mode_unicode)            
-            return len(s)
+            return -1
 
     def getstrhash(self, op, mode):
         from rpython.jit.metainterp.optimizeopt import vstring
