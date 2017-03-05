@@ -137,7 +137,7 @@ class BaseGCTransformer(object):
             constant_fold_graph(graph)
         return any_inlining
 
-    def inline_helpers(self, graphs):
+    def inline_helpers_and_postprocess(self, graphs):
         for graph in graphs:
             any_inlining = self.inline and self.inline_helpers_into(graph)
             self.postprocess_graph(graph, any_inlining)
