@@ -795,6 +795,8 @@ def _fix_graph_after_inlining(graph, initial_block, initial_index):
             for link in block.exits:
                 track_next = []
                 for v in track_args:
+                    if not isinstance(v, Variable):
+                        continue
                     i = link.args.index(v)   # should really be here
                     w = link.target.inputargs[i]
                     track_next.append(w)
