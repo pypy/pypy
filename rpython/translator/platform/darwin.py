@@ -93,7 +93,7 @@ class Darwin(posix.BasePosix):
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
-                     no_precompile_cfiles = [], icon=None):
+                     no_precompile_cfiles = [], config=None):
         # ensure frameworks are passed in the Makefile
         fs = self._frameworks(eci.frameworks)
         if len(fs) > 0:
@@ -103,7 +103,7 @@ class Darwin(posix.BasePosix):
                                 shared=shared,
                                 headers_to_precompile=headers_to_precompile,
                                 no_precompile_cfiles = no_precompile_cfiles,
-                                icon=icon)
+                                config=config)
         return mk
 
 class Darwin_PowerPC(Darwin):#xxx fixme, mwp

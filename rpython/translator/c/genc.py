@@ -418,7 +418,7 @@ class CStandaloneBuilder(CBuilder):
             headers_to_precompile=headers_to_precompile,
             no_precompile_cfiles = module_files,
             shared=self.config.translation.shared,
-            icon=self.config.translation.icon)
+            config=self.config)
 
         if self.has_profopt():
             profopt = self.config.translation.profopt
