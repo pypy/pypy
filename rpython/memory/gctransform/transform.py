@@ -142,6 +142,9 @@ class BaseGCTransformer(object):
             any_inlining = self.inline and self.inline_helpers_into(graph)
             self.postprocess_graph(graph, any_inlining)
 
+    def postprocess_graph(self, graph, any_inlining):
+        pass
+
     def compute_borrowed_vars(self, graph):
         # the input args are borrowed, and stay borrowed for as long as they
         # are not merged with other values.
