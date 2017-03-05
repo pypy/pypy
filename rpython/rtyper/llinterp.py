@@ -1086,6 +1086,19 @@ class LLFrame(object):
     def op_track_alloc_stop(self, addr):
         checkadr(addr)
 
+    def op_gc_enter_roots_frame(self, gcdata, numcolors):
+        assert not hasattr(self, '_inside_roots_frame')
+        self._inside_roots_frame = numcolors
+
+    def op_gc_leave_roots_frame(self):
+        del self._inside_roots_frame
+
+    def op_gc_save_root(self, num, value):
+        assert 0 <= num < self._inside_roots_frame
+
+    def op_gc_restore_root(self, num, value):
+        assert 0 <= num < self._inside_roots_frame
+
     # ____________________________________________________________
     # Overflow-detecting variants
 
