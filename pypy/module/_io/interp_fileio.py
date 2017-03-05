@@ -468,26 +468,26 @@ class W_FileIO(W_RawIOBase):
                 except OSError as e:
                     if e.errno == errno.EAGAIN:
                         return space.w_None
-                    wrap_oserror(space, e,
-                                 exception_name='w_IOError',
+                    wrap_oserror(space, e, exception_name='w_IOError',
                                  eintr_retry=True)
             rwbuffer.setslice(0, buf)
             return space.newint(len(buf))
         else:
             # optimized case: reading more than 64 bytes into a rwbuffer
             # with a valid raw address
-            # XXX TODO(mjacob): implement PEP 475 here!
-            got = c_read(self.fd, target_address, length)
-            keepalive_until_here(rwbuffer)
-            got = rffi.cast(lltype.Signed, got)
-            if got >= 0:
-                return space.newint(got)
-            else:
-                err = get_saved_errno()
-                if err == errno.EAGAIN:
-                    return space.w_None
-                e = OSError(err, "read failed")
-                raise wrap_oserror(space, e, exception_name='w_IOError')
+            while True:
+                got = c_read(self.fd, target_address, length)
+                keepalive_until_here(rwbuffer)
+                got = rffi.cast(lltype.Signed, got)
+                if got >= 0:
+                    return space.newint(got)
+                else:
+                    err = get_saved_errno()
+                    if err == errno.EAGAIN:
+                        return space.w_None
+                    e = OSError(err, "read failed")
+                    wrap_oserror(space, e, exception_name='w_IOError',
+                                 eintr_retry=True)
 
     def readall_w(self, space):
         self._check_closed(space)
