@@ -1139,6 +1139,12 @@ class LLFrame(object):
         self.setvar(v_value, newvalue)
     op_gc_restore_root.specialform = True
 
+    def op_gc_push_roots(self, *args):
+        raise NotImplementedError
+
+    def op_gc_pop_roots(self, *args):
+        raise NotImplementedError
+
     # ____________________________________________________________
     # Overflow-detecting variants
 
