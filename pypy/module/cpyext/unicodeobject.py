@@ -103,19 +103,19 @@ def get_state(py_obj):
     return py_obj.c_state
 
 def get_kind(py_obj):
-    return get_state(py_obj).c_kind
+    return rffi.getintfield(get_state(py_obj), 'c_kind')
 
 def set_kind(py_obj, value):
     get_state(py_obj).c_kind = cts.cast('unsigned int', value)
 
 def get_ascii(py_obj):
-    return get_state(py_obj).c_ascii
+    return rffi.getintfield(get_state(py_obj), 'c_ascii')
 
 def set_ascii(py_obj, value):
     get_state(py_obj).c_ascii = cts.cast('unsigned int', value)
 
 def get_ready(py_obj):
-    return get_state(py_obj).c_ready
+    return rffi.getintfield(get_state(py_obj), 'c_ready')
 
 def set_ready(py_obj, value):
     get_state(py_obj).c_ready = cts.cast('unsigned int', value)
@@ -262,7 +262,7 @@ def PyUnicode_GetMax(space):
 def _PyUnicode_Ready(space, w_obj):
     assert isinstance(w_obj, unicodeobject.W_UnicodeObject)
     py_obj = as_pyobj(space, w_obj)
-    assert widen(get_kind(py_obj)) == WCHAR_KIND
+    assert get_kind(py_obj) == WCHAR_KIND
     maxchar = 0
     for c in w_obj._value:
         if ord(c) > maxchar:
