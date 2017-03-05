@@ -293,7 +293,7 @@ class AppTestBufferedReaderWithThreads(AppTestBufferedReader):
     spaceconfig = dict(usemodules=['_io', 'thread', 'time'])
 
     def test_readinto_small_parts(self):
-        import _io, os, thread, time
+        import _io, os, _thread, time
         read_fd, write_fd = os.pipe()
         raw = _io.FileIO(read_fd)
         f = _io.BufferedReader(raw)
@@ -302,9 +302,9 @@ class AppTestBufferedReaderWithThreads(AppTestBufferedReader):
         def write_more():
             time.sleep(0.5)
             os.write(write_fd, b"fghij")
-        thread.start_new_thread(write_more, ())
+        _thread.start_new_thread(write_more, ())
         assert f.readinto(a) == 10
-        assert a == 'abcdefghij'
+        assert a == b'abcdefghij'
 
 
 class AppTestBufferedWriter:

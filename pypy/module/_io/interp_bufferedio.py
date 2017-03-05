@@ -15,7 +15,6 @@ from pypy.module._io.interp_iobase import (
     W_IOBase, DEFAULT_BUFFER_SIZE, convert_size, trap_eintr,
     check_readable_w, check_writable_w, check_seekable_w)
 from rpython.rlib import rthread
-from rpython.rtyper.lltypesystem import rffi
 
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
 
@@ -174,8 +173,7 @@ class RawBuffer(Buffer):
         self.buf[index] = char
 
     def get_raw_address(self):
-        ptr = nonmoving_raw_ptr_for_resizable_list(self.buf)
-        return rffi.ptradd(ptr, self.start)
+        return nonmoving_raw_ptr_for_resizable_list(self.buf)
 
 class BufferedMixin:
     _mixin_ = True
