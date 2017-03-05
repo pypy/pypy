@@ -998,7 +998,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         size_box = op.getarg(0)
         assert isinstance(size_box, ConstInt)
         size = size_box.getint()
-        # hint: try to move unrelated registers away from eax and edx now
+        # hint: try to move unrelated registers away from ecx and edx now
         self.rm.spill_or_move_registers_before_call([ecx, edx])
         # the result will be in ecx
         self.rm.force_allocate_reg(op, selected_reg=ecx)
