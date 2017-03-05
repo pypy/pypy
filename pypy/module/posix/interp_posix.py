@@ -24,6 +24,7 @@ from pypy.interpreter.executioncontext import ExecutionContext
 
 
 _WIN32 = sys.platform == 'win32'
+_LINUX = sys.platform.startswith('linux')
 if _WIN32:
     from rpython.rlib import rwin32
 
@@ -2346,3 +2347,30 @@ def set_blocking(space, fd, blocking):
         rposix.set_status_flags(fd, flags)
     except OSError as e:
         raise wrap_oserror(space, e, eintr_retry=False)
+
+@unwrap_spec(out=c_int, in_=c_int, count=int)
+def sendfile(space, out, in_, w_offset, count):
+    # NB. argument name difference with CPython: "in" versus "in_".
+    # According to a comment in posixmodule.c, the authors are aware that
+    # "in" is a Python keyword and so the argument name is bogus, but don't
+    # do anything about it anyway.  PyPy calls it "in_" instead because
+    # "in" would require all sorts of special cases.  I hope nobody
+    # relies on the strange name of CPython.
+
+    # XXX only supports the common arguments for now (BSD takes more)
+    if _LINUX and space.is_none(w_offset):
+        while True:
+            try:
+                res = rposix.sendfile_no_offset(out, in_, count)
+                break
+            except OSError as e:
+                wrap_oserror(space, e, eintr_retry=True)
+    else:
+        offset = space.gateway_r_longlong_w(w_offset)
+        while True:
+            try:
+                res = rposix.sendfile(out, in_, offset, count)
+                break
+            except OSError as e:
+                wrap_oserror(space, e, eintr_retry=True)
+    return space.newint(res)

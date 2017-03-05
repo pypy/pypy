@@ -14,7 +14,7 @@ from rpython.rlib import rposix
 USEMODULES = ['binascii', 'posix', 'signal', 'struct', 'time']
 # py3k os.open uses subprocess, requiring the following per platform
 if os.name != 'nt':
-    USEMODULES += ['fcntl', 'select', '_posixsubprocess']
+    USEMODULES += ['fcntl', 'select', '_posixsubprocess', '_socket']
 else:
     USEMODULES += ['_rawffi', 'thread']
 
@@ -1189,6 +1189,36 @@ class AppTestPosix:
             raises(OSError, posix.get_blocking, 1234567)
             raises(OSError, posix.set_blocking, 1234567, True)
 
+    if sys.platform != 'win32':
+        def test_sendfile(self):
+            import _socket, posix
+            s1, s2 = _socket.socketpair()
+            fd = posix.open(self.path, posix.O_RDONLY)
+            res = posix.sendfile(s1.fileno(), fd, 3, 5)
+            assert res == 5
+            assert posix.lseek(fd, 0, 1) == 0
+            data = s2.recv(10)
+            expected = b'this is a test'[3:8]
+            assert data == expected
+            posix.close(fd)
+            s2.close()
+            s1.close()
+
+    if sys.platform.startswith('linux'):
+        def test_sendfile_no_offset(self):
+            import _socket, posix
+            s1, s2 = _socket.socketpair()
+            fd = posix.open(self.path, posix.O_RDONLY)
+            posix.lseek(fd, 3, 0)
+            res = posix.sendfile(s1.fileno(), fd, None, 5)
+            assert res == 5
+            assert posix.lseek(fd, 0, 1) == 8
+            data = s2.recv(10)
+            expected = b'this is a test'[3:8]
+            assert data == expected
+            posix.close(fd)
+            s2.close()
+            s1.close()
 
     def test_urandom(self):
         os = self.posix
