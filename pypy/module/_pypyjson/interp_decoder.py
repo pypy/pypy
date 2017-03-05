@@ -295,7 +295,7 @@ class JSONDecoder(object):
             i += 1
             bits |= ord(ch)
             if ch == '"':
-                if bits & 0x80:
+                if 1 or bits & 0x80:
                     # the 8th bit is set, it's an utf8 strnig
                     content_utf8 = self.getslice(start, i-1)
                     content_unicode = unicodehelper.decode_utf8(self.space, content_utf8)

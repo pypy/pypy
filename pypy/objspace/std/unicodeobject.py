@@ -20,6 +20,7 @@ from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
+from pypy.objspace.std.sliceobject import unwrap_start_stop
 
 __all__ = ['W_UnicodeObject', 'wrapunicode', 'plain_str2unicode',
            'encode_object', 'decode_object', 'unicode_from_object',
@@ -75,6 +76,13 @@ class W_UnicodeObject(W_Root):
             uid = (base << IDTAG_SHIFT) | IDTAG_SPECIAL
         return space.newint(uid)
 
+    def _convert_idx_params_unicode(self, space, w_start, w_end):
+        """ Specialcase this for unicode - one less element in the tuple
+        """
+        lenself = self._len()
+        start, end = unwrap_start_stop(space, lenself, w_start, w_end)
+        return start, end
+
     def str_w(self, space):
         return space.text_w(space.str(self))
 
@@ -125,8 +133,8 @@ class W_UnicodeObject(W_Root):
         return rutf8.compute_length_utf8(self._utf8)
 
     def _val(self, space):
-        #import pdb
-        #pdb.set_trace()
+        import pdb
+        pdb.set_trace()
         return self._utf8.decode('utf8')
 
     @staticmethod
@@ -446,9 +454,6 @@ class W_UnicodeObject(W_Root):
             i = rutf8.next_codepoint_pos(val, i)
         return space.newbool(cased)
 
-    def _starts_ends_overflow(self, prefix):
-        return len(prefix) == 0
-
     def descr_add(self, space, w_other):
         try:
             w_other = self.convert_arg_to_w_unicode(space, w_other)
@@ -721,6 +726,26 @@ class W_UnicodeObject(W_Root):
 
         assert rpos >= lpos    # annotator hint, don't remove
         return self._utf8_sliced(lpos, rpos, lgt)
+
+    def descr_startswith(self, space, w_prefix, w_start=None, w_end=None):
+        (start, end) = self._convert_idx_params_unicode(space, w_start, w_end)
+        if space.isinstance_w(w_prefix, space.w_tuple):
+            return self._startswith_tuple(space, w_prefix, start, end)
+        return space.newbool(self._startswith(space, w_prefix, start, end))
+
+    def _startswith_tuple(self, space, w_prefix, start, end):
+        for w_prefix in space.fixedview(w_prefix):
+            if self._startswith(space, w_prefix, start, end):
+                return space.w_True
+        return space.w_False
+
+    def _startswith(self, space, w_prefix, start, end):
+        prefix = self.convert_arg_to_w_unicode(space, w_prefix)._utf8
+        if start > self._len():
+            return len(prefix) == 0 # bug-to-bug cpython compatibility
+        xxx
+        return startswith(self._utf8, prefix, start, end)
+
 
     def descr_getnewargs(self, space):
         return space.newtuple([W_UnicodeObject(self._utf8, self._length)])
