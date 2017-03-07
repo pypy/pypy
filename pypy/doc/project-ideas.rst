@@ -7,7 +7,12 @@ Google Summer of Code 2017
 PyPy is generally open to new ideas for Google Summer of Code. We are happy to accept good ideas around the PyPy ecosystem. If you need more information about the ideas we propose for this year please join us on irc, channel #pypy (freenode). If you are unsure, but still think that you can make a valuable contribution to PyPy, dont hesitate to contact us on #pypy or on our mailing list.
 
 
-* **Optimize PyPy Memory Usage**: PyPy currently emits a small executable file and a large shared object file. To reduce the base interpreter size it may be helpful to have several shared object files that can be dynamically loaded if the module is needed. (Note: it is unclear if this would change anything at all.  Please make a small test first and report.)  There are several other potential places where we could improve.
+* **Optimize PyPy Memory Usage**:  Sometimes PyPy consumes more memory than CPython.
+  Two examples: 1) PyPy seems allocate and keep many strings when importing a big Python modules.
+  2) The base interpreter size (cold VM started from a console) of PyPy is bigger than the one of CPython.
+  The general procedure of this project is: Run both CPython and PyPy of the same Python version and
+  compare the memory usage (using Massif or other tools).
+  If PyPy consumes a lot more memory then find and resolve the issue.
 
 * **VMProf + memory profiler**: vmprof by now has a memory profiler that can be used already. We want extend it with more features and resolve some current limitations.
 
