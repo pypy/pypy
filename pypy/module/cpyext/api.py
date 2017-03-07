@@ -597,6 +597,7 @@ SYMBOLS_C = [
     'PyImport_ImportModuleLevel',
 
     'PyOS_getsig', 'PyOS_setsig',
+    '_Py_RestoreSignals',
     'PyThread_get_thread_ident', 'PyThread_allocate_lock', 'PyThread_free_lock',
     'PyThread_acquire_lock', 'PyThread_release_lock',
     'PyThread_create_key', 'PyThread_delete_key', 'PyThread_set_key_value',
