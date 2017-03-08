@@ -119,6 +119,14 @@ class EnvBuilder:
             executable = os.environ['__PYVENV_LAUNCHER__']
         else:
             executable = sys.executable
+        #
+        # PyPy extension: resolve 'executable' if it is a symlink
+        try:
+            executable = os.path.join(os.path.dirname(executable),
+                                      os.readlink(executable))
+        except OSError:
+            pass
+        #
         dirname, exename = os.path.split(os.path.abspath(executable))
         context.executable = executable
         context.python_dir = dirname
@@ -217,6 +225,7 @@ class EnvBuilder:
                     copier(context.env_exe, path, relative_symlinks_ok=True)
                     if not os.path.islink(path):
                         os.chmod(path, 0o755)
+            #
             # PyPy extension: also copy the main library, not just the
             # small executable
             for libname in ['libpypy-c.so', 'libpypy-c.dylib']:
@@ -228,6 +237,7 @@ class EnvBuilder:
                     copier(src_library, dest_library)
                     if not os.path.islink(dest_library):
                         os.chmod(dest_library, 0o755)
+            #
         else:
             subdir = 'DLLs'
             include = self.include_binary

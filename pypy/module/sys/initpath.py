@@ -73,18 +73,57 @@ def resolvedirof(filename):
     return dirname
 
 
+def find_pyvenv_cfg(dirname):
+    try:
+        fd = os.open(os.path.join(dirname, 'pyvenv.cfg'), os.O_RDONLY)
+        try:
+            content = os.read(fd, 16384)
+        finally:
+            os.close(fd)
+    except OSError:
+        return ''
+    # painfully parse the file for a line 'home = PATH'
+    for line in content.splitlines():
+        line += '\n'
+        i = 0
+        while line[i] == ' ':
+            i += 1
+        if (line[i] == 'h' and
+            line[i+1] == 'o' and
+            line[i+2] == 'm' and
+            line[i+3] == 'e'):
+            i += 4
+            while line[i] == ' ':
+                i += 1
+            if line[i] == '=':
+                i += 1
+                return line[i:].strip()
+    return ''
+
+
 def find_stdlib(state, executable):
     """
     Find and compute the stdlib path, starting from the directory where
     ``executable`` is and going one level up until we find it.  Return a
     tuple (path, prefix), where ``prefix`` is the root directory which
     contains the stdlib.  If it cannot be found, return (None, None).
+
+    On PyPy3, it will also look for 'pyvenv.cfg' either in the same or
+    in the parent directory of 'executable', and search from the 'home'
+    entry instead of from the path to 'executable'.
     """
     search = 'pypy-c' if executable == '' else executable
+    search_pyvenv_cfg = 2
     while True:
         dirname = resolvedirof(search)
         if dirname == search:
             return None, None  # not found :-(
+        if search_pyvenv_cfg > 0:
+            search_pyvenv_cfg -= 1
+            home = find_pyvenv_cfg(dirname)
+            if home:
+                dirname = home
+                search_pyvenv_cfg = 0
         newpath = compute_stdlib_path_maybe(state, dirname)
         if newpath is not None:
             return newpath, dirname

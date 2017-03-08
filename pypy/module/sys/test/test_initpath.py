@@ -2,7 +2,8 @@ import py
 import os.path
 from pypy.module.sys.initpath import (compute_stdlib_path, find_executable,
                                       find_stdlib, resolvedirof,
-                                      pypy_init_home, pypy_init_free)
+                                      pypy_init_home, pypy_init_free,
+                                      find_pyvenv_cfg)
 from pypy.module.sys.version import PYPY_VERSION, CPYTHON_VERSION
 from rpython.rtyper.lltypesystem import rffi
 
@@ -114,3 +115,26 @@ def test_resolvedirof(tmpdir):
         myfile2 = bar.join('myfile')
         myfile2.mksymlinkto(myfile)
         assert resolvedirof(str(myfile2)) == foo
+
+def test_find_pyvenv_cfg(tmpdir):
+    subdir = tmpdir.join('find_cfg').ensure(dir=True)
+    assert find_pyvenv_cfg(str(subdir)) == ''
+    subdir.join('pyvenv.cfg').write('foobar')
+    assert find_pyvenv_cfg(str(subdir)) == ''
+    subdir.join('pyvenv.cfg').write('foobar\nhome=xyz')
+    assert find_pyvenv_cfg(str(subdir)) == 'xyz'
+    subdir.join('pyvenv.cfg').write('foohome=xyz')
+    assert find_pyvenv_cfg(str(subdir)) == ''
+    subdir.join('pyvenv.cfg').write('home = xyx \nbar = baz\n')
+    assert find_pyvenv_cfg(str(subdir)) == 'xyx'
+
+def test_find_stdlib_follow_pyvenv_cfg(tmpdir):
+    mydir = tmpdir.join('follow_pyvenv_cfg').ensure(dir=True)
+    otherdir = tmpdir.join('otherdir').ensure(dir=True)
+    bin_dir = mydir.join('bin').ensure(dir=True)
+    pypy = bin_dir.join('pypy').ensure(file=True)
+    build_hierarchy(otherdir)
+    for homedir in [otherdir, otherdir.join('bin')]:
+        mydir.join('pyvenv.cfg').write('home = %s\n' % (homedir,))
+        _, prefix = find_stdlib(None, str(pypy))
+        assert prefix == otherdir
