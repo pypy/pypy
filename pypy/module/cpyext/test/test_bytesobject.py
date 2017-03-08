@@ -214,6 +214,15 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
         print(module.fmt(b'd:%d', 10))
         assert module.fmt(b'd:%d', 10) == b'd:10'
 
+    def test_suboffsets(self):
+        module = self.import_extension('foo', [
+            ("check_suboffsets", "METH_O",
+             """
+                Py_buffer view;
+                PyObject_GetBuffer(args, &view, 0);
+                return PyLong_FromLong(view.suboffsets == NULL);
+             """)])
+        assert module.check_suboffsets(b'1234') == 1
 
 class TestBytes(BaseApiTest):
     def test_bytes_resize(self, space, api):
@@ -304,9 +313,3 @@ class TestBytes(BaseApiTest):
         assert api.PyBytes_FromObject(w_obj) is None
         api.PyErr_Clear()
 
-    def test_suboffsets(self, space, api):
-        w_bytes = space.newbytes('1234')
-        view = lltype.malloc(Py_buffer, flavor='raw', zero=True)
-        flags = rffi.cast(rffi.INT_real, 0)
-        api.PyObject_GetBuffer(w_bytes, view, flags)
-        assert not view.c_suboffsets

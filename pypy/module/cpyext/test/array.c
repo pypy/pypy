@@ -2351,10 +2351,10 @@ array_multiply(PyObject* obj1, PyObject* obj2)
     }
     else if(obj1->ob_type == &Arraytype)
         fprintf(stderr, "\nCannot multiply array of type %c and %s\n",
-            ((arrayobject*)obj1)->ob_descr->typecode, obj2->ob_type->tp_name); 
+            ((arrayobject*)obj1)->ob_descr->typecode, obj2->ob_type->tp_name);
     else if(obj2->ob_type == &Arraytype)
         fprintf(stderr, "\nCannot multiply array of type %c and %s\n",
-            ((arrayobject*)obj2)->ob_descr->typecode, obj1->ob_type->tp_name); 
+            ((arrayobject*)obj2)->ob_descr->typecode, obj1->ob_type->tp_name);
     Py_INCREF(Py_NotImplemented);
     return Py_NotImplemented;
 }
@@ -2401,10 +2401,10 @@ array_base_multiply(PyObject* obj1, PyObject* obj2)
     }
     else if(obj1->ob_type == &Arraytype)
         fprintf(stderr, "\nCannot multiply array of type %c and %s\n",
-            ((arrayobject*)obj1)->ob_descr->typecode, obj2->ob_type->tp_name); 
+            ((arrayobject*)obj1)->ob_descr->typecode, obj2->ob_type->tp_name);
     else if(obj2->ob_type == &Arraytype)
         fprintf(stderr, "\nCannot multiply array of type %c and %s\n",
-            ((arrayobject*)obj2)->ob_descr->typecode, obj1->ob_type->tp_name); 
+            ((arrayobject*)obj2)->ob_descr->typecode, obj1->ob_type->tp_name);
     Py_INCREF(Py_NotImplemented);
     return Py_NotImplemented;
 }
@@ -2426,7 +2426,7 @@ static const void *emptybuf = "";
 
 
 static int
-array_buffer_getbuf(arrayobject *self, Py_buffer *view, int flags)
+array_getbuffer(arrayobject *self, Py_buffer *view, int flags)
 {
     if (view==NULL) goto finish;
 
@@ -2463,10 +2463,19 @@ array_buffer_getbuf(arrayobject *self, Py_buffer *view, int flags)
     return 0;
 }
 
+static long releasebuffer_cnt = 0;
+
+static PyObject *
+get_releasebuffer_cnt(void)
+{
+    return PyLong_FromLong(releasebuffer_cnt);
+}
+
 static void
-array_buffer_relbuf(arrayobject *self, Py_buffer *view)
+array_releasebuffer(arrayobject *self, Py_buffer *view)
 {
     self->ob_exports--;
+    releasebuffer_cnt++;
 }
 
 static PySequenceMethods array_as_sequence = {
@@ -2483,8 +2492,8 @@ static PySequenceMethods array_as_sequence = {
 };
 
 static PyBufferProcs array_as_buffer = {
-    (getbufferproc)array_buffer_getbuf,
-    (releasebufferproc)array_buffer_relbuf
+    (getbufferproc)array_getbuffer,
+    (releasebufferproc)array_releasebuffer
 };
 
 static PyObject *
@@ -2872,6 +2881,16 @@ readbuffer_as_string(PyObject *self, PyObject *args)
 }
 
 static PyObject *
+create_and_release_buffer(PyObject *self, PyObject *obj)
+{
+    Py_buffer view;
+    int res = PyObject_GetBuffer(obj, &view, 0);
+    if (res < 0)
+        return NULL;
+    PyBuffer_Release(&view);
+    Py_RETURN_NONE;
+}
+static PyObject *
 write_buffer_len(PyObject * self, PyObject * obj)
 {
     void* buf;
@@ -2890,6 +2909,8 @@ static PyMethodDef a_methods[] = {
      PyDoc_STR("Internal. Used for pickling support.")},
     {"switch_multiply",   (PyCFunction)switch_multiply, METH_NOARGS, NULL},
     {"readbuffer_as_string",   (PyCFunction)readbuffer_as_string, METH_VARARGS, NULL},
+    {"get_releasebuffer_cnt",   (PyCFunction)get_releasebuffer_cnt, METH_NOARGS, NULL},
+    {"create_and_release_buffer",   (PyCFunction)create_and_release_buffer, METH_O, NULL},
     {"write_buffer_len", write_buffer_len, METH_O, NULL},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };

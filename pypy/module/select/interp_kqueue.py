@@ -1,8 +1,10 @@
+import errno
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.error import exception_from_saved_errno, wrap_oserror
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef, generic_new_descr, GetSetProperty
+from pypy.interpreter import timeutils
 from rpython.rlib._rsocket_rffi import socketclose_no_errno
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib import rposix
@@ -49,6 +51,12 @@ CConfig.timespec = rffi_platform.Struct("struct timespec", [
     ("tv_sec", rffi.TIME_T),
     ("tv_nsec", rffi.LONG),
 ])
+
+def fill_timespec(time_float, timespec_ptr):
+    sec = int(time_float)
+    nsec = int(1e9 * (time_float - sec))
+    rffi.setintfield(timespec_ptr, 'c_tv_sec', sec)
+    rffi.setintfield(timespec_ptr, 'c_tv_nsec', nsec)
 
 
 symbol_map = {
@@ -180,13 +188,11 @@ class W_Kqueue(W_Root):
                             raise oefmt(space.w_ValueError,
                                         "Timeout must be None or >= 0, got %s",
                                         str(_timeout))
-                        XXX   # fix test_select_signal.py first, for PEP475!
-                        sec = int(_timeout)
-                        nsec = int(1e9 * (_timeout - sec))
-                        rffi.setintfield(timeout, 'c_tv_sec', sec)
-                        rffi.setintfield(timeout, 'c_tv_nsec', nsec)
+                        fill_timespec(_timeout, timeout)
+                        timeout_at = timeutils.monotonic(space) + _timeout
                         ptimeout = timeout
                     else:
+                        timeout_at = 0.0
                         ptimeout = lltype.nullptr(timespec)
 
                     if not space.is_w(w_changelist, space.w_None):
@@ -204,29 +210,40 @@ class W_Kqueue(W_Root):
                     else:
                         pchangelist = lltype.nullptr(rffi.CArray(kevent))
 
-                    nfds = syscall_kevent(self.kqfd,
-                                          pchangelist,
-                                          changelist_len,
-                                          eventlist,
-                                          max_events,
-                                          ptimeout)
-                    if nfds < 0:
-                        raise exception_from_saved_errno(space, space.w_OSError)
-                    else:
-                        elist_w = [None] * nfds
-                        for i in xrange(nfds):
+                    while True:
+                        nfds = syscall_kevent(self.kqfd,
+                                              pchangelist,
+                                              changelist_len,
+                                              eventlist,
+                                              max_events,
+                                              ptimeout)
+                        if nfds >= 0:
+                            break
+                        if rposix.get_saved_errno() != errno.EINTR:
+                            raise exception_from_saved_errno(space,
+                                                             space.w_OSError)
+                        space.getexecutioncontext().checksignals()
+                        if ptimeout:
+                            _timeout = (timeout_at -
+                                        timeutils.monotonic(space))
+                            if _timeout < 0.0:
+                                _timeout = 0.0
+                            fill_timespec(_timeout, ptimeout)
 
-                            evt = eventlist[i]
+                    elist_w = [None] * nfds
+                    for i in xrange(nfds):
 
-                            w_event = W_Kevent(space)
-                            w_event.ident = evt.c_ident
-                            w_event.filter = evt.c_filter
-                            w_event.flags = evt.c_flags
-                            w_event.fflags = evt.c_fflags
-                            w_event.data = evt.c_data
-                            w_event.udata = evt.c_udata
+                        evt = eventlist[i]
 
-                            elist_w[i] = w_event
+                        w_event = W_Kevent(space)
+                        w_event.ident = evt.c_ident
+                        w_event.filter = evt.c_filter
+                        w_event.flags = evt.c_flags
+                        w_event.fflags = evt.c_fflags
+                        w_event.data = evt.c_data
+                        w_event.udata = evt.c_udata
+
+                        elist_w[i] = w_event
 
                     return space.newlist(elist_w)
 

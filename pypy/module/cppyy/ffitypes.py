@@ -81,13 +81,15 @@ class CharTypeMixin(object):
                 raise oefmt(space.w_ValueError, "char arg not in range(256)")
 
             value = rffi.cast(rffi.CHAR, space.c_int_w(w_value))
+        elif space.isinstance_w(w_value, space.w_text):
+            value = space.text_w(w_value)
         else:
             value = space.bytes_w(w_value)
 
         if len(value) != 1:  
             raise oefmt(space.w_ValueError,
                         "char expected, got string of size %d", len(value))
-        return value[0] # turn it into a "char" to the annotator
+        return rffi.cast(rffi.CHAR, value[0]) # help the annotator
 
     def cffi_type(self, space):
         state = space.fromcache(State)

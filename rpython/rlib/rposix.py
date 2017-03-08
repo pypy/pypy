@@ -2451,3 +2451,21 @@ if not _WIN32:
     def set_status_flags(fd, flags):
         res = c_set_status_flags(fd, flags)
         handle_posix_error('set_status_flags', res)
+
+if not _WIN32:
+    sendfile_eci = ExternalCompilationInfo(includes=["sys/sendfile.h"])
+    _OFF_PTR_T = rffi.CArrayPtr(OFF_T)
+    c_sendfile = rffi.llexternal('sendfile',
+            [rffi.INT, rffi.INT, _OFF_PTR_T, rffi.SIZE_T],
+            rffi.SSIZE_T, compilation_info=sendfile_eci)
+
+    def sendfile(out_fd, in_fd, offset, count):
+        with lltype.scoped_alloc(_OFF_PTR_T.TO, 1) as p_offset:
+            p_offset[0] = rffi.cast(OFF_T, offset)
+            res = c_sendfile(out_fd, in_fd, p_offset, count)
+        return handle_posix_error('sendfile', res)
+
+    def sendfile_no_offset(out_fd, in_fd, count):
+        """Passes offset==NULL; not support on all OSes"""
+        res = c_sendfile(out_fd, in_fd, lltype.nullptr(_OFF_PTR_T.TO), count)
+        return handle_posix_error('sendfile', res)

@@ -233,21 +233,21 @@ class TestPartialC(TestPartial, unittest.TestCase):
         f = self.partial(capture)
         f.__setstate__((f, (), {}, {}))
         try:
-            self.assertEqual(repr(f), '%s(%s(...))' % (name, name))
+            self.assertEqual(repr(f), '%s(...)' % (name))
         finally:
             f.__setstate__((capture, (), {}, {}))
 
         f = self.partial(capture)
         f.__setstate__((capture, (f,), {}, {}))
         try:
-            self.assertEqual(repr(f), '%s(%r, %s(...))' % (name, capture, name))
+            self.assertEqual(repr(f), '%s(%r, ...)' % (name, capture))
         finally:
             f.__setstate__((capture, (), {}, {}))
 
         f = self.partial(capture)
         f.__setstate__((capture, (), {'a': f}, {}))
         try:
-            self.assertEqual(repr(f), '%s(%r, a=%s(...))' % (name, capture, name))
+            self.assertEqual(repr(f), '%s(%r, a=...)' % (name, capture))
         finally:
             f.__setstate__((capture, (), {}, {}))
 

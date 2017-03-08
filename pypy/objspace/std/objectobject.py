@@ -27,6 +27,9 @@ def _getstate(obj):
         # and raises a TypeError if the condition holds true, this is done
         # just before reduce_2 is called in pypy
         state = getattr(obj, "__dict__", None)
+        # CPython returns None if the dict is empty
+        if state is not None and len(state) == 0:
+            state = None
         names = slotnames(cls) # not checking for list
         if names is not None:
             slots = {}

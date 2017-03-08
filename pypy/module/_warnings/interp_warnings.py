@@ -226,14 +226,16 @@ def already_warned(space, w_registry, w_key, should_set=False):
     return False
 
 def normalize_module(space, w_filename):
-    filename = space.text_w(w_filename)
+    # XXX: could be more efficient (doesn't necessarily need
+    # fsencoding/redecoding)
+    filename = space.fsencode_w(w_filename)
     if len(filename) == 0:
         return space.newtext("<unknown>")
     if filename.endswith(".py"):
         n = len(filename) - 3
         assert n >= 0
         filename = filename[:n]
-        return space.newtext(filename)
+        return space.newfilename(filename)
     return w_filename
 
 def show_warning(space, w_filename, lineno, w_text, w_category,

@@ -296,7 +296,8 @@ def test_timeout():
 
 
 class AppTestSocket:
-    spaceconfig = dict(usemodules=['_socket', '_weakref', 'struct', 'select'])
+    spaceconfig = dict(usemodules=['_socket', '_weakref', 'struct', 'select',
+                                   'unicodedata'])
 
     def setup_class(cls):
         cls.space = space
@@ -667,8 +668,6 @@ class AppTestSocket:
     def test_hostname_unicode(self):
         import _socket
         domain = u"испытание.pythontest.net"
-        # XXX figure out why the idna encoding is sometimes missing in
-        # tests, notably if we run all tests instead of just this one
         _socket.gethostbyname(domain)
         _socket.gethostbyname_ex(domain)
         _socket.getaddrinfo(domain, 0, _socket.AF_UNSPEC, _socket.SOCK_STREAM)

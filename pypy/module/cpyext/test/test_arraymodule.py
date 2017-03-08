@@ -69,6 +69,23 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
                                 b'\x03\0\0\0'
                                 b'\x04\0\0\0')
 
+    def test_releasebuffer(self):
+        module = self.import_module(name='array')
+        arr = module.array('i', [1,2,3,4])
+        assert module.get_releasebuffer_cnt() == 0
+        module.create_and_release_buffer(arr)
+        assert module.get_releasebuffer_cnt() == 1
+
+    def test_Py_buffer(self):
+        module = self.import_module(name='array')
+        arr = module.array('i', [1,2,3,4])
+        assert module.get_releasebuffer_cnt() == 0
+        m = memoryview(arr)
+        assert module.get_releasebuffer_cnt() == 0
+        del m
+        self.debug_collect()
+        assert module.get_releasebuffer_cnt() == 1
+
     def test_0d_view(self):
         module = self.import_module(name='array')
         arr = module.array('B', b'\0\0\0\x01')

@@ -89,6 +89,11 @@ class AppTestObject:
         assert '__getnewargs__' not in seen
         assert '__getnewargs_ex__' not in seen
 
+    def test_reduce_state_empty_dict(self):
+        class X(object):
+            pass
+        assert X().__reduce_ex__(2)[2] is None
+
     def test_default_format(self):
         class x(object):
             def __str__(self):

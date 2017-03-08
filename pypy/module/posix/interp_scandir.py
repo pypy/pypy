@@ -161,7 +161,7 @@ class W_DirEntry(W_Root):
         if (self.flags & FLAG_LSTAT) == 0:
             # Unlike CPython, try to use fstatat() if possible
             dirfd = self.scandir_iterator.dirfd
-            if dirfd != -1:
+            if dirfd != -1 and rposix.HAVE_FSTATAT:
                 st = rposix_stat.fstatat(self.name, dirfd,
                                          follow_symlinks=False)
             else:
@@ -206,7 +206,7 @@ class W_DirEntry(W_Root):
             if must_call_stat:
                 # Must call stat().  Try to use fstatat() if possible
                 dirfd = self.scandir_iterator.dirfd
-                if dirfd != -1:
+                if dirfd != -1 and rposix.HAVE_FSTATAT:
                     st = rposix_stat.fstatat(self.name, dirfd,
                                              follow_symlinks=True)
                 else:

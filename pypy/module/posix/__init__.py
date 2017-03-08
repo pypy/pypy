@@ -1,3 +1,4 @@
+import sys
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib import rposix
 from rpython.rlib import rdynload
@@ -212,6 +213,9 @@ corresponding Unix manual entries for more information on calls."""
         for _name in ['PRIO_PROCESS', 'PRIO_PGRP', 'PRIO_USER']:
             assert getattr(rposix, _name) is not None, "missing %r" % (_name,)
             interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
+
+    if sys.platform.startswith('linux'): #hasattr(rposix, 'sendfile'):
+        interpleveldefs['sendfile'] = 'interp_posix.sendfile'
 
     if hasattr(rposix, 'pread'):
         interpleveldefs['pread'] = 'interp_posix.pread'

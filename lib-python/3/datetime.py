@@ -1000,6 +1000,11 @@ class tzinfo:
         else:
             return (self.__class__, args, state)
 
+    # PyPy: added for compatibility with the _datetime module
+    # issue #2489
+    def __new__(cls, *args, **kwds):
+        return super(tzinfo, cls).__new__(cls)
+
 _tzinfo_class = tzinfo
 
 class time:

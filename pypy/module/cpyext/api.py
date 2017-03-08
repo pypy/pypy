@@ -579,7 +579,7 @@ SYMBOLS_C = [
     'PyObject_CallMethod', 'PyObject_CallFunctionObjArgs', 'PyObject_CallMethodObjArgs',
     '_PyObject_CallFunction_SizeT', '_PyObject_CallMethod_SizeT',
 
-    'PyBuffer_Release',
+    'PyObject_GetBuffer', 'PyBuffer_Release',
 
     'PyCObject_FromVoidPtr', 'PyCObject_FromVoidPtrAndDesc', 'PyCObject_AsVoidPtr',
     'PyCObject_GetDesc', 'PyCObject_Import', 'PyCObject_SetVoidPtr',
@@ -597,6 +597,7 @@ SYMBOLS_C = [
     'PyImport_ImportModuleLevel',
 
     'PyOS_getsig', 'PyOS_setsig',
+    '_Py_RestoreSignals',
     'PyThread_get_thread_ident', 'PyThread_allocate_lock', 'PyThread_free_lock',
     'PyThread_acquire_lock', 'PyThread_release_lock',
     'PyThread_create_key', 'PyThread_delete_key', 'PyThread_set_key_value',

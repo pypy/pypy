@@ -2371,3 +2371,28 @@ def set_blocking(space, fd, blocking):
         rposix.set_status_flags(fd, flags)
     except OSError as e:
         raise wrap_oserror(space, e, eintr_retry=False)
+
+@unwrap_spec(out=c_int, count=int)
+def sendfile(space, out, w_in, w_offset, count):
+    # why is an argument called "in"???  that doesn't make sense (it is
+    # a reserved word), but that's what CPython does
+    in_ = space.c_int_w(w_in)
+
+    # XXX only supports the common arguments for now (BSD takes more).
+    # Until that is fixed, we only expose sendfile() on linux.
+    if space.is_none(w_offset):     # linux only
+        while True:
+            try:
+                res = rposix.sendfile_no_offset(out, in_, count)
+                break
+            except OSError as e:
+                wrap_oserror(space, e, eintr_retry=True)
+    else:
+        offset = space.gateway_r_longlong_w(w_offset)
+        while True:
+            try:
+                res = rposix.sendfile(out, in_, offset, count)
+                break
+            except OSError as e:
+                wrap_oserror(space, e, eintr_retry=True)
+    return space.newint(res)

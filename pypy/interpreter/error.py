@@ -672,14 +672,16 @@ def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
                          w_filename2=w_filename2,
                          eintr_retry=eintr_retry)
 
-def exception_from_saved_errno(space, w_type):
-    from rpython.rlib.rposix import get_saved_errno
-
-    errno = get_saved_errno()
+def exception_from_errno(space, w_type, errno):
     msg = strerror(errno)
     w_error = space.call_function(w_type, space.newint(errno),
                                   space.newunicode(msg))
     return OperationError(w_type, w_error)
+
+def exception_from_saved_errno(space, w_type):
+    from rpython.rlib.rposix import get_saved_errno
+    errno = get_saved_errno()
+    return exception_from_errno(space, w_type, errno)
 
 def new_exception_class(space, name, w_bases=None, w_dict=None):
     """Create a new exception type.

@@ -565,6 +565,8 @@ class W_Socket(W_Root):
             raise oefmt(space.w_ValueError, "negative buffersize in recv_into")
         if nbytes == 0:
             nbytes = lgt
+        if lgt < nbytes:
+            raise oefmt(space.w_ValueError, "buffer too small for requested bytes")
         while True:
             try:
                 nbytes_read = self.sock.recvinto(rwbuffer, nbytes, flags)
