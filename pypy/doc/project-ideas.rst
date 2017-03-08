@@ -8,7 +8,7 @@ PyPy is generally open to new ideas for Google Summer of Code. We are happy to a
 
 
 * **Optimize PyPy Memory Usage**:  Sometimes PyPy consumes more memory than CPython.
-  Two examples: 1) PyPy seems allocate and keep many strings when importing a big Python modules.
+  Two examples: 1) PyPy seems to allocate and keep alive more strings when importing a big Python modules.
   2) The base interpreter size (cold VM started from a console) of PyPy is bigger than the one of CPython.
   The general procedure of this project is: Run both CPython and PyPy of the same Python version and
   compare the memory usage (using Massif or other tools).
