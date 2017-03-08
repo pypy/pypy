@@ -693,6 +693,20 @@ if sys.platform != 'win32':
         s2.close()
         s1.close()
 
+    def test_sendfile_invalid_offset():
+        from rpython.rlib import rsocket
+        s1, s2 = rsocket.socketpair()
+        relpath = 'test_sendfile_invalid_offset'
+        filename = str(udir.join(relpath))
+        fd = os.open(filename, os.O_RDWR|os.O_CREAT, 0777)
+        os.write(fd, 'abcdefghij')
+        with py.test.raises(OSError) as excinfo:
+            rposix.sendfile(s1.fd, fd, -1, 5)
+        assert excinfo.value.errno == errno.EINVAL
+        os.close(fd)
+        s2.close()
+        s1.close()
+
 if sys.platform.startswith('linux'):
     def test_sendfile_no_offset():
         from rpython.rlib import rsocket

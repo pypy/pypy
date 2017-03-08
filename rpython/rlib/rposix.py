@@ -2434,7 +2434,8 @@ if not _WIN32:
     _OFF_PTR_T = rffi.CArrayPtr(OFF_T)
     c_sendfile = rffi.llexternal('sendfile',
             [rffi.INT, rffi.INT, _OFF_PTR_T, rffi.SIZE_T],
-            rffi.SSIZE_T, compilation_info=sendfile_eci)
+            rffi.SSIZE_T, save_err=rffi.RFFI_SAVE_ERRNO,
+            compilation_info=sendfile_eci)
 
     def sendfile(out_fd, in_fd, offset, count):
         with lltype.scoped_alloc(_OFF_PTR_T.TO, 1) as p_offset:
