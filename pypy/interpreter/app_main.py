@@ -212,7 +212,7 @@ def _print_jit_help():
 
 def print_version(*args):
     initstdio()
-    print ("Python", sys.version, file=sys.stderr)
+    print("Python", sys.version)
     raise SystemExit
 
 
