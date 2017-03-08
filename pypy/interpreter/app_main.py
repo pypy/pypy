@@ -534,14 +534,6 @@ def parse_command_line(argv):
     sys._xoptions = dict(x.split('=', 1) if '=' in x else (x, True)
                          for x in options['_xoptions'])
 
-    if 'faulthandler' in sys.builtin_module_names:
-        if 'faulthandler' in sys._xoptions or os.getenv('PYTHONFAULTHANDLER'):
-            import faulthandler
-            try:
-                faulthandler.enable(2)   # manually set to stderr
-            except ValueError:
-                pass      # ignore "2 is not a valid file descriptor"
-
 ##    if not we_are_translated():
 ##        for key in sorted(options):
 ##            print '%40s: %s' % (key, options[key])
@@ -577,6 +569,14 @@ def run_command_line(interactive,
     readenv = not ignore_environment
     io_encoding = os.getenv("PYTHONIOENCODING") if readenv else None
     initstdio(io_encoding, unbuffered)
+
+    if 'faulthandler' in sys.builtin_module_names:
+        if 'faulthandler' in sys._xoptions or os.getenv('PYTHONFAULTHANDLER'):
+            import faulthandler
+            try:
+                faulthandler.enable(2)   # manually set to stderr
+            except ValueError:
+                pass      # ignore "2 is not a valid file descriptor"
 
     if we_are_translated():
         import __pypy__
