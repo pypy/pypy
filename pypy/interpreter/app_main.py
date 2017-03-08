@@ -559,6 +559,7 @@ def run_command_line(interactive,
                      ignore_environment,
                      quiet,
                      verbose,
+                     isolated,
                      **ignored):
     # with PyPy in top of CPython we can only have around 100
     # but we need more in the translated PyPy for the compiler package
@@ -648,12 +649,14 @@ def run_command_line(interactive,
                 display_exception(e)
                 success = False
             else:
-                sys.path.insert(0, '')
+                if not isolated:
+                    sys.path.insert(0, '')
                 success = run_toplevel(exec_, bytes, mainmodule.__dict__)
         elif run_module != 0:
             # handle the "-m" command
             # '' on sys.path is required also here
-            sys.path.insert(0, '')
+            if not isolated:
+                sys.path.insert(0, '')
             import runpy
             success = run_toplevel(runpy._run_module_as_main, run_module)
         elif run_stdin:
@@ -664,7 +667,8 @@ def run_command_line(interactive,
             # "site.py" file in the script's directory. Only run this if we're
             # executing the interactive prompt, if we're running a script we
             # put it's directory on sys.path
-            sys.path.insert(0, '')
+            if not isolated:
+                sys.path.insert(0, '')
 
             if interactive or sys.stdin.isatty():
                 # If stdin is a tty or if "-i" is specified, we print a
@@ -715,7 +719,8 @@ def run_command_line(interactive,
             filename = sys.argv[0]
             mainmodule.__file__ = filename
             mainmodule.__cached__ = None
-            sys.path.insert(0, sys.pypy_resolvedirof(filename))
+            if not isolated:
+                sys.path.insert(0, sys.pypy_resolvedirof(filename))
             # assume it's a pyc file only if its name says so.
             # CPython goes to great lengths to detect other cases
             # of pyc file format, but I think it's ok not to care.
