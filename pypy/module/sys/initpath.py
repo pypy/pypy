@@ -8,6 +8,7 @@ import stat
 import sys
 
 from rpython.rlib import rpath, rdynload
+from rpython.rlib.rstring import assert_str0
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -75,7 +76,7 @@ def resolvedirof(filename):
 
 def find_pyvenv_cfg(dirname):
     try:
-        fd = os.open(os.path.join(dirname, 'pyvenv.cfg'), os.O_RDONLY)
+        fd = os.open(os.path.join(dirname, 'pyvenv.cfg'), os.O_RDONLY, 0)
         try:
             content = os.read(fd, 16384)
         finally:
@@ -84,7 +85,7 @@ def find_pyvenv_cfg(dirname):
         return ''
     # painfully parse the file for a line 'home = PATH'
     for line in content.splitlines():
-        line += '\n'
+        line += '\x00'
         i = 0
         while line[i] == ' ':
             i += 1
@@ -96,8 +97,11 @@ def find_pyvenv_cfg(dirname):
             while line[i] == ' ':
                 i += 1
             if line[i] == '=':
-                i += 1
-                return line[i:].strip()
+                line = line[i+1:]
+                n = line.find('\x00')
+                assert n >= 0
+                line = line[:n]
+                return assert_str0(line.strip())
     return ''
 
 
