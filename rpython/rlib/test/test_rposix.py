@@ -676,3 +676,30 @@ def test_getpriority():
     prio = rposix.getpriority(rposix.PRIO_PROCESS, 0)
     rposix.setpriority(rposix.PRIO_PROCESS, 0, prio)
     py.test.raises(OSError, rposix.getpriority, rposix.PRIO_PGRP, 123456789)
+
+@rposix_requires('pread')
+def test_pread():
+    fname = str(udir.join('os_test.txt'))
+    fd = os.open(fname, os.O_RDWR | os.O_CREAT)
+    try:
+        assert fd >= 0
+        os.write(fd, b'Hello world')
+        os.lseek(fd, 0, 0)
+        assert rposix.pread(fd, 2, 1) == b'el'
+    finally:
+        os.close(fd)
+    py.test.raises(OSError, rposix.pread, fd, 2, 1)
+
+@rposix_requires('pwrite')
+def test_pwrite():
+    fname = str(udir.join('os_test.txt'))
+    fd = os.open(fname, os.O_RDWR | os.O_CREAT, 0777)
+    try:
+        assert fd >= 0
+        os.write(fd, b'Hello world')
+        os.lseek(fd, 0, 0)
+        rposix.pwrite(fd, b'ea', 1)
+        assert os.read(fd, 4) == b'Heal'
+    finally:
+        os.close(fd)
+    py.test.raises(OSError, rposix.pwrite, fd, b'ea', 1)

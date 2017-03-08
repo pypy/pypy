@@ -384,7 +384,7 @@ def pread(space, fd, length, offset):
         try:
             s = rposix.pread(fd, length, offset)
         except OSError as e:
-            raise wrap_oserror(space, e, eintr_retry=True)
+            raise wrap_oserror(space, e, eintr_retry=False)
         else:
            return space.newbytes(s)
 
