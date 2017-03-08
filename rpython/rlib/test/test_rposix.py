@@ -676,7 +676,40 @@ def test_getpriority():
     prio = rposix.getpriority(rposix.PRIO_PROCESS, 0)
     rposix.setpriority(rposix.PRIO_PROCESS, 0, prio)
     py.test.raises(OSError, rposix.getpriority, rposix.PRIO_PGRP, 123456789)
+    
+if sys.platform != 'win32':
+    def test_sendfile():
+        from rpython.rlib import rsocket
+        s1, s2 = rsocket.socketpair()
+        relpath = 'test_sendfile'
+        filename = str(udir.join(relpath))
+        fd = os.open(filename, os.O_RDWR|os.O_CREAT, 0777)
+        os.write(fd, 'abcdefghij')
+        res = rposix.sendfile(s1.fd, fd, 3, 5)
+        assert res == 5
+        data = os.read(s2.fd, 10)
+        assert data == 'defgh'
+        os.close(fd)
+        s2.close()
+        s1.close()
 
+if sys.platform.startswith('linux'):
+    def test_sendfile_no_offset():
+        from rpython.rlib import rsocket
+        s1, s2 = rsocket.socketpair()
+        relpath = 'test_sendfile'
+        filename = str(udir.join(relpath))
+        fd = os.open(filename, os.O_RDWR|os.O_CREAT, 0777)
+        os.write(fd, 'abcdefghij')
+        os.lseek(fd, 3, 0)
+        res = rposix.sendfile_no_offset(s1.fd, fd, 5)
+        assert res == 5
+        data = os.read(s2.fd, 10)
+        assert data == 'defgh'
+        os.close(fd)
+        s2.close()
+        s1.close()
+        
 @rposix_requires('pread')
 def test_pread():
     fname = str(udir.join('os_test.txt'))
