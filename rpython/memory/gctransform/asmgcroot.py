@@ -341,6 +341,9 @@ class AsmStackRootWalker(BaseRootWalker):
         # called first, to initialize self.belongs_to_current_thread.
         assert not hasattr(self, 'gc_detach_callback_pieces_ptr')
 
+    def postprocess_graph(self, gct, graph, any_inlining):
+        pass
+
     def walk_stack_roots(self, collect_stack_root, is_minor=False):
         gcdata = self.gcdata
         gcdata._gc_collect_stack_root = collect_stack_root

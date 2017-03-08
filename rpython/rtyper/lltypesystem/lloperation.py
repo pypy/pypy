@@ -498,6 +498,13 @@ LL_OPERATIONS = {
 
     'gc_move_out_of_nursery':           LLOp(),
 
+    'gc_push_roots'        : LLOp(),  # temporary: list of roots to save
+    'gc_pop_roots'         : LLOp(),  # temporary: list of roots to restore
+    'gc_enter_roots_frame' : LLOp(),  # reserve N entries, save local frame pos
+    'gc_leave_roots_frame' : LLOp(),  # free the shadowstack frame
+    'gc_save_root'         : LLOp(),  # save value Y in shadowstack pos X
+    'gc_restore_root'      : LLOp(),  # restore value Y from shadowstack pos X
+
     # ------- JIT & GC interaction, only for some GCs ----------
 
     'gc_adr_of_nursery_free' : LLOp(),

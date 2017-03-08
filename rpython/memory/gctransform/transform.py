@@ -97,6 +97,7 @@ class BaseGCTransformer(object):
         self.inline = inline
         if translator and inline:
             self.lltype_to_classdef = translator.rtyper.lltype_to_classdef_mapping()
+            self.raise_analyzer = RaiseAnalyzer(translator)
         self.graphs_to_inline = {}
         self.graph_dependencies = {}
         self.ll_finalizers_ptrs = []
@@ -113,28 +114,36 @@ class BaseGCTransformer(object):
         self.seen_graphs.add(graph)
         self.minimal_transform.add(graph)
 
-    def inline_helpers(self, graphs):
+    def inline_helpers_into(self, graph):
         from rpython.translator.backendopt.inline import iter_callsites
-        raise_analyzer = RaiseAnalyzer(self.translator)
+        to_enum = []
+        for called, block, i in iter_callsites(graph, None):
+            if called in self.graphs_to_inline:
+                to_enum.append(called)
+        any_inlining = False
+        for inline_graph in to_enum:
+            try:
+                inline.inline_function(self.translator, inline_graph, graph,
+                                       self.lltype_to_classdef,
+                                       self.raise_analyzer,
+                                       cleanup=False)
+                any_inlining = True
+            except inline.CannotInline as e:
+                print 'CANNOT INLINE:', e
+                print '\t%s into %s' % (inline_graph, graph)
+                raise      # for now, make it a fatal error
+        cleanup_graph(graph)
+        if any_inlining:
+            constant_fold_graph(graph)
+        return any_inlining
+
+    def inline_helpers_and_postprocess(self, graphs):
         for graph in graphs:
-            to_enum = []
-            for called, block, i in iter_callsites(graph, None):
-                if called in self.graphs_to_inline:
-                    to_enum.append(called)
-            must_constfold = False
-            for inline_graph in to_enum:
-                try:
-                    inline.inline_function(self.translator, inline_graph, graph,
-                                           self.lltype_to_classdef,
-                                           raise_analyzer,
-                                           cleanup=False)
-                    must_constfold = True
-                except inline.CannotInline as e:
-                    print 'CANNOT INLINE:', e
-                    print '\t%s into %s' % (inline_graph, graph)
-            cleanup_graph(graph)
-            if must_constfold:
-                constant_fold_graph(graph)
+            any_inlining = self.inline and self.inline_helpers_into(graph)
+            self.postprocess_graph(graph, any_inlining)
+
+    def postprocess_graph(self, graph, any_inlining):
+        pass
 
     def compute_borrowed_vars(self, graph):
         # the input args are borrowed, and stay borrowed for as long as they
