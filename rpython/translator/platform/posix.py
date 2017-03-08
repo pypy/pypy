@@ -102,7 +102,7 @@ class BasePosix(Platform):
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
-                     no_precompile_cfiles = [], icon=None):
+                     no_precompile_cfiles = [], config=None):
         cfiles = self._all_cfiles(cfiles, eci)
 
         if path is None:
@@ -131,6 +131,10 @@ class BasePosix(Platform):
             cflags = tuple(self.cflags) + self.get_shared_only_compile_flags()
         else:
             cflags = tuple(self.cflags) + tuple(self.standalone_only)
+
+        # xxx check which compilers accept this option or not
+        if not config or config.translation.gcrootfinder != 'asmgcc':
+            cflags = ('-flto',) + cflags
 
         m = GnuMakefile(path)
         m.exe_name = path.join(exe_name.basename)

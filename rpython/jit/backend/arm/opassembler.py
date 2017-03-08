@@ -362,9 +362,8 @@ class ResOpAssembler(BaseAssembler):
             res_loc = arglocs[1]     # cond_call_value
         else:
             res_loc = None           # cond_call
-        # useless to list res_loc in the gcmap, because if the call is
-        # done it means res_loc was initially NULL
-        gcmap = regalloc.get_gcmap([call_loc])
+        # see x86.regalloc for why we skip res_loc in the gcmap
+        gcmap = regalloc.get_gcmap([res_loc])
 
         assert call_loc is r.r4
         jmp_adr = self.mc.currpos()

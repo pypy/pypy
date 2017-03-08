@@ -193,3 +193,10 @@ SyntaxError.
 Improve the optimization of branchy Python code by retaining more
 information across failing guards. This is done by appending some
 carefully encoded extra information into the resume code.
+
+.. branch: shadowstack-perf-2
+
+Two changes that together bring the performance of shadowstack close to
+asmgcc---close enough that we can now make shadowstack the default even
+on Linux.  This should remove a whole class of rare bugs introduced by
+asmgcc.
