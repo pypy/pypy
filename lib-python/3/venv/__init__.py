@@ -122,8 +122,10 @@ class EnvBuilder:
         #
         # PyPy extension: resolve 'executable' if it is a symlink
         try:
-            executable = os.path.join(os.path.dirname(executable),
-                                      os.readlink(executable))
+            for i in range(10):
+                executable = os.path.abspath(executable)
+                executable = os.path.join(os.path.dirname(executable),
+                                          os.readlink(executable))
         except OSError:
             pass
         #

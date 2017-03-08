@@ -46,6 +46,22 @@ else:
     def failsOnWindows(f):
         return f
 
+def _my_executable():
+    # PyPy: resolve the executable if it is a symlink
+    if sys.platform == 'darwin' and '__PYVENV_LAUNCHER__' in os.environ:
+        executable = os.environ['__PYVENV_LAUNCHER__']
+    else:
+        executable = sys.executable
+    try:
+        for i in range(10):
+            executable = os.path.abspath(executable)
+            executable = os.path.join(os.path.dirname(executable),
+                                      os.readlink(executable))
+    except OSError:
+        pass
+    return executable
+
+
 class BaseTest(unittest.TestCase):
     """Base class for venv tests."""
 
@@ -59,10 +75,7 @@ class BaseTest(unittest.TestCase):
             self.bindir = 'bin'
             self.lib = ('lib', 'python%s' % sys.version[:3])
             self.include = 'include'
-        if sys.platform == 'darwin' and '__PYVENV_LAUNCHER__' in os.environ:
-            executable = os.environ['__PYVENV_LAUNCHER__']
-        else:
-            executable = sys.executable
+        executable = _my_executable()
         self.exe = os.path.split(executable)[-1]
 
     def tearDown(self):
@@ -107,11 +120,7 @@ class BasicTest(BaseTest):
         else:
             self.assertFalse(os.path.exists(p))
         data = self.get_text_file_contents('pyvenv.cfg')
-        if sys.platform == 'darwin' and ('__PYVENV_LAUNCHER__'
-                                         in os.environ):
-            executable =  os.environ['__PYVENV_LAUNCHER__']
-        else:
-            executable = sys.executable
+        executable = _my_executable()
         path = os.path.dirname(executable)
         self.assertIn('home = %s' % path, data)
         fn = self.get_env_file(self.bindir, self.exe)
