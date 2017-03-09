@@ -200,7 +200,7 @@ class MsvcPlatform(Platform):
     def _linkfiles(self, link_files):
         return list(link_files)
 
-    def _args_for_shared(self, args):
+    def _args_for_shared(self, args, **kwds):
         return ['/dll'] + args
 
     def check___thread(self):
@@ -555,7 +555,7 @@ class MingwPlatform(posix.BasePosix):
             cc = 'gcc'
         Platform.__init__(self, cc)
 
-    def _args_for_shared(self, args):
+    def _args_for_shared(self, args, **kwds):
         return ['-shared'] + args
 
     def _include_dirs_for_libffi(self):
