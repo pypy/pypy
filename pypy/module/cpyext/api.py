@@ -1337,6 +1337,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "complexobject.c",
                          source_dir / "import.c",
                          source_dir / "_warnings.c",
+                         source_dir / "pylifecycle.c",
                          ]
 
 def build_eci(code, use_micronumpy=False, translating=False):

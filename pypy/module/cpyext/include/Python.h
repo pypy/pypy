@@ -133,6 +133,7 @@
 #include "pysignals.h"
 #include "pythread.h"
 #include "traceback.h"
+#include "pylifecycle.h"
 
 /* Missing definitions */
 #include "missing.h"
