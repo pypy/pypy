@@ -1169,7 +1169,12 @@ class BufferedReaderTest(unittest.TestCase, CommonBufferedTests):
         b = bytearray(2*buffer_size)
         self.assertEqual(bufio.peek(3), b'fgh')
         self.assertEqual(rawio._reads, 3)
-        self.assertEqual(bufio.readinto1(b), 6)
+        self.assertEqual(bufio.readinto1(b), 6)  # fails because of
+        # an apparent inconsistency in CPython: readinto1(), if the
+        # buffered amount is smaller, would always issue one raw read()
+        # call.  This differs from read1(), which if the buffered amount
+        # if smaller (but more than zero), would just return it without
+        # any raw read() call.  In PyPy both have the behavior of read1().
         self.assertEqual(b[:6], b"fghjkl")
         self.assertEqual(rawio._reads, 4)
 
