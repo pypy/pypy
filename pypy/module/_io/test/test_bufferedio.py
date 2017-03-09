@@ -24,10 +24,12 @@ class AppTestBufferedReader:
         raises(ValueError, f.read, -2)
         f.close()
         #
-        raw = _io.FileIO(self.tmpfile)
+        raw = _io.FileIO(self.tmpfile, 'r+')
         f = _io.BufferedReader(raw)
         r = f.read(4)
         assert r == b"a\nb\n"
+        assert f.readable() is True
+        assert f.writable() is False
         f.close()
 
     def test_read_pieces(self):
@@ -320,10 +322,12 @@ class AppTestBufferedWriter:
 
     def test_write(self):
         import _io
-        raw = _io.FileIO(self.tmpfile, 'w')
+        raw = _io.FileIO(self.tmpfile, 'w+')
         f = _io.BufferedWriter(raw)
         f.write(b"abcd")
         raises(TypeError, f.write, u"cd")
+        assert f.writable() is True
+        assert f.readable() is False
         f.close()
         assert self.readfile() == b"abcd"
 

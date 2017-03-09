@@ -912,7 +912,6 @@ W_BufferedReader.typedef = TypeDef(
     # from the mixin class
     __repr__ = interp2app(W_BufferedReader.repr_w),
     readable = interp2app(W_BufferedReader.readable_w),
-    writable = interp2app(W_BufferedReader.writable_w),
     seekable = interp2app(W_BufferedReader.seekable_w),
     seek = interp2app(W_BufferedReader.seek_w),
     tell = interp2app(W_BufferedReader.tell_w),
@@ -954,7 +953,6 @@ W_BufferedWriter.typedef = TypeDef(
 
     # from the mixin class
     __repr__ = interp2app(W_BufferedWriter.repr_w),
-    readable = interp2app(W_BufferedWriter.readable_w),
     writable = interp2app(W_BufferedWriter.writable_w),
     seekable = interp2app(W_BufferedWriter.seekable_w),
     seek = interp2app(W_BufferedWriter.seek_w),
