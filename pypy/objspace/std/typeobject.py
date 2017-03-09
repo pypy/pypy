@@ -197,6 +197,10 @@ class W_TypeObject(W_Root):
         if self.flag_heaptype:
             w_qualname = self.dict_w.pop('__qualname__', None)
             if w_qualname is not None:
+                if not space.isinstance_w(w_qualname, space.w_unicode):
+                    raise oefmt(space.w_TypeError,
+                                "type __qualname__ must be a str, not %T",
+                                w_qualname)
                 self.qualname = space.unicode_w(w_qualname)
             else:
                 self.qualname = self.getname(space)

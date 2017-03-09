@@ -957,6 +957,9 @@ class AppTestTypeObject:
         assert C.__name__ == 'A'
         assert C.__qualname__ == 'C'
 
+        e = raises(TypeError, type, 'D', (), {'__qualname__': 42})
+        assert str(e.value) == "type __qualname__ must be a str, not int"
+
     def test_compare(self):
         class A(object):
             pass
