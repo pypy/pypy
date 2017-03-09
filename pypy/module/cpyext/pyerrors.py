@@ -4,12 +4,46 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, oefmt, strerror as _strerror
 from pypy.interpreter import pytraceback
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, CONST_STRING
+from pypy.module.cpyext.api import PyObjectFields, cpython_struct
+from pypy.module.cpyext.api import bootstrap_function, slot_function
+from pypy.module.cpyext.pyobject import make_typedescr
 from pypy.module.exceptions.interp_exceptions import W_RuntimeWarning
+from pypy.module.exceptions.interp_exceptions import W_StopIteration
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, make_ref, from_ref, Py_DecRef)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.import_ import PyImport_Import
 from rpython.rlib import rposix, jit
+
+PyStopIterationObjectStruct = lltype.ForwardReference()
+PyStopIterationObject = lltype.Ptr(PyStopIterationObjectStruct)
+PyStopIterationObjectFields = PyObjectFields + \
+    (("value", PyObject), )
+cpython_struct("PyStopIterationObject", PyStopIterationObjectFields,
+               PyStopIterationObjectStruct)
+
+@bootstrap_function
+def init_stopiterationobject(space):
+    "Type description of PyStopIterationObject"
+    make_typedescr(W_StopIteration.typedef,
+                   basestruct=PyStopIterationObject.TO,
+                   attach=stopiteration_attach,
+                   dealloc=stopiteration_dealloc)
+
+def stopiteration_attach(space, py_obj, w_obj, w_userdata=None):
+    py_stopiteration = rffi.cast(PyStopIterationObject, py_obj)
+    assert isinstance(w_obj, W_StopIteration)
+    # note: assumes that w_value is read-only; changes on one side won't
+    # be reflected on the other side
+    py_stopiteration.c_value = make_ref(space, w_obj.w_value)
+
+@slot_function([PyObject], lltype.Void)
+def stopiteration_dealloc(space, py_obj):
+    py_stopiteration = rffi.cast(PyStopIterationObject, py_obj)
+    Py_DecRef(space, py_stopiteration.c_value)
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)
+
 
 @cpython_api([PyObject, PyObject], lltype.Void)
 def PyErr_SetObject(space, w_type, w_value):

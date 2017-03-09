@@ -443,3 +443,15 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             module.test()
         assert len(l) == 1
         assert "foo 42 bar" in str(l[0])
+
+    def test_StopIteration_value(self):
+        module = self.import_extension('foo', [
+                ("test", "METH_O",
+                 '''
+                 PyObject *o = ((PyStopIterationObject *)args)->value;
+                 Py_INCREF(o);
+                 return o;
+                 '''),
+                ])
+        res = module.test(StopIteration("foo!"))
+        assert res == "foo!"
