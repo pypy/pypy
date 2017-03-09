@@ -240,6 +240,7 @@ typedef union _gc_head {
 
 /* dummy GC macros */
 #define _PyGC_FINALIZED(o) 1
+#define PyType_IS_GC(tp) 1
 
 /* Utility macro to help write tp_traverse functions.
  * To use this macro, the tp_traverse function must name its arguments
