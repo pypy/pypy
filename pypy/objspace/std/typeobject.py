@@ -168,6 +168,9 @@ class W_TypeObject(W_Root):
     # used to cache the type's __new__ function
     w_new_function = None
 
+    # set to True by cpyext _before_ it even calls __init__() below
+    flag_cpytype = False
+
     @dont_look_inside
     def __init__(self, space, name, bases_w, dict_w,
                  overridetypedef=None, force_new_layout=False,
@@ -183,7 +186,6 @@ class W_TypeObject(W_Root):
         self.w_doc = space.w_None
         self.weak_subclasses = []
         self.flag_heaptype = is_heaptype
-        self.flag_cpytype = False
         self.flag_abstract = False
         self.flag_sequence_bug_compat = False
         self.flag_map_or_seq = '?'   # '?' means "don't know, check otherwise"
@@ -194,18 +196,16 @@ class W_TypeObject(W_Root):
         else:
             layout = setup_user_defined_type(self, force_new_layout)
         self.layout = layout
+        self.qualname = self.getname(space)
         if self.flag_heaptype:
             w_qualname = self.dict_w.pop('__qualname__', None)
             if w_qualname is not None:
-                if not space.isinstance_w(w_qualname, space.w_unicode):
+                if space.isinstance_w(w_qualname, space.w_unicode):
+                    self.qualname = space.unicode_w(w_qualname)
+                elif not self.flag_cpytype:
                     raise oefmt(space.w_TypeError,
                                 "type __qualname__ must be a str, not %T",
                                 w_qualname)
-                self.qualname = space.unicode_w(w_qualname)
-            else:
-                self.qualname = self.getname(space)
-        else:
-            self.qualname = self.getname(space)
 
         if not is_mro_purely_of_types(self.mro_w):
             pass
