@@ -246,7 +246,7 @@ def test_allocate_registers_5():
     regalloc = allocate_registers(graph)
     assert summary_regalloc(regalloc) == [('a', 1)] * 2 + [('c', 0)] * 2
 
-@given(strategies.lists(strategies.booleans()))
+@given(strategies.lists(strategies.booleans(), max_size=31))
 def test_make_bitmask(boollist):
     index, bitmask = make_bitmask(boollist)
     if index is None:
