@@ -1165,13 +1165,20 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 Base1->tp_basicsize = sizeof(PyHeapTypeObject);
                 Base2->tp_basicsize = sizeof(PyHeapTypeObject);
                 Base12->tp_basicsize = sizeof(PyHeapTypeObject);
-                #ifndef PYPY_VERSION /* PyHeapTypeObject has no ht_qualname on PyPy */
+                #ifndef PYPY_VERSION /* PyHeapTypeObject has no ht_qualname nor ht_name on PyPy */
                 #if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 3
                 {
                   PyObject * dummyname = PyBytes_FromString("dummy name");
                   ((PyHeapTypeObject*)Base1)->ht_qualname = dummyname;
                   ((PyHeapTypeObject*)Base2)->ht_qualname = dummyname;
                   ((PyHeapTypeObject*)Base12)->ht_qualname = dummyname;
+                }
+                #elif PY_MAJOR_VERSION == 2
+                {
+                  PyObject * dummyname = PyBytes_FromString("dummy name");
+                  ((PyHeapTypeObject*)Base1)->ht_name = dummyname;
+                  ((PyHeapTypeObject*)Base2)->ht_name = dummyname;
+                  ((PyHeapTypeObject*)Base12)->ht_name = dummyname;
                 }
                 #endif 
                 #endif 
