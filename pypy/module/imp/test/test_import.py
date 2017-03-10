@@ -158,10 +158,6 @@ def setup_directory_structure(cls):
         p.ensure(dir=True)
         p.join("__init__.py").mksymlinkto(os.devnull)
 
-    p = root.join("onlypyw")
-    p.ensure(dir=True)
-    p.join("__init__.pyw")
-
     return str(root)
 
 
@@ -775,11 +771,6 @@ class AppTestImport(BaseFSEncodeTest):
             raises(ImportError, imp.NullImporter, name)
         finally:
             os.rmdir(name)
-
-    def test_dir_with_only_pyw(self):
-        def imp():
-            import onlypyw
-        raises(ImportError, imp)
 
     @pytest.mark.skipif(not hasattr(py.path.local, "mksymlinkto"), reason="requires symlinks")
     def test_dev_null_init_file(self):
