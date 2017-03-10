@@ -618,6 +618,7 @@ SYMBOLS_C = [
 
     'PyMem_RawMalloc', 'PyMem_RawCalloc', 'PyMem_RawRealloc', 'PyMem_RawFree',
     'PyMem_Malloc', 'PyMem_Calloc', 'PyMem_Realloc', 'PyMem_Free',
+    'PyObject_CallFinalizerFromDealloc',
 ]
 TYPES = {}
 FORWARD_DECLS = []
@@ -1338,6 +1339,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "import.c",
                          source_dir / "_warnings.c",
                          source_dir / "pylifecycle.c",
+                         source_dir / "object.c",
                          ]
 
 def build_eci(code, use_micronumpy=False, translating=False):

@@ -275,6 +275,9 @@ PyAPI_FUNC(int) PyObject_CheckReadBuffer(PyObject *);
 #define PyObject_Del            PyObject_Free
 #define PyObject_DEL            PyObject_Free
 
+#ifndef Py_LIMITED_API
+PyAPI_FUNC(int) PyObject_CallFinalizerFromDealloc(PyObject *);
+#endif
 
 
 /* PyPy internal ----------------------------------- */

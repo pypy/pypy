@@ -2077,12 +2077,3 @@ def PyEval_EvalFrameEx(space, f, throwflag):
     it causes an exception to immediately be thrown; this is used for the
     throw() methods of generator objects."""
     raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=-1)
-def PyObject_CallFinalizerFromDealloc(space, self):
-    """Call tp_finalize() once, taking care of reference counting.
-
-    NOT IMPLEMENTED: might need to keep the PyPy object alive even while
-    tp_dealloc() is called, which the GC doesn't do so far.
-    """
-    raise NotImplementedError
