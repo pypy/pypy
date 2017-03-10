@@ -11,7 +11,7 @@ class BSD(posix.BasePosix):
     standalone_only = []
     shared_only = []
 
-    def _args_for_shared(self, args):
+    def _args_for_shared(self, args, **kwds):
         return ['-shared'] + args
 
     def _include_dirs_for_libffi(self):

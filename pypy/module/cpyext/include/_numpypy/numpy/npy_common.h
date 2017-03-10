@@ -1,8 +1,8 @@
 #ifndef _NPY_COMMON_H_
 #define _NPY_COMMON_H_
 
-typedef Py_intptr_t npy_intp;
-typedef Py_uintptr_t npy_uintp;
+typedef long npy_intp;
+typedef unsigned long npy_uintp;
 typedef PY_LONG_LONG npy_longlong;
 typedef unsigned PY_LONG_LONG npy_ulonglong;
 typedef unsigned char npy_bool;

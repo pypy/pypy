@@ -24,7 +24,7 @@ class BaseLinux(BasePosix):
         from rpython.translator.platform.arch import s390x
         cflags = s390x.update_cflags(cflags)
 
-    def _args_for_shared(self, args):
+    def _args_for_shared(self, args, **kwds):
         return ['-shared'] + args
 
     def _include_dirs_for_libffi(self):

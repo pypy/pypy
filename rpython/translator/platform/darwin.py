@@ -30,13 +30,16 @@ class Darwin(posix.BasePosix):
             print 'in get_rpath_flags, rel_libdirs is not fixed up',rel_libdirs
         return self.rpath_flags
 
-    def _args_for_shared(self, args):
-        if hasattr(self, '_exe_name'):
-            target = os.path.basename(self._exe_name)
+    def _args_for_shared(self, args, **kwds):
+        if 'exe_name' in kwds:
+            target_basename = kwds['exe_name'].basename
         else:
-            target = '$(TARGET)'     # inside a Makefile
+            target_basename = '$(TARGET)'
+        # The default '$(TARGET)' is used inside a Makefile.  Otherwise
+        # we get the basename of the executable we're trying to build.
         return (list(self.shared_only)
-                + ['-dynamiclib', '-install_name', '@rpath/' + target, '-undefined', 'dynamic_lookup', '-flat_namespace']
+                + ['-dynamiclib', '-install_name', '@rpath/' + target_basename,
+                   '-undefined', 'dynamic_lookup', '-flat_namespace']
                 + args)
 
     def _include_dirs_for_libffi(self):
