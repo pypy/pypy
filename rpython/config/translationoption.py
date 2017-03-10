@@ -25,9 +25,9 @@ DEFL_ROOTFINDER_WITHJIT = "shadowstack"
 IS_64_BITS = sys.maxint > 2147483647
 
 SUPPORT__THREAD = (    # whether the particular C compiler supports __thread
-    sys.platform.startswith("linux"))     # Linux works
-    # OS/X doesn't work, because we still target 10.5/10.6 and the
-    # minimum required version is 10.7.  Windows doesn't work.  Please
+    sys.platform.startswith("linux") or     # Linux works
+    sys.platform.startswith("darwin"))      # OS/X >= 10.7 works
+    # Windows doesn't work.  Please
     # add other platforms here if it works on them.
 
 MAINDIR = os.path.dirname(os.path.dirname(__file__))
