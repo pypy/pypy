@@ -469,6 +469,7 @@ if sys.platform != 'win32':
                 break    # normal path
             if rposix.get_saved_errno() != EINTR:
                 raise exception_from_saved_errno(space, space.w_OSError)
+            space.getexecutioncontext().checksignals()
             secs = end_time - timeutils.monotonic(space)   # retry
             if secs <= 0.0:
                 break
