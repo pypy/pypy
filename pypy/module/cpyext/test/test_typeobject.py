@@ -980,6 +980,9 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             assert module.size_of_instances(bar) >= size
 
     def test_app_cant_subclass_two_types(self):
+        import sys
+        if sys.version_info < (2, 7, 9):
+            skip("crashes on CPython (2.7.5 crashes, 2.7.9 is ok)")
         module = self.import_module(name='foo')
         try:
             class bar(module.fooType, module.UnicodeSubtype):
