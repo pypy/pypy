@@ -756,21 +756,27 @@ class FFI(object):
 
 
 def _load_backend_lib(backend, name, flags):
+    import os
     if name is None:
         if sys.platform != "win32":
             return backend.load_library(None, flags)
         name = "c"    # Windows: load_library(None) fails, but this works
                       # (backward compatibility hack only)
-    try:
-        if '.' not in name and '/' not in name:
-            raise OSError("library not found: %r" % (name,))
-        return backend.load_library(name, flags)
-    except OSError:
-        import ctypes.util
-        path = ctypes.util.find_library(name)
-        if path is None:
-            raise     # propagate the original OSError
-        return backend.load_library(path, flags)
+    first_error = None
+    if '.' in name or '/' in name or os.sep in name:
+        try:
+            return backend.load_library(name, flags)
+        except OSError as e:
+            first_error = e
+    import ctypes.util
+    path = ctypes.util.find_library(name)
+    if path is None:
+        msg = ("ctypes.util.find_library() did not manage "
+               "to locate a library called %r" % (name,))
+        if first_error is not None:
+            msg = "%s.  Additionally, %s" % (first_error, msg)
+        raise OSError(msg)
+    return backend.load_library(path, flags)
 
 def _make_ffi_library(ffi, libname, flags):
     backend = ffi._backend

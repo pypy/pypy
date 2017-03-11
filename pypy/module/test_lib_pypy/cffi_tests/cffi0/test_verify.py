@@ -2247,10 +2247,10 @@ def test_dont_support_int_dotdotdot():
     assert str(e.value) == ("feature not supported with ffi.verify(), but only "
                             "with ffi.set_source(): 'typedef int... t1'")
     ffi = FFI()
-    ffi.cdef("typedef unsigned long... t1;")
+    ffi.cdef("typedef double ... t1;")
     e = py.test.raises(VerificationError, ffi.verify, "")
     assert str(e.value) == ("feature not supported with ffi.verify(), but only "
-                         "with ffi.set_source(): 'typedef unsigned long... t1'")
+                         "with ffi.set_source(): 'typedef float... t1'")
 
 def test_const_fields():
     ffi = FFI()
