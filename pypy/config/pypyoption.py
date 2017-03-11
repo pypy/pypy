@@ -16,7 +16,7 @@ all_modules = [p.basename for p in modulepath.listdir()
 
 essential_modules = set([
     "exceptions", "_io", "sys", "builtins", "posix", "_warnings",
-    "itertools", "_frozen_importlib", "operator",
+    "itertools", "_frozen_importlib", "operator", "_locale", "struct",
 ])
 if sys.platform == "win32":
     essential_modules.add("_winreg")
@@ -33,9 +33,9 @@ default_modules.update([
 # --allworkingmodules
 working_modules = default_modules.copy()
 working_modules.update([
-    "_socket", "unicodedata", "mmap", "fcntl", "_locale", "pwd",
+    "_socket", "unicodedata", "mmap", "fcntl", "pwd",
     "select", "zipimport", "_lsprof", "crypt", "signal", "_rawffi", "termios",
-    "zlib", "bz2", "struct", "_md5", "_minimal_curses",
+    "zlib", "bz2", "_md5", "_minimal_curses",
     "thread", "itertools", "pyexpat", "cpyext", "array",
     "binascii", "_multiprocessing", '_warnings', "_collections",
     "_multibytecodec", "_continuation", "_cffi_backend",
