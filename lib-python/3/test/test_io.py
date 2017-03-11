@@ -3121,6 +3121,7 @@ class TextIOWrapperTest(unittest.TestCase):
         t = _make_illegal_wrapper()
         self.assertRaises(TypeError, t.read)
 
+    @support.impl_detail("PyPy does not call __del__ at shutdown", pypy=False)
     def _check_create_at_shutdown(self, **kwargs):
         # Issue #20037: creating a TextIOWrapper at shutdown
         # shouldn't crash the interpreter.
