@@ -1,5 +1,5 @@
 """
-Tests for the entry point of pypy-c, app_main.py.
+Tests for the entry point of pypy3-c, app_main.py.
 """
 from __future__ import with_statement
 import py
@@ -1083,12 +1083,12 @@ class AppTestAppMain:
         from lib_pypy._pypy_interact import irc_header
 
         goal_dir = os.path.dirname(app_main)
-        # build a directory hierarchy like which contains both bin/pypy-c and
-        # lib/pypy1.2/*
+        # build a directory hierarchy like which contains both bin/pypy3-c and
+        # lib_pypy and lib-python
         prefix = udir.join('pathtest').ensure(dir=1)
-        fake_exe = 'bin/pypy-c'
+        fake_exe = 'bin/pypy3-c'
         if sys.platform == 'win32':
-            fake_exe = 'pypy-c.exe'
+            fake_exe = 'pypy3-c.exe'
         fake_exe = prefix.join(fake_exe).ensure(file=1)
         expected_path = [str(prefix.join(subdir).ensure(dir=1))
                          for subdir in ('lib_pypy',
@@ -1119,11 +1119,11 @@ class AppTestAppMain:
         if self.tmp_dir.startswith(self.trunkdir):
             skip('TMPDIR is inside the PyPy source')
         sys.path.append(self.goal_dir)
-        tmp_pypy_c = os.path.join(self.tmp_dir, 'pypy-c')
+        tmp_pypy_c = os.path.join(self.tmp_dir, 'pypy3-c')
         try:
             os.chdir(self.tmp_dir)
 
-            # If we are running PyPy with a libpypy-c, the following
+            # If we are running PyPy with a libpypy3-c, the following
             # lines find the stdlib anyway.  Otherwise, it is not found.
             expected_found = (
                 getattr(sys, 'pypy_translation_info', {})
@@ -1164,7 +1164,7 @@ class AppTestAppMain:
         sys.path.append(self.goal_dir)
         try:
             import app_main
-            pypy_c = os.path.join(self.trunkdir, 'pypy', 'goal', 'pypy-c')
+            pypy_c = os.path.join(self.trunkdir, 'pypy', 'goal', 'pypy3-c')
             app_main.setup_bootstrap_path(pypy_c)
             newpath = sys.path[:]
             # we get at least lib_pypy
@@ -1182,7 +1182,7 @@ class AppTestAppMain:
         sys.path.append(self.goal_dir)
         try:
             import app_main
-            pypy_c = os.path.join(self.trunkdir, 'pypy', 'goal', 'pypy-c')
+            pypy_c = os.path.join(self.trunkdir, 'pypy', 'goal', 'pypy3-c')
             app_main.entry_point(pypy_c, [self.foo_py])
             # assert it did not crash
         finally:

@@ -116,7 +116,7 @@ def find_stdlib(state, executable):
     in the parent directory of 'executable', and search from the 'home'
     entry instead of from the path to 'executable'.
     """
-    search = 'pypy-c' if executable == '' else executable
+    search = 'pypy3-c' if executable == '' else executable
     search_pyvenv_cfg = 2
     while True:
         dirname = resolvedirof(search)

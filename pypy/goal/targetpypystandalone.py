@@ -252,7 +252,7 @@ class PyPyTarget(object):
         return pypy_optiondescription
 
     def target(self, driver, args):
-        driver.exe_name = 'pypy-%(backend)s'
+        driver.exe_name = 'pypy3-%(backend)s'
 
         config = driver.config
         parser = self.opt_parser(config)

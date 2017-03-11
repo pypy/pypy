@@ -126,7 +126,7 @@ class State:
                 argv0 = space.getitem(argv, space.newint(0))
                 progname = space.unicode_w(argv0)
             else:
-                progname = u"pypy"
+                progname = u"pypy3"
             self.programname = rffi.unicode2wcharp(progname)
             lltype.render_immortal(self.programname)
         return self.programname

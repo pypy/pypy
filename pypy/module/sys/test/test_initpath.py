@@ -15,7 +15,7 @@ def build_hierarchy(prefix):
 
 def test_find_stdlib(tmpdir):
     bin_dir = tmpdir.join('bin').ensure(dir=True)
-    pypy = bin_dir.join('pypy').ensure(file=True)
+    pypy = bin_dir.join('pypy3').ensure(file=True)
     build_hierarchy(tmpdir)
     path, prefix = find_stdlib(None, str(pypy))
     assert prefix == tmpdir
@@ -28,10 +28,10 @@ def test_find_stdlib(tmpdir):
 
 @py.test.mark.skipif('not hasattr(os, "symlink")')
 def test_find_stdlib_follow_symlink(tmpdir):
-    pypydir = tmpdir.join('opt', 'pypy-xxx')
-    pypy = pypydir.join('bin', 'pypy').ensure(file=True)
+    pypydir = tmpdir.join('opt', 'pypy3-xxx')
+    pypy = pypydir.join('bin', 'pypy3').ensure(file=True)
     build_hierarchy(pypydir)
-    pypy_sym = tmpdir.join('pypy_sym')
+    pypy_sym = tmpdir.join('pypy3_sym')
     os.symlink(str(pypy), str(pypy_sym))
     path, prefix = find_stdlib(None, str(pypy_sym))
     assert prefix == pypydir
@@ -59,51 +59,51 @@ def test_include_libtk(tmpdir):
 def test_find_executable(tmpdir, monkeypatch):
     from pypy.module.sys import initpath
     tmpdir = py.path.local(os.path.realpath(str(tmpdir)))
-    # /tmp/a/pypy
-    # /tmp/b/pypy
+    # /tmp/a/pypy3
+    # /tmp/b/pypy3
     # /tmp/c
     a = tmpdir.join('a').ensure(dir=True)
     b = tmpdir.join('b').ensure(dir=True)
     c = tmpdir.join('c').ensure(dir=True)
-    a.join('pypy').ensure(file=True)
-    b.join('pypy').ensure(file=True)
+    a.join('pypy3').ensure(file=True)
+    b.join('pypy3').ensure(file=True)
     #
     monkeypatch.setattr(os, 'access', lambda x, y: True)
     # if there is already a slash, don't do anything
     monkeypatch.chdir(tmpdir)
-    assert find_executable('a/pypy') == a.join('pypy')
+    assert find_executable('a/pypy3') == a.join('pypy3')
     #
     # if path is None, try abspath (if the file exists)
     monkeypatch.setenv('PATH', None)
     monkeypatch.chdir(a)
-    assert find_executable('pypy') == a.join('pypy')
-    monkeypatch.chdir(tmpdir) # no pypy there
-    assert find_executable('pypy') == ''
+    assert find_executable('pypy3') == a.join('pypy3')
+    monkeypatch.chdir(tmpdir) # no pypy3 there
+    assert find_executable('pypy3') == ''
     #
     # find it in path
     monkeypatch.setenv('PATH', str(a))
-    assert find_executable('pypy') == a.join('pypy')
+    assert find_executable('pypy3') == a.join('pypy3')
     #
     # find it in the first dir in path
     monkeypatch.setenv('PATH', '%s%s%s' % (b, os.pathsep, a))
-    assert find_executable('pypy') == b.join('pypy')
+    assert find_executable('pypy3') == b.join('pypy3')
     #
     # find it in the second, because in the first it's not there
     monkeypatch.setenv('PATH', '%s%s%s' % (c, os.pathsep, a))
-    assert find_executable('pypy') == a.join('pypy')
-    # if pypy is found but it's not a file, ignore it
-    c.join('pypy').ensure(dir=True)
-    assert find_executable('pypy') == a.join('pypy')
-    # if pypy is found but it's not executable, ignore it
+    assert find_executable('pypy3') == a.join('pypy3')
+    # if pypy3 is found but it's not a file, ignore it
+    c.join('pypy3').ensure(dir=True)
+    assert find_executable('pypy3') == a.join('pypy3')
+    # if pypy3 is found but it's not executable, ignore it
     monkeypatch.setattr(os, 'access', lambda x, y: False)
-    assert find_executable('pypy') == ''
+    assert find_executable('pypy3') == ''
     #
     monkeypatch.setattr(os, 'access', lambda x, y: True)
     monkeypatch.setattr(initpath, 'we_are_translated', lambda: True)
     monkeypatch.setattr(initpath, '_WIN32', True)
     monkeypatch.setenv('PATH', str(a))
-    a.join('pypy.exe').ensure(file=True)
-    assert find_executable('pypy') == a.join('pypy.exe')
+    a.join('pypy3.exe').ensure(file=True)
+    assert find_executable('pypy3') == a.join('pypy3.exe')
 
 def test_resolvedirof(tmpdir):
     assert resolvedirof('') == os.path.abspath(os.path.join(os.getcwd(), '..'))
@@ -132,7 +132,7 @@ def test_find_stdlib_follow_pyvenv_cfg(tmpdir):
     mydir = tmpdir.join('follow_pyvenv_cfg').ensure(dir=True)
     otherdir = tmpdir.join('otherdir').ensure(dir=True)
     bin_dir = mydir.join('bin').ensure(dir=True)
-    pypy = bin_dir.join('pypy').ensure(file=True)
+    pypy = bin_dir.join('pypy3').ensure(file=True)
     build_hierarchy(otherdir)
     for homedir in [otherdir, otherdir.join('bin')]:
         mydir.join('pyvenv.cfg').write('home = %s\n' % (homedir,))

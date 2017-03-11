@@ -69,7 +69,7 @@ class TinyObjSpace(object):
             if has != value:
                 #print sys.pypy_translation_info
                 py.test.skip("cannot runappdirect test: space needs %s = %s, "\
-                    "while pypy-c was built with %s" % (key, value, has))
+                    "while pypy3-c was built with %s" % (key, value, has))
 
         for name in ('int', 'long', 'str', 'unicode', 'list', 'None', 'ValueError',
                 'OverflowError'):

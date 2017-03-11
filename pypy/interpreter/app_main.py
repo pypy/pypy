@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# This is pure Python code that handles the main entry point into "pypy".
+# This is pure Python code that handles the main entry point into "pypy3".
 # See test/test_app_main.
 
 # Missing vs CPython: -b, -d, -x
@@ -169,7 +169,7 @@ def print_info(*args):
     raise SystemExit
 
 def get_sys_executable():
-    return getattr(sys, 'executable', 'pypy')
+    return getattr(sys, 'executable', 'pypy3')
 
 def print_help(*args):
     import os
@@ -516,12 +516,6 @@ def parse_command_line(argv):
         (not options["ignore_environment"] and os.getenv('PYTHONINSPECT'))):
         options["inspect"] = 1
 
-##    We don't print the warning, because it offers no additional security
-##    in CPython either (http://bugs.python.org/issue14621)
-##    if (options["hash_randomization"] or os.getenv('PYTHONHASHSEED')):
-##        print >> sys.stderr, (
-##            "Warning: pypy does not implement hash randomization")
-
     if we_are_translated():
         flags = [options[flag] for flag in sys_flags]
         sys.flags = type(sys.flags)(flags)
@@ -768,7 +762,7 @@ def run_command_line(interactive,
                     args = (runpy._run_module_as_main, '__main__', False)
                     break
                 else:
-                    # That's the normal path, "pypy stuff.py".
+                    # That's the normal path, "pypy3 stuff.py".
                     # We don't actually load via SourceFileLoader
                     # because we require PyCF_ACCEPT_NULL_BYTES
                     loader = SourceFileLoader('__main__', filename)
@@ -815,7 +809,7 @@ def print_banner(copyright):
 STDLIB_WARNING = """\
 debug: WARNING: Library path not found, using compiled-in sys.path.
 debug: WARNING: 'sys.prefix' will not be set.
-debug: WARNING: Make sure the pypy binary is kept inside its tree of files.
+debug: WARNING: Make sure the pypy3 binary is kept inside its tree of files.
 debug: WARNING: It is ok to create a symlink to it from somewhere else."""
 
 def setup_bootstrap_path(executable):
