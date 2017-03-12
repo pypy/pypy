@@ -10,7 +10,6 @@ except Exception:   # probably ImportError or cffi's VerificationError
         py.test.skip("no _curses or _minimal_curses module")  # no _curses at all
 
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.module._minimal_curses import fficurses  # for side effects
 
 
 class Module(MixedModule):
