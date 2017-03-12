@@ -475,3 +475,8 @@ def PyObject_Print(space, w_obj, fp, flags):
     with rffi.scoped_nonmovingbuffer(data) as buf:
         fwrite(buf, 1, count, fp)
     return 0
+
+@cpython_api([lltype.Signed], lltype.Void)
+def _PyPyGC_AddMemoryPressure(space, report):
+    from rpython.rlib import rgc
+    rgc.add_memory_pressure(report)
