@@ -376,6 +376,31 @@ opened on a directory, not a file."""
         except OSError as e:
             wrap_oserror(space, e, eintr_retry=True)
 
+@unwrap_spec(fd=c_int, length=int, offset=r_longlong)
+def pread(space, fd, length, offset):
+    """Read a string to a file descriptor at a given offset.
+    """
+    while True:
+        try:
+            s = rposix.pread(fd, length, offset)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+           return space.newbytes(s)
+
+@unwrap_spec(fd=c_int, offset=r_longlong)
+def pwrite(space, fd, w_data, offset):
+    """Write a string to a file descriptor at a given offset.
+    """
+    data = space.getarg_w('y*', w_data)
+    while True:
+        try:
+            res = rposix.pwrite(fd, data.as_str(), offset)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+            return space.newint(res)
+
 # ____________________________________________________________
 
 STAT_FIELDS = unrolling_iterable(enumerate(rposix_stat.STAT_FIELDS))

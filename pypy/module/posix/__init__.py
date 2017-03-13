@@ -217,6 +217,11 @@ corresponding Unix manual entries for more information on calls."""
     if sys.platform.startswith('linux'): #hasattr(rposix, 'sendfile'):
         interpleveldefs['sendfile'] = 'interp_posix.sendfile'
 
+    if hasattr(rposix, 'pread'):
+        interpleveldefs['pread'] = 'interp_posix.pread'
+    if hasattr(rposix, 'pwrite'):
+       interpleveldefs['pwrite'] = 'interp_posix.pwrite'
+
     for _name in ["O_CLOEXEC"]:
         if getattr(rposix, _name) is not None:
             interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
