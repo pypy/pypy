@@ -376,7 +376,7 @@ opened on a directory, not a file."""
         except OSError as e:
             wrap_oserror(space, e, eintr_retry=True)
 
-@unwrap_spec(fd=c_int, length=int, offset=int)
+@unwrap_spec(fd=c_int, length=int, offset=r_longlong)
 def pread(space, fd, length, offset):
     """Read a string to a file descriptor at a given offset.
     """
@@ -388,7 +388,7 @@ def pread(space, fd, length, offset):
         else:
            return space.newbytes(s)
 
-@unwrap_spec(fd=c_int, offset=int)
+@unwrap_spec(fd=c_int, offset=r_longlong)
 def pwrite(space, fd, w_data, offset):
     """Write a string to a file descriptor at a given offset.
     """
