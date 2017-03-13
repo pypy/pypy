@@ -972,12 +972,15 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             pass
         class bar(f1, f2):
             pass
+        class foo(f2, f1):
+            pass
         assert bar.__base__ is f2
         # On cpython, the size changes.
         if '__pypy__' in sys.builtin_module_names:
             assert module.size_of_instances(bar) == size
         else:
             assert module.size_of_instances(bar) >= size
+        assert module.size_of_instances(foo) == module.size_of_instances(bar)
 
     def test_app_cant_subclass_two_types(self):
         import sys
