@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-This is what the buildbot runs to execute the pypyjit tests
+This is what the buildbot runs to execute the app-level tests
 on top of pypy-c.
 """
 
@@ -12,9 +12,12 @@ os.environ['PYTHONPATH'] = rootdir
 os.environ['PYTEST_PLUGINS'] = ''
 
 popen = subprocess.Popen(
-    ["pypy/goal/pypy-c", "pypy/test_all.py",
-     "--resultlog=pypyjit_new.log",
-     "pypy/module/pypyjit/test_pypy_c",
+    [sys.executable, "testrunner/runner.py",
+     "--logfile=pytest-A.log",
+     "--config=pypy/pytest-A.cfg",
+     "--config=pypy/pytest-A.py",
+     "--config=~/machine-A_cfg.py",
+     "--root=pypy", "--timeout=3600",
      ] + sys.argv[1:],
     cwd=rootdir)
 
