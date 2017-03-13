@@ -760,7 +760,7 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
     if builder.cpyext_type_init is not None:
         builder.cpyext_type_init.append((pto, w_type))
     else:
-        finish_type_1(space, pto)
+        finish_type_1(space, pto, w_type.bases_w)
         finish_type_2(space, pto, w_type)
 
     pto.c_tp_basicsize = rffi.sizeof(typedescr.basestruct)
@@ -903,7 +903,7 @@ def _type_realize(space, py_obj):
 
     return w_obj
 
-def finish_type_1(space, pto):
+def finish_type_1(space, pto, bases_w=None):
     """
     Sets up tp_bases, necessary before creating the interpreter type.
     """
@@ -915,11 +915,12 @@ def finish_type_1(space, pto):
     if base and not pto.c_ob_type: # will be filled later
         pto.c_ob_type = base.c_ob_type
     if not pto.c_tp_bases:
-        if not base:
-            bases = space.newtuple([])
-        else:
-            bases = space.newtuple([from_ref(space, base_pyo)])
-        pto.c_tp_bases = make_ref(space, bases)
+        if bases_w is None:
+            if not base:
+                bases_w = []
+            else:
+                bases_w = [from_ref(space, base_pyo)]
+        pto.c_tp_bases = make_ref(space, space.newtuple(bases_w))
 
 def finish_type_2(space, pto, w_obj):
     """

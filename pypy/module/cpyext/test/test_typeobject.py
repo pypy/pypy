@@ -1200,4 +1200,21 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert type(obj).__doc__ == "The Base12 type or object"
         assert obj.__doc__ == "The Base12 type or object"
 
-
+    def test_multiple_inheritance_fetch_tp_bases(self):
+        module = self.import_extension('foo', [
+           ("foo", "METH_O",
+            '''
+                PyTypeObject *tp;
+                tp = (PyTypeObject*)args;
+                Py_INCREF(tp->tp_bases);
+                return tp->tp_bases;
+            '''
+            )])
+        class A(object):
+            pass
+        class B(object):
+            pass
+        class C(A, B):
+            pass
+        bases = module.foo(C)
+        assert bases == (A, B)
