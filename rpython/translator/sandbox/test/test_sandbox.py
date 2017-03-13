@@ -37,9 +37,9 @@ def expect(f, g, fnname, args, result, resulttype=None):
         write_message(g, result, resulttype)
     g.flush()
 
-def compile(f, gc='ref'):
+def compile(f, gc='ref', **kwds):
     t = Translation(f, backend='c', sandbox=True, gc=gc,
-                    check_str_without_nul=True)
+                    check_str_without_nul=True, **kwds)
     return str(t.compile())
 
 def run_in_subprocess(exe):
@@ -198,7 +198,7 @@ def test_hybrid_gc():
             l.append("x" * int(argv[2]))
         return int(len(l) > 1000)
 
-    exe = compile(entry_point, gc='hybrid')
+    exe = compile(entry_point, gc='hybrid', lldebug=True)
     pipe = subprocess.Popen([exe, '10', '10000'], stdout=subprocess.PIPE,
                             stdin=subprocess.PIPE)
     g = pipe.stdin

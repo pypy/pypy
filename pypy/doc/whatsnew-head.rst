@@ -200,3 +200,5 @@ Two changes that together bring the performance of shadowstack close to
 asmgcc---close enough that we can now make shadowstack the default even
 on Linux.  This should remove a whole class of rare bugs introduced by
 asmgcc.
+
+.. branch: fniephaus/fix-typo-1488123166752
