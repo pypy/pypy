@@ -224,22 +224,27 @@ class AppTestObject(AppTestCpythonExtensionBase):
         else:
             cls.w_tmpname = cls.space.wrap(tmpname)
 
-        cls.total_mem = 0
-        def add_memory_pressure(estimate):
-            assert estimate >= 0
-            cls.total_mem += estimate
-        cls.orig_add_memory_pressure = [rgc.add_memory_pressure]
-        rgc.add_memory_pressure = add_memory_pressure
-
-        def _reset_memory_pressure(space):
+        if not cls.runappdirect:
             cls.total_mem = 0
-        cls.w_reset_memory_pressure = cls.space.wrap(
-            gateway.interp2app(_reset_memory_pressure))
+            def add_memory_pressure(estimate):
+                assert estimate >= 0
+                cls.total_mem += estimate
+            cls.orig_add_memory_pressure = [rgc.add_memory_pressure]
+            rgc.add_memory_pressure = add_memory_pressure
 
-        def _cur_memory_pressure(space):
-            return space.newint(cls.total_mem)
-        cls.w_cur_memory_pressure = cls.space.wrap(
-            gateway.interp2app(_cur_memory_pressure))
+            def _reset_memory_pressure(space):
+                cls.total_mem = 0
+            cls.w_reset_memory_pressure = cls.space.wrap(
+                gateway.interp2app(_reset_memory_pressure))
+
+            def _cur_memory_pressure(space):
+                return space.newint(cls.total_mem)
+            cls.w_cur_memory_pressure = cls.space.wrap(
+                gateway.interp2app(_cur_memory_pressure))
+        else:
+            def _skip_test(*ignored):
+                pytest.skip("not for -A testing")
+            cls.w_reset_memory_pressure = _skip_test
 
     def teardown_class(cls):
         from rpython.rlib import rgc
@@ -349,6 +354,7 @@ class AppTestObject(AppTestCpythonExtensionBase):
         assert isinstance(a, unicode)
 
     def test_add_memory_pressure(self):
+        self.reset_memory_pressure()    # for the potential skip
         module = self.import_extension('foo', [
             ("foo", "METH_O",
             """
