@@ -26,9 +26,14 @@ IS_64_BITS = sys.maxint > 2147483647
 
 SUPPORT__THREAD = (    # whether the particular C compiler supports __thread
     sys.platform.startswith("linux") or     # Linux works
-    sys.platform.startswith("darwin"))      # OS/X >= 10.7 works
+    #sys.platform.startswith("darwin") or   # OS/X >= 10.7 works (*)
+    False)
     # Windows doesn't work.  Please
     # add other platforms here if it works on them.
+
+# (*) NOTE: __thread on OS/X does not work together with
+# pthread_key_create(): when the destructor is called, the __thread is
+# already freed!
 
 MAINDIR = os.path.dirname(os.path.dirname(__file__))
 CACHE_DIR = os.path.realpath(os.path.join(MAINDIR, '_cache'))
