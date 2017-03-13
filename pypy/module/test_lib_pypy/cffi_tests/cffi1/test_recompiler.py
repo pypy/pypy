@@ -2040,7 +2040,7 @@ def test_call_with_custom_field_pos():
             struct foo s = { 40, 200 };
             return s;
         }
-        struct foo g(int a, ...) { }
+        struct foo g(int a, ...) { return f(); }
     """)
     assert lib.f().x == 200
     e = py.test.raises(NotImplementedError, lib.g, 0)
@@ -2069,7 +2069,7 @@ def test_call_with_nested_anonymous_struct():
             s.b = 200;
             return s;
         }
-        struct foo g(int a, ...) { }
+        struct foo g(int a, ...) { return f(); }
     """)
     assert lib.f().b == 200
     e = py.test.raises(NotImplementedError, lib.g, 0)
@@ -2095,7 +2095,7 @@ def test_call_with_bitfield():
             struct foo s = { 11 };
             return s;
         }
-        struct foo g(int a, ...) { }
+        struct foo g(int a, ...) { return f(); }
     """)
     assert lib.f().x == 11
     e = py.test.raises(NotImplementedError, lib.g, 0)
@@ -2107,6 +2107,8 @@ def test_call_with_bitfield():
         "set_source() and not taking a final '...' argument)")
 
 def test_call_with_zero_length_field():
+    if sys.platform == 'win32':
+        py.test.skip("zero-length field not supported by MSVC")
     ffi = FFI()
     ffi.cdef("""
         struct foo { int a; int x[0]; };
@@ -2119,7 +2121,7 @@ def test_call_with_zero_length_field():
             struct foo s = { 42 };
             return s;
         }
-        struct foo g(int a, ...) { }
+        struct foo g(int a, ...) { return f(); }
     """)
     assert lib.f().a == 42
     e = py.test.raises(NotImplementedError, lib.g, 0)
@@ -2143,7 +2145,7 @@ def test_call_with_union():
             union foo s = { 42 };
             return s;
         }
-        union foo g(int a, ...) { }
+        union foo g(int a, ...) { return f(); }
     """)
     assert lib.f().a == 42
     e = py.test.raises(NotImplementedError, lib.g, 0)

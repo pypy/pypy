@@ -1231,7 +1231,8 @@ class BackendTests:
     def test_ffi_buffer_comparisons(self):
         ffi = FFI(backend=self.Backend())
         ba = bytearray(range(100, 110))
-        assert ba == memoryview(ba)    # justification for the following
+        if sys.version_info >= (2, 7):
+            assert ba == memoryview(ba)    # justification for the following
         a = ffi.new("uint8_t[]", list(ba))
         c = ffi.new("uint8_t[]", [99] + list(ba))
         try:
