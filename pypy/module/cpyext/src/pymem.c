@@ -1,5 +1,10 @@
 #include <Python.h>
 
+#ifdef _WIN32
+#  include <Windows.h>
+#endif
+
+
 void * PyMem_Malloc(size_t n)
 {
     return malloc((n) ? (n) : 1);
