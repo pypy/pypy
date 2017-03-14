@@ -464,28 +464,29 @@ def lseek(fd, pos, how):
             how = SEEK_END
     return handle_posix_error('lseek', c_lseek(fd, pos, how))
 
-c_pread = external('pread',
-                  [rffi.INT, rffi.VOIDP, rffi.SIZE_T , OFF_T], rffi.SSIZE_T,
-                  save_err=rffi.RFFI_SAVE_ERRNO)
-c_pwrite = external('pwrite',
-                   [rffi.INT, rffi.VOIDP, rffi.SIZE_T, OFF_T], rffi.SSIZE_T,
-                   save_err=rffi.RFFI_SAVE_ERRNO)
+if not _WIN32:
+    c_pread = external('pread',
+                      [rffi.INT, rffi.VOIDP, rffi.SIZE_T , OFF_T], rffi.SSIZE_T,
+                      save_err=rffi.RFFI_SAVE_ERRNO)
+    c_pwrite = external('pwrite',
+                       [rffi.INT, rffi.VOIDP, rffi.SIZE_T, OFF_T], rffi.SSIZE_T,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
 
-@enforceargs(int, int, None)
-def pread(fd, count, offset):
-    if count < 0:
-        raise OSError(errno.EINVAL, None)
-    validate_fd(fd)
-    with rffi.scoped_alloc_buffer(count) as buf:
-        void_buf = rffi.cast(rffi.VOIDP, buf.raw)
-        return buf.str(handle_posix_error('pread', c_pread(fd, void_buf, count, offset)))
-        
-@enforceargs(int, None, None)
-def pwrite(fd, data, offset):
-    count = len(data)
-    validate_fd(fd)
-    with rffi.scoped_nonmovingbuffer(data) as buf:
-        return handle_posix_error('pwrite', c_pwrite(fd, buf, count, offset))
+    @enforceargs(int, int, None)
+    def pread(fd, count, offset):
+        if count < 0:
+            raise OSError(errno.EINVAL, None)
+        validate_fd(fd)
+        with rffi.scoped_alloc_buffer(count) as buf:
+            void_buf = rffi.cast(rffi.VOIDP, buf.raw)
+            return buf.str(handle_posix_error('pread', c_pread(fd, void_buf, count, offset)))
+            
+    @enforceargs(int, None, None)
+    def pwrite(fd, data, offset):
+        count = len(data)
+        validate_fd(fd)
+        with rffi.scoped_nonmovingbuffer(data) as buf:
+            return handle_posix_error('pwrite', c_pwrite(fd, buf, count, offset))
 
 c_ftruncate = external('ftruncate', [rffi.INT, rffi.LONGLONG], rffi.INT,
                        macro=_MACRO_ON_POSIX, save_err=rffi.RFFI_SAVE_ERRNO)
