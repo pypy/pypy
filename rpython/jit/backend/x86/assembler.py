@@ -2271,7 +2271,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # if GCFLAG_CARDS_SET, then we can just set one bit and be done
         if card_marking:
             # GCFLAG_CARDS_SET is in this byte at 0x80, so this fact can
-            # been checked by the status flags of the previous TEST8
+            # been checked by the sign flags of the previous TEST8
             js_location = mc.emit_forward_jump('S')   # patched later
         else:
             js_location = 0
