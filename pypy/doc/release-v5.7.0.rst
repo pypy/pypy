@@ -16,9 +16,10 @@ faster but need real-world examples (not micro-benchmarks) of problematic code.
 
 Work proceeds at a good pace on the PyPy3.5
 version due to a grant_ from the Mozilla Foundation, hence our first 3.5.3 beta
-release. Thanks Mozilla !!! While we do not pass all tests, asyncio works
+release. Thanks Mozilla !!! While we do not pass all tests, asyncio works and
 as `these benchmarks show`_ it already gives a nice speed bump.
-We also backported the ``f""`` formatting from 3.6.
+We also backported the ``f""`` formatting from 3.6 (as an expection; otherwise
+"PyPy3.5" supports the Python 3.5 language).
 
 CFFI_ has been updated to 1.10, improving an already great package for
 interfacing with C.
