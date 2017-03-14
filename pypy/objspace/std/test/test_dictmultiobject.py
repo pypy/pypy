@@ -681,6 +681,10 @@ class AppTest_DictObject:
         assert isinstance(list({b'a': 1})[0], bytes)
 
     def test_interned_keywords(self):
+        py.test.skip("no longer works")
+        # At some point in the past, we had kwargsdict automatically
+        # intern every single key we get out of it.  That's a big
+        # pointless waste of time.  So the following test fails now.
         assert list(dict(abcdef=1))[0] is 'abcdef'
 
 
