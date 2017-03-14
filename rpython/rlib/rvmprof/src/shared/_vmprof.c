@@ -276,7 +276,7 @@ sample_stack_now(PyObject *module, PyObject *args)
 
     for (i = 0; i < entry_count; i++) {
         routine_ip = m[i];
-        PyList_Append(list, PyLong_NEW((long)routine_ip));
+        PyList_Append(list, PyLong_NEW((ssize_t)routine_ip));
     }
 
     free(m);

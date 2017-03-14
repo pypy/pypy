@@ -7,12 +7,12 @@
       #define PyStr_AS_STRING PyBytes_AS_STRING
       #define PyStr_GET_SIZE PyBytes_GET_SIZE
       #define PyStr_NEW      PyUnicode_FromString
-      #define PyLong_NEW     PyLong_FromLong
+      #define PyLong_NEW     PyLong_FromSsize_t
 #  else
       #define PyStr_AS_STRING PyString_AS_STRING
       #define PyStr_GET_SIZE PyString_GET_SIZE
       #define PyStr_NEW      PyString_FromString
-      #define PyLong_NEW     PyInt_FromLong
+      #define PyLong_NEW     PyInt_FromSsize_t
 #  endif
 #endif
 

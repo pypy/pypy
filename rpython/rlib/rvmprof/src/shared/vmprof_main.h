@@ -12,10 +12,11 @@
  *
  * Tested only on gcc, linux, x86_64.
  *
- * Copyright (C) 2014-2015
+ * Copyright (C) 2014-2017
  *   Antonio Cuni - anto.cuni@gmail.com
  *   Maciej Fijalkowski - fijall@gmail.com
  *   Armin Rigo - arigo@tunes.org
+ *   Richard Plangger - planrichi@gmail.com
  *
  */
 
@@ -145,6 +146,35 @@ int _vmprof_sample_stack(struct profbuf_s *p, PY_THREAD_STATE_T * tstate, uconte
     return 1;
 }
 
+#ifndef RPYTHON_VMPROF
+static PY_THREAD_STATE_T * _get_pystate_for_this_thread(void) {
+    // see issue 116 on github.com/vmprof/vmprof-python.
+    // PyGILState_GetThisThreadState(); can hang forever
+    //
+    PyInterpreterState * istate;
+    PyThreadState * state;
+    long mythread_id;
+
+    istate = PyInterpreterState_Head();
+    if (istate == NULL) {
+        return NULL;
+    }
+    mythread_id = PyThread_get_thread_ident();
+    // fish fish fish, it will NOT lock the keymutex in pythread
+    do {
+        state = PyInterpreterState_ThreadHead(istate);
+        do {
+            if (state->thread_id == mythread_id) {
+                return state;
+            }
+        } while ((state = PyThreadState_Next(state)) != NULL);
+    } while ((istate = PyInterpreterState_Next(istate)) != NULL);
+
+    // uh? not found?
+    return NULL;
+}
+#endif
+
 static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
 {
     int commit;
@@ -167,7 +197,7 @@ static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
     int fault_code = setjmp(restore_point);
     if (fault_code == 0) {
         pthread_self();
-        tstate = PyGILState_GetThisThreadState();
+        tstate = _get_pystate_for_this_thread();
     } else {
         signal(SIGSEGV, prevhandler);
         __sync_lock_release(&spinlock);

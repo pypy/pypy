@@ -1,4 +1,4 @@
-
+// cannot include this header because it also has definitions
 #include "windows.h"
 #include "compat.h"
 #include "vmp_stack.h"
@@ -12,7 +12,6 @@ int prepare_concurrent_bufs(void)
     return 0;
 }
 
-#include "vmprof_common.h"
 #include <tlhelp32.h>
 
 int vmp_write_all(const char *buf, size_t bufsize)

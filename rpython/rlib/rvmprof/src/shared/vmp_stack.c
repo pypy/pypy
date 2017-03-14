@@ -16,12 +16,24 @@
 
 #ifdef VMP_SUPPORTS_NATIVE_PROFILING
 #define UNW_LOCAL_ONLY
-#include <libunwind.h>
+#include "unwind/libunwind.h"
 #  ifdef X86_64
 #    define REG_RBX UNW_X86_64_RBX
 #  elif defined(X86_32)
 #    define REG_RBX UNW_X86_EDI
 #  endif
+
+// functions copied from libunwind using dlopen
+
+#ifdef VMPROF_UNIX
+static int (*unw_get_reg)(unw_cursor_t*, int, unw_word_t*) = NULL;
+static int (*unw_step)(unw_cursor_t*) = NULL;
+static int (*unw_init_local)(unw_cursor_t *, unw_context_t *) = NULL;
+static int (*unw_get_proc_info)(unw_cursor_t *, unw_proc_info_t *) = NULL;
+static int (*unw_is_signal_frame)(unw_cursor_t *) = NULL;
+static int (*unw_getcontext)(unw_cursor_t *) = NULL;
+#endif
+
 #endif
 
 #ifdef __APPLE__
@@ -59,7 +71,7 @@ static PY_STACK_FRAME_T * _write_python_stack_entry(PY_STACK_FRAME_T * frame, vo
     int len;
     int addr;
     int j;
-    long line;
+    uint64_t line;
     char *lnotab;
 
 #ifndef RPYTHON_VMPROF // pypy does not support line profiling
@@ -76,7 +88,7 @@ static PY_STACK_FRAME_T * _write_python_stack_entry(PY_STACK_FRAME_T * frame, vo
         lnotab = PyStr_AS_STRING(frame->f_code->co_lnotab);
 
         if (lnotab != NULL) {
-            line = (long)frame->f_lineno;
+            line = (uint64_t)frame->f_lineno;
             addr = 0;
 
             len = (int)PyStr_GET_SIZE(frame->f_code->co_lnotab);
@@ -201,7 +213,6 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
         //    unw_get_proc_name(&cursor, name, 64, &x);
         //    printf("  %s %p\n", name, func_addr);
         //}
-
 
         //if (func_addr == 0) {
         //    unw_word_t rip = 0;
@@ -479,14 +490,47 @@ teardown:
 }
 #endif
 
+static const char * vmprof_error = NULL;
+
 int vmp_native_enable(void) {
+    void * libhandle;
     vmp_native_traces_enabled = 1;
+
+    if (!unw_get_reg) {
+        if (!(libhandle = dlopen("libunwind.so", RTLD_LAZY | RTLD_LOCAL))) {
+            goto bail_out;
+        }
+        if (!(unw_getcontext = dlsym(libhandle, "_ULx86_64_getcontext"))) {
+            goto bail_out;
+        }
+        if (!(unw_get_reg = dlsym(libhandle, "_ULx86_64_get_reg"))) {
+            goto bail_out;
+        }
+        if (!(unw_get_proc_info = dlsym(libhandle, "_ULx86_64_get_proc_info"))){
+            goto bail_out;
+        }
+        if (!(unw_init_local = dlsym(libhandle, "_ULx86_64_init_local"))) {
+            goto bail_out;
+        }
+        if (!(unw_step = dlsym(libhandle, "_ULx86_64_step"))) {
+            goto bail_out;
+        }
+        if (!(unw_is_signal_frame = dlsym(libhandle, "_ULx86_64_is_signal_frame"))) {
+            goto bail_out;
+        }
+        if (dlclose(libhandle)) {
+            goto bail_out;
+        }
+    }
 
 #if defined(__unix__)
     return vmp_read_vmaps("/proc/self/maps");
 #elif defined(__APPLE__)
     return vmp_read_vmaps(NULL);
 #endif
+bail_out:
+    fprintf(stderr, "could not load libunwind at runtime. error: %s\n", vmprof_error);
+    return 0;
 }
 
 void vmp_native_disable(void) {

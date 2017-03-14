@@ -48,9 +48,9 @@ int vmprof_snapshot_thread(DWORD thread_id, PyThreadState *tstate, prof_stacktra
         return -1; // possible, e.g. attached debugger or thread alread suspended
     // find the correct thread
     depth = vmp_walk_and_record_stack(tstate->frame, stack->stack,
-                                      MAX_STACK_DEPTH, 0);
+                                      MAX_STACK_DEPTH, 0, 0);
     stack->depth = depth;
-    stack->stack[depth++] = (void*)thread_id;
+    stack->stack[depth++] = (void*)((ULONG_PTR)thread_id);
     stack->count = 1;
     stack->marker = MARKER_STACKTRACE;
     ResumeThread(hThread);
@@ -86,16 +86,14 @@ long __stdcall vmprof_mainloop(void *arg)
             continue;
         depth = vmprof_snapshot_thread(tstate->thread_id, tstate, stack);
         if (depth > 0) {
-            // see note in vmprof_common.h on the prof_stacktrace_s struct why
-            // there are two vmpr_write_all calls
-            vmp_write_all((char*)stack + offsetof(prof_stacktrace_s, marker), SIZEOF_PROF_STACKTRACE);
-            vmp_write_all((char*)stack->stack, depth * sizeof(void*));
+            vmp_write_all((char*)stack + offsetof(prof_stacktrace_s, marker),
+                          SIZEOF_PROF_STACKTRACE + depth * sizeof(void*));
         }
     }
 }
 
 RPY_EXTERN
-int vmprof_enable(int memory)
+int vmprof_enable(int memory, int native)
 {
     if (!thread_started) {
         if (!CreateThread(NULL, 0, vmprof_mainloop, NULL, 0, NULL)) {
@@ -121,4 +119,5 @@ int vmprof_disable(void)
 RPY_EXTERN
 void vmprof_ignore_signals(int ignored)
 {
+    enabled = !ignored;
 }

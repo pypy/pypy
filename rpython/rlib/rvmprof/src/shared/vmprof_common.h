@@ -48,7 +48,13 @@ static struct profbuf_s *volatile current_codes;
  * is 4, but fails on win32
  */
 typedef struct prof_stacktrace_s {
+#ifdef VMPROF_WINDOWS
+    // if padding is 8 bytes, then on both 32bit and 64bit, the
+    // stack field is aligned
+    char padding[sizeof(void*) - 1];
+#else
     char padding[sizeof(long) - 1];
+#endif
     char marker;
     long count, depth;
     void *stack[];
@@ -96,16 +102,15 @@ static int opened_profile(const char *interp_name, int memory, int proflines, in
     } header;
 
     const char * machine;
+    size_t namelen = strnlen(interp_name, 255);
 
     machine = vmp_machine_os_name();
-
-    size_t namelen = strnlen(interp_name, 255);
 
     header.hdr[0] = 0;
     header.hdr[1] = 3;
     header.hdr[2] = 0;
     header.hdr[3] = prepare_interval_usec;
-    if (strstr(machine, "win") != 0) {
+    if (strstr(machine, "win64") != 0) {
         header.hdr[4] = 1;
     } else {
         header.hdr[4] = 0;
