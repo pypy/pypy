@@ -1,12 +1,13 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib.debug import debug_start, debug_print, debug_stop
 from rpython.rlib.debug import have_debug_prints
 from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from rpython.jit.backend.x86.rx86 import X86_32_CodeBuilder, X86_64_CodeBuilder
 from rpython.jit.backend.x86.regloc import LocationCodeBuilder
 from rpython.jit.backend.x86.arch import IS_X86_32, IS_X86_64, WORD
-from rpython.jit.backend.x86 import valgrind
+from rpython.jit.backend.x86 import rx86, valgrind
 
 # XXX: Seems nasty to change the superclass of MachineCodeBlockWrapper
 # like this
@@ -16,6 +17,9 @@ if IS_X86_32:
 elif IS_X86_64:
     codebuilder_cls = X86_64_CodeBuilder
     backend_name = 'x86_64'
+
+class ShortJumpTooFar(Exception):
+    pass
 
 
 class MachineCodeBlockWrapper(BlockBuilderMixin,
@@ -54,7 +58,21 @@ class MachineCodeBlockWrapper(BlockBuilderMixin,
         valgrind.discard_translations(addr, self.get_relative_pos())
         self._dump(addr, "jit-backend-dump", backend_name)
 
+    @specialize.arg(1)
+    def emit_forward_jump(self, condition_string):
+        return self.emit_forward_jump_cond(rx86.Conditions[condition_string])
+
+    def emit_forward_jump_cond(self, cond):
+        self.J_il8(cond, 0)
+        return self.get_relative_pos()
+
+    def emit_forward_jump_uncond(self):
+        self.JMP_l8(0)
+        return self.get_relative_pos()
+
     def patch_forward_jump(self, jcond_location):
         offset = self.get_relative_pos() - jcond_location
-        assert 0 <= offset <= 127
+        assert offset >= 0
+        if offset > 127:
+            raise ShortJumpTooFar
         self.overwrite(jcond_location-1, chr(offset))
