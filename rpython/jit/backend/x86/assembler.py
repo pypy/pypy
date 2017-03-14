@@ -355,9 +355,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         mc.RET()
         #
         # patch the JNZ above
-        offset = mc.get_relative_pos() - jnz_location
-        assert 0 < offset <= 127
-        mc.overwrite(jnz_location-1, chr(offset))
+        mc.patch_forward_jump(jnz_location)
         # From now on this function is basically "merged" with
         # its caller and so contains DEFAULT_FRAME_BYTES bytes
         # plus my own return address, which we'll ignore next
@@ -841,9 +839,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.push_gcmap(mc, gcmap, store=True)
         mc.CALL(imm(self._frame_realloc_slowpath))
         # patch the JG above
-        offset = mc.get_relative_pos() - jg_location
-        assert 0 < offset <= 127
-        mc.overwrite(jg_location-1, chr(offset))
+        mc.patch_forward_jump(jg_location)
         self.frame_depth_to_patch.append(stack_check_cmp_ofs)
         self.frame_depth_to_patch.append(ofs2)
 
@@ -864,9 +860,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         ofs2 = mc.get_relative_pos() - 4
         mc.CALL(imm(self.cpu.realloc_frame_crash))
         # patch the JG above
-        offset = mc.get_relative_pos() - jg_location
-        assert 0 < offset <= 127
-        mc.overwrite(jg_location-1, chr(offset))
+        mc.patch_forward_jump(jg_location)
         self.frame_depth_to_patch.append(stack_check_cmp_ofs)
         self.frame_depth_to_patch.append(ofs2)
 
@@ -1006,9 +1000,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             jb_location = self.mc.get_relative_pos()
             self.mc.CALL(imm(self.stack_check_slowpath))# CALL slowpath
             # patch the JB above                        # .skip:
-            offset = self.mc.get_relative_pos() - jb_location
-            assert 0 < offset <= 127
-            self.mc.overwrite(jb_location-1, chr(offset))
+            self.mc.patch_forward_jump(jb_location)
             #
 
     def _call_footer(self):
@@ -1248,9 +1240,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # always clear zero and carry
         self.mc.CMP_ri(ebp.value, 0)
         # patch the JNP above
-        offset = self.mc.get_relative_pos() - jnp_location
-        assert 0 < offset <= 127
-        self.mc.overwrite(jnp_location-1, chr(offset))
+        self.mc.patch_forward_jump(jnp_location)
 
     def _cmpop_float(cond, rev_cond):
         is_ne           = cond == 'NE'
@@ -1731,7 +1721,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             jmp_adr = self.previous_cond_call_jcond
             offset = self.mc.get_relative_pos() - jmp_adr
             if offset <= 127:
-                self.mc.overwrite(jmp_adr-1, chr(offset))
+                self.mc.patch_forward_jump(jmp_adr)
 
     def genop_guard_guard_not_invalidated(self, guard_op, guard_token,
                                           locs, ign):
@@ -1846,9 +1836,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         jb_location = self.mc.get_relative_pos()
         self._cmp_guard_class(locs)
         # patch the JB above
-        offset = self.mc.get_relative_pos() - jb_location
-        assert 0 < offset <= 127
-        self.mc.overwrite(jb_location-1, chr(offset))
+        self.mc.patch_forward_jump(jb_location)
         #
         self.guard_success_cc = rx86.Conditions['E']
         self.implement_guard(guard_token)
@@ -2233,9 +2221,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.mc.JMP_l8(0) # jump to done, patched later
         jmp_location = self.mc.get_relative_pos()
         #
-        offset = jmp_location - je_location
-        assert 0 < offset <= 127
-        self.mc.overwrite(je_location - 1, chr(offset))
+        self.mc.patch_forward_jump(je_location)
         self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         #
         return jmp_location
@@ -2255,9 +2241,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 self.mc.MOV_rm(eax.value, (eax.value, ofs))
 
     def _call_assembler_patch_jmp(self, jmp_location):
-        offset = self.mc.get_relative_pos() - jmp_location
-        assert 0 <= offset <= 127
-        self.mc.overwrite(jmp_location - 1, chr(offset))
+        self.mc.patch_forward_jump(jmp_location)
 
     # ------------------- END CALL ASSEMBLER -----------------------
 
@@ -2330,9 +2314,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             jns_location = mc.get_relative_pos()
             #
             # patch the JS above
-            offset = mc.get_relative_pos() - js_location
-            assert 0 < offset <= 127
-            mc.overwrite(js_location-1, chr(offset))
+            mc.patch_forward_jump(js_location)
             #
             # case GCFLAG_CARDS_SET: emit a few instructions to do
             # directly the card flag setting
@@ -2367,14 +2349,10 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 raise AssertionError("index is neither RegLoc nor ImmedLoc")
             #
             # patch the JNS above
-            offset = mc.get_relative_pos() - jns_location
-            assert 0 < offset <= 127
-            mc.overwrite(jns_location-1, chr(offset))
+            mc.patch_forward_jump(jns_location)
 
         # patch the JZ above
-        offset = mc.get_relative_pos() - jz_location
-        assert 0 < offset <= 127
-        mc.overwrite(jz_location-1, chr(offset))
+        mc.patch_forward_jump(jz_location)
 
     def genop_discard_cond_call_gc_wb(self, op, arglocs):
         self._write_barrier_fastpath(self.mc, op.getdescr(), arglocs)
@@ -2459,9 +2437,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             v = gpr_reg_mgr_cls.all_reg_indexes[eax.value]
             self.mc.MOV_rb(eax.value, v * WORD + base_ofs)
         #
-        offset = self.mc.get_relative_pos() - jmp_adr
-        assert 0 < offset <= 127
-        self.mc.overwrite(jmp_adr-1, chr(offset))
+        self.mc.patch_forward_jump(jmp_adr)
         # might be overridden again to skip over the following
         # guard_no_exception too
         self.previous_cond_call_jcond = jmp_adr
@@ -2476,9 +2452,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # save the gcmap
         self.push_gcmap(self.mc, gcmap, store=True)
         self.mc.CALL(imm(follow_jump(self.malloc_slowpath)))
-        offset = self.mc.get_relative_pos() - jmp_adr
-        assert 0 < offset <= 127
-        self.mc.overwrite(jmp_adr-1, chr(offset))
+        self.mc.patch_forward_jump(jmp_adr)
         self.mc.MOV(heap(nursery_free_adr), edx)
 
     def malloc_cond_varsize_frame(self, nursery_free_adr, nursery_top_adr,
@@ -2497,9 +2471,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # save the gcmap
         self.push_gcmap(self.mc, gcmap, store=True)
         self.mc.CALL(imm(follow_jump(self.malloc_slowpath)))
-        offset = self.mc.get_relative_pos() - jmp_adr
-        assert 0 < offset <= 127
-        self.mc.overwrite(jmp_adr-1, chr(offset))
+        self.mc.patch_forward_jump(jmp_adr)
         self.mc.MOV(heap(nursery_free_adr), edx)
 
     def malloc_cond_varsize(self, kind, nursery_free_adr, nursery_top_adr,
@@ -2545,9 +2517,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.mc.J_il8(rx86.Conditions['NA'], 0) # patched later
         jmp_adr1 = self.mc.get_relative_pos()
         #
-        offset = self.mc.get_relative_pos() - jmp_adr0
-        assert 0 < offset <= 127
-        self.mc.overwrite(jmp_adr0-1, chr(offset))
+        self.mc.patch_forward_jump(jmp_adr0)
         # save the gcmap
         self.push_gcmap(self.mc, gcmap, store=True)
         if kind == rewrite.FLAG_ARRAY:
@@ -2566,18 +2536,14 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.mc.JMP_l8(0)      # jump to done, patched later
         jmp_location = self.mc.get_relative_pos()
         #
-        offset = self.mc.get_relative_pos() - jmp_adr1
-        assert 0 < offset <= 127
-        self.mc.overwrite(jmp_adr1-1, chr(offset))
+        self.mc.patch_forward_jump(jmp_adr1)
         self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         # write down the tid, but not if it's the result of the CALL
         self.mc.MOV(mem(ecx, 0), imm(arraydescr.tid))
         # while we're at it, this line is not needed if we've done the CALL
         self.mc.MOV(heap(nursery_free_adr), edx)
         #
-        offset = self.mc.get_relative_pos() - jmp_location
-        assert 0 < offset <= 127
-        self.mc.overwrite(jmp_location - 1, chr(offset))
+        self.mc.patch_forward_jump(jmp_location)
 
     def store_force_descr(self, op, fail_locs, frame_depth):
         guard_token = self.implement_guard_recovery(op.opnum,

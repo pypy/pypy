@@ -354,9 +354,7 @@ class CallBuilderX86(AbstractCallBuilder):
             # general 'reacqgil_addr' below can acquire it again...
             mc.MOV(heap(fastgil), ecx)
             # patch the JNE above
-            offset = mc.get_relative_pos() - jne_location
-            assert 0 < offset <= 127
-            mc.overwrite(jne_location-1, chr(offset))
+            mc.patch_forward_jump(jne_location)
         else:
             mc.J_il8(rx86.Conditions['E'], 0)
             je_location = mc.get_relative_pos()
@@ -374,9 +372,7 @@ class CallBuilderX86(AbstractCallBuilder):
             self.restore_result_value(save_edx=False)
         #
         # patch the JE above
-        offset = mc.get_relative_pos() - je_location
-        assert 0 < offset <= 127
-        mc.overwrite(je_location-1, chr(offset))
+        mc.patch_forward_jump(je_location)
         #
         if restore_edx:
             mc.MOV_rs(edx.value, 12)   # restore this

@@ -53,3 +53,8 @@ class MachineCodeBlockWrapper(BlockBuilderMixin,
                 adr[0] = rffi.cast(rffi.INT, intmask(adr[0]) - p)
         valgrind.discard_translations(addr, self.get_relative_pos())
         self._dump(addr, "jit-backend-dump", backend_name)
+
+    def patch_forward_jump(self, jcond_location):
+        offset = self.get_relative_pos() - jcond_location
+        assert 0 <= offset <= 127
+        self.overwrite(jcond_location-1, chr(offset))
