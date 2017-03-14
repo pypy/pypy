@@ -604,14 +604,19 @@ def unicode_encode_utf_16_helper(s, size, errors,
         _STORECHAR(result, 0xFEFF, BYTEORDER)
         byteorder = BYTEORDER
 
-    i = 0
-    while i < size:
-        ch = ord(s[i])
-        i += 1
+    pos = 0
+    while pos < size:
+        ch = ord(s[pos])
+        pos += 1
         ch2 = 0
         if 0xD800 <= ch < 0xDFFF:
-            errorhandler(
-                errors, 'utf16', 'surrogates not allowed', s, i - 1, i)
+            ru, rs, pos = errorhandler(
+                errors, 'utf16', 'surrogates not allowed', s, pos - 1, pos)
+            if rs is not None:
+                result.append(rs)
+                continue
+            else:
+                pass  # XXX
         if ch >= 0x10000:
             ch2 = 0xDC00 | ((ch-0x10000) & 0x3FF)
             ch  = 0xD800 | ((ch-0x10000) >> 10)
@@ -772,19 +777,24 @@ def unicode_encode_utf_32_helper(s, size, errors,
         _STORECHAR32(result, 0xFEFF, BYTEORDER)
         byteorder = BYTEORDER
 
-    i = 0
-    while i < size:
-        ch = ord(s[i])
-        i += 1
+    pos = 0
+    while pos < size:
+        ch = ord(s[pos])
+        pos += 1
         ch2 = 0
         if 0xD800 <= ch < 0xDFFF:
-            errorhandler(
-                errors, 'utf32', 'surrogates not allowed', s, i - 1, i)
-        if MAXUNICODE < 65536 and 0xD800 <= ch <= 0xDBFF and i < size:
-            ch2 = ord(s[i])
+            ru, rs, pos = errorhandler(
+                errors, 'utf32', 'surrogates not allowed', s, pos - 1, pos)
+            if rs is not None:
+                result.append(rs)
+                continue
+            else:
+                pass  # XXX
+        if MAXUNICODE < 65536 and 0xD800 <= ch <= 0xDBFF and pos < size:
+            ch2 = ord(s[pos])
             if 0xDC00 <= ch2 <= 0xDFFF:
                 ch = (((ch & 0x3FF)<<10) | (ch2 & 0x3FF)) + 0x10000;
-                i += 1
+                pos += 1
         _STORECHAR32(result, ch, byteorder)
 
     return result.build()
