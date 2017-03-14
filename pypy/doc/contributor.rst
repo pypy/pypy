@@ -64,6 +64,7 @@ Contributors
   Michal Bendowski
   stian
   Jan de Mooij
+  Spenser Bauman
   Tyler Wade
   Vincent Legoll
   Michael Foord
@@ -311,6 +312,7 @@ Contributors
   Asmo Soinio
   jiaaro
   Mads Kiilerich
+  JohnDoe
   Antony Lee
   Jason Madden
   Daniel Neuhäuser
