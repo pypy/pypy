@@ -93,9 +93,12 @@ class DummySpace(object):
 
     def wrap(self, obj):
         return obj
+    newtext = wrap
 
     def str_w(self, s):
         return str(s)
+    def text_w(self, s):
+        return self.str_w(s)
 
     def len(self, x):
         return len(x)
@@ -119,6 +122,12 @@ class DummySpace(object):
         except AttributeError:
             raise OperationError(AttributeError, name)
         return method(*args)
+
+    def lookup_in_type(self, cls, name):
+        return getattr(cls, name)
+
+    def get_and_call_function(self, w_descr, w_obj, *args):
+        return w_descr.__get__(w_obj)(*args)
 
     def type(self, obj):
         class Type:
@@ -805,3 +814,19 @@ class AppTestArgument:
             assert str(e) == "myerror"
         else:
             assert False, "Expected TypeError"
+
+    def test_dict_subclass_with_weird_getitem(self):
+        # issue 2435: bug-to-bug compatibility with cpython. for a subclass of
+        # dict, just ignore the __getitem__ and behave like ext_do_call in ceval.c
+        # which just uses the underlying dict
+        class d(dict):
+            def __getitem__(self, key):
+                return key
+
+        for key in ["foo", u"foo"]:
+            q = d()
+            q[key] = "bar"
+
+            def test(**kwargs):
+                return kwargs
+            assert test(**q) == {"foo": "bar"}

@@ -159,11 +159,14 @@ class AppTestPosix:
             st = posix.stat(path)
             assert isinstance(st.st_mtime, float)
             assert st[7] == int(st.st_atime)
+            assert posix.stat_float_times(-1) is True
 
             posix.stat_float_times(False)
             st = posix.stat(path)
             assert isinstance(st.st_mtime, (int, long))
             assert st[7] == st.st_atime
+            assert posix.stat_float_times(-1) is False
+
         finally:
             posix.stat_float_times(current)
 
@@ -365,11 +368,11 @@ class AppTestPosix:
         pdir = self.pdir + '/file1'
         posix = self.posix
 
-        assert posix.access(pdir, posix.R_OK)
-        assert posix.access(pdir, posix.W_OK)
+        assert posix.access(pdir, posix.R_OK) is True
+        assert posix.access(pdir, posix.W_OK) is True
         import sys
         if sys.platform != "win32":
-            assert not posix.access(pdir, posix.X_OK)
+            assert posix.access(pdir, posix.X_OK) is False
 
     def test_times(self):
         """

@@ -79,6 +79,7 @@ epoll_wait = rffi.llexternal(
 
 class W_Epoll(W_Root):
     def __init__(self, space, epfd):
+        self.space = space
         self.epfd = epfd
         self.register_finalizer(space)
 
@@ -93,11 +94,11 @@ class W_Epoll(W_Root):
         if epfd < 0:
             raise exception_from_saved_errno(space, space.w_IOError)
 
-        return space.wrap(W_Epoll(space, epfd))
+        return W_Epoll(space, epfd)
 
     @unwrap_spec(fd=int)
     def descr_fromfd(space, w_cls, fd):
-        return space.wrap(W_Epoll(space, fd))
+        return W_Epoll(space, fd)
 
     def _finalize_(self):
         self.close()
@@ -113,6 +114,7 @@ class W_Epoll(W_Root):
         if not self.get_closed():
             socketclose(self.epfd)
             self.epfd = -1
+            self.may_unregister_rpython_finalizer(self.space)
 
     def epoll_ctl(self, space, ctl, w_fd, eventmask, ignore_ebadf=False):
         fd = space.c_filedescriptor_w(w_fd)
@@ -127,11 +129,11 @@ class W_Epoll(W_Root):
                 raise exception_from_saved_errno(space, space.w_IOError)
 
     def descr_get_closed(self, space):
-        return space.wrap(self.get_closed())
+        return space.newbool(self.get_closed())
 
     def descr_fileno(self, space):
         self.check_closed(space)
-        return space.wrap(self.epfd)
+        return space.newint(self.epfd)
 
     def descr_close(self, space):
         self.close()
@@ -173,7 +175,7 @@ class W_Epoll(W_Root):
             for i in xrange(nfds):
                 event = evs[i]
                 elist_w[i] = space.newtuple(
-                    [space.wrap(event.c_data.c_fd), space.wrap(event.c_events)]
+                    [space.newint(event.c_data.c_fd), space.newint(event.c_events)]
                 )
             return space.newlist(elist_w)
 

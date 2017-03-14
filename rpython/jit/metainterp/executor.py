@@ -5,6 +5,7 @@ from rpython.rtyper.lltypesystem import lltype, rstr, llmemory
 from rpython.rlib.rarithmetic import ovfcheck, r_longlong, is_valid_int
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib.debug import fatalerror
 from rpython.jit.metainterp.history import check_descr
 from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID, AbstractDescr
 from rpython.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
@@ -320,6 +321,10 @@ def do_copyunicodecontent(cpu, _, srcbox, dstbox,
 
 def do_keepalive(cpu, _, x):
     pass
+
+def do_assert_not_none(cpu, _, box):
+    if not box.getref_base():
+        fatalerror("found during JITting: ll_assert_not_none() failed")
 
 # ____________________________________________________________
 

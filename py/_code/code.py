@@ -133,11 +133,16 @@ class Frame(object):
 class TracebackEntry(object):
     """ a single entry in a traceback """
 
+    _repr_style = None
     exprinfo = None
 
     def __init__(self, rawentry):
         self._rawentry = rawentry
         self.lineno = rawentry.tb_lineno - 1
+
+    def set_repr_style(self, mode):
+        assert mode in ("short", "long")
+        self._repr_style = mode
 
     @property
     def frame(self):
@@ -465,22 +470,22 @@ class FormattedExcinfo(object):
     def get_source(self, source, line_index=-1, excinfo=None, short=False):
         """ return formatted and marked up source lines. """
         lines = []
-        if source is None:
+        if source is None or line_index >= len(source.lines):
             source = py.code.Source("???")
             line_index = 0
         if line_index < 0:
             line_index += len(source)
-        for i in range(len(source)):
-            if i == line_index:
-                prefix = self.flow_marker + "   "
-            else:
-                if short:
-                    continue
-                prefix = "    "
-            line = prefix + source[i]
-            lines.append(line)
+        space_prefix = "    "
+        if short:
+            lines.append(space_prefix + source.lines[line_index].strip())
+        else:
+            for line in source.lines[:line_index]:
+                lines.append(space_prefix + line)
+            lines.append(self.flow_marker + "   " + source.lines[line_index])
+            for line in source.lines[line_index+1:]:
+                lines.append(space_prefix + line)
         if excinfo is not None:
-            indent = self._getindent(source)
+            indent = 4 if short else self._getindent(source)
             lines.extend(self.get_exconly(excinfo, indent=indent, markall=True))
         return lines
 
@@ -520,7 +525,6 @@ class FormattedExcinfo(object):
             return ReprLocals(lines)
 
     def repr_traceback_entry(self, entry, excinfo=None):
-        # excinfo is not None if this is the last tb entry
         source = self._getentrysource(entry)
         if source is None:
             source = py.code.Source("???")
@@ -530,11 +534,12 @@ class FormattedExcinfo(object):
             line_index = entry.lineno - max(entry.getfirstlinesource(), 0)
 
         lines = []
-        if self.style in ("short", "long"):
-            short = self.style == "short"
-            reprargs = None
-            if not short:
-                reprargs = self.repr_args(entry)
+        style = entry._repr_style
+        if style is None:
+            style = self.style
+        if style in ("short", "long"):
+            short = style == "short"
+            reprargs = self.repr_args(entry) if not short else None
             s = self.get_source(source, line_index, excinfo, short=short)
             lines.extend(s)
             if short:
@@ -546,10 +551,10 @@ class FormattedExcinfo(object):
             localsrepr = None
             if not short:
                 localsrepr =  self.repr_locals(entry.locals)
-            return ReprEntry(lines, reprargs, localsrepr, filelocrepr, short)
+            return ReprEntry(lines, reprargs, localsrepr, filelocrepr, style)
         if excinfo:
             lines.extend(self.get_exconly(excinfo, indent=4))
-        return ReprEntry(lines, None, None, None, False)
+        return ReprEntry(lines, None, None, None, style)
 
     def _makepath(self, path):
         if not self.abspath:
@@ -567,7 +572,8 @@ class FormattedExcinfo(object):
             traceback = traceback.filter()
         recursionindex = None
         if excinfo.errisinstance(RuntimeError):
-            recursionindex = traceback.recursionindex()
+            if "maximum recursion depth exceeded" in str(excinfo.value):
+                recursionindex = traceback.recursionindex()
         last = traceback[-1]
         entries = []
         extraline = None
@@ -628,14 +634,18 @@ class ReprTraceback(TerminalRepr):
         self.style = style
 
     def toterminal(self, tw):
-        sepok = False
-        for entry in self.reprentries:
-            if self.style == "long":
-                if sepok:
-                    tw.sep(self.entrysep)
+        # the entries might have different styles
+        last_style = None
+        for i, entry in enumerate(self.reprentries):
+            if entry.style == "long":
                 tw.line("")
-            sepok = True
             entry.toterminal(tw)
+            if i < len(self.reprentries) - 1:
+                next_entry = self.reprentries[i+1]
+                if entry.style == "long" or \
+                   entry.style == "short" and next_entry.style == "long":
+                    tw.sep(self.entrysep)
+
         if self.extraline:
             tw.line(self.extraline)
 
@@ -646,6 +656,8 @@ class ReprTracebackNative(ReprTraceback):
         self.extraline = None
 
 class ReprEntryNative(TerminalRepr):
+    style = "native"
+
     def __init__(self, tblines):
         self.lines = tblines
 
@@ -655,15 +667,15 @@ class ReprEntryNative(TerminalRepr):
 class ReprEntry(TerminalRepr):
     localssep = "_ "
 
-    def __init__(self, lines, reprfuncargs, reprlocals, filelocrepr, short):
+    def __init__(self, lines, reprfuncargs, reprlocals, filelocrepr, style):
         self.lines = lines
         self.reprfuncargs = reprfuncargs
         self.reprlocals = reprlocals
         self.reprfileloc = filelocrepr
-        self.short = short
+        self.style = style
 
     def toterminal(self, tw):
-        if self.short:
+        if self.style == "short":
             self.reprfileloc.toterminal(tw)
             for line in self.lines:
                 red = line.startswith("E   ")
@@ -680,7 +692,8 @@ class ReprEntry(TerminalRepr):
             tw.line("")
             self.reprlocals.toterminal(tw)
         if self.reprfileloc:
-            tw.line("")
+            if self.lines:
+                tw.line("")
             self.reprfileloc.toterminal(tw)
 
     def __str__(self):

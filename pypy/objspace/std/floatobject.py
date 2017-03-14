@@ -224,16 +224,16 @@ class W_FloatObject(W_Root):
         return w_obj
 
     @staticmethod
-    @unwrap_spec(kind=str)
+    @unwrap_spec(kind='text')
     def descr___getformat__(space, w_cls, kind):
         if kind == "float":
-            return space.wrap(_float_format)
+            return space.newtext(_float_format)
         elif kind == "double":
-            return space.wrap(_double_format)
+            return space.newtext(_double_format)
         raise oefmt(space.w_ValueError, "only float and double are valid")
 
     @staticmethod
-    @unwrap_spec(s=str)
+    @unwrap_spec(s='text')
     def descr_fromhex(space, w_cls, s):
         length = len(s)
         i = 0
@@ -372,7 +372,7 @@ class W_FloatObject(W_Root):
             i += 1
         if i != length:
             raise oefmt(space.w_ValueError, "invalid hex string")
-        w_float = space.wrap(sign * value)
+        w_float = space.newfloat(sign * value)
         return space.call_function(w_cls, w_float)
 
     def _to_float(self, space, w_obj):
@@ -384,15 +384,15 @@ class W_FloatObject(W_Root):
             return W_FloatObject(space.float_w(w_obj))
 
     def descr_repr(self, space):
-        return space.wrap(float2string(self.floatval, 'r', 0))
+        return space.newtext(float2string(self.floatval, 'r', 0))
 
     def descr_str(self, space):
-        return space.wrap(float2string(self.floatval, 'g', DTSF_STR_PRECISION))
+        return space.newtext(float2string(self.floatval, 'g', DTSF_STR_PRECISION))
 
     def descr_hash(self, space):
         h = _hash_float(space, self.floatval)
         h -= (h == -1)
-        return space.wrap(h)
+        return space.newint(h)
 
     def descr_format(self, space, w_spec):
         return newformat.run_formatter(space, w_spec, "format_float", self)
@@ -584,7 +584,7 @@ class W_FloatObject(W_Root):
         return space.float(self)
 
     def descr_get_imag(self, space):
-        return space.wrap(0.0)
+        return space.newfloat(0.0)
 
     def descr_conjugate(self, space):
         return space.float(self)
@@ -593,7 +593,7 @@ class W_FloatObject(W_Root):
         v = self.floatval
         if not rfloat.isfinite(v):
             return space.w_False
-        return space.wrap(math.floor(v) == v)
+        return space.newbool(math.floor(v) == v)
 
     def descr_as_integer_ratio(self, space):
         value = self.floatval
@@ -618,9 +618,9 @@ class W_FloatObject(W_Root):
             return self.descr_str(space)
         if value == 0.0:
             if copysign(1., value) == -1.:
-                return space.wrap("-0x0.0p+0")
+                return space.newtext("-0x0.0p+0")
             else:
-                return space.wrap("0x0.0p+0")
+                return space.newtext("0x0.0p+0")
         mant, exp = math.frexp(value)
         shift = 1 - max(rfloat.DBL_MIN_EXP - exp, 0)
         mant = math.ldexp(mant, shift)
@@ -641,9 +641,9 @@ class W_FloatObject(W_Root):
         exp = abs(exp)
         s = ''.join(result)
         if value < 0.0:
-            return space.wrap("-0x%sp%s%d" % (s, sign, exp))
+            return space.newtext("-0x%sp%s%d" % (s, sign, exp))
         else:
-            return space.wrap("0x%sp%s%d" % (s, sign, exp))
+            return space.newtext("0x%sp%s%d" % (s, sign, exp))
 
 
 W_FloatObject.typedef = TypeDef("float",

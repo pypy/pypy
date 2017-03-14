@@ -26,7 +26,6 @@ IS_64_BITS = sys.maxint > 2147483647
 
 class AsmGcRootFrameworkGCTransformer(BaseFrameworkGCTransformer):
     _asmgcc_save_restore_arguments = None
-    _seen_gctransformer_hint_close_stack = None
 
     def push_roots(self, hop, keep_current_args=False):
         livevars = self.get_livevars_for_roots(hop, keep_current_args)
@@ -50,29 +49,28 @@ class AsmGcRootFrameworkGCTransformer(BaseFrameworkGCTransformer):
         hop.genop("direct_call", [c_asm_nocollect, name])
 
     def gct_direct_call(self, hop):
+        # just a sanity check: if we find a fnptr with the hint on the
+        # _callable, then we'd also find the hint by looking only at the
+        # graph.  We'll actually change this graph only later, in
+        # start_transforming_graph().
         fnptr = hop.spaceop.args[0].value
         try:
             close_stack = fnptr._obj._callable._gctransformer_hint_close_stack_
         except AttributeError:
+            pass
+        else:
+            assert fnptr._obj.graph.func is fnptr._obj._callable
+        BaseFrameworkGCTransformer.gct_direct_call(self, hop)
+
+    def start_transforming_graph(self, graph):
+        try:
+            close_stack = graph.func._gctransformer_hint_close_stack_
+        except AttributeError:
             close_stack = False
         if close_stack:
-            self.handle_call_with_close_stack(hop)
-        else:
-            BaseFrameworkGCTransformer.gct_direct_call(self, hop)
+            self._transform_hint_close_stack(graph)
 
-    def handle_call_with_close_stack(self, hop):
-        fnptr = hop.spaceop.args[0].value
-        if self._seen_gctransformer_hint_close_stack is None:
-            self._seen_gctransformer_hint_close_stack = {}
-        if fnptr._obj.graph not in self._seen_gctransformer_hint_close_stack:
-            self._transform_hint_close_stack(fnptr)
-            self._seen_gctransformer_hint_close_stack[fnptr._obj.graph] = True
-        #
-        livevars = self.push_roots(hop)
-        self.default(hop)
-        self.pop_roots(hop, livevars)
-
-    def _transform_hint_close_stack(self, fnptr):
+    def _transform_hint_close_stack(self, graph):
         # We cannot easily pass variable amount of arguments of the call
         # across the call to the pypy_asm_stackwalk helper.  So we store
         # them away and restore them.  More precisely, we need to
@@ -83,8 +81,8 @@ class AsmGcRootFrameworkGCTransformer(BaseFrameworkGCTransformer):
         sradict = self._asmgcc_save_restore_arguments
         sra = []     # list of pointers to raw-malloced containers for args
         seen = {}
-        FUNC1 = lltype.typeOf(fnptr).TO
-        for TYPE in FUNC1.ARGS:
+        ARGS = [v.concretetype for v in graph.getargs()]
+        for TYPE in ARGS:
             if isinstance(TYPE, lltype.Ptr):
                 TYPE = llmemory.Address
             num = seen.get(TYPE, 0)
@@ -98,8 +96,10 @@ class AsmGcRootFrameworkGCTransformer(BaseFrameworkGCTransformer):
             sra.append(sradict[key])
         #
         # make a copy of the graph that will reload the values
-        graph = fnptr._obj.graph
         graph2 = copygraph(graph)
+        del graph2.func   # otherwise, start_transforming_graph() will
+                          # again transform graph2, and we get an
+                          # infinite loop
         #
         # edit the original graph to only store the value of the arguments
         block = Block(graph.startblock.inputargs)
@@ -116,17 +116,18 @@ class AsmGcRootFrameworkGCTransformer(BaseFrameworkGCTransformer):
                 SpaceOperation("bare_setfield", [c_p, c_item0, v_arg], v_void))
         #
         # call asm_stackwalk(graph2)
-        FUNC2 = lltype.FuncType([], FUNC1.RESULT)
+        RESULT = graph.getreturnvar().concretetype
+        FUNC2 = lltype.FuncType([], RESULT)
         fnptr2 = lltype.functionptr(FUNC2,
-                                    fnptr._obj._name + '_reload',
+                                    graph.name + '_reload',
                                     graph=graph2)
         c_fnptr2 = Constant(fnptr2, lltype.Ptr(FUNC2))
         HELPERFUNC = lltype.FuncType([lltype.Ptr(FUNC2),
-                                      ASM_FRAMEDATA_HEAD_PTR], FUNC1.RESULT)
+                                      ASM_FRAMEDATA_HEAD_PTR], RESULT)
         v_asm_stackwalk = varoftype(lltype.Ptr(HELPERFUNC), "asm_stackwalk")
         block.operations.append(
             SpaceOperation("cast_pointer", [c_asm_stackwalk], v_asm_stackwalk))
-        v_result = varoftype(FUNC1.RESULT)
+        v_result = varoftype(RESULT)
         block.operations.append(
             SpaceOperation("indirect_call", [v_asm_stackwalk, c_fnptr2,
                                              c_gcrootanchor,
@@ -339,6 +340,9 @@ class AsmStackRootWalker(BaseRootWalker):
         # need both threads and stacklets, need_thread_support() must be
         # called first, to initialize self.belongs_to_current_thread.
         assert not hasattr(self, 'gc_detach_callback_pieces_ptr')
+
+    def postprocess_graph(self, gct, graph, any_inlining):
+        pass
 
     def walk_stack_roots(self, collect_stack_root, is_minor=False):
         gcdata = self.gcdata

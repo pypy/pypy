@@ -15,7 +15,7 @@ time = rffi.llexternal('time', [lltype.Signed], time_t,
 
 def get(space, name):
     w_module = space.getbuiltinmodule('_demo')
-    return space.getattr(w_module, space.wrap(name))
+    return space.getattr(w_module, space.newtext(name))
 
 
 @unwrap_spec(repetitions=int)
@@ -27,7 +27,7 @@ def measuretime(space, repetitions, w_callable):
     for i in range(repetitions):
         space.call_function(w_callable)
     endtime = time(0)
-    return space.wrap(endtime - starttime)
+    return space.newint(endtime - starttime)
 
 @unwrap_spec(n=int)
 def sieve(space, n):
@@ -55,10 +55,10 @@ class W_MyType(W_Root):
     def multiply(self, w_y):
         space = self.space
         y = space.int_w(w_y)
-        return space.wrap(self.x * y)
+        return space.newint(self.x * y)
 
     def fget_x(self, space):
-        return space.wrap(self.x)
+        return space.newint(self.x)
 
     def fset_x(self, space, w_value):
         self.x = space.int_w(w_value)
@@ -66,8 +66,8 @@ class W_MyType(W_Root):
 @unwrap_spec(x=int)
 def mytype_new(space, w_subtype, x):
     if x == 3:
-        return space.wrap(MySubType(space, x))
-    return space.wrap(W_MyType(space, x))
+        return MySubType(space, x)
+    return W_MyType(space, x)
 
 getset_x = GetSetProperty(W_MyType.fget_x, W_MyType.fset_x, cls=W_MyType)
 

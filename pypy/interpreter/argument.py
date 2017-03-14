@@ -111,7 +111,9 @@ class Arguments(object):
                 self.keywords = self.keywords + keywords
                 self.keywords_w = self.keywords_w + values_w
             return
+        is_dict = False
         if space.isinstance_w(w_starstararg, space.w_dict):
+            is_dict = True
             keys_w = space.unpackiterable(w_starstararg)
         else:
             try:
@@ -125,7 +127,9 @@ class Arguments(object):
             keys_w = space.unpackiterable(w_keys)
         keywords_w = [None] * len(keys_w)
         keywords = [None] * len(keys_w)
-        _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords, keywords_w, self.keywords)
+        _do_combine_starstarargs_wrapped(
+            space, keys_w, w_starstararg, keywords, keywords_w, self.keywords,
+            is_dict)
         self.keyword_names_w = keys_w
         if self.keywords is None:
             self.keywords = keywords
@@ -355,11 +359,11 @@ def _check_not_duplicate_kwargs(space, existingkeywords, keywords, keywords_w):
                             key)
 
 def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords,
-        keywords_w, existingkeywords):
+        keywords_w, existingkeywords, is_dict):
     i = 0
     for w_key in keys_w:
         try:
-            key = space.str_w(w_key)
+            key = space.text_w(w_key)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 raise oefmt(space.w_TypeError, "keywords must be strings")
@@ -374,7 +378,16 @@ def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords,
                             "got multiple values for keyword argument '%s'",
                             key)
         keywords[i] = key
-        keywords_w[i] = space.getitem(w_starstararg, w_key)
+        if is_dict:
+            # issue 2435: bug-to-bug compatibility with cpython. for a subclass of
+            # dict, just ignore the __getitem__ and access the underlying dict
+            # directly
+            from pypy.objspace.descroperation import dict_getitem
+            w_descr = dict_getitem(space)
+            w_value = space.get_and_call_function(w_descr, w_starstararg, w_key)
+        else:
+            w_value = space.getitem(w_starstararg, w_key)
+        keywords_w[i] = w_value
         i += 1
 
 @jit.look_inside_iff(
@@ -534,11 +547,11 @@ class ArgErrUnknownKwds(ArgErr):
                         except IndexError:
                             name = '?'
                         else:
-                            w_enc = space.wrap(space.sys.defaultencoding)
-                            w_err = space.wrap("replace")
+                            w_enc = space.newtext(space.sys.defaultencoding)
+                            w_err = space.newtext("replace")
                             w_name = space.call_method(w_name, "encode", w_enc,
                                                        w_err)
-                            name = space.str_w(w_name)
+                            name = space.text_w(w_name)
                     break
         self.kwd_name = name
 

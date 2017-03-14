@@ -1076,9 +1076,13 @@ def test_autofilled_struct_as_argument_dynamic():
         int (*foo)(struct foo_s s) = &foo1;
     """)
     e = py.test.raises(NotImplementedError, lib.foo, "?")
-    msg = ("ctype 'struct foo_s' not supported as argument (it is a struct "
-           'declared with "...;", but the C calling convention may depend '
-           'on the missing fields)')
+    msg = ("ctype 'struct foo_s' not supported as argument.  It is a struct "
+           'declared with "...;", but the C calling convention may depend on '
+           "the missing fields; or, it contains anonymous struct/unions.  "
+           "Such structs are only supported as argument "
+           "if the function is 'API mode' and non-variadic (i.e. declared "
+           "inside ffibuilder.cdef()+ffibuilder.set_source() and not taking "
+           "a final '...' argument)")
     assert str(e.value) == msg
 
 def test_func_returns_struct():
@@ -2147,14 +2151,23 @@ def test_consider_not_implemented_function_type():
     # assert did not crash so far
     e = py.test.raises(NotImplementedError, fooptr, ffi.new("Data *"))
     assert str(e.value) == (
-        "ctype 'Data' (size 4) not supported as argument")
+        "ctype 'Data' not supported as argument by libffi.  Unions are only "
+        "supported as argument if the function is 'API mode' and "
+        "non-variadic (i.e. declared inside ffibuilder.cdef()+"
+        "ffibuilder.set_source() and not taking a final '...' argument)")
     e = py.test.raises(NotImplementedError, bazptr)
     assert str(e.value) == (
-        "ctype 'Data' (size 4) not supported as return value")
+        "ctype 'Data' not supported as return value by libffi.  Unions are "
+        "only supported as return value if the function is 'API mode' and "
+        "non-variadic (i.e. declared inside ffibuilder.cdef()+"
+        "ffibuilder.set_source() and not taking a final '...' argument)")
     e = py.test.raises(NotImplementedError, barptr)
     assert str(e.value) == (
-        "ctype 'MyStr' not supported as return value "
-        "(it is a struct with bit fields)")
+        "ctype 'MyStr' not supported as return value.  It is a struct with "
+        "bit fields, which libffi does not support.  Such structs are only "
+        "supported as return value if the function is 'API mode' and non-"
+        "variadic (i.e. declared inside ffibuilder.cdef()+ffibuilder."
+        "set_source() and not taking a final '...' argument)")
 
 def test_verify_extra_arguments():
     ffi = FFI()
@@ -2234,10 +2247,10 @@ def test_dont_support_int_dotdotdot():
     assert str(e.value) == ("feature not supported with ffi.verify(), but only "
                             "with ffi.set_source(): 'typedef int... t1'")
     ffi = FFI()
-    ffi.cdef("typedef unsigned long... t1;")
+    ffi.cdef("typedef double ... t1;")
     e = py.test.raises(VerificationError, ffi.verify, "")
     assert str(e.value) == ("feature not supported with ffi.verify(), but only "
-                         "with ffi.set_source(): 'typedef unsigned long... t1'")
+                         "with ffi.set_source(): 'typedef float... t1'")
 
 def test_const_fields():
     ffi = FFI()

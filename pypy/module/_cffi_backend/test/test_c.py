@@ -36,6 +36,7 @@ class AppTestC(object):
     def setup_class(cls):
         testfuncs_w = []
         keepalive_funcs = []
+        UniqueCache.for_testing = True
 
         def find_and_load_library_for_test(space, w_name, w_is_global=None):
             if w_is_global is None:
@@ -86,11 +87,12 @@ class AppTestC(object):
             _all_test_c.find_and_load_library = func
             _all_test_c._testfunc = testfunc
         """)
-        UniqueCache.for_testing = True
 
     def teardown_method(self, method):
-        UniqueCache.for_testing = False
         _clean_cache(self.space)
+
+    def teardown_class(cls):
+        UniqueCache.for_testing = False
 
 
 all_names = ', '.join(Module.interpleveldefs.keys())

@@ -273,7 +273,7 @@ class TestMisc(BaseTestPyPyC):
             i21 = getfield_gc_i(p17, descr=<FieldS .*W_Array.*.inst_len .*>)
             i23 = int_lt(0, i21)
             guard_true(i23, descr=...)
-            i24 = getfield_gc_i(p17, descr=<FieldU .*W_ArrayTypei.inst_buffer .*>)
+            i24 = getfield_gc_i(p17, descr=<FieldU .*W_ArrayBase.inst__buffer .*>)
             i25 = getarrayitem_raw_i(i24, 0, descr=<.*>)
             i27 = int_lt(1, i21)
             guard_false(i27, descr=...)
@@ -387,7 +387,8 @@ class TestMisc(BaseTestPyPyC):
     def test_long_comparison(self):
         def main(n):
             while n:
-                12345L > 123L  # ID: long_op
+                x = 12345L
+                x > 123L  # ID: long_op
                 n -= 1
 
         log = self.run(main, [300])

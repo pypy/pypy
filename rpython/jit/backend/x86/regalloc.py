@@ -948,11 +948,11 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         # If this also contains args[0], this returns the current
         # location too.
         arglocs = [self.loc(args[i]) for i in range(2, len(args))]
-        gcmap = self.get_gcmap()
 
         if op.type == 'v':
             # a plain COND_CALL.  Calls the function when args[0] is
             # true.  Often used just after a comparison operation.
+            gcmap = self.get_gcmap()
             self.load_condition_into_cc(op.getarg(0))
             resloc = None
         else:
@@ -969,6 +969,22 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             resloc = self.rm.force_result_in_reg(op, args[0],
                                                  forbidden_vars=args[2:])
 
+            # Get the gcmap here, possibly including the spilled
+            # location, and always excluding the 'resloc' register.
+            # Some more details: the only interesting case is the case
+            # where we're doing the call (if we are not, the gcmap is
+            # not used); and in this case, the gcmap must include the
+            # spilled location (it contains a valid GC pointer to fix
+            # during the call if a GC occurs), and never 'resloc'
+            # (it will be overwritten with the result of the call, which
+            # is not computed yet if a GC occurs).
+            #
+            # (Note that the spilled value is always NULL at the moment
+            # if the call really occurs, but it's not worth the effort to
+            # not list it in the gcmap and get crashes if we tweak
+            # COND_CALL_VALUE_R in the future)
+            gcmap = self.get_gcmap([resloc])
+
             # Test the register for the result.
             self.assembler.test_location(resloc)
             self.assembler.guard_success_cc = rx86.Conditions['Z']
@@ -982,7 +998,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         size_box = op.getarg(0)
         assert isinstance(size_box, ConstInt)
         size = size_box.getint()
-        # hint: try to move unrelated registers away from eax and edx now
+        # hint: try to move unrelated registers away from ecx and edx now
         self.rm.spill_or_move_registers_before_call([ecx, edx])
         # the result will be in ecx
         self.rm.force_allocate_reg(op, selected_reg=ecx)

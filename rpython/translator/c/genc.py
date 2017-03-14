@@ -156,6 +156,10 @@ class CBuilder(object):
         for obj in exports.EXPORTS_obj2name.keys():
             db.getcontainernode(obj)
         exports.clear()
+
+        for ll_func in db.translator._call_at_startup:
+            db.get(ll_func)
+
         db.complete()
 
         self.collect_compilation_info(db)
@@ -414,7 +418,7 @@ class CStandaloneBuilder(CBuilder):
             headers_to_precompile=headers_to_precompile,
             no_precompile_cfiles = module_files,
             shared=self.config.translation.shared,
-            icon=self.config.translation.icon)
+            config=self.config)
 
         if self.has_profopt():
             profopt = self.config.translation.profopt
@@ -821,6 +825,9 @@ def gen_startupcode(f, database):
         if lines:
             for line in lines:
                 print >> f, '\t'+line
+
+    for ll_init in database.translator._call_at_startup:
+        print >> f, '\t%s();\t/* call_at_startup */' % (database.get(ll_init),)
 
     print >> f, '}'
 

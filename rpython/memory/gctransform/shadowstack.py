@@ -3,6 +3,7 @@ from rpython.rtyper.llannotation import SomePtr
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib import rgc
+from rpython.rlib.objectmodel import specialize
 from rpython.rtyper import rmodel
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import lltype, llmemory
@@ -10,6 +11,7 @@ from rpython.rtyper.llannotation import SomeAddress
 from rpython.memory.gctransform.framework import (
      BaseFrameworkGCTransformer, BaseRootWalker, sizeofaddr)
 from rpython.rtyper.rbuiltin import gen_cast
+from rpython.memory.gctransform.log import log
 
 
 class ShadowStackFrameworkGCTransformer(BaseFrameworkGCTransformer):
@@ -29,30 +31,43 @@ class ShadowStackFrameworkGCTransformer(BaseFrameworkGCTransformer):
     def push_roots(self, hop, keep_current_args=False):
         livevars = self.get_livevars_for_roots(hop, keep_current_args)
         self.num_pushs += len(livevars)
-        if not livevars:
-            return []
-        c_len = rmodel.inputconst(lltype.Signed, len(livevars) )
-        base_addr = hop.genop("direct_call", [self.incr_stack_ptr, c_len ],
-                              resulttype=llmemory.Address)
-        for k,var in enumerate(livevars):
-            c_k = rmodel.inputconst(lltype.Signed, k * sizeofaddr)
-            v_adr = gen_cast(hop.llops, llmemory.Address, var)
-            hop.genop("raw_store", [base_addr, c_k, v_adr])
+        hop.genop("gc_push_roots", livevars)
         return livevars
 
     def pop_roots(self, hop, livevars):
-        if not livevars:
-            return
-        c_len = rmodel.inputconst(lltype.Signed, len(livevars) )
-        base_addr = hop.genop("direct_call", [self.decr_stack_ptr, c_len ],
-                              resulttype=llmemory.Address)
-        if self.gcdata.gc.moving_gc:
-            # for moving collectors, reload the roots into the local variables
-            for k,var in enumerate(livevars):
-                c_k = rmodel.inputconst(lltype.Signed, k * sizeofaddr)
-                v_newaddr = hop.genop("raw_load", [base_addr, c_k],
-                                      resulttype=llmemory.Address)
-                hop.genop("gc_reload_possibly_moved", [v_newaddr, var])
+        hop.genop("gc_pop_roots", livevars)
+        # NB. we emit it even if len(livevars) == 0; this is needed for
+        # shadowcolor.move_pushes_earlier()
+
+
+@specialize.call_location()
+def walk_stack_root(invoke, arg0, arg1, start, addr, is_minor):
+    skip = 0
+    while addr != start:
+        addr -= sizeofaddr
+        #XXX reintroduce support for tagged values?
+        #if gc.points_to_valid_gc_object(addr):
+        #    callback(gc, addr)
+
+        if skip & 1 == 0:
+            content = addr.address[0]
+            n = llmemory.cast_adr_to_int(content)
+            if n & 1 == 0:
+                if content:   # non-0, non-odd: a regular ptr
+                    invoke(arg0, arg1, addr)
+            else:
+                # odd number: a skip bitmask
+                if n > 0:       # initially, an unmarked value
+                    if is_minor:
+                        newcontent = llmemory.cast_int_to_adr(-n)
+                        addr.address[0] = newcontent   # mark
+                    skip = n
+                else:
+                    # a marked value
+                    if is_minor:
+                        return
+                    skip = -n
+        skip >>= 1
 
 
 class ShadowStackRootWalker(BaseRootWalker):
@@ -73,14 +88,8 @@ class ShadowStackRootWalker(BaseRootWalker):
             return top
         self.decr_stack = decr_stack
 
-        def walk_stack_root(callback, start, end):
-            gc = self.gc
-            addr = end
-            while addr != start:
-                addr -= sizeofaddr
-                if gc.points_to_valid_gc_object(addr):
-                    callback(gc, addr)
-        self.rootstackhook = walk_stack_root
+        self.invoke_collect_stack_root = specialize.call_location()(
+            lambda arg0, arg1, addr: arg0(self.gc, addr))
 
         self.shadow_stack_pool = ShadowStackPool(gcdata)
         rsd = gctransformer.root_stack_depth
@@ -101,8 +110,9 @@ class ShadowStackRootWalker(BaseRootWalker):
 
     def walk_stack_roots(self, collect_stack_root, is_minor=False):
         gcdata = self.gcdata
-        self.rootstackhook(collect_stack_root,
-                           gcdata.root_stack_base, gcdata.root_stack_top)
+        walk_stack_root(self.invoke_collect_stack_root, collect_stack_root,
+                        None, gcdata.root_stack_base, gcdata.root_stack_top,
+                        is_minor=is_minor)
 
     def need_thread_support(self, gctransformer, getfn):
         from rpython.rlib import rthread    # xxx fish
@@ -208,7 +218,7 @@ class ShadowStackRootWalker(BaseRootWalker):
 
         self.thread_setup = thread_setup
         self.thread_run_ptr = getfn(thread_run, [], annmodel.s_None,
-                                    inline=True, minimal_transform=False)
+                                    minimal_transform=False)
         self.thread_die_ptr = getfn(thread_die, [], annmodel.s_None,
                                     minimal_transform=False)
         # no thread_before_fork_ptr here
@@ -221,6 +231,16 @@ class ShadowStackRootWalker(BaseRootWalker):
     def need_stacklet_support(self, gctransformer, getfn):
         from rpython.rlib import _stacklet_shadowstack
         _stacklet_shadowstack.complete_destrptr(gctransformer)
+
+    def postprocess_graph(self, gct, graph, any_inlining):
+        from rpython.memory.gctransform import shadowcolor
+        if any_inlining:
+            shadowcolor.postprocess_inlining(graph)
+        use_push_pop = shadowcolor.postprocess_graph(graph, gct.c_const_gcdata)
+        if use_push_pop and graph in gct.graphs_to_inline:
+            log.WARNING("%r is marked for later inlining, "
+                        "but is using push/pop roots.  Disabled" % (graph,))
+            del gct.graphs_to_inline[graph]
 
 # ____________________________________________________________
 
@@ -310,11 +330,8 @@ def get_shadowstackref(root_walker, gctransformer):
 
     def customtrace(gc, obj, callback, arg):
         obj = llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR)
-        addr = obj.top
-        start = obj.base
-        while addr != start:
-            addr -= sizeofaddr
-            gc._trace_callback(callback, arg, addr)
+        walk_stack_root(gc._trace_callback, callback, arg, obj.base, obj.top,
+                        is_minor=False)   # xxx optimize?
 
     gc = gctransformer.gcdata.gc
     assert not hasattr(gc, 'custom_trace_dispatcher')

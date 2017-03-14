@@ -1,5 +1,4 @@
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.interpreter import gateway
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext import api
 
@@ -16,9 +15,11 @@ class Module(MixedModule):
     def startup(self, space):
         space.fromcache(State).startup(space)
         method = pypy.module.cpyext.typeobject.get_new_method_def(space)
-        w_obj = pypy.module.cpyext.methodobject.W_PyCFunctionObject(space, method, space.wrap(''))
+        # the w_self argument here is a dummy, the only thing done with w_obj
+        # is call space.type on it
+        w_obj = pypy.module.cpyext.methodobject.W_PyCFunctionObject(space, method, space.w_None)
         space.appexec([space.type(w_obj)], """(methodtype):
-            from pickle import Pickler 
+            from pickle import Pickler
             Pickler.dispatch[methodtype] = Pickler.save_global
         """)
 

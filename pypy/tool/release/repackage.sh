@@ -2,7 +2,7 @@
 maj=5
 min=6
 rev=0
-branchname=release-$maj.x  # ==OR== release-$maj.$min.x
+branchname=release-pypy2.7-5.x # ==OR== release-$maj.x  # ==OR== release-$maj.$min.x
 tagname=release-pypy2.7-v$maj.$min.$rev  # ==OR== release-$maj.$min
 
 echo checking hg log -r $branchname
@@ -39,7 +39,7 @@ mv pypy-c-jit-*-$plat $rel-$plat
 zip -rq $rel-$plat.zip $rel-$plat
 rm -rf $rel-$plat
 
-# Do this after creating a tag, note the untarred directory is pypy-pypy-<hash>
+# Requires a valid $tagname, note the untarred directory is pypy-pypy-<hash>
 # so make sure there is not another one
 wget https://bitbucket.org/pypy/pypy/get/$tagname.tar.bz2
 tar -xf $tagname.tar.bz2

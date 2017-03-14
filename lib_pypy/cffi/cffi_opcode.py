@@ -1,3 +1,4 @@
+from .error import VerificationError
 
 class CffiOp(object):
     def __init__(self, op, arg):
@@ -19,7 +20,6 @@ class CffiOp(object):
                                     % (self.arg,))
             return format_four_bytes(value)
         if isinstance(self.arg, str):
-            from .ffiplatform import VerificationError
             raise VerificationError("cannot emit to Python: %r" % (self.arg,))
         return format_four_bytes((self.arg << 8) | self.op)
 

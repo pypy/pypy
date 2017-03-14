@@ -8,10 +8,10 @@ BYTEARRAY = lltype.GcForwardReference()
 def mallocbytearray(size):
     return lltype.malloc(BYTEARRAY, size)
 
-_, _, copy_bytearray_contents = rstr._new_copy_contents_fun(BYTEARRAY, BYTEARRAY,
+_, _, copy_bytearray_contents, _ = rstr._new_copy_contents_fun(BYTEARRAY, BYTEARRAY,
                                                          lltype.Char,
                                                          'bytearray')
-_, _, copy_bytearray_contents_from_str = rstr._new_copy_contents_fun(rstr.STR,
+_, _, copy_bytearray_contents_from_str, _ = rstr._new_copy_contents_fun(rstr.STR,
                                                                   BYTEARRAY,
                                                                   lltype.Char,
                                                                   'bytearray_from_str')

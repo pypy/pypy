@@ -1,5 +1,5 @@
 import sys, os
-from rpython.rlib.objectmodel import specialize, we_are_translated
+from rpython.rlib.objectmodel import specialize, we_are_translated, not_rpython
 from rpython.rlib import jit, rposix, rgc
 from rpython.rlib.rvmprof import cintf
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
@@ -28,6 +28,8 @@ class VMProfError(Exception):
 class FakeWeakCodeObjectList(object):
     def add_handle(self, handle):
         pass
+    def get_all_handles(self):
+        return []
 
 class VMProf(object):
 
@@ -35,8 +37,9 @@ class VMProf(object):
 
     use_weaklist = True # False for tests
 
+    @not_rpython
     def __init__(self):
-        "NOT_RPYTHON: use _get_vmprof()"
+        "use _get_vmprof()"
         self._code_classes = set()
         self._gather_all_code_objs = lambda: None
         self._cleanup_()
@@ -66,8 +69,9 @@ class VMProf(object):
             elif self.use_weaklist:
                 code._vmprof_weak_list.add_handle(code)
 
+    @not_rpython
     def register_code_object_class(self, CodeClass, full_name_func):
-        """NOT_RPYTHON
+        """
         Register statically the class 'CodeClass' as containing user
         code objects.
 

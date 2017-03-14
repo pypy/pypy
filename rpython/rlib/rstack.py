@@ -69,3 +69,22 @@ def stack_check_slowpath(current):
         raise _StackOverflow
 stack_check_slowpath._dont_inline_ = True
 stack_check_slowpath._dont_insert_stackcheck_ = True
+
+def stack_almost_full():
+    """Return True if the stack is more than 15/16th full."""
+    if not we_are_translated():
+        return False
+    # see stack_check()
+    current = llop.stack_current(lltype.Signed)
+    end = _stack_get_end()
+    length = 15 * (r_uint(_stack_get_length()) >> 4)
+    ofs = r_uint(end - current)
+    if ofs <= length:
+        return False    # fine
+    else:
+        _stack_too_big_slowpath(current)   # this might update the stack end
+        end = _stack_get_end()
+        ofs = r_uint(end - current)
+        return ofs > length
+stack_almost_full._dont_insert_stackcheck_ = True
+stack_almost_full._jit_look_inside_ = False

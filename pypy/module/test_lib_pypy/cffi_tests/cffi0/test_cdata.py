@@ -27,6 +27,8 @@ class FakeBackend(object):
     def _get_types(self):
         return "CData", "CType"
 
+    buffer = "buffer type"
+
 
 class FakeType(object):
     def __init__(self, cdecl):

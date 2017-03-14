@@ -123,6 +123,7 @@ def test_local_caching():
             return {}
         def wrap(self, obj):
             return obj
+        newtext = wrap
         def type(self, obj):
             return type(obj)
         class config:

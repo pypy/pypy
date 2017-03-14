@@ -5,7 +5,7 @@ import types
 
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, enforceargs, specialize
-from rpython.rlib.objectmodel import CDefinedIntSymbolic
+from rpython.rlib.objectmodel import CDefinedIntSymbolic, not_rpython
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory
 
@@ -422,8 +422,9 @@ class FinalizerQueue(object):
         else:
             self._untranslated_register_finalizer(obj)
 
+    @not_rpython
     def _get_tag(self):
-        "NOT_RPYTHON: special-cased below"
+        "special-cased below"
 
     def _reset(self):
         import collections
@@ -526,18 +527,50 @@ class FqTagEntry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.inputconst(lltype.Signed, hop.s_result.const)
 
+@jit.dont_look_inside
+@specialize.argtype(0)
+def may_ignore_finalizer(obj):
+    """Optimization hint: says that it is valid for any finalizer
+    for 'obj' to be ignored, depending on the GC."""
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    llop.gc_ignore_finalizer(lltype.Void, obj)
+
+@jit.dont_look_inside
+def move_out_of_nursery(obj):
+    """ Returns another object which is a copy of obj; but at any point
+        (either now or in the future) the returned object might suddenly
+        become identical to the one returned.
+
+        NOTE: Only use for immutable objects!
+
+        NOTE: Might fail on some GCs!  You have to check again
+        can_move() afterwards.  It should always work with the default
+        GC.  With Boehm, can_move() is always False so
+        move_out_of_nursery() should never be called in the first place.
+    """
+    return obj
+
+class MoveOutOfNurseryEntry(ExtRegistryEntry):
+    _about_ = move_out_of_nursery
+
+    def compute_result_annotation(self, s_obj):
+        return s_obj
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop('gc_move_out_of_nursery', hop.args_v, resulttype=hop.r_result)
 
 # ____________________________________________________________
 
 
+@not_rpython
 def get_rpy_roots():
-    "NOT_RPYTHON"
     # Return the 'roots' from the GC.
     # The gc typically returns a list that ends with a few NULL_GCREFs.
     return [_GcRef(x) for x in gc.get_objects()]
 
+@not_rpython
 def get_rpy_referents(gcref):
-    "NOT_RPYTHON"
     x = gcref._x
     if isinstance(x, list):
         d = x
@@ -583,8 +616,8 @@ class AddMemoryPressureEntry(ExtRegistryEntry):
                          resulttype=lltype.Void)
 
 
+@not_rpython
 def get_rpy_memory_usage(gcref):
-    "NOT_RPYTHON"
     # approximate implementation using CPython's type info
     Class = type(gcref._x)
     size = Class.__basicsize__
@@ -592,8 +625,8 @@ def get_rpy_memory_usage(gcref):
         size += Class.__itemsize__ * len(gcref._x)
     return size
 
+@not_rpython
 def get_rpy_type_index(gcref):
-    "NOT_RPYTHON"
     from rpython.rlib.rarithmetic import intmask
     Class = gcref._x.__class__
     return intmask(id(Class))
@@ -607,33 +640,33 @@ def cast_gcref_to_int(gcref):
     else:
         return id(gcref._x)
 
+@not_rpython
 def dump_rpy_heap(fd):
-    "NOT_RPYTHON"
     raise NotImplementedError
 
+@not_rpython
 def get_typeids_z():
-    "NOT_RPYTHON"
     raise NotImplementedError
 
+@not_rpython
 def get_typeids_list():
-    "NOT_RPYTHON"
     raise NotImplementedError
 
+@not_rpython
 def has_gcflag_extra():
-    "NOT_RPYTHON"
     return True
 has_gcflag_extra._subopnum = 1
 
 _gcflag_extras = set()
 
+@not_rpython
 def get_gcflag_extra(gcref):
-    "NOT_RPYTHON"
     assert gcref   # not NULL!
     return gcref in _gcflag_extras
 get_gcflag_extra._subopnum = 2
 
+@not_rpython
 def toggle_gcflag_extra(gcref):
-    "NOT_RPYTHON"
     assert gcref   # not NULL!
     try:
         _gcflag_extras.remove(gcref)
@@ -801,12 +834,12 @@ class Entry(ExtRegistryEntry):
         return hop.genop('gc_get_rpy_type_index', vlist,
                          resulttype = hop.r_result)
 
+@not_rpython
 def _is_rpy_instance(gcref):
-    "NOT_RPYTHON"
     raise NotImplementedError
 
+@not_rpython
 def _get_llcls_from_cls(Class):
-    "NOT_RPYTHON"
     raise NotImplementedError
 
 class Entry(ExtRegistryEntry):

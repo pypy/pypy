@@ -9,33 +9,16 @@ from pypy.interpreter.typedef import (
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.module.cpyext.api import (
     CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_NOARGS, METH_O,
-    METH_STATIC, METH_VARARGS, PyObject, PyObjectFields, bootstrap_function,
-    build_type_checkers, cpython_api, cpython_struct, generic_cpy_call,
-    PyTypeObjectPtr)
+    METH_STATIC, METH_VARARGS, PyObject, bootstrap_function,
+    build_type_checkers, cpython_api, generic_cpy_call,
+    PyTypeObjectPtr, slot_function, cts)
 from pypy.module.cpyext.pyobject import (
     Py_DecRef, from_ref, make_ref, as_pyobj, make_typedescr)
 
-PyCFunction_typedef = rffi.COpaquePtr(typedef='PyCFunction')
-PyCFunction = lltype.Ptr(lltype.FuncType([PyObject, PyObject], PyObject))
-PyCFunctionKwArgs = lltype.Ptr(lltype.FuncType([PyObject, PyObject, PyObject],
-                                               PyObject))
-
-PyMethodDef = cpython_struct(
-    'PyMethodDef',
-    [('ml_name', rffi.CONST_CCHARP),
-     ('ml_meth', PyCFunction_typedef),
-     ('ml_flags', rffi.INT_real),
-     ('ml_doc', rffi.CONST_CCHARP),
-     ])
-
-PyCFunctionObjectStruct = cpython_struct(
-    'PyCFunctionObject',
-    PyObjectFields + (
-     ('m_ml', lltype.Ptr(PyMethodDef)),
-     ('m_self', PyObject),
-     ('m_module', PyObject),
-     ))
-PyCFunctionObject = lltype.Ptr(PyCFunctionObjectStruct)
+PyMethodDef = cts.gettype('PyMethodDef')
+PyCFunction = cts.gettype('PyCFunction')
+PyCFunctionKwArgs = cts.gettype('PyCFunctionWithKeywords')
+PyCFunctionObject = cts.gettype('PyCFunctionObject*')
 
 @bootstrap_function
 def init_methodobject(space):
@@ -44,14 +27,14 @@ def init_methodobject(space):
                    attach=cfunction_attach,
                    dealloc=cfunction_dealloc)
 
-def cfunction_attach(space, py_obj, w_obj):
+def cfunction_attach(space, py_obj, w_obj, w_userdata=None):
     assert isinstance(w_obj, W_PyCFunctionObject)
     py_func = rffi.cast(PyCFunctionObject, py_obj)
     py_func.c_m_ml = w_obj.ml
     py_func.c_m_self = make_ref(space, w_obj.w_self)
     py_func.c_m_module = make_ref(space, w_obj.w_module)
 
-@cpython_api([PyObject], lltype.Void, header=None)
+@slot_function([PyObject], lltype.Void)
 def cfunction_dealloc(space, py_obj):
     py_func = rffi.cast(PyCFunctionObject, py_obj)
     Py_DecRef(space, py_func.c_m_self)
@@ -77,7 +60,7 @@ class W_PyCFunctionObject(W_Root):
             raise oefmt(space.w_TypeError,
                         "%s() takes no keyword arguments", self.name)
 
-        func = rffi.cast(PyCFunction, self.ml.c_ml_meth)
+        func = self.ml.c_ml_meth
         length = space.int_w(space.len(w_args))
         if flags & METH_KEYWORDS:
             func = rffi.cast(PyCFunctionKwArgs, self.ml.c_ml_meth)
@@ -92,14 +75,14 @@ class W_PyCFunctionObject(W_Root):
                 raise oefmt(space.w_TypeError,
                             "%s() takes exactly one argument (%d given)",
                             self.name, length)
-            w_arg = space.getitem(w_args, space.wrap(0))
+            w_arg = space.getitem(w_args, space.newint(0))
             return generic_cpy_call(space, func, w_self, w_arg)
         elif flags & METH_VARARGS:
             return generic_cpy_call(space, func, w_self, w_args)
         else: # METH_OLDARGS, the really old style
             size = length
             if size == 1:
-                w_arg = space.getitem(w_args, space.wrap(0))
+                w_arg = space.getitem(w_args, space.newint(0))
             elif size == 0:
                 w_arg = None
             else:
@@ -109,7 +92,7 @@ class W_PyCFunctionObject(W_Root):
     def get_doc(self, space):
         doc = self.ml.c_ml_doc
         if doc:
-            return space.wrap(rffi.charp2str(rffi.cast(rffi.CCHARP,doc)))
+            return space.newtext(rffi.charp2str(rffi.cast(rffi.CCHARP,doc)))
         else:
             return space.w_None
 
@@ -193,9 +176,9 @@ class W_PyCWrapperObject(W_Root):
         return self.wrapper_func(space, w_self, w_args, func_to_call)
 
     def descr_method_repr(self):
-        return self.space.wrap("<slot wrapper '%s' of '%s' objects>" %
-                               (self.method_name,
-                                self.w_objclass.name))
+        return self.space.newtext("<slot wrapper '%s' of '%s' objects>" %
+                                  (self.method_name,
+                                   self.w_objclass.name))
 
 def cwrapper_descr_call(space, w_self, __args__):
     self = space.interp_w(W_PyCWrapperObject, w_self)
@@ -204,7 +187,7 @@ def cwrapper_descr_call(space, w_self, __args__):
     w_self = args_w[0]
     w_kw = space.newdict()
     for key, w_obj in kw_w.items():
-        space.setitem(w_kw, space.wrap(key), w_obj)
+        space.setitem(w_kw, space.newtext(key), w_obj)
     return self.call(space, w_self, w_args, w_kw)
 
 
@@ -214,7 +197,7 @@ def cfunction_descr_call(space, w_self, __args__):
     w_args = space.newtuple(args_w)
     w_kw = space.newdict()
     for key, w_obj in kw_w.items():
-        space.setitem(w_kw, space.wrap(key), w_obj)
+        space.setitem(w_kw, space.newtext(key), w_obj)
     ret = self.call(space, None, w_args, w_kw)
     return ret
 
@@ -225,7 +208,7 @@ def cmethod_descr_call(space, w_self, __args__):
     w_args = space.newtuple(args_w[1:])
     w_kw = space.newdict()
     for key, w_obj in kw_w.items():
-        space.setitem(w_kw, space.wrap(key), w_obj)
+        space.setitem(w_kw, space.newtext(key), w_obj)
     ret = self.call(space, w_instance, w_args, w_kw)
     return ret
 
@@ -234,14 +217,14 @@ def cmethod_descr_get(space, w_function, w_obj, w_cls=None):
                         not space.is_w(w_obj, space.w_None) or
                         space.is_w(w_cls, space.type(space.w_None)))
     if asking_for_bound:
-        return space.wrap(Method(space, w_function, w_obj, w_cls))
+        return Method(space, w_function, w_obj, w_cls)
     else:
         return w_function
 
 def cclassmethod_descr_get(space, w_function, w_obj, w_cls=None):
     if not w_cls:
         w_cls = space.type(w_obj)
-    return space.wrap(Method(space, w_function, w_cls, space.w_None))
+    return Method(space, w_function, w_cls, space.w_None)
 
 
 W_PyCFunctionObject.typedef = TypeDef(
@@ -249,7 +232,8 @@ W_PyCFunctionObject.typedef = TypeDef(
     __call__ = interp2app(cfunction_descr_call),
     __doc__ = GetSetProperty(W_PyCFunctionObject.get_doc),
     __module__ = interp_attrproperty_w('w_module', cls=W_PyCFunctionObject),
-    __name__ = interp_attrproperty('name', cls=W_PyCFunctionObject),
+    __name__ = interp_attrproperty('name', cls=W_PyCFunctionObject,
+        wrapfn="newtext_or_none"),
     )
 W_PyCFunctionObject.typedef.acceptable_as_base_class = False
 
@@ -257,7 +241,8 @@ W_PyCMethodObject.typedef = TypeDef(
     'method',
     __get__ = interp2app(cmethod_descr_get),
     __call__ = interp2app(cmethod_descr_call),
-    __name__ = interp_attrproperty('name', cls=W_PyCMethodObject),
+    __name__ = interp_attrproperty('name', cls=W_PyCMethodObject,
+        wrapfn="newtext_or_none"),
     __objclass__ = interp_attrproperty_w('w_objclass', cls=W_PyCMethodObject),
     __repr__ = interp2app(W_PyCMethodObject.descr_method_repr),
     )
@@ -267,7 +252,8 @@ W_PyCClassMethodObject.typedef = TypeDef(
     'classmethod',
     __get__ = interp2app(cclassmethod_descr_get),
     __call__ = interp2app(cmethod_descr_call),
-    __name__ = interp_attrproperty('name', cls=W_PyCClassMethodObject),
+    __name__ = interp_attrproperty('name', cls=W_PyCClassMethodObject,
+        wrapfn="newtext_or_none"),
     __objclass__ = interp_attrproperty_w('w_objclass',
                                          cls=W_PyCClassMethodObject),
     __repr__ = interp2app(W_PyCClassMethodObject.descr_method_repr),
@@ -279,8 +265,10 @@ W_PyCWrapperObject.typedef = TypeDef(
     'wrapper_descriptor',
     __call__ = interp2app(cwrapper_descr_call),
     __get__ = interp2app(cmethod_descr_get),
-    __name__ = interp_attrproperty('method_name', cls=W_PyCWrapperObject),
-    __doc__ = interp_attrproperty('doc', cls=W_PyCWrapperObject),
+    __name__ = interp_attrproperty('method_name', cls=W_PyCWrapperObject,
+        wrapfn="newtext_or_none"),
+    __doc__ = interp_attrproperty('doc', cls=W_PyCWrapperObject,
+        wrapfn="newtext_or_none"),
     __objclass__ = interp_attrproperty_w('w_objclass', cls=W_PyCWrapperObject),
     __repr__ = interp2app(W_PyCWrapperObject.descr_method_repr),
     # XXX missing: __getattribute__
@@ -290,9 +278,9 @@ W_PyCWrapperObject.typedef.acceptable_as_base_class = False
 
 @cpython_api([lltype.Ptr(PyMethodDef), PyObject, PyObject], PyObject)
 def PyCFunction_NewEx(space, ml, w_self, w_name):
-    return space.wrap(W_PyCFunctionObject(space, ml, w_self, w_name))
+    return W_PyCFunctionObject(space, ml, w_self, w_name)
 
-@cpython_api([PyObject], PyCFunction_typedef)
+@cts.decl("PyCFunction PyCFunction_GetFunction(PyObject *)")
 def PyCFunction_GetFunction(space, w_obj):
     try:
         cfunction = space.interp_w(W_PyCFunctionObject, w_obj)
@@ -305,19 +293,19 @@ def PyCFunction_GetFunction(space, w_obj):
 
 @cpython_api([PyObject], PyObject)
 def PyStaticMethod_New(space, w_func):
-    return space.wrap(StaticMethod(w_func))
+    return StaticMethod(w_func)
 
 @cpython_api([PyObject], PyObject)
 def PyClassMethod_New(space, w_func):
-    return space.wrap(ClassMethod(w_func))
+    return ClassMethod(w_func)
 
 @cpython_api([PyTypeObjectPtr, lltype.Ptr(PyMethodDef)], PyObject)
 def PyDescr_NewMethod(space, w_type, method):
-    return space.wrap(W_PyCMethodObject(space, method, w_type))
+    return W_PyCMethodObject(space, method, w_type)
 
 @cpython_api([PyObject, lltype.Ptr(PyMethodDef)], PyObject)
 def PyDescr_NewClassMethod(space, w_type, method):
-    return space.wrap(W_PyCClassMethodObject(space, method, w_type))
+    return W_PyCClassMethodObject(space, method, w_type)
 
 @cpython_api([lltype.Ptr(PyMethodDef), PyObject, CONST_STRING], PyObject)
 def Py_FindMethod(space, table, w_obj, name_ptr):
@@ -341,10 +329,9 @@ def Py_FindMethod(space, table, w_obj, name_ptr):
                 break
             if name == "__methods__":
                 method_list_w.append(
-                    space.wrap(rffi.charp2str(rffi.cast(rffi.CCHARP, method.c_ml_name))))
+                    space.newtext(rffi.charp2str(rffi.cast(rffi.CCHARP, method.c_ml_name))))
             elif rffi.charp2str(rffi.cast(rffi.CCHARP, method.c_ml_name)) == name: # XXX expensive copy
-                return space.wrap(W_PyCFunctionObject(space, method, w_obj))
+                return W_PyCFunctionObject(space, method, w_obj)
     if name == "__methods__":
         return space.newlist(method_list_w)
-    raise OperationError(space.w_AttributeError, space.wrap(name))
-
+    raise OperationError(space.w_AttributeError, space.newtext(name))

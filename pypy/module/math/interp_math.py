@@ -7,8 +7,8 @@ from pypy.interpreter.error import OperationError, oefmt
 
 class State:
     def __init__(self, space):
-        self.w_e = space.wrap(math.e)
-        self.w_pi = space.wrap(math.pi)
+        self.w_e = space.newfloat(math.e)
+        self.w_pi = space.newfloat(math.pi)
 def get(space):
     return space.fromcache(State)
 
@@ -27,7 +27,7 @@ def math1(space, f, w_x):
         raise oefmt(space.w_OverflowError, "math range error")
     except ValueError:
         raise oefmt(space.w_ValueError, "math domain error")
-    return space.wrap(y)
+    return space.newfloat(y)
 
 @specialize.arg(1)
 def math1_w(space, f, w_x):
@@ -50,7 +50,7 @@ def math2(space, f, w_x, w_snd):
         raise oefmt(space.w_OverflowError, "math range error")
     except ValueError:
         raise oefmt(space.w_ValueError, "math domain error")
-    return space.wrap(r)
+    return space.newfloat(r)
 
 def trunc(space, w_x):
     """Truncate x."""
@@ -61,15 +61,15 @@ def copysign(space, w_x, w_y):
     # No exceptions possible.
     x = _get_double(space, w_x)
     y = _get_double(space, w_y)
-    return space.wrap(rfloat.copysign(x, y))
+    return space.newfloat(rfloat.copysign(x, y))
 
 def isinf(space, w_x):
     """Return True if x is infinity."""
-    return space.wrap(rfloat.isinf(_get_double(space, w_x)))
+    return space.newbool(rfloat.isinf(_get_double(space, w_x)))
 
 def isnan(space, w_x):
     """Return True if x is not a number."""
-    return space.wrap(rfloat.isnan(_get_double(space, w_x)))
+    return space.newbool(rfloat.isnan(_get_double(space, w_x)))
 
 def pow(space, w_x, w_y):
     """pow(x,y)
@@ -96,7 +96,7 @@ def ldexp(space, w_x,  w_i):
         except OperationError as e:
             if not e.match(space, space.w_OverflowError):
                 raise
-            if space.is_true(space.lt(w_i, space.wrap(0))):
+            if space.is_true(space.lt(w_i, space.newint(0))):
                 exp = -sys.maxint
             else:
                 exp = sys.maxint
@@ -108,7 +108,7 @@ def ldexp(space, w_x,  w_i):
         raise oefmt(space.w_OverflowError, "math range error")
     except ValueError:
         raise oefmt(space.w_ValueError, "math domain error")
-    return space.wrap(r)
+    return space.newfloat(r)
 
 def hypot(space, w_x, w_y):
     """hypot(x,y)
@@ -145,7 +145,7 @@ def floor(space, w_x):
        This is the largest integral value <= x.
     """
     x = _get_double(space, w_x)
-    return space.wrap(math.floor(x))
+    return space.newfloat(math.floor(x))
 
 def sqrt(space, w_x):
     """sqrt(x)
@@ -162,14 +162,14 @@ def frexp(space, w_x):
        If x is 0, m and e are both 0.  Else 0.5 <= abs(m) < 1.0.
     """
     mant, expo = math1_w(space, math.frexp, w_x)
-    return space.newtuple([space.wrap(mant), space.wrap(expo)])
+    return space.newtuple([space.newfloat(mant), space.newint(expo)])
 
 degToRad = math.pi / 180.0
 
 def degrees(space, w_x):
     """degrees(x) -> converts angle x from radians to degrees
     """
-    return space.wrap(_get_double(space, w_x) / degToRad)
+    return space.newfloat(_get_double(space, w_x) / degToRad)
 
 def _log_any(space, w_x, base):
     # base is supposed to be positive or 0.0, which means we use e
@@ -191,7 +191,7 @@ def _log_any(space, w_x, base):
         raise oefmt(space.w_OverflowError, "math range error")
     except ValueError:
         raise oefmt(space.w_ValueError, "math domain error")
-    return space.wrap(result)
+    return space.newfloat(result)
 
 def log(space, w_x, w_base=None):
     """log(x[, base]) -> the logarithm of x to the given base.
@@ -257,7 +257,7 @@ def tanh(space, w_x):
 def radians(space, w_x):
     """radians(x) -> converts angle x from degrees to radians
     """
-    return space.wrap(_get_double(space, w_x) * degToRad)
+    return space.newfloat(_get_double(space, w_x) * degToRad)
 
 def sin(space, w_x):
     """sin(x)
@@ -281,7 +281,7 @@ def modf(space, w_x):
        of x.  The integer part is returned as a real.
     """
     frac, intpart = math1_w(space, math.modf, w_x)
-    return space.newtuple([space.wrap(frac), space.wrap(intpart)])
+    return space.newtuple([space.newfloat(frac), space.newfloat(intpart)])
 
 def exp(space, w_x):
     """exp(x)
@@ -336,7 +336,7 @@ def fsum(space, w_iterable):
     if special_sum != 0.0:
         if rfloat.isnan(inf_sum):
             raise oefmt(space.w_ValueError, "-inf + inf")
-        return space.wrap(special_sum)
+        return space.newfloat(special_sum)
     hi = 0.0
     if partials:
         hi = partials[-1]
@@ -358,7 +358,7 @@ def fsum(space, w_iterable):
             yr = v - hi
             if y == yr:
                 hi = v
-    return space.wrap(hi)
+    return space.newfloat(hi)
 
 def log1p(space, w_x):
     """Find log(x + 1)."""

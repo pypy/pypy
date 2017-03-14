@@ -193,9 +193,12 @@ class TestBitfield:
         setattr(s, name, value)
         assert getattr(s, name) == value
         raw1 = ffi.buffer(s)[:]
+        buff1 = ffi.buffer(s)
         t = lib.try_with_value(fnames.index(name), value)
         raw2 = ffi.buffer(t, len(raw1))[:]
         assert raw1 == raw2
+        buff2 = ffi.buffer(t, len(buff1))
+        assert buff1 == buff2
 
     def test_bitfield_basic(self):
         self.check("int a; int b:9; int c:20; int y;", 8, 4, 12)
@@ -494,3 +497,15 @@ class TestBitfield:
     def test_negative_array_size(self):
         ffi = FFI()
         py.test.raises(ValueError, ffi.cast, "int[-5]", 0)
+
+    def test_cannot_instantiate_manually(self):
+        ffi = FFI()
+        ct = type(ffi.typeof("void *"))
+        py.test.raises(TypeError, ct)
+        py.test.raises(TypeError, ct, ffi.NULL)
+        for cd in [type(ffi.cast("void *", 0)),
+                   type(ffi.new("char[]", 3)),
+                   type(ffi.gc(ffi.NULL, lambda x: None))]:
+            py.test.raises(TypeError, cd)
+            py.test.raises(TypeError, cd, ffi.NULL)
+            py.test.raises(TypeError, cd, ffi.typeof("void *"))
