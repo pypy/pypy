@@ -1866,7 +1866,7 @@ class AppTestRecompiler:
     def test_call_with_nested_anonymous_struct(self):
         import sys
         if sys.platform == 'win32':
-            py.test.skip("needs a GCC extension")
+            skip("needs a GCC extension")
         ffi, lib = self.prepare("""
             struct foo { int a; union { int b, c; }; };
             struct foo f(void);
@@ -1914,6 +1914,9 @@ class AppTestRecompiler:
             "set_source() and not taking a final '...' argument)")
 
     def test_call_with_zero_length_field(self):
+        import sys
+        if sys.platform == 'win32':
+            skip("zero-length field not supported by MSVC")
         ffi, lib = self.prepare("""
             struct foo { int a; int x[0]; };
             struct foo f(void);
@@ -1959,7 +1962,7 @@ class AppTestRecompiler:
     def test_call_with_packed_struct(self):
         import sys
         if sys.platform == 'win32':
-            py.test.skip("needs a GCC extension")
+            skip("needs a GCC extension")
         ffi, lib = self.prepare("""
             struct foo { char y; int x; };
             struct foo f(void);

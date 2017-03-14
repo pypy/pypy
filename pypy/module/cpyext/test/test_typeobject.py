@@ -947,12 +947,15 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             pass
         class bar(f1, f2):
             pass
+        class foo(f2, f1):
+            pass
         assert bar.__base__ is f2
         # On cpython, the size changes.
         if '__pypy__' in sys.builtin_module_names:
             assert module.size_of_instances(bar) == size
         else:
             assert module.size_of_instances(bar) >= size
+        assert module.size_of_instances(foo) == module.size_of_instances(bar)
 
     def test_app_cant_subclass_two_types(self):
         import sys
@@ -1176,4 +1179,21 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert type(obj).__doc__ == "The Base12 type or object"
         assert obj.__doc__ == "The Base12 type or object"
 
-
+    def test_multiple_inheritance_fetch_tp_bases(self):
+        module = self.import_extension('foo', [
+           ("foo", "METH_O",
+            '''
+                PyTypeObject *tp;
+                tp = (PyTypeObject*)args;
+                Py_INCREF(tp->tp_bases);
+                return tp->tp_bases;
+            '''
+            )])
+        class A(object):
+            pass
+        class B(object):
+            pass
+        class C(A, B):
+            pass
+        bases = module.foo(C)
+        assert bases == (A, B)

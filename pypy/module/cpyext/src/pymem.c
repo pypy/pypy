@@ -1,4 +1,13 @@
+#ifdef _WIN32
+#  define _WIN32_WINNT 0x0501
+#endif
+
 #include <Python.h>
+
+#ifdef _WIN32
+#  include <Windows.h>
+#endif
+
 
 void *
 PyMem_RawMalloc(size_t size)
@@ -120,10 +129,21 @@ int _PyTraceMalloc_Track(_PyTraceMalloc_domain_t domain,
         _PyPyGC_AddMemoryPressure(report);
         PyGILState_Release(state);
     }
+
+    /* Should we return -2 or 0?  In theory it should be -2, because
+       we're not using the info to really track the allocations.
+       But I'm sure someone is too clever somewhere and stops calling
+       _PyTraceMalloc_Track() if it returns -2.  On the other hand,
+       returning 0 might lead to expectations that importing
+       'tracemalloc' works on Python 3.  Oh well, in that case we'll
+       just crash with ImportError during 'import tracemalloc'.
+     */
+    return 0;
 }
 
 int _PyTraceMalloc_Untrack(_PyTraceMalloc_domain_t domain,
                            uintptr_t ptr)
 {
-    /* nothing */
+    /* nothing to do */
+    return 0;
 }
