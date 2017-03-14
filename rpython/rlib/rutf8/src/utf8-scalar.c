@@ -17,9 +17,10 @@ int _check_continuation(const uint8_t ** encoded, const uint8_t * endptr, int co
     return 0;
 }
 
-ssize_t count_utf8_codepoints_seq(const uint8_t * encoded, size_t len) {
+ssize_t fu8_count_utf8_codepoints_seq(const char * utf8, size_t len) {
     size_t num_codepoints = 0;
     uint8_t byte = 0;
+    const uint8_t * encoded = (const uint8_t*)utf8;
     const uint8_t * endptr = encoded + len;
 
     while (encoded < endptr) {

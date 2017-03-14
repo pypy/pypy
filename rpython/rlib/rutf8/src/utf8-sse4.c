@@ -40,8 +40,9 @@ void _print_mmx(const char * msg, __m128i chunk)
 }
 
 
-ssize_t count_utf8_codepoints_sse4(const uint8_t * encoded, size_t len)
+ssize_t fu8_count_utf8_codepoints_sse4(const char * utf8, size_t len)
 {
+    const uint8_t * encoded = (const uint8_t*)utf8;
     __builtin_prefetch(encoded, 0, 0);
     size_t num_codepoints = 0;
     __m128i chunk;
@@ -222,7 +223,7 @@ ssize_t count_utf8_codepoints_sse4(const uint8_t * encoded, size_t len)
         return num_codepoints;
     }
 
-    ssize_t result = count_utf8_codepoints_seq(encoded, len);
+    ssize_t result = fu8_count_utf8_codepoints_seq(encoded, len);
     if (result == -1) {
         return -1;
     }

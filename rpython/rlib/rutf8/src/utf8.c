@@ -37,7 +37,7 @@ void detect_instructionset(void)
     }
 }
 
-ssize_t count_utf8_codepoints(const uint8_t * encoded, size_t len)
+ssize_t fu8_count_utf8_codepoints(const char * utf8, size_t len)
 {
     if (instruction_set == -1) {
         detect_instructionset();
@@ -45,15 +45,15 @@ ssize_t count_utf8_codepoints(const uint8_t * encoded, size_t len)
 
     if (len >= 32 && (instruction_set & ISET_AVX2) != 0) {
         // to the MOON!
-        return count_utf8_codepoints_avx(encoded, len);
+        return fu8_count_utf8_codepoints_avx(utf8, len);
     }
     if (len >= 16 && (instruction_set == ISET_SSE4) != 0) {
         // speed!!
-        return count_utf8_codepoints_sse4(encoded, len);
+        return fu8_count_utf8_codepoints_sse4(utf8, len);
     }
 
     // oh no, just do it sequentially!
-    return count_utf8_codepoints_seq(encoded, len);
+    return fu8_count_utf8_codepoints_seq(utf8, len);
 }
 
 typedef struct fu8_idxtab {

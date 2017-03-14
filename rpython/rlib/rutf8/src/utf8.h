@@ -4,6 +4,20 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#ifdef RPYTHON_LL2CTYPES
+   /* only for testing: ll2ctypes sets RPY_EXTERN from the command-line */
+#ifndef RPY_EXTERN
+#  define RPY_EXTERN RPY_EXPORTED
+#endif
+
+#ifdef _WIN32
+#  define RPY_EXPORTED __declspec(dllexport)
+#else
+#  define RPY_EXPORTED  extern __attribute__((visibility("default")))
+#endif
+
+#endif
+
 /**
  * Returns -1 if the given string is not a valid utf8 encoded string.
  * Otherwise returns the amount code point in the given string.
@@ -12,14 +26,14 @@
  * The above documentation also applies for several vectorized implementations
  * found below.
  *
- * count_utf8_codepoints dispatches amongst several
+ * fu8_count_utf8_codepoints dispatches amongst several
  * implementations (e.g. seq, SSE4, AVX)
  */
 // TODO rename (fu8 prefix)
-ssize_t fu8_count_utf8_codepoints(const uint8_t * encoded, size_t len);
-ssize_t fu8_count_utf8_codepoints_seq(const uint8_t * encoded, size_t len);
-ssize_t fu8_count_utf8_codepoints_sse4(const uint8_t * encoded, size_t len);
-ssize_t fu8_count_utf8_codepoints_avx(const uint8_t * encoded, size_t len);
+RPY_EXTERN ssize_t fu8_count_utf8_codepoints(const char * utf8, size_t len);
+RPY_EXTERN ssize_t fu8_count_utf8_codepoints_seq(const char * utf8, size_t len);
+RPY_EXTERN ssize_t fu8_count_utf8_codepoints_sse4(const char * utf8, size_t len);
+RPY_EXTERN ssize_t fu8_count_utf8_codepoints_avx(const char * utf8, size_t len);
 
 
 struct fu8_idxtab;
@@ -41,11 +55,11 @@ struct fu8_idxtab;
  * table to speed up indexing.
  *
  */
-ssize_t fu8_idx2bytepos(size_t index,
+RPY_EXTERN ssize_t fu8_idx2bytepos(size_t index,
                         const uint8_t * utf8, size_t bytelen,
                         size_t cplen,
                         struct fu8_idxtab ** tab);
-void fu8_free_idxtab(struct fu8_idxtab * t);
-ssize_t fu8_idx2bytepso_sse4(size_t index,
+RPY_EXTERN void fu8_free_idxtab(struct fu8_idxtab * t);
+RPY_EXTERN ssize_t fu8_idx2bytepso_sse4(size_t index,
                              const uint8_t * utf8, size_t len,
                              struct fu8_idxtab ** t);
