@@ -609,6 +609,9 @@ def unicode_encode_utf_16_helper(s, size, errors,
         ch = ord(s[i])
         i += 1
         ch2 = 0
+        if 0xD800 <= ch < 0xDFFF:
+            errorhandler(
+                errors, 'utf16', 'surrogates not allowed', s, i - 1, i)
         if ch >= 0x10000:
             ch2 = 0xDC00 | ((ch-0x10000) & 0x3FF)
             ch  = 0xD800 | ((ch-0x10000) >> 10)
@@ -774,6 +777,9 @@ def unicode_encode_utf_32_helper(s, size, errors,
         ch = ord(s[i])
         i += 1
         ch2 = 0
+        if 0xD800 <= ch < 0xDFFF:
+            errorhandler(
+                errors, 'utf32', 'surrogates not allowed', s, i - 1, i)
         if MAXUNICODE < 65536 and 0xD800 <= ch <= 0xDBFF and i < size:
             ch2 = ord(s[i])
             if 0xDC00 <= ch2 <= 0xDFFF:
