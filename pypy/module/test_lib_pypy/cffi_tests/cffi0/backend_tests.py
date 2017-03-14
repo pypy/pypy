@@ -55,7 +55,8 @@ class BackendTests:
         min = int(min)
         max = int(max)
         p = ffi.cast(c_decl, min)
-        assert p != min       # no __eq__(int)
+        assert p == min
+        assert hash(p) == hash(min)
         assert bool(p) is bool(min)
         assert int(p) == min
         p = ffi.cast(c_decl, max)
@@ -66,9 +67,9 @@ class BackendTests:
         assert ffi.typeof(q) is ffi.typeof(p) and int(q) == max
         q = ffi.cast(c_decl, long(min - 1))
         assert ffi.typeof(q) is ffi.typeof(p) and int(q) == max
-        assert q != p
+        assert q == p
         assert int(q) == int(p)
-        assert hash(q) != hash(p)   # unlikely
+        assert hash(q) == hash(p)
         c_decl_ptr = '%s *' % c_decl
         py.test.raises(OverflowError, ffi.new, c_decl_ptr, min - 1)
         py.test.raises(OverflowError, ffi.new, c_decl_ptr, max + 1)
@@ -883,9 +884,9 @@ class BackendTests:
         assert ffi.string(ffi.cast("enum bar", -2)) == "B1"
         assert ffi.string(ffi.cast("enum bar", -1)) == "CC1"
         assert ffi.string(ffi.cast("enum bar", 1)) == "E1"
-        assert ffi.cast("enum bar", -2) != ffi.cast("enum bar", -2)
-        assert ffi.cast("enum foo", 0) != ffi.cast("enum bar", 0)
-        assert ffi.cast("enum bar", 0) != ffi.cast("int", 0)
+        assert ffi.cast("enum bar", -2) == ffi.cast("enum bar", -2)
+        assert ffi.cast("enum foo", 0) == ffi.cast("enum bar", 0)
+        assert ffi.cast("enum bar", 0) == ffi.cast("int", 0)
         assert repr(ffi.cast("enum bar", -1)) == "<cdata 'enum bar' -1: CC1>"
         assert repr(ffi.cast("enum foo", -1)) == (  # enums are unsigned, if
             "<cdata 'enum foo' 4294967295>")        # they contain no neg value
@@ -1114,15 +1115,15 @@ class BackendTests:
         assert (q == None) is False
         assert (q != None) is True
 
-    def test_no_integer_comparison(self):
+    def test_integer_comparison(self):
         ffi = FFI(backend=self.Backend())
         x = ffi.cast("int", 123)
         y = ffi.cast("int", 456)
-        py.test.raises(TypeError, "x < y")
+        assert x < y
         #
         z = ffi.cast("double", 78.9)
-        py.test.raises(TypeError, "x < z")
-        py.test.raises(TypeError, "z < y")
+        assert x > z
+        assert y > z
 
     def test_ffi_buffer_ptr(self):
         ffi = FFI(backend=self.Backend())
@@ -1230,7 +1231,8 @@ class BackendTests:
     def test_ffi_buffer_comparisons(self):
         ffi = FFI(backend=self.Backend())
         ba = bytearray(range(100, 110))
-        assert ba == memoryview(ba)    # justification for the following
+        if sys.version_info >= (2, 7):
+            assert ba == memoryview(ba)    # justification for the following
         a = ffi.new("uint8_t[]", list(ba))
         c = ffi.new("uint8_t[]", [99] + list(ba))
         try:

@@ -213,6 +213,13 @@ struct PyMethodDef {
 };
 typedef struct PyMethodDef PyMethodDef;
 
+typedef struct {
+    PyObject_HEAD
+    PyMethodDef *m_ml; /* Description of the C function to call */
+    PyObject    *m_self; /* Passed as 'self' arg to the C func, can be NULL */
+    PyObject    *m_module; /* The __module__ attribute, can be anything */
+} PyCFunctionObject;
+
 /* from structmember.h */
 typedef struct PyMemberDef {
     /* Current version, use this */
@@ -305,7 +312,7 @@ typedef struct _typeobject {
 
 } PyTypeObject;
 
-typedef struct {
+typedef struct _heaptypeobject {
     PyTypeObject ht_type;
     PyNumberMethods as_number;
     PyMappingMethods as_mapping;

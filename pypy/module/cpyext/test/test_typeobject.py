@@ -437,9 +437,9 @@ class TestTypes(BaseApiTest):
         api.Py_DecRef(ref)
 
     def test_lookup(self, space, api):
-        w_type = space.w_str
+        w_type = space.w_bytes
         w_obj = api._PyType_Lookup(w_type, space.wrap("upper"))
-        assert space.is_w(w_obj, space.w_str.getdictvalue(space, "upper"))
+        assert space.is_w(w_obj, space.w_bytes.getdictvalue(space, "upper"))
 
         w_obj = api._PyType_Lookup(w_type, space.wrap("__invalid"))
         assert w_obj is None
@@ -972,14 +972,20 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             pass
         class bar(f1, f2):
             pass
+        class foo(f2, f1):
+            pass
         assert bar.__base__ is f2
         # On cpython, the size changes.
         if '__pypy__' in sys.builtin_module_names:
             assert module.size_of_instances(bar) == size
         else:
             assert module.size_of_instances(bar) >= size
+        assert module.size_of_instances(foo) == module.size_of_instances(bar)
 
     def test_app_cant_subclass_two_types(self):
+        import sys
+        if sys.version_info < (2, 7, 9):
+            skip("crashes on CPython (2.7.5 crashes, 2.7.9 is ok)")
         module = self.import_module(name='foo')
         try:
             class bar(module.fooType, module.UnicodeSubtype):
@@ -1162,13 +1168,20 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 Base1->tp_basicsize = sizeof(PyHeapTypeObject);
                 Base2->tp_basicsize = sizeof(PyHeapTypeObject);
                 Base12->tp_basicsize = sizeof(PyHeapTypeObject);
-                #ifndef PYPY_VERSION /* PyHeapTypeObject has no ht_qualname on PyPy */
+                #ifndef PYPY_VERSION /* PyHeapTypeObject has no ht_qualname nor ht_name on PyPy */
                 #if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 3
                 {
                   PyObject * dummyname = PyBytes_FromString("dummy name");
                   ((PyHeapTypeObject*)Base1)->ht_qualname = dummyname;
                   ((PyHeapTypeObject*)Base2)->ht_qualname = dummyname;
                   ((PyHeapTypeObject*)Base12)->ht_qualname = dummyname;
+                }
+                #elif PY_MAJOR_VERSION == 2
+                {
+                  PyObject * dummyname = PyBytes_FromString("dummy name");
+                  ((PyHeapTypeObject*)Base1)->ht_name = dummyname;
+                  ((PyHeapTypeObject*)Base2)->ht_name = dummyname;
+                  ((PyHeapTypeObject*)Base12)->ht_name = dummyname;
                 }
                 #endif 
                 #endif 
@@ -1190,4 +1203,21 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert type(obj).__doc__ == "The Base12 type or object"
         assert obj.__doc__ == "The Base12 type or object"
 
-
+    def test_multiple_inheritance_fetch_tp_bases(self):
+        module = self.import_extension('foo', [
+           ("foo", "METH_O",
+            '''
+                PyTypeObject *tp;
+                tp = (PyTypeObject*)args;
+                Py_INCREF(tp->tp_bases);
+                return tp->tp_bases;
+            '''
+            )])
+        class A(object):
+            pass
+        class B(object):
+            pass
+        class C(A, B):
+            pass
+        bases = module.foo(C)
+        assert bases == (A, B)

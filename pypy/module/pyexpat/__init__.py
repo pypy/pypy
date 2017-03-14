@@ -8,7 +8,7 @@ class ErrorsModule(MixedModule):
     def setup_after_space_initialization(self):
         from pypy.module.pyexpat import interp_pyexpat
         for name in interp_pyexpat.xml_error_list:
-            self.space.setattr(self, self.space.wrap(name),
+            self.space.setattr(self, self.space.newtext(name),
                     interp_pyexpat.ErrorString(self.space,
                     getattr(interp_pyexpat, name)))
 
@@ -22,7 +22,7 @@ class ModelModule(MixedModule):
         space = self.space
         for name in interp_pyexpat.xml_model_list:
             value = getattr(interp_pyexpat, name)
-            space.setattr(self, space.wrap(name), space.wrap(value))
+            space.setattr(self, space.newtext(name), space.wrap(value))
 
 class Module(MixedModule):
     "Python wrapper for Expat parser."
@@ -38,7 +38,7 @@ class Module(MixedModule):
         'ExpatError':    'space.fromcache(interp_pyexpat.Cache).w_error',
         'error':         'space.fromcache(interp_pyexpat.Cache).w_error',
 
-        '__version__':   'space.wrap("85819")',
+        '__version__':   'space.newtext("85819")',
         }
 
     submodules = {
@@ -54,6 +54,6 @@ class Module(MixedModule):
     def startup(self, space):
         from pypy.module.pyexpat import interp_pyexpat
         w_ver = interp_pyexpat.get_expat_version(space)
-        space.setattr(self, space.wrap("EXPAT_VERSION"), w_ver)
+        space.setattr(self, space.newtext("EXPAT_VERSION"), w_ver)
         w_ver = interp_pyexpat.get_expat_version_info(space)
-        space.setattr(self, space.wrap("version_info"), w_ver)
+        space.setattr(self, space.newtext("version_info"), w_ver)

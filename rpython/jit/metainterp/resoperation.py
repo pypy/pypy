@@ -752,7 +752,6 @@ class InputArgRef(RefOp, AbstractInputArg):
 
     def __init__(self, r=lltype.nullptr(llmemory.GCREF.TO)):
         self.setref_base(r)
-        self.datatype = 'r'
 
     def reset_value(self):
         self.setref_base(lltype.nullptr(llmemory.GCREF.TO))

@@ -24,8 +24,8 @@ def reduce(self):
     elif self.sthread.is_empty_handle(self.h):
         w_frame = space.w_None
     else:
-        w_frame = space.wrap(self.bottomframe)
-    w_continulet_type = space.type(space.wrap(self))
+        w_frame = self.bottomframe
+    w_continulet_type = space.type(self)
     w_dict = self.getdict(space) or space.w_None
     args = [getunpickle(space),
             space.newtuple([w_continulet_type]),

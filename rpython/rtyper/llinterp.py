@@ -1086,6 +1086,65 @@ class LLFrame(object):
     def op_track_alloc_stop(self, addr):
         checkadr(addr)
 
+    def op_gc_enter_roots_frame(self, gcdata, numcolors):
+        """Fetch from the gcdata the current root_stack_top; bump it
+        by 'numcolors'; and assert that the new area is fully
+        uninitialized so far.
+        """
+        assert not hasattr(self, '_inside_roots_frame')
+        p = gcdata.inst_root_stack_top.ptr
+        q = lltype.direct_ptradd(p, numcolors)
+        self._inside_roots_frame = (p, q, numcolors, gcdata)
+        gcdata.inst_root_stack_top = llmemory.cast_ptr_to_adr(q)
+        #
+        array = p._obj._parentstructure()
+        index = p._obj._parent_index
+        for i in range(index, index + numcolors):
+            assert isinstance(array.getitem(i), lltype._uninitialized)
+
+    def op_gc_leave_roots_frame(self):
+        """Cancel gc_enter_roots_frame() by removing the frame from
+        the root_stack_top.  Writes uninitialized entries in its old place.
+        """
+        (p, q, numcolors, gcdata) = self._inside_roots_frame
+        assert gcdata.inst_root_stack_top.ptr == q
+        gcdata.inst_root_stack_top = llmemory.cast_ptr_to_adr(p)
+        del self._inside_roots_frame
+        #
+        array = p._obj._parentstructure()
+        index = p._obj._parent_index
+        for i in range(index, index + numcolors):
+            array.setitem(i, lltype._uninitialized(llmemory.Address))
+
+    def op_gc_save_root(self, num, value):
+        """Save one value (int or ptr) into the frame."""
+        (p, q, numcolors, gcdata) = self._inside_roots_frame
+        assert 0 <= num < numcolors
+        if isinstance(value, int):
+            assert value & 1    # must be odd
+            v = llmemory.cast_int_to_adr(value)
+        else:
+            v = llmemory.cast_ptr_to_adr(value)
+        llmemory.cast_ptr_to_adr(p).address[num] = v
+
+    def op_gc_restore_root(self, c_num, v_value):
+        """Restore one value from the frame."""
+        num = c_num.value
+        (p, q, numcolors, gcdata) = self._inside_roots_frame
+        assert 0 <= num < numcolors
+        assert isinstance(v_value.concretetype, lltype.Ptr)
+        assert v_value.concretetype.TO._gckind == 'gc'
+        newvalue = llmemory.cast_ptr_to_adr(p).address[num]
+        newvalue = llmemory.cast_adr_to_ptr(newvalue, v_value.concretetype)
+        self.setvar(v_value, newvalue)
+    op_gc_restore_root.specialform = True
+
+    def op_gc_push_roots(self, *args):
+        raise NotImplementedError
+
+    def op_gc_pop_roots(self, *args):
+        raise NotImplementedError
+
     # ____________________________________________________________
     # Overflow-detecting variants
 

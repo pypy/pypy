@@ -1,11 +1,8 @@
-""" The ffi for rpython, need to be imported for side effects
+""" The ffi for rpython
 """
 
 from rpython.rtyper.lltypesystem import rffi
-from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.tool import rffi_platform
-from rpython.rtyper.extfunc import register_external
-from pypy.module._minimal_curses import interp_curses
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 # We cannot trust ncurses5-config, it's broken in various ways in
@@ -58,86 +55,73 @@ def guess_eci():
 eci = guess_eci()
 
 
-INT = rffi.INT
-INTP = lltype.Ptr(lltype.Array(INT, hints={'nolength':True}))
-c_setupterm = rffi.llexternal('setupterm', [rffi.CCHARP, INT, INTP], INT,
-                              compilation_info=eci)
-c_tigetstr = rffi.llexternal('tigetstr', [rffi.CCHARP], rffi.CCHARP,
-                             compilation_info=eci)
-c_tparm = rffi.llexternal('tparm', [rffi.CCHARP, INT, INT, INT, INT, INT,
-                                    INT, INT, INT, INT], rffi.CCHARP,
-                          compilation_info=eci)
+# We should not use this 'eci' directly because it causes the #include
+# of term.h to appear in all generated C sources, and term.h contains a
+# poisonous quantity of #defines for common lower-case names like
+# 'buttons' or 'lines' (!!!).  It is basically dangerous to include
+# term.h in any C source file that may contain unrelated source code.
 
-ERR = rffi.CConstant('ERR', lltype.Signed)
-OK = rffi.CConstant('OK', lltype.Signed)
+include_lines = '\n'.join(['#include <%s>' % _incl for _incl in eci.includes])
+eci = eci.copy_without('includes')
 
-def curses_setupterm(term, fd):
-    intp = lltype.malloc(INTP.TO, 1, flavor='raw')
-    err = rffi.cast(lltype.Signed, c_setupterm(term, fd, intp))
-    try:
-        if err == ERR:
-            errret = rffi.cast(lltype.Signed, intp[0])
-            if errret == 0:
-                msg = "setupterm: could not find terminal"
-            elif errret == -1:
-                msg = "setupterm: could not find terminfo database"
-            else:
-                msg = "setupterm: unknown error"
-            raise interp_curses.curses_error(msg)
-        interp_curses.module_info.setupterm_called = True
-    finally:
-        lltype.free(intp, flavor='raw')
 
-def curses_setupterm_null_llimpl(fd):
-    curses_setupterm(lltype.nullptr(rffi.CCHARP.TO), fd)
+eci = eci.merge(ExternalCompilationInfo(
+   post_include_bits=[
+        "RPY_EXTERN char *rpy_curses_setupterm(char *, int);\n"
+        "RPY_EXTERN char *rpy_curses_tigetstr(char *);\n"
+        "RPY_EXTERN char *rpy_curses_tparm(char *, int, int, int, int,"
+        " int, int, int, int, int);"
+        ],
+    separate_module_sources=["""
 
-def curses_setupterm_llimpl(term, fd):
-    ll_s = rffi.str2charp(term)
-    try:
-        curses_setupterm(ll_s, fd)
-    finally:
-        rffi.free_charp(ll_s)
+%(include_lines)s
 
-register_external(interp_curses._curses_setupterm_null,
-                  [int], llimpl=curses_setupterm_null_llimpl,
-                  export_name='_curses.setupterm_null')
-register_external(interp_curses._curses_setupterm,
-                  [str, int], llimpl=curses_setupterm_llimpl,
-                  export_name='_curses.setupterm')
+RPY_EXTERN
+char *rpy_curses_setupterm(char *term, int fd)
+{
+    int errret = -42;
+    if (setupterm(term, fd, &errret) == ERR) {
+        switch (errret) {
+        case 0:
+            return "setupterm: could not find terminal";
+        case -1:
+            return "setupterm: could not find terminfo database";
+        default:
+            return "setupterm: unknown error";
+        }
+    }
+    return NULL;
+}
 
-def check_setup_invoked():
-    if not interp_curses.module_info.setupterm_called:
-        raise interp_curses.curses_error("must call (at least) setupterm() first")
+RPY_EXTERN
+char *rpy_curses_tigetstr(char *capname)
+{
+    char *res = tigetstr(capname);
+    if (res == (char *)-1)
+        res = NULL;
+    return res;
+}
 
-def tigetstr_llimpl(cap):
-    check_setup_invoked()
-    ll_cap = rffi.str2charp(cap)
-    try:
-        ll_res = c_tigetstr(ll_cap)
-        num = lltype.cast_ptr_to_int(ll_res)
-        if num == 0 or num == -1:
-            raise interp_curses.TermError()
-        res = rffi.charp2str(ll_res)
-        return res
-    finally:
-        rffi.free_charp(ll_cap)
+RPY_EXTERN
+char *rpy_curses_tparm(char *str, int x0, int x1, int x2, int x3,
+                       int x4, int x5, int x6, int x7, int x8)
+{
+    return tparm(str, x0, x1, x2, x3, x4, x5, x6, x7, x8);
+}
 
-register_external(interp_curses._curses_tigetstr, [str], str,
-                  export_name='_curses.tigetstr', llimpl=tigetstr_llimpl)
+""" % globals()]))
 
-def tparm_llimpl(s, args):
-    check_setup_invoked()
-    l = [0, 0, 0, 0, 0, 0, 0, 0, 0]
-    for i in range(min(len(args), 9)):
-        l[i] = args[i]
-    ll_s = rffi.str2charp(s)
-    # XXX nasty trick stolen from CPython
-    ll_res = c_tparm(ll_s, l[0], l[1], l[2], l[3], l[4], l[5], l[6],
-                     l[7], l[8])
-    rffi.free_charp(ll_s)
-    res = rffi.charp2str(ll_res)
-    return res
 
-register_external(interp_curses._curses_tparm, [str, [int]], str,
-                  export_name='_curses.tparm', llimpl=tparm_llimpl)
+rpy_curses_setupterm = rffi.llexternal(
+    "rpy_curses_setupterm", [rffi.CCHARP, rffi.INT], rffi.CCHARP,
+    compilation_info=eci)
 
+rpy_curses_tigetstr = rffi.llexternal(
+    "rpy_curses_tigetstr", [rffi.CCHARP], rffi.CCHARP,
+    compilation_info=eci)
+
+rpy_curses_tparm = rffi.llexternal(
+    "rpy_curses_tparm", [rffi.CCHARP, rffi.INT, rffi.INT, rffi.INT, rffi.INT,
+                         rffi.INT, rffi.INT, rffi.INT, rffi.INT, rffi.INT],
+    rffi.CCHARP,
+    compilation_info=eci)

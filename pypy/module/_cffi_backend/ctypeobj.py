@@ -34,7 +34,7 @@ class W_CType(W_Root):
 
     def repr(self):
         space = self.space
-        return space.wrap("<ctype '%s'>" % (self.name,))
+        return space.newtext("<ctype '%s'>" % (self.name,))
 
     def extra_repr(self, cdata):
         if cdata:
@@ -175,7 +175,7 @@ class W_CType(W_Root):
     def direct_typeoffsetof(self, w_field_or_index, following=0):
         space = self.space
         try:
-            fieldname = space.str_w(w_field_or_index)
+            fieldname = space.text_w(w_field_or_index)
         except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
@@ -229,17 +229,17 @@ class W_CType(W_Root):
     # __________ app-level attributes __________
     def dir(self):
         space = self.space
-        lst = [space.wrap(name)
+        lst = [space.newtext(name)
                   for name in _name_of_attributes
-                  if space.findattr(self, space.wrap(name)) is not None]
+                  if space.findattr(self, space.newtext(name)) is not None]
         return space.newlist(lst)
 
     def _fget(self, attrchar):
         space = self.space
         if attrchar == 'k':     # kind
-            return space.wrap(self.kind)      # class attribute
+            return space.newtext(self.kind)      # class attribute
         if attrchar == 'c':     # cname
-            return space.wrap(self.name)
+            return space.newtext(self.name)
         raise oefmt(space.w_AttributeError,
                     "ctype '%s' has no such attribute", self.name)
 

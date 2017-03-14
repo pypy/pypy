@@ -21,9 +21,9 @@ bits instead of MD5's 128 bits."""
     interpleveldefs = {
         'new': 'interp_sha.W_SHA',
         'SHAType': 'interp_sha.W_SHA',
-        'blocksize': 'space.wrap(1)',
-        'digest_size': 'space.wrap(20)',
-        'digestsize': 'space.wrap(20)',
+        'blocksize': 'space.newint(1)',
+        'digest_size': 'space.newint(20)',
+        'digestsize': 'space.newint(20)',
         }
 
     appleveldefs = {

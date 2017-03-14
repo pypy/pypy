@@ -85,13 +85,14 @@ class BridgeCompileData(CompileData):
     """ This represents ops() with a jump at the end that goes to some
     loop, we need to deal with virtual state and inlining of short preamble
     """
-    def __init__(self, trace, runtime_boxes, call_pure_results=None,
+    def __init__(self, trace, runtime_boxes, resumestorage=None, call_pure_results=None,
                  enable_opts=None, inline_short_preamble=False):
         self.trace = trace
         self.runtime_boxes = runtime_boxes
         self.call_pure_results = call_pure_results
         self.enable_opts = enable_opts
         self.inline_short_preamble = inline_short_preamble
+        self.resumestorage = resumestorage
 
     def optimize(self, metainterp_sd, jitdriver_sd, optimizations, unroll):
         from rpython.jit.metainterp.optimizeopt.unroll import UnrollOptimizer
@@ -100,7 +101,8 @@ class BridgeCompileData(CompileData):
         return opt.optimize_bridge(self.trace, self.runtime_boxes,
                                    self.call_pure_results,
                                    self.inline_short_preamble,
-                                   self.box_names_memo)
+                                   self.box_names_memo,
+                                   self.resumestorage)
 
 class UnrolledLoopData(CompileData):
     """ This represents label() ops jump with extra info that's from the
@@ -880,10 +882,9 @@ class ResumeGuardCopiedDescr(AbstractResumeGuardDescr):
 
 
 class ResumeGuardDescr(AbstractResumeGuardDescr):
-    _attrs_ = ('rd_numb', 'rd_count', 'rd_consts', 'rd_virtuals',
+    _attrs_ = ('rd_numb', 'rd_consts', 'rd_virtuals',
                'rd_pendingfields', 'status')
     rd_numb = lltype.nullptr(NUMBERING)
-    rd_count = 0
     rd_consts = None
     rd_virtuals = None
     rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
@@ -892,7 +893,6 @@ class ResumeGuardDescr(AbstractResumeGuardDescr):
         if isinstance(other, ResumeGuardCopiedDescr):
             other = other.prev
         assert isinstance(other, ResumeGuardDescr)
-        self.rd_count = other.rd_count
         self.rd_consts = other.rd_consts
         self.rd_pendingfields = other.rd_pendingfields
         self.rd_virtuals = other.rd_virtuals
@@ -905,7 +905,6 @@ class ResumeGuardDescr(AbstractResumeGuardDescr):
 
     def store_final_boxes(self, guard_op, boxes, metainterp_sd):
         guard_op.setfailargs(boxes)
-        self.rd_count = len(boxes)
         self.store_hash(metainterp_sd)
 
     def clone(self):
@@ -1088,7 +1087,15 @@ def compile_trace(metainterp, resumekey, runtime_boxes):
     call_pure_results = metainterp.call_pure_results
 
     if metainterp.history.ends_with_jump:
-        data = BridgeCompileData(trace, runtime_boxes,
+        if isinstance(resumekey, ResumeGuardCopiedDescr):
+            key = resumekey.prev
+            assert isinstance(key, ResumeGuardDescr)
+        elif isinstance(resumekey, ResumeFromInterpDescr):
+            key = None
+        else:
+            key = resumekey
+            assert isinstance(key, ResumeGuardDescr)
+        data = BridgeCompileData(trace, runtime_boxes, key,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts,
                                  inline_short_preamble=inline_short_preamble)

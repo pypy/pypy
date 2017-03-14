@@ -244,7 +244,7 @@ class PyFrame(W_Root):
         """Start this frame's execution."""
         if self.getcode().co_flags & pycode.CO_GENERATOR:
             from pypy.interpreter.generator import GeneratorIterator
-            return self.space.wrap(GeneratorIterator(self))
+            return GeneratorIterator(self)
         else:
             return self.execute_frame()
 
@@ -443,7 +443,6 @@ class PyFrame(W_Root):
     @jit.dont_look_inside
     def _reduce_state(self, space):
         from pypy.module._pickle_support import maker # helper fns
-        w = space.wrap
         nt = space.newtuple
 
         if self.get_w_f_trace() is None:
@@ -461,30 +460,30 @@ class PyFrame(W_Root):
             w_tb = space.w_None
         else:
             w_exc_value = self.last_exception.get_w_value(space)
-            w_tb = w(self.last_exception.get_traceback())
+            w_tb = self.last_exception.get_w_traceback(space)
 
         d = self.getorcreatedebug()
         tup_state = [
-            w(self.f_backref()),
-            w(self.get_builtin()),
-            w(self.pycode),
+            self.f_backref(),
+            self.get_builtin(),
+            self.pycode,
             w_locals_cells_stack,
             w_blockstack,
             w_exc_value, # last_exception
             w_tb,        #
             self.get_w_globals(),
-            w(self.last_instr),
-            w(self.frame_finished_execution),
-            w(f_lineno),
+            space.newint(self.last_instr),
+            space.newbool(self.frame_finished_execution),
+            space.newint(f_lineno),
             space.w_None,           #XXX placeholder for f_locals
 
             #f_restricted requires no additional data!
             space.w_None,
 
-            w(d.instr_lb),
-            w(d.instr_ub),
-            w(d.instr_prev_plus_one),
-            w(self.valuestackdepth),
+            space.newint(d.instr_lb),
+            space.newint(d.instr_ub),
+            space.newint(d.instr_prev_plus_one),
+            space.newint(self.valuestackdepth),
             ]
         return nt(tup_state)
 
@@ -598,7 +597,7 @@ class PyFrame(W_Root):
             if w_value is not None:
                 self.space.setitem_str(d.w_locals, name, w_value)
             else:
-                w_name = self.space.wrap(name)
+                w_name = self.space.newtext(name)
                 try:
                     self.space.delitem(d.w_locals, w_name)
                 except OperationError as e:
@@ -676,7 +675,7 @@ class PyFrame(W_Root):
         return None
 
     def fget_code(self, space):
-        return space.wrap(self.getcode())
+        return self.getcode()
 
     def fget_getdictscope(self, space):
         return self.getdictscope()
@@ -691,9 +690,9 @@ class PyFrame(W_Root):
     def fget_f_lineno(self, space):
         "Returns the line number of the instruction currently being executed."
         if self.get_w_f_trace() is None:
-            return space.wrap(self.get_last_lineno())
+            return space.newint(self.get_last_lineno())
         else:
-            return space.wrap(self.getorcreatedebug().f_lineno)
+            return space.newint(self.getorcreatedebug().f_lineno)
 
     def fset_f_lineno(self, space, w_new_lineno):
         "Returns the line number of the instruction currently being executed."
@@ -833,10 +832,10 @@ class PyFrame(W_Root):
 
     def fget_f_back(self, space):
         f_back = ExecutionContext.getnextframe_nohidden(self)
-        return self.space.wrap(f_back)
+        return f_back
 
     def fget_f_lasti(self, space):
-        return self.space.wrap(self.last_instr)
+        return self.space.newint(self.last_instr)
 
     def fget_f_trace(self, space):
         return self.get_w_f_trace()
@@ -876,12 +875,12 @@ class PyFrame(W_Root):
             while f is not None and f.last_exception is None:
                 f = f.f_backref()
             if f is not None:
-                return space.wrap(f.last_exception.get_traceback())
+                return f.last_exception.get_w_traceback(space)
         return space.w_None
 
     def fget_f_restricted(self, space):
         if space.config.objspace.honor__builtins__:
-            return space.wrap(self.builtin is not space.builtin)
+            return space.newbool(self.builtin is not space.builtin)
         return space.w_False
 
     @jit.unroll_safe
@@ -918,7 +917,7 @@ def get_block_class(opname):
 
 def unpickle_block(space, w_tup):
     w_opname, w_handlerposition, w_valuestackdepth = space.unpackiterable(w_tup)
-    opname = space.str_w(w_opname)
+    opname = space.text_w(w_opname)
     handlerposition = space.int_w(w_handlerposition)
     valuestackdepth = space.int_w(w_valuestackdepth)
     assert valuestackdepth >= 0

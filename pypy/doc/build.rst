@@ -49,7 +49,7 @@ Install build-time dependencies
 -------------------------------
 (**Note**: for some hints on how to translate the Python interpreter under
 Windows, see the `windows document`_ . For hints on how to cross-compile in
-a chroot using scratchbox2, see the `arm document`_ in the 
+a chroot using scratchbox2, see the `arm document`_ in the
 `RPython documentation`_)
 
 .. _`windows document`: windows.html
@@ -57,7 +57,7 @@ a chroot using scratchbox2, see the `arm document`_ in the
 .. _`RPython documentation`: http://rpython.readthedocs.org
 
 The host Python needs to have CFFI installed. If translating on PyPy, CFFI is
-already installed. If translating on CPython, you need to install it, e.g. 
+already installed. If translating on CPython, you need to install it, e.g.
 using ``pip install cffi``.
 
 To build PyPy on Unix using the C translation backend, you need at least a C
@@ -116,7 +116,7 @@ On Debian, this is the command to install all build-time dependencies::
 On Fedora::
 
     dnf install gcc make libffi-devel pkgconfig zlib-devel bzip2-devel \
-    lib-sqlite3-devel ncurses-devel expat-devel openssl-devel tk-devel \
+    sqlite-devel ncurses-devel expat-devel openssl-devel tk-devel \
     gdbm-devel \
     xz-devel  # For lzma on PyPy3.
 
@@ -162,7 +162,8 @@ Various stdlib modules require a separate build step to create the cffi
 import libraries in the `out-of-line API mode`_. This is done by the following
 command::
 
-   PYTHONPATH=. ./pypy-c pypy/tool/build_cffi_imports.py
+   cd pypy/goal
+   PYTHONPATH=../.. ./pypy-c ../tool/build_cffi_imports.py
 
 .. _`out-of-line API mode`: http://cffi.readthedocs.org/en/latest/overview.html#real-example-api-level-out-of-line
 
@@ -185,7 +186,7 @@ mostly libraries that would normally be compiled if and when they are
 imported the first time.
 
 ::
-    
+
     cd pypy/tool/release
     ./package.py pypy-VER-PLATFORM
 
@@ -222,5 +223,3 @@ WARNING: library path not found, using compiled-in sys.path`` and then attempt
 to continue normally. If the default path is usable, most code will be fine.
 However, the ``sys.prefix`` will be unset and some existing libraries assume
 that this is never the case.
-
-

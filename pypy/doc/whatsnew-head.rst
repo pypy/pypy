@@ -142,3 +142,50 @@ Python 3.x which moves an item to first or last position.  In PyPy 3.5
 it is the standard ``OrderedDict.move_to_end()`` method, but the
 behavior is also available on Python 2.x or for the ``dict`` type by
 calling ``__pypy__.move_to_end(dict, key, last=True)``.
+
+
+.. branch optinfo-into-bridges-3
+
+Improve the optimization of branchy Python code by retaining more information
+across failing guards.
+
+
+.. branch: space-newtext
+
+Internal refactoring of ``space.wrap()``, which is now replaced with
+explicitly-typed methods.  Notably, there are now ``space.newbytes()``
+and ``space.newtext()``: these two methods are identical on PyPy 2.7 but
+not on PyPy 3.x.  The latter is used to get an app-level unicode string
+by decoding the RPython string, assumed to be utf-8.
+
+.. branch: space-wrap
+
+.. branch: fix_bool_restype
+
+Fix for ``ctypes.c_bool``-returning ctypes functions
+
+.. branch: fix-cpyext-releasebuffer
+
+Improve handling of the Py3-style buffer slots in cpyext: fix memoryviews
+keeping objects alive forever (missing decref), and make sure that
+bf_releasebuffer is called when it should, e.g. from PyBuffer_Release.
+
+.. branch: fix-global
+
+Fix bug (bad reported info) when asked to translate SyntaxWarning to
+SyntaxError.
+
+.. branch: optinfo-into-bridges-3
+
+Improve the optimization of branchy Python code by retaining more
+information across failing guards. This is done by appending some
+carefully encoded extra information into the resume code.
+
+.. branch: shadowstack-perf-2
+
+Two changes that together bring the performance of shadowstack close to
+asmgcc---close enough that we can now make shadowstack the default even
+on Linux.  This should remove a whole class of rare bugs introduced by
+asmgcc.
+
+.. branch: fniephaus/fix-typo-1488123166752

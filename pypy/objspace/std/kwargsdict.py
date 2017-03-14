@@ -11,7 +11,7 @@ from pypy.objspace.std.dictmultiobject import (
 
 
 def _wrapkey(space, key):
-    return space.wrap(key)
+    return space.newtext(key)
 
 
 class EmptyKwargsDictStrategy(EmptyDictStrategy):
@@ -31,7 +31,7 @@ class KwargsDictStrategy(DictStrategy):
         return _wrapkey(self.space, key)
 
     def unwrap(self, wrapped):
-        return self.space.str_w(wrapped)
+        return self.space.text_w(wrapped)
 
     def get_empty_storage(self):
         d = ([], [])
@@ -39,7 +39,7 @@ class KwargsDictStrategy(DictStrategy):
 
     def is_correct_type(self, w_obj):
         space = self.space
-        return space.is_w(space.type(w_obj), space.w_str)
+        return space.is_w(space.type(w_obj), space.w_text)
 
     def _never_equal_to(self, w_lookup_type):
         return False
@@ -116,7 +116,7 @@ class KwargsDictStrategy(DictStrategy):
 
     def w_keys(self, w_dict):
         l = self.unerase(w_dict.dstorage)[0]
-        return self.space.newlist_bytes(l[:])
+        return self.space.newlist_text(l[:])
 
     def values(self, w_dict):
         return self.unerase(w_dict.dstorage)[1][:] # to make non-resizable

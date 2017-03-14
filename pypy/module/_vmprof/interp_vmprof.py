@@ -47,7 +47,7 @@ class Cache:
 
 def VMProfError(space, e):
     w_VMProfError = space.fromcache(Cache).w_VMProfError
-    return OperationError(w_VMProfError, space.wrap(e.msg))
+    return OperationError(w_VMProfError, space.newtext(e.msg))
 
 
 @unwrap_spec(fileno=int, period=float, memory=int, lines=int, native=int)
@@ -60,9 +60,9 @@ def enable(space, fileno, period, memory, lines, native):
     Must be smaller than 1.0
     """
     w_modules = space.sys.get('modules')
-    #if space.contains_w(w_modules, space.wrap('_continuation')):
-    #    space.warn(space.wrap("Using _continuation/greenlet/stacklet together "
-    #                          "with vmprof will crash"),
+    #if space.contains_w(w_modules, space.newtext('_continuation')):
+    #    space.warn(space.newtext("Using _continuation/greenlet/stacklet together "
+    #                             "with vmprof will crash"),
     #               space.w_RuntimeWarning)
     try:
         rvmprof.enable(fileno, period, memory, native)

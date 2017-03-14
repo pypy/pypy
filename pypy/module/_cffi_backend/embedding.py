@@ -38,7 +38,7 @@ def load_embedded_cffi_module(space, version, init_struct):
     compiler = space.createcompiler()
     pycode = compiler.compile(code, "<init code for '%s'>" % name, 'exec', 0)
     w_globals = space.newdict(module=True)
-    space.setitem_str(w_globals, "__builtins__", space.wrap(space.builtin))
+    space.setitem_str(w_globals, "__builtins__", space.builtin)
     pycode.exec_code(space, w_globals, w_globals)
 
 

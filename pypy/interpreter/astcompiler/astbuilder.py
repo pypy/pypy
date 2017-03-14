@@ -1070,8 +1070,8 @@ class ASTBuilder(object):
                 raw = "0" + raw
         if negative:
             raw = "-" + raw
-        w_num_str = self.space.wrap(raw)
-        w_base = self.space.wrap(base)
+        w_num_str = self.space.newtext(raw)
+        w_base = self.space.newint(base)
         if raw[-1] in "lL":
             tp = self.space.w_long
             return self.space.call_function(tp, w_num_str, w_base)
@@ -1105,12 +1105,12 @@ class ASTBuilder(object):
                     raise
                 # UnicodeError in literal: turn into SyntaxError
                 e.normalize_exception(space)
-                errmsg = space.str_w(space.str(e.get_w_value(space)))
+                errmsg = space.text_w(space.str(e.get_w_value(space)))
                 raise self.error('(unicode error) %s' % errmsg, atom_node)
             # This implements implicit string concatenation.
             if len(sub_strings_w) > 1:
                 w_sub_strings = space.newlist(sub_strings_w)
-                w_join = space.getattr(space.wrap(""), space.wrap("join"))
+                w_join = space.getattr(space.newtext(""), space.newtext("join"))
                 final_string = space.call_function(w_join, w_sub_strings)
             else:
                 final_string = sub_strings_w[0]

@@ -574,6 +574,7 @@ SYMBOLS_C = [
     'PyObject_CallMethod', 'PyObject_CallFunctionObjArgs', 'PyObject_CallMethodObjArgs',
     '_PyObject_CallFunction_SizeT', '_PyObject_CallMethod_SizeT',
 
+    'PyObject_GetBuffer', 'PyBuffer_Release',
     'PyBuffer_FromMemory', 'PyBuffer_FromReadWriteMemory', 'PyBuffer_FromObject',
     'PyBuffer_FromReadWriteObject', 'PyBuffer_New', 'PyBuffer_Type', '_Py_get_buffer_type',
 
@@ -644,7 +645,7 @@ def build_exported_objects():
     # Common types with their own struct
     for cpyname, pypyexpr in {
         "PyType_Type": "space.w_type",
-        "PyString_Type": "space.w_str",
+        "PyString_Type": "space.w_bytes",
         "PyUnicode_Type": "space.w_unicode",
         "PyBaseString_Type": "space.w_basestring",
         "PyDict_Type": "space.w_dict",
@@ -962,7 +963,7 @@ def make_wrapper_second_level(space, argtypesw, restype,
                 else:
                     message = str(e)
                 state.set_exception(OperationError(space.w_SystemError,
-                                                   space.wrap(message)))
+                                                   space.newtext(message)))
             else:
                 failed = False
 
@@ -1235,6 +1236,17 @@ def mangle_name(prefix, name):
 
 def write_header(header_name, decls):
     lines = [
+        '''
+#ifdef _WIN64
+/* this check is for sanity, but also because the 'temporary fix'
+   below seems to become permanent and would cause unexpected
+   nonsense on Win64---but note that it's not the only reason for
+   why Win64 is not supported!  If you want to help, see
+   http://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
+   */
+#  error "PyPy does not support 64-bit on Windows.  Use Win32"
+#endif
+''',
         '#define Signed   long           /* xxx temporary fix */',
         '#define Unsigned unsigned long  /* xxx temporary fix */',
         '',] + decls + [
@@ -1460,7 +1472,7 @@ def _load_from_cffi(space, name, path, initptr):
     from pypy.module._cffi_backend import cffi1_module
     cffi1_module.load_cffi1_module(space, name, path, initptr)
 
-@unwrap_spec(path=str, name=str)
+@unwrap_spec(path='text', name='text')
 def load_extension_module(space, path, name):
     # note: this is used both to load CPython-API-style C extension
     # modules (cpyext) and to load CFFI-style extension modules

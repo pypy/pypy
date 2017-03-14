@@ -78,6 +78,23 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
                                 '\x03\0\0\0'
                                 '\x04\0\0\0')
 
+    def test_releasebuffer(self):
+        module = self.import_module(name='array')
+        arr = module.array('i', [1,2,3,4])
+        assert module.get_releasebuffer_cnt() == 0
+        module.create_and_release_buffer(arr)
+        assert module.get_releasebuffer_cnt() == 1
+
+    def test_Py_buffer(self):
+        module = self.import_module(name='array')
+        arr = module.array('i', [1,2,3,4])
+        assert module.get_releasebuffer_cnt() == 0
+        m = memoryview(arr)
+        assert module.get_releasebuffer_cnt() == 0
+        del m
+        self.debug_collect()
+        assert module.get_releasebuffer_cnt() == 1
+
     def test_pickle(self):
         import pickle
         module = self.import_module(name='array')
@@ -107,7 +124,7 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         arr = Sub('i', [2])
         res = [1, 2, 3] * arr
         assert res == [1, 2, 3, 1, 2, 3]
-        
+
         val = module.readbuffer_as_string(arr)
         assert val == struct.pack('i', 2)
 

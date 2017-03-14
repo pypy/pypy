@@ -152,7 +152,7 @@ def unmarshal_int64(space, u, tc):
         x = (hi << 32) | (lo & (2**32-1))    # result fits in an int
     else:
         x = (r_longlong(hi) << 32) | r_longlong(r_uint(lo))  # get a r_longlong
-    return space.wrap(x)
+    return space.newint(x)
 
 
 @marshaller(W_AbstractLongObject)
@@ -205,12 +205,12 @@ def marshal_float(space, w_float, m):
         m.put(pack_float(w_float.floatval))
     else:
         m.start(TYPE_FLOAT)
-        m.put_pascal(space.str_w(space.repr(w_float)))
+        m.put_pascal(space.text_w(space.repr(w_float)))
 
 @unmarshaller(TYPE_FLOAT)
 def unmarshal_float(space, u, tc):
     return space.call_function(space.builtin.get('float'),
-                               space.wrap(u.get_pascal()))
+                               space.newtext(u.get_pascal()))
 
 @unmarshaller(TYPE_BINARY_FLOAT)
 def unmarshal_float_bin(space, u, tc):
@@ -224,19 +224,18 @@ def marshal_complex(space, w_complex, m):
         m.put(pack_float(w_complex.realval))
         m.put(pack_float(w_complex.imagval))
     else:
-        # XXX a bit too wrap-happy
-        w_real = space.wrap(w_complex.realval)
-        w_imag = space.wrap(w_complex.imagval)
+        w_real = space.newfloat(w_complex.realval)
+        w_imag = space.newfloat(w_complex.imagval)
         m.start(TYPE_COMPLEX)
-        m.put_pascal(space.str_w(space.repr(w_real)))
-        m.put_pascal(space.str_w(space.repr(w_imag)))
+        m.put_pascal(space.text_w(space.repr(w_real)))
+        m.put_pascal(space.text_w(space.repr(w_imag)))
 
 @unmarshaller(TYPE_COMPLEX)
 def unmarshal_complex(space, u, tc):
     w_real = space.call_function(space.builtin.get('float'),
-                                 space.wrap(u.get_pascal()))
+                                 space.newtext(u.get_pascal()))
     w_imag = space.call_function(space.builtin.get('float'),
-                                 space.wrap(u.get_pascal()))
+                                 space.newtext(u.get_pascal()))
     w_t = space.builtin.get('complex')
     return space.call_function(w_t, w_real, w_imag)
 
@@ -249,7 +248,7 @@ def unmarshal_complex_bin(space, u, tc):
 
 @marshaller(W_BytesObject)
 def marshal_bytes(space, w_str, m):
-    s = space.str_w(w_str)
+    s = space.bytes_w(w_str)
     if m.version >= 1 and space.is_interned_str(s):
         # we use a native rtyper stringdict for speed
         try:
@@ -265,7 +264,7 @@ def marshal_bytes(space, w_str, m):
 
 @unmarshaller(TYPE_STRING)
 def unmarshal_bytes(space, u, tc):
-    return space.wrap(u.get_str())
+    return space.newbytes(u.get_str())
 
 @unmarshaller(TYPE_INTERNED)
 def unmarshal_interned(space, u, tc):
@@ -364,7 +363,7 @@ def marshal_pycode(space, w_pycode, m):
 def unmarshal_str(u):
     w_obj = u.get_w_obj()
     try:
-        return u.space.str_w(w_obj)
+        return u.space.bytes_w(w_obj)
     except OperationError as e:
         if e.match(u.space, u.space.w_TypeError):
             u.raise_exc('invalid marshal data for code object')
@@ -404,7 +403,7 @@ def marshal_unicode(space, w_unicode, m):
 
 @unmarshaller(TYPE_UNICODE)
 def unmarshal_unicode(space, u, tc):
-    return space.wrap(unicodehelper.decode_utf8(space, u.get_str()))
+    return space.newunicode(unicodehelper.decode_utf8(space, u.get_str()))
 
 
 @marshaller(W_SetObject)

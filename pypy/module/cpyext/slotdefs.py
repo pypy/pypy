@@ -7,14 +7,14 @@ from rpython.rlib.rarithmetic import widen
 from rpython.rlib import rgc # Force registration of gc.collect
 from pypy.module.cpyext.api import (
     slot_function, generic_cpy_call, PyObject, Py_ssize_t, Py_TPFLAGS_CHECKTYPES,
-    pypy_decl, Py_buffer, Py_bufferP, PyTypeObjectPtr)
+    pypy_decl, Py_buffer, Py_bufferP, PyTypeObjectPtr, cts)
 from pypy.module.cpyext.typeobjectdefs import (
     unaryfunc, ternaryfunc, binaryfunc,
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
     ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
     cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc, objobjargproc,
     readbufferproc, getbufferproc, releasebufferproc, ssizessizeobjargproc)
-from pypy.module.cpyext.pyobject import make_ref, decref
+from pypy.module.cpyext.pyobject import make_ref, decref, as_pyobj
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.memoryobject import fill_Py_buffer
 from pypy.module.cpyext.state import State
@@ -148,13 +148,13 @@ def wrap_inquirypred(space, w_self, w_args, func):
     res = rffi.cast(lltype.Signed, res)
     if res == -1:
         space.fromcache(State).check_and_raise_exception(always=True)
-    return space.wrap(bool(res))
+    return space.newbool(bool(res))
 
 def wrap_getattr(space, w_self, w_args, func):
     func_target = rffi.cast(getattrfunc, func)
     check_num_args(space, w_args, 1)
     args_w = space.fixedview(w_args)
-    name_ptr = rffi.str2charp(space.str_w(args_w[0]))
+    name_ptr = rffi.str2charp(space.text_w(args_w[0]))
     try:
         return generic_cpy_call(space, func_target, w_self, name_ptr)
     finally:
@@ -237,7 +237,10 @@ def wrap_ssizessizeobjargproc(space, w_self, w_args, func):
 def wrap_lenfunc(space, w_self, w_args, func):
     func_len = rffi.cast(lenfunc, func)
     check_num_args(space, w_args, 0)
-    return space.wrap(generic_cpy_call(space, func_len, w_self))
+    res = generic_cpy_call(space, func_len, w_self)
+    if widen(res) == -1:
+        space.fromcache(State).check_and_raise_exception(always=True)
+    return space.newint(res)
 
 def wrap_sq_item(space, w_self, w_args, func):
     func_target = rffi.cast(ssizeargfunc, func)
@@ -274,7 +277,7 @@ def wrap_objobjproc(space, w_self, w_args, func):
     res = rffi.cast(lltype.Signed, res)
     if res == -1:
         space.fromcache(State).check_and_raise_exception(always=True)
-    return space.wrap(bool(res))
+    return space.newbool(bool(res))
 
 def wrap_objobjargproc(space, w_self, w_args, func):
     func_target = rffi.cast(objobjargproc, func)
@@ -317,20 +320,21 @@ def wrap_hashfunc(space, w_self, w_args, func):
     res = generic_cpy_call(space, func_target, w_self)
     if res == -1:
         space.fromcache(State).check_and_raise_exception(always=True)
-    return space.wrap(res)
+    return space.newint(res)
 
 class CPyBuffer(Buffer):
     # Similar to Py_buffer
     _immutable_ = True
 
     def __init__(self, space, ptr, size, w_obj, format='B', shape=None,
-                strides=None, ndim=1, itemsize=1, readonly=True,
-                releasebufferproc=rffi.cast(rffi.VOIDP, 0)):
+                 strides=None, ndim=1, itemsize=1, readonly=True,
+                 needs_decref=False,
+                 releasebufferproc=rffi.cast(rffi.VOIDP, 0)):
         self.space = space
         self.ptr = ptr
         self.size = size
         self.w_obj = w_obj # kept alive
-        self.pyobj = make_ref(space, w_obj)
+        self.pyobj = as_pyobj(space, w_obj)
         self.format = format
         if not shape:
             self.shape = [size]
@@ -343,30 +347,33 @@ class CPyBuffer(Buffer):
         self.ndim = ndim
         self.itemsize = itemsize
         self.readonly = readonly
+        self.needs_decref = needs_decref
         self.releasebufferproc = releasebufferproc
 
     def releasebuffer(self):
         if self.pyobj:
-            decref(self.space, self.pyobj)
+            if self.needs_decref:
+                if self.releasebufferproc:
+                    func_target = rffi.cast(releasebufferproc, self.releasebufferproc)
+                    with lltype.scoped_alloc(Py_buffer) as pybuf:
+                        pybuf.c_buf = self.ptr
+                        pybuf.c_len = self.size
+                        pybuf.c_ndim = cts.cast('int', self.ndim)
+                        pybuf.c_shape = cts.cast('Py_ssize_t*', pybuf.c__shape)
+                        pybuf.c_strides = cts.cast('Py_ssize_t*', pybuf.c__strides)
+                        for i in range(self.ndim):
+                            pybuf.c_shape[i] = self.shape[i]
+                            pybuf.c_strides[i] = self.strides[i]
+                        if self.format:
+                            pybuf.c_format = rffi.str2charp(self.format)
+                        else:
+                            pybuf.c_format = rffi.str2charp("B")
+                        generic_cpy_call(self.space, func_target, self.pyobj, pybuf)
+                decref(self.space, self.pyobj)
             self.pyobj = lltype.nullptr(PyObject.TO)
         else:
             #do not call twice
             return
-        if self.releasebufferproc:
-            func_target = rffi.cast(releasebufferproc, self.releasebufferproc)
-            with lltype.scoped_alloc(Py_buffer) as pybuf:
-                pybuf.c_buf = self.ptr
-                pybuf.c_len = self.size
-                pybuf.c_ndim = rffi.cast(rffi.INT_real, self.ndim)
-                for i in range(self.ndim):
-                    pybuf.c_shape[i] = self.shape[i]
-                    pybuf.c_strides[i] = self.strides[i]
-                if self.format:
-                    pybuf.c_format = rffi.str2charp(self.format)
-                else:
-                    pybuf.c_format = rffi.str2charp("B")
-                generic_cpy_call(self.space, func_target, self.pyobj, pybuf)
-            self.releasebufferproc = rffi.cast(rffi.VOIDP, 0)
 
     def getlength(self):
         return self.size
@@ -462,19 +469,25 @@ def wrap_getbuffer(space, w_self, w_args, func):
         ptr = pybuf.c_buf
         size = pybuf.c_len
         ndim = widen(pybuf.c_ndim)
-        shape =   [pybuf.c_shape[i]   for i in range(ndim)]
+        shape = None
+        if pybuf.c_shape:
+            shape = [pybuf.c_shape[i]   for i in range(ndim)]
+        strides = None
         if pybuf.c_strides:
             strides = [pybuf.c_strides[i] for i in range(ndim)]
-        else:
-            strides = [1]
         if pybuf.c_format:
             format = rffi.charp2str(pybuf.c_format)
         else:
             format = 'B'
+        # the CPython docs mandates that you do an incref whenever you call
+        # bf_getbuffer; so, we pass needs_decref=True to ensure that we don't
+        # leak we release the buffer:
+        # https://docs.python.org/3.5/c-api/typeobj.html#c.PyBufferProcs.bf_getbuffer
         buf = CPyBuffer(space, ptr, size, w_self, format=format,
                             ndim=ndim, shape=shape, strides=strides,
                             itemsize=pybuf.c_itemsize,
                             readonly=widen(pybuf.c_readonly),
+                            needs_decref=True,
                             releasebufferproc = rbp)
         fq.register_finalizer(buf)
         return space.newbuffer(buf)
@@ -505,7 +518,7 @@ def wrap_cmpfunc(space, w_self, w_args, func):
                     "%T.__cmp__(x,y) requires y to be a '%T', not a '%T'",
                     w_self, w_self, w_other)
 
-    return space.wrap(generic_cpy_call(space, func_target, w_self, w_other))
+    return space.newint(generic_cpy_call(space, func_target, w_self, w_other))
 
 from rpython.rlib.nonconst import NonConstant
 
@@ -609,7 +622,7 @@ def build_slot_tp_function(space, typedef, name):
             @slot_function([PyObject, Py_ssize_t], PyObject)
             @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
             def slot_func(space, w_self, arg):
-                return space.call_function(slot_fn, w_self, space.wrap(arg))
+                return space.call_function(slot_fn, w_self, space.newint(arg))
             handled = True
 
     # ternary functions
@@ -710,32 +723,12 @@ def build_slot_tp_function(space, typedef, name):
         slot_func = slot_tp_new
     elif name == 'tp_as_buffer.c_bf_getbuffer':
         buff_fn = w_type.getdictvalue(space, '__buffer__')
-        if buff_fn is None:
+        if buff_fn is not None:
+            buff_w = slot_from___buffer__(space, typedef, buff_fn)
+        elif typedef.buffer:
+            buff_w = slot_from_buffer_w(space, typedef, buff_fn)
+        else:
             return
-        @slot_function([PyObject, Py_bufferP, rffi.INT_real],
-                rffi.INT_real, error=-1)
-        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-        def buff_w(space, w_self, view, flags):
-            args = Arguments(space, [space.newint(flags)])
-            w_obj = space.call_args(space.get(buff_fn, w_self), args)
-            if view:
-                #like PyObject_GetBuffer
-                flags = widen(flags)
-                buf = space.buffer_w(w_obj, flags)
-                try:
-                    view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
-                    view.c_obj = make_ref(space, w_obj)
-                except ValueError:
-                    w_s = space.newbytes(buf.as_str())
-                    view.c_obj = make_ref(space, w_s)
-                    view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(
-                                    space.str_w(w_s), track_allocation=False))
-                    rffi.setintfield(view, 'c_readonly', 1)
-                ret = fill_Py_buffer(space, buf, view)
-                return ret
-            return 0
-        # XXX remove this when it no longer crashes a translated PyPy
-        return
         slot_func = buff_w
     else:
         # missing: tp_as_number.nb_nonzero, tp_as_number.nb_coerce
@@ -744,6 +737,60 @@ def build_slot_tp_function(space, typedef, name):
         return
 
     return slot_func
+
+
+def slot_from___buffer__(space, typedef, buff_fn):
+    name = 'bf_getbuffer'
+    @slot_function([PyObject, Py_bufferP, rffi.INT_real],
+            rffi.INT_real, error=-1)
+    @func_renamer("cpyext_%s_%s" % (name, typedef.name))
+    def buff_w(space, w_self, view, flags):
+        args = Arguments(space, [space.newint(flags)])
+        w_obj = space.call_args(space.get(buff_fn, w_self), args)
+        if view:
+            #like PyObject_GetBuffer
+            flags = widen(flags)
+            buf = space.buffer_w(w_obj, flags)
+            try:
+                view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
+                view.c_obj = make_ref(space, w_obj)
+            except ValueError:
+                s = buf.as_str()
+                w_s = space.newbytes(s)
+                view.c_obj = make_ref(space, w_s)
+                view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(
+                                        s, track_allocation=False))
+                rffi.setintfield(view, 'c_readonly', 1)
+            ret = fill_Py_buffer(space, buf, view)
+            return ret
+        return 0
+    return buff_w
+
+def slot_from_buffer_w(space, typedef, buff_fn):
+    name = 'bf_getbuffer'
+    @slot_function([PyObject, Py_bufferP, rffi.INT_real],
+            rffi.INT_real, error=-1)
+    @func_renamer("cpyext_%s_%s" % (name, typedef.name))
+    def buff_w(space, w_self, view, flags):
+        w_obj = w_self
+        if view:
+            #like PyObject_GetBuffer
+            flags = widen(flags)
+            buf = space.buffer_w(w_obj, flags)
+            try:
+                view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
+                view.c_obj = make_ref(space, w_obj)
+            except ValueError:
+                s = buf.as_str()
+                w_s = space.newbytes(s)
+                view.c_obj = make_ref(space, w_s)
+                view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(
+                                        s, track_allocation=False))
+                rffi.setintfield(view, 'c_readonly', 1)
+            ret = fill_Py_buffer(space, buf, view)
+            return ret
+        return 0
+    return buff_w
 
 PyWrapperFlag_KEYWORDS = 1
 

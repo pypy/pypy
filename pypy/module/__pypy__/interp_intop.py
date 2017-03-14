@@ -8,34 +8,34 @@ from rpython.rlib import jit
 
 @unwrap_spec(n=int, m=int)
 def int_add(space, n, m):
-    return space.wrap(llop.int_add(lltype.Signed, n, m))
+    return space.newint(llop.int_add(lltype.Signed, n, m))
 
 @unwrap_spec(n=int, m=int)
 def int_sub(space, n, m):
-    return space.wrap(llop.int_sub(lltype.Signed, n, m))
+    return space.newint(llop.int_sub(lltype.Signed, n, m))
 
 @unwrap_spec(n=int, m=int)
 def int_mul(space, n, m):
-    return space.wrap(llop.int_mul(lltype.Signed, n, m))
+    return space.newint(llop.int_mul(lltype.Signed, n, m))
 
 @unwrap_spec(n=int, m=int)
 def int_floordiv(space, n, m):
-    return space.wrap(int_c_div(n, m))
+    return space.newint(int_c_div(n, m))
 
 @unwrap_spec(n=int, m=int)
 def int_mod(space, n, m):
-    return space.wrap(int_c_mod(n, m))
+    return space.newint(int_c_mod(n, m))
 
 @unwrap_spec(n=int, m=int)
 def int_lshift(space, n, m):
-    return space.wrap(llop.int_lshift(lltype.Signed, n, m))
+    return space.newint(llop.int_lshift(lltype.Signed, n, m))
 
 @unwrap_spec(n=int, m=int)
 def int_rshift(space, n, m):
-    return space.wrap(llop.int_rshift(lltype.Signed, n, m))
+    return space.newint(llop.int_rshift(lltype.Signed, n, m))
 
 @unwrap_spec(n=int, m=int)
 def uint_rshift(space, n, m):
     n = r_uint(n)
     x = llop.uint_rshift(lltype.Unsigned, n, m)
-    return space.wrap(intmask(x))
+    return space.newint(intmask(x))

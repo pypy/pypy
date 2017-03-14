@@ -20,9 +20,9 @@ class TestObjSpace:
         w_result = space.isinstance(w_i, space.w_int)
         assert space.is_true(w_result)
         assert space.isinstance_w(w_i, space.w_int)
-        w_result = space.isinstance(w_i, space.w_str)
+        w_result = space.isinstance(w_i, space.w_bytes)
         assert not space.is_true(w_result)
-        assert not space.isinstance_w(w_i, space.w_str)
+        assert not space.isinstance_w(w_i, space.w_bytes)
 
     def test_newlist(self):
         w = self.space.wrap
@@ -212,11 +212,11 @@ class TestObjSpace:
         res = self.space.interp_w(Function, w(None), can_be_None=True)
         assert res is None
 
-    def test_str0_w(self):
+    def test_text0_w(self):
         space = self.space
         w = space.wrap
-        assert space.str0_w(w("123")) == "123"
-        exc = space.raises_w(space.w_TypeError, space.str0_w, w("123\x004"))
+        assert space.text0_w(w("123")) == "123"
+        exc = space.raises_w(space.w_TypeError, space.text0_w, w("123\x004"))
         assert space.unicode0_w(w(u"123")) == u"123"
         exc = space.raises_w(space.w_TypeError, space.unicode0_w, w(u"123\x004"))
 

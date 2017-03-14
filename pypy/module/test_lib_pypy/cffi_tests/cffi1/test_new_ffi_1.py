@@ -138,7 +138,7 @@ class TestNewFFI1:
         min = int(min)
         max = int(max)
         p = ffi.cast(c_decl, min)
-        assert p != min       # no __eq__(int)
+        assert p == min
         assert bool(p) is bool(min)
         assert int(p) == min
         p = ffi.cast(c_decl, max)
@@ -149,9 +149,9 @@ class TestNewFFI1:
         assert ffi.typeof(q) is ffi.typeof(p) and int(q) == max
         q = ffi.cast(c_decl, long(min - 1))
         assert ffi.typeof(q) is ffi.typeof(p) and int(q) == max
-        assert q != p
+        assert q == p
         assert int(q) == int(p)
-        assert hash(q) != hash(p)   # unlikely
+        assert hash(q) == hash(p)
         c_decl_ptr = '%s *' % c_decl
         py.test.raises(OverflowError, ffi.new, c_decl_ptr, min - 1)
         py.test.raises(OverflowError, ffi.new, c_decl_ptr, max + 1)
@@ -897,9 +897,9 @@ class TestNewFFI1:
         assert ffi.string(ffi.cast("enum bar", -2)) == "B1"
         assert ffi.string(ffi.cast("enum bar", -1)) == "CC1"
         assert ffi.string(ffi.cast("enum bar", 1)) == "E1"
-        assert ffi.cast("enum bar", -2) != ffi.cast("enum bar", -2)
-        assert ffi.cast("enum foq", 0) != ffi.cast("enum bar", 0)
-        assert ffi.cast("enum bar", 0) != ffi.cast("int", 0)
+        assert ffi.cast("enum bar", -2) == ffi.cast("enum bar", -2)
+        assert ffi.cast("enum foq", 0) == ffi.cast("enum bar", 0)
+        assert ffi.cast("enum bar", 0) == ffi.cast("int", 0)
         assert repr(ffi.cast("enum bar", -1)) == "<cdata 'enum bar' -1: CC1>"
         assert repr(ffi.cast("enum foq", -1)) == (  # enums are unsigned, if
             "<cdata 'enum foq' 4294967295>") or (   # they contain no neg value
@@ -1106,14 +1106,14 @@ class TestNewFFI1:
         assert (q == None) is False
         assert (q != None) is True
 
-    def test_no_integer_comparison(self):
+    def test_integer_comparison(self):
         x = ffi.cast("int", 123)
         y = ffi.cast("int", 456)
-        py.test.raises(TypeError, "x < y")
+        assert x < y
         #
         z = ffi.cast("double", 78.9)
-        py.test.raises(TypeError, "x < z")
-        py.test.raises(TypeError, "z < y")
+        assert x > z
+        assert y > z
 
     def test_ffi_buffer_ptr(self):
         a = ffi.new("short *", 100)

@@ -254,6 +254,7 @@ class CConfig:
     PRIO_PGRP = rffi_platform.DefinedConstantInteger('PRIO_PGRP')
     PRIO_USER = rffi_platform.DefinedConstantInteger('PRIO_USER')
     O_NONBLOCK = rffi_platform.DefinedConstantInteger('O_NONBLOCK')
+    OFF_T = rffi_platform.SimpleType('off_t')
     OFF_T_SIZE = rffi_platform.SizeOf('off_t')
 
     HAVE_UTIMES = rffi_platform.Has('utimes')
@@ -462,6 +463,29 @@ def lseek(fd, pos, how):
         elif how == 2:
             how = SEEK_END
     return handle_posix_error('lseek', c_lseek(fd, pos, how))
+
+c_pread = external('pread',
+                  [rffi.INT, rffi.VOIDP, rffi.SIZE_T , OFF_T], rffi.SSIZE_T,
+                  save_err=rffi.RFFI_SAVE_ERRNO)
+c_pwrite = external('pwrite',
+                   [rffi.INT, rffi.VOIDP, rffi.SIZE_T, OFF_T], rffi.SSIZE_T,
+                   save_err=rffi.RFFI_SAVE_ERRNO)
+
+@enforceargs(int, int, None)
+def pread(fd, count, offset):
+    if count < 0:
+        raise OSError(errno.EINVAL, None)
+    validate_fd(fd)
+    with rffi.scoped_alloc_buffer(count) as buf:
+        void_buf = rffi.cast(rffi.VOIDP, buf.raw)
+        return buf.str(handle_posix_error('pread', c_pread(fd, void_buf, count, offset)))
+        
+@enforceargs(int, None, None)
+def pwrite(fd, data, offset):
+    count = len(data)
+    validate_fd(fd)
+    with rffi.scoped_nonmovingbuffer(data) as buf:
+        return handle_posix_error('pwrite', c_pwrite(fd, buf, count, offset))
 
 c_ftruncate = external('ftruncate', [rffi.INT, rffi.LONGLONG], rffi.INT,
                        macro=_MACRO_ON_POSIX, save_err=rffi.RFFI_SAVE_ERRNO)
@@ -2427,3 +2451,22 @@ if not _WIN32:
     def set_status_flags(fd, flags):
         res = c_set_status_flags(fd, flags)
         handle_posix_error('set_status_flags', res)
+
+if not _WIN32:
+    sendfile_eci = ExternalCompilationInfo(includes=["sys/sendfile.h"])
+    _OFF_PTR_T = rffi.CArrayPtr(OFF_T)
+    c_sendfile = rffi.llexternal('sendfile',
+            [rffi.INT, rffi.INT, _OFF_PTR_T, rffi.SIZE_T],
+            rffi.SSIZE_T, save_err=rffi.RFFI_SAVE_ERRNO,
+            compilation_info=sendfile_eci)
+
+    def sendfile(out_fd, in_fd, offset, count):
+        with lltype.scoped_alloc(_OFF_PTR_T.TO, 1) as p_offset:
+            p_offset[0] = rffi.cast(OFF_T, offset)
+            res = c_sendfile(out_fd, in_fd, p_offset, count)
+        return handle_posix_error('sendfile', res)
+
+    def sendfile_no_offset(out_fd, in_fd, count):
+        """Passes offset==NULL; not support on all OSes"""
+        res = c_sendfile(out_fd, in_fd, lltype.nullptr(_OFF_PTR_T.TO), count)
+        return handle_posix_error('sendfile', res)

@@ -1138,7 +1138,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # Check if the object at 'addr' is young.
         if not self.is_valid_gc_object(addr):
             return False     # filter out tagged pointers explicitly.
-        if self.nursery <= addr < self.nursery_top:
+        if self.is_in_nursery(addr):
             return True      # addr is in the nursery
         # Else, it may be in the set 'young_rawmalloced_objects'
         return (bool(self.young_rawmalloced_objects) and
@@ -2124,7 +2124,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _malloc_out_of_nursery(self, totalsize):
         """Allocate non-movable memory for an object of the given
         'totalsize' that lives so far in the nursery."""
-        if raw_malloc_usage(totalsize) <= self.small_request_threshold:
+        if (r_uint(raw_malloc_usage(totalsize)) <=
+            r_uint(self.small_request_threshold)):
             # most common path
             return self.ac.malloc(totalsize)
         else:
@@ -2133,6 +2134,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
     _malloc_out_of_nursery._always_inline_ = True
 
     def _malloc_out_of_nursery_nonsmall(self, totalsize):
+        if r_uint(raw_malloc_usage(totalsize)) > r_uint(self.nursery_size):
+            out_of_memory("memory corruption: bad size for object in the "
+                          "nursery")
         # 'totalsize' should be aligned.
         ll_assert(raw_malloc_usage(totalsize) & (WORD-1) == 0,
                   "misaligned totalsize in _malloc_out_of_nursery_nonsmall")

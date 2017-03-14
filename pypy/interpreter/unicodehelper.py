@@ -9,24 +9,25 @@ def decode_error_handler(space):
     def raise_unicode_exception_decode(errors, encoding, msg, s,
                                        startingpos, endingpos):
         raise OperationError(space.w_UnicodeDecodeError,
-                             space.newtuple([space.wrap(encoding),
-                                             space.wrap(s),
-                                             space.wrap(startingpos),
-                                             space.wrap(endingpos),
-                                             space.wrap(msg)]))
+                             space.newtuple([space.newtext(encoding),
+                                             space.newbytes(s),
+                                             space.newint(startingpos),
+                                             space.newint(endingpos),
+                                             space.newtext(msg)]))
     return raise_unicode_exception_decode
 
-class RUnicodeEncodeError(Exception):
-    def __init__(self, encoding, object, start, end, reason):
-        self.encoding = encoding
-        self.object = object
-        self.start = start
-        self.end = end
-        self.reason = reason
-
-def raise_unicode_exception_encode(errors, encoding, msg, u,
-                                   startingpos, endingpos):
-    raise RUnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
+@specialize.memo()
+def encode_error_handler(space):
+    # Fast version of the "strict" errors handler.
+    def raise_unicode_exception_encode(errors, encoding, msg, u,
+                                       startingpos, endingpos):
+        raise OperationError(space.w_UnicodeEncodeError,
+                             space.newtuple([space.newtext(encoding),
+                                             space.newunicode(u),
+                                             space.newint(startingpos),
+                                             space.newint(endingpos),
+                                             space.newtext(msg)]))
+    return raise_unicode_exception_encode
 
 # ____________________________________________________________
 
@@ -68,5 +69,5 @@ def encode_utf8(space, uni):
     # it stands for.  These are the Python2 rules; Python3 differs.
     return runicode.unicode_encode_utf_8(
         uni, len(uni), "strict",
-        errorhandler=raise_unicode_exception_encode,
+        errorhandler=None,
         allow_surrogates=True)

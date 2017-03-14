@@ -815,8 +815,7 @@ class FuncNode(FuncNodeBase):
                 self.name, self.db.standalone, is_exported=is_exported))
 
     def graphs_to_patch(self):
-        for i in self.funcgen.graphs_to_patch():
-            yield i
+        return self.funcgen.graphs_to_patch()
 
     def implementation(self):
         funcgen = self.funcgen

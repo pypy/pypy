@@ -127,8 +127,14 @@ class ASTNodeVisitor(ASDLVisitor):
             return "%s_to_class[%s - 1]().to_object(space)" % (field.type, value)
         elif field.type in ("object", "singleton", "string", "bytes"):
             return value
-        elif field.type in ("identifier", "int", "bool"):
-            return "space.wrap(%s)" % (value,)
+        elif field.type == "bool":
+            return "space.newbool(%s)" % (value,)
+        elif field.type == "int":
+            return "space.newint(%s)" % (value,)
+        elif field.type == "identifier":
+            if field.opt:
+                return "space.newtext_or_none(%s)" % (value,)
+            return "space.newtext(%s)" % (value,)
         else:
             wrapper = "%s.to_object(space)" % (value,)
             if field.opt:
@@ -144,8 +150,9 @@ class ASTNodeVisitor(ASDLVisitor):
             return "check_string(space, %s)" % (value,)
         elif field.type in ("identifier",):
             if field.opt:
-                return "space.str_or_None_w(%s)" % (value,)
-            return "space.realstr_w(%s)" % (value,)
+                return ("space.realtext_w(%s) if not space.is_none(%s) "
+                        "else None" % (value, value))
+            return "space.realtext_w(%s)" % (value,)
         elif field.type in ("int",):
             return "space.int_w(%s)" % (value,)
         elif field.type in ("bool",):
@@ -194,7 +201,7 @@ class ASTNodeVisitor(ASDLVisitor):
             wrapping_code = self.get_field_converter(field)
             for line in wrapping_code:
                 self.emit(line, 2)
-            self.emit("space.setattr(w_node, space.wrap(%r), w_%s)" % (
+            self.emit("space.setattr(w_node, space.newtext(%r), w_%s)" % (
                     str(field.name), field.name), 2)
         self.emit("return w_node", 2)
         self.emit("")
@@ -402,7 +409,7 @@ def raise_required_value(space, w_obj, name):
                 "field %s is required for %T", name, w_obj)
 
 def check_string(space, w_obj):
-    if not (space.isinstance_w(w_obj, space.w_str) or
+    if not (space.isinstance_w(w_obj, space.w_bytes) or
             space.isinstance_w(w_obj, space.w_unicode)):
         raise oefmt(space.w_TypeError,
                     "AST string must be of type str or unicode")
@@ -437,10 +444,10 @@ class _FieldsWrapper(W_Root):
     "Hack around the fact we can't store tuples on a TypeDef."
 
     def __init__(self, fields):
-        self.fields = fields
+        assert fields == []
 
-    def __spacebind__(self, space):
-        return space.newtuple([space.wrap(field) for field in self.fields])
+    def spacebind(self, space):
+        return space.newtuple([])
 
 
 class W_AST(W_Root):
@@ -456,14 +463,14 @@ class W_AST(W_Root):
         if w_dict is None:
             w_dict = space.newdict()
         w_type = space.type(self)
-        w_fields = space.getattr(w_type, space.wrap("_fields"))
+        w_fields = space.getattr(w_type, space.newtext("_fields"))
         for w_name in space.fixedview(w_fields):
             try:
                 space.setitem(w_dict, w_name,
                           space.getattr(self, w_name))
             except OperationError:
                 pass
-        w_attrs = space.findattr(w_type, space.wrap("_attributes"))
+        w_attrs = space.findattr(w_type, space.newtext("_attributes"))
         if w_attrs:
             for w_name in space.fixedview(w_attrs):
                 try:
@@ -482,12 +489,12 @@ class W_AST(W_Root):
 
 def W_AST_new(space, w_type, __args__):
     node = space.allocate_instance(W_AST, w_type)
-    return space.wrap(node)
+    return node
 
 def W_AST_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     fields_w = space.fixedview(space.getattr(space.type(w_self),
-                               space.wrap("_fields")))
+                               space.newtext("_fields")))
     num_fields = len(fields_w) if fields_w else 0
     if args_w and len(args_w) != num_fields:
         if num_fields == 0:
@@ -503,7 +510,7 @@ def W_AST_init(space, w_self, __args__):
         for i, w_field in enumerate(fields_w):
             space.setattr(w_self, w_field, args_w[i])
     for field, w_value in kwargs_w.iteritems():
-        space.setattr(w_self, space.wrap(field), w_value)
+        space.setattr(w_self, space.newtext(field), w_value)
 
 
 W_AST.typedef = typedef.TypeDef("_ast.AST",
@@ -532,16 +539,16 @@ class State:
     def make_new_type(self, space, name, base, fields, attributes):
         w_base = getattr(self, 'w_%s' % base)
         w_dict = space.newdict()
-        space.setitem_str(w_dict, '__module__', space.wrap('_ast'))
+        space.setitem_str(w_dict, '__module__', space.newtext('_ast'))
         if fields is not None:
             space.setitem_str(w_dict, "_fields",
-                              space.newtuple([space.wrap(f) for f in fields]))
+                              space.newtuple([space.newtext(f) for f in fields]))
         if attributes is not None:
             space.setitem_str(w_dict, "_attributes",
-                              space.newtuple([space.wrap(a) for a in attributes]))
+                              space.newtuple([space.newtext(a) for a in attributes]))
         w_type = space.call_function(
             space.w_type,
-            space.wrap(name), space.newtuple([w_base]), w_dict)
+            space.newtext(name), space.newtuple([w_base]), w_dict)
         setattr(self, 'w_%s' % name, w_type)
 
 def get(space):

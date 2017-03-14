@@ -33,7 +33,6 @@ class FunctionCodeGenerator(object):
     Collects information about a function which we have to generate
     from a flow graph.
     """
-
     def __init__(self, graph, db, exception_policy, functionname):
         self.graph = graph
         self.db = db
@@ -173,6 +172,19 @@ class FunctionCodeGenerator(object):
 
     def cfunction_body(self):
         graph = self.graph
+
+        # ----- for gc_enter_roots_frame
+        _seen = set()
+        for block in graph.iterblocks():
+            for op in block.operations:
+                if op.opname == 'gc_enter_roots_frame':
+                    _seen.add(tuple(op.args))
+        if _seen:
+            assert len(_seen) == 1, (
+                "multiple different gc_enter_roots_frame in %r" % (graph,))
+            for line in self.gcpolicy.enter_roots_frame(self, list(_seen)[0]):
+                yield line
+        # ----- done
 
         # Locate blocks with a single predecessor, which can be written
         # inline in place of a "goto":

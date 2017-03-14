@@ -1,6 +1,6 @@
 from pypy.module.cpyext.api import (
-    cpython_api, generic_cpy_call, CANNOT_FAIL, CConfig, cpython_struct)
-from pypy.module.cpyext.pyobject import PyObject, Py_DecRef, make_ref, from_ref
+    cpython_api, CANNOT_FAIL, cpython_struct)
+from pypy.module.cpyext.pyobject import PyObject, Py_DecRef, make_ref
 from pypy.interpreter.error import OperationError
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rthread
@@ -29,8 +29,9 @@ def PyEval_SaveThread(space):
     the current thread must have acquired it.  (This function is available even
     when thread support is disabled at compile time.)"""
     state = space.fromcache(InterpreterState)
-    tstate = state.swap_thread_state(
-        space, lltype.nullptr(PyThreadState.TO))
+    ec = space.getexecutioncontext()
+    tstate = state._get_thread_state(space, ec).memory
+    ec.cpyext_threadstate_is_current = False
     return tstate
 
 @cpython_api([PyThreadState], lltype.Void, gil="acquire")
@@ -40,8 +41,7 @@ def PyEval_RestoreThread(space, tstate):
     NULL.  If the lock has been created, the current thread must not have
     acquired it, otherwise deadlock ensues.  (This function is available even
     when thread support is disabled at compile time.)"""
-    state = space.fromcache(InterpreterState)
-    state.swap_thread_state(space, tstate)
+    PyThreadState_Swap(space, tstate)
 
 @cpython_api([], lltype.Void)
 def PyEval_InitThreads(space):
@@ -91,9 +91,11 @@ ExecutionContext.cpyext_threadstate = ThreadStateCapsule(None)
 # released, so a check against that can't be used to determine the need for
 # initialization).
 ExecutionContext.cpyext_initialized_threadstate = False
+ExecutionContext.cpyext_threadstate_is_current = True
 
 def cleanup_cpyext_state(self):
     self.cpyext_threadstate = None
+    self.cpyext_threadstate_is_current = True
     self.cpyext_initialized_threadstate = False
 ExecutionContext.cleanup_cpyext_state = cleanup_cpyext_state
 
@@ -162,6 +164,7 @@ class InterpreterState(object):
         if not ec.cpyext_initialized_threadstate:
             ec.cpyext_threadstate = self.new_thread_state(space)
             ec.cpyext_initialized_threadstate = True
+            ec.cpyext_threadstate_is_current = True
         return ec.cpyext_threadstate
 
 @cpython_api([], PyThreadState, error=CANNOT_FAIL)
@@ -180,14 +183,30 @@ def PyThreadState_GetDict(space):
     Previously this could only be called when a current thread is active, and NULL
     meant that an exception was raised."""
     state = space.fromcache(InterpreterState)
-    return state.get_thread_state(space).c_dict
+    ts = state.get_thread_state(space)
+    if not space.getexecutioncontext().cpyext_threadstate_is_current:
+        return lltype.nullptr(PyObject.TO)
+    return ts.c_dict
 
 @cpython_api([PyThreadState], PyThreadState, error=CANNOT_FAIL)
 def PyThreadState_Swap(space, tstate):
     """Swap the current thread state with the thread state given by the argument
     tstate, which may be NULL.  The global interpreter lock must be held."""
+    ec = space.getexecutioncontext()
     state = space.fromcache(InterpreterState)
-    return state.swap_thread_state(space, tstate)
+    old_tstate = state.get_thread_state(space)
+    if not ec.cpyext_threadstate_is_current:
+        old_tstate = lltype.nullptr(PyThreadState.TO)
+    if tstate:
+        if tstate != state.get_thread_state(space):
+            print "Error in cpyext, CPython compatibility layer:"
+            print "PyThreadState_Swap() cannot be used to switch to another"
+            print "different PyThreadState right now"
+            raise AssertionError
+        ec.cpyext_threadstate_is_current = True
+    else:
+        ec.cpyext_threadstate_is_current = False
+    return old_tstate
 
 @cpython_api([PyThreadState], lltype.Void, gil="acquire")
 def PyEval_AcquireThread(space, tstate):
@@ -251,6 +270,7 @@ def PyGILState_Ensure(space, previous_state):
         if not we_are_translated():
             _workaround_cpython_untranslated(space)
     #
+    ec.cpyext_threadstate_is_current = True
     return rffi.cast(PyGILState_STATE, previous_state)
 
 @cpython_api([PyGILState_STATE], lltype.Void, gil="pygilstate_release")
@@ -262,6 +282,9 @@ def PyGILState_Release(space, oldstate):
     else:
         assert ec.cpyext_gilstate_counter_noleave == 0
         assert oldstate == PyGILState_UNLOCKED
+        assert space.config.translation.thread
+        #      ^^^ otherwise, we should not reach this case
+        ec.cpyext_threadstate_is_current = False
         space.threadlocals.leave_thread(space)
 
 @cpython_api([], PyInterpreterState, error=CANNOT_FAIL)
