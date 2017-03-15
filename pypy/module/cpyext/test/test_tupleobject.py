@@ -158,6 +158,6 @@ class AppTestTuple(AppTestCpythonExtensionBase):
         assert module.is_TupleLike(a) == 1
         assert isinstance(a, tuple)
         assert issubclass(type(a), tuple)
-        assert list(a) == range(100, 400, 100)
-        assert list(a) == range(100, 400, 100)
-        assert list(a) == range(100, 400, 100)
+        assert list(a) == list(range(100, 400, 100))
+        assert list(a) == list(range(100, 400, 100))
+        assert list(a) == list(range(100, 400, 100))
