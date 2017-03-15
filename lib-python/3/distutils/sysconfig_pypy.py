@@ -19,13 +19,16 @@ from distutils.errors import DistutilsPlatformError
 
 PREFIX = os.path.normpath(sys.prefix)
 EXEC_PREFIX = os.path.normpath(sys.exec_prefix)
+BASE_PREFIX = os.path.normpath(sys.base_prefix)
+BASE_EXEC_PREFIX = os.path.normpath(sys.base_exec_prefix)
 project_base = os.path.dirname(os.path.abspath(sys.executable))
 python_build = False
 
 
 def get_python_inc(plat_specific=0, prefix=None):
-    from os.path import join as j
-    return j(sys.prefix, 'include')
+    if prefix is None:
+        prefix = plat_specific and BASE_EXEC_PREFIX or BASE_PREFIX
+    return os.path.join(prefix, 'include')
 
 def get_python_version():
     """Return a string containing the major and minor Python version,
