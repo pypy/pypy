@@ -225,10 +225,10 @@ class Data:
     def __eq__(self, other):
         if isinstance(other, self.__class__):
             return self.data == other.data
-        elif isinstance(other, str):
+        elif isinstance(other, bytes):
             return self.data == other
         else:
-            return id(self) == id(other)
+            return NotImplemented
 
     def __repr__(self):
         return "%s(%s)" % (self.__class__.__name__, repr(self.data))
@@ -685,7 +685,7 @@ class _BinaryPlistParser:
             f = struct.unpack('>d', self._fp.read(8))[0]
             # timestamp 0 of binary plists corresponds to 1/1/2001
             # (year of Mac OS X 10.0), instead of 1/1/1970.
-            return datetime.datetime.utcfromtimestamp(f + (31 * 365 + 8) * 86400)
+            return datetime.datetime(2001, 1, 1) + datetime.timedelta(seconds=f)
 
         elif tokenH == 0x40:  # data
             s = self._get_size(tokenL)
@@ -918,7 +918,7 @@ class _BinaryPlistWriter (object):
                 self._write_size(0x50, len(value))
             except UnicodeEncodeError:
                 t = value.encode('utf-16be')
-                self._write_size(0x60, len(value))
+                self._write_size(0x60, len(t) // 2)
 
             self._fp.write(t)
 

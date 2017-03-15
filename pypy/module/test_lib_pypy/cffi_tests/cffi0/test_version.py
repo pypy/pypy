@@ -29,7 +29,7 @@ def test_doc_version():
     content = open(p).read()
     #
     v = cffi.__version__
-    assert ("version = '%s'\n" % v[:3]) in content
+    assert ("version = '%s'\n" % v[:4]) in content
     assert ("release = '%s'\n" % v) in content
 
 def test_doc_version_file():

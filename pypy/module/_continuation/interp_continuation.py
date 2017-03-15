@@ -36,7 +36,7 @@ class W_Continulet(W_Root):
         w_args, w_kwds = __args__.topacked()
         bottomframe = space.createframe(get_entrypoint_pycode(space),
                                         get_w_module_dict(space), None)
-        bottomframe.locals_cells_stack_w[0] = space.wrap(self)
+        bottomframe.locals_cells_stack_w[0] = self
         bottomframe.locals_cells_stack_w[1] = w_callable
         bottomframe.locals_cells_stack_w[2] = w_args
         bottomframe.locals_cells_stack_w[3] = w_kwds
@@ -45,8 +45,9 @@ class W_Continulet(W_Root):
         #
         global_state.origin = self
         self.sthread = sthread
+        saved_exception = pre_switch(sthread)
         h = sthread.new(new_stacklet_callback)
-        post_switch(sthread, h)
+        post_switch(sthread, h, saved_exception)
 
     def switch(self, w_to):
         sthread = self.sthread
@@ -82,8 +83,9 @@ class W_Continulet(W_Root):
             # double switch: the final destination is to.h
             global_state.destination = to
         #
+        saved_exception = pre_switch(sthread)
         h = sthread.switch(global_state.destination.h)
-        return post_switch(sthread, h)
+        return post_switch(sthread, h, saved_exception)
 
     @unwrap_spec(w_value = WrappedDefault(None),
                  w_to = WrappedDefault(None))
@@ -133,13 +135,13 @@ class W_Continulet(W_Root):
 def W_Continulet___new__(space, w_subtype, __args__):
     r = space.allocate_instance(W_Continulet, w_subtype)
     r.__init__(space)
-    return space.wrap(r)
+    return r
 
 def unpickle(space, w_subtype):
     """Pickle support."""
     r = space.allocate_instance(W_Continulet, w_subtype)
     r.__init__(space)
-    return space.wrap(r)
+    return r
 
 
 W_Continulet.typedef = TypeDef(
@@ -163,7 +165,7 @@ class State:
     def __init__(self, space):
         self.space = space
         w_module = space.getbuiltinmodule('_continuation')
-        self.w_error = space.getattr(w_module, space.wrap('error'))
+        self.w_error = space.getattr(w_module, space.newtext('error'))
         # the following function switches away immediately, so that
         # continulet.__init__() doesn't immediately run func(), but it
         # also has the hidden purpose of making sure we have a single
@@ -186,7 +188,7 @@ class State:
 
 def geterror(space, message):
     cs = space.fromcache(State)
-    return OperationError(cs.w_error, space.wrap(message))
+    return OperationError(cs.w_error, space.newtext(message))
 
 def get_entrypoint_pycode(space):
     cs = space.fromcache(State)
@@ -240,7 +242,12 @@ def new_stacklet_callback(h, arg):
     global_state.destination = self
     return self.h
 
-def post_switch(sthread, h):
+def pre_switch(sthread):
+    saved_exception = sthread.ec.sys_exc_info()
+    sthread.ec.set_sys_exc_info(None)
+    return saved_exception
+
+def post_switch(sthread, h, saved_exception):
     origin = global_state.origin
     self = global_state.destination
     global_state.origin = None
@@ -249,6 +256,7 @@ def post_switch(sthread, h):
     #
     current = sthread.ec.topframeref
     sthread.ec.topframeref = self.bottomframe.f_backref
+    sthread.ec.set_sys_exc_info(saved_exception)
     self.bottomframe.f_backref = origin.bottomframe.f_backref
     origin.bottomframe.f_backref = current
     #

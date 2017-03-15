@@ -41,6 +41,12 @@ def temporary_filename():
     finally:
         support.unlink(filename)
 
+# NOTE: all the tests give a sensible result on PyPy too (tested
+# manually in py3.5, revision e0ba73be669b, by setting maxDiff=None in
+# the class).  The details of the outputs differ too much to make it
+# easy to generalize the tests to accept both CPython's and PyPy's
+# style.  For now let's skip the tests on PyPy.
+@support.cpython_only
 class FaultHandlerTests(unittest.TestCase):
     def get_output(self, code, filename=None, fd=None):
         """
@@ -181,6 +187,14 @@ class FaultHandlerTests(unittest.TestCase):
         self.check_fatal_error("""
             import faulthandler
             faulthandler._fatal_error(b'xyz')
+            """,
+            2,
+            'xyz')
+
+    def test_fatal_error_without_gil(self):
+        self.check_fatal_error("""
+            import faulthandler
+            faulthandler._fatal_error(b'xyz', True)
             """,
             2,
             'xyz')
@@ -675,7 +689,7 @@ class FaultHandlerTests(unittest.TestCase):
             sys.stderr = stderr
 
     def test_stderr_None(self):
-        # Issue #21497: provide an helpful error if sys.stderr is None,
+        # Issue #21497: provide a helpful error if sys.stderr is None,
         # instead of just an attribute error: "None has no attribute fileno".
         with self.check_stderr_none():
             faulthandler.enable()

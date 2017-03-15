@@ -200,7 +200,7 @@ class MsvcPlatform(Platform):
     def _linkfiles(self, link_files):
         return list(link_files)
 
-    def _args_for_shared(self, args):
+    def _args_for_shared(self, args, **kwds):
         return ['/dll'] + args
 
     def check___thread(self):
@@ -271,7 +271,7 @@ class MsvcPlatform(Platform):
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
-                     no_precompile_cfiles = [], icon=None):
+                     no_precompile_cfiles = [], config=None):
         cfiles = self._all_cfiles(cfiles, eci)
 
         if path is None:
@@ -379,9 +379,9 @@ class MsvcPlatform(Platform):
             no_precompile = []
             for f in list(no_precompile_cfiles):
                 f = m.pathrel(py.path.local(f))
-                if f not in no_precompile and f.endswith('.c'):
+                if f not in no_precompile and (f.endswith('.c') or f.endswith('.cpp')):
                     no_precompile.append(f)
-                    target = f[:-1] + 'obj'
+                    target = f[:f.rfind('.')] + '.obj'
                     rules.append((target, f,
                         '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) '
                         '/Fo%s /c %s $(INCLUDEDIRS)' %(target, f)))
@@ -392,6 +392,7 @@ class MsvcPlatform(Platform):
                           '/Fo$@ /c $< $(INCLUDEDIRS)'))
 
 
+        icon = config.translation.icon if config else None
         if icon:
             shutil.copyfile(icon, str(path.join('icon.ico')))
             rc_file = path.join('icon.rc')
@@ -554,7 +555,7 @@ class MingwPlatform(posix.BasePosix):
             cc = 'gcc'
         Platform.__init__(self, cc)
 
-    def _args_for_shared(self, args):
+    def _args_for_shared(self, args, **kwds):
         return ['-shared'] + args
 
     def _include_dirs_for_libffi(self):

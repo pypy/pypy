@@ -66,13 +66,13 @@ def compile_dir(dir, maxlevels=10, ddir=None, force=False, rx=None,
     optimize:  optimization level or -1 for level of the interpreter
     workers:   maximum number of parallel workers
     """
+    if workers is not None and workers < 0:
+        raise ValueError('workers must be greater or equal to 0')
+
     files = _walk_dir(dir, quiet=quiet, maxlevels=maxlevels,
                       ddir=ddir)
     success = 1
     if workers is not None and workers != 1 and ProcessPoolExecutor is not None:
-        if workers < 0:
-            raise ValueError('workers must be greater or equal to 0')
-
         workers = workers or None
         with ProcessPoolExecutor(max_workers=workers) as executor:
             results = executor.map(partial(compile_file,
@@ -238,9 +238,6 @@ def main():
     args = parser.parse_args()
     compile_dests = args.compile_dest
 
-    if (args.ddir and (len(compile_dests) != 1
-            or not os.path.isdir(compile_dests[0]))):
-        parser.exit('-d destdir requires exactly one directory argument')
     if args.rx:
         import re
         args.rx = re.compile(args.rx)

@@ -150,7 +150,7 @@ class TestW_IntObject:
         v = f1.descr_pow(self.space, f2, f3)
         assert v.intval == pow(x, y, z)
         f1, f2, f3 = [iobj.W_IntObject(i) for i in (10, -1, 42)]
-        self.space.raises_w(self.space.w_TypeError,
+        self.space.raises_w(self.space.w_ValueError,
                             f1.descr_pow, self.space, f2, f3)
         f1, f2, f3 = [iobj.W_IntObject(i) for i in (10, 5, 0)]
         self.space.raises_w(self.space.w_ValueError,
@@ -532,6 +532,47 @@ class AppTestInt(object):
         e = raises(ValueError, int, value)
         assert str(e.value) == "invalid literal for int() with base 10: %r" % value
 
+    def test_non_numeric_input_types(self):
+        # Test possible non-numeric types for the argument x, including
+        # subclasses of the explicitly documented accepted types.
+        class CustomStr(str): pass
+        class CustomBytes(bytes): pass
+        class CustomByteArray(bytearray): pass
+
+        factories = [
+            bytes,
+            bytearray,
+            lambda b: CustomStr(b.decode()),
+            CustomBytes,
+            CustomByteArray,
+            memoryview,
+        ]
+        try:
+            from array import array
+        except ImportError:
+            pass
+        else:
+            factories.append(lambda b: array('B', b))
+
+        for f in factories:
+            x = f(b'100')
+            assert int(x) == 100
+            if isinstance(x, (str, bytes, bytearray)):
+                assert int(x, 2) == 4
+            else:
+                try:
+                    int(x, 2)
+                except TypeError as e:
+                    assert "can't convert non-string" in str(e)
+                else:
+                    assert False, 'did not raise'
+            try:
+                int(f(b'A' * 0x10))
+            except ValueError as e:
+                assert "invalid literal" in str(e)
+            else:
+                assert False, 'did not raise'
+
     def test_fake_int_as_base(self):
         class MyInt(object):
             def __init__(self, x):
@@ -606,6 +647,20 @@ class AppTestInt(object):
         assert int(b'100', 2) == 4
         assert int(bytearray(b'100'), 2) == 4
         raises(TypeError, int, memoryview(b'100'), 2)
+
+    def test_from_bytes(self):
+        called = []
+        class X(int):
+            def __init__(self, val):
+                called.append(val)
+        x = X.from_bytes(b"", 'little')
+        assert type(x) is X and x == 0
+        assert called == [0]
+        x = X.from_bytes(b"*" * 100, 'little')
+        assert type(x) is X
+        expected = sum(256 ** i for i in range(100)) * ord('*')
+        assert x == expected
+        assert called == [0, expected]
 
 
 class AppTestIntShortcut(AppTestInt):

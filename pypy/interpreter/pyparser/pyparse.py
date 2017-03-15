@@ -8,8 +8,8 @@ def recode_to_utf8(space, bytes, encoding):
     if encoding == 'utf-8':
         return bytes
     w_text = space.call_method(space.newbytes(bytes), "decode",
-                               space.wrap(encoding))
-    w_recoded = space.call_method(w_text, "encode", space.wrap("utf-8"))
+                               space.newtext(encoding))
+    w_recoded = space.call_method(w_text, "encode", space.newtext("utf-8"))
     return space.bytes_w(w_recoded)
 
 def _normalize_encoding(encoding):
@@ -108,6 +108,7 @@ class PythonParser(parser.Parser):
         tree is handled here.
         """
         # Detect source encoding.
+        explicit_encoding = False
         enc = None
         if compile_info.flags & consts.PyCF_SOURCE_IS_UTF8:
             enc = 'utf-8'
@@ -119,12 +120,14 @@ class PythonParser(parser.Parser):
             enc = 'utf-8'
             # If an encoding is explicitly given check that it is utf-8.
             decl_enc = _check_for_encoding(bytessrc)
+            explicit_encoding = (decl_enc is not None)
             if decl_enc and decl_enc != "utf-8":
                 raise error.SyntaxError("UTF-8 BOM with %s coding cookie" % decl_enc,
                                         filename=compile_info.filename)
             textsrc = bytessrc
         else:
             enc = _normalize_encoding(_check_for_encoding(bytessrc))
+            explicit_encoding = (enc is not None)
             if enc is None:
                 enc = 'utf-8'
             try:
@@ -141,10 +144,12 @@ class PythonParser(parser.Parser):
                 if e.match(space, space.w_UnicodeDecodeError):
                     e.normalize_exception(space)
                     w_message = space.str(e.get_w_value(space))
-                    raise error.SyntaxError(space.str_w(w_message))
+                    raise error.SyntaxError(space.text_w(w_message))
                 raise
 
         flags = compile_info.flags
+        if explicit_encoding:
+            flags |= consts.PyCF_FOUND_ENCODING
 
         # The tokenizer is very picky about how it wants its input.
         source_lines = textsrc.splitlines(True)
@@ -198,6 +203,9 @@ class PythonParser(parser.Parser):
                                           line, compile_info.filename)
 
             except error.TokenError as e:
+                e.filename = compile_info.filename
+                raise
+            except error.TokenIndentationError as e:
                 e.filename = compile_info.filename
                 raise
             except parser.ParseError as e:

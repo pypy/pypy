@@ -1,6 +1,6 @@
 """
 Python unit testing framework, based on Erich Gamma's JUnit and Kent Beck's
-Smalltalk testing framework.
+Smalltalk testing framework (used with permission).
 
 This module contains the core framework classes that form the basis of
 specific test cases and suites (TestCase, TestSuite etc.), and also a
@@ -12,7 +12,7 @@ Simple usage:
     import unittest
 
     class IntegerArithmeticTestCase(unittest.TestCase):
-        def testAdd(self):  ## test method names begin 'test*'
+        def testAdd(self):  # test method names begin with 'test'
             self.assertEqual((1 + 2), 3)
             self.assertEqual(0 + 1, 1)
         def testMultiply(self):

@@ -12,7 +12,7 @@ from rpython.jit.metainterp.optimizeopt.shortpreamble import PreambleOp
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.resoperation import rop, ResOperation, OpHelpers,\
      AbstractResOp, GuardResOp
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, we_are_debug
 from rpython.jit.metainterp.optimizeopt import info
         
 
@@ -48,6 +48,7 @@ class AbstractCachedEntry(object):
         # that has a non-None entry at
         # info._fields[descr.get_index()]
         # must be in cache_infos
+        assert structop.type == 'r'
         self.cached_structs.append(structop)
         self.cached_infos.append(info)
 
@@ -172,7 +173,7 @@ class CachedField(AbstractCachedEntry):
 
     def _getfield(self, opinfo, descr, optheap, true_force=True):
         res = opinfo.getfield(descr, optheap)
-        if not we_are_translated() and res:
+        if we_are_debug() and res:
             if isinstance(opinfo, info.AbstractStructPtrInfo):
                 assert opinfo in self.cached_infos
         if isinstance(res, PreambleOp):
@@ -202,7 +203,7 @@ class ArrayCachedItem(AbstractCachedEntry):
 
     def _getfield(self, opinfo, descr, optheap, true_force=True):
         res = opinfo.getitem(descr, self.index, optheap)
-        if not we_are_translated() and res:
+        if we_are_debug() and res:
             if isinstance(opinfo, info.ArrayPtrInfo):
                 assert opinfo in self.cached_infos
         if (isinstance(res, PreambleOp) and
@@ -692,6 +693,36 @@ class OptHeap(Optimization):
             return
         self._seen_guard_not_invalidated = True
         return self.emit(op)
+
+    def serialize_optheap(self, available_boxes):
+        result = []
+        for descr, cf in self.cached_fields.iteritems():
+            if cf._lazy_set:
+                continue # XXX safe default for now
+            parent_descr = descr.get_parent_descr()
+            if not parent_descr.is_object():
+                continue # XXX could be extended to non-instance objects
+            for i, box1 in enumerate(cf.cached_structs):
+                if box1 not in available_boxes:
+                    continue
+                structinfo = cf.cached_infos[i]
+                box2 = structinfo.getfield(descr).get_box_replacement()
+                if isinstance(box2, Const) or box2 in available_boxes:
+                    result.append((box1, descr, box2))
+        return result
+
+    def deserialize_optheap(self, triples):
+        for box1, descr, box2 in triples:
+            parent_descr = descr.get_parent_descr()
+            assert parent_descr.is_object()
+            structinfo = box1.get_forwarded()
+            if not isinstance(structinfo, info.AbstractVirtualPtrInfo):
+                structinfo = info.InstancePtrInfo(parent_descr)
+                structinfo.init_fields(parent_descr, descr.get_index())
+                box1.set_forwarded(structinfo)
+
+            cf = self.field_cache(descr)
+            structinfo.setfield(descr, box1, box2, optheap=self, cf=cf)
 
 
 dispatch_opt = make_dispatcher_method(OptHeap, 'optimize_',

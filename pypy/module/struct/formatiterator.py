@@ -1,3 +1,5 @@
+from rpython.rlib.rarithmetic import (r_uint, r_ulonglong, r_longlong,
+                                      maxint, intmask)
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rstring import StringBuilder
@@ -109,6 +111,7 @@ class UnpackFormatIterator(FormatIterator):
         self.buf = buf
         self.length = buf.getlength()
         self.pos = 0
+        self.strides = None
         self.result_w = []     # list of wrapped objects
 
     # See above comment on operate.
@@ -126,10 +129,15 @@ class UnpackFormatIterator(FormatIterator):
         self.pos = (self.pos + mask) & ~mask
 
     def finished(self):
-        if self.pos != self.length:
+        value = self.pos
+        if self.strides and self.strides[0] < 0:
+                value = -self.pos
+        if value != self.length:
             raise StructError("unpack str size too long for format")
 
     def read(self, count):
+        if self.strides:
+            count = self.strides[0]
         end = self.pos + count
         if end > self.length:
             raise StructError("unpack str size too short for format")
@@ -139,10 +147,17 @@ class UnpackFormatIterator(FormatIterator):
 
     @specialize.argtype(1)
     def appendobj(self, value):
-        if isinstance(value, str):
-            self.result_w.append(self.space.newbytes(value))
+        if isinstance(value, float):
+            w_value = self.space.newfloat(value)
+        elif isinstance(value, str):
+            w_value = self.space.newbytes(value)
+        elif isinstance(value, unicode):
+            w_value = self.space.newunicode(value)
+        elif isinstance(value, bool):
+            w_value = self.space.newbool(value)
         else:
-            self.result_w.append(self.space.wrap(value))
+            w_value = self.space.newint(value)
+        self.result_w.append(w_value)
 
     def get_pos(self):
         return self.pos
@@ -151,5 +166,14 @@ class UnpackFormatIterator(FormatIterator):
         string, pos = self.buf.as_str_and_offset_maybe()
         return string, pos+self.pos
 
-    def skip(self, size):
-        self.read(size) # XXX, could avoid taking the slice
+    def skip(self, count):
+        # assumption: UnpackFormatIterator only iterates over
+        # flat structures (continous memory) either: forward (index
+        # grows) or reverse
+        if self.strides:
+            assert len(self.strides) == 1
+            count = self.strides[0]
+        end = self.pos + count
+        if end > self.length:
+            raise StructError("unpack str size too short for format")
+        self.pos = end

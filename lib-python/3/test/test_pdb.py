@@ -824,7 +824,7 @@ def test_pdb_until_command_for_generator():
     """
 
 def test_pdb_next_command_in_generator_for_loop():
-    """The next command on returning from a generator controled by a for loop.
+    """The next command on returning from a generator controlled by a for loop.
 
     >>> def test_gen():
     ...     yield 0
@@ -911,6 +911,35 @@ def test_pdb_next_command_subiterator():
     (Pdb) continue
     """
 
+def test_pdb_issue_20766():
+    """Test for reference leaks when the SIGINT handler is set.
+
+    Note a fix for PyPy: on CPython, the two iterations through the loop
+    don't stop at the same line each time.  Actually, if the loop
+    iterates more than twice, we have a behavior of period two(!).  This
+    is due to very internal behavior that could be classified as a bug
+    and that PyPy doesn't emulating exactly.
+
+    >>> def test_function():
+    ...     i = 1
+    ...     while i <= 2:
+    ...         sess = pdb.Pdb()
+    ...         sess.set_trace(sys._getframe())
+    ...         print('pdb %d: %s' % (i, sess._previous_sigint_handler))
+    ...         i += 1
+
+    >>> with PdbTestInput(['continue',
+    ...                    'continue']):
+    ...     test_function()
+    > <doctest test.test_pdb.test_pdb_issue_20766[0]>(6)test_function()
+    -> print('pdb %d: %s' % (i, sess._previous_sigint_handler))
+    (Pdb) continue
+    pdb 1: <built-in function default_int_handler>
+    > <doctest test.test_pdb.test_pdb_issue_20766[0]>(6)test_function()
+    -> print('pdb %d: %s' % (i, sess._previous_sigint_handler))
+    (Pdb) continue
+    pdb 2: <built-in function default_int_handler>
+    """
 
 class PdbTestCase(unittest.TestCase):
 

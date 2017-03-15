@@ -341,25 +341,20 @@ class CallBuilderX86(AbstractCallBuilder):
             # thread.  So here we check if the shadowstack pointer
             # is still the same as before we released the GIL (saved
             # in 'ebx'), and if not, we fall back to 'reacqgil_addr'.
-            mc.J_il8(rx86.Conditions['NE'], 0)
-            jne_location = mc.get_relative_pos()
+            jne_location = mc.emit_forward_jump('NE')
             # here, ecx (=old_value) is zero (so rpy_fastgil was in 'released'
             # state before the XCHG, but the XCHG acquired it by writing 1)
             rst = gcrootmap.get_root_stack_top_addr()
             mc = self.mc
             mc.CMP(ebx, heap(rst))
-            mc.J_il8(rx86.Conditions['E'], 0)
-            je_location = mc.get_relative_pos()
+            je_location = mc.emit_forward_jump('E')
             # revert the rpy_fastgil acquired above, so that the
             # general 'reacqgil_addr' below can acquire it again...
             mc.MOV(heap(fastgil), ecx)
             # patch the JNE above
-            offset = mc.get_relative_pos() - jne_location
-            assert 0 < offset <= 127
-            mc.overwrite(jne_location-1, chr(offset))
+            mc.patch_forward_jump(jne_location)
         else:
-            mc.J_il8(rx86.Conditions['E'], 0)
-            je_location = mc.get_relative_pos()
+            je_location = mc.emit_forward_jump('E')
         #
         # Yes, we need to call the reacqgil() function
         if not self.result_value_saved_early:
@@ -374,9 +369,7 @@ class CallBuilderX86(AbstractCallBuilder):
             self.restore_result_value(save_edx=False)
         #
         # patch the JE above
-        offset = mc.get_relative_pos() - je_location
-        assert 0 < offset <= 127
-        mc.overwrite(je_location-1, chr(offset))
+        mc.patch_forward_jump(je_location)
         #
         if restore_edx:
             mc.MOV_rs(edx.value, 12)   # restore this

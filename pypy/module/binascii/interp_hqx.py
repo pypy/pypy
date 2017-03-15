@@ -98,7 +98,7 @@ def a2b_hqx(space, ascii):
     else:
         if pending_bits > 0:
             raise_Incomplete(space, 'String has incomplete number of bytes')
-    return space.newtuple([space.newbytes(res.build()), space.wrap(done)])
+    return space.newtuple([space.newbytes(res.build()), space.newint(done)])
 
 # ____________________________________________________________
 
@@ -240,7 +240,7 @@ crctab_hqx = [
 @unwrap_spec(data='bufferstr', oldcrc=int)
 def crc_hqx(space, data, oldcrc):
     "Compute hqx CRC incrementally."
-    crc = oldcrc
+    crc = oldcrc & 0xffff
     for c in data:
         crc = ((crc << 8) & 0xff00) ^ crctab_hqx[((crc >> 8) & 0xff) ^ ord(c)]
-    return space.wrap(crc)
+    return space.newint(crc)

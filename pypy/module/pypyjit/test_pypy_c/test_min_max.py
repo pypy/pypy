@@ -38,7 +38,7 @@ class TestMinMax(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
             ...
-            p76 = call_assembler_r(_, _, _, _, descr=...)
+            p76 = call_assembler_r(..., descr=...)
             ...
         """)
         loop2 = log.loops[0]
@@ -79,6 +79,6 @@ class TestMinMax(BaseTestPyPyC):
         assert len(guards) < 20
         assert loop.match("""
             ...
-            p76 = call_assembler_r(_, _, _, _, descr=...)
+            p76 = call_assembler_r(..., descr=...)
             ...
         """)

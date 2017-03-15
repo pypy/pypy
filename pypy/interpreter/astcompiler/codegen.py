@@ -8,6 +8,7 @@ Generate Python bytecode from a Abstract Syntax Tree.
 # please.
 import struct
 
+from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.astcompiler import ast, assemble, symtable, consts, misc
 from pypy.interpreter.astcompiler import optimize # For side effects
 from pypy.interpreter.pyparser.error import SyntaxError
@@ -243,6 +244,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 op = name_ops_fast(ctx)
         elif scope == symtable.SCOPE_FREE:
             op = name_ops_deref(ctx)
+            if op == ops.LOAD_DEREF and isinstance(self, ClassCodeGenerator):
+                op = ops.LOAD_CLASSDEREF
             container = self.free_vars
         elif scope == symtable.SCOPE_CELL:
             op = name_ops_deref(ctx)
@@ -310,12 +313,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def _make_function(self, code, num_defaults=0, qualname=None):
         """Emit the opcodes to turn a code object into a function."""
-        w_qualname = self.space.wrap((qualname or code.co_name).decode('utf-8'))
+        w_qualname = self.space.newtext(qualname or code.co_name)
         if code.co_freevars:
             # Load cell and free vars to pass on.
             for free in code.co_freevars:
                 free_scope = self.scope.lookup(free)
-                if free_scope == symtable.SCOPE_CELL:
+                if free_scope in (symtable.SCOPE_CELL,
+                                  symtable.SCOPE_CELL_CLASS):
                     index = self.cell_vars[free]
                 else:
                     index = self.free_vars[free]
@@ -334,8 +338,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         for i, default in enumerate(args.kw_defaults):
             if default:
                 kwonly = args.kwonlyargs[i]
-                mangled = self.scope.mangle(kwonly.arg).decode('utf-8')
-                self.load_const(self.space.wrap(mangled))
+                assert isinstance(kwonly, ast.arg)
+                mangled = self.scope.mangle(kwonly.arg)
+                self.load_const(self.space.newtext(mangled))
                 default.walkabout(self)
                 defaults += 1
         return defaults
@@ -343,21 +348,25 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def _visit_arg_annotation(self, name, ann, names):
         if ann:
             ann.walkabout(self)
-            names.append(name)
+            names.append(self.scope.mangle(name))
 
     def _visit_arg_annotations(self, args, names):
         if args:
             for arg in args:
+                assert isinstance(arg, ast.arg)
                 self._visit_arg_annotation(arg.arg, arg.annotation, names)
 
+    @specialize.argtype(1)
     def _visit_annotations(self, func, args, returns):
         space = self.space
         names = []
         self._visit_arg_annotations(args.args, names)
-        if args.vararg:
-            self._visit_arg_annotation(args.vararg.arg, args.vararg.annotation,
+        vararg = args.vararg
+        if vararg:
+            self._visit_arg_annotation(vararg.arg, vararg.annotation,
                                        names)
         self._visit_arg_annotations(args.kwonlyargs, names)
+        kwarg = args.kwarg
         if args.kwarg:
             self._visit_arg_annotation(args.kwarg.arg, args.kwarg.annotation,
                                        names)
@@ -366,13 +375,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if l:
             if l > 65534:
                 self.error("too many annotations", func)
-            w_tup = space.newtuple([space.wrap(name.decode('utf-8'))
-                                    for name in names])
+            w_tup = space.newtuple([space.newtext(name) for name in names])
             self.load_const(w_tup)
             l += 1
         return l
 
-    def _visit_function(self, func, function_code_generator, extra_flag):
+    @specialize.arg(2)
+    def _visit_function(self, func, function_code_generator):
         self.update_position(func.lineno, True)
         # Load decorators first, but apply them after the function is created.
         self.visit_sequence(func.decorator_list)
@@ -389,7 +398,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         oparg |= num_annotations << 16
         code, qualname = self.sub_scope(function_code_generator, func.name,
                                         func, func.lineno)
-        code.co_flags |= extra_flag
         self._make_function(code, oparg, qualname=qualname)
         # Apply decorators.
         if func.decorator_list:
@@ -398,11 +406,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.name_op(func.name, ast.Store)
 
     def visit_FunctionDef(self, func):
-        self._visit_function(func, FunctionCodeGenerator, 0)
+        self._visit_function(func, FunctionCodeGenerator)
 
     def visit_AsyncFunctionDef(self, func):
-        self._visit_function(func, AsyncFunctionCodeGenerator,
-                             consts.CO_COROUTINE)
+        self._visit_function(func, AsyncFunctionCodeGenerator)
 
     def visit_Lambda(self, lam):
         self.update_position(lam.lineno)
@@ -430,7 +437,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # 3. load a function (or closure) made from the code object
         self._make_function(code, qualname=qualname)
         # 4. load class name
-        self.load_const(self.space.wrap(cls.name.decode('utf-8')))
+        self.load_const(self.space.newtext(cls.name))
         # 5. generate the rest of the code for the call
         self._make_call(2, cls.bases, cls.keywords)
         # 6. apply decorators
@@ -800,7 +807,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         for alias in imp.names:
             assert isinstance(alias, ast.alias)
             level = 0
-            self.load_const(self.space.wrap(level))
+            self.load_const(self.space.newint(level))
             self.load_const(self.space.w_None)
             self.emit_op_name(ops.IMPORT_NAME, self.names, alias.name)
             # If there's no asname then we store the root module.  If there is
@@ -838,12 +845,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                         self.error("not a chance", imp)
                     self.error("future feature %s is not defined" %
                                (alias.name,), imp)
-        self.load_const(space.wrap(imp.level))
+        self.load_const(space.newint(imp.level))
         names_w = [None]*len(imp.names)
         for i in range(len(imp.names)):
             alias = imp.names[i]
             assert isinstance(alias, ast.alias)
-            names_w[i] = space.wrap(alias.name.decode('utf-8'))
+            names_w[i] = space.newtext(alias.name)
         self.load_const(space.newtuple(names_w))
         if imp.module:
             mod_name = imp.module
@@ -922,10 +929,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(wih.lineno, True)
         self.handle_withitem(wih, 0, is_async=False)
 
+    @specialize.argtype(1)
     def handle_withitem(self, wih, pos, is_async):
         body_block = self.new_block()
         cleanup = self.new_block()
         witem = wih.items[pos]
+        assert isinstance(witem, ast.withitem)
         witem.context_expr.walkabout(self)
         if not is_async:
             self.emit_jump(ops.SETUP_WITH, cleanup)
@@ -1236,11 +1245,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_NameConstant(self, node):
         self.update_position(node.lineno)
-        self.load_const(node.single)
+        self.load_const(node.value)
 
     def visit_keyword(self, keyword):
         if keyword.arg is not None:
-            self.load_const(self.space.wrap(keyword.arg.decode('utf-8')))
+            self.load_const(self.space.newtext(keyword.arg))
         keyword.value.walkabout(self)
 
     def _make_call(self, n, # args already pushed
@@ -1287,6 +1296,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         nseen = 0 # the number of keyword arguments on the stack following
         if keywords is not None:
             for kw in keywords:
+                assert isinstance(kw, ast.keyword)
                 if kw.arg is None:
                     # A keyword argument unpacking.
                     if nseen:
@@ -1297,7 +1307,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     nsubkwargs += 1
                 elif nsubkwargs:
                     # A keyword argument and we already have a dict.
-                    self.load_const(self.space.wrap(kw.arg.decode('utf-8')))
+                    self.load_const(self.space.newtext(kw.arg))
                     kw.value.walkabout(self)
                     nseen += 1
                 else:
@@ -1344,6 +1354,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     return False
         if call.keywords is not None:
             for kw in call.keywords:
+                assert isinstance(kw, ast.keyword)
                 if kw.arg is None:
                     return False
         return True
@@ -1490,6 +1501,24 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             sub.value.walkabout(self)
         self._compile_slice(sub.slice, sub.ctx)
 
+    def visit_JoinedStr(self, joinedstr):
+        self.update_position(joinedstr.lineno)
+        for node in joinedstr.values:
+            node.walkabout(self)
+        if len(joinedstr.values) != 1:
+            self.emit_op_arg(ops.BUILD_STRING, len(joinedstr.values))
+
+    def visit_FormattedValue(self, fmt):
+        fmt.value.walkabout(self)
+        arg = 0
+        if fmt.conversion == ord('s'): arg = consts.FVC_STR
+        if fmt.conversion == ord('r'): arg = consts.FVC_REPR
+        if fmt.conversion == ord('a'): arg = consts.FVC_ASCII
+        if fmt.format_spec is not None:
+            arg |= consts.FVS_HAVE_SPEC
+            fmt.format_spec.walkabout(self)
+        self.emit_op_arg(ops.FORMAT_VALUE, arg)
+
 
 class TopLevelCodeGenerator(PythonCodeGenerator):
 
@@ -1566,6 +1595,10 @@ class AsyncFunctionCodeGenerator(AbstractFunctionCodeGenerator):
             for i in range(start, len(func.body)):
                 func.body[i].walkabout(self)
 
+    def _get_code_flags(self):
+        flags = AbstractFunctionCodeGenerator._get_code_flags(self)
+        return flags | consts.CO_COROUTINE
+
 class LambdaCodeGenerator(AbstractFunctionCodeGenerator):
 
     def _compile(self, lam):
@@ -1617,14 +1650,14 @@ class ClassCodeGenerator(PythonCodeGenerator):
         # ... and store it as __module__
         self.name_op("__module__", ast.Store)
         # store the qualname
-        w_qualname = self.space.wrap(self.qualname.decode("utf-8"))
+        w_qualname = self.space.newtext(self.qualname)
         self.load_const(w_qualname)
         self.name_op("__qualname__", ast.Store)
         # compile the body proper
         self._handle_body(cls.body)
         # return the (empty) __class__ cell
         scope = self.scope.lookup("__class__")
-        if scope == symtable.SCOPE_CELL:
+        if scope == symtable.SCOPE_CELL_CLASS:
             # Return the cell where to store __class__
             self.emit_op_arg(ops.LOAD_CLOSURE, self.cell_vars["__class__"])
         else:

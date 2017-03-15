@@ -90,7 +90,7 @@ class TestExceptions(BaseApiTest):
         api.PyErr_WriteUnraisable(w_where)
         space.call_method(space.sys.get('stderr'), "flush")
         out, err = capfd.readouterr()
-        assert "Exception ValueError: 'message' in 'location' ignored" == err.strip()
+        assert "Exception ignored in: 'location'\nValueError: message" == err.strip()
 
     @pytest.mark.skipif(True, reason='not implemented yet')
     def test_interrupt_occurred(self, space, api):
@@ -106,7 +106,7 @@ class TestExceptions(BaseApiTest):
 
 class AppTestFetch(AppTestCpythonExtensionBase):
     def setup_class(cls):
-        from pypy.module.imp.test.support import get_special_char
+        from pypy.interpreter.test.test_fsencode import get_special_char
         space = cls.space
         cls.special_char = get_special_char()
         cls.w_special_char = space.wrap(cls.special_char)
@@ -380,7 +380,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         "XXX seems to pass, but doesn't: 'py.test -s' shows errors in PyObject_Free")
     def test_GetSetExcInfo(self):
         import sys
-        if self.runappdirect and (sys.version_info.major < 3 or 
+        if self.runappdirect and (sys.version_info.major < 3 or
                                   sys.version_info.minor < 3):
             skip('PyErr_{GS}etExcInfo introduced in python 3.3')
         module = self.import_extension('foo', [
@@ -428,3 +428,30 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             assert orig_exc_info == reset_sys_exc_info
             assert new_exc_info == (new_exc.__class__, new_exc, None)
             assert new_exc_info == new_sys_exc_info
+
+    def test_PyErr_WarnFormat(self):
+        import warnings
+
+        module = self.import_extension('foo', [
+                ("test", "METH_NOARGS",
+                 '''
+                 PyErr_WarnFormat(PyExc_UserWarning, 1, "foo %d bar", 42);
+                 Py_RETURN_NONE;
+                 '''),
+                ])
+        with warnings.catch_warnings(record=True) as l:
+            module.test()
+        assert len(l) == 1
+        assert "foo 42 bar" in str(l[0])
+
+    def test_StopIteration_value(self):
+        module = self.import_extension('foo', [
+                ("test", "METH_O",
+                 '''
+                 PyObject *o = ((PyStopIterationObject *)args)->value;
+                 Py_INCREF(o);
+                 return o;
+                 '''),
+                ])
+        res = module.test(StopIteration("foo!"))
+        assert res == "foo!"

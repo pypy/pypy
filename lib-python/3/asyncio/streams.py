@@ -3,6 +3,7 @@
 __all__ = ['StreamReader', 'StreamWriter', 'StreamReaderProtocol',
            'open_connection', 'start_server',
            'IncompleteReadError',
+           'LimitOverrunError',
            ]
 
 import socket
@@ -13,13 +14,12 @@ if hasattr(socket, 'AF_UNIX'):
 from . import coroutines
 from . import compat
 from . import events
-from . import futures
 from . import protocols
 from .coroutines import coroutine
 from .log import logger
 
 
-_DEFAULT_LIMIT = 2**16
+_DEFAULT_LIMIT = 2 ** 16
 
 
 class IncompleteReadError(EOFError):
@@ -27,13 +27,24 @@ class IncompleteReadError(EOFError):
     Incomplete read error. Attributes:
 
     - partial: read bytes string before the end of stream was reached
-    - expected: total number of expected bytes
+    - expected: total number of expected bytes (or None if unknown)
     """
     def __init__(self, partial, expected):
-        EOFError.__init__(self, "%s bytes read on a total of %s expected bytes"
-                                % (len(partial), expected))
+        super().__init__("%d bytes read on a total of %r expected bytes"
+                         % (len(partial), expected))
         self.partial = partial
         self.expected = expected
+
+
+class LimitOverrunError(Exception):
+    """Reached the buffer limit while looking for a separator.
+
+    Attributes:
+    - consumed: total number of to be consumed bytes.
+    """
+    def __init__(self, message, consumed):
+        super().__init__(message)
+        self.consumed = consumed
 
 
 @coroutine
@@ -118,7 +129,6 @@ if hasattr(socket, 'AF_UNIX'):
         writer = StreamWriter(transport, protocol, reader, loop)
         return reader, writer
 
-
     @coroutine
     def start_unix_server(client_connected_cb, path=None, *,
                           loop=None, limit=_DEFAULT_LIMIT, **kwds):
@@ -196,7 +206,7 @@ class FlowControlMixin(protocols.Protocol):
             return
         waiter = self._drain_waiter
         assert waiter is None or waiter.cancelled()
-        waiter = futures.Future(loop=self._loop)
+        waiter = self._loop.create_future()
         self._drain_waiter = waiter
         yield from waiter
 
@@ -215,9 +225,11 @@ class StreamReaderProtocol(FlowControlMixin, protocols.Protocol):
         self._stream_reader = stream_reader
         self._stream_writer = None
         self._client_connected_cb = client_connected_cb
+        self._over_ssl = False
 
     def connection_made(self, transport):
         self._stream_reader.set_transport(transport)
+        self._over_ssl = transport.get_extra_info('sslcontext') is not None
         if self._client_connected_cb is not None:
             self._stream_writer = StreamWriter(transport, self,
                                                self._stream_reader,
@@ -228,17 +240,25 @@ class StreamReaderProtocol(FlowControlMixin, protocols.Protocol):
                 self._loop.create_task(res)
 
     def connection_lost(self, exc):
-        if exc is None:
-            self._stream_reader.feed_eof()
-        else:
-            self._stream_reader.set_exception(exc)
+        if self._stream_reader is not None:
+            if exc is None:
+                self._stream_reader.feed_eof()
+            else:
+                self._stream_reader.set_exception(exc)
         super().connection_lost(exc)
+        self._stream_reader = None
+        self._stream_writer = None
 
     def data_received(self, data):
         self._stream_reader.feed_data(data)
 
     def eof_received(self):
         self._stream_reader.feed_eof()
+        if self._over_ssl:
+            # Prevent a warning in SSLProtocol.eof_received:
+            # "returning true from eof_received()
+            # has no effect when using ssl"
+            return False
         return True
 
 
@@ -318,6 +338,10 @@ class StreamReader:
     def __init__(self, limit=_DEFAULT_LIMIT, loop=None):
         # The line length limit is  a security feature;
         # it also doubles as half the buffer limit.
+
+        if limit <= 0:
+            raise ValueError('Limit cannot be <= 0')
+
         self._limit = limit
         if loop is None:
             self._loop = events.get_event_loop()
@@ -361,7 +385,7 @@ class StreamReader:
                 waiter.set_exception(exc)
 
     def _wakeup_waiter(self):
-        """Wakeup read() or readline() function waiting for data or EOF."""
+        """Wakeup read*() functions waiting for data or EOF."""
         waiter = self._waiter
         if waiter is not None:
             self._waiter = None
@@ -395,8 +419,8 @@ class StreamReader:
         self._wakeup_waiter()
 
         if (self._transport is not None and
-            not self._paused and
-            len(self._buffer) > 2*self._limit):
+                not self._paused and
+                len(self._buffer) > 2 * self._limit):
             try:
                 self._transport.pause_reading()
             except NotImplementedError:
@@ -409,7 +433,10 @@ class StreamReader:
 
     @coroutine
     def _wait_for_data(self, func_name):
-        """Wait until feed_data() or feed_eof() is called."""
+        """Wait until feed_data() or feed_eof() is called.
+
+        If stream was paused, automatically resume it.
+        """
         # StreamReader uses a future to link the protocol feed_data() method
         # to a read coroutine. Running two read coroutines at the same time
         # would have an unexpected behaviour. It would not possible to know
@@ -418,7 +445,15 @@ class StreamReader:
             raise RuntimeError('%s() called while another coroutine is '
                                'already waiting for incoming data' % func_name)
 
-        self._waiter = futures.Future(loop=self._loop)
+        assert not self._eof, '_wait_for_data after EOF'
+
+        # Waiting for data while paused will make deadlock, so prevent it.
+        # This is essential for readexactly(n) for case when n > self._limit.
+        if self._paused:
+            self._paused = False
+            self._transport.resume_reading()
+
+        self._waiter = self._loop.create_future()
         try:
             yield from self._waiter
         finally:
@@ -426,43 +461,154 @@ class StreamReader:
 
     @coroutine
     def readline(self):
+        """Read chunk of data from the stream until newline (b'\n') is found.
+
+        On success, return chunk that ends with newline. If only partial
+        line can be read due to EOF, return incomplete line without
+        terminating newline. When EOF was reached while no bytes read, empty
+        bytes object is returned.
+
+        If limit is reached, ValueError will be raised. In that case, if
+        newline was found, complete line including newline will be removed
+        from internal buffer. Else, internal buffer will be cleared. Limit is
+        compared against part of the line without newline.
+
+        If stream was paused, this function will automatically resume it if
+        needed.
+        """
+        sep = b'\n'
+        seplen = len(sep)
+        try:
+            line = yield from self.readuntil(sep)
+        except IncompleteReadError as e:
+            return e.partial
+        except LimitOverrunError as e:
+            if self._buffer.startswith(sep, e.consumed):
+                del self._buffer[:e.consumed + seplen]
+            else:
+                self._buffer.clear()
+            self._maybe_resume_transport()
+            raise ValueError(e.args[0])
+        return line
+
+    @coroutine
+    def readuntil(self, separator=b'\n'):
+        """Read data from the stream until ``separator`` is found.
+
+        On success, the data and separator will be removed from the
+        internal buffer (consumed). Returned data will include the
+        separator at the end.
+
+        Configured stream limit is used to check result. Limit sets the
+        maximal length of data that can be returned, not counting the
+        separator.
+
+        If an EOF occurs and the complete separator is still not found,
+        an IncompleteReadError exception will be raised, and the internal
+        buffer will be reset.  The IncompleteReadError.partial attribute
+        may contain the separator partially.
+
+        If the data cannot be read because of over limit, a
+        LimitOverrunError exception  will be raised, and the data
+        will be left in the internal buffer, so it can be read again.
+        """
+        seplen = len(separator)
+        if seplen == 0:
+            raise ValueError('Separator should be at least one-byte string')
+
         if self._exception is not None:
             raise self._exception
 
-        line = bytearray()
-        not_enough = True
+        # Consume whole buffer except last bytes, which length is
+        # one less than seplen. Let's check corner cases with
+        # separator='SEPARATOR':
+        # * we have received almost complete separator (without last
+        #   byte). i.e buffer='some textSEPARATO'. In this case we
+        #   can safely consume len(separator) - 1 bytes.
+        # * last byte of buffer is first byte of separator, i.e.
+        #   buffer='abcdefghijklmnopqrS'. We may safely consume
+        #   everything except that last byte, but this require to
+        #   analyze bytes of buffer that match partial separator.
+        #   This is slow and/or require FSM. For this case our
+        #   implementation is not optimal, since require rescanning
+        #   of data that is known to not belong to separator. In
+        #   real world, separator will not be so long to notice
+        #   performance problems. Even when reading MIME-encoded
+        #   messages :)
 
-        while not_enough:
-            while self._buffer and not_enough:
-                ichar = self._buffer.find(b'\n')
-                if ichar < 0:
-                    line.extend(self._buffer)
-                    self._buffer.clear()
-                else:
-                    ichar += 1
-                    line.extend(self._buffer[:ichar])
-                    del self._buffer[:ichar]
-                    not_enough = False
+        # `offset` is the number of bytes from the beginning of the buffer
+        # where there is no occurrence of `separator`.
+        offset = 0
 
-                if len(line) > self._limit:
-                    self._maybe_resume_transport()
-                    raise ValueError('Line is too long')
+        # Loop until we find `separator` in the buffer, exceed the buffer size,
+        # or an EOF has happened.
+        while True:
+            buflen = len(self._buffer)
 
+            # Check if we now have enough data in the buffer for `separator` to
+            # fit.
+            if buflen - offset >= seplen:
+                isep = self._buffer.find(separator, offset)
+
+                if isep != -1:
+                    # `separator` is in the buffer. `isep` will be used later
+                    # to retrieve the data.
+                    break
+
+                # see upper comment for explanation.
+                offset = buflen + 1 - seplen
+                if offset > self._limit:
+                    raise LimitOverrunError(
+                        'Separator is not found, and chunk exceed the limit',
+                        offset)
+
+            # Complete message (with full separator) may be present in buffer
+            # even when EOF flag is set. This may happen when the last chunk
+            # adds data which makes separator be found. That's why we check for
+            # EOF *ater* inspecting the buffer.
             if self._eof:
-                break
+                chunk = bytes(self._buffer)
+                self._buffer.clear()
+                raise IncompleteReadError(chunk, None)
 
-            if not_enough:
-                yield from self._wait_for_data('readline')
+            # _wait_for_data() will resume reading if stream was paused.
+            yield from self._wait_for_data('readuntil')
 
+        if isep > self._limit:
+            raise LimitOverrunError(
+                'Separator is found, but chunk is longer than limit', isep)
+
+        chunk = self._buffer[:isep + seplen]
+        del self._buffer[:isep + seplen]
         self._maybe_resume_transport()
-        return bytes(line)
+        return bytes(chunk)
 
     @coroutine
     def read(self, n=-1):
+        """Read up to `n` bytes from the stream.
+
+        If n is not provided, or set to -1, read until EOF and return all read
+        bytes. If the EOF was received and the internal buffer is empty, return
+        an empty bytes object.
+
+        If n is zero, return empty bytes object immediately.
+
+        If n is positive, this function try to read `n` bytes, and may return
+        less or equal bytes than requested, but at least one byte. If EOF was
+        received before any byte is read, this function returns empty byte
+        object.
+
+        Returned value is not limited with limit, configured at stream
+        creation.
+
+        If stream was paused, this function will automatically resume it if
+        needed.
+        """
+
         if self._exception is not None:
             raise self._exception
 
-        if not n:
+        if n == 0:
             return b''
 
         if n < 0:
@@ -477,43 +623,58 @@ class StreamReader:
                     break
                 blocks.append(block)
             return b''.join(blocks)
-        else:
-            if not self._buffer and not self._eof:
-                yield from self._wait_for_data('read')
 
-        if n < 0 or len(self._buffer) <= n:
-            data = bytes(self._buffer)
-            self._buffer.clear()
-        else:
-            # n > 0 and len(self._buffer) > n
-            data = bytes(self._buffer[:n])
-            del self._buffer[:n]
+        if not self._buffer and not self._eof:
+            yield from self._wait_for_data('read')
+
+        # This will work right even if buffer is less than n bytes
+        data = bytes(self._buffer[:n])
+        del self._buffer[:n]
 
         self._maybe_resume_transport()
         return data
 
     @coroutine
     def readexactly(self, n):
+        """Read exactly `n` bytes.
+
+        Raise an IncompleteReadError if EOF is reached before `n` bytes can be
+        read. The IncompleteReadError.partial attribute of the exception will
+        contain the partial read bytes.
+
+        if n is zero, return empty bytes object.
+
+        Returned value is not limited with limit, configured at stream
+        creation.
+
+        If stream was paused, this function will automatically resume it if
+        needed.
+        """
+        if n < 0:
+            raise ValueError('readexactly size can not be less than zero')
+
         if self._exception is not None:
             raise self._exception
 
-        # There used to be "optimized" code here.  It created its own
-        # Future and waited until self._buffer had at least the n
-        # bytes, then called read(n).  Unfortunately, this could pause
-        # the transport if the argument was larger than the pause
-        # limit (which is twice self._limit).  So now we just read()
-        # into a local buffer.
+        if n == 0:
+            return b''
 
-        blocks = []
-        while n > 0:
-            block = yield from self.read(n)
-            if not block:
-                partial = b''.join(blocks)
-                raise IncompleteReadError(partial, len(partial) + n)
-            blocks.append(block)
-            n -= len(block)
+        while len(self._buffer) < n:
+            if self._eof:
+                incomplete = bytes(self._buffer)
+                self._buffer.clear()
+                raise IncompleteReadError(incomplete, n)
 
-        return b''.join(blocks)
+            yield from self._wait_for_data('readexactly')
+
+        if len(self._buffer) == n:
+            data = bytes(self._buffer)
+            self._buffer.clear()
+        else:
+            data = bytes(self._buffer[:n])
+            del self._buffer[:n]
+        self._maybe_resume_transport()
+        return data
 
     if compat.PY35:
         @coroutine
@@ -526,3 +687,9 @@ class StreamReader:
             if val == b'':
                 raise StopAsyncIteration
             return val
+
+    if compat.PY352:
+        # In Python 3.5.2 and greater, __aiter__ should return
+        # the asynchronous iterator directly.
+        def __aiter__(self):
+            return self

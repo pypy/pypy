@@ -57,7 +57,7 @@ class AppTestStruct(BaseAppTestFFI):
         if cls.runappdirect:
             cls.w_read_raw_mem = cls.read_raw_mem
         else:
-            @unwrap_spec(addr=int, typename=str, length=int)
+            @unwrap_spec(addr=int, typename='text', length=int)
             def read_raw_mem_w(space, addr, typename, length):
                 return space.wrap(cls.read_raw_mem(addr, typename, length))
             cls.w_read_raw_mem = cls.space.wrap(interp2app(read_raw_mem_w))

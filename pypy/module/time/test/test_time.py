@@ -1,6 +1,6 @@
 class AppTestTime:
     spaceconfig = {
-        "usemodules": ['time', 'struct', 'binascii'],
+        "usemodules": ['time', 'struct', 'binascii', 'signal'],
     }
 
     def test_attributes(self):
@@ -254,6 +254,22 @@ class AppTestTime:
                 del os.environ['TZ']
             time.tzset()
 
+    def test_localtime_timezone(self):
+        import os, time
+        org_TZ = os.environ.get('TZ', None)
+        try:
+            os.environ['TZ'] = 'Europe/Kiev'
+            time.tzset()
+            localtm = time.localtime(0)
+            assert localtm.tm_zone == "MSK"
+            assert localtm.tm_gmtoff == 10800
+        finally:
+            if org_TZ is not None:
+                os.environ['TZ'] = org_TZ
+            elif 'TZ' in os.environ:
+                del os.environ['TZ']
+            time.tzset()
+
     def test_strftime(self):
         import time
         import os, sys
@@ -394,3 +410,23 @@ class AppTestTime:
             assert info.resolution > 0.0
             assert info.resolution <= 1.0
             assert isinstance(info.adjustable, bool)
+
+    def test_pep475_retry_sleep(self):
+        import time
+        import _signal as signal
+        signalled = []
+
+        def foo(*args):
+            signalled.append("ALARM")
+
+        signal.signal(signal.SIGALRM, foo)
+        try:
+            t1 = time.time()
+            signal.alarm(1)
+            time.sleep(3.0)
+            t2 = time.time()
+        finally:
+            signal.signal(signal.SIGALRM, signal.SIG_DFL)
+
+        assert signalled != []
+        assert t2 - t1 > 2.99

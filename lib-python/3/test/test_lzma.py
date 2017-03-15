@@ -136,6 +136,21 @@ class CompressorDecompressorTestCase(unittest.TestCase):
         self.assertTrue(lzd.eof)
         self.assertEqual(lzd.unused_data, b"")
 
+    def test_decompressor_chunks_empty(self):
+        lzd = LZMADecompressor()
+        out = []
+        for i in range(0, len(COMPRESSED_XZ), 10):
+            self.assertFalse(lzd.eof)
+            out.append(lzd.decompress(b''))
+            out.append(lzd.decompress(b''))
+            out.append(lzd.decompress(b''))
+            out.append(lzd.decompress(COMPRESSED_XZ[i:i+10]))
+        out = b"".join(out)
+        self.assertEqual(out, INPUT)
+        self.assertEqual(lzd.check, lzma.CHECK_CRC64)
+        self.assertTrue(lzd.eof)
+        self.assertEqual(lzd.unused_data, b"")
+
     def test_decompressor_chunks_maxsize(self):
         lzd = LZMADecompressor()
         max_length = 100
@@ -246,6 +261,13 @@ class CompressorDecompressorTestCase(unittest.TestCase):
         lzd = LZMADecompressor(lzma.FORMAT_RAW, filters=FILTERS_RAW_1)
         self.assertRaises(LZMAError, lzd.decompress, COMPRESSED_XZ)
 
+    def test_decompressor_bug_28275(self):
+        # Test coverage for Issue 28275
+        lzd = LZMADecompressor()
+        self.assertRaises(LZMAError, lzd.decompress, COMPRESSED_RAW_1)
+        # Previously, a second call could crash due to internal inconsistency
+        self.assertRaises(LZMAError, lzd.decompress, COMPRESSED_RAW_1)
+
     # Test that LZMACompressor->LZMADecompressor preserves the input data.
 
     def test_roundtrip_xz(self):
@@ -266,11 +288,34 @@ class CompressorDecompressorTestCase(unittest.TestCase):
         lzd = LZMADecompressor(lzma.FORMAT_RAW, filters=FILTERS_RAW_4)
         self._test_decompressor(lzd, cdata, lzma.CHECK_NONE)
 
+    def test_roundtrip_raw_empty(self):
+        lzc = LZMACompressor(lzma.FORMAT_RAW, filters=FILTERS_RAW_4)
+        cdata = lzc.compress(INPUT)
+        cdata += lzc.compress(b'')
+        cdata += lzc.compress(b'')
+        cdata += lzc.compress(b'')
+        cdata += lzc.flush()
+        lzd = LZMADecompressor(lzma.FORMAT_RAW, filters=FILTERS_RAW_4)
+        self._test_decompressor(lzd, cdata, lzma.CHECK_NONE)
+
     def test_roundtrip_chunks(self):
         lzc = LZMACompressor()
         cdata = []
         for i in range(0, len(INPUT), 10):
             cdata.append(lzc.compress(INPUT[i:i+10]))
+        cdata.append(lzc.flush())
+        cdata = b"".join(cdata)
+        lzd = LZMADecompressor()
+        self._test_decompressor(lzd, cdata, lzma.CHECK_CRC64)
+
+    def test_roundtrip_empty_chunks(self):
+        lzc = LZMACompressor()
+        cdata = []
+        for i in range(0, len(INPUT), 10):
+            cdata.append(lzc.compress(INPUT[i:i+10]))
+            cdata.append(lzc.compress(b''))
+            cdata.append(lzc.compress(b''))
+            cdata.append(lzc.compress(b''))
         cdata.append(lzc.flush())
         cdata = b"".join(cdata)
         lzd = LZMADecompressor()
@@ -1211,7 +1256,7 @@ class OpenTestCase(unittest.TestCase):
                 self.assertEqual(f.read(), uncompressed)
 
     def test_encoding_error_handler(self):
-        # Test wih non-default encoding error handler.
+        # Test with non-default encoding error handler.
         with BytesIO(lzma.compress(b"foo\xffbar")) as bio:
             with lzma.open(bio, "rt", encoding="ascii", errors="ignore") as f:
                 self.assertEqual(f.read(), "foobar")

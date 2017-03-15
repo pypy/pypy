@@ -1,4 +1,5 @@
 import os
+from rpython.rlib import entrypoint
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
@@ -37,7 +38,7 @@ def load_embedded_cffi_module(space, version, init_struct):
     compiler = space.createcompiler()
     pycode = compiler.compile(code, "<init code for '%s'>" % name, 'exec', 0)
     w_globals = space.newdict(module=True)
-    space.setitem_str(w_globals, "__builtins__", space.wrap(space.builtin))
+    space.setitem_str(w_globals, "__builtins__", space.builtin)
     pycode.exec_code(space, w_globals, w_globals)
 
 
@@ -46,6 +47,8 @@ class Global:
 glob = Global()
 
 
+@entrypoint.entrypoint_highlevel('main', [rffi.INT, rffi.VOIDP],
+                                 c_name='pypy_init_embedded_cffi_module')
 def pypy_init_embedded_cffi_module(version, init_struct):
     # called from __init__.py
     name = "?"
@@ -64,7 +67,7 @@ def pypy_init_embedded_cffi_module(version, init_struct):
                                    with_traceback=True)
             space.appexec([], r"""():
                 import sys
-                sys.stderr.write('pypy version: %s.%s.%s\n' %
+                sys.stderr.write('pypy3 version: %s.%s.%s\n' %
                                  sys.pypy_version_info[:3])
                 sys.stderr.write('sys.path: %r\n' % (sys.path,))
             """)

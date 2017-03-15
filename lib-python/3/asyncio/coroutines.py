@@ -27,18 +27,22 @@ _YIELD_FROM = opcode.opmap['YIELD_FROM']
 # before you define your coroutines.  A downside of using this feature
 # is that tracebacks show entries for the CoroWrapper.__next__ method
 # when _DEBUG is true.
-_DEBUG = (not sys.flags.ignore_environment
-          and bool(os.environ.get('PYTHONASYNCIODEBUG')))
+_DEBUG = (not sys.flags.ignore_environment and
+          bool(os.environ.get('PYTHONASYNCIODEBUG')))
 
 
 try:
     _types_coroutine = types.coroutine
+    _types_CoroutineType = types.CoroutineType
 except AttributeError:
+    # Python 3.4
     _types_coroutine = None
+    _types_CoroutineType = None
 
 try:
     _inspect_iscoroutinefunction = inspect.iscoroutinefunction
 except AttributeError:
+    # Python 3.4
     _inspect_iscoroutinefunction = lambda func: False
 
 try:
@@ -86,7 +90,7 @@ class CoroWrapper:
     def __init__(self, gen, func=None):
         assert inspect.isgenerator(gen) or inspect.iscoroutine(gen), gen
         self.gen = gen
-        self.func = func # Used to unwrap @coroutine decorator
+        self.func = func  # Used to unwrap @coroutine decorator
         self._source_traceback = traceback.extract_stack(sys._getframe(1))
         self.__name__ = getattr(gen, '__name__', None)
         self.__qualname__ = getattr(gen, '__qualname__', None)
@@ -120,8 +124,8 @@ class CoroWrapper:
         def send(self, value):
             return self.gen.send(value)
 
-    def throw(self, exc):
-        return self.gen.throw(exc)
+    def throw(self, type, value=None, traceback=None):
+        return self.gen.throw(type, value, traceback)
 
     def close(self):
         return self.gen.close()
@@ -204,7 +208,8 @@ def coroutine(func):
         @functools.wraps(func)
         def coro(*args, **kw):
             res = func(*args, **kw)
-            if isinstance(res, futures.Future) or inspect.isgenerator(res):
+            if (futures.isfuture(res) or inspect.isgenerator(res) or
+                isinstance(res, CoroWrapper)):
                 res = yield from res
             elif _AwaitableABC is not None:
                 # If 'func' returns an Awaitable (new in 3.5) we
@@ -237,19 +242,27 @@ def coroutine(func):
             w.__qualname__ = getattr(func, '__qualname__', None)
             return w
 
-    wrapper._is_coroutine = True  # For iscoroutinefunction().
+    wrapper._is_coroutine = _is_coroutine  # For iscoroutinefunction().
     return wrapper
+
+
+# A marker for iscoroutinefunction.
+_is_coroutine = object()
 
 
 def iscoroutinefunction(func):
     """Return True if func is a decorated coroutine function."""
-    return (getattr(func, '_is_coroutine', False) or
+    return (getattr(func, '_is_coroutine', None) is _is_coroutine or
             _inspect_iscoroutinefunction(func))
 
 
 _COROUTINE_TYPES = (types.GeneratorType, CoroWrapper)
 if _CoroutineABC is not None:
     _COROUTINE_TYPES += (_CoroutineABC,)
+if _types_CoroutineType is not None:
+    # Prioritize native coroutine check to speed-up
+    # asyncio.iscoroutine.
+    _COROUTINE_TYPES = (_types_CoroutineType,) + _COROUTINE_TYPES
 
 
 def iscoroutine(obj):
@@ -259,6 +272,29 @@ def iscoroutine(obj):
 
 def _format_coroutine(coro):
     assert iscoroutine(coro)
+
+    if not hasattr(coro, 'cr_code') and not hasattr(coro, 'gi_code'):
+        # Most likely a built-in type or a Cython coroutine.
+
+        # Built-in types might not have __qualname__ or __name__.
+        coro_name = getattr(
+            coro, '__qualname__',
+            getattr(coro, '__name__', type(coro).__name__))
+        coro_name = '{}()'.format(coro_name)
+
+        running = False
+        try:
+            running = coro.cr_running
+        except AttributeError:
+            try:
+                running = coro.gi_running
+            except AttributeError:
+                pass
+
+        if running:
+            return '{} running'.format(coro_name)
+        else:
+            return coro_name
 
     coro_name = None
     if isinstance(coro, CoroWrapper):
@@ -270,7 +306,7 @@ def _format_coroutine(coro):
         func = coro
 
     if coro_name is None:
-        coro_name = events._format_callback(func, ())
+        coro_name = events._format_callback(func, (), {})
 
     try:
         coro_code = coro.gi_code
@@ -283,10 +319,13 @@ def _format_coroutine(coro):
         coro_frame = coro.cr_frame
 
     filename = coro_code.co_filename
-    if (isinstance(coro, CoroWrapper)
-    and not inspect.isgeneratorfunction(coro.func)
-    and coro.func is not None):
-        filename, lineno = events._get_function_source(coro.func)
+    lineno = 0
+    if (isinstance(coro, CoroWrapper) and
+            not inspect.isgeneratorfunction(coro.func) and
+            coro.func is not None):
+        source = events._get_function_source(coro.func)
+        if source is not None:
+            filename, lineno = source
         if coro_frame is None:
             coro_repr = ('%s done, defined at %s:%s'
                          % (coro_name, filename, lineno))

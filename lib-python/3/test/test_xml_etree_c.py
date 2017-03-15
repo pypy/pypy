@@ -11,6 +11,7 @@ cET_alias = import_fresh_module('xml.etree.cElementTree',
                                 fresh=['_elementtree', 'xml.etree'])
 
 
+@unittest.skipUnless(cET, 'requires _elementtree')
 class MiscTests(unittest.TestCase):
     # Issue #8651.
     @support.bigmemtest(size=support._2G + 100, memuse=1, dry_run=False)
@@ -21,6 +22,47 @@ class MiscTests(unittest.TestCase):
             self.assertRaises(OverflowError, parser.feed, data)
         finally:
             data = None
+
+    def test_del_attribute(self):
+        element = cET.Element('tag')
+
+        element.tag = 'TAG'
+        with self.assertRaises(AttributeError):
+            del element.tag
+        self.assertEqual(element.tag, 'TAG')
+
+        with self.assertRaises(AttributeError):
+            del element.text
+        self.assertIsNone(element.text)
+        element.text = 'TEXT'
+        with self.assertRaises(AttributeError):
+            del element.text
+        self.assertEqual(element.text, 'TEXT')
+
+        with self.assertRaises(AttributeError):
+            del element.tail
+        self.assertIsNone(element.tail)
+        element.tail = 'TAIL'
+        with self.assertRaises(AttributeError):
+            del element.tail
+        self.assertEqual(element.tail, 'TAIL')
+
+        with self.assertRaises(AttributeError):
+            del element.attrib
+        self.assertEqual(element.attrib, {})
+        element.attrib = {'A': 'B', 'C': 'D'}
+        with self.assertRaises(AttributeError):
+            del element.attrib
+        self.assertEqual(element.attrib, {'A': 'B', 'C': 'D'})
+
+    def test_trashcan(self):
+        # If this test fails, it will most likely die via segfault.
+        e = root = cET.Element('root')
+        for i in range(200000):
+            e = cET.SubElement(e, 'x')
+        del e
+        del root
+        support.gc_collect()
 
 
 @unittest.skipUnless(cET, 'requires _elementtree')

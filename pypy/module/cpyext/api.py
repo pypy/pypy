@@ -1,6 +1,6 @@
 import ctypes
 import sys, os
-import atexit
+from collections import defaultdict
 
 import py
 
@@ -18,7 +18,6 @@ from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.gensupp import NameManager
 from rpython.tool.udir import udir
-from rpython.translator import platform
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError, oefmt, raise_import_error
 from pypy.interpreter.baseobjspace import W_Root
@@ -35,46 +34,42 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
 from pypy.module import exceptions
 from pypy.module.exceptions import interp_exceptions
-# CPython 2.4 compatibility
-from py.builtin import BaseException
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib import rawrefcount
 from rpython.rlib import rthread
 from rpython.rlib.debug import fatalerror_notb
+from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
+from pypy.module.cpyext.cparser import CTypeSpace
 
 DEBUG_WRAPPER = True
 
-# update these for other platforms
-Py_ssize_t = lltype.Typedef(rffi.SSIZE_T, 'Py_ssize_t')
-Py_ssize_tP = rffi.CArrayPtr(Py_ssize_t)
-size_t = rffi.ULONG
-ADDR = lltype.Signed
-
 pypydir = py.path.local(pypydir)
 include_dir = pypydir / 'module' / 'cpyext' / 'include'
+parse_dir = pypydir / 'module' / 'cpyext' / 'parse'
 source_dir = pypydir / 'module' / 'cpyext' / 'src'
 translator_c_dir = py.path.local(cdir)
 include_dirs = [
     include_dir,
+    parse_dir,
     translator_c_dir,
     udir,
     ]
 
-class CConfig:
-    _compilation_info_ = ExternalCompilationInfo(
+configure_eci = ExternalCompilationInfo(
         include_dirs=include_dirs,
         includes=['Python.h', 'stdarg.h', 'structmember.h'],
-        compile_extra=['-DPy_BUILD_CORE'],
-        )
+        compile_extra=['-DPy_BUILD_CORE'])
+
+class CConfig:
+    _compilation_info_ = configure_eci
 
 class CConfig2:
-    _compilation_info_ = CConfig._compilation_info_
+    _compilation_info_ = configure_eci
 
 class CConfig_constants:
-    _compilation_info_ = CConfig._compilation_info_
+    _compilation_info_ = configure_eci
 
-VA_LIST_P = rffi.VOIDP # rffi.COpaquePtr('va_list')
 CONST_STRING = lltype.Ptr(lltype.Array(lltype.Char,
                                        hints={'nolength': True}),
                           use_cache=False)
@@ -120,20 +115,21 @@ def is_valid_fp(fp):
     return is_valid_fd(c_fileno(fp))
 
 pypy_decl = 'pypy_decl.h'
-
-constant_names = """
-Py_TPFLAGS_READY Py_TPFLAGS_READYING Py_TPFLAGS_HAVE_GETCHARBUFFER
-METH_COEXIST METH_STATIC METH_CLASS Py_TPFLAGS_BASETYPE Py_MAX_FMT
-METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O Py_TPFLAGS_HAVE_INPLACEOPS
-Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_HAVE_CLASS
-Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_MAX_NDIMS
-Py_CLEANUP_SUPPORTED
-""".split()
-for name in constant_names:
-    setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))
 udir.join(pypy_decl).write("/* Will be filled later */\n")
 udir.join('pypy_structmember_decl.h').write("/* Will be filled later */\n")
 udir.join('pypy_macros.h').write("/* Will be filled later */\n")
+
+constant_names = """
+Py_TPFLAGS_READY Py_TPFLAGS_READYING
+METH_COEXIST METH_STATIC METH_CLASS Py_TPFLAGS_BASETYPE Py_MAX_FMT
+METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O
+Py_TPFLAGS_HEAPTYPE
+Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_MAX_NDIMS
+Py_CLEANUP_SUPPORTED
+PyBUF_FORMAT PyBUF_ND PyBUF_STRIDES PyBUF_WRITABLE PyBUF_SIMPLE
+""".split()
+for name in constant_names:
+    setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))
 globals().update(rffi_platform.configure(CConfig_constants))
 
 def _copy_header_files(headers, dstdir):
@@ -147,12 +143,14 @@ def _copy_header_files(headers, dstdir):
         target.chmod(0444) # make the file read-only, to make sure that nobody
                            # edits it by mistake
 
-def copy_header_files(dstdir, copy_numpy_headers):
+def copy_header_files(cts, dstdir, copy_numpy_headers):
     # XXX: 20 lines of code to recursively copy a directory, really??
     assert dstdir.check(dir=True)
     headers = include_dir.listdir('*.h') + include_dir.listdir('*.inl')
     for name in ["pypy_macros.h"] + FUNCTIONS_BY_HEADER.keys():
         headers.append(udir.join(name))
+    for path in cts.parsed_headers:
+        headers.append(path)
     _copy_header_files(headers, dstdir)
 
     if copy_numpy_headers:
@@ -252,15 +250,16 @@ cpyext_glob_tid_ptr = lltype.malloc(rffi.CArray(lltype.Signed), 1,
 cpyext_namespace = NameManager('cpyext_')
 
 class ApiFunction(object):
-    def __init__(self, argtypes, restype, callable, error=_NOT_SPECIFIED,
-                 c_name=None, gil=None, result_borrowed=False, result_is_ll=False):
+    def __init__(self, argtypes, restype, callable, error=CANNOT_FAIL,
+                 c_name=None, cdecl=None, gil=None,
+                 result_borrowed=False, result_is_ll=False):
         self.argtypes = argtypes
         self.restype = restype
         self.functype = lltype.Ptr(lltype.FuncType(argtypes, restype))
         self.callable = callable
-        if error is not _NOT_SPECIFIED:
-            self.error_value = error
+        self.error_value = error
         self.c_name = c_name
+        self.cdecl = cdecl
 
         # extract the signature from the (CPython-level) code object
         from pypy.interpreter import pycode
@@ -275,8 +274,6 @@ class ApiFunction(object):
         self.gil = gil
         self.result_borrowed = result_borrowed
         self.result_is_ll = result_is_ll
-        if result_is_ll:    # means 'returns a low-level PyObject pointer'
-            assert is_PyObject(restype)
         #
         def get_llhelper(space):
             return llhelper(self.functype, self.get_wrapper(space))
@@ -304,7 +301,7 @@ class ApiFunction(object):
 
         argtypesw = zip(self.argtypes,
                         [_name.startswith("w_") for _name in self.argnames])
-        error_value = getattr(self, "error_value", CANNOT_FAIL)
+        error_value = self.error_value
         if (isinstance(self.restype, lltype.Ptr)
                 and error_value is not CANNOT_FAIL):
             assert lltype.typeOf(error_value) == self.restype
@@ -336,6 +333,100 @@ class ApiFunction(object):
             wrapper.c_name = cpyext_namespace.uniquename(self.c_name)
         return wrapper
 
+    def get_unwrapper(self):
+        names = self.argnames
+        argtypesw = zip(self.argtypes,
+                        [_name.startswith("w_") for _name in self.argnames])
+        types_names_enum_ui = unrolling_iterable(enumerate(argtypesw))
+
+        @specialize.ll()
+        def unwrapper(space, *args):
+            from pypy.module.cpyext.pyobject import is_pyobj
+            from pypy.module.cpyext.pyobject import from_ref, as_pyobj
+            newargs = ()
+            keepalives = ()
+            assert len(args) == len(self.argtypes)
+            for i, (ARG, is_wrapped) in types_names_enum_ui:
+                input_arg = args[i]
+                if is_PyObject(ARG) and not is_wrapped:
+                    # build a 'PyObject *' (not holding a reference)
+                    if not is_pyobj(input_arg):
+                        keepalives += (input_arg,)
+                        arg = rffi.cast(ARG, as_pyobj(space, input_arg))
+                    else:
+                        arg = rffi.cast(ARG, input_arg)
+                elif ARG == rffi.VOIDP and not is_wrapped:
+                    # unlike is_PyObject case above, we allow any kind of
+                    # argument -- just, if it's an object, we assume the
+                    # caller meant for it to become a PyObject*.
+                    if input_arg is None or isinstance(input_arg, W_Root):
+                        keepalives += (input_arg,)
+                        arg = rffi.cast(ARG, as_pyobj(space, input_arg))
+                    else:
+                        arg = rffi.cast(ARG, input_arg)
+                elif (is_PyObject(ARG) or ARG == rffi.VOIDP) and is_wrapped:
+                    # build a W_Root, possibly from a 'PyObject *'
+                    if is_pyobj(input_arg):
+                        arg = from_ref(space, input_arg)
+                    else:
+                        arg = input_arg
+                else:
+                    # arg is not declared as PyObject, no magic
+                    arg = input_arg
+                newargs += (arg, )
+            try:
+                return self.callable(space, *newargs)
+            finally:
+                keepalive_until_here(*keepalives)
+        return unwrapper
+
+    def get_c_restype(self, c_writer):
+        if self.cdecl:
+            return self.cdecl.tp.result.get_c_name()
+        return c_writer.gettype(self.restype).replace('@', '').strip()
+
+    def get_c_args(self, c_writer):
+        if self.cdecl:
+            args = [tp.get_c_name('arg%d' % i) for i, tp in
+                enumerate(self.cdecl.tp.args)]
+            return ', '.join(args) or "void"
+        args = []
+        for i, argtype in enumerate(self.argtypes):
+            if argtype is CONST_STRING:
+                arg = 'const char *@'
+            elif argtype is CONST_STRINGP:
+                arg = 'const char **@'
+            elif argtype is CONST_WSTRING:
+                arg = 'const wchar_t *@'
+            else:
+                arg = c_writer.gettype(argtype)
+            arg = arg.replace('@', 'arg%d' % (i,)).strip()
+            args.append(arg)
+        args = ', '.join(args) or "void"
+        return args
+
+    def get_api_decl(self, name, c_writer):
+        restype = self.get_c_restype(c_writer)
+        args = self.get_c_args(c_writer)
+        return "PyAPI_FUNC({restype}) {name}({args});".format(**locals())
+
+    def get_ptr_decl(self, name, c_writer):
+        restype = self.get_c_restype(c_writer)
+        args = self.get_c_args(c_writer)
+        return "{restype} (*{name})({args});".format(**locals())
+
+    def get_ctypes_impl(self, name, c_writer):
+        restype = self.get_c_restype(c_writer)
+        args = self.get_c_args(c_writer)
+        callargs = ', '.join('arg%d' % (i,)
+                            for i in range(len(self.argtypes)))
+        if self.restype is lltype.Void:
+            body = "{ _pypyAPI.%s(%s); }" % (name, callargs)
+        else:
+            body = "{ return _pypyAPI.%s(%s); }" % (name, callargs)
+        return '%s %s(%s)\n%s' % (restype, name, args, body)
+
+
 DEFAULT_HEADER = 'pypy_decl.h'
 def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
                 gil=None, result_borrowed=False, result_is_ll=False):
@@ -346,16 +437,93 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
       special value 'CANNOT_FAIL' (also when restype is Void) turns an eventual
       exception into a wrapped SystemError.  Unwrapped exceptions also cause a
       SytemError.
-    - `header` is the header file to export the function in, Set to None to get
-      a C function pointer, but not exported by the API headers.
+    - `header` is the header file to export the function in.
     - set `gil` to "acquire", "release" or "around" to acquire the GIL,
       release the GIL, or both
     """
+    assert header is not None
+    def decorate(func):
+        if func.__name__ in FUNCTIONS_BY_HEADER[header]:
+            raise ValueError("%s already registered" % func.__name__)
+        func._always_inline_ = 'try'
+        api_function = ApiFunction(
+            argtypes, restype, func,
+            error=_compute_error(error, restype), gil=gil,
+            result_borrowed=result_borrowed, result_is_ll=result_is_ll)
+        FUNCTIONS_BY_HEADER[header][func.__name__] = api_function
+
+        # ZZZ is this whole logic really needed???  It seems to be only
+        # for RPython code calling PyXxx() functions directly.  I would
+        # think that usually directly calling the function is clean
+        # enough now
+        def unwrapper_catch(space, *args):
+            try:
+                res = unwrapper(space, *args)
+            except OperationError as e:
+                if not hasattr(unwrapper.api_func, "error_value"):
+                    raise
+                state = space.fromcache(State)
+                state.set_exception(e)
+                if is_PyObject(restype):
+                    return None
+                else:
+                    return unwrapper.api_func.error_value
+            got_integer = isinstance(res, (int, long, float))
+            if isinstance(restype, lltype.Typedef):
+                real_restype = restype.OF
+            else:
+                real_restype = restype
+            expect_integer = (isinstance(real_restype, lltype.Primitive) and
+                            rffi.cast(restype, 0) == 0)
+            assert got_integer == expect_integer, (
+                'got %r not integer' % (res,))
+            return res
+        INTERPLEVEL_API[func.__name__] = unwrapper_catch  # used in tests
+
+        unwrapper = api_function.get_unwrapper()
+        unwrapper.func = func
+        unwrapper.api_func = api_function
+        return unwrapper
+    return decorate
+
+def api_func_from_cdef(func, cdef, cts,
+        error=_NOT_SPECIFIED, header=DEFAULT_HEADER):
+    func._always_inline_ = 'try'
+    cdecl = cts.parse_func(cdef)
+    RESULT = cdecl.get_llresult(cts)
+    api_function = ApiFunction(
+        cdecl.get_llargs(cts), RESULT, func,
+        error=_compute_error(error, RESULT), cdecl=cdecl)
+    FUNCTIONS_BY_HEADER[header][cdecl.name] = api_function
+    unwrapper = api_function.get_unwrapper()
+    unwrapper.func = func
+    unwrapper.api_func = api_function
+    return unwrapper
+
+def api_decl(cdef, cts, error=_NOT_SPECIFIED, header=DEFAULT_HEADER):
+    def decorate(func):
+        return api_func_from_cdef(func, cdef, cts, error=error, header=header)
+    return decorate
+
+def slot_function(argtypes, restype, error=_NOT_SPECIFIED):
+    def decorate(func):
+        func._always_inline_ = 'try'
+        api_function = ApiFunction(
+            argtypes, restype, func,
+            error=_compute_error(error, restype),
+            c_name=func.__name__)
+        unwrapper = api_function.get_unwrapper()
+        unwrapper.func = func
+        unwrapper.api_func = api_function
+        return unwrapper
+    return decorate
+
+def _compute_error(error, restype):
+    """Convert error specification to actual error value of type restype."""
     if isinstance(restype, lltype.Typedef):
         real_restype = restype.OF
     else:
         real_restype = restype
-
     if error is _NOT_SPECIFIED:
         if isinstance(real_restype, lltype.Ptr):
             error = lltype.nullptr(real_restype.TO)
@@ -363,125 +531,8 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
             error = CANNOT_FAIL
     if type(error) is int:
         error = rffi.cast(real_restype, error)
-    expect_integer = (isinstance(real_restype, lltype.Primitive) and
-                      rffi.cast(restype, 0) == 0)
+    return error
 
-    def decorate(func):
-        func._always_inline_ = 'try'
-        func_name = func.func_name
-        if header is not None:
-            c_name = None
-            assert func_name not in FUNCTIONS, (
-                "%s already registered" % func_name)
-        else:
-            c_name = func_name
-        api_function = ApiFunction(argtypes, restype, func, error,
-                                   c_name=c_name, gil=gil,
-                                   result_borrowed=result_borrowed,
-                                   result_is_ll=result_is_ll)
-        func.api_func = api_function
-
-        if error is _NOT_SPECIFIED:
-            raise ValueError("function %s has no return value for exceptions"
-                             % func)
-        def make_unwrapper(catch_exception):
-            # ZZZ is this whole logic really needed???  It seems to be only
-            # for RPython code calling PyXxx() functions directly.  I would
-            # think that usually directly calling the function is clean
-            # enough now
-            names = api_function.argnames
-            types_names_enum_ui = unrolling_iterable(enumerate(
-                zip(api_function.argtypes,
-                    [tp_name.startswith("w_") for tp_name in names])))
-
-            @specialize.ll()
-            def unwrapper(space, *args):
-                from pypy.module.cpyext.pyobject import Py_DecRef, is_pyobj
-                from pypy.module.cpyext.pyobject import from_ref, as_pyobj
-                newargs = ()
-                keepalives = ()
-                assert len(args) == len(api_function.argtypes)
-                for i, (ARG, is_wrapped) in types_names_enum_ui:
-                    input_arg = args[i]
-                    if is_PyObject(ARG) and not is_wrapped:
-                        # build a 'PyObject *' (not holding a reference)
-                        if not is_pyobj(input_arg):
-                            keepalives += (input_arg,)
-                            arg = rffi.cast(ARG, as_pyobj(space, input_arg))
-                        else:
-                            arg = rffi.cast(ARG, input_arg)
-                    elif ARG == rffi.VOIDP and not is_wrapped:
-                        # unlike is_PyObject case above, we allow any kind of
-                        # argument -- just, if it's an object, we assume the
-                        # caller meant for it to become a PyObject*.
-                        if input_arg is None or isinstance(input_arg, W_Root):
-                            keepalives += (input_arg,)
-                            arg = rffi.cast(ARG, as_pyobj(space, input_arg))
-                        else:
-                            arg = rffi.cast(ARG, input_arg)
-                    elif (is_PyObject(ARG) or ARG == rffi.VOIDP) and is_wrapped:
-                        # build a W_Root, possibly from a 'PyObject *'
-                        if is_pyobj(input_arg):
-                            arg = from_ref(space, input_arg)
-                        else:
-                            arg = input_arg
-
-                            ## ZZZ: for is_pyobj:
-                            ## try:
-                            ##     arg = from_ref(space,
-                            ##                rffi.cast(PyObject, input_arg))
-                            ## except TypeError, e:
-                            ##     err = oefmt(space.w_TypeError,
-                            ##                 "could not cast arg to PyObject")
-                            ##     if not catch_exception:
-                            ##         raise err
-                            ##     state = space.fromcache(State)
-                            ##     state.set_exception(err)
-                            ##     if is_PyObject(restype):
-                            ##         return None
-                            ##     else:
-                            ##         return api_function.error_value
-                    else:
-                        # arg is not declared as PyObject, no magic
-                        arg = input_arg
-                    newargs += (arg, )
-                if not catch_exception:
-                    try:
-                        res = func(space, *newargs)
-                    finally:
-                        keepalive_until_here(*keepalives)
-                else:
-                    # non-rpython variant
-                    assert not we_are_translated()
-                    try:
-                        res = func(space, *newargs)
-                    except OperationError as e:
-                        if not hasattr(api_function, "error_value"):
-                            raise
-                        state = space.fromcache(State)
-                        state.set_exception(e)
-                        if is_PyObject(restype):
-                            return None
-                        else:
-                            return api_function.error_value
-                    # 'keepalives' is alive here (it's not rpython)
-                    got_integer = isinstance(res, (int, long, float))
-                    assert got_integer == expect_integer, (
-                        'got %r not integer' % (res,))
-                return res
-            unwrapper.func = func
-            unwrapper.api_func = api_function
-            return unwrapper
-
-        unwrapper_catch = make_unwrapper(True)
-        unwrapper_raise = make_unwrapper(False)
-        if header is not None:
-            if header == DEFAULT_HEADER:
-                FUNCTIONS[func_name] = api_function
-            FUNCTIONS_BY_HEADER.setdefault(header, {})[func_name] = api_function
-        INTERPLEVEL_API[func_name] = unwrapper_catch # used in tests
-        return unwrapper_raise # used in 'normal' RPython code.
-    return decorate
 
 def cpython_struct(name, fields, forward=None, level=1):
     configname = name.replace(' ', '__')
@@ -495,9 +546,14 @@ def cpython_struct(name, fields, forward=None, level=1):
     TYPES[configname] = forward
     return forward
 
+GLOBALS = {}
+def register_global(name, typ, expr, header=None):
+    if header is not None:
+        name = '%s#%s' % (name, header)
+    GLOBALS[name] = (typ, expr)
+
 INTERPLEVEL_API = {}
-FUNCTIONS = {}
-FUNCTIONS_BY_HEADER = {}
+FUNCTIONS_BY_HEADER = defaultdict(dict)
 
 # These are C symbols which cpyext will export, but which are defined in .c
 # files somewhere in the implementation of cpyext (rather than being defined in
@@ -507,6 +563,7 @@ SYMBOLS_C = [
     'PyArg_ParseTuple', 'PyArg_UnpackTuple', 'PyArg_ParseTupleAndKeywords',
     'PyArg_VaParse', 'PyArg_VaParseTupleAndKeywords', '_PyArg_NoKeywords',
     'PyUnicode_FromFormat', 'PyUnicode_FromFormatV', 'PyUnicode_AsWideCharString',
+    'PyUnicode_GetSize', 'PyUnicode_GetLength',
     'PyModule_AddObject', 'PyModule_AddIntConstant', 'PyModule_AddStringConstant',
     'Py_BuildValue', 'Py_VaBuildValue', 'PyTuple_Pack',
     '_PyArg_Parse_SizeT', '_PyArg_ParseTuple_SizeT',
@@ -515,6 +572,7 @@ SYMBOLS_C = [
     '_Py_BuildValue_SizeT', '_Py_VaBuildValue_SizeT',
 
     'PyErr_Format', 'PyErr_NewException', 'PyErr_NewExceptionWithDoc',
+    'PyErr_WarnFormat',
     'PySys_WriteStdout', 'PySys_WriteStderr',
 
     'PyEval_CallFunction', 'PyEval_CallMethod', 'PyObject_CallFunction',
@@ -532,9 +590,14 @@ SYMBOLS_C = [
     'PyCapsule_SetPointer', 'PyCapsule_SetName', 'PyCapsule_SetDestructor',
     'PyCapsule_SetContext', 'PyCapsule_Import', 'PyCapsule_Type', '_Py_get_capsule_type',
 
+    'PyComplex_AsCComplex', 'PyComplex_FromCComplex',
+
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
 
+    'PyImport_ImportModuleLevel',
+
     'PyOS_getsig', 'PyOS_setsig',
+    '_Py_RestoreSignals',
     'PyThread_get_thread_ident', 'PyThread_allocate_lock', 'PyThread_free_lock',
     'PyThread_acquire_lock', 'PyThread_release_lock',
     'PyThread_create_key', 'PyThread_delete_key', 'PyThread_set_key_value',
@@ -552,19 +615,30 @@ SYMBOLS_C = [
     'Py_FrozenFlag', 'Py_TabcheckFlag', 'Py_UnicodeFlag', 'Py_IgnoreEnvironmentFlag',
     'Py_DivisionWarningFlag', 'Py_DontWriteBytecodeFlag', 'Py_NoUserSiteDirectory',
     '_Py_QnewFlag', 'Py_Py3kWarningFlag', 'Py_HashRandomizationFlag', '_Py_PackageContext',
+
+    'PyMem_RawMalloc', 'PyMem_RawCalloc', 'PyMem_RawRealloc', 'PyMem_RawFree',
+    'PyMem_Malloc', 'PyMem_Calloc', 'PyMem_Realloc', 'PyMem_Free',
+    'PyObject_CallFinalizerFromDealloc',
+    '_PyTraceMalloc_Track', '_PyTraceMalloc_Untrack',
+    'PyBytes_FromFormat', 'PyBytes_FromFormatV',
 ]
 TYPES = {}
-GLOBALS = { # this needs to include all prebuilt pto, otherwise segfaults occur
-    '_Py_NoneStruct#%s' % pypy_decl: ('PyObject*', 'space.w_None'),
-    '_Py_TrueStruct#%s' % pypy_decl: ('PyObject*', 'space.w_True'),
-    '_Py_ZeroStruct#%s' % pypy_decl: ('PyObject*', 'space.w_False'),
-    '_Py_NotImplementedStruct#%s' % pypy_decl: ('PyObject*', 'space.w_NotImplemented'),
-    '_Py_EllipsisObject#%s' % pypy_decl: ('PyObject*', 'space.w_Ellipsis'),
-    'PyDateTimeAPI': ('PyDateTime_CAPI*', 'None'),
-    }
 FORWARD_DECLS = []
 INIT_FUNCTIONS = []
 BOOTSTRAP_FUNCTIONS = []
+
+# this needs to include all prebuilt pto, otherwise segfaults occur
+register_global('_Py_NoneStruct',
+    'PyObject*', 'space.w_None', header=pypy_decl)
+register_global('_Py_TrueStruct',
+    'PyObject*', 'space.w_True', header=pypy_decl)
+register_global('_Py_ZeroStruct',
+    'PyObject*', 'space.w_False', header=pypy_decl)
+register_global('_Py_NotImplementedStruct',
+    'PyObject*', 'space.w_NotImplemented', header=pypy_decl)
+register_global('_Py_EllipsisObject',
+    'PyObject*', 'space.w_Ellipsis', header=pypy_decl)
+register_global('PyDateTimeAPI', 'PyDateTime_CAPI*', 'None')
 
 def build_exported_objects():
     # Standard exceptions
@@ -573,12 +647,14 @@ def build_exported_objects():
     # PyExc_AttributeError, PyExc_OverflowError, PyExc_ImportError,
     # PyExc_NameError, PyExc_MemoryError, PyExc_RuntimeError,
     # PyExc_UnicodeEncodeError, PyExc_UnicodeDecodeError, ...
-    for exc_name in exceptions.Module.interpleveldefs.keys():
+    global all_exceptions
+    all_exceptions = list(exceptions.Module.interpleveldefs)
+    for exc_name in all_exceptions:
         if exc_name in ('EnvironmentError', 'IOError'):
             # FIXME: aliases of OSError cause a clash of names via
             # export_struct
             continue
-        GLOBALS['PyExc_' + exc_name] = (
+        register_global('PyExc_' + exc_name,
             'PyTypeObject*',
             'space.gettypeobject(interp_exceptions.W_%s.typedef)'% (exc_name, ))
 
@@ -611,55 +687,48 @@ def build_exported_objects():
         'PyWrapperDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCMethodObject.typedef)',
         'PyInstanceMethod_Type': 'space.gettypeobject(cpyext.classobject.InstanceMethod.typedef)',
         }.items():
-        GLOBALS['%s#%s' % (cpyname, pypy_decl)] = ('PyTypeObject*', pypyexpr)
+        register_global(cpyname, 'PyTypeObject*', pypyexpr, header=pypy_decl)
 
-    for cpyname in '''PyMethodObject PyListObject PyLongObject
-                      PyDictObject'''.split():
+    for cpyname in '''PyMethodObject PyListObject PyLongObject'''.split():
         FORWARD_DECLS.append('typedef struct { PyObject_HEAD } %s'
                              % (cpyname, ))
 build_exported_objects()
 
-def get_structtype_for_ctype(ctype):
-    from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
-    from pypy.module.cpyext.cdatetime import PyDateTime_CAPI
-    return {"PyObject*": PyObject, "PyTypeObject*": PyTypeObjectPtr,
-            "PyDateTime_CAPI*": lltype.Ptr(PyDateTime_CAPI)}[ctype]
+
+class CpyextTypeSpace(CTypeSpace):
+    def decl(self, cdef, error=_NOT_SPECIFIED, header=DEFAULT_HEADER):
+        def decorate(func):
+            return api_func_from_cdef(
+                    func, cdef, self, error=error, header=header)
+        return decorate
+
+
+CPYEXT_BASE_HEADERS = ['sys/types.h', 'stdarg.h', 'stdio.h', 'stddef.h']
+cts = CpyextTypeSpace(headers=CPYEXT_BASE_HEADERS)
+cts.parse_header(parse_dir / 'cpyext_object.h')
+
+Py_ssize_t = cts.gettype('Py_ssize_t')
+Py_ssize_tP = cts.gettype('Py_ssize_t *')
+size_t = rffi.ULONG
+ADDR = lltype.Signed
 
 # Note: as a special case, "PyObject" is the pointer type in RPython,
 # corresponding to "PyObject *" in C.  We do that only for PyObject.
 # For example, "PyTypeObject" is the struct type even in RPython.
-PyTypeObject = lltype.ForwardReference()
-PyTypeObjectPtr = lltype.Ptr(PyTypeObject)
-PyObjectStruct = lltype.ForwardReference()
-PyObject = lltype.Ptr(PyObjectStruct)
+PyTypeObject = cts.gettype('PyTypeObject')
+PyTypeObjectPtr = cts.gettype('PyTypeObject *')
+PyObjectStruct = cts.gettype('PyObject')
+PyObject = cts.gettype('PyObject *')
 PyObjectFields = (("ob_refcnt", lltype.Signed),
                   ("ob_pypy_link", lltype.Signed),
                   ("ob_type", PyTypeObjectPtr))
 PyVarObjectFields = PyObjectFields + (("ob_size", Py_ssize_t), )
-cpython_struct('PyObject', PyObjectFields, PyObjectStruct)
-PyVarObjectStruct = cpython_struct("PyVarObject", PyVarObjectFields)
-PyVarObject = lltype.Ptr(PyVarObjectStruct)
+PyVarObjectStruct = cts.gettype('PyVarObject')
+PyVarObject = cts.gettype('PyVarObject *')
 
-Py_buffer = cpython_struct(
-    "Py_buffer", (
-        ('buf', rffi.VOIDP),
-        ('obj', PyObject),
-        ('len', Py_ssize_t),
-        ('itemsize', Py_ssize_t),
+Py_buffer = cts.gettype('Py_buffer')
+Py_bufferP = cts.gettype('Py_buffer *')
 
-        ('readonly', lltype.Signed),
-        ('ndim', lltype.Signed),
-        ('format', rffi.CCHARP),
-        ('shape', Py_ssize_tP),
-        ('strides', Py_ssize_tP),
-        ('_format', rffi.CFixedArray(rffi.UCHAR, Py_MAX_FMT)),
-        ('_shape', rffi.CFixedArray(Py_ssize_t, Py_MAX_NDIMS)),
-        ('_strides', rffi.CFixedArray(Py_ssize_t, Py_MAX_NDIMS)),
-        ('suboffsets', Py_ssize_tP),
-        #('smalltable', rffi.CFixedArray(Py_ssize_t, 2)),
-        ('internal', rffi.VOIDP)
-        ))
-Py_bufferP = lltype.Ptr(Py_buffer)
 
 @specialize.memo()
 def is_PyObject(TYPE):
@@ -672,12 +741,6 @@ def is_PyObject(TYPE):
 
 # a pointer to PyObject
 PyObjectP = rffi.CArrayPtr(PyObject)
-
-VA_TP_LIST = {}
-#{'int': lltype.Signed,
-#              'PyObject*': PyObject,
-#              'PyObject**': PyObjectP,
-#              'int*': rffi.INTP}
 
 def configure_types():
     for config in (CConfig, CConfig2):
@@ -877,6 +940,7 @@ def make_wrapper_second_level(space, argtypesw, restype,
         retval = fatal_value
         boxed_args = ()
         tb = None
+        state = space.fromcache(State)
         try:
             if not we_are_translated() and DEBUG_WRAPPER:
                 print >>sys.stderr, callable,
@@ -895,7 +959,6 @@ def make_wrapper_second_level(space, argtypesw, restype,
                 boxed_args += (arg_conv, )
             if pygilstate_ensure:
                 boxed_args += (args[-1], )
-            state = space.fromcache(State)
             try:
                 result = callable(space, *boxed_args)
                 if not we_are_translated() and DEBUG_WRAPPER:
@@ -913,7 +976,7 @@ def make_wrapper_second_level(space, argtypesw, restype,
                 else:
                     message = str(e)
                 state.set_exception(OperationError(space.w_SystemError,
-                                                   space.wrap(message)))
+                                                   space.newtext(message)))
             else:
                 failed = False
 
@@ -941,6 +1004,7 @@ def make_wrapper_second_level(space, argtypesw, restype,
         except Exception as e:
             unexpected_exception(pname, e, tb)
             _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto, tid)
+            state.check_and_raise_exception(always=True)
             return fatal_value
 
         assert lltype.typeOf(retval) == restype
@@ -952,21 +1016,8 @@ def make_wrapper_second_level(space, argtypesw, restype,
     wrapper_second_level._dont_inline_ = True
     return wrapper_second_level
 
-def process_va_name(name):
-    return name.replace('*', '_star')
 
-def setup_va_functions(eci):
-    for name, TP in VA_TP_LIST.iteritems():
-        name_no_star = process_va_name(name)
-        func = rffi.llexternal('pypy_va_get_%s' % name_no_star, [VA_LIST_P],
-                               TP, compilation_info=eci)
-        globals()['va_get_%s' % name_no_star] = func
-
-def setup_init_functions(eci, translating):
-    if translating:
-        prefix = 'PyPy'
-    else:
-        prefix = 'cpyexttest'
+def setup_init_functions(eci, prefix):
     # jump through hoops to avoid releasing the GIL during initialization
     # of the cpyext module.  The C functions are called with no wrapper,
     # but must not do anything like calling back PyType_Ready().  We
@@ -1005,71 +1056,40 @@ def run_bootstrap_functions(space):
     for func in BOOTSTRAP_FUNCTIONS:
         func(space)
 
-def c_function_signature(db, func):
-    restype = db.gettype(func.restype).replace('@', '').strip()
-    args = []
-    for i, argtype in enumerate(func.argtypes):
-        if argtype is CONST_STRING:
-            arg = 'const char *@'
-        elif argtype is CONST_STRINGP:
-            arg = 'const char **@'
-        elif argtype is CONST_WSTRING:
-            arg = 'const wchar_t *@'
-        else:
-            arg = db.gettype(argtype)
-        arg = arg.replace('@', 'arg%d' % (i,)).strip()
-        args.append(arg)
-    args = ', '.join(args) or "void"
-    return restype, args
-
 #_____________________________________________________
 # Build the bridge DLL, Allow extension DLLs to call
 # back into Pypy space functions
 # Do not call this more than once per process
 def build_bridge(space):
     "NOT_RPYTHON"
-    from pypy.module.cpyext.pyobject import make_ref
-
-    use_micronumpy = setup_micronumpy(space)
-
-    export_symbols = list(FUNCTIONS) + SYMBOLS_C + list(GLOBALS)
     from rpython.translator.c.database import LowLevelDatabase
+    use_micronumpy = setup_micronumpy(space)
     db = LowLevelDatabase()
+    prefix = 'cpyexttest'
 
-    generate_macros(export_symbols, prefix='cpyexttest')
+    generate_decls_and_callbacks(db, prefix=prefix)
 
     # Structure declaration code
+    functions = []
     members = []
     structindex = {}
     for header, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         for name, func in header_functions.iteritems():
-            if not func:
-                # added only for the macro, not the decl
-                continue
-            restype, args = c_function_signature(db, func)
-            members.append('%s (*%s)(%s);' % (restype, name, args))
+            functions.append(func.get_ctypes_impl(name, db))
+            members.append(func.get_ptr_decl(name, db))
             structindex[name] = len(structindex)
     structmembers = '\n'.join(members)
     struct_declaration_code = """\
     struct PyPyAPI {
     %(members)s
     } _pypyAPI;
-    RPY_EXTERN struct PyPyAPI* pypyAPI = &_pypyAPI;
+    RPY_EXTERN struct PyPyAPI* pypyAPI;
+    struct PyPyAPI* pypyAPI = &_pypyAPI;
     """ % dict(members=structmembers)
 
-    functions = generate_decls_and_callbacks(db, export_symbols,
-                                            prefix='cpyexttest')
-
     global_objects = []
-    for name, (typ, expr) in GLOBALS.iteritems():
-        if '#' in name:
-            continue
-        if typ == 'PyDateTime_CAPI*':
-            continue
-        elif name.startswith('PyExc_'):
-            global_objects.append('%s _%s;' % (typ[:-1], name))
-        else:
-            global_objects.append('%s %s = NULL;' % (typ, name))
+    for name in all_exceptions:
+        global_objects.append('PyTypeObject _PyExc_%s;' % name)
     global_code = '\n'.join(global_objects)
 
     prologue = ("#include <Python.h>\n"
@@ -1086,97 +1106,97 @@ def build_bridge(space):
             '\n' +
             '\n'.join(functions))
 
-    eci = build_eci(True, export_symbols, code, use_micronumpy)
+    eci = build_eci(code, use_micronumpy, translating=False)
     eci = eci.compile_shared_lib(
         outputfilename=str(udir / "module_cache" / "pypyapi"))
+    space.fromcache(State).install_dll(eci)
     modulename = py.path.local(eci.libraries[-1])
-
-    def dealloc_trigger():
-        from pypy.module.cpyext.pyobject import decref
-        print 'dealloc_trigger...'
-        while True:
-            ob = rawrefcount.next_dead(PyObject)
-            if not ob:
-                break
-            print 'deallocating PyObject', ob
-            decref(space, ob)
-        print 'dealloc_trigger DONE'
-        return "RETRY"
-    rawrefcount.init(dealloc_trigger)
 
     run_bootstrap_functions(space)
 
     # load the bridge, and init structure
-    import ctypes
     bridge = ctypes.CDLL(str(modulename), mode=ctypes.RTLD_GLOBAL)
 
-    space.fromcache(State).install_dll(eci)
-
     # populate static data
-    builder = space.fromcache(StaticObjectBuilder)
+    builder = space.fromcache(State).builder = TestingObjBuilder()
     for name, (typ, expr) in GLOBALS.iteritems():
+        if '#' in name:
+            name, header = name.split('#')
+            assert typ in ('PyObject*', 'PyTypeObject*', 'PyIntObject*')
+            isptr = False
+        elif name.startswith('PyExc_'):
+            isptr = False
+        elif typ == 'PyDateTime_CAPI*':
+            isptr = True
+        else:
+            raise ValueError("Unknown static data: %s %s" % (typ, name))
+
         from pypy.module import cpyext    # for the eval() below
         w_obj = eval(expr)
-        if '#' in name:
-            name = name.split('#')[0]
-            isptr = False
-        else:
-            isptr = True
-        if name.startswith('PyExc_'):
-            isptr = False
-
         INTERPLEVEL_API[name] = w_obj
 
-        name = name.replace('Py', 'cpyexttest')
+        mname = mangle_name(prefix, name)
         if isptr:
-            ptr = ctypes.c_void_p.in_dll(bridge, name)
-            if typ == 'PyObject*':
-                value = make_ref(space, w_obj)
-            elif typ == 'PyDateTime_CAPI*':
-                value = w_obj
-            else:
-                assert False, "Unknown static pointer: %s %s" % (typ, name)
+            assert typ == 'PyDateTime_CAPI*'
+            value = w_obj
+            ptr = ctypes.c_void_p.in_dll(bridge, mname)
             ptr.value = ctypes.cast(ll2ctypes.lltype2ctypes(value),
                                     ctypes.c_void_p).value
         elif typ in ('PyObject*', 'PyTypeObject*'):
-            if name.startswith('PyPyExc_') or name.startswith('cpyexttestExc_'):
+            if name.startswith('PyExc_'):
                 # we already have the pointer
-                in_dll = ll2ctypes.get_ctypes_type(PyObject).in_dll(bridge, name)
+                in_dll = ll2ctypes.get_ctypes_type(PyObject).in_dll(bridge, mname)
                 py_obj = ll2ctypes.ctypes2lltype(PyObject, in_dll)
             else:
                 # we have a structure, get its address
-                in_dll = ll2ctypes.get_ctypes_type(PyObject.TO).in_dll(bridge, name)
+                in_dll = ll2ctypes.get_ctypes_type(PyObject.TO).in_dll(bridge, mname)
                 py_obj = ll2ctypes.ctypes2lltype(PyObject, ctypes.pointer(in_dll))
             builder.prepare(py_obj, w_obj)
-        else:
-            assert False, "Unknown static object: %s %s" % (typ, name)
-    builder.attach_all()
+    builder.attach_all(space)
 
     pypyAPI = ctypes.POINTER(ctypes.c_void_p).in_dll(bridge, 'pypyAPI')
 
     # implement structure initialization code
-    #for name, func in FUNCTIONS.iteritems():
-    #    if name.startswith('cpyext_'): # XXX hack
-    #        continue
-    #    pypyAPI[structindex[name]] = ctypes.cast(
-    #        ll2ctypes.lltype2ctypes(func.get_llhelper(space)),
-    #        ctypes.c_void_p)
     for header, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         for name, func in header_functions.iteritems():
-            if name.startswith('cpyext_') or func is None: # XXX hack
-                continue
             pypyAPI[structindex[name]] = ctypes.cast(
                 ll2ctypes.lltype2ctypes(func.get_llhelper(space)),
                 ctypes.c_void_p)
-    setup_va_functions(eci)
 
-    setup_init_functions(eci, translating=False)
+    setup_init_functions(eci, prefix)
     return modulename.new(ext='')
 
+def attach_recursively(space, static_pyobjs, static_objs_w, attached_objs, i):
+    # Start at i but make sure all the base classes are already attached
+    from pypy.module.cpyext.pyobject import get_typedescr, make_ref
+    if i in attached_objs:
+        return
+    py_obj = static_pyobjs[i]
+    w_obj = static_objs_w[i]
+    w_base = None
+    # w_obj can be NotImplemented, which is not a W_TypeObject
+    if isinstance(w_obj, W_TypeObject):
+        bases_w = w_obj.bases_w
+        if bases_w:
+            w_base = find_best_base(bases_w)
+        if w_base:
+            try:
+                j = static_objs_w.index(w_base)
+            except ValueError:
+                j = -1
+            if j >=0 and j not in attached_objs:
+                attach_recursively(space, static_pyobjs, static_objs_w,
+                                                 attached_objs, j)
+    w_type = space.type(w_obj)
+    typedescr = get_typedescr(w_type.layout.typedef)
+    py_obj.c_ob_type = rffi.cast(PyTypeObjectPtr,
+                                 make_ref(space, w_type))
+    typedescr.attach(space, py_obj, w_obj)
+    attached_objs.append(i)
 
-class StaticObjectBuilder:
-    def __init__(self, space):
-        self.space = space
+
+class StaticObjectBuilder(object):
+    def __init__(self):
         self.static_pyobjs = []
         self.static_objs_w = []
         self.cpyext_type_init = None
@@ -1192,32 +1212,31 @@ class StaticObjectBuilder:
         self.static_pyobjs.append(py_obj)
         self.static_objs_w.append(w_obj)
 
-    def attach_all(self):
+    def attach_all(self, space):
         # this is RPython, called once in pypy-c when it imports cpyext
-        from pypy.module.cpyext.pyobject import get_typedescr, make_ref
         from pypy.module.cpyext.typeobject import finish_type_1, finish_type_2
         from pypy.module.cpyext.pyobject import track_reference
         #
-        space = self.space
         static_pyobjs = self.get_static_pyobjs()
         static_objs_w = self.static_objs_w
         for i in range(len(static_objs_w)):
             track_reference(space, static_pyobjs[i], static_objs_w[i])
         #
         self.cpyext_type_init = []
+        attached_objs = []
         for i in range(len(static_objs_w)):
-            py_obj = static_pyobjs[i]
-            w_obj = static_objs_w[i]
-            w_type = space.type(w_obj)
-            typedescr = get_typedescr(w_type.layout.typedef)
-            py_obj.c_ob_type = rffi.cast(PyTypeObjectPtr,
-                                         make_ref(space, w_type))
-            typedescr.attach(space, py_obj, w_obj)
+            attach_recursively(space, static_pyobjs, static_objs_w, attached_objs, i)
         cpyext_type_init = self.cpyext_type_init
         self.cpyext_type_init = None
         for pto, w_type in cpyext_type_init:
             finish_type_1(space, pto)
             finish_type_2(space, pto, w_type)
+
+class TestingObjBuilder(StaticObjectBuilder):
+    """The StaticObjectBuilder used in tests."""
+
+class TranslationObjBuilder(StaticObjectBuilder):
+    """The StaticObjectBuilder used during translation."""
 
 
 def mangle_name(prefix, name):
@@ -1226,25 +1245,37 @@ def mangle_name(prefix, name):
     elif name.startswith('_Py'):
         return '_' + prefix + name[3:]
     else:
-        return None
+        raise ValueError("Error converting '%s'" % name)
 
-def generate_macros(export_symbols, prefix):
+def write_header(header_name, decls):
+    lines = [
+        '''
+#ifdef _WIN64
+/* this check is for sanity, but also because the 'temporary fix'
+   below seems to become permanent and would cause unexpected
+   nonsense on Win64---but note that it's not the only reason for
+   why Win64 is not supported!  If you want to help, see
+   http://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
+   */
+#  error "PyPy does not support 64-bit on Windows.  Use Win32"
+#endif
+''',
+        '#define Signed   long           /* xxx temporary fix */',
+        '#define Unsigned unsigned long  /* xxx temporary fix */',
+        '',] + decls + [
+        '',
+        '#undef Signed    /* xxx temporary fix */',
+        '#undef Unsigned  /* xxx temporary fix */',
+        '']
+    decl_h = udir.join(header_name)
+    decl_h.write('\n'.join(lines))
+
+def generate_decls_and_callbacks(db, prefix=''):
     "NOT_RPYTHON"
     pypy_macros = []
-    renamed_symbols = []
-    for name in export_symbols:
-        if '#' in name:
-            name,header = name.split('#')
-        else:
-            header = pypy_decl
+    for name in SYMBOLS_C:
         newname = mangle_name(prefix, name)
-        assert newname, name
-        if header == pypy_decl:
-            pypy_macros.append('#define %s %s' % (name, newname))
-        if name.startswith("PyExc_"):
-            pypy_macros.append('#define _%s _%s' % (name, newname))
-        renamed_symbols.append(newname)
-    export_symbols[:] = renamed_symbols
+        pypy_macros.append('#define %s %s' % (name, newname))
 
     # Generate defines
     for macro_name, size in [
@@ -1264,52 +1295,17 @@ def generate_macros(export_symbols, prefix):
     pypy_macros_h = udir.join('pypy_macros.h')
     pypy_macros_h.write('\n'.join(pypy_macros))
 
-def generate_decls_and_callbacks(db, export_symbols, api_struct=True, prefix=''):
-    "NOT_RPYTHON"
-    # implement function callbacks and generate function decls
-    functions = []
-    decls = {}
-    pypy_decls = decls[pypy_decl] = []
-    pypy_decls.append('#define Signed   long           /* xxx temporary fix */\n')
-    pypy_decls.append('#define Unsigned unsigned long  /* xxx temporary fix */\n')
-
+    # generate function decls
+    decls = defaultdict(list)
     for decl in FORWARD_DECLS:
-        pypy_decls.append("%s;" % (decl,))
+        decls[pypy_decl].append("%s;" % (decl,))
 
     for header_name, header_functions in FUNCTIONS_BY_HEADER.iteritems():
-        if header_name not in decls:
-            header = decls[header_name] = []
-            header.append('#define Signed   long           /* xxx temporary fix */\n')
-            header.append('#define Unsigned unsigned long  /* xxx temporary fix */\n')
-        else:
-            header = decls[header_name]
-
+        header = decls[header_name]
         for name, func in sorted(header_functions.iteritems()):
-            if not func:
-                continue
-            if header == DEFAULT_HEADER:
-                _name = name
-            else:
-                # this name is not included in pypy_macros.h
-                _name = mangle_name(prefix, name)
-                assert _name is not None, 'error converting %s' % name
-                header.append("#define %s %s" % (name, _name))
-            restype, args = c_function_signature(db, func)
-            header.append("PyAPI_FUNC(%s) %s(%s);" % (restype, _name, args))
-            if api_struct:
-                callargs = ', '.join('arg%d' % (i,)
-                                    for i in range(len(func.argtypes)))
-                if func.restype is lltype.Void:
-                    body = "{ _pypyAPI.%s(%s); }" % (_name, callargs)
-                else:
-                    body = "{ return _pypyAPI.%s(%s); }" % (_name, callargs)
-                functions.append('%s %s(%s)\n%s' % (restype, name, args, body))
-    for name in VA_TP_LIST:
-        name_no_star = process_va_name(name)
-        header = ('%s pypy_va_get_%s(va_list* vp)' %
-                  (name, name_no_star))
-        pypy_decls.append('RPY_EXTERN ' + header + ';')
-        functions.append(header + '\n{return va_arg(*vp, %s);}\n' % name)
+            _name = mangle_name(prefix, name)
+            header.append("#define %s %s" % (name, _name))
+            header.append(func.get_api_decl(name, db))
 
     for name, (typ, expr) in GLOBALS.iteritems():
         if '#' in name:
@@ -1318,19 +1314,11 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True, prefix='')
         elif name.startswith('PyExc_'):
             typ = 'PyObject*'
             header = pypy_decl
-        if header != pypy_decl:
-            decls[header].append('#define %s %s' % (name, mangle_name(prefix, name)))
+        decls[header].append('#define %s %s' % (name, mangle_name(prefix, name)))
         decls[header].append('PyAPI_DATA(%s) %s;' % (typ, name))
 
-    for header_name in FUNCTIONS_BY_HEADER.keys():
-        header = decls[header_name]
-        header.append('#undef Signed    /* xxx temporary fix */\n')
-        header.append('#undef Unsigned  /* xxx temporary fix */\n')
-
     for header_name, header_decls in decls.iteritems():
-        decl_h = udir.join(header_name)
-        decl_h.write('\n'.join(header_decls))
-    return functions
+        write_header(header_name, header_decls)
 
 separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pyerrors.c",
@@ -1348,16 +1336,24 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pythread.c",
                          source_dir / "missing.c",
                          source_dir / "pymem.c",
+                         source_dir / "bytesobject.c",
+                         source_dir / "complexobject.c",
+                         source_dir / "import.c",
+                         source_dir / "_warnings.c",
+                         source_dir / "pylifecycle.c",
+                         source_dir / "object.c",
                          ]
 
-def build_eci(building_bridge, export_symbols, code, use_micronumpy=False):
+def build_eci(code, use_micronumpy=False, translating=False):
     "NOT_RPYTHON"
     # Build code and get pointer to the structure
     kwds = {}
 
     compile_extra=['-DPy_BUILD_CORE']
 
-    if building_bridge:
+    if translating:
+        kwds["includes"] = ['Python.h'] # this is our Python.h
+    else:
         if sys.platform == "win32":
             # '%s' undefined; assuming extern returning int
             compile_extra.append("/we4013")
@@ -1367,8 +1363,6 @@ def build_eci(building_bridge, export_symbols, code, use_micronumpy=False):
         elif sys.platform.startswith('linux'):
             compile_extra.append("-Werror=implicit-function-declaration")
             compile_extra.append('-g')
-    else:
-        kwds["includes"] = ['Python.h'] # this is our Python.h
 
     # Generate definitions for global structures
     structs = ["#include <Python.h>"]
@@ -1422,39 +1416,33 @@ def setup_micronumpy(space):
         return use_micronumpy
     # import registers api functions by side-effect, we also need HEADER
     from pypy.module.cpyext.ndarrayobject import HEADER
-    global GLOBALS, FUNCTIONS_BY_HEADER, separate_module_files
-    for func_name in ['PyArray_Type', '_PyArray_FILLWBYTE', '_PyArray_ZEROS']:
-        FUNCTIONS_BY_HEADER.setdefault(HEADER, {})[func_name] = None
-    GLOBALS["PyArray_Type#%s" % HEADER] = ('PyTypeObject*', "space.gettypeobject(W_NDimArray.typedef)")
+    global separate_module_files
+    register_global("PyArray_Type",
+        'PyTypeObject*',  "space.gettypeobject(W_NDimArray.typedef)",
+        header=HEADER)
     separate_module_files.append(source_dir / "ndarrayobject.c")
     return use_micronumpy
 
 def setup_library(space):
     "NOT_RPYTHON"
-    use_micronumpy = setup_micronumpy(space)
-    export_symbols = sorted(FUNCTIONS) + sorted(SYMBOLS_C) + sorted(GLOBALS)
     from rpython.translator.c.database import LowLevelDatabase
+    use_micronumpy = setup_micronumpy(space)
     db = LowLevelDatabase()
     prefix = 'PyPy'
 
-    generate_macros(export_symbols, prefix=prefix)
+    generate_decls_and_callbacks(db, prefix=prefix)
 
-    functions = generate_decls_and_callbacks(db, [], api_struct=False,
-                                            prefix=prefix)
     code = "#include <Python.h>\n"
     if use_micronumpy:
         code += "#include <pypy_numpy.h> /* api.py line 1290 */\n"
-    code  += "\n".join(functions)
 
-    eci = build_eci(False, export_symbols, code, use_micronumpy)
-
+    eci = build_eci(code, use_micronumpy, translating=True)
     space.fromcache(State).install_dll(eci)
 
     run_bootstrap_functions(space)
-    setup_va_functions(eci)
 
     # emit uninitialized static data
-    builder = space.fromcache(StaticObjectBuilder)
+    builder = space.fromcache(State).builder = TranslationObjBuilder()
     lines = ['PyObject *pypy_static_pyobjs[] = {\n']
     include_lines = ['RPY_EXTERN PyObject *pypy_static_pyobjs[];\n']
     for name, (typ, expr) in sorted(GLOBALS.items()):
@@ -1462,17 +1450,15 @@ def setup_library(space):
             name, header = name.split('#')
             assert typ in ('PyObject*', 'PyTypeObject*')
             typ = typ[:-1]
-            if header != pypy_decl:
-                # since the #define is not in pypy_macros, do it here
-                mname = mangle_name(prefix, name)
-                include_lines.append('#define %s %s\n' % (name, mname))
+            mname = mangle_name(prefix, name)
+            include_lines.append('#define %s %s\n' % (name, mname))
         elif name.startswith('PyExc_'):
             typ = 'PyTypeObject'
             name = '_' + name
         elif typ == 'PyDateTime_CAPI*':
             continue
         else:
-            assert False, "Unknown static data: %s %s" % (typ, name)
+            raise ValueError("Unknown static data: %s %s" % (typ, name))
 
         from pypy.module import cpyext     # for the eval() below
         w_obj = eval(expr)
@@ -1481,7 +1467,7 @@ def setup_library(space):
         include_lines.append('RPY_EXPORTED %s %s;\n' % (typ, name))
 
     lines.append('};\n')
-    eci2 = CConfig._compilation_info_.merge(ExternalCompilationInfo(
+    eci2 = configure_eci.merge(ExternalCompilationInfo(
         separate_module_sources = [''.join(lines)],
         post_include_bits = [''.join(include_lines)],
         ))
@@ -1492,26 +1478,21 @@ def setup_library(space):
 
     for header, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         for name, func in header_functions.iteritems():
-            if not func:
-                continue
-            newname = mangle_name('PyPy', name) or name
+            newname = mangle_name(prefix, name)
             deco = entrypoint_lowlevel("cpyext", func.argtypes, newname,
                                         relax=True)
             deco(func.get_wrapper(space))
 
-    setup_init_functions(eci, translating=True)
+    setup_init_functions(eci, prefix)
     trunk_include = pypydir.dirpath() / 'include'
-    copy_header_files(trunk_include, use_micronumpy)
+    copy_header_files(cts, trunk_include, use_micronumpy)
 
-def init_static_data_translated(space):
-    builder = space.fromcache(StaticObjectBuilder)
-    builder.attach_all()
 
 def _load_from_cffi(space, name, path, initptr):
     from pypy.module._cffi_backend import cffi1_module
     cffi1_module.load_cffi1_module(space, name, path, initptr)
 
-@unwrap_spec(path='fsencode', name=str)
+@unwrap_spec(path='fsencode', name='text')
 def load_extension_module(space, path, name):
     # note: this is used both to load CPython-API-style C extension
     # modules (cpyext) and to load CFFI-style extension modules
@@ -1531,9 +1512,9 @@ def load_extension_module(space, path, name):
             lltype.free(ll_libname, flavor='raw')
     except rdynload.DLOpenError as e:
         w_name = space.newunicode(name.decode('ascii'))
-        w_path = space.wrap_fsdecoded(path)
+        w_path = space.newfilename(path)
         raise raise_import_error(space,
-            space.wrap_fsdecoded(e.msg), w_name, w_path)
+            space.newfilename(e.msg), w_name, w_path)
     look_for = None
     #
     if space.config.objspace.usemodules._cffi_backend:
@@ -1564,9 +1545,9 @@ def load_extension_module(space, path, name):
         else:
             look_for = also_look_for
     msg = u"function %s not found in library %s" % (
-        unicode(look_for), space.unicode_w(space.wrap_fsdecoded(path)))
+        unicode(look_for), space.unicode_w(space.newfilename(path)))
     w_name = space.newunicode(name.decode('ascii'))
-    w_path = space.wrap_fsdecoded(path)
+    w_path = space.newfilename(path)
     raise_import_error(space, space.newunicode(msg), w_name, w_path)
 
 
@@ -1602,7 +1583,7 @@ def generic_cpy_call_expect_null(space, func, *args):
 
 @specialize.memo()
 def make_generic_cpy_call(FT, expect_null):
-    from pypy.module.cpyext.pyobject import make_ref, from_ref, Py_DecRef
+    from pypy.module.cpyext.pyobject import make_ref, from_ref
     from pypy.module.cpyext.pyobject import is_pyobj, as_pyobj
     from pypy.module.cpyext.pyobject import get_w_obj_and_decref
     from pypy.module.cpyext.pyerrors import PyErr_Occurred
@@ -1622,9 +1603,8 @@ def make_generic_cpy_call(FT, expect_null):
     miniglobals = {'__name__':    __name__, # for module name propagation
                    }
     exec source.compile() in miniglobals
-    call_external_function = miniglobals['cpy_call_external']
+    call_external_function = specialize.ll()(miniglobals['cpy_call_external'])
     call_external_function._dont_inline_ = True
-    call_external_function._annspecialcase_ = 'specialize:ll'
     call_external_function._gctransformer_hint_close_stack_ = True
     # don't inline, as a hack to guarantee that no GC pointer is alive
     # anywhere in call_external_function

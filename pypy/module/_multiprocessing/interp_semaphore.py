@@ -13,9 +13,9 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import oefmt, wrap_oserror
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
-from pypy.module._multiprocessing.interp_connection import w_handle
 
 RECURSIVE_MUTEX, SEMAPHORE = range(2)
+sys_platform = sys.platform
 
 if sys.platform == 'win32':
     from rpython.rlib import rwin32
@@ -215,10 +215,11 @@ else:
         return rffi.cast(SEM_T, space.int_w(w_handle))
 
     def semaphore_unlink(space, w_name):
-        name = space.str_w(w_name)
-        res = _sem_unlink(name)
-        if res < 0:
-            raise oefmt(space.w_OSError, "sem unlink failed with errno: %d", rposix.get_saved_errno())
+        name = space.text_w(w_name)
+        try:
+            sem_unlink(name)
+        except OSError as e:
+            raise wrap_oserror(space, e)
 
 class CounterState:
     def __init__(self, space):
@@ -331,6 +332,11 @@ else:
         rgc.add_memory_pressure(SEM_T_SIZE)
         return sem
 
+    def reopen_semaphore(name):
+        sem = sem_open(name, 0, 0600, 0)
+        rgc.add_memory_pressure(SEM_T_SIZE)
+        return sem
+
     def delete_semaphore(handle):
         _sem_close_no_errno(handle)
 
@@ -366,6 +372,7 @@ else:
                 except OSError as e:
                     if e.errno == errno.EINTR:
                         # again
+                        _check_signals(space)
                         continue
                     elif e.errno in (errno.EAGAIN, errno.ETIMEDOUT):
                         return False
@@ -443,7 +450,9 @@ class W_SemLock(W_Root):
         self.name = name
 
     def name_get(self, space):
-        return space.newutf8(self.name)
+        if self.name is None:
+            return space.w_None
+        return space.newtext(self.name)
 
     def kind_get(self, space):
         return space.newint(self.kind)
@@ -452,30 +461,31 @@ class W_SemLock(W_Root):
         return space.newint(self.maxvalue)
 
     def handle_get(self, space):
-        return w_handle(space, self.handle)
+        h = rffi.cast(rffi.INTPTR_T, self.handle)
+        return space.newint(h)
 
     def get_count(self, space):
-        return space.wrap(self.count)
+        return space.newint(self.count)
 
     def _ismine(self):
         return self.count > 0 and rthread.get_ident() == self.last_tid
 
     def is_mine(self, space):
-        return space.wrap(self._ismine())
+        return space.newbool(self._ismine())
 
     def is_zero(self, space):
         try:
             res = semlock_iszero(self, space)
         except OSError as e:
             raise wrap_oserror(space, e)
-        return space.wrap(res)
+        return space.newbool(res)
 
     def get_value(self, space):
         try:
             val = semlock_getvalue(self, space)
         except OSError as e:
             raise wrap_oserror(space, e)
-        return space.wrap(val)
+        return space.newint(val)
 
     @unwrap_spec(block=bool)
     def acquire(self, space, block=True, w_timeout=None):
@@ -516,12 +526,21 @@ class W_SemLock(W_Root):
     def after_fork(self):
         self.count = 0
 
-    @unwrap_spec(kind=int, maxvalue=int)
-    def rebuild(space, w_cls, w_handle, kind, maxvalue, w_name):
-        name = space.str_or_None_w(w_name)
+    @unwrap_spec(kind=int, maxvalue=int, name='text_or_none')
+    def rebuild(space, w_cls, w_handle, kind, maxvalue, name):
+        #
+        if sys_platform != 'win32' and name is not None:
+            # like CPython, in this case ignore 'w_handle'
+            try:
+                handle = reopen_semaphore(name)
+            except OSError as e:
+                raise wrap_oserror(space, e)
+        else:
+            handle = handle_w(space, w_handle)
+        #
         self = space.allocate_instance(W_SemLock, w_cls)
-        self.__init__(space, handle_w(space, w_handle), kind, maxvalue, name)
-        return space.wrap(self)
+        self.__init__(space, handle, kind, maxvalue, name)
+        return self
 
     def enter(self, space):
         return self.acquire(space, w_timeout=space.w_None)
@@ -532,7 +551,7 @@ class W_SemLock(W_Root):
     def _finalize_(self):
         delete_semaphore(self.handle)
 
-@unwrap_spec(kind=int, value=int, maxvalue=int, name=str, unlink=int)
+@unwrap_spec(kind=int, value=int, maxvalue=int, name='text', unlink=int)
 def descr_new(space, w_subtype, kind, value, maxvalue, name, unlink):
     if kind != RECURSIVE_MUTEX and kind != SEMAPHORE:
         raise oefmt(space.w_ValueError, "unrecognized kind")
@@ -551,7 +570,7 @@ def descr_new(space, w_subtype, kind, value, maxvalue, name, unlink):
     self = space.allocate_instance(W_SemLock, w_subtype)
     self.__init__(space, handle, kind, maxvalue, name)
 
-    return space.wrap(self)
+    return self
 
 W_SemLock.typedef = TypeDef(
     "SemLock",

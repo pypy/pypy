@@ -34,6 +34,10 @@ class AppTestThread(GenericTestThread):
             time.sleep(0.2)
             remaining = thread._count()
 
+    def test_thread_error(self):
+        import _thread
+        assert _thread.error is RuntimeError   # uh, since CPython 3.3
+
     def test_start_new_thread(self):
         import _thread
         feedback = []

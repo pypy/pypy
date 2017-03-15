@@ -111,7 +111,7 @@ class Lock(_ContextManagerMixin):
     acquire() is a coroutine and should be called with 'yield from'.
 
     Locks also support the context management protocol.  '(yield from lock)'
-    should be used as context manager expression.
+    should be used as the context manager expression.
 
     Usage:
 
@@ -166,11 +166,11 @@ class Lock(_ContextManagerMixin):
         This method blocks until the lock is unlocked, then sets it to
         locked and returns True.
         """
-        if not self._waiters and not self._locked:
+        if not self._locked and all(w.cancelled() for w in self._waiters):
             self._locked = True
             return True
 
-        fut = futures.Future(loop=self._loop)
+        fut = self._loop.create_future()
         self._waiters.append(fut)
         try:
             yield from fut
@@ -258,7 +258,7 @@ class Event:
         if self._value:
             return True
 
-        fut = futures.Future(loop=self._loop)
+        fut = self._loop.create_future()
         self._waiters.append(fut)
         try:
             yield from fut
@@ -320,7 +320,7 @@ class Condition(_ContextManagerMixin):
 
         self.release()
         try:
-            fut = futures.Future(loop=self._loop)
+            fut = self._loop.create_future()
             self._waiters.append(fut)
             try:
                 yield from fut
@@ -329,7 +329,13 @@ class Condition(_ContextManagerMixin):
                 self._waiters.remove(fut)
 
         finally:
-            yield from self.acquire()
+            # Must reacquire lock even if wait is cancelled
+            while True:
+                try:
+                    yield from self.acquire()
+                    break
+                except futures.CancelledError:
+                    pass
 
     @coroutine
     def wait_for(self, predicate):
@@ -433,7 +439,7 @@ class Semaphore(_ContextManagerMixin):
         True.
         """
         while self._value <= 0:
-            fut = futures.Future(loop=self._loop)
+            fut = self._loop.create_future()
             self._waiters.append(fut)
             try:
                 yield from fut

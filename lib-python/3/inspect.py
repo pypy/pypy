@@ -171,9 +171,8 @@ def isfunction(object):
 def isgeneratorfunction(object):
     """Return true if the object is a user-defined generator function.
 
-    Generator function objects provides same attributes as functions.
-
-    See help(isfunction) for attributes listing."""
+    Generator function objects provide the same attributes as functions.
+    See help(isfunction) for a list of attributes."""
     return bool((isfunction(object) or ismethod(object)) and
                 object.__code__.co_flags & CO_GENERATOR)
 
@@ -208,10 +207,10 @@ def iscoroutine(object):
     return isinstance(object, types.CoroutineType)
 
 def isawaitable(object):
-    """Return true is object can be passed to an ``await`` expression."""
+    """Return true if object can be passed to an ``await`` expression."""
     return (isinstance(object, types.CoroutineType) or
             isinstance(object, types.GeneratorType) and
-                object.gi_code.co_flags & CO_ITERABLE_COROUTINE or
+                bool(object.gi_code.co_flags & CO_ITERABLE_COROUTINE) or
             isinstance(object, collections.abc.Awaitable))
 
 def istraceback(object):
@@ -798,7 +797,7 @@ def findsource(object):
     if iscode(object):
         if not hasattr(object, 'co_firstlineno'):
             raise OSError('could not find function definition')
-        lnum = object.co_firstlineno - 1
+        lnum = min(object.co_firstlineno, len(lines)) - 1
         pat = re.compile(r'^(\s*def\s)|(\s*async\s+def\s)|(.*(?<!\w)lambda(:|\s))|^(\s*@)')
         while lnum > 0:
             if pat.match(lines[lnum]): break
@@ -1159,6 +1158,8 @@ def getargvalues(frame):
     return ArgInfo(args, varargs, varkw, frame.f_locals)
 
 def formatannotation(annotation, base_module=None):
+    if getattr(annotation, '__module__', None) == 'typing':
+        return repr(annotation).replace('typing.', '')
     if isinstance(annotation, type):
         if annotation.__module__ in ('builtins', base_module):
             return annotation.__qualname__
@@ -1421,7 +1422,7 @@ def getframeinfo(frame, context=1):
         except OSError:
             lines = index = None
         else:
-            start = max(start, 1)
+            start = max(start, 0)
             start = max(0, min(start, len(lines) - context))
             lines = lines[start:start+context]
             index = lineno - 1 - start
@@ -2077,9 +2078,21 @@ def _signature_from_builtin(cls, func, skip_bound_arg=True):
 
     s = getattr(func, "__text_signature__", None)
     if not s:
+        if func is object:  # XXX PyPy hack until we support __text_signature__
+            return '()'     # in the same cases as CPython
         raise ValueError("no signature found for builtin {!r}".format(func))
 
     return _signature_fromstr(cls, func, s, skip_bound_arg)
+
+
+class _NoValue:
+    """Class of a marker object for PyPy only, used as the defaults for
+    built-in functions when there is really no Python object that could
+    be used."""
+    __slots__ = ()
+    def __repr__(self):
+        return '<no value>'
+_no_value = _NoValue()
 
 
 def _signature_from_function(cls, func):
@@ -2110,7 +2123,10 @@ def _signature_from_function(cls, func):
     if defaults:
         pos_default_count = len(defaults)
     else:
-        pos_default_count = 0
+        # PyPy extension, for built-in functions that take optional
+        # arguments but without any Python object to use as default.
+        pos_default_count = getattr(func, '__defaults_count__', 0)
+        defaults = [_no_value] * pos_default_count
 
     parameters = []
 
@@ -2611,8 +2627,6 @@ class BoundArguments:
         empty dict.
         """
         arguments = self.arguments
-        if not arguments:
-            return
         new_arguments = []
         for name, param in self._signature.parameters.items():
             try:

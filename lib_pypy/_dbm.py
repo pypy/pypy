@@ -112,6 +112,13 @@ class dbm(object):
         if status < 0:
             raise KeyError(key)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        self.close()
+
+
 ### initialization: Berkeley DB versus normal DB
 
 def _init_func(name, argtypes=None, restype=None):

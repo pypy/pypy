@@ -18,7 +18,7 @@ class AppBridgeCache(object):
     def call_method(self, space, path, name, args):
         w_method = getattr(self, 'w_' + name)
         if w_method is None:
-            w_method = space.appexec([space.wrap(path), space.wrap(name)],
+            w_method = space.appexec([space.newtext(path), space.newtext(name)],
                 "(path, name): return getattr(__import__(path, fromlist=[name]), name)")
             setattr(self, 'w_' + name, w_method)
         return space.call_args(w_method, args)

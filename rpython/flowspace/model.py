@@ -96,6 +96,13 @@ class FunctionGraph(object):
         from rpython.translator.tool.graphpage import FlowGraphPage
         FlowGraphPage(t, [self]).display()
 
+    def showbg(self, t=None):
+        import os
+        self.show(t)
+        if os.fork() == 0:
+            self.show(t)
+            os._exit(0)
+
     view = show
 
 
@@ -191,6 +198,11 @@ class Block(object):
                 txt = "raise block"
             else:
                 txt = "codeless block"
+        if len(self.inputargs) > 0:
+            if len(self.inputargs) > 1:
+                txt += '[%s...]' % (self.inputargs[0],)
+            else:
+                txt += '[%s]' % (self.inputargs[0],)
         return txt
 
     def __repr__(self):

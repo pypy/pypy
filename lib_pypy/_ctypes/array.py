@@ -65,6 +65,8 @@ class ArrayMeta(_CDataMeta):
     from_address = cdata_from_address
 
     def _sizeofinstances(self):
+        if self._ffiarray is None:
+            raise TypeError("abstract class")
         size, alignment = self._ffiarray.size_alignment(self._length_)
         return size
 
@@ -92,14 +94,21 @@ class ArrayMeta(_CDataMeta):
         # array accepts very strange parameters as part of structure
         # or function argument...
         from ctypes import c_char, c_wchar
-        if issubclass(self._type_, (c_char, c_wchar)):
-             # XXX: this should maybe be stricer for py3 (c_char disallowing str?)
-            if isinstance(value, (bytes, str)):
+        if issubclass(self._type_, c_char):
+            if isinstance(value, bytes):
                 if len(value) > self._length_:
                     raise ValueError("Invalid length")
                 value = self(*value)
             elif not isinstance(value, self):
-                raise TypeError("expected string, %s found"
+                raise TypeError("expected bytes, %s found"
+                                % (value.__class__.__name__,))
+        elif issubclass(self._type_, c_wchar):
+            if isinstance(value, str):
+                if len(value) > self._length_:
+                    raise ValueError("Invalid length")
+                value = self(*value)
+            elif not isinstance(value, self):
+                raise TypeError("expected unicode string, %s found"
                                 % (value.__class__.__name__,))
         else:
             if isinstance(value, tuple):

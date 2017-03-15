@@ -117,6 +117,9 @@ class PicklableFixedOffset(FixedOffset):
     def __init__(self, offset=None, name=None, dstoffset=None):
         FixedOffset.__init__(self, offset, name, dstoffset)
 
+    def __getstate__(self):
+        return self.__dict__
+
 class _TZInfo(tzinfo):
     def utcoffset(self, datetime_module):
         return random.random()
@@ -1224,7 +1227,7 @@ class TestDate(HarmlessMixedComparison, unittest.TestCase):
         #self.assertRaises(ValueError, t.strftime, "%#")
 
         #oh well, some systems just ignore those invalid ones.
-        #at least, excercise them to make sure that no crashes
+        #at least, exercise them to make sure that no crashes
         #are generated
         for f in ["%e", "%", "%#"]:
             try:
@@ -1239,7 +1242,7 @@ class TestDate(HarmlessMixedComparison, unittest.TestCase):
         dt = self.theclass(2007, 9, 10)
         self.assertEqual(dt.__format__(''), str(dt))
 
-        with self.assertRaisesRegex(TypeError, '^must be str, not int$'):
+        with self.assertRaisesRegex(TypeError, 'must be str, not int'):
             dt.__format__(123)
 
         # check that a derived class's __str__() gets called
@@ -1574,7 +1577,7 @@ class TestDateTime(TestDate):
         dt = self.theclass(2007, 9, 10, 4, 5, 1, 123)
         self.assertEqual(dt.__format__(''), str(dt))
 
-        with self.assertRaisesRegex(TypeError, '^must be str, not int$'):
+        with self.assertRaisesRegex(TypeError, 'must be str, not int'):
             dt.__format__(123)
 
         # check that a derived class's __str__() gets called
@@ -2336,7 +2339,7 @@ class TestTime(HarmlessMixedComparison, unittest.TestCase):
         t = self.theclass(1, 2, 3, 4)
         self.assertEqual(t.__format__(''), str(t))
 
-        with self.assertRaisesRegex(TypeError, '^must be str, not int$'):
+        with self.assertRaisesRegex(TypeError, 'must be str, not int'):
             t.__format__(123)
 
         # check that a derived class's __str__() gets called
@@ -2473,7 +2476,7 @@ class TestTime(HarmlessMixedComparison, unittest.TestCase):
             self.theclass(bytes([1] * len(base)), 'EST')
 
 # A mixin for classes with a tzinfo= argument.  Subclasses must define
-# theclass as a class atribute, and theclass(1, 1, 1, tzinfo=whatever)
+# theclass as a class attribute, and theclass(1, 1, 1, tzinfo=whatever)
 # must be legit (which is true for time and datetime).
 class TZInfoBase:
 
@@ -3423,6 +3426,14 @@ class TestDateTimeTZ(TestDateTime, TZInfoBase, unittest.TestCase):
         self.assertEqual(dt, local)
         self.assertEqual(local.strftime("%z %Z"), "-0400 EDT")
 
+    @support.run_with_tz('EST+05EDT,M3.2.0,M11.1.0')
+    def test_astimezone_default_near_fold(self):
+        # Issue #26616.
+        u = datetime(2015, 11, 1, 5, tzinfo=timezone.utc)
+        t = u.astimezone()
+        s = t.astimezone()
+        self.assertEqual(t.tzinfo, s.tzinfo)
+
     def test_aware_subtract(self):
         cls = self.theclass
 
@@ -3873,7 +3884,7 @@ class Oddballs(unittest.TestCase):
         self.assertRaises(TypeError, lambda: as_date >= as_datetime)
         self.assertRaises(TypeError, lambda: as_datetime >= as_date)
 
-        # Neverthelss, comparison should work with the base-class (date)
+        # Nevertheless, comparison should work with the base-class (date)
         # projection if use of a date method is forced.
         self.assertEqual(as_date.__eq__(as_datetime), True)
         different_day = (as_date.day + 1) % 20 + 1

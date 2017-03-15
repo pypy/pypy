@@ -270,6 +270,37 @@ class AppTestTypeObject:
             assert 0, "exception not propagated"
             """
 
+    def test_mutable_bases_with_failing_mro_2(self): """
+        class E(Exception):
+            pass
+        class M(type):
+            def mro(cls):
+                if cls.__name__ == 'Sub' and A.__bases__ == (Base1,):
+                    A.__bases__ = (Base2,)
+                    raise E
+                return type.mro(cls)
+
+        class Base0:
+            pass
+        class Base1:
+            pass
+        class Base2:
+            pass
+        class A(Base0, metaclass=M):
+            pass
+        class Sub(A):
+            pass
+
+        try:
+            A.__bases__ = (Base1,)
+        except E:
+            assert A.__bases__ == (Base2,)
+            assert A.__mro__ == (A, Base2, object)
+            assert Sub.__mro__ == (Sub, A, Base2, object)
+        else:
+            assert 0
+        """
+
     def test_mutable_bases_catch_mro_conflict(self):
         class A(object):
             pass
@@ -636,6 +667,11 @@ class AppTestTypeObject:
         b.abc = "awesomer"
         assert b.abc == "awesomer"
 
+    def test_bad_slots(self):
+        raises(TypeError, type, 'A', (), {'__slots__': b'x'})
+        raises(TypeError, type, 'A', (), {'__slots__': 42})
+        raises(TypeError, type, 'A', (), {'__slots__': '2_x'})
+
     def test_base_attr(self):
         # check the '__base__'
         class A(object):
@@ -904,6 +940,25 @@ class AppTestTypeObject:
             assert str(e) == "type name must not contain null characters"
         else:
             assert False
+
+    def test_qualname(self):
+        A = type('A', (), {'__qualname__': 'B.C'})
+        assert A.__name__ == 'A'
+        assert A.__qualname__ == 'B.C'
+        raises(TypeError, type, 'A', (), {'__qualname__': b'B'})
+        assert A.__qualname__ == 'B.C'
+
+        A.__qualname__ = 'D.E'
+        assert A.__name__ == 'A'
+        assert A.__qualname__ == 'D.E'
+
+        C = type('C', (), {})
+        C.__name__ = 'A'
+        assert C.__name__ == 'A'
+        assert C.__qualname__ == 'C'
+
+        e = raises(TypeError, type, 'D', (), {'__qualname__': 42})
+        assert str(e.value) == "type __qualname__ must be a str, not int"
 
     def test_compare(self):
         class A(object):
@@ -1360,6 +1415,8 @@ class AppTestNewShortcut:
         assert type.__ne__(dict, 42) is NotImplemented
         assert type.__eq__(int, int) == True
         assert type.__eq__(int, dict) is NotImplemented
+
+
 class AppTestComparesByIdentity:
 
     def setup_class(cls):
@@ -1404,3 +1461,19 @@ class AppTestComparesByIdentity:
     def test_duplicate_slot_name(self):
         class X:   # does not raise
             __slots__ = 'a', 'a'
+
+    def test_descriptor_objclass(self):
+        class X(object):
+            pass
+        assert X.__dict__['__dict__'].__objclass__ is X
+        assert X.__dict__['__weakref__'].__objclass__ is X
+        assert object.__dict__['__class__'].__objclass__ is object
+        assert int.__dict__['imag'].__objclass__ is int
+        assert type.__dict__['__name__'].__objclass__ is type
+        assert type.__dict__['__doc__'].__objclass__ is type
+        #
+        assert type.__dict__['__name__'].__name__ == '__name__'
+        assert type.__dict__['__doc__'].__name__ == '__doc__'
+
+    def test_type_construct_unicode_surrogate_issue(self):
+        raises(ValueError, type, 'A\udcdcb', (), {})

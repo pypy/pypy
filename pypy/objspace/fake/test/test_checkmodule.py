@@ -9,9 +9,9 @@ from pypy.interpreter.gateway import interp2app, ObjSpace
 
 def make_checker():
     check = []
+    @specialize.memo()
     def see():
         check.append(True)
-    see._annspecialcase_ = 'specialize:memo'
     return see, check
 
 def test_wrap_interp2app():
@@ -19,7 +19,7 @@ def test_wrap_interp2app():
     space = FakeObjSpace()
     assert len(space._seen_extras) == 1
     assert len(check) == 0
-    space.wrap(interp2app(lambda space: see()))
+    interp2app(lambda space: see()).spacebind(space)
     assert len(space._seen_extras) == 2
     assert len(check) == 0
     space.translates()
@@ -30,7 +30,7 @@ def test_wrap_interp2app_int():
     def foobar(space, x, w_y, z):
         is_root(w_y)
         see()
-        return space.wrap(x - z)
+        return space.newint(x - z)
     space = FakeObjSpace()
     space.wrap(interp2app(foobar, unwrap_spec=[ObjSpace, int, W_Root, int]))
     space.translates()
@@ -89,7 +89,7 @@ def test_gettype_mro():
     space = FakeObjSpace()
 
     def f(i):
-        w_x = space.wrap(i)
+        w_x = space.newint(i)
         w_type = space.type(w_x)
         return len(w_type.mro_w)
 

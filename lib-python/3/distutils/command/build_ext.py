@@ -170,6 +170,7 @@ class build_ext(Command):
             self.include_dirs.append(plat_py_include)
 
         self.ensure_string_list('libraries')
+        self.ensure_string_list('link_objects')
 
         # Life is easier if we're not forever checking for None, so
         # simplify these options to empty lists if unset
@@ -764,7 +765,7 @@ class build_ext(Command):
             if sysconfig.get_config_var('Py_ENABLE_SHARED'):
                 pythonlib = 'python{}.{}{}'.format(
                     sys.hexversion >> 24, (sys.hexversion >> 16) & 0xff,
-                    sys.abiflags)
+                    sysconfig.get_config_var('ABIFLAGS'))
                 return ext.libraries + [pythonlib]
             else:
                 return ext.libraries

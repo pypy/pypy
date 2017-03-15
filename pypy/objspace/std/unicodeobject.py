@@ -1,12 +1,14 @@
 """The builtin str implementation"""
 
 from rpython.rlib.objectmodel import (
-    compute_hash, compute_unique_id, import_from_mixin)
+    compute_hash, compute_unique_id, import_from_mixin,
+    enforceargs)
 from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.runicode import (
     make_unicode_escape_function, str_decode_ascii, str_decode_utf_8,
-    unicode_encode_ascii, unicode_encode_utf_8, fast_str_decode_ascii)
+    unicode_encode_ascii, unicode_encode_utf_8, fast_str_decode_ascii,
+    unicode_encode_utf8_forbid_surrogates, SurrogateError)
 from rpython.rlib import jit
 
 from pypy.interpreter import unicodehelper
@@ -28,6 +30,7 @@ class W_UnicodeObject(W_Root):
     import_from_mixin(StringMethods)
     _immutable_fields_ = ['_value']
 
+    @enforceargs(uni=unicode)
     def __init__(self, unistr):
         assert isinstance(unistr, unicode)
         self._value = unistr
@@ -72,26 +75,24 @@ class W_UnicodeObject(W_Root):
             else:
                 base = 257       # empty unicode string: base value 257
             uid = (base << IDTAG_SHIFT) | IDTAG_SPECIAL
-        return space.wrap(uid)
+        return space.newint(uid)
 
     def unicode_w(self, space):
         return self._value
 
-    def identifier_w(self, space):
+    def text_w(self, space):
         try:
-            # call the elidable function, with a jit.call_shortcut in case
-            # self._utf8 is already computed
-            identifier = g_identifier_w(self, space)
-        except UnicodeEncodeError:
-            # bah, this is just to get an official app-level
-            # UnicodeEncodeError
-            u = self._value
-            eh = unicodehelper.rpy_encode_error_handler()
-            try:
-                identifier = unicode_encode_utf_8(u, len(u), None,
-                                                  errorhandler=eh)
-            except unicodehelper.RUnicodeEncodeError as ue:
-                raise wrap_encode_error(space, ue)
+            identifier = jit.conditional_call_elidable(
+                                self._utf8, g_encode_utf8, self._value)
+        except SurrogateError as e:
+            raise OperationError(space.w_UnicodeEncodeError,
+                    space.newtuple([space.newtext('utf-8'),
+                                    self,
+                                    space.newint(e.index-1),
+                                    space.newint(e.index),
+                                    space.newtext("surrogates not allowed")]))
+        if not jit.isconstant(self):
+            self._utf8 = identifier
         return identifier
 
     def listview_unicode(self):
@@ -102,7 +103,7 @@ class W_UnicodeObject(W_Root):
             raise oefmt(space.w_TypeError,
                          "ord() expected a character, but string of length %d "
                          "found", len(self._value))
-        return space.wrap(ord(self._value[0]))
+        return space.newint(ord(self._value[0]))
 
     def _new(self, value):
         return W_UnicodeObject(value)
@@ -312,8 +313,8 @@ class W_UnicodeObject(W_Root):
     def descr_repr(self, space):
         chars = self._value
         size = len(chars)
-        s = _repr_function(chars, size, "strict")
-        return space.wrap(s)
+        u = _repr_function(chars, size, "strict")
+        return space.newunicode(u)
 
     def descr_str(self, space):
         if space.is_w(space.type(self), space.w_unicode):
@@ -323,7 +324,7 @@ class W_UnicodeObject(W_Root):
 
     def descr_hash(self, space):
         x = compute_hash(self._value)
-        return space.wrap(x)
+        return space.newint(x)
 
     def descr_eq(self, space, w_other):
         try:
@@ -412,11 +413,11 @@ class W_UnicodeObject(W_Root):
         selfvalue = self._value
         w_sys = space.getbuiltinmodule('sys')
         maxunicode = space.int_w(space.getattr(w_sys,
-                                               space.wrap("maxunicode")))
+                                               space.newtext("maxunicode")))
         result = []
         for unichar in selfvalue:
             try:
-                w_newval = space.getitem(w_table, space.wrap(ord(unichar)))
+                w_newval = space.getitem(w_table, space.newint(ord(unichar)))
             except OperationError as e:
                 if e.match(space, space.w_LookupError):
                     result.append(unichar)
@@ -428,7 +429,7 @@ class W_UnicodeObject(W_Root):
                 elif space.isinstance_w(w_newval, space.w_int):
                     newval = space.int_w(w_newval)
                     if newval < 0 or newval > maxunicode:
-                        raise oefmt(space.w_TypeError,
+                        raise oefmt(space.w_ValueError,
                                     "character mapping must be in range(%s)",
                                     hex(maxunicode + 1))
                     result.append(unichr(newval))
@@ -450,15 +451,12 @@ class W_UnicodeObject(W_Root):
         l = space.listview_unicode(w_list)
         if l is not None:
             if len(l) == 1:
-                return space.wrap(l[0])
-            return space.wrap(self._val(space).join(l))
+                return space.newunicode(l[0])
+            return space.newunicode(self._val(space).join(l))
         return self._StringMethods_descr_join(space, w_list)
 
     def _join_return_one(self, space, w_obj):
         return space.is_w(space.type(w_obj), space.w_unicode)
-
-    def _join_check_item(self, space, w_obj):
-        return not space.isinstance_w(w_obj, space.w_unicode)
 
     def descr_casefold(self, space):
         value = self._val(space)
@@ -556,26 +554,23 @@ def getdefaultencoding(space):
 
 
 def _get_encoding_and_errors(space, w_encoding, w_errors):
-    encoding = None if w_encoding is None else space.str_w(w_encoding)
-    errors = None if w_errors is None else space.str_w(w_errors)
+    encoding = None if w_encoding is None else space.text_w(w_encoding)
+    errors = None if w_errors is None else space.text_w(w_errors)
     return encoding, errors
 
 
 def encode_object(space, w_object, encoding, errors):
     if errors is None or errors == 'strict':
-        try:
-            if encoding is None or encoding == 'utf-8':
-                u = space.unicode_w(w_object)
-                eh = unicodehelper.encode_error_handler(space)
-                return space.newbytes(unicode_encode_utf_8(
-                        u, len(u), errors, errorhandler=eh))
-            elif encoding == 'ascii':
-                u = space.unicode_w(w_object)
-                eh = unicodehelper.encode_error_handler(space)
-                return space.newbytes(unicode_encode_ascii(
-                        u, len(u), errors, errorhandler=eh))
-        except unicodehelper.RUnicodeEncodeError as ue:
-            raise wrap_encode_error(space, ue)
+        if encoding is None or encoding == 'utf-8':
+            u = space.unicode_w(w_object)
+            eh = unicodehelper.encode_error_handler(space)
+            return space.newbytes(unicode_encode_utf_8(
+                    u, len(u), errors, errorhandler=eh))
+        elif encoding == 'ascii':
+            u = space.unicode_w(w_object)
+            eh = unicodehelper.encode_error_handler(space)
+            return space.newbytes(unicode_encode_ascii(
+                    u, len(u), errors, errorhandler=eh))
 
     from pypy.module._codecs.interp_codecs import encode_text
     w_retval = encode_text(space, w_object, encoding, errors)
@@ -586,22 +581,11 @@ def encode_object(space, w_object, encoding, errors):
     return w_retval
 
 
-def wrap_encode_error(space, ue):
-    raise OperationError(space.w_UnicodeEncodeError,
-                         space.newtuple([
-        space.wrap(ue.encoding),
-        space.wrap(ue.object),
-        space.wrap(ue.start),
-        space.wrap(ue.end),
-        space.wrap(ue.reason)]))
-
-
 def decode_object(space, w_obj, encoding, errors):
     if encoding is None:
         encoding = getdefaultencoding(space)
     if errors is None or errors == 'strict':
         if encoding == 'ascii':
-            # XXX error handling
             s = space.charbuf_w(w_obj)
             try:
                 u = fast_str_decode_ascii(s)
@@ -609,11 +593,11 @@ def decode_object(space, w_obj, encoding, errors):
                 eh = unicodehelper.decode_error_handler(space)
                 u = str_decode_ascii(     # try again, to get the error right
                     s, len(s), None, final=True, errorhandler=eh)[0]
-            return space.wrap(u)
+            return space.newunicode(u)
         if encoding == 'utf-8':
             s = space.charbuf_w(w_obj)
             eh = unicodehelper.decode_error_handler(space)
-            return space.wrap(str_decode_utf_8(
+            return space.newunicode(str_decode_utf_8(
                     s, len(s), None, final=True, errorhandler=eh)[0])
 
     from pypy.module._codecs.interp_codecs import decode_text
@@ -1259,7 +1243,11 @@ W_UnicodeObject.EMPTY = W_UnicodeObject(u'')
 def unicode_to_decimal_w(space, w_unistr, allow_surrogates=False):
     if not isinstance(w_unistr, W_UnicodeObject):
         raise oefmt(space.w_TypeError, "expected unicode, got '%T'", w_unistr)
-    unistr = w_unistr._value
+    value = _rpy_unicode_to_decimal_w(space, w_unistr._value)
+    return unicodehelper.encode_utf8(space, value,
+                                     allow_surrogates=allow_surrogates)
+
+def _rpy_unicode_to_decimal_w(space, unistr):
     result = [u'\0'] * len(unistr)
     for i in xrange(len(unistr)):
         uchr = ord(unistr[i])
@@ -1272,19 +1260,12 @@ def unicode_to_decimal_w(space, w_unistr, allow_surrogates=False):
             except KeyError:
                 pass
         result[i] = unichr(uchr)
-    return unicodehelper.encode_utf8(space, u''.join(result),
-                                     allow_surrogates=allow_surrogates)
+    return u''.join(result)
 
 @jit.elidable
-@jit.call_shortcut
-def g_identifier_w(self, space):
-    """This is a global function because of @jit.call_shortcut"""
-    identifier = self._utf8
-    if identifier is not None:
-        return identifier
-    identifier = self._value.encode('utf-8')
-    self._utf8 = identifier
-    return identifier
+def g_encode_utf8(value):
+    """This is a global function because of jit.conditional_call_value"""
+    return unicode_encode_utf8_forbid_surrogates(value, len(value))
 
 _repr_function, _ = make_unicode_escape_function(
     pass_printable=True, unicode_output=True, quotes=True, prefix='')

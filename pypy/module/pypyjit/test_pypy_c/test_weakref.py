@@ -14,7 +14,7 @@ class TestThread(BaseTestPyPyC):
 
         def main(n):
             obj = Dummy()
-            for i in xrange(n):
+            for i in range(n):
                 weakref.ref(obj, noop)
         """, [500])
         loop, = log.loops_by_filename(self.filepath)

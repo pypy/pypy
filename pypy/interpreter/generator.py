@@ -3,7 +3,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.pyopcode import LoopBlock, SApplicationException, Yield
 from pypy.interpreter.pycode import CO_YIELD_INSIDE_TRY
 from pypy.interpreter.astcompiler import consts
-from rpython.rlib import jit
+from rpython.rlib import jit, rgc
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_uint
 
@@ -20,8 +20,10 @@ class GeneratorOrCoroutine(W_Root):
         self.running = False
         self._name = name           # may be null, use get_name()
         self._qualname = qualname   # may be null, use get_qualname()
-        if self.pycode.co_flags & CO_YIELD_INSIDE_TRY:
+        if (isinstance(self, Coroutine)
+                or self.pycode.co_flags & CO_YIELD_INSIDE_TRY):
             self.register_finalizer(self.space)
+        self.saved_operr = None
 
     def get_name(self):
         # 'name' is a byte string that is valid utf-8
@@ -40,46 +42,10 @@ class GeneratorOrCoroutine(W_Root):
 
     def descr__repr__(self, space):
         addrstring = self.getaddrstring(space)
-        return space.wrap(u"<%s object %s at 0x%s>" %
+        return space.newunicode(u"<%s object %s at 0x%s>" %
                           (unicode(self.KIND),
                            self.get_qualname(),
                            unicode(addrstring)))
-
-    def descr__reduce__(self, space):
-        from pypy.interpreter.mixedmodule import MixedModule
-        w_mod = space.getbuiltinmodule('_pickle_support')
-        mod = space.interp_w(MixedModule, w_mod)
-        new_inst = mod.get(self.KIND + '_new')
-        w = space.wrap
-        if self.frame:
-            w_frame = self.frame._reduce_state(space)
-        else:
-            w_frame = space.w_None
-
-        tup = [w_frame, w(self.running)]
-        return space.newtuple([new_inst, space.newtuple([]),
-                               space.newtuple(tup)])
-
-    def descr__setstate__(self, space, w_args):
-        from rpython.rlib.objectmodel import instantiate
-        args_w = space.unpackiterable(w_args)
-        w_framestate, w_running = args_w
-        if space.is_w(w_framestate, space.w_None):
-            self.frame = None
-            self.space = space
-            self.pycode = None
-            self._name = None
-            self._qualname = None
-        else:
-            frame = instantiate(space.FrameClass)   # XXX fish
-            frame.descr__setstate__(space, w_framestate)
-            if isinstance(self, GeneratorIterator):
-                GeneratorIterator.__init__(self, frame)
-            elif isinstance(self, Coroutine):
-                Coroutine.__init__(self, frame)
-            else:
-                assert False
-        self.running = self.space.is_true(w_running)
 
     def descr_send(self, w_arg):
         """send(arg) -> send 'arg' into generator/coroutine,
@@ -123,12 +89,11 @@ return next yielded value or raise StopIteration."""
 
         # if the frame is now marked as finished, it was RETURNed from
         if frame.frame_finished_execution:
-            self.frame = None
+            self.frame_is_finished()
             if space.is_w(w_result, space.w_None):
                 raise OperationError(space.w_StopIteration, space.w_None)
             else:
-                raise OperationError(space.w_StopIteration,
-                        space.call_function(space.w_StopIteration, w_result))
+                raise stopiteration_value(space, w_result)
         else:
             return w_result     # YIELDed
 
@@ -136,6 +101,19 @@ return next yielded value or raise StopIteration."""
         space = self.space
         if self.running:
             raise oefmt(space.w_ValueError, "%s already executing", self.KIND)
+        ec = space.getexecutioncontext()
+        current_exc_info = ec.sys_exc_info()
+        if self.saved_operr is not None:
+            ec.set_sys_exc_info(self.saved_operr)
+            self.saved_operr = None
+        #
+        # Optimization only: after we've started a Coroutine without
+        # CO_YIELD_INSIDE_TRY, then Coroutine._finalize_() will be a no-op
+        if (isinstance(self, Coroutine)
+                and frame.last_instr == -1
+                and not (self.pycode.co_flags & CO_YIELD_INSIDE_TRY)):
+            rgc.may_ignore_finalizer(self)
+        #
         self.running = True
         try:
             w_result = frame.execute_frame(self, w_arg_or_err)
@@ -145,11 +123,17 @@ return next yielded value or raise StopIteration."""
                 if e.match(space, space.w_StopIteration):
                     self._leak_stopiteration(e)
             finally:
-                self.frame = None
+                self.frame_is_finished()
             raise
         finally:
             frame.f_backref = jit.vref_None
             self.running = False
+            # note: this is not perfectly correct: see
+            # test_exc_info_in_generator_4.  But it's simpler and
+            # bug-to-bug compatible with CPython 3.5.
+            if frame._any_except_or_finally_handler():
+                self.saved_operr = ec.sys_exc_info()
+            ec.set_sys_exc_info(current_exc_info)
         return w_result
 
     def resume_execute_frame(self, frame, w_arg_or_err):
@@ -162,7 +146,7 @@ return next yielded value or raise StopIteration."""
             try:
                 self.next_yield_from(frame, w_yf, w_arg_or_err)
             except OperationError as operr:
-                operr.record_context(space, frame)
+                operr.record_context(space, space.getexecutioncontext())
                 return frame.handle_generator_error(operr)
             # Normal case: the call above raises Yield.
             # We reach this point if the iterable is exhausted.
@@ -200,9 +184,10 @@ return next yielded value or raise StopIteration."""
             if not e.match(space, space.w_StopIteration):
                 raise
             e.normalize_exception(space)
+            frame._report_stopiteration_sometimes(w_yf, e)
             try:
                 w_stop_value = space.getattr(e.get_w_value(space),
-                                             space.wrap("value"))
+                                             space.newtext("value"))
             except OperationError as e:
                 if not e.match(space, space.w_AttributeError):
                     raise
@@ -223,14 +208,15 @@ return next yielded value or raise StopIteration."""
                                    consts.CO_COROUTINE |
                                    consts.CO_ITERABLE_COROUTINE):
             e2 = OperationError(space.w_RuntimeError,
-                                space.wrap("%s raised StopIteration" %
-                                           self.KIND),
-                                w_cause=e.get_w_value(space))
-            e2.record_context(space, self.frame)
+                                space.newtext("%s raised StopIteration" %
+                                              self.KIND))
+            e2.chain_exceptions(space, e)
+            e2.set_cause(space, e.get_w_value(space))
+            e2.record_context(space, space.getexecutioncontext())
             raise e2
         else:
-            space.warn(space.wrap(u"generator '%s' raised StopIteration"
-                                  % self.get_qualname()),
+            space.warn(space.newunicode(u"generator '%s' raised StopIteration"
+                                        % self.get_qualname()),
                        space.w_PendingDeprecationWarning)
 
     def descr_throw(self, w_type, w_val=None, w_tb=None):
@@ -264,7 +250,7 @@ return next yielded value or raise StopIteration."""
 
         if tb is None:
             tb = space.getattr(operr.get_w_value(space),
-                               space.wrap('__traceback__'))
+                               space.newtext('__traceback__'))
             if not space.is_w(tb, space.w_None):
                 operr.set_traceback(tb)
         return self.send_error(operr)
@@ -310,17 +296,17 @@ return next yielded value or raise StopIteration."""
             return space.w_None
 
     def descr__name__(self, space):
-        return space.wrap(self.get_name().decode('utf-8'))
+        return space.newtext(self.get_name())
 
     def descr_set__name__(self, space, w_name):
         if space.isinstance_w(w_name, space.w_unicode):
-            self._name = space.str_w(w_name)
+            self._name = space.text_w(w_name)
         else:
             raise oefmt(space.w_TypeError,
                         "__name__ must be set to a string object")
 
     def descr__qualname__(self, space):
-        return space.wrap(self.get_qualname())
+        return space.newunicode(self.get_qualname())
 
     def descr_set__qualname__(self, space, w_name):
         try:
@@ -345,6 +331,10 @@ return next yielded value or raise StopIteration."""
                     break
                 block = block.previous
 
+    def frame_is_finished(self):
+        self.frame = None
+        rgc.may_ignore_finalizer(self)
+
 
 class GeneratorIterator(GeneratorOrCoroutine):
     "An iterator created by a generator."
@@ -352,7 +342,7 @@ class GeneratorIterator(GeneratorOrCoroutine):
 
     def descr__iter__(self):
         """Implement iter(self)."""
-        return self.space.wrap(self)
+        return self
 
     def descr_next(self):
         """Implement next(self)."""
@@ -386,7 +376,7 @@ class GeneratorIterator(GeneratorOrCoroutine):
                     break
                 # if the frame is now marked as finished, it was RETURNed from
                 if frame.frame_finished_execution:
-                    self.frame = None
+                    self.frame_is_finished()
                     break
                 results.append(w_result)     # YIELDed
         return unpack_into
@@ -399,7 +389,7 @@ class Coroutine(GeneratorOrCoroutine):
     KIND = "coroutine"
 
     def descr__await__(self, space):
-        return space.wrap(CoroutineWrapper(self))
+        return CoroutineWrapper(self)
 
     def _finalize_(self):
         # If coroutine was never awaited on issue a RuntimeWarning.
@@ -408,7 +398,7 @@ class Coroutine(GeneratorOrCoroutine):
            self.frame.last_instr == -1:
             space = self.space
             msg = u"coroutine '%s' was never awaited" % self.get_qualname()
-            space.warn(space.w_RuntimeWarning, space.wrap(msg))
+            space.warn(space.newunicode(msg), space.w_RuntimeWarning)
         GeneratorOrCoroutine._finalize_(self)
 
 
@@ -419,7 +409,7 @@ class CoroutineWrapper(W_Root):
         self.coroutine = coroutine
 
     def descr__iter__(self, space):
-        return space.wrap(self)
+        return self
 
     def descr__next__(self, space):
         return self.coroutine.send_ex(space.w_None)
@@ -445,13 +435,20 @@ class AIterWrapper(W_Root):
         self.w_aiter = w_aiter
 
     def descr__await__(self, space):
-        return space.wrap(self)
+        return self
 
     def descr__iter__(self, space):
-        return space.wrap(self)
+        return self
 
     def descr__next__(self, space):
-        raise OperationError(space.w_StopIteration, self.w_aiter)
+        raise stopiteration_value(space, self.w_aiter)
+
+def stopiteration_value(space, w_value):
+    # Mess.  The obvious line, "OperationError(w_StopIteration, w_value)",
+    # fails for some types of w_value.  E.g. if it's a subclass of
+    # tuple, it will be unpacked as individual arguments.
+    raise OperationError(space.w_StopIteration,
+                         space.call_function(space.w_StopIteration, w_value))
 
 
 @specialize.memo()
@@ -466,7 +463,7 @@ def gen_close_iter(space, w_yf):
         w_yf.descr_close()
     else:
         try:
-            w_close = space.getattr(w_yf, space.wrap("close"))
+            w_close = space.getattr(w_yf, space.newtext("close"))
         except OperationError as e:
             if not e.match(space, space.w_AttributeError):
                 # aaaaaaaah but that's what CPython does too
@@ -479,7 +476,7 @@ def delegate_to_nongen(space, w_yf, w_inputvalue_or_err):
     if isinstance(w_inputvalue_or_err, SApplicationException):
         operr = w_inputvalue_or_err.operr
         try:
-            w_meth = space.getattr(w_yf, space.wrap("throw"))
+            w_meth = space.getattr(w_yf, space.newtext("throw"))
         except OperationError as e:
             if not e.match(space, space.w_AttributeError):
                 raise
@@ -490,7 +487,7 @@ def delegate_to_nongen(space, w_yf, w_inputvalue_or_err):
         operr.normalize_exception(space)
         w_exc = operr.w_type
         w_val = operr.get_w_value(space)
-        w_tb  = space.wrap(operr.get_traceback())
+        w_tb  = operr.get_w_traceback(space)
         return space.call_function(w_meth, w_exc, w_val, w_tb)
     else:
         return space.call_method(w_yf, "send", w_inputvalue_or_err)

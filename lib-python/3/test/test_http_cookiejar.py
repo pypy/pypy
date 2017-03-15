@@ -31,6 +31,28 @@ class DateTimeTests(unittest.TestCase):
             self.assertRegex(text, r"^\d{4}-\d\d-\d\d \d\d:\d\d:\d\dZ$",
                              "bad time2isoz format: %s %s" % (az, bz))
 
+    def test_time2netscape(self):
+        base = 1019227000
+        day = 24*3600
+        self.assertEqual(time2netscape(base), "Fri, 19-Apr-2002 14:36:40 GMT")
+        self.assertEqual(time2netscape(base+day),
+                         "Sat, 20-Apr-2002 14:36:40 GMT")
+
+        self.assertEqual(time2netscape(base+2*day),
+                         "Sun, 21-Apr-2002 14:36:40 GMT")
+
+        self.assertEqual(time2netscape(base+3*day),
+                         "Mon, 22-Apr-2002 14:36:40 GMT")
+
+        az = time2netscape()
+        bz = time2netscape(500000)
+        for text in (az, bz):
+            # Format "%s, %02d-%s-%04d %02d:%02d:%02d GMT"
+            self.assertRegex(
+                text,
+                r"[a-zA-Z]{3}, \d{2}-[a-zA-Z]{3}-\d{4} \d{2}:\d{2}:\d{2} GMT$",
+                "bad time2netscape format: %s %s" % (az, bz))
+
     def test_http2time(self):
         def parse_date(text):
             return time.gmtime(http2time(text))[:6]
@@ -91,6 +113,10 @@ class DateTimeTests(unittest.TestCase):
             '01-01-1980 25:00:00',
             '01-01-1980 00:61:00',
             '01-01-1980 00:00:62',
+            '08-Oct-3697739',
+            '08-01-3697739',
+            '09 Feb 19942632 22:23:32 GMT',
+            'Wed, 09 Feb 1994834 22:23:32 GMT',
             ]:
             self.assertIsNone(http2time(test),
                               "http2time(%s) is not None\n"
@@ -370,7 +396,7 @@ class CookieTests(unittest.TestCase):
 ##   comma-separated list, it'll be a headache to parse (at least my head
 ##   starts hurting every time I think of that code).
 ## - Expires: You'll get all sorts of date formats in the expires,
-##   including emtpy expires attributes ("expires="). Be as flexible as you
+##   including empty expires attributes ("expires="). Be as flexible as you
 ##   can, and certainly don't expect the weekday to be there; if you can't
 ##   parse it, just ignore it and pretend it's a session cookie.
 ## - Domain-matching: Netscape uses the 2-dot rule for _all_ domains, not
@@ -1725,7 +1751,7 @@ class LWPCookieTests(unittest.TestCase):
             key = "%s_after" % cookie.value
             counter[key] = counter[key] + 1
 
-            # a permanent cookie got lost accidently
+            # a permanent cookie got lost accidentally
         self.assertEqual(counter["perm_after"], counter["perm_before"])
             # a session cookie hasn't been cleared
         self.assertEqual(counter["session_after"], 0)

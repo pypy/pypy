@@ -193,6 +193,7 @@ def ismount(path):
         parent = join(path, b'..')
     else:
         parent = join(path, '..')
+    parent = realpath(parent)
     try:
         s2 = os.lstat(parent)
     except OSError:
@@ -372,7 +373,7 @@ symbolic links encountered in the path."""
     path, ok = _joinrealpath(filename[:0], filename, {})
     return abspath(path)
 
-# Join two paths, normalizing ang eliminating any symbolic links
+# Join two paths, normalizing and eliminating any symbolic links
 # encountered in the second path.
 def _joinrealpath(path, rest, seen):
     if isinstance(path, bytes):

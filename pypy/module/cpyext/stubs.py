@@ -13,7 +13,6 @@ PyModuleDef = rffi.VOIDP
 PyMethodDef = rffi.VOIDP
 PyGetSetDef = rffi.VOIDP
 PyMemberDef = rffi.VOIDP
-Py_buffer = rffi.VOIDP
 va_list = rffi.VOIDP
 wrapperbase = rffi.VOIDP
 FILE = rffi.VOIDP
@@ -406,14 +405,6 @@ def PyErr_WarnExplicit(space, category, message, filename, lineno, module, regis
     (sys.getfilesystemencoding())."""
     raise NotImplementedError
 
-@cpython_api([PyObject, Py_ssize_t, rffi.CCHARP, ], rffi.INT_real, error=-1)
-def PyErr_WarnFormat(space, category, stack_level, format, ):
-    """Function similar to PyErr_WarnEx(), but use
-    PyUnicode_FromFormat() to format the warning message.  format is
-    an ASCII-encoded string.
-    """
-    raise NotImplementedError
-
 
 @cpython_api([rffi.INT_real], rffi.INT_real, error=-1)
 def PySignal_SetWakeupFd(space, fd):
@@ -669,54 +660,11 @@ def _PyObject_GC_UNTRACK(space, op):
     extension modules."""
     raise NotImplementedError
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyGen_Check(space, ob):
-    """Return true if ob is a generator object; ob must not be NULL."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyGen_CheckExact(space, ob):
-    """Return true if ob's type is PyGen_Type is a generator object; ob must not
-    be NULL."""
-    raise NotImplementedError
-
 @cpython_api([PyFrameObject], PyObject)
 def PyGen_New(space, frame):
     """Create and return a new generator object based on the frame object. A
     reference to frame is stolen by this function. The parameter must not be
     NULL."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, PyObject, PyObject, PyObject], PyObject)
-def PyImport_ImportModuleEx(space, name, globals, locals, fromlist):
-    """
-
-
-
-    Import a module.  This is best described by referring to the built-in Python
-    function __import__(), as the standard __import__() function calls
-    this function directly.
-
-    The return value is a new reference to the imported module or top-level
-    package, or NULL with an exception set on failure.  Like for
-    __import__(), the return value when a submodule of a package was
-    requested is normally the top-level package, unless a non-empty fromlist
-    was given.
-
-    Failing imports remove incomplete module objects, like with
-    PyImport_ImportModule()."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, PyObject, PyObject, PyObject, rffi.INT_real], PyObject)
-def PyImport_ImportModuleLevel(space, name, globals, locals, fromlist, level):
-    """Import a module.  This is best described by referring to the built-in Python
-    function __import__(), as the standard __import__() function calls
-    this function directly.
-
-    The return value is a new reference to the imported module or top-level package,
-    or NULL with an exception set on failure.  Like for __import__(),
-    the return value when a submodule of a package was requested is normally the
-    top-level package, unless a non-empty fromlist was given."""
     raise NotImplementedError
 
 @cpython_api([rffi.CCHARP, PyObject, rffi.CCHARP, rffi.CCHARP], PyObject)
@@ -1041,7 +989,8 @@ def PySys_SetArgvEx(space, argc, argv, updatepath):
 
 @cpython_api([rffi.INT_real, CWCHARPP], lltype.Void)
 def PySys_SetArgv(space, argc, argv):
-    """This function works like PySys_SetArgvEx() with updatepath set to 1."""
+    """This function works like PySys_SetArgvEx() with updatepath set
+    to 1 unless the python interpreter was started with the option -I."""
     raise NotImplementedError
 
 @cpython_api([rffi.CWCHARP], lltype.Void)
@@ -1497,18 +1446,6 @@ def PyFrozenSet_Check(space, p):
     raise NotImplementedError
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyAnySet_Check(space, p):
-    """Return true if p is a set object, a frozenset object, or an
-    instance of a subtype."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyAnySet_CheckExact(space, p):
-    """Return true if p is a set object or a frozenset object but
-    not an instance of a subtype."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyFrozenSet_CheckExact(space, p):
     """Return true if p is a frozenset object but not an instance of a
     subtype."""
@@ -1529,14 +1466,6 @@ def Py_FdIsInteractive(space, fp, filename):
     is true.  If the global flag Py_InteractiveFlag is true, this function
     also returns true if the filename pointer is NULL or if the name is equal to
     one of the strings '<stdin>' or '???'."""
-    raise NotImplementedError
-
-@cpython_api([], lltype.Void)
-def PyOS_AfterFork(space):
-    """Function to update some internal state after a process fork; this should be
-    called in the new process if the Python interpreter will continue to be used.
-    If a new executable is loaded into the new process, this function does not need
-    to be called."""
     raise NotImplementedError
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
@@ -1929,28 +1858,6 @@ def PyUnicode_Contains(space, container, element):
     there was an error."""
     raise NotImplementedError
 
-@cpython_api([PyObjectP], lltype.Void)
-def PyUnicode_InternInPlace(space, string):
-    """Intern the argument *string in place.  The argument must be the address of a
-    pointer variable pointing to a Python unicode string object.  If there is an
-    existing interned string that is the same as *string, it sets *string to
-    it (decrementing the reference count of the old string object and incrementing
-    the reference count of the interned string object), otherwise it leaves
-    *string alone and interns it (incrementing its reference count).
-    (Clarification: even though there is a lot of talk about reference counts, think
-    of this function as reference-count-neutral; you own the object after the call
-    if and only if you owned it before the call.)"""
-    raise NotImplementedError
-
-
-@cpython_api([rffi.CCHARP], PyObject)
-def PyUnicode_InternFromString(space, v):
-    """A combination of PyUnicode_FromString() and
-    PyUnicode_InternInPlace(), returning either a new unicode string object
-    that has been interned, or a new ("owned") reference to an earlier interned
-    string object with the same value."""
-    raise NotImplementedError
-
 
 @cpython_api([rffi.INT_real, CWCHARPP], rffi.INT_real, error=1)
 def Py_Main(space, argc, argv):
@@ -2169,19 +2076,4 @@ def PyEval_EvalFrameEx(space, f, throwflag):
     The additional throwflag parameter can mostly be ignored - if true, then
     it causes an exception to immediately be thrown; this is used for the
     throw() methods of generator objects."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyWeakref_Check(space, ob):
-    """Return true if ob is either a reference or proxy object."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyWeakref_CheckRef(space, ob):
-    """Return true if ob is a reference object."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyWeakref_CheckProxy(space, ob):
-    """Return true if ob is a proxy object."""
     raise NotImplementedError

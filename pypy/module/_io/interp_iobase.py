@@ -23,15 +23,15 @@ def trap_eintr(space, error):
         return False
     try:
         w_value = error.get_w_value(space)
-        w_errno = space.getattr(w_value, space.wrap("errno"))
-        return space.eq_w(w_errno, space.wrap(EINTR))
+        w_errno = space.getattr(w_value, space.newtext("errno"))
+        return space.eq_w(w_errno, space.newint(EINTR))
     except OperationError:
         return False
 
 def unsupported(space, message):
     w_exc = space.getattr(space.getbuiltinmodule('_io'),
-                          space.wrap('UnsupportedOperation'))
-    return OperationError(w_exc, space.wrap(message))
+                          space.newtext('UnsupportedOperation'))
+    return OperationError(w_exc, space.newtext(message))
 
 # May be called with any object
 def check_readable_w(space, w_obj):
@@ -60,7 +60,7 @@ class W_IOBase(W_Root):
         self.__IOBase_closed = False
         if add_to_autoflusher:
             get_autoflusher(space).add(self)
-        if self.needs_to_finalize:
+        if self.needs_finalizer():
             self.register_finalizer(space)
 
     def getdict(self, space):
@@ -69,20 +69,32 @@ class W_IOBase(W_Root):
     def _closed(self, space):
         # This gets the derived attribute, which is *not* __IOBase_closed
         # in most cases!
-        w_closed = space.findattr(self, space.wrap('closed'))
+        w_closed = space.findattr(self, space.newtext('closed'))
         if w_closed is not None and space.is_true(w_closed):
             return True
         return False
 
     def _finalize_(self):
+        # Note: there is only this empty _finalize_() method here, but
+        # we still need register_finalizer() so that descr_del() is
+        # called.  IMPORTANT: this is not the recommended way to have a
+        # finalizer!  It makes the finalizer appear as __del__() from
+        # app-level, and the user can call __del__() explicitly, or
+        # override it, with or without calling the parent's __del__().
+        # This matches 'tp_finalize' in CPython >= 3.4.  So far (3.5),
+        # this is the only built-in class with a 'tp_finalize' slot that
+        # can be subclassed.
+        pass
+
+    def descr_del(self):
         space = self.space
-        w_closed = space.findattr(self, space.wrap('closed'))
+        w_closed = space.findattr(self, space.newtext('closed'))
         try:
             # If `closed` doesn't exist or can't be evaluated as bool, then
             # the object is probably in an unusable state, so ignore.
             if w_closed is not None and not space.is_true(w_closed):
                 try:
-                    self._dealloc_warn_w(space, space.wrap(self))
+                    self._dealloc_warn_w(space, self)
                 finally:
                     space.call_method(self, "close")
         except OperationError:
@@ -90,7 +102,6 @@ class W_IOBase(W_Root):
             # equally as bad, and potentially more frequent (because of
             # shutdown issues).
             pass
-    needs_to_finalize = True
 
     def _CLOSED(self):
         # Use this macro whenever you want to check the internal `closed`
@@ -106,7 +117,7 @@ class W_IOBase(W_Root):
             message = "I/O operation on closed file"
         if self._closed(space):
             raise OperationError(
-                space.w_ValueError, space.wrap(message))
+                space.w_ValueError, space.newtext(message))
 
     def check_closed_w(self, space):
         self._check_closed(space)
@@ -128,6 +139,11 @@ class W_IOBase(W_Root):
         finally:
             self.__IOBase_closed = True
 
+    def needs_finalizer(self):
+        # can return False if we know that the precise close() method
+        # of this class will have no effect
+        return True
+
     def _dealloc_warn_w(self, space, w_source):
         """Called when the io is implicitly closed via the deconstructor"""
         pass
@@ -140,7 +156,7 @@ class W_IOBase(W_Root):
         self._unsupportedoperation(space, "seek")
 
     def tell_w(self, space):
-        return space.call_method(self, "seek", space.wrap(0), space.wrap(1))
+        return space.call_method(self, "seek", space.newint(0), space.newint(1))
 
     def truncate_w(self, space, w_size=None):
         self._unsupportedoperation(space, "truncate")
@@ -150,14 +166,14 @@ class W_IOBase(W_Root):
 
     def enter_w(self, space):
         self._check_closed(space)
-        return space.wrap(self)
+        return self
 
     def exit_w(self, space, __args__):
         space.call_method(self, "close")
 
     def iter_w(self, space):
         self._check_closed(space)
-        return space.wrap(self)
+        return self
 
     def next_w(self, space):
         w_line = space.call_method(self, "readline")
@@ -187,7 +203,7 @@ class W_IOBase(W_Root):
         # For backwards compatibility, a (slowish) readline().
         limit = convert_size(space, w_limit)
 
-        has_peek = space.findattr(self, space.wrap("peek"))
+        has_peek = space.findattr(self, space.newtext("peek"))
 
         builder = StringBuilder()
         size = 0
@@ -197,12 +213,12 @@ class W_IOBase(W_Root):
 
             if has_peek:
                 try:
-                    w_readahead = space.call_method(self, "peek", space.wrap(1))
+                    w_readahead = space.call_method(self, "peek", space.newint(1))
                 except OperationError as e:
                     if trap_eintr(space, e):
                         continue
                     raise
-                if not space.isinstance_w(w_readahead, space.w_str):
+                if not space.isinstance_w(w_readahead, space.w_bytes):
                     raise oefmt(space.w_IOError,
                                 "peek() should have returned a bytes object, "
                                 "not '%T'", w_readahead)
@@ -227,12 +243,12 @@ class W_IOBase(W_Root):
                     nreadahead = n
 
             try:
-                w_read = space.call_method(self, "read", space.wrap(nreadahead))
+                w_read = space.call_method(self, "read", space.newint(nreadahead))
             except OperationError as e:
                 if trap_eintr(space, e):
                     continue
                 raise
-            if not space.isinstance_w(w_read, space.w_str):
+            if not space.isinstance_w(w_read, space.w_bytes):
                 raise oefmt(space.w_IOError,
                             "peek() should have returned a bytes object, not "
                             "'%T'", w_read)
@@ -318,6 +334,8 @@ W_IOBase.typedef = TypeDef(
                             doc="True if the file is closed"),
     __dict__ = GetSetProperty(descr_get_dict, descr_set_dict, cls=W_IOBase),
     __weakref__ = make_weakref_descr(W_IOBase),
+    __del__ = interp2app(W_IOBase.descr_del),
+    __confirm_applevel_del__ = True,
 
     readline = interp2app(W_IOBase.readline_w),
     readlines = interp2app(W_IOBase.readlines_w),
@@ -345,7 +363,7 @@ class W_RawIOBase(W_IOBase):
         while True:
             try:
                 w_data = space.call_method(self, "read",
-                                           space.wrap(DEFAULT_BUFFER_SIZE))
+                                           space.newint(DEFAULT_BUFFER_SIZE))
             except OperationError as e:
                 if trap_eintr(space, e):
                     continue

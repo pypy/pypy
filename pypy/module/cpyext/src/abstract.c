@@ -103,7 +103,7 @@ PyObject_GetBuffer(PyObject *obj, Py_buffer *view, int flags)
 {
     if (!PyObject_CheckBuffer(obj)) {
         PyErr_Format(PyExc_TypeError,
-                     "'%100s' does not support the buffer interface",
+                     "'%100s' does not have the buffer interface",
                      Py_TYPE(obj)->tp_name);
         return -1;
     }
@@ -114,10 +114,14 @@ void
 PyBuffer_Release(Py_buffer *view)
 {
     PyObject *obj = view->obj;
-    if (obj && Py_TYPE(obj)->tp_as_buffer && Py_TYPE(obj)->tp_as_buffer->bf_releasebuffer)
-        Py_TYPE(obj)->tp_as_buffer->bf_releasebuffer(obj, view);
-    Py_XDECREF(obj);
+    PyBufferProcs *pb;
+    if (obj == NULL)
+        return;
+    pb = Py_TYPE(obj)->tp_as_buffer;
+    if (pb && pb->bf_releasebuffer)
+        pb->bf_releasebuffer(obj, view);
     view->obj = NULL;
+    Py_DECREF(obj);
 }
 
 /* Operations on callable objects */

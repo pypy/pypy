@@ -4,7 +4,10 @@ import collections.abc
 import types
 import unittest
 
-from test import support
+try:
+    from test import support
+except ImportError:
+    from asyncio import test_support as support
 from unittest import mock
 
 import asyncio
@@ -14,6 +17,7 @@ from asyncio import test_utils
 class BaseTest(test_utils.TestCase):
 
     def setUp(self):
+        super().setUp()
         self.loop = asyncio.BaseEventLoop()
         self.loop._process_events = mock.Mock()
         self.loop._selector = mock.Mock()

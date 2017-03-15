@@ -23,7 +23,9 @@ def test_execwith_compile_error(space):
     (): 
         y y 
     """)
-    assert str(excinfo.value.errorstr(space)).find('y y') != -1 
+    # NOTE: the following test only works because excinfo.value is not
+    # normalized so far
+    assert str(excinfo.value.get_w_value(space)).find('y y') != -1 
 
 def test_simple_applevel(space):
     app = appdef("""app(x,y): 
@@ -156,7 +158,7 @@ class TestMixedModule:
         assert space1.str_w(w_str) == "hello"
 
 class TestMixedModuleUnfreeze:
-    spaceconfig = dict(usemodules=('_ssl', '_socket'))
+    spaceconfig = dict(usemodules=('_socket',))
 
     def test_random_stuff_can_unfreeze(self):
         # When a module contains an "import" statement in applevel code, the
@@ -167,13 +169,13 @@ class TestMixedModuleUnfreeze:
         # at runtime, like setting os.environ (posix module) or initializing
         # the winsock library (_socket module)
         w_socket = self.space.builtin_modules['_socket']
-        w_ssl = self.space.builtin_modules['_ssl']
+        # _ssl is not builtin anymore, this test also tried to _cleanup_ on
+        # the wrapped ssl object
+        # w_ssl = self.space.builtin_modules['_ssl']
 
         # Uncomment this line for a workaround
         # space.getattr(w_ssl, space.wrap('SSLError'))
 
         w_socket._cleanup_()
-        assert w_socket.startup_called == False
-        w_ssl._cleanup_() # w_ssl.appleveldefs['SSLError'] imports _socket
         assert w_socket.startup_called == False
 

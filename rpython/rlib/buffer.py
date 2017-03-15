@@ -2,11 +2,13 @@
 Buffer protocol support.
 """
 from rpython.rlib import jit
+from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
+        nonmoving_raw_ptr_for_resizable_list)
 
 
 class Buffer(object):
     """Abstract base class for buffers."""
-    __slots__ = ['readonly']
+    _attrs_ = ['readonly']
     _immutable_ = True
 
     def getlength(self):
@@ -75,13 +77,16 @@ class Buffer(object):
     def getstrides(self):
         return [1]
 
+    def releasebuffer(self):
+        pass
+
 class StringBuffer(Buffer):
-    __slots__ = ['value']
+    _attrs_ = ['readonly', 'value']
     _immutable_ = True
 
     def __init__(self, value):
         self.value = value
-        self.readonly = True
+        self.readonly = 1
 
     def getlength(self):
         return len(self.value)
@@ -105,9 +110,13 @@ class StringBuffer(Buffer):
             return self.value[start:stop]
         return Buffer.getslice(self, start, stop, step, size)
 
+    def get_raw_address(self):
+        from rpython.rtyper.lltypesystem import rffi
+        # may still raise ValueError on some GCs
+        return rffi.get_raw_address_of_string(self.value)
 
 class SubBuffer(Buffer):
-    __slots__ = ['buffer', 'offset', 'size']
+    _attrs_ = ['buffer', 'offset', 'size', 'readonly']
     _immutable_ = True
 
     def __init__(self, buffer, offset, size):

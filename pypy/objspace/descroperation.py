@@ -11,58 +11,48 @@ from rpython.rlib import jit
 @specialize.memo()
 def object_getattribute(space):
     "Utility that returns the app-level descriptor object.__getattribute__."
-    w_src, w_getattribute = space.lookup_in_type_where(space.w_object,
-                                                       '__getattribute__')
-    return w_getattribute
+    return space.lookup_in_type(space.w_object, '__getattribute__')
 
 @specialize.memo()
 def object_setattr(space):
     "Utility that returns the app-level descriptor object.__setattr__."
-    w_src, w_setattr = space.lookup_in_type_where(space.w_object,
-                                                  '__setattr__')
-    return w_setattr
+    return space.lookup_in_type(space.w_object, '__setattr__')
 
 @specialize.memo()
 def object_delattr(space):
     "Utility that returns the app-level descriptor object.__delattr__."
-    w_src, w_delattr = space.lookup_in_type_where(space.w_object,
-                                                  '__delattr__')
-    return w_delattr
+    return space.lookup_in_type(space.w_object, '__delattr__')
 
 @specialize.memo()
 def object_hash(space):
     "Utility that returns the app-level descriptor object.__hash__."
-    w_src, w_hash = space.lookup_in_type_where(space.w_object,
-                                                  '__hash__')
-    return w_hash
+    return space.lookup_in_type(space.w_object, '__hash__')
 
 @specialize.memo()
 def type_eq(space):
     "Utility that returns the app-level descriptor type.__eq__."
-    w_src, w_eq = space.lookup_in_type_where(space.w_type,
-                                             '__eq__')
-    return w_eq
+    return space.lookup_in_type(space.w_type, '__eq__')
 
 @specialize.memo()
 def list_iter(space):
     "Utility that returns the app-level descriptor list.__iter__."
-    w_src, w_iter = space.lookup_in_type_where(space.w_list,
-                                               '__iter__')
-    return w_iter
+    return space.lookup_in_type(space.w_list, '__iter__')
 
 @specialize.memo()
 def tuple_iter(space):
     "Utility that returns the app-level descriptor tuple.__iter__."
-    w_src, w_iter = space.lookup_in_type_where(space.w_tuple,
-                                               '__iter__')
-    return w_iter
+    return space.lookup_in_type(space.w_tuple, '__iter__')
 
 @specialize.memo()
 def unicode_iter(space):
     "Utility that returns the app-level descriptor str.__iter__."
-    w_src, w_iter = space.lookup_in_type_where(space.w_unicode,
-                                               '__iter__')
-    return w_iter
+    return space.lookup_in_type(space.w_unicode, '__iter__')
+
+@specialize.memo()
+def dict_getitem(space):
+    "Utility that returns the app-level descriptor dict.__getitem__."
+    return space.lookup_in_type(space.w_dict, '__getitem__')
+
 
 def raiseattrerror(space, w_obj, w_name, w_descr=None):
     # space.repr always returns an encodable string.
@@ -75,7 +65,7 @@ def raiseattrerror(space, w_obj, w_name, w_descr=None):
 
 def get_attribute_name(space, w_obj, w_name):
     try:
-        return space.str_w(w_name)
+        return space.text_w(w_name)
     except OperationError as e:
         if e.match(space, space.w_UnicodeEncodeError):
             raiseattrerror(space, w_obj, w_name)
@@ -273,7 +263,7 @@ class DescrOperation(object):
         if w_descr is None:
             raise oefmt(space.w_TypeError, "'%T' has no length", w_obj)
         w_res = space.get_and_call_function(w_descr, w_obj)
-        return space.wrap(space._check_len_result(w_res))
+        return space.newint(space._check_len_result(w_res))
 
     def _check_len_result(space, w_obj):
         # Will complain if result is too big.
@@ -281,6 +271,15 @@ class DescrOperation(object):
         if result < 0:
             raise oefmt(space.w_ValueError, "__len__() should return >= 0")
         return result
+
+    def is_iterable(space, w_obj):
+        w_descr = space.lookup(w_obj, '__iter__')
+        if w_descr is None:
+            if space.type(w_obj).flag_map_or_seq != 'M':
+                w_descr = space.lookup(w_obj, '__getitem__')
+            if w_descr is None:
+                return False
+        return True
 
     def iter(space, w_obj):
         w_descr = space.lookup(w_obj, '__iter__')
@@ -409,7 +408,7 @@ class DescrOperation(object):
             except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
-                return space.wrap(count)
+                return space.newint(count)
             if space.eq_w(w_next, w_item):
                 count += 1
 
@@ -425,7 +424,7 @@ class DescrOperation(object):
                 raise oefmt(space.w_ValueError,
                             "sequence.index(x): x not in sequence")
             if space.eq_w(w_next, w_item):
-                return space.wrap(index)
+                return space.newint(index)
             index += 1
 
     def hash(space, w_obj):
@@ -460,7 +459,7 @@ class DescrOperation(object):
         return space._type_issubtype(w_sub, w_type)
 
     def issubtype(space, w_sub, w_type):
-        return space.wrap(space._type_issubtype(w_sub, w_type))
+        return space.newbool(space._type_issubtype(w_sub, w_type))
 
     @specialize.arg_or_var(2)
     def isinstance_w(space, w_inst, w_type):
@@ -468,7 +467,7 @@ class DescrOperation(object):
 
     @specialize.arg_or_var(2)
     def isinstance(space, w_inst, w_type):
-        return space.wrap(space.isinstance_w(w_inst, w_type))
+        return space.newbool(space.isinstance_w(w_inst, w_type))
 
     def index(space, w_obj):
         if space.isinstance_w(w_obj, space.w_int):
@@ -484,7 +483,7 @@ class DescrOperation(object):
             return w_result
         if space.isinstance_w(w_result, space.w_int):
             tp = space.type(w_result).name
-            space.warn(space.wrap(
+            space.warn(space.newtext(
                 "__index__ returned non-int (type %s).  "
                 "The ability to return an instance of a strict subclass of int "
                 "is deprecated, and may be removed in a future version of "
@@ -715,7 +714,7 @@ for targetname, specialname in [
                 return w_result
 
             raise oefmt(space.w_TypeError,
-                        "%(specialname)s returned non-%(targetname)s (type "
+                        "%(specialname)s returned non-string (type "
                         "'%%T')", w_result)
         assert not hasattr(DescrOperation, %(targetname)r)
         DescrOperation.%(targetname)s = %(targetname)s

@@ -437,7 +437,7 @@ class W_ListObject(W_Root):
 
     def descr_repr(self, space):
         if self.length() == 0:
-            return space.wrap('[]')
+            return space.newtext('[]')
         ec = space.getexecutioncontext()
         w_currently_in_repr = ec._py_repr
         if w_currently_in_repr is None:
@@ -617,7 +617,7 @@ class W_ListObject(W_Root):
             if space.eq_w(self.getitem(i), w_value):
                 count += 1
             i += 1
-        return space.wrap(count)
+        return space.newint(count)
 
     @unwrap_spec(index=int)
     def descr_insert(self, space, index, w_value):
@@ -674,7 +674,7 @@ class W_ListObject(W_Root):
             i = self.find(w_value, i, stop)
         except ValueError:
             raise oefmt(space.w_ValueError, "%R is not in list", w_value)
-        return space.wrap(i)
+        return space.newint(i)
 
     @unwrap_spec(reverse=int)
     def descr_sort(self, space, w_key=None, reverse=False):
@@ -1045,7 +1045,7 @@ class BaseRangeListStrategy(ListStrategy):
         w_list.lstorage = strategy.erase(items)
 
     def wrap(self, intval):
-        return self.space.wrap(intval)
+        return self.space.newint(intval)
 
     def unwrap(self, w_int):
         return self.space.int_w(w_int)
@@ -1633,7 +1633,7 @@ class IntegerListStrategy(ListStrategy):
     _none_value = 0
 
     def wrap(self, intval):
-        return self.space.wrap(intval)
+        return self.space.newint(intval)
 
     def unwrap(self, w_int):
         return self.space.int_w(w_int)
@@ -1729,7 +1729,7 @@ class FloatListStrategy(ListStrategy):
     _none_value = 0.0
 
     def wrap(self, floatval):
-        return self.space.wrap(floatval)
+        return self.space.newfloat(floatval)
 
     def unwrap(self, w_float):
         return self.space.float_w(w_float)
@@ -1840,10 +1840,10 @@ class IntOrFloatListStrategy(ListStrategy):
     def wrap(self, llval):
         if longlong2float.is_int32_from_longlong_nan(llval):
             intval = longlong2float.decode_int32_from_longlong_nan(llval)
-            return self.space.wrap(intval)
+            return self.space.newint(intval)
         else:
             floatval = longlong2float.longlong2float(llval)
-            return self.space.wrap(floatval)
+            return self.space.newfloat(floatval)
 
     def unwrap(self, w_int_or_float):
         if type(w_int_or_float) is W_IntObject:
@@ -1945,7 +1945,7 @@ class IntOrFloatListStrategy(ListStrategy):
 class BytesListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
-    _none_value = None
+    _none_value = ""
 
     def wrap(self, stringval):
         return self.space.newbytes(stringval)
@@ -1977,10 +1977,11 @@ class BytesListStrategy(ListStrategy):
 class UnicodeListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
-    _none_value = None
+    _none_value = u""
 
     def wrap(self, stringval):
-        return self.space.wrap(stringval)
+        assert stringval is not None
+        return self.space.newunicode(stringval)
 
     def unwrap(self, w_string):
         return self.space.unicode_w(w_string)

@@ -1,4 +1,5 @@
 import py
+import pytest
 import struct
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app
@@ -7,7 +8,7 @@ from rpython.rlib.buffer import Buffer
 from pypy.conftest import option
 
 class AppTestMemoryView:
-    spaceconfig = dict(usemodules=['array'])
+    spaceconfig = dict(usemodules=['array', 'sys', '_rawffi'])
 
     def test_basic(self):
         v = memoryview(b"abc")
@@ -26,6 +27,14 @@ class AppTestMemoryView:
         assert len(w) == 2
         exc = raises(TypeError, "memoryview('foobar')")
 
+    def test_0d(self):
+        v = memoryview(b'x').cast('B', ())
+        assert len(v) == 1
+        assert v.shape == ()
+        assert v.strides == ()
+        assert v.tobytes() == b'x'
+        #assert v[()] == b'x'[0]
+
     def test_rw(self):
         data = bytearray(b'abcefg')
         v = memoryview(data)
@@ -42,13 +51,13 @@ class AppTestMemoryView:
     def test_extended_slice(self):
         data = bytearray(b'abcefg')
         v = memoryview(data)
-        w = v[0:2:2]      # failing for now: NotImplementedError
+        w = v[0:2:2]
         assert len(w) == 1
         assert list(w) == [97]
         v[::2] = b'ABC'
         assert data == bytearray(eval("b'AbBeCg'"))
-        assert v[::2] == b'ABC'
-        assert v[::-2] == b'geb'
+        assert v[::2].tobytes() == b'ABC'
+        assert v[::-2].tobytes() == b'geb'
 
     def test_memoryview_attrs(self):
         v = memoryview(b"a"*100)
@@ -184,12 +193,29 @@ class AppTestMemoryView:
         assert m[2] == 1
 
     def test_pypy_raw_address_base(self):
-        raises(ValueError, memoryview(b"foobar")._pypy_raw_address)
-        a = memoryview(bytearray(b"foobar"))._pypy_raw_address()
+        a = memoryview(b"foobar")._pypy_raw_address()
         assert a != 0
+        b = memoryview(bytearray(b"foobar"))._pypy_raw_address()
+        assert b != 0
 
     def test_hex(self):
         assert memoryview(b"abc").hex() == u'616263'
+
+    def test_hex_long(self):
+        x = b'01' * 100000
+        m1 = memoryview(x)
+        m2 = m1[::-1]
+        assert m2.hex() == '3130' * 100000
+
+    def test_hex_2(self):
+        import array
+        import sys
+        m1 = memoryview(array.array('i', [1,2,3,4]))
+        m2 = m1[::-1]
+        if sys.byteorder == 'little':
+            assert m2.hex() == "04000000030000000200000001000000"
+        else:
+            assert m2.hex() == "00000004000000030000000200000001"
 
     def test_memoryview_cast(self):
         m1 = memoryview(b'abcdefgh')
@@ -238,6 +264,33 @@ class AppTestMemoryView:
         m3 = memoryview(data).cast('h')
         m3[1:5:2] = memoryview(b"xyXY").cast('h')
         assert data == bytearray(eval("b'abxyefXYij'"))
+
+    def test_cast_and_slice(self):
+        import array
+        data = array.array('h', [1, 2])
+        m = memoryview(memoryview(data).cast('B'))
+        assert len(m[2:4:1]) == 2
+
+    def test_cast_and_view(self):
+        import array
+        data = array.array('h', [1, 2])
+        m1 = memoryview(data).cast('B')
+        m2 = memoryview(m1)
+        assert m2.strides == m1.strides
+        assert m2.itemsize == m1.itemsize
+        assert m2.shape == m1.shape
+
+    def test_cast_ctypes(self):
+        import _rawffi, sys
+        a = _rawffi.Array('i')(1)
+        a[0] = 0x01234567
+        m = memoryview(a).cast('B')
+        if sys.byteorder == 'little':
+            expected = 0x67, 0x45, 0x23, 0x01
+        else:
+            expected = 0x01, 0x23, 0x45, 0x67
+        assert (m[0], m[1], m[2], m[3]) == expected
+        a.free()
 
 class MockBuffer(Buffer):
     def __init__(self, space, w_arr, w_dim, w_fmt, \
@@ -312,9 +365,6 @@ class W_MockArray(W_Root):
         return MockBuffer(space, self.w_list, self.w_dim, self.w_fmt, \
                           self.w_size, self.w_strides, self.w_shape)
 
-    def buffer_w_ex(self, space, flags):
-        return self.buffer_w(space, flags), space.str_w(self.w_fmt), space.int_w(self.w_size)
-
 W_MockArray.typedef = TypeDef("MockArray",
     __new__ = interp2app(W_MockArray.descr_new),
 )
@@ -368,7 +418,10 @@ class AppTestMemoryViewMockBuffer(object):
         assert view.format == 'b'
         assert cview.format == 'i'
         #
-        assert cview.cast('b').cast('q').cast('b').tolist() == []
+        a = cview.cast('b')
+        b = a.cast('q')
+        c = b.cast('b')
+        assert c.tolist() == []
         #
         assert cview.format == 'i'
         raises(TypeError, "cview.cast('i')")
@@ -376,7 +429,7 @@ class AppTestMemoryViewMockBuffer(object):
     def test_cast_with_shape(self):
         empty = self.MockArray([1,0,2,0,3,0],
                     dim=1, fmt='h', size=2,
-                    strides=[8], shape=[6])
+                    strides=[2], shape=[6])
         view = memoryview(empty)
         byteview = view.cast('b')
         assert byteview.tolist() == [1,0,0,0,2,0,0,0,3,0,0,0]
@@ -394,3 +447,33 @@ class AppTestMemoryViewMockBuffer(object):
         v = view.cast('h', shape=(3,2))
         assert v.tolist() == [[2,3],[4,5],[6,7]]
         raises(TypeError, "view.cast('h', shape=(3,3))")
+
+    def test_reversed(self):
+        bytes = b"\x01\x01\x02\x02\x03\x03"
+        view = memoryview(bytes)
+        revlist = list(reversed(view.tolist()))
+        assert view[::-1][0] == 3
+        assert view[::-1][1] == 3
+        assert view[::-1][2] == 2
+        assert view[::-1][3] == 2
+        assert view[::-1][4] == 1
+        assert view[::-1][5] == 1
+        assert view[::-1][-1] == 1
+        assert view[::-1][-2] == 1
+        assert list(reversed(view)) == revlist
+        assert list(reversed(view)) == view[::-1].tolist()
+
+class AppTestMemoryViewReversed(object):
+    spaceconfig = dict(usemodules=['array'])
+    def test_reversed_non_bytes(self):
+        import array
+        items = [1,2,3,9,7,5]
+        formats = ['h']
+        for fmt in formats:
+            bytes = array.array(fmt, items)
+            view = memoryview(bytes)
+            bview = view.cast('b')
+            rview = bview.cast(fmt, shape=(2,3))
+            raises(NotImplementedError, list, reversed(rview))
+            assert rview.tolist() == [[1,2,3],[9,7,5]]
+            assert rview[::-1].tolist() == [[9,7,5], [1,2,3]]

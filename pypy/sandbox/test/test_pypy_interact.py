@@ -26,9 +26,9 @@ def mini_pypy_like_entry_point(argv):
     assert_(argv[2] == 'bar', "bad argv[2]")
     env = os.environ.items()
     assert_(len(env) == 0, "empty environment expected")
-    assert_(argv[0] == '/bin/pypy-c', "bad argv[0]")
-    st = os.lstat('/bin/pypy-c')
-    assert_(stat.S_ISREG(st.st_mode), "bad st_mode for /bin/pypy-c")
+    assert_(argv[0] == '/bin/pypy3-c', "bad argv[0]")
+    st = os.lstat('/bin/pypy3-c')
+    assert_(stat.S_ISREG(st.st_mode), "bad st_mode for /bin/pypy3-c")
     for dirname in ['/bin/lib-python/' + VERSION, '/bin/lib_pypy']:
         st = os.stat(dirname)
         assert_(stat.S_ISDIR(st.st_mode), "bad st_mode for " + dirname)
@@ -74,7 +74,8 @@ def mini_pypy_like_entry_point(argv):
 
 
 def setup_module(mod):
-    t = Translation(mini_pypy_like_entry_point, backend='c', sandbox=True)
+    t = Translation(mini_pypy_like_entry_point, backend='c', sandbox=True,
+                    lldebug=True)
     mod.executable = str(t.compile())
 
 

@@ -15,7 +15,7 @@ def PyException_GetTraceback(space, w_exc):
     """Return the traceback associated with the exception as a new reference, as
     accessible from Python through __traceback__.  If there is no
     traceback associated, this returns NULL."""
-    w_tb = space.getattr(w_exc, space.wrap('__traceback__'))
+    w_tb = space.getattr(w_exc, space.newtext('__traceback__'))
     if space.is_none(w_tb):
         return None
     return w_tb
@@ -25,7 +25,7 @@ def PyException_GetTraceback(space, w_exc):
 def PyException_SetTraceback(space, w_exc, w_tb):
     """Set the traceback associated with the exception to tb.  Use Py_None to
     clear it."""
-    space.setattr(w_exc, space.wrap('__traceback__'), w_tb)
+    space.setattr(w_exc, space.newtext('__traceback__'), w_tb)
     return 0
 
 
@@ -35,7 +35,7 @@ def PyException_GetContext(space, w_exc):
     raised) associated with the exception as a new reference, as accessible from
     Python through __context__.  If there is no context associated, this
     returns NULL."""
-    w_ctx = space.getattr(w_exc, space.wrap('__context__'))
+    w_ctx = space.getattr(w_exc, space.newtext('__context__'))
     if space.is_none(w_ctx):
         return None
     return w_ctx
@@ -51,7 +51,7 @@ def PyException_SetContext(space, w_exc, ctx):
         Py_DecRef(space, ctx)
     else:
         w_ctx = space.w_None
-    space.setattr(w_exc, space.wrap('__context__'), w_ctx)
+    space.setattr(w_exc, space.newtext('__context__'), w_ctx)
 
 @cpython_api([PyObject], PyObject)
 def PyException_GetCause(space, w_exc):
@@ -59,7 +59,7 @@ def PyException_GetCause(space, w_exc):
     associated with the exception as a new reference, as accessible from Python
     through __cause__.  If there is no cause associated, this returns
     NULL."""
-    w_cause = space.getattr(w_exc, space.wrap('__cause__'))
+    w_cause = space.getattr(w_exc, space.newtext('__cause__'))
     if space.is_none(w_cause):
         return None
     return w_cause
@@ -75,5 +75,5 @@ def PyException_SetCause(space, w_exc, cause):
         Py_DecRef(space, cause)
     else:
         w_cause = space.w_None
-    space.setattr(w_exc, space.wrap('__cause__'), w_cause)
+    space.setattr(w_exc, space.newtext('__cause__'), w_cause)
 

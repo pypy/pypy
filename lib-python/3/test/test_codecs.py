@@ -2355,7 +2355,7 @@ class TypesTest(unittest.TestCase):
             self.assertRaises(TypeError, decoder, "xxx")
 
     def test_unicode_escape(self):
-        # Escape-decoding an unicode string is supported ang gives the same
+        # Escape-decoding a unicode string is supported and gives the same
         # result as decoding the equivalent ASCII bytes string.
         self.assertEqual(codecs.unicode_escape_decode(r"\u1234"), ("\u1234", 6))
         self.assertEqual(codecs.unicode_escape_decode(br"\u1234"), ("\u1234", 6))
@@ -2499,6 +2499,26 @@ class RawUnicodeEscapeTest(unittest.TestCase):
         self.assertRaises(UnicodeDecodeError, decode, br"\U00110000")
         self.assertEqual(decode(br"\U00110000", "ignore"), ("", 10))
         self.assertEqual(decode(br"\U00110000", "replace"), ("\ufffd", 10))
+
+
+class EscapeEncodeTest(unittest.TestCase):
+
+    def test_escape_encode(self):
+        tests = [
+            (b'', (b'', 0)),
+            (b'foobar', (b'foobar', 6)),
+            (b'spam\0eggs', (b'spam\\x00eggs', 9)),
+            (b'a\'b', (b"a\\'b", 3)),
+            (b'b\\c', (b'b\\\\c', 3)),
+            (b'c\nd', (b'c\\nd', 3)),
+            (b'd\re', (b'd\\re', 3)),
+            (b'f\x7fg', (b'f\\x7fg', 3)),
+        ]
+        for data, output in tests:
+            with self.subTest(data=data):
+                self.assertEqual(codecs.escape_encode(data), output)
+        self.assertRaises(TypeError, codecs.escape_encode, 'spam')
+        self.assertRaises(TypeError, codecs.escape_encode, bytearray(b'spam'))
 
 
 class SurrogateEscapeTest(unittest.TestCase):
@@ -2762,7 +2782,7 @@ class TransformCodecTest(unittest.TestCase):
 # type and a single str argument.
 
 # Use a local codec registry to avoid appearing to leak objects when
-# registering multiple seach functions
+# registering multiple search functions
 _TEST_CODECS = {}
 
 def _get_test_codec(codec_name):

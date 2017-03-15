@@ -147,7 +147,7 @@ def as_long_long(space, w_ob):
     try:
         return bigint.tolonglong()
     except OverflowError:
-        raise OperationError(space.w_OverflowError, space.wrap(ovf_msg))
+        raise OperationError(space.w_OverflowError, space.newtext(ovf_msg))
 
 def as_long(space, w_ob):
     # Same as as_long_long(), but returning an int instead.
@@ -164,7 +164,7 @@ def as_long(space, w_ob):
     try:
         return bigint.toint()
     except OverflowError:
-        raise OperationError(space.w_OverflowError, space.wrap(ovf_msg))
+        raise OperationError(space.w_OverflowError, space.newtext(ovf_msg))
 
 def as_unsigned_long_long(space, w_ob, strict):
     # (possibly) convert and cast a Python object to an unsigned long long.
@@ -179,7 +179,7 @@ def as_unsigned_long_long(space, w_ob, strict):
             raise
     else:
         if strict and value < 0:
-            raise OperationError(space.w_OverflowError, space.wrap(neg_msg))
+            raise OperationError(space.w_OverflowError, space.newtext(neg_msg))
         return r_ulonglong(value)
     try:
         bigint = space.bigint_w(w_ob, allow_conversion=False)
@@ -193,9 +193,9 @@ def as_unsigned_long_long(space, w_ob, strict):
         try:
             return bigint.toulonglong()
         except ValueError:
-            raise OperationError(space.w_OverflowError, space.wrap(neg_msg))
+            raise OperationError(space.w_OverflowError, space.newtext(neg_msg))
         except OverflowError:
-            raise OperationError(space.w_OverflowError, space.wrap(ovf_msg))
+            raise OperationError(space.w_OverflowError, space.newtext(ovf_msg))
     else:
         return bigint.ulonglongmask()
 
@@ -213,9 +213,9 @@ def as_unsigned_long(space, w_ob, strict):
         try:
             return bigint.touint()
         except ValueError:
-            raise OperationError(space.w_OverflowError, space.wrap(neg_msg))
+            raise OperationError(space.w_OverflowError, space.newtext(neg_msg))
         except OverflowError:
-            raise OperationError(space.w_OverflowError, space.wrap(ovf_msg))
+            raise OperationError(space.w_OverflowError, space.newtext(ovf_msg))
     else:
         return bigint.uintmask()
 

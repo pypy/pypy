@@ -190,7 +190,7 @@ Note that unlike the CPython greenlets, this version does not suffer
 from GC issues: if the program "forgets" an unfinished greenlet, it will
 always be collected at the next garbage collection.
 
-.. _documentation of the greenlets: http://packages.python.org/greenlet/
+.. _documentation of the greenlets: https://greenlet.readthedocs.io/
 
 
 Unimplemented features

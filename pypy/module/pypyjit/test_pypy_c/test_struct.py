@@ -21,7 +21,7 @@ class TestStruct(BaseTestPyPyC):
             while i < n:
                 buf = struct.pack("<i", i)       # ID: pack
                 x = struct.unpack("<i", buf)[0]  # ID: unpack
-                i += x / i
+                i += x // i
             return i
 
         log = self.run(main, [1000])
@@ -82,7 +82,7 @@ class TestStruct(BaseTestPyPyC):
             while i < n:
                 buf = s.pack(-1, i)     # ID: pack
                 x = s.unpack(buf)[1]    # ID: unpack
-                i += x / i
+                i += x // i
             return i
 
         log = self.run(main, [1000])

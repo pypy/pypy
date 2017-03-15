@@ -25,11 +25,104 @@ def last_cb():
     pass
 
 
+class DuckFuture:
+    # Class that does not inherit from Future but aims to be duck-type
+    # compatible with it.
+
+    _asyncio_future_blocking = False
+    __cancelled = False
+    __result = None
+    __exception = None
+
+    def cancel(self):
+        if self.done():
+            return False
+        self.__cancelled = True
+        return True
+
+    def cancelled(self):
+        return self.__cancelled
+
+    def done(self):
+        return (self.__cancelled
+                or self.__result is not None
+                or self.__exception is not None)
+
+    def result(self):
+        assert not self.cancelled()
+        if self.__exception is not None:
+            raise self.__exception
+        return self.__result
+
+    def exception(self):
+        assert not self.cancelled()
+        return self.__exception
+
+    def set_result(self, result):
+        assert not self.done()
+        assert result is not None
+        self.__result = result
+
+    def set_exception(self, exception):
+        assert not self.done()
+        assert exception is not None
+        self.__exception = exception
+
+    def __iter__(self):
+        if not self.done():
+            self._asyncio_future_blocking = True
+            yield self
+        assert self.done()
+        return self.result()
+
+
+class DuckTests(test_utils.TestCase):
+
+    def setUp(self):
+        super().setUp()
+        self.loop = self.new_test_loop()
+        self.addCleanup(self.loop.close)
+
+    def test_wrap_future(self):
+        f = DuckFuture()
+        g = asyncio.wrap_future(f)
+        assert g is f
+
+    def test_ensure_future(self):
+        f = DuckFuture()
+        g = asyncio.ensure_future(f)
+        assert g is f
+
+
 class FutureTests(test_utils.TestCase):
 
     def setUp(self):
+        super().setUp()
         self.loop = self.new_test_loop()
         self.addCleanup(self.loop.close)
+
+    def test_isfuture(self):
+        class MyFuture:
+            _asyncio_future_blocking = None
+
+            def __init__(self):
+                self._asyncio_future_blocking = False
+
+        self.assertFalse(asyncio.isfuture(MyFuture))
+        self.assertTrue(asyncio.isfuture(MyFuture()))
+
+        self.assertFalse(asyncio.isfuture(1))
+        self.assertFalse(asyncio.isfuture(asyncio.Future))
+
+        # As `isinstance(Mock(), Future)` returns `False`
+        self.assertFalse(asyncio.isfuture(mock.Mock()))
+
+        # As `isinstance(Mock(Future), Future)` returns `True`
+        self.assertTrue(asyncio.isfuture(mock.Mock(asyncio.Future)))
+
+        f = asyncio.Future(loop=self.loop)
+        self.assertTrue(asyncio.isfuture(f))
+        f.cancel()
 
     def test_initial_state(self):
         f = asyncio.Future(loop=self.loop)
@@ -75,6 +168,10 @@ class FutureTests(test_utils.TestCase):
         exc = RuntimeError()
         f = asyncio.Future(loop=self.loop)
         self.assertRaises(asyncio.InvalidStateError, f.exception)
+
+        # StopIteration cannot be raised into a Future - CPython issue26221
+        self.assertRaisesRegex(TypeError, "StopIteration .* cannot be raised",
+                               f.set_exception, StopIteration)
 
         f.set_exception(exc)
         self.assertFalse(f.cancelled())
@@ -238,6 +335,7 @@ class FutureTests(test_utils.TestCase):
         fut.set_exception(RuntimeError('boom'))
         del fut
         test_utils.run_briefly(self.loop)
+        support.gc_collect()
         self.assertTrue(m_log.error.called)
 
     @mock.patch('asyncio.base_events.logger')
@@ -273,14 +371,15 @@ class FutureTests(test_utils.TestCase):
         f2 = asyncio.wrap_future(f1)
         self.assertIs(f1, f2)
 
-    @mock.patch('asyncio.futures.events')
-    def test_wrap_future_use_global_loop(self, m_events):
-        def run(arg):
-            return (arg, threading.get_ident())
-        ex = concurrent.futures.ThreadPoolExecutor(1)
-        f1 = ex.submit(run, 'oi')
-        f2 = asyncio.wrap_future(f1)
-        self.assertIs(m_events.get_event_loop.return_value, f2._loop)
+    def test_wrap_future_use_global_loop(self):
+        with mock.patch('asyncio.futures.events') as events:
+            events.get_event_loop = lambda: self.loop
+            def run(arg):
+                return (arg, threading.get_ident())
+            ex = concurrent.futures.ThreadPoolExecutor(1)
+            f1 = ex.submit(run, 'oi')
+            f2 = asyncio.wrap_future(f1)
+            self.assertIs(self.loop, f2._loop)
 
     def test_wrap_future_cancel(self):
         f1 = concurrent.futures.Future()
@@ -394,6 +493,7 @@ class FutureTests(test_utils.TestCase):
 class FutureDoneCallbackTests(test_utils.TestCase):
 
     def setUp(self):
+        super().setUp()
         self.loop = self.new_test_loop()
 
     def run_briefly(self):

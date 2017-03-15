@@ -31,7 +31,6 @@ class AppTestPyexpat:
         for attr in ('buffer_text', 'namespace_prefixes', 'ordered_attributes',
                      'specified_attributes'):
             test_setget(p, attr)
-        test_setget(p, 'returns_unicode', True)
 
     def test_version(self):
         import pyexpat
@@ -90,7 +89,7 @@ class AppTestPyexpat:
         p = pyexpat.ParserCreate()
         p.buffer_size = 150
         assert p.buffer_size == 150
-        raises((ValueError, TypeError),
+        raises(OverflowError,
                setattr, p, 'buffer_size', sys.maxsize + 1)
 
     def test_encoding_xml(self):
@@ -213,7 +212,8 @@ class AppTestPyexpat:
 
 class AppTestPyexpat2:
     spaceconfig = dict(usemodules=['_rawffi', 'pyexpat', 'itertools',
-                                   '_socket', 'time', 'struct', 'binascii'])
+                                   '_socket', 'time', 'struct', 'binascii',
+                                   'select'])
 
     def test_django_bug(self):
         xml_str = '<?xml version="1.0" standalone="no"?><!DOCTYPE example SYSTEM "http://example.com/example.dtd"><root/>'

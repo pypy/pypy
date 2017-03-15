@@ -1,10 +1,27 @@
 # coding: utf-8
 
+import random
 from pypy import conftest
+from pypy.objspace.std import bytearrayobject
+
+class DontAccess(object):
+    pass
+dont_access = DontAccess()
+
 
 class AppTestBytesArray:
     def setup_class(cls):
         cls.w_runappdirect = cls.space.wrap(conftest.option.runappdirect)
+        def tweak(w_bytearray):
+            n = random.randint(-3, 16)
+            if n > 0:
+                w_bytearray._data = [dont_access] * n + w_bytearray._data
+                w_bytearray._offset += n
+        cls._old_tweak = [bytearrayobject._tweak_for_tests]
+        bytearrayobject._tweak_for_tests = tweak
+
+    def teardown_class(cls):
+        [bytearrayobject._tweak_for_tests] = cls._old_tweak
 
     def test_basics(self):
         b = bytearray()
@@ -21,6 +38,9 @@ class AppTestBytesArray:
         raises(ValueError, bytearray, [65, -3])
         raises(TypeError, bytearray, [65.0])
         raises(ValueError, bytearray, -1)
+        assert bytearray('abc', 'ascii') == b'abc'
+        raises(TypeError, bytearray, 'abc', b'ascii')
+        raises(UnicodeEncodeError, bytearray, '\x80', 'ascii')
 
     def test_init_override(self):
         class subclass(bytearray):
@@ -68,6 +88,7 @@ class AppTestBytesArray:
         raises(IndexError, b.__getitem__, 4)
         assert b[1:5] == bytearray(b'est')
         assert b[slice(1,5)] == bytearray(b'est')
+        assert b[1:5:2] == bytearray(b'et')
 
     def test_arithmetic(self):
         b1 = bytearray(b'hello ')
@@ -211,6 +232,10 @@ class AppTestBytesArray:
         assert bytearray(b'ab').endswith(bytearray(b''), 2) is True
         assert bytearray(b'ab').endswith(bytearray(b''), 3) is False
 
+    def test_startswith_self(self):
+        b = bytearray(b'abcd')
+        assert b.startswith(b)
+
     def test_stringlike_conversions(self):
         # methods that should return bytearray (and not str)
         def check(result, expected):
@@ -345,6 +370,20 @@ class AppTestBytesArray:
         b.reverse()
         assert b == bytearray(b'olleh')
 
+    def test_delitem_from_front(self):
+        b = bytearray(b'abcdefghij')
+        del b[0]
+        del b[0]
+        assert len(b) == 8
+        assert b == bytearray(b'cdefghij')
+        del b[-8]
+        del b[-7]
+        assert len(b) == 6
+        assert b == bytearray(b'efghij')
+        del b[:3]
+        assert len(b) == 3
+        assert b == bytearray(b'hij')
+
     def test_delitem(self):
         b = bytearray(b'abc')
         del b[1]
@@ -426,6 +465,18 @@ class AppTestBytesArray:
         raises(TypeError, b.extend, object())
         raises(TypeError, b.extend, [object()])
         raises(TypeError, b.extend, "unicode")
+
+    def test_setitem_from_front(self):
+        b = bytearray(b'abcdefghij')
+        b[:2] = b''
+        assert len(b) == 8
+        assert b == bytearray(b'cdefghij')
+        b[:3] = b'X'
+        assert len(b) == 6
+        assert b == bytearray(b'Xfghij')
+        b[:2] = b'ABC'
+        assert len(b) == 7
+        assert b == bytearray(b'ABCghij')
 
     def test_setslice(self):
         b = bytearray(b'hello')
@@ -535,6 +586,10 @@ class AppTestBytesArray:
         assert bytearray(b'%04X') % 10 == b'000A'
         assert bytearray(b'%c') % 48 == b'0'
         assert bytearray(b'%c') % b'a' == b'a'
+        assert bytearray(b'%c') % bytearray(b'a') == b'a'
+
+        raises(TypeError, bytearray(b'a').__mod__, 5)
+        assert bytearray(b'a').__rmod__(5) == NotImplemented
         """
 
     def test_format_b(self):
@@ -548,3 +603,125 @@ class AppTestBytesArray:
 
     def test_format_bytes(self):
         assert bytearray(b'<%s>') % b'abc' == b'<abc>'
+
+    def test_formatting_not_tuple(self):
+        class mydict(dict):
+            pass
+        xxx = bytearray(b'xxx')
+        assert xxx % mydict() == xxx
+        assert xxx % [] == xxx       # [] considered as a mapping(!)
+        raises(TypeError, "xxx % 'foo'")
+        raises(TypeError, "xxx % b'foo'")
+        raises(TypeError, "xxx % bytearray()")
+        raises(TypeError, "xxx % 53")
+
+    def test___alloc__(self):
+        # pypy: always returns len()+1; cpython: may be bigger
+        assert bytearray(b'123456').__alloc__() >= 7
+
+    def test_getitem_error_message(self):
+        e = raises(TypeError, bytearray(b'abc').__getitem__, b'd')
+        assert str(e.value).startswith(
+            'bytearray indices must be integers or slices')
+
+    def test_compatibility(self):
+        # see comments in test_bytesobject.test_compatibility
+        b = bytearray(b'hello world')
+        b2 = b'ello'
+        #not testing result, just lack of TypeError
+        for bb in (b2, bytearray(b2), memoryview(b2)):
+            assert b.split(bb)
+            assert b.rsplit(bb)
+            assert b.split(bb[:1])
+            assert b.rsplit(bb[:1])
+            assert b.join((bb, bb))
+            assert bb in b
+            assert b.find(bb)
+            assert b.rfind(bb)
+            assert b.strip(bb)
+            assert b.rstrip(bb)
+            assert b.lstrip(bb)
+            assert not b.startswith(bb)
+            assert not b.startswith((bb, bb))
+            assert not b.endswith(bb)
+            assert not b.endswith((bb, bb))
+            assert bytearray.maketrans(bb, bb)
+
+    def test_constructor_typeerror(self):
+        raises(TypeError, bytearray, b'', 'ascii')
+        raises(TypeError, bytearray, '')
+
+    def test_dont_force_offset(self):
+        def make(x=b'abcdefghij', shift=3):
+            b = bytearray(b'?'*shift + x)
+            b + b''                       # force 'b'
+            del b[:shift]                 # add shift to b._offset
+            return b
+        assert make(shift=0).__alloc__() == 11
+        #
+        x = make(shift=3)
+        assert x.__alloc__() == 14
+        assert memoryview(x)[1] == ord('b')
+        assert x.__alloc__() == 14
+        assert len(x) == 10
+        assert x.__alloc__() == 14
+        assert x[3] == ord('d')
+        assert x[-3] == ord('h')
+        assert x.__alloc__() == 14
+        assert x[3:-3] == b'defg'
+        assert x[-3:3:-1] == b'hgfe'
+        assert x.__alloc__() == 14
+        assert repr(x) == "bytearray(b'abcdefghij')"
+        assert x.__alloc__() == 14
+        #
+        x = make(shift=3)
+        x[3] = ord('D')
+        assert x.__alloc__() == 14
+        x[4:6] = b'EF'
+        assert x.__alloc__() == 14
+        x[6:8] = b'G'
+        assert x.__alloc__() == 13
+        x[-2:4:-2] = b'*/'
+        assert x.__alloc__() == 13
+        assert x == bytearray(b'abcDE/G*j')
+        #
+        x = make(b'abcdefghijklmnopqrstuvwxyz', shift=11)
+        assert len(x) == 26
+        assert x.__alloc__() == 38
+        del x[:1]
+        assert len(x) == 25
+        assert x.__alloc__() == 38
+        del x[0:5]
+        assert len(x) == 20
+        assert x.__alloc__() == 38
+        del x[0]
+        assert len(x) == 19
+        assert x.__alloc__() == 38
+        del x[0]                      # too much emptiness, forces now
+        assert len(x) == 18
+        assert x.__alloc__() == 19
+        #
+        x = make(b'abcdefghijklmnopqrstuvwxyz', shift=11)
+        del x[:9]                     # too much emptiness, forces now
+        assert len(x) == 17
+        assert x.__alloc__() == 18
+        #
+        x = make(b'abcdefghijklmnopqrstuvwxyz', shift=11)
+        assert x.__alloc__() == 38
+        del x[1]
+        assert x.__alloc__() == 37      # not forced, but the list shrank
+        del x[3:10:2]
+        assert x.__alloc__() == 33
+        assert x == bytearray(b'acdfhjlmnopqrstuvwxyz')
+        #
+        x = make(shift=3)
+        assert b'f' in x
+        assert b'ef' in x
+        assert b'efx' not in x
+        assert b'very long string longer than the original' not in x
+        assert x.__alloc__() == 14
+        assert x.find(b'f') == 5
+        assert x.rfind(b'f', 2, 11) == 5
+        assert x.find(b'fe') == -1
+        assert x.index(b'f', 2, 11) == 5
+        assert x.__alloc__() == 14

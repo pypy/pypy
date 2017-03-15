@@ -6,6 +6,7 @@ from pypy.tool import stdlib_opcode as ops
 from pypy.interpreter.error import OperationError
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.runicode import MAXUNICODE
+from rpython.rlib.objectmodel import specialize
 
 
 def optimize_ast(space, tree, compile_info):
@@ -70,7 +71,7 @@ class __extend__(ast.Const):
 class __extend__(ast.NameConstant):
 
     def as_constant(self):
-        return self.single
+        return self.value
 
 class __extend__(ast.Index):
     def as_constant(self):
@@ -130,7 +131,7 @@ def _fold_pow(space, w_left, w_right):
     return space.pow(w_left, w_right, space.w_None)
 
 def _fold_not(space, operand):
-    return space.wrap(not space.is_true(operand))
+    return space.newbool(not space.is_true(operand))
 
 
 binary_folders = {
@@ -177,6 +178,7 @@ class OptimizingVisitor(ast.ASTVisitor):
         self.space = space
         self.compile_info = compile_info
 
+    @specialize.argtype(1)
     def default_visitor(self, node):
         return node
 
@@ -220,7 +222,7 @@ class OptimizingVisitor(ast.ASTVisitor):
                         break
                 else:
                     raise AssertionError("unknown unary operation")
-                w_minint = self.space.wrap(-sys.maxint - 1)
+                w_minint = self.space.newint(-sys.maxint - 1)
                 # This makes sure the result is an integer.
                 if self.space.eq_w(w_minint, w_const):
                     w_const = w_minint

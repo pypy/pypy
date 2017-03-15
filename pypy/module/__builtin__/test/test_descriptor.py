@@ -508,4 +508,15 @@ class AppTestBuiltinApp:
                 del __class__
                 super()
         raises(RuntimeError, X().f)
+        class X:
+            def f(self):
+                def g():
+                    print(self)    # make 'self' a closure inside 'f'
+                del self
+                super()
+        raises(RuntimeError, X().f)
+        class X:
+            def f(*args):
+                super()
+        raises(RuntimeError, X().f)
         """

@@ -47,7 +47,8 @@ class FinalizationTest(unittest.TestCase):
         g = gen()
         next(g)
         g.send(g)
-        self.assertGreater(sys.getrefcount(g), 2)
+        if hasattr(sys, 'getrefcount'):
+            self.assertGreater(sys.getrefcount(g), 2)
         self.assertFalse(finalized)
         del g
         support.gc_collect()
@@ -96,8 +97,8 @@ class GeneratorTest(unittest.TestCase):
         # generator names must be a string and cannot be deleted
         self.assertRaises(TypeError, setattr, gen, '__name__', 123)
         self.assertRaises(TypeError, setattr, gen, '__qualname__', 123)
-        self.assertRaises(TypeError, delattr, gen, '__name__')
-        self.assertRaises(TypeError, delattr, gen, '__qualname__')
+        self.assertRaises((TypeError, AttributeError), delattr, gen, '__name__')
+        self.assertRaises((TypeError, AttributeError), delattr, gen, '__qualname__')
 
         # modify names of the function creating the generator
         func.__qualname__ = "func_qualname"
@@ -276,6 +277,27 @@ class ExceptionTest(unittest.TestCase):
             # This time StopIteration isn't raised from the generator's body,
             # hence no warning.
             next(g)
+
+    def test_return_tuple(self):
+        def g():
+            return (yield 1)
+
+        gen = g()
+        self.assertEqual(next(gen), 1)
+        with self.assertRaises(StopIteration) as cm:
+            gen.send((2,))
+        self.assertEqual(cm.exception.value, (2,))
+
+    def test_return_stopiteration(self):
+        def g():
+            return (yield 1)
+
+        gen = g()
+        self.assertEqual(next(gen), 1)
+        with self.assertRaises(StopIteration) as cm:
+            gen.send(StopIteration(2))
+        self.assertIsInstance(cm.exception.value, StopIteration)
+        self.assertEqual(cm.exception.value.value, 2)
 
 
 class YieldFromTests(unittest.TestCase):
@@ -1351,7 +1373,7 @@ class Queens:
 
         # For each square, compute a bit vector of the columns and
         # diagonals it covers, and for each row compute a function that
-        # generates the possiblities for the columns in that row.
+        # generates the possibilities for the columns in that row.
         self.rowgenerators = []
         for i in rangen:
             rowuses = [(1 << j) |                  # column ordinal

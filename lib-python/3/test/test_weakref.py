@@ -6,6 +6,7 @@ import weakref
 import operator
 import contextlib
 import copy
+import time
 
 from test import support
 from test.support import script_helper
@@ -73,6 +74,29 @@ class TestBase(unittest.TestCase):
         self.cbcalled += 1
 
 
+@contextlib.contextmanager
+def collect_in_thread(period=0.0001):
+    """
+    Ensure GC collections happen in a different thread, at a high frequency.
+    """
+    threading = support.import_module('threading')
+    please_stop = False
+
+    def collect():
+        while not please_stop:
+            time.sleep(period)
+            gc.collect()
+
+    with support.disable_gc():
+        t = threading.Thread(target=collect)
+        t.start()
+        try:
+            yield
+        finally:
+            please_stop = True
+            t.join()
+
+
 class ReferencesTestCase(TestBase):
 
     def test_basic_ref(self):
@@ -134,6 +158,10 @@ class ReferencesTestCase(TestBase):
         self.ref = weakref.ref(c, callback)
         ref1 = weakref.ref(c, callback)
         del c
+
+    def test_constructor_kwargs(self):
+        c = C()
+        self.assertRaises(TypeError, weakref.ref, c, callback=None)
 
     def test_proxy_ref(self):
         o = C()
@@ -596,6 +624,7 @@ class ReferencesTestCase(TestBase):
         del c1, c2, C, D
         gc.collect()
 
+    @support.requires_type_collecting
     def test_callback_in_cycle_resurrection(self):
         import gc
 
@@ -853,6 +882,14 @@ class ReferencesTestCase(TestBase):
         with self.assertRaises(AttributeError):
             ref1.__callback__ = lambda ref: None
 
+    def test_callback_gcs(self):
+        class ObjectWithDel(Object):
+            def __del__(self): pass
+        x = ObjectWithDel(1)
+        ref1 = weakref.ref(x, lambda ref: support.gc_collect())
+        del x
+        support.gc_collect()
+
 
 class SubclassableWeakrefTestCase(TestBase):
 
@@ -1103,7 +1140,7 @@ class MappingTestCase(TestBase):
         # Keep an iterator alive
         it = dct.items()
         try:
-            next(it)
+            print(next(it))
         except StopIteration:
             pass
         del items
@@ -1112,7 +1149,10 @@ class MappingTestCase(TestBase):
         del it
         gc.collect()
         gc.collect()
+        print(list(dct.items()))
         n2 = len(dct)
+        print(len(dct))
+        print(weakref)
         # one item may be kept alive inside the iterator
         self.assertIn(n1, (0, 1))
         self.assertEqual(n2, 0)
@@ -1341,13 +1381,16 @@ class MappingTestCase(TestBase):
         o = Object(123456)
         with testcontext():
             n = len(dict)
-            dict.popitem()
+            # Since underlaying dict is ordered, first item is popped
+            dict.pop(next(dict.keys()))
             self.assertEqual(len(dict), n - 1)
             dict[o] = o
             self.assertEqual(len(dict), n)
+        # last item in objects is removed from dict in context shutdown
         with testcontext():
             self.assertEqual(len(dict), n - 1)
-            dict.pop(next(dict.keys()))
+            # Then, (o, o) is popped
+            dict.popitem()
             self.assertEqual(len(dict), n - 2)
         with testcontext():
             self.assertEqual(len(dict), n - 3)
@@ -1381,9 +1424,12 @@ class MappingTestCase(TestBase):
                 yield Object(v), v
             finally:
                 it = None           # should commit all removals
-        if not support.check_impl_detail(pypy=True):
-            # XXX: http://bugs.python.org/issue21173
-            self.check_weak_destroy_and_mutate_while_iterating(dict, testcontext)
+                gc.collect()
+        self.check_weak_destroy_and_mutate_while_iterating(dict, testcontext)
+        # Issue #21173: len() fragile when keys are both implicitly and
+        # explicitly removed.
+        dict, objects = self.make_weak_keyed_dict()
+        self.check_weak_del_and_len_while_iterating(dict, testcontext)
 
     def test_weak_values_destroy_while_iterating(self):
         # Issue #7105: iterators shouldn't crash when a key is implicitly removed
@@ -1638,6 +1684,35 @@ class MappingTestCase(TestBase):
     def test_make_weak_keyed_dict_repr(self):
         dict = weakref.WeakKeyDictionary()
         self.assertRegex(repr(dict), '<WeakKeyDictionary at 0x.*>')
+
+    def test_threaded_weak_valued_setdefault(self):
+        d = weakref.WeakValueDictionary()
+        with collect_in_thread():
+            for i in range(100000):
+                x = d.setdefault(10, RefCycle())
+                self.assertIsNot(x, None)  # we never put None in there!
+                del x
+
+    def test_threaded_weak_valued_pop(self):
+        d = weakref.WeakValueDictionary()
+        with collect_in_thread():
+            for i in range(100000):
+                d[10] = RefCycle()
+                x = d.pop(10, 10)
+                self.assertIsNot(x, None)  # we never put None in there!
+
+    def test_threaded_weak_valued_consistency(self):
+        # Issue #28427: old keys should not remove new values from
+        # WeakValueDictionary when collecting from another thread.
+        d = weakref.WeakValueDictionary()
+        with collect_in_thread():
+            for i in range(200000):
+                o = RefCycle()
+                d[10] = o
+                # o is still alive, so the dict can't be empty
+                self.assertEqual(len(d), 1)
+                o = None  # lose ref
+
 
 from test import mapping_tests
 

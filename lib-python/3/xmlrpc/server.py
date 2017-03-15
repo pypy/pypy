@@ -184,7 +184,7 @@ class SimpleXMLRPCDispatcher:
         are considered private and will not be called by
         SimpleXMLRPCServer.
 
-        If a registered function matches a XML-RPC request, then it
+        If a registered function matches an XML-RPC request, then it
         will be called instead of the registered instance.
 
         If the optional allow_dotted_names argument is true and the
@@ -269,7 +269,7 @@ class SimpleXMLRPCDispatcher:
                 encoding=self.encoding, allow_none=self.allow_none,
                 )
 
-        return response.encode(self.encoding)
+        return response.encode(self.encoding, 'xmlcharrefreplace')
 
     def system_listMethods(self):
         """system.listMethods() => ['add', 'subtract', 'multiple']
@@ -622,7 +622,7 @@ class MultiPathXMLRPCServer(SimpleXMLRPCServer):
             response = dumps(
                 Fault(1, "%s:%s" % (exc_type, exc_value)),
                 encoding=self.encoding, allow_none=self.allow_none)
-            response = response.encode(self.encoding)
+            response = response.encode(self.encoding, 'xmlcharrefreplace')
         return response
 
 class CGIXMLRPCRequestHandler(SimpleXMLRPCDispatcher):

@@ -19,7 +19,7 @@ def scandir(space, w_path=None):
     if space.is_none(w_path):
         w_path = space.newunicode(u".")
     if space.isinstance_w(w_path, space.w_bytes):
-        path_bytes = space.str0_w(w_path)
+        path_bytes = space.bytes0_w(w_path)
         result_is_bytes = True
     else:
         path_bytes = space.fsencode_w(w_path)
@@ -28,7 +28,7 @@ def scandir(space, w_path=None):
     try:
         dirp = rposix_scandir.opendir(path_bytes)
     except OSError as e:
-        raise wrap_oserror2(space, e, w_path)
+        raise wrap_oserror2(space, e, w_path, eintr_retry=False)
     path_prefix = path_bytes
     if len(path_prefix) > 0 and path_prefix[-1] != '/':
         path_prefix += '/'
@@ -58,7 +58,7 @@ class W_ScandirIterator(W_Root):
             rposix_scandir.closedir(self.dirp)
 
     def iter_w(self):
-        return self.space.wrap(self)
+        return self
 
     def fail(self, err=None):
         dirp = self.dirp
@@ -85,7 +85,8 @@ class W_ScandirIterator(W_Root):
                 try:
                     entry = rposix_scandir.nextentry(self.dirp)
                 except OSError as e:
-                    raise self.fail(wrap_oserror2(space, e, self.w_path_prefix))
+                    raise self.fail(wrap_oserror2(space, e, self.w_path_prefix,
+                                                  eintr_retry=False))
                 if not entry:
                     raise self.fail()
                 assert rposix_scandir.has_name_bytes(entry)
@@ -98,7 +99,7 @@ class W_ScandirIterator(W_Root):
         finally:
             self._in_next = False
         direntry = W_DirEntry(self, name, known_type, inode)
-        return space.wrap(direntry)
+        return direntry
 
 
 W_ScandirIterator.typedef = TypeDef(
@@ -138,7 +139,7 @@ class W_DirEntry(W_Root):
 
     def descr_repr(self, space):
         u = space.unicode_w(space.repr(self.w_name))
-        return space.wrap(u"<DirEntry %s>" % u)
+        return space.newunicode(u"<DirEntry %s>" % u)
 
     def fget_name(self, space):
         return self.w_name
@@ -160,7 +161,7 @@ class W_DirEntry(W_Root):
         if (self.flags & FLAG_LSTAT) == 0:
             # Unlike CPython, try to use fstatat() if possible
             dirfd = self.scandir_iterator.dirfd
-            if dirfd != -1:
+            if dirfd != -1 and rposix.HAVE_FSTATAT:
                 st = rposix_stat.fstatat(self.name, dirfd,
                                          follow_symlinks=False)
             else:
@@ -205,7 +206,7 @@ class W_DirEntry(W_Root):
             if must_call_stat:
                 # Must call stat().  Try to use fstatat() if possible
                 dirfd = self.scandir_iterator.dirfd
-                if dirfd != -1:
+                if dirfd != -1 and rposix.HAVE_FSTATAT:
                     st = rposix_stat.fstatat(self.name, dirfd,
                                              follow_symlinks=True)
                 else:
@@ -235,7 +236,8 @@ class W_DirEntry(W_Root):
         except OSError as e:
             if e.errno == ENOENT:    # not found
                 return -1
-            raise wrap_oserror2(self.space, e, self.fget_path(self.space))
+            raise wrap_oserror2(self.space, e, self.fget_path(self.space),
+                                eintr_retry=False)
         return stat.S_IFMT(st.st_mode)
 
     def is_dir(self, follow_symlinks):
@@ -270,16 +272,16 @@ class W_DirEntry(W_Root):
     @unwrap_spec(follow_symlinks=bool)
     def descr_is_dir(self, space, __kwonly__, follow_symlinks=True):
         """return True if the entry is a directory; cached per entry"""
-        return space.wrap(self.is_dir(follow_symlinks))
+        return space.newbool(self.is_dir(follow_symlinks))
 
     @unwrap_spec(follow_symlinks=bool)
     def descr_is_file(self, space, __kwonly__, follow_symlinks=True):
         """return True if the entry is a file; cached per entry"""
-        return space.wrap(self.is_file(follow_symlinks))
+        return space.newbool(self.is_file(follow_symlinks))
 
     def descr_is_symlink(self, space):
         """return True if the entry is a symbolic link; cached per entry"""
-        return space.wrap(self.is_symlink())
+        return space.newbool(self.is_symlink())
 
     @unwrap_spec(follow_symlinks=bool)
     def descr_stat(self, space, __kwonly__, follow_symlinks=True):
@@ -287,11 +289,12 @@ class W_DirEntry(W_Root):
         try:
             st = self.get_stat_or_lstat(follow_symlinks)
         except OSError as e:
-            raise wrap_oserror2(space, e, self.fget_path(space))
+            raise wrap_oserror2(space, e, self.fget_path(space),
+                                eintr_retry=False)
         return build_stat_result(space, st)
 
     def descr_inode(self, space):
-        return space.wrap(self.inode)
+        return space.newint(self.inode)
 
 
 W_DirEntry.typedef = TypeDef(

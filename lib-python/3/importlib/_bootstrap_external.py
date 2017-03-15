@@ -21,15 +21,22 @@ work. One should use importlib as the public-facing version of this module.
 # anything specified at the class level.
 
 # Bootstrap-related code ######################################################
-
-_CASE_INSENSITIVE_PLATFORMS = 'win', 'cygwin', 'darwin'
+_CASE_INSENSITIVE_PLATFORMS_STR_KEY = 'win',
+_CASE_INSENSITIVE_PLATFORMS_BYTES_KEY = 'cygwin', 'darwin'
+_CASE_INSENSITIVE_PLATFORMS =  (_CASE_INSENSITIVE_PLATFORMS_BYTES_KEY
+                                + _CASE_INSENSITIVE_PLATFORMS_STR_KEY)
 
 
 def _make_relax_case():
     if sys.platform.startswith(_CASE_INSENSITIVE_PLATFORMS):
+        if sys.platform.startswith(_CASE_INSENSITIVE_PLATFORMS_STR_KEY):
+            key = 'PYTHONCASEOK'
+        else:
+            key = b'PYTHONCASEOK'
+
         def _relax_case():
             """True if filenames must be checked case-insensitively."""
-            return b'PYTHONCASEOK' in _os.environ
+            return key in _os.environ
     else:
         def _relax_case():
             """True if filenames must be checked case-insensitively."""
@@ -223,18 +230,28 @@ _code_type = type(_write_atomic.__code__)
 #     Python 3.5b1  3330 (PEP 448: Additional Unpacking Generalizations)
 #     Python 3.5b2  3340 (fix dictionary display evaluation order #11205)
 #     Python 3.5b2  3350 (add GET_YIELD_FROM_ITER opcode #24400)
+#     Python 3.5.2  3351 (fix BUILD_MAP_UNPACK_WITH_CALL opcode #27286)
 #
 # MAGIC must change whenever the bytecode emitted by the compiler may no
 # longer be understood by older implementations of the eval loop (usually
 # due to the addition of new opcodes).
+#
+# Whenever MAGIC_NUMBER is changed, the ranges in the magic_values array
+# in PC/launcher.c must also be updated.
 
-# MAGIC_NUMBER = (3350).to_bytes(2, 'little') + b'\r\n'
+# MAGIC_NUMBER = (3351).to_bytes(2, 'little') + b'\r\n'
 #
 # PyPy change: the MAGIC_NUMBER is defined in
 # pypy/interpreter/pycode.py, 'default_magic'.  It is based on a number
 # different than CPython's, always < 3000.  We get the 4-bytes string
 # here via a hack: MAGIC_NUMBER is set in the module from
 # module/_frozen_importlib/__init__.py before the module is executed.
+# FOR TESTS ONLY, we make it default to imp.get_magic().
+try:
+    MAGIC_NUMBER
+except NameError:
+    import imp
+    MAGIC_NUMBER = imp.get_magic()
 
 _RAW_MAGIC_NUMBER = int.from_bytes(MAGIC_NUMBER, 'little')  # For import.c
 
@@ -1217,8 +1234,8 @@ class FileFinder:
                                        submodule_search_locations=smsl)
 
     def find_spec(self, fullname, target=None):
-        """Try to find a loader for the specified module, or the namespace
-        package portions. Returns (loader, list-of-portions)."""
+        """Try to find a spec for the specified module.  Returns the
+        matching spec, or None if not found."""
         is_namespace = False
         tail_module = fullname.rpartition('.')[2]
         try:

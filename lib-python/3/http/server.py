@@ -337,6 +337,13 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
                 HTTPStatus.BAD_REQUEST,
                 "Line too long")
             return False
+        except http.client.HTTPException as err:
+            self.send_error(
+                HTTPStatus.REQUEST_HEADER_FIELDS_TOO_LARGE,
+                "Too many headers",
+                str(err)
+            )
+            return False
 
         conntype = self.headers.get('Connection', "")
         if conntype.lower() == 'close':
@@ -443,20 +450,30 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
         if explain is None:
             explain = longmsg
         self.log_error("code %d, message %s", code, message)
-        # using _quote_html to prevent Cross Site Scripting attacks (see bug #1100201)
-        content = (self.error_message_format %
-                   {'code': code, 'message': _quote_html(message), 'explain': _quote_html(explain)})
-        body = content.encode('UTF-8', 'replace')
         self.send_response(code, message)
-        self.send_header("Content-Type", self.error_content_type)
         self.send_header('Connection', 'close')
-        self.send_header('Content-Length', int(len(body)))
+
+        # Message body is omitted for cases described in:
+        #  - RFC7230: 3.3. 1xx, 204(No Content), 304(Not Modified)
+        #  - RFC7231: 6.3.6. 205(Reset Content)
+        body = None
+        if (code >= 200 and
+            code not in (HTTPStatus.NO_CONTENT,
+                         HTTPStatus.RESET_CONTENT,
+                         HTTPStatus.NOT_MODIFIED)):
+            # HTML encode to prevent Cross Site Scripting attacks
+            # (see bug #1100201)
+            content = (self.error_message_format % {
+                'code': code,
+                'message': _quote_html(message),
+                'explain': _quote_html(explain)
+            })
+            body = content.encode('UTF-8', 'replace')
+            self.send_header("Content-Type", self.error_content_type)
+            self.send_header('Content-Length', int(len(body)))
         self.end_headers()
 
-        if (self.command != 'HEAD' and
-                code >= 200 and
-                code not in (
-                    HTTPStatus.NO_CONTENT, HTTPStatus.NOT_MODIFIED)):
+        if self.command != 'HEAD' and body:
             self.wfile.write(body)
 
     def send_response(self, code, message=None):
@@ -767,9 +784,9 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
         words = filter(None, words)
         path = os.getcwd()
         for word in words:
-            drive, word = os.path.splitdrive(word)
-            head, word = os.path.split(word)
-            if word in (os.curdir, os.pardir): continue
+            if os.path.dirname(word) or word in (os.curdir, os.pardir):
+                # Ignore components that are not a simple file/directory name
+                continue
             path = os.path.join(path, word)
         if trailing_slash:
             path += '/'

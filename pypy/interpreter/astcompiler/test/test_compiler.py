@@ -12,7 +12,7 @@ def compile_with_astcompiler(expr, mode, space):
     p = pyparse.PythonParser(space)
     info = pyparse.CompileInfo("<test>", mode)
     cst = p.parse_source(expr, info)
-    ast = astbuilder.ast_from_node(space, cst, info)
+    ast = astbuilder.ast_from_node(space, cst, info, recursive_parser=p)
     return codegen.compile_ast(space, ast, info)
 
 def generate_function_code(expr, space):
@@ -20,7 +20,7 @@ def generate_function_code(expr, space):
     p = pyparse.PythonParser(space)
     info = pyparse.CompileInfo("<test>", 'exec')
     cst = p.parse_source(expr, info)
-    ast = astbuilder.ast_from_node(space, cst, info)
+    ast = astbuilder.ast_from_node(space, cst, info, recursive_parser=p)
     function_ast = optimize.optimize_ast(space, ast.body[0], info)
     function_ast = ast.body[0]
     assert isinstance(function_ast, FunctionDef)
@@ -417,6 +417,7 @@ class TestCompiler:
                 foo = Foo()
                 exec("'moduledoc'", foo.__dict__)
              ''',                            "moduledoc"),
+            ('''def foo(): f"abc"''',        None),
             ]:
             yield self.simple_test, source, "foo.__doc__", expected
 
@@ -780,6 +781,19 @@ class TestCompiler:
         else:
             raise Exception("DID NOT RAISE")
 
+    def test_indent_error_filename(self):
+        source = py.code.Source("""
+        def f():
+          x
+         y
+        """)
+        try:
+            self.simple_test(source, None, None)
+        except IndentationError as e:
+            assert e.filename == '<test>'
+        else:
+            raise Exception("DID NOT RAISE")
+
     def test_kwargs_last(self):
         py.test.raises(SyntaxError, self.simple_test, "int(base=10, '2')",
                        None, None)
@@ -869,7 +883,7 @@ class TestCompiler:
         with a: pass
         """
         code = compile_with_astcompiler(source, 'exec', self.space)
-        assert code.co_stacksize == 6  # i.e. <= 7, there is no systematic leak
+        assert code.co_stacksize == 5  # i.e. <= 7, there is no systematic leak
 
     def test_stackeffect_bug5(self):
         source = """if 1:
@@ -1127,10 +1141,20 @@ class TestCompiler:
         source = """if 1:
         class X:
            global __class__
-           def f(self):
-               super()
         """
         py.test.raises(SyntaxError, self.simple_test, source, None, None)
+        # XXX this raises "'global __class__' inside a class statement
+        # is not implemented in PyPy".  The reason it is not is that it
+        # seems we need to refactor some things to implement it exactly
+        # like CPython, and I seriously don't think there is a point
+        #
+        # Another case which so far works on CPython but not on PyPy:
+        #class X:
+        #    __class__ = 42
+        #    def f(self):
+        #        return __class__
+        #assert X.__dict__['__class__'] == 42
+        #assert X().f() is X
 
     def test_error_message_1(self):
         source = """if 1:
@@ -1140,6 +1164,81 @@ class TestCompiler:
         e = py.test.raises(SyntaxError, self.simple_test, source, None, None)
         assert e.value.msg == (
             "'await' expressions in comprehensions are not supported")
+
+    def test_load_classderef(self):
+        source = """if 1:
+        def f():
+            x = 42
+            class X:
+                locals()["x"] = 43
+                y = x
+            return X.y
+        """
+        yield self.st, source, "f()", 43
+
+    def test_fstring(self):
+        yield self.st, """x = 42; z = f'ab{x}cd'""", 'z', 'ab42cd'
+        yield self.st, """z = f'{{'""", 'z', '{'
+        yield self.st, """z = f'}}'""", 'z', '}'
+        yield self.st, """z = f'x{{y'""", 'z', 'x{y'
+        yield self.st, """z = f'x}}y'""", 'z', 'x}y'
+        yield self.st, """z = f'{{{4*10}}}'""", 'z', '{40}'
+        yield self.st, r"""z = fr'x={4*10}\n'""", 'z', 'x=40\\n'
+
+        yield self.st, """x = 'hi'; z = f'{x}'""", 'z', 'hi'
+        yield self.st, """x = 'hi'; z = f'{x!s}'""", 'z', 'hi'
+        yield self.st, """x = 'hi'; z = f'{x!r}'""", 'z', "'hi'"
+        yield self.st, """x = 'hi'; z = f'{x!a}'""", 'z', "'hi'"
+
+        yield self.st, """x = 'hi'; z = f'''{\nx}'''""", 'z', 'hi'
+
+        yield self.st, """x = 'hi'; z = f'{x:5}'""", 'z', 'hi   '
+        yield self.st, """x = 42;   z = f'{x:5}'""", 'z', '   42'
+        yield self.st, """x = 2; z = f'{5:{x:+1}0}'""", 'z', (' ' * 18 + '+5')
+
+        yield self.st, """z=f'{"}"}'""", 'z', '}'
+
+        yield self.st, """z=f'{f"{0}"*3}'""", 'z', '000'
+
+    def test_fstring_error(self):
+        raises(SyntaxError, self.run, "f'{}'")
+        raises(SyntaxError, self.run, "f'{   \t   }'")
+        raises(SyntaxError, self.run, "f'{5#}'")
+        raises(SyntaxError, self.run, "f'{5)#}'")
+        raises(SyntaxError, self.run, "f'''{5)\n#}'''")
+        raises(SyntaxError, self.run, "f'\\x'")
+
+    def test_fstring_encoding(self):
+        src = """# -*- coding: latin-1 -*-\nz=ord(f'{"\xd8"}')\n"""
+        yield self.st, src, 'z', 0xd8
+        src = """# -*- coding: utf-8 -*-\nz=ord(f'{"\xc3\x98"}')\n"""
+        yield self.st, src, 'z', 0xd8
+
+        src = """z=ord(f'\\xd8')"""
+        yield self.st, src, 'z', 0xd8
+        src = """z=ord(f'\\u00d8')"""
+        yield self.st, src, 'z', 0xd8
+
+        src = """# -*- coding: latin-1 -*-\nz=ord(f'\xd8')\n"""
+        yield self.st, src, 'z', 0xd8
+        src = """# -*- coding: utf-8 -*-\nz=ord(f'\xc3\x98')\n"""
+        yield self.st, src, 'z', 0xd8
+
+    def test_fstring_encoding_r(self):
+        src = """# -*- coding: latin-1 -*-\nz=ord(fr'{"\xd8"}')\n"""
+        yield self.st, src, 'z', 0xd8
+        src = """# -*- coding: utf-8 -*-\nz=ord(rf'{"\xc3\x98"}')\n"""
+        yield self.st, src, 'z', 0xd8
+
+        src = """z=fr'\\xd8'"""
+        yield self.st, src, 'z', "\\xd8"
+        src = """z=rf'\\u00d8'"""
+        yield self.st, src, 'z', "\\u00d8"
+
+        src = """# -*- coding: latin-1 -*-\nz=ord(rf'\xd8')\n"""
+        yield self.st, src, 'z', 0xd8
+        src = """# -*- coding: utf-8 -*-\nz=ord(fr'\xc3\x98')\n"""
+        yield self.st, src, 'z', 0xd8
 
 
 class AppTestCompiler:
@@ -1363,3 +1462,9 @@ class TestOptimizations:
         code, blocks = generate_function_code(source, self.space)
         # there is a stack computation error
         assert blocks[0].instructions[3].arg == 0
+
+    def test_fstring(self):
+        source = """def f(x):
+            return f'ab{x}cd'
+        """
+        code, blocks = generate_function_code(source, self.space)

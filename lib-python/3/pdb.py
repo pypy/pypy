@@ -52,7 +52,7 @@ If a file ".pdbrc" exists in your home directory or in the current
 directory, it is read in and executed as if it had been typed at the
 debugger prompt.  This is particularly useful for aliases.  If both
 files exist, the one in the home directory is read first and aliases
-defined there can be overriden by the local file.
+defined there can be overridden by the local file.
 
 Aside from aliases, the debugger is not directly programmable; but it
 is implemented as a class from which you can derive your own debugger
@@ -134,6 +134,8 @@ line_prefix = '\n-> '   # Probably a better default
 
 class Pdb(bdb.Bdb, cmd.Cmd):
 
+    _previous_sigint_handler = None
+
     def __init__(self, completekey='tab', stdin=None, stdout=None, skip=None,
                  nosigint=False):
         bdb.Bdb.__init__(self, skip=skip)
@@ -187,8 +189,6 @@ class Pdb(bdb.Bdb, cmd.Cmd):
         self.message("\nProgram interrupted. (Use 'cont' to resume).")
         self.set_step()
         self.set_trace(frame)
-        # restore previous signal handler
-        signal.signal(signal.SIGINT, self._previous_sigint_handler)
 
     def reset(self):
         bdb.Bdb.reset(self)
@@ -300,7 +300,7 @@ class Pdb(bdb.Bdb, cmd.Cmd):
 
         # An 'Internal StopIteration' exception is an exception debug event
         # issued by the interpreter when handling a subgenerator run with
-        # 'yield from' or a generator controled by a for loop. No exception has
+        # 'yield from' or a generator controlled by a for loop. No exception has
         # actually occurred in this case. The debugger uses this debug event to
         # stop when the debuggee is returning from such generators.
         prefix = 'Internal ' if (not exc_traceback
@@ -337,6 +337,10 @@ class Pdb(bdb.Bdb, cmd.Cmd):
                                  (expr, newvalue, oldvalue))
 
     def interaction(self, frame, traceback):
+        # Restore the previous signal handler at the Pdb prompt.
+        if Pdb._previous_sigint_handler:
+            signal.signal(signal.SIGINT, Pdb._previous_sigint_handler)
+            Pdb._previous_sigint_handler = None
         if self.setup(frame, traceback):
             # no interaction desired at this time (happens if .pdbrc contains
             # a command like "continue")
@@ -1037,7 +1041,7 @@ class Pdb(bdb.Bdb, cmd.Cmd):
         """
         if not self.nosigint:
             try:
-                self._previous_sigint_handler = \
+                Pdb._previous_sigint_handler = \
                     signal.signal(signal.SIGINT, self.sigint_handler)
             except ValueError:
                 # ValueError happens when do_continue() is invoked from

@@ -14,7 +14,7 @@ from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeBuiltinMethod,
     SomeFloat, SomeIterator, SomePBC, SomeNone, SomeTypeOf, s_ImpossibleValue,
     s_Bool, s_None, s_Int, unionof, add_knowntypedata,
-    SomeWeakRef, SomeUnicodeString, SomeByteArray)
+    SomeWeakRef, SomeUnicodeString, SomeByteArray, SomeOrderedDict)
 from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
 from rpython.annotator.binaryop import _clone ## XXX where to put this?
 from rpython.annotator.binaryop import _dict_can_only_throw_keyerror
@@ -575,6 +575,17 @@ class __extend__(SomeDict):
         pair(self, s_key).delitem()
     method_delitem_with_hash.can_only_throw = _dict_can_only_throw_keyerror
 
+    def method_delitem_if_value_is(self, s_key, s_value):
+        pair(self, s_key).setitem(s_value)
+        pair(self, s_key).delitem()
+
+class __extend__(SomeOrderedDict):
+
+    def method_move_to_end(self, s_key, s_last):
+        assert s_Bool.contains(s_last)
+        pair(self, s_key).delitem()
+    method_move_to_end.can_only_throw = _dict_can_only_throw_keyerror
+
 @op.contains.register(SomeString)
 @op.contains.register(SomeUnicodeString)
 def contains_String(annotator, string, char):
@@ -687,6 +698,17 @@ class __extend__(SomeUnicodeString):
         enc = s_enc.const
         if enc not in ('ascii', 'latin-1', 'utf-8'):
             raise AnnotatorError("Encoding %s not supported for unicode" % (enc,))
+        if enc == 'utf-8':
+            from rpython.rlib import runicode
+            bookkeeper = getbookkeeper()
+            s_func = bookkeeper.immutablevalue(
+                             runicode.unicode_encode_utf_8_elidable)
+            s_errors = bookkeeper.immutablevalue('strict')
+            s_errorhandler = bookkeeper.immutablevalue(
+                                    runicode.default_unicode_error_encode)
+            s_allow_surr = bookkeeper.immutablevalue(True)
+            args = [self, self.len(), s_errors, s_errorhandler, s_allow_surr]
+            bookkeeper.emulate_pbc_call(bookkeeper.position_key, s_func, args)
         return SomeString(no_nul=self.no_nul)
     method_encode.can_only_throw = [UnicodeEncodeError]
 
@@ -720,6 +742,19 @@ class __extend__(SomeString):
         enc = s_enc.const
         if enc not in ('ascii', 'latin-1', 'utf-8'):
             raise AnnotatorError("Encoding %s not supported for strings" % (enc,))
+        if enc == 'utf-8':
+            from rpython.rlib import runicode
+            bookkeeper = getbookkeeper()
+            s_func = bookkeeper.immutablevalue(
+                            runicode.str_decode_utf_8_elidable)
+            s_errors = bookkeeper.immutablevalue('strict')
+            s_final = bookkeeper.immutablevalue(True)
+            s_errorhandler = bookkeeper.immutablevalue(
+                                    runicode.default_unicode_error_decode)
+            s_allow_surr = bookkeeper.immutablevalue(True)
+            args = [self, self.len(), s_errors, s_final, s_errorhandler,
+                    s_allow_surr]
+            bookkeeper.emulate_pbc_call(bookkeeper.position_key, s_func, args)
         return SomeUnicodeString(no_nul=self.no_nul)
     method_decode.can_only_throw = [UnicodeDecodeError]
 

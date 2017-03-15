@@ -1,11 +1,22 @@
 # coding: utf-8
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter import unicodehelper
 from rpython.rlib.rstring import StringBuilder
 
 
+class W_FString(W_Root):
+    def __init__(self, unparsed, raw_mode):
+        assert isinstance(unparsed, str)    # utf-8 encoded string
+        self.unparsed = unparsed     # but the quotes are removed
+        self.raw_mode = raw_mode
+        self.current_index = 0       # for astcompiler.fstring
+
+
 def parsestr(space, encoding, s):
-    """Parses a string or unicode literal, and return a wrapped value.
+    """Parses a string or unicode literal, and return usually
+    a wrapped value.  If we get an f-string, then instead return
+    an unparsed but unquoted W_FString instance.
 
     If encoding=None, the source string is ascii only.
     In other cases, the source string is in utf-8 encoding.
@@ -23,6 +34,7 @@ def parsestr(space, encoding, s):
     rawmode = False
     unicode_literal = True
     saw_u = False
+    saw_f = False
 
     # string decoration handling
     if quote == 'b' or quote == 'B':
@@ -37,6 +49,10 @@ def parsestr(space, encoding, s):
         ps += 1
         quote = s[ps]
         rawmode = True
+    elif quote == 'f' or quote == 'F':
+        ps += 1
+        quote = s[ps]
+        saw_f = True
 
     if not saw_u:
         if quote == 'r' or quote == 'R':
@@ -47,6 +63,10 @@ def parsestr(space, encoding, s):
             ps += 1
             quote = s[ps]
             unicode_literal = False
+        elif quote == 'f' or quote == 'F':
+            ps += 1
+            quote = s[ps]
+            saw_f = True
 
     if quote != "'" and quote != '"':
         raise_app_valueerror(space,
@@ -65,13 +85,15 @@ def parsestr(space, encoding, s):
         q -= 2
 
     if unicode_literal and not rawmode: # XXX Py_UnicodeFlag is ignored for now
+        assert 0 <= ps <= q
+        if saw_f:
+            return W_FString(s[ps:q], rawmode)
         if encoding is None:
-            assert 0 <= ps <= q
             substr = s[ps:q]
         else:
             substr = decode_unicode_utf8(space, s, ps, q)
         v = unicodehelper.decode_unicode_escape(space, substr)
-        return space.wrap(v)
+        return space.newunicode(v)
 
     assert 0 <= ps <= q
     substr = s[ps : q]
@@ -86,9 +108,11 @@ def parsestr(space, encoding, s):
     if rawmode or '\\' not in substr:
         if not unicode_literal:
             return space.newbytes(substr)
+        elif saw_f:
+            return W_FString(substr, rawmode)
         else:
             v = unicodehelper.decode_utf8(space, substr)
-            return space.wrap(v)
+            return space.newunicode(v)
 
     v = PyString_DecodeEscape(space, substr, 'strict', encoding)
     return space.newbytes(v)
@@ -237,9 +261,9 @@ def decode_utf8(space, s, ps, end):
 
 def decode_utf8_recode(space, s, ps, end, recode_encoding):
     u, ps = decode_utf8(space, s, ps, end)
-    w_v = unicodehelper.encode(space, space.wrap(u), recode_encoding)
+    w_v = unicodehelper.encode(space, space.newunicode(u), recode_encoding)
     v = space.bytes_w(w_v)
     return v, ps
 
 def raise_app_valueerror(space, msg):
-    raise OperationError(space.w_ValueError, space.wrap(msg))
+    raise OperationError(space.w_ValueError, space.newtext(msg))

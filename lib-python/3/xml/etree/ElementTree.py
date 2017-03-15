@@ -428,12 +428,14 @@ class Element:
         tag = self.tag
         if not isinstance(tag, str) and tag is not None:
             return
-        if self.text:
-            yield self.text
+        t = self.text
+        if t:
+            yield t
         for e in self:
             yield from e.itertext()
-            if e.tail:
-                yield e.tail
+            t = e.tail
+            if t:
+                yield t
 
 
 def SubElement(parent, tag, attrib={}, **extra):
@@ -1081,8 +1083,19 @@ def _escape_attrib(text):
             text = text.replace(">", "&gt;")
         if "\"" in text:
             text = text.replace("\"", "&quot;")
+        # The following business with carriage returns is to satisfy
+        # Section 2.11 of the XML specification, stating that 
+        # CR or CR LN should be replaced with just LN
+        # http://www.w3.org/TR/REC-xml/#sec-line-ends
+        if "\r\n" in text:
+            text = text.replace("\r\n", "\n")
+        if "\r" in text:
+            text = text.replace("\r", "\n")
+        #The following four lines are issue 17582
         if "\n" in text:
             text = text.replace("\n", "&#10;")
+        if "\t" in text:
+            text = text.replace("\t", "&#09;")
         return text
     except (TypeError, AttributeError):
         _raise_serialization_error(text)
@@ -1202,7 +1215,12 @@ def iterparse(source, events=None, parser=None):
     if not hasattr(source, "read"):
         source = open(source, "rb")
         close_source = True
-    return _IterParseIterator(source, events, parser, close_source)
+    try:
+        return _IterParseIterator(source, events, parser, close_source)
+    except:
+        if close_source:
+            source.close()
+        raise
 
 
 class XMLPullParser:
@@ -1285,20 +1303,26 @@ class _IterParseIterator:
         self.root = self._root = None
 
     def __next__(self):
-        while 1:
-            for event in self._parser.read_events():
-                return event
-            if self._parser._parser is None:
-                self.root = self._root
-                if self._close_file:
-                    self._file.close()
-                raise StopIteration
-            # load event buffer
-            data = self._file.read(16 * 1024)
-            if data:
-                self._parser.feed(data)
-            else:
-                self._root = self._parser._close_and_return_root()
+        try:
+            while 1:
+                for event in self._parser.read_events():
+                    return event
+                if self._parser._parser is None:
+                    break
+                # load event buffer
+                data = self._file.read(16 * 1024)
+                if data:
+                    self._parser.feed(data)
+                else:
+                    self._root = self._parser._close_and_return_root()
+            self.root = self._root
+        except:
+            if self._close_file:
+                self._file.close()
+            raise
+        if self._close_file:
+            self._file.close()
+        raise StopIteration
 
     def __iter__(self):
         return self
@@ -1441,7 +1465,7 @@ class TreeBuilder:
 class XMLParser:
     """Element structure builder for XML source data based on the expat parser.
 
-    *html* are predefined HTML entities (not supported currently),
+    *html* are predefined HTML entities (deprecated and not supported),
     *target* is an optional target object which defaults to an instance of the
     standard TreeBuilder class, *encoding* is an optional encoding string
     which if given, overrides the encoding specified in the XML file:

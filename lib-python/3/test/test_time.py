@@ -734,8 +734,7 @@ class TestPytime(unittest.TestCase):
         self.assertIs(lt.tm_zone, None)
 
 
-@unittest.skipUnless(_testcapi is not None,
-                     'need the _testcapi module')
+@support.cpython_only
 class TestPyTime_t(unittest.TestCase):
     def test_FromSeconds(self):
         from _testcapi import PyTime_FromSeconds

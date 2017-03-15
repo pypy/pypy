@@ -27,8 +27,9 @@ def PyPy_Crash2(space):
 
 class TestApi:
     def test_signature(self):
-        assert 'PyModule_Check' in api.FUNCTIONS
-        assert api.FUNCTIONS['PyModule_Check'].argtypes == [api.PyObject]
+        common_functions = api.FUNCTIONS_BY_HEADER[api.pypy_decl]
+        assert 'PyModule_Check' in common_functions
+        assert common_functions['PyModule_Check'].argtypes == [api.PyObject]
 
 
 class SpaceCompiler(SystemCompilationInfo):
@@ -86,7 +87,7 @@ def freeze_refcnts(self):
 class LeakCheckingTest(object):
     """Base class for all cpyext tests."""
     spaceconfig = dict(usemodules=['cpyext', 'thread', 'struct', 'array',
-                                   'itertools', 'time', 'binascii',
+                                   'itertools', 'time', 'binascii', 'mmap',
                                    ])
 
     enable_leak_checking = True
@@ -104,7 +105,6 @@ class LeakCheckingTest(object):
             del obj
         import gc; gc.collect()
 
-        space.getexecutioncontext().cleanup_cpyext_state()
 
         for w_obj in state.non_heaptypes_w:
             Py_DecRef(space, w_obj)
@@ -181,6 +181,7 @@ class AppTestApi(LeakCheckingTest):
     def teardown_method(self, meth):
         if self.runappdirect:
             return
+        self.space.getexecutioncontext().cleanup_cpyext_state()
         self.cleanup_references(self.space)
         # XXX: like AppTestCpythonExtensionBase.teardown_method:
         # find out how to disable check_and_print_leaks() if the
@@ -288,7 +289,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         if self.runappdirect:
             return
 
-        @unwrap_spec(name=str)
+        @unwrap_spec(name='text')
         def compile_module(space, name,
                            w_source_files=None,
                            w_source_strings=None):
@@ -314,8 +315,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
 
             return space.wrap(pydname)
 
-        @unwrap_spec(name=str, init='str_or_None', body=str,
-                     filename='str_or_None', PY_SSIZE_T_CLEAN=bool)
+        @unwrap_spec(name='text', init='text_or_none', body='text',
+                     filename='fsencode_or_none', PY_SSIZE_T_CLEAN=bool)
         def import_module(space, name, init=None, body='',
                           filename=None, w_include_dirs=None,
                           PY_SSIZE_T_CLEAN=False):
@@ -326,12 +327,12 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             return w_result
 
 
-        @unwrap_spec(mod=str, name=str)
+        @unwrap_spec(mod='text', name='text')
         def load_module(space, mod, name):
             return self.sys_info.load_module(mod, name)
 
-        @unwrap_spec(modname=str, prologue=str,
-                             more_init=str, PY_SSIZE_T_CLEAN=bool)
+        @unwrap_spec(modname='text', prologue='text',
+                             more_init='text', PY_SSIZE_T_CLEAN=bool)
         def import_extension(space, modname, w_functions, prologue="",
                              w_include_dirs=None, more_init="", PY_SSIZE_T_CLEAN=False):
             functions = space.unwrap(w_functions)
@@ -371,6 +372,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             return
         for name in self.imported_module_names:
             self.unimport_module(name)
+        self.space.getexecutioncontext().cleanup_cpyext_state()
         self.cleanup_references(self.space)
         # XXX: find out how to disable check_and_print_leaks() if the
         # test failed...
@@ -626,7 +628,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             refcnt_after = true_obj->ob_refcnt;
             Py_DECREF(true_obj);
             Py_DECREF(true_obj);
-            fprintf(stderr, "REFCNT %zd %zd\\n", refcnt, refcnt_after);
+            fprintf(stderr, "REFCNT %ld %ld\\n", refcnt, refcnt_after);
             return PyBool_FromLong(refcnt_after == refcnt + 2);
         }
         static PyObject* foo_bar(PyObject* self, PyObject *args)
@@ -642,7 +644,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
                 return NULL;
             refcnt_after = true_obj->ob_refcnt;
             Py_DECREF(tup);
-            fprintf(stderr, "REFCNT2 %zd %zd %zd\\n", refcnt, refcnt_after,
+            fprintf(stderr, "REFCNT2 %ld %ld %ld\\n", refcnt, refcnt_after,
                     true_obj->ob_refcnt);
             return PyBool_FromLong(refcnt_after == refcnt + 1 &&
                                    refcnt == true_obj->ob_refcnt);

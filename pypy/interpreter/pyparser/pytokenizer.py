@@ -44,9 +44,9 @@ def match_encoding_declaration(comment):
     return None
 
 
-def verify_identifier(token):
+def verify_utf8(token):
     for c in token:
-        if ord(c) > 0x80:
+        if ord(c) >= 0x80:
             break
     else:
         return True
@@ -54,6 +54,29 @@ def verify_identifier(token):
         u = token.decode('utf-8')
     except UnicodeDecodeError:
         return False
+    return True
+
+def bad_utf8(location_msg, line, lnum, pos, token_list, flags):
+    msg = 'Non-UTF-8 code in %s' % location_msg
+    if not (flags & consts.PyCF_FOUND_ENCODING):
+        # this extra part of the message is added only if we found no
+        # explicit encoding
+        msg += (' but no encoding declared; see '
+                'http://python.org/dev/peps/pep-0263/ for details')
+    return TokenError(msg, line, lnum, pos, token_list)
+
+
+def verify_identifier(token):
+    # 1=ok; 0=not an identifier; -1=bad utf-8
+    for c in token:
+        if ord(c) >= 0x80:
+            break
+    else:
+        return 1
+    try:
+        u = token.decode('utf-8')
+    except UnicodeDecodeError:
+        return -1
     from pypy.objspace.std.unicodeobject import _isidentifier
     return _isidentifier(u)
 
@@ -159,8 +182,14 @@ def generate_tokens(lines, flags):
                 pos = pos + 1
             if pos == max: break
 
-            if line[pos] in '#\r\n':
-                # skip comments or blank lines
+            if line[pos] in '\r\n':
+                # skip blank lines
+                continue
+            if line[pos] == '#':
+                # skip full-line comment, but still check that it is valid utf-8
+                if not verify_utf8(line):
+                    raise bad_utf8("comment",
+                                   line, lnum, pos, token_list, flags)
                 continue
 
             if column == indents[-1]:
@@ -227,7 +256,10 @@ def generate_tokens(lines, flags):
                         token_list.append(tok)
                     last_comment = ''
                 elif initial == '#':
-                    # skip comment
+                    # skip comment, but still check that it is valid utf-8
+                    if not verify_utf8(token):
+                        raise bad_utf8("comment",
+                                       line, lnum, start, token_list, flags)
                     last_comment = token
                 elif token in triple_quoted:
                     endDFA = endDFAs[token]
@@ -259,7 +291,13 @@ def generate_tokens(lines, flags):
                         last_comment = ''
                 elif (initial in namechars or              # ordinary name
                       ord(initial) >= 0x80):               # unicode identifier
-                    if not verify_identifier(token):
+                    valid = verify_identifier(token)
+                    if valid <= 0:
+                        if valid == -1:
+                            raise bad_utf8("identifier", line, lnum, start + 1,
+                                           token_list, flags)
+                        # valid utf-8, but it gives a unicode char that cannot
+                        # be used in identifiers
                         raise TokenError("invalid character in identifier",
                                          line, lnum, start + 1, token_list)
 

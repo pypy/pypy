@@ -82,6 +82,11 @@ else:
 # Issue #14110: Some tests fail on FreeBSD if the user is in the wheel group.
 HAVE_WHEEL_GROUP = sys.platform.startswith('freebsd') and os.getgid() == 0
 
+def create_file(filename, content=b'content'):
+    with open(filename, "xb", 0) as fp:
+        fp.write(content)
+
+
 # Tests creating TESTFN
 class FileTests(unittest.TestCase):
     def setUp(self):
@@ -226,15 +231,9 @@ class FileTests(unittest.TestCase):
 # Test attributes on return values from os.*stat* family.
 class StatAttributeTests(unittest.TestCase):
     def setUp(self):
-        os.mkdir(support.TESTFN)
-        self.fname = os.path.join(support.TESTFN, "f1")
-        f = open(self.fname, 'wb')
-        f.write(b"ABC")
-        f.close()
-
-    def tearDown(self):
-        os.unlink(self.fname)
-        os.rmdir(support.TESTFN)
+        self.fname = support.TESTFN
+        self.addCleanup(support.unlink, self.fname)
+        create_file(self.fname, b"ABC")
 
     @unittest.skipUnless(hasattr(os, 'stat'), 'test needs os.stat()')
     def check_stat_attributes(self, fname):
@@ -426,11 +425,34 @@ class StatAttributeTests(unittest.TestCase):
             0)
 
         # test directory st_file_attributes (FILE_ATTRIBUTE_DIRECTORY set)
-        result = os.stat(support.TESTFN)
+        dirname = support.TESTFN + "dir"
+        os.mkdir(dirname)
+        self.addCleanup(os.rmdir, dirname)
+
+        result = os.stat(dirname)
         self.check_file_attributes(result)
         self.assertEqual(
             result.st_file_attributes & stat.FILE_ATTRIBUTE_DIRECTORY,
             stat.FILE_ATTRIBUTE_DIRECTORY)
+
+    @unittest.skipUnless(sys.platform == "win32", "Win32 specific tests")
+    def test_access_denied(self):
+        # Default to FindFirstFile WIN32_FIND_DATA when access is
+        # denied. See issue 28075.
+        # os.environ['TEMP'] should be located on a volume that
+        # supports file ACLs.
+        fname = os.path.join(os.environ['TEMP'], self.fname)
+        self.addCleanup(support.unlink, fname)
+        create_file(fname, b'ABC')
+        # Deny the right to [S]YNCHRONIZE on the file to
+        # force CreateFile to fail with ERROR_ACCESS_DENIED.
+        DETACHED_PROCESS = 8
+        subprocess.check_call(
+            ['icacls.exe', fname, '/deny', 'Users:(S)'],
+            creationflags=DETACHED_PROCESS
+        )
+        result = os.stat(fname)
+        self.assertNotEqual(result.st_size, 0)
 
 
 class UtimeTests(unittest.TestCase):
@@ -791,12 +813,10 @@ class WalkTests(unittest.TestCase):
 
     # Wrapper to hide minor differences between os.walk and os.fwalk
     # to tests both functions with the same code base
-    def walk(self, directory, topdown=True, follow_symlinks=False):
-        walk_it = os.walk(directory,
-                          topdown=topdown,
-                          followlinks=follow_symlinks)
-        for root, dirs, files in walk_it:
-            yield (root, dirs, files)
+    def walk(self, top, **kwargs):
+        if 'follow_symlinks' in kwargs:
+            kwargs['followlinks'] = kwargs.pop('follow_symlinks')
+        return os.walk(top, **kwargs)
 
     def setUp(self):
         join = os.path.join
@@ -810,42 +830,66 @@ class WalkTests(unittest.TestCase):
         #           SUB11/          no kids
         #         SUB2/             a file kid and a dirsymlink kid
         #           tmp3
+        #           SUB21/          not readable
+        #             tmp5
         #           link/           a symlink to TESTFN.2
         #           broken_link
+        #           broken_link2
+        #           broken_link3
         #       TEST2/
         #         tmp4              a lone file
         self.walk_path = join(support.TESTFN, "TEST1")
         self.sub1_path = join(self.walk_path, "SUB1")
         self.sub11_path = join(self.sub1_path, "SUB11")
         sub2_path = join(self.walk_path, "SUB2")
+        self.sub21_path = join(sub2_path, "SUB21")
         tmp1_path = join(self.walk_path, "tmp1")
         tmp2_path = join(self.sub1_path, "tmp2")
         tmp3_path = join(sub2_path, "tmp3")
+        tmp5_path = join(self.sub21_path, "tmp3")
         self.link_path = join(sub2_path, "link")
         t2_path = join(support.TESTFN, "TEST2")
         tmp4_path = join(support.TESTFN, "TEST2", "tmp4")
         broken_link_path = join(sub2_path, "broken_link")
+        broken_link2_path = join(sub2_path, "broken_link2")
+        broken_link3_path = join(sub2_path, "broken_link3")
 
         # Create stuff.
         os.makedirs(self.sub11_path)
         os.makedirs(sub2_path)
+        os.makedirs(self.sub21_path)
         os.makedirs(t2_path)
 
-        for path in tmp1_path, tmp2_path, tmp3_path, tmp4_path:
-            f = open(path, "w")
-            f.write("I'm " + path + " and proud of it.  Blame test_os.\n")
-            f.close()
+        for path in tmp1_path, tmp2_path, tmp3_path, tmp4_path, tmp5_path:
+            with open(path, "x") as f:
+                f.write("I'm " + path + " and proud of it.  Blame test_os.\n")
 
         if support.can_symlink():
             os.symlink(os.path.abspath(t2_path), self.link_path)
             os.symlink('broken', broken_link_path, True)
-            self.sub2_tree = (sub2_path, ["link"], ["broken_link", "tmp3"])
+            os.symlink(join('tmp3', 'broken'), broken_link2_path, True)
+            os.symlink(join('SUB21', 'tmp5'), broken_link3_path, True)
+            self.sub2_tree = (sub2_path, ["SUB21", "link"],
+                              ["broken_link", "broken_link2", "broken_link3",
+                               "tmp3"])
         else:
             self.sub2_tree = (sub2_path, [], ["tmp3"])
 
+        os.chmod(self.sub21_path, 0)
+        try:
+            os.listdir(self.sub21_path)
+        except PermissionError:
+            pass
+        else:
+            os.chmod(self.sub21_path, stat.S_IRWXU)
+            os.unlink(tmp5_path)
+            os.rmdir(self.sub21_path)
+            self.sub21_path = None
+            del self.sub2_tree[1][:1]
+
     def test_walk_topdown(self):
         # Walk top-down.
-        all = list(os.walk(self.walk_path))
+        all = list(self.walk(self.walk_path))
 
         self.assertEqual(len(all), 4)
         # We can't know which order SUB1 and SUB2 will appear in.
@@ -854,6 +898,7 @@ class WalkTests(unittest.TestCase):
         flipped = all[0][1][0] != "SUB1"
         all[0][1].sort()
         all[3 - 2 * flipped][-1].sort()
+        all[3 - 2 * flipped][1].sort()
         self.assertEqual(all[0], (self.walk_path, ["SUB1", "SUB2"], ["tmp1"]))
         self.assertEqual(all[1 + flipped], (self.sub1_path, ["SUB11"], ["tmp2"]))
         self.assertEqual(all[2 + flipped], (self.sub11_path, [], []))
@@ -874,6 +919,7 @@ class WalkTests(unittest.TestCase):
                          (self.walk_path, ["SUB2"], ["tmp1"]))
 
         all[1][-1].sort()
+        all[1][1].sort()
         self.assertEqual(all[1], self.sub2_tree)
 
     def test_walk_bottom_up(self):
@@ -887,6 +933,7 @@ class WalkTests(unittest.TestCase):
         flipped = all[3][1][0] != "SUB1"
         all[3][1].sort()
         all[2 - 2 * flipped][-1].sort()
+        all[2 - 2 * flipped][1].sort()
         self.assertEqual(all[3],
                          (self.walk_path, ["SUB1", "SUB2"], ["tmp1"]))
         self.assertEqual(all[flipped],
@@ -915,6 +962,8 @@ class WalkTests(unittest.TestCase):
         # Windows, which doesn't have a recursive delete command.  The
         # (not so) subtlety is that rmdir will fail unless the dir's
         # kids are removed first, so bottom up is essential.
+        if self.sub21_path:
+            os.chmod(self.sub21_path, stat.S_IRWXU)
         for root, dirs, files in os.walk(support.TESTFN, topdown=False):
             for name in files:
                 os.remove(os.path.join(root, name))
@@ -926,18 +975,35 @@ class WalkTests(unittest.TestCase):
                     os.remove(dirname)
         os.rmdir(support.TESTFN)
 
+    def test_walk_bad_dir(self):
+        # Walk top-down.
+        errors = []
+        walk_it = self.walk(self.walk_path, onerror=errors.append)
+        root, dirs, files = next(walk_it)
+        self.assertEqual(errors, [])
+        dir1 = 'SUB1'
+        path1 = os.path.join(root, dir1)
+        path1new = os.path.join(root, dir1 + '.new')
+        os.rename(path1, path1new)
+        try:
+            roots = [r for r, d, f in walk_it]
+            self.assertTrue(errors)
+            self.assertNotIn(path1, roots)
+            self.assertNotIn(path1new, roots)
+            for dir2 in dirs:
+                if dir2 != dir1:
+                    self.assertIn(os.path.join(root, dir2), roots)
+        finally:
+            os.rename(path1new, path1)
+
 
 @unittest.skipUnless(hasattr(os, 'fwalk'), "Test needs os.fwalk()")
 class FwalkTests(WalkTests):
     """Tests for os.fwalk()."""
 
-    def walk(self, directory, topdown=True, follow_symlinks=False):
-        walk_it = os.fwalk(directory,
-                           topdown=topdown,
-                           follow_symlinks=follow_symlinks)
-        for root, dirs, files, root_fd in walk_it:
+    def walk(self, top, **kwargs):
+        for root, dirs, files, root_fd in os.fwalk(top, **kwargs):
             yield (root, dirs, files)
-
 
     def _compare_to_walk(self, walk_kwargs, fwalk_kwargs):
         """
@@ -998,6 +1064,8 @@ class FwalkTests(WalkTests):
 
     def tearDown(self):
         # cleanup
+        if self.sub21_path:
+            os.chmod(self.sub21_path, stat.S_IRWXU)
         for root, dirs, files, rootfd in os.fwalk(support.TESTFN, topdown=False):
             for name in files:
                 os.unlink(name, dir_fd=rootfd)
@@ -1008,6 +1076,30 @@ class FwalkTests(WalkTests):
                 else:
                     os.unlink(name, dir_fd=rootfd)
         os.rmdir(support.TESTFN)
+
+class BytesWalkTests(WalkTests):
+    """Tests for os.walk() with bytes."""
+    def setUp(self):
+        super().setUp()
+        self.stack = contextlib.ExitStack()
+        if os.name == 'nt':
+            self.stack.enter_context(warnings.catch_warnings())
+            warnings.simplefilter("ignore", DeprecationWarning)
+
+    def tearDown(self):
+        self.stack.close()
+        super().tearDown()
+
+    def walk(self, top, **kwargs):
+        if 'follow_symlinks' in kwargs:
+            kwargs['followlinks'] = kwargs.pop('follow_symlinks')
+        for broot, bdirs, bfiles in os.walk(os.fsencode(top), **kwargs):
+            root = os.fsdecode(broot)
+            dirs = list(map(os.fsdecode, bdirs))
+            files = list(map(os.fsdecode, bfiles))
+            yield (root, dirs, files)
+            bdirs[:] = list(map(os.fsencode, dirs))
+            bfiles[:] = list(map(os.fsencode, files))
 
 
 class MakedirTests(unittest.TestCase):
@@ -1437,7 +1529,7 @@ class TestInvalidFD(unittest.TestCase):
     singles = ["fchdir", "dup", "fdopen", "fdatasync", "fstat",
                "fstatvfs", "fsync", "tcgetpgrp", "ttyname"]
     #singles.append("close")
-    #We omit close because it doesn'r raise an exception on some platforms
+    #We omit close because it doesn't raise an exception on some platforms
     def get_single(f):
         def helper(self):
             if  hasattr(os, f):

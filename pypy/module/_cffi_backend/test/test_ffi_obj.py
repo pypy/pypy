@@ -1,4 +1,22 @@
+from pypy.module._cffi_backend import newtype
 from pypy.module._cffi_backend.newtype import _clean_cache
+
+
+class TestFFIObj:
+    spaceconfig = dict(usemodules=('_cffi_backend', 'array'))
+
+    def teardown_method(self, meth):
+        _clean_cache(self.space)
+
+    def test_new_function_type_during_translation(self):
+        space = self.space
+        BInt = newtype.new_primitive_type(space, "int")
+        BFunc = newtype.new_function_type(space, space.wrap([BInt]), BInt)
+        assert BFunc is newtype.new_function_type(space,space.wrap([BInt]),BInt)
+        unique_cache = space.fromcache(newtype.UniqueCache)
+        unique_cache._cleanup_()
+        assert BFunc is newtype.new_function_type(space,space.wrap([BInt]),BInt)
+
 
 class AppTestFFIObj:
     spaceconfig = dict(usemodules=('_cffi_backend', 'array'))
@@ -238,6 +256,27 @@ class AppTestFFIObj:
         ffi = _cffi1_backend.FFI()
         a = ffi.new("signed char[]", [5, 6, 7])
         assert ffi.buffer(a)[:] == b'\x05\x06\x07'
+        assert ffi.buffer(cdata=a, size=2)[:] == b'\x05\x06'
+        assert type(ffi.buffer(a)) is ffi.buffer
+
+    def test_ffi_buffer_comparisons(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        ba = bytearray(range(100, 110))
+        assert ba == memoryview(ba)    # justification for the following
+        a = ffi.new("uint8_t[]", list(ba))
+        c = ffi.new("uint8_t[]", [99] + list(ba))
+        b_full = ffi.buffer(a)
+        b_short = ffi.buffer(a, 3)
+        b_mid = ffi.buffer(a, 6)
+        b_other = ffi.buffer(c, 6)
+        content = b_full[:]
+        assert content == b_full == ba
+        assert b_short < b_mid < b_full
+        assert b_other < b_short < b_mid < b_full
+        assert ba > b_mid > ba[0:2]
+        assert b_short != ba[1:4]
+        assert b_short != 42
 
     def test_ffi_from_buffer(self):
         import _cffi_backend as _cffi1_backend
@@ -401,7 +440,8 @@ class AppTestFFIObj:
             retries += 1
             assert retries <= 5
             import gc; gc.collect()
-        assert seen == [40, 40, raw1, raw2]
+        assert (seen == [40, 40, raw1, raw2] or
+                seen == [40, 40, raw2, raw1])
         assert repr(seen[2]) == "<cdata 'char[]' owning 41 bytes>"
         assert repr(seen[3]) == "<cdata 'char[]' owning 41 bytes>"
 

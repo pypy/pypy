@@ -706,7 +706,7 @@ class date:
 
     @classmethod
     def fromordinal(cls, n):
-        """Contruct a date from a proleptic Gregorian ordinal.
+        """Construct a date from a proleptic Gregorian ordinal.
 
         January 1 of year 1 is day 1.  Only the year, month and day are
         non-zero in the result.
@@ -896,6 +896,7 @@ class date:
 
         ISO calendar algorithm taken from
         http://www.phys.uu.nl/~vgent/calendar/isocalendar.htm
+        (used with permission)
         """
         year = self._year
         week1monday = _isoweek1monday(year)
@@ -998,6 +999,11 @@ class tzinfo:
             return (self.__class__, args)
         else:
             return (self.__class__, args, state)
+
+    # PyPy: added for compatibility with the _datetime module
+    # issue #2489
+    def __new__(cls, *args, **kwds):
+        return super(tzinfo, cls).__new__(cls)
 
 _tzinfo_class = tzinfo
 
@@ -1144,18 +1150,20 @@ class time:
     def __hash__(self):
         """Hash."""
         if self._hashcode == -1:
-            tzoff = self.utcoffset()
-            if not tzoff:  # zero or None
-                self._hashcode = hash(self._getstate()[0])
-            else:
-                h, m = divmod(timedelta(hours=self.hour, minutes=self.minute) - tzoff,
-                              timedelta(hours=1))
-                assert not m % timedelta(minutes=1), "whole minute"
-                m //= timedelta(minutes=1)
-                if 0 <= h < 24:
-                    self._hashcode = hash(time(h, m, self.second, self.microsecond))
-                else:
-                    self._hashcode = hash((h, m, self.second, self.microsecond))
+            # PyPy: uses an algo that, like _datetimemodule.c and
+            # unlike the pure Python version, always relies on the
+            # nondeterministic hash on strings.  Well, if we have no
+            # tzoff, that is.  If we have tzoff then CPython's hashes
+            # are again deterministic.  I have no clue why.  We'll go
+            # for now for also being nondeterministic in this case.
+            myhhmm = self._hour * 60 + self._minute
+            myoffset = self.utcoffset()
+            if myoffset is not None:
+                myhhmm -= myoffset // timedelta(minutes=1)
+            temp1 = '%d@%d@%d' % (myhhmm,
+                                  self._second,
+                                  self._microsecond)
+            self._hashcode = hash(temp1)
         return self._hashcode
 
     # Conversion to string
@@ -1763,9 +1771,16 @@ class datetime(date):
             if tzoff is None:
                 self._hashcode = hash(self._getstate()[0])
             else:
+                # PyPy: uses an algo that relies on the hash of strings,
+                # giving a nondeterministic result.  CPython doesn't do
+                # that if there is a tzoff (but does if there is no
+                # tzoff).
                 days = _ymd2ord(self.year, self.month, self.day)
                 seconds = self.hour * 3600 + self.minute * 60 + self.second
-                self._hashcode = hash(timedelta(days, seconds, self.microsecond) - tzoff)
+                delta = timedelta(days, seconds, self.microsecond) - tzoff
+                temp1 = '%d&%d&%d' % (delta.days, delta.seconds,
+                                      delta.microseconds)
+                self._hashcode = hash(temp1)
         return self._hashcode
 
     # Pickle support.

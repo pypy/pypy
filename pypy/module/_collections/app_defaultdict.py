@@ -31,14 +31,16 @@ class defaultdict(dict):
 
     def __repr__(self, recurse=set()):
         # XXX not thread-safe, but good enough
+        dictrepr = super(defaultdict, self).__repr__()
         if id(self) in recurse:
-            return "defaultdict(...)"
-        try:
-            recurse.add(id(self))
-            return "defaultdict(%s, %s)" % (repr(self.default_factory),
-                                            super(defaultdict, self).__repr__())
-        finally:
-            recurse.remove(id(self))
+            factoryrepr = "..."
+        else:
+            try:
+                recurse.add(id(self))
+                factoryrepr = repr(self.default_factory)
+            finally:
+                recurse.remove(id(self))
+        return "defaultdict(%s, %s)" % (factoryrepr, dictrepr)
 
     def copy(self):
         return type(self)(self.default_factory, self)

@@ -94,15 +94,14 @@ class DummySpace(object):
 
     def wrap(self, obj):
         return obj
+    newtext = wrap
+    newunicode = wrap
 
-    def str_w(self, s):
-        return str(s)
+    def text_w(self, s):
+        return self.unicode_w(s).encode('utf-8')
 
     def unicode_w(self, s):
         return unicode(s)
-
-    def identifier_w(self, s):
-        return self.unicode_w(s).encode('utf-8')
 
     def len(self, x):
         return len(x)
@@ -126,6 +125,12 @@ class DummySpace(object):
         except AttributeError:
             raise OperationError(AttributeError, name)
         return method(*args)
+
+    def lookup_in_type(self, cls, name):
+        return getattr(cls, name)
+
+    def get_and_call_function(self, w_descr, w_obj, *args):
+        return w_descr.__get__(w_obj)(*args)
 
     def type(self, obj):
         class Type:
@@ -345,6 +350,7 @@ class TestArgumentsNormal(object):
                 raise OperationError(ValueError, None)
             return str(w)
         space.unicode_w = unicode_w
+        space.text_w = unicode_w
         excinfo = py.test.raises(OperationError, Arguments, space, [],
                                  ["a"], [1], w_starstararg={None: 1})
         assert excinfo.value.w_type is TypeError
@@ -872,6 +878,21 @@ class AppTestArgument:
         else:
             assert False, "Expected TypeError"
 
+    def test_call_iter_dont_eat_typeerror(self):
+        # same as test_cpython_issue4806, not only for generators
+        # (only for 3.x, on CPython 2.7 this case still eats the
+        # TypeError and replaces it with "argument after * ...")
+        class X:
+            def __iter__(self):
+                raise TypeError("myerror")
+        def f():
+            pass
+        e = raises(TypeError, "f(*42)")
+        assert str(e.value).endswith(
+            "argument after * must be an iterable, not int")
+        e = raises(TypeError, "f(*X())")
+        assert str(e.value) == "myerror"
+
     def test_keyword_arg_after_keywords_dict(self):
         """
         def f(x, y):
@@ -886,3 +907,19 @@ class AppTestArgument:
         assert "keywords must be strings" in str(e.value)
         e = raises(TypeError, "f(y=2, **{'x': 5}, x=6)")
         assert "got multiple values for keyword argument 'x'" in str(e.value)
+
+    def test_dict_subclass_with_weird_getitem(self):
+        # issue 2435: bug-to-bug compatibility with cpython. for a subclass of
+        # dict, just ignore the __getitem__ and behave like ext_do_call in ceval.c
+        # which just uses the underlying dict
+        class d(dict):
+            def __getitem__(self, key):
+                return key
+
+        for key in ["foo", u"foo"]:
+            q = d()
+            q[key] = "bar"
+
+            def test(**kwargs):
+                return kwargs
+            assert test(**q) == {"foo": "bar"}

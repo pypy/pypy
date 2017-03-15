@@ -17,6 +17,7 @@ from .util import (strclass, safe_repr, _count_diff_all_purpose,
 
 __unittest = True
 
+_subtest_msg_sentinel = object()
 
 DIFF_OMITTED = ('\nDiff is %s characters long. '
                  'Set self.maxDiff to None to see it.')
@@ -497,7 +498,7 @@ class TestCase(object):
             result.addSuccess(test_case)
 
     @contextlib.contextmanager
-    def subTest(self, msg=None, **params):
+    def subTest(self, msg=_subtest_msg_sentinel, **params):
         """Return a context manager that will return the enclosed block
         of code in a subtest identified by the optional message and
         keyword parameters.  A failure in the subtest marks the test
@@ -836,7 +837,7 @@ class TestCase(object):
            between the two objects is more than the given delta.
 
            Note that decimal places (from zero) are usually not the same
-           as significant digits (measured from the most signficant digit).
+           as significant digits (measured from the most significant digit).
 
            If the two objects compare equal then they will automatically
            compare almost equal.
@@ -875,7 +876,7 @@ class TestCase(object):
            between the two objects is less than the given delta.
 
            Note that decimal places (from zero) are usually not the same
-           as significant digits (measured from the most signficant digit).
+           as significant digits (measured from the most significant digit).
 
            Objects that are equal automatically fail.
         """
@@ -964,7 +965,7 @@ class TestCase(object):
 
                 if item1 != item2:
                     differing += ('\nFirst differing element %d:\n%s\n%s\n' %
-                                 (i, item1, item2))
+                                 ((i,) + _common_shorten_repr(item1, item2)))
                     break
             else:
                 if (len1 == len2 and seq_type is None and
@@ -977,7 +978,7 @@ class TestCase(object):
                              'elements.\n' % (seq_type_name, len1 - len2))
                 try:
                     differing += ('First extra element %d:\n%s\n' %
-                                  (len2, seq1[len2]))
+                                  (len2, safe_repr(seq1[len2])))
                 except (TypeError, IndexError, NotImplementedError):
                     differing += ('Unable to index element %d '
                                   'of first %s\n' % (len2, seq_type_name))
@@ -986,7 +987,7 @@ class TestCase(object):
                              'elements.\n' % (seq_type_name, len2 - len1))
                 try:
                     differing += ('First extra element %d:\n%s\n' %
-                                  (len1, seq2[len1]))
+                                  (len1, safe_repr(seq2[len1])))
                 except (TypeError, IndexError, NotImplementedError):
                     differing += ('Unable to index element %d '
                                   'of second %s\n' % (len1, seq_type_name))
@@ -1397,7 +1398,7 @@ class _SubTest(TestCase):
 
     def _subDescription(self):
         parts = []
-        if self._message:
+        if self._message is not _subtest_msg_sentinel:
             parts.append("[{}]".format(self._message))
         if self.params:
             params_desc = ', '.join(

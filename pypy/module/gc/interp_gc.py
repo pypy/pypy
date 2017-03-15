@@ -14,8 +14,29 @@ def collect(space, generation=0):
     cache.clear()
     cache = space.fromcache(MapAttrCache)
     cache.clear()
+
     rgc.collect()
-    return space.wrap(0)
+
+    # if we are running in gc.disable() mode but gc.collect() is called,
+    # we should still call the finalizers now.  We do this as an attempt
+    # to get closer to CPython's behavior: in Py3.5 some tests
+    # specifically rely on that.  This is similar to how, in CPython, an
+    # explicit gc.collect() will invoke finalizers from cycles and fully
+    # ignore the gc.disable() mode.
+    temp_reenable = not space.user_del_action.enabled_at_app_level
+    if temp_reenable:
+        enable_finalizers(space)
+    try:
+        # fetch the pending finalizers from the queue, where they are
+        # likely to have been added by rgc.collect() above, and actually
+        # run them now.  This forces them to run before this function
+        # returns, and also always in the enable_finalizers() mode.
+        space.user_del_action._run_finalizers()
+    finally:
+        if temp_reenable:
+            disable_finalizers(space)
+
+    return space.newint(0)
 
 def enable(space):
     """Non-recursive version.  Enable finalizers now.
@@ -58,7 +79,7 @@ def disable_finalizers(space):
 
 # ____________________________________________________________
 
-@unwrap_spec(filename='str0')
+@unwrap_spec(filename='fsencode')
 def dump_heap_stats(space, filename):
     tb = rgc._heap_stats()
     if not tb:

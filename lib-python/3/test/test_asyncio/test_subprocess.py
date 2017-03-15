@@ -35,6 +35,7 @@ class TestSubprocessTransport(base_subprocess.BaseSubprocessTransport):
 
 class SubprocessTransportTests(test_utils.TestCase):
     def setUp(self):
+        super().setUp()
         self.loop = self.new_test_loop()
         self.set_event_loop(self.loop)
 
@@ -287,6 +288,25 @@ class SubprocessMixin:
         self.assertEqual(output.rstrip(), b'3')
         self.assertEqual(exitcode, 0)
 
+    def test_empty_input(self):
+        @asyncio.coroutine
+        def empty_input():
+            code = 'import sys; data = sys.stdin.read(); print(len(data))'
+            proc = yield from asyncio.create_subprocess_exec(
+                                          sys.executable, '-c', code,
+                                          stdin=asyncio.subprocess.PIPE,
+                                          stdout=asyncio.subprocess.PIPE,
+                                          stderr=asyncio.subprocess.PIPE,
+                                          close_fds=False,
+                                          loop=self.loop)
+            stdout, stderr = yield from proc.communicate(b'')
+            exitcode = yield from proc.wait()
+            return (stdout, exitcode)
+
+        output, exitcode = self.loop.run_until_complete(empty_input())
+        self.assertEqual(output.rstrip(), b'0')
+        self.assertEqual(exitcode, 0)
+
     def test_cancel_process_wait(self):
         # Issue #23140: cancel Process.wait()
 
@@ -388,7 +408,7 @@ class SubprocessMixin:
             transport, protocol = yield from create
             proc = transport.get_extra_info('subprocess')
 
-            # kill the process (but asyncio is not notified immediatly)
+            # kill the process (but asyncio is not notified immediately)
             proc.kill()
             proc.wait()
 
@@ -413,6 +433,13 @@ class SubprocessMixin:
         # transport.close() must not kill the process if it finished, even if
         # the transport was not notified yet
         self.assertFalse(killed)
+
+        # Unlike SafeChildWatcher, FastChildWatcher does not pop the
+        # callbacks if waitpid() is called elsewhere. Let's clear them
+        # manually to avoid a warning when the watcher is detached.
+        if sys.platform != 'win32' and \
+           isinstance(self, SubprocessFastWatcherTests):
+            asyncio.get_child_watcher()._callbacks.clear()
 
     def test_popen_error(self):
         # Issue #24763: check that the subprocess transport is closed
@@ -440,6 +467,7 @@ if sys.platform != 'win32':
         Watcher = None
 
         def setUp(self):
+            super().setUp()
             policy = asyncio.get_event_loop_policy()
             self.loop = policy.new_event_loop()
             self.set_event_loop(self.loop)
@@ -464,6 +492,7 @@ else:
     class SubprocessProactorTests(SubprocessMixin, test_utils.TestCase):
 
         def setUp(self):
+            super().setUp()
             self.loop = asyncio.ProactorEventLoop()
             self.set_event_loop(self.loop)
 

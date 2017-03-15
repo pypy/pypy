@@ -2,8 +2,6 @@ import py
 import sys
 import ctypes
 
-py.test.importorskip("ctypes", "1.0.2")
-
 try:
     import _rawffi
 except ImportError:

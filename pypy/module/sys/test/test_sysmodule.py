@@ -32,7 +32,7 @@ def test_stdout_flush_at_shutdown(space):
         w_sys.flush_std_files(space)
 
         msg = space.bytes_w(space.call_function(w_read))
-        assert 'Exception OSError' in msg
+        assert 'Exception ignored in:' in msg and '\nOSError' in msg
     finally:
         space.setattr(w_sys, space.wrap('stdout'), w_sys.get('__stdout__'))
         space.setattr(w_sys, space.wrap('stderr'), w_sys.get('__stderr__'))
@@ -433,6 +433,15 @@ class AppTestSysModulePortedFromCPython:
             sys.setcheckinterval(n)
             assert sys.getcheckinterval() == n
 
+    def test_setswitchinterval(self):
+        import sys
+        raises(TypeError, sys.setswitchinterval)
+        orig = sys.getswitchinterval()
+        for n in 1e-6, 0.1, orig: # orig last to restore starting state
+            sys.setswitchinterval(n)
+            assert sys.getswitchinterval() == n
+        raises(ValueError, sys.setswitchinterval, 0.0)
+
     def test_recursionlimit(self):
         import sys
         raises(TypeError, sys.getrecursionlimit, 42)
@@ -589,6 +598,35 @@ class AppTestSysModulePortedFromCPython:
         #
         raises(AttributeError, "del ns.spam")
         del ns.y
+        #
+        assert ns == SimpleNamespace(z=4, x=1, w=3)
+        assert (ns != SimpleNamespace(z=4, x=1, w=3)) is False
+        assert (ns == SimpleNamespace(z=4, x=2, w=3)) is False
+        assert ns != SimpleNamespace(z=4, x=2, w=3)
+        #
+        class Foo(SimpleNamespace):
+            pass
+        assert ns == Foo(z=4, x=1, w=3)
+        assert (ns != Foo(z=4, x=1, w=3)) is False
+        assert (ns == Foo(z=4, x=2, w=3)) is False
+        assert ns != Foo(z=4, x=2, w=3)
+        #
+        class Other:
+            def __init__(self, x, z, w):
+                self.x = x
+                self.z = z
+                self.w = w
+        assert (ns == Other(z=4, x=1, w=3)) is False
+        assert ns != Other(z=4, x=1, w=3)
+        assert (Foo(z=4, x=1, w=3) == Other(z=4, x=1, w=3)) is False
+        assert Foo(z=4, x=1, w=3) != Other(z=4, x=1, w=3)
+        #
+        class Fake:
+            __class__ = SimpleNamespace
+        assert isinstance(Fake(), SimpleNamespace)
+        assert not issubclass(Fake, SimpleNamespace)
+        assert (Fake() == SimpleNamespace()) is False
+        assert SimpleNamespace() != Fake()
 
     def test_pickle_simplenamespace(self):
         import pickle, sys
@@ -667,6 +705,12 @@ class AppTestSysModulePortedFromCPython:
         # If this ever actually becomes a compilation option this test should
         # be changed.
         assert sys.float_repr_style == "short"
+
+    def test_is_finalizing(self):
+        import sys
+        assert not sys.is_finalizing()
+        # xxx should also test when it is True, but maybe not worth the effort
+
 
 class AppTestSysSettracePortedFromCpython(object):
     def test_sys_settrace(self):
@@ -902,12 +946,15 @@ class AppTestSysExcInfoDirect:
     def test_call_in_subfunction(self):
         import sys
         def g():
-            # this case is not optimized, because we need to search the
-            # frame chain.  it's probably not worth the complications
+            # new in PyPy3: this case is optimized as well, now that we
+            # don't need to search the frame chain.  This can be
+            # regarded as an advantage of the PyPy3 sys_exc_info stored
+            # on the ExecutionContext: although it forces the exception
+            # itself more often, it forces frames less often.
             return sys.exc_info()[1]
         e = KeyError("boom")
         try:
             raise e
         except:
             assert g() is e
-    test_call_in_subfunction.expected = 'n'
+    test_call_in_subfunction.expected = 'y'

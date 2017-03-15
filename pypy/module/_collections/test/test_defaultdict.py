@@ -90,3 +90,12 @@ class AppTestBasic:
         d = _collections.defaultdict(None, {3: 4})
         dict_iter = d.__reduce__()[4]
         assert type(dict_iter) is type(iter(d.items()))
+
+    def test_rec_repr(self):
+        import _collections
+        class X(_collections.defaultdict):
+            def mydefault(self):
+                pass
+        d = X.__new__(X)
+        d.__init__(d.mydefault)
+        assert repr(d).endswith('defaultdict(..., {})>, {})')

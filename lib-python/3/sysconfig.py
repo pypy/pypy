@@ -272,7 +272,12 @@ def _parse_makefile(filename, vars=None):
     while len(variables) > 0:
         for name in tuple(variables):
             value = notdone[name]
-            m = _findvar1_rx.search(value) or _findvar2_rx.search(value)
+            m1 = _findvar1_rx.search(value)
+            m2 = _findvar2_rx.search(value)
+            if m1 and m2:
+                m = m1 if m1.start() < m2.start() else m2
+            else:
+                m = m1 if m1 else m2
             if m is not None:
                 n = m.group(1)
                 found = True
@@ -411,7 +416,6 @@ def _generate_posix_vars():
 
 def _init_posix(vars):
     """Initialize the module as appropriate for POSIX systems."""
-    # _sysconfigdata is generated at build time, see _generate_posix_vars()
     from _sysconfigdata import build_time_vars
     vars.update(build_time_vars)
 
@@ -572,6 +576,9 @@ def get_config_vars(*args):
         if sys.platform == 'darwin':
             import _osx_support
             _osx_support.customize_config_vars(_CONFIG_VARS)
+
+        _CONFIG_VARS['INCLUDEPY'] = os.path.join(_CONFIG_VARS['prefix'],
+                                                 'include')
 
     if args:
         vals = []

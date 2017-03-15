@@ -241,7 +241,7 @@ class _LazyModule(types.ModuleType):
             if id(self) != id(sys.modules[original_name]):
                 msg = ('module object for {!r} substituted in sys.modules '
                        'during a lazy load')
-            raise ValueError(msg.format(original_name))
+                raise ValueError(msg.format(original_name))
         # Update after loading since that's what would happen in an eager
         # loading situation.
         self.__dict__.update(attrs_updated)
@@ -263,11 +263,6 @@ class LazyLoader(abc.Loader):
     def __check_eager_loader(loader):
         if not hasattr(loader, 'exec_module'):
             raise TypeError('loader must define exec_module()')
-        elif hasattr(loader.__class__, 'create_module'):
-            if abc.Loader.create_module != loader.__class__.create_module:
-                # Only care if create_module() is overridden in a subclass of
-                # importlib.abc.Loader.
-                raise TypeError('loader cannot define create_module()')
 
     @classmethod
     def factory(cls, loader):

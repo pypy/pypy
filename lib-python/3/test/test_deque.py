@@ -304,6 +304,21 @@ class TestBasic(unittest.TestCase):
             s.insert(i, 'Z')
             self.assertEqual(list(d), s)
 
+    def test_insert_bug_26194(self):
+        data = 'ABC'
+        d = deque(data, maxlen=len(data))
+        with self.assertRaises(IndexError):
+            d.insert(2, None)
+
+        elements = 'ABCDEFGHI'
+        for i in range(-len(elements), len(elements)):
+            d = deque(elements, maxlen=len(elements)+1)
+            d.insert(i, 'Z')
+            if i >= 0:
+                self.assertEqual(d[i], 'Z')
+            else:
+                self.assertEqual(d[i-1], 'Z')
+
     def test_imul(self):
         for n in (-10, -1, 0, 1, 2, 10, 1000):
             d = deque()
@@ -479,7 +494,7 @@ class TestBasic(unittest.TestCase):
         d.clear()
         self.assertEqual(len(d), 0)
         self.assertEqual(list(d), [])
-        d.clear()               # clear an emtpy deque
+        d.clear()               # clear an empty deque
         self.assertEqual(list(d), [])
 
     def test_remove(self):
@@ -626,18 +641,45 @@ class TestBasic(unittest.TestCase):
 ##            self.assertEqual(id(e), id(e[-1]))
 
     def test_iterator_pickle(self):
-        data = deque(range(200))
+        orig = deque(range(200))
+        data = [i*1.01 for i in orig]
         for proto in range(pickle.HIGHEST_PROTOCOL + 1):
-            it = itorg = iter(data)
-            d = pickle.dumps(it, proto)
-            it = pickle.loads(d)
-            self.assertEqual(type(itorg), type(it))
-            self.assertEqual(list(it), list(data))
+            # initial iterator
+            itorg = iter(orig)
+            dump = pickle.dumps((itorg, orig), proto)
+            it, d = pickle.loads(dump)
+            for i, x in enumerate(data):
+                d[i] = x
+            self.assertEqual(type(it), type(itorg))
+            self.assertEqual(list(it), data)
 
-            it = pickle.loads(d)
-            next(it)
-            d = pickle.dumps(it, proto)
-            self.assertEqual(list(it), list(data)[1:])
+            # running iterator
+            next(itorg)
+            dump = pickle.dumps((itorg, orig), proto)
+            it, d = pickle.loads(dump)
+            for i, x in enumerate(data):
+                d[i] = x
+            self.assertEqual(type(it), type(itorg))
+            self.assertEqual(list(it), data[1:])
+
+            # empty iterator
+            for i in range(1, len(data)):
+                next(itorg)
+            dump = pickle.dumps((itorg, orig), proto)
+            it, d = pickle.loads(dump)
+            for i, x in enumerate(data):
+                d[i] = x
+            self.assertEqual(type(it), type(itorg))
+            self.assertEqual(list(it), [])
+
+            # exhausted iterator
+            self.assertRaises(StopIteration, next, itorg)
+            dump = pickle.dumps((itorg, orig), proto)
+            it, d = pickle.loads(dump)
+            for i, x in enumerate(data):
+                d[i] = x
+            self.assertEqual(type(it), type(itorg))
+            self.assertEqual(list(it), [])
 
     def test_deepcopy(self):
         mut = [10]
@@ -705,8 +747,8 @@ class TestBasic(unittest.TestCase):
     @support.cpython_only
     def test_sizeof(self):
         BLOCKLEN = 64
-        basesize = support.calcobjsize('2P4nlP')
-        blocksize = struct.calcsize('2P%dP' % BLOCKLEN)
+        basesize = support.calcvobjsize('2P4nP')
+        blocksize = struct.calcsize('P%dPP' % BLOCKLEN)
         self.assertEqual(object.__sizeof__(deque()), basesize)
         check = self.check_sizeof
         check(deque(), basesize + blocksize)
@@ -866,6 +908,10 @@ class TestSequence(seq_tests.CommonTest):
     def test_subscript(self):
         # For now, bypass tests that require slicing
         pass
+
+    def test_free_after_iterating(self):
+        # For now, bypass tests that require slicing
+        self.skipTest("Exhausted deque iterator doesn't free a deque")
 
 #==============================================================================
 

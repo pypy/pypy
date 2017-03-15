@@ -126,13 +126,14 @@ struct CallUnrollInfo {
 // how we'd get the PC (using StackWalk64?)
 //    http://msdn2.microsoft.com/en-us/library/ms680650.aspx
 
-#include "base/logging.h"   // for RAW_LOG
-#ifndef HAVE_CYGWIN_SIGNAL_H
-typedef int ucontext_t;
-#endif
+// #include "base/logging.h"   // for RAW_LOG
+// #ifndef HAVE_CYGWIN_SIGNAL_H
+// typedef int ucontext_t;
+// #endif
 
 intptr_t GetPC(ucontext_t *signal_ucontext) {
-  RAW_LOG(ERROR, "GetPC is not yet implemented on Windows\n");
+  // RAW_LOG(ERROR, "GetPC is not yet implemented on Windows\n");
+  fprintf(stderr, "GetPC is not yet implemented on Windows\n");
   return NULL;
 }
 

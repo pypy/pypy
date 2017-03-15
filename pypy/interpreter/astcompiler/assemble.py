@@ -137,11 +137,11 @@ class Block(object):
         return ''.join(code)
 
 
-def _make_index_dict_filter(syms, flag):
+def _make_index_dict_filter(syms, flag1, flag2):
     i = 0
     result = {}
     for name, scope in syms.iteritems():
-        if scope == flag:
+        if scope in (flag1, flag2):
             result[name] = i
             i += 1
     return result
@@ -170,7 +170,8 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.names = {}
         self.var_names = _iter_to_dict(scope.varnames)
         self.cell_vars = _make_index_dict_filter(scope.symbols,
-                                                 symtable.SCOPE_CELL)
+                                                 symtable.SCOPE_CELL,
+                                                 symtable.SCOPE_CELL_CLASS)
         self.free_vars = _iter_to_dict(scope.free_vars, len(self.cell_vars))
         self.w_consts = space.newdict()
         self.argcount = 0
@@ -268,8 +269,8 @@ class PythonCodeMaker(ast.ASTVisitor):
             else:
                 w_key = space.newtuple([obj, space.w_float])
         elif space.is_w(w_type, space.w_complex):
-            w_real = space.getattr(obj, space.wrap("real"))
-            w_imag = space.getattr(obj, space.wrap("imag"))
+            w_real = space.getattr(obj, space.newtext("real"))
+            w_imag = space.getattr(obj, space.newtext("imag"))
             real = space.float_w(w_real)
             imag = space.float_w(w_imag)
             real_negzero = (real == 0.0 and
@@ -368,7 +369,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         space = self.space
         consts_w = [space.w_None] * space.len_w(w_consts)
         w_iter = space.iter(w_consts)
-        first = space.wrap(0)
+        first = space.newint(0)
         while True:
             try:
                 w_key = space.next(w_iter)
@@ -622,8 +623,8 @@ _static_opcode_stack_effects = {
 
     ops.PRINT_EXPR: -1,
 
-    ops.WITH_CLEANUP_START: 1,
-    ops.WITH_CLEANUP_FINISH: -2,
+    ops.WITH_CLEANUP_START: 0,
+    ops.WITH_CLEANUP_FINISH: -1,
     ops.LOAD_BUILD_CLASS: 1,
     ops.POP_BLOCK: 0,
     ops.POP_EXCEPT: -1,
@@ -682,12 +683,11 @@ _static_opcode_stack_effects = {
     ops.JUMP_IF_FALSE_OR_POP: 0,
     ops.POP_JUMP_IF_TRUE: -1,
     ops.POP_JUMP_IF_FALSE: -1,
-    # TODO
     ops.JUMP_IF_NOT_DEBUG: 0,
 
     # TODO
     ops.BUILD_LIST_FROM_ARG: 1,
-    # TODO
+
     ops.LOAD_CLASSDEREF: 1,
 }
 
@@ -757,6 +757,14 @@ def _compute_CALL_FUNCTION_VAR_KW(arg):
 
 def _compute_CALL_METHOD(arg):
     return -_num_args(arg) - 1
+
+def _compute_FORMAT_VALUE(arg):
+    if (arg & consts.FVS_MASK) == consts.FVS_HAVE_SPEC:
+        return -1
+    return 0
+
+def _compute_BUILD_STRING(arg):
+    return 1 - arg
 
 
 _stack_effect_computers = {}

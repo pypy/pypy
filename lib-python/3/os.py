@@ -363,25 +363,19 @@ def walk(top, topdown=True, onerror=None, followlinks=False):
     # minor reason when (say) a thousand readable directories are still
     # left to visit.  That logic is copied here.
     try:
-        # Note that scandir is global in this module due
-        # to earlier import-*.
-        scandir_it = scandir(top)
+        if name == 'nt' and isinstance(top, bytes):
+            scandir_it = _dummy_scandir(top)
+        else:
+            # Note that scandir is global in this module due
+            # to earlier import-*.
+            scandir_it = scandir(top)
+        entries = list(scandir_it)
     except OSError as error:
         if onerror is not None:
             onerror(error)
         return
 
-    while True:
-        try:
-            try:
-                entry = next(scandir_it)
-            except StopIteration:
-                break
-        except OSError as error:
-            if onerror is not None:
-                onerror(error)
-            return
-
+    for entry in entries:
         try:
             is_dir = entry.is_dir()
         except OSError:
@@ -418,8 +412,8 @@ def walk(top, topdown=True, onerror=None, followlinks=False):
 
         # Recurse into sub-directories
         islink, join = path.islink, path.join
-        for name in dirs:
-            new_path = join(top, name)
+        for dirname in dirs:
+            new_path = join(top, dirname)
             # Issue #23605: os.path.islink() is used instead of caching
             # entry.is_symlink() result during the loop on os.scandir() because
             # the caller can replace the directory entry during the "yield"
@@ -429,6 +423,54 @@ def walk(top, topdown=True, onerror=None, followlinks=False):
     else:
         # Yield after recursion if going bottom up
         yield top, dirs, nondirs
+
+class _DummyDirEntry:
+    """Dummy implementation of DirEntry
+
+    Only used internally by os.walk(bytes). Since os.walk() doesn't need the
+    follow_symlinks parameter: don't implement it, always follow symbolic
+    links.
+    """
+
+    def __init__(self, dir, name):
+        self.name = name
+        self.path = path.join(dir, name)
+        # Mimick FindFirstFile/FindNextFile: we should get file attributes
+        # while iterating on a directory
+        self._stat = None
+        self._lstat = None
+        try:
+            self.stat(follow_symlinks=False)
+        except OSError:
+            pass
+
+    def stat(self, *, follow_symlinks=True):
+        if follow_symlinks:
+            if self._stat is None:
+                self._stat = stat(self.path)
+            return self._stat
+        else:
+            if self._lstat is None:
+                self._lstat = stat(self.path, follow_symlinks=False)
+            return self._lstat
+
+    def is_dir(self):
+        if self._lstat is not None and not self.is_symlink():
+            # use the cache lstat
+            stat = self.stat(follow_symlinks=False)
+            return st.S_ISDIR(stat.st_mode)
+
+        stat = self.stat()
+        return st.S_ISDIR(stat.st_mode)
+
+    def is_symlink(self):
+        stat = self.stat(follow_symlinks=False)
+        return st.S_ISLNK(stat.st_mode)
+
+def _dummy_scandir(dir):
+    # listdir-based implementation for bytes patches on Windows
+    for name in listdir(dir):
+        yield _DummyDirEntry(dir, name)
 
 __all__.append("walk")
 
@@ -495,13 +537,13 @@ if {open, stat} <= supports_dir_fd and {listdir, stat} <= supports_fd:
                     dirs.append(name)
                 else:
                     nondirs.append(name)
-            except FileNotFoundError:
+            except OSError:
                 try:
                     # Add dangling symlinks, ignore disappeared files
                     if st.S_ISLNK(stat(name, dir_fd=topfd, follow_symlinks=False)
                                 .st_mode):
                         nondirs.append(name)
-                except FileNotFoundError:
+                except OSError:
                     continue
 
         if topdown:
@@ -514,7 +556,7 @@ if {open, stat} <= supports_dir_fd and {listdir, stat} <= supports_fd:
             except OSError as err:
                 if onerror is not None:
                     onerror(err)
-                return
+                continue
             try:
                 if follow_symlinks or path.samestat(orig_st, stat(dirfd)):
                     dirpath = path.join(toppath, name)

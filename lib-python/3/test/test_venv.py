@@ -8,6 +8,7 @@ Licensed to the PSF under a contributor agreement.
 import ensurepip
 import os
 import os.path
+import re
 import struct
 import subprocess
 import sys
@@ -25,6 +26,16 @@ try:
 except ImportError:
     ssl = None
 
+try:
+    import threading
+except ImportError:
+    threading = None
+
+try:
+    import ctypes
+except ImportError:
+    ctypes = None
+
 skipInVenv = unittest.skipIf(sys.prefix != sys.base_prefix,
                              'Test not appropriate in a venv')
 
@@ -34,6 +45,22 @@ if os.devnull.lower() == 'nul':
 else:
     def failsOnWindows(f):
         return f
+
+def _my_executable():
+    # PyPy: resolve the executable if it is a symlink
+    if sys.platform == 'darwin' and '__PYVENV_LAUNCHER__' in os.environ:
+        executable = os.environ['__PYVENV_LAUNCHER__']
+    else:
+        executable = sys.executable
+    try:
+        for i in range(10):
+            executable = os.path.abspath(executable)
+            executable = os.path.join(os.path.dirname(executable),
+                                      os.readlink(executable))
+    except OSError:
+        pass
+    return executable
+
 
 class BaseTest(unittest.TestCase):
     """Base class for venv tests."""
@@ -48,10 +75,7 @@ class BaseTest(unittest.TestCase):
             self.bindir = 'bin'
             self.lib = ('lib', 'python%s' % sys.version[:3])
             self.include = 'include'
-        if sys.platform == 'darwin' and '__PYVENV_LAUNCHER__' in os.environ:
-            executable = os.environ['__PYVENV_LAUNCHER__']
-        else:
-            executable = sys.executable
+        executable = _my_executable()
         self.exe = os.path.split(executable)[-1]
 
     def tearDown(self):
@@ -96,11 +120,7 @@ class BasicTest(BaseTest):
         else:
             self.assertFalse(os.path.exists(p))
         data = self.get_text_file_contents('pyvenv.cfg')
-        if sys.platform == 'darwin' and ('__PYVENV_LAUNCHER__'
-                                         in os.environ):
-            executable =  os.environ['__PYVENV_LAUNCHER__']
-        else:
-            executable = sys.executable
+        executable = _my_executable()
         path = os.path.dirname(executable)
         self.assertIn('home = %s' % path, data)
         fn = self.get_env_file(self.bindir, self.exe)
@@ -319,6 +339,10 @@ class EnsurePipTest(BaseTest):
 
     # Requesting pip fails without SSL (http://bugs.python.org/issue19744)
     @unittest.skipIf(ssl is None, ensurepip._MISSING_SSL_MESSAGE)
+    @unittest.skipUnless(threading, 'some dependencies of pip import threading'
+                                    ' module unconditionally')
+    # Issue #26610: pip/pep425tags.py requires ctypes
+    @unittest.skipUnless(ctypes, 'pip requires ctypes')
     def test_with_pip(self):
         rmtree(self.env_dir)
         with EnvironmentVarGuard() as envvars:
@@ -387,7 +411,15 @@ class EnsurePipTest(BaseTest):
         # We force everything to text, so unittest gives the detailed diff
         # if we get unexpected results
         err = err.decode("latin-1") # Force to text, prevent decoding errors
-        self.assertEqual(err, "")
+        # Ignore the warning:
+        #   "The directory '$HOME/.cache/pip/http' or its parent directory
+        #    is not owned by the current user and the cache has been disabled.
+        #    Please check the permissions and owner of that directory. If
+        #    executing pip with sudo, you may want sudo's -H flag."
+        # where $HOME is replaced by the HOME environment variable.
+        err = re.sub("^The directory .* or its parent directory is not owned "
+                     "by the current user .*$", "", err, flags=re.MULTILINE)
+        self.assertEqual(err.rstrip(), "")
         # Being fairly specific regarding the expected behaviour for the
         # initial bundling phase in Python 3.4. If the output changes in
         # future pip versions, this test can likely be relaxed further.

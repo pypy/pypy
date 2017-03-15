@@ -18,7 +18,8 @@ import weakref
 
 from itertools import product
 from test import support
-from test.support import TESTFN, findfile, import_fresh_module, gc_collect, impl_detail
+from test.support import impl_detail
+from test.support import TESTFN, findfile, import_fresh_module, gc_collect, swap_attr
 
 # pyET is the pure-Python implementation.
 #
@@ -244,6 +245,33 @@ class ElementTreeTest(unittest.TestCase):
         self.assertEqual(ET.XML, ET.fromstring)
         self.assertEqual(ET.PI, ET.ProcessingInstruction)
 
+    def test_set_attribute(self):
+        element = ET.Element('tag')
+
+        self.assertEqual(element.tag, 'tag')
+        element.tag = 'Tag'
+        self.assertEqual(element.tag, 'Tag')
+        element.tag = 'TAG'
+        self.assertEqual(element.tag, 'TAG')
+
+        self.assertIsNone(element.text)
+        element.text = 'Text'
+        self.assertEqual(element.text, 'Text')
+        element.text = 'TEXT'
+        self.assertEqual(element.text, 'TEXT')
+
+        self.assertIsNone(element.tail)
+        element.tail = 'Tail'
+        self.assertEqual(element.tail, 'Tail')
+        element.tail = 'TAIL'
+        self.assertEqual(element.tail, 'TAIL')
+
+        self.assertEqual(element.attrib, {})
+        element.attrib = {'a': 'b', 'c': 'd'}
+        self.assertEqual(element.attrib, {'a': 'b', 'c': 'd'})
+        element.attrib = {'A': 'B', 'C': 'D'}
+        self.assertEqual(element.attrib, {'A': 'B', 'C': 'D'})
+
     def test_simpleops(self):
         # Basic method sanity checks.
 
@@ -377,6 +405,14 @@ class ElementTreeTest(unittest.TestCase):
         elem.attrib['testc'] = 'test2'
         self.assertEqual(ET.tostring(elem),
                 b'<test testa="testval" testb="test1" testc="test2">aa</test>')
+
+        elem = ET.Element('test')
+        elem.set('a', '\r')
+        elem.set('b', '\r\n')
+        elem.set('c', '\t\n\r ')
+        elem.set('d', '\n\n')
+        self.assertEqual(ET.tostring(elem),
+                b'<test a="&#10;" b="&#10;" c="&#09;&#10;&#10; " d="&#10;&#10;" />')
 
     def test_makeelement(self):
         # Test makeelement handling.
@@ -534,10 +570,17 @@ class ElementTreeTest(unittest.TestCase):
         self.assertEqual(res, ['start-ns', 'end-ns'])
 
         events = ("start", "end", "bogus")
-        with self.assertRaises(ValueError) as cm:
-            with open(SIMPLE_XMLFILE, "rb") as f:
+        with open(SIMPLE_XMLFILE, "rb") as f:
+            with self.assertRaises(ValueError) as cm:
                 iterparse(f, events)
+            self.assertFalse(f.closed)
         self.assertEqual(str(cm.exception), "unknown event 'bogus'")
+
+        with support.check_no_resource_warning(self):
+            with self.assertRaises(ValueError) as cm:
+                iterparse(SIMPLE_XMLFILE, events)
+            self.assertEqual(str(cm.exception), "unknown event 'bogus'")
+            del cm
 
         source = io.BytesIO(
             b"<?xml version='1.0' encoding='iso-8859-1'?>\n"
@@ -558,6 +601,18 @@ class ElementTreeTest(unittest.TestCase):
             next(it)
         self.assertEqual(str(cm.exception),
                 'junk after document element: line 1, column 12')
+
+        with open(TESTFN, "wb") as f:
+            f.write(b"<document />junk")
+        it = iterparse(TESTFN)
+        action, elem = next(it)
+        self.assertEqual((action, elem.tag), ('end', 'document'))
+        with support.check_no_resource_warning(self):
+            with self.assertRaises(ET.ParseError) as cm:
+                next(it)
+            self.assertEqual(str(cm.exception),
+                    'junk after document element: line 1, column 12')
+            del cm, it
 
     def test_writefile(self):
         elem = ET.Element("tag")
@@ -1615,6 +1670,57 @@ class BugsTest(unittest.TestCase):
         ET.register_namespace('test10777', 'http://myuri/')
         ET.register_namespace('test10777', 'http://myuri/')
 
+    def test_lost_text(self):
+        # Issue #25902: Borrowed text can disappear
+        class Text:
+            def __bool__(self):
+                e.text = 'changed'
+                return True
+
+        e = ET.Element('tag')
+        e.text = Text()
+        i = e.itertext()
+        t = next(i)
+        self.assertIsInstance(t, Text)
+        self.assertIsInstance(e.text, str)
+        self.assertEqual(e.text, 'changed')
+
+    def test_lost_tail(self):
+        # Issue #25902: Borrowed tail can disappear
+        class Text:
+            def __bool__(self):
+                e[0].tail = 'changed'
+                return True
+
+        e = ET.Element('root')
+        e.append(ET.Element('tag'))
+        e[0].tail = Text()
+        i = e.itertext()
+        t = next(i)
+        self.assertIsInstance(t, Text)
+        self.assertIsInstance(e[0].tail, str)
+        self.assertEqual(e[0].tail, 'changed')
+
+    def test_lost_elem(self):
+        # Issue #25902: Borrowed element can disappear
+        class Tag:
+            def __eq__(self, other):
+                e[0] = ET.Element('changed')
+                next(i)
+                return True
+
+        e = ET.Element('root')
+        e.append(ET.Element(Tag()))
+        e.append(ET.Element('tag'))
+        i = e.iter('tag')
+        try:
+            t = next(i)
+        except ValueError:
+            self.skipTest('generators are not reentrant')
+        self.assertIsInstance(t.tag, Tag)
+        self.assertIsInstance(e[0].tag, str)
+        self.assertEqual(e[0].tag, 'changed')
+
 
 # --------------------------------------------------------------------
 
@@ -1765,6 +1871,12 @@ class BadElementTest(ElementTestCase, unittest.TestCase):
         e.extend([ET.Element('bar')])
         self.assertRaises(ValueError, e.remove, X('baz'))
 
+    def test_recursive_repr(self):
+        # Issue #25455
+        e = ET.Element('foo')
+        with swap_attr(e, 'tag', e):
+            with self.assertRaises(RuntimeError):
+                repr(e)  # Should not crash
 
 class MutatingElementPath(str):
     def __new__(cls, elem, *args):
@@ -2082,8 +2194,40 @@ class ElementIterTest(unittest.TestCase):
         # make sure both tag=None and tag='*' return all tags
         all_tags = ['document', 'house', 'room', 'room',
                     'shed', 'house', 'room']
+        self.assertEqual(summarize_list(doc.iter()), all_tags)
         self.assertEqual(self._ilist(doc), all_tags)
         self.assertEqual(self._ilist(doc, '*'), all_tags)
+
+    def test_getiterator(self):
+        doc = ET.XML('''
+            <document>
+                <house>
+                    <room>bedroom1</room>
+                    <room>bedroom2</room>
+                </house>
+                <shed>nothing here
+                </shed>
+                <house>
+                    <room>bedroom8</room>
+                </house>
+            </document>''')
+
+        self.assertEqual(summarize_list(doc.getiterator('room')),
+                         ['room'] * 3)
+        self.assertEqual(summarize_list(doc.getiterator('house')),
+                         ['house'] * 2)
+
+        # test that getiterator also accepts 'tag' as a keyword arg
+        self.assertEqual(
+            summarize_list(doc.getiterator(tag='room')),
+            ['room'] * 3)
+
+        # make sure both tag=None and tag='*' return all tags
+        all_tags = ['document', 'house', 'room', 'room',
+                    'shed', 'house', 'room']
+        self.assertEqual(summarize_list(doc.getiterator()), all_tags)
+        self.assertEqual(summarize_list(doc.getiterator(None)), all_tags)
+        self.assertEqual(summarize_list(doc.getiterator('*')), all_tags)
 
     @impl_detail
     def test_copy(self):
@@ -2354,6 +2498,7 @@ class ElementSlicingTest(unittest.TestCase):
         self.assertEqual(e[-2].tag, 'a8')
 
         self.assertRaises(IndexError, lambda: e[12])
+        self.assertRaises(IndexError, lambda: e[-12])
 
     def test_getslice_range(self):
         e = self._make_elem_with_children(6)
@@ -2372,12 +2517,17 @@ class ElementSlicingTest(unittest.TestCase):
         self.assertEqual(self._elem_tags(e[::3]), ['a0', 'a3', 'a6', 'a9'])
         self.assertEqual(self._elem_tags(e[::8]), ['a0', 'a8'])
         self.assertEqual(self._elem_tags(e[1::8]), ['a1', 'a9'])
+        self.assertEqual(self._elem_tags(e[3::sys.maxsize]), ['a3'])
+        self.assertEqual(self._elem_tags(e[3::sys.maxsize<<64]), ['a3'])
 
     def test_getslice_negative_steps(self):
         e = self._make_elem_with_children(4)
 
         self.assertEqual(self._elem_tags(e[::-1]), ['a3', 'a2', 'a1', 'a0'])
         self.assertEqual(self._elem_tags(e[::-2]), ['a3', 'a1'])
+        self.assertEqual(self._elem_tags(e[3::-sys.maxsize]), ['a3'])
+        self.assertEqual(self._elem_tags(e[3::-sys.maxsize-1]), ['a3'])
+        self.assertEqual(self._elem_tags(e[3::-sys.maxsize<<64]), ['a3'])
 
     def test_delslice(self):
         e = self._make_elem_with_children(4)
@@ -2403,6 +2553,75 @@ class ElementSlicingTest(unittest.TestCase):
         e = self._make_elem_with_children(2)
         del e[::2]
         self.assertEqual(self._subelem_tags(e), ['a1'])
+
+    def test_setslice_single_index(self):
+        e = self._make_elem_with_children(4)
+        e[1] = ET.Element('b')
+        self.assertEqual(self._subelem_tags(e), ['a0', 'b', 'a2', 'a3'])
+
+        e[-2] = ET.Element('c')
+        self.assertEqual(self._subelem_tags(e), ['a0', 'b', 'c', 'a3'])
+
+        with self.assertRaises(IndexError):
+            e[5] = ET.Element('d')
+        with self.assertRaises(IndexError):
+            e[-5] = ET.Element('d')
+        self.assertEqual(self._subelem_tags(e), ['a0', 'b', 'c', 'a3'])
+
+    def test_setslice_range(self):
+        e = self._make_elem_with_children(4)
+        e[1:3] = [ET.Element('b%s' % i) for i in range(2)]
+        self.assertEqual(self._subelem_tags(e), ['a0', 'b0', 'b1', 'a3'])
+
+        e = self._make_elem_with_children(4)
+        e[1:3] = [ET.Element('b')]
+        self.assertEqual(self._subelem_tags(e), ['a0', 'b', 'a3'])
+
+        e = self._make_elem_with_children(4)
+        e[1:3] = [ET.Element('b%s' % i) for i in range(3)]
+        self.assertEqual(self._subelem_tags(e), ['a0', 'b0', 'b1', 'b2', 'a3'])
+
+    def test_setslice_steps(self):
+        e = self._make_elem_with_children(6)
+        e[1:5:2] = [ET.Element('b%s' % i) for i in range(2)]
+        self.assertEqual(self._subelem_tags(e), ['a0', 'b0', 'a2', 'b1', 'a4', 'a5'])
+
+        e = self._make_elem_with_children(6)
+        with self.assertRaises(ValueError):
+            e[1:5:2] = [ET.Element('b')]
+        with self.assertRaises(ValueError):
+            e[1:5:2] = [ET.Element('b%s' % i) for i in range(3)]
+        with self.assertRaises(ValueError):
+            e[1:5:2] = []
+        self.assertEqual(self._subelem_tags(e), ['a0', 'a1', 'a2', 'a3', 'a4', 'a5'])
+
+        e = self._make_elem_with_children(4)
+        e[1::sys.maxsize] = [ET.Element('b')]
+        self.assertEqual(self._subelem_tags(e), ['a0', 'b', 'a2', 'a3'])
+        e[1::sys.maxsize<<64] = [ET.Element('c')]
+        self.assertEqual(self._subelem_tags(e), ['a0', 'c', 'a2', 'a3'])
+
+    def test_setslice_negative_steps(self):
+        e = self._make_elem_with_children(4)
+        e[2:0:-1] = [ET.Element('b%s' % i) for i in range(2)]
+        self.assertEqual(self._subelem_tags(e), ['a0', 'b1', 'b0', 'a3'])
+
+        e = self._make_elem_with_children(4)
+        with self.assertRaises(ValueError):
+            e[2:0:-1] = [ET.Element('b')]
+        with self.assertRaises(ValueError):
+            e[2:0:-1] = [ET.Element('b%s' % i) for i in range(3)]
+        with self.assertRaises(ValueError):
+            e[2:0:-1] = []
+        self.assertEqual(self._subelem_tags(e), ['a0', 'a1', 'a2', 'a3'])
+
+        e = self._make_elem_with_children(4)
+        e[1::-sys.maxsize] = [ET.Element('b')]
+        self.assertEqual(self._subelem_tags(e), ['a0', 'b', 'a2', 'a3'])
+        e[1::-sys.maxsize-1] = [ET.Element('c')]
+        self.assertEqual(self._subelem_tags(e), ['a0', 'c', 'a2', 'a3'])
+        e[1::-sys.maxsize<<64] = [ET.Element('d')]
+        self.assertEqual(self._subelem_tags(e), ['a0', 'd', 'a2', 'a3'])
 
 
 class IOTest(unittest.TestCase):

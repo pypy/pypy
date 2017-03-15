@@ -310,7 +310,7 @@ class ComplexTest(unittest.TestCase):
         self.assertRaises(TypeError, float, 5+3j)
         self.assertRaises(ValueError, complex, "")
         self.assertRaises(TypeError, complex, None)
-        self.assertRaisesRegex(TypeError, "not 'NoneType'", complex, None)
+        self.assertRaisesRegex(TypeError, " 'NoneType'", complex, None)
         self.assertRaises(ValueError, complex, "\0")
         self.assertRaises(ValueError, complex, "3\09")
         self.assertRaises(TypeError, complex, "1", "2")
@@ -328,6 +328,16 @@ class ComplexTest(unittest.TestCase):
         self.assertRaises(ValueError, complex, "1e1ej")
         self.assertRaises(ValueError, complex, "1e++1ej")
         self.assertRaises(ValueError, complex, ")1+2j(")
+        self.assertRaisesRegex(
+            TypeError,
+            "first argument must be a string or a number, not 'dict'"  # cpython
+            "|unsupported operand type for float\(\): 'dict'",         # pypy
+            complex, {1:2}, 1)
+        self.assertRaisesRegex(
+            TypeError,
+            "second argument must be a number, not 'dict'"          # cpython
+            "|unsupported operand type for float\(\): 'dict'",      # pypy
+            complex, 1, {1:2})
         # the following three are accepted by Python 2.6
         self.assertRaises(ValueError, complex, "1..1j")
         self.assertRaises(ValueError, complex, "1.11.1j")

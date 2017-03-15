@@ -1,14 +1,14 @@
 # encoding: utf-8
+import pytest
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.interpreter.error import OperationError
+from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.bytesobject import new_empty_str, PyBytesObject
-from pypy.module.cpyext.api import PyObjectP, PyObject, Py_ssize_tP, generic_cpy_call
-from pypy.module.cpyext.pyobject import Py_DecRef, from_ref, make_ref
-from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
+from pypy.module.cpyext.api import PyObjectP, PyObject, Py_ssize_tP, generic_cpy_call, Py_buffer
+from pypy.module.cpyext.pyobject import Py_DecRef, from_ref, make_ref, as_pyobj
+from pypy.module.cpyext.api import PyTypeObjectPtr
 
-import py
-import sys
 
 class AppTestBytesObject(AppTestCpythonExtensionBase):
     def test_bytesobject(self):
@@ -201,6 +201,28 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
         module.getbytes()
         module.c_only()
 
+    def test_FromFormat(self):
+        module = self.import_extension('foo', [
+            ("fmt", "METH_VARARGS",
+             """
+                PyObject* fmt = PyTuple_GetItem(args, 0);
+                int n = PyLong_AsLong(PyTuple_GetItem(args, 1));
+                PyObject* result = PyBytes_FromFormat(PyBytes_AsString(fmt), n);
+                return result;
+             """),
+        ])
+        print(module.fmt(b'd:%d', 10))
+        assert module.fmt(b'd:%d', 10) == b'd:10'
+
+    def test_suboffsets(self):
+        module = self.import_extension('foo', [
+            ("check_suboffsets", "METH_O",
+             """
+                Py_buffer view;
+                PyObject_GetBuffer(args, &view, 0);
+                return PyLong_FromLong(view.suboffsets == NULL);
+             """)])
+        assert module.check_suboffsets(b'1234') == 1
 
 class TestBytes(BaseApiTest):
     def test_bytes_resize(self, space, api):
@@ -290,3 +312,4 @@ class TestBytes(BaseApiTest):
         w_obj = space.wrap(u"test")
         assert api.PyBytes_FromObject(w_obj) is None
         api.PyErr_Clear()
+

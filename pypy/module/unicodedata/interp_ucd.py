@@ -9,7 +9,7 @@ from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.runicode import MAXUNICODE
-from rpython.rlib.unicodedata import unicodedb_6_1_0, unicodedb_3_2_0
+from rpython.rlib.unicodedata import unicodedb_8_0_0, unicodedb_3_2_0
 from rpython.rlib.runicode import code_to_unichr, ord_accepts_surrogate
 import sys
 
@@ -77,6 +77,7 @@ else:
 
 class UCD(W_Root):
     def __init__(self, unicodedb):
+        self._unicodedb = unicodedb
         self._lookup = unicodedb.lookup_with_alias
         self._lookup_named_sequence = unicodedb.lookup_named_sequence
         self._name = unicodedb.name
@@ -95,30 +96,30 @@ class UCD(W_Root):
 
         self.version = unicodedb.version
 
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='text')
     def _get_code(self, space, name):
         try:
             code = self._lookup(name.upper())
         except KeyError:
-            msg = space.mod(space.wrap("undefined character name '%s'"), space.wrap(name))
+            msg = space.mod(space.newtext("undefined character name '%s'"), space.newtext(name))
             raise OperationError(space.w_KeyError, msg)
-        return space.wrap(code)
+        return space.newint(code)
 
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='text')
     def lookup(self, space, name):
         try:
             code = self._lookup(name.upper(), with_named_sequence=True)
         except KeyError:
-            msg = space.mod(space.wrap("undefined character name '%s'"), space.wrap(name))
+            msg = space.mod(space.newtext("undefined character name '%s'"), space.newtext(name))
             raise OperationError(space.w_KeyError, msg)
 
         # The code may be a named sequence
         sequence = self._lookup_named_sequence(code)
         if sequence is not None:
             # named sequences only contain UCS2 codes, no surrogates &co.
-            return space.wrap(sequence)
+            return space.newunicode(sequence)
 
-        return space.wrap(code_to_unichr(code))
+        return space.newunicode(code_to_unichr(code))
 
     def name(self, space, w_unichr, w_default=None):
         code = unichr_to_code_w(space, w_unichr)
@@ -128,12 +129,12 @@ class UCD(W_Root):
             if w_default is not None:
                 return w_default
             raise oefmt(space.w_ValueError, "no such name")
-        return space.wrap(name)
+        return space.newtext(name)
 
     def decimal(self, space, w_unichr, w_default=None):
         code = unichr_to_code_w(space, w_unichr)
         try:
-            return space.wrap(self._decimal(code))
+            return space.newint(self._decimal(code))
         except KeyError:
             pass
         if w_default is not None:
@@ -143,7 +144,7 @@ class UCD(W_Root):
     def digit(self, space, w_unichr, w_default=None):
         code = unichr_to_code_w(space, w_unichr)
         try:
-            return space.wrap(self._digit(code))
+            return space.newint(self._digit(code))
         except KeyError:
             pass
         if w_default is not None:
@@ -153,7 +154,7 @@ class UCD(W_Root):
     def numeric(self, space, w_unichr, w_default=None):
         code = unichr_to_code_w(space, w_unichr)
         try:
-            return space.wrap(self._numeric(code))
+            return space.newfloat(self._numeric(code))
         except KeyError:
             pass
         if w_default is not None:
@@ -162,30 +163,30 @@ class UCD(W_Root):
 
     def category(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
-        return space.wrap(self._category(code))
+        return space.newtext(self._category(code))
 
     def east_asian_width(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
-        return space.wrap(self._east_asian_width(code))
+        return space.newtext(self._east_asian_width(code))
 
     def bidirectional(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
-        return space.wrap(self._bidirectional(code))
+        return space.newtext(self._bidirectional(code))
 
     def combining(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
-        return space.wrap(self._combining(code))
+        return space.newint(self._combining(code))
 
     def mirrored(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
         # For no reason, unicodedata.mirrored() returns an int, not a bool
-        return space.wrap(int(self._mirrored(code)))
+        return space.newint(int(self._mirrored(code)))
 
     def decomposition(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
-        return space.wrap(self._decomposition(code))
+        return space.newtext(self._decomposition(code))
 
-    @unwrap_spec(form=str)
+    @unwrap_spec(form='text')
     def normalize(self, space, form, w_unistr):
         if not space.isinstance_w(w_unistr, space.w_unicode):
             raise oefmt(
@@ -212,7 +213,7 @@ class UCD(W_Root):
         resultlen = len(result)
         # Expand the character
         for i in range(strlen):
-            ch = space.int_w(space.ord(space.getitem(w_unistr, space.wrap(i))))
+            ch = space.int_w(space.ord(space.getitem(w_unistr, space.newint(i))))
             # Do Hangul decomposition
             if SBase <= ch < SBase + SCount:
                 SIndex = ch - SBase
@@ -267,10 +268,10 @@ class UCD(W_Root):
                 result[0] = ch
 
         if not composed: # If decomposed normalization we are done
-            return space.wrap(u''.join([unichr(i) for i in result[:j]]))
+            return space.newunicode(u''.join([unichr(i) for i in result[:j]]))
 
         if j <= 1:
-            return space.wrap(u''.join([unichr(i) for i in result[:j]]))
+            return space.newunicode(u''.join([unichr(i) for i in result[:j]]))
 
         current = result[0]
         starter_pos = 0
@@ -288,8 +289,9 @@ class UCD(W_Root):
                     # If L, V -> LV
                     current = SBase + ((current - LBase)*VCount + (next - VBase)) * TCount
                     continue
+                # Note: if next == TBase, leave LV unchanged
                 if (SBase <= current < SBase + SCount and
-                    TBase <= next < TBase + TCount and
+                    TBase < next < TBase + TCount and
                     (current - SBase) % TCount == 0):
                     # If LV, T -> LVT
                     current = current + (next - TBase)
@@ -317,7 +319,7 @@ class UCD(W_Root):
 
         result[starter_pos] = current
 
-        return space.wrap(u''.join([unichr(i) for i in result[:next_insert]]))
+        return space.newunicode(u''.join([unichr(i) for i in result[:next_insert]]))
 
 
 methods = {}
@@ -330,9 +332,10 @@ for methodname in """
 
 UCD.typedef = TypeDef("unicodedata.UCD",
                       __doc__ = "",
-                      unidata_version = interp_attrproperty('version', UCD),
+                      unidata_version = interp_attrproperty('version', UCD,
+                          wrapfn="newtext"),
                       **methods)
 
 ucd_3_2_0 = UCD(unicodedb_3_2_0)
-ucd_6_1_0 = UCD(unicodedb_6_1_0)
-ucd = ucd_6_1_0
+ucd_8_0_0 = UCD(unicodedb_8_0_0)
+ucd = ucd_8_0_0

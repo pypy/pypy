@@ -139,6 +139,8 @@ class VectorAssembler(object):
             self.mc.VLVG(resloc, r.SCRATCH, l.addr(0), l.itemsize_to_mask(nsize))
             self.mc.VLGV(r.SCRATCH, loc0, l.addr(1), l.itemsize_to_mask(osize))
             self.mc.VLVG(resloc, r.SCRATCH, l.addr(1), l.itemsize_to_mask(nsize))
+            if nsize == 8:
+                self.mc.VSEG(resloc, resloc, l.itemsize_to_mask(osize))
 
     def emit_vec_float_abs(self, op, arglocs, regalloc):
         resloc, argloc, sizeloc = arglocs

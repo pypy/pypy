@@ -76,7 +76,7 @@ class FileReader(AbstractReaderWriter):
     def __init__(self, space, w_f):
         AbstractReaderWriter.__init__(self, space)
         try:
-            self.func = space.getattr(w_f, space.wrap('read'))
+            self.func = space.getattr(w_f, space.newtext('read'))
             # XXX how to check if it is callable?
         except OperationError as e:
             if not e.match(space, space.w_AttributeError):
@@ -86,8 +86,8 @@ class FileReader(AbstractReaderWriter):
 
     def read(self, n):
         space = self.space
-        w_ret = space.call_function(self.func, space.wrap(n))
-        ret = space.str_w(w_ret)
+        w_ret = space.call_function(self.func, space.newint(n))
+        ret = space.bytes_w(w_ret)
         if len(ret) < n:
             self.raise_eof()
         if len(ret) > n:
@@ -101,7 +101,7 @@ class FileReader(AbstractReaderWriter):
 class _Base(object):
     def raise_exc(self, msg):
         space = self.space
-        raise OperationError(space.w_ValueError, space.wrap(msg))
+        raise OperationError(space.w_ValueError, space.newtext(msg))
 
 class Marshaller(_Base):
     """

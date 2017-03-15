@@ -72,15 +72,18 @@ class TestCall(BaseTestPyPyC):
         # LOAD_GLOBAL of OFFSET
         ops = entry_bridge.ops_by_id('cond', opcode='LOAD_GLOBAL')
         assert log.opnames(ops) == ["guard_value",
+                                    "getfield_gc_r",   # dead load
                                     "guard_not_invalidated"]
         ops = entry_bridge.ops_by_id('add', opcode='LOAD_GLOBAL')
         assert log.opnames(ops) == []
         #
         ops = entry_bridge.ops_by_id('call', opcode='LOAD_GLOBAL')
-        assert log.opnames(ops) == []
+        assert log.opnames(ops) == ["getfield_gc_r"]
         #
         assert entry_bridge.match_by_id('call', """
+            p30 = getfield_gc_r(ConstPtr(ptr29), descr=<FieldP pypy.objspace.std.unicodeobject.W_UnicodeObject.inst__utf8 .>)
             p38 = call_r(ConstClass(_ll_1_threadlocalref_get__Ptr_GcStruct_objectLlT_Signed), #, descr=<Callr . i EF=1 OS=5>)
+            p99 = getfield_gc_r(p38, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_sys_exc_operror .*>)
             p39 = getfield_gc_r(p38, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref .*>)
             i40 = force_token()
             p41 = getfield_gc_r(p38, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc .*>)
@@ -130,7 +133,8 @@ class TestCall(BaseTestPyPyC):
         ops = entry_bridge.ops_by_id('meth1', opcode='LOOKUP_METHOD')
         assert log.opnames(ops) == ['guard_value', 'getfield_gc_r',
                                     'guard_value',
-                                    'guard_not_invalidated']
+                                    'guard_not_invalidated',
+                                    'getfield_gc_r']
         # the second LOOKUP_METHOD is folded away
         assert list(entry_bridge.ops_by_id('meth2', opcode='LOOKUP_METHOD')) == []
         #
@@ -403,7 +407,7 @@ class TestCall(BaseTestPyPyC):
         def main(n):
             i = 1
             while i < n:
-                i += len(xrange(i+1)) - i
+                i += len(range(i+1)) - i
             return i
 
         log = self.run(main, [10000])
@@ -439,8 +443,10 @@ class TestCall(BaseTestPyPyC):
             i22 = getfield_gc_i(p12, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
             i24 = int_lt(i22, 5000)
             guard_true(i24, descr=...)
+            p21 = getfield_gc_r(ConstPtr(ptr20), descr=<FieldP pypy.objspace.std.unicodeobject.W_UnicodeObject.inst__utf8 .>)
             guard_not_invalidated(descr=...)
             p29 = call_r(ConstClass(_ll_1_threadlocalref_get__Ptr_GcStruct_objectLlT_Signed), #, descr=<Callr . i EF=1 OS=5>)
+            p99 = getfield_gc_r(p29, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_sys_exc_operror .*>)
             p30 = getfield_gc_r(p29, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref .*>)
             p31 = force_token()
             p32 = getfield_gc_r(p29, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc .*>)

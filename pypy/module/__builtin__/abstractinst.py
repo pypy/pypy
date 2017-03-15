@@ -17,7 +17,7 @@ def _get_bases(space, w_cls):
     no __bases__ or if cls.__bases__ is not a tuple.
     """
     try:
-        w_bases = space.getattr(w_cls, space.wrap('__bases__'))
+        w_bases = space.getattr(w_cls, space.newtext('__bases__'))
     except OperationError as e:
         if not e.match(space, space.w_AttributeError):
             raise       # propagate other errors
@@ -32,12 +32,12 @@ def abstract_isclass_w(space, w_obj):
 
 def check_class(space, w_obj, msg):
     if not abstract_isclass_w(space, w_obj):
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        raise OperationError(space.w_TypeError, space.newtext(msg))
 
 
 def abstract_getclass(space, w_obj):
     try:
-        return space.getattr(w_obj, space.wrap('__class__'))
+        return space.getattr(w_obj, space.newtext('__class__'))
     except OperationError as e:
         if not e.match(space, space.w_AttributeError):
             raise       # propagate other errors
@@ -55,7 +55,7 @@ def p_recursive_isinstance_w(space, w_inst, w_cls):
     check_class(space, w_cls, "isinstance() arg 2 must be a class, type,"
                               " or tuple of classes and types")
     try:
-        w_abstractclass = space.getattr(w_inst, space.wrap('__class__'))
+        w_abstractclass = space.getattr(w_inst, space.newtext('__class__'))
     except OperationError as e:
         if not e.match(space, space.w_AttributeError):
             raise       # propagate other errors
@@ -70,7 +70,7 @@ def p_recursive_isinstance_type_w(space, w_inst, w_type):
     if space.isinstance_w(w_inst, w_type):
         return True
     try:
-        w_abstractclass = space.getattr(w_inst, space.wrap('__class__'))
+        w_abstractclass = space.getattr(w_inst, space.newtext('__class__'))
     except OperationError as e:
         if not e.match(space, space.w_AttributeError):
             raise       # propagate other errors
@@ -212,14 +212,14 @@ def issubclass(space, w_cls, w_klass_or_tuple):
 another class.  When using a tuple as the second argument, check whether
 'cls' is a subclass of any of the classes listed in the tuple."""
     result = abstract_issubclass_w(space, w_cls, w_klass_or_tuple, True)
-    return space.wrap(result)
+    return space.newbool(result)
 
 def isinstance(space, w_obj, w_klass_or_tuple):
     """Check whether an object is an instance of a class (or of a subclass
 thereof).  When using a tuple as the second argument, check whether 'obj'
 is an instance of any of the classes listed in the tuple."""
     result = abstract_isinstance_w(space, w_obj, w_klass_or_tuple, True)
-    return space.wrap(result)
+    return space.newbool(result)
 
 # avoid namespace pollution
 app_issubclass = issubclass; del issubclass

@@ -127,9 +127,9 @@ def execute_test(cwd, test, out, logfname, interp, test_driver,
         runfunc = dry_run
     else:
         runfunc = run
-    
+
     exitcode = runfunc(args, cwd, out, timeout=timeout)
-    
+
     return exitcode
 
 def should_report_failure(logdata):
@@ -147,7 +147,7 @@ def should_report_failure(logdata):
 
 def interpret_exitcode(exitcode, test, logdata=""):
     extralog = ""
-    if exitcode:
+    if exitcode not in (0, 5):
         failure = True
         if exitcode != 1 or should_report_failure(logdata):
             if exitcode > 0:
@@ -268,14 +268,14 @@ def execute_tests(run_param, testdirs, logfile, out):
             out.write("++ %s starting %s [%d started in total]\n" % (now, res[1],
                                                                   started))
             continue
-        
+
         testname, somefailed, logdata, output = res[1:]
         done += 1
         failure = failure or somefailed
 
         heading = "__ %s [%d done in total, somefailed=%s] " % (
             testname, done, somefailed)
-        
+
         out.write(heading + (79-len(heading))*'_'+'\n')
 
         out.write(output)
@@ -299,7 +299,7 @@ class RunParam(object):
     parallel_runs = 1
     timeout = None
     cherrypick = None
-    
+
     def __init__(self, root):
         self.root = root
         self.self = self
@@ -372,7 +372,7 @@ def main(args):
     parser.add_option("--timeout", dest="timeout", default=None,
                       type="int",
                       help="timeout in secs for test processes")
-        
+
     opts, args = parser.parse_args(args)
 
     if opts.logfile is None:
@@ -417,7 +417,7 @@ def main(args):
     if run_param.dry_run:
         print >>out, '\n'.join([str((k, getattr(run_param, k))) \
                         for k in dir(run_param) if k[:2] != '__'])
-    
+
     res = execute_tests(run_param, testdirs, logfile, out)
 
     if res:

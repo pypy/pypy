@@ -13,7 +13,9 @@ class AppTestAtexit:
                 print("h2")
             atexit.register(h1)
             atexit.register(h2)
+            assert atexit._ncallbacks() == 2
             atexit._run_exitfuncs()
+            assert atexit._ncallbacks() == 0
             assert capture.getvalue() == 'h2\nh1\n'
         finally:
             sys.stdout = stdout

@@ -1,3 +1,4 @@
+import sys
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib import rposix
 from rpython.rlib import rdynload
@@ -206,6 +207,25 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['get_blocking'] = 'interp_posix.get_blocking'
         interpleveldefs['set_blocking'] = 'interp_posix.set_blocking'
 
+    if hasattr(rposix, 'getpriority'):
+        interpleveldefs['getpriority'] = 'interp_posix.getpriority'
+        interpleveldefs['setpriority'] = 'interp_posix.setpriority'
+        for _name in ['PRIO_PROCESS', 'PRIO_PGRP', 'PRIO_USER']:
+            assert getattr(rposix, _name) is not None, "missing %r" % (_name,)
+            interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
+
+    if sys.platform.startswith('linux'): #hasattr(rposix, 'sendfile'):
+        interpleveldefs['sendfile'] = 'interp_posix.sendfile'
+
+    if hasattr(rposix, 'pread'):
+        interpleveldefs['pread'] = 'interp_posix.pread'
+    if hasattr(rposix, 'pwrite'):
+       interpleveldefs['pwrite'] = 'interp_posix.pwrite'
+
+    for _name in ["O_CLOEXEC"]:
+        if getattr(rposix, _name) is not None:
+            interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
+
     def startup(self, space):
         from pypy.module.posix import interp_posix
         from pypy.module.imp import importing
@@ -216,4 +236,9 @@ corresponding Unix manual entries for more information on calls."""
 for constant in dir(os):
     value = getattr(os, constant)
     if constant.isupper() and type(value) is int:
+        if constant in ['SEEK_SET', 'SEEK_CUR', 'SEEK_END',
+                        'P_NOWAIT', 'P_NOWAITO', 'P_WAIT']:
+            # obscure, but these names are not in CPython's posix module
+            # and if we put it here then they end up twice in 'os.__all__'
+            continue
         Module.interpleveldefs[constant] = "space.wrap(%s)" % value

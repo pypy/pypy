@@ -49,14 +49,18 @@ Here we add keyword arguments
 
     >>> f(1, 2, 3, **{'a':4, 'b':5})
     (1, 2, 3) {'a': 4, 'b': 5}
-    >>> f(1, 2, **{'a': -1, 'b': 5}, **{'a': 4, 'c': 6})
+    >>> f(1, 2, **{'a': -1, 'b': 5}, **{'a': 4, 'c': 6})   #doctest: +ELLIPSIS
     Traceback (most recent call last):
         ...
-    TypeError: f() got multiple values for keyword argument 'a'
-    >>> f(1, 2, **{'a': -1, 'b': 5}, a=4, c=6)
+    TypeError: ...got multiple values for keyword argument 'a'
+    >>> f(1, 2, **{'a': -1, 'b': 5}, a=4, c=6)             #doctest: +ELLIPSIS
     Traceback (most recent call last):
         ...
-    TypeError: f() got multiple values for keyword argument 'a'
+    TypeError: ...got multiple values for keyword argument 'a'
+    >>> f(1, 2, a=3, **{'a': 4}, **{'a': 5})               #doctest: +ELLIPSIS
+    Traceback (most recent call last):
+        ...
+    TypeError: ...got multiple values for keyword argument 'a'
     >>> f(1, 2, 3, *[4, 5], **{'a':6, 'b':7})
     (1, 2, 3, 4, 5) {'a': 6, 'b': 7}
     >>> f(1, 2, 3, x=4, y=5, *(6, 7), **{'a':8, 'b': 9})
@@ -114,7 +118,7 @@ Verify clearing of SF bug #733667
     >>> g(*Nothing())                     #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after * must be a sequence, not Nothing
+    TypeError: ...argument after * must be an iterable, not Nothing
 
     >>> class Nothing:
     ...     def __len__(self): return 5
@@ -123,7 +127,7 @@ Verify clearing of SF bug #733667
     >>> g(*Nothing())                     #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after * must be a sequence, not Nothing
+    TypeError: ...argument after * must be an iterable, not Nothing
 
     >>> class Nothing():
     ...     def __len__(self): return 5
@@ -148,6 +152,45 @@ Verify clearing of SF bug #733667
 
     >>> g(*Nothing())
     0 (1, 2, 3) {}
+
+Check for issue #4806: Does a TypeError in a generator get propagated with the
+right error message? (Also check with other iterables.)
+
+    >>> def broken(): raise TypeError("myerror")
+    ...
+
+    >>> g(*(broken() for i in range(1)))
+    Traceback (most recent call last):
+      ...
+    TypeError: myerror
+
+    >>> class BrokenIterable1:
+    ...     def __iter__(self):
+    ...         raise TypeError('myerror')
+    ...
+    >>> g(*BrokenIterable1())
+    Traceback (most recent call last):
+      ...
+    TypeError: myerror
+
+    >>> class BrokenIterable2:
+    ...     def __iter__(self):
+    ...         yield 0
+    ...         raise TypeError('myerror')
+    ...
+    >>> g(*BrokenIterable2())
+    Traceback (most recent call last):
+      ...
+    TypeError: myerror
+
+    >>> class BrokenSequence:
+    ...     def __getitem__(self, idx):
+    ...         raise TypeError('myerror')
+    ...
+    >>> g(*BrokenSequence())
+    Traceback (most recent call last):
+      ...
+    TypeError: myerror
 
 Make sure that the function doesn't stomp the dictionary
 
@@ -178,7 +221,7 @@ What about willful misconduct?
     >>> f(**{1:2})                             #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: ...keywords must be strings
+    TypeError: ...keywords must be strings...
 
     >>> h(**{'e': 2})
     Traceback (most recent call last):
@@ -188,22 +231,52 @@ What about willful misconduct?
     >>> h(*h)                                  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after * must be a sequence, not function
+    TypeError: ...argument after * must be an iterable, not function
+
+    >>> h(1, *h)                               #doctest: +ELLIPSIS
+    Traceback (most recent call last):
+      ...
+    TypeError: ...argument after * must be an iterable, not function
 
     >>> dir(*h)                                #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after * must be a sequence, not function
+    TypeError: ...argument after * must be an iterable, not function
 
     >>> None(*h)                               #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after * must be a sequence, not function
+    TypeError: ...argument after * must be an iterable, not function
 
     >>> h(**h)                                 #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
     TypeError: ...argument after ** must be a mapping, not function
+
+    >>> h(**[])                                #doctest: +ELLIPSIS
+    Traceback (most recent call last):
+      ...
+    TypeError: ...argument after ** must be a mapping, not list
+
+    >>> h(a=1, **h)                            #doctest: +ELLIPSIS
+    Traceback (most recent call last):
+      ...
+    TypeError: ...argument after ** must be a mapping, not function
+
+    >>> h(a=1, **[])                           #doctest: +ELLIPSIS
+    Traceback (most recent call last):
+      ...
+    TypeError: ...argument after ** must be a mapping, not list
+
+    >>> h(**{'a': 1}, **h)                     #doctest: +ELLIPSIS
+    Traceback (most recent call last):
+      ...
+    TypeError: ...argument after ** must be a mapping, not function
+
+    >>> h(**{'a': 1}, **[])                    #doctest: +ELLIPSIS
+    Traceback (most recent call last):
+      ...
+    TypeError: ...argument after ** must be a mapping, not list
 
     >>> dir(**h)                               #doctest: +ELLIPSIS
     Traceback (most recent call last):

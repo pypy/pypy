@@ -1,7 +1,5 @@
-import itertools
 import os
 import posixpath
-import sys
 import unittest
 import warnings
 from posixpath import realpath, abspath, dirname, basename
@@ -213,9 +211,38 @@ class PosixPathTest(unittest.TestCase):
         finally:
             os.lstat = save_lstat
 
+    @unittest.skipIf(posix is None, "Test requires posix module")
+    def test_ismount_directory_not_readable(self):
+        # issue #2466: Simulate ismount run on a directory that is not
+        # readable, which used to return False.
+        save_lstat = os.lstat
+        def fake_lstat(path):
+            st_ino = 0
+            st_dev = 0
+            if path.startswith(ABSTFN) and path != ABSTFN:
+                # ismount tries to read something inside the ABSTFN directory;
+                # simulate this being forbidden (no read permission).
+                raise OSError("Fake [Errno 13] Permission denied")
+            if path == ABSTFN:
+                st_dev = 1
+                st_ino = 1
+            return posix.stat_result((0, st_ino, st_dev, 0, 0, 0, 0, 0, 0, 0))
+        try:
+            os.lstat = fake_lstat
+            self.assertIs(posixpath.ismount(ABSTFN), True)
+        finally:
+            os.lstat = save_lstat
+
     def test_expanduser(self):
         self.assertEqual(posixpath.expanduser("foo"), "foo")
         self.assertEqual(posixpath.expanduser(b"foo"), b"foo")
+        with support.EnvironmentVarGuard() as env:
+            for home in '/', '', '//', '///':
+                with self.subTest(home=home):
+                    env['HOME'] = home
+                    self.assertEqual(posixpath.expanduser("~"), "/")
+                    self.assertEqual(posixpath.expanduser("~/"), "/")
+                    self.assertEqual(posixpath.expanduser("~/foo"), "/foo")
         try:
             import pwd
         except ImportError:
@@ -239,14 +266,12 @@ class PosixPathTest(unittest.TestCase):
             self.assertIsInstance(posixpath.expanduser(b"~foo/"), bytes)
 
             with support.EnvironmentVarGuard() as env:
-                env['HOME'] = '/'
-                self.assertEqual(posixpath.expanduser("~"), "/")
-                self.assertEqual(posixpath.expanduser("~/foo"), "/foo")
                 # expanduser should fall back to using the password database
                 del env['HOME']
                 home = pwd.getpwuid(os.getuid()).pw_dir
                 # $HOME can end with a trailing /, so strip it (see #17809)
-                self.assertEqual(posixpath.expanduser("~"), home.rstrip("/"))
+                home = home.rstrip("/") or '/'
+                self.assertEqual(posixpath.expanduser("~"), home)
 
     def test_normpath(self):
         self.assertEqual(posixpath.normpath(""), ".")

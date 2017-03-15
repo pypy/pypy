@@ -272,11 +272,11 @@ class Test__ffi(BaseTestPyPyC):
             _write = libc.load_function(BWrite, 'write')
             i = 0
             fd0, fd1 = os.pipe()
-            buffer = _cffi_backend.newp(BCharP, 'A')
+            buffer = _cffi_backend.newp(BCharP, b'A')
             while i < 300:
                 tmp = _write(fd1, buffer, 1)   # ID: cfficall
                 assert tmp == 1
-                assert os.read(fd0, 2) == 'A'
+                assert os.read(fd0, 2) == b'A'
                 i += 1
             os.close(fd0)
             os.close(fd1)
@@ -401,7 +401,7 @@ class Test__ffi(BaseTestPyPyC):
             };
             """)
 
-            for i in xrange(n):
+            for i in range(n):
                 ffi.new("struct s *", [i, i, i])
 
         log = self.run(main, [300])
@@ -410,7 +410,7 @@ class Test__ffi(BaseTestPyPyC):
         i161 = int_lt(i160, i43)
         guard_true(i161, descr=...)
         i162 = int_add(i160, 1)
-        setfield_gc(p22, i162, descr=<FieldS pypy.module.__builtin__.functional.W_XRangeIterator.inst_current .>)
+        setfield_gc(p22, i162, descr=<FieldS pypy.module.__builtin__.functional.W_IntRangeIterator.inst_current .>)
         guard_not_invalidated(descr=...)
         p163 = force_token()
         p164 = force_token()
@@ -421,9 +421,10 @@ class Test__ffi(BaseTestPyPyC):
         setfield_gc(p167, -1, descr=<FieldS pypy.module._cffi_backend.cdataobj.W_CDataNewOwning.inst_allocated_length .+>)
         i114 = int_ne(i160, i112)
         guard_false(i114, descr=...)
-        --TICK--
+        # NB. we get threads because '_hashlib' uses ffi callback/def_extern
+        --THREAD-TICK--
         i123 = arraylen_gc(p67, descr=<ArrayP .>)
-        i119 = call_i(ConstClass(_ll_1_raw_malloc_varsize_zero__Signed), 6, descr=<Calli . i EF=5 OS=110>)
+        i119 = call_i(ConstClass(_ll_1_raw_malloc_varsize_zero_mpressure__Signed), 6, descr=<Calli . i EF=5 OS=110>)
         check_memory_error(i119)
         raw_store(i119, 0, i160, descr=<ArrayS 2>)
         raw_store(i119, 2, i160, descr=<ArrayS 2>)

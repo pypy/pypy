@@ -22,7 +22,7 @@ class State:
         # Initialize the default path
         srcdir = os.path.dirname(pypydir)
         path = compute_stdlib_path(self, srcdir)
-        self.w_path = space.newlist([space.wrap_fsdecoded(p) for p in path])
+        self.w_path = space.newlist([space.newfilename(p) for p in path])
 
 def get(space):
     return space.fromcache(State)
@@ -31,4 +31,4 @@ def pypy_getudir(space):
     """NOT_RPYTHON
     (should be removed from interpleveldefs before translation)"""
     from rpython.tool.udir import udir
-    return space.wrap_fsdecoded(str(udir))
+    return space.newfilename(str(udir))

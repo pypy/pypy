@@ -18,6 +18,16 @@ class AppTestWarnings:
         _warnings.warn("some message", Warning)
         _warnings.warn(("some message",1), Warning)
 
+    def test_use_builtin__warnings(self):
+        """Check that the stdlib warnings.py module manages to import our
+        _warnings module.  If something is missing, it doesn't, and silently
+        continues.  Then things don't reliably work: either the
+        functionality of the pure Python version is subtly different, or
+        more likely we get confusion because of a half-imported _warnings.
+        """
+        import warnings
+        assert not hasattr(warnings, '_filters_version')
+
     def test_lineno(self):
         import warnings, _warnings, sys
         with warnings.catch_warnings(record=True) as w:
@@ -70,3 +80,19 @@ class AppTestWarnings:
         _warnings.warn('test', UserWarning)
         globals()['__file__'] = None
         _warnings.warn('test', UserWarning)
+
+    def test_bad_category(self):
+        import _warnings
+        raises(TypeError, _warnings.warn, "text", 123)
+        class Foo:
+            pass
+        raises(TypeError, _warnings.warn, "text", Foo)
+
+    def test_surrogate_in_filename(self):
+        import _warnings, __pypy__
+        for filename in ("nonascii\xe9\u20ac", "surrogate\udc80"):
+            try:
+                __pypy__.fsencode(filename)
+            except UnicodeEncodeError:
+                continue
+            _warnings.warn_explicit("text", UserWarning, filename, 1)

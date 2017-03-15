@@ -16,6 +16,7 @@ def no_vector_backend():
         return not detect_simd_z()
     return True
 
+@py.test.mark.skipif(True, reason='no _numpypy on pypy3')
 class TestMicroNumPy(BaseTestPyPyC):
 
     arith_comb = [('+','float','float', 4*3427,   3427, 1.0,3.0),
@@ -75,8 +76,6 @@ class TestMicroNumPy(BaseTestPyPyC):
 
     arith_comb = [
         ('sum','int', 1742, 1742, 1),
-        ('sum','float', 2581, 2581, 1),
-        ('prod','float', 1, 3178, 1),
         ('prod','int', 1, 3178, 1),
         ('any','int', 1, 2239, 1),
         ('any','int', 0, 4912, 0),

@@ -16,7 +16,7 @@ all_modules = [p.basename for p in modulepath.listdir()
 
 essential_modules = set([
     "exceptions", "_io", "sys", "builtins", "posix", "_warnings",
-    "itertools", "_frozen_importlib", "operator",
+    "itertools", "_frozen_importlib", "operator", "_locale", "struct",
 ])
 if sys.platform == "win32":
     essential_modules.add("_winreg")
@@ -33,10 +33,10 @@ default_modules.update([
 # --allworkingmodules
 working_modules = default_modules.copy()
 working_modules.update([
-    "_socket", "unicodedata", "mmap", "fcntl", "_locale", "pwd",
+    "_socket", "unicodedata", "mmap", "fcntl", "pwd",
     "select", "zipimport", "_lsprof", "crypt", "signal", "_rawffi", "termios",
-    "zlib", "bz2", "struct", "_hashlib", "_md5", "_minimal_curses",
-    "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
+    "zlib", "bz2", "_md5", "_minimal_curses",
+    "thread", "itertools", "pyexpat", "cpyext", "array",
     "binascii", "_multiprocessing", '_warnings', "_collections",
     "_multibytecodec", "_continuation", "_cffi_backend",
     "_csv", "_pypyjson", "_posixsubprocess", # "cppyy", "micronumpy"
@@ -118,8 +118,6 @@ module_import_dependencies = {
     "zlib"      : ["rpython.rlib.rzlib"],
     "bz2"       : ["pypy.module.bz2.interp_bz2"],
     "pyexpat"   : ["pypy.module.pyexpat.interp_pyexpat"],
-    "_ssl"      : ["pypy.module._ssl.interp_ssl"],
-    "_hashlib"  : ["pypy.module._ssl.interp_ssl"],
     "_minimal_curses": ["pypy.module._minimal_curses.fficurses"],
     "_continuation": ["rpython.rlib.rstacklet"],
     "_vmprof"      : ["pypy.module._vmprof.interp_vmprof"],
@@ -191,6 +189,24 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
     BoolOption("disable_call_speedhacks",
                "make sure that all calls go through space.call_args",
                default=False),
+
+    BoolOption("disable_entrypoints",
+               "Disable external entry points, notably the"
+               " cpyext module and cffi's embedding mode.",
+               default=False,
+               requires=[("objspace.usemodules.cpyext", False)]),
+
+    BoolOption("fstrings",
+               "if you are really convinced that f-strings are a security "
+               "issue, you can disable them here",
+               default=True),
+
+    ChoiceOption("hash",
+                 "The hash function to use for strings: fnv from CPython 2.7"
+                 " or siphash24 from CPython >= 3.4",
+                 ["fnv", "siphash24"],
+                 default="siphash24",
+                 cmdline="--hash"),
 
     OptionDescription("std", "Standard Object Space Options", [
         BoolOption("withtproxy", "support transparent proxies",

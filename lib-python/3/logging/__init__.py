@@ -1,4 +1,4 @@
-# Copyright 2001-2015 by Vinay Sajip. All Rights Reserved.
+# Copyright 2001-2016 by Vinay Sajip. All Rights Reserved.
 #
 # Permission to use, copy, modify, and distribute this software and its
 # documentation for any purpose and without fee is hereby granted,
@@ -18,7 +18,7 @@
 Logging package for Python. Based on PEP 282 and comments thereto in
 comp.lang.python.
 
-Copyright (C) 2001-2015 Vinay Sajip. All Rights Reserved.
+Copyright (C) 2001-2016 Vinay Sajip. All Rights Reserved.
 
 To use, simply 'import logging' and log away!
 """
@@ -129,8 +129,14 @@ def getLevelName(level):
 
     Otherwise, the string "Level %s" % level is returned.
     """
-    # See Issue #22386 for the reason for this convoluted expression
-    return _levelToName.get(level, _nameToLevel.get(level, ("Level %s" % level)))
+    # See Issues #22386, #27937 and #29220 for why it's this way
+    result = _levelToName.get(level)
+    if result is not None:
+        return result
+    result = _nameToLevel.get(level)
+    if result is not None:
+        return result
+    return "Level %s" % level
 
 def addLevelName(level, levelName):
     """
@@ -471,7 +477,7 @@ class Formatter(object):
         use one of %-formatting, :meth:`str.format` (``{}``) formatting or
         :class:`string.Template` formatting in your format string.
 
-        .. versionchanged: 3.2
+        .. versionchanged:: 3.2
            Added the ``style`` parameter.
         """
         if style not in _STYLES:
@@ -700,7 +706,7 @@ class Filterer(object):
         this and the record is then dropped. Returns a zero value if a record
         is to be dropped, else non-zero.
 
-        .. versionchanged: 3.2
+        .. versionchanged:: 3.2
 
            Allow filters to be just callables.
         """

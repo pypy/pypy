@@ -51,6 +51,7 @@ The following constants identify various SSL protocol variants:
 PROTOCOL_SSLv2
 PROTOCOL_SSLv3
 PROTOCOL_SSLv23
+PROTOCOL_TLS
 PROTOCOL_TLSv1
 PROTOCOL_TLSv1_1
 PROTOCOL_TLSv1_2
@@ -128,9 +129,10 @@ from _ssl import _OPENSSL_API_VERSION
 
 _IntEnum._convert(
         '_SSLMethod', __name__,
-        lambda name: name.startswith('PROTOCOL_'),
+        lambda name: name.startswith('PROTOCOL_') and name != 'PROTOCOL_SSLv23',
         source=_ssl)
 
+PROTOCOL_SSLv23 = _SSLMethod.PROTOCOL_SSLv23 = _SSLMethod.PROTOCOL_TLS
 _PROTOCOL_NAMES = {value: name for name, value in _SSLMethod.__members__.items()}
 
 try:
@@ -145,6 +147,7 @@ from socket import socket, AF_INET, SOCK_STREAM, create_connection
 from socket import SOL_SOCKET, SO_TYPE
 import base64        # for DER-to-PEM translation
 import errno
+import warnings
 
 
 socket_error = OSError  # keep that public name in module namespace
@@ -154,36 +157,42 @@ if _ssl.HAS_TLS_UNIQUE:
 else:
     CHANNEL_BINDING_TYPES = []
 
+
 # Disable weak or insecure ciphers by default
 # (OpenSSL's default setting is 'DEFAULT:!aNULL:!eNULL')
 # Enable a better set of ciphers by default
 # This list has been explicitly chosen to:
 #   * Prefer cipher suites that offer perfect forward secrecy (DHE/ECDHE)
 #   * Prefer ECDHE over DHE for better performance
-#   * Prefer any AES-GCM over any AES-CBC for better performance and security
+#   * Prefer AEAD over CBC for better performance and security
+#   * Prefer AES-GCM over ChaCha20 because most platforms have AES-NI
+#     (ChaCha20 needs OpenSSL 1.1.0 or patched 1.0.2)
+#   * Prefer any AES-GCM and ChaCha20 over any AES-CBC for better
+#     performance and security
 #   * Then Use HIGH cipher suites as a fallback
-#   * Then Use 3DES as fallback which is secure but slow
-#   * Disable NULL authentication, NULL encryption, and MD5 MACs for security
-#     reasons
+#   * Disable NULL authentication, NULL encryption, 3DES and MD5 MACs
+#     for security reasons
 _DEFAULT_CIPHERS = (
-    'ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:ECDH+AES128:DH+AES:ECDH+HIGH:'
-    'DH+HIGH:ECDH+3DES:DH+3DES:RSA+AESGCM:RSA+AES:RSA+HIGH:RSA+3DES:!aNULL:'
-    '!eNULL:!MD5'
-)
+    'ECDH+AESGCM:ECDH+CHACHA20:DH+AESGCM:DH+CHACHA20:ECDH+AES256:DH+AES256:'
+    'ECDH+AES128:DH+AES:ECDH+HIGH:DH+HIGH:RSA+AESGCM:RSA+AES:RSA+HIGH:'
+    '!aNULL:!eNULL:!MD5:!3DES'
+    )
 
 # Restricted and more secure ciphers for the server side
 # This list has been explicitly chosen to:
 #   * Prefer cipher suites that offer perfect forward secrecy (DHE/ECDHE)
 #   * Prefer ECDHE over DHE for better performance
-#   * Prefer any AES-GCM over any AES-CBC for better performance and security
+#   * Prefer AEAD over CBC for better performance and security
+#   * Prefer AES-GCM over ChaCha20 because most platforms have AES-NI
+#   * Prefer any AES-GCM and ChaCha20 over any AES-CBC for better
+#     performance and security
 #   * Then Use HIGH cipher suites as a fallback
-#   * Then Use 3DES as fallback which is secure but slow
-#   * Disable NULL authentication, NULL encryption, MD5 MACs, DSS, and RC4 for
-#     security reasons
+#   * Disable NULL authentication, NULL encryption, MD5 MACs, DSS, RC4, and
+#     3DES for security reasons
 _RESTRICTED_SERVER_CIPHERS = (
-    'ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:ECDH+AES128:DH+AES:ECDH+HIGH:'
-    'DH+HIGH:ECDH+3DES:DH+3DES:RSA+AESGCM:RSA+AES:RSA+HIGH:RSA+3DES:!aNULL:'
-    '!eNULL:!MD5:!DSS:!RC4'
+    'ECDH+AESGCM:ECDH+CHACHA20:DH+AESGCM:DH+CHACHA20:ECDH+AES256:DH+AES256:'
+    'ECDH+AES128:DH+AES:ECDH+HIGH:DH+HIGH:RSA+AESGCM:RSA+AES:RSA+HIGH:'
+    '!aNULL:!eNULL:!MD5:!DSS:!RC4:!3DES'
 )
 
 
@@ -356,13 +365,13 @@ class SSLContext(_SSLContext):
     __slots__ = ('protocol', '__weakref__')
     _windows_cert_stores = ("CA", "ROOT")
 
-    def __new__(cls, protocol, *args, **kwargs):
+    def __new__(cls, protocol=PROTOCOL_TLS, *args, **kwargs):
         self = _SSLContext.__new__(cls, protocol)
         if protocol != _SSLv2_IF_EXISTS:
             self.set_ciphers(_DEFAULT_CIPHERS)
         return self
 
-    def __init__(self, protocol):
+    def __init__(self, protocol=PROTOCOL_TLS):
         self.protocol = protocol
 
     def wrap_socket(self, sock, server_side=False,
@@ -405,12 +414,16 @@ class SSLContext(_SSLContext):
 
     def _load_windows_store_certs(self, storename, purpose):
         certs = bytearray()
-        for cert, encoding, trust in enum_certificates(storename):
-            # CA certs are never PKCS#7 encoded
-            if encoding == "x509_asn":
-                if trust is True or purpose.oid in trust:
-                    certs.extend(cert)
-        self.load_verify_locations(cadata=certs)
+        try:
+            for cert, encoding, trust in enum_certificates(storename):
+                # CA certs are never PKCS#7 encoded
+                if encoding == "x509_asn":
+                    if trust is True or purpose.oid in trust:
+                        certs.extend(cert)
+        except PermissionError:
+            warnings.warn("unable to enumerate Windows certificate store")
+        if certs:
+            self.load_verify_locations(cadata=certs)
         return certs
 
     def load_default_certs(self, purpose=Purpose.SERVER_AUTH):
@@ -433,7 +446,7 @@ def create_default_context(purpose=Purpose.SERVER_AUTH, *, cafile=None,
     if not isinstance(purpose, _ASN1Object):
         raise TypeError(purpose)
 
-    context = SSLContext(PROTOCOL_SSLv23)
+    context = SSLContext(PROTOCOL_TLS)
 
     # SSLv2 considered harmful.
     context.options |= OP_NO_SSLv2
@@ -470,7 +483,7 @@ def create_default_context(purpose=Purpose.SERVER_AUTH, *, cafile=None,
         context.load_default_certs(purpose)
     return context
 
-def _create_unverified_context(protocol=PROTOCOL_SSLv23, *, cert_reqs=None,
+def _create_unverified_context(protocol=PROTOCOL_TLS, *, cert_reqs=None,
                            check_hostname=False, purpose=Purpose.SERVER_AUTH,
                            certfile=None, keyfile=None,
                            cafile=None, capath=None, cadata=None):
@@ -560,7 +573,7 @@ class SSLObject:
         server hostame is set."""
         return self._sslobj.server_hostname
 
-    def read(self, len=0, buffer=None):
+    def read(self, len=1024, buffer=None):
         """Read up to 'len' bytes from the SSL object and return them.
 
         If 'buffer' is provided, read into this buffer and return the number of
@@ -569,7 +582,7 @@ class SSLObject:
         if buffer is not None:
             v = self._sslobj.read(len, buffer)
         else:
-            v = self._sslobj.read(len or 1024)
+            v = self._sslobj.read(len)
         return v
 
     def write(self, data):
@@ -661,7 +674,7 @@ class SSLSocket(socket):
 
     def __init__(self, sock=None, keyfile=None, certfile=None,
                  server_side=False, cert_reqs=CERT_NONE,
-                 ssl_version=PROTOCOL_SSLv23, ca_certs=None,
+                 ssl_version=PROTOCOL_TLS, ca_certs=None,
                  do_handshake_on_connect=True,
                  family=AF_INET, type=SOCK_STREAM, proto=0, fileno=None,
                  suppress_ragged_eofs=True, npn_protocols=None, ciphers=None,
@@ -775,7 +788,7 @@ class SSLSocket(socket):
             # EAGAIN.
             self.getpeername()
 
-    def read(self, len=0, buffer=None):
+    def read(self, len=1024, buffer=None):
         """Read up to LEN bytes and return them.
         Return zero-length string on EOF."""
 
@@ -1051,7 +1064,7 @@ class SSLSocket(socket):
 
 def wrap_socket(sock, keyfile=None, certfile=None,
                 server_side=False, cert_reqs=CERT_NONE,
-                ssl_version=PROTOCOL_SSLv23, ca_certs=None,
+                ssl_version=PROTOCOL_TLS, ca_certs=None,
                 do_handshake_on_connect=True,
                 suppress_ragged_eofs=True,
                 ciphers=None):
@@ -1120,7 +1133,7 @@ def PEM_cert_to_DER_cert(pem_cert_string):
     d = pem_cert_string.strip()[len(PEM_HEADER):-len(PEM_FOOTER)]
     return base64.decodebytes(d.encode('ASCII', 'strict'))
 
-def get_server_certificate(addr, ssl_version=PROTOCOL_SSLv23, ca_certs=None):
+def get_server_certificate(addr, ssl_version=PROTOCOL_TLS, ca_certs=None):
     """Retrieve the certificate from the server at the specified address,
     and return it as a PEM-encoded string.
     If 'ca_certs' is specified, validate the server cert against it.

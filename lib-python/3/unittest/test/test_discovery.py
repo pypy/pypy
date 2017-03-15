@@ -90,6 +90,46 @@ class TestDiscovery(unittest.TestCase):
                     ('test3', 'test4')])
         self.assertEqual(suite, expected)
 
+    def test_find_tests_socket(self):
+        # A socket is neither a directory nor a regular file.
+        # https://bugs.python.org/issue25320
+        loader = unittest.TestLoader()
+
+        original_listdir = os.listdir
+        def restore_listdir():
+            os.listdir = original_listdir
+        original_isfile = os.path.isfile
+        def restore_isfile():
+            os.path.isfile = original_isfile
+        original_isdir = os.path.isdir
+        def restore_isdir():
+            os.path.isdir = original_isdir
+
+        path_lists = [['socket']]
+        os.listdir = lambda path: path_lists.pop(0)
+        self.addCleanup(restore_listdir)
+
+        os.path.isdir = lambda path: False
+        self.addCleanup(restore_isdir)
+
+        os.path.isfile = lambda path: False
+        self.addCleanup(restore_isfile)
+
+        loader._get_module_from_name = lambda path: path + ' module'
+        orig_load_tests = loader.loadTestsFromModule
+        def loadTestsFromModule(module, pattern=None):
+            # This is where load_tests is called.
+            base = orig_load_tests(module, pattern=pattern)
+            return base + [module + ' tests']
+        loader.loadTestsFromModule = loadTestsFromModule
+        loader.suiteClass = lambda thing: thing
+
+        top_level = os.path.abspath('/foo')
+        loader._top_level_dir = top_level
+        suite = list(loader._find_tests(top_level, 'test*.py'))
+
+        self.assertEqual(suite, [])
+
     def test_find_tests_with_package(self):
         loader = unittest.TestLoader()
 
@@ -235,7 +275,7 @@ class TestDiscovery(unittest.TestCase):
         self.assertEqual(Module.load_tests_args,
                          [(loader, [], 'test*.py')])
 
-    def test_find_tests_customise_via_package_pattern(self):
+    def test_find_tests_customize_via_package_pattern(self):
         # This test uses the example 'do-nothing' load_tests from
         # https://docs.python.org/3/library/unittest.html#load-tests-protocol
         # to make sure that that actually works.
@@ -309,7 +349,7 @@ class TestDiscovery(unittest.TestCase):
         suite = list(loader._find_tests(abspath('/foo'), 'test*.py'))
 
         # We should have loaded tests from both my_package and
-        # my_pacakge.test_module, and also run the load_tests hook in both.
+        # my_package.test_module, and also run the load_tests hook in both.
         # (normally this would be nested TestSuites.)
         self.assertEqual(suite,
                          [['my_package load_tests', [],

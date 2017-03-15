@@ -47,9 +47,9 @@ class TestShift(BaseTestPyPyC):
             res = 0
             a = 0
             while a < 300:
-                res1 = a/b     # ID: div
-                res2 = a/2     # ID: shift
-                res3 = a/11    # ID: mul
+                res1 = a // b     # ID: div
+                res2 = a // 2     # ID: shift
+                res3 = a // 11    # ID: mul
                 res += res1 + res2 + res3
                 a += 1
             return res
@@ -196,8 +196,7 @@ class TestShift(BaseTestPyPyC):
         """
         from sys import maxint
 
-        def main(a, b, c):
-            from sys import maxint
+        def main(a, b, c, maxint):
             i = sa = 0
             while i < 300:
                 if 0 < a < 10: pass
@@ -210,9 +209,9 @@ class TestShift(BaseTestPyPyC):
                 sa += (b<<100)>>100
                 sa += (c<<100)>>100
                 i += 1
-            return long(sa)
+            return sa
 
         for a in (1, 4, 8, 100):
             for b in (-10, 10, -201, 201, -maxint/3, maxint/3):
                 for c in (-10, 10, -maxint/3, maxint/3):
-                    yield self.run_and_check, main, [a, b, c]
+                    yield self.run_and_check, main, [a, b, c, maxint]

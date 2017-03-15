@@ -1,5 +1,8 @@
 #ifndef Py_ABSTRACTOBJECT_H
 #define Py_ABSTRACTOBJECT_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 
     /* new buffer API */
 
@@ -19,10 +22,13 @@
        success
     */
 
-
      PyAPI_FUNC(void) PyBuffer_Release(Py_buffer *view);
 
     /* Releases a Py_buffer obtained from getbuffer ParseTuple's s*.
     */
 
+
+#ifdef __cplusplus
+}
+#endif
 #endif /* Py_ABSTRACTOBJECT_H */

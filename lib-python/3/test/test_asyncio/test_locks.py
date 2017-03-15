@@ -19,6 +19,7 @@ RGX_REPR = re.compile(STR_RGX_REPR)
 class LockTests(test_utils.TestCase):
 
     def setUp(self):
+        super().setUp()
         self.loop = self.new_test_loop()
 
     def test_ctor_loop(self):
@@ -130,8 +131,8 @@ class LockTests(test_utils.TestCase):
     def test_cancel_race(self):
         # Several tasks:
         # - A acquires the lock
-        # - B is blocked in aqcuire()
-        # - C is blocked in aqcuire()
+        # - B is blocked in acquire()
+        # - C is blocked in acquire()
         #
         # Now, concurrently:
         # - B is cancelled
@@ -235,6 +236,7 @@ class LockTests(test_utils.TestCase):
 class EventTests(test_utils.TestCase):
 
     def setUp(self):
+        super().setUp()
         self.loop = self.new_test_loop()
 
     def test_ctor_loop(self):
@@ -364,6 +366,7 @@ class EventTests(test_utils.TestCase):
 class ConditionTests(test_utils.TestCase):
 
     def setUp(self):
+        super().setUp()
         self.loop = self.new_test_loop()
 
     def test_ctor_loop(self):
@@ -455,6 +458,31 @@ class ConditionTests(test_utils.TestCase):
             asyncio.CancelledError,
             self.loop.run_until_complete, wait)
         self.assertFalse(cond._waiters)
+        self.assertTrue(cond.locked())
+
+    def test_wait_cancel_contested(self):
+        cond = asyncio.Condition(loop=self.loop)
+
+        self.loop.run_until_complete(cond.acquire())
+        self.assertTrue(cond.locked())
+
+        wait_task = asyncio.Task(cond.wait(), loop=self.loop)
+        test_utils.run_briefly(self.loop)
+        self.assertFalse(cond.locked())
+
+        # Notify, but contest the lock before cancelling
+        self.loop.run_until_complete(cond.acquire())
+        self.assertTrue(cond.locked())
+        cond.notify()
+        self.loop.call_soon(wait_task.cancel)
+        self.loop.call_soon(cond.release)
+
+        try:
+            self.loop.run_until_complete(wait_task)
+        except asyncio.CancelledError:
+            # Should not happen, since no cancellation points
+            pass
+
         self.assertTrue(cond.locked())
 
     def test_wait_unacquired(self):
@@ -674,6 +702,7 @@ class ConditionTests(test_utils.TestCase):
 class SemaphoreTests(test_utils.TestCase):
 
     def setUp(self):
+        super().setUp()
         self.loop = self.new_test_loop()
 
     def test_ctor_loop(self):

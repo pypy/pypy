@@ -38,13 +38,23 @@ typecodes = "ubBhHiIlLfd"
 if have_long_long:
     typecodes += 'qQ'
 
-class BadConstructorTest(unittest.TestCase):
+class MiscTest(unittest.TestCase):
 
-    def test_constructor(self):
+    def test_bad_constructor(self):
         self.assertRaises(TypeError, array.array)
         self.assertRaises(TypeError, array.array, spam=42)
         self.assertRaises(TypeError, array.array, 'xx')
         self.assertRaises(ValueError, array.array, 'x')
+
+    def test_empty(self):
+        # Exercise code for handling zero-length arrays
+        a = array.array('B')
+        a[:] = a
+        self.assertEqual(len(a), 0)
+        self.assertEqual(len(a + a), 0)
+        self.assertEqual(len(a * 3), 0)
+        a += a
+        self.assertEqual(len(a), 0)
 
 
 # Machine format codes.
@@ -284,19 +294,55 @@ class BaseTest:
             self.assertEqual(type(a), type(b))
 
     def test_iterator_pickle(self):
-        data = array.array(self.typecode, self.example)
+        orig = array.array(self.typecode, self.example)
+        data = list(orig)
+        data2 = data[::-1]
         for proto in range(pickle.HIGHEST_PROTOCOL + 1):
-            orgit = iter(data)
-            d = pickle.dumps(orgit, proto)
-            it = pickle.loads(d)
-            self.assertEqual(type(orgit), type(it))
-            self.assertEqual(list(it), list(data))
+            # initial iterator
+            itorig = iter(orig)
+            d = pickle.dumps((itorig, orig), proto)
+            it, a = pickle.loads(d)
+            a.fromlist(data2)
+            self.assertEqual(type(it), type(itorig))
+            self.assertEqual(list(it), data + data2)
 
-            if len(data):
-                it = pickle.loads(d)
-                next(it)
-                d = pickle.dumps(it, proto)
-                self.assertEqual(list(it), list(data)[1:])
+            # running iterator
+            next(itorig)
+            d = pickle.dumps((itorig, orig), proto)
+            it, a = pickle.loads(d)
+            a.fromlist(data2)
+            self.assertEqual(type(it), type(itorig))
+            self.assertEqual(list(it), data[1:] + data2)
+
+            # empty iterator
+            for i in range(1, len(data)):
+                next(itorig)
+            d = pickle.dumps((itorig, orig), proto)
+            it, a = pickle.loads(d)
+            a.fromlist(data2)
+            self.assertEqual(type(it), type(itorig))
+            self.assertEqual(list(it), data2)
+
+            # exhausted iterator
+            self.assertRaises(StopIteration, next, itorig)
+            d = pickle.dumps((itorig, orig), proto)
+            it, a = pickle.loads(d)
+            a.fromlist(data2)
+            # PyPy change: we implement 3.6 behaviour
+            self.assertEqual(list(it), [])
+
+    def test_exhausted_iterator(self):
+        # PyPy change: test copied from 3.6 stdlib
+        a = array.array(self.typecode, self.example)
+        self.assertEqual(list(a), list(self.example))
+        exhit = iter(a)
+        empit = iter(a)
+        for x in exhit:  # exhaust the iterator
+            next(empit)  # not exhausted
+        a.append(self.outside)
+        self.assertEqual(list(exhit), [])
+        self.assertEqual(list(empit), [self.outside])
+        self.assertEqual(list(a), list(self.example) + [self.outside])
 
     def test_insert(self):
         a = array.array(self.typecode, self.example)

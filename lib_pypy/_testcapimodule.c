@@ -2856,7 +2856,7 @@ PyInit__testcapi(void)
     m = PyModule_Create(&_testcapimodule);
     if (m == NULL)
         return NULL;
-
+    
     Py_TYPE(&_HashInheritanceTester_Type)=&PyType_Type;
 
     Py_TYPE(&test_structmembersType)=&PyType_Type;

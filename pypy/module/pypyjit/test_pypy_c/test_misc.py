@@ -127,38 +127,6 @@ class TestMisc(BaseTestPyPyC):
             jump(..., descr=...)
             """)
 
-    def test_xrange_iter(self):
-        def main(n):
-            def g(n):
-                return xrange(n)
-            s = 0
-            for i in xrange(n):  # ID: for
-                tmp = g(n)
-                s += tmp[i]     # ID: getitem
-                a = 0
-            return s
-        #
-        log = self.run(main, [1000])
-        assert log.result == 1000 * 999 / 2
-        loop, = log.loops_by_filename(self.filepath)
-        assert loop.match("""
-        i15 = int_lt(i10, i11)
-        guard_true(i15, descr=...)
-        i17 = int_add(i10, 1)
-        setfield_gc(p9, i17, descr=<.* .*W_XRangeIterator.inst_current .*>)
-        guard_not_invalidated(descr=...)
-        i18 = force_token()
-        i84 = int_sub(i14, 1)
-        i21 = int_lt(i10, 0)
-        guard_false(i21, descr=...)
-        i22 = int_lt(i10, i14)
-        guard_true(i22, descr=...)
-        i23 = int_add_ovf(i6, i10)
-        guard_no_overflow(descr=...)
-        --TICK--
-        jump(..., descr=...)
-        """)
-
     def test_range_iter_simple(self):
         def main(n):
             def g(n):
@@ -173,24 +141,37 @@ class TestMisc(BaseTestPyPyC):
         log = self.run(main, [1000])
         assert log.result == 1000 * 999 / 2
         loop, = log.loops_by_filename(self.filepath)
-        assert loop.match("""
+        assert loop.match(self.RANGE_ITER_STEP_1)
+
+    RANGE_ITER_STEP_1 = """
             guard_not_invalidated?
-            i16 = int_ge(i11, i12)
-            guard_false(i16, descr=...)
+            # W_IntRangeStepOneIterator.next()
+            i16 = int_lt(i11, i12)
+            guard_true(i16, descr=...)
             i20 = int_add(i11, 1)
-            setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
+            setfield_gc(p4, i20, descr=<.* .*W_IntRangeIterator.inst_current .*>)
             guard_not_invalidated?
             i21 = force_token()
             i88 = int_sub(i9, 1)
+
+            # Compared with pypy2, we get these two operations extra.
+            # I think the reason is that W_IntRangeStepOneIterator is used
+            # for any 'start' value, which might be negative.
+            i89 = int_lt(i11, 0)
+            guard_false(i89, descr=...)
+
             i25 = int_ge(i11, i9)
             guard_false(i25, descr=...)
             i27 = int_add_ovf(i7, i11)
             guard_no_overflow(descr=...)
             --TICK--
             jump(..., descr=...)
-        """)
+        """
 
     def test_range_iter_normal(self):
+        # Difference: range(n) => range(1, n).
+        # This difference doesn't really change anything in pypy3.5,
+        # but it used to in pypy2.7.
         def main(n):
             def g(n):
                 return range(n)
@@ -204,26 +185,7 @@ class TestMisc(BaseTestPyPyC):
         log = self.run(main, [1000])
         assert log.result == 1000 * 999 / 2
         loop, = log.loops_by_filename(self.filepath)
-        assert loop.match("""
-            guard_not_invalidated?
-            i16 = int_ge(i11, i12)
-            guard_false(i16, descr=...)
-            i17 = int_mul(i11, i14)
-            i18 = int_add(i15, i17)
-            i20 = int_add(i11, 1)
-            setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
-            guard_not_invalidated?
-            i21 = force_token()
-            i95 = int_sub(i9, 1)
-            i23 = int_lt(i18, 0)
-            guard_false(i23, descr=...)
-            i25 = int_ge(i18, i9)
-            guard_false(i25, descr=...)
-            i27 = int_add_ovf(i7, i18)
-            guard_no_overflow(descr=...)
-            --TICK--
-            jump(..., descr=...)
-        """)
+        assert loop.match(self.RANGE_ITER_STEP_1)
 
     def test_chain_of_guards(self):
         src = """
@@ -273,7 +235,7 @@ class TestMisc(BaseTestPyPyC):
             i21 = getfield_gc_i(p17, descr=<FieldS .*W_Array.*.inst_len .*>)
             i23 = int_lt(0, i21)
             guard_true(i23, descr=...)
-            i24 = getfield_gc_i(p17, descr=<FieldU .*W_ArrayTypei.inst_buffer .*>)
+            i24 = getfield_gc_i(p17, descr=<FieldU .*W_ArrayBase.inst__buffer .*>)
             i25 = getarrayitem_raw_i(i24, 0, descr=<.*>)
             i27 = int_lt(1, i21)
             guard_false(i27, descr=...)
@@ -285,6 +247,13 @@ class TestMisc(BaseTestPyPyC):
         """)
 
     def test_dont_trace_every_iteration(self):
+        def reference(a, b):
+            i = sa = 0
+            while i < 300:
+                sa += a % b
+                i += 1
+            return sa
+        #
         def main(a, b):
             i = sa = 0
             while i < 300:
@@ -296,9 +265,12 @@ class TestMisc(BaseTestPyPyC):
                 i += 1
             return sa
         #
+        log_ref = self.run(reference, [10, 20])
+        assert log_ref.result == 300 * (10 % 20)
+        #
         log = self.run(main, [10, 20])
         assert log.result == 300 * (10 % 20)
-        assert log.jit_summary.tracing_no == 1
+        assert log.jit_summary.tracing_no == log_ref.jit_summary.tracing_no
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
             i11 = int_lt(i7, 300)
@@ -312,7 +284,7 @@ class TestMisc(BaseTestPyPyC):
         #
         log = self.run(main, [-10, -20])
         assert log.result == 300 * (-10 % -20)
-        assert log.jit_summary.tracing_no == 1
+        assert log.jit_summary.tracing_no == log_ref.jit_summary.tracing_no
 
     def test_overflow_checking(self):
         """
@@ -326,7 +298,7 @@ class TestMisc(BaseTestPyPyC):
                     return -1
                 return a-b
             #
-            total = sys.maxint - 2147483647
+            total = sys.maxsize - 2147483647
             for i in range(100000):
                 total += f(i, 5)
             #
@@ -335,6 +307,7 @@ class TestMisc(BaseTestPyPyC):
         self.run_and_check(main, [])
 
     def test_global(self):
+        # check that the global read is removed even from the entry bridge
         log = self.run("""
         i = 0
         globalinc = 1
@@ -346,7 +319,10 @@ class TestMisc(BaseTestPyPyC):
         """, [1000])
 
         loop, = log.loops_by_id("globalread", is_entry_bridge=True)
-        assert len(loop.ops_by_id("globalread")) == 0
+        assert loop.match_by_id("globalread", """
+            # only a dead read
+            p26 = getfield_gc_r(ConstPtr(ptr25), descr=<FieldP pypy.objspace.std.unicodeobject.W_UnicodeObject.inst__utf8 .>)
+        """)
 
     def test_eval(self):
         def main():
@@ -387,7 +363,8 @@ class TestMisc(BaseTestPyPyC):
     def test_long_comparison(self):
         def main(n):
             while n:
-                12345L > 123L  # ID: long_op
+                x = 12345678901234567890123456
+                x > 1231231231231231231231231  # ID: long_op
                 n -= 1
 
         log = self.run(main, [300])

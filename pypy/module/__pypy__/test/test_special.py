@@ -73,7 +73,6 @@ class AppTest(object):
         from __pypy__ import do_what_I_mean
         x = do_what_I_mean()
         assert x == 42
-        raises(SystemError, do_what_I_mean, 1)
 
     def test_list_strategy(self):
         from __pypy__ import strategy
@@ -132,9 +131,19 @@ class AppTest(object):
 class AppTestJitFeatures(object):
     spaceconfig = {"translation.jit": True}
 
+    def setup_class(cls):
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
+
     def test_jit_backend_features(self):
         from __pypy__ import jit_backend_features
         supported_types = jit_backend_features
         assert isinstance(supported_types, list)
         for x in supported_types:
             assert x in ['floats', 'singlefloats', 'longlong']
+
+    def test_do_what_I_mean_error(self):
+        if not self.runappdirect:
+            skip("we don't wrap a random exception inside SystemError "
+                 "when untranslated, because it makes testing harder")
+        from __pypy__ import do_what_I_mean
+        raises(SystemError, do_what_I_mean, 1)

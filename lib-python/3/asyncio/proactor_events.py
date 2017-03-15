@@ -66,6 +66,12 @@ class _ProactorBasePipeTransport(transports._FlowControlMixin,
     def _set_extra(self, sock):
         self._extra['pipe'] = sock
 
+    def set_protocol(self, protocol):
+        self._protocol = protocol
+
+    def get_protocol(self):
+        return self._protocol
+
     def is_closing(self):
         return self._closing
 
@@ -90,7 +96,7 @@ class _ProactorBasePipeTransport(transports._FlowControlMixin,
                 self.close()
 
     def _fatal_error(self, exc, message='Fatal error on pipe transport'):
-        if isinstance(exc, (BrokenPipeError, ConnectionResetError)):
+        if isinstance(exc, base_events._FATAL_ERROR_IGNORE):
             if self._loop.get_debug():
                 logger.debug("%r: %s", self, message, exc_info=True)
         else:
@@ -440,15 +446,7 @@ class BaseProactorEventLoop(base_events.BaseEventLoop):
         return self._proactor.send(sock, data)
 
     def sock_connect(self, sock, address):
-        try:
-            if self._debug:
-                base_events._check_resolved_address(sock, address)
-        except ValueError as err:
-            fut = futures.Future(loop=self)
-            fut.set_exception(err)
-            return fut
-        else:
-            return self._proactor.connect(sock, address)
+        return self._proactor.connect(sock, address)
 
     def sock_accept(self, sock):
         return self._proactor.accept(sock)
@@ -496,7 +494,7 @@ class BaseProactorEventLoop(base_events.BaseEventLoop):
         self._csock.send(b'\0')
 
     def _start_serving(self, protocol_factory, sock,
-                       sslcontext=None, server=None):
+                       sslcontext=None, server=None, backlog=100):
 
         def loop(f=None):
             try:

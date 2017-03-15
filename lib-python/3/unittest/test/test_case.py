@@ -18,7 +18,7 @@ from unittest.test.support import (
     TestEquality, TestHashing, LoggingResult, LegacyLoggingResult,
     ResultWithNoStartTestRunStopTestRun
 )
-from test.support import captured_stderr
+from test.support import captured_stderr, gc_collect
 
 
 log_foo = logging.getLogger('foo')
@@ -339,7 +339,7 @@ class Test_TestCase(unittest.TestCase, TestEquality, TestHashing):
         self._check_call_order__subtests(result, events, expected)
 
     def test_run_call_order__subtests_legacy(self):
-        # With a legacy result object (without a addSubTest method),
+        # With a legacy result object (without an addSubTest method),
         # text execution stops after the first subtest failure.
         events = []
         result = LegacyLoggingResult(events)
@@ -1121,6 +1121,82 @@ test case
             error = str(e).split('\n', 1)[1]
             self.assertEqual(sample_text_error, error)
 
+    def testEqualityBytesWarning(self):
+        if sys.flags.bytes_warning:
+            def bytes_warning():
+                return self.assertWarnsRegex(BytesWarning,
+                            'Comparison between bytes and string')
+        else:
+            def bytes_warning():
+                return contextlib.ExitStack()
+
+        with bytes_warning(), self.assertRaises(self.failureException):
+            self.assertEqual('a', b'a')
+        with bytes_warning():
+            self.assertNotEqual('a', b'a')
+
+        a = [0, 'a']
+        b = [0, b'a']
+        with bytes_warning(), self.assertRaises(self.failureException):
+            self.assertListEqual(a, b)
+        with bytes_warning(), self.assertRaises(self.failureException):
+            self.assertTupleEqual(tuple(a), tuple(b))
+        with bytes_warning(), self.assertRaises(self.failureException):
+            self.assertSequenceEqual(a, tuple(b))
+        with bytes_warning(), self.assertRaises(self.failureException):
+            self.assertSequenceEqual(tuple(a), b)
+        with bytes_warning(), self.assertRaises(self.failureException):
+            self.assertSequenceEqual('a', b'a')
+        with bytes_warning(), self.assertRaises(self.failureException):
+            self.assertSetEqual(set(a), set(b))
+
+        with self.assertRaises(self.failureException):
+            self.assertListEqual(a, tuple(b))
+        with self.assertRaises(self.failureException):
+            self.assertTupleEqual(tuple(a), b)
+
+        a = [0, b'a']
+        b = [0]
+        with self.assertRaises(self.failureException):
+            self.assertListEqual(a, b)
+        with self.assertRaises(self.failureException):
+            self.assertTupleEqual(tuple(a), tuple(b))
+        with self.assertRaises(self.failureException):
+            self.assertSequenceEqual(a, tuple(b))
+        with self.assertRaises(self.failureException):
+            self.assertSequenceEqual(tuple(a), b)
+        with self.assertRaises(self.failureException):
+            self.assertSetEqual(set(a), set(b))
+
+        a = [0]
+        b = [0, b'a']
+        with self.assertRaises(self.failureException):
+            self.assertListEqual(a, b)
+        with self.assertRaises(self.failureException):
+            self.assertTupleEqual(tuple(a), tuple(b))
+        with self.assertRaises(self.failureException):
+            self.assertSequenceEqual(a, tuple(b))
+        with self.assertRaises(self.failureException):
+            self.assertSequenceEqual(tuple(a), b)
+        with self.assertRaises(self.failureException):
+            self.assertSetEqual(set(a), set(b))
+
+        with bytes_warning(), self.assertRaises(self.failureException):
+            self.assertDictEqual({'a': 0}, {b'a': 0})
+        with self.assertRaises(self.failureException):
+            self.assertDictEqual({}, {b'a': 0})
+        with self.assertRaises(self.failureException):
+            self.assertDictEqual({b'a': 0}, {})
+
+        with self.assertRaises(self.failureException):
+            self.assertCountEqual([b'a', b'a'], [b'a', b'a', b'a'])
+        with bytes_warning():
+            self.assertCountEqual(['a', b'a'], ['a', b'a'])
+        with bytes_warning(), self.assertRaises(self.failureException):
+            self.assertCountEqual(['a', 'a'], [b'a', b'a'])
+        with bytes_warning(), self.assertRaises(self.failureException):
+            self.assertCountEqual(['a', 'a', []], [b'a', b'a', []])
+
     def testAssertIsNone(self):
         self.assertIsNone(None)
         self.assertRaises(self.failureException, self.assertIsNone, False)
@@ -1737,6 +1813,7 @@ test case
         for method_name in ('test1', 'test2'):
             testcase = TestCase(method_name)
             testcase.run()
+            gc_collect()
             self.assertEqual(MyException.ninstance, 0)
 
 

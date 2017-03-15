@@ -154,5 +154,10 @@ class AppTestTuple(AppTestCpythonExtensionBase):
 
     def test_tuple_subclass(self):
         module = self.import_module(name='foo')
-        a = module.TupleLike([1, 2, 3])
+        a = module.TupleLike(range(100, 400, 100))
         assert module.is_TupleLike(a) == 1
+        assert isinstance(a, tuple)
+        assert issubclass(type(a), tuple)
+        assert list(a) == list(range(100, 400, 100))
+        assert list(a) == list(range(100, 400, 100))
+        assert list(a) == list(range(100, 400, 100))

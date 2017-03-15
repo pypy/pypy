@@ -11,6 +11,7 @@ import textwrap
 from io import StringIO, BytesIO
 from itertools import chain
 from random import choice
+from socket import getfqdn
 try:
     from threading import Thread
 except ImportError:
@@ -723,12 +724,12 @@ class TestMessageAPI(TestEmailBase):
 
     # Issue 5871: reject an attempt to embed a header inside a header value
     # (header injection attack).
-    def test_embeded_header_via_Header_rejected(self):
+    def test_embedded_header_via_Header_rejected(self):
         msg = Message()
         msg['Dummy'] = Header('dummy\nX-Injected-Header: test')
         self.assertRaises(errors.HeaderParseError, msg.as_string)
 
-    def test_embeded_header_via_string_rejected(self):
+    def test_embedded_header_via_string_rejected(self):
         msg = Message()
         msg['Dummy'] = 'dummy\nX-Injected-Header: test'
         self.assertRaises(errors.HeaderParseError, msg.as_string)
@@ -1598,6 +1599,18 @@ class TestMIMEApplication(unittest.TestCase):
         self.assertEqual(msg.get_payload(), '\uFFFD' * len(bytesdata))
         self.assertEqual(msg2.get_payload(decode=True), bytesdata)
 
+    def test_binary_body_with_unicode_linend_encode_noop(self):
+        # Issue 19003: This is a variation on #16564.
+        bytesdata = b'\x0b\xfa\xfb\xfc\xfd\xfe\xff'
+        msg = MIMEApplication(bytesdata, _encoder=encoders.encode_noop)
+        self.assertEqual(msg.get_payload(decode=True), bytesdata)
+        s = BytesIO()
+        g = BytesGenerator(s)
+        g.flatten(msg)
+        wireform = s.getvalue()
+        msg2 = email.message_from_bytes(wireform)
+        self.assertEqual(msg2.get_payload(decode=True), bytesdata)
+
     def test_binary_body_with_encode_quopri(self):
         # Issue 14360.
         bytesdata = b'\xfa\xfb\xfc\xfd\xfe\xff '
@@ -1652,9 +1665,12 @@ class TestMIMEText(unittest.TestCase):
         eq(msg.get_charset().input_charset, 'us-ascii')
         eq(msg['content-type'], 'text/plain; charset="us-ascii"')
         # Also accept a Charset instance
-        msg = MIMEText('hello there', _charset=Charset('utf-8'))
+        charset = Charset('utf-8')
+        charset.body_encoding = None
+        msg = MIMEText('hello there', _charset=charset)
         eq(msg.get_charset().input_charset, 'utf-8')
         eq(msg['content-type'], 'text/plain; charset="utf-8"')
+        eq(msg.get_payload(), 'hello there')
 
     def test_7bit_input(self):
         eq = self.assertEqual
@@ -2302,9 +2318,9 @@ Re: =?mac-iceland?q?r=8Aksm=9Arg=8Cs?= baz foo bar =?mac-iceland?q?r=8Aksm?=
 
     def test_rfc2047_Q_invalid_digits(self):
         # issue 10004.
-        s = '=?iso-8659-1?Q?andr=e9=zz?='
+        s = '=?iso-8859-1?Q?andr=e9=zz?='
         self.assertEqual(decode_header(s),
-                        [(b'andr\xe9=zz', 'iso-8659-1')])
+                        [(b'andr\xe9=zz', 'iso-8859-1')])
 
     def test_rfc2047_rfc2047_1(self):
         # 1st testcase at end of rfc2047
@@ -3279,6 +3295,17 @@ multipart/report
             email.utils.make_msgid(domain='testdomain-string')[-19:],
             '@testdomain-string>')
 
+    def test_make_msgid_idstring(self):
+        self.assertEqual(
+            email.utils.make_msgid(idstring='test-idstring',
+                domain='testdomain-string')[-33:],
+            '.test-idstring@testdomain-string>')
+
+    def test_make_msgid_default_domain(self):
+        self.assertTrue(
+            email.utils.make_msgid().endswith(
+                '@' + getfqdn() + '>'))
+
     def test_Generator_linend(self):
         # Issue 14645.
         with openfile('msg_26.txt', newline='\n') as f:
@@ -3444,10 +3471,12 @@ class TestFeedParsers(TestEmailBase):
         self.assertEqual(m.keys(), ['a', 'b'])
         m = self.parse(['a:\r', '\nb:\n'])
         self.assertEqual(m.keys(), ['a', 'b'])
+
+        # Only CR and LF should break header fields
         m = self.parse(['a:\x85b:\u2028c:\n'])
-        self.assertEqual(m.items(), [('a', '\x85'), ('b', '\u2028'), ('c', '')])
+        self.assertEqual(m.items(), [('a', '\x85b:\u2028c:')])
         m = self.parse(['a:\r', 'b:\x85', 'c:\n'])
-        self.assertEqual(m.items(), [('a', ''), ('b', '\x85'), ('c', '')])
+        self.assertEqual(m.items(), [('a', ''), ('b', '\x85c:')])
 
     def test_long_lines(self):
         # Expected peak memory use on 32-bit platform: 6*N*M bytes.

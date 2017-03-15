@@ -14,6 +14,7 @@ from test.pickletester import AbstractUnpickleTests
 from test.pickletester import AbstractPickleTests
 from test.pickletester import AbstractPickleModuleTests
 from test.pickletester import AbstractPersistentPicklerTests
+from test.pickletester import AbstractIdentityPersistentPicklerTests
 from test.pickletester import AbstractPicklerUnpicklerObjectTests
 from test.pickletester import AbstractDispatchTableTests
 from test.pickletester import BigmemPickleTests
@@ -32,6 +33,12 @@ class PickleTests(AbstractPickleModuleTests):
 class PyUnpicklerTests(AbstractUnpickleTests):
 
     unpickler = pickle._Unpickler
+    bad_stack_errors = (IndexError,)
+    bad_mark_errors = (IndexError, pickle.UnpicklingError,
+                       TypeError, AttributeError, EOFError)
+    truncated_errors = (pickle.UnpicklingError, EOFError,
+                        AttributeError, ValueError,
+                        struct.error, IndexError, ImportError)
 
     def loads(self, buf, **kwds):
         f = io.BytesIO(buf)
@@ -62,6 +69,12 @@ class InMemoryPickleTests(AbstractPickleTests, AbstractUnpickleTests,
 
     pickler = pickle._Pickler
     unpickler = pickle._Unpickler
+    bad_stack_errors = (pickle.UnpicklingError, IndexError)
+    bad_mark_errors = (pickle.UnpicklingError, IndexError,
+                       TypeError, AttributeError, EOFError)
+    truncated_errors = (pickle.UnpicklingError, EOFError,
+                        AttributeError, ValueError,
+                        struct.error, IndexError, ImportError)
 
     def dumps(self, arg, protocol=None):
         return pickle.dumps(arg, protocol)
@@ -70,10 +83,7 @@ class InMemoryPickleTests(AbstractPickleTests, AbstractUnpickleTests,
         return pickle.loads(buf, **kwds)
 
 
-class PyPersPicklerTests(AbstractPersistentPicklerTests):
-
-    pickler = pickle._Pickler
-    unpickler = pickle._Unpickler
+class PersistentPicklerUnpicklerMixin(object):
 
     def dumps(self, arg, proto=None):
         class PersPickler(self.pickler):
@@ -82,8 +92,7 @@ class PyPersPicklerTests(AbstractPersistentPicklerTests):
         f = io.BytesIO()
         p = PersPickler(f, proto)
         p.dump(arg)
-        f.seek(0)
-        return f.read()
+        return f.getvalue()
 
     def loads(self, buf, **kwds):
         class PersUnpickler(self.unpickler):
@@ -92,6 +101,20 @@ class PyPersPicklerTests(AbstractPersistentPicklerTests):
         f = io.BytesIO(buf)
         u = PersUnpickler(f, **kwds)
         return u.load()
+
+
+class PyPersPicklerTests(AbstractPersistentPicklerTests,
+                         PersistentPicklerUnpicklerMixin):
+
+    pickler = pickle._Pickler
+    unpickler = pickle._Unpickler
+
+
+class PyIdPersPicklerTests(AbstractIdentityPersistentPicklerTests,
+                           PersistentPicklerUnpicklerMixin):
+
+    pickler = pickle._Pickler
+    unpickler = pickle._Unpickler
 
 
 class PyPicklerUnpicklerObjectTests(AbstractPicklerUnpicklerObjectTests):
@@ -119,12 +142,20 @@ class PyChainDispatchTableTests(AbstractDispatchTableTests):
 if has_c_implementation:
     class CUnpicklerTests(PyUnpicklerTests):
         unpickler = _pickle.Unpickler
+        bad_stack_errors = (pickle.UnpicklingError,)
+        bad_mark_errors = (EOFError,)
+        truncated_errors = (pickle.UnpicklingError, EOFError,
+                            AttributeError, ValueError)
 
     class CPicklerTests(PyPicklerTests):
         pickler = _pickle.Pickler
         unpickler = _pickle.Unpickler
 
     class CPersPicklerTests(PyPersPicklerTests):
+        pickler = _pickle.Pickler
+        unpickler = _pickle.Unpickler
+
+    class CIdPersPicklerTests(PyIdPersPicklerTests):
         pickler = _pickle.Pickler
         unpickler = _pickle.Unpickler
 
@@ -228,6 +259,8 @@ if has_c_implementation:
 ALT_IMPORT_MAPPING = {
     ('_elementtree', 'xml.etree.ElementTree'),
     ('cPickle', 'pickle'),
+    ('StringIO', 'io'),
+    ('cStringIO', 'io'),
 }
 
 ALT_NAME_MAPPING = {
@@ -391,11 +424,13 @@ class CompatPickleTests(unittest.TestCase):
 
 
 def test_main():
-    tests = [PickleTests, PyUnpicklerTests, PyPicklerTests, PyPersPicklerTests,
+    tests = [PickleTests, PyUnpicklerTests, PyPicklerTests,
+             PyPersPicklerTests, PyIdPersPicklerTests,
              PyDispatchTableTests, PyChainDispatchTableTests,
              CompatPickleTests]
     if has_c_implementation:
-        tests.extend([CUnpicklerTests, CPicklerTests, CPersPicklerTests,
+        tests.extend([CUnpicklerTests, CPicklerTests,
+                      CPersPicklerTests, CIdPersPicklerTests,
                       CDumpPickle_LoadPickle, DumpPickle_CLoadPickle,
                       PyPicklerUnpicklerObjectTests,
                       CPicklerUnpicklerObjectTests,

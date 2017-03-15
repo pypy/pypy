@@ -16,5 +16,6 @@ class TestGlobals(BaseTestPyPyC):
         assert log.result == 500
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id("loadglobal", """
+            p1 = getfield_gc_r(..., descr=...)     # dead
             guard_not_invalidated(descr=...)
         """)

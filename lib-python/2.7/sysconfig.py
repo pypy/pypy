@@ -369,11 +369,8 @@ def _generate_posix_vars():
 
 def _init_posix(vars):
     """Initialize the module as appropriate for POSIX systems."""
-    # in cPython, _sysconfigdata is generated at build time, see _generate_posix_vars()
-    # in PyPy no such module exists
-    #from _sysconfigdata import build_time_vars
-    #vars.update(build_time_vars)
-    return
+    from _sysconfigdata import build_time_vars
+    vars.update(build_time_vars)
 
 def _init_non_posix(vars):
     """Initialize the module as appropriate for NT"""
@@ -529,7 +526,9 @@ def get_config_vars(*args):
         for suffix, mode, type_ in imp.get_suffixes():
             if type_ == imp.C_EXTENSION:
                 _CONFIG_VARS['SOABI'] = suffix.split('.')[1]
-                break        
+                break
+        _CONFIG_VARS['INCLUDEPY'] = os.path.join(_CONFIG_VARS['prefix'],
+                                                 'include')
 
     if args:
         vals = []

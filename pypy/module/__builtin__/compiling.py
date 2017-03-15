@@ -10,7 +10,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.function import Function
 
-@unwrap_spec(filename='fsencode', mode=str, flags=int, dont_inherit=int,
+@unwrap_spec(filename='fsencode', mode='text', flags=int, dont_inherit=int,
              optimize=int)
 def compile(space, w_source, filename, mode, flags=0, dont_inherit=0,
             optimize=0):
@@ -45,9 +45,8 @@ in addition to any features explicitly specified.
     if space.isinstance_w(w_source, space.gettypeobject(ast.W_AST.typedef)):
         ast_node = ast.mod.from_object(space, w_source)
         ec.compiler.validate_ast(ast_node)
-        code = ec.compiler.compile_ast(ast_node, filename, mode, flags,
+        return ec.compiler.compile_ast(ast_node, filename, mode, flags,
                                        optimize=optimize)
-        return space.wrap(code)
 
     flags |= consts.PyCF_SOURCE_IS_UTF8
     source, flags = source_as_str(space, w_source, 'compile',
@@ -57,9 +56,8 @@ in addition to any features explicitly specified.
         node = ec.compiler.compile_to_ast(source, filename, mode, flags)
         return node.to_object(space)
     else:
-        code = ec.compiler.compile(source, filename, mode, flags,
+        return ec.compiler.compile(source, filename, mode, flags,
                                    optimize=optimize)
-        return space.wrap(code)
 
 
 def eval(space, w_prog, w_globals=None, w_locals=None):
@@ -113,7 +111,7 @@ def build_class(space, w_func, w_name, __args__):
         w_meta = _calculate_metaclass(space, w_meta, bases_w)
 
     try:
-        w_prep = space.getattr(w_meta, space.wrap("__prepare__"))
+        w_prep = space.getattr(w_meta, space.newtext("__prepare__"))
     except OperationError as e:
         if not e.match(space, space.w_AttributeError):
             raise

@@ -42,12 +42,6 @@ class SetAttributeTest(unittest.TestCase):
             self.parser.specified_attributes = x
             self.assertIs(self.parser.specified_attributes, bool(x))
 
-    def test_specified_attributes(self):
-        self.assertIs(self.parser.specified_attributes, False)
-        for x in 0, 1, 2, 0:
-            self.parser.specified_attributes = x
-            self.assertIs(self.parser.specified_attributes, bool(x))
-
     def test_invalid_attributes(self):
         with self.assertRaises(AttributeError):
             self.parser.returns_unicode = 1
@@ -666,11 +660,9 @@ class MalformedInputTest(unittest.TestCase):
         # \xc2\x85 is UTF-8 encoded U+0085 (NEXT LINE)
         xml = b"<?xml version\xc2\x85='1.0'?>\r\n"
         parser = expat.ParserCreate()
-        try:
+        err_pattern = r'XML declaration not well-formed: line 1, column \d+'
+        with self.assertRaisesRegex(expat.ExpatError, err_pattern):
             parser.Parse(xml, True)
-            self.fail()
-        except expat.ExpatError as e:
-            self.assertEqual(str(e), 'XML declaration not well-formed: line 1, column 14')
 
 class ErrorMessageTest(unittest.TestCase):
     def test_codes(self):

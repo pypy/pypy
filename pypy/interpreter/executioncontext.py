@@ -7,8 +7,8 @@ TICK_COUNTER_STEP = 100
 
 def app_profile_call(space, w_callable, frame, event, w_arg):
     space.call_function(w_callable,
-                        space.wrap(frame),
-                        space.wrap(event), w_arg)
+                        frame,
+                        space.newtext(event), w_arg)
 
 class ExecutionContext(object):
     """An ExecutionContext holds the state of an execution thread
@@ -28,6 +28,10 @@ class ExecutionContext(object):
     def __init__(self, space):
         self.space = space
         self.topframeref = jit.vref_None
+        # this is exposed to app-level as 'sys.exc_info()'.  At any point in
+        # time it is the exception caught by the topmost 'except ... as e:'
+        # app-level block.
+        self.sys_exc_operror = None
         self.w_tracefunc = None
         self.is_tracing = 0
         self.compiler = space.createcompiler()
@@ -222,7 +226,6 @@ class ExecutionContext(object):
             self._trace(frame, 'exception', None, operationerr)
         #operationerr.print_detailed_traceback(self.space)
 
-    @jit.dont_look_inside
     def sys_exc_info(self):
         """Implements sys.exc_info().
         Return an OperationError instance or None.
@@ -230,23 +233,10 @@ class ExecutionContext(object):
         # NOTE: the result is not the wrapped sys.exc_info() !!!
 
         """
-        return self.gettopframe()._exc_info_unroll(self.space)
+        return self.sys_exc_operror
 
     def set_sys_exc_info(self, operror):
-        frame = self.gettopframe_nohidden()
-        if frame:     # else, the exception goes nowhere and is lost
-            frame.last_exception = operror
-
-    def clear_sys_exc_info(self):
-        # Find the frame out of which sys_exc_info() would return its result,
-        # and hack this frame's last_exception to become the cleared
-        # OperationError (which is different from None!).
-        frame = self.gettopframe_nohidden()
-        while frame:
-            if frame.last_exception is not None:
-                frame.last_exception = get_cleared_operation_error(self.space)
-                break
-            frame = self.getnextframe_nohidden(frame)
+        self.sys_exc_operror = operror
 
     @jit.dont_look_inside
     def settrace(self, w_func):
@@ -322,7 +312,7 @@ class ExecutionContext(object):
                 operr.normalize_exception(space)
                 w_value = operr.get_w_value(space)
                 w_arg = space.newtuple([operr.w_type, w_value,
-                                     space.wrap(operr.get_traceback())])
+                                        operr.get_w_traceback(space)])
 
             d = frame.getorcreatedebug()
             if d.w_locals is not None:
@@ -333,9 +323,11 @@ class ExecutionContext(object):
             self.is_tracing += 1
             try:
                 try:
-                    w_result = space.call_function(w_callback, space.wrap(frame), space.wrap(event), w_arg)
+                    w_result = space.call_function(w_callback, frame, space.newtext(event), w_arg)
                     if space.is_w(w_result, space.w_None):
-                        d.w_f_trace = None
+                        # bug-to-bug compatibility with CPython
+                        # http://bugs.python.org/issue11992
+                        pass   #d.w_f_trace = None
                     else:
                         d.w_f_trace = w_result
                 except:
@@ -356,7 +348,6 @@ class ExecutionContext(object):
                     event == 'c_exception'):
                 return
 
-            last_exception = frame.last_exception
             if event == 'leaveframe':
                 event = 'return'
 
@@ -372,7 +363,6 @@ class ExecutionContext(object):
                     raise
 
             finally:
-                frame.last_exception = last_exception
                 self.is_tracing -= 1
 
     def checksignals(self):
@@ -546,6 +536,8 @@ class UserDelAction(AsyncAction):
 
     @jit.dont_look_inside
     def _run_finalizers(self):
+        # called by perform() when we have to "perform" this action,
+        # and also directly at the end of gc.collect).
         while True:
             w_obj = self.space.finalizer_queue.next_dead()
             if w_obj is None:
@@ -584,9 +576,14 @@ class UserDelAction(AsyncAction):
             if self.gc_disabled(w_obj):
                 return
             try:
-                space.get_and_call_function(w_del, w_obj)
+                w_impl = space.get(w_del, w_obj)
             except Exception as e:
                 report_error(space, e, "method __del__ of ", w_obj)
+            else:
+                try:
+                    space.call_function(w_impl)
+                except Exception as e:
+                    report_error(space, e, '', w_impl)
 
         # Call the RPython-level _finalize_() method.
         try:
@@ -604,7 +601,7 @@ def report_error(space, e, where, w_obj):
         msg = ("RPython exception %s in %s<%s at 0x%s> ignored\n" % (
                    str(e), where, space.type(w_obj).name, addrstring))
         space.call_method(space.sys.get('stderr'), 'write',
-                          space.wrap(msg))
+                          space.newtext(msg))
 
 
 def make_finalizer_queue(W_Root, space):

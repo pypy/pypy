@@ -8,6 +8,7 @@ import functools
 import os
 import sys
 
+is_pypy = support.check_impl_detail(pypy=True)
 
 # NOTE: There are some additional tests relating to interaction with
 #       zipimport in the test_zipimport_support test module.
@@ -324,7 +325,7 @@ containing test:
     >>> test.lineno + e2.lineno
     26
 
-If the docstring contains inconsistant leading whitespace in the
+If the docstring contains inconsistent leading whitespace in the
 expected output of an example, then `DocTest` will raise a ValueError:
 
     >>> docstring = r'''
@@ -435,7 +436,7 @@ We'll simulate a __file__ attr that ends in pyc:
     >>> tests = finder.find(sample_func)
 
     >>> print(tests)  # doctest: +ELLIPSIS
-    [<DocTest sample_func from ...:19 (1 example)>]
+    [<DocTest sample_func from ...:20 (1 example)>]
 
 The exact name depends on how test_doctest was invoked, so allow for
 leading path components.
@@ -659,7 +660,8 @@ plain ol' Python and is guaranteed to be available.
 
     >>> import builtins
     >>> tests = doctest.DocTestFinder().find(builtins)
-    >>> 790 < len(tests) < 810 # approximate number of objects with docstrings
+    >>> lo, hi = (120, 140) if is_pypy else (790, 810)
+    >>> lo < len(tests) < hi # approximate number of objects with docstrings
     True
     >>> real_tests = [t for t in tests if len(t.examples) > 0]
     >>> len(real_tests) # objects that actually have doctests
@@ -2647,7 +2649,7 @@ Windows line endings first:
     >>> with open(fn, 'wb') as f:
     ...    f.write(b'Test:\r\n\r\n  >>> x = 1 + 1\r\n\r\nDone.\r\n')
     35
-    >>> doctest.testfile(fn, False)
+    >>> doctest.testfile(fn, module_relative=False, verbose=False)
     TestResults(failed=0, attempted=1)
     >>> os.remove(fn)
 
@@ -2657,7 +2659,7 @@ And now *nix line endings:
     >>> with open(fn, 'wb') as f:
     ...     f.write(b'Test:\n\n  >>> x = 1 + 1\n\nDone.\n')
     30
-    >>> doctest.testfile(fn, False)
+    >>> doctest.testfile(fn, module_relative=False, verbose=False)
     TestResults(failed=0, attempted=1)
     >>> os.remove(fn)
 
@@ -2719,12 +2721,6 @@ output into something we can doctest against:
     >>> def normalize(s):
     ...     return '\n'.join(s.decode().splitlines())
 
-Note: we also pass TERM='' to all the assert_python calls to avoid a bug
-in the readline library that is triggered in these tests because we are
-running them in a new python process.  See:
-
-  http://lists.gnu.org/archive/html/bug-readline/2013-06/msg00000.html
-
 With those preliminaries out of the way, we'll start with a file with two
 simple tests and no errors.  We'll run both the unadorned doctest command, and
 the verbose version, and then check the output:
@@ -2741,9 +2737,9 @@ the verbose version, and then check the output:
     ...         _ = f.write('\n')
     ...         _ = f.write('And that is it.\n')
     ...     rc1, out1, err1 = script_helper.assert_python_ok(
-    ...             '-m', 'doctest', fn, TERM='')
+    ...             '-m', 'doctest', fn)
     ...     rc2, out2, err2 = script_helper.assert_python_ok(
-    ...             '-m', 'doctest', '-v', fn, TERM='')
+    ...             '-m', 'doctest', '-v', fn)
 
 With no arguments and passing tests, we should get no output:
 
@@ -2775,7 +2771,7 @@ Now we'll write a couple files, one with three tests, the other a python module
 with two tests, both of the files having "errors" in the tests that can be made
 non-errors by applying the appropriate doctest options to the run (ELLIPSIS in
 the first file, NORMALIZE_WHITESPACE in the second).  This combination will
-allow to thoroughly test the -f and -o flags, as well as the doctest command's
+allow thoroughly testing the -f and -o flags, as well as the doctest command's
 ability to process more than one file on the command line and, since the second
 file ends in '.py', its handling of python module files (as opposed to straight
 text files).
@@ -2806,17 +2802,17 @@ text files).
     ...         _ = f.write('   \"\"\"\n')
     ...     import shutil
     ...     rc1, out1, err1 = script_helper.assert_python_failure(
-    ...             '-m', 'doctest', fn, fn2, TERM='')
+    ...             '-m', 'doctest', fn, fn2)
     ...     rc2, out2, err2 = script_helper.assert_python_ok(
-    ...             '-m', 'doctest', '-o', 'ELLIPSIS', fn, TERM='')
+    ...             '-m', 'doctest', '-o', 'ELLIPSIS', fn)
     ...     rc3, out3, err3 = script_helper.assert_python_ok(
     ...             '-m', 'doctest', '-o', 'ELLIPSIS',
-    ...             '-o', 'NORMALIZE_WHITESPACE', fn, fn2, TERM='')
+    ...             '-o', 'NORMALIZE_WHITESPACE', fn, fn2)
     ...     rc4, out4, err4 = script_helper.assert_python_failure(
-    ...             '-m', 'doctest', '-f', fn, fn2, TERM='')
+    ...             '-m', 'doctest', '-f', fn, fn2)
     ...     rc5, out5, err5 = script_helper.assert_python_ok(
     ...             '-m', 'doctest', '-v', '-o', 'ELLIPSIS',
-    ...             '-o', 'NORMALIZE_WHITESPACE', fn, fn2, TERM='')
+    ...             '-o', 'NORMALIZE_WHITESPACE', fn, fn2)
 
 Our first test run will show the errors from the first file (doctest stops if a
 file has errors).  Note that doctest test-run error output appears on stdout,
@@ -2922,7 +2918,7 @@ We should also check some typical error cases.
 Invalid file name:
 
     >>> rc, out, err = script_helper.assert_python_failure(
-    ...         '-m', 'doctest', 'nosuchfile', TERM='')
+    ...         '-m', 'doctest', 'nosuchfile')
     >>> rc, out
     (1, b'')
     >>> print(normalize(err))                    # doctest: +ELLIPSIS
@@ -2933,7 +2929,7 @@ Invalid file name:
 Invalid doctest option:
 
     >>> rc, out, err = script_helper.assert_python_failure(
-    ...         '-m', 'doctest', '-o', 'nosuchoption', TERM='')
+    ...         '-m', 'doctest', '-o', 'nosuchoption')
     >>> rc, out
     (2, b'')
     >>> print(normalize(err))                    # doctest: +ELLIPSIS

@@ -1,3 +1,4 @@
+from rpython.rlib import jit
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
@@ -32,7 +33,7 @@ class W_Super(W_Root):
             objtype_name = u"<%s object>" % self.w_objtype.getname(space)
         else:
             objtype_name = u'NULL'
-        return space.wrap(u"<super: <class '%s'>, %s>" % (
+        return space.newunicode(u"<super: <class '%s'>, %s>" % (
             self.w_starttype.getname(space), objtype_name))
 
     def get(self, space, w_obj, w_type=None):
@@ -45,7 +46,7 @@ class W_Super(W_Root):
             return space.call_function(w_selftype, self.w_starttype, w_obj)
 
     def getattribute(self, space, w_name):
-        name = space.str_w(w_name)
+        name = space.text_w(w_name)
         # only use a special logic for bound super objects and not for
         # getting the __class__ of the super object itself.
         if self.w_objtype is not None and name != '__class__':
@@ -67,29 +68,43 @@ class W_Super(W_Root):
         # fallback to object.__getattribute__()
         return space.call_function(object_getattribute(space), self, w_name)
 
-def _super_from_frame(space, frame):
-    """super() without args -- fill in from __class__ and first local
-    variable on the stack.
-    """
-    code = frame.pycode
-    if not code:
-        raise oefmt(space.w_RuntimeError, "super(): no code object")
+@jit.elidable
+def _get_self_location(space, code):
     if code.co_argcount == 0:
         raise oefmt(space.w_RuntimeError, "super(): no arguments")
-    w_obj = frame.locals_cells_stack_w[0]
-    if not w_obj:
-        raise oefmt(space.w_RuntimeError, "super(): arg[0] deleted")
+    args_to_copy = code._args_as_cellvars
+    for i in range(len(args_to_copy)):
+        if args_to_copy[i] == 0:
+            self_cell = i
+            break
+    else:
+        self_cell = -1
 
     for index, name in enumerate(code.co_freevars):
         if name == '__class__':
             break
     else:
         raise oefmt(space.w_RuntimeError, "super(): __class__ cell not found")
+    class_cell = len(code.co_cellvars) + index
+    return self_cell, class_cell
+
+def _super_from_frame(space, frame):
+    """super() without args -- fill in from __class__ and first local
+    variable on the stack.
+    """
+    if frame is None:
+        raise oefmt(space.w_RuntimeError, "super(): no frame object")
+    self_cell, class_cell = _get_self_location(space, frame.getcode())
+    if self_cell < 0:
+        w_obj = frame.locals_cells_stack_w[0]
+    else:
+        w_obj = frame._getcell(self_cell).w_value
+    if not w_obj:
+        raise oefmt(space.w_RuntimeError, "super(): arg[0] deleted")
+
     # a kind of LOAD_DEREF
-    cell = frame._getcell(len(code.co_cellvars) + index)
-    try:
-        w_starttype = cell.get()
-    except ValueError:
+    w_starttype = frame._getcell(class_cell).w_value
+    if w_starttype is None:
         raise oefmt(space.w_RuntimeError, "super(): empty __class__ cell")
     return w_starttype, w_obj
 
@@ -107,7 +122,7 @@ def _super_check(space, w_starttype, w_obj_or_type):
         return w_objtype
 
     try:
-        w_type = space.getattr(w_obj_or_type, space.wrap('__class__'))
+        w_type = space.getattr(w_obj_or_type, space.newtext('__class__'))
     except OperationError as e:
         if not e.match(space, space.w_AttributeError):
             raise
@@ -160,12 +175,12 @@ class W_Property(W_Root):
         # our __doc__ comes from the getter if we don't have an explicit one
         if (space.is_w(self.w_doc, space.w_None) and
             not space.is_w(self.w_fget, space.w_None)):
-            w_getter_doc = space.findattr(self.w_fget, space.wrap('__doc__'))
+            w_getter_doc = space.findattr(self.w_fget, space.newtext('__doc__'))
             if w_getter_doc is not None:
                 if type(self) is W_Property:
                     self.w_doc = w_getter_doc
                 else:
-                    space.setattr(self, space.wrap('__doc__'), w_getter_doc)
+                    space.setattr(self, space.newtext('__doc__'), w_getter_doc)
                 self.getter_doc = True
 
     def get(self, space, w_obj, w_objtype=None):

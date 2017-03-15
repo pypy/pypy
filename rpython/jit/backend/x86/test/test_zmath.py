@@ -61,7 +61,12 @@ def fn():
     return -42  # ok
 
 def test_math():
-    f = compile(fn, [])
+    # note: we use lldebug because in the normal optimizing mode, some
+    # calls may be completely inlined and constant-folded by the
+    # compiler (with -flto), e.g. atanh(0.3).  They give then slightly
+    # different result than if they were executed at runtime.
+    # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=79973
+    f = compile(fn, [], lldebug=True)
     res = f()
     if res >= 0:
         py.test.fail(repr(MathTests.TESTCASES[res]))

@@ -43,9 +43,18 @@ def _fileobj_to_fd(fileobj):
 
 
 SelectorKey = namedtuple('SelectorKey', ['fileobj', 'fd', 'events', 'data'])
-"""Object used to associate a file object to its backing file descriptor,
-selected event mask and attached data."""
 
+SelectorKey.__doc__ = """SelectorKey(fileobj, fd, events, data)
+
+    Object used to associate a file object to its backing
+    file descriptor, selected event mask, and attached data.
+"""
+if sys.version_info >= (3, 5):
+    SelectorKey.fileobj.__doc__ = 'File object registered.'
+    SelectorKey.fd.__doc__ = 'Underlying file descriptor.'
+    SelectorKey.events.__doc__ = 'Events that must be waited for on this file object.'
+    SelectorKey.data.__doc__ = ('''Optional opaque data associated to this file object.
+    For example, this could be used to store a per-client session ID.''')
 
 class _SelectorMapping(Mapping):
     """Mapping of file objects to selector keys."""
@@ -399,7 +408,11 @@ if hasattr(select, 'epoll'):
                 epoll_events |= select.EPOLLIN
             if events & EVENT_WRITE:
                 epoll_events |= select.EPOLLOUT
-            self._epoll.register(key.fd, epoll_events)
+            try:
+                self._epoll.register(key.fd, epoll_events)
+            except BaseException:
+                super().unregister(fileobj)
+                raise
             return key
 
         def unregister(self, fileobj):
@@ -521,14 +534,18 @@ if hasattr(select, 'kqueue'):
 
         def register(self, fileobj, events, data=None):
             key = super().register(fileobj, events, data)
-            if events & EVENT_READ:
-                kev = select.kevent(key.fd, select.KQ_FILTER_READ,
-                                    select.KQ_EV_ADD)
-                self._kqueue.control([kev], 0, 0)
-            if events & EVENT_WRITE:
-                kev = select.kevent(key.fd, select.KQ_FILTER_WRITE,
-                                    select.KQ_EV_ADD)
-                self._kqueue.control([kev], 0, 0)
+            try:
+                if events & EVENT_READ:
+                    kev = select.kevent(key.fd, select.KQ_FILTER_READ,
+                                        select.KQ_EV_ADD)
+                    self._kqueue.control([kev], 0, 0)
+                if events & EVENT_WRITE:
+                    kev = select.kevent(key.fd, select.KQ_FILTER_WRITE,
+                                        select.KQ_EV_ADD)
+                    self._kqueue.control([kev], 0, 0)
+            except BaseException:
+                super().unregister(fileobj)
+                raise
             return key
 
         def unregister(self, fileobj):

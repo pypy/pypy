@@ -214,6 +214,9 @@ def_op('BUILD_MAP_UNPACK_WITH_CALL', 151)
 def_op('BUILD_TUPLE_UNPACK', 152)
 def_op('BUILD_SET_UNPACK', 153)
 
+def_op('FORMAT_VALUE', 155)   # in CPython 3.6, but available in PyPy from 3.5
+def_op('BUILD_STRING', 157)   # in CPython 3.6, but available in PyPy from 3.5
+
 # pypy modification, experimental bytecode
 def_op('LOOKUP_METHOD', 201)          # Index in name list
 hasname.append(201)

@@ -167,6 +167,10 @@ class AppTestMath:
         self.ftest(math.log10(100), 2)
         self.ftest(math.log10(0.01), -2)
 
+    def test_log_largevalue(self):
+        import math
+        assert math.log2(2**1234) == 1234.0
+
     def test_acosh(self):
         import math
         self.ftest(math.acosh(1), 0)

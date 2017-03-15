@@ -235,17 +235,26 @@ class W_FloatObject(W_Root):
         return w_obj
 
     @staticmethod
-    @unwrap_spec(kind=str)
+    @unwrap_spec(kind='text')
     def descr___getformat__(space, w_cls, kind):
         if kind == "float":
-            return space.wrap(_float_format)
+            return space.newtext(_float_format)
         elif kind == "double":
-            return space.wrap(_double_format)
+            return space.newtext(_double_format)
         raise oefmt(space.w_ValueError, "only float and double are valid")
 
     @staticmethod
-    @unwrap_spec(s=str)
+    @unwrap_spec(s='text')
     def descr_fromhex(space, w_cls, s):
+        """float.fromhex(string) -> float
+
+        Create a floating-point number from a hexadecimal string.
+        >>> float.fromhex('0x1.ffffp10')
+        2047.984375
+        >>> float.fromhex('-0x1p-1074')
+        -5e-324
+
+        """
         length = len(s)
         i = 0
         value = 0.0
@@ -383,7 +392,7 @@ class W_FloatObject(W_Root):
             i += 1
         if i != length:
             raise oefmt(space.w_ValueError, "invalid hex string")
-        w_float = space.wrap(sign * value)
+        w_float = space.newfloat(sign * value)
         return space.call_function(w_cls, w_float)
 
     def _to_float(self, space, w_obj):
@@ -396,13 +405,13 @@ class W_FloatObject(W_Root):
         return _round_float(space, self, w_ndigits)
 
     def descr_repr(self, space):
-        return space.wrap(float2string(self.floatval, 'r', 0))
+        return space.newtext(float2string(self.floatval, 'r', 0))
     descr_str = func_with_new_name(descr_repr, 'descr_str')
 
     def descr_hash(self, space):
         h = _hash_float(space, self.floatval)
         h -= (h == -1)
-        return space.wrap(h)
+        return space.newint(h)
 
     def descr_format(self, space, w_spec):
         return newformat.run_formatter(space, w_spec, "format_float", self)
@@ -580,7 +589,7 @@ class W_FloatObject(W_Root):
         return space.float(self)
 
     def descr_get_imag(self, space):
-        return space.wrap(0.0)
+        return space.newfloat(0.0)
 
     def descr_conjugate(self, space):
         return space.float(self)
@@ -589,9 +598,23 @@ class W_FloatObject(W_Root):
         v = self.floatval
         if not rfloat.isfinite(v):
             return space.w_False
-        return space.wrap(math.floor(v) == v)
+        return space.newbool(math.floor(v) == v)
 
     def descr_as_integer_ratio(self, space):
+        """float.as_integer_ratio() -> (int, int)
+
+        Return a pair of integers, whose ratio is exactly equal to the
+        original float and with a positive denominator.  Raise
+        OverflowError on infinities and a ValueError on NaNs.
+
+        >>> (10.0).as_integer_ratio()
+        (10, 1)
+        >>> (0.0).as_integer_ratio()
+        (0, 1)
+        >>> (-.25).as_integer_ratio()
+        (-1, 4)
+
+        """
         value = self.floatval
         try:
             num, den = float_as_rbigint_ratio(value)
@@ -608,15 +631,26 @@ class W_FloatObject(W_Root):
         return space.newtuple([space.int(w_num), space.int(w_den)])
 
     def descr_hex(self, space):
+        """float.hex() -> string
+
+        Return a hexadecimal representation of a floating-point
+        number.
+
+        >>> (-0.1).hex()
+        '-0x1.999999999999ap-4'
+        >>> 3.14159.hex()
+        '0x1.921f9f01b866ep+1'
+
+        """
         TOHEX_NBITS = rfloat.DBL_MANT_DIG + 3 - (rfloat.DBL_MANT_DIG + 2) % 4
         value = self.floatval
         if not isfinite(value):
             return self.descr_str(space)
         if value == 0.0:
             if copysign(1., value) == -1.:
-                return space.wrap("-0x0.0p+0")
+                return space.newtext("-0x0.0p+0")
             else:
-                return space.wrap("0x0.0p+0")
+                return space.newtext("0x0.0p+0")
         mant, exp = math.frexp(value)
         shift = 1 - max(rfloat.DBL_MIN_EXP - exp, 0)
         mant = math.ldexp(mant, shift)
@@ -637,9 +671,9 @@ class W_FloatObject(W_Root):
         exp = abs(exp)
         s = ''.join(result)
         if value < 0.0:
-            return space.wrap("-0x%sp%s%d" % (s, sign, exp))
+            return space.newtext("-0x%sp%s%d" % (s, sign, exp))
         else:
-            return space.wrap("0x%sp%s%d" % (s, sign, exp))
+            return space.newtext("0x%sp%s%d" % (s, sign, exp))
 
 
 W_FloatObject.typedef = TypeDef("float",
@@ -873,19 +907,19 @@ def _round_float(space, w_float, w_ndigits=None):
 
     # nans and infinities round to themselves
     if not rfloat.isfinite(x):
-        return space.wrap(x)
+        return space.newfloat(x)
 
     # Deal with extreme values for ndigits. For ndigits > NDIGITS_MAX, x
     # always rounds to itself.  For ndigits < NDIGITS_MIN, x always
     # rounds to +-0.0
     if ndigits > NDIGITS_MAX:
-        return space.wrap(x)
+        return space.newfloat(x)
     elif ndigits < NDIGITS_MIN:
         # return 0.0, but with sign of x
-        return space.wrap(0.0 * x)
+        return space.newfloat(0.0 * x)
 
     # finite x, and ndigits is not unreasonably large
     z = rfloat.round_double(x, ndigits, half_even=True)
     if rfloat.isinf(z):
         raise oefmt(space.w_OverflowError, "overflow occurred during round")
-    return space.wrap(z)
+    return space.newfloat(z)

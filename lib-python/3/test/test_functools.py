@@ -1,4 +1,5 @@
 import abc
+import builtins
 import collections
 import copy
 from itertools import permutations
@@ -16,7 +17,12 @@ except ImportError:
 import functools
 
 py_functools = support.import_fresh_module('functools', blocked=['_functools'])
-c_functools = support.import_fresh_module('functools', fresh=['_functools'])
+c_functools = functools
+# pypy: was:
+#   c_functools = support.import_fresh_module('functools', fresh=['_functools'])
+# but this creates confusion for pickle because on pypy, _functools is a
+# pure python module, whereas on CPython it is C (and so not really
+# re-importable)
 
 decimal = support.import_fresh_module('decimal', fresh=['_decimal'])
 
@@ -29,6 +35,16 @@ def capture(*args, **kw):
 def signature(part):
     """ return the signature of a partial object """
     return (part.func, part.args, part.keywords, part.__dict__)
+
+class MyTuple(tuple):
+    pass
+
+class BadTuple(tuple):
+    def __add__(self, other):
+        return list(self) + list(other)
+
+class MyDict(dict):
+    pass
 
 
 class TestPartial:
@@ -129,6 +145,7 @@ class TestPartial:
         p = proxy(f)
         self.assertEqual(f.func, p.func)
         f = None
+        support.gc_collect()
         self.assertRaises(ReferenceError, getattr, p, 'func')
 
     def test_with_bound_and_unbound_methods(self):
@@ -207,12 +224,146 @@ class TestPartialC(TestPartial, unittest.TestCase):
                       ['{}({!r}, {}, {})'.format(name, capture, args_repr, kwargs_repr)
                        for kwargs_repr in kwargs_reprs])
 
+    def test_recursive_repr(self):
+        if self.partial is c_functools.partial:
+            name = 'functools.partial'
+        else:
+            name = self.partial.__name__
+
+        f = self.partial(capture)
+        f.__setstate__((f, (), {}, {}))
+        try:
+            self.assertEqual(repr(f), '%s(...)' % (name))
+        finally:
+            f.__setstate__((capture, (), {}, {}))
+
+        f = self.partial(capture)
+        f.__setstate__((capture, (f,), {}, {}))
+        try:
+            self.assertEqual(repr(f), '%s(%r, ...)' % (name, capture))
+        finally:
+            f.__setstate__((capture, (), {}, {}))
+
+        f = self.partial(capture)
+        f.__setstate__((capture, (), {'a': f}, {}))
+        try:
+            self.assertEqual(repr(f), '%s(%r, a=...)' % (name, capture))
+        finally:
+            f.__setstate__((capture, (), {}, {}))
+
     def test_pickle(self):
-        f = self.partial(signature, 'asdf', bar=True)
-        f.add_something_to__dict__ = True
+        f = self.partial(signature, ['asdf'], bar=[True])
+        f.attr = []
         for proto in range(pickle.HIGHEST_PROTOCOL + 1):
             f_copy = pickle.loads(pickle.dumps(f, proto))
-            self.assertEqual(signature(f), signature(f_copy))
+            self.assertEqual(signature(f_copy), signature(f))
+
+    def test_copy(self):
+        f = self.partial(signature, ['asdf'], bar=[True])
+        f.attr = []
+        f_copy = copy.copy(f)
+        self.assertEqual(signature(f_copy), signature(f))
+        self.assertIs(f_copy.attr, f.attr)
+        self.assertIs(f_copy.args, f.args)
+        self.assertIs(f_copy.keywords, f.keywords)
+
+    def test_deepcopy(self):
+        f = self.partial(signature, ['asdf'], bar=[True])
+        f.attr = []
+        f_copy = copy.deepcopy(f)
+        self.assertEqual(signature(f_copy), signature(f))
+        self.assertIsNot(f_copy.attr, f.attr)
+        self.assertIsNot(f_copy.args, f.args)
+        self.assertIsNot(f_copy.args[0], f.args[0])
+        self.assertIsNot(f_copy.keywords, f.keywords)
+        self.assertIsNot(f_copy.keywords['bar'], f.keywords['bar'])
+
+    def test_setstate(self):
+        f = self.partial(signature)
+        f.__setstate__((capture, (1,), dict(a=10), dict(attr=[])))
+        self.assertEqual(signature(f),
+                         (capture, (1,), dict(a=10), dict(attr=[])))
+        self.assertEqual(f(2, b=20), ((1, 2), {'a': 10, 'b': 20}))
+
+        f.__setstate__((capture, (1,), dict(a=10), None))
+        self.assertEqual(signature(f), (capture, (1,), dict(a=10), {}))
+        self.assertEqual(f(2, b=20), ((1, 2), {'a': 10, 'b': 20}))
+
+        f.__setstate__((capture, (1,), None, None))
+        #self.assertEqual(signature(f), (capture, (1,), {}, {}))
+        self.assertEqual(f(2, b=20), ((1, 2), {'b': 20}))
+        self.assertEqual(f(2), ((1, 2), {}))
+        self.assertEqual(f(), ((1,), {}))
+
+        f.__setstate__((capture, (), {}, None))
+        self.assertEqual(signature(f), (capture, (), {}, {}))
+        self.assertEqual(f(2, b=20), ((2,), {'b': 20}))
+        self.assertEqual(f(2), ((2,), {}))
+        self.assertEqual(f(), ((), {}))
+
+    def test_setstate_errors(self):
+        f = self.partial(signature)
+        self.assertRaises(TypeError, f.__setstate__, (capture, (), {}))
+        self.assertRaises(TypeError, f.__setstate__, (capture, (), {}, {}, None))
+        self.assertRaises(TypeError, f.__setstate__, [capture, (), {}, None])
+        self.assertRaises(TypeError, f.__setstate__, (None, (), {}, None))
+        self.assertRaises(TypeError, f.__setstate__, (capture, None, {}, None))
+        self.assertRaises(TypeError, f.__setstate__, (capture, [], {}, None))
+        self.assertRaises(TypeError, f.__setstate__, (capture, (), [], None))
+
+    def test_setstate_subclasses(self):
+        f = self.partial(signature)
+        f.__setstate__((capture, MyTuple((1,)), MyDict(a=10), None))
+        s = signature(f)
+        self.assertEqual(s, (capture, (1,), dict(a=10), {}))
+        self.assertIs(type(s[1]), tuple)
+        self.assertIs(type(s[2]), dict)
+        r = f()
+        self.assertEqual(r, ((1,), {'a': 10}))
+        self.assertIs(type(r[0]), tuple)
+        self.assertIs(type(r[1]), dict)
+
+        f.__setstate__((capture, BadTuple((1,)), {}, None))
+        s = signature(f)
+        self.assertEqual(s, (capture, (1,), {}, {}))
+        self.assertIs(type(s[1]), tuple)
+        r = f(2)
+        self.assertEqual(r, ((1, 2), {}))
+        self.assertIs(type(r[0]), tuple)
+
+    def test_recursive_pickle(self):
+        f = self.partial(capture)
+        f.__setstate__((f, (), {}, {}))
+        try:
+            for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+                with self.assertRaises(RecursionError):
+                    pickle.dumps(f, proto)
+        finally:
+            f.__setstate__((capture, (), {}, {}))
+
+        f = self.partial(capture)
+        f.__setstate__((capture, (f,), {}, {}))
+        try:
+            for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+                f_copy = pickle.loads(pickle.dumps(f, proto))
+                try:
+                    self.assertIs(f_copy.args[0], f_copy)
+                finally:
+                    f_copy.__setstate__((capture, (), {}, {}))
+        finally:
+            f.__setstate__((capture, (), {}, {}))
+
+        f = self.partial(capture)
+        f.__setstate__((capture, (), {'a': f}, {}))
+        try:
+            for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+                f_copy = pickle.loads(pickle.dumps(f, proto))
+                try:
+                    self.assertIs(f_copy.keywords['a'], f_copy)
+                finally:
+                    f_copy.__setstate__((capture, (), {}, {}))
+        finally:
+            f.__setstate__((capture, (), {}, {}))
 
     # Issue 6083: Reference counting bug
     def test_setstate_refcount(self):
@@ -229,13 +380,7 @@ class TestPartialC(TestPartial, unittest.TestCase):
                 raise IndexError
 
         f = self.partial(object)
-        if support.check_impl_detail(pypy=True):
-            # CPython fails, pypy does not :-)
-            f.__setstate__(BadSequence())
-        else:
-            self.assertRaisesRegex(SystemError,
-                    "new style getargs format but argument is not a tuple",
-                    f.__setstate__, BadSequence())
+        self.assertRaises(TypeError, f.__setstate__, BadSequence())
 
 
 class TestPartialPy(TestPartial, unittest.TestCase):
@@ -916,7 +1061,7 @@ class TestTotalOrdering(unittest.TestCase):
                 a <= b
 
     def test_pickle(self):
-        for proto in range(4, pickle.HIGHEST_PROTOCOL + 1):
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
             for name in '__lt__', '__gt__', '__le__', '__ge__':
                 with self.subTest(method=name, proto=proto):
                     method = getattr(Orderable_LT, name)
@@ -1023,6 +1168,37 @@ class TestLRU:
         self.assertEqual(hits, 12)
         self.assertEqual(misses, 4)
         self.assertEqual(currsize, 2)
+
+    def test_lru_reentrancy_with_len(self):
+        # Test to make sure the LRU cache code isn't thrown-off by
+        # caching the built-in len() function.  Since len() can be
+        # cached, we shouldn't use it inside the lru code itself.
+        old_len = builtins.len
+        try:
+            builtins.len = self.module.lru_cache(4)(len)
+            for i in [0, 0, 1, 2, 3, 3, 4, 5, 6, 1, 7, 2, 1]:
+                self.assertEqual(len('abcdefghijklmn'[:i]), i)
+        finally:
+            builtins.len = old_len
+
+    def test_lru_type_error(self):
+        # Regression test for issue #28653.
+        # lru_cache was leaking when one of the arguments
+        # wasn't cacheable.
+
+        @functools.lru_cache(maxsize=None)
+        def infinite_cache(o):
+            pass
+
+        @functools.lru_cache(maxsize=10)
+        def limited_cache(o):
+            pass
+
+        with self.assertRaises(TypeError):
+            infinite_cache([])
+
+        with self.assertRaises(TypeError):
+            limited_cache([])
 
     def test_lru_with_maxsize_none(self):
         @self.module.lru_cache(maxsize=None)
@@ -1266,14 +1442,24 @@ class TestLRU:
 
     def test_copy(self):
         cls = self.__class__
-        for f in cls.cached_func[0], cls.cached_meth, cls.cached_staticmeth:
+        def orig(x, y):
+            return 3 * x + y
+        part = self.module.partial(orig, 2)
+        funcs = (cls.cached_func[0], cls.cached_meth, cls.cached_staticmeth,
+                 self.module.lru_cache(2)(part))
+        for f in funcs:
             with self.subTest(func=f):
                 f_copy = copy.copy(f)
                 self.assertIs(f_copy, f)
 
     def test_deepcopy(self):
         cls = self.__class__
-        for f in cls.cached_func[0], cls.cached_meth, cls.cached_staticmeth:
+        def orig(x, y):
+            return 3 * x + y
+        part = self.module.partial(orig, 2)
+        funcs = (cls.cached_func[0], cls.cached_meth, cls.cached_staticmeth,
+                 self.module.lru_cache(2)(part))
+        for f in funcs:
             with self.subTest(func=f):
                 f_copy = copy.deepcopy(f)
                 self.assertIs(f_copy, f)
@@ -1419,7 +1605,7 @@ class TestSingleDispatch(unittest.TestCase):
                                  object])
 
         # MutableSequence below is registered directly on D. In other words, it
-        # preceeds MutableMapping which means single dispatch will always
+        # precedes MutableMapping which means single dispatch will always
         # choose MutableSequence here.
         class D(c.defaultdict):
             pass

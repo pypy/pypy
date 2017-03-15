@@ -136,6 +136,7 @@ class AppTestInterpObjectPickling:
 
     def test_pickle_non_top_reachable_func(self):
         self.skip_on_cpython()
+        skip("this behavior was disabled to follow CPython more closely")
         def func():
             return 42
         global a
@@ -199,6 +200,7 @@ class AppTestInterpObjectPickling:
         assert a == result
 
     def test_pickle_method(self):
+        skip("this behavior was disabled to follow CPython more closely")
         class myclass(object):
             def f(self):
                 return 42
@@ -221,6 +223,7 @@ class AppTestInterpObjectPickling:
             del sys.modules['mod']
 
     def test_pickle_staticmethod(self):
+        skip("this behavior was disabled to follow CPython more closely")
         self.skip_on_cpython()
         class myclass(object):
             def f():
@@ -233,6 +236,7 @@ class AppTestInterpObjectPickling:
         assert method() == result()
 
     def test_pickle_classmethod(self):
+        skip("this behavior was disabled to follow CPython more closely")
         class myclass(object):
             def f(cls):
                 return cls
@@ -351,6 +355,7 @@ class AppTestInterpObjectPickling:
         assert list(result) == [2,3,4]
 
     def test_pickle_generator(self):
+        skip("not supported any more for now")
         self.skip_on_cpython()
         import types
         mod = types.ModuleType('mod')
@@ -375,6 +380,7 @@ class AppTestInterpObjectPickling:
             del sys.modules['mod']
 
     def test_pickle_generator_blk(self):
+        skip("not supported any more for now")
         self.skip_on_cpython()
         # same as above but with the generator inside a block
         import types
@@ -448,6 +454,7 @@ class AppTestInterpObjectPickling:
 
 
     def test_pickle_generator_crash(self):
+        skip("not supported any more for now")
         self.skip_on_cpython()
         import pickle
 
@@ -464,7 +471,11 @@ class AppTestInterpObjectPickling:
         assert 'finished' in repr(y)
         assert y.gi_code is None
 
-class AppTestGeneratorCloning:
+    def test_pickle_memoryview(self):
+        import pickle
+        raises(TypeError, pickle.dumps, memoryview(b"abc"))
+
+class XAppTestGeneratorCloning:
 
     def setup_class(cls):
         try:
@@ -528,7 +539,7 @@ class AppTestGeneratorCloning:
             raises(StopIteration, next, g3)
             raises(StopIteration, next, g4)
 
-class AppTestFramePickling(object):
+class XAppTestFramePickling(object):
     pytestmark = py.test.mark.skipif("config.option.runappdirect")
     spaceconfig = {
         "usemodules": ["struct"]
@@ -656,4 +667,3 @@ class AppTestFramePickling(object):
         assert tb.tb_next == result.tb_next
 
         restore_top_frame(tb.tb_frame, saved)
-

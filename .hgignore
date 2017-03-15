@@ -7,6 +7,8 @@ syntax: glob
 .project
 .pydevproject
 __pycache__
+.venv
+.cache
 
 syntax: regexp
 ^testresult$
@@ -60,6 +62,9 @@ syntax: regexp
 ^lib_pypy/ctypes_config_cache/_.+_cache\.py$
 ^lib_pypy/ctypes_config_cache/_.+_.+_\.py$
 ^lib_pypy/_libmpdec/.+.o$
+^lib_pypy/.+.c$
+^lib_pypy/.+.o$
+^lib_pypy/.+.so$
 ^pypy/doc/discussion/.+\.html$
 ^include/.+\.h$
 ^include/.+\.inl$
@@ -74,6 +79,9 @@ syntax: regexp
 ^rpython/doc/_build/.*$
 ^compiled
 ^.git/
-^.hypothesis/
+.git/
+.hypothesis/
 ^release/
 ^rpython/_cache$
+
+pypy/module/cppyy/.+/*\.pcm

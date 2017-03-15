@@ -78,10 +78,16 @@ class AppTestStringObject:
         raises(TypeError, '%d'.__mod__, s)
 
     def test_format_float(self):
-        f = 23.456
-        assert '23' == '%d' % f
-        assert '17' == '%x' % f
-        assert '23.456' == '%s' % f
+        f = -23.456
+        assert '-23' == '%d' % f
+        assert '-23' == '%i' % f
+        assert '-23' == '%u' % f
+        e = raises(TypeError, "'%x' % f")
+        assert str(e.value).startswith("%x format:")
+        e = raises(TypeError, "'%X' % f")
+        assert str(e.value).startswith("%X format:")
+        raises(TypeError, "'%o' % f")
+        assert '-23.456' == '%s' % f
         # for 'r' use a float that has an exact decimal rep:
         g = 23.125
         assert '23.125' == '%r' % g
@@ -127,6 +133,59 @@ class AppTestStringObject:
         assert '0o005' == '%#.3o' % f
         assert '27' == '%.2o' % n
         assert '0o27' == '%#.2o' % n
+
+    def test_format_subclass_with_str(self):
+        class SubInt2(int):
+            def __str__(self):
+                assert False, "not called"
+            def __hex__(self):
+                assert False, "not called"
+            def __oct__(self):
+                assert False, "not called"
+            def __int__(self):
+                assert False, "not called"
+            def __long__(self):
+                assert False, "not called"
+        sl = SubInt2(123)
+        assert '%i' % sl == '123'
+        assert '%u' % sl == '123'
+        assert '%d' % sl == '123'
+        assert '%x' % sl == '7b'
+        assert '%X' % sl == '7B'
+        assert '%o' % sl == '173'
+
+        skip("the rest of this test is serious nonsense imho, changed "
+             "only on 2.7.13, and is different on 3.x anyway.  We could "
+             "reproduce it by writing lengthy logic, then get again the "
+             "reasonable performance by special-casing the exact type "
+             "'long'.  And all for 2.7.13 only.  Let's give up.")
+
+        class SubLong2(long):
+            def __str__(self):
+                return extra_stuff + 'Xx'
+            def __hex__(self):
+                return extra_stuff + '0xYy' + extra_tail
+            def __oct__(self):
+                return extra_stuff + '0Zz' + extra_tail
+            def __int__(self):
+                assert False, "not called"
+            def __long__(self):
+                assert False, "not called"
+        sl = SubLong2(123)
+        for extra_stuff in ['', '-']:
+            for extra_tail in ['', 'l', 'L']:
+                m = extra_stuff
+                x = '%i' % sl
+                assert x == m+'Xx'
+                assert '%u' % sl == m+'Xx'
+                assert '%d' % sl == m+'Xx'
+                assert '%x' % sl == m+('Yyl' if extra_tail == 'l' else 'Yy')
+                assert '%X' % sl == m+('YYL' if extra_tail == 'l' else 'YY')
+                assert '%o' % sl == m+('Zzl' if extra_tail == 'l' else 'Zz')
+        extra_stuff = '??'
+        raises(ValueError, "'%x' % sl")
+        raises(ValueError, "'%X' % sl")
+        raises(ValueError, "'%o' % sl")
 
     def test_format_list(self):
         l = [1,2]
@@ -174,30 +233,34 @@ class AppTestStringObject:
         raises(TypeError, '%c'.__mod__, ("bla",))
         raises(TypeError, '%c'.__mod__, ("",))
         raises(TypeError, '%c'.__mod__, (['c'],))
+        raises(TypeError, '%c'.__mod__, b'A')
 
-    def test___int__(self):
+    def test___int__index__(self):
         class MyInt(object):
             def __init__(self, x):
                 self.x = x
             def __int__(self):
                 return self.x
-        x = MyInt(65)
-        assert '%c' % x == 'A'
+        x = MyInt(33)
+        raises(TypeError, "'%c' % x")
+        MyInt.__index__ = lambda self: self.x * 2
+        assert '%c' % x == 'B'
 
-    def test_int_fails(self):
-        class IntFails(object):
-            def __int__(self):
+    def test_index_fails(self):
+        class IndexFails(object):
+            def __index__(self):
                 raise Exception
 
-        exc = raises(TypeError, "%x".__mod__, IntFails())
-        expected = "%x format: a number is required, not IntFails"
+        exc = raises(TypeError, "%x".__mod__, IndexFails())
+        expected = "%x format: an integer is required, not IndexFails"
         assert str(exc.value) == expected
+        raises(TypeError, "%c".__mod__, IndexFails())
 
     def test_formatting_huge_precision(self):
         prec = 2**31
         format_string = "%.{}f".format(prec)
         exc = raises(ValueError, "format_string % 2.34")
-        assert str(exc.value) == 'prec too big'
+        assert str(exc.value) == 'precision too big'
         raises(OverflowError, lambda: u'%.*f' % (prec, 1. / 7))
 
     def test_formatting_huge_width(self):
@@ -313,11 +376,15 @@ class AppTestUnicodeObject:
         f = 4
         raises(ValueError, '"%\u1234" % (f,)')
 
+    def test_invalid_b_with_unicode(self):
+        raises(ValueError, '"%b" % b"A"')
+        raises(ValueError, '"%b" % 42')
+
     def test_formatting_huge_precision(self):
         prec = 2**31
         format_string = u"%.{}f".format(prec)
         exc = raises(ValueError, "format_string % 2.34")
-        assert str(exc.value) == 'prec too big'
+        assert str(exc.value) == 'precision too big'
         raises(OverflowError, lambda: u'%.*f' % (prec, 1. / 7))
 
     def test_formatting_huge_width(self):
@@ -333,9 +400,110 @@ class AppTestUnicodeObject:
         assert "<%r>" % "\xe9" == "<'\xe9'>"
         assert "<%a>" % "\xe9" == "<'\\xe9'>"
 
+
+class AppTestBytes:
+
     def test_ascii_bytes(self):
         assert b"<%a>" % b"test" == b"<b'test'>"
         assert b"<%a>" % b"\t\x80" == b"<b'\\t\\x80'>"
         assert repr(b"\xe9") == "b'\\xe9'"
-        assert b"<%r>" % b"\xe9" == b"<b'\\xe9'>"
         assert b"<%a>" % b"\xe9" == b"<b'\\xe9'>"
+        assert b"<%a>" % "foo" == b"<'foo'>"
+        assert b"<%a>" % "\u1234" == b"<'\\u1234'>"
+        assert b"<%a>" % 3.14 == b"<3.14>"
+
+    def test_r_compat_bytes(self):
+        assert b"<%r>" % b"test" == b"<b'test'>"
+        assert b"<%r>" % b"\t\x80" == b"<b'\\t\\x80'>"
+        assert repr(b"\xe9") == "b'\\xe9'"
+        assert b"<%r>" % b"\xe9" == b"<b'\\xe9'>"
+        assert b"<%r>" % "foo" == b"<'foo'>"
+        assert b"<%r>" % "\u1234" == b"<'\\u1234'>"
+
+    def test_numeric_bytes(self):
+        assert b"<%4x>" % 10 == b"<   a>"
+        assert b"<%#4x>" % 10 == b"< 0xa>"
+        assert b"<%04X>" % 10 == b"<000A>"
+
+    def test_char_bytes(self):
+        assert b"<%c>" % 48 == b"<0>"
+        assert b"<%c>" % b"?" == b"<?>"
+        raises(TypeError, 'b"<%c>" % "?"')
+        assert b"<%c>" % bytearray(b"?") == b"<?>"
+        class X:
+            def __bytes__(self):
+                return b'5'
+        raises(TypeError, 'b"<%c>" % X()')
+
+    def test_bytes_bytes(self):
+        assert b"<%b>" % b"123" == b"<123>"
+        class Foo:
+            def __bytes__(self):
+                return b"123"
+        assert b"<%b>" % Foo() == b"<123>"
+        raises(TypeError, 'b"<%b>" % 42')
+        raises(TypeError, 'b"<%b>" % "?"')
+
+    def test_s_compat_bytes(self):
+        assert b"<%s>" % b"123" == b"<123>"
+        class Foo:
+            def __bytes__(self):
+                return b"123"
+        assert b"<%s>" % Foo() == b"<123>"
+        raises(TypeError, 'b"<%s>" % 42')
+        raises(TypeError, 'b"<%s>" % "?"')
+
+
+class AppTestBytearray:
+
+    def test_ascii_bytes(self):
+        assert bytearray(b"<%a>") % b"test" == bytearray(b"<b'test'>")
+        assert bytearray(b"<%a>") % b"\t\x80" == bytearray(b"<b'\\t\\x80'>")
+        assert repr(b"\xe9") == "b'\\xe9'"
+        assert bytearray(b"<%a>") % b"\xe9" == bytearray(b"<b'\\xe9'>")
+        assert bytearray(b"<%a>") % "foo" == bytearray(b"<'foo'>")
+        assert bytearray(b"<%a>") % "\u1234" == bytearray(b"<'\\u1234'>")
+
+    def test_bytearray_not_modified(self):
+        b1 = bytearray(b"<%a>")
+        b2 = b1 % b"test"
+        assert b1 == bytearray(b"<%a>")
+        assert b2 == bytearray(b"<b'test'>")
+
+    def test_r_compat_bytes(self):
+        assert bytearray(b"<%r>") % b"test" == bytearray(b"<b'test'>")
+        assert bytearray(b"<%r>") % b"\t\x80" == bytearray(b"<b'\\t\\x80'>")
+        assert repr(b"\xe9") == "b'\\xe9'"
+        assert bytearray(b"<%r>") % b"\xe9" == bytearray(b"<b'\\xe9'>")
+        assert bytearray(b"<%r>") % "foo" == bytearray(b"<'foo'>")
+        assert bytearray(b"<%r>") % "\u1234" == bytearray(b"<'\\u1234'>")
+
+    def test_numeric_bytes(self):
+        assert bytearray(b"<%4x>") % 10 == bytearray(b"<   a>")
+        assert bytearray(b"<%#4x>") % 10 == bytearray(b"< 0xa>")
+        assert bytearray(b"<%04X>") % 10 == bytearray(b"<000A>")
+
+    def test_char_bytes(self):
+        assert bytearray(b"<%c>") % 48 == bytearray(b"<0>")
+        assert bytearray(b"<%c>") % b"?" == bytearray(b"<?>")
+        raises(TypeError, 'bytearray(b"<%c>") % "?"')
+        assert bytearray(b"<%c>") % bytearray(b"?") == bytearray(b"<?>")
+        raises(TypeError, 'bytearray(b"<%c>") % memoryview(b"X")')
+
+    def test_bytes_bytes(self):
+        assert bytearray(b"<%b>") % b"123" == bytearray(b"<123>")
+        class Foo:
+            def __bytes__(self):
+                return b"123"
+        assert bytearray(b"<%b>") % Foo() == bytearray(b"<123>")
+        raises(TypeError, 'bytearray(b"<%b>") % 42')
+        raises(TypeError, 'bytearray(b"<%b>") % "?"')
+
+    def test_s_compat_bytes(self):
+        assert bytearray(b"<%s>") % b"123" == bytearray(b"<123>")
+        class Foo:
+            def __bytes__(self):
+                return b"123"
+        assert bytearray(b"<%s>") % Foo() == bytearray(b"<123>")
+        raises(TypeError, 'bytearray(b"<%s>") % 42')
+        raises(TypeError, 'bytearray(b"<%s>") % "?"')

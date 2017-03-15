@@ -15,9 +15,11 @@ import string
 import test.support
 import time
 import types
+import typing
 import unittest
 import urllib.parse
 import xml.etree
+import xml.etree.ElementTree
 import textwrap
 from io import StringIO
 from collections import namedtuple
@@ -368,6 +370,14 @@ def get_pydoc_html(module):
         loc = "<br><a href=\"" + loc + "\">Module Docs</a>"
     return output.strip(), loc
 
+def get_pydoc_link(module):
+    "Returns a documentation web link of a module"
+    dirname = os.path.dirname
+    basedir = dirname(dirname(__file__))
+    doc = pydoc.TextDoc()
+    loc = doc.getdocloc(module, basedir=basedir)
+    return loc
+
 def get_pydoc_text(module):
     "Returns pydoc generated output as text"
     doc = pydoc.TextDoc()
@@ -458,6 +468,11 @@ class PydocDocTest(unittest.TestCase):
             one = 1
         doc = pydoc.render_doc(BinaryInteger)
         self.assertIn('<BinaryInteger.zero: 0>', doc)
+
+    def test_mixed_case_module_names_are_lower_cased(self):
+        # issue16484
+        doc_link = get_pydoc_link(xml.etree.ElementTree)
+        self.assertIn('xml.etree.elementtree', doc_link)
 
     def test_issue8225(self):
         # Test issue8225 to ensure no doc link appears for xml.etree
@@ -752,7 +767,7 @@ class PydocImportTest(PydocBaseTest):
             finally:
                 sys.path[:] = saved_paths
 
-    @unittest.skip('causes undesireable side-effects (#20128)')
+    @unittest.skip('causes undesirable side-effects (#20128)')
     def test_modules(self):
         # See Helper.listmodules().
         num_header_lines = 2
@@ -768,7 +783,7 @@ class PydocImportTest(PydocBaseTest):
 
         self.assertGreaterEqual(num_lines, expected)
 
-    @unittest.skip('causes undesireable side-effects (#20128)')
+    @unittest.skip('causes undesirable side-effects (#20128)')
     def test_modules_search(self):
         # See Helper.listmodules().
         expected = 'pydoc - '
@@ -818,6 +833,18 @@ class TestDescriptions(unittest.TestCase):
         self.assertEqual(pydoc.describe(c), 'C')
         expected = 'C in module %s object' % __name__
         self.assertIn(expected, pydoc.render_doc(c))
+
+    def test_typing_pydoc(self):
+        def foo(data: typing.List[typing.Any],
+                x: int) -> typing.Iterator[typing.Tuple[int, typing.Any]]:
+            ...
+        T = typing.TypeVar('T')
+        class C(typing.Generic[T], typing.Mapping[int, str]): ...
+        self.assertEqual(pydoc.render_doc(foo).splitlines()[-1],
+                         'f\x08fo\x08oo\x08o(data:List[Any], x:int)'
+                         ' -> Iterator[Tuple[int, Any]]')
+        self.assertEqual(pydoc.render_doc(C).splitlines()[2],
+                         'class C\x08C(typing.Mapping)')
 
     def test_builtin(self):
         for name in ('str', 'str.translate', 'builtins.str',

@@ -8,7 +8,7 @@ from pypy.interpreter.pyparser.error import SyntaxError
 # These are for internal use only:
 SYM_BLANK = 0
 SYM_GLOBAL = 1
-SYM_ASSIGNED = 2 # Or deleted actually.
+SYM_ASSIGNED = 2  # (DEF_LOCAL in CPython3). Or deleted actually.
 SYM_PARAM = 2 << 1
 SYM_NONLOCAL = 2 << 2
 SYM_USED = 2 << 3
@@ -21,6 +21,7 @@ SCOPE_GLOBAL_EXPLICIT = 2
 SCOPE_LOCAL = 3
 SCOPE_FREE = 4
 SCOPE_CELL = 5
+SCOPE_CELL_CLASS = 6     # for "__class__" inside class bodies only
 
 
 class Scope(object):
@@ -88,12 +89,12 @@ class Scope(object):
         """Called when a yield is found."""
         raise SyntaxError("'yield' outside function", yield_node.lineno,
                           yield_node.col_offset)
-    
+
     def note_yieldFrom(self, yieldFrom_node):
         """Called when a yield from is found."""
         raise SyntaxError("'yield' outside function", yieldFrom_node.lineno,
                           yieldFrom_node.col_offset)
-    
+
     def note_await(self, await_node):
         """Called when await is found."""
         raise SyntaxError("'await' outside function", await_node.lineno,
@@ -122,12 +123,6 @@ class Scope(object):
     def _finalize_name(self, name, flags, local, bound, free, globs):
         """Decide on the scope of a name."""
         if flags & SYM_GLOBAL:
-            if flags & SYM_PARAM:
-                err = "name '%s' is parameter and global" % (name,)
-                raise SyntaxError(err, self.lineno, self.col_offset)
-            if flags & SYM_NONLOCAL:
-                err = "name '%s' is nonlocal and global" % (name,)
-                raise SyntaxError(err, self.lineno, self.col_offset)
             self.symbols[name] = SCOPE_GLOBAL_EXPLICIT
             globs[name] = None
             if bound:
@@ -136,12 +131,6 @@ class Scope(object):
                 except KeyError:
                     pass
         elif flags & SYM_NONLOCAL:
-            if flags & SYM_PARAM:
-                err = "name '%s' is parameter and nonlocal" % (name,)
-                raise SyntaxError(err, self.lineno, self.col_offset)
-            if bound is None:
-                err = "nonlocal declaration not allowed at module level"
-                raise SyntaxError(err, self.lineno, self.col_offset)
             if name not in bound:
                 err = "no binding for nonlocal '%s' found" % (name,)
                 raise SyntaxError(err, self.lineno, self.col_offset)
@@ -213,7 +202,7 @@ class Scope(object):
             try:
                 role_here = self.roles[name]
             except KeyError:
-                if name in bound:
+                if bound and name in bound:
                     self.symbols[name] = SCOPE_FREE
                     self.free_vars[name] = None
             else:
@@ -259,12 +248,12 @@ class FunctionScope(Scope):
         self.is_generator = True
         if self._in_try_body_depth > 0:
             self.has_yield_inside_try = True
-    
+
     def note_yieldFrom(self, yield_node):
         self.is_generator = True
         if self._in_try_body_depth > 0:
             self.has_yield_inside_try = True
-            
+
     def note_await(self, await_node):
         if self.name == '<genexpr>':
             msg = "'await' expressions in comprehensions are not supported"
@@ -292,7 +281,8 @@ class FunctionScope(Scope):
 
     def _pass_on_bindings(self, local, bound, globs, new_bound, new_globs):
         new_bound.update(local)
-        Scope._pass_on_bindings(self, local, bound, globs, new_bound, new_globs)
+        Scope._pass_on_bindings(self, local, bound, globs, new_bound,
+                                new_globs)
 
     def _finalize_cells(self, free):
         for name, role in self.symbols.iteritems():
@@ -314,9 +304,13 @@ class AsyncFunctionScope(FunctionScope):
     def note_yieldFrom(self, yield_node):
         raise SyntaxError("'yield from' inside async function", yield_node.lineno,
                           yield_node.col_offset)
-        
+
     def note_await(self, await_node):
-        pass
+        # Compatibility with CPython 3.5: set the CO_GENERATOR flag in
+        # addition to the CO_COROUTINE flag if the function uses the
+        # "await" keyword.  Don't do it if the function does not.  In
+        # that case, CO_GENERATOR is ignored anyway.
+        self.is_generator = True
 
 
 class ClassScope(Scope):
@@ -330,13 +324,13 @@ class ClassScope(Scope):
         return misc.mangle(name, self.name)
 
     def _pass_special_names(self, local, new_bound):
-        assert '__class__' in local
+        #assert '__class__' in local
         new_bound['__class__'] = None
 
     def _finalize_cells(self, free):
         for name, role in self.symbols.iteritems():
             if role == SCOPE_LOCAL and name in free and name == '__class__':
-                self.symbols[name] = SCOPE_CELL
+                self.symbols[name] = SCOPE_CELL_CLASS
                 del free[name]
 
 
@@ -409,7 +403,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         func.args.walkabout(self)
         self.visit_sequence(func.body)
         self.pop_scope()
-    
+
     def visit_AsyncFunctionDef(self, func):
         self.note_symbol(func.name, SYM_ASSIGNED)
         # Function defaults and decorators happen in the outer scope.
@@ -424,7 +418,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         func.args.walkabout(self)
         self.visit_sequence(func.body)
         self.pop_scope()
-    
+
     def visit_Await(self, aw):
         self.scope.note_await(aw)
         ast.GenericASTVisitor.visit_Await(self, aw)
@@ -484,33 +478,58 @@ class SymtableBuilder(ast.GenericASTVisitor):
 
     def visit_Global(self, glob):
         for name in glob.names:
-            if isinstance(self.scope, ClassScope) and name == '__class__':
-                raise SyntaxError("cannot make __class__ global",
-                                  glob.lineno, glob.col_offset)
             old_role = self.scope.lookup_role(name)
+            if (self.scope._hide_bound_from_nested_scopes and
+                   name == '__class__'):
+                msg = ("'global __class__' inside a class statement is not "
+                       "implemented in PyPy")
+                raise SyntaxError(msg, glob.lineno, glob.col_offset,
+                                  filename=self.compile_info.filename)
+            if old_role & SYM_PARAM:
+                msg = "name '%s' is parameter and global" % (name,)
+                raise SyntaxError(msg, glob.lineno, glob.col_offset)
+            if old_role & SYM_NONLOCAL:
+                msg = "name '%s' is nonlocal and global" % (name,)
+                raise SyntaxError(msg, glob.lineno, glob.col_offset)
+
             if old_role & (SYM_USED | SYM_ASSIGNED):
                 if old_role & SYM_ASSIGNED:
-                    msg = "name '%s' is assigned to before global declaration" \
+                    msg = "name '%s' is assigned to before global declaration"\
                         % (name,)
                 else:
                     msg = "name '%s' is used prior to global declaration" % \
                         (name,)
-                misc.syntax_warning(self.space, msg, self.compile_info.filename,
+                misc.syntax_warning(self.space, msg,
+                                    self.compile_info.filename,
                                     glob.lineno, glob.col_offset)
             self.note_symbol(name, SYM_GLOBAL)
 
     def visit_Nonlocal(self, nonl):
         for name in nonl.names:
             old_role = self.scope.lookup_role(name)
-            if old_role & (SYM_USED | SYM_ASSIGNED):
+            msg = ""
+            if old_role & SYM_GLOBAL:
+                msg = "name '%s' is nonlocal and global" % (name,)
+            if old_role & SYM_PARAM:
+                msg = "name '%s' is parameter and nonlocal" % (name,)
+            if isinstance(self.scope, ModuleScope):
+                msg = "nonlocal declaration not allowed at module level"
+            if msg is not "":
+                raise SyntaxError(msg, nonl.lineno, nonl.col_offset)
+
+            if (old_role & (SYM_USED | SYM_ASSIGNED) and not
+                    (name == '__class__' and
+                     self.scope._hide_bound_from_nested_scopes)):
                 if old_role & SYM_ASSIGNED:
                     msg = "name '%s' is assigned to before nonlocal declaration" \
                         % (name,)
                 else:
                     msg = "name '%s' is used prior to nonlocal declaration" % \
                         (name,)
-                misc.syntax_warning(self.space, msg, self.compile_info.filename,
+                misc.syntax_warning(self.space, msg,
+                                    self.compile_info.filename,
                                     nonl.lineno, nonl.col_offset)
+
             self.note_symbol(name, SYM_NONLOCAL)
 
     def visit_Lambda(self, lamb):
@@ -537,6 +556,13 @@ class SymtableBuilder(ast.GenericASTVisitor):
         for item in list(consider):
             item.walkabout(self)
         self.pop_scope()
+        # http://bugs.python.org/issue10544: was never fixed in CPython,
+        # but we can at least issue a SyntaxWarning in the meantime
+        if new_scope.is_generator:
+            msg = ("'yield' inside a list or generator comprehension behaves "
+                   "unexpectedly (http://bugs.python.org/issue10544)")
+            misc.syntax_warning(self.space, msg, self.compile_info.filename,
+                                node.lineno, node.col_offset)
 
     def visit_ListComp(self, listcomp):
         self._visit_comprehension(listcomp, listcomp.generators, listcomp.elt)
@@ -562,7 +588,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         witem.context_expr.walkabout(self)
         if witem.optional_vars:
             witem.optional_vars.walkabout(self)
-    
+
     def visit_AsyncWith(self, aw):
         self.scope.new_temporary_name()
         self.visit_sequence(aw.items)
@@ -572,7 +598,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
 
     def visit_arguments(self, arguments):
         scope = self.scope
-        assert isinstance(scope, FunctionScope) # Annotator hint.
+        assert isinstance(scope, FunctionScope)  # Annotator hint.
         if arguments.args:
             self._handle_params(arguments.args, True)
         if arguments.kwonlyargs:
@@ -585,8 +611,9 @@ class SymtableBuilder(ast.GenericASTVisitor):
             scope.note_keywords_arg(arguments.kwarg)
 
     def _handle_params(self, params, is_toplevel):
-        for i in range(len(params)):
-            arg = params[i].arg
+        for param in params:
+            assert isinstance(param, ast.arg)
+            arg = param.arg
             self.note_symbol(arg, SYM_PARAM)
 
     def _visit_annotations(self, func):
@@ -601,6 +628,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
 
     def _visit_arg_annotations(self, args):
         for arg in args:
+            assert isinstance(arg, ast.arg)
             if arg.annotation:
                 arg.annotation.walkabout(self)
 

@@ -75,6 +75,25 @@ class AppTestObject:
             (NamedInt, ('Name',), dict(value=42)),
             dict(_name='Name'), None, None)
 
+    def test_reduce_ex_does_getattr(self):
+        seen = []
+        class X:
+            def __getattribute__(self, name):
+                seen.append(name)
+                return object.__getattribute__(self, name)
+        X().__reduce_ex__(2)
+        # it is the case at least on CPython 3.5.2, like PyPy:
+        assert '__reduce__' in seen
+        # but these methods, which are also called, are not looked up
+        # with getattr:
+        assert '__getnewargs__' not in seen
+        assert '__getnewargs_ex__' not in seen
+
+    def test_reduce_state_empty_dict(self):
+        class X(object):
+            pass
+        assert X().__reduce_ex__(2)[2] is None
+
     def test_default_format(self):
         class x(object):
             def __str__(self):
@@ -82,6 +101,13 @@ class AppTestObject:
         res = format(x())
         assert res == "Pickle"
         assert isinstance(res, str)
+
+    def test_format(self):
+        class B:
+            pass
+        excinfo = raises(TypeError, format, B(), 's')
+        assert 'B.__format__' in str(excinfo.value)
+
 
     def test_subclasshook(self):
         class x(object):
@@ -295,9 +321,9 @@ class AppTestObject:
 def test_isinstance_shortcut():
     from pypy.objspace.std import objspace
     space = objspace.StdObjSpace()
-    w_a = space.wrap("a")
+    w_a = space.newtext("a")
     space.type = None
     # if it crashes, it means that space._type_isinstance didn't go through
     # the fast path, and tries to call type() (which is set to None just
     # above)
-    space.isinstance_w(w_a, space.w_unicode) # does not crash
+    space.isinstance_w(w_a, space.w_text) # does not crash

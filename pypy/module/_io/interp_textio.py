@@ -29,17 +29,17 @@ class W_IncrementalNewlineDecoder(W_Root):
 
     def __init__(self, space):
         self.w_newlines_dict = {
-            SEEN_CR: space.wrap(u"\r"),
-            SEEN_LF: space.wrap(u"\n"),
-            SEEN_CRLF: space.wrap(u"\r\n"),
+            SEEN_CR: space.newunicode(u"\r"),
+            SEEN_LF: space.newunicode(u"\n"),
+            SEEN_CRLF: space.newunicode(u"\r\n"),
             SEEN_CR | SEEN_LF: space.newtuple(
-                [space.wrap(u"\r"), space.wrap(u"\n")]),
+                [space.newunicode(u"\r"), space.newunicode(u"\n")]),
             SEEN_CR | SEEN_CRLF: space.newtuple(
-                [space.wrap(u"\r"), space.wrap(u"\r\n")]),
+                [space.newunicode(u"\r"), space.newunicode(u"\r\n")]),
             SEEN_LF | SEEN_CRLF: space.newtuple(
-                [space.wrap(u"\n"), space.wrap(u"\r\n")]),
+                [space.newunicode(u"\n"), space.newunicode(u"\r\n")]),
             SEEN_CR | SEEN_LF | SEEN_CRLF: space.newtuple(
-                [space.wrap(u"\r"), space.wrap(u"\n"), space.wrap(u"\r\n")]),
+                [space.newunicode(u"\r"), space.newunicode(u"\n"), space.newunicode(u"\r\n")]),
             }
 
     @unwrap_spec(translate=int)
@@ -47,7 +47,7 @@ class W_IncrementalNewlineDecoder(W_Root):
         self.w_decoder = w_decoder
         self.translate = translate
         if space.is_none(w_errors):
-            self.w_errors = space.wrap("strict")
+            self.w_errors = space.newtext("strict")
         else:
             self.w_errors = w_errors
 
@@ -65,7 +65,7 @@ class W_IncrementalNewlineDecoder(W_Root):
         # decode input (with the eventual \r from a previous pass)
         if not space.is_w(self.w_decoder, space.w_None):
             w_output = space.call_method(self.w_decoder, "decode",
-                                         w_input, space.wrap(final))
+                                         w_input, space.newbool(bool(final)))
         else:
             w_output = w_input
 
@@ -91,7 +91,7 @@ class W_IncrementalNewlineDecoder(W_Root):
                 output_len -= 1
 
         if output_len == 0:
-            return space.wrap(u"")
+            return space.newunicode(u"")
 
         # Record which newlines are read and do newline translation if
         # desired, all in one pass.
@@ -146,7 +146,7 @@ class W_IncrementalNewlineDecoder(W_Root):
             output = builder.build()
 
         self.seennl |= seennl
-        return space.wrap(output)
+        return space.newunicode(output)
 
     def reset_w(self, space):
         self.seennl = 0
@@ -165,7 +165,7 @@ class W_IncrementalNewlineDecoder(W_Root):
         flag <<= 1
         if self.pendingcr:
             flag |= 1
-        return space.newtuple([w_buffer, space.wrap(flag)])
+        return space.newtuple([w_buffer, space.newint(flag)])
 
     def setstate_w(self, space, w_state):
         w_buffer, w_flag = space.unpackiterable(w_state, 2)
@@ -174,7 +174,7 @@ class W_IncrementalNewlineDecoder(W_Root):
         flag >>= 1
 
         if self.w_decoder and not space.is_w(self.w_decoder, space.w_None):
-            w_state = space.newtuple([w_buffer, space.wrap(flag)])
+            w_state = space.newtuple([w_buffer, space.newint(flag)])
             space.call_method(self.w_decoder, "setstate", w_state)
 
 W_IncrementalNewlineDecoder.typedef = TypeDef(
@@ -272,7 +272,7 @@ W_TextIOBase.typedef = TypeDef(
 
 def _determine_encoding(space, encoding, w_buffer):
     if encoding is not None:
-        return space.wrap(encoding)
+        return space.newtext(encoding)
 
     # Try os.device_encoding(fileno)
     try:
@@ -283,23 +283,23 @@ def _determine_encoding(space, encoding, w_buffer):
                 e.match(space, space.fromcache(Cache).w_unsupportedoperation)):
             raise
     else:
-        w_os = space.call_method(space.builtin, '__import__', space.wrap('os'))
+        w_os = space.call_method(space.builtin, '__import__', space.newtext('os'))
         w_encoding = space.call_method(w_os, 'device_encoding', w_fileno)
         if space.isinstance_w(w_encoding, space.w_unicode):
             return w_encoding
 
     try:
         w_locale = space.call_method(space.builtin, '__import__',
-                                     space.wrap('locale'))
+                                     space.newtext('locale'))
         w_encoding = space.call_method(w_locale, 'getpreferredencoding',
                                        space.w_False)
     except OperationError as e:
         # getpreferredencoding() may also raise ImportError
         if not e.match(space, space.w_ImportError):
             raise
-        return space.wrap('ascii')
+        return space.newtext('ascii')
     else:
-        if space.isinstance_w(w_encoding, space.w_unicode):
+        if space.isinstance_w(w_encoding, space.w_text):
             return w_encoding
 
     raise oefmt(space.w_IOError, "could not determine default encoding")
@@ -374,7 +374,7 @@ class W_TextIOWrapper(W_TextIOBase):
                                               # of the stream
         self.snapshot = None
 
-    @unwrap_spec(encoding="str_or_None", line_buffering=int, write_through=int)
+    @unwrap_spec(encoding="text_or_none", line_buffering=int, write_through=int)
     def descr_init(self, space, w_buffer, encoding=None,
                    w_errors=None, w_newline=None, line_buffering=0,
                    write_through=0):
@@ -383,7 +383,7 @@ class W_TextIOWrapper(W_TextIOBase):
         self.w_encoding = _determine_encoding(space, encoding, w_buffer)
 
         if space.is_none(w_errors):
-            w_errors = space.wrap("strict")
+            w_errors = space.newtext("strict")
         self.w_errors = w_errors
 
         if space.is_none(w_newline):
@@ -391,9 +391,8 @@ class W_TextIOWrapper(W_TextIOBase):
         else:
             newline = space.unicode_w(w_newline)
         if newline and newline not in (u'\n', u'\r\n', u'\r'):
-            r = space.str_w(space.repr(w_newline))
             raise oefmt(space.w_ValueError,
-                        "illegal newline value: %s", r)
+                        "illegal newline value: %R", w_newline)
 
         self.line_buffering = line_buffering
         self.write_through = write_through
@@ -413,9 +412,9 @@ class W_TextIOWrapper(W_TextIOBase):
             self.writenl = None
 
         w_codec = interp_codecs.lookup_codec(space,
-                                             space.str_w(self.w_encoding))
+                                             space.text_w(self.w_encoding))
         if not space.is_true(space.getattr(w_codec,
-                                           space.wrap('_is_text_encoding'))):
+                                           space.newtext('_is_text_encoding'))):
             msg = ("%R is not a text encoding; "
                    "use codecs.open() to handle arbitrary codecs")
             raise oefmt(space.w_LookupError, msg, self.w_encoding)
@@ -427,7 +426,7 @@ class W_TextIOWrapper(W_TextIOBase):
             if self.readuniversal:
                 self.w_decoder = space.call_function(
                     space.gettypeobject(W_IncrementalNewlineDecoder.typedef),
-                    self.w_decoder, space.wrap(self.readtranslate))
+                    self.w_decoder, space.newbool(self.readtranslate))
 
         # build the encoder object
         if space.is_true(space.call_method(w_buffer, "writable")):
@@ -437,15 +436,15 @@ class W_TextIOWrapper(W_TextIOBase):
         self.seekable = space.is_true(space.call_method(w_buffer, "seekable"))
         self.telling = self.seekable
 
-        self.has_read1 = space.findattr(w_buffer, space.wrap("read1"))
+        self.has_read1 = space.findattr(w_buffer, space.newtext("read1"))
 
         self.encoding_start_of_stream = False
         if self.seekable and self.w_encoder:
             self.encoding_start_of_stream = True
             w_cookie = space.call_method(self.w_buffer, "tell")
-            if not space.eq_w(w_cookie, space.wrap(0)):
+            if not space.eq_w(w_cookie, space.newint(0)):
                 self.encoding_start_of_stream = False
-                space.call_method(self.w_encoder, "setstate", space.wrap(0))
+                space.call_method(self.w_encoder, "setstate", space.newint(0))
 
         self.state = STATE_OK
 
@@ -465,10 +464,10 @@ class W_TextIOWrapper(W_TextIOBase):
         W_TextIOBase._check_closed(self, space, message)
 
     def __w_attr_repr(self, space, name):
-        w_attr = space.findattr(self, space.wrap(name))
+        w_attr = space.findattr(self, space.newtext(name))
         if w_attr is None:
-            return space.wrap("")
-        return space.mod(space.wrap("%s=%%r " % name), w_attr)
+            return space.newtext("")
+        return space.mod(space.newtext("%s=%%r " % name), w_attr)
 
     def descr_repr(self, space):
         self._check_init(space)
@@ -476,7 +475,7 @@ class W_TextIOWrapper(W_TextIOBase):
                                  self.__w_attr_repr(space, 'mode'),
                                  self.w_encoding])
         return space.mod(
-            space.wrap("<_io.TextIOWrapper %s%sencoding=%r>"), w_args
+            space.newtext("<_io.TextIOWrapper %s%sencoding=%r>"), w_args
         )
 
     def readable_w(self, space):
@@ -501,17 +500,17 @@ class W_TextIOWrapper(W_TextIOBase):
 
     def closed_get_w(self, space):
         self._check_attached(space)
-        return space.getattr(self.w_buffer, space.wrap("closed"))
+        return space.getattr(self.w_buffer, space.newtext("closed"))
 
     def newlines_get_w(self, space):
         self._check_attached(space)
         if self.w_decoder is None:
             return space.w_None
-        return space.findattr(self.w_decoder, space.wrap("newlines"))
+        return space.findattr(self.w_decoder, space.newtext("newlines"))
 
     def name_get_w(self, space):
         self._check_attached(space)
-        return space.getattr(self.w_buffer, space.wrap("name"))
+        return space.getattr(self.w_buffer, space.newtext("name"))
 
     def flush_w(self, space):
         self._check_attached(space)
@@ -530,7 +529,7 @@ class W_TextIOWrapper(W_TextIOBase):
     def close_w(self, space):
         self._check_attached(space)
         if not space.is_true(space.getattr(self.w_buffer,
-                                           space.wrap("closed"))):
+                                           space.newtext("closed"))):
             try:
                 space.call_method(self, "flush")
             finally:
@@ -594,16 +593,16 @@ class W_TextIOWrapper(W_TextIOBase):
         # Read a chunk, decode it, and put the result in self._decoded_chars
         w_input = space.call_method(self.w_buffer,
                                     "read1" if self.has_read1 else "read",
-                                    space.wrap(self.chunk_size))
+                                    space.newint(self.chunk_size))
 
-        if not space.isinstance_w(w_input, space.w_str):
+        if not space.isinstance_w(w_input, space.w_bytes):
             msg = "decoder getstate() should have returned a bytes " \
                   "object not '%T'"
             raise oefmt(space.w_TypeError, msg, w_input)
 
         eof = space.len_w(w_input) == 0
         w_decoded = space.call_method(self.w_decoder, "decode",
-                                      w_input, space.wrap(eof))
+                                      w_input, space.newbool(eof))
         check_decoded(space, w_decoded)
         self._set_decoded_chars(space.unicode_w(w_decoded))
         if space.len_w(w_decoded) > 0:
@@ -641,7 +640,7 @@ class W_TextIOWrapper(W_TextIOBase):
             w_bytes = space.call_method(self.w_buffer, "read")
             w_decoded = space.call_method(self.w_decoder, "decode", w_bytes, space.w_True)
             check_decoded(space, w_decoded)
-            w_result = space.wrap(self._get_decoded_chars(-1))
+            w_result = space.newunicode(self._get_decoded_chars(-1))
             w_final = space.add(w_result, w_decoded)
             self.snapshot = None
             return w_final
@@ -667,7 +666,7 @@ class W_TextIOWrapper(W_TextIOBase):
                     continue
                 raise
 
-        return space.wrap(builder.build())
+        return space.newunicode(builder.build())
 
     def readline_w(self, space, w_limit=None):
         self._check_attached(space)
@@ -758,9 +757,9 @@ class W_TextIOWrapper(W_TextIOBase):
             line = u''.join(chunks)
 
         if line:
-            return space.wrap(line)
+            return space.newunicode(line)
         else:
-            return space.wrap(u'')
+            return space.newunicode(u'')
 
     # _____________________________________________________________
     # write methods
@@ -784,8 +783,8 @@ class W_TextIOWrapper(W_TextIOBase):
             if text.find(u'\n') >= 0:
                 haslf = True
         if haslf and self.writetranslate and self.writenl:
-            w_text = space.call_method(w_text, "replace", space.wrap(u'\n'),
-                                       space.wrap(self.writenl))
+            w_text = space.call_method(w_text, "replace", space.newunicode(u'\n'),
+                                       space.newunicode(self.writenl))
             text = space.unicode_w(w_text)
 
         needflush = False
@@ -819,7 +818,7 @@ class W_TextIOWrapper(W_TextIOBase):
         if self.w_decoder:
             space.call_method(self.w_decoder, "reset")
 
-        return space.wrap(textlen)
+        return space.newint(textlen)
 
     def _writeflush(self, space):
         if not self.pending_bytes:
@@ -862,14 +861,14 @@ class W_TextIOWrapper(W_TextIOBase):
         else:
             space.call_method(self.w_decoder, "setstate",
                               space.newtuple([space.newbytes(""),
-                                              space.wrap(cookie.dec_flags)]))
+                                              space.newint(cookie.dec_flags)]))
 
     def _encoder_setstate(self, space, cookie):
         if cookie.start_pos == 0 and cookie.dec_flags == 0:
             space.call_method(self.w_encoder, "reset")
             self.encoding_start_of_stream = True
         else:
-            space.call_method(self.w_encoder, "setstate", space.wrap(0))
+            space.call_method(self.w_encoder, "setstate", space.newint(0))
             self.encoding_start_of_stream = False
 
     @unwrap_spec(whence=int)
@@ -882,7 +881,7 @@ class W_TextIOWrapper(W_TextIOBase):
 
         if whence == 1:
             # seek relative to current position
-            if not space.is_true(space.eq(w_pos, space.wrap(0))):
+            if not space.eq_w(w_pos, space.newint(0)):
                 self._unsupportedoperation(
                     space, "can't do nonzero cur-relative seeks")
             # Seeking to the current position should attempt to sync the
@@ -891,7 +890,7 @@ class W_TextIOWrapper(W_TextIOBase):
 
         elif whence == 2:
             # seek relative to end of file
-            if not space.is_true(space.eq(w_pos, space.wrap(0))):
+            if not space.eq_w(w_pos, space.newint(0)):
                 self._unsupportedoperation(
                     space, "can't do nonzero end-relative seeks")
             space.call_method(self, "flush")
@@ -900,17 +899,16 @@ class W_TextIOWrapper(W_TextIOBase):
             if self.w_decoder:
                 space.call_method(self.w_decoder, "reset")
             return space.call_method(self.w_buffer, "seek",
-                                     w_pos, space.wrap(whence))
+                                     w_pos, space.newint(whence))
 
         elif whence != 0:
             raise oefmt(space.w_ValueError,
                         "invalid whence (%d, should be 0, 1 or 2)",
                         whence)
 
-        if space.is_true(space.lt(w_pos, space.wrap(0))):
-            r = space.str_w(space.repr(w_pos))
+        if space.is_true(space.lt(w_pos, space.newint(0))):
             raise oefmt(space.w_ValueError,
-                        "negative seek position %s", r)
+                        "negative seek position %R", w_pos)
 
         space.call_method(self, "flush")
 
@@ -919,7 +917,7 @@ class W_TextIOWrapper(W_TextIOBase):
         cookie = PositionCookie(space.bigint_w(w_pos))
 
         # Seek back to the safe start point
-        space.call_method(self.w_buffer, "seek", space.wrap(cookie.start_pos))
+        space.call_method(self.w_buffer, "seek", space.newint(cookie.start_pos))
 
         self._set_decoded_chars(None)
         self.snapshot = None
@@ -931,8 +929,8 @@ class W_TextIOWrapper(W_TextIOBase):
         if cookie.chars_to_skip:
             # Just like _read_chunk, feed the decoder and save a snapshot.
             w_chunk = space.call_method(self.w_buffer, "read",
-                                        space.wrap(cookie.bytes_to_feed))
-            if not space.isinstance_w(w_chunk, space.w_str):
+                                        space.newint(cookie.bytes_to_feed))
+            if not space.isinstance_w(w_chunk, space.w_bytes):
                 msg = "underlying read() should have returned " \
                       "a bytes object, not '%T'"
                 raise oefmt(space.w_TypeError, msg, w_chunk)
@@ -941,7 +939,7 @@ class W_TextIOWrapper(W_TextIOBase):
                                              space.bytes_w(w_chunk))
 
             w_decoded = space.call_method(self.w_decoder, "decode",
-                                          w_chunk, space.wrap(cookie.need_eof))
+                                          w_chunk, space.newbool(bool(cookie.need_eof)))
             check_decoded(space, w_decoded)
             self._set_decoded_chars(space.unicode_w(w_decoded))
 
@@ -1034,8 +1032,8 @@ class W_TextIOWrapper(W_TextIOBase):
             else:
                 # We didn't get enough decoded data; signal EOF to get more.
                 w_decoded = space.call_method(self.w_decoder, "decode",
-                                              space.wrap(""),
-                                              space.wrap(1)) # final=1
+                                              space.newbytes(""),
+                                              space.newint(1)) # final=1
                 check_decoded(space, w_decoded)
                 chars_decoded += len(space.unicode_w(w_decoded))
                 cookie.need_eof = 1
@@ -1052,7 +1050,7 @@ class W_TextIOWrapper(W_TextIOBase):
 
     def chunk_size_get_w(self, space):
         self._check_attached(space)
-        return space.wrap(self.chunk_size)
+        return space.newint(self.chunk_size)
 
     def chunk_size_set_w(self, space, w_size):
         self._check_attached(space)
@@ -1080,7 +1078,8 @@ W_TextIOWrapper.typedef = TypeDef(
     truncate = interp2app(W_TextIOWrapper.truncate_w),
     close = interp2app(W_TextIOWrapper.close_w),
 
-    line_buffering = interp_attrproperty("line_buffering", W_TextIOWrapper),
+    line_buffering = interp_attrproperty("line_buffering", W_TextIOWrapper,
+        wrapfn="newint"),
     readable = interp2app(W_TextIOWrapper.readable_w),
     writable = interp2app(W_TextIOWrapper.writable_w),
     seekable = interp2app(W_TextIOWrapper.seekable_w),

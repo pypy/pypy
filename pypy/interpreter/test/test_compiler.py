@@ -77,7 +77,7 @@ class TestPythonAstCompiler:
         """)
         assert self.space.unwrap(w_args) == (
             'unindent does not match any outer indentation level',
-            (None, 3, 0, ' y\n'))
+            ('<string>', 3, 0, ' y\n'))
 
     def test_getcodeflags(self):
         code = self.compiler.compile('from __future__ import division\n',
@@ -343,6 +343,7 @@ class TestPythonAstCompiler:
             assert ex.match(self.space, self.space.w_SyntaxError)
 
     def test_globals_warnings(self):
+        # also tests some other constructions that give a warning
         space = self.space
         w_mod = space.appexec((), '():\n import warnings\n return warnings\n') #sys.getmodule('warnings')
         w_filterwarnings = space.getattr(w_mod, space.wrap('filterwarnings'))
@@ -364,6 +365,18 @@ def wrong3():
     print x
     x = 2
     global x
+''', '''
+def wrong_listcomp():
+    return [(yield 42) for i in j]
+''', '''
+def wrong_gencomp():
+    return ((yield 42) for i in j)
+''', '''
+def wrong_dictcomp():
+    return {(yield 42):2 for i in j}
+''', '''
+def wrong_setcomp():
+    return {(yield 42) for i in j}
 '''):
 
             space.call_args(w_filterwarnings, filter_arg)
@@ -373,6 +386,66 @@ def wrong3():
             ex = e.value
             ex.normalize_exception(space)
             assert ex.match(space, space.w_SyntaxError)
+
+    def test_no_warning_run(self):
+        space = self.space
+        w_mod = space.appexec((), '():\n import warnings\n return warnings\n') #sys.getmodule('warnings')
+        w_filterwarnings = space.getattr(w_mod, space.wrap('filterwarnings'))
+        filter_arg = Arguments(space, [ space.wrap('error') ], ["module"],
+                               [space.wrap("<tmp>")])
+        for code in ['''
+def testing():
+    __class__ = 0
+    def f():
+        nonlocal __class__
+        __class__ = 42
+    f()
+    return __class__
+''', '''
+class Y:
+    class X:
+        nonlocal __class__
+        __class__ = 42
+    assert locals()['__class__'] == 42
+    # ^^^ but at the same place, reading '__class__' gives a NameError
+    # in CPython 3.5.2.  Looks like a bug to me
+def testing():
+    return 42
+''', '''
+class Y:
+    def f():
+        __class__
+    __class__ = 42
+def testing():
+    return Y.__dict__['__class__']
+''', '''
+class X:
+    foobar = 42
+    def f(self):
+        return __class__.__dict__['foobar']
+def testing():
+    return X().f()
+''',
+#--------XXX the following case is not implemented for now
+#'''
+#class X:
+#    foobar = 42
+#    def f(self):
+#        class Y:
+#            Xcls = __class__
+#        return Y.Xcls.__dict__['foobar']
+#def testing():
+#    return X().f()
+#'''
+        ]:
+            space.call_args(w_filterwarnings, filter_arg)
+            pycode = self.compiler.compile(code, '<tmp>', 'exec', 0)
+            space.call_method(w_mod, 'resetwarnings')
+            w_d = space.newdict()
+            pycode.exec_code(space, w_d, w_d)
+            w_res = space.call_function(
+                space.getitem(w_d, space.wrap('testing')))
+            assert space.unwrap(w_res) == 42
 
     def test_firstlineno(self):
         snippet = str(py.code.Source(r'''
@@ -771,6 +844,8 @@ class AppTestCompiler(object):
 
     def setup_class(cls):
         cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
+        cls.w_host_is_pypy = cls.space.wrap(
+            '__pypy__' in sys.builtin_module_names)
 
     def w_is_pypy(self):
         import sys
@@ -906,6 +981,7 @@ class AppTestCompiler(object):
         class 日本:
             pass
         assert 日本.__name__ == '日本'
+        assert 日本.__qualname__ == 'test_class_nonascii.<locals>.日本'
         assert '日本' in repr(日本)
         """
 
@@ -916,6 +992,48 @@ class AppTestCompiler(object):
             assert v.text ==  "print '\u5e74'\n"
         else:
             assert False, "Expected SyntaxError"
+
+    def test_invalid_utf8(self):
+        e = raises(SyntaxError, compile, b'\x80', "dummy", "exec")
+        assert str(e.value).startswith('Non-UTF-8 code')
+        assert 'but no encoding declared' in str(e.value)
+        e = raises(SyntaxError, compile, b'# coding: utf-8\n\x80',
+                   "dummy", "exec")
+        assert str(e.value).startswith('Non-UTF-8 code')
+        assert 'but no encoding declared' not in str(e.value)
+
+    def test_invalid_utf8_in_comments_or_strings(self):
+        import sys
+        compile(b"# coding: latin1\n#\xfd\n", "dummy", "exec")
+        raises(SyntaxError, compile, b"# coding: utf-8\n'\xfd'\n",
+               "dummy", "exec") #1
+        raises(SyntaxError, compile, b'# coding: utf-8\nx=5\nb"\xfd"\n',
+               "dummy", "exec") #2
+        # the following example still fails on CPython 3.5.2, skip if -A
+        if '__pypy__' in sys.builtin_module_names:
+            raises(SyntaxError, compile, b"# coding: utf-8\n#\xfd\n",
+                   "dummy", "exec") #3
+
+    def test_cpython_issues_24022_25388(self):
+        from _ast import PyCF_ACCEPT_NULL_BYTES
+        raises(SyntaxError, compile, b'0000\x00\n00000000000\n\x00\n\x9e\n',
+               "dummy", "exec", PyCF_ACCEPT_NULL_BYTES)
+        raises(SyntaxError, compile, b"#\x00\n#\xfd\n", "dummy", "exec",
+               PyCF_ACCEPT_NULL_BYTES)
+        raises(SyntaxError, compile, b"#\x00\nx=5#\xfd\n", "dummy", "exec",
+               PyCF_ACCEPT_NULL_BYTES)
+
+    def test_dict_and_set_literal_order(self):
+        x = 1
+        l1 = list({1:'a', 3:'b', 2:'c', 4:'d'})
+        l2 = list({1, 3, 2, 4})
+        l3 = list({x:'a', 3:'b', 2:'c', 4:'d'})
+        l4 = list({x, 3, 2, 4})
+        if not self.host_is_pypy:
+            # the full test relies on the host Python providing ordered dicts
+            assert set(l1) == set(l2) == set(l3) == set(l4) == {1, 3, 2, 4}
+        else:
+            assert l1 == l2 == l3 == l4 == [1, 3, 2, 4]
 
     def test_ast_equality(self):
         import _ast
@@ -1213,6 +1331,18 @@ class AppTestExceptions:
             exec(source)
         except IndentationError as e:
             assert e.msg == 'unindent does not match any outer indentation level'
+        else:
+            raise Exception("DID NOT RAISE")
+
+    def test_outdentation_error_filename(self):
+        source = """if 1:
+         x
+        y
+        """
+        try:
+            exec(source)
+        except IndentationError as e:
+            assert e.filename == '<string>'
         else:
             raise Exception("DID NOT RAISE")
 

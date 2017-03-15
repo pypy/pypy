@@ -210,31 +210,25 @@ def build_pytest_assertion(space):
                                space.newtuple([w_BuiltinAssertionError]),
                                w_dict)
 
-def _exc_info(space, err):
-    """Hack the fact that exc_info() isn't set until a app except
-    block catches it."""
-    err.normalize_exception(space)
-    frame = space.getexecutioncontext().gettopframe()
-    old = frame.last_exception
-    frame.last_exception = err
-    if not hasattr(space, '_w_ExceptionInfo'):
-        space._w_ExceptionInfo = space.appexec([], """():
-    class _ExceptionInfo(object):
-        def __init__(self):
-            import sys
-            self.type, self.value, self.traceback = sys.exc_info()
-
-    return _ExceptionInfo
-""")
-    try:
-        return space.call_function(space._w_ExceptionInfo)
-    finally:
-        frame.last_exception = old
+def _exc_info(space, operror):
+    """sys.exc_info() isn't set until a app except block catches it,
+    but we can directly copy the two lines of code from module/sys/vm.py."""
+    operror.normalize_exception(space)
+    return space.appexec([operror.w_type, operror.get_w_value(space),
+                          space.wrap(operror.get_traceback())], """(t, v, tb):
+        class _ExceptionInfo:
+            pass
+        e = _ExceptionInfo()
+        e.type = t
+        e.value = v
+        e.traceback = tb
+        return e
+    """)
 
 def pypyraises(space, w_ExpectedException, w_expr, __args__):
     """A built-in function providing the equivalent of py.test.raises()."""
     args_w, kwds_w = __args__.unpack()
-    if space.isinstance_w(w_expr, space.w_unicode):
+    if space.isinstance_w(w_expr, space.w_text):
         if args_w:
             raise oefmt(space.w_TypeError,
                         "raises() takes no argument after a string expression")

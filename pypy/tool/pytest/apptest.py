@@ -21,13 +21,6 @@ from inspect import getmro
 
 pypyroot = os.path.dirname(pypydir)
 
-RENAMED_USEMODULES = dict(
-    _winreg='winreg',
-    exceptions='builtins',
-    struct='_struct',
-    thread='_thread',
-    operator='_operator',
-    )
 
 class AppError(Exception):
     def __init__(self, excinfo):
@@ -61,6 +54,11 @@ def py3k_repr(value):
         return type.__name__
     else:
         return repr(value)
+
+
+def _rename_module(name):
+    mod = __import__("pypy.module." + name, globals(), locals(), ['Module'])
+    return mod.Module.applevel_name or name
 
 
 def run_with_python(python_, target_, usemodules, **definitions):
@@ -133,8 +131,7 @@ if 1:
 
     check_usemodules = ''
     if usemodules:
-        usemodules = [str(RENAMED_USEMODULES.get(name, name))
-                      for name in usemodules]
+        usemodules = [_rename_module(name) for name in usemodules]
         check_usemodules = """\
     missing = set(%r).difference(sys.builtin_module_names)
     if missing:
@@ -172,7 +169,8 @@ if 1:
         f.write('\n'.join(defs))
         f.write('def %s():\n' % target_name)
         f.write('\n'.join(source))
-        f.write("\n%s()\n" % target_name)
+        f.write("\ntry:\n    %s()\n" % target_name)
+        f.write('finally:\n    print("===aefwuiheawiu===")')
     helper_dir = os.path.join(pypydir, 'tool', 'cpyext')
     env = os.environ.copy()
     env['PYTHONPATH'] = helper_dir
@@ -184,8 +182,11 @@ if 1:
     if res == 81:
         py.test.skip('%r was not compiled w/ required usemodules: %r' %
                      (python_, usemodules))
-    elif res > 0:
-        raise AssertionError("Subprocess failed:\n" + stderr)
+    elif res != 0:
+        raise AssertionError(
+            "Subprocess failed with exit code %s:\n%s" % (res, stderr))
+    elif "===aefwuiheawiu===" not in stdout:
+        raise AssertionError("%r crashed:\n%s" % (python_, stderr))
 
 
 def extract_docstring_if_empty_function(fn):
@@ -209,6 +210,7 @@ class AppTestFunction(py.test.collect.Function):
 
     def execute_appex(self, space, target, *args):
         self.space = space
+        space.getexecutioncontext().set_sys_exc_info(None)
         try:
             target(*args)
         except OperationError as e:

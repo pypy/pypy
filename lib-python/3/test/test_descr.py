@@ -7,6 +7,7 @@ import pickle
 import sys
 import types
 import unittest
+import warnings
 import weakref
 
 from copy import deepcopy
@@ -876,7 +877,7 @@ class ClassPropertiesAndMethods(unittest.TestCase):
         self.assertEqual(Frag().__int__(), 42)
         self.assertEqual(int(Frag()), 42)
 
-    def test_diamond_inheritence(self):
+    def test_diamond_inheritance(self):
         # Testing multiple inheritance special cases...
         class A(object):
             def spam(self): return "A"
@@ -1021,20 +1022,21 @@ order (MRO) for bases """
         self.assertEqual(x.__dict__, {'foo': 1})
 
     def test_object_class_assignment_between_heaptypes_and_nonheaptypes(self):
-        class SubType(types.ModuleType):
-            a = 1
+        if support.check_impl_detail(pypy=False):
+            class SubType(types.ModuleType):
+                a = 1
 
-        m = types.ModuleType("m")
-        self.assertTrue(m.__class__ is types.ModuleType)
-        self.assertFalse(hasattr(m, "a"))
+            m = types.ModuleType("m")
+            self.assertTrue(m.__class__ is types.ModuleType)
+            self.assertFalse(hasattr(m, "a"))
 
-        m.__class__ = SubType
-        self.assertTrue(m.__class__ is SubType)
-        self.assertTrue(hasattr(m, "a"))
+            m.__class__ = SubType
+            self.assertTrue(m.__class__ is SubType)
+            self.assertTrue(hasattr(m, "a"))
 
-        m.__class__ = types.ModuleType
-        self.assertTrue(m.__class__ is types.ModuleType)
-        self.assertFalse(hasattr(m, "a"))
+            m.__class__ = types.ModuleType
+            self.assertTrue(m.__class__ is types.ModuleType)
+            self.assertFalse(hasattr(m, "a"))
 
         # Make sure that builtin immutable objects don't support __class__
         # assignment, because the object instances may be interned.
@@ -1660,6 +1662,77 @@ order (MRO) for bases """
         b = D()
         self.assertEqual(b.foo, 3)
         self.assertEqual(b.__class__, D)
+
+    @unittest.expectedFailure
+    def test_bad_new(self):
+        self.assertRaises(TypeError, object.__new__)
+        self.assertRaises(TypeError, object.__new__, '')
+        self.assertRaises(TypeError, list.__new__, object)
+        self.assertRaises(TypeError, object.__new__, list)
+        class C(object):
+            __new__ = list.__new__
+        self.assertRaises(TypeError, C)
+        class C(list):
+            __new__ = object.__new__
+        self.assertRaises(TypeError, C)
+
+    def test_object_new(self):
+        class A(object):
+            pass
+        object.__new__(A)
+        self.assertRaises(TypeError, object.__new__, A, 5)
+        object.__init__(A())
+        self.assertRaises(TypeError, object.__init__, A(), 5)
+
+        class A(object):
+            def __init__(self, foo):
+                self.foo = foo
+        object.__new__(A)
+        object.__new__(A, 5)
+        object.__init__(A(3))
+        self.assertRaises(TypeError, object.__init__, A(3), 5)
+
+        class A(object):
+            def __new__(cls, foo):
+                return object.__new__(cls)
+        object.__new__(A)
+        self.assertRaises(TypeError, object.__new__, A, 5)
+        object.__init__(A(3))
+        object.__init__(A(3), 5)
+
+        class A(object):
+            def __new__(cls, foo):
+                return object.__new__(cls)
+            def __init__(self, foo):
+                self.foo = foo
+        object.__new__(A)
+        self.assertRaises(TypeError, object.__new__, A, 5)
+        object.__init__(A(3))
+        self.assertRaises(TypeError, object.__init__, A(3), 5)
+
+    @unittest.expectedFailure
+    def test_restored_object_new(self):
+        class A(object):
+            def __new__(cls, *args, **kwargs):
+                raise AssertionError
+        self.assertRaises(AssertionError, A)
+        class B(A):
+            __new__ = object.__new__
+            def __init__(self, foo):
+                self.foo = foo
+        with warnings.catch_warnings():
+            warnings.simplefilter('error', DeprecationWarning)
+            b = B(3)
+        self.assertEqual(b.foo, 3)
+        self.assertEqual(b.__class__, B)
+        del B.__new__
+        self.assertRaises(AssertionError, B)
+        del A.__new__
+        with warnings.catch_warnings():
+            warnings.simplefilter('error', DeprecationWarning)
+            b = B(3)
+        self.assertEqual(b.foo, 3)
+        self.assertEqual(b.__class__, B)
 
     def test_altmro(self):
         # Testing mro() and overriding it...
@@ -3502,7 +3575,7 @@ order (MRO) for bases """
         b.a = a
         z = deepcopy(a) # This blew up before
 
-    def test_unintialized_modules(self):
+    def test_uninitialized_modules(self):
         # Testing uninitialized module objects...
         from types import ModuleType as M
         m = M.__new__(M)
@@ -3534,6 +3607,24 @@ order (MRO) for bases """
         d = D(1)
         self.assertIsInstance(d, D)
         self.assertEqual(d.foo, 1)
+
+        class C(object):
+            @staticmethod
+            def __new__(*args):
+                return args
+        self.assertEqual(C(1, 2), (C, 1, 2))
+        class D(C):
+            pass
+        self.assertEqual(D(1, 2), (D, 1, 2))
+
+        class C(object):
+            @classmethod
+            def __new__(*args):
+                return args
+        self.assertEqual(C(1, 2), (C, C, 1, 2))
+        class D(C):
+            pass
+        self.assertEqual(D(1, 2), (D, D, 1, 2))
 
     def test_imul_bug(self):
         # Testing for __imul__ problems...
@@ -5108,6 +5199,23 @@ class PicklingTests(unittest.TestCase):
                     objcopy.__dict__.clear()
                     objcopy2 = deepcopy(objcopy)
                     self._assert_is_copy(obj, objcopy2)
+
+    def test_issue24097(self):
+        # Slot name is freed inside __getattr__ and is later used.
+        class S(str):  # Not interned
+            pass
+        class A:
+            __slotnames__ = [S('spam')]
+            def __getattr__(self, attr):
+                if attr == 'spam':
+                    A.__slotnames__[:] = [S('spam')]
+                    return 42
+                else:
+                    raise AttributeError
+
+        import copyreg
+        expected = (copyreg.__newobj__, (A,), (None, {'spam': 42}), None, None)
+        self.assertEqual(A().__reduce__(2), expected)  # Shouldn't crash
 
 
 class SharedKeyTests(unittest.TestCase):

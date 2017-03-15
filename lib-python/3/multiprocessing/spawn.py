@@ -91,7 +91,7 @@ def get_command_line(**kwds):
 
 def spawn_main(pipe_handle, parent_pid=None, tracker_fd=None):
     '''
-    Run code specifed by data received over pipe
+    Run code specified by data received over pipe
     '''
     assert is_forking(sys.argv)
     if sys.platform == 'win32':
@@ -218,7 +218,7 @@ def prepare(data):
         process.ORIGINAL_DIR = data['orig_dir']
 
     if 'start_method' in data:
-        set_start_method(data['start_method'])
+        set_start_method(data['start_method'], force=True)
 
     if 'init_main_from_name' in data:
         _fixup_main_from_name(data['init_main_from_name'])

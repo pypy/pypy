@@ -910,7 +910,7 @@ class AppTestWithMapDictAndCounters(object):
                 successes = entry.success_counter
             globalfailures = INVALID_CACHE_ENTRY.failure_counter
             return space.wrap((failures, successes, globalfailures))
-        check.unwrap_spec = [gateway.ObjSpace, gateway.W_Root, str]
+        check.unwrap_spec = [gateway.ObjSpace, gateway.W_Root, 'text']
         cls.w_check = cls.space.wrap(gateway.interp2app(check))
 
     def test_simple(self):

@@ -18,32 +18,18 @@ def reduce_1(obj, proto):
     import copyreg
     return copyreg._reduce_ex(obj, proto)
 
-def _getnewargs(obj):
-
-    try:
-        getnewargs = obj.__getnewargs_ex__
-    except AttributeError:
-        try:
-            getnewargs = obj.__getnewargs__
-        except AttributeError:
-            args = ()
-        else:
-            args = getnewargs()
-        kwargs = None
-    else:
-        args, kwargs = getnewargs()
-
-    if not isinstance(args, tuple):
-        raise TypeError("__getnewargs__ should return a tuple")
-    return args, kwargs
-
 def _getstate(obj):
     cls = obj.__class__
 
     try:
         getstate = obj.__getstate__
     except AttributeError:
+        # and raises a TypeError if the condition holds true, this is done
+        # just before reduce_2 is called in pypy
         state = getattr(obj, "__dict__", None)
+        # CPython returns None if the dict is empty
+        if state is not None and len(state) == 0:
+            state = None
         names = slotnames(cls) # not checking for list
         if names is not None:
             slots = {}
@@ -60,13 +46,16 @@ def _getstate(obj):
         state = getstate()
     return state
 
-def reduce_2(obj, proto):
+def reduce_2(obj, proto, args, kwargs):
     cls = obj.__class__
+
+    if not hasattr(type(obj), "__new__"):
+        raise TypeError("can't pickle %s objects" % type(obj).__name__)
 
     import copyreg
 
-    args, kwargs = _getnewargs(obj)
-
+    if not isinstance(args, tuple):
+        raise TypeError("__getnewargs__ should return a tuple")
     if not kwargs:
        newobj = copyreg.__newobj__
        args2 = (cls,) + args
@@ -77,7 +66,6 @@ def reduce_2(obj, proto):
        raise ValueError("must use protocol 4 or greater to copy this "
                         "object; since __getnewargs_ex__ returned "
                         "keyword arguments.")
-
     state = _getstate(obj)
     listitems = iter(obj) if isinstance(obj, list) else None
     dictitems = iter(obj.items()) if isinstance(obj, dict) else None
@@ -119,6 +107,7 @@ def descr__new__(space, w_type, __args__):
     w_type = _precheck_for_new(space, w_type)
 
     if _excess_args(__args__):
+        w_parent_new, _ = space.lookup_in_type_where(w_type, '__new__')
         w_parent_init, _ = space.lookup_in_type_where(w_type, '__init__')
         w_parent_new, _ = space.lookup_in_type_where(w_type, '__new__')
         if (w_parent_init is space.w_object or
@@ -137,6 +126,7 @@ def descr___subclasshook__(space, __args__):
 def descr__init__(space, w_obj, __args__):
     if _excess_args(__args__):
         w_type = space.type(w_obj)
+        w_parent_init, _ = space.lookup_in_type_where(w_type, '__init__')
         w_parent_new, _ = space.lookup_in_type_where(w_type, '__new__')
         w_parent_init, _ = space.lookup_in_type_where(w_type, '__init__')
         if (w_parent_new is space.w_object or
@@ -170,18 +160,7 @@ def descr_set___class__(space, w_obj, w_newcls):
 
 
 def descr__repr__(space, w_obj):
-    w_type = space.type(w_obj)
-    classname = w_type.name.decode('utf-8')
-    if w_type.is_heaptype():
-        w_module = w_type.lookup("__module__")
-        if w_module is not None:
-            try:
-                modulename = space.unicode_w(w_module)
-            except OperationError as e:
-                if not e.match(space, space.w_TypeError):
-                    raise
-            else:
-                classname = u'%s.%s' % (modulename, classname)
+    classname = space.getfulltypename(w_obj)
     return w_obj.getrepr(space, u'%s object' % (classname,))
 
 
@@ -196,14 +175,35 @@ def descr__str__(space, w_obj):
 
 @unwrap_spec(proto=int)
 def descr__reduce__(space, w_obj, proto=0):
-    w_proto = space.wrap(proto)
+    w_proto = space.newint(proto)
     if proto >= 2:
-        return reduce_2(space, w_obj, w_proto)
+        w_descr = space.lookup(w_obj, '__getnewargs_ex__')
+        hasargs = True
+        if w_descr is not None:
+            w_result = space.get_and_call_function(w_descr, w_obj)
+            w_args, w_kwargs = space.fixedview(w_result, 2)
+        else:
+            w_descr = space.lookup(w_obj, '__getnewargs__')
+            if w_descr is not None:
+                w_args = space.get_and_call_function(w_descr, w_obj)
+            else:
+                hasargs = False
+                w_args = space.newtuple([])
+            w_kwargs = space.w_None
+        w_getstate = space.lookup(w_obj, '__get_state__')
+        if w_getstate is None:
+            required = not hasargs and \
+                       not space.isinstance_w(w_obj, space.w_list) and \
+                       not space.isinstance_w(w_obj, space.w_dict)
+            w_obj_type = space.type(w_obj)
+            if required and w_obj_type.layout.typedef.variable_sized:
+                raise oefmt(space.w_TypeError, "cannot pickle %N objects", w_obj_type)
+        return reduce_2(space, w_obj, w_proto, w_args, w_kwargs)
     return reduce_1(space, w_obj, w_proto)
 
 @unwrap_spec(proto=int)
 def descr__reduce_ex__(space, w_obj, proto=0):
-    w_st_reduce = space.wrap('__reduce__')
+    w_st_reduce = space.newtext('__reduce__')
     w_reduce = space.findattr(w_obj, w_st_reduce)
     if w_reduce is not None:
         # Check if __reduce__ has been overridden:
@@ -218,13 +218,14 @@ def descr__reduce_ex__(space, w_obj, proto=0):
 def descr___format__(space, w_obj, w_format_spec):
     if space.isinstance_w(w_format_spec, space.w_unicode):
         w_as_str = space.call_function(space.w_unicode, w_obj)
-    elif space.isinstance_w(w_format_spec, space.w_str):
+    elif space.isinstance_w(w_format_spec, space.w_bytes):
         w_as_str = space.str(w_obj)
     else:
         raise oefmt(space.w_TypeError, "format_spec must be a string")
     if space.len_w(w_format_spec) > 0:
         raise oefmt(space.w_TypeError,
-                    "non-empty format string passed to object.__format__")
+                     "unsupported format string passed to %T.__format__",
+                     w_obj);
     return space.format(w_as_str, w_format_spec)
 
 def descr__eq__(space, w_self, w_other):

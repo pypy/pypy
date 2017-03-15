@@ -166,6 +166,13 @@ and the callback will not be invoked.  (Issue `#2030`__)
 .. __: https://docs.python.org/2/library/weakref.html
 .. __: https://bitbucket.org/pypy/pypy/issue/2030/
 
+A new difference: before CPython 3.4, a weakref to ``x`` was always
+cleared before the ``x.__del__()`` method was called.  Since CPython 3.4
+the picture is more muddy.  Often, the weakref is still alive while
+``x.__del__()`` runs, but not always (e.g. not in case of reference
+cycles).  In PyPy3 we have kept the more consistent pre-3.4 behavior; we
+can't do something really different if there are cycles or not.
+
 ---------------------------------
 
 There are a few extra implications from the difference in the GC.  Most
@@ -428,11 +435,6 @@ Miscellaneous
   ``datetime.date`` is the superclass of ``datetime.datetime``).
   Anyway, the proper fix is arguably to use a regular method call in
   the first place: ``datetime.date.today().strftime(...)``
-
-* the ``__dict__`` attribute of new-style classes returns a normal dict, as
-  opposed to a dict proxy like in CPython. Mutating the dict will change the
-  type and vice versa. For builtin types, a dictionary will be returned that
-  cannot be changed (but still looks and behaves like a normal dictionary).
   
 * some functions and attributes of the ``gc`` module behave in a
   slightly different way: for example, ``gc.enable`` and
@@ -473,6 +475,31 @@ Miscellaneous
   time and the standard deviation, instead of the minimum, since the minimum is
   often misleading.
 
+* The ``get_config_vars`` method of ``sysconfig`` and ``distutils.sysconfig``
+  are not complete. On POSIX platforms, CPython fishes configuration variables
+  from the Makefile used to build the interpreter. PyPy should bake the values
+  in during compilation, but does not do that yet.
+
+* CPython's ``sys.settrace()`` sometimes reports an ``exception`` at the
+  end of ``for`` or ``yield from`` lines for the ``StopIteration``, and
+  sometimes not.  The problem is that it occurs in an ill-defined subset
+  of cases.  PyPy attempts to emulate that but the precise set of cases
+  is not exactly the same.
+
+* ``"%d" % x`` and ``"%x" % x`` and similar constructs, where ``x`` is
+  an instance of a subclass of ``long`` that overrides the special
+  methods ``__str__`` or ``__hex__`` or ``__oct__``: PyPy doesn't call
+  the special methods; CPython does---but only if it is a subclass of
+  ``long``, not ``int``.  CPython's behavior is really messy: e.g. for
+  ``%x`` it calls ``__hex__()``, which is supposed to return a string
+  like ``-0x123L``; then the ``0x`` and the final ``L`` are removed, and
+  the rest is kept.  If you return an unexpected string from
+  ``__hex__()`` you get an exception (or a crash before CPython 2.7.13).
+
+* PyPy3: ``__class__`` attritube assignment between heaptypes and non heaptypes.
+  CPython allows that for module subtypes, but not for e.g. ``int``
+  or ``float`` subtypes. Currently PyPy does not support the
+  ``__class__`` attribute assignment for any non heaptype subtype.
 
 .. _`is ignored in PyPy`: http://bugs.python.org/issue14621
 .. _`little point`: http://events.ccc.de/congress/2012/Fahrplan/events/5152.en.html

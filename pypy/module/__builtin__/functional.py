@@ -251,10 +251,10 @@ class W_Enumerate(W_Root):
 
         self = space.allocate_instance(W_Enumerate, w_subtype)
         self.__init__(w_iter, start, w_start)
-        return space.wrap(self)
+        return self
 
     def descr___iter__(self, space):
-        return space.wrap(self)
+        return self
 
     def descr_next(self, space):
         from pypy.objspace.std.listobject import W_ListObject
@@ -276,14 +276,14 @@ class W_Enumerate(W_Root):
                 try:
                     newval = rarithmetic.ovfcheck(index + 1)
                 except OverflowError:
-                    w_index = space.wrap(index)
-                    self.w_index = space.add(w_index, space.wrap(1))
+                    w_index = space.newint(index)
+                    self.w_index = space.add(w_index, space.newint(1))
                     self.index = -1
                 else:
                     self.index = newval
-            w_index = space.wrap(index)
+            w_index = space.newint(index)
         else:
-            self.w_index = space.add(w_index, space.wrap(1))
+            self.w_index = space.add(w_index, space.newint(1))
         if w_item is None:
             w_item = space.next(self.w_iter_or_list)
         return space.newtuple([w_index, w_item])
@@ -291,7 +291,7 @@ class W_Enumerate(W_Root):
     def descr___reduce__(self, space):
         w_index = self.w_index
         if w_index is None:
-            w_index = space.wrap(self.index)
+            w_index = space.newint(self.index)
         return space.newtuple([space.type(self),
                                space.newtuple([self.w_iter_or_list, w_index])])
 
@@ -302,7 +302,7 @@ def _make_enumerate(space, w_iter_or_list, w_index):
         w_index = None
     else:
         index = -1
-    return space.wrap(W_Enumerate(w_iter_or_list, index, w_index))
+    return W_Enumerate(w_iter_or_list, index, w_index)
 
 W_Enumerate.typedef = TypeDef("enumerate",
     __new__=interp2app(W_Enumerate.descr___new__),
@@ -333,10 +333,10 @@ class W_ReversedIterator(W_Root):
                         "argument to reversed() must be a sequence")
         self = space.allocate_instance(W_ReversedIterator, w_subtype)
         self.__init__(space, w_sequence)
-        return space.wrap(self)
+        return self
 
     def descr___iter__(self, space):
-        return space.wrap(self)
+        return self
 
     def descr_length_hint(self, space):
         # bah, there is even a CPython test that checks that this
@@ -347,11 +347,11 @@ class W_ReversedIterator(W_Root):
             rem_length = self.remaining + 1
             if rem_length <= total_length:
                 res = rem_length
-        return space.wrap(res)
+        return space.newint(res)
 
     def descr_next(self, space):
         if self.remaining >= 0:
-            w_index = space.wrap(self.remaining)
+            w_index = space.newint(self.remaining)
             try:
                 w_item = space.getitem(self.w_sequence, w_index)
             except OperationError as e:
@@ -373,7 +373,7 @@ class W_ReversedIterator(W_Root):
 
     def descr___reduce__(self, space):
         if self.w_sequence:
-            w_state = space.wrap(self.remaining)
+            w_state = space.newint(self.remaining)
             return space.newtuple([
                 space.type(self),
                 space.newtuple([self.w_sequence]),
@@ -413,7 +413,7 @@ class W_Range(W_Root):
         w_start = space.index(w_start)
         promote_step = False
         if space.is_none(w_step):  # no step argument provided
-            w_step = space.wrap(1)
+            w_step = space.newint(1)
             promote_step = True
         if space.is_none(w_stop):  # only 1 argument provided
             w_start, w_stop = space.newint(0), w_start
@@ -431,15 +431,15 @@ class W_Range(W_Root):
         w_length = compute_range_length(space, w_start, w_stop, w_step)
         obj = space.allocate_instance(W_Range, w_subtype)
         W_Range.__init__(obj, w_start, w_stop, w_step, w_length, promote_step)
-        return space.wrap(obj)
+        return obj
 
     def descr_repr(self, space):
         if not space.is_true(space.eq(self.w_step, space.newint(1))):
-            return space.mod(space.wrap("range(%d, %d, %d)"),
+            return space.mod(space.newtext("range(%d, %d, %d)"),
                              space.newtuple([self.w_start, self.w_stop,
                                              self.w_step]))
         else:
-            return space.mod(space.wrap("range(%d, %d)"),
+            return space.mod(space.newtext("range(%d, %d)"),
                              space.newtuple([self.w_start, self.w_stop]))
 
     def descr_len(self):
@@ -473,7 +473,7 @@ class W_Range(W_Root):
 
         w_length = compute_range_length(space, w_substart, w_substop, w_substep)
         obj = W_Range(w_substart, w_substop, w_substep, w_length)
-        return space.wrap(obj)
+        return obj
 
     def descr_getitem(self, space, w_index):
         # Cannot use the usual space.decode_index methods, because
@@ -504,8 +504,8 @@ class W_Range(W_Root):
             self.w_start,
             space.mul(space.sub(self.w_length, space.newint(1)),
                       self.w_step))
-        return space.wrap(W_LongRangeIterator(
-                space, w_lastitem, space.neg(self.w_step), self.w_length))
+        return W_LongRangeIterator(
+                space, w_lastitem, space.neg(self.w_step), self.w_length)
 
     def descr_reduce(self, space):
         return space.newtuple(
@@ -564,18 +564,18 @@ class W_Range(W_Root):
             return space.w_NotImplemented
         if not space.eq_w(self.w_length, w_other.w_length):
             return space.w_False
-        if space.eq_w(self.w_length, space.wrap(0)):
+        if space.eq_w(self.w_length, space.newint(0)):
             return space.w_True
         if not space.eq_w(self.w_start, w_other.w_start):
             return space.w_False
-        if space.eq_w(self.w_length, space.wrap(1)):
+        if space.eq_w(self.w_length, space.newint(1)):
             return space.w_True
         return space.eq(self.w_step, w_other.w_step)
 
     def descr_hash(self, space):
-        if space.eq_w(self.w_length, space.wrap(0)):
+        if space.eq_w(self.w_length, space.newint(0)):
             w_tup = space.newtuple([self.w_length, space.w_None, space.w_None])
-        elif space.eq_w(self.w_length, space.wrap(1)):
+        elif space.eq_w(self.w_length, space.newint(1)):
             w_tup = space.newtuple([self.w_length, self.w_start, space.w_None])
         else:
             w_tup = space.newtuple([self.w_length, self.w_start, self.w_step])
@@ -605,7 +605,7 @@ W_Range.typedef.acceptable_as_base_class = False
 class W_AbstractRangeIterator(W_Root):
 
     def descr_iter(self, space):
-        return space.wrap(self)
+        return self
 
     def descr_len(self, space):
         raise NotImplementedError
@@ -662,7 +662,7 @@ class W_IntRangeIterator(W_AbstractRangeIterator):
             item = self.current
             self.current = item + self.step
             self.remaining -= 1
-            return space.wrap(item)
+            return space.newint(item)
         raise OperationError(space.w_StopIteration, space.w_None)
 
     def descr_len(self, space):
@@ -673,14 +673,13 @@ class W_IntRangeIterator(W_AbstractRangeIterator):
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('intrangeiter_new')
-        w        = space.wrap
         nt = space.newtuple
 
-        tup = [w(self.current), self.get_remaining(space), w(self.step)]
+        tup = [space.newint(self.current), self.get_remaining(space), space.newint(self.step)]
         return nt([new_inst, nt(tup)])
 
     def get_remaining(self, space):
-        return space.wrap(self.remaining)
+        return space.newint(self.remaining)
 
 
 class W_IntRangeStepOneIterator(W_IntRangeIterator):
@@ -695,11 +694,11 @@ class W_IntRangeStepOneIterator(W_IntRangeIterator):
         if self.current < self.stop:
             item = self.current
             self.current = item + 1
-            return space.wrap(item)
+            return space.newint(item)
         raise OperationError(space.w_StopIteration, space.w_None)
 
     def get_remaining(self, space):
-        return space.wrap(self.stop - self.current)
+        return space.newint(self.stop - self.current)
 
 
 W_AbstractRangeIterator.typedef = TypeDef("rangeiterator",
@@ -739,7 +738,7 @@ class W_Map(W_Root):
         self.iterators_w = iterators_w
 
     def iter_w(self):
-        return self.space.wrap(self)
+        return self
 
     def next_w(self):
         # common case: 1 or 2 arguments
@@ -764,7 +763,7 @@ class W_Map(W_Root):
 
     def descr_reduce(self, space):
         w_map = space.getattr(space.getbuiltinmodule('builtins'),
-                space.wrap('map'))
+                space.newtext('map'))
         args_w = [self.w_fun] + self.iterators_w
         return space.newtuple([w_map, space.newtuple(args_w)])
 
@@ -775,7 +774,7 @@ def W_Map___new__(space, w_subtype, w_fun, args_w):
                     "map() must have at least two arguments")
     r = space.allocate_instance(W_Map, w_subtype)
     r.__init__(space, w_fun, args_w)
-    return space.wrap(r)
+    return r
 
 W_Map.typedef = TypeDef(
         'map',
@@ -800,7 +799,7 @@ class W_Filter(W_Root):
         self.iterable = space.iter(w_iterable)
 
     def iter_w(self):
-        return self.space.wrap(self)
+        return self
 
     def next_w(self):
         while True:
@@ -815,7 +814,7 @@ class W_Filter(W_Root):
 
     def descr_reduce(self, space):
         w_filter = space.getattr(space.getbuiltinmodule('builtins'),
-                space.wrap('filter'))
+                space.newtext('filter'))
         args_w = [space.w_None if self.no_predicate else self.w_predicate,
                   self.iterable]
         return space.newtuple([w_filter, space.newtuple(args_w)])
@@ -824,7 +823,7 @@ class W_Filter(W_Root):
 def W_Filter___new__(space, w_subtype, w_predicate, w_iterable):
     r = space.allocate_instance(W_Filter, w_subtype)
     r.__init__(space, w_predicate, w_iterable)
-    return space.wrap(r)
+    return r
 
 W_Filter.typedef = TypeDef(
         'filter',
@@ -850,14 +849,14 @@ class W_Zip(W_Map):
 
     def descr_reduce(self, space):
         w_zip = space.getattr(space.getbuiltinmodule('builtins'),
-                space.wrap('zip'))
+                space.newtext('zip'))
         return space.newtuple([w_zip, space.newtuple(self.iterators_w)])
 
 
 def W_Zip___new__(space, w_subtype, args_w):
     r = space.allocate_instance(W_Zip, w_subtype)
     r.__init__(space, None, args_w)
-    return space.wrap(r)
+    return r
 
 W_Zip.typedef = TypeDef(
         'zip',

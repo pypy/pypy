@@ -7,6 +7,7 @@ class Module(MixedModule):
     interpleveldefs = {
         'warn'         : 'interp_warnings.warn',
         'warn_explicit': 'interp_warnings.warn_explicit',
+        '_filters_mutated': 'interp_warnings.filters_mutated',
     }
 
     appleveldefs = {

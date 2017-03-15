@@ -89,6 +89,7 @@ __all__ = [
     "bigmemtest", "bigaddrspacetest", "cpython_only", "get_attribute",
     "requires_IEEE_754", "skip_unless_xattr", "requires_zlib",
     "anticipate_failure", "load_package_tests", "detect_api_mismatch",
+     "requires_multiprocessing_queue",
     # sys
     "is_jython", "check_impl_detail",
     # network
@@ -100,7 +101,8 @@ __all__ = [
     # threads
     "threading_setup", "threading_cleanup", "reap_threads", "start_threads",
     # miscellaneous
-    "check_warnings", "EnvironmentVarGuard", "run_with_locale", "swap_item",
+    "check_warnings", "check_no_resource_warning", "EnvironmentVarGuard",
+    "run_with_locale", "swap_item",
     "swap_attr", "Matcher", "set_memlimit", "SuppressCrashReport", "sortdict",
     "run_with_tz",
     ]
@@ -295,6 +297,16 @@ def unload(name):
     except KeyError:
         pass
 
+def _force_run(path, func, *args):
+    try:
+        return func(*args)
+    except OSError as err:
+        if verbose >= 2:
+            print('%s: %s' % (err.__class__.__name__, err))
+            print('re-run %s%r' % (func.__name__, args))
+        os.chmod(path, stat.S_IRWXU)
+        return func(*args)
+
 if sys.platform.startswith("win"):
     def _waitfor(func, pathname, waitall=False):
         # Perform the operation
@@ -337,7 +349,7 @@ if sys.platform.startswith("win"):
 
     def _rmtree(path):
         def _rmtree_inner(path):
-            for name in os.listdir(path):
+            for name in _force_run(path, os.listdir, path):
                 fullname = os.path.join(path, name)
                 try:
                     mode = os.lstat(fullname).st_mode
@@ -347,15 +359,36 @@ if sys.platform.startswith("win"):
                     mode = 0
                 if stat.S_ISDIR(mode):
                     _waitfor(_rmtree_inner, fullname, waitall=True)
-                    os.rmdir(fullname)
+                    _force_run(fullname, os.rmdir, fullname)
                 else:
-                    os.unlink(fullname)
+                    _force_run(fullname, os.unlink, fullname)
         _waitfor(_rmtree_inner, path, waitall=True)
-        _waitfor(os.rmdir, path)
+        _waitfor(lambda p: _force_run(p, os.rmdir, p), path)
 else:
     _unlink = os.unlink
     _rmdir = os.rmdir
-    _rmtree = shutil.rmtree
+
+    def _rmtree(path):
+        try:
+            shutil.rmtree(path)
+            return
+        except OSError:
+            pass
+
+        def _rmtree_inner(path):
+            for name in _force_run(path, os.listdir, path):
+                fullname = os.path.join(path, name)
+                try:
+                    mode = os.lstat(fullname).st_mode
+                except OSError:
+                    mode = 0
+                if stat.S_ISDIR(mode):
+                    _rmtree_inner(fullname)
+                    _force_run(path, os.rmdir, fullname)
+                else:
+                    _force_run(path, os.unlink, fullname)
+        _rmtree_inner(path)
+        os.rmdir(path)
 
 def unlink(filename):
     try:
@@ -463,6 +496,7 @@ def _is_gui_available():
         try:
             from tkinter import Tk
             root = Tk()
+            root.withdraw()
             root.update()
             root.destroy()
         except Exception as e:
@@ -487,12 +521,12 @@ def is_resource_enabled(resource):
 
 def requires(resource, msg=None):
     """Raise ResourceDenied if the specified resource is not available."""
-    if resource == 'gui' and not _is_gui_available():
-        raise ResourceDenied(_is_gui_available.reason)
     if not is_resource_enabled(resource):
         if msg is None:
             msg = "Use of the %r resource not enabled" % resource
         raise ResourceDenied(msg)
+    if resource == 'gui' and not _is_gui_available():
+        raise ResourceDenied(_is_gui_available.reason)
 
 def _requires_unix_version(sysname, min_version):
     """Decorator raising SkipTest if the OS is `sysname` and the version is less
@@ -899,7 +933,7 @@ def temp_dir(path=None, quiet=False):
         yield path
     finally:
         if dir_created:
-            shutil.rmtree(path)
+            rmtree(path)
 
 @contextlib.contextmanager
 def change_cwd(path, quiet=False):
@@ -1007,9 +1041,18 @@ def make_bad_fd():
         file.close()
         unlink(TESTFN)
 
-def check_syntax_error(testcase, statement):
-    testcase.assertRaises(SyntaxError, compile, statement,
-                          '<test string>', 'exec')
+def check_syntax_error(testcase, statement, *, lineno=None, offset=None):
+    with testcase.assertRaises(SyntaxError) as cm:
+        compile(statement, '<test string>', 'exec')
+    err = cm.exception
+    testcase.assertIsNotNone(err.lineno)
+    if lineno is not None:
+        testcase.assertEqual(err.lineno, lineno)
+    testcase.assertIsNotNone(err.offset)
+    # Don't check the offset on PyPy, it can often be slightly different
+    # than on CPython
+    if offset is not None and check_impl_detail():
+        testcase.assertEqual(err.offset, offset)
 
 def open_urlresource(url, *args, **kw):
     import urllib.request, urllib.parse
@@ -1145,6 +1188,27 @@ def check_warnings(*filters, **kwargs):
         if quiet is None:
             quiet = True
     return _filterwarnings(filters, quiet)
+
+
+@contextlib.contextmanager
+def check_no_resource_warning(testcase):
+    """Context manager to check that no ResourceWarning is emitted.
+
+    Usage:
+
+        with check_no_resource_warning(self):
+            f = open(...)
+            ...
+            del f
+
+    You must remove the object which may emit ResourceWarning before
+    the end of the context manager.
+    """
+    with warnings.catch_warnings(record=True) as warns:
+        warnings.filterwarnings('always', category=ResourceWarning)
+        yield
+        gc_collect()
+    testcase.assertEqual(warns, [])
 
 
 class CleanImport(object):
@@ -1327,7 +1391,8 @@ def transient_internet(resource_name, *, timeout=30.0, errnos=()):
              500 <= err.code <= 599) or
             (isinstance(err, urllib.error.URLError) and
                  (("ConnectionRefusedError" in err.reason) or
-                  ("TimeoutError" in err.reason))) or
+                  ("TimeoutError" in err.reason) or
+                  ("EOFError" in err.reason))) or
             n in captured_errnos):
             if not verbose:
                 sys.stderr.write(denied.args[0] + "\n")
@@ -1707,6 +1772,22 @@ def impl_detail(msg=None, **guards):
         msg = msg.format(' or '.join(guardnames))
     return unittest.skip(msg)
 
+_have_mp_queue = None
+def requires_multiprocessing_queue(test):
+    """Skip decorator for tests that use multiprocessing.Queue."""
+    global _have_mp_queue
+    if _have_mp_queue is None:
+        import multiprocessing
+        # Without a functioning shared semaphore implementation attempts to
+        # instantiate a Queue will result in an ImportError (issue #3770).
+        try:
+            multiprocessing.Queue()
+            _have_mp_queue = True
+        except ImportError:
+            _have_mp_queue = False
+    msg = "requires a functioning shared semaphore implementation"
+    return test if _have_mp_queue else unittest.skip(msg)(test)
+
 def _parse_guards(guards):
     # Returns a tuple ({platform_name: run_me}, default_value)
     if not guards:
@@ -2046,6 +2127,9 @@ def strip_python_stderr(stderr):
     stderr = re.sub(br"\[\d+ refs, \d+ blocks\]\r?\n?", b"", stderr).strip()
     return stderr
 
+requires_type_collecting = unittest.skipIf(hasattr(sys, 'getcounts'),
+                        'types are immortal if COUNT_ALLOCS is defined')
+
 def args_from_interpreter_flags():
     """Return a list of command-line arguments reproducing the current
     settings in sys.flags and sys.warnoptions."""
@@ -2344,3 +2428,22 @@ def run_in_subinterp(code):
                                      "memory allocations")
     import _testcapi
     return _testcapi.run_in_subinterp(code)
+
+
+def check_free_after_iterating(test, iter, cls, args=()):
+    class A(cls):
+        def __del__(self):
+            nonlocal done
+            done = True
+            try:
+                next(it)
+            except StopIteration:
+                pass
+
+    done = False
+    it = iter(A(*args))
+    # Issue 26494: Shouldn't crash
+    test.assertRaises(StopIteration, next, it)
+    # The sequence should be deallocated just after the end of iterating
+    gc_collect()
+    test.assertTrue(done)

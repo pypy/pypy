@@ -19,9 +19,8 @@ optional arguments:
                         Give the virtual environment access to the system
                         site-packages dir.
   --symlinks            Attempt to symlink rather than copy.
-  --clear               Delete the environment directory if it already exists.
-                        If not specified and the directory exists, an error is
-                        raised.
+  --clear               Delete the contents of the environment directory if it
+                        already exists, before environment creation.
   --upgrade             Upgrade the environment directory to use this version
                         of Python, assuming Python has been upgraded in-place.
   --without-pip         Skips installing or upgrading pip in the virtual
@@ -52,9 +51,8 @@ class EnvBuilder:
 
     :param system_site_packages: If True, the system (global) site-packages
                                  dir is available to created environments.
-    :param clear: If True and the target directory exists, it is deleted.
-                  Otherwise, if the target directory exists, an error is
-                  raised.
+    :param clear: If True, delete the contents of the environment directory if
+                  it already exists, before environment creation.
     :param symlinks: If True, attempt to symlink rather than copy files into
                      virtual environment.
     :param upgrade: If True, upgrade an existing virtual environment.
@@ -121,6 +119,16 @@ class EnvBuilder:
             executable = os.environ['__PYVENV_LAUNCHER__']
         else:
             executable = sys.executable
+        #
+        # PyPy extension: resolve 'executable' if it is a symlink
+        try:
+            for i in range(10):
+                executable = os.path.abspath(executable)
+                executable = os.path.join(os.path.dirname(executable),
+                                          os.readlink(executable))
+        except OSError:
+            pass
+        #
         dirname, exename = os.path.split(os.path.abspath(executable))
         context.executable = executable
         context.python_dir = dirname
@@ -219,6 +227,19 @@ class EnvBuilder:
                     copier(context.env_exe, path, relative_symlinks_ok=True)
                     if not os.path.islink(path):
                         os.chmod(path, 0o755)
+            #
+            # PyPy extension: also copy the main library, not just the
+            # small executable
+            for libname in ['libpypy3-c.so', 'libpypy3-c.dylib']:
+                dest_library = os.path.join(binpath, libname)
+                src_library = os.path.join(os.path.dirname(context.executable),
+                                           libname)
+                if (not os.path.exists(dest_library) and
+                        os.path.exists(src_library)):
+                    copier(src_library, dest_library)
+                    if not os.path.islink(dest_library):
+                        os.chmod(dest_library, 0o755)
+            #
         else:
             subdir = 'DLLs'
             include = self.include_binary
@@ -361,9 +382,8 @@ def create(env_dir, system_site_packages=False, clear=False,
     :param env_dir: The target directory to create an environment in.
     :param system_site_packages: If True, the system (global) site-packages
                                  dir is available to the environment.
-    :param clear: If True and the target directory exists, it is deleted.
-                  Otherwise, if the target directory exists, an error is
-                  raised.
+    :param clear: If True, delete the contents of the environment directory if
+                  it already exists, before environment creation.
     :param symlinks: If True, attempt to symlink rather than copy files into
                      virtual environment.
     :param with_pip: If True, ensure pip is installed in the virtual

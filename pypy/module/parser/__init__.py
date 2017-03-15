@@ -10,8 +10,8 @@ class Module(MixedModule):
     }
 
     interpleveldefs = {
-        '__name__'     : '(space.wrap("parser"))',
-        '__doc__'      : '(space.wrap("parser module"))',
+        '__name__'     : '(space.newtext("parser"))',
+        '__doc__'      : '(space.newtext("parser module"))',
         'suite'        : 'pyparser.suite',
         'expr'         : 'pyparser.expr',
         'issuite'      : 'pyparser.issuite',

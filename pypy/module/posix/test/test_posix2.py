@@ -7,13 +7,14 @@ import signal
 
 from rpython.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
+from pypy.interpreter.gateway import interp2app
 from rpython.translator.c.test.test_extfunc import need_sparse_files
 from rpython.rlib import rposix
 
 USEMODULES = ['binascii', 'posix', 'signal', 'struct', 'time']
 # py3k os.open uses subprocess, requiring the following per platform
 if os.name != 'nt':
-    USEMODULES += ['fcntl', 'select', '_posixsubprocess']
+    USEMODULES += ['fcntl', 'select', '_posixsubprocess', '_socket']
 else:
     USEMODULES += ['_rawffi', 'thread']
 
@@ -159,11 +160,14 @@ class AppTestPosix:
             st = posix.stat(path)
             assert isinstance(st.st_mtime, float)
             assert st[7] == int(st.st_atime)
+            assert posix.stat_float_times(-1) is True
 
             posix.stat_float_times(False)
             st = posix.stat(path)
             assert isinstance(st.st_mtime, int)
             assert st[7] == st.st_atime
+            assert posix.stat_float_times(-1) is False
+
         finally:
             posix.stat_float_times(current)
 
@@ -172,7 +176,7 @@ class AppTestPosix:
         assert st.st_atime == 41
         assert st.st_mtime == 42.1
         assert st.st_ctime == 43
-        assert repr(st).startswith(self.posix.__name__ + '.stat_result')
+        assert repr(st).startswith('os.stat_result')
 
     def test_stat_lstat(self):
         import stat
@@ -198,6 +202,8 @@ class AppTestPosix:
         excinfo = raises(TypeError, self.posix.stat, 2.)
         assert "should be string, bytes or integer, not float" in str(excinfo.value)
         raises(ValueError, self.posix.stat, -1)
+        raises(ValueError, self.posix.stat, b"abc\x00def")
+        raises(ValueError, self.posix.stat, u"abc\x00def")
 
     if hasattr(__import__(os.name), "statvfs"):
         def test_statvfs(self):
@@ -356,11 +362,11 @@ class AppTestPosix:
         pdir = self.pdir + '/file1'
         posix = self.posix
 
-        assert posix.access(pdir, posix.R_OK)
-        assert posix.access(pdir, posix.W_OK)
+        assert posix.access(pdir, posix.R_OK) is True
+        assert posix.access(pdir, posix.W_OK) is True
         import sys
         if sys.platform != "win32":
-            assert not posix.access(pdir, posix.X_OK)
+            assert posix.access(pdir, posix.X_OK) is False
 
     def test_times(self):
         """
@@ -558,11 +564,10 @@ class AppTestPosix:
 
     def test_utime(self):
         os = self.posix
-        from os.path import join
         # XXX utimes & float support
-        path = join(self.pdir, "test_utime.txt")
-        fh = open(path, "w")
-        fh.write("x")
+        path = self.path2 + "test_utime.txt"
+        fh = open(path, "wb")
+        fh.write(b"x")
         fh.close()
         from time import time, sleep
         t0 = time()
@@ -816,19 +821,44 @@ class AppTestPosix:
         def test_fchdir(self):
             os = self.posix
             localdir = os.getcwd()
-            try:
-                os.mkdir(self.path2 + 'dir')
-                fd = os.open(self.path2 + 'dir', os.O_RDONLY)
+            os.mkdir(self.path2 + 'fchdir')
+            for func in [os.fchdir, os.chdir]:
                 try:
-                    os.fchdir(fd)
-                    mypath = os.getcwd()
+                    fd = os.open(self.path2 + 'fchdir', os.O_RDONLY)
+                    try:
+                        func(fd)
+                        mypath = os.getcwd()
+                    finally:
+                        os.close(fd)
+                    assert mypath.endswith('test_posix2-fchdir')
+                    raises(OSError, func, fd)
                 finally:
-                    os.close(fd)
-                assert mypath.endswith('test_posix2-dir')
-                raises(OSError, os.fchdir, fd)
-                raises(ValueError, os.fchdir, -1)
+                    os.chdir(localdir)
+            raises(ValueError, os.fchdir, -1)
+
+    if hasattr(rposix, 'pread'):
+        def test_os_pread(self):
+            os = self.posix
+            fd = os.open(self.path2 + 'test_os_pread', os.O_RDWR | os.O_CREAT)
+            try:
+                os.write(fd, b'test')
+                os.lseek(fd, 0, 0)
+                assert os.pread(fd, 2, 1) == b'es'
+                assert os.read(fd, 2) == b'te'
             finally:
-                os.chdir(localdir)
+                os.close(fd)
+
+    if hasattr(rposix, 'pwrite'):
+        def test_os_pwrite(self):
+            os = self.posix
+            fd = os.open(self.path2 + 'test_os_pwrite', os.O_RDWR | os.O_CREAT)
+            try:
+                os.write(fd, b'test')
+                os.lseek(fd, 0, 0)
+                os.pwrite(fd, b'xx', 1)
+                assert os.read(fd, 4) == b'txxt'
+            finally:
+                os.close(fd)
 
     def test_largefile(self):
         os = self.posix
@@ -846,6 +876,31 @@ class AppTestPosix:
         st = os.stat(self.path2 + 'test_largefile')
         assert st.st_size == 10000000000
     test_largefile.need_sparse_files = True
+
+    if hasattr(rposix, 'getpriority'):
+        def test_os_set_get_priority(self):
+            posix, os = self.posix, self.os
+            childpid = os.fork()
+            if childpid == 0:
+                # in the child (avoids changing the priority of the parent
+                # process)
+                orig_priority = posix.getpriority(posix.PRIO_PROCESS,
+                                                  os.getpid())
+                orig_grp_priority = posix.getpriority(posix.PRIO_PGRP,
+                                                      os.getpgrp())
+                posix.setpriority(posix.PRIO_PROCESS, os.getpid(),
+                                  orig_priority + 1)
+                new_priority = posix.getpriority(posix.PRIO_PROCESS,
+                                                 os.getpid())
+                assert new_priority == orig_priority + 1
+                assert posix.getpriority(posix.PRIO_PGRP, os.getpgrp()) == (
+                    orig_grp_priority)
+                os._exit(0)    # ok
+            #
+            pid1, status1 = os.waitpid(childpid, 0)
+            assert pid1 == childpid
+            assert os.WIFEXITED(status1)
+            assert os.WEXITSTATUS(status1) == 0   # else, test failure
 
     def test_write_buffer(self):
         os = self.posix
@@ -907,53 +962,51 @@ class AppTestPosix:
 
     if hasattr(os, 'chown'):
         def test_chown(self):
+            my_path = self.path2 + 'test_chown'
             os = self.posix
-            os.unlink(self.path)
-            raises(OSError, os.chown, self.path, os.getuid(), os.getgid())
-            f = open(self.path, "w")
-            f.write("this is a test")
-            f.close()
-            os.chown(self.path, os.getuid(), os.getgid())
+            raises(OSError, os.chown, my_path, os.getuid(), os.getgid())
+            open(my_path, 'w').close()
+            os.chown(my_path, os.getuid(), os.getgid())
 
     if hasattr(os, 'lchown'):
         def test_lchown(self):
+            my_path = self.path2 + 'test_lchown'
             os = self.posix
-            os.unlink(self.path)
-            raises(OSError, os.lchown, self.path, os.getuid(), os.getgid())
-            os.symlink('foobar', self.path)
-            os.lchown(self.path, os.getuid(), os.getgid())
+            raises(OSError, os.lchown, my_path, os.getuid(), os.getgid())
+            os.symlink('foobar', my_path)
+            os.lchown(my_path, os.getuid(), os.getgid())
 
     if hasattr(os, 'fchown'):
         def test_fchown(self):
+            my_path = self.path2 + 'test_fchown'
             os = self.posix
-            f = open(self.path, "w")
+            f = open(my_path, "w")
             os.fchown(f.fileno(), os.getuid(), os.getgid())
             f.close()
 
     if hasattr(os, 'chmod'):
         def test_chmod(self):
             import sys
+            my_path = self.path2 + 'test_chmod'
             os = self.posix
-            os.unlink(self.path)
-            raises(OSError, os.chmod, self.path, 0o600)
-            f = open(self.path, "w")
-            f.write("this is a test")
-            f.close()
+            raises(OSError, os.chmod, my_path, 0o600)
+            open(my_path, "w").close()
             if sys.platform == 'win32':
-                os.chmod(self.path, 0o400)
-                assert (os.stat(self.path).st_mode & 0o600) == 0o400
+                os.chmod(my_path, 0o400)
+                assert (os.stat(my_path).st_mode & 0o600) == 0o400
             else:
-                os.chmod(self.path, 0o200)
-                assert (os.stat(self.path).st_mode & 0o777) == 0o200
+                os.chmod(my_path, 0o200)
+                assert (os.stat(my_path).st_mode & 0o777) == 0o200
 
     if hasattr(os, 'fchmod'):
         def test_fchmod(self):
+            my_path = self.path2 + 'test_fchmod'
             os = self.posix
-            f = open(self.path, "w")
+            f = open(my_path, "w")
             os.fchmod(f.fileno(), 0o200)
             assert (os.fstat(f.fileno()).st_mode & 0o777) == 0o200
             f.close()
-            assert (os.stat(self.path).st_mode & 0o777) == 0o200
+            assert (os.stat(my_path).st_mode & 0o777) == 0o200
 
     if hasattr(os, 'mkfifo'):
         def test_mkfifo(self):
@@ -1065,6 +1118,10 @@ class AppTestPosix:
             posix.truncate(dest, 1)
             assert 1 == posix.stat(dest).st_size
 
+            # File does not exist
+            e = raises(OSError, posix.truncate, dest + '-DOESNT-EXIST', 0)
+            assert e.value.filename == dest + '-DOESNT-EXIST'
+
     try:
         os.getlogin()
     except (AttributeError, OSError):
@@ -1151,6 +1208,41 @@ class AppTestPosix:
             assert posix.get_blocking(fd) is True
             posix.close(fd)
 
+        def test_blocking_error(self):
+            posix = self.posix
+            raises(OSError, posix.get_blocking, 1234567)
+            raises(OSError, posix.set_blocking, 1234567, True)
+
+    if sys.platform != 'win32':
+        def test_sendfile(self):
+            import _socket, posix
+            s1, s2 = _socket.socketpair()
+            fd = posix.open(self.path, posix.O_RDONLY)
+            res = posix.sendfile(s1.fileno(), fd, 3, 5)
+            assert res == 5
+            assert posix.lseek(fd, 0, 1) == 0
+            data = s2.recv(10)
+            expected = b'this is a test'[3:8]
+            assert data == expected
+            posix.close(fd)
+            s2.close()
+            s1.close()
+
+    if sys.platform.startswith('linux'):
+        def test_sendfile_no_offset(self):
+            import _socket, posix
+            s1, s2 = _socket.socketpair()
+            fd = posix.open(self.path, posix.O_RDONLY)
+            posix.lseek(fd, 3, 0)
+            res = posix.sendfile(s1.fileno(), fd, None, 5)
+            assert res == 5
+            assert posix.lseek(fd, 0, 1) == 8
+            data = s2.recv(10)
+            expected = b'this is a test'[3:8]
+            assert data == expected
+            posix.close(fd)
+            s2.close()
+            s1.close()
 
     def test_urandom(self):
         os = self.posix
@@ -1216,6 +1308,20 @@ class AppTestPosix:
         self.posix.RTLD_NOW
         self.posix.RTLD_GLOBAL
         self.posix.RTLD_LOCAL
+
+    def test_error_message(self):
+        e = raises(OSError, self.posix.open, 'nonexistentfile1', 0)
+        assert str(e.value).endswith(": 'nonexistentfile1'")
+
+        e = raises(OSError, self.posix.link, 'nonexistentfile1', 'bok')
+        assert str(e.value).endswith(": 'nonexistentfile1' -> 'bok'")
+        e = raises(OSError, self.posix.rename, 'nonexistentfile1', 'bok')
+        assert str(e.value).endswith(": 'nonexistentfile1' -> 'bok'")
+        e = raises(OSError, self.posix.replace, 'nonexistentfile1', 'bok')
+        assert str(e.value).endswith(": 'nonexistentfile1' -> 'bok'")
+
+        e = raises(OSError, self.posix.symlink, 'bok', '/nonexistentdir/boz')
+        assert str(e.value).endswith(": 'bok' -> '/nonexistentdir/boz'")
 
 
 class AppTestEnvironment(object):
@@ -1345,3 +1451,40 @@ class AppTestFdVariants:
         if os.name == 'posix':
             assert os.open in os.supports_dir_fd  # openat()
 
+
+class AppTestPep475Retry:
+    spaceconfig = {'usemodules': USEMODULES}
+
+    def setup_class(cls):
+        if os.name != 'posix':
+            skip("xxx tests are posix-only")
+        if cls.runappdirect:
+            skip("xxx does not work with -A")
+
+        def fd_data_after_delay(space):
+            g = os.popen("sleep 5 && echo hello", "r")
+            cls._keepalive_g = g
+            return space.wrap(g.fileno())
+
+        cls.w_posix = space.appexec([], GET_POSIX)
+        cls.w_fd_data_after_delay = cls.space.wrap(
+            interp2app(fd_data_after_delay))
+
+    def test_pep475_retry_read(self):
+        import _signal as signal
+        signalled = []
+
+        def foo(*args):
+            signalled.append("ALARM")
+
+        signal.signal(signal.SIGALRM, foo)
+        try:
+            fd = self.fd_data_after_delay()
+            signal.alarm(1)
+            got = self.posix.read(fd, 100)
+            self.posix.close(fd)
+        finally:
+            signal.signal(signal.SIGALRM, signal.SIG_DFL)
+
+        assert signalled != []
+        assert got.startswith(b'h')

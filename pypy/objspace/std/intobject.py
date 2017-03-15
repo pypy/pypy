@@ -58,7 +58,7 @@ class W_AbstractIntObject(W_Root):
         return space.newlong_from_rbigint(b)
 
     @staticmethod
-    @unwrap_spec(byteorder=str, signed=bool)
+    @unwrap_spec(byteorder='text', signed=bool)
     def descr_from_bytes(space, w_inttype, w_obj, byteorder, signed=False):
         """int.from_bytes(bytes, byteorder, *, signed=False) -> int
 
@@ -89,17 +89,15 @@ class W_AbstractIntObject(W_Root):
         try:
             as_int = bigint.toint()
         except OverflowError:
-            from pypy.objspace.std.longobject import newbigint
-            return newbigint(space, w_inttype, bigint)
+            w_obj = space.newlong_from_rbigint(bigint)
         else:
-            if space.is_w(w_inttype, space.w_int):
-                # common case
-                return wrapint(space, as_int)
-            w_obj = space.allocate_instance(W_IntObject, w_inttype)
-            W_IntObject.__init__(w_obj, as_int)
-            return w_obj
+            w_obj = space.newint(as_int)
+        if not space.is_w(w_inttype, space.w_int):
+            # That's what from_bytes() does in CPython 3.5.2 too
+            w_obj = space.call_function(w_inttype, w_obj)
+        return w_obj
 
-    @unwrap_spec(nbytes=int, byteorder=str, signed=bool)
+    @unwrap_spec(nbytes=int, byteorder='text', signed=bool)
     def descr_to_bytes(self, space, nbytes, byteorder, signed=False):
         """to_bytes(...)
         int.to_bytes(length, byteorder, *, signed=False) -> bytes
@@ -312,7 +310,7 @@ def _truediv(space, x, y):
     # floating-point division
     a = float(x)
     b = float(y)
-    return space.wrap(a / b)
+    return space.newfloat(a / b)
 
 
 def _mod(space, x, y):
@@ -330,8 +328,7 @@ def _divmod(space, x, y):
         raise oefmt(space.w_ZeroDivisionError, "integer divmod by zero")
     # no overflow possible
     m = x % y
-    w = space.wrap
-    return space.newtuple([w(z), w(m)])
+    return space.newtuple([space.newint(z), space.newint(m)])
 
 
 def _divmod_ovf2small(space, x, y):
@@ -380,7 +377,7 @@ def _pow(space, iv, iw, iz):
     """Helper for pow"""
     if iw < 0:
         if iz != 0:
-            raise oefmt(space.w_TypeError,
+            raise oefmt(space.w_ValueError,
                         "pow() 2nd argument cannot be negative when 3rd "
                         "argument specified")
         # bounce it, since it always returns float
@@ -521,7 +518,7 @@ class W_IntObject(W_AbstractIntObject):
         return _new_int(space, w_inttype, w_x, w_base)
 
     def descr_hash(self, space):
-        return space.wrap(_hash_int(self.intval))
+        return space.newint(_hash_int(self.intval))
 
     def as_w_long(self, space):
         return space.newlong(self.intval)
@@ -566,11 +563,11 @@ class W_IntObject(W_AbstractIntObject):
         while val:
             bits += 1
             val >>= 1
-        return space.wrap(bits)
+        return space.newint(bits)
 
     def descr_repr(self, space):
         res = str(self.intval)
-        return space.wrap(res)
+        return space.newtext(res)
     descr_str = func_with_new_name(descr_repr, 'descr_str')
 
     def descr_format(self, space, w_format_spec):
@@ -608,7 +605,7 @@ class W_IntObject(W_AbstractIntObject):
             result = _pow(space, x, y, z)
         except (OverflowError, ValueError):
             return _pow_ovf2long(space, x, y, w_modulus)
-        return space.wrap(result)
+        return space.newint(result)
 
     @unwrap_spec(w_modulus=WrappedDefault(None))
     def descr_rpow(self, space, w_base, w_modulus=None):

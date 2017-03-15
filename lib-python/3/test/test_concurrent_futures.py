@@ -4,7 +4,7 @@ import test.support
 test.support.import_module('_multiprocessing')
 # Skip tests if sem_open implementation is broken.
 test.support.import_module('multiprocessing.synchronize')
-# import threading after _multiprocessing to raise a more revelant error
+# import threading after _multiprocessing to raise a more relevant error
 # message: "No module named _multiprocessing". _multiprocessing is not compiled
 # without thread support.
 test.support.import_module('threading')
@@ -683,7 +683,7 @@ class FutureTests(unittest.TestCase):
         self.assertEqual(SUCCESSFUL_FUTURE.result(timeout=0), 42)
 
     def test_result_with_success(self):
-        # TODO(brian@sweetapp.com): This test is timing dependant.
+        # TODO(brian@sweetapp.com): This test is timing dependent.
         def notification():
             # Wait until the main thread is waiting for the result.
             time.sleep(1)
@@ -696,7 +696,7 @@ class FutureTests(unittest.TestCase):
         self.assertEqual(f1.result(timeout=5), 42)
 
     def test_result_with_cancel(self):
-        # TODO(brian@sweetapp.com): This test is timing dependant.
+        # TODO(brian@sweetapp.com): This test is timing dependent.
         def notification():
             # Wait until the main thread is waiting for the result.
             time.sleep(1)

@@ -75,6 +75,9 @@ def setup_directory_structure(cls):
              abs_sys    = "import sys",
              struct     = "inpackage = 1",
              errno      = "",
+             # Python 3 note: this __future__ has no effect any more,
+             # kept around for testing and to avoid increasing the diff
+             # with PyPy2
              absolute   = "from __future__ import absolute_import\nimport struct",
              relative_b = "from __future__ import absolute_import\nfrom . import struct",
              relative_c = "from __future__ import absolute_import\nfrom .struct import inpackage",
@@ -128,6 +131,10 @@ def setup_directory_structure(cls):
              a = '',
              b = '',
              c = '')
+    setuppkg('circular',
+             circ1="from . import circ2",
+             circ2="from . import circ1")
+
     p = setuppkg("encoded",
              # actually a line 2, setuppkg() sets up a line1
              line2 = "# encoding: iso-8859-1\n",
@@ -145,6 +152,11 @@ def setup_directory_structure(cls):
     except py.error.ENOENT:
         pass
     p.join('x.py').rename(p.join('x.pyw'))
+
+    if hasattr(p, "mksymlinkto"):
+        p = root.join("devnullpkg")
+        p.ensure(dir=True)
+        p.join("__init__.py").mksymlinkto(os.devnull)
 
     return str(root)
 
@@ -179,7 +191,7 @@ def _teardown(space, w_saved_modules):
 
 class AppTestImport(BaseFSEncodeTest):
     spaceconfig = {
-        "usemodules": ['_md5', 'time', 'struct', '_pypyjson'],
+        "usemodules": ['_md5', 'time', 'struct'],
     }
 
     def setup_class(cls):
@@ -238,6 +250,10 @@ class AppTestImport(BaseFSEncodeTest):
 
     def test_import_keywords(self):
         __import__(name='sys', level=0)
+
+    def test_import_nonutf8_encodable(self):
+        exc = raises(ImportError, __import__, '\ud800')
+        assert exc.value.args[0].startswith("No module named ")
 
     def test_import_by_filename(self):
         import pkg.a
@@ -346,6 +362,9 @@ class AppTestImport(BaseFSEncodeTest):
         assert sys == n
         o = __import__('sys', [], [], ['']) # CPython accepts this
         assert sys == o
+
+    def test_import_fromlist_must_not_contain_bytes(self):
+        raises(TypeError, __import__, 'encodings', None, None, [b'xxx'])
 
     def test_proper_failure_on_killed__path__(self):
         import pkg.pkg2.a
@@ -510,6 +529,9 @@ class AppTestImport(BaseFSEncodeTest):
         check_absolute()
         raises(TypeError, check_relative)
 
+    def test_relative_circular(self):
+        import circular.circ1  # doesn't fail
+
     def test_import_function(self):
         # More tests for __import__
         import sys
@@ -590,7 +612,7 @@ class AppTestImport(BaseFSEncodeTest):
         imp.reload(sys)
 
         assert sys.path is oldpath
-        assert 'settrace' in dir(sys)
+        assert 'settrace' not in dir(sys)    # at least on CPython 3.5.2
 
     def test_reload_builtin_doesnt_clear(self):
         import imp
@@ -650,16 +672,15 @@ class AppTestImport(BaseFSEncodeTest):
             assert False, 'should not work'
 
     def test_cache_from_source(self):
-        import imp
+        import imp, sys
+        tag = sys.implementation.cache_tag
         pycfile = imp.cache_from_source('a/b/c.py')
-        assert pycfile.startswith('a/b/__pycache__/c.pypy3-')
-        assert pycfile.endswith('.pyc')
-        assert imp.source_from_cache('a/b/__pycache__/c.pypy3-17.pyc'
+        assert pycfile == 'a/b/__pycache__/c.%s.pyc' % tag
+        assert imp.source_from_cache('a/b/__pycache__/c.%s.pyc' % tag
                                      ) == 'a/b/c.py'
         raises(ValueError, imp.source_from_cache, 'a/b/c.py')
 
     def test_invalid_pathname(self):
-        skip("This test fails on CPython 3.3, but passes on CPython 3.4+")
         import imp
         import pkg
         import os
@@ -750,6 +771,10 @@ class AppTestImport(BaseFSEncodeTest):
             raises(ImportError, imp.NullImporter, name)
         finally:
             os.rmdir(name)
+
+    @pytest.mark.skipif(not hasattr(py.path.local, "mksymlinkto"), reason="requires symlinks")
+    def test_dev_null_init_file(self):
+        import devnullpkg
 
 
 class TestAbi:
@@ -899,6 +924,10 @@ class TestPycStuff:
             stream.close()
 
     def test_pyc_magic_changes(self):
+        # skipped: for now, PyPy generates only one kind of .pyc file
+        # per version.  Different versions should differ in
+        # sys.implementation.cache_tag, which means that they'll look up
+        # different .pyc files anyway.  See test_get_tag() in test_app.py.
         py.test.skip("For now, PyPy generates only one kind of .pyc files")
         # test that the pyc files produced by a space are not reimportable
         # from another, if they differ in what opcodes they support
@@ -1002,7 +1031,9 @@ class AppTestImportHooks(object):
         sys.meta_path.insert(0, Importer())
         try:
             import math
-            assert len(tried_imports) == 1
+            # the above line may trigger extra imports, like _operator
+            # from app_math.py.  The first one should be 'math'.
+            assert len(tried_imports) >= 1
             package_name = '.'.join(__name__.split('.')[:-1])
             if package_name:
                 assert tried_imports[0][0] == package_name + ".math"

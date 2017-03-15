@@ -149,11 +149,12 @@ class BaseStringFormatTests:
         assert self.s("{0:d}").format(G("data")) == "G(data)"
         assert self.s("{0!s}").format(G("data")) == "string is data"
 
-        msg = "non-empty format string passed to object.__format__"
+        msg = "unsupported format string passed to E.__format__"
         e = raises(TypeError, self.s("{0:^10}").format, E("data"))
         assert str(e.value) == msg
         e = raises(TypeError, self.s("{0:^10s}").format, E("data"))
         assert str(e.value) == msg
+        msg = "unsupported format string passed to G.__format__"
         e = raises(TypeError, self.s("{0:>15s}").format, G("data"))
         assert str(e.value) == msg
 
@@ -190,6 +191,16 @@ class BaseStringFormatTests:
 
         assert self.s('{0:\x00<12}').format(3+2.0j) == '(3+2j)' + '\x00' * 6
         assert self.s('{0:\x01<12}').format(3+2.0j) == '(3+2j)' + '\x01' * 6
+
+    def test_more_indexing_cases(self):
+        assert self.s('x{[3]}y').format(['a', 'b', 'c', 'd', 'e']) == 'xdy'
+        assert self.s('x{[[]}y').format({'[': 'a'}) == 'xay'
+        assert self.s('x{[{]}y').format({'{': 'a'}) == 'xay'
+        assert self.s("x{[:]}y").format({":" : "a"}) == "xay"
+        assert self.s("x{[!]}y").format({"!" : "a"}) == "xay"
+        raises(ValueError, self.s("{a{}b}").format, 42)
+        raises(ValueError, self.s("{a{b}").format, 42)
+        raises(ValueError, self.s("{[}").format, 42)
 
 
 class AppTestUnicodeFormat(BaseStringFormatTests):

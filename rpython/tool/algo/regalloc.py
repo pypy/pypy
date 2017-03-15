@@ -94,8 +94,8 @@ class RegAllocator(object):
                     self._try_coalesce(v, link.target.inputargs[i])
 
     def _try_coalesce(self, v, w):
-        if isinstance(v, Variable) and self.consider_var(v):
-            assert self.consider_var(w)
+        if isinstance(v, Variable) and self.consider_var(v)  \
+                                   and self.consider_var(w):
             dg = self._depgraph
             uf = self._unionfind
             v0 = uf.find_rep(v)
@@ -117,8 +117,21 @@ class RegAllocator(object):
                 for v in block.getvariables():
                     print '\t', v, '\t', self.getcolor(v)
 
+    def find_num_colors(self):
+        if self._coloring:
+            numcolors = max(self._coloring.values()) + 1
+        else:
+            numcolors = 0
+        self.numcolors = numcolors
+
     def getcolor(self, v):
         return self._coloring[self._unionfind.find_rep(v)]
+
+    def checkcolor(self, v, color):
+        try:
+            return self.getcolor(v) == color
+        except KeyError:
+            return False
 
     def swapcolors(self, col1, col2):
         for key, value in self._coloring.items():

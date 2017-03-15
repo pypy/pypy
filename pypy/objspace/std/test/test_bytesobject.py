@@ -89,7 +89,17 @@ class TestW_BytesObject:
         assert self.space.listview_bytes(w_bytes) == None
         assert self.space.listview_int(w_bytes) == [97, 98, 99, 100]
 
+    def test_constructor_single_char(self, monkeypatch):
+        from rpython.rlib import jit
+        monkeypatch.setattr(jit, 'isconstant', lambda x: True)
+        space = self.space
+        w_res = space.call_function(space.w_bytes, space.wrap([42]))
+        assert space.str_w(w_res) == '*'
+
 class AppTestBytesObject:
+
+    def setup_class(cls):
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
 
     def test_constructor(self):
         assert bytes() == b''
@@ -97,6 +107,25 @@ class AppTestBytesObject:
         assert bytes(b'abc') == b'abc'
         assert bytes('abc', 'ascii') == b'abc'
         assert bytes(set(b'foo')) in (b'fo', b'of')
+        assert bytes([]) == b''
+        assert bytes([42]) == b'*'
+        assert bytes([0xFC]) == b'\xFC'
+        assert bytes([42, 0xCC]) == b'*\xCC'
+        raises(TypeError, bytes, 'abc', b'ascii')
+        raises(UnicodeEncodeError, bytes, '\x80', 'ascii')
+
+    def test_constructor_list_of_objs(self):
+        class X:
+            def __index__(self):
+                return 42
+        class Y:
+            def __int__(self):
+                return 42
+        for obj in [42, X()]:
+            assert bytes([obj]) == b'*'
+            assert bytes([obj, obj, obj]) == b'***'
+        raises(TypeError, bytes, [Y()])
+        raises(TypeError, bytes, [Y(), Y()])
 
     def test_fromhex(self):
         assert bytes.fromhex("abcd") == b'\xab\xcd'
@@ -144,9 +173,21 @@ class AppTestBytesObject:
             expected2 = int_format + ' format: an integer is required, not str'
             assert str(exc_info.value) in (expected1, expected2)
         raises(TypeError, "None % 'abc'") # __rmod__
+        assert b'abc'.__rmod__('-%b-') is NotImplemented
+        assert b'abc'.__rmod__(b'-%b-') == b'-abc-'
 
     def test_format_bytes(self):
         assert b'<%s>' % b'abc' == b'<abc>'
+
+    def test_formatting_not_tuple(self):
+        class mydict(dict):
+            pass
+        assert b'xxx' % mydict() == b'xxx'
+        assert b'xxx' % [] == b'xxx'       # [] considered as a mapping(!)
+        raises(TypeError, "b'xxx' % 'foo'")
+        raises(TypeError, "b'xxx' % b'foo'")
+        raises(TypeError, "b'xxx' % bytearray()")
+        raises(TypeError, "b'xxx' % 53")
 
     def test_split(self):
         assert b"".split() == []
@@ -751,6 +792,8 @@ class AppTestBytesObject:
         raises(LookupError, 'hello'.encode, 'base64')
 
     def test_hash(self):
+        if self.runappdirect:
+            skip("randomized hash by default")
         # check that we have the same hash as CPython for at least 31 bits
         # (but don't go checking CPython's special case -1)
         # disabled: assert hash('') == 0 --- different special case
@@ -808,6 +851,11 @@ class AppTestBytesObject:
                 return 3
         assert bytes(WithIndex()) == b'a'
 
+        class Str(str):
+            def __bytes__(self):
+                return b'a'
+        assert bytes(Str('abc')) == b'a'
+
     def test_getnewargs(self):
         assert  b"foo".__getnewargs__() == (b"foo",)
 
@@ -840,6 +888,16 @@ class AppTestBytesObject:
             skip("Wrong platform")
         s = b"a" * (2**16)
         raises(OverflowError, s.replace, b"", s)
+
+    def test_replace_issue2448(self):
+        # CPython's replace() method has a bug that makes
+        #   ''.replace('', 'x')  gives a different answer than
+        #   ''.replace('', 'x', 1000).  This is the case in all
+        # known versions, at least until 2.7.13.  Some people
+        # call that a feature on the CPython issue report and
+        # the discussion dies out, so it might never be fixed.
+        assert ''.replace('', 'x') == 'x'
+        assert ''.replace('', 'x', 1000) == ''
 
     def test_getslice(self):
         s = b"abc"
@@ -887,8 +945,7 @@ class AppTestBytesObject:
             assert b.rsplit(bb)
             assert b.split(bb[:1])
             assert b.rsplit(bb[:1])
-            assert b.join((bb, bb)) # cpython accepts bytes and
-                                    # bytearray only, not buffer
+            assert b.join((bb, bb))  # accepts memoryview() since CPython 3.4/5
             assert bb in b
             assert b.find(bb)
             assert b.rfind(bb)
@@ -900,7 +957,6 @@ class AppTestBytesObject:
             assert not b.endswith(bb)
             assert not b.endswith((bb, bb))
             assert bytes.maketrans(bb, bb)
-            assert bytearray.maketrans(bb, bb)
 
     def test_constructor_dont_convert_int(self):
         class A(object):
@@ -931,3 +987,39 @@ class AppTestBytesObject:
         raises(TypeError, 'b"%b" % "hello world"')
         assert b'%b %b' % (b'a', bytearray(b'f f e')) == b'a f f e'
         """
+
+    def test_getitem_error_message(self):
+        e = raises(TypeError, b'abc'.__getitem__, b'd')
+        assert str(e.value).startswith(
+            'byte indices must be integers or slices')
+
+    def test_constructor_typeerror(self):
+        raises(TypeError, bytes, b'', 'ascii')
+        raises(TypeError, bytes, '')
+
+    def test_constructor_subclass(self):
+        class Sub(bytes):
+            pass
+        class X:
+            def __bytes__(self):
+                return Sub(b'foo')
+        assert type(bytes(X())) is Sub
+
+    def test_constructor_subclass_2(self):
+        class Sub(bytes):
+            pass
+        class X(bytes):
+            def __bytes__(self):
+                return Sub(b'foo')
+        assert type(bytes(X())) is Sub
+
+    def test_constructor_subclass_3(self):
+        class Sub(bytes):
+            pass
+        class X(bytes):
+            def __bytes__(self):
+                return Sub(b'foo')
+        class Sub1(bytes):
+            pass
+        assert type(Sub1(X())) is Sub1
+        assert Sub1(X()) == b'foo'

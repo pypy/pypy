@@ -51,18 +51,18 @@ class TestASTValidator:
             args = ast.arguments(args, vararg, kwonlyargs,
                                  kw_defaults, kwarg, defaults)
             return fac(args)
-        args = [ast.arg("x", ast.Name("x", ast.Store, 0, 0))]
+        args = [ast.arg("x", ast.Name("x", ast.Store, 0, 0), 0, 0)]
         check(arguments(args=args), "must have Load context")
         check(arguments(kwonlyargs=args), "must have Load context")
         check(arguments(defaults=[ast.Num(self.space.wrap(3), 0, 0)]),
                        "more positional defaults than args")
         check(arguments(kw_defaults=[ast.Num(self.space.wrap(4), 0, 0)]),
                        "length of kwonlyargs is not the same as kw_defaults")
-        args = [ast.arg("x", ast.Name("x", ast.Load, 0, 0))]
+        args = [ast.arg("x", ast.Name("x", ast.Load, 0, 0), 0, 0)]
         check(arguments(args=args, defaults=[ast.Name("x", ast.Store, 0, 0)]),
                        "must have Load context")
-        args = [ast.arg("a", ast.Name("x", ast.Load, 0, 0)),
-                ast.arg("b", ast.Name("y", ast.Load, 0, 0))]
+        args = [ast.arg("a", ast.Name("x", ast.Load, 0, 0), 0, 0),
+                ast.arg("b", ast.Name("y", ast.Load, 0, 0), 0, 0)]
         check(arguments(kwonlyargs=args,
                           kw_defaults=[None, ast.Name("x", ast.Store, 0, 0)]),
                           "must have Load context")

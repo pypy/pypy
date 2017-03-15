@@ -11,7 +11,7 @@ from rpython.annotator.model import (
     SomeBuiltinMethod, SomeIterator, SomePBC, SomeNone, SomeFloat, s_None,
     SomeByteArray, SomeWeakRef, SomeSingleFloat,
     SomeLongFloat, SomeType, SomeTypeOf, SomeConstantType, unionof, UnionError,
-    read_can_only_throw, add_knowntypedata,
+    union, read_can_only_throw, add_knowntypedata,
     merge_knowntypedata,)
 from rpython.annotator.bookkeeper import immutablevalue, getbookkeeper
 from rpython.flowspace.model import Variable, Constant, const
@@ -703,13 +703,13 @@ class __extend__(
         pairtype(SomeException, SomeInstance),
         pairtype(SomeException, SomeNone)):
     def union((s_exc, s_inst)):
-        return unionof(s_exc.as_SomeInstance(), s_inst)
+        return union(s_exc.as_SomeInstance(), s_inst)
 
 class __extend__(
         pairtype(SomeInstance, SomeException),
         pairtype(SomeNone, SomeException)):
     def union((s_inst, s_exc)):
-        return unionof(s_exc.as_SomeInstance(), s_inst)
+        return union(s_exc.as_SomeInstance(), s_inst)
 
 class __extend__(pairtype(SomeException, SomeException)):
     def union((s_exc1, s_exc2)):

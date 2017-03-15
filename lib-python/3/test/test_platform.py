@@ -15,11 +15,18 @@ class PlatformTest(unittest.TestCase):
 
     @support.skip_unless_symlink
     def test_architecture_via_symlink(self): # issue3762
-        # On Windows, the EXE needs to know where pythonXY.dll is at so we have
-        # to add the directory to the path.
+        # On Windows, the EXE needs to know where pythonXY.dll and *.pyd is at
+        # so we add the directory to the path and PYTHONPATH.
         if sys.platform == "win32":
+            def restore_environ(old_env):
+                os.environ.clear()
+                os.environ.update(old_env)
+
+            self.addCleanup(restore_environ, dict(os.environ))
+
             os.environ["Path"] = "{};{}".format(
                 os.path.dirname(sys.executable), os.environ["Path"])
+            os.environ["PYTHONPATH"] = os.path.dirname(sys.executable)
 
         def get(python):
             cmd = [python, '-c',
@@ -76,6 +83,22 @@ class PlatformTest(unittest.TestCase):
              ('IronPython', '1.0.60816', '', '', '', '', '.NET 2.0.50727.42')),
             ('IronPython 1.0 (1.0.61005.1977) on .NET 2.0.50727.42',
              ('IronPython', '1.0.0', '', '', '', '', '.NET 2.0.50727.42')),
+            ('2.4.3 (truncation, date, t) \n[GCC]',
+             ('CPython', '2.4.3', '', '', 'truncation', 'date t', 'GCC')),
+            ('2.4.3 (truncation, date, ) \n[GCC]',
+             ('CPython', '2.4.3', '', '', 'truncation', 'date', 'GCC')),
+            ('2.4.3 (truncation, date,) \n[GCC]',
+             ('CPython', '2.4.3', '', '', 'truncation', 'date', 'GCC')),
+            ('2.4.3 (truncation, date) \n[GCC]',
+             ('CPython', '2.4.3', '', '', 'truncation', 'date', 'GCC')),
+            ('2.4.3 (truncation, d) \n[GCC]',
+             ('CPython', '2.4.3', '', '', 'truncation', 'd', 'GCC')),
+            ('2.4.3 (truncation, ) \n[GCC]',
+             ('CPython', '2.4.3', '', '', 'truncation', '', 'GCC')),
+            ('2.4.3 (truncation,) \n[GCC]',
+             ('CPython', '2.4.3', '', '', 'truncation', '', 'GCC')),
+            ('2.4.3 (truncation) \n[GCC]',
+             ('CPython', '2.4.3', '', '', 'truncation', '', 'GCC')),
             ):
             # branch and revision are not "parsed", but fetched
             # from sys._mercurial.  Ignore them
@@ -333,16 +356,14 @@ class DeprecationTest(unittest.TestCase):
             platform.dist()
         self.assertEqual(str(cm.warning),
                          'dist() and linux_distribution() functions are '
-                         'deprecated in Python 3.5 and will be removed in '
-                         'Python 3.7')
+                         'deprecated in Python 3.5')
 
     def test_linux_distribution_deprecation(self):
         with self.assertWarns(PendingDeprecationWarning) as cm:
             platform.linux_distribution()
         self.assertEqual(str(cm.warning),
                          'dist() and linux_distribution() functions are '
-                         'deprecated in Python 3.5 and will be removed in '
-                         'Python 3.7')
+                         'deprecated in Python 3.5')
 
 if __name__ == '__main__':
     unittest.main()

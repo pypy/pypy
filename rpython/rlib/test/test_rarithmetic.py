@@ -603,11 +603,83 @@ class TestExplicitIntsizes:
         assert r_uint64(self._64_umax) + r_uint64(1) == r_uint64(0)
         assert r_uint64(0) - r_uint64(1) == r_uint64(self._64_umax)
 
-    def test_operation_with_float(self):
-        def f(x):
-            assert r_longlong(x) + 0.5 == 43.5
-            assert r_longlong(x) - 0.5 == 42.5
-            assert r_longlong(x) * 0.5 == 21.5
-            assert r_longlong(x) / 0.8 == 53.75
-        f(43)
-        interpret(f, [43])
+
+def test_operation_with_float():
+    def f(x):
+        assert r_longlong(x) + 0.5 == 43.5
+        assert r_longlong(x) - 0.5 == 42.5
+        assert r_longlong(x) * 0.5 == 21.5
+        assert r_longlong(x) / 0.8 == 53.75
+    f(43)
+    interpret(f, [43])
+
+def test_int64_plus_int32():
+    assert r_uint64(1234567891234) + r_uint32(1) == r_uint64(1234567891235)
+
+def test_fallback_paths():
+
+    def make(pattern):
+        def method(self, other, *extra):
+            if extra:
+                assert extra == (None,)   # for 'pow'
+            if type(other) is long:
+                return pattern % other
+            else:
+                return NotImplemented
+        return method
+
+    class A(object):
+        __add__  = make("a+%d")
+        __radd__ = make("%d+a")
+        __sub__  = make("a-%d")
+        __rsub__ = make("%d-a")
+        __mul__  = make("a*%d")
+        __rmul__ = make("%d*a")
+        __div__  = make("a/%d")
+        __rdiv__ = make("%d/a")
+        __floordiv__  = make("a//%d")
+        __rfloordiv__ = make("%d//a")
+        __mod__  = make("a%%%d")
+        __rmod__ = make("%d%%a")
+        __and__  = make("a&%d")
+        __rand__ = make("%d&a")
+        __or__   = make("a|%d")
+        __ror__  = make("%d|a")
+        __xor__  = make("a^%d")
+        __rxor__ = make("%d^a")
+        __pow__  = make("a**%d")
+        __rpow__ = make("%d**a")
+
+    a = A()
+    assert r_uint32(42) + a == "42+a"
+    assert a + r_uint32(42) == "a+42"
+    assert r_uint32(42) - a == "42-a"
+    assert a - r_uint32(42) == "a-42"
+    assert r_uint32(42) * a == "42*a"
+    assert a * r_uint32(42) == "a*42"
+    assert r_uint32(42) / a == "42/a"
+    assert a / r_uint32(42) == "a/42"
+    assert r_uint32(42) // a == "42//a"
+    assert a // r_uint32(42) == "a//42"
+    assert r_uint32(42) % a == "42%a"
+    assert a % r_uint32(42) == "a%42"
+    py.test.raises(TypeError, "a << r_uint32(42)")
+    py.test.raises(TypeError, "r_uint32(42) << a")
+    py.test.raises(TypeError, "a >> r_uint32(42)")
+    py.test.raises(TypeError, "r_uint32(42) >> a")
+    assert r_uint32(42) & a == "42&a"
+    assert a & r_uint32(42) == "a&42"
+    assert r_uint32(42) | a == "42|a"
+    assert a | r_uint32(42) == "a|42"
+    assert r_uint32(42) ^ a == "42^a"
+    assert a ^ r_uint32(42) == "a^42"
+    assert r_uint32(42) ** a == "42**a"
+    assert a ** r_uint32(42) == "a**42"
+
+def test_ovfcheck_int32():
+    assert ovfcheck_int32_add(-2**30, -2**30) == -2**31
+    py.test.raises(OverflowError, ovfcheck_int32_add, 2**30, 2**30)
+    assert ovfcheck_int32_sub(-2**30, 2**30) == -2**31
+    py.test.raises(OverflowError, ovfcheck_int32_sub, 2**30, -2**30)
+    assert ovfcheck_int32_mul(-2**16, 2**15) == -2**31
+    py.test.raises(OverflowError, ovfcheck_int32_mul, -2**16, -2**15)

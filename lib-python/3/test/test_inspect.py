@@ -393,6 +393,11 @@ class TestRetrievingSourceCode(GetSourceBase):
         # Check filename override
         self.assertEqual(inspect.getmodule(None, modfile), mod)
 
+    def test_getframeinfo_get_first_line(self):
+        frame_info = inspect.getframeinfo(self.fodderModule.fr, 50)
+        self.assertEqual(frame_info.code_context[0], "# line 1\n")
+        self.assertEqual(frame_info.code_context[1], "'A module docstring.'\n")
+
     def test_getsource(self):
         self.assertSourceEqual(git.abuse, 29, 39)
         self.assertSourceEqual(mod.StupidGit, 21, 51)
@@ -2791,11 +2796,11 @@ class TestSignatureObject(unittest.TestCase):
         self.assertNotEqual(hash(foo_sig), hash(inspect.signature(bar)))
 
         def foo(a={}): pass
-        with self.assertRaisesRegex(TypeError, 'unhashable type'):
+        with self.assertRaisesRegex(TypeError, 'unhashable'):
             hash(inspect.signature(foo))
 
         def foo(a) -> {}: pass
-        with self.assertRaisesRegex(TypeError, 'unhashable type'):
+        with self.assertRaisesRegex(TypeError, 'unhashable'):
             hash(inspect.signature(foo))
 
     def test_signature_str(self):
@@ -3252,7 +3257,7 @@ class TestBoundArguments(unittest.TestCase):
         def foo(a): pass
         ba = inspect.signature(foo).bind(1)
 
-        with self.assertRaisesRegex(TypeError, 'unhashable type'):
+        with self.assertRaisesRegex(TypeError, 'unhashable'):
             hash(ba)
 
     def test_signature_bound_arguments_equality(self):
@@ -3336,6 +3341,13 @@ class TestBoundArguments(unittest.TestCase):
         ba = sig.bind()
         ba.apply_defaults()
         self.assertEqual(list(ba.arguments.items()), [])
+
+        # Make sure a no-args binding still acquires proper defaults.
+        def foo(a='spam'): pass
+        sig = inspect.signature(foo)
+        ba = sig.bind()
+        ba.apply_defaults()
+        self.assertEqual(list(ba.arguments.items()), [('a', 'spam')])
 
 
 class TestSignaturePrivateHelpers(unittest.TestCase):

@@ -457,6 +457,80 @@ res = f()
         assert closed == [True]
         """
 
+    def test_exc_info_in_generator(self):
+        import sys
+        def g():
+            try:
+                raise ValueError
+            except ValueError:
+                yield sys.exc_info()[0]
+                yield sys.exc_info()[0]
+        try:
+            raise IndexError
+        except IndexError:
+            gen = g()
+            assert sys.exc_info()[0] is IndexError
+            assert next(gen) is ValueError
+            assert sys.exc_info()[0] is IndexError
+            assert next(gen) is ValueError
+            assert sys.exc_info()[0] is IndexError
+            raises(StopIteration, next, gen)
+            assert sys.exc_info()[0] is IndexError
+
+    def test_exc_info_in_generator_2(self):
+        import sys
+        def g():
+            yield sys.exc_info()[0]
+            try:
+                raise LookupError
+            except LookupError:
+                yield sys.exc_info()[0]
+            yield sys.exc_info()[0]
+        try:
+            raise IndexError
+        except IndexError:
+            gen = g()     # the IndexError is not captured at all
+        try:
+            raise ValueError
+        except ValueError:
+            assert next(gen) is ValueError
+            assert next(gen) is LookupError
+            assert next(gen) is ValueError
+
+    def test_exc_info_in_generator_3(self):
+        import sys
+        def g():
+            yield sys.exc_info()[0]
+            yield sys.exc_info()[0]
+            yield sys.exc_info()[0]
+        gen = g()
+        try:
+            raise IndexError
+        except IndexError:
+            assert next(gen) is IndexError
+        assert next(gen) is None
+        try:
+            raise ValueError
+        except ValueError:
+            assert next(gen) is ValueError
+
+    def test_exc_info_in_generator_4(self):
+        skip("buggy behavior, both in CPython and in PyPy")
+        import sys
+        def g():
+            try:
+                raise ValueError
+            except ValueError:
+                yield 1
+            assert sys.exc_info() == (None, None, None)
+            yield 2
+        gen = g()
+        try:
+            raise IndexError
+        except IndexError:
+            assert next(gen) is 1
+        assert next(gen) is 2
+
 
 def test_should_not_inline(space):
     from pypy.interpreter.generator import should_not_inline
@@ -775,3 +849,17 @@ def f(x):
 """, d)
         f = d['f']
         raises(RuntimeError, next, f(5))
+
+    def test_generator_stop_cause(self):
+        d = {}
+        exec("""from __future__ import generator_stop
+
+def gen1():
+    yield 42
+""", d)
+        my_gen = d['gen1']()
+        assert next(my_gen) == 42
+        stop_exc = StopIteration('spam')
+        e = raises(RuntimeError, my_gen.throw, StopIteration, stop_exc, None)
+        assert e.value.__cause__ is stop_exc
+        assert e.value.__context__ is stop_exc

@@ -5,7 +5,7 @@ from rpython.rlib.objectmodel import we_are_translated
 def getdefaultencoding(space):
     """Return the current default string encoding used by the Unicode
 implementation."""
-    return space.wrap(space.sys.defaultencoding)
+    return space.newtext(space.sys.defaultencoding)
 
 if sys.platform == "win32":
     base_encoding = "mbcs"
@@ -31,10 +31,10 @@ def _getfilesystemencoding(space):
                 if loc_codeset:
                     codecmod = space.getbuiltinmodule('_codecs')
                     w_res = space.call_method(codecmod, 'lookup',
-                                              space.wrap(loc_codeset))
+                                              space.newtext(loc_codeset))
                     if space.is_true(w_res):
-                        w_name = space.getattr(w_res, space.wrap('name'))
-                        encoding = space.str_w(w_name)
+                        w_name = space.getattr(w_res, space.newtext('name'))
+                        encoding = space.text_w(w_name)
             finally:
                 rlocale.setlocale(rlocale.LC_CTYPE, oldlocale)
         except rlocale.LocaleError:
@@ -46,5 +46,5 @@ def getfilesystemencoding(space):
     operating system filenames.
     """
     if space.sys.filesystemencoding is None:
-        return space.wrap(base_encoding)
-    return space.wrap(space.sys.filesystemencoding)
+        return space.newtext(base_encoding)
+    return space.newtext(space.sys.filesystemencoding)

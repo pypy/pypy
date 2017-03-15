@@ -96,6 +96,7 @@ class DictSetTest(unittest.TestCase):
         self.assertEqual(d1.keys() & set(d1.keys()), {'a', 'b'})
         self.assertEqual(d1.keys() & set(d2.keys()), {'b'})
         self.assertEqual(d1.keys() & set(d3.keys()), set())
+        self.assertEqual(d1.keys() & tuple(d1.keys()), {'a', 'b'})
 
         self.assertEqual(d1.keys() | d1.keys(), {'a', 'b'})
         self.assertEqual(d1.keys() | d2.keys(), {'a', 'b', 'c'})
@@ -104,6 +105,7 @@ class DictSetTest(unittest.TestCase):
         self.assertEqual(d1.keys() | set(d2.keys()), {'a', 'b', 'c'})
         self.assertEqual(d1.keys() | set(d3.keys()),
                          {'a', 'b', 'd', 'e'})
+        self.assertEqual(d1.keys() | (1, 2), {'a', 'b', 1, 2})
 
         self.assertEqual(d1.keys() ^ d1.keys(), set())
         self.assertEqual(d1.keys() ^ d2.keys(), {'a', 'c'})
@@ -112,6 +114,7 @@ class DictSetTest(unittest.TestCase):
         self.assertEqual(d1.keys() ^ set(d2.keys()), {'a', 'c'})
         self.assertEqual(d1.keys() ^ set(d3.keys()),
                          {'a', 'b', 'd', 'e'})
+        self.assertEqual(d1.keys() ^ tuple(d2.keys()), {'a', 'c'})
 
         self.assertEqual(d1.keys() - d1.keys(), set())
         self.assertEqual(d1.keys() - d2.keys(), {'a'})
@@ -119,6 +122,7 @@ class DictSetTest(unittest.TestCase):
         self.assertEqual(d1.keys() - set(d1.keys()), set())
         self.assertEqual(d1.keys() - set(d2.keys()), {'a'})
         self.assertEqual(d1.keys() - set(d3.keys()), {'a', 'b'})
+        self.assertEqual(d1.keys() - (0, 1), {'a', 'b'})
 
         self.assertFalse(d1.keys().isdisjoint(d1.keys()))
         self.assertFalse(d1.keys().isdisjoint(d2.keys()))
@@ -204,6 +208,32 @@ class DictSetTest(unittest.TestCase):
         self.assertRaises(TypeError, copy.copy, d.keys())
         self.assertRaises(TypeError, copy.copy, d.values())
         self.assertRaises(TypeError, copy.copy, d.items())
+
+    def test_compare_error(self):
+        class Exc(Exception):
+            pass
+
+        class BadEq:
+            def __hash__(self):
+                return 7
+            def __eq__(self, other):
+                raise Exc
+
+        k1, k2 = BadEq(), BadEq()
+        v1, v2 = BadEq(), BadEq()
+        d = {k1: v1}
+
+        self.assertIn(k1, d)
+        self.assertIn(k1, d.keys())
+        self.assertIn(v1, d.values())
+        self.assertIn((k1, v1), d.items())
+
+        self.assertRaises(Exc, d.__contains__, k2)
+        self.assertRaises(Exc, d.keys().__contains__, k2)
+        self.assertRaises(Exc, d.items().__contains__, (k2, v1))
+        self.assertRaises(Exc, d.items().__contains__, (k1, v2))
+        with self.assertRaises(Exc):
+            v2 in d.values()
 
     def test_pickle(self):
         d = {1: 10, "a": "ABC"}

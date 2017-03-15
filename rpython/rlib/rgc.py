@@ -527,6 +527,38 @@ class FqTagEntry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.inputconst(lltype.Signed, hop.s_result.const)
 
+@jit.dont_look_inside
+@specialize.argtype(0)
+def may_ignore_finalizer(obj):
+    """Optimization hint: says that it is valid for any finalizer
+    for 'obj' to be ignored, depending on the GC."""
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    llop.gc_ignore_finalizer(lltype.Void, obj)
+
+@jit.dont_look_inside
+def move_out_of_nursery(obj):
+    """ Returns another object which is a copy of obj; but at any point
+        (either now or in the future) the returned object might suddenly
+        become identical to the one returned.
+
+        NOTE: Only use for immutable objects!
+
+        NOTE: Might fail on some GCs!  You have to check again
+        can_move() afterwards.  It should always work with the default
+        GC.  With Boehm, can_move() is always False so
+        move_out_of_nursery() should never be called in the first place.
+    """
+    return obj
+
+class MoveOutOfNurseryEntry(ExtRegistryEntry):
+    _about_ = move_out_of_nursery
+
+    def compute_result_annotation(self, s_obj):
+        return s_obj
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop('gc_move_out_of_nursery', hop.args_v, resulttype=hop.r_result)
 
 # ____________________________________________________________
 

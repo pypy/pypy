@@ -10,6 +10,7 @@ import os
 import os.path
 import py_compile
 import subprocess
+import io
 
 import textwrap
 from test import support
@@ -188,11 +189,21 @@ class CmdLineTest(unittest.TestCase):
             stderr = p.stdout
         try:
             # Drain stderr until prompt
-            while True:
-                data = stderr.read(4)
-                if data == b">>> ":
-                    break
-                stderr.readline()
+            if support.check_impl_detail(pypy=True):
+                ps1 = b">>>> "
+                # PyPy: the prompt is still printed to stdout, like it
+                # is in CPython 2.7.  This messes up the logic below
+                # if stdout and stderr are different.  Skip for now.
+                if separate_stderr:
+                    self.skipTest("the prompt is still written to "
+                                  "stdout in pypy")
+            else:
+                ps1 = b">>> "
+            # logic fixed to support the case of lines that are shorter
+            # than len(ps1) characters
+            got = b""
+            while not got.endswith(ps1):
+                got += stderr.read(1)
             yield p
         finally:
             kill_python(p)
@@ -403,20 +414,89 @@ class CmdLineTest(unittest.TestCase):
                                       script_name, script_name, '', '',
                                       importlib.machinery.SourceFileLoader)
 
+    @contextlib.contextmanager
+    def setup_test_pkg(self, *args):
+        with support.temp_dir() as script_dir, \
+                support.change_cwd(path=script_dir):
+            pkg_dir = os.path.join(script_dir, 'test_pkg')
+            make_pkg(pkg_dir, *args)
+            yield pkg_dir
+
+    def check_dash_m_failure(self, *args):
+        rc, out, err = assert_python_failure('-m', *args, __isolated=False)
+        if verbose > 1:
+            print(repr(out))
+        self.assertEqual(rc, 1)
+        return err
+
     def test_dash_m_error_code_is_one(self):
         # If a module is invoked with the -m command line flag
         # and results in an error that the return code to the
         # shell is '1'
-        with support.temp_dir() as script_dir:
-            with support.change_cwd(path=script_dir):
-                pkg_dir = os.path.join(script_dir, 'test_pkg')
-                make_pkg(pkg_dir)
-                script_name = _make_test_script(pkg_dir, 'other',
-                                                "if __name__ == '__main__': raise ValueError")
-                rc, out, err = assert_python_failure('-m', 'test_pkg.other', *example_args)
-                if verbose > 1:
-                    print(repr(out))
+        with self.setup_test_pkg() as pkg_dir:
+            script_name = _make_test_script(pkg_dir, 'other',
+                                            "if __name__ == '__main__': raise ValueError")
+            err = self.check_dash_m_failure('test_pkg.other', *example_args)
+            self.assertIn(b'ValueError', err)
+
+    def test_dash_m_errors(self):
+        # Exercise error reporting for various invalid package executions
+        tests = (
+            ('builtins', br'No code object available'),
+            ('builtins.x', br'Error while finding module specification.*'
+                br'AttributeError'),
+            ('builtins.x.y', br'Error while finding module specification.*'
+                br'ImportError.*No module named.*not a package'),
+            ('os.path', br'loader.*cannot handle'),
+            ('importlib', br'No module named.*'
+                br'is a package and cannot be directly executed'),
+            ('importlib.nonexistant', br'No module named'),
+            ('.unittest', br'Relative module names not supported'),
+        )
+        for name, regex in tests:
+            with self.subTest(name):
+                rc, _, err = assert_python_failure('-m', name)
                 self.assertEqual(rc, 1)
+                self.assertRegex(err, regex)
+                self.assertNotIn(b'Traceback', err)
+
+    def test_dash_m_bad_pyc(self):
+        with support.temp_dir() as script_dir, \
+                support.change_cwd(path=script_dir):
+            os.mkdir('test_pkg')
+            # Create invalid *.pyc as empty file
+            with open('test_pkg/__init__.pyc', 'wb'):
+                pass
+            err = self.check_dash_m_failure('test_pkg')
+            self.assertRegex(err,
+                br'Error while finding module specification.*'
+                br'ImportError.*bad magic number')
+            self.assertNotIn(b'is a package', err)
+            self.assertNotIn(b'Traceback', err)
+
+    def test_dash_m_init_traceback(self):
+        # These were wrapped in an ImportError and tracebacks were
+        # suppressed; see Issue 14285
+        exceptions = (ImportError, AttributeError, TypeError, ValueError)
+        for exception in exceptions:
+            exception = exception.__name__
+            init = "raise {0}('Exception in __init__.py')".format(exception)
+            with self.subTest(exception), \
+                    self.setup_test_pkg(init) as pkg_dir:
+                err = self.check_dash_m_failure('test_pkg')
+                self.assertIn(exception.encode('ascii'), err)
+                self.assertIn(b'Exception in __init__.py', err)
+                self.assertIn(b'Traceback', err)
+
+    def test_dash_m_main_traceback(self):
+        # Ensure that an ImportError's traceback is reported
+        with self.setup_test_pkg() as pkg_dir:
+            main = "raise ImportError('Exception in __main__ module')"
+            _make_test_script(pkg_dir, '__main__', main)
+            err = self.check_dash_m_failure('test_pkg')
+            self.assertIn(b'ImportError', err)
+            self.assertIn(b'Exception in __main__ module', err)
+            self.assertIn(b'Traceback', err)
 
     def test_pep_409_verbiage(self):
         # Make sure PEP 409 syntax properly suppresses
@@ -438,7 +518,7 @@ class CmdLineTest(unittest.TestCase):
 
     def test_non_ascii(self):
         # Mac OS X denies the creation of a file with an invalid UTF-8 name.
-        # Windows allows to create a name with an arbitrary bytes name, but
+        # Windows allows creating a name with an arbitrary bytes name, but
         # Python cannot a undecodable bytes argument to a subprocess.
         if (support.TESTFN_UNDECODABLE
         and sys.platform not in ('win32', 'darwin')):
@@ -476,6 +556,38 @@ class CmdLineTest(unittest.TestCase):
             exitcode, stdout, stderr = assert_python_failure(script_name)
             text = stderr.decode('ascii')
             self.assertEqual(text, "some text")
+
+    def test_syntaxerror_unindented_caret_position(self):
+        script = "1 + 1 = 2\n"
+        with support.temp_dir() as script_dir:
+            script_name = _make_test_script(script_dir, 'script', script)
+            exitcode, stdout, stderr = assert_python_failure(script_name)
+            text = io.TextIOWrapper(io.BytesIO(stderr), 'ascii').read()
+            # Confirm that the caret is located under the first 1 character
+            self.assertIn("\n    1 + 1 = 2\n    ^", text)
+
+    def test_syntaxerror_indented_caret_position(self):
+        script = textwrap.dedent("""\
+            if True:
+                1 + 1 = 2
+            """)
+        with support.temp_dir() as script_dir:
+            script_name = _make_test_script(script_dir, 'script', script)
+            exitcode, stdout, stderr = assert_python_failure(script_name)
+            text = io.TextIOWrapper(io.BytesIO(stderr), 'ascii').read()
+            # Confirm that the caret is located under the first 1 character
+            self.assertIn("\n    1 + 1 = 2\n    ^", text)
+
+            # Try the same with a form feed at the start of the indented line
+            script = (
+                "if True:\n"
+                "\f    1 + 1 = 2\n"
+            )
+            script_name = _make_test_script(script_dir, "script", script)
+            exitcode, stdout, stderr = assert_python_failure(script_name)
+            text = io.TextIOWrapper(io.BytesIO(stderr), "ascii").read()
+            self.assertNotIn("\f", text)
+            self.assertIn("\n    1 + 1 = 2\n    ^", text)
 
 
 def test_main():

@@ -59,7 +59,7 @@ class W_BytesIO(W_BufferedIOBase):
     def descr_new(space, w_subtype, __args__):
         self = space.allocate_instance(W_BytesIO, w_subtype)
         W_BytesIO.__init__(self, space)
-        return space.wrap(self)
+        return self
 
     def descr_init(self, space, w_initial_bytes=None):
         self.init()
@@ -71,20 +71,20 @@ class W_BytesIO(W_BufferedIOBase):
         if self.is_closed():
             if message is None:
                 message = "I/O operation on closed file"
-            raise OperationError(space.w_ValueError, space.wrap(message))
+            raise OperationError(space.w_ValueError, space.newtext(message))
 
     def read_w(self, space, w_size=None):
         self._check_closed(space)
         size = convert_size(space, w_size)
         return space.newbytes(self.read(size))
 
+    def read1_w(self, space, w_size):
+        return self.read_w(space, w_size)
+
     def readline_w(self, space, w_limit=None):
         self._check_closed(space)
         limit = convert_size(space, w_limit)
         return space.newbytes(self.readline(limit))
-
-    def read1_w(self, space, w_size):
-        return self.read_w(space, w_size)
 
     def readinto_w(self, space, w_buffer):
         self._check_closed(space)
@@ -93,16 +93,16 @@ class W_BytesIO(W_BufferedIOBase):
 
         output = self.read(size)
         rwbuffer.setslice(0, output)
-        return space.wrap(len(output))
+        return space.newint(len(output))
 
     def write_w(self, space, w_data):
         self._check_closed(space)
         buf = space.buffer_w(w_data, space.BUF_CONTIG_RO).as_str()
         length = len(buf)
         if length <= 0:
-            return space.wrap(0)
+            return space.newint(0)
         self.write(buf)
-        return space.wrap(length)
+        return space.newint(length)
 
     def truncate_w(self, space, w_size=None):
         self._check_closed(space)
@@ -121,10 +121,11 @@ class W_BytesIO(W_BufferedIOBase):
             self.seek(0, 2)
         else:
             self.seek(pos)
-        return space.wrap(size)
+        return space.newint(size)
 
     def getbuffer_w(self, space):
-        return space.wrap(W_MemoryView(BytesIOBuffer(self)))
+        self._check_closed(space)
+        return W_MemoryView(BytesIOBuffer(self))
 
     def getvalue_w(self, space):
         self._check_closed(space)
@@ -132,7 +133,7 @@ class W_BytesIO(W_BufferedIOBase):
 
     def tell_w(self, space):
         self._check_closed(space)
-        return space.wrap(self.tell())
+        return space.newint(self.tell())
 
     @unwrap_spec(pos=r_longlong, whence=int)
     def seek_w(self, space, pos, whence=0):
@@ -152,7 +153,7 @@ class W_BytesIO(W_BufferedIOBase):
                         "whence must be between 0 and 2, not %d", whence)
 
         self.seek(pos, whence)
-        return space.wrap(self.tell())
+        return space.newint(self.tell())
 
     def readable_w(self, space):
         self._check_closed(space)
@@ -169,14 +170,18 @@ class W_BytesIO(W_BufferedIOBase):
     def close_w(self, space):
         self.close()
 
+    def needs_finalizer(self):
+        # self.close() is not necessary when the object goes away
+        return type(self) is not W_BytesIO
+
     def closed_get_w(self, space):
-        return space.wrap(self.is_closed())
+        return space.newbool(self.is_closed())
 
     def getstate_w(self, space):
         self._check_closed(space)
         return space.newtuple([
             space.newbytes(self.getvalue()),
-            space.wrap(self.tell()),
+            space.newint(self.tell()),
             self.getdict(space)])
 
     def setstate_w(self, space, w_state):
@@ -198,7 +203,7 @@ class W_BytesIO(W_BufferedIOBase):
             space.call_method(self.getdict(space), "update", w_dict)
 
 W_BytesIO.typedef = TypeDef(
-    '_io.BytesIO', W_BufferedIOBase.typedef,
+    '_io.BytesIO', W_BufferedIOBase.typedef, None, 'read-write',
     __new__  = interp2app(W_BytesIO.descr_new.im_func),
     __init__  = interp2app(W_BytesIO.descr_init),
 
@@ -206,6 +211,7 @@ W_BytesIO.typedef = TypeDef(
     read1 = interp2app(W_BytesIO.read1_w),
     readline = interp2app(W_BytesIO.readline_w),
     readinto = interp2app(W_BytesIO.readinto_w),
+    readinto1 = interp2app(W_BytesIO.readinto_w),
     write = interp2app(W_BytesIO.write_w),
     truncate = interp2app(W_BytesIO.truncate_w),
     getbuffer = interp2app(W_BytesIO.getbuffer_w),

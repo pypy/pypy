@@ -67,8 +67,12 @@ class AppTestPyFrame:
 
     def test_f_lineno_set(self):
         def tracer(f, *args):
+            def y(f, *args):
+                return y
             def x(f, *args):
                 f.f_lineno += 1
+                return y  # "return None" should have the same effect, but see
+                          # test_local_trace_function_returning_None_ignored
             return x
 
         # obscure: call open beforehand, py3k's open invokes some app
@@ -86,6 +90,64 @@ class AppTestPyFrame:
         function()
         sys.settrace(None)
         # assert did not crash
+
+    def test_f_lineno_set_2(self):
+        counter = [0]
+        errors = []
+
+        def tracer(f, event, *args):
+            if event == 'line':
+                counter[0] += 1
+                if counter[0] == 2:
+                    try:
+                        f.f_lineno += 2
+                    except ValueError as e:
+                        errors.append(e)
+            return tracer
+
+        # obscure: call open beforehand, py3k's open invokes some app
+        # level code that confuses our tracing (likely due to the
+        # testing env, otherwise it's not a problem)
+        f = open(self.tempfile1, 'w')
+        def function():
+            try:
+                raise ValueError
+            except ValueError:
+                x = 42
+            return x
+
+        import sys
+        sys.settrace(tracer)
+        x = function()
+        sys.settrace(None)
+        assert x == 42
+        assert len(errors) == 1
+        assert str(errors[0]).startswith(
+            "can't jump into or out of an 'expect' or 'finally' block")
+
+    def test_f_lineno_set_3(self):
+        def jump_in_nested_finally(output):
+            try:
+                output.append(2)
+            finally:
+                output.append(4)
+                try:
+                    output.append(6)
+                finally:
+                    output.append(8)
+                output.append(9)
+        output = []
+
+        def tracer(f, event, *args):
+            if event == 'line' and len(output) == 1:
+                f.f_lineno += 5
+            return tracer
+
+        import sys
+        sys.settrace(tracer)
+        jump_in_nested_finally(output)
+        sys.settrace(None)
+        assert output == [2, 9]
 
     def test_f_lineno_set_firstline(self):
         r"""
@@ -147,30 +209,6 @@ class AppTestPyFrame:
         assert f1.f_code.co_name == 'main'
         assert f1bis is f1
         assert f0.f_back is f1
-
-    def test_f_exc_xxx(self):
-        import sys
-
-        class OuterException(Exception):
-            pass
-        class InnerException(Exception):
-            pass
-
-        def g(exc_info):
-            f = sys._getframe()
-            assert f.f_exc_type is None
-            assert f.f_exc_value is None
-            assert f.f_exc_traceback is None
-            try:
-                raise InnerException
-            except:
-                assert f.f_exc_type is exc_info[0]
-                assert f.f_exc_value is exc_info[1]
-                assert f.f_exc_traceback is exc_info[2]
-        try:
-            raise OuterException
-        except:
-            g(sys.exc_info())
 
     def test_virtualref_through_traceback(self):
         import sys
@@ -584,6 +622,15 @@ class AppTestPyFrame:
         #
         raises(StopIteration, next, gen)
 
+    def test_frame_clear_really(self):
+        import sys
+        def f(x):
+            return sys._getframe()
+        frame = f(42)
+        assert frame.f_locals['x'] == 42
+        frame.clear()
+        assert frame.f_locals == {}
+
     def test_throw_trace_bug(self):
         import sys
         def f():
@@ -601,3 +648,180 @@ class AppTestPyFrame:
             pass
         sys.settrace(None)
         assert seen == ['call', 'exception', 'return']
+
+    def test_generator_trace_stopiteration(self):
+        import sys
+        def f():
+            yield 5
+        gen = f()
+        assert next(gen) == 5
+        seen = []
+        frames = []
+        def trace_func(frame, event, *args):
+            print('TRACE:', frame, event, args)
+            seen.append(event)
+            frames.append(frame)
+            return trace_func
+        def g():
+            for x in gen:
+                never_entered
+        sys.settrace(trace_func)
+        g()
+        sys.settrace(None)
+        print('seen:', seen)
+        # on Python 3 we get an extra 'exception' when 'for' catches
+        # StopIteration (but not always! mess)
+        assert seen == ['call', 'line', 'call', 'return', 'exception', 'return']
+        assert frames[-2].f_code.co_name == 'g'
+
+    def test_nongenerator_trace_stopiteration(self):
+        import sys
+        gen = iter([5])
+        assert next(gen) == 5
+        seen = []
+        frames = []
+        def trace_func(frame, event, *args):
+            print('TRACE:', frame, event, args)
+            seen.append(event)
+            frames.append(frame)
+            return trace_func
+        def g():
+            for x in gen:
+                never_entered
+        sys.settrace(trace_func)
+        g()
+        sys.settrace(None)
+        print('seen:', seen)
+        # hack: don't report the StopIteration for some "simple"
+        # iterators.
+        assert seen == ['call', 'line', 'return']
+        assert frames[-2].f_code.co_name == 'g'
+
+    def test_yieldfrom_trace_stopiteration(self): """
+        import sys
+        def f2():
+            yield 5
+        def f():
+            yield from f2()
+        gen = f()
+        assert next(gen) == 5
+        seen = []
+        frames = []
+        def trace_func(frame, event, *args):
+            print('TRACE:', frame, event, args)
+            seen.append(event)
+            frames.append(frame)
+            return trace_func
+        def g():
+            for x in gen:
+                never_entered
+        sys.settrace(trace_func)
+        g()      # invokes next_yield_from() from resume_execute_frame()
+        sys.settrace(None)
+        print('seen:', seen)
+        assert seen == ['call', 'line', 'call', 'call', 'return',
+                        'exception', 'return', 'exception', 'return']
+        assert frames[-4].f_code.co_name == 'f'
+        assert frames[-2].f_code.co_name == 'g'
+        """
+
+    def test_yieldfrom_trace_stopiteration_2(self): """
+        import sys
+        def f2():
+            if False:
+                yield 5
+        def f():
+            yield from f2()
+        gen = f()
+        seen = []
+        frames = []
+        def trace_func(frame, event, *args):
+            print('TRACE:', frame, event, args)
+            seen.append(event)
+            frames.append(frame)
+            return trace_func
+        def g():
+            for x in gen:
+                never_entered
+        sys.settrace(trace_func)
+        g()      # invokes next_yield_from() from YIELD_FROM()
+        sys.settrace(None)
+        print('seen:', seen)
+        assert seen == ['call', 'line', 'call', 'line', 'call', 'line',
+                        'return', 'exception', 'return', 'exception', 'return']
+        assert frames[-4].f_code.co_name == 'f'
+        assert frames[-2].f_code.co_name == 'g'
+        """
+
+    def test_yieldfrom_trace_stopiteration_3(self): """
+        import sys
+        def f():
+            yield from []
+        gen = f()
+        seen = []
+        frames = []
+        def trace_func(frame, event, *args):
+            print('TRACE:', frame, event, args)
+            seen.append(event)
+            frames.append(frame)
+            return trace_func
+        def g():
+            for x in gen:
+                never_entered
+        sys.settrace(trace_func)
+        g()      # invokes next_yield_from() from YIELD_FROM()
+        sys.settrace(None)
+        print('seen:', seen)
+        assert seen == ['call', 'line', 'call', 'line',
+                        'return', 'exception', 'return']
+        assert frames[-4].f_code.co_name == 'f'
+        """
+
+    def test_local_trace_function_returning_None_ignored(self):
+        # behave the same as CPython does, and in contradiction with
+        # the documentation.
+        def tracer(f, event, arg):
+            assert event == 'call'
+            return local_tracer
+
+        seen = []
+        def local_tracer(f, event, arg):
+            seen.append(event)
+            return None     # but 'local_tracer' will be called again
+
+        def function():
+            a = 1
+            a = 2
+            a = 3
+
+        import sys
+        sys.settrace(tracer)
+        function()
+        sys.settrace(None)
+        assert seen == ["line", "line", "line", "return"]
+
+    def test_clear_locals(self):
+        def make_frames():
+            def outer():
+                x = 5
+                y = 6
+                def inner():
+                    z = x + 2
+                    1/0
+                    t = 9
+                return inner()
+            try:
+                outer()
+            except ZeroDivisionError as e:
+                tb = e.__traceback__
+                frames = []
+                while tb:
+                    frames.append(tb.tb_frame)
+                    tb = tb.tb_next
+            return frames
+
+        f, outer, inner = make_frames()
+        outer.clear()
+        inner.clear()
+        assert not outer.f_locals
+        assert not inner.f_locals
