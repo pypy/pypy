@@ -53,7 +53,6 @@ eci_kwds = dict(
         SHARED.join('machine.c'),
         SHARED.join('symboltable.c'),
         SHARED.join('vmp_stack.c'),
-        SHARED.join('vmp_dynamic.c'),
     ] + separate_module_files,
     post_include_bits=[],
     compile_extra=compile_extra
@@ -91,19 +90,6 @@ def setup():
                                    rffi.SIGNEDP, lltype.Signed],
                                   lltype.Signed, compilation_info=eci,
                                   _nowrapper=True)
-
-    vmp_dyn_register_jit_page = rffi.llexternal("vmp_dyn_register_jit_page",
-                                  [lltype.Signed, lltype.Signed, rffi.CCHARP],
-                                  rffi.INT, compilation_info=eci,
-                                  _nowrapper=True)
-
-    vmp_dyn_cancel = rffi.llexternal("vmp_dyn_cancel", [rffi.INT],
-                                  lltype.Void, compilation_info=eci,
-                                  _nowrapper=True)
-
-    vmp_dyn_teardown = rffi.llexternal("vmp_dyn_teardown", [lltype.Void],
-                                       rffi.INT, compilation_info=eci,
-                                       _nowrapper=True)
 
     return CInterface(locals())
 
