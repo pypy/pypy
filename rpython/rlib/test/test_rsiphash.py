@@ -52,12 +52,12 @@ def test_fix_seed():
         os.environ['PYTHONHASHSEED'] = '0'
         initialize_from_env()
         assert siphash24("foo") == 15988776847138518036
-        # value checked with CPython 3.5
+        # value checked with CPython 3.5 (turned positive by adding 2**64)
 
         os.environ['PYTHONHASHSEED'] = '4000000000'
         initialize_from_env()
         assert siphash24("foo") == 13829150778707464258
-        # value checked with CPython 3.5
+        # value checked with CPython 3.5 (turned positive by adding 2**64)
 
         for env in ['', 'random']:
             os.environ['PYTHONHASHSEED'] = env
