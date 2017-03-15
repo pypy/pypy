@@ -387,13 +387,14 @@ def test_const_pointer_to_pointer():
 def test_enum():
     ffi = FFI()
     ffi.cdef("""
-        enum Enum { POS = +1, TWO = 2, NIL = 0, NEG = -1};
+        enum Enum { POS = +1, TWO = 2, NIL = 0, NEG = -1, OP = (POS+TWO)-1};
         """)
     C = ffi.dlopen(None)
     assert C.POS == 1
     assert C.TWO == 2
     assert C.NIL == 0
     assert C.NEG == -1
+    assert C.OP == 2
 
 def test_stdcall():
     ffi = FFI()
