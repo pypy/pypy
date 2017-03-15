@@ -345,7 +345,7 @@ class AppTestObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("foo", "METH_O",
             """
-                _PyTraceMalloc_Track(0, 0, PyInt_AsLong(args) - sizeof(long));
+                _PyTraceMalloc_Track(0, 0, PyLong_AsLong(args) - sizeof(long));
                 Py_INCREF(Py_None);
                 return Py_None;
             """)])
