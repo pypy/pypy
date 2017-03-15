@@ -620,6 +620,7 @@ SYMBOLS_C = [
     'PyMem_Malloc', 'PyMem_Calloc', 'PyMem_Realloc', 'PyMem_Free',
     'PyObject_CallFinalizerFromDealloc',
     '_PyTraceMalloc_Track', '_PyTraceMalloc_Untrack',
+    'PyBytes_FromFormat', 'PyBytes_FromFormatV',
 ]
 TYPES = {}
 FORWARD_DECLS = []
