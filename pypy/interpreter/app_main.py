@@ -19,8 +19,9 @@ Options and arguments (and corresponding environment variables):
 -q     : don't print version and copyright messages on interactive startup
 -s     : don't add user site directory to sys.path; also PYTHONNOUSERSITE
 -S     : don't imply 'import site' on initialization
--u     : unbuffered binary stdout and stderr, stdin always buffered;
-         also PYTHONUNBUFFERED=x
+-u     : force the binary I/O layers of stdout and stderr to be unbuffered.
+         stdin is always buffered. the text I/O layer will still be
+         line-buffered. see also PYTHONUNBUFFERED=x
 -v     : verbose (trace import statements); also PYTHONVERBOSE=x
          can be supplied multiple times to increase verbosity
 -V     : print the Python version number and exit (also --version)
