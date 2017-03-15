@@ -80,7 +80,7 @@ _ssl
     libssl
 
 _vmprof
-    libunwind
+    libunwind (optional, loaded dynamically at runtime)
 
 Make sure to have these libraries (with development headers) installed
 before building PyPy, otherwise the resulting binary will not contain

@@ -15,7 +15,6 @@ class VMProfPlatformUnsupported(Exception):
 ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rvmprof')
 SRC = ROOT.join('src')
 SHARED = SRC.join('shared')
-UDIS86 = SHARED.join('libudis86')
 BACKTRACE = SHARED.join('libbacktrace')
 
 compile_extra = ['-DRPYTHON_VMPROF', '-g', '-O1']
@@ -45,7 +44,7 @@ else:
     _libs = []
 
 eci_kwds = dict(
-    include_dirs = [SRC, SHARED, BACKTRACE, UDIS86],
+    include_dirs = [SRC, SHARED, BACKTRACE],
     includes = ['rvmprof.h','vmprof_stack.h'],
     libraries = _libs,
     separate_module_files = [
@@ -55,10 +54,6 @@ eci_kwds = dict(
         SHARED.join('symboltable.c'),
         SHARED.join('vmp_stack.c'),
         SHARED.join('vmp_dynamic.c'),
-        # udis86
-        SHARED.join('libudis86/decode.c'),
-        SHARED.join('libudis86/itab.c'),
-        SHARED.join('libudis86/udis86.c'),
     ] + separate_module_files,
     post_include_bits=[],
     compile_extra=compile_extra

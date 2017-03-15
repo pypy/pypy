@@ -1823,12 +1823,6 @@ class MetaInterpStaticData(object):
         self.jitlog.logger_noopt = self.logger_noopt
         self.jitlog.logger_ops = self.logger_ops
 
-        from rpython.rlib.rvmprof import rvmprof, cintf
-        try:
-            self.vmprof = rvmprof._get_vmprof()
-        except cintf.VMProfPlatformUnsupported:
-            self.vmprof = None
-
         self.profiler = ProfilerClass()
         self.profiler.cpu = cpu
         self.warmrunnerdesc = warmrunnerdesc

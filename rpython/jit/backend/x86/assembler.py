@@ -491,6 +491,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         if not we_are_translated():
             # Arguments should be unique
             assert len(set(inputargs)) == len(inputargs)
+
         self.setup(looptoken)
         if self.cpu.HAS_CODEMAP:
             self.codemap_builder.enter_portal_frame(jd_id, unique_id,

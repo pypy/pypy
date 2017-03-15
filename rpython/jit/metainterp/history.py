@@ -419,14 +419,6 @@ class JitCellToken(AbstractDescr):
     def __init__(self):
         # For memory management of assembled loops
         self._keepalive_jitcell_tokens = {}      # set of other JitCellToken
-        self._rvmprof_references = []
-
-    def rvmprof_register(self, ref):
-        """ Call this method for every loop or bridge that hangs on this
-            token. Otherwise the information tracked by libunwind will
-            not be freed.
-        """
-        self._rvmprof_references.append(ref)
 
     def record_jump_to(self, jitcell_token):
         assert isinstance(jitcell_token, JitCellToken)
