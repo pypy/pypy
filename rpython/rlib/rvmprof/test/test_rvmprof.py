@@ -151,18 +151,22 @@ def test_enable():
         os.unlink(tmpfilename)
 
 def test_native():
-    eci = ExternalCompilationInfo(compile_extra=['-g','-O1'],
+    eci = ExternalCompilationInfo(compile_extra=['-g','-O0'],
             separate_module_sources=["""
-            RPY_EXTERN int native_func(void) {
+            RPY_EXTERN int native_func(int d) {
                 int j = 0;
-                for (int i = 0; i < 420000; i++) {
-                    j += 1;
+                if (d > 0) {
+                    return native_func(d-1);
+                } else {
+                    for (int i = 0; i < 42000; i++) {
+                        j += d;
+                    }
                 }
                 return j;
             }
             """])
 
-    native_func = rffi.llexternal("native_func", [], rffi.INT,
+    native_func = rffi.llexternal("native_func", [rffi.INT], rffi.INT,
                                   compilation_info=eci)
 
     class MyCode:
@@ -180,7 +184,7 @@ def test_native():
         if num > 0:
             return main(code, num-1)
         else:
-            return native_func()
+            return native_func(100)
 
     tmpfilename = str(udir.join('test_rvmprof'))
 
@@ -195,8 +199,7 @@ def test_native():
         period = 0.0001
         rvmprof.enable(fd, period, native=1)
         for i in range(num):
-            res = main(code, 10)
-        #assert res == 499999500000
+            res = main(code, 3)
         rvmprof.disable()
         os.close(fd)
         return 0
@@ -217,8 +220,7 @@ def test_native():
                 walk(child, symbols)
         symbols = []
         walk(tree, symbols)
-        not_found = ['n:pypy_g_main', 'n:native_func', 'n:pypy_g_f',
-            'n:pypy_g_main']
+        not_found = ['n:native_func']
         for sym in symbols:
             for i,name in enumerate(not_found):
                 if sym.startswith(name):
@@ -226,7 +228,7 @@ def test_native():
                     break
         assert not_found == []
 
-    fn = compile(f, [], gcpolicy="minimark")
+    fn = compile(f, [], gcpolicy="incminimark", lldebug=True)
     assert fn() == 0
     try:
         import vmprof

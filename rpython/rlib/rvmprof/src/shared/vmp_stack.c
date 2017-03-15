@@ -25,6 +25,7 @@ static int (*unw_get_reg)(unw_cursor_t*, int, unw_word_t*) = NULL;
 static int (*unw_step)(unw_cursor_t*) = NULL;
 static int (*unw_init_local)(unw_cursor_t *, unw_context_t *) = NULL;
 static int (*unw_get_proc_info)(unw_cursor_t *, unw_proc_info_t *) = NULL;
+static int (*unw_get_proc_name)(unw_cursor_t *, char *, size_t, unw_word_t*) = NULL;
 static int (*unw_is_signal_frame)(unw_cursor_t *) = NULL;
 static int (*unw_getcontext)(unw_context_t *) = NULL;
 
@@ -226,7 +227,7 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
         //    printf("func_addr is 0, now %p\n", rip);
         //}
 
-#ifdef RPYTHON_VMPROF
+#ifdef PYPY_JIT_CODEMAP
         long start_addr = 0;
         unw_word_t rip = 0;
         if (unw_get_reg(&cursor, UNW_REG_IP, &rip) < 0) {
@@ -237,7 +238,7 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
         if (IS_VMPROF_EVAL((void*)pip.start_ip)) {
             // yes we found one stack entry of the python frames!
             return vmp_walk_and_record_python_stack_only(frame, result, max_depth, depth, pc);
-#ifdef RPYTHON_VMPROF
+#ifdef PYPY_JIT_CODEMAP
         } else if (pypy_find_codemap_at_addr(rip, &start_addr) != NULL) {
             depth = vmprof_write_header_for_jit_addr(result, depth, pc, max_depth);
             return vmp_walk_and_record_python_stack_only(frame, result, max_depth, depth, pc);
@@ -468,6 +469,8 @@ static const char * vmprof_error = NULL;
 #define UL_PREFIX ""
 #endif
 
+extern void * __vmprof_eval_vmprof_addr;
+
 int vmp_native_enable(void) {
     void * libhandle;
     vmp_native_traces_enabled = 1;
@@ -480,6 +483,9 @@ int vmp_native_enable(void) {
             goto bail_out;
         }
         if (!(unw_get_proc_info = dlsym(libhandle, UL_PREFIX PREFIX "_get_proc_info"))){
+            goto bail_out;
+        }
+        if (!(unw_get_proc_name = dlsym(libhandle, UL_PREFIX PREFIX "_get_proc_name"))){
             goto bail_out;
         }
         if (!(unw_init_local = dlsym(libhandle, UL_PREFIX PREFIX "_init_local"))) {
