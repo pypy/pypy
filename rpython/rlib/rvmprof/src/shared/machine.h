@@ -10,11 +10,3 @@ int vmp_machine_bits(void);
  */
 const char * vmp_machine_os_name(void);
 
-/**
- * How many bytes does the x86 instruction take at pc[0..].
- *
- * Returns 0 on failure.
- */
-#ifdef VMP_SUPPORTS_NATIVE_PROFILING
-unsigned int vmp_machine_code_instr_length(char* pc);
-#endif

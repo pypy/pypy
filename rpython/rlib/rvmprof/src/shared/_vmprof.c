@@ -248,20 +248,25 @@ write_all_code_objects(PyObject *module, PyObject *noargs)
 
 
 static PyObject *
-sample_stack_now(PyObject *module, PyObject *args)
+sample_stack_now(PyObject *module, PyObject * args)
 {
     PyThreadState * tstate = NULL;
-    PyObject * list;
+    PyObject * list = NULL;
     int i;
     int entry_count;
     void ** m;
     void * routine_ip;
+    long skip = 0;
 
     // stop any signal to occur
     vmprof_ignore_signals(1);
 
     list = PyList_New(0);
     if (list == NULL) {
+        goto error;
+    }
+
+    if (!PyArg_ParseTuple(args, "l", &skip)) {
         goto error;
     }
 
@@ -272,7 +277,7 @@ sample_stack_now(PyObject *module, PyObject *args)
         vmprof_ignore_signals(0);
         return NULL;
     }
-    entry_count = vmp_walk_and_record_stack(tstate->frame, m, MAX_STACK_DEPTH-1, 0, 0);
+    entry_count = vmp_walk_and_record_stack(tstate->frame, m, MAX_STACK_DEPTH-1, skip, 0);
 
     for (i = 0; i < entry_count; i++) {
         routine_ip = m[i];
@@ -337,7 +342,7 @@ static PyMethodDef VMProfMethods[] = {
     {"disable", disable_vmprof, METH_NOARGS, "Disable profiling."},
     {"write_all_code_objects", write_all_code_objects, METH_NOARGS,
      "Write eagerly all the IDs of code objects"},
-    {"sample_stack_now", sample_stack_now, METH_NOARGS, "Sample the stack now"},
+    {"sample_stack_now", sample_stack_now, METH_VARARGS, "Sample the stack now"},
 #ifdef VMP_SUPPORTS_NATIVE_PROFILING
     {"resolve_addr", resolve_addr, METH_VARARGS, "Return the name of the addr"},
 #endif

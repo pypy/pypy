@@ -13,6 +13,7 @@
       #define PyStr_GET_SIZE PyString_GET_SIZE
       #define PyStr_NEW      PyString_FromString
       #define PyLong_NEW     PyInt_FromSsize_t
+      #define PyLong_AsLong  PyInt_AsLong
 #  endif
 #endif
 

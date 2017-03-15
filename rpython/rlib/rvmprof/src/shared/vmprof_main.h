@@ -337,39 +337,12 @@ void init_cpyprof(int native)
         vmp_native_disable();
         return;
     }
-#if CPYTHON_HAS_FRAME_EVALUATION
-    PyThreadState *tstate = PyThreadState_GET();
-    tstate->interp->eval_frame = vmprof_eval;
-    _default_eval_loop = _PyEval_EvalFrameDefault;
-#elif defined(RPYTHON_VMPROF)
-    // do nothing here, the stack is maintained by rpython
-    // no need for a trampoline
-#else
-    if (vmp_patch_callee_trampoline(PyEval_EvalFrameEx,
-                vmprof_eval, (void*)&_default_eval_loop) == 0) {
-    } else {
-        fprintf(stderr, "FATAL: could not insert trampline, try with --no-native\n");
-        // TODO dump the first few bytes and tell them to create an issue!
-        exit(-1);
-    }
-#endif
     vmp_native_enable();
 }
 
 static void disable_cpyprof(void)
 {
     vmp_native_disable();
-#if CPYTHON_HAS_FRAME_EVALUATION
-    PyThreadState *tstate = PyThreadState_GET();
-    tstate->interp->eval_frame = _PyEval_EvalFrameDefault;
-#elif defined(RPYTHON_VMPROF)
-    // TODO nothing?
-#else
-    if (vmp_unpatch_callee_trampoline(PyEval_EvalFrameEx) > 0) {
-        fprintf(stderr, "FATAL: could not remove trampoline\n");
-        exit(-1);
-    }
-#endif
     dump_native_symbols(vmp_profile_fileno());
 }
 #endif

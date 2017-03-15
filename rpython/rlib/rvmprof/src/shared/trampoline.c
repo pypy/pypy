@@ -121,6 +121,16 @@ int patch_relative_call(void * base, char * rel_call, char *rel_call_end, int by
 }
 #endif
 
+#include "libudis86/udis86.h"
+unsigned int vmp_machine_code_instr_length(char* pc)
+{
+    struct ud u;
+    ud_init(&u);
+    ud_set_input_buffer(&u, (uint8_t*)pc, 12);
+    ud_set_mode(&u, vmp_machine_bits());
+    return ud_decode(&u);
+}
+
 // a hilarious typo, tramp -> trump :)
 int _redirect_trampoline_and_back(char * eval, char * trump, char * vmprof_eval) {
 

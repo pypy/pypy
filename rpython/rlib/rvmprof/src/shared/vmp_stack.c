@@ -15,24 +15,18 @@
 #include "compat.h"
 
 #ifdef VMP_SUPPORTS_NATIVE_PROFILING
-#define UNW_LOCAL_ONLY
-#include "unwind/libunwind.h"
-#  ifdef X86_64
-#    define REG_RBX UNW_X86_64_RBX
-#  elif defined(X86_32)
-#    define REG_RBX UNW_X86_EDI
-#  endif
+#include "unwind/vmprof_unwind.h"
+
+typedef mcontext_t unw_context_t;
 
 // functions copied from libunwind using dlopen
 
-#ifdef VMPROF_UNIX
 static int (*unw_get_reg)(unw_cursor_t*, int, unw_word_t*) = NULL;
 static int (*unw_step)(unw_cursor_t*) = NULL;
 static int (*unw_init_local)(unw_cursor_t *, unw_context_t *) = NULL;
 static int (*unw_get_proc_info)(unw_cursor_t *, unw_proc_info_t *) = NULL;
 static int (*unw_is_signal_frame)(unw_cursor_t *) = NULL;
-static int (*unw_getcontext)(unw_cursor_t *) = NULL;
-#endif
+static int (*unw_getcontext)(unw_context_t *) = NULL;
 
 #endif
 
@@ -176,30 +170,39 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
         return 0;
     }
 
+    if (signal < 0) {
+        while (signal < 0) {
+            int err = unw_step(&cursor);
+            if (err <= 0) {
+                return 0;
+            }
+            signal++;
+        }
+    } else {
 #ifdef VMPROF_LINUX
-    while (signal) {
-        int is_signal_frame = unw_is_signal_frame(&cursor);
-        if (is_signal_frame) {
-            unw_step(&cursor); // step once more discard signal frame
-            break;
+        while (signal) {
+            int is_signal_frame = unw_is_signal_frame(&cursor);
+            if (is_signal_frame) {
+                unw_step(&cursor); // step once more discard signal frame
+                break;
+            }
+            int err = unw_step(&cursor);
+            if (err <= 0) {
+                return 0;
+            }
         }
-        int err = unw_step(&cursor);
-        if (err <= 0) {
-            return 0;
-        }
-    }
 #else
-    // who would have guessed that unw_is_signal_frame does not work on mac os x
-    if (signal) {
-        unw_step(&cursor); // vmp_walk_and_record_stack
-        // get_stack_trace is inlined
-        unw_step(&cursor); // _vmprof_sample_stack
-        unw_step(&cursor); // sigprof_handler
-        unw_step(&cursor); // _sigtramp
-    }
+        // who would have guessed that unw_is_signal_frame does not work on mac os x
+        if (signal) {
+            unw_step(&cursor); // vmp_walk_and_record_stack
+            // get_stack_trace is inlined
+            unw_step(&cursor); // _vmprof_sample_stack
+            unw_step(&cursor); // sigprof_handler
+            unw_step(&cursor); // _sigtramp
+        }
 #endif
+    }
 
-    //printf("stack trace:\n");
     int depth = 0;
     PY_STACK_FRAME_T * top_most_frame = frame;
     while (depth < max_depth) {
@@ -223,84 +226,39 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
         //    printf("func_addr is 0, now %p\n", rip);
         //}
 
+#ifdef PYPY
+        unw_word_t rip = 0;
+        if (unw_get_reg(&cursor, UNW_REG_IP, &rip) < 0) {
+            return 0;
+        }
+#endif
 
         if (IS_VMPROF_EVAL((void*)pip.start_ip)) {
             // yes we found one stack entry of the python frames!
-#ifndef RPYTHON_VMPROF
-            unw_word_t rbx = 0;
-            if (unw_get_reg(&cursor, REG_RBX, &rbx) < 0) {
-                break;
-            }
-            if (rbx != (unw_word_t)top_most_frame) {
-                // uh we are screwed! the ip indicates we are have context
-                // to a PyEval_EvalFrameEx function, but when we tried to retrieve
-                // the stack located py frame it has a different address than the
-                // current top_most_frame
-                return 0;
-            } else {
-#else
-            {
+            return vmp_walk_and_record_python_stack_only(frame, result, max_depth, depth, pc);
+#ifdef PYPY
+        } else if (IS_JIT_FRAME((void*)rip)) {
+            depth = vmprof_write_header_for_jit_addr(result, depth, pc, max_depth);
+            return vmp_walk_and_record_python_stack_only(frame, result, max_depth, depth, pc);
 #endif
-                if (top_most_frame != NULL) {
-                    top_most_frame = _write_python_stack_entry(top_most_frame, result, &depth, max_depth);
-                } else {
-                    // Signals can occur at the two places (1) and (2), that will
-                    // have added a stack entry, but the function __vmprof_eval_vmprof
-                    // is not entered. This behaviour will swallow one Python stack frames
-                    //
-                    // (1) PyPy: enter_code happened, but __vmprof_eval_vmprof was not called
-                    // (2) PyPy: __vmprof_eval_vmprof was returned, but exit_code was not called
-                    //
-                    // destroy this sample, as it would display a strage sample
-                    return 0;
-                }
-            }
-        } else if (vmp_ignore_ip((intptr_t)func_addr)) {
-            // this is an instruction pointer that should be ignored
-            // (that is any function name in the mapping range of
-            //  cpython or libpypy-c.so, but of course not
-            //  extenstions in site-packages)
         } else {
             // mark native routines with the first bit set,
             // this is possible because compiler align to 8 bytes.
             //
-#ifdef PYPY_JIT_CODEMAP
-            // see vmp_dynamic.c on line ip->flags = DYN_JIT_FLAG
-            if (pip.flags == DYN_JIT_FLAG) {
-                if (top_most_frame->kind != VMPROF_JITTED_TAG) {
-                    // if this is encountered frequently something is wrong with
-                    // the stack building
-                    return 0;
-                }
-                intptr_t pc = ((intptr_t*)(top_most_frame->value - sizeof(intptr_t)))[0];
-                depth = vmprof_write_header_for_jit_addr(result, depth, pc, max_depth);
-                top_most_frame = FRAME_STEP(top_most_frame);
-            } else if (func_addr != 0x0) {
-                depth = _write_native_stack((void*)(func_addr | 0x1), result, depth);
-            }
-#else
             if (func_addr != 0x0) {
                 depth = _write_native_stack((void*)(func_addr | 0x1), result, depth);
             }
-#endif
         }
 
         int err = unw_step(&cursor);
         if (err == 0) {
-            //printf("sample ended\n");
             break;
         } else if (err < 0) {
             return 0; // this sample is broken, cannot walk it fully
         }
     }
 
-    if (top_most_frame == NULL) {
-        return depth;
-    }
-    // Whenever the trampoline is inserted, there might be a view python
-    // stack levels that do not have the trampoline!
-    // they should not be consumed, because the let native symbols flow forward.
-    return depth; //vmp_walk_and_record_python_stack_only(top_most_frame, result, max_depth, depth);
+    return 0; // kill this sample, no python level was found
 #else
     return vmp_walk_and_record_python_stack_only(frame, result, max_depth, 0, pc);
 #endif
@@ -492,30 +450,47 @@ teardown:
 
 static const char * vmprof_error = NULL;
 
+
+#ifdef VMPROF_LINUX
+#define LIBUNWIND "libunwind.so"
+#ifdef __i386__
+#define PREFIX "x86"
+#elif __x86_64__
+#define PREFIX "x86_64"
+#endif
+#define U_PREFIX "_U"
+#define UL_PREFIX "_UL"
+#else
+#define LIBUNWIND "/usr/lib/system/libunwind.dylib"
+#define PREFIX "unw"
+#define U_PREFIX ""
+#define UL_PREFIX ""
+#endif
+
 int vmp_native_enable(void) {
     void * libhandle;
     vmp_native_traces_enabled = 1;
 
     if (!unw_get_reg) {
-        if (!(libhandle = dlopen("libunwind.so", RTLD_LAZY | RTLD_LOCAL))) {
+        if (!(libhandle = dlopen(LIBUNWIND, RTLD_LAZY | RTLD_LOCAL))) {
             goto bail_out;
         }
-        if (!(unw_getcontext = dlsym(libhandle, "_ULx86_64_getcontext"))) {
+        if (!(unw_get_reg = dlsym(libhandle, UL_PREFIX PREFIX "_get_reg"))) {
             goto bail_out;
         }
-        if (!(unw_get_reg = dlsym(libhandle, "_ULx86_64_get_reg"))) {
+        if (!(unw_get_proc_info = dlsym(libhandle, UL_PREFIX PREFIX "_get_proc_info"))){
             goto bail_out;
         }
-        if (!(unw_get_proc_info = dlsym(libhandle, "_ULx86_64_get_proc_info"))){
+        if (!(unw_init_local = dlsym(libhandle, UL_PREFIX PREFIX "_init_local"))) {
             goto bail_out;
         }
-        if (!(unw_init_local = dlsym(libhandle, "_ULx86_64_init_local"))) {
+        if (!(unw_step = dlsym(libhandle, UL_PREFIX PREFIX "_step"))) {
             goto bail_out;
         }
-        if (!(unw_step = dlsym(libhandle, "_ULx86_64_step"))) {
+        if (!(unw_is_signal_frame = dlsym(libhandle, UL_PREFIX PREFIX "_is_signal_frame"))) {
             goto bail_out;
         }
-        if (!(unw_is_signal_frame = dlsym(libhandle, "_ULx86_64_is_signal_frame"))) {
+        if (!(unw_getcontext = dlsym(libhandle, U_PREFIX PREFIX "_getcontext"))) {
             goto bail_out;
         }
         if (dlclose(libhandle)) {
@@ -529,7 +504,9 @@ int vmp_native_enable(void) {
     return vmp_read_vmaps(NULL);
 #endif
 bail_out:
+    vmprof_error = dlerror();
     fprintf(stderr, "could not load libunwind at runtime. error: %s\n", vmprof_error);
+    vmp_native_traces_enabled = 0;
     return 0;
 }
 
