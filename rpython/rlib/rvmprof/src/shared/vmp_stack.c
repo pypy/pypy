@@ -226,7 +226,8 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
         //    printf("func_addr is 0, now %p\n", rip);
         //}
 
-#ifdef PYPY
+#ifdef RPYTHON_VMPROF
+        long start_addr = 0;
         unw_word_t rip = 0;
         if (unw_get_reg(&cursor, UNW_REG_IP, &rip) < 0) {
             return 0;
@@ -236,8 +237,8 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
         if (IS_VMPROF_EVAL((void*)pip.start_ip)) {
             // yes we found one stack entry of the python frames!
             return vmp_walk_and_record_python_stack_only(frame, result, max_depth, depth, pc);
-#ifdef PYPY
-        } else if (IS_JIT_FRAME((void*)rip)) {
+#ifdef RPYTHON_VMPROF
+        } else if (pypy_find_codemap_at_addr(rip, &start_addr) != NULL) {
             depth = vmprof_write_header_for_jit_addr(result, depth, pc, max_depth);
             return vmp_walk_and_record_python_stack_only(frame, result, max_depth, depth, pc);
 #endif
