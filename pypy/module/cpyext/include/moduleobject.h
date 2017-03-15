@@ -6,31 +6,7 @@
 extern "C" {
 #endif
 
-typedef struct PyModuleDef_Base {
-  PyObject_HEAD
-  PyObject* (*m_init)(void);
-  Py_ssize_t m_index;
-  PyObject* m_copy;
-} PyModuleDef_Base;
-
-#define PyModuleDef_HEAD_INIT { \
-    PyObject_HEAD_INIT(NULL)    \
-    NULL, /* m_init */          \
-    0,    /* m_index */         \
-    NULL, /* m_copy */          \
-  }
-
-typedef struct PyModuleDef{
-  PyModuleDef_Base m_base;
-  const char* m_name;
-  const char* m_doc;
-  Py_ssize_t m_size;
-  PyMethodDef *m_methods;
-  inquiry m_reload;
-  traverseproc m_traverse;
-  inquiry m_clear;
-  freefunc m_free;
-}PyModuleDef;
+#include "cpyext_moduleobject.h"
 
 #ifdef __cplusplus
 }

@@ -1,6 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import cpython_api, cpython_struct, \
-        METH_STATIC, METH_CLASS, METH_COEXIST, CANNOT_FAIL, CONST_STRING
+from pypy.module.cpyext.api import (
+    cpython_api, METH_STATIC, METH_CLASS, METH_COEXIST, CANNOT_FAIL, cts,
+    parse_dir)
 from pypy.module.cpyext.pyobject import PyObject, as_pyobj
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.methodobject import (
@@ -10,18 +11,8 @@ from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import oefmt
 
-PyModuleDef_BaseStruct = cpython_struct(
-    'PyModuleDef_Base',
-    [])
-
-PyModuleDefStruct = cpython_struct(
-    'PyModuleDef',
-    [('m_base', PyModuleDef_BaseStruct),
-     ('m_name', rffi.CCHARP),
-     ('m_doc', rffi.CCHARP),
-     ('m_methods', lltype.Ptr(PyMethodDef)),
-     ], level=2)
-PyModuleDef = lltype.Ptr(PyModuleDefStruct)
+cts.parse_header(parse_dir / 'cpyext_moduleobject.h')
+PyModuleDef = cts.gettype('PyModuleDef *')
 
 @cpython_api([PyModuleDef, rffi.INT_real], PyObject)
 def PyModule_Create2(space, module, api_version):
