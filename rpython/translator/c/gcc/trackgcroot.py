@@ -368,8 +368,8 @@ class FunctionGcRootTracker(object):
         def schedule(insn, state):
             for previnsn in insn.previous_insns:
                 key = previnsn, state
-                if previnsn not in seen:
-                    seen.add(previnsn)
+                if key not in seen:
+                    seen.add(key)
                     pending.append(key)
         schedule(initial_insn, initial_state)
         while pending:

@@ -247,26 +247,6 @@ def vmprof_execute_code(name, get_code_fn, result_class=None,
 
     return decorate
 
-def dyn_register_jit_page(token, addr, end_addr):
-    try:
-        c = _get_vmprof().cintf
-        cname = lltype.nullptr(rffi.CCHARP.TO)
-        ref = c.vmp_dyn_register_jit_page(addr, end_addr, cname)
-        token.rvmprof_register(ref)
-        return True
-    except cintf.VMProfPlatformUnsupported:
-        return False
-
-def dyn_cancel(token):
-    try:
-        c = _get_vmprof().cintf
-        for ref in token._rvmprof_references:
-            c.vmp_dyn_cancel(ref)
-        token._rvmprof_references = []
-        return True
-    except cintf.VMProfPlatformUnsupported:
-        return False
-
 @specialize.memo()
 def _was_registered(CodeClass):
     return hasattr(CodeClass, '_vmprof_unique_id')
