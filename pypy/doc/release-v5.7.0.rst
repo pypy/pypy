@@ -87,56 +87,51 @@ See also issues that were resolved_
 * New features and cleanups
 
   * update the format of the PYPYLOG file and improvements to vmprof
-  * improve the consistency of RPython annotation unions
   * emit more sysconfig values for downstream cextension packages
-  * add PyAnySet_Check, PyModule_GetName, PyWeakref_Check*,
-    _PyImport_{Acquire,Release}Lock, PyGen_Check*, PyOS_AfterFork,
-  * add translation option --keepgoing to continue after the first AnnotationError
+  * add ``PyAnySet_Check``, ``PyModule_GetName``, ``PyWeakref_Check*``,
+    ``_PyImport_{Acquire,Release}Lock``, ``PyGen_Check*``, ``PyOS_AfterFork``,
   * detect and raise on recreation of a PyPy object from a PyObject during
     tp_dealloc
   * refactor and clean up poor handling of unicode exposed in work on py3.5
-  * builtin cppyy_ supports C++ 11, 14, etc. via cling (reflex has been removed)
-  * add translation time --disable_entrypoints option for embedding PyPy together
-    with another RPython VM
-  * adapt ``weakref`` according to Python issue #19542, will be in CPython 2.7.14
+  * builtin module cppyy_ supports C++ 11, 14, etc. via cling (reflex has been removed)
+  * adapt ``weakref`` according to CPython issue #19542_, will be in CPython 2.7.14
   * support translations with cpyext and the Boehm GC (for special cases like
-    revdb
+    RevDB_
   * implement ``StringBuffer.get_raw_address`` for the buffer protocol, it is
     now possible to obtain the address of any readonly object without pinning it
   * refactor the initialization code in translating cpyext
-  * fix ``"".replace("", "x", num)`` to give the same result as CPython
-  * use a cffi-style C parser to create rffi objects in cpyext, now the
-    translating python must have cffi available
-  * add a rpython implementation of siphash24, allow choosing hash algorithm
-    randomizing the seed
-  * make ``attach_gdb`` work on Windows (with Visual Studio Debugger)
+  * make ``__pypy__.attach_gdb`` work on Windows (with Visual Studio Debugger)
   * implement ``move_to_end(last=True/False)`` on RPython ordered dicts, make
-    available as ``__pypy__.move_to_end`` and, on py3.5,
+    available as ``__pypy__.move_to_end`` and, on Py3.5,
     ``OrderedDict.move_to_end()``
   * remove completely RPython ``space.wrap`` in a major cleanup, differentiate
     between ``space.newtext`` and ``space.newbytes`` on py3.5
-  * improve shadowstack to where it is now the default in place of asmgcc
+  * any uncaught RPython exception in the interpreter is turned into a
+    SystemError (rather than a segfault)
+  * add translation time --disable_entrypoints option for embedding PyPy together
+    with another RPython VM
+
 
 * Bug Fixes
 
-  * any uncaught RPython exception in the interpreter is turned into a
-    SystemError (rather than a segfault)
+  * fix ``"".replace("", "x", num)`` to give the same result as CPython
   * create log files without the executable bit
-  * disable clock_gettime() on OS/X, since we support 10.11 and it was only
+  * disable ``clock_gettime()`` on OS/X, since we support 10.11 and it was only
     added in 10.12
-  * support HAVE_FSTATVFS which was unintentionally always false
-  * fix user-created C-API heaptype, issue #2434
-  * fix PyDict_Update is not actually the same as dict.update
-  * assign tp_doc on PyTypeObject and tie it to the app-level __doc__ attribute
-    issue #2446
+  * support ``HAVE_FSTATVFS`` which was unintentionally always false
+  * fix user-created C-API heaptype, issue #2434_
+  * fix ``PyDict_Update`` is not actually the same as ``dict.update``
+  * assign ``tp_doc`` on ``PyTypeObject`` and tie it to the app-level ``__doc__`` attribute
+    issue #2446_
   * clean up memory leaks around ``PyObject_GetBuffer``, ``PyMemoryView_GET_BUFFER``,
     ``PyMemoryView_FromBuffer``, and ``PyBuffer_Release``
-  * improve support for creating c-extension objects from app-level classes,
-    filling more slots especially ``tp_new`` and ``tp_dealloc``
+  * improve support for creating C-extension objects from app-level classes,
+    filling more slots, especially ``tp_new`` and ``tp_dealloc``
   * add rstack.stack_almost_full() and use it to avoid stack overflow due to
     the JIT where possible
-  * fix for ctypes.c_bool returning bool restype issue #2475
+  * fix for ``ctypes.c_bool`` returning ``bool`` restype, issue #2475_
   * fix in corner cases with the GIL and C-API functions
+
 
 * Performance improvements:
 
@@ -158,10 +153,20 @@ See also issues that were resolved_
     information across failing guards
   * add optimized "zero-copy" path for ``io.FileIO.readinto``
 
-Highlights of the PyPy3.5 release (since 5.5 alpha released Oct, 2016)
-=========================================================
+* RPython improvements
 
-Development moved from the py3k branch to the py3.5 branch in the pypy bitbucket repo
+  * improve the consistency of RPython annotation unions
+  * add translation option --keepgoing to continue after the first AnnotationError
+  * use a cffi-style C parser to create rffi objects in cpyext, now the
+    translating Python must have cffi available
+  * improve shadowstack to where it is now the default in place of asmgcc
+  * add a rpython implementation of siphash24, allow choosing hash algorithm
+    randomizing the seed
+
+Highlights of the PyPy3.5 release (since 5.5 alpha released Oct, 2016)
+==========================================================================
+
+Development moved from the py3k branch to the py3.5 branch in the PyPy bitbucket repo
 
 * New features
 
@@ -176,12 +181,17 @@ Development moved from the py3k branch to the py3.5 branch in the pypy bitbucket
 
 * Performance improvements:
 
-  * do not create a list whenever descr_new of a bytesobject is called
+  * do not create a list whenever ``descr_new`` of a ``bytesobject`` is called
   * 
   * 
   * 
 
 .. _resolved: whatsnew-pypy2-5.7.0.html
+.. _19542: https://bugs.python.org/issue19542
+.. _2434: https://bitbucket.org/pypy/pypy/issues/2434/support-pybind11-in-conjunction-with-pypys
+.. _2446: https://bitbucket.org/pypy/pypy/issues/2446/cpyext-tp_doc-field-not-reflected-on
+.. _2475: https://bitbucket.org/pypy/pypy/issues/2475
+.. _RevDB: https://bitbucket.org/pypy/revdb
 .. _cryptography: https://cryptography.io
 .. _cppyy: cppyy.html
 
