@@ -112,8 +112,8 @@ int get_stack_trace(PY_THREAD_STATE_T * current, void** result, int max_depth, i
 
 #include <setjmp.h>
 
-volatile int spinlock;
-jmp_buf restore_point;
+static volatile int spinlock;
+static jmp_buf restore_point;
 
 static void segfault_handler(int arg)
 {
