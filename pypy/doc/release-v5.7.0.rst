@@ -2,7 +2,7 @@
 PyPy2.7 and PyPy3.5 v5.7 - two in one release
 =============================================
 
-We have released PyPy2.7 and a beta-quality PyPy3.5 v5.7.
+We have released PyPy2.7 and a beta-quality PyPy3.5 v5.7 for 64 bit linux.
 This new PyPy2.7 release includes the upstream stdlib version 2.7.13, and
 PyPy 3.5 (our first in the 3.5 series) includes the upstream stdlib version
 3.5.3.
@@ -65,7 +65,7 @@ due to its integrated tracing JIT compiler.
 We also welcome developers of other `dynamic languages`_ to see what RPython
 can do for them.
 
-This release supports: 
+The PyPy 2.7 release supports: 
 
   * **x86** machines on most common operating systems
     (Linux 32/64 bits, Mac OS X 64 bits, Windows 32 bits, OpenBSD, FreeBSD)
@@ -80,7 +80,7 @@ This release supports:
 .. _`dynamic languages`: http://rpython.readthedocs.io/en/latest/examples.html
 
 Highlights of the PyPy2.7, cpyext, and RPython changes (since 5.6 released Nov, 2016)
-=============================================================================================
+=====================================================================================
 
 See also issues that were resolved_
 
