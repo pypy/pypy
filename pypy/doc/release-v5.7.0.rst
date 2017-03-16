@@ -8,15 +8,15 @@ PyPy 3.5 (our first in the 3.5 series) includes the upstream stdlib version
 3.5.3.
 
 We continue to make incremental improvements to our C-API
-compatibility layer (cpyext). PyPy2 can now import and run many c-extension
-packages, among the most notable are numpy, cython, and pandas. Performance may
+compatibility layer (cpyext). PyPy2 can now import and run many C-extension
+packages, among the most notable are Numpy, Cython, and Pandas. Performance may
 be slower than CPython, especially for frequently-called short C functions.
 Please let us know if your use case is slow, we have ideas how to make things
 faster but need real-world examples (not micro-benchmarks) of problematic code.
 
 Work proceeds at a good pace on the PyPy3.5
 version due to a grant_ from the Mozilla Foundation, hence our first 3.5.3 beta
-release. Thanks Mozilla !!! While we do not pass all tests, asyncio works and
+release. Thanks Mozilla !!! While we do not pass all tests yet, asyncio works and
 as `these benchmarks show`_ it already gives a nice speed bump.
 We also backported the ``f""`` formatting from 3.6 (as an expection; otherwise
 "PyPy3.5" supports the Python 3.5 language).
