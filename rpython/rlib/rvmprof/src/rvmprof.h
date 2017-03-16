@@ -1,6 +1,6 @@
 #pragma once
 
-#include "vmprof.h"
+#include "shared/vmprof.h"
 
 #define SINGLE_BUF_SIZE (8192 - 2 * sizeof(unsigned int))
 
