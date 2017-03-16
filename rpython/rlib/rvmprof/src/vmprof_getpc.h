@@ -131,7 +131,7 @@ struct CallUnrollInfo {
 // typedef int ucontext_t;
 // #endif
 
-intptr_t GetPC(ucontext_t *signal_ucontext) {
+static intptr_t GetPC(ucontext_t *signal_ucontext) {
   // RAW_LOG(ERROR, "GetPC is not yet implemented on Windows\n");
   fprintf(stderr, "GetPC is not yet implemented on Windows\n");
   return NULL;
@@ -142,7 +142,7 @@ intptr_t GetPC(ucontext_t *signal_ucontext) {
 // the right value for your system, and add it to the list in
 // vmrpof_config.h
 #else
-intptr_t GetPC(ucontext_t *signal_ucontext) {
+static intptr_t GetPC(ucontext_t *signal_ucontext) {
   return signal_ucontext->PC_FROM_UCONTEXT;   // defined in config.h
 }
 

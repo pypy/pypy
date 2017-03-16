@@ -75,9 +75,10 @@ alias = {
     'Spenser Bauman':['Spenser Andrew Bauman'],
     'Raffael Tfirst':['raffael.tfirst@gmail.com'],
     'timo':['timo@eistee.fritz.box'],
-    'Jasper Schulz':['Jasper.Schulz'],
+    'Jasper Schulz':['Jasper.Schulz', 'jbs'],
     'Aaron Gallagher':['"Aaron Gallagher'],
     'Yasir Suhail':['yasirs'],
+    'Squeaky', ['squeaky'],
     }
 
 alias_map = {}

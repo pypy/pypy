@@ -931,7 +931,10 @@ def finish_type_2(space, pto, w_obj):
     if base:
         inherit_special(space, pto, base)
     for w_base in space.fixedview(from_ref(space, pto.c_tp_bases)):
-        inherit_slots(space, pto, w_base)
+        if isinstance(w_base, W_TypeObject):
+            inherit_slots(space, pto, w_base)
+        #else:
+        #   w_base is a W_ClassObject, ignore it
 
     if not pto.c_tp_setattro:
         from pypy.module.cpyext.object import PyObject_GenericSetAttr
