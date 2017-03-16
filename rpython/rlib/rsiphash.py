@@ -24,14 +24,11 @@ from rpython.rtyper.annlowlevel import llhelper
 if sys.byteorder == 'little':
     def _le64toh(x):
         return x
+    def _le32toh(x):
+        return x
 else:
     _le64toh = rarithmetic.byteswap
-
-
-class Seed:
-    k0l = k1l = r_uint64(0)
-seed = Seed()
-
+    _le32toh = rarithmetic.byteswap
 
 def _decode64(s):
     return (r_uint64(ord(s[0])) |
@@ -42,6 +39,11 @@ def _decode64(s):
             r_uint64(ord(s[5])) << 40 |
             r_uint64(ord(s[6])) << 48 |
             r_uint64(ord(s[7])) << 56)
+
+class Seed:
+    k0l = k1l = r_uint64(0)
+seed = Seed()
+
 
 def select_random_seed(s):
     """'s' is a string of length 16"""
@@ -177,16 +179,12 @@ def choosen_seed(new_k0, new_k1, test_misaligned_path=False):
     """For tests."""
     global misaligned_is_fine
     old = seed.k0l, seed.k1l, misaligned_is_fine
-    seed.k0l = _le64toh(r_uint64(new_k0))
-    seed.k1l = _le64toh(r_uint64(new_k1))
+    seed.k0l = r_uint64(new_k0)
+    seed.k1l = r_uint64(new_k1)
     if test_misaligned_path:
         misaligned_is_fine = False
     yield
     seed.k0l, seed.k1l, misaligned_is_fine = old
-
-def get_current_seed():
-    return _le64toh(seed.k0l), _le64toh(seed.k1l)
-
 
 magic0 = r_uint64(0x736f6d6570736575)
 magic1 = r_uint64(0x646f72616e646f6d)
@@ -271,7 +269,8 @@ def _siphash24(addr_in, size):
         size = 4
     if size == 4:
         if direct:
-            t |= r_uint64(llop.raw_load(rffi.UINT, addr_in, index))
+            v = _le32toh(r_uint32(llop.raw_load(rffi.UINT, addr_in, index)))
+            t |= r_uint64(v)
             size = 0
         else:
             t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 3)) << 24
@@ -287,7 +286,7 @@ def _siphash24(addr_in, size):
         size = 0
     assert size == 0
 
-    b |= _le64toh(t)
+    b |= t
 
     v3 ^= b
     v0, v1, v2, v3 = _double_round(v0, v1, v2, v3)
