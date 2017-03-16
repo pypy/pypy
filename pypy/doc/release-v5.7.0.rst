@@ -100,7 +100,6 @@ See also issues that were resolved_
   * implement ``StringBuffer.get_raw_address`` for the buffer protocol, it is
     now possible to obtain the address of any readonly object without pinning it
   * refactor the initialization code in translating cpyext
-  * make ``__pypy__.attach_gdb`` work on Windows (with Visual Studio Debugger)
   * implement ``move_to_end(last=True/False)`` on RPython ordered dicts, make
     available as ``__pypy__.move_to_end`` and, on Py3.5,
     ``OrderedDict.move_to_end()``
@@ -166,13 +165,14 @@ See also issues that were resolved_
 Highlights of the PyPy3.5 release (since 5.5 alpha released Oct, 2016)
 ==========================================================================
 
-Development moved from the py3k branch to the py3.5 branch in the PyPy bitbucket repo
+Development moved from the py3k branch to the py3.5 branch in the PyPy bitbucket repo.
 
 * New features
 
-  * this first PyPy3.5 release implements much, but not all, of Python 3.5.3
+  * this first PyPy3.5 release implements most of Python 3.5.3, exceptions are listed below
   * PEP 456 allowing secure and interchangable hash algorithms
   * use cryptography_'s cffi backend for SSL
+
 
 * Bug Fixes
 
@@ -185,6 +185,12 @@ Development moved from the py3k branch to the py3.5 branch in the PyPy bitbucket
   * 
   * 
   * 
+
+* The following features of Python 3.5 are not implemented yet in PyPy:
+
+  * PEP 442: Safe object finalization
+  * PEP 489: Multi-phase extension module initialization
+  * XXX what else?
 
 .. _resolved: whatsnew-pypy2-5.7.0.html
 .. _19542: https://bugs.python.org/issue19542
