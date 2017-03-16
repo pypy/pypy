@@ -17,7 +17,7 @@ SRC = ROOT.join('src')
 SHARED = SRC.join('shared')
 BACKTRACE = SHARED.join('libbacktrace')
 
-compile_extra = ['-DRPYTHON_VMPROF', '-g', '-O1']
+compile_extra = ['-DRPYTHON_VMPROF', '-O3']
 if sys.platform.startswith('linux'):
     separate_module_files = [
        BACKTRACE.join('backtrace.c'),
@@ -30,7 +30,7 @@ if sys.platform.startswith('linux'):
        BACKTRACE.join('posix.c'),
        BACKTRACE.join('sort.c'),
     ]
-    _libs = ['dl', 'unwind']
+    _libs = ['dl']
     compile_extra += ['-DVMPROF_UNIX']
     compile_extra += ['-DVMPROF_LINUX']
 elif sys.platform == 'darwin':
