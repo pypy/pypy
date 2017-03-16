@@ -23,9 +23,9 @@ def PyModule_Create2(space, module, api_version):
     Most uses of this function should be using PyModule_Create()
     instead; only use this if you are sure you need it."""
 
-    modname = rffi.charp2str(module.c_m_name)
+    modname = rffi.charp2str(rffi.cast(rffi.CCHARP, module.c_m_name))
     if module.c_m_doc:
-        doc = rffi.charp2str(module.c_m_doc)
+        doc = rffi.charp2str(rffi.cast(rffi.CCHARP, module.c_m_doc))
     else:
         doc = None
     methods = module.c_m_methods
