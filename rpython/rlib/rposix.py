@@ -237,6 +237,8 @@ else:
                 'sys/resource.h',
                 'grp.h', 'dirent.h', 'sys/stat.h', 'fcntl.h',
                 'signal.h', 'sys/utsname.h', _ptyh]
+    if sys.platform.startswith('linux'):
+        includes.append('sys/sysmacros.h')
     if sys.platform.startswith('freebsd'):
         includes.append('sys/ttycom.h')
     libraries = ['util']

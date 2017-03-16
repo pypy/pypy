@@ -24,6 +24,12 @@ We also backported the ``f""`` formatting from 3.6 (as an expection; otherwise
 CFFI_ has been updated to 1.10, improving an already great package for
 interfacing with C.
 
+We now use shadowstack as our default gcrootfinder_ even on Linux. The
+alternative, asmgcc, will be deprecated at some future point. While about 3%
+slower, shadowstack is much more easily maintained and debuggable. Also,
+the performance of shadowstack has been improved in general: this should
+close the speed gap between Linux and other platforms.
+
 As always, this release fixed many issues and bugs raised by the
 growing community of PyPy users. We strongly recommend updating.
 
@@ -47,6 +53,7 @@ with making RPython's JIT even better.
 .. _`modules`: project-ideas.html#make-more-python-modules-pypy-friendly
 .. _`help`: project-ideas.html
 .. _`these benchmarks show`: https://morepypy.blogspot.com/2017/03/async-http-benchmarks-on-pypy3.html
+.. _gcrootfinder: config/translation.gcrootfinder.html
 
 What is PyPy?
 =============

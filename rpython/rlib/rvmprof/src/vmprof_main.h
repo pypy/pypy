@@ -104,8 +104,8 @@ static intptr_t get_current_thread_id(void)
 
 #include <setjmp.h>
 
-volatile int spinlock;
-jmp_buf restore_point;
+static volatile int spinlock;
+static jmp_buf restore_point;
 
 static void segfault_handler(int arg)
 {
