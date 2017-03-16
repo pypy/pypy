@@ -1,4 +1,4 @@
-from pypy.interpreter.module import Module
+from pypy.interpreter.module import Module, init_extra_module_attrs
 from pypy.interpreter.function import Function, BuiltinFunction
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
@@ -18,6 +18,7 @@ class MixedModule(Module):
     def __init__(self, space, w_name):
         """ NOT_RPYTHON """
         Module.__init__(self, space, w_name)
+        init_extra_module_attrs(space, self)
         self.lazy = True
         self.lazy_initial_values_w = {}
         self.__class__.buildloaders()
