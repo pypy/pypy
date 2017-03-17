@@ -18,7 +18,7 @@ Work proceeds at a good pace on the PyPy3.5
 version due to a grant_ from the Mozilla Foundation, hence our first 3.5.3 beta
 release. Thanks Mozilla !!! While we do not pass all tests yet, asyncio works and
 as `these benchmarks show`_ it already gives a nice speed bump.
-We also backported the ``f""`` formatting from 3.6 (as an expection; otherwise
+We also backported the ``f""`` formatting from 3.6 (as an exception; otherwise
 "PyPy3.5" supports the Python 3.5 language).
 
 CFFI_ has been updated to 1.10, improving an already great package for
@@ -100,8 +100,10 @@ See also issues that were resolved_
   * implement ``StringBuffer.get_raw_address`` for the buffer protocol, it is
     now possible to obtain the address of any readonly object without pinning it
   * refactor the initialization code in translating cpyext
+  * use a cffi-style C parser to create rffi objects in cpyext, now the
+    translating Python must have either ``cffi`` or ``pycparser`` available
   * implement ``move_to_end(last=True/False)`` on RPython ordered dicts, make
-    available as ``__pypy__.move_to_end`` and, on Py3.5,
+    available as ``__pypy__.move_to_end`` and, on py3.5,
     ``OrderedDict.move_to_end()``
   * remove completely RPython ``space.wrap`` in a major cleanup, differentiate
     between ``space.newtext`` and ``space.newbytes`` on py3.5
@@ -156,8 +158,6 @@ See also issues that were resolved_
 
   * improve the consistency of RPython annotation unions
   * add translation option --keepgoing to continue after the first AnnotationError
-  * use a cffi-style C parser to create rffi objects in cpyext, now the
-    translating Python must have cffi available
   * improve shadowstack to where it is now the default in place of asmgcc
   * add a rpython implementation of siphash24, allow choosing hash algorithm
     randomizing the seed
