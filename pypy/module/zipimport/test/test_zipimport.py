@@ -431,7 +431,7 @@ def get_co_filename():
         z.writestr(zinfo, '')
         z.close()
         try:
-            zipimport.zipimporter(filename)
+            zipimport.zipimporter(filename).load_module('uu')
         finally:
             os.remove(filename)
 
