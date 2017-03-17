@@ -446,6 +446,13 @@ def get_co_filename():
         foo = __import__('foo.one', None, None, [])
         assert foo.one.attr == 'portion1 foo one'
 
+    def test_namespace_pkg_nested(self):
+        self.writefile('foo/', '')
+        self.writefile('foo/bar/', '')
+        self.writefile('foo/bar/one.py', "attr = 'portion1 foo one'\n")
+        foo = __import__('foo.bar.one', None, None, [])
+        assert foo.bar.one.attr == 'portion1 foo one'
+
 
 if os.sep != '/':
     class AppTestNativePathSep(AppTestZipimport):
