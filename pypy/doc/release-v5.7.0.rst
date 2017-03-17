@@ -83,6 +83,9 @@ The PyPy 2.7 release supports:
 Highlights of the PyPy2.7, cpyext, and RPython changes (since 5.6 released Nov, 2016)
 =====================================================================================
 
+Translation uses python 2.7 syntax, we could renew support for python 2.6 if
+a downstream RPython-based project depends on it.
+
 See also issues that were resolved_
 
 * New features and cleanups
@@ -129,8 +132,6 @@ See also issues that were resolved_
     ``PyMemoryView_FromBuffer``, and ``PyBuffer_Release``
   * improve support for creating C-extension objects from app-level classes,
     filling more slots, especially ``tp_new`` and ``tp_dealloc``
-  * add rstack.stack_almost_full() and use it to avoid stack overflow due to
-    the JIT where possible
   * fix for ``ctypes.c_bool`` returning ``bool`` restype, issue #2475_
   * fix in corner cases with the GIL and C-API functions
 
@@ -162,6 +163,8 @@ See also issues that were resolved_
   * improve shadowstack to where it is now the default in place of asmgcc
   * add a rpython implementation of siphash24, allow choosing hash algorithm
     randomizing the seed
+  * add rstack.stack_almost_full() and use it to avoid stack overflow due to
+    the JIT where possible
 
 Highlights of the PyPy3.5 release (since 5.5 alpha released Oct, 2016)
 ==========================================================================
