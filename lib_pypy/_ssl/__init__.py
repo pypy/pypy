@@ -11,6 +11,6 @@ RAND_add          = builtinify(RAND_add)
 RAND_bytes        = builtinify(RAND_bytes)
 RAND_pseudo_bytes = builtinify(RAND_pseudo_bytes)
 RAND_status       = builtinify(RAND_status)
-# RAND_egd is optional and might not be available on e.g. libreoffice
+# RAND_egd is optional and might not be available on e.g. libressl
 if hasattr(_stdssl, 'RAND_egd'):
     RAND_egd          = builtinify(RAND_egd)
