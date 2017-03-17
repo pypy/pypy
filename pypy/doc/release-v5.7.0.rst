@@ -2,9 +2,10 @@
 PyPy2.7 and PyPy3.5 v5.7 - two in one release
 =============================================
 
-We have released PyPy2.7 and a beta-quality PyPy3.5 v5.7 for 64 bit linux.
+We have released PyPy2.7 v5.7, and a beta-quality PyPy3.5 v5.7 (for
+Linux 64bit only at first).
 This new PyPy2.7 release includes the upstream stdlib version 2.7.13, and
-PyPy 3.5 (our first in the 3.5 series) includes the upstream stdlib version
+PyPy3.5 (our first in the 3.5 series) includes the upstream stdlib version
 3.5.3.
 
 We continue to make incremental improvements to our C-API
