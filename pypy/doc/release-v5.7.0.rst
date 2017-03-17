@@ -83,9 +83,6 @@ The PyPy 2.7 release supports:
 Highlights of the PyPy2.7, cpyext, and RPython changes (since 5.6 released Nov, 2016)
 =====================================================================================
 
-Translation uses python 2.7 syntax, we could renew support for python 2.6 if
-a downstream RPython-based project depends on it.
-
 See also issues that were resolved_
 
 * New features and cleanups
