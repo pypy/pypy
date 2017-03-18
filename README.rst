@@ -27,14 +27,19 @@ and send us feedback!
 Building
 ========
 
-build with:
+First switch to or download the correct branch.  The basic choices are
+``default`` for Python 2.7 and, for Python 3.X, the corresponding py3.X
+branch (e.g. ``py3.5``).
+
+Build with:
 
 .. code-block:: console
 
     $ rpython/bin/rpython -Ojit pypy/goal/targetpypystandalone.py
 
-This ends up with ``pypy-c`` binary in the main pypy directory. We suggest
-to use virtualenv with the resulting pypy-c as the interpreter; you can
-find more details about various installation schemes here:
+This ends up with a ``pypy-c`` or ``pypy3-c`` binary in the main pypy
+directory.  We suggest to use virtualenv with the resulting
+pypy-c/pypy3-c as the interpreter; you can find more details about
+various installation schemes here:
 
     http://doc.pypy.org/en/latest/install.html
