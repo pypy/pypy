@@ -119,7 +119,7 @@ class _WIN32Path(object):
 
 def _prepare_module(space, w_mod, filename, pkgdir):
     space.sys.setmodule(w_mod)
-    space.setattr(w_mod, space.newtext('__file__'), space.newtext(filename))
+    space.setattr(w_mod, space.newtext('__file__'), space.newfilename(filename))
     space.setattr(w_mod, space.newtext('__doc__'), space.w_None)
     if pkgdir is not None:
         space.setattr(w_mod, space.newtext('__path__'),

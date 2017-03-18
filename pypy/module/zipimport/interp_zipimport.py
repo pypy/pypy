@@ -373,7 +373,7 @@ class W_ZipImporter(W_Root):
             if self.have_modulefile(space, filename + ext):
                 return True, None
         # See if this is a directory (part of a namespace pkg)
-        dirpath = self.prefix + fullname
+        dirpath = self.prefix + fullname.split(".")[-1]
         if self.have_modulefile(space, dirpath + ZIPSEP):
             return True, self.filename + os.path.sep + self.corr_zname(dirpath)
         return False, None

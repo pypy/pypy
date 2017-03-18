@@ -1363,7 +1363,8 @@ class MemoryBIO(object):
         return lib.BIO_ctrl_pending(self.bio)
 
 
-RAND_status = lib.RAND_status
+def RAND_status():
+    return lib.RAND_status()
 
 def _RAND_bytes(count, pseudo):
     if count < 0:
