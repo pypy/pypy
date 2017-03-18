@@ -39,6 +39,8 @@ def _PyInstance_Lookup(space, w_instance, w_name):
 
 @cpython_api([PyObject, PyObject, PyObject], PyObject)
 def PyClass_New(space, w_bases, w_dict, w_name):
+    if w_bases is None:
+        w_bases = space.newtuple([])
     w_classobj = space.gettypefor(W_ClassObject)
     return space.call_function(w_classobj,
                                w_name, w_bases, w_dict)
