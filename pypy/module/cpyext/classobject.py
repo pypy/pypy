@@ -70,4 +70,6 @@ def PyInstanceMethod_GET_FUNCTION(space, w_im):
     checking."""
     return space.interp_w(InstanceMethod, w_im).w_function
     
+    if w_bases is None:
+        w_bases = space.newtuple([])
 
