@@ -1,4 +1,5 @@
 from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi
 
 
@@ -10,3 +11,19 @@ class TestModuleObject(BaseApiTest):
         p2 = api.PyModule_GetName(w_sys)
         assert p2 == p
         self.raises(space, api, SystemError, api.PyModule_GetName, space.w_True)
+
+
+class AppTestModuleObject(AppTestCpythonExtensionBase):
+    def test_getdef(self):
+        module = self.import_extension('foo', [
+            ("check_getdef_same", "METH_NOARGS",
+             """
+                 return PyBool_FromLong(PyModule_GetDef(mod_global) == &moduledef);
+             """
+            )], prologue="""
+            static struct PyModuleDef moduledef;
+            static PyObject *mod_global;
+            """, more_init="""
+               mod_global = mod;
+            """)
+        assert module.check_getdef_same()

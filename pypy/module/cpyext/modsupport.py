@@ -1,8 +1,8 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, METH_STATIC, METH_CLASS, METH_COEXIST, CANNOT_FAIL, cts,
-    parse_dir)
-from pypy.module.cpyext.pyobject import PyObject, as_pyobj
+    parse_dir, bootstrap_function)
+from pypy.module.cpyext.pyobject import PyObject, as_pyobj, make_typedescr
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.methodobject import (
     W_PyCFunctionObject, PyCFunction_NewEx, PyDescr_NewMethod,
@@ -13,6 +13,11 @@ from pypy.interpreter.error import oefmt
 
 cts.parse_header(parse_dir / 'cpyext_moduleobject.h')
 PyModuleDef = cts.gettype('PyModuleDef *')
+PyModuleObject = cts.gettype('PyModuleObject *')
+
+@bootstrap_function
+def init_moduleobject(space):
+    make_typedescr(Module.typedef, basestruct=PyModuleObject.TO)
 
 @cpython_api([PyModuleDef, rffi.INT_real], PyObject)
 def PyModule_Create2(space, module, api_version):
@@ -35,6 +40,7 @@ def PyModule_Create2(space, module, api_version):
     if f_name is not None:
         modname = f_name
     w_mod = Module(space, space.newtext(modname))
+    rffi.cast(PyModuleObject, as_pyobj(space, w_mod)).c_md_def = module
     state.package_context = None, None
 
     if f_path is not None:

@@ -36,3 +36,9 @@ typedef struct PyModuleDef{
   inquiry m_clear;
   freefunc m_free;
 } PyModuleDef;
+
+typedef struct {
+    PyObject_HEAD
+    struct PyModuleDef *md_def;
+    //void *md_state;
+} PyModuleObject;
