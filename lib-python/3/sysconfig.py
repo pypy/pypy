@@ -44,8 +44,8 @@ _INSTALL_SCHEMES = {
     'pypy': {
         'stdlib': '{installed_base}/lib-python',
         'platstdlib': '{base}/lib-python',
-        'purelib': '{base}/lib-python',
-        'platlib': '{base}/lib-python',
+        'purelib': '{base}/site-packages',
+        'platlib': '{base}/site-packages',
         'include': '{installed_base}/include',
         'platinclude': '{installed_base}/include',
         'scripts': '{base}/bin',
