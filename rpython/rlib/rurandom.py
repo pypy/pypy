@@ -99,8 +99,11 @@ else:  # Posix implementation
         eci = eci.merge(ExternalCompilationInfo(includes=['linux/random.h']))
         class CConfig:
             _compilation_info_ = eci
-            GRND_NONBLOCK = rffi_platform.ConstantInteger('GRND_NONBLOCK')
+            GRND_NONBLOCK = rffi_platform.DefinedConstantInteger(
+                'GRND_NONBLOCK')
         globals().update(rffi_platform.configure(CConfig))
+        if GRND_NONBLOCK is None:
+            GRND_NONBLOCK = 0x0001      # from linux/random.h
 
         # On Linux, use the syscall() function because the GNU libc doesn't
         # expose the Linux getrandom() syscall yet.
