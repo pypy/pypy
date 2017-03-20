@@ -1490,11 +1490,12 @@ class TestThread(object):
             t, cbuilder = self.compile(entry_point, no__thread=no__thread)
             data = cbuilder.cmdexec('5')
             assert data.splitlines() == ['hello world',
-                                         '1 ok',
-                                         '2 ok',
-                                         '3 ok',
-                                         '4 ok',
-                                         '5 ok']
+                                         'counter=5',
+                                         'counter=4',
+                                         'counter=3',
+                                         'counter=2',
+                                         'counter=1',
+                                         'all threads done']
 
         if SUPPORT__THREAD:
             runme(no__thread=False)
