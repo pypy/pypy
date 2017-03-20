@@ -1,6 +1,6 @@
 # Edit these appropriately before running this script
 maj=5
-min=6
+min=7
 rev=0
 branchname=release-pypy2.7-5.x # ==OR== release-$maj.x  # ==OR== release-$maj.$min.x
 tagname=release-pypy2.7-v$maj.$min.$rev  # ==OR== release-$maj.$min
