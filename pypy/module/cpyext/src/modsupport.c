@@ -592,3 +592,13 @@ PyModule_AddStringConstant(PyObject *m, const char *name, const char *value)
     Py_DECREF(o);
     return result < 0 ? -1 : 0;
 }
+
+PyModuleDef*
+PyModule_GetDef(PyObject* m)
+{
+    if (!PyModule_Check(m)) {
+        PyErr_BadArgument();
+        return NULL;
+    }
+    return ((PyModuleObject *)m)->md_def;
+}
