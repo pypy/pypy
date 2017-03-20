@@ -56,14 +56,6 @@ def get_so_extension(space):
 
     return '.' + soabi + SO
 
-def log_pyverbose(space, level, message):
-    if space.sys.w_initialdict is None:
-        return # sys module not initialised, avoid recursion
-    verbose = space.sys.get_flag('verbose')
-    if verbose >= level:
-        w_stderr = space.sys.get('stderr')
-        space.call_method(w_stderr, "write", space.newtext(message))
-
 def has_so_extension(space):
     return (space.config.objspace.usemodules.cpyext or
             space.config.objspace.usemodules._cffi_backend)
@@ -136,8 +128,6 @@ def add_module(space, w_name):
 
 def load_c_extension(space, filename, modulename):
     from pypy.module.cpyext.api import load_extension_module
-    log_pyverbose(space, 1, "import %s # from %s\n" %
-                  (modulename, filename))
     load_extension_module(space, filename, modulename)
     # NB. cpyext.api.load_extension_module() can also delegate to _cffi_backend
 
@@ -391,9 +381,6 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
     Load a module from a compiled file, execute it, and return its
     module object.
     """
-    log_pyverbose(space, 1, "import %s # compiled from %s\n" %
-                  (space.text_w(w_modulename), cpathname))
-
     if magic != get_pyc_magic(space):
         raise oefmt(space.w_ImportError, "Bad magic number in %s", cpathname)
     #print "loading pyc file:", cpathname
