@@ -439,10 +439,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.updated_old_objects_pointing_to_pinned = False
         #
         # Allocate lock(s)
-        wb_slowpath_lock = lltype.malloc(rthread.TLOCKP.TO, flavor='raw',
-                                         track_allocation=False)
-        rthread.c_thread_lock_init(wb_slowpath_lock)
-        self.wb_slowpath_lock = wb_slowpath_lock
+        self.wb_slowpath_lock = rthread.allocate_ll_lock_NOAUTO()
         #
         # Allocate a nursery.  In case of auto_nursery_size, start by
         # allocating a very small nursery, enough to do things like look

@@ -11,7 +11,6 @@ class LocalsForTests:
 class ThreadSwitcher:
     all_threadlocals = [incminimark.NURSERY_FREE,
                         incminimark.NURSERY_TOP,
-                        incminimark.NEXT_NUBLOCK,
                         ]
 
     def __init__(self, gc):

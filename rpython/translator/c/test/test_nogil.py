@@ -112,6 +112,7 @@ class TestThread(object):
         def worker():
             rthread.gc_thread_start()
 
+            # these arrays should be old soon:
             arrays = []
             for _ in range(state.arrays):
                 arrays.append([None])
@@ -120,6 +121,7 @@ class TestThread(object):
             xi = 0
             for i in range(1000):
                 xi = i
+                # put a young X() in each old array
                 for idx in range(state.arrays):
                     x = X(xi)
                     arrays[idx][0] = x
@@ -127,6 +129,7 @@ class TestThread(object):
 
                 gc.collect(0)
 
+                # check that Xs are not lost
                 for idx in range(state.arrays):
                     assert arrays[idx][0].i == xi
 

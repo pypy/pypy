@@ -59,6 +59,9 @@ TLOCKP = rffi.COpaquePtr('struct RPyOpaque_ThreadLock',
 TLOCKP_SIZE = rffi_platform.sizeof('struct RPyOpaque_ThreadLock', eci)
 c_thread_lock_init = llexternal('RPyThreadLockInit', [TLOCKP], rffi.INT,
                                 releasegil=False)   # may add in a global list
+c_thread_lock_init_NOAUTO = llexternal('RPyThreadLockInit', [TLOCKP], rffi.INT,
+                                       _nowrapper=True)   # may add in a global list!
+
 c_thread_lock_dealloc_NOAUTO = llexternal('RPyOpaqueDealloc_ThreadLock',
                                           [TLOCKP], lltype.Void,
                                           _nowrapper=True)
@@ -247,6 +250,13 @@ def allocate_ll_lock():
     # Opaque object
     rgc.add_memory_pressure(TLOCKP_SIZE)
     return ll_lock
+
+
+def allocate_ll_lock_NOAUTO():
+    ll_lock = lltype.malloc(TLOCKP.TO, flavor='raw', track_allocation=False)
+    c_thread_lock_init_NOAUTO(ll_lock)
+    return ll_lock
+
 
 def free_ll_lock(ll_lock):
     acquire_NOAUTO(ll_lock, False)
