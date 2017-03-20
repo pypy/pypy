@@ -2,8 +2,11 @@
 PyPy2.7 and PyPy3.5 v5.7 - two in one release
 =============================================
 
-We have released PyPy2.7 v5.7, and a beta-quality PyPy3.5 v5.7 (for
-Linux 64bit only at first).
+The PyPy team is proud to release both PyPy2.7 v5.7 (an interpreter supporting
+Python v2.7 syntax), and a beta-quality PyPy3.5 v5.7 (an interpreter for Python
+v3.5 syntax). The two releases are both based on much the same codebase, thus
+the dual release.  Note that PyPy3.5 supports Linux 64bit only for now. 
+
 This new PyPy2.7 release includes the upstream stdlib version 2.7.13, and
 PyPy3.5 (our first in the 3.5 series) includes the upstream stdlib version
 3.5.3.
@@ -88,7 +91,8 @@ See also issues that were resolved_
 * New features and cleanups
 
   * update the format of the PYPYLOG file and improvements to vmprof
-  * emit more sysconfig values for downstream cextension packages
+  * emit more sysconfig values for downstream cextension packages including
+    properly setting purelib and platlib to site-packages
   * add ``PyAnySet_Check``, ``PyModule_GetName``, ``PyWeakref_Check*``,
     ``_PyImport_{Acquire,Release}Lock``, ``PyGen_Check*``, ``PyOS_AfterFork``,
   * detect and raise on recreation of a PyPy object from a PyObject during
@@ -131,6 +135,8 @@ See also issues that were resolved_
     filling more slots, especially ``tp_new`` and ``tp_dealloc``
   * fix for ``ctypes.c_bool`` returning ``bool`` restype, issue #2475_
   * fix in corner cases with the GIL and C-API functions
+  * allow overriding thread.local.__init__ in a subclass, issue #2501_
+  * allow ``PyClass_New`` to be called with NULL as the first arguemnt, issue #2504_
 
 
 * Performance improvements:
@@ -183,21 +189,19 @@ Development moved from the py3k branch to the py3.5 branch in the PyPy bitbucket
 * Performance improvements:
 
   * do not create a list whenever ``descr_new`` of a ``bytesobject`` is called
-  * 
-  * 
-  * 
 
 * The following features of Python 3.5 are not implemented yet in PyPy:
 
   * PEP 442: Safe object finalization
   * PEP 489: Multi-phase extension module initialization
-  * XXX what else?
 
 .. _resolved: whatsnew-pypy2-5.7.0.html
 .. _19542: https://bugs.python.org/issue19542
 .. _2434: https://bitbucket.org/pypy/pypy/issues/2434/support-pybind11-in-conjunction-with-pypys
 .. _2446: https://bitbucket.org/pypy/pypy/issues/2446/cpyext-tp_doc-field-not-reflected-on
 .. _2475: https://bitbucket.org/pypy/pypy/issues/2475
+.. _2501: https://bitbucket.org/pypy/pypy/issues/2501
+.. _2504: https://bitbucket.org/pypy/pypy/issues/2504
 .. _RevDB: https://bitbucket.org/pypy/revdb
 .. _cryptography: https://cryptography.io
 .. _cppyy: cppyy.html
