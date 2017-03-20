@@ -96,3 +96,67 @@ class TestThread(object):
                                      'counter=2',
                                      'counter=1',
                                      'all threads done']
+
+
+    def test_array_wb_slowpath(self):
+        import time, gc
+        from rpython.rlib import rthread, rposix
+
+        class X:
+            def __init__(self, i):
+                self.i = i
+
+        class State: pass
+        state = State()
+
+        def worker():
+            rthread.gc_thread_start()
+
+            arrays = []
+            for _ in range(state.arrays):
+                arrays.append([None])
+
+            x = None
+            xi = 0
+            for i in range(1000):
+                xi = i
+                for idx in range(state.arrays):
+                    x = X(xi)
+                    arrays[idx][0] = x
+                    x = None
+
+                gc.collect(0)
+
+                for idx in range(state.arrays):
+                    assert arrays[idx][0].i == xi
+
+            state.lock.acquire(True)
+            state.counter -= 1
+            state.lock.release()
+            rthread.gc_thread_die()
+
+        def entry_point(argv):
+            os.write(1, "hello\n")
+
+            TS = int(argv[1])
+            ARRS = int(argv[2])
+            state.lock = rthread.allocate_lock()
+            state.counter = TS
+            state.arrays = ARRS
+
+            for tid in range(TS):
+                rthread.start_new_thread(worker, ())
+
+            while True:
+                time.sleep(0.1)
+                if state.counter == 0:
+                    break
+            os.write(1, "all threads done\n")
+            return 0
+
+        #
+        THREADS, ARRAYS = 4, 1000
+        t, cbuilder = self.compile(entry_point)
+        data = cbuilder.cmdexec("%s %s" % (THREADS, ARRAYS))
+        assert data.splitlines() == ['hello',
+                                     'all threads done']

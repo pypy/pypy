@@ -860,7 +860,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         major collection, and finally reserve totalsize bytes.
         """
 
-        # rthread.acquire_NOAUTO(self.wb_slowpath_lock, 1)
         rgil.enter_master_section()
 
         minor_collection_count = 0
@@ -948,7 +947,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.set_nursery_free(self.get_nursery_top() -
                                       self.debug_tiny_nursery)
         #
-        # rthread.release_NOAUTO(self.wb_slowpath_lock)
         return result
     collect_and_reserve._dont_inline_ = True
 
