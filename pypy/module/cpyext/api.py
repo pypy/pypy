@@ -1489,10 +1489,6 @@ def setup_library(space):
     copy_header_files(cts, trunk_include, use_micronumpy)
 
 
-def _load_from_cffi(space, name, path, initptr):
-    from pypy.module._cffi_backend import cffi1_module
-    cffi1_module.load_cffi1_module(space, name, path, initptr)
-
 @unwrap_spec(path='fsencode', name='text')
 def load_extension_module(space, path, name):
     # note: this is used both to load CPython-API-style C extension
@@ -1526,11 +1522,11 @@ def load_extension_module(space, path, name):
             pass
         else:
             try:
-                _load_from_cffi(space, name, path, initptr)
+                from pypy.module._cffi_backend import cffi1_module
+                return cffi1_module.load_cffi1_module(space, name, path, initptr)
             except:
                 rdynload.dlclose(dll)
                 raise
-            return
     #
     if space.config.objspace.usemodules.cpyext:
         also_look_for = 'PyInit_%s' % (basename,)
@@ -1539,8 +1535,7 @@ def load_extension_module(space, path, name):
         except KeyError:
             pass
         else:
-            load_cpyext_module(space, name, path, dll, initptr)
-            return
+            return load_cpyext_module(space, name, path, dll, initptr)
         if look_for is not None:
             look_for += ' or ' + also_look_for
         else:
@@ -1559,9 +1554,10 @@ def load_cpyext_module(space, name, path, dll, initptr):
 
     space.getbuiltinmodule("cpyext")    # mandatory to init cpyext
     state = space.fromcache(State)
-    if state.find_extension(name, path) is not None:
+    w_mod = state.find_extension(name, path)
+    if w_mod is not None:
         rdynload.dlclose(dll)
-        return
+        return w_mod
     old_context = state.package_context
     state.package_context = name, path
     try:
@@ -1571,6 +1567,7 @@ def load_cpyext_module(space, name, path, dll, initptr):
     finally:
         state.package_context = old_context
     state.fixup_extension(w_mod, name, path)
+    return w_mod
 
 @specialize.ll()
 def generic_cpy_call(space, func, *args):

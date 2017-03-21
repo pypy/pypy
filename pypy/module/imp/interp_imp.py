@@ -52,8 +52,8 @@ def create_dynamic(space, w_spec, w_file=None):
     w_modulename = space.getattr(w_spec, space.newtext("name"))
     w_path = space.getattr(w_spec, space.newtext("origin"))
     filename = space.fsencode_w(w_path)
-    importing.load_c_extension(space, filename, space.text_w(w_modulename))
-    return importing.check_sys_modules(space, w_modulename)
+    return importing.load_c_extension(space, filename,
+                                      space.text_w(w_modulename))
 
 def create_builtin(space, w_spec):
     w_name = space.getattr(w_spec, space.newtext("name"))

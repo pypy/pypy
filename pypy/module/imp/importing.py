@@ -128,7 +128,7 @@ def add_module(space, w_name):
 
 def load_c_extension(space, filename, modulename):
     from pypy.module.cpyext.api import load_extension_module
-    load_extension_module(space, filename, modulename)
+    return load_extension_module(space, filename, modulename)
     # NB. cpyext.api.load_extension_module() can also delegate to _cffi_backend
 
 # __________________________________________________________________
