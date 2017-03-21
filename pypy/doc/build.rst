@@ -107,7 +107,7 @@ On Debian, this is the command to install all build-time dependencies::
 
     apt-get install gcc make libffi-dev pkg-config libz-dev libbz2-dev \
     libsqlite3-dev libncurses-dev libexpat1-dev libssl-dev libgdbm-dev \
-    tk-dev libgc-dev \
+    tk-dev libgc-dev python-cffi \
     liblzma-dev  # For lzma on PyPy3.
 
 On Fedora::
