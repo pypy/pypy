@@ -114,15 +114,15 @@ On Fedora::
 
     dnf install gcc make libffi-devel pkgconfig zlib-devel bzip2-devel \
     sqlite-devel ncurses-devel expat-devel openssl-devel tk-devel \
-    gdbm-devel \
+    gdbm-devel python-cffi\
     xz-devel  # For lzma on PyPy3.
 
 On SLES11::
 
     zypper install gcc make python-devel pkg-config \
     zlib-devel libopenssl-devel libbz2-devel sqlite3-devel \
-    libexpat-devel libffi-devel python-curses \
-    xz-devel  # For lzma on PyPy3.
+    libexpat-devel libffi-devel python-curses python-cffi \
+    xz-devel # For lzma on PyPy3.
     (XXX plus the SLES11 version of libgdbm-dev and tk-dev)
 
 On Mac OS X, most of these build-time dependencies are installed alongside
