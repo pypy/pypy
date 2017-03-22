@@ -1,5 +1,8 @@
-#include "common_header.h"
-#include "structdef.h"       /* for struct pypy_threadlocal_s */
+#ifndef RPYTHON_LL2CTYPES
+# include "common_header.h"
+# include "structdef.h"       /* for struct pypy_threadlocal_s */
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -208,7 +211,7 @@ void RPython_ThreadLocals_ProgramInit(void)
 
 
 /* ------------------------------------------------------------ */
-#ifdef USE___THREAD
+/* #ifdef USE___THREAD XXX */
 /* ------------------------------------------------------------ */
 
 
@@ -235,39 +238,39 @@ void RPython_ThreadLocals_ThreadDie(void)
 }
 
 
-/* ------------------------------------------------------------ */
-#else
-/* ------------------------------------------------------------ */
+/* /\* ------------------------------------------------------------ *\/ */
+/* #else */
+/* /\* ------------------------------------------------------------ *\/ */
 
 
-/* this is the case where the 'struct pypy_threadlocal_s' is allocated
-   explicitly, with malloc()/free(), and attached to (a single) thread-
-   local key using the API of Windows or pthread. */
+/* /\* this is the case where the 'struct pypy_threadlocal_s' is allocated */
+/*    explicitly, with malloc()/free(), and attached to (a single) thread- */
+/*    local key using the API of Windows or pthread. *\/ */
 
 
-char *_RPython_ThreadLocals_Build(void)
-{
-    void *p = malloc(sizeof(struct pypy_threadlocal_s));
-    if (!p) {
-        fprintf(stderr, "Internal RPython error: "
-                        "out of memory for the thread-local storage");
-        abort();
-    }
-    _RPy_ThreadLocals_Init(p);
-    _RPy_ThreadLocals_Set(p);
-    return (char *)p;
-}
+/* char *_RPython_ThreadLocals_Build(void) */
+/* { */
+/*     void *p = malloc(sizeof(struct pypy_threadlocal_s)); */
+/*     if (!p) { */
+/*         fprintf(stderr, "Internal RPython error: " */
+/*                         "out of memory for the thread-local storage"); */
+/*         abort(); */
+/*     } */
+/*     _RPy_ThreadLocals_Init(p); */
+/*     _RPy_ThreadLocals_Set(p); */
+/*     return (char *)p; */
+/* } */
 
-void RPython_ThreadLocals_ThreadDie(void)
-{
-    void *p = _RPy_ThreadLocals_Get();
-    if (p != NULL) {
-        _RPy_ThreadLocals_Set(NULL);
-        threadloc_unlink(p);   /* includes free(p) */
-    }
-}
+/* void RPython_ThreadLocals_ThreadDie(void) */
+/* { */
+/*     void *p = _RPy_ThreadLocals_Get(); */
+/*     if (p != NULL) { */
+/*         _RPy_ThreadLocals_Set(NULL); */
+/*         threadloc_unlink(p);   /\* includes free(p) *\/ */
+/*     } */
+/* } */
 
 
-/* ------------------------------------------------------------ */
-#endif
-/* ------------------------------------------------------------ */
+/* /\* ------------------------------------------------------------ *\/ */
+/* #endif */
+/* /\* ------------------------------------------------------------ *\/ */
