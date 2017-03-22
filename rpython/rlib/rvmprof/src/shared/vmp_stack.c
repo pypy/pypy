@@ -451,6 +451,7 @@ teardown:
 #endif
 
 static const char * vmprof_error = NULL;
+static void * libhandle = NULL;
 
 
 #ifdef VMPROF_LINUX
@@ -469,10 +470,7 @@ static const char * vmprof_error = NULL;
 #define UL_PREFIX ""
 #endif
 
-extern void * __vmprof_eval_vmprof_addr;
-
 int vmp_native_enable(void) {
-    void * libhandle;
     vmp_native_traces_enabled = 1;
 
     if (!unw_get_reg) {
@@ -500,9 +498,6 @@ int vmp_native_enable(void) {
         if (!(unw_getcontext = dlsym(libhandle, U_PREFIX PREFIX "_getcontext"))) {
             goto bail_out;
         }
-        if (dlclose(libhandle)) {
-            goto bail_out;
-        }
     }
 
 #if defined(__unix__)
@@ -518,6 +513,14 @@ bail_out:
 }
 
 void vmp_native_disable(void) {
+
+    if (libhandle != NULL) {
+        if (dlclose(libhandle)) {
+            vmprof_error = dlerror();
+            fprintf(stderr, "could close libunwind at runtime. error: %s\n", vmprof_error);
+        }
+    }
+
     vmp_native_traces_enabled = 0;
     if (vmp_ranges != NULL) {
         free(vmp_ranges);
