@@ -1365,13 +1365,6 @@ def PyModule_CheckExact(space, p):
     """
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP], PyObject)
-def PyModule_New(space, name):
-    """Return a new module object with the __name__ attribute set to name.  Only
-    the module's __doc__ and __name__ attributes are filled in; the caller is
-    responsible for providing a __file__ attribute."""
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.CCHARP)
 def PyModule_GetFilename(space, module):
     """Return the name of the file from which module was loaded using module's

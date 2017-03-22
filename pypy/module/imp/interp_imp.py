@@ -136,8 +136,8 @@ def load_compiled(space, w_modulename, filename, w_file=None):
 def load_dynamic(space, w_modulename, filename, w_file=None):
     if not importing.has_so_extension(space):
         raise oefmt(space.w_ImportError, "Not implemented")
-    importing.load_c_extension(space, filename, space.text_w(w_modulename))
-    return importing.check_sys_modules(space, w_modulename)
+    return importing.load_c_extension(space, filename,
+                                      space.text_w(w_modulename))
 
 def new_module(space, w_name):
     return Module(space, w_name, add_package=False)

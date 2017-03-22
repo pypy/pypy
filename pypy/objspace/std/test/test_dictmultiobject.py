@@ -161,7 +161,7 @@ class TestW_DictObject(object):
         w_d.initialize_content([(w(1), wb("a")), (w(2), wb("b"))])
         w_l = self.space.call_method(w_d, "keys")
         assert sorted(self.space.listview_int(w_l)) == [1,2]
-        
+
         # make sure that .keys() calls newlist_bytes for string dicts
         def not_allowed(*args):
             assert False, 'should not be called'
@@ -174,7 +174,7 @@ class TestW_DictObject(object):
 
         # XXX: it would be nice if the test passed without monkeypatch.undo(),
         # but we need space.newlist_unicode for it
-        monkeypatch.undo() 
+        monkeypatch.undo()
         w_d = self.space.newdict()
         w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(6))])
         w_l = self.space.call_method(w_d, "keys")
@@ -222,6 +222,10 @@ class AppTest_DictObject:
         assert result == 44
         assert len(dd) == 1
         raises(KeyError, dd.pop, 33)
+
+        assert d.pop("abc", None) is None
+        raises(KeyError, d.pop, "abc")
+        assert len(d) == 2
 
     def test_has_key(self):
         d = {1: 2, 3: 4}
@@ -1466,4 +1470,3 @@ def test_module_uses_strdict():
     fakespace = FakeSpace()
     d = fakespace.newdict(module=True)
     assert type(d.get_strategy()) is BytesDictStrategy
-

@@ -616,7 +616,7 @@ def load_c_extension(space, filename, modulename):
     from pypy.module.cpyext.api import load_extension_module
     log_pyverbose(space, 1, "import %s # from %s\n" %
                   (modulename, filename))
-    load_extension_module(space, filename, modulename)
+    return load_extension_module(space, filename, modulename)
     # NB. cpyext.api.load_extension_module() can also delegate to _cffi_backend
 
 @jit.dont_look_inside
@@ -680,8 +680,8 @@ def load_module(space, w_modulename, find_info, reuse=False):
                         pass
                 return w_mod
             elif find_info.modtype == C_EXTENSION and has_so_extension(space):
-                load_c_extension(space, find_info.filename, space.text_w(w_modulename))
-                return check_sys_modules(space, w_modulename)
+                return load_c_extension(space, find_info.filename,
+                                        space.text_w(w_modulename))
         except OperationError:
             w_mods = space.sys.get('modules')
             space.call_method(w_mods, 'pop', w_modulename, space.w_None)
