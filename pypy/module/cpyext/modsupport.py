@@ -19,6 +19,14 @@ PyModuleObject = cts.gettype('PyModuleObject *')
 def init_moduleobject(space):
     make_typedescr(Module.typedef, basestruct=PyModuleObject.TO)
 
+@cpython_api([rffi.CCHARP], PyObject)
+def PyModule_New(space, name):
+    """
+    Return a new module object with the __name__ attribute set to name.
+    Only the module's __doc__ and __name__ attributes are filled in;
+    the caller is responsible for providing a __file__ attribute."""
+    return Module(space, space.newtext(rffi.charp2str(name)))
+
 @cpython_api([PyModuleDef, rffi.INT_real], PyObject)
 def PyModule_Create2(space, module, api_version):
     """Create a new module object, given the definition in module, assuming the
