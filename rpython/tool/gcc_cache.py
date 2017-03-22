@@ -25,7 +25,8 @@ def build_executable_cache(c_files, eci, ignore_errors=False):
         try:
             if ignore_errors:
                 platform.log_errors = False
-            result = platform.execute(platform.compile(c_files, eci))
+            result = platform.execute(platform.compile(c_files, eci,
+                                                       all_modules=False))
             if result.err:
                 sys.stderr.write(result.err)
         finally:

@@ -38,7 +38,6 @@ RPY_EXTERN void RPyGilEnterMasterSection(void);
 RPY_EXTERN void RPyGilLeaveMasterSection(void);
 RPY_EXTERN void RPyGilMasterRequestSafepoint(void);
 
-
 #define RPyGilAcquire _RPyGilAcquire
 #define RPyGilRelease _RPyGilRelease
 #define RPyFetchFastGil _RPyFetchFastGil

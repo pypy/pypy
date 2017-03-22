@@ -50,8 +50,9 @@ class Platform(object):
             raise TypeError("You should not instantiate Platform class directly")
         self.cc = cc
 
-    def compile(self, cfiles, eci, outputfilename=None, standalone=True):
-        ofiles = self._compile_o_files(cfiles, eci, standalone)
+    def compile(self, cfiles, eci, outputfilename=None, standalone=True,
+                all_modules=True):
+        ofiles = self._compile_o_files(cfiles, eci, standalone, all_modules)
         return self._finish_linking(ofiles, eci, outputfilename, standalone)
 
     def _all_cfiles(self, cfiles, eci):
@@ -64,12 +65,13 @@ class Platform(object):
                 result.append(cfile)
         return result
 
-    def _compile_o_files(self, cfiles, eci, standalone=True):
-        # XXX: why does platform-check add all known C files here?
-        # apparently it adds, e.g., thread.c if rthread is used. And then
-        # compiles them already. Is this necessary? (thread.c does currently
-        # not compile on its own...)
-        # cfiles = self._all_cfiles(cfiles, eci)
+    def _compile_o_files(self, cfiles, eci, standalone=True, all_modules=True):
+        if all_modules:
+            # XXX: why does platform-check add all known C files here?
+            # apparently it adds, e.g., thread.c if rthread is used. And then
+            # compiles them already. Is this necessary? (thread.c does currently
+            # not compile on its own...)
+            cfiles = self._all_cfiles(cfiles, eci)
         compile_args = self._compile_args_from_eci(eci, standalone)
         ofiles = []
         for cfile in cfiles:
