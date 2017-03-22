@@ -517,7 +517,7 @@ void vmp_native_disable(void) {
     if (libhandle != NULL) {
         if (dlclose(libhandle)) {
             vmprof_error = dlerror();
-            fprintf(stderr, "could close libunwind at runtime. error: %s\n", vmprof_error);
+            fprintf(stderr, "could not close libunwind at runtime. error: %s\n", vmprof_error);
         }
     }
 
