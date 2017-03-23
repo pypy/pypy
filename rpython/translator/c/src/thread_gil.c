@@ -97,6 +97,7 @@ void RPyGilLeaveMasterSection(void)
     RPyGilAcquire();
 }
 
+__attribute__((no_sanitize_thread))
 void RPyGilMasterRequestSafepoint(void)
 {
     pthread_mutex_lock(&sync_mutex);
@@ -111,10 +112,13 @@ void RPyGilMasterRequestSafepoint(void)
         if (t == NULL)
             break;
 
-      retry:
-        switch (t->synclock) {
+      retry:;
+        /* this read and the setting of nursery_top make thread sanitizer
+         * unhappy */
+        long synclock = t->synclock;
+        switch (synclock) {
         default:
-            fprintf(stderr, "ERROR: found synclock=%ld\n", t->synclock);
+            fprintf(stderr, "ERROR: found synclock=%ld\n", synclock);
             abort();
         case 0b000L:
             /* new thread, no need to explicitly request safepoint */

@@ -397,6 +397,8 @@ class CStandaloneBuilder(CBuilder):
             extra_opts += ["lldebug"]
         elif self.config.translation.lldebug0:
             extra_opts += ["lldebug0"]
+        elif self.config.translation.threadsan:
+            extra_opts += ["threadsan"]
         self.translator.platform.execute_makefile(self.targetdir,
                                                   extra_opts)
         if shared:
@@ -433,6 +435,9 @@ class CStandaloneBuilder(CBuilder):
             ('llsafer', '', '$(MAKE) CFLAGS="-O2 -DRPY_LL_ASSERT" $(DEFAULT_TARGET)'),
             ('lldebug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
             ('profile', '', '$(MAKE) CFLAGS="-g -O1 -pg $(CFLAGS) -fno-omit-frame-pointer" LDFLAGS="-pg $(LDFLAGS)" $(DEFAULT_TARGET)'),
+            ('threadsan', '',
+             '$(MAKE) CFLAGS="-g -O1 $(CFLAGS) -fno-omit-frame-pointer -fsanitize=thread" '
+             + 'LDFLAGS="-g $(LDFLAGS) -fsanitize=thread" $(DEFAULT_TARGET)'),
             ]
         if self.has_profopt():
             rules.append(

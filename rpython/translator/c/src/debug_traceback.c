@@ -6,8 +6,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-int pypydtcount = 0;
-struct pypydtentry_s pypy_debug_tracebacks[PYPY_DEBUG_TRACEBACK_DEPTH];
+__thread int pypydtcount = 0;
+__thread struct pypydtentry_s pypy_debug_tracebacks[PYPY_DEBUG_TRACEBACK_DEPTH];
 
 void pypy_debug_traceback_print(void)
 {

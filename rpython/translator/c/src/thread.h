@@ -76,17 +76,20 @@ RPY_EXTERN void RPyGilMasterRequestSafepoint(void);
  */
 
 #define _RPyGilAcquire() do {                                           \
-        assert((RPY_THREADLOCALREF_GET(synclock) & 0b001) == 0b0);      \
+        assert((__sync_fetch_and_add(                                   \
+                    &RPY_THREADLOCALREF_GET(synclock), 0)               \
+                & 0b001) == 0b0);                                       \
     if (!__sync_bool_compare_and_swap(                                  \
-                &RPY_THREADLOCALREF_GET(synclock), 0b100L, 0b101L))     \
+            &RPY_THREADLOCALREF_GET(synclock), 0b100L, 0b101L))         \
         RPyGilAcquireSlowPath();                                        \
-        } while (0)
+            } while (0)
 
-#define _RPyGilRelease() do {                                       \
-        assert((RPY_THREADLOCALREF_GET(synclock) & 0b101) == 0b101);  \
-    if (!__sync_bool_compare_and_swap(                              \
-                &RPY_THREADLOCALREF_GET(synclock), 0b101L, 0b100L)) \
-        RPyGilReleaseSlowPath();                                    \
+#define _RPyGilRelease() do {                                           \
+        assert((__sync_fetch_and_add(                                   \
+                    &RPY_THREADLOCALREF_GET(synclock), 0) & 0b101) == 0b101); \
+    if (!__sync_bool_compare_and_swap(                                  \
+            &RPY_THREADLOCALREF_GET(synclock), 0b101L, 0b100L))         \
+        RPyGilReleaseSlowPath();                                        \
         } while (0)
 
 static inline long *_RPyFetchFastGil(void) {
@@ -94,12 +97,12 @@ static inline long *_RPyFetchFastGil(void) {
 //    return &rpy_fastgil;
 }
 
-#define RPyGilYieldThread() do { \
-    assert(RPY_THREADLOCALREF_GET(synclock) & 1L); \
-    if (RPY_THREADLOCALREF_GET(synclock) == 0b111L) { \
-        RPyGilYieldThreadSlowPath(); \
-    } \
-    } while (0)
+#define RPyGilYieldThread() do {                                        \
+        assert(__sync_fetch_and_add(&RPY_THREADLOCALREF_GET(synclock), 0) & 1L); \
+    if (RPY_THREADLOCALREF_GET(synclock) == 0b111L) {                   \
+        RPyGilYieldThreadSlowPath();                                    \
+            }                                                           \
+            } while (0)
 
 typedef unsigned char rpy_spinlock_t;
 static inline void rpy_spinlock_acquire(rpy_spinlock_t *p)

@@ -22,6 +22,7 @@ class TestThread(object):
         t.config.translation.gcrootfinder = self.gcrootfinder
         t.config.translation.thread = True
         t.config.translation.no__thread = no__thread
+        # t.config.translation.threadsan = True
         t.buildannotator().build_types(entry_point, [s_list_of_strings])
         t.buildrtyper().specialize()
         #
@@ -46,7 +47,7 @@ class TestThread(object):
             pass
         state = State()
 
-        def thread():
+        def worker():
             rthread.gc_thread_start()
             x = None
             for i in range(100000000):
@@ -74,16 +75,16 @@ class TestThread(object):
             state.counter = TS
 
             for _ in range(TS):
-                rthread.start_new_thread(thread, ())
+                rthread.start_new_thread(worker, ())
 
-            i = 0
             while True:
-                x = X(None, i)
                 time.sleep(0.1)
-                assert x.i == i
+                state.lock.acquire(True)
                 if state.counter == 0:
+                    state.lock.release()
                     break
-                i += 1
+                state.lock.release()
+
             os.write(1, "all threads done\n")
             return 0
 
@@ -152,8 +153,11 @@ class TestThread(object):
 
             while True:
                 time.sleep(0.1)
+                state.lock.acquire(True)
                 if state.counter == 0:
+                    state.lock.release()
                     break
+                state.lock.release()
             os.write(1, "all threads done\n")
             return 0
 
