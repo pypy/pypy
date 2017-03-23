@@ -384,4 +384,7 @@ class QITrans(object):
 class quoted_insert(Command):
     kills_digit_arg = 0
     def do(self):
-        self.reader.push_input_trans(QITrans())
+        # XXX in Python 3, processing insert/C-q/C-v keys crashes
+        # because of a mixture of str and bytes.  Disable these keys.
+        pass
+        #self.reader.push_input_trans(QITrans())
