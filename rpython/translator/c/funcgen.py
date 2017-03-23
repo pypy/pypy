@@ -814,7 +814,7 @@ class FunctionCodeGenerator(object):
                                        c_string_constant(op.args[1].value))
 
     def OP_DEBUG_ASSERT_NOT_NONE(self, op):
-        return 'RPyAssert(%s != NULL, "ll_assert_not_none() failed");' % (
+        return 'RPyAssert((void*)(%s) != NULL, "ll_assert_not_none() failed");' % (
                     self.expr(op.args[0]),)
 
     def OP_DEBUG_FATALERROR(self, op):
