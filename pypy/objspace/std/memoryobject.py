@@ -3,10 +3,10 @@ Implementation of the 'buffer' and 'memoryview' types.
 """
 import operator
 
-from rpython.rlib.buffer import Buffer, SubBuffer, StringBuffer
 from rpython.rlib.objectmodel import compute_hash
 from rpython.rlib.rstruct.error import StructError
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.buffer import Buffer, SubBuffer, StringBuffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty,  make_weakref_descr

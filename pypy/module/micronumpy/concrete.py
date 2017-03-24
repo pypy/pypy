@@ -702,7 +702,7 @@ class VoidBoxStorage(BaseConcreteArray):
         free_raw_storage(self.storage)
 
 
-class ArrayBuffer(PyBuffer):
+class ArrayBuffer(Buffer):
     _immutable_ = True
 
     def __init__(self, impl, readonly):

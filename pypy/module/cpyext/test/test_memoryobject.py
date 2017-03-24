@@ -3,7 +3,7 @@ import pytest
 from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-from rpython.rlib.buffer import StringBuffer
+from pypy.interpreter.buffer import StringBuffer
 from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.memoryobject import PyMemoryViewObject
 

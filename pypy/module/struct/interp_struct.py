@@ -1,9 +1,9 @@
 from rpython.rlib import jit
-from rpython.rlib.buffer import SubBuffer
 from rpython.rlib.rstruct.error import StructError, StructOverflowError
 from rpython.rlib.rstruct.formatiterator import CalcSizeFormatIterator
 
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.buffer import SubBuffer
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty

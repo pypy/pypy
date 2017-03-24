@@ -1,18 +1,19 @@
 from rpython.annotator.model import SomeInstance, s_None
-from pypy.interpreter import argument, gateway
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace, SpaceCache
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.objspace.std.sliceobject import W_SliceObject
-from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.objectmodel import (instantiate, we_are_translated, specialize,
     not_rpython)
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import r_uint, r_singlefloat
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype
-from pypy.tool.option import make_config
 from rpython.tool.sourcetools import compile2, func_with_new_name
 from rpython.translator.translator import TranslationContext
+
+from pypy.tool.option import make_config
+from pypy.interpreter import argument, gateway
+from pypy.interpreter.baseobjspace import W_Root, ObjSpace, SpaceCache
+from pypy.interpreter.buffer import StringBuffer
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.objspace.std.sliceobject import W_SliceObject
 
 
 class W_MyObject(W_Root):

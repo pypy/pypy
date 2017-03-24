@@ -6,7 +6,7 @@ from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 
-from pypy.interpreter.buffer import PyBuffer
+from pypy.interpreter.buffer import Buffer
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
@@ -848,7 +848,7 @@ for k, v in types.items():
     v.typecode = k
 unroll_typecodes = unrolling_iterable(types.keys())
 
-class ArrayBuffer(PyBuffer):
+class ArrayBuffer(Buffer):
     _immutable_ = True
 
     def __init__(self, array, readonly):
@@ -895,7 +895,7 @@ class ArrayBuffer(PyBuffer):
                 return rffi.charpsize2str(rffi.ptradd(data, start), size)
             finally:
                 self.array._charbuf_stop()
-        return PyBuffer.getslice(self, start, stop, step, size)
+        return Buffer.getslice(self, start, stop, step, size)
 
     def get_raw_address(self):
         return self.array._charbuf_start()

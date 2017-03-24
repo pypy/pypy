@@ -3,7 +3,6 @@ import sys
 from rpython.rlib.cache import Cache
 from rpython.tool.uid import HUGEVAL_BYTES
 from rpython.rlib import jit, types
-from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
      compute_unique_id, specialize, not_rpython)
@@ -11,6 +10,7 @@ from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import r_uint, SHRT_MIN, SHRT_MAX, \
     INT_MIN, INT_MAX, UINT_MAX, USHRT_MAX
 
+from pypy.interpreter.buffer import StringBuffer
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
     make_finalizer_queue)
 from pypy.interpreter.error import OperationError, new_exception_class, oefmt
