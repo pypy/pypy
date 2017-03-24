@@ -29,7 +29,7 @@ class Original:
     def __init__(self, space):
         self.injected_methods_w = []
         for key, value in injected_methods.items():
-            self.injected_methods_w.append((key, space.wrap(value)))
+            self.injected_methods_w.append((key, value.spacebind(space)))
 
 class W_ArrayObject(W_Root):
     def getclass(self, space):
@@ -150,7 +150,7 @@ def inject_module(space, w_mod, name):
     w_type = space.appexec([w_mod], """(mod):
         return mod.typeinfo['DOUBLE'][-1]
     """)
-    w_array_type = space.getattr(w_mod, space.wrap('ndarray'))
+    w_array_type = space.getattr(w_mod, space.newtext('ndarray'))
     assert isinstance(w_array_type, W_TypeObject)
     assert isinstance(w_type, W_TypeObject)
     org.w_float64_type = w_type

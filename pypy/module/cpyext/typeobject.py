@@ -506,7 +506,6 @@ class W_PyCTypeObject(W_TypeObject):
         W_TypeObject.__init__(self, space, name,
             bases_w or [space.w_object], dict_w, force_new_layout=new_layout,
             is_heaptype=flag_heaptype)
-            self.layout.typedef = newtypedef
         self.flag_cpytype = True
         # if a sequence or a mapping, then set the flag to force it
         if pto.c_tp_as_sequence and pto.c_tp_as_sequence.c_sq_item:

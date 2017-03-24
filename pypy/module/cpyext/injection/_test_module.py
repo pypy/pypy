@@ -22,11 +22,11 @@ class Original:
 def injected_getitem(space, w_self, index):
     if index > 0:
         intval = space.int_w(w_self)
-        return space.wrap(index * intval)
+        return space.newint(index * intval)
     else:
         org = space.fromcache(Original)
         return space.call_function(org.w_original_getitem, w_self,
-                                   space.wrap(index))
+                                   space.newint(index))
 
 class W_MyThing(W_IntObject):
     def getclass(self, space):
@@ -57,10 +57,10 @@ def init_mything(space):
 def injected_make(space, arg):
     if arg == 15:
         org = space.fromcache(Original)
-        return space.call_function(org.w_original_make, space.wrap(arg))
+        return space.call_function(org.w_original_make, space.newint(arg))
     if arg == 25:
         org = space.fromcache(Original)
-        return space.wrap(W_MyThing(arg))
+        return W_MyThing(arg).spacebind(space)
     return space.w_Ellipsis
 
 
@@ -74,16 +74,16 @@ def inject(space, name, dict_w, pto):
     org = space.fromcache(Original)
     org.w_original_getitem = dict_w['__getitem__']
     for key, value in injected_methods.items():
-        dict_w[key] = space.wrap(value)
+        dict_w[key] = value.spacebind(space)
 
 def inject_global(space, w_func, name):
     assert name == 'make'
     org = space.fromcache(Original)
     org.w_original_make = w_func
-    return space.wrap(interp_injected_make)
+    return interp_injected_make.spacebind(space)
 
 def inject_module(space, w_mod, name):
     assert name == 'injection'
     org = space.fromcache(Original)
-    w_type = space.getattr(w_mod, space.wrap('test_mytype'))
+    w_type = space.getattr(w_mod, space.newtext('test_mytype'))
     org.w_original_type = w_type
