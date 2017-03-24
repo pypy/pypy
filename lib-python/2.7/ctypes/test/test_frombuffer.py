@@ -32,7 +32,7 @@ class Test(unittest.TestCase):
         del a; gc.collect(); gc.collect(); gc.collect()
         self.assertEqual(x[:], expected)
 
-        self.assertRaises((TypeError, ValueError),
+        self.assertRaises(TypeError,
                           (c_char * 16).from_buffer, "a" * 16)
 
     def test_fom_buffer_with_offset(self):
@@ -76,6 +76,14 @@ class Test(unittest.TestCase):
                           (c_int * 16).from_buffer_copy, a, sizeof(c_int))
         self.assertRaises(ValueError,
                           (c_int * 1).from_buffer_copy, a, 16 * sizeof(c_int))
+
+    def test_abstract(self):
+        self.assertRaises(TypeError, Array.from_buffer, bytearray(10))
+        self.assertRaises(TypeError, Structure.from_buffer, bytearray(10))
+        self.assertRaises(TypeError, Union.from_buffer, bytearray(10))
+        self.assertRaises(TypeError, Array.from_buffer_copy, b"123")
+        self.assertRaises(TypeError, Structure.from_buffer_copy, b"123")
+        self.assertRaises(TypeError, Union.from_buffer_copy, b"123")
 
 if __name__ == '__main__':
     unittest.main()

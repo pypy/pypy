@@ -49,8 +49,12 @@ def expand_sizes_to_signed():
     way up to lltype.Signed for indexes everywhere
     """
 
-class FrontendTagOverflow(Exception):
-    pass
+def frontend_tag_overflow():
+    # Minor abstraction leak: raise directly the right exception
+    # expected by the rest of the machinery
+    from rpython.jit.metainterp import history
+    from rpython.rlib.jit import Counters
+    raise history.SwitchToBlackhole(Counters.ABORT_TOO_LONG)
 
 class BaseTrace(object):
     pass
@@ -62,7 +66,7 @@ class SnapshotIterator(object):
         assert isinstance(snapshot, TopSnapshot)
         self.vable_array = snapshot.vable_array
         self.vref_array = snapshot.vref_array
-        self.size = len(self.vable_array) + len(self.vref_array) + 2
+        self.size = len(self.vable_array) + len(self.vref_array) + 3
         jc_index, pc = unpack_uint(snapshot.packed_jitcode_pc)
         self.framestack = []
         if jc_index == 2**16-1:
@@ -296,7 +300,7 @@ class Trace(BaseTrace):
             # grow by 2X
             self._ops = self._ops + [rffi.cast(model.STORAGE_TP, 0)] * len(self._ops)
         if not model.MIN_VALUE <= v <= model.MAX_VALUE:
-            raise FrontendTagOverflow
+            raise frontend_tag_overflow()
         self._ops[self._pos] = rffi.cast(model.STORAGE_TP, v)
         self._pos += 1
 

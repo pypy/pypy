@@ -6,7 +6,7 @@ class TestParsetring:
         space = self.space
         w_ret = parsestring.parsestr(space, encoding, literal)
         if isinstance(value, str):
-            assert space.type(w_ret) == space.w_str
+            assert space.type(w_ret) == space.w_bytes
             assert space.str_w(w_ret) == value
         elif isinstance(value, unicode):
             assert space.type(w_ret) == space.w_unicode
@@ -58,7 +58,7 @@ class TestParsetring:
         w_ret = parsestring.parsestr(space, None, repr("hello"), True)
         assert space.isinstance_w(w_ret, space.w_unicode)
         w_ret = parsestring.parsestr(space, None, "b'hi'", True)
-        assert space.isinstance_w(w_ret, space.w_str)
+        assert space.isinstance_w(w_ret, space.w_bytes)
         w_ret = parsestring.parsestr(space, None, "r'hi'", True)
         assert space.isinstance_w(w_ret, space.w_unicode)
 

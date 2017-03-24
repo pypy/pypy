@@ -190,6 +190,19 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                "make sure that all calls go through space.call_args",
                default=False),
 
+    BoolOption("disable_entrypoints",
+               "Disable external entry points, notably the"
+               " cpyext module and cffi's embedding mode.",
+               default=False,
+               requires=[("objspace.usemodules.cpyext", False)]),
+
+    ChoiceOption("hash",
+                 "The hash function to use for strings: fnv from CPython 2.7"
+                 " or siphash24 from CPython >= 3.4",
+                 ["fnv", "siphash24"],
+                 default="fnv",
+                 cmdline="--hash"),
+
     OptionDescription("std", "Standard Object Space Options", [
         BoolOption("withtproxy", "support transparent proxies",
                    default=True),

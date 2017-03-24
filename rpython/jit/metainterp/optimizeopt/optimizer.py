@@ -24,8 +24,19 @@ CONST_ZERO_FLOAT = Const._new(0.0)
 llhelper.CONST_NULLREF = llhelper.CONST_NULL
 REMOVED = AbstractResOp()
 
+def check_no_forwarding(lsts):
+    for lst in lsts:
+        for op in lst:
+            assert op.get_forwarded() is None
+
 class LoopInfo(object):
     label_op = None
+
+    def _check_no_forwarding(self):
+        pass
+
+    def forget_optimization_info(self):
+        pass
 
 class BasicLoopInfo(LoopInfo):
     def __init__(self, inputargs, quasi_immutable_deps, jump_op):
@@ -33,6 +44,7 @@ class BasicLoopInfo(LoopInfo):
         self.jump_op = jump_op
         self.quasi_immutable_deps = quasi_immutable_deps
         self.extra_same_as = []
+        self.extra_before_label = []
 
     def final(self):
         return True
@@ -249,9 +261,9 @@ class Optimization(object):
     def produce_potential_short_preamble_ops(self, potential_ops):
         pass
 
-    def _can_optimize_call_pure(self, op):
+    def _can_optimize_call_pure(self, op, start_index=0):
         arg_consts = []
-        for i in range(op.numargs()):
+        for i in range(start_index, op.numargs()):
             arg = op.getarg(i)
             const = self.optimizer.get_constant_box(arg)
             if const is None:
@@ -285,6 +297,7 @@ class Optimizer(Optimization):
         self.optrewrite = None
         self.optearlyforce = None
         self.optunroll = None
+        self._really_emitted_operation = None
 
         self._last_guard_op = None
 
@@ -554,7 +567,8 @@ class Optimizer(Optimization):
         return (BasicLoopInfo(trace.inputargs, self.quasi_immutable_deps, last_op),
                 self._newoperations)
 
-    def _clean_optimization_info(self, lst):
+    @staticmethod
+    def _clean_optimization_info(lst):
         for op in lst:
             if op.get_forwarded() is not None:
                 op.set_forwarded(None)

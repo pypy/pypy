@@ -180,25 +180,25 @@ class W_BaseSetObject(W_Root):
 
     def descr_eq(self, space, w_other):
         if isinstance(w_other, W_BaseSetObject):
-            return space.wrap(self.equals(w_other))
+            return space.newbool(self.equals(w_other))
 
         if not space.isinstance_w(w_other, space.w_set):
             return space.w_NotImplemented
 
         # XXX do not make new setobject here
         w_other_as_set = self._newobj(space, w_other)
-        return space.wrap(self.equals(w_other_as_set))
+        return space.newbool(self.equals(w_other_as_set))
 
     def descr_ne(self, space, w_other):
         if isinstance(w_other, W_BaseSetObject):
-            return space.wrap(not self.equals(w_other))
+            return space.newbool(not self.equals(w_other))
 
         if not space.isinstance_w(w_other, space.w_set):
             return space.w_NotImplemented
 
         # XXX this is not tested
         w_other_as_set = self._newobj(space, w_other)
-        return space.wrap(not self.equals(w_other_as_set))
+        return space.newbool(not self.equals(w_other_as_set))
 
     # automatic registration of "lt(x, y)" as "not ge(y, x)" would not give the
     # correct answer here!
@@ -217,7 +217,7 @@ class W_BaseSetObject(W_Root):
 
         if self.length() > w_other.length():
             return space.w_False
-        return space.wrap(self.issubset(w_other))
+        return space.newbool(self.issubset(w_other))
 
     def descr_gt(self, space, w_other):
         if not isinstance(w_other, W_BaseSetObject):
@@ -234,7 +234,7 @@ class W_BaseSetObject(W_Root):
 
         if self.length() < w_other.length():
             return space.w_False
-        return space.wrap(w_other.issubset(self))
+        return space.newbool(w_other.issubset(self))
 
     def descr_len(self, space):
         return space.newint(self.length())
@@ -354,12 +354,12 @@ class W_BaseSetObject(W_Root):
         if isinstance(w_other, W_BaseSetObject):
             if self.length() > w_other.length():
                 return space.w_False
-            return space.wrap(self.issubset(w_other))
+            return space.newbool(self.issubset(w_other))
 
         w_other_as_set = self._newobj(space, w_other)
         if self.length() > w_other_as_set.length():
             return space.w_False
-        return space.wrap(self.issubset(w_other_as_set))
+        return space.newbool(self.issubset(w_other_as_set))
 
     def descr_issuperset(self, space, w_other):
         """Report whether this set contains another set."""
@@ -369,12 +369,12 @@ class W_BaseSetObject(W_Root):
         if isinstance(w_other, W_BaseSetObject):
             if self.length() < w_other.length():
                 return space.w_False
-            return space.wrap(w_other.issubset(self))
+            return space.newbool(w_other.issubset(self))
 
         w_other_as_set = self._newobj(space, w_other)
         if self.length() < w_other_as_set.length():
             return space.w_False
-        return space.wrap(w_other_as_set.issubset(self))
+        return space.newbool(w_other_as_set.issubset(self))
 
     def descr_symmetric_difference(self, space, w_other):
         """Return the symmetric difference of two sets as a new set.
@@ -576,6 +576,11 @@ set_typedef = W_SetObject.typedef
 class W_FrozensetObject(W_BaseSetObject):
     hash = 0
 
+    def _cleanup_(self):
+        # in case there are frozenset objects existing during
+        # translation, make sure we don't translate a cached hash
+        self.hash = 0
+
     def is_w(self, space, w_other):
         if not isinstance(w_other, W_FrozensetObject):
             return False
@@ -591,7 +596,7 @@ class W_FrozensetObject(W_BaseSetObject):
             return None
         # empty frozenset: base value 259
         uid = (259 << IDTAG_SHIFT) | IDTAG_SPECIAL
-        return space.wrap(uid)
+        return space.newint(uid)
 
     def _newobj(self, space, w_iterable):
         """Make a new frozenset by taking ownership of 'w_iterable'."""
@@ -614,7 +619,7 @@ class W_FrozensetObject(W_BaseSetObject):
     def descr_hash(self, space):
         multi = r_uint(1822399083) + r_uint(1822399083) + 1
         if self.hash != 0:
-            return space.wrap(self.hash)
+            return space.newint(self.hash)
         hash = r_uint(1927868237)
         hash *= r_uint(self.length() + 1)
         w_iterator = self.iter()
@@ -631,7 +636,7 @@ class W_FrozensetObject(W_BaseSetObject):
         hash = intmask(hash)
         self.hash = hash
 
-        return space.wrap(hash)
+        return space.newint(hash)
 
 W_FrozensetObject.typedef = TypeDef("frozenset",
     __doc__ = """frozenset(iterable) --> frozenset object
@@ -1248,10 +1253,10 @@ class BytesSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return True
 
     def unwrap(self, w_item):
-        return self.space.str_w(w_item)
+        return self.space.bytes_w(w_item)
 
     def wrap(self, item):
-        return self.space.wrap(item)
+        return self.space.newbytes(item)
 
     def iter(self, w_set):
         return BytesIteratorImplementation(self.space, self, w_set)
@@ -1290,7 +1295,7 @@ class UnicodeSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return self.space.unicode_w(w_item)
 
     def wrap(self, item):
-        return self.space.wrap(item)
+        return self.space.newunicode(item)
 
     def iter(self, w_set):
         return UnicodeIteratorImplementation(self.space, self, w_set)
@@ -1331,7 +1336,7 @@ class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return self.space.int_w(w_item)
 
     def wrap(self, item):
-        return self.space.wrap(item)
+        return self.space.newint(item)
 
     def iter(self, w_set):
         return IntegerIteratorImplementation(self.space, self, w_set)
@@ -1481,7 +1486,7 @@ class BytesIteratorImplementation(IteratorImplementation):
 
     def next_entry(self):
         for key in self.iterator:
-            return self.space.wrap(key)
+            return self.space.newbytes(key)
         else:
             return None
 
@@ -1494,7 +1499,7 @@ class UnicodeIteratorImplementation(IteratorImplementation):
 
     def next_entry(self):
         for key in self.iterator:
-            return self.space.wrap(key)
+            return self.space.newunicode(key)
         else:
             return None
 
@@ -1509,7 +1514,7 @@ class IntegerIteratorImplementation(IteratorImplementation):
     def next_entry(self):
         # note that this 'for' loop only runs once, at most
         for key in self.iterator:
-            return self.space.wrap(key)
+            return self.space.newint(key)
         else:
             return None
 
@@ -1520,8 +1525,8 @@ class IdentityIteratorImplementation(IteratorImplementation):
         self.iterator = d.iterkeys()
 
     def next_entry(self):
-        for key in self.iterator:
-            return self.space.wrap(key)
+        for w_key in self.iterator:
+            return w_key
         else:
             return None
 
@@ -1546,7 +1551,7 @@ class W_SetIterObject(W_Root):
         self.iterimplementation = iterimplementation
 
     def descr_length_hint(self, space):
-        return space.wrap(self.iterimplementation.length())
+        return space.newint(self.iterimplementation.length())
 
     def descr_iter(self, space):
         return self

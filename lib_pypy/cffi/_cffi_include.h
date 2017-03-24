@@ -141,9 +141,9 @@ extern "C" {
 #define _cffi_to_c_char                                                  \
                  ((int(*)(PyObject *))_cffi_exports[9])
 #define _cffi_from_c_pointer                                             \
-    ((PyObject *(*)(char *, CTypeDescrObject *))_cffi_exports[10])
+    ((PyObject *(*)(char *, struct _cffi_ctypedescr *))_cffi_exports[10])
 #define _cffi_to_c_pointer                                               \
-    ((char *(*)(PyObject *, CTypeDescrObject *))_cffi_exports[11])
+    ((char *(*)(PyObject *, struct _cffi_ctypedescr *))_cffi_exports[11])
 #define _cffi_get_struct_layout                                          \
     not used any more
 #define _cffi_restore_errno                                              \
@@ -153,11 +153,11 @@ extern "C" {
 #define _cffi_from_c_char                                                \
     ((PyObject *(*)(char))_cffi_exports[15])
 #define _cffi_from_c_deref                                               \
-    ((PyObject *(*)(char *, CTypeDescrObject *))_cffi_exports[16])
+    ((PyObject *(*)(char *, struct _cffi_ctypedescr *))_cffi_exports[16])
 #define _cffi_to_c                                                       \
-    ((int(*)(char *, CTypeDescrObject *, PyObject *))_cffi_exports[17])
+    ((int(*)(char *, struct _cffi_ctypedescr *, PyObject *))_cffi_exports[17])
 #define _cffi_from_c_struct                                              \
-    ((PyObject *(*)(char *, CTypeDescrObject *))_cffi_exports[18])
+    ((PyObject *(*)(char *, struct _cffi_ctypedescr *))_cffi_exports[18])
 #define _cffi_to_c_wchar_t                                               \
     ((wchar_t(*)(PyObject *))_cffi_exports[19])
 #define _cffi_from_c_wchar_t                                             \
@@ -167,21 +167,22 @@ extern "C" {
 #define _cffi_to_c__Bool                                                 \
     ((_Bool(*)(PyObject *))_cffi_exports[22])
 #define _cffi_prepare_pointer_call_argument                              \
-    ((Py_ssize_t(*)(CTypeDescrObject *, PyObject *, char **))_cffi_exports[23])
+    ((Py_ssize_t(*)(struct _cffi_ctypedescr *,                           \
+                    PyObject *, char **))_cffi_exports[23])
 #define _cffi_convert_array_from_object                                  \
-    ((int(*)(char *, CTypeDescrObject *, PyObject *))_cffi_exports[24])
+    ((int(*)(char *, struct _cffi_ctypedescr *, PyObject *))_cffi_exports[24])
 #define _CFFI_CPIDX  25
 #define _cffi_call_python                                                \
     ((void(*)(struct _cffi_externpy_s *, char *))_cffi_exports[_CFFI_CPIDX])
 #define _CFFI_NUM_EXPORTS 26
 
-typedef struct _ctypedescr CTypeDescrObject;
+struct _cffi_ctypedescr;
 
 static void *_cffi_exports[_CFFI_NUM_EXPORTS];
 
 #define _cffi_type(index)   (                           \
     assert((((uintptr_t)_cffi_types[index]) & 1) == 0), \
-    (CTypeDescrObject *)_cffi_types[index])
+    (struct _cffi_ctypedescr *)_cffi_types[index])
 
 static PyObject *_cffi_init(const char *module_name, Py_ssize_t version,
                             const struct _cffi_type_context_s *ctx)

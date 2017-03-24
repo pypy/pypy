@@ -506,13 +506,17 @@ else:
 
 llimpl_malloc = rffi.llexternal('malloc', [lltype.Signed], llmemory.Address,
                                 sandboxsafe=True, _nowrapper=True)
+llimpl_calloc = rffi.llexternal('calloc', [lltype.Signed, lltype.Signed],
+                                llmemory.Address,
+                                sandboxsafe=True, _nowrapper=True)
 llimpl_free = rffi.llexternal('free', [llmemory.Address], lltype.Void,
                               sandboxsafe=True, _nowrapper=True)
 
 def llimpl_arena_malloc(nbytes, zero):
-    addr = llimpl_malloc(nbytes)
-    if bool(addr):
-        llimpl_arena_reset(addr, nbytes, zero)
+    if zero:
+        addr = llimpl_calloc(nbytes, 1)
+    else:
+        addr = llimpl_malloc(nbytes)
     return addr
 llimpl_arena_malloc._always_inline_ = True
 register_external(arena_malloc, [int, int], llmemory.Address,

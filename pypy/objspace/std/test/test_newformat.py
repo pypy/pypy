@@ -222,7 +222,7 @@ class AppTestUnicodeFormat(BaseStringFormatTests):
 
 class AppTestStringFormat(BaseStringFormatTests):
     def setup_class(cls):
-        cls.w_s = cls.space.w_str
+        cls.w_s = cls.space.w_bytes
 
     def test_string_conversion(self):
         class x(object):

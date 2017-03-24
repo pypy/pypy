@@ -59,6 +59,17 @@ class TestPosixFunction:
         compile(f, (str, float))(str(fname), t1)
         assert t1 == os.stat(str(fname)).st_mtime
 
+    def test_utime_negative_fraction(self):
+        def f(fname, t1):
+            os.utime(fname, (t1, t1))
+
+        fname = udir.join('test_utime_negative_fraction.txt')
+        fname.ensure()
+        t1 = -123.75
+        compile(f, (str, float))(str(fname), t1)
+        got = os.stat(str(fname)).st_mtime
+        assert got == -123 or got == -123.75
+
     @win_only
     def test__getfullpathname(self):
         posix = __import__(os.name)
@@ -270,6 +281,12 @@ class TestPosixFunction:
     def test_isatty(self):
         assert rposix.isatty(-1) is False
 
+    @py.test.mark.skipif("not hasattr(rposix, 'makedev')")
+    def test_makedev(self):
+        dev = rposix.makedev(24, 7)
+        assert rposix.major(dev) == 24
+        assert rposix.minor(dev) == 7
+
 
 @py.test.mark.skipif("not hasattr(os, 'ttyname')")
 class TestOsExpect(ExpectTest):
@@ -459,16 +476,23 @@ class BasePosixUnicodeOrAscii:
         assert rposix.is_valid_fd(fd) == 0
 
     def test_putenv(self):
+        from rpython.rlib import rposix_environ
+
         def f():
             rposix.putenv(self.path, self.path)
             rposix.unsetenv(self.path)
 
-        interpret(f, []) # does not crash
+        interpret(f, [],     # does not crash
+                  malloc_check=rposix_environ.REAL_UNSETENV)
+        # If we have a real unsetenv(), check that it frees the string
+        # kept alive by putenv().  Otherwise, we can't check that,
+        # because unsetenv() will keep another string alive itself.
+    test_putenv.dont_track_allocations = True
 
 
 class TestPosixAscii(BasePosixUnicodeOrAscii):
     def _get_filename(self):
-        return str(udir.join('test_open_ascii'))
+        return unicode(udir.join('test_open_ascii'))
 
     @rposix_requires('openat')
     def test_openat(self):
@@ -593,6 +617,9 @@ def test_set_inheritable():
 def test_SetNonInheritableCache():
     cache = rposix.SetNonInheritableCache()
     fd1, fd2 = os.pipe()
+    if sys.platform == 'win32':
+        rposix.set_inheritable(fd1, True)
+        rposix.set_inheritable(fd2, True)
     assert rposix.get_inheritable(fd1) == True
     assert rposix.get_inheritable(fd1) == True
     assert cache.cached_inheritable == -1
@@ -605,6 +632,24 @@ def test_SetNonInheritableCache():
     os.close(fd1)
     os.close(fd2)
 
+def test_dup_dup2_non_inheritable():
+    for preset in [False, True]:
+        fd1, fd2 = os.pipe()
+        rposix.set_inheritable(fd1, preset)
+        rposix.set_inheritable(fd2, preset)
+        fd3 = rposix.dup(fd1, True)
+        assert rposix.get_inheritable(fd3) == True
+        fd4 = rposix.dup(fd1, False)
+        assert rposix.get_inheritable(fd4) == False
+        rposix.dup2(fd2, fd4, False)
+        assert rposix.get_inheritable(fd4) == False
+        rposix.dup2(fd2, fd3, True)
+        assert rposix.get_inheritable(fd3) == True
+        os.close(fd1)
+        os.close(fd2)
+        os.close(fd3)
+        os.close(fd4)
+
 def test_sync():
     if sys.platform != 'win32':
         rposix.sync()
@@ -612,3 +657,96 @@ def test_sync():
 def test_cpu_count():
     cc = rposix.cpu_count()
     assert cc >= 1
+
+@rposix_requires('set_status_flags')
+def test_set_status_flags():
+    fd1, fd2 = os.pipe()
+    try:
+        flags = rposix.get_status_flags(fd1)
+        assert flags & rposix.O_NONBLOCK == 0
+        rposix.set_status_flags(fd1, flags | rposix.O_NONBLOCK)
+        assert rposix.get_status_flags(fd1) & rposix.O_NONBLOCK != 0
+    finally:
+        os.close(fd1)
+        os.close(fd2)
+
+@rposix_requires('getpriority')
+def test_getpriority():
+    # a "don't crash" kind of test only
+    prio = rposix.getpriority(rposix.PRIO_PROCESS, 0)
+    rposix.setpriority(rposix.PRIO_PROCESS, 0, prio)
+    py.test.raises(OSError, rposix.getpriority, rposix.PRIO_PGRP, 123456789)
+    
+if sys.platform != 'win32':
+    def test_sendfile():
+        from rpython.rlib import rsocket
+        s1, s2 = rsocket.socketpair()
+        relpath = 'test_sendfile'
+        filename = str(udir.join(relpath))
+        fd = os.open(filename, os.O_RDWR|os.O_CREAT, 0777)
+        os.write(fd, 'abcdefghij')
+        res = rposix.sendfile(s1.fd, fd, 3, 5)
+        assert res == 5
+        data = os.read(s2.fd, 10)
+        assert data == 'defgh'
+        os.close(fd)
+        s2.close()
+        s1.close()
+
+    def test_sendfile_invalid_offset():
+        from rpython.rlib import rsocket
+        s1, s2 = rsocket.socketpair()
+        relpath = 'test_sendfile_invalid_offset'
+        filename = str(udir.join(relpath))
+        fd = os.open(filename, os.O_RDWR|os.O_CREAT, 0777)
+        os.write(fd, 'abcdefghij')
+        with py.test.raises(OSError) as excinfo:
+            rposix.sendfile(s1.fd, fd, -1, 5)
+        assert excinfo.value.errno == errno.EINVAL
+        os.close(fd)
+        s2.close()
+        s1.close()
+
+if sys.platform.startswith('linux'):
+    def test_sendfile_no_offset():
+        from rpython.rlib import rsocket
+        s1, s2 = rsocket.socketpair()
+        relpath = 'test_sendfile'
+        filename = str(udir.join(relpath))
+        fd = os.open(filename, os.O_RDWR|os.O_CREAT, 0777)
+        os.write(fd, 'abcdefghij')
+        os.lseek(fd, 3, 0)
+        res = rposix.sendfile_no_offset(s1.fd, fd, 5)
+        assert res == 5
+        data = os.read(s2.fd, 10)
+        assert data == 'defgh'
+        os.close(fd)
+        s2.close()
+        s1.close()
+        
+@rposix_requires('pread')
+def test_pread():
+    fname = str(udir.join('os_test.txt'))
+    fd = os.open(fname, os.O_RDWR | os.O_CREAT)
+    try:
+        assert fd >= 0
+        os.write(fd, b'Hello world')
+        os.lseek(fd, 0, 0)
+        assert rposix.pread(fd, 2, 1) == b'el'
+    finally:
+        os.close(fd)
+    py.test.raises(OSError, rposix.pread, fd, 2, 1)
+
+@rposix_requires('pwrite')
+def test_pwrite():
+    fname = str(udir.join('os_test.txt'))
+    fd = os.open(fname, os.O_RDWR | os.O_CREAT, 0777)
+    try:
+        assert fd >= 0
+        os.write(fd, b'Hello world')
+        os.lseek(fd, 0, 0)
+        rposix.pwrite(fd, b'ea', 1)
+        assert os.read(fd, 4) == b'Heal'
+    finally:
+        os.close(fd)
+    py.test.raises(OSError, rposix.pwrite, fd, b'ea', 1)

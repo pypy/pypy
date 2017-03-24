@@ -46,6 +46,15 @@ def make_func(name, desc):
         elif field.name == 'sh':
             body.append('sh1 = (%s & 31) << 10 | (%s & 32) >> 5' % (value, value))
             value = 'sh1'
+        elif field.name == 'fvrT':
+            body.append('vrT1 = (%s & 31) << 21 | (%s & 32) >> 5' % (value, value))
+            value = 'vrT1'
+        elif field.name == 'fvrA':
+            body.append('fvrA1 = (%s & 31) << 14 | (%s & 32) >> 5' % (value, value))
+            value = 'fvrA1'
+        elif field.name == 'fvrB':
+            body.append('fvrB1 = (%s & 31) << 10 | (%s & 32) >> 5' % (value, value))
+            value = 'fvrB1'
         if isinstance(field, IField):
             body.append('v |= ((%3s >> 2) & r_uint(%#05x)) << 2' % (value, field.mask))
         else:

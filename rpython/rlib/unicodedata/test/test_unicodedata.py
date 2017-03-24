@@ -5,7 +5,8 @@ import unicodedata
 import py
 
 from rpython.rlib.unicodedata import (
-    unicodedb_3_2_0, unicodedb_5_2_0, unicodedb_6_0_0, unicodedb_6_2_0)
+    unicodedb_3_2_0, unicodedb_5_2_0, unicodedb_6_0_0, unicodedb_6_2_0,
+    unicodedb_8_0_0)
 
 
 class TestUnicodeData(object):
@@ -141,3 +142,9 @@ class TestUnicodeData600(object):
 
     def test_islower(self):
         assert unicodedb_6_2_0.islower(0x2177)
+
+
+class TestUnicodeData800(object):
+    def test_changed_in_version_8(self):
+        assert unicodedb_6_2_0.toupper_full(0x025C) == [0x025C]
+        assert unicodedb_8_0_0.toupper_full(0x025C) == [0xA7AB]

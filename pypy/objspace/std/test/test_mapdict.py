@@ -899,7 +899,7 @@ class AppTestWithMapDictAndCounters(object):
                 successes = entry.success_counter
             globalfailures = INVALID_CACHE_ENTRY.failure_counter
             return space.wrap((failures, successes, globalfailures))
-        check.unwrap_spec = [gateway.ObjSpace, gateway.W_Root, str]
+        check.unwrap_spec = [gateway.ObjSpace, gateway.W_Root, 'text']
         cls.w_check = cls.space.wrap(gateway.interp2app(check))
 
     def test_simple(self):
@@ -1182,6 +1182,20 @@ class AppTestWithMapDictAndCounters(object):
         a.__dict__['method'] = lambda: 43
         got = a.method()
         assert got == 43
+
+    def test_dict_order(self):
+        # the __dict__ order is not strictly enforced, but in
+        # simple cases like that, we want to follow the order of
+        # creation of the attributes
+        class A(object):
+            pass
+        a = A()
+        a.x = 5
+        a.z = 6
+        a.y = 7
+        assert list(a.__dict__) == ['x', 'z', 'y']
+        assert a.__dict__.values() == [5, 6, 7]
+        assert list(a.__dict__.iteritems()) == [('x', 5), ('z', 6), ('y', 7)]
 
     def test_bug_method_change(self):
         class A(object):

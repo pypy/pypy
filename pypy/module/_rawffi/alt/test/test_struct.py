@@ -43,7 +43,7 @@ class AppTestStruct(BaseAppTestFFI):
     def setup_class(cls):
         BaseAppTestFFI.setup_class.im_func(cls)
 
-        @unwrap_spec(addr=int, typename=str, length=int)
+        @unwrap_spec(addr=int, typename='text', length=int)
         def read_raw_mem(space, addr, typename, length):
             import ctypes
             addr = ctypes.cast(addr, ctypes.c_void_p)

@@ -23,15 +23,15 @@ class _Mixin_Enum(object):
             space = self.space
             w_dct = space.newdict()
             for enumvalue, enumerator in self.enumvalues2erators.iteritems():
-                space.setitem(w_dct, space.wrap(enumvalue),
-                                     space.wrap(enumerator))
+                space.setitem(w_dct, space.newint(enumvalue),
+                                     space.newtext(enumerator))
             return w_dct
         if attrchar == 'R':     # relements
             space = self.space
             w_dct = space.newdict()
             for enumerator, enumvalue in self.enumerators2values.iteritems():
-                space.setitem(w_dct, space.wrap(enumerator),
-                                     space.wrap(enumvalue))
+                space.setitem(w_dct, space.newtext(enumerator),
+                                     space.newint(enumvalue))
             return w_dct
         return self._super._fget(self, attrchar)
 
@@ -51,7 +51,7 @@ class _Mixin_Enum(object):
             s = self.enumvalues2erators[value]
         except KeyError:
             s = str(value)
-        return self.space.wrap(s)
+        return self.space.newtext(s)
 
 
 class W_CTypeEnumSigned(_Mixin_Enum, W_CTypePrimitiveSigned):

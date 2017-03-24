@@ -18,7 +18,7 @@ class StringMethods(object):
         assert start >= 0
         assert stop >= 0
         #if start == 0 and stop == len(s) and space.is_w(space.type(orig_obj),
-        #                                                space.w_str):
+        #                                                space.w_bytes):
         #    return orig_obj
         return self._new(s[start:stop])
 
@@ -32,7 +32,7 @@ class StringMethods(object):
         return c
 
     def descr_len(self, space):
-        return space.wrap(self._len())
+        return space.newint(self._len())
 
     #def descr_iter(self, space):
     #    pass
@@ -163,7 +163,7 @@ class StringMethods(object):
             res = count(value, buffer, start, end)
 
         assert res >= 0
-        return space.wrap(res)
+        return space.newint(res)
 
     def descr_decode(self, space, w_encoding=None, w_errors=None):
         from pypy.objspace.std.unicodeobject import (
@@ -239,7 +239,7 @@ class StringMethods(object):
 
         if self._use_rstr_ops(space, w_sub):
             res = value.find(self._op_val(space, w_sub), start, end)
-            return space.wrap(res)
+            return space.newint(res)
 
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject
         from pypy.objspace.std.bytesobject import W_BytesObject
@@ -251,14 +251,14 @@ class StringMethods(object):
             buffer = _get_buffer(space, w_sub)
             res = find(value, buffer, start, end)
 
-        return space.wrap(res)
+        return space.newint(res)
 
     def descr_rfind(self, space, w_sub, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end)
 
         if self._use_rstr_ops(space, w_sub):
             res = value.rfind(self._op_val(space, w_sub), start, end)
-            return space.wrap(res)
+            return space.newint(res)
 
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject
         from pypy.objspace.std.bytesobject import W_BytesObject
@@ -270,7 +270,7 @@ class StringMethods(object):
             buffer = _get_buffer(space, w_sub)
             res = rfind(value, buffer, start, end)
 
-        return space.wrap(res)
+        return space.newint(res)
 
     def descr_index(self, space, w_sub, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end)
@@ -290,7 +290,7 @@ class StringMethods(object):
         if res < 0:
             raise oefmt(space.w_ValueError,
                         "substring not found in string.index")
-        return space.wrap(res)
+        return space.newint(res)
 
     def descr_rindex(self, space, w_sub, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end)
@@ -310,7 +310,7 @@ class StringMethods(object):
         if res < 0:
             raise oefmt(space.w_ValueError,
                         "substring not found in string.rindex")
-        return space.wrap(res)
+        return space.newint(res)
 
     @specialize.arg(2)
     def _is_generic(self, space, func_name):
@@ -548,6 +548,10 @@ class StringMethods(object):
 
         sub = self._op_val(space, w_old)
         by = self._op_val(space, w_new)
+        # the following two lines are for being bug-to-bug compatible
+        # with CPython: see issue #2448
+        if count >= 0 and len(input) == 0:
+            return self._empty()
         try:
             res = replace(input, sub, by, count)
         except OverflowError:

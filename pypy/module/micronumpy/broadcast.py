@@ -67,19 +67,19 @@ class W_Broadcast(W_NumpyObject):
                             self.op_flags[i], self)
 
     def descr_iter(self, space):
-        return space.wrap(self)
+        return self
 
     def descr_get_shape(self, space):
-        return space.newtuple([space.wrap(i) for i in self.shape])
+        return space.newtuple([space.newint(i) for i in self.shape])
 
     def descr_get_size(self, space):
-        return space.wrap(self.size)
+        return space.newint(self.size)
 
     def descr_get_index(self, space):
-        return space.wrap(self.index)
+        return space.newint(self.index)
 
     def descr_get_numiter(self, space):
-        return space.wrap(len(self.iters))
+        return space.newint(len(self.iters))
 
     @jit.unroll_safe
     def descr_next(self, space):

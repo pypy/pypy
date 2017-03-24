@@ -104,8 +104,8 @@ static intptr_t get_current_thread_id(void)
 
 #include <setjmp.h>
 
-volatile int spinlock;
-jmp_buf restore_point;
+static volatile int spinlock;
+static jmp_buf restore_point;
 
 static void segfault_handler(int arg)
 {
@@ -197,15 +197,30 @@ static int remove_sigprof_handler(void)
     return 0;
 }
 
+static int itimer_which = ITIMER_PROF;
+
 static int install_sigprof_timer(void)
 {
     struct itimerval timer;
     timer.it_interval.tv_sec = 0;
     timer.it_interval.tv_usec = profile_interval_usec;
     timer.it_value = timer.it_interval;
-    if (setitimer(ITIMER_PROF, &timer, NULL) != 0)
-        return -1;
-    return 0;
+    if (setitimer(itimer_which, &timer, NULL) == 0)
+        return 0;   /* normal path */
+
+    if (errno == EINVAL) {
+        /* on WSL, only ITIMER_REAL is supported */
+        if (setitimer(ITIMER_REAL, &timer, NULL) == 0) {
+            fprintf(stderr, "warning: setitimer(): ITIMER_PROF not "
+                            "available, using ITIMER_REAL instead. "
+                            "Multithreaded programs and programs "
+                            "doing a lot of I/O won't give correct "
+                            "results.\n");
+            itimer_which = ITIMER_REAL;
+            return 0;
+        }
+    }
+    return -1;
 }
 
 static int remove_sigprof_timer(void) {
@@ -214,7 +229,7 @@ static int remove_sigprof_timer(void) {
     timer.it_interval.tv_usec = 0;
     timer.it_value.tv_sec = 0;
     timer.it_value.tv_usec = 0;
-    if (setitimer(ITIMER_PROF, &timer, NULL) != 0)
+    if (setitimer(itimer_which, &timer, NULL) != 0)
         return -1;
     return 0;
 }

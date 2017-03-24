@@ -11,7 +11,7 @@ r_uint   an unsigned integer which has no overflow
 intmask  mask a possibly long value when running on CPython
          back to a signed int value
 ovfcheck check on CPython whether the result of a signed
-         integer operation did overflow
+         integer operation did overflow (add, sub, mul)
 ovfcheck_float_to_int
          convert to an integer or raise OverflowError
 ovfcheck_float_to_longlong
@@ -25,6 +25,10 @@ widen(x)
          lltype.Unsigned, widen it to lltype.Signed.
          Useful because the translator doesn't support
          arithmetic on the smaller types.
+ovfcheck_int32_add/sub/mul(x, y)
+         perform an add/sub/mul between two regular integers,
+         but assumes that they fit inside signed 32-bit ints
+         and raises OverflowError if the result no longer does
 
 These are meant to be erased by translation, r_uint
 in the process should mark unsigned values, ovfcheck should
@@ -37,7 +41,7 @@ from rpython.rtyper import extregistry
 from rpython.rlib import objectmodel
 from rpython.flowspace.model import Constant, const
 from rpython.flowspace.specialcase import register_flow_sc
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, not_rpython
 
 """
 Long-term target:
@@ -105,10 +109,8 @@ to use long everywhere.
 # XXX returning int(n) should not be necessary and should be simply n.
 # XXX TODO: replace all int(n) by long(n) and fix everything that breaks.
 # XXX       Then relax it and replace int(n) by n.
+@not_rpython
 def intmask(n):
-    """
-    NOT_RPYTHON
-    """
     if isinstance(n, objectmodel.Symbolic):
         return n        # assume Symbolics don't overflow
     assert not isinstance(n, float)
@@ -120,10 +122,8 @@ def intmask(n):
         n -= 2*LONG_TEST
     return int(n)
 
+@not_rpython
 def longlongmask(n):
-    """
-    NOT_RPYTHON
-    """
     assert isinstance(n, (int, long))
     n = long(n)
     n &= LONGLONG_MASK
@@ -168,10 +168,11 @@ def is_valid_int(r):
     return isinstance(r, (base_int, int, long, bool)) and (
         -maxint - 1 <= r <= maxint)
 
+@not_rpython
 def ovfcheck(r):
-    "NOT_RPYTHON"
     # to be used as ovfcheck(x <op> y)
     # raise OverflowError if the operation did overflow
+    # Nowadays, only supports '+', '-' or '*' as the operation.
     assert not isinstance(r, r_uint), "unexpected ovf check on unsigned"
     assert not isinstance(r, r_longlong), "ovfcheck not supported on r_longlong"
     assert not isinstance(r, r_ulonglong), "ovfcheck not supported on r_ulonglong"
@@ -327,17 +328,29 @@ class base_int(long):
 
     def __add__(self, other):
         x = long(self)
+        if not isinstance(other, (int, long)):
+            return x + other
         y = long(other)
         return self._widen(other, x + y)
-    __radd__ = __add__
+
+    def __radd__(self, other):
+        x = long(self)
+        if not isinstance(other, (int, long)):
+            return other + x
+        y = long(other)
+        return self._widen(other, x + y)
 
     def __sub__(self, other):
         x = long(self)
+        if not isinstance(other, (int, long)):
+            return x - other
         y = long(other)
         return self._widen(other, x - y)
 
     def __rsub__(self, other):
         y = long(self)
+        if not isinstance(other, (int, long)):
+            return other - y
         x = long(other)
         return self._widen(other, x - y)
 
@@ -347,75 +360,133 @@ class base_int(long):
             return x * other
         y = long(other)
         return self._widen(other, x * y)
-    __rmul__ = __mul__
+
+    def __rmul__(self, other):
+        x = long(self)
+        if not isinstance(other, (int, long)):
+            return other * x
+        y = long(other)
+        return self._widen(other, x * y)
 
     def __div__(self, other):
         x = long(self)
+        if not isinstance(other, (int, long)):
+            return x / other
         y = long(other)
         return self._widen(other, x // y)
 
-    __floordiv__ = __div__
-
     def __rdiv__(self, other):
         y = long(self)
+        if not isinstance(other, (int, long)):
+            return other / y
         x = long(other)
         return self._widen(other, x // y)
 
-    __rfloordiv__ = __rdiv__
+    def __floordiv__(self, other):
+        x = long(self)
+        if not isinstance(other, (int, long)):
+            return x // other
+        y = long(other)
+        return self._widen(other, x // y)
+
+    def __rfloordiv__(self, other):
+        y = long(self)
+        if not isinstance(other, (int, long)):
+            return other // y
+        x = long(other)
+        return self._widen(other, x // y)
 
     def __mod__(self, other):
         x = long(self)
+        if not isinstance(other, (int, long)):
+            return x % other
         y = long(other)
         return self._widen(other, x % y)
 
     def __rmod__(self, other):
         y = long(self)
+        if not isinstance(other, (int, long)):
+            return other % y
         x = long(other)
         return self._widen(other, x % y)
 
     def __divmod__(self, other):
         x = long(self)
+        if not isinstance(other, (int, long)):
+            return divmod(x, other)
         y = long(other)
         res = divmod(x, y)
-        return (self.__class__(res[0]), self.__class__(res[1]))
+        return (self._widen(other, res[0]), self._widen(other, res[1]))
 
     def __lshift__(self, n):
         x = long(self)
+        if not isinstance(n, (int, long)):
+            raise TypeError
         y = long(n)
         return self.__class__(x << y)
 
     def __rlshift__(self, n):
         y = long(self)
+        if not isinstance(n, (int, long)):
+            raise TypeError
         x = long(n)
-        return self._widen(n, x << y)
+        return n.__class__(x << y)
 
     def __rshift__(self, n):
         x = long(self)
+        if not isinstance(n, (int, long)):
+            raise TypeError
         y = long(n)
-        return self._widen(n, x >> y)
+        return self.__class__(x >> y)
 
     def __rrshift__(self, n):
         y = long(self)
+        if not isinstance(n, (int, long)):
+            raise TypeError
         x = long(n)
-        return self._widen(n, x >> y)
+        return n.__class__(x >> y)
 
     def __or__(self, other):
         x = long(self)
+        if not isinstance(other, (int, long)):
+            return x | other
         y = long(other)
         return self._widen(other, x | y)
-    __ror__ = __or__
+
+    def __ror__(self, other):
+        x = long(self)
+        if not isinstance(other, (int, long)):
+            return other | x
+        y = long(other)
+        return self._widen(other, x | y)
 
     def __and__(self, other):
         x = long(self)
+        if not isinstance(other, (int, long)):
+            return x & other
         y = long(other)
         return self._widen(other, x & y)
-    __rand__ = __and__
+
+    def __rand__(self, other):
+        x = long(self)
+        if not isinstance(other, (int, long)):
+            return other & x
+        y = long(other)
+        return self._widen(other, x & y)
 
     def __xor__(self, other):
         x = long(self)
+        if not isinstance(other, (int, long)):
+            return x ^ other
         y = long(other)
         return self._widen(other, x ^ y)
-    __rxor__ = __xor__
+
+    def __rxor__(self, other):
+        x = long(self)
+        if not isinstance(other, (int, long)):
+            return other ^ x
+        y = long(other)
+        return self._widen(other, x ^ y)
 
     def __neg__(self):
         x = long(self)
@@ -434,12 +505,16 @@ class base_int(long):
 
     def __pow__(self, other, m=None):
         x = long(self)
+        if not isinstance(other, (int, long)):
+            return pow(x, other, m)
         y = long(other)
         res = pow(x, y, m)
         return self._widen(other, res)
 
     def __rpow__(self, other, m=None):
         y = long(self)
+        if not isinstance(other, (int, long)):
+            return pow(other, y, m)
         x = long(other)
         res = pow(x, y, m)
         return self._widen(other, res)
@@ -724,6 +799,47 @@ def byteswap(arg):
     if T == lltype.Float:
         return longlong2float(rffi.cast(rffi.LONGLONG, res))
     return rffi.cast(T, res)
+
+if sys.maxint == 2147483647:
+    def ovfcheck_int32_add(x, y):
+        return ovfcheck(x + y)
+    def ovfcheck_int32_sub(x, y):
+        return ovfcheck(x - y)
+    def ovfcheck_int32_mul(x, y):
+        return ovfcheck(x * y)
+else:
+    def ovfcheck_int32_add(x, y):
+        """x and y are assumed to fit inside the 32-bit rffi.INT;
+        raises OverflowError if the result doesn't fit rffi.INT"""
+        from rpython.rtyper.lltypesystem import lltype, rffi
+        x = rffi.cast(lltype.Signed, x)
+        y = rffi.cast(lltype.Signed, y)
+        z = x + y
+        if z != rffi.cast(lltype.Signed, rffi.cast(rffi.INT, z)):
+            raise OverflowError
+        return z
+
+    def ovfcheck_int32_sub(x, y):
+        """x and y are assumed to fit inside the 32-bit rffi.INT;
+        raises OverflowError if the result doesn't fit rffi.INT"""
+        from rpython.rtyper.lltypesystem import lltype, rffi
+        x = rffi.cast(lltype.Signed, x)
+        y = rffi.cast(lltype.Signed, y)
+        z = x - y
+        if z != rffi.cast(lltype.Signed, rffi.cast(rffi.INT, z)):
+            raise OverflowError
+        return z
+
+    def ovfcheck_int32_mul(x, y):
+        """x and y are assumed to fit inside the 32-bit rffi.INT;
+        raises OverflowError if the result doesn't fit rffi.INT"""
+        from rpython.rtyper.lltypesystem import lltype, rffi
+        x = rffi.cast(lltype.Signed, x)
+        y = rffi.cast(lltype.Signed, y)
+        z = x * y
+        if z != rffi.cast(lltype.Signed, rffi.cast(rffi.INT, z)):
+            raise OverflowError
+        return z
 
 
 # String parsing support

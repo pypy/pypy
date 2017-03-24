@@ -336,7 +336,7 @@ class DevolvedDictTerminator(Terminator):
             space = self.space
             w_dict = obj.getdict(space)
             try:
-                space.delitem(w_dict, space.wrap(name))
+                space.delitem(w_dict, space.newtext(name))
             except OperationError as ex:
                 if not ex.match(space, space.w_KeyError):
                     raise
@@ -401,7 +401,7 @@ class PlainAttribute(AbstractAttribute):
     def materialize_r_dict(self, space, obj, dict_w):
         new_obj = self.back.materialize_r_dict(space, obj, dict_w)
         if self.index == DICT:
-            w_attr = space.wrap(self.name)
+            w_attr = space.newtext(self.name)
             dict_w[w_attr] = obj._mapdict_read_storage(self.storageindex)
         else:
             self._copy_attr(obj, new_obj)
@@ -435,6 +435,9 @@ class MapAttrCache(object):
             self.indexes[i] = INVALID
         for i in range(len(self.cached_attrs)):
             self.cached_attrs[i] = None
+
+    def _cleanup_(self):
+        self.clear()
 
 # ____________________________________________________________
 # object implementation
@@ -738,8 +741,8 @@ class MapDictStrategy(DictStrategy):
     def getitem(self, w_dict, w_key):
         space = self.space
         w_lookup_type = space.type(w_key)
-        if space.is_w(w_lookup_type, space.w_str):
-            return self.getitem_str(w_dict, space.str_w(w_key))
+        if space.is_w(w_lookup_type, space.w_text):
+            return self.getitem_str(w_dict, space.text_w(w_key))
         elif _never_equal_to_string(space, w_lookup_type):
             return None
         else:
@@ -757,16 +760,16 @@ class MapDictStrategy(DictStrategy):
 
     def setitem(self, w_dict, w_key, w_value):
         space = self.space
-        if space.is_w(space.type(w_key), space.w_str):
-            self.setitem_str(w_dict, self.space.str_w(w_key), w_value)
+        if space.is_w(space.type(w_key), space.w_text):
+            self.setitem_str(w_dict, self.space.text_w(w_key), w_value)
         else:
             self.switch_to_object_strategy(w_dict)
             w_dict.setitem(w_key, w_value)
 
     def setdefault(self, w_dict, w_key, w_default):
         space = self.space
-        if space.is_w(space.type(w_key), space.w_str):
-            key = space.str_w(w_key)
+        if space.is_w(space.type(w_key), space.w_text):
+            key = space.text_w(w_key)
             w_result = self.getitem_str(w_dict, key)
             if w_result is not None:
                 return w_result
@@ -780,8 +783,8 @@ class MapDictStrategy(DictStrategy):
         space = self.space
         w_key_type = space.type(w_key)
         w_obj = self.unerase(w_dict.dstorage)
-        if space.is_w(w_key_type, space.w_str):
-            key = self.space.str_w(w_key)
+        if space.is_w(w_key_type, space.w_text):
+            key = self.space.text_w(w_key)
             flag = w_obj.deldictvalue(space, key)
             if not flag:
                 raise KeyError
@@ -811,7 +814,7 @@ class MapDictStrategy(DictStrategy):
             raise KeyError
         key = curr.name
         w_value = self.getitem_str(w_dict, key)
-        w_key = self.space.wrap(key)
+        w_key = self.space.newtext(key)
         self.delitem(w_dict, w_key)
         return (w_key, w_value)
 
@@ -830,65 +833,83 @@ def materialize_r_dict(space, obj, dict_w):
     new_obj = map.materialize_r_dict(space, obj, dict_w)
     obj._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
 
-class MapDictIteratorKeys(BaseKeyIterator):
-    def __init__(self, space, strategy, w_dict):
-        BaseKeyIterator.__init__(self, space, strategy, w_dict)
+
+class IteratorMixin(object):
+
+    def _init(self, strategy, w_dict):
         w_obj = strategy.unerase(w_dict.dstorage)
         self.w_obj = w_obj
-        self.orig_map = self.curr_map = w_obj._get_mapdict_map()
+        self.orig_map = curr_map = w_obj._get_mapdict_map()
+        # We enumerate non-lazily the attributes, and store them in the
+        # 'attrs' list.  We then walk that list in opposite order.  This
+        # gives an ordering that is more natural (roughly corresponding
+        # to oldest-first) than the one we get in the direct algorithm
+        # (from leaves to root, looks like backward order).  See issue
+        # #2426: it should improve the performance of code like
+        # copy.copy().
+        attrs = []
+        while True:
+            curr_map = curr_map.search(DICT)
+            if curr_map is None:
+                break
+            attrs.append(curr_map.name)
+            curr_map = curr_map.back
+        self.attrs = attrs
+
+
+class MapDictIteratorKeys(BaseKeyIterator):
+    objectmodel.import_from_mixin(IteratorMixin)
+
+    def __init__(self, space, strategy, w_dict):
+        BaseKeyIterator.__init__(self, space, strategy, w_dict)
+        self._init(strategy, w_dict)
 
     def next_key_entry(self):
         assert isinstance(self.w_dict.get_strategy(), MapDictStrategy)
         if self.orig_map is not self.w_obj._get_mapdict_map():
             return None
-        if self.curr_map:
-            curr_map = self.curr_map.search(DICT)
-            if curr_map:
-                self.curr_map = curr_map.back
-                attr = curr_map.name
-                w_attr = self.space.wrap(attr)
-                return w_attr
+        attrs = self.attrs
+        if len(attrs) > 0:
+            attr = attrs.pop()
+            w_attr = self.space.newtext(attr)
+            return w_attr
         return None
 
 
 class MapDictIteratorValues(BaseValueIterator):
+    objectmodel.import_from_mixin(IteratorMixin)
+
     def __init__(self, space, strategy, w_dict):
         BaseValueIterator.__init__(self, space, strategy, w_dict)
-        w_obj = strategy.unerase(w_dict.dstorage)
-        self.w_obj = w_obj
-        self.orig_map = self.curr_map = w_obj._get_mapdict_map()
+        self._init(strategy, w_dict)
 
     def next_value_entry(self):
         assert isinstance(self.w_dict.get_strategy(), MapDictStrategy)
         if self.orig_map is not self.w_obj._get_mapdict_map():
             return None
-        if self.curr_map:
-            curr_map = self.curr_map.search(DICT)
-            if curr_map:
-                self.curr_map = curr_map.back
-                attr = curr_map.name
-                return self.w_obj.getdictvalue(self.space, attr)
+        attrs = self.attrs
+        if len(attrs) > 0:
+            attr = attrs.pop()
+            return self.w_obj.getdictvalue(self.space, attr)
         return None
 
 
 class MapDictIteratorItems(BaseItemIterator):
+    objectmodel.import_from_mixin(IteratorMixin)
+
     def __init__(self, space, strategy, w_dict):
         BaseItemIterator.__init__(self, space, strategy, w_dict)
-        w_obj = strategy.unerase(w_dict.dstorage)
-        self.w_obj = w_obj
-        self.orig_map = self.curr_map = w_obj._get_mapdict_map()
+        self._init(strategy, w_dict)
 
     def next_item_entry(self):
         assert isinstance(self.w_dict.get_strategy(), MapDictStrategy)
         if self.orig_map is not self.w_obj._get_mapdict_map():
             return None, None
-        if self.curr_map:
-            curr_map = self.curr_map.search(DICT)
-            if curr_map:
-                self.curr_map = curr_map.back
-                attr = curr_map.name
-                w_attr = self.space.wrap(attr)
-                return w_attr, self.w_obj.getdictvalue(self.space, attr)
+        attrs = self.attrs
+        if len(attrs) > 0:
+            attr = attrs.pop()
+            w_attr = self.space.newtext(attr)
+            return w_attr, self.w_obj.getdictvalue(self.space, attr)
         return None, None
 
 
@@ -963,7 +984,7 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
             return space._handle_getattribute(w_descr, w_obj, w_name)
         version_tag = w_type.version_tag()
         if version_tag is not None:
-            name = space.str_w(w_name)
+            name = space.text_w(w_name)
             # We need to care for obscure cases in which the w_descr is
             # a MutableCell, which may change without changing the version_tag
             _, w_descr = w_type._pure_lookup_where_with_method_cache(

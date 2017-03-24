@@ -736,6 +736,12 @@ def op_unlikely(x):
     assert isinstance(x, bool)
     return x
 
+def op_gc_ignore_finalizer(obj):
+    pass
+
+def op_gc_move_out_of_nursery(obj):
+    return obj
+
 # ____________________________________________________________
 
 def get_op_impl(opname):

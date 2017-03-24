@@ -234,8 +234,11 @@ else:
         _ptyh = 'pty.h'
     includes = ['unistd.h',  'sys/types.h', 'sys/wait.h',
                 'utime.h', 'sys/time.h', 'sys/times.h',
+                'sys/resource.h',
                 'grp.h', 'dirent.h', 'sys/stat.h', 'fcntl.h',
                 'signal.h', 'sys/utsname.h', _ptyh]
+    if sys.platform.startswith('linux'):
+        includes.append('sys/sysmacros.h')
     if sys.platform.startswith('freebsd'):
         includes.append('sys/ttycom.h')
     libraries = ['util']
@@ -249,6 +252,11 @@ class CConfig:
     SEEK_SET = rffi_platform.DefinedConstantInteger('SEEK_SET')
     SEEK_CUR = rffi_platform.DefinedConstantInteger('SEEK_CUR')
     SEEK_END = rffi_platform.DefinedConstantInteger('SEEK_END')
+    PRIO_PROCESS = rffi_platform.DefinedConstantInteger('PRIO_PROCESS')
+    PRIO_PGRP = rffi_platform.DefinedConstantInteger('PRIO_PGRP')
+    PRIO_USER = rffi_platform.DefinedConstantInteger('PRIO_USER')
+    O_NONBLOCK = rffi_platform.DefinedConstantInteger('O_NONBLOCK')
+    OFF_T = rffi_platform.SimpleType('off_t')
     OFF_T_SIZE = rffi_platform.SizeOf('off_t')
 
     HAVE_UTIMES = rffi_platform.Has('utimes')
@@ -260,6 +268,7 @@ class CConfig:
     if not _WIN32:
         UID_T = rffi_platform.SimpleType('uid_t', rffi.UINT)
         GID_T = rffi_platform.SimpleType('gid_t', rffi.UINT)
+        ID_T = rffi_platform.SimpleType('id_t', rffi.UINT)
         TIOCGWINSZ = rffi_platform.DefinedConstantInteger('TIOCGWINSZ')
 
         TMS = rffi_platform.Struct(
@@ -456,6 +465,30 @@ def lseek(fd, pos, how):
         elif how == 2:
             how = SEEK_END
     return handle_posix_error('lseek', c_lseek(fd, pos, how))
+
+if not _WIN32:
+    c_pread = external('pread',
+                      [rffi.INT, rffi.VOIDP, rffi.SIZE_T , OFF_T], rffi.SSIZE_T,
+                      save_err=rffi.RFFI_SAVE_ERRNO)
+    c_pwrite = external('pwrite',
+                       [rffi.INT, rffi.VOIDP, rffi.SIZE_T, OFF_T], rffi.SSIZE_T,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
+
+    @enforceargs(int, int, None)
+    def pread(fd, count, offset):
+        if count < 0:
+            raise OSError(errno.EINVAL, None)
+        validate_fd(fd)
+        with rffi.scoped_alloc_buffer(count) as buf:
+            void_buf = rffi.cast(rffi.VOIDP, buf.raw)
+            return buf.str(handle_posix_error('pread', c_pread(fd, void_buf, count, offset)))
+            
+    @enforceargs(int, None, None)
+    def pwrite(fd, data, offset):
+        count = len(data)
+        validate_fd(fd)
+        with rffi.scoped_nonmovingbuffer(data) as buf:
+            return handle_posix_error('pwrite', c_pwrite(fd, buf, count, offset))
 
 c_ftruncate = external('ftruncate', [rffi.INT, rffi.LONGLONG], rffi.INT,
                        macro=_MACRO_ON_POSIX, save_err=rffi.RFFI_SAVE_ERRNO)
@@ -654,7 +687,8 @@ if not _WIN32:
     c_readdir = external('readdir', [DIRP], DIRENTP,
                          macro=True, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
     c_closedir = external('closedir', [DIRP], rffi.INT, releasegil=False)
-    c_dirfd = external('dirfd', [DIRP], rffi.INT, releasegil=False)
+    c_dirfd = external('dirfd', [DIRP], rffi.INT, releasegil=False,
+                       macro=True)
     c_ioctl_voidp = external('ioctl', [rffi.INT, rffi.UINT, rffi.VOIDP], rffi.INT,
                          save_err=rffi.RFFI_SAVE_ERRNO)
 else:
@@ -678,21 +712,22 @@ def _listdir(dirp, rewind=False):
         raise OSError(error, "readdir failed")
     return result
 
-def fdlistdir(dirfd):
-    """
-    Like listdir(), except that the directory is specified as an open
-    file descriptor.
+if not _WIN32:
+    def fdlistdir(dirfd):
+        """
+        Like listdir(), except that the directory is specified as an open
+        file descriptor.
 
-    Note: fdlistdir() closes the file descriptor.  To emulate the
-    Python 3.x 'os.opendir(dirfd)', you must first duplicate the
-    file descriptor.
-    """
-    dirp = c_fdopendir(dirfd)
-    if not dirp:
-        error = get_saved_errno()
-        c_close(dirfd)
-        raise OSError(error, "opendir failed")
-    return _listdir(dirp, rewind=True)
+        Note: fdlistdir() closes the file descriptor.  To emulate the
+        Python 3.x 'os.opendir(dirfd)', you must first duplicate the
+        file descriptor.
+        """
+        dirp = c_fdopendir(dirfd)
+        if not dirp:
+            error = get_saved_errno()
+            c_close(dirfd)
+            raise OSError(error, "opendir failed")
+        return _listdir(dirp, rewind=True)
 
 @replace_os_function('listdir')
 @specialize.argtype(0)
@@ -1165,6 +1200,10 @@ else:
 @replace_os_function('pipe')
 def pipe(flags=0):
     # 'flags' might be ignored.  Check the result.
+    # The handles returned are always inheritable on Posix.
+    # The situation on Windows is not completely clear: I think
+    # it should always return non-inheritable handles, but CPython
+    # uses SECURITY_ATTRIBUTES to ensure that and we don't.
     if _WIN32:
         # 'flags' ignored
         ralloc = lltype.scoped_alloc(rwin32.LPHANDLE.TO, 1)
@@ -1361,8 +1400,14 @@ def times_to_timeval2p(times, l_timeval2p):
 def _time_to_timeval(t, l_timeval):
     import math
     fracpart, intpart = math.modf(t)
-    rffi.setintfield(l_timeval, 'c_tv_sec', int(intpart))
-    rffi.setintfield(l_timeval, 'c_tv_usec', int(fracpart * 1e6))
+    intpart = int(intpart)
+    fracpart = int(fracpart * 1e6)
+    if fracpart < 0:
+        intpart -= 1
+        fracpart += 1000000
+    assert 0 <= fracpart < 1000000
+    rffi.setintfield(l_timeval, 'c_tv_sec', intpart)
+    rffi.setintfield(l_timeval, 'c_tv_usec', fracpart)
 
 if not _WIN32:
     TMSP = lltype.Ptr(TMS)
@@ -1721,6 +1766,22 @@ if not _WIN32:
     def setresgid(rgid, egid, sgid):
         handle_posix_error('setresgid', c_setresgid(rgid, egid, sgid))
 
+    c_getpriority = external('getpriority', [rffi.INT, ID_T], rffi.INT,
+                             save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+    c_setpriority = external('setpriority', [rffi.INT, ID_T, rffi.INT],
+                             rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO)
+
+    def getpriority(which, who):
+        result = widen(c_getpriority(which, who))
+        error = get_saved_errno()
+        if error != 0:
+            raise OSError(error, 'getpriority failed')
+        return result
+
+    def setpriority(which, who, prio):
+        handle_posix_error('setpriority', c_setpriority(which, who, prio))
+
+
 #___________________________________________________________________
 
 c_chroot = external('chroot', [rffi.CCHARP], rffi.INT,
@@ -1765,25 +1826,23 @@ def uname():
     finally:
         lltype.free(l_utsbuf, flavor='raw')
 
-# These are actually macros on some/most systems
-c_makedev = external('makedev', [rffi.INT, rffi.INT], rffi.INT)
-c_major = external('major', [rffi.INT], rffi.INT)
-c_minor = external('minor', [rffi.INT], rffi.INT)
+if sys.platform != 'win32':
+    # These are actually macros on some/most systems
+    c_makedev = external('makedev', [rffi.INT, rffi.INT], rffi.INT, macro=True)
+    c_major = external('major', [rffi.INT], rffi.INT, macro=True)
+    c_minor = external('minor', [rffi.INT], rffi.INT, macro=True)
 
-@replace_os_function('makedev')
-@jit.dont_look_inside
-def makedev(maj, min):
-    return c_makedev(maj, min)
+    @replace_os_function('makedev')
+    def makedev(maj, min):
+        return c_makedev(maj, min)
 
-@replace_os_function('major')
-@jit.dont_look_inside
-def major(dev):
-    return c_major(dev)
+    @replace_os_function('major')
+    def major(dev):
+        return c_major(dev)
 
-@replace_os_function('minor')
-@jit.dont_look_inside
-def minor(dev):
-    return c_minor(dev)
+    @replace_os_function('minor')
+    def minor(dev):
+        return c_minor(dev)
 
 #___________________________________________________________________
 
@@ -1861,7 +1920,9 @@ class EnvironExtRegistry(ControllerEntryForPrebuilt):
 # Support for f... and ...at families of POSIX functions
 
 class CConfig:
-    _compilation_info_ = eci
+    _compilation_info_ = eci.merge(ExternalCompilationInfo(
+        includes=['sys/statvfs.h'],
+    ))
     for _name in """faccessat fchdir fchmod fchmodat fchown fchownat fexecve
             fdopendir fpathconf fstat fstatat fstatvfs ftruncate
             futimens futimes futimesat linkat chflags lchflags lchmod lchown
@@ -2139,8 +2200,9 @@ if HAVE_MKNODAT:
         handle_posix_error('mknodat', error)
 
 
-eci_inheritable = eci.merge(ExternalCompilationInfo(
-    separate_module_sources=[r"""
+if not _WIN32:
+    eci_inheritable = eci.merge(ExternalCompilationInfo(
+        separate_module_sources=[r"""
 #include <errno.h>
 #include <sys/ioctl.h>
 
@@ -2193,10 +2255,6 @@ int rpy_get_inheritable(int fd)
 RPY_EXTERN
 int rpy_dup_noninheritable(int fd)
 {
-#ifdef _WIN32
-#error NotImplementedError
-#endif
-
 #ifdef F_DUPFD_CLOEXEC
     return fcntl(fd, F_DUPFD_CLOEXEC, 0);
 #else
@@ -2214,10 +2272,6 @@ int rpy_dup_noninheritable(int fd)
 RPY_EXTERN
 int rpy_dup2_noninheritable(int fd, int fd2)
 {
-#ifdef _WIN32
-#error NotImplementedError
-#endif
-
 #ifdef F_DUP2FD_CLOEXEC
     return fcntl(fd, F_DUP2FD_CLOEXEC, fd2);
 
@@ -2242,33 +2296,41 @@ int rpy_dup2_noninheritable(int fd, int fd2)
     return 0;
 #endif
 }
-    """ % {'HAVE_DUP3': HAVE_DUP3}],
-    post_include_bits=['RPY_EXTERN int rpy_set_inheritable(int, int);\n'
-                       'RPY_EXTERN int rpy_get_inheritable(int);\n'
-                       'RPY_EXTERN int rpy_dup_noninheritable(int);\n'
-                       'RPY_EXTERN int rpy_dup2_noninheritable(int, int);\n']))
+        """ % {'HAVE_DUP3': HAVE_DUP3}],
+        post_include_bits=['RPY_EXTERN int rpy_set_inheritable(int, int);\n'
+                           'RPY_EXTERN int rpy_get_inheritable(int);\n'
+                           'RPY_EXTERN int rpy_dup_noninheritable(int);\n'
+                           'RPY_EXTERN int rpy_dup2_noninheritable(int, int);\n'
+                           ]))
 
-c_set_inheritable = external('rpy_set_inheritable', [rffi.INT, rffi.INT],
-                             rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
-                             compilation_info=eci_inheritable)
-c_get_inheritable = external('rpy_get_inheritable', [rffi.INT],
-                             rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
-                             compilation_info=eci_inheritable)
-c_dup_noninheritable = external('rpy_dup_noninheritable', [rffi.INT],
-                                rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
-                                compilation_info=eci_inheritable)
-c_dup2_noninheritable = external('rpy_dup2_noninheritable', [rffi.INT,rffi.INT],
-                                 rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
-                                 compilation_info=eci_inheritable)
+    _c_set_inheritable = external('rpy_set_inheritable', [rffi.INT, rffi.INT],
+                                  rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
+                                  compilation_info=eci_inheritable)
+    _c_get_inheritable = external('rpy_get_inheritable', [rffi.INT],
+                                  rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
+                                  compilation_info=eci_inheritable)
+    c_dup_noninheritable = external('rpy_dup_noninheritable', [rffi.INT],
+                                    rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
+                                    compilation_info=eci_inheritable)
+    c_dup2_noninheritable = external('rpy_dup2_noninheritable', [rffi.INT,rffi.INT],
+                                     rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
+                                     compilation_info=eci_inheritable)
 
-def set_inheritable(fd, inheritable):
-    result = c_set_inheritable(fd, inheritable)
-    handle_posix_error('set_inheritable', result)
+    def set_inheritable(fd, inheritable):
+        result = _c_set_inheritable(fd, inheritable)
+        handle_posix_error('set_inheritable', result)
 
-def get_inheritable(fd):
-    res = c_get_inheritable(fd)
-    res = handle_posix_error('get_inheritable', res)
-    return res != 0
+    def get_inheritable(fd):
+        res = _c_get_inheritable(fd)
+        res = handle_posix_error('get_inheritable', res)
+        return res != 0
+
+else:
+    # _WIN32
+    from rpython.rlib.rwin32 import set_inheritable, get_inheritable
+    from rpython.rlib.rwin32 import c_dup_noninheritable
+    from rpython.rlib.rwin32 import c_dup2_noninheritable
+
 
 class SetNonInheritableCache(object):
     """Make one prebuilt instance of this for each path that creates
@@ -2308,20 +2370,20 @@ class ENoSysCache(object):
 
 _pipe2_syscall = ENoSysCache()
 
-post_include_bits=['int _cpu_count(void);']
+post_include_bits=['RPY_EXTERN int rpy_cpu_count(void);']
 # cpu count for linux, windows and mac (+ bsds)
 # note that the code is copied from cpython and split up here
 if sys.platform.startswith('linux'):
     cpucount_eci = ExternalCompilationInfo(includes=["unistd.h"],
             separate_module_sources=["""
-            RPY_EXTERN int _cpu_count(void) {
+            RPY_EXTERN int rpy_cpu_count(void) {
                 return sysconf(_SC_NPROCESSORS_ONLN);
             }
             """], post_include_bits=post_include_bits)
 elif sys.platform == "win32":
     cpucount_eci = ExternalCompilationInfo(includes=["Windows.h"],
             separate_module_sources=["""
-        RPY_EXTERN int _cpu_count(void) {
+        RPY_EXTERN int rpy_cpu_count(void) {
             SYSTEM_INFO sysinfo;
             GetSystemInfo(&sysinfo);
             return sysinfo.dwNumberOfProcessors;
@@ -2330,7 +2392,7 @@ elif sys.platform == "win32":
 else:
     cpucount_eci = ExternalCompilationInfo(includes=["sys/types.h", "sys/sysctl.h"],
             separate_module_sources=["""
-            RPY_EXTERN int _cpu_count(void) {
+            RPY_EXTERN int rpy_cpu_count(void) {
                 int ncpu = 0;
             #if defined(__DragonFly__) || \
                 defined(__OpenBSD__)   || \
@@ -2348,8 +2410,66 @@ else:
             }
             """], post_include_bits=post_include_bits)
 
-_cpu_count = rffi.llexternal('_cpu_count', [], rffi.INT_real,
+_cpu_count = rffi.llexternal('rpy_cpu_count', [], rffi.INT_real,
                             compilation_info=cpucount_eci)
 
 def cpu_count():
     return rffi.cast(lltype.Signed, _cpu_count())
+
+if not _WIN32:
+    eci_status_flags = eci.merge(ExternalCompilationInfo(separate_module_sources=["""
+    RPY_EXTERN
+    int rpy_get_status_flags(int fd)
+    {
+        int flags;
+        flags = fcntl(fd, F_GETFL, 0);
+        return flags;
+    }
+
+    RPY_EXTERN
+    int rpy_set_status_flags(int fd, int flags)
+    {
+        int res;
+        res = fcntl(fd, F_SETFL, flags);
+        return res;
+    }
+    """], post_include_bits=[
+        "RPY_EXTERN int rpy_get_status_flags(int);\n"
+        "RPY_EXTERN int rpy_set_status_flags(int, int);"]
+    ))
+
+
+    c_get_status_flags = external('rpy_get_status_flags', [rffi.INT],
+                                rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
+                                compilation_info=eci_status_flags)
+    c_set_status_flags = external('rpy_set_status_flags', [rffi.INT, rffi.INT],
+                                rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
+                                compilation_info=eci_status_flags)
+
+    def get_status_flags(fd):
+        res = c_get_status_flags(fd)
+        res = handle_posix_error('get_status_flags', res)
+        return res
+
+    def set_status_flags(fd, flags):
+        res = c_set_status_flags(fd, flags)
+        handle_posix_error('set_status_flags', res)
+
+if not _WIN32:
+    sendfile_eci = ExternalCompilationInfo(includes=["sys/sendfile.h"])
+    _OFF_PTR_T = rffi.CArrayPtr(OFF_T)
+    c_sendfile = rffi.llexternal('sendfile',
+            [rffi.INT, rffi.INT, _OFF_PTR_T, rffi.SIZE_T],
+            rffi.SSIZE_T, save_err=rffi.RFFI_SAVE_ERRNO,
+            compilation_info=sendfile_eci)
+
+    def sendfile(out_fd, in_fd, offset, count):
+        with lltype.scoped_alloc(_OFF_PTR_T.TO, 1) as p_offset:
+            p_offset[0] = rffi.cast(OFF_T, offset)
+            res = c_sendfile(out_fd, in_fd, p_offset, count)
+        return handle_posix_error('sendfile', res)
+
+    def sendfile_no_offset(out_fd, in_fd, count):
+        """Passes offset==NULL; not support on all OSes"""
+        res = c_sendfile(out_fd, in_fd, lltype.nullptr(_OFF_PTR_T.TO), count)
+        return handle_posix_error('sendfile', res)

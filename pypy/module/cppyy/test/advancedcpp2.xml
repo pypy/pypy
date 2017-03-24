@@ -1,7 +1,7 @@
 <lcgdict>
 
   <namespace name="a_ns" />
-  <namespace pattern="a_ns::*" />
+  <namespace name="a_ns::d_ns" />
   <class pattern="a_ns::*" />
   <variable name="a_ns::g_g" />
   <function name="a_ns::get_g_g" />

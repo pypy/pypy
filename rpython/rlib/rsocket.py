@@ -398,7 +398,7 @@ if HAS_AF_UNIX:
             baseofs = offsetof(_c.sockaddr_un, 'c_sun_path')
             self.setdata(sun, baseofs + len(path))
             rffi.setintfield(sun, 'c_sun_family', AF_UNIX)
-            if _c.linux and path.startswith('\x00'):
+            if _c.linux and path[0] == '\x00':
                 # Linux abstract namespace extension
                 if len(path) > sizeof(_c.sockaddr_un.c_sun_path):
                     raise RSocketError("AF_UNIX path too long")
@@ -997,12 +997,12 @@ class RSocket(object):
                 if signal_checker is not None:
                     signal_checker()
 
-    def sendto(self, data, flags, address):
+    def sendto(self, data, length, flags, address):
         """Like send(data, flags) but allows specifying the destination
         address.  (Note that 'flags' is mandatory here.)"""
         self.wait_for_data(True)
         addr = address.lock()
-        res = _c.sendto(self.fd, data, len(data), flags,
+        res = _c.sendto(self.fd, data, length, flags,
                         addr, address.addrlen)
         address.unlock()
         if res < 0:
@@ -1062,11 +1062,32 @@ def make_socket(fd, family, type, proto, SocketClass=RSocket):
     return result
 make_socket._annspecialcase_ = 'specialize:arg(4)'
 
-def sock_set_inheritable(fd, inheritable):
-    try:
-        rposix.set_inheritable(fd, inheritable)
-    except OSError as e:
-        raise CSocketError(e.errno)
+if _c.WIN32:
+    def sock_set_inheritable(fd, inheritable):
+        handle = rffi.cast(rwin32.HANDLE, fd)
+        try:
+            rwin32.set_handle_inheritable(handle, inheritable)
+        except WindowsError:
+            raise RSocketError("SetHandleInformation failed")   # xxx
+
+    def sock_get_inheritable(fd):
+        handle = rffi.cast(rwin32.HANDLE, fd)
+        try:
+            return rwin32.get_handle_inheritable(handle)
+        except WindowsError:
+            raise RSocketError("GetHandleInformation failed")   # xxx
+else:
+    def sock_set_inheritable(fd, inheritable):
+        try:
+            rposix.set_inheritable(fd, inheritable)
+        except OSError as e:
+            raise CSocketError(e.errno)
+
+    def sock_get_inheritable(fd):
+        try:
+            return rposix.get_inheritable(fd)
+        except OSError as e:
+            raise CSocketError(e.errno)
 
 class SocketError(Exception):
     applevelerrcls = 'error'

@@ -7,6 +7,7 @@ from rpython.jit.codewriter import heaptracker, longlong
 from rpython.jit.metainterp.history import AbstractDescr
 from rpython.flowspace.model import Constant
 from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rlib.rarithmetic import r_int, r_uint
 
 
 def test_assemble_simple():
@@ -239,3 +240,17 @@ def test_assemble_error_string_constant():
         ]
     assembler = Assembler()
     py.test.raises(AssemblerError, assembler.assemble, ssarepr)
+
+def test_assemble_r_int():
+    # r_int is a strange type, which the jit should replace with int.
+    # r_uint is also replaced with int.
+    ssarepr = SSARepr("test")
+    i0, i1, i2 = Register('int', 0), Register('int', 1), Register('int', 2)
+    ssarepr.insns = [
+        ('uint_add', i0, Constant(r_uint(42424242), lltype.Unsigned), '->', i1),
+        ('int_add', i0, Constant(r_int(42424243), lltype.Signed), '->', i2),
+        ]
+    assembler = Assembler()
+    jitcode = assembler.assemble(ssarepr)
+    assert jitcode.constants_i == [42424242, 42424243]
+    assert map(type, jitcode.constants_i) == [int, int]

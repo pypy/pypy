@@ -24,20 +24,19 @@ class PyTraceback(baseobjspace.W_Root):
         return offset2lineno(self.frame.pycode, self.lasti)
 
     def descr_tb_lineno(self, space):
-        return space.wrap(self.get_lineno())
+        return space.newint(self.get_lineno())
 
     def descr__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
         w_mod = space.getbuiltinmodule('_pickle_support')
         mod = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('traceback_new')
-        w = space.wrap
 
         tup_base = []
         tup_state = [
-            w(self.frame),
-            w(self.lasti),
-            w(self.next),
+            self.frame,
+            space.newint(self.lasti),
+            self.next,
         ]
         nt = space.newtuple
         return nt([new_inst, nt(tup_base), nt(tup_state)])
@@ -61,5 +60,5 @@ def record_application_traceback(space, operror, frame, last_instruction):
 
 def check_traceback(space, w_tb, msg):
     if w_tb is None or not space.isinstance_w(w_tb, space.gettypeobject(PyTraceback.typedef)):
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        raise OperationError(space.w_TypeError, space.newtext(msg))
     return w_tb

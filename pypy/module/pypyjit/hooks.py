@@ -18,9 +18,9 @@ class PyPyJitIface(JitHookInterface):
             try:
                 try:
                     space.call_function(cache.w_abort_hook,
-                        space.wrap(jitdriver.name),
+                        space.newtext(jitdriver.name),
                         wrap_greenkey(space, jitdriver, greenkey, greenkey_repr),
-                        space.wrap(Counters.counter_names[reason]),
+                        space.newtext(Counters.counter_names[reason]),
                         space.newlist(oplist_w)
                     )
                 except OperationError as e:
@@ -38,7 +38,7 @@ class PyPyJitIface(JitHookInterface):
             try:
                 try:
                     space.call_function(cache.w_trace_too_long_hook,
-                        space.wrap(jitdriver.name),
+                        space.newtext(jitdriver.name),
                         wrap_greenkey(space, jitdriver, greenkey, greenkey_repr))
                 except OperationError as e:
                     e.write_unraisable(space, "jit hook", cache.w_trace_too_long_hook)
@@ -69,7 +69,7 @@ class PyPyJitIface(JitHookInterface):
             try:
                 try:
                     space.call_function(cache.w_compile_hook,
-                                        space.wrap(w_debug_info))
+                                        w_debug_info)
                 except OperationError as e:
                     e.write_unraisable(space, "jit hook ", cache.w_compile_hook)
             finally:

@@ -196,7 +196,7 @@ class Primitive(object):
         return w_obj
 
     def to_builtin_type(self, space, box):
-        return space.wrap(self.for_computation(self.unbox(box)))
+        raise NotImplementedError("has to be provided by subclass")
 
     def _coerce(self, space, w_item):
         raise NotImplementedError
@@ -398,7 +398,7 @@ class Bool(BaseType, Primitive):
         return self.box(space.is_true(w_item))
 
     def to_builtin_type(self, space, w_item):
-        return space.wrap(self.unbox(w_item))
+        return space.newbool(self.unbox(w_item))
 
     def str_format(self, box, add_quotes=True):
         return "True" if self.unbox(box) else "False"
@@ -460,6 +460,9 @@ class Bool(BaseType, Primitive):
 class Integer(Primitive):
     _mixin_ = True
     signed = True
+
+    def to_builtin_type(self, space, box):
+        return space.newint(self.for_computation(self.unbox(box)))
 
     def _base_coerce(self, space, w_item):
         if w_item is None:
@@ -735,6 +738,9 @@ class ULong(BaseType, Integer):
 class Float(Primitive):
     _mixin_ = True
     strlen = 32
+
+    def to_builtin_type(self, space, box):
+        return space.newfloat(self.for_computation(self.unbox(box)))
 
     def _coerce(self, space, w_item):
         if w_item is None:
@@ -1923,12 +1929,12 @@ class ObjectType(Primitive, BaseType):
 
     def str_format(self, box, add_quotes=True):
         if not add_quotes:
-            as_str = self.space.str_w(self.space.repr(self.unbox(box)))
+            as_str = self.space.text_w(self.space.repr(self.unbox(box)))
             as_strl = len(as_str) - 1
             if as_strl>1 and as_str[0] == "'" and as_str[as_strl] == "'":
                 as_str = as_str[1:as_strl]
             return as_str
-        return self.space.str_w(self.space.repr(self.unbox(box)))
+        return self.space.text_w(self.space.repr(self.unbox(box)))
 
     def runpack_str(self, space, s, native):
         raise oefmt(space.w_NotImplementedError,
@@ -2015,17 +2021,17 @@ class ObjectType(Primitive, BaseType):
 
     @simple_binary_op
     def pow(self, v1, v2):
-        return self.space.pow(v1, v2, self.space.wrap(1))
+        return self.space.pow(v1, v2, self.space.newint(1))
 
     @simple_unary_op
     def reciprocal(self, v1):
-        return self.space.div(self.space.wrap(1.0), v1)
+        return self.space.div(self.space.newfloat(1.0), v1)
 
     @simple_unary_op
     def sign(self, v):
-        zero = self.space.wrap(0)
-        one = self.space.wrap(1)
-        m_one = self.space.wrap(-1)
+        zero = self.space.newint(0)
+        one = self.space.newint(1)
+        m_one = self.space.newint(-1)
         if self.space.is_true(self.space.gt(v, zero)):
             return one
         elif self.space.is_true(self.space.lt(v, zero)):
@@ -2158,8 +2164,8 @@ class StringType(FlexibleType):
         if isinstance(w_item, boxes.W_StringBox):
             return w_item
         if w_item is None:
-            w_item = space.wrap('')
-        arg = space.str_w(space.str(w_item))
+            w_item = space.newbytes('')
+        arg = space.text_w(space.str(w_item))
         arr = VoidBoxStorage(dtype.elsize, dtype)
         with arr as storage:
             j = min(len(arg), dtype.elsize)
@@ -2196,7 +2202,7 @@ class StringType(FlexibleType):
 
     # XXX move the rest of this to base class when UnicodeType is supported
     def to_builtin_type(self, space, box):
-        return space.wrap(self.to_str(box))
+        return space.newbytes(self.to_str(box))
 
     @str_binary_op
     def eq(self, v1, v2):
@@ -2308,7 +2314,7 @@ class UnicodeType(FlexibleType):
         assert isinstance(item, boxes.W_UnicodeBox)
         if add_quotes:
             w_unicode = self.to_builtin_type(self.space, item)
-            return self.space.str_w(self.space.repr(w_unicode))
+            return self.space.text_w(self.space.repr(w_unicode))
         else:
             # Same as W_UnicodeBox.descr_repr() but without quotes and prefix
             from rpython.rlib.runicode import unicode_encode_unicode_escape
@@ -2317,7 +2323,7 @@ class UnicodeType(FlexibleType):
 
     def to_builtin_type(self, space, box):
         assert isinstance(box, boxes.W_UnicodeBox)
-        return space.wrap(box._value)
+        return space.newunicode(box._value)
 
     def eq(self, v1, v2):
         assert isinstance(v1, boxes.W_UnicodeBox)
@@ -2469,7 +2475,7 @@ class VoidType(FlexibleType):
                 read_val = dtype.read(item.arr, ofs, 0)
             if isinstance (read_val, boxes.W_StringBox):
                 # StringType returns a str
-                read_val = space.wrap(dtype.itemtype.to_str(read_val))
+                read_val = space.newbytes(dtype.itemtype.to_str(read_val))
             ret_unwrapped = ret_unwrapped + [read_val,]
         if len(ret_unwrapped) == 0:
             raise oefmt(space.w_NotImplementedError,
@@ -2490,7 +2496,7 @@ def record_coerce(typ, space, dtype, w_item):
                 for i in range(len(dtype.names)):
                     name = dtype.names[i]
                     if name in w_item.dtype.names:
-                        items_w[i] = w_item.descr_getitem(space, space.wrap(name[0]))
+                        items_w[i] = w_item.descr_getitem(space, space.newtext(name[0]))
         elif w_item is not None:
             if space.isinstance_w(w_item, space.w_tuple):
                 if len(dtype.names) != space.len_w(w_item):

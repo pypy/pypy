@@ -31,14 +31,24 @@ def debug(msg):
 
 def create_entry_point(space, w_dict):
     if w_dict is not None: # for tests
-        w_entry_point = space.getitem(w_dict, space.wrap('entry_point'))
-        w_run_toplevel = space.getitem(w_dict, space.wrap('run_toplevel'))
+        w_entry_point = space.getitem(w_dict, space.newtext('entry_point'))
+        w_run_toplevel = space.getitem(w_dict, space.newtext('run_toplevel'))
+        w_initstdio = space.getitem(w_dict, space.newtext('initstdio'))
         withjit = space.config.objspace.usemodules.pypyjit
+        hashfunc = space.config.objspace.hash
+    else:
+        w_initstdio = space.appexec([], """():
+            return lambda unbuffered: None
+        """)
 
     def entry_point(argv):
         if withjit:
             from rpython.jit.backend.hlinfo import highleveljitinfo
             highleveljitinfo.sys_executable = argv[0]
+
+        if hashfunc == "siphash24":
+            from rpython.rlib import rsiphash
+            rsiphash.enable_siphash24()
 
         #debug("entry point starting")
         #for arg in argv:
@@ -55,8 +65,8 @@ def create_entry_point(space, w_dict):
         try:
             try:
                 space.startup()
-                w_executable = space.wrap(argv[0])
-                w_argv = space.newlist([space.wrap(s) for s in argv[1:]])
+                w_executable = space.newtext(argv[0])
+                w_argv = space.newlist([space.newtext(s) for s in argv[1:]])
                 w_exitcode = space.call_function(w_entry_point, w_executable, w_argv)
                 exitcode = space.int_w(w_exitcode)
                 # try to pull it all in
@@ -66,7 +76,7 @@ def create_entry_point(space, w_dict):
             except OperationError as e:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space))
-                debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
+                debug(" operror-value: " + space.text_w(space.str(e.get_w_value(space))))
                 return 1
         finally:
             try:
@@ -74,15 +84,21 @@ def create_entry_point(space, w_dict):
             except OperationError as e:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space))
-                debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
+                debug(" operror-value: " + space.text_w(space.str(e.get_w_value(space))))
                 return 1
         return exitcode
 
+    return entry_point, get_additional_entrypoints(space, w_initstdio)
+
+
+def get_additional_entrypoints(space, w_initstdio):
     # register the minimal equivalent of running a small piece of code. This
     # should be used as sparsely as possible, just to register callbacks
-
     from rpython.rlib.entrypoint import entrypoint_highlevel
     from rpython.rtyper.lltypesystem import rffi, lltype
+
+    if space.config.objspace.disable_entrypoints:
+        return {}
 
     @entrypoint_highlevel('main', [rffi.CCHARP, rffi.INT],
                           c_name='pypy_setup_home')
@@ -103,25 +119,33 @@ def create_entry_point(space, w_dict):
                       " not found in %s or in any parent directory" % home1)
             return rffi.cast(rffi.INT, 1)
         space.startup()
-        space.appexec([w_path], """(path):
-            import sys
-            sys.path[:] = path
-        """)
-        # import site
+        must_leave = space.threadlocals.try_enter_thread(space)
         try:
-            space.setattr(space.getbuiltinmodule('sys'),
-                          space.wrap('executable'),
-                          space.wrap(home))
-            import_ = space.getattr(space.getbuiltinmodule('__builtin__'),
-                                    space.wrap('__import__'))
-            space.call_function(import_, space.wrap('site'))
+            # initialize sys.{path,executable,stdin,stdout,stderr}
+            # (in unbuffered mode, to avoid troubles) and import site
+            space.appexec([w_path, space.newtext(home), w_initstdio],
+            r"""(path, home, initstdio):
+                import sys
+                sys.path[:] = path
+                sys.executable = home
+                initstdio(unbuffered=True)
+                try:
+                    import site
+                except Exception as e:
+                    sys.stderr.write("'import site' failed:\n")
+                    import traceback
+                    traceback.print_exc()
+            """)
             return rffi.cast(rffi.INT, 0)
         except OperationError as e:
             if verbose:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space))
-                debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
+                debug(" operror-value: " + space.text_w(space.str(e.get_w_value(space))))
             return rffi.cast(rffi.INT, -1)
+        finally:
+            if must_leave:
+                space.threadlocals.leave_thread(space)
 
     @entrypoint_highlevel('main', [rffi.CCHARP], c_name='pypy_execute_source')
     def pypy_execute_source(ll_source):
@@ -156,11 +180,11 @@ def create_entry_point(space, w_dict):
     def _pypy_execute_source(source, c_argument):
         try:
             w_globals = space.newdict(module=True)
-            space.setitem(w_globals, space.wrap('__builtins__'),
+            space.setitem(w_globals, space.newtext('__builtins__'),
                           space.builtin_modules['__builtin__'])
-            space.setitem(w_globals, space.wrap('c_argument'),
-                          space.wrap(c_argument))
-            space.appexec([space.wrap(source), w_globals], """(src, glob):
+            space.setitem(w_globals, space.newtext('c_argument'),
+                          space.newint(c_argument))
+            space.appexec([space.newtext(source), w_globals], """(src, glob):
                 import sys
                 stmt = compile(src, 'c callback', 'exec')
                 if not hasattr(sys, '_pypy_execute_source'):
@@ -171,15 +195,15 @@ def create_entry_point(space, w_dict):
         except OperationError as e:
             debug("OperationError:")
             debug(" operror-type: " + e.w_type.getname(space))
-            debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
+            debug(" operror-value: " + space.text_w(space.str(e.get_w_value(space))))
             return -1
         return 0
 
-    return entry_point, {'pypy_execute_source': pypy_execute_source,
-                         'pypy_execute_source_ptr': pypy_execute_source_ptr,
-                         'pypy_init_threads': pypy_init_threads,
-                         'pypy_thread_attach': pypy_thread_attach,
-                         'pypy_setup_home': pypy_setup_home}
+    return {'pypy_execute_source': pypy_execute_source,
+            'pypy_execute_source_ptr': pypy_execute_source_ptr,
+            'pypy_init_threads': pypy_init_threads,
+            'pypy_thread_attach': pypy_thread_attach,
+            'pypy_setup_home': pypy_setup_home}
 
 
 # _____ Define and setup target ___
@@ -240,7 +264,8 @@ class PyPyTarget(object):
                 raise Exception("Cannot use the --output option with PyPy "
                                 "when --shared is on (it is by default). "
                                 "See issue #1971.")
-            if config.translation.profopt is not None:
+            if (config.translation.profopt is not None
+                    and not config.translation.noprofopt):
                 raise Exception("Cannot use the --profopt option "
                                 "when --shared is on (it is by default). "
                                 "See issue #2398.")
@@ -284,6 +309,12 @@ class PyPyTarget(object):
         if config.translation.sandbox:
             config.objspace.lonepycfiles = False
 
+        if config.objspace.usemodules.cpyext:
+            if config.translation.gc not in ('incminimark', 'boehm'):
+                raise Exception("The 'cpyext' module requires the 'incminimark'"
+                    " or 'boehm' GC.  You need either 'targetpypystandalone.py"
+                    " --withoutmod-cpyext', or use one of these two GCs.")
+
         config.translating = True
 
         import translate
@@ -292,7 +323,7 @@ class PyPyTarget(object):
         # obscure hack to stuff the translation options into the translated PyPy
         import pypy.module.sys
         options = make_dict(config)
-        wrapstr = 'space.wrap(%r)' % (options)
+        wrapstr = 'space.wrap(%r)' % (options) # import time
         pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
         if config.objspace.usemodules._cffi_backend:
             self.hack_for_cffi_modules(driver)

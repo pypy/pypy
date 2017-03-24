@@ -1,4 +1,5 @@
 import sys
+from rpython.rlib.objectmodel import specialize
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
@@ -6,7 +7,6 @@ from pypy.interpreter.typedef import GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.debug import check_nonneg
-from rpython.rlib.objectmodel import specialize
 
 
 # A `dequeobject` is composed of a doubly-linked list of `block` nodes.
@@ -156,13 +156,13 @@ class W_Deque(W_Root):
             if index >= BLOCKLEN:
                 block = block.rightlink
                 index = 0
-        return space.wrap(result)
+        return space.newint(result)
 
     def extend(self, w_iterable):
         "Extend the right side of the deque with elements from the iterable"
         # Handle case where id(deque) == id(iterable)
         space = self.space
-        if space.is_w(space.wrap(self), w_iterable):
+        if space.is_w(self, w_iterable):
             w_iterable = space.call_function(space.w_list, w_iterable)
         #
         w_iter = space.iter(w_iterable)
@@ -177,13 +177,13 @@ class W_Deque(W_Root):
 
     def iadd(self, w_iterable):
         self.extend(w_iterable)
-        return self.space.wrap(self)
+        return self
 
     def extendleft(self, w_iterable):
         "Extend the left side of the deque with elements from the iterable"
         # Handle case where id(deque) == id(iterable)
         space = self.space
-        if space.is_w(space.wrap(self), w_iterable):
+        if space.is_w(self, w_iterable):
             w_iterable = space.call_function(space.w_list, w_iterable)
         #
         space = self.space
@@ -307,7 +307,7 @@ class W_Deque(W_Root):
         return W_DequeRevIter(self)
 
     def length(self):
-        return self.space.wrap(self.len)
+        return self.space.newint(self.len)
 
     def repr(self):
         space = self.space
@@ -315,14 +315,14 @@ class W_Deque(W_Root):
         w_currently_in_repr = ec._py_repr
         if w_currently_in_repr is None:
             w_currently_in_repr = ec._py_repr = space.newdict()
-        return dequerepr(space, w_currently_in_repr, space.wrap(self))
+        return dequerepr(space, w_currently_in_repr, self)
 
     @specialize.arg(2)
     def compare(self, w_other, op):
         space = self.space
         if not isinstance(w_other, W_Deque):
             return space.w_NotImplemented
-        return space.compare_by_iteration(space.wrap(self), w_other, op)
+        return space.compare_by_iteration(self, w_other, op)
 
     def lt(self, w_other):
         return self.compare(w_other, 'lt')
@@ -394,13 +394,13 @@ class W_Deque(W_Root):
             return space.call_function(space.type(self), self)
         else:
             return space.call_function(space.type(self), self,
-                                       space.wrap(self.maxlen))
+                                       space.newint(self.maxlen))
 
     def reduce(self):
         "Return state information for pickling."
         space = self.space
         w_type = space.type(self)
-        w_dict = space.findattr(self, space.wrap('__dict__'))
+        w_dict = space.findattr(self, space.newtext('__dict__'))
         w_list = space.call_function(space.w_list, self)
         if w_dict is None:
             if self.maxlen == sys.maxint:
@@ -408,12 +408,12 @@ class W_Deque(W_Root):
                     w_type, space.newtuple([w_list])]
             else:
                 result = [
-                    w_type, space.newtuple([w_list, space.wrap(self.maxlen)])]
+                    w_type, space.newtuple([w_list, space.newint(self.maxlen)])]
         else:
             if self.maxlen == sys.maxint:
                 w_len = space.w_None
             else:
-                w_len = space.wrap(self.maxlen)
+                w_len = space.newint(self.maxlen)
             result = [
                 w_type, space.newtuple([w_list, w_len]), w_dict]
         return space.newtuple(result)
@@ -422,7 +422,7 @@ class W_Deque(W_Root):
         if self.maxlen == sys.maxint:
             return self.space.w_None
         else:
-            return self.space.wrap(self.maxlen)
+            return self.space.newint(self.maxlen)
 
 
 app = gateway.applevel("""
@@ -506,10 +506,10 @@ class W_DequeIter(W_Root):
         check_nonneg(self.index)
 
     def iter(self):
-        return self.space.wrap(self)
+        return self
 
     def length(self):
-        return self.space.wrap(self.counter)
+        return self.space.newint(self.counter)
 
     def next(self):
         space = self.space
@@ -548,10 +548,10 @@ class W_DequeRevIter(W_Root):
         check_nonneg(self.index)
 
     def iter(self):
-        return self.space.wrap(self)
+        return self
 
     def length(self):
-        return self.space.wrap(self.counter)
+        return self.space.newint(self.counter)
 
     def next(self):
         space = self.space

@@ -11,6 +11,7 @@ from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.objectmodel import specialize, we_are_translated, r_dict
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib import rstack
 from rpython.rtyper.annlowlevel import (hlstr, cast_base_ptr_to_instance,
     cast_object_to_ptr)
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi
@@ -308,23 +309,14 @@ class WarmEnterState(object):
             if self.warmrunnerdesc.memory_manager:
                 self.warmrunnerdesc.memory_manager.max_unroll_recursion = value
 
-    def set_param_vec(self, value):
-        self.vec = bool(value)
+    def set_param_vec(self, ivalue):
+        self.vec = bool(ivalue)
 
-    def set_param_vec_all(self, value):
-        self.vec_all = bool(value)
+    def set_param_vec_all(self, ivalue):
+        self.vec_all = bool(ivalue)
 
-    def set_param_vec_cost(self, value):
-        self.vec_cost = bool(value)
-
-    def set_param_vec_length(self, value):
-        self.vec_length = int(value)
-
-    def set_param_vec_ratio(self, value):
-        self.vec_ratio = value / 10.0
-
-    def set_param_vec_guard_ratio(self, value):
-        self.vec_guard_ratio = value / 10.0
+    def set_param_vec_cost(self, ivalue):
+        self.vec_cost = ivalue
 
     def disable_noninlinable_function(self, greenkey):
         cell = self.JitCell.ensure_jit_cell_at_key(greenkey)
@@ -424,6 +416,8 @@ class WarmEnterState(object):
             if not confirm_enter_jit(*args):
                 return
             jitcounter.decay_all_counters()
+            if rstack.stack_almost_full():
+                return
             # start tracing
             from rpython.jit.metainterp.pyjitpl import MetaInterp
             metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
