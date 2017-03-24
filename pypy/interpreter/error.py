@@ -577,6 +577,8 @@ else:
 
     def wrap_windowserror(space, e, w_filename=None):
         XXX    # WindowsError no longer exists in Py3.5
+               # instead, OSError has a kwarg winerror that overrides
+               # any errno supplied
         from rpython.rlib import rwin32
 
         winerror = e.winerror
