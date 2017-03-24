@@ -2,12 +2,12 @@
 # A convenient read-write buffer.  Located here for want of a better place.
 #
 
-from rpython.rlib.buffer import Buffer
+from pypy.interpreter.buffer import PyBuffer
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rlib.rgc import nonmoving_raw_ptr_for_resizable_list
 
 
-class ByteBuffer(Buffer):
+class ByteBuffer(PyBuffer):
     _immutable_ = True
 
     def __init__(self, len):

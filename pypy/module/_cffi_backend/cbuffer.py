@@ -5,13 +5,13 @@ from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
 from pypy.module._cffi_backend import ctypestruct
 
-from rpython.rlib.buffer import Buffer
+from pypy.interpreter.buffer import PyBuffer
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 
 
-class LLBuffer(Buffer):
+class LLBuffer(PyBuffer):
     _immutable_ = True
 
     def __init__(self, raw_cdata, size):
