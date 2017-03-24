@@ -2,7 +2,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr, GetSetProperty)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from rpython.rlib.buffer import Buffer
+from pypy.interpreter.buffer import PyBuffer
 from rpython.rlib.rStringIO import RStringIO
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.objectmodel import import_from_mixin
@@ -12,7 +12,7 @@ from pypy.objspace.std.memoryobject import W_MemoryView
 import sys
 
 
-class BytesIOBuffer(Buffer):
+class BytesIOBuffer(PyBuffer):
     _immutable_ = True
 
     def __init__(self, w_bytesio):

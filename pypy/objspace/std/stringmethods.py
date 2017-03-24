@@ -5,8 +5,6 @@ from rpython.rlib.objectmodel import specialize, newlist_hint
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.rstring import (
     find, rfind, count, endswith, replace, rsplit, split, startswith)
-from rpython.rlib.buffer import Buffer
-
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
 from pypy.objspace.std.sliceobject import W_SliceObject, unwrap_start_stop
