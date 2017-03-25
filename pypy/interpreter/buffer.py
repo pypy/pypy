@@ -1,3 +1,4 @@
+from rpython.rlib.rgc import nonmoving_raw_ptr_for_resizable_list
 
 class Buffer(object):
     """Abstract base class for buffers."""
@@ -72,6 +73,25 @@ class Buffer(object):
 
     def releasebuffer(self):
         pass
+
+class ByteBuffer(Buffer):
+    _immutable_ = True
+
+    def __init__(self, len):
+        self.data = ['\x00'] * len
+        self.readonly = False
+
+    def getlength(self):
+        return len(self.data)
+
+    def getitem(self, index):
+        return self.data[index]
+
+    def setitem(self, index, char):
+        self.data[index] = char
+
+    def get_raw_address(self):
+        return nonmoving_raw_ptr_for_resizable_list(self.data)
 
 class StringBuffer(Buffer):
     _attrs_ = ['readonly', 'value']
