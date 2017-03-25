@@ -557,8 +557,7 @@ class W_MemoryView(W_Root):
                             "memoryview: cast must be 1D -> ND or ND -> 1D")
 
         origfmt = self.getformat()
-        mv = W_MemoryView(buf, self.format, self.itemsize)
-        mv._cast_to_1D(space, origfmt, fmt, itemsize)
+        mv = self._cast_to_1D(space, buf, origfmt, fmt, itemsize)
         if w_shape:
             fview = space.fixedview(w_shape)
             shape = [space.int_w(w_obj) for w_obj in fview]
@@ -595,8 +594,7 @@ class W_MemoryView(W_Root):
 
         self.flags = flags
 
-    def _cast_to_1D(self, space, origfmt, fmt, itemsize):
-        buf = self.buf
+    def _cast_to_1D(self, space, buf, origfmt, fmt, itemsize):
         if itemsize < 0:
             raise oefmt(space.w_ValueError, "memoryview: destination" \
                     " format must be a native single character format prefixed" \
@@ -616,14 +614,14 @@ class W_MemoryView(W_Root):
         if not newfmt:
             raise oefmt(space.w_RuntimeError,
                     "memoryview: internal error")
-        self.format = newfmt
-        self.itemsize = itemsize
-        self.ndim = 1
-        self.shape = [buf.getlength() // itemsize]
-        self.strides = [itemsize]
+        mv = W_MemoryView(buf, newfmt, itemsize)
+        mv.ndim = 1
+        mv.shape = [buf.getlength() // itemsize]
+        mv.strides = [itemsize]
         # XX suboffsets
 
-        self._init_flags()
+        mv._init_flags()
+        return mv
 
     def get_native_fmtstr(self, fmt):
         lenfmt = len(fmt)
@@ -645,8 +643,10 @@ class W_MemoryView(W_Root):
                  'Q','n','N','f','d','?','P']
         for c in unrolling_iterable(chars):
             if c == format:
-                if nat: return '@'+c
-                else: return c
+                if nat:
+                    return '@'+c
+                else:
+                    return c
 
         return None
 
