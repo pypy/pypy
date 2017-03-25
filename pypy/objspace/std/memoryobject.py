@@ -552,13 +552,12 @@ class W_MemoryView(W_Root):
                 raise oefmt(space.w_ValueError, \
                         "memoryview: number of dimensions must not exceed %d",
                         ndim)
-            # yes access ndim as field
-            if self.ndim > 1 and buf.getndim() != 1:
+            if ndim > 1 and buf.getndim() != 1:
                 raise oefmt(space.w_TypeError,
                             "memoryview: cast must be 1D -> ND or ND -> 1D")
 
+        origfmt = self.getformat()
         mv = W_MemoryView(buf, self.format, self.itemsize)
-        origfmt = mv.getformat()
         mv._cast_to_1D(space, origfmt, fmt, itemsize)
         if w_shape:
             fview = space.fixedview(w_shape)
