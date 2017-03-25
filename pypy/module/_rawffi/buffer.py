@@ -1,6 +1,6 @@
 from rpython.rtyper.lltypesystem import rffi
 
-from pypy.interpreter.bufffer import Buffer
+from pypy.interpreter.buffer import Buffer
 
 # XXX not the most efficient implementation
 
