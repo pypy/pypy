@@ -1,11 +1,11 @@
 from rpython.rtyper.lltypesystem import rffi
 
-from pypy.interpreter.buffer import Buffer
+from pypy.interpreter.buffer import BinaryBuffer
 
 # XXX not the most efficient implementation
 
 
-class RawFFIBuffer(Buffer):
+class RawFFIBuffer(BinaryBuffer):
     _immutable_ = True
 
     def __init__(self, datainstance):

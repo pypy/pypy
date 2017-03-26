@@ -1,4 +1,6 @@
 from rpython.rlib.rgc import nonmoving_raw_ptr_for_resizable_list
+from rpython.rlib.signature import signature
+from rpython.rlib import types
 
 class Buffer(object):
     """Abstract base class for buffers."""
@@ -16,8 +18,7 @@ class Buffer(object):
 
     def as_str(self):
         "Returns an interp-level string with the whole content of the buffer."
-        # May be overridden.
-        return self.getslice(0, self.getlength(), 1, self.getlength())
+        raise NotImplementedError
 
     def as_str_and_offset_maybe(self):
         """
@@ -57,6 +58,34 @@ class Buffer(object):
         raise ValueError("no raw buffer")
 
     def getformat(self):
+        raise NotImplementedError
+
+    def getitemsize(self):
+        raise NotImplementedError
+
+    def getndim(self):
+        raise NotImplementedError
+
+    def getshape(self):
+        raise NotImplementedError
+
+    def getstrides(self):
+        raise NotImplementedError
+
+    def releasebuffer(self):
+        pass
+
+class BinaryBuffer(Buffer):
+    """Base class for buffers of bytes"""
+    _attrs_ = ['readonly']
+    _immutable_ = True
+
+    def as_str(self):
+        "Returns an interp-level string with the whole content of the buffer."
+        # May be overridden.
+        return self.getslice(0, self.getlength(), 1, self.getlength())
+
+    def getformat(self):
         return 'B'
 
     def getitemsize(self):
@@ -71,10 +100,9 @@ class Buffer(object):
     def getstrides(self):
         return [1]
 
-    def releasebuffer(self):
-        pass
 
-class ByteBuffer(Buffer):
+
+class ByteBuffer(BinaryBuffer):
     _immutable_ = True
 
     def __init__(self, len):
@@ -93,7 +121,7 @@ class ByteBuffer(Buffer):
     def get_raw_address(self):
         return nonmoving_raw_ptr_for_resizable_list(self.data)
 
-class StringBuffer(Buffer):
+class StringBuffer(BinaryBuffer):
     _attrs_ = ['readonly', 'value']
     _immutable_ = True
 
@@ -128,10 +156,11 @@ class StringBuffer(Buffer):
         # may still raise ValueError on some GCs
         return rffi.get_raw_address_of_string(self.value)
 
-class SubBuffer(Buffer):
+class SubBuffer(BinaryBuffer):
     _attrs_ = ['buffer', 'offset', 'size', 'readonly']
     _immutable_ = True
 
+    #@signature(types.any(), types.instance(BinaryBuffer), types.int(), types.int(), returns=types.none())
     def __init__(self, buffer, offset, size):
         self.readonly = buffer.readonly
         if isinstance(buffer, SubBuffer):     # don't nest them

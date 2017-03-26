@@ -5,13 +5,13 @@ from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
 from pypy.module._cffi_backend import ctypestruct
 
-from pypy.interpreter.buffer import Buffer
+from pypy.interpreter.buffer import BinaryBuffer
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 
 
-class LLBuffer(Buffer):
+class LLBuffer(BinaryBuffer):
     _immutable_ = True
 
     def __init__(self, raw_cdata, size):
@@ -34,7 +34,7 @@ class LLBuffer(Buffer):
     def getslice(self, start, stop, step, size):
         if step == 1:
             return rffi.charpsize2str(rffi.ptradd(self.raw_cdata, start), size)
-        return Buffer.getslice(self, start, stop, step, size)
+        return BinaryBuffer.getslice(self, start, stop, step, size)
 
     def setslice(self, start, string):
         raw_cdata = rffi.ptradd(self.raw_cdata, start)

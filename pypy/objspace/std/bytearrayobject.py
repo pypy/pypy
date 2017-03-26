@@ -17,7 +17,7 @@ from pypy.objspace.std.bytesobject import (
     getbytevalue, makebytesdata_w, newbytesdata_w)
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.buffer import Buffer
+from pypy.interpreter.buffer import BinaryBuffer
 from pypy.objspace.std.sliceobject import W_SliceObject, unwrap_start_stop
 from pypy.objspace.std.stringmethods import StringMethods, _get_buffer
 from pypy.objspace.std.stringmethods import _descr_getslice_slowpath
@@ -1276,7 +1276,7 @@ def _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
         start += step
 
 
-class BytearrayBuffer(Buffer):
+class BytearrayBuffer(BinaryBuffer):
     _immutable_ = True
     readonly = False
 
@@ -1306,7 +1306,7 @@ class BytearrayBuffer(Buffer):
             if start != 0 or stop != len(data):
                 data = data[start:stop]
             return "".join(data)
-        return Buffer.getslice(self, start, stop, step, size)
+        return BinaryBuffer.getslice(self, start, stop, step, size)
 
     def setslice(self, start, string):
         # No bounds checks.
