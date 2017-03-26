@@ -602,3 +602,26 @@ PyModule_GetDef(PyObject* m)
     }
     return ((PyModuleObject *)m)->md_def;
 }
+
+PyTypeObject PyModuleDef_Type = {
+    PyVarObject_HEAD_INIT(&PyType_Type, 0)
+    "moduledef",                                /* tp_name */
+    sizeof(struct PyModuleDef),                 /* tp_size */
+    0,                                          /* tp_itemsize */
+};
+
+static Py_ssize_t max_module_number;
+
+PyObject*
+PyModuleDef_Init(struct PyModuleDef* def)
+{
+    if (PyType_Ready(&PyModuleDef_Type) < 0)
+         return NULL;
+    if (def->m_base.m_index == 0) {
+        max_module_number++;
+        Py_REFCNT(def) = 1;
+        Py_TYPE(def) = &PyModuleDef_Type;
+        def->m_base.m_index = max_module_number;
+    }
+    return (PyObject*)def;
+}

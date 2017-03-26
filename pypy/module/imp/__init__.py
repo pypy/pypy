@@ -16,8 +16,8 @@ class Module(MixedModule):
         'init_frozen':     'interp_imp.init_frozen',
         'is_builtin':      'interp_imp.is_builtin',
         'is_frozen':       'interp_imp.is_frozen',
+        'exec_dynamic':    'interp_imp.exec_dynamic',
         'exec_builtin':    'interp_imp.exec_builtin',
-        'exec_dynamic':    'interp_imp.exec_builtin',
         'get_frozen_object': 'interp_imp.get_frozen_object',
         'is_frozen_package': 'interp_imp.is_frozen_package',
 

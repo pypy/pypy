@@ -565,7 +565,7 @@ SYMBOLS_C = [
     'PyUnicode_FromFormat', 'PyUnicode_FromFormatV', 'PyUnicode_AsWideCharString',
     'PyUnicode_GetSize', 'PyUnicode_GetLength',
     'PyModule_AddObject', 'PyModule_AddIntConstant', 'PyModule_AddStringConstant',
-    'PyModule_GetDef',
+    'PyModule_GetDef', 'PyModuleDef_Init',
     'Py_BuildValue', 'Py_VaBuildValue', 'PyTuple_Pack',
     '_PyArg_Parse_SizeT', '_PyArg_ParseTuple_SizeT',
     '_PyArg_ParseTupleAndKeywords_SizeT', '_PyArg_VaParse_SizeT',
@@ -1489,14 +1489,16 @@ def setup_library(space):
     copy_header_files(cts, trunk_include, use_micronumpy)
 
 
-@unwrap_spec(path='fsencode', name='text')
-def load_extension_module(space, path, name):
+def create_extension_module(space, w_spec):
     # note: this is used both to load CPython-API-style C extension
     # modules (cpyext) and to load CFFI-style extension modules
     # (_cffi_backend).  Any of the two can be disabled at translation
     # time, though.  For this reason, we need to be careful about the
     # order of things here.
     from rpython.rlib import rdynload
+
+    name = space.text_w(space.getattr(w_spec, space.newtext("name")))
+    path = space.text_w(space.getattr(w_spec, space.newtext("origin")))
 
     if os.sep not in path:
         path = os.curdir + os.sep + path      # force a '/' in the path
@@ -1535,7 +1537,7 @@ def load_extension_module(space, path, name):
         except KeyError:
             pass
         else:
-            return load_cpyext_module(space, name, path, dll, initptr)
+            return create_cpyext_module(space, w_spec, name, path, dll, initptr)
         if look_for is not None:
             look_for += ' or ' + also_look_for
         else:
@@ -1549,8 +1551,9 @@ def load_extension_module(space, path, name):
 
 initfunctype = lltype.Ptr(lltype.FuncType([], PyObject))
 
-def load_cpyext_module(space, name, path, dll, initptr):
+def create_cpyext_module(space, w_spec, name, path, dll, initptr):
     from rpython.rlib import rdynload
+    from pypy.module.cpyext.pyobject import get_w_obj_and_decref
 
     space.getbuiltinmodule("cpyext")    # mandatory to init cpyext
     state = space.fromcache(State)
@@ -1562,25 +1565,54 @@ def load_cpyext_module(space, name, path, dll, initptr):
     state.package_context = name, path
     try:
         initfunc = rffi.cast(initfunctype, initptr)
-        w_mod = generic_cpy_call(space, initfunc)
+        initret = generic_cpy_call_dont_convert_result(space, initfunc)
         state.check_and_raise_exception()
+        if not initret.c_ob_type:
+            raise oefmt(space.w_SystemError,
+                        "init function of %s returned uninitialized object",
+                        name)
+        # This should probably compare by identity with PyModuleDef_Type from
+        # modsupport.c, but I didn't find a way to do that.
+        tp_name_nonconst = rffi.cast(rffi.CCHARP, initret.c_ob_type.c_tp_name)
+        if rffi.charp2str(tp_name_nonconst) == "moduledef":
+            from pypy.module.cpyext.modsupport import \
+                    create_module_from_def_and_spec
+            return create_module_from_def_and_spec(space, initret, w_spec,
+                                                   name)
     finally:
         state.package_context = old_context
+    w_mod = get_w_obj_and_decref(space, initret)
     state.fixup_extension(w_mod, name, path)
     return w_mod
+
+def exec_extension_module(space, w_mod):
+    from pypy.module.cpyext.modsupport import exec_def
+    if not space.config.objspace.usemodules.cpyext:
+        return
+    if not isinstance(w_mod, Module):
+        return
+    space.getbuiltinmodule("cpyext")
+    mod_as_pyobj = rawrefcount.from_obj(PyObject, w_mod)
+    if mod_as_pyobj:
+        return exec_def(space, w_mod, mod_as_pyobj)
 
 @specialize.ll()
 def generic_cpy_call(space, func, *args):
     FT = lltype.typeOf(func).TO
-    return make_generic_cpy_call(FT, False)(space, func, *args)
+    return make_generic_cpy_call(FT, False, True)(space, func, *args)
 
 @specialize.ll()
 def generic_cpy_call_expect_null(space, func, *args):
     FT = lltype.typeOf(func).TO
-    return make_generic_cpy_call(FT, True)(space, func, *args)
+    return make_generic_cpy_call(FT, True, True)(space, func, *args)
+
+@specialize.ll()
+def generic_cpy_call_dont_convert_result(space, func, *args):
+    FT = lltype.typeOf(func).TO
+    return make_generic_cpy_call(FT, False, False)(space, func, *args)
 
 @specialize.memo()
-def make_generic_cpy_call(FT, expect_null):
+def make_generic_cpy_call(FT, expect_null, convert_result):
     from pypy.module.cpyext.pyobject import make_ref, from_ref
     from pypy.module.cpyext.pyobject import is_pyobj, as_pyobj
     from pypy.module.cpyext.pyobject import get_w_obj_and_decref
@@ -1634,8 +1666,9 @@ def make_generic_cpy_call(FT, expect_null):
             keepalive_until_here(*keepalives)
 
         if is_PyObject(RESULT_TYPE):
-            if not is_pyobj(result):
+            if not convert_result or not is_pyobj(result):
                 ret = result
+                has_result = bool(ret)
             else:
                 # The object reference returned from a C function
                 # that is called from Python must be an owned reference
@@ -1644,10 +1677,10 @@ def make_generic_cpy_call(FT, expect_null):
                     ret = get_w_obj_and_decref(space, result)
                 else:
                     ret = None
+                has_result = ret is not None
 
             # Check for exception consistency
             has_error = PyErr_Occurred(space) is not None
-            has_result = ret is not None
             if has_error and has_result:
                 raise oefmt(space.w_SystemError,
                             "An exception was set, but function returned a "

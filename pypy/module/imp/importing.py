@@ -126,11 +126,6 @@ def add_module(space, w_name):
         space.sys.setmodule(w_mod)
     return w_mod
 
-def load_c_extension(space, filename, modulename):
-    from pypy.module.cpyext.api import load_extension_module
-    return load_extension_module(space, filename, modulename)
-    # NB. cpyext.api.load_extension_module() can also delegate to _cffi_backend
-
 # __________________________________________________________________
 #
 # import lock, to prevent two threads from running module-level code in

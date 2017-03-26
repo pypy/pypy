@@ -49,11 +49,9 @@ def get_file(space, w_file, filename, filemode):
 def create_dynamic(space, w_spec, w_file=None):
     if not importing.has_so_extension(space):
         raise oefmt(space.w_ImportError, "Not implemented")
-    w_modulename = space.getattr(w_spec, space.newtext("name"))
-    w_path = space.getattr(w_spec, space.newtext("origin"))
-    filename = space.fsencode_w(w_path)
-    return importing.load_c_extension(space, filename,
-                                      space.text_w(w_modulename))
+    from pypy.module.cpyext.api import create_extension_module
+    # NB. cpyext.api.create_extension_module() can also delegate to _cffi_backend
+    return create_extension_module(space, w_spec)
 
 def create_builtin(space, w_spec):
     w_name = space.getattr(w_spec, space.newtext("name"))
@@ -66,8 +64,12 @@ def create_builtin(space, w_spec):
     reuse = space.finditem(space.sys.get('modules'), w_name) is not None
     return space.getbuiltinmodule(name, force_init=True, reuse=reuse)
 
+def exec_dynamic(space, w_mod):
+    from pypy.module.cpyext.api import exec_extension_module
+    exec_extension_module(space, w_mod)
+
 def exec_builtin(space, w_mod):
-    return  # Until we really support ModuleDef
+    return
 
 def init_frozen(space, w_name):
     return None
