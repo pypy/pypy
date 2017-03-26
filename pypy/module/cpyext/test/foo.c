@@ -592,7 +592,7 @@ PyTypeObject SimplePropertyType = {
 
     0,          /*tp_init*/
     0,          /*tp_alloc  will be set to PyType_GenericAlloc in module init*/
-    0,          /*tp_new*/
+    PyType_GenericNew, /*tp_new*/
     0,          /*tp_free  Low-level free-memory routine */
     0,          /*tp_is_gc For PyObject_IS_GC */
     0,          /*tp_bases*/
@@ -709,6 +709,8 @@ initfoo(void)
     UnicodeSubtype.tp_base = &PyUnicode_Type;
     UnicodeSubtype2.tp_base = &UnicodeSubtype;
     MetaType.tp_base = &PyType_Type;
+
+    InitErrType.tp_new = PyType_GenericNew;
 
     if (PyType_Ready(&fooType) < 0)
         INITERROR;
