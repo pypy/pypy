@@ -1197,25 +1197,3 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             pass
         bases = module.foo(C)
         assert bases == (A, B)
-
-    def test_multiple_inheritance_old_style_base(self):
-        module = self.import_extension('foo', [
-           ("foo", "METH_O",
-            '''
-                PyTypeObject *tp;
-                tp = (PyTypeObject*)args;
-                Py_INCREF(tp->tp_bases);
-                return tp->tp_bases;
-            '''
-            )])
-        # used to segfault after some iterations
-        for i in range(11):
-            print i
-            class A(object):
-                pass
-            class B:
-                pass
-            class C(A, B):
-                pass
-            bases = module.foo(C)
-            assert bases == (A, B)
