@@ -36,14 +36,14 @@ typedef struct {
     Py_ssize_t foo_ssizet;
 } fooobject;
 
-static PyTypeObject footype;
+static PyTypeObject fooType;
 
 static fooobject *
 newfooobject(void)
 {
     fooobject *foop;
 
-    foop = PyObject_New(fooobject, &footype);
+    foop = PyObject_New(fooobject, &fooType);
     if (foop == NULL)
         return NULL;
 
@@ -194,7 +194,7 @@ static PyMemberDef foo_members[] = {
 
 PyDoc_STRVAR(foo_doc, "foo is for testing.");
 
-static PyTypeObject footype = {
+static PyTypeObject fooType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     "foo.foo",               /*tp_name*/
     sizeof(fooobject),       /*tp_size*/
@@ -706,13 +706,11 @@ initfoo(void)
     if (module == NULL)
         INITERROR;
 
-    footype.tp_new = PyType_GenericNew;
-
     UnicodeSubtype.tp_base = &PyUnicode_Type;
     UnicodeSubtype2.tp_base = &UnicodeSubtype;
     MetaType.tp_base = &PyType_Type;
 
-    if (PyType_Ready(&footype) < 0)
+    if (PyType_Ready(&fooType) < 0)
         INITERROR;
     if (PyType_Ready(&UnicodeSubtype) < 0)
         INITERROR;
@@ -725,8 +723,6 @@ initfoo(void)
     if (PyType_Ready(&SimplePropertyType) < 0)
         INITERROR;
 
-    SimplePropertyType.tp_new = PyType_GenericNew;
-    InitErrType.tp_new = PyType_GenericNew;
 
     Py_TYPE(&CustomType) = &MetaType;
     if (PyType_Ready(&CustomType) < 0)
@@ -748,7 +744,7 @@ initfoo(void)
     d = PyModule_GetDict(module);
     if (d == NULL)
         INITERROR;
-    if (PyDict_SetItemString(d, "fooType", (PyObject *)&footype) < 0)
+    if (PyDict_SetItemString(d, "fooType", (PyObject *)&fooType) < 0)
         INITERROR;
     if (PyDict_SetItemString(d, "UnicodeSubtype", (PyObject *) &UnicodeSubtype) < 0)
         INITERROR;

@@ -13,12 +13,12 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert 'foo' in sys.modules
         assert "copy" in dir(module.fooType)
         obj = module.new()
-        print(obj.foo)
+        #print(obj.foo)
         assert obj.foo == 42
-        print("Obj has type", type(obj))
+        #print("Obj has type", type(obj))
         assert type(obj) is module.fooType
-        print("type of obj has type", type(type(obj)))
-        print("type of type of obj has type", type(type(type(obj))))
+        #print("type of obj has type", type(type(obj)))
+        #print("type of type of obj has type", type(type(type(obj))))
         assert module.fooType.__doc__ == "foo is for testing."
 
     def test_typeobject_method_descriptor(self):

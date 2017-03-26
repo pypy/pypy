@@ -112,8 +112,6 @@ initcomparisons(void)
         return;
     if (PyType_Ready(&OldCmpType) < 0)
         return;
-    CmpType.tp_new = PyType_GenericNew;
-    OldCmpType.tp_new = PyType_GenericNew;
     m = Py_InitModule("comparisons", NULL);
     if (m == NULL)
         return;

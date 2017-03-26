@@ -344,7 +344,6 @@ initbuffer_test(void)
 #endif
     if (m == NULL)
         INITERROR;
-    PyMyArrayType.tp_new = PyType_GenericNew;
     if (PyType_Ready(&PyMyArrayType) < 0)
         INITERROR;
     Py_INCREF(&PyMyArrayType);
