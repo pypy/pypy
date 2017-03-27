@@ -734,6 +734,9 @@ initfoo(void)
     UnicodeSubtype2.tp_base = &UnicodeSubtype;
     MetaType.tp_base = &PyType_Type;
 
+    footype.tp_new = &new_fooType;
+    InitErrType.tp_new = PyType_GenericNew;
+
     if (PyType_Ready(&footype) < 0)
         INITERROR;
     if (PyType_Ready(&UnicodeSubtype) < 0)

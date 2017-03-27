@@ -975,7 +975,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         class foo(f2, f1):
             pass
 
-        x = foo(1)
+        x = foo()
         assert bar.__base__ is f2
         # On cpython, the size changes.
         if '__pypy__' in sys.builtin_module_names:

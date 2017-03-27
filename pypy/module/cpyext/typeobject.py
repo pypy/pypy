@@ -770,10 +770,6 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         if pto.c_tp_itemsize < pto.c_tp_base.c_tp_itemsize:
             pto.c_tp_itemsize = pto.c_tp_base.c_tp_itemsize
 
-    if space.is_w(w_type, space.w_object):
-        # will be filled later on with the correct value
-        # may not be 0
-        pto.c_tp_new = cts.cast('newfunc', 1)
     update_all_slots(space, w_type, pto)
     if not pto.c_tp_new:
         base_object_pyo = make_ref(space, space.w_object)
