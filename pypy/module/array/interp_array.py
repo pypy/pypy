@@ -858,6 +858,9 @@ class ArrayBuffer(Buffer):
     def getlength(self):
         return self.array.len * self.array.itemsize
 
+    def as_str(self):
+        return self.getslice(0, self.getlength(), 1, self.getlength())
+
     def getformat(self):
         return self.array.typecode
 

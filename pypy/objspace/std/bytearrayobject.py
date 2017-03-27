@@ -17,7 +17,7 @@ from pypy.objspace.std.bytesobject import (
     getbytevalue, makebytesdata_w, newbytesdata_w)
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.buffer import BinaryBuffer
+from pypy.interpreter.buffer import SimpleBuffer, BinaryBuffer
 from pypy.objspace.std.sliceobject import W_SliceObject, unwrap_start_stop
 from pypy.objspace.std.stringmethods import StringMethods, _get_buffer
 from pypy.objspace.std.stringmethods import _descr_getslice_slowpath
@@ -52,7 +52,7 @@ class W_BytearrayObject(W_Root):
                            ''.join(self._data[self._offset:]))
 
     def buffer_w(self, space, flags):
-        return BytearrayBuffer(self)
+        return SimpleBuffer(BytearrayBuffer(self))
 
     def bytearray_list_of_chars_w(self, space):
         return self.getdata()

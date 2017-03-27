@@ -57,6 +57,10 @@ class Buffer(object):
     def get_raw_address(self):
         raise ValueError("no raw buffer")
 
+    def as_binary(self):
+        # Inefficient. May be overridden.
+        return StringBuffer(self.as_str())
+
     def getformat(self):
         raise NotImplementedError
 
@@ -75,15 +79,34 @@ class Buffer(object):
     def releasebuffer(self):
         pass
 
-class BinaryBuffer(Buffer):
-    """Base class for buffers of bytes"""
-    _attrs_ = ['readonly']
+class SimpleBuffer(Buffer):
+    _attrs_ = ['readonly', 'data']
     _immutable_ = True
 
+    def __init__(self, data):
+        self.data = data
+        self.readonly = self.data.readonly
+
+    def getlength(self):
+        return self.data.getlength()
+
     def as_str(self):
-        "Returns an interp-level string with the whole content of the buffer."
-        # May be overridden.
-        return self.getslice(0, self.getlength(), 1, self.getlength())
+        return self.data.as_str()
+
+    def as_str_and_offset_maybe(self):
+        return self.data.as_str_and_offset_maybe()
+
+    def getitem(self, index):
+        return self.data.getitem(index)
+
+    def setitem(self, index, value):
+        return self.data.setitem(index, value)
+
+    def get_raw_address(self):
+        return self.data.get_raw_address()
+
+    def as_binary(self):
+        return self.data
 
     def getformat(self):
         return 'B'
@@ -100,6 +123,41 @@ class BinaryBuffer(Buffer):
     def getstrides(self):
         return [1]
 
+class BinaryBuffer(Buffer):
+    """Base class for buffers of bytes"""
+    _attrs_ = ['readonly']
+    _immutable_ = True
+
+    def as_str(self):
+        "Returns an interp-level string with the whole content of the buffer."
+        # May be overridden.
+        return self.getslice(0, self.getlength(), 1, self.getlength())
+
+    def getslice(self, start, stop, step, size):
+        # May be overridden.  No bounds checks.
+        return ''.join([self.getitem(i) for i in range(start, stop, step)])
+
+
+    def setslice(self, start, string):
+        # May be overridden.  No bounds checks.
+        for i in range(len(string)):
+            self.setitem(start + i, string[i])
+
+
+    def getformat(self):
+        return 'B'
+
+    def getitemsize(self):
+        return 1
+
+    def getndim(self):
+        return 1
+
+    def getshape(self):
+        return [self.getlength()]
+
+    def getstrides(self):
+        return [1]
 
 
 class ByteBuffer(BinaryBuffer):

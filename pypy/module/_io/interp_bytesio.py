@@ -2,7 +2,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr, GetSetProperty)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.buffer import BinaryBuffer
+from pypy.interpreter.buffer import SimpleBuffer, BinaryBuffer
 from rpython.rlib.rStringIO import RStringIO
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.objectmodel import import_from_mixin
@@ -125,7 +125,7 @@ class W_BytesIO(W_BufferedIOBase):
 
     def getbuffer_w(self, space):
         self._check_closed(space)
-        return W_MemoryView(BytesIOBuffer(self))
+        return W_MemoryView(SimpleBuffer(BytesIOBuffer(self)))
 
     def getvalue_w(self, space):
         self._check_closed(space)

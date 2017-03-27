@@ -10,7 +10,7 @@ from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import r_uint, SHRT_MIN, SHRT_MAX, \
     INT_MIN, INT_MAX, UINT_MAX, USHRT_MAX
 
-from pypy.interpreter.buffer import StringBuffer
+from pypy.interpreter.buffer import SimpleBuffer, StringBuffer
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
     make_finalizer_queue)
 from pypy.interpreter.error import OperationError, new_exception_class, oefmt
@@ -1519,10 +1519,11 @@ class ObjSpace(object):
             # most API in CPython 3.x no longer do.
             if self.isinstance_w(w_obj, self.w_bytes):
                 return StringBuffer(w_obj.bytes_w(self))
-            if self.isinstance_w(w_obj, self.w_unicode):  # NB. CPython forbids
-                return StringBuffer(w_obj.text_w(self))   # surrogates here
+            if self.isinstance_w(w_obj, self.w_unicode):
+                # NB. CPython forbids surrogates here
+                return StringBuffer(w_obj.text_w(self))
             try:
-                return w_obj.buffer_w(self, self.BUF_SIMPLE)
+                return w_obj.buffer_w(self, self.BUF_SIMPLE).as_binary()
             except BufferInterfaceNotFound:
                 self._getarg_error("bytes or buffer", w_obj)
         elif code == 's#':

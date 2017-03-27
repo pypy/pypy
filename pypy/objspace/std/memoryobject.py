@@ -682,11 +682,7 @@ class W_MemoryView(W_Root):
     def descr_hex(self, space):
         from pypy.objspace.std.bytearrayobject import _array_to_hexstring
         self._check_released(space)
-        if memory_view_c_contiguous(space, self.flags):
-            return _array_to_hexstring(space, self.buf, 0, 1, self.getlength())
-        else:
-            bytes = self.as_str()
-            return _array_to_hexstring(space, StringBuffer(bytes), 0, 1, len(bytes))
+        return _array_to_hexstring(space, self.buf.as_binary(), 0, 1, self.getlength())
 
 def is_byte_format(char):
     return char == 'b' or char == 'B' or char == 'c'
