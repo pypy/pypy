@@ -455,13 +455,7 @@ def write(fd, data):
 def close(fd):
     validate_fd(fd)
     handle_posix_error('close', c_close(fd))
-
-def write(fd, data):
-    count = len(data)
-    validate_fd(fd)
-    with rffi.scoped_nonmovingbuffer(data) as buf:
-        return handle_posix_error('write', c_write(fd, buf, count))
-
+    
 c_lseek = external('_lseeki64' if _WIN32 else 'lseek',
                    [rffi.INT, rffi.LONGLONG, rffi.INT], rffi.LONGLONG,
                    macro=_MACRO_ON_POSIX, save_err=rffi.RFFI_SAVE_ERRNO)
