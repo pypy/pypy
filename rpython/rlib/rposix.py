@@ -255,6 +255,12 @@ class CConfig:
     PRIO_PROCESS = rffi_platform.DefinedConstantInteger('PRIO_PROCESS')
     PRIO_PGRP = rffi_platform.DefinedConstantInteger('PRIO_PGRP')
     PRIO_USER = rffi_platform.DefinedConstantInteger('PRIO_USER')
+    POSIX_FADV_WILLNEED = rffi_platform.DefinedConstantInteger('POSIX_FADV_WILLNEED')
+    POSIX_FADV_NORMAL = rffi_platform.DefinedConstantInteger('POSIX_FADV_NORMAL')
+    POSIX_FADV_SEQUENTIAL = rffi_platform.DefinedConstantInteger('POSIX_FADV_SEQUENTIAL')
+    POSIX_FADV_RANDOM= rffi_platform.DefinedConstantInteger('POSIX_FADV_RANDOM')
+    POSIX_FADV_NOREUSE = rffi_platform.DefinedConstantInteger('POSIX_FADV_NOREUSE')
+    POSIX_FADV_DONTNEED = rffi_platform.DefinedConstantInteger('POSIX_FADV_DONTNEED')
     O_NONBLOCK = rffi_platform.DefinedConstantInteger('O_NONBLOCK')
     OFF_T = rffi_platform.SimpleType('off_t')
     OFF_T_SIZE = rffi_platform.SizeOf('off_t')
@@ -450,6 +456,12 @@ def close(fd):
     validate_fd(fd)
     handle_posix_error('close', c_close(fd))
 
+def write(fd, data):
+    count = len(data)
+    validate_fd(fd)
+    with rffi.scoped_nonmovingbuffer(data) as buf:
+        return handle_posix_error('write', c_write(fd, buf, count))
+
 c_lseek = external('_lseeki64' if _WIN32 else 'lseek',
                    [rffi.INT, rffi.LONGLONG, rffi.INT], rffi.LONGLONG,
                    macro=_MACRO_ON_POSIX, save_err=rffi.RFFI_SAVE_ERRNO)
@@ -489,6 +501,23 @@ if not _WIN32:
         validate_fd(fd)
         with rffi.scoped_nonmovingbuffer(data) as buf:
             return handle_posix_error('pwrite', c_pwrite(fd, buf, count, offset))
+
+    c_posix_fallocate = external('posix_fallocate',
+                      [rffi.INT, OFF_T, OFF_T], rffi.INT,
+                      save_err=rffi.RFFI_SAVE_ERRNO)
+    c_posix_fadvise = external('posix_fadvise',
+                       [rffi.INT, OFF_T, OFF_T, rffi.INT], rffi.INT,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
+
+    @enforceargs(int, None, None)
+    def posix_fallocate(fd, offset, length):
+        validate_fd(fd)
+        return handle_posix_error('posix_fallocate', c_posix_fallocate(fd, offset, length))
+
+    @enforceargs(int, None, None, int)
+    def posix_fadvise(fd, offset, length, advice):
+        validate_fd(fd)
+        return handle_posix_error('posix_fadvise', c_posix_fadvise(fd, offset, length, advice))
 
 c_ftruncate = external('ftruncate', [rffi.INT, rffi.LONGLONG], rffi.INT,
                        macro=_MACRO_ON_POSIX, save_err=rffi.RFFI_SAVE_ERRNO)
