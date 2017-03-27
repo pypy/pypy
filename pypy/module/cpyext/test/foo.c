@@ -160,6 +160,28 @@ foo_setattro(fooobject *self, PyObject *name, PyObject *value)
     return PyObject_GenericSetAttr((PyObject *)self, name, value);
 }
 
+static PyObject *
+new_fooType(PyTypeObject * t, PyObject *args, PyObject *kwds)
+{
+    PyObject * o;
+    /* copied from numpy scalartypes.c for inherited classes */
+    if (t->tp_bases && (PyTuple_GET_SIZE(t->tp_bases) > 1))
+    {
+        PyTypeObject *sup; 
+        /* We are inheriting from a Python type as well so 
+           give it first dibs on conversion */
+        sup = (PyTypeObject *)PyTuple_GET_ITEM(t->tp_bases, 1);
+        /* Prevent recursion */ 
+        if (new_fooType != sup->tp_new) 
+        {
+            o = sup->tp_new(t, args, kwds);
+            return o;
+        }
+    }
+    o = t->tp_alloc(t, 0);
+    return o;   
+};
+
 static PyMemberDef foo_members[] = {
     {"int_member", T_INT, offsetof(fooobject, foo), 0,
      "A helpful docstring."},
@@ -710,6 +732,7 @@ initfoo(void)
     UnicodeSubtype2.tp_base = &UnicodeSubtype;
     MetaType.tp_base = &PyType_Type;
 
+    fooType.tp_new = &new_fooType;
     InitErrType.tp_new = PyType_GenericNew;
 
     if (PyType_Ready(&fooType) < 0)
