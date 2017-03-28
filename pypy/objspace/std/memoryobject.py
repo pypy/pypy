@@ -28,51 +28,27 @@ class W_MemoryView(W_Root):
     an interp-level buffer.
     """
 
-    def __init__(self, buf, format=None, itemsize=1, ndim=-1,
-                 shape=None, strides=None, suboffsets=None):
+    def __init__(self, buf):
         assert isinstance(buf, Buffer)
         self.buf = buf
         self._hash = -1
-        # private copies of format, shape, itemsize, ... on this class
-        self.format = format
-        self.itemsize = itemsize
-        self.shape = shape
-        self.strides = strides
-        self.suboffsets = suboffsets
-        self.ndim = ndim
         self.flags = 0
-        self.length = -1
         self._init_flags()
 
-    # several fields are "overwritten" by the memory view (shape, strides, ...)
-    # thus use only those getter fields instead of directly accessing the fields
     def getndim(self):
-        if self.ndim == -1:
-            return self.buf.getndim()
-        return self.ndim
+        return self.buf.getndim()
 
     def getshape(self):
-        if self.shape is None:
-            return self.buf.getshape()
-        return self.shape
+        return self.buf.getshape()
 
     def getstrides(self):
-        if self.strides is None:
-            return self.buf.getstrides()
-        return self.strides
+        return self.buf.getstrides()
 
     def getitemsize(self):
-        return self.itemsize
+        return self.buf.getitemsize()
 
-    # memoryview needs to modify the field 'format', to prevent the modification
-    # of the buffer, we save the new format here!
     def getformat(self):
-        if self.format is None:
-            return self.buf.getformat()
-        return self.format
-
-    def setformat(self, value):
-        self.format = value
+        return self.buf.getformat()
 
     def buffer_w(self, space, flags):
         self._check_released(space)
@@ -85,7 +61,7 @@ class W_MemoryView(W_Root):
             w_object._check_released(space)
             return W_MemoryView.copy(w_object)
         buf = space.buffer_w(w_object, space.BUF_FULL_RO)
-        return W_MemoryView(buf, buf.getformat(), buf.getitemsize())
+        return W_MemoryView(buf)
 
     def _make_descr__cmp(name):
         def descr__cmp(self, space, w_other):
@@ -154,8 +130,6 @@ class W_MemoryView(W_Root):
                 break
 
     def getlength(self):
-        if self.length != -1:
-            return self.length
         return self.buf.getlength()
 
     def descr_tobytes(self, space):
@@ -297,7 +271,7 @@ class W_MemoryView(W_Root):
                     buf = SubBuffer(self.buf, idx, itemsize)
                     fmtiter = UnpackFormatIterator(space, buf)
                     fmtiter.length = buf.getlength()
-                    fmtiter.interpret(self.format)
+                    fmtiter.interpret(self.buf.getformat())
                     return fmtiter.result_w[0]
             else:
                 raise oefmt(space.w_NotImplementedError, "multi-dimensional sub-views are not implemented")
@@ -309,7 +283,7 @@ class W_MemoryView(W_Root):
 
     def new_slice(self, start, stop, step, slicelength, dim):
         sliced = BufferSlice(self.buf, start, step, slicelength)
-        return W_MemoryView(sliced, sliced.getformat(), sliced.getitemsize())
+        return W_MemoryView(sliced)
 
     def init_len(self):
         self.length = self.bytecount_from_shape()
@@ -326,8 +300,7 @@ class W_MemoryView(W_Root):
     def copy(view):
         # TODO suboffsets
         buf = view.buf
-        return W_MemoryView(buf, view.getformat(), view.getitemsize(),
-                            view.getndim(), view.getshape()[:], view.getstrides()[:])
+        return W_MemoryView(buf)
 
     def descr_setitem(self, space, w_index, w_obj):
         self._check_released(space)
@@ -350,11 +323,11 @@ class W_MemoryView(W_Root):
                 # TODO: this probably isn't very fast
                 fmtiter = PackFormatIterator(space, [w_obj], itemsize)
                 try:
-                    fmtiter.interpret(self.format)
+                    fmtiter.interpret(self.getformat())
                 except StructError as e:
                     raise oefmt(space.w_TypeError,
                                 "memoryview: invalid type for format '%s'",
-                                self.format)
+                                self.getformat())
                 self.buf.setslice(idx, fmtiter.result.build())
         elif step == 1:
             value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
@@ -551,7 +524,7 @@ class W_MemoryView(W_Root):
             fview = space.fixedview(w_shape)
             shape = [space.int_w(w_obj) for w_obj in fview]
             newbuf = self._cast_to_ND(space, newbuf, shape, ndim)
-        mv = W_MemoryView(newbuf, newbuf.getformat(), newbuf.getitemsize())
+        mv = W_MemoryView(newbuf)
         return mv
 
     def _init_flags(self):
@@ -577,10 +550,9 @@ class W_MemoryView(W_Root):
                                       itemsize, 'F'):
                 flags |= MEMORYVIEW_FORTRAN
 
-        if self.suboffsets:
+        if False:  # TODO missing suboffsets
             flags |= MEMORYVIEW_PIL
             flags &= ~(MEMORYVIEW_C|MEMORYVIEW_FORTRAN)
-        # TODO missing suboffsets
 
         self.flags = flags
 

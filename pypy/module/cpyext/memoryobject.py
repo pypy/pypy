@@ -84,7 +84,7 @@ def memory_realize(space, obj):
     # Allow subclassing W_MemeoryView
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     w_obj = space.allocate_instance(W_MemoryView, w_type)
-    w_obj.__init__(buf, itemsize=buf.itemsize)
+    w_obj.__init__(buf)
     track_reference(space, obj, w_obj)
     return w_obj
 

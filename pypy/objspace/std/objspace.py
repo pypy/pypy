@@ -361,7 +361,7 @@ class StdObjSpace(ObjSpace):
         return W_SeqIterObject(w_obj)
 
     def newbuffer(self, w_obj, itemsize=1):
-        return W_MemoryView(w_obj, itemsize=itemsize)
+        return W_MemoryView(w_obj)
 
     def newbytes(self, s):
         assert isinstance(s, str)
