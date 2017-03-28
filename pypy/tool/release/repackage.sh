@@ -1,7 +1,7 @@
 # Edit these appropriately before running this script
 maj=5
 min=7
-rev=0
+rev=1
 branchname=release-pypy2.7-5.x # ==OR== release-$maj.x  # ==OR== release-$maj.$min.x
 tagname=release-pypy2.7-v$maj.$min.$rev  # ==OR== release-$maj.$min
 
@@ -50,8 +50,8 @@ zip -rq $rel-src.zip $rel-src
 rm -rf $rel-src
 
 # Print out the md5, sha1, sha256
-md5sum *.bz2 *.zip
-sha1sum *.bz2 *.zip
+#md5sum *.bz2 *.zip
+#sha1sum *.bz2 *.zip
 sha256sum *.bz2 *.zip
 
 # Now upload all the bz2 and zip
