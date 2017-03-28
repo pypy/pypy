@@ -302,24 +302,14 @@ class W_MemoryView(W_Root):
             else:
                 raise oefmt(space.w_NotImplementedError, "multi-dimensional sub-views are not implemented")
         elif is_slice:
-            mv = W_MemoryView.copy(self)
-            mv.init_slice(start, stop, step, slicelength, 0)
-            mv.init_len()
-            mv._init_flags()
-            return mv
+            return self.new_slice(start, stop, step, slicelength, 0)
         # multi index is handled at the top of this function
         else:
             raise TypeError("memoryview: invalid slice key")
 
-    def init_slice(self, start, stop, step, slicelength, dim):
-        # modifies the buffer, shape and stride to allow step to be > 1
-        self.strides = strides = self.getstrides()[:]
-        self.shape = shape = self.getshape()[:]
-        bytesize = self.getitemsize() * slicelength
-        self.buf = SubBuffer(self.buf, strides[dim] * start, bytesize)
-        shape[dim] = slicelength
-        strides[dim] = strides[dim] * step
-        # TODO subbuffer
+    def new_slice(self, start, stop, step, slicelength, dim):
+        sliced = BufferSlice(self.buf, start, step, slicelength)
+        return W_MemoryView(sliced, sliced.getformat(), sliced.getitemsize())
 
     def init_len(self):
         self.length = self.bytecount_from_shape()
@@ -678,7 +668,7 @@ class W_MemoryView(W_Root):
     def descr_hex(self, space):
         from pypy.objspace.std.bytearrayobject import _array_to_hexstring
         self._check_released(space)
-        return _array_to_hexstring(space, self.buf, 0, 1, self.getlength())
+        return _array_to_hexstring(space, self.buf.as_binary(), 0, 1, self.getlength())
 
 def is_byte_format(char):
     return char == 'b' or char == 'B' or char == 'c'
@@ -765,3 +755,65 @@ def PyBuffer_isContiguous(suboffsets, ndim, shape, strides, itemsize, fort):
                 _IsFortranContiguous(ndim, shape, strides, itemsize))
     return 0
 
+class BufferSlice(Buffer):
+    def __init__(self, buf, start, step, length):
+        self.buf = buf
+        self.readonly = self.buf.readonly
+        self.strides = buf.getstrides()[:]
+        itemsize = buf.getitemsize()
+        self.offset = start * itemsize
+        self.step = step
+        self.strides[0] *= step
+        self.shape = buf.getshape()[:]
+        self.shape[0] = length
+
+    def getlength(self):
+        return self.shape[0] * self.getitemsize()
+
+    def as_str(self):
+        return self.getslice(0, self.getlength(), 1, self.getlength())
+
+    def as_str_and_offset_maybe(self):
+        string, offset = self.buf.as_str_and_offset_maybe()
+        if string is not None:
+            return string, offset + self.offset
+        return None, 0
+
+    def getitem(self, index):
+        return self.buf.getitem(self.offset + index)
+
+    def setitem(self, index, char):
+        self.buf.setitem(self.offset + index, char)
+
+    def getslice(self, start, stop, step, size):
+        if start == stop:
+            return ''     # otherwise, adding self.offset might make them
+                          # out of bounds
+        return self.buf.getslice(self.offset + start, self.offset + stop,
+                                    step, size)
+
+    def setslice(self, start, string):
+        if len(string) == 0:
+            return        # otherwise, adding self.offset might make 'start'
+                          # out of bounds
+        self.buf.setslice(self.offset + start, string)
+
+    def get_raw_address(self):
+        from rpython.rtyper.lltypesystem import rffi
+        ptr = self.buf.get_raw_address()
+        return rffi.ptradd(ptr, self.offset)
+
+    def getformat(self):
+        return self.buf.getformat()
+
+    def getitemsize(self):
+        return self.buf.getitemsize()
+
+    def getndim(self):
+        return self.buf.getndim()
+
+    def getshape(self):
+        return self.shape
+
+    def getstrides(self):
+        return self.strides
