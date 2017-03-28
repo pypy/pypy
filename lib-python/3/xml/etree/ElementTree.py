@@ -294,7 +294,14 @@ class Element:
         Return the first matching element, or None if no element was found.
 
         """
-        return ElementPath.find(self, path, namespaces)
+        # Used to be:  return ElementPath.find(self, path, namespaces)
+        # but there are projects out there that rely on it getting None
+        # instead of an internal TypeError.  This is what the C version
+        # of this class does.
+        result = ElementPath.iterfind(self, path, namespaces)
+        if result is None:
+            return None
+        return next(result, None)
 
     def findtext(self, path, default=None, namespaces=None):
         """Find text for first matching element by tag name or path.
@@ -308,7 +315,17 @@ class Element:
         content, the empty string is returned.
 
         """
-        return ElementPath.findtext(self, path, default, namespaces)
+        # Used to be:
+        #     return ElementPath.findtext(self, path, default, namespaces)
+        # See find().
+        result = ElementPath.iterfind(self, path, namespaces)
+        if result is None:
+            return default
+        try:
+            elem = next(result)
+            return elem.text or ""
+        except StopIteration:
+            return default
 
     def findall(self, path, namespaces=None):
         """Find all matching subelements by tag name or path.
@@ -319,7 +336,12 @@ class Element:
         Returns list containing all matching elements in document order.
 
         """
-        return ElementPath.findall(self, path, namespaces)
+        # Used to be:  return ElementPath.findall(self, path, namespaces)
+        # See find().
+        result = ElementPath.iterfind(self, path, namespaces)
+        if result is None:
+            return []
+        return list(result)
 
     def iterfind(self, path, namespaces=None):
         """Find all matching subelements by tag name or path.

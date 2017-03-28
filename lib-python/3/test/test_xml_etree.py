@@ -1878,6 +1878,17 @@ class BadElementTest(ElementTestCase, unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 repr(e)  # Should not crash
 
+    def test_bad_find_returns_none(self):
+        # This behavior is the one we get historically when the C
+        # extension module is enabled.  With the Python version, it
+        # raised a TypeError instead.  There are projects out there
+        # that depend on the non-raising behavior, of course.
+        e = ET.Element('foo')
+        assert e.find('') is None
+        assert e.findall('') == []
+        assert e.findtext('') is None
+        assert e.findtext('', default="default.") == "default."
+
 class MutatingElementPath(str):
     def __new__(cls, elem, *args):
         self = str.__new__(cls, *args)
