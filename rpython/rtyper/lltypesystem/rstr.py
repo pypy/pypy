@@ -438,7 +438,7 @@ class LLHelpers(AbstractLLHelpers):
             while lpos <= rpos and s.chars[lpos] == ch:
                 lpos += 1
         if right:
-            while lpos < rpos + 1 and s.chars[rpos] == ch:
+            while lpos <= rpos and s.chars[rpos] == ch:
                 rpos -= 1
         if rpos < lpos:
             return s.empty()
@@ -459,7 +459,7 @@ class LLHelpers(AbstractLLHelpers):
             while lpos <= rpos and s.chars[lpos].isspace():
                 lpos += 1
         if right:
-            while lpos < rpos + 1 and s.chars[rpos].isspace():
+            while lpos <= rpos and s.chars[rpos].isspace():
                 rpos -= 1
         if rpos < lpos:
             return s.empty()
@@ -480,7 +480,7 @@ class LLHelpers(AbstractLLHelpers):
             while lpos <= rpos and LLHelpers.ll_contains(s2, s.chars[lpos]):
                 lpos += 1
         if right:
-            while lpos < rpos + 1 and LLHelpers.ll_contains(s2, s.chars[rpos]):
+            while lpos <= rpos and LLHelpers.ll_contains(s2, s.chars[rpos]):
                 rpos -= 1
         if rpos < lpos:
             return s.empty()
