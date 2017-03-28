@@ -518,8 +518,7 @@ class W_MemoryView(W_Root):
                 raise oefmt(space.w_TypeError,
                             "memoryview: cast must be 1D -> ND or ND -> 1D")
 
-        origfmt = self.getformat()
-        newbuf = self._cast_to_1D(space, buf, origfmt, fmt)
+        newbuf = self._cast_to_1D(space, buf, fmt)
         if w_shape:
             fview = space.fixedview(w_shape)
             shape = [space.int_w(w_obj) for w_obj in fview]
@@ -556,13 +555,14 @@ class W_MemoryView(W_Root):
 
         self.flags = flags
 
-    def _cast_to_1D(self, space, buf, origfmt, fmt):
+    def _cast_to_1D(self, space, buf, fmt):
         itemsize = self.get_native_fmtchar(fmt)
         if itemsize < 0:
             raise oefmt(space.w_ValueError, "memoryview: destination" \
                     " format must be a native single character format prefixed" \
                     " with an optional '@'")
 
+        origfmt = buf.getformat()
         if self.get_native_fmtchar(origfmt) < 0 or \
            (not is_byte_format(fmt) and not is_byte_format(origfmt)):
             raise oefmt(space.w_TypeError,
