@@ -6,7 +6,7 @@ import operator
 from rpython.rlib.objectmodel import compute_hash
 from rpython.rlib.rstruct.error import StructError
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import Buffer, SubBuffer, StringBuffer, BufferView1D
+from pypy.interpreter.buffer import Buffer, SubBuffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty,  make_weakref_descr
@@ -721,6 +721,8 @@ def PyBuffer_isContiguous(suboffsets, ndim, shape, strides, itemsize, fort):
     return 0
 
 class BufferSlice(Buffer):
+    _immutable_ = True
+    _attrs_ = ['buf', 'readonly', 'shape', 'strides', 'offset', 'step']
     def __init__(self, buf, start, step, length):
         self.buf = buf
         self.readonly = self.buf.readonly
@@ -783,15 +785,10 @@ class BufferSlice(Buffer):
     def getstrides(self):
         return self.strides
 
-class BufferViewND(Buffer):
-    def __init__(self, parent, ndim, shape, strides):
-        assert parent.getndim() == 1
-        assert len(shape) == len(strides) == ndim
-        self.parent = parent
-        self.readonly = parent.readonly
-        self.ndim = ndim
-        self.shape = shape
-        self.strides = strides
+
+class BufferViewBase(Buffer):
+    _immutable_ = True
+    _attrs_ = ['readonly', 'parent']
 
     def getlength(self):
         return self.parent.getlength()
@@ -802,14 +799,11 @@ class BufferViewND(Buffer):
     def as_str_and_offset_maybe(self):
         return self.parent.as_str_and_offset_maybe()
 
-    def as_binary(self):
-        return self.parent.as_binary()
-
     def getitem(self, index):
         return self.parent.getitem(index)
 
-    def setitem(self, index, char):
-        self.parent.setitem(index, char)
+    def setitem(self, index, value):
+        return self.parent.setitem(index, value)
 
     def getslice(self, start, stop, step, size):
         return self.parent.getslice(start, stop, step, size)
@@ -819,6 +813,47 @@ class BufferViewND(Buffer):
 
     def get_raw_address(self):
         return self.parent.get_raw_address()
+
+    def as_binary(self):
+        return self.parent.as_binary()
+
+class BufferView1D(BufferViewBase):
+    _immutable_ = True
+    _attrs_ = ['readonly', 'parent', 'format', 'itemsize']
+
+    def __init__(self, parent, format, itemsize):
+        self.parent = parent
+        self.readonly = parent.readonly
+        self.format = format
+        self.itemsize = itemsize
+
+    def getformat(self):
+        return self.format
+
+    def getitemsize(self):
+        return self.itemsize
+
+    def getndim(self):
+        return 1
+
+    def getshape(self):
+        return [self.getlength() // self.itemsize]
+
+    def getstrides(self):
+        return [self.itemsize]
+
+class BufferViewND(BufferViewBase):
+    _immutable_ = True
+    _attrs_ = ['readonly', 'parent', 'ndim', 'shape', 'strides']
+
+    def __init__(self, parent, ndim, shape, strides):
+        assert parent.getndim() == 1
+        assert len(shape) == len(strides) == ndim
+        self.parent = parent
+        self.readonly = parent.readonly
+        self.ndim = ndim
+        self.shape = shape
+        self.strides = strides
 
     def getformat(self):
         return self.parent.getformat()
