@@ -185,7 +185,7 @@ imported the first time.
 ::
 
     cd pypy/tool/release
-    ./package.py pypy-VER-PLATFORM
+    ./package.py --archive-name=pypy-VER-PLATFORM
 
 This creates a clean and prepared hierarchy, as well as a ``.tar.bz2``
 with the same content; both are found by default in
