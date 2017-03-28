@@ -123,6 +123,50 @@ class SimpleBuffer(Buffer):
     def getstrides(self):
         return [1]
 
+class BufferView1D(Buffer):
+    def __init__(self, data, format, itemsize):
+        self.data = data
+        self.readonly = data.readonly
+        self.format = format
+        self.itemsize = itemsize
+
+    def getlength(self):
+        return self.data.getlength()
+
+    def as_str(self):
+        return self.data.as_str()
+
+    def as_str_and_offset_maybe(self):
+        return self.data.as_str_and_offset_maybe()
+
+    def getitem(self, index):
+        return self.data.getitem(index)
+
+    def setitem(self, index, value):
+        return self.data.setitem(index, value)
+
+    def get_raw_address(self):
+        return self.data.get_raw_address()
+
+    def as_binary(self):
+        return self.data
+
+    def getformat(self):
+        return self.format
+
+    def getitemsize(self):
+        return self.itemsize
+
+    def getndim(self):
+        return 1
+
+    def getshape(self):
+        return [self.getlength() // self.itemsize]
+
+    def getstrides(self):
+        return [self.itemsize]
+
+
 class BinaryBuffer(Buffer):
     """Base class for buffers of bytes"""
     _attrs_ = ['readonly']

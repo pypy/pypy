@@ -6,7 +6,7 @@ import operator
 from rpython.rlib.objectmodel import compute_hash
 from rpython.rlib.rstruct.error import StructError
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import Buffer, SubBuffer, StringBuffer
+from pypy.interpreter.buffer import Buffer, SubBuffer, StringBuffer, BufferView1D
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty,  make_weakref_descr
@@ -543,7 +543,6 @@ class W_MemoryView(W_Root):
                         "memoryview: cannot casts view with"
                         " zeros in shape or strides")
 
-        itemsize = self.get_native_fmtchar(fmt)
         if w_shape:
             if not (space.isinstance_w(w_shape, space.w_list) or space.isinstance_w(w_shape, space.w_tuple)):
                 raise oefmt(space.w_TypeError, "expected list or tuple got %T", w_shape)
@@ -557,7 +556,7 @@ class W_MemoryView(W_Root):
                             "memoryview: cast must be 1D -> ND or ND -> 1D")
 
         origfmt = self.getformat()
-        mv = self._cast_to_1D(space, buf, origfmt, fmt, itemsize)
+        mv = self._cast_to_1D(space, buf, origfmt, fmt)
         if w_shape:
             fview = space.fixedview(w_shape)
             shape = [space.int_w(w_obj) for w_obj in fview]
@@ -594,7 +593,8 @@ class W_MemoryView(W_Root):
 
         self.flags = flags
 
-    def _cast_to_1D(self, space, buf, origfmt, fmt, itemsize):
+    def _cast_to_1D(self, space, buf, origfmt, fmt):
+        itemsize = self.get_native_fmtchar(fmt)
         if itemsize < 0:
             raise oefmt(space.w_ValueError, "memoryview: destination" \
                     " format must be a native single character format prefixed" \
@@ -614,12 +614,8 @@ class W_MemoryView(W_Root):
         if not newfmt:
             raise oefmt(space.w_RuntimeError,
                     "memoryview: internal error")
-        mv = W_MemoryView(buf, newfmt, itemsize)
-        mv.ndim = 1
-        mv.shape = [buf.getlength() // itemsize]
-        mv.strides = [itemsize]
-        # XX suboffsets
-
+        newbuf = BufferView1D(buf, newfmt, itemsize)
+        mv = W_MemoryView(newbuf, newbuf.getformat(), newbuf.getitemsize())
         mv._init_flags()
         return mv
 
@@ -682,7 +678,7 @@ class W_MemoryView(W_Root):
     def descr_hex(self, space):
         from pypy.objspace.std.bytearrayobject import _array_to_hexstring
         self._check_released(space)
-        return _array_to_hexstring(space, self.buf.as_binary(), 0, 1, self.getlength())
+        return _array_to_hexstring(space, self.buf, 0, 1, self.getlength())
 
 def is_byte_format(char):
     return char == 'b' or char == 'B' or char == 'c'
