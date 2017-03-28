@@ -16,4 +16,5 @@ is called with a default (will be part of release 5.7.1)
 Fix missing tp_new on w_object called through multiple inheritance
 (will be part of release 5.7.1)
 
+.. branch: lstrip_to_empty_string
 
