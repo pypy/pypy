@@ -1032,11 +1032,13 @@ class TextInputFilter(Stream):
             # we can safely read without reading past an end-of-line
             startindex, peeked = self.base.peek()
             assert 0 <= startindex <= len(peeked)
-            pn = peeked.find("\n", startindex)
-            pr = peeked.find("\r", startindex)
-            if pn < 0: pn = len(peeked)
-            if pr < 0: pr = len(peeked)
-            c = self.read(min(pn, pr) - startindex + 1)
+            cl_or_lf_pos = len(peeked)
+            for i in range(startindex, len(peeked)):
+                ch = peeked[i]
+                if ch == '\n' or ch == '\r':
+                    cl_or_lf_pos = i
+                    break
+            c = self.read(cl_or_lf_pos - startindex + 1)
             if not c:
                 break
             result.append(c)
