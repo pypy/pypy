@@ -1032,6 +1032,7 @@ static slotdef slotdefs[] = {
         TPSLOT("__getattribute__", tp_getattro, slot_tp_getattr_hook,
                wrap_binaryfunc, "x.__getattribute__('name') <==> x.name"),
         TPSLOT("__getattr__", tp_getattro, slot_tp_getattr, NULL, ""),
+        TPSLOT("__getattr__", tp_getattr, NULL, NULL, ""),
         TPSLOT("__setattr__", tp_setattro, slot_tp_setattro, wrap_setattr,
                "x.__setattr__('name', value) <==> x.name = value"),
         TPSLOT("__setattr__", tp_setattr, NULL, NULL, ""),
