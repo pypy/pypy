@@ -34,10 +34,12 @@ def _calcsize(space, format):
 
 @unwrap_spec(format='text')
 def calcsize(space, format):
+    """Return size of C struct described by format string fmt."""
     return space.newint(_calcsize(space, format))
 
 
 def _pack(space, format, args_w):
+    """Return string containing values v1, v2, ... packed according to fmt."""
     if jit.isconstant(format):
         size = _calcsize(space, format)
     else:
@@ -60,6 +62,9 @@ def pack(space, format, args_w):
 # XXX inefficient
 @unwrap_spec(format='text', offset=int)
 def pack_into(space, format, w_buffer, offset, args_w):
+    """ Pack the values v1, v2, ... according to fmt.
+Write the packed bytes into the writable buffer buf starting at offset
+    """
     res = _pack(space, format, args_w)
     buf = space.getarg_w('w*', w_buffer)
     if offset < 0:
@@ -91,6 +96,8 @@ def unpack(space, format, w_str):
 
 @unwrap_spec(format='text', offset=int)
 def unpack_from(space, format, w_buffer, offset=0):
+    """Unpack the buffer, containing packed C structure data, according to
+fmt, starting at offset. Requires len(buffer[offset:]) >= calcsize(fmt)."""
     size = _calcsize(space, format)
     buf = space.getarg_w('z*', w_buffer)
     if buf is None:
