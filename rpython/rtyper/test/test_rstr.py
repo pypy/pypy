@@ -459,6 +459,8 @@ class AbstractTestRstr(BaseRtypingTest):
             return const('    ').strip(' ')
         def left2():
             return const('a  ').strip(' ')
+        def leftall():
+            return const('!!').lstrip(const('!'))
         res = self.interpret(both, [])
         assert self.ll_to_string(res) == const('ab')
         res = self.interpret(left, [])
@@ -469,6 +471,8 @@ class AbstractTestRstr(BaseRtypingTest):
         assert self.ll_to_string(res) == const('')
         res = self.interpret(left2, [])
         assert self.ll_to_string(res) == const('a')
+        res = self.interpret(leftall, [])
+        assert self.ll_to_string(res) == const('')
 
     def test_strip_multiple_chars(self):
         const = self.const
@@ -482,6 +486,8 @@ class AbstractTestRstr(BaseRtypingTest):
             return const(' \t\t   ').strip('\t ')
         def left2():
             return const('a  ').strip(' \t')
+        def leftall():
+            return const('!ab!').lstrip(const('!ab'))
         res = self.interpret(both, [])
         assert self.ll_to_string(res) == const('b')
         res = self.interpret(left, [])
@@ -492,6 +498,8 @@ class AbstractTestRstr(BaseRtypingTest):
         assert self.ll_to_string(res) == const('')
         res = self.interpret(left2, [])
         assert self.ll_to_string(res) == const('a')
+        res = self.interpret(leftall, [])
+        assert self.ll_to_string(res) == const('')
 
     def test_upper(self):
         const = self.const
