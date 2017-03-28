@@ -738,7 +738,8 @@ class BufferSlice(Buffer):
         return self.shape[0] * self.getitemsize()
 
     def as_str(self):
-        return self.getslice(0, self.getlength(), 1, self.getlength())
+        slicelen = self.shape[0]
+        return self.getslice(0, slicelen * self.step, self.step, slicelen)
 
     def as_str_and_offset_maybe(self):
         string, offset = self.buf.as_str_and_offset_maybe()
