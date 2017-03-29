@@ -13,6 +13,9 @@ from rpython.rtyper.rlist import *
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.translator.translator import TranslationContext
 
+from hypothesis import strategies, given
+
+intlists = strategies.lists(strategies.integers(0, 100))
 
 # undo the specialization parameters
 for n1 in 'get set del'.split():
@@ -156,6 +159,39 @@ class TestListImpl(BaseTestListImpl):
                 expected = [42, 43, 44, 45]
                 expected[start:stop] = [42, 43, 44, 45]
                 self.check_list(l1, expected)
+
+    @given(intlists, intlists, strategies.data())
+    def test_rlist_setslice_hypothesis(self, l1, l2, data):
+        start = data.draw(strategies.integers(0, len(l1)))
+        stop = data.draw(strategies.integers(start, len(l1)))
+        rlist = ListRepr(None, signed_repr)
+        rlist.setup()
+        ll_l1 = ll_newlist(rlist.lowleveltype.TO, len(l1))
+        for i, elt in enumerate(l1):
+            ll_setitem(ll_l1, i, elt)
+        ll_l2 = ll_newlist(rlist.lowleveltype.TO, len(l2))
+        for i, elt in enumerate(l2):
+            ll_setitem(ll_l2, i, elt)
+
+        l1[start:stop] = l2
+        ll_listsetslice(ll_l1, start, stop, ll_l2)
+        for i, elt in enumerate(l1):
+            assert elt == ll_getitem(ll_l1, i)
+
+    @given(intlists, strategies.data())
+    def test_rlist_setslice_hypothesis_identical(self, l1, data):
+        start = data.draw(strategies.integers(0, len(l1)))
+        stop = data.draw(strategies.integers(start, len(l1)))
+        rlist = ListRepr(None, signed_repr)
+        rlist.setup()
+        ll_l1 = ll_newlist(rlist.lowleveltype.TO, len(l1))
+        for i, elt in enumerate(l1):
+            ll_setitem(ll_l1, i, elt)
+
+        l1[start:stop] = l1
+        ll_listsetslice(ll_l1, start, stop, ll_l1)
+        for i, elt in enumerate(l1):
+            assert elt == ll_getitem(ll_l1, i)
 
 
 class TestFixedSizeListImpl(BaseTestListImpl):
