@@ -146,7 +146,7 @@ class W_MemoryView(W_Root):
             raise NotImplementedError
         elif dim == 1:
             itemsize = self.getitemsize()
-            return self._tolist(space, buf, self.getlength(), itemsize, fmt,
+            return self._tolist(space, buf.as_binary(), self.getlength(), itemsize, fmt,
                                 self.getstrides())
         else:
             return self._tolist_rec(space, buf.as_binary(), 0, 0, fmt)
@@ -179,7 +179,7 @@ class W_MemoryView(W_Root):
 
         orig_buf = buf
         for i in range(dimshape):
-            buf = SubBuffer(orig_buf.as_binary(), start, stride)
+            buf = SubBuffer(orig_buf, start, stride)
             item = self._tolist_rec(space, buf, start, idim+1, fmt)
             items[i] = item
             start += stride

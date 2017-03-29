@@ -403,8 +403,6 @@ class W_ArrayBase(W_Root):
         fromfile() method).
         """
         buf = space.getarg_w('y*', w_s)
-        if buf.getitemsize() != 1:
-            raise oefmt(space.w_TypeError, "a bytes-like object is required")
         s = buf.as_str()
         self._frombytes(space, s)
 

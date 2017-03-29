@@ -20,14 +20,6 @@ class Buffer(object):
         "Returns an interp-level string with the whole content of the buffer."
         raise NotImplementedError
 
-    def as_str_and_offset_maybe(self):
-        """
-        If the buffer is backed by a string, return a pair (string, offset),
-        where offset is the offset inside the string where the buffer start.
-        Else, return (None, 0).
-        """
-        return None, 0
-
     def getitem(self, index):
         "Returns the index'th character in the buffer."
         raise NotImplementedError   # Must be overriden.  No bounds checks.
@@ -39,15 +31,9 @@ class Buffer(object):
         # May be overridden.  No bounds checks.
         return ''.join([self.getitem(i) for i in range(start, stop, step)])
 
-    def __getslice__(self, start, stop):
-        return self.getslice(start, stop, 1, stop - start)
-
     def setitem(self, index, char):
         "Write a character into the buffer."
         raise NotImplementedError   # Must be overriden.  No bounds checks.
-
-    def __setitem__(self, i, char):
-        return self.setitem(i, char)
 
     def setslice(self, start, string):
         # May be overridden.  No bounds checks.
@@ -93,9 +79,6 @@ class SimpleBuffer(Buffer):
     def as_str(self):
         return self.data.as_str()
 
-    def as_str_and_offset_maybe(self):
-        return self.data.as_str_and_offset_maybe()
-
     def getitem(self, index):
         return self.data.getitem(index)
 
@@ -124,42 +107,58 @@ class SimpleBuffer(Buffer):
         return [1]
 
 
-class BinaryBuffer(Buffer):
+class BinaryBuffer(object):
     """Base class for buffers of bytes"""
     _attrs_ = ['readonly']
     _immutable_ = True
+
+    def getlength(self):
+        """Returns the size in bytes (even if getitemsize() > 1)."""
+        raise NotImplementedError
+
+    def __len__(self):
+        res = self.getlength()
+        assert res >= 0
+        return res
 
     def as_str(self):
         "Returns an interp-level string with the whole content of the buffer."
         # May be overridden.
         return self.getslice(0, self.getlength(), 1, self.getlength())
 
+    def as_str_and_offset_maybe(self):
+        """
+        If the buffer is backed by a string, return a pair (string, offset),
+        where offset is the offset inside the string where the buffer start.
+        Else, return (None, 0).
+        """
+        return None, 0
+
+    def getitem(self, index):
+        "Returns the index'th character in the buffer."
+        raise NotImplementedError   # Must be overriden.  No bounds checks.
+
+    def __getitem__(self, i):
+        return self.getitem(i)
+
     def getslice(self, start, stop, step, size):
         # May be overridden.  No bounds checks.
         return ''.join([self.getitem(i) for i in range(start, stop, step)])
 
+    def __getslice__(self, start, stop):
+        return self.getslice(start, stop, 1, stop - start)
+
+    def setitem(self, index, char):
+        "Write a character into the buffer."
+        raise NotImplementedError   # Must be overriden.  No bounds checks.
+
+    def __setitem__(self, i, char):
+        return self.setitem(i, char)
 
     def setslice(self, start, string):
         # May be overridden.  No bounds checks.
         for i in range(len(string)):
             self.setitem(start + i, string[i])
-
-
-    def getformat(self):
-        return 'B'
-
-    def getitemsize(self):
-        return 1
-
-    def getndim(self):
-        return 1
-
-    def getshape(self):
-        return [self.getlength()]
-
-    def getstrides(self):
-        return [1]
-
 
 class ByteBuffer(BinaryBuffer):
     _immutable_ = True

@@ -808,4 +808,4 @@ def _descr_getslice_slowpath(selfvalue, start, step, sl):
     return [selfvalue[start + i*step] for i in range(sl)]
 
 def _get_buffer(space, w_obj):
-    return space.buffer_w(w_obj, space.BUF_SIMPLE)
+    return space.buffer_w(w_obj, space.BUF_SIMPLE).as_binary()
