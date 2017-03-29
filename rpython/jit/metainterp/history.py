@@ -1,14 +1,20 @@
+import sys
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.objectmodel import we_are_translated, Symbolic
 from rpython.rlib.objectmodel import compute_unique_id, specialize
 from rpython.rlib.rarithmetic import r_int64, is_valid_int
+from rpython.rlib.rarithmetic import LONG_BIT, intmask, r_uint
+from rpython.rlib.jit import Counters
 
 from rpython.conftest import option
 
-from rpython.jit.metainterp.resoperation import ResOperation, rop, AbstractValue
+from rpython.jit.metainterp.resoperation import ResOperation, rop,\
+    AbstractValue, oparity, AbstractResOp, IntOp, RefOp, FloatOp,\
+    opclasses
 from rpython.jit.codewriter import heaptracker, longlong
 import weakref
+from rpython.jit.metainterp import jitexc
 
 # ____________________________________________________________
 
@@ -21,6 +27,15 @@ VOID  = 'v'
 VECTOR = 'V'
 
 FAILARGS_LIMIT = 1000
+
+class SwitchToBlackhole(jitexc.JitException):
+    def __init__(self, reason, raising_exception=False):
+        self.reason = reason
+        self.raising_exception = raising_exception
+        # ^^^ must be set to True if the SwitchToBlackhole is raised at a
+        #     point where the exception on metainterp.last_exc_value
+        #     is supposed to be raised.  The default False means that it
+        #     should just be copied into the blackhole interp, but not raised.
 
 def getkind(TYPE, supports_floats=True,
                   supports_longlong=True,
@@ -68,61 +83,15 @@ def repr_object(box):
         return box.value
 
 def repr_rpython(box, typechars):
-    return '%s/%s%d' % (box._get_hash_(), typechars,
-                        compute_unique_id(box))
+    return '%s/%s' % (box._get_hash_(), typechars,
+                        ) #compute_unique_id(box))
 
-
-class XxxAbstractValue(object):
-    __slots__ = ()
-
-    def getint(self):
-        raise NotImplementedError
-
-    def getfloatstorage(self):
-        raise NotImplementedError
-
-    def getfloat(self):
-        return longlong.getrealfloat(self.getfloatstorage())
-
-    def getref_base(self):
-        raise NotImplementedError
-
-    def getref(self, TYPE):
-        raise NotImplementedError
-    getref._annspecialcase_ = 'specialize:arg(1)'
-
-    def constbox(self):
-        raise NotImplementedError
-
-    def getaddr(self):
-        "Only for raw addresses (BoxInt & ConstInt), not for GC addresses"
-        raise NotImplementedError
-
-    def sort_key(self):
-        raise NotImplementedError
-
-    def nonnull(self):
-        raise NotImplementedError
-
-    def repr_rpython(self):
-        return '%s' % self
-
-    def _get_str(self):
-        raise NotImplementedError
-
-    def same_box(self, other):
-        return self is other
-
-    def same_shape(self, other):
-        # only structured containers can compare their shape (vector box)
-        return True
-
-    def getaccum(self):
-        return None
 
 class AbstractDescr(AbstractValue):
-    __slots__ = ()
+    __slots__ = ('descr_index', 'ei_index')
     llopaque = True
+    descr_index = -1
+    ei_index = sys.maxint
 
     def repr_of_descr(self):
         return '%r' % (self,)
@@ -204,7 +173,7 @@ class MissingValue(object):
 
 
 class Const(AbstractValue):
-    __slots__ = ()
+    _attrs_ = ()
 
     @staticmethod
     def _new(x):
@@ -638,43 +607,166 @@ def _list_all_operations(result, operations, omit_finish=True):
 # ____________________________________________________________
 
 
-class History(object):
-    def __init__(self):
-        self.inputargs = None
-        self.operations = []
+FO_REPLACED_WITH_CONST = r_uint(1)
+FO_POSITION_SHIFT      = 1
+FO_POSITION_MASK       = r_uint(0xFFFFFFFE)
 
-    @specialize.argtype(3)
-    def record(self, opnum, argboxes, value, descr=None):
-        op = ResOperation(opnum, argboxes, descr)
+
+class FrontendOp(AbstractResOp):
+    type = 'v'
+    _attrs_ = ('position_and_flags',)
+
+    def __init__(self, pos):
+        # p is the 32-bit position shifted left by one (might be negative,
+        # but casted to the 32-bit UINT type)
+        p = rffi.cast(rffi.UINT, pos << FO_POSITION_SHIFT)
+        self.position_and_flags = r_uint(p)    # zero-extended to a full word
+
+    def get_position(self):
+        # p is the signed 32-bit position, from self.position_and_flags
+        p = rffi.cast(rffi.INT, self.position_and_flags)
+        return intmask(p) >> FO_POSITION_SHIFT
+
+    def set_position(self, new_pos):
+        assert new_pos >= 0
+        self.position_and_flags &= ~FO_POSITION_MASK
+        self.position_and_flags |= r_uint(new_pos << FO_POSITION_SHIFT)
+
+    def is_replaced_with_const(self):
+        return bool(self.position_and_flags & FO_REPLACED_WITH_CONST)
+
+    def set_replaced_with_const(self):
+        self.position_and_flags |= FO_REPLACED_WITH_CONST
+
+    def __repr__(self):
+        return '%s(0x%x)' % (self.__class__.__name__, self.position_and_flags)
+
+class IntFrontendOp(IntOp, FrontendOp):
+    _attrs_ = ('position_and_flags', '_resint')
+
+    def copy_value_from(self, other):
+        self._resint = other.getint()
+
+class FloatFrontendOp(FloatOp, FrontendOp):
+    _attrs_ = ('position_and_flags', '_resfloat')
+
+    def copy_value_from(self, other):
+        self._resfloat = other.getfloatstorage()
+
+class RefFrontendOp(RefOp, FrontendOp):
+    _attrs_ = ('position_and_flags', '_resref', '_heapc_deps')
+    if LONG_BIT == 32:
+        _attrs_ += ('_heapc_flags',)   # on 64 bit, this gets stored into the
+        _heapc_flags = r_uint(0)       # high 32 bits of 'position_and_flags'
+    _heapc_deps = None
+
+    def copy_value_from(self, other):
+        self._resref = other.getref_base()
+
+    if LONG_BIT == 32:
+        def _get_heapc_flags(self):
+            return self._heapc_flags
+        def _set_heapc_flags(self, value):
+            self._heapc_flags = value
+    else:
+        def _get_heapc_flags(self):
+            return self.position_and_flags >> 32
+        def _set_heapc_flags(self, value):
+            self.position_and_flags = (
+                (self.position_and_flags & 0xFFFFFFFF) |
+                (value << 32))
+
+
+class History(object):
+    ends_with_jump = False
+    trace = None
+
+    def __init__(self):
+        self.descr_cache = {}
+        self.descrs = {}
+        self.consts = []
+        self._cache = []
+
+    def set_inputargs(self, inpargs, metainterp_sd):
+        from rpython.jit.metainterp.opencoder import Trace
+
+        self.trace = Trace(inpargs, metainterp_sd)
+        self.inputargs = inpargs
+        if self._cache is not None:
+            # hack to record the ops *after* we know our inputargs
+            for (opnum, argboxes, op, descr) in self._cache:
+                pos = self.trace.record_op(opnum, argboxes, descr)
+                op.set_position(pos)
+            self._cache = None
+
+    def length(self):
+        return self.trace._count - len(self.trace.inputargs)
+
+    def get_trace_position(self):
+        return self.trace.cut_point()
+
+    def cut(self, cut_at):
+        self.trace.cut_at(cut_at)
+
+    def any_operation(self):
+        return self.trace._count > self.trace._start
+
+    @specialize.argtype(2)
+    def set_op_value(self, op, value):
         if value is None:
-            assert op.type == 'v'
+            return        
         elif isinstance(value, bool):
-            assert op.type == 'i'
             op.setint(int(value))
         elif lltype.typeOf(value) == lltype.Signed:
-            assert op.type == 'i'
             op.setint(value)
         elif lltype.typeOf(value) is longlong.FLOATSTORAGE:
-            assert op.type == 'f'
             op.setfloatstorage(value)
         else:
             assert lltype.typeOf(value) == llmemory.GCREF
-            assert op.type == 'r'
             op.setref_base(value)
-        self.operations.append(op)
+
+    def _record_op(self, opnum, argboxes, descr=None):
+        return self.trace.record_op(opnum, argboxes, descr)
+
+    @specialize.argtype(3)
+    def record(self, opnum, argboxes, value, descr=None):
+        if self.trace is None:
+            pos = 2**14 - 1
+        else:
+            pos = self._record_op(opnum, argboxes, descr)
+        if value is None:
+            op = FrontendOp(pos)
+        elif isinstance(value, bool):
+            op = IntFrontendOp(pos)
+        elif lltype.typeOf(value) == lltype.Signed:
+            op = IntFrontendOp(pos)
+        elif lltype.typeOf(value) is longlong.FLOATSTORAGE:
+            op = FloatFrontendOp(pos)
+        else:
+            op = RefFrontendOp(pos)
+        if self.trace is None:
+            self._cache.append((opnum, argboxes, op, descr))
+        self.set_op_value(op, value)
         return op
+
+    def record_nospec(self, opnum, argboxes, descr=None):
+        tp = opclasses[opnum].type
+        pos = self._record_op(opnum, argboxes, descr)
+        if tp == 'v':
+            return FrontendOp(pos)
+        elif tp == 'i':
+            return IntFrontendOp(pos)
+        elif tp == 'f':
+            return FloatFrontendOp(pos)
+        assert tp == 'r'
+        return RefFrontendOp(pos)
 
     def record_default_val(self, opnum, argboxes, descr=None):
-        op = ResOperation(opnum, argboxes, descr)
-        assert op.is_same_as()
+        assert rop.is_same_as(opnum)
+        op = self.record_nospec(opnum, argboxes, descr)
         op.copy_value_from(argboxes[0])
-        self.operations.append(op)
         return op
 
-    def substitute_operation(self, position, opnum, argboxes, descr=None):
-        resbox = self.operations[position].result
-        op = ResOperation(opnum, argboxes, resbox, descr)
-        self.operations[position] = op
 
 # ____________________________________________________________
 
@@ -720,15 +812,15 @@ class Stats(object):
     compiled_count = 0
     enter_count = 0
     aborted_count = 0
-    operations = None
 
-    def __init__(self):
+    def __init__(self, metainterp_sd):
         self.loops = []
         self.locations = []
         self.aborted_keys = []
         self.invalidated_token_numbers = set()    # <- not RPython
         self.jitcell_token_wrefs = []
         self.jitcell_dicts = []                   # <- not RPython
+        self.metainterp_sd = metainterp_sd
 
     def clear(self):
         del self.loops[:]
@@ -747,7 +839,7 @@ class Stats(object):
         self.jitcell_token_wrefs.append(weakref.ref(token))
 
     def set_history(self, history):
-        self.operations = history.operations
+        self.history = history
 
     def aborted(self):
         self.aborted_count += 1
@@ -784,7 +876,9 @@ class Stats(object):
 
     def check_history(self, expected=None, **check):
         insns = {}
-        for op in self.operations:
+        t = self.history.trace.get_iter()
+        while not t.done():
+            op = t.next()
             opname = op.getopname()
             insns[opname] = insns.get(opname, 0) + 1
         if expected is not None:
@@ -816,9 +910,6 @@ class Stats(object):
         if 'getfield_gc' in check:
             assert check.pop('getfield_gc') == 0
             check['getfield_gc_i'] = check['getfield_gc_r'] = check['getfield_gc_f'] = 0
-        if 'getfield_gc_pure' in check:
-            assert check.pop('getfield_gc_pure') == 0
-            check['getfield_gc_pure_i'] = check['getfield_gc_pure_r'] = check['getfield_gc_pure_f'] = 0
         if 'getarrayitem_gc_pure' in check:
             assert check.pop('getarrayitem_gc_pure') == 0
             check['getarrayitem_gc_pure_i'] = check['getarrayitem_gc_pure_r'] = check['getarrayitem_gc_pure_f'] = 0

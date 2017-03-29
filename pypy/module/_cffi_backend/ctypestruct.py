@@ -4,7 +4,7 @@ Struct and unions.
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.typedef import TypeDef, interp_attrproperty
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty, interp_attrproperty_w
 
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask
@@ -34,6 +34,7 @@ class W_CTypeStructOrUnion(W_CType):
     _fields_dict = None
     _custom_field_pos = False
     _with_var_array = False
+    _with_packed_changed = False
 
     def __init__(self, space, name):
         W_CType.__init__(self, space, -1, name, len(name))
@@ -69,8 +70,8 @@ class W_CTypeStructOrUnion(W_CType):
             result = [None] * len(self._fields_list)
             for fname, field in self._fields_dict.iteritems():
                 i = self._fields_list.index(field)
-                result[i] = space.newtuple([space.wrap(fname),
-                                            space.wrap(field)])
+                result[i] = space.newtuple([space.newtext(fname),
+                                            field])
             return space.newlist(result)
         return W_CType._fget(self, attrchar)
 
@@ -90,12 +91,11 @@ class W_CTypeStructOrUnion(W_CType):
         self.force_lazy_struct()
         space = self.space
         try:
-            cfield = self._fields_dict[fieldname]
+            cfield = self._getcfield_const(fieldname)
         except KeyError:
-            raise OperationError(space.w_KeyError, space.wrap(fieldname))
+            raise OperationError(space.w_KeyError, space.newtext(fieldname))
         if cfield.bitshift >= 0:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("not supported for bitfields"))
+            raise oefmt(space.w_TypeError, "not supported for bitfields")
         return (cfield.ctype, cfield.offset)
 
     def _copy_from_same(self, cdata, w_ob):
@@ -106,9 +106,6 @@ class W_CTypeStructOrUnion(W_CType):
                 return True
         return False
 
-    def _check_only_one_argument_for_union(self, w_ob):
-        pass
-
     def convert_from_object(self, cdata, w_ob):
         if not self._copy_from_same(cdata, w_ob):
             self.convert_struct_from_object(cdata, w_ob, optvarsize=-1)
@@ -118,26 +115,31 @@ class W_CTypeStructOrUnion(W_CType):
     )
     def convert_struct_from_object(self, cdata, w_ob, optvarsize):
         self.force_lazy_struct()
-        self._check_only_one_argument_for_union(w_ob)
 
         space = self.space
         if (space.isinstance_w(w_ob, space.w_list) or
             space.isinstance_w(w_ob, space.w_tuple)):
             lst_w = space.listview(w_ob)
-            if len(lst_w) > len(self._fields_list):
-                raise oefmt(space.w_ValueError,
-                            "too many initializers for '%s' (got %d)",
-                            self.name, len(lst_w))
-            for i in range(len(lst_w)):
-                optvarsize = self._fields_list[i].write_v(cdata, lst_w[i],
+            j = 0
+            for w_obj in lst_w:
+                try:
+                    while (self._fields_list[j].flags &
+                               W_CField.BF_IGNORE_IN_CTOR):
+                        j += 1
+                except IndexError:
+                    raise oefmt(space.w_ValueError,
+                                "too many initializers for '%s' (got %d)",
+                                self.name, len(lst_w))
+                optvarsize = self._fields_list[j].write_v(cdata, w_obj,
                                                           optvarsize)
+                j += 1
             return optvarsize
 
         elif space.isinstance_w(w_ob, space.w_dict):
             lst_w = space.fixedview(w_ob)
             for i in range(len(lst_w)):
                 w_key = lst_w[i]
-                key = space.str_w(w_key)
+                key = space.text_w(w_key)
                 try:
                     cf = self._fields_dict[key]
                 except KeyError:
@@ -159,18 +161,24 @@ class W_CTypeStructOrUnion(W_CType):
         return self._fields_dict[attr]
 
     def getcfield(self, attr):
-        ready = self._fields_dict is not None
-        if not ready and self.size >= 0:
+        # Returns a W_CField.  Error cases: returns None if we are an
+        # opaque struct; or raises KeyError if the particular field
+        # 'attr' does not exist.  The point of not directly building the
+        # error here is to get the exact ctype in the error message: it
+        # might be of the kind 'struct foo' or 'struct foo *'.
+        if self._fields_dict is None:
+            if self.size < 0:
+                return None
             self.force_lazy_struct()
-            ready = True
-        if ready:
-            self = jit.promote(self)
-            attr = jit.promote_string(attr)
-            try:
-                return self._getcfield_const(attr)
-            except KeyError:
-                pass
-        return W_CType.getcfield(self, attr)
+        self = jit.promote(self)
+        attr = jit.promote_string(attr)
+        return self._getcfield_const(attr)    # <= KeyError here
+
+    def cdata_dir(self):
+        if self.size < 0:
+            return []
+        self.force_lazy_struct()
+        return self._fields_dict.keys()
 
 
 class W_CTypeStruct(W_CTypeStructOrUnion):
@@ -180,14 +188,6 @@ class W_CTypeStruct(W_CTypeStructOrUnion):
 class W_CTypeUnion(W_CTypeStructOrUnion):
     kind = "union"
 
-    def _check_only_one_argument_for_union(self, w_ob):
-        space = self.space
-        n = space.int_w(space.len(w_ob))
-        if n > 1:
-            raise oefmt(space.w_ValueError,
-                        "initializer for '%s': %d items given, but only one "
-                        "supported (use a dict if needed)", self.name, n)
-
 
 class W_CField(W_Root):
     _immutable_ = True
@@ -195,20 +195,23 @@ class W_CField(W_Root):
     BS_REGULAR     = -1
     BS_EMPTY_ARRAY = -2
 
-    def __init__(self, ctype, offset, bitshift, bitsize):
+    BF_IGNORE_IN_CTOR = 0x01
+
+    def __init__(self, ctype, offset, bitshift, bitsize, flags):
         self.ctype = ctype
         self.offset = offset
         self.bitshift = bitshift # >= 0: bitshift; or BS_REGULAR/BS_EMPTY_ARRAY
         self.bitsize = bitsize
+        self.flags = flags       # BF_xxx
 
     def is_bitfield(self):
         return self.bitshift >= 0
 
-    def make_shifted(self, offset):
+    def make_shifted(self, offset, fflags):
         return W_CField(self.ctype, offset + self.offset,
-                        self.bitshift, self.bitsize)
+                        self.bitshift, self.bitsize, self.flags | fflags)
 
-    def read(self, cdata):
+    def read(self, cdata, w_cdata):
         cdata = rffi.ptradd(cdata, self.offset)
         if self.bitshift == self.BS_REGULAR:
             return self.ctype.convert_to_object(cdata)
@@ -216,6 +219,14 @@ class W_CField(W_Root):
             from pypy.module._cffi_backend import ctypearray
             ctype = self.ctype
             assert isinstance(ctype, ctypearray.W_CTypeArray)
+            structobj = w_cdata.get_structobj()
+            if structobj is not None:
+                # variable-length array
+                size = structobj.allocated_length - self.offset
+                if size >= 0:
+                    arraylen = size // ctype.ctitem.size
+                    return cdataobj.W_CDataSliced(ctype.space, cdata, ctype,
+                                                  arraylen)
             return cdataobj.W_CData(ctype.space, cdata, ctype.ctptr)
         else:
             return self.convert_bitfield_to_object(cdata)
@@ -243,8 +254,8 @@ class W_CField(W_Root):
                     varsize = ovfcheck(itemsize * varsizelength)
                     size = ovfcheck(self.offset + varsize)
                 except OverflowError:
-                    raise OperationError(space.w_OverflowError,
-                        space.wrap("array size would overflow a ssize_t"))
+                    raise oefmt(space.w_OverflowError,
+                                "array size would overflow a ssize_t")
                 assert size >= 0
                 return max(size, optvarsize)
             # if 'value' was only an integer, get_new_array_length() returns
@@ -269,14 +280,14 @@ class W_CField(W_Root):
                 shiftforsign = r_uint(1) << (self.bitsize - 1)
                 value = ((value >> self.bitshift) + shiftforsign) & valuemask
                 result = intmask(value) - intmask(shiftforsign)
-                return space.wrap(result)
+                return space.newint(result)
             else:
                 value = misc.read_raw_unsigned_data(cdata, ctype.size)
                 valuemask = (r_ulonglong(1) << self.bitsize) - 1
                 shiftforsign = r_ulonglong(1) << (self.bitsize - 1)
                 value = ((value >> self.bitshift) + shiftforsign) & valuemask
                 result = r_longlong(value) - r_longlong(shiftforsign)
-                return space.wrap(result)
+                return space.newint(result)
         #
         if isinstance(ctype, ctypeprim.W_CTypePrimitiveUnsigned):
             value_fits_long = ctype.value_fits_long
@@ -292,14 +303,14 @@ class W_CField(W_Root):
             valuemask = (r_uint(1) << self.bitsize) - 1
             value = (value >> self.bitshift) & valuemask
             if value_fits_long:
-                return space.wrap(intmask(value))
+                return space.newint(intmask(value))
             else:
-                return space.wrap(value)    # uint => wrapped long object
+                return space.newint(value)    # uint => wrapped long object
         else:
             value = misc.read_raw_unsigned_data(cdata, ctype.size)
             valuemask = (r_ulonglong(1) << self.bitsize) - 1
             value = (value >> self.bitshift) & valuemask
-            return space.wrap(value)      # ulonglong => wrapped long object
+            return space.newint(value)      # ulonglong => wrapped long object
 
     def convert_bitfield_from_object(self, cdata, w_ob):
         ctype = self.ctype
@@ -332,9 +343,10 @@ class W_CField(W_Root):
 
 W_CField.typedef = TypeDef(
     '_cffi_backend.CField',
-    type = interp_attrproperty('ctype', W_CField),
-    offset = interp_attrproperty('offset', W_CField),
-    bitshift = interp_attrproperty('bitshift', W_CField),
-    bitsize = interp_attrproperty('bitsize', W_CField),
+    type = interp_attrproperty_w('ctype', W_CField),
+    offset = interp_attrproperty('offset', W_CField, wrapfn="newint"),
+    bitshift = interp_attrproperty('bitshift', W_CField, wrapfn="newint"),
+    bitsize = interp_attrproperty('bitsize', W_CField, wrapfn="newint"),
+    flags = interp_attrproperty('flags', W_CField, wrapfn="newint"),
     )
 W_CField.typedef.acceptable_as_base_class = False

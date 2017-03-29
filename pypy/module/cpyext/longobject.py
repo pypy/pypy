@@ -6,7 +6,6 @@ from pypy.objspace.std.longobject import W_LongObject
 from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.intobject import PyInt_AsUnsignedLongMask
 from rpython.rlib.rbigint import rbigint
-from rpython.rlib.rarithmetic import intmask
 
 
 PyLong_Check, PyLong_CheckExact = build_type_checkers("Long")
@@ -28,25 +27,25 @@ def PyLong_FromSize_t(space, val):
     """Return a new PyLongObject object from a C size_t, or NULL on
     failure.
     """
-    return space.wrap(val)
+    return space.newlong_from_rarith_int(val)
 
 @cpython_api([rffi.LONGLONG], PyObject)
 def PyLong_FromLongLong(space, val):
     """Return a new PyLongObject object from a C long long, or NULL
     on failure."""
-    return space.wrap(val)
+    return space.newlong_from_rarith_int(val)
 
 @cpython_api([rffi.ULONG], PyObject)
 def PyLong_FromUnsignedLong(space, val):
     """Return a new PyLongObject object from a C unsigned long, or
     NULL on failure."""
-    return space.wrap(val)
+    return space.newlong_from_rarith_int(val)
 
 @cpython_api([rffi.ULONGLONG], PyObject)
 def PyLong_FromUnsignedLongLong(space, val):
     """Return a new PyLongObject object from a C unsigned long long,
     or NULL on failure."""
-    return space.wrap(val)
+    return space.newlong_from_rarith_int(val)
 
 @cpython_api([PyObject], rffi.ULONG, error=-1)
 def PyLong_AsUnsignedLong(space, w_long):
@@ -56,7 +55,7 @@ def PyLong_AsUnsignedLong(space, w_long):
     raised."""
     try:
         return rffi.cast(rffi.ULONG, space.uint_w(w_long))
-    except OperationError, e:
+    except OperationError as e:
         if e.match(space, space.w_ValueError):
             e.w_type = space.w_OverflowError
         raise
@@ -100,7 +99,7 @@ def PyLong_AsUnsignedLongLong(space, w_long):
     raised."""
     try:
         return rffi.cast(rffi.ULONGLONG, space.r_ulonglong_w(w_long))
-    except OperationError, e:
+    except OperationError as e:
         if e.match(space, space.w_ValueError):
             e.w_type = space.w_OverflowError
         raise
@@ -126,10 +125,10 @@ def PyLong_AsLongAndOverflow(space, w_long, overflow_ptr):
     overflow_ptr[0] = rffi.cast(rffi.INT_real, 0)
     try:
         return space.int_w(w_long)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_OverflowError):
             raise
-    if space.is_true(space.gt(w_long, space.wrap(0))):
+    if space.is_true(space.gt(w_long, space.newint(0))):
         overflow_ptr[0] = rffi.cast(rffi.INT_real, 1)
     else:
         overflow_ptr[0] = rffi.cast(rffi.INT_real, -1)
@@ -147,10 +146,10 @@ def PyLong_AsLongLongAndOverflow(space, w_long, overflow_ptr):
     overflow_ptr[0] = rffi.cast(rffi.INT_real, 0)
     try:
         return rffi.cast(rffi.LONGLONG, space.r_longlong_w(w_long))
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_OverflowError):
             raise
-    if space.is_true(space.gt(w_long, space.wrap(0))):
+    if space.is_true(space.gt(w_long, space.newint(0))):
         overflow_ptr[0] = rffi.cast(rffi.INT_real, 1)
     else:
         overflow_ptr[0] = rffi.cast(rffi.INT_real, -1)
@@ -159,7 +158,7 @@ def PyLong_AsLongLongAndOverflow(space, w_long, overflow_ptr):
 @cpython_api([lltype.Float], PyObject)
 def PyLong_FromDouble(space, val):
     """Return a new PyLongObject object from v, or NULL on failure."""
-    return space.long(space.wrap(val))
+    return space.long(space.newfloat(val))
 
 @cpython_api([PyObject], lltype.Float, error=-1.0)
 def PyLong_AsDouble(space, w_long):
@@ -180,8 +179,8 @@ def PyLong_FromString(space, str, pend, base):
     between 2 and 36, inclusive.  Leading spaces are ignored.  If there are
     no digits, ValueError will be raised."""
     s = rffi.charp2str(str)
-    w_str = space.wrap(s)
-    w_base = space.wrap(rffi.cast(lltype.Signed, base))
+    w_str = space.newtext(s)
+    w_base = space.newint(rffi.cast(lltype.Signed, base))
     if pend:
         pend[0] = rffi.ptradd(str, len(s))
     return space.call_function(space.w_long, w_str, w_base)
@@ -193,8 +192,8 @@ def PyLong_FromUnicode(space, u, length, base):
     string, length gives the number of characters, and base is the radix
     for the conversion.  The radix must be in the range [2, 36]; if it is
     out of range, ValueError will be raised."""
-    w_value = space.wrap(rffi.wcharpsize2unicode(u, length))
-    w_base = space.wrap(rffi.cast(lltype.Signed, base))
+    w_value = space.newunicode(rffi.wcharpsize2unicode(u, length))
+    w_base = space.newint(rffi.cast(lltype.Signed, base))
     return space.call_function(space.w_long, w_value, w_base)
 
 @cpython_api([rffi.VOIDP], PyObject)
@@ -203,7 +202,10 @@ def PyLong_FromVoidPtr(space, p):
     can be retrieved from the resulting value using PyLong_AsVoidPtr().
 
     If the integer is larger than LONG_MAX, a positive long integer is returned."""
-    return space.wrap(rffi.cast(ADDR, p))
+    value = rffi.cast(ADDR, p)    # signed integer
+    if value < 0:
+        return space.newlong_from_rarith_int(rffi.cast(lltype.Unsigned, p))
+    return space.newint(value)
 
 @cpython_api([PyObject], rffi.VOIDP, error=lltype.nullptr(rffi.VOIDP.TO))
 def PyLong_AsVoidPtr(space, w_long):
@@ -228,26 +230,11 @@ UCHARP = rffi.CArrayPtr(rffi.UCHAR)
 def _PyLong_FromByteArray(space, bytes, n, little_endian, signed):
     little_endian = rffi.cast(lltype.Signed, little_endian)
     signed = rffi.cast(lltype.Signed, signed)
-
-    result = rbigint()
-    negative = False
-
-    for i in range(0, n):
-        if little_endian:
-            c = intmask(bytes[i])
-        else:
-            c = intmask(bytes[n - i - 1])
-        if i == 0 and signed and c & 0x80:
-            negative = True
-        if negative:
-            c = c ^ 0xFF
-        digit = rbigint.fromint(c)
-
-        result = result.lshift(8)
-        result = result.add(digit)
-
-    if negative:
-        result = result.neg()
-
+    s = rffi.charpsize2str(rffi.cast(rffi.CCHARP, bytes),
+                           rffi.cast(lltype.Signed, n))
+    if little_endian:
+        byteorder = 'little'
+    else:
+        byteorder = 'big'
+    result = rbigint.frombytes(s, byteorder, signed != 0)
     return space.newlong_from_rbigint(result)
-

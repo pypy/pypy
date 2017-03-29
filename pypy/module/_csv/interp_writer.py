@@ -1,4 +1,5 @@
 from rpython.rlib.rstring import StringBuilder
+from rpython.rlib import objectmodel
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, interp2app
@@ -12,7 +13,7 @@ class W_Writer(W_Root):
     def __init__(self, space, dialect, w_fileobj):
         self.space = space
         self.dialect = dialect
-        self.w_filewrite = space.getattr(w_fileobj, space.wrap('write'))
+        self.w_filewrite = space.getattr(w_fileobj, space.newtext('write'))
         # precompute this
         special = dialect.delimiter + dialect.lineterminator
         if dialect.escapechar != '\0':
@@ -21,12 +22,12 @@ class W_Writer(W_Root):
             special += dialect.quotechar
         self.special_characters = special
 
+    @objectmodel.dont_inline
     def error(self, msg):
         space = self.space
         w_module = space.getbuiltinmodule('_csv')
-        w_error = space.getattr(w_module, space.wrap('Error'))
-        raise OperationError(w_error, space.wrap(msg))
-    error._dont_inline_ = True
+        w_error = space.getattr(w_module, space.newtext('Error'))
+        raise OperationError(w_error, space.newtext(msg))
 
     def writerow(self, w_fields):
         """Construct and write a CSV record from a sequence of fields.
@@ -41,15 +42,15 @@ class W_Writer(W_Root):
             if space.is_w(w_field, space.w_None):
                 field = ""
             elif space.isinstance_w(w_field, space.w_float):
-                field = space.str_w(space.repr(w_field))
+                field = space.text_w(space.repr(w_field))
             else:
-                field = space.str_w(space.str(w_field))
+                field = space.text_w(space.str(w_field))
             #
             if dialect.quoting == QUOTE_NONNUMERIC:
                 try:
                     space.float_w(w_field)    # is it an int/long/float?
                     quoted = False
-                except OperationError, e:
+                except OperationError as e:
                     if e.async(space):
                         raise
                     quoted = True
@@ -114,7 +115,7 @@ class W_Writer(W_Root):
         rec.append(dialect.lineterminator)
 
         line = rec.build()
-        return space.call_function(self.w_filewrite, space.wrap(line))
+        return space.call_function(self.w_filewrite, space.newtext(line))
 
     def writerows(self, w_seqseq):
         """Construct and write a series of sequences to a csv file.
@@ -124,7 +125,7 @@ class W_Writer(W_Root):
         while True:
             try:
                 w_seq = space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(space, space.w_StopIteration):
                     break
                 raise

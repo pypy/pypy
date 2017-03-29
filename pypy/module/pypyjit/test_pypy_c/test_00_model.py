@@ -57,7 +57,10 @@ class BaseTestPyPyC(object):
         cmdline.append(str(self.filepath))
         #
         env = os.environ.copy()
+        # TODO old logging system
         env['PYPYLOG'] = self.log_string + ':' + str(logfile)
+        jitlogfile = str(logfile) + '.jlog'
+        env['JITLOG'] = str(jitlogfile)
         pipe = subprocess.Popen(cmdline,
                                 env=env,
                                 stdout=subprocess.PIPE,
@@ -68,9 +71,12 @@ class BaseTestPyPyC(object):
                 pipe.returncode,))
         if stderr.startswith('SKIP:'):
             py.test.skip(stderr)
-        if stderr.startswith('debug_alloc.h:'):   # lldebug builds
-            stderr = ''
+        #if stderr.startswith('debug_alloc.h:'):   # lldebug builds
+        #    stderr = ''
         #assert not stderr
+        if stderr:
+            print '*** stderr of the subprocess: ***'
+            print stderr
         #
         if discard_stdout_before_last_line:
             stdout = stdout.splitlines(True)[-1]
@@ -81,6 +87,7 @@ class BaseTestPyPyC(object):
         log = Log(rawtraces)
         log.result = eval(stdout)
         log.logfile = str(logfile)
+        log.jitlogfile = jitlogfile
         #
         summaries  = logparser.extract_category(rawlog, 'jit-summary')
         if len(summaries) > 0:
@@ -259,7 +266,7 @@ class TestOpMatcher_(object):
             [i0]
             i1 = int_add(i0, 1)
             i2 = int_sub(i1, 10)
-            i3 = int_floordiv(i2, 100)
+            i3 = int_xor(i2, 100)
             i4 = int_mul(i1, 1000)
             jump(i4)
         """
@@ -295,7 +302,7 @@ class TestOpMatcher_(object):
             [i0]
             i1 = int_add(i0, 1)
             i2 = int_sub(i1, 10)
-            i3 = int_floordiv(i2, 100)
+            i3 = int_xor(i2, 100)
             i4 = int_mul(i1, 1000)
             jump(i4)
         """
@@ -526,7 +533,7 @@ class TestRunPyPyC(BaseTestPyPyC):
         log = self.run(f)
         loop, = log.loops_by_filename(self.filepath)
         call_ops = log.opnames(loop.ops_by_id('call'))
-        assert call_ops == ['force_token'] # it does not follow inlining
+        assert call_ops == ['guard_not_invalidated', 'force_token'] # it does not follow inlining
         #
         add_ops = log.opnames(loop.ops_by_id('add'))
         assert add_ops == ['int_add']
@@ -534,9 +541,10 @@ class TestRunPyPyC(BaseTestPyPyC):
         ops = log.opnames(loop.allops())
         assert ops == [
             # this is the actual loop
-            'int_lt', 'guard_true', 'force_token', 'int_add',
+            'int_lt', 'guard_true',
+            'guard_not_invalidated', 'force_token', 'int_add',
             # this is the signal checking stuff
-            'guard_not_invalidated', 'getfield_raw_i', 'int_lt', 'guard_false',
+            'getfield_raw_i', 'int_lt', 'guard_false',
             'jump'
             ]
 

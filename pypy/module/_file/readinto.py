@@ -1,15 +1,9 @@
-import sys, errno
+import errno
 from rpython.rlib import rposix
 from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.rposix import c_read
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module._file.interp_file import is_wouldblock_error, signal_checker
-
-_WIN32 = sys.platform.startswith('win')
-UNDERSCORE_ON_WIN32 = '_' if _WIN32 else ''
-
-os_read = rffi.llexternal(UNDERSCORE_ON_WIN32 + 'read',
-                          [rffi.INT, rffi.CCHARP, rffi.SIZE_T],
-                          rffi.SSIZE_T, save_err=rffi.RFFI_SAVE_ERRNO)
 
 
 def direct_readinto(self, w_rwbuffer):
@@ -56,11 +50,11 @@ def direct_readinto(self, w_rwbuffer):
             target_pos += len(data)
             size -= len(data)
 
-        # then call os_read() to get the rest
+        # then call c_read() to get the rest
         if size > 0:
             stream.flush()
             while True:
-                got = os_read(fd, rffi.ptradd(target_address, target_pos), size)
+                got = c_read(fd, rffi.ptradd(target_address, target_pos), size)
                 got = rffi.cast(lltype.Signed, got)
                 if got > 0:
                     target_pos += got
@@ -79,4 +73,4 @@ def direct_readinto(self, w_rwbuffer):
                     raise OSError(err, "read error")
             keepalive_until_here(rwbuffer)
 
-    return self.space.wrap(target_pos)
+    return self.space.newint(target_pos)

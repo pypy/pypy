@@ -1,7 +1,6 @@
 import py
 
-from rpython.rtyper.extfunc import ExtFuncEntry, register_external,\
-     is_external
+from rpython.rtyper.extfunc import register_external
 from rpython.annotator.model import SomeInteger, SomeString, AnnotatorError
 from rpython.annotator.annrpython import RPythonAnnotator
 from rpython.annotator.policy import AnnotatorPolicy
@@ -19,11 +18,7 @@ class TestExtFuncEntry:
             "NOT_RPYTHON"
             return eval("x+40")
 
-        class BTestFuncEntry(ExtFuncEntry):
-            _about_ = b
-            name = 'b'
-            signature_args = [SomeInteger()]
-            signature_result = SomeInteger()
+        register_external(b, [int], result=int)
 
         def f():
             return b(2)
@@ -43,37 +38,17 @@ class TestExtFuncEntry:
         def c(y, x):
             yyy
 
-        class CTestFuncEntry(ExtFuncEntry):
-            _about_ = c
-            name = 'ccc'
-            signature_args = [SomeInteger()] * 2
-            signature_result = SomeInteger()
+        def llimpl(y, x):
+            return y + x
 
-            def lltypeimpl(y, x):
-                return y + x
-            lltypeimpl = staticmethod(lltypeimpl)
+        register_external(c, [int, int], result=int, llimpl=llimpl,
+                          export_name='ccc')
 
         def f():
             return c(3, 4)
 
         res = interpret(f, [])
         assert res == 7
-
-    def test_register_external_signature(self):
-        """
-        Test the standard interface for external functions.
-        """
-        def dd():
-            pass
-        register_external(dd, [int], int)
-
-        def f():
-            return dd(3)
-
-        policy = AnnotatorPolicy()
-        a = RPythonAnnotator(policy=policy)
-        s = a.build_types(f, [])
-        assert isinstance(s, SomeInteger)
 
     def test_register_external_tuple_args(self):
         """
@@ -121,23 +96,6 @@ class TestExtFuncEntry:
         s = a.build_types(f, [])
         assert isinstance(s, SomeInteger)
 
-    def test_register_external_specialcase(self):
-        """
-        When args=None, the external function accepts any arguments unmodified.
-        """
-        def function_withspecialcase(arg):
-            return repr(arg)
-        register_external(function_withspecialcase, args=None, result=str)
-
-        def f():
-            x = function_withspecialcase
-            return x(33) + x("aaa") + x([]) + "\n"
-
-        policy = AnnotatorPolicy()
-        a = RPythonAnnotator(policy=policy)
-        s = a.build_types(f, [])
-        assert isinstance(s, SomeString)
-
     def test_str0(self):
         str0 = SomeString(no_nul=True)
         def os_open(s):
@@ -182,3 +140,22 @@ class TestExtFuncEntry:
             # fails with TooLateForChange
             a.build_types(g, [[str]])
         a.build_types(g, [[str0]])  # Does not raise
+
+    def test_register_external_llfakeimpl(self):
+        def a(i):
+            return i
+        def a_llimpl(i):
+            return i * 2
+        def a_llfakeimpl(i):
+            return i * 3
+        register_external(a, [int], int, llimpl=a_llimpl,
+                          llfakeimpl=a_llfakeimpl)
+        def f(i):
+            return a(i)
+
+        res = interpret(f, [7])
+        assert res == 21
+
+        from rpython.translator.c.test.test_genc import compile
+        fc = compile(f, [int])
+        assert fc(7) == 14

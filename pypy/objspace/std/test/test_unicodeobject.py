@@ -72,7 +72,7 @@ class AppTestUnicodeString:
         check(u', '.join(['a', 'b']), u'a, b')
         try:
             u''.join([u'a', 2, 3])
-        except TypeError, e:
+        except TypeError as e:
             assert 'sequence item 1' in str(e)
         else:
             raise Exception("DID NOT RAISE")
@@ -332,6 +332,12 @@ class AppTestUnicodeString:
         assert u'xyzzyhelloxyzzy'.strip(u'xyz') == u'hello'
         assert u'xyzzyhelloxyzzy'.lstrip('xyz') == u'helloxyzzy'
         assert u'xyzzyhelloxyzzy'.rstrip(u'xyz') == u'xyzzyhello'
+        exc = raises(TypeError, s.strip, buffer(' '))
+        assert str(exc.value) == 'strip arg must be None, unicode or str'
+        exc = raises(TypeError, s.rstrip, buffer(' '))
+        assert str(exc.value) == 'rstrip arg must be None, unicode or str'
+        exc = raises(TypeError, s.lstrip, buffer(' '))
+        assert str(exc.value) == 'lstrip arg must be None, unicode or str'
 
     def test_strip_str_unicode(self):
         x = "--abc--".strip(u"-")
@@ -742,7 +748,9 @@ class AppTestUnicodeString:
         assert 'abc'.__add__(u'def') == u'abcdef'
         assert u'abc'.__add__(u'def') == u'abcdef'
         assert u'abc'.__add__('def') == u'abcdef'
-        # xxx CPython has no str.__radd__ and no unicode.__radd__
+        assert u'abc'.__rmod__(u'%s') == u'abc'
+        ret = u'abc'.__rmod__('%s')
+        raises(AttributeError, "u'abc'.__radd__(u'def')")
 
     def test_str_unicode_concat_overrides(self):
         "Test from Jython about being bug-compatible with CPython."
@@ -946,6 +954,11 @@ class AppTestUnicodeString:
         u = U(u'xxx')
         assert repr("%s" % u) == "u'__unicode__ overridden'"
         assert repr("{}".format(u)) == "'__unicode__ overridden'"
+
+    def test_format_c_overflow(self):
+        import sys
+        raises(OverflowError, u'{0:c}'.format, -1)
+        raises(OverflowError, u'{0:c}'.format, sys.maxunicode + 1)
 
     def test_replace_with_buffer(self):
         assert u'abc'.replace(buffer('b'), buffer('e')) == u'aec'

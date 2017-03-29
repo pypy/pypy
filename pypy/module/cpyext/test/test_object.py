@@ -1,4 +1,4 @@
-import py
+import py, pytest
 
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
@@ -37,7 +37,7 @@ class TestObject(BaseApiTest):
         assert not hasattr_(space.w_int, 'nonexistingattr')
 
         buf = rffi.str2charp('__len__')
-        assert api.PyObject_HasAttrString(space.w_str, buf)
+        assert api.PyObject_HasAttrString(space.w_bytes, buf)
         assert not api.PyObject_HasAttrString(space.w_int, buf)
         rffi.free_charp(buf)
 
@@ -127,12 +127,12 @@ class TestObject(BaseApiTest):
         test_compare(1, 2)
         test_compare(2, 2)
         test_compare('2', '1')
-        
+
         w_i = space.wrap(1)
         assert api.PyObject_RichCompareBool(w_i, w_i, 123456) == -1
         assert api.PyErr_Occurred() is space.w_SystemError
         api.PyErr_Clear()
-        
+
     def test_IsInstance(self, space, api):
         assert api.PyObject_IsInstance(space.wrap(1), space.w_int) == 1
         assert api.PyObject_IsInstance(space.wrap(1), space.w_float) == 0
@@ -165,13 +165,16 @@ class TestObject(BaseApiTest):
             return File""")
         w_f = space.call_function(w_File)
         assert api.PyObject_AsFileDescriptor(w_f) == 42
-    
+
     def test_hash(self, space, api):
         assert api.PyObject_Hash(space.wrap(72)) == 72
-        assert api.PyObject_Hash(space.wrap(-1)) == -1
+        assert api.PyObject_Hash(space.wrap(-1)) == -2
         assert (api.PyObject_Hash(space.wrap([])) == -1 and
             api.PyErr_Occurred() is space.w_TypeError)
         api.PyErr_Clear()
+
+    def test_hash_double(self, space, api):
+        assert api._Py_HashDouble(72.0) == 72
 
     def test_type(self, space, api):
         assert api.PyObject_Type(space.wrap(72)) is space.w_int
@@ -202,12 +205,85 @@ class TestObject(BaseApiTest):
     def test_dir(self, space, api):
         w_dir = api.PyObject_Dir(space.sys)
         assert space.isinstance_w(w_dir, space.w_list)
-        assert space.is_true(space.contains(w_dir, space.wrap('modules')))
+        assert space.contains_w(w_dir, space.wrap('modules'))
+
+    def test_format(self, space, api):
+        w_int = space.wrap(42)
+        fmt = space.str_w(api.PyObject_Format(w_int, space.wrap('#b')))
+        assert fmt == '0b101010'
 
 class AppTestObject(AppTestCpythonExtensionBase):
     def setup_class(cls):
+        from rpython.rlib import rgc
+        from pypy.interpreter import gateway
+
         AppTestCpythonExtensionBase.setup_class.im_func(cls)
-        cls.w_tmpname = cls.space.wrap(str(py.test.ensuretemp("out", dir=0)))
+        tmpname = str(py.test.ensuretemp('out', dir=0))
+        if cls.runappdirect:
+            cls.tmpname = tmpname
+        else:
+            cls.w_tmpname = cls.space.wrap(tmpname)
+
+        if not cls.runappdirect:
+            cls.total_mem = 0
+            def add_memory_pressure(estimate):
+                assert estimate >= 0
+                cls.total_mem += estimate
+            cls.orig_add_memory_pressure = [rgc.add_memory_pressure]
+            rgc.add_memory_pressure = add_memory_pressure
+
+            def _reset_memory_pressure(space):
+                cls.total_mem = 0
+            cls.w_reset_memory_pressure = cls.space.wrap(
+                gateway.interp2app(_reset_memory_pressure))
+
+            def _cur_memory_pressure(space):
+                return space.newint(cls.total_mem)
+            cls.w_cur_memory_pressure = cls.space.wrap(
+                gateway.interp2app(_cur_memory_pressure))
+        else:
+            def _skip_test(*ignored):
+                pytest.skip("not for -A testing")
+            cls.w_reset_memory_pressure = _skip_test
+
+    def teardown_class(cls):
+        from rpython.rlib import rgc
+        if hasattr(cls, 'orig_add_memory_pressure'):
+            [rgc.add_memory_pressure] = cls.orig_add_memory_pressure
+
+    def test_object_malloc(self):
+        module = self.import_extension('foo', [
+            ("malloctest", "METH_NOARGS",
+             """
+                 PyObject *obj = PyObject_MALLOC(sizeof(PyIntObject));
+                 obj = PyObject_Init(obj, &PyInt_Type);
+                 if (obj != NULL)
+                     ((PyIntObject *)obj)->ob_ival = -424344;
+                 return obj;
+             """)])
+        x = module.malloctest()
+        assert type(x) is int
+        assert x == -424344
+
+    def test_object_realloc(self):
+        if not self.runappdirect:
+            skip('no untranslated support for realloc')
+        module = self.import_extension('foo', [
+            ("realloctest", "METH_NOARGS",
+             """
+                 PyObject * ret;
+                 char *copy, *orig = PyObject_MALLOC(12);
+                 memcpy(orig, "hello world", 12);
+                 copy = PyObject_REALLOC(orig, 15);
+                 /* realloc() takes care of freeing orig, if changed */
+                 if (copy == NULL)
+                     Py_RETURN_NONE;
+                 ret = PyString_FromStringAndSize(copy, 12);
+                 PyObject_Free(copy);
+                 return ret;
+             """)])
+        x = module.realloctest()
+        assert x == 'hello world\x00'
 
     def test_TypeCheck(self):
         module = self.import_extension('foo', [
@@ -266,6 +342,41 @@ class AppTestObject(AppTestCpythonExtensionBase):
         assert isinstance(dict(), collections.Mapping)
         assert module.ismapping(dict())
 
+    def test_format_returns_unicode(self):
+        module = self.import_extension('foo', [
+            ("empty_format", "METH_O",
+            """
+                PyObject* empty_unicode = PyUnicode_FromStringAndSize("", 0);
+                PyObject* obj = PyObject_Format(args, empty_unicode);
+                return obj;
+            """)])
+        a = module.empty_format('hello')
+        assert isinstance(a, unicode)
+
+    def test_add_memory_pressure(self):
+        self.reset_memory_pressure()    # for the potential skip
+        module = self.import_extension('foo', [
+            ("foo", "METH_O",
+            """
+                _PyTraceMalloc_Track(0, 0, PyInt_AsLong(args) - sizeof(long));
+                Py_INCREF(Py_None);
+                return Py_None;
+            """)])
+        self.reset_memory_pressure()
+        module.foo(42)
+        assert self.cur_memory_pressure() == 0
+        module.foo(65000 - 42)
+        assert self.cur_memory_pressure() == 0
+        module.foo(536)
+        assert self.cur_memory_pressure() == 65536
+        module.foo(40000)
+        assert self.cur_memory_pressure() == 65536
+        module.foo(40000)
+        assert self.cur_memory_pressure() == 65536 + 80000
+        module.foo(35000)
+        assert self.cur_memory_pressure() == 65536 + 80000
+        module.foo(35000)
+        assert self.cur_memory_pressure() == 65536 + 80000 + 70000
 
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     """
@@ -379,7 +490,6 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
                  """
     Py_buffer buf;
     PyObject *str = PyString_FromString("hello, world.");
-    PyObject *result;
 
     if (PyBuffer_FillInfo(&buf, str, PyString_AsString(str), 13,
                           1, PyBUF_WRITABLE)) {
@@ -390,7 +500,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     PyBuffer_Release(&buf);
     Py_RETURN_NONE;
                  """)])
-        raises(ValueError, module.fillinfo)
+        raises((BufferError, ValueError), module.fillinfo)
 
 
 class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):

@@ -212,7 +212,9 @@ class ListTests:
                 s += lst[0]
                 lst.pop()
                 lst.append(1)
-                s /= lst.pop()
+                lst.insert(0, 5)
+                lst.insert(1, 6)
+                s *= lst.pop()
             return s
         res = self.meta_interp(f, [15], listops=True)
         assert res == f(15)

@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from collections import OrderedDict
 
 from rpython.flowspace.model import Constant
+from rpython.flowspace.bytecode import cpython_code_signature
 from rpython.annotator.model import (
     SomeOrderedDict, SomeString, SomeChar, SomeFloat, unionof, SomeInstance,
     SomeDict, SomeBuiltin, SomePBC, SomeInteger, TLS, SomeUnicodeCodePoint,
@@ -21,6 +22,7 @@ from rpython.annotator.dictdef import DictDef
 from rpython.annotator import description
 from rpython.annotator.signature import annotationoftype
 from rpython.annotator.argument import simple_args
+from rpython.annotator.specialize import memo
 from rpython.rlib.objectmodel import r_dict, r_ordereddict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper import extregistry
@@ -285,7 +287,7 @@ class Bookkeeper(object):
                     for ek, ev in items:
                         result.dictdef.generalize_key(self.immutablevalue(ek))
                         result.dictdef.generalize_value(self.immutablevalue(ev))
-                        result.dictdef.seen_prebuilt_key(ek)
+                        #dictdef.seen_prebuilt_key(ek)---not needed any more
                     seen_elements = len(items)
                     # if the dictionary grew during the iteration,
                     # start over again
@@ -358,7 +360,7 @@ class Bookkeeper(object):
             return self.descs[obj_key]
         except KeyError:
             if isinstance(pyobj, types.FunctionType):
-                result = description.FunctionDesc(self, pyobj)
+                result = self.newfuncdesc(pyobj)
             elif isinstance(pyobj, (type, types.ClassType)):
                 if pyobj is object:
                     raise Exception("ClassDesc for object not supported")
@@ -402,6 +404,23 @@ class Bookkeeper(object):
                 result = self.getfrozen(pyobj)
             self.descs[obj_key] = result
             return result
+
+    def newfuncdesc(self, pyfunc):
+        name = pyfunc.__name__
+        if hasattr(pyfunc, '_generator_next_method_of_'):
+            from rpython.flowspace.argument import Signature
+            signature = Signature(['entry'])     # haaaaaack
+            defaults = ()
+        else:
+            signature = cpython_code_signature(pyfunc.func_code)
+            defaults = pyfunc.func_defaults
+        # get the specializer based on the tag of the 'pyobj'
+        # (if any), according to the current policy
+        tag = getattr(pyfunc, '_annspecialcase_', None)
+        specializer = self.annotator.policy.get_specializer(tag)
+        if specializer is memo:
+            return description.MemoDesc(self, pyfunc, name, signature, defaults, specializer)
+        return description.FunctionDesc(self, pyfunc, name, signature, defaults, specializer)
 
     def getfrozen(self, pyobj):
         return description.FrozenDesc(self, pyobj)
@@ -550,20 +569,6 @@ class Bookkeeper(object):
             else:
                 emulated = callback
             return self.pbc_call(pbc, args, emulated=emulated)
-
-    def _find_current_op(self, opname=None, arity=None, pos=None, s_type=None):
-        """ Find operation that is currently being annotated. Do some
-        sanity checks to see whether the correct op was found."""
-        # XXX XXX HACK HACK HACK
-        fn, block, i = self.position_key
-        op = block.operations[i]
-        if opname is not None:
-            assert op.opname == opname
-        if arity is not None:
-            assert len(op.args) == arity
-        if pos is not None:
-            assert self.annotator.binding(op.args[pos]) == s_type
-        return op
 
     def whereami(self):
         return self.annotator.whereami(self.position_key)

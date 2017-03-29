@@ -2,11 +2,12 @@ from rpython.translator.backendopt.merge_if_blocks import merge_if_blocks_once
 from rpython.translator.backendopt.merge_if_blocks import merge_if_blocks
 from rpython.translator.backendopt.all import backend_optimizations
 from rpython.translator.translator import TranslationContext, graphof as tgraphof
-from rpython.flowspace.model import Block
+from rpython.flowspace.model import Block, checkgraph
 from rpython.translator.backendopt.removenoops import remove_same_as
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, r_int
 from rpython.annotator.model import SomeChar, SomeUnicodeCodePoint
+from rpython.rlib.objectmodel import CDefinedIntSymbolic
 
 def do_test_merge(fn, testvalues):
     t = TranslationContext()
@@ -225,3 +226,29 @@ def test_replace_exitswitch_by_constant_bug():
     malloc.remove_mallocs(t, t.graphs)
     from rpython.translator import simplify
     simplify.join_blocks(graph)
+
+def test_switch_on_symbolic():
+    symb1 = CDefinedIntSymbolic("1", 1)
+    symb2 = CDefinedIntSymbolic("2", 2)
+    symb3 = CDefinedIntSymbolic("3", 3)
+    def fn(x):
+        res = 0
+        if x == symb1:
+            res += x + 1
+        elif x == symb2:
+            res += x + 2
+        elif x == symb3:
+            res += x + 3
+        res += 1
+        return res
+    t = TranslationContext()
+    a = t.buildannotator()
+    a.build_types(fn, [int])
+    rtyper = t.buildrtyper()
+    rtyper.specialize()
+    graph = t.graphs[0]
+    remove_same_as(graph)
+    res = merge_if_blocks_once(graph)
+    assert not res
+    checkgraph(graph)
+

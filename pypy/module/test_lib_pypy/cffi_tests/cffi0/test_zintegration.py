@@ -5,11 +5,16 @@ from pypy.module.test_lib_pypy.cffi_tests.udir import udir
 
 if sys.platform == 'win32':
     py.test.skip('snippets do not run on win32')
+if sys.version_info < (2, 7):
+    py.test.skip('fails e.g. on a Debian/Ubuntu which patches virtualenv'
+                 ' in a non-2.6-friendly way')
 
 def create_venv(name):
     tmpdir = udir.join(name)
     try:
-        subprocess.check_call(['virtualenv', '--distribute',
+        subprocess.check_call(['virtualenv', 
+            #'--never-download', <= could be added, but causes failures
+            # in random cases on random machines
                                '-p', os.path.abspath(sys.executable),
                                str(tmpdir)])
     except OSError as e:
@@ -144,3 +149,29 @@ class TestZIntegration(object):
         p = snip_setuptools_verify2.C.getpwuid(0)
         assert snip_setuptools_verify2.ffi.string(p.pw_name) == b"root"
         ''')
+
+    def test_set_py_limited_api(self):
+        from cffi.setuptools_ext import _set_py_limited_api
+        try:
+            import setuptools
+        except ImportError as e:
+            py.test.skip(str(e))
+        orig_version = setuptools.__version__
+        expecting_limited_api = not hasattr(sys, 'gettotalrefcount')
+        try:
+            setuptools.__version__ = '26.0.0'
+            from setuptools import Extension
+
+            kwds = _set_py_limited_api(Extension, {})
+            assert kwds.get('py_limited_api', False) == expecting_limited_api
+
+            setuptools.__version__ = '25.0'
+            kwds = _set_py_limited_api(Extension, {})
+            assert kwds.get('py_limited_api', False) == False
+
+            setuptools.__version__ = 'development'
+            kwds = _set_py_limited_api(Extension, {})
+            assert kwds.get('py_limited_api', False) == expecting_limited_api
+
+        finally:
+            setuptools.__version__ = orig_version

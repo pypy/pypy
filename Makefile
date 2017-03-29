@@ -39,5 +39,5 @@ endif
 # runs.  We cannot get their original value either:
 # http://lists.gnu.org/archive/html/help-make/2010-08/msg00106.html
 
-cffi_imports:
-	PYTHONPATH=. ./pypy-c pypy/tool/build_cffi_imports.py
+cffi_imports: pypy-c
+	PYTHONPATH=. ./pypy-c pypy/tool/build_cffi_imports.py || /bin/true

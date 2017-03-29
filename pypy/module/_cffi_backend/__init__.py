@@ -1,8 +1,9 @@
 import sys
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib import rdynload, clibffi
+from rpython.rtyper.lltypesystem import rffi
 
-VERSION = "1.4.1"
+VERSION = "1.10.0"
 
 FFI_DEFAULT_ABI = clibffi.FFI_DEFAULT_ABI
 try:
@@ -45,9 +46,11 @@ class Module(MixedModule):
         '_get_types': 'func._get_types',
         '_get_common_types': 'func._get_common_types',
         'from_buffer': 'func.from_buffer',
+        'gcp': 'func.gcp',
 
         'string': 'func.string',
-        'buffer': 'cbuffer.buffer',
+        'unpack': 'func.unpack',
+        'buffer': 'cbuffer.MiniBuffer',
         'memmove': 'func.memmove',
 
         'get_errno': 'cerrno.get_errno',
@@ -64,6 +67,15 @@ class Module(MixedModule):
 
     if has_stdcall:
         interpleveldefs['FFI_STDCALL'] = 'space.wrap(%d)' % FFI_STDCALL
+
+    def __init__(self, space, *args):
+        MixedModule.__init__(self, space, *args)
+        #
+        if not space.config.objspace.disable_entrypoints:
+            # import 'embedding', which has the side-effect of registering
+            # the 'pypy_init_embedded_cffi_module' entry point
+            from pypy.module._cffi_backend import embedding
+            embedding.glob.space = space
 
 
 def get_dict_rtld_constants():

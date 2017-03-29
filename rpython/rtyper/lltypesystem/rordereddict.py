@@ -5,8 +5,8 @@ from rpython.rtyper.rdict import AbstractDictRepr, AbstractDictIteratorRepr
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib import objectmodel, jit, rgc, types
 from rpython.rlib.signature import signature
-from rpython.rlib.objectmodel import specialize, likely
-from rpython.rlib.debug import ll_assert
+from rpython.rlib.objectmodel import specialize, likely, not_rpython
+from rpython.rtyper.debug import ll_assert
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rtyper import rmodel
 from rpython.rtyper.error import TyperError
@@ -46,20 +46,23 @@ from rpython.rtyper.annlowlevel import llhelper
 @jit.look_inside_iff(lambda d, key, hash, flag: jit.isvirtual(d))
 @jit.oopspec('ordereddict.lookup(d, key, hash, flag)')
 def ll_call_lookup_function(d, key, hash, flag):
-    fun = d.lookup_function_no & FUNC_MASK
-    # This likely() here forces gcc to compile the check for fun == FUNC_BYTE
-    # first.  Otherwise, this is a regular switch and gcc (at least 4.7)
-    # compiles this as a series of checks, with the FUNC_BYTE case last.
-    # It sounds minor, but it is worth 6-7% on a PyPy microbenchmark.
-    if likely(fun == FUNC_BYTE):
-        return ll_dict_lookup(d, key, hash, flag, TYPE_BYTE)
-    elif fun == FUNC_SHORT:
-        return ll_dict_lookup(d, key, hash, flag, TYPE_SHORT)
-    elif IS_64BIT and fun == FUNC_INT:
-        return ll_dict_lookup(d, key, hash, flag, TYPE_INT)
-    elif fun == FUNC_LONG:
-        return ll_dict_lookup(d, key, hash, flag, TYPE_LONG)
-    assert False
+    while True:
+        fun = d.lookup_function_no & FUNC_MASK
+        # This likely() here forces gcc to compile the check for fun==FUNC_BYTE
+        # first.  Otherwise, this is a regular switch and gcc (at least 4.7)
+        # compiles this as a series of checks, with the FUNC_BYTE case last.
+        # It sounds minor, but it is worth 6-7% on a PyPy microbenchmark.
+        if likely(fun == FUNC_BYTE):
+            return ll_dict_lookup(d, key, hash, flag, TYPE_BYTE)
+        elif fun == FUNC_SHORT:
+            return ll_dict_lookup(d, key, hash, flag, TYPE_SHORT)
+        elif IS_64BIT and fun == FUNC_INT:
+            return ll_dict_lookup(d, key, hash, flag, TYPE_INT)
+        elif fun == FUNC_LONG:
+            return ll_dict_lookup(d, key, hash, flag, TYPE_LONG)
+        else:
+            ll_dict_create_initial_index(d)
+            # then, retry
 
 def get_ll_dict(DICTKEY, DICTVALUE, get_custom_eq_hash=None, DICT=None,
                 ll_fasthash_function=None, ll_hash_function=None,
@@ -235,6 +238,7 @@ class OrderedDictRepr(AbstractDictRepr):
             self.setup()
             self.setup_final()
             l_dict = ll_newdict_size(self.DICT, len(dictobj))
+            ll_no_initial_index(l_dict)
             self.dict_cache[key] = l_dict
             r_key = self.key_repr
             if r_key.lowleveltype == llmemory.Address:
@@ -252,16 +256,14 @@ class OrderedDictRepr(AbstractDictRepr):
                 for dictkeycontainer, dictvalue in dictobj._dict.items():
                     llkey = r_key.convert_const(dictkeycontainer.key)
                     llvalue = r_value.convert_const(dictvalue)
-                    _ll_dict_insertclean(l_dict, llkey, llvalue,
-                                         dictkeycontainer.hash)
+                    _ll_dict_insert_no_index(l_dict, llkey, llvalue)
                 return l_dict
 
             else:
                 for dictkey, dictvalue in dictobj.items():
                     llkey = r_key.convert_const(dictkey)
                     llvalue = r_value.convert_const(dictvalue)
-                    _ll_dict_insertclean(l_dict, llkey, llvalue,
-                                         l_dict.keyhash(llkey))
+                    _ll_dict_insert_no_index(l_dict, llkey, llvalue)
                 return l_dict
 
     def rtype_len(self, hop):
@@ -336,11 +338,15 @@ class OrderedDictRepr(AbstractDictRepr):
         return DictIteratorRepr(self, "items").newiter(hop)
 
     def rtype_method_iterkeys_with_hash(self, hop):
-        hop.exception_cannot_occur()
+        v_dic, = hop.inputargs(self)
+        hop.exception_is_here()
+        hop.gendirectcall(ll_ensure_indexes, v_dic)
         return DictIteratorRepr(self, "keys_with_hash").newiter(hop)
 
     def rtype_method_iteritems_with_hash(self, hop):
-        hop.exception_cannot_occur()
+        v_dic, = hop.inputargs(self)
+        hop.exception_is_here()
+        hop.gendirectcall(ll_ensure_indexes, v_dic)
         return DictIteratorRepr(self, "items_with_hash").newiter(hop)
 
     def rtype_method_clear(self, hop):
@@ -401,6 +407,21 @@ class OrderedDictRepr(AbstractDictRepr):
         hop.exception_is_here()
         hop.gendirectcall(ll_dict_delitem_with_hash, v_dict, v_key, v_hash)
 
+    def rtype_method_delitem_if_value_is(self, hop):
+        v_dict, v_key, v_value = hop.inputargs(
+            self, self.key_repr, self.value_repr)
+        hop.exception_cannot_occur()
+        hop.gendirectcall(ll_dict_delitem_if_value_is, v_dict, v_key, v_value)
+
+    def rtype_method_move_to_end(self, hop):
+        v_dict, v_key, v_last = hop.inputargs(
+            self, self.key_repr, lltype.Bool)
+        if not self.custom_eq_hash:
+            hop.has_implicit_exception(KeyError)  # record that we know about it
+        hop.exception_is_here()
+        hop.gendirectcall(ll_dict_move_to_end, v_dict, v_key, v_last)
+
+
 class __extend__(pairtype(OrderedDictRepr, rmodel.Repr)):
 
     def rtype_getitem((r_dict, r_key), hop):
@@ -458,16 +479,29 @@ DICTINDEX_BYTE = lltype.Ptr(lltype.GcArray(rffi.UCHAR))
 
 IS_64BIT = sys.maxint != 2 ** 31 - 1
 
-FUNC_SHIFT = 2
-FUNC_MASK  = 0x03  # two bits
 if IS_64BIT:
-    FUNC_BYTE, FUNC_SHORT, FUNC_INT, FUNC_LONG = range(4)
+    FUNC_SHIFT = 3
+    FUNC_MASK  = 0x07  # three bits
+    FUNC_BYTE, FUNC_SHORT, FUNC_INT, FUNC_LONG, FUNC_MUST_REINDEX = range(5)
 else:
-    FUNC_BYTE, FUNC_SHORT, FUNC_LONG = range(3)
+    FUNC_SHIFT = 2
+    FUNC_MASK  = 0x03  # two bits
+    FUNC_BYTE, FUNC_SHORT, FUNC_LONG, FUNC_MUST_REINDEX = range(4)
 TYPE_BYTE  = rffi.UCHAR
 TYPE_SHORT = rffi.USHORT
 TYPE_INT   = rffi.UINT
 TYPE_LONG  = lltype.Unsigned
+
+def ll_no_initial_index(d):
+    # Used when making new empty dicts, and when translating prebuilt dicts.
+    # Remove the index completely.  A dictionary must always have an
+    # index unless it is freshly created or freshly translated.  Most
+    # dict operations start with ll_call_lookup_function(), which will
+    # recompute the hashes and create the index.
+    ll_assert(d.num_live_items == d.num_ever_used_items, 
+         "ll_no_initial_index(): dict already in use")
+    d.lookup_function_no = FUNC_MUST_REINDEX
+    d.indexes = lltype.nullptr(llmemory.GCREF.TO)
 
 def ll_malloc_indexes_and_choose_lookup(d, n):
     # keep in sync with ll_clear_indexes() below
@@ -508,6 +542,7 @@ def ll_clear_indexes(d, n):
 
 @jit.dont_look_inside
 def ll_call_insert_clean_function(d, hash, i):
+    assert i >= 0
     fun = d.lookup_function_no & FUNC_MASK
     if fun == FUNC_BYTE:
         ll_dict_store_clean(d, hash, i, TYPE_BYTE)
@@ -518,19 +553,25 @@ def ll_call_insert_clean_function(d, hash, i):
     elif fun == FUNC_LONG:
         ll_dict_store_clean(d, hash, i, TYPE_LONG)
     else:
+        # can't be still FUNC_MUST_REINDEX here
+        ll_assert(False, "ll_call_insert_clean_function(): invalid lookup_fun")
         assert False
 
-def ll_call_delete_by_entry_index(d, hash, i):
+def ll_call_delete_by_entry_index(d, hash, i, replace_with):
+    # only called from _ll_dict_del, whose @jit.look_inside_iff
+    # condition should control when we get inside here with the jit
     fun = d.lookup_function_no & FUNC_MASK
     if fun == FUNC_BYTE:
-        ll_dict_delete_by_entry_index(d, hash, i, TYPE_BYTE)
+        ll_dict_delete_by_entry_index(d, hash, i, replace_with, TYPE_BYTE)
     elif fun == FUNC_SHORT:
-        ll_dict_delete_by_entry_index(d, hash, i, TYPE_SHORT)
+        ll_dict_delete_by_entry_index(d, hash, i, replace_with, TYPE_SHORT)
     elif IS_64BIT and fun == FUNC_INT:
-        ll_dict_delete_by_entry_index(d, hash, i, TYPE_INT)
+        ll_dict_delete_by_entry_index(d, hash, i, replace_with, TYPE_INT)
     elif fun == FUNC_LONG:
-        ll_dict_delete_by_entry_index(d, hash, i, TYPE_LONG)
+        ll_dict_delete_by_entry_index(d, hash, i, replace_with, TYPE_LONG)
     else:
+        # can't be still FUNC_MUST_REINDEX here
+        ll_assert(False, "ll_call_delete_by_entry_index(): invalid lookup_fun")
         assert False
 
 def ll_valid_from_flag(entries, i):
@@ -648,15 +689,14 @@ def _ll_dict_rescue(d):
     ll_dict_reindex(d, _ll_len_of_d_indexes(d))
 _ll_dict_rescue._dont_inline_ = True
 
-def _ll_dict_insertclean(d, key, value, hash):
+@not_rpython
+def _ll_dict_insert_no_index(d, key, value):
     # never translated
     ENTRY = lltype.typeOf(d.entries).TO.OF
-    ll_call_insert_clean_function(d, hash, d.num_ever_used_items)
     entry = d.entries[d.num_ever_used_items]
     entry.key = key
     entry.value = value
-    if hasattr(ENTRY, 'f_hash'):
-        entry.f_hash = hash
+    # note that f_hash is left uninitialized in prebuilt dicts
     if hasattr(ENTRY, 'f_valid'):
         entry.f_valid = True
     d.num_ever_used_items += 1
@@ -782,13 +822,21 @@ def ll_dict_delitem(d, key):
     ll_dict_delitem_with_hash(d, key, d.keyhash(key))
 
 def ll_dict_delitem_with_hash(d, key, hash):
-    index = d.lookup_function(d, key, hash, FLAG_DELETE)
+    index = d.lookup_function(d, key, hash, FLAG_LOOKUP)
     if index < 0:
         raise KeyError
-    _ll_dict_del(d, index)
+    _ll_dict_del(d, hash, index)
 
-@jit.look_inside_iff(lambda d, i: jit.isvirtual(d) and jit.isconstant(i))
-def _ll_dict_del(d, index):
+def ll_dict_delitem_if_value_is(d, key, value):
+    hash = d.keyhash(key)
+    index = d.lookup_function(d, key, hash, FLAG_LOOKUP)
+    if index < 0:
+        return
+    if d.entries[index].value != value:
+        return
+    _ll_dict_del(d, hash, index)
+
+def _ll_dict_del_entry(d, index):
     d.entries.mark_deleted(index)
     d.num_live_items -= 1
     # clear the key and the value if they are GC pointers
@@ -799,6 +847,11 @@ def _ll_dict_del(d, index):
         entry.key = lltype.nullptr(ENTRY.key.TO)
     if ENTRIES.must_clear_value:
         entry.value = lltype.nullptr(ENTRY.value.TO)
+
+@jit.look_inside_iff(lambda d, h, i: jit.isvirtual(d) and jit.isconstant(i))
+def _ll_dict_del(d, hash, index):
+    ll_call_delete_by_entry_index(d, hash, index, DELETED)
+    _ll_dict_del_entry(d, index)
 
     if d.num_live_items == 0:
         # Dict is now empty.  Reset these fields.
@@ -811,12 +864,13 @@ def _ll_dict_del(d, index):
         # also possible that there are more dead items immediately behind the
         # last one, we reclaim all the dead items at the end of the ordereditem
         # at the same point.
-        i = d.num_ever_used_items - 2
-        while i >= 0 and not d.entries.valid(i):
+        i = index
+        while True:
             i -= 1
-        j = i + 1
-        assert j >= 0
-        d.num_ever_used_items = j
+            assert i >= 0
+            if d.entries.valid(i):    # must be at least one
+                break
+        d.num_ever_used_items = i + 1
 
     # If the dictionary is at least 87.5% dead items, then consider shrinking
     # it.
@@ -844,6 +898,50 @@ def _ll_dict_resize_to(d, num_extra):
     else:
         ll_dict_reindex(d, new_size)
 
+def ll_ensure_indexes(d):
+    num = d.lookup_function_no
+    if num == FUNC_MUST_REINDEX:
+        ll_dict_create_initial_index(d)
+    else:
+        ll_assert((num & FUNC_MASK) != FUNC_MUST_REINDEX,
+                  "bad combination in lookup_function_no")
+
+def ll_dict_create_initial_index(d):
+    """Create the initial index for a dictionary.  The common case is
+    that 'd' is empty.  The uncommon case is that it is a prebuilt
+    dictionary frozen by translation, in which case we must rehash all
+    entries.  The common case must be seen by the JIT.
+    """
+    if d.num_live_items == 0:
+        ll_malloc_indexes_and_choose_lookup(d, DICT_INITSIZE)
+        d.resize_counter = DICT_INITSIZE * 2
+    else:
+        ll_dict_rehash_after_translation(d)
+
+@jit.dont_look_inside
+def ll_dict_rehash_after_translation(d):
+    assert d.num_live_items == d.num_ever_used_items
+    assert not d.indexes
+    #
+    # recompute all hashes.  Needed if they are stored in d.entries,
+    # but do it anyway: otherwise, e.g. a string-keyed dictionary
+    # won't have a fasthash on its strings if their hash is still
+    # uncomputed.
+    ENTRY = lltype.typeOf(d.entries).TO.OF
+    for i in range(d.num_ever_used_items):
+        assert d.entries.valid(i)
+        d_entry = d.entries[i]
+        h = d.keyhash(d_entry.key)
+        if hasattr(ENTRY, 'f_hash'):
+            d_entry.f_hash = h
+        #else: purely for the side-effect it can have on d_entry.key
+    #
+    # Use the smallest acceptable size for ll_dict_reindex
+    new_size = DICT_INITSIZE
+    while new_size * 2 - d.num_live_items * 3 <= 0:
+        new_size *= 2
+    ll_dict_reindex(d, new_size)
+
 def ll_dict_reindex(d, new_size):
     if bool(d.indexes) and _ll_len_of_d_indexes(d) == new_size:
         ll_clear_indexes(d, new_size)   # hack: we can reuse the same array
@@ -857,12 +955,33 @@ def ll_dict_reindex(d, new_size):
     entries = d.entries
     i = 0
     ibound = d.num_ever_used_items
-    while i < ibound:
-        if entries.valid(i):
-            hash = entries.hash(i)
-            ll_call_insert_clean_function(d, hash, i)
-        i += 1
-    #old_entries.delete() XXXX!
+    #
+    # Write four loops, moving the check for the value of 'fun' out of
+    # the loops.  A small speed-up over ll_call_insert_clean_function().
+    fun = d.lookup_function_no     # == lookup_function_no & FUNC_MASK
+    if fun == FUNC_BYTE:
+        while i < ibound:
+            if entries.valid(i):
+                ll_dict_store_clean(d, entries.hash(i), i, TYPE_BYTE)
+            i += 1
+    elif fun == FUNC_SHORT:
+        while i < ibound:
+            if entries.valid(i):
+                ll_dict_store_clean(d, entries.hash(i), i, TYPE_SHORT)
+            i += 1
+    elif IS_64BIT and fun == FUNC_INT:
+        while i < ibound:
+            if entries.valid(i):
+                ll_dict_store_clean(d, entries.hash(i), i, TYPE_INT)
+            i += 1
+    elif fun == FUNC_LONG:
+        while i < ibound:
+            if entries.valid(i):
+                ll_dict_store_clean(d, entries.hash(i), i, TYPE_LONG)
+            i += 1
+    else:
+        assert False
+
 
 # ------- a port of CPython's dictobject.c's lookdict implementation -------
 PERTURB_SHIFT = 5
@@ -874,7 +993,6 @@ MIN_INDEXES_MINUS_ENTRIES = VALID_OFFSET + 1
 
 FLAG_LOOKUP = 0
 FLAG_STORE = 1
-FLAG_DELETE = 2
 
 @specialize.memo()
 def _ll_ptr_to_array_of(T):
@@ -896,8 +1014,6 @@ def ll_dict_lookup(d, key, hash, store_flag, T):
     if index >= VALID_OFFSET:
         checkingkey = entries[index - VALID_OFFSET].key
         if direct_compare and checkingkey == key:
-            if store_flag == FLAG_DELETE:
-                indexes[i] = rffi.cast(T, DELETED)
             return index - VALID_OFFSET   # found the entry
         if d.keyeq is not None and entries.hash(index - VALID_OFFSET) == hash:
             # correct hash, maybe the key is e.g. a different pointer to
@@ -911,8 +1027,6 @@ def ll_dict_lookup(d, key, hash, store_flag, T):
                     # the compare did major nasty stuff to the dict: start over
                     return ll_dict_lookup(d, key, hash, store_flag, T)
             if found:
-                if store_flag == FLAG_DELETE:
-                    indexes[i] = rffi.cast(T, DELETED)
                 return index - VALID_OFFSET
         deletedslot = -1
     elif index == DELETED:
@@ -941,8 +1055,6 @@ def ll_dict_lookup(d, key, hash, store_flag, T):
         elif index >= VALID_OFFSET:
             checkingkey = entries[index - VALID_OFFSET].key
             if direct_compare and checkingkey == key:
-                if store_flag == FLAG_DELETE:
-                    indexes[i] = rffi.cast(T, DELETED)
                 return index - VALID_OFFSET   # found the entry
             if d.keyeq is not None and entries.hash(index - VALID_OFFSET) == hash:
                 # correct hash, maybe the key is e.g. a different pointer to
@@ -955,8 +1067,6 @@ def ll_dict_lookup(d, key, hash, store_flag, T):
                         # the compare did major nasty stuff to the dict: start over
                         return ll_dict_lookup(d, key, hash, store_flag, T)
                 if found:
-                    if store_flag == FLAG_DELETE:
-                        indexes[i] = rffi.cast(T, DELETED)
                     return index - VALID_OFFSET
         elif deletedslot == -1:
             deletedslot = intmask(i)
@@ -977,7 +1087,11 @@ def ll_dict_store_clean(d, hash, index, T):
         perturb >>= PERTURB_SHIFT
     indexes[i] = rffi.cast(T, index + VALID_OFFSET)
 
-def ll_dict_delete_by_entry_index(d, hash, locate_index, T):
+# the following function is only called from _ll_dict_del, whose
+# @jit.look_inside_iff condition should control when we get inside
+# here with the jit
+@jit.unroll_safe
+def ll_dict_delete_by_entry_index(d, hash, locate_index, replace_with, T):
     # Another simplified version of ll_dict_lookup() which locates a
     # hashtable entry with the given 'index' stored in it, and deletes it.
     # This *should* be safe against evil user-level __eq__/__hash__
@@ -994,7 +1108,7 @@ def ll_dict_delete_by_entry_index(d, hash, locate_index, T):
         i = (i << 2) + i + perturb + 1
         i = i & mask
         perturb >>= PERTURB_SHIFT
-    indexes[i] = rffi.cast(T, DELETED)
+    indexes[i] = rffi.cast(T, replace_with)
 
 # ____________________________________________________________
 #
@@ -1013,10 +1127,11 @@ def _ll_empty_array(DICT):
 def ll_newdict(DICT):
     d = DICT.allocate()
     d.entries = _ll_empty_array(DICT)
-    ll_malloc_indexes_and_choose_lookup(d, DICT_INITSIZE)
+    # Don't allocate an 'indexes' for empty dict.  It seems a typical
+    # program contains tons of empty dicts, so this might be a memory win.
     d.num_live_items = 0
     d.num_ever_used_items = 0
-    d.resize_counter = DICT_INITSIZE * 2
+    ll_no_initial_index(d)
     return d
 OrderedDictRepr.ll_newdict = staticmethod(ll_newdict)
 
@@ -1101,6 +1216,10 @@ def _ll_dictnext(iter):
                 # as soon as we do something like ll_dict_reindex().
                 if index == (dict.lookup_function_no >> FUNC_SHIFT):
                     dict.lookup_function_no += (1 << FUNC_SHIFT)
+                # note that we can't have modified a FUNC_MUST_REINDEX
+                # dict here because such dicts have no invalid entries
+                ll_assert((dict.lookup_function_no & FUNC_MASK) !=
+                      FUNC_MUST_REINDEX, "bad combination in _ll_dictnext")
             index = nextindex
         # clear the reference to the dict and prevent restarts
         iter.dict = lltype.nullptr(lltype.typeOf(iter).TO.dict.TO)
@@ -1146,6 +1265,8 @@ def ll_dict_setdefault(dict, key, default):
         return dict.entries[index].value
 
 def ll_dict_copy(dict):
+    ll_ensure_indexes(dict)
+
     DICT = lltype.typeOf(dict).TO
     newdict = DICT.allocate()
     newdict.entries = DICT.entries.TO.allocate(len(dict.entries))
@@ -1157,18 +1278,8 @@ def ll_dict_copy(dict):
     if hasattr(DICT, 'fnkeyhash'):
         newdict.fnkeyhash = dict.fnkeyhash
 
-    i = 0
-    while i < newdict.num_ever_used_items:
-        d_entry = newdict.entries[i]
-        entry = dict.entries[i]
-        ENTRY = lltype.typeOf(newdict.entries).TO.OF
-        d_entry.key = entry.key
-        if hasattr(ENTRY, 'f_valid'):
-            d_entry.f_valid = entry.f_valid
-        d_entry.value = entry.value
-        if hasattr(ENTRY, 'f_hash'):
-            d_entry.f_hash = entry.f_hash
-        i += 1
+    rgc.ll_arraycopy(dict.entries, newdict.entries, 0, 0,
+                     newdict.num_ever_used_items)
 
     ll_dict_reindex(newdict, _ll_len_of_d_indexes(dict))
     return newdict
@@ -1180,6 +1291,10 @@ def ll_dict_clear(d):
     DICT = lltype.typeOf(d).TO
     old_entries = d.entries
     d.entries = _ll_empty_array(DICT)
+    # note: we can't remove the index here, because it is possible that
+    # crazy Python code calls d.clear() from the method __eq__() called
+    # from ll_dict_lookup(d).  Instead, stick to the rule that once a
+    # dictionary has got an index, it will always have one.
     ll_malloc_indexes_and_choose_lookup(d, DICT_INITSIZE)
     d.num_live_items = 0
     d.num_ever_used_items = 0
@@ -1190,6 +1305,7 @@ ll_dict_clear.oopspec = 'odict.clear(d)'
 def ll_dict_update(dic1, dic2):
     if dic1 == dic2:
         return
+    ll_ensure_indexes(dic2)    # needed for entries.hash() below
     ll_prepare_dict_update(dic1, dic2.num_live_items)
     i = 0
     while i < dic2.num_ever_used_items:
@@ -1216,6 +1332,7 @@ def ll_prepare_dict_update(d, num_extra):
     # the case where dict.update() actually has a lot of collisions.
     # If num_extra is much greater than d.num_live_items the conditional_call
     # will trigger anyway, which is really the goal.
+    ll_ensure_indexes(d)
     x = num_extra - d.num_live_items
     jit.conditional_call(d.resize_counter <= x * 3,
                          _ll_dict_resize_to, d, num_extra)
@@ -1275,6 +1392,7 @@ def _ll_getnextitem(dic):
     if dic.num_live_items == 0:
         raise KeyError
 
+    ll_ensure_indexes(dic)
     entries = dic.entries
 
     # find the last entry.  It's unclear if the loop below is still
@@ -1287,8 +1405,6 @@ def _ll_getnextitem(dic):
             break
         dic.num_ever_used_items -= 1
 
-    # we must remove the precise entry in the hashtable that points to 'i'
-    ll_call_delete_by_entry_index(dic, entries.hash(i), i)
     return i
 
 def ll_dict_popitem(ELEM, dic):
@@ -1297,21 +1413,139 @@ def ll_dict_popitem(ELEM, dic):
     r = lltype.malloc(ELEM.TO)
     r.item0 = recast(ELEM.TO.item0, entry.key)
     r.item1 = recast(ELEM.TO.item1, entry.value)
-    _ll_dict_del(dic, i)
+    _ll_dict_del(dic, dic.entries.hash(i), i)
     return r
 
 def ll_dict_pop(dic, key):
-    index = dic.lookup_function(dic, key, dic.keyhash(key), FLAG_DELETE)
+    hash = dic.keyhash(key)
+    index = dic.lookup_function(dic, key, hash, FLAG_LOOKUP)
     if index < 0:
         raise KeyError
     value = dic.entries[index].value
-    _ll_dict_del(dic, index)
+    _ll_dict_del(dic, hash, index)
     return value
 
 def ll_dict_pop_default(dic, key, dfl):
-    index = dic.lookup_function(dic, key, dic.keyhash(key), FLAG_DELETE)
+    hash = dic.keyhash(key)
+    index = dic.lookup_function(dic, key, hash, FLAG_LOOKUP)
     if index < 0:
         return dfl
     value = dic.entries[index].value
-    _ll_dict_del(dic, index)
+    _ll_dict_del(dic, hash, index)
     return value
+
+def ll_dict_move_to_end(d, key, last):
+    if last:
+        ll_dict_move_to_last(d, key)
+    else:
+        ll_dict_move_to_first(d, key)
+
+def ll_dict_move_to_last(d, key):
+    hash = d.keyhash(key)
+    old_index = d.lookup_function(d, key, hash, FLAG_LOOKUP)
+    if old_index < 0:
+        raise KeyError
+
+    if old_index == d.num_ever_used_items - 1:
+        return
+
+    # remove the entry at the old position
+    old_entry = d.entries[old_index]
+    key = old_entry.key
+    value = old_entry.value
+    _ll_dict_del_entry(d, old_index)
+
+    # note a corner case: it is possible that 'replace_with' is just too
+    # large to fit in the type T used so far for the index.  But in that
+    # case, the list 'd.entries' is full, and the following call to
+    # _ll_dict_setitem_lookup_done() will necessarily reindex the dict.
+    # So in that case, this value of 'replace_with' should be ignored.
+    ll_call_delete_by_entry_index(d, hash, old_index,
+            replace_with = VALID_OFFSET + d.num_ever_used_items)
+    _ll_dict_setitem_lookup_done(d, key, value, hash, -1)
+
+def ll_dict_move_to_first(d, key):
+    # In this function, we might do a bit more than the strict minimum
+    # of walks over parts of the array, trying to keep the code at least
+    # semi-reasonable, while the goal is still amortized constant-time
+    # over many calls.
+
+    # Call ll_dict_remove_deleted_items() first if there are too many
+    # deleted items.  Not a perfect solution, because lookup_function()
+    # might do random things with the dict and create many new deleted
+    # items.  Still, should be fine, because nothing crucially depends
+    # on this: the goal is to avoid the dictionary's list growing
+    # forever.
+    if d.num_live_items < len(d.entries) // 2 - 16:
+        ll_dict_remove_deleted_items(d)
+
+    hash = d.keyhash(key)
+    old_index = d.lookup_function(d, key, hash, FLAG_LOOKUP)
+    if old_index <= 0:
+        if old_index < 0:
+            raise KeyError
+        else:
+            return
+
+    # the goal of the following is to set 'idst' to the number of
+    # deleted entries at the beginning, ensuring 'idst > 0'
+    must_reindex = False
+    if d.entries.valid(0):
+        # the first entry is valid, so we need to make room before.
+        new_allocated = _overallocate_entries_len(d.num_ever_used_items)
+        idst = ((new_allocated - d.num_ever_used_items) * 3) // 4
+        ll_assert(idst > 0, "overallocate did not do enough")
+        newitems = lltype.malloc(lltype.typeOf(d).TO.entries.TO, new_allocated)
+        rgc.ll_arraycopy(d.entries, newitems, 0, idst, d.num_ever_used_items)
+        d.entries = newitems
+        i = 0
+        while i < idst:
+            d.entries.mark_deleted(i)
+            i += 1
+        d.num_ever_used_items += idst
+        old_index += idst
+        must_reindex = True
+        idst -= 1
+    else:
+        idst = d.lookup_function_no >> FUNC_SHIFT
+        # All entries in range(0, idst) are deleted.  Check if more are
+        while not d.entries.valid(idst):
+            idst += 1
+        if idst == old_index:
+            d.lookup_function_no = ((d.lookup_function_no & FUNC_MASK) |
+                                    (old_index << FUNC_SHIFT))
+            return
+        idst -= 1
+        d.lookup_function_no = ((d.lookup_function_no & FUNC_MASK) |
+                                (idst << FUNC_SHIFT))
+
+    # remove the entry at the old position
+    ll_assert(d.entries.valid(old_index),
+              "ll_dict_move_to_first: lost old_index")
+    ENTRY = lltype.typeOf(d.entries).TO.OF
+    old_entry = d.entries[old_index]
+    key = old_entry.key
+    value = old_entry.value
+    if hasattr(ENTRY, 'f_hash'):
+        ll_assert(old_entry.f_hash == hash,
+                  "ll_dict_move_to_first: bad hash")
+    _ll_dict_del_entry(d, old_index)
+
+    # put the entry at its new position
+    ll_assert(not d.entries.valid(idst),
+              "ll_dict_move_to_first: overwriting idst")
+    new_entry = d.entries[idst]
+    new_entry.key = key
+    new_entry.value = value
+    if hasattr(ENTRY, 'f_hash'):
+        new_entry.f_hash = hash
+    if hasattr(ENTRY, 'f_valid'):
+        new_entry.f_valid = True
+    d.num_live_items += 1
+
+    # fix the index
+    if must_reindex:
+        ll_dict_reindex(d, _ll_len_of_d_indexes(d))
+    else:
+        ll_call_delete_by_entry_index(d, hash, old_index,
+                replace_with = VALID_OFFSET + idst)

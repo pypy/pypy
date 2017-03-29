@@ -20,6 +20,22 @@ class TestSimple:
         'G': [],
         }
 
+    def test_depth_first_search(self):
+        # 'D' missing from the list of vertices
+        lst = depth_first_search('A', list('ABCEFG'), self.edges)
+        assert lst == [
+            ('start', 'A'),
+            ('start', 'B'),
+            ('start', 'E'),
+            ('start', 'C'),
+            ('start', 'F'),
+            ('stop', 'F'),
+            ('stop', 'C'),
+            ('stop', 'E'),
+            ('stop', 'B'),
+            ('stop', 'A'),
+        ]
+
     def test_strong_components(self):
         edges = self.edges
         saved = copy_edges(edges)

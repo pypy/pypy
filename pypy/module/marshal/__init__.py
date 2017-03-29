@@ -14,5 +14,5 @@ class Module(MixedModule):
         'dumps'   : 'interp_marshal.dumps',
         'load'    : 'interp_marshal.load',
         'loads'   : 'interp_marshal.loads',
-        'version' : 'space.wrap(interp_marshal.Py_MARSHAL_VERSION)',
+        'version' : 'space.newint(interp_marshal.Py_MARSHAL_VERSION)',
     }

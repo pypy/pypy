@@ -14,12 +14,11 @@ from pypy.module._cffi_backend.ctypeobj import W_CType
 
 
 class W_CTypePtrOrArray(W_CType):
-    _attrs_            = ['ctitem', 'can_cast_anything', 'length']
-    _immutable_fields_ = ['ctitem', 'can_cast_anything', 'length']
+    _attrs_            = ['ctitem', 'accept_str', 'length']
+    _immutable_fields_ = ['ctitem', 'accept_str', 'length']
     length = -1
 
-    def __init__(self, space, size, extra, extra_position, ctitem,
-                 could_cast_anything=True):
+    def __init__(self, space, size, extra, extra_position, ctitem):
         name, name_position = ctitem.insert_name(extra, extra_position)
         W_CType.__init__(self, space, size, name, name_position)
         # this is the "underlying type":
@@ -27,10 +26,11 @@ class W_CTypePtrOrArray(W_CType):
         #  - for arrays, it is the array item type
         #  - for functions, it is the return type
         self.ctitem = ctitem
-        self.can_cast_anything = could_cast_anything and ctitem.cast_anything
-
-    def is_char_ptr_or_array(self):
-        return isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveChar)
+        self.accept_str = (self.is_nonfunc_pointer_or_array and
+                (isinstance(ctitem, ctypevoid.W_CTypeVoid) or
+                 isinstance(ctitem, ctypeprim.W_CTypePrimitiveChar) or
+                 (ctitem.is_primitive_integer and
+                  ctitem.size == rffi.sizeof(lltype.Char))))
 
     def is_unichar_ptr_or_array(self):
         return isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveUniChar)
@@ -54,12 +54,8 @@ class W_CTypePtrOrArray(W_CType):
             value = rffi.cast(rffi.CCHARP, value)
         return cdataobj.W_CData(space, value, self)
 
-    def _convert_array_from_listview(self, cdata, w_ob):
-        if self.ctitem.pack_list_of_items(cdata, w_ob):   # fast path
-            return
-        #
+    def _convert_array_from_listview(self, cdata, lst_w):
         space = self.space
-        lst_w = space.listview(w_ob)
         if self.length >= 0 and len(lst_w) > self.length:
             raise oefmt(space.w_IndexError,
                         "too many initializers for '%s' (got %d)",
@@ -73,18 +69,21 @@ class W_CTypePtrOrArray(W_CType):
         space = self.space
         if (space.isinstance_w(w_ob, space.w_list) or
             space.isinstance_w(w_ob, space.w_tuple)):
-            self._convert_array_from_listview(cdata, w_ob)
-        elif (self.can_cast_anything or
-              (self.ctitem.is_primitive_integer and
-               self.ctitem.size == rffi.sizeof(lltype.Char))):
-            if not space.isinstance_w(w_ob, space.w_str):
+            if self.ctitem.pack_list_of_items(cdata, w_ob):   # fast path
+                pass
+            else:
+                self._convert_array_from_listview(cdata, space.listview(w_ob))
+        elif self.accept_str:
+            if not space.isinstance_w(w_ob, space.w_bytes):
                 raise self._convert_error("str or list or tuple", w_ob)
-            s = space.str_w(w_ob)
+            s = space.bytes_w(w_ob)
             n = len(s)
             if self.length >= 0 and n > self.length:
                 raise oefmt(space.w_IndexError,
                             "initializer string is too long for '%s' (got %d "
                             "characters)", self.name, n)
+            if isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveBool):
+                self._must_be_string_of_zero_or_one(s)
             copy_string_to_raw(llstr(s), cdata, 0, n)
             if n != self.length:
                 cdata[n] = '\x00'
@@ -104,14 +103,21 @@ class W_CTypePtrOrArray(W_CType):
         else:
             raise self._convert_error("list or tuple", w_ob)
 
+    def _must_be_string_of_zero_or_one(self, s):
+        for c in s:
+            if ord(c) > 1:
+                raise oefmt(self.space.w_ValueError,
+                            "an array of _Bool can only contain \\x00 or \\x01")
+
     def string(self, cdataobj, maxlen):
         space = self.space
-        if isinstance(self.ctitem, ctypeprim.W_CTypePrimitive):
+        if (isinstance(self.ctitem, ctypeprim.W_CTypePrimitive) and
+               not isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveBool)):
             with cdataobj as ptr:
                 if not ptr:
                     raise oefmt(space.w_RuntimeError,
-                                "cannot use string() on %s",
-                                space.str_w(cdataobj.repr()))
+                                "cannot use string() on %R",
+                                cdataobj)
                 #
                 from pypy.module._cffi_backend import ctypearray
                 length = maxlen
@@ -124,7 +130,7 @@ class W_CTypePtrOrArray(W_CType):
                         s = rffi.charp2str(ptr)
                     else:
                         s = rffi.charp2strn(ptr, length)
-                    return space.wrap(s)
+                    return space.newbytes(s)
                 #
                 # pointer to a wchar_t: builds and returns a unicode
                 if self.is_unichar_ptr_or_array():
@@ -133,14 +139,17 @@ class W_CTypePtrOrArray(W_CType):
                         u = rffi.wcharp2unicode(cdata)
                     else:
                         u = rffi.wcharp2unicoden(cdata, length)
-                    return space.wrap(u)
+                    return space.newunicode(u)
         #
         return W_CType.string(self, cdataobj, maxlen)
 
 
 class W_CTypePtrBase(W_CTypePtrOrArray):
     # base class for both pointers and pointers-to-functions
-    _attrs_ = []
+    _attrs_ = ['is_void_ptr', 'is_voidchar_ptr']
+    _immutable_fields_ = ['is_void_ptr', 'is_voidchar_ptr']
+    is_void_ptr = False
+    is_voidchar_ptr = False
 
     def convert_to_object(self, cdata):
         ptrdata = rffi.cast(rffi.CCHARPP, cdata)[0]
@@ -157,7 +166,16 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
             else:
                 raise self._convert_error("compatible pointer", w_ob)
         if self is not other:
-            if not (self.can_cast_anything or other.can_cast_anything):
+            if self.is_void_ptr or other.is_void_ptr:
+                pass     # cast from or to 'void *'
+            elif self.is_voidchar_ptr or other.is_voidchar_ptr:
+                space = self.space
+                msg = ("implicit cast from '%s' to '%s' "
+                    "will be forbidden in the future (check that the types "
+                    "are as you expect; use an explicit ffi.cast() if they "
+                    "are correct)" % (other.name, self.name))
+                space.warn(space.newtext(msg), space.w_UserWarning)
+            else:
                 raise self._convert_error("compatible pointer", w_ob)
 
         rffi.cast(rffi.CCHARPP, cdata)[0] = w_ob.unsafe_escaping_ptr()
@@ -168,8 +186,8 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
 
 
 class W_CTypePointer(W_CTypePtrBase):
-    _attrs_ = ['is_file', 'cache_array_type', 'is_void_ptr', '_array_types']
-    _immutable_fields_ = ['is_file', 'cache_array_type?', 'is_void_ptr']
+    _attrs_ = ['is_file', 'cache_array_type', '_array_types']
+    _immutable_fields_ = ['is_file', 'cache_array_type?']
     kind = "pointer"
     cache_array_type = None
     is_nonfunc_pointer_or_array = True
@@ -184,6 +202,8 @@ class W_CTypePointer(W_CTypePtrBase):
         self.is_file = (ctitem.name == "struct _IO_FILE" or
                         ctitem.name == "FILE")
         self.is_void_ptr = isinstance(ctitem, ctypevoid.W_CTypeVoid)
+        self.is_voidchar_ptr = (self.is_void_ptr or
+                           isinstance(ctitem, ctypeprim.W_CTypePrimitiveChar))
         W_CTypePtrBase.__init__(self, space, size, extra, 2, ctitem)
 
     def newp(self, w_init, allocator):
@@ -200,13 +220,16 @@ class W_CTypePointer(W_CTypePtrBase):
             # a W_CDataPtrToStruct object which has a strong reference
             # to a W_CDataNewOwning that really contains the structure.
             #
-            if not space.is_w(w_init, space.w_None):
-                ctitem.force_lazy_struct()
-                if ctitem._with_var_array:
+            varsize_length = -1
+            ctitem.force_lazy_struct()
+            if ctitem._with_var_array:
+                if not space.is_w(w_init, space.w_None):
                     datasize = ctitem.convert_struct_from_object(
                         lltype.nullptr(rffi.CCHARP.TO), w_init, datasize)
+                varsize_length = datasize
             #
-            cdatastruct = allocator.allocate(space, datasize, ctitem)
+            cdatastruct = allocator.allocate(space, datasize, ctitem,
+                                             length=varsize_length)
             ptr = cdatastruct.unsafe_escaping_ptr()
             cdata = cdataobj.W_CDataPtrToStructOrUnion(space, ptr,
                                                        self, cdatastruct)
@@ -264,8 +287,18 @@ class W_CTypePointer(W_CTypePtrBase):
         else:
             return lltype.nullptr(rffi.CCHARP.TO)
 
-    def _prepare_pointer_call_argument(self, w_init, cdata):
+    def _prepare_pointer_call_argument(self, w_init, cdata, keepalives, i):
         space = self.space
+        if self.accept_str and space.isinstance_w(w_init, space.w_bytes):
+            # special case to optimize strings passed to a "char *" argument
+            value = space.bytes_w(w_init)
+            if isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveBool):
+                self._must_be_string_of_zero_or_one(value)
+            keepalives[i] = value
+            buf, buf_flag = rffi.get_nonmovingbuffer_final_null(value)
+            rffi.cast(rffi.CCHARPP, cdata)[0] = buf
+            return ord(buf_flag)    # 4, 5 or 6
+        #
         if (space.isinstance_w(w_init, space.w_list) or
             space.isinstance_w(w_init, space.w_tuple)):
             length = space.int_w(space.len(w_init))
@@ -289,8 +322,8 @@ class W_CTypePointer(W_CTypePtrBase):
         try:
             datasize = ovfcheck(length * itemsize)
         except OverflowError:
-            raise OperationError(space.w_OverflowError,
-                space.wrap("array size would overflow a ssize_t"))
+            raise oefmt(space.w_OverflowError,
+                        "array size would overflow a ssize_t")
         result = lltype.malloc(rffi.CCHARP.TO, datasize,
                                flavor='raw', zero=True)
         try:
@@ -301,17 +334,21 @@ class W_CTypePointer(W_CTypePtrBase):
         rffi.cast(rffi.CCHARPP, cdata)[0] = result
         return 1
 
-    def convert_argument_from_object(self, cdata, w_ob):
+    def convert_argument_from_object(self, cdata, w_ob, keepalives, i):
         from pypy.module._cffi_backend.ctypefunc import set_mustfree_flag
         result = (not isinstance(w_ob, cdataobj.W_CData) and
-                  self._prepare_pointer_call_argument(w_ob, cdata))
+                  self._prepare_pointer_call_argument(w_ob, cdata,
+                                                      keepalives, i))
         if result == 0:
             self.convert_from_object(cdata, w_ob)
         set_mustfree_flag(cdata, result)
         return result
 
     def getcfield(self, attr):
-        return self.ctitem.getcfield(attr)
+        from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion
+        if isinstance(self.ctitem, W_CTypeStructOrUnion):
+            return self.ctitem.getcfield(attr)
+        return W_CType.getcfield(self, attr)
 
     def typeoffsetof_field(self, fieldname, following):
         if following == 0:
@@ -322,13 +359,12 @@ class W_CTypePointer(W_CTypePtrBase):
         space = self.space
         ctitem = self.ctitem
         if ctitem.size < 0:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("pointer to opaque"))
+            raise oefmt(space.w_TypeError, "pointer to opaque")
         try:
             offset = ovfcheck(index * ctitem.size)
         except OverflowError:
-            raise OperationError(space.w_OverflowError,
-                    space.wrap("array offset would overflow a ssize_t"))
+            raise oefmt(space.w_OverflowError,
+                        "array offset would overflow a ssize_t")
         return ctitem, offset
 
     def rawaddressof(self, cdata, offset):
@@ -341,22 +377,22 @@ class W_CTypePointer(W_CTypePtrBase):
             ptr = rffi.ptradd(ptr, offset)
             return cdataobj.W_CData(space, ptr, self)
         else:
-            raise OperationError(space.w_TypeError,
-                    space.wrap("expected a cdata struct/union/array/pointer"
-                               " object"))
+            raise oefmt(space.w_TypeError,
+                        "expected a cdata struct/union/array/pointer object")
 
     def _fget(self, attrchar):
         if attrchar == 'i':     # item
-            return self.space.wrap(self.ctitem)
+            return self.ctitem
         return W_CTypePtrBase._fget(self, attrchar)
 
 # ____________________________________________________________
 
 
-rffi_fdopen = rffi.llexternal("fdopen", [rffi.INT, rffi.CCHARP], rffi.CCHARP,
+FILEP = rffi.COpaquePtr("FILE")
+rffi_fdopen = rffi.llexternal("fdopen", [rffi.INT, rffi.CCHARP], FILEP,
                               save_err=rffi.RFFI_SAVE_ERRNO)
-rffi_setbuf = rffi.llexternal("setbuf", [rffi.CCHARP, rffi.CCHARP], lltype.Void)
-rffi_fclose = rffi.llexternal("fclose", [rffi.CCHARP], rffi.INT)
+rffi_setbuf = rffi.llexternal("setbuf", [FILEP, rffi.CCHARP], lltype.Void)
+rffi_fclose = rffi.llexternal("fclose", [FILEP], rffi.INT)
 
 class CffiFileObj(object):
     _immutable_ = True
@@ -371,15 +407,14 @@ class CffiFileObj(object):
         rffi_fclose(self.llf)
 
 
-def prepare_file_argument(space, fileobj):
-    fileobj.direct_flush()
-    if fileobj.cffi_fileobj is None:
-        fd = fileobj.direct_fileno()
+def prepare_file_argument(space, w_fileobj):
+    w_fileobj.direct_flush()
+    if w_fileobj.cffi_fileobj is None:
+        fd = w_fileobj.direct_fileno()
         if fd < 0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("file has no OS file descriptor"))
+            raise oefmt(space.w_ValueError, "file has no OS file descriptor")
         try:
-            fileobj.cffi_fileobj = CffiFileObj(fd, fileobj.mode)
-        except OSError, e:
+            w_fileobj.cffi_fileobj = CffiFileObj(fd, w_fileobj.mode)
+        except OSError as e:
             raise wrap_oserror(space, e)
-    return fileobj.cffi_fileobj.llf
+    return rffi.cast(rffi.CCHARP, w_fileobj.cffi_fileobj.llf)

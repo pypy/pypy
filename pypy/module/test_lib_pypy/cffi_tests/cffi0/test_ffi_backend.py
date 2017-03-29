@@ -193,9 +193,12 @@ class TestBitfield:
         setattr(s, name, value)
         assert getattr(s, name) == value
         raw1 = ffi.buffer(s)[:]
+        buff1 = ffi.buffer(s)
         t = lib.try_with_value(fnames.index(name), value)
         raw2 = ffi.buffer(t, len(raw1))[:]
         assert raw1 == raw2
+        buff2 = ffi.buffer(t, len(buff1))
+        assert buff1 == buff2
 
     def test_bitfield_basic(self):
         self.check("int a; int b:9; int c:20; int y;", 8, 4, 12)
@@ -283,10 +286,20 @@ class TestBitfield:
         ffi.cdef("struct foo_s { int x; int a[]; };")
         p = ffi.new("struct foo_s *", [100, [200, 300, 400]])
         assert p.x == 100
-        assert ffi.typeof(p.a) is ffi.typeof("int *")   # no length available
+        assert ffi.typeof(p.a) is ffi.typeof("int[]")
+        assert len(p.a) == 3                            # length recorded
         assert p.a[0] == 200
         assert p.a[1] == 300
         assert p.a[2] == 400
+        assert list(p.a) == [200, 300, 400]
+        q = ffi.cast("struct foo_s *", p)
+        assert q.x == 100
+        assert ffi.typeof(q.a) is ffi.typeof("int *")   # no length recorded
+        py.test.raises(TypeError, len, q.a)
+        assert q.a[0] == 200
+        assert q.a[1] == 300
+        assert q.a[2] == 400
+        py.test.raises(TypeError, list, q.a)
 
     @pytest.mark.skipif("sys.platform != 'win32'")
     def test_getwinerror(self):
@@ -420,3 +433,79 @@ class TestBitfield:
             ]:
             x = ffi.sizeof(name)
             assert 1 <= x <= 16
+
+    def test_ffi_def_extern(self):
+        ffi = FFI()
+        py.test.raises(ValueError, ffi.def_extern)
+
+    def test_introspect_typedef(self):
+        ffi = FFI()
+        ffi.cdef("typedef int foo_t;")
+        assert ffi.list_types() == (['foo_t'], [], [])
+        assert ffi.typeof('foo_t').kind == 'primitive'
+        assert ffi.typeof('foo_t').cname == 'int'
+        #
+        ffi.cdef("typedef signed char a_t, c_t, g_t, b_t;")
+        assert ffi.list_types() == (['a_t', 'b_t', 'c_t', 'foo_t', 'g_t'],
+                                    [], [])
+
+    def test_introspect_struct(self):
+        ffi = FFI()
+        ffi.cdef("struct foo_s { int a; };")
+        assert ffi.list_types() == ([], ['foo_s'], [])
+        assert ffi.typeof('struct foo_s').kind == 'struct'
+        assert ffi.typeof('struct foo_s').cname == 'struct foo_s'
+
+    def test_introspect_union(self):
+        ffi = FFI()
+        ffi.cdef("union foo_s { int a; };")
+        assert ffi.list_types() == ([], [], ['foo_s'])
+        assert ffi.typeof('union foo_s').kind == 'union'
+        assert ffi.typeof('union foo_s').cname == 'union foo_s'
+
+    def test_introspect_struct_and_typedef(self):
+        ffi = FFI()
+        ffi.cdef("typedef struct { int a; } foo_t;")
+        assert ffi.list_types() == (['foo_t'], [], [])
+        assert ffi.typeof('foo_t').kind == 'struct'
+        assert ffi.typeof('foo_t').cname == 'foo_t'
+
+    def test_introspect_included_type(self):
+        ffi1 = FFI()
+        ffi2 = FFI()
+        ffi1.cdef("typedef signed char schar_t; struct sint_t { int x; };")
+        ffi2.include(ffi1)
+        assert ffi1.list_types() == ffi2.list_types() == (
+            ['schar_t'], ['sint_t'], [])
+
+    def test_introspect_order(self):
+        ffi = FFI()
+        ffi.cdef("union CFFIaaa { int a; }; typedef struct CFFIccc { int a; } CFFIb;")
+        ffi.cdef("union CFFIg   { int a; }; typedef struct CFFIcc  { int a; } CFFIbbb;")
+        ffi.cdef("union CFFIaa  { int a; }; typedef struct CFFIa   { int a; } CFFIbb;")
+        assert ffi.list_types() == (['CFFIb', 'CFFIbb', 'CFFIbbb'],
+                                    ['CFFIa', 'CFFIcc', 'CFFIccc'],
+                                    ['CFFIaa', 'CFFIaaa', 'CFFIg'])
+
+    def test_unpack(self):
+        ffi = FFI()
+        p = ffi.new("char[]", b"abc\x00def")
+        assert ffi.unpack(p+1, 7) == b"bc\x00def\x00"
+        p = ffi.new("int[]", [-123456789])
+        assert ffi.unpack(p, 1) == [-123456789]
+
+    def test_negative_array_size(self):
+        ffi = FFI()
+        py.test.raises(ValueError, ffi.cast, "int[-5]", 0)
+
+    def test_cannot_instantiate_manually(self):
+        ffi = FFI()
+        ct = type(ffi.typeof("void *"))
+        py.test.raises(TypeError, ct)
+        py.test.raises(TypeError, ct, ffi.NULL)
+        for cd in [type(ffi.cast("void *", 0)),
+                   type(ffi.new("char[]", 3)),
+                   type(ffi.gc(ffi.NULL, lambda x: None))]:
+            py.test.raises(TypeError, cd)
+            py.test.raises(TypeError, cd, ffi.NULL)
+            py.test.raises(TypeError, cd, ffi.typeof("void *"))

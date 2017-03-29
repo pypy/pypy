@@ -1,9 +1,13 @@
+from pypy.interpreter.function import Function
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-from pypy.interpreter.function import Function, Method
+from pypy.module.cpyext.classobject import (
+    PyClass_Check, PyClass_New, PyInstance_Check, PyInstance_New,
+    PyInstance_NewRaw, _PyInstance_Lookup)
+from pypy.module.cpyext.object import PyObject_GetAttr
 
 class TestClassObject(BaseApiTest):
-    def test_newinstance(self, space, api):
+    def test_newinstance(self, space):
         w_class = space.appexec([], """():
             class C:
                 x = None
@@ -14,24 +18,23 @@ class TestClassObject(BaseApiTest):
             return C
         """)
 
-        assert api.PyClass_Check(w_class)
+        assert PyClass_Check(space, w_class)
 
-        w_instance = api.PyInstance_NewRaw(w_class, None)
-        assert api.PyInstance_Check(w_instance)
+        w_instance = PyInstance_NewRaw(space, w_class, None)
+        assert PyInstance_Check(space, w_instance)
         assert space.getattr(w_instance, space.wrap('x')) is space.w_None
 
-        w_instance = api.PyInstance_NewRaw(w_class, space.wrap(dict(a=3)))
+        w_instance = PyInstance_NewRaw(space, w_class, space.wrap(dict(a=3)))
         assert space.getattr(w_instance, space.wrap('x')) is space.w_None
         assert space.unwrap(space.getattr(w_instance, space.wrap('a'))) == 3
 
-        w_instance = api.PyInstance_New(w_class,
+        w_instance = PyInstance_New(space, w_class,
                                         space.wrap((3,)), space.wrap(dict(y=2)))
         assert space.unwrap(space.getattr(w_instance, space.wrap('x'))) == 1
         assert space.unwrap(space.getattr(w_instance, space.wrap('y'))) == 2
         assert space.unwrap(space.getattr(w_instance, space.wrap('args'))) == (3,)
-        
 
-    def test_lookup(self, space, api):
+    def test_lookup(self, space):
         w_instance = space.appexec([], """():
             class C:
                 def __init__(self):
@@ -40,25 +43,26 @@ class TestClassObject(BaseApiTest):
             return C()
         """)
 
-        assert api.PyInstance_Check(w_instance)
-        assert api.PyObject_GetAttr(w_instance, space.wrap('x')) is space.w_None
-        assert api._PyInstance_Lookup(w_instance, space.wrap('x')) is space.w_None
-        assert api._PyInstance_Lookup(w_instance, space.wrap('y')) is None
-        assert not api.PyErr_Occurred()
+        assert PyInstance_Check(space, w_instance)
+        assert PyObject_GetAttr(space, w_instance, space.wrap('x')) is space.w_None
+        assert _PyInstance_Lookup(space, w_instance, space.wrap('x')) is space.w_None
+        assert _PyInstance_Lookup(space, w_instance, space.wrap('y')) is None
 
         # getattr returns a bound method
-        assert not isinstance(api.PyObject_GetAttr(w_instance, space.wrap('f')), Function)
+        assert not isinstance(
+            PyObject_GetAttr(space, w_instance, space.wrap('f')), Function)
         # _PyInstance_Lookup returns the raw descriptor
-        assert isinstance(api._PyInstance_Lookup(w_instance, space.wrap('f')), Function)
+        assert isinstance(
+            _PyInstance_Lookup(space, w_instance, space.wrap('f')), Function)
 
-    def test_pyclass_new(self, space, api):
+    def test_pyclass_new(self, space):
         w_bases = space.newtuple([])
         w_dict = space.newdict()
         w_name = space.wrap("C")
-        w_class = api.PyClass_New(w_bases, w_dict, w_name)
+        w_class = PyClass_New(space, w_bases, w_dict, w_name)
         assert not space.isinstance_w(w_class, space.w_type)
         w_instance = space.call_function(w_class)
-        assert api.PyInstance_Check(w_instance)
+        assert PyInstance_Check(space, w_instance)
         assert space.is_true(space.call_method(space.builtin, "isinstance",
                                                w_instance, w_class))
 
@@ -68,7 +72,20 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             ("get_classtype", "METH_NOARGS",
              """
                  Py_INCREF(&PyClass_Type);
-                 return &PyClass_Type;
+                 return (PyObject*)&PyClass_Type;
              """)])
-        class C: pass
+        class C:
+            pass
         assert module.get_classtype() is type(C)
+
+    def test_pyclass_new_no_bases(self):
+        module = self.import_extension('foo', [
+            ("new_foo", "METH_O",
+             """
+                 return PyClass_New(NULL, PyDict_New(), args);
+             """)])
+        FooClass = module.new_foo("FooClass")
+        class Cls1:
+            pass
+        assert type(FooClass) is type(Cls1)
+        assert FooClass.__bases__ == Cls1.__bases__

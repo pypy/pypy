@@ -1,11 +1,17 @@
 #include <stdlib.h>
 
+#ifndef Py_PYMEM_H
+#define Py_PYMEM_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define PyMem_MALLOC(n)		malloc((n) ? (n) : 1)
 #define PyMem_REALLOC(p, n)	realloc((p), (n) ? (n) : 1)
 #define PyMem_FREE		free
 
-#define PyMem_Malloc PyMem_MALLOC
+PyAPI_FUNC(void *) PyMem_Malloc(size_t);
 #define PyMem_Free  PyMem_FREE
 #define PyMem_Realloc  PyMem_REALLOC
 
@@ -44,3 +50,28 @@
  */
 #define PyMem_Del               PyMem_Free
 #define PyMem_DEL               PyMem_FREE
+
+
+/* From CPython 3.6, with a different goal.  _PyTraceMalloc_Track()
+ * is equivalent to __pypy__.add_memory_pressure(size); it works with
+ * or without the GIL.  _PyTraceMalloc_Untrack() is an empty stub.
+ * You can check if these functions are available by using:
+ *
+ *    #if defined(PYPY_TRACEMALLOC) || \
+ *         (PY_VERSION_HEX >= 0x03060000 && !defined(Py_LIMITED_API))
+ */
+#define PYPY_TRACEMALLOC        1
+
+typedef unsigned int _PyTraceMalloc_domain_t;
+
+PyAPI_FUNC(int) _PyTraceMalloc_Track(_PyTraceMalloc_domain_t domain,
+                                     uintptr_t ptr, size_t size);
+PyAPI_FUNC(int) _PyTraceMalloc_Untrack(_PyTraceMalloc_domain_t domain,
+                                       uintptr_t ptr);
+
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* !Py_PYMEM_H */

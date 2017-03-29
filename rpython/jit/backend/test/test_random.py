@@ -11,11 +11,9 @@ from rpython.jit.metainterp.resoperation import InputArgFloat
 from rpython.jit.metainterp.executor import _execute_arglist, wrap_constant
 from rpython.jit.metainterp.resoperation import opname
 from rpython.jit.codewriter import longlong
-from rpython.rtyper.lltypesystem import lltype, rstr
+from rpython.rtyper.lltypesystem import lltype, llmemory, rstr
 from rpython.rtyper import rclass
 
-class PleaseRewriteMe(Exception):
-    pass
 
 class DummyLoop(object):
     def __init__(self, subops):
@@ -26,6 +24,41 @@ class FakeMetaInterp(object):
     
     def execute_raised(self, exc, constant=False):
         self._got_exc = exc
+
+
+def getint(v):
+    if isinstance(v, (ConstInt, InputArgInt)):
+        return v.getint()
+    else:
+        return v._example_int
+
+def getfloatstorage(v):
+    if isinstance(v, (ConstFloat, InputArgFloat)):
+        return v.getfloatstorage()
+    else:
+        return v._example_float
+
+def getfloat(v):
+    return longlong.getrealfloat(getfloatstorage(v))
+
+def getref_base(v):
+    if isinstance(v, (ConstPtr, InputArgRef)):
+        return v.getref_base()
+    else:
+        return v._example_ref
+
+def getref(PTR, v):
+    return lltype.cast_opaque_ptr(PTR, getref_base(v))
+
+def constbox(v):
+    if v.type == INT:
+        return ConstInt(getint(v))
+    if v.type == FLOAT:
+        return ConstFloat(getfloatstorage(v))
+    if v.type == REF:
+        return ConstPtr(getref_base(v))
+    assert 0, v.type
+
 
 class OperationBuilder(object):
     def __init__(self, cpu, loop, vars):
@@ -57,19 +90,21 @@ class OperationBuilder(object):
     def do(self, opnum, argboxes, descr=None):
         self.fakemetainterp._got_exc = None
         op = ResOperation(opnum, argboxes, descr)
-        if opnum != rop.ZERO_PTR_FIELD:
-            result = _execute_arglist(self.cpu, self.fakemetainterp,
-                                      opnum, argboxes, descr)
-            if result is not None:
-                c_result = wrap_constant(result)
-                op.copy_value_from(c_result)
-        else:
-            import ctypes
-            addr = self.cpu.cast_gcref_to_int(argboxes[0].getref_base())
-            offset = argboxes[1].getint()
-            assert (offset % ctypes.sizeof(ctypes.c_long)) == 0
-            ptr = ctypes.cast(addr, ctypes.POINTER(ctypes.c_long))
-            ptr[offset / ctypes.sizeof(ctypes.c_long)] = 0
+        argboxes = map(constbox, argboxes)
+        result = _execute_arglist(self.cpu, self.fakemetainterp,
+                                  opnum, argboxes, descr)
+        if result is not None:
+            if lltype.typeOf(result) == lltype.Signed:
+                op._example_int = result
+            elif isinstance(result, bool):
+                op._example_int = int(result)
+            elif lltype.typeOf(result) == longlong.FLOATSTORAGE:
+                op._example_float = result
+            elif isinstance(result, float):
+                op._example_float = longlong.getfloatstorage(result)
+            else:
+                assert lltype.typeOf(result) == llmemory.GCREF
+                op._example_ref = result
         self.loop.operations.append(op)
         return op
 
@@ -109,7 +144,7 @@ class OperationBuilder(object):
             if v in names:
                 args.append(names[v])
             elif isinstance(v, ConstPtr):
-                assert not v.getref_base() # otherwise should be in the names
+                assert not getref_base(v) # otherwise should be in the names
                 args.append('ConstPtr(lltype.nullptr(llmemory.GCREF.TO))')
             elif isinstance(v, ConstFloat):
                 args.append('ConstFloat(longlong.getfloatstorage(%r))'
@@ -206,10 +241,10 @@ class OperationBuilder(object):
         #
         def writevar(v, nameprefix, init=''):
             if nameprefix == 'const_ptr':
-                if not v.getref_base():
+                if not getref_base(v):
                     return 'lltype.nullptr(llmemory.GCREF.TO)'
-                TYPE = v.getref_base()._obj.ORIGTYPE
-                cont = lltype.cast_opaque_ptr(TYPE, v.getref_base())
+                TYPE = getref_base(v)._obj.ORIGTYPE
+                cont = lltype.cast_opaque_ptr(TYPE, getref_base(v))
                 if TYPE.TO._is_varsize():
                     if isinstance(TYPE.TO, lltype.GcStruct):
                         lgt = len(cont.chars)
@@ -260,9 +295,9 @@ class OperationBuilder(object):
             for i, v in enumerate(self.loop.inputargs):
                 assert not isinstance(v, Const)
                 if v.type == FLOAT:
-                    vals.append("longlong.getfloatstorage(%r)" % v.getfloat())
+                    vals.append("longlong.getfloatstorage(%r)" % getfloat(v))
                 else:
-                    vals.append("%r" % v.getint())
+                    vals.append("%r" % getint(v))
             print >>s, '    loop_args = [%s]' % ", ".join(vals)
         print >>s, '    frame = cpu.execute_token(looptoken, *loop_args)'
         if self.should_fail_by is None:
@@ -272,10 +307,10 @@ class OperationBuilder(object):
         for i, v in enumerate(fail_args):
             if v.type == FLOAT:
                 print >>s, ('    assert longlong.getrealfloat('
-                    'cpu.get_float_value(frame, %d)) == %r' % (i, v.getfloatstorage()))
+                    'cpu.get_float_value(frame, %d)) == %r' % (i, getfloatstorage(v)))
             else:
                 print >>s, ('    assert cpu.get_int_value(frame, %d) == %d'
-                            % (i, v.getint()))
+                            % (i, getint(v)))
         self.names = names
         s.flush()
 
@@ -303,7 +338,7 @@ class AbstractOperation(object):
                 builder.intvars.append(v_result)
                 boolres = self.boolres
                 if boolres == 'sometimes':
-                    boolres = v_result.getint() in [0, 1]
+                    boolres = getint(v_result) in [0, 1]
                 if boolres:
                     builder.boolvars.append(v_result)
             elif v_result.type == FLOAT:
@@ -354,10 +389,10 @@ class BinaryOperation(AbstractOperation):
             v_second = ConstInt((value & self.and_mask) | self.or_mask)
         else:
             v = r.choice(builder.intvars)
-            v_value = v.getint()
+            v_value = getint(v)
             if (v_value & self.and_mask) != v_value:
                 v = builder.do(rop.INT_AND, [v, ConstInt(self.and_mask)])
-            v_value = v.getint()
+            v_value = getint(v)
             if (v_value | self.or_mask) != v_value:
                 v = builder.do(rop.INT_OR, [v, ConstInt(self.or_mask)])
             v_second = v
@@ -403,9 +438,9 @@ class BinaryFloatOperation(AbstractFloatOperation):
             v_second = ConstFloat(r.random_float_storage())
         else:
             v_second = r.choice(builder.floatvars)
-        if abs(v_first.getfloat()) > 1E100 or abs(v_second.getfloat()) > 1E100:
+        if abs(getfloat(v_first)) > 1E100 or abs(getfloat(v_second)) > 1E100:
             raise CannotProduceOperation     # avoid infinities
-        if abs(v_second.getfloat()) < 1E-100:
+        if abs(getfloat(v_second)) < 1E-100:
             raise CannotProduceOperation     # e.g. division by zero error
         self.put(builder, [v_first, v_second])
 
@@ -440,7 +475,7 @@ class CastFloatToIntOperation(AbstractFloatOperation):
         if not builder.floatvars:
             raise CannotProduceOperation
         box = r.choice(builder.floatvars)
-        if not (-sys.maxint-1 <= box.getfloat() <= sys.maxint):
+        if not (-sys.maxint-1 <= getfloat(box) <= sys.maxint):
             raise CannotProduceOperation      # would give an overflow
         self.put(builder, [box])
 
@@ -448,8 +483,8 @@ class GuardOperation(AbstractOperation):
     def gen_guard(self, builder, r):
         v = builder.get_bool_var(r)
         op = ResOperation(self.opnum, [v])
-        passing = ((self.opnum == rop.GUARD_TRUE and v.getint()) or
-                   (self.opnum == rop.GUARD_FALSE and not v.getint()))
+        passing = ((self.opnum == rop.GUARD_TRUE and getint(v)) or
+                   (self.opnum == rop.GUARD_FALSE and not getint(v)))
         return op, passing
 
     def produce_into(self, builder, r):
@@ -467,8 +502,8 @@ class GuardPtrOperation(GuardOperation):
             raise CannotProduceOperation
         box = r.choice(builder.ptrvars)[0]
         op = ResOperation(self.opnum, [box])
-        passing = ((self.opnum == rop.GUARD_NONNULL and box.getref_base()) or
-                   (self.opnum == rop.GUARD_ISNULL and not box.getref_base()))
+        passing = ((self.opnum == rop.GUARD_NONNULL and getref_base(box)) or
+                   (self.opnum == rop.GUARD_ISNULL and not getref_base(box)))
         return op, passing
 
 class GuardValueOperation(GuardOperation):
@@ -478,14 +513,14 @@ class GuardValueOperation(GuardOperation):
             other = r.choice(builder.intvars)
         else:
             if r.random() < 0.75:
-                value = v.getint()
+                value = getint(v)
             elif r.random() < 0.5:
-                value = v.getint() ^ 1
+                value = getint(v) ^ 1
             else:
                 value = r.random_integer()
             other = ConstInt(value)
         op = ResOperation(self.opnum, [v, other])
-        return op, (v.getint() == other.getint())
+        return op, (getint(v) == getint(other))
 
 # ____________________________________________________________
 
@@ -497,6 +532,7 @@ for _op in [rop.INT_ADD,
             rop.INT_AND,
             rop.INT_OR,
             rop.INT_XOR,
+            rop.UINT_MUL_HIGH,
             ]:
     OPERATIONS.append(BinaryOperation(_op))
 
@@ -513,8 +549,8 @@ for _op in [rop.INT_LT,
             ]:
     OPERATIONS.append(BinaryOperation(_op, boolres=True))
 
-OPERATIONS.append(BinaryOperation(rop.INT_FLOORDIV, ~3, 2))
-OPERATIONS.append(BinaryOperation(rop.INT_MOD, ~3, 2))
+#OPERATIONS.append(BinaryOperation(rop.INT_FLOORDIV, ~3, 2))
+#OPERATIONS.append(BinaryOperation(rop.INT_MOD, ~3, 2))
 OPERATIONS.append(BinaryOperation(rop.INT_RSHIFT, LONG_BIT-1))
 OPERATIONS.append(BinaryOperation(rop.INT_LSHIFT, LONG_BIT-1))
 OPERATIONS.append(BinaryOperation(rop.UINT_RSHIFT, LONG_BIT-1))
@@ -683,7 +719,7 @@ class RandomLoop(object):
         assert not hasattr(loop, '_targettoken')
         for i in range(position):
             op = loop.operations[i]
-            if (not op.has_no_side_effect()
+            if (not rop.has_no_side_effect(op.opnum)
                     or op.type not in (INT, FLOAT)):
                 position = i
                 break       # cannot move the LABEL later
@@ -736,9 +772,9 @@ class RandomLoop(object):
         self.expected = {}
         for v in endvars:
             if v.type == INT:
-                self.expected[v] = v.getint()
+                self.expected[v] = getint(v)
             elif v.type == FLOAT:
-                self.expected[v] = v.getfloatstorage()
+                self.expected[v] = getfloatstorage(v)
             else:
                 assert 0, v.type
 
@@ -750,7 +786,7 @@ class RandomLoop(object):
             args = []
             for box in self.startvars:
                 if box not in self.loop.inputargs:
-                    box = box.constbox()
+                    box = constbox(box)
                 args.append(box)
             self.cpu.compile_loop(self.loop.inputargs,
                                   [ResOperation(rop.JUMP, args,
@@ -768,7 +804,7 @@ class RandomLoop(object):
 
     def clear_state(self):
         for v, S, fields in self.prebuilt_ptr_consts:
-            container = v.getref_base()._obj.container
+            container = getref_base(v)._obj.container
             for name, value in fields.items():
                 if isinstance(name, str):
                     setattr(container, name, value)
@@ -789,9 +825,9 @@ class RandomLoop(object):
         arguments = []
         for box in self.loop.inputargs:
             if box.type == INT:
-                arguments.append(box.getint())
+                arguments.append(getint(box))
             elif box.type == FLOAT:
-                arguments.append(box.getfloatstorage())
+                arguments.append(getfloatstorage(box))
             else:
                 assert 0, box.type
         deadframe = cpu.execute_token(self.runjitcelltoken(), *arguments)
@@ -803,7 +839,7 @@ class RandomLoop(object):
             if v not in self.expected:
                 assert v.getopnum() == rop.SAME_AS_I   # special case
                 assert isinstance(v.getarg(0), ConstInt)
-                self.expected[v] = v.getarg(0).getint()
+                self.expected[v] = getint(v.getarg(0))
             if v.type == FLOAT:
                 value = cpu.get_float_value(deadframe, i)
             else:
@@ -815,7 +851,7 @@ class RandomLoop(object):
                 )
         exc = cpu.grab_exc_value(deadframe)
         if (self.guard_op is not None and
-            self.guard_op.is_guard_exception()):
+            rop.is_guard_exception(self.guard_op.getopnum())):
             if self.guard_op.getopnum() == rop.GUARD_NO_EXCEPTION:
                 do_assert(exc,
                           "grab_exc_value() should not be %r" % (exc,))
@@ -848,7 +884,7 @@ class RandomLoop(object):
         # generate the branch: a sequence of operations that ends in a FINISH
         subloop = DummyLoop([])
         self.subloops.append(subloop)   # keep around for debugging
-        if guard_op.is_guard_exception():
+        if rop.is_guard_exception(guard_op.getopnum()):
             subloop.operations.append(exc_handling(guard_op))
         bridge_builder = self.builder.fork(self.builder.cpu, subloop,
                                            op.getfailargs()[:])
@@ -884,9 +920,9 @@ class RandomLoop(object):
             args = []
             for x in subset:
                 if x.type == INT:
-                    args.append(InputArgInt(x.getint()))
+                    args.append(InputArgInt(getint(x)))
                 elif x.type == FLOAT:
-                    args.append(InputArgFloat(x.getfloatstorage()))
+                    args.append(InputArgFloat(getfloatstorage(x)))
                 else:
                     assert 0, x.type
             rl = RandomLoop(self.builder.cpu, self.builder.fork,

@@ -1,11 +1,12 @@
 import os
 import sys
 from rpython.annotator import model as annmodel
+from rpython.rlib._os_support import _WIN32, StringTraits, UnicodeTraits
 from rpython.rlib.objectmodel import enforceargs
+# importing rposix here creates a cycle on Windows
 from rpython.rtyper.controllerentry import Controller
 from rpython.rtyper.extfunc import register_external
 from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.rtyper.module.support import _WIN32, StringTraits, UnicodeTraits
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 str0 = annmodel.s_Str0
@@ -200,6 +201,8 @@ def r_unsetenv(name):
     # default implementation for platforms without a real unsetenv()
     r_putenv(name, '')
 
+REAL_UNSETENV = False
+
 if hasattr(__import__(os.name), 'unsetenv'):
     os_unsetenv = rffi.llexternal('unsetenv', [rffi.CCHARP], rffi.INT,
                                   save_err=rffi.RFFI_SAVE_ERRNO)
@@ -221,3 +224,4 @@ if hasattr(__import__(os.name), 'unsetenv'):
     register_external(r_unsetenv, [str0], annmodel.s_None,
                       export_name='ll_os.ll_os_unsetenv',
                       llimpl=unsetenv_llimpl)
+    REAL_UNSETENV = True

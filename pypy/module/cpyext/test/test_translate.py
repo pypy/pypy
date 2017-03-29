@@ -1,6 +1,6 @@
 from rpython.translator.c.test.test_genc import compile
 import pypy.module.cpyext.api
-from pypy.module.cpyext.api import cpython_api
+from pypy.module.cpyext.api import slot_function
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.objectmodel import specialize
@@ -11,15 +11,15 @@ def test_llhelper(monkeypatch):
     FT = lltype.FuncType([], lltype.Signed)
     FTPTR = lltype.Ptr(FT)
 
-    def make_wrapper(space, func, gil=None):
+    def make_wrapper(self, space):
         def wrapper():
-            return func(space)
+            return self.callable(space)
         return wrapper
-    monkeypatch.setattr(pypy.module.cpyext.api, 'make_wrapper', make_wrapper)
+    monkeypatch.setattr(pypy.module.cpyext.api.ApiFunction, '_make_wrapper', make_wrapper)
 
     @specialize.memo()
     def get_tp_function(space, typedef):
-        @cpython_api([], lltype.Signed, error=-1, external=False)
+        @slot_function([], lltype.Signed, error=-1)
         def slot_tp_function(space):
             return typedef.value
 

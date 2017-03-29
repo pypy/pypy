@@ -13,7 +13,7 @@ class AppTestTraceBackAttributes:
         # XXX why is this called newstring?
         import sys
         def f():
-            raise TypeError, "hello"
+            raise TypeError("hello")
 
         def g():
             f()
@@ -23,7 +23,7 @@ class AppTestTraceBackAttributes:
         except:
             typ,val,tb = sys.exc_info()
         else:
-            raise AssertionError, "should have raised"
+            raise AssertionError("should have raised")
         assert hasattr(tb, 'tb_frame')
         assert hasattr(tb, 'tb_lasti')
         assert hasattr(tb, 'tb_lineno')
@@ -127,10 +127,7 @@ class TestTypeDef:
                         """ % (slots, methodname, checks[0], checks[1],
                                checks[2], checks[3]))
         subclasses = {}
-        for key, subcls in typedef._subclass_cache.items():
-            if key[0] is not space.config:
-                continue
-            cls = key[1]
+        for cls, subcls in typedef._unique_subclass_cache.items():
             subclasses.setdefault(cls, {})
             prevsubcls = subclasses[cls].setdefault(subcls.__name__, subcls)
             assert subcls is prevsubcls
@@ -143,7 +140,11 @@ class TestTypeDef:
             pass
         def fget(self, space, w_self):
             assert self is prop
-        prop = typedef.GetSetProperty(fget, use_closure=True)
+        # NB. this GetSetProperty is not copied when creating the
+        # W_TypeObject because of 'cls'.  Without it, a duplicate of the
+        # GetSetProperty is taken and it is given the w_objclass that is
+        # the W_TypeObject
+        prop = typedef.GetSetProperty(fget, use_closure=True, cls=W_SomeType)
         W_SomeType.typedef = typedef.TypeDef(
             'some_type',
             x=prop)
@@ -186,35 +187,20 @@ class TestTypeDef:
         class W_Level1(W_Root):
             def __init__(self, space1):
                 assert space1 is space
-            def __del__(self):
+                self.register_finalizer(space)
+            def _finalize_(self):
                 space.call_method(w_seen, 'append', space.wrap(1))
-        class W_Level2(W_Root):
-            def __init__(self, space1):
-                assert space1 is space
-            def __del__(self):
-                self.enqueue_for_destruction(space, W_Level2.destructormeth,
-                                             'FOO ')
-            def destructormeth(self):
-                space.call_method(w_seen, 'append', space.wrap(2))
         W_Level1.typedef = typedef.TypeDef(
             'level1',
             __new__ = typedef.generic_new_descr(W_Level1))
-        W_Level2.typedef = typedef.TypeDef(
-            'level2',
-            __new__ = typedef.generic_new_descr(W_Level2))
         #
         w_seen = space.newlist([])
         W_Level1(space)
         gc.collect(); gc.collect()
-        assert space.unwrap(w_seen) == [1]
-        #
-        w_seen = space.newlist([])
-        W_Level2(space)
-        gc.collect(); gc.collect()
         assert space.str_w(space.repr(w_seen)) == "[]"  # not called yet
         ec = space.getexecutioncontext()
         self.space.user_del_action.perform(ec, None)
-        assert space.unwrap(w_seen) == [2]
+        assert space.unwrap(w_seen) == [1]   # called by user_del_action
         #
         w_seen = space.newlist([])
         self.space.appexec([self.space.gettypeobject(W_Level1.typedef)],
@@ -236,29 +222,17 @@ class TestTypeDef:
             A4()
         """)
         gc.collect(); gc.collect()
-        assert space.unwrap(w_seen) == [4, 1]
+        assert space.unwrap(w_seen) == [4, 1]    # user __del__, and _finalize_
         #
         w_seen = space.newlist([])
-        self.space.appexec([self.space.gettypeobject(W_Level2.typedef)],
+        self.space.appexec([self.space.gettypeobject(W_Level1.typedef)],
         """(level2):
             class A5(level2):
                 pass
             A5()
         """)
         gc.collect(); gc.collect()
-        assert space.unwrap(w_seen) == [2]
-        #
-        w_seen = space.newlist([])
-        self.space.appexec([self.space.gettypeobject(W_Level2.typedef),
-                            w_seen],
-        """(level2, seen):
-            class A6(level2):
-                def __del__(self):
-                    seen.append(6)
-            A6()
-        """)
-        gc.collect(); gc.collect()
-        assert space.unwrap(w_seen) == [6, 2]
+        assert space.unwrap(w_seen) == [1]     # _finalize_ only
 
     def test_multiple_inheritance(self):
         class W_A(W_Root):
@@ -267,8 +241,10 @@ class TestTypeDef:
         class W_C(W_A):
             b = 3
         W_A.typedef = typedef.TypeDef("A",
-            a = typedef.interp_attrproperty("a", cls=W_A),
-            b = typedef.interp_attrproperty("b", cls=W_A),
+            a = typedef.interp_attrproperty("a", cls=W_A,
+                wrapfn="newint"),
+            b = typedef.interp_attrproperty("b", cls=W_A,
+                wrapfn="newint"),
         )
         class W_B(W_Root):
             pass
@@ -362,6 +338,26 @@ class TestTypeDef:
         """)
         assert seen == [1]
 
+    def test_mapdict_number_of_slots(self):
+        space = self.space
+        a, b, c = space.unpackiterable(space.appexec([], """():
+            class A(object):
+                pass
+            a = A()
+            a.x = 1
+            class B:
+                pass
+            b = B()
+            b.x = 1
+            class C(int):
+                pass
+            c = C(1)
+            c.x = 1
+            return a, b, c
+        """), 3)
+        assert not hasattr(a, "storage")
+        assert not hasattr(b, "storage")
+        assert hasattr(c, "storage")
 
 class AppTestTypeDef:
 

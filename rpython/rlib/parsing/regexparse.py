@@ -299,7 +299,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = _exc.error
@@ -359,7 +359,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -408,7 +408,7 @@ class Parser(object):
                     r2 = _result
                     _result = (r1 | r2)
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice0
                 _choice1 = self._pos
@@ -417,7 +417,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice1
                     raise BacktrackException(_error)
@@ -442,7 +442,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -485,7 +485,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = _call_status.error
                     _all0.append(_result)
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice1
                     break
@@ -509,7 +509,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -554,7 +554,7 @@ class Parser(object):
                     _result = self.__chars__('*')
                     _result = (r1.kleene())
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice0
                 _choice1 = self._pos
@@ -566,7 +566,7 @@ class Parser(object):
                     _result = self.__chars__('+')
                     _result = (r1 + r1.kleene())
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice1
                 _choice2 = self._pos
@@ -578,7 +578,7 @@ class Parser(object):
                     _result = self.__chars__('?')
                     _result = (regex.StringExpression("") | r1)
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice2
                 _choice3 = self._pos
@@ -595,7 +595,7 @@ class Parser(object):
                     _result = self.__chars__('}')
                     _result = (r1 * n + r1.kleene())
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice3
                 _choice4 = self._pos
@@ -612,7 +612,7 @@ class Parser(object):
                     _result = self.__chars__('}')
                     _result = (r1 * n[0] + reduce(operator.or_, [r1 * i for i in range(n[1] - n[0] + 1)], regex.StringExpression("")))
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice4
                 _choice5 = self._pos
@@ -620,7 +620,7 @@ class Parser(object):
                     _result = self.__chars__('{')
                     _result = (regex.StringExpression("{"))
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice5
                 _choice6 = self._pos
@@ -629,7 +629,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice6
                     raise BacktrackException(_error)
@@ -654,7 +654,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -702,7 +702,7 @@ class Parser(object):
                     _result = self.__chars__(')')
                     _result = _before_discard2
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice0
                 _choice3 = self._pos
@@ -711,7 +711,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice3
                 _choice4 = self._pos
@@ -722,7 +722,7 @@ class Parser(object):
                     cc = _result
                     _result = (reduce(operator.or_, [regex.RangeExpression(a, chr(ord(a) + b - 1)) for a, b in compress_char_set(cc)]))
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice4
                 _choice5 = self._pos
@@ -733,7 +733,7 @@ class Parser(object):
                     c = _result
                     _result = (regex.StringExpression(c))
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice5
                 _choice6 = self._pos
@@ -741,7 +741,7 @@ class Parser(object):
                     _result = self.__chars__('.')
                     _result = (regex.RangeExpression(chr(0), chr(255)))
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice6
                 _choice7 = self._pos
@@ -749,7 +749,7 @@ class Parser(object):
                     _result = self.__chars__('-')
                     _result = (regex.StringExpression('-'))
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice7
                 _choice8 = self._pos
@@ -757,7 +757,7 @@ class Parser(object):
                     _result = self.__chars__('\\')
                     _result = (regex.StringExpression('\\'))
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice8
                 _choice9 = self._pos
@@ -765,7 +765,7 @@ class Parser(object):
                     _result = self.__chars__(']')
                     _result = (regex.StringExpression(']'))
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice9
                     raise BacktrackException(_error)
@@ -789,7 +789,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -833,7 +833,7 @@ class Parser(object):
                     c = _result
                     _result = (unescape(c))
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice0
                 _choice1 = self._pos
@@ -844,7 +844,7 @@ class Parser(object):
                     c = _result
                     _result = (c)
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice1
                     raise BacktrackException(_error)
@@ -871,7 +871,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -903,7 +903,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = _exc.error
@@ -935,7 +935,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = _exc.error
@@ -994,7 +994,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -1039,7 +1039,7 @@ class Parser(object):
                     s = _result
                     _result = (set([chr(c) for c in range(256)]) - s)
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice0
                 _choice1 = self._pos
@@ -1048,7 +1048,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice1
                     raise BacktrackException(_error)
@@ -1073,7 +1073,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -1120,7 +1120,7 @@ class Parser(object):
                             _result = _call_status.result
                             _error = _call_status.error
                             _all1.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice2
                             break
@@ -1128,7 +1128,7 @@ class Parser(object):
                     l = _result
                     _result = (reduce(operator.or_, [set(["]"])] + l))
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice0
                 _choice3 = self._pos
@@ -1145,7 +1145,7 @@ class Parser(object):
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
                             _all4.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice5
                             break
@@ -1153,7 +1153,7 @@ class Parser(object):
                     l = _result
                     _result = (reduce(operator.or_, l))
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice3
                     raise BacktrackException(_error)
@@ -1169,7 +1169,7 @@ class Parser(object):
                         _result = _call_status.result
                         _error = self._combine_errors(_error, _call_status.error)
                         _all6.append(_result)
-                    except BacktrackException, _exc:
+                    except BacktrackException as _exc:
                         _error = self._combine_errors(_error, _exc.error)
                         self._pos = _choice7
                         break
@@ -1194,7 +1194,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -1236,7 +1236,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = _call_status.error
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice0
                 _choice1 = self._pos
@@ -1252,7 +1252,7 @@ class Parser(object):
                     c2 = _result
                     _result = (set([chr(i) for i in range(ord(c1), ord(c2) + 1)]))
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice1
                 _choice2 = self._pos
@@ -1260,7 +1260,7 @@ class Parser(object):
                     _result = self.__chars__('.')
                     _result = ( set(['.']) )
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice2
                 _choice3 = self._pos
@@ -1268,7 +1268,7 @@ class Parser(object):
                     _result = self.__chars__('*')
                     _result = ( set(['*']) )
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice3
                 _choice4 = self._pos
@@ -1276,7 +1276,7 @@ class Parser(object):
                     _result = self.__chars__('+')
                     _result = ( set(['+']) )
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice4
                 _choice5 = self._pos
@@ -1284,7 +1284,7 @@ class Parser(object):
                     _result = self.__chars__('?')
                     _result = ( set(['?']) )
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice5
                 _choice6 = self._pos
@@ -1292,7 +1292,7 @@ class Parser(object):
                     _result = self.__chars__('-')
                     _result = ( set(['-']) )
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice6
                 _choice7 = self._pos
@@ -1300,7 +1300,7 @@ class Parser(object):
                     _result = self.__chars__('[')
                     _result = ( set(['[']) )
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice7
                 _choice8 = self._pos
@@ -1311,7 +1311,7 @@ class Parser(object):
                     c = _result
                     _result = ( set([c]) )
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice8
                     raise BacktrackException(_error)
@@ -1338,7 +1338,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -1387,7 +1387,7 @@ class Parser(object):
                     n2 = _result
                     _result = (n1, n2)
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice0
                 _choice1 = self._pos
@@ -1398,7 +1398,7 @@ class Parser(object):
                     n1 = _result
                     _result = (n1, n1)
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice1
                     raise BacktrackException(_error)
@@ -1425,7 +1425,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -1483,7 +1483,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -1515,7 +1515,7 @@ class Parser(object):
                     _result = self.__chars__('d')
                     _result = ( set([chr(c) for c in range(ord('0'), ord('9')+1)]) )
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = _exc.error
                     self._pos = _choice0
                 _choice1 = self._pos
@@ -1524,7 +1524,7 @@ class Parser(object):
                     _result = self.__chars__('s')
                     _result = ( set(['\t', '\n', '\f', '\r', ' ']) )
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice1
                 _choice2 = self._pos
@@ -1533,7 +1533,7 @@ class Parser(object):
                     _result = self.__chars__('w')
                     _result = ( set([chr(c) for c in range(ord('a'), ord('z')+1)] + [chr(c) for c in range(ord('A'), ord('Z')+1)] + [chr(c) for c in range(ord('0'), ord('9')+1)] + ['_']) )
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice2
                 _choice3 = self._pos
@@ -1542,7 +1542,7 @@ class Parser(object):
                     _result = self.__chars__('D')
                     _result = ( set([chr(c) for c in range(256)]) - set([chr(c) for c in range(ord('0'), ord('9')+1)]) )
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice3
                 _choice4 = self._pos
@@ -1551,7 +1551,7 @@ class Parser(object):
                     _result = self.__chars__('S')
                     _result = ( set([chr(c) for c in range(256)]) - set(['\t', '\n', '\f', '\r', ' ']) )
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice4
                 _choice5 = self._pos
@@ -1560,7 +1560,7 @@ class Parser(object):
                     _result = self.__chars__('W')
                     _result = ( set([chr(c) for c in range(256)]) - set([chr(c) for c in range(ord('a'), ord('z')+1)] + [chr(c) for c in range(ord('A'), ord('Z')+1)] + [chr(c) for c in range(ord('0'), ord('9')+1)] + ['_']))
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice5
                     raise BacktrackException(_error)
@@ -1574,7 +1574,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -1608,7 +1608,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = _exc.error

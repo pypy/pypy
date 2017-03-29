@@ -266,7 +266,13 @@ errors reported by the object space operations
 
 To raise an application-level exception::
 
-    raise OperationError(space.w_XxxError, space.wrap("message"))
+    from pypy.interpreter.error import oefmt
+
+    raise oefmt(space.w_XxxError, "message")
+
+    raise oefmt(space.w_XxxError, "file '%s' not found in '%s'", filename, dir)
+
+    raise oefmt(space.w_XxxError, "file descriptor '%d' not open", fd)
 
 To catch a specific application-level exception::
 

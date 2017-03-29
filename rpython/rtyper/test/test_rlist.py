@@ -3,7 +3,7 @@ import re
 
 import py
 
-from rpython.rlib.debug import ll_assert
+from rpython.rtyper.debug import ll_assert
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.llinterp import LLException, LLAssertFailure
 from rpython.rtyper.lltypesystem import rlist as ll_rlist
@@ -888,7 +888,7 @@ class TestRlist(BaseRtypingTest):
                     res2 = fn(i)
                     res1 = self.interpret(fn, [i])
                     assert res1 == res2
-                except Exception, e:
+                except Exception as e:
                     self.interpret_raises(e.__class__, fn, [i])
 
         def fn(i):
@@ -906,7 +906,7 @@ class TestRlist(BaseRtypingTest):
                     res2 = fn(i)
                     res1 = self.interpret(fn, [i])
                     assert res1 == res2
-                except Exception, e:
+                except Exception as e:
                     self.interpret_raises(e.__class__, fn, [i])
 
 

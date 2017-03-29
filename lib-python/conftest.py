@@ -5,9 +5,10 @@ test suite on top of PyPy
 
 """
 import py
+import pytest
 import sys
-import pypy
 import re
+import pypy
 from pypy.interpreter.gateway import ApplevelClass
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.module import Module as PyPyModule
@@ -17,7 +18,7 @@ from pypy.interpreter.main import run_string, run_file
 from pypy.conftest import option as pypy_option
 
 from pypy.tool.pytest import appsupport
-from pypy.tool.pytest.confpath import pypydir, rpythondir, testdir, testresultdir
+from pypy.tool.pytest.confpath import pypydir, testdir, testresultdir
 from rpython.config.parse import parse_info
 
 pytest_plugins = "resultlog",
@@ -157,7 +158,6 @@ testmap = [
     RegrTest('test_codecmaps_tw.py', usemodules='_multibytecodec'),
     RegrTest('test_codecs.py', core=True, usemodules='_multibytecodec'),
     RegrTest('test_codeop.py', core=True),
-    RegrTest('test_coding.py', core=True),
     RegrTest('test_coercion.py', core=True, usemodules='struct'),
     RegrTest('test_collections.py', usemodules='binascii struct'),
     RegrTest('test_colorsys.py'),
@@ -328,15 +328,14 @@ testmap = [
     RegrTest('test_openpty.py'),
     RegrTest('test_operator.py', core=True),
     RegrTest('test_optparse.py'),
+    RegrTest('test_ordered_dict.py'),
     RegrTest('test_os.py', core=True),
     RegrTest('test_ossaudiodev.py'),
     RegrTest('test_parser.py', skip="slowly deprecating compiler"),
     RegrTest('test_pdb.py'),
     RegrTest('test_peepholer.py'),
     RegrTest('test_pep247.py'),
-    RegrTest('test_pep263.py'),
     RegrTest('test_pep277.py'),
-    RegrTest('test_pep292.py'),
     RegrTest('test_pep352.py'),
     RegrTest('test_pickle.py', core=True),
     RegrTest('test_pickletools.py', core=False),
@@ -399,6 +398,7 @@ testmap = [
     RegrTest('test_socketserver.py', usemodules='thread'),
     RegrTest('test_softspace.py', core=True),
     RegrTest('test_sort.py', core=True),
+    RegrTest('test_source_encoding.py'),
     RegrTest('test_spwd.py'),
     RegrTest('test_sqlite.py', usemodules="thread _rawffi zlib"),
     RegrTest('test_ssl.py', usemodules='_ssl _socket select'),
@@ -449,6 +449,7 @@ testmap = [
     RegrTest('test_ttk_guionly.py'),
     RegrTest('test_ttk_textonly.py'),
     RegrTest('test_tuple.py', core=True),
+    RegrTest('test_turtle.py'),
     RegrTest('test_typechecks.py'),
     RegrTest('test_types.py', core=True),
     RegrTest('test_ucn.py'),
@@ -517,16 +518,16 @@ def pytest_configure(config):
     for x in testmap:
         cache[x.basename] = x
 
-def pytest_collect_file(path, parent, __multicall__):
-    # don't collect files except through this hook
-    # implemented by clearing the list of to-be-called
-    # remaining hook methods
-    __multicall__.methods[:] = []
-    regrtest = parent.config._basename2spec.get(path.basename, None)
-    if regrtest is None:
-        return
-    if path.dirpath() != testdir:
-        return
+def pytest_ignore_collect(path, config):
+    if path.isfile():
+        regrtest = config._basename2spec.get(path.basename, None)
+        if regrtest is None or path.dirpath() != testdir:
+            return True
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_pycollect_makemodule(path, parent):
+    config = parent.config
+    regrtest = config._basename2spec[path.basename]
     return RunFileExternal(path.basename, parent=parent, regrtest=regrtest)
 
 class RunFileExternal(py.test.collect.File):
@@ -561,7 +562,7 @@ class ReallyRunFileExternal(py.test.collect.Item):
             watchdog_name = 'watchdog_nt.py'
         else:
             watchdog_name = 'watchdog.py'
-        watchdog_script = rpythondir.join('tool', watchdog_name)
+        watchdog_script = pypydir.join('tool', watchdog_name)
 
         regr_script = pypydir.join('tool', 'pytest',
                                    'run-script', 'regrverbose.py')

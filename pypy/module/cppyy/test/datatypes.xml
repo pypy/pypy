@@ -1,9 +1,9 @@
 <lcgdict>
 
-  <class pattern="cppyy_test_*" />
-  <class name="four_vector" />
+  <class pattern="CppyyTest*" />
+  <class name="FourVector" />
 
-  <enum name="fruit" />
+  <enum name="EFruit" />
 
   <function pattern="get_*" />
   <function pattern="set_*" />

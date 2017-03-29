@@ -342,7 +342,7 @@ class CFuncPtr(_CData):
             thisarg = cast(thisvalue, POINTER(POINTER(c_void_p)))
             keepalives, newargs, argtypes, outargs, errcheckargs = (
                 self._convert_args(argtypes, args[1:], kwargs))
-            newargs.insert(0, thisvalue.value)
+            newargs.insert(0, thisarg)
             argtypes.insert(0, c_void_p)
         else:
             thisarg = None
@@ -604,7 +604,8 @@ class CFuncPtr(_CData):
         """
         # hack for performance: if restype is a "simple" primitive type, don't
         # allocate the buffer because it's going to be thrown away immediately
-        if self._is_primitive(restype) and not restype._is_pointer_like():
+        if (self._is_primitive(restype) and restype._type_ != '?'
+            and not restype._is_pointer_like()):
             return result
         #
         shape = restype._ffishape_

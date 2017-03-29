@@ -1,4 +1,4 @@
-# ctypes implementation: Victor Stinner, 2008-05-08
+# indirectly based on ctypes implementation: Victor Stinner, 2008-05-08
 """
 This module provides access to the Unix password database.
 It is available on all Unix versions.

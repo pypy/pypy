@@ -4,7 +4,7 @@ import platform
 from rpython.rtyper.tool.rffi_platform import CompilationError
 try:
     from rpython.rlib import rstacklet
-except CompilationError, e:
+except CompilationError as e:
     py.test.skip("cannot import rstacklet: %s" % e)
 
 from rpython.config.translationoption import DEFL_ROOTFINDER_WITHJIT
@@ -17,10 +17,9 @@ from rpython.translator.c.test.test_standalone import StandaloneTests
 
 class Runner:
     STATUSMAX = 5000
-    config = None
 
     def init(self, seed):
-        self.sthread = rstacklet.StackletThread(self.config)
+        self.sthread = rstacklet.StackletThread()
         self.random = rrandom.Random(seed)
 
     def done(self):
@@ -301,12 +300,11 @@ class BaseTestStacklet(StandaloneTests):
             config.translation.gcrootfinder = cls.gcrootfinder
             GCROOTFINDER = cls.gcrootfinder
         cls.config = config
-        cls.old_values = Runner.config, Runner.STATUSMAX
-        Runner.config = config
+        cls.old_status_max = Runner.STATUSMAX
         Runner.STATUSMAX = 25000
 
     def teardown_class(cls):
-        Runner.config, Runner.STATUSMAX = cls.old_values
+        Runner.STATUSMAX = cls.old_status_max
 
     def test_demo1(self):
         t, cbuilder = self.compile(entry_point)

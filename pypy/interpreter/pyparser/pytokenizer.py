@@ -91,6 +91,7 @@ def generate_tokens(lines, flags):
     strstart = (0, 0, "")
     for line in lines:
         lnum = lnum + 1
+        line = universal_newline(line)
         pos, max = 0, len(line)
 
         if contstr:
@@ -259,3 +260,14 @@ def generate_tokens(lines, flags):
 
     token_list.append((tokens.ENDMARKER, '', lnum, pos, line))
     return token_list
+
+
+def universal_newline(line):
+    # show annotator that indexes below are non-negative
+    line_len_m2 = len(line) - 2
+    if line_len_m2 >= 0 and line[-2] == '\r' and line[-1] == '\n':
+        return line[:line_len_m2] + '\n'
+    line_len_m1 = len(line) - 1
+    if line_len_m1 >= 0 and line[-1] == '\r':
+        return line[:line_len_m1] + '\n'
+    return line

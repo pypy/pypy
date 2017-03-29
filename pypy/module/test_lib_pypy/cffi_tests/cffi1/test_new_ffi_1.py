@@ -138,8 +138,8 @@ class TestNewFFI1:
         min = int(min)
         max = int(max)
         p = ffi.cast(c_decl, min)
-        assert p != min       # no __eq__(int)
-        assert bool(p) is True
+        assert p == min
+        assert bool(p) is bool(min)
         assert int(p) == min
         p = ffi.cast(c_decl, max)
         assert int(p) == max
@@ -149,9 +149,9 @@ class TestNewFFI1:
         assert ffi.typeof(q) is ffi.typeof(p) and int(q) == max
         q = ffi.cast(c_decl, long(min - 1))
         assert ffi.typeof(q) is ffi.typeof(p) and int(q) == max
-        assert q != p
+        assert q == p
         assert int(q) == int(p)
-        assert hash(q) != hash(p)   # unlikely
+        assert hash(q) == hash(p)
         c_decl_ptr = '%s *' % c_decl
         py.test.raises(OverflowError, ffi.new, c_decl_ptr, min - 1)
         py.test.raises(OverflowError, ffi.new, c_decl_ptr, max + 1)
@@ -351,7 +351,9 @@ class TestNewFFI1:
         assert ffi.new("char*", b"\xff")[0] == b'\xff'
         assert ffi.new("char*")[0] == b'\x00'
         assert int(ffi.cast("char", 300)) == 300 - 256
-        assert bool(ffi.cast("char", 0))
+        assert not bool(ffi.cast("char", 0))
+        assert bool(ffi.cast("char", 1))
+        assert bool(ffi.cast("char", 255))
         py.test.raises(TypeError, ffi.new, "char*", 32)
         py.test.raises(TypeError, ffi.new, "char*", u+"x")
         py.test.raises(TypeError, ffi.new, "char*", b"foo")
@@ -391,7 +393,11 @@ class TestNewFFI1:
             py.test.raises(TypeError, ffi.new, "wchar_t*", u+'\U00012345')
         assert ffi.new("wchar_t*")[0] == u+'\x00'
         assert int(ffi.cast("wchar_t", 300)) == 300
-        assert bool(ffi.cast("wchar_t", 0))
+        assert not bool(ffi.cast("wchar_t", 0))
+        assert bool(ffi.cast("wchar_t", 1))
+        assert bool(ffi.cast("wchar_t", 65535))
+        if SIZE_OF_WCHAR > 2:
+            assert bool(ffi.cast("wchar_t", 65536))
         py.test.raises(TypeError, ffi.new, "wchar_t*", 32)
         py.test.raises(TypeError, ffi.new, "wchar_t*", "foo")
         #
@@ -891,9 +897,9 @@ class TestNewFFI1:
         assert ffi.string(ffi.cast("enum bar", -2)) == "B1"
         assert ffi.string(ffi.cast("enum bar", -1)) == "CC1"
         assert ffi.string(ffi.cast("enum bar", 1)) == "E1"
-        assert ffi.cast("enum bar", -2) != ffi.cast("enum bar", -2)
-        assert ffi.cast("enum foq", 0) != ffi.cast("enum bar", 0)
-        assert ffi.cast("enum bar", 0) != ffi.cast("int", 0)
+        assert ffi.cast("enum bar", -2) == ffi.cast("enum bar", -2)
+        assert ffi.cast("enum foq", 0) == ffi.cast("enum bar", 0)
+        assert ffi.cast("enum bar", 0) == ffi.cast("int", 0)
         assert repr(ffi.cast("enum bar", -1)) == "<cdata 'enum bar' -1: CC1>"
         assert repr(ffi.cast("enum foq", -1)) == (  # enums are unsigned, if
             "<cdata 'enum foq' 4294967295>") or (   # they contain no neg value
@@ -1100,14 +1106,14 @@ class TestNewFFI1:
         assert (q == None) is False
         assert (q != None) is True
 
-    def test_no_integer_comparison(self):
+    def test_integer_comparison(self):
         x = ffi.cast("int", 123)
         y = ffi.cast("int", 456)
-        py.test.raises(TypeError, "x < y")
+        assert x < y
         #
         z = ffi.cast("double", 78.9)
-        py.test.raises(TypeError, "x < z")
-        py.test.raises(TypeError, "z < y")
+        assert x > z
+        assert y > z
 
     def test_ffi_buffer_ptr(self):
         a = ffi.new("short *", 100)
@@ -1628,10 +1634,19 @@ class TestNewFFI1:
         # struct array_no_length { int x; int a[]; };
         p = ffi.new("struct array_no_length *", [100, [200, 300, 400]])
         assert p.x == 100
-        assert ffi.typeof(p.a) is ffi.typeof("int *")   # no length available
+        assert ffi.typeof(p.a) is ffi.typeof("int[]")   # length available
         assert p.a[0] == 200
         assert p.a[1] == 300
         assert p.a[2] == 400
+        assert len(p.a) == 3
+        assert list(p.a) == [200, 300, 400]
+        q = ffi.cast("struct array_no_length *", p)
+        assert ffi.typeof(q.a) is ffi.typeof("int *")   # no length available
+        assert q.a[0] == 200
+        assert q.a[1] == 300
+        assert q.a[2] == 400
+        py.test.raises(TypeError, len, q.a)
+        py.test.raises(TypeError, list, q.a)
 
     def test_from_buffer(self):
         import array
@@ -1719,3 +1734,10 @@ class TestNewFFI1:
         exec("from _test_import_from_lib.lib import *", d)
         assert (set(key for key in d if not key.startswith('_')) ==
                 set(['myfunc', 'MYFOO']))
+        #
+        # also test "import *" on the module itself, which should be
+        # equivalent to "import ffi, lib"
+        d = {}
+        exec("from _test_import_from_lib import *", d)
+        assert (sorted([x for x in d.keys() if not x.startswith('__')]) ==
+                ['ffi', 'lib'])

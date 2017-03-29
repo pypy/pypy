@@ -49,7 +49,8 @@ class TestDist(object):
             import setuptools
         except ImportError:
             py.test.skip("setuptools not found")
-        self.run(['setup.py', 'egg_info'], cwd=self.rootdir)
+        if os.path.exists(os.path.join(self.rootdir, 'setup.py')):
+            self.run(['setup.py', 'egg_info'], cwd=self.rootdir)
         TestDist._setuptools_ready = True
 
     def check_produced_files(self, content, curdir=None):
@@ -58,13 +59,18 @@ class TestDist(object):
         found_so = None
         for name in os.listdir(curdir):
             if (name.endswith('.so') or name.endswith('.pyd') or
-                name.endswith('.dylib')):
+                name.endswith('.dylib') or name.endswith('.dll')):
                 found_so = os.path.join(curdir, name)
-                # foo.cpython-34m.so => foo
-                name = name.split('.')[0]
-                # foo_d.so => foo (Python 2 debug builds)
+                # foo.so => foo
+                parts = name.split('.')
+                del parts[-1]
+                if len(parts) > 1 and parts[-1] != 'bar':
+                    # foo.cpython-34m.so => foo, but foo.bar.so => foo.bar
+                    del parts[-1]
+                name = '.'.join(parts)
+                # foo_d => foo (Python 2 debug builds)
                 if name.endswith('_d') and hasattr(sys, 'gettotalrefcount'):
-                    name = name.rsplit('_', 1)[0]
+                    name = name[:-2]
                 name += '.SO'
             if name.startswith('pycparser') and name.endswith('.egg'):
                 continue    # no clue why this shows up sometimes and not others
@@ -209,6 +215,42 @@ class TestDist(object):
                         'Release': '?'}})
 
     @chdir_to_tmp
+    def test_api_compile_explicit_target_1(self):
+        ffi = cffi.FFI()
+        ffi.set_source("mod_name_in_package.mymod", "/*code would be here*/")
+        x = ffi.compile(target="foo.bar.*")
+        if sys.platform != 'win32':
+            sofile = self.check_produced_files({
+                'mod_name_in_package': {'foo.bar.SO': None,
+                                        'mymod.c': None,
+                                        'mymod.o': None}})
+            assert os.path.isabs(x) and os.path.samefile(x, sofile)
+        else:
+            self.check_produced_files({
+                'mod_name_in_package': {'foo.bar.SO': None,
+                                        'mymod.c': None},
+                'Release': '?'})
+
+    @chdir_to_tmp
+    def test_api_compile_explicit_target_3(self):
+        ffi = cffi.FFI()
+        ffi.set_source("mod_name_in_package.mymod", "/*code would be here*/")
+        x = ffi.compile(target="foo.bar.baz")
+        if sys.platform != 'win32':
+            self.check_produced_files({
+                'mod_name_in_package': {'foo.bar.baz': None,
+                                        'mymod.c': None,
+                                        'mymod.o': None}})
+            sofile = os.path.join(str(self.udir),
+                                  'mod_name_in_package', 'foo.bar.baz')
+            assert os.path.isabs(x) and os.path.samefile(x, sofile)
+        else:
+            self.check_produced_files({
+                'mod_name_in_package': {'foo.bar.baz': None,
+                                        'mymod.c': None},
+                'Release': '?'})
+
+    @chdir_to_tmp
     def test_api_distutils_extension_1(self):
         ffi = cffi.FFI()
         ffi.set_source("mod_name_in_package.mymod", "/*code would be here*/")
@@ -238,6 +280,14 @@ class TestDist(object):
             pass
         with open("setup.py", "w") as f:
             f.write("""if 1:
+                # https://bugs.python.org/issue23246
+                import sys
+                if sys.platform == 'win32':
+                    try:
+                        import setuptools
+                    except ImportError:
+                        pass
+
                 import cffi
                 ffi = cffi.FFI()
                 ffi.set_source("pack1.mymod", "/*code would be here*/")

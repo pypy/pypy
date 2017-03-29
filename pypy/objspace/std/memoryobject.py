@@ -14,6 +14,7 @@ class W_MemoryView(W_Root):
     """Implement the built-in 'memoryview' type as a wrapper around
     an interp-level buffer.
     """
+    _attrs_ = ['buf']
 
     def __init__(self, buf):
         assert isinstance(buf, Buffer)
@@ -33,18 +34,18 @@ class W_MemoryView(W_Root):
                 # xxx not the most efficient implementation
                 str1 = self.as_str()
                 str2 = w_other.as_str()
-                return space.wrap(getattr(operator, name)(str1, str2))
+                return space.newbool(getattr(operator, name)(str1, str2))
 
             try:
                 buf = space.buffer_w(w_other, space.BUF_CONTIG_RO)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
                 return space.w_NotImplemented
             else:
                 str1 = self.as_str()
                 str2 = buf.as_str()
-                return space.wrap(getattr(operator, name)(str1, str2))
+                return space.newbool(getattr(operator, name)(str1, str2))
         descr__cmp.func_name = name
         return descr__cmp
 
@@ -62,21 +63,30 @@ class W_MemoryView(W_Root):
         return self.buf.getlength()
 
     def descr_tobytes(self, space):
-        return space.wrap(self.as_str())
+        return space.newbytes(self.as_str())
 
     def descr_tolist(self, space):
         buf = self.buf
         result = []
         for i in range(buf.getlength()):
-            result.append(space.wrap(ord(buf.getitem(i))))
+            result.append(space.newint(ord(buf.getitem(i))))
         return space.newlist(result)
 
     def descr_getitem(self, space, w_index):
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
+        itemsize = self.buf.getitemsize()
+        if itemsize > 1:
+            start *= itemsize
+            size *= itemsize
+            stop  = start + size
+            if step == 0:
+                step = 1
+            if stop > self.getlength():
+                raise oefmt(space.w_IndexError, 'index out of range')
         if step not in (0, 1):
             raise oefmt(space.w_NotImplementedError, "")
         if step == 0:  # index only
-            return space.wrap(self.buf.getitem(start))
+            return space.newbytes(self.buf.getitem(start))
         else:
             buf = SubBuffer(self.buf, start, size)
             return W_MemoryView(buf)
@@ -85,6 +95,15 @@ class W_MemoryView(W_Root):
         if self.buf.readonly:
             raise oefmt(space.w_TypeError, "cannot modify read-only memory")
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
+        itemsize = self.buf.getitemsize()
+        if itemsize > 1:
+            start *= itemsize
+            size *= itemsize
+            stop  = start + size
+            if step == 0:
+                step = 1
+            if stop > self.getlength():
+                raise oefmt(space.w_IndexError, 'index out of range')
         if step not in (0, 1):
             raise oefmt(space.w_NotImplementedError, "")
         value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
@@ -97,25 +116,29 @@ class W_MemoryView(W_Root):
             self.buf.setslice(start, value.as_str())
 
     def descr_len(self, space):
-        return space.wrap(self.buf.getlength())
+        return space.newint(self.buf.getlength() / self.buf.getitemsize())
 
     def w_get_format(self, space):
-        return space.wrap("B")
+        return space.newtext(self.buf.getformat())
 
     def w_get_itemsize(self, space):
-        return space.wrap(1)
+        return space.newint(self.buf.getitemsize())
 
     def w_get_ndim(self, space):
-        return space.wrap(1)
+        return space.newint(self.buf.getndim())
 
     def w_is_readonly(self, space):
-        return space.wrap(self.buf.readonly)
+        return space.newbool(bool(self.buf.readonly))
 
     def w_get_shape(self, space):
-        return space.newtuple([space.wrap(self.getlength())])
+        if self.buf.getndim() == 0:
+            return space.w_None
+        return space.newtuple([space.newint(x) for x in self.buf.getshape()])
 
     def w_get_strides(self, space):
-        return space.newtuple([space.wrap(1)])
+        if self.buf.getndim() == 0:
+            return space.w_None
+        return space.newtuple([space.newint(x) for x in self.buf.getstrides()])
 
     def w_get_suboffsets(self, space):
         # I've never seen anyone filling this field
@@ -129,8 +152,8 @@ class W_MemoryView(W_Root):
             # report the error using the RPython-level internal repr of self.buf
             msg = ("cannot find the underlying address of buffer that "
                    "is internally %r" % (self.buf,))
-            raise OperationError(space.w_ValueError, space.wrap(msg))
-        return space.wrap(rffi.cast(lltype.Signed, ptr))
+            raise OperationError(space.w_ValueError, space.newtext(msg))
+        return space.newint(rffi.cast(lltype.Signed, ptr))
 
 W_MemoryView.typedef = TypeDef(
     "memoryview",

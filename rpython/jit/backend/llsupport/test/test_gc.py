@@ -196,31 +196,6 @@ class TestFramework(object):
         assert is_valid_int(wbdescr.jit_wb_if_flag_byteofs)
         assert is_valid_int(wbdescr.jit_wb_if_flag_singlebyte)
 
-    def test_record_constptrs(self):
-        class MyFakeCPU(object):
-            def cast_adr_to_int(self, adr):
-                assert adr == "some fake address"
-                return 43
-        class MyFakeGCRefList(object):
-            def get_address_of_gcref(self, s_gcref1):
-                assert s_gcref1 == s_gcref
-                return "some fake address"
-        S = lltype.GcStruct('S')
-        s = lltype.malloc(S)
-        s_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
-        v_random_box = InputArgRef()
-        operations = [
-            ResOperation(rop.PTR_EQ, [v_random_box, ConstPtr(s_gcref)]),
-            ]
-        gc_ll_descr = self.gc_ll_descr
-        gc_ll_descr.gcrefs = MyFakeGCRefList()
-        gcrefs = []
-        operations = get_deep_immutable_oplist(operations)
-        operations2 = gc_ll_descr.rewrite_assembler(MyFakeCPU(), operations,
-                                                   gcrefs)
-        assert operations2 == operations
-        assert gcrefs == [s_gcref]
-
 
 class TestFrameworkMiniMark(TestFramework):
     gc = 'minimark'

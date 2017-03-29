@@ -1,8 +1,8 @@
 from rpython.rlib.buffer import StringBuffer, SubBuffer
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.module.cpyext.api import (
-    cpython_api, Py_ssize_t, cpython_struct, bootstrap_function,
+    cpython_api, Py_ssize_t, cpython_struct, bootstrap_function, slot_function,
     PyObjectFields, PyObject)
 from pypy.module.cpyext.pyobject import make_typedescr, Py_DecRef, make_ref
 from pypy.module.array.interp_array import ArrayBuffer
@@ -25,13 +25,13 @@ cpython_struct("PyBufferObject", PyBufferObjectFields, PyBufferObjectStruct)
 @bootstrap_function
 def init_bufferobject(space):
     "Type description of PyBufferObject"
-    make_typedescr(space.w_buffer.instancetypedef,
+    make_typedescr(space.w_buffer.layout.typedef,
                    basestruct=PyBufferObject.TO,
                    attach=buffer_attach,
                    dealloc=buffer_dealloc,
                    realize=buffer_realize)
 
-def buffer_attach(space, py_obj, w_obj):
+def buffer_attach(space, py_obj, w_obj, w_userdata=None):
     """
     Fills a newly allocated PyBufferObject with the given (str) buffer object.
     """
@@ -61,24 +61,23 @@ def buffer_attach(space, py_obj, w_obj):
         py_buf.c_b_ptr = rffi.cast(rffi.VOIDP, buf.array._charbuf_start())
         py_buf.c_b_size = buf.getlength()
     else:
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "buffer flavor not supported"))
+        raise oefmt(space.w_NotImplementedError, "buffer flavor not supported")
 
 
 def buffer_realize(space, py_obj):
     """
     Creates the buffer in the PyPy interpreter from a cpyext representation.
     """
-    raise OperationError(space.w_NotImplementedError, space.wrap(
-        "Don't know how to realize a buffer"))
+    raise oefmt(space.w_NotImplementedError,
+                "Don't know how to realize a buffer")
 
 
-@cpython_api([PyObject], lltype.Void, external=False)
+@slot_function([PyObject], lltype.Void)
 def buffer_dealloc(space, py_obj):
     py_buf = rffi.cast(PyBufferObject, py_obj)
     if py_buf.c_b_base:
         Py_DecRef(space, py_buf.c_b_base)
     else:
         rffi.free_charp(rffi.cast(rffi.CCHARP, py_buf.c_b_ptr))
-    from pypy.module.cpyext.object import PyObject_dealloc
-    PyObject_dealloc(space, py_obj)
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)

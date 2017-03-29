@@ -11,14 +11,14 @@ from pypy.objspace.std.dictmultiobject import (
 
 
 def _wrapkey(space, key):
-    return space.wrap(key)
+    return space.newtext(key)
 
 
 class EmptyKwargsDictStrategy(EmptyDictStrategy):
     def switch_to_bytes_strategy(self, w_dict):
         strategy = self.space.fromcache(KwargsDictStrategy)
         storage = strategy.get_empty_storage()
-        w_dict.strategy = strategy
+        w_dict.set_strategy(strategy)
         w_dict.dstorage = storage
 
 
@@ -31,7 +31,7 @@ class KwargsDictStrategy(DictStrategy):
         return _wrapkey(self.space, key)
 
     def unwrap(self, wrapped):
-        return self.space.str_w(wrapped)
+        return self.space.text_w(wrapped)
 
     def get_empty_storage(self):
         d = ([], [])
@@ -39,7 +39,7 @@ class KwargsDictStrategy(DictStrategy):
 
     def is_correct_type(self, w_obj):
         space = self.space
-        return space.is_w(space.type(w_obj), space.w_str)
+        return space.is_w(space.type(w_obj), space.w_text)
 
     def _never_equal_to(self, w_lookup_type):
         return False
@@ -116,7 +116,7 @@ class KwargsDictStrategy(DictStrategy):
 
     def w_keys(self, w_dict):
         l = self.unerase(w_dict.dstorage)[0]
-        return self.space.newlist_bytes(l[:])
+        return self.space.newlist_text(l[:])
 
     def values(self, w_dict):
         return self.unerase(w_dict.dstorage)[1][:] # to make non-resizable
@@ -142,7 +142,7 @@ class KwargsDictStrategy(DictStrategy):
         d_new = strategy.unerase(strategy.get_empty_storage())
         for i in range(len(keys)):
             d_new[self.wrap(keys[i])] = values_w[i]
-        w_dict.strategy = strategy
+        w_dict.set_strategy(strategy)
         w_dict.dstorage = strategy.erase(d_new)
 
     def switch_to_bytes_strategy(self, w_dict):
@@ -152,7 +152,7 @@ class KwargsDictStrategy(DictStrategy):
         d_new = strategy.unerase(storage)
         for i in range(len(keys)):
             d_new[keys[i]] = values_w[i]
-        w_dict.strategy = strategy
+        w_dict.set_strategy(strategy)
         w_dict.dstorage = storage
 
     def view_as_kwargs(self, w_dict):

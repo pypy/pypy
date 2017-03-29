@@ -254,7 +254,7 @@ class AppTestFfi:
         import _rawffi
         try:
             _rawffi.CDLL("xxxxx_this_name_does_not_exist_xxxxx")
-        except OSError, e:
+        except OSError as e:
             print e
             assert str(e).startswith(
                 "Cannot load library xxxxx_this_name_does_not_exist_xxxxx: ")
@@ -704,7 +704,6 @@ class AppTestFfi:
         def compare(a, b):
             a1 = _rawffi.Array('i').fromaddress(_rawffi.Array('P').fromaddress(a, 1)[0], 1)
             a2 = _rawffi.Array('i').fromaddress(_rawffi.Array('P').fromaddress(b, 1)[0], 1)
-            print "comparing", a1[0], "with", a2[0]
             if a1[0] not in [1,2,3,4] or a2[0] not in [1,2,3,4]:
                 bogus_args.append((a1[0], a2[0]))
             if a1[0] > a2[0]:
@@ -715,7 +714,7 @@ class AppTestFfi:
         a2[0] = len(ll_to_sort)
         a3 = _rawffi.Array('l')(1)
         a3[0] = struct.calcsize('i')
-        cb = _rawffi.CallbackPtr(compare, ['P', 'P'], 'i')
+        cb = _rawffi.CallbackPtr(compare, ['P', 'P'], 'l')
         a4 = cb.byptr()
         qsort(a1, a2, a3, a4)
         res = [ll_to_sort[i] for i in range(len(ll_to_sort))]
@@ -896,11 +895,21 @@ class AppTestFfi:
         b = _rawffi.Array('c').fromaddress(a.buffer, 38)
         if sys.maxunicode > 65535:
             # UCS4 build
-            assert b[0] == 'x'
-            assert b[1] == '\x00'
-            assert b[2] == '\x00'
-            assert b[3] == '\x00'
-            assert b[4] == 'y'
+            if sys.byteorder == 'big':
+                assert b[0] == '\x00'
+                assert b[1] == '\x00'
+                assert b[2] == '\x00'
+                assert b[3] == 'x'
+                assert b[4] == '\x00'
+                assert b[5] == '\x00'
+                assert b[6] == '\x00'
+                assert b[7] == 'y'
+            else:
+                assert b[0] == 'x'
+                assert b[1] == '\x00'
+                assert b[2] == '\x00'
+                assert b[3] == '\x00'
+                assert b[4] == 'y'
         else:
             # UCS2 build
             assert b[0] == 'x'
@@ -1017,7 +1026,7 @@ class AppTestFfi:
         f = lib.ptr('SetLastError', [], 'i')
         try:
             f()
-        except ValueError, e:
+        except ValueError as e:
             assert "Procedure called with not enough arguments" in e.message
         else:
             assert 0, "Did not raise"
@@ -1028,7 +1037,7 @@ class AppTestFfi:
         arg[0] = 1
         try:
             f(arg)
-        except ValueError, e:
+        except ValueError as e:
             assert "Procedure called with too many arguments" in e.message
         else:
             assert 0, "Did not raise"
@@ -1213,6 +1222,11 @@ class AppTestFfi:
         z = _rawffi.get_last_error()
         assert z == 43
         arg.free()
+
+    def test_cdll_name(self):
+        import _rawffi
+        lib = _rawffi.CDLL(self.lib_name)
+        assert lib.name == self.lib_name
 
 
 class AppTestAutoFree:

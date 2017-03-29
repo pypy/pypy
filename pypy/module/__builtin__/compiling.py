@@ -3,12 +3,12 @@ Implementation of the interpreter-level compile/eval builtins.
 """
 
 from pypy.interpreter.pycode import PyCode
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.astcompiler import consts, ast
 from pypy.interpreter.gateway import unwrap_spec
 
 
-@unwrap_spec(filename=str, mode=str, flags=int, dont_inherit=int)
+@unwrap_spec(filename='text', mode='text', flags=int, dont_inherit=int)
 def compile(space, w_source, filename, mode, flags=0, dont_inherit=0):
     """Compile the source string (a Python module, statement or expression)
 into a code object that can be executed by the exec statement or eval().
@@ -26,8 +26,7 @@ in addition to any features explicitly specified.
     if flags & ~(ec.compiler.compiler_flags | consts.PyCF_ONLY_AST |
                  consts.PyCF_DONT_IMPLY_DEDENT | consts.PyCF_SOURCE_IS_UTF8 |
                  consts.PyCF_ACCEPT_NULL_BYTES):
-        raise OperationError(space.w_ValueError,
-                             space.wrap("compile() unrecognized flags"))
+        raise oefmt(space.w_ValueError, "compile() unrecognized flags")
 
     if not dont_inherit:
         caller = ec.gettopframe_nohidden()
@@ -35,19 +34,17 @@ in addition to any features explicitly specified.
             flags |= ec.compiler.getcodeflags(caller.getcode())
 
     if mode not in ('exec', 'eval', 'single'):
-        raise OperationError(space.w_ValueError,
-                             space.wrap("compile() arg 3 must be 'exec' "
-                                        "or 'eval' or 'single'"))
+        raise oefmt(space.w_ValueError,
+                    "compile() arg 3 must be 'exec', 'eval' or 'single'")
 
     if space.isinstance_w(w_source, space.gettypeobject(ast.W_AST.typedef)):
         ast_node = ast.mod.from_object(space, w_source)
-        code = ec.compiler.compile_ast(ast_node, filename, mode, flags)
-        return space.wrap(code)
+        return ec.compiler.compile_ast(ast_node, filename, mode, flags)
 
     if space.isinstance_w(w_source, space.w_unicode):
         w_utf_8_source = space.call_method(w_source, "encode",
-                                           space.wrap("utf-8"))
-        source = space.str_w(w_utf_8_source)
+                                           space.newtext("utf-8"))
+        source = space.bytes_w(w_utf_8_source)
         # This flag tells the parser to reject any coding cookies it sees.
         flags |= consts.PyCF_SOURCE_IS_UTF8
     else:
@@ -55,15 +52,14 @@ in addition to any features explicitly specified.
 
     if not (flags & consts.PyCF_ACCEPT_NULL_BYTES):
         if '\x00' in source:
-            raise OperationError(space.w_TypeError, space.wrap(
-                "compile() expected string without null bytes"))
+            raise oefmt(space.w_TypeError,
+                        "compile() expected string without null bytes")
 
     if flags & consts.PyCF_ONLY_AST:
         node = ec.compiler.compile_to_ast(source, filename, mode, flags)
         return node.to_object(space)
     else:
-        code = ec.compiler.compile(source, filename, mode, flags)
-        return space.wrap(code)
+        return ec.compiler.compile(source, filename, mode, flags)
 
 
 def eval(space, w_code, w_globals=None, w_locals=None):
@@ -73,18 +69,16 @@ or a code object as returned by compile().  The globals and locals
 are dictionaries, defaulting to the current current globals and locals.
 If only globals is given, locals defaults to it.
 """
-    w = space.wrap
-
-    if (space.isinstance_w(w_code, space.w_str) or
+    if (space.isinstance_w(w_code, space.w_bytes) or
         space.isinstance_w(w_code, space.w_unicode)):
         w_code = compile(space,
                          space.call_method(w_code, 'lstrip',
-                                           space.wrap(' \t')),
+                                           space.newtext(' \t')),
                          "<string>", "eval")
 
     if not isinstance(w_code, PyCode):
-        raise OperationError(space.w_TypeError,
-              w('eval() arg 1 must be a string or code object'))
+        raise oefmt(space.w_TypeError,
+                    "eval() arg 1 must be a string or code object")
 
     if space.is_none(w_globals):
         caller = space.getexecutioncontext().gettopframe_nohidden()
@@ -93,7 +87,7 @@ If only globals is given, locals defaults to it.
             if space.is_none(w_locals):
                 w_locals = w_globals
         else:
-            w_globals = caller.w_globals
+            w_globals = caller.get_w_globals()
             if space.is_none(w_locals):
                 w_locals = caller.getdictscope()
     elif space.is_none(w_locals):

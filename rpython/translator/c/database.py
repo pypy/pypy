@@ -1,3 +1,4 @@
+from collections import OrderedDict
 
 from rpython.rtyper.lltypesystem.lltype import (Primitive, Ptr, typeOf,
     RuntimeTypeInfo, Struct, Array, FuncType, Void, ContainerType, OpaqueType,
@@ -8,9 +9,9 @@ from rpython.rtyper.lltypesystem.rffi import CConstant
 from rpython.rtyper.lltypesystem import llgroup
 from rpython.tool.sourcetools import valid_identifier
 from rpython.translator.c.primitive import PrimitiveName, PrimitiveType
-from rpython.translator.c.node import StructDefNode, ArrayDefNode
-from rpython.translator.c.node import FixedSizeArrayDefNode, BareBoneArrayDefNode
-from rpython.translator.c.node import ContainerNodeFactory, ExtTypeOpaqueDefNode
+from rpython.translator.c.node import (
+    StructDefNode, ArrayDefNode, FixedSizeArrayDefNode, BareBoneArrayDefNode,
+    ContainerNodeFactory, ExtTypeOpaqueDefNode, FuncNode)
 from rpython.translator.c.support import cdecl, CNameManager
 from rpython.translator.c.support import log, barebonearray
 from rpython.translator.c.extfunc import do_the_getting
@@ -28,6 +29,7 @@ class LowLevelDatabase(object):
 
     def __init__(self, translator=None, standalone=False,
                  gcpolicyclass=None,
+                 exctransformer=None,
                  thread_enabled=False,
                  sandbox=False):
         self.translator = translator
@@ -36,6 +38,7 @@ class LowLevelDatabase(object):
         if gcpolicyclass is None:
             gcpolicyclass = gc.RefcountingGcPolicy
         self.gcpolicy = gcpolicyclass(self, thread_enabled)
+        self.exctransformer = exctransformer
 
         self.structdefnodes = {}
         self.pendingsetupnodes = []
@@ -45,7 +48,6 @@ class LowLevelDatabase(object):
         self.delayedfunctionptrs = []
         self.completedcontainers = 0
         self.containerstats = {}
-        self.helper2ptr = {}
 
         # late_initializations is for when the value you want to
         # assign to a constant object is something C doesn't think is
@@ -53,12 +55,8 @@ class LowLevelDatabase(object):
         self.late_initializations = []
         self.namespace = CNameManager()
 
-        if translator is None or translator.rtyper is None:
-            self.exctransformer = None
-        else:
-            self.exctransformer = translator.getexceptiontransformer()
         if translator is not None:
-            self.gctransformer = self.gcpolicy.gettransformer()
+            self.gctransformer = self.gcpolicy.gettransformer(translator)
         self.completed = False
 
         self.instrument_ncounter = 0
@@ -277,7 +275,7 @@ class LowLevelDatabase(object):
         finish_callbacks = []
         if self.gctransformer:
             finish_callbacks.append(('GC transformer: finished helpers',
-                                     self.gctransformer.finish_helpers))
+                                     self.gctransformer.get_finish_helpers()))
             finish_callbacks.append(('GC transformer: finished tables',
                                      self.gctransformer.get_finish_tables()))
 
@@ -348,6 +346,9 @@ class LowLevelDatabase(object):
 
         assert not self.delayedfunctionptrs
         self.completed = True
+        if self.gctransformer is not None:
+            log.database("Inlining GC helpers and postprocessing")
+            self.gctransformer.inline_helpers_and_postprocess(self.all_graphs())
         if show_progress:
             dump()
         log.database("Completed")
@@ -379,30 +380,10 @@ class LowLevelDatabase(object):
             produce(node)
         return result
 
-    def need_sandboxing(self, fnobj):
-        if not self.sandbox:
-            return False
-        if hasattr(fnobj, '_safe_not_sandboxed'):
-            return not fnobj._safe_not_sandboxed
-        elif getattr(getattr(fnobj, '_callable', None),
-                     '_sandbox_external_name', None):
-            return True
-        else:
-            return "if_external"
-
-    def prepare_inline_helpers(self):
-        all_nodes = self.globalcontainers()
-        funcnodes = [node for node in all_nodes if node.nodekind == 'func']
-        graphs = []
-        for node in funcnodes:
-            for graph in node.graphs_to_patch():
-                graphs.append(graph)
-        self.gctransformer.prepare_inline_helpers(graphs)
-
     def all_graphs(self):
         graphs = []
         for node in self.containerlist:
-            if node.nodekind == 'func':
+            if isinstance(node, FuncNode):
                 for graph in node.graphs_to_patch():
                     graphs.append(graph)
         return graphs

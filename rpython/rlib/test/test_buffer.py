@@ -1,4 +1,4 @@
-from rpython.rlib.buffer import *
+from rpython.rlib.buffer import StringBuffer, SubBuffer, Buffer
 from rpython.annotator.annrpython import RPythonAnnotator
 from rpython.annotator.model import SomeInteger
 
@@ -45,3 +45,29 @@ def test_as_str_and_offset_maybe():
     ssbuf = SubBuffer(sbuf, 3, 2)
     assert ssbuf.getslice(0, 2, 1, 2) == 'ld'
     assert ssbuf.as_str_and_offset_maybe() == ('hello world', 9)
+    #
+    ss2buf = SubBuffer(sbuf, 1, -1)
+    assert ss2buf.as_str() == 'orld'
+    assert ss2buf.getlength() == 4
+    ss3buf = SubBuffer(ss2buf, 1, -1)
+    assert ss3buf.as_str() == 'rld'
+    assert ss3buf.getlength() == 3
+    #
+    ss4buf = SubBuffer(buf, 3, 4)
+    assert ss4buf.as_str() == 'lo w'
+    ss5buf = SubBuffer(ss4buf, 1, -1)
+    assert ss5buf.as_str() == 'o w'
+    assert ss5buf.getlength() == 3
+
+def test_repeated_subbuffer():
+    buf = StringBuffer('x' * 10000)
+    for i in range(9999, 9, -1):
+        buf = SubBuffer(buf, 1, i)
+    assert buf.getlength() == 10
+
+def test_string_buffer_as_buffer():
+    buf = StringBuffer(b'hello world')
+    addr = buf.get_raw_address()
+    assert addr[0] == b'h'
+    assert addr[4] == b'o'
+    assert addr[6] == b'w'

@@ -1,17 +1,16 @@
 import py
 from rpython.jit.backend.x86.regloc import *
+from rpython.jit.backend.x86.regalloc import (RegAlloc,
+        X86FrameManager, X86XMMRegisterManager, X86RegisterManager)
+from rpython.jit.backend.x86.vector_ext import TempVector
 from rpython.jit.backend.x86.test import test_basic
 from rpython.jit.backend.x86.test.test_assembler import \
         (TestRegallocPushPop as BaseTestAssembler)
-from rpython.jit.backend.detect_cpu import getcpuclass
-from rpython.jit.metainterp.history import ConstFloat
-from rpython.jit.metainterp.test import support, test_vector
-from rpython.jit.metainterp.warmspot import ll_meta_interp
-from rpython.rlib.jit import JitDriver
+from rpython.jit.metainterp.test import test_zvector
 from rpython.rtyper.lltypesystem import lltype
+from rpython.jit.backend.detect_cpu import getcpuclass
 
-
-class TestBasic(test_basic.Jit386Mixin, test_vector.VectorizeTests):
+class TestBasic(test_basic.Jit386Mixin, test_zvector.VectorizeTests):
     # for the individual tests see
     # ====> ../../../metainterp/test/test_basic.py
     def setup_method(self, method):
@@ -23,10 +22,37 @@ class TestBasic(test_basic.Jit386Mixin, test_vector.VectorizeTests):
             return cpu
         self.CPUClass = init
 
+    def supports_vector_ext(self):
+        return self.CPUClass.vector_extension
+
     def test_list_vectorize(self):
         pass # needs support_guard_gc_type, disable for now
 
     enable_opts = 'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll'
+
+@py.test.fixture
+def regalloc(request):
+    from rpython.jit.backend.x86.regalloc import X86FrameManager
+    from rpython.jit.backend.x86.regalloc import X86XMMRegisterManager
+    class FakeToken:
+        class compiled_loop_token:
+            asmmemmgr_blocks = None
+    cpu = getcpuclass()(None, None)
+    cpu.setup()
+    if cpu.HAS_CODEMAP:
+        cpu.codemap.setup()
+    looptoken = FakeToken()
+    asm = cpu.assembler
+    asm.setup_once()
+    asm.setup(looptoken)
+    regalloc = RegAlloc(asm)
+    regalloc.fm = fm = X86FrameManager(cpu.get_baseofs_of_frame_field())
+    regalloc.rm = X86RegisterManager({}, frame_manager = fm, assembler = asm)
+    regalloc.xrm = X86XMMRegisterManager({}, frame_manager = fm, assembler = asm)
+    request.cls.asm = asm
+    request.cls.regalloc = regalloc
+
+
 
 class TestAssembler(BaseTestAssembler):
 
@@ -89,4 +115,49 @@ class TestAssembler(BaseTestAssembler):
 
         res = self.do_test(callback) & 0xffffffff
         assert res == 22
+
+    def test_enforce_var(self, regalloc):
+        arg = TempVector('f')
+        args = []
+        self.regalloc.fm.bindings[arg] = FrameLoc(0, 64, 'f')
+        reg = self.regalloc.enforce_var_in_vector_reg(arg, args, xmm0)
+        assert reg is xmm0
+
+    def test_enforce_var_xmm0_forbidden(self, regalloc):
+        arg = TempVector('f')
+        arg1 = TempVector('f')
+        args = [arg1]
+        xrm = self.regalloc.xrm
+        xrm.reg_bindings[arg1] = xmm0
+        fr = xrm.free_regs
+        xrm.free_regs = [r for r in fr if r is not xmm0]
+        self.regalloc.fm.bindings[arg] = FrameLoc(0, 64, 'f')
+        reg = self.regalloc.enforce_var_in_vector_reg(arg, args, xmm0)
+        assert reg is xmm0
+        assert len(xrm.reg_bindings) == 2
+        assert xrm.reg_bindings[arg] == xmm0
+        assert xrm.reg_bindings[arg1] != xmm0
+
+    def test_enforce_var_spill(self, regalloc):
+        arg = TempVector('f')
+        arg1 = TempVector('f')
+        arg2 = TempVector('f')
+        args = []
+        xrm = self.regalloc.xrm
+        xrm.reg_bindings[arg1] = xmm0
+        xrm.reg_bindings[arg2] = xmm1
+        xrm.longevity[arg1] = (0,1)
+        xrm.longevity[arg2] = (0,2)
+        xrm.longevity[arg] = (0,3)
+        fr = xrm.free_regs
+        xrm.free_regs = []
+        self.regalloc.fm.bindings[arg] = FrameLoc(0, 64, 'f')
+        self.regalloc.fm.bindings[arg2] = FrameLoc(0, 72, 'f')
+        reg = self.regalloc.enforce_var_in_vector_reg(arg, args, xmm0)
+        assert reg is xmm0
+        assert len(xrm.reg_bindings) == 2
+        assert xrm.reg_bindings[arg] == xmm0
+        assert xrm.reg_bindings[arg1] == xmm1
+        assert arg2 not in xrm.reg_bindings
+
 

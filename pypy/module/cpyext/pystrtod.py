@@ -1,6 +1,6 @@
 import errno
-from pypy.interpreter.error import OperationError
-from pypy.module.cpyext.api import cpython_api
+from pypy.interpreter.error import oefmt
+from pypy.module.cpyext.api import cpython_api, CONST_STRING
 from pypy.module.cpyext.pyobject import PyObject
 from rpython.rlib import rdtoa
 from rpython.rlib import rfloat
@@ -22,7 +22,7 @@ DOUBLE_TO_STRING_TYPES_MAP = {
     rfloat.DIST_NAN: Py_DTST_NAN
 }
 
-@cpython_api([rffi.CCHARP, rffi.CCHARPP, PyObject], rffi.DOUBLE, error=-1.0)
+@cpython_api([CONST_STRING, rffi.CCHARPP, PyObject], rffi.DOUBLE, error=-1.0)
 @jit.dont_look_inside       # direct use of _get_errno()
 def PyOS_string_to_double(space, s, endptr, w_overflow_exception):
     """Convert a string s to a double, raising a Python
@@ -63,9 +63,8 @@ def PyOS_string_to_double(space, s, endptr, w_overflow_exception):
         endpos = (rffi.cast(rffi.LONG, endptr[0]) -
                   rffi.cast(rffi.LONG, s))
         if endpos == 0 or (not user_endptr and not endptr[0][0] == '\0'):
-            raise OperationError(
-                space.w_ValueError,
-                space.wrap('invalid input at position %s' % endpos))
+            raise oefmt(space.w_ValueError,
+                        "invalid input at position %d", endpos)
         err = rffi.cast(lltype.Signed, rposix._get_errno())
         if err == errno.ERANGE:
             rposix._set_errno(rffi.cast(rffi.INT, 0))
@@ -75,8 +74,7 @@ def PyOS_string_to_double(space, s, endptr, w_overflow_exception):
                 else:
                     return -rfloat.INFINITY
             else:
-                raise OperationError(w_overflow_exception,
-                                     space.wrap('value too large'))
+                raise oefmt(w_overflow_exception, "value too large")
         return result
     finally:
         if not user_endptr:

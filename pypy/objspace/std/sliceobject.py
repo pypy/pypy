@@ -3,7 +3,7 @@
 import sys
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import jit
@@ -12,13 +12,13 @@ from rpython.rlib import jit
 class W_SliceObject(W_Root):
     _immutable_fields_ = ['w_start', 'w_stop', 'w_step']
 
-    def __init__(w_self, w_start, w_stop, w_step):
+    def __init__(self, w_start, w_stop, w_step):
         assert w_start is not None
         assert w_stop is not None
         assert w_step is not None
-        w_self.w_start = w_start
-        w_self.w_stop = w_stop
-        w_self.w_step = w_step
+        self.w_start = w_start
+        self.w_stop = w_stop
+        self.w_step = w_step
 
     def unwrap(w_slice, space):
         return slice(space.unwrap(w_slice.w_start), space.unwrap(w_slice.w_stop), space.unwrap(w_slice.w_step))
@@ -29,8 +29,7 @@ class W_SliceObject(W_Root):
         else:
             step = _eval_slice_index(space, w_slice.w_step)
             if step == 0:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap("slice step cannot be zero"))
+                raise oefmt(space.w_ValueError, "slice step cannot be zero")
         if space.is_w(w_slice.w_start, space.w_None):
             if step < 0:
                 start = length - 1
@@ -98,20 +97,18 @@ class W_SliceObject(W_Root):
         elif len(args_w) == 3:
             w_start, w_stop, w_step = args_w
         elif len(args_w) > 3:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("slice() takes at most 3 arguments"))
+            raise oefmt(space.w_TypeError, "slice() takes at most 3 arguments")
         else:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("slice() takes at least 1 argument"))
+            raise oefmt(space.w_TypeError, "slice() takes at least 1 argument")
         w_obj = space.allocate_instance(W_SliceObject, w_slicetype)
         W_SliceObject.__init__(w_obj, w_start, w_stop, w_step)
         return w_obj
 
     def descr_repr(self, space):
-        return space.wrap("slice(%s, %s, %s)" % (
-            space.str_w(space.repr(self.w_start)),
-            space.str_w(space.repr(self.w_stop)),
-            space.str_w(space.repr(self.w_step))))
+        return space.newtext("slice(%s, %s, %s)" % (
+            space.text_w(space.repr(self.w_start)),
+            space.text_w(space.repr(self.w_stop)),
+            space.text_w(space.repr(self.w_step))))
 
     def descr__reduce__(self, space):
         from pypy.objspace.std.sliceobject import W_SliceObject
@@ -158,16 +155,15 @@ class W_SliceObject(W_Root):
         """
         length = space.getindex_w(w_length, space.w_OverflowError)
         start, stop, step = self.indices3(space, length)
-        return space.newtuple([space.wrap(start), space.wrap(stop),
-                               space.wrap(step)])
+        return space.newtuple([space.newint(start), space.newint(stop),
+                               space.newint(step)])
 
 
 def slicewprop(name):
     def fget(space, w_obj):
         from pypy.objspace.std.sliceobject import W_SliceObject
         if not isinstance(w_obj, W_SliceObject):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("descriptor is for 'slice'"))
+            raise oefmt(space.w_TypeError, "descriptor is for 'slice'")
         return getattr(w_obj, name)
     return GetSetProperty(fget)
 
@@ -197,12 +193,12 @@ def _eval_slice_index(space, w_int):
     # otherwise you can get funny error messages
     try:
         return space.getindex_w(w_int, None) # clamp if long integer too large
-    except OperationError, err:
+    except OperationError as err:
         if not err.match(space, space.w_TypeError):
             raise
-        raise OperationError(space.w_TypeError,
-                             space.wrap("slice indices must be integers or "
-                                        "None or have an __index__ method"))
+        raise oefmt(space.w_TypeError,
+                    "slice indices must be integers or None or have an "
+                    "__index__ method")
 
 def adapt_lower_bound(space, size, w_index):
     index = _eval_slice_index(space, w_index)

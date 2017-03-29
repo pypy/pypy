@@ -34,19 +34,46 @@ def Windows_x64(cc=None):
                     " or contribute the missing support in PyPy.")
     return _get_compiler_type(cc, True)
 
+def _find_vcvarsall(version):
+    # copied from setuptools.msvc9_support.py
+    from distutils.msvc9compiler import Reg
+    VC_BASE = r'Software\%sMicrosoft\DevDiv\VCForPython\%0.1f'
+    key = VC_BASE % ('', version)
+    try:
+        # Per-user installs register the compiler path here
+        productdir = Reg.get_value(key, "installdir")
+    except KeyError:
+        try:
+            # All-user installs on a 64-bit system register here
+            key = VC_BASE % ('Wow6432Node\\', version)
+            productdir = Reg.get_value(key, "installdir")
+        except KeyError:
+            productdir = None
+
+    if productdir:
+        vcvarsall = os.path.join(productdir, "vcvarsall.bat")
+        if os.path.isfile(vcvarsall):
+            return vcvarsall
+    return None
+
 def _get_msvc_env(vsver, x64flag):
+    vcvars = None
     try:
         toolsdir = os.environ['VS%sCOMNTOOLS' % vsver]
     except KeyError:
-        return None
+        # try to import from the registry, as done in setuptools
+        # XXX works for 90 but is it generalizable?
+        toolsdir = ''
+        vcvars = _find_vcvarsall(vsver/10)
 
-    if x64flag:
-        vsinstalldir = os.path.abspath(os.path.join(toolsdir, '..', '..'))
-        vcinstalldir = os.path.join(vsinstalldir, 'VC')
-        vcbindir = os.path.join(vcinstalldir, 'BIN')
-        vcvars = os.path.join(vcbindir, 'amd64', 'vcvarsamd64.bat')
-    else:
-        vcvars = os.path.join(toolsdir, 'vsvars32.bat')
+    if not vcvars:
+        if x64flag:
+            vsinstalldir = os.path.abspath(os.path.join(toolsdir, '..', '..'))
+            vcinstalldir = os.path.join(vsinstalldir, 'VC')
+            vcbindir = os.path.join(vcinstalldir, 'BIN')
+            vcvars = os.path.join(vcbindir, 'amd64', 'vcvarsamd64.bat')
+        else:
+            vcvars = os.path.join(toolsdir, 'vsvars32.bat')
 
     import subprocess
     try:
@@ -103,7 +130,7 @@ class MsvcPlatform(Platform):
     link = 'link.exe'
 
     cflags = ('/MD', '/O2', '/Zi')
-    link_flags = ('/debug',)
+    link_flags = ('/debug','/LARGEADDRESSAWARE')
     standalone_only = ()
     shared_only = ()
     environ = None
@@ -151,7 +178,7 @@ class MsvcPlatform(Platform):
 
             # Increase stack size, for the linker and the stack check code.
             stack_size = 8 << 20  # 8 Mb
-            self.link_flags.append('/STACK:%d' % stack_size)
+            self.link_flags = self.link_flags + ('/STACK:%d' % stack_size,)
             # The following symbol is used in c/src/stack.h
             self.cflags.append('/DMAX_STACK_SIZE=%d' % (stack_size - 1024))
 
@@ -173,7 +200,7 @@ class MsvcPlatform(Platform):
     def _linkfiles(self, link_files):
         return list(link_files)
 
-    def _args_for_shared(self, args):
+    def _args_for_shared(self, args, **kwds):
         return ['/dll'] + args
 
     def check___thread(self):
@@ -244,7 +271,7 @@ class MsvcPlatform(Platform):
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
-                     no_precompile_cfiles = [], icon=None):
+                     no_precompile_cfiles = [], config=None):
         cfiles = self._all_cfiles(cfiles, eci)
 
         if path is None:
@@ -352,9 +379,9 @@ class MsvcPlatform(Platform):
             no_precompile = []
             for f in list(no_precompile_cfiles):
                 f = m.pathrel(py.path.local(f))
-                if f not in no_precompile and f.endswith('.c'):
+                if f not in no_precompile and (f.endswith('.c') or f.endswith('.cpp')):
                     no_precompile.append(f)
-                    target = f[:-1] + 'obj'
+                    target = f[:f.rfind('.')] + '.obj'
                     rules.append((target, f,
                         '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) '
                         '/Fo%s /c %s $(INCLUDEDIRS)' %(target, f)))
@@ -365,6 +392,7 @@ class MsvcPlatform(Platform):
                           '/Fo$@ /c $< $(INCLUDEDIRS)'))
 
 
+        icon = config.translation.icon if config else None
         if icon:
             shutil.copyfile(icon, str(path.join('icon.ico')))
             rc_file = path.join('icon.rc')
@@ -527,7 +555,7 @@ class MingwPlatform(posix.BasePosix):
             cc = 'gcc'
         Platform.__init__(self, cc)
 
-    def _args_for_shared(self, args):
+    def _args_for_shared(self, args, **kwds):
         return ['-shared'] + args
 
     def _include_dirs_for_libffi(self):

@@ -31,3 +31,32 @@ def f():
         finally:
             __pypy__.set_code_callback(None)
         assert d['f'].__code__ in l
+
+    def test_decode_long(self):
+        from __pypy__ import decode_long
+        assert decode_long('') == 0
+        assert decode_long('\xff\x00') == 255
+        assert decode_long('\xff\x7f') == 32767
+        assert decode_long('\x00\xff') == -256
+        assert decode_long('\x00\x80') == -32768
+        assert decode_long('\x80') == -128
+        assert decode_long('\x7f') == 127
+        assert decode_long('\x55' * 97) == (1 << (97 * 8)) // 3
+        assert decode_long('\x00\x80', 'big') == 128
+        assert decode_long('\xff\x7f', 'little', False) == 32767
+        assert decode_long('\x00\x80', 'little', False) == 32768
+        assert decode_long('\x00\x80', 'little', True) == -32768
+        raises(ValueError, decode_long, '', 'foo')
+
+    def test_promote(self):
+        from __pypy__ import _promote
+        assert _promote(1) == 1
+        assert _promote(1.1) == 1.1
+        assert _promote("abc") == "abc"
+        raises(TypeError, _promote, u"abc")
+        l = []
+        assert _promote(l) is l
+        class A(object):
+            pass
+        a = A()
+        assert _promote(a) is a

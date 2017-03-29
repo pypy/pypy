@@ -1,11 +1,6 @@
 import sys
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
-if sys.maxint == 2147483647:
-    SHIFT = 31
-else:
-    SHIFT = 63
-
 # XXX review the <Call> descrs to replace some EF=5 with EF=4 (elidable)
 
 
@@ -28,11 +23,7 @@ class TestString(BaseTestPyPyC):
             guard_true(i14, descr=...)
             guard_not_invalidated(descr=...)
             i16 = int_eq(i6, %d)
-            guard_false(i16, descr=...)
-            i15 = int_mod(i6, i10)
-            i17 = int_rshift(i15, %d)
-            i18 = int_and(i10, i17)
-            i19 = int_add(i15, i18)
+            i19 = call_i(ConstClass(ll_int_py_mod__Signed_Signed), i6, i10, descr=<Calli . ii EF=0 OS=14>)
             i21 = int_lt(i19, 0)
             guard_false(i21, descr=...)
             i22 = int_ge(i19, i10)
@@ -50,7 +41,7 @@ class TestString(BaseTestPyPyC):
             i34 = int_add(i6, 1)
             --TICK--
             jump(..., descr=...)
-        """ % (-sys.maxint-1, SHIFT))
+        """ % (-sys.maxint-1,))
 
     def test_long(self):
         def main(n):
@@ -63,26 +54,31 @@ class TestString(BaseTestPyPyC):
         log = self.run(main, [1100], import_site=True)
         assert log.result == main(1100)
         loop, = log.loops_by_filename(self.filepath)
+        if sys.maxint > 2**32:
+            args = (63, -3689348814741910323, 3)
+        else:
+            args = (31, -858993459, 3)
         assert loop.match("""
             i11 = int_lt(i6, i7)
             guard_true(i11, descr=...)
             guard_not_invalidated(descr=...)
             i13 = int_eq(i6, %d)         # value provided below
-            guard_false(i13, descr=...)
-            i15 = int_mod(i6, 10)
-            i17 = int_rshift(i15, %d)    # value provided below
-            i18 = int_and(10, i17)
-            i19 = int_add(i15, i18)
-            i21 = int_lt(i19, 0)
-            guard_false(i21, descr=...)
-            i22 = int_ge(i19, 10)
-            guard_false(i22, descr=...)
+
+            # "mod 10" block:
+            i79 = int_rshift(i6, %d)
+            i80 = int_xor(i6, i79)
+            i82 = uint_mul_high(i80, %d)
+            i84 = uint_rshift(i82, %d)
+            i85 = int_xor(i84, i79)
+            i87 = int_mul(i85, 10)
+            i19 = int_sub(i6, i87)
+
             i23 = strgetitem(p10, i19)
             p25 = newstr(1)
             strsetitem(p25, 0, i23)
             p93 = call_r(ConstClass(fromstr), p25, 16, descr=<Callr . ri EF=4>)
             guard_no_exception(descr=...)
-            i95 = getfield_gc_pure_i(p93, descr=<FieldS rpython.rlib.rbigint.rbigint.inst_size .*>)
+            i95 = getfield_gc_i(p93, descr=<FieldS rpython.rlib.rbigint.rbigint.inst_size .*>)
             i96 = int_gt(i95, #)
             guard_false(i96, descr=...)
             i94 = call_i(ConstClass(rbigint._toint_helper), p93, descr=<Calli . r EF=4>)
@@ -91,7 +87,7 @@ class TestString(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             --TICK--
             jump(..., descr=...)
-        """ % (-sys.maxint-1, SHIFT))
+        """ % ((-sys.maxint-1,)+args))
 
     def test_str_mod(self):
         def main(n):
@@ -135,7 +131,6 @@ class TestString(BaseTestPyPyC):
             guard_no_exception(descr=...)
             p95 = call_r(..., descr=<Callr . r EF=5>)     # ll_build
             guard_no_exception(descr=...)
-            guard_nonnull(p95, descr=...)
             i96 = strlen(p95)
             i97 = int_add_ovf(i71, i96)
             guard_no_overflow(descr=...)
@@ -143,43 +138,6 @@ class TestString(BaseTestPyPyC):
             --TICK--
             jump(..., descr=...)
         """)
-
-    def test_getattr_promote(self):
-        def main(n):
-            class A(object):
-                def meth_a(self):
-                    return 1
-                def meth_b(self):
-                    return 2
-            a = A()
-
-            l = ['a', 'b']
-            s = 0
-            for i in range(n):
-                name = 'meth_' + l[i & 1]
-                meth = getattr(a, name) # ID: getattr
-                s += meth()
-            return s
-
-        log = self.run(main, [1000])
-        assert log.result == main(1000)
-        loops = log.loops_by_filename(self.filepath)
-        assert len(loops) == 1
-        for loop in loops:
-            assert loop.match_by_id('getattr','''
-            guard_not_invalidated?
-            i32 = strlen(p31)
-            i34 = int_add(5, i32)
-            p35 = newstr(i34)
-            strsetitem(p35, 0, 109)
-            strsetitem(p35, 1, 101)
-            strsetitem(p35, 2, 116)
-            strsetitem(p35, 3, 104)
-            strsetitem(p35, 4, 95)
-            copystrcontent(p31, p35, 0, 5, i32)
-            i49 = call_i(ConstClass(_ll_2_str_eq_nonnull__rpy_stringPtr_rpy_stringPtr), p35, ConstPtr(ptr48), descr=<Calli [48] rr EF=0 OS=28>)
-            guard_value(i49, 1, descr=...)
-            ''')
 
     def test_remove_duplicate_method_calls(self):
         def main(n):
@@ -251,10 +209,8 @@ class TestString(BaseTestPyPyC):
         guard_not_invalidated(descr=...)
         p80 = call_r(ConstClass(ll_str__IntegerR_SignedConst_Signed), i47, descr=<Callr . i EF=3>)
         guard_no_exception(descr=...)
-        guard_nonnull(p80, descr=...)
         p53 = call_r(ConstClass(fast_str_decode_ascii), p80, descr=<Callr . r EF=4>)
         guard_no_exception(descr=...)
-        guard_nonnull(p53, descr=...)
         --TICK--
         jump(..., descr=...)
         """)

@@ -169,7 +169,7 @@ class TestSearch:
     def test_empty_maxuntil_2(self):
         try:
             r_code, r = get_code_and_re(r'X(.*?)+X')
-        except re.error, e:
+        except re.error as e:
             py.test.skip("older version of the stdlib: %s" % (e,))
         assert r.match('XfooXbarX').span() == (0, 5)
         assert r.match('XfooXbarX').span(1) == (4, 4)

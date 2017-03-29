@@ -138,7 +138,7 @@ class AppTestFcntl:
             rval = 2
             try:
                 fcntl.flock(open(f.name, f.mode), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except IOError, e:
+            except IOError as e:
                 if e.errno not in (errno.EACCES, errno.EAGAIN):
                     raise
                 rval = 0
@@ -175,7 +175,7 @@ class AppTestFcntl:
             rval = 2
             try:
                 fcntl.lockf(open(f.name, f.mode), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except IOError, e:
+            except IOError as e:
                 if e.errno not in (errno.EACCES, errno.EAGAIN):
                     raise
                 rval = 0

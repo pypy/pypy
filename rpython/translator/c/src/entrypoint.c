@@ -27,7 +27,7 @@ int pypy_main_function(int argc, char *argv[]) __attribute__((__noinline__));
 #  include "forwarddecl.h"
 # endif
 
-#if defined(MS_WINDOWS) && defined(RPY_SANDBOXED)
+#if defined(MS_WINDOWS)
 #  include <stdio.h>
 #  include <fcntl.h>
 #  include <io.h>
@@ -37,17 +37,36 @@ int pypy_main_function(int argc, char *argv[]) __attribute__((__noinline__));
 # include <src/thread.h>
 #endif
 
+RPY_EXPORTED
+void rpython_startup_code(void)
+{
+#ifdef RPY_WITH_GIL
+    RPyGilAcquire();
+#endif
+#ifdef PYPY_USE_ASMGCC
+    pypy_g_rpython_rtyper_lltypesystem_rffi_StackCounter.sc_inst_stacks_counter++;
+#endif
+    pypy_asm_stack_bottom();
+    RPython_StartupCode();
+#ifdef PYPY_USE_ASMGCC
+    pypy_g_rpython_rtyper_lltypesystem_rffi_StackCounter.sc_inst_stacks_counter--;
+#endif
+#ifdef RPY_WITH_GIL
+    RPyGilRelease();
+#endif
+}
+
 
 RPY_EXTERN
 int pypy_main_function(int argc, char *argv[])
 {
     char *errmsg;
     int i, exitcode;
-    RPyListOfString *list;
 
-#if defined(MS_WINDOWS) && defined(RPY_SANDBOXED)
+#if defined(MS_WINDOWS)
     _setmode(0, _O_BINARY);
     _setmode(1, _O_BINARY);
+    _setmode(2, _O_BINARY);
 #endif
 
 #ifdef RPY_WITH_GIL
@@ -75,15 +94,7 @@ int pypy_main_function(int argc, char *argv[])
 
     RPython_StartupCode();
 
-    list = _RPyListOfString_New(argc);
-    if (RPyExceptionOccurred()) goto memory_out;
-    for (i=0; i<argc; i++) {
-        RPyString *s = RPyString_FromString(argv[i]);
-        if (RPyExceptionOccurred()) goto memory_out;
-        _RPyListOfString_SetItem(list, i, s);
-    }
-
-    exitcode = STANDALONE_ENTRY_POINT(list);
+    exitcode = STANDALONE_ENTRY_POINT(argc, argv);
 
     pypy_debug_alloc_results();
 

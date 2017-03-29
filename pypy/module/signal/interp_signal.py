@@ -5,7 +5,8 @@ import sys
 import os
 import errno
 
-from pypy.interpreter.error import OperationError, exception_from_saved_errno
+from pypy.interpreter.error import (
+    OperationError, exception_from_saved_errno, oefmt)
 from pypy.interpreter.executioncontext import (AsyncAction, AbstractActionFlag,
     PeriodicAsyncAction)
 from pypy.interpreter.gateway import unwrap_spec
@@ -63,7 +64,7 @@ class CheckSignalAction(PeriodicAsyncAction):
         AsyncAction.__init__(self, space)
         self.pending_signal = -1
         self.fire_in_another_thread = False
-        #
+
         @rgc.no_collect
         def _after_thread_switch():
             if self.fire_in_another_thread:
@@ -127,7 +128,7 @@ class Handlers:
             if WIN32 and signum not in signal_values:
                 self.handlers_w[signum] = space.w_None
             else:
-                self.handlers_w[signum] = space.wrap(SIG_DFL)
+                self.handlers_w[signum] = space.newint(SIG_DFL)
 
 def _get_handlers(space):
     return space.fromcache(Handlers).handlers_w
@@ -145,8 +146,8 @@ def report_signal(space, n):
     pypysig_reinstall(n)
     # invoke the app-level handler
     ec = space.getexecutioncontext()
-    w_frame = space.wrap(ec.gettopframe_nohidden())
-    space.call_function(w_handler, space.wrap(n), w_frame)
+    w_frame = ec.gettopframe_nohidden()
+    space.call_function(w_handler, space.newint(n), w_frame)
 
 
 @unwrap_spec(signum=int)
@@ -172,18 +173,25 @@ def default_int_handler(space, w_signum, w_frame):
     The default handler for SIGINT installed by Python.
     It raises KeyboardInterrupt.
     """
-    raise OperationError(space.w_KeyboardInterrupt,
-                         space.w_None)
+    raise OperationError(space.w_KeyboardInterrupt, space.w_None)
 
 
 @jit.dont_look_inside
 @unwrap_spec(timeout=int)
 def alarm(space, timeout):
-    return space.wrap(c_alarm(timeout))
+    """alarm(seconds)
+
+    Arrange for SIGALRM to arrive after the given number of seconds.
+    """
+    return space.newint(c_alarm(timeout))
 
 
 @jit.dont_look_inside
 def pause(space):
+    """pause()
+
+    Wait until a signal arrives.
+    """
     c_pause()
     return space.w_None
 
@@ -191,8 +199,7 @@ def pause(space):
 def check_signum_in_range(space, signum):
     if 1 <= signum < NSIG:
         return
-    raise OperationError(space.w_ValueError,
-                         space.wrap("signal number out of range"))
+    raise oefmt(space.w_ValueError, "signal number out of range")
 
 
 @jit.dont_look_inside
@@ -210,23 +217,21 @@ def signal(space, signum, w_handler):
     the first is the signal number, the second is the interrupted stack frame.
     """
     if WIN32 and signum not in signal_values:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("invalid signal value"))
+        raise oefmt(space.w_ValueError, "invalid signal value")
     if not space.threadlocals.signals_enabled():
-        raise OperationError(space.w_ValueError,
-                             space.wrap("signal only works in main thread "
-                                 "or with __pypy__.thread.enable_signals()"))
+        raise oefmt(space.w_ValueError,
+                    "signal only works in main thread or with "
+                    "__pypy__.thread.enable_signals()")
     check_signum_in_range(space, signum)
 
-    if space.eq_w(w_handler, space.wrap(SIG_DFL)):
+    if space.eq_w(w_handler, space.newint(SIG_DFL)):
         pypysig_default(signum)
-    elif space.eq_w(w_handler, space.wrap(SIG_IGN)):
+    elif space.eq_w(w_handler, space.newint(SIG_IGN)):
         pypysig_ignore(signum)
     else:
         if not space.is_true(space.callable(w_handler)):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("'handler' must be a callable "
-                                            "or SIG_DFL or SIG_IGN"))
+            raise oefmt(space.w_TypeError,
+                        "'handler' must be a callable or SIG_DFL or SIG_IGN")
         pypysig_setflag(signum)
 
     handlers_w = _get_handlers(space)
@@ -245,27 +250,32 @@ def set_wakeup_fd(space, fd):
     The fd must be non-blocking.
     """
     if not space.threadlocals.signals_enabled():
-        raise OperationError(
-            space.w_ValueError,
-            space.wrap("set_wakeup_fd only works in main thread "
-                       "or with __pypy__.thread.enable_signals()"))
+        raise oefmt(space.w_ValueError,
+                    "set_wakeup_fd only works in main thread or with "
+                    "__pypy__.thread.enable_signals()")
     if fd != -1:
         try:
             os.fstat(fd)
-        except OSError, e:
+        except OSError as e:
             if e.errno == errno.EBADF:
-                raise OperationError(space.w_ValueError, space.wrap("invalid fd"))
-    old_fd = pypysig_set_wakeup_fd(fd)
-    return space.wrap(intmask(old_fd))
+                raise oefmt(space.w_ValueError, "invalid fd")
+    old_fd = pypysig_set_wakeup_fd(fd, True)
+    return space.newint(intmask(old_fd))
 
 
 @jit.dont_look_inside
 @unwrap_spec(signum=int, flag=int)
 def siginterrupt(space, signum, flag):
+    """siginterrupt(sig, flag) -> None
+
+    change system call restart behaviour: if flag is False, system calls
+    will be restarted when interrupted by signal sig, else system calls
+    will be interrupted.
+    """
     check_signum_in_range(space, signum)
     if rffi.cast(lltype.Signed, c_siginterrupt(signum, flag)) < 0:
         errno = rposix.get_saved_errno()
-        raise OperationError(space.w_RuntimeError, space.wrap(errno))
+        raise OperationError(space.w_RuntimeError, space.newint(errno))
 
 
 #__________________________________________________________
@@ -281,8 +291,8 @@ def double_from_timeval(tv):
 
 
 def itimer_retval(space, val):
-    w_value = space.wrap(double_from_timeval(val.c_it_value))
-    w_interval = space.wrap(double_from_timeval(val.c_it_interval))
+    w_value = space.newfloat(double_from_timeval(val.c_it_value))
+    w_interval = space.newfloat(double_from_timeval(val.c_it_interval))
     return space.newtuple([w_value, w_interval])
 
 

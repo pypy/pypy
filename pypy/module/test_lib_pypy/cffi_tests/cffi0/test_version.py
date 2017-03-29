@@ -29,7 +29,7 @@ def test_doc_version():
     content = open(p).read()
     #
     v = cffi.__version__
-    assert ("version = '%s'\n" % v[:3]) in content
+    assert ("version = '%s'\n" % v[:4]) in content
     assert ("release = '%s'\n" % v) in content
 
 def test_doc_version_file():
@@ -54,3 +54,10 @@ def test_c_version():
     content = open(p).read()
     #v = BACKEND_VERSIONS.get(v, v)
     assert (('assert __version__ == "%s"' % v) in content)
+
+def test_embedding_h():
+    parent = os.path.dirname(os.path.dirname(cffi.__file__))
+    v = cffi.__version__
+    p = os.path.join(parent, 'cffi', '_embedding.h')
+    content = open(p).read()
+    assert ('cffi version: %s"' % (v,)) in content

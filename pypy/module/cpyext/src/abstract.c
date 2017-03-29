@@ -101,6 +101,30 @@ int PyObject_AsWriteBuffer(PyObject *obj,
     return 0;
 }
 
+/* Buffer C-API for Python 3.0 */
+
+int
+PyObject_GetBuffer(PyObject *obj, Py_buffer *view, int flags)
+{
+    if (!PyObject_CheckBuffer(obj)) {
+        PyErr_Format(PyExc_TypeError,
+                     "'%100s' does not have the buffer interface",
+                     Py_TYPE(obj)->tp_name);
+        return -1;
+    }
+    return (*(obj->ob_type->tp_as_buffer->bf_getbuffer))(obj, view, flags);
+}
+
+void
+PyBuffer_Release(Py_buffer *view)
+{
+    PyObject *obj = view->obj;
+    if (obj && Py_TYPE(obj)->tp_as_buffer && Py_TYPE(obj)->tp_as_buffer->bf_releasebuffer)
+        Py_TYPE(obj)->tp_as_buffer->bf_releasebuffer(obj, view);
+    Py_XDECREF(obj);
+    view->obj = NULL;
+}
+
 /* Operations on callable objects */
 
 static PyObject*
@@ -326,3 +350,9 @@ PyObject_CallFunctionObjArgs(PyObject *callable, ...)
     return tmp;
 }
 
+/* for binary compatibility with 5.1 */
+PyAPI_FUNC(void) PyPyObject_Del(PyObject *);
+void PyPyObject_Del(PyObject *op)
+{
+    PyObject_FREE(op);
+}

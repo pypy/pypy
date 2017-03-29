@@ -8,11 +8,13 @@ from pypy.interpreter.gateway import (interp2app, BuiltinCode, unwrap_spec,
 
 from rpython.rlib.jit import promote
 from rpython.rlib.objectmodel import compute_identity_hash, specialize
+from rpython.rlib.objectmodel import instantiate
 from rpython.tool.sourcetools import compile2, func_with_new_name
 
 
 class TypeDef(object):
-    def __init__(self, __name, __base=None, __total_ordering__=None, **rawdict):
+    def __init__(self, __name, __base=None, __total_ordering__=None,
+                 __buffer=None, **rawdict):
         "NOT_RPYTHON: initialization-time only"
         self.name = __name
         if __base is None:
@@ -22,8 +24,13 @@ class TypeDef(object):
         else:
             bases = [__base]
         self.bases = bases
+        # Used in cpyext to fill tp_as_buffer slots
+        assert __buffer in {None, 'read-write', 'read'}, "Unknown value for __buffer"
+        self.buffer = __buffer
         self.heaptype = False
         self.hasdict = '__dict__' in rawdict
+        # no __del__: use an RPython _finalize_() method and register_finalizer
+        assert '__del__' not in rawdict
         self.weakrefable = '__weakref__' in rawdict
         self.doc = rawdict.pop('__doc__', None)
         for base in bases:
@@ -86,7 +93,7 @@ def auto__ne__(space, w_self, w_other):
 def default_identity_hash(space, w_obj):
     w_unique_id = w_obj.immutable_unique_id(space)
     if w_unique_id is None:     # common case
-        return space.wrap(compute_identity_hash(w_obj))
+        return space.newint(compute_identity_hash(w_obj))
     else:
         return space.hash(w_unique_id)
 
@@ -98,254 +105,64 @@ def default_identity_hash(space, w_obj):
 # reason is that it is missing a place to store the __dict__, the slots,
 # the weakref lifeline, and it typically has no interp-level __del__.
 # So we create a few interp-level subclasses of W_XxxObject, which add
-# some combination of features.
-#
-# We don't build 2**4 == 16 subclasses for all combinations of requested
-# features, but limit ourselves to 6, chosen a bit arbitrarily based on
-# typical usage (case 1 is the most common kind of app-level subclasses;
-# case 2 is the memory-saving kind defined with __slots__).
-#
-#  +----------------------------------------------------------------+
-#  | NOTE: if withmapdict is enabled, the following doesn't apply!  |
-#  | Map dicts can flexibly allow any slots/__dict__/__weakref__ to |
-#  | show up only when needed.  In particular there is no way with  |
-#  | mapdict to prevent some objects from being weakrefable.        |
-#  +----------------------------------------------------------------+
-#
-#     dict   slots   del   weakrefable
-#
-# 1.    Y      N      N         Y          UserDictWeakref
-# 2.    N      Y      N         N          UserSlots
-# 3.    Y      Y      N         Y          UserDictWeakrefSlots
-# 4.    N      Y      N         Y          UserSlotsWeakref
-# 5.    Y      Y      Y         Y          UserDictWeakrefSlotsDel
-# 6.    N      Y      Y         Y          UserSlotsWeakrefDel
-#
-# Note that if the app-level explicitly requests no dict, we should not
-# provide one, otherwise storing random attributes on the app-level
-# instance would unexpectedly work.  We don't care too much, though, if
-# an object is weakrefable when it shouldn't really be.  It's important
-# that it has a __del__ only if absolutely needed, as this kills the
-# performance of the GCs.
-#
-# Interp-level inheritance is like this:
-#
-#        W_XxxObject base
-#             /   \
-#            1     2
-#           /       \
-#          3         4
-#         /           \
-#        5             6
+# some combination of features. This is done using mapdict.
 
-def get_unique_interplevel_subclass(config, cls, hasdict, wants_slots,
-                                    needsdel=False, weakrefable=False):
+# Note that nowadays, we need not "a few" but only one subclass.  It
+# adds mapdict, which flexibly allows all features.  We handle the
+# presence or absence of an app-level '__del__' by calling
+# register_finalizer() or not.
+
+@specialize.memo()
+def get_unique_interplevel_subclass(space, cls):
     "NOT_RPYTHON: initialization-time only"
-    if hasattr(cls, '__del__') and getattr(cls, "handle_del_manually", False):
-        needsdel = False
     assert cls.typedef.acceptable_as_base_class
-    key = config, cls, hasdict, wants_slots, needsdel, weakrefable
     try:
-        return _subclass_cache[key]
+        return _unique_subclass_cache[cls]
     except KeyError:
-        subcls = _getusercls(config, cls, hasdict, wants_slots, needsdel,
-                             weakrefable)
-        assert key not in _subclass_cache
-        _subclass_cache[key] = subcls
+        subcls = _getusercls(cls)
+        assert cls not in _unique_subclass_cache
+        _unique_subclass_cache[cls] = subcls
         return subcls
-get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
-_subclass_cache = {}
+_unique_subclass_cache = {}
 
-def enum_interplevel_subclasses(config, cls):
-    """Return a list of all the extra interp-level subclasses of 'cls' that
-    can be built by get_unique_interplevel_subclass()."""
-    result = []
-    for flag1 in (False, True):
-        for flag2 in (False, True):
-            for flag3 in (False, True):
-                for flag4 in (False, True):
-                    result.append(get_unique_interplevel_subclass(
-                        config, cls, flag1, flag2, flag3, flag4))
-    result = dict.fromkeys(result)
-    assert len(result) <= 6
-    return result.keys()
-
-def _getusercls(config, cls, wants_dict, wants_slots, wants_del, weakrefable):
+def _getusercls(cls, reallywantdict=False):
+    from rpython.rlib import objectmodel
+    from pypy.objspace.std.objectobject import W_ObjectObject
+    from pypy.module.__builtin__.interp_classobj import W_InstanceObject
+    from pypy.objspace.std.mapdict import (BaseUserClassMapdict,
+            MapdictDictSupport, MapdictWeakrefSupport,
+            _make_storage_mixin_size_n, MapdictStorageMixin)
     typedef = cls.typedef
-    if wants_dict and typedef.hasdict:
-        wants_dict = False
-    if config.objspace.std.withmapdict and not typedef.hasdict:
-        # mapdict only works if the type does not already have a dict
-        if wants_del:
-            parentcls = get_unique_interplevel_subclass(config, cls, True, True,
-                                                        False, True)
-            return _usersubclswithfeature(config, parentcls, "del")
-        return _usersubclswithfeature(config, cls, "user", "dict", "weakref", "slots")
-    # Forest of if's - see the comment above.
-    if wants_del:
-        if wants_dict:
-            # case 5.  Parent class is 3.
-            parentcls = get_unique_interplevel_subclass(config, cls, True, True,
-                                                        False, True)
-        else:
-            # case 6.  Parent class is 4.
-            parentcls = get_unique_interplevel_subclass(config, cls, False, True,
-                                                        False, True)
-        return _usersubclswithfeature(config, parentcls, "del")
-    elif wants_dict:
-        if wants_slots:
-            # case 3.  Parent class is 1.
-            parentcls = get_unique_interplevel_subclass(config, cls, True, False,
-                                                        False, True)
-            return _usersubclswithfeature(config, parentcls, "slots")
-        else:
-            # case 1 (we need to add weakrefable unless it's already in 'cls')
-            if not typedef.weakrefable:
-                return _usersubclswithfeature(config, cls, "user", "dict", "weakref")
-            else:
-                return _usersubclswithfeature(config, cls, "user", "dict")
+    name = cls.__name__ + "User"
+
+    if cls is W_ObjectObject or cls is W_InstanceObject:
+        base_mixin = _make_storage_mixin_size_n()
     else:
-        if weakrefable and not typedef.weakrefable:
-            # case 4.  Parent class is 2.
-            parentcls = get_unique_interplevel_subclass(config, cls, False, True,
-                                                        False, False)
-            return _usersubclswithfeature(config, parentcls, "weakref")
-        else:
-            # case 2 (if the base is already weakrefable, case 2 == case 4)
-            return _usersubclswithfeature(config, cls, "user", "slots")
+        base_mixin = MapdictStorageMixin
+    copy_methods = [BaseUserClassMapdict]
+    if reallywantdict or not typedef.hasdict:
+        # the type has no dict, mapdict to provide the dict
+        copy_methods.append(MapdictDictSupport)
+        name += "Dict"
+    if not typedef.weakrefable:
+        # the type does not support weakrefs yet, mapdict to provide weakref
+        # support
+        copy_methods.append(MapdictWeakrefSupport)
+        name += "Weakrefable"
 
-def _usersubclswithfeature(config, parentcls, *features):
-    key = config, parentcls, features
-    try:
-        return _usersubclswithfeature_cache[key]
-    except KeyError:
-        subcls = _builduserclswithfeature(config, parentcls, *features)
-        _usersubclswithfeature_cache[key] = subcls
-        return subcls
-_usersubclswithfeature_cache = {}
-_allusersubcls_cache = {}
-
-def _builduserclswithfeature(config, supercls, *features):
-    "NOT_RPYTHON: initialization-time only"
-    name = supercls.__name__
-    name += ''.join([name.capitalize() for name in features])
-    body = {}
-    #print '..........', name, '(', supercls.__name__, ')'
-
-    def add(Proto):
-        for key, value in Proto.__dict__.items():
-            if (not key.startswith('__') and not key.startswith('_mixin_')
-                    or key == '__del__'):
-                if hasattr(value, "func_name"):
-                    value = func_with_new_name(value, value.func_name)
-                body[key] = value
-
-    if (config.objspace.std.withmapdict and "dict" in features):
-        from pypy.objspace.std.mapdict import BaseMapdictObject, ObjectMixin
-        add(BaseMapdictObject)
-        add(ObjectMixin)
-        body["user_overridden_class"] = True
-        features = ()
-
-    if "user" in features:     # generic feature needed by all subcls
-
-        class Proto(object):
-            user_overridden_class = True
-
-            def getclass(self, space):
-                return promote(self.w__class__)
-
-            def setclass(self, space, w_subtype):
-                # only used by descr_set___class__
-                self.w__class__ = w_subtype
-
-            def user_setup(self, space, w_subtype):
-                self.space = space
-                self.w__class__ = w_subtype
-                self.user_setup_slots(w_subtype.nslots)
-
-            def user_setup_slots(self, nslots):
-                assert nslots == 0
-        add(Proto)
-
-    if "weakref" in features:
-        class Proto(object):
-            _lifeline_ = None
-            def getweakref(self):
-                return self._lifeline_
-            def setweakref(self, space, weakreflifeline):
-                self._lifeline_ = weakreflifeline
-            def delweakref(self):
-                self._lifeline_ = None
-        add(Proto)
-
-    if "del" in features:
-        parent_destructor = getattr(supercls, '__del__', None)
-        def call_parent_del(self):
-            assert isinstance(self, subcls)
-            parent_destructor(self)
-        def call_applevel_del(self):
-            assert isinstance(self, subcls)
-            self.space.userdel(self)
-        class Proto(object):
-            def __del__(self):
-                self.clear_all_weakrefs()
-                self.enqueue_for_destruction(self.space, call_applevel_del,
-                                             'method __del__ of ')
-                if parent_destructor is not None:
-                    self.enqueue_for_destruction(self.space, call_parent_del,
-                                                 'internal destructor of ')
-        add(Proto)
-
-    if "slots" in features:
-        class Proto(object):
-            slots_w = []
-            def user_setup_slots(self, nslots):
-                if nslots > 0:
-                    self.slots_w = [None] * nslots
-            def setslotvalue(self, index, w_value):
-                self.slots_w[index] = w_value
-            def delslotvalue(self, index):
-                if self.slots_w[index] is None:
-                    return False
-                self.slots_w[index] = None
-                return True
-            def getslotvalue(self, index):
-                return self.slots_w[index]
-        add(Proto)
-
-    if "dict" in features:
-        base_user_setup = supercls.user_setup.im_func
-        if "user_setup" in body:
-            base_user_setup = body["user_setup"]
-        class Proto(object):
-            def getdict(self, space):
-                return self.w__dict__
-
-            def setdict(self, space, w_dict):
-                self.w__dict__ = check_new_dictionary(space, w_dict)
-
-            def user_setup(self, space, w_subtype):
-                self.w__dict__ = space.newdict(
-                    instance=True)
-                base_user_setup(self, space, w_subtype)
-
-        add(Proto)
-
-    subcls = type(name, (supercls,), body)
-    _allusersubcls_cache[subcls] = True
+    class subcls(cls):
+        user_overridden_class = True
+        objectmodel.import_from_mixin(base_mixin)
+    for copycls in copy_methods:
+        _copy_methods(copycls, subcls)
+    subcls.__name__ = name
     return subcls
 
-# a couple of helpers for the Proto classes above, factored out to reduce
-# the translated code size
-def check_new_dictionary(space, w_dict):
-    if not space.isinstance_w(w_dict, space.w_dict):
-        raise OperationError(space.w_TypeError,
-                space.wrap("setting dictionary to a non-dict"))
-    from pypy.objspace.std import dictmultiobject
-    assert isinstance(w_dict, dictmultiobject.W_DictMultiObject)
-    return w_dict
-check_new_dictionary._dont_inline_ = True
+def _copy_methods(copycls, subcls):
+    for key, value in copycls.__dict__.items():
+        if (not key.startswith('__') or key == '__del__'):
+            setattr(subcls, key, value)
+
 
 # ____________________________________________________________
 
@@ -389,7 +206,8 @@ def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
     name = func.__name__
     extra = ', '.join(extraargs)
     from pypy.interpreter import pycode
-    argnames, _, _ = pycode.cpython_code_signature(func.func_code)
+    sig = pycode.cpython_code_signature(func.func_code)
+    argnames = sig.argnames
     if use_closure:
         if argnames[1] == 'space':
             args = "closure, space, obj"
@@ -404,11 +222,6 @@ def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
     exec source.compile() in miniglobals
     return miniglobals['descr_typecheck_%s' % func.__name__]
 
-def unknown_objclass_getter(space):
-    # NB. this is an AttributeError to make inspect.py happy
-    raise OperationError(space.w_AttributeError,
-                         space.wrap("generic property has no __objclass__"))
-
 @specialize.arg(0)
 def make_objclass_getter(tag, func, cls):
     if func and hasattr(func, 'im_func'):
@@ -419,7 +232,7 @@ def make_objclass_getter(tag, func, cls):
 @specialize.memo()
 def _make_objclass_getter(cls):
     if not cls:
-        return unknown_objclass_getter, cls
+        return None, cls
     miniglobals = {}
     if isinstance(cls, str):
         assert cls.startswith('<'), "pythontype typecheck should begin with <"
@@ -438,10 +251,11 @@ def _make_objclass_getter(cls):
 
 class GetSetProperty(W_Root):
     _immutable_fields_ = ["fget", "fset", "fdel"]
+    w_objclass = None
 
     @specialize.arg(7)
     def __init__(self, fget, fset=None, fdel=None, doc=None,
-                 cls=None, use_closure=False, tag=None):
+                 cls=None, use_closure=False, tag=None, name=None):
         objclass_getter, cls = make_objclass_getter(tag, fget, cls)
         fget = make_descr_typecheck_wrapper((tag, 0), fget,
                                             cls=cls, use_closure=use_closure)
@@ -449,14 +263,29 @@ class GetSetProperty(W_Root):
                                             cls=cls, use_closure=use_closure)
         fdel = make_descr_typecheck_wrapper((tag, 2), fdel,
                                             cls=cls, use_closure=use_closure)
+        self._init(fget, fset, fdel, doc, cls, objclass_getter, use_closure,
+                   name)
+
+    def _init(self, fget, fset, fdel, doc, cls, objclass_getter, use_closure,
+              name):
         self.fget = fget
         self.fset = fset
         self.fdel = fdel
         self.doc = doc
         self.reqcls = cls
-        self.name = '<generic property>'
         self.objclass_getter = objclass_getter
         self.use_closure = use_closure
+        self.name = name if name is not None else '<generic property>'
+
+    def copy_for_type(self, w_objclass):
+        if self.objclass_getter is None:
+            new = instantiate(GetSetProperty)
+            new._init(self.fget, self.fset, self.fdel, self.doc, self.reqcls,
+                      None, self.use_closure, self.name)
+            new.w_objclass = w_objclass
+            return new
+        else:
+            return self
 
     @unwrap_spec(w_cls = WrappedDefault(None))
     def descr_property_get(self, space, w_obj, w_cls=None):
@@ -466,7 +295,7 @@ class GetSetProperty(W_Root):
         if (space.is_w(w_obj, space.w_None)
             and not space.is_w(w_cls, space.type(space.w_None))):
             #print self, w_obj, w_cls
-            return space.wrap(self)
+            return self
         else:
             try:
                 return self.fget(self, space, w_obj)
@@ -474,22 +303,21 @@ class GetSetProperty(W_Root):
                 return w_obj.descr_call_mismatch(
                     space, '__getattribute__',
                     self.reqcls, Arguments(space, [w_obj,
-                                                   space.wrap(self.name)]))
+                                                   space.newtext(self.name)]))
 
     def descr_property_set(self, space, w_obj, w_value):
         """property.__set__(obj, value)
         Change the value of the property of the given obj."""
         fset = self.fset
         if fset is None:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("readonly attribute"))
+            raise oefmt(space.w_TypeError, "readonly attribute")
         try:
             fset(self, space, w_obj, w_value)
         except DescrMismatch:
             w_obj.descr_call_mismatch(
                 space, '__setattr__',
                 self.reqcls, Arguments(space, [w_obj,
-                                               space.wrap(self.name),
+                                               space.newtext(self.name),
                                                w_value]))
 
     def descr_property_del(self, space, w_obj):
@@ -497,23 +325,35 @@ class GetSetProperty(W_Root):
         Delete the value of the property from the given obj."""
         fdel = self.fdel
         if fdel is None:
-            raise OperationError(space.w_AttributeError,
-                                 space.wrap("cannot delete attribute"))
+            raise oefmt(space.w_AttributeError, "cannot delete attribute")
         try:
             fdel(self, space, w_obj)
         except DescrMismatch:
             w_obj.descr_call_mismatch(
                 space, '__delattr__',
                 self.reqcls, Arguments(space, [w_obj,
-                                               space.wrap(self.name)]))
+                                               space.newtext(self.name)]))
 
     def descr_get_objclass(space, property):
-        return property.objclass_getter(space)
+        if property.w_objclass is not None:
+            return property.w_objclass
+        if property.objclass_getter is not None:
+            return property.objclass_getter(space)
+        # NB. this is an AttributeError to make inspect.py happy
+        raise oefmt(space.w_AttributeError,
+                    "generic property has no __objclass__")
 
-def interp_attrproperty(name, cls, doc=None):
+    def spacebind(self, space):
+        if hasattr(space, '_see_getsetproperty'):
+            space._see_getsetproperty(self)      # only for fake/objspace.py
+        return self
+
+
+def interp_attrproperty(name, cls, doc=None, wrapfn=None):
     "NOT_RPYTHON: initialization-time only"
+    assert wrapfn is not None
     def fget(space, obj):
-        return space.wrap(getattr(obj, name))
+        return getattr(space, wrapfn)(getattr(obj, name))
     return GetSetProperty(fget, cls=cls, doc=doc)
 
 def interp_attrproperty_w(name, cls, doc=None):
@@ -532,9 +372,9 @@ GetSetProperty.typedef = TypeDef(
     __get__ = interp2app(GetSetProperty.descr_property_get),
     __set__ = interp2app(GetSetProperty.descr_property_set),
     __delete__ = interp2app(GetSetProperty.descr_property_del),
-    __name__ = interp_attrproperty('name', cls=GetSetProperty),
+    __name__ = interp_attrproperty('name', cls=GetSetProperty, wrapfn="newtext_or_none"),
     __objclass__ = GetSetProperty(GetSetProperty.descr_get_objclass),
-    __doc__ = interp_attrproperty('doc', cls=GetSetProperty),
+    __doc__ = interp_attrproperty('doc', cls=GetSetProperty, wrapfn="newtext_or_none"),
     )
 assert not GetSetProperty.typedef.acceptable_as_base_class  # no __new__
 
@@ -558,13 +398,13 @@ class Member(W_Root):
         """member.__get__(obj[, type]) -> value
         Read the slot 'member' of the given 'obj'."""
         if space.is_w(w_obj, space.w_None):
-            return space.wrap(self)
+            return self
         else:
             self.typecheck(space, w_obj)
             w_result = w_obj.getslotvalue(self.index)
             if w_result is None:
                 raise OperationError(space.w_AttributeError,
-                                     space.wrap(self.name)) # XXX better message
+                                     space.newtext(self.name)) # XXX better message
             return w_result
 
     def descr_member_set(self, space, w_obj, w_value):
@@ -580,14 +420,14 @@ class Member(W_Root):
         success = w_obj.delslotvalue(self.index)
         if not success:
             raise OperationError(space.w_AttributeError,
-                                 space.wrap(self.name)) # XXX better message
+                                 space.newtext(self.name)) # XXX better message
 
 Member.typedef = TypeDef(
     "member_descriptor",
     __get__ = interp2app(Member.descr_member_get),
     __set__ = interp2app(Member.descr_member_set),
     __delete__ = interp2app(Member.descr_member_del),
-    __name__ = interp_attrproperty('name', cls=Member),
+    __name__ = interp_attrproperty('name', cls=Member, wrapfn="newtext_or_none"),
     __objclass__ = interp_attrproperty_w('w_cls', cls=Member),
     )
 assert not Member.typedef.acceptable_as_base_class  # no __new__
@@ -602,7 +442,7 @@ class ClassAttr(W_Root):
     def __init__(self, function):
         self.function = function
 
-    def __spacebind__(self, space):
+    def spacebind(self, space):
         return self.function(space)
 
 # ____________________________________________________________
@@ -611,7 +451,7 @@ def generic_new_descr(W_Type):
     def descr_new(space, w_subtype, __args__):
         self = space.allocate_instance(W_Type, w_subtype)
         W_Type.__init__(self, space)
-        return space.wrap(self)
+        return self
     descr_new = func_with_new_name(descr_new, 'descr_new_%s' % W_Type.__name__)
     return interp2app(descr_new)
 
@@ -666,10 +506,10 @@ descr_generic_ne = interp2app(generic_ne)
 
 # co_xxx interface emulation for built-in code objects
 def fget_co_varnames(space, code): # unwrapping through unwrap_spec
-    return space.newtuple([space.wrap(name) for name in code.getvarnames()])
+    return space.newtuple([space.newtext(name) for name in code.getvarnames()])
 
 def fget_co_argcount(space, code): # unwrapping through unwrap_spec
-    return space.wrap(code.signature().num_argnames())
+    return space.newint(code.signature().num_argnames())
 
 def fget_co_flags(space, code): # unwrapping through unwrap_spec
     sig = code.signature()
@@ -678,7 +518,7 @@ def fget_co_flags(space, code): # unwrapping through unwrap_spec
         flags |= CO_VARARGS
     if sig.has_kwarg():
         flags |= CO_VARKEYWORDS
-    return space.wrap(flags)
+    return space.newint(flags)
 
 def fget_co_consts(space, code): # unwrapping through unwrap_spec
     w_docstring = code.getdocstring(space)
@@ -713,7 +553,7 @@ def make_weakref_descr(cls):
 
 
 Code.typedef = TypeDef('internal-code',
-    co_name = interp_attrproperty('co_name', cls=Code),
+    co_name = interp_attrproperty('co_name', cls=Code, wrapfn="newtext_or_none"),
     co_varnames = GetSetProperty(fget_co_varnames, cls=Code),
     co_argcount = GetSetProperty(fget_co_argcount, cls=Code),
     co_flags = GetSetProperty(fget_co_flags, cls=Code),
@@ -723,7 +563,7 @@ assert not Code.typedef.acceptable_as_base_class  # no __new__
 
 BuiltinCode.typedef = TypeDef('builtin-code',
     __reduce__   = interp2app(BuiltinCode.descr__reduce__),
-    co_name = interp_attrproperty('co_name', cls=BuiltinCode),
+    co_name = interp_attrproperty('co_name', cls=BuiltinCode, wrapfn="newtext_or_none"),
     co_varnames = GetSetProperty(fget_co_varnames, cls=BuiltinCode),
     co_argcount = GetSetProperty(fget_co_argcount, cls=BuiltinCode),
     co_flags = GetSetProperty(fget_co_flags, cls=BuiltinCode),
@@ -739,20 +579,20 @@ PyCode.typedef = TypeDef('code',
     __hash__ = interp2app(PyCode.descr_code__hash__),
     __reduce__ = interp2app(PyCode.descr__reduce__),
     __repr__ = interp2app(PyCode.repr),
-    co_argcount = interp_attrproperty('co_argcount', cls=PyCode),
-    co_nlocals = interp_attrproperty('co_nlocals', cls=PyCode),
-    co_stacksize = interp_attrproperty('co_stacksize', cls=PyCode),
-    co_flags = interp_attrproperty('co_flags', cls=PyCode),
-    co_code = interp_attrproperty('co_code', cls=PyCode),
+    co_argcount = interp_attrproperty('co_argcount', cls=PyCode, wrapfn="newint"),
+    co_nlocals = interp_attrproperty('co_nlocals', cls=PyCode, wrapfn="newint"),
+    co_stacksize = interp_attrproperty('co_stacksize', cls=PyCode, wrapfn="newint"),
+    co_flags = interp_attrproperty('co_flags', cls=PyCode, wrapfn="newint"),
+    co_code = interp_attrproperty('co_code', cls=PyCode, wrapfn="newbytes"),
     co_consts = GetSetProperty(PyCode.fget_co_consts),
     co_names = GetSetProperty(PyCode.fget_co_names),
     co_varnames = GetSetProperty(PyCode.fget_co_varnames),
     co_freevars = GetSetProperty(PyCode.fget_co_freevars),
     co_cellvars = GetSetProperty(PyCode.fget_co_cellvars),
-    co_filename = interp_attrproperty('co_filename', cls=PyCode),
-    co_name = interp_attrproperty('co_name', cls=PyCode),
-    co_firstlineno = interp_attrproperty('co_firstlineno', cls=PyCode),
-    co_lnotab = interp_attrproperty('co_lnotab', cls=PyCode),
+    co_filename = interp_attrproperty('co_filename', cls=PyCode, wrapfn="newtext"),
+    co_name = interp_attrproperty('co_name', cls=PyCode, wrapfn="newtext"),
+    co_firstlineno = interp_attrproperty('co_firstlineno', cls=PyCode, wrapfn="newint"),
+    co_lnotab = interp_attrproperty('co_lnotab', cls=PyCode, wrapfn="newbytes"),
     __weakref__ = make_weakref_descr(PyCode),
     )
 PyCode.typedef.acceptable_as_base_class = False
@@ -772,7 +612,7 @@ PyFrame.typedef = TypeDef('frame',
     f_restricted = GetSetProperty(PyFrame.fget_f_restricted),
     f_code = GetSetProperty(PyFrame.fget_code),
     f_locals = GetSetProperty(PyFrame.fget_getdictscope),
-    f_globals = interp_attrproperty_w('w_globals', cls=PyFrame),
+    f_globals = GetSetProperty(PyFrame.fget_w_globals),
 )
 assert not PyFrame.typedef.acceptable_as_base_class  # no __new__
 
@@ -874,15 +714,17 @@ It can be called either on the class (e.g. C.f()) or on an instance
 (e.g. C().f()).  The instance is ignored except for its class.""",
     __get__ = interp2app(StaticMethod.descr_staticmethod_get),
     __new__ = interp2app(StaticMethod.descr_staticmethod__new__.im_func),
+    __init__=interp2app(StaticMethod.descr_init),
     __func__= interp_attrproperty_w('w_function', cls=StaticMethod),
     )
 
 ClassMethod.typedef = TypeDef(
     'classmethod',
-    __new__ = interp2app(ClassMethod.descr_classmethod__new__.im_func),
-    __get__ = interp2app(ClassMethod.descr_classmethod_get),
-    __func__= interp_attrproperty_w('w_function', cls=ClassMethod),
-    __doc__ = """classmethod(function) -> class method
+    __new__=interp2app(ClassMethod.descr_classmethod__new__.im_func),
+    __init__=interp2app(ClassMethod.descr_init),
+    __get__=interp2app(ClassMethod.descr_classmethod_get),
+    __func__=interp_attrproperty_w('w_function', cls=ClassMethod),
+    __doc__="""classmethod(function) -> class method
 
 Convert a function to be a class method.
 
@@ -915,10 +757,10 @@ BuiltinFunction.typedef.acceptable_as_base_class = False
 PyTraceback.typedef = TypeDef("traceback",
     __reduce__ = interp2app(PyTraceback.descr__reduce__),
     __setstate__ = interp2app(PyTraceback.descr__setstate__),
-    tb_frame = interp_attrproperty('frame', cls=PyTraceback),
-    tb_lasti = interp_attrproperty('lasti', cls=PyTraceback),
+    tb_frame = interp_attrproperty_w('frame', cls=PyTraceback),
+    tb_lasti = interp_attrproperty('lasti', cls=PyTraceback, wrapfn="newint"),
     tb_lineno = GetSetProperty(PyTraceback.descr_tb_lineno),
-    tb_next = interp_attrproperty('next', cls=PyTraceback),
+    tb_next = interp_attrproperty_w('next', cls=PyTraceback),
     )
 assert not PyTraceback.typedef.acceptable_as_base_class  # no __new__
 
@@ -936,7 +778,7 @@ GeneratorIterator.typedef = TypeDef("generator",
                             descrmismatch='close'),
     __iter__   = interp2app(GeneratorIterator.descr__iter__,
                             descrmismatch='__iter__'),
-    gi_running = interp_attrproperty('running', cls=GeneratorIterator),
+    gi_running = interp_attrproperty('running', cls=GeneratorIterator, wrapfn="newbool"),
     gi_frame   = GetSetProperty(GeneratorIterator.descr_gi_frame),
     gi_code    = GetSetProperty(GeneratorIterator.descr_gi_code),
     __name__   = GetSetProperty(GeneratorIterator.descr__name__),
@@ -954,12 +796,12 @@ Cell.typedef = TypeDef("cell",
 )
 assert not Cell.typedef.acceptable_as_base_class  # no __new__
 
-Ellipsis.typedef = TypeDef("Ellipsis",
+Ellipsis.typedef = TypeDef("ellipsis",
     __repr__ = interp2app(Ellipsis.descr__repr__),
 )
 assert not Ellipsis.typedef.acceptable_as_base_class  # no __new__
 
-NotImplemented.typedef = TypeDef("NotImplemented",
+NotImplemented.typedef = TypeDef("NotImplementedType",
     __repr__ = interp2app(NotImplemented.descr__repr__),
 )
 assert not NotImplemented.typedef.acceptable_as_base_class  # no __new__

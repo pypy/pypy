@@ -812,8 +812,10 @@ def typeOf(val):
         if tp is long:
             if -maxint-1 <= val <= maxint:
                 return Signed
-            else:
+            elif longlongmask(val) == val:
                 return SignedLongLong
+            else:
+                raise OverflowError("integer %r is out of bounds" % (val,))
         if tp is bool:
             return Bool
         if issubclass(tp, base_int):
@@ -1378,20 +1380,11 @@ class _abstract_ptr(object):
             return callb(*args)
         raise TypeError("%r instance is not a function" % (self._T,))
 
-    def _identityhash(self, cache=True):
+    def _identityhash(self):
         p = normalizeptr(self)
-        try:
-            return p._obj._hash_cache_
-        except AttributeError:
-            assert self._T._gckind == 'gc'
-            assert self      # not for NULL
-            result = hash(p._obj)
-            if cache:
-                try:
-                    p._obj._hash_cache_ = result
-                except AttributeError:
-                    pass
-            return result
+        assert self._T._gckind == 'gc'
+        assert self      # not for NULL
+        return hash(p._obj)
 
 class _ptr(_abstract_ptr):
     __slots__ = ('_TYPE',
@@ -1757,11 +1750,14 @@ def _get_empty_instance_of_struct_variety(flds):
 class _struct(_parentable):
     _kind = "structure"
 
-    __slots__ = ('_hash_cache_', '_compilation_info')
+    __slots__ = ('_compilation_info',)
 
     def __new__(self, TYPE, n=None, initialization=None, parent=None,
                 parentindex=None):
-        my_variety = _struct_variety(TYPE._names)
+        if isinstance(TYPE, FixedSizeArray):
+            my_variety = _fixedsizearray
+        else:
+            my_variety = _struct_variety(TYPE._names)
         return object.__new__(my_variety)
 
     def __init__(self, TYPE, n=None, initialization=None, parent=None,
@@ -1771,7 +1767,6 @@ class _struct(_parentable):
             raise TypeError("%r is not variable-sized" % (TYPE,))
         if n is None and TYPE._arrayfld is not None:
             raise TypeError("%r is variable-sized" % (TYPE,))
-        first, FIRSTTYPE = TYPE._first_struct()
         for fld, typ in TYPE._flds.items():
             if fld == TYPE._arrayfld:
                 value = _array(typ, n, initialization=initialization,
@@ -1814,23 +1809,48 @@ class _struct(_parentable):
             raise UninitializedMemoryAccess("%r.%s"%(self, field_name))
         return r
 
-    # for FixedSizeArray kind of structs:
+
+class _fixedsizearray(_struct):
+    def __init__(self, TYPE, n=None, initialization=None, parent=None,
+                 parentindex=None):
+        _parentable.__init__(self, TYPE)
+        if n is not None:
+            raise TypeError("%r is not variable-sized" % (TYPE,))
+        typ = TYPE.OF
+        storage = []
+        for i, fld in enumerate(TYPE._names):
+            value = typ._allocate(initialization=initialization,
+                                  parent=self, parentindex=fld)
+            storage.append(value)
+        self._items = storage
+        if parent is not None:
+            self._setparentstructure(parent, parentindex)
 
     def getlength(self):
-        assert isinstance(self._TYPE, FixedSizeArray)
         return self._TYPE.length
 
     def getbounds(self):
         return 0, self.getlength()
 
     def getitem(self, index, uninitialized_ok=False):
-        assert isinstance(self._TYPE, FixedSizeArray)
-        return self._getattr('item%d' % index, uninitialized_ok)
+        assert 0 <= index < self.getlength()
+        return self._items[index]
 
     def setitem(self, index, value):
-        assert isinstance(self._TYPE, FixedSizeArray)
-        setattr(self, 'item%d' % index, value)
+        assert 0 <= index < self.getlength()
+        self._items[index] = value
 
+    def __getattr__(self, name):
+        # obscure
+        if name.startswith("item"):
+            return self.getitem(int(name[len('item'):]))
+        return _struct.__getattr__(self, name)
+
+    def __setattr__(self, name, value):
+        if name.startswith("item"):
+            self.setitem(int(name[len('item'):]), value)
+            return
+        _struct.__setattr__(self, name, value)
 
 class _array(_parentable):
     _kind = "array"
@@ -1897,14 +1917,29 @@ class _array(_parentable):
         return 0, stop
 
     def getitem(self, index, uninitialized_ok=False):
-        v = self.items[index]
+        try:
+            v = self.items[index]
+        except IndexError:
+            if (index == len(self.items) and uninitialized_ok == 2 and
+                self._TYPE._hints.get('extra_item_after_alloc')):
+                # special case: reading the extra final char returns
+                # an uninitialized, if 'uninitialized_ok==2'
+                return _uninitialized(self._TYPE.OF)
+            raise
         if isinstance(v, _uninitialized) and not uninitialized_ok:
             raise UninitializedMemoryAccess("%r[%s]"%(self, index))
         return v
 
     def setitem(self, index, value):
         assert typeOf(value) == self._TYPE.OF
-        self.items[index] = value
+        try:
+            self.items[index] = value
+        except IndexError:
+            if (index == len(self.items) and value == '\x00' and
+                self._TYPE._hints.get('extra_item_after_alloc')):
+                # special case: writing NULL to the extra final char
+                return
+            raise
 
 assert not '__dict__' in dir(_array)
 assert not '__dict__' in dir(_struct)
@@ -2147,7 +2182,8 @@ class _opaque(_parentable):
 
 
 def malloc(T, n=None, flavor='gc', immortal=False, zero=False,
-           track_allocation=True, add_memory_pressure=False):
+           track_allocation=True, add_memory_pressure=False,
+           nonmovable=False):
     assert flavor in ('gc', 'raw')
     if zero or immortal:
         initialization = 'example'
@@ -2173,7 +2209,8 @@ def malloc(T, n=None, flavor='gc', immortal=False, zero=False,
 
 @analyzer_for(malloc)
 def ann_malloc(s_T, s_n=None, s_flavor=None, s_zero=None,
-               s_track_allocation=None, s_add_memory_pressure=None):
+               s_track_allocation=None, s_add_memory_pressure=None,
+               s_nonmovable=None):
     assert (s_n is None or s_n.knowntype == int
             or issubclass(s_n.knowntype, base_int))
     assert s_T.is_constant()
@@ -2191,6 +2228,7 @@ def ann_malloc(s_T, s_n=None, s_flavor=None, s_zero=None,
         assert s_track_allocation is None or s_track_allocation.is_constant()
         assert (s_add_memory_pressure is None or
                 s_add_memory_pressure.is_constant())
+        assert s_nonmovable is None or s_nonmovable.is_constant()
         # not sure how to call malloc() for the example 'p' in the
         # presence of s_extraargs
         r = SomePtr(Ptr(s_T.const))
@@ -2394,24 +2432,6 @@ def ann_identityhash(s_obj):
     assert isinstance(s_obj, SomePtr)
     return SomeInteger()
 
-
-def identityhash_nocache(p):
-    """Version of identityhash() to use from backends that don't care about
-    caching."""
-    assert p
-    return p._identityhash(cache=False)
-
-def init_identity_hash(p, value):
-    """For a prebuilt object p, initialize its hash value to 'value'."""
-    assert isinstance(typeOf(p), Ptr)
-    p = normalizeptr(p)
-    if not p:
-        raise ValueError("cannot change hash(NULL)!")
-    if hasattr(p._obj, '_hash_cache_'):
-        raise ValueError("the hash of %r was already computed" % (p,))
-    if typeOf(p).TO._is_varsize():
-        raise ValueError("init_identity_hash(): not for varsized types")
-    p._obj._hash_cache_ = intmask(value)
 
 def isCompatibleType(TYPE1, TYPE2):
     return TYPE1._is_compatible(TYPE2)

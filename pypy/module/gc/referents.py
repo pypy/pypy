@@ -2,7 +2,7 @@ from rpython.rlib import rgc
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.error import wrap_oserror, OperationError
+from pypy.interpreter.error import oefmt, wrap_oserror
 from rpython.rlib.objectmodel import we_are_translated
 
 
@@ -30,7 +30,7 @@ def try_cast_gcref_to_w_root(gcref):
 def wrap(space, gcref):
     w_obj = try_cast_gcref_to_w_root(gcref)
     if w_obj is None:
-        w_obj = space.wrap(W_GcRef(gcref))
+        w_obj = W_GcRef(gcref)
     return w_obj
 
 def unwrap(space, w_obj):
@@ -41,8 +41,8 @@ def unwrap(space, w_obj):
     return gcref
 
 def missing_operation(space):
-    return OperationError(space.w_NotImplementedError,
-                          space.wrap("operation not implemented by this GC"))
+    return oefmt(space.w_NotImplementedError,
+                 "operation not implemented by this GC")
 
 
 # ____________________________________________________________
@@ -149,7 +149,7 @@ def get_rpy_memory_usage(space, w_obj):
     size = rgc.get_rpy_memory_usage(gcref)
     if size < 0:
         raise missing_operation(space)
-    return space.wrap(size)
+    return space.newint(size)
 
 def get_rpy_type_index(space, w_obj):
     """Return an integer identifying the RPython type of the given
@@ -159,7 +159,7 @@ def get_rpy_type_index(space, w_obj):
     index = rgc.get_rpy_type_index(gcref)
     if index < 0:
         raise missing_operation(space)
-    return space.wrap(index)
+    return space.newint(index)
 
 def get_objects(space):
     """Return a list of all app-level objects."""
@@ -194,7 +194,7 @@ def get_referrers(space, args_w):
 def _dump_rpy_heap(space, fd):
     try:
         ok = rgc.dump_rpy_heap(fd)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     if not ok:
         raise missing_operation(space)
@@ -202,9 +202,9 @@ def _dump_rpy_heap(space, fd):
 def get_typeids_z(space):
     a = rgc.get_typeids_z()
     s = ''.join([a[i] for i in range(len(a))])
-    return space.wrap(s)
+    return space.newbytes(s)
 
 def get_typeids_list(space):
     l = rgc.get_typeids_list()
-    list_w = [space.wrap(l[i]) for i in range(len(l))]
+    list_w = [space.newint(l[i]) for i in range(len(l))]
     return space.newlist(list_w)

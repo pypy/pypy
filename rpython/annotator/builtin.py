@@ -6,7 +6,7 @@ from collections import OrderedDict, defaultdict
 
 from rpython.annotator.model import (
     SomeInteger, SomeChar, SomeBool, SomeString, SomeTuple,
-    SomeUnicodeCodePoint, SomeFloat, unionof, SomeUnicodeString,
+    SomeUnicodeCodePoint, SomeFloat, union, SomeUnicodeString,
     SomePBC, SomeInstance, SomeDict, SomeList, SomeWeakRef, SomeIterator,
     SomeOrderedDict, SomeByteArray, add_knowntypedata, s_ImpossibleValue,)
 from rpython.annotator.bookkeeper import (
@@ -39,8 +39,9 @@ def constpropagate(func, args_s, s_result):
         return s_result
     s_realresult = immutablevalue(realresult)
     if not s_result.contains(s_realresult):
-        raise Exception("%s%r returned %r, which is not contained in %s" % (
-            func, args, realresult, s_result))
+        raise AnnotatorError(
+            "%s%r returned %r, which is not contained in %s" % (
+                func, args, realresult, s_result))
     return s_realresult
 
 # ____________________________________________________________
@@ -56,14 +57,14 @@ def builtin_range(*args):
         s_start, s_stop = args[:2]
         s_step = args[2]
     else:
-        raise Exception("range() takes 1 to 3 arguments")
+        raise AnnotatorError("range() takes 1 to 3 arguments")
     empty = False  # so far
     if not s_step.is_constant():
         step = 0 # this case signals a variable step
     else:
         step = s_step.const
         if step == 0:
-            raise Exception("range() with step zero")
+            raise AnnotatorError("range() with step zero")
         if s_start.is_constant() and s_stop.is_constant():
             try:
                 if len(xrange(s_start.const, s_stop.const, step)) == 0:
@@ -165,14 +166,14 @@ def builtin_min(*s_values):
         s_iter = s_values[0].iter()
         return s_iter.next()
     else:
-        return unionof(*s_values)
+        return union(*s_values)
 
 def builtin_max(*s_values):
     if len(s_values) == 1: # xxx do we support this?
         s_iter = s_values[0].iter()
         return s_iter.next()
     else:
-        s = unionof(*s_values)
+        s = union(*s_values)
         if type(s) is SomeInteger and not s.nonneg:
             nonneg = False
             for s1 in s_values:
@@ -285,7 +286,8 @@ except ImportError:
 else:
     @analyzer_for(unicodedata.decimal)
     def unicodedata_decimal(s_uchr):
-        raise TypeError("unicodedate.decimal() calls should not happen at interp-level")
+        raise AnnotatorError(
+            "unicodedate.decimal() calls should not happen at interp-level")
 
 @analyzer_for(OrderedDict)
 def analyze():
@@ -299,9 +301,9 @@ import weakref
 @analyzer_for(weakref.ref)
 def weakref_ref(s_obj):
     if not isinstance(s_obj, SomeInstance):
-        raise Exception("cannot take a weakref to %r" % (s_obj,))
+        raise AnnotatorError("cannot take a weakref to %r" % (s_obj,))
     if s_obj.can_be_None:
-        raise Exception("should assert that the instance we take "
+        raise AnnotatorError("should assert that the instance we take "
                         "a weakref to cannot be None")
     return SomeWeakRef(s_obj.classdef)
 
@@ -311,3 +313,14 @@ def weakref_ref(s_obj):
 @analyzer_for(rpython.rlib.objectmodel.free_non_gc_object)
 def robjmodel_free_non_gc_object(obj):
     pass
+
+#________________________________
+# pdb
+
+import pdb
+
+@analyzer_for(pdb.set_trace)
+def pdb_set_trace(*args_s):
+    raise AnnotatorError(
+        "you left pdb.set_trace() in your interpreter! "
+        "If you want to attach a gdb instead, call rlib.debug.attach_gdb()")

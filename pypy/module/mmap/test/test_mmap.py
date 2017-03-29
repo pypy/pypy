@@ -1,12 +1,21 @@
 from __future__ import with_statement
 from rpython.tool.udir import udir
-import os
+import os, sys, py
 
 class AppTestMMap:
     spaceconfig = dict(usemodules=('mmap',))
 
     def setup_class(cls):
         cls.w_tmpname = cls.space.wrap(str(udir.join('mmap-')))
+
+    def setup_method(self, meth):
+        if getattr(meth, 'is_large', False):
+            if sys.maxsize < 2**32 and not self.runappdirect:
+                # this fails because it uses ll2ctypes to call the posix
+                # functions like 'open' and 'lseek', whereas a real compiled
+                # C program would macro-define them to their longlong versions
+                py.test.skip("emulation of files can't use "
+                             "larger-than-long offsets")
 
     def test_page_size(self):
         import mmap
@@ -648,6 +657,7 @@ class AppTestMMap:
                 assert m[0xFFFFFFF] == b'A'
             finally:
                 m.close()
+    test_large_offset.is_large = True
 
     def test_large_filesize(self):
         import mmap
@@ -665,6 +675,7 @@ class AppTestMMap:
                 assert m.size() ==  0x180000000
             finally:
                 m.close()
+    test_large_filesize.is_large = True
 
     def test_all(self):
         # this is a global test, ported from test_mmap.py
@@ -861,3 +872,25 @@ class AppTestMMap:
                 assert str(e) == "cannot mmap an empty file"
             except BaseException as e:
                 assert False, "unexpected exception: " + str(e)
+
+    def test_resize_past_pos(self):
+        import os, mmap, sys
+        if os.name == "nt":
+            skip("cannot resize anonymous mmaps on Windows")
+        if sys.version_info < (2, 7, 13):
+            skip("cannot resize anonymous mmaps before 2.7.13")
+        m = mmap.mmap(-1, 8192)
+        m.read(5000)
+        try:
+            m.resize(4096)
+        except SystemError:
+            skip("resizing not supported")
+        assert m.tell() == 5000
+        assert m.read(14) == ''
+        assert m.read(-1) == ''
+        raises(ValueError, m.read_byte)
+        assert m.readline() == ''
+        raises(ValueError, m.write_byte, 'b')
+        raises(ValueError, m.write, 'abc')
+        assert m.tell() == 5000
+        m.close()

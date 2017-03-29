@@ -220,11 +220,12 @@ class AbstractTestRstr(BaseRtypingTest):
         const = self.const
         def fn(i, mul):
             s = ["", "a", "aba"][i]
-            return s * mul
+            return s * mul + mul * s
         for i in xrange(3):
             for m in [0, 1, 4]:
+                res1 = fn(i, m)
                 res = self.interpret(fn, [i, m])
-                assert self.ll_to_string(res) == fn(i, m)
+                assert self.ll_to_string(res) == res1
 
     def test_is_none(self):
         const = self.const
@@ -458,6 +459,8 @@ class AbstractTestRstr(BaseRtypingTest):
             return const('    ').strip(' ')
         def left2():
             return const('a  ').strip(' ')
+        def leftall():
+            return const('!!').lstrip(const('!'))
         res = self.interpret(both, [])
         assert self.ll_to_string(res) == const('ab')
         res = self.interpret(left, [])
@@ -468,6 +471,8 @@ class AbstractTestRstr(BaseRtypingTest):
         assert self.ll_to_string(res) == const('')
         res = self.interpret(left2, [])
         assert self.ll_to_string(res) == const('a')
+        res = self.interpret(leftall, [])
+        assert self.ll_to_string(res) == const('')
 
     def test_strip_multiple_chars(self):
         const = self.const
@@ -481,6 +486,8 @@ class AbstractTestRstr(BaseRtypingTest):
             return const(' \t\t   ').strip('\t ')
         def left2():
             return const('a  ').strip(' \t')
+        def leftall():
+            return const('!ab!').lstrip(const('!ab'))
         res = self.interpret(both, [])
         assert self.ll_to_string(res) == const('b')
         res = self.interpret(left, [])
@@ -491,6 +498,8 @@ class AbstractTestRstr(BaseRtypingTest):
         assert self.ll_to_string(res) == const('')
         res = self.interpret(left2, [])
         assert self.ll_to_string(res) == const('a')
+        res = self.interpret(leftall, [])
+        assert self.ll_to_string(res) == const('')
 
     def test_upper(self):
         const = self.const
@@ -971,6 +980,13 @@ class AbstractTestRstr(BaseRtypingTest):
             s = const('abc')
             s.count(s, -10)
         py.test.raises(AnnotatorError, self.interpret, f, ())
+
+    def test_count_in_empty_string(self):
+        const = self.const
+        def fn():
+            return const('').count(const('ab'))
+        res = self.interpret(fn, [])
+        assert res == 0
 
     def test_getitem_exc(self):
         const = self.const

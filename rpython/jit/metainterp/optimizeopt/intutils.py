@@ -1,5 +1,8 @@
+import sys
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, maxint, is_valid_int
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.metainterp.optimizeopt.info import AbstractInfo, INFO_NONNULL,\
      INFO_UNKNOWN, INFO_NULL
@@ -171,11 +174,14 @@ class IntBound(AbstractInfo):
         else:
             return IntUnbounded()
 
-    def div_bound(self, other):
+    def py_div_bound(self, other):
         if self.has_upper and self.has_lower and \
            other.has_upper and other.has_lower and \
            not other.contains(0):
             try:
+                # this gives the bounds for 'int_py_div', so use the
+                # Python-style handling of negative numbers and not
+                # the C-style one
                 vals = (ovfcheck(self.upper / other.upper),
                         ovfcheck(self.upper / other.lower),
                         ovfcheck(self.lower / other.upper),

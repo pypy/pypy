@@ -1,6 +1,10 @@
+#
+# DEPRECATED: implementation for ffi.verify()
+#
 import sys, os, binascii, shutil, io
 from . import __version_verifier_modules__
 from . import ffiplatform
+from .error import VerificationError
 
 if sys.version_info >= (3, 3):
     import importlib.machinery
@@ -39,7 +43,7 @@ class Verifier(object):
                  ext_package=None, tag='', force_generic_engine=False,
                  source_extension='.c', flags=None, relative_to=None, **kwds):
         if ffi._parser._uses_new_feature:
-            raise ffiplatform.VerificationError(
+            raise VerificationError(
                 "feature not supported with ffi.verify(), but only "
                 "with ffi.set_source(): %s" % (ffi._parser._uses_new_feature,))
         self.ffi = ffi
@@ -80,7 +84,7 @@ class Verifier(object):
         which can be tweaked beforehand."""
         with self.ffi._lock:
             if self._has_source and file is None:
-                raise ffiplatform.VerificationError(
+                raise VerificationError(
                     "source code already written")
             self._write_source(file)
 
@@ -89,7 +93,7 @@ class Verifier(object):
         This produces a dynamic link library in 'self.modulefilename'."""
         with self.ffi._lock:
             if self._has_module:
-                raise ffiplatform.VerificationError("module already compiled")
+                raise VerificationError("module already compiled")
             if not self._has_source:
                 self._write_source()
             self._compile_module()

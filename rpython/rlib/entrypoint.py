@@ -1,4 +1,4 @@
-secondary_entrypoints = {}
+secondary_entrypoints = {"main": []}
 
 import py
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -109,20 +109,3 @@ def entrypoint(*args, **kwds):
                     "you.  Another difference is that entrypoint_highlevel() "
                     "returns the normal Python function, which can be safely "
                     "called from more Python code.")
-
-
-# the point of dance below is so the call to rpython_startup_code actually
-# does call asm_stack_bottom. It's here because there is no other good place.
-# This thing is imported by any target which has any API, so it'll get
-# registered
-
-RPython_StartupCode = rffi.llexternal('RPython_StartupCode', [], lltype.Void,
-                                      _nowrapper=True,
-                                      random_effects_on_gcobjs=True)
-
-@entrypoint_lowlevel('main', [], c_name='rpython_startup_code')
-def rpython_startup_code():
-    rffi.stackcounter.stacks_counter += 1
-    llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
-    RPython_StartupCode()
-    rffi.stackcounter.stacks_counter -= 1

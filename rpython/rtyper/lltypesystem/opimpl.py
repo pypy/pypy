@@ -1,3 +1,4 @@
+import random, sys
 from rpython.flowspace.operation import op
 from rpython.rlib import debug
 from rpython.rlib.rarithmetic import is_valid_int
@@ -579,6 +580,9 @@ def _normalize(x):
             return hlstr(x)
     return x
 
+def op_debug_flush_log():
+    debug.debug_flush_log()
+
 def op_debug_print(*args):
     debug.debug_print(*map(_normalize, args))
 
@@ -622,6 +626,12 @@ def op_jit_record_exact_class(x, y):
     pass
 
 def op_jit_ffi_save_result(*args):
+    pass
+
+def op_jit_enter_portal_frame(x):
+    pass
+
+def op_jit_leave_portal_frame():
     pass
 
 def op_get_group_member(TYPE, grpptr, memberoffset):
@@ -674,6 +684,11 @@ def op_get_member_index(memberoffset):
 def op_gc_writebarrier(addr):
     pass
 
+def op_gc_bit(hdr, bitmask):
+    if hdr.tid & bitmask:
+        return random.randrange(1, sys.maxint)
+    return 0
+
 def op_shrink_array(array, smallersize):
     return False
 
@@ -702,6 +717,17 @@ def op_raw_load(TVAL, p, ofs):
     return p[0]
 op_raw_load.need_result_type = True
 
+def op_gc_load_indexed(TVAL, p, index, scale, base_ofs):
+    # 'base_ofs' should be a CompositeOffset(..., ArrayItemsOffset).
+    # 'scale' should be a llmemory.sizeof().
+    from rpython.rtyper.lltypesystem import rffi
+    ofs = base_ofs + scale * index
+    if isinstance(ofs, int):
+        return op_raw_load(TVAL, p, ofs)
+    p = rffi.cast(rffi.CArrayPtr(TVAL), llmemory.cast_ptr_to_adr(p) + ofs)
+    return p[0]
+op_gc_load_indexed.need_result_type = True
+
 def op_likely(x):
     assert isinstance(x, bool)
     return x
@@ -709,6 +735,12 @@ def op_likely(x):
 def op_unlikely(x):
     assert isinstance(x, bool)
     return x
+
+def op_gc_ignore_finalizer(obj):
+    pass
+
+def op_gc_move_out_of_nursery(obj):
+    return obj
 
 # ____________________________________________________________
 

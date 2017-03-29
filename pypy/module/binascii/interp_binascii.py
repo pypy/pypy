@@ -7,8 +7,8 @@ class Cache:
 
 def raise_Error(space, msg):
     w_error = space.fromcache(Cache).w_error
-    raise OperationError(w_error, space.wrap(msg))
+    raise OperationError(w_error, space.newtext(msg))
 
 def raise_Incomplete(space, msg):
     w_error = space.fromcache(Cache).w_incomplete
-    raise OperationError(w_error, space.wrap(msg))
+    raise OperationError(w_error, space.newtext(msg))

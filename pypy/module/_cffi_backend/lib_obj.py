@@ -26,7 +26,7 @@ class W_LibObject(W_Root):
         self.libname = libname    # some string that gives the name of the lib
 
     def descr_repr(self):
-        return self.space.wrap("<Lib object for '%s'>" % self.libname)
+        return self.space.newtext("<Lib object for '%s'>" % self.libname)
 
     def make_includes_from(self, c_includes):
         space = self.space
@@ -35,11 +35,11 @@ class W_LibObject(W_Root):
         while c_includes[num]:
             include_name = rffi.charp2str(c_includes[num])
             try:
-                w_lib1 = space.appexec([space.wrap(include_name)], """(modname):
+                w_lib1 = space.appexec([space.newtext(include_name)], """(modname):
                     mod = __import__(modname, None, None, ['ffi', 'lib'])
                     return mod.lib""")
                 lib1 = space.interp_w(W_LibObject, w_lib1)
-            except OperationError, e:
+            except OperationError as e:
                 if e.async(space):
                     raise
                 raise oefmt(space.w_ImportError,
@@ -64,7 +64,8 @@ class W_LibObject(W_Root):
         #
         ptr = rffi.cast(rffi.CCHARP, g.c_address)
         assert ptr
-        return W_FunctionWrapper(self.space, ptr, g.c_size_or_direct_fn,
+        return W_FunctionWrapper(self.space, self.ffi,
+                                 ptr, g.c_size_or_direct_fn,
                                  rawfunctype, fnname, self.libname)
 
     @jit.elidable_promote()
@@ -184,7 +185,7 @@ class W_LibObject(W_Root):
         return w_result
 
     def _get_attr(self, w_attr, is_getattr=False):
-        attr = self.space.str_w(w_attr)
+        attr = self.space.text_w(w_attr)
         try:
             w_value = self._get_attr_elidable(attr)
         except KeyError:
@@ -195,9 +196,13 @@ class W_LibObject(W_Root):
                 if is_getattr and attr == '__dict__':
                     return self.full_dict_copy()
                 if is_getattr and attr == '__class__':
-                    return self.space.type(self)
+                    # used to be space.type(self).  But HAAAAAACK!
+                    # That makes help() behave correctly.  I couldn't
+                    # find a more reasonable way.  Urgh.
+                    from pypy.interpreter.module import Module
+                    return self.space.gettypeobject(Module.typedef)
                 if is_getattr and attr == '__name__':
-                    return self.descr_repr()
+                    return self.space.newtext("%s.lib" % self.libname)
                 raise oefmt(self.space.w_AttributeError,
                             "cffi library '%s' has no function, constant "
                             "or global variable named '%s'",
@@ -217,7 +222,7 @@ class W_LibObject(W_Root):
         else:
             raise oefmt(self.space.w_AttributeError,
                         "cannot write to function or constant '%s'",
-                        self.space.str_w(w_attr))
+                        self.space.text_w(w_attr))
 
     def descr_delattr(self, w_attr):
         self._get_attr(w_attr)    # for the possible AttributeError
@@ -238,7 +243,7 @@ class W_LibObject(W_Root):
                 if (op == cffi_opcode.OP_GLOBAL_VAR or
                     op == cffi_opcode.OP_GLOBAL_VAR_F):
                     continue
-            names_w.append(space.wrap(rffi.charp2str(g[i].c_name)))
+            names_w.append(space.newtext(rffi.charp2str(g[i].c_name)))
         return space.newlist(names_w)
 
     def full_dict_copy(self):
@@ -247,7 +252,7 @@ class W_LibObject(W_Root):
         g = self.ctx.c_globals
         w_result = space.newdict()
         for i in range(total):
-            w_attr = space.wrap(rffi.charp2str(g[i].c_name))
+            w_attr = space.newtext(rffi.charp2str(g[i].c_name))
             w_value = self._get_attr(w_attr)
             space.setitem(w_result, w_attr, w_value)
         return w_result
@@ -256,7 +261,7 @@ class W_LibObject(W_Root):
         # rebuild a string object from 'varname', to do typechecks and
         # to force a unicode back to a plain string
         space = self.space
-        w_value = self._get_attr(space.wrap(varname))
+        w_value = self._get_attr(space.newtext(varname))
         if isinstance(w_value, cglob.W_GlobSupport):
             # regular case: a global variable
             return w_value.address()

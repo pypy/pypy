@@ -528,6 +528,8 @@ class FunctionGcRootTracker(object):
         'rex64',
         # movbe, converts from big-endian, so most probably not GC pointers
         'movbe',
+        # xchgb, byte-sized, so not GC pointers
+        'xchgb',
     ])
 
     # a partial list is hopefully good enough for now; it's all to support
@@ -924,6 +926,13 @@ class FunctionGcRootTracker(object):
                 assert  lineoffset in (1,2)
                 return [InsnStackAdjust(-4)]
 
+        if target.startswith('__x86.get_pc_thunk.'):
+            # special case, found on x86-32: these static functions
+            # contain only a simple load of some non-GC pointer to
+            # a specific register (not necessarily EAX)
+            reg = '%e' + target.split('.')[-1]
+            return [InsnSetLocal(reg)]
+
         insns = [InsnCall(target, self.currentlineno),
                  InsnSetLocal(self.EAX)]      # the result is there
         if self.format in ('mingw32', 'msvc'):
@@ -1121,7 +1130,7 @@ class ElfFunctionGcRootTracker32(FunctionGcRootTracker32):
     REG2LOC = dict((_reg, LOC_REG | ((_i+1)<<2))
                    for _i, _reg in enumerate(CALLEE_SAVE_REGISTERS))
     OPERAND = r'(?:[-\w$%+.:@"]+(?:[(][\w%,]+[)])?|[(][\w%,]+[)])'
-    LABEL   = r'([a-zA-Z_$.][a-zA-Z0-9_$@.]*)'
+    LABEL   = r'([a-zA-Z_$.][a-zA-Z0-9_$.]*)(?:@[@a-zA-Z0-9_$.]*)?'
     OFFSET_LABELS   = 2**30
     TOP_OF_STACK_MINUS_WORD = '-4(%esp)'
 
@@ -1183,7 +1192,7 @@ class ElfFunctionGcRootTracker64(FunctionGcRootTracker64):
     REG2LOC = dict((_reg, LOC_REG | ((_i+1)<<2))
                    for _i, _reg in enumerate(CALLEE_SAVE_REGISTERS))
     OPERAND = r'(?:[-\w$%+.:@"]+(?:[(][\w%,]+[)])?|[(][\w%,]+[)])'
-    LABEL   = r'([a-zA-Z_$.][a-zA-Z0-9_$@.]*)'
+    LABEL   = r'([a-zA-Z_$.][a-zA-Z0-9_$.]*)(?:@[@a-zA-Z0-9_$.]*)?'
     OFFSET_LABELS   = 2**30
     TOP_OF_STACK_MINUS_WORD = '-8(%rsp)'
 
@@ -1505,7 +1514,8 @@ class ElfAssemblerParser(AssemblerParser):
         functionlines = []
         in_function = False
         for line in iterlines:
-            if self.FunctionGcRootTracker.r_functionstart.match(line):
+            match = self.FunctionGcRootTracker.r_functionstart.match(line)
+            if match and not match.group(1).startswith('__x86.get_pc_thunk.'):
                 assert not in_function, (
                     "missed the end of the previous function")
                 yield False, functionlines

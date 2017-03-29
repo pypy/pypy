@@ -1,4 +1,5 @@
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.baseobjspace import BufferInterfaceNotFound
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from rpython.rlib.buffer import SubBuffer
 from rpython.rlib.rstring import strip_spaces
@@ -19,11 +20,11 @@ def build_scalar(space, w_dtype, w_state):
                     "argument 1 must be numpy.dtype, not %T", w_dtype)
     if w_dtype.elsize == 0:
         raise oefmt(space.w_TypeError, "Empty data-type")
-    if not space.isinstance_w(w_state, space.w_str):
+    if not space.isinstance_w(w_state, space.w_bytes): # py3 accepts unicode here too
         raise oefmt(space.w_TypeError, "initializing object must be a string")
     if space.len_w(w_state) != w_dtype.elsize:
         raise oefmt(space.w_ValueError, "initialization string is too small")
-    state = rffi.str2charp(space.str_w(w_state))
+    state = rffi.str2charp(space.text_w(w_state))
     box = w_dtype.itemtype.box_raw_data(state)
     lltype.free(state, flavor="raw")
     return box
@@ -42,12 +43,12 @@ def try_array_method(space, w_object, w_dtype=None):
         raise oefmt(space.w_ValueError,
                     "object __array__ method not producing an array")
 
-def try_interface_method(space, w_object):
+def try_interface_method(space, w_object, copy):
     try:
-        w_interface = space.getattr(w_object, space.wrap("__array_interface__"))
+        w_interface = space.getattr(w_object, space.newtext("__array_interface__"))
         if w_interface is None:
             return None, False
-        version_w = space.finditem(w_interface, space.wrap("version"))
+        version_w = space.finditem(w_interface, space.newtext("version"))
         if version_w is None:
             raise oefmt(space.w_ValueError, "__array_interface__ found without"
                         " 'version' key")
@@ -59,11 +60,11 @@ def try_interface_method(space, w_object):
             raise oefmt(space.w_ValueError,
                     "__array_interface__ version %d not supported", version)
         # make a view into the data
-        w_shape = space.finditem(w_interface, space.wrap('shape'))
-        w_dtype = space.finditem(w_interface, space.wrap('typestr'))
-        w_descr = space.finditem(w_interface, space.wrap('descr'))
-        w_data = space.finditem(w_interface, space.wrap('data'))
-        w_strides = space.finditem(w_interface, space.wrap('strides'))
+        w_shape = space.finditem(w_interface, space.newtext('shape'))
+        w_dtype = space.finditem(w_interface, space.newtext('typestr'))
+        w_descr = space.finditem(w_interface, space.newtext('descr'))
+        w_data = space.finditem(w_interface, space.newtext('data'))
+        w_strides = space.finditem(w_interface, space.newtext('strides'))
         if w_shape is None or w_dtype is None:
             raise oefmt(space.w_ValueError,
                     "__array_interface__ missing one or more required keys: shape, typestr"
@@ -81,18 +82,21 @@ def try_interface_method(space, w_object):
             raise oefmt(space.w_ValueError,
                     "__array_interface__ could not decode dtype %R", w_dtype
                     )
-        if w_data is not None and (space.isinstance_w(w_data, space.w_tuple) or space.isinstance_w(w_data, space.w_list)):
+        if w_data is not None and (space.isinstance_w(w_data, space.w_tuple) or
+                                   space.isinstance_w(w_data, space.w_list)):
             data_w = space.listview(w_data)
-            data = rffi.cast(RAW_STORAGE_PTR, space.int_w(data_w[0]))
-            read_only = True # XXX why not space.is_true(data_w[1])
+            w_data = rffi.cast(RAW_STORAGE_PTR, space.int_w(data_w[0]))
+            read_only = space.is_true(data_w[1]) or copy
             offset = 0
-            return W_NDimArray.from_shape_and_storage(space, shape, data, 
-                                    dtype, strides=strides, start=offset), read_only
+            w_base = w_object
+            if read_only:
+                w_base = None
+            return W_NDimArray.from_shape_and_storage(space, shape, w_data, 
+                                dtype, w_base=w_base, strides=strides,
+                                start=offset), read_only
         if w_data is None:
-            data = w_object
-        else:
-            data = w_data
-        w_offset = space.finditem(w_interface, space.wrap('offset'))
+            w_data = w_object
+        w_offset = space.finditem(w_interface, space.newtext('offset'))
         if w_offset is None:
             offset = 0
         else:
@@ -101,7 +105,7 @@ def try_interface_method(space, w_object):
         if strides is not None:
             raise oefmt(space.w_NotImplementedError,
                    "__array_interface__ strides not fully supported yet") 
-        arr = frombuffer(space, data, dtype, support.product(shape), offset)
+        arr = frombuffer(space, w_data, dtype, support.product(shape), offset)
         new_impl = arr.implementation.reshape(arr, shape)
         return W_NDimArray(new_impl), False
         
@@ -110,6 +114,78 @@ def try_interface_method(space, w_object):
             return None, False
         raise
 
+def _descriptor_from_pep3118_format(space, c_format):
+    descr = descriptor.decode_w_dtype(space, space.newtext(c_format))
+    if descr:
+        return descr
+    msg = "invalid PEP 3118 format string: '%s'" % c_format
+    space.warn(space.newtext(msg), space.w_RuntimeWarning)
+    return None 
+
+def _array_from_buffer_3118(space, w_object, dtype):
+    try:
+        w_buf = space.call_method(space.builtin, "memoryview", w_object)
+    except OperationError as e:
+        if e.match(space, space.w_TypeError):
+            # object does not have buffer interface
+            return w_object
+        raise
+    format = space.getattr(w_buf, space.newtext('format'))
+    if format:
+        descr = _descriptor_from_pep3118_format(space, space.text_w(format))
+        if not descr:
+            return w_object
+        if dtype and descr:
+            raise oefmt(space.w_NotImplementedError,
+                "creating an array from a memoryview while specifying dtype "
+                "not supported")
+        if descr.elsize != space.int_w(space.getattr(w_buf, space.newbytes('itemsize'))): 
+            msg = ("Item size computed from the PEP 3118 buffer format "
+                  "string does not match the actual item size.")
+            space.warn(space.newtext(msg), space.w_RuntimeWarning)
+            return w_object
+        dtype = descr 
+    elif not dtype:
+        dtype = descriptor.get_dtype_cache(space).w_stringdtype
+        dtype.elsize = space.int_w(space.getattr(w_buf, space.newbytes('itemsize')))
+    nd = space.int_w(space.getattr(w_buf, space.newbytes('ndim')))
+    shape = [space.int_w(d) for d in space.listview(
+                            space.getattr(w_buf, space.newbytes('shape')))]
+    strides = []
+    buflen = space.len_w(w_buf) * dtype.elsize
+    if shape:
+        strides = [space.int_w(d) for d in space.listview(
+                            space.getattr(w_buf, space.newbytes('strides')))]
+        if not strides:
+            d = buflen
+            strides = [0] * nd
+            for k in range(nd):
+                if shape[k] > 0:
+                    d /= shape[k]
+                    strides[k] = d
+    else:
+        if nd == 1:
+            shape = [buflen / dtype.elsize, ]
+            strides = [dtype.elsize, ]
+        elif nd > 1:
+            msg = ("ndim computed from the PEP 3118 buffer format "
+                   "is greater than 1, but shape is NULL.")
+            space.warn(space.newtext(msg), space.w_RuntimeWarning)
+            return w_object
+    try:
+        w_data = rffi.cast(RAW_STORAGE_PTR, space.int_w(space.call_method(w_buf, '_pypy_raw_address')))
+    except OperationError as e:
+        if e.match(space, space.w_ValueError):
+            return w_object
+        else:
+            raise e
+    writable = not space.bool_w(space.getattr(w_buf, space.newbytes('readonly')))
+    w_ret = W_NDimArray.from_shape_and_storage(space, shape, w_data,
+               storage_bytes=buflen, dtype=dtype, w_base=w_object, 
+               writable=writable, strides=strides)
+    if w_ret:
+        return w_ret
+    return w_object
 
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)
 def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
@@ -127,6 +203,7 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
 
 def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
 
+    from pypy.module.micronumpy.boxes import W_GenericBox
     # numpy testing calls array(type(array([]))) and expects a ValueError
     if space.isinstance_w(w_object, space.w_type):
         raise oefmt(space.w_ValueError, "cannot create ndarray from type instance")
@@ -134,13 +211,19 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
     dtype = descriptor.decode_w_dtype(space, w_dtype)
     if not isinstance(w_object, W_NDimArray):
         w_array = try_array_method(space, w_object, w_dtype)
-        if w_array is not None:
+        if w_array is None:
+            if (    not space.isinstance_w(w_object, space.w_bytes) and 
+                    not space.isinstance_w(w_object, space.w_unicode) and
+                    not isinstance(w_object, W_GenericBox)):
+                # use buffer interface
+                w_object = _array_from_buffer_3118(space, w_object, dtype)
+        else:
             # continue with w_array, but do further operations in place
             w_object = w_array
             copy = False
             dtype = w_object.get_dtype()
     if not isinstance(w_object, W_NDimArray):
-        w_array, _copy = try_interface_method(space, w_object)
+        w_array, _copy = try_interface_method(space, w_object, copy)
         if w_array is not None:
             w_object = w_array
             copy = _copy
@@ -155,7 +238,7 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
             must_copy |= (npy_order == NPY.CORDER and not flags & NPY.ARRAY_C_CONTIGUOUS)
             must_copy |= (npy_order == NPY.FORTRANORDER and not flags & NPY.ARRAY_F_CONTIGUOUS)
             if must_copy:
-                return w_object.descr_copy(space, space.wrap(npy_order))
+                return w_object.descr_copy(space, space.newint(npy_order))
             else:
                 return w_object
         if subok and not type(w_object) is W_NDimArray:
@@ -240,7 +323,7 @@ def find_shape_and_elems(space, w_iterable, dtype):
     return _find_shape_and_elems(space, w_iterable, is_rec_type)
 
 def is_scalar_like(space, w_obj, dtype):
-    isstr = space.isinstance_w(w_obj, space.w_str)
+    isstr = space.isinstance_w(w_obj, space.w_bytes)
     if not support.issequence_w(space, w_obj) or isstr:
         if dtype is None or dtype.char != NPY.CHARLTR:
             return True
@@ -255,9 +338,9 @@ def _find_shape_and_elems(space, w_iterable, is_rec_type=False):
     from pypy.objspace.std.bufferobject import W_Buffer
     shape = [space.len_w(w_iterable)]
     if space.isinstance_w(w_iterable, space.w_buffer):
-        batch = [space.wrap(0)] * shape[0]
+        batch = [space.newint(0)] * shape[0]
         for i in range(shape[0]):
-            batch[i] = space.ord(space.getitem(w_iterable, space.wrap(i)))
+            batch[i] = space.ord(space.getitem(w_iterable, space.newint(i)))
     else:
         batch = space.listview(w_iterable)
     while True:
@@ -266,16 +349,16 @@ def _find_shape_and_elems(space, w_iterable, is_rec_type=False):
         if is_single_elem(space, batch[0], is_rec_type):
             for w_elem in batch:
                 if not is_single_elem(space, w_elem, is_rec_type):
-                    raise OperationError(space.w_ValueError, space.wrap(
-                        "setting an array element with a sequence"))
+                    raise oefmt(space.w_ValueError,
+                                "setting an array element with a sequence")
             return shape[:], batch
         new_batch = []
         size = space.len_w(batch[0])
         for w_elem in batch:
             if (is_single_elem(space, w_elem, is_rec_type) or
                     space.len_w(w_elem) != size):
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "setting an array element with a sequence"))
+                raise oefmt(space.w_ValueError,
+                            "setting an array element with a sequence")
             w_array = space.lookup(w_elem, '__array__')
             if w_array is not None:
                 # Make sure we call the array implementation of listview,
@@ -327,8 +410,8 @@ def _zeros_or_empty(space, w_shape, w_dtype, w_order, zero):
     shape = shape_converter(space, w_shape, dtype)
     for dim in shape:
         if dim < 0:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "negative dimensions are not allowed"))
+            raise oefmt(space.w_ValueError,
+                        "negative dimensions are not allowed")
     try:
         support.product_check(shape)
     except OverflowError:
@@ -385,17 +468,17 @@ def _fromstring_text(space, s, count, sep, length, dtype):
                 val = dtype.itemtype.default_fromstring(space)
             else:
                 try:
-                    val = dtype.coerce(space, space.wrap(piece))
-                except OperationError, e:
+                    val = dtype.coerce(space, space.newtext(piece))
+                except OperationError as e:
                     if not e.match(space, space.w_ValueError):
                         raise
                     gotit = False
                     while not gotit and len(piece) > 0:
                         piece = piece[:-1]
                         try:
-                            val = dtype.coerce(space, space.wrap(piece))
+                            val = dtype.coerce(space, space.newtext(piece))
                             gotit = True
-                        except OperationError, e:
+                        except OperationError as e:
                             if not e.match(space, space.w_ValueError):
                                 raise
                     if not gotit:
@@ -406,8 +489,8 @@ def _fromstring_text(space, s, count, sep, length, dtype):
         idx = nextidx + 1
 
     if count > num_items:
-        raise OperationError(space.w_ValueError, space.wrap(
-            "string is smaller than requested size"))
+        raise oefmt(space.w_ValueError,
+                    "string is smaller than requested size")
 
     a = W_NDimArray.from_shape(space, [num_items], dtype=dtype)
     ai, state = a.create_iter()
@@ -415,7 +498,7 @@ def _fromstring_text(space, s, count, sep, length, dtype):
         ai.setitem(state, val)
         state = ai.next(state)
 
-    return space.wrap(a)
+    return a
 
 
 def _fromstring_bin(space, s, count, length, dtype):
@@ -428,15 +511,15 @@ def _fromstring_bin(space, s, count, length, dtype):
                     "string length %d not divisable by item size %d",
                     length, itemsize)
     if count * itemsize > length:
-        raise OperationError(space.w_ValueError, space.wrap(
-            "string is smaller than requested size"))
+        raise oefmt(space.w_ValueError,
+                    "string is smaller than requested size")
 
     a = W_NDimArray.from_shape(space, [count], dtype=dtype)
     loop.fromstring_loop(space, a, dtype, itemsize, s)
-    return space.wrap(a)
+    return a
 
 
-@unwrap_spec(s=str, count=int, sep=str, w_dtype=WrappedDefault(None))
+@unwrap_spec(s='text', count=int, sep='text', w_dtype=WrappedDefault(None))
 def fromstring(space, s, w_dtype=None, count=-1, sep=''):
     dtype = space.interp_w(descriptor.W_Dtype,
         space.call_function(space.gettypefor(descriptor.W_Dtype), w_dtype))
@@ -468,7 +551,8 @@ def frombuffer(space, w_buffer, w_dtype=None, count=-1, offset=0):
     except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
-        w_buffer = space.getattr(w_buffer, space.wrap('__buffer__'))
+        w_buffer = space.call_method(w_buffer, '__buffer__', 
+                                    space.newint(space.BUF_FULL_RO))
         buf = _getbuffer(space, w_buffer)
 
     ts = buf.getlength()

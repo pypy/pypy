@@ -124,7 +124,7 @@ class TestInstance(BaseTestPyPyC):
             setfield_gc(ConstPtr(ptr39), i59, descr=...)
             i62 = int_lt(i61, 0)
             guard_false(i62, descr=...)
-            jump(p0, p1, p3, p6, p7, p12, i59, p18, i31, i59, p100, descr=...)
+            jump(..., descr=...)
         """)
 
     def test_mutate_class(self):
@@ -183,9 +183,46 @@ class TestInstance(BaseTestPyPyC):
             setfield_gc(p77, ConstPtr(null), descr=...)
             setfield_gc(p77, ConstPtr(ptr42), descr=...)
             setfield_gc(ConstPtr(ptr69), p77, descr=...)
-            jump(p0, p1, p3, p6, p7, p12, i74, p20, p26, i33, p77, p100, descr=...)
+            jump(..., descr=...)
 
         """)
+
+    def test_oldstyle_methcall(self):
+        def main():
+            def g(): pass
+            class A:
+                def f(self):
+                    return self.x + 1
+            class I(A):
+                pass
+            class J(I):
+                pass
+
+
+            class B(J):
+                def __init__(self, x):
+                    self.x = x
+
+            i = 0
+            b = B(1)
+            while i < 1000:
+                g()
+                v = b.f() # ID: meth
+                i += v
+            return i
+
+        log = self.run(main, [], threshold=80)
+        loop, = log.loops_by_filename(self.filepath, is_entry_bridge=True)
+        assert loop.match_by_id('meth',
+        '''
+    guard_nonnull_class(p18, ..., descr=...)
+    p52 = getfield_gc_r(p18, descr=...) # read map
+    guard_value(p52, ConstPtr(ptr53), descr=...)
+    p54 = getfield_gc_r(p18, descr=...) # read class
+    guard_value(p54, ConstPtr(ptr55), descr=...)
+    p56 = force_token() # done
+        ''')
+
 
     def test_oldstyle_newstyle_mix(self):
         def main():

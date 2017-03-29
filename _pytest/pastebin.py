@@ -1,10 +1,8 @@
 """ submit failure or test session information to a pastebin service. """
-import py, sys
+import pytest
+import sys
+import tempfile
 
-class url:
-    base = "http://bpaste.net"
-    xmlrpc = base + "/xmlrpc/"
-    show = base + "/show/"
 
 def pytest_addoption(parser):
     group = parser.getgroup("terminal reporting")
@@ -13,55 +11,82 @@ def pytest_addoption(parser):
         choices=['failed', 'all'],
         help="send failed|all info to bpaste.net pastebin service.")
 
-def pytest_configure(__multicall__, config):
-    import tempfile
-    __multicall__.execute()
+@pytest.hookimpl(trylast=True)
+def pytest_configure(config):
+    import py
     if config.option.pastebin == "all":
-        config._pastebinfile = tempfile.TemporaryFile('w+')
         tr = config.pluginmanager.getplugin('terminalreporter')
-        oldwrite = tr._tw.write
-        def tee_write(s, **kwargs):
-            oldwrite(s, **kwargs)
-            config._pastebinfile.write(str(s))
-        tr._tw.write = tee_write
+        # if no terminal reporter plugin is present, nothing we can do here;
+        # this can happen when this function executes in a slave node
+        # when using pytest-xdist, for example
+        if tr is not None:
+            # pastebin file will be utf-8 encoded binary file
+            config._pastebinfile = tempfile.TemporaryFile('w+b')
+            oldwrite = tr._tw.write
+            def tee_write(s, **kwargs):
+                oldwrite(s, **kwargs)
+                if py.builtin._istext(s):
+                    s = s.encode('utf-8')
+                config._pastebinfile.write(s)
+            tr._tw.write = tee_write
 
 def pytest_unconfigure(config):
     if hasattr(config, '_pastebinfile'):
+        # get terminal contents and delete file
         config._pastebinfile.seek(0)
         sessionlog = config._pastebinfile.read()
         config._pastebinfile.close()
         del config._pastebinfile
-        proxyid = getproxy().newPaste("python", sessionlog)
-        pastebinurl = "%s%s" % (url.show, proxyid)
-        sys.stderr.write("pastebin session-log: %s\n" % pastebinurl)
+        # undo our patching in the terminal reporter
         tr = config.pluginmanager.getplugin('terminalreporter')
         del tr._tw.__dict__['write']
+        # write summary
+        tr.write_sep("=", "Sending information to Paste Service")
+        pastebinurl = create_new_paste(sessionlog)
+        tr.write_line("pastebin session-log: %s\n" % pastebinurl)
 
-def getproxy():
+def create_new_paste(contents):
+    """
+    Creates a new paste using bpaste.net service.
+
+    :contents: paste contents as utf-8 encoded bytes
+    :returns: url to the pasted contents
+    """
+    import re
     if sys.version_info < (3, 0):
-        from xmlrpclib import ServerProxy
+        from urllib import urlopen, urlencode
     else:
-        from xmlrpc.client import ServerProxy
-    return ServerProxy(url.xmlrpc).pastes
+        from urllib.request import urlopen
+        from urllib.parse import urlencode
+
+    params = {
+        'code': contents,
+        'lexer': 'python3' if sys.version_info[0] == 3 else 'python',
+        'expiry': '1week',
+    }
+    url = 'https://bpaste.net'
+    response = urlopen(url, data=urlencode(params).encode('ascii')).read()
+    m = re.search(r'href="/raw/(\w+)"', response.decode('utf-8'))
+    if m:
+        return '%s/show/%s' % (url, m.group(1))
+    else:
+        return 'bad response: ' + response
 
 def pytest_terminal_summary(terminalreporter):
+    import _pytest.config
     if terminalreporter.config.option.pastebin != "failed":
         return
     tr = terminalreporter
     if 'failed' in tr.stats:
         terminalreporter.write_sep("=", "Sending information to Paste Service")
-        if tr.config.option.debug:
-            terminalreporter.write_line("xmlrpcurl: %s" %(url.xmlrpc,))
-        serverproxy = getproxy()
         for rep in terminalreporter.stats.get('failed'):
             try:
                 msg = rep.longrepr.reprtraceback.reprentries[-1].reprfileloc
             except AttributeError:
                 msg = tr._getfailureheadline(rep)
-            tw = py.io.TerminalWriter(stringio=True)
+            tw = _pytest.config.create_terminal_writer(terminalreporter.config, stringio=True)
             rep.toterminal(tw)
             s = tw.stringio.getvalue()
             assert len(s)
-            proxyid = serverproxy.newPaste("python", s)
-            pastebinurl = "%s%s" % (url.show, proxyid)
+            pastebinurl = create_new_paste(s)
             tr.write_line("%s --> %s" %(msg, pastebinurl))

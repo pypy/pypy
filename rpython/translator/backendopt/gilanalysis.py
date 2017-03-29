@@ -21,12 +21,8 @@ class GilAnalyzer(graphanalyze.BoolGraphAnalyzer):
             self, graph, seen)
 
     def analyze_external_call(self, op, seen=None):
-        funcobj = op.args[0].value._obj
-        if getattr(funcobj, 'transactionsafe', False):
-            return False
-        else:
-            return False
-                
+        return False
+
     def analyze_simple_operation(self, op, graphinfo):
         return False
 

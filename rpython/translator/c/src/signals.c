@@ -2,6 +2,7 @@
 
 #include <limits.h>
 #include <stdlib.h>
+#include <errno.h>
 #ifdef _WIN32
 #include <process.h>
 #include <io.h>
@@ -36,6 +37,7 @@ static int volatile pypysig_occurred = 0;
 /* pypysig_occurred is only an optimization: it tells if any
    pypysig_flags could be set. */
 static int wakeup_fd = -1;
+static int wakeup_with_nul_byte = 1;
 
 #undef pypysig_getaddr_occurred
 void *pypysig_getaddr_occurred(void)
@@ -81,20 +83,51 @@ void pypysig_pushback(int signum)
       }
 }
 
+static void write_str(int fd, const char *p)
+{
+    int i = 0;
+    while (p[i] != '\x00')
+        i++;
+    (void)write(fd, p, i);
+}
+
 static void signal_setflag_handler(int signum)
 {
     pypysig_pushback(signum);
 
-    if (wakeup_fd != -1) 
-      {
+    /* Warning, this logic needs to be async-signal-safe */
+    if (wakeup_fd != -1) {
 #ifndef _WIN32
         ssize_t res;
 #else
         int res;
 #endif
-        res = write(wakeup_fd, "\0", 1);
-        /* the return value is ignored here */
-      }
+        int old_errno = errno;
+     retry:
+        if (wakeup_with_nul_byte) {
+            res = write(wakeup_fd, "\0", 1);
+        } else {
+            unsigned char byte = (unsigned char)signum;
+            res = write(wakeup_fd, &byte, 1);
+        }
+        if (res < 0) {
+            unsigned int e = (unsigned int)errno;
+            char c[27], *p;
+            if (e == EINTR)
+                goto retry;
+            write_str(2, "Exception ignored when trying to write to the "
+                         "signal wakeup fd: Errno ");
+            p = c + sizeof(c);
+            *--p = 0;
+            *--p = '\n';
+            do {
+                *--p = '0' + e % 10;
+                e /= 10;
+            } while (e != 0);
+            write_str(2, p);
+        }
+        errno = old_errno;
+    }
 }
 
 void pypysig_setflag(int signum)
@@ -143,9 +176,10 @@ int pypysig_poll(void)
   return -1;  /* no pending signal */
 }
 
-int pypysig_set_wakeup_fd(int fd)
+int pypysig_set_wakeup_fd(int fd, int with_nul_byte)
 {
   int old_fd = wakeup_fd;
   wakeup_fd = fd;
+  wakeup_with_nul_byte = with_nul_byte;
   return old_fd;
 }

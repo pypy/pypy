@@ -1,14 +1,5 @@
 import sys, os
-
-
-class VerificationError(Exception):
-    """ An error raised when verification fails
-    """
-
-class VerificationMissing(Exception):
-    """ An error raised when incomplete structures are passed into
-    cdef, but no verification has been done
-    """
+from .error import VerificationError
 
 
 LIST_OF_FILE_NAMES = ['sources', 'include_dirs', 'library_dirs',
@@ -21,12 +12,12 @@ def get_extension(srcfilename, modname, sources=(), **kwds):
         allsources.append(os.path.normpath(src))
     return Extension(name=modname, sources=allsources, **kwds)
 
-def compile(tmpdir, ext, compiler_verbose=0):
+def compile(tmpdir, ext, compiler_verbose=0, debug=None):
     """Compile a C extension module using distutils."""
 
     saved_environ = os.environ.copy()
     try:
-        outputfilename = _build(tmpdir, ext, compiler_verbose)
+        outputfilename = _build(tmpdir, ext, compiler_verbose, debug)
         outputfilename = os.path.abspath(outputfilename)
     finally:
         # workaround for a distutils bugs where some env vars can
@@ -36,7 +27,7 @@ def compile(tmpdir, ext, compiler_verbose=0):
                 os.environ[key] = value
     return outputfilename
 
-def _build(tmpdir, ext, compiler_verbose=0):
+def _build(tmpdir, ext, compiler_verbose=0, debug=None):
     # XXX compact but horrible :-(
     from distutils.core import Distribution
     import distutils.errors, distutils.log
@@ -44,6 +35,9 @@ def _build(tmpdir, ext, compiler_verbose=0):
     dist = Distribution({'ext_modules': [ext]})
     dist.parse_config_files()
     options = dist.get_option_dict('build_ext')
+    if debug is None:
+        debug = sys.flags.debug
+    options['debug'] = ('ffiplatform', debug)
     options['force'] = ('ffiplatform', True)
     options['build_lib'] = ('ffiplatform', tmpdir)
     options['build_temp'] = ('ffiplatform', tmpdir)
@@ -53,14 +47,14 @@ def _build(tmpdir, ext, compiler_verbose=0):
         try:
             distutils.log.set_verbosity(compiler_verbose)
             dist.run_command('build_ext')
+            cmd_obj = dist.get_command_obj('build_ext')
+            [soname] = cmd_obj.get_outputs()
         finally:
             distutils.log.set_threshold(old_level)
     except (distutils.errors.CompileError,
             distutils.errors.LinkError) as e:
         raise VerificationError('%s: %s' % (e.__class__.__name__, e))
     #
-    cmd_obj = dist.get_command_obj('build_ext')
-    [soname] = cmd_obj.get_outputs()
     return soname
 
 try:

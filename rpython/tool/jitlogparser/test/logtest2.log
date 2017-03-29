@@ -139,7 +139,7 @@ debug_merge_point(0, 0, '<code object g. file 'x.py'. line 8> #9 LOAD_FAST')
 debug_merge_point(0, 0, '<code object g. file 'x.py'. line 8> #12 LOAD_CONST')
 +289: guard_value(p4, ConstPtr(ptr22), descr=<Guard0x7f551538c548>) [p1, p0, p4, p2, p3, p6, p11, p13, p17]
 debug_merge_point(0, 0, '<code object g. file 'x.py'. line 8> #15 COMPARE_OP')
-+308: i23 = getfield_gc_pure_i(p11, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval 8>)
++308: i23 = getfield_gc_i(p11, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval 8>)
 +312: i25 = int_lt(i23, 10)
 guard_true(i25, descr=<Guard0x7f551538c4d0>) [p1, p0, p11, p2, p3, p6, p13]
 debug_merge_point(0, 0, '<code object g. file 'x.py'. line 8> #18 POP_JUMP_IF_FALSE')
@@ -285,9 +285,9 @@ debug_merge_point(0, 0, '<code object h. file 'x.py'. line 14> #13 FOR_ITER')
 +283: p23 = getfield_gc_r(p21, descr=<FieldP pypy.objspace.std.listobject.W_ListObject.inst_strategy 16>)
 +287: guard_class(p23, 26517736, descr=<Guard0x7f5517834980>) [p1, p0, p15, i22, p23, p21, p2, p3, p4, i5, p6, p11, p13, p17]
 +299: p25 = getfield_gc_r(p21, descr=<FieldP pypy.objspace.std.listobject.W_ListObject.inst_lstorage 8>)
-+303: i26 = getfield_gc_pure_i(p25, descr=<FieldS tuple3.item0 8>)
-+307: i27 = getfield_gc_pure_i(p25, descr=<FieldS tuple3.item1 16>)
-+311: i28 = getfield_gc_pure_i(p25, descr=<FieldS tuple3.item2 24>)
++303: i26 = getfield_gc_i(p25, descr=<FieldS tuple3.item0 8>)
++307: i27 = getfield_gc_i(p25, descr=<FieldS tuple3.item1 16>)
++311: i28 = getfield_gc_i(p25, descr=<FieldS tuple3.item2 24>)
 +315: i30 = int_lt(i22, 0)
 guard_false(i30, descr=<Guard0x7f5517834908>) [p1, p0, p15, i22, i28, i27, i26, p2, p3, p4, i5, p6, p11, p13, p17]
 +325: i31 = int_ge(i22, i28)

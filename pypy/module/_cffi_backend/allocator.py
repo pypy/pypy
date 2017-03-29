@@ -4,6 +4,7 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib import rgc
 
 
 class W_Allocator(W_Root):
@@ -20,14 +21,16 @@ class W_Allocator(W_Root):
         if self.w_alloc is None:
             if self.should_clear_after_alloc:
                 ptr = lltype.malloc(rffi.CCHARP.TO, datasize,
-                                    flavor='raw', zero=True)
+                                    flavor='raw', zero=True,
+                                    add_memory_pressure=True)
             else:
                 ptr = lltype.malloc(rffi.CCHARP.TO, datasize,
-                                    flavor='raw', zero=False)
+                                    flavor='raw', zero=False,
+                                    add_memory_pressure=True)
             return cdataobj.W_CDataNewStd(space, ptr, ctype, length)
         else:
             w_raw_cdata = space.call_function(self.w_alloc,
-                                              space.wrap(datasize))
+                                              space.newint(datasize))
             if not isinstance(w_raw_cdata, cdataobj.W_CData):
                 raise oefmt(space.w_TypeError,
                             "alloc() must return a cdata object (got %T)",
@@ -45,14 +48,12 @@ class W_Allocator(W_Root):
                 rffi.c_memset(rffi.cast(rffi.VOIDP, ptr), 0,
                               rffi.cast(rffi.SIZE_T, datasize))
             #
-            if self.w_free is None:
-                # use this class which does not have a __del__, but still
-                # keeps alive w_raw_cdata
-                res = cdataobj.W_CDataNewNonStdNoFree(space, ptr, ctype, length)
-            else:
-                res = cdataobj.W_CDataNewNonStdFree(space, ptr, ctype, length)
-                res.w_free = self.w_free
+            res = cdataobj.W_CDataNewNonStd(space, ptr, ctype, length)
             res.w_raw_cdata = w_raw_cdata
+            if self.w_free is not None:
+                res.w_free = self.w_free
+                res.register_finalizer(space)
+            rgc.add_memory_pressure(datasize)
             return res
 
     @unwrap_spec(w_init=WrappedDefault(None))
@@ -79,7 +80,7 @@ def new_allocator(ffi, w_alloc, w_free, should_clear_after_alloc):
     if w_alloc is None and w_free is not None:
         raise oefmt(space.w_TypeError, "cannot pass 'free' without 'alloc'")
     alloc = W_Allocator(ffi, w_alloc, w_free, bool(should_clear_after_alloc))
-    return space.wrap(alloc)
+    return alloc
 
 
 default_allocator = W_Allocator(None, None, None, should_clear_after_alloc=True)

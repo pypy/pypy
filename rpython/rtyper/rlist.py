@@ -1,7 +1,7 @@
 from rpython.annotator import model as annmodel
 from rpython.flowspace.model import Constant
 from rpython.rlib import rgc, jit, types
-from rpython.rlib.debug import ll_assert
+from rpython.rtyper.debug import ll_assert
 from rpython.rlib.objectmodel import malloc_zero_filled, enforceargs, specialize
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import ovfcheck, widen, r_uint, intmask
@@ -588,6 +588,7 @@ def ll_append(l, newitem):
     l.ll_setitem_fast(length, newitem)
 
 # this one is for the special case of insert(0, x)
+@jit.look_inside_iff(lambda l,n: jit.isvirtual(l))
 def ll_prepend(l, newitem):
     length = l.ll_length()
     l._ll_resize_ge(length+1)           # see "a note about overflows" above
@@ -597,7 +598,6 @@ def ll_prepend(l, newitem):
         l.ll_setitem_fast(dst, l.ll_getitem_fast(src))
         dst = src
     l.ll_setitem_fast(0, newitem)
-ll_prepend.oopspec = 'list.insert(l, 0, newitem)'
 
 def ll_concat(RESLIST, l1, l2):
     len1 = l1.ll_length()
@@ -612,6 +612,7 @@ def ll_concat(RESLIST, l1, l2):
     return l
 # no oopspec -- the function is inlined by the JIT
 
+@jit.look_inside_iff(lambda l,i,n: jit.isvirtual(l) and jit.isconstant(i))
 def ll_insert_nonneg(l, index, newitem):
     length = l.ll_length()
     ll_assert(0 <= index, "negative list insertion index")
@@ -623,7 +624,6 @@ def ll_insert_nonneg(l, index, newitem):
         l.ll_setitem_fast(dst, l.ll_getitem_fast(src))
         dst = src
     l.ll_setitem_fast(index, newitem)
-ll_insert_nonneg.oopspec = 'list.insert(l, index, newitem)'
 
 def ll_pop_nonneg(func, l, index):
     ll_assert(index >= 0, "unexpectedly negative list pop index")

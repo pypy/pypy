@@ -1240,3 +1240,9 @@ class TestAstBuilder:
         if1, if2 = comps[0].ifs
         assert isinstance(if1, ast.Name)
         assert isinstance(if2, ast.Name)
+
+    def test_decode_error_in_string_literal(self):
+        input = "u'\\x'"
+        exc = py.test.raises(SyntaxError, self.get_ast, input).value
+        assert exc.msg == ("(unicode error) 'unicodeescape' codec can't decode"
+                           " bytes in position 0-1: truncated \\xXX escape")

@@ -19,7 +19,7 @@ class TestStrStorage(BaseStrStorageTest, LLJitMixin):
         res = self.interp_operations(f, [], supports_singlefloats=True)
         #
         kind = getkind(TYPE)[0] # 'i' or 'f'
-        self.check_operations_history({'getarrayitem_gc_%s' % kind: 1,
+        self.check_operations_history({'gc_load_indexed_%s' % kind: 1,
                                        'finish': 1})
         #
         if TYPE == lltype.SingleFloat:
@@ -29,8 +29,8 @@ class TestStrStorage(BaseStrStorageTest, LLJitMixin):
             return longlong.int2singlefloat(res)
         return res
 
-    def str_storage_supported(self, TYPE):
-        py.test.skip('this is not a JIT test')
+    #def str_storage_supported(self, TYPE):
+    #    py.test.skip('this is not a JIT test')
 
     def test_force_virtual_str_storage(self):
         byteorder = sys.byteorder
@@ -48,6 +48,6 @@ class TestStrStorage(BaseStrStorageTest, LLJitMixin):
             'strsetitem': 1,          # str forcing
             'call_pure_r': 1,         # str forcing (copystrcontent)
             'guard_no_exception': 1,  # str forcing
-            'getarrayitem_gc_i': 1,   # str_storage_getitem
+            'gc_load_indexed_i': 1,   # str_storage_getitem
             'finish': 1
             })

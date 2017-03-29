@@ -6,12 +6,13 @@ import os, sys
 import errno
 
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.objectmodel import not_rpython
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.tool import rffi_platform
 
 
 if sys.platform == 'win32':
     from rpython.rlib import rwin32
-    from rpython.translator.tool.cbuild import ExternalCompilationInfo
-    from rpython.rtyper.tool import rffi_platform
 
     eci = ExternalCompilationInfo(
         includes = ['windows.h', 'wincrypt.h'],
@@ -46,15 +47,18 @@ if sys.platform == 'win32':
         compilation_info=eci,
         save_err=rffi.RFFI_SAVE_LASTERROR)
 
+    @not_rpython
     def init_urandom():
-        """NOT_RPYTHON
+        """
         Return an array of one HCRYPTPROV, initialized to NULL.
         It is filled automatically the first time urandom() is called.
         """
         return lltype.malloc(rffi.CArray(HCRYPTPROV), 1,
                              immortal=True, zero=True)
 
-    def urandom(context, n):
+    def urandom(context, n, signal_checker=None):
+        # NOTE: no dictionaries here: rsiphash24 calls this to
+        # initialize the random seed of string hashes
         provider = context[0]
         if not provider:
             # This handle is never explicitly released. The operating
@@ -73,40 +77,96 @@ if sys.platform == 'win32':
 
             return rffi.charpsize2str(rffi.cast(rffi.CCHARP, buf), n)
 
-elif 0:  # __VMS
-    from rpython.rlib.ropenssl import libssl_RAND_pseudo_bytes
-    def init_urandom():
-        pass
-
-    def urandom(context, n):
-        with rffi.scoped_alloc_buffer(n) as buf:
-            if libssl_RAND_pseudo_bytes(self.raw, n) < 0:
-                raise ValueError("RAND_pseudo_bytes")
-            return buf.str(n)
 else:  # Posix implementation
+    @not_rpython
     def init_urandom():
-        """NOT_RPYTHON
-        Return an array of one int, initialized to 0.
-        It is filled automatically the first time urandom() is called.
-        """
-        return lltype.malloc(rffi.CArray(lltype.Signed), 1,
-                             immortal=True, zero=True)
+        return None
 
-    def urandom(context, n):
+    SYS_getrandom = None
+
+    if sys.platform.startswith('linux'):
+        eci = ExternalCompilationInfo(includes=['sys/syscall.h'])
+        class CConfig:
+            _compilation_info_ = eci
+            SYS_getrandom = rffi_platform.DefinedConstantInteger(
+                'SYS_getrandom')
+        globals().update(rffi_platform.configure(CConfig))
+
+    if SYS_getrandom is not None:
+        from rpython.rlib.rposix import get_saved_errno, handle_posix_error
+        import errno
+
+        eci = eci.merge(ExternalCompilationInfo(includes=['linux/random.h']))
+        class CConfig:
+            _compilation_info_ = eci
+            GRND_NONBLOCK = rffi_platform.DefinedConstantInteger(
+                'GRND_NONBLOCK')
+        globals().update(rffi_platform.configure(CConfig))
+        if GRND_NONBLOCK is None:
+            GRND_NONBLOCK = 0x0001      # from linux/random.h
+
+        # On Linux, use the syscall() function because the GNU libc doesn't
+        # expose the Linux getrandom() syscall yet.
+        syscall = rffi.llexternal(
+            'syscall',
+            [lltype.Signed, rffi.CCHARP, rffi.LONG, rffi.INT],
+            lltype.Signed,
+            compilation_info=eci,
+            save_err=rffi.RFFI_SAVE_ERRNO)
+
+        class Works:
+            status = True
+        getrandom_works = Works()
+
+        def _getrandom(n, result, signal_checker):
+            if not getrandom_works.status:
+                return n
+            while n > 0:
+                with rffi.scoped_alloc_buffer(n) as buf:
+                    got = syscall(SYS_getrandom, buf.raw, n, GRND_NONBLOCK)
+                    if got >= 0:
+                        s = buf.str(got)
+                        result.append(s)
+                        n -= len(s)
+                        continue
+                err = get_saved_errno()
+                if (err == errno.ENOSYS or err == errno.EPERM or
+                        err == errno.EAGAIN):   # see CPython 3.5
+                    getrandom_works.status = False
+                    return n
+                if err == errno.EINTR:
+                    if signal_checker is not None:
+                        signal_checker()
+                    continue
+                handle_posix_error("getrandom", got)
+                raise AssertionError("unreachable")
+            return n
+
+    def urandom(context, n, signal_checker=None):
         "Read n bytes from /dev/urandom."
-        result = ''
-        if n == 0:
-            return result
-        if not context[0]:
-            context[0] = os.open("/dev/urandom", os.O_RDONLY, 0777)
-        while n > 0:
-            try:
-                data = os.read(context[0], n)
-            except OSError, e:
-                if e.errno != errno.EINTR:
-                    raise
-                data = ''
-            result += data
-            n -= len(data)
-        return result
+        # NOTE: no dictionaries here: rsiphash24 calls this to
+        # initialize the random seed of string hashes
+        result = []
+        if SYS_getrandom is not None:
+            n = _getrandom(n, result, signal_checker)
+        if n <= 0:
+            return ''.join(result)
 
+        # XXX should somehow cache the file descriptor.  It's a mess.
+        # CPython has a 99% solution and hopes for the remaining 1%
+        # not to occur.  For now, we just don't cache the file
+        # descriptor (any more... 6810f401d08e).
+        fd = os.open("/dev/urandom", os.O_RDONLY, 0777)
+        try:
+            while n > 0:
+                try:
+                    data = os.read(fd, n)
+                except OSError as e:
+                    if e.errno != errno.EINTR:
+                        raise
+                    data = ''
+                result.append(data)
+                n -= len(data)
+        finally:
+            os.close(fd)
+        return ''.join(result)

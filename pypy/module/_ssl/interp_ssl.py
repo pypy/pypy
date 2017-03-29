@@ -33,8 +33,9 @@ PY_SSL_CERT_NONE, PY_SSL_CERT_OPTIONAL, PY_SSL_CERT_REQUIRED = 0, 1, 2
 PY_SSL_CLIENT, PY_SSL_SERVER = 0, 1
 
 (PY_SSL_VERSION_SSL2, PY_SSL_VERSION_SSL3,
- PY_SSL_VERSION_SSL23, PY_SSL_VERSION_TLS1, PY_SSL_VERSION_TLS1_1,
+ PY_SSL_VERSION_TLS, PY_SSL_VERSION_TLS1, PY_SSL_VERSION_TLS1_1,
  PY_SSL_VERSION_TLS1_2) = range(6)
+
 
 SOCKET_IS_NONBLOCKING, SOCKET_IS_BLOCKING = 0, 1
 SOCKET_HAS_TIMED_OUT, SOCKET_HAS_BEEN_CLOSED = 2, 3
@@ -68,11 +69,12 @@ constants["HAS_ECDH"] = not OPENSSL_NO_ECDH
 constants["HAS_NPN"] = HAS_NPN
 constants["HAS_ALPN"] = HAS_ALPN
 
+constants["PROTOCOL_TLS"] = PY_SSL_VERSION_TLS
+constants["PROTOCOL_SSLv23"] = PY_SSL_VERSION_TLS  # Legacy name
 if not OPENSSL_NO_SSL2:
     constants["PROTOCOL_SSLv2"]  = PY_SSL_VERSION_SSL2
 if not OPENSSL_NO_SSL3:
     constants["PROTOCOL_SSLv3"]  = PY_SSL_VERSION_SSL3
-constants["PROTOCOL_SSLv23"] = PY_SSL_VERSION_SSL23
 constants["PROTOCOL_TLSv1"]  = PY_SSL_VERSION_TLS1
 if HAVE_TLSv1_2:
     constants["PROTOCOL_TLSv1_1"] = PY_SSL_VERSION_TLS1_1
@@ -111,7 +113,10 @@ def ssl_error(space, msg, errno=0, w_errtype=None, errcode=0):
         err_reason = libssl_ERR_GET_REASON(errcode)
         reason_str = ERROR_CODES_TO_NAMES.get((err_lib, err_reason), None)
         lib_str = LIBRARY_CODES_TO_NAMES.get(err_lib, None)
-        msg = rffi.charp2str(libssl_ERR_reason_error_string(errcode))
+        raw_msg = libssl_ERR_reason_error_string(errcode)
+        msg = None
+        if raw_msg:
+            msg = rffi.charp2str(raw_msg)
     if not msg:
         msg = "unknown error"
     if reason_str and lib_str:
@@ -122,20 +127,20 @@ def ssl_error(space, msg, errno=0, w_errtype=None, errcode=0):
     w_exception_class = w_errtype or get_exception_class(space, 'w_sslerror')
     if errno or errcode:
         w_exception = space.call_function(w_exception_class,
-                                          space.wrap(errno), space.wrap(msg))
+                                          space.newint(errno), space.newtext(msg))
     else:
-        w_exception = space.call_function(w_exception_class, space.wrap(msg))
-    space.setattr(w_exception, space.wrap("reason"),
-                  space.wrap(reason_str) if reason_str else space.w_None)
-    space.setattr(w_exception, space.wrap("library"),
-                  space.wrap(lib_str) if lib_str else space.w_None)
+        w_exception = space.call_function(w_exception_class, space.newtext(msg))
+    space.setattr(w_exception, space.newtext("reason"),
+                  space.newtext_or_none(reason_str))
+    space.setattr(w_exception, space.newtext("library"),
+                  space.newtext_or_none(lib_str))
     return OperationError(w_exception_class, w_exception)
 
 class SSLNpnProtocols(object):
 
     def __init__(self, ctx, protos):
         self.protos = protos
-        self.buf, self.pinned, self.is_raw = rffi.get_nonmovingbuffer(protos)
+        self.buf, self.bufflag = rffi.get_nonmovingbuffer(protos)
         NPN_STORAGE.set(rffi.cast(lltype.Unsigned, self.buf), self)
 
         # set both server and client callbacks, because the context
@@ -147,7 +152,7 @@ class SSLNpnProtocols(object):
 
     def __del__(self):
         rffi.free_nonmovingbuffer(
-            self.protos, self.buf, self.pinned, self.is_raw)
+            self.protos, self.buf, self.bufflag)
 
     @staticmethod
     def advertiseNPN_cb(s, data_ptr, len_ptr, args):
@@ -181,7 +186,7 @@ class SSLAlpnProtocols(object):
 
     def __init__(self, ctx, protos):
         self.protos = protos
-        self.buf, self.pinned, self.is_raw = rffi.get_nonmovingbuffer(protos)
+        self.buf, self.bufflag = rffi.get_nonmovingbuffer(protos)
         ALPN_STORAGE.set(rffi.cast(lltype.Unsigned, self.buf), self)
 
         with rffi.scoped_str2charp(protos) as protos_buf:
@@ -193,7 +198,7 @@ class SSLAlpnProtocols(object):
 
     def __del__(self):
         rffi.free_nonmovingbuffer(
-            self.protos, self.buf, self.pinned, self.is_raw)
+            self.protos, self.buf, self.bufflag)
 
     @staticmethod
     def selectALPN_cb(s, out_ptr, outlen_ptr, client, client_len, args):
@@ -221,14 +226,14 @@ SOCKET_STORAGE = RWeakValueDictionary(int, W_Root)
 
 if HAVE_OPENSSL_RAND:
     # helper routines for seeding the SSL PRNG
-    @unwrap_spec(string=str, entropy=float)
+    @unwrap_spec(string='bytes', entropy=float)
     def RAND_add(space, string, entropy):
         """RAND_add(string, entropy)
 
 
         Mix string into the OpenSSL PRNG state.  entropy (a float) is a lower
         bound on the entropy contained in string."""
-        with rffi.scoped_str2charp(string) as buf:
+        with rffi.scoped_nonmovingbuffer(string) as buf:
             libssl_RAND_add(buf, len(string), entropy)
 
     def RAND_status(space):
@@ -239,10 +244,10 @@ if HAVE_OPENSSL_RAND:
         on some platforms before using the ssl() function."""
 
         res = libssl_RAND_status()
-        return space.wrap(res)
+        return space.newint(res)
 
     if HAVE_OPENSSL_RAND_EGD:
-        @unwrap_spec(path=str)
+        @unwrap_spec(path='text')
         def RAND_egd(space, path):
             """RAND_egd(path) -> bytes
 
@@ -255,10 +260,10 @@ if HAVE_OPENSSL_RAND:
                 raise ssl_error(space,
                                 "EGD connection failed or EGD did not return "
                                 "enough data to seed the PRNG")
-            return space.wrap(bytes)
+            return space.newint(bytes)
     else:
         # Dummy func for platforms missing RAND_egd(). Most likely LibreSSL.
-        @unwrap_spec(path=str)
+        @unwrap_spec(path='text')
         def RAND_egd(space, path):
             raise ssl_error(space, "RAND_egd unavailable")
 
@@ -278,6 +283,8 @@ class _SSLSocket(W_Root):
         sock_fd = space.int_w(space.call_method(w_sock, "fileno"))
         self.ssl = libssl_SSL_new(w_ctx.ctx)  # new ssl struct
 
+        self.register_finalizer(space)
+
         index = compute_unique_id(self)
         libssl_SSL_set_app_data(self.ssl, rffi.cast(rffi.VOIDP, index))
         SOCKET_STORAGE.set(index, self)
@@ -291,7 +298,7 @@ class _SSLSocket(W_Root):
         if not space.is_none(w_hostname):
             if space.isinstance_w(w_hostname, space.w_unicode):
                 w_hostname = space.call_method(w_hostname, "encode",
-                                               space.wrap("idna"))
+                                               space.newtext("idna"))
             libssl_SSL_set_tlsext_host_name(
                 self.ssl, space.bytes_w(w_hostname))
 
@@ -317,16 +324,15 @@ class _SSLSocket(W_Root):
             self.ssl_sock_weakref_w = None
         return self
 
-    def __del__(self):
-        self.enqueue_for_destruction(self.space, _SSLSocket.destructor,
-                                     '__del__() method of ')
-
-    def destructor(self):
-        assert isinstance(self, _SSLSocket)
-        if self.peer_cert:
-            libssl_X509_free(self.peer_cert)
-        if self.ssl:
-            libssl_SSL_free(self.ssl)
+    def _finalize_(self):
+        peer_cert = self.peer_cert
+        if peer_cert:
+            self.peer_cert = lltype.nullptr(X509.TO)
+            libssl_X509_free(peer_cert)
+        ssl = self.ssl
+        if ssl:
+            self.ssl = lltype.nullptr(SSL.TO)
+            libssl_SSL_free(ssl)
 
     @unwrap_spec(data='bufferstr')
     def write(self, space, data):
@@ -371,7 +377,7 @@ class _SSLSocket(W_Root):
                 break
 
         if num_bytes > 0:
-            return space.wrap(num_bytes)
+            return space.newint(num_bytes)
         else:
             raise _ssl_seterror(space, self, num_bytes)
 
@@ -383,7 +389,7 @@ class _SSLSocket(W_Root):
         count = libssl_SSL_pending(self.ssl)
         if count < 0:
             raise _ssl_seterror(space, self, count)
-        return space.wrap(count)
+        return space.newint(count)
 
     @unwrap_spec(num_bytes=int)
     def read(self, space, num_bytes, w_buffer=None):
@@ -400,15 +406,25 @@ class _SSLSocket(W_Root):
                                 "Underlying socket too large for select().")
             elif sockstate == SOCKET_HAS_BEEN_CLOSED:
                 if libssl_SSL_get_shutdown(self.ssl) == SSL_RECEIVED_SHUTDOWN:
-                    return space.wrap('')
+                    return space.newbytes('')
                 raise ssl_error(space,
                                 "Socket closed without SSL shutdown handshake")
 
         if w_buffer:
             rwbuffer = space.getarg_w('w*', w_buffer)
-            num_bytes = min(num_bytes, rwbuffer.getlength())
+            buflen = rwbuffer.getlength()
+            if not 0 < num_bytes <= buflen:
+                num_bytes = buflen
         else:
+            if num_bytes < 0:
+                raise oefmt(space.w_ValueError, "size should not be negative")
             rwbuffer = None
+
+        if num_bytes <= 0:
+            if rwbuffer:
+                return space.newint(0)
+            else:
+                return space.newbytes("")
 
         with rffi.scoped_alloc_buffer(num_bytes) as buf:
             while True:
@@ -424,9 +440,9 @@ class _SSLSocket(W_Root):
                 elif (err == SSL_ERROR_ZERO_RETURN and
                         libssl_SSL_get_shutdown(self.ssl) == SSL_RECEIVED_SHUTDOWN):
                     if rwbuffer:
-                        return space.wrap(0)
+                        return space.newint(0)
                     else:
-                        return space.wrap("")
+                        return space.newbytes("")
                 else:
                     sockstate = SOCKET_OPERATION_OK
 
@@ -447,9 +463,9 @@ class _SSLSocket(W_Root):
 
         if rwbuffer:
             rwbuffer.setslice(0, result)
-            return space.wrap(count)
+            return space.newint(count)
         else:
-            return space.wrap(result)
+            return space.newbytes(result)
 
     def _refresh_nonblocking(self, space):
         # just in case the blocking state of the socket has been changed
@@ -565,10 +581,10 @@ class _SSLSocket(W_Root):
             return space.w_None
 
         name = libssl_SSL_CIPHER_get_name(current)
-        w_name = space.wrap(rffi.charp2str(name)) if name else space.w_None
+        w_name = space.newtext(rffi.charp2str(name)) if name else space.w_None
 
         proto = libssl_SSL_CIPHER_get_version(current)
-        w_proto = space.wrap(rffi.charp2str(proto)) if proto else space.w_None
+        w_proto = space.newtext(rffi.charp2str(proto)) if proto else space.w_None
 
         bits = libssl_SSL_CIPHER_get_bits(current,
                                           lltype.nullptr(rffi.INTP.TO))
@@ -613,7 +629,7 @@ class _SSLSocket(W_Root):
                 libssl_SSL_get0_next_proto_negotiated(self.ssl,
                                                       out_ptr, len_ptr)
                 if out_ptr[0]:
-                    return space.wrap(
+                    return space.newtext(
                         rffi.charpsize2str(out_ptr[0], intmask(len_ptr[0])))
 
     def selected_alpn_protocol(self, space):
@@ -625,19 +641,22 @@ class _SSLSocket(W_Root):
                 libssl_SSL_get0_alpn_selected(self.ssl,
                                               out_ptr, len_ptr)
                 if out_ptr[0]:
-                    return space.wrap(
+                    return space.newtext(
                         rffi.charpsize2str(out_ptr[0], intmask(len_ptr[0])))
 
     def compression_w(self, space):
         if not self.ssl:
             return space.w_None
         comp_method = libssl_SSL_get_current_compression(self.ssl)
-        if not comp_method or intmask(comp_method[0].c_type) == NID_undef:
+        if not comp_method:
             return space.w_None
-        short_name = libssl_OBJ_nid2sn(comp_method[0].c_type)
+        method_type = intmask(libssl_COMP_get_type(comp_method))
+        if method_type == NID_undef:
+            return space.w_None
+        short_name = libssl_COMP_get_name(comp_method)
         if not short_name:
             return space.w_None
-        return space.wrap(rffi.charp2str(short_name))
+        return space.newtext(rffi.charp2str(short_name))
 
     def version_w(self, space):
         if not self.ssl:
@@ -645,7 +664,7 @@ class _SSLSocket(W_Root):
         version = libssl_SSL_get_version(self.ssl)
         if not version:
             return space.w_None
-        return space.wrap(rffi.charp2str(version))
+        return space.newtext(rffi.charp2str(version))
 
     def tls_unique_cb_w(self, space):
         """Returns the 'tls-unique' channel binding data, as defined by RFC 5929.
@@ -665,7 +684,7 @@ class _SSLSocket(W_Root):
                 length = libssl_SSL_get_peer_finished(self.ssl, buf, CB_MAXLEN)
 
             if length > 0:
-                return space.wrap(rffi.charpsize2str(buf, intmask(length)))
+                return space.newbytes(rffi.charpsize2str(buf, intmask(length)))
 
     def descr_get_context(self, space):
         return self.w_ctx
@@ -706,7 +725,7 @@ def _certificate_to_der(space, certificate):
         if length < 0:
             raise _ssl_seterror(space, None, 0)
         try:
-            return space.wrap(rffi.charpsize2str(buf_ptr[0], length))
+            return space.newbytes(rffi.charpsize2str(buf_ptr[0], length))
         finally:
             libssl_OPENSSL_free(buf_ptr[0])
 
@@ -715,14 +734,14 @@ def _decode_certificate(space, certificate):
 
     w_peer = _create_tuple_for_X509_NAME(
         space, libssl_X509_get_subject_name(certificate))
-    space.setitem(w_retval, space.wrap("subject"), w_peer)
+    space.setitem(w_retval, space.newtext("subject"), w_peer)
 
     w_issuer = _create_tuple_for_X509_NAME(
         space, libssl_X509_get_issuer_name(certificate))
-    space.setitem(w_retval, space.wrap("issuer"), w_issuer)
+    space.setitem(w_retval, space.newtext("issuer"), w_issuer)
 
-    space.setitem(w_retval, space.wrap("version"),
-                  space.wrap(libssl_X509_get_version(certificate) + 1))
+    space.setitem(w_retval, space.newtext("version"),
+                  space.newint(libssl_X509_get_version(certificate) + 1))
 
     biobuf = libssl_BIO_new(libssl_BIO_s_mem())
     try:
@@ -736,8 +755,8 @@ def _decode_certificate(space, certificate):
             if length < 0:
                 raise _ssl_seterror(space, None, length)
 
-            w_serial = space.wrap(rffi.charpsize2str(buf, length))
-        space.setitem(w_retval, space.wrap("serialNumber"), w_serial)
+            w_serial = space.newtext(rffi.charpsize2str(buf, length))
+        space.setitem(w_retval, space.newtext("serialNumber"), w_serial)
 
         libssl_BIO_reset(biobuf)
         notBefore = libssl_X509_get_notBefore(certificate)
@@ -746,8 +765,8 @@ def _decode_certificate(space, certificate):
             length = libssl_BIO_gets(biobuf, buf, 99)
             if length < 0:
                 raise _ssl_seterror(space, None, length)
-            w_date = space.wrap(rffi.charpsize2str(buf, length))
-        space.setitem(w_retval, space.wrap("notBefore"), w_date)
+            w_date = space.newtext(rffi.charpsize2str(buf, length))
+        space.setitem(w_retval, space.newtext("notBefore"), w_date)
 
         libssl_BIO_reset(biobuf)
         notAfter = libssl_X509_get_notAfter(certificate)
@@ -756,28 +775,28 @@ def _decode_certificate(space, certificate):
             length = libssl_BIO_gets(biobuf, buf, 99)
             if length < 0:
                 raise _ssl_seterror(space, None, length)
-            w_date = space.wrap(rffi.charpsize2str(buf, length))
-        space.setitem(w_retval, space.wrap("notAfter"), w_date)
+            w_date = space.newtext(rffi.charpsize2str(buf, length))
+        space.setitem(w_retval, space.newtext("notAfter"), w_date)
     finally:
         libssl_BIO_free(biobuf)
 
     # Now look for subjectAltName
     w_alt_names = _get_peer_alt_names(space, certificate)
     if w_alt_names is not space.w_None:
-        space.setitem(w_retval, space.wrap("subjectAltName"), w_alt_names)
+        space.setitem(w_retval, space.newtext("subjectAltName"), w_alt_names)
 
     # Authority Information Access: OCSP URIs
     w_ocsp = _get_aia_uri(space, certificate, NID_ad_OCSP)
     if not space.is_none(w_ocsp):
-        space.setitem(w_retval, space.wrap("OCSP"), w_ocsp)
+        space.setitem(w_retval, space.newtext("OCSP"), w_ocsp)
     w_issuers = _get_aia_uri(space, certificate, NID_ad_ca_issuers)
     if not space.is_none(w_issuers):
-        space.setitem(w_retval, space.wrap("caIssuers"), w_issuers)
+        space.setitem(w_retval, space.newtext("caIssuers"), w_issuers)
 
     # CDP (CRL distribution points)
     w_cdp = _get_crl_dp(space, certificate)
     if not space.is_none(w_cdp):
-        space.setitem(w_retval, space.wrap("crlDistributionPoints"), w_cdp)
+        space.setitem(w_retval, space.newtext("crlDistributionPoints"), w_cdp)
 
     return w_retval
 
@@ -790,7 +809,7 @@ def _create_tuple_for_X509_NAME(space, xname):
     for index in range(entry_count):
         entry = libssl_X509_NAME_get_entry(xname, index)
         # check to see if we've gotten to a new RDN
-        entry_level = intmask(entry[0].c_set)
+        entry_level = intmask(libssl_X509_NAME_ENTRY_set(entry))
         if rdn_level >= 0:
             if rdn_level != entry_level:
                 # yes, new RDN
@@ -841,8 +860,9 @@ def _get_peer_alt_names(space, certificate):
                                 "No method for internalizing subjectAltName!'")
 
             with lltype.scoped_alloc(rffi.CCHARPP.TO, 1) as p_ptr:
-                p_ptr[0] = ext[0].c_value.c_data
-                length = intmask(ext[0].c_value.c_length)
+                ext_value = libssl_X509_EXTENSION_get_data(ext)
+                p_ptr[0] = ext_value.c_data
+                length = intmask(ext_value.c_length)
                 null = lltype.nullptr(rffi.VOIDP.TO)
                 if method[0].c_it:
                     names = rffi.cast(GENERAL_NAMES, libssl_ASN1_item_d2i(
@@ -863,18 +883,18 @@ def _get_peer_alt_names(space, certificate):
                         # attributes
                         dirname = libssl_pypy_GENERAL_NAME_dirn(name)
                         w_t = space.newtuple([
-                            space.wrap("DirName"),
+                            space.newtext("DirName"),
                             _create_tuple_for_X509_NAME(space, dirname)
                             ])
                     elif gntype in (GEN_EMAIL, GEN_DNS, GEN_URI):
                         # GENERAL_NAME_print() doesn't handle NULL bytes in
                         # ASN1_string correctly, CVE-2013-4238
                         if gntype == GEN_EMAIL:
-                            v = space.wrap("email")
+                            v = space.newtext("email")
                         elif gntype == GEN_DNS:
-                            v = space.wrap("DNS")
+                            v = space.newtext("DNS")
                         elif gntype == GEN_URI:
-                            v = space.wrap("URI")
+                            v = space.newtext("URI")
                         else:
                             assert False
                         as_ = libssl_pypy_GENERAL_NAME_dirn(name)
@@ -882,12 +902,26 @@ def _get_peer_alt_names(space, certificate):
                         buf = libssl_ASN1_STRING_data(as_)
                         length = libssl_ASN1_STRING_length(as_)
                         w_t = space.newtuple([
-                            v, space.wrap(rffi.charpsize2str(buf, length))])
+                            v, space.newtext(rffi.charpsize2str(buf, length))])
+                    elif gntype == GEN_RID:
+                        with lltype.scoped_alloc(rffi.CCHARP.TO, 2048) as buf:
+                            d_rid = libssl_pypy_GENERAL_NAME_rid(name)
+                            length = libssl_i2t_ASN1_OBJECT(buf, 2047, d_rid)
+                            if length < 0:
+                                raise _ssl_seterror(space, None, 0)
+                            elif length >= 2048:
+                                v = "<INVALID>"
+                            else:
+                                v = rffi.charpsize2str(buf, length)
+                        w_t = space.newtuple([
+                            space.newtext("Registered ID"),
+                            space.call_function(space.w_unicode,
+                                                space.newtext(v))])
                     else:
                         # for everything else, we use the OpenSSL print form
                         if gntype not in (GEN_OTHERNAME, GEN_X400, GEN_EDIPARTY,
-                                          GEN_IPADD, GEN_RID):
-                            space.warn(space.wrap("Unknown general name type"),
+                                          GEN_IPADD):
+                            space.warn(space.newtext("Unknown general name type"),
                                        space.w_RuntimeWarning)
                         libssl_BIO_reset(biobuf)
                         libssl_GENERAL_NAME_print(biobuf, name)
@@ -897,9 +931,12 @@ def _get_peer_alt_names(space, certificate):
                                 raise _ssl_seterror(space, None, 0)
 
                             v = rffi.charpsize2str(buf, length)
+                        if ':' not in v:
+                            raise oefmt(space.w_ValueError,
+                                        "Invalid value %s", v)
                         v1, v2 = v.split(':', 1)
-                        w_t = space.newtuple([space.wrap(v1),
-                                              space.wrap(v2)])
+                        w_t = space.newtuple([space.newtext(v1),
+                                              space.newtext(v2)])
 
                     alt_names_w.append(w_t)
             finally:
@@ -918,15 +955,15 @@ def _create_tuple_for_attribute(space, name, value):
         length = libssl_OBJ_obj2txt(buf, X509_NAME_MAXLEN, name, 0)
         if length < 0:
             raise _ssl_seterror(space, None, 0)
-        w_name = space.wrap(rffi.charpsize2str(buf, length))
+        w_name = space.newtext(rffi.charpsize2str(buf, length))
 
     with lltype.scoped_alloc(rffi.CCHARPP.TO, 1) as buf_ptr:
         length = libssl_ASN1_STRING_to_UTF8(buf_ptr, value)
         if length < 0:
             raise _ssl_seterror(space, None, 0)
         try:
-            w_value = space.wrap(rffi.charpsize2str(buf_ptr[0], length))
-            w_value = space.call_method(w_value, "decode", space.wrap("utf-8"))
+            w_value = space.newbytes(rffi.charpsize2str(buf_ptr[0], length))
+            w_value = space.call_method(w_value, "decode", space.newtext("utf-8"))
         finally:
             libssl_OPENSSL_free(buf_ptr[0])
 
@@ -953,7 +990,7 @@ def _get_aia_uri(space, certificate, nid):
             uri = libssl_pypy_GENERAL_NAME_uri(name)
             length = intmask(uri.c_length)
             s_uri = rffi.charpsize2str(uri.c_data, length)
-            result_w.append(space.wrap(s_uri))
+            result_w.append(space.newtext(s_uri))
         return space.newtuple(result_w[:])
     finally:
         libssl_AUTHORITY_INFO_ACCESS_free(info)
@@ -962,10 +999,8 @@ def _get_crl_dp(space, certificate):
     if OPENSSL_VERSION_NUMBER >= 0x10001000:
         # Calls x509v3_cache_extensions and sets up crldp
         libssl_X509_check_ca(certificate)
-        dps = certificate[0].c_crldp
-    else:
-        dps = rffi.cast(stack_st_DIST_POINT, libssl_X509_get_ext_d2i(
-            certificate, NID_crl_distribution_points, None, None))
+    dps = rffi.cast(stack_st_DIST_POINT, libssl_X509_get_ext_d2i(
+        certificate, NID_crl_distribution_points, None, None))
     if not dps:
         return None
 
@@ -983,7 +1018,7 @@ def _get_crl_dp(space, certificate):
                 uri = libssl_pypy_GENERAL_NAME_uri(name)
                 length = intmask(uri.c_length)
                 s_uri = rffi.charpsize2str(uri.c_data, length)
-                cdp_w.append(space.wrap(s_uri))
+                cdp_w.append(space.newtext(s_uri))
     finally:
         if OPENSSL_VERSION_NUMBER < 0x10001000:
             libssl_sk_DIST_POINT_free(dps)
@@ -1021,7 +1056,7 @@ def checkwait(space, w_sock, writing):
         timeout = int(sock_timeout * 1000 + 0.5)
         try:
             ready = rpoll.poll(fddict, timeout)
-        except rpoll.PollError, e:
+        except rpoll.PollError as e:
             message = e.get_msg()
             raise ssl_error(space, message, e.errno)
     else:
@@ -1108,10 +1143,10 @@ def _ssl_seterror(space, ss, ret):
                      errcode=errcode)
 
 def SSLError_descr_str(space, w_exc):
-    w_strerror = space.getattr(w_exc, space.wrap("strerror"))
+    w_strerror = space.getattr(w_exc, space.newtext("strerror"))
     if not space.is_none(w_strerror):
         return w_strerror
-    return space.str(space.getattr(w_exc, space.wrap("args")))
+    return space.str(space.getattr(w_exc, space.newtext("args")))
 
 
 class Cache:
@@ -1119,8 +1154,8 @@ class Cache:
         w_socketerror = interp_socket.get_error(space, "error")
         self.w_sslerror = space.new_exception_class(
             "_ssl.SSLError", w_socketerror)
-        space.setattr(self.w_sslerror, space.wrap('__str__'),
-                      space.wrap(interp2app(SSLError_descr_str)))
+        space.setattr(self.w_sslerror, space.newtext('__str__'),
+                      interp2app(SSLError_descr_str).spacebind(space))
         self.w_sslzeroreturnerror = space.new_exception_class(
             "_ssl.SSLZeroReturnError", self.w_sslerror)
         self.w_sslwantreaderror = space.new_exception_class(
@@ -1138,7 +1173,7 @@ def get_exception_class(space, name):
     return getattr(space.fromcache(Cache), name)
 
 
-@unwrap_spec(filename=str)
+@unwrap_spec(filename='text')
 def _test_decode_cert(space, filename):
     cert = libssl_BIO_new(libssl_BIO_s_file())
     if not cert:
@@ -1208,6 +1243,9 @@ def _servername_callback(ssl, ad, arg):
     struct = SERVERNAME_CALLBACKS.get(rffi.cast(lltype.Signed, arg))
     w_ctx = struct.w_ctx
     space = struct.space
+    # annotation: ensures that we ignore the case 'space is None'
+    # (it would propagate to a few methods like errorstr())
+    assert w_ctx is not None and space is not None
     w_callback = struct.w_set_hostname
     if not w_ctx.servername_callback:
         # Possible race condition.
@@ -1231,10 +1269,10 @@ def _servername_callback(ssl, ad, arg):
                                            w_ssl_socket, space.w_None, w_ctx)
 
         else:
-            w_servername = space.wrapbytes(rffi.charp2str(servername))
+            w_servername = space.newbytes(rffi.charp2str(servername))
             try:
                 w_servername_idna = space.call_method(
-                    w_servername, 'decode', space.wrap('idna'))
+                    w_servername, 'decode', space.newtext('idna'))
             except OperationError as e:
                 e.write_unraisable(space, "undecodable server name")
                 ad[0] = rffi.cast(rffi.INT, SSL_AD_INTERNAL_ERROR)
@@ -1263,14 +1301,14 @@ class _SSLContext(W_Root):
     @staticmethod
     @unwrap_spec(protocol=int)
     def descr_new(space, w_subtype, protocol):
-        if protocol == PY_SSL_VERSION_TLS1:
+        if protocol == PY_SSL_VERSION_TLS:
+            method = libssl_TLS_method()
+        elif protocol == PY_SSL_VERSION_TLS1:
             method = libssl_TLSv1_method()
         elif protocol == PY_SSL_VERSION_SSL3 and not OPENSSL_NO_SSL3:
             method = libssl_SSLv3_method()
         elif protocol == PY_SSL_VERSION_SSL2 and not OPENSSL_NO_SSL2:
             method = libssl_SSLv2_method()
-        elif protocol == PY_SSL_VERSION_SSL23:
-            method = libssl_SSLv23_method()
         elif protocol == PY_SSL_VERSION_TLS1_1 and HAVE_TLSv1_2:
             method = libssl_TLSv1_1_method()
         elif protocol == PY_SSL_VERSION_TLS1_2 and HAVE_TLSv1_2:
@@ -1285,9 +1323,12 @@ class _SSLContext(W_Root):
         self = space.allocate_instance(_SSLContext, w_subtype)
         self.ctx = ctx
         self.check_hostname = False
+        self.register_finalizer(space)
         options = SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
         if protocol != PY_SSL_VERSION_SSL2:
             options |= SSL_OP_NO_SSLv2
+        if protocol != PY_SSL_VERSION_SSL3:
+            options |= SSL_OP_NO_SSLv3
         libssl_SSL_CTX_set_options(ctx, options)
 
         if not OPENSSL_NO_ECDH:
@@ -1295,6 +1336,7 @@ class _SSLContext(W_Root):
             # OpenSSL 1.0.2+), or use prime256v1 by default.
             # This is Apache mod_ssl's initialization
             # policy, so we should be safe.
+            # OpenSSL 1.1 has it enabled by default.
             if libssl_SSL_CTX_set_ecdh_auto:
                 libssl_SSL_CTX_set_ecdh_auto(self.ctx, 1)
             else:
@@ -1308,14 +1350,17 @@ class _SSLContext(W_Root):
 
         return self
 
-    def __del__(self):
-        libssl_SSL_CTX_free(self.ctx)
+    def _finalize_(self):
+        ctx = self.ctx
+        if ctx:
+            self.ctx = lltype.nullptr(SSL_CTX.TO)
+            libssl_SSL_CTX_free(ctx)
 
     @unwrap_spec(server_side=int)
     def descr_wrap_socket(self, space, w_sock, server_side, w_server_hostname=None, w_ssl_sock=None):
         return _SSLSocket.descr_new(space, self, w_sock, server_side, w_server_hostname, w_ssl_sock)
 
-    @unwrap_spec(cipherlist=str)
+    @unwrap_spec(cipherlist='text')
     def descr_set_ciphers(self, space, cipherlist):
         ret = libssl_SSL_CTX_set_cipher_list(self.ctx, cipherlist)
         if ret == 0:
@@ -1325,7 +1370,7 @@ class _SSLContext(W_Root):
     def session_stats_w(self, space):
         w_stats = space.newdict()
         for name, ssl_func in SSL_CTX_STATS:
-            w_value = space.wrap(ssl_func(self.ctx))
+            w_value = space.newint(ssl_func(self.ctx))
             space.setitem_str(w_stats, name, w_value)
         return w_stats
 
@@ -1379,20 +1424,22 @@ class _SSLContext(W_Root):
 
     def descr_get_verify_flags(self, space):
         store = libssl_SSL_CTX_get_cert_store(self.ctx)
-        flags = libssl_X509_VERIFY_PARAM_get_flags(store[0].c_param)
-        return space.wrap(flags)
+        param = libssl_X509_STORE_get0_param(store)
+        flags = libssl_X509_VERIFY_PARAM_get_flags(param)
+        return space.newint(flags)
 
     def descr_set_verify_flags(self, space, w_obj):
         new_flags = space.int_w(w_obj)
         store = libssl_SSL_CTX_get_cert_store(self.ctx)
-        flags = libssl_X509_VERIFY_PARAM_get_flags(store[0].c_param)
+        param = libssl_X509_STORE_get0_param(store)
+        flags = libssl_X509_VERIFY_PARAM_get_flags(param)
         flags_clear = flags & ~new_flags
         flags_set = ~flags & new_flags
         if flags_clear and not libssl_X509_VERIFY_PARAM_clear_flags(
-                store[0].c_param, flags_clear):
+                param, flags_clear):
             raise _ssl_seterror(space, None, 0)
         if flags_set and not libssl_X509_VERIFY_PARAM_set_flags(
-                store[0].c_param, flags_set):
+                param, flags_set):
             raise _ssl_seterror(space, None, 0)
 
     def descr_get_check_hostname(self, space):
@@ -1411,11 +1458,11 @@ class _SSLContext(W_Root):
         if space.is_none(w_certfile):
             certfile = None
         else:
-            certfile = space.str_w(w_certfile)
+            certfile = space.text_w(w_certfile)
         if space.is_none(w_keyfile):
             keyfile = certfile
         else:
-            keyfile = space.str_w(w_keyfile)
+            keyfile = space.text_w(w_keyfile)
         pw_info = PasswordInfo()
         pw_info.space = space
         index = -1
@@ -1478,7 +1525,7 @@ class _SSLContext(W_Root):
             libssl_SSL_CTX_set_default_passwd_cb_userdata(
                 self.ctx, None)
 
-    @unwrap_spec(filepath=str)
+    @unwrap_spec(filepath='text')
     def load_dh_params_w(self, space, filepath):
         bio = libssl_BIO_new_file(filepath, "r")
         if not bio:
@@ -1508,11 +1555,11 @@ class _SSLContext(W_Root):
         if space.is_none(w_cafile):
             cafile = None
         else:
-            cafile = space.str_w(w_cafile)
+            cafile = space.text_w(w_cafile)
         if space.is_none(w_capath):
             capath = None
         else:
-            capath = space.str_w(w_capath)
+            capath = space.text_w(w_capath)
         if space.is_none(w_cadata):
             cadata = None
             ca_file_type = -1
@@ -1529,8 +1576,8 @@ class _SSLContext(W_Root):
                                 "cadata should be a ASCII string or a "
                                 "bytes-like object")
         if cafile is None and capath is None and cadata is None:
-            raise OperationError(space.w_TypeError, space.wrap(
-                    "cafile and capath cannot be both omitted"))
+            raise oefmt(space.w_TypeError,
+                        "cafile and capath cannot be both omitted")
         # load from cadata
         if cadata is not None:
             with rffi.scoped_nonmovingbuffer(cadata) as buf:
@@ -1603,14 +1650,16 @@ class _SSLContext(W_Root):
         x509 = 0
         x509_ca = 0
         crl = 0
-        for i in range(libssl_sk_X509_OBJECT_num(store[0].c_objs)):
-            obj = libssl_sk_X509_OBJECT_value(store[0].c_objs, i)
-            if intmask(obj.c_type) == X509_LU_X509:
+        objs = libssl_X509_STORE_get0_objects(store)
+        for i in range(libssl_sk_X509_OBJECT_num(objs)):
+            obj = libssl_sk_X509_OBJECT_value(objs, i)
+            obj_type = intmask(libssl_X509_OBJECT_get_type(obj))
+            if obj_type == X509_LU_X509:
                 x509 += 1
                 if libssl_X509_check_ca(
-                        libssl_pypy_X509_OBJECT_data_x509(obj)):
+                        libssl_X509_OBJECT_get0_X509(obj)):
                     x509_ca += 1
-            elif intmask(obj.c_type) == X509_LU_CRL:
+            elif obj_type == X509_LU_CRL:
                 crl += 1
             else:
                 # Ignore X509_LU_FAIL, X509_LU_RETRY, X509_LU_PKEY.
@@ -1619,11 +1668,11 @@ class _SSLContext(W_Root):
                 pass
         w_result = space.newdict()
         space.setitem(w_result,
-                      space.wrap('x509'), space.wrap(x509))
+                      space.newtext('x509'), space.newint(x509))
         space.setitem(w_result,
-                      space.wrap('x509_ca'), space.wrap(x509_ca))
+                      space.newtext('x509_ca'), space.newint(x509_ca))
         space.setitem(w_result,
-                      space.wrap('crl'), space.wrap(crl))
+                      space.newtext('crl'), space.newint(crl))
         return w_result
 
     @unwrap_spec(protos='bufferstr')
@@ -1649,13 +1698,14 @@ class _SSLContext(W_Root):
             binary_mode = False
         rlist = []
         store = libssl_SSL_CTX_get_cert_store(self.ctx)
-        for i in range(libssl_sk_X509_OBJECT_num(store[0].c_objs)):
-            obj = libssl_sk_X509_OBJECT_value(store[0].c_objs, i)
-            if intmask(obj.c_type) != X509_LU_X509:
+        objs = libssl_X509_STORE_get0_objects(store)
+        for i in range(libssl_sk_X509_OBJECT_num(objs)):
+            obj = libssl_sk_X509_OBJECT_value(objs, i)
+            if intmask(libssl_X509_OBJECT_get_type(obj)) != X509_LU_X509:
                 # not a x509 cert
                 continue
             # CA for any purpose
-            cert = libssl_pypy_X509_OBJECT_data_x509(obj)
+            cert = libssl_X509_OBJECT_get0_X509(obj)
             if not libssl_X509_check_ca(cert):
                 continue
             if binary_mode:
@@ -1664,7 +1714,7 @@ class _SSLContext(W_Root):
                 rlist.append(_decode_certificate(space, cert))
         return space.newlist(rlist)
 
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='text')
     def set_ecdh_curve_w(self, space, name):
         nid = libssl_OBJ_sn2nid(name)
         if nid == 0:
@@ -1735,15 +1785,15 @@ def _asn1obj2py(space, obj):
         if buflen < 0:
             raise _ssl_seterror(space, None, 0)
         if buflen:
-            w_buf = space.wrap(buf.str(buflen))
+            w_buf = space.newtext(buf.str(buflen))
         else:
             w_buf = space.w_None
-    w_sn = space.wrap(rffi.charp2str(libssl_OBJ_nid2sn(nid)))
-    w_ln = space.wrap(rffi.charp2str(libssl_OBJ_nid2ln(nid)))
-    return space.newtuple([space.wrap(nid), w_sn, w_ln, w_buf])
+    w_sn = space.newtext(rffi.charp2str(libssl_OBJ_nid2sn(nid)))
+    w_ln = space.newtext(rffi.charp2str(libssl_OBJ_nid2ln(nid)))
+    return space.newtuple([space.newint(nid), w_sn, w_ln, w_buf])
 
 
-@unwrap_spec(txt=str, name=bool)
+@unwrap_spec(txt='bytes', name=bool)
 def txt2obj(space, txt, name=False):
     obj = libssl_OBJ_txt2obj(txt, not name)
     if not obj:
@@ -1773,7 +1823,7 @@ def w_convert_path(space, path):
     if not path:
         return space.w_None
     else:
-        return space.wrapbytes(rffi.charp2str(path))
+        return space.newbytes(rffi.charp2str(path))
 
 def get_default_verify_paths(space):
     return space.newtuple([

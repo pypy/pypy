@@ -11,15 +11,28 @@ def parse_code_data(arg):
     filename = None
     bytecode_no = 0
     bytecode_name = None
-    m = re.search('<code object ([<>\w]+)[\.,] file \'(.+?)\'[\.,] line (\d+)> #(\d+) (\w+)',
-                  arg)
+    mask = 0
+    # generic format: the numbers are 'startlineno-currentlineno',
+    # and this function returns currentlineno as the value
+    # 'bytecode_no = currentlineno ^ -1': i.e. it abuses bytecode_no,
+    # which doesn't make sense in the generic format, as a negative
+    # number
+    m = re.match(r'(.+?);(.+?):(\d+)-(\d+)~(.*)', arg)
+    if m is not None:
+        mask = -1
+    else:
+        # PyPy2 format: bytecode_no is really a bytecode index,
+        # which must be turned into a real line number by parsing the
+        # source file
+        m = re.search(r'<code object ([<>\w]+)[\.,] file \'(.+?)\'[\.,] '
+                      r'line (\d+)> #(\d+) (\w+)', arg)
     if m is None:
         # a non-code loop, like StrLiteralSearch or something
         if arg:
             bytecode_name = arg
     else:
         name, filename, lineno, bytecode_no, bytecode_name = m.groups()
-    return name, bytecode_name, filename, int(lineno), int(bytecode_no)
+    return name, bytecode_name, filename, int(lineno), int(bytecode_no) ^ mask
 
 class Op(object):
     bridge = None
@@ -93,15 +106,19 @@ class SimpleParser(OpParser):
         if backend_dump is not None:
             raw_asm = self._asm_disassemble(backend_dump.decode('hex'),
                                             backend_tp, dump_start)
+            # additional mess: if the backend_dump starts with a series
+            # of zeros, raw_asm's first regular line is *after* that,
+            # after a line saying "...".  So we assume that start==dump_start
+            # if this parameter was passed.
             asm = []
-            start = 0
+            start = dump_start
             for elem in raw_asm:
                 if len(elem.split("\t")) < 3:
                     continue
                 e = elem.split("\t")
                 adr = e[0]
                 v = elem   # --- more compactly:  " ".join(e[2:])
-                if not start:
+                if not start:     # only if 'dump_start' is left at 0
                     start = int(adr.strip(":"), 16)
                 ofs = int(adr.strip(":"), 16) - start
                 if ofs >= 0:
@@ -127,9 +144,9 @@ class SimpleParser(OpParser):
                     op.asm = '\n'.join([asm[i][1] for i in range(asm_index, end_index)])
         return loop
 
-    def _asm_disassemble(self, d, origin_addr, tp):
+    def _asm_disassemble(self, d, tp, origin_addr):
         from rpython.jit.backend.tool.viewcode import machine_code_dump
-        return list(machine_code_dump(d, tp, origin_addr))
+        return list(machine_code_dump(d, origin_addr, tp))
 
     @classmethod
     def parse_from_input(cls, input, **kwds):
@@ -191,8 +208,9 @@ class TraceForOpcode(object):
              self.startlineno, self.bytecode_no) = parsed
         self.operations = operations
         self.storage = storage
+        generic_format = (self.bytecode_no < 0)
         self.code = storage.disassemble_code(self.filename, self.startlineno,
-                                             self.name)
+                                             self.name, generic_format)
 
     def repr(self):
         if self.filename is None:
@@ -209,7 +227,7 @@ class TraceForOpcode(object):
     def getopcode(self):
         if self.code is None:
             return None
-        return self.code.map[self.bytecode_no]
+        return self.code.get_opcode_from_info(self)
 
     def getlineno(self):
         code = self.getopcode()
@@ -419,10 +437,11 @@ def import_log(logname, ParserCls=SimpleParser):
         world.parse(entry.splitlines(True))
     dumps = {}
     for r in world.ranges:
-        if r.addr in addrs and addrs[r.addr]:
-            name = addrs[r.addr].pop(0) # they should come in order
-            data = r.data.encode('hex')       # backward compatibility
-            dumps[name] = (world.backend_name, r.addr, data)
+        for pos1 in range(r.addr, r.addr + len(r.data)):
+            if pos1 in addrs and addrs[pos1]:
+                name = addrs[pos1].pop(0) # they should come in order
+                data = r.data.encode('hex')
+                dumps[name] = (world.backend_name, r.addr, data)
     loops = []
     cat = extract_category(log, 'jit-log-opt')
     if not cat:

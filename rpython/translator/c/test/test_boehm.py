@@ -2,7 +2,7 @@ import weakref
 
 import py
 
-from rpython.rlib import rgc
+from rpython.rlib import rgc, debug
 from rpython.rlib.objectmodel import (keepalive_until_here, compute_unique_id,
     compute_hash, current_object_addr_as_int)
 from rpython.rtyper.lltypesystem import lltype, llmemory
@@ -23,6 +23,7 @@ def setup_module(mod):
 class AbstractGCTestClass(object):
     gcpolicy = "boehm"
     use_threads = False
+    extra_options = {}
 
     # deal with cleanups
     def setup_method(self, meth):
@@ -33,8 +34,10 @@ class AbstractGCTestClass(object):
             #print "CLEANUP"
             self._cleanups.pop()()
 
-    def getcompiled(self, func, argstypelist=[], annotatorpolicy=None):
-        return compile(func, argstypelist, gcpolicy=self.gcpolicy, thread=self.use_threads)
+    def getcompiled(self, func, argstypelist=[], annotatorpolicy=None,
+                    extra_options={}):
+        return compile(func, argstypelist, gcpolicy=self.gcpolicy,
+                       thread=self.use_threads, **extra_options)
 
 
 class TestUsingBoehm(AbstractGCTestClass):
@@ -378,7 +381,7 @@ class TestUsingBoehm(AbstractGCTestClass):
                         current_object_addr_as_int(d2),
                         compute_hash(c),
                         compute_hash(d),
-                        compute_hash(("Hi", None, (7.5, 2, d)))))
+                        compute_hash(("Hi", None, (7.5, 2)))))
 
         f = self.getcompiled(fn)
         res = f()
@@ -387,5 +390,47 @@ class TestUsingBoehm(AbstractGCTestClass):
         # xxx the next line is too precise, checking the exact implementation
         assert res[0] == ~res[1]
         assert res[2] != compute_hash(c)     # likely
-        assert res[3] == compute_hash(d)
-        assert res[4] == compute_hash(("Hi", None, (7.5, 2, d)))
+        assert res[3] != compute_hash(d)     # likely *not* preserved
+        assert res[4] == compute_hash(("Hi", None, (7.5, 2)))
+        # ^^ true as long as we're using the default 'fnv' hash for strings
+        #    and not e.g. siphash24
+
+    def test_finalizer_queue(self):
+        class A(object):
+            def __init__(self, i):
+                self.i = i
+        class Glob:
+            triggered = 0
+        glob = Glob()
+        class FQ(rgc.FinalizerQueue):
+            Class = A
+            triggered = 0
+            def finalizer_trigger(self):
+                glob.triggered += 1
+        fq = FQ()
+        #
+        def fn():
+            for i in range(1000):
+                x = A(i)
+                fq.register_finalizer(x)
+                rgc.may_ignore_finalizer(x)   # this is ignored with Boehm
+            rgc.collect()
+            rgc.collect()
+            if glob.triggered == 0:
+                print "not triggered!"
+                return 50
+            seen = {}
+            while True:
+                a = fq.next_dead()
+                if a is None:
+                    break
+                assert a.i not in seen
+                seen[a.i] = True
+            if len(seen) < 500:
+                print "seen only %d!" % len(seen)
+                return 51
+            return 42
+
+        f = self.getcompiled(fn)
+        res = f()
+        assert res == 42

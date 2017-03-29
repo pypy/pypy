@@ -1,49 +1,15 @@
-=========================
-What's new in PyPy 4.1.+
-=========================
+==========================
+What's new in PyPy2.7 5.8+
+==========================
 
-.. this is a revision shortly after release-4.0.1
-.. startrev: 4b5c840d0da2
+.. this is a revision shortly after release-pypy2.7-v5.7.0
+.. startrev: 44f31f6dd39f
 
-.. branch: numpy-1.10
+Add cpyext interfaces for ``PyModule_New``
 
-Fix tests to run cleanly with -A and start to fix micronumpy for upstream numpy
-which is now 1.10.2
-
-.. branch: osx-flat-namespace
-
-Fix the cpyext tests on OSX by linking with -flat_namespace
-
-.. branch: anntype
-
-Refactor and improve exception analysis in the annotator.
-
-.. branch: posita/2193-datetime-timedelta-integrals
-
-Fix issue #2193. ``isinstance(..., int)`` => ``isinstance(..., numbers.Integral)`` 
-to allow for alternate ``int``-like implementations (e.g., ``future.types.newint``)
-
-.. branch: faster-rstruct
-
-Improve the performace of struct.unpack, which now directly reads inside the
-string buffer and directly casts the bytes to the appropriate type, when
-allowed. Unpacking of floats and doubles is about 15 times faster now, while
-for integer types it's up to ~50% faster for 64bit integers.
-
-.. branch: wrap-specialisation
-
-Remove unnecessary special handling of space.wrap().
-
-.. branch: compress-numbering
-
-Improve the memory signature of numbering instances in the JIT.
-
-.. branch: fix-trace-too-long-heuristic
-
-Improve the heuristic when disable trace-too-long
-
-.. branch: fix-setslice-can-resize
-
+Correctly handle `dict.pop`` where the ``pop``
+key is not the same type as the ``dict``'s and ``pop``
+is called with a default (will be part of release 5.7.1)
 Make rpython setslice able to resize the destination list.
 Fixes issue #2196.
 
@@ -52,44 +18,11 @@ Fixes issue #2196.
 Use the new resizing setslice to refactor list use by interp-level code.
 Fixes issue #2198.
 
-.. branch: anntype2
 
-A somewhat random bunch of changes and fixes following up on branch 'anntype'. Highlights:
+.. branch: issue2522
 
-- Implement @doubledispatch decorator and use it for intersection() and difference().
+Fix missing tp_new on w_object called through multiple inheritance
+(will be part of release 5.7.1)
 
-- Turn isinstance into a SpaceOperation
+.. branch: lstrip_to_empty_string
 
-- Create a few direct tests of the fundamental annotation invariant in test_model.py
-
-- Remove bookkeeper attribute from DictDef and ListDef.
-
-.. branch: cffi-static-callback
-
-.. branch: vecopt-absvalue
-
-- Enhancement. Removed vector fields from AbstractValue.
-
-.. branch: memop-simplify2
-
-Simplification. Backends implement too many loading instructions, only having a slightly different interface.
-Four new operations (gc_load/gc_load_indexed, gc_store/gc_store_indexed) replace all the
-commonly known loading operations
-
-.. branch: more-rposix
-
-Move wrappers for OS functions from `rpython/rtyper` to `rpython/rlib` and 
-turn them into regular RPython functions. Most RPython-compatible `os.*` 
-functions are now directly accessible as `rpython.rposix.*`.
-
-.. branch: always-enable-gil
-
-Simplify a bit the GIL handling in non-jitted code.  Fixes issue #2205.
-
-.. branch: flowspace-cleanups
-
-Trivial cleanups in flowspace.operation : fix comment & duplicated method
-
-.. branch: test-AF_NETLINK
-.. branch: small-cleanups-misc
-.. branch: cpyext-slotdefs

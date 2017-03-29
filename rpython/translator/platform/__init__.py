@@ -5,8 +5,9 @@ import py, os, sys
 from rpython.tool.runsubprocess import run_subprocess as _run_subprocess
 from rpython.tool.udir import udir
 from rpython.tool.version import rpythonroot
+from rpython.tool.ansi_print import AnsiLogger
 
-log = py.log.Producer("platform")
+log = AnsiLogger("platform")
 
 
 class CompilationError(Exception):
@@ -101,7 +102,7 @@ class Platform(object):
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
-                     no_precompile_cfiles = [], icon=None):
+                     no_precompile_cfiles = [], config=None):
         raise NotImplementedError("Pure abstract baseclass")
 
     def __repr__(self):

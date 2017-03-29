@@ -1,21 +1,19 @@
-from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, W_DictMultiObject
+from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, W_DictObject
 from pypy.objspace.std.mapdict import *
 
 class Config:
     class objspace:
         class std:
-            withsmalldicts = False
             withcelldict = False
-            withmethodcache = False
-            withidentitydict = False
-            withmapdict = True
+            methodcachesizeexp = 11
+            withmethodcachecounter = False
 
 space = FakeSpace()
 space.config = Config
 
 class Class(object):
     def __init__(self, hasdict=True):
-        self.hasdict = True
+        self.hasdict = hasdict
         if hasdict:
             self.terminator = DictTerminator(space, self)
         else:
@@ -24,9 +22,16 @@ class Class(object):
     def instantiate(self, sp=None):
         if sp is None:
             sp = space
-        result = Object()
+        if self.hasdict:
+            result = Object()
+        else:
+            result = ObjectWithoutDict()
         result.user_setup(sp, self)
         return result
+
+class ObjectWithoutDict(ObjectWithoutDict):
+    class typedef:
+        hasdict = False
 
 class Object(Object):
     class typedef:
@@ -34,8 +39,8 @@ class Object(Object):
 
 def test_plain_attribute():
     w_cls = "class"
-    aa = PlainAttribute(("b", DICT),
-                        PlainAttribute(("a", DICT),
+    aa = PlainAttribute("b", DICT,
+                        PlainAttribute("a", DICT,
                                        Terminator(space, w_cls)))
     assert aa.space is space
     assert aa.terminator.w_cls is w_cls
@@ -63,16 +68,16 @@ def test_plain_attribute():
 def test_huge_chain():
     current = Terminator(space, "cls")
     for i in range(20000):
-        current = PlainAttribute((str(i), DICT), current)
-    assert current.find_map_attr(("0", DICT)).storageindex == 0
+        current = PlainAttribute(str(i), DICT, current)
+    assert current.find_map_attr("0", DICT).storageindex == 0
 
 
 def test_search():
-    aa = PlainAttribute(("b", DICT), PlainAttribute(("a", DICT), Terminator(None, None)))
+    aa = PlainAttribute("b", DICT, PlainAttribute("a", DICT, Terminator(None, None)))
     assert aa.search(DICT) is aa
     assert aa.search(SLOTS_STARTING_FROM) is None
     assert aa.search(SPECIAL) is None
-    bb = PlainAttribute(("C", SPECIAL), PlainAttribute(("A", SLOTS_STARTING_FROM), aa))
+    bb = PlainAttribute("C", SPECIAL, PlainAttribute("A", SLOTS_STARTING_FROM, aa))
     assert bb.search(DICT) is aa
     assert bb.search(SLOTS_STARTING_FROM) is bb.back
     assert bb.search(SPECIAL) is bb
@@ -106,6 +111,153 @@ def test_add_attribute():
     assert obj2.getdictvalue(space, "a") == 50
     assert obj2.getdictvalue(space, "b") == 60
     assert obj2.map is obj.map
+
+def test_insert_different_orders():
+    cls = Class()
+    obj = cls.instantiate()
+    obj.setdictvalue(space, "a", 10)
+    obj.setdictvalue(space, "b", 20)
+
+    obj2 = cls.instantiate()
+    obj2.setdictvalue(space, "b", 30)
+    obj2.setdictvalue(space, "a", 40)
+
+    assert obj.map is obj2.map
+
+def test_insert_different_orders_2():
+    cls = Class()
+    obj = cls.instantiate()
+    obj2 = cls.instantiate()
+
+    obj.setdictvalue(space, "a", 10)
+
+    obj2.setdictvalue(space, "b", 20)
+    obj2.setdictvalue(space, "a", 30)
+
+    obj.setdictvalue(space, "b", 40)
+    assert obj.map is obj2.map
+
+def test_insert_different_orders_3():
+    cls = Class()
+    obj = cls.instantiate()
+    obj2 = cls.instantiate()
+    obj3 = cls.instantiate()
+    obj4 = cls.instantiate()
+    obj5 = cls.instantiate()
+    obj6 = cls.instantiate()
+
+    obj.setdictvalue(space, "a", 10)
+    obj.setdictvalue(space, "b", 20)
+    obj.setdictvalue(space, "c", 30)
+
+    obj2.setdictvalue(space, "a", 30)
+    obj2.setdictvalue(space, "c", 40)
+    obj2.setdictvalue(space, "b", 50)
+
+    obj3.setdictvalue(space, "c", 30)
+    obj3.setdictvalue(space, "a", 40)
+    obj3.setdictvalue(space, "b", 50)
+
+    obj4.setdictvalue(space, "c", 30)
+    obj4.setdictvalue(space, "b", 40)
+    obj4.setdictvalue(space, "a", 50)
+
+    obj5.setdictvalue(space, "b", 30)
+    obj5.setdictvalue(space, "a", 40)
+    obj5.setdictvalue(space, "c", 50)
+
+    obj6.setdictvalue(space, "b", 30)
+    obj6.setdictvalue(space, "c", 40)
+    obj6.setdictvalue(space, "a", 50)
+
+    assert obj.map is obj2.map
+    assert obj.map is obj3.map
+    assert obj.map is obj4.map
+    assert obj.map is obj5.map
+    assert obj.map is obj6.map
+
+
+def test_insert_different_orders_4():
+    cls = Class()
+    obj = cls.instantiate()
+    obj2 = cls.instantiate()
+
+    obj.setdictvalue(space, "a", 10)
+    obj.setdictvalue(space, "b", 20)
+    obj.setdictvalue(space, "c", 30)
+    obj.setdictvalue(space, "d", 40)
+
+    obj2.setdictvalue(space, "d", 50)
+    obj2.setdictvalue(space, "c", 50)
+    obj2.setdictvalue(space, "b", 50)
+    obj2.setdictvalue(space, "a", 50)
+
+    assert obj.map is obj2.map
+
+def test_insert_different_orders_5():
+    cls = Class()
+    obj = cls.instantiate()
+    obj2 = cls.instantiate()
+
+    obj.setdictvalue(space, "a", 10)
+    obj.setdictvalue(space, "b", 20)
+    obj.setdictvalue(space, "c", 30)
+    obj.setdictvalue(space, "d", 40)
+
+    obj2.setdictvalue(space, "d", 50)
+    obj2.setdictvalue(space, "c", 50)
+    obj2.setdictvalue(space, "b", 50)
+    obj2.setdictvalue(space, "a", 50)
+
+    obj3 = cls.instantiate()
+    obj3.setdictvalue(space, "d", 50)
+    obj3.setdictvalue(space, "c", 50)
+    obj3.setdictvalue(space, "b", 50)
+    obj3.setdictvalue(space, "a", 50)
+
+    assert obj.map is obj3.map
+
+
+def test_bug_stack_overflow_insert_attributes():
+    cls = Class()
+    obj = cls.instantiate()
+
+    for i in range(1000):
+        obj.setdictvalue(space, str(i), i)
+
+
+def test_insert_different_orders_perm():
+    from itertools import permutations
+    cls = Class()
+    seen_maps = {}
+    for preexisting in ['', 'x', 'xy']:
+        for i, attributes in enumerate(permutations("abcdef")):
+            obj = cls.instantiate()
+            for i, attr in enumerate(preexisting):
+                obj.setdictvalue(space, attr, i*1000)
+            key = preexisting
+            for j, attr in enumerate(attributes):
+                obj.setdictvalue(space, attr, i*10+j)
+                key = "".join(sorted(key+attr))
+                if key in seen_maps:
+                    assert obj.map is seen_maps[key]
+                else:
+                    seen_maps[key] = obj.map
+
+    print len(seen_maps)
+
+
+def test_bug_infinite_loop():
+    cls = Class()
+    obj = cls.instantiate()
+    obj.setdictvalue(space, "e", 1)
+    obj2 = cls.instantiate()
+    obj2.setdictvalue(space, "f", 2)
+    obj3 = cls.instantiate()
+    obj3.setdictvalue(space, "a", 3)
+    obj3.setdictvalue(space, "e", 4)
+    obj3.setdictvalue(space, "f", 5)
+
 
 def test_attr_immutability(monkeypatch):
     cls = Class()
@@ -284,6 +436,9 @@ def test_slots_no_dict():
     assert obj.getslotvalue(b) == 60
     assert obj.storage == [50, 60]
     assert not obj.setdictvalue(space, "a", 70)
+    assert obj.getdict(space) is None
+    assert obj.getdictvalue(space, "a") is None
+
 
 def test_getdict():
     cls = Class()
@@ -309,7 +464,7 @@ def test_materialize_r_dict():
     obj.setdictvalue(space, "c", 7)
     assert obj.storage == [50, 60, 70, 5, 6, 7]
 
-    class FakeDict(W_DictMultiObject):
+    class FakeDict(W_DictObject):
         def __init__(self, d):
             self.dstorage = d
 
@@ -320,7 +475,7 @@ def test_materialize_r_dict():
 
     d = {}
     w_d = FakeDict(d)
-    flag = obj.map.write(obj, ("dict", SPECIAL), w_d)
+    flag = obj.map.write(obj, "dict", SPECIAL, w_d)
     assert flag
     materialize_r_dict(space, obj, d)
     assert d == {"a": 5, "b": 6, "c": 7}
@@ -359,16 +514,22 @@ def get_impl(self):
 class TestMapDictImplementation(BaseTestRDictImplementation):
     StrategyClass = MapDictStrategy
     get_impl = get_impl
+    def test_setdefault_fast(self):
+        # mapdict can't pass this, which is fine
+        pass
 class TestDevolvedMapDictImplementation(BaseTestDevolvedDictImplementation):
     get_impl = get_impl
     StrategyClass = MapDictStrategy
+    def test_setdefault_fast(self):
+        # mapdict can't pass this, which is fine
+        pass
 
 # ___________________________________________________________
 # tests that check the obj interface after the dict has devolved
 
 def devolve_dict(space, obj):
     w_d = obj.getdict(space)
-    w_d.strategy.switch_to_object_strategy(w_d)
+    w_d.get_strategy().switch_to_object_strategy(w_d)
 
 def test_get_setdictvalue_after_devolve():
     cls = Class()
@@ -438,15 +599,20 @@ def test_setdict():
 
 
 def test_specialized_class():
+    from pypy.objspace.std.mapdict import _make_storage_mixin_size_n
     from pypy.objspace.std.objectobject import W_ObjectObject
-    classes = memo_get_subclass_of_correct_size(space, W_ObjectObject)
+    classes = [_make_storage_mixin_size_n(i) for i in range(2, 10)]
     w1 = W_Root()
     w2 = W_Root()
     w3 = W_Root()
     w4 = W_Root()
     w5 = W_Root()
     w6 = W_Root()
-    for objectcls in classes:
+    for mixin in classes:
+        class objectcls(W_ObjectObject):
+            objectmodel.import_from_mixin(BaseUserClassMapdict)
+            objectmodel.import_from_mixin(MapdictDictSupport)
+            objectmodel.import_from_mixin(mixin)
         cls = Class()
         obj = objectcls()
         obj.user_setup(space, cls)
@@ -493,7 +659,6 @@ def test_specialized_class():
 # XXX write more
 
 class AppTestWithMapDict(object):
-    spaceconfig = {"objspace.std.withmapdict": True}
 
     def test_simple(self):
         class A(object):
@@ -710,8 +875,7 @@ class AppTestWithMapDict(object):
 
 
 class AppTestWithMapDictAndCounters(object):
-    spaceconfig = {"objspace.std.withmapdict": True,
-                   "objspace.std.withmethodcachecounter": True}
+    spaceconfig = {"objspace.std.withmethodcachecounter": True}
 
     def setup_class(cls):
         from pypy.interpreter import gateway
@@ -735,7 +899,7 @@ class AppTestWithMapDictAndCounters(object):
                 successes = entry.success_counter
             globalfailures = INVALID_CACHE_ENTRY.failure_counter
             return space.wrap((failures, successes, globalfailures))
-        check.unwrap_spec = [gateway.ObjSpace, gateway.W_Root, str]
+        check.unwrap_spec = [gateway.ObjSpace, gateway.W_Root, 'text']
         cls.w_check = cls.space.wrap(gateway.interp2app(check))
 
     def test_simple(self):
@@ -1019,6 +1183,20 @@ class AppTestWithMapDictAndCounters(object):
         got = a.method()
         assert got == 43
 
+    def test_dict_order(self):
+        # the __dict__ order is not strictly enforced, but in
+        # simple cases like that, we want to follow the order of
+        # creation of the attributes
+        class A(object):
+            pass
+        a = A()
+        a.x = 5
+        a.z = 6
+        a.y = 7
+        assert list(a.__dict__) == ['x', 'z', 'y']
+        assert a.__dict__.values() == [5, 6, 7]
+        assert list(a.__dict__.iteritems()) == [('x', 5), ('z', 6), ('y', 7)]
+
     def test_bug_method_change(self):
         class A(object):
             def method(self):
@@ -1053,9 +1231,44 @@ class AppTestWithMapDictAndCounters(object):
         got = x.a
         assert got == 'd'
 
+    def test_bug_builtin_types_callmethod(self):
+        import sys
+        class D(type(sys)):
+            def mymethod(self):
+                return "mymethod"
+
+        def foobar():
+            return "foobar"
+
+        d = D('d')
+        res1 = d.mymethod()
+        d.mymethod = foobar
+        res2 = d.mymethod()
+        assert res1 == "mymethod"
+        assert res2 == "foobar"
+
+    def test_bug_builtin_types_load_attr(self):
+        import sys
+        class D(type(sys)):
+            def mymethod(self):
+                return "mymethod"
+
+        def foobar():
+            return "foobar"
+
+        d = D('d')
+        m = d.mymethod
+        res1 = m()
+        d.mymethod = foobar
+        m = d.mymethod
+        res2 = m()
+        assert res1 == "mymethod"
+        assert res2 == "foobar"
+
+
+
 class AppTestGlobalCaching(AppTestWithMapDict):
-    spaceconfig = {"objspace.std.withmethodcachecounter": True,
-                   "objspace.std.withmapdict": True}
+    spaceconfig = {"objspace.std.withmethodcachecounter": True}
 
     def test_mix_classes(self):
         import __pypy__
@@ -1112,8 +1325,7 @@ class AppTestGlobalCaching(AppTestWithMapDict):
             assert 0, "failed: got %r" % ([got[1] for got in seen],)
 
 class TestDictSubclassShortcutBug(object):
-    spaceconfig = {"objspace.std.withmapdict": True,
-                   "objspace.std.withmethodcachecounter": True}
+    spaceconfig = {"objspace.std.withmethodcachecounter": True}
 
     def test_bug(self):
         w_dict = self.space.appexec([], """():
@@ -1127,8 +1339,12 @@ class TestDictSubclassShortcutBug(object):
 
 def test_newdict_instance():
     w_dict = space.newdict(instance=True)
-    assert type(w_dict.strategy) is MapDictStrategy
+    assert type(w_dict.get_strategy()) is MapDictStrategy
 
 class TestMapDictImplementationUsingnewdict(BaseTestRDictImplementation):
     StrategyClass = MapDictStrategy
     # NB: the get_impl method is not overwritten here, as opposed to above
+
+    def test_setdefault_fast(self):
+        # mapdict can't pass this, which is fine
+        pass

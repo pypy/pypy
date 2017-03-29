@@ -9,8 +9,6 @@ from rpython.rtyper.lltypesystem.rffi import VOIDP, INT_real, INT, CArrayPtr
 
 
 def dump_on_stdout(database):
-    if database.gctransformer:
-        database.prepare_inline_helpers()
     print '/*********************************/'
     structdeflist = database.getstructdeflist()
     for node in structdeflist:
@@ -171,7 +169,7 @@ def test_function_call():
 
     F = FuncType([Signed], Signed)
     f = functionptr(F, "f", graph=graph)
-    db = LowLevelDatabase(t)
+    db = LowLevelDatabase(t, exctransformer=t.getexceptiontransformer())
     db.get(f)
     db.complete()
     dump_on_stdout(db)
@@ -186,7 +184,7 @@ def test_malloc():
         return p.x * p.y
     t, graph = makegraph(ll_f, [int])
 
-    db = LowLevelDatabase(t)
+    db = LowLevelDatabase(t, exctransformer=t.getexceptiontransformer())
     db.get(getfunctionptr(graph))
     db.complete()
     dump_on_stdout(db)
@@ -207,7 +205,7 @@ def test_multiple_malloc():
         return s.ptr1.x * s.ptr2.x
     t, graph = makegraph(ll_f, [int])
 
-    db = LowLevelDatabase(t)
+    db = LowLevelDatabase(t, exctransformer=t.getexceptiontransformer())
     db.get(getfunctionptr(graph))
     db.complete()
     dump_on_stdout(db)

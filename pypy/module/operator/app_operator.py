@@ -5,7 +5,7 @@ This module exports a set of operators as functions. E.g. operator.add(x,y) is
 equivalent to x+y.
 '''
 
-import types
+import __pypy__
 
 
 def countOf(a,b):
@@ -39,27 +39,18 @@ def indexOf(a, b):
         index += 1
     raise ValueError('sequence.index(x): x not in sequence')
 
-def isMappingType(obj,):
-    'isMappingType(a) -- Return True if a has a mapping type, False otherwise.'
-    if isinstance(obj, types.InstanceType):
-        return hasattr(obj, '__getitem__')
-    return hasattr(obj, '__getitem__') and not hasattr(obj, '__getslice__')
-
 def isNumberType(obj,):
     'isNumberType(a) -- Return True if a has a numeric type, False otherwise.'
-    return hasattr(obj, '__int__') or hasattr(obj, '__float__')
-
-def isSequenceType(obj,):
-    'isSequenceType(a) -- Return True if a has a sequence type, False otherwise.'
-    if isinstance(obj, dict):
-        return False
-    return hasattr(obj, '__getitem__')
+    return (__pypy__.lookup_special(obj, '__int__') is not None or
+            __pypy__.lookup_special(obj, '__float__') is not None)
 
 def repeat(obj, num):
     'repeat(a, b) -- Return a * b, where a is a sequence, and b is an integer.'
+    import operator
+
     if not isinstance(num, (int, long)):
         raise TypeError('an integer is required')
-    if not isSequenceType(obj):
+    if not operator.isSequenceType(obj):
         raise TypeError("non-sequence object can't be repeated")
 
     return obj * num
@@ -79,52 +70,48 @@ def _resolve_attr_chain(chain, obj, idx=0):
     else:
         return _resolve_attr_chain(chain, obj, idx + 1)
 
+class attrgetter(object):
+    def __init__(self, attr, *attrs):
+        if not isinstance(attr, basestring):
+            self._error(attr)
+            return
+        if attrs:
+            for a in attrs:
+                if not isinstance(a, basestring):
+                    self._error(a)
+                    return
+            self._multi_attrs = [
+                a.split(".") for a in [attr] + list(attrs)
+            ]
+            self._call = self._multi_attrgetter
+        elif "." not in attr:
+            self._simple_attr = attr
+            self._call = self._simple_attrgetter
+        else:
+            self._single_attr = attr.split(".")
+            self._call = self._single_attrgetter
 
-class _simple_attrgetter(object):
-    def __init__(self, attr):
-        self._attr = attr
-
-    def __call__(self, obj):
-        return getattr(obj, self._attr)
-
-
-class _single_attrgetter(object):
-    def __init__(self, attrs):
-        self._attrs = attrs
-
-    def __call__(self, obj):
-        return _resolve_attr_chain(self._attrs, obj)
-
-
-class _multi_attrgetter(object):
-    def __init__(self, attrs):
-        self._attrs = attrs
-
-    def __call__(self, obj):
-        return tuple([
-            _resolve_attr_chain(attrs, obj)
-            for attrs in self._attrs
-        ])
-
-
-def attrgetter(attr, *attrs):
-    if (
-        not isinstance(attr, basestring) or
-        not all(isinstance(a, basestring) for a in attrs)
-    ):
+    def _error(self, attr):
         def _raise_typeerror(obj):
             raise TypeError(
-                "argument must be a string, not %r" % type(attr).__name__
+                "attribute name must be a string, not %r" % type(attr).__name__
             )
-        return _raise_typeerror
-    if attrs:
-        return _multi_attrgetter([
-            a.split(".") for a in [attr] + list(attrs)
+        self._call = _raise_typeerror
+
+    def __call__(self, obj):
+        return self._call(obj)
+
+    def _simple_attrgetter(self, obj):
+        return getattr(obj, self._simple_attr)
+
+    def _single_attrgetter(self, obj):
+        return _resolve_attr_chain(self._single_attr, obj)
+
+    def _multi_attrgetter(self, obj):
+        return tuple([
+            _resolve_attr_chain(attrs, obj)
+            for attrs in self._multi_attrs
         ])
-    elif "." not in attr:
-        return _simple_attrgetter(attr)
-    else:
-        return _single_attrgetter(attr.split("."))
 
 
 class itemgetter(object):
@@ -143,9 +130,12 @@ class itemgetter(object):
 
 
 class methodcaller(object):
-    def __init__(self, method_name, *args, **kwargs):
+    def __init__(*args, **kwargs):
+        if len(args) < 2:
+            raise TypeError("methodcaller() called with not enough arguments")
+        self, method_name = args[:2]
         self._method_name = method_name
-        self._args = args
+        self._args = args[2:]
         self._kwargs = kwargs
 
     def __call__(self, obj):

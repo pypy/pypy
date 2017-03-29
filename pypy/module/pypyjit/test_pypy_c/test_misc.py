@@ -113,7 +113,7 @@ class TestMisc(BaseTestPyPyC):
             i12 = int_is_true(i4)
             guard_true(i12, descr=...)
             guard_not_invalidated(descr=...)
-            i10p = getfield_gc_pure_i(p10, descr=...)
+            i10p = getfield_gc_i(p10, descr=...)
             i10 = int_mul_ovf(2, i10p)
             guard_no_overflow(descr=...)
             i14 = int_add_ovf(i13, i10)
@@ -145,9 +145,9 @@ class TestMisc(BaseTestPyPyC):
         i15 = int_lt(i10, i11)
         guard_true(i15, descr=...)
         i17 = int_add(i10, 1)
-        i18 = force_token()
         setfield_gc(p9, i17, descr=<.* .*W_XRangeIterator.inst_current .*>)
         guard_not_invalidated(descr=...)
+        i18 = force_token()
         i84 = int_sub(i14, 1)
         i21 = int_lt(i10, 0)
         guard_false(i21, descr=...)
@@ -178,9 +178,9 @@ class TestMisc(BaseTestPyPyC):
             i16 = int_ge(i11, i12)
             guard_false(i16, descr=...)
             i20 = int_add(i11, 1)
-            i21 = force_token()
             setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
             guard_not_invalidated?
+            i21 = force_token()
             i88 = int_sub(i9, 1)
             i25 = int_ge(i11, i9)
             guard_false(i25, descr=...)
@@ -211,9 +211,9 @@ class TestMisc(BaseTestPyPyC):
             i17 = int_mul(i11, i14)
             i18 = int_add(i15, i17)
             i20 = int_add(i11, 1)
-            i21 = force_token()
             setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
             guard_not_invalidated?
+            i21 = force_token()
             i95 = int_sub(i9, 1)
             i23 = int_lt(i18, 0)
             guard_false(i23, descr=...)
@@ -273,7 +273,7 @@ class TestMisc(BaseTestPyPyC):
             i21 = getfield_gc_i(p17, descr=<FieldS .*W_Array.*.inst_len .*>)
             i23 = int_lt(0, i21)
             guard_true(i23, descr=...)
-            i24 = getfield_gc_i(p17, descr=<FieldU .*W_ArrayTypei.inst_buffer .*>)
+            i24 = getfield_gc_i(p17, descr=<FieldU .*W_ArrayBase.inst__buffer .*>)
             i25 = getarrayitem_raw_i(i24, 0, descr=<.*>)
             i27 = int_lt(1, i21)
             guard_false(i27, descr=...)
@@ -387,7 +387,8 @@ class TestMisc(BaseTestPyPyC):
     def test_long_comparison(self):
         def main(n):
             while n:
-                12345L > 123L  # ID: long_op
+                x = 12345L
+                x > 123L  # ID: long_op
                 n -= 1
 
         log = self.run(main, [300])

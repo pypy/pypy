@@ -5,6 +5,7 @@ from rpython.jit.metainterp.resoperation import ResOperation, OpHelpers,\
      rop, AbstractResOp, AbstractInputArg
 from rpython.jit.metainterp.history import Const, make_hashable_int,\
      TreeLoop
+from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt import info
 
 class PreambleOp(AbstractResOp):
@@ -18,7 +19,7 @@ class PreambleOp(AbstractResOp):
     See force_op_from_preamble for details how the extra things are put.
     """
     op = None
-    
+
     def __init__(self, op, preamble_op, invented_name):
         self.op = op
         self.preamble_op = preamble_op
@@ -51,7 +52,13 @@ class PreambleOp(AbstractResOp):
 class AbstractShortOp(object):
     """ An operation that is potentially produced by the short preamble
     """
-    pass
+    res = None
+
+    def _check_no_forwarding(self):
+        assert self.res.get_forwarded() is None
+
+    def forget_optimization_info(self):
+        self.res.clear_forwarded()
 
 class HeapOp(AbstractShortOp):
     def __init__(self, res, getfield_op):
@@ -72,16 +79,16 @@ class HeapOp(AbstractShortOp):
         pop = PreambleOp(self.res, preamble_op, invented_name)
         assert not opinfo.is_virtual()
         descr = self.getfield_op.getdescr()
-        if g.is_getfield():
+        if rop.is_getfield(g.opnum):
             cf = optheap.field_cache(descr)
-            opinfo.setfield(preamble_op.getdescr(), self.res, pop,
+            opinfo.setfield(preamble_op.getdescr(), g.getarg(0), pop,
                             optheap, cf)
         else:
             index = g.getarg(1).getint()
             assert index >= 0
             cf = optheap.arrayitem_cache(descr, index)
-            opinfo.setitem(self.getfield_op.getdescr(), index, self.res,
-                           pop, cf, optheap=optheap)
+            opinfo.setitem(self.getfield_op.getdescr(), index, g.getarg(0),
+                           pop, optheap, cf)
 
     def repr(self, memo):
         return "HeapOp(%s, %s)" % (self.res.repr(memo),
@@ -92,7 +99,7 @@ class HeapOp(AbstractShortOp):
         preamble_arg = sb.produce_arg(sop.getarg(0))
         if preamble_arg is None:
             return None
-        if sop.is_getfield():
+        if rop.is_getfield(sop.opnum):
             preamble_op = ResOperation(sop.getopnum(), [preamble_arg],
                                        descr=sop.getdescr())
         else:
@@ -100,6 +107,14 @@ class HeapOp(AbstractShortOp):
                                                         sop.getarg(1)],
                                        descr=sop.getdescr())
         return ProducedShortOp(self, preamble_op)
+
+    def _check_no_forwarding(self):
+        AbstractShortOp._check_no_forwarding(self)
+        assert self.getfield_op.get_forwarded() is None
+
+    def forget_optimization_info(self):
+        AbstractShortOp.forget_optimization_info(self)
+        self.getfield_op.clear_forwarded()
 
     def __repr__(self):
         return "HeapOp(%r)" % (self.res,)
@@ -117,7 +132,7 @@ class PureOp(AbstractShortOp):
             op.set_forwarded(self.res)
         else:
             op = self.res
-        if preamble_op.is_call():
+        if rop.is_call(preamble_op.opnum):
             optpure.extra_call_pure.append(PreambleOp(op, preamble_op,
                                                       invented_name))
         else:
@@ -132,7 +147,7 @@ class PureOp(AbstractShortOp):
             if newarg is None:
                 return None
             arglist.append(newarg)
-        if op.is_call():
+        if rop.is_call(op.opnum):
             opnum = OpHelpers.call_pure_for_descr(op.getdescr())
         else:
             opnum = op.getopnum()
@@ -193,6 +208,16 @@ class CompoundOp(AbstractShortOp):
                 l.append(pop)
         return l
 
+    def _check_no_forwarding(self):
+        AbstractShortOp._check_no_forwarding(self)
+        self.one._check_no_forwarding()
+        self.two._check_no_forwarding()
+
+    def forget_optimization_info(self):
+        AbstractShortOp.forget_optimization_info(self)
+        self.one.forget_optimization_info()
+        self.two.forget_optimization_info()
+
     def repr(self, memo):
         return "CompoundOp(%s, %s, %s)" % (self.res.repr(memo),
                                            self.one.repr(memo),
@@ -203,7 +228,7 @@ class AbstractProducedShortOp(object):
 
 class ProducedShortOp(AbstractProducedShortOp):
     invented_name = False
-    
+
     def __init__(self, short_op, preamble_op):
         self.short_op = short_op
         self.preamble_op = preamble_op
@@ -214,6 +239,14 @@ class ProducedShortOp(AbstractProducedShortOp):
 
     def repr(self, memo):
         return self.short_op.repr(memo)
+
+    def _check_no_forwarding(self):
+        self.short_op._check_no_forwarding()
+        assert self.preamble_op.get_forwarded() is None
+
+    def forget_optimization_info(self):
+        self.short_op.forget_optimization_info()
+        self.preamble_op.clear_forwarded()
 
     def __repr__(self):
         return "%r -> %r" % (self.short_op, self.preamble_op)
@@ -234,6 +267,14 @@ class ShortInputArg(AbstractShortOp):
 
     def repr(self, memo):
         return "INP(%s)" % (self.res.repr(memo),)
+
+    def _check_no_forwarding(self):
+        AbstractShortOp._check_no_forwarding(self)
+        assert self.preamble_op.get_forwarded() is None
+
+    def forget_optimization_info(self):
+        AbstractShortOp.forget_optimization_info(self)
+        self.preamble_op.clear_forwarded()
 
     def __repr__(self):
         return "INP(%r -> %r)" % (self.res, self.preamble_op)
@@ -396,7 +437,7 @@ class AbstractShortPreambleBuilder(object):
                 arg.set_forwarded(None)
         self.short.append(preamble_op)
         if preamble_op.is_ovf():
-            self.short.append(ResOperation(rop.GUARD_NO_OVERFLOW, [], None))
+            self.short.append(ResOperation(rop.GUARD_NO_OVERFLOW, []))
         info = preamble_op.get_forwarded()
         preamble_op.set_forwarded(None)
         if optimizer is not None:
@@ -454,16 +495,23 @@ class ExtendedShortPreambleBuilder(AbstractShortPreambleBuilder):
         self.sb = sb
         self.extra_same_as = self.sb.extra_same_as
         self.target_token = target_token
+        self.build_inplace = False
 
     def setup(self, jump_args, short, label_args):
         self.jump_args = jump_args
         self.short = short
         self.label_args = label_args
+        self.build_inplace = True
 
     def add_preamble_op(self, preamble_op):
         """ Notice that we're actually using the preamble_op, add it to
         label and jump
         """
+        # Could this be considered a speculative error?
+        # This check should only fail when trying to jump to an existing trace
+        # by forcing portions of the virtualstate.
+        if not self.build_inplace:
+            raise InvalidLoop("Forcing boxes would modify an existing short preamble")
         op = preamble_op.op.get_box_replacement()
         if preamble_op.invented_name:
             self.extra_same_as.append(op)
@@ -471,6 +519,8 @@ class ExtendedShortPreambleBuilder(AbstractShortPreambleBuilder):
         self.jump_args.append(preamble_op.preamble_op)
 
     def use_box(self, box, preamble_op, optimizer=None):
+        if not self.build_inplace:
+            raise InvalidLoop("Forcing boxes would modify an existing short preamble")
         jump_op = self.short.pop()
         AbstractShortPreambleBuilder.use_box(self, box, preamble_op, optimizer)
         self.short.append(jump_op)

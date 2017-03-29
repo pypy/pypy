@@ -4,7 +4,7 @@ from rpython.rtyper.rdict import AbstractDictRepr, AbstractDictIteratorRepr
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib import objectmodel, jit
-from rpython.rlib.debug import ll_assert
+from rpython.rtyper.debug import ll_assert
 from rpython.rlib.rarithmetic import r_uint, intmask, LONG_BIT
 from rpython.rtyper import rmodel
 from rpython.rtyper.error import TyperError
@@ -236,21 +236,14 @@ class DictRepr(AbstractDictRepr):
                 if self.r_rdict_hashfn.lowleveltype != lltype.Void:
                     l_fn = self.r_rdict_hashfn.convert_const(dictobj.key_hash)
                     l_dict.fnkeyhash = l_fn
-
-                for dictkeycontainer, dictvalue in dictobj._dict.items():
-                    llkey = r_key.convert_const(dictkeycontainer.key)
-                    llvalue = r_value.convert_const(dictvalue)
-                    ll_dict_insertclean(l_dict, llkey, llvalue,
-                                        dictkeycontainer.hash)
-                return l_dict
-
+                any_items = dictobj._dict.items()
             else:
-                for dictkey, dictvalue in dictobj.items():
-                    llkey = r_key.convert_const(dictkey)
-                    llvalue = r_value.convert_const(dictvalue)
-                    ll_dict_insertclean(l_dict, llkey, llvalue,
-                                        l_dict.keyhash(llkey))
-                return l_dict
+                any_items = dictobj.items()
+            if any_items:
+                raise TyperError("found a prebuilt, explicitly non-ordered, "
+                                 "non-empty dict.  it would require additional"
+                                 " support to rehash it at program start-up")
+            return l_dict
 
     def rtype_len(self, hop):
         v_dict, = hop.inputargs(self)

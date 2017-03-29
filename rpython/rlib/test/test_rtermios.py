@@ -50,7 +50,7 @@ class TestLLTermios(object):
             fd = os.open('.', 0, 0777)
             try:
                 rtermios.tcgetattr(fd)
-            except OSError, e:
+            except OSError as e:
                 assert e.errno == errno.ENOTTY
                 print "ok"
 

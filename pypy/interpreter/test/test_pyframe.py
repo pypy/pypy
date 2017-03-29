@@ -34,6 +34,7 @@ class AppTestPyFrame:
         import sys
         f = sys._getframe()
         assert f.f_globals is globals()
+        raises(TypeError, "f.f_globals = globals()")
 
     def test_f_builtins(self):
         import sys, __builtin__
@@ -47,10 +48,10 @@ class AppTestPyFrame:
             return f.f_code
         assert g() is g.func_code
 
-    def test_f_trace_del(self): 
+    def test_f_trace_del(self):
         import sys
-        f = sys._getframe() 
-        del f.f_trace 
+        f = sys._getframe()
+        del f.f_trace
         assert f.f_trace is None
 
     def test_f_lineno(self):
@@ -66,8 +67,12 @@ class AppTestPyFrame:
 
     def test_f_lineno_set(self):
         def tracer(f, *args):
+            def y(f, *args):
+                return y
             def x(f, *args):
                 f.f_lineno += 1
+                return y  # "return None" should have the same effect, but see
+                          # test_local_trace_function_returning_None_ignored
             return x
 
         open    # force fetching of this name now
@@ -115,7 +120,7 @@ class AppTestPyFrame:
         def f():
             assert sys._getframe().f_code.co_name == g()
         def g():
-            return sys._getframe().f_back.f_code.co_name 
+            return sys._getframe().f_back.f_code.co_name
         f()
 
     def test_f_back_virtualref(self):
@@ -232,7 +237,7 @@ class AppTestPyFrame:
     def test_trace_exc(self):
         import sys
         l = []
-        def ltrace(a,b,c): 
+        def ltrace(a,b,c):
             if b == 'exception':
                 l.append(c)
             return ltrace
@@ -297,7 +302,7 @@ class AppTestPyFrame:
     def test_trace_return_exc(self):
         import sys
         l = []
-        def trace(a,b,c): 
+        def trace(a,b,c):
             if b in ('exception', 'return'):
                 l.append((b, c))
             return trace
@@ -375,7 +380,7 @@ class AppTestPyFrame:
         def g():
             try:
                 raise Exception
-            except Exception, e:
+            except Exception as e:
                 import sys
                 raise Exception, e, sys.exc_info()[2]
 
@@ -443,7 +448,7 @@ class AppTestPyFrame:
     def test_dont_trace_on_reraise(self):
         import sys
         l = []
-        def ltrace(a,b,c): 
+        def ltrace(a,b,c):
             if b == 'exception':
                 l.append(c)
             return ltrace
@@ -465,7 +470,7 @@ class AppTestPyFrame:
     def test_dont_trace_on_raise_with_tb(self):
         import sys
         l = []
-        def ltrace(a,b,c): 
+        def ltrace(a,b,c):
             if b == 'exception':
                 l.append(c)
             return ltrace
@@ -561,3 +566,66 @@ class AppTestPyFrame:
         res = f(10).g()
         sys.settrace(None)
         assert res == 10
+
+    def test_throw_trace_bug(self):
+        import sys
+        def f():
+            yield 5
+        gen = f()
+        assert next(gen) == 5
+        seen = []
+        def trace_func(frame, event, *args):
+            seen.append(event)
+            return trace_func
+        sys.settrace(trace_func)
+        try:
+            gen.throw(ValueError)
+        except ValueError:
+            pass
+        sys.settrace(None)
+        assert seen == ['call', 'exception', 'return']
+
+    def test_generator_trace_stopiteration(self):
+        import sys
+        def f():
+            yield 5
+        gen = f()
+        assert next(gen) == 5
+        seen = []
+        def trace_func(frame, event, *args):
+            print('TRACE:', frame, event, args)
+            seen.append(event)
+            return trace_func
+        def g():
+            for x in gen:
+                never_entered
+        sys.settrace(trace_func)
+        g()
+        sys.settrace(None)
+        print 'seen:', seen
+        # on Python 3 we get an extra 'exception' when 'for' catches
+        # StopIteration
+        assert seen == ['call', 'line', 'call', 'return', 'return']
+
+    def test_local_trace_function_returning_None_ignored(self):
+        # behave the same as CPython does, and in contradiction with
+        # the documentation.
+        def tracer(f, event, arg):
+            assert event == 'call'
+            return local_tracer
+
+        seen = []
+        def local_tracer(f, event, arg):
+            seen.append(event)
+            return None     # but 'local_tracer' will be called again
+
+        def function():
+            a = 1
+            a = 2
+            a = 3
+
+        import sys
+        sys.settrace(tracer)
+        function()
+        sys.settrace(None)
+        assert seen == ["line", "line", "line", "return"]

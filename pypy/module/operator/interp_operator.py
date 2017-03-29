@@ -1,5 +1,6 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
+from pypy.module.__builtin__.interp_classobj import W_InstanceObject
 
 
 def index(space, w_a):
@@ -231,14 +232,12 @@ def irepeat(space, w_obj1, w_obj2):
     'irepeat(a, b) -- Same as a *= b, for a and b sequences.'
     if space.lookup(w_obj1, '__getitem__') is None:
         # first arg has to be a sequence
-        raise OperationError(space.w_TypeError,
-                           space.wrap("non-sequence object can't be repeated"))
+        raise oefmt(space.w_TypeError, "non-sequence object can't be repeated")
 
     if not (space.isinstance_w(w_obj2, space.w_int) or
             space.isinstance_w(w_obj2, space.w_long)):
         # second arg has to be int/long
-        raise OperationError(space.w_TypeError,
-                             space.wrap('an integer is required'))
+        raise oefmt(space.w_TypeError, "an integer is required")
 
     return space.inplace_mul(w_obj1, w_obj2)
 
@@ -246,4 +245,13 @@ def irepeat(space, w_obj1, w_obj2):
 
 @unwrap_spec(default=int)
 def _length_hint(space, w_iterable, default):
-    return space.wrap(space.length_hint(w_iterable, default))
+    return space.newint(space.length_hint(w_iterable, default))
+
+
+def isMappingType(space, w_obj):
+    'isMappingType(a) -- Return True if a has a mapping type, False otherwise.'
+    return space.newbool(space.ismapping_w(w_obj))
+
+def isSequenceType(space, w_obj):
+    'isSequenceType(a) -- Return True if a has a sequence type, False otherwise.'
+    return space.newbool(space.issequence_w(w_obj))

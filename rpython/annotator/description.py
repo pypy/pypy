@@ -3,11 +3,10 @@ import types
 from rpython.annotator.signature import (
     enforce_signature_args, enforce_signature_return, finish_type)
 from rpython.flowspace.model import FunctionGraph
-from rpython.flowspace.bytecode import cpython_code_signature
 from rpython.annotator.argument import rawshape, ArgErr, simple_args
 from rpython.tool.sourcetools import valid_identifier
 from rpython.tool.pairtype import extendabletype
-from rpython.annotator.model import AnnotatorError, s_ImpossibleValue
+from rpython.annotator.model import AnnotatorError, s_ImpossibleValue, unionof
 
 class CallFamily(object):
     """A family of Desc objects that could be called from common call sites.
@@ -117,7 +116,6 @@ class ClassAttrFamily(object):
         self.s_value = s_ImpossibleValue    # union of possible values
 
     def update(self, other):
-        from rpython.annotator.model import unionof
         self.descs.update(other.descs)
         self.read_locations.update(other.read_locations)
         self.s_value = unionof(self.s_value, other.s_value)
@@ -192,24 +190,12 @@ NODEFAULT = object()
 class FunctionDesc(Desc):
     knowntype = types.FunctionType
 
-    def __init__(self, bookkeeper, pyobj=None,
-                 name=None, signature=None, defaults=None,
+    def __init__(self, bookkeeper, pyobj, name, signature, defaults,
                  specializer=None):
         super(FunctionDesc, self).__init__(bookkeeper, pyobj)
-        if name is None:
-            name = pyobj.func_name
-        if signature is None:
-            if hasattr(pyobj, '_generator_next_method_of_'):
-                from rpython.flowspace.argument import Signature
-                signature = Signature(['entry'])     # haaaaaack
-                defaults = ()
-            else:
-                signature = cpython_code_signature(pyobj.func_code)
-        if defaults is None:
-            defaults = pyobj.func_defaults
         self.name = name
         self.signature = signature
-        self.defaults = defaults or ()
+        self.defaults = defaults if defaults is not None else ()
         # 'specializer' is a function with the following signature:
         #      specializer(funcdesc, args_s) => graph
         #                                 or => s_result (overridden/memo cases)
@@ -278,7 +264,7 @@ class FunctionDesc(Desc):
                     defs_s.append(self.bookkeeper.immutablevalue(x))
         try:
             inputcells = args.match_signature(signature, defs_s)
-        except ArgErr, e:
+        except ArgErr as e:
             raise AnnotatorError("signature mismatch: %s() %s" %
                             (self.name, e.getmsg()))
         return inputcells
@@ -288,12 +274,43 @@ class FunctionDesc(Desc):
                 getattr(self.bookkeeper, "position_key", None) is not None):
             _, block, i = self.bookkeeper.position_key
             op = block.operations[i]
-        if self.specializer is None:
-            # get the specializer based on the tag of the 'pyobj'
-            # (if any), according to the current policy
-            tag = getattr(self.pyobj, '_annspecialcase_', None)
-            policy = self.bookkeeper.annotator.policy
-            self.specializer = policy.get_specializer(tag)
+        self.normalize_args(inputcells)
+        if getattr(self.pyobj, '_annspecialcase_', '').endswith("call_location"):
+            return self.specializer(self, inputcells, op)
+        else:
+            return self.specializer(self, inputcells)
+
+    def pycall(self, whence, args, s_previous_result, op=None):
+        inputcells = self.parse_arguments(args)
+        graph = self.specialize(inputcells, op)
+        assert isinstance(graph, FunctionGraph)
+        # if that graph has a different signature, we need to re-parse
+        # the arguments.
+        # recreate the args object because inputcells may have been changed
+        new_args = args.unmatch_signature(self.signature, inputcells)
+        inputcells = self.parse_arguments(new_args, graph)
+        annotator = self.bookkeeper.annotator
+        result = annotator.recursivecall(graph, whence, inputcells)
+        signature = getattr(self.pyobj, '_signature_', None)
+        if signature:
+            sigresult = enforce_signature_return(self, signature[1], result)
+            if sigresult is not None:
+                annotator.addpendingblock(
+                    graph, graph.returnblock, [sigresult])
+                result = sigresult
+        # Some specializations may break the invariant of returning
+        # annotations that are always more general than the previous time.
+        # We restore it here:
+        result = unionof(result, s_previous_result)
+        return result
+
+    def normalize_args(self, inputs_s):
+        """
+        Canonicalize argument annotations into the exact parameter
+        annotations of a specific specialized graph.
+
+        Note: this method has no return value but mutates its argument instead.
+        """
         enforceargs = getattr(self.pyobj, '_annenforceargs_', None)
         signature = getattr(self.pyobj, '_signature_', None)
         if enforceargs and signature:
@@ -304,39 +321,9 @@ class FunctionDesc(Desc):
                 from rpython.annotator.signature import Sig
                 enforceargs = Sig(*enforceargs)
                 self.pyobj._annenforceargs_ = enforceargs
-            enforceargs(self, inputcells)  # can modify inputcells in-place
+            enforceargs(self, inputs_s)  # can modify inputs_s in-place
         if signature:
-            enforce_signature_args(self, signature[0], inputcells)  # mutates inputcells
-        if getattr(self.pyobj, '_annspecialcase_', '').endswith("call_location"):
-            return self.specializer(self, inputcells, op)
-        else:
-            return self.specializer(self, inputcells)
-
-    def pycall(self, whence, args, s_previous_result, op=None):
-        inputcells = self.parse_arguments(args)
-        result = self.specialize(inputcells, op)
-        if isinstance(result, FunctionGraph):
-            graph = result         # common case
-            annotator = self.bookkeeper.annotator
-            # if that graph has a different signature, we need to re-parse
-            # the arguments.
-            # recreate the args object because inputcells may have been changed
-            new_args = args.unmatch_signature(self.signature, inputcells)
-            inputcells = self.parse_arguments(new_args, graph)
-            result = annotator.recursivecall(graph, whence, inputcells)
-            signature = getattr(self.pyobj, '_signature_', None)
-            if signature:
-                sigresult = enforce_signature_return(self, signature[1], result)
-                if sigresult is not None:
-                    annotator.addpendingblock(
-                        graph, graph.returnblock, [sigresult])
-                    result = sigresult
-        # Some specializations may break the invariant of returning
-        # annotations that are always more general than the previous time.
-        # We restore it here:
-        from rpython.annotator.model import unionof
-        result = unionof(result, s_previous_result)
-        return result
+            enforce_signature_args(self, signature[0], inputs_s)  # mutates inputs_s
 
     def get_graph(self, args, op):
         inputs_s = self.parse_arguments(args)
@@ -404,6 +391,18 @@ class FunctionDesc(Desc):
                     enlist(graph)
 
             return s_sigs
+
+class MemoDesc(FunctionDesc):
+    def pycall(self, whence, args, s_previous_result, op=None):
+        inputcells = self.parse_arguments(args)
+        s_result = self.specialize(inputcells, op)
+        if isinstance(s_result, FunctionGraph):
+            s_result = s_result.getreturnvar().annotation
+            if s_result is None:
+                s_result = s_ImpossibleValue
+        s_result = unionof(s_result, s_previous_result)
+        return s_result
+
 
 class MethodDesc(Desc):
     knowntype = types.MethodType

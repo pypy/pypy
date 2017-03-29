@@ -351,7 +351,9 @@ class Pickler(object):
             raise PicklingError("args from reduce() should be a tuple")
 
         # Assert that func is callable
-        if not hasattr(func, '__call__'):
+        try:
+            func.__call__
+        except AttributeError:
             raise PicklingError("func from reduce should be callable")
 
         save = self.save
@@ -402,7 +404,13 @@ class Pickler(object):
             write(REDUCE)
 
         if obj is not None:
-            self.memoize(obj)
+            # If the object is already in the memo, this means it is
+            # recursive. In this case, throw away everything we put on the
+            # stack, and fetch the object back from the memo.
+            if id(obj) in self.memo:
+                write(POP + self.get(self.memo[id(obj)][0]))
+            else:
+                self.memoize(obj)
 
         # More new special cases (that work with older protocols as
         # well): when __reduce__ returns a tuple with 4 or 5 items,
@@ -1376,6 +1384,7 @@ def encode_long(x):
 
 def decode_long(data):
     r"""Decode a long from a two's complement little-endian binary string.
+    This is overriden on PyPy by a RPython version that has linear complexity.
 
     >>> decode_long('')
     0L
@@ -1401,6 +1410,11 @@ def decode_long(data):
     if data[-1] >= '\x80':
         n -= 1L << (nbytes * 8)
     return n
+
+try:
+    from __pypy__ import decode_long
+except ImportError:
+    pass
 
 # Shorthands
 

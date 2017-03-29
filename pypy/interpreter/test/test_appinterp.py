@@ -23,7 +23,9 @@ def test_execwith_compile_error(space):
     (): 
         y y 
     """)
-    assert str(excinfo.value.errorstr(space)).find('y y') != -1 
+    # NOTE: the following test only works because excinfo.value is not
+    # normalized so far
+    assert str(excinfo.value.get_w_value(space)).find('y y') != -1 
 
 def test_simple_applevel(space):
     app = appdef("""app(x,y): 

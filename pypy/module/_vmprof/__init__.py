@@ -11,6 +11,7 @@ class Module(MixedModule):
     interpleveldefs = {
         'enable': 'interp_vmprof.enable',
         'disable': 'interp_vmprof.disable',
+        'write_all_code_objects': 'interp_vmprof.write_all_code_objects',
         'VMProfError': 'space.fromcache(interp_vmprof.Cache).w_VMProfError',
     }
 
@@ -22,5 +23,5 @@ class Module(MixedModule):
 # (loaded later) replaces this method.
 try:
     import pypy.module._vmprof.interp_vmprof
-except VMProfPlatformUnsupported, e:
+except VMProfPlatformUnsupported as e:
     pass

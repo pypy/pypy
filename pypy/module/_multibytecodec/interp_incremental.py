@@ -15,13 +15,14 @@ class MultibyteIncrementalBase(W_Root):
             errors = 'strict'
         self.space = space
         self.errors = errors
-        w_codec = space.getattr(space.wrap(self), space.wrap("codec"))
+        w_codec = space.getattr(self, space.newtext("codec"))
         codec = space.interp_w(MultibyteCodec, w_codec)
         self.codec = codec.codec
         self.name = codec.name
         self._initialize()
+        self.register_finalizer(space)
 
-    def __del__(self):
+    def _finalize_(self):
         self._free()
 
     def reset_w(self):
@@ -29,10 +30,10 @@ class MultibyteIncrementalBase(W_Root):
         self._initialize()
 
     def fget_errors(self, space):
-        return space.wrap(self.errors)
+        return space.newtext(self.errors)
 
     def fset_errors(self, space, w_errors):
-        self.errors = space.str_w(w_errors)
+        self.errors = space.text_w(w_errors)
 
 
 class MultibyteIncrementalDecoder(MultibyteIncrementalBase):
@@ -47,7 +48,7 @@ class MultibyteIncrementalDecoder(MultibyteIncrementalBase):
             c_codecs.pypy_cjk_dec_free(self.decodebuf)
             self.decodebuf = lltype.nullptr(c_codecs.DECODEBUF_P.TO)
 
-    @unwrap_spec(object=str, final=bool)
+    @unwrap_spec(object='bytes', final=bool)
     def decode_w(self, object, final=False):
         space = self.space
         state = space.fromcache(CodecState)
@@ -57,21 +58,21 @@ class MultibyteIncrementalDecoder(MultibyteIncrementalBase):
             output = c_codecs.decodeex(self.decodebuf, object, self.errors,
                                        state.decode_error_handler, self.name,
                                        get_ignore_error(final))
-        except c_codecs.EncodeDecodeError, e:
+        except c_codecs.EncodeDecodeError as e:
             raise wrap_unicodedecodeerror(space, e, object, self.name)
         except RuntimeError:
             raise wrap_runtimeerror(space)
         pos = c_codecs.pypy_cjk_dec_inbuf_consumed(self.decodebuf)
         assert 0 <= pos <= len(object)
         self.pending = object[pos:]
-        return space.wrap(output)
+        return space.newunicode(output)
 
 
-@unwrap_spec(errors="str_or_None")
+@unwrap_spec(errors="text_or_none")
 def mbidecoder_new(space, w_subtype, errors=None):
     r = space.allocate_instance(MultibyteIncrementalDecoder, w_subtype)
     r.__init__(space, errors)
-    return space.wrap(r)
+    return r
 
 MultibyteIncrementalDecoder.typedef = TypeDef(
     'MultibyteIncrementalDecoder',
@@ -105,21 +106,21 @@ class MultibyteIncrementalEncoder(MultibyteIncrementalBase):
             output = c_codecs.encodeex(self.encodebuf, object, self.errors,
                                        state.encode_error_handler, self.name,
                                        get_ignore_error(final))
-        except c_codecs.EncodeDecodeError, e:
+        except c_codecs.EncodeDecodeError as e:
             raise wrap_unicodeencodeerror(space, e, object, self.name)
         except RuntimeError:
             raise wrap_runtimeerror(space)
         pos = c_codecs.pypy_cjk_enc_inbuf_consumed(self.encodebuf)
         assert 0 <= pos <= len(object)
         self.pending = object[pos:]
-        return space.wrap(output)
+        return space.newbytes(output)
 
 
-@unwrap_spec(errors="str_or_None")
+@unwrap_spec(errors="text_or_none")
 def mbiencoder_new(space, w_subtype, errors=None):
     r = space.allocate_instance(MultibyteIncrementalEncoder, w_subtype)
     r.__init__(space, errors)
-    return space.wrap(r)
+    return r
 
 MultibyteIncrementalEncoder.typedef = TypeDef(
     'MultibyteIncrementalEncoder',

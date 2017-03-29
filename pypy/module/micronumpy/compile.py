@@ -5,7 +5,7 @@ import re
 import py
 from pypy.interpreter import special
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root, ObjSpace
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from rpython.rlib.objectmodel import specialize, instantiate
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import base_int
@@ -18,7 +18,6 @@ from pypy.interpreter.miscutils import ThreadLocals, make_weak_value_dictionary
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
     UserDelAction)
 from pypy.interpreter.pyframe import PyFrame
-
 
 class BogusBytecode(Exception):
     pass
@@ -66,8 +65,10 @@ class FakeSpace(ObjSpace):
     w_KeyError = W_TypeObject("KeyError")
     w_SystemExit = W_TypeObject("SystemExit")
     w_KeyboardInterrupt = W_TypeObject("KeyboardInterrupt")
+    w_RuntimeError = W_TypeObject("RuntimeError")
+    w_RecursionError = W_TypeObject("RecursionError")   # py3.5
     w_VisibleDeprecationWarning = W_TypeObject("VisibleDeprecationWarning")
-    w_None = None
+    w_None = W_Root()
 
     w_bool = W_TypeObject("bool")
     w_int = W_TypeObject("int")
@@ -76,7 +77,8 @@ class FakeSpace(ObjSpace):
     w_long = W_TypeObject("long")
     w_tuple = W_TypeObject('tuple')
     w_slice = W_TypeObject("slice")
-    w_str = W_TypeObject("str")
+    w_bytes = W_TypeObject("str")
+    w_text = w_bytes
     w_unicode = W_TypeObject("unicode")
     w_complex = W_TypeObject("complex")
     w_dict = W_TypeObject("dict")
@@ -123,6 +125,10 @@ class FakeSpace(ObjSpace):
         if isinstance(w_obj, DictObject):
             return w_obj.getdictvalue(self, w_attr)
         return None
+
+    def issubtype_w(self, w_sub, w_type):
+        is_root(w_type)
+        return NonConstant(True)
 
     def isinstance_w(self, w_obj, w_tp):
         try:
@@ -187,6 +193,13 @@ class FakeSpace(ObjSpace):
             return StringObject(obj)
         raise NotImplementedError
 
+    def newtext(self, obj):
+        return StringObject(obj)
+    newbytes = newtext
+
+    def newunicode(self, obj):
+        raise NotImplementedError
+
     def newlist(self, items):
         return ListObject(items)
 
@@ -194,7 +207,11 @@ class FakeSpace(ObjSpace):
         return ComplexObject(r, i)
 
     def newfloat(self, f):
-        return self.float(f)
+        return FloatObject(f)
+
+    def newslice(self, start, stop, step):
+        return SliceObject(self.int_w(start), self.int_w(stop),
+                           self.int_w(step))
 
     def le(self, w_obj1, w_obj2):
         assert isinstance(w_obj1, boxes.W_GenericBox)
@@ -239,8 +256,8 @@ class FakeSpace(ObjSpace):
             if w_dict is not None:
                 try:
                     return w_dict[index]
-                except KeyError, e:
-                    raise OperationError(self.w_KeyError, self.wrap("key error"))
+                except KeyError as e:
+                    raise oefmt(self.w_KeyError, "key error")
 
         assert isinstance(obj, ListObject)
         assert isinstance(index, IntObject)
@@ -271,7 +288,7 @@ class FakeSpace(ObjSpace):
         elif isinstance(w_obj, FloatObject):
             return int(w_obj.floatval)
         elif isinstance(w_obj, SliceObject):
-            raise OperationError(self.w_TypeError, self.wrap("slice."))
+            raise oefmt(self.w_TypeError, "slice.")
         raise NotImplementedError
 
     def unpackcomplex(self, w_obj):
@@ -282,10 +299,11 @@ class FakeSpace(ObjSpace):
     def index(self, w_obj):
         return self.wrap(self.int_w(w_obj))
 
-    def str_w(self, w_obj):
+    def bytes_w(self, w_obj):
         if isinstance(w_obj, StringObject):
             return w_obj.v
         raise NotImplementedError
+    text_w = bytes_w
 
     def unicode_w(self, w_obj):
         # XXX
@@ -375,6 +393,9 @@ class FakeSpace(ObjSpace):
         # XXX even the hacks have hacks
         if s == 'size': # used in _array() but never called by tests
             return IntObject(0)
+        if s == '__buffer__':
+            # descr___buffer__ does not exist on W_Root
+            return self.w_None
         return getattr(w_obj, 'descr_' + s)(self, *args)
 
     @specialize.arg(1)
@@ -391,9 +412,12 @@ class FakeSpace(ObjSpace):
     def newdict(self, module=True):
         return DictObject({})
 
+    @specialize.argtype(1)
     def newint(self, i):
         if isinstance(i, IntObject):
             return i
+        if isinstance(i, base_int):
+            return LongObject(i)
         return IntObject(i)
 
     def setitem(self, obj, index, value):
@@ -406,6 +430,10 @@ class FakeSpace(ObjSpace):
 
     def warn(self, w_msg, w_warn_type):
         pass
+
+def is_root(w_obj):
+    assert isinstance(w_obj, W_Root)
+is_root.expecting = W_Root
 
 class FloatObject(W_Root):
     tp = FakeSpace.w_float
@@ -446,6 +474,9 @@ class DictObject(W_Root):
     def getdictvalue(self, space, key):
         return self.items[key]
 
+    def descr_memoryview(self, space, buf):
+        raise oefmt(space.w_TypeError, "error")
+
 class IterDictObject(W_Root):
     def __init__(self, space, w_dict):
         self.space = space
@@ -458,7 +489,7 @@ class IterDictObject(W_Root):
     def next(self):
         space = self.space
         if self.i >= len(self.items):
-            raise OperationError(space.w_StopIteration, space.wrap("stop iteration"))
+            raise oefmt(space.w_StopIteration, "stop iteration")
         self.i += 1
         return self.items[self.i-1][0]
 
@@ -470,7 +501,7 @@ class SliceObject(W_Root):
         self.step = step
 
 class StringObject(W_Root):
-    tp = FakeSpace.w_str
+    tp = FakeSpace.w_bytes
     def __init__(self, v):
         self.v = v
 
@@ -643,7 +674,7 @@ class RangeConstant(Node):
 
     def execute(self, interp):
         w_list = interp.space.newlist(
-            [interp.space.wrap(float(i)) for i in range(self.v)]
+            [interp.space.newfloat(float(i)) for i in range(self.v)]
         )
         dtype = get_dtype_cache(interp.space).w_float64dtype
         return array(interp.space, w_list, w_dtype=dtype, w_order=None)
@@ -810,7 +841,7 @@ class FunctionCall(Node):
                 w_res = arr.descr_take(interp.space, arg)
             elif self.name == "searchsorted":
                 w_res = arr.descr_searchsorted(interp.space, arg,
-                                               interp.space.wrap('left'))
+                                               interp.space.newtext('left'))
             else:
                 assert False # unreachable code
         elif self.name in THREE_ARG_FUNCTIONS:

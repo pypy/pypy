@@ -166,6 +166,7 @@ class build_ext (Command):
             self.include_dirs.append(plat_py_include)
 
         self.ensure_string_list('libraries')
+        self.ensure_string_list('link_objects')
 
         # Life is easier if we're not forever checking for None, so
         # simplify these options to empty lists if unset
@@ -188,7 +189,7 @@ class build_ext (Command):
             # the 'libs' directory is for binary installs - we assume that
             # must be the *native* platform.  But we don't really support
             # cross-compiling via a binary install anyway, so we let it go.
-            self.library_dirs.append(os.path.join(sys.exec_prefix, 'include'))
+            self.library_dirs.append(os.path.join(sys.exec_prefix, 'libs'))
             if self.debug:
                 self.build_temp = os.path.join(self.build_temp, "Debug")
             else:
@@ -209,10 +210,12 @@ class build_ext (Command):
                 else:
                     # win-amd64 or win-ia64
                     suffix = self.plat_name[4:]
-                new_lib = os.path.join(sys.exec_prefix, 'PCbuild')
-                if suffix:
-                    new_lib = os.path.join(new_lib, suffix)
-                self.library_dirs.append(new_lib)
+                # We could have been built in one of two places; add both
+                for d in ('PCbuild',), ('PC', 'VS9.0'):
+                    new_lib = os.path.join(sys.exec_prefix, *d)
+                    if suffix:
+                        new_lib = os.path.join(new_lib, suffix)
+                    self.library_dirs.append(new_lib)
 
             elif MSVC_VERSION == 8:
                 self.library_dirs.append(os.path.join(sys.exec_prefix,
@@ -685,13 +688,17 @@ class build_ext (Command):
         # the previous version of this code did.  This should work for
         # CPython too.  The point is that on PyPy with cpyext, the
         # config var 'SO' is just ".so" but we want to return
-        # ".pypy-VERSION.so" instead.
-        so_ext = _get_c_extension_suffix()
+        # ".pypy-VERSION.so" instead.  Note a further tweak for cffi's
+        # embedding mode: if EXT_SUFFIX is also defined, use that
+        # directly.
+        so_ext = get_config_var('EXT_SUFFIX')
         if so_ext is None:
-            so_ext = get_config_var('SO')     # fall-back
-        # extensions in debug_mode are named 'module_d.pyd' under windows
-        if os.name == 'nt' and self.debug:
-            so_ext = '_d.pyd'
+            so_ext = _get_c_extension_suffix()
+            if so_ext is None:
+                so_ext = get_config_var('SO')     # fall-back
+            # extensions in debug_mode are named 'module_d.pyd' under windows
+            if os.name == 'nt' and self.debug:
+                so_ext = '_d.pyd'
         return os.path.join(*ext_path) + so_ext
 
     def get_export_symbols (self, ext):

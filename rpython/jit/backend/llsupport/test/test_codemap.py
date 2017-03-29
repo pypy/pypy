@@ -1,6 +1,5 @@
 
 from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.jit.backend.llsupport.codemap import stack_depth_at_loc
 from rpython.jit.backend.llsupport.codemap import CodemapStorage, \
      CodemapBuilder, unpack_traceback, find_codemap_at_addr
 
@@ -25,34 +24,6 @@ def test_register_codemap():
     assert raw300 != raw100 and raw300 != raw200
     assert find_codemap_at_addr(300, NULL) == raw300
     #
-    codemap.free()
-
-def test_find_jit_frame_depth():
-    codemap = CodemapStorage()
-    codemap.setup()
-    codemap.register_frame_depth_map(11, 26, [0, 5, 10], [1, 2, 3])
-    codemap.register_frame_depth_map(30, 41, [0, 5, 10], [4, 5, 6])
-    codemap.register_frame_depth_map(0, 11, [0, 5, 10], [7, 8, 9])
-    assert stack_depth_at_loc(13) == 1
-    assert stack_depth_at_loc(-3) == -1
-    assert stack_depth_at_loc(40) == 6
-    assert stack_depth_at_loc(41) == -1
-    assert stack_depth_at_loc(5) == 8
-    assert stack_depth_at_loc(17) == 2
-    assert stack_depth_at_loc(38) == 5
-    assert stack_depth_at_loc(25) == 3
-    assert stack_depth_at_loc(26) == -1
-    assert stack_depth_at_loc(11) == 1
-    assert stack_depth_at_loc(10) == 9
-    codemap.free_asm_block(11, 26)
-    assert stack_depth_at_loc(11) == -1
-    assert stack_depth_at_loc(13) == -1
-    assert stack_depth_at_loc(-3) == -1
-    assert stack_depth_at_loc(40) == 6
-    assert stack_depth_at_loc(41) == -1
-    assert stack_depth_at_loc(5) == 8
-    assert stack_depth_at_loc(38) == 5
-    assert stack_depth_at_loc(10) == 9
     codemap.free()
 
 def test_free_with_alignment():

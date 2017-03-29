@@ -1,14 +1,19 @@
-
 import py
+import random
 from collections import OrderedDict
+
+from hypothesis import settings, given, strategies
+from hypothesis.stateful import run_state_machine_as_test
 
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem import rordereddict, rstr
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.annlowlevel import llstr, hlstr
-from rpython.rtyper.test.test_rdict import BaseTestRDict
+from rpython.rtyper.test.test_rdict import (
+    BaseTestRDict, MappingSpace, MappingSM)
 from rpython.rlib import objectmodel
 
+rodct = rordereddict
 
 def get_indexes(ll_d):
     return ll_d.indexes._obj.container._as_ptr()
@@ -141,14 +146,18 @@ class TestRDictDirect(object):
         ll_d = rordereddict.ll_newdict(DICT)
         rordereddict.ll_dict_setitem(ll_d, llstr("k"), 1)
         rordereddict.ll_dict_setitem(ll_d, llstr("j"), 2)
-        ITER = rordereddict.get_ll_dictiter(lltype.Ptr(DICT))
+        assert [hlstr(entry.key) for entry in self._ll_iter(ll_d)] == ["k", "j"]
+
+    def _ll_iter(self, ll_d):
+        ITER = rordereddict.get_ll_dictiter(lltype.typeOf(ll_d))
         ll_iter = rordereddict.ll_dictiter(ITER, ll_d)
         ll_dictnext = rordereddict._ll_dictnext
-        num = ll_dictnext(ll_iter)
-        assert hlstr(ll_d.entries[num].key) == "k"
-        num = ll_dictnext(ll_iter)
-        assert hlstr(ll_d.entries[num].key) == "j"
-        py.test.raises(StopIteration, ll_dictnext, ll_iter)
+        while True:
+            try:
+                num = ll_dictnext(ll_iter)
+            except StopIteration:
+                break
+            yield ll_d.entries[num]
 
     def test_popitem(self):
         DICT = self._get_str_dict()
@@ -192,19 +201,23 @@ class TestRDictDirect(object):
         num = rordereddict._ll_dictnext(ll_iter)
         ll_key = ll_d.entries[num].key
         assert hlstr(ll_key) == "j"
-        assert ll_d.lookup_function_no == 4    # 1 free item found at the start
+        assert ll_d.lookup_function_no == (   # 1 free item found at the start
+            (1 << rordereddict.FUNC_SHIFT) | rordereddict.FUNC_BYTE)
         rordereddict.ll_dict_delitem(ll_d, llstr("j"))
         assert ll_d.num_ever_used_items == 0
-        assert ll_d.lookup_function_no == 0    # reset
+        assert ll_d.lookup_function_no == rordereddict.FUNC_BYTE   # reset
 
-    def test_direct_enter_and_del(self):
+    def _get_int_dict(self):
         def eq(a, b):
             return a == b
 
-        DICT = rordereddict.get_ll_dict(lltype.Signed, lltype.Signed,
+        return rordereddict.get_ll_dict(lltype.Signed, lltype.Signed,
                                  ll_fasthash_function=intmask,
                                  ll_hash_function=intmask,
                                  ll_eq_function=eq)
+
+    def test_direct_enter_and_del(self):
+        DICT = self._get_int_dict()
         ll_d = rordereddict.ll_newdict(DICT)
         numbers = [i * rordereddict.DICT_INITSIZE + 1 for i in range(8)]
         for num in numbers:
@@ -298,6 +311,63 @@ class TestRDictDirect(object):
         rordereddict.ll_prepare_dict_update(ll_d, 7)
         # used to get UninitializedMemoryAccess
 
+    def test_bug_resize_counter(self):
+        DICT = self._get_int_dict()
+        ll_d = rordereddict.ll_newdict(DICT)
+        rordereddict.ll_dict_setitem(ll_d, 0, 0)
+        rordereddict.ll_dict_delitem(ll_d, 0)
+        rordereddict.ll_dict_setitem(ll_d, 0, 0)
+        rordereddict.ll_dict_delitem(ll_d, 0)
+        rordereddict.ll_dict_setitem(ll_d, 0, 0)
+        rordereddict.ll_dict_delitem(ll_d, 0)
+        rordereddict.ll_dict_setitem(ll_d, 0, 0)
+        rordereddict.ll_dict_delitem(ll_d, 0)
+        rordereddict.ll_dict_setitem(ll_d, 1, 0)
+        rordereddict.ll_dict_setitem(ll_d, 0, 0)
+        rordereddict.ll_dict_setitem(ll_d, 2, 0)
+        rordereddict.ll_dict_delitem(ll_d, 1)
+        rordereddict.ll_dict_delitem(ll_d, 0)
+        rordereddict.ll_dict_delitem(ll_d, 2)
+        rordereddict.ll_dict_setitem(ll_d, 0, 0)
+        rordereddict.ll_dict_delitem(ll_d, 0)
+        rordereddict.ll_dict_setitem(ll_d, 0, 0)
+        rordereddict.ll_dict_delitem(ll_d, 0)
+        rordereddict.ll_dict_setitem(ll_d, 0, 0)
+        rordereddict.ll_dict_setitem(ll_d, 1, 0)
+        d = ll_d
+        idx = d.indexes._obj.container
+        num_nonfrees = 0
+        for i in range(idx.getlength()):
+            got = idx.getitem(i)   # 0: unused; 1: deleted
+            num_nonfrees += (got > 0)
+        assert d.resize_counter <= idx.getlength() * 2 - num_nonfrees * 3
+
+    @given(strategies.lists(strategies.integers(min_value=1, max_value=5)))
+    def test_direct_move_to_end(self, lst):
+        DICT = self._get_int_dict()
+        ll_d = rordereddict.ll_newdict(DICT)
+        rordereddict.ll_dict_setitem(ll_d, 1, 11)
+        rordereddict.ll_dict_setitem(ll_d, 2, 22)
+        def content():
+            return [(entry.key, entry.value) for entry in self._ll_iter(ll_d)]
+        for case in lst:
+            if case == 1:
+                rordereddict.ll_dict_move_to_end(ll_d, 1, True)
+                assert content() == [(2, 22), (1, 11)]
+            elif case == 2:
+                rordereddict.ll_dict_move_to_end(ll_d, 2, True)
+                assert content() == [(1, 11), (2, 22)]
+            elif case == 3:
+                py.test.raises(KeyError, rordereddict.ll_dict_move_to_end,
+                                                 ll_d, 3, True)
+            elif case == 4:
+                rordereddict.ll_dict_move_to_end(ll_d, 2, False)
+                assert content() == [(2, 22), (1, 11)]
+            elif case == 5:
+                rordereddict.ll_dict_move_to_end(ll_d, 1, False)
+                assert content() == [(1, 11), (2, 22)]
+
+
 class TestRDictDirectDummyKey(TestRDictDirect):
     class dummykeyobj:
         ll_dummy_value = llstr("dupa")
@@ -329,125 +399,133 @@ class TestOrderedRDict(BaseTestRDict):
         res = self.interpret(func, [5])
         assert res == 6
 
+    def test_move_to_end(self):
+        def func():
+            d1 = OrderedDict()
+            d1['key1'] = 'value1'
+            d1['key2'] = 'value2'
+            for i in range(20):
+                objectmodel.move_to_end(d1, 'key1')
+                assert d1.keys() == ['key2', 'key1']
+                objectmodel.move_to_end(d1, 'key2')
+                assert d1.keys() == ['key1', 'key2']
+            for i in range(20):
+                objectmodel.move_to_end(d1, 'key2', last=False)
+                assert d1.keys() == ['key2', 'key1']
+                objectmodel.move_to_end(d1, 'key1', last=False)
+                assert d1.keys() == ['key1', 'key2']
+        func()
+        self.interpret(func, [])
 
-class TestStress:
 
-    def test_stress(self):
-        from rpython.annotator.dictdef import DictKey, DictValue
-        from rpython.annotator import model as annmodel
-        from rpython.rtyper import rint
-        from rpython.rtyper.test.test_rdict import not_really_random
-        rodct = rordereddict
-        dictrepr = rodct.OrderedDictRepr(
-                                  None, rint.signed_repr, rint.signed_repr,
-                                  DictKey(None, annmodel.SomeInteger()),
-                                  DictValue(None, annmodel.SomeInteger()))
-        dictrepr.setup()
-        l_dict = rodct.ll_newdict(dictrepr.DICT)
-        referencetable = [None] * 400
-        referencelength = 0
-        value = 0
+class ODictSpace(MappingSpace):
+    MappingRepr = rodct.OrderedDictRepr
+    new_reference = OrderedDict
+    moved_around = False
+    ll_getitem = staticmethod(rodct.ll_dict_getitem)
+    ll_setitem = staticmethod(rodct.ll_dict_setitem)
+    ll_delitem = staticmethod(rodct.ll_dict_delitem)
+    ll_len = staticmethod(rodct.ll_dict_len)
+    ll_contains = staticmethod(rodct.ll_dict_contains)
+    ll_copy = staticmethod(rodct.ll_dict_copy)
+    ll_clear = staticmethod(rodct.ll_dict_clear)
+    ll_popitem = staticmethod(rodct.ll_dict_popitem)
 
-        def complete_check():
-            for n, refvalue in zip(range(len(referencetable)), referencetable):
+    def newdict(self, repr):
+        return rodct.ll_newdict(repr.DICT)
+
+    def get_keys(self):
+        DICT = lltype.typeOf(self.l_dict).TO
+        ITER = rordereddict.get_ll_dictiter(lltype.Ptr(DICT))
+        ll_iter = rordereddict.ll_dictiter(ITER, self.l_dict)
+        ll_dictnext = rordereddict._ll_dictnext
+        keys_ll = []
+        while True:
+            try:
+                num = ll_dictnext(ll_iter)
+                keys_ll.append(self.l_dict.entries[num].key)
+            except StopIteration:
+                break
+        return keys_ll
+
+    def popitem(self):
+        # overridden to check that we're getting the most recent key,
+        # not a random one
+        try:
+            ll_tuple = self.ll_popitem(self.TUPLE, self.l_dict)
+        except KeyError:
+            assert len(self.reference) == 0
+        else:
+            ll_key = ll_tuple.item0
+            ll_value = ll_tuple.item1
+            key, value = self.reference.popitem()
+            assert self.ll_key(key) == ll_key
+            assert self.ll_value(value) == ll_value
+            self.removed_keys.append(key)
+
+    def removeindex(self):
+        # remove the index, as done during translation for prebuilt dicts
+        # (but cannot be done if we already removed a key)
+        if not self.removed_keys and not self.moved_around:
+            rodct.ll_no_initial_index(self.l_dict)
+
+    def move_to_end(self, key, last=True):
+        ll_key = self.ll_key(key)
+        rodct.ll_dict_move_to_end(self.l_dict, ll_key, last)
+        value = self.reference.pop(key)
+        if last:
+            self.reference[key] = value
+        else:
+            items = self.reference.items()
+            self.reference.clear()
+            self.reference[key] = value
+            self.reference.update(items)
+        # prevent ll_no_initial_index()
+        self.moved_around = True
+
+    def fullcheck(self):
+        # overridden to also check key order
+        assert self.ll_len(self.l_dict) == len(self.reference)
+        keys_ll = self.get_keys()
+        assert len(keys_ll) == len(self.reference)
+        for key, ll_key in zip(self.reference, keys_ll):
+            assert self.ll_key(key) == ll_key
+            assert (self.ll_getitem(self.l_dict, self.ll_key(key)) ==
+                self.ll_value(self.reference[key]))
+        for key in self.removed_keys:
+            if key not in self.reference:
                 try:
-                    gotvalue = rodct.ll_dict_getitem(l_dict, n)
+                    self.ll_getitem(self.l_dict, self.ll_key(key))
                 except KeyError:
-                    assert refvalue is None
+                    pass
                 else:
-                    assert gotvalue == refvalue
+                    raise AssertionError("removed key still shows up")
+        # check some internal invariants
+        d = self.l_dict
+        num_lives = 0
+        for i in range(d.num_ever_used_items):
+            if d.entries.valid(i):
+                num_lives += 1
+        assert num_lives == d.num_live_items
+        fun = d.lookup_function_no & rordereddict.FUNC_MASK
+        if fun == rordereddict.FUNC_MUST_REINDEX:
+            assert not d.indexes
+        else:
+            assert d.indexes
+            idx = d.indexes._obj.container
+            num_lives = 0
+            num_nonfrees = 0
+            for i in range(idx.getlength()):
+                got = idx.getitem(i)   # 0: unused; 1: deleted
+                num_nonfrees += (got > 0)
+                num_lives += (got > 1)
+            assert num_lives == d.num_live_items
+            assert 0 < d.resize_counter <= idx.getlength()*2 - num_nonfrees*3
 
-        for x in not_really_random():
-            n = int(x*100.0)    # 0 <= x < 400
-            op = repr(x)[-1]
-            if op <= '2' and referencetable[n] is not None:
-                rodct.ll_dict_delitem(l_dict, n)
-                referencetable[n] = None
-                referencelength -= 1
-            elif op <= '6':
-                rodct.ll_dict_setitem(l_dict, n, value)
-                if referencetable[n] is None:
-                    referencelength += 1
-                referencetable[n] = value
-                value += 1
-            else:
-                try:
-                    gotvalue = rodct.ll_dict_getitem(l_dict, n)
-                except KeyError:
-                    assert referencetable[n] is None
-                else:
-                    assert gotvalue == referencetable[n]
-            if 1.38 <= x <= 1.39:
-                complete_check()
-                print 'current dict length:', referencelength
-            assert l_dict.num_live_items == referencelength
-        complete_check()
 
-    def test_stress_2(self):
-        yield self.stress_combination, True,  False
-        yield self.stress_combination, False, True
-        yield self.stress_combination, False, False
-        yield self.stress_combination, True,  True
+class ODictSM(MappingSM):
+    Space = ODictSpace
 
-    def stress_combination(self, key_can_be_none, value_can_be_none):
-        from rpython.rtyper.lltypesystem.rstr import string_repr
-        from rpython.annotator.dictdef import DictKey, DictValue
-        from rpython.annotator import model as annmodel
-        from rpython.rtyper.test.test_rdict import not_really_random
-        rodct = rordereddict
-
-        print
-        print "Testing combination with can_be_None: keys %s, values %s" % (
-            key_can_be_none, value_can_be_none)
-
-        class PseudoRTyper:
-            cache_dummy_values = {}
-        dictrepr = rodct.OrderedDictRepr(
-                       PseudoRTyper(), string_repr, string_repr,
-                       DictKey(None, annmodel.SomeString(key_can_be_none)),
-                       DictValue(None, annmodel.SomeString(value_can_be_none)))
-        dictrepr.setup()
-        print dictrepr.lowleveltype
-        #for key, value in dictrepr.DICTENTRY._adtmeths.items():
-        #    print '    %s = %s' % (key, value)
-        l_dict = rodct.ll_newdict(dictrepr.DICT)
-        referencetable = [None] * 400
-        referencelength = 0
-        values = not_really_random()
-        keytable = [string_repr.convert_const("foo%d" % n)
-                    for n in range(len(referencetable))]
-
-        def complete_check():
-            for n, refvalue in zip(range(len(referencetable)), referencetable):
-                try:
-                    gotvalue = rodct.ll_dict_getitem(l_dict, keytable[n])
-                except KeyError:
-                    assert refvalue is None
-                else:
-                    assert gotvalue == refvalue
-
-        for x in not_really_random():
-            n = int(x*100.0)    # 0 <= x < 400
-            op = repr(x)[-1]
-            if op <= '2' and referencetable[n] is not None:
-                rodct.ll_dict_delitem(l_dict, keytable[n])
-                referencetable[n] = None
-                referencelength -= 1
-            elif op <= '6':
-                ll_value = string_repr.convert_const(str(values.next()))
-                rodct.ll_dict_setitem(l_dict, keytable[n], ll_value)
-                if referencetable[n] is None:
-                    referencelength += 1
-                referencetable[n] = ll_value
-            else:
-                try:
-                    gotvalue = rodct.ll_dict_getitem(l_dict, keytable[n])
-                except KeyError:
-                    assert referencetable[n] is None
-                else:
-                    assert gotvalue == referencetable[n]
-            if 1.38 <= x <= 1.39:
-                complete_check()
-                print 'current dict length:', referencelength
-            assert l_dict.num_live_items == referencelength
-        complete_check()
+def test_hypothesis():
+    run_state_machine_as_test(
+        ODictSM, settings(max_examples=500, stateful_step_count=100))

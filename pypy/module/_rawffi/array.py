@@ -4,9 +4,9 @@ to app-level with apropriate interface
 """
 
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
+from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty_w
 from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._rawffi.interp_rawffi import segfault_exception
 from pypy.module._rawffi.interp_rawffi import W_DataShape, W_DataInstance
 from pypy.module._rawffi.interp_rawffi import unwrap_value, wrap_value
@@ -43,23 +43,22 @@ class W_Array(W_DataShape):
             items_w = space.unpackiterable(w_items)
             iterlength = len(items_w)
             if iterlength > length:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap("too many items for specified"
-                                                " array length"))
+                raise oefmt(space.w_ValueError,
+                            "too many items for specified array length")
             for num in range(iterlength):
                 w_item = items_w[num]
                 unwrap_value(space, write_ptr, result.ll_buffer, num,
                              self.itemcode, w_item)
-        return space.wrap(result)
+        return result
 
     def descr_repr(self, space):
-        return space.wrap("<_rawffi.Array '%s' (%d, %d)>" % (self.itemcode,
-                                                             self.size,
-                                                             self.alignment))
+        return space.newtext("<_rawffi.Array '%s' (%d, %d)>" % (self.itemcode,
+                                                                self.size,
+                                                                self.alignment))
 
     @unwrap_spec(address=r_uint, length=int)
     def fromaddress(self, space, address, length):
-        return space.wrap(W_ArrayInstance(space, self, length, address))
+        return W_ArrayInstance(space, self, length, address)
 
 PRIMITIVE_ARRAY_TYPES = {}
 for _code in TYPEMAP:
@@ -95,8 +94,8 @@ class W_ArrayInstance(W_DataInstance):
 
     def descr_repr(self, space):
         addr = rffi.cast(lltype.Unsigned, self.ll_buffer)
-        return space.wrap("<_rawffi array %x of length %d>" % (addr,
-                                                               self.length))
+        return space.newtext("<_rawffi array %x of length %d>" % (addr,
+                                                                  self.length))
 
     # This only allows non-negative indexes.  Arrays of shape 'c' also
     # support simple slices.
@@ -112,7 +111,7 @@ class W_ArrayInstance(W_DataInstance):
     def descr_setitem(self, space, w_index, w_value):
         try:
             num = space.int_w(w_index)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
             self.setslice(space, w_index, w_value)
@@ -130,7 +129,7 @@ class W_ArrayInstance(W_DataInstance):
     def descr_getitem(self, space, w_index):
         try:
             num = space.int_w(w_index)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
             return self.getslice(space, w_index)
@@ -138,13 +137,13 @@ class W_ArrayInstance(W_DataInstance):
             return self.getitem(space, num)
 
     def getlength(self, space):
-        return space.wrap(self.length)
+        return space.newint(self.length)
 
     @unwrap_spec(num=int)
     def descr_itemaddress(self, space, num):
         itemsize = self.shape.size
         ptr = rffi.ptradd(self.ll_buffer, itemsize * num)
-        return space.wrap(rffi.cast(lltype.Unsigned, ptr))
+        return space.newint(rffi.cast(lltype.Unsigned, ptr))
 
     def getrawsize(self):
         itemsize = self.shape.size
@@ -152,15 +151,13 @@ class W_ArrayInstance(W_DataInstance):
 
     def decodeslice(self, space, w_slice):
         if not space.isinstance_w(w_slice, space.w_slice):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap('index must be int or slice'))
+            raise oefmt(space.w_TypeError, "index must be int or slice")
         letter = self.shape.itemcode
         if letter != 'c':
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("only 'c' arrays support slicing"))
-        w_start = space.getattr(w_slice, space.wrap('start'))
-        w_stop = space.getattr(w_slice, space.wrap('stop'))
-        w_step = space.getattr(w_slice, space.wrap('step'))
+            raise oefmt(space.w_TypeError, "only 'c' arrays support slicing")
+        w_start = space.getattr(w_slice, space.newtext('start'))
+        w_stop = space.getattr(w_slice, space.newtext('stop'))
+        w_step = space.getattr(w_slice, space.newtext('step'))
 
         if space.is_w(w_start, space.w_None):
             start = 0
@@ -173,11 +170,9 @@ class W_ArrayInstance(W_DataInstance):
         if not space.is_w(w_step, space.w_None):
             step = space.int_w(w_step)
             if step != 1:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap("no step support"))
+                raise oefmt(space.w_ValueError, "no step support")
         if not (0 <= start <= stop <= self.length):
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("slice out of bounds"))
+            raise oefmt(space.w_ValueError, "slice out of bounds")
         if not self.ll_buffer:
             raise segfault_exception(space, "accessing a freed array")
         return start, stop
@@ -186,14 +181,13 @@ class W_ArrayInstance(W_DataInstance):
         start, stop = self.decodeslice(space, w_slice)
         ll_buffer = self.ll_buffer
         result = [ll_buffer[i] for i in range(start, stop)]
-        return space.wrap(''.join(result))
+        return space.newbytes(''.join(result))
 
     def setslice(self, space, w_slice, w_value):
         start, stop = self.decodeslice(space, w_slice)
-        value = space.str_w(w_value)
+        value = space.bytes_w(w_value)
         if start + len(value) != stop:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("cannot resize array"))
+            raise oefmt(space.w_ValueError, "cannot resize array")
         ll_buffer = self.ll_buffer
         for i in range(len(value)):
             ll_buffer[start + i] = value[i]
@@ -205,7 +199,7 @@ W_ArrayInstance.typedef = TypeDef(
     __getitem__ = interp2app(W_ArrayInstance.descr_getitem),
     __len__     = interp2app(W_ArrayInstance.getlength),
     buffer      = GetSetProperty(W_ArrayInstance.getbuffer),
-    shape       = interp_attrproperty('shape', W_ArrayInstance),
+    shape       = interp_attrproperty_w('shape', W_ArrayInstance),
     free        = interp2app(W_ArrayInstance.free),
     byptr       = interp2app(W_ArrayInstance.byptr),
     itemaddress = interp2app(W_ArrayInstance.descr_itemaddress),
@@ -229,7 +223,7 @@ W_ArrayInstanceAutoFree.typedef = TypeDef(
     __getitem__ = interp2app(W_ArrayInstance.descr_getitem),
     __len__     = interp2app(W_ArrayInstance.getlength),
     buffer      = GetSetProperty(W_ArrayInstance.getbuffer),
-    shape       = interp_attrproperty('shape', W_ArrayInstance),
+    shape       = interp_attrproperty_w('shape', W_ArrayInstance),
     byptr       = interp2app(W_ArrayInstance.byptr),
     itemaddress = interp2app(W_ArrayInstance.descr_itemaddress),
 )

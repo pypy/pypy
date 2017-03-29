@@ -8,6 +8,7 @@ typedef struct _frame {
     PyObject_HEAD
     PyCodeObject *f_code;
     PyObject *f_globals;
+    PyObject *f_locals;
     int f_lineno;
 } PyFrameObject;
 
