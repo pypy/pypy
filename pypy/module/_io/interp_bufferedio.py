@@ -577,6 +577,7 @@ class BufferedMixin:
         return space.newbytes(builder.build())
 
     def _raw_read(self, space, buffer, start, length):
+        assert buffer is not None
         length = intmask(length)
         start = intmask(start)
         w_buf = space.newbuffer(SimpleBuffer(SubBuffer(buffer, start, length)))

@@ -1540,7 +1540,7 @@ class ObjSpace(object):
                 self._getarg_error("bytes or read-only buffer", w_obj)
         elif code == 'w*':
             try:
-                return w_obj.buffer_w(self, self.BUF_WRITABLE)
+                return w_obj.buffer_w(self, self.BUF_WRITABLE).as_binary()
             except OperationError:
                 pass
             except BufferInterfaceNotFound:
@@ -1548,7 +1548,7 @@ class ObjSpace(object):
             self._getarg_error("read-write buffer", w_obj)
         elif code == 'y*':
             try:
-                return w_obj.buffer_w(self, self.BUF_SIMPLE)
+                return w_obj.buffer_w(self, self.BUF_SIMPLE).as_binary()
             except BufferInterfaceNotFound:
                 self._getarg_error("bytes-like object", w_obj)
         elif code == 'y#':

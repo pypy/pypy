@@ -219,7 +219,7 @@ class SubBuffer(BinaryBuffer):
     _attrs_ = ['buffer', 'offset', 'size', 'readonly']
     _immutable_ = True
 
-    #@signature(types.any(), types.instance(BinaryBuffer), types.int(), types.int(), returns=types.none())
+    @signature(types.any(), types.instance(BinaryBuffer), types.int(), types.int(), returns=types.none())
     def __init__(self, buffer, offset, size):
         self.readonly = buffer.readonly
         if isinstance(buffer, SubBuffer):     # don't nest them

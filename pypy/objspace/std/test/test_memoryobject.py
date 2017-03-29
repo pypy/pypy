@@ -323,6 +323,9 @@ class MockBuffer(Buffer):
                 self.data.append(c)
         self.data = ''.join(self.data)
 
+    def as_str(self):
+        return self.data
+
     def getformat(self):
         return self.format
 

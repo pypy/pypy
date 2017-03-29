@@ -149,7 +149,7 @@ class W_MemoryView(W_Root):
             return self._tolist(space, buf, self.getlength(), itemsize, fmt,
                                 self.getstrides())
         else:
-            return self._tolist_rec(space, buf, 0, 0, fmt)
+            return self._tolist_rec(space, buf.as_binary(), 0, 0, fmt)
 
     def _tolist(self, space, buf, bytecount, itemsize, fmt, strides=None):
         # TODO: this probably isn't very fast
@@ -179,7 +179,7 @@ class W_MemoryView(W_Root):
 
         orig_buf = buf
         for i in range(dimshape):
-            buf = SubBuffer(orig_buf, start, stride)
+            buf = SubBuffer(orig_buf.as_binary(), start, stride)
             item = self._tolist_rec(space, buf, start, idim+1, fmt)
             items[i] = item
             start += stride
@@ -233,7 +233,7 @@ class W_MemoryView(W_Root):
 
         start = self._start_from_tuple(space, w_index)
 
-        buf = SubBuffer(self.buf, start, view.getitemsize())
+        buf = SubBuffer(self.buf.as_binary(), start, view.getitemsize())
         fmtiter = UnpackFormatIterator(space, buf)
         fmtiter.interpret(fmt)
         return fmtiter.result_w[0]
@@ -268,7 +268,7 @@ class W_MemoryView(W_Root):
                     return space.newint(ord(ch))
                 else:
                     # TODO: this probably isn't very fast
-                    buf = SubBuffer(self.buf, idx, itemsize)
+                    buf = SubBuffer(self.buf.as_binary(), idx, itemsize)
                     fmtiter = UnpackFormatIterator(space, buf)
                     fmtiter.length = buf.getlength()
                     fmtiter.interpret(self.buf.getformat())
@@ -347,14 +347,12 @@ class W_MemoryView(W_Root):
             src = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
             dst_strides = self.getstrides()
             dim = 0
-            dst = SubBuffer(self.buf, start * itemsize, slicelength * itemsize)
+            dst = SubBuffer(self.buf.as_binary(), start * itemsize, slicelength * itemsize)
             src_stride0 = dst_strides[dim]
 
             off = 0
             src_shape0 = slicelength
             src_stride0 = src.getstrides()[0]
-            if isinstance(w_obj, W_MemoryView):
-                src_stride0 = w_obj.getstrides()[0]
             for i in range(src_shape0):
                 data.append(src.getslice(off,off+itemsize,1,itemsize))
                 off += src_stride0
