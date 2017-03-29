@@ -40,7 +40,8 @@ elif sys.platform == 'darwin':
     _libs = []
 else:
     # windows
-    separate_module_files = []
+    compile_extra += ['-DVMPROF_WINDOWS']
+    separate_module_files = [SHARED.join('vmprof_main_win32.c')]
     _libs = []
 
 eci_kwds = dict(
