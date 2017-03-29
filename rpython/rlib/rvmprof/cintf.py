@@ -14,32 +14,64 @@ class VMProfPlatformUnsupported(Exception):
 
 ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rvmprof')
 SRC = ROOT.join('src')
+SHARED = SRC.join('shared')
+BACKTRACE = SHARED.join('libbacktrace')
 
+compile_extra = ['-DRPYTHON_VMPROF', '-O3']
 if sys.platform.startswith('linux'):
+    separate_module_files = [
+       BACKTRACE.join('backtrace.c'),
+       BACKTRACE.join('state.c'),
+       BACKTRACE.join('elf.c'),
+       BACKTRACE.join('dwarf.c'),
+       BACKTRACE.join('fileline.c'),
+       BACKTRACE.join('mmap.c'),
+       BACKTRACE.join('mmapio.c'),
+       BACKTRACE.join('posix.c'),
+       BACKTRACE.join('sort.c'),
+    ]
     _libs = ['dl']
-else:
+    compile_extra += ['-DVMPROF_UNIX']
+    compile_extra += ['-DVMPROF_LINUX']
+elif sys.platform == 'darwin':
+    compile_extra += ['-DVMPROF_UNIX']
+    compile_extra += ['-DVMPROF_MAC']
+    separate_module_files = []
     _libs = []
+else:
+    # windows
+    separate_module_files = []
+    _libs = []
+
 eci_kwds = dict(
-    include_dirs = [SRC],
-    includes = ['rvmprof.h', 'vmprof_stack.h'],
+    include_dirs = [SRC, SHARED, BACKTRACE],
+    includes = ['rvmprof.h','vmprof_stack.h'],
     libraries = _libs,
-    separate_module_files = [SRC.join('rvmprof.c')],
-    post_include_bits=['#define RPYTHON_VMPROF\n'],
+    separate_module_files = [
+        SRC.join('rvmprof.c'),
+        SHARED.join('compat.c'),
+        SHARED.join('machine.c'),
+        SHARED.join('symboltable.c'),
+        SHARED.join('vmp_stack.c'),
+    ] + separate_module_files,
+    post_include_bits=[],
+    compile_extra=compile_extra
     )
 global_eci = ExternalCompilationInfo(**eci_kwds)
 
 
 def setup():
-    compile_extra = ['-DRPYTHON_LL2CTYPES']
+    eci_kwds['compile_extra'].append('-DRPYTHON_LL2CTYPES')
     platform.verify_eci(ExternalCompilationInfo(
-        compile_extra=compile_extra,
-        **eci_kwds))
+                        **eci_kwds))
 
     eci = global_eci
     vmprof_init = rffi.llexternal("vmprof_init",
-                                  [rffi.INT, rffi.DOUBLE, rffi.CCHARP],
+                                  [rffi.INT, rffi.DOUBLE, rffi.INT, rffi.INT,
+                                   rffi.CCHARP, rffi.INT],
                                   rffi.CCHARP, compilation_info=eci)
-    vmprof_enable = rffi.llexternal("vmprof_enable", [], rffi.INT,
+    vmprof_enable = rffi.llexternal("vmprof_enable", [rffi.INT, rffi.INT],
+                                    rffi.INT,
                                     compilation_info=eci,
                                     save_err=rffi.RFFI_SAVE_ERRNO)
     vmprof_disable = rffi.llexternal("vmprof_disable", [], rffi.INT,
@@ -60,6 +92,7 @@ def setup():
                                   _nowrapper=True)
 
     return CInterface(locals())
+
 
 
 class CInterface(object):

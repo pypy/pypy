@@ -1,12 +1,30 @@
-#ifdef _WIN32
-typedef long intptr_t;
+#pragma once
+
+#include "shared/vmprof.h"
+
+#define SINGLE_BUF_SIZE (8192 - 2 * sizeof(unsigned int))
+
+#ifdef VMPROF_WINDOWS
+#include "msiinttypes/inttypes.h"
+#include "msiinttypes/stdint.h"
 #else
-# include <stdint.h>
+#include <inttypes.h>
+#include <stdint.h>
 #endif
 
-RPY_EXTERN char *vmprof_init(int, double, char *);
+#ifndef RPY_EXTERN
+#define RPY_EXTERN RPY_EXPORTED
+#endif
+#ifdef _WIN32
+#define RPY_EXPORTED __declspec(dllexport)
+#else
+#define RPY_EXPORTED  extern __attribute__((visibility("default")))
+#endif
+
+RPY_EXTERN char *vmprof_init(int fd, double interval, int memory,
+                     int lines, const char *interp_name, int native);
 RPY_EXTERN void vmprof_ignore_signals(int);
-RPY_EXTERN int vmprof_enable(void);
+RPY_EXTERN int vmprof_enable(int memory, int native);
 RPY_EXTERN int vmprof_disable(void);
 RPY_EXTERN int vmprof_register_virtual_function(char *, long, int);
 RPY_EXTERN void* vmprof_stack_new(void);
@@ -14,5 +32,8 @@ RPY_EXTERN int vmprof_stack_append(void*, long);
 RPY_EXTERN long vmprof_stack_pop(void*);
 RPY_EXTERN void vmprof_stack_free(void*);
 RPY_EXTERN intptr_t vmprof_get_traceback(void *, void *, intptr_t*, intptr_t);
+
+long vmprof_write_header_for_jit_addr(intptr_t *result, long n,
+                                      intptr_t addr, int max_depth);
 
 #define RVMPROF_TRACEBACK_ESTIMATE_N(num_entries)  (2 * (num_entries) + 4)
