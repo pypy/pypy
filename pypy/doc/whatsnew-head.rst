@@ -18,3 +18,6 @@ Fix missing tp_new on w_object called through multiple inheritance
 
 .. branch: lstrip_to_empty_string
 
+.. branch: vmprof-native
+
+PyPy support to profile native frames in vmprof.
