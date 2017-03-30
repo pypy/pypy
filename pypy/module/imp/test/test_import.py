@@ -361,7 +361,12 @@ class AppTestImport:
         assert sys == o
 
     def test_import_fromlist_must_not_contain_unicodes(self):
-        raises(TypeError, __import__, 'encodings', None, None, [u'xxx'])
+        exc = raises(TypeError, __import__, 'encodings', None, None, [u'xxx'])
+        assert 'not a string' in exc.value.message
+        exc = raises(TypeError, __import__, 'encodings', None, None, [123])
+        assert 'not a string' in exc.value.message
+        # issue 2524
+        raises(ImportError, __import__, 'xxxbadmodule', fromlist=[u'xx']) 
 
     def test_import_relative_back_to_absolute2(self):
         from pkg import abs_x_y
