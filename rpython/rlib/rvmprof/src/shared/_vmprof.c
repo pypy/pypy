@@ -150,23 +150,6 @@ static void cpyprof_code_dealloc(PyObject *co)
     Original_code_dealloc(co);
 }
 
-
-void dump_native_symbols(int fileno)
-{
-    PyObject * mod = NULL;
-
-    mod = PyImport_ImportModuleNoBlock("vmprof");
-    if (mod == NULL)
-        goto error;
-
-    PyObject_CallMethod(mod, "dump_native_symbols", "(l)", fileno);
-
-error:
-    Py_XDECREF(mod);
-}
-
-
-
 static PyObject *enable_vmprof(PyObject* self, PyObject *args)
 {
     int fd;

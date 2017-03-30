@@ -19,6 +19,13 @@ volatile int enabled = 0;
 
 int vmp_write_all(const char *buf, size_t bufsize);
 
+#ifdef VMPROF_RPYTHON
+typedef struct pypy_threadlocal_s PY_WIN_THREAD_STATE;
+#else
+typedef PyThreadState PY_WIN_THREAD_STATE;
+#endif
+
+
 RPY_EXTERN
 int vmprof_register_virtual_function(char *code_name, intptr_t code_uid,
                                      int auto_retry)
@@ -35,11 +42,19 @@ int vmprof_register_virtual_function(char *code_name, intptr_t code_uid,
     return 0;
 }
 
-int vmprof_snapshot_thread(DWORD thread_id, PyThreadState *tstate, prof_stacktrace_s *stack)
+int vmprof_snapshot_thread(DWORD thread_id, PY_WIN_THREAD_STATE *tstate, prof_stacktrace_s *stack)
 {
     HRESULT result;
-    HANDLE hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, thread_id);
+    HANDLE hThread;
     int depth;
+    CONTEXT ctx;
+#ifdef RPYTHON_LL2CTYPES
+    return 0; // not much we can do
+#else
+#ifndef RPY_TLOFS_thread_ident
+    return 0; // we can't freeze threads, unsafe
+#else
+    hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, thread_id);
     if (!hThread) {
         return -1;
     }
@@ -47,6 +62,19 @@ int vmprof_snapshot_thread(DWORD thread_id, PyThreadState *tstate, prof_stacktra
     if(result == 0xffffffff)
         return -1; // possible, e.g. attached debugger or thread alread suspended
     // find the correct thread
+#ifdef RPYTHON_VMPROF
+    ctx.ContextFlags = CONTEXT_FULL;
+    if (!GetThreadContext(hThread, &ctx))
+        return -1;
+    depth = get_stack_trace(tstate->vmprof_tl_stack,
+                     stack->stack, MAX_STACK_DEPTH-2, ctx.Eip);
+    stack->depth = depth;
+    stack->stack[depth++] = thread_id;
+    stack->count = 1;
+    stack->marker = MARKER_STACKTRACE;
+    ResumeThread(hThread);
+    return depth;
+#else
     depth = vmp_walk_and_record_stack(tstate->frame, stack->stack,
                                       MAX_STACK_DEPTH, 0, 0);
     stack->depth = depth;
@@ -55,10 +83,15 @@ int vmprof_snapshot_thread(DWORD thread_id, PyThreadState *tstate, prof_stacktra
     stack->marker = MARKER_STACKTRACE;
     ResumeThread(hThread);
     return depth;
+#endif
+
+#endif
+#endif
 }
 
+#ifdef RPYTHON_VMPROF
 static
-PyThreadState * get_current_thread_state(void)
+PY_WIN_THREAD_STATE * get_current_thread_state(void)
 {
 #if PY_MAJOR_VERSION < 3
     return _PyThreadState_Current;
@@ -68,14 +101,21 @@ PyThreadState * get_current_thread_state(void)
     return _PyThreadState_UncheckedGet();
 #endif
 }
+#endif
 
 long __stdcall vmprof_mainloop(void *arg)
-{   
-    prof_stacktrace_s *stack = (prof_stacktrace_s*)malloc(SINGLE_BUF_SIZE);
+{
+#ifdef RPYTHON_LL2CTYPES
+    // for tests only
+    return 0;
+#else
+    // it is not a test case!
+    PY_WIN_THREAD_STATE *tstate;
     HANDLE hThreadSnap = INVALID_HANDLE_VALUE; 
+    prof_stacktrace_s *stack = (prof_stacktrace_s*)malloc(SINGLE_BUF_SIZE);
     int depth;
-    PyThreadState *tstate;
-
+#ifndef RPYTHON_VMPROF
+    // cpython version
     while (1) {
         Sleep(profile_interval_usec * 1000);
         if (!enabled) {
@@ -90,6 +130,33 @@ long __stdcall vmprof_mainloop(void *arg)
                           SIZEOF_PROF_STACKTRACE + depth * sizeof(void*));
         }
     }
+#else
+    // pypy version
+    while (1) {
+        //Sleep(profile_interval_usec * 1000);
+        Sleep(10);
+        if (!enabled) {
+            continue;
+        }
+        _RPython_ThreadLocals_Acquire();
+        tstate = _RPython_ThreadLocals_Head(); // the first one is one behind head
+        tstate = _RPython_ThreadLocals_Enum(tstate);
+        while (tstate) {
+            if (p->ready == 42) {
+                depth = vmprof_snapshot_thread(tstate->thread_ident, tstate, stack);
+                if (depth > 0) {
+                    _write_all((char*)stack + offsetof(prof_stacktrace_s, marker),
+                         depth * sizeof(void *) +
+                         sizeof(struct prof_stacktrace_s) -
+                         offsetof(struct prof_stacktrace_s, marker));
+                }
+            }
+            tstate = _RPython_ThreadLocals_Enum(tstate);
+        }
+        _RPython_ThreadLocals_Release();
+    }
+#endif
+#endif
 }
 
 RPY_EXTERN

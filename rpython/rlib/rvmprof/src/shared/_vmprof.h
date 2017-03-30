@@ -3,8 +3,15 @@
 #include "vmprof.h"
 
 #ifdef VMPROF_WINDOWS
+
+#include <Python.h>
+// CPython 3.6 defines all the inttypes for us, we do not need the msiinttypes
+// library for that version or any newer!
+#if (PY_VERSION_HEX < 0x3060000)
 #include "msiinttypes/inttypes.h"
 #include "msiinttypes/stdint.h"
+#endif
+
 #else
 #include <inttypes.h>
 #include <stdint.h>

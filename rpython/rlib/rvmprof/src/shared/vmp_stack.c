@@ -126,7 +126,7 @@ static PY_STACK_FRAME_T * _write_python_stack_entry(PY_STACK_FRAME_T * frame, vo
 }
 
 int vmp_walk_and_record_python_stack_only(PY_STACK_FRAME_T *frame, void ** result,
-                                     int max_depth, int depth, intptr_t pc)
+                                          int max_depth, int depth, intptr_t pc)
 {
     while (depth < max_depth && frame) {
         frame = _write_python_stack_entry(frame, result, &depth, max_depth);
@@ -154,6 +154,25 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
                               int max_depth, int signal, intptr_t pc) {
 
     // called in signal handler
+    //
+    // This function records the stack trace for a python program. It also
+    // tracks native function calls if libunwind can be found on the system.
+    //
+    // The idea is the following (in the native case):
+    //
+    // 1) Remove frames until the signal frame is found (skipping it as well)
+    // 2) if the current frame corresponds to PyEval_EvalFrameEx (or the equivalent
+    //    for each python version), the jump to 4)
+    // 3) jump to 2)
+    // 4) walk each python frame and record it
+    //
+    //
+    // There are several cases that need to be taken care of.
+    //
+    // CPython supports line profiling, PyPy does not. At the same time
+    // PyPy saves the information of an address in the same way as line information
+    // is saved in CPython. _write_python_stack_entry for details.
+    //
 #ifdef VMP_SUPPORTS_NATIVE_PROFILING
     intptr_t func_addr;
     unw_cursor_t cursor;

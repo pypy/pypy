@@ -243,8 +243,6 @@ int vmp_resolve_addr(void * addr, char * name, int name_len, int * lineno, char 
     return 0;
 }
 
-#ifdef RPYTHON_VMPROF
-
 #define WORD_SIZE sizeof(long)
 #define ADDR_SIZE sizeof(void*)
 #define MAXLEN 1024
@@ -254,10 +252,12 @@ void _dump_native_symbol(int fileno, void * addr, char * sym, int linenumber, ch
     off_t pos_before;
     struct str {
         void * addr;
-        // NOTE windows 64, not supported yet
+        // NOTE windows, not supported yet would be a problem for 64 bit
+        // hint: alignment
         long size;
         char str[1024];
     } s;
+    fsync(fileno);
     pos_before = lseek(fileno, 0, SEEK_CUR);
     lseek(fileno, 0, SEEK_END);
 
@@ -286,7 +286,7 @@ int _skip_string(int fileno)
 {
     long chars;
     int count = read(fileno, &chars, sizeof(long));
-    LOG("reading string of %d chars\n", chars);
+    //LOG("reading string of %d chars\n", chars);
     if (count <= 0) {
         return 1;
     }
@@ -309,14 +309,14 @@ int _skip_header(int fileno, int * version, int * flags)
 long _read_word(int fileno)
 {
     long w;
-    read(fileno, &w, WORD_SIZE);
+    (void)read(fileno, &w, WORD_SIZE);
     return w;
 }
 
 void * _read_addr(int fileno)
 {
     void * a;
-    read(fileno, &a, ADDR_SIZE);
+    (void)read(fileno, &a, ADDR_SIZE);
     return a;
 }
 
@@ -341,21 +341,19 @@ int _skip_time_and_zone(int fileno)
 
 void dump_native_symbols(int fileno)
 {
-    // only call this function
     off_t orig_pos, cur_pos;
     char marker;
     ssize_t count;
     int version;
     int flags;
     int memory = 0, lines = 0, native = 0;
+    fsync(fileno);
     orig_pos = lseek(fileno, 0, SEEK_CUR);
 
     lseek(fileno, 5*WORD_SIZE, SEEK_SET);
 
     while (1) {
-        LOG("pre read\n");
         count = read(fileno, &marker, 1);
-        LOG("post read\n");
         if (count <= 0) {
             break;
         }
@@ -383,7 +381,7 @@ void dump_native_symbols(int fileno)
                 break;
             } case MARKER_VIRTUAL_IP:
               case MARKER_NATIVE_SYMBOLS: {
-                LOG("virtip 0x%llx\n", cur_pos);
+                //LOG("virtip 0x%llx\n", cur_pos);
                 if (_skip_addr(fileno) != 0) { return; }
                 if (_skip_string(fileno) != 0) { return; }
                 break;
@@ -394,10 +392,16 @@ void dump_native_symbols(int fileno)
 
                 LOG("stack 0x%llx %d %d\n", cur_pos, trace_count, depth);
 
+#ifdef RPYTHON_VMPROF
                 for (i = depth/2-1; i >= 0; i--) {
                     long kind = (long)_read_addr(fileno);
                     void * addr = _read_addr(fileno);
                     if (kind == VMPROF_NATIVE_TAG) {
+#else
+                for (i = 0; i < depth; i++) {
+                    void * addr = _read_addr(fileno);
+                    if (((intptr_t)addr & 0x1) == 1) {
+#endif
                         LOG("found kind %p\n", addr);
                         char name[MAXLEN];
                         char srcfile[MAXLEN];
@@ -412,7 +416,9 @@ void dump_native_symbols(int fileno)
                 }
                 LOG("passed  memory %d \n", memory);
 
-                if (_skip_addr(fileno) != 0) { return; } // thread id
+                if (version >= VERSION_THREAD_ID) {
+                    if (_skip_addr(fileno) != 0) { return; } // thread id
+                }
                 if (memory) {
                     if (_skip_addr(fileno) != 0) { return; } // profile memory
                 }
@@ -420,6 +426,7 @@ void dump_native_symbols(int fileno)
                 break;
             } default: {
                 fprintf(stderr, "unknown marker 0x%x\n", marker);
+                lseek(fileno, 0, SEEK_END);
                 return;
             }
         }
@@ -432,4 +439,3 @@ void dump_native_symbols(int fileno)
 
     lseek(fileno, 0, SEEK_END);
 }
-#endif
