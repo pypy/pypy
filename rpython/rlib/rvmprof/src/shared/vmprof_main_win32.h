@@ -51,7 +51,7 @@ int vmprof_snapshot_thread(DWORD thread_id, PY_WIN_THREAD_STATE *tstate, prof_st
 #ifdef RPYTHON_LL2CTYPES
     return 0; // not much we can do
 #else
-#ifndef RPY_TLOFS_thread_ident
+#if !defined(RPY_TLOFS_thread_ident) && defined(RPYTHON_VMPROF)
     return 0; // we can't freeze threads, unsafe
 #else
     hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, thread_id);
