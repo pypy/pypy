@@ -16,12 +16,13 @@ ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rvmprof')
 SRC = ROOT.join('src')
 SHARED = SRC.join('shared')
 BACKTRACE = SHARED.join('libbacktrace')
-MSIINTTYPES = SHARED.join('msiinttypes')
 
-extra_include_dirs = []
 compile_extra = ['-DRPYTHON_VMPROF', '-O3']
+separate_module_files = [
+    SHARED.join('symboltable.c')
+]
 if sys.platform.startswith('linux'):
-    separate_module_files = [
+    separate_module_files += [
        BACKTRACE.join('backtrace.c'),
        BACKTRACE.join('state.c'),
        BACKTRACE.join('elf.c'),
@@ -38,26 +39,24 @@ if sys.platform.startswith('linux'):
 elif sys.platform == 'darwin':
     compile_extra += ['-DVMPROF_UNIX']
     compile_extra += ['-DVMPROF_MAC']
-    separate_module_files = []
     _libs = []
 else:
     # windows
     compile_extra += ['-DVMPROF_WINDOWS']
-    extra_include_dirs += [MSIINTTYPES]
     separate_module_files = [SHARED.join('vmprof_main_win32.c')]
     _libs = []
 
 
 eci_kwds = dict(
-    include_dirs = [SRC, SHARED, BACKTRACE] + extra_include_dirs,
+    include_dirs = [SRC, SHARED, BACKTRACE],
     includes = ['rvmprof.h','vmprof_stack.h'],
     libraries = _libs,
     separate_module_files = [
         SRC.join('rvmprof.c'),
         SHARED.join('compat.c'),
         SHARED.join('machine.c'),
-        SHARED.join('symboltable.c'),
         SHARED.join('vmp_stack.c'),
+        # symbol table already in separate_module_files
     ] + separate_module_files,
     post_include_bits=[],
     compile_extra=compile_extra

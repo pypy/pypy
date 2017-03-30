@@ -49,9 +49,11 @@ static int (*unw_getcontext)(unw_context_t *) = NULL;
 PY_EVAL_RETURN_T * vmprof_eval(PY_STACK_FRAME_T *f, int throwflag) { return NULL; }
 #endif
 
-static int vmp_native_traces_enabled = 0;
+#ifdef VMP_SUPPORTS_NATIVE_PROFILING
 static intptr_t *vmp_ranges = NULL;
 static ssize_t vmp_range_count = 0;
+static int vmp_native_traces_enabled = 0;
+#endif
 static int _vmp_profiles_lines = 0;
 
 void vmp_profile_lines(int lines) {

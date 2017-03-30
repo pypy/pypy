@@ -18,6 +18,7 @@ int vmp_write_all(const char *buf, size_t bufsize)
 {
     int res;
     int fd;
+    int count;
 
     res = WaitForSingleObject(write_mutex, INFINITE);
     fd = vmp_profile_fileno();
@@ -27,7 +28,7 @@ int vmp_write_all(const char *buf, size_t bufsize)
         return -1;
     }
     while (bufsize > 0) {
-        ssize_t count = _write(fd, buf, (long)bufsize);
+        count = _write(fd, buf, (long)bufsize);
         if (count <= 0) {
             ReleaseMutex(write_mutex);
             return -1;   /* failed */

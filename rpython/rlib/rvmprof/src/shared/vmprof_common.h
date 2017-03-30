@@ -75,6 +75,7 @@ char *vmprof_init(int fd, double interval, int memory,
         return "out of memory";
 #if VMPROF_UNIX
     current_codes = NULL;
+    assert(fd >= 0);
 #else
     if (memory) {
         return "memory tracking only supported on unix";
@@ -83,7 +84,6 @@ char *vmprof_init(int fd, double interval, int memory,
         return "native profiling only supported on unix";
     }
 #endif
-    assert(fd >= 0);
     vmp_set_profile_fileno(fd);
     if (opened_profile(interp_name, memory, proflines, native) < 0) {
         vmp_set_profile_fileno(0);
@@ -181,7 +181,8 @@ intptr_t vmprof_get_traceback(void *stack, void *ucontext,
                               intptr_t *result_p, intptr_t result_length)
 {
     int n;
-#ifdef _WIN32
+    int enabled;
+#ifdef VMPROF_WINDOWS
     intptr_t pc = 0;   /* XXX implement me */
 #else
     intptr_t pc = ucontext ? (intptr_t)GetPC((ucontext_t *)ucontext) : 0;
@@ -189,7 +190,7 @@ intptr_t vmprof_get_traceback(void *stack, void *ucontext,
     if (stack == NULL) {
         stack = get_vmprof_stack();
     }
-    int enabled = vmp_native_enabled();
+    enabled = vmp_native_enabled();
     vmp_native_disable();
     n = get_stack_trace(stack, result_p, result_length - 2, pc);
     if (enabled) {

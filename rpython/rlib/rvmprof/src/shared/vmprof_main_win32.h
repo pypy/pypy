@@ -19,7 +19,7 @@ volatile int enabled = 0;
 
 int vmp_write_all(const char *buf, size_t bufsize);
 
-#ifdef VMPROF_RPYTHON
+#ifdef RPYTHON_VMPROF
 typedef struct pypy_threadlocal_s PY_WIN_THREAD_STATE;
 #else
 typedef PyThreadState PY_WIN_THREAD_STATE;
@@ -89,7 +89,7 @@ int vmprof_snapshot_thread(DWORD thread_id, PY_WIN_THREAD_STATE *tstate, prof_st
 #endif
 }
 
-#ifdef RPYTHON_VMPROF
+#ifndef RPYTHON_VMPROF
 static
 PY_WIN_THREAD_STATE * get_current_thread_state(void)
 {
@@ -187,4 +187,17 @@ RPY_EXTERN
 void vmprof_ignore_signals(int ignored)
 {
     enabled = !ignored;
+}
+
+int vmp_native_enable(void) {
+    return 0;
+}
+
+void vmp_native_disable(void) {
+}
+
+int get_stack_trace(PY_WIN_THREAD_STATE * current, void** result,
+		    int max_depth, intptr_t pc)
+{
+    return 0;
 }
