@@ -18,7 +18,7 @@ class Buffer(object):
 
     def as_str(self):
         "Returns an interp-level string with the whole content of the buffer."
-        raise NotImplementedError
+        return ''.join(self._copy_buffer())
 
     def getitem(self, index):
         "Returns the index'th character in the buffer."
@@ -64,6 +64,44 @@ class Buffer(object):
 
     def releasebuffer(self):
         pass
+
+    def _copy_buffer(self):
+        if self.getndim() == 0:
+            itemsize = self.getitemsize()
+            return [self.getslice(0, itemsize, 1, itemsize)]
+        data = []
+        self._copy_rec(0, data, 0)
+        return data
+
+    def _copy_rec(self, idim, data, off):
+        shapes = self.getshape()
+        shape = shapes[idim]
+        strides = self.getstrides()
+
+        if self.getndim() - 1 == idim:
+            self._copy_base(data, off)
+            return
+
+        for i in range(shape):
+            self._copy_rec(idim + 1, data, off)
+            off += strides[idim]
+
+    def _copy_base(self, data, off):
+        shapes = self.getshape()
+        step = shapes[0]
+        strides = self.getstrides()
+        itemsize = self.getitemsize()
+        bytesize = self.getlength()
+        copiedbytes = 0
+        for i in range(step):
+            bytes = self.getslice(off, off+itemsize, 1, itemsize)
+            data.append(bytes)
+            copiedbytes += len(bytes)
+            off += strides[0]
+            # do notcopy data if the sub buffer is out of bounds
+            if copiedbytes >= bytesize:
+                break
+
 
 class SimpleBuffer(Buffer):
     _attrs_ = ['readonly', 'data']

@@ -69,8 +69,8 @@ class W_MemoryView(W_Root):
                 return space.newbool(getattr(operator, name)(self, w_other))
             if isinstance(w_other, W_MemoryView):
                 # xxx not the most efficient implementation
-                str1 = self.as_str()
-                str2 = w_other.as_str()
+                str1 = self.buf.as_str()
+                str2 = w_other.buf.as_str()
                 return space.newbool(getattr(operator, name)(str1, str2))
 
             try:
@@ -80,7 +80,7 @@ class W_MemoryView(W_Root):
                     raise
                 return space.w_NotImplemented
             else:
-                str1 = self.as_str()
+                str1 = self.buf.as_str()
                 str2 = buf.as_str()
                 return space.newbool(getattr(operator, name)(str1, str2))
         descr__cmp.func_name = name
@@ -89,52 +89,12 @@ class W_MemoryView(W_Root):
     descr_eq = _make_descr__cmp('eq')
     descr_ne = _make_descr__cmp('ne')
 
-    def as_str(self):
-        return ''.join(self.copy_buffer())
-
-    def copy_buffer(self):
-        if self.getndim() == 0:
-            itemsize = self.getitemsize()
-            return [self.buf.getslice(0, itemsize, 1, itemsize)]
-        data = []
-        self._copy_rec(0, data, 0)
-        return data
-
-    def _copy_rec(self, idim, data, off):
-        shapes = self.getshape()
-        shape = shapes[idim]
-        strides = self.getstrides()
-
-        if self.getndim() - 1 == idim:
-            self._copy_base(data, off)
-            return
-
-        for i in range(shape):
-            self._copy_rec(idim + 1, data, off)
-            off += strides[idim]
-
-    def _copy_base(self, data, off):
-        shapes = self.getshape()
-        step = shapes[0]
-        strides = self.getstrides()
-        itemsize = self.getitemsize()
-        bytesize = self.getlength()
-        copiedbytes = 0
-        for i in range(step):
-            bytes = self.buf.getslice(off, off+itemsize, 1, itemsize)
-            data.append(bytes)
-            copiedbytes += len(bytes)
-            off += strides[0]
-            # do notcopy data if the sub buffer is out of bounds
-            if copiedbytes >= bytesize:
-                break
-
     def getlength(self):
         return self.buf.getlength()
 
     def descr_tobytes(self, space):
         self._check_released(space)
-        return space.newbytes(self.as_str())
+        return space.newbytes(self.buf.as_str())
 
     def descr_tolist(self, space):
         self._check_released(space)
@@ -734,16 +694,6 @@ class BufferSlice(Buffer):
 
     def getlength(self):
         return self.shape[0] * self.getitemsize()
-
-    def as_str(self):
-        slicelen = self.shape[0]
-        return self.getslice(0, slicelen * self.step, self.step, slicelen)
-
-    def as_str_and_offset_maybe(self):
-        string, offset = self.buf.as_str_and_offset_maybe()
-        if string is not None:
-            return string, offset + self.offset
-        return None, 0
 
     def getitem(self, index):
         return self.buf.getitem(self.offset + index)
