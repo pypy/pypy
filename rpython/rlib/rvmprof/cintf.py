@@ -16,7 +16,9 @@ ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rvmprof')
 SRC = ROOT.join('src')
 SHARED = SRC.join('shared')
 BACKTRACE = SHARED.join('libbacktrace')
+MSIINTTYPES = SHARED.join('msiinttypes')
 
+extra_include_dirs = []
 compile_extra = ['-DRPYTHON_VMPROF', '-O3']
 if sys.platform.startswith('linux'):
     separate_module_files = [
@@ -41,11 +43,13 @@ elif sys.platform == 'darwin':
 else:
     # windows
     compile_extra += ['-DVMPROF_WINDOWS']
+    extra_include_dirs += [MSIINTTYPES]
     separate_module_files = [SHARED.join('vmprof_main_win32.c')]
     _libs = []
 
+
 eci_kwds = dict(
-    include_dirs = [SRC, SHARED, BACKTRACE],
+    include_dirs = [SRC, SHARED, BACKTRACE] + extra_include_dirs,
     includes = ['rvmprof.h','vmprof_stack.h'],
     libraries = _libs,
     separate_module_files = [
