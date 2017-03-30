@@ -42,7 +42,7 @@ elif sys.platform == 'darwin':
     _libs = []
 else:
     # windows
-    compile_extra += ['-DVMPROF_WINDOWS']
+    compile_extra = ['-DRPYTHON_VMPROF', '-DVMPROF_WINDOWS']
     separate_module_files = [SHARED.join('vmprof_main_win32.c')]
     _libs = []
 
