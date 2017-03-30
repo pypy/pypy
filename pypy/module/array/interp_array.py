@@ -6,7 +6,7 @@ from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 
-from pypy.interpreter.buffer import Buffer
+from pypy.interpreter.buffer import Buffer, BinaryBuffer
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
@@ -257,7 +257,7 @@ class W_ArrayBase(W_Root):
             lltype.free(oldbuffer, flavor='raw')
 
     def buffer_w(self, space, flags):
-        return ArrayBuffer(self, False)
+        return ArrayBuffer(ArrayData(self), self.typecode, self.itemsize, False)
 
     def descr_append(self, space, w_x):
         """ append(x)
@@ -846,60 +846,89 @@ for k, v in types.items():
     v.typecode = k
 unroll_typecodes = unrolling_iterable(types.keys())
 
+class ArrayData(BinaryBuffer):
+    _immutable_ = True
+    readonly = False
+    def __init__(self, w_array):
+        self.w_array = w_array
+
+    def getlength(self):
+        return self.w_array.len * self.w_array.itemsize
+
+    def getitem(self, index):
+        w_array = self.w_array
+        data = w_array._charbuf_start()
+        char = data[index]
+        w_array._charbuf_stop()
+        return char
+
+    def setitem(self, index, char):
+        w_array = self.w_array
+        data = w_array._charbuf_start()
+        data[index] = char
+        w_array._charbuf_stop()
+
+    def getslice(self, start, stop, step, size):
+        if size == 0:
+            return ''
+        assert step == 1
+        data = self.w_array._charbuf_start()
+        try:
+            return rffi.charpsize2str(rffi.ptradd(data, start), size)
+        finally:
+            self.w_array._charbuf_stop()
+
+    def get_raw_address(self):
+        return self.w_array._charbuf_start()
+
+
 class ArrayBuffer(Buffer):
     _immutable_ = True
 
-    def __init__(self, array, readonly):
-        self.array = array
+    def __init__(self, data, fmt, itemsize, readonly):
+        self.data = data
+        self.fmt = fmt
+        self.itemsize = itemsize
         self.readonly = readonly
 
     def getlength(self):
-        return self.array.len * self.array.itemsize
+        return self.data.getlength()
 
     def as_str(self):
-        return self.getslice(0, self.getlength(), 1, self.getlength())
+        return self.data.as_str()
+
+    def getitem(self, index):
+        return self.data.getitem(index)
+
+    def setitem(self, index, value):
+        return self.data.setitem(index, value)
+
+    def getslice(self, start, stop, step, size):
+        return self.data.getslice(start, stop, step, size)
+
+    def setslice(self, start, string):
+        self.data.setslice(start, string)
 
     def getformat(self):
-        return self.array.typecode
+        return self.fmt
 
     def getitemsize(self):
-        return self.array.itemsize
+        return self.itemsize
 
     def getndim(self):
         return 1
 
     def getshape(self):
-        return [self.array.len]
+        return [self.getlength() // self.itemsize]
 
     def getstrides(self):
         return [self.getitemsize()]
 
-    def getitem(self, index):
-        array = self.array
-        data = array._charbuf_start()
-        char = data[index]
-        array._charbuf_stop()
-        return char
-
-    def setitem(self, index, char):
-        array = self.array
-        data = array._charbuf_start()
-        data[index] = char
-        array._charbuf_stop()
-
-    def getslice(self, start, stop, step, size):
-        if size == 0:
-            return ''
-        if step == 1:
-            data = self.array._charbuf_start()
-            try:
-                return rffi.charpsize2str(rffi.ptradd(data, start), size)
-            finally:
-                self.array._charbuf_stop()
-        return Buffer.getslice(self, start, stop, step, size)
-
     def get_raw_address(self):
-        return self.array._charbuf_start()
+        return self.data.get_raw_address()
+
+    def as_binary(self):
+        return self.data
 
 
 unpack_driver = jit.JitDriver(name='unpack_array',
