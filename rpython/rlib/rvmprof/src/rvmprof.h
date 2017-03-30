@@ -16,7 +16,9 @@
 #define RPY_EXTERN RPY_EXPORTED
 #endif
 #ifdef _WIN32
+#ifndef RPY_EXPORTED
 #define RPY_EXPORTED __declspec(dllexport)
+#endif
 #else
 #define RPY_EXPORTED  extern __attribute__((visibility("default")))
 #endif
