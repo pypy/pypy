@@ -362,11 +362,6 @@ def absolute_import_try(space, modulename, baselevel, w_fromlist):
         # to get a better trace. if it is unwrapped, the immutability of the
         # tuple is lost
         length = space.len_w(w_fromlist)
-        for i in range(length):
-            w_name = space.getitem(w_fromlist, space.newint(i))
-            if not space.isinstance_w(w_name, space.w_text):
-                raise oefmt(space.w_TypeError,
-                    "'fromlist' items must be str, not %T", w_name)
         if w_path is not None:
             if length == 1 and space.eq_w(
                     space.getitem(w_fromlist, space.newint(0)),
@@ -384,6 +379,9 @@ def absolute_import_try(space, modulename, baselevel, w_fromlist):
             if w_fromlist is not None:
                 for i in range(length):
                     w_name = space.getitem(w_fromlist, space.newint(i))
+                    if not space.isinstance_w(w_name, space.w_text):
+                        raise oefmt(space.w_TypeError,
+                            "'Item in ``fromlist'' not a string")
                     if try_getattr(space, w_mod, w_name) is None:
                         return None
         return w_mod
@@ -430,6 +428,9 @@ def _absolute_import(space, modulename, baselevel, w_fromlist, tentative):
             if w_fromlist is not None:
                 for i in range(length):
                     w_name = space.getitem(w_fromlist, space.newint(i))
+                    if not space.isinstance_w(w_name, space.w_text):
+                        raise oefmt(space.w_TypeError,
+                            "'Item in ``fromlist'' not a string")
                     if try_getattr(space, w_mod, w_name) is None:
                         load_part(space, w_path, prefix, space.text0_w(w_name),
                                   w_mod, tentative=1)
