@@ -361,10 +361,14 @@ class AppTestImport:
         assert sys == o
 
     def test_import_fromlist_must_not_contain_unicodes(self):
+        import sys
+        ver = sys.version_info
         exc = raises(TypeError, __import__, 'encodings', None, None, [u'xxx'])
-        assert 'not a string' in exc.value.message
+        if ver > (2, 7, 12):
+            assert 'must be str' in exc.value.message
         exc = raises(TypeError, __import__, 'encodings', None, None, [123])
-        assert 'not a string' in exc.value.message
+        if ver > (2, 7, 12):
+            assert 'must be str' in exc.value.message
         # issue 2524
         raises(ImportError, __import__, 'xxxbadmodule', fromlist=[u'xx'])
         mod = __import__('collections', fromlist=[u'defaultdict'])

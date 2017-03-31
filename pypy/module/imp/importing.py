@@ -381,7 +381,7 @@ def absolute_import_try(space, modulename, baselevel, w_fromlist):
                     w_name = space.getitem(w_fromlist, space.newint(i))
                     if not space.isinstance_w(w_name, space.w_text):
                         raise oefmt(space.w_TypeError,
-                            "'Item in ``fromlist'' not a string")
+                            "'Item in ``fromlist'' must be str, not %T", w_name)
                     if try_getattr(space, w_mod, w_name) is None:
                         return None
         return w_mod
@@ -430,7 +430,7 @@ def _absolute_import(space, modulename, baselevel, w_fromlist, tentative):
                     w_name = space.getitem(w_fromlist, space.newint(i))
                     if not space.isinstance_w(w_name, space.w_text):
                         raise oefmt(space.w_TypeError,
-                            "'Item in ``fromlist'' not a string")
+                            "'Item in ``fromlist'' must be str, not %T", w_name)
                     if try_getattr(space, w_mod, w_name) is None:
                         load_part(space, w_path, prefix, space.text0_w(w_name),
                                   w_mod, tentative=1)
