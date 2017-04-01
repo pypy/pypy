@@ -447,17 +447,31 @@ def _get_error_msg():
     errno = rposix.get_saved_errno()
     return _strerror(errno)
 
-if sys.platform != 'win32':
-    from errno import EINTR
-    from rpython.rlib.rtime import c_select
+from errno import EINTR
+from rpython.rlib.rtime import c_select
 
-    @unwrap_spec(secs=float)
-    def sleep(space, secs):
-        if secs < 0:
-            raise oefmt(space.w_ValueError,
-                        "sleep length must be non-negative")
-        end_time = timeutils.monotonic(space) + secs
-        while True:
+@unwrap_spec(secs=float)
+def sleep(space, secs):
+    if secs < 0:
+        raise oefmt(space.w_ValueError,
+                    "sleep length must be non-negative")
+    end_time = timeutils.monotonic(space) + secs
+    while True:
+        if _WIN:
+            # as decreed by Guido, only the main thread can be
+            # interrupted.
+            main_thread = space.fromcache(State).main_thread
+            interruptible = (main_thread == thread.get_ident())
+            millisecs = int(secs * 1000)
+            if millisecs == 0.0 or not interruptible:
+                rtime.sleep(secs)
+                break
+            interrupt_event = space.fromcache(State).get_interrupt_event()
+            rwin32.ResetEvent(interrupt_event)
+            rc = rwin32.WaitForSingleObject(interrupt_event, millisecs)
+            if rc != rwin32.WAIT_OBJECT_0:
+                break
+        else:
             void = lltype.nullptr(rffi.VOIDP.TO)
             with lltype.scoped_alloc(TIMEVAL) as t:
                 frac = math.fmod(secs, 1.0)
@@ -469,43 +483,10 @@ if sys.platform != 'win32':
                 break    # normal path
             if rposix.get_saved_errno() != EINTR:
                 raise exception_from_saved_errno(space, space.w_OSError)
-            space.getexecutioncontext().checksignals()
-            secs = end_time - timeutils.monotonic(space)   # retry
-            if secs <= 0.0:
-                break
-
-else:
-    from rpython.rlib import rwin32
-    from errno import EINTR
-    def _simple_sleep(space, secs, interruptible):
-        if secs == 0.0 or not interruptible:
-            rtime.sleep(secs)
-        else:
-            millisecs = int(secs * 1000)
-            interrupt_event = space.fromcache(State).get_interrupt_event()
-            rwin32.ResetEvent(interrupt_event)
-            rc = rwin32.WaitForSingleObject(interrupt_event, millisecs)
-            if rc == rwin32.WAIT_OBJECT_0:
-                # Yield to make sure real Python signal handler
-                # called.
-                rtime.sleep(0.001)
-                raise wrap_oserror(space,
-                                   OSError(EINTR, "sleep() interrupted"))
-    @unwrap_spec(secs=float)
-    def sleep(space, secs):
-        XXX   # review for EINTR / PEP475
-        if secs < 0:
-            raise oefmt(space.w_ValueError,
-                        "sleep length must be non-negative")
-        # as decreed by Guido, only the main thread can be
-        # interrupted.
-        main_thread = space.fromcache(State).main_thread
-        interruptible = (main_thread == thread.get_ident())
-        MAX = sys.maxint / 1000.0 # > 24 days
-        while secs > MAX:
-            _simple_sleep(space, MAX, interruptible)
-            secs -= MAX
-        _simple_sleep(space, secs, interruptible)
+        space.getexecutioncontext().checksignals()
+        secs = end_time - timeutils.monotonic(space)   # retry
+        if secs <= 0.0:
+            break
 
 def _get_module_object(space, obj_name):
     w_module = space.getbuiltinmodule('time')
