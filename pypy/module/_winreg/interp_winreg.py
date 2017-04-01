@@ -110,7 +110,7 @@ def hkey_w(w_hkey, space):
     elif isinstance(w_hkey, W_HKEY):
         return w_hkey.hkey
     elif space.isinstance_w(w_hkey, space.w_int):
-        if space.is_true(space.lt(w_hkey, space.wrap(0))):
+        if space.is_true(space.lt(w_hkey, space.newint(0))):
             return rffi.cast(rwinreg.HKEY, space.int_w(w_hkey))
         return rffi.cast(rwinreg.HKEY, space.uint_w(w_hkey))
     else:
