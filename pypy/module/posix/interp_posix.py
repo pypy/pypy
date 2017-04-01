@@ -2168,7 +2168,7 @@ def urandom(space, size):
         # not a bound method like 'getexecutioncontext().checksignals'.
         # Otherwise, we can't use it from several independent places.
         _sigcheck.space = space
-        return space.newbytes(rurandom.urandom(context, n, _signal_checker))
+        return space.newbytes(rurandom.urandom(context, size, _signal_checker))
     except OSError as e:
         # 'rurandom' should catch and retry internally if it gets EINTR
         # (at least in os.read(), which is probably enough in practice)
