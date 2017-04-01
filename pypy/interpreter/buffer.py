@@ -11,11 +11,6 @@ class Buffer(object):
         """Returns the size in bytes (even if getitemsize() > 1)."""
         raise NotImplementedError
 
-    def __len__(self):
-        res = self.getlength()
-        assert res >= 0
-        return res
-
     def as_str(self):
         "Returns an interp-level string with the whole content of the buffer."
         return ''.join(self._copy_buffer())
@@ -23,9 +18,6 @@ class Buffer(object):
     def getitem(self, index):
         "Returns the index'th character in the buffer."
         raise NotImplementedError   # Must be overriden.  No bounds checks.
-
-    def __getitem__(self, i):
-        return self.getitem(i)
 
     def getslice(self, start, stop, step, size):
         # May be overridden.  No bounds checks.
