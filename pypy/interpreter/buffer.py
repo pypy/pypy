@@ -15,23 +15,6 @@ class Buffer(object):
         "Returns an interp-level string with the whole content of the buffer."
         return ''.join(self._copy_buffer())
 
-    def getitem(self, index):
-        "Returns the index'th character in the buffer."
-        raise NotImplementedError   # Must be overriden.  No bounds checks.
-
-    def getslice(self, start, stop, step, size):
-        # May be overridden.  No bounds checks.
-        return ''.join([self.getitem(i) for i in range(start, stop, step)])
-
-    def setitem(self, index, char):
-        "Write a character into the buffer."
-        raise NotImplementedError   # Must be overriden.  No bounds checks.
-
-    def setslice(self, start, string):
-        # May be overridden.  No bounds checks.
-        for i in range(len(string)):
-            self.setitem(start + i, string[i])
-
     def get_raw_address(self):
         raise ValueError("no raw buffer")
 
@@ -108,12 +91,6 @@ class SimpleBuffer(Buffer):
 
     def as_str(self):
         return self.data.as_str()
-
-    def getitem(self, index):
-        return self.data.getitem(index)
-
-    def setitem(self, index, value):
-        return self.data.setitem(index, value)
 
     def get_raw_address(self):
         return self.data.get_raw_address()
@@ -237,7 +214,7 @@ class StringBuffer(BinaryBuffer):
             if start == 0 and stop == len(self.value):
                 return self.value
             return self.value[start:stop]
-        return Buffer.getslice(self, start, stop, step, size)
+        return BinaryBuffer.getslice(self, start, stop, step, size)
 
     def get_raw_address(self):
         from rpython.rtyper.lltypesystem import rffi

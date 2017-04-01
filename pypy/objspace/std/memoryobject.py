@@ -695,25 +695,6 @@ class BufferSlice(Buffer):
     def getlength(self):
         return self.shape[0] * self.getitemsize()
 
-    def getitem(self, index):
-        return self.buf.getitem(self.offset + index)
-
-    def setitem(self, index, char):
-        self.buf.setitem(self.offset + index, char)
-
-    def getslice(self, start, stop, step, size):
-        if start == stop:
-            return ''     # otherwise, adding self.offset might make them
-                          # out of bounds
-        return self.buf.getslice(self.offset + start, self.offset + stop,
-                                    step, size)
-
-    def setslice(self, start, string):
-        if len(string) == 0:
-            return        # otherwise, adding self.offset might make 'start'
-                          # out of bounds
-        self.buf.setslice(self.offset + start, string)
-
     def get_raw_address(self):
         from rpython.rtyper.lltypesystem import rffi
         ptr = self.buf.get_raw_address()
@@ -747,18 +728,6 @@ class BufferViewBase(Buffer):
 
     def as_str_and_offset_maybe(self):
         return self.parent.as_str_and_offset_maybe()
-
-    def getitem(self, index):
-        return self.parent.getitem(index)
-
-    def setitem(self, index, value):
-        return self.parent.setitem(index, value)
-
-    def getslice(self, start, stop, step, size):
-        return self.parent.getslice(start, stop, step, size)
-
-    def setslice(self, start, string):
-        self.parent.setslice(start, string)
 
     def get_raw_address(self):
         return self.parent.get_raw_address()
