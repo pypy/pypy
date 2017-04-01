@@ -1,4 +1,4 @@
-import sys
+from rpython.rlib import rwin32
 from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
@@ -73,8 +73,8 @@ class Module(MixedModule):
         'ZeroDivisionError' : 'interp_exceptions.W_ZeroDivisionError',
         }
 
-    if sys.platform.startswith("win"):
-        interpleveldefs['WindowsError'] = 'interp_exceptions.W_WindowsError'
+    if rwin32.WIN32:
+        interpleveldefs['WindowsError'] = 'interp_exceptions.W_OSError'
 
     def setup_after_space_initialization(self):
         from pypy.objspace.std.transparent import register_proxyable

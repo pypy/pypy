@@ -9,6 +9,7 @@ from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.objectmodel import dont_inline
 from rpython.rlib import rstack, rstackovf
+from rpython.rlib import rwin32
 
 from pypy.interpreter import debug
 
@@ -568,33 +569,6 @@ def debug_print(text, file=None, newline=True):
     # 31: ANSI color code "red"
     ansi_print(text, esc="31", file=file, newline=newline)
 
-try:
-    WindowsError
-except NameError:
-    _WINDOWS = False
-else:
-    _WINDOWS = True
-
-    def wrap_windowserror(space, e, w_filename=None):
-        XXX    # WindowsError no longer exists in Py3.5
-               # instead, OSError has a kwarg winerror that overrides
-               # any errno supplied
-        from rpython.rlib import rwin32
-
-        winerror = e.winerror
-        try:
-            msg = rwin32.FormatError(winerror)
-        except ValueError:
-            msg = 'Windows Error %d' % winerror
-        exc = space.w_WindowsError
-        if w_filename is not None:
-            w_error = space.call_function(exc, space.newint(winerror),
-                                          space.newtext(msg), w_filename)
-        else:
-            w_error = space.call_function(exc, space.newint(winerror),
-                                          space.newtext(msg))
-        return OperationError(exc, w_error)
-
 @specialize.arg(3, 6)
 def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError',
                   w_exception_class=None, w_filename2=None, eintr_retry=False):
@@ -612,9 +586,6 @@ def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError',
     """
     assert isinstance(e, OSError)
 
-    if _WINDOWS and isinstance(e, WindowsError):
-        return wrap_windowserror(space, e, w_filename)
-
     if w_exception_class is None:
         w_exc = getattr(space, exception_name)
     else:
@@ -631,28 +602,37 @@ def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError',
 def _wrap_oserror2_impl(space, e, w_filename, w_filename2, w_exc, eintr_retry):
     # move the common logic in its own function, instead of having it
     # duplicated 4 times in all 4 specialized versions of wrap_oserror2()
-    errno = e.errno
 
-    if errno == EINTR:
-        space.getexecutioncontext().checksignals()
-        if eintr_retry:
-            return None
-
-    try:
-        msg = strerror(errno)
-    except ValueError:
-        msg = u'error %d' % errno
-    if w_filename is not None:
-        if w_filename2 is not None:
-            w_error = space.call_function(w_exc, space.newint(errno),
-                                          space.newunicode(msg), w_filename,
-                                          space.w_None, w_filename2)
-        else:
-            w_error = space.call_function(w_exc, space.newint(errno),
-                                          space.newunicode(msg), w_filename)
+    if rwin32.WIN32 and isinstance(e, WindowsError):
+        winerror = e.winerror
+        try:
+            msg = rwin32.FormatError(winerror)
+        except ValueError:
+            msg = 'Windows Error %d' % winerror
+        w_errno = space.w_None
+        w_winerror = space.newint(winerror)
+        w_msg = space.newtext(msg)
     else:
-        w_error = space.call_function(w_exc, space.newint(errno),
-                                      space.newunicode(msg))
+        errno = e.errno
+        if errno == EINTR:
+            space.getexecutioncontext().checksignals()
+            if eintr_retry:
+                return None
+
+        try:
+            msg = strerror(errno)
+        except ValueError:
+            msg = u'error %d' % errno
+        w_errno = space.newint(errno)
+        w_winerror = space.w_None
+        w_msg = space.newunicode(msg)
+
+    if w_filename is None:
+        w_filename = space.w_None
+    if w_filename2 is None:
+        w_filename2 = space.w_None
+    w_error = space.call_function(w_exc, w_errno, w_msg, w_filename,
+                                  w_winerror, w_filename2)
     operror = OperationError(w_exc, w_error)
     if eintr_retry:
         raise operror
