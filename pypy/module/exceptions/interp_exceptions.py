@@ -443,10 +443,10 @@ class W_OSError(W_Exception):
     """OS system call failed."""
 
     def __init__(self, space):
-        self.w_errno = space.w_None
-        self.w_strerror = space.w_None
-        self.w_filename = space.w_None
-        self.w_filename2 = space.w_None
+        self.w_errno = None
+        self.w_strerror = None
+        self.w_filename = None
+        self.w_filename2 = None
         self.written = -1  # only for BlockingIOError.
         W_BaseException.__init__(self, space)
 
@@ -556,9 +556,9 @@ class W_OSError(W_Exception):
     # since we rebind args_w, we need special reduce, grump
     def descr_reduce(self, space):
         extra = []
-        if not space.is_w(self.w_filename, space.w_None):
+        if self.w_filename:
             extra.append(self.w_filename)
-            if not space.is_w(self.w_filename2, space.w_None):
+            if self.w_filename2:
                 extra.append(space.w_None)
                 extra.append(self.w_filename2)
         lst = [self.getclass(space), space.newtuple(self.args_w + extra)]
@@ -567,25 +567,26 @@ class W_OSError(W_Exception):
         return space.newtuple(lst)
 
     def descr_str(self, space):
-        if (not space.is_w(self.w_errno, space.w_None) and
-            not space.is_w(self.w_strerror, space.w_None)):
+        if self.w_errno:
             errno = space.unicode_w(space.str(self.w_errno))
+        else:
+            errno = u""
+        if self.w_strerror:
             strerror = space.unicode_w(space.str(self.w_strerror))
-            if not space.is_w(self.w_filename, space.w_None):
-                if not space.is_w(self.w_filename2, space.w_None):
-                    return space.newunicode(u"[Errno %s] %s: %s -> %s" % (
-                        errno,
-                        strerror,
-                        space.unicode_w(space.repr(self.w_filename)),
-                        space.unicode_w(space.repr(self.w_filename2))))
-                return space.newunicode(u"[Errno %s] %s: %s" % (
-                    errno,
-                    strerror,
-                    space.unicode_w(space.repr(self.w_filename))))
+        else:
+            strerror = u""
+        if self.w_filename:
+            if self.w_filename2:
+                return space.newunicode(u"[Errno %s] %s: %s -> %s" % (
+                    errno, strerror,
+                    space.unicode_w(space.repr(self.w_filename)),
+                    space.unicode_w(space.repr(self.w_filename2))))
+            return space.newunicode(u"[Errno %s] %s: %s" % (
+                errno, strerror,
+                space.unicode_w(space.repr(self.w_filename))))
+        if self.w_errno and self.w_strerror:
             return space.newunicode(u"[Errno %s] %s" % (
-                errno,
-                strerror,
-            ))
+                errno, strerror))
         return W_BaseException.descr_str(self, space)
 
     def descr_get_written(self, space):
@@ -637,7 +638,7 @@ class W_WindowsError(W_OSError):
             not space.is_w(self.w_strerror, space.w_None)):
             winerror = space.int_w(self.w_winerror)
             strerror = space.unicode_w(self.w_strerror)
-            if not space.is_w(self.w_filename, space.w_None):
+            if self.w_filename:
                 return space.newunicode(u"[Error %d] %s: %s" % (
                     winerror,
                     strerror,
