@@ -465,10 +465,10 @@ def sleep(space, secs):
             main_thread = space.fromcache(State).main_thread
             interruptible = (main_thread == thread.get_ident())
             millisecs = int(secs * 1000)
-            if millisecs == 0.0 or not interruptible:
+            if millisecs == 0 or not interruptible:
                 rtime.sleep(secs)
                 break
-            MAX = sys.maxint / 1000.0  # > 24 days
+            MAX = int(sys.maxint / 1000)  # > 24 days
             if millisecs > MAX:
                 millisecs = MAX
             interrupt_event = space.fromcache(State).get_interrupt_event()
