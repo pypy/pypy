@@ -810,6 +810,9 @@ def FLSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC, FLAGS):
         wrapper = None
     else:
         wrapper = globals().get(WRAPPER, Ellipsis)
+        if wrapper is Ellipsis:
+            assert WRAPPER.endswith('_XXX'), (
+                "no wrapper function called %r in slotdefs.py" % WRAPPER)
 
     # irregular interface, because of tp_getattr/tp_getattro confusion
     if NAME == "__getattr__":
@@ -826,6 +829,7 @@ def FLSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC, FLAGS):
         if wrapper is Ellipsis:
             @func_renamer(WRAPPER)
             def wrapper(space, w_self, w_args, func, w_kwds):
+                print "cpyext missing wrapper", WRAPPER, "for", NAME
                 raise NotImplementedError("Wrapper for slot " + NAME)
         wrapper1 = None
         wrapper2 = wrapper
@@ -833,6 +837,7 @@ def FLSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC, FLAGS):
         if wrapper is Ellipsis:
             @func_renamer(WRAPPER)
             def wrapper(space, w_self, w_args, func):
+                print "cpyext missing wrapper", WRAPPER, "for", NAME
                 raise NotImplementedError("Wrapper for slot " + NAME)
         wrapper1 = wrapper
         wrapper2 = None
@@ -879,15 +884,18 @@ def RBINSLOTNOTINFIX(NAME, SLOT, FUNCTION, DOC):
 # Copy new slotdefs from typeobject.c
 # Remove comments and tabs
 # Done.
+# XXX NOTE that we already tweaked that string manually!
+# Also, a few wrapper functions have a name ending in "_XXX" to mean
+# that we know it is not implemented so far.
 slotdefs_str = r"""
 static slotdef slotdefs[] = {
         SQSLOT("__len__", sq_length, slot_sq_length, wrap_lenfunc,
                "x.__len__() <==> len(x)"),
         SQSLOT("__add__", sq_concat, slot_sq_concat, wrap_binaryfunc,
           "x.__add__(y) <==> x+y"),
-        SQSLOT("__mul__", sq_repeat, NULL, wrap_indexargfunc,
+        SQSLOT("__mul__", sq_repeat, NULL, wrap_indexargfunc_XXX,
           "x.__mul__(n) <==> x*n"),
-        SQSLOT("__rmul__", sq_repeat, NULL, wrap_indexargfunc,
+        SQSLOT("__rmul__", sq_repeat, NULL, wrap_indexargfunc_XXX,
           "x.__rmul__(n) <==> n*x"),
         SQSLOT("__getitem__", sq_item, slot_sq_item, wrap_sq_item,
                "x.__getitem__(y) <==> x[y]"),
@@ -904,7 +912,7 @@ static slotdef slotdefs[] = {
                "x.__setslice__(i, j, y) <==> x[i:j]=y\n\
                \n\
                Use  of negative indices is not supported."),
-        SQSLOT("__delslice__", sq_ass_slice, slot_sq_ass_slice, wrap_delslice,
+        SQSLOT("__delslice__", sq_ass_slice, slot_sq_ass_slice, wrap_delslice_XXX,
                "x.__delslice__(i, j) <==> del x[i:j]\n\
                \n\
                Use of negative indices is not supported."),
@@ -913,7 +921,7 @@ static slotdef slotdefs[] = {
         SQSLOT("__iadd__", sq_inplace_concat, NULL,
           wrap_binaryfunc, "x.__iadd__(y) <==> x+=y"),
         SQSLOT("__imul__", sq_inplace_repeat, NULL,
-          wrap_indexargfunc, "x.__imul__(y) <==> x*=y"),
+          wrap_indexargfunc_XXX, "x.__imul__(y) <==> x*=y"),
 
         MPSLOT("__len__", mp_length, slot_mp_length, wrap_lenfunc,
                "x.__len__() <==> len(x)"),
@@ -972,7 +980,7 @@ static slotdef slotdefs[] = {
         RBINSLOT("__rxor__", nb_xor, slot_nb_xor, "^"),
         BINSLOT("__or__", nb_or, slot_nb_or, "|"),
         RBINSLOT("__ror__", nb_or, slot_nb_or, "|"),
-        NBSLOT("__coerce__", nb_coerce, slot_nb_coerce, wrap_coercefunc,
+        NBSLOT("__coerce__", nb_coerce, slot_nb_coerce, wrap_coercefunc_XXX,
                "x.__coerce__(y) <==> coerce(x, y)"),
         UNSLOT("__int__", nb_int, slot_nb_int, wrap_unaryfunc,
                "int(x)"),
