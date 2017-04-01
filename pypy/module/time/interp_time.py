@@ -448,7 +448,9 @@ def _get_error_msg():
     return _strerror(errno)
 
 from errno import EINTR
-from rpython.rlib.rtime import c_select
+if not _WIN:
+    from rpython.rlib.rtime import c_select
+from rpython.rlib import rwin32
 
 @unwrap_spec(secs=float)
 def sleep(space, secs):
