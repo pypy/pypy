@@ -468,6 +468,9 @@ def sleep(space, secs):
             if millisecs == 0.0 or not interruptible:
                 rtime.sleep(secs)
                 break
+            MAX = sys.maxint / 1000.0  # > 24 days
+            if millisecs > MAX:
+                millisecs = MAX
             interrupt_event = space.fromcache(State).get_interrupt_event()
             rwin32.ResetEvent(interrupt_event)
             rc = rwin32.WaitForSingleObject(interrupt_event, millisecs)
