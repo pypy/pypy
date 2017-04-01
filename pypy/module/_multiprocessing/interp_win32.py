@@ -4,7 +4,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
-from pypy.interpreter.error import oefmt, wrap_windowserror
+from pypy.interpreter.error import oefmt, wrap_oserror
 from pypy.interpreter.function import StaticMethod
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.module._multiprocessing.interp_connection import w_handle
@@ -106,7 +106,7 @@ _Sleep = rwin32.winexternal(
 def CloseHandle(space, w_handle):
     handle = handle_w(space, w_handle)
     if not rwin32.CloseHandle(handle):
-        raise wrap_windowserror(space, rwin32.lastSavedWindowsError())
+        raise wrap_oserror(space, rwin32.lastSavedWindowsError())
 
 def GetLastError(space):
     return space.newint(rwin32.GetLastError_saved())
@@ -126,7 +126,7 @@ def CreateNamedPipe(space, name, openmode, pipemode, maxinstances,
         outputsize, inputsize, timeout, rffi.NULL)
 
     if handle == rwin32.INVALID_HANDLE_VALUE:
-        raise wrap_windowserror(space, rwin32.lastSavedWindowsError())
+        raise wrap_oserror(space, rwin32.lastSavedWindowsError())
 
     return w_handle(space, handle)
 
@@ -136,7 +136,7 @@ def ConnectNamedPipe(space, w_handle, w_overlapped):
     if overlapped:
         raise oefmt(space.w_NotImplementedError, "expected a NULL pointer")
     if not _ConnectNamedPipe(handle, rffi.NULL):
-        raise wrap_windowserror(space, rwin32.lastSavedWindowsError())
+        raise wrap_oserror(space, rwin32.lastSavedWindowsError())
 
 def SetNamedPipeHandleState(space, w_handle, w_pipemode, w_maxinstances,
                             w_timeout):
@@ -156,7 +156,7 @@ def SetNamedPipeHandleState(space, w_handle, w_pipemode, w_maxinstances,
             statep[2] = rffi.ptradd(state, 2)
         if not _SetNamedPipeHandleState(handle, statep[0], statep[1],
                                         statep[2]):
-            raise wrap_windowserror(space, rwin32.lastSavedWindowsError())
+            raise wrap_oserror(space, rwin32.lastSavedWindowsError())
     finally:
         lltype.free(state, flavor='raw')
         lltype.free(statep, flavor='raw')
@@ -165,7 +165,7 @@ def SetNamedPipeHandleState(space, w_handle, w_pipemode, w_maxinstances,
 def WaitNamedPipe(space, name, timeout):
     # Careful: zero means "default value specified by CreateNamedPipe()"
     if not _WaitNamedPipe(name, timeout):
-        raise wrap_windowserror(space, rwin32.lastSavedWindowsError())
+        raise wrap_oserror(space, rwin32.lastSavedWindowsError())
 
 @unwrap_spec(filename='fsencode', access=r_uint, share=r_uint,
              disposition=r_uint, flags=r_uint)
@@ -180,7 +180,7 @@ def CreateFile(space, filename, access, share, w_security,
                          disposition, flags, rwin32.NULL_HANDLE)
 
     if handle == rwin32.INVALID_HANDLE_VALUE:
-        raise wrap_windowserror(space, rwin32.lastSavedWindowsError())
+        raise wrap_oserror(space, rwin32.lastSavedWindowsError())
 
     return w_handle(space, handle)
 

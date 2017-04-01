@@ -39,7 +39,7 @@ if _WIN:
     # timeout.  On Ctrl-C, the signal handler is called, the event is set,
     # and the wait function exits.
     from rpython.rlib import rwin32
-    from pypy.interpreter.error import wrap_windowserror, wrap_oserror
+    from pypy.interpreter.error import wrap_oserror
     from rpython.rlib import rthread as thread
 
     eci = ExternalCompilationInfo(
@@ -101,9 +101,9 @@ if _WIN:
                 globalState.interrupt_event = rwin32.CreateEvent(
                     rffi.NULL, True, False, rffi.NULL)
             except WindowsError as e:
-                raise wrap_windowserror(space, e)
+                raise wrap_oserror(space, e)
             if not _setCtrlHandlerRoutine(globalState.interrupt_event):
-                raise wrap_windowserror(space,
+                raise wrap_oserror(space,
                     rwin32.lastSavedWindowsError("SetConsoleCtrlHandler"))
 
     globalState = GlobalState()
@@ -911,7 +911,7 @@ if HAS_MONOTONIC:
                                                   is_time_adjustment_disabled)
                     if not ok:
                         # Is this right? Cargo culting...
-                        raise wrap_windowserror(space,
+                        raise wrap_oserror(space,
                             rwin32.lastSavedWindowsError("GetSystemTimeAdjustment"))
                     resolution = resolution * time_increment[0]
                 _setinfo(space, w_info, implementation, resolution, True, False)
@@ -1020,7 +1020,7 @@ if _WIN:
             worked = GetProcessTimes(current_process, creation_time, exit_time,
                                      kernel_time, user_time)
             if not worked:
-                raise wrap_windowserror(space,
+                raise wrap_oserror(space,
                     rwin32.lastSavedWindowsError("GetProcessTimes"))
             kernel_time2 = (kernel_time.c_dwLowDateTime |
                             r_ulonglong(kernel_time.c_dwHighDateTime) << 32)
