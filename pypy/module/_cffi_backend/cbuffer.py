@@ -79,20 +79,20 @@ class MiniBuffer(W_Root):
         if space.isinstance_w(w_other, space.w_unicode):
             return space.w_NotImplemented
         try:
-            other_buf = space.buffer_w(w_other, space.BUF_SIMPLE)
+            other_pybuf = space.buffer_w(w_other, space.BUF_SIMPLE)
         except OperationError as e:
             if e.async(space):
                 raise
             return space.w_NotImplemented
         my_buf = self.buffer
         my_len = len(my_buf)
-        other_len = len(other_buf)
+        other_len = other_pybuf.getlength()
         if other_len != my_len:
             if mode == 'E':
                 return space.w_False
             if mode == 'N':
                 return space.w_True
-        cmp = _memcmp(my_buf, other_buf, min(my_len, other_len))
+        cmp = _memcmp(my_buf, other_pybuf.as_binary(), min(my_len, other_len))
         if cmp == 0:
             if my_len < other_len:
                 cmp = -1
