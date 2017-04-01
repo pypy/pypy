@@ -4,10 +4,10 @@ import re
 
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import widen
-from rpython.rlib import rgc # Force registration of gc.collect
+from rpython.rlib import rgc  # Force registration of gc.collect
 from pypy.module.cpyext.api import (
     slot_function, generic_cpy_call, PyObject, Py_ssize_t,
-    pypy_decl, Py_buffer, Py_bufferP, PyTypeObjectPtr, cts)
+    Py_buffer, Py_bufferP, PyTypeObjectPtr, cts)
 from pypy.module.cpyext.typeobjectdefs import (
     unaryfunc, ternaryfunc, binaryfunc,
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
@@ -793,6 +793,16 @@ def slot_from_buffer_w(space, typedef, buff_fn):
         return 0
     return buff_w
 
+missing_wrappers = ['wrap_indexargfunc', 'wrap_del']
+for name in missing_wrappers:
+    assert name not in globals()
+    def missing_wrapper(space, w_self, w_args, func, w_kwds):
+        print "cpyext: missing slot wrapper " + name
+        raise NotImplementedError("Slot wrapper " + name)
+    missing_wrapper.__name__ = name
+    globals()[name] = missing_wrapper
+
+
 PyWrapperFlag_KEYWORDS = 1
 
 class TypeSlot:
@@ -810,7 +820,7 @@ def FLSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC, FLAGS):
     if WRAPPER is None:
         wrapper = None
     else:
-        wrapper = globals().get(WRAPPER, Ellipsis)
+        wrapper = globals()[WRAPPER]
 
     # irregular interface, because of tp_getattr/tp_getattro confusion
     if NAME == "__getattr__":
@@ -824,17 +834,9 @@ def FLSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC, FLAGS):
     function = getattr(userslot, FUNCTION or '!missing', None)
     assert FLAGS == 0 or FLAGS == PyWrapperFlag_KEYWORDS
     if FLAGS:
-        if wrapper is Ellipsis:
-            @func_renamer(WRAPPER)
-            def wrapper(space, w_self, w_args, func, w_kwds):
-                raise NotImplementedError("Wrapper for slot " + NAME)
         wrapper1 = None
         wrapper2 = wrapper
     else:
-        if wrapper is Ellipsis:
-            @func_renamer(WRAPPER)
-            def wrapper(space, w_self, w_args, func):
-                raise NotImplementedError("Wrapper for slot " + NAME)
         wrapper1 = wrapper
         wrapper2 = None
     return TypeSlot(NAME, SLOT, function, wrapper1, wrapper2, DOC)

@@ -16,12 +16,12 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert 'foo' in sys.modules
         assert "copy" in dir(module.fooType)
         obj = module.new()
-        print(obj.foo)
+        #print(obj.foo)
         assert obj.foo == 42
-        print("Obj has type", type(obj))
+        #print("Obj has type", type(obj))
         assert type(obj) is module.fooType
-        print("type of obj has type", type(type(obj)))
-        print("type of type of obj has type", type(type(type(obj))))
+        #print("type of obj has type", type(type(obj)))
+        #print("type of type of obj has type", type(type(type(obj))))
         assert module.fooType.__doc__ == "foo is for testing."
 
     def test_typeobject_method_descriptor(self):
@@ -949,6 +949,8 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             pass
         class foo(f2, f1):
             pass
+
+        x = foo()
         assert bar.__base__ is f2
         # On cpython, the size changes.
         if '__pypy__' in sys.builtin_module_names:
@@ -1159,8 +1161,8 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                   ((PyHeapTypeObject*)Base2)->ht_name = dummyname;
                   ((PyHeapTypeObject*)Base12)->ht_name = dummyname;
                 }
-                #endif 
-                #endif 
+                #endif
+                #endif
                 Base1->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
                 Base2->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
                 Base12->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE;
@@ -1197,3 +1199,14 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             pass
         bases = module.foo(C)
         assert bases == (A, B)
+
+    def test_getattr_getattro(self):
+        module = self.import_module(name='foo')
+        assert module.gettype2.dcba == b'getattro:dcba'
+        assert (type(module.gettype2).__getattribute__(module.gettype2, 'dcBA')
+            == b'getattro:dcBA')
+        assert module.gettype1.abcd == b'getattr:abcd'
+        # GetType1 objects have a __getattribute__ method, but this
+        # doesn't call tp_getattr at all, also on CPython
+        raises(AttributeError, type(module.gettype1).__getattribute__,
+                               module.gettype1, 'dcBA')

@@ -60,6 +60,7 @@ class X86VectorExt(VectorExt):
 
 class VectorAssemblerMixin(object):
     _mixin_ = True
+    element_ones = []    # overridden in assembler.py
 
     def setup_once_vector(self):
         pass
@@ -342,6 +343,7 @@ class VectorAssemblerMixin(object):
         else:
             assert lhsloc is xmm0
             maskloc = X86_64_XMM_SCRATCH_REG
+            assert len(self.element_ones) > 0
             self.mc.MOVAPD(maskloc, heap(self.element_ones[get_scale(size)]))
             self.mc.PXOR(resloc, resloc)
             # note that resloc contains true false for each element by the last compare operation

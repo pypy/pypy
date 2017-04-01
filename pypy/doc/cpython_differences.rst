@@ -364,6 +364,24 @@ cannot have several of them in a set, unlike in CPython.  (Issue `#1974`__)
 
 .. __: https://bitbucket.org/pypy/pypy/issue/1974/different-behaviour-for-collections-of
 
+Performance Differences
+-------------------------
+
+CPython has an optimization that can make repeated string concatenation not
+quadratic. For example, this kind of code runs in O(n) time::
+
+    s = ''
+    for string in mylist:
+        s += string
+
+In PyPy, this code will always have quadratic complexity. Note also, that the
+CPython optimization is brittle and can break by having slight variations in
+your code anyway. So you should anyway replace the code with::
+
+    parts = []
+    for string in mylist:
+        parts.append(string)
+    s = "".join(parts)
 
 Miscellaneous
 -------------

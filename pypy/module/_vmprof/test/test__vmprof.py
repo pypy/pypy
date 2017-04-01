@@ -24,10 +24,11 @@ class AppTestVMProf(object):
             i += 5 * WORD # header
             assert s[i    ] == 5    # MARKER_HEADER
             assert s[i + 1] == 0    # 0
-            assert s[i + 2] == 2    # VERSION_THREAD_ID
-            assert s[i + 3] == 4    # len('pypy')
-            assert s[i + 4: i + 8] == b'pypy'
-            i += 8
+            assert s[i + 2] == 6    # VERSION_TIMESTAMP
+            assert s[i + 3] == 8    # PROFILE_RPYTHON
+            assert s[i + 4] == 4    # len('pypy')
+            assert s[i + 5: i + 9] == b'pypy'
+            i += 9
             while i < len(s):
                 if s[i] == 3:
                     break
@@ -41,6 +42,17 @@ class AppTestVMProf(object):
                     _, size = struct.unpack("ll", s[i:i + 2 * WORD])
                     count += 1
                     i += 2 * WORD + size
+                elif s[i] == '\x06':
+                    print(s[i:i+24])
+                    i += 1+8+8+8
+                elif s[i] == '\x07':
+                    i += 1
+                    # skip string
+                    size, = struct.unpack("l", s[i:i + WORD])
+                    i += WORD+size
+                    # skip string
+                    size, = struct.unpack("l", s[i:i + WORD])
+                    i += WORD+size
                 else:
                     raise AssertionError(s[i])
             return count
@@ -48,7 +60,7 @@ class AppTestVMProf(object):
         import _vmprof
         gc.collect()  # try to make the weakref list deterministic
         gc.collect()  # by freeing all dead code objects
-        _vmprof.enable(tmpfileno, 0.01)
+        _vmprof.enable(tmpfileno, 0.01, 0, 0, 0)
         _vmprof.disable()
         s = open(self.tmpfilename, 'rb').read()
         no_of_codes = count(s)
@@ -64,7 +76,7 @@ class AppTestVMProf(object):
 
         gc.collect()
         gc.collect()
-        _vmprof.enable(tmpfileno2, 0.01)
+        _vmprof.enable(tmpfileno2, 0.01, 0, 0, 0)
 
         exec_("""def foo2():
             pass
@@ -79,9 +91,9 @@ class AppTestVMProf(object):
 
     def test_enable_ovf(self):
         import _vmprof
-        raises(_vmprof.VMProfError, _vmprof.enable, 2, 0)
-        raises(_vmprof.VMProfError, _vmprof.enable, 2, -2.5)
-        raises(_vmprof.VMProfError, _vmprof.enable, 2, 1e300)
-        raises(_vmprof.VMProfError, _vmprof.enable, 2, 1e300 * 1e300)
+        raises(_vmprof.VMProfError, _vmprof.enable, 2, 0, 0, 0, 0)
+        raises(_vmprof.VMProfError, _vmprof.enable, 2, -2.5, 0, 0, 0)
+        raises(_vmprof.VMProfError, _vmprof.enable, 2, 1e300, 0, 0, 0)
+        raises(_vmprof.VMProfError, _vmprof.enable, 2, 1e300 * 1e300, 0, 0, 0)
         NaN = (1e300*1e300) / (1e300*1e300)
-        raises(_vmprof.VMProfError, _vmprof.enable, 2, NaN)
+        raises(_vmprof.VMProfError, _vmprof.enable, 2, NaN, 0, 0, 0)

@@ -57,6 +57,7 @@ explained below; then you can directly use pip inside virtualenvs):
 .. code-block:: console
 
     $ ./pypy-xxx/bin/pypy -m ensurepip
+    $ ./pypy-xxx/bin/pip install -U pip wheel # to upgrade to the latest versions
     $ ./pypy-xxx/bin/pip install pygments  # for example
 
 Third party libraries will be installed in ``pypy-xxx/site-packages``, and
@@ -77,7 +78,17 @@ checkout::
 	# from the mercurial checkout
 	$ virtualenv -p /path/to/pypy/pypy/translator/goal/pypy-c my-pypy-env
 
-Note that bin/python is now a symlink to bin/pypy.
+	# in any case activate it
+	$ source my-pypy-env/bin/activate
+
+Note that my-pypy-env/bin/python is now a symlink to my-pypy-env/bin/pypy
+so you should be able to run pypy simply by typing::
+
+    $ python
+
+You should still upgrade pip and wheel to the latest versions via::
+
+    $ my-pypy-env/bin/pip install -U pip wheel
 
 .. _pip: http://pypi.python.org/pypi/pip
 .. _ensurepip: https://docs.python.org/2.7/library/ensurepip.html

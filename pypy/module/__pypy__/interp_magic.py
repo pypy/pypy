@@ -106,13 +106,15 @@ def validate_fd(space, fd):
         raise wrap_oserror(space, e)
 
 @unwrap_spec(sizehint=int)
-def resizelist_hint(space, w_iterable, sizehint):
-    if not isinstance(w_iterable, W_ListObject):
+def resizelist_hint(space, w_list, sizehint):
+    """ Reallocate the underlying storage of the argument list to sizehint """
+    if not isinstance(w_list, W_ListObject):
         raise oefmt(space.w_TypeError, "arg 1 must be a 'list'")
-    w_iterable._resize_hint(sizehint)
+    w_list._resize_hint(sizehint)
 
 @unwrap_spec(sizehint=int)
 def newlist_hint(space, sizehint):
+    """ Create a new empty list that has an underlying storage of length sizehint """
     return space.newlist_hint(sizehint)
 
 @unwrap_spec(debug=int)
@@ -125,6 +127,9 @@ def set_debug(space, debug):
 
 @unwrap_spec(estimate=int)
 def add_memory_pressure(estimate):
+    """ Add memory pressure of estimate bytes. Useful when calling a C function
+    that internally allocates a big chunk of memory. This instructs the GC to
+    garbage collect sooner than it would otherwise."""
     rgc.add_memory_pressure(estimate)
 
 @unwrap_spec(w_frame=PyFrame)

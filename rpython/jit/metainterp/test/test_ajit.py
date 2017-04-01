@@ -4637,8 +4637,8 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
 
         self.meta_interp(f, [10])
 
-    @py.test.skip("loops!")
     def test_finalizer_bug(self):
+        py.test.skip("loops!")
         from rpython.rlib import rgc
         driver = JitDriver(greens=[], reds=[])
         class Fin(object):

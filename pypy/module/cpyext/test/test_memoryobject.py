@@ -187,6 +187,10 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
                           " on too long format string"
         finally:
             warnings.resetwarnings()
+        # calling get_buffer_info on x creates a memory leak,
+        # which is detected as an error at test teardown:
+        # Exception TypeError: "'NoneType' object is not callable"
+        #         in <bound method ConcreteArray.__del__ ...> ignored
 
     def test_releasebuffer(self):
         if not self.runappdirect:
