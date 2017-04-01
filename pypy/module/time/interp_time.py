@@ -588,10 +588,10 @@ def _gettmarg(space, w_tup, allowNone=True):
     rffi.setintfield(glob_buf, 'c_tm_yday', tm_yday)
     rffi.setintfield(glob_buf, 'c_tm_isdst', space.c_int_w(tup_w[8]))
     #
-    old_tm_zone = glob_buf.c_tm_zone
-    glob_buf.c_tm_zone = lltype.nullptr(rffi.CCHARP.TO)
-    rffi.setintfield(glob_buf, 'c_tm_gmtoff', 0)
     if HAS_TM_ZONE :
+        old_tm_zone = glob_buf.c_tm_zone
+        glob_buf.c_tm_zone = lltype.nullptr(rffi.CCHARP.TO)
+        rffi.setintfield(glob_buf, 'c_tm_gmtoff', 0)
         if len(tup_w) >= 10:
             # NOTE this is not cleanly solved!
             # it saves the string that is later deleted when this
