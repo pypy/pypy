@@ -752,25 +752,24 @@ def test_pwrite():
     py.test.raises(OSError, rposix.pwrite, fd, b'ea', 1)
 
 @rposix_requires('posix_fadvise')
-def posix_fadvise():
+def test_posix_fadvise():
     fname = str(udir.join('test_os_posix_fadvise'))
     localdir = os.getcwd()
-    os.mkdir(self.path2 + 'test_os_posix_fadvise')
+    os.mkdir(fname)
     try:
         fd = os.open(fname, os.O_RDONLY, 0777)
         try:
             mypath = os.getcwd()
             assert rposix.posix_fadvise(fd, 0, 0, rposix.POSIX_FADV_WILLNEED) == 0
             assert rposix.posix_fadvise(fd, 0, 0, rposix.POSIX_FADV_NORMAL) == 0
-            assert rposix.posix_fadvise(fd, 0, 0, rPOSIX_FADV_SEQUENTIAL) == 0
+            assert rposix.posix_fadvise(fd, 0, 0, rposix.POSIX_FADV_SEQUENTIAL) == 0
             assert rposix.posix_fadvise(fd, 0, 0, rposix.POSIX_FADV_RANDOM) == 0
             assert rposix.posix_fadvise(fd, 0, 0, rposix.POSIX_FADV_NOREUSE) == 0
-            assert rposix.posix_fadvise(fd, 0, 0, rPOSIX_FADV_DONTNEED) == 0
+            assert rposix.posix_fadvise(fd, 0, 0, rposix.POSIX_FADV_DONTNEED) == 0
         finally:
             os.close(fd)
     finally:
         os.chdir(localdir)
-    py.test.raises(OSError, rposix.posix_fadvise, fd, 0, 0, rPOSIX_FADV_DONTNEED)
 
 @rposix_requires('posix_fallocate')
 def test_posix_fallocate():
