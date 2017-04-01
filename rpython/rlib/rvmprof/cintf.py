@@ -22,28 +22,30 @@ separate_module_files = [
     SHARED.join('symboltable.c')
 ]
 if sys.platform.startswith('linux'):
-    separate_module_files += [
-       BACKTRACE.join('backtrace.c'),
-       BACKTRACE.join('state.c'),
-       BACKTRACE.join('elf.c'),
-       BACKTRACE.join('dwarf.c'),
-       BACKTRACE.join('fileline.c'),
-       BACKTRACE.join('mmap.c'),
-       BACKTRACE.join('mmapio.c'),
-       BACKTRACE.join('posix.c'),
-       BACKTRACE.join('sort.c'),
-    ]
+    if sys.maxint > 2**32:     # doesn't seem to compile on 32-bit Linux
+        separate_module_files += [
+           BACKTRACE.join('backtrace.c'),
+           BACKTRACE.join('state.c'),
+           BACKTRACE.join('elf.c'),
+           BACKTRACE.join('dwarf.c'),
+           BACKTRACE.join('fileline.c'),
+           BACKTRACE.join('mmap.c'),
+           BACKTRACE.join('mmapio.c'),
+           BACKTRACE.join('posix.c'),
+           BACKTRACE.join('sort.c'),
+        ]
+        compile_extra += ['-DVMPROF_BACKTRACE']
     _libs = ['dl']
     compile_extra += ['-DVMPROF_UNIX']
     compile_extra += ['-DVMPROF_LINUX']
-elif sys.platform == 'darwin':
-    compile_extra += ['-DVMPROF_UNIX']
-    compile_extra += ['-DVMPROF_MAC']
-    _libs = []
-else:
-    # windows
+elif sys.platform == 'win32':
     compile_extra = ['-DRPYTHON_VMPROF', '-DVMPROF_WINDOWS']
     separate_module_files = [SHARED.join('vmprof_main_win32.c')]
+    _libs = []
+else:
+    # Guessing a BSD-like Unix platform
+    compile_extra += ['-DVMPROF_UNIX']
+    compile_extra += ['-DVMPROF_MAC']
     _libs = []
 
 

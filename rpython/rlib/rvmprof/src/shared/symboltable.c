@@ -8,7 +8,7 @@
 #include <stdlib.h>
 
 #include <dlfcn.h>
-#ifdef VMPROF_LINUX
+#ifdef VMPROF_BACKTRACE
 #include <link.h>
 #endif
 
@@ -215,7 +215,7 @@ int vmp_resolve_addr(void * addr, char * name, int name_len, int * lineno, char 
         name[name_len-1] = 0;
     }
     lookup_vmprof_debug_info(name, info.dli_fbase, srcfile, srcfile_len, lineno);
-#elif defined(__unix__)
+#elif defined(RVMPROF_BACKTRACE)
     if (bstate == NULL) {
         bstate = backtrace_create_state (NULL, 1, backtrace_error_cb, NULL);
     }
