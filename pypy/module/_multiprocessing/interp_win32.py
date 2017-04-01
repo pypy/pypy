@@ -35,7 +35,7 @@ def handle_w(space, w_handle):
     return rffi.cast(rwin32.HANDLE, space.int_w(w_handle))
 
 def w_handle(space, handle):
-    return space.wrap(rffi.cast(rffi.INTPTR_T, handle))
+    return space.newint(rffi.cast(rffi.INTPTR_T, handle))
 
 _CreateNamedPipe = rwin32.winexternal(
     'CreateNamedPipeA', [
