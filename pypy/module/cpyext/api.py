@@ -651,7 +651,7 @@ def build_exported_objects():
     global all_exceptions
     all_exceptions = list(exceptions.Module.interpleveldefs)
     for exc_name in all_exceptions:
-        if exc_name in ('EnvironmentError', 'IOError'):
+        if exc_name in ('EnvironmentError', 'IOError', 'WindowsError'):
             # FIXME: aliases of OSError cause a clash of names via
             # export_struct
             continue
