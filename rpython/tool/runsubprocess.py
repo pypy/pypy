@@ -49,7 +49,7 @@ def _run(executable, args, env, cwd):
     pipe = Popen(args, stdout=PIPE, stderr=PIPE, shell=shell, env=env, cwd=cwd)
     stdout, stderr = pipe.communicate()
     if (sys.platform == 'win32' and pipe.returncode == 1 and 
-        'is not recognized' in stderr):
+        b'is not recognized' in stderr):
         # Setting shell=True on windows messes up expected exceptions
         raise EnvironmentError(stderr)
     return pipe.returncode, stdout, stderr
