@@ -728,13 +728,14 @@ initfoo(void)
     if (module == NULL)
         INITERROR;
 
-    footype.tp_new = PyType_GenericNew;
-
     UnicodeSubtype.tp_base = &PyUnicode_Type;
     UnicodeSubtype2.tp_base = &UnicodeSubtype;
     MetaType.tp_base = &PyType_Type;
 
-    if (PyType_Ready(&footype) < 0)
+    fooType.tp_new = &new_fooType;
+    InitErrType.tp_new = PyType_GenericNew;
+
+    if (PyType_Ready(&fooType) < 0)
         INITERROR;
     if (PyType_Ready(&UnicodeSubtype) < 0)
         INITERROR;
