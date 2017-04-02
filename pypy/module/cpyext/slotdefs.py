@@ -795,7 +795,7 @@ def slot_from_buffer_w(space, typedef, buff_fn):
 missing_wrappers = ['wrap_indexargfunc', 'wrap_delslice', 'wrap_coercefunc']
 for name in missing_wrappers:
     assert name not in globals()
-    def missing_wrapper(space, w_self, w_args, func, w_kwds):
+    def missing_wrapper(space, w_self, w_args, func):
         print "cpyext: missing slot wrapper " + name
         raise NotImplementedError("Slot wrapper " + name)
     missing_wrapper.__name__ = name
