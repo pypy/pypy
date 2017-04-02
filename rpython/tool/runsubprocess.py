@@ -15,7 +15,7 @@ else:
     text = str
 
 def run_subprocess(executable, args, env=None, cwd=None):
-    if isinstance(args, list):
+    if isinstance(args, list) and sys.platform != 'win32':
         args = [a.encode('latin1') if isinstance(a, text) else a
                 for a in args]
     return _run(executable, args, env, cwd)
