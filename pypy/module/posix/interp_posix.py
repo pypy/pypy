@@ -401,6 +401,30 @@ def pwrite(space, fd, w_data, offset):
         else:
             return space.newint(res)
 
+@unwrap_spec(fd=c_int, length=r_longlong, offset=r_longlong)
+def posix_fallocate(space, fd, offset, length):
+    """allocate file space .
+    """
+    while True:
+        try:
+            s = rposix.posix_fallocate(fd, offset, length)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+           return space.newint(s)
+
+@unwrap_spec(fd=c_int, offset=r_longlong, length=r_longlong, advice=int)
+def posix_fadvise(space, fd, offset, length, advice):
+    """predeclare an access pattern for file data .
+    """
+    while True:
+        try:
+            res = rposix.posix_fadvise(fd, offset, length, advice)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+            return space.newint(res)
+
 # ____________________________________________________________
 
 STAT_FIELDS = unrolling_iterable(enumerate(rposix_stat.STAT_FIELDS))
