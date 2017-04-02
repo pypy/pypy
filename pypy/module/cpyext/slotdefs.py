@@ -1063,6 +1063,7 @@ static slotdef slotdefs[] = {
            wrap_indexargfunc,
            "__imul__($self, value, /)\n--\n\nImplement self*=value."),
 
+        TPSLOT("__getattr__", tp_getattr, NULL, NULL, ""),
     {NULL}
 };
 """
