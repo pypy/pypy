@@ -1007,6 +1007,8 @@ class AbstractTypedStrategy(object):
             else:
                 return d.pop(key, w_default)
         elif self._never_equal_to(space.type(w_key)):
+            if w_default is not None:
+                return w_default
             raise KeyError
         else:
             self.switch_to_object_strategy(w_dict)

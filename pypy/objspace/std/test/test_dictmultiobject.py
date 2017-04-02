@@ -227,6 +227,10 @@ class AppTest_DictObject:
         assert len(dd) == 1
         raises(KeyError, dd.pop, 33)
 
+        assert d.pop("abc", None) is None
+        raises(KeyError, d.pop, "abc")
+        assert len(d) == 2
+
     def test_items(self):
         d = {1: 2, 3: 4}
         its = list(d.items())
