@@ -29,6 +29,12 @@
 
 #define DYN_JIT_FLAG 0xbeefbeef
 
+#ifdef _WIN32
+#ifndef VMPROF_WINDOWS
+#define VMPROF_WINDOWS
+#endif
+#endif
+
 #ifdef VMPROF_UNIX
 #define VMP_SUPPORTS_NATIVE_PROFILING
 #endif

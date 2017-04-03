@@ -1,5 +1,7 @@
 #pragma once
 
+#include "vmprof.h"
+
 #ifdef VMPROF_WINDOWS
 #include "msiinttypes/stdint.h"
 #else
