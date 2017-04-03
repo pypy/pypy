@@ -190,12 +190,16 @@ intptr_t vmprof_get_traceback(void *stack, void *ucontext,
     if (stack == NULL) {
         stack = get_vmprof_stack();
     }
+#ifdef VMP_SUPPORTS_NATIVE_PROFILING
     enabled = vmp_native_enabled();
     vmp_native_disable();
+#endif
     n = get_stack_trace(stack, result_p, result_length - 2, pc);
+#ifdef VMP_SUPPORTS_NATIVE_PROFILING
     if (enabled) {
         vmp_native_enable();
     }
+#endif
     return (intptr_t)n;
 }
 #endif
