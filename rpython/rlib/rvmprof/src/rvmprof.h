@@ -35,6 +35,15 @@ RPY_EXTERN int vmprof_stack_append(void*, long);
 RPY_EXTERN long vmprof_stack_pop(void*);
 RPY_EXTERN void vmprof_stack_free(void*);
 RPY_EXTERN intptr_t vmprof_get_traceback(void *, void *, intptr_t*, intptr_t);
+/**
+ * Registers the first argument as a evaluation function. If NULL is provided,
+ * it resets the registers eval functions.
+ *
+ * Note that a maximum of 5 evaluation functions is supported.
+ *
+ * Return 0 on success, any other value on failure.
+ */
+RPY_EXTERN int vmprof_register_eval(void *);
 
 long vmprof_write_header_for_jit_addr(intptr_t *result, long n,
                                       intptr_t addr, int max_depth);

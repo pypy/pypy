@@ -97,6 +97,10 @@ def setup():
                                   lltype.Signed, compilation_info=eci,
                                   _nowrapper=True)
 
+    vmprof_register_eval = rffi.llexternal("vmprof_register_eval",
+                                           [rffi.VOIDP], rffi.INT,
+                                           compilation_info=eci)
+
     return CInterface(locals())
 
 

@@ -20,12 +20,32 @@
 #include "shared/vmprof_main_win32.h"
 #endif
 
+int _vmprof_eval_count = 0;
+void _vmprof_eval_funcs[5];
 
-#ifdef RPYTHON_LL2CTYPES
-int IS_VMPROF_EVAL(void * ptr) { return 0; }
-#else
+int vmprof_register_eval(void * function)
+{
+    if (_vmprof_eval_count >= 5) {
+        fprintf(stderr, "WARNING: cannot register more than 5 rpython interpreter " \
+                        "evaluation functions (you can increase the amount in rvmprof.c)\n");
+        return -1;
+    }
+    if (function == NULL) { 
+        _vmprof_eval_count = 0;
+    } else {
+        _vmprof_eval_funcs[_vmprof_eval_count++] = function;
+    }
+
+    return 0;
+}
+
 int IS_VMPROF_EVAL(void * ptr)
 {
-    return ptr == __vmprof_eval_vmprof;
+    int i = 0;
+    for (i = 0; i < _vmprof_eval_count; i++) {
+        if (ptr == _vmprof_eval_funcs[i]) {
+            return 1;
+        }
+    }
+    return 0;
 }
-#endif
