@@ -8,7 +8,7 @@ due to the following issues:
   * correctly handle an edge case in dict.pop (issue 2508_)
 
   * fix a regression to correctly handle multiple inheritance in a C-API type
-    where the seconde base is an app-level class with a ``__new__`` function
+    where the second base is an app-level class with a ``__new__`` function
 
   * fix a regression to fill a C-API type's ``tp_getattr`` slot from a
     ``__getattr__`` method (issue 2523_)
