@@ -5,13 +5,13 @@ PyPy 5.7.1
 We have released a bugfix PyPy2.7-v5.7.1 and PyPy3.5-v5.7.1 beta (Linux 64bit),
 due to the following issues:
 
-  * correctly handle an edge case in dict.pop (issue #2508_)
+  * correctly handle an edge case in dict.pop (issue 2508_)
 
   * fix a regression to correctly handle multiple inheritance in a C-API type
     where the seconde base is an app-level class with a ``__new__`` function
 
   * fix a regression to fill a C-API type's ``tp_getattr`` slot from a
-    ``__getattr__`` method (issue #2523_)
+    ``__getattr__`` method (issue 2523_)
 
 Thanks to those who reported the issues.
 
