@@ -2,10 +2,10 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
 /* ELF size: 32 or 64 */
-#define BACKTRACE_ELF_SIZE 64
+#define BACKTRACE_ELF_SIZE 32
 
 /* Define to 1 if you have the __atomic functions */
-#define HAVE_ATOMIC_FUNCTIONS 1
+/* #undef HAVE_ATOMIC_FUNCTIONS */
 
 /* Define to 1 if you have the declaration of `strnlen', and to 0 if you
    don't. */

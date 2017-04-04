@@ -1,4 +1,4 @@
-/* generated for  gcc (GCC) 6.3.1 20161221 (Red Hat 6.3.1-1) */
+/* generated for  gcc (Ubuntu/Linaro 4.6.3-1ubuntu5) 4.6.3 */
 
 #ifndef GCC_GENERATED_STDINT_H
 #define GCC_GENERATED_STDINT_H 1

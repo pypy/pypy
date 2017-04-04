@@ -23,6 +23,7 @@ separate_module_files = [
 ]
 if sys.platform.startswith('linux'):
     separate_module_files += [
+       BACKTRACE.join('atomic.c'),
        BACKTRACE.join('backtrace.c'),
        BACKTRACE.join('state.c'),
        BACKTRACE.join('elf.c'),
@@ -63,8 +64,18 @@ eci_kwds = dict(
     )
 global_eci = ExternalCompilationInfo(**eci_kwds)
 
+def configure_libbacktrace():
+    import subprocess
+    import os
+    olddir = os.getcwd()
+
+    os.chdir(str(BACKTRACE))
+    subprocess.check_call(["./configure"])
+    os.chdir(olddir)
 
 def setup():
+    configure_libbacktrace()
+
     eci_kwds['compile_extra'].append('-DRPYTHON_LL2CTYPES')
     platform.verify_eci(ExternalCompilationInfo(
                         **eci_kwds))
