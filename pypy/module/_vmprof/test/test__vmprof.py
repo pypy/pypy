@@ -43,7 +43,6 @@ class AppTestVMProf(object):
                     count += 1
                     i += 2 * WORD + size
                 elif s[i] == '\x06':
-                    print(s[i:i+24])
                     i += 1+8+8+8
                 elif s[i] == '\x07':
                     i += 1

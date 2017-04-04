@@ -240,6 +240,7 @@ def vmprof_execute_code(name, get_code_fn, result_class=None,
 
         fname = func.__name__ + '_rvmprof'
         decorated_function.__name__ = fname
+        decorated_function.c_name = fname
         EVAL_FUNC_NAMES.append(fname)
         return decorated_function
 
