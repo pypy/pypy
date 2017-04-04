@@ -86,12 +86,14 @@ class UnrollableOptimizer(Optimizer):
             if preamble_info.is_nonnull():
                 self.make_nonnull(op)
         elif isinstance(preamble_info, intutils.IntBound):
-            if preamble_info.lower > MININT/2 or preamble_info.upper < MAXINT/2:
+            fix_lo = preamble_info.has_lower and preamble_info.lower >= MININT/2
+            fix_up = preamble_info.has_upper and preamble_info.upper <= MAXINT/2
+            if fix_lo or fix_up:
                 intbound = self.getintbound(op)
-                if preamble_info.has_lower and preamble_info.lower > MININT/2:
+                if fix_lo:
                     intbound.has_lower = True
                     intbound.lower = preamble_info.lower
-                if preamble_info.has_upper and preamble_info.upper < MAXINT/2:
+                if fix_up:
                     intbound.has_upper = True
                     intbound.upper = preamble_info.upper
         elif isinstance(preamble_info, info.FloatConstInfo):
