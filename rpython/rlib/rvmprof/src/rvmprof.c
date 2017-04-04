@@ -21,7 +21,7 @@
 #endif
 
 int _vmprof_eval_count = 0;
-void _vmprof_eval_funcs[5];
+void * _vmprof_eval_funcs[5];
 
 int vmprof_register_eval(void * function)
 {

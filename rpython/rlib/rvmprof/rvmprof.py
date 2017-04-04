@@ -7,10 +7,15 @@ from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.rweaklist import RWeakListMixin
+from rpython.rlib.unroll import unrolling_iterable
 
 MAX_FUNC_NAME = 1023
 
 PLAT_WINDOWS = sys.platform == 'win32'
+
+EVAL_FUNCS = []
+EVAL_FUNC_TYPE = lltype.FuncType([rffi.VOIDP], rffi.INT)
+EVAL_FUNC_TYPE_P = lltype.Ptr(EVAL_FUNC_TYPE)
 
 # ____________________________________________________________
 
@@ -138,6 +143,15 @@ class VMProf(object):
             native = 0 # force disabled on Windows
         lines = 0 # not supported on PyPy currently
 
+        if we_are_translated():
+            # clear all evaluation functions
+            self.cintf.vmprof_register_eval(rffi.NULL)
+            from rpython.rtyper.annlowlevel import llhelper
+            # pass all known function at translation down to the c implementation
+            for eval_func in unrolling_iterable(EVAL_FUNCS):
+                addr = llhelper(EVAL_FUNC_TYPE_P, eval_func)
+                self.cintf.vmprof_register_eval(rffi.cast(rffi.VOIDP, addr))
+
         p_error = self.cintf.vmprof_init(fileno, interval, lines, memory, "pypy", native)
         if p_error:
             raise VMProfError(rffi.charp2str(p_error))
@@ -178,23 +192,6 @@ def vmprof_execute_code(name, get_code_fn, result_class=None,
     arguments given to the decorated function.
 
     'result_class' is ignored (backward compatibility).
-
-    ====================================
-    TRANSLATION NOTE CALL THIS ONLY ONCE
-    ====================================
-
-    This function can only be called once during translation.
-    It generates a C function called __vmprof_eval_vmprof which is used by
-    the vmprof C source code and is bound as an extern function.
-    This is necessary while walking the native stack.
-    If you see __vmprof_eval_vmprof defined twice during
-    translation, read on:
-
-    To remove this restriction do the following:
-
-    *) Extend the macro IS_VMPROF_EVAL in the vmprof source repo to check several
-       sybmols.
-    *) Give each function provided to this decorator a unique symbol name in C
     """
     if _hack_update_stack_untranslated:
         from rpython.rtyper.annlowlevel import llhelper
@@ -242,7 +239,7 @@ def vmprof_execute_code(name, get_code_fn, result_class=None,
                 return decorated_jitted_function(unique_id, *args)
 
         decorated_function.__name__ = func.__name__ + '_rvmprof'
-        decorated_function.c_name = '__vmprof_eval_vmprof'
+        EVAL_FUNCS.append(decorated_function)
         return decorated_function
 
     return decorate
