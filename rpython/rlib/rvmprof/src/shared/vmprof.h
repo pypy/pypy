@@ -35,14 +35,16 @@
 #endif
 #endif
 
-#ifdef VMPROF_UNIX
-#define VMP_SUPPORTS_NATIVE_PROFILING
-#endif
-
 #ifdef __x86_64__
 #define X86_64
 #elif defined(__i386__)
 #define X86_32
+#endif
+
+#ifdef VMPROF_UNIX
+#if defined(X86_64) || defined(X86_32)
+#define VMP_SUPPORTS_NATIVE_PROFILING
+#endif
 #endif
 
 #ifdef RPYTHON_VMPROF

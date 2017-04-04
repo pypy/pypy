@@ -15,11 +15,14 @@ typedef int32_t unw_sword_t;
 #define UNW_REG_IP 16
 typedef uint64_t unw_word_t;
 typedef int64_t unw_sword_t;
+#else
+// platform not supported
 #endif
 
 
 #define UNW_TDEP_CURSOR_LEN	127
 
+#ifdef VMP_SUPPORTS_NATIVE_PROFILING
 typedef struct unw_cursor
   {
     unw_word_t opaque[UNW_TDEP_CURSOR_LEN];
@@ -42,4 +45,4 @@ typedef struct unw_proc_info
 
 // end of copy
 
-
+#endif
