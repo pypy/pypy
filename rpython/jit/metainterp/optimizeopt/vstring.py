@@ -122,7 +122,8 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
 
     def make_guards(self, op, short, optimizer):
         info.AbstractVirtualPtrInfo.make_guards(self, op, short, optimizer)
-        if self.lenbound and self.lenbound.lower >= 1:
+        if (self.lenbound and
+                self.lenbound.has_lower and self.lenbound.lower >= 1):
             if self.mode is mode_string:
                 lenop = ResOperation(rop.STRLEN, [op])
             else:
