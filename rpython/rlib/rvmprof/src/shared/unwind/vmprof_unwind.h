@@ -20,9 +20,9 @@ typedef int64_t unw_sword_t;
 #endif
 
 
-#ifdef VMP_SUPPORTS_NATIVE_PROFILING
 #define UNW_TDEP_CURSOR_LEN	127
 
+#ifdef VMP_SUPPORTS_NATIVE_PROFILING
 typedef struct unw_cursor
   {
     unw_word_t opaque[UNW_TDEP_CURSOR_LEN];

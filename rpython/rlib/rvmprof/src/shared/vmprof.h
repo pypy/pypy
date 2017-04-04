@@ -47,7 +47,6 @@
 #endif
 #endif
 
-
 #ifdef RPYTHON_VMPROF
 // only for pypy
 #include "rvmprof.h"
