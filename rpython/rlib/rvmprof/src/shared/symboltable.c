@@ -8,7 +8,7 @@
 #include <stdlib.h>
 
 #include <dlfcn.h>
-#ifdef VMPROF_BACKTRACE
+#if defined(VMPROF_BACKTRACE) || defined(VMPROF_LINUX)
 #include <link.h>
 #endif
 
