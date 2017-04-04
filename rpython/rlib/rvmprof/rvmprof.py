@@ -13,7 +13,7 @@ MAX_FUNC_NAME = 1023
 
 PLAT_WINDOWS = sys.platform == 'win32'
 
-EVAL_FUNCS = []
+EVAL_FUNC_NAMES = []
 EVAL_FUNC_TYPE = lltype.FuncType([rffi.VOIDP], rffi.INT)
 EVAL_FUNC_TYPE_P = lltype.Ptr(EVAL_FUNC_TYPE)
 
@@ -148,9 +148,9 @@ class VMProf(object):
             self.cintf.vmprof_register_eval(rffi.NULL)
             from rpython.rtyper.annlowlevel import llhelper
             # pass all known function at translation down to the c implementation
-            for eval_func in unrolling_iterable(EVAL_FUNCS):
-                addr = llhelper(EVAL_FUNC_TYPE_P, eval_func)
-                self.cintf.vmprof_register_eval(rffi.cast(rffi.VOIDP, addr))
+            for c_func_name in unrolling_iterable(EVAL_FUNC_NAMES):
+                with rffi.scoped_str2charp(c_func_name) as cstr:
+                    self.cintf.vmprof_register_eval(cstr)
 
         p_error = self.cintf.vmprof_init(fileno, interval, lines, memory, "pypy", native)
         if p_error:
@@ -238,8 +238,9 @@ def vmprof_execute_code(name, get_code_fn, result_class=None,
             else:
                 return decorated_jitted_function(unique_id, *args)
 
-        decorated_function.__name__ = func.__name__ + '_rvmprof'
-        EVAL_FUNCS.append(decorated_function)
+        fname = func.__name__ + '_rvmprof'
+        decorated_function.__name__ = fname
+        EVAL_FUNC_NAMES.append(fname)
         return decorated_function
 
     return decorate

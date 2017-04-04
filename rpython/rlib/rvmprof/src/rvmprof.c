@@ -1,5 +1,9 @@
 #define _GNU_SOURCE 1
 
+#ifdef VMPROF_UNIX
+#include <dlfcn.h>
+#endif
+
 #ifdef RPYTHON_LL2CTYPES
    /* only for testing: ll2ctypes sets RPY_EXTERN from the command-line */
 
@@ -23,19 +27,27 @@
 int _vmprof_eval_count = 0;
 void * _vmprof_eval_funcs[5];
 
-int vmprof_register_eval(void * function)
+int vmprof_register_eval(const char * name)
 {
+#ifdef VMPROF_UNIX
+    void * func = NULL;
+
     if (_vmprof_eval_count >= 5) {
         fprintf(stderr, "WARNING: cannot register more than 5 rpython interpreter " \
                         "evaluation functions (you can increase the amount in rvmprof.c)\n");
         return -1;
     }
-    if (function == NULL) { 
+    if (name == NULL) { 
         _vmprof_eval_count = 0;
     } else {
-        _vmprof_eval_funcs[_vmprof_eval_count++] = function;
+        func = dlsym(RTLD_DEFAULT, name);
+        if (func == NULL) {
+            fprintf(stderr, "WARNING: could not lookup addr of '%s', dlsym returned NULL\n", name);
+            return -1;
+        }
+        _vmprof_eval_funcs[_vmprof_eval_count++] = func;
     }
-
+#endif
     return 0;
 }
 
