@@ -69,9 +69,10 @@ def configure_libbacktrace():
     import os
     olddir = os.getcwd()
 
-    os.chdir(str(BACKTRACE))
-    subprocess.check_call(["./configure"])
-    os.chdir(olddir)
+    if not BACKTRACE.join('config.h').exists():
+        os.chdir(str(BACKTRACE))
+        subprocess.check_call(["./configure"])
+        os.chdir(olddir)
 
 def setup():
     configure_libbacktrace()
