@@ -75,7 +75,8 @@ def configure_libbacktrace():
         os.chdir(olddir)
 
 def setup():
-    configure_libbacktrace()
+    if sys.platform.startswith('linux'):
+        configure_libbacktrace()
 
     eci_kwds['compile_extra'].append('-DRPYTHON_LL2CTYPES')
     platform.verify_eci(ExternalCompilationInfo(
