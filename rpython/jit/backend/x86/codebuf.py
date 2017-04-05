@@ -42,10 +42,10 @@ class MachineCodeBlockWrapper(BlockBuilderMixin,
         self.ops_offset = {}
 
     def add_pending_relocation(self):
-        self.relocations.append(self.get_relative_pos())
+        self.relocations.append(self.get_relative_pos(break_basic_block=False))
 
     def mark_op(self, op):
-        pos = self.get_relative_pos()
+        pos = self.get_relative_pos(break_basic_block=False)
         self.ops_offset[op] = pos
 
     def copy_to_raw_memory(self, addr):
@@ -64,11 +64,11 @@ class MachineCodeBlockWrapper(BlockBuilderMixin,
 
     def emit_forward_jump_cond(self, cond):
         self.J_il8(cond, 0)
-        return self.get_relative_pos()
+        return self.get_relative_pos(break_basic_block=False)
 
     def emit_forward_jump_uncond(self):
         self.JMP_l8(0)
-        return self.get_relative_pos()
+        return self.get_relative_pos(break_basic_block=False)
 
     def patch_forward_jump(self, jcond_location):
         offset = self.get_relative_pos() - jcond_location
@@ -76,3 +76,8 @@ class MachineCodeBlockWrapper(BlockBuilderMixin,
         if offset > 127:
             raise ShortJumpTooFar
         self.overwrite(jcond_location-1, chr(offset))
+
+    def get_relative_pos(self, break_basic_block=True):
+        if break_basic_block:
+            self.forget_scratch_register()
+        return BlockBuilderMixin.get_relative_pos(self)

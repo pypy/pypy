@@ -239,7 +239,7 @@ class CallBuilderX86(AbstractCallBuilder):
             if IS_X86_32:
                 tmpreg = edx
             else:
-                tmpreg = r11     # edx is used for 3rd argument
+                tmpreg = r10                   # edx is used for 3rd argument
             mc.MOV_rm(tmpreg.value, (tlofsreg.value, p_errno))
             mc.MOV32_rm(eax.value, (tlofsreg.value, rpy_errno))
             mc.MOV32_mr((tmpreg.value, 0), eax.value)
