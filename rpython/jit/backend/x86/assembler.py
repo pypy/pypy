@@ -277,7 +277,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         #
         mc.TEST_rr(eax.value, eax.value)
         mc.J_il(rx86.Conditions['Z'], 0xfffff) # patched later
-        jz_location = mc.get_relative_pos()
+        jz_location = mc.get_relative_pos(break_basic_block=False)
         mc.MOV_rr(ecx.value, eax.value)
         #
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
@@ -718,6 +718,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         if rx86.fits_in_32bits(offset):
             mc.JMP_l(offset)
         else:
+            # mc.forget_scratch_register() not needed here
             mc.MOV_ri(X86_64_SCRATCH_REG.value, adr_new_target)
             mc.JMP_r(X86_64_SCRATCH_REG.value)
         mc.copy_to_raw_memory(adr_jump_offset)
@@ -830,10 +831,10 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
         ofs = self.cpu.unpack_fielddescr(descrs.arraydescr.lendescr)
         mc.CMP_bi(ofs, 0xffffff)     # force writing 32 bit
-        stack_check_cmp_ofs = mc.get_relative_pos() - 4
+        stack_check_cmp_ofs = mc.get_relative_pos(break_basic_block=False) - 4
         jg_location = mc.emit_forward_jump('GE')
         mc.MOV_si(WORD, 0xffffff)     # force writing 32 bit
-        ofs2 = mc.get_relative_pos() - 4
+        ofs2 = mc.get_relative_pos(break_basic_block=False) - 4
         self.push_gcmap(mc, gcmap, store=True)
         mc.CALL(imm(self._frame_realloc_slowpath))
         # patch the JG above
@@ -850,11 +851,11 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
         ofs = self.cpu.unpack_fielddescr(descrs.arraydescr.lendescr)
         mc.CMP_bi(ofs, 0xffffff)
-        stack_check_cmp_ofs = mc.get_relative_pos() - 4
+        stack_check_cmp_ofs = mc.get_relative_pos(break_basic_block=False) - 4
         jg_location = mc.emit_forward_jump('GE')
         mc.MOV_rr(edi.value, ebp.value)
         mc.MOV_ri(esi.value, 0xffffff)
-        ofs2 = mc.get_relative_pos() - 4
+        ofs2 = mc.get_relative_pos(break_basic_block=False) - 4
         mc.CALL(imm(self.cpu.realloc_frame_crash))
         # patch the JG above
         mc.patch_forward_jump(jg_location)
@@ -895,6 +896,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             # "mov r11, addr; jmp r11" is up to 13 bytes, which fits in there
             # because we always write "mov r11, imm-as-8-bytes; call *r11" in
             # the first place.
+            # mc.forget_scratch_register() not needed here
             mc.MOV_ri(X86_64_SCRATCH_REG.value, adr_new_target)
             mc.JMP_r(X86_64_SCRATCH_REG.value)
             p = rffi.cast(rffi.INTP, adr_jump_offset)
@@ -939,7 +941,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             # would be used to pass arguments #3 and #4 (even though, so
             # far, the assembler only receives two arguments).
             tloc = esi
-            old = r11
+            old = r10
         # eax = address in the stack of a 3-words struct vmprof_stack_s
         self.mc.LEA_rs(eax.value, (FRAME_FIXED_SIZE - 4) * WORD)
         # old = current value of vmprof_tl_stack
@@ -1023,27 +1025,14 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         fit in 32 bits, it will be loaded in r11.
         """
         rst = gcrootmap.get_root_stack_top_addr()
-        if rx86.fits_in_32bits(rst):
-            mc.MOV_rj(ebx.value, rst)            # MOV ebx, [rootstacktop]
-        else:
-            mc.MOV_ri(X86_64_SCRATCH_REG.value, rst) # MOV r11, rootstacktop
-            mc.MOV_rm(ebx.value, (X86_64_SCRATCH_REG.value, 0))
-            # MOV ebx, [r11]
-        #
+        mc.MOV(ebx, heap(rst))                  # maybe via loading r11
         return rst
 
     def _call_header_shadowstack(self, gcrootmap):
         rst = self._load_shadowstack_top_in_ebx(self.mc, gcrootmap)
         self.mc.MOV_mr((ebx.value, 0), ebp.value)      # MOV [ebx], ebp
         self.mc.ADD_ri(ebx.value, WORD)
-        if rx86.fits_in_32bits(rst):
-            self.mc.MOV_jr(rst, ebx.value)            # MOV [rootstacktop], ebx
-        else:
-            # The integer 'rst' doesn't fit in 32 bits, so we know that
-            # _load_shadowstack_top_in_ebx() above loaded it in r11.
-            # Reuse it.  Be careful not to overwrite r11 in the middle!
-            self.mc.MOV_mr((X86_64_SCRATCH_REG.value, 0),
-                           ebx.value) # MOV [r11], ebx
+        self.mc.MOV(heap(rst), ebx)                   # MOV [rootstacktop], ebx
 
     def _call_footer_shadowstack(self, gcrootmap):
         rst = gcrootmap.get_root_stack_top_addr()
@@ -1449,7 +1438,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # has been emitted.  64-bit mode only.
         assert IS_X86_64
         address_in_buffer = index * WORD   # at the start of the buffer
-        p_location = self.mc.get_relative_pos()
+        p_location = self.mc.get_relative_pos(break_basic_block=False)
         offset = address_in_buffer - p_location
         self.mc.overwrite32(p_location-4, offset)
 
@@ -1551,7 +1540,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             self.mc.add_pending_relocation()
         elif WORD == 8:
             self.mc.J_il(rx86.Conditions['Z'], 0)
-            pos = self.mc.get_relative_pos()
+            pos = self.mc.get_relative_pos(break_basic_block=False)
             self.pending_memoryerror_trampoline_from.append(pos)
 
     # ----------
@@ -1721,7 +1710,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     def genop_guard_guard_not_invalidated(self, guard_op, guard_token,
                                           locs, ign):
-        pos = self.mc.get_relative_pos() + 1 # after potential jmp
+        pos = self.mc.get_relative_pos(break_basic_block=False)
+        pos += 1   # after potential jmp
         guard_token.pos_jump_offset = pos
         self.pending_guard_tokens.append(guard_token)
 
@@ -2077,7 +2067,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         assert self.guard_success_cc >= 0
         self.mc.J_il(rx86.invert_condition(self.guard_success_cc), 0)
         self.guard_success_cc = rx86.cond_none
-        guard_token.pos_jump_offset = self.mc.get_relative_pos() - 4
+        pos = self.mc.get_relative_pos(break_basic_block=False)
+        guard_token.pos_jump_offset = pos - 4
         self.pending_guard_tokens.append(guard_token)
 
     def _genop_real_call(self, op, arglocs, resloc):
@@ -2125,6 +2116,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
         faildescrindex = self.get_gcref_from_faildescr(faildescr)
         if IS_X86_64:
+            self.mc.forget_scratch_register()
             self.mc.MOV_rp(X86_64_SCRATCH_REG.value, 0)
             self._patch_load_from_gc_table(faildescrindex)
             self.mc.MOV(raw_stack(ofs), X86_64_SCRATCH_REG)
@@ -2313,6 +2305,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 if IS_X86_64 and isinstance(loc_base, RegLoc):
                     # copy loc_index into r11
                     tmp1 = X86_64_SCRATCH_REG
+                    mc.forget_scratch_register()
                     mc.MOV_rr(tmp1.value, loc_index.value)
                     final_pop = False
                 else:
@@ -2325,7 +2318,13 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 # XOR tmp, -8
                 mc.XOR_ri(tmp1.value, -8)
                 # BTS [loc_base], tmp
-                mc.BTS(addr_add_const(loc_base, 0), tmp1)
+                if final_pop:
+                    # r11 is not specially used, fall back to regloc.py
+                    mc.BTS(addr_add_const(loc_base, 0), tmp1)
+                else:
+                    # tmp1 is r11!  but in this case, loc_base is a
+                    # register so we can invoke directly rx86.py
+                    mc.BTS_mr((loc_base.value, 0), tmp1.value)
                 # done
                 if final_pop:
                     mc.POP_r(loc_index.value)

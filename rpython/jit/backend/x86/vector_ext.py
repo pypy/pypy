@@ -173,9 +173,10 @@ class VectorAssemblerMixin(object):
             return
         elif arg.type == INT:
             scratchloc = X86_64_SCRATCH_REG
+            self.mc.forget_scratch_register()
             self.mc.PEXTRQ_rxi(targetloc.value, accumloc.value, 0)
             self.mc.PEXTRQ_rxi(scratchloc.value, accumloc.value, 1)
-            self.mc.ADD(targetloc, scratchloc)
+            self.mc.ADD_rr(targetloc.value, scratchloc.value)
             return
 
         not_implemented("reduce sum for %s not impl." % arg)
@@ -387,6 +388,7 @@ class VectorAssemblerMixin(object):
             return # already the right size
         if size == 4 and tosize == 8:
             scratch = X86_64_SCRATCH_REG.value
+            self.mc.forget_scratch_register()
             self.mc.PEXTRD_rxi(scratch, srcloc.value, 1)
             self.mc.PINSRQ_xri(resloc.value, scratch, 1)
             self.mc.PEXTRD_rxi(scratch, srcloc.value, 0)
@@ -394,6 +396,7 @@ class VectorAssemblerMixin(object):
         elif size == 8 and tosize == 4:
             # is there a better sequence to move them?
             scratch = X86_64_SCRATCH_REG.value
+            self.mc.forget_scratch_register()
             self.mc.PEXTRQ_rxi(scratch, srcloc.value, 0)
             self.mc.PINSRD_xri(resloc.value, scratch, 0)
             self.mc.PEXTRQ_rxi(scratch, srcloc.value, 1)
@@ -426,6 +429,7 @@ class VectorAssemblerMixin(object):
     def genop_vec_expand_i(self, op, arglocs, resloc):
         srcloc, sizeloc = arglocs
         if not isinstance(srcloc, RegLoc):
+            # self.mc.forget_scratch_register(): done by self.mov()
             self.mov(srcloc, X86_64_SCRATCH_REG)
             srcloc = X86_64_SCRATCH_REG
         assert not srcloc.is_xmm
@@ -465,6 +469,7 @@ class VectorAssemblerMixin(object):
         while k > 0:
             if size == 8:
                 if resultloc.is_xmm and sourceloc.is_xmm: # both xmm
+                    self.mc.forget_scratch_register()
                     self.mc.PEXTRQ_rxi(X86_64_SCRATCH_REG.value, sourceloc.value, si)
                     self.mc.PINSRQ_xri(resultloc.value, X86_64_SCRATCH_REG.value, ri)
                 elif resultloc.is_xmm: # xmm <- reg
@@ -473,6 +478,7 @@ class VectorAssemblerMixin(object):
                     self.mc.PEXTRQ_rxi(resultloc.value, sourceloc.value, si)
             elif size == 4:
                 if resultloc.is_xmm and sourceloc.is_xmm:
+                    self.mc.forget_scratch_register()
                     self.mc.PEXTRD_rxi(X86_64_SCRATCH_REG.value, sourceloc.value, si)
                     self.mc.PINSRD_xri(resultloc.value, X86_64_SCRATCH_REG.value, ri)
                 elif resultloc.is_xmm:
@@ -481,6 +487,7 @@ class VectorAssemblerMixin(object):
                     self.mc.PEXTRD_rxi(resultloc.value, sourceloc.value, si)
             elif size == 2:
                 if resultloc.is_xmm and sourceloc.is_xmm:
+                    self.mc.forget_scratch_register()
                     self.mc.PEXTRW_rxi(X86_64_SCRATCH_REG.value, sourceloc.value, si)
                     self.mc.PINSRW_xri(resultloc.value, X86_64_SCRATCH_REG.value, ri)
                 elif resultloc.is_xmm:
@@ -489,6 +496,7 @@ class VectorAssemblerMixin(object):
                     self.mc.PEXTRW_rxi(resultloc.value, sourceloc.value, si)
             elif size == 1:
                 if resultloc.is_xmm and sourceloc.is_xmm:
+                    self.mc.forget_scratch_register()
                     self.mc.PEXTRB_rxi(X86_64_SCRATCH_REG.value, sourceloc.value, si)
                     self.mc.PINSRB_xri(resultloc.value, X86_64_SCRATCH_REG.value, ri)
                 elif resultloc.is_xmm:
