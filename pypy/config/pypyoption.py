@@ -72,8 +72,6 @@ if sys.platform == "win32":
 
     if "cppyy" in working_modules:
         working_modules.remove("cppyy")  # not tested on win32
-    if "faulthandler" in working_modules:
-        working_modules.remove("faulthandler")  # missing details
 
     # The _locale module is needed by site.py on Windows
     default_modules.add("_locale")
