@@ -556,13 +556,13 @@ class LocationCodeBuilder(object):
             offset = r_uint(addr) - r_uint(self._scratch_register_value)
             offset = intmask(offset)
             if rx86.fits_in_32bits(offset):
-                print '_addr_as_reg_offset(%x) [REUSED r11+%d]' % (
-                    addr, offset)
+                #print '_addr_as_reg_offset(%x) [REUSED r11+%d]' % (
+                #    addr, offset)
                 return (X86_64_SCRATCH_REG.value, offset)
-            print '_addr_as_reg_offset(%x) [too far]' % (addr,)
+            #print '_addr_as_reg_offset(%x) [too far]' % (addr,)
             # else: fall through
-        else:
-            print '_addr_as_reg_offset(%x) [new]' % (addr,)
+        #else:
+        #    print '_addr_as_reg_offset(%x) [new]' % (addr,)
         self._scratch_register_value = addr
         self.MOV_ri(X86_64_SCRATCH_REG.value, addr)
         return (X86_64_SCRATCH_REG.value, 0)
@@ -572,10 +572,9 @@ class LocationCodeBuilder(object):
         # where the static offset does not fit in 32-bits.  We have to fall
         # back to the X86_64_SCRATCH_REG.  Returns a new location encoded
         # as mode 'm' too.  These are all possibly rare cases.
-        ofs = self._addr_as_reg_offset(static_offset)
+        reg, ofs = self._addr_as_reg_offset(static_offset)
         self.forget_scratch_register()
-        self.LEA_ra(X86_64_SCRATCH_REG.value,
-                    (basereg, X86_64_SCRATCH_REG.value, 0, ofs))
+        self.LEA_ra(X86_64_SCRATCH_REG.value, (basereg, reg, 0, ofs))
         return (X86_64_SCRATCH_REG.value, 0)
 
     def _fix_static_offset_64_a(self, (basereg, scalereg,
@@ -584,38 +583,38 @@ class LocationCodeBuilder(object):
         # where the static offset does not fit in 32-bits.  We have to fall
         # back to the X86_64_SCRATCH_REG.  In one case it is even more
         # annoying.  These are all possibly rare cases.
-        ofs = self._addr_as_reg_offset(static_offset)
+        reg, ofs = self._addr_as_reg_offset(static_offset)
         #
         if basereg != rx86.NO_BASE_REGISTER:
             self.forget_scratch_register()
-            self.LEA_ra(X86_64_SCRATCH_REG.value,
-                        (basereg, X86_64_SCRATCH_REG.value, 0, ofs))
+            self.LEA_ra(X86_64_SCRATCH_REG.value, (basereg, reg, 0, ofs))
+            reg = X86_64_SCRATCH_REG.value
             ofs = 0
-        return (X86_64_SCRATCH_REG.value, scalereg, scale, ofs)
+        return (reg, scalereg, scale, ofs)
 
     def _load_scratch(self, value):
         if self._scratch_register_value != 0:
             if self._scratch_register_value == value:
-                print '_load_scratch(%x) [REUSED]' % (value,)
+                #print '_load_scratch(%x) [REUSED]' % (value,)
                 return
             offset = r_uint(value) - r_uint(self._scratch_register_value)
             offset = intmask(offset)
             if rx86.fits_in_32bits(offset):
-                print '_load_scratch(%x) [LEA r11+%d]' % (value, offset)
-                global COUNT_
-                try:
-                    COUNT_ += 1
-                except NameError:
-                    COUNT_ = 1
-                if COUNT_ % 182 == 0:
-                    import pdb;pdb.set_trace()
+                #print '_load_scratch(%x) [LEA r11+%d]' % (value, offset)
+                #global COUNT_
+                #try:
+                #    COUNT_ += 1
+                #except NameError:
+                #    COUNT_ = 1
+                #if COUNT_ % 182 == 0:
+                #    import pdb;pdb.set_trace()
                 self.LEA_rm(X86_64_SCRATCH_REG.value,
                     (X86_64_SCRATCH_REG.value, offset))
                 self._scratch_register_value = value
                 return
-            print '_load_scratch(%x) [too far]' % (value,)
-        else:
-            print '_load_scratch(%x) [new]' % (value,)
+            #print '_load_scratch(%x) [too far]' % (value,)
+        #else:
+        #    print '_load_scratch(%x) [new]' % (value,)
         self._scratch_register_value = value
         self.MOV_ri(X86_64_SCRATCH_REG.value, value)
 
