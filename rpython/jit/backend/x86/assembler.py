@@ -1027,6 +1027,10 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         if gcrootmap and gcrootmap.is_shadow_stack:
             self._call_header_shadowstack(gcrootmap)
 
+    class StackCheckSlowPath(SlowPath):
+        def generate_body(self, assembler, mc):
+            mc.CALL(imm(assembler.stack_check_slowpath))
+
     def _call_header_with_stack_check(self):
         self._call_header()
         if self.stack_check_slowpath == 0:
@@ -1036,12 +1040,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             self.mc.MOV(eax, heap(endaddr))             # MOV eax, [start]
             self.mc.SUB(eax, esp)                       # SUB eax, current
             self.mc.CMP(eax, heap(lengthaddr))          # CMP eax, [length]
-            # PPP FIX ME
-            jb_location = self.mc.emit_forward_jump('BE')#JBE .skip
-            self.mc.CALL(imm(self.stack_check_slowpath))# CALL slowpath
-            # patch the JB above                        # .skip:
-            self.mc.patch_forward_jump(jb_location)
-            #
+            sp = self.StackCheckSlowPath(self.mc, rx86.Conditions['A'])
+            sp.set_continue_addr(self.mc)
+            self.pending_slowpaths.append(sp)
 
     def _call_footer(self):
         # the return value is the jitframe
