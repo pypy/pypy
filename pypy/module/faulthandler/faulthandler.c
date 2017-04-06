@@ -5,8 +5,10 @@
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
+#ifndef _WIN32
 #include <unistd.h>
 #include <sys/resource.h>
+#endif
 #include <math.h>
 
 #ifdef RPYTHON_LL2CTYPES
@@ -21,8 +23,16 @@
 #define MAX_FRAME_DEPTH   100
 #define FRAME_DEPTH_N     RVMPROF_TRACEBACK_ESTIMATE_N(MAX_FRAME_DEPTH)
 
+#ifndef _WIN32
+#define HAVE_SIGACTION 1
+#define HAVE_SIGALTSTACK 1
+#endif
 
+#ifdef HAVE_SIGACTION
 typedef struct sigaction _Py_sighandler_t;
+#else
+typedef void (*_Py_sighandler_t)(int);
+#endif
 
 typedef struct {
     const int signum;
@@ -38,7 +48,9 @@ static struct {
     volatile pypy_faulthandler_cb_t dump_traceback;
 } fatal_error;
 
+#ifdef HAVE_SIGALTSTACK
 static stack_t stack;
+#endif
 
 
 static fault_handler_t faulthandler_handlers[] = {
@@ -317,11 +329,16 @@ static user_signal_t *user_signals;
 # endif
 #endif
 
+#ifdef HAVE_SIGACTION
 static void faulthandler_user(int signum, siginfo_t *info, void *ucontext);
+#else
+static void faulthandler_user(int signum);
+#endif
 
 static int
 faulthandler_register(int signum, int chain, _Py_sighandler_t *p_previous)
 {
+#ifdef HAVE_SIGACTION
     struct sigaction action;
     action.sa_sigaction = faulthandler_user;
     sigemptyset(&action.sa_mask);
@@ -340,10 +357,23 @@ faulthandler_register(int signum, int chain, _Py_sighandler_t *p_previous)
         action.sa_flags |= SA_ONSTACK;
     }
     return sigaction(signum, &action, p_previous);
+#else
+    _Py_sighandler_t previous;
+    previous = signal(signum, faulthandler_user);
+    if (p_previous != NULL)
+        *p_previous = previous;
+    return (previous == SIG_ERR);
+#endif
 }
 
+#ifdef HAVE_SIGACTION
 static void faulthandler_user(int signum, siginfo_t *info, void *ucontext)
 {
+#else
+static void faulthandler_user(int signum)
+{
+    void *ucontext = NULL;
+#endif
     int save_errno;
     user_signal_t *user = &user_signals[signum];
 
@@ -353,6 +383,7 @@ static void faulthandler_user(int signum, siginfo_t *info, void *ucontext)
     save_errno = errno;
     faulthandler_dump_traceback(user->fd, user->all_threads, ucontext);
 
+#ifdef HAVE_SIGACTION
     if (user->chain) {
         (void)sigaction(signum, &user->previous, NULL);
         errno = save_errno;
@@ -365,6 +396,13 @@ static void faulthandler_user(int signum, siginfo_t *info, void *ucontext)
     }
 
     errno = save_errno;
+#else
+    if (user->chain) {
+        errno = save_errno;
+        /* call the previous signal handler */
+        user->previous(signum);
+    }
+#endif
 }
 
 RPY_EXTERN
@@ -451,8 +489,14 @@ int pypy_faulthandler_unregister(int signum)
    This function is signal-safe and should only call signal-safe functions. */
 
 static void
+#ifdef HAVE_SIGACTION
 faulthandler_fatal_error(int signum, siginfo_t *info, void *ucontext)
 {
+#else
+faulthandler_fatal_error(int signum)
+{
+    void *ucontext = NULL;
+#endif
     int fd = fatal_error.fd;
     int i;
     fault_handler_t *handler = NULL;
@@ -467,7 +511,11 @@ faulthandler_fatal_error(int signum, siginfo_t *info, void *ucontext)
 
     /* restore the previous handler */
     if (handler->enabled) {
+#ifdef HAVE_SIGACTION
         (void)sigaction(signum, &handler->previous, NULL);
+#else
+        (void)signal(signum, handler->previous);
+#endif
         handler->enabled = 0;
     }
 
@@ -478,7 +526,7 @@ faulthandler_fatal_error(int signum, siginfo_t *info, void *ucontext)
     faulthandler_dump_traceback(fd, fatal_error.all_threads, ucontext);
 
     errno = save_errno;
-#ifdef MS_WINDOWS
+#ifdef _WIN32
     if (signum == SIGSEGV) {
         /* don't explicitly call the previous handler for SIGSEGV in this signal
            handler, because the Windows signal handler would not be called */
@@ -499,6 +547,7 @@ char *pypy_faulthandler_setup(pypy_faulthandler_cb_t dump_callback)
     assert(!fatal_error.enabled);
     fatal_error.dump_traceback = dump_callback;
 
+#ifdef HAVE_SIGALTSTACK
     /* Try to allocate an alternate stack for faulthandler() signal handler to
      * be able to allocate memory on the stack, even on a stack overflow. If it
      * fails, ignore the error. */
@@ -512,6 +561,7 @@ char *pypy_faulthandler_setup(pypy_faulthandler_cb_t dump_callback)
             stack.ss_sp = NULL;
         }
     }
+#endif
 
 #ifdef PYPY_FAULTHANDLER_LATER
     if (!RPyThreadLockInit(&thread_later.cancel_event) ||
@@ -548,12 +598,14 @@ void pypy_faulthandler_teardown(void)
 
         pypy_faulthandler_disable();
         fatal_error.initialized = 0;
+#ifdef HAVE_SIGALTSTACK
         if (stack.ss_sp) {
             stack.ss_flags = SS_DISABLE;
             sigaltstack(&stack, NULL);
             free(stack.ss_sp);
             stack.ss_sp = NULL;
         }
+#endif
     }
 }
 
@@ -570,9 +622,9 @@ char *pypy_faulthandler_enable(int fd, int all_threads)
 
         for (i = 0; i < faulthandler_nsignals; i++) {
             int err;
-            struct sigaction action;
             fault_handler_t *handler = &faulthandler_handlers[i];
-
+#ifdef HAVE_SIGACTION
+            struct sigaction action;
             action.sa_sigaction = faulthandler_fatal_error;
             sigemptyset(&action.sa_mask);
             /* Do not prevent the signal from being received from within
@@ -584,6 +636,11 @@ char *pypy_faulthandler_enable(int fd, int all_threads)
                 action.sa_flags |= SA_ONSTACK;
             }
             err = sigaction(handler->signum, &action, &handler->previous);
+#else
+            handler->previous = signal(handler->signum,
+                                       faulthandler_fatal_error);
+            err = (handler->previous == SIG_ERR);
+#endif
             if (err) {
                 return strerror(errno);
             }
@@ -603,7 +660,11 @@ void pypy_faulthandler_disable(void)
             fault_handler_t *handler = &faulthandler_handlers[i];
             if (!handler->enabled)
                 continue;
+#ifdef HAVE_SIGACTION
             (void)sigaction(handler->signum, &handler->previous, NULL);
+#else
+            (void)signal(handler->signum, handler->previous);
+#endif
             handler->enabled = 0;
         }
     }
@@ -625,7 +686,7 @@ int pypy_faulthandler_is_enabled(void)
 static void
 faulthandler_suppress_crash_report(void)
 {
-#ifdef MS_WINDOWS
+#ifdef _WIN32
     UINT mode;
 
     /* Configure Windows to not display the Windows Error Reporting dialog */
@@ -633,7 +694,7 @@ faulthandler_suppress_crash_report(void)
     SetErrorMode(mode | SEM_NOGPFAULTERRORBOX);
 #endif
 
-#ifndef MS_WINDOWS
+#ifndef _WIN32
     struct rlimit rl;
 
     /* Disable creation of core dump */
@@ -664,7 +725,7 @@ RPY_EXTERN
 void pypy_faulthandler_sigsegv(void)
 {
     faulthandler_suppress_crash_report();
-#if defined(MS_WINDOWS)
+#ifdef _WIN32
     /* For SIGSEGV, faulthandler_fatal_error() restores the previous signal
        handler and then gives back the execution flow to the program (without
        explicitly calling the previous error handler). In a normal case, the

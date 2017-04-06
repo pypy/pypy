@@ -5,8 +5,10 @@
 #define SINGLE_BUF_SIZE (8192 - 2 * sizeof(unsigned int))
 
 #ifdef VMPROF_WINDOWS
-#include "msiinttypes/inttypes.h"
-#include "msiinttypes/stdint.h"
+#include <crtdefs.h>
+typedef __int64 int64_t;
+typedef unsigned __int64 uint64_t;
+typedef intptr_t ssize_t;
 #else
 #include <inttypes.h>
 #include <stdint.h>
