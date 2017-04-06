@@ -1707,6 +1707,10 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 self.mc.patch_forward_jump(j_location)
             except codebuf.ShortJumpTooFar:
                 pass    # ignore this case
+            else:
+                # succeeded: forget the saved value of the scratch
+                # register here
+                self.mc.forget_scratch_register()
 
     def genop_guard_guard_not_invalidated(self, guard_op, guard_token,
                                           locs, ign):
