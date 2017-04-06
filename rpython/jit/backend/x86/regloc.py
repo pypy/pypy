@@ -621,6 +621,12 @@ class LocationCodeBuilder(object):
     def forget_scratch_register(self):
         self._scratch_register_value = 0
 
+    def get_scratch_register_known_value(self):
+        return self._scratch_register_value
+
+    def restore_scratch_register_known_value(self, saved_value):
+        self._scratch_register_value = saved_value
+
     def trap(self):
         self.INT3()
 
