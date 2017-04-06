@@ -315,7 +315,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         #
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
         self._pop_all_regs_from_frame(mc, [ecx, edx], self.cpu.supports_floats)
-        mc.MOV(edx, heap(nursery_free_adr))   # load this in EDX
         self.pop_gcmap(mc)   # push_gcmap(store=True) done by the caller
         mc.RET()
         #
@@ -2542,6 +2541,26 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         sp.set_continue_addr(self.mc)
         self.pending_slowpaths.append(sp)
 
+    class MallocCondVarsizeSlowPath(SlowPath):
+        def generate_body(self, assembler, mc):
+            # save the gcmap
+            assembler.push_gcmap(mc, self.gcmap, store=True)
+            kind = self.kind
+            if kind == rewrite.FLAG_ARRAY:
+                mc.MOV_si(WORD, self.itemsize)
+                mc.MOV_ri(ecx.value, self.arraydescr.tid)
+                addr = assembler.malloc_slowpath_varsize
+            else:
+                if kind == rewrite.FLAG_STR:
+                    addr = assembler.malloc_slowpath_str
+                else:
+                    assert kind == rewrite.FLAG_UNICODE
+                    addr = assembler.malloc_slowpath_unicode
+            lengthloc = self.lengthloc
+            assert lengthloc is not ecx and lengthloc is not edx
+            mc.MOV(edx, lengthloc)
+            mc.CALL(imm(follow_jump(addr)))
+
     def malloc_cond_varsize(self, kind, nursery_free_adr, nursery_top_adr,
                             lengthloc, itemsize, maxlength, gcmap,
                             arraydescr):
@@ -2581,35 +2600,24 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # now edx contains the total size in bytes, rounded up to a multiple
         # of WORD, plus nursery_free_adr
         self.mc.CMP(edx, heap(nursery_top_adr))
-        # PPP FIX ME
-        jna_location = self.mc.emit_forward_jump('NA')   # patched later
-        #
         self.mc.patch_forward_jump(ja_location)
-        # save the gcmap
-        self.push_gcmap(self.mc, gcmap, store=True)
-        if kind == rewrite.FLAG_ARRAY:
-            self.mc.MOV_si(WORD, itemsize)
-            self.mc.MOV(edx, lengthloc)
-            self.mc.MOV_ri(ecx.value, arraydescr.tid)
-            addr = self.malloc_slowpath_varsize
-        else:
-            if kind == rewrite.FLAG_STR:
-                addr = self.malloc_slowpath_str
-            else:
-                assert kind == rewrite.FLAG_UNICODE
-                addr = self.malloc_slowpath_unicode
-            self.mc.MOV(edx, lengthloc)
-        self.mc.CALL(imm(follow_jump(addr)))
-        jmp_location = self.mc.emit_forward_jump_uncond()  # jump to later
-        #
-        self.mc.patch_forward_jump(jna_location)
-        self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
-        # write down the tid, but not if it's the result of the CALL
+        # Note: we call the slow path in condition 'A', which may be
+        # true either because the CMP just above really got that
+        # condition, or because we jumped here from ja_location before.
+        # In both cases, the jumps are forward-going and the expected
+        # common case is "not taken".
+        sp = self.MallocCondVarsizeSlowPath(self.mc, rx86.Conditions['A'])
+        sp.gcmap = gcmap
+        sp.kind = kind
+        sp.itemsize = itemsize
+        sp.lengthloc = lengthloc
+        sp.arraydescr = arraydescr
+        # some more code that is only if we *don't* call the slow
+        # path: write down the tid, and save edx into nursery_free_adr
         self.mc.MOV(mem(ecx, 0), imm(arraydescr.tid))
-        # while we're at it, this line is not needed if we've done the CALL
         self.mc.MOV(heap(nursery_free_adr), edx)
-        #
-        self.mc.patch_forward_jump(jmp_location)
+        sp.set_continue_addr(self.mc)
+        self.pending_slowpaths.append(sp)
 
     def store_force_descr(self, op, fail_locs, frame_depth):
         guard_token = self.implement_guard_recovery(op.opnum,
