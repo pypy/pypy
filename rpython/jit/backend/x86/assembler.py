@@ -41,6 +41,34 @@ from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.objectmodel import compute_unique_id
 
 
+class SlowPath(object):
+    def __init__(self, mc, condition):
+        mc.J_il(condition, 0xfffff)     # patched later
+        self.cond_jump_addr = mc.get_relative_pos(break_basic_block=False)
+        self.saved_scratch_value_1 = mc.get_scratch_register_known_value()
+
+    def set_continue_addr(self, mc):
+        self.continue_addr = mc.get_relative_pos(break_basic_block=False)
+        self.saved_scratch_value_2 = mc.get_scratch_register_known_value()
+
+    def generate(self, assembler):
+        # no alignment here, prefer compactness for these slow-paths
+        mc = assembler.mc
+        # patch the original jump to go here
+        offset = mc.get_relative_pos() - self.cond_jump_addr
+        mc.overwrite32(self.cond_jump_addr-4, offset)
+        # restore the knowledge of the scratch register value
+        # (this does not emit any code)
+        mc.restore_scratch_register_known_value(self.saved_scratch_value_1)
+        # generate the body of the slow-path
+        self.generate_body(assembler, mc)
+        # reload (if needed) the (possibly different) scratch register value
+        mc.load_scratch_if_known(self.saved_scratch_value_2)
+        # jump back
+        curpos = mc.get_relative_pos() + 5
+        mc.JMP_l(self.continue_addr - curpos)
+
+
 class Assembler386(BaseAssembler, VectorAssemblerMixin):
     _regalloc = None
     _output_loop_log = None
@@ -76,6 +104,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         BaseAssembler.setup(self, looptoken)
         assert self.memcpy_addr != 0, "setup_once() not called?"
         self.current_clt = looptoken.compiled_loop_token
+        self.pending_slowpaths = []
         self.pending_guard_tokens = []
         if WORD == 8:
             self.pending_memoryerror_trampoline_from = []
@@ -90,6 +119,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.frame_depth_to_patch = []
 
     def teardown(self):
+        self.pending_slowpaths = None
         self.pending_guard_tokens = None
         if WORD == 8:
             self.pending_memoryerror_trampoline_from = None
@@ -758,6 +788,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.teardown_gcrefs_list()
 
     def write_pending_failure_recoveries(self, regalloc):
+        # for each pending slowpath, generate it now
+        for sp in self.pending_slowpaths:
+            sp.generate(self)
         # for each pending guard, generate the code of the recovery stub
         # at the end of self.mc.
         for tok in self.pending_guard_tokens:
@@ -2444,18 +2477,21 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # guard_no_exception too
         self.previous_cond_call_jcond = j_location
 
+    class MallocCondSlowPath(SlowPath):
+        def generate_body(self, assembler, mc):
+            assembler.push_gcmap(mc, self.gcmap, store=True)
+            mc.CALL(imm(follow_jump(assembler.malloc_slowpath)))
+
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
         assert size & (WORD-1) == 0     # must be correctly aligned
         self.mc.MOV(ecx, heap(nursery_free_adr))
         self.mc.LEA_rm(edx.value, (ecx.value, size))
         self.mc.CMP(edx, heap(nursery_top_adr))
-        # PPP FIX ME
-        jna_location = self.mc.emit_forward_jump('NA')   # patched later
-        # save the gcmap
-        self.push_gcmap(self.mc, gcmap, store=True)
-        self.mc.CALL(imm(follow_jump(self.malloc_slowpath)))
-        self.mc.patch_forward_jump(jna_location)
+        sp = self.MallocCondSlowPath(self.mc, rx86.Conditions['A'])
+        sp.gcmap = gcmap
         self.mc.MOV(heap(nursery_free_adr), edx)
+        sp.set_continue_addr(self.mc)
+        self.pending_slowpaths.append(sp)
 
     def malloc_cond_varsize_frame(self, nursery_free_adr, nursery_top_adr,
                                   sizeloc, gcmap):
