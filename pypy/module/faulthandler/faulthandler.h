@@ -3,7 +3,7 @@
 
 #include "src/precommondefs.h"
 #ifdef _MSC_VER
-#include <crtdef.h>
+#include <crtdefs.h>
 #else
 #include <stdint.h>
 #endif
