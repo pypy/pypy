@@ -51,9 +51,8 @@ class SlowPath(object):
         self.continue_addr = mc.get_relative_pos(break_basic_block=False)
         self.saved_scratch_value_2 = mc.get_scratch_register_known_value()
 
-    def generate(self, assembler):
-        # no alignment here, prefer compactness for these slow-paths
-        mc = assembler.mc
+    def generate(self, assembler, mc):
+        # no alignment here, prefer compactness for these slow-paths.
         # patch the original jump to go here
         offset = mc.get_relative_pos() - self.cond_jump_addr
         mc.overwrite32(self.cond_jump_addr-4, offset)
@@ -119,7 +118,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.frame_depth_to_patch = []
 
     def teardown(self):
-        self.pending_slowpaths = None
         self.pending_guard_tokens = None
         if WORD == 8:
             self.pending_memoryerror_trampoline_from = None
@@ -212,6 +210,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         """ This builds a general call slowpath, for whatever call happens to
         come.
         """
+        self.pending_slowpaths = []
         mc = codebuf.MachineCodeBlockWrapper()
         # copy registers to the frame, with the exception of the
         # 'cond_call_register_arguments' and eax, because these have already
@@ -242,6 +241,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.pop_gcmap(mc)   # cancel the push_gcmap(store=True) in the caller
         self._pop_all_regs_from_frame(mc, [eax], supports_floats, callee_only)
         mc.RET()
+        self.flush_pending_slowpaths(mc)
         return mc.materialize(self.cpu, [])
 
     def _build_malloc_slowpath(self, kind):
@@ -258,6 +258,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         This function must preserve all registers apart from ecx and edx.
         """
         assert kind in ['fixed', 'str', 'unicode', 'var']
+        self.pending_slowpaths = []
         mc = codebuf.MachineCodeBlockWrapper()
         self._push_all_regs_to_frame(mc, [ecx, edx], self.cpu.supports_floats)
         # the caller already did push_gcmap(store=True)
@@ -330,6 +331,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         mc.force_frame_size(DEFAULT_FRAME_BYTES + WORD)
         mc.ADD_ri(esp.value, WORD)
         mc.JMP(imm(self.propagate_exception_path))
+        self.flush_pending_slowpaths(mc)
         #
         rawstart = mc.materialize(self.cpu, [])
         return rawstart
@@ -788,12 +790,17 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         gcreftracers.append(tracer)    # keepalive
         self.teardown_gcrefs_list()
 
-    def write_pending_failure_recoveries(self, regalloc):
+    def flush_pending_slowpaths(self, mc):
         # for each pending slowpath, generate it now.  Note that this
         # may occasionally add an extra guard_token in
-        # pending_guard_tokens, so it must be done before the next loop.
+        # pending_guard_tokens, so it must be done before the
+        # following loop in write_pending_failure_recoveries().
         for sp in self.pending_slowpaths:
-            sp.generate(self)
+            sp.generate(self, mc)
+        self.pending_slowpaths = None
+
+    def write_pending_failure_recoveries(self, regalloc):
+        self.flush_pending_slowpaths(self.mc)
         # for each pending guard, generate the code of the recovery stub
         # at the end of self.mc.
         for tok in self.pending_guard_tokens:
@@ -2285,6 +2292,91 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     # ------------------- END CALL ASSEMBLER -----------------------
 
+    class WriteBarrierSlowPath(SlowPath):
+        def generate_body(self, assembler, mc):
+            # for cond_call_gc_wb_array, also add another fast path:
+            # if GCFLAG_CARDS_SET, then we can just set one bit and be done
+            card_marking = (self.loc_index is not None)
+            if card_marking:
+                # GCFLAG_CARDS_SET is in this byte at 0x80, so this fact can
+                # been checked by the sign flags of the previous TEST8
+                js_location = mc.emit_forward_jump('S')   # patched later
+            else:
+                js_location = 0
+
+            # Write only a CALL to the helper prepared in advance, passing it as
+            # argument the address of the structure we are writing into
+            # (the first argument to COND_CALL_GC_WB).
+            helper_num = card_marking
+            if self.is_frame:
+                helper_num = 4
+            elif (assembler._regalloc is not None and
+                  assembler._regalloc.xrm.reg_bindings):
+                helper_num += 2
+            if assembler.wb_slowpath[helper_num] == 0:    # tests only
+                assert not we_are_translated()
+                assembler.cpu.gc_ll_descr.write_barrier_descr = descr
+                assembler._build_wb_slowpath(card_marking,
+                                    bool(assembler._regalloc.xrm.reg_bindings))
+                assert assembler.wb_slowpath[helper_num] != 0
+            #
+            if not self.is_frame:
+                mc.PUSH(loc_base)
+            mc.CALL(imm(assembler.wb_slowpath[helper_num]))
+            if not self.is_frame:
+                mc.stack_frame_size_delta(-WORD)
+
+            if card_marking:
+                # The helper ends again with a check of the flag in the object.
+                # So here, we can simply write again a 'JNS', which will be
+                # taken if GCFLAG_CARDS_SET is still not set.
+                jns_location = mc.emit_forward_jump('NS')   # patched later
+                #
+                # patch the JS above
+                mc.patch_forward_jump(js_location)
+                #
+                # case GCFLAG_CARDS_SET: emit a few instructions to do
+                # directly the card flag setting
+                loc_index = self.loc_index
+                if isinstance(loc_index, RegLoc):
+                    if IS_X86_64 and isinstance(loc_base, RegLoc):
+                        # copy loc_index into r11
+                        tmp1 = X86_64_SCRATCH_REG
+                        mc.forget_scratch_register()
+                        mc.MOV_rr(tmp1.value, loc_index.value)
+                        final_pop = False
+                    else:
+                        # must save the register loc_index before it is mutated
+                        mc.PUSH_r(loc_index.value)
+                        tmp1 = loc_index
+                        final_pop = True
+                    # SHR tmp, card_page_shift
+                    mc.SHR_ri(tmp1.value, descr.jit_wb_card_page_shift)
+                    # XOR tmp, -8
+                    mc.XOR_ri(tmp1.value, -8)
+                    # BTS [loc_base], tmp
+                    if final_pop:
+                        # r11 is not specially used, fall back to regloc.py
+                        mc.BTS(addr_add_const(loc_base, 0), tmp1)
+                    else:
+                        # tmp1 is r11!  but in this case, loc_base is a
+                        # register so we can invoke directly rx86.py
+                        mc.BTS_mr((loc_base.value, 0), tmp1.value)
+                    # done
+                    if final_pop:
+                        mc.POP_r(loc_index.value)
+                    #
+                elif isinstance(loc_index, ImmedLoc):
+                    byte_index = loc_index.value >> descr.jit_wb_card_page_shift
+                    byte_ofs = ~(byte_index >> 3)
+                    byte_val = 1 << (byte_index & 7)
+                    mc.OR8(addr_add_const(loc_base, byte_ofs), imm(byte_val))
+                else:
+                    raise AssertionError("index is neither RegLoc nor ImmedLoc")
+                #
+                # patch the JNS above
+                mc.patch_forward_jump(jns_location)
+
     def _write_barrier_fastpath(self, mc, descr, arglocs, array=False,
                                 is_frame=False):
         # Write code equivalent to write_barrier() in the GC: it checks
@@ -2295,14 +2387,14 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             cls = self.cpu.gc_ll_descr.has_write_barrier_class()
             assert cls is not None and isinstance(descr, cls)
         #
-        card_marking = False
+        loc_index = None
         mask = descr.jit_wb_if_flag_singlebyte
         if array and descr.jit_wb_cards_set != 0:
             # assumptions the rest of the function depends on:
             assert (descr.jit_wb_cards_set_byteofs ==
                     descr.jit_wb_if_flag_byteofs)
             assert descr.jit_wb_cards_set_singlebyte == -0x80
-            card_marking = True
+            loc_index = arglocs[1]
             mask = descr.jit_wb_if_flag_singlebyte | -0x80
         #
         loc_base = arglocs[0]
@@ -2312,92 +2404,11 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         else:
             loc = addr_add_const(loc_base, descr.jit_wb_if_flag_byteofs)
         mc.TEST8(loc, imm(mask))
-        # PPP FIX ME
-        jz_location = mc.emit_forward_jump('Z')   # patched later
-
-        # for cond_call_gc_wb_array, also add another fast path:
-        # if GCFLAG_CARDS_SET, then we can just set one bit and be done
-        if card_marking:
-            # GCFLAG_CARDS_SET is in this byte at 0x80, so this fact can
-            # been checked by the sign flags of the previous TEST8
-            js_location = mc.emit_forward_jump('S')   # patched later
-        else:
-            js_location = 0
-
-        # Write only a CALL to the helper prepared in advance, passing it as
-        # argument the address of the structure we are writing into
-        # (the first argument to COND_CALL_GC_WB).
-        helper_num = card_marking
-        if is_frame:
-            helper_num = 4
-        elif self._regalloc is not None and self._regalloc.xrm.reg_bindings:
-            helper_num += 2
-        if self.wb_slowpath[helper_num] == 0:    # tests only
-            assert not we_are_translated()
-            self.cpu.gc_ll_descr.write_barrier_descr = descr
-            self._build_wb_slowpath(card_marking,
-                                    bool(self._regalloc.xrm.reg_bindings))
-            assert self.wb_slowpath[helper_num] != 0
-        #
-        if not is_frame:
-            mc.PUSH(loc_base)
-        mc.CALL(imm(self.wb_slowpath[helper_num]))
-        if not is_frame:
-            mc.stack_frame_size_delta(-WORD)
-
-        if card_marking:
-            # The helper ends again with a check of the flag in the object.
-            # So here, we can simply write again a 'JNS', which will be
-            # taken if GCFLAG_CARDS_SET is still not set.
-            jns_location = mc.emit_forward_jump('NS')   # patched later
-            #
-            # patch the JS above
-            mc.patch_forward_jump(js_location)
-            #
-            # case GCFLAG_CARDS_SET: emit a few instructions to do
-            # directly the card flag setting
-            loc_index = arglocs[1]
-            if isinstance(loc_index, RegLoc):
-                if IS_X86_64 and isinstance(loc_base, RegLoc):
-                    # copy loc_index into r11
-                    tmp1 = X86_64_SCRATCH_REG
-                    mc.forget_scratch_register()
-                    mc.MOV_rr(tmp1.value, loc_index.value)
-                    final_pop = False
-                else:
-                    # must save the register loc_index before it is mutated
-                    mc.PUSH_r(loc_index.value)
-                    tmp1 = loc_index
-                    final_pop = True
-                # SHR tmp, card_page_shift
-                mc.SHR_ri(tmp1.value, descr.jit_wb_card_page_shift)
-                # XOR tmp, -8
-                mc.XOR_ri(tmp1.value, -8)
-                # BTS [loc_base], tmp
-                if final_pop:
-                    # r11 is not specially used, fall back to regloc.py
-                    mc.BTS(addr_add_const(loc_base, 0), tmp1)
-                else:
-                    # tmp1 is r11!  but in this case, loc_base is a
-                    # register so we can invoke directly rx86.py
-                    mc.BTS_mr((loc_base.value, 0), tmp1.value)
-                # done
-                if final_pop:
-                    mc.POP_r(loc_index.value)
-                #
-            elif isinstance(loc_index, ImmedLoc):
-                byte_index = loc_index.value >> descr.jit_wb_card_page_shift
-                byte_ofs = ~(byte_index >> 3)
-                byte_val = 1 << (byte_index & 7)
-                mc.OR8(addr_add_const(loc_base, byte_ofs), imm(byte_val))
-            else:
-                raise AssertionError("index is neither RegLoc nor ImmedLoc")
-            #
-            # patch the JNS above
-            mc.patch_forward_jump(jns_location)
-
-        # patch the JZ above
-        mc.patch_forward_jump(jz_location)
+        sp = self.WriteBarrierSlowPath(mc, rx86.Conditions['NZ'])
+        sp.loc_index = loc_index
+        sp.is_frame = is_frame
+        sp.set_continue_addr(mc)
+        self.pending_slowpaths.append(sp)
 
     def genop_discard_cond_call_gc_wb(self, op, arglocs):
         self._write_barrier_fastpath(self.mc, op.getdescr(), arglocs)
