@@ -211,9 +211,9 @@ class Test64Bits:
     def test_64bit_address_4(self):
         base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
-        assert cb._scratch_register_value == 0
+        assert cb._scratch_register_value == -1
         cb.MOV(ecx, AddressLoc(edx, esi, 2, base_addr))
-        assert cb._scratch_register_value == 0
+        assert cb._scratch_register_value == -1
         # this case is a CMP_ra
         #
         expected_instructions = (
