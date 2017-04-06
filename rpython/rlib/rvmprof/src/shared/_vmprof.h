@@ -8,8 +8,9 @@
 // CPython 3.6 defines all the inttypes for us, we do not need the msiinttypes
 // library for that version or any newer!
 #if (PY_VERSION_HEX < 0x3060000)
-#include "msiinttypes/inttypes.h"
-#include "msiinttypes/stdint.h"
+#include <crtdefs.h>
+typedef __int64 int64_t;
+typedef unsigned __int64 uint64_t;
 #endif
 
 #else
