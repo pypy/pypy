@@ -368,10 +368,12 @@ faulthandler_register(int signum, int chain, _Py_sighandler_t *p_previous)
 
 #ifdef HAVE_SIGACTION
 static void faulthandler_user(int signum, siginfo_t *info, void *ucontext)
+{
 #else
 static void faulthandler_user(int signum)
-#endif
 {
+    void *ucontext = NULL;
+#endif
     int save_errno;
     user_signal_t *user = &user_signals[signum];
 
@@ -489,10 +491,12 @@ int pypy_faulthandler_unregister(int signum)
 static void
 #ifdef HAVE_SIGACTION
 faulthandler_fatal_error(int signum, siginfo_t *info, void *ucontext)
+{
 #else
 faulthandler_fatal_error(int signum)
-#endif
 {
+    void *ucontext = NULL;
+#endif
     int fd = fatal_error.fd;
     int i;
     fault_handler_t *handler = NULL;
@@ -616,7 +620,7 @@ char *pypy_faulthandler_enable(int fd, int all_threads)
             int err;
             struct sigaction action;
             fault_handler_t *handler = &faulthandler_handlers[i];
-
+#ifdef HAVE_SIGACTION
             action.sa_sigaction = faulthandler_fatal_error;
             sigemptyset(&action.sa_mask);
             /* Do not prevent the signal from being received from within
@@ -628,6 +632,11 @@ char *pypy_faulthandler_enable(int fd, int all_threads)
                 action.sa_flags |= SA_ONSTACK;
             }
             err = sigaction(handler->signum, &action, &handler->previous);
+#else
+            handler->previous = signal(handler->signum,
+                                       faulthandler_fatal_error);
+            err = (handler->previous == SIG_ERR);
+#endif
             if (err) {
                 return strerror(errno);
             }
@@ -647,7 +656,11 @@ void pypy_faulthandler_disable(void)
             fault_handler_t *handler = &faulthandler_handlers[i];
             if (!handler->enabled)
                 continue;
+#ifdef HAVE_SIGACTION
             (void)sigaction(handler->signum, &handler->previous, NULL);
+#else
+            (void)signal(handler->signum, handler->previous);
+#endif
             handler->enabled = 0;
         }
     }
