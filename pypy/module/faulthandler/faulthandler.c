@@ -23,8 +23,16 @@
 #define MAX_FRAME_DEPTH   100
 #define FRAME_DEPTH_N     RVMPROF_TRACEBACK_ESTIMATE_N(MAX_FRAME_DEPTH)
 
+#ifndef _WIN32
+#define HAVE_SIGACTION 1
+#define HAVE_SIGALTSTACK 1
+#endif
 
+#ifdef HAVE_SIGACTION
 typedef struct sigaction _Py_sighandler_t;
+#else
+typedef void (*_Py_sighandler_t)(int);
+#endif
 
 typedef struct {
     const int signum;
@@ -40,7 +48,9 @@ static struct {
     volatile pypy_faulthandler_cb_t dump_traceback;
 } fatal_error;
 
+#ifdef HAVE_SIGALTSTACK
 static stack_t stack;
+#endif
 
 
 static fault_handler_t faulthandler_handlers[] = {
@@ -319,11 +329,16 @@ static user_signal_t *user_signals;
 # endif
 #endif
 
+#ifdef HAVE_SIGACTION
 static void faulthandler_user(int signum, siginfo_t *info, void *ucontext);
+#else
+static void faulthandler_user(int signum);
+#endif
 
 static int
 faulthandler_register(int signum, int chain, _Py_sighandler_t *p_previous)
 {
+#ifdef HAVE_SIGACTION
     struct sigaction action;
     action.sa_sigaction = faulthandler_user;
     sigemptyset(&action.sa_mask);
@@ -342,9 +357,20 @@ faulthandler_register(int signum, int chain, _Py_sighandler_t *p_previous)
         action.sa_flags |= SA_ONSTACK;
     }
     return sigaction(signum, &action, p_previous);
+#else
+    _Py_sighandler_t previous;
+    previous = signal(signum, faulthandler_user);
+    if (p_previous != NULL)
+        *p_previous = previous;
+    return (previous == SIG_ERR);
+#endif
 }
 
+#ifdef HAVE_SIGACTION
 static void faulthandler_user(int signum, siginfo_t *info, void *ucontext)
+#else
+static void faulthandler_user(int signum)
+#endif
 {
     int save_errno;
     user_signal_t *user = &user_signals[signum];
@@ -355,6 +381,7 @@ static void faulthandler_user(int signum, siginfo_t *info, void *ucontext)
     save_errno = errno;
     faulthandler_dump_traceback(user->fd, user->all_threads, ucontext);
 
+#ifdef HAVE_SIGACTION
     if (user->chain) {
         (void)sigaction(signum, &user->previous, NULL);
         errno = save_errno;
@@ -367,6 +394,13 @@ static void faulthandler_user(int signum, siginfo_t *info, void *ucontext)
     }
 
     errno = save_errno;
+#else
+    if (user->chain) {
+        errno = save_errno;
+        /* call the previous signal handler */
+        user->previous(signum);
+    }
+#endif
 }
 
 RPY_EXTERN
@@ -453,7 +487,11 @@ int pypy_faulthandler_unregister(int signum)
    This function is signal-safe and should only call signal-safe functions. */
 
 static void
+#ifdef HAVE_SIGACTION
 faulthandler_fatal_error(int signum, siginfo_t *info, void *ucontext)
+#else
+faulthandler_fatal_error(int signum)
+#endif
 {
     int fd = fatal_error.fd;
     int i;
@@ -501,6 +539,7 @@ char *pypy_faulthandler_setup(pypy_faulthandler_cb_t dump_callback)
     assert(!fatal_error.enabled);
     fatal_error.dump_traceback = dump_callback;
 
+#ifdef HAVE_SIGALTSTACK
     /* Try to allocate an alternate stack for faulthandler() signal handler to
      * be able to allocate memory on the stack, even on a stack overflow. If it
      * fails, ignore the error. */
@@ -514,6 +553,7 @@ char *pypy_faulthandler_setup(pypy_faulthandler_cb_t dump_callback)
             stack.ss_sp = NULL;
         }
     }
+#endif
 
 #ifdef PYPY_FAULTHANDLER_LATER
     if (!RPyThreadLockInit(&thread_later.cancel_event) ||
@@ -550,12 +590,14 @@ void pypy_faulthandler_teardown(void)
 
         pypy_faulthandler_disable();
         fatal_error.initialized = 0;
+#ifdef HAVE_SIGALTSTACK
         if (stack.ss_sp) {
             stack.ss_flags = SS_DISABLE;
             sigaltstack(&stack, NULL);
             free(stack.ss_sp);
             stack.ss_sp = NULL;
         }
+#endif
     }
 }
 
