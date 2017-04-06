@@ -511,7 +511,11 @@ faulthandler_fatal_error(int signum)
 
     /* restore the previous handler */
     if (handler->enabled) {
+#ifdef HAVE_SIGACTION
         (void)sigaction(signum, &handler->previous, NULL);
+#else
+        (void)signal(signum, handler->previous);
+#endif
         handler->enabled = 0;
     }
 
