@@ -1718,6 +1718,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         pos = self.mc.get_relative_pos(break_basic_block=False)
         pos += 1   # after potential jmp
         guard_token.pos_jump_offset = pos
+        saved = self.mc.get_scratch_register_known_value()
+        guard_token.known_scratch_value = saved
         self.pending_guard_tokens.append(guard_token)
 
     def genop_guard_guard_exception(self, guard_op, guard_token, locs, resloc):
@@ -1913,6 +1915,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         """
         self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         startpos = self.mc.get_relative_pos()
+        self.mc.restore_scratch_register_known_value(
+                                         guardtok.known_scratch_value)
         #
         self._update_at_exit(guardtok.fail_locs, guardtok.failargs,
                              guardtok.faildescr, regalloc)
@@ -2075,6 +2079,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.guard_success_cc = rx86.cond_none
         pos = self.mc.get_relative_pos(break_basic_block=False)
         guard_token.pos_jump_offset = pos - 4
+        saved = self.mc.get_scratch_register_known_value()
+        guard_token.known_scratch_value = saved
         self.pending_guard_tokens.append(guard_token)
 
     def _genop_real_call(self, op, arglocs, resloc):
