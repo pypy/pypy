@@ -2,7 +2,11 @@
 #define PYPY_FAULTHANDLER_H
 
 #include "src/precommondefs.h"
+#ifdef _MSC_VER
+typedef Signed intptr_t;
+#else
 #include <stdint.h>
+#endif
 
 
 typedef void (*pypy_faulthandler_cb_t)(int fd, intptr_t *array_p,
