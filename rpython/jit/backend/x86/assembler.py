@@ -2508,13 +2508,11 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         else:
             self.mc.LEA_ra(edx.value, (ecx.value, sizeloc.value, 0, 0))
         self.mc.CMP(edx, heap(nursery_top_adr))
-        # PPP FIX ME
-        jna_location = self.mc.emit_forward_jump('NA')   # patched later
-        # save the gcmap
-        self.push_gcmap(self.mc, gcmap, store=True)
-        self.mc.CALL(imm(follow_jump(self.malloc_slowpath)))
-        self.mc.patch_forward_jump(jna_location)
+        sp = self.MallocCondSlowPath(self.mc, rx86.Conditions['A'])
+        sp.gcmap = gcmap
         self.mc.MOV(heap(nursery_free_adr), edx)
+        sp.set_continue_addr(self.mc)
+        self.pending_slowpaths.append(sp)
 
     def malloc_cond_varsize(self, kind, nursery_free_adr, nursery_top_adr,
                             lengthloc, itemsize, maxlength, gcmap,
