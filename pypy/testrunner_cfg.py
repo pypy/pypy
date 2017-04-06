@@ -9,11 +9,7 @@ DIRS_SPLIT = [
 ]
 
 def collect_one_testdir(testdirs, reldir, tests):
-    for dir in DIRS_SPLIT:
-        if reldir.startswith(dir):
-            testdirs.extend(tests)
-            break
-    else:
+    if reldir.startswith('module/faulthandler'):
         testdirs.append(reldir)
 
 
