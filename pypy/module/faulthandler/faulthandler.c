@@ -618,9 +618,9 @@ char *pypy_faulthandler_enable(int fd, int all_threads)
 
         for (i = 0; i < faulthandler_nsignals; i++) {
             int err;
-            struct sigaction action;
             fault_handler_t *handler = &faulthandler_handlers[i];
 #ifdef HAVE_SIGACTION
+            struct sigaction action;
             action.sa_sigaction = faulthandler_fatal_error;
             sigemptyset(&action.sa_mask);
             /* Do not prevent the signal from being received from within
