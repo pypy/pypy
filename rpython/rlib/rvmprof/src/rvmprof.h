@@ -8,7 +8,7 @@
 #include <crtdefs.h>
 typedef __int64 int64_t;
 typedef unsigned __int64 uint64_t;
-typedef ... ssize_t;
+typedef intptr_t ssize_t;
 #else
 #include <inttypes.h>
 #include <stdint.h>
