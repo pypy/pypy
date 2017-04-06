@@ -347,6 +347,7 @@ class CallBuilderX86(AbstractCallBuilder):
             rst = gcrootmap.get_root_stack_top_addr()
             mc = self.mc
             mc.CMP(ebx, heap(rst))
+            # PPP FIX ME
             je_location = mc.emit_forward_jump('E')
             # revert the rpy_fastgil acquired above, so that the
             # general 'reacqgil_addr' below can acquire it again...

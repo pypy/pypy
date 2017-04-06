@@ -276,6 +276,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.set_extra_stack_depth(mc, 0)
         #
         mc.TEST_rr(eax.value, eax.value)
+        # common case: not taken
         mc.J_il(rx86.Conditions['Z'], 0xfffff) # patched later
         jz_location = mc.get_relative_pos(break_basic_block=False)
         mc.MOV_rr(ecx.value, eax.value)
@@ -832,6 +833,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         ofs = self.cpu.unpack_fielddescr(descrs.arraydescr.lendescr)
         mc.CMP_bi(ofs, 0xffffff)     # force writing 32 bit
         stack_check_cmp_ofs = mc.get_relative_pos(break_basic_block=False) - 4
+        # PPP FIX ME
         jg_location = mc.emit_forward_jump('GE')
         mc.MOV_si(WORD, 0xffffff)     # force writing 32 bit
         ofs2 = mc.get_relative_pos(break_basic_block=False) - 4
@@ -995,6 +997,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             self.mc.MOV(eax, heap(endaddr))             # MOV eax, [start]
             self.mc.SUB(eax, esp)                       # SUB eax, current
             self.mc.CMP(eax, heap(lengthaddr))          # CMP eax, [length]
+            # PPP FIX ME
             jb_location = self.mc.emit_forward_jump('BE')#JBE .skip
             self.mc.CALL(imm(self.stack_check_slowpath))# CALL slowpath
             # patch the JB above                        # .skip:
@@ -1536,9 +1539,11 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         reg = arglocs[0]
         self.mc.TEST(reg, reg)
         if WORD == 4:
+            # common case: not taken
             self.mc.J_il(rx86.Conditions['Z'], self.propagate_exception_path)
             self.mc.add_pending_relocation()
         elif WORD == 8:
+            # common case: not taken
             self.mc.J_il(rx86.Conditions['Z'], 0)
             pos = self.mc.get_relative_pos(break_basic_block=False)
             self.pending_memoryerror_trampoline_from.append(pos)
@@ -2065,6 +2070,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     def implement_guard(self, guard_token):
         # These jumps are patched later.
         assert self.guard_success_cc >= 0
+        # common case: not taken
         self.mc.J_il(rx86.invert_condition(self.guard_success_cc), 0)
         self.guard_success_cc = rx86.cond_none
         pos = self.mc.get_relative_pos(break_basic_block=False)
@@ -2257,6 +2263,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         else:
             loc = addr_add_const(loc_base, descr.jit_wb_if_flag_byteofs)
         mc.TEST8(loc, imm(mask))
+        # PPP FIX ME
         jz_location = mc.emit_forward_jump('Z')   # patched later
 
         # for cond_call_gc_wb_array, also add another fast path:
@@ -2374,6 +2381,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     def cond_call(self, gcmap, imm_func, arglocs, resloc=None):
         assert self.guard_success_cc >= 0
+        # PPP FIX ME
         j_location = self.mc.emit_forward_jump_cond(
             rx86.invert_condition(self.guard_success_cc))
         self.guard_success_cc = rx86.cond_none
@@ -2435,6 +2443,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.mc.MOV(ecx, heap(nursery_free_adr))
         self.mc.LEA_rm(edx.value, (ecx.value, size))
         self.mc.CMP(edx, heap(nursery_top_adr))
+        # PPP FIX ME
         jna_location = self.mc.emit_forward_jump('NA')   # patched later
         # save the gcmap
         self.push_gcmap(self.mc, gcmap, store=True)
@@ -2453,6 +2462,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         else:
             self.mc.LEA_ra(edx.value, (ecx.value, sizeloc.value, 0, 0))
         self.mc.CMP(edx, heap(nursery_top_adr))
+        # PPP FIX ME
         jna_location = self.mc.emit_forward_jump('NA')   # patched later
         # save the gcmap
         self.push_gcmap(self.mc, gcmap, store=True)
@@ -2499,6 +2509,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # now edx contains the total size in bytes, rounded up to a multiple
         # of WORD, plus nursery_free_adr
         self.mc.CMP(edx, heap(nursery_top_adr))
+        # PPP FIX ME
         jna_location = self.mc.emit_forward_jump('NA')   # patched later
         #
         self.mc.patch_forward_jump(ja_location)
