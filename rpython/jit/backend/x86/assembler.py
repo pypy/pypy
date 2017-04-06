@@ -125,6 +125,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             self.pending_memoryerror_trampoline_from = None
         self.mc = None
         self.current_clt = None
+        self.frame_depth_to_patch = None
 
     def _build_float_constants(self):
         # 0x80000000000000008000000000000000
@@ -858,6 +859,14 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         for ofs in self.frame_depth_to_patch:
             self._patch_frame_depth(ofs + rawstart, framedepth)
 
+    class IncreaseStackSlowPath(SlowPath):
+        def generate_body(self, assembler, mc):
+            mc.MOV_si(WORD, 0xffffff)     # force writing 32 bit
+            ofs2 = mc.get_relative_pos(break_basic_block=False) - 4
+            assembler.frame_depth_to_patch.append(ofs2)
+            assembler.push_gcmap(mc, self.gcmap, store=True)
+            mc.CALL(imm(assembler._frame_realloc_slowpath))
+
     def _check_frame_depth(self, mc, gcmap):
         """ check if the frame is of enough depth to follow this bridge.
         Otherwise reallocate the frame in a helper.
@@ -868,16 +877,11 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         ofs = self.cpu.unpack_fielddescr(descrs.arraydescr.lendescr)
         mc.CMP_bi(ofs, 0xffffff)     # force writing 32 bit
         stack_check_cmp_ofs = mc.get_relative_pos(break_basic_block=False) - 4
-        # PPP FIX ME
-        jg_location = mc.emit_forward_jump('GE')
-        mc.MOV_si(WORD, 0xffffff)     # force writing 32 bit
-        ofs2 = mc.get_relative_pos(break_basic_block=False) - 4
-        self.push_gcmap(mc, gcmap, store=True)
-        mc.CALL(imm(self._frame_realloc_slowpath))
-        # patch the JG above
-        mc.patch_forward_jump(jg_location)
         self.frame_depth_to_patch.append(stack_check_cmp_ofs)
-        self.frame_depth_to_patch.append(ofs2)
+        sp = self.IncreaseStackSlowPath(mc, rx86.Conditions['L'])
+        sp.gcmap = gcmap
+        sp.set_continue_addr(mc)
+        self.pending_slowpaths.append(sp)
 
     def _check_frame_depth_debug(self, mc):
         """ double check the depth size. It prints the error (and potentially
