@@ -5,8 +5,10 @@
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
+#ifndef _WIN32
 #include <unistd.h>
 #include <sys/resource.h>
+#endif
 #include <math.h>
 
 #ifdef RPYTHON_LL2CTYPES
@@ -478,7 +480,7 @@ faulthandler_fatal_error(int signum, siginfo_t *info, void *ucontext)
     faulthandler_dump_traceback(fd, fatal_error.all_threads, ucontext);
 
     errno = save_errno;
-#ifdef MS_WINDOWS
+#ifdef _WIN32
     if (signum == SIGSEGV) {
         /* don't explicitly call the previous handler for SIGSEGV in this signal
            handler, because the Windows signal handler would not be called */
@@ -625,7 +627,7 @@ int pypy_faulthandler_is_enabled(void)
 static void
 faulthandler_suppress_crash_report(void)
 {
-#ifdef MS_WINDOWS
+#ifdef _WIN32
     UINT mode;
 
     /* Configure Windows to not display the Windows Error Reporting dialog */
@@ -633,7 +635,7 @@ faulthandler_suppress_crash_report(void)
     SetErrorMode(mode | SEM_NOGPFAULTERRORBOX);
 #endif
 
-#ifndef MS_WINDOWS
+#ifndef _WIN32
     struct rlimit rl;
 
     /* Disable creation of core dump */
@@ -664,7 +666,7 @@ RPY_EXTERN
 void pypy_faulthandler_sigsegv(void)
 {
     faulthandler_suppress_crash_report();
-#if defined(MS_WINDOWS)
+#ifdef _WIN32
     /* For SIGSEGV, faulthandler_fatal_error() restores the previous signal
        handler and then gives back the execution flow to the program (without
        explicitly calling the previous error handler). In a normal case, the

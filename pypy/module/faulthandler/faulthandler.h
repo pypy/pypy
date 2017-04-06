@@ -3,7 +3,7 @@
 
 #include "src/precommondefs.h"
 #ifdef _MSC_VER
-typedef Signed intptr_t;
+#include <crtdef.h>
 #else
 #include <stdint.h>
 #endif
