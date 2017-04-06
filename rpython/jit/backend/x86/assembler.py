@@ -788,7 +788,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.teardown_gcrefs_list()
 
     def write_pending_failure_recoveries(self, regalloc):
-        # for each pending slowpath, generate it now
+        # for each pending slowpath, generate it now.  Note that this
+        # may occasionally add an extra guard_token in
+        # pending_guard_tokens, so it must be done before the next loop.
         for sp in self.pending_slowpaths:
             sp.generate(self)
         # for each pending guard, generate the code of the recovery stub
@@ -1191,9 +1193,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                                                     faillocs, frame_depth)
         genop_guard_list[guard_opnum](self, guard_op, guard_token,
                                       arglocs, resloc)
-        if not we_are_translated():
-            # must be added by the genop_guard_list[]()
-            assert guard_token is self.pending_guard_tokens[-1]
+        # this must usually have added guard_token as last element
+        # of self.pending_guard_tokens, but not always (see
+        # genop_guard_guard_no_exception)
 
     def load_effective_addr(self, sizereg, baseofs, scale, result, frm=imm0):
         self.mc.LEA(result, addr_add(frm, sizereg, baseofs, scale))
@@ -1733,22 +1735,21 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     genop_guard_guard_isnull = genop_guard_guard_false
 
     def genop_guard_guard_no_exception(self, guard_op, guard_token, locs, ign):
+        # If the previous operation was a COND_CALL, don't emit
+        # anything now.  Instead, we'll emit the GUARD_NO_EXCEPTION at
+        # the end of the slowpath in CondCallSlowPath.
+        if self._find_nearby_operation(-1).getopnum() in (
+                rop.COND_CALL, rop.COND_CALL_VALUE_I, rop.COND_CALL_VALUE_R):
+            sp = self.pending_slowpaths[-1]
+            assert isinstance(sp, self.CondCallSlowPath)
+            sp.guard_token_no_exception = guard_token
+        else:
+            self.generate_guard_no_exception(guard_token)
+
+    def generate_guard_no_exception(self, guard_token):
         self.mc.CMP(heap(self.cpu.pos_exception()), imm0)
         self.guard_success_cc = rx86.Conditions['Z']
         self.implement_guard(guard_token)
-        # If the previous operation was a COND_CALL, overwrite its conditional
-        # jump to jump over this GUARD_NO_EXCEPTION as well, if we can
-        if self._find_nearby_operation(-1).getopnum() in (
-                rop.COND_CALL, rop.COND_CALL_VALUE_I, rop.COND_CALL_VALUE_R):
-            j_location = self.previous_cond_call_jcond
-            try:
-                self.mc.patch_forward_jump(j_location)
-            except codebuf.ShortJumpTooFar:
-                pass    # ignore this case
-            else:
-                # succeeded: forget the saved value of the scratch
-                # register here
-                self.mc.forget_scratch_register()
 
     def genop_guard_guard_not_invalidated(self, guard_op, guard_token,
                                           locs, ign):
@@ -2422,64 +2423,75 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     def label(self):
         self._check_frame_depth_debug(self.mc)
 
+    class CondCallSlowPath(SlowPath):
+        guard_token_no_exception = None
+
+        def generate_body(self, assembler, mc):
+            assembler.push_gcmap(mc, self.gcmap, store=True)
+            #
+            # first save away the 4 registers from
+            # 'cond_call_register_arguments' plus the register 'eax'
+            base_ofs = assembler.cpu.get_baseofs_of_frame_field()
+            should_be_saved = assembler._regalloc.rm.reg_bindings.values()
+            restore_eax = False
+            for gpr in cond_call_register_arguments + [eax]:
+                if gpr not in should_be_saved or gpr is self.resloc:
+                    continue
+                v = gpr_reg_mgr_cls.all_reg_indexes[gpr.value]
+                mc.MOV_br(v * WORD + base_ofs, gpr.value)
+                if gpr is eax:
+                    restore_eax = True
+            #
+            # load the 0-to-4 arguments into these registers
+            from rpython.jit.backend.x86.jump import remap_frame_layout
+            arglocs = self.arglocs
+            remap_frame_layout(assembler, arglocs,
+                               cond_call_register_arguments[:len(arglocs)],
+                               X86_64_SCRATCH_REG if IS_X86_64 else None)
+            #
+            # load the constant address of the function to call into eax
+            mc.MOV(eax, self.imm_func)
+            #
+            # figure out which variant of cond_call_slowpath to call,
+            # and call it
+            callee_only = False
+            floats = False
+            if assembler._regalloc is not None:
+                for reg in assembler._regalloc.rm.reg_bindings.values():
+                    if reg not in assembler._regalloc.rm.save_around_call_regs:
+                        break
+                else:
+                    callee_only = True
+                if assembler._regalloc.xrm.reg_bindings:
+                    floats = True
+            cond_call_adr = assembler.cond_call_slowpath[floats*2 + callee_only]
+            mc.CALL(imm(follow_jump(cond_call_adr)))
+            # if this is a COND_CALL_VALUE, we need to move the result in place
+            resloc = self.resloc
+            if resloc is not None and resloc is not eax:
+                mc.MOV(resloc, eax)
+            # restoring the registers saved above, and doing pop_gcmap(), is
+            # left to the cond_call_slowpath helper.  We must only restore eax,
+            # if needed.
+            if restore_eax:
+                v = gpr_reg_mgr_cls.all_reg_indexes[eax.value]
+                mc.MOV_rb(eax.value, v * WORD + base_ofs)
+            #
+            # if needed, emit now the guard_no_exception
+            if self.guard_token_no_exception is not None:
+                assembler.generate_guard_no_exception(
+                             self.guard_token_no_exception)
+
     def cond_call(self, gcmap, imm_func, arglocs, resloc=None):
         assert self.guard_success_cc >= 0
-        # PPP FIX ME
-        j_location = self.mc.emit_forward_jump_cond(
-            rx86.invert_condition(self.guard_success_cc))
+        sp = self.CondCallSlowPath(self.mc, self.guard_success_cc)
+        sp.set_continue_addr(self.mc)
         self.guard_success_cc = rx86.cond_none
-        #
-        self.push_gcmap(self.mc, gcmap, store=True)
-        #
-        # first save away the 4 registers from 'cond_call_register_arguments'
-        # plus the register 'eax'
-        base_ofs = self.cpu.get_baseofs_of_frame_field()
-        should_be_saved = self._regalloc.rm.reg_bindings.values()
-        restore_eax = False
-        for gpr in cond_call_register_arguments + [eax]:
-            if gpr not in should_be_saved or gpr is resloc:
-                continue
-            v = gpr_reg_mgr_cls.all_reg_indexes[gpr.value]
-            self.mc.MOV_br(v * WORD + base_ofs, gpr.value)
-            if gpr is eax:
-                restore_eax = True
-        #
-        # load the 0-to-4 arguments into these registers
-        from rpython.jit.backend.x86.jump import remap_frame_layout
-        remap_frame_layout(self, arglocs,
-                           cond_call_register_arguments[:len(arglocs)],
-                           X86_64_SCRATCH_REG if IS_X86_64 else None)
-        #
-        # load the constant address of the function to call into eax
-        self.mc.MOV(eax, imm_func)
-        #
-        # figure out which variant of cond_call_slowpath to call, and call it
-        callee_only = False
-        floats = False
-        if self._regalloc is not None:
-            for reg in self._regalloc.rm.reg_bindings.values():
-                if reg not in self._regalloc.rm.save_around_call_regs:
-                    break
-            else:
-                callee_only = True
-            if self._regalloc.xrm.reg_bindings:
-                floats = True
-        cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
-        self.mc.CALL(imm(follow_jump(cond_call_adr)))
-        # if this is a COND_CALL_VALUE, we need to move the result in place
-        if resloc is not None and resloc is not eax:
-            self.mc.MOV(resloc, eax)
-        # restoring the registers saved above, and doing pop_gcmap(), is left
-        # to the cond_call_slowpath helper.  We must only restore eax, if
-        # needed.
-        if restore_eax:
-            v = gpr_reg_mgr_cls.all_reg_indexes[eax.value]
-            self.mc.MOV_rb(eax.value, v * WORD + base_ofs)
-        #
-        self.mc.patch_forward_jump(j_location)
-        # might be overridden again to skip over the following
-        # guard_no_exception too
-        self.previous_cond_call_jcond = j_location
+        sp.gcmap = gcmap
+        sp.imm_func = imm_func
+        sp.arglocs = arglocs
+        sp.resloc = resloc
+        self.pending_slowpaths.append(sp)
 
     class MallocCondSlowPath(SlowPath):
         def generate_body(self, assembler, mc):
