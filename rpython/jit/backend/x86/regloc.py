@@ -373,7 +373,7 @@ _missing_binary_insn._dont_inline_ = True
 class LocationCodeBuilder(object):
     _mixin_ = True
 
-    _scratch_register_value = 0    # 0 means 'unknown'
+    _scratch_register_value = -1    # -1 means 'unknown'
 
     def _binaryop(name):
 
@@ -552,7 +552,7 @@ class LocationCodeBuilder(object):
         # If we are within a "reuse_scratch_register" block, we remember the
         # last value we loaded to the scratch register and encode the address
         # as an offset from that if we can
-        if self._scratch_register_value != 0:
+        if self._scratch_register_value != -1:
             offset = r_uint(addr) - r_uint(self._scratch_register_value)
             offset = intmask(offset)
             if rx86.fits_in_32bits(offset):
@@ -593,7 +593,7 @@ class LocationCodeBuilder(object):
         return (reg, scalereg, scale, ofs)
 
     def _load_scratch(self, value):
-        if self._scratch_register_value != 0:
+        if self._scratch_register_value != -1:
             if self._scratch_register_value == value:
                 #print '_load_scratch(%x) [REUSED]' % (value,)
                 return
@@ -619,13 +619,18 @@ class LocationCodeBuilder(object):
         self.MOV_ri(X86_64_SCRATCH_REG.value, value)
 
     def forget_scratch_register(self):
-        self._scratch_register_value = 0
+        self._scratch_register_value = -1
 
     def get_scratch_register_known_value(self):
         return self._scratch_register_value
 
     def restore_scratch_register_known_value(self, saved_value):
         self._scratch_register_value = saved_value
+
+    def load_scratch_if_known(self, saved_value):
+        if saved_value != -1:
+            assert IS_X86_64
+            self._load_scratch(saved_value)
 
     def trap(self):
         self.INT3()

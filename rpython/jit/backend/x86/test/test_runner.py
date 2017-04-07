@@ -39,7 +39,7 @@ class TestX86(LLtypeBackendTest):
                                  'nop; '    # for the label
                                  'add; test; je; jmp;')   # plus some padding
         bridge_loop_instructions = (
-            'cmp; jge; mov;( movabs;| lea;)? mov; (mov|movabs|lea); call; mov(abs)?; jmp;')
+            'cmp; jl; mov(abs)?; jmp;')
 
     def get_cpu(self):
         cpu = CPU(rtyper=None, stats=FakeStats())
