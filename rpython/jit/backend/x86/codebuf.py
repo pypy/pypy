@@ -81,3 +81,30 @@ class MachineCodeBlockWrapper(BlockBuilderMixin,
         if break_basic_block:
             self.forget_scratch_register()
         return BlockBuilderMixin.get_relative_pos(self)
+
+
+class SlowPath(object):
+    def __init__(self, mc, condition):
+        mc.J_il(condition, 0xfffff)     # patched later
+        self.cond_jump_addr = mc.get_relative_pos(break_basic_block=False)
+        self.saved_scratch_value_1 = mc.get_scratch_register_known_value()
+
+    def set_continue_addr(self, mc):
+        self.continue_addr = mc.get_relative_pos(break_basic_block=False)
+        self.saved_scratch_value_2 = mc.get_scratch_register_known_value()
+
+    def generate(self, assembler, mc):
+        # no alignment here, prefer compactness for these slow-paths.
+        # patch the original jump to go here
+        offset = mc.get_relative_pos() - self.cond_jump_addr
+        mc.overwrite32(self.cond_jump_addr-4, offset)
+        # restore the knowledge of the scratch register value
+        # (this does not emit any code)
+        mc.restore_scratch_register_known_value(self.saved_scratch_value_1)
+        # generate the body of the slow-path
+        self.generate_body(assembler, mc)
+        # reload (if needed) the (possibly different) scratch register value
+        mc.load_scratch_if_known(self.saved_scratch_value_2)
+        # jump back
+        curpos = mc.get_relative_pos() + 5
+        mc.JMP_l(self.continue_addr - curpos)

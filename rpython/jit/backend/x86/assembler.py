@@ -41,33 +41,6 @@ from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.objectmodel import compute_unique_id
 
 
-class SlowPath(object):
-    def __init__(self, mc, condition):
-        mc.J_il(condition, 0xfffff)     # patched later
-        self.cond_jump_addr = mc.get_relative_pos(break_basic_block=False)
-        self.saved_scratch_value_1 = mc.get_scratch_register_known_value()
-
-    def set_continue_addr(self, mc):
-        self.continue_addr = mc.get_relative_pos(break_basic_block=False)
-        self.saved_scratch_value_2 = mc.get_scratch_register_known_value()
-
-    def generate(self, assembler, mc):
-        # no alignment here, prefer compactness for these slow-paths.
-        # patch the original jump to go here
-        offset = mc.get_relative_pos() - self.cond_jump_addr
-        mc.overwrite32(self.cond_jump_addr-4, offset)
-        # restore the knowledge of the scratch register value
-        # (this does not emit any code)
-        mc.restore_scratch_register_known_value(self.saved_scratch_value_1)
-        # generate the body of the slow-path
-        self.generate_body(assembler, mc)
-        # reload (if needed) the (possibly different) scratch register value
-        mc.load_scratch_if_known(self.saved_scratch_value_2)
-        # jump back
-        curpos = mc.get_relative_pos() + 5
-        mc.JMP_l(self.continue_addr - curpos)
-
-
 class Assembler386(BaseAssembler, VectorAssemblerMixin):
     _regalloc = None
     _output_loop_log = None
@@ -865,7 +838,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         for ofs in self.frame_depth_to_patch:
             self._patch_frame_depth(ofs + rawstart, framedepth)
 
-    class IncreaseStackSlowPath(SlowPath):
+    class IncreaseStackSlowPath(codebuf.SlowPath):
         def generate_body(self, assembler, mc):
             mc.MOV_si(WORD, 0xffffff)     # force writing 32 bit
             ofs2 = mc.get_relative_pos(break_basic_block=False) - 4
@@ -1033,7 +1006,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         if gcrootmap and gcrootmap.is_shadow_stack:
             self._call_header_shadowstack(gcrootmap)
 
-    class StackCheckSlowPath(SlowPath):
+    class StackCheckSlowPath(codebuf.SlowPath):
         def generate_body(self, assembler, mc):
             mc.CALL(imm(assembler.stack_check_slowpath))
 
@@ -2291,8 +2264,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     # ------------------- END CALL ASSEMBLER -----------------------
 
-    class WriteBarrierSlowPath(SlowPath):
+    class WriteBarrierSlowPath(codebuf.SlowPath):
         def generate_body(self, assembler, mc):
+            mc.force_frame_size(DEFAULT_FRAME_BYTES)
             # for cond_call_gc_wb_array, also add another fast path:
             # if GCFLAG_CARDS_SET, then we can just set one bit and be done
             card_marking = (self.loc_index is not None)
@@ -2312,6 +2286,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             elif (assembler._regalloc is not None and
                   assembler._regalloc.xrm.reg_bindings):
                 helper_num += 2
+            descr = self.descr
+            loc_base = self.loc_base
             if assembler.wb_slowpath[helper_num] == 0:    # tests only
                 assert not we_are_translated()
                 assembler.cpu.gc_ll_descr.write_barrier_descr = descr
@@ -2404,8 +2380,10 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             loc = addr_add_const(loc_base, descr.jit_wb_if_flag_byteofs)
         mc.TEST8(loc, imm(mask))
         sp = self.WriteBarrierSlowPath(mc, rx86.Conditions['NZ'])
+        sp.loc_base = loc_base
         sp.loc_index = loc_index
         sp.is_frame = is_frame
+        sp.descr = descr
         sp.set_continue_addr(mc)
         self.pending_slowpaths.append(sp)
 
@@ -2438,7 +2416,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     def label(self):
         self._check_frame_depth_debug(self.mc)
 
-    class CondCallSlowPath(SlowPath):
+    class CondCallSlowPath(codebuf.SlowPath):
         guard_token_no_exception = None
 
         def generate_body(self, assembler, mc):
@@ -2508,7 +2486,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         sp.resloc = resloc
         self.pending_slowpaths.append(sp)
 
-    class MallocCondSlowPath(SlowPath):
+    class MallocCondSlowPath(codebuf.SlowPath):
         def generate_body(self, assembler, mc):
             assembler.push_gcmap(mc, self.gcmap, store=True)
             mc.CALL(imm(follow_jump(assembler.malloc_slowpath)))
@@ -2541,7 +2519,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         sp.set_continue_addr(self.mc)
         self.pending_slowpaths.append(sp)
 
-    class MallocCondVarsizeSlowPath(SlowPath):
+    class MallocCondVarsizeSlowPath(codebuf.SlowPath):
         def generate_body(self, assembler, mc):
             # save the gcmap
             assembler.push_gcmap(mc, self.gcmap, store=True)
