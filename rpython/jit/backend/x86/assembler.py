@@ -2280,25 +2280,15 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             # Write only a CALL to the helper prepared in advance, passing it as
             # argument the address of the structure we are writing into
             # (the first argument to COND_CALL_GC_WB).
-            helper_num = card_marking
-            if self.is_frame:
-                helper_num = 4
-            elif (assembler._regalloc is not None and
-                  assembler._regalloc.xrm.reg_bindings):
-                helper_num += 2
+            helper_num = self.helper_num
+            is_frame = (helper_num == 4)
             descr = self.descr
             loc_base = self.loc_base
-            if assembler.wb_slowpath[helper_num] == 0:    # tests only
-                assert not we_are_translated()
-                assembler.cpu.gc_ll_descr.write_barrier_descr = descr
-                assembler._build_wb_slowpath(card_marking,
-                                    bool(assembler._regalloc.xrm.reg_bindings))
-                assert assembler.wb_slowpath[helper_num] != 0
             #
-            if not self.is_frame:
+            if not is_frame:
                 mc.PUSH(loc_base)
             mc.CALL(imm(assembler.wb_slowpath[helper_num]))
-            if not self.is_frame:
+            if not is_frame:
                 mc.stack_frame_size_delta(-WORD)
 
             if card_marking:
@@ -2362,6 +2352,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             cls = self.cpu.gc_ll_descr.has_write_barrier_class()
             assert cls is not None and isinstance(descr, cls)
         #
+        card_marking = False
         loc_index = None
         mask = descr.jit_wb_if_flag_singlebyte
         if array and descr.jit_wb_cards_set != 0:
@@ -2369,6 +2360,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             assert (descr.jit_wb_cards_set_byteofs ==
                     descr.jit_wb_if_flag_byteofs)
             assert descr.jit_wb_cards_set_singlebyte == -0x80
+            card_marking = True
             loc_index = arglocs[1]
             mask = descr.jit_wb_if_flag_singlebyte | -0x80
         #
@@ -2378,11 +2370,24 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             loc = raw_stack(descr.jit_wb_if_flag_byteofs)
         else:
             loc = addr_add_const(loc_base, descr.jit_wb_if_flag_byteofs)
+        #
+        helper_num = card_marking
+        if is_frame:
+            helper_num = 4
+        elif self._regalloc is not None and self._regalloc.xrm.reg_bindings:
+            helper_num += 2
+        if self.wb_slowpath[helper_num] == 0:    # tests only
+            assert not we_are_translated()
+            self.cpu.gc_ll_descr.write_barrier_descr = descr
+            self._build_wb_slowpath(card_marking,
+                                    bool(self._regalloc.xrm.reg_bindings))
+            assert self.wb_slowpath[helper_num] != 0
+        #
         mc.TEST8(loc, imm(mask))
         sp = self.WriteBarrierSlowPath(mc, rx86.Conditions['NZ'])
         sp.loc_base = loc_base
         sp.loc_index = loc_index
-        sp.is_frame = is_frame
+        sp.helper_num = helper_num
         sp.descr = descr
         sp.set_continue_addr(mc)
         self.pending_slowpaths.append(sp)
@@ -2425,7 +2430,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             # first save away the 4 registers from
             # 'cond_call_register_arguments' plus the register 'eax'
             base_ofs = assembler.cpu.get_baseofs_of_frame_field()
-            should_be_saved = assembler._regalloc.rm.reg_bindings.values()
+            should_be_saved = self.should_be_saved
             restore_eax = False
             for gpr in cond_call_register_arguments + [eax]:
                 if gpr not in should_be_saved or gpr is self.resloc:
@@ -2447,17 +2452,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             #
             # figure out which variant of cond_call_slowpath to call,
             # and call it
-            callee_only = False
-            floats = False
-            if assembler._regalloc is not None:
-                for reg in assembler._regalloc.rm.reg_bindings.values():
-                    if reg not in assembler._regalloc.rm.save_around_call_regs:
-                        break
-                else:
-                    callee_only = True
-                if assembler._regalloc.xrm.reg_bindings:
-                    floats = True
-            cond_call_adr = assembler.cond_call_slowpath[floats*2 + callee_only]
+            cond_call_adr = assembler.cond_call_slowpath[self.variant_num]
             mc.CALL(imm(follow_jump(cond_call_adr)))
             # if this is a COND_CALL_VALUE, we need to move the result in place
             resloc = self.resloc
@@ -2484,6 +2479,20 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         sp.imm_func = imm_func
         sp.arglocs = arglocs
         sp.resloc = resloc
+        sp.should_be_saved = self._regalloc.rm.reg_bindings.values()
+        #
+        callee_only = False
+        floats = False
+        if self._regalloc is not None:
+            for reg in self._regalloc.rm.reg_bindings.values():
+                if reg not in self._regalloc.rm.save_around_call_regs:
+                    break
+            else:
+                callee_only = True
+            if self._regalloc.xrm.reg_bindings:
+                floats = True
+        sp.variant_num = floats * 2 + callee_only
+        #
         self.pending_slowpaths.append(sp)
 
     class MallocCondSlowPath(codebuf.SlowPath):
