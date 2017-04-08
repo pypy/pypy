@@ -2418,3 +2418,31 @@ def sendfile(space, out, w_in, w_offset, count):
             except OSError as e:
                 wrap_oserror(space, e, eintr_retry=True)
     return space.newint(res)
+
+@unwrap_spec(policy=int)
+def sched_get_priority_max(space, policy):
+    """returns the maximum priority value that 
+    can be used with the scheduling algorithm 
+    identified by policy
+    """
+    while True:
+        try:
+            s = rposix.sched_get_priority_max(policy)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+           return space.newint(s)
+
+@unwrap_spec(policy=int)
+def sched_get_priority_min(space, policy):
+    """rreturns the minimum priority value that
+     can be used with the scheduling algorithm 
+     identified by policy
+    """
+    while True:
+        try:
+            s = rposix.sched_get_priority_min(policy)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+           return space.newint(s)

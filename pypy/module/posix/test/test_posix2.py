@@ -938,6 +938,34 @@ class AppTestPosix:
             assert os.WIFEXITED(status1)
             assert os.WEXITSTATUS(status1) == 0   # else, test failure
 
+    if hasattr(rposix, 'sched_get_priority_max'):
+        def test_os_sched_get_priority_max(self):
+            import sys
+            posix, os = self.posix, self.os
+            assert posix.sched_get_priority_max(posix.SCHED_FIFO) != -1
+            assert posix.sched_get_priority_max(posix.SCHED_RR) != -1
+            assert posix.sched_get_priority_max(posix.SCHED_OTHER) != -1
+            assert posix.sched_get_priority_max(posix.SCHED_BATCH) != -1
+
+    if hasattr(rposix, 'sched_get_priority_min'):
+        def test_os_sched_get_priority_min(self):
+            import sys
+            posix, os = self.posix, self.os
+            assert posix.sched_get_priority_min(posix.SCHED_FIFO) != -1
+            assert posix.sched_get_priority_min(posix.SCHED_RR) != -1
+            assert posix.sched_get_priority_min(posix.SCHED_OTHER) != -1
+            assert posix.sched_get_priority_min(posix.SCHED_BATCH) != -1
+            
+    if hasattr(rposix, 'sched_get_priority_min'):
+        def test_os_sched_priority_max_greater_than_min(self):
+            posix, os = self.posix, self.os
+            policy = posix.SCHED_RR
+            low = posix.sched_get_priority_min(policy)
+            high = posix.sched_get_priority_max(policy)
+            assert isinstance(low, int) == True
+            assert isinstance(high, int) == True
+            assert  high > low
+
     def test_write_buffer(self):
         os = self.posix
         fd = os.open(self.path2 + 'test_write_buffer',

@@ -785,3 +785,27 @@ def test_posix_fallocate():
             raise
     finally:
         os.close(fd)
+
+@rposix_requires('sched_get_priority_max')
+def test_sched_get_priority_max():
+    assert rposix.sched_get_priority_max(rposix.SCHED_FIFO) != -1
+    assert rposix.sched_get_priority_max(rposix.SCHED_RR) != -1
+    assert rposix.sched_get_priority_max(rposix.SCHED_OTHER) != -1
+    assert rposix.sched_get_priority_max(rposix.SCHED_BATCH) != -1
+    
+@rposix_requires('sched_get_priority_min')
+def test_sched_get_priority_min():
+    assert rposix.sched_get_priority_min(rposix.SCHED_FIFO) != -1
+    assert rposix.sched_get_priority_min(rposix.SCHED_RR) != -1
+    assert rposix.sched_get_priority_min(rposix.SCHED_OTHER) != -1
+    assert rposix.sched_get_priority_min(rposix.SCHED_BATCH) != -1
+    
+@rposix_requires('sched_get_priority_min')
+def test_os_sched_priority_max_greater_than_min():
+    policy = rposix.SCHED_RR
+    low = rposix.sched_get_priority_min(policy)
+    high = rposix.sched_get_priority_max(policy)
+    assert isinstance(low, int) == True
+    assert isinstance(high, int) == True
+    assert  high > low
+
