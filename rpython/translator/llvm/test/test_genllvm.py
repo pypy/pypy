@@ -16,8 +16,6 @@ from rpython.rtyper.lltypesystem.rstr import StringRepr, UnicodeRepr
 from rpython.rtyper.lltypesystem.test.test_rffi import BaseTestRffi
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.translator.backendopt.all import backend_optimizations
-from rpython.translator.backendopt.raisingop2direct_call import (
-     raisingop2direct_call)
 from rpython.translator.c.test import (test_typed, test_lltyped,
      test_backendoptimized, test_newgc, test_refcount)
 from rpython.translator.llvm import genllvm as genllvm_mod
@@ -323,7 +321,6 @@ class _LLVMMixin(object):
     def getcompiled(self, func, argtypes, gcpolicy='ref', backendopt=True,
                     annotator_policy=None, no_gcremovetypeptr=False):
         config = get_pypy_config(translating=True)
-        config.translation.backendopt.raisingop2direct_call = True
         config.translation.gc = gcpolicy
         if no_gcremovetypeptr:
             config.translation.gcremovetypeptr = False
@@ -332,7 +329,6 @@ class _LLVMMixin(object):
         a.build_types(func, argtypes)
         a.simplify()
         t.buildrtyper().specialize()
-        raisingop2direct_call(t)
         if py.test.config.option.view:
             t.view()
         if backendopt:
