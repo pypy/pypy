@@ -98,27 +98,15 @@ class Type(object):
         else:
             global_attrs += 'global'
 
-        hash_ = database.genllvm.gcpolicy.gctransformer.get_prebuilt_hash(obj)
-        if hash_ is None:
-            if self.varsize:
-                extra_len = self.get_extra_len(obj)
-                ptr_type.refs[obj] = 'bitcast({} {} to {})'.format(
-                        ptr_type.repr_type(extra_len), name,
-                        ptr_type.repr_type(None))
-            else:
-                ptr_type.refs[obj] = name
-            database.f.write('{} = {} {}\n'.format(
-                    name, global_attrs, self.repr_type_and_value(obj)))
+        if self.varsize:
+            extra_len = self.get_extra_len(obj)
+            ptr_type.refs[obj] = 'bitcast({} {} to {})'.format(
+                    ptr_type.repr_type(extra_len), name,
+                    ptr_type.repr_type(None))
         else:
-            assert not self.varsize
-            with_hash_type = '{{ {}, {} }}'.format(
-                    self.repr_type(), SIGNED_TYPE)
-            ptr_type.refs[obj] = \
-                'getelementptr({}, {}* {}_with_hash, i64 0, i32 0)'.format(
-                    with_hash_type, with_hash_type, name)
-            database.f.write('{}_with_hash = {} {} {{ {}, {} {} }}\n'.format(
-                    name, global_attrs, with_hash_type,
-                    self.repr_type_and_value(obj), SIGNED_TYPE, hash_))
+            ptr_type.refs[obj] = name
+        database.f.write('{} = {} {}\n'.format(
+                name, global_attrs, self.repr_type_and_value(obj)))
 
 
 class VoidType(Type):
