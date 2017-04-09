@@ -281,6 +281,8 @@ def test_no_random_effects_for_rotateLeft():
 
 def test_elidable_kinds():
     from rpython.jit.backend.llgraph.runner import LLGraphCPU
+    from rpython.rlib.objectmodel import compute_hash
+    from rpython.rlib.rsiphash import enable_siphash24
 
     @jit.elidable
     def f1(n, m):
@@ -293,12 +295,17 @@ def test_elidable_kinds():
         if n > m:
             raise ValueError
         return n + m
+    @jit.elidable
+    def f4(n, m):
+        return compute_hash(str(n) + str(m))
 
     def f(n, m):
         a = f1(n, m)
         b = f2(n, m)
         c = f3(n, m)
-        return a + len(b) + c
+        d = f4(n, m)
+        enable_siphash24()
+        return a + len(b) + c + d
 
     rtyper = support.annotate(f, [7, 9])
     jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
@@ -309,7 +316,8 @@ def test_elidable_kinds():
     for index, expected in [
             (0, EffectInfo.EF_ELIDABLE_CANNOT_RAISE),
             (1, EffectInfo.EF_ELIDABLE_OR_MEMORYERROR),
-            (2, EffectInfo.EF_ELIDABLE_CAN_RAISE)]:
+            (2, EffectInfo.EF_ELIDABLE_CAN_RAISE),
+            (3, EffectInfo.EF_ELIDABLE_OR_MEMORYERROR)]:
         call_op = f_graph.startblock.operations[index]
         assert call_op.opname == 'direct_call'
         call_descr = cc.getcalldescr(call_op)
@@ -334,3 +342,37 @@ def test_raise_elidable_no_result():
     assert call_op.opname == 'direct_call'
     with py.test.raises(Exception):
         call_descr = cc.getcalldescr(call_op)
+
+def test_can_or_cannot_collect():
+    from rpython.jit.backend.llgraph.runner import LLGraphCPU
+    prebuilts = [[5], [6]]
+    l = []
+    def f1(n):
+        if n > 1:
+            raise IndexError
+        return prebuilts[n]    # cannot collect
+    f1._dont_inline_ = True
+
+    def f2(n):
+        return [n]         # can collect
+    f2._dont_inline_ = True
+
+    def f(n):
+        a = f1(n)
+        b = f2(n)
+        return len(a) + len(b)
+
+    rtyper = support.annotate(f, [1])
+    jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
+    cc = CallControl(LLGraphCPU(rtyper), jitdrivers_sd=[jitdriver_sd])
+    res = cc.find_all_graphs(FakePolicy())
+    [f_graph] = [x for x in res if x.func is f]
+    for index, expected in [
+            (0, False),    # f1()
+            (1, True),     # f2()
+            (2, False),    # len()
+            (3, False)]:   # len()
+        call_op = f_graph.startblock.operations[index]
+        assert call_op.opname == 'direct_call'
+        call_descr = cc.getcalldescr(call_op)
+        assert call_descr.extrainfo.check_can_collect() == expected

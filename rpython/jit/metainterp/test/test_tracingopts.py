@@ -74,9 +74,14 @@ class TestLLtype(LLJitMixin):
     def test_heap_caching_while_tracing(self):
         class A:
             pass
-        a1 = A()
-        a2 = A()
+
+        @jit.dont_look_inside
+        def get():
+            return A()
+
         def fn(n):
+            a1 = get()
+            a2 = get()
             if n > 0:
                 a = a1
             else:
@@ -91,6 +96,8 @@ class TestLLtype(LLJitMixin):
         self.check_operations_history(getfield_gc_i=0)
 
         def fn(n, ca, cb):
+            a1 = get()
+            a2 = get()
             a1.x = n
             a2.x = n
             a = a1
@@ -105,7 +112,7 @@ class TestLLtype(LLJitMixin):
         self.check_operations_history(getfield_gc_i=1)
         res = self.interp_operations(fn, [-7, 1, 1])
         assert res == -7 * 2
-        self.check_operations_history(getfield_gc_i=1)
+        self.check_operations_history(getfield_gc_i=0)
 
     def test_heap_caching_nonnull(self):
         class A:
@@ -132,17 +139,18 @@ class TestLLtype(LLJitMixin):
     def test_heap_caching_while_tracing_invalidation(self):
         class A:
             pass
-        a1 = A()
-        a2 = A()
         @jit.dont_look_inside
         def f(a):
             a.x = 5
+        @jit.dont_look_inside
+        def get():
+            return A()
         l = [1]
         def fn(n):
             if n > 0:
-                a = a1
+                a = get()
             else:
-                a = a2
+                a = get()
             a.x = n
             x1 = a.x
             f(a)
@@ -156,13 +164,14 @@ class TestLLtype(LLJitMixin):
     def test_heap_caching_dont_store_same(self):
         class A:
             pass
-        a1 = A()
-        a2 = A()
+        @jit.dont_look_inside
+        def get():
+            return A()
         def fn(n):
             if n > 0:
-                a = a1
+                a = get()
             else:
-                a = a2
+                a = get()
             a.x = n
             a.x = n
             return a.x
@@ -234,14 +243,16 @@ class TestLLtype(LLJitMixin):
 
     def test_array_and_getfield_interaction(self):
         class A: pass
-        a1 = A()
-        a2 = A()
-        a1.l = a2.l = [0, 0]
+        @jit.dont_look_inside
+        def get():
+            a = A()
+            a.l = [0, 0]
+            return a
         def fn(n):
             if n > 0:
-                a = a1
+                a = get()
             else:
-                a = a2
+                a = get()
                 a.l = [0, 0]
             a.x = 0
             a.l[a.x] = n
@@ -258,15 +269,17 @@ class TestLLtype(LLJitMixin):
 
     def test_promote_changes_heap_cache(self):
         class A: pass
-        a1 = A()
-        a2 = A()
-        a1.l = a2.l = [0, 0]
-        a1.x = a2.x = 0
+        @jit.dont_look_inside
+        def get():
+            a = A()
+            a.l = [0, 0]
+            a.x = 0
+            return a
         def fn(n):
             if n > 0:
-                a = a1
+                a = get()
             else:
-                a = a2
+                a = get()
                 a.l = [0, 0]
             jit.promote(a.x)
             a.l[a.x] = n
@@ -283,13 +296,11 @@ class TestLLtype(LLJitMixin):
             getfield_gc_r=1)
 
     def test_promote_changes_array_cache(self):
-        a1 = [0, 0]
-        a2 = [0, 0]
+        @jit.dont_look_inside
+        def get():
+            return [0, 0]
         def fn(n):
-            if n > 0:
-                a = a1
-            else:
-                a = a2
+            a = get()
             a[0] = n
             jit.hint(n, promote=True)
             x1 = a[0]
@@ -305,13 +316,12 @@ class TestLLtype(LLJitMixin):
 
 
     def test_list_caching(self):
-        a1 = [0, 0]
-        a2 = [0, 0]
+        @jit.dont_look_inside
+        def get():
+            return [0, 0]
         def fn(n):
-            if n > 0:
-                a = a1
-            else:
-                a = a2
+            a = get()
+            if not n > 0:
                 if n < -1000:
                     a.append(5)
             a[0] = n
@@ -328,6 +338,8 @@ class TestLLtype(LLJitMixin):
                 getfield_gc_r=1)
 
         def fn(n, ca, cb):
+            a1 = get()
+            a2 = get()
             a1[0] = n
             a2[0] = n
             a = a1
@@ -342,11 +354,11 @@ class TestLLtype(LLJitMixin):
         res = self.interp_operations(fn, [7, 0, 1])
         assert res == 7 * 2
         self.check_operations_history(getarrayitem_gc_i=1,
-                getfield_gc_r=3)
+                getfield_gc_r=2)
         res = self.interp_operations(fn, [-7, 1, 1])
         assert res == -7 * 2
-        self.check_operations_history(getarrayitem_gc_i=1,
-                getfield_gc_r=3)
+        self.check_operations_history(getarrayitem_gc_i=0,
+                getfield_gc_r=2)
 
     def test_list_caching_negative(self):
         def fn(n):
@@ -444,17 +456,15 @@ class TestLLtype(LLJitMixin):
     def test_heap_caching_and_elidable_function(self):
         class A:
             pass
-        class B: pass
-        a1 = A()
-        a1.y = 6
-        a2 = A()
-        a2.y = 13
+        @jit.dont_look_inside
+        def get():
+            return A()
         @jit.elidable
         def f(b):
             return b + 1
         def fn(n):
             if n > 0:
-                a = a1
+                a = get()
             else:
                 a = A()
             a.x = n
@@ -501,6 +511,32 @@ class TestLLtype(LLJitMixin):
         res = self.interp_operations(fn, [7])
         assert res == 4 * 7
         self.check_operations_history(getfield_gc_i=2, getfield_gc_r=2)
+
+    def test_heap_caching_quasi_immutable(self):
+        class A:
+            _immutable_fields_ = ['x?']
+        a1 = A()
+        a1.x = 5
+        a2 = A()
+        a2.x = 7
+
+        @jit.elidable
+        def get(n):
+            if n > 0:
+                return a1
+            return a2
+
+        def g(a):
+            return a.x
+
+        def fn(n):
+            jit.promote(n)
+            a = get(n)
+            return g(a) + a.x
+        res = self.interp_operations(fn, [7])
+        assert res == 10
+        self.check_operations_history(quasiimmut_field=1)
+
 
     def test_heap_caching_multiple_tuples(self):
         class Gbl(object):

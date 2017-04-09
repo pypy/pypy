@@ -2,7 +2,7 @@ import sys
 from rpython.translator.c.support import cdecl
 from rpython.translator.c.support import llvalue_from_constant, gen_assignments
 from rpython.translator.c.support import c_string_constant, barebonearray
-from rpython.flowspace.model import Variable, Constant
+from rpython.flowspace.model import Variable, Constant, mkentrymap
 from rpython.rtyper.lltypesystem.lltype import (Ptr, Void, Bool, Signed, Unsigned,
     SignedLongLong, Float, UnsignedLongLong, Char, UniChar, ContainerType,
     Array, FixedSizeArray, ForwardReference, FuncType)
@@ -33,7 +33,6 @@ class FunctionCodeGenerator(object):
     Collects information about a function which we have to generate
     from a flow graph.
     """
-
     def __init__(self, graph, db, exception_policy, functionname):
         self.graph = graph
         self.db = db
@@ -173,17 +172,50 @@ class FunctionCodeGenerator(object):
 
     def cfunction_body(self):
         graph = self.graph
-        yield 'goto block0;'    # to avoid a warning "this label is not used"
 
-        # generate the body of each block
+        # ----- for gc_enter_roots_frame
+        _seen = set()
         for block in graph.iterblocks():
+            for op in block.operations:
+                if op.opname == 'gc_enter_roots_frame':
+                    _seen.add(tuple(op.args))
+        if _seen:
+            assert len(_seen) == 1, (
+                "multiple different gc_enter_roots_frame in %r" % (graph,))
+            for line in self.gcpolicy.enter_roots_frame(self, list(_seen)[0]):
+                yield line
+        # ----- done
+
+        # Locate blocks with a single predecessor, which can be written
+        # inline in place of a "goto":
+        entrymap = mkentrymap(graph)
+        self.inlinable_blocks = {
+            block for block in entrymap if len(entrymap[block]) == 1}
+
+        yield ''
+        for line in self.gen_goto(graph.startblock):
+            yield line
+
+        # Only blocks left are those that have more than one predecessor.
+        for block in graph.iterblocks():
+            if block in self.inlinable_blocks:
+                continue
+            for line in self.gen_block(block):
+                yield line
+
+    def gen_block(self, block):
+        if 1:      # (preserve indentation)
+            self._current_block = block
             myblocknum = self.blocknum[block]
-            yield ''
-            yield 'block%d:' % myblocknum
+            if block in self.inlinable_blocks:
+                # debug comment
+                yield '/* block%d: (inlined) */' % myblocknum
+            else:
+                yield 'block%d:' % myblocknum
             if block in self.innerloops:
                 for line in self.gen_while_loop_hack(block):
                     yield line
-                continue
+                return
             for i, op in enumerate(block.operations):
                 for line in self.gen_op(op):
                     yield line
@@ -194,7 +226,7 @@ class FunctionCodeGenerator(object):
                 if self.exception_policy != "exc_helper":
                     yield 'RPY_DEBUG_RETURN();'
                 yield 'return %s;' % retval
-                continue
+                return
             elif block.exitswitch is None:
                 # single-exit block
                 assert len(block.exits) == 1
@@ -256,12 +288,25 @@ class FunctionCodeGenerator(object):
             assignments.append((a2typename, dest, src))
         for line in gen_assignments(assignments):
             yield line
-        label = 'block%d' % self.blocknum[link.target]
-        if link.target in self.innerloops:
-            loop = self.innerloops[link.target]
+        for line in self.gen_goto(link.target, link):
+            yield line
+
+    def gen_goto(self, target, link=None):
+        """Recursively expand block with inlining or goto.
+
+        Blocks that have only one predecessor are inlined directly, all others
+        are reached via goto.
+        """
+        label = 'block%d' % self.blocknum[target]
+        if target in self.innerloops:
+            loop = self.innerloops[target]
             if link is loop.links[-1]:   # link that ends a loop
                 label += '_back'
-        yield 'goto %s;' % label
+        if target in self.inlinable_blocks:
+            for line in self.gen_block(target):
+                yield line
+        else:
+            yield 'goto %s;' % label
 
     def gen_op(self, op):
         macro = 'OP_%s' % op.opname.upper()
@@ -424,6 +469,9 @@ class FunctionCodeGenerator(object):
     def OP_JIT_CONDITIONAL_CALL(self, op):
         return 'abort();  /* jit_conditional_call */'
 
+    def OP_JIT_CONDITIONAL_CALL_VALUE(self, op):
+        return 'abort();  /* jit_conditional_call_value */'
+
     # low-level operations
     def generic_get(self, op, sourceexpr):
         T = self.lltypemap(op.result)
@@ -573,16 +621,6 @@ class FunctionCodeGenerator(object):
         return 'GC_REGISTER_FINALIZER(%s, (GC_finalization_proc)%s, NULL, NULL, NULL);' \
                % (self.expr(op.args[0]), self.expr(op.args[1]))
 
-    def OP_RAW_MALLOC(self, op):
-        eresult = self.expr(op.result)
-        esize = self.expr(op.args[0])
-        return "OP_RAW_MALLOC(%s, %s, void *);" % (esize, eresult)
-
-    def OP_STACK_MALLOC(self, op):
-        eresult = self.expr(op.result)
-        esize = self.expr(op.args[0])
-        return "OP_STACK_MALLOC(%s, %s, void *);" % (esize, eresult)
-
     def OP_DIRECT_FIELDPTR(self, op):
         return self.OP_GETFIELD(op, ampersand='&')
 
@@ -620,7 +658,7 @@ class FunctionCodeGenerator(object):
     OP_CAST_OPAQUE_PTR = OP_CAST_POINTER
 
     def OP_LENGTH_OF_SIMPLE_GCARRAY_FROM_OPAQUE(self, op):
-        return ('%s = *(long *)(((char *)%s) + sizeof(struct pypy_header0));'
+        return ('%s = *(long *)(((char *)%s) + RPY_SIZE_OF_GCHEADER);'
                 '  /* length_of_simple_gcarray_from_opaque */'
             % (self.expr(op.result), self.expr(op.args[0])))
 
@@ -786,6 +824,10 @@ class FunctionCodeGenerator(object):
     def OP_DEBUG_ASSERT(self, op):
         return 'RPyAssert(%s, %s);' % (self.expr(op.args[0]),
                                        c_string_constant(op.args[1].value))
+
+    def OP_DEBUG_ASSERT_NOT_NONE(self, op):
+        return 'RPyAssert(%s != NULL, "ll_assert_not_none() failed");' % (
+                    self.expr(op.args[0]),)
 
     def OP_DEBUG_FATALERROR(self, op):
         # XXX

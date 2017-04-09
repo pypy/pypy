@@ -8,6 +8,7 @@ import errno
 import functools
 import gc
 import socket
+import stat
 import sys
 import os
 import platform
@@ -40,7 +41,7 @@ __all__ = ["Error", "TestFailed", "ResourceDenied", "import_module",
            "threading_cleanup", "reap_threads", "start_threads", "cpython_only",
            "check_impl_detail", "get_attribute", "py3k_bytes",
            "import_fresh_module", "threading_cleanup", "reap_children",
-           "strip_python_stderr", "IPV6_ENABLED"]
+           "strip_python_stderr", "IPV6_ENABLED", "run_with_tz"]
 
 class Error(Exception):
     """Base class for regression test exceptions."""
@@ -182,6 +183,16 @@ def unload(name):
     except KeyError:
         pass
 
+def _force_run(path, func, *args):
+    try:
+        return func(*args)
+    except EnvironmentError as err:
+        if verbose >= 2:
+            print('%s: %s' % (err.__class__.__name__, err))
+            print('re-run %s%r' % (func.__name__, args))
+        os.chmod(path, stat.S_IRWXU)
+        return func(*args)
+
 if sys.platform.startswith("win"):
     def _waitfor(func, pathname, waitall=False):
         # Perform the operation
@@ -196,7 +207,7 @@ if sys.platform.startswith("win"):
         # The exponential backoff of the timeout amounts to a total
         # of ~1 second after which the deletion is probably an error
         # anyway.
-        # Testing on a i7@4.3GHz shows that usually only 1 iteration is
+        # Testing on an i7@4.3GHz shows that usually only 1 iteration is
         # required when contention occurs.
         timeout = 0.001
         while timeout < 1.0:
@@ -224,19 +235,40 @@ if sys.platform.startswith("win"):
 
     def _rmtree(path):
         def _rmtree_inner(path):
-            for name in os.listdir(path):
+            for name in _force_run(path, os.listdir, path):
                 fullname = os.path.join(path, name)
                 if os.path.isdir(fullname):
                     _waitfor(_rmtree_inner, fullname, waitall=True)
-                    os.rmdir(fullname)
+                    _force_run(fullname, os.rmdir, fullname)
                 else:
-                    os.unlink(fullname)
+                    _force_run(fullname, os.unlink, fullname)
         _waitfor(_rmtree_inner, path, waitall=True)
-        _waitfor(os.rmdir, path)
+        _waitfor(lambda p: _force_run(p, os.rmdir, p), path)
 else:
     _unlink = os.unlink
     _rmdir = os.rmdir
-    _rmtree = shutil.rmtree
+
+    def _rmtree(path):
+        try:
+            shutil.rmtree(path)
+            return
+        except EnvironmentError:
+            pass
+
+        def _rmtree_inner(path):
+            for name in _force_run(path, os.listdir, path):
+                fullname = os.path.join(path, name)
+                try:
+                    mode = os.lstat(fullname).st_mode
+                except EnvironmentError:
+                    mode = 0
+                if stat.S_ISDIR(mode):
+                    _rmtree_inner(fullname)
+                    _force_run(path, os.rmdir, fullname)
+                else:
+                    _force_run(path, os.unlink, fullname)
+        _rmtree_inner(path)
+        os.rmdir(path)
 
 def unlink(filename):
     try:
@@ -331,6 +363,7 @@ def _is_gui_available():
         try:
             from Tkinter import Tk
             root = Tk()
+            root.withdraw()
             root.update()
             root.destroy()
         except Exception as e:
@@ -355,12 +388,12 @@ def is_resource_enabled(resource):
 
 def requires(resource, msg=None):
     """Raise ResourceDenied if the specified resource is not available."""
-    if resource == 'gui' and not _is_gui_available():
-        raise ResourceDenied(_is_gui_available.reason)
     if not is_resource_enabled(resource):
         if msg is None:
             msg = "Use of the `%s' resource not enabled" % resource
         raise ResourceDenied(msg)
+    if resource == 'gui' and not _is_gui_available():
+        raise ResourceDenied(_is_gui_available.reason)
 
 def requires_mac_ver(*min_version):
     """Decorator raising SkipTest if the OS is Mac OS X and the OS X
@@ -669,6 +702,33 @@ TESTFN = "{}_{}_tmp".format(TESTFN, os.getpid())
 SAVEDCWD = os.getcwd()
 
 @contextlib.contextmanager
+def change_cwd(path, quiet=False):
+    """Return a context manager that changes the current working directory.
+
+    Arguments:
+
+      path: the directory to use as the temporary current working directory.
+
+      quiet: if False (the default), the context manager raises an exception
+        on error.  Otherwise, it issues only a warning and keeps the current
+        working directory the same.
+
+    """
+    saved_dir = os.getcwd()
+    try:
+        os.chdir(path)
+    except OSError:
+        if not quiet:
+            raise
+        warnings.warn('tests may fail, unable to change CWD to: ' + path,
+                      RuntimeWarning, stacklevel=3)
+    try:
+        yield os.getcwd()
+    finally:
+        os.chdir(saved_dir)
+
+
+@contextlib.contextmanager
 def temp_cwd(name='tempcwd', quiet=False):
     """
     Context manager that creates a temporary directory and set it as CWD.
@@ -678,7 +738,8 @@ def temp_cwd(name='tempcwd', quiet=False):
     the CWD, an error is raised.  If it's True, only a warning is raised
     and the original CWD is used.
     """
-    if have_unicode and isinstance(name, unicode):
+    if (have_unicode and isinstance(name, unicode) and
+        not os.path.supports_unicode_filenames):
         try:
             name = name.encode(sys.getfilesystemencoding() or 'ascii')
         except UnicodeEncodeError:
@@ -1202,6 +1263,39 @@ def run_with_locale(catstr, *locales):
     return decorator
 
 #=======================================================================
+# Decorator for running a function in a specific timezone, correctly
+# resetting it afterwards.
+
+def run_with_tz(tz):
+    def decorator(func):
+        def inner(*args, **kwds):
+            try:
+                tzset = time.tzset
+            except AttributeError:
+                raise unittest.SkipTest("tzset required")
+            if 'TZ' in os.environ:
+                orig_tz = os.environ['TZ']
+            else:
+                orig_tz = None
+            os.environ['TZ'] = tz
+            tzset()
+
+            # now run the function, resetting the tz on exceptions
+            try:
+                return func(*args, **kwds)
+            finally:
+                if orig_tz is None:
+                    del os.environ['TZ']
+                else:
+                    os.environ['TZ'] = orig_tz
+                time.tzset()
+
+        inner.__name__ = func.__name__
+        inner.__doc__ = func.__doc__
+        return inner
+    return decorator
+
+#=======================================================================
 # Big-memory-test support. Separate from 'resources' because memory use should be configurable.
 
 # Some handy shorthands. Note that these are used for byte-limits as well
@@ -1648,3 +1742,21 @@ def strip_python_stderr(stderr):
     """
     stderr = re.sub(br"\[\d+ refs\]\r?\n?$", b"", stderr).strip()
     return stderr
+
+
+def check_free_after_iterating(test, iter, cls, args=()):
+    class A(cls):
+        def __del__(self):
+            done[0] = True
+            try:
+                next(it)
+            except StopIteration:
+                pass
+
+    done = [False]
+    it = iter(A(*args))
+    # Issue 26494: Shouldn't crash
+    test.assertRaises(StopIteration, next, it)
+    # The sequence should be deallocated just after the end of iterating
+    gc_collect()
+    test.assertTrue(done[0])

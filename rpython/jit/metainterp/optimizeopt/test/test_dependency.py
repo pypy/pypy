@@ -35,6 +35,8 @@ class DependencyBaseTest(BaseTest):
 
     def setup_method(self, method):
         self.test_name = method.__name__
+        if not self.cpu.vector_ext.is_enabled():
+            py.test.skip("cpu %s needs to implement the vector backend" % self.cpu)
 
     def build_dependency(self, ops):
         loop = self.parse_loop(ops)
@@ -59,7 +61,7 @@ class DependencyBaseTest(BaseTest):
                 return False
         return True
 
-    def ensure_operations(self, opstrlist, trace, inthatorder=True):
+    def ensure_operations(self, opstrlist, trace):
         oparse = OpParser('', self.cpu, self.namespace, None,
                           None, True, None)
         oplist = []
@@ -73,7 +75,6 @@ class DependencyBaseTest(BaseTest):
                 oparse._cache['lltype', elem] = op
             oplist.append(op)
         oplist_i = 0
-        match = False
         remap = {}
         last_match = 0
         for i, op in enumerate(trace.operations):
@@ -96,7 +97,7 @@ class DependencyBaseTest(BaseTest):
         assert oplist_i == len(oplist), msg
 
     def parse_loop(self, ops, add_label=True):
-        loop = self.parse(ops, postprocess=self.postprocess)
+        loop = self.parse(ops)
         loop.operations = filter(lambda op: op.getopnum() != rop.DEBUG_MERGE_POINT, loop.operations)
         token = JitCellToken()
         if add_label:
@@ -230,10 +231,7 @@ class DependencyBaseTest(BaseTest):
         for i,op in enumerate(loop.operations):
             print "[",i,"]",op,
             if op.is_guard():
-                if op.rd_snapshot:
-                    print op.rd_snapshot.boxes
-                else:
-                    print op.getfailargs()
+                print op.getfailargs()
             else:
                 print ""
 
@@ -538,6 +536,15 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         p15 = getfield_gc_r(p13, descr=valuedescr) # 4: 5
         guard_class(p15, 14073732) [p1, p0, p9, i14, p15, p13, p5, p6, p7] # 5: 6
         jump(p0,p1,p5,p6,p7,p9,p11,p12) # 6:
+        """)
+        self.assert_dependencies(graph, full_check=True)
+
+    def test_dep_on_vector_op(self):
+        graph = self.build_dependency("""
+        [p0, i1] # 0: 1,2,3
+        i19 = int_mul(i1, 8) # 1: 2
+        v20[2xi64] = vec_load_i(p0, i19, 1, 0, descr=arraydescr) # 2:
+        jump(p0, i1) # 3:
         """)
         self.assert_dependencies(graph, full_check=True)
 

@@ -76,12 +76,16 @@ class WeakValueDictRepr(Repr):
             bk = self.rtyper.annotator.bookkeeper
             classdef = bk.getuniqueclassdef(weakdict._valueclass)
             r_value = getinstancerepr(self.rtyper, classdef)
+            any_value = False
             for dictkey, dictvalue in weakdict._dict.items():
                 llkey = self.r_key.convert_const(dictkey)
                 llvalue = r_value.convert_const(dictvalue)
                 if llvalue:
                     llvalue = lltype.cast_pointer(rclass.OBJECTPTR, llvalue)
                     self.ll_set_nonnull(l_dict, llkey, llvalue)
+                    any_value = True
+            if any_value:
+                l_dict.resize_counter = -1
             return l_dict
 
     def rtype_method_get(self, hop):
@@ -114,6 +118,8 @@ class WeakValueDictRepr(Repr):
 
     @jit.dont_look_inside
     def ll_get(self, d, llkey):
+        if d.resize_counter < 0:
+            self.ll_weakdict_rehash_after_translation(d)
         hash = self.ll_keyhash(llkey)
         i = rdict.ll_dict_lookup(d, llkey, hash) & rdict.MASK
         #llop.debug_print(lltype.Void, i, 'get')
@@ -132,6 +138,8 @@ class WeakValueDictRepr(Repr):
 
     @jit.dont_look_inside
     def ll_set_nonnull(self, d, llkey, llvalue):
+        if d.resize_counter < 0:
+            self.ll_weakdict_rehash_after_translation(d)
         hash = self.ll_keyhash(llkey)
         valueref = weakref_create(llvalue)    # GC effects here, before the rest
         i = rdict.ll_dict_lookup(d, llkey, hash) & rdict.MASK
@@ -147,6 +155,8 @@ class WeakValueDictRepr(Repr):
 
     @jit.dont_look_inside
     def ll_set_null(self, d, llkey):
+        if d.resize_counter < 0:
+            self.ll_weakdict_rehash_after_translation(d)
         hash = self.ll_keyhash(llkey)
         i = rdict.ll_dict_lookup(d, llkey, hash) & rdict.MASK
         if d.entries.everused(i):
@@ -169,6 +179,15 @@ class WeakValueDictRepr(Repr):
                 num_items += 1
         d.num_items = num_items
         rdict.ll_dict_resize(d)
+
+    def ll_weakdict_rehash_after_translation(self, d):
+        # recompute all hashes.  See comment in rordereddict.py,
+        # ll_dict_rehash_after_translation().
+        entries = d.entries
+        for i in range(len(entries)):
+            self.ll_keyhash(entries[i].key)
+        self.ll_weakdict_resize(d)
+        assert d.resize_counter >= 0
 
 def specialize_make_weakdict(hop):
     hop.exception_cannot_occur()

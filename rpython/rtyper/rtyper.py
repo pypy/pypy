@@ -78,7 +78,6 @@ class RPythonTyper(object):
             self.log.info(s)
         except:
             self.seed = 0
-        self.order = None
 
     def getconfig(self):
         return self.annotator.translator.config
@@ -204,6 +203,9 @@ class RPythonTyper(object):
         blockcount = 0
         self.annmixlevel = None
         while True:
+            # make sure all reprs so far have had their setup() called
+            self.call_all_setups()
+
             # look for blocks not specialized yet
             pending = [block for block in self.annotator.annotated
                              if block not in self.already_seen]
@@ -215,15 +217,9 @@ class RPythonTyper(object):
                 r = random.Random(self.seed)
                 r.shuffle(pending)
 
-            if self.order:
-                tracking = self.order(self.annotator, pending)
-            else:
-                tracking = lambda block: None
-
             previous_percentage = 0
             # specialize all blocks in the 'pending' list
             for block in pending:
-                tracking(block)
                 blockcount += 1
                 self.specialize_block(block)
                 self.already_seen[block] = True
@@ -236,8 +232,6 @@ class RPythonTyper(object):
                         previous_percentage = percentage
                         self.log.event('specializing: %d / %d blocks   (%d%%)' %
                                        (n, total, percentage))
-            # make sure all reprs so far have had their setup() called
-            self.call_all_setups()
 
         self.log.event('-=- specialized %d%s blocks -=-' % (
             blockcount, newtext))
@@ -852,28 +846,29 @@ class LowLevelOpList(list):
         rtyper = self.rtyper
         args_s = []
         newargs_v = []
-        for v in args_v:
-            if v.concretetype is Void:
-                s_value = rtyper.annotation(v)
-                if s_value is None:
-                    s_value = annmodel.s_None
-                if not s_value.is_constant():
-                    raise TyperError("non-constant variable of type Void")
-                if not isinstance(s_value, (annmodel.SomePBC, annmodel.SomeNone)):
-                    raise TyperError("non-PBC Void argument: %r", (s_value,))
-                args_s.append(s_value)
-            else:
-                args_s.append(lltype_to_annotation(v.concretetype))
-            newargs_v.append(v)
+        with rtyper.annotator.using_policy(rtyper.lowlevel_ann_policy):
+            for v in args_v:
+                if v.concretetype is Void:
+                    s_value = rtyper.annotation(v)
+                    if s_value is None:
+                        s_value = annmodel.s_None
+                    if not s_value.is_constant():
+                        raise TyperError("non-constant variable of type Void")
+                    if not isinstance(s_value, (annmodel.SomePBC, annmodel.SomeNone)):
+                        raise TyperError("non-PBC Void argument: %r", (s_value,))
+                    args_s.append(s_value)
+                else:
+                    args_s.append(lltype_to_annotation(v.concretetype))
+                newargs_v.append(v)
 
-        self.rtyper.call_all_setups()  # compute ForwardReferences now
+            self.rtyper.call_all_setups()  # compute ForwardReferences now
 
-        # hack for bound methods
-        if hasattr(ll_function, 'im_func'):
-            bk = rtyper.annotator.bookkeeper
-            args_s.insert(0, bk.immutablevalue(ll_function.im_self))
-            newargs_v.insert(0, inputconst(Void, ll_function.im_self))
-            ll_function = ll_function.im_func
+            # hack for bound methods
+            if hasattr(ll_function, 'im_func'):
+                bk = rtyper.annotator.bookkeeper
+                args_s.insert(0, bk.immutablevalue(ll_function.im_self))
+                newargs_v.insert(0, inputconst(Void, ll_function.im_self))
+                ll_function = ll_function.im_func
 
         graph = annotate_lowlevel_helper(rtyper.annotator, ll_function, args_s,
                                          rtyper.lowlevel_ann_policy)

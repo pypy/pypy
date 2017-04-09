@@ -1,3 +1,4 @@
+import random, sys
 from rpython.flowspace.operation import op
 from rpython.rlib import debug
 from rpython.rlib.rarithmetic import is_valid_int
@@ -579,6 +580,9 @@ def _normalize(x):
             return hlstr(x)
     return x
 
+def op_debug_flush_log():
+    debug.debug_flush_log()
+
 def op_debug_print(*args):
     debug.debug_print(*map(_normalize, args))
 
@@ -680,6 +684,11 @@ def op_get_member_index(memberoffset):
 def op_gc_writebarrier(addr):
     pass
 
+def op_gc_bit(hdr, bitmask):
+    if hdr.tid & bitmask:
+        return random.randrange(1, sys.maxint)
+    return 0
+
 def op_shrink_array(array, smallersize):
     return False
 
@@ -726,6 +735,12 @@ def op_likely(x):
 def op_unlikely(x):
     assert isinstance(x, bool)
     return x
+
+def op_gc_ignore_finalizer(obj):
+    pass
+
+def op_gc_move_out_of_nursery(obj):
+    return obj
 
 # ____________________________________________________________
 

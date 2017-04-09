@@ -90,3 +90,15 @@ def test_simple_compile_c():
     dll = ctypes.CDLL(str(t.driver.c_entryp))
     f = dll.pypy_g_f
     assert f(2, 3) == 5
+
+def test_check_that_driver_uses_replace_we_are_jitted():
+    from rpython.rlib import jit
+    def f():
+        if jit.we_are_jitted():
+            return 1
+        return 2 + jit.we_are_jitted()
+
+    t = Translation(f, [])
+    t.backendopt()
+    graph = t.driver.translator.graphs[0]
+    assert graph.startblock.exits[0].args[0].value == 2

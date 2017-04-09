@@ -297,6 +297,20 @@ def abs_(argnum):
     return encode_abs, argnum, None, None
 
 # ____________________________________________________________
+# ***X86_64 only*** 
+# Emit a mod/rm referencing an address "RIP + immediate_offset".
+
+@specialize.arg(2)
+def encode_rip_offset(mc, immediate, _, orbyte):
+    assert mc.WORD == 8
+    mc.writechar(chr(0x05 | orbyte))
+    mc.writeimm32(immediate)
+    return 0
+
+def rip_offset(argnum):
+    return encode_rip_offset, argnum, None, None
+
+# ____________________________________________________________
 # For 64-bits mode: the REX.W, REX.R, REX.X, REG.B prefixes
 
 REX_W = 8
@@ -456,8 +470,6 @@ class AbstractX86CodeBuilder(object):
     """Abstract base class."""
 
     def __init__(self):
-        self.frame_positions = []
-        self.frame_assignments = []
         self.force_frame_size(self.WORD)
 
     def writechar(self, char):
@@ -478,15 +490,11 @@ class AbstractX86CodeBuilder(object):
         self.writechar(chr((imm >> 24) & 0xFF))
 
     def force_frame_size(self, frame_size):
-        self.frame_positions.append(self.get_relative_pos())
-        self.frame_assignments.append(frame_size)
         self._frame_size = frame_size
 
     def stack_frame_size_delta(self, delta):
         "Called when we generate an instruction that changes the value of ESP"
         self._frame_size += delta
-        self.frame_positions.append(self.get_relative_pos()) 
-        self.frame_assignments.append(self._frame_size)
         assert self._frame_size >= self.WORD
 
     def check_stack_size_at_ret(self):
@@ -550,6 +558,9 @@ class AbstractX86CodeBuilder(object):
     DIV_r = insn(rex_w, '\xF7', register(1), '\xF0')
     IDIV_r = insn(rex_w, '\xF7', register(1), '\xF8')
 
+    MUL_r = insn(rex_w, '\xF7', orbyte(4<<3), register(1), '\xC0')
+    MUL_b = insn(rex_w, '\xF7', orbyte(4<<3), stack_bp(1))
+
     IMUL_rr = insn(rex_w, '\x0F\xAF', register(1, 8), register(2), '\xC0')
     IMUL_rb = insn(rex_w, '\x0F\xAF', register(1, 8), stack_bp(2))
 
@@ -586,6 +597,8 @@ class AbstractX86CodeBuilder(object):
     PUS1_r = insn(rex_nw, register(1), '\x50')
     PUS1_b = insn(rex_nw, '\xFF', orbyte(6<<3), stack_bp(1))
     PUS1_m = insn(rex_nw, '\xFF', orbyte(6<<3), mem_reg_plus_const(1))
+    PUS1_j = insn(rex_nw, '\xFF', orbyte(6<<3), abs_(1))
+    PUS1_p = insn(rex_nw, '\xFF', orbyte(6<<3), rip_offset(1))
     PUS1_i8 = insn('\x6A', immediate(1, 'b'))
     PUS1_i32 = insn('\x68', immediate(1, 'i'))
 
@@ -606,6 +619,14 @@ class AbstractX86CodeBuilder(object):
             self.PUS1_i8(immed)
         else:
             self.PUS1_i32(immed)
+        self.stack_frame_size_delta(+self.WORD)
+
+    def PUSH_j(self, abs_addr):
+        self.PUS1_j(abs_addr)
+        self.stack_frame_size_delta(+self.WORD)
+
+    def PUSH_p(self, rip_offset):
+        self.PUS1_p(rip_offset)
         self.stack_frame_size_delta(+self.WORD)
 
     PO1_r = insn(rex_nw, register(1), '\x58')
@@ -772,6 +793,7 @@ class AbstractX86CodeBuilder(object):
 
     PTEST_xx = xmminsn('\x66', rex_nw, '\x0F\x38\x17', register(1,8), register(2), '\xC0')
     PBLENDW_xxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x0E', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    PBLENDVB_xx = xmminsn('\x66', rex_nw, '\x0F\x38\x10', register(1,8), register(2), '\xC0')
     CMPPD_xxi = xmminsn('\x66', rex_nw, '\x0F\xC2', register(1,8), register(2), '\xC0', immediate(3, 'b'))
     CMPPS_xxi = xmminsn(        rex_nw, '\x0F\xC2', register(1,8), register(2), '\xC0', immediate(3, 'b'))
 
@@ -914,6 +936,7 @@ def define_modrm_modes(insnname_template, before_modrm, after_modrm=[], regtype=
     add_insn('m', mem_reg_plus_const(modrm_argnum))
     add_insn('a', mem_reg_plus_scaled_reg_plus_const(modrm_argnum))
     add_insn('j', abs_(modrm_argnum))
+    add_insn('p', rip_offset(modrm_argnum))
 
 # Define a regular MOV, and a variant MOV32 that only uses the low 4 bytes of a
 # register

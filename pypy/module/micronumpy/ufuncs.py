@@ -3,7 +3,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.interpreter.argument import Arguments
-from rpython.rlib import jit
+from rpython.rlib import jit, rgc
 from rpython.rlib.rarithmetic import LONG_BIT, maxint, _get_bitsize
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.rawstorage import (
@@ -66,10 +66,10 @@ def array_priority(space, w_lhs, w_rhs):
     lhs_for_subtype = w_lhs
     rhs_for_subtype = w_rhs
     #it may be something like a FlatIter, which is not an ndarray
-    if not space.is_true(space.issubtype(lhs_type, w_ndarray)):
+    if not space.issubtype_w(lhs_type, w_ndarray):
         lhs_type = space.type(w_lhs.base)
         lhs_for_subtype = w_lhs.base
-    if not space.is_true(space.issubtype(rhs_type, w_ndarray)):
+    if not space.issubtype_w(rhs_type, w_ndarray):
         rhs_type = space.type(w_rhs.base)
         rhs_for_subtype = w_rhs.base
 
@@ -105,10 +105,10 @@ class W_Ufunc(W_Root):
         self.complex_to_float = complex_to_float
 
     def descr_get_name(self, space):
-        return space.wrap(self.name)
+        return space.newtext(self.name)
 
     def descr_repr(self, space):
-        return space.wrap("<ufunc '%s'>" % self.name)
+        return space.newtext("<ufunc '%s'>" % self.name)
 
     def get_doc(self, space):
         # Note: allows any object to be set as docstring, because why not?
@@ -153,14 +153,14 @@ class W_Ufunc(W_Root):
         if w_casting is None:
             casting = 'unsafe'
         else:
-            casting = space.str_w(w_casting)
+            casting = space.text_w(w_casting)
         retval = self.call(space, args_w, sig, casting, extobj)
         keepalive_until_here(args_w)
         return retval
 
     def descr_accumulate(self, space, w_obj, w_axis=None, w_dtype=None, w_out=None):
         if w_axis is None:
-            w_axis = space.wrap(0)
+            w_axis = space.newint(0)
         out = out_converter(space, w_out)
         return self.reduce(space, w_obj, w_axis, True, #keepdims must be true
                            out, w_dtype, variant=ACCUMULATE)
@@ -170,7 +170,7 @@ class W_Ufunc(W_Root):
                      w_out=None, keepdims=False):
         from pypy.module.micronumpy.ndarray import W_NDimArray
         if w_axis is None:
-            w_axis = space.wrap(0)
+            w_axis = space.newint(0)
         out = out_converter(space, w_out)
         return self.reduce(space, w_obj, w_axis, keepdims, out, w_dtype)
 
@@ -207,7 +207,7 @@ class W_Ufunc(W_Root):
                 axes[i] = x
         else:
             if space.isinstance_w(w_axis, space.w_tuple) and space.len_w(w_axis) == 1:
-                w_axis = space.getitem(w_axis, space.wrap(0))
+                w_axis = space.getitem(w_axis, space.newint(0))
             axis = space.int_w(w_axis)
             if axis < -shapelen or axis >= shapelen:
                 raise oefmt(space.w_ValueError, "'axis' entry is out of bounds")
@@ -288,10 +288,8 @@ class W_Ufunc(W_Root):
 
         _, dtype, _ = self.find_specialization(space, dtype, dtype, out,
                                                    casting='unsafe')
-        call__array_wrap__ = True
         if shapelen == len(axes):
             if out:
-                call__array_wrap__ = False
                 if out.ndims() > 0:
                     raise oefmt(space.w_ValueError,
                                 "output parameter for reduction operation %s has "
@@ -302,15 +300,20 @@ class W_Ufunc(W_Root):
             if out:
                 out.set_scalar_value(res)
                 return out
+            w_NDimArray = space.gettypefor(W_NDimArray)
+            call__array_wrap__ = False
             if keepdims:
                 shape = [1] * len(obj_shape)
                 out = W_NDimArray.from_shape(space, shape, dtype, w_instance=obj)
                 out.implementation.setitem(0, res)
+                call__array_wrap__ = True
                 res = out
-            elif not space.is_w(space.type(w_obj), space.gettypefor(W_NDimArray)):
+            elif (space.issubtype_w(space.type(w_obj), w_NDimArray) and 
+                  not space.is_w(space.type(w_obj), w_NDimArray)):
                 # subtypes return a ndarray subtype, not a scalar
                 out = W_NDimArray.from_shape(space, [1], dtype, w_instance=obj)
                 out.implementation.setitem(0, res)
+                call__array_wrap__ = True
                 res = out
             if call__array_wrap__:
                 res = space.call_method(obj, '__array_wrap__', res, space.w_None)
@@ -359,16 +362,21 @@ class W_Ufunc(W_Root):
                 return out
             loop.reduce(
                 space, self.func, obj, axis_flags, dtype, out, self.identity)
-            if call__array_wrap__:
-                out = space.call_method(obj, '__array_wrap__', out, space.w_None)
+            out = space.call_method(obj, '__array_wrap__', out, space.w_None)
             return out
 
-    def descr_outer(self, space, __args__):
-        return self._outer(space, __args__)
-
-    def _outer(self, space, __args__):
-        raise OperationError(space.w_ValueError, space.wrap(
-            "outer product only supported for binary functions"))
+    def descr_outer(self, space, args_w):
+        if self.nin != 2:
+            raise oefmt(space.w_ValueError,
+                    "outer product only supported for binary functions")
+        if len(args_w) != 2:
+            raise oefmt(space.w_ValueError,
+                    "exactly two arguments expected")
+        args = [convert_to_array(space, w_obj) for w_obj in args_w]
+        w_outshape = [space.newint(i) for i in args[0].get_shape() + [1]*args[1].ndims()]
+        args0 = args[0].reshape(space, space.newtuple(w_outshape))
+        return self.descr_call(space, Arguments.frompacked(space, 
+                                                        space.newlist([args0, args[1]])))
 
     def parse_kwargs(self, space, kwds_w):
         w_casting = kwds_w.pop('casting', None)
@@ -383,34 +391,42 @@ class W_Ufunc(W_Root):
         return w_subok, w_out, sig, w_casting, extobj_w
 
 def get_extobj(space):
-        extobj_w = space.newlist([space.wrap(8192), space.wrap(0), space.w_None])
+        extobj_w = space.newlist([space.newint(8192), space.newint(0), space.w_None])
         return extobj_w
 
+
+_reflected_ops = {
+        'add': 'radd',
+        'subtract': 'rsub',
+        'multiply': 'rmul',
+        'divide': 'rdiv',
+        'true_divide': 'rtruediv',
+        'floor_divide': 'rfloordiv',
+        'remainder': 'rmod',
+        'power': 'rpow',
+        'left_shift': 'rlshift',
+        'right_shift': 'rrshift',
+        'bitwise_and': 'rand',
+        'bitwise_xor': 'rxor',
+        'bitwise_or': 'ror',
+        #/* Comparisons */
+        'equal': 'eq',
+        'not_equal': 'ne',
+        'greater': 'lt',
+        'less': 'gt',
+        'greater_equal': 'le',
+        'less_equal': 'ge',
+}
+
+for key, value in _reflected_ops.items():
+    _reflected_ops[key] = "__" + value + "__"
+del key
+del value
+
 def _has_reflected_op(space, w_obj, op):
-    refops ={ 'add': 'radd',
-            'subtract': 'rsub',
-            'multiply': 'rmul',
-            'divide': 'rdiv',
-            'true_divide': 'rtruediv',
-            'floor_divide': 'rfloordiv',
-            'remainder': 'rmod',
-            'power': 'rpow',
-            'left_shift': 'rlshift',
-            'right_shift': 'rrshift',
-            'bitwise_and': 'rand',
-            'bitwise_xor': 'rxor',
-            'bitwise_or': 'ror',
-            #/* Comparisons */
-            'equal': 'eq',
-            'not_equal': 'ne',
-            'greater': 'lt',
-            'less': 'gt',
-            'greater_equal': 'le',
-            'less_equal': 'ge',
-        }
-    if op not in refops:
+    if op not in _reflected_ops:
         return False
-    return space.getattr(w_obj, space.wrap('__' + refops[op] + '__')) is not None
+    return space.getattr(w_obj, space.newtext(_reflected_ops[op])) is not None
 
 def safe_casting_mode(casting):
     assert casting is not None
@@ -459,7 +475,7 @@ class W_Ufunc1(W_Ufunc):
         if out is None:
             if w_res.is_scalar():
                 return w_res.get_scalar_value()
-            ctxt = space.newtuple([self, space.newtuple([w_obj]), space.wrap(0)])
+            ctxt = space.newtuple([self, space.newtuple([w_obj]), space.newint(0)])
             w_res = space.call_method(w_obj, '__array_wrap__', w_res, ctxt)
         return w_res
 
@@ -562,9 +578,9 @@ class W_Ufunc2(W_Ufunc):
             elif ((w_ldtype.is_object() and w_ldtype.is_record()) or
                 (w_rdtype.is_object() and w_rdtype.is_record())):
                 if self.name == 'not_equal':
-                    return space.wrap(True)
+                    return space.w_True
                 elif self.name == 'equal':
-                    return space.wrap(False)
+                    return space.w_False
                 else:
                     msg = ("ufunc '%s' not supported for the input types, "
                            "and the inputs could not be safely coerced to "
@@ -579,19 +595,19 @@ class W_Ufunc2(W_Ufunc):
         elif (w_ldtype.is_str()) and \
                 self.bool_result and out is None:
             if self.name in ('equal', 'less_equal', 'less'):
-               return space.wrap(False)
-            return space.wrap(True)
+               return space.w_False
+            return space.w_True
         elif (w_rdtype.is_str()) and \
                 self.bool_result and out is None:
             if self.name in ('not_equal','less', 'less_equal'):
-               return space.wrap(True)
-            return space.wrap(False)
+               return space.w_True
+            return space.w_False
         elif w_ldtype.is_flexible() or w_rdtype.is_flexible():
             if self.bool_result:
                 if self.name == 'equal' or self.name == 'not_equal':
                     res = w_ldtype.eq(space, w_rdtype)
                     if not res:
-                        return space.wrap(self.name == 'not_equal')
+                        return space.newbool(self.name == 'not_equal')
                 else:
                     return space.w_NotImplemented
             else:
@@ -625,7 +641,7 @@ class W_Ufunc2(W_Ufunc):
         if out is None:
             if w_res.is_scalar():
                 return w_res.get_scalar_value()
-            ctxt = space.newtuple([self, space.newtuple([w_lhs, w_rhs]), space.wrap(0)])
+            ctxt = space.newtuple([self, space.newtuple([w_lhs, w_rhs]), space.newint(0)])
             w_res = space.call_method(w_highpriority, '__array_wrap__', w_res, ctxt)
         return w_res
 
@@ -860,13 +876,13 @@ class W_UfuncGeneric(W_Ufunc):
         w_op_dtypes = space.w_None
         for tf in need_to_cast:
             if tf:
-                w_casting = space.wrap('safe')
-                w_op_dtypes = space.newtuple([space.wrap(d) for d in dtypes])
-                
+                w_casting = space.newtext('safe')
+                w_op_dtypes = space.newtuple([d for d in dtypes])
+
         w_flags = space.w_None # NOT 'external_loop', we do coalescing by core_num_dims
-        w_ro = space.newtuple([space.wrap('readonly'), space.wrap('copy')])
-        w_rw = space.newtuple([space.wrap('readwrite'), space.wrap('updateifcopy')])
-        
+        w_ro = space.newtuple([space.newtext('readonly'), space.newtext('copy')])
+        w_rw = space.newtuple([space.newtext('readwrite'), space.newtext('updateifcopy')])
+
         w_op_flags = space.newtuple([w_ro] * len(inargs) + [w_rw] * len(outargs))
         w_op_axes = space.w_None
 
@@ -891,7 +907,7 @@ class W_UfuncGeneric(W_Ufunc):
             # from frompyfunc
             pass
         # mimic NpyIter_AdvancedNew with a nditer
-        w_itershape = space.newlist([space.wrap(i) for i in iter_shape])
+        w_itershape = space.newlist([space.newint(i) for i in iter_shape])
         nd_it = W_NDIter(space, space.newlist(inargs + outargs), w_flags,
                       w_op_flags, w_op_dtypes, w_casting, w_op_axes,
                       w_itershape, allow_backward=False)
@@ -940,7 +956,7 @@ class W_UfuncGeneric(W_Ufunc):
                     outiters[0].descr_setitem(space, space.w_Ellipsis, outs)
                 else:
                     for i in range(self.nout):
-                        w_val = space.getitem(outs, space.wrap(i))
+                        w_val = space.getitem(outs, space.newint(i))
                         outiters[i].descr_setitem(space, space.w_Ellipsis, w_val)
         # XXX use _find_array_wrap and wrap outargs using __array_wrap__
         if len(outargs) > 1:
@@ -967,7 +983,7 @@ class W_UfuncGeneric(W_Ufunc):
                 if sig:
                     raise oefmt(space.w_RuntimeError,
                             "cannot specify both 'sig' and 'dtype'")
-                sig = space.str_w(kwargs_w[kw])
+                sig = space.text_w(kwargs_w[kw])
                 parsed_kw.append(kw)
             elif kw.startswith('where'):
                 raise oefmt(space.w_NotImplementedError,
@@ -1183,10 +1199,14 @@ W_Ufunc.typedef = TypeDef("numpy.ufunc",
 
     identity = GetSetProperty(W_Ufunc.descr_get_identity),
     accumulate = interp2app(W_Ufunc.descr_accumulate),
-    nin = interp_attrproperty("nin", cls=W_Ufunc),
-    nout = interp_attrproperty("nout", cls=W_Ufunc),
-    nargs = interp_attrproperty("nargs", cls=W_Ufunc),
-    signature = interp_attrproperty("signature", cls=W_Ufunc),
+    nin = interp_attrproperty("nin", cls=W_Ufunc,
+        wrapfn="newint"),
+    nout = interp_attrproperty("nout", cls=W_Ufunc,
+        wrapfn="newint"),
+    nargs = interp_attrproperty("nargs", cls=W_Ufunc,
+        wrapfn="newint"),
+    signature = interp_attrproperty("signature", cls=W_Ufunc,
+        wrapfn="newtext_or_none"),
 
     reduce = interp2app(W_Ufunc.descr_reduce),
     outer = interp2app(W_Ufunc.descr_outer),
@@ -1402,8 +1422,8 @@ def _ufunc2_dtypes(ufunc, space):
 def get(space):
     return space.fromcache(UfuncState)
 
-@unwrap_spec(nin=int, nout=int, signature=str, w_identity=WrappedDefault(None),
-             name=str, doc=str, stack_inputs=bool)
+@unwrap_spec(nin=int, nout=int, signature='text', w_identity=WrappedDefault(None),
+             name='text', doc='text', stack_inputs=bool)
 def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
      w_identity=None, name='', doc='', stack_inputs=False):
     ''' frompyfunc(func, nin, nout) #cpython numpy compatible
@@ -1484,7 +1504,7 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
     elif (space.isinstance_w(w_dtypes, space.w_tuple) or
             space.isinstance_w(w_dtypes, space.w_list)):
             _dtypes = space.listview(w_dtypes)
-            if space.isinstance_w(_dtypes[0], space.w_str) and space.str_w(_dtypes[0]) == 'match':
+            if space.isinstance_w(_dtypes[0], space.w_text) and space.text_w(_dtypes[0]) == 'match':
                 dtypes = []
                 match_dtypes = True
             else:
@@ -1515,13 +1535,14 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
     if w_ret.external_loop:
         _parse_signature(space, w_ret, w_ret.signature)
     if doc:
-        w_ret.set_doc(space, space.wrap(doc))
+        w_ret.set_doc(space, space.newtext(doc))
     return w_ret
 
 # Instantiated in cpyext/ndarrayobject. It is here since ufunc calls
 # set_dims_and_steps, otherwise ufunc, ndarrayobject would have circular
 # imports
-npy_intpp = rffi.LONGP
+Py_ssize_t = lltype.Typedef(rffi.SSIZE_T, 'Py_ssize_t')
+npy_intpp = rffi.CArrayPtr(Py_ssize_t)
 LONG_SIZE = LONG_BIT / 8
 CCHARP_SIZE = _get_bitsize('P') / 8
 
@@ -1534,6 +1555,7 @@ class W_GenericUFuncCaller(W_Root):
         self.steps = alloc_raw_storage(0, track_allocation=False)
         self.dims_steps_set = False
 
+    @rgc.must_be_light_finalizer
     def __del__(self):
         free_raw_storage(self.dims, track_allocation=False)
         free_raw_storage(self.steps, track_allocation=False)
@@ -1554,8 +1576,8 @@ class W_GenericUFuncCaller(W_Root):
                 arg_i = args_w[i]
                 if not isinstance(arg_i, W_NDimArray):
                     raise OperationError(space.w_NotImplementedError,
-                         space.wrap("cannot mix ndarray and %r (arg %d) in call to ufunc" % (
-                                    arg_i, i)))
+                         space.newtext("cannot mix ndarray and %r (arg %d) in call to ufunc" % (
+                                       arg_i, i)))
                 with arg_i.implementation as storage:
                     addr = get_storage_as_int(storage, arg_i.get_start())
                     raw_storage_setitem(dataps, CCHARP_SIZE * i, rffi.cast(rffi.CCHARP, addr))

@@ -1,6 +1,6 @@
 from pypy.interpreter import module
 from pypy.module.cpyext.api import (
-    generic_cpy_call, cpython_api, PyObject, CONST_STRING)
+    generic_cpy_call, cpython_api, PyObject, CONST_STRING, CANNOT_FAIL)
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.module import Module
@@ -20,35 +20,35 @@ def PyImport_Import(space, w_name):
     # Get the builtins from current globals
     if caller is not None:
         w_globals = caller.get_w_globals()
-        w_builtin = space.getitem(w_globals, space.wrap('__builtins__'))
+        w_builtin = space.getitem(w_globals, space.newtext('__builtins__'))
     else:
         # No globals -- use standard builtins, and fake globals
         w_builtin = space.getbuiltinmodule('__builtin__')
         w_globals = space.newdict()
-        space.setitem(w_globals, space.wrap("__builtins__"), w_builtin)
+        space.setitem(w_globals, space.newtext("__builtins__"), w_builtin)
 
     # Get the __import__ function from the builtins
     if space.isinstance_w(w_builtin, space.w_dict):
-        w_import = space.getitem(w_builtin, space.wrap("__import__"))
+        w_import = space.getitem(w_builtin, space.newtext("__import__"))
     else:
-        w_import = space.getattr(w_builtin, space.wrap("__import__"))
+        w_import = space.getattr(w_builtin, space.newtext("__import__"))
 
     # Call the __import__ function with the proper argument list
     # Always use absolute import here.
     return space.call_function(w_import,
                                w_name, w_globals, w_globals,
-                               space.newlist([space.wrap("__doc__")]))
+                               space.newlist([space.newtext("__doc__")]))
 
 @cpython_api([CONST_STRING], PyObject)
 def PyImport_ImportModule(space, name):
-    return PyImport_Import(space, space.wrap(rffi.charp2str(name)))
+    return PyImport_Import(space, space.newtext(rffi.charp2str(name)))
 
 @cpython_api([CONST_STRING], PyObject)
 def PyImport_ImportModuleNoBlock(space, name):
     space.warn(
-        space.wrap('PyImport_ImportModuleNoBlock() is not non-blocking'),
+        space.newtext('PyImport_ImportModuleNoBlock() is not non-blocking'),
         space.w_RuntimeWarning)
-    return PyImport_Import(space, space.wrap(rffi.charp2str(name)))
+    return PyImport_Import(space, space.newtext(rffi.charp2str(name)))
 
 @cpython_api([PyObject], PyObject)
 def PyImport_ReloadModule(space, w_mod):
@@ -72,8 +72,8 @@ def PyImport_AddModule(space, name):
     modulename = rffi.charp2str(name)
     w_mod = check_sys_modules_w(space, modulename)
     if not w_mod or space.is_w(w_mod, space.w_None):
-        w_mod = Module(space, space.wrap(modulename))
-        space.setitem(space.sys.get('modules'), space.wrap(modulename), w_mod)
+        w_mod = Module(space, space.newtext(modulename))
+        space.setitem(space.sys.get('modules'), space.newtext(modulename), w_mod)
     # return a borrowed ref --- assumes one copy in sys.modules
     return w_mod
 
@@ -116,12 +116,30 @@ def PyImport_ExecCodeModuleEx(space, name, w_code, pathname):
     """Like PyImport_ExecCodeModule(), but the __file__ attribute of
     the module object is set to pathname if it is non-NULL."""
     code = space.interp_w(PyCode, w_code)
-    w_name = space.wrap(rffi.charp2str(name))
+    w_name = space.newtext(rffi.charp2str(name))
     if pathname:
         pathname = rffi.charp2str(pathname)
     else:
         pathname = code.co_filename
     w_mod = importing.add_module(space, w_name)
-    space.setattr(w_mod, space.wrap('__file__'), space.wrap(pathname))
-    importing.exec_code_module(space, w_mod, code)
-    return w_mod
+    space.setattr(w_mod, space.newtext('__file__'), space.newtext(pathname))
+    return importing.exec_code_module(space, w_mod, code, w_name)
+
+@cpython_api([], lltype.Void, error=CANNOT_FAIL)
+def _PyImport_AcquireLock(space):
+    """Locking primitive to prevent parallel imports of the same module
+    in different threads to return with a partially loaded module.
+    These calls are serialized by the global interpreter lock."""
+    try:
+        space.call_method(space.getbuiltinmodule('imp'), 'acquire_lock')
+    except OperationError as e:
+        e.write_unraisable(space, "_PyImport_AcquireLock")
+
+@cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
+def _PyImport_ReleaseLock(space):
+    try:
+        space.call_method(space.getbuiltinmodule('imp'), 'release_lock')
+        return 1
+    except OperationError as e:
+        e.write_unraisable(space, "_PyImport_ReleaseLock")
+        return -1

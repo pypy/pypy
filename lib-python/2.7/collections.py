@@ -1,3 +1,15 @@
+'''This module implements specialized container datatypes providing
+alternatives to Python's general purpose built-in containers, dict,
+list, set, and tuple.
+
+* namedtuple   factory function for creating tuple subclasses with named fields
+* deque        list-like container with fast appends and pops on either end
+* Counter      dict subclass for counting hashable objects
+* OrderedDict  dict subclass that remembers the order entries were added
+* defaultdict  dict subclass that calls a factory function to supply missing values
+
+'''
+
 __all__ = ['Counter', 'deque', 'defaultdict', 'namedtuple', 'OrderedDict']
 # For bootstrapping reasons, the collection ABCs are defined in _abcoll.py.
 # They should however be considered an integral part of collections.py.
@@ -21,6 +33,10 @@ try:
     from __pypy__ import reversed_dict as _reversed_dict
 except ImportError:
     _reversed_dict = None     # don't have ordered dicts
+try:
+    from __pypy__ import dict_popitem_first as _dict_popitem_first
+except ImportError:
+    _dict_popitem_first = None
 
 try:
     from thread import get_ident as _get_ident
@@ -31,6 +47,17 @@ except ImportError:
 ################################################################################
 ### OrderedDict
 ################################################################################
+
+if _dict_popitem_first is None:
+    def _dict_popitem_first(self):
+        it = dict.iteritems(self)
+        try:
+            k, v = it.next()
+        except StopIteration:
+            raise KeyError('dictionary is empty')
+        dict.__delitem__(self, k)
+        return (k, v)
+
 
 class OrderedDict(dict):
     '''Dictionary that remembers insertion order.
@@ -56,12 +83,7 @@ class OrderedDict(dict):
         if last:
             return dict.popitem(self)
         else:
-            it = dict.__iter__(self)
-            try:
-                k = it.next()
-            except StopIteration:
-                raise KeyError('dictionary is empty')
-            return (k, self.pop(k))
+            return _dict_popitem_first(self)
 
     def __repr__(self, _repr_running={}):
         'od.__repr__() <==> repr(od)'
@@ -358,7 +380,7 @@ def namedtuple(typename, field_names, verbose=False, rename=False):
     >>> x, y = p                        # unpack like a regular tuple
     >>> x, y
     (11, 22)
-    >>> p.x + p.y                       # fields also accessable by name
+    >>> p.x + p.y                       # fields also accessible by name
     33
     >>> d = p._asdict()                 # convert to a dictionary
     >>> d['x']

@@ -61,7 +61,7 @@ def setup_readline():
 if __name__ == '__main__':
     try:
         setup_readline()
-    except ImportError, err:
+    except ImportError as err:
         print "Disabling readline support (%s)" % err
     from rpython.translator.test import snippet
     from rpython.rtyper.rtyper import RPythonTyper

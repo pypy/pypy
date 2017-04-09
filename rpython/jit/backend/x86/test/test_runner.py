@@ -39,7 +39,7 @@ class TestX86(LLtypeBackendTest):
                                  'nop; '    # for the label
                                  'add; test; je; jmp;')   # plus some padding
         bridge_loop_instructions = (
-            'cmp; jge; mov;( movabs;)? mov; mov(abs)?; call; mov(abs)?; jmp;')
+            'cmp; jl; mov(abs)?; jmp;')
 
     def get_cpu(self):
         cpu = CPU(rtyper=None, stats=FakeStats())
@@ -590,11 +590,11 @@ class TestDebuggingAssembler(object):
             self.cpu.compile_loop(ops.inputargs, ops.operations, looptoken)
             self.cpu.execute_token(looptoken, 0)
             # check debugging info
-            struct = self.cpu.assembler.loop_run_counters[0]
+            struct = self.cpu.assembler.get_loop_run_counters(0)
             assert struct.i == 1
-            struct = self.cpu.assembler.loop_run_counters[1]
+            struct = self.cpu.assembler.get_loop_run_counters(1)
             assert struct.i == 1
-            struct = self.cpu.assembler.loop_run_counters[2]
+            struct = self.cpu.assembler.get_loop_run_counters(2)
             assert struct.i == 9
             self.cpu.finish_once()
         finally:

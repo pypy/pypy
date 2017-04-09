@@ -33,6 +33,9 @@ def search_function(encoding):
         return None
 codecs.register(search_function)
 
+class UnicodeSubclass(unicode):
+    pass
+
 class UnicodeTest(
     string_tests.CommonTest,
     string_tests.MixinStrUnicodeUserStringTest,
@@ -686,9 +689,6 @@ class UnicodeTest(
             u'unicode remains unicode'
         )
 
-        class UnicodeSubclass(unicode):
-            pass
-
         self.assertEqual(
             unicode(UnicodeSubclass('unicode subclass becomes unicode')),
             u'unicode subclass becomes unicode'
@@ -1037,10 +1037,13 @@ class UnicodeTest(
         self.assertRaises(UnicodeError, unicode, 'Andr\202 x', 'ascii','strict')
         self.assertEqual(unicode('Andr\202 x','ascii','ignore'), u"Andr x")
         self.assertEqual(unicode('Andr\202 x','ascii','replace'), u'Andr\uFFFD x')
-        self.assertEqual(u'abcde'.decode('ascii', 'ignore'),
-                         u'abcde'.decode('ascii', errors='ignore'))
-        self.assertEqual(u'abcde'.decode('ascii', 'replace'),
-                         u'abcde'.decode(encoding='ascii', errors='replace'))
+        self.assertEqual(unicode('\202 x', 'ascii', 'replace'), u'\uFFFD x')
+        with test_support.check_py3k_warnings():
+            self.assertEqual(u'abcde'.decode('ascii', 'ignore'),
+                             u'abcde'.decode('ascii', errors='ignore'))
+        with test_support.check_py3k_warnings():
+            self.assertEqual(u'abcde'.decode('ascii', 'replace'),
+                             u'abcde'.decode(encoding='ascii', errors='replace'))
 
         # Error handling (unknown character names)
         self.assertEqual("\\N{foo}xx".decode("unicode-escape", "ignore"), u"xx")
@@ -1269,6 +1272,9 @@ class UnicodeTest(
         self.assertEqual(unicode(Foo6("bar")), u"foou")
         self.assertEqual(unicode(Foo7("bar")), u"foou")
         self.assertEqual(unicode(Foo8("foo")), u"foofoo")
+        self.assertIs(type(unicode(Foo8("foo"))), Foo8)
+        self.assertEqual(UnicodeSubclass(Foo8("foo")), u"foofoo")
+        self.assertIs(type(UnicodeSubclass(Foo8("foo"))), UnicodeSubclass)
         self.assertEqual(str(Foo9("foo")), "string")
         self.assertEqual(unicode(Foo9("foo")), u"not unicode")
 
@@ -1660,6 +1666,13 @@ class UnicodeTest(
         u = U(u'xxx')
         self.assertEqual("%s" % u, u'__unicode__ overridden')
         self.assertEqual("{}".format(u), '__unicode__ overridden')
+
+    def test_free_after_iterating(self):
+        test_support.check_free_after_iterating(self, iter, unicode)
+        test_support.check_free_after_iterating(self, reversed, unicode)
+
+
+class CAPITest(unittest.TestCase):
 
     # Test PyUnicode_FromFormat()
     def test_from_format(self):

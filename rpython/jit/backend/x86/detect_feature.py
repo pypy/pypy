@@ -3,13 +3,15 @@ import struct
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rmmap import alloc, free
 
+CPU_ID_FUNC_PTR = lltype.Ptr(lltype.FuncType([], lltype.Signed))
+
 def cpu_info(instr):
     data = alloc(4096)
     pos = 0
     for c in instr:
         data[pos] = c
         pos += 1
-    fnptr = rffi.cast(lltype.Ptr(lltype.FuncType([], lltype.Signed)), data)
+    fnptr = rffi.cast(CPU_ID_FUNC_PTR, data)
     code = fnptr()
     free(data, 4096)
     return code
@@ -19,17 +21,21 @@ def detect_sse2():
     return bool(code & (1<<25)) and bool(code & (1<<26))
 
 def cpu_id(eax = 1, ret_edx = True, ret_ecx = False):
-    asm = "\xB8" + struct.pack('I', eax) # MOV EAX, $eax
-    asm += ("\x53"                     # PUSH EBX
-            "\x0F\xA2"                 # CPUID
-            "\x5B"                     # POP EBX
-           )
+    asm = ["\xB8",                     # MOV EAX, $eax
+                chr(eax & 0xff),
+                chr((eax >> 8) & 0xff),
+                chr((eax >> 16) & 0xff),
+                chr((eax >> 24) & 0xff),
+           "\x53",                     # PUSH EBX
+           "\x0F\xA2",                 # CPUID
+           "\x5B",                     # POP EBX
+          ]
     if ret_edx:
-        asm += "\x92"                 # XCHG EAX, EDX
+        asm.append("\x92")             # XCHG EAX, EDX
     elif ret_ecx:
-        asm += "\x91"                 # XCHG EAX, ECX
-    asm += "\xC3"                     # RET
-    return cpu_info(asm)
+        asm.append("\x91")             # XCHG EAX, ECX
+    asm.append("\xC3")                 # RET
+    return cpu_info(''.join(asm))
 
 def detect_sse4_1(code=-1):
     if code == -1:

@@ -7,7 +7,6 @@ class TestWeakReference(BaseApiTest):
         w_ref = api.PyWeakref_NewRef(w_obj, space.w_None)
         assert w_ref is not None
         assert space.is_w(api.PyWeakref_GetObject(w_ref), w_obj)
-        assert space.is_w(api.PyWeakref_GET_OBJECT(w_ref), w_obj)
         assert space.is_w(api.PyWeakref_LockObject(w_ref), w_obj)
 
         w_obj = space.newtuple([])
@@ -34,3 +33,53 @@ class TestWeakReference(BaseApiTest):
         del w_obj
         import gc; gc.collect()
         assert space.is_w(api.PyWeakref_LockObject(w_ref), space.w_None)
+
+
+class AppTestWeakReference(AppTestCpythonExtensionBase):
+
+    def test_weakref_macro(self):
+        module = self.import_extension('foo', [
+            ("test_macro_cast", "METH_NOARGS",
+             """
+             // PyExc_Warning is some weak-reffable PyObject*.
+             char* dumb_pointer;
+             PyObject* weakref_obj = PyWeakref_NewRef(PyExc_Warning, NULL);
+             if (!weakref_obj) return weakref_obj;
+             // No public PyWeakReference type.
+             dumb_pointer = (char*) weakref_obj;
+
+             PyWeakref_GET_OBJECT(weakref_obj);
+             PyWeakref_GET_OBJECT(dumb_pointer);
+
+             return weakref_obj;
+             """
+            )
+        ])
+        module.test_macro_cast()
+
+    def test_weakref_check(self):
+        module = self.import_extension('foo', [
+            ("test_weakref_cast", "METH_O",
+             """
+             return Py_BuildValue("iiii",
+                                  (int)PyWeakref_Check(args),
+                                  (int)PyWeakref_CheckRef(args),
+                                  (int)PyWeakref_CheckRefExact(args),
+                                  (int)PyWeakref_CheckProxy(args));
+             """
+            )
+        ])
+        import weakref
+        def foo(): pass
+        class Bar(object):
+            pass
+        bar = Bar()
+        assert module.test_weakref_cast([]) == (0, 0, 0, 0)
+        assert module.test_weakref_cast(weakref.ref(foo)) == (1, 1, 1, 0)
+        assert module.test_weakref_cast(weakref.ref(bar)) == (1, 1, 1, 0)
+        assert module.test_weakref_cast(weakref.proxy(foo)) == (1, 0, 0, 1)
+        assert module.test_weakref_cast(weakref.proxy(bar)) == (1, 0, 0, 1)
+        class X(weakref.ref):
+            pass
+        assert module.test_weakref_cast(X(foo)) == (1, 1, 0, 0)
+        assert module.test_weakref_cast(X(bar)) == (1, 1, 0, 0)

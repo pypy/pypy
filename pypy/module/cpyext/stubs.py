@@ -10,17 +10,12 @@ Py_ssize_t = rffi.SSIZE_T
 PyMethodDef = rffi.VOIDP
 PyGetSetDef = rffi.VOIDP
 PyMemberDef = rffi.VOIDP
-Py_buffer = rffi.VOIDP
 va_list = rffi.VOIDP
-PyDateTime_Date = rffi.VOIDP
-PyDateTime_DateTime = rffi.VOIDP
-PyDateTime_Time = rffi.VOIDP
 wrapperbase = rffi.VOIDP
 FILE = rffi.VOIDP
 PyFileObject = rffi.VOIDP
 PyCodeObject = rffi.VOIDP
 PyFrameObject = rffi.VOIDP
-PyFloatObject = rffi.VOIDP
 _inittab = rffi.VOIDP
 PyThreadState = rffi.VOIDP
 PyInterpreterState = rffi.VOIDP
@@ -28,10 +23,6 @@ Py_UNICODE = lltype.UniChar
 PyCompilerFlags = rffi.VOIDP
 _node = rffi.VOIDP
 Py_tracefunc = rffi.VOIDP
-
-@cpython_api([PyObject], lltype.Void)
-def _PyObject_Del(space, op):
-    raise NotImplementedError
 
 @cpython_api([rffi.CCHARP], Py_ssize_t, error=CANNOT_FAIL)
 def PyBuffer_SizeFromFormat(space, format):
@@ -46,14 +37,6 @@ def PyBuffer_FillContiguousStrides(space, ndim, shape, strides, itemsize, fortra
     given shape with the given number of bytes per element."""
     raise NotImplementedError
 
-@cpython_api([Py_buffer], PyObject)
-def PyMemoryView_FromBuffer(space, view):
-    """Create a memoryview object wrapping the given buffer-info structure view.
-    The memoryview object then owns the buffer, which means you shouldn't
-    try to release it yourself: it will be released on deallocation of the
-    memoryview object."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, rffi.INT_real, lltype.Char], PyObject)
 def PyMemoryView_GetContiguous(space, obj, buffertype, order):
     """Create a memoryview object to a contiguous chunk of memory (in either
@@ -61,76 +44,6 @@ def PyMemoryView_GetContiguous(space, obj, buffertype, order):
     interface. If memory is contiguous, the memoryview object points to the
     original memory. Otherwise copy is made and the memoryview points to a
     new bytes object."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyMemoryView_Check(space, obj):
-    """Return true if the object obj is a memoryview object.  It is not
-    currently allowed to create subclasses of memoryview."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], Py_buffer)
-def PyMemoryView_GET_BUFFER(space, obj):
-    """Return a pointer to the buffer-info structure wrapped by the given
-    object.  The object must be a memoryview instance; this macro doesn't
-    check its type, you must do it yourself or you will risk crashes."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyByteArray_Check(space, o):
-    """Return true if the object o is a bytearray object or an instance of a
-    subtype of the bytearray type."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyByteArray_CheckExact(space, o):
-    """Return true if the object o is a bytearray object, but not an instance of a
-    subtype of the bytearray type."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyByteArray_FromObject(space, o):
-    """Return a new bytearray object from any object, o, that implements the
-    buffer protocol.
-
-    XXX expand about the buffer protocol, at least somewhere"""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, Py_ssize_t], PyObject)
-def PyByteArray_FromStringAndSize(space, string, len):
-    """Create a new bytearray object from string and its length, len.  On
-    failure, NULL is returned."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject], PyObject)
-def PyByteArray_Concat(space, a, b):
-    """Concat bytearrays a and b and return a new bytearray with the result."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], Py_ssize_t, error=-1)
-def PyByteArray_Size(space, bytearray):
-    """Return the size of bytearray after checking for a NULL pointer."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.CCHARP)
-def PyByteArray_AsString(space, bytearray):
-    """Return the contents of bytearray as a char array after checking for a
-    NULL pointer."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, Py_ssize_t], rffi.INT_real, error=-1)
-def PyByteArray_Resize(space, bytearray, len):
-    """Resize the internal buffer of bytearray to len."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.CCHARP)
-def PyByteArray_AS_STRING(space, bytearray):
-    """Macro version of PyByteArray_AsString()."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], Py_ssize_t, error=-1)
-def PyByteArray_GET_SIZE(space, bytearray):
-    """Macro version of PyByteArray_Size()."""
     raise NotImplementedError
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
@@ -438,17 +351,6 @@ def PyDescr_IsData(space, descr):
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyWrapper_New(space, w_d, w_self):
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1)
-def PyDict_Merge(space, a, b, override):
-    """Iterate over mapping object b adding key-value pairs to dictionary a.
-    b may be a dictionary, or any object supporting PyMapping_Keys()
-    and PyObject_GetItem(). If override is true, existing pairs in a
-    will be replaced if a matching key is found in b, otherwise pairs will
-    only be added if there is not a matching key in a. Return 0 on
-    success or -1 if an exception was raised.
-    """
     raise NotImplementedError
 
 @cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1)
@@ -791,17 +693,6 @@ def _PyObject_GC_TRACK(space, op):
 def _PyObject_GC_UNTRACK(space, op):
     """A macro version of PyObject_GC_UnTrack().  It should not be used for
     extension modules."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyGen_Check(space, ob):
-    """Return true if ob is a generator object; ob must not be NULL."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyGen_CheckExact(space, ob):
-    """Return true if ob's type is PyGen_Type is a generator object; ob must not
-    be NULL."""
     raise NotImplementedError
 
 @cpython_api([PyFrameObject], PyObject)
@@ -1185,19 +1076,6 @@ def PyInterpreterState_Delete(space, interp):
     PyInterpreterState_Clear()."""
     raise NotImplementedError
 
-@cpython_api([], PyObject)
-def PyThreadState_GetDict(space):
-    """Return a dictionary in which extensions can store thread-specific state
-    information.  Each extension should use a unique key to use to store state in
-    the dictionary.  It is okay to call this function when no current thread state
-    is available. If this function returns NULL, no exception has been raised and
-    the caller should assume no current thread state is available.
-
-    Previously this could only be called when a current thread is active, and NULL
-    meant that an exception was raised."""
-    borrow_from()
-    raise NotImplementedError
-
 @cpython_api([lltype.Signed, PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyThreadState_SetAsyncExc(space, id, exc):
     """Asynchronously raise an exception in a thread. The id argument is the thread
@@ -1487,13 +1365,6 @@ def PyModule_CheckExact(space, p):
     """
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP], PyObject)
-def PyModule_New(space, name):
-    """Return a new module object with the __name__ attribute set to name.  Only
-    the module's __doc__ and __name__ attributes are filled in; the caller is
-    responsible for providing a __file__ attribute."""
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.CCHARP)
 def PyModule_GetFilename(space, module):
     """Return the name of the file from which module was loaded using module's
@@ -1565,23 +1436,6 @@ def PyEval_GetFuncDesc(space, func):
     func."""
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject], PyObject)
-def PySequence_InPlaceConcat(space, o1, o2):
-    """Return the concatenation of o1 and o2 on success, and NULL on failure.
-    The operation is done in-place when o1 supports it.  This is the equivalent
-    of the Python expression o1 += o2."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, Py_ssize_t], PyObject)
-def PySequence_InPlaceRepeat(space, o, count):
-    """Return the result of repeating sequence object o count times, or NULL on
-    failure.  The operation is done in-place when o supports it.  This is the
-    equivalent of the Python expression o *= count.
-
-    This function used an int type for count. This might require
-    changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, PyObject], Py_ssize_t, error=-1)
 def PySequence_Count(space, o, value):
     """Return the number of occurrences of value in o, that is, return the number
@@ -1592,34 +1446,11 @@ def PySequence_Count(space, o, value):
     in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObjectP)
-def PySequence_Fast_ITEMS(space, o):
-    """Return the underlying array of PyObject pointers.  Assumes that o was returned
-    by PySequence_Fast() and o is not NULL.
-
-    Note, if a list gets resized, the reallocation may relocate the items array.
-    So, only use the underlying array pointer in contexts where the sequence
-    cannot change.
-    """
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyFrozenSet_Check(space, p):
     """Return true if p is a frozenset object or an instance of a
     subtype.
     """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyAnySet_Check(space, p):
-    """Return true if p is a set object, a frozenset object, or an
-    instance of a subtype."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyAnySet_CheckExact(space, p):
-    """Return true if p is a set object or a frozenset object but
-    not an instance of a subtype."""
     raise NotImplementedError
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
@@ -1675,14 +1506,6 @@ def Py_FdIsInteractive(space, fp, filename):
     is true.  If the global flag Py_InteractiveFlag is true, this function
     also returns true if the filename pointer is NULL or if the name is equal to
     one of the strings '<stdin>' or '???'."""
-    raise NotImplementedError
-
-@cpython_api([], lltype.Void)
-def PyOS_AfterFork(space):
-    """Function to update some internal state after a process fork; this should be
-    called in the new process if the Python interpreter will continue to be used.
-    If a new executable is loaded into the new process, this function does not need
-    to be called."""
     raise NotImplementedError
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
@@ -2125,11 +1948,6 @@ def PyUnicode_DecodeMBCSStateful(space, s, size, errors, consumed):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject], PyObject)
-def PyUnicode_Concat(space, left, right):
-    """Concat two strings giving a new Unicode string."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, PyObject, rffi.CCHARP], PyObject)
 def PyUnicode_Translate(space, str, table, errors):
     """Translate a string by applying a character mapping table to it and return the
@@ -2361,22 +2179,4 @@ def PyEval_EvalFrameEx(space, f, throwflag):
     The additional throwflag parameter can mostly be ignored - if true, then
     it causes an exception to immediately be thrown; this is used for the
     throw() methods of generator objects."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyWeakref_Check(space, ob):
-    """Return true if ob is either a reference or proxy object.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyWeakref_CheckRef(space, ob):
-    """Return true if ob is a reference object.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyWeakref_CheckProxy(space, ob):
-    """Return true if ob is a proxy object.
-    """
     raise NotImplementedError

@@ -3,7 +3,7 @@
 from rpython.rlib import jit
 from rpython.rlib.signature import signature, types as ann
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.error import oefmt, OperationError
+from pypy.interpreter.error import OperationError, oefmt
 
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy import constants as NPY
@@ -119,7 +119,7 @@ def _use_min_scalar(arrays_w, dtypes_w):
     return not all_scalars and max_array_kind >= max_scalar_kind
 
 
-@unwrap_spec(casting=str)
+@unwrap_spec(casting='text')
 def can_cast(space, w_from, w_totype, casting='safe'):
     try:
         target = as_dtype(space, w_totype, allow_None=False)
@@ -127,18 +127,18 @@ def can_cast(space, w_from, w_totype, casting='safe'):
         raise oefmt(space.w_TypeError,
             "did not understand one of the types; 'None' not accepted")
     if isinstance(w_from, W_NDimArray):
-        return space.wrap(can_cast_array(space, w_from, target, casting))
+        return space.newbool(can_cast_array(space, w_from, target, casting))
     elif is_scalar_w(space, w_from):
         w_scalar = as_scalar(space, w_from)
         w_arr = W_NDimArray.from_scalar(space, w_scalar)
-        return space.wrap(can_cast_array(space, w_arr, target, casting))
+        return space.newbool(can_cast_array(space, w_arr, target, casting))
 
     try:
         origin = as_dtype(space, w_from, allow_None=False)
     except TypeError:
         raise oefmt(space.w_TypeError,
             "did not understand one of the types; 'None' not accepted")
-    return space.wrap(can_cast_type(space, origin, target, casting))
+    return space.newbool(can_cast_type(space, origin, target, casting))
 
 kind_ordering = {
     Bool.kind: 0, ULong.kind: 1, Long.kind: 2,
@@ -326,9 +326,9 @@ def scalar2dtype(space, w_obj):
     elif space.isinstance_w(w_obj, space.w_long):
         try:
             space.int_w(w_obj)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_OverflowError):
-                if space.is_true(space.le(w_obj, space.wrap(0))):
+                if space.is_true(space.le(w_obj, space.newint(0))):
                     return int64_dtype
                 return uint64_dtype
             raise
@@ -337,7 +337,7 @@ def scalar2dtype(space, w_obj):
         return float_dtype
     elif space.isinstance_w(w_obj, space.w_complex):
         return complex_dtype
-    elif space.isinstance_w(w_obj, space.w_str):
+    elif space.isinstance_w(w_obj, space.w_bytes):
         return variable_dtype(space, 'S%d' % space.len_w(w_obj))
     elif space.isinstance_w(w_obj, space.w_unicode):
         return new_unicode_dtype(space, space.len_w(w_obj))

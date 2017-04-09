@@ -146,6 +146,27 @@ class TestAnnotateTestCase:
         # result should be an integer
         assert s.knowntype == int
 
+    def test_not_rpython(self):
+        def g(x):
+            """ NOT_RPYTHON """
+            return eval(x)
+        def f(x):
+            return g(str(x))
+        a = self.RPythonAnnotator()
+        with py.test.raises(ValueError):
+            a.build_types(f, [int])
+
+    def test_not_rpython_decorator(self):
+        from rpython.rlib.objectmodel import not_rpython
+        @not_rpython
+        def g(x):
+            return eval(x)
+        def f(x):
+            return g(str(x))
+        a = self.RPythonAnnotator()
+        with py.test.raises(ValueError):
+            a.build_types(f, [int])
+
     def test_lists(self):
         a = self.RPythonAnnotator()
         end_cell = a.build_types(snippet.poor_man_rev_range, [int])
@@ -902,7 +923,7 @@ class TestAnnotateTestCase:
         def f(l):
             try:
                 l[0]
-            except (KeyError, IndexError),e:
+            except (KeyError, IndexError) as e:
                 return e
             return None
 
@@ -3683,25 +3704,6 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int])
         assert s.const == 0
 
-    def test_hash_sideeffect(self):
-        class X:
-            pass
-        x1 = X()
-        x2 = X()
-        x3 = X()
-        d = {(2, x1): 5, (3, x2): 7}
-        def f(n, m):
-            if   m == 1: x = x1
-            elif m == 2: x = x2
-            else:        x = x3
-            return d[n, x]
-        a = self.RPythonAnnotator()
-        s = a.build_types(f, [int, int])
-        assert s.knowntype == int
-        assert hasattr(x1, '__precomputed_identity_hash')
-        assert hasattr(x2, '__precomputed_identity_hash')
-        assert not hasattr(x3, '__precomputed_identity_hash')
-
     def test_contains_of_empty_dict(self):
         class A(object):
             def meth(self):
@@ -4576,6 +4578,71 @@ class TestAnnotateTestCase:
             a.build_types(f, [int])
         with py.test.raises(AnnotatorError):
             a.build_types(f, [float])
+
+    def test_Ellipsis_not_rpython(self):
+        def f():
+            return Ellipsis
+        a = self.RPythonAnnotator()
+        e = py.test.raises(Exception, a.build_types, f, [])
+        assert str(e.value) == "Don't know how to represent Ellipsis"
+
+    def test_must_be_light_finalizer(self):
+        from rpython.rlib import rgc
+        @rgc.must_be_light_finalizer
+        class A(object):
+            pass
+        class B(A):
+            def __del__(self):
+                pass
+        class C(A):
+            @rgc.must_be_light_finalizer
+            def __del__(self):
+                pass
+        class D(object):
+            def __del__(self):
+                pass
+        def fb():
+            B()
+        def fc():
+            C()
+        def fd():
+            D()
+        a = self.RPythonAnnotator()
+        a.build_types(fc, [])
+        a.build_types(fd, [])
+        py.test.raises(AnnotatorError, a.build_types, fb, [])
+
+    def test_annotate_generator_with_unreachable_yields(self):
+        def f(n):
+            if n < 0:
+                yield 42
+            yield n
+            yield n
+        def main(n):
+            for x in f(abs(n)):
+                pass
+        #
+        a = self.RPythonAnnotator()
+        a.build_types(main, [int])
+
+    def test_string_mod_nonconstant(self):
+        def f(x):
+            return x % 5
+        a = self.RPythonAnnotator()
+        e = py.test.raises(AnnotatorError, a.build_types, f, [str])
+        assert ('string formatting requires a constant string/unicode'
+                in str(e.value))
+
+    def test_cannot_raise_none(self):
+        def f(x):
+            s = None
+            if x > 5:
+                s = ValueError()
+            raise s
+        a = self.RPythonAnnotator()
+        a.build_types(f, [int])
+        s_exc = a.binding(graphof(a, f).exceptblock.inputargs[1])
+        assert not s_exc.can_be_none()
 
 
 def g(n):

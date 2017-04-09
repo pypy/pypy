@@ -3,12 +3,13 @@ import inspect
 import os
 import sys
 import subprocess
+import random
 
 import py
 
 from rpython.conftest import option
 from rpython.rlib import rgc
-from rpython.rlib.objectmodel import keepalive_until_here, compute_hash, compute_identity_hash
+from rpython.rlib.objectmodel import keepalive_until_here, compute_hash, compute_identity_hash, r_dict
 from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -73,7 +74,7 @@ class UsingFrameworkTest(object):
             if not fullname.startswith('define'):
                 continue
             keyword = option.keyword
-            if keyword.startswith('test_'):
+            if keyword.startswith('test_') and not keyword.endswith(':'):
                 keyword = keyword[len('test_'):]
                 if keyword not in fullname:
                     continue
@@ -97,6 +98,7 @@ class UsingFrameworkTest(object):
                     funcs1.append(func)
             assert name not in name_to_func
             name_to_func[name] = len(name_to_func)
+        assert name_to_func
 
         def allfuncs(name, arg):
             num = name_to_func[name]
@@ -564,6 +566,41 @@ class UsingFrameworkTest(object):
         res = self.run('prebuilt_weakref')
         assert res == self.run_orig('prebuilt_weakref')
 
+    def define_prebuilt_dicts_of_all_sizes(self):
+        class X:
+            pass
+        dlist = []
+        keyslist = []
+        def keq(x, y):
+            return x is y
+        def khash(x):
+            return compute_hash(x)
+        for size in ([random.randrange(0, 260) for i in range(10)] +
+                     [random.randrange(260, 60000)]):
+            print 'PREBUILT DICTIONARY OF SIZE', size
+            keys = [X() for j in range(size)]
+            d = r_dict(keq, khash)
+            for j in range(size):
+                d[keys[j]] = j
+            dlist.append(d)
+            keyslist.append(keys)
+
+        def fn():
+            for n in range(len(dlist)):
+                d = dlist[n]
+                keys = keyslist[n]
+                assert len(d) == len(keys)
+                i = 0
+                while i < len(keys):
+                    assert d[keys[i]] == i
+                    i += 1
+            return 42
+        return fn
+
+    def test_prebuilt_dicts_of_all_sizes(self):
+        res = self.run('prebuilt_dicts_of_all_sizes')
+        assert res == 42
+
     def define_framework_malloc_raw(cls):
         A = lltype.Struct('A', ('value', lltype.Signed))
 
@@ -699,11 +736,15 @@ class UsingFrameworkTest(object):
             p_a2 = rffi.cast(rffi.VOIDPP, ll_args[1])[0]
             a1 = rffi.cast(rffi.SIGNEDP, p_a1)[0]
             a2 = rffi.cast(rffi.SIGNEDP, p_a2)[0]
-            res = rffi.cast(rffi.INTP, ll_res)
+            # related to libffi issue on s390x, we MUST
+            # overwrite the full ffi result which is 64 bit
+            # if not, this leaves garbage in the return value
+            # and qsort does not sort correctly
+            res = rffi.cast(rffi.SIGNEDP, ll_res)
             if a1 > a2:
-                res[0] = rffi.cast(rffi.INT, 1)
+                res[0] = 1
             else:
-                res[0] = rffi.cast(rffi.INT, -1)
+                res[0] = -1
 
         def f():
             libc = CDLL(get_libc_name())
@@ -711,7 +752,7 @@ class UsingFrameworkTest(object):
                                               ffi_size_t, ffi_type_pointer],
                                     ffi_type_void)
 
-            ptr = CallbackFuncPtr([ffi_type_pointer, ffi_type_pointer],
+            ptr = CallbackFuncPtr([ffi_type_pointer, ffi_type_pointer, ffi_type_pointer],
                                   ffi_type_sint, callback)
 
             TP = rffi.CArray(lltype.Signed)
@@ -778,7 +819,7 @@ class UsingFrameworkTest(object):
         c = C()
         d = D()
         h_d = compute_hash(d)     # force to be cached on 'd', but not on 'c'
-        h_t = compute_hash(("Hi", None, (7.5, 2, d)))
+        h_t = compute_hash(("Hi", None, (7.5, 2)))
         S = lltype.GcStruct('S', ('x', lltype.Signed),
                                  ('a', lltype.Array(lltype.Signed)))
         s = lltype.malloc(S, 15, zero=True)
@@ -787,10 +828,10 @@ class UsingFrameworkTest(object):
         def f():
             if compute_hash(c) != compute_identity_hash(c):
                 return 12
-            if compute_hash(d) != h_d:
+            if compute_hash(d) == h_d:     # likely *not* preserved
                 return 13
-            if compute_hash(("Hi", None, (7.5, 2, d))) != h_t:
-                return 14
+            if compute_hash(("Hi", None, (7.5, 2))) != h_t:
+                return 14   # ^^ true as long as we're not using e.g. siphash24
             c2 = C()
             h_c2 = compute_hash(c2)
             if compute_hash(c2) != h_c2:
@@ -1467,6 +1508,52 @@ class TestSemiSpaceGC(UsingFrameworkTest, snippet.SemiSpaceGCTestDefines):
         res = self.run('nursery_hash_base')
         assert res >= 195
 
+    def define_extra_item_after_alloc(cls):
+        from rpython.rtyper.lltypesystem import rstr
+        # all STR objects should be allocated with enough space for
+        # one extra char.  Check this with our GCs.  Use strings of 8,
+        # 16 and 24 chars because if the extra char is missing,
+        # writing to it is likely to cause corruption in nearby
+        # structures.
+        sizes = [random.choice([8, 16, 24]) for i in range(100)]
+        A = lltype.Struct('A', ('x', lltype.Signed))
+        prebuilt = [(rstr.mallocstr(sz),
+                     lltype.malloc(A, flavor='raw', immortal=True))
+                        for sz in sizes]
+        k = 0
+        for i, (s, a) in enumerate(prebuilt):
+            a.x = i
+            for i in range(len(s.chars)):
+                k += 1
+                if k == 256:
+                    k = 1
+                s.chars[i] = chr(k)
+
+        def check(lst):
+            hashes = []
+            for i, (s, a) in enumerate(lst):
+                assert a.x == i
+                rgc.ll_write_final_null_char(s)
+            for i, (s, a) in enumerate(lst):
+                assert a.x == i     # check it was not overwritten
+        def fn():
+            check(prebuilt)
+            lst1 = []
+            for i, sz in enumerate(sizes):
+                s = rstr.mallocstr(sz)
+                a = lltype.malloc(A, flavor='raw')
+                a.x = i
+                lst1.append((s, a))
+            check(lst1)
+            for _, a in lst1:
+                lltype.free(a, flavor='raw')
+            return 42
+        return fn
+
+    def test_extra_item_after_alloc(self):
+        res = self.run('extra_item_after_alloc')
+        assert res == 42
+
 
 class TestGenerationalGC(TestSemiSpaceGC):
     gcpolicy = "generation"
@@ -1527,15 +1614,13 @@ class TestMiniMarkGC(TestSemiSpaceGC):
 
         class A:
             def __init__(self):
-                self.ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO,
-                    flavor='raw')
                 digest = ropenssl.EVP_get_digestbyname('sha1')
+                self.ctx = ropenssl.EVP_MD_CTX_new()
                 ropenssl.EVP_DigestInit(self.ctx, digest)
                 rgc.add_memory_pressure(ropenssl.HASH_MALLOC_SIZE + 64)
 
             def __del__(self):
-                ropenssl.EVP_MD_CTX_cleanup(self.ctx)
-                lltype.free(self.ctx, flavor='raw')
+                ropenssl.EVP_MD_CTX_free(self.ctx)
         #A() --- can't call it here?? get glibc crashes on tannit64
         def f():
             am1 = am2 = am3 = None
@@ -1649,7 +1734,11 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
                      (ulimitv, ' '.join(args),)]
             popen = subprocess.Popen(args1, stderr=subprocess.PIPE)
             _, child_stderr = popen.communicate()
-            assert popen.wait() == 134     # aborted
+            assert popen.wait() in (-6, 134)     # aborted
+            # note: it seems that on some systems we get 134 and on
+            # others we get -6.  Bash is supposed to translate the
+            # SIGABRT (signal 6) from the subprocess into the exit 
+            # code 128+6, but I guess it may not always do so.
             assert 'out of memory:' in child_stderr
             return '42'
         #
@@ -1658,6 +1747,38 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
             print ulimitv
             res = self.run("limited_memory_linux", -1, runner=myrunner)
             assert res == 42
+
+    def define_ignore_finalizer(cls):
+        class X(object):
+            pass
+        class FQ(rgc.FinalizerQueue):
+            Class = X
+            def finalizer_trigger(self):
+                pass
+        queue = FQ()
+        def g():
+            x1 = X()
+            x2 = X()
+            queue.register_finalizer(x1)
+            queue.register_finalizer(x2)
+            rgc.may_ignore_finalizer(x1)
+        g._dont_inline_ = True
+        def f():
+            g()
+            rgc.collect()
+            seen = 0
+            while True:
+                obj = queue.next_dead()
+                if obj is None:
+                    break
+                seen += 1
+            return seen
+        assert f() == 2    # untranslated: may_ignore_finalizer() is ignored
+        return f
+
+    def test_ignore_finalizer(self):
+        res = self.run("ignore_finalizer")
+        assert res == 1    # translated: x1 is removed from the list
 
 
 # ____________________________________________________________________

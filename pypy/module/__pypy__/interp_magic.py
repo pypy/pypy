@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
+from pypy.interpreter.error import oefmt, wrap_oserror
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pycode import CodeHookCache
 from pypy.interpreter.pyframe import PyFrame
@@ -9,11 +9,11 @@ from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.setobject import W_BaseSetObject
 from pypy.objspace.std.typeobject import MethodCache
 from pypy.objspace.std.mapdict import MapAttrCache
-from rpython.rlib import rposix, rgc
+from rpython.rlib import rposix, rgc, rstack
 
 
 def internal_repr(space, w_object):
-    return space.wrap('%r' % (w_object,))
+    return space.newtext('%r' % (w_object,))
 
 
 def attach_gdb(space):
@@ -22,7 +22,7 @@ def attach_gdb(space):
     attach_gdb()
 
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def method_cache_counter(space, name):
     """Return a tuple (method_cache_hits, method_cache_misses) for calls to
     methods with the name."""
@@ -37,26 +37,29 @@ def reset_method_cache_counter(space):
     cache = space.fromcache(MethodCache)
     cache.misses = {}
     cache.hits = {}
-    if space.config.objspace.std.withmapdict:
-        cache = space.fromcache(MapAttrCache)
-        cache.misses = {}
-        cache.hits = {}
+    cache = space.fromcache(MapAttrCache)
+    cache.misses = {}
+    cache.hits = {}
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def mapdict_cache_counter(space, name):
     """Return a tuple (index_cache_hits, index_cache_misses) for lookups
     in the mapdict cache with the given attribute name."""
     assert space.config.objspace.std.withmethodcachecounter
-    assert space.config.objspace.std.withmapdict
     cache = space.fromcache(MapAttrCache)
     return space.newtuple([space.newint(cache.hits.get(name, 0)),
                            space.newint(cache.misses.get(name, 0))])
 
 def builtinify(space, w_func):
+    """To implement at app-level modules that are, in CPython,
+    implemented in C: this decorator protects a function from being ever
+    bound like a method.  Useful because some tests do things like put
+    a "built-in" function on a class and access it via the instance.
+    """
     from pypy.interpreter.function import Function, BuiltinFunction
     func = space.interp_w(Function, w_func)
     bltn = BuiltinFunction(func)
-    return space.wrap(bltn)
+    return bltn
 
 def hidden_applevel(space, w_func):
     """Decorator that hides a function's frame from app-level"""
@@ -70,21 +73,23 @@ def get_hidden_tb(space):
     frame hidden from applevel.
     """
     operr = space.getexecutioncontext().sys_exc_info(for_hidden=True)
-    return space.w_None if operr is None else space.wrap(operr.get_traceback())
+    return space.w_None if operr is None else operr.get_w_traceback(space)
 
-@unwrap_spec(meth=str)
+@unwrap_spec(meth='text')
 def lookup_special(space, w_obj, meth):
     """Lookup up a special method on an object."""
     if space.is_oldstyle_instance(w_obj):
-        w_msg = space.wrap("this doesn't do what you want on old-style classes")
-        raise OperationError(space.w_TypeError, w_msg)
+        raise oefmt(space.w_TypeError,
+                    "this doesn't do what you want on old-style classes")
     w_descr = space.lookup(w_obj, meth)
     if w_descr is None:
         return space.w_None
     return space.get(w_descr, w_obj)
 
-def do_what_I_mean(space):
-    return space.wrap(42)
+def do_what_I_mean(space, w_crash=None):
+    if not space.is_none(w_crash):
+        raise ValueError    # RPython-level, uncaught
+    return space.newint(42)
 
 
 def strategy(space, w_obj):
@@ -99,45 +104,48 @@ def strategy(space, w_obj):
     elif isinstance(w_obj, W_BaseSetObject):
         name = w_obj.strategy.__class__.__name__
     else:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("expecting dict or list or set object"))
-    return space.wrap(name)
+        raise oefmt(space.w_TypeError, "expecting dict or list or set object")
+    return space.newtext(name)
 
 
 @unwrap_spec(fd='c_int')
 def validate_fd(space, fd):
     try:
         rposix.validate_fd(fd)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
 
 def get_console_cp(space):
     from rpython.rlib import rwin32    # Windows only
     return space.newtuple([
-        space.wrap('cp%d' % rwin32.GetConsoleCP()),
-        space.wrap('cp%d' % rwin32.GetConsoleOutputCP()),
+        space.newtext('cp%d' % rwin32.GetConsoleCP()),
+        space.newtext('cp%d' % rwin32.GetConsoleOutputCP()),
         ])
 
 @unwrap_spec(sizehint=int)
-def resizelist_hint(space, w_iterable, sizehint):
-    if not isinstance(w_iterable, W_ListObject):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("arg 1 must be a 'list'"))
-    w_iterable._resize_hint(sizehint)
+def resizelist_hint(space, w_list, sizehint):
+    """ Reallocate the underlying storage of the argument list to sizehint """
+    if not isinstance(w_list, W_ListObject):
+        raise oefmt(space.w_TypeError, "arg 1 must be a 'list'")
+    w_list._resize_hint(sizehint)
 
 @unwrap_spec(sizehint=int)
 def newlist_hint(space, sizehint):
+    """ Create a new empty list that has an underlying storage of length sizehint """
     return space.newlist_hint(sizehint)
 
 @unwrap_spec(debug=bool)
 def set_debug(space, debug):
     space.sys.debug = debug
     space.setitem(space.builtin.w_dict,
-                  space.wrap('__debug__'),
-                  space.wrap(debug))
+                  space.newtext('__debug__'),
+                  space.newbool(debug))
 
 @unwrap_spec(estimate=int)
 def add_memory_pressure(estimate):
+    """ Add memory pressure of estimate bytes. Useful when calling a C function
+    that internally allocates a big chunk of memory. This instructs the GC to
+    garbage collect sooner than it would otherwise."""
     rgc.add_memory_pressure(estimate)
 
 @unwrap_spec(w_frame=PyFrame)
@@ -160,7 +168,7 @@ def set_code_callback(space, w_callable):
     else:
         cache._code_hook = w_callable
 
-@unwrap_spec(string=str, byteorder=str, signed=int)
+@unwrap_spec(string='bytes', byteorder='text', signed=int)
 def decode_long(space, string, byteorder='little', signed=1):
     from rpython.rlib.rbigint import rbigint, InvalidEndiannessError
     try:
@@ -168,3 +176,26 @@ def decode_long(space, string, byteorder='little', signed=1):
     except InvalidEndiannessError:
         raise oefmt(space.w_ValueError, "invalid byteorder argument")
     return space.newlong_from_rbigint(result)
+
+def _promote(space, w_obj):
+    """ Promote the first argument of the function and return it. Promote is by
+    value for ints, floats, strs, unicodes (but not subclasses thereof) and by
+    reference otherwise.  (Unicodes not supported right now.)
+
+    This function is experimental!"""
+    from rpython.rlib import jit
+    if space.is_w(space.type(w_obj), space.w_int):
+        jit.promote(space.int_w(w_obj))
+    elif space.is_w(space.type(w_obj), space.w_float):
+        jit.promote(space.float_w(w_obj))
+    elif space.is_w(space.type(w_obj), space.w_bytes):
+        jit.promote_string(space.bytes_w(w_obj))
+    elif space.is_w(space.type(w_obj), space.w_unicode):
+        raise oefmt(space.w_TypeError, "promoting unicode unsupported")
+    else:
+        jit.promote(w_obj)
+    return w_obj
+
+def stack_almost_full(space):
+    """Return True if the stack is more than 15/16th full."""
+    return space.newbool(rstack.stack_almost_full())

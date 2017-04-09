@@ -53,7 +53,7 @@ def compare_digest(space, w_a, w_b):
         with rffi.scoped_nonmoving_unicodebuffer(a) as a_buf:
             with rffi.scoped_nonmoving_unicodebuffer(b) as b_buf:
                 result = pypy_tscmp_wide(a_buf, b_buf, len(a), len(b))
-        return space.wrap(rffi.cast(lltype.Bool, result))
+        return space.newbool(rffi.cast(lltype.Bool, result))
     return compare_digest_buffer(space, w_a, w_b)
 
 
@@ -71,4 +71,4 @@ def compare_digest_buffer(space, w_a, w_b):
     with rffi.scoped_nonmovingbuffer(a) as a_buf:
         with rffi.scoped_nonmovingbuffer(b) as b_buf:
             result = pypy_tscmp(a_buf, b_buf, len(a), len(b))
-    return space.wrap(rffi.cast(lltype.Bool, result))
+    return space.newbool(rffi.cast(lltype.Bool, result))

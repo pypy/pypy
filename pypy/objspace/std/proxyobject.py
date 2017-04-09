@@ -1,7 +1,7 @@
 """ transparent list implementation
 """
 from pypy.interpreter import baseobjspace
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 
 
 def transparent_class(name, BaseCls):
@@ -12,7 +12,7 @@ def transparent_class(name, BaseCls):
 
         def descr_call_mismatch(self, space, name, reqcls, args):
             args_w = args.arguments_w[:]
-            args_w[0] = space.wrap(name)
+            args_w[0] = space.newtext(name)
             args = args.replace_arguments(args_w)
             return space.call_args(self.w_controller, args)
 
@@ -20,34 +20,35 @@ def transparent_class(name, BaseCls):
             return self.w_type
 
         def setclass(self, space, w_subtype):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("You cannot override __class__ for transparent proxies"))
+            raise oefmt(space.w_TypeError,
+                        "You cannot override __class__ for transparent "
+                        "proxies")
 
         def getdictvalue(self, space, attr):
             try:
-                return space.call_function(self.w_controller, space.wrap('__getattribute__'),
-                   space.wrap(attr))
-            except OperationError, e:
+                return space.call_function(self.w_controller, space.newtext('__getattribute__'),
+                   space.newtext(attr))
+            except OperationError as e:
                 if not e.match(space, space.w_AttributeError):
                     raise
                 return None
 
         def setdictvalue(self, space, attr, w_value):
             try:
-                space.call_function(self.w_controller, space.wrap('__setattr__'),
-                   space.wrap(attr), w_value)
+                space.call_function(self.w_controller, space.newtext('__setattr__'),
+                   space.newtext(attr), w_value)
                 return True
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_AttributeError):
                     raise
                 return False
 
         def deldictvalue(self, space, attr):
             try:
-                space.call_function(self.w_controller, space.wrap('__delattr__'),
-                   space.wrap(attr))
+                space.call_function(self.w_controller, space.newtext('__delattr__'),
+                   space.newtext(attr))
                 return True
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_AttributeError):
                     raise
                 return False

@@ -4,7 +4,7 @@ Implementation of the interpreter-level functions in the module unicodedata.
 
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.objectmodel import we_are_translated
@@ -34,34 +34,36 @@ if MAXUNICODE > 0xFFFF:
     # Target is wide build
     def unichr_to_code_w(space, w_unichr):
         if not space.isinstance_w(w_unichr, space.w_unicode):
-            raise OperationError(space.w_TypeError, space.wrap(
-                'argument 1 must be unicode'))
+            raise oefmt(
+                space.w_TypeError, 'argument 1 must be unicode, not %T',
+                w_unichr)
 
         if not we_are_translated() and sys.maxunicode == 0xFFFF:
             # Host CPython is narrow build, accept surrogates
             try:
                 return ord_accepts_surrogate(space.unicode_w(w_unichr))
             except TypeError:
-                raise OperationError(space.w_TypeError, space.wrap(
-                    'need a single Unicode character as parameter'))
+                raise oefmt(space.w_TypeError,
+                            "need a single Unicode character as parameter")
         else:
             if not space.len_w(w_unichr) == 1:
-                raise OperationError(space.w_TypeError, space.wrap(
-                    'need a single Unicode character as parameter'))
+                raise oefmt(space.w_TypeError,
+                            "need a single Unicode character as parameter")
             return space.int_w(space.ord(w_unichr))
 
 else:
     # Target is narrow build
     def unichr_to_code_w(space, w_unichr):
         if not space.isinstance_w(w_unichr, space.w_unicode):
-            raise OperationError(space.w_TypeError, space.wrap(
-                'argument 1 must be unicode'))
+            raise oefmt(
+                space.w_TypeError, 'argument 1 must be unicode, not %T',
+                w_unichr)
 
         if not we_are_translated() and sys.maxunicode > 0xFFFF:
             # Host CPython is wide build, forbid surrogates
             if not space.len_w(w_unichr) == 1:
-                raise OperationError(space.w_TypeError, space.wrap(
-                    'need a single Unicode character as parameter'))
+                raise oefmt(space.w_TypeError,
+                            "need a single Unicode character as parameter")
             return space.int_w(space.ord(w_unichr))
 
         else:
@@ -69,8 +71,8 @@ else:
             try:
                 return ord_accepts_surrogate(space.unicode_w(w_unichr))
             except TypeError:
-                raise OperationError(space.w_TypeError, space.wrap(
-                    'need a single Unicode character as parameter'))
+                raise oefmt(space.w_TypeError,
+                            "need a single Unicode character as parameter")
 
 
 class UCD(W_Root):
@@ -92,23 +94,23 @@ class UCD(W_Root):
 
         self.version = unicodedb.version
 
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='text')
     def _get_code(self, space, name):
         try:
             code = self._lookup(name.upper())
         except KeyError:
-            msg = space.mod(space.wrap("undefined character name '%s'"), space.wrap(name))
+            msg = space.mod(space.newtext("undefined character name '%s'"), space.newtext(name))
             raise OperationError(space.w_KeyError, msg)
-        return space.wrap(code)
+        return space.newint(code)
 
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='text')
     def lookup(self, space, name):
         try:
             code = self._lookup(name.upper())
         except KeyError:
-            msg = space.mod(space.wrap("undefined character name '%s'"), space.wrap(name))
+            msg = space.mod(space.newtext("undefined character name '%s'"), space.newtext(name))
             raise OperationError(space.w_KeyError, msg)
-        return space.wrap(code_to_unichr(code))
+        return space.newunicode(code_to_unichr(code))
 
     def name(self, space, w_unichr, w_default=None):
         code = unichr_to_code_w(space, w_unichr)
@@ -117,69 +119,70 @@ class UCD(W_Root):
         except KeyError:
             if w_default is not None:
                 return w_default
-            raise OperationError(space.w_ValueError, space.wrap('no such name'))
-        return space.wrap(name)
+            raise oefmt(space.w_ValueError, "no such name")
+        return space.newtext(name)
 
     def decimal(self, space, w_unichr, w_default=None):
         code = unichr_to_code_w(space, w_unichr)
         try:
-            return space.wrap(self._decimal(code))
+            return space.newint(self._decimal(code))
         except KeyError:
             pass
         if w_default is not None:
             return w_default
-        raise OperationError(space.w_ValueError, space.wrap('not a decimal'))
+        raise oefmt(space.w_ValueError, "not a decimal")
 
     def digit(self, space, w_unichr, w_default=None):
         code = unichr_to_code_w(space, w_unichr)
         try:
-            return space.wrap(self._digit(code))
+            return space.newint(self._digit(code))
         except KeyError:
             pass
         if w_default is not None:
             return w_default
-        raise OperationError(space.w_ValueError, space.wrap('not a digit'))
+        raise oefmt(space.w_ValueError, "not a digit")
 
     def numeric(self, space, w_unichr, w_default=None):
         code = unichr_to_code_w(space, w_unichr)
         try:
-            return space.wrap(self._numeric(code))
+            return space.newfloat(self._numeric(code))
         except KeyError:
             pass
         if w_default is not None:
             return w_default
-        raise OperationError(space.w_ValueError,
-                             space.wrap('not a numeric character'))
+        raise oefmt(space.w_ValueError, "not a numeric character")
 
     def category(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
-        return space.wrap(self._category(code))
+        return space.newtext(self._category(code))
 
     def east_asian_width(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
-        return space.wrap(self._east_asian_width(code))
+        return space.newtext(self._east_asian_width(code))
 
     def bidirectional(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
-        return space.wrap(self._bidirectional(code))
+        return space.newtext(self._bidirectional(code))
 
     def combining(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
-        return space.wrap(self._combining(code))
+        return space.newint(self._combining(code))
 
     def mirrored(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
         # For no reason, unicodedata.mirrored() returns an int, not a bool
-        return space.wrap(int(self._mirrored(code)))
+        return space.newint(int(self._mirrored(code)))
 
     def decomposition(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
-        return space.wrap(self._decomposition(code))
+        return space.newtext(self._decomposition(code))
 
-    @unwrap_spec(form=str)
+    @unwrap_spec(form='text')
     def normalize(self, space, form, w_unistr):
         if not space.isinstance_w(w_unistr, space.w_unicode):
-            raise OperationError(space.w_TypeError, space.wrap('argument 2 must be unicode'))
+            raise oefmt(
+                space.w_TypeError, 'argument 2 must be unicode, not %T',
+                w_unistr)
         if form == 'NFC':
             composed = True
             decomposition = self._canon_decomposition
@@ -193,8 +196,7 @@ class UCD(W_Root):
             composed = False
             decomposition = self._compat_decomposition
         else:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap('invalid normalization form'))
+            raise oefmt(space.w_ValueError, "invalid normalization form")
 
         strlen = space.len_w(w_unistr)
         result = [0] * (strlen + strlen / 10 + 10)
@@ -202,7 +204,7 @@ class UCD(W_Root):
         resultlen = len(result)
         # Expand the character
         for i in range(strlen):
-            ch = space.int_w(space.ord(space.getitem(w_unistr, space.wrap(i))))
+            ch = space.int_w(space.ord(space.getitem(w_unistr, space.newint(i))))
             # Do Hangul decomposition
             if SBase <= ch < SBase + SCount:
                 SIndex = ch - SBase
@@ -257,10 +259,10 @@ class UCD(W_Root):
                 result[0] = ch
 
         if not composed: # If decomposed normalization we are done
-            return space.wrap(u''.join([unichr(i) for i in result[:j]]))
+            return space.newunicode(u''.join([unichr(i) for i in result[:j]]))
 
         if j <= 1:
-            return space.wrap(u''.join([unichr(i) for i in result[:j]]))
+            return space.newunicode(u''.join([unichr(i) for i in result[:j]]))
 
         current = result[0]
         starter_pos = 0
@@ -278,8 +280,9 @@ class UCD(W_Root):
                     # If L, V -> LV
                     current = SBase + ((current - LBase)*VCount + (next - VBase)) * TCount
                     continue
+                # Note: if next == TBase, leave LV unchanged
                 if (SBase <= current < SBase + SCount and
-                    TBase <= next < TBase + TCount and
+                    TBase < next < TBase + TCount and
                     (current - SBase) % TCount == 0):
                     # If LV, T -> LVT
                     current = current + (next - TBase)
@@ -307,7 +310,7 @@ class UCD(W_Root):
 
         result[starter_pos] = current
 
-        return space.wrap(u''.join([unichr(i) for i in result[:next_insert]]))
+        return space.newunicode(u''.join([unichr(i) for i in result[:next_insert]]))
 
 
 methods = {}
@@ -320,7 +323,8 @@ for methodname in """
 
 UCD.typedef = TypeDef("unicodedata.UCD",
                       __doc__ = "",
-                      unidata_version = interp_attrproperty('version', UCD),
+                      unidata_version = interp_attrproperty('version', UCD,
+                          wrapfn="newtext"),
                       **methods)
 
 ucd_3_2_0 = UCD(unicodedb_3_2_0)

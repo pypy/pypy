@@ -3,9 +3,21 @@
 
 #ifndef Py_FLOATOBJECT_H
 #define Py_FLOATOBJECT_H
+
+#ifdef _MSC_VER
+#include <math.h>
+#include <float.h>
+#define copysign _copysign
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef struct {
+    PyObject_HEAD
+    double ob_fval;
+} PyFloatObject;
 
 #define PyFloat_STR_PRECISION 12
 

@@ -2,8 +2,9 @@ from __future__ import absolute_import
 
 import types
 from collections import defaultdict
+from contextlib import contextmanager
 
-from rpython.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import AnsiLogger
 from rpython.tool.pairtype import pair
 from rpython.tool.error import (format_blocked_annotation_error,
                              gather_error, source_lines)
@@ -15,16 +16,15 @@ from rpython.annotator.model import (
 from rpython.annotator.bookkeeper import Bookkeeper
 from rpython.rtyper.normalizecalls import perform_normalizations
 
-import py
-log = py.log.Producer("annrpython")
-py.log.setconsumer("annrpython", ansi_log)
+log = AnsiLogger("annrpython")
 
 
 class RPythonAnnotator(object):
     """Block annotator for RPython.
     See description in doc/translation.txt."""
 
-    def __init__(self, translator=None, policy=None, bookkeeper=None):
+    def __init__(self, translator=None, policy=None, bookkeeper=None,
+            keepgoing=False):
         import rpython.rtyper.extfuncregistry # has side effects
 
         if translator is None:
@@ -52,6 +52,9 @@ class RPythonAnnotator(object):
         if bookkeeper is None:
             bookkeeper = Bookkeeper(self)
         self.bookkeeper = bookkeeper
+        self.keepgoing = keepgoing
+        self.failed_blocks = set()
+        self.errors = []
 
     def __getstate__(self):
         attrs = """translator pendingblocks annotated links_followed
@@ -81,22 +84,17 @@ class RPythonAnnotator(object):
         annmodel.TLS.check_str_without_nul = (
             self.translator.config.translation.check_str_without_nul)
 
-        flowgraph, inputs_s = self.get_call_parameters(function, args_s, policy)
+        with self.using_policy(policy):
+            flowgraph, inputs_s = self.get_call_parameters(function, args_s)
 
         if main_entry_point:
             self.translator.entry_point_graph = flowgraph
         return self.build_graph_types(flowgraph, inputs_s, complete_now=complete_now)
 
-    def get_call_parameters(self, function, args_s, policy):
-        desc = self.bookkeeper.getdesc(function)
-        prevpolicy = self.policy
-        self.policy = policy
-        self.bookkeeper.enter(None)
-        try:
+    def get_call_parameters(self, function, args_s):
+        with self.bookkeeper.at_position(None):
+            desc = self.bookkeeper.getdesc(function)
             return desc.get_call_parameters(args_s)
-        finally:
-            self.bookkeeper.leave()
-            self.policy = prevpolicy
 
     def annotate_helper(self, function, args_s, policy=None):
         if policy is None:
@@ -105,21 +103,29 @@ class RPythonAnnotator(object):
             # XXX hack
             annmodel.TLS.check_str_without_nul = (
                 self.translator.config.translation.check_str_without_nul)
-        graph, inputcells = self.get_call_parameters(function, args_s, policy)
-        self.build_graph_types(graph, inputcells, complete_now=False)
-        self.complete_helpers(policy)
+        with self.using_policy(policy):
+            graph, inputcells = self.get_call_parameters(function, args_s)
+            self.build_graph_types(graph, inputcells, complete_now=False)
+            self.complete_helpers()
         return graph
 
-    def complete_helpers(self, policy):
-        saved = self.policy, self.added_blocks
-        self.policy = policy
+    def complete_helpers(self):
+        saved = self.added_blocks
+        self.added_blocks = {}
         try:
-            self.added_blocks = {}
             self.complete()
             # invoke annotation simplifications for the new blocks
             self.simplify(block_subset=self.added_blocks)
         finally:
-            self.policy, self.added_blocks = saved
+            self.added_blocks = saved
+
+    @contextmanager
+    def using_policy(self, policy):
+        """A context manager that temporarily replaces the annotator policy"""
+        old_policy = self.policy
+        self.policy = policy
+        yield
+        self.policy = old_policy
 
     def build_graph_types(self, flowgraph, inputcells, complete_now=True):
         checkgraph(flowgraph)
@@ -166,8 +172,15 @@ class RPythonAnnotator(object):
             # annotations that are passed in, and don't annotate the old
             # graph -- it's already low-level operations!
             for a, s_newarg in zip(block.inputargs, cells):
-                s_oldarg = self.binding(a)
-                assert annmodel.unionof(s_oldarg, s_newarg) == s_oldarg
+                s_oldarg = a.annotation
+                # XXX: Should use s_oldarg.contains(s_newarg) but that breaks
+                # PyPy translation
+                if annmodel.unionof(s_oldarg, s_newarg) != s_oldarg:
+                    raise annmodel.AnnotatorError(
+                        "Late-stage annotation is not allowed to modify the "
+                        "existing annotation for variable %s: %s" %
+                            (a, s_oldarg))
+
         else:
             assert not self.frozen
             if block not in self.annotated:
@@ -197,6 +210,12 @@ class RPythonAnnotator(object):
         else:
             newgraphs = self.translator.graphs  #all of them
             got_blocked_blocks = False in self.annotated.values()
+        if self.failed_blocks:
+            text = ('Annotation failed, %s errors were recorded:' %
+                    len(self.errors))
+            text += '\n-----'.join(str(e) for e in self.errors)
+            raise annmodel.AnnotatorError(text)
+
         if got_blocked_blocks:
             for graph in self.blocked_graphs.values():
                 self.blocked_graphs[graph] = True
@@ -212,6 +231,12 @@ class RPythonAnnotator(object):
             v = graph.getreturnvar()
             if v.annotation is None:
                 self.setbinding(v, s_ImpossibleValue)
+            v = graph.exceptblock.inputargs[1]
+            if v.annotation is not None and v.annotation.can_be_none():
+                raise annmodel.AnnotatorError(
+                    "%r is found by annotation to possibly raise None, "
+                    "but the None was not suppressed by the flow space" %
+                        (graph,))
 
     def validate(self):
         """Check that the annotation results are valid"""
@@ -239,7 +264,10 @@ class RPythonAnnotator(object):
     def setbinding(self, arg, s_value):
         s_old = arg.annotation
         if s_old is not None:
-            assert s_value.contains(s_old)
+            if not s_value.contains(s_old):
+                log.WARNING("%s does not contain %s" % (s_value, s_old))
+                log.WARNING("%s" % annmodel.union(s_value, s_old))
+                assert False
         arg.annotation = s_value
 
     def warning(self, msg, pos=None):
@@ -340,14 +368,16 @@ class RPythonAnnotator(object):
 
         #print '* processblock', block, cells
         self.annotated[block] = graph
+        if block in self.failed_blocks:
+            return
         if block in self.blocked_blocks:
             del self.blocked_blocks[block]
         try:
             self.flowin(graph, block)
-        except BlockedInference, e:
+        except BlockedInference as e:
             self.annotated[block] = False   # failed, hopefully temporarily
             self.blocked_blocks[block] = (graph, e.opindex)
-        except Exception, e:
+        except Exception as e:
             # hack for debug tools only
             if not hasattr(e, '__annotator_block'):
                 setattr(e, '__annotator_block', block)
@@ -381,9 +411,13 @@ class RPythonAnnotator(object):
         oldcells = [self.binding(a) for a in block.inputargs]
         try:
             unions = [annmodel.unionof(c1,c2) for c1, c2 in zip(oldcells,inputcells)]
-        except annmodel.UnionError, e:
+        except annmodel.UnionError as e:
             # Add source code to the UnionError
             e.source = '\n'.join(source_lines(graph, block, None, long=True))
+            if self.keepgoing:
+                self.errors.append(e)
+                self.failed_blocks.add(block)
+                return
             raise
         # if the merged cells changed, we must redo the analysis
         if unions != oldcells:
@@ -474,6 +508,10 @@ class RPythonAnnotator(object):
 
         except annmodel.AnnotatorError as e: # note that UnionError is a subclass
             e.source = gather_error(self, graph, block, i)
+            if self.keepgoing:
+                self.errors.append(e)
+                self.failed_blocks.add(block)
+                return
             raise
 
         else:

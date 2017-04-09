@@ -1,5 +1,4 @@
-#ifndef _VMPROF_STACK_H_
-#define _VMPROF_STACK_H_
+#pragma once
 
 #ifdef _WIN32
 #define intptr_t long // XXX windows VC++ 2008 lacks stdint.h
@@ -13,6 +12,7 @@
 #define VMPROF_JITTING_TAG 4
 #define VMPROF_GC_TAG 5
 #define VMPROF_ASSEMBLER_TAG 6
+#define VMPROF_NATIVE_TAG 7
 // whatever we want here
 
 typedef struct vmprof_stack_s {
@@ -25,5 +25,3 @@ typedef struct vmprof_stack_s {
 // to worry too much. There is a potential for squeezing it with bit
 // patterns into one WORD, but I don't want to care RIGHT NOW, potential
 // for future optimization potential
-
-#endif

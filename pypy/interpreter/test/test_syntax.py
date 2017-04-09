@@ -254,7 +254,7 @@ def checkinvalid(space, s):
                                 space.wrap(s),
                                 space.wrap('?'),
                                 space.wrap('exec'))
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_SyntaxError):
                 raise
         else:
@@ -365,6 +365,15 @@ c = br'u'"""
         assert isinstance(ns["z"], unicode)
         assert isinstance(ns["b"], str)
         assert isinstance(ns["c"], str)
+
+    def test_both_futures_with_semicolon(self):
+        # Issue #2526: a corner case which crashes only if the file
+        # contains *nothing more* than two __future__ imports separated
+        # by a semicolon.
+        s = """
+from __future__ import unicode_literals; from __future__ import print_function
+"""
+        exec s in {}
 
 
 class AppTestComprehensions:
@@ -723,7 +732,7 @@ class AppTestSyntaxError:
         line4 = "if ?: pass\n"
         try:
             exec "print\nprint\nprint\n" + line4
-        except SyntaxError, e:
+        except SyntaxError as e:
             assert e.lineno == 4
             assert e.text == line4
             assert e.offset == e.text.index('?') + 1
@@ -738,7 +747,7 @@ class AppTestSyntaxError:
                     a b c d e
                     bar
             """
-        except SyntaxError, e:
+        except SyntaxError as e:
             assert e.lineno == 4
             assert e.text.endswith('a b c d e\n')
             assert e.offset == e.text.index('b')
@@ -749,7 +758,7 @@ class AppTestSyntaxError:
         program = "(1, 2) += (3, 4)\n"
         try:
             exec program
-        except SyntaxError, e:
+        except SyntaxError as e:
             assert e.lineno == 1
             assert e.text is None
         else:
@@ -769,7 +778,7 @@ if __name__ == '__main__':
     for s in VALID:
         try:
             compile(s, '?', 'exec')
-        except Exception, e:
+        except Exception as e:
             print '-'*20, 'FAILED TO COMPILE:', '-'*20
             print s
             print '%s: %s' % (e.__class__, e)
@@ -777,7 +786,7 @@ if __name__ == '__main__':
     for s in INVALID:
         try:
             raises(SyntaxError, compile, s, '?', 'exec')
-        except Exception ,e:
+        except Exception as e:
             print '-'*20, 'UNEXPECTEDLY COMPILED:', '-'*20
             print s
             print '%s: %s' % (e.__class__, e)

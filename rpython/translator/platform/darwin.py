@@ -6,10 +6,10 @@ import os
 #
 # Although Intel 32bit is supported since Apple Mac OS X 10.4, (and PPC since, ever)
 # the @rpath handling used in Darwin._args_for_shared is only availabe
-# since 10.5, so we use that as minimum requirement. Bumped to 10.6
-# because 10.11 does not ship with 10.5 versions of libs
+# since 10.5, so we use that as minimum requirement. Bumped to 10.7
+# to allow the use of thread-local in __thread in C.
 #
-DARWIN_VERSION_MIN = '-mmacosx-version-min=10.6'
+DARWIN_VERSION_MIN = '-mmacosx-version-min=10.7'
 
 class Darwin(posix.BasePosix):
     name = "darwin"
@@ -30,9 +30,16 @@ class Darwin(posix.BasePosix):
             print 'in get_rpath_flags, rel_libdirs is not fixed up',rel_libdirs
         return self.rpath_flags
 
-    def _args_for_shared(self, args):
+    def _args_for_shared(self, args, **kwds):
+        if 'exe_name' in kwds:
+            target_basename = kwds['exe_name'].basename
+        else:
+            target_basename = '$(TARGET)'
+        # The default '$(TARGET)' is used inside a Makefile.  Otherwise
+        # we get the basename of the executable we're trying to build.
         return (list(self.shared_only)
-                + ['-dynamiclib', '-install_name', '@rpath/$(TARGET)', '-undefined', 'dynamic_lookup', '-flat_namespace']
+                + ['-dynamiclib', '-install_name', '@rpath/' + target_basename,
+                   '-undefined', 'dynamic_lookup', '-flat_namespace']
                 + args)
 
     def _include_dirs_for_libffi(self):
@@ -89,7 +96,7 @@ class Darwin(posix.BasePosix):
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
-                     no_precompile_cfiles = [], icon=None):
+                     no_precompile_cfiles = [], config=None):
         # ensure frameworks are passed in the Makefile
         fs = self._frameworks(eci.frameworks)
         if len(fs) > 0:
@@ -99,7 +106,7 @@ class Darwin(posix.BasePosix):
                                 shared=shared,
                                 headers_to_precompile=headers_to_precompile,
                                 no_precompile_cfiles = no_precompile_cfiles,
-                                icon=icon)
+                                config=config)
         return mk
 
 class Darwin_PowerPC(Darwin):#xxx fixme, mwp

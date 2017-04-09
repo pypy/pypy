@@ -1,2 +1,1 @@
-#define PyList_GET_ITEM PyList_GetItem
-#define PyList_SET_ITEM PyList_SetItem
+#define PyList_GET_ITEM(o, i) PyList_GetItem((PyObject*)(o), (i))

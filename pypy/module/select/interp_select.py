@@ -2,6 +2,7 @@ import errno
 
 from rpython.rlib import _rsocket_rffi as _c, rpoll
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib import objectmodel
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
@@ -47,7 +48,7 @@ class Poll(W_Root):
         try:
             del self.fddict[fd]
         except KeyError:
-            raise OperationError(space.w_KeyError, space.wrap(fd))
+            raise OperationError(space.w_KeyError, space.newint(fd))
 
     @unwrap_spec(w_timeout=WrappedDefault(None))
     def poll(self, space, w_timeout):
@@ -69,19 +70,19 @@ class Poll(W_Root):
         self.running = True
         try:
             retval = rpoll.poll(self.fddict, timeout)
-        except rpoll.PollError, e:
+        except rpoll.PollError as e:
             w_errortype = space.fromcache(Cache).w_error
             message = e.get_msg()
             raise OperationError(w_errortype,
-                                 space.newtuple([space.wrap(e.errno),
-                                                 space.wrap(message)]))
+                                 space.newtuple([space.newint(e.errno),
+                                                 space.newtext(message)]))
         finally:
             self.running = False
 
         retval_w = []
         for fd, revents in retval:
-            retval_w.append(space.newtuple([space.wrap(fd),
-                                            space.wrap(revents)]))
+            retval_w.append(space.newtuple([space.newint(fd),
+                                            space.newint(revents)]))
         return space.newlist(retval_w)
 
 pollmethods = {}
@@ -91,7 +92,7 @@ Poll.typedef = TypeDef('select.poll', **pollmethods)
 
 # ____________________________________________________________
 
-
+@objectmodel.always_inline  # get rid of the tuple result
 def _build_fd_set(space, list_w, ll_list, nfds):
     _c.FD_ZERO(ll_list)
     fdlist = []
@@ -105,7 +106,6 @@ def _build_fd_set(space, list_w, ll_list, nfds):
         _c.FD_SET(fd, ll_list)
         fdlist.append(fd)
     return fdlist, nfds
-_build_fd_set._always_inline_ = True    # get rid of the tuple result
 
 
 def _unbuild_fd_set(space, list_w, fdlist, ll_list, reslist_w):
@@ -133,7 +133,7 @@ def _call_select(space, iwtd_w, owtd_w, ewtd_w,
         msg = _c.socket_strerror_str(errno)
         w_errortype = space.fromcache(Cache).w_error
         raise OperationError(w_errortype, space.newtuple([
-            space.wrap(errno), space.wrap(msg)]))
+            space.newint(errno), space.newtext(msg)]))
 
     resin_w = []
     resout_w = []

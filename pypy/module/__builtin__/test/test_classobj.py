@@ -452,7 +452,6 @@ class AppTestOldstyle(object):
         assert a + 1 == 2
         assert a + 1.1 == 2
 
-
     def test_binaryop_calls_coerce_always(self):
         l = []
         class A:
@@ -689,7 +688,7 @@ class AppTestOldstyle(object):
 
     def test_catch_attributeerror_of_descriptor(self):
         def booh(self):
-            raise this_exception, "booh"
+            raise this_exception("booh")
 
         class E:
             __eq__ = property(booh)
@@ -1076,6 +1075,16 @@ class AppTestOldstyle(object):
         assert (D() >  A()) == 'D:A.gt'
         assert (D() >= A()) == 'D:A.ge'
 
+    def test_override___int__(self):
+        class F(float):
+            def __int__(self):
+                return 666
+        f = F(-12.3)
+        assert int(f) == 666
+        # on cpython, this calls float_trunc() in floatobject.c
+        # which ends up calling PyFloat_AS_DOUBLE((PyFloatObject*) f)
+        assert float.__int__(f) == -12
+
 
 class AppTestOldStyleClassBytesDict(object):
     def setup_class(cls):
@@ -1109,8 +1118,7 @@ class AppTestOldStyleClassBytesDict(object):
         assert getattr(c, u"x") == 1
 
 
-class AppTestOldStyleMapDict(AppTestOldstyle):
-    spaceconfig = {"objspace.std.withmapdict": True}
+class AppTestOldStyleMapDict:
 
     def setup_class(cls):
         if cls.runappdirect:

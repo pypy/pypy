@@ -2,12 +2,13 @@ import math
 import sys
 
 from rpython.rlib import rfloat
-from pypy.interpreter.error import OperationError
+from rpython.rlib.objectmodel import specialize
+from pypy.interpreter.error import OperationError, oefmt
 
 class State:
     def __init__(self, space):
-        self.w_e = space.wrap(math.e)
-        self.w_pi = space.wrap(math.pi)
+        self.w_e = space.newfloat(math.e)
+        self.w_pi = space.newfloat(math.pi)
 def get(space):
     return space.fromcache(State)
 
@@ -17,45 +18,39 @@ def _get_double(space, w_x):
     else:
         return space.float_w(space.float(w_x))
 
+@specialize.arg(1)
 def math1(space, f, w_x):
     x = _get_double(space, w_x)
     try:
         y = f(x)
     except OverflowError:
-        raise OperationError(space.w_OverflowError,
-                             space.wrap("math range error"))
+        raise oefmt(space.w_OverflowError, "math range error")
     except ValueError:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("math domain error"))
-    return space.wrap(y)
-math1._annspecialcase_ = 'specialize:arg(1)'
+        raise oefmt(space.w_ValueError, "math domain error")
+    return space.newfloat(y)
 
+@specialize.arg(1)
 def math1_w(space, f, w_x):
     x = _get_double(space, w_x)
     try:
         r = f(x)
     except OverflowError:
-        raise OperationError(space.w_OverflowError,
-                             space.wrap("math range error"))
+        raise oefmt(space.w_OverflowError, "math range error")
     except ValueError:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("math domain error"))
+        raise oefmt(space.w_ValueError, "math domain error")
     return r
-math1_w._annspecialcase_ = 'specialize:arg(1)'
 
+@specialize.arg(1)
 def math2(space, f, w_x, w_snd):
     x = _get_double(space, w_x)
     snd = _get_double(space, w_snd)
     try:
         r = f(x, snd)
     except OverflowError:
-        raise OperationError(space.w_OverflowError,
-                             space.wrap("math range error"))
+        raise oefmt(space.w_OverflowError, "math range error")
     except ValueError:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("math domain error"))
-    return space.wrap(r)
-math2._annspecialcase_ = 'specialize:arg(1)'
+        raise oefmt(space.w_ValueError, "math domain error")
+    return space.newfloat(r)
 
 def trunc(space, w_x):
     """Truncate x."""
@@ -66,15 +61,15 @@ def copysign(space, w_x, w_y):
     # No exceptions possible.
     x = _get_double(space, w_x)
     y = _get_double(space, w_y)
-    return space.wrap(rfloat.copysign(x, y))
+    return space.newfloat(rfloat.copysign(x, y))
 
 def isinf(space, w_x):
     """Return True if x is infinity."""
-    return space.wrap(rfloat.isinf(_get_double(space, w_x)))
+    return space.newbool(rfloat.isinf(_get_double(space, w_x)))
 
 def isnan(space, w_x):
     """Return True if x is not a number."""
-    return space.wrap(rfloat.isnan(_get_double(space, w_x)))
+    return space.newbool(rfloat.isnan(_get_double(space, w_x)))
 
 def pow(space, w_x, w_y):
     """pow(x,y)
@@ -98,25 +93,22 @@ def ldexp(space, w_x,  w_i):
         space.isinstance_w(w_i, space.w_long)):
         try:
             exp = space.int_w(w_i)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_OverflowError):
                 raise
-            if space.is_true(space.lt(w_i, space.wrap(0))):
+            if space.is_true(space.lt(w_i, space.newint(0))):
                 exp = -sys.maxint
             else:
                 exp = sys.maxint
     else:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("integer required for second argument"))
+        raise oefmt(space.w_TypeError, "integer required for second argument")
     try:
         r = math.ldexp(x, exp)
     except OverflowError:
-        raise OperationError(space.w_OverflowError,
-                             space.wrap("math range error"))
+        raise oefmt(space.w_OverflowError, "math range error")
     except ValueError:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("math domain error"))
-    return space.wrap(r)
+        raise oefmt(space.w_ValueError, "math domain error")
+    return space.newfloat(r)
 
 def hypot(space, w_x, w_y):
     """hypot(x,y)
@@ -153,7 +145,7 @@ def floor(space, w_x):
        This is the largest integral value <= x.
     """
     x = _get_double(space, w_x)
-    return space.wrap(math.floor(x))
+    return space.newfloat(math.floor(x))
 
 def sqrt(space, w_x):
     """sqrt(x)
@@ -170,14 +162,14 @@ def frexp(space, w_x):
        If x is 0, m and e are both 0.  Else 0.5 <= abs(m) < 1.0.
     """
     mant, expo = math1_w(space, math.frexp, w_x)
-    return space.newtuple([space.wrap(mant), space.wrap(expo)])
+    return space.newtuple([space.newfloat(mant), space.newint(expo)])
 
 degToRad = math.pi / 180.0
 
 def degrees(space, w_x):
     """degrees(x) -> converts angle x from radians to degrees
     """
-    return space.wrap(_get_double(space, w_x) / degToRad)
+    return space.newfloat(_get_double(space, w_x) / degToRad)
 
 def _log_any(space, w_x, base):
     # base is supposed to be positive or 0.0, which means we use e
@@ -196,12 +188,10 @@ def _log_any(space, w_x, base):
                     den = math.log(base)
                     result /= den
     except OverflowError:
-        raise OperationError(space.w_OverflowError,
-                             space.wrap('math range error'))
+        raise oefmt(space.w_OverflowError, "math range error")
     except ValueError:
-        raise OperationError(space.w_ValueError,
-                             space.wrap('math domain error'))
-    return space.wrap(result)
+        raise oefmt(space.w_ValueError, "math domain error")
+    return space.newfloat(result)
 
 def log(space, w_x, w_base=None):
     """log(x[, base]) -> the logarithm of x to the given base.
@@ -267,7 +257,7 @@ def tanh(space, w_x):
 def radians(space, w_x):
     """radians(x) -> converts angle x from degrees to radians
     """
-    return space.wrap(_get_double(space, w_x) * degToRad)
+    return space.newfloat(_get_double(space, w_x) * degToRad)
 
 def sin(space, w_x):
     """sin(x)
@@ -291,7 +281,7 @@ def modf(space, w_x):
        of x.  The integer part is returned as a real.
     """
     frac, intpart = math1_w(space, math.modf, w_x)
-    return space.newtuple([space.wrap(frac), space.wrap(intpart)])
+    return space.newtuple([space.newfloat(frac), space.newfloat(intpart)])
 
 def exp(space, w_x):
     """exp(x)
@@ -315,7 +305,7 @@ def fsum(space, w_iterable):
     while True:
         try:
             w_value = space.next(w_iter)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_StopIteration):
                 raise
             break
@@ -336,8 +326,7 @@ def fsum(space, w_iterable):
         if v != 0.0:
             if not rfloat.isfinite(v):
                 if rfloat.isfinite(original):
-                    raise OperationError(space.w_OverflowError,
-                                         space.wrap("intermediate overflow"))
+                    raise oefmt(space.w_OverflowError, "intermediate overflow")
                 if rfloat.isinf(original):
                     inf_sum += original
                 special_sum += original
@@ -346,8 +335,8 @@ def fsum(space, w_iterable):
                 partials.append(v)
     if special_sum != 0.0:
         if rfloat.isnan(inf_sum):
-            raise OperationError(space.w_ValueError, space.wrap("-inf + inf"))
-        return space.wrap(special_sum)
+            raise oefmt(space.w_ValueError, "-inf + inf")
+        return space.newfloat(special_sum)
     hi = 0.0
     if partials:
         hi = partials[-1]
@@ -369,7 +358,7 @@ def fsum(space, w_iterable):
             yr = v - hi
             if y == yr:
                 hi = v
-    return space.wrap(hi)
+    return space.newfloat(hi)
 
 def log1p(space, w_x):
     """Find log(x + 1)."""

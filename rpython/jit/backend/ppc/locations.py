@@ -1,4 +1,4 @@
-from rpython.jit.metainterp.history import INT, FLOAT
+from rpython.jit.metainterp.history import INT, FLOAT, VECTOR
 import sys
 
 # cannot import from arch.py, currently we have a circular import
@@ -28,6 +28,9 @@ class AssemblerLocation(object):
         return self.is_reg()
 
     def is_fp_reg(self):
+        return False
+
+    def is_vector_reg(self):
         return False
 
     def is_imm_float(self):
@@ -74,6 +77,27 @@ class FPRegisterLocation(RegisterLocation):
 
     def as_key(self):
         return self.value + 100
+
+class VectorRegisterLocation(AssemblerLocation):
+    _immutable_ = True
+    width = WORD * 2
+    type = VECTOR
+
+    def __init__(self, value):
+        self.value = value
+
+    def __repr__(self):
+        return 'vr%d' % self.value
+
+    def is_reg(self):
+        return True
+
+    def as_key(self):
+        return self.value + 132
+
+    def is_vector_reg(self):
+        return True
+
 
 class ImmLocation(AssemblerLocation):
     _immutable_ = True
@@ -128,9 +152,6 @@ class StackLocation(AssemblerLocation):
 
     def __repr__(self):
         return 'FP(%s)+%d' % (self.type, self.value)
-
-    def location_code(self):
-        return 'b'
 
     def get_position(self):
         return self.position

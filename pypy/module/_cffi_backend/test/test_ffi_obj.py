@@ -1,4 +1,22 @@
+from pypy.module._cffi_backend import newtype
 from pypy.module._cffi_backend.newtype import _clean_cache
+
+
+class TestFFIObj:
+    spaceconfig = dict(usemodules=('_cffi_backend', 'array'))
+
+    def teardown_method(self, meth):
+        _clean_cache(self.space)
+
+    def test_new_function_type_during_translation(self):
+        space = self.space
+        BInt = newtype.new_primitive_type(space, "int")
+        BFunc = newtype.new_function_type(space, space.wrap([BInt]), BInt)
+        assert BFunc is newtype.new_function_type(space,space.wrap([BInt]),BInt)
+        unique_cache = space.fromcache(newtype.UniqueCache)
+        unique_cache._cleanup_()
+        assert BFunc is newtype.new_function_type(space,space.wrap([BInt]),BInt)
+
 
 class AppTestFFIObj:
     spaceconfig = dict(usemodules=('_cffi_backend', 'array'))
@@ -238,6 +256,27 @@ class AppTestFFIObj:
         ffi = _cffi1_backend.FFI()
         a = ffi.new("signed char[]", [5, 6, 7])
         assert ffi.buffer(a)[:] == '\x05\x06\x07'
+        assert ffi.buffer(cdata=a, size=2)[:] == b'\x05\x06'
+        assert type(ffi.buffer(a)) is ffi.buffer
+
+    def test_ffi_buffer_comparisons(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        ba = bytearray(range(100, 110))
+        assert ba == memoryview(ba)    # justification for the following
+        a = ffi.new("uint8_t[]", list(ba))
+        c = ffi.new("uint8_t[]", [99] + list(ba))
+        b_full = ffi.buffer(a)
+        b_short = ffi.buffer(a, 3)
+        b_mid = ffi.buffer(a, 6)
+        b_other = ffi.buffer(c, 6)
+        content = b_full[:]
+        assert content == b_full == ba
+        assert b_short < b_mid < b_full
+        assert b_other < b_short < b_mid < b_full
+        assert ba > b_mid > ba[0:2]
+        assert b_short != ba[1:4]
+        assert b_short != 42
 
     def test_ffi_from_buffer(self):
         import _cffi_backend as _cffi1_backend
@@ -331,6 +370,25 @@ class AppTestFFIObj:
             gc.collect()
         assert seen == [1]
 
+    def test_ffi_gc_disable(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        p = ffi.new("int *", 123)
+        raises(TypeError, ffi.gc, p, None)
+        seen = []
+        q1 = ffi.gc(p, lambda p: seen.append(1))
+        q2 = ffi.gc(q1, lambda p: seen.append(2))
+        import gc; gc.collect()
+        assert seen == []
+        assert ffi.gc(q1, None) is None
+        del q1, q2
+        for i in range(5):
+            if seen:
+                break
+            import gc
+            gc.collect()
+        assert seen == [2]
+
     def test_ffi_new_allocator_1(self):
         import _cffi_backend as _cffi1_backend
         ffi = _cffi1_backend.FFI()
@@ -382,7 +440,8 @@ class AppTestFFIObj:
             retries += 1
             assert retries <= 5
             import gc; gc.collect()
-        assert seen == [40, 40, raw1, raw2]
+        assert (seen == [40, 40, raw1, raw2] or
+                seen == [40, 40, raw2, raw1])
         assert repr(seen[2]) == "<cdata 'char[]' owning 41 bytes>"
         assert repr(seen[3]) == "<cdata 'char[]' owning 41 bytes>"
 
@@ -476,3 +535,23 @@ class AppTestFFIObj:
         for i in range(5):
             raises(ValueError, ffi.init_once, do_init, "tag")
             assert seen == [1] * (i + 1)
+
+    def test_unpack(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        p = ffi.new("char[]", b"abc\x00def")
+        assert ffi.unpack(p+1, 7) == b"bc\x00def\x00"
+        p = ffi.new("int[]", [-123456789])
+        assert ffi.unpack(p, 1) == [-123456789]
+
+    def test_bug_1(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        q = ffi.new("char[]", b"abcd")
+        p = ffi.cast("char(*)(void)", q)
+        raises(TypeError, ffi.string, p)
+
+    def test_negative_array_size(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        raises(ffi.error, ffi.cast, "int[-5]", 0)

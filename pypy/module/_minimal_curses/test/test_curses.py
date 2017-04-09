@@ -1,4 +1,4 @@
-from pypy.conftest import pypydir
+from pypy import pypydir
 from rpython.tool.udir import udir
 import py
 import sys
@@ -70,25 +70,33 @@ class TestCurses(object):
         f.write(source)
         child = self.spawn(['--withmod-_minimal_curses', str(f)])
         child.expect('ok!')
-        
+
 class TestCCurses(object):
     """ Test compiled version
     """
     def test_csetupterm(self):
         from rpython.translator.c.test.test_genc import compile
-        from pypy.module._minimal_curses import interp_curses
+        from rpython.rtyper.lltypesystem import lltype, rffi
+        from pypy.module._minimal_curses import fficurses
+
         def runs_setupterm():
-            interp_curses._curses_setupterm_null(1)
+            null = lltype.nullptr(rffi.CCHARP.TO)
+            fficurses.rpy_curses_setupterm(null, 1)
 
         fn = compile(runs_setupterm, [])
         fn()
 
     def test_ctgetstr(self):
         from rpython.translator.c.test.test_genc import compile
-        from pypy.module._minimal_curses import interp_curses
+        from rpython.rtyper.lltypesystem import lltype, rffi
+        from pypy.module._minimal_curses import fficurses
+
         def runs_ctgetstr():
-            interp_curses._curses_setupterm("xterm", 1)
-            return interp_curses._curses_tigetstr('cup')
+            with rffi.scoped_str2charp("xterm") as ll_term:
+                fficurses.rpy_curses_setupterm(ll_term, 1)
+            with rffi.scoped_str2charp("cup") as ll_capname:
+                ll = fficurses.rpy_curses_tigetstr(ll_capname)
+                return rffi.charp2str(ll)
 
         fn = compile(runs_ctgetstr, [])
         res = fn()
@@ -96,11 +104,16 @@ class TestCCurses(object):
 
     def test_ctparm(self):
         from rpython.translator.c.test.test_genc import compile
-        from pypy.module._minimal_curses import interp_curses
+        from rpython.rtyper.lltypesystem import lltype, rffi
+        from pypy.module._minimal_curses import fficurses
+
         def runs_tparm():
-            interp_curses._curses_setupterm("xterm", 1)
-            cup = interp_curses._curses_tigetstr('cup')
-            return interp_curses._curses_tparm(cup, [5, 3])
+            with rffi.scoped_str2charp("xterm") as ll_term:
+                fficurses.rpy_curses_setupterm(ll_term, 1)
+            with rffi.scoped_str2charp("cup") as ll_capname:
+                cup = fficurses.rpy_curses_tigetstr(ll_capname)
+                res = fficurses.rpy_curses_tparm(cup, 5, 3, 0, 0, 0, 0, 0, 0, 0)
+                return rffi.charp2str(res)
 
         fn = compile(runs_tparm, [])
         res = fn()

@@ -127,8 +127,6 @@ class _AssertRaisesContext(object):
                      (expected_regexp.pattern, str(exc_value)))
         return True
 
-def _sentinel(*args, **kwargs):
-    raise AssertionError('Should never be called')
 
 class TestCase(object):
     """A class whose instances are single test cases.
@@ -445,7 +443,7 @@ class TestCase(object):
             return  '%s : %s' % (safe_repr(standardMsg), safe_repr(msg))
 
 
-    def assertRaises(self, excClass, callableObj=_sentinel, *args, **kwargs):
+    def assertRaises(self, excClass, callableObj=None, *args, **kwargs):
         """Fail unless an exception of class excClass is raised
            by callableObj when invoked with arguments args and keyword
            arguments kwargs. If a different type of exception is
@@ -453,7 +451,7 @@ class TestCase(object):
            deemed to have suffered an error, exactly as for an
            unexpected exception.
 
-           If called with callableObj omitted, will return a
+           If called with callableObj omitted or None, will return a
            context object used like this::
 
                 with self.assertRaises(SomeException):
@@ -469,7 +467,7 @@ class TestCase(object):
                self.assertEqual(the_exception.error_code, 3)
         """
         context = _AssertRaisesContext(excClass, self)
-        if callableObj is _sentinel:
+        if callableObj is None:
             return context
         with context:
             callableObj(*args, **kwargs)
@@ -531,7 +529,7 @@ class TestCase(object):
            between the two objects is more than the given delta.
 
            Note that decimal places (from zero) are usually not the same
-           as significant digits (measured from the most signficant digit).
+           as significant digits (measured from the most significant digit).
 
            If the two objects compare equal then they will automatically
            compare almost equal.
@@ -569,7 +567,7 @@ class TestCase(object):
            between the two objects is less than the given delta.
 
            Note that decimal places (from zero) are usually not the same
-           as significant digits (measured from the most signficant digit).
+           as significant digits (measured from the most significant digit).
 
            Objects that are equal automatically fail.
         """
@@ -691,7 +689,7 @@ class TestCase(object):
 
                 if item1 != item2:
                     differing += ('\nFirst differing element %d:\n%s\n%s\n' %
-                                 (i, item1, item2))
+                                 (i, safe_repr(item1), safe_repr(item2)))
                     break
             else:
                 if (len1 == len2 and seq_type is None and
@@ -704,7 +702,7 @@ class TestCase(object):
                              'elements.\n' % (seq_type_name, len1 - len2))
                 try:
                     differing += ('First extra element %d:\n%s\n' %
-                                  (len2, seq1[len2]))
+                                  (len2, safe_repr(seq1[len2])))
                 except (TypeError, IndexError, NotImplementedError):
                     differing += ('Unable to index element %d '
                                   'of first %s\n' % (len2, seq_type_name))
@@ -713,7 +711,7 @@ class TestCase(object):
                              'elements.\n' % (seq_type_name, len2 - len1))
                 try:
                     differing += ('First extra element %d:\n%s\n' %
-                                  (len1, seq2[len1]))
+                                  (len1, safe_repr(seq2[len1])))
                 except (TypeError, IndexError, NotImplementedError):
                     differing += ('Unable to index element %d '
                                   'of second %s\n' % (len1, seq_type_name))
@@ -975,7 +973,7 @@ class TestCase(object):
             self.fail(self._formatMessage(msg, standardMsg))
 
     def assertRaisesRegexp(self, expected_exception, expected_regexp,
-                           callable_obj=_sentinel, *args, **kwargs):
+                           callable_obj=None, *args, **kwargs):
         """Asserts that the message in a raised exception matches a regexp.
 
         Args:
@@ -989,7 +987,7 @@ class TestCase(object):
         if expected_regexp is not None:
             expected_regexp = re.compile(expected_regexp)
         context = _AssertRaisesContext(expected_exception, self, expected_regexp)
-        if callable_obj is _sentinel:
+        if callable_obj is None:
             return context
         with context:
             callable_obj(*args, **kwargs)

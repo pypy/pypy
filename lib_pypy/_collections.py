@@ -1,12 +1,17 @@
 """High performance data structures
+
+Note that PyPy also contains a built-in module '_collections' which will hide
+this one if compiled in.
+
+THIS ONE IS BOGUS in the sense that it is NOT THREAD-SAFE!  It is provided
+only as documentation nowadays.  Please don't run in production a PyPy
+without the '_collections' built-in module.  The built-in module is
+correctly thread-safe, like it is on CPython.
 """
 #
 # Copied and completed from the sandbox of CPython
 #   (nondist/sandbox/collections/pydeque.py rev 1.1, Raymond Hettinger)
 #
-
-# Note that PyPy also contains a built-in module '_collections' which will hide
-# this one if compiled in.
 
 try:
     from threading import _get_ident as _thread_ident
@@ -29,7 +34,7 @@ BLOCKSIZ = n+2
 class deque(object):
 
     def __new__(cls, iterable=(), *args, **kw):
-        self = super(deque, cls).__new__(cls, *args, **kw)
+        self = super(deque, cls).__new__(cls)
         self.clear()
         return self
 
@@ -320,8 +325,7 @@ class deque(object):
     def __reduce_ex__(self, proto):
         return type(self), (list(self), self.maxlen)
 
-    def __hash__(self):
-        raise TypeError("deque objects are unhashable")
+    __hash__ = None
 
     def __copy__(self):
         return self.__class__(self, self.maxlen)

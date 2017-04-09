@@ -2608,8 +2608,8 @@ static PyMemberDef pattern_members[] = {
 };
 
 statichere PyTypeObject Pattern_Type = {
-    PyObject_HEAD_INIT(NULL)
-    0, "_" SRE_MODULE ".SRE_Pattern",
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "_" SRE_MODULE ".SRE_Pattern",
     sizeof(PatternObject), sizeof(SRE_CODE),
     (destructor)pattern_dealloc, /*tp_dealloc*/
     0,                                  /* tp_print */
@@ -3794,8 +3794,8 @@ static PyMemberDef scanner_members[] = {
 };
 
 statichere PyTypeObject Scanner_Type = {
-    PyObject_HEAD_INIT(NULL)
-    0, "_" SRE_MODULE ".SRE_Scanner",
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "_" SRE_MODULE ".SRE_Scanner",
     sizeof(ScannerObject), 0,
     (destructor)scanner_dealloc, /*tp_dealloc*/
     0,				/* tp_print */
@@ -3866,6 +3866,12 @@ static PyMethodDef _functions[] = {
 #if PY_VERSION_HEX < 0x02030000
 DL_EXPORT(void) init_sre(void)
 #else
+#ifdef __GNUC__
+extern __attribute__((visibility("default")))
+#else
+extern __declspec(dllexport)
+#endif
+
 PyMODINIT_FUNC init_sre(void)
 #endif
 {

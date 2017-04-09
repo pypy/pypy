@@ -1,7 +1,8 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     PyObjectFields, generic_cpy_call, CONST_STRING, CANNOT_FAIL, Py_ssize_t,
-    cpython_api, bootstrap_function, cpython_struct, build_type_checkers)
+    cpython_api, bootstrap_function, cpython_struct, build_type_checkers,
+    slot_function)
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, from_ref, Py_DecRef, make_typedescr)
 from rpython.rlib.unroll import unrolling_iterable
@@ -51,23 +52,23 @@ PyFunction_Check, PyFunction_CheckExact = build_type_checkers("Function", Functi
 PyMethod_Check, PyMethod_CheckExact = build_type_checkers("Method", Method)
 PyCode_Check, PyCode_CheckExact = build_type_checkers("Code", PyCode)
 
-def function_attach(space, py_obj, w_obj):
+def function_attach(space, py_obj, w_obj, w_userdata=None):
     py_func = rffi.cast(PyFunctionObject, py_obj)
     assert isinstance(w_obj, Function)
-    py_func.c_func_name = make_ref(space, space.wrap(w_obj.name))
+    py_func.c_func_name = make_ref(space, space.newtext(w_obj.name))
 
-@cpython_api([PyObject], lltype.Void, header=None)
+@slot_function([PyObject], lltype.Void)
 def function_dealloc(space, py_obj):
     py_func = rffi.cast(PyFunctionObject, py_obj)
     Py_DecRef(space, py_func.c_func_name)
-    from pypy.module.cpyext.object import PyObject_dealloc
-    PyObject_dealloc(space, py_obj)
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)
 
-def code_attach(space, py_obj, w_obj):
+def code_attach(space, py_obj, w_obj, w_userdata=None):
     py_code = rffi.cast(PyCodeObject, py_obj)
     assert isinstance(w_obj, PyCode)
-    py_code.c_co_name = make_ref(space, space.wrap(w_obj.co_name))
-    py_code.c_co_filename = make_ref(space, space.wrap(w_obj.co_filename))
+    py_code.c_co_name = make_ref(space, space.newtext(w_obj.co_name))
+    py_code.c_co_filename = make_ref(space, space.newtext(w_obj.co_filename))
     co_flags = 0
     for name, value in ALL_CODE_FLAGS:
         if w_obj.co_flags & getattr(pycode, name):
@@ -75,20 +76,19 @@ def code_attach(space, py_obj, w_obj):
     rffi.setintfield(py_code, 'c_co_flags', co_flags)
     rffi.setintfield(py_code, 'c_co_argcount', w_obj.co_argcount)
 
-@cpython_api([PyObject], lltype.Void, header=None)
+@slot_function([PyObject], lltype.Void)
 def code_dealloc(space, py_obj):
     py_code = rffi.cast(PyCodeObject, py_obj)
     Py_DecRef(space, py_code.c_co_name)
     Py_DecRef(space, py_code.c_co_filename)
-    from pypy.module.cpyext.object import PyObject_dealloc
-    PyObject_dealloc(space, py_obj)
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)
 
 @cpython_api([PyObject], PyObject, result_borrowed=True)
 def PyFunction_GetCode(space, w_func):
     """Return the code object associated with the function object op."""
     func = space.interp_w(Function, w_func)
-    w_code = space.wrap(func.code)
-    return w_code      # borrowed ref
+    return func.code      # borrowed ref
 
 @cpython_api([PyObject, PyObject, PyObject], PyObject)
 def PyMethod_New(space, w_func, w_self, w_cls):
@@ -119,8 +119,8 @@ def PyMethod_Class(space, w_method):
     assert isinstance(w_method, Method)
     return w_method.w_class     # borrowed ref
 
-def unwrap_list_of_strings(space, w_list):
-    return [space.str_w(w_item) for w_item in space.fixedview(w_list)]
+def unwrap_list_of_texts(space, w_list):
+    return [space.text_w(w_item) for w_item in space.fixedview(w_list)]
 
 @cpython_api([rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real,
               PyObject, PyObject, PyObject, PyObject, PyObject, PyObject,
@@ -132,40 +132,40 @@ def PyCode_New(space, argcount, nlocals, stacksize, flags,
     create a frame, use PyCode_NewEmpty() instead.  Calling
     PyCode_New() directly can bind you to a precise Python
     version since the definition of the bytecode changes often."""
-    return space.wrap(PyCode(space,
-                             argcount=rffi.cast(lltype.Signed, argcount),
-                             nlocals=rffi.cast(lltype.Signed, nlocals),
-                             stacksize=rffi.cast(lltype.Signed, stacksize),
-                             flags=rffi.cast(lltype.Signed, flags),
-                             code=space.str_w(w_code),
-                             consts=space.fixedview(w_consts),
-                             names=unwrap_list_of_strings(space, w_names),
-                             varnames=unwrap_list_of_strings(space, w_varnames),
-                             filename=space.str_w(w_filename),
-                             name=space.str_w(w_funcname),
-                             firstlineno=rffi.cast(lltype.Signed, firstlineno),
-                             lnotab=space.str_w(w_lnotab),
-                             freevars=unwrap_list_of_strings(space, w_freevars),
-                             cellvars=unwrap_list_of_strings(space, w_cellvars)))
+    return PyCode(space,
+                  argcount=rffi.cast(lltype.Signed, argcount),
+                  nlocals=rffi.cast(lltype.Signed, nlocals),
+                  stacksize=rffi.cast(lltype.Signed, stacksize),
+                  flags=rffi.cast(lltype.Signed, flags),
+                  code=space.bytes_w(w_code),
+                  consts=space.fixedview(w_consts),
+                  names=unwrap_list_of_texts(space, w_names),
+                  varnames=unwrap_list_of_texts(space, w_varnames),
+                  filename=space.text_w(w_filename),
+                  name=space.text_w(w_funcname),
+                  firstlineno=rffi.cast(lltype.Signed, firstlineno),
+                  lnotab=space.bytes_w(w_lnotab),
+                  freevars=unwrap_list_of_texts(space, w_freevars),
+                  cellvars=unwrap_list_of_texts(space, w_cellvars))
 
 @cpython_api([CONST_STRING, CONST_STRING, rffi.INT_real], PyCodeObject)
 def PyCode_NewEmpty(space, filename, funcname, firstlineno):
     """Creates a new empty code object with the specified source location."""
-    return space.wrap(PyCode(space,
-                             argcount=0,
-                             nlocals=0,
-                             stacksize=0,
-                             flags=0,
-                             code="",
-                             consts=[],
-                             names=[],
-                             varnames=[],
-                             filename=rffi.charp2str(filename),
-                             name=rffi.charp2str(funcname),
-                             firstlineno=rffi.cast(lltype.Signed, firstlineno),
-                             lnotab="",
-                             freevars=[],
-                             cellvars=[]))
+    return PyCode(space,
+                  argcount=0,
+                  nlocals=0,
+                  stacksize=0,
+                  flags=0,
+                  code="",
+                  consts=[],
+                  names=[],
+                  varnames=[],
+                  filename=rffi.charp2str(filename),
+                  name=rffi.charp2str(funcname),
+                  firstlineno=rffi.cast(lltype.Signed, firstlineno),
+                  lnotab="",
+                  freevars=[],
+                  cellvars=[])
 
 @cpython_api([PyCodeObject], Py_ssize_t, error=CANNOT_FAIL)
 def PyCode_GetNumFree(space, w_co):

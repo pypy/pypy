@@ -170,7 +170,6 @@ OBJECT_VTABLE.become(Struct('object_vtable',
                             ('subclassrange_max', Signed),
                             ('rtti', Ptr(RuntimeTypeInfo)),
                             ('name', Ptr(rstr.STR)),
-                            ('hash', Signed),
                             ('instantiate', Ptr(FuncType([], OBJECTPTR))),
                             hints={'immutable': True}))
 # non-gc case
@@ -310,10 +309,15 @@ class ClassRepr(Repr):
         # setup class attributes: for each attribute name at the level
         # of 'r_parentcls', look up its value in the class
         def assign(mangled_name, value):
-            if (isinstance(value, Constant) and
-                    isinstance(value.value, staticmethod)):
-                value = Constant(value.value.__get__(42))   # staticmethod => bare function
-            llvalue = r.convert_desc_or_const(value)
+            if value is None:
+                llvalue = r.special_uninitialized_value()
+                if llvalue is None:
+                    return
+            else:
+                if (isinstance(value, Constant) and
+                        isinstance(value.value, staticmethod)):
+                    value = Constant(value.value.__get__(42))   # staticmethod => bare function
+                llvalue = r.convert_desc_or_const(value)
             setattr(vtable, mangled_name, llvalue)
 
         for fldname in r_parentcls.clsfields:
@@ -321,8 +325,7 @@ class ClassRepr(Repr):
             if r.lowleveltype is Void:
                 continue
             value = self.classdef.classdesc.read_attribute(fldname, None)
-            if value is not None:
-                assign(mangled_name, value)
+            assign(mangled_name, value)
         # extra PBC attributes
         for (access_set, attr), (mangled_name, r) in r_parentcls.pbcfields.items():
             if self.classdef.classdesc not in access_set.descs:
@@ -330,12 +333,10 @@ class ClassRepr(Repr):
             if r.lowleveltype is Void:
                 continue
             attrvalue = self.classdef.classdesc.read_attribute(attr, None)
-            if attrvalue is not None:
-                assign(mangled_name, attrvalue)
+            assign(mangled_name, attrvalue)
 
     def fill_vtable_root(self, vtable):
         """Initialize the head of the vtable."""
-        vtable.hash = hash(self)
         # initialize the 'subclassrange_*' and 'name' fields
         if self.classdef is not None:
             #vtable.parenttypeptr = self.rbase.getvtable()
@@ -584,7 +585,8 @@ class InstanceRepr(Repr):
                 assert len(s_func.descriptions) == 1
                 funcdesc, = s_func.descriptions
                 graph = funcdesc.getuniquegraph()
-                self.check_graph_of_del_does_not_call_too_much(graph)
+                self.check_graph_of_del_does_not_call_too_much(self.rtyper,
+                                                               graph)
                 FUNCTYPE = FuncType([Ptr(source_repr.object_type)], Void)
                 destrptr = functionptr(FUNCTYPE, graph.name,
                                        graph=graph,
@@ -781,7 +783,6 @@ class InstanceRepr(Repr):
     def initialize_prebuilt_instance(self, value, classdef, result):
         # must fill in the hash cache before the other ones
         # (see test_circular_hash_initialization)
-        self.initialize_prebuilt_hash(value, result)
         self._initialize_data_flattenrec(self.initialize_prebuilt_data,
                                          value, classdef, result)
 
@@ -836,18 +837,18 @@ class InstanceRepr(Repr):
         from rpython.rtyper.lltypesystem.ll_str import ll_int2hex
         from rpython.rlib.rarithmetic import r_uint
         if not i:
-            return rstr.null_str
+            return rstr.conststr("NULL")
         instance = cast_pointer(OBJECTPTR, i)
         # Two choices: the first gives a fast answer but it can change
         # (typically only once) during the life of the object.
         #uid = r_uint(cast_ptr_to_int(i))
         uid = r_uint(llop.gc_id(lltype.Signed, i))
         #
-        res = rstr.instance_str_prefix
+        res = rstr.conststr("<")
         res = rstr.ll_strconcat(res, instance.typeptr.name)
-        res = rstr.ll_strconcat(res, rstr.instance_str_infix)
+        res = rstr.ll_strconcat(res, rstr.conststr(" object at 0x"))
         res = rstr.ll_strconcat(res, ll_int2hex(uid, False))
-        res = rstr.ll_strconcat(res, rstr.instance_str_suffix)
+        res = rstr.ll_strconcat(res, rstr.conststr(">"))
         return res
 
     def get_ll_eq_function(self):
@@ -856,7 +857,8 @@ class InstanceRepr(Repr):
     def can_ll_be_null(self, s_value):
         return s_value.can_be_none()
 
-    def check_graph_of_del_does_not_call_too_much(self, graph):
+    @staticmethod
+    def check_graph_of_del_does_not_call_too_much(rtyper, graph):
         # RPython-level __del__() methods should not do "too much".
         # In the PyPy Python interpreter, they usually do simple things
         # like file.__del__() closing the file descriptor; or if they
@@ -869,7 +871,7 @@ class InstanceRepr(Repr):
         #
         # XXX wrong complexity, but good enough because the set of
         # reachable graphs should be small
-        callgraph = self.rtyper.annotator.translator.callgraph.values()
+        callgraph = rtyper.annotator.translator.callgraph.values()
         seen = {graph: None}
         while True:
             oldlength = len(seen)
@@ -937,11 +939,6 @@ class InstanceRepr(Repr):
             # OBJECT part
             rclass = getclassrepr(self.rtyper, classdef)
             result.typeptr = rclass.getvtable()
-
-    def initialize_prebuilt_hash(self, value, result):
-        llattrvalue = getattr(value, '__precomputed_identity_hash', None)
-        if llattrvalue is not None:
-            lltype.init_identity_hash(result, llattrvalue)
 
     def getfieldrepr(self, attr):
         """Return the repr used for the given attribute."""
@@ -1086,7 +1083,6 @@ def attr_reverse_size((_, T)):
         return -sizeof(T)
     except StandardError:
         return None
-
 
 # ____________________________________________________________
 #

@@ -22,5 +22,5 @@ class Module(MixedModule):
 for name in dir(errno):
     if name.startswith('__') or name in Module.interpleveldefs:
         continue
-    Module.interpleveldefs[name] = ("space.wrap(%s)" %
+    Module.interpleveldefs[name] = ("space.newint(%s)" %
                                     (getattr(errno, name), ))

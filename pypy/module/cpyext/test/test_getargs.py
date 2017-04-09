@@ -123,6 +123,7 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             return result;
             ''')
         assert 'foo\0bar\0baz' == pybuffer('foo\0bar\0baz')
+        assert 'foo\0bar\0baz' == pybuffer(bytearray('foo\0bar\0baz'))
 
 
     def test_pyarg_parse_string_old_buffer(self):
@@ -139,7 +140,6 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             ''')
         assert 'foo\0bar\0baz' == pybuffer(buffer('foo\0bar\0baz'))
 
-
     def test_pyarg_parse_string_fails(self):
         """
         Test the failing case of PyArg_ParseTuple(): it must not keep
@@ -148,7 +148,6 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
         pybuffer = self.import_parser(
             '''
             Py_buffer buf1, buf2, buf3;
-            PyObject *result;
             if (!PyArg_ParseTuple(args, "s*s*s*", &buf1, &buf2, &buf3)) {
                 return NULL;
             }

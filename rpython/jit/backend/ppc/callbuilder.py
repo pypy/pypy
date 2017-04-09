@@ -98,7 +98,7 @@ class CallBuilder(AbstractCallBuilder):
 
         # We must also copy fnloc into FNREG
         non_float_locs.append(self.fnloc)
-        non_float_regs.append(self.mc.RAW_CALL_REG)     # r2 or r12
+        non_float_regs.append(self.mc.RAW_CALL_REG)
 
         if float_locs:
             assert len(float_locs) <= len(self.FPR_ARGS)

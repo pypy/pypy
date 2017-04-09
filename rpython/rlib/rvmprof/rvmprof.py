@@ -1,13 +1,16 @@
 import sys, os
-from rpython.rlib.objectmodel import specialize, we_are_translated
-from rpython.rlib import jit, rgc, rposix
+from rpython.rlib.objectmodel import specialize, we_are_translated, not_rpython
+from rpython.rlib import jit, rposix, rgc
 from rpython.rlib.rvmprof import cintf
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
-from rpython.rtyper.lltypesystem import rffi, llmemory
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rlib.rweaklist import RWeakListMixin
 
 MAX_FUNC_NAME = 1023
+
+PLAT_WINDOWS = sys.platform == 'win32'
 
 # ____________________________________________________________
 
@@ -24,21 +27,31 @@ class VMProfError(Exception):
     def __str__(self):
         return self.msg
 
+class FakeWeakCodeObjectList(object):
+    def add_handle(self, handle):
+        pass
+    def get_all_handles(self):
+        return []
+
 class VMProf(object):
 
     _immutable_fields_ = ['is_enabled?']
 
+    use_weaklist = True # False for tests
+
+    @not_rpython
     def __init__(self):
-        "NOT_RPYTHON: use _get_vmprof()"
+        "use _get_vmprof()"
         self._code_classes = set()
         self._gather_all_code_objs = lambda: None
         self._cleanup_()
         self._code_unique_id = 4
         self.cintf = cintf.setup()
-        
+
     def _cleanup_(self):
         self.is_enabled = False
 
+    @jit.dont_look_inside
     @specialize.argtype(1)
     def register_code(self, code, full_name_func):
         """Register the code object.  Call when a new code object is made.
@@ -55,9 +68,12 @@ class VMProf(object):
             self._code_unique_id = uid
             if self.is_enabled:
                 self._write_code_registration(uid, full_name_func(code))
+            elif self.use_weaklist:
+                code._vmprof_weak_list.add_handle(code)
 
+    @not_rpython
     def register_code_object_class(self, CodeClass, full_name_func):
-        """NOT_RPYTHON
+        """
         Register statically the class 'CodeClass' as containing user
         code objects.
 
@@ -78,24 +94,37 @@ class VMProf(object):
         if CodeClass in self._code_classes:
             return
         CodeClass._vmprof_unique_id = 0     # default value: "unknown"
+        immut = CodeClass.__dict__.get('_immutable_fields_', [])
+        CodeClass._immutable_fields_ = list(immut) + ['_vmprof_unique_id']
+        attrs = CodeClass.__dict__.get('_attrs_', None)
+        if attrs is not None:
+            CodeClass._attrs_ = list(attrs) + ['_vmprof_unique_id']
         self._code_classes.add(CodeClass)
         #
-        def try_cast_to_code(gcref):
-            return rgc.try_cast_gcref_to_instance(CodeClass, gcref)
+        class WeakCodeObjectList(RWeakListMixin):
+            def __init__(self):
+                self.initialize()
+        if self.use_weaklist:
+            CodeClass._vmprof_weak_list = WeakCodeObjectList()
+        else:
+            CodeClass._vmprof_weak_list = FakeWeakCodeObjectList()
         #
         def gather_all_code_objs():
-            all_code_objs = rgc.do_get_objects(try_cast_to_code)
-            for code in all_code_objs:
-                uid = code._vmprof_unique_id
-                if uid != 0:
-                    self._write_code_registration(uid, full_name_func(code))
+            all_code_wrefs = CodeClass._vmprof_weak_list.get_all_handles()
+            for wref in all_code_wrefs:
+                code = wref()
+                if code is not None:
+                    uid = code._vmprof_unique_id
+                    if uid != 0:
+                        self._write_code_registration(uid, full_name_func(code))
             prev()
         # make a chained list of the gather() functions for all
         # the types of code objects
         prev = self._gather_all_code_objs
         self._gather_all_code_objs = gather_all_code_objs
 
-    def enable(self, fileno, interval):
+    @jit.dont_look_inside
+    def enable(self, fileno, interval, memory=0, native=0):
         """Enable vmprof.  Writes go to the given 'fileno'.
         The sampling interval is given by 'interval' as a number of
         seconds, as a float which must be smaller than 1.0.
@@ -105,16 +134,21 @@ class VMProf(object):
         if self.is_enabled:
             raise VMProfError("vmprof is already enabled")
 
-        p_error = self.cintf.vmprof_init(fileno, interval, "pypy")
+        if PLAT_WINDOWS:
+            native = 0 # force disabled on Windows
+        lines = 0 # not supported on PyPy currently
+
+        p_error = self.cintf.vmprof_init(fileno, interval, lines, memory, "pypy", native)
         if p_error:
             raise VMProfError(rffi.charp2str(p_error))
 
         self._gather_all_code_objs()
-        res = self.cintf.vmprof_enable()
+        res = self.cintf.vmprof_enable(memory, native)
         if res < 0:
             raise VMProfError(os.strerror(rposix.get_saved_errno()))
         self.is_enabled = True
 
+    @jit.dont_look_inside
     def disable(self):
         """Disable vmprof.
         Raises VMProfError if something goes wrong.
@@ -126,6 +160,7 @@ class VMProf(object):
         if res < 0:
             raise VMProfError(os.strerror(rposix.get_saved_errno()))
 
+
     def _write_code_registration(self, uid, name):
         assert name.count(':') == 3 and len(name) <= MAX_FUNC_NAME, (
             "the name must be 'class:func_name:func_line:filename' "
@@ -133,7 +168,8 @@ class VMProf(object):
         if self.cintf.vmprof_register_virtual_function(name, uid, 500000) < 0:
             raise VMProfError("vmprof buffers full!  disk full or too slow")
 
-def vmprof_execute_code(name, get_code_fn, result_class=None):
+def vmprof_execute_code(name, get_code_fn, result_class=None,
+                        _hack_update_stack_untranslated=False):
     """Decorator to be used on the function that interprets a code object.
 
     'name' must be a unique name.
@@ -142,27 +178,71 @@ def vmprof_execute_code(name, get_code_fn, result_class=None):
     arguments given to the decorated function.
 
     'result_class' is ignored (backward compatibility).
+
+    ====================================
+    TRANSLATION NOTE CALL THIS ONLY ONCE
+    ====================================
+
+    This function can only be called once during translation.
+    It generates a C function called __vmprof_eval_vmprof which is used by
+    the vmprof C source code and is bound as an extern function.
+    This is necessary while walking the native stack.
+    If you see __vmprof_eval_vmprof defined twice during
+    translation, read on:
+
+    To remove this restriction do the following:
+
+    *) Extend the macro IS_VMPROF_EVAL in the vmprof source repo to check several
+       sybmols.
+    *) Give each function provided to this decorator a unique symbol name in C
     """
+    if _hack_update_stack_untranslated:
+        from rpython.rtyper.annlowlevel import llhelper
+        enter_code = llhelper(lltype.Ptr(
+            lltype.FuncType([lltype.Signed], cintf.PVMPROFSTACK)),
+            cintf.enter_code)
+        leave_code = llhelper(lltype.Ptr(
+            lltype.FuncType([cintf.PVMPROFSTACK], lltype.Void)),
+            cintf.leave_code)
+    else:
+        enter_code = cintf.enter_code
+        leave_code = cintf.leave_code
+
     def decorate(func):
         try:
             _get_vmprof()
         except cintf.VMProfPlatformUnsupported:
             return func
 
+        @jit.oopspec("rvmprof.jitted(unique_id)")
+        def decorated_jitted_function(unique_id, *args):
+            return func(*args)
+
         def decorated_function(*args):
-            # If we are being JITted, we want to skip the trampoline, else the
-            # JIT cannot see through it.
+            unique_id = get_code_fn(*args)._vmprof_unique_id
+            unique_id = rffi.cast(lltype.Signed, unique_id)
+            # ^^^ removes the "known non-negative" hint for annotation
+            #
+            # Signals can occur at the two places (1) and (2), that will
+            # have added a stack entry, but the function __vmprof_eval_vmprof
+            # is not entered. This behaviour will swallow one Python stack frame
+            #
+            # Current fix: vmprof will discard this sample. (happens
+            # very infrequently)
+            #
             if not jit.we_are_jitted():
-                unique_id = get_code_fn(*args)._vmprof_unique_id
-                x = cintf.enter_code(unique_id)
+                x = enter_code(unique_id)
+                # (1) signal here
                 try:
                     return func(*args)
                 finally:
-                    cintf.leave_code(x)
+                    # (2) signal here
+                    leave_code(x)
             else:
-                return func(*args)
+                return decorated_jitted_function(unique_id, *args)
 
         decorated_function.__name__ = func.__name__ + '_rvmprof'
+        decorated_function.c_name = '__vmprof_eval_vmprof'
         return decorated_function
 
     return decorate
@@ -170,7 +250,6 @@ def vmprof_execute_code(name, get_code_fn, result_class=None):
 @specialize.memo()
 def _was_registered(CodeClass):
     return hasattr(CodeClass, '_vmprof_unique_id')
-
 
 _vmprof_instance = None
 

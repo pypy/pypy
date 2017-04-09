@@ -212,6 +212,24 @@ class BoehmGcPolicy(BasicGcPolicy):
             compile_extra=['-DPYPY_USING_BOEHM_GC'],
             ))
 
+        gct = self.db.gctransformer
+        gct.finalizer_triggers = tuple(gct.finalizer_triggers)  # stop changing
+        sourcelines = ['']
+        for trig in gct.finalizer_triggers:
+            sourcelines.append('RPY_EXTERN void %s(void);' % (
+                self.db.get(trig),))
+        sourcelines.append('')
+        sourcelines.append('void (*boehm_fq_trigger[])(void) = {')
+        for trig in gct.finalizer_triggers:
+            sourcelines.append('\t%s,' % (self.db.get(trig),))
+        sourcelines.append('\tNULL')
+        sourcelines.append('};')
+        sourcelines.append('struct boehm_fq_s *boehm_fq_queues[%d];' % (
+            len(gct.finalizer_triggers) or 1,))
+        sourcelines.append('')
+        eci = eci.merge(ExternalCompilationInfo(
+            separate_module_sources=['\n'.join(sourcelines)]))
+
         return eci
 
     def gc_startup_code(self):
@@ -391,11 +409,78 @@ class BasicFrameworkGcPolicy(BasicGcPolicy):
             raise AssertionError(subopnum)
         return ' '.join(parts)
 
+    def OP_GC_BIT(self, funcgen, op):
+        # This is a two-arguments operation (x, y) where x is a
+        # pointer and y is a constant power of two.  It returns 0 if
+        # "(*(Signed*)x) & y == 0", and non-zero if it is "== y".
+        #
+        # On x86-64, emitting this is better than emitting a load
+        # followed by an INT_AND for the case where y doesn't fit in
+        # 32 bits.  I've seen situations where a register was wasted
+        # to contain the constant 2**32 throughout a complete messy
+        # function; the goal of this GC_BIT is to avoid that.
+        #
+        # Don't abuse, though.  If you need to check several bits in
+        # sequence, then it's likely better to load the whole Signed
+        # first; using GC_BIT would result in multiple accesses to
+        # memory.
+        #
+        bitmask = op.args[1].value
+        assert bitmask > 0 and (bitmask & (bitmask - 1)) == 0
+        offset = 0
+        while bitmask >= 0x100:
+            offset += 1
+            bitmask >>= 8
+        if sys.byteorder == 'big':
+            offset = 'sizeof(Signed)-%s' % (offset+1)
+        return '%s = ((char *)%s)[%s] & %d;' % (funcgen.expr(op.result),
+                                                funcgen.expr(op.args[0]),
+                                                offset, bitmask)
+
 class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
 
     def gettransformer(self, translator):
         from rpython.memory.gctransform import shadowstack
         return shadowstack.ShadowStackFrameworkGCTransformer(translator)
+
+    def enter_roots_frame(self, funcgen, (c_gcdata, c_numcolors)):
+        numcolors = c_numcolors.value
+        # XXX hard-code the field name here
+        gcpol_ss = '%s->gcd_inst_root_stack_top' % funcgen.expr(c_gcdata)
+        #
+        yield ('typedef struct { void %s; } pypy_ss_t;'
+                   % ', '.join(['*s%d' % i for i in range(numcolors)]))
+        yield 'pypy_ss_t *ss;'
+        funcgen.gcpol_ss = gcpol_ss
+
+    def OP_GC_PUSH_ROOTS(self, funcgen, op):
+        raise Exception("gc_push_roots should be removed by postprocess_graph")
+
+    def OP_GC_POP_ROOTS(self, funcgen, op):
+        raise Exception("gc_pop_roots should be removed by postprocess_graph")
+
+    def OP_GC_ENTER_ROOTS_FRAME(self, funcgen, op):
+        return 'ss = (pypy_ss_t *)%s; %s = (void *)(ss+1);' % (
+            funcgen.gcpol_ss, funcgen.gcpol_ss)
+
+    def OP_GC_LEAVE_ROOTS_FRAME(self, funcgen, op):
+        return '%s = (void *)ss;' % funcgen.gcpol_ss
+
+    def OP_GC_SAVE_ROOT(self, funcgen, op):
+        num = op.args[0].value
+        exprvalue = funcgen.expr(op.args[1])
+        return 'ss->s%d = (void *)%s;\t/* gc_save_root */' % (num, exprvalue)
+
+    def OP_GC_RESTORE_ROOT(self, funcgen, op):
+        num = op.args[0].value
+        exprvalue = funcgen.expr(op.args[1])
+        typename = funcgen.db.gettype(op.args[1].concretetype)
+        result = '%s = (%s)ss->s%d;' % (exprvalue, cdecl(typename, ''), num)
+        if isinstance(op.args[1], Constant):
+            return '/* %s\t* gc_restore_root */' % result
+        else:
+            return '%s\t/* gc_restore_root */' % result
+
 
 class AsmGcRootFrameworkGcPolicy(BasicFrameworkGcPolicy):
 

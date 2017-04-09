@@ -15,9 +15,9 @@ from rpython.rlib.entrypoint import secondary_entrypoints,\
 from rpython.rtyper.lltypesystem.lltype import getfunctionptr
 
 import py
-from rpython.tool.ansi_print import ansi_log
-log = py.log.Producer("translation")
-py.log.setconsumer("translation", ansi_log)
+from rpython.tool.ansi_print import AnsiLogger
+
+log = AnsiLogger("translation")
 
 
 def taskdef(deps, title, new_state=None, expected_states=[],
@@ -382,7 +382,7 @@ class TranslationDriver(SimpleTaskEngine):
         """ Run all backend optimizations - lltype version
         """
         from rpython.translator.backendopt.all import backend_optimizations
-        backend_optimizations(self.translator)
+        backend_optimizations(self.translator, replace_we_are_jitted=True)
 
 
     STACKCHECKINSERTION = 'stackcheckinsertion_lltype'
@@ -399,8 +399,8 @@ class TranslationDriver(SimpleTaskEngine):
             from rpython.translator.platform import CompilationError
             try:
                 configure_boehm(self.translator.platform)
-            except CompilationError, e:
-                i = 'Boehm GC not installed.  Try e.g. "translate.py --gc=hybrid"'
+            except CompilationError as e:
+                i = 'Boehm GC not installed.  Try e.g. "translate.py --gc=minimark"'
                 raise Exception(str(e) + '\n' + i)
 
     @taskdef([STACKCHECKINSERTION, '?'+BACKENDOPT, RTYPE, '?annotate'],
@@ -490,12 +490,14 @@ class TranslationDriver(SimpleTaskEngine):
                     exename = exe.new(purebasename=exe.purebasename + 'w')
                     shutil_copy(str(exename), str(newexename))
                     # for pypy, the import library is renamed and moved to
-                    # libs/python27.lib, according to the pragma in pyconfig.h
+                    # libs/python32.lib, according to the pragma in pyconfig.h
                     libname = self.config.translation.libname
-                    libname = libname or soname.new(ext='lib').basename
-                    libname = str(newsoname.dirpath().join(libname))
-                    shutil.copyfile(str(soname.new(ext='lib')), libname)
-                    self.log.info("copied: %s" % (libname,))
+                    oldlibname = soname.new(ext='lib')
+                    if not libname:
+                        libname = oldlibname.basename
+                        libname = str(newsoname.dirpath().join(libname))
+                    shutil.copyfile(str(oldlibname), libname)
+                    self.log.info("copied: %s to %s" % (oldlibname, libname,))
                     # the pdb file goes in the same place as pypy(w).exe
                     ext_to_copy = ['pdb',]
                     for ext in ext_to_copy:
@@ -526,7 +528,6 @@ class TranslationDriver(SimpleTaskEngine):
     @taskdef([STACKCHECKINSERTION, '?'+BACKENDOPT, RTYPE], "LLInterpreting")
     def task_llinterpret_lltype(self):
         from rpython.rtyper.llinterp import LLInterpreter
-        py.log.setconsumer("llinterp operation", None)
 
         translator = self.translator
         interp = LLInterpreter(translator.rtyper)
@@ -536,7 +537,7 @@ class TranslationDriver(SimpleTaskEngine):
                               self.extra.get('get_llinterp_args',
                                              lambda: [])())
 
-        log.llinterpret.event("result -> %s" % v)
+        log.llinterpret("result -> %s" % v)
 
     @taskdef([STACKCHECKINSERTION, BACKENDOPT, RTYPE],
               "Doing exception and gc transformations")
@@ -579,16 +580,16 @@ class TranslationDriver(SimpleTaskEngine):
         self.log.info('usession directory: %s' % (udir,))
         return result
 
-    @staticmethod
-    def from_targetspec(targetspec_dic, config=None, args=None,
+    @classmethod
+    def from_targetspec(cls, targetspec_dic, config=None, args=None,
                         empty_translator=None,
                         disable=[],
                         default_goal=None):
         if args is None:
             args = []
 
-        driver = TranslationDriver(config=config, default_goal=default_goal,
-                                   disable=disable)
+        driver = cls(config=config, default_goal=default_goal,
+                     disable=disable)
         target = targetspec_dic['target']
         spec = target(driver, args)
 

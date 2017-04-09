@@ -20,15 +20,13 @@ def setuppkg(pkgname, **entries):
     if pkgname:
         p = p.join(*pkgname.split('.'))
     p.ensure(dir=1)
-    f = p.join("__init__.py").open('w')
-    print >> f, "# package"
-    f.close()
+    with p.join("__init__.py").open('w') as f:
+        print >> f, "# package"
     for filename, content in entries.items():
         filename += '.py'
-        f = p.join(filename).open('w')
-        print >> f, '#', filename
-        print >> f, content
-        f.close()
+        with p.join(filename).open('w') as f:
+            print >> f, '#', filename
+            print >> f, content
     return p
 
 def setup_directory_structure(space):
@@ -67,8 +65,9 @@ def setup_directory_structure(space):
              )
     setuppkg("pkg.pkg2", a='', b='')
     setuppkg("pkg.withall",
-             __init__  = "__all__ = ['foobar']",
-             foobar    = "found = 123")
+             __init__  = "__all__ = ['foobar', 'barbaz']",
+             foobar    = "found = 123",
+             barbaz    = "other = 543")
     setuppkg("pkg.withoutall",
              __init__  = "",
              foobar    = "found = 123")
@@ -98,6 +97,9 @@ def setup_directory_structure(space):
         'a=5\nb=6\rc="""hello\r\nworld"""\r', mode='wb')
     p.join('mod.py').write(
         'a=15\nb=16\rc="""foo\r\nbar"""\r', mode='wb')
+    setuppkg("verbose1pkg", verbosemod='a = 1729')
+    setuppkg("verbose2pkg", verbosemod='a = 1729')
+    setuppkg("verbose0pkg", verbosemod='a = 1729')
     setuppkg("test_bytecode",
              a = '',
              b = '',
@@ -106,10 +108,10 @@ def setup_directory_structure(space):
     # create compiled/x.py and a corresponding pyc file
     p = setuppkg("compiled", x = "x = 84")
     if conftest.option.runappdirect:
-        import marshal, stat, struct, os, imp
+        import marshal, stat, struct, imp
         code = py.code.Source(p.join("x.py").read()).compile()
         s3 = marshal.dumps(code)
-        s2 = struct.pack("i", os.stat(str(p.join("x.py")))[stat.ST_MTIME])
+        s2 = struct.pack("<i", os.stat(str(p.join("x.py")))[stat.ST_MTIME])
         p.join("x.pyc").write(imp.get_magic() + s2 + s3, mode='wb')
     else:
         w = space.wrap
@@ -117,7 +119,7 @@ def setup_directory_structure(space):
         filename = str(p.join("x.py"))
         stream = streamio.open_file_as_stream(filename, "r")
         try:
-            importing.load_source_module(
+            _load_source_module(
                 space, w_modname, w(importing.Module(space, w_modname)),
                 filename, stream.readall(),
                 stream.try_to_find_file_descriptor())
@@ -136,13 +138,31 @@ def setup_directory_structure(space):
         pass
     p.join('x.py').rename(p.join('x.pyw'))
 
+    if hasattr(p, "mksymlinkto"):
+        p = root.join("devnullpkg")
+        p.ensure(dir=True)
+        p.join("__init__.py").mksymlinkto(os.devnull)
+
+    p = root.join("onlypyw")
+    p.ensure(dir=True)
+    p.join("__init__.pyw")
+
     return str(root)
+
+def _load_source_module(space, w_modname, w_mod, *args, **kwds):
+    kwds.setdefault('check_afterwards', False)
+    return importing.load_source_module(space, w_modname, w_mod, *args, **kwds)
+
+def _load_compiled_module(space, w_modname, w_mod, *args, **kwds):
+    kwds.setdefault('check_afterwards', False)
+    return importing.load_compiled_module(space, w_modname, w_mod,
+                                          *args, **kwds)
 
 
 def _setup(space):
     dn = setup_directory_structure(space)
     return space.appexec([space.wrap(dn)], """
-        (dn): 
+        (dn):
             import sys
             path = list(sys.path)
             sys.path.insert(0, dn)
@@ -340,6 +360,21 @@ class AppTestImport:
         o = __import__('sys', [], [], ['']) # CPython accepts this
         assert sys == o
 
+    def test_import_fromlist_must_not_contain_unicodes(self):
+        import sys
+        ver = sys.version_info
+        exc = raises(TypeError, __import__, 'encodings', None, None, [u'xxx'])
+        if ver > (2, 7, 12):
+            assert 'must be str' in exc.value.message
+        exc = raises(TypeError, __import__, 'encodings', None, None, [123])
+        if ver > (2, 7, 12):
+            assert 'must be str' in exc.value.message
+        # issue 2524
+        raises(ImportError, __import__, 'xxxbadmodule', fromlist=[u'xx'])
+        mod = __import__('collections', fromlist=[u'defaultdict'])
+        assert mod is not None
+        
+
     def test_import_relative_back_to_absolute2(self):
         from pkg import abs_x_y
         import sys
@@ -532,9 +567,8 @@ class AppTestImport:
         import time
         time.sleep(1)
 
-        f = open(test_reload.__file__, "w")
-        f.write("def test():\n    raise NotImplementedError\n")
-        f.close()
+        with open(test_reload.__file__, "w") as f:
+            f.write("def test():\n    raise NotImplementedError\n")
         reload(test_reload)
         try:
             test_reload.test()
@@ -550,9 +584,8 @@ class AppTestImport:
         import test_reload
         import time
         time.sleep(1)
-        f = open(test_reload.__file__, "w")
-        f.write("a = 10 // 0\n")
-        f.close()
+        with open(test_reload.__file__, "w") as f:
+            f.write("a = 10 // 0\n")
 
         # A failing reload should leave the previous module in sys.modules
         raises(ZeroDivisionError, reload, test_reload)
@@ -684,7 +717,8 @@ class AppTestImport:
         import pkg
         import os
         pathname = os.path.join(os.path.dirname(pkg.__file__), 'a.py')
-        module = imp.load_module('a', open(pathname),
+        with open(pathname) as fid:
+            module = imp.load_module('a', fid,
                                  'invalid_path_name', ('.py', 'r', imp.PY_SOURCE))
         assert module.__name__ == 'a'
         assert module.__file__ == 'invalid_path_name'
@@ -698,6 +732,7 @@ class AppTestImport:
             d = {}
             exec "from pkg.withall import *" in d
             assert d["foobar"].found == 123
+            assert d["barbaz"].other == 543
 
     def test_import_star_does_not_find_submodules_without___all__(self):
         for case in ["not-imported-yet", "already-imported"]:
@@ -718,6 +753,77 @@ class AppTestImport:
                 pass    # 'int' object does not support indexing
             else:
                 raise AssertionError("should have failed")
+
+    def test_verbose_flag_1(self):
+        output = []
+        class StdErr(object):
+            def write(self, line):
+                output.append(line)
+
+        import sys
+        old_flags = sys.flags
+
+        class Flags(object):
+            verbose = 1
+            def __getattr__(self, name):
+                return getattr(old_flags, name)
+
+        sys.flags = Flags()
+        sys.stderr = StdErr()
+        try:
+            import verbose1pkg.verbosemod
+        finally:
+            reload(sys)
+        assert 'import verbose1pkg # from ' in output[-2]
+        assert 'import verbose1pkg.verbosemod # from ' in output[-1]
+
+    def test_verbose_flag_2(self):
+        output = []
+        class StdErr(object):
+            def write(self, line):
+                output.append(line)
+
+        import sys
+        old_flags = sys.flags
+
+        class Flags(object):
+            verbose = 2
+            def __getattr__(self, name):
+                return getattr(old_flags, name)
+
+        sys.flags = Flags()
+        sys.stderr = StdErr()
+        try:
+            import verbose2pkg.verbosemod
+        finally:
+            reload(sys)
+        assert any('import verbose2pkg # from ' in line
+                   for line in output[:-2])
+        assert output[-2].startswith('# trying')
+        assert 'import verbose2pkg.verbosemod # from ' in output[-1]
+
+    def test_verbose_flag_0(self):
+        output = []
+        class StdErr(object):
+            def write(self, line):
+                output.append(line)
+
+        import sys
+        sys.stderr = StdErr()
+        try:
+            import verbose0pkg.verbosemod
+        finally:
+            reload(sys)
+        assert not output
+
+    def test_dir_with_only_pyw(self):
+        def imp():
+            import onlypyw
+        raises(ImportError, imp)
+
+    @pytest.mark.skipif(not hasattr(py.path.local, "mksymlinkto"), reason="requires symlinks")
+    def test_dev_null_init_file(self):
+        import devnullpkg
 
 
 class TestAbi:
@@ -786,8 +892,8 @@ class TestPycStuff:
         assert ret is None
 
         # check for empty .pyc file
-        f = open(cpathname, 'wb')
-        f.close()
+        with open(cpathname, 'wb') as f:
+            pass
         ret = importing.check_compiled_module(space,
                                               cpathname,
                                               mtime)
@@ -825,8 +931,7 @@ class TestPycStuff:
             w_mod = space.wrap(Module(space, w_modulename))
             magic = importing._r_long(stream)
             timestamp = importing._r_long(stream)
-            w_ret = importing.load_compiled_module(space,
-                                                   w_modulename,
+            w_ret = _load_compiled_module(space,   w_modulename,
                                                    w_mod,
                                                    cpathname,
                                                    magic,
@@ -884,7 +989,7 @@ class TestPycStuff:
         pathname = _testfilesource()
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
-            w_ret = importing.load_source_module(
+            w_ret = _load_source_module(
                 space, w_modulename, w_mod,
                 pathname, stream.readall(),
                 stream.try_to_find_file_descriptor())
@@ -906,7 +1011,7 @@ class TestPycStuff:
         pathname = _testfilesource()
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
-            w_ret = importing.load_source_module(
+            w_ret = _load_source_module(
                 space, w_modulename, w_mod,
                 pathname, stream.readall(),
                 stream.try_to_find_file_descriptor(),
@@ -925,7 +1030,7 @@ class TestPycStuff:
         try:
             space.setattr(space.sys, space.wrap('dont_write_bytecode'),
                           space.w_True)
-            w_ret = importing.load_source_module(
+            w_ret = _load_source_module(
                 space, w_modulename, w_mod,
                 pathname, stream.readall(),
                 stream.try_to_find_file_descriptor())
@@ -944,7 +1049,7 @@ class TestPycStuff:
         pathname = _testfilesource(source="<Syntax Error>")
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
-            w_ret = importing.load_source_module(
+            w_ret = _load_source_module(
                 space, w_modulename, w_mod,
                 pathname, stream.readall(),
                 stream.try_to_find_file_descriptor())
@@ -955,7 +1060,7 @@ class TestPycStuff:
 
         cpathname = udir.join('test.pyc')
         assert not cpathname.check()
-        
+
     def test_load_source_module_importerror(self):
         # the .pyc file is created before executing the module
         space = self.space
@@ -964,7 +1069,7 @@ class TestPycStuff:
         pathname = _testfilesource(source="a = unknown_name")
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
-            w_ret = importing.load_source_module(
+            w_ret = _load_source_module(
                 space, w_modulename, w_mod,
                 pathname, stream.readall(),
                 stream.try_to_find_file_descriptor())
@@ -1052,7 +1157,7 @@ class TestPycStuff:
                     magic = importing._r_long(stream)
                     timestamp = importing._r_long(stream)
                     space2.raises_w(space2.w_ImportError,
-                                    importing.load_compiled_module,
+                                    _load_compiled_module,
                                     space2,
                                     w_modulename,
                                     w_mod,
@@ -1064,11 +1169,11 @@ class TestPycStuff:
                     stream.close()
 
 
-def test_PYTHONPATH_takes_precedence(space): 
+def test_PYTHONPATH_takes_precedence(space):
     if sys.platform == "win32":
         py.test.skip("unresolved issues with win32 shell quoting rules")
-    from pypy.interpreter.test.test_zpy import pypypath 
-    extrapath = udir.ensure("pythonpath", dir=1) 
+    from pypy.interpreter.test.test_zpy import pypypath
+    extrapath = udir.ensure("pythonpath", dir=1)
     extrapath.join("sched.py").write("print 42\n")
     old = os.environ.get('PYTHONPATH', None)
     oldlang = os.environ.pop('LANG', None)
@@ -1135,7 +1240,7 @@ class AppTestImportHooks(object):
                 if fullname in self.namestoblock:
                     return self
             def load_module(self, fullname):
-                raise ImportError, "blocked"
+                raise ImportError("blocked")
 
         import sys, imp
         modname = "errno" # an arbitrary harmless builtin module
@@ -1205,7 +1310,7 @@ class AppTestImportHooks(object):
                     path = [self.path]
                 try:
                     file, filename, stuff = imp.find_module(subname, path)
-                except ImportError, e:
+                except ImportError as e:
                     return None
                 return ImpLoader(file, filename, stuff)
 
@@ -1264,10 +1369,7 @@ class AppTestImportHooks(object):
         # use an import hook that doesn't update sys.modules, then the
         # import succeeds; but at the same time, you can have the same
         # result without an import hook (see test_del_from_sys_modules)
-        # and then the import fails.  This looks like even more mess
-        # to replicate, so we ignore it until someone really hits this
-        # case...
-        skip("looks like an inconsistency in CPython")
+        # and then the import fails.  Mess mess mess.
 
         class ImportHook(object):
             def find_module(self, fullname, path=None):
@@ -1326,7 +1428,8 @@ class AppTestPyPyExtension(object):
         assert importer is None
         # an existing file
         path = os.path.join(self.udir, 'test_getimporter')
-        open(path, 'w').close()
+        with open(path, 'w') as f:
+            pass
         importer = imp._getimporter(path)
         assert isinstance(importer, imp.NullImporter)
         # a non-existing path
@@ -1335,8 +1438,8 @@ class AppTestPyPyExtension(object):
         assert isinstance(importer, imp.NullImporter)
         # a mostly-empty zip file
         path = os.path.join(self.udir, 'test_getimporter.zip')
-        f = open(path, 'wb')
-        f.write('PK\x03\x04\n\x00\x00\x00\x00\x00P\x9eN>\x00\x00\x00\x00\x00'
+        with open(path, 'wb') as f:
+            f.write('PK\x03\x04\n\x00\x00\x00\x00\x00P\x9eN>\x00\x00\x00\x00\x00'
                 '\x00\x00\x00\x00\x00\x00\x00\x05\x00\x15\x00emptyUT\t\x00'
                 '\x03wyYMwyYMUx\x04\x00\xf4\x01d\x00PK\x01\x02\x17\x03\n\x00'
                 '\x00\x00\x00\x00P\x9eN>\x00\x00\x00\x00\x00\x00\x00\x00\x00'
@@ -1344,7 +1447,6 @@ class AppTestPyPyExtension(object):
                 '\xa4\x81\x00\x00\x00\x00emptyUT\x05\x00\x03wyYMUx\x00\x00PK'
                 '\x05\x06\x00\x00\x00\x00\x01\x00\x01\x00@\x00\x00\x008\x00'
                 '\x00\x00\x00\x00')
-        f.close()
         importer = imp._getimporter(path)
         import zipimport
         assert isinstance(importer, zipimport.zipimporter)

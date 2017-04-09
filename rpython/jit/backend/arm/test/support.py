@@ -67,7 +67,7 @@ def gen_test_function(name, asm, args, kwargs=None, asm_ext=None):
         func(*args, **kwargs)
         try:
             f_name = name[:name.index('_')]
-        except ValueError, e:
+        except ValueError as e:
             f_name = name
         self.assert_equal('%s%s %s' % (f_name, asm_ext, asm))
     return f

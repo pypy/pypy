@@ -12,13 +12,13 @@ class AppTestBorrow(AppTestCpythonExtensionBase):
                 PyObject *t = PyTuple_New(1);
                 PyObject *f = PyFloat_FromDouble(42.0);
                 PyObject *g = NULL;
-                printf("Refcnt1: %i\\n", f->ob_refcnt);
+                printf("Refcnt1: %ld\\n", f->ob_refcnt);
                 PyTuple_SetItem(t, 0, f); // steals reference
-                printf("Refcnt2: %i\\n", f->ob_refcnt);
+                printf("Refcnt2: %ld\\n", f->ob_refcnt);
                 f = PyTuple_GetItem(t, 0); // borrows reference
-                printf("Refcnt3: %i\\n", f->ob_refcnt);
+                printf("Refcnt3: %ld\\n", f->ob_refcnt);
                 g = PyTuple_GetItem(t, 0); // borrows reference again
-                printf("Refcnt4: %i\\n", f->ob_refcnt);
+                printf("Refcnt4: %ld\\n", f->ob_refcnt);
                 printf("COMPARE: %i\\n", f == g);
                 fflush(stdout);
                 Py_DECREF(t);
@@ -49,6 +49,8 @@ class AppTestBorrow(AppTestCpythonExtensionBase):
         assert module.test_borrow_destroy() == 42
 
     def test_double_borrow(self):
+        if self.runappdirect:
+            py.test.xfail('segfault')
         module = self.import_extension('foo', [
             ("run", "METH_NOARGS",
              """

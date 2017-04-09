@@ -329,7 +329,7 @@ class TestBasic(unittest.TestCase):
         d.clear()
         self.assertEqual(len(d), 0)
         self.assertEqual(list(d), [])
-        d.clear()               # clear an emtpy deque
+        d.clear()               # clear an empty deque
         self.assertEqual(list(d), [])
 
     def test_remove(self):
@@ -526,8 +526,8 @@ class TestBasic(unittest.TestCase):
     @test_support.cpython_only
     def test_sizeof(self):
         BLOCKLEN = 62
-        basesize = test_support.calcobjsize('2P4PlP')
-        blocksize = struct.calcsize('2P%dP' % BLOCKLEN)
+        basesize = test_support.calcobjsize('2P3PlPP')
+        blocksize = struct.calcsize('%dP2P' % BLOCKLEN)
         self.assertEqual(object.__sizeof__(deque()), basesize)
         check = self.check_sizeof
         check(deque(), basesize + blocksize)
@@ -672,6 +672,10 @@ class TestSubclassWithKwargs(unittest.TestCase):
     def test_subclass_with_kwargs(self):
         # SF bug #1486663 -- this used to erroneously raise a TypeError
         SubclassWithKwargs(newarg=1)
+
+    def test_free_after_iterating(self):
+        # For now, bypass tests that require slicing
+        self.skipTest("Exhausted deque iterator doesn't free a deque")
 
 #==============================================================================
 

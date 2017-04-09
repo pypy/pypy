@@ -16,7 +16,7 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std import newformat
 from pypy.objspace.std.intobject import W_AbstractIntObject
 from pypy.objspace.std.util import (
-    BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_LONG, wrap_parsestringerror)
+    BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_LONG, IDTAG_SHIFT, wrap_parsestringerror)
 
 
 def delegate_other(func):
@@ -45,7 +45,7 @@ class W_AbstractLongObject(W_Root):
         if self.user_overridden_class:
             return None
         b = space.bigint_w(self)
-        b = b.lshift(3).int_or_(IDTAG_LONG)
+        b = b.lshift(IDTAG_SHIFT).int_or_(IDTAG_LONG)
         return space.newlong_from_rbigint(b)
 
     def unwrap(self, space):
@@ -75,7 +75,7 @@ class W_AbstractLongObject(W_Root):
         """
         bigint = space.bigint_w(self)
         try:
-            return space.wrap(bigint.bit_length())
+            return space.newint(bigint.bit_length())
         except OverflowError:
             raise oefmt(space.w_OverflowError, "too many digits in integer")
 
@@ -120,19 +120,24 @@ class W_AbstractLongObject(W_Root):
     def descr_get_imag(self, space):
         return space.newlong(0)
 
-    def _make_descr_unaryop(opname):
+    def _make_descr_unaryop_text(opname):
         op = getattr(rbigint, opname)
         @func_renamer('descr_' + opname)
         def descr_unaryop(self, space):
-            return space.wrap(op(self.asbigint()))
+            return space.newtext(op(self.asbigint()))
         descr_unaryop.__doc__ = 'x.__%s__(y) <==> %s(x, y)' % (opname, opname)
         return descr_unaryop
 
-    descr_repr = _make_descr_unaryop('repr')
-    descr_str = _make_descr_unaryop('str')
-    descr_hash = _make_descr_unaryop('hash')
-    descr_oct = _make_descr_unaryop('oct')
-    descr_hex = _make_descr_unaryop('hex')
+    descr_repr = _make_descr_unaryop_text('repr')
+    descr_str = _make_descr_unaryop_text('str')
+
+    def descr_hash(self, space):
+        h = self.asbigint().hash()
+        h -= (h == -1)
+        return space.newint(h)
+
+    descr_oct = _make_descr_unaryop_text('oct')
+    descr_hex = _make_descr_unaryop_text('hex')
 
     def descr_pow(self, space, w_exponent, w_modulus=None):
         """x.__pow__(y[, z]) <==> pow(x, y[, z])"""
@@ -387,12 +392,12 @@ class W_LongObject(W_AbstractLongObject):
     def _make_generic_descr_binop(opname):
         if opname not in COMMUTATIVE_OPS:
             raise Exception("Not supported")
-            
+
         methname = opname + '_' if opname in ('and', 'or') else opname
         descr_rname = 'descr_r' + opname
         op = getattr(rbigint, methname)
         intop = getattr(rbigint, "int_" + methname)
-        
+
         @func_renamer('descr_' + opname)
         def descr_binop(self, space, w_other):
             if isinstance(w_other, W_AbstractIntObject):
@@ -412,7 +417,7 @@ class W_LongObject(W_AbstractLongObject):
             return W_LongObject(op(w_other.asbigint(), self.num))
 
         return descr_binop, descr_rbinop
-        
+
     descr_add, descr_radd = _make_generic_descr_binop('add')
     descr_sub, descr_rsub = _make_generic_descr_binop_noncommutative('sub')
     descr_mul, descr_rmul = _make_generic_descr_binop('mul')
@@ -454,12 +459,12 @@ class W_LongObject(W_AbstractLongObject):
         except OverflowError:   # b too big
             raise oefmt(space.w_OverflowError, "shift count too large")
         return W_LongObject(self.num.lshift(shift))
-        
+
     def _int_lshift(self, space, w_other):
         if w_other < 0:
             raise oefmt(space.w_ValueError, "negative shift count")
         return W_LongObject(self.num.lshift(w_other))
-        
+
     descr_lshift, descr_rlshift = _make_descr_binop(_lshift, _int_lshift)
 
     def _rshift(self, space, w_other):
@@ -470,7 +475,7 @@ class W_LongObject(W_AbstractLongObject):
         except OverflowError:   # b too big # XXX maybe just return 0L instead?
             raise oefmt(space.w_OverflowError, "shift count too large")
         return newlong(space, self.num.rshift(shift))
-        
+
     def _int_rshift(self, space, w_other):
         if w_other < 0:
             raise oefmt(space.w_ValueError, "negative shift count")
@@ -485,7 +490,7 @@ class W_LongObject(W_AbstractLongObject):
             raise oefmt(space.w_ZeroDivisionError,
                         "long division or modulo by zero")
         return newlong(space, z)
-        
+
     def _floordiv(self, space, w_other):
         try:
             z = self.num.floordiv(w_other.asbigint())
@@ -505,7 +510,7 @@ class W_LongObject(W_AbstractLongObject):
             raise oefmt(space.w_ZeroDivisionError,
                         "long division or modulo by zero")
         return newlong(space, z)
-        
+
     def _int_mod(self, space, w_other):
         try:
             z = self.num.int_mod(w_other)
@@ -559,18 +564,24 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
         elif (space.lookup(w_value, '__long__') is not None or
               space.lookup(w_value, '__int__') is not None):
             w_obj = space.long(w_value)
+            if (space.is_w(w_longtype, space.w_long) and
+                space.isinstance_w(w_obj, space.w_long)):
+                return w_obj
             return newbigint(space, w_longtype, space.bigint_w(w_obj))
         elif space.lookup(w_value, '__trunc__') is not None:
             w_obj = space.trunc(w_value)
+            if (space.is_w(w_longtype, space.w_long) and
+                space.isinstance_w(w_obj, space.w_long)):
+                return w_obj
             # :-(  blame CPython 2.7
             if space.lookup(w_obj, '__long__') is not None:
                 w_obj = space.long(w_obj)
             else:
                 w_obj = space.int(w_obj)
             return newbigint(space, w_longtype, space.bigint_w(w_obj))
-        elif space.isinstance_w(w_value, space.w_str):
+        elif space.isinstance_w(w_value, space.w_bytes):
             return _string_to_w_long(space, w_longtype, w_value,
-                                     space.str_w(w_value))
+                                     space.bytes_w(w_value))
         elif space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
             return _string_to_w_long(space, w_longtype, w_value,
@@ -578,7 +589,7 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
         else:
             try:
                 buf = space.charbuf_w(w_value)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
                 raise oefmt(space.w_TypeError,
@@ -594,7 +605,7 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
             s = unicode_to_decimal_w(space, w_value)
         else:
             try:
-                s = space.str_w(w_value)
+                s = space.bytes_w(w_value)
             except OperationError:
                 raise oefmt(space.w_TypeError,
                             "long() can't convert non-string with explicit "

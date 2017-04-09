@@ -216,9 +216,6 @@ class BlockBuilderMixin(object):
 
     gcroot_markers = None
 
-    frame_positions = None
-    frame_assignments = None
-
     def __init__(self, translated=None):
         if translated is None:
             translated = we_are_translated()
@@ -226,6 +223,7 @@ class BlockBuilderMixin(object):
             self.init_block_builder()
         else:
             self._become_a_plain_block_builder()
+        self.rawstart = 0
 
     def init_block_builder(self):
         self._cursubblock = lltype.nullptr(self.SUBBLOCK)
@@ -248,8 +246,11 @@ class BlockBuilderMixin(object):
         self._cursubblock.data[index] = char
         self._cursubindex = index + 1
 
+    def absolute_addr(self):
+        return self.rawstart
+
     def overwrite(self, index, char):
-        assert 0 <= index < self.get_relative_pos()
+        assert 0 <= index < self.get_relative_pos(break_basic_block=False)
         block = self._cursubblock
         index -= self._baserelpos
         while index < 0:
@@ -263,7 +264,8 @@ class BlockBuilderMixin(object):
         self.overwrite(index + 2, chr((val >> 16) & 0xff))
         self.overwrite(index + 3, chr((val >> 24) & 0xff))
 
-    def get_relative_pos(self):
+    def get_relative_pos(self, break_basic_block=True):
+        # 'break_basic_block' is only used in x86
         return self._baserelpos + self._cursubindex
 
     def copy_to_raw_memory(self, addr):
@@ -283,6 +285,19 @@ class BlockBuilderMixin(object):
             targetindex -= self.SUBBLOCK_SIZE
         assert not block
 
+    def copy_core_dump(self, addr, offset=0, count=-1):
+        HEX = '0123456789ABCDEF'
+        dump = []
+        src = rffi.cast(rffi.CCHARP, addr)
+        end = self.get_relative_pos(break_basic_block=False)
+        if count != -1:
+            end = offset + count
+        for p in range(offset, end):
+            o = ord(src[p])
+            dump.append(HEX[o >> 4])
+            dump.append(HEX[o & 15])
+        return ''.join(dump)
+
     def _dump(self, addr, logname, backend=None):
         debug_start(logname)
         if have_debug_prints():
@@ -296,17 +311,11 @@ class BlockBuilderMixin(object):
             else:
                 debug_print('SYS_EXECUTABLE', '??')
             #
-            HEX = '0123456789ABCDEF'
-            dump = []
-            src = rffi.cast(rffi.CCHARP, addr)
-            for p in range(self.get_relative_pos()):
-                o = ord(src[p])
-                dump.append(HEX[o >> 4])
-                dump.append(HEX[o & 15])
+            dump = self.copy_core_dump(addr)
             debug_print('CODE_DUMP',
                         '@%x' % addr,
                         '+0 ',     # backwards compatibility
-                        ''.join(dump))
+                        dump)
             #
         debug_stop(logname)
 
@@ -318,32 +327,30 @@ class BlockBuilderMixin(object):
         allblocks.append(malloced)
         rawstart = malloced[0]
         rawstart = (rawstart + align - 1) & (-align)
+        self.rawstart = rawstart
         self.copy_to_raw_memory(rawstart)
         if self.gcroot_markers is not None:
             assert gcrootmap is not None
             for pos, mark in self.gcroot_markers:
                 gcrootmap.register_asm_addr(rawstart + pos, mark)
-        if cpu.HAS_CODEMAP:
-            cpu.codemap.register_frame_depth_map(rawstart, rawstart + size,
-                                                 self.frame_positions,
-                                                 self.frame_assignments)
-        self.frame_positions = None
-        self.frame_assignments = None
         return rawstart
 
     def _become_a_plain_block_builder(self):
         # hack purely for speed of tests
-        self._data = []
-        self.writechar = self._data.append
-        self.overwrite = self._data.__setitem__
-        self.get_relative_pos = self._data.__len__
+        self._data = _data = []
+        self.writechar = _data.append
+        self.overwrite = _data.__setitem__
+        def get_relative_pos(break_basic_block=True):
+            return len(_data)
+        self.get_relative_pos = get_relative_pos
         def plain_copy_to_raw_memory(addr):
             dst = rffi.cast(rffi.CCHARP, addr)
-            for i, c in enumerate(self._data):
+            for i, c in enumerate(_data):
                 dst[i] = c
         self._copy_to_raw_memory = plain_copy_to_raw_memory
 
     def insert_gcroot_marker(self, mark):
         if self.gcroot_markers is None:
             self.gcroot_markers = []
-        self.gcroot_markers.append((self.get_relative_pos(), mark))
+        self.gcroot_markers.append(
+            (self.get_relative_pos(break_basic_block=False), mark))

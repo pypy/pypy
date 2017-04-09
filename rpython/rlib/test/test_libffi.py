@@ -274,7 +274,7 @@ class TestLibffiCall(BaseFfiTest):
         """
         libfoo = self.get_libfoo()
         func = (libfoo, 'diff_xy', [types.sint, types.signed], types.sint)
-        res = self.call(func, [50, 8], lltype.Signed)
+        res = self.call(func, [50, 8], rffi.INT)
         assert res == 42
 
     def test_simple(self):
@@ -287,7 +287,7 @@ class TestLibffiCall(BaseFfiTest):
         """
         libfoo = self.get_libfoo()
         func = (libfoo, 'sum_xy', [types.sint, types.double], types.sint)
-        res = self.call(func, [38, 4.2], lltype.Signed, jitif=["floats"])
+        res = self.call(func, [38, 4.2], rffi.INT, jitif=["floats"])
         assert res == 42
 
     def test_float_result(self):
@@ -319,7 +319,7 @@ class TestLibffiCall(BaseFfiTest):
         """
         libfoo = self.get_libfoo()
         func = (libfoo, 'many_args', [types.uchar, types.sint], types.sint)
-        res = self.call(func, [chr(20), 22], rffi.SIGNED)
+        res = self.call(func, [chr(20), 22], rffi.INT)
         assert res == 42
 
     def test_char_args(self):
@@ -418,12 +418,12 @@ class TestLibffiCall(BaseFfiTest):
         set_dummy = (libfoo, 'set_dummy', [types.sint], types.void)
         get_dummy = (libfoo, 'get_dummy', [], types.sint)
         #
-        initval = self.call(get_dummy, [], rffi.SIGNED)
+        initval = self.call(get_dummy, [], rffi.INT)
         #
         res = self.call(set_dummy, [initval+1], lltype.Void)
         assert res is None
         #
-        res = self.call(get_dummy, [], rffi.SIGNED)
+        res = self.call(get_dummy, [], rffi.INT)
         assert res == initval+1
 
     def test_single_float_args(self):
@@ -500,7 +500,7 @@ class TestLibffiCall(BaseFfiTest):
                 exec s in glob, loc
             except TypeError:
                 pass
-            except LLException, e:
+            except LLException as e:
                 if str(e) != "<LLException 'TypeError'>":
                     raise
             else:
@@ -581,10 +581,10 @@ class TestLibffiCall(BaseFfiTest):
             func = (libfoo, '_std_diff_xy@8', [types.sint, types.signed], types.sint)
             try:
                 self.call(func, [50, 8], lltype.Signed)
-            except ValueError, e:
+            except ValueError as e:
                 assert e.message == 'Procedure called with not enough ' + \
                      'arguments (8 bytes missing) or wrong calling convention'
-            except LLException, e:
+            except LLException as e:
                 #jitted code raises this
                 assert str(e) == "<LLException 'StackCheckError'>"
             else:

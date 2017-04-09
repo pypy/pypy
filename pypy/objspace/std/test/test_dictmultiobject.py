@@ -127,7 +127,7 @@ class TestW_DictObject(object):
         space = self.space
         w = space.wrap
 
-        w_l = self.space.newlist([w("a"),w("b")])
+        w_l = space.newlist([w("a"),w("b")])
         w_l.getitems = None
         w_d = space.call_method(space.w_dict, "fromkeys", w_l)
 
@@ -136,8 +136,9 @@ class TestW_DictObject(object):
 
     def test_listview_bytes_dict(self):
         w = self.space.wrap
+        wb = self.space.newbytes
         w_d = self.space.newdict()
-        w_d.initialize_content([(w("a"), w(1)), (w("b"), w(2))])
+        w_d.initialize_content([(wb("a"), w(1)), (wb("b"), w(2))])
         assert self.space.listview_bytes(w_d) == ["a", "b"]
 
     def test_listview_unicode_dict(self):
@@ -154,25 +155,26 @@ class TestW_DictObject(object):
 
     def test_keys_on_string_unicode_int_dict(self, monkeypatch):
         w = self.space.wrap
-        
+        wb = self.space.newbytes
+
         w_d = self.space.newdict()
-        w_d.initialize_content([(w(1), w("a")), (w(2), w("b"))])
+        w_d.initialize_content([(w(1), wb("a")), (w(2), wb("b"))])
         w_l = self.space.call_method(w_d, "keys")
         assert sorted(self.space.listview_int(w_l)) == [1,2]
-        
+
         # make sure that .keys() calls newlist_bytes for string dicts
         def not_allowed(*args):
             assert False, 'should not be called'
         monkeypatch.setattr(self.space, 'newlist', not_allowed)
         #
         w_d = self.space.newdict()
-        w_d.initialize_content([(w("a"), w(1)), (w("b"), w(6))])
+        w_d.initialize_content([(wb("a"), w(1)), (wb("b"), w(6))])
         w_l = self.space.call_method(w_d, "keys")
         assert sorted(self.space.listview_bytes(w_l)) == ["a", "b"]
 
         # XXX: it would be nice if the test passed without monkeypatch.undo(),
         # but we need space.newlist_unicode for it
-        monkeypatch.undo() 
+        monkeypatch.undo()
         w_d = self.space.newdict()
         w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(6))])
         w_l = self.space.call_method(w_d, "keys")
@@ -221,6 +223,10 @@ class AppTest_DictObject:
         assert len(dd) == 1
         raises(KeyError, dd.pop, 33)
 
+        assert d.pop("abc", None) is None
+        raises(KeyError, d.pop, "abc")
+        assert len(d) == 2
+
     def test_has_key(self):
         d = {1: 2, 3: 4}
         assert d.has_key(1)
@@ -265,9 +271,59 @@ class AppTest_DictObject:
         d = {1: 2, 3: 4, 5: 6}
         it = __pypy__.reversed_dict(d)
         key = it.next()
-        assert key in [1, 3, 5]
+        assert key in [1, 3, 5]   # on CPython, dicts are not ordered
         del d[key]
         raises(RuntimeError, it.next)
+
+    def test_dict_popitem_first(self):
+        import __pypy__
+        d = {"a": 5}
+        assert __pypy__.dict_popitem_first(d) == ("a", 5)
+        raises(KeyError, __pypy__.dict_popitem_first, d)
+
+        def kwdict(**k):
+            return k
+        d = kwdict(a=55)
+        assert __pypy__.dict_popitem_first(d) == ("a", 55)
+        raises(KeyError, __pypy__.dict_popitem_first, d)
+
+    def test_delitem_if_value_is(self):
+        import __pypy__
+        class X:
+            pass
+        x2 = X()
+        x3 = X()
+        d = {2: x2, 3: x3}
+        __pypy__.delitem_if_value_is(d, 2, x3)
+        assert d == {2: x2, 3: x3}
+        __pypy__.delitem_if_value_is(d, 2, x2)
+        assert d == {3: x3}
+        __pypy__.delitem_if_value_is(d, 2, x3)
+        assert d == {3: x3}
+
+    def test_move_to_end(self):
+        import __pypy__
+        raises(KeyError, __pypy__.move_to_end, {}, 'foo')
+        raises(KeyError, __pypy__.move_to_end, {}, 'foo', last=True)
+        raises(KeyError, __pypy__.move_to_end, {}, 'foo', last=False)
+        def kwdict(**k):
+            return k
+        for last in [False, True]:
+            for d, key in [({1: 2, 3: 4, 5: 6}, 3),
+                           ({"a": 5, "b": 2, "c": 6}, "b"),
+                           (kwdict(d=7, e=8, f=9), "e")]:
+                other_keys = [k for k in d if k != key]
+                __pypy__.move_to_end(d, key, last=last)
+                if not self.on_pypy:
+                    # when running tests on CPython, the underlying
+                    # dicts are not ordered.  We don't get here if
+                    # we're running tests on PyPy or with -A.
+                    assert set(d.keys()) == set(other_keys + [key])
+                elif last:
+                    assert list(d) == other_keys + [key]
+                else:
+                    assert list(d) == [key] + other_keys
+                raises(KeyError, __pypy__.move_to_end, d, key * 3, last=last)
 
     def test_keys(self):
         d = {1: 2, 3: 4}
@@ -583,7 +639,7 @@ class AppTest_DictObject:
         for v1 in ['Q', (1,)]:
             try:
                 d[v1]
-            except KeyError, e:
+            except KeyError as e:
                 v2 = e.args[0]
                 assert v1 == v2
             else:
@@ -594,7 +650,7 @@ class AppTest_DictObject:
         for v1 in ['Q', (1,)]:
             try:
                 del d[v1]
-            except KeyError, e:
+            except KeyError as e:
                 v2 = e.args[0]
                 assert v1 == v2
             else:
@@ -605,11 +661,23 @@ class AppTest_DictObject:
         for v1 in ['Q', (1,)]:
             try:
                 d.pop(v1)
-            except KeyError, e:
+            except KeyError as e:
                 v2 = e.args[0]
                 assert v1 == v2
             else:
                 assert False, 'Expected KeyError'
+
+    def test_pop_switching_strategy(self):
+        class Foo:
+            def __hash__(self):
+                return hash("a")
+            def __eq__(self, other):
+                return other == "a"
+        d = {"a": 42}
+        x = d.pop(Foo())
+        assert x == 42 and len(d) == 0
+        d = {"b": 43}
+        raises(KeyError, d.pop, Foo())
 
     def test_no_len_on_dict_iter(self):
         iterable = {1: 2, 3: 4}
@@ -683,6 +751,32 @@ class AppTest_DictMultiObject(AppTest_DictObject):
         setattr(a, s, 123)
         assert holder.seen is s
 
+    def test_internal_delitem(self):
+        class K:
+            def __hash__(self):
+                return 42
+            def __eq__(self, other):
+                if is_equal[0]:
+                    is_equal[0] -= 1
+                    return True
+                return False
+        is_equal = [0]
+        k1 = K()
+        k2 = K()
+        d = {k1: 1, k2: 2}
+        k3 = K()
+        is_equal = [1]
+        try:
+            x = d.pop(k3)
+        except RuntimeError:
+            # This used to give a Fatal RPython error: KeyError.
+            # Now at least it should raise an app-level RuntimeError,
+            # or just work.
+            assert len(d) == 2
+        else:
+            assert (x == 1 or x == 2) and len(d) == 1
+
+
 class AppTestDictViews:
     def test_dictview(self):
         d = {1: 2, 3: 4}
@@ -716,6 +810,8 @@ class AppTestDictViews:
         assert "a" in keys
         assert 10 not in keys
         assert "Z" not in keys
+        raises(TypeError, "[] in keys")     # [] is unhashable
+        raises(TypeError, keys.__contains__, [])
         assert d.viewkeys() == d.viewkeys()
         e = {1: 11, "a": "def"}
         assert d.viewkeys() == e.viewkeys()
@@ -741,12 +837,24 @@ class AppTestDictViews:
         assert () not in items
         assert (1,) not in items
         assert (1, 2, 3) not in items
+        assert ([], []) not in items     # [] is unhashable, but no TypeError
+        assert not items.__contains__(([], []))
         assert d.viewitems() == d.viewitems()
         e = d.copy()
         assert d.viewitems() == e.viewitems()
         e["a"] = "def"
         assert d.viewitems() != e.viewitems()
         assert not d.viewitems() == 42
+
+    def test_dict_items_contains_with_identity(self):
+        class BadEq(object):
+            def __eq__(self, other):
+                raise ZeroDivisionError
+            def __hash__(self):
+                return 7
+        k = BadEq()
+        v = BadEq()
+        assert (k, v) in {k: v}.viewitems()
 
     def test_dict_mixed_keys_items(self):
         d = {(1, 1): 11, (2, 2): 22}
@@ -945,6 +1053,41 @@ class AppTestDictViews:
         helper(lambda x: x.viewkeys())
         helper(lambda x: x.viewitems())
 
+    def test_contains(self):
+        logger = []
+
+        class Foo(object):
+
+            def __init__(self, value, name=None):
+                self.value = value
+                self.name = name or value
+
+            def __repr__(self):
+                return '<Foo %s>' % self.name
+
+            def __eq__(self, other):
+                logger.append((self, other))
+                return self.value == other.value
+
+            def __hash__(self):
+                return 42  # __eq__ will be used given all objects' hashes clash
+
+        foo1, foo2, foo3 = Foo(1), Foo(2), Foo(3)
+        foo42 = Foo(42)
+        foo_dict = {foo1: 1, foo2: 1, foo3: 1}
+        del logger[:]
+        foo42 in foo_dict
+        logger_copy = set(logger[:])  # prevent re-evaluation during pytest error print
+        assert logger_copy == {(foo3, foo42), (foo2, foo42), (foo1, foo42)}
+
+        del logger[:]
+        foo2_bis = Foo(2, '2 bis')
+        foo2_bis in foo_dict
+        logger_copy = set(logger[:])  # prevent re-evaluation during pytest error print
+        assert (foo2, foo2_bis) in logger_copy
+        assert logger_copy.issubset({(foo1, foo2_bis), (foo2, foo2_bis), (foo3, foo2_bis)})
+
+
 class AppTestStrategies(object):
     def setup_class(cls):
         if cls.runappdirect:
@@ -958,7 +1101,7 @@ class AppTestStrategies(object):
     def test_empty_to_string(self):
         d = {}
         assert "EmptyDictStrategy" in self.get_strategy(d)
-        d["a"] = 1
+        d[b"a"] = 1
         assert "BytesDictStrategy" in self.get_strategy(d)
 
         class O(object):
@@ -1050,16 +1193,20 @@ class FakeSpace:
         return l
     def newlist_bytes(self, l):
         return l
+    newlist_text = newlist_bytes
     DictObjectCls = W_DictObject
     def type(self, w_obj):
         if isinstance(w_obj, FakeString):
             return str
         return type(w_obj)
-    w_str = str
+    w_bytes = str
+    w_text = str
 
     def str_w(self, string):
         assert isinstance(string, str)
         return string
+    bytes_w = str_w
+    text_w = str_w
 
     def int_w(self, integer, allow_conversion=True):
         assert isinstance(integer, int)
@@ -1067,6 +1214,7 @@ class FakeSpace:
 
     def wrap(self, obj):
         return obj
+    newtext = newbytes = wrap
 
     def isinstance_w(self, obj, klass):
         return isinstance(obj, klass)
@@ -1113,11 +1261,9 @@ class FakeSpace:
 class Config:
     class objspace:
         class std:
-            withsmalldicts = False
             withcelldict = False
-            withmethodcache = False
-            withidentitydict = False
-            withmapdict = False
+            methodcachesizeexp = 11
+            withmethodcachecounter = False
 
 FakeSpace.config = Config()
 
@@ -1248,6 +1394,9 @@ class BaseTestRDictImplementation:
             impl.setitem(x, x)
         assert type(impl.get_strategy()) is ObjectDictStrategy
 
+
+    setdefault_hash_count = 1
+
     def test_setdefault_fast(self):
         on_pypy = "__pypy__" in sys.builtin_module_names
         impl = self.impl
@@ -1255,11 +1404,11 @@ class BaseTestRDictImplementation:
         x = impl.setdefault(key, 1)
         assert x == 1
         if on_pypy:
-            assert key.hash_count == 1
+            assert key.hash_count == self.setdefault_hash_count
         x = impl.setdefault(key, 2)
         assert x == 1
         if on_pypy:
-            assert key.hash_count == 2
+            assert key.hash_count == self.setdefault_hash_count + 1
 
     def test_fallback_evil_key(self):
         class F(object):
@@ -1321,4 +1470,3 @@ def test_module_uses_strdict():
     fakespace = FakeSpace()
     d = fakespace.newdict(module=True)
     assert type(d.get_strategy()) is BytesDictStrategy
-

@@ -348,7 +348,7 @@ typer_for(enumerate)(rrange.rtype_builtin_enumerate)
 
 @typer_for(lltype.malloc)
 def rtype_malloc(hop, i_flavor=None, i_zero=None, i_track_allocation=None,
-                 i_add_memory_pressure=None):
+                 i_add_memory_pressure=None, i_nonmovable=None):
     assert hop.args_s[0].is_constant()
     vlist = [hop.inputarg(lltype.Void, arg=0)]
     opname = 'malloc'
@@ -357,8 +357,10 @@ def rtype_malloc(hop, i_flavor=None, i_zero=None, i_track_allocation=None,
         (i_flavor, lltype.Void),
         (i_zero, None),
         (i_track_allocation, None),
-        (i_add_memory_pressure, None))
-    (v_flavor, v_zero, v_track_allocation, v_add_memory_pressure) = kwds_v
+        (i_add_memory_pressure, None),
+        (i_nonmovable, None))
+    (v_flavor, v_zero, v_track_allocation,
+     v_add_memory_pressure, v_nonmovable) = kwds_v
     flags = {'flavor': 'gc'}
     if v_flavor is not None:
         flags['flavor'] = v_flavor.value
@@ -368,6 +370,8 @@ def rtype_malloc(hop, i_flavor=None, i_zero=None, i_track_allocation=None,
         flags['track_allocation'] = v_track_allocation.value
     if i_add_memory_pressure is not None:
         flags['add_memory_pressure'] = v_add_memory_pressure.value
+    if i_nonmovable is not None:
+        flags['nonmovable'] = v_nonmovable
     vlist.append(hop.inputconst(lltype.Void, flags))
 
     assert 1 <= hop.nb_args <= 2
@@ -570,10 +574,14 @@ def rtype_runtime_type_info(hop):
 # memory addresses
 
 @typer_for(llmemory.raw_malloc)
-def rtype_raw_malloc(hop):
-    v_size, = hop.inputargs(lltype.Signed)
+def rtype_raw_malloc(hop, i_zero=None):
+    v_size = hop.inputarg(lltype.Signed, arg=0)
+    v_zero, = parse_kwds(hop, (i_zero, None))
+    if v_zero is None:
+        v_zero = hop.inputconst(lltype.Bool, False)
     hop.exception_cannot_occur()
-    return hop.genop('raw_malloc', [v_size], resulttype=llmemory.Address)
+    return hop.genop('raw_malloc', [v_size, v_zero],
+                     resulttype=llmemory.Address)
 
 @typer_for(llmemory.raw_malloc_usage)
 def rtype_raw_malloc_usage(hop):
@@ -735,12 +743,21 @@ from rpython.rtyper.lltypesystem import llmemory
 @typer_for(llmemory.weakref_create)
 @typer_for(weakref.ref)
 def rtype_weakref_create(hop):
-    vlist = hop.inputargs(hop.args_r[0])
+    from rpython.rtyper.rweakref import BaseWeakRefRepr
+
+    v_inst, = hop.inputargs(hop.args_r[0])
     hop.exception_cannot_occur()
-    return hop.genop('weakref_create', vlist, resulttype=llmemory.WeakRefPtr)
+    if isinstance(hop.r_result, BaseWeakRefRepr):
+        return hop.r_result._weakref_create(hop, v_inst)
+    else:
+        # low-level <PtrRepr * WeakRef>
+        assert hop.rtyper.getconfig().translation.rweakref
+        return hop.genop('weakref_create', [v_inst],
+                         resulttype=llmemory.WeakRefPtr)
 
 @typer_for(llmemory.weakref_deref)
 def rtype_weakref_deref(hop):
+    assert hop.rtyper.getconfig().translation.rweakref
     c_ptrtype, v_wref = hop.inputargs(lltype.Void, hop.args_r[1])
     assert v_wref.concretetype == llmemory.WeakRefPtr
     hop.exception_cannot_occur()
@@ -748,6 +765,7 @@ def rtype_weakref_deref(hop):
 
 @typer_for(llmemory.cast_ptr_to_weakrefptr)
 def rtype_cast_ptr_to_weakrefptr(hop):
+    assert hop.rtyper.getconfig().translation.rweakref
     vlist = hop.inputargs(hop.args_r[0])
     hop.exception_cannot_occur()
     return hop.genop('cast_ptr_to_weakrefptr', vlist,
@@ -755,6 +773,7 @@ def rtype_cast_ptr_to_weakrefptr(hop):
 
 @typer_for(llmemory.cast_weakrefptr_to_ptr)
 def rtype_cast_weakrefptr_to_ptr(hop):
+    assert hop.rtyper.getconfig().translation.rweakref
     c_ptrtype, v_wref = hop.inputargs(lltype.Void, hop.args_r[1])
     assert v_wref.concretetype == llmemory.WeakRefPtr
     hop.exception_cannot_occur()

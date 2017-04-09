@@ -1,10 +1,12 @@
 """ PyFrame class implementation with the interpreter main loop.
 """
 
+import sys
 from rpython.rlib import jit
 from rpython.rlib.debug import make_sure_not_resized, check_nonneg
+from rpython.rlib.debug import ll_assert_not_none
 from rpython.rlib.jit import hint
-from rpython.rlib.objectmodel import we_are_translated, instantiate
+from rpython.rlib.objectmodel import instantiate, specialize, we_are_translated
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.tool.pairtype import extendabletype
 
@@ -12,7 +14,8 @@ from pypy.interpreter import pycode, pytraceback
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.astcompiler import consts
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import (
+    OperationError, get_cleared_operation_error, oefmt)
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.nestedscope import Cell
 from pypy.tool import stdlib_opcode
@@ -219,9 +222,9 @@ class PyFrame(W_Root):
                 return            # no cells needed - fast path
         elif outer_func is None:
             space = self.space
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("directly executed code object "
-                                            "may not contain free variables"))
+            raise oefmt(space.w_TypeError,
+                        "directly executed code object may not contain free "
+                        "variables")
         if outer_func and outer_func.closure:
             closure_size = len(outer_func.closure)
         else:
@@ -240,12 +243,8 @@ class PyFrame(W_Root):
     def run(self):
         """Start this frame's execution."""
         if self.getcode().co_flags & pycode.CO_GENERATOR:
-            if self.getcode().co_flags & pycode.CO_YIELD_INSIDE_TRY:
-                from pypy.interpreter.generator import GeneratorIteratorWithDel
-                return self.space.wrap(GeneratorIteratorWithDel(self))
-            else:
-                from pypy.interpreter.generator import GeneratorIterator
-                return self.space.wrap(GeneratorIterator(self))
+            from pypy.interpreter.generator import GeneratorIterator
+            return GeneratorIterator(self)
         else:
             return self.execute_frame()
 
@@ -267,25 +266,26 @@ class PyFrame(W_Root):
         try:
             executioncontext.call_trace(self)
             #
-            if operr is not None:
-                ec = self.space.getexecutioncontext()
-                next_instr = self.handle_operation_error(ec, operr)
-                self.last_instr = intmask(next_instr - 1)
-            else:
-                # Execution starts just after the last_instr.  Initially,
-                # last_instr is -1.  After a generator suspends it points to
-                # the YIELD_VALUE instruction.
-                next_instr = r_uint(self.last_instr + 1)
-                if next_instr != 0:
-                    self.pushvalue(w_inputvalue)
-            #
             try:
+                if operr is not None:
+                    ec = self.space.getexecutioncontext()
+                    next_instr = self.handle_operation_error(ec, operr)
+                    self.last_instr = intmask(next_instr - 1)
+                else:
+                    # Execution starts just after the last_instr.  Initially,
+                    # last_instr is -1.  After a generator suspends it points to
+                    # the YIELD_VALUE instruction.
+                    next_instr = r_uint(self.last_instr + 1)
+                    if next_instr != 0:
+                        self.pushvalue(w_inputvalue)
                 w_exitvalue = self.dispatch(self.pycode, next_instr,
                                             executioncontext)
-            except Exception:
-                executioncontext.return_trace(self, self.space.w_None)
+            except OperationError:
                 raise
-            executioncontext.return_trace(self, w_exitvalue)
+            except Exception as e:      # general fall-back
+                raise self._convert_unexpected_exception(e)
+            finally:
+                executioncontext.return_trace(self, w_exitvalue)
             # it used to say self.last_exception = None
             # this is now done by the code in pypyjit module
             # since we don't want to invalidate the virtualizable
@@ -299,7 +299,13 @@ class PyFrame(W_Root):
     # stack manipulation helpers
     def pushvalue(self, w_object):
         depth = self.valuestackdepth
-        self.locals_cells_stack_w[depth] = w_object
+        self.locals_cells_stack_w[depth] = ll_assert_not_none(w_object)
+        self.valuestackdepth = depth + 1
+
+    def pushvalue_none(self):
+        depth = self.valuestackdepth
+        # the entry is already None, and remains None
+        assert self.locals_cells_stack_w[depth] is None
         self.valuestackdepth = depth + 1
 
     def _check_stack_index(self, index):
@@ -312,6 +318,9 @@ class PyFrame(W_Root):
         return index >= stackstart
 
     def popvalue(self):
+        return ll_assert_not_none(self.popvalue_maybe_none())
+
+    def popvalue_maybe_none(self):
         depth = self.valuestackdepth - 1
         assert self._check_stack_index(depth)
         assert depth >= 0
@@ -386,6 +395,9 @@ class PyFrame(W_Root):
     def peekvalue(self, index_from_top=0):
         # NOTE: top of the stack is peekvalue(0).
         # Contrast this with CPython where it's PEEK(-1).
+        return ll_assert_not_none(self.peekvalue_maybe_none(index_from_top))
+
+    def peekvalue_maybe_none(self, index_from_top=0):
         index_from_top = hint(index_from_top, promote=True)
         index = self.valuestackdepth + ~index_from_top
         assert self._check_stack_index(index)
@@ -397,7 +409,7 @@ class PyFrame(W_Root):
         index = self.valuestackdepth + ~index_from_top
         assert self._check_stack_index(index)
         assert index >= 0
-        self.locals_cells_stack_w[index] = w_object
+        self.locals_cells_stack_w[index] = ll_assert_not_none(w_object)
 
     @jit.unroll_safe
     def dropvaluesuntil(self, finaldepth):
@@ -409,11 +421,14 @@ class PyFrame(W_Root):
             depth -= 1
         self.valuestackdepth = finaldepth
 
-    def make_arguments(self, nargs):
-        return Arguments(self.space, self.peekvalues(nargs))
+    def make_arguments(self, nargs, methodcall=False):
+        return Arguments(
+                self.space, self.peekvalues(nargs), methodcall=methodcall)
 
-    def argument_factory(self, arguments, keywords, keywords_w, w_star, w_starstar):
-        return Arguments(self.space, arguments, keywords, keywords_w, w_star, w_starstar)
+    def argument_factory(self, arguments, keywords, keywords_w, w_star, w_starstar, methodcall=False):
+        return Arguments(
+                self.space, arguments, keywords, keywords_w, w_star,
+                w_starstar, methodcall=methodcall)
 
     @jit.dont_look_inside
     def descr__reduce__(self, space):
@@ -428,7 +443,6 @@ class PyFrame(W_Root):
     @jit.dont_look_inside
     def _reduce_state(self, space):
         from pypy.module._pickle_support import maker # helper fns
-        w = space.wrap
         nt = space.newtuple
 
         if self.get_w_f_trace() is None:
@@ -446,30 +460,30 @@ class PyFrame(W_Root):
             w_tb = space.w_None
         else:
             w_exc_value = self.last_exception.get_w_value(space)
-            w_tb = w(self.last_exception.get_traceback())
+            w_tb = self.last_exception.get_w_traceback(space)
 
         d = self.getorcreatedebug()
         tup_state = [
-            w(self.f_backref()),
-            w(self.get_builtin()),
-            w(self.pycode),
+            self.f_backref(),
+            self.get_builtin(),
+            self.pycode,
             w_locals_cells_stack,
             w_blockstack,
             w_exc_value, # last_exception
             w_tb,        #
             self.get_w_globals(),
-            w(self.last_instr),
-            w(self.frame_finished_execution),
-            w(f_lineno),
+            space.newint(self.last_instr),
+            space.newbool(self.frame_finished_execution),
+            space.newint(f_lineno),
             space.w_None,           #XXX placeholder for f_locals
 
             #f_restricted requires no additional data!
             space.w_None,
 
-            w(d.instr_lb),
-            w(d.instr_ub),
-            w(d.instr_prev_plus_one),
-            w(self.valuestackdepth),
+            space.newint(d.instr_lb),
+            space.newint(d.instr_ub),
+            space.newint(d.instr_prev_plus_one),
+            space.newint(self.valuestackdepth),
             ]
         return nt(tup_state)
 
@@ -512,7 +526,7 @@ class PyFrame(W_Root):
         self.locals_cells_stack_w = values_w[:]
         valuestackdepth = space.int_w(w_stackdepth)
         if not self._check_stack_index(valuestackdepth):
-            raise OperationError(space.w_ValueError, space.wrap("invalid stackdepth"))
+            raise oefmt(space.w_ValueError, "invalid stackdepth")
         assert valuestackdepth >= 0
         self.valuestackdepth = valuestackdepth
         if space.is_w(w_exc_value, space.w_None):
@@ -549,7 +563,7 @@ class PyFrame(W_Root):
         where the order is according to self.pycode.signature()."""
         scope_len = len(scope_w)
         if scope_len > self.pycode.co_nlocals:
-            raise ValueError, "new fastscope is longer than the allocated area"
+            raise ValueError("new fastscope is longer than the allocated area")
         # don't assign directly to 'locals_cells_stack_w[:scope_len]' to be
         # virtualizable-friendly
         for i in range(scope_len):
@@ -583,7 +597,7 @@ class PyFrame(W_Root):
             if w_value is not None:
                 self.space.setitem_str(d.w_locals, name, w_value)
             else:
-                w_name = self.space.wrap(name)
+                w_name = self.space.newtext(name)
                 try:
                     self.space.delitem(d.w_locals, w_name)
                 except OperationError as e:
@@ -661,7 +675,7 @@ class PyFrame(W_Root):
         return None
 
     def fget_code(self, space):
-        return space.wrap(self.getcode())
+        return self.getcode()
 
     def fget_getdictscope(self, space):
         return self.getdictscope()
@@ -676,21 +690,20 @@ class PyFrame(W_Root):
     def fget_f_lineno(self, space):
         "Returns the line number of the instruction currently being executed."
         if self.get_w_f_trace() is None:
-            return space.wrap(self.get_last_lineno())
+            return space.newint(self.get_last_lineno())
         else:
-            return space.wrap(self.getorcreatedebug().f_lineno)
+            return space.newint(self.getorcreatedebug().f_lineno)
 
     def fset_f_lineno(self, space, w_new_lineno):
         "Returns the line number of the instruction currently being executed."
         try:
             new_lineno = space.int_w(w_new_lineno)
         except OperationError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("lineno must be an integer"))
+            raise oefmt(space.w_ValueError, "lineno must be an integer")
 
         if self.get_w_f_trace() is None:
-            raise OperationError(space.w_ValueError,
-                  space.wrap("f_lineno can only be set by a trace function."))
+            raise oefmt(space.w_ValueError,
+                        "f_lineno can only be set by a trace function.")
 
         line = self.pycode.co_firstlineno
         if new_lineno < line:
@@ -717,8 +730,8 @@ class PyFrame(W_Root):
         # Don't jump to a line with an except in it.
         code = self.pycode.co_code
         if ord(code[new_lasti]) in (DUP_TOP, POP_TOP):
-            raise OperationError(space.w_ValueError,
-                  space.wrap("can't jump to 'except' line as there's no exception"))
+            raise oefmt(space.w_ValueError,
+                        "can't jump to 'except' line as there's no exception")
 
         # Don't jump into or out of a finally block.
         f_lasti_setup_addr = -1
@@ -799,8 +812,8 @@ class PyFrame(W_Root):
             new_iblock = f_iblock - delta_iblock
 
         if new_iblock > min_iblock:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("can't jump into the middle of a block"))
+            raise oefmt(space.w_ValueError,
+                        "can't jump into the middle of a block")
 
         while f_iblock > new_iblock:
             block = self.pop_block()
@@ -819,10 +832,10 @@ class PyFrame(W_Root):
 
     def fget_f_back(self, space):
         f_back = ExecutionContext.getnextframe_nohidden(self)
-        return self.space.wrap(f_back)
+        return f_back
 
     def fget_f_lasti(self, space):
-        return self.space.wrap(self.last_instr)
+        return self.space.newint(self.last_instr)
 
     def fget_f_trace(self, space):
         return self.get_w_f_trace()
@@ -862,14 +875,38 @@ class PyFrame(W_Root):
             while f is not None and f.last_exception is None:
                 f = f.f_backref()
             if f is not None:
-                return space.wrap(f.last_exception.get_traceback())
+                return f.last_exception.get_w_traceback(space)
         return space.w_None
 
     def fget_f_restricted(self, space):
         if space.config.objspace.honor__builtins__:
-            return space.wrap(self.builtin is not space.builtin)
+            return space.newbool(self.builtin is not space.builtin)
         return space.w_False
 
+    @jit.unroll_safe
+    @specialize.arg(2)
+    def _exc_info_unroll(self, space, for_hidden=False):
+        """Return the most recent OperationError being handled in the
+        call stack
+        """
+        frame = self
+        while frame:
+            last = frame.last_exception
+            if last is not None:
+                if last is get_cleared_operation_error(self.space):
+                    break
+                if for_hidden or not frame.hide():
+                    return last
+            frame = frame.f_backref()
+        return None
+
+    def _convert_unexpected_exception(self, e):
+        from pypy.interpreter import error
+
+        operr = error.get_converted_unexpected_exception(self.space, e)
+        pytraceback.record_application_traceback(
+            self.space, operr, self, self.last_instr)
+        raise operr
 
 # ____________________________________________________________
 
@@ -880,7 +917,7 @@ def get_block_class(opname):
 
 def unpickle_block(space, w_tup):
     w_opname, w_handlerposition, w_valuestackdepth = space.unpackiterable(w_tup)
-    opname = space.str_w(w_opname)
+    opname = space.text_w(w_opname)
     handlerposition = space.int_w(w_handlerposition)
     valuestackdepth = space.int_w(w_valuestackdepth)
     assert valuestackdepth >= 0

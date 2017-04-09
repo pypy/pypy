@@ -3,7 +3,7 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.baseobjspace import W_Root
-from rpython.rlib import rvmprof
+from rpython.rlib import rvmprof, jit
 
 # ____________________________________________________________
 
@@ -47,11 +47,11 @@ class Cache:
 
 def VMProfError(space, e):
     w_VMProfError = space.fromcache(Cache).w_VMProfError
-    return OperationError(w_VMProfError, space.wrap(e.msg))
+    return OperationError(w_VMProfError, space.newtext(e.msg))
 
 
-@unwrap_spec(fileno=int, period=float)
-def enable(space, fileno, period):
+@unwrap_spec(fileno=int, period=float, memory=int, lines=int, native=int)
+def enable(space, fileno, period, memory, lines, native):
     """Enable vmprof.  Writes go to the given 'fileno', a file descriptor
     opened for writing.  *The file descriptor must remain open at least
     until disable() is called.*
@@ -60,13 +60,13 @@ def enable(space, fileno, period):
     Must be smaller than 1.0
     """
     w_modules = space.sys.get('modules')
-    if space.contains_w(w_modules, space.wrap('_continuation')):
-        space.warn(space.wrap("Using _continuation/greenlet/stacklet together "
-                              "with vmprof will crash"),
-                   space.w_RuntimeWarning)
+    #if space.contains_w(w_modules, space.newtext('_continuation')):
+    #    space.warn(space.newtext("Using _continuation/greenlet/stacklet together "
+    #                             "with vmprof will crash"),
+    #               space.w_RuntimeWarning)
     try:
-        rvmprof.enable(fileno, period)
-    except rvmprof.VMProfError, e:
+        rvmprof.enable(fileno, period, memory, native)
+    except rvmprof.VMProfError as e:
         raise VMProfError(space, e)
 
 def write_all_code_objects(space):
@@ -80,5 +80,5 @@ def disable(space):
     """
     try:
         rvmprof.disable()
-    except rvmprof.VMProfError, e:
+    except rvmprof.VMProfError as e:
         raise VMProfError(space, e)

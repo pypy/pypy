@@ -1,4 +1,4 @@
-import py
+import py, sys
 
 @py.test.mark.tryfirst
 def pytest_runtest_setup(item):
@@ -23,6 +23,10 @@ def pytest_runtest_setup(item):
 def pytest_ignore_collect(path, config):
     if py.path.local.sysfind('genreflex') is None and config.option.runappdirect:
         return True          # "can't run dummy tests in -A"
+    if disabled:
+        return True
+
+disabled = None
 
 def pytest_configure(config):
     if py.path.local.sysfind('genreflex') is None:
@@ -30,14 +34,14 @@ def pytest_configure(config):
         try:
             import ctypes
             ctypes.CDLL(lcapi.reflection_library)
-        except Exception, e:
+        except Exception as e:
             if config.option.runappdirect:
                 return       # "can't run dummy tests in -A"
 
             # build dummy backend (which has reflex info and calls hard-wired)
             import os
             from rpython.translator.tool.cbuild import ExternalCompilationInfo
-            from rpython.translator.platform import platform
+            from rpython.translator.platform import platform, CompilationError
             from rpython.translator import cdir
 
             from rpython.rtyper.lltypesystem import rffi
@@ -50,13 +54,21 @@ def pytest_configure(config):
             eci = ExternalCompilationInfo(
                 separate_module_files=[srcpath.join('dummy_backend.cxx')],
                 include_dirs=[incpath, tstpath, cdir],
-                compile_extra=['-DRPY_EXTERN=RPY_EXPORTED'],
+                compile_extra=['-DRPY_EXTERN=RPY_EXPORTED', '-DCPPYY_DUMMY_BACKEND',
+                               '-fno-strict-aliasing', '-std=c++11'],
                 use_cpp_linker=True,
             )
 
-            soname = platform.compile(
-                [], eci,
-                outputfilename='libcppyy_dummy_backend',
-                standalone=False)
+            try:
+                soname = platform.compile(
+                    [], eci,
+                    outputfilename='libcppyy_dummy_backend',
+                    standalone=False)
+            except CompilationError as e:
+                if '-std=c++11' in str(e):
+                    global disabled
+                    disabled = str(e)
+                    return
+                raise
 
             lcapi.reflection_library = str(soname)

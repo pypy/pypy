@@ -478,6 +478,7 @@ class AppTestSupport(BaseNumpyAppTest):
                 (version, shp, typ, isf, raw) = state
                 ndarray.__setstate__(self, (shp, typ, isf, raw))
 
+        E = '<' if sys.byteorder == 'little' else '>'
         D.__module__ = 'mod'
         mod = new.module('mod')
         mod.D = D
@@ -510,7 +511,7 @@ class AppTestSupport(BaseNumpyAppTest):
             tp9
             Rp10
             (I3
-            S'<'
+            S'{E}'
             p11
             NNNI-1
             I-1
@@ -520,7 +521,7 @@ class AppTestSupport(BaseNumpyAppTest):
             S'\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\x00@'
             p13
             tp14
-            b.'''.replace('            ','')
+            b.'''.replace('            ','').format(E=E)
         for ss,sn in zip(s.split('\n')[1:],s_from_numpy.split('\n')[1:]):
             if len(ss)>10:
                 # ignore binary data, it will be checked later
@@ -701,3 +702,32 @@ class AppTestSupport(BaseNumpyAppTest):
         ret = obj.sum()
         print type(ret)
         assert ret.info == 'spam'
+
+    def test_ndarray_subclass_assigns_base(self):
+        import numpy as np
+        init_called = []
+        class _DummyArray(object):
+            """ Dummy object that just exists to hang __array_interface__ dictionaries
+            and possibly keep alive a reference to a base array.
+            """
+            def __init__(self, interface, base=None):
+                self.__array_interface__ = interface
+                init_called.append(1)
+                self.base = base
+
+        x = np.zeros(10)
+        d = _DummyArray(x.__array_interface__, base=x)
+        y = np.array(d, copy=False)
+        assert sum(init_called) == 1
+        assert y.base is d
+
+        x = np.zeros((0,), dtype='float32')
+        intf = x.__array_interface__.copy()
+        intf["strides"] = x.strides
+        x.__array_interface__["strides"] = x.strides
+        d = _DummyArray(x.__array_interface__, base=x)
+        y = np.array(d, copy=False)
+        assert sum(init_called) == 2
+        assert y.base is d
+
+

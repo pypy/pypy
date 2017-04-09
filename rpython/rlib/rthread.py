@@ -5,7 +5,7 @@ import py, sys
 from rpython.rlib import jit, rgc
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.objectmodel import we_are_translated, specialize
-from rpython.rlib.objectmodel import CDefinedIntSymbolic
+from rpython.rlib.objectmodel import CDefinedIntSymbolic, not_rpython
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -22,13 +22,23 @@ eci = ExternalCompilationInfo(
     include_dirs = [translator_c_dir],
 )
 
+class CConfig:
+    _compilation_info_ = eci
+    RPYTHREAD_NAME = rffi_platform.DefinedConstantString('RPYTHREAD_NAME')
+    USE_SEMAPHORES = rffi_platform.Defined('USE_SEMAPHORES')
+    CS_GNU_LIBPTHREAD_VERSION = rffi_platform.DefinedConstantInteger(
+        '_CS_GNU_LIBPTHREAD_VERSION')
+cconfig = rffi_platform.configure(CConfig)
+globals().update(cconfig)
+
+
 def llexternal(name, args, result, **kwds):
     kwds.setdefault('sandboxsafe', True)
     return rffi.llexternal(name, args, result, compilation_info=eci,
                            **kwds)
 
+@not_rpython
 def _emulated_start_new_thread(func):
-    "NOT_RPYTHON"
     import thread
     try:
         ident = thread.start_new_thread(func, ())
@@ -100,8 +110,11 @@ def get_ident():
         return thread.get_ident()
 
 def get_or_make_ident():
-    assert we_are_translated()
-    return tlfield_thread_ident.get_or_make_raw()
+    if we_are_translated():
+        return tlfield_thread_ident.get_or_make_raw()
+    else:
+        import thread
+        return thread.get_ident()
 
 @specialize.arg(0)
 def start_new_thread(x, y):
@@ -115,6 +128,9 @@ def start_new_thread(x, y):
 class DummyLock(object):
     def acquire(self, flag):
         return True
+
+    def is_acquired(self):
+        return False
 
     def release(self):
         pass
@@ -150,6 +166,15 @@ class Lock(object):
                 rffi.cast(rffi.INT, 0))
             res = rffi.cast(lltype.Signed, res)
             return bool(res)
+
+    def is_acquired(self):
+        """ check if the lock is acquired (does not release the GIL) """
+        res = c_thread_acquirelock_timed_NOAUTO(
+            self._lock,
+            rffi.cast(rffi.LONGLONG, 0),
+            rffi.cast(rffi.INT, 0))
+        res = rffi.cast(lltype.Signed, res)
+        return not bool(res)
 
     def acquire_timed(self, timeout):
         """Timeout is in microseconds.  Returns 0 in case of failure,
@@ -294,8 +319,9 @@ def gc_thread_after_fork(result_of_fork, opaqueaddr):
 
 
 class ThreadLocalField(object):
+    @not_rpython
     def __init__(self, FIELDTYPE, fieldname, loop_invariant=False):
-        "NOT_RPYTHON: must be prebuilt"
+        "must be prebuilt"
         try:
             from thread import _local
         except ImportError:
@@ -303,7 +329,7 @@ class ThreadLocalField(object):
                 pass
         self.FIELDTYPE = FIELDTYPE
         self.fieldname = fieldname
-        self.local = _local()      # <- NOT_RPYTHON
+        self.local = _local()      # <- not rpython
         zero = rffi.cast(FIELDTYPE, 0)
         offset = CDefinedIntSymbolic('RPY_TLOFS_%s' % self.fieldname,
                                      default='?')
@@ -356,8 +382,9 @@ class ThreadLocalReference(ThreadLocalField):
     # leak the objects when a thread finishes; see threadlocal.c.)
     _COUNT = 1
 
+    @not_rpython
     def __init__(self, Cls, loop_invariant=False):
-        "NOT_RPYTHON: must be prebuilt"
+        "must be prebuilt"
         self.Cls = Cls
         unique_id = ThreadLocalReference._COUNT
         ThreadLocalReference._COUNT += 1
@@ -402,7 +429,11 @@ class ThreadLocalReference(ThreadLocalField):
                 gc._trace_callback(callback, arg, p + offset)
             llop.threadlocalref_release(lltype.Void)
         _lambda_trace_tlref = lambda: _trace_tlref
-        TRACETLREF = lltype.GcStruct('TRACETLREF')
+        # WAAAH obscurity: can't use a name that may be non-unique,
+        # otherwise the types compare equal, even though we call
+        # register_custom_trace_hook() to register different trace
+        # functions...
+        TRACETLREF = lltype.GcStruct('TRACETLREF%d' % unique_id)
         _tracetlref_obj = lltype.malloc(TRACETLREF, immortal=True)
 
     @staticmethod
@@ -429,8 +460,9 @@ if _win32:
     tlfield_rpy_lasterror = ThreadLocalField(rwin32.DWORD, "rpy_lasterror")
     tlfield_alt_lasterror = ThreadLocalField(rwin32.DWORD, "alt_lasterror")
 
+@not_rpython
 def _threadlocalref_seeme(field):
-    "NOT_RPYTHON"
+    pass
 
 class _Entry(ExtRegistryEntry):
     _about_ = _threadlocalref_seeme

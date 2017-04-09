@@ -660,6 +660,7 @@ def test_direct_arrayitems():
         a[3] = 30
         a[4] = 40
         b0 = direct_arrayitems(a)
+        assert typeOf(b0) == Ptr(FixedSizeArray(Signed, 1))
         b1 = direct_ptradd(b0, 1)
         b2 = direct_ptradd(b1, 1)
         b3 = direct_ptradd(b0, 3)
@@ -749,22 +750,10 @@ def test_identityhash():
     assert hash3 == identityhash(s3)
     assert hash3 == identityhash(s3.super)
     assert hash3 == identityhash(s3.super.super)
-    py.test.raises(ValueError, init_identity_hash, s3, hash3^1)
-    py.test.raises(ValueError, init_identity_hash, s3.super, hash3^4)
-    py.test.raises(ValueError, init_identity_hash, s3.super.super, hash3^9)
-
-    s3 = malloc(S3)
-    init_identity_hash(s3.super, -123)
-    assert -123 == identityhash(s3)
-    assert -123 == identityhash(s3.super)
-    assert -123 == identityhash(s3.super.super)
-    py.test.raises(ValueError, init_identity_hash, s3, 4313)
-    py.test.raises(ValueError, init_identity_hash, s3.super, 0)
-    py.test.raises(ValueError, init_identity_hash, s3.super.super, -124)
 
     from rpython.rtyper.lltypesystem import llmemory
     p3 = cast_opaque_ptr(llmemory.GCREF, s3)
-    assert -123 == identityhash(p3)
+    assert hash3 == identityhash(p3)
 
     A = GcArray(Signed)
     a = malloc(A, 3)

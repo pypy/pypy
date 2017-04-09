@@ -76,51 +76,66 @@ static Scopes_t s_scopes;
 
 static std::map<std::string, long> s_methods;
 
+int Pseudo_kNothing   = 6;
+int Pseudo_kSomething = 111;
+int Pseudo_kLots      = 42;
+
 #define PUBLIC_CPPYY_DATA(dmname, dmtype)                                     \
     data.push_back(Cppyy_PseudoDatambrInfo("m_"#dmname, #dmtype,              \
-        offsetof(dummy::cppyy_test_data, m_##dmname), false));                \
+        offsetof(dummy::CppyyTestData, m_##dmname), false));                  \
+    /* <type> get_<type>() */                                                 \
     argtypes.clear();                                                         \
     methods.push_back(Cppyy_PseudoMethodInfo(                                 \
                          "get_"#dmname, argtypes, #dmtype));                  \
-    s_methods["cppyy_test_data::get_"#dmname] = s_method_id++;                \
+    s_methods["CppyyTestData::get_"#dmname] = s_method_id++;                  \
+    /* <type>& get_<type>_r() */                                              \
+    methods.push_back(Cppyy_PseudoMethodInfo(                                 \
+                         "get_"#dmname"_r", argtypes, #dmtype"&"));           \
+    s_methods["CppyyTestData::get_"#dmname"_r"] = s_method_id++;              \
+    /* const <type>& get_<type>_cr() */                                       \
+    methods.push_back(Cppyy_PseudoMethodInfo(                                 \
+                         "get_"#dmname"_cr", argtypes, "const "#dmtype"&"));  \
+    s_methods["CppyyTestData::get_"#dmname"_cr"] = s_method_id++;             \
+    /* void set_<type>(<type>) */                                             \
     argtypes.push_back(#dmtype);                                              \
     methods.push_back(Cppyy_PseudoMethodInfo(                                 \
                          "set_"#dmname, argtypes, "void"));                   \
-    s_methods["cppyy_test_data::set_"#dmname] = s_method_id++;                \
+    s_methods["CppyyTestData::set_"#dmname] = s_method_id++;                  \
     argtypes.clear();                                                         \
+    /* void set_<type>(const <type>&) */                                      \
     argtypes.push_back("const "#dmtype"&");                                   \
     methods.push_back(Cppyy_PseudoMethodInfo(                                 \
-                         "set_"#dmname"_c", argtypes, "void"));               \
-    s_methods["cppyy_test_data::set_"#dmname"_c"] = s_method_id++
+                         "set_"#dmname"_cr", argtypes, "void"));              \
+    s_methods["CppyyTestData::set_"#dmname"_cr"] = s_method_id++
 
 #define PUBLIC_CPPYY_DATA2(dmname, dmtype)                                    \
     PUBLIC_CPPYY_DATA(dmname, dmtype);                                        \
     data.push_back(Cppyy_PseudoDatambrInfo("m_"#dmname"_array", #dmtype"[5]", \
-        offsetof(dummy::cppyy_test_data, m_##dmname##_array), false));        \
+        offsetof(dummy::CppyyTestData, m_##dmname##_array), false));          \
     data.push_back(Cppyy_PseudoDatambrInfo("m_"#dmname"_array2", #dmtype"*",  \
-        offsetof(dummy::cppyy_test_data, m_##dmname##_array2), false));       \
+        offsetof(dummy::CppyyTestData, m_##dmname##_array2), false));         \
     argtypes.clear();                                                         \
     methods.push_back(Cppyy_PseudoMethodInfo(                                 \
                          "get_"#dmname"_array", argtypes, #dmtype"*"));       \
-    s_methods["cppyy_test_data::get_"#dmname"_array"] = s_method_id++;        \
+    s_methods["CppyyTestData::get_"#dmname"_array"] = s_method_id++;          \
     methods.push_back(Cppyy_PseudoMethodInfo(                                 \
                          "get_"#dmname"_array2", argtypes, #dmtype"*"));      \
-    s_methods["cppyy_test_data::get_"#dmname"_array2"] = s_method_id++
+    s_methods["CppyyTestData::get_"#dmname"_array2"] = s_method_id++
 
 #define PUBLIC_CPPYY_DATA3(dmname, dmtype, key)                               \
     PUBLIC_CPPYY_DATA2(dmname, dmtype);                                       \
     argtypes.push_back(#dmtype"*");                                           \
     methods.push_back(Cppyy_PseudoMethodInfo(                                 \
                          "pass_array", argtypes, #dmtype"*"));                \
-    s_methods["cppyy_test_data::pass_array_"#dmname] = s_method_id++;         \
+    s_methods["CppyyTestData::pass_array_"#dmname] = s_method_id++;           \
     argtypes.clear(); argtypes.push_back("void*");                            \
     methods.push_back(Cppyy_PseudoMethodInfo(                                 \
                          "pass_void_array_"#key, argtypes, #dmtype"*"));      \
-    s_methods["cppyy_test_data::pass_void_array_"#key] = s_method_id++
+    s_methods["CppyyTestData::pass_void_array_"#key] = s_method_id++
 
 #define PUBLIC_CPPYY_STATIC_DATA(dmname, dmtype)                              \
     data.push_back(Cppyy_PseudoDatambrInfo("s_"#dmname, #dmtype,              \
-        (ptrdiff_t)&dummy::cppyy_test_data::s_##dmname, true))
+        (ptrdiff_t)&dummy::CppyyTestData::s_##dmname, true))
 
 
 struct Cppyy_InitPseudoReflectionInfo {
@@ -284,22 +299,23 @@ struct Cppyy_InitPseudoReflectionInfo {
 
         //====================================================================
 
-        { // class cppyy_test_data --
-        s_handles["cppyy_test_data"] = (cppyy_scope_t)++s_scope_id;
+        { // class CppyyTestData --
+        s_handles["CppyyTestData"] = (cppyy_scope_t)++s_scope_id;
 
         std::vector<Cppyy_PseudoMethodInfo> methods;
 
-        // cppyy_test_data()
+        // CppyyTestData()
         std::vector<std::string> argtypes;
-        methods.push_back(Cppyy_PseudoMethodInfo("cppyy_test_data", argtypes, "constructor", kConstructor));
-        s_methods["cppyy_test_data::cppyy_test_data"] = s_method_id++;
+        methods.push_back(Cppyy_PseudoMethodInfo("CppyyTestData", argtypes, "constructor", kConstructor));
+        s_methods["CppyyTestData::CppyyTestData"] = s_method_id++;
 
         methods.push_back(Cppyy_PseudoMethodInfo("destroy_arrays", argtypes, "void"));
-        s_methods["cppyy_test_data::destroy_arrays"] = s_method_id++;
+        s_methods["CppyyTestData::destroy_arrays"] = s_method_id++;
 
         std::vector<Cppyy_PseudoDatambrInfo> data;
         PUBLIC_CPPYY_DATA2(bool,    bool);
         PUBLIC_CPPYY_DATA (char,    char);
+        PUBLIC_CPPYY_DATA (schar,   signed char);
         PUBLIC_CPPYY_DATA (uchar,   unsigned char);
         PUBLIC_CPPYY_DATA3(short,   short,              h);
         PUBLIC_CPPYY_DATA3(ushort,  unsigned short,     H);
@@ -309,12 +325,16 @@ struct Cppyy_InitPseudoReflectionInfo {
         PUBLIC_CPPYY_DATA3(ulong,   unsigned long,      L);
         PUBLIC_CPPYY_DATA (llong,   long long);
         PUBLIC_CPPYY_DATA (ullong,  unsigned long long);
+        PUBLIC_CPPYY_DATA (long64,  Long64_t);
+        PUBLIC_CPPYY_DATA (ulong64, ULong64_t);
         PUBLIC_CPPYY_DATA3(float,   float,              f);
         PUBLIC_CPPYY_DATA3(double,  double,             d);
-        PUBLIC_CPPYY_DATA (enum,    cppyy_test_data::what);
+        PUBLIC_CPPYY_DATA (ldouble, long double);
+        PUBLIC_CPPYY_DATA (enum,    CppyyTestData::EWhat);
         PUBLIC_CPPYY_DATA (voidp,   void*);
 
         PUBLIC_CPPYY_STATIC_DATA(char,    char);
+        PUBLIC_CPPYY_STATIC_DATA(schar,   signed char);
         PUBLIC_CPPYY_STATIC_DATA(uchar,   unsigned char);
         PUBLIC_CPPYY_STATIC_DATA(short,   short);
         PUBLIC_CPPYY_STATIC_DATA(ushort,  unsigned short);
@@ -324,14 +344,25 @@ struct Cppyy_InitPseudoReflectionInfo {
         PUBLIC_CPPYY_STATIC_DATA(ulong,   unsigned long);
         PUBLIC_CPPYY_STATIC_DATA(llong,   long long);
         PUBLIC_CPPYY_STATIC_DATA(ullong,  unsigned long long);
+        PUBLIC_CPPYY_STATIC_DATA(long64,  Long64_t);
+        PUBLIC_CPPYY_STATIC_DATA(ulong64, ULong64_t);
         PUBLIC_CPPYY_STATIC_DATA(float,   float);
         PUBLIC_CPPYY_STATIC_DATA(double,  double);
-        PUBLIC_CPPYY_STATIC_DATA(enum,    cppyy_test_data::what);
+        PUBLIC_CPPYY_STATIC_DATA(ldouble, long double);
+        PUBLIC_CPPYY_STATIC_DATA(enum,    CppyyTestData::EWhat);
         PUBLIC_CPPYY_STATIC_DATA(voidp,   void*);
+
+      // pretend enum values
+        data.push_back(Cppyy_PseudoDatambrInfo(
+            "kNothing", "CppyyTestData::EWhat", (ptrdiff_t)&Pseudo_kNothing, true));
+        data.push_back(Cppyy_PseudoDatambrInfo(
+            "kSomething", "CppyyTestData::EWhat", (ptrdiff_t)&Pseudo_kSomething, true));
+        data.push_back(Cppyy_PseudoDatambrInfo(
+            "kLots", "CppyyTestData::EWhat", (ptrdiff_t)&Pseudo_kLots, true));
 
         Cppyy_PseudoClassInfo info(methods, s_method_id - methods.size(), data);
         s_scopes[(cppyy_scope_t)s_scope_id] = info;
-        } // -- class cppyy_test_data
+        } // -- class CppyyTest_data
 
     }
 } _init;
@@ -385,78 +416,78 @@ void cppyy_call_v(cppyy_method_t method, cppyy_object_t self, int nargs, void* a
     } else if (idx == s_methods["example01::setPayload_payload*"]) {
         assert(self && nargs == 1);
         ((dummy::example01*)self)->setPayload((dummy::payload*)(*(long*)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["cppyy_test_data::destroy_arrays"]) {
+    } else if (idx == s_methods["CppyyTestData::destroy_arrays"]) {
         assert(self && nargs == 0);
-        ((dummy::cppyy_test_data*)self)->destroy_arrays();
-    } else if (idx == s_methods["cppyy_test_data::set_bool"]) {
+        ((dummy::CppyyTestData*)self)->destroy_arrays();
+    } else if (idx == s_methods["CppyyTestData::set_bool"]) {
         assert(self && nargs == 1);
-        ((dummy::cppyy_test_data*)self)->set_bool((bool)((CPPYY_G__value*)args)[0].obj.in);
-    } else if (idx == s_methods["cppyy_test_data::set_char"]) {
+        ((dummy::CppyyTestData*)self)->set_bool((bool)((CPPYY_G__value*)args)[0].obj.i);
+    } else if (idx == s_methods["CppyyTestData::set_char"]) {
         assert(self && nargs == 1);
-        ((dummy::cppyy_test_data*)self)->set_char(((CPPYY_G__value*)args)[0].obj.ch);
-    } else if (idx == s_methods["cppyy_test_data::set_uchar"]) {
+        ((dummy::CppyyTestData*)self)->set_char(((CPPYY_G__value*)args)[0].obj.ch);
+    } else if (idx == s_methods["CppyyTestData::set_uchar"]) {
         assert(self && nargs == 1);
-        ((dummy::cppyy_test_data*)self)->set_uchar(((CPPYY_G__value*)args)[0].obj.uch);
-    } else if (idx == s_methods["cppyy_test_data::set_short"]) {
+        ((dummy::CppyyTestData*)self)->set_uchar(((CPPYY_G__value*)args)[0].obj.uch);
+    } else if (idx == s_methods["CppyyTestData::set_short"]) {
         assert(self && nargs == 1);
-        ((dummy::cppyy_test_data*)self)->set_short(((CPPYY_G__value*)args)[0].obj.sh);
-    } else if (idx == s_methods["cppyy_test_data::set_short_c"]) {
+        ((dummy::CppyyTestData*)self)->set_short(((CPPYY_G__value*)args)[0].obj.sh);
+    } else if (idx == s_methods["CppyyTestData::set_short_cr"]) {
         assert(self && nargs == 1);
-        ((dummy::cppyy_test_data*)self)->set_short_c(*(short*)&((CPPYY_G__value*)args)[0]);
-    } else if (idx == s_methods["cppyy_test_data::set_ushort"]) {
+        ((dummy::CppyyTestData*)self)->set_short_cr(*(short*)&((CPPYY_G__value*)args)[0]);
+    } else if (idx == s_methods["CppyyTestData::set_ushort"]) {
         assert(self && nargs == 1);
-        ((dummy::cppyy_test_data*)self)->set_ushort(((CPPYY_G__value*)args)[0].obj.ush);
-    } else if (idx == s_methods["cppyy_test_data::set_ushort_c"]) {
+        ((dummy::CppyyTestData*)self)->set_ushort(((CPPYY_G__value*)args)[0].obj.ush);
+    } else if (idx == s_methods["CppyyTestData::set_ushort_cr"]) {
         assert(self && nargs == 1);
-        ((dummy::cppyy_test_data*)self)->set_ushort_c(*(unsigned short*)&((CPPYY_G__value*)args)[0]);
-    } else if (idx == s_methods["cppyy_test_data::set_int"]) {
+        ((dummy::CppyyTestData*)self)->set_ushort_cr(*(unsigned short*)&((CPPYY_G__value*)args)[0]);
+    } else if (idx == s_methods["CppyyTestData::set_int"]) {
         assert(self && nargs == 1);
-        ((dummy::cppyy_test_data*)self)->set_int(((CPPYY_G__value*)args)[0].obj.in);
-    } else if (idx == s_methods["cppyy_test_data::set_int_c"]) {
+        ((dummy::CppyyTestData*)self)->set_int(((CPPYY_G__value*)args)[0].obj.in);
+    } else if (idx == s_methods["CppyyTestData::set_int_cr"]) {
         assert(self && nargs == 1);
-        ((dummy::cppyy_test_data*)self)->set_int_c(*(int*)&((CPPYY_G__value*)args)[0]);
-    } else if (idx == s_methods["cppyy_test_data::set_uint"]) {
+        ((dummy::CppyyTestData*)self)->set_int_cr(*(int*)&((CPPYY_G__value*)args)[0]);
+    } else if (idx == s_methods["CppyyTestData::set_uint"]) {
         assert(self && nargs == 1);
-        ((dummy::cppyy_test_data*)self)->set_uint(((CPPYY_G__value*)args)[0].obj.uin);
-    } else if (idx == s_methods["cppyy_test_data::set_uint_c"]) {
+        ((dummy::CppyyTestData*)self)->set_uint(((CPPYY_G__value*)args)[0].obj.uin);
+    } else if (idx == s_methods["CppyyTestData::set_uint_cr"]) {
         assert(self && nargs == 1);
-        ((dummy::cppyy_test_data*)self)->set_uint_c(*(unsigned int*)&((CPPYY_G__value*)args)[0]);
-    } else if (idx == s_methods["cppyy_test_data::set_long"]) {
+        ((dummy::CppyyTestData*)self)->set_uint_cr(*(unsigned int*)&((CPPYY_G__value*)args)[0]);
+    } else if (idx == s_methods["CppyyTestData::set_long"]) {
         assert(self && nargs == 1);
-        ((dummy::cppyy_test_data*)self)->set_long(((CPPYY_G__value*)args)[0].obj.i);
-    } else if (idx == s_methods["cppyy_test_data::set_long_c"]) {
+        ((dummy::CppyyTestData*)self)->set_long(((CPPYY_G__value*)args)[0].obj.i);
+    } else if (idx == s_methods["CppyyTestData::set_long_cr"]) {
         assert(self && nargs == 1);
-        ((dummy::cppyy_test_data*)self)->set_long_c(*(long*)&((CPPYY_G__value*)args)[0]);
-    } else if (idx == s_methods["cppyy_test_data::set_ulong"]) {
+        ((dummy::CppyyTestData*)self)->set_long_cr(*(long*)&((CPPYY_G__value*)args)[0]);
+    } else if (idx == s_methods["CppyyTestData::set_ulong"]) {
         assert(self && nargs == 1);
-        ((dummy::cppyy_test_data*)self)->set_ulong(((CPPYY_G__value*)args)[0].obj.ulo);
-    } else if (idx == s_methods["cppyy_test_data::set_ulong_c"]) {
+        ((dummy::CppyyTestData*)self)->set_ulong(((CPPYY_G__value*)args)[0].obj.ulo);
+    } else if (idx == s_methods["CppyyTestData::set_ulong_cr"]) {
         assert(self && nargs == 1);
-        ((dummy::cppyy_test_data*)self)->set_ulong_c(*(unsigned long*)&((CPPYY_G__value*)args)[0]);
-    } else if (idx == s_methods["cppyy_test_data::set_llong"]) {
+        ((dummy::CppyyTestData*)self)->set_ulong_cr(*(unsigned long*)&((CPPYY_G__value*)args)[0]);
+    } else if (idx == s_methods["CppyyTestData::set_llong"]) {
         assert(self && nargs == 1);
-        ((dummy::cppyy_test_data*)self)->set_llong(((CPPYY_G__value*)args)[0].obj.ll);
-    } else if (idx == s_methods["cppyy_test_data::set_llong_c"]) {
+        ((dummy::CppyyTestData*)self)->set_llong(((CPPYY_G__value*)args)[0].obj.ll);
+    } else if (idx == s_methods["CppyyTestData::set_llong_cr"]) {
         assert(self && nargs == 1);
-        ((dummy::cppyy_test_data*)self)->set_llong_c(*(long long*)&((CPPYY_G__value*)args)[0]);
-    } else if (idx == s_methods["cppyy_test_data::set_ullong"]) {
+        ((dummy::CppyyTestData*)self)->set_llong_cr(*(long long*)&((CPPYY_G__value*)args)[0]);
+    } else if (idx == s_methods["CppyyTestData::set_ullong"]) {
         assert(self && nargs == 1);
-        ((dummy::cppyy_test_data*)self)->set_ullong(((CPPYY_G__value*)args)[0].obj.ull);
-    } else if (idx == s_methods["cppyy_test_data::set_ullong_c"]) {
+        ((dummy::CppyyTestData*)self)->set_ullong(((CPPYY_G__value*)args)[0].obj.ull);
+    } else if (idx == s_methods["CppyyTestData::set_ullong_cr"]) {
         assert(self && nargs == 1);
-        ((dummy::cppyy_test_data*)self)->set_ullong_c(*(unsigned long*)&((CPPYY_G__value*)args)[0]);
-    } else if (idx == s_methods["cppyy_test_data::set_float"]) {
+        ((dummy::CppyyTestData*)self)->set_ullong_cr(*(unsigned long*)&((CPPYY_G__value*)args)[0]);
+    } else if (idx == s_methods["CppyyTestData::set_float"]) {
         assert(self && nargs == 1);
-        ((dummy::cppyy_test_data*)self)->set_float(((CPPYY_G__value*)args)[0].obj.fl);
-    } else if (idx == s_methods["cppyy_test_data::set_float_c"]) {
+        ((dummy::CppyyTestData*)self)->set_float(((CPPYY_G__value*)args)[0].obj.fl);
+    } else if (idx == s_methods["CppyyTestData::set_float_cr"]) {
         assert(self && nargs == 1);
-        ((dummy::cppyy_test_data*)self)->set_float_c(*(float*)&((CPPYY_G__value*)args)[0]);
-    } else if (idx == s_methods["cppyy_test_data::set_double"]) {
+        ((dummy::CppyyTestData*)self)->set_float_cr(*(float*)&((CPPYY_G__value*)args)[0]);
+    } else if (idx == s_methods["CppyyTestData::set_double"]) {
         assert(self && nargs == 1);
-        ((dummy::cppyy_test_data*)self)->set_double(((CPPYY_G__value*)args)[0].obj.d);
-    } else if (idx == s_methods["cppyy_test_data::set_double_c"]) {
+        ((dummy::CppyyTestData*)self)->set_double(((CPPYY_G__value*)args)[0].obj.d);
+    } else if (idx == s_methods["CppyyTestData::set_double_cr"]) {
         assert(self && nargs == 1);
-        ((dummy::cppyy_test_data*)self)->set_double_c(*(double*)&((CPPYY_G__value*)args)[0]);
+        ((dummy::CppyyTestData*)self)->set_double_cr(*(double*)&((CPPYY_G__value*)args)[0]);
     } else {
         assert(!"method unknown in cppyy_call_v");
     }
@@ -465,9 +496,9 @@ void cppyy_call_v(cppyy_method_t method, cppyy_object_t self, int nargs, void* a
 unsigned char cppyy_call_b(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     unsigned char result = 0;
     const long idx = (long)method;
-    if (idx == s_methods["cppyy_test_data::get_bool"]) {
+    if (idx == s_methods["CppyyTestData::get_bool"]) {
         assert(self && nargs == 0);
-        result = (unsigned char)((dummy::cppyy_test_data*)self)->get_bool();
+        result = (unsigned char)((dummy::CppyyTestData*)self)->get_bool();
     } else {
         assert(!"method unknown in cppyy_call_b");
     }
@@ -477,12 +508,12 @@ unsigned char cppyy_call_b(cppyy_method_t method, cppyy_object_t self, int nargs
 char cppyy_call_c(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     char result = 0;
     const long idx = (long)method;
-    if (idx == s_methods["cppyy_test_data::get_char"]) {
+    if (idx == s_methods["CppyyTestData::get_char"]) {
         assert(self && nargs == 0);
-        result = ((dummy::cppyy_test_data*)self)->get_char();
-    } else if (idx == s_methods["cppyy_test_data::get_uchar"]) {
+        result = ((dummy::CppyyTestData*)self)->get_char();
+    } else if (idx == s_methods["CppyyTestData::get_uchar"]) {
         assert(self && nargs == 0);
-        result = (char)((dummy::cppyy_test_data*)self)->get_uchar();
+        result = (char)((dummy::CppyyTestData*)self)->get_uchar();
     } else {
         assert(!"method unknown in cppyy_call_c");
     } 
@@ -492,12 +523,12 @@ char cppyy_call_c(cppyy_method_t method, cppyy_object_t self, int nargs, void* a
 short cppyy_call_h(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     short result = 0;
     const long idx = (long)method; 
-    if (idx == s_methods["cppyy_test_data::get_short"]) {
+    if (idx == s_methods["CppyyTestData::get_short"]) {
         assert(self && nargs == 0);
-        result = ((dummy::cppyy_test_data*)self)->get_short();
-    } else if (idx == s_methods["cppyy_test_data::get_ushort"]) {
+        result = ((dummy::CppyyTestData*)self)->get_short();
+    } else if (idx == s_methods["CppyyTestData::get_ushort"]) {
         assert(self && nargs == 0);
-        result = (short)((dummy::cppyy_test_data*)self)->get_ushort();
+        result = (short)((dummy::CppyyTestData*)self)->get_ushort();
     } else {
         assert(!"method unknown in cppyy_call_h");
     }   
@@ -527,9 +558,9 @@ int cppyy_call_i(cppyy_method_t method, cppyy_object_t self, int nargs, void* ar
         assert(self && nargs == 1);
         result = ((dummy::example01*)self)->addDataToAtoi(
            (const char*)(*(long*)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["cppyy_test_data::get_int"]) {
+    } else if (idx == s_methods["CppyyTestData::get_int"]) {
         assert(self && nargs == 0);
-        result = ((dummy::cppyy_test_data*)self)->get_int();
+        result = ((dummy::CppyyTestData*)self)->get_int();
     } else {
         assert(!"method unknown in cppyy_call_i");
     }
@@ -556,120 +587,120 @@ long cppyy_call_l(cppyy_method_t method, cppyy_object_t self, int nargs, void* a
         assert(self && nargs == 1);
         result = (long)((dummy::example01*)self)->cyclePayload(
            (dummy::payload*)(*(long*)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["cppyy_test_data::get_uint"]) {
+    } else if (idx == s_methods["CppyyTestData::get_uint"]) {
         assert(self && nargs == 0);
-        result = (long)((dummy::cppyy_test_data*)self)->get_uint();
-    } else if (idx == s_methods["cppyy_test_data::get_long"]) {
+        result = (long)((dummy::CppyyTestData*)self)->get_uint();
+    } else if (idx == s_methods["CppyyTestData::get_long"]) {
         assert(self && nargs == 0);
-        result = ((dummy::cppyy_test_data*)self)->get_long();
-    } else if (idx == s_methods["cppyy_test_data::get_ulong"]) {
+        result = ((dummy::CppyyTestData*)self)->get_long();
+    } else if (idx == s_methods["CppyyTestData::get_ulong"]) {
         assert(self && nargs == 0);
-        result = (long)((dummy::cppyy_test_data*)self)->get_ulong();
-    } else if (idx == s_methods["cppyy_test_data::get_bool_array"]) {
+        result = (long)((dummy::CppyyTestData*)self)->get_ulong();
+    } else if (idx == s_methods["CppyyTestData::get_bool_array"]) {
         assert(self && nargs == 0);
-        result = (long)((dummy::cppyy_test_data*)self)->get_bool_array();
-    } else if (idx == s_methods["cppyy_test_data::get_bool_array2"]) {
+        result = (long)((dummy::CppyyTestData*)self)->get_bool_array();
+    } else if (idx == s_methods["CppyyTestData::get_bool_array2"]) {
         assert(self && nargs == 0);
-        result = (long)((dummy::cppyy_test_data*)self)->get_bool_array2();
-    } else if (idx == s_methods["cppyy_test_data::get_short_array"]) {
+        result = (long)((dummy::CppyyTestData*)self)->get_bool_array2();
+    } else if (idx == s_methods["CppyyTestData::get_short_array"]) {
         assert(self && nargs == 0);
-        result = (long)((dummy::cppyy_test_data*)self)->get_short_array();
-    } else if (idx == s_methods["cppyy_test_data::get_short_array2"]) {
+        result = (long)((dummy::CppyyTestData*)self)->get_short_array();
+    } else if (idx == s_methods["CppyyTestData::get_short_array2"]) {
         assert(self && nargs == 0);
-        result = (long)((dummy::cppyy_test_data*)self)->get_short_array2();
-    } else if (idx == s_methods["cppyy_test_data::get_ushort_array"]) {
+        result = (long)((dummy::CppyyTestData*)self)->get_short_array2();
+    } else if (idx == s_methods["CppyyTestData::get_ushort_array"]) {
         assert(self && nargs == 0);
-        result = (long)((dummy::cppyy_test_data*)self)->get_ushort_array();
-    } else if (idx == s_methods["cppyy_test_data::get_ushort_array2"]) {
+        result = (long)((dummy::CppyyTestData*)self)->get_ushort_array();
+    } else if (idx == s_methods["CppyyTestData::get_ushort_array2"]) {
         assert(self && nargs == 0);
-        result = (long)((dummy::cppyy_test_data*)self)->get_ushort_array2();
-    } else if (idx == s_methods["cppyy_test_data::get_int_array"]) {
+        result = (long)((dummy::CppyyTestData*)self)->get_ushort_array2();
+    } else if (idx == s_methods["CppyyTestData::get_int_array"]) {
         assert(self && nargs == 0);
-        result = (long)((dummy::cppyy_test_data*)self)->get_int_array();
-    } else if (idx == s_methods["cppyy_test_data::get_int_array2"]) {
+        result = (long)((dummy::CppyyTestData*)self)->get_int_array();
+    } else if (idx == s_methods["CppyyTestData::get_int_array2"]) {
         assert(self && nargs == 0);
-        result = (long)((dummy::cppyy_test_data*)self)->get_int_array2();
-    } else if (idx == s_methods["cppyy_test_data::get_uint_array"]) {
+        result = (long)((dummy::CppyyTestData*)self)->get_int_array2();
+    } else if (idx == s_methods["CppyyTestData::get_uint_array"]) {
         assert(self && nargs == 0);
-        result = (long)((dummy::cppyy_test_data*)self)->get_uint_array();
-    } else if (idx == s_methods["cppyy_test_data::get_uint_array2"]) {
+        result = (long)((dummy::CppyyTestData*)self)->get_uint_array();
+    } else if (idx == s_methods["CppyyTestData::get_uint_array2"]) {
         assert(self && nargs == 0);
-        result = (long)((dummy::cppyy_test_data*)self)->get_uint_array2();
-    } else if (idx == s_methods["cppyy_test_data::get_long_array"]) {
+        result = (long)((dummy::CppyyTestData*)self)->get_uint_array2();
+    } else if (idx == s_methods["CppyyTestData::get_long_array"]) {
         assert(self && nargs == 0);
-        result = (long)((dummy::cppyy_test_data*)self)->get_long_array();
-    } else if (idx == s_methods["cppyy_test_data::get_long_array2"]) {
+        result = (long)((dummy::CppyyTestData*)self)->get_long_array();
+    } else if (idx == s_methods["CppyyTestData::get_long_array2"]) {
         assert(self && nargs == 0);
-        result = (long)((dummy::cppyy_test_data*)self)->get_long_array2();
-    } else if (idx == s_methods["cppyy_test_data::get_ulong_array"]) {
+        result = (long)((dummy::CppyyTestData*)self)->get_long_array2();
+    } else if (idx == s_methods["CppyyTestData::get_ulong_array"]) {
         assert(self && nargs == 0);
-        result = (long)((dummy::cppyy_test_data*)self)->get_ulong_array();
-    } else if (idx == s_methods["cppyy_test_data::get_ulong_array2"]) {
+        result = (long)((dummy::CppyyTestData*)self)->get_ulong_array();
+    } else if (idx == s_methods["CppyyTestData::get_ulong_array2"]) {
         assert(self && nargs == 0);
-        result = (long)((dummy::cppyy_test_data*)self)->get_ulong_array2();
-    } else if (idx == s_methods["cppyy_test_data::pass_array_short"]) {
+        result = (long)((dummy::CppyyTestData*)self)->get_ulong_array2();
+    } else if (idx == s_methods["CppyyTestData::pass_array_short"]) {
         assert(self && nargs == 1);
-        result = (long)((dummy::cppyy_test_data*)self)->pass_array(
+        result = (long)((dummy::CppyyTestData*)self)->pass_array(
            (*(short**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["cppyy_test_data::pass_void_array_h"]) {
+    } else if (idx == s_methods["CppyyTestData::pass_void_array_h"]) {
         assert(self && nargs == 1);
-        result = (long)((dummy::cppyy_test_data*)self)->pass_void_array_h(
+        result = (long)((dummy::CppyyTestData*)self)->pass_void_array_h(
            (*(short**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["cppyy_test_data::pass_array_ushort"]) {
+    } else if (idx == s_methods["CppyyTestData::pass_array_ushort"]) {
         assert(self && nargs == 1);
-        result = (long)((dummy::cppyy_test_data*)self)->pass_array(
+        result = (long)((dummy::CppyyTestData*)self)->pass_array(
            (*(unsigned short**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["cppyy_test_data::pass_void_array_H"]) {
+    } else if (idx == s_methods["CppyyTestData::pass_void_array_H"]) {
         assert(self && nargs == 1);
-        result = (long)((dummy::cppyy_test_data*)self)->pass_void_array_H(
+        result = (long)((dummy::CppyyTestData*)self)->pass_void_array_H(
            (*(unsigned short**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["cppyy_test_data::pass_array_int"]) {
+    } else if (idx == s_methods["CppyyTestData::pass_array_int"]) {
         assert(self && nargs == 1);
-        result = (long)((dummy::cppyy_test_data*)self)->pass_array(
+        result = (long)((dummy::CppyyTestData*)self)->pass_array(
            (*(int**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["cppyy_test_data::pass_void_array_i"]) {
+    } else if (idx == s_methods["CppyyTestData::pass_void_array_i"]) {
         assert(self && nargs == 1);
-        result = (long)((dummy::cppyy_test_data*)self)->pass_void_array_i(
+        result = (long)((dummy::CppyyTestData*)self)->pass_void_array_i(
            (*(int**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["cppyy_test_data::pass_array_uint"]) {
+    } else if (idx == s_methods["CppyyTestData::pass_array_uint"]) {
         assert(self && nargs == 1);
-        result = (long)((dummy::cppyy_test_data*)self)->pass_array(
+        result = (long)((dummy::CppyyTestData*)self)->pass_array(
            (*(unsigned int**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["cppyy_test_data::pass_void_array_I"]) {
+    } else if (idx == s_methods["CppyyTestData::pass_void_array_I"]) {
         assert(self && nargs == 1);
-        result = (long)((dummy::cppyy_test_data*)self)->pass_void_array_I(
+        result = (long)((dummy::CppyyTestData*)self)->pass_void_array_I(
            (*(unsigned int**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["cppyy_test_data::pass_array_long"]) {
+    } else if (idx == s_methods["CppyyTestData::pass_array_long"]) {
         assert(self && nargs == 1);
-        result = (long)((dummy::cppyy_test_data*)self)->pass_array(
+        result = (long)((dummy::CppyyTestData*)self)->pass_array(
            (*(long**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["cppyy_test_data::pass_void_array_l"]) {
+    } else if (idx == s_methods["CppyyTestData::pass_void_array_l"]) {
         assert(self && nargs == 1);
-        result = (long)((dummy::cppyy_test_data*)self)->pass_void_array_l(
+        result = (long)((dummy::CppyyTestData*)self)->pass_void_array_l(
            (*(long**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["cppyy_test_data::pass_array_ulong"]) {
+    } else if (idx == s_methods["CppyyTestData::pass_array_ulong"]) {
         assert(self && nargs == 1);
-        result = (long)((dummy::cppyy_test_data*)self)->pass_array(
+        result = (long)((dummy::CppyyTestData*)self)->pass_array(
            (*(unsigned long**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["cppyy_test_data::pass_void_array_L"]) {
+    } else if (idx == s_methods["CppyyTestData::pass_void_array_L"]) {
         assert(self && nargs == 1);
-        result = (long)((dummy::cppyy_test_data*)self)->pass_void_array_L(
+        result = (long)((dummy::CppyyTestData*)self)->pass_void_array_L(
            (*(unsigned long**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["cppyy_test_data::pass_array_float"]) {
+    } else if (idx == s_methods["CppyyTestData::pass_array_float"]) {
         assert(self && nargs == 1);
-        result = (long)((dummy::cppyy_test_data*)self)->pass_array(
+        result = (long)((dummy::CppyyTestData*)self)->pass_array(
            (*(float**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["cppyy_test_data::pass_void_array_f"]) {
+    } else if (idx == s_methods["CppyyTestData::pass_void_array_f"]) {
         assert(self && nargs == 1);
-        result = (long)((dummy::cppyy_test_data*)self)->pass_void_array_f(
+        result = (long)((dummy::CppyyTestData*)self)->pass_void_array_f(
            (*(float**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["cppyy_test_data::pass_array_double"]) {
+    } else if (idx == s_methods["CppyyTestData::pass_array_double"]) {
         assert(self && nargs == 1);
-        result = (long)((dummy::cppyy_test_data*)self)->pass_array(
+        result = (long)((dummy::CppyyTestData*)self)->pass_array(
            (*(double**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["cppyy_test_data::pass_void_array_d"]) {
+    } else if (idx == s_methods["CppyyTestData::pass_void_array_d"]) {
         assert(self && nargs == 1);
-        result = (long)((dummy::cppyy_test_data*)self)->pass_void_array_d(
+        result = (long)((dummy::CppyyTestData*)self)->pass_void_array_d(
            (*(double**)&((CPPYY_G__value*)args)[0]));
     } else {
         assert(!"method unknown in cppyy_call_l");
@@ -680,12 +711,12 @@ long cppyy_call_l(cppyy_method_t method, cppyy_object_t self, int nargs, void* a
 long long cppyy_call_ll(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     long long result = 0;
     const long idx = (long)method;
-    if (idx == s_methods["cppyy_test_data::get_llong"]) {
+    if (idx == s_methods["CppyyTestData::get_llong"]) {
         assert(self && nargs == 0);
-        result = ((dummy::cppyy_test_data*)self)->get_llong();
-    } else if (idx == s_methods["cppyy_test_data::get_ullong"]) {
+        result = ((dummy::CppyyTestData*)self)->get_llong();
+    } else if (idx == s_methods["CppyyTestData::get_ullong"]) {
         assert(self && nargs == 0);
-        result = (long long)((dummy::cppyy_test_data*)self)->get_ullong();
+        result = (long long)((dummy::CppyyTestData*)self)->get_ullong();
     } else {
         assert(!"method unknown in cppyy_call_ll");
     }
@@ -695,9 +726,9 @@ long long cppyy_call_ll(cppyy_method_t method, cppyy_object_t self, int nargs, v
 float cppyy_call_f(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     float result = 0;
     const long idx = (long)method;
-    if (idx == s_methods["cppyy_test_data::get_float"]) {
+    if (idx == s_methods["CppyyTestData::get_float"]) {
         assert(self && nargs == 0);
-        result = ((dummy::cppyy_test_data*)self)->get_float();
+        result = ((dummy::CppyyTestData*)self)->get_float();
     } else {
         assert(!"method unknown in cppyy_call_f");
     }
@@ -716,16 +747,49 @@ double cppyy_call_d(cppyy_method_t method, cppyy_object_t self, int nargs, void*
     } else if (idx == s_methods["payload::getData"]) {
         assert(self && nargs == 0);
         result = ((dummy::payload*)self)->getData();
-    } else if (idx == s_methods["cppyy_test_data::get_double"]) {
+    } else if (idx == s_methods["CppyyTestData::get_double"]) {
         assert(self && nargs == 0);
-        result = ((dummy::cppyy_test_data*)self)->get_double();
+        result = ((dummy::CppyyTestData*)self)->get_double();
     } else {
         assert(!"method unknown in cppyy_call_d");
     }
     return result;
 }
 
-char* cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+#define DISPATCH_CALL_R_GET(tpname)                                           \
+    else if (idx == s_methods["CppyyTestData::get_"#tpname"_r"]) {            \
+        assert(self && nargs == 0);                                           \
+        result = (void*)&((dummy::CppyyTestData*)self)->get_##tpname##_r();   \
+    } else if (idx == s_methods["CppyyTestData::get_"#tpname"_cr"]) {         \
+        assert(self && nargs == 0);                                           \
+        result = (void*)&((dummy::CppyyTestData*)self)->get_##tpname##_cr();  \
+    }
+
+void* cppyy_call_r(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+    void* result = nullptr;
+    const long idx = (long)method;
+    if (0) {}
+    DISPATCH_CALL_R_GET(bool)
+    DISPATCH_CALL_R_GET(short)
+    DISPATCH_CALL_R_GET(ushort)
+    DISPATCH_CALL_R_GET(int)
+    DISPATCH_CALL_R_GET(uint)
+    DISPATCH_CALL_R_GET(long)
+    DISPATCH_CALL_R_GET(ulong)
+    DISPATCH_CALL_R_GET(llong)
+    DISPATCH_CALL_R_GET(ullong)
+    DISPATCH_CALL_R_GET(long64)
+    DISPATCH_CALL_R_GET(ulong64)
+    DISPATCH_CALL_R_GET(float)
+    DISPATCH_CALL_R_GET(double)
+    DISPATCH_CALL_R_GET(ldouble)
+    else {
+        assert(!"method unknown in cppyy_call_r");
+    }
+    return result;
+}
+
+char* cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* args, size_t* /* length */) {
     char* result = 0;
     const long idx = (long)method;
     if (idx == s_methods["static_example01::staticStrcpy_cchar*"]) {
@@ -750,17 +814,17 @@ cppyy_object_t cppyy_constructor(cppyy_method_t method, cppyy_type_t handle, int
         assert(nargs == 0 || nargs == 1);
         if (nargs == 0) result = new dummy::payload;
         else if (nargs == 1) result = new dummy::payload(((CPPYY_G__value*)args)[0].obj.d);
-    } else if (idx == s_methods["cppyy_test_data::cppyy_test_data"]) {
+    } else if (idx == s_methods["CppyyTestData::CppyyTestData"]) {
         assert(nargs == 0);
-        result = new dummy::cppyy_test_data;
+        result = new dummy::CppyyTestData;
     } else {
         assert(!"method unknown in cppyy_constructor");
     }       
     return (cppyy_object_t)result;
 }
 
-cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_type_t /* handle */, cppyy_index_t /* method_index */) {
-    return (cppyy_methptrgetter_t)0;
+cppyy_funcaddr_t cppyy_get_function_address(cppyy_scope_t /* scope */, cppyy_index_t /* idx */) {
+    return (cppyy_funcaddr_t)0;
 }
 
 
@@ -790,9 +854,19 @@ size_t cppyy_function_arg_typeoffset() {
 /* scope reflection information ------------------------------------------- */
 int cppyy_is_namespace(cppyy_scope_t /* handle */) {
     return 0;
-}   
+}
 
-int cppyy_is_enum(const char* /* type_name */) {
+int cppyy_is_template(const char* /* template_name */) {
+    return 0;
+}
+
+int cppyy_is_abstract(cppyy_type_t /* type) */) {
+    return 0;
+}
+
+int cppyy_is_enum(const char* type_name) {
+    if (strcmp(type_name, "CppyyTestData::EWhat") == 0)
+        return 1;
     return 0;
 }
     
@@ -942,9 +1016,9 @@ void cppyy_free(void* ptr) {
     free(ptr);
 }
 
-cppyy_object_t cppyy_charp2stdstring(const char* str) {
-    void* arena = new char[sizeof(std::string)];
-    new (arena) std::string(str);
+cppyy_object_t cppyy_charp2stdstring(const char* str, size_t sz) {
+    void* arena = new char[sz];
+    new (arena) std::string(str, sz);
     return (cppyy_object_t)arena;
 }
 

@@ -6,7 +6,7 @@ from rpython.rlib import jit
 from rpython.rlib.runicode import MAXUNICODE
 
 from pypy.interpreter import gateway
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec
 
 
@@ -23,8 +23,7 @@ for depth is zero, returning the frame at the top of the call stack.
 This function should be used for internal and specialized
 purposes only."""
     if depth < 0:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("frame index must not be negative"))
+        raise oefmt(space.w_ValueError, "frame index must not be negative")
     return getframe(space, depth)
 
 
@@ -34,11 +33,10 @@ def getframe(space, depth):
     f = ec.gettopframe_nohidden()
     while True:
         if f is None:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("call stack is not deep enough"))
+            raise oefmt(space.w_ValueError, "call stack is not deep enough")
         if depth == 0:
             f.mark_as_escaped()
-            return space.wrap(f)
+            return f
         depth -= 1
         f = ec.getnextframe_nohidden(f)
 
@@ -54,15 +52,21 @@ value to N reserves N/1000 times 768KB of stack space.
 """
     from rpython.rlib.rstack import _stack_set_length_fraction
     if new_limit <= 0:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("recursion limit must be positive"))
+        raise oefmt(space.w_ValueError, "recursion limit must be positive")
     space.sys.recursionlimit = new_limit
     _stack_set_length_fraction(new_limit * 0.001)
 
 def getrecursionlimit(space):
     """Return the last value set by setrecursionlimit().
     """
-    return space.wrap(space.sys.recursionlimit)
+    return space.newint(space.sys.recursionlimit)
+
+@unwrap_spec(flag=bool)
+def set_track_resources(space, flag):
+    space.sys.track_resources = flag
+
+def get_track_resources(space):
+    return space.newbool(space.sys.track_resources)
 
 @unwrap_spec(interval=int)
 def setcheckinterval(space, interval):
@@ -80,7 +84,7 @@ def getcheckinterval(space):
     result = space.actionflag.getcheckinterval()
     if result <= 1:
         result = 0
-    return space.wrap(result)
+    return space.newint(result)
 
 def exc_info(space):
     """Return the (type, value, traceback) of the most recent exception
@@ -94,7 +98,7 @@ def exc_info_with_tb(space):
         return space.newtuple([space.w_None, space.w_None, space.w_None])
     else:
         return space.newtuple([operror.w_type, operror.get_w_value(space),
-                               space.wrap(operror.get_traceback())])
+                               operror.get_w_traceback(space)])
 
 def exc_info_without_tb(space, frame):
     operror = frame.last_exception
@@ -216,22 +220,22 @@ def getwindowsversion(space):
     info = rwin32.GetVersionEx()
     w_windows_version_info = app.wget(space, "windows_version_info")
     raw_version = space.newtuple([
-        space.wrap(info[0]),
-        space.wrap(info[1]),
-        space.wrap(info[2]),
-        space.wrap(info[3]),
-        space.wrap(info[4]),
-        space.wrap(info[5]),
-        space.wrap(info[6]),
-        space.wrap(info[7]),
-        space.wrap(info[8]),
+        space.newint(info[0]),
+        space.newint(info[1]),
+        space.newint(info[2]),
+        space.newint(info[3]),
+        space.newtext(info[4]),
+        space.newint(info[5]),
+        space.newint(info[6]),
+        space.newint(info[7]),
+        space.newint(info[8]),
     ])
     return space.call_function(w_windows_version_info, raw_version)
 
 @jit.dont_look_inside
 def get_dllhandle(space):
     if not space.config.objspace.usemodules.cpyext:
-        return space.wrap(0)
+        return space.newint(0)
 
     return _get_dllhandle(space)
 
@@ -244,14 +248,41 @@ def _get_dllhandle(space):
     # from pypy.module._rawffi.interp_rawffi import W_CDLL
     # from rpython.rlib.clibffi import RawCDLL
     # cdll = RawCDLL(handle)
-    # return space.wrap(W_CDLL(space, "python api", cdll))
+    # return W_CDLL(space, "python api", cdll)
     # Provide a cpython-compatible int
     from rpython.rtyper.lltypesystem import lltype, rffi
-    return space.wrap(rffi.cast(lltype.Signed, handle))
+    return space.newint(rffi.cast(lltype.Signed, handle))
+
+getsizeof_missing = """sys.getsizeof() is not implemented on PyPy.
+
+First note that the CPython documentation says that this function may
+raise a TypeError, so if you are seeing it, it means that the program
+you are using is not correctly handling this case.
+
+On PyPy, though, it always raises TypeError.  Before looking for
+alternatives, please take a moment to read the following explanation as
+to why it is the case.  What you are looking for may not be possible.
+
+A memory profiler using this function is most likely to give results
+inconsistent with reality on PyPy.  It would be possible to have
+sys.getsizeof() return a number (with enough work), but that may or
+may not represent how much memory the object uses.  It doesn't even
+make really sense to ask how much *one* object uses, in isolation
+with the rest of the system.  For example, instances have maps,
+which are often shared across many instances; in this case the maps
+would probably be ignored by an implementation of sys.getsizeof(),
+but their overhead is important in some cases if they are many
+instances with unique maps.  Conversely, equal strings may share
+their internal string data even if they are different objects---or
+empty containers may share parts of their internals as long as they
+are empty.  Even stranger, some lists create objects as you read
+them; if you try to estimate the size in memory of range(10**6) as
+the sum of all items' size, that operation will by itself create one
+million integer objects that never existed in the first place.
+"""
 
 def getsizeof(space, w_object, w_default=None):
-    """Not implemented on PyPy."""
     if w_default is None:
-        raise OperationError(space.w_TypeError,
-            space.wrap("sys.getsizeof() not implemented on PyPy"))
+        raise oefmt(space.w_TypeError, getsizeof_missing)
     return w_default
+getsizeof.__doc__ = getsizeof_missing

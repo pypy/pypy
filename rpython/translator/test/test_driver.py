@@ -80,7 +80,7 @@ def test_create_exe():
     td.create_exe()
     assert dst_name.read() == 'exe'
     assert dst_name.new(ext='dll').read() == 'dll'
-    assert dst_name.new(purebasename='python27',ext='lib').read() == 'lib'
+    assert dst_name.new(ext='lib').read() == 'lib'
     assert dst_name.new(purebasename=dst_name.purebasename + 'w').read() == 'wexe'
 
 def test_shutil_copy():

@@ -1,9 +1,9 @@
 
-from rpython.rlib.objectmodel import specialize, we_are_translated
+from rpython.rlib.objectmodel import specialize, we_are_translated, compute_hash
 from rpython.jit.metainterp.resoperation import AbstractValue, ResOperation,\
      rop, OpHelpers
 from rpython.jit.metainterp.history import ConstInt, Const
-from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.jit.metainterp.optimizeopt.rawbuffer import RawBuffer, InvalidRawOperation
 from rpython.jit.metainterp.executor import execute
 from rpython.jit.metainterp.optimize import InvalidLoop
@@ -70,7 +70,10 @@ class PtrInfo(AbstractInfo):
     def same_info(self, other):
         return self is other
 
-    def getstrlen(self, op, string_optimizer, mode, create_ops=True):
+    def getstrlen(self, op, string_optimizer, mode):
+        return None
+
+    def getstrhash(self, op, mode):
         return None
 
     def copy_fields_to_const(self, constinfo, optheap):
@@ -114,7 +117,7 @@ class NonNullPtrInfo(PtrInfo):
         assert self.get_last_guard(optimizer).is_guard()
 
     def make_guards(self, op, short, optimizer):
-        op = ResOperation(rop.GUARD_NONNULL, [op], None)
+        op = ResOperation(rop.GUARD_NONNULL, [op])
         short.append(op)
 
 class AbstractVirtualPtrInfo(NonNullPtrInfo):
@@ -132,7 +135,6 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
 
     def force_box(self, op, optforce):
         if self.is_virtual():
-            optforce.forget_numberings()
             #
             if self._is_immutable_and_filled_with_constants(optforce.optimizer):
                 constptr = optforce.optimizer.constant_fold(op)
@@ -142,9 +144,10 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
                 return constptr
             #
             op.set_forwarded(None)
-            optforce.emit_operation(op)
+            optforce.emit_extra(op)
             newop = optforce.getlastop()
-            op.set_forwarded(newop)
+            if newop is not op:
+                op.set_forwarded(newop)
             newop.set_forwarded(self)
             descr = self.descr
             self._is_virtual = False
@@ -219,7 +222,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
                 setfieldop = ResOperation(rop.SETFIELD_GC, [op, subbox],
                                           descr=fielddescr)
                 self._fields[i] = None
-                optforce.emit_operation(setfieldop)
+                optforce.emit_extra(setfieldop)
 
     def _force_at_the_end_of_preamble(self, op, optforce, rec):
         if self._fields is None:
@@ -326,17 +329,17 @@ class InstancePtrInfo(AbstractStructPtrInfo):
 
     def make_guards(self, op, short, optimizer):
         if self._known_class is not None:
-            short.append(ResOperation(rop.GUARD_NONNULL, [op], None))
+            short.append(ResOperation(rop.GUARD_NONNULL, [op]))
             if not optimizer.cpu.remove_gctypeptr:
-                short.append(ResOperation(rop.GUARD_IS_OBJECT, [op], None))
+                short.append(ResOperation(rop.GUARD_IS_OBJECT, [op]))
             short.append(ResOperation(rop.GUARD_CLASS,
-                                      [op, self._known_class], None))
+                                      [op, self._known_class]))
         elif self.descr is not None:
-            short.append(ResOperation(rop.GUARD_NONNULL, [op], None))
+            short.append(ResOperation(rop.GUARD_NONNULL, [op]))
             if not optimizer.cpu.remove_gctypeptr:
-                short.append(ResOperation(rop.GUARD_IS_OBJECT, [op], None))
+                short.append(ResOperation(rop.GUARD_IS_OBJECT, [op]))
             short.append(ResOperation(rop.GUARD_SUBCLASS, [op,
-                            ConstInt(self.descr.get_vtable())], None))
+                            ConstInt(self.descr.get_vtable())]))
         else:
             AbstractStructPtrInfo.make_guards(self, op, short, optimizer)
 
@@ -349,8 +352,8 @@ class StructPtrInfo(AbstractStructPtrInfo):
         if self.descr is not None:
             c_typeid = ConstInt(self.descr.get_type_id())
             short.extend([
-                ResOperation(rop.GUARD_NONNULL, [op], None),
-                ResOperation(rop.GUARD_GC_TYPE, [op, c_typeid], None)
+                ResOperation(rop.GUARD_NONNULL, [op]),
+                ResOperation(rop.GUARD_GC_TYPE, [op, c_typeid])
             ])
 
     @specialize.argtype(1)
@@ -364,10 +367,18 @@ class AbstractRawPtrInfo(AbstractVirtualPtrInfo):
     def visitor_dispatch_virtual_type(self, visitor):
         raise NotImplementedError("abstract")
 
+    def make_guards(self, op, short, optimizer):
+        from rpython.jit.metainterp.optimizeopt.optimizer import CONST_0
+        op = ResOperation(rop.INT_EQ, [op, CONST_0])
+        short.append(op)
+        op = ResOperation(rop.GUARD_FALSE, [op])
+        short.append(op)
+
 class RawBufferPtrInfo(AbstractRawPtrInfo):
     buffer = None
-    
-    def __init__(self, cpu, size=-1):
+
+    def __init__(self, cpu, func, size=-1):
+        self.func = func
         self.size = size
         if self.size != -1:
             self.buffer = RawBuffer(cpu, None)
@@ -399,6 +410,12 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
 
     def _force_elements(self, op, optforce, descr):
         self.size = -1
+        # at this point we have just written the
+        # 'op = CALL_I(..., OS_RAW_MALLOC_VARSIZE_CHAR)'.
+        # Emit now a CHECK_MEMORY_ERROR resop.
+        check_op = ResOperation(rop.CHECK_MEMORY_ERROR, [op])
+        optforce.emit_extra(check_op)
+        #
         buffer = self._get_buffer()
         for i in range(len(buffer.offsets)):
             # write the value
@@ -407,7 +424,7 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
             itembox = buffer.values[i]
             setfield_op = ResOperation(rop.RAW_STORE,
                               [op, ConstInt(offset), itembox], descr=descr)
-            optforce.emit_operation(setfield_op)
+            optforce.emit_extra(setfield_op)
 
     def _visitor_walk_recursive(self, op, visitor, optimizer):
         itemboxes = [optimizer.get_box_replacement(box)
@@ -418,7 +435,8 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
         buffer = self._get_buffer()
-        return visitor.visit_vrawbuffer(self.size,
+        return visitor.visit_vrawbuffer(self.func,
+                                        self.size,
                                         buffer.offsets[:],
                                         buffer.descrs[:])
 
@@ -521,7 +539,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
                                  [op, ConstInt(i), subbox],
                                   descr=descr)
             self._items[i] = None
-            optforce.emit_operation(setop)
+            optforce.emit_extra(setop)
         optforce.pure_from_args(rop.ARRAYLEN_GC, [op], ConstInt(len(self._items)))
 
     def setitem(self, descr, index, struct, op, optheap=None, cf=None):
@@ -592,7 +610,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
     def make_guards(self, op, short, optimizer):
         AbstractVirtualPtrInfo.make_guards(self, op, short, optimizer)
         c_type_id = ConstInt(self.descr.get_type_id())
-        short.append(ResOperation(rop.GUARD_GC_TYPE, [op, c_type_id], None))
+        short.append(ResOperation(rop.GUARD_GC_TYPE, [op, c_type_id]))
         if self.lenbound is not None:
             lenop = ResOperation(rop.ARRAYLEN_GC, [op], descr=self.descr)
             short.append(lenop)
@@ -635,7 +653,7 @@ class ArrayStructInfo(ArrayPtrInfo):
                     setfieldop = ResOperation(rop.SETINTERIORFIELD_GC,
                                               [op, ConstInt(index), subbox],
                                               descr=fielddescr)
-                    optforce.emit_operation(setfieldop)
+                    optforce.emit_extra(setfieldop)
                     # heapcache does not work for interiorfields
                     # if it does, we would need a fix here
                 i += 1
@@ -755,32 +773,54 @@ class ConstPtrInfo(PtrInfo):
         from rpython.jit.metainterp.optimizeopt.intutils import ConstIntBound,\
                 IntLowerBound
 
-        if mode is None:
+        length = self.getstrlen1(mode)
+        if length < 0:
             # XXX we can do better if we know it's an array
             return IntLowerBound(0)
-        else:
-            return ConstIntBound(self.getstrlen(None, None, mode).getint())
-    
-    def getstrlen(self, op, string_optimizer, mode, create_ops=True):
+        return ConstIntBound(length)
+
+    def getstrlen(self, op, string_optimizer, mode):
+        length = self.getstrlen1(mode)
+        if length < 0:
+            return None
+        return ConstInt(length)
+
+    def getstrlen1(self, mode):
         from rpython.jit.metainterp.optimizeopt import vstring
-        
+
+        if mode is vstring.mode_string:
+            s = self._unpack_str(vstring.mode_string)
+            if s is None:
+                return -1
+            return len(s)
+        elif mode is vstring.mode_unicode:
+            s = self._unpack_str(vstring.mode_unicode)            
+            if s is None:
+                return -1
+            return len(s)
+        else:
+            return -1
+
+    def getstrhash(self, op, mode):
+        from rpython.jit.metainterp.optimizeopt import vstring
+
         if mode is vstring.mode_string:
             s = self._unpack_str(vstring.mode_string)
             if s is None:
                 return None
-            return ConstInt(len(s))
+            return ConstInt(compute_hash(s))
         else:
-            s = self._unpack_str(vstring.mode_unicode)            
+            s = self._unpack_str(vstring.mode_unicode)
             if s is None:
                 return None
-            return ConstInt(len(s))
+            return ConstInt(compute_hash(s))
 
     def string_copy_parts(self, op, string_optimizer, targetbox, offsetbox,
                           mode):
         from rpython.jit.metainterp.optimizeopt import vstring
         from rpython.jit.metainterp.optimizeopt.optimizer import CONST_0
 
-        lgt = self.getstrlen(op, string_optimizer, mode, False)
+        lgt = self.getstrlen(op, string_optimizer, mode)
         return vstring.copy_str_content(string_optimizer, self._const,
                                         targetbox, CONST_0, offsetbox,
                                         lgt, mode)

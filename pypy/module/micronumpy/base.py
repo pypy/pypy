@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 from rpython.tool.pairtype import extendabletype
 from rpython.rlib.rarithmetic import ovfcheck
 from pypy.module.micronumpy import support
@@ -76,8 +76,8 @@ class W_NDimArray(W_NumpyObject):
             raise oefmt(space.w_ValueError, "array is too big.")
         if storage_bytes > 0 :
             if totalsize > storage_bytes:
-                raise OperationError(space.w_TypeError, space.wrap(
-                    "buffer is too small for requested array"))
+                raise oefmt(space.w_TypeError,
+                            "buffer is too small for requested array")
         else:
             storage_bytes = totalsize
         if strides is None:
@@ -97,8 +97,8 @@ class W_NDimArray(W_NumpyObject):
             backstrides = calc_backstrides(strides, shape)
         if w_base is not None:
             if owning:
-                raise OperationError(space.w_ValueError,
-                        space.wrap("Cannot have owning=True when specifying a buffer"))
+                raise oefmt(space.w_ValueError,
+                            "Cannot have owning=True when specifying a buffer")
             if writable:
                 impl = concrete.ConcreteArrayWithBase(shape, dtype, order,
                                     strides, backstrides, storage, w_base,
@@ -136,7 +136,7 @@ class W_NDimArray(W_NumpyObject):
         if w_val is not None:
             w_val = dtype.coerce(space, w_val)
         else:
-            w_val = dtype.coerce(space, space.wrap(0))
+            w_val = dtype.coerce(space, space.newint(0))
         return convert_to_array(space, w_val)
 
     @staticmethod

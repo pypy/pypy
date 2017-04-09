@@ -108,22 +108,11 @@ class AppTestModuleDict(object):
 
 class TestModuleDictImplementation(BaseTestRDictImplementation):
     StrategyClass = ModuleDictStrategy
-
-class TestModuleDictImplementationWithBuiltinNames(BaseTestRDictImplementation):
-    StrategyClass = ModuleDictStrategy
-
-    string = "int"
-    string2 = "isinstance"
-
+    setdefault_hash_count = 2
 
 class TestDevolvedModuleDictImplementation(BaseTestDevolvedDictImplementation):
     StrategyClass = ModuleDictStrategy
-
-class TestDevolvedModuleDictImplementationWithBuiltinNames(BaseTestDevolvedDictImplementation):
-    StrategyClass = ModuleDictStrategy
-
-    string = "int"
-    string2 = "isinstance"
+    setdefault_hash_count = 2
 
 
 class AppTestCellDict(object):

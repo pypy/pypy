@@ -1,6 +1,6 @@
 
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, build_type_checkers, bootstrap_function,
     PyObject, PyObjectFields, CONST_STRING, CANNOT_FAIL, Py_ssize_t)
@@ -24,7 +24,7 @@ def init_intobject(space):
                    attach=int_attach,
                    realize=int_realize)
 
-def int_attach(space, py_obj, w_obj):
+def int_attach(space, py_obj, w_obj, w_userdata=None):
     """
     Fills a newly allocated PyIntObject with the given int object. The
     value must not be modified.
@@ -53,7 +53,7 @@ def PyInt_FromLong(space, ival):
     """Create a new integer object with a value of ival.
 
     """
-    return space.wrap(ival)
+    return space.newint(ival)
 
 @cpython_api([PyObject], lltype.Signed, error=-1)
 def PyInt_AsLong(space, w_obj):
@@ -62,8 +62,7 @@ def PyInt_AsLong(space, w_obj):
     returned, and the caller should check PyErr_Occurred() to find out whether
     there was an error, or whether the value just happened to be -1."""
     if w_obj is None:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("an integer is required, got NULL"))
+        raise oefmt(space.w_TypeError, "an integer is required, got NULL")
     return space.int_w(space.int(w_obj))
 
 @cpython_api([PyObject], lltype.Unsigned, error=-1)
@@ -72,8 +71,7 @@ def PyInt_AsUnsignedLong(space, w_obj):
     If pylong is greater than ULONG_MAX, an OverflowError is
     raised."""
     if w_obj is None:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("an integer is required, got NULL"))
+        raise oefmt(space.w_TypeError, "an integer is required, got NULL")
     return space.uint_w(space.int(w_obj))
 
 
@@ -106,7 +104,7 @@ def PyInt_AsUnsignedLongLongMask(space, w_obj):
         num = space.bigint_w(w_int)
         return num.ulonglongmask()
 
-@cpython_api([PyObject], lltype.Signed, error=CANNOT_FAIL)
+@cpython_api([rffi.VOIDP], lltype.Signed, error=CANNOT_FAIL)
 def PyInt_AS_LONG(space, w_int):
     """Return the value of the object w_int. No error checking is performed."""
     return space.int_w(w_int)
@@ -118,8 +116,7 @@ def PyInt_AsSsize_t(space, w_obj):
     Py_ssize_t.
     """
     if w_obj is None:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("an integer is required, got NULL"))
+        raise oefmt(space.w_TypeError, "an integer is required, got NULL")
     return space.int_w(w_obj) # XXX this is wrong on win64
 
 LONG_MAX = int(LONG_TEST - 1)
@@ -130,8 +127,8 @@ def PyInt_FromSize_t(space, ival):
     LONG_MAX, a long integer object is returned.
     """
     if ival <= LONG_MAX:
-        return space.wrap(intmask(ival))
-    return space.wrap(ival)
+        return space.newint(intmask(ival))
+    return space.newint(ival)
 
 @cpython_api([Py_ssize_t], PyObject)
 def PyInt_FromSsize_t(space, ival):
@@ -139,7 +136,7 @@ def PyInt_FromSsize_t(space, ival):
     than LONG_MAX or smaller than LONG_MIN, a long integer object is
     returned.
     """
-    return space.wrap(ival)
+    return space.newint(ival)
 
 @cpython_api([CONST_STRING, rffi.CCHARPP, rffi.INT_real], PyObject)
 def PyInt_FromString(space, str, pend, base):
@@ -157,8 +154,8 @@ def PyInt_FromString(space, str, pend, base):
     returned.  If overflow warnings are not being suppressed, NULL will be
     returned in this case."""
     s = rffi.charp2str(str)
-    w_str = space.wrap(s)
-    w_base = space.wrap(rffi.cast(lltype.Signed, base))
+    w_str = space.newtext(s)
+    w_base = space.newint(rffi.cast(lltype.Signed, base))
     if pend:
         pend[0] = rffi.ptradd(str, len(s))
     return space.call_function(space.w_int, w_str, w_base)

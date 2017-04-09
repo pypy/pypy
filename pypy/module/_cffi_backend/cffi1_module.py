@@ -39,12 +39,13 @@ def load_cffi1_module(space, name, path, initptr):
     if src_ctx.c_includes:
         lib.make_includes_from(src_ctx.c_includes)
 
-    w_name = space.wrap(name)
+    w_name = space.newtext(name)
     module = Module(space, w_name)
     if path is not None:
-        module.setdictvalue(space, '__file__', space.wrap(path))
-    module.setdictvalue(space, 'ffi', space.wrap(ffi))
-    module.setdictvalue(space, 'lib', space.wrap(lib))
+        module.setdictvalue(space, '__file__', space.newtext(path))
+    module.setdictvalue(space, 'ffi', ffi)
+    module.setdictvalue(space, 'lib', lib)
     w_modules_dict = space.sys.get('modules')
-    space.setitem(w_modules_dict, w_name, space.wrap(module))
-    space.setitem(w_modules_dict, space.wrap(name + '.lib'), space.wrap(lib))
+    space.setitem(w_modules_dict, w_name, module)
+    space.setitem(w_modules_dict, space.newtext(name + '.lib'), lib)
+    return module
