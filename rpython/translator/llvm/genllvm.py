@@ -1661,7 +1661,8 @@ class GCPolicy(object):
                 for finish_table in finish_tables:
                     for dep in finish_table:
                         self._consider_constant(lltype.typeOf(dep), dep)
-        self.gctransformer.inline_helpers(genllvm.translator.graphs)
+        self.gctransformer.inline_helpers_and_postprocess(
+                genllvm.translator.graphs)
 
 
 class FrameworkGCPolicy(GCPolicy):
