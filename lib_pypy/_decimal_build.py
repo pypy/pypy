@@ -226,6 +226,16 @@ char *mpd_qformat_spec(const mpd_t *dec, const mpd_spec_t *spec, const mpd_conte
 _libdir = os.path.join(os.path.dirname(__file__), '_libmpdec')
 ffi.set_source('_decimal_cffi',
     """
+#ifdef _MSC_VER
+  #if defined(_WIN64)
+    typedef __int64 LONG_PTR; 
+  #else
+    typedef long LONG_PTR;
+  #endif
+  typedef LONG_PTR ssize_t;
+#else
+  #define HAVE_STDINT_H
+#endif
 #include "mpdecimal.h"
 
 #define MPD_Float_operation MPD_Not_implemented
@@ -266,7 +276,6 @@ const char *dec_signal_string[MPD_NUM_FLAGS] = {
     include_dirs=[_libdir],
     extra_compile_args=[
         "-DANSI",
-        "-DHAVE_STDINT_H",
         "-DHAVE_INTTYPES_H",
         "-DCONFIG_64" if sys.maxsize > 1 << 32 else "-DCONFIG_32",
     ],
