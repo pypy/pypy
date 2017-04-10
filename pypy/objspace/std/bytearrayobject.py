@@ -13,8 +13,7 @@ from rpython.rlib import jit
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.objspace.std.bytesobject import (
-    getbytevalue, makebytesdata_w, newbytesdata_w)
+from pypy.objspace.std.bytesobject import makebytesdata_w, newbytesdata_w
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.buffer import SimpleBuffer, BinaryBuffer
@@ -392,7 +391,7 @@ class W_BytearrayObject(W_Root):
                                   slicelength, sequence2, empty_elem='\x00')
         else:
             idx = space.getindex_w(w_index, space.w_IndexError, "bytearray")
-            newvalue = getbytevalue(space, w_other)
+            newvalue = space.byte_w(w_other)
             self._data[self._fixindex(space, idx)] = newvalue
 
     def descr_delitem(self, space, w_idx):
@@ -418,7 +417,7 @@ class W_BytearrayObject(W_Root):
                              _shrink_after_delete_from_start, self)
 
     def descr_append(self, space, w_item):
-        self._data.append(getbytevalue(space, w_item))
+        self._data.append(space.byte_w(w_item))
 
     def descr_extend(self, space, w_other):
         if isinstance(w_other, W_BytearrayObject):
@@ -428,10 +427,8 @@ class W_BytearrayObject(W_Root):
 
     def descr_insert(self, space, w_idx, w_other):
         where = space.int_w(w_idx)
-        val = getbytevalue(space, w_other)
-        data = self.getdata()
-        length = len(data)
-        index = get_positive_index(where, length)
+        index = get_positive_index(where, len(self.getdata()))
+        val = space.byte_w(w_other)
         data.insert(index, val)
 
     @unwrap_spec(w_idx=WrappedDefault(-1))

@@ -93,12 +93,10 @@ class Buffer(object):
             return fmtiter.result_w[0]
 
     def setitem_w(self, space, idx, w_obj):
-        from pypy.objspace.std.bytesobject import getbytevalue
         from pypy.module.struct.formatiterator import PackFormatIterator
         itemsize = self.getitemsize()
         if itemsize == 1:
-            ch = getbytevalue(space, w_obj)
-            self.as_binary()[idx] = ch
+            self.as_binary()[idx] = space.byte_w(w_obj)
         else:
             # TODO: this probably isn't very fast
             fmtiter = PackFormatIterator(space, [w_obj], itemsize)
@@ -152,9 +150,7 @@ class SimpleBuffer(Buffer):
         return space.newint(ord(ch))
 
     def setitem_w(self, space, idx, w_obj):
-        from pypy.objspace.std.bytesobject import getbytevalue
-        ch = getbytevalue(space, w_obj)
-        self.data[idx] = ch
+        self.data[idx] = space.byte_w(w_obj)
 
 
 class BinaryBuffer(object):
