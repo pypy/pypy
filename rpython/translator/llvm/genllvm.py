@@ -1103,6 +1103,9 @@ class FunctionWriter(object):
     def op_debug_assert(self, result, *args):
         pass
 
+    def op_debug_assert_not_none(self, result, *args):
+        pass
+
     def op_debug_llinterpcall(self, result, *args):
         self.w('call void @abort() noreturn nounwind')
         if result.type is not LLVMVoid:
