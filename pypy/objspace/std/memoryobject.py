@@ -158,21 +158,9 @@ class W_MemoryView(W_Root):
         while dim < length:
             w_obj = w_tuple.getitem(space, dim)
             index = space.getindex_w(w_obj, space.w_IndexError)
-            shape = self.buf.getshape()
-            strides = self.buf.getstrides()
-            start = self.lookup_dimension(space, shape, strides, start, dim, index)
+            start += self.buf.get_offset(space, dim, index)
             dim += 1
         return start
-
-    def lookup_dimension(self, space, shape, strides, start, dim, index):
-        nitems = shape[dim]
-        if index < 0:
-            index += nitems
-        if index < 0 or index >= nitems:
-            raise oefmt(space.w_IndexError,
-                "index out of bounds on dimension %d", dim+1)
-        # TODO suboffsets?
-        return start + strides[dim] * index
 
     def _getitem_tuple_indexed(self, space, w_index):
         view = self.buf
@@ -219,10 +207,7 @@ class W_MemoryView(W_Root):
             if dim == 0:
                 raise oefmt(space.w_TypeError, "invalid indexing of 0-dim memory")
             elif dim == 1:
-                shape = self.getshape()
-                strides = self.getstrides()
-                idx = self.lookup_dimension(space, shape, strides, 0, 0, start)
-                return self.buf.w_getitem(space, idx)
+                return self.buf.w_getitem(space, start)
             else:
                 raise oefmt(space.w_NotImplementedError, "multi-dimensional sub-views are not implemented")
         elif is_slice:
@@ -263,10 +248,7 @@ class W_MemoryView(W_Root):
         start, stop, step, slicelength = self._decode_index(space, w_index, is_slice)
         itemsize = self.getitemsize()
         if step == 0:  # index only
-            shape = self.getshape()
-            strides = self.getstrides()
-            idx = self.lookup_dimension(space, shape, strides, 0, 0, start)
-            self.buf.setitem_w(space, idx, w_obj)
+            self.buf.setitem_w(space, start, w_obj)
         elif step == 1:
             value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
             if value.getlength() != slicelength * itemsize:

@@ -2,6 +2,8 @@ from rpython.rlib.rgc import nonmoving_raw_ptr_for_resizable_list
 from rpython.rlib.signature import signature
 from rpython.rlib import types
 
+from pypy.interpreter.error import oefmt
+
 
 class Buffer(object):
     """Abstract base class for buffers."""
@@ -78,15 +80,30 @@ class Buffer(object):
             if copiedbytes >= bytesize:
                 break
 
+    def get_offset(self, space, dim, index):
+        "Convert index at dimension `dim` into a byte offset"
+        shape = self.getshape()
+        nitems = shape[dim]
+        if index < 0:
+            index += nitems
+        if index < 0 or index >= nitems:
+            raise oefmt(space.w_IndexError,
+                "index out of bounds on dimension %d", dim+1)
+        # TODO suboffsets?
+        strides = self.getstrides()
+        return strides[dim] * index
+
+
     def w_getitem(self, space, idx):
+        offset = self.get_offset(space, 0, idx)
         from pypy.module.struct.formatiterator import UnpackFormatIterator
         itemsize = self.getitemsize()
         if itemsize == 1:
-            ch = self.as_binary()[idx]
+            ch = self.as_binary()[offset]
             return space.newint(ord(ch))
         else:
             # TODO: this probably isn't very fast
-            buf = SubBuffer(self.as_binary(), idx, itemsize)
+            buf = SubBuffer(self.as_binary(), offset, itemsize)
             fmtiter = UnpackFormatIterator(space, buf)
             fmtiter.length = buf.getlength()
             fmtiter.interpret(self.getformat())
@@ -94,9 +111,10 @@ class Buffer(object):
 
     def setitem_w(self, space, idx, w_obj):
         from pypy.module.struct.formatiterator import PackFormatIterator
+        offset = self.get_offset(space, 0, idx)
         itemsize = self.getitemsize()
         if itemsize == 1:
-            self.as_binary()[idx] = space.byte_w(w_obj)
+            self.as_binary()[offset] = space.byte_w(w_obj)
         else:
             # TODO: this probably isn't very fast
             fmtiter = PackFormatIterator(space, [w_obj], itemsize)
@@ -107,7 +125,7 @@ class Buffer(object):
                             "memoryview: invalid type for format '%s'",
                             self.getformat())
             byteval = fmtiter.result.build()
-            self.setslice(idx, byteval)
+            self.setslice(offset, byteval)
 
 
 class SimpleBuffer(Buffer):
@@ -145,11 +163,24 @@ class SimpleBuffer(Buffer):
     def getstrides(self):
         return [1]
 
+    def get_offset(self, space, dim, index):
+        "Convert index at dimension `dim` into a byte offset"
+        assert dim == 0
+        nitems = self.getlength()
+        if index < 0:
+            index += nitems
+        if index < 0 or index >= nitems:
+            raise oefmt(space.w_IndexError,
+                "index out of bounds on dimension %d", dim + 1)
+        return index
+
     def w_getitem(self, space, idx):
+        idx = self.get_offset(space, 0, idx)
         ch = self.data[idx]
         return space.newint(ord(ch))
 
     def setitem_w(self, space, idx, w_obj):
+        idx = self.get_offset(space, 0, idx)
         self.data[idx] = space.byte_w(w_obj)
 
 
