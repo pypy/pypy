@@ -1377,7 +1377,7 @@ class FunctionWriter(object):
     def op_raw_malloc(self, result, size, zero):
         if zero.value is True:
             self.op_direct_call(result, get_repr(raw_calloc), size,
-                                ConstantRepr(LLVMInt, 1))
+                                ConstantRepr(LLVMSigned, 1))
         elif zero.value is False:
             self.op_direct_call(result, get_repr(raw_malloc), size)
         else:
