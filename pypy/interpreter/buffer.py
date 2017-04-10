@@ -2,6 +2,7 @@ from rpython.rlib.rgc import nonmoving_raw_ptr_for_resizable_list
 from rpython.rlib.signature import signature
 from rpython.rlib import types
 
+
 class Buffer(object):
     """Abstract base class for buffers."""
     _attrs_ = ['readonly']
@@ -77,6 +78,20 @@ class Buffer(object):
             if copiedbytes >= bytesize:
                 break
 
+    def w_getitem(self, space, idx):
+        from pypy.module.struct.formatiterator import UnpackFormatIterator
+        itemsize = self.getitemsize()
+        if itemsize == 1:
+            ch = self.as_binary()[idx]
+            return space.newint(ord(ch))
+        else:
+            # TODO: this probably isn't very fast
+            buf = SubBuffer(self.as_binary(), idx, itemsize)
+            fmtiter = UnpackFormatIterator(space, buf)
+            fmtiter.length = buf.getlength()
+            fmtiter.interpret(self.getformat())
+            return fmtiter.result_w[0]
+
 
 class SimpleBuffer(Buffer):
     _attrs_ = ['readonly', 'data']
@@ -112,6 +127,10 @@ class SimpleBuffer(Buffer):
 
     def getstrides(self):
         return [1]
+
+    def w_getitem(self, space, idx):
+        ch = self.data[idx]
+        return space.newint(ord(ch))
 
 
 class BinaryBuffer(object):

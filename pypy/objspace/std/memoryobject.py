@@ -223,16 +223,7 @@ class W_MemoryView(W_Root):
                 shape = self.getshape()
                 strides = self.getstrides()
                 idx = self.lookup_dimension(space, shape, strides, 0, 0, start)
-                if itemsize == 1:
-                    ch = self.buf.getitem(idx)
-                    return space.newint(ord(ch))
-                else:
-                    # TODO: this probably isn't very fast
-                    buf = SubBuffer(self.buf.as_binary(), idx, itemsize)
-                    fmtiter = UnpackFormatIterator(space, buf)
-                    fmtiter.length = buf.getlength()
-                    fmtiter.interpret(self.buf.getformat())
-                    return fmtiter.result_w[0]
+                return self.buf.w_getitem(space, idx)
             else:
                 raise oefmt(space.w_NotImplementedError, "multi-dimensional sub-views are not implemented")
         elif is_slice:
