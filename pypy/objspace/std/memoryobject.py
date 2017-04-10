@@ -11,7 +11,6 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty,  make_weakref_descr
 from pypy.module.struct.formatiterator import UnpackFormatIterator, PackFormatIterator
-from pypy.objspace.std.bytesobject import getbytevalue
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import always_inline
 
@@ -267,19 +266,7 @@ class W_MemoryView(W_Root):
             shape = self.getshape()
             strides = self.getstrides()
             idx = self.lookup_dimension(space, shape, strides, 0, 0, start)
-            if itemsize == 1:
-                ch = getbytevalue(space, w_obj)
-                self.buf.setitem(idx, ch)
-            else:
-                # TODO: this probably isn't very fast
-                fmtiter = PackFormatIterator(space, [w_obj], itemsize)
-                try:
-                    fmtiter.interpret(self.getformat())
-                except StructError as e:
-                    raise oefmt(space.w_TypeError,
-                                "memoryview: invalid type for format '%s'",
-                                self.getformat())
-                self.buf.setslice(idx, fmtiter.result.build())
+            self.buf.setitem_w(space, idx, w_obj)
         elif step == 1:
             value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
             if value.getlength() != slicelength * itemsize:

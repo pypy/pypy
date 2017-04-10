@@ -92,6 +92,25 @@ class Buffer(object):
             fmtiter.interpret(self.getformat())
             return fmtiter.result_w[0]
 
+    def setitem_w(self, space, idx, w_obj):
+        from pypy.objspace.std.bytesobject import getbytevalue
+        from pypy.module.struct.formatiterator import PackFormatIterator
+        itemsize = self.getitemsize()
+        if itemsize == 1:
+            ch = getbytevalue(space, w_obj)
+            self.as_binary()[idx] = ch
+        else:
+            # TODO: this probably isn't very fast
+            fmtiter = PackFormatIterator(space, [w_obj], itemsize)
+            try:
+                fmtiter.interpret(self.getformat())
+            except StructError as e:
+                raise oefmt(space.w_TypeError,
+                            "memoryview: invalid type for format '%s'",
+                            self.getformat())
+            byteval = fmtiter.result.build()
+            self.setslice(idx, byteval)
+
 
 class SimpleBuffer(Buffer):
     _attrs_ = ['readonly', 'data']
@@ -131,6 +150,11 @@ class SimpleBuffer(Buffer):
     def w_getitem(self, space, idx):
         ch = self.data[idx]
         return space.newint(ord(ch))
+
+    def setitem_w(self, space, idx, w_obj):
+        from pypy.objspace.std.bytesobject import getbytevalue
+        ch = getbytevalue(space, w_obj)
+        self.data[idx] = ch
 
 
 class BinaryBuffer(object):
