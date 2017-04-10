@@ -1369,8 +1369,14 @@ class FunctionWriter(object):
     def op_float_is_true(self, result, var):
         self.w('{result.V} = fcmp one {var.TV}, 0.0'.format(**locals()))
 
-    def op_raw_malloc(self, result, size):
-        self.op_direct_call(result, get_repr(raw_malloc), size)
+    def op_raw_malloc(self, result, size, zero):
+        if zero.value is True:
+            self.op_direct_call(result, get_repr(raw_calloc), size,
+                                ConstantRepr(LLVMInt, 1))
+        elif zero.value is False:
+            self.op_direct_call(result, get_repr(raw_malloc), size)
+        else:
+            assert False
 
     def op_raw_free(self, result, ptr):
         self.op_direct_call(result, get_repr(raw_free), ptr)
@@ -1700,6 +1706,8 @@ def extfunc(name, args, result, compilation_info):
 
 eci = ExternalCompilationInfo()
 raw_malloc = extfunc('malloc', [lltype.Signed], llmemory.Address, eci)
+raw_calloc = extfunc('calloc', [lltype.Signed, lltype.Signed],
+                     llmemory.Address, eci)
 raw_free = extfunc('free', [llmemory.Address], lltype.Void, eci)
 llvm_memcpy = extfunc('llvm.memcpy.p0i8.p0i8.i' + str(LLVMSigned.bitwidth),
                       [llmemory.Address, llmemory.Address, lltype.Signed,
