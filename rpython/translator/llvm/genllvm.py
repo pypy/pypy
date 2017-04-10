@@ -1494,7 +1494,13 @@ class FunctionWriter(object):
     op_jit_marker = _ignore
     op_jit_ffi_save_result = _ignore
     op_jit_conditional_call = _ignore
+    op_jit_conditional_call_value = _ignore
     op_gc__collect = _ignore
+
+    def op_jit_conditional_call_value(self, result, *args):
+        if result.type is not LLVMVoid:
+            self.w('{result.V} = bitcast {result.T} undef to {result.T}'
+                    .format(**locals()))
 
     def op_jit_force_virtual(self, result, x):
         self._cast(result, x)
