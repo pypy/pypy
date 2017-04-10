@@ -234,12 +234,14 @@ directory next to the dlls, as per build instructions."""
             zf.close()
         else:
             archive = str(builddir.join(name + '.tar.bz2'))
-            if sys.platform == 'darwin' or sys.platform.startswith('freebsd'):
+            if sys.platform == 'darwin':
                 print >>sys.stderr, """Warning: tar on current platform does not suport overriding the uid and gid
 for its contents. The tarball will contain your uid and gid. If you are
 building the actual release for the PyPy website, you may want to be
 using another platform..."""
                 e = os.system('tar --numeric-owner -cvjf ' + archive + " " + name)
+            elif sys.platform.startswith('freebsd'):
+                e = os.system('tar --uname=root --gname=wheel -cvjf ' + archive + " " + name)
             elif sys.platform == 'cygwin':
                 e = os.system('tar --owner=Administrator --group=Administrators --numeric-owner -cvjf ' + archive + " " + name)
             else:
