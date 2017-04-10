@@ -56,8 +56,7 @@ translation_optiondescription = OptionDescription(
                  ["c", "llvm"], default="c",
                  requires={
                      "c":      [("translation.type_system", "lltype")],
-                     "llvm":   [("translation.type_system", "lltype"),
-                                ("translation.backendopt.raisingop2direct_call", True)],
+                     "llvm":   [("translation.type_system", "lltype")],
                      },
                  cmdline="-b --backend"),
 
