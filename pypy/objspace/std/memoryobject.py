@@ -104,8 +104,9 @@ class W_MemoryView(W_Root):
             raise NotImplementedError
         elif dim == 1:
             itemsize = self.getitemsize()
-            return self._tolist(space, buf.as_binary(), self.getlength(), itemsize, fmt,
-                                self.getstrides())
+            n = self.getshape()[0]
+            values_w = [buf.w_getitem(space, i) for i in range(n)]
+            return space.newlist(values_w)
         else:
             return self._tolist_rec(space, buf.as_binary(), 0, 0, fmt)
 
