@@ -687,6 +687,15 @@ class BufferSlice(Buffer):
     def getstrides(self):
         return self.strides
 
+    def parent_index(self, idx):
+        return self.offset + self.step * idx
+
+    def w_getitem(self, space, idx):
+        return self.buf.w_getitem(space, self.parent_index(idx))
+
+    def setitem_w(self, space, idx, w_obj):
+        return self.buf.setitem_w(space, self.parent_index(idx), w_obj)
+
 
 class BufferViewBase(Buffer):
     _immutable_ = True
