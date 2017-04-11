@@ -96,55 +96,7 @@ class W_MemoryView(W_Root):
 
     def descr_tolist(self, space):
         self._check_released(space)
-
-        buf = self.buf
-        dim = self.getndim()
-        fmt = self.getformat()
-        if dim == 0:
-            raise NotImplementedError
-        elif dim == 1:
-            itemsize = self.getitemsize()
-            n = self.getshape()[0]
-            values_w = [buf.w_getitem(space, i) for i in range(n)]
-            return space.newlist(values_w)
-        else:
-            return self._tolist_rec(space, buf.as_binary(), 0, 0, fmt)
-
-    def _tolist(self, space, buf, bytecount, itemsize, fmt, strides=None):
-        # TODO: this probably isn't very fast
-        count = bytecount // itemsize
-        fmtiter = UnpackFormatIterator(space, buf)
-        # patch the length, necessary buffer might have offset
-        # which leads to wrong length calculation if e.g. the
-        # memoryview is reversed
-        fmtiter.length = bytecount
-        fmtiter.strides = strides
-        fmtiter.interpret(fmt * count)
-        return space.newlist(fmtiter.result_w)
-
-    def _tolist_rec(self, space, buf, start, idim, fmt):
-        strides = self.getstrides()
-        shape = self.getshape()
-        #
-        dim = idim+1
-        stride = strides[idim]
-        itemsize = self.getitemsize()
-        dimshape = shape[idim]
-        #
-        if dim >= self.getndim():
-            bytecount = (stride * dimshape)
-            return self._tolist(space, buf, bytecount, itemsize, fmt, [stride])
-        items = [None] * dimshape
-
-        orig_buf = buf
-        for i in range(dimshape):
-            buf = SubBuffer(orig_buf, start, stride)
-            item = self._tolist_rec(space, buf, start, idim+1, fmt)
-            items[i] = item
-            start += stride
-
-        return space.newlist(items)
-
+        return self.buf.w_tolist(space)
 
     def _start_from_tuple(self, space, w_tuple):
         from pypy.objspace.std.tupleobject import W_AbstractTupleObject
