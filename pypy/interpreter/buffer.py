@@ -1,6 +1,7 @@
 from rpython.rlib.rgc import nonmoving_raw_ptr_for_resizable_list
 from rpython.rlib.signature import signature
 from rpython.rlib import types
+from rpython.rlib.rstruct.error import StructError
 
 from pypy.interpreter.error import oefmt
 
@@ -17,6 +18,15 @@ class Buffer(object):
     def as_str(self):
         "Returns an interp-level string with the whole content of the buffer."
         return ''.join(self._copy_buffer())
+
+    def getbytes(self, start, stop, step, size):
+        # May be overridden.  No bounds checks.
+        return ''.join([self.getitem(i) for i in range(start, stop, step)])
+
+    def setbytes(self, start, string):
+        # May be overridden.  No bounds checks.
+        for i in range(len(string)):
+            self.setitem(start + i, string[i])
 
     def get_raw_address(self):
         raise ValueError("no raw buffer")
@@ -46,7 +56,7 @@ class Buffer(object):
     def _copy_buffer(self):
         if self.getndim() == 0:
             itemsize = self.getitemsize()
-            return [self.getslice(0, itemsize, 1, itemsize)]
+            return [self.getbytes(0, itemsize, 1, itemsize)]
         data = []
         self._copy_rec(0, data, 0)
         return data
@@ -72,7 +82,7 @@ class Buffer(object):
         bytesize = self.getlength()
         copiedbytes = 0
         for i in range(step):
-            bytes = self.getslice(off, off+itemsize, 1, itemsize)
+            bytes = self.getbytes(off, off+itemsize, 1, itemsize)
             data.append(bytes)
             copiedbytes += len(bytes)
             off += strides[0]
@@ -125,7 +135,7 @@ class Buffer(object):
                             "memoryview: invalid type for format '%s'",
                             self.getformat())
             byteval = fmtiter.result.build()
-            self.setslice(offset, byteval)
+            self.setbytes(offset, byteval)
 
 
 class SimpleBuffer(Buffer):
@@ -141,6 +151,13 @@ class SimpleBuffer(Buffer):
 
     def as_str(self):
         return self.data.as_str()
+
+    def getbytes(self, start, stop, step, size):
+        assert step == 1
+        return self.data[start:stop]
+
+    def setbytes(self, offset, s):
+        self.data.setslice(offset, s)
 
     def get_raw_address(self):
         return self.data.get_raw_address()

@@ -4,7 +4,6 @@ Implementation of the 'buffer' and 'memoryview' types.
 import operator
 
 from rpython.rlib.objectmodel import compute_hash
-from rpython.rlib.rstruct.error import StructError
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import Buffer, SubBuffer
 from pypy.interpreter.error import OperationError, oefmt
@@ -254,7 +253,7 @@ class W_MemoryView(W_Root):
             if value.getlength() != slicelength * itemsize:
                 raise oefmt(space.w_ValueError,
                             "cannot modify size of memoryview object")
-            self.buf.setslice(start * itemsize, value.as_str())
+            self.buf.setbytes(start * itemsize, value.as_str())
         else:
             if self.getndim() != 1:
                 raise oefmt(space.w_NotImplementedError,
@@ -274,7 +273,7 @@ class W_MemoryView(W_Root):
             src_shape0 = slicelength
             src_stride0 = src.getstrides()[0]
             for i in range(src_shape0):
-                data.append(src.getslice(off,off+itemsize,1,itemsize))
+                data.append(src.getbytes(off,off+itemsize,1,itemsize))
                 off += src_stride0
             off = 0
             dst_stride0 = self.getstrides()[0] * step
@@ -655,6 +654,19 @@ class BufferSlice(Buffer):
     def getlength(self):
         return self.shape[0] * self.getitemsize()
 
+    def getbytes(self, start, stop, step, size):
+        if start == stop:
+            return ''     # otherwise, adding self.offset might make them
+                          # out of bounds
+        return self.buf.getbytes(self.offset + start, self.offset + stop,
+                                    step, size)
+
+    def setbytes(self, start, string):
+        if len(string) == 0:
+            return        # otherwise, adding self.offset might make 'start'
+                          # out of bounds
+        self.buf.setbytes(self.offset + start, string)
+
     def get_raw_address(self):
         from rpython.rtyper.lltypesystem import rffi
         ptr = self.buf.get_raw_address()
@@ -688,6 +700,12 @@ class BufferViewBase(Buffer):
 
     def as_str_and_offset_maybe(self):
         return self.parent.as_str_and_offset_maybe()
+
+    def getbytes(self, start, stop, step, size):
+        return self.parent.getbytes(start, stop, step, size)
+
+    def setbytes(self, start, string):
+        self.parent.setbytes(start, string)
 
     def get_raw_address(self):
         return self.parent.get_raw_address()

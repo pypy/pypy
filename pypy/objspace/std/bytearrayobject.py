@@ -427,7 +427,8 @@ class W_BytearrayObject(W_Root):
 
     def descr_insert(self, space, w_idx, w_other):
         where = space.int_w(w_idx)
-        index = get_positive_index(where, len(self.getdata()))
+        data = self.getdata()
+        index = get_positive_index(where, len(data))
         val = space.byte_w(w_other)
         data.insert(index, val)
 

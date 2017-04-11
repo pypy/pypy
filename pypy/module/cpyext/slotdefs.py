@@ -380,8 +380,13 @@ class CPyBuffer(Buffer):
     def getlength(self):
         return self.size
 
-    def getitem(self, index):
-        return self.ptr[index]
+    def getbytes(self, start, stop, step, size):
+        return ''.join([self.ptr[i] for i in range(start, stop, step)])
+
+    def setbytes(self, start, string):
+        # absolutely no safety checks, what could go wrong?
+        for i in range(len(string)):
+            self.ptr[start + i] = string[i]
 
     def get_raw_address(self):
         return rffi.cast(rffi.CCHARP, self.ptr)
@@ -400,10 +405,6 @@ class CPyBuffer(Buffer):
 
     def getndim(self):
         return self.ndim
-
-    def setitem(self, index, char):
-        # absolutely no safety checks, what could go wrong?
-        self.ptr[index] = char
 
 class FQ(rgc.FinalizerQueue):
     Class = CPyBuffer
