@@ -1043,7 +1043,7 @@ def copy_flags_from_bases(w_self, w_bestbase):
 
 
 def create_all_slots(w_self, hasoldstylebase, w_bestbase, force_new_layout):
-    from pypy.objspace.std.listobject import StringSort
+    from pypy.interpreter.miscutils import string_sort
 
     base_layout = w_bestbase.layout
     index_next_extra_slot = base_layout.nslots
@@ -1077,8 +1077,7 @@ def create_all_slots(w_self, hasoldstylebase, w_bestbase, force_new_layout):
             else:
                 newslotnames.append(slot_name)
         # Sort the list of names collected so far
-        sorter = StringSort(newslotnames, len(newslotnames))
-        sorter.sort()
+        string_sort(newslotnames)
         # Try to create all slots in order.  The creation of some of
         # them might silently fail; then we delete the name from the
         # list.  At the end, 'index_next_extra_slot' has been advanced

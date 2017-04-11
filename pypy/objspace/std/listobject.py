@@ -23,6 +23,7 @@ from pypy.interpreter.gateway import (
     WrappedDefault, applevel, interp2app, unwrap_spec)
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.miscutils import StringSort
 from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.objspace.std.intobject import W_IntObject
@@ -2060,7 +2061,6 @@ TimSort = make_timsort_class()
 IntBaseTimSort = make_timsort_class()
 FloatBaseTimSort = make_timsort_class()
 IntOrFloatBaseTimSort = make_timsort_class()
-StringBaseTimSort = make_timsort_class()
 UnicodeBaseTimSort = make_timsort_class()
 
 
@@ -2095,11 +2095,6 @@ class IntOrFloatSort(IntOrFloatBaseTimSort):
         fa = longlong2float.maybe_decode_longlong_as_float(a)
         fb = longlong2float.maybe_decode_longlong_as_float(b)
         return fa < fb
-
-
-class StringSort(StringBaseTimSort):
-    def lt(self, a, b):
-        return a < b
 
 
 class UnicodeSort(UnicodeBaseTimSort):
