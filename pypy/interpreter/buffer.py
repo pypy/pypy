@@ -6,7 +6,7 @@ from rpython.rlib.rstruct.error import StructError
 from pypy.interpreter.error import oefmt
 
 
-class Buffer(object):
+class PyBuffer(object):
     """Abstract base class for buffers."""
     _attrs_ = ['readonly']
     _immutable_ = True
@@ -186,7 +186,7 @@ class Buffer(object):
         return space.newlist(items)
 
 
-class SimpleBuffer(Buffer):
+class SimpleBuffer(PyBuffer):
     _attrs_ = ['readonly', 'data']
     _immutable_ = True
 

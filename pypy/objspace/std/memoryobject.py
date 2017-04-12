@@ -1,11 +1,11 @@
 """
-Implementation of the 'buffer' and 'memoryview' types.
+Implementation of the 'memoryview' type.
 """
 import operator
 
 from rpython.rlib.objectmodel import compute_hash
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import Buffer, SubBuffer
+from pypy.interpreter.buffer import PyBuffer, SubBuffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty,  make_weakref_descr
@@ -27,7 +27,7 @@ class W_MemoryView(W_Root):
     """
 
     def __init__(self, buf):
-        assert isinstance(buf, Buffer)
+        assert isinstance(buf, PyBuffer)
         self.buf = buf
         self._hash = -1
         self.flags = 0
@@ -347,7 +347,7 @@ class W_MemoryView(W_Root):
         return size
 
     def _zero_in_shape(self):
-        # this method could be moved to the class Buffer
+        # this method could be moved to the class PyBuffer
         buf = self.buf
         shape = buf.getshape()
         for i in range(buf.getndim()):
@@ -590,7 +590,7 @@ def PyBuffer_isContiguous(suboffsets, ndim, shape, strides, itemsize, fort):
                 _IsFortranContiguous(ndim, shape, strides, itemsize))
     return 0
 
-class BufferSlice(Buffer):
+class BufferSlice(PyBuffer):
     _immutable_ = True
     _attrs_ = ['buf', 'readonly', 'shape', 'strides', 'offset', 'step']
     def __init__(self, buf, start, step, length):
@@ -650,7 +650,7 @@ class BufferSlice(Buffer):
         return self.buf.setitem_w(space, self.parent_index(idx), w_obj)
 
 
-class BufferViewBase(Buffer):
+class BufferViewBase(PyBuffer):
     _immutable_ = True
     _attrs_ = ['readonly', 'parent']
 

@@ -1,4 +1,4 @@
-from pypy.interpreter.buffer import Buffer
+from pypy.interpreter.buffer import PyBuffer
 from pypy.interpreter.error import oefmt
 from rpython.rlib import jit, rgc
 from rpython.rlib.rarithmetic import ovfcheck
@@ -702,7 +702,7 @@ class VoidBoxStorage(BaseConcreteArray):
         free_raw_storage(self.storage)
 
 
-class ArrayBuffer(Buffer):
+class ArrayBuffer(PyBuffer):
     _immutable_ = True
 
     def __init__(self, impl, readonly):

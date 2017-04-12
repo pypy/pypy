@@ -19,7 +19,7 @@ from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.memoryobject import fill_Py_buffer
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext import userslot
-from pypy.interpreter.buffer import Buffer
+from pypy.interpreter.buffer import PyBuffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.argument import Arguments
 from rpython.rlib.unroll import unrolling_iterable
@@ -313,7 +313,7 @@ def wrap_hashfunc(space, w_self, w_args, func):
         space.fromcache(State).check_and_raise_exception(always=True)
     return space.newint(res)
 
-class CPyBuffer(Buffer):
+class CPyBuffer(PyBuffer):
     # Similar to Py_buffer
     _immutable_ = True
 

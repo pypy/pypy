@@ -6,7 +6,7 @@ from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 
-from pypy.interpreter.buffer import Buffer, BinaryBuffer
+from pypy.interpreter.buffer import PyBuffer, BinaryBuffer
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
@@ -882,7 +882,7 @@ class ArrayData(BinaryBuffer):
         return self.w_array._charbuf_start()
 
 
-class ArrayBuffer(Buffer):
+class ArrayBuffer(PyBuffer):
     _immutable_ = True
 
     def __init__(self, data, fmt, itemsize, readonly):

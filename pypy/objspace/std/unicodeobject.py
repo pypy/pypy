@@ -12,7 +12,6 @@ from rpython.rlib import jit
 
 from pypy.interpreter import unicodehelper
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import StringBuffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
