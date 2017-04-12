@@ -40,11 +40,14 @@ def text_or_bytes_w(space, w_input):
         return space.text_w(w_input)
 
 def calcsize(space, w_format):
+    """Return size of C struct described by format string fmt."""
     format = text_or_bytes_w(space, w_format)
+    """Return size of C struct described by format string fmt."""
     return space.newint(_calcsize(space, format))
 
 
 def _pack(space, format, args_w):
+    """Return string containing values v1, v2, ... packed according to fmt."""
     if jit.isconstant(format):
         size = _calcsize(space, format)
     else:
@@ -60,6 +63,7 @@ def _pack(space, format, args_w):
 
 
 def pack(space, w_format, args_w):
+    """Return string containing values v1, v2, ... packed according to fmt."""
     format = text_or_bytes_w(space, w_format)
     return do_pack(space, format, args_w)
 
@@ -69,11 +73,17 @@ def do_pack(space, format, args_w):
 
 @unwrap_spec(offset=int)
 def pack_into(space, w_format, w_buffer, offset, args_w):
+    """ Pack the values v1, v2, ... according to fmt.
+Write the packed bytes into the writable buffer buf starting at offset
+    """
     format = text_or_bytes_w(space, w_format)
     return do_pack_into(space, format, w_buffer, offset, args_w)
 
 # XXX inefficient
 def do_pack_into(space, format, w_buffer, offset, args_w):
+    """ Pack the values v1, v2, ... according to fmt.
+Write the packed bytes into the writable buffer buf starting at offset
+    """
     res = _pack(space, format, args_w)
     buf = space.getarg_w('w*', w_buffer)
     if offset < 0:
@@ -108,10 +118,14 @@ def do_unpack(space, format, w_str):
 
 @unwrap_spec(offset=int)
 def unpack_from(space, w_format, w_buffer, offset=0):
+    """Unpack the buffer, containing packed C structure data, according to
+fmt, starting at offset. Requires len(buffer[offset:]) >= calcsize(fmt)."""
     format = text_or_bytes_w(space, w_format)
     return do_unpack_from(space, format, w_buffer, offset)
 
 def do_unpack_from(space, format, w_buffer, offset=0):
+    """Unpack the buffer, containing packed C structure data, according to
+fmt, starting at offset. Requires len(buffer[offset:]) >= calcsize(fmt)."""
     size = _calcsize(space, format)
     buf = space.buffer_w(w_buffer, space.BUF_SIMPLE).as_binary()
     if offset < 0:

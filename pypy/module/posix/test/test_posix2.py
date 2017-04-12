@@ -860,6 +860,42 @@ class AppTestPosix:
             finally:
                 os.close(fd)
 
+    if hasattr(rposix, 'posix_fadvise'):
+        def test_os_posix_fadvise(self):
+            posix, os = self.posix, self.os
+            localdir = os.getcwd()
+            os.mkdir(self.path2 + 'test_os_posix_fadvise')
+            try:
+                fd = os.open(self.path2 + 'test_os_posix_fadvise', os.O_RDONLY)
+                try:
+                    mypath = os.getcwd()
+                    assert posix.posix_fadvise(fd, 0, 0, posix.POSIX_FADV_WILLNEED) == 0
+                    assert posix.posix_fadvise(fd, 0, 0, posix.POSIX_FADV_NORMAL) == 0
+                    assert posix.posix_fadvise(fd, 0, 0, posix.POSIX_FADV_SEQUENTIAL) == 0
+                    assert posix.posix_fadvise(fd, 0, 0, posix.POSIX_FADV_RANDOM) == 0
+                    assert posix.posix_fadvise(fd, 0, 0, posix.POSIX_FADV_NOREUSE) == 0
+                    assert posix.posix_fadvise(fd, 0, 0, posix.POSIX_FADV_DONTNEED) == 0
+                finally:
+                    os.close(fd)
+            finally:
+                os.chdir(localdir)
+
+    if hasattr(rposix, 'posix_fallocate'):
+        def test_os_posix_posix_fallocate(self):
+            posix, os = self.posix, self.os
+            fd = os.open(self.path2 + 'test_os_posix_fallocate', os.O_WRONLY | os.O_CREAT)
+            try:
+                assert posix.posix_fallocate(fd, 0, 10) == 0
+            except OSError as inst:
+                """ ZFS seems not to support fallocate.
+                so skipping solaris-based since it is likely to come with ZFS
+                """
+                if inst.errno != errno.EINVAL or not sys.platform.startswith("sunos"):
+                    raise
+            finally:
+                os.close(fd)
+
+
     def test_largefile(self):
         os = self.posix
         fd = os.open(self.path2 + 'test_largefile',

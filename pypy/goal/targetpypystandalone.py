@@ -13,6 +13,7 @@ from pypy.tool.option import make_objspace
 from pypy import pypydir
 from rpython.rlib import rthread
 from pypy.module.thread import os_thread
+from pypy.module.sys.version import CPYTHON_VERSION
 
 thisdir = py.path.local(__file__).dirpath()
 
@@ -285,7 +286,8 @@ class PyPyTarget(object):
         if sys.platform == 'win32':
             libdir = thisdir.join('..', '..', 'libs')
             libdir.ensure(dir=1)
-            config.translation.libname = str(libdir.join('python27.lib'))
+            pythonlib = "python{0[0]}{0[1]}.lib".format(CPYTHON_VERSION)
+            config.translation.libname = str(libdir.join(pythonlib))
 
         if config.translation.thread:
             config.objspace.usemodules.thread = True

@@ -750,3 +750,38 @@ def test_pwrite():
     finally:
         os.close(fd)
     py.test.raises(OSError, rposix.pwrite, fd, b'ea', 1)
+
+@rposix_requires('posix_fadvise')
+def test_posix_fadvise():
+    fname = str(udir.join('test_os_posix_fadvise'))
+    localdir = os.getcwd()
+    os.mkdir(fname)
+    try:
+        fd = os.open(fname, os.O_RDONLY, 0777)
+        try:
+            mypath = os.getcwd()
+            assert rposix.posix_fadvise(fd, 0, 0, rposix.POSIX_FADV_WILLNEED) == 0
+            assert rposix.posix_fadvise(fd, 0, 0, rposix.POSIX_FADV_NORMAL) == 0
+            assert rposix.posix_fadvise(fd, 0, 0, rposix.POSIX_FADV_SEQUENTIAL) == 0
+            assert rposix.posix_fadvise(fd, 0, 0, rposix.POSIX_FADV_RANDOM) == 0
+            assert rposix.posix_fadvise(fd, 0, 0, rposix.POSIX_FADV_NOREUSE) == 0
+            assert rposix.posix_fadvise(fd, 0, 0, rposix.POSIX_FADV_DONTNEED) == 0
+        finally:
+            os.close(fd)
+    finally:
+        os.chdir(localdir)
+
+@rposix_requires('posix_fallocate')
+def test_posix_fallocate():
+    fname = str(udir.join('os_test.txt'))
+    fd = os.open(fname, os.O_WRONLY | os.O_CREAT, 0777)
+    try:
+        assert rposix.posix_fallocate(fd, 0, 10) == 0
+    except OSError as inst:
+        """ ZFS seems not to support fallocate.
+        so skipping solaris-based since it is likely to come with ZFS
+        """
+        if inst.errno != errno.EINVAL or not sys.platform.startswith("sunos"):
+            raise
+    finally:
+        os.close(fd)

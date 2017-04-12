@@ -959,7 +959,9 @@ def get_default_compiler(osname=None, platform=None):
 # is assumed to be in the 'distutils' package.)
 compiler_class = { 'unix':    ('unixccompiler', 'UnixCCompiler',
                                "standard UNIX-style compiler"),
-                   'msvc':    ('_msvccompiler', 'MSVCCompiler',
+                   # PyPy change: On win32 PyPy is translated with the
+                   # "msvc9compiler", force the same here.
+                   'msvc':    ('msvc9compiler', 'MSVCCompiler',
                                "Microsoft Visual C++"),
                    'cygwin':  ('cygwinccompiler', 'CygwinCCompiler',
                                "Cygwin port of GNU C Compiler for Win32"),

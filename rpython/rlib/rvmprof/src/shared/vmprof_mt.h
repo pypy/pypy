@@ -1,7 +1,10 @@
+#pragma once
 /* Support for multithreaded write() operations */
 
-#include <sys/mman.h>
 #include <string.h>
+#include <sys/mman.h>
+
+#include "vmprof.h"
 
 /* The idea is that we have MAX_NUM_BUFFERS available, all of size
    SINGLE_BUF_SIZE.  Threads and signal handlers can ask to reserve a
@@ -25,7 +28,6 @@
    and too low (risk that there is none left).
 */
 #define MAX_NUM_BUFFERS  20
-#define SINGLE_BUF_SIZE  (8192 - 2 * sizeof(unsigned int))
 
 #if defined(__i386__) || defined(__amd64__)
   static inline void write_fence(void) { asm("" : : : "memory"); }
@@ -33,6 +35,9 @@
   static inline void write_fence(void) { __sync_synchronize(); }
 #endif
 
+#ifndef MAP_ANONYMOUS
+#define MAP_ANONYMOUS MAP_ANON
+#endif
 
 #define PROFBUF_UNUSED   0
 #define PROFBUF_FILLING  1
@@ -66,7 +71,7 @@ static int prepare_concurrent_bufs(void)
     unprepare_concurrent_bufs();
     profbuf_all_buffers = mmap(NULL, sizeof(struct profbuf_s) * MAX_NUM_BUFFERS,
                                PROT_READ | PROT_WRITE,
-                               MAP_PRIVATE | MAP_ANON,
+                               MAP_PRIVATE | MAP_ANONYMOUS,
                                -1, 0);
     if (profbuf_all_buffers == MAP_FAILED) {
         profbuf_all_buffers = NULL;

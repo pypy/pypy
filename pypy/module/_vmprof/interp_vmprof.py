@@ -50,8 +50,8 @@ def VMProfError(space, e):
     return OperationError(w_VMProfError, space.newtext(e.msg))
 
 
-@unwrap_spec(fileno=int, period=float)
-def enable(space, fileno, period):
+@unwrap_spec(fileno=int, period=float, memory=int, lines=int, native=int)
+def enable(space, fileno, period, memory, lines, native):
     """Enable vmprof.  Writes go to the given 'fileno', a file descriptor
     opened for writing.  *The file descriptor must remain open at least
     until disable() is called.*
@@ -65,7 +65,7 @@ def enable(space, fileno, period):
     #                             "with vmprof will crash"),
     #               space.w_RuntimeWarning)
     try:
-        rvmprof.enable(fileno, period)
+        rvmprof.enable(fileno, period, memory, native)
     except rvmprof.VMProfError as e:
         raise VMProfError(space, e)
 

@@ -2,7 +2,7 @@ from __future__ import with_statement
 from pypy.interpreter.baseobjspace import W_Root, BufferInterfaceNotFound
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.error import OperationError, oefmt, wrap_windowserror
+from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rwinreg, rwin32
 from rpython.rlib.rarithmetic import r_uint, intmask
@@ -110,7 +110,7 @@ def hkey_w(w_hkey, space):
     elif isinstance(w_hkey, W_HKEY):
         return w_hkey.hkey
     elif space.isinstance_w(w_hkey, space.w_int):
-        if space.is_true(space.lt(w_hkey, space.wrap(0))):
+        if space.is_true(space.lt(w_hkey, space.newint(0))):
             return rffi.cast(rwinreg.HKEY, space.int_w(w_hkey))
         return rffi.cast(rwinreg.HKEY, space.uint_w(w_hkey))
     else:
@@ -702,7 +702,7 @@ def ExpandEnvironmentStrings(space, source):
     try:
         return space.newunicode(rwinreg.ExpandEnvironmentStrings(source))
     except WindowsError as e:
-        raise wrap_windowserror(space, e)
+        raise wrap_oserror(space, e)
 
 def DisableReflectionKey(space, w_key):
     """Disables registry reflection for 32-bit processes running on a 64-bit

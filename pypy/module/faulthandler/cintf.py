@@ -1,14 +1,23 @@
 import py
+import sys
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 
 cwd = py.path.local(__file__).dirpath()
+rvmp = cwd.join('../../..')
+rvmp = rvmp.join('rpython/rlib/rvmprof/src')
+
+compile_extra = ['-DRPYTHON_VMPROF']
+if sys.platform == 'win32':
+    compile_extra.append('-DVMPROF_WINDOWS')
+
 eci = ExternalCompilationInfo(
     includes=[cwd.join('faulthandler.h')],
-    include_dirs=[str(cwd), cdir],
-    separate_module_files=[cwd.join('faulthandler.c')])
+    include_dirs=[str(cwd), cdir, rvmp],
+    separate_module_files=[cwd.join('faulthandler.c')],
+    compile_extra=compile_extra)
 
 eci_later = eci.merge(ExternalCompilationInfo(
     pre_include_bits=['#define PYPY_FAULTHANDLER_LATER\n']))

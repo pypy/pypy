@@ -443,10 +443,11 @@ class W_OSError(W_Exception):
     """OS system call failed."""
 
     def __init__(self, space):
-        self.w_errno = space.w_None
-        self.w_strerror = space.w_None
-        self.w_filename = space.w_None
-        self.w_filename2 = space.w_None
+        self.w_errno = None
+        self.w_winerror = None
+        self.w_strerror = None
+        self.w_filename = None
+        self.w_filename2 = None
         self.written = -1  # only for BlockingIOError.
         W_BaseException.__init__(self, space)
 
@@ -476,18 +477,36 @@ class W_OSError(W_Exception):
             w_errno = args_w[0]
             w_strerror = args_w[1]
             w_filename = None
+            w_winerror = None
             w_filename2 = None
             if len(args_w) > 2:
                 w_filename = args_w[2]
-                if len(args_w) > 4:
-                    w_filename2 = args_w[4]
-            return w_errno, w_strerror, w_filename, w_filename2
-        return None, None, None, None
+                if len(args_w) > 3:
+                    w_winerror = args_w[3]
+                    if len(args_w) > 4:
+                        w_filename2 = args_w[4]
+            if rwin32.WIN32 and w_winerror:
+                # Under Windows, if the winerror constructor argument is
+                # an integer, the errno attribute is determined from the
+                # Windows error code, and the errno argument is
+                # ignored.
+                # On other platforms, the winerror argument is
+                # ignored, and the winerror attribute does not exist.
+                try:
+                    winerror = space.int_w(w_winerror)
+                except OperationError:
+                    w_winerror = None
+                else:
+                    w_errno = space.newint(
+                        WINERROR_TO_ERRNO.get(winerror, DEFAULT_WIN32_ERRNO))
+            return w_errno, w_winerror, w_strerror, w_filename, w_filename2
+        return None, None, None, None, None
 
     @staticmethod
     def descr_new(space, w_subtype, __args__):
         args_w, kwds_w = __args__.unpack()
         w_errno = None
+        w_winerror = None
         w_strerror = None
         w_filename = None
         w_filename2 = None
@@ -495,7 +514,7 @@ class W_OSError(W_Exception):
             if kwds_w:
                 raise oefmt(space.w_TypeError,
                             "OSError does not take keyword arguments")
-            (w_errno, w_strerror, w_filename, w_filename2
+            (w_errno, w_winerror, w_strerror, w_filename, w_filename2
              ) = W_OSError._parse_init_args(space, args_w)
         if (not space.is_none(w_errno) and
             space.is_w(w_subtype, space.gettypeobject(W_OSError.typedef))):
@@ -513,8 +532,8 @@ class W_OSError(W_Exception):
         exc = space.allocate_instance(W_OSError, w_subtype)
         W_OSError.__init__(exc, space)
         if not W_OSError._use_init(space, w_subtype):
-            exc._init_error(space, args_w, w_errno, w_strerror, w_filename,
-                            w_filename2)
+            exc._init_error(space, args_w, w_errno, w_winerror, w_strerror,
+                            w_filename, w_filename2)
         return exc
 
     def descr_init(self, space, __args__):
@@ -525,18 +544,17 @@ class W_OSError(W_Exception):
         if kwds_w:
             raise oefmt(space.w_TypeError,
                         "OSError does not take keyword arguments")
-        (w_errno, w_strerror, w_filename, w_filename2
+        (w_errno, w_winerror, w_strerror, w_filename, w_filename2
          ) = W_OSError._parse_init_args(space, args_w)
-        self._init_error(space, args_w, w_errno, w_strerror, w_filename,
-                         w_filename2)
+        self._init_error(space, args_w, w_errno, w_winerror, w_strerror,
+                         w_filename, w_filename2)
 
-    def _init_error(self, space, args_w, w_errno, w_strerror, w_filename,
-                    w_filename2):
+    def _init_error(self, space, args_w, w_errno, w_winerror, w_strerror,
+                    w_filename, w_filename2):
         W_BaseException.descr_init(self, space, args_w)
-        if w_errno:
-            self.w_errno = w_errno
-        if w_strerror:
-            self.w_strerror = w_strerror
+        self.w_errno = w_errno
+        self.w_winerror = w_winerror
+        self.w_strerror = w_strerror
 
         if not space.is_none(w_filename):
             if space.isinstance_w(
@@ -546,7 +564,8 @@ class W_OSError(W_Exception):
                 except OperationError:
                     self.w_filename = w_filename
             else:
-                self.w_filename = w_filename
+                if not space.is_none(w_filename):
+                    self.w_filename = w_filename
                 if not space.is_none(w_filename2):
                     self.w_filename2 = w_filename2
                 # filename is removed from the args tuple (for compatibility
@@ -556,9 +575,9 @@ class W_OSError(W_Exception):
     # since we rebind args_w, we need special reduce, grump
     def descr_reduce(self, space):
         extra = []
-        if not space.is_w(self.w_filename, space.w_None):
+        if self.w_filename:
             extra.append(self.w_filename)
-            if not space.is_w(self.w_filename2, space.w_None):
+            if self.w_filename2:
                 extra.append(space.w_None)
                 extra.append(self.w_filename2)
         lst = [self.getclass(space), space.newtuple(self.args_w + extra)]
@@ -567,25 +586,40 @@ class W_OSError(W_Exception):
         return space.newtuple(lst)
 
     def descr_str(self, space):
-        if (not space.is_w(self.w_errno, space.w_None) and
-            not space.is_w(self.w_strerror, space.w_None)):
+        if self.w_errno:
             errno = space.unicode_w(space.str(self.w_errno))
+        else:
+            errno = u""
+        if self.w_strerror:
             strerror = space.unicode_w(space.str(self.w_strerror))
-            if not space.is_w(self.w_filename, space.w_None):
-                if not space.is_w(self.w_filename2, space.w_None):
-                    return space.newunicode(u"[Errno %s] %s: %s -> %s" % (
-                        errno,
-                        strerror,
+        else:
+            strerror = u""
+        if rwin32.WIN32 and self.w_winerror:
+            winerror = space.unicode_w(space.str(self.w_winerror))
+            # If available, winerror has the priority over errno
+            if self.w_filename:
+                if self.w_filename2:
+                    return space.newunicode(u"[WinError %s] %s: %s -> %s" % (
+                        winerror, strerror,
                         space.unicode_w(space.repr(self.w_filename)),
                         space.unicode_w(space.repr(self.w_filename2))))
-                return space.newunicode(u"[Errno %s] %s: %s" % (
-                    errno,
-                    strerror,
+                return space.newunicode(u"[WinError %s] %s: %s" % (
+                    winerror, strerror,
                     space.unicode_w(space.repr(self.w_filename))))
+            return space.newunicode(u"[WinError %s] %s" % (
+                winerror, strerror))
+        if self.w_filename:
+            if self.w_filename2:
+                return space.newunicode(u"[Errno %s] %s: %s -> %s" % (
+                    errno, strerror,
+                    space.unicode_w(space.repr(self.w_filename)),
+                    space.unicode_w(space.repr(self.w_filename2))))
+            return space.newunicode(u"[Errno %s] %s: %s" % (
+                errno, strerror,
+                space.unicode_w(space.repr(self.w_filename))))
+        if self.w_errno and self.w_strerror:
             return space.newunicode(u"[Errno %s] %s" % (
-                errno,
-                strerror,
-            ))
+                errno, strerror))
         return W_BaseException.descr_str(self, space)
 
     def descr_get_written(self, space):
@@ -595,6 +629,12 @@ class W_OSError(W_Exception):
 
     def descr_set_written(self, space, w_written):
         self.written = space.int_w(w_written)
+
+
+if hasattr(rwin32, 'build_winerror_to_errno'):
+    WINERROR_TO_ERRNO, DEFAULT_WIN32_ERRNO = rwin32.build_winerror_to_errno()
+else:
+    WINERROR_TO_ERRNO, DEFAULT_WIN32_ERRNO = {}, 22 # EINVAL
 
 W_OSError.typedef = TypeDef(
     'OSError',
@@ -608,60 +648,9 @@ W_OSError.typedef = TypeDef(
     strerror = readwrite_attrproperty_w('w_strerror', W_OSError),
     filename = readwrite_attrproperty_w('w_filename', W_OSError),
     filename2= readwrite_attrproperty_w('w_filename2',W_OSError),
+    winerror = readwrite_attrproperty_w('w_winerror', W_OSError),
     characters_written = GetSetProperty(W_OSError.descr_get_written,
                                         W_OSError.descr_set_written),
-    )
-
-class W_WindowsError(W_OSError):
-    """MS-Windows OS system call failed."""
-
-    def __init__(self, space):
-        self.w_winerror = space.w_None
-        W_OSError.__init__(self, space)
-
-    def descr_init(self, space, __args__):
-        # Set errno to the POSIX errno, and winerror to the Win32
-        # error code.
-        W_OSError.descr_init(self, space, __args__)
-        try:
-            errno = space.int_w(self.w_errno)
-        except OperationError:
-            errno = self._default_errno
-        else:
-            errno = self._winerror_to_errno.get(errno, self._default_errno)
-        self.w_winerror = self.w_errno
-        self.w_errno = space.newint(errno)
-
-    def descr_str(self, space):
-        if (not space.is_w(self.w_winerror, space.w_None) and
-            not space.is_w(self.w_strerror, space.w_None)):
-            winerror = space.int_w(self.w_winerror)
-            strerror = space.unicode_w(self.w_strerror)
-            if not space.is_w(self.w_filename, space.w_None):
-                return space.newunicode(u"[Error %d] %s: %s" % (
-                    winerror,
-                    strerror,
-                    space.unicode_w(self.w_filename)))
-            return space.newunicode(u"[Error %d] %s" % (winerror,
-                                                  strerror))
-        return W_BaseException.descr_str(self, space)
-
-    if hasattr(rwin32, 'build_winerror_to_errno'):
-        _winerror_to_errno, _default_errno = rwin32.build_winerror_to_errno()
-        # Python 2 doesn't map ERROR_DIRECTORY (267) to ENOTDIR but
-        # Python 3 (CPython issue #12802) and build_winerror_to_errno do
-        del _winerror_to_errno[267]
-    else:
-        _winerror_to_errno, _default_errno = {}, 22 # EINVAL
-
-W_WindowsError.typedef = TypeDef(
-    "WindowsError",
-    W_OSError.typedef,
-    __doc__  = W_WindowsError.__doc__,
-    __new__  = _new(W_WindowsError),
-    __init__ = interp2app(W_WindowsError.descr_init),
-    __str__  = interp2app(W_WindowsError.descr_str),
-    winerror = readwrite_attrproperty_w('w_winerror', W_WindowsError),
     )
 
 W_BlockingIOError = _new_exception(
