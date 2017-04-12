@@ -20,13 +20,10 @@ class PyBuffer(object):
         return ''.join(self._copy_buffer())
 
     def getbytes(self, start, stop, step, size):
-        # May be overridden.  No bounds checks.
-        return ''.join([self.getitem(i) for i in range(start, stop, step)])
+        raise NotImplementedError
 
     def setbytes(self, start, string):
-        # May be overridden.  No bounds checks.
-        for i in range(len(string)):
-            self.setitem(start + i, string[i])
+        raise NotImplementedError
 
     def get_raw_address(self):
         raise ValueError("no raw buffer")

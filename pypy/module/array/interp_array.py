@@ -897,17 +897,11 @@ class ArrayBuffer(PyBuffer):
     def as_str(self):
         return self.data.as_str()
 
-    def getitem(self, index):
-        return self.data.getitem(index)
-
-    def setitem(self, index, value):
-        return self.data.setitem(index, value)
-
-    def getslice(self, start, stop, step, size):
+    def getbytes(self, start, stop, step, size):
         return self.data.getslice(start, stop, step, size)
 
-    def setslice(self, start, string):
-        self.data.setslice(start, string)
+    def setbytes(self, offset, s):
+        return self.data.setslice(offset, s)
 
     def getformat(self):
         return self.fmt
