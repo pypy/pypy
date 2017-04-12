@@ -209,7 +209,7 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
     op = rffi.cast(rffi.INT, op)        # C long => C int
 
     try:
-        rwbuffer = space.writebuf_w(w_arg)
+        rwbuffer = space.writebuf_w(w_arg).as_binary()
     except OperationError as e:
         if not (e.match(space, space.w_TypeError) or
                 e.match(space, space.w_BufferError)):

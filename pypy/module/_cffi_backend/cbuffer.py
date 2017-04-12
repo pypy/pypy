@@ -65,7 +65,7 @@ class MiniBuffer(W_Root):
                                                       self.buffer.getlength())
         if step not in (0, 1):
             raise oefmt(space.w_NotImplementedError, "")
-        value = space.buffer_w(w_newstring, space.BUF_CONTIG_RO)
+        value = space.buffer_w(w_newstring, space.BUF_CONTIG_RO).as_binary()
         if value.getlength() != size:
             raise oefmt(space.w_ValueError,
                         "cannot modify size of memoryview object")

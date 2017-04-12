@@ -1,5 +1,8 @@
 from __future__ import with_statement
 
+from rpython.rlib.signature import signature
+from rpython.rlib import types
+
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, interp_attrproperty_w)
@@ -285,6 +288,7 @@ class BufferedMixin:
 
     # ______________________________________________
 
+    @signature(types.any(), returns=types.int())
     def _readahead(self):
         if self.readable and self.read_end != -1:
             available = self.read_end - self.pos
@@ -325,7 +329,7 @@ class BufferedMixin:
                 else:
                     offset = pos
                 if -self.pos <= offset <= available:
-                    newpos = self.pos + offset
+                    newpos = self.pos + int(offset)
                     assert newpos >= 0
                     self.pos = newpos
                     return space.newint(current - available + offset)

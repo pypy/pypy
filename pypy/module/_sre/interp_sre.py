@@ -164,7 +164,7 @@ class W_SRE_Pattern(W_Root):
             string = space.bytes_w(w_string)
             length = len(string)
         else:
-            buf = space.readbuf_w(w_string)
+            buf = space.readbuf_w(w_string).as_binary()
             length = buf.getlength()
             assert length >= 0
         return (length, unicodestr, string, buf)
@@ -523,7 +523,7 @@ class W_SRE_Match(W_Root):
         u = space.unicode_w(space.repr(w_s))
         if len(u) > 50:
             u = u[:50]
-        return space.newunicode(u'<_sre.SRE_Match object; span=(%d, %d), match=%s>' % 
+        return space.newunicode(u'<_sre.SRE_Match object; span=(%d, %d), match=%s>' %
                           (start, end, u))
 
     def cannot_copy_w(self):

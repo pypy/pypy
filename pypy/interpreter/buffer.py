@@ -284,6 +284,7 @@ class BinaryBuffer(object):
         # May be overridden.  No bounds checks.
         return ''.join([self.getitem(i) for i in range(start, stop, step)])
 
+    @signature(types.any(), types.int(), types.int(), returns=types.str())
     def __getslice__(self, start, stop):
         return self.getslice(start, stop, 1, stop - start)
 
