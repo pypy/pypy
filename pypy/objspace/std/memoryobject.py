@@ -598,7 +598,7 @@ class BufferSlice(PyBuffer):
         self.readonly = self.buf.readonly
         self.strides = buf.getstrides()[:]
         itemsize = buf.getitemsize()
-        self.offset = start * itemsize
+        self.start = start
         self.step = step
         self.strides[0] *= step
         self.shape = buf.getshape()[:]
@@ -611,19 +611,20 @@ class BufferSlice(PyBuffer):
         if start == stop:
             return ''     # otherwise, adding self.offset might make them
                           # out of bounds
-        return self.buf.getbytes(self.offset + start, self.offset + stop,
-                                    step, size)
+        offset = self.start * self.getitemsize()
+        return self.buf.getbytes(offset + start, offset + stop, step, size)
 
     def setbytes(self, start, string):
         if len(string) == 0:
             return        # otherwise, adding self.offset might make 'start'
                           # out of bounds
-        self.buf.setbytes(self.offset + start, string)
+        offset = self.start * self.getitemsize()
+        self.buf.setbytes(offset + start, string)
 
     def get_raw_address(self):
         from rpython.rtyper.lltypesystem import rffi
         ptr = self.buf.get_raw_address()
-        return rffi.ptradd(ptr, self.offset)
+        return rffi.ptradd(ptr, self.start * self.getitemsize())
 
     def getformat(self):
         return self.buf.getformat()
@@ -641,7 +642,7 @@ class BufferSlice(PyBuffer):
         return self.strides
 
     def parent_index(self, idx):
-        return self.offset + self.step * idx
+        return self.start + self.step * idx
 
     def w_getitem(self, space, idx):
         return self.buf.w_getitem(space, self.parent_index(idx))
