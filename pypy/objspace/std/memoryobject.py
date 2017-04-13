@@ -9,7 +9,7 @@ from pypy.interpreter.buffer import PyBuffer, SubBuffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty,  make_weakref_descr
-from pypy.module.struct.formatiterator import UnpackFormatIterator, PackFormatIterator
+from pypy.module.struct.formatiterator import UnpackFormatIterator
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import always_inline
 

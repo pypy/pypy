@@ -50,6 +50,25 @@ class PyBuffer(object):
     def releasebuffer(self):
         pass
 
+    def value_from_bytes(self, space, s):
+        from pypy.module.struct.formatiterator import UnpackFormatIterator
+        buf = StringBuffer(s)
+        fmtiter = UnpackFormatIterator(space, buf)
+        fmtiter.interpret(self.getformat())
+        return fmtiter.result_w[0]
+
+    def bytes_from_value(self, space, w_val):
+        from pypy.module.struct.formatiterator import PackFormatIterator
+        itemsize = self.getitemsize()
+        fmtiter = PackFormatIterator(space, [w_val], itemsize)
+        try:
+            fmtiter.interpret(self.getformat())
+        except StructError as e:
+            raise oefmt(space.w_TypeError,
+                        "memoryview: invalid type for format '%s'",
+                        self.getformat())
+        return fmtiter.result.build()
+
     def _copy_buffer(self):
         if self.getndim() == 0:
             itemsize = self.getitemsize()
@@ -102,37 +121,18 @@ class PyBuffer(object):
 
 
     def w_getitem(self, space, idx):
-        from pypy.module.struct.formatiterator import UnpackFormatIterator
         offset = self.get_offset(space, 0, idx)
         itemsize = self.getitemsize()
-        if itemsize == 1:
-            ch = self.as_binary()[offset]
-            return space.newint(ord(ch))
-        else:
-            # TODO: this probably isn't very fast
-            buf = SubBuffer(self.as_binary(), offset, itemsize)
-            fmtiter = UnpackFormatIterator(space, buf)
-            fmtiter.length = buf.getlength()
-            fmtiter.interpret(self.getformat())
-            return fmtiter.result_w[0]
+        # TODO: this probably isn't very fast
+        data = self.getbytes(offset, offset + itemsize, 1, itemsize)
+        return self.value_from_bytes(space, data)
 
     def setitem_w(self, space, idx, w_obj):
-        from pypy.module.struct.formatiterator import PackFormatIterator
         offset = self.get_offset(space, 0, idx)
         itemsize = self.getitemsize()
-        if itemsize == 1:
-            self.as_binary()[offset] = space.byte_w(w_obj)
-        else:
-            # TODO: this probably isn't very fast
-            fmtiter = PackFormatIterator(space, [w_obj], itemsize)
-            try:
-                fmtiter.interpret(self.getformat())
-            except StructError as e:
-                raise oefmt(space.w_TypeError,
-                            "memoryview: invalid type for format '%s'",
-                            self.getformat())
-            byteval = fmtiter.result.build()
-            self.setbytes(offset, byteval)
+        # TODO: this probably isn't very fast
+        byteval = self.bytes_from_value(space, w_obj)
+        self.setbytes(offset, byteval)
 
     def w_tolist(self, space):
         dim = self.getndim()

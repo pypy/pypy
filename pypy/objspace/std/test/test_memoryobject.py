@@ -331,8 +331,8 @@ class MockBuffer(PyBuffer):
     def getformat(self):
         return self.format
 
-    def getitem(self, index):
-        return self.data[index:index+1]
+    def getbytes(self, start, stop, step, size):
+        return self.data[start:stop]
 
     def getlength(self):
         return len(self.data)
@@ -408,11 +408,6 @@ class AppTestMemoryViewMockBuffer(object):
         empty = self.MockArray([], dim=1, fmt='i', size=4, strides=[1], shape=[1])
         view = memoryview(empty)
         raises(TypeError, "view.cast('l')")
-        try:
-            view.cast('l')
-            assert False, "i -> l not possible. buffer must be byte format"
-        except TypeError:
-            pass
 
     def test_cast_empty(self):
         empty = self.MockArray([], dim=1, fmt='b', size=1, strides=[1], shape=[1])
