@@ -7,6 +7,7 @@ from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from rpython.jit.backend.x86.rx86 import X86_32_CodeBuilder, X86_64_CodeBuilder
 from rpython.jit.backend.x86.regloc import LocationCodeBuilder
 from rpython.jit.backend.x86.arch import IS_X86_32, IS_X86_64, WORD
+from rpython.jit.backend.x86.arch import DEFAULT_FRAME_BYTES
 from rpython.jit.backend.x86 import rx86, valgrind
 
 # XXX: Seems nasty to change the superclass of MachineCodeBlockWrapper
@@ -85,11 +86,13 @@ class MachineCodeBlockWrapper(BlockBuilderMixin,
 
 class SlowPath(object):
     def __init__(self, mc, condition):
+        assert mc._frame_size == DEFAULT_FRAME_BYTES
         mc.J_il(condition, 0xfffff)     # patched later
         self.cond_jump_addr = mc.get_relative_pos(break_basic_block=False)
         self.saved_scratch_value_1 = mc.get_scratch_register_known_value()
 
     def set_continue_addr(self, mc):
+        assert mc._frame_size == DEFAULT_FRAME_BYTES
         self.continue_addr = mc.get_relative_pos(break_basic_block=False)
         self.saved_scratch_value_2 = mc.get_scratch_register_known_value()
 
@@ -100,6 +103,7 @@ class SlowPath(object):
         mc.overwrite32(self.cond_jump_addr-4, offset)
         # restore the knowledge of the scratch register value
         # (this does not emit any code)
+        mc.force_frame_size(DEFAULT_FRAME_BYTES)
         mc.restore_scratch_register_known_value(self.saved_scratch_value_1)
         # generate the body of the slow-path
         self.generate_body(assembler, mc)
