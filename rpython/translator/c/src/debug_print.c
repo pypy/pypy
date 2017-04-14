@@ -235,7 +235,10 @@ void pypy_debug_start(const char *category)
 void pypy_debug_stop(const char *category)
 {
   if (debug_profile | (pypy_have_debug_prints & 1))
-    display_startstop("", "}", category, debug_start_colors_2);
+    {
+      display_startstop("", "}", category, debug_start_colors_2);
+      fflush(pypy_debug_file);
+    }
   pypy_have_debug_prints >>= 1;
 }
 
