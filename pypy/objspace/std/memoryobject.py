@@ -143,6 +143,14 @@ class W_MemoryView(W_Root):
         strides = self.getstrides()
         itemsize = self.getitemsize()
         bytesize = self.getlength()
+        # optimization only: if the loop below would enumerate all
+        # bytes without any gap, then grab them all at once
+        # XXX review the whole thing (I suspect it's being done in a branch)
+        if itemsize == strides[0]:
+            bytecount = min(bytesize - off, step * itemsize)
+            bytes = self.buf.getslice(off, off+bytecount, 1, bytecount)
+            data.append(bytes)
+            return
         copiedbytes = 0
         for i in range(step):
             bytes = self.buf.getslice(off, off+itemsize, 1, itemsize)
