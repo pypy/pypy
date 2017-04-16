@@ -30,8 +30,7 @@ class BaseCpyTypedescr(object):
         return subtype_dealloc.api_func
 
     def allocate(self, space, w_type, itemcount=0):
-        # similar to PyType_GenericAlloc?
-        # except that it's not related to any pypy object.
+        # typically called from PyType_GenericAlloc via typedescr.allocate
         # this returns a PyObject with ob_refcnt == 1.
 
         pytype = as_pyobj(space, w_type)
@@ -315,6 +314,7 @@ def decref(space, obj):
         obj = rffi.cast(PyObject, obj)
         if obj:
             assert obj.c_ob_refcnt > 0
+            assert obj.c_ob_pypy_link == 0 or obj.c_ob_refcnt > rawrefcount.REFCNT_FROM_PYPY
             obj.c_ob_refcnt -= 1
             if obj.c_ob_refcnt == 0:
                 _Py_Dealloc(space, obj)
