@@ -318,6 +318,10 @@ def decref(space, obj):
             obj.c_ob_refcnt -= 1
             if obj.c_ob_refcnt == 0:
                 _Py_Dealloc(space, obj)
+            #else:
+            #    w_obj = rawrefcount.to_obj(W_Root, ref)
+            #    if w_obj is not None:
+            #        assert obj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
     else:
         get_w_obj_and_decref(space, obj)
 

@@ -48,11 +48,11 @@ def PyList_SetItem(space, w_list, index, w_item):
     This function "steals" a reference to item and discards a reference to
     an item already in the list at the affected position.
     """
-    Py_DecRef(space, w_item)
     if not isinstance(w_list, W_ListObject):
         PyErr_BadInternalCall(space)
     if index < 0 or index >= w_list.length():
         raise oefmt(space.w_IndexError, "list assignment index out of range")
+    #Py_DecRef(space, w_item)
     w_list.setitem(index, w_item)
     return 0
 
