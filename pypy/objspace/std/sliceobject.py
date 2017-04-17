@@ -253,7 +253,7 @@ def normalize_simple_slice(space, length, w_start, w_stop):
 
 
 app = gateway.applevel("""
-    from operator import index
+    from _operator import index
 
     def evaluate_slice_index(x):
         try:
