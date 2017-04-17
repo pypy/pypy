@@ -18,7 +18,19 @@
 #ifdef HAVE_SYS_SYSCALL_H
 #include <sys/syscall.h>
 #endif
+#if defined(HAVE_SYS_RESOURCE_H)
+#include <sys/resource.h>
+#endif
+#ifdef HAVE_DIRENT_H
 #include <dirent.h>
+#endif
+
+#if defined(__ANDROID__) && !defined(SYS_getdents64)
+/* Android doesn't expose syscalls, add the definition manually. */
+# include <sys/linux-syscalls.h>
+# define SYS_getdents64  __NR_getdents64
+#endif
+
 #include "_posixsubprocess.h"
 
 #if defined(sun)
@@ -38,11 +50,7 @@
 # define FD_DIR "/proc/self/fd"
 #endif
 
-#define POSIX_CALL(call)   if ((call) == -1) goto error
-
-
-/* Maximum file descriptor, initialized on module load. */
-static long max_fd;
+#define POSIX_CALL(call)   do { if ((call) == -1) goto error; } while (0)
 
 
 /* Convert ASCII to a positive int, no libc call. no overflow. -1 on error. */
@@ -75,7 +83,7 @@ _is_fdescfs_mounted_on_dev_fd(void)
     if (stat("/dev", &dev_stat) != 0)
         return 0;
     if (stat(FD_DIR, &dev_fd_stat) != 0)
-        return 0; 
+        return 0;
     if (dev_stat.st_dev == dev_fd_stat.st_dev)
         return 0;  /* / == /dev == /dev/fd means it is static. #fail */
     return 1;
@@ -130,15 +138,47 @@ make_inheritable(long *py_fds_to_keep, ssize_t num_fds_to_keep,
 }
 
 
-/* Close all file descriptors in the range start_fd inclusive to
- * end_fd exclusive except for those in py_fds_to_keep.  If the
- * range defined by [start_fd, end_fd) is large this will take a
- * long time as it calls close() on EVERY possible fd.
+/* Get the maximum file descriptor that could be opened by this process.
+ * This function is async signal safe for use between fork() and exec().
+ */
+static long
+safe_get_max_fd(void)
+{
+    long local_max_fd;
+#if defined(__NetBSD__)
+    local_max_fd = fcntl(0, F_MAXFD);
+    if (local_max_fd >= 0)
+        return local_max_fd;
+#endif
+#if defined(HAVE_SYS_RESOURCE_H) && defined(__OpenBSD__)
+    struct rlimit rl;
+    /* Not on the POSIX async signal safe functions list but likely
+     * safe.  TODO - Someone should audit OpenBSD to make sure. */
+    if (getrlimit(RLIMIT_NOFILE, &rl) >= 0)
+        return (long) rl.rlim_max;
+#endif
+#ifdef _SC_OPEN_MAX
+    local_max_fd = sysconf(_SC_OPEN_MAX);
+    if (local_max_fd == -1)
+#endif
+        local_max_fd = 256;  /* Matches legacy Lib/subprocess.py behavior. */
+    return local_max_fd;
+}
+
+
+/* Close all file descriptors in the range from start_fd and higher
+ * except for those in py_fds_to_keep.  If the range defined by
+ * [start_fd, safe_get_max_fd()) is large this will take a long
+ * time as it calls close() on EVERY possible fd.
+ *
+ * It isn't possible to know for sure what the max fd to go up to
+ * is for processes with the capability of raising their maximum.
  */
 static void
-_close_fds_by_brute_force(int start_fd, int end_fd, long *py_fds_to_keep,
+_close_fds_by_brute_force(long start_fd, long *py_fds_to_keep,
 			  ssize_t num_fds_to_keep)
 {
+    long end_fd = safe_get_max_fd();
     ssize_t keep_seq_idx;
     int fd_num;
     /* As py_fds_to_keep is sorted we can loop through the list closing
@@ -148,13 +188,13 @@ _close_fds_by_brute_force(int start_fd, int end_fd, long *py_fds_to_keep,
         if (keep_fd < start_fd)
             continue;
         for (fd_num = start_fd; fd_num < keep_fd; ++fd_num) {
-            while (close(fd_num) < 0 && errno == EINTR);
+            close(fd_num);
         }
         start_fd = keep_fd + 1;
     }
     if (start_fd <= end_fd) {
         for (fd_num = start_fd; fd_num < end_fd; ++fd_num) {
-            while (close(fd_num) < 0 && errno == EINTR);
+            close(fd_num);
         }
     }
 }
@@ -175,8 +215,8 @@ struct linux_dirent64 {
    char           d_name[256];  /* Filename (null-terminated) */
 };
 
-/* Close all open file descriptors in the range start_fd inclusive to end_fd
- * exclusive. Do not close any in the sorted py_fds_to_keep list.
+/* Close all open file descriptors in the range from start_fd and higher
+ * Do not close any in the sorted py_fds_to_keep list.
  *
  * This version is async signal safe as it does not make any unsafe C library
  * calls, malloc calls or handle any locks.  It is _unfortunate_ to be forced
@@ -191,12 +231,10 @@ struct linux_dirent64 {
  * it with some cpp #define magic to work on other OSes as well if you want.
  */
 static void
-_close_open_fd_range_safe(int start_fd, int end_fd, long *py_fds_to_keep,
+_close_open_fds_safe(int start_fd, long *py_fds_to_keep,
 			  ssize_t num_fds_to_keep)
 {
     int fd_dir_fd;
-    if (start_fd >= end_fd)
-        return;
 #ifdef O_CLOEXEC
     fd_dir_fd = open(FD_DIR, O_RDONLY | O_CLOEXEC, 0);
 #else
@@ -211,8 +249,7 @@ _close_open_fd_range_safe(int start_fd, int end_fd, long *py_fds_to_keep,
 #endif
     if (fd_dir_fd == -1) {
         /* No way to get a list of open fds. */
-	_close_fds_by_brute_force(start_fd, end_fd, py_fds_to_keep,
-				  num_fds_to_keep);
+	_close_fds_by_brute_force(start_fd, py_fds_to_keep, num_fds_to_keep);
         return;
     } else {
         char buffer[sizeof(struct linux_dirent64)];
@@ -227,10 +264,10 @@ _close_open_fd_range_safe(int start_fd, int end_fd, long *py_fds_to_keep,
                 entry = (struct linux_dirent64 *)(buffer + offset);
                 if ((fd = _pos_int_from_ascii(entry->d_name)) < 0)
                     continue;  /* Not a number. */
-                if (fd != fd_dir_fd && fd >= start_fd && fd < end_fd &&
+                if (fd != fd_dir_fd && fd >= start_fd &&
                     !_is_fd_in_sorted_fd_sequence(
 			fd, py_fds_to_keep, num_fds_to_keep)) {
-                    while (close(fd) < 0 && errno == EINTR);
+                    close(fd);
                 }
             }
         }
@@ -238,13 +275,13 @@ _close_open_fd_range_safe(int start_fd, int end_fd, long *py_fds_to_keep,
     }
 }
 
-#define _close_open_fd_range _close_open_fd_range_safe
+#define _close_open_fds _close_open_fds_safe
 
 #else  /* NOT (defined(__linux__) && defined(HAVE_SYS_SYSCALL_H)) */
 
 
-/* Close all open file descriptors in the range start_fd inclusive to end_fd
- * exclusive. Do not close any in the sorted py_fds_to_keep list.
+/* Close all open file descriptors from start_fd and higher.
+ * Do not close any in the sorted py_fds_to_keep list.
  *
  * This function violates the strict use of async signal safe functions. :(
  * It calls opendir(), readdir() and closedir().  Of these, the one most
@@ -257,26 +294,21 @@ _close_open_fd_range_safe(int start_fd, int end_fd, long *py_fds_to_keep,
  *   http://womble.decadent.org.uk/readdir_r-advisory.html
  */
 static void
-_close_open_fd_range_maybe_unsafe(int start_fd, int end_fd,
-                                  long *py_fds_to_keep, ssize_t num_fds_to_keep)
+_close_open_fds_maybe_unsafe(long start_fd,
+			     long *py_fds_to_keep, ssize_t num_fds_to_keep)
 {
     DIR *proc_fd_dir;
 #ifndef HAVE_DIRFD
-    while (_is_fd_in_sorted_fd_sequence(start_fd, py_fds_to_keep, num_fds_to_keep) &&
-           (start_fd < end_fd)) {
+    while (_is_fd_in_sorted_fd_sequence(start_fd, py_fds_to_keep, num_fds_to_keep)) {
         ++start_fd;
     }
-    if (start_fd >= end_fd)
-        return;
     /* Close our lowest fd before we call opendir so that it is likely to
      * reuse that fd otherwise we might close opendir's file descriptor in
      * our loop.  This trick assumes that fd's are allocated on a lowest
      * available basis. */
-    while (close(start_fd) < 0 && errno == EINTR);
+    close(start_fd);
     ++start_fd;
 #endif
-    if (start_fd >= end_fd)
-        return;
 
 #if defined(__FreeBSD__)
     if (!_is_fdescfs_mounted_on_dev_fd())
@@ -286,7 +318,7 @@ _close_open_fd_range_maybe_unsafe(int start_fd, int end_fd,
         proc_fd_dir = opendir(FD_DIR);
     if (!proc_fd_dir) {
         /* No way to get a list of open fds. */
-        _close_fds_by_brute_force(start_fd, end_fd, py_fds_to_keep, num_fds_to_keep);
+        _close_fds_by_brute_force(start_fd, py_fds_to_keep, num_fds_to_keep);
     } else {
         struct dirent *dir_entry;
 #ifdef HAVE_DIRFD
@@ -299,22 +331,22 @@ _close_open_fd_range_maybe_unsafe(int start_fd, int end_fd,
             int fd;
             if ((fd = _pos_int_from_ascii(dir_entry->d_name)) < 0)
                 continue;  /* Not a number. */
-            if (fd != fd_used_by_opendir && fd >= start_fd && fd < end_fd &&
+            if (fd != fd_used_by_opendir && fd >= start_fd &&
                 !_is_fd_in_sorted_fd_sequence(fd, py_fds_to_keep, num_fds_to_keep)) {
-                while (close(fd) < 0 && errno == EINTR);
+                close(fd);
             }
             errno = 0;
         }
         if (errno) {
             /* readdir error, revert behavior. Highly Unlikely. */
             _close_fds_by_brute_force(
-		start_fd, end_fd, py_fds_to_keep, num_fds_to_keep);
+		start_fd, py_fds_to_keep, num_fds_to_keep);
         }
         closedir(proc_fd_dir);
     }
 }
 
-#define _close_open_fd_range _close_open_fd_range_maybe_unsafe
+#define _close_open_fds _close_open_fds_maybe_unsafe
 
 #endif  /* else NOT (defined(__linux__) && defined(HAVE_SYS_SYSCALL_H)) */
 
@@ -357,15 +389,12 @@ pypy_subprocess_child_exec(
         goto error;
 
     /* Close parent's pipe ends. */
-    if (p2cwrite != -1) {
+    if (p2cwrite != -1)
         POSIX_CALL(close(p2cwrite));
-    }
-    if (c2pread != -1) {
+    if (c2pread != -1)
         POSIX_CALL(close(c2pread));
-    }
-    if (errread != -1) {
+    if (errread != -1)
         POSIX_CALL(close(errread));
-    }
     POSIX_CALL(close(errpipe_read));
 
     /* When duping fds, if there arises a situation where one of the fds is
@@ -401,15 +430,12 @@ pypy_subprocess_child_exec(
 
     /* Close pipe fds.  Make sure we don't close the same fd more than */
     /* once, or standard fds. */
-    if (p2cread > 2) {
+    if (p2cread > 2)
         POSIX_CALL(close(p2cread));
-    }
-    if (c2pwrite > 2 && c2pwrite != p2cread) {
+    if (c2pwrite > 2 && c2pwrite != p2cread)
         POSIX_CALL(close(c2pwrite));
-    }
-    if (errwrite != c2pwrite && errwrite != p2cread && errwrite > 2) {
+    if (errwrite != c2pwrite && errwrite != p2cread && errwrite > 2)
         POSIX_CALL(close(errwrite));
-    }
 
     if (cwd)
         POSIX_CALL(chdir(cwd));
@@ -441,14 +467,8 @@ pypy_subprocess_child_exec(
 
     /* close FDs after executing preexec_fn, which might open FDs */
     if (close_fds) {
-        int local_max_fd = max_fd;
-#if defined(__NetBSD__)
-        local_max_fd = fcntl(0, F_MAXFD);
-        if (local_max_fd < 0)
-            local_max_fd = max_fd;
-#endif
         /* TODO HP-UX could use pstat_getproc() if anyone cares about it. */
-        _close_open_fd_range(3, local_max_fd, py_fds_to_keep, num_fds_to_keep);
+        _close_open_fds(3, py_fds_to_keep, num_fds_to_keep);
     }
 
     /* This loop matches the Lib/os.py _execvpe()'s PATH search when */
@@ -579,9 +599,4 @@ pypy_subprocess_cloexec_pipe(int *fds)
 void
 pypy_subprocess_init(void)
 {
-#ifdef _SC_OPEN_MAX
-    max_fd = sysconf(_SC_OPEN_MAX);
-    if (max_fd == -1)
-#endif
-        max_fd = 256;  /* Matches Lib/subprocess.py */
 }
