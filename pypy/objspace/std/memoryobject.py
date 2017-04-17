@@ -9,7 +9,6 @@ from pypy.interpreter.buffer import PyBuffer, SubBuffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty,  make_weakref_descr
-from pypy.module.struct.formatiterator import UnpackFormatIterator
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import always_inline
 
@@ -131,11 +130,9 @@ class W_MemoryView(W_Root):
                     length, ndim)
 
         start = self._start_from_tuple(space, w_index)
-
-        buf = SubBuffer(self.buf.as_binary(), start, view.getitemsize())
-        fmtiter = UnpackFormatIterator(space, buf)
-        fmtiter.interpret(fmt)
-        return fmtiter.result_w[0]
+        itemsize = self.getitemsize()
+        data = view.getbytes(start, start + itemsize, 1, itemsize)
+        return view.value_from_bytes(space, data)
 
     def _decode_index(self, space, w_index, is_slice):
         shape = self.getshape()
