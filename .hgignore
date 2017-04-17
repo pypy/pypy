@@ -86,3 +86,5 @@ syntax: regexp
 ^\.cache$
 
 pypy/module/cppyy/.+/*\.pcm
+
+

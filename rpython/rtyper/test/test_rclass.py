@@ -963,6 +963,41 @@ class TestRclass(BaseRtypingTest):
                 found.append(op.args[1].value)
         assert found == ['mutate_c']
 
+    def test_bad_type_for_immutable_field_1(self):
+        class A:
+            _immutable_fields_ = ['lst[*]']
+        def f(n):
+            a = A()
+            a.lst = n
+            return a.lst
+
+        with py.test.raises(TyperError):
+            self.gengraph(f, [int])
+
+    def test_bad_type_for_immutable_field_2(self):
+        from rpython.rtyper.lltypesystem import lltype
+        class A:
+            _immutable_fields_ = ['lst[*]']
+        ARRAY = lltype.GcArray(lltype.Signed)
+        def f(n):
+            a = A()
+            a.lst = lltype.malloc(ARRAY, n)
+            return a.lst
+
+        with py.test.raises(TyperError):
+            self.gengraph(f, [int])
+
+    def test_bad_type_for_immutable_field_3(self):
+        class A:
+            _immutable_fields_ = ['lst?[*]']
+        def f(n):
+            a = A()
+            a.lst = n
+            return a.lst
+
+        with py.test.raises(TyperError):
+            self.gengraph(f, [int])
+
     def test_calling_object_init(self):
         class A(object):
             pass

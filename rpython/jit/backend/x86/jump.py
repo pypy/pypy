@@ -77,6 +77,7 @@ def _move(assembler, src, dst, tmpreg):
             assembler.regalloc_pop(dst)
             return
         assembler.regalloc_mov(src, tmpreg)
+        assembler.mc.forget_scratch_register()
         src = tmpreg
     assembler.regalloc_mov(src, dst)
 

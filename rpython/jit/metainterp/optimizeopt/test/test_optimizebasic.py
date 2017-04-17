@@ -5623,6 +5623,71 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_bug_int_and_1(self):
+        ops = """
+        [p0]
+        i51 = arraylen_gc(p0, descr=arraydescr)
+        i57 = int_and(i51, 1)
+        i62 = int_eq(i57, 0)
+        guard_false(i62) []
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_bug_int_and_2(self):
+        ops = """
+        [p0]
+        i51 = arraylen_gc(p0, descr=arraydescr)
+        i57 = int_and(4, i51)
+        i62 = int_eq(i57, 0)
+        guard_false(i62) []
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_bug_int_or(self):
+        ops = """
+        [p0, p1]
+        i51 = arraylen_gc(p0, descr=arraydescr)
+        i52 = arraylen_gc(p1, descr=arraydescr)
+        i57 = int_or(i51, i52)
+        i62 = int_eq(i57, 0)
+        guard_false(i62) []
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_int_and_positive(self):
+        ops = """
+        [p0, p1]
+        i51 = arraylen_gc(p0, descr=arraydescr)
+        i52 = arraylen_gc(p1, descr=arraydescr)
+        i57 = int_and(i51, i52)
+        i62 = int_lt(i57, 0)
+        guard_false(i62) []
+        """
+        expected = """
+        [p0, p1]
+        i51 = arraylen_gc(p0, descr=arraydescr)
+        i52 = arraylen_gc(p1, descr=arraydescr)
+        i57 = int_and(i51, i52)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_or_positive(self):
+        ops = """
+        [p0, p1]
+        i51 = arraylen_gc(p0, descr=arraydescr)
+        i52 = arraylen_gc(p1, descr=arraydescr)
+        i57 = int_or(i51, i52)
+        i62 = int_lt(i57, 0)
+        guard_false(i62) []
+        """
+        expected = """
+        [p0, p1]
+        i51 = arraylen_gc(p0, descr=arraydescr)
+        i52 = arraylen_gc(p1, descr=arraydescr)
+        i57 = int_or(i51, i52)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass

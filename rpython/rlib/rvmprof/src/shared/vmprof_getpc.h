@@ -43,15 +43,6 @@
 
 #ifndef BASE_GETPC_H_
 #define BASE_GETPC_H_
-
-#if ((ULONG_MAX) == (UINT_MAX))
-# define IS32BIT
-#else
-# define IS64BIT
-#endif
-
-#include "vmprof_config.h"
-
 // On many linux systems, we may need _GNU_SOURCE to get access to
 // the defined constants that define the register we want to see (eg
 // REG_EIP).  Note this #define must come first!
@@ -60,8 +51,11 @@
 // It will cause problems for FreeBSD though!, because it turns off
 // the needed __BSD_VISIBLE.
 #ifdef __APPLE__
+#include <limits.h>
 #define _XOPEN_SOURCE 500
-#endif // __APPLE__
+#endif
+
+#include "vmprof_config.h"
 
 #include <string.h>         // for memcmp
 #if defined(HAVE_SYS_UCONTEXT_H)
@@ -71,6 +65,10 @@
 #elif defined(HAVE_CYGWIN_SIGNAL_H)
 #include <cygwin/signal.h>
 typedef ucontext ucontext_t;
+#elif defined(HAVE_SIGNAL_H)
+#include <signal.h>
+#else
+#  error "don't know how to get the pc on this platform"
 #endif
 
 
@@ -117,52 +115,8 @@ struct CallUnrollInfo {
 // PC_FROM_UCONTEXT in config.h.  The only thing we need to do here,
 // then, is to do the magic call-unrolling for systems that support it.
 
-// -- Special case 1: linux x86, for which we have CallUnrollInfo
-#if defined(__linux) && defined(__i386) && defined(__GNUC__)
-static const struct CallUnrollInfo callunrollinfo[] = {
-  // Entry to a function:  push %ebp;  mov  %esp,%ebp
-  // Top-of-stack contains the caller IP.
-  { 0,
-    {0x55, 0x89, 0xe5}, 3,
-    0
-  },
-  // Entry to a function, second instruction:  push %ebp;  mov  %esp,%ebp
-  // Top-of-stack contains the old frame, caller IP is +4.
-  { -1,
-    {0x55, 0x89, 0xe5}, 3,
-    4
-  },
-  // Return from a function: RET.
-  // Top-of-stack contains the caller IP.
-  { 0,
-    {0xc3}, 1,
-    0
-  }
-};
-
-void* GetPC(ucontext_t *signal_ucontext) {
-  // See comment above struct CallUnrollInfo.  Only try instruction
-  // flow matching if both eip and esp looks reasonable.
-  const int eip = signal_ucontext->uc_mcontext.gregs[REG_EIP];
-  const int esp = signal_ucontext->uc_mcontext.gregs[REG_ESP];
-  if ((eip & 0xffff0000) != 0 && (~eip & 0xffff0000) != 0 &&
-      (esp & 0xffff0000) != 0) {
-    char* eip_char = (char*)(eip);
-    int i;
-    for (i = 0; i < sizeof(callunrollinfo)/sizeof(*callunrollinfo); ++i) {
-      if (!memcmp(eip_char + callunrollinfo[i].pc_offset,
-                  callunrollinfo[i].ins, callunrollinfo[i].ins_size)) {
-        // We have a match.
-        void **retaddr = (void**)(esp + callunrollinfo[i].return_sp_offset);
-        return *retaddr;
-      }
-    }
-  }
-  return (void*)eip;
-}
-
-// Special case #2: Windows, which has to do something totally different.
-#elif defined(_WIN32) || defined(__CYGWIN__) || defined(__CYGWIN32__) || defined(__MINGW32__)
+// Special case Windows, which has to do something totally different.
+#if defined(_WIN32) || defined(__CYGWIN__) || defined(__CYGWIN32__) || defined(__MINGW32__)
 // If this is ever implemented, probably the way to do it is to have
 // profiler.cc use a high-precision timer via timeSetEvent:
 //    http://msdn2.microsoft.com/en-us/library/ms712713.aspx
@@ -172,31 +126,24 @@ void* GetPC(ucontext_t *signal_ucontext) {
 // how we'd get the PC (using StackWalk64?)
 //    http://msdn2.microsoft.com/en-us/library/ms680650.aspx
 
-#include "base/logging.h"   // for RAW_LOG
-#ifndef HAVE_CYGWIN_SIGNAL_H
-typedef int ucontext_t;
-#endif
+// #include "base/logging.h"   // for RAW_LOG
+// #ifndef HAVE_CYGWIN_SIGNAL_H
+// typedef int ucontext_t;
+// #endif
 
-void* GetPC(ucontext_t *signal_ucontext) {
-  RAW_LOG(ERROR, "GetPC is not yet implemented on Windows\n");
+static intptr_t GetPC(ucontext_t *signal_ucontext) {
+  // RAW_LOG(ERROR, "GetPC is not yet implemented on Windows\n");
+  fprintf(stderr, "GetPC is not yet implemented on Windows\n");
   return NULL;
 }
 
 // Normal cases.  If this doesn't compile, it's probably because
 // PC_FROM_UCONTEXT is the empty string.  You need to figure out
 // the right value for your system, and add it to the list in
-// configure.ac (or set it manually in your config.h).
+// vmrpof_config.h
 #else
-void* GetPC(ucontext_t *signal_ucontext) {
-#ifdef __APPLE__
- #ifdef IS32BIT
-  return (void*)(signal_ucontext->uc_mcontext->__ss.__eip);
- #else
-  return (void*)(signal_ucontext->uc_mcontext->__ss.__rip);
- #endif
-#else
-  return (void*)signal_ucontext->PC_FROM_UCONTEXT;   // defined in config.h
-#endif
+static intptr_t GetPC(ucontext_t *signal_ucontext) {
+  return signal_ucontext->PC_FROM_UCONTEXT;   // defined in config.h
 }
 
 #endif
