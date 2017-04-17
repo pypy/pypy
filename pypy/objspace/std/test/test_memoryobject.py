@@ -337,8 +337,8 @@ class MockBuffer(PyBuffer):
     def getformat(self):
         return self.format
 
-    def getbytes(self, start, stop, step, size):
-        return self.data[start:stop]
+    def getbytes(self, start, size):
+        return self.data[start:start + size]
 
     def getlength(self):
         return len(self.data)

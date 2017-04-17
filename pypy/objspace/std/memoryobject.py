@@ -131,7 +131,7 @@ class W_MemoryView(W_Root):
 
         start = self._start_from_tuple(space, w_index)
         itemsize = self.getitemsize()
-        data = view.getbytes(start, start + itemsize, 1, itemsize)
+        data = view.getbytes(start, itemsize)
         return view.value_from_bytes(space, data)
 
     def _decode_index(self, space, w_index, is_slice):
@@ -223,7 +223,7 @@ class W_MemoryView(W_Root):
             src_shape0 = slicelength
             src_stride0 = src.getstrides()[0]
             for i in range(src_shape0):
-                data.append(src.getbytes(off,off+itemsize,1,itemsize))
+                data.append(src.getbytes(off, itemsize))
                 off += src_stride0
             off = 0
             dst_stride0 = self.getstrides()[0] * step
@@ -589,7 +589,7 @@ def PyBuffer_isContiguous(suboffsets, ndim, shape, strides, itemsize, fort):
 
 class BufferSlice(PyBuffer):
     _immutable_ = True
-    _attrs_ = ['buf', 'readonly', 'shape', 'strides', 'offset', 'step']
+    _attrs_ = ['buf', 'readonly', 'shape', 'strides', 'start', 'step']
     def __init__(self, buf, start, step, length):
         self.buf = buf
         self.readonly = self.buf.readonly
@@ -604,12 +604,9 @@ class BufferSlice(PyBuffer):
     def getlength(self):
         return self.shape[0] * self.getitemsize()
 
-    def getbytes(self, start, stop, step, size):
-        if start == stop:
-            return ''     # otherwise, adding self.offset might make them
-                          # out of bounds
+    def getbytes(self, start, size):
         offset = self.start * self.buf.getstrides()[0]
-        return self.buf.getbytes(offset + start, offset + stop, step, size)
+        return self.buf.getbytes(offset + start, size)
 
     def setbytes(self, start, string):
         if len(string) == 0:
@@ -661,8 +658,8 @@ class BufferViewBase(PyBuffer):
     def as_str_and_offset_maybe(self):
         return self.parent.as_str_and_offset_maybe()
 
-    def getbytes(self, start, stop, step, size):
-        return self.parent.getbytes(start, stop, step, size)
+    def getbytes(self, start, size):
+        return self.parent.getbytes(start, size)
 
     def setbytes(self, start, string):
         self.parent.setbytes(start, string)

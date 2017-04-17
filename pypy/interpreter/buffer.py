@@ -19,7 +19,14 @@ class PyBuffer(object):
         "Returns an interp-level string with the whole content of the buffer."
         return ''.join(self._copy_buffer())
 
-    def getbytes(self, start, stop, step, size):
+    def getbytes(self, start, size):
+        """Return `size` bytes starting at byte offset `start`.
+
+        This is a low-level operation, it is up to the caller to ensure that
+        the data requested actually correspond to items accessible from the
+        PyBuffer.
+        Note that `start` may be negative, e.g. if the buffer is reversed.
+        """
         raise NotImplementedError
 
     def setbytes(self, start, string):
@@ -72,7 +79,7 @@ class PyBuffer(object):
     def _copy_buffer(self):
         if self.getndim() == 0:
             itemsize = self.getitemsize()
-            return [self.getbytes(0, itemsize, 1, itemsize)]
+            return [self.getbytes(0, itemsize)]
         data = []
         self._copy_rec(0, data, 0)
         return data
@@ -98,7 +105,7 @@ class PyBuffer(object):
         bytesize = self.getlength()
         copiedbytes = 0
         for i in range(step):
-            bytes = self.getbytes(off, off+itemsize, 1, itemsize)
+            bytes = self.getbytes(off, itemsize)
             data.append(bytes)
             copiedbytes += len(bytes)
             off += strides[0]
@@ -124,7 +131,7 @@ class PyBuffer(object):
         offset = self.get_offset(space, 0, idx)
         itemsize = self.getitemsize()
         # TODO: this probably isn't very fast
-        data = self.getbytes(offset, offset + itemsize, 1, itemsize)
+        data = self.getbytes(offset, itemsize)
         return self.value_from_bytes(space, data)
 
     def setitem_w(self, space, idx, w_obj):
@@ -158,9 +165,8 @@ class PyBuffer(object):
         if dim >= self.getndim():
             bytecount = (stride * dimshape)
             values_w = [
-                self.value_from_bytes(
-                    space, self.getbytes(pos, pos + itemsize, 1, itemsize))
-                for pos in range(start, start + bytecount, stride)]
+                self.value_from_bytes(space, self.getbytes(pos, itemsize))
+                    for pos in range(start, start + bytecount, stride)]
             return space.newlist(values_w)
 
         items = [None] * dimshape
@@ -186,9 +192,8 @@ class SimpleBuffer(PyBuffer):
     def as_str(self):
         return self.data.as_str()
 
-    def getbytes(self, start, stop, step, size):
-        assert step == 1
-        return self.data[start:stop]
+    def getbytes(self, start, size):
+        return self.data[start:start + size]
 
     def setbytes(self, offset, s):
         self.data.setslice(offset, s)

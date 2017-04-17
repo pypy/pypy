@@ -380,8 +380,8 @@ class CPyBuffer(PyBuffer):
     def getlength(self):
         return self.size
 
-    def getbytes(self, start, stop, step, size):
-        return ''.join([self.ptr[i] for i in range(start, stop, step)])
+    def getbytes(self, start, size):
+        return ''.join([self.ptr[i] for i in range(start, start + size)])
 
     def setbytes(self, start, string):
         # absolutely no safety checks, what could go wrong?

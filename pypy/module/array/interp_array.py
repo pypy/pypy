@@ -897,8 +897,8 @@ class ArrayBuffer(PyBuffer):
     def as_str(self):
         return self.data.as_str()
 
-    def getbytes(self, start, stop, step, size):
-        return self.data.getslice(start, stop, step, size)
+    def getbytes(self, start, size):
+        return self.data[start:start + size]
 
     def setbytes(self, offset, s):
         return self.data.setslice(offset, s)
