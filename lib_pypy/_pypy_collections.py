@@ -1,6 +1,5 @@
-from __pypy__ import reversed_dict, move_to_end
+from __pypy__ import reversed_dict, move_to_end, objects_in_repr
 from _operator import eq as _eq
-from reprlib import recursive_repr as _recursive_repr
 import _collections_abc
 
 
@@ -44,12 +43,21 @@ class OrderedDict(dict):
         '''
         return move_to_end(self, key, last)
 
-    @_recursive_repr()
     def __repr__(self):
         'od.__repr__() <==> repr(od)'
         if not self:
             return '%s()' % (self.__class__.__name__,)
-        return '%s(%r)' % (self.__class__.__name__, list(self.items()))
+        currently_in_repr = objects_in_repr()
+        if self in currently_in_repr:
+            return '...'
+        currently_in_repr[self] = 1
+        try:
+            return '%s(%r)' % (self.__class__.__name__, list(self.items()))
+        finally:
+            try:
+                del currently_in_repr[self]
+            except:
+                pass
 
     def __reduce__(self):
         'Return state information for pickling'
