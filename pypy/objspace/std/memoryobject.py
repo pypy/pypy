@@ -608,20 +608,20 @@ class BufferSlice(PyBuffer):
         if start == stop:
             return ''     # otherwise, adding self.offset might make them
                           # out of bounds
-        offset = self.start * self.getitemsize()
+        offset = self.start * self.buf.getstrides()[0]
         return self.buf.getbytes(offset + start, offset + stop, step, size)
 
     def setbytes(self, start, string):
         if len(string) == 0:
             return        # otherwise, adding self.offset might make 'start'
                           # out of bounds
-        offset = self.start * self.getitemsize()
+        offset = self.start * self.buf.getstrides()[0]
         self.buf.setbytes(offset + start, string)
 
     def get_raw_address(self):
         from rpython.rtyper.lltypesystem import rffi
-        ptr = self.buf.get_raw_address()
-        return rffi.ptradd(ptr, self.start * self.getitemsize())
+        offset = self.start * self.buf.getstrides()[0]
+        return rffi.ptradd(self.buf.get_raw_address(), offset)
 
     def getformat(self):
         return self.buf.getformat()

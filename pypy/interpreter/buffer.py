@@ -144,22 +144,9 @@ class PyBuffer(object):
             values_w = [self.w_getitem(space, i) for i in range(n)]
             return space.newlist(values_w)
         else:
-            return self._tolist_rec(space, self.as_binary(), 0, 0, fmt)
+            return self._tolist_rec(space, 0, 0)
 
-    def _tolist(self, space, buf, bytecount, itemsize, fmt, strides=None):
-        from pypy.module.struct.formatiterator import UnpackFormatIterator
-        # TODO: this probably isn't very fast
-        count = bytecount // itemsize
-        fmtiter = UnpackFormatIterator(space, buf)
-        # patch the length, necessary buffer might have offset
-        # which leads to wrong length calculation if e.g. the
-        # memoryview is reversed
-        fmtiter.length = bytecount
-        fmtiter.strides = strides
-        fmtiter.interpret(fmt * count)
-        return space.newlist(fmtiter.result_w)
-
-    def _tolist_rec(self, space, buf, start, idim, fmt):
+    def _tolist_rec(self, space, start, idim):
         strides = self.getstrides()
         shape = self.getshape()
         #
@@ -170,13 +157,15 @@ class PyBuffer(object):
         #
         if dim >= self.getndim():
             bytecount = (stride * dimshape)
-            return self._tolist(space, buf, bytecount, itemsize, fmt, [stride])
-        items = [None] * dimshape
+            values_w = [
+                self.value_from_bytes(
+                    space, self.getbytes(pos, pos + itemsize, 1, itemsize))
+                for pos in range(start, start + bytecount, stride)]
+            return space.newlist(values_w)
 
-        orig_buf = buf
+        items = [None] * dimshape
         for i in range(dimshape):
-            buf = SubBuffer(orig_buf, start, stride)
-            item = self._tolist_rec(space, buf, start, idim + 1, fmt)
+            item = self._tolist_rec(space, start, idim + 1)
             items[i] = item
             start += stride
 
