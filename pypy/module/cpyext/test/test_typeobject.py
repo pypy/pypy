@@ -1256,3 +1256,27 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         # doesn't call tp_getattr at all, also on CPython
         raises(AttributeError, type(module.gettype1).__getattribute__,
                                module.gettype1, 'dcBA')
+
+    def test_multiple_inheritance_tp_basicsize(self):
+        module = self.import_module(name='issue2482')
+
+        class PyBase(object):
+            pass
+
+        basesize = module.get_basicsize(PyBase)
+
+        CBase = module.issue2482_object
+        class A(CBase, PyBase):
+            def __init__(self, i):
+                CBase.__init__(self)
+                PyBase.__init__(self)
+
+        class B(PyBase, CBase):
+            def __init__(self, i):
+                PyBase.__init__(self)
+                CBase.__init__(self)
+
+        Asize = module.get_basicsize(A)
+        Bsize = module.get_basicsize(B)
+        assert Asize == Bsize
+        assert Asize > basesize
