@@ -7,8 +7,8 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.buffer import PyBuffer
 from pypy.conftest import option
 
-class AppTestMemoryView:
-    spaceconfig = dict(usemodules=['array', 'sys', '_rawffi'])
+class AppTestMemoryView(object):
+    spaceconfig = dict(usemodules=['array', 'sys'])
 
     def test_basic(self):
         v = memoryview(b"abc")
@@ -195,6 +195,9 @@ class AppTestMemoryView:
         assert m[2] == 1
 
     def test_pypy_raw_address_base(self):
+        import sys
+        if '__pypy__' not in sys.modules:
+            skip('PyPy-only test')
         a = memoryview(b"foobar")._pypy_raw_address()
         assert a != 0
         b = memoryview(bytearray(b"foobar"))._pypy_raw_address()
@@ -281,6 +284,9 @@ class AppTestMemoryView:
         assert m2.strides == m1.strides
         assert m2.itemsize == m1.itemsize
         assert m2.shape == m1.shape
+
+class AppTestCtypes(object):
+    spaceconfig = dict(usemodules=['sys', '_rawffi'])
 
     def test_cast_ctypes(self):
         import _rawffi, sys
