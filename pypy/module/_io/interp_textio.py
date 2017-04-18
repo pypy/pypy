@@ -801,9 +801,10 @@ class W_TextIOWrapper(W_TextIOBase):
             text = space.unicode_w(w_text)
 
         needflush = False
+        text_needflush = False
         if self.write_through:
-            needflush = True
-        elif self.line_buffering and (haslf or text.find(u'\r') >= 0):
+            text_needflush = True
+        if self.line_buffering and (haslf or text.find(u'\r') >= 0):
             needflush = True
 
         # XXX What if we were just reading?
@@ -820,7 +821,8 @@ class W_TextIOWrapper(W_TextIOBase):
         self.pending_bytes.append(b)
         self.pending_bytes_count += len(b)
 
-        if self.pending_bytes_count > self.chunk_size or needflush:
+        if (self.pending_bytes_count > self.chunk_size or
+            needflush or text_needflush):
             self._writeflush(space)
 
         if needflush:

@@ -291,6 +291,39 @@ class AppTestBufferedReader:
         raises(_io.UnsupportedOperation, bufio.seek, 0)
         raises(_io.UnsupportedOperation, bufio.tell)
 
+    def test_bufio_write_through(self):
+        import _io as io
+        # Issue #21396: write_through=True doesn't force a flush()
+        # on the underlying binary buffered object.
+        flush_called, write_called = [], []
+        class BufferedWriter(io.BufferedWriter):
+            def flush(self, *args, **kwargs):
+                flush_called.append(True)
+                return super().flush(*args, **kwargs)
+            def write(self, *args, **kwargs):
+                write_called.append(True)
+                return super().write(*args, **kwargs)
+
+        rawio = io.BytesIO()
+        data = b"a"
+        bufio = BufferedWriter(rawio, len(data)*2)
+        textio = io.TextIOWrapper(bufio, encoding='ascii',
+                                  write_through=True)
+        # write to the buffered io but don't overflow the buffer
+        text = data.decode('ascii')
+        textio.write(text)
+
+        # buffer.flush is not called with write_through=True
+        assert not flush_called
+        # buffer.write *is* called with write_through=True
+        assert write_called
+        assert rawio.getvalue() == b"" # no flush
+
+        write_called = [] # reset
+        textio.write(text * 10) # total content is larger than bufio buffer
+        assert write_called
+        assert rawio.getvalue() == data * 11 # all flushed
+
 class AppTestBufferedReaderWithThreads(AppTestBufferedReader):
     spaceconfig = dict(usemodules=['_io', 'thread', 'time'])
 
