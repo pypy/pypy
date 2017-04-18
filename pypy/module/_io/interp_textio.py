@@ -878,13 +878,17 @@ class W_TextIOWrapper(W_TextIOBase):
                               space.newtuple([space.newbytes(""),
                                               space.newint(cookie.dec_flags)]))
 
-    def _encoder_setstate(self, space, cookie):
-        if cookie.start_pos == 0 and cookie.dec_flags == 0:
+    def _encoder_reset(self, space, start_of_stream):
+        if start_of_stream:
             space.call_method(self.w_encoder, "reset")
             self.encoding_start_of_stream = True
         else:
             space.call_method(self.w_encoder, "setstate", space.newint(0))
             self.encoding_start_of_stream = False
+
+    def _encoder_setstate(self, space, cookie):
+        self._encoder_reset(space,
+                            cookie.start_pos == 0 and cookie.dec_flags == 0)
 
     @unwrap_spec(whence=int)
     def seek_w(self, space, w_pos, whence=0):
@@ -913,8 +917,13 @@ class W_TextIOWrapper(W_TextIOBase):
             self.snapshot = None
             if self.w_decoder:
                 space.call_method(self.w_decoder, "reset")
-            return space.call_method(self.w_buffer, "seek",
-                                     w_pos, space.newint(whence))
+            w_res = space.call_method(self.w_buffer, "seek",
+                                      w_pos, space.newint(whence))
+            if self.w_encoder:
+                # If seek() == 0, we are at the start of stream
+                start_of_stream = space.eq_w(w_res, space.newint(0))
+                self._encoder_reset(space, start_of_stream)
+            return w_res
 
         elif whence != 0:
             raise oefmt(space.w_ValueError,

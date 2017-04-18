@@ -302,6 +302,36 @@ class AppTestFileIO:
             return -1
         raises(ValueError, _io.FileIO, "foo", 'r', opener=opener)
 
+    def test_seek_bom(self):
+        # The BOM is not written again when seeking manually
+        import _io
+        filename = self.tmpfile + '_x3'
+        for charset in ('utf-8-sig', 'utf-16', 'utf-32'):
+            with _io.open(filename, 'w', encoding=charset) as f:
+                f.write('aaa')
+                pos = f.tell()
+            with _io.open(filename, 'r+', encoding=charset) as f:
+                f.seek(pos)
+                f.write('zzz')
+                f.seek(0)
+                f.write('bbb')
+            with _io.open(filename, 'rb') as f:
+                assert f.read() == 'bbbzzz'.encode(charset)
+
+    def test_seek_append_bom(self):
+        # Same test, but first seek to the start and then to the end
+        import _io, os
+        filename = self.tmpfile + '_x3'
+        for charset in ('utf-8-sig', 'utf-16', 'utf-32'):
+            with _io.open(filename, 'w', encoding=charset) as f:
+                f.write('aaa')
+            with _io.open(filename, 'a', encoding=charset) as f:
+                f.seek(0)
+                f.seek(0, os.SEEK_END)
+                f.write('xxx')
+            with _io.open(filename, 'rb') as f:
+                assert f.read() == 'aaaxxx'.encode(charset)
+
 
 def test_flush_at_exit():
     from pypy import conftest
