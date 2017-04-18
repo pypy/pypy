@@ -53,9 +53,11 @@ syntax: regexp
 ^rpython/translator/goal/.+\.dll$
 ^pypy/goal/pypy-translation-snapshot$
 ^pypy/goal/pypy-c
+^pypy/goal/pypy3-c
 ^pypy/goal/.+\.exe$
 ^pypy/goal/.+\.dll$
 ^pypy/goal/.+\.lib$
+^pypy/goal/.+\.dylib$
 ^pypy/_cache$
 ^lib-python/2.7/lib2to3/.+\.pickle$
 ^lib_pypy/__pycache__$
