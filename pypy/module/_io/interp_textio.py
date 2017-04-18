@@ -1,6 +1,6 @@
 import sys
 
-from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.baseobjspace import W_Root, BufferInterfaceNotFound
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import (
@@ -584,6 +584,10 @@ class W_TextIOWrapper(W_TextIOBase):
             # Given this, we know there was a valid snapshot point
             # len(dec_buffer) bytes ago with decoder state (b'', dec_flags).
             w_dec_buffer, w_dec_flags = space.unpackiterable(w_state, 2)
+            if not space.isinstance_w(w_dec_buffer, space.w_bytes):
+                msg = "decoder getstate() should have returned a bytes " \
+                      "object not '%T'"
+                raise oefmt(space.w_TypeError, msg, w_dec_buffer)
             dec_buffer = space.bytes_w(w_dec_buffer)
             dec_flags = space.int_w(w_dec_flags)
         else:
@@ -591,16 +595,18 @@ class W_TextIOWrapper(W_TextIOBase):
             dec_flags = 0
 
         # Read a chunk, decode it, and put the result in self._decoded_chars
-        w_input = space.call_method(self.w_buffer,
-                                    "read1" if self.has_read1 else "read",
+        func_name = "read1" if self.has_read1 else "read"
+        w_input = space.call_method(self.w_buffer, func_name,
                                     space.newint(self.chunk_size))
 
-        if not space.isinstance_w(w_input, space.w_bytes):
-            msg = "decoder getstate() should have returned a bytes " \
-                  "object not '%T'"
-            raise oefmt(space.w_TypeError, msg, w_input)
+        try:
+            input_buf = w_input.buffer_w(space, space.BUF_SIMPLE)
+        except BufferInterfaceNotFound:
+            msg = ("underlying %s() should have returned a bytes-like "
+                   "object, not '%T'")
+            raise oefmt(space.w_TypeError, msg, func_name, w_input)
 
-        eof = space.len_w(w_input) == 0
+        eof = input_buf.getlength() == 0
         w_decoded = space.call_method(self.w_decoder, "decode",
                                       w_input, space.newbool(eof))
         check_decoded(space, w_decoded)
@@ -611,7 +617,7 @@ class W_TextIOWrapper(W_TextIOBase):
         if self.telling:
             # At the snapshot point, len(dec_buffer) bytes before the read,
             # the next input to be decoded is dec_buffer + input_chunk.
-            next_input = dec_buffer + space.bytes_w(w_input)
+            next_input = dec_buffer + input_buf.as_str()
             self.snapshot = PositionSnapshot(dec_flags, next_input)
 
         return not eof
