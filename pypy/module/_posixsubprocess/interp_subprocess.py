@@ -36,6 +36,15 @@ if config['HAVE_SYS_STAT_H']:
 if config['HAVE_SETSID']:
     compile_extra.append("-DHAVE_SETSID")
 
+class CConfig:
+    _compilation_info_ = ExternalCompilationInfo(includes=['dirent.h'])
+    HAVE_DIRENT_H = platform.Has("opendir")
+
+config = platform.configure(CConfig)
+
+if config['HAVE_DIRENT_H']:
+    compile_extra.append("-DHAVE_DIRENT_H")
+
 eci = eci.merge(
     rposix.eci_inheritable,
     ExternalCompilationInfo(
