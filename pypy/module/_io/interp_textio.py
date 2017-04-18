@@ -528,13 +528,20 @@ class W_TextIOWrapper(W_TextIOBase):
 
     def close_w(self, space):
         self._check_attached(space)
-        if not space.is_true(space.getattr(self.w_buffer,
-                                           space.newtext("closed"))):
+        if space.is_true(space.getattr(self.w_buffer,
+                                       space.newtext("closed"))):
+            return
+        try:
+            space.call_method(self, "flush")
+        except OperationError as e:
             try:
-                space.call_method(self, "flush")
-            finally:
                 ret = space.call_method(self.w_buffer, "close")
-            return ret
+            except OperationError as e2:
+                e2.chain_exceptions(space, e)
+            raise
+        else:
+            ret = space.call_method(self.w_buffer, "close")
+        return ret
 
     def _dealloc_warn_w(self, space, w_source):
         space.call_method(self.w_buffer, "_dealloc_warn", w_source)

@@ -365,6 +365,22 @@ class AppTestTextIO:
         raises(IOError, txt.close)  # exception not swallowed
         assert txt.closed
 
+    def test_close_error_on_close(self):
+        import _io as io
+        buffer = io.BytesIO(b'testdata')
+        def bad_flush():
+            raise OSError('flush')
+        def bad_close():
+            raise OSError('close')
+        buffer.close = bad_close
+        txt = io.TextIOWrapper(buffer, encoding="ascii")
+        txt.flush = bad_flush
+        err = raises(OSError, txt.close)
+        assert err.value.args == ('close',)
+        assert isinstance(err.value.__context__, OSError)
+        assert err.value.__context__.args == ('flush',)
+        assert not txt.closed
+
     def test_illegal_decoder(self):
         import _io
         raises(LookupError, _io.TextIOWrapper, _io.BytesIO(),

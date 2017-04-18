@@ -707,6 +707,7 @@ class AppTestBufferedRWPair:
         pair = _io.BufferedRWPair(reader, writer)
         err = raises(NameError, pair.close)
         assert 'reader_non_existing' in str(err.value)
+        assert 'writer_non_existing' in str(err.value.__context__)
         assert not pair.closed
         assert not reader.closed
         assert not writer.closed

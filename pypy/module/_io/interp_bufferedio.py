@@ -1030,7 +1030,12 @@ class W_BufferedRWPair(W_BufferedIOBase):
             raise oefmt(space.w_ValueError,
                         "I/O operation on uninitialized object")
         w_meth = space.getattr(self.w_reader, space.newtext("close"))
-        space.call_args(w_meth, __args__)
+        try:
+            space.call_args(w_meth, __args__)
+        except OperationError as e2:
+            if e:
+                e2.chain_exceptions(space, e)
+            e = e2
 
         if e:
             raise e
