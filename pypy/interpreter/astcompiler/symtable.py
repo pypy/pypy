@@ -135,7 +135,8 @@ class Scope(object):
                 err = "no binding for nonlocal '%s' found" % (name,)
                 raise SyntaxError(err, self.lineno, self.col_offset)
             self.symbols[name] = SCOPE_FREE
-            self.free_vars.append(name)
+            if not self._hide_bound_from_nested_scopes:
+                self.free_vars.append(name)
             free[name] = None
             self.has_free = True
         elif flags & SYM_BOUND:
