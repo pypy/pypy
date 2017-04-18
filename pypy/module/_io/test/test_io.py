@@ -474,6 +474,22 @@ class AppTestOpen:
             assert f.mode == 'x'
         raises(FileExistsError, _io.open, filename, 'x')
 
+    def test_nonbuffered_textio(self):
+        import warnings, _io as io
+        filename = self.tmpfile + '_x2'
+        warnings.simplefilter("always", category=ResourceWarning)
+        with warnings.catch_warnings(record=True) as recorded:
+            raises(ValueError, io.open, filename, 'w', buffering=0)
+        assert recorded == []
+
+    def test_invalid_newline(self):
+        import warnings, _io as io
+        filename = self.tmpfile + '_x2'
+        warnings.simplefilter("always", category=ResourceWarning)
+        with warnings.catch_warnings(record=True) as recorded:
+            raises(ValueError, io.open, filename, 'w', newline='invalid')
+        assert recorded == []
+
 
 class AppTestIoAferClose:
     spaceconfig = dict(usemodules=['_io'])
