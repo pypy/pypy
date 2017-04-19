@@ -758,6 +758,11 @@ class AppTestPartialEvaluation:
         s = "\u5678".encode("latin-1", "test.bad_handler")
         assert s == b'\xe9'
 
+    def test_lone_surrogates(self):
+        for encoding in ('utf-8', 'utf-16', 'utf-16-le', 'utf-16-be',
+                         'utf-32', 'utf-32-le', 'utf-32-be'):
+            raises(UnicodeEncodeError, u'\ud800'.encode, encoding)
+
     def test_charmap_encode(self):
         assert 'xxx'.encode('charmap') == b'xxx'
 

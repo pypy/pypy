@@ -629,6 +629,21 @@ def make_encoder_wrapper(name):
     wrap_encoder.func_name = rname
     globals()[name] = wrap_encoder
 
+def make_utf_encoder_wrapper(name):
+    rname = "unicode_encode_%s" % (name.replace("_encode", ""), )
+    assert hasattr(runicode, rname)
+    @unwrap_spec(uni=unicode, errors='text_or_none')
+    def wrap_encoder(space, uni, errors="strict"):
+        if errors is None:
+            errors = 'strict'
+        state = space.fromcache(CodecState)
+        func = getattr(runicode, rname)
+        result = func(uni, len(uni), errors, state.encode_error_handler,
+                      allow_surrogates=False)
+        return space.newtuple([space.newbytes(result), space.newint(len(uni))])
+    wrap_encoder.func_name = rname
+    globals()[name] = wrap_encoder
+
 def make_decoder_wrapper(name):
     rname = "str_decode_%s" % (name.replace("_decode", ""), )
     assert hasattr(runicode, rname)
@@ -650,16 +665,20 @@ for encoder in [
          "ascii_encode",
          "latin_1_encode",
          "utf_7_encode",
+         "unicode_escape_encode",
+         "raw_unicode_escape_encode",
+        ]:
+    make_encoder_wrapper(encoder)
+
+for encoder in [
          "utf_16_encode",
          "utf_16_be_encode",
          "utf_16_le_encode",
          "utf_32_encode",
          "utf_32_be_encode",
          "utf_32_le_encode",
-         "unicode_escape_encode",
-         "raw_unicode_escape_encode",
         ]:
-    make_encoder_wrapper(encoder)
+    make_utf_encoder_wrapper(encoder)
 
 for decoder in [
          "ascii_decode",
