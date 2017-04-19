@@ -862,23 +862,19 @@ class AppTestPosix:
 
     if hasattr(rposix, 'posix_fadvise'):
         def test_os_posix_fadvise(self):
-            posix, os = self.posix, self.os
-            localdir = os.getcwd()
-            os.mkdir(self.path2 + 'test_os_posix_fadvise')
+            posix = self.posix
+            fd = posix.open(self.path2 + 'test_os_posix_fadvise', posix.O_CREAT | posix.O_RDWR)
             try:
-                fd = os.open(self.path2 + 'test_os_posix_fadvise', os.O_RDONLY)
-                try:
-                    mypath = os.getcwd()
-                    assert posix.posix_fadvise(fd, 0, 0, posix.POSIX_FADV_WILLNEED) == 0
-                    assert posix.posix_fadvise(fd, 0, 0, posix.POSIX_FADV_NORMAL) == 0
-                    assert posix.posix_fadvise(fd, 0, 0, posix.POSIX_FADV_SEQUENTIAL) == 0
-                    assert posix.posix_fadvise(fd, 0, 0, posix.POSIX_FADV_RANDOM) == 0
-                    assert posix.posix_fadvise(fd, 0, 0, posix.POSIX_FADV_NOREUSE) == 0
-                    assert posix.posix_fadvise(fd, 0, 0, posix.POSIX_FADV_DONTNEED) == 0
-                finally:
-                    os.close(fd)
+                posix.write(fd, b"foobar")
+                assert posix.posix_fadvise(fd, 0, 1, posix.POSIX_FADV_WILLNEED) is None
+                assert posix.posix_fadvise(fd, 1, 1, posix.POSIX_FADV_NORMAL) is None
+                assert posix.posix_fadvise(fd, 2, 1, posix.POSIX_FADV_SEQUENTIAL) is None
+                assert posix.posix_fadvise(fd, 3, 1, posix.POSIX_FADV_RANDOM) is None
+                assert posix.posix_fadvise(fd, 4, 1, posix.POSIX_FADV_NOREUSE) is None
+                assert posix.posix_fadvise(fd, 5, 1, posix.POSIX_FADV_DONTNEED) is None
+                raises(OSError, posix.posix_fadvise, fd, 6, 1, 1234567)
             finally:
-                os.chdir(localdir)
+                posix.close(fd)
 
     if hasattr(rposix, 'posix_fallocate'):
         def test_os_posix_posix_fallocate(self):

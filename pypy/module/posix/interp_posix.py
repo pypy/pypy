@@ -419,11 +419,11 @@ def posix_fadvise(space, fd, offset, length, advice):
     """
     while True:
         try:
-            res = rposix.posix_fadvise(fd, offset, length, advice)
+            rposix.posix_fadvise(fd, offset, length, advice)
         except OSError as e:
             wrap_oserror(space, e, eintr_retry=True)
         else:
-            return space.newint(res)
+            return
 
 # ____________________________________________________________
 

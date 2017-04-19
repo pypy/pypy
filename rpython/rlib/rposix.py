@@ -522,7 +522,10 @@ if not _WIN32:
         @enforceargs(int, None, None, int)
         def posix_fadvise(fd, offset, length, advice):
             validate_fd(fd)
-            return handle_posix_error('posix_fadvise', c_posix_fadvise(fd, offset, length, advice))
+            error = c_posix_fadvise(fd, offset, length, advice)
+            error = widen(error)
+            if error != 0:
+                raise OSError(error, 'posix_fadvise failed')
 
 c_ftruncate = external('ftruncate', [rffi.INT, rffi.LONGLONG], rffi.INT,
                        macro=_MACRO_ON_POSIX, save_err=rffi.RFFI_SAVE_ERRNO)
