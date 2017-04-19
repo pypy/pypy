@@ -15,6 +15,14 @@ from rpython.rlib import rposix, rgc, rstack
 def internal_repr(space, w_object):
     return space.newtext('%r' % (w_object,))
 
+def objects_in_repr(space):
+    """The identitydict of objects currently being repr().
+
+    This object is thread-local and can be used in a __repr__ method
+    to avoid recursion.
+    """
+    return space.get_objects_in_repr()
+
 
 def attach_gdb(space):
     """Run an interp-level gdb (or pdb when untranslated)"""

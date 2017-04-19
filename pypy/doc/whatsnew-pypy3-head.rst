@@ -18,3 +18,6 @@ this unblocks the Python test suite.
 
 Implement posix.posix_fallocate() and posix.posix_fadvise()
 
+.. branch: py3.5-mac-translate
+
+Fix for different posix primitives on MacOS

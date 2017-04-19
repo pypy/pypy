@@ -38,7 +38,7 @@ class Scope(object):
         self.roles = {}
         self.varnames = []
         self.children = []
-        self.free_vars = {}
+        self.free_vars = []    # a bag of names: the order doesn't matter here
         self.temp_name_counter = 1
         self.has_free = False
         self.child_has_free = False
@@ -135,7 +135,8 @@ class Scope(object):
                 err = "no binding for nonlocal '%s' found" % (name,)
                 raise SyntaxError(err, self.lineno, self.col_offset)
             self.symbols[name] = SCOPE_FREE
-            self.free_vars[name] = None
+            if not self._hide_bound_from_nested_scopes:
+                self.free_vars.append(name)
             free[name] = None
             self.has_free = True
         elif flags & SYM_BOUND:
@@ -147,7 +148,7 @@ class Scope(object):
                 pass
         elif bound and name in bound:
             self.symbols[name] = SCOPE_FREE
-            self.free_vars[name] = None
+            self.free_vars.append(name)
             free[name] = None
             self.has_free = True
         elif name in globs:
@@ -204,7 +205,7 @@ class Scope(object):
             except KeyError:
                 if bound and name in bound:
                     self.symbols[name] = SCOPE_FREE
-                    self.free_vars[name] = None
+                    self.free_vars.append(name)
             else:
                 if role_here & (SYM_BOUND | SYM_GLOBAL) and \
                         self._hide_bound_from_nested_scopes:
@@ -213,7 +214,7 @@ class Scope(object):
                     # scope.  We add the name to the class scope's list of free
                     # vars, so it will be passed through by the interpreter, but
                     # we leave the scope alone, so it can be local on its own.
-                    self.free_vars[name] = None
+                    self.free_vars.append(name)
         self._check_optimization()
         free.update(new_free)
 

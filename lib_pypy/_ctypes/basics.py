@@ -64,8 +64,9 @@ class _CDataMeta(type):
         res = object.__new__(self)
         res.__class__ = self
         res.__dict__['_buffer'] = resbuffer
-        res.__dict__['_base'] = base
-        res.__dict__['_index'] = index
+        if base is not None:
+            res.__dict__['_base'] = base
+            res.__dict__['_index'] = index
         return res
 
     def _CData_retval(self, resbuffer):

@@ -126,6 +126,14 @@ class StdObjSpace(ObjSpace):
         ec._py_repr = None
         return ec
 
+    def get_objects_in_repr(self):
+        from pypy.module.__pypy__.interp_identitydict import W_IdentityDict
+        ec = self.getexecutioncontext()
+        w_currently_in_repr = ec._py_repr
+        if w_currently_in_repr is None:
+            w_currently_in_repr = ec._py_repr = W_IdentityDict(self)
+        return w_currently_in_repr
+
     def gettypefor(self, cls):
         return self.gettypeobject(cls.typedef)
 

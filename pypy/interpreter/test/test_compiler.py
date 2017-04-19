@@ -1035,6 +1035,32 @@ class AppTestCompiler(object):
         else:
             assert l1 == l2 == l3 == l4 == [1, 3, 2, 4]
 
+    def test_freevars_order(self):
+        # co_cellvars and co_freevars are guaranteed to appear in
+        # alphabetical order.  See CPython Issue #15368 (which does
+        # not come with tests).
+        source = """if 1:
+        def f1(x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,x11,x12,x13,x14,x15):
+            def g1():
+                return (x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,x11,x12,x13,x14,x15)
+            return g1
+        def f2(x15,x14,x13,x12,x11,x10,x9,x8,x7,x6,x5,x4,x3,x2,x1):
+            def g2():
+                return (x15,x14,x13,x12,x11,x10,x9,x8,x7,x6,x5,x4,x3,x2,x1)
+            return g2
+        c1 = f1(*range(15)).__code__.co_freevars
+        c2 = f2(*range(15)).__code__.co_freevars
+        r1 = f1.__code__.co_cellvars
+        r2 = f2.__code__.co_cellvars
+        """
+        d = {}
+        exec(source, d)
+        assert d['c1'] == d['c2']
+        # the test above is important for a few bytecode hacks,
+        # but actually we get them in alphabetical order, so check that:
+        assert d['c1'] == tuple(sorted(d['c1']))
+        assert d['r1'] == d['r2'] == d['c1']
+
     def test_ast_equality(self):
         import _ast
         sample_code = [

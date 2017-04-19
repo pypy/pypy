@@ -305,9 +305,7 @@ def getsitepackages(prefixes=None):
         seen.add(prefix)
 
         if is_pypy:
-            from distutils.sysconfig import get_python_lib
-            sitepackages.append(get_python_lib(standard_lib=False,
-                                               prefix=prefix))
+            sitepackages.append(os.path.join(prefix, "site-packages"))
         elif os.sep == '/':
             sitepackages.append(os.path.join(prefix, "lib",
                                         "python" + sys.version[:3],

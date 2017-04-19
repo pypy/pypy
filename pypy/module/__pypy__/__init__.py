@@ -67,6 +67,7 @@ class Module(MixedModule):
     interpleveldefs = {
         'attach_gdb'                : 'interp_magic.attach_gdb',
         'internal_repr'             : 'interp_magic.internal_repr',
+        'objects_in_repr'           : 'interp_magic.objects_in_repr',
         'bytebuffer'                : 'bytebuffer.bytebuffer',
         'identity_dict'             : 'interp_identitydict.W_IdentityDict',
         'debug_start'               : 'interp_debug.debug_start',

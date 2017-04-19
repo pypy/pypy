@@ -23,6 +23,7 @@ from pypy.interpreter.gateway import (
     WrappedDefault, applevel, interp2app, unwrap_spec)
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.miscutils import StringSort
 from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.objspace.std.intobject import W_IntObject
@@ -438,11 +439,7 @@ class W_ListObject(W_Root):
     def descr_repr(self, space):
         if self.length() == 0:
             return space.newtext('[]')
-        ec = space.getexecutioncontext()
-        w_currently_in_repr = ec._py_repr
-        if w_currently_in_repr is None:
-            w_currently_in_repr = ec._py_repr = space.newdict()
-        return listrepr(space, w_currently_in_repr, self)
+        return listrepr(space, space.get_objects_in_repr(), self)
 
     def descr_eq(self, space, w_other):
         if not isinstance(w_other, W_ListObject):
@@ -2014,15 +2011,14 @@ init_defaults = [None]
 app = applevel("""
     def listrepr(currently_in_repr, l):
         'The app-level part of repr().'
-        list_id = id(l)
-        if list_id in currently_in_repr:
+        if l in currently_in_repr:
             return '[...]'
-        currently_in_repr[list_id] = 1
+        currently_in_repr[l] = 1
         try:
             return "[" + ", ".join([repr(x) for x in l]) + ']'
         finally:
             try:
-                del currently_in_repr[list_id]
+                del currently_in_repr[l]
             except:
                 pass
 """, filename=__file__)
@@ -2039,7 +2035,6 @@ TimSort = make_timsort_class()
 IntBaseTimSort = make_timsort_class()
 FloatBaseTimSort = make_timsort_class()
 IntOrFloatBaseTimSort = make_timsort_class()
-StringBaseTimSort = make_timsort_class()
 UnicodeBaseTimSort = make_timsort_class()
 
 
@@ -2074,11 +2069,6 @@ class IntOrFloatSort(IntOrFloatBaseTimSort):
         fa = longlong2float.maybe_decode_longlong_as_float(a)
         fb = longlong2float.maybe_decode_longlong_as_float(b)
         return fa < fb
-
-
-class StringSort(StringBaseTimSort):
-    def lt(self, a, b):
-        return a < b
 
 
 class UnicodeSort(UnicodeBaseTimSort):

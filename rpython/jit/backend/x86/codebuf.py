@@ -42,10 +42,10 @@ class MachineCodeBlockWrapper(BlockBuilderMixin,
         self.ops_offset = {}
 
     def add_pending_relocation(self):
-        self.relocations.append(self.get_relative_pos())
+        self.relocations.append(self.get_relative_pos(break_basic_block=False))
 
     def mark_op(self, op):
-        pos = self.get_relative_pos()
+        pos = self.get_relative_pos(break_basic_block=False)
         self.ops_offset[op] = pos
 
     def copy_to_raw_memory(self, addr):
@@ -64,11 +64,11 @@ class MachineCodeBlockWrapper(BlockBuilderMixin,
 
     def emit_forward_jump_cond(self, cond):
         self.J_il8(cond, 0)
-        return self.get_relative_pos()
+        return self.get_relative_pos(break_basic_block=False)
 
     def emit_forward_jump_uncond(self):
         self.JMP_l8(0)
-        return self.get_relative_pos()
+        return self.get_relative_pos(break_basic_block=False)
 
     def patch_forward_jump(self, jcond_location):
         offset = self.get_relative_pos() - jcond_location
@@ -76,3 +76,38 @@ class MachineCodeBlockWrapper(BlockBuilderMixin,
         if offset > 127:
             raise ShortJumpTooFar
         self.overwrite(jcond_location-1, chr(offset))
+
+    def get_relative_pos(self, break_basic_block=True):
+        if break_basic_block:
+            self.forget_scratch_register()
+        return BlockBuilderMixin.get_relative_pos(self)
+
+
+class SlowPath(object):
+    def __init__(self, mc, condition):
+        mc.J_il(condition, 0xfffff)     # patched later
+        self.cond_jump_addr = mc.get_relative_pos(break_basic_block=False)
+        self.saved_scratch_value_1 = mc.get_scratch_register_known_value()
+        self.frame_size = mc._frame_size
+
+    def set_continue_addr(self, mc):
+        self.continue_addr = mc.get_relative_pos(break_basic_block=False)
+        self.saved_scratch_value_2 = mc.get_scratch_register_known_value()
+        assert self.frame_size == mc._frame_size
+
+    def generate(self, assembler, mc):
+        # no alignment here, prefer compactness for these slow-paths.
+        # patch the original jump to go here
+        offset = mc.get_relative_pos() - self.cond_jump_addr
+        mc.overwrite32(self.cond_jump_addr-4, offset)
+        # restore the knowledge of the scratch register value
+        # (this does not emit any code)
+        mc.force_frame_size(self.frame_size)
+        mc.restore_scratch_register_known_value(self.saved_scratch_value_1)
+        # generate the body of the slow-path
+        self.generate_body(assembler, mc)
+        # reload (if needed) the (possibly different) scratch register value
+        mc.load_scratch_if_known(self.saved_scratch_value_2)
+        # jump back
+        curpos = mc.get_relative_pos() + 5
+        mc.JMP_l(self.continue_addr - curpos)

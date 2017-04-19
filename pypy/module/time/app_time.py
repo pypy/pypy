@@ -1,7 +1,6 @@
 # NOT_RPYTHON
 
-from _structseq import structseqtype, structseqfield
-from types import SimpleNamespace
+from _structseq import structseqtype, structseqfield, SimpleNamespace
 import time
 
 class struct_time(metaclass=structseqtype):

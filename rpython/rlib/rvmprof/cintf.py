@@ -1,6 +1,7 @@
 import platform as host_platform
 import py
 import sys
+import shutil
 from rpython.tool.udir import udir
 from rpython.tool.version import rpythonroot
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
@@ -22,19 +23,18 @@ separate_module_files = [
     SHARED.join('symboltable.c')
 ]
 if sys.platform.startswith('linux'):
-    if sys.maxint > 2**32:     # doesn't seem to compile on 32-bit Linux
-        separate_module_files += [
-           BACKTRACE.join('backtrace.c'),
-           BACKTRACE.join('state.c'),
-           BACKTRACE.join('elf.c'),
-           BACKTRACE.join('dwarf.c'),
-           BACKTRACE.join('fileline.c'),
-           BACKTRACE.join('mmap.c'),
-           BACKTRACE.join('mmapio.c'),
-           BACKTRACE.join('posix.c'),
-           BACKTRACE.join('sort.c'),
-        ]
-        compile_extra += ['-DVMPROF_BACKTRACE']
+    separate_module_files += [
+       BACKTRACE.join('atomic.c'),
+       BACKTRACE.join('backtrace.c'),
+       BACKTRACE.join('state.c'),
+       BACKTRACE.join('elf.c'),
+       BACKTRACE.join('dwarf.c'),
+       BACKTRACE.join('fileline.c'),
+       BACKTRACE.join('mmap.c'),
+       BACKTRACE.join('mmapio.c'),
+       BACKTRACE.join('posix.c'),
+       BACKTRACE.join('sort.c'),
+    ]
     _libs = ['dl']
     compile_extra += ['-DVMPROF_UNIX']
     compile_extra += ['-DVMPROF_LINUX']
@@ -65,8 +65,18 @@ eci_kwds = dict(
     )
 global_eci = ExternalCompilationInfo(**eci_kwds)
 
+def configure_libbacktrace_linux():
+    bits = 32 if sys.maxsize == 2**31-1 else 64
+    # FIXME well, the config generated on x86 seems to work on s390x and ppc
+    # vmprof is currently not supported there! we just need to pass compilation
+    specific_config = 'config-x86_%d.h' % bits
+    config = BACKTRACE.join('config.h')
+    shutil.copy(str(BACKTRACE.join(specific_config)), str(config))
 
 def setup():
+    if sys.platform.startswith('linux'):
+        configure_libbacktrace_linux()
+
     eci_kwds['compile_extra'].append('-DRPYTHON_LL2CTYPES')
     platform.verify_eci(ExternalCompilationInfo(
                         **eci_kwds))

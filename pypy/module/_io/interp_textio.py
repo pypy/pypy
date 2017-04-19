@@ -1,6 +1,6 @@
 import sys
 
-from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.baseobjspace import W_Root, BufferInterfaceNotFound
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import (
@@ -290,7 +290,7 @@ def _determine_encoding(space, encoding, w_buffer):
 
     try:
         w_locale = space.call_method(space.builtin, '__import__',
-                                     space.newtext('locale'))
+                                     space.newtext('_bootlocale'))
         w_encoding = space.call_method(w_locale, 'getpreferredencoding',
                                        space.w_False)
     except OperationError as e:
@@ -528,13 +528,20 @@ class W_TextIOWrapper(W_TextIOBase):
 
     def close_w(self, space):
         self._check_attached(space)
-        if not space.is_true(space.getattr(self.w_buffer,
-                                           space.newtext("closed"))):
+        if space.is_true(space.getattr(self.w_buffer,
+                                       space.newtext("closed"))):
+            return
+        try:
+            space.call_method(self, "flush")
+        except OperationError as e:
             try:
-                space.call_method(self, "flush")
-            finally:
                 ret = space.call_method(self.w_buffer, "close")
-            return ret
+            except OperationError as e2:
+                e2.chain_exceptions(space, e)
+            raise
+        else:
+            ret = space.call_method(self.w_buffer, "close")
+        return ret
 
     def _dealloc_warn_w(self, space, w_source):
         space.call_method(self.w_buffer, "_dealloc_warn", w_source)
@@ -584,6 +591,10 @@ class W_TextIOWrapper(W_TextIOBase):
             # Given this, we know there was a valid snapshot point
             # len(dec_buffer) bytes ago with decoder state (b'', dec_flags).
             w_dec_buffer, w_dec_flags = space.unpackiterable(w_state, 2)
+            if not space.isinstance_w(w_dec_buffer, space.w_bytes):
+                msg = "decoder getstate() should have returned a bytes " \
+                      "object not '%T'"
+                raise oefmt(space.w_TypeError, msg, w_dec_buffer)
             dec_buffer = space.bytes_w(w_dec_buffer)
             dec_flags = space.int_w(w_dec_flags)
         else:
@@ -591,16 +602,18 @@ class W_TextIOWrapper(W_TextIOBase):
             dec_flags = 0
 
         # Read a chunk, decode it, and put the result in self._decoded_chars
-        w_input = space.call_method(self.w_buffer,
-                                    "read1" if self.has_read1 else "read",
+        func_name = "read1" if self.has_read1 else "read"
+        w_input = space.call_method(self.w_buffer, func_name,
                                     space.newint(self.chunk_size))
 
-        if not space.isinstance_w(w_input, space.w_bytes):
-            msg = "decoder getstate() should have returned a bytes " \
-                  "object not '%T'"
-            raise oefmt(space.w_TypeError, msg, w_input)
+        try:
+            input_buf = w_input.buffer_w(space, space.BUF_SIMPLE)
+        except BufferInterfaceNotFound:
+            msg = ("underlying %s() should have returned a bytes-like "
+                   "object, not '%T'")
+            raise oefmt(space.w_TypeError, msg, func_name, w_input)
 
-        eof = space.len_w(w_input) == 0
+        eof = input_buf.getlength() == 0
         w_decoded = space.call_method(self.w_decoder, "decode",
                                       w_input, space.newbool(eof))
         check_decoded(space, w_decoded)
@@ -611,7 +624,7 @@ class W_TextIOWrapper(W_TextIOBase):
         if self.telling:
             # At the snapshot point, len(dec_buffer) bytes before the read,
             # the next input to be decoded is dec_buffer + input_chunk.
-            next_input = dec_buffer + space.bytes_w(w_input)
+            next_input = dec_buffer + input_buf.as_str()
             self.snapshot = PositionSnapshot(dec_flags, next_input)
 
         return not eof
@@ -788,9 +801,10 @@ class W_TextIOWrapper(W_TextIOBase):
             text = space.unicode_w(w_text)
 
         needflush = False
+        text_needflush = False
         if self.write_through:
-            needflush = True
-        elif self.line_buffering and (haslf or text.find(u'\r') >= 0):
+            text_needflush = True
+        if self.line_buffering and (haslf or text.find(u'\r') >= 0):
             needflush = True
 
         # XXX What if we were just reading?
@@ -807,7 +821,8 @@ class W_TextIOWrapper(W_TextIOBase):
         self.pending_bytes.append(b)
         self.pending_bytes_count += len(b)
 
-        if self.pending_bytes_count > self.chunk_size or needflush:
+        if (self.pending_bytes_count > self.chunk_size or
+            needflush or text_needflush):
             self._writeflush(space)
 
         if needflush:
@@ -863,13 +878,17 @@ class W_TextIOWrapper(W_TextIOBase):
                               space.newtuple([space.newbytes(""),
                                               space.newint(cookie.dec_flags)]))
 
-    def _encoder_setstate(self, space, cookie):
-        if cookie.start_pos == 0 and cookie.dec_flags == 0:
+    def _encoder_reset(self, space, start_of_stream):
+        if start_of_stream:
             space.call_method(self.w_encoder, "reset")
             self.encoding_start_of_stream = True
         else:
             space.call_method(self.w_encoder, "setstate", space.newint(0))
             self.encoding_start_of_stream = False
+
+    def _encoder_setstate(self, space, cookie):
+        self._encoder_reset(space,
+                            cookie.start_pos == 0 and cookie.dec_flags == 0)
 
     @unwrap_spec(whence=int)
     def seek_w(self, space, w_pos, whence=0):
@@ -898,8 +917,13 @@ class W_TextIOWrapper(W_TextIOBase):
             self.snapshot = None
             if self.w_decoder:
                 space.call_method(self.w_decoder, "reset")
-            return space.call_method(self.w_buffer, "seek",
-                                     w_pos, space.newint(whence))
+            w_res = space.call_method(self.w_buffer, "seek",
+                                      w_pos, space.newint(whence))
+            if self.w_encoder:
+                # If seek() == 0, we are at the start of stream
+                start_of_stream = space.eq_w(w_res, space.newint(0))
+                self._encoder_reset(space, start_of_stream)
+            return w_res
 
         elif whence != 0:
             raise oefmt(space.w_ValueError,

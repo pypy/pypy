@@ -165,11 +165,7 @@ class W_BaseSetObject(W_Root):
         _initialize_set(space, self, w_iterable)
 
     def descr_repr(self, space):
-        ec = space.getexecutioncontext()
-        w_currently_in_repr = ec._py_repr
-        if w_currently_in_repr is None:
-            w_currently_in_repr = ec._py_repr = space.newdict()
-        return setrepr(space, w_currently_in_repr, self)
+        return setrepr(space, space.get_objects_in_repr(), self)
 
     def descr_eq(self, space, w_other):
         if isinstance(w_other, W_BaseSetObject):
@@ -1700,10 +1696,9 @@ def _convert_set_to_frozenset(space, w_obj):
 app = gateway.applevel("""
     def setrepr(currently_in_repr, s):
         'The app-level part of repr().'
-        set_id = id(s)
-        if set_id in currently_in_repr:
+        if s in currently_in_repr:
             return '%s(...)' % (s.__class__.__name__,)
-        currently_in_repr[set_id] = 1
+        currently_in_repr[s] = 1
         try:
             if not s:
                 return '%s()' % (s.__class__.__name__,)
@@ -1714,7 +1709,7 @@ app = gateway.applevel("""
                 return '%s({%s})' % (s.__class__.__name__, listrepr[1:-1])
         finally:
             try:
-                del currently_in_repr[set_id]
+                del currently_in_repr[s]
             except:
                 pass
 """, filename=__file__)

@@ -32,10 +32,10 @@ file, with no need to install it in any specific location:
 
 .. code-block:: console
 
-    $ tar xf pypy-2.1.tar.bz2
-    $ ./pypy-2.1/bin/pypy
-    Python 2.7.3 (480845e6b1dd, Jul 31 2013, 11:05:31)
-    [PyPy 2.1.0 with GCC 4.4.3] on linux2
+    $ tar xf pypy-x.y.z.tar.bz2
+    $ ./pypy-x.y.z/bin/pypy
+    Python 2.7.x (xxxxxxxxxxxx, Date, Time)
+    [PyPy x.y.z with GCC x.y.z] on linux2
     Type "help", "copyright", "credits" or "license" for more information.
     And now for something completely different: ``PyPy is an exciting technology
     that lets you to write fast, portable, multi-platform interpreters with less
