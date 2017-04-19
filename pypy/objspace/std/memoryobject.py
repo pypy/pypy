@@ -216,7 +216,9 @@ class W_MemoryView(W_Root):
             src = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
             dst_strides = self.getstrides()
             dim = 0
-            dst = SubBuffer(self.buf.as_binary(), start * itemsize, slicelength * itemsize)
+            dst = SubBuffer(
+                self.buf.as_binary_rw(),
+                start * itemsize, slicelength * itemsize)
             src_stride0 = dst_strides[dim]
 
             off = 0
@@ -669,6 +671,9 @@ class BufferViewBase(PyBuffer):
 
     def as_binary(self):
         return self.parent.as_binary()
+
+    def as_binary_rw(self):
+        return self.parent.as_binary_rw()
 
 class BufferView1D(BufferViewBase):
     _immutable_ = True

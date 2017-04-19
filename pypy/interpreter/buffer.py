@@ -39,6 +39,10 @@ class PyBuffer(object):
         # Inefficient. May be overridden.
         return StringBuffer(self.as_str())
 
+    def as_binary_rw(self):
+        """Return a writable BinaryBuffer sharing the same data as `self`."""
+        raise NotImplementedError
+
     def getformat(self):
         raise NotImplementedError
 
@@ -202,6 +206,10 @@ class SimpleBuffer(PyBuffer):
         return self.data.get_raw_address()
 
     def as_binary(self):
+        return self.data
+
+    def as_binary_rw(self):
+        assert not self.data.readonly
         return self.data
 
     def getformat(self):

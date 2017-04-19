@@ -19,7 +19,7 @@ from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.memoryobject import fill_Py_buffer
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext import userslot
-from pypy.interpreter.buffer import PyBuffer
+from pypy.interpreter.buffer import PyBuffer, BinaryBuffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.argument import Arguments
 from rpython.rlib.unroll import unrolling_iterable
@@ -388,6 +388,13 @@ class CPyBuffer(PyBuffer):
         for i in range(len(string)):
             self.ptr[start + i] = string[i]
 
+    def as_binary(self):
+        return CBuffer(self)
+
+    def as_binary_rw(self):
+        assert not self.readonly
+        return CBuffer(self)
+
     def get_raw_address(self):
         return rffi.cast(rffi.CCHARP, self.ptr)
 
@@ -416,6 +423,37 @@ class FQ(rgc.FinalizerQueue):
             buf.releasebuffer()
 
 fq = FQ()
+
+
+class CBuffer(BinaryBuffer):
+    _immutable_ = True
+    def __init__(self, pybuffer):
+        self.pybuffer = pybuffer
+        self.readonly = pybuffer.readonly
+
+    def getlength(self):
+        return self.pybuffer.getlength()
+
+    def getitem(self, index):
+        return self.pybuffer.ptr[index]
+
+    def getslice(self, start, stop, step, size):
+        assert step == 1
+        assert stop - start == size
+        ptr = rffi.ptradd(cts.cast('char *', self.pybuffer.ptr), start)
+        return rffi.charpsize2str(ptr, size)
+
+    def setitem(self, index, char):
+        self.pybuffer.ptr[index] = char
+
+    def setslice(self, index, s):
+        assert s is not None
+        ptr = rffi.ptradd(cts.cast('char *', self.pybuffer.ptr), index)
+        rffi.str2chararray(s, ptr, len(s))
+
+    def get_raw_address(self):
+        return cts.cast('char *', self.pybuffer.ptr)
+
 
 def wrap_getreadbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(readbufferproc, func)
