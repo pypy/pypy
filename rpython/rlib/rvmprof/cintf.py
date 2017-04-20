@@ -107,6 +107,10 @@ def setup():
                                   lltype.Signed, compilation_info=eci,
                                   _nowrapper=True)
 
+    vmprof_get_profile_path = rffi.llexternal("vmprof_get_profile_path", [rffi.CCHARP, lltype.Signed],
+                                              lltype.Signed, compilation_info=eci,
+                                              _nowrapper=True)
+
     return CInterface(locals())
 
 

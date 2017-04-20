@@ -94,3 +94,12 @@ class AppTestVMProf(object):
         raises(_vmprof.VMProfError, _vmprof.enable, 2, 1e300 * 1e300, 0, 0, 0)
         NaN = (1e300*1e300) / (1e300*1e300)
         raises(_vmprof.VMProfError, _vmprof.enable, 2, NaN, 0, 0, 0)
+
+    def test_is_enabled(self):
+        import _vmprof
+        tmpfile = open(self.tmpfilename, 'wb')
+        assert _vmprof.is_enabled() is False
+        _vmprof.enable(tmpfile.fileno(), 0.01, 0, 0, 0)
+        assert _vmprof.is_enabled() is True
+        _vmprof.disable()
+        assert _vmprof.is_enabled() is False

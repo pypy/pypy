@@ -3,6 +3,7 @@ from rpython.rlib.rvmprof.rvmprof import _get_vmprof, VMProfError
 from rpython.rlib.rvmprof.rvmprof import vmprof_execute_code, MAX_FUNC_NAME
 from rpython.rlib.rvmprof.rvmprof import _was_registered
 from rpython.rlib.rvmprof.cintf import VMProfPlatformUnsupported
+from rpython.rtyper.lltypesystem import rffi
 
 #
 # See README.txt.
@@ -37,3 +38,22 @@ def enable(fileno, interval, memory=0, native=0):
 
 def disable():
     _get_vmprof().disable()
+
+def is_enabled():
+    vmp = _get_vmprof()
+    return vmp.is_enabled
+
+def get_profile_path(space):
+    vmp = _get_vmprof()
+    if not vmp.is_enabled:
+        return None
+
+    buflen = 4096
+    with rffi.scoped_alloc_buffer(buflen) as buf:
+        length = vmp.cintf.vmprof_get_profile_path(buf, buflen)
+        if length == -1:
+            return ""
+        return rffi.charp2strn(buf, length)
+
+    return None
+
