@@ -421,13 +421,6 @@ class W_BytesObject(W_AbstractBytesObject):
         space.check_buf_flags(flags, True)
         return SimpleBuffer(StringBuffer(self._value))
 
-    def readbuf_w(self, space):
-        return StringBuffer(self._value)
-
-    def writebuf_w(self, space):
-        raise oefmt(space.w_TypeError,
-                    "Cannot use bytes as modifiable buffer")
-
     def descr_getbuffer(self, space, w_flags):
         #from pypy.objspace.std.bufferobject import W_Buffer
         #return W_Buffer(StringBuffer(self._value))

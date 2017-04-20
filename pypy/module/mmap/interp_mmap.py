@@ -26,10 +26,6 @@ class W_MMap(W_Root):
             raise oefmt(space.w_BufferError, "Object is not writable.")
         return SimpleBuffer(MMapBuffer(self.space, self.mmap, readonly))
 
-    def writebuf_w(self, space):
-        self.check_writeable()
-        return MMapBuffer(self.space, self.mmap, False)
-
     def close(self):
         self.mmap.close()
 
