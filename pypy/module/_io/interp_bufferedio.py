@@ -117,7 +117,7 @@ state."""
         return self._readinto(space, w_buffer, "read1")
 
     def _readinto(self, space, w_buffer, methodname):
-        rwbuffer = space.getarg_w('w*', w_buffer)
+        rwbuffer = space.writebuf_w(w_buffer)
         length = rwbuffer.getlength()
         w_data = space.call_method(self, methodname, space.newint(length))
 

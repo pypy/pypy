@@ -85,7 +85,7 @@ def do_pack_into(space, format, w_buffer, offset, args_w):
 Write the packed bytes into the writable buffer buf starting at offset
     """
     res = _pack(space, format, args_w)
-    buf = space.getarg_w('w*', w_buffer)
+    buf = space.writebuf_w(w_buffer)
     if offset < 0:
         offset += buf.getlength()
     size = len(res)
