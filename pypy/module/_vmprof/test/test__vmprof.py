@@ -103,3 +103,15 @@ class AppTestVMProf(object):
         assert _vmprof.is_enabled() is True
         _vmprof.disable()
         assert _vmprof.is_enabled() is False
+
+    def test_get_profile_path(self):
+        import _vmprof
+        tmpfile = open(self.tmpfilename, 'wb')
+        assert _vmprof.get_profile_path() is None
+        _vmprof.enable(tmpfile.fileno(), 0.01, 0, 0, 0)
+        path = _vmprof.get_profile_path()
+        if path != tmpfile.name:
+            with open(path, "rb") as fd1:
+                assert fd1.read() == tmpfile.read()
+        _vmprof.disable()
+        assert _vmprof.get_profile_path() is None

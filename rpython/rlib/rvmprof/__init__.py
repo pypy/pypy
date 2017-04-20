@@ -48,12 +48,11 @@ def get_profile_path(space):
     if not vmp.is_enabled:
         return None
 
-    buflen = 4096
-    with rffi.scoped_alloc_buffer(buflen) as buf:
-        length = vmp.cintf.vmprof_get_profile_path(buf, buflen)
+    with rffi.scoped_alloc_buffer(4096) as buf:
+        length = vmp.cintf.vmprof_get_profile_path(buf.raw, buf.size) 
         if length == -1:
             return ""
-        return rffi.charp2strn(buf, length)
+        return buf.str(length)
 
     return None
 

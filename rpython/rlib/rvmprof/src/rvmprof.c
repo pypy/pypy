@@ -29,3 +29,9 @@ int IS_VMPROF_EVAL(void * ptr)
     return ptr == __vmprof_eval_vmprof;
 }
 #endif
+
+
+long vmprof_get_profile_path(const char * buffer, long size)
+{
+    return vmp_fd_to_path(vmp_profile_fileno(), buffer, size);
+}
