@@ -1,8 +1,7 @@
-/*[clinic input]
-module _vmprof
-[clinic start generated code]*/
-/*[clinic end generated code: output=da39a3ee5e6b4b0d input=b443489e38f2be7d]*/
-
+/**
+ * This file is the CPython module _vmprof. It does not share code
+ * with PyPy. PyPy's _vmprof module is included in the main repo.
+ */
 #define _GNU_SOURCE 1
 
 #include <Python.h>
@@ -14,7 +13,7 @@ module _vmprof
 static volatile int is_enabled = 0;
 static destructor Original_code_dealloc = 0;
 static PyObject* (*_default_eval_loop)(PyFrameObject *, int) = 0;
-void dump_native_symbols(int fileno);
+void vmp_scan_profile(int fileno, int dump_native, void *all_code_uids);
 
 #if VMPROF_UNIX
 #include "trampoline.h"
@@ -109,7 +108,76 @@ static int _look_for_code_object(PyObject *o, void *all_codes)
     return 0;
 }
 
+static int _look_for_code_object_seen(PyObject *o, void *all_codes)
+{
+    if (PyCode_Check(o) && PySet_GET_SIZE(all_codes)) {
+        Py_ssize_t i;
+        PyCodeObject *co = (PyCodeObject *)o;
+        PyObject *uid_co = PyLong_FromVoidPtr((void*)CODE_ADDR_TO_UID(co));
+        int check = PySet_Discard(all_codes, uid_co);
+
+        Py_CLEAR(uid_co);
+
+        if (check < 0)
+            return -1;
+
+        if (check && emit_code_object(co) < 0)
+            return -1;
+
+        i = PyTuple_Size(co->co_consts);
+        while (i > 0) {
+            --i;
+            if (_look_for_code_object(PyTuple_GET_ITEM(co->co_consts, i),
+                                      all_codes) < 0)
+                return -1;
+        }
+    }
+    return 0;
+}
+
 static void emit_all_code_objects(void)
+{
+    PyObject *gc_module = NULL, *lst = NULL, *all_codes = NULL;
+    Py_ssize_t i, size;
+
+    gc_module = PyImport_ImportModuleNoBlock("gc");
+    if (gc_module == NULL)
+        goto error;
+
+    // lst contains all objects that are known by the gc
+    lst = PyObject_CallMethod(gc_module, "get_objects", "");
+    if (lst == NULL || !PyList_Check(lst))
+        goto error;
+
+    // the set only includes the code objects found in the profile
+    all_codes = PySet_New(NULL);
+    if (all_codes == NULL)
+        goto error;
+
+    size = PyList_GET_SIZE(lst);
+    for (i = 0; i < size; i++) {
+        PyObject *o = PyList_GET_ITEM(lst, i);
+        if (o->ob_type->tp_traverse &&
+            o->ob_type->tp_traverse(o, _look_for_code_object, (void *)all_codes)
+                < 0)
+            goto error;
+    }
+
+ error:
+    Py_XDECREF(all_codes);
+    Py_XDECREF(lst);
+    Py_XDECREF(gc_module);
+}
+
+static int add_code_addr(void *all_code_uids, void *addr)
+{
+    PyObject *co_uid = PyLong_FromVoidPtr(addr);
+    int check = PySet_Add((PyObject*) all_code_uids, co_uid);
+    Py_CLEAR(co_uid);
+    return check;
+}
+
+static void emit_all_code_objects_seen(int fileno)
 {
     PyObject *gc_module = NULL, *lst = NULL, *all_codes = NULL;
     Py_ssize_t i, size;
@@ -126,16 +194,21 @@ static void emit_all_code_objects(void)
     if (all_codes == NULL)
         goto error;
 
+    // fill up all_codes with every code object found in the profile
+    vmp_scan_profile(fileno, 0, all_codes);
+
+    // intersect the list with the set and dump only the code objects
+    // found in the set!
     size = PyList_GET_SIZE(lst);
     for (i = 0; i < size; i++) {
         PyObject *o = PyList_GET_ITEM(lst, i);
         if (o->ob_type->tp_traverse &&
-            o->ob_type->tp_traverse(o, _look_for_code_object, (void *)all_codes)
-                < 0)
+                o->ob_type->tp_traverse(o, _look_for_code_object_seen, (void *) all_codes)
+            < 0)
             goto error;
     }
 
- error:
+    error:
     Py_XDECREF(all_codes);
     Py_XDECREF(lst);
     Py_XDECREF(gc_module);
@@ -162,8 +235,16 @@ static PyObject *enable_vmprof(PyObject* self, PyObject *args)
     if (!PyArg_ParseTuple(args, "id|iii", &fd, &interval, &memory, &lines, &native)) {
         return NULL;
     }
-    assert(fd >= 0 && "file descripter provided to vmprof must not" \
-                      " be less then zero.");
+
+    if (write(fd, NULL, 0) != 0) {
+        PyErr_SetString(PyExc_ValueError, "file descriptor must be writeable");
+        return NULL;
+    }
+
+    if ((read(fd, NULL, 0) != 0) && (native != 0)) {
+        PyErr_SetString(PyExc_ValueError, "file descriptor must be readable for native profiling");
+        return NULL;
+    }
 
     if (is_enabled) {
         PyErr_SetString(PyExc_ValueError, "vmprof is already enabled");
@@ -194,16 +275,53 @@ static PyObject *enable_vmprof(PyObject* self, PyObject *args)
     return Py_None;
 }
 
+static PyObject * vmp_is_enabled(PyObject *module, PyObject *noargs) {
+    if (is_enabled) {
+        Py_RETURN_TRUE;
+    }
+    Py_RETURN_FALSE;
+}
+
 static PyObject *
-disable_vmprof(PyObject *module, PyObject *noarg)
+disable_vmprof(PyObject *module, PyObject *args)
 {
+    int fd = vmp_profile_fileno();
+    int only_needed = 0;
+
+    if (!PyArg_ParseTuple(args, "|i", &only_needed)) {
+        return NULL;
+    }
+
+#if VMPROF_UNIX
+    if ((read(fd, NULL, 0) != 0) && (only_needed != 0)) {
+        PyErr_SetString(PyExc_ValueError,
+                        "file descriptor must be readable to save only needed code objects");
+        return NULL;
+    }
+#else
+    if (only_needed) {
+        PyErr_SetString(PyExc_ValueError,
+                        "saving only needed code objects is not supported for windows");
+        return NULL;
+    }
+#endif
+
     if (!is_enabled) {
         PyErr_SetString(PyExc_ValueError, "vmprof is not enabled");
         return NULL;
     }
+
     is_enabled = 0;
     vmprof_ignore_signals(1);
+
+#if VMPROF_UNIX
+    if (only_needed)
+        emit_all_code_objects_seen(fd);
+    else
+        emit_all_code_objects();
+#else
     emit_all_code_objects();
+#endif
 
     if (vmprof_disable() < 0) {
         PyErr_SetFromErrno(PyExc_OSError);
@@ -320,14 +438,34 @@ error:
 }
 #endif
 
+#ifdef VMPROF_UNIX
+static PyObject * vmp_get_profile_path(PyObject *module, PyObject *noargs) {
+    PyObject * o;
+    if (is_enabled) {
+        char * buffer[4096];
+        ssize_t buffer_len = vmp_fd_to_path(vmp_profile_fileno(), buffer, 4096);
+        if (buffer_len == -1) {
+            PyErr_Format(PyExc_NotImplementedError, "not implemented platform %s", vmp_machine_os_name());
+            return NULL;
+        }
+        return PyStr_n_NEW(buffer, buffer_len);
+    }
+    Py_RETURN_NONE;
+}
+#endif
+
 static PyMethodDef VMProfMethods[] = {
     {"enable",  enable_vmprof, METH_VARARGS, "Enable profiling."},
-    {"disable", disable_vmprof, METH_NOARGS, "Disable profiling."},
+    {"disable", disable_vmprof, METH_VARARGS, "Disable profiling."},
     {"write_all_code_objects", write_all_code_objects, METH_NOARGS,
      "Write eagerly all the IDs of code objects"},
     {"sample_stack_now", sample_stack_now, METH_VARARGS, "Sample the stack now"},
 #ifdef VMP_SUPPORTS_NATIVE_PROFILING
     {"resolve_addr", resolve_addr, METH_VARARGS, "Return the name of the addr"},
+#endif
+    {"is_enabled", vmp_is_enabled, METH_NOARGS, "Indicates if vmprof is currently sampling."},
+#ifdef VMPROF_UNIX
+    {"get_profile_path", vmp_get_profile_path, METH_NOARGS, "Profile path the profiler logs to."},
 #endif
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };

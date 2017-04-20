@@ -27,3 +27,12 @@ const char * vmp_machine_os_name(void)
 #endif
 }
 
+long vmp_fd_to_path(int fd, char * buffer, long buffer_len)
+{
+#ifdef VMPROF_LINUX
+    char proffs[24];
+    (void)snprintf(proffs, 24, "/proc/self/fd/%d", fd);
+    return readlink(proffs, buffer, buffer_len);
+#endif
+    return -1;
+}
