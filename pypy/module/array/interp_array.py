@@ -924,6 +924,10 @@ class ArrayBuffer(PyBuffer):
     def as_binary(self):
         return self.data
 
+    def as_binary_rw(self):
+        assert not self.readonly
+        return self.data
+
 
 unpack_driver = jit.JitDriver(name='unpack_array',
                               greens=['selfclass', 'tp'],

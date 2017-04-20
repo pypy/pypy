@@ -5,6 +5,9 @@ from rpython.rlib.rstruct.error import StructError
 
 from pypy.interpreter.error import oefmt
 
+class BufferInterfaceNotFound(Exception):
+    pass
+
 
 class PyBuffer(object):
     """Abstract base class for buffers."""
@@ -41,7 +44,7 @@ class PyBuffer(object):
 
     def as_binary_rw(self):
         """Return a writable BinaryBuffer sharing the same data as `self`."""
-        raise NotImplementedError
+        raise BufferInterfaceNotFound
 
     def getformat(self):
         raise NotImplementedError

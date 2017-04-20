@@ -10,7 +10,8 @@ from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import r_uint, SHRT_MIN, SHRT_MAX, \
     INT_MIN, INT_MAX, UINT_MAX, USHRT_MAX
 
-from pypy.interpreter.buffer import SimpleBuffer, StringBuffer
+from pypy.interpreter.buffer import (
+    BufferInterfaceNotFound, SimpleBuffer, StringBuffer)
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
     make_finalizer_queue)
 from pypy.interpreter.error import OperationError, new_exception_class, oefmt
@@ -372,9 +373,6 @@ class SpaceCache(Cache):
         pass
 
 class DescrMismatch(Exception):
-    pass
-
-class BufferInterfaceNotFound(Exception):
     pass
 
 @specialize.memo()
