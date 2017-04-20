@@ -164,7 +164,7 @@ class W_SRE_Pattern(W_Root):
             string = space.bytes_w(w_string)
             length = len(string)
         else:
-            buf = space.readbuf_w(w_string).as_binary()
+            buf = space.readbuf_w(w_string)
             length = buf.getlength()
             assert length >= 0
         return (length, unicodestr, string, buf)

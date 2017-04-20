@@ -285,7 +285,7 @@ def read(space, fd, length):
 def write(space, fd, w_data):
     """Write a string to a file descriptor.  Return the number of bytes
 actually written, which may be smaller than len(data)."""
-    data = space.getarg_w('y*', w_data)
+    data = space.readbuf_w(w_data)
     while True:
         try:
             res = os.write(fd, data.as_str())
@@ -392,7 +392,7 @@ def pread(space, fd, length, offset):
 def pwrite(space, fd, w_data, offset):
     """Write a string to a file descriptor at a given offset.
     """
-    data = space.getarg_w('y*', w_data)
+    data = space.readbuf_w(w_data)
     while True:
         try:
             res = rposix.pwrite(fd, data.as_str(), offset)

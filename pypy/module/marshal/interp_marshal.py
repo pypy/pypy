@@ -444,7 +444,7 @@ class StringUnmarshaller(Unmarshaller):
     # Unmarshaller with inlined buffer string
     def __init__(self, space, w_str):
         Unmarshaller.__init__(self, space, None)
-        self.buf = space.getarg_w('y*', w_str)
+        self.buf = space.readbuf_w(w_str)
         self.bufpos = 0
         self.limit = self.buf.getlength()
 

@@ -410,7 +410,7 @@ class W_FileIO(W_RawIOBase):
     def write_w(self, space, w_data):
         self._check_closed(space)
         self._check_writable(space)
-        data = space.getarg_w('y*', w_data).as_str()
+        data = space.readbuf_w(w_data).as_str()
 
         while True:
             try:
