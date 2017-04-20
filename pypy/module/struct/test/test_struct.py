@@ -365,8 +365,8 @@ class AppTestStruct(object):
         assert self.struct.unpack("ii", b) == (62, 12)
         raises(self.struct.error, self.struct.unpack, "i", b)
 
-    def test_pack_unpack_buffer(self):
-        import array
+    def test_pack_buffer(self):
+        import array, sys
         b = array.array('b', b'\x00' * 19)
         sz = self.struct.calcsize("ii")
         for offset in [2, -17]:
@@ -379,10 +379,16 @@ class AppTestStruct(object):
         assert bytes(b2) == self.struct.pack("ii", 17, 42) + (b'\x00' * 11)
 
         exc = raises(TypeError, self.struct.pack_into, "ii", b'test', 0, 17, 42)
-        assert str(exc.value) == "a read-write buffer is required, not bytes"
+        if '__pypy__' in sys.modules:
+            assert str(exc.value) == "a read-write bytes-like object is required, not bytes"
         exc = raises(self.struct.error, self.struct.pack_into, "ii", b[0:1], 0, 17, 42)
         assert str(exc.value) == "pack_into requires a buffer of at least 8 bytes"
 
+    def test_unpack_buffer(self):
+        import array
+        b = array.array('b', b'\x00' * 19)
+        for offset in [2, -17]:
+            self.struct.pack_into("ii", b, offset, 17, 42)
         assert self.struct.unpack_from("ii", b, 2) == (17, 42)
         assert self.struct.unpack_from("ii", b, -17) == (17, 42)
         assert self.struct.unpack_from("ii", memoryview(b)[2:]) == (17, 42)

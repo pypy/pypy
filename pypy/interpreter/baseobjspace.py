@@ -1483,10 +1483,9 @@ class ObjSpace(object):
     def writebuf_w(self, w_obj):
         # Old buffer interface, returns a writeable buffer (PyObject_AsWriteBuffer)
         try:
-            return w_obj.buffer_w(self, self.BUF_WRITABLE)
-        except BufferInterfaceNotFound:
-            raise oefmt(self.w_TypeError,
-                        "expected an object with a writable buffer interface")
+            return w_obj.buffer_w(self, self.BUF_WRITABLE).as_binary_rw()
+        except (BufferInterfaceNotFound, OperationError):
+            self._getarg_error("read-write bytes-like object", w_obj)
 
     def charbuf_w(self, w_obj):
         # Old buffer interface, returns a character buffer (PyObject_AsCharBuffer)
@@ -1537,13 +1536,7 @@ class ObjSpace(object):
             except BufferInterfaceNotFound:
                 self._getarg_error("bytes or read-only buffer", w_obj)
         elif code == 'w*':
-            try:
-                return w_obj.buffer_w(self, self.BUF_WRITABLE).as_binary_rw()
-            except OperationError:
-                pass
-            except BufferInterfaceNotFound:
-                pass
-            self._getarg_error("read-write buffer", w_obj)
+            return self.writebuf_w(w_obj)
         elif code == 'y*':
             try:
                 return w_obj.buffer_w(self, self.BUF_SIMPLE).as_binary()

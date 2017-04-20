@@ -116,13 +116,7 @@ def _fetch_as_read_buffer(space, w_x):
     return buf.as_binary()
 
 def _fetch_as_write_buffer(space, w_x):
-    try:
-        buf = space.writebuf_w(w_x)
-    except OperationError as e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        buf = space.buffer_w(w_x, space.BUF_WRITABLE)
-    return buf.as_binary()
+    return space.writebuf_w(w_x)
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType)
 def from_buffer(space, w_ctype, w_x):
