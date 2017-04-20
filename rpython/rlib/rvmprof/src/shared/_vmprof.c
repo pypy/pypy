@@ -442,7 +442,8 @@ error:
 static PyObject * vmp_get_profile_path(PyObject *module, PyObject *noargs) {
     PyObject * o;
     if (is_enabled) {
-        char * buffer[4096];
+        char buffer[4096];
+        buffer[0] = 0;
         ssize_t buffer_len = vmp_fd_to_path(vmp_profile_fileno(), buffer, 4096);
         if (buffer_len == -1) {
             PyErr_Format(PyExc_NotImplementedError, "not implemented platform %s", vmp_machine_os_name());

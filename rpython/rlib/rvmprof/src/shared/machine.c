@@ -3,6 +3,11 @@
 #include "vmprof.h"
 #include <stdio.h>
 
+#ifdef VMPROF_UNIX
+#include <unistd.h>
+#include <fcntl.h>
+#endif
+
 int vmp_machine_bits(void)
 {
     return sizeof(void*)*8;
@@ -33,6 +38,9 @@ long vmp_fd_to_path(int fd, char * buffer, long buffer_len)
     char proffs[24];
     (void)snprintf(proffs, 24, "/proc/self/fd/%d", fd);
     return readlink(proffs, buffer, buffer_len);
+#elif defined(VMPROF_UNIX)
+    fcntl(fd, F_GETPATH, buffer);
+    return strlen(buffer);
 #endif
     return -1;
 }
