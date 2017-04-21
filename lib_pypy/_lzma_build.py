@@ -235,6 +235,9 @@ void *realloc(void *ptr, size_t size);
 """)
 
 ffi.set_source('_lzma_cffi', """
+#ifdef _MSC_VER
+#define LZMA_API_STATIC
+#endif
 #include <lzma.h>
 #include <stdlib.h>
 void _pylzma_stream_init(lzma_stream *strm) {
