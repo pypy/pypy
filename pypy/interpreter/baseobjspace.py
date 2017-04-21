@@ -1540,23 +1540,6 @@ class ObjSpace(object):
         else:
             assert False
 
-    # XXX rename/replace with code more like CPython getargs for buffers
-    def bufferstr_w(self, w_obj, flags=BUF_SIMPLE):
-        # Directly returns an interp-level str.  Note that if w_obj is a
-        # unicode string, this is different from str_w(buffer(w_obj)):
-        # indeed, the latter returns a string with the raw bytes from
-        # the underlying unicode buffer, but bufferstr_w() just converts
-        # the unicode to an ascii string.  This inconsistency is kind of
-        # needed because CPython has the same issue.  (Well, it's
-        # unclear if there is any use at all for getting the bytes in
-        # the unicode buffer.)
-        try:
-            return self.bytes_w(w_obj)
-        except OperationError as e:
-            if not e.match(self, self.w_TypeError):
-                raise
-        return self.buffer_w(w_obj, flags).as_str()
-
     def text_or_none_w(self, w_obj):
         return None if self.is_none(w_obj) else self.text_w(w_obj)
 
@@ -1686,7 +1669,12 @@ class ObjSpace(object):
         from rpython.rlib import rstring
         if self.isinstance_w(w_obj, self.w_unicode):
             w_obj = self.fsencode(w_obj)
-        result = self.bufferstr_w(w_obj, self.BUF_FULL_RO)
+        try:
+            result = self.bytes_w(w_obj)
+        except OperationError as e:
+            if not e.match(self, self.w_TypeError):
+                raise
+            result = self.buffer_w(w_obj, self.BUF_FULL_RO).as_str()
         if '\x00' in result:
             raise oefmt(self.w_ValueError,
                         "argument must be a string without NUL characters")

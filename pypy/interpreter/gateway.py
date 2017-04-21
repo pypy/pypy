@@ -471,7 +471,7 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
                            % (self.nextarg()), )
 
     def visit_bufferstr(self, typ):
-        self.unwrap.append("space.bufferstr_w(%s)" % (self.nextarg(),))
+        self.unwrap.append("space.charbuf_w(%s)" % (self.nextarg(),))
 
     def visit_text_or_none(self, typ):
         self.unwrap.append("space.text_or_none_w(%s)" % (self.nextarg(),))
