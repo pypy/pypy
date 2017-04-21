@@ -27,7 +27,7 @@ This compiler, while the standard one for Python 2.7, is depricated. Microsoft h
 made it available as the `Microsoft Visual C++ Compiler for Python 2.7`_ (the link
 was checked in Nov 2016). Note that the compiler suite will be installed in
 ``C:\Users\<user name>\AppData\Local\Programs\Common\Microsoft\Visual C++ for Python``.
-Using a current version of ``setuptools`` will be able to find it there. For
+A current version of ``setuptools`` will be able to find it there. For
 Windows 10, you must right-click the download, and under ``Properties`` ->
 ``Compatibility`` mark it as ``Run run this program in comatibility mode for``
 ``Previous version...``. Also, you must download and install the ``.Net Framework 3.5``,
@@ -40,8 +40,9 @@ discovered the problem).
 Translating PyPy with Visual Studio
 -----------------------------------
 
-We routinely test translation using Visual Studio 2008, Express
-Edition.  Other configurations may work as well.
+We routinely test translation using v9, also known as Visual Studio 2008.
+Our buildbot is still using the Express Edition, not the compiler noted above.
+Other configurations may work as well.
 
 The translation scripts will set up the appropriate environment variables
 for the compiler, so you do not need to run vcvars before translation.
@@ -117,6 +118,9 @@ Abridged method (for -Ojit builds using Visual Studio 2008)
 -----------------------------------------------------------
 
 Download the versions of all the external packages from
+https://bitbucket.org/pypy/pypy/downloads/local_5.8.zip
+(for post-5.7.1 builds) with sha256 checksum 
+``cc375a677aabcb46a50b96f23bdebd0b526cbb02202b85a7148845e2849ffd6d`` or
 https://bitbucket.org/pypy/pypy/downloads/local_2.4.zip
 (for 2.4 release and later) or
 https://bitbucket.org/pypy/pypy/downloads/local.zip
@@ -173,13 +177,14 @@ Then open a command prompt::
 The zlib compression library
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Download http://www.gzip.org/zlib/zlib-1.2.3.tar.gz and extract it in
-the base directory.  Then compile as a static library::
+Download http://www.gzip.org/zlib/zlib-1.2.11.tar.gz and extract it in
+the base directory.  Then compile::
 
-    cd zlib-1.2.3
+    cd zlib-1.2.11
     nmake -f win32\Makefile.msc
     copy zlib.lib <somewhere in LIB>
     copy zlib.h zconf.h <somewhere in INCLUDE>
+    copy zlib1.dll <in PATH> # (needed for tests via ll2ctypes)
 
 
 The bz2 compression library
@@ -198,22 +203,23 @@ The sqlite3 database library
 
 PyPy uses cffi to interact with sqlite3.dll. Only the dll is needed, the cffi
 wrapper is compiled when the module is imported for the first time.
-The sqlite3.dll should be version 3.6.21 for CPython2.7 compatablility.
+The sqlite3.dll should be version 3.8.11 for CPython2.7 compatablility.
 
 
 The expat XML parser
 ~~~~~~~~~~~~~~~~~~~~
 
 Download the source code of expat on sourceforge:
-http://sourceforge.net/projects/expat/ and extract it in the base directory.
-Version 2.1.0 is known to pass tests. Then open the project file ``expat.dsw``
+https://github.com/libexpat/libexpat/releases and extract it in the base directory.
+Version 2.1.1 is known to pass tests. Then open the project file ``expat.dsw``
 with Visual Studio; follow the instruction for converting the project files,
 switch to the "Release" configuration, use the ``expat_static`` project,
-reconfigure the runtime for Multi-threaded DLL (/MD) and build.
+reconfigure the runtime for Multi-threaded DLL (/MD) and build. Do the same for
+the ``expat`` project to build the ``expat.dll`` (for tests via ll2ctypes)
 
-Then, copy the file ``win32\bin\release\libexpat.lib`` somewhere in somewhere
-in LIB, and both ``lib\expat.h`` and ``lib\expat_external.h`` somewhere in
-INCLUDE.
+Then, copy the file ``win32\bin\release\libexpat.lib`` into
+LIB, and both ``lib\expat.h`` and ``lib\expat_external.h`` in
+INCLUDE, and ``win32\bin\release\libexpat.dll`` into PATH.
 
 
 The OpenSSL library
@@ -222,15 +228,13 @@ The OpenSSL library
 OpenSSL needs a Perl interpreter to configure its makefile.  You may
 use the one distributed by ActiveState, or the one from cygwin.::
 
-    svn export http://svn.python.org/projects/external/openssl-1.0.1i
-    cd openssl-1.0.1i
+    svn export http://svn.python.org/projects/external/openssl-1.0.2k
+    cd openssl-1.0.2k
     perl Configure VC-WIN32 no-idea no-mdc2
     ms\do_ms.bat
     nmake -f ms\nt.mak install
-
-Then, copy the files ``out32\*.lib`` somewhere in
-somewhere in LIB, and the entire ``include\openssl`` directory as-is somewhere
-in INCLUDE.
+    copy out32\*.lib <somewhere in LIB>
+    xcopy /S include\openssl <somewhere in INCLUDE>
 
 
 TkInter module support
@@ -262,6 +266,9 @@ downloaded from this site http://tukaani.org/xz. Python 3.3-3.5 use version
 5.0.5, a prebuilt version can be downloaded from
 http://tukaani.org/xz/xz-5.0.5-windows.zip, check the signature
 http://tukaani.org/xz/xz-5.0.5-windows.zip.sig
+
+Then copy the headers to the include directory, rename ``liblzma.a`` to 
+``lzma.lib`` and copy it to the lib directory
 
 
 Using the mingw compiler
