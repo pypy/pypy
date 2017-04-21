@@ -303,7 +303,7 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
                              % (self.scopenext(), ))
 
     def visit_bufferstr(self, typ):
-        self.run_args.append("space.bufferstr_w(%s)" % (self.scopenext(),))
+        self.run_args.append("space.charbuf_w(%s)" % (self.scopenext(),))
 
     def visit_text_or_none(self, typ):
         self.run_args.append("space.text_or_none_w(%s)" % (self.scopenext(),))

@@ -59,7 +59,7 @@ def w_array(space, w_cls, typecode, __args__):
             a.descr_fromlist(space, w_initializer)
         else:
             try:
-                buf = space.bufferstr_w(w_initializer)
+                buf = space.charbuf_w(w_initializer)
             except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise

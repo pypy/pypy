@@ -482,7 +482,7 @@ class W_Socket(W_Root):
         Like send(data, flags) but allows specifying the destination address.
         For IP sockets, the address is a pair (hostaddr, port).
         """
-        data = space.bufferstr_w(w_data)
+        data = space.charbuf_w(w_data)
         if w_param3 is None:
             # 2 args version
             flags = 0

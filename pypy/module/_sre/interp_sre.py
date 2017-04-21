@@ -468,7 +468,7 @@ def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
     # Type check
     if not (space.is_none(w_pattern) or
             space.isinstance_w(w_pattern, space.w_unicode)):
-        space.bufferstr_w(w_pattern)
+        space.readbuf_w(w_pattern)
     srepat.w_pattern = w_pattern      # the original uncompiled pattern
     srepat.flags = flags
     srepat.code = code
