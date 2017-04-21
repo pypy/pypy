@@ -5,7 +5,7 @@ import operator
 
 from rpython.rlib.objectmodel import compute_hash
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import PyBuffer, SubBuffer
+from pypy.interpreter.buffer import PyBuffer, SimpleBuffer, SubBuffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty,  make_weakref_descr
@@ -166,7 +166,10 @@ class W_MemoryView(W_Root):
             raise TypeError("memoryview: invalid slice key")
 
     def new_slice(self, start, stop, step, slicelength, dim):
-        sliced = BufferSlice(self.buf, start, step, slicelength)
+        if step == 1 and isinstance(self.buf, SimpleBuffer):
+            sliced = SimpleBuffer(SubBuffer(self.buf.data, start, slicelength))
+        else:
+            sliced = BufferSlice(self.buf, start, step, slicelength)
         return W_MemoryView(sliced)
 
     def init_len(self):
