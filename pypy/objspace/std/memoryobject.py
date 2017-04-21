@@ -166,10 +166,11 @@ class W_MemoryView(W_Root):
             raise TypeError("memoryview: invalid slice key")
 
     def new_slice(self, start, stop, step, slicelength, dim):
-        if step == 1 and isinstance(self.buf, SimpleBuffer):
-            sliced = SimpleBuffer(SubBuffer(self.buf.data, start, slicelength))
+        pybuf = self.buf
+        if step == 1 and isinstance(pybuf, SimpleBuffer):
+            sliced = SimpleBuffer(SubBuffer(pybuf.data, start, slicelength))
         else:
-            sliced = BufferSlice(self.buf, start, step, slicelength)
+            sliced = BufferSlice(pybuf, start, step, slicelength)
         return W_MemoryView(sliced)
 
     def init_len(self):
