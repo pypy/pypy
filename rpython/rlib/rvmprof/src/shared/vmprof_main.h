@@ -218,7 +218,7 @@ static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
         if (p == NULL) {
             /* ignore this signal: there are no free buffers right now */
         } else {
-#ifdef RPYTHON_VMPORF
+#ifdef RPYTHON_VMPROF
             commit = _vmprof_sample_stack(p, NULL, (ucontext_t*)ucontext);
 #else
             commit = _vmprof_sample_stack(p, tstate, (ucontext_t*)ucontext);
