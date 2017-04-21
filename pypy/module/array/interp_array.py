@@ -402,8 +402,7 @@ class W_ArrayBase(W_Root):
         machine values, as if it had been read from a file using the
         fromfile() method).
         """
-        buf = space.readbuf_w(w_s)
-        s = buf.as_str()
+        s = space.charbuf_w(w_s)
         self._frombytes(space, s)
 
     def _frombytes(self, space, s):

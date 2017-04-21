@@ -1488,13 +1488,10 @@ class ObjSpace(object):
 
     def charbuf_w(self, w_obj):
         # Old buffer interface, returns a character buffer (PyObject_AsCharBuffer)
-        try:
-            buf = w_obj.buffer_w(self, self.BUF_SIMPLE)
-        except BufferInterfaceNotFound:
-            raise oefmt(self.w_TypeError,
-                        "expected an object with a buffer interface")
+        if self.isinstance_w(w_obj, self.w_bytes):  # XXX: is this shortcut useful?
+            return w_obj.bytes_w(self)
         else:
-            return buf.as_str()
+            return self.readbuf_w(w_obj).as_str()
 
     def _getarg_error(self, expected, w_obj):
         if self.is_none(w_obj):
@@ -1539,12 +1536,7 @@ class ObjSpace(object):
         elif code == 'y*':
             return self.readbuf_w(w_obj)
         elif code == 'y#':
-            if self.isinstance_w(w_obj, self.w_bytes):
-                return w_obj.bytes_w(self)
-            try:
-                return w_obj.buffer_w(self, self.BUF_SIMPLE).as_str()
-            except BufferInterfaceNotFound:
-                self._getarg_error("bytes-like object", w_obj)
+            return self.charbuf_w(w_obj)
         else:
             assert False
 

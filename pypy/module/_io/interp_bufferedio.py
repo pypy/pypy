@@ -769,7 +769,7 @@ class BufferedMixin:
 
     def write_w(self, space, w_data):
         self._check_closed(space, "write to closed file")
-        data = space.readbuf_w(w_data).as_str()
+        data = space.charbuf_w(w_data)
         size = len(data)
 
         with self.lock:
