@@ -69,7 +69,7 @@ class TestMD5Update:
 
         # Update and compare...
         for i in range(len(cases)):
-            message = cases[i][0]
+            message = cases[i]
 
             m1c.update(message)
             d1 = m1c.hexdigest()
