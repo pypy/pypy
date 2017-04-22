@@ -230,8 +230,10 @@ class W_ListObject(W_Root):
         return list(items)
 
     def switch_to_object_strategy(self):
-        list_w = self.getitems()
         object_strategy = self.space.fromcache(ObjectListStrategy)
+        if self.strategy is object_strategy:
+            return
+        list_w = self.getitems()
         self.strategy = object_strategy
         object_strategy.init_from_list_w(self, list_w)
 
