@@ -68,9 +68,7 @@ class TestMD5Update:
         w_m2c = space.call_method(w_m2, 'copy')
 
         # Update and compare...
-        for i in range(len(cases)):
-            message = cases[i]
-
+        for message in cases:
             m1c.update(message)
             d1 = m1c.hexdigest()
 
@@ -147,13 +145,10 @@ class AppTestMD5Compare:
              "57edf4a22be3c955ac49da2e2107b67a"),
             )
 
-        for i in range(len(cases)):
-            res = self.compare(cases[i][0])
+        for message, expectedResult in cases:
+            res = self.compare(message)
             if res is not None:
                 d1, d2 = res
-                message, expectedResult = cases[i][0], None
-                if len(cases[i]) == 2:
-                    expectedResult = cases[i][1]
                 self.print_diff(message, d1, d2, expectedResult)
             assert res is None
 
@@ -182,27 +177,25 @@ class AppTestMD5Compare:
             "123456789 123456789 123456789 12345678",
             )
 
-        for i in range(len(cases)):
-            res = self.compare(cases[i][0])
+        for message in cases:
+            res = self.compare(message)
             if res is not None:
                 d1, d2 = res
-                message = cases[i][0]
                 self.print_diff(message, d1, d2)
             assert res is None
 
     def test3(self):
         """Test cases with long messages (can take a while)."""
         cases = (
-            (2**10*'a',),
-            (2**10*'abcd',),
-            #(2**20*'a',),  # 1 MB, takes about 160 sec. on a 233 Mhz Pentium.
+            2**10*'a',
+            2**10*'abcd',
+            #2**20*'a',  # 1 MB, takes about 160 sec. on a 233 Mhz Pentium.
             )
 
-        for i in range(len(cases)):
-            res = self.compare(cases[i][0])
+        for message in cases:
+            res = self.compare(message)
             if res is not None:
                 d1, d2 = res
-                message = cases[i][0]
                 self.print_diff(message, d1, d2)
             assert res is None
 
