@@ -307,6 +307,9 @@ class PyPyTarget(object):
             config.translation.jit = True
 
         if config.translation.sandbox:
+            assert 0, ("--sandbox is not tested nor maintained.  If you "
+                       "really want to try it anyway, remove this line in "
+                       "pypy/goal/targetpypystandalone.py.")
             config.objspace.lonepycfiles = False
 
         if config.objspace.usemodules.cpyext:
