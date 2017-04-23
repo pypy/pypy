@@ -4,6 +4,7 @@ from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.baseobjspace import W_Root
 from rpython.rlib import rvmprof, jit
+from pypy.interpreter.error import oefmt
 
 # ____________________________________________________________
 
@@ -82,3 +83,16 @@ def disable(space):
         rvmprof.disable()
     except rvmprof.VMProfError as e:
         raise VMProfError(space, e)
+
+def is_enabled(space):
+    return space.newbool(rvmprof.is_enabled())
+
+def get_profile_path(space):
+    path = rvmprof.get_profile_path(space)
+    if path is None:
+        # profiling is not enabled
+        return space.w_None
+    if path == "":
+        # Indicates an error! Assume platform does not implement the function call
+        raise oefmt(space.w_NotImplementedError, "platform not implemented")
+    return space.newtext(path)

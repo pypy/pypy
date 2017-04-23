@@ -119,7 +119,8 @@ Abridged method (for -Ojit builds using Visual Studio 2008)
 
 Download the versions of all the external packages from
 https://bitbucket.org/pypy/pypy/downloads/local_5.8.zip
-(for post-5.7.1 builds) or
+(for post-5.7.1 builds) with sha256 checksum 
+``f1510452293f22e84d6059464e11f4c62ffd0e2ee97a52be9195bec8a70c6dce`` or
 https://bitbucket.org/pypy/pypy/downloads/local_2.4.zip
 (for 2.4 release and later) or
 https://bitbucket.org/pypy/pypy/downloads/local.zip
