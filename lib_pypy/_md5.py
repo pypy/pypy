@@ -53,10 +53,10 @@ def _bytelist2long(list):
     j = 0
     i = 0
     while i < imax:
-        b0 = ord(list[j])
-        b1 = ord(list[j+1]) << 8
-        b2 = ord(list[j+2]) << 16
-        b3 = ord(list[j+3]) << 24
+        b0 = list[j]
+        b1 = list[j+1] << 8
+        b2 = list[j+2] << 16
+        b3 = list[j+3] << 24
         hl[i] = b0 | b1 |b2 | b3
         i = i+1
         j = j+4
@@ -319,7 +319,7 @@ class md5:
         else:
             padLen = 120 - index
 
-        padding = [b'\200'] + [b'\000'] * 63
+        padding = [128] + [0] * 63
         self.update(padding[:padLen])
 
         # Append length (before padding).
