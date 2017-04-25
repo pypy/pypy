@@ -5,7 +5,7 @@ from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
 from pypy.module._cffi_backend import ctypestruct
 
-from pypy.interpreter.buffer import SimpleBuffer, BinaryBuffer
+from pypy.interpreter.buffer import SimpleView, BinaryBuffer
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
@@ -47,7 +47,7 @@ class MiniBuffer(W_Root):
         self.keepalive = keepalive
 
     def buffer_w(self, space, flags):
-        return SimpleBuffer(self.buffer)
+        return SimpleView(self.buffer)
 
     def descr_len(self, space):
         return space.newint(self.buffer.getlength())

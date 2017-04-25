@@ -2,7 +2,7 @@ from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.buffer import BinaryBuffer, SimpleBuffer
+from pypy.interpreter.buffer import BinaryBuffer, SimpleView
 from rpython.rlib import rmmap, rarithmetic, objectmodel
 from rpython.rlib.rmmap import RValueError, RTypeError, RMMapError
 from rpython.rlib.rstring import StringBuilder
@@ -24,7 +24,7 @@ class W_MMap(W_Root):
         write_required = bool(flags & space.BUF_WRITABLE)
         if write_required and readonly:
             raise oefmt(space.w_BufferError, "Object is not writable.")
-        return SimpleBuffer(MMapBuffer(self.space, self.mmap, readonly))
+        return SimpleView(MMapBuffer(self.space, self.mmap, readonly))
 
     def close(self):
         self.mmap.close()

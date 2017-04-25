@@ -7,7 +7,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.buffer import SimpleBuffer, BinaryBuffer, SubBuffer
+from pypy.interpreter.buffer import SimpleView, BinaryBuffer, SubBuffer
 from rpython.rlib.rgc import (
     nonmoving_raw_ptr_for_resizable_list, resizable_list_supporting_raw_ptr)
 from rpython.rlib.rstring import StringBuilder
@@ -584,7 +584,7 @@ class BufferedMixin:
         assert buffer is not None
         length = intmask(length)
         start = intmask(start)
-        w_view = SimpleBuffer(SubBuffer(buffer, start, length)).wrap(space)
+        w_view = SimpleView(SubBuffer(buffer, start, length)).wrap(space)
         while True:
             try:
                 w_size = space.call_method(self.w_raw, "readinto", w_view)

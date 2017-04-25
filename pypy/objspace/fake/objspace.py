@@ -11,7 +11,7 @@ from rpython.translator.translator import TranslationContext
 from pypy.tool.option import make_config
 from pypy.interpreter import argument, gateway
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, SpaceCache
-from pypy.interpreter.buffer import StringBuffer, SimpleBuffer
+from pypy.interpreter.buffer import StringBuffer, SimpleView
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.objspace.std.sliceobject import W_SliceObject
 
@@ -42,7 +42,7 @@ class W_MyObject(W_Root):
         is_root(w_subtype)
 
     def buffer_w(self, space, flags):
-        return SimpleBuffer(StringBuffer("foobar"))
+        return SimpleView(StringBuffer("foobar"))
 
     def text_w(self, space):
         return NonConstant("foobar")

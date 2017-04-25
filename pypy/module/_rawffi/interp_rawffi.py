@@ -1,6 +1,6 @@
 import sys
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import SimpleBuffer
+from pypy.interpreter.buffer import SimpleView
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import interp_attrproperty
@@ -380,7 +380,7 @@ class W_DataInstance(W_Root):
         self._ll_buffer = self.ll_buffer
 
     def buffer_w(self, space, flags):
-        return SimpleBuffer(RawFFIBuffer(self))
+        return SimpleView(RawFFIBuffer(self))
 
     def getrawsize(self):
         raise NotImplementedError("abstract base class")

@@ -3,7 +3,7 @@ import pytest
 from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-from pypy.interpreter.buffer import SimpleBuffer, StringBuffer
+from pypy.interpreter.buffer import SimpleView, StringBuffer
 from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.memoryobject import PyMemoryViewObject
 
@@ -11,7 +11,7 @@ only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_
 
 class TestMemoryViewObject(BaseApiTest):
     def test_frombuffer(self, space, api):
-        w_view = SimpleBuffer(StringBuffer("hello")).wrap(space)
+        w_view = SimpleView(StringBuffer("hello")).wrap(space)
         c_memoryview = rffi.cast(
             PyMemoryViewObject, api.PyMemoryView_FromObject(w_view))
         w_memoryview = from_ref(space, c_memoryview)
