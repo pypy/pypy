@@ -36,11 +36,11 @@ class BufferView(object):
     def get_raw_address(self):
         raise ValueError("no raw buffer")
 
-    def as_binary(self):
+    def as_readbuf(self):
         # Inefficient. May be overridden.
         return StringBuffer(self.as_str())
 
-    def as_binary_rw(self):
+    def as_writebuf(self):
         """Return a writable Buffer sharing the same data as `self`."""
         raise BufferInterfaceNotFound
 
@@ -209,10 +209,10 @@ class SimpleView(BufferView):
     def get_raw_address(self):
         return self.data.get_raw_address()
 
-    def as_binary(self):
+    def as_readbuf(self):
         return self.data
 
-    def as_binary_rw(self):
+    def as_writebuf(self):
         assert not self.data.readonly
         return self.data
 

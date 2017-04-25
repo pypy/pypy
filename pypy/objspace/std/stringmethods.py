@@ -485,7 +485,7 @@ class StringMethods(object):
 
             pos = value.find(sub)
         else:
-            sub = _get_buffer(space, w_sub)
+            sub = space.readbuf_w(w_sub)
             sublen = sub.getlength()
             if sublen == 0:
                 raise oefmt(space.w_ValueError, "empty separator")
@@ -515,7 +515,7 @@ class StringMethods(object):
 
             pos = value.rfind(sub)
         else:
-            sub = _get_buffer(space, w_sub)
+            sub = space.readbuf_w(w_sub)
             sublen = sub.getlength()
             if sublen == 0:
                 raise oefmt(space.w_ValueError, "empty separator")
@@ -806,6 +806,3 @@ class StringMethods(object):
 @specialize.argtype(0)
 def _descr_getslice_slowpath(selfvalue, start, step, sl):
     return [selfvalue[start + i*step] for i in range(sl)]
-
-def _get_buffer(space, w_obj):
-    return space.buffer_w(w_obj, space.BUF_SIMPLE).as_binary()

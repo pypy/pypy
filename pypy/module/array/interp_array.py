@@ -921,10 +921,10 @@ class ArrayView(BufferView):
     def get_raw_address(self):
         return self.data.get_raw_address()
 
-    def as_binary(self):
+    def as_readbuf(self):
         return self.data
 
-    def as_binary_rw(self):
+    def as_writebuf(self):
         assert not self.readonly
         return self.data
 

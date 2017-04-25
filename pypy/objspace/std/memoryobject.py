@@ -208,7 +208,7 @@ class W_MemoryView(W_Root):
             dst_strides = self.getstrides()
             dim = 0
             dst = SubBuffer(
-                self.view.as_binary_rw(),
+                self.view.as_writebuf(),
                 start * itemsize, slicelength * itemsize)
             src_stride0 = dst_strides[dim]
 
@@ -492,7 +492,7 @@ class W_MemoryView(W_Root):
     def descr_hex(self, space):
         from pypy.objspace.std.bytearrayobject import _array_to_hexstring
         self._check_released(space)
-        return _array_to_hexstring(space, self.view.as_binary(), 0, 1, self.getlength())
+        return _array_to_hexstring(space, self.view.as_readbuf(), 0, 1, self.getlength())
 
 def is_byte_format(char):
     return char == 'b' or char == 'B' or char == 'c'
@@ -603,11 +603,11 @@ class IndirectView(BufferView):
     def get_raw_address(self):
         return self.parent.get_raw_address()
 
-    def as_binary(self):
-        return self.parent.as_binary()
+    def as_readbuf(self):
+        return self.parent.as_readbuf()
 
-    def as_binary_rw(self):
-        return self.parent.as_binary_rw()
+    def as_writebuf(self):
+        return self.parent.as_writebuf()
 
 class BufferView1D(IndirectView):
     _immutable_ = True

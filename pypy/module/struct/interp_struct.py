@@ -127,7 +127,7 @@ def do_unpack_from(space, format, w_buffer, offset=0):
     """Unpack the buffer, containing packed C structure data, according to
 fmt, starting at offset. Requires len(buffer[offset:]) >= calcsize(fmt)."""
     size = _calcsize(space, format)
-    buf = space.buffer_w(w_buffer, space.BUF_SIMPLE).as_binary()
+    buf = space.readbuf_w(w_buffer, space.BUF_SIMPLE)
     if offset < 0:
         offset += buf.getlength()
     if offset < 0 or (buf.getlength() - offset) < size:
@@ -140,7 +140,7 @@ fmt, starting at offset. Requires len(buffer[offset:]) >= calcsize(fmt)."""
 
 class W_UnpackIter(W_Root):
     def __init__(self, space, w_struct, w_buffer):
-        buf = space.buffer_w(w_buffer, space.BUF_SIMPLE).as_binary()
+        buf = space.readbuf_w(w_buffer, space.BUF_SIMPLE)
         if w_struct.size <= 0:
             raise oefmt(get_error(space),
                 "cannot iteratively unpack with a struct of length %d",

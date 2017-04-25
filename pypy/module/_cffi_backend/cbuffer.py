@@ -66,7 +66,7 @@ class MiniBuffer(W_Root):
                                                       self.buffer.getlength())
         if step not in (0, 1):
             raise oefmt(space.w_NotImplementedError, "")
-        value = space.buffer_w(w_newstring, space.BUF_CONTIG_RO).as_binary()
+        value = space.buffer_w(w_newstring, space.BUF_CONTIG_RO).as_readbuf()
         if value.getlength() != size:
             raise oefmt(space.w_ValueError,
                         "cannot modify size of memoryview object")
@@ -80,20 +80,20 @@ class MiniBuffer(W_Root):
         if space.isinstance_w(w_other, space.w_unicode):
             return space.w_NotImplemented
         try:
-            other_pybuf = space.buffer_w(w_other, space.BUF_SIMPLE)
+            other_buf = space.readbuf_w(w_other)
         except OperationError as e:
             if e.async(space):
                 raise
             return space.w_NotImplemented
         my_buf = self.buffer
         my_len = len(my_buf)
-        other_len = other_pybuf.getlength()
+        other_len = len(other_buf)
         if other_len != my_len:
             if mode == 'E':
                 return space.w_False
             if mode == 'N':
                 return space.w_True
-        cmp = _memcmp(my_buf, other_pybuf.as_binary(), min(my_len, other_len))
+        cmp = _memcmp(my_buf, other_buf, min(my_len, other_len))
         if cmp == 0:
             if my_len < other_len:
                 cmp = -1

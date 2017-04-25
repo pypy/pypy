@@ -1,9 +1,11 @@
 import pytest
 
 from rpython.rtyper.lltypesystem import rffi
+from rpython.rlib.buffer import StringBuffer
+
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-from pypy.interpreter.buffer import SimpleView, StringBuffer
+from pypy.interpreter.buffer import SimpleView
 from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.memoryobject import PyMemoryViewObject
 

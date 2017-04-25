@@ -390,10 +390,10 @@ class CPyBuffer(BufferView):
         for i in range(len(string)):
             self.ptr[start + i] = string[i]
 
-    def as_binary(self):
+    def as_readbuf(self):
         return CBuffer(self)
 
-    def as_binary_rw(self):
+    def as_writebuf(self):
         assert not self.readonly
         return CBuffer(self)
 

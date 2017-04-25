@@ -19,7 +19,7 @@ from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.buffer import SimpleView
 from pypy.objspace.std.sliceobject import W_SliceObject, unwrap_start_stop
-from pypy.objspace.std.stringmethods import StringMethods, _get_buffer
+from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.stringmethods import _descr_getslice_slowpath
 from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.util import get_positive_index
@@ -267,7 +267,7 @@ class W_BytearrayObject(W_Root):
             return space.newbool(self.getdata() == w_other.getdata())
 
         try:
-            buffer = _get_buffer(space, w_other)
+            buffer = space.readbuf_w(w_other)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
@@ -287,7 +287,7 @@ class W_BytearrayObject(W_Root):
             return space.newbool(self.getdata() != w_other.getdata())
 
         try:
-            buffer = _get_buffer(space, w_other)
+            buffer = space.readbuf_w(w_other)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
@@ -315,7 +315,7 @@ class W_BytearrayObject(W_Root):
             cmp = _memcmp(value, other, min(len(value), len(other)))
         else:
             try:
-                buffer = _get_buffer(space, w_other)
+                buffer = space.readbuf_w(w_other)
             except OperationError as e:
                 if e.match(space, space.w_TypeError):
                     return False, 0, 0
@@ -357,7 +357,7 @@ class W_BytearrayObject(W_Root):
         if isinstance(w_other, W_BytesObject):
             self._inplace_add(self._op_val(space, w_other))
         else:
-            self._inplace_add(_get_buffer(space, w_other))
+            self._inplace_add(space.readbuf_w(w_other))
         return self
 
     @specialize.argtype(1)
@@ -459,7 +459,7 @@ class W_BytearrayObject(W_Root):
             return self._add(self._op_val(space, w_other))
 
         try:
-            buffer = _get_buffer(space, w_other)
+            buffer = space.readbuf_w(w_other)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented

@@ -9,9 +9,9 @@ from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import r_uint, SHRT_MIN, SHRT_MAX, \
     INT_MIN, INT_MAX, UINT_MAX, USHRT_MAX
+from rpython.rlib.buffer import StringBuffer
 
-from pypy.interpreter.buffer import (
-    BufferInterfaceNotFound, StringBuffer)
+from pypy.interpreter.buffer import BufferInterfaceNotFound
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
     make_finalizer_queue)
 from pypy.interpreter.error import OperationError, new_exception_class, oefmt
@@ -1475,14 +1475,14 @@ class ObjSpace(object):
     def readbuf_w(self, w_obj):
         # Old buffer interface, returns a readonly buffer (PyObject_AsReadBuffer)
         try:
-            return w_obj.buffer_w(self, self.BUF_SIMPLE).as_binary()
+            return w_obj.buffer_w(self, self.BUF_SIMPLE).as_readbuf()
         except BufferInterfaceNotFound:
             self._getarg_error("bytes-like object", w_obj)
 
     def writebuf_w(self, w_obj):
         # Old buffer interface, returns a writeable buffer (PyObject_AsWriteBuffer)
         try:
-            return w_obj.buffer_w(self, self.BUF_WRITABLE).as_binary_rw()
+            return w_obj.buffer_w(self, self.BUF_WRITABLE).as_writebuf()
         except (BufferInterfaceNotFound, OperationError):
             self._getarg_error("read-write bytes-like object", w_obj)
 
@@ -1516,7 +1516,7 @@ class ObjSpace(object):
                 # NB. CPython forbids surrogates here
                 return StringBuffer(w_obj.text_w(self))
             try:
-                return w_obj.buffer_w(self, self.BUF_SIMPLE).as_binary()
+                return w_obj.buffer_w(self, self.BUF_SIMPLE).as_readbuf()
             except BufferInterfaceNotFound:
                 self._getarg_error("bytes or buffer", w_obj)
         elif code == 's#':
