@@ -141,6 +141,9 @@ class PyBuffer(object):
         data = self.getbytes(offset, itemsize)
         return self.value_from_bytes(space, data)
 
+    def new_slice(self, start, step, slicelength):
+        return BufferSlice(self, start, step, slicelength)
+
     def setitem_w(self, space, idx, w_obj):
         offset = self.get_offset(space, 0, idx)
         itemsize = self.getitemsize()
@@ -246,9 +249,72 @@ class SimpleBuffer(PyBuffer):
         ch = self.data[idx]
         return space.newint(ord(ch))
 
+    def new_slice(self, start, step, slicelength):
+        if step == 1:
+            return SimpleBuffer(SubBuffer(self.data, start, slicelength))
+        else:
+            return BufferSlice(self, start, step, slicelength)
+
     def setitem_w(self, space, idx, w_obj):
         idx = self.get_offset(space, 0, idx)
         self.data[idx] = space.byte_w(w_obj)
+
+class BufferSlice(PyBuffer):
+    _immutable_ = True
+    _attrs_ = ['buf', 'readonly', 'shape', 'strides', 'start', 'step']
+    def __init__(self, buf, start, step, length):
+        self.buf = buf
+        self.readonly = self.buf.readonly
+        self.strides = buf.getstrides()[:]
+        itemsize = buf.getitemsize()
+        self.start = start
+        self.step = step
+        self.strides[0] *= step
+        self.shape = buf.getshape()[:]
+        self.shape[0] = length
+
+    def getlength(self):
+        return self.shape[0] * self.getitemsize()
+
+    def getbytes(self, start, size):
+        offset = self.start * self.buf.getstrides()[0]
+        return self.buf.getbytes(offset + start, size)
+
+    def setbytes(self, start, string):
+        if len(string) == 0:
+            return        # otherwise, adding self.offset might make 'start'
+                          # out of bounds
+        offset = self.start * self.buf.getstrides()[0]
+        self.buf.setbytes(offset + start, string)
+
+    def get_raw_address(self):
+        from rpython.rtyper.lltypesystem import rffi
+        offset = self.start * self.buf.getstrides()[0]
+        return rffi.ptradd(self.buf.get_raw_address(), offset)
+
+    def getformat(self):
+        return self.buf.getformat()
+
+    def getitemsize(self):
+        return self.buf.getitemsize()
+
+    def getndim(self):
+        return self.buf.getndim()
+
+    def getshape(self):
+        return self.shape
+
+    def getstrides(self):
+        return self.strides
+
+    def parent_index(self, idx):
+        return self.start + self.step * idx
+
+    def w_getitem(self, space, idx):
+        return self.buf.w_getitem(space, self.parent_index(idx))
+
+    def setitem_w(self, space, idx, w_obj):
+        return self.buf.setitem_w(space, self.parent_index(idx), w_obj)
 
 
 class BinaryBuffer(object):

@@ -160,18 +160,10 @@ class W_MemoryView(W_Root):
             else:
                 raise oefmt(space.w_NotImplementedError, "multi-dimensional sub-views are not implemented")
         elif is_slice:
-            return self.new_slice(start, stop, step, slicelength, 0)
+            return W_MemoryView(self.buf.new_slice(start, step, slicelength))
         # multi index is handled at the top of this function
         else:
             raise TypeError("memoryview: invalid slice key")
-
-    def new_slice(self, start, stop, step, slicelength, dim):
-        pybuf = self.buf
-        if step == 1 and isinstance(pybuf, SimpleBuffer):
-            sliced = SimpleBuffer(SubBuffer(pybuf.data, start, slicelength))
-        else:
-            sliced = BufferSlice(pybuf, start, step, slicelength)
-        return W_MemoryView(sliced)
 
     def init_len(self):
         self.length = self.bytecount_from_shape()
@@ -592,63 +584,6 @@ def PyBuffer_isContiguous(suboffsets, ndim, shape, strides, itemsize, fort):
         return (_IsCContiguous(ndim, shape, strides, itemsize) or \
                 _IsFortranContiguous(ndim, shape, strides, itemsize))
     return 0
-
-class BufferSlice(PyBuffer):
-    _immutable_ = True
-    _attrs_ = ['buf', 'readonly', 'shape', 'strides', 'start', 'step']
-    def __init__(self, buf, start, step, length):
-        self.buf = buf
-        self.readonly = self.buf.readonly
-        self.strides = buf.getstrides()[:]
-        itemsize = buf.getitemsize()
-        self.start = start
-        self.step = step
-        self.strides[0] *= step
-        self.shape = buf.getshape()[:]
-        self.shape[0] = length
-
-    def getlength(self):
-        return self.shape[0] * self.getitemsize()
-
-    def getbytes(self, start, size):
-        offset = self.start * self.buf.getstrides()[0]
-        return self.buf.getbytes(offset + start, size)
-
-    def setbytes(self, start, string):
-        if len(string) == 0:
-            return        # otherwise, adding self.offset might make 'start'
-                          # out of bounds
-        offset = self.start * self.buf.getstrides()[0]
-        self.buf.setbytes(offset + start, string)
-
-    def get_raw_address(self):
-        from rpython.rtyper.lltypesystem import rffi
-        offset = self.start * self.buf.getstrides()[0]
-        return rffi.ptradd(self.buf.get_raw_address(), offset)
-
-    def getformat(self):
-        return self.buf.getformat()
-
-    def getitemsize(self):
-        return self.buf.getitemsize()
-
-    def getndim(self):
-        return self.buf.getndim()
-
-    def getshape(self):
-        return self.shape
-
-    def getstrides(self):
-        return self.strides
-
-    def parent_index(self, idx):
-        return self.start + self.step * idx
-
-    def w_getitem(self, space, idx):
-        return self.buf.w_getitem(space, self.parent_index(idx))
-
-    def setitem_w(self, space, idx, w_obj):
-        return self.buf.setitem_w(space, self.parent_index(idx), w_obj)
 
 
 class BufferViewBase(PyBuffer):
