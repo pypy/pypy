@@ -313,6 +313,11 @@ class BufferSlice(PyBuffer):
     def w_getitem(self, space, idx):
         return self.buf.w_getitem(space, self.parent_index(idx))
 
+    def new_slice(self, start, step, slicelength):
+        real_start = start + self.start
+        real_step = self.step * step
+        return BufferSlice(self.buf, real_start, real_step, slicelength)
+
     def setitem_w(self, space, idx, w_obj):
         return self.buf.setitem_w(space, self.parent_index(idx), w_obj)
 
