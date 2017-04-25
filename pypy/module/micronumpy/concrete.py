@@ -1,4 +1,4 @@
-from pypy.interpreter.buffer import PyBuffer
+from pypy.interpreter.buffer import BufferView
 from pypy.interpreter.error import oefmt
 from rpython.rlib import jit, rgc
 from rpython.rlib.rarithmetic import ovfcheck
@@ -397,7 +397,7 @@ class BaseConcreteArray(object):
             not self.flags & NPY.ARRAY_WRITEABLE):
            raise oefmt(errtype, "buffer source array is read-only")
         readonly = not (flags & space.BUF_WRITABLE) == space.BUF_WRITABLE
-        return ArrayBuffer(self, readonly)
+        return ArrayView(self, readonly)
 
     def astype(self, space, dtype, order, copy=True):
         # copy the general pattern of the strides
@@ -702,7 +702,7 @@ class VoidBoxStorage(BaseConcreteArray):
         free_raw_storage(self.storage)
 
 
-class ArrayBuffer(PyBuffer):
+class ArrayView(BufferView):
     _immutable_ = True
 
     def __init__(self, impl, readonly):

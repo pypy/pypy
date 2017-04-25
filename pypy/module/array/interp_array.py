@@ -6,7 +6,7 @@ from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 
-from pypy.interpreter.buffer import PyBuffer, BinaryBuffer
+from pypy.interpreter.buffer import BufferView, BinaryBuffer
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
@@ -257,7 +257,7 @@ class W_ArrayBase(W_Root):
             lltype.free(oldbuffer, flavor='raw')
 
     def buffer_w(self, space, flags):
-        return ArrayBuffer(ArrayData(self), self.typecode, self.itemsize, False)
+        return ArrayView(ArrayData(self), self.typecode, self.itemsize, False)
 
     def descr_append(self, space, w_x):
         """ append(x)
@@ -881,7 +881,7 @@ class ArrayData(BinaryBuffer):
         return self.w_array._charbuf_start()
 
 
-class ArrayBuffer(PyBuffer):
+class ArrayView(BufferView):
     _immutable_ = True
 
     def __init__(self, data, fmt, itemsize, readonly):

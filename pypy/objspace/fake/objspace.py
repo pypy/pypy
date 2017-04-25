@@ -205,7 +205,7 @@ class FakeObjSpace(ObjSpace):
     def newseqiter(self, x):
         return w_some_obj()
 
-    def newbuffer(self, x, itemsize=1):
+    def newmemoryview(self, x):
         return w_some_obj()
 
     @not_rpython

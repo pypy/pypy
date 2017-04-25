@@ -11,9 +11,9 @@ only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_
 
 class TestMemoryViewObject(BaseApiTest):
     def test_frombuffer(self, space, api):
-        w_buf = space.newbuffer(SimpleBuffer(StringBuffer("hello")))
+        w_view = SimpleBuffer(StringBuffer("hello")).wrap(space)
         c_memoryview = rffi.cast(
-            PyMemoryViewObject, api.PyMemoryView_FromObject(w_buf))
+            PyMemoryViewObject, api.PyMemoryView_FromObject(w_view))
         w_memoryview = from_ref(space, c_memoryview)
         view = c_memoryview.c_view
         assert view.c_ndim == 1

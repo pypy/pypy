@@ -5,7 +5,7 @@ import operator
 
 from rpython.rlib.objectmodel import compute_hash
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import PyBuffer, SimpleBuffer, SubBuffer
+from pypy.interpreter.buffer import BufferView, SimpleBuffer, SubBuffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty,  make_weakref_descr
@@ -26,7 +26,7 @@ class W_MemoryView(W_Root):
     """
 
     def __init__(self, buf):
-        assert isinstance(buf, PyBuffer)
+        assert isinstance(buf, BufferView)
         self.buf = buf
         self._hash = -1
         self.flags = 0
@@ -58,7 +58,7 @@ class W_MemoryView(W_Root):
             w_object._check_released(space)
             return W_MemoryView.copy(w_object)
         buf = space.buffer_w(w_object, space.BUF_FULL_RO)
-        return W_MemoryView(buf)
+        return buf.wrap(space)
 
     def _make_descr__cmp(name):
         def descr__cmp(self, space, w_other):
@@ -160,7 +160,7 @@ class W_MemoryView(W_Root):
             else:
                 raise oefmt(space.w_NotImplementedError, "multi-dimensional sub-views are not implemented")
         elif is_slice:
-            return W_MemoryView(self.buf.new_slice(start, step, slicelength))
+            return self.buf.new_slice(start, step, slicelength).wrap(space)
         # multi index is handled at the top of this function
         else:
             raise TypeError("memoryview: invalid slice key")
@@ -342,7 +342,7 @@ class W_MemoryView(W_Root):
         return size
 
     def _zero_in_shape(self):
-        # this method could be moved to the class PyBuffer
+        # this method could be moved to the class BufferView
         buf = self.buf
         shape = buf.getshape()
         for i in range(buf.getndim()):
@@ -383,13 +383,12 @@ class W_MemoryView(W_Root):
                 raise oefmt(space.w_TypeError,
                             "memoryview: cast must be 1D -> ND or ND -> 1D")
 
-        newbuf = self._cast_to_1D(space, buf, fmt)
+        newview = self._cast_to_1D(space, buf, fmt)
         if w_shape:
             fview = space.fixedview(w_shape)
             shape = [space.int_w(w_obj) for w_obj in fview]
-            newbuf = self._cast_to_ND(space, newbuf, shape, ndim)
-        mv = W_MemoryView(newbuf)
-        return mv
+            newview = self._cast_to_ND(space, newview, shape, ndim)
+        return newview.wrap(space)
 
     def _init_flags(self):
         buf = self.buf
@@ -586,7 +585,8 @@ def PyBuffer_isContiguous(suboffsets, ndim, shape, strides, itemsize, fort):
     return 0
 
 
-class BufferViewBase(PyBuffer):
+class IndirectView(BufferView):
+    """Base class for views into another BufferView"""
     _immutable_ = True
     _attrs_ = ['readonly', 'parent']
 
@@ -614,7 +614,7 @@ class BufferViewBase(PyBuffer):
     def as_binary_rw(self):
         return self.parent.as_binary_rw()
 
-class BufferView1D(BufferViewBase):
+class BufferView1D(IndirectView):
     _immutable_ = True
     _attrs_ = ['readonly', 'parent', 'format', 'itemsize']
 
@@ -639,7 +639,7 @@ class BufferView1D(BufferViewBase):
     def getstrides(self):
         return [self.itemsize]
 
-class BufferViewND(BufferViewBase):
+class BufferViewND(IndirectView):
     _immutable_ = True
     _attrs_ = ['readonly', 'parent', 'ndim', 'shape', 'strides']
 

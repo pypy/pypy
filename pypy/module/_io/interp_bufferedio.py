@@ -584,10 +584,10 @@ class BufferedMixin:
         assert buffer is not None
         length = intmask(length)
         start = intmask(start)
-        w_buf = space.newbuffer(SimpleBuffer(SubBuffer(buffer, start, length)))
+        w_view = SimpleBuffer(SubBuffer(buffer, start, length)).wrap(space)
         while True:
             try:
-                w_size = space.call_method(self.w_raw, "readinto", w_buf)
+                w_size = space.call_method(self.w_raw, "readinto", w_view)
             except OperationError as e:
                 if trap_eintr(space, e):
                     continue  # try again

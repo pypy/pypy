@@ -8,7 +8,7 @@ class BufferInterfaceNotFound(Exception):
     pass
 
 
-class PyBuffer(object):
+class BufferView(object):
     """Abstract base class for buffers."""
     _attrs_ = ['readonly']
     _immutable_ = True
@@ -26,7 +26,7 @@ class PyBuffer(object):
 
         This is a low-level operation, it is up to the caller to ensure that
         the data requested actually correspond to items accessible from the
-        PyBuffer.
+        BufferView.
         Note that `start` may be negative, e.g. if the buffer is reversed.
         """
         raise NotImplementedError
@@ -183,8 +183,11 @@ class PyBuffer(object):
 
         return space.newlist(items)
 
+    def wrap(self, space):
+        return space.newmemoryview(self)
 
-class SimpleBuffer(PyBuffer):
+
+class SimpleBuffer(BufferView):
     _attrs_ = ['readonly', 'data']
     _immutable_ = True
 
@@ -255,7 +258,7 @@ class SimpleBuffer(PyBuffer):
         idx = self.get_offset(space, 0, idx)
         self.data[idx] = space.byte_w(w_obj)
 
-class BufferSlice(PyBuffer):
+class BufferSlice(BufferView):
     _immutable_ = True
     _attrs_ = ['buf', 'readonly', 'shape', 'strides', 'start', 'step']
 

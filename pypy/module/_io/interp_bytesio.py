@@ -8,7 +8,6 @@ from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.objectmodel import import_from_mixin
 from pypy.module._io.interp_bufferedio import W_BufferedIOBase
 from pypy.module._io.interp_iobase import convert_size
-from pypy.objspace.std.memoryobject import W_MemoryView
 import sys
 
 
@@ -125,7 +124,7 @@ class W_BytesIO(W_BufferedIOBase):
 
     def getbuffer_w(self, space):
         self._check_closed(space)
-        return W_MemoryView(SimpleBuffer(BytesIOBuffer(self)))
+        return SimpleBuffer(BytesIOBuffer(self)).wrap(space)
 
     def getvalue_w(self, space):
         self._check_closed(space)

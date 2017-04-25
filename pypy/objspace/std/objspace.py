@@ -368,7 +368,7 @@ class StdObjSpace(ObjSpace):
     def newseqiter(self, w_obj):
         return W_SeqIterObject(w_obj)
 
-    def newbuffer(self, w_obj, itemsize=1):
+    def newmemoryview(self, w_obj):
         return W_MemoryView(w_obj)
 
     def newbytes(self, s):

@@ -4,7 +4,7 @@ import struct
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.buffer import PyBuffer
+from pypy.interpreter.buffer import BufferView
 from pypy.conftest import option
 
 class AppTestMemoryView(object):
@@ -300,7 +300,7 @@ class AppTestCtypes(object):
         assert (m[0], m[1], m[2], m[3]) == expected
         a.free()
 
-class MockBuffer(PyBuffer):
+class MockBuffer(BufferView):
     def __init__(self, space, w_arr, w_dim, w_fmt, \
                  w_itemsize, w_strides, w_shape):
         self.space = space

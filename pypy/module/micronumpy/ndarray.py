@@ -808,7 +808,7 @@ class __extend__(W_NDimArray):
         return self.implementation.get_buffer(space, flags)
 
     def descr_get_data(self, space):
-        return space.newbuffer(self.implementation.get_buffer(space, space.BUF_FULL))
+        return self.implementation.get_buffer(space, space.BUF_FULL).wrap(space)
 
     @unwrap_spec(offset=int, axis1=int, axis2=int)
     def descr_diagonal(self, space, offset=0, axis1=0, axis2=1):
