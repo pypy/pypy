@@ -1,6 +1,5 @@
 from rpython.rlib.rstruct.error import StructError
-from rpython.rlib.buffer import Buffer as BinaryBuffer
-from rpython.rlib.buffer import StringBuffer, ByteBuffer, SubBuffer
+from rpython.rlib.buffer import StringBuffer, SubBuffer
 
 from pypy.interpreter.error import oefmt
 
@@ -42,7 +41,7 @@ class BufferView(object):
         return StringBuffer(self.as_str())
 
     def as_binary_rw(self):
-        """Return a writable BinaryBuffer sharing the same data as `self`."""
+        """Return a writable Buffer sharing the same data as `self`."""
         raise BufferInterfaceNotFound
 
     def getformat(self):

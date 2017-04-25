@@ -7,7 +7,9 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.buffer import SimpleView, BinaryBuffer, SubBuffer
+from pypy.interpreter.buffer import SimpleView
+
+from rpython.rlib.buffer import Buffer, SubBuffer
 from rpython.rlib.rgc import (
     nonmoving_raw_ptr_for_resizable_list, resizable_list_supporting_raw_ptr)
 from rpython.rlib.rstring import StringBuilder
@@ -158,7 +160,7 @@ implementation, but wrap one.
     readinto1 = interp2app(W_BufferedIOBase.readinto1_w),
 )
 
-class RawBuffer(BinaryBuffer):
+class RawBuffer(Buffer):
     _immutable_ = True
 
     def __init__(self, n):

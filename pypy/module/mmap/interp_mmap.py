@@ -2,7 +2,9 @@ from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.buffer import BinaryBuffer, SimpleView
+from pypy.interpreter.buffer import SimpleView
+
+from rpython.rlib.buffer import Buffer
 from rpython.rlib import rmmap, rarithmetic, objectmodel
 from rpython.rlib.rmmap import RValueError, RTypeError, RMMapError
 from rpython.rlib.rstring import StringBuilder
@@ -307,7 +309,7 @@ def mmap_error(space, e):
         return OperationError(space.w_SystemError, space.newtext('%s' % e))
 
 
-class MMapBuffer(BinaryBuffer):
+class MMapBuffer(Buffer):
     _immutable_ = True
 
     def __init__(self, space, mmap, readonly):
@@ -327,7 +329,7 @@ class MMapBuffer(BinaryBuffer):
         if step == 1:
             return self.mmap.getslice(start, size)
         else:
-            return BinaryBuffer.getslice(self, start, stop, step, size)
+            return Buffer.getslice(self, start, stop, step, size)
 
     def setitem(self, index, char):
         self.check_valid_writeable()

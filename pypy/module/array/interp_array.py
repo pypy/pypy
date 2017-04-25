@@ -5,8 +5,9 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
+from rpython.rlib.buffer import Buffer
 
-from pypy.interpreter.buffer import BufferView, BinaryBuffer
+from pypy.interpreter.buffer import BufferView
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
@@ -845,7 +846,7 @@ for k, v in types.items():
     v.typecode = k
 unroll_typecodes = unrolling_iterable(types.keys())
 
-class ArrayData(BinaryBuffer):
+class ArrayData(Buffer):
     _immutable_ = True
     readonly = False
     def __init__(self, w_array):

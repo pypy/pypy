@@ -10,13 +10,14 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
         nonmoving_raw_ptr_for_resizable_list)
 from rpython.rlib import jit
+from rpython.rlib.buffer import Buffer
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.bytesobject import makebytesdata_w, newbytesdata_w
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.buffer import SimpleView, BinaryBuffer
+from pypy.interpreter.buffer import SimpleView
 from pypy.objspace.std.sliceobject import W_SliceObject, unwrap_start_stop
 from pypy.objspace.std.stringmethods import StringMethods, _get_buffer
 from pypy.objspace.std.stringmethods import _descr_getslice_slowpath
@@ -1274,7 +1275,7 @@ def _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
         start += step
 
 
-class BytearrayBuffer(BinaryBuffer):
+class BytearrayBuffer(Buffer):
     _immutable_ = True
     readonly = False
 
@@ -1304,7 +1305,7 @@ class BytearrayBuffer(BinaryBuffer):
             if start != 0 or stop != len(data):
                 data = data[start:stop]
             return "".join(data)
-        return BinaryBuffer.getslice(self, start, stop, step, size)
+        return Buffer.getslice(self, start, stop, step, size)
 
     def setslice(self, start, string):
         # No bounds checks.

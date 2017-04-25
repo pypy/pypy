@@ -2,7 +2,8 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr, GetSetProperty)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.buffer import SimpleView, BinaryBuffer
+from pypy.interpreter.buffer import SimpleView
+from rpython.rlib.buffer import Buffer
 from rpython.rlib.rStringIO import RStringIO
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.objectmodel import import_from_mixin
@@ -11,7 +12,7 @@ from pypy.module._io.interp_iobase import convert_size
 import sys
 
 
-class BytesIOBuffer(BinaryBuffer):
+class BytesIOBuffer(Buffer):
     _immutable_ = True
 
     def __init__(self, w_bytesio):
