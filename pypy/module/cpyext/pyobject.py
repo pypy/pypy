@@ -274,13 +274,14 @@ def make_ref(space, obj, w_userdata=None):
     """
     if is_pyobj(obj):
         pyobj = rffi.cast(PyObject, obj)
+        assert pyobj.c_ob_refcnt > 0
     else:
         pyobj = as_pyobj(space, obj, w_userdata)
-    if pyobj:
-        assert pyobj.c_ob_refcnt > 0
-        pyobj.c_ob_refcnt += 1
-        if not is_pyobj(obj):
+        if not pyobj:
             keepalive_until_here(obj)
+            return pyobj
+        assert pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
+    pyobj.c_ob_refcnt += 1
     return pyobj
 
 
