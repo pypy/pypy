@@ -28,3 +28,5 @@ PyPy support to profile native frames in vmprof.
 Performance tweaks in the x86 JIT-generated machine code: rarely taken
 blocks are moved off-line.  Also, the temporary register used to contain
 large constants is reused across instructions.
+
+.. branch: vmprof-0.4.4

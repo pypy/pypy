@@ -311,11 +311,7 @@ class W_Deque(W_Root):
 
     def repr(self):
         space = self.space
-        ec = space.getexecutioncontext()
-        w_currently_in_repr = ec._py_repr
-        if w_currently_in_repr is None:
-            w_currently_in_repr = ec._py_repr = space.newdict()
-        return dequerepr(space, w_currently_in_repr, self)
+        return dequerepr(space, space.get_objects_in_repr(), self)
 
     @specialize.arg(2)
     def compare(self, w_other, op):
@@ -428,16 +424,15 @@ class W_Deque(W_Root):
 app = gateway.applevel("""
     def dequerepr(currently_in_repr, d):
         'The app-level part of repr().'
-        deque_id = id(d)
-        if deque_id in currently_in_repr:
+        if d in currently_in_repr:
             listrepr = '[...]'
         else:
-            currently_in_repr[deque_id] = 1
+            currently_in_repr[d] = 1
             try:
                 listrepr = "[" + ", ".join([repr(x) for x in d]) + ']'
             finally:
                 try:
-                    del currently_in_repr[deque_id]
+                    del currently_in_repr[d]
                 except:
                     pass
         if d.maxlen is None:
