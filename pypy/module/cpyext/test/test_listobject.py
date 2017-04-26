@@ -200,22 +200,29 @@ class AppTestListObject(AppTestCpythonExtensionBase):
              ("test_refcount_diff_after_setitem", "METH_NOARGS",
              """
                 PyObject* o = PyList_New(0);
-                PyObject* o2 = PyList_New(0);
+                PyObject* o2 = PyLong_FromLong(0);
+                Py_INCREF(o2);
                 Py_ssize_t refcount, new_refcount;
 
-                PyList_Append(o, o2);  // does not steal o2
+                refcount = Py_REFCNT(o2); // 1
 
-                refcount = Py_REFCNT(o2);
+                PyList_Append(o, o2); 
 
-                // Steal a reference to o2, but leak the old reference to o2.
+                new_refcount = Py_REFCNT(o2);
+
+                if (new_refcount != refcount + 1)
+                    return PyLong_FromSsize_t(-10);
+                refcount = new_refcount;
+
+                // Steal a reference to o2, leak the old reference to o2.
                 // The net result should be no change in refcount.
                 PyList_SET_ITEM(o, 0, o2);
 
                 new_refcount = Py_REFCNT(o2);
 
-                Py_CLEAR(o);
                 Py_DECREF(o2); // append incref'd.
-                // Py_CLEAR(o2);  // naive implementation would fail here.
+                Py_DECREF(o);
+                Py_DECREF(o2);
                 return PyLong_FromSsize_t(new_refcount - refcount);
              """)])
         assert module.test_refcount_diff_after_setitem() == 0

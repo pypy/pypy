@@ -249,6 +249,8 @@ def pyobj_has_w_obj(pyobj):
     w_obj = rawrefcount.to_obj(W_Root, pyobj)
     return w_obj is not None and w_obj is not w_marker_deallocating
 
+def w_obj_has_pyobj(w_obj):
+    return bool(rawrefcount.from_obj(PyObject, w_obj))
 
 def is_pyobj(x):
     if x is None or isinstance(x, W_Root):
