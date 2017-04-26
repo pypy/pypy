@@ -23,13 +23,34 @@ alignment_of_pointer = alignment(rffi.CCHARP)
 # ____________________________________________________________
 
 class UniqueCache:
+    for_testing = False    # set to True on the class level in test_c.py
+
     def __init__(self, space):
         self.ctvoid = None      # Cache for the 'void' type
         self.ctvoidp = None     # Cache for the 'void *' type
         self.ctchara = None     # Cache for the 'char[]' type
         self.primitives = {}    # Cache for {name: primitive_type}
         self.functions = []     # see _new_function_type()
-        self.for_testing = False
+        self.functions_packed = None     # only across translation
+
+    def _cleanup_(self):
+        import gc
+        assert self.functions_packed is None
+        # Note: a full PyPy translation may still have
+        # 'self.functions == []' at this point, possibly depending
+        # on details.  Code tested directly in test_ffi_obj
+        gc.collect()
+        funcs = []
+        for weakdict in self.functions:
+            funcs += weakdict._dict.values()
+        del self.functions[:]
+        self.functions_packed = funcs if len(funcs) > 0 else None
+
+    def unpack_functions(self):
+        for fct in self.functions_packed:
+            _record_function_type(self, fct)
+        self.functions_packed = None
+
 
 def _clean_cache(space):
     "NOT_RPYTHON"
@@ -132,7 +153,7 @@ else:
     eptypesize("int_fast64_t",  8, _WCTSigned)
     eptypesize("uint_fast64_t", 8, _WCTUnsign)
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def new_primitive_type(space, name):
     return _new_primitive_type(space, name)
 
@@ -146,7 +167,7 @@ def _new_primitive_type(space, name):
     try:
         ctypecls, size, align = PRIMITIVE_TYPES[name]
     except KeyError:
-        raise OperationError(space.w_KeyError, space.wrap(name))
+        raise OperationError(space.w_KeyError, space.newtext(name))
     ctype = ctypecls(space, size, name, len(name), align)
     unique_cache.primitives[name] = ctype
     return ctype
@@ -259,11 +280,11 @@ def complete_sflags(sflags):
 # ____________________________________________________________
 
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def new_struct_type(space, name):
     return ctypestruct.W_CTypeStruct(space, name)
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def new_union_type(space, name):
     return ctypestruct.W_CTypeUnion(space, name)
 
@@ -303,13 +324,14 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
     fields_dict = {}
     w_ctype._custom_field_pos = False
     with_var_array = False
+    with_packed_change = False
 
     for i in range(len(fields_w)):
         w_field = fields_w[i]
         field_w = space.fixedview(w_field)
         if not (2 <= len(field_w) <= 4):
             raise oefmt(space.w_TypeError, "bad field descr")
-        fname = space.str_w(field_w[0])
+        fname = space.text_w(field_w[0])
         ftype = space.interp_w(ctypeobj.W_CType, field_w[1])
         fbitsize = -1
         foffset = -1
@@ -333,7 +355,8 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
         #
         # update the total alignment requirement, but skip it if the
         # field is an anonymous bitfield or if SF_PACKED
-        falign = 1 if sflags & SF_PACKED else ftype.alignof()
+        falignorg = ftype.alignof()
+        falign = 1 if sflags & SF_PACKED else falignorg
         do_align = True
         if (sflags & SF_GCC_ARM_BITFIELDS) == 0 and fbitsize >= 0:
             if (sflags & SF_MSVC_BITFIELDS) == 0:
@@ -359,7 +382,10 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                 bs_flag = ctypestruct.W_CField.BS_REGULAR
 
             # align this field to its own 'falign' by inserting padding
+            boffsetorg = (boffset + falignorg*8-1) & ~(falignorg*8-1)
             boffset = (boffset + falign*8-1) & ~(falign*8-1)
+            if boffsetorg != boffset:
+                with_packed_change = True
 
             if foffset >= 0:
                 # a forced field position: ignore the offset just computed,
@@ -372,6 +398,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
             if (fname == '' and
                     isinstance(ftype, ctypestruct.W_CTypeStructOrUnion)):
                 # a nested anonymous struct or union
+                # note: it seems we only get here with ffi.verify()
                 srcfield2names = {}
                 ftype.force_lazy_struct()
                 for name, srcfld in ftype._fields_dict.items():
@@ -530,6 +557,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
     w_ctype._fields_dict = fields_dict
     #w_ctype._custom_field_pos = ...set above already
     w_ctype._with_var_array = with_var_array
+    w_ctype._with_packed_change = with_packed_change
 
 # ____________________________________________________________
 
@@ -562,13 +590,13 @@ def _new_chara_type(space):
 
 # ____________________________________________________________
 
-@unwrap_spec(name=str, w_basectype=ctypeobj.W_CType)
+@unwrap_spec(name='text', w_basectype=ctypeobj.W_CType)
 def new_enum_type(space, name, w_enumerators, w_enumvalues, w_basectype):
     enumerators_w = space.fixedview(w_enumerators)
     enumvalues_w  = space.fixedview(w_enumvalues)
     if len(enumerators_w) != len(enumvalues_w):
         raise oefmt(space.w_ValueError, "tuple args must have the same size")
-    enumerators = [space.str_w(w) for w in enumerators_w]
+    enumerators = [space.text_w(w) for w in enumerators_w]
     #
     if (not isinstance(w_basectype, ctypeprim.W_CTypePrimitiveSigned) and
         not isinstance(w_basectype, ctypeprim.W_CTypePrimitiveUnsigned)):
@@ -615,7 +643,7 @@ def _func_key_hash(unique_cache, fargs, fresult, ellipsis, abi):
     for w_arg in fargs:
         y = compute_identity_hash(w_arg)
         x = intmask((1000003 * x) ^ y)
-    x ^= (ellipsis - abi)
+    x ^= ellipsis + 2 * abi
     if unique_cache.for_testing:    # constant-folded to False in translation;
         x &= 3                      # but for test, keep only 2 bits of hash
     return x
@@ -639,6 +667,8 @@ def _get_function_type(space, fargs, fresult, ellipsis, abi):
     # one such dict, but in case of hash collision, there might be
     # more.
     unique_cache = space.fromcache(UniqueCache)
+    if unique_cache.functions_packed is not None:
+        unique_cache.unpack_functions()
     func_hash = _func_key_hash(unique_cache, fargs, fresult, ellipsis, abi)
     for weakdict in unique_cache.functions:
         ctype = weakdict.get(func_hash)
@@ -667,13 +697,18 @@ def _build_function_type(space, fargs, fresult, ellipsis, abi):
     #
     fct = ctypefunc.W_CTypeFunc(space, fargs, fresult, ellipsis, abi)
     unique_cache = space.fromcache(UniqueCache)
-    func_hash = _func_key_hash(unique_cache, fargs, fresult, ellipsis, abi)
+    _record_function_type(unique_cache, fct)
+    return fct
+
+def _record_function_type(unique_cache, fct):
+    from pypy.module._cffi_backend import ctypefunc
+    #
+    func_hash = _func_key_hash(unique_cache, fct.fargs, fct.ctitem,
+                               fct.ellipsis, fct.abi)
     for weakdict in unique_cache.functions:
         if weakdict.get(func_hash) is None:
-            weakdict.set(func_hash, fct)
             break
     else:
         weakdict = rweakref.RWeakValueDictionary(int, ctypefunc.W_CTypeFunc)
         unique_cache.functions.append(weakdict)
-        weakdict.set(func_hash, fct)
-    return fct
+    weakdict.set(func_hash, fct)

@@ -70,7 +70,7 @@ class PtrInfo(AbstractInfo):
     def same_info(self, other):
         return self is other
 
-    def getstrlen(self, op, string_optimizer, mode, create_ops=True):
+    def getstrlen(self, op, string_optimizer, mode):
         return None
 
     def getstrhash(self, op, mode):
@@ -773,25 +773,33 @@ class ConstPtrInfo(PtrInfo):
         from rpython.jit.metainterp.optimizeopt.intutils import ConstIntBound,\
                 IntLowerBound
 
-        if mode is None:
+        length = self.getstrlen1(mode)
+        if length < 0:
             # XXX we can do better if we know it's an array
             return IntLowerBound(0)
-        else:
-            return ConstIntBound(self.getstrlen(None, None, mode).getint())
-    
-    def getstrlen(self, op, string_optimizer, mode, create_ops=True):
+        return ConstIntBound(length)
+
+    def getstrlen(self, op, string_optimizer, mode):
+        length = self.getstrlen1(mode)
+        if length < 0:
+            return None
+        return ConstInt(length)
+
+    def getstrlen1(self, mode):
         from rpython.jit.metainterp.optimizeopt import vstring
-        
+
         if mode is vstring.mode_string:
             s = self._unpack_str(vstring.mode_string)
             if s is None:
-                return None
-            return ConstInt(len(s))
-        else:
+                return -1
+            return len(s)
+        elif mode is vstring.mode_unicode:
             s = self._unpack_str(vstring.mode_unicode)            
             if s is None:
-                return None
-            return ConstInt(len(s))
+                return -1
+            return len(s)
+        else:
+            return -1
 
     def getstrhash(self, op, mode):
         from rpython.jit.metainterp.optimizeopt import vstring
@@ -812,7 +820,7 @@ class ConstPtrInfo(PtrInfo):
         from rpython.jit.metainterp.optimizeopt import vstring
         from rpython.jit.metainterp.optimizeopt.optimizer import CONST_0
 
-        lgt = self.getstrlen(op, string_optimizer, mode, False)
+        lgt = self.getstrlen(op, string_optimizer, mode)
         return vstring.copy_str_content(string_optimizer, self._const,
                                         targetbox, CONST_0, offsetbox,
                                         lgt, mode)

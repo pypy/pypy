@@ -10,6 +10,7 @@ rpydir = str(py.path.local(rpython.__file__).join('..'))
 class BasePosix(Platform):
     exe_ext = ''
     make_cmd = 'make'
+    so_prefixes = ('lib', '')
 
     relevant_environ = ('CPATH', 'LIBRARY_PATH', 'C_INCLUDE_PATH')
 
@@ -53,7 +54,7 @@ class BasePosix(Platform):
         args = [str(ofile) for ofile in ofiles] + link_args
         args += ['-o', str(exe_name)]
         if not standalone:
-            args = self._args_for_shared(args)
+            args = self._args_for_shared(args, exe_name=exe_name)
         self._execute_c_compiler(cc, args, exe_name,
                                  cwd=str(exe_name.dirpath()))
         return exe_name
@@ -99,7 +100,7 @@ class BasePosix(Platform):
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
-                     no_precompile_cfiles = [], icon=None):
+                     no_precompile_cfiles = [], config=None):
         cfiles = self._all_cfiles(cfiles, eci)
 
         if path is None:
@@ -128,6 +129,10 @@ class BasePosix(Platform):
             cflags = tuple(self.cflags) + self.get_shared_only_compile_flags()
         else:
             cflags = tuple(self.cflags) + tuple(self.standalone_only)
+
+        # xxx check which compilers accept this option or not
+        if not config or config.translation.gcrootfinder != 'asmgcc':
+            cflags = ('-flto',) + cflags
 
         m = GnuMakefile(path)
         m.exe_name = path.join(exe_name.basename)

@@ -79,6 +79,7 @@ class FakeMetaInterp:
 def test_compile_loop():
     cpu = FakeCPU()
     staticdata = FakeMetaInterpStaticData()
+    staticdata.all_descrs = LLtypeMixin.cpu.setup_descrs()
     staticdata.cpu = cpu
     staticdata.jitlog = jl.JitLogger(cpu)
     staticdata.jitlog.trace_id = 1

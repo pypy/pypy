@@ -78,7 +78,8 @@ class LLOp(object):
     def is_pure(self, args_v):
         if self.canfold:                # canfold => pure operation
             return True
-        if self is llop.debug_assert:   # debug_assert is pure enough
+        if (self is llop.debug_assert or     # debug_assert is pure enough
+            self is llop.debug_assert_not_none):
             return True
         # reading from immutable
         if self is llop.getfield or self is llop.getarrayitem:
@@ -396,7 +397,6 @@ LL_OPERATIONS = {
     'raw_store':            LLOp(canrun=True),
     'bare_raw_store':       LLOp(),
     'gc_load_indexed':      LLOp(sideeffects=False, canrun=True),
-    'stack_malloc':         LLOp(), # mmh
     'track_alloc_start':    LLOp(),
     'track_alloc_stop':     LLOp(),
     'adr_add':              LLOp(canfold=True),
@@ -494,6 +494,16 @@ LL_OPERATIONS = {
     'gc_rawrefcount_mark_deallocating': LLOp(),
     'gc_rawrefcount_from_obj':          LLOp(sideeffects=False),
     'gc_rawrefcount_to_obj':            LLOp(sideeffects=False),
+    'gc_rawrefcount_next_dead':         LLOp(),
+
+    'gc_move_out_of_nursery':           LLOp(),
+
+    'gc_push_roots'        : LLOp(),  # temporary: list of roots to save
+    'gc_pop_roots'         : LLOp(),  # temporary: list of roots to restore
+    'gc_enter_roots_frame' : LLOp(),  # reserve N entries, save local frame pos
+    'gc_leave_roots_frame' : LLOp(),  # free the shadowstack frame
+    'gc_save_root'         : LLOp(),  # save value Y in shadowstack pos X
+    'gc_restore_root'      : LLOp(),  # restore value Y from shadowstack pos X
 
     # ------- JIT & GC interaction, only for some GCs ----------
 
@@ -553,6 +563,7 @@ LL_OPERATIONS = {
     'debug_offset':             LLOp(canrun=True),
     'debug_flush':              LLOp(canrun=True),
     'debug_assert':             LLOp(tryfold=True),
+    'debug_assert_not_none':    LLOp(tryfold=True),
     'debug_fatalerror':         LLOp(canrun=True),
     'debug_llinterpcall':       LLOp(canraise=(Exception,)),
                                     # Python func call 'res=arg[0](*arg[1:])'

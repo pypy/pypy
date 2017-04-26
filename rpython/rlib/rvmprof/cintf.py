@@ -1,6 +1,7 @@
 import platform as host_platform
 import py
 import sys
+import shutil
 from rpython.tool.udir import udir
 from rpython.tool.version import rpythonroot
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
@@ -14,32 +15,79 @@ class VMProfPlatformUnsupported(Exception):
 
 ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rvmprof')
 SRC = ROOT.join('src')
+SHARED = SRC.join('shared')
+BACKTRACE = SHARED.join('libbacktrace')
 
+compile_extra = ['-DRPYTHON_VMPROF', '-O3']
+separate_module_files = [
+    SHARED.join('symboltable.c')
+]
 if sys.platform.startswith('linux'):
+    separate_module_files += [
+       BACKTRACE.join('atomic.c'),
+       BACKTRACE.join('backtrace.c'),
+       BACKTRACE.join('state.c'),
+       BACKTRACE.join('elf.c'),
+       BACKTRACE.join('dwarf.c'),
+       BACKTRACE.join('fileline.c'),
+       BACKTRACE.join('mmap.c'),
+       BACKTRACE.join('mmapio.c'),
+       BACKTRACE.join('posix.c'),
+       BACKTRACE.join('sort.c'),
+    ]
     _libs = ['dl']
-else:
+    compile_extra += ['-DVMPROF_UNIX']
+    compile_extra += ['-DVMPROF_LINUX']
+elif sys.platform == 'win32':
+    compile_extra = ['-DRPYTHON_VMPROF', '-DVMPROF_WINDOWS']
+    separate_module_files = [SHARED.join('vmprof_main_win32.c')]
     _libs = []
+else:
+    # Guessing a BSD-like Unix platform
+    compile_extra += ['-DVMPROF_UNIX']
+    compile_extra += ['-DVMPROF_MAC']
+    _libs = []
+
+
 eci_kwds = dict(
-    include_dirs = [SRC],
-    includes = ['rvmprof.h', 'vmprof_stack.h'],
+    include_dirs = [SRC, SHARED, BACKTRACE],
+    includes = ['rvmprof.h','vmprof_stack.h'],
     libraries = _libs,
-    separate_module_files = [SRC.join('rvmprof.c')],
-    post_include_bits=['#define RPYTHON_VMPROF\n'],
+    separate_module_files = [
+        SRC.join('rvmprof.c'),
+        SHARED.join('compat.c'),
+        SHARED.join('machine.c'),
+        SHARED.join('vmp_stack.c'),
+        # symbol table already in separate_module_files
+    ] + separate_module_files,
+    post_include_bits=[],
+    compile_extra=compile_extra
     )
 global_eci = ExternalCompilationInfo(**eci_kwds)
 
+def configure_libbacktrace_linux():
+    bits = 32 if sys.maxsize == 2**31-1 else 64
+    # FIXME well, the config generated on x86 seems to work on s390x and ppc
+    # vmprof is currently not supported there! we just need to pass compilation
+    specific_config = 'config-x86_%d.h' % bits
+    config = BACKTRACE.join('config.h')
+    shutil.copy(str(BACKTRACE.join(specific_config)), str(config))
 
 def setup():
-    compile_extra = ['-DRPYTHON_LL2CTYPES']
+    if sys.platform.startswith('linux'):
+        configure_libbacktrace_linux()
+
+    eci_kwds['compile_extra'].append('-DRPYTHON_LL2CTYPES')
     platform.verify_eci(ExternalCompilationInfo(
-        compile_extra=compile_extra,
-        **eci_kwds))
+                        **eci_kwds))
 
     eci = global_eci
     vmprof_init = rffi.llexternal("vmprof_init",
-                                  [rffi.INT, rffi.DOUBLE, rffi.CCHARP],
+                                  [rffi.INT, rffi.DOUBLE, rffi.INT, rffi.INT,
+                                   rffi.CCHARP, rffi.INT],
                                   rffi.CCHARP, compilation_info=eci)
-    vmprof_enable = rffi.llexternal("vmprof_enable", [], rffi.INT,
+    vmprof_enable = rffi.llexternal("vmprof_enable", [rffi.INT, rffi.INT],
+                                    rffi.INT,
                                     compilation_info=eci,
                                     save_err=rffi.RFFI_SAVE_ERRNO)
     vmprof_disable = rffi.llexternal("vmprof_disable", [], rffi.INT,
@@ -59,7 +107,12 @@ def setup():
                                   lltype.Signed, compilation_info=eci,
                                   _nowrapper=True)
 
+    vmprof_get_profile_path = rffi.llexternal("vmprof_get_profile_path", [rffi.CCHARP, lltype.Signed],
+                                              lltype.Signed, compilation_info=eci,
+                                              _nowrapper=True)
+
     return CInterface(locals())
+
 
 
 class CInterface(object):

@@ -234,8 +234,11 @@ else:
         _ptyh = 'pty.h'
     includes = ['unistd.h',  'sys/types.h', 'sys/wait.h',
                 'utime.h', 'sys/time.h', 'sys/times.h',
+                'sys/resource.h',
                 'grp.h', 'dirent.h', 'sys/stat.h', 'fcntl.h',
                 'signal.h', 'sys/utsname.h', _ptyh]
+    if sys.platform.startswith('linux'):
+        includes.append('sys/sysmacros.h')
     if sys.platform.startswith('freebsd'):
         includes.append('sys/ttycom.h')
     libraries = ['util']
@@ -249,7 +252,11 @@ class CConfig:
     SEEK_SET = rffi_platform.DefinedConstantInteger('SEEK_SET')
     SEEK_CUR = rffi_platform.DefinedConstantInteger('SEEK_CUR')
     SEEK_END = rffi_platform.DefinedConstantInteger('SEEK_END')
+    PRIO_PROCESS = rffi_platform.DefinedConstantInteger('PRIO_PROCESS')
+    PRIO_PGRP = rffi_platform.DefinedConstantInteger('PRIO_PGRP')
+    PRIO_USER = rffi_platform.DefinedConstantInteger('PRIO_USER')
     O_NONBLOCK = rffi_platform.DefinedConstantInteger('O_NONBLOCK')
+    OFF_T = rffi_platform.SimpleType('off_t')
     OFF_T_SIZE = rffi_platform.SizeOf('off_t')
 
     HAVE_UTIMES = rffi_platform.Has('utimes')
@@ -261,6 +268,7 @@ class CConfig:
     if not _WIN32:
         UID_T = rffi_platform.SimpleType('uid_t', rffi.UINT)
         GID_T = rffi_platform.SimpleType('gid_t', rffi.UINT)
+        ID_T = rffi_platform.SimpleType('id_t', rffi.UINT)
         TIOCGWINSZ = rffi_platform.DefinedConstantInteger('TIOCGWINSZ')
 
         TMS = rffi_platform.Struct(
@@ -457,6 +465,30 @@ def lseek(fd, pos, how):
         elif how == 2:
             how = SEEK_END
     return handle_posix_error('lseek', c_lseek(fd, pos, how))
+
+if not _WIN32:
+    c_pread = external('pread',
+                      [rffi.INT, rffi.VOIDP, rffi.SIZE_T , OFF_T], rffi.SSIZE_T,
+                      save_err=rffi.RFFI_SAVE_ERRNO)
+    c_pwrite = external('pwrite',
+                       [rffi.INT, rffi.VOIDP, rffi.SIZE_T, OFF_T], rffi.SSIZE_T,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
+
+    @enforceargs(int, int, None)
+    def pread(fd, count, offset):
+        if count < 0:
+            raise OSError(errno.EINVAL, None)
+        validate_fd(fd)
+        with rffi.scoped_alloc_buffer(count) as buf:
+            void_buf = rffi.cast(rffi.VOIDP, buf.raw)
+            return buf.str(handle_posix_error('pread', c_pread(fd, void_buf, count, offset)))
+            
+    @enforceargs(int, None, None)
+    def pwrite(fd, data, offset):
+        count = len(data)
+        validate_fd(fd)
+        with rffi.scoped_nonmovingbuffer(data) as buf:
+            return handle_posix_error('pwrite', c_pwrite(fd, buf, count, offset))
 
 c_ftruncate = external('ftruncate', [rffi.INT, rffi.LONGLONG], rffi.INT,
                        macro=_MACRO_ON_POSIX, save_err=rffi.RFFI_SAVE_ERRNO)
@@ -1734,6 +1766,22 @@ if not _WIN32:
     def setresgid(rgid, egid, sgid):
         handle_posix_error('setresgid', c_setresgid(rgid, egid, sgid))
 
+    c_getpriority = external('getpriority', [rffi.INT, ID_T], rffi.INT,
+                             save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+    c_setpriority = external('setpriority', [rffi.INT, ID_T, rffi.INT],
+                             rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO)
+
+    def getpriority(which, who):
+        result = widen(c_getpriority(which, who))
+        error = get_saved_errno()
+        if error != 0:
+            raise OSError(error, 'getpriority failed')
+        return result
+
+    def setpriority(which, who, prio):
+        handle_posix_error('setpriority', c_setpriority(which, who, prio))
+
+
 #___________________________________________________________________
 
 c_chroot = external('chroot', [rffi.CCHARP], rffi.INT,
@@ -1778,22 +1826,23 @@ def uname():
     finally:
         lltype.free(l_utsbuf, flavor='raw')
 
-# These are actually macros on some/most systems
-c_makedev = external('makedev', [rffi.INT, rffi.INT], rffi.INT, macro=True)
-c_major = external('major', [rffi.INT], rffi.INT, macro=True)
-c_minor = external('minor', [rffi.INT], rffi.INT, macro=True)
+if sys.platform != 'win32':
+    # These are actually macros on some/most systems
+    c_makedev = external('makedev', [rffi.INT, rffi.INT], rffi.INT, macro=True)
+    c_major = external('major', [rffi.INT], rffi.INT, macro=True)
+    c_minor = external('minor', [rffi.INT], rffi.INT, macro=True)
 
-@replace_os_function('makedev')
-def makedev(maj, min):
-    return c_makedev(maj, min)
+    @replace_os_function('makedev')
+    def makedev(maj, min):
+        return c_makedev(maj, min)
 
-@replace_os_function('major')
-def major(dev):
-    return c_major(dev)
+    @replace_os_function('major')
+    def major(dev):
+        return c_major(dev)
 
-@replace_os_function('minor')
-def minor(dev):
-    return c_minor(dev)
+    @replace_os_function('minor')
+    def minor(dev):
+        return c_minor(dev)
 
 #___________________________________________________________________
 
@@ -2405,3 +2454,22 @@ if not _WIN32:
     def set_status_flags(fd, flags):
         res = c_set_status_flags(fd, flags)
         handle_posix_error('set_status_flags', res)
+
+if not _WIN32:
+    sendfile_eci = ExternalCompilationInfo(includes=["sys/sendfile.h"])
+    _OFF_PTR_T = rffi.CArrayPtr(OFF_T)
+    c_sendfile = rffi.llexternal('sendfile',
+            [rffi.INT, rffi.INT, _OFF_PTR_T, rffi.SIZE_T],
+            rffi.SSIZE_T, save_err=rffi.RFFI_SAVE_ERRNO,
+            compilation_info=sendfile_eci)
+
+    def sendfile(out_fd, in_fd, offset, count):
+        with lltype.scoped_alloc(_OFF_PTR_T.TO, 1) as p_offset:
+            p_offset[0] = rffi.cast(OFF_T, offset)
+            res = c_sendfile(out_fd, in_fd, p_offset, count)
+        return handle_posix_error('sendfile', res)
+
+    def sendfile_no_offset(out_fd, in_fd, count):
+        """Passes offset==NULL; not support on all OSes"""
+        res = c_sendfile(out_fd, in_fd, lltype.nullptr(_OFF_PTR_T.TO), count)
+        return handle_posix_error('sendfile', res)

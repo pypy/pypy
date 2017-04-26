@@ -359,6 +359,10 @@ class VoidRepr(Repr):
     def ll_str(self, nothing): raise AssertionError("unreachable code")
 impossible_repr = VoidRepr()
 
+class __extend__(pairtype(Repr, VoidRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        return inputconst(lltype.Void, None)
+
 class SimplePointerRepr(Repr):
     "Convenience Repr for simple ll pointer types with no operation on them."
 

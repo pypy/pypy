@@ -1,40 +1,32 @@
 ==========================
-What's new in PyPy2.7 5.6+
+What's new in PyPy2.7 5.8+
 ==========================
 
-.. this is a revision shortly after release-pypy2.7-v5.6
-.. startrev: 7e9787939641
+.. this is a revision shortly after release-pypy2.7-v5.7.0
+.. startrev: 44f31f6dd39f
 
+Add cpyext interfaces for ``PyModule_New``
 
-Since a while now, PyPy preserves the order of dictionaries and sets.
-However, the set literal syntax ``{x, y, z}`` would by mistake build a
-set with the opposite order: ``set([z, y, x])``.  This has been fixed.
-Note that CPython is inconsistent too: in 2.7.12, ``{5, 5.0}`` would be
-``set([5.0])``, but in 2.7.trunk it is ``set([5])``.  PyPy's behavior
-changed in exactly the same way because of this fix.
+Correctly handle `dict.pop`` where the ``pop``
+key is not the same type as the ``dict``'s and ``pop``
+is called with a default (will be part of release 5.7.1)
 
+.. branch: issue2522
 
-.. branch: rpython-error-to-systemerror
+Fix missing tp_new on w_object called through multiple inheritance
+(will be part of release 5.7.1)
 
-Any uncaught RPython exception (from a PyPy bug) is turned into an
-app-level SystemError.  This should improve the lot of users hitting an
-uncaught RPython error.
+.. branch: lstrip_to_empty_string
 
-.. branch: union-side-effects-2
+.. branch: vmprof-native
 
-Try to improve the consistency of RPython annotation unions.
+PyPy support to profile native frames in vmprof.
 
-.. branch: pytest-2.9.2
+.. branch: reusing-r11
+.. branch: branch-prediction
 
-.. branch: clean-exported-state
+Performance tweaks in the x86 JIT-generated machine code: rarely taken
+blocks are moved off-line.  Also, the temporary register used to contain
+large constants is reused across instructions.
 
-Clean-ups in the jit optimizeopt
-
-.. branch: conditional_call_value_4
-
-Add jit.conditional_call_elidable(), a way to tell the JIT "conditonally
-call this function" returning a result.
-
-.. branch: desc-specialize
-
-Refactor FunctionDesc.specialize() and related code (RPython annotator).
+.. branch: vmprof-0.4.4

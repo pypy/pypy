@@ -60,7 +60,6 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
         self.length = length
         self._is_virtual = is_virtual
         self.mode = mode
-        self.length = length
 
     def getlenbound(self, mode):
         from rpython.jit.metainterp.optimizeopt import intutils
@@ -110,12 +109,11 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
         return self.string_copy_parts(op, string_optimizer, targetbox,
                                       offsetbox, mode)
 
-    def getstrlen(self, op, string_optimizer, mode, create_ops=True):
+    def getstrlen(self, op, string_optimizer, mode):
+        assert op is not None
         if self.lgtop is not None:
             return self.lgtop
         assert not self.is_virtual()
-        if not create_ops:
-            return None
         lengthop = ResOperation(mode.STRLEN, [op])
         lengthop.set_forwarded(self.getlenbound(mode))
         self.lgtop = lengthop
@@ -124,7 +122,8 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
 
     def make_guards(self, op, short, optimizer):
         info.AbstractVirtualPtrInfo.make_guards(self, op, short, optimizer)
-        if self.lenbound and self.lenbound.lower >= 1:
+        if (self.lenbound and
+                self.lenbound.has_lower and self.lenbound.lower >= 1):
             if self.mode is mode_string:
                 lenop = ResOperation(rop.STRLEN, [op])
             else:
@@ -172,7 +171,8 @@ class VStringPlainInfo(StrPtrInfo):
     def is_virtual(self):
         return self._is_virtual
 
-    def getstrlen(self, op, string_optimizer, mode, create_ops=True):
+    def getstrlen(self, op, string_optimizer, mode):
+        assert op is not None
         if self.lgtop is None:
             self.lgtop = ConstInt(len(self._chars))
         return self.lgtop
@@ -251,7 +251,8 @@ class VStringSliceInfo(StrPtrInfo):
             return s1[start : start + length]
         return None
 
-    def getstrlen(self, op, string_optimizer, mode, create_ops=True):
+    def getstrlen(self, op, string_optimizer, mode):
+        assert op is not None
         return self.lgtop
 
     def _visitor_walk_recursive(self, instbox, visitor, optimizer):
@@ -280,20 +281,19 @@ class VStringConcatInfo(StrPtrInfo):
     def is_virtual(self):
         return self._is_virtual
 
-    def getstrlen(self, op, string_optimizer, mode, create_ops=True):
+    def getstrlen(self, op, string_optimizer, mode):
+        assert op is not None
         if self.lgtop is not None:
             return self.lgtop
         lefti = string_optimizer.getptrinfo(self.vleft)
-        len1box = lefti.getstrlen(self.vleft, string_optimizer, mode,
-                                  create_ops)
+        len1box = lefti.getstrlen(self.vleft, string_optimizer, mode)
         if len1box is None:
             return None
         righti = string_optimizer.getptrinfo(self.vright)
-        len2box = righti.getstrlen(self.vright, string_optimizer, mode,
-                                   create_ops)
+        len2box = righti.getstrlen(self.vright, string_optimizer, mode)
         if len2box is None:
             return None
-        self.lgtop = _int_add(string_optimizer, len1box, len2box, create_ops)
+        self.lgtop = _int_add(string_optimizer, len1box, len2box)
             # ^^^ may still be None, if string_optimizer is None
         return self.lgtop
 
@@ -371,7 +371,7 @@ def copy_str_content(string_optimizer, srcbox, targetbox,
         offsetbox = nextoffsetbox
     return offsetbox
 
-def _int_add(string_optimizer, box1, box2, create_ops=True):
+def _int_add(string_optimizer, box1, box2):
     if isinstance(box1, ConstInt):
         if box1.value == 0:
             return box2
@@ -379,8 +379,6 @@ def _int_add(string_optimizer, box1, box2, create_ops=True):
             return ConstInt(box1.value + box2.value)
     elif isinstance(box2, ConstInt) and box2.value == 0:
         return box1
-    if not create_ops:
-        return None
     op = ResOperation(rop.INT_ADD, [box1, box2])
     string_optimizer.send_extra_operation(op)
     return op
@@ -529,9 +527,10 @@ class OptString(optimizer.Optimization):
         return self._optimize_STRLEN(op, mode_unicode)
 
     def _optimize_STRLEN(self, op, mode):
-        opinfo = self.getptrinfo(op.getarg(0))
+        arg1 = self.get_box_replacement(op.getarg(0))
+        opinfo = self.getptrinfo(arg1)
         if opinfo:
-            lgtop = opinfo.getstrlen(op, self, mode, False)
+            lgtop = opinfo.getstrlen(arg1, self, mode)
             if lgtop is not None:
                 self.make_equal_to(op, lgtop)
                 return
@@ -700,11 +699,11 @@ class OptString(optimizer.Optimization):
         i2 = self.getptrinfo(arg2)
         #
         if i1:
-            l1box = i1.getstrlen(arg1, self, mode, create_ops=False)
+            l1box = i1.getstrlen(arg1, self, mode)
         else:
             l1box = None
         if i2:
-            l2box = i2.getstrlen(arg2, self, mode, create_ops=False)
+            l2box = i2.getstrlen(arg2, self, mode)
         else:
             l2box = None
         if (l1box is not None and l2box is not None and
@@ -742,7 +741,7 @@ class OptString(optimizer.Optimization):
         l2box = None
         l1box = None
         if i2:
-            l2box = i2.getstrlen(arg2, self, mode, create_ops=False)
+            l2box = i2.getstrlen(arg2, self, mode)
         if isinstance(l2box, ConstInt):
             if l2box.value == 0:
                 if i1 and i1.is_nonnull():
@@ -760,7 +759,7 @@ class OptString(optimizer.Optimization):
                     return True, None
             if l2box.value == 1:
                 if i1:
-                    l1box = i1.getstrlen(arg1, self, mode, False)
+                    l1box = i1.getstrlen(arg1, self, mode)
                 if isinstance(l1box, ConstInt) and l1box.value == 1:
                     # comparing two single chars
                     vchar1 = self.strgetitem(None, arg1, optimizer.CONST_0,
@@ -799,7 +798,7 @@ class OptString(optimizer.Optimization):
         i2 = self.getptrinfo(arg2)
         l2box = None
         if i2:
-            l2box = i2.getstrlen(arg1, self, mode, create_ops=False)
+            l2box = i2.getstrlen(arg1, self, mode)
         if l2box:
             l2info = self.getintbound(l2box)
             if l2info.is_constant():
@@ -822,12 +821,14 @@ class OptString(optimizer.Optimization):
         return False, None
 
     def opt_call_stroruni_STR_CMP(self, op, mode):
-        i1 = self.getptrinfo(op.getarg(1))
-        i2 = self.getptrinfo(op.getarg(2))
+        arg1 = self.get_box_replacement(op.getarg(1))
+        arg2 = self.get_box_replacement(op.getarg(2))
+        i1 = self.getptrinfo(arg1)
+        i2 = self.getptrinfo(arg2)
         if not i1 or not i2:
             return False, None
-        l1box = i1.getstrlen(None, self, mode, False)
-        l2box = i2.getstrlen(None, self, mode, False)
+        l1box = i1.getstrlen(arg1, self, mode)
+        l2box = i2.getstrlen(arg2, self, mode)
         if (l1box is not None and l2box is not None and
             isinstance(l1box, ConstInt) and
             isinstance(l2box, ConstInt) and

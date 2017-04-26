@@ -10,6 +10,8 @@ from rpython.rlib.rweaklist import RWeakListMixin
 
 MAX_FUNC_NAME = 1023
 
+PLAT_WINDOWS = sys.platform == 'win32'
+
 # ____________________________________________________________
 
 # keep in sync with vmprof_stack.h
@@ -122,7 +124,7 @@ class VMProf(object):
         self._gather_all_code_objs = gather_all_code_objs
 
     @jit.dont_look_inside
-    def enable(self, fileno, interval):
+    def enable(self, fileno, interval, memory=0, native=0):
         """Enable vmprof.  Writes go to the given 'fileno'.
         The sampling interval is given by 'interval' as a number of
         seconds, as a float which must be smaller than 1.0.
@@ -132,12 +134,16 @@ class VMProf(object):
         if self.is_enabled:
             raise VMProfError("vmprof is already enabled")
 
-        p_error = self.cintf.vmprof_init(fileno, interval, "pypy")
+        if PLAT_WINDOWS:
+            native = 0 # force disabled on Windows
+        lines = 0 # not supported on PyPy currently
+
+        p_error = self.cintf.vmprof_init(fileno, interval, lines, memory, "pypy", native)
         if p_error:
             raise VMProfError(rffi.charp2str(p_error))
 
         self._gather_all_code_objs()
-        res = self.cintf.vmprof_enable()
+        res = self.cintf.vmprof_enable(memory, native)
         if res < 0:
             raise VMProfError(os.strerror(rposix.get_saved_errno()))
         self.is_enabled = True
@@ -153,6 +159,7 @@ class VMProf(object):
         res = self.cintf.vmprof_disable()
         if res < 0:
             raise VMProfError(os.strerror(rposix.get_saved_errno()))
+
 
     def _write_code_registration(self, uid, name):
         assert name.count(':') == 3 and len(name) <= MAX_FUNC_NAME, (
@@ -198,16 +205,27 @@ def vmprof_execute_code(name, get_code_fn, result_class=None,
             unique_id = get_code_fn(*args)._vmprof_unique_id
             unique_id = rffi.cast(lltype.Signed, unique_id)
             # ^^^ removes the "known non-negative" hint for annotation
+            #
+            # Signals can occur at the two places (1) and (2), that will
+            # have added a stack entry, but the function __vmprof_eval_vmprof
+            # is not entered. This behaviour will swallow one Python stack frame
+            #
+            # Current fix: vmprof will discard this sample. (happens
+            # very infrequently)
+            #
             if not jit.we_are_jitted():
                 x = enter_code(unique_id)
+                # (1) signal here
                 try:
                     return func(*args)
                 finally:
+                    # (2) signal here
                     leave_code(x)
             else:
                 return decorated_jitted_function(unique_id, *args)
 
         decorated_function.__name__ = func.__name__ + '_rvmprof'
+        decorated_function.c_name = '__vmprof_eval_vmprof'
         return decorated_function
 
     return decorate
@@ -215,7 +233,6 @@ def vmprof_execute_code(name, get_code_fn, result_class=None,
 @specialize.memo()
 def _was_registered(CodeClass):
     return hasattr(CodeClass, '_vmprof_unique_id')
-
 
 _vmprof_instance = None
 

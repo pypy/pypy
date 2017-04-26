@@ -185,19 +185,6 @@ static PyTypeObject PyMyArrayType = {
     (initproc)PyMyArray_init,     /* tp_init */
 };
 
-static PyObject*
-test_buffer(PyObject* self, PyObject* args)
-{
-    Py_buffer* view = NULL;
-    PyObject* obj = PyTuple_GetItem(args, 0);
-    PyObject* memoryview = PyMemoryView_FromObject(obj);
-    if (memoryview == NULL)
-        return PyInt_FromLong(-1);
-    view = PyMemoryView_GET_BUFFER(memoryview);
-    Py_DECREF(memoryview);
-    return PyInt_FromLong(view->len);
-}
-
 /* Copied from numpy tests */
 /*
  * Create python string from a FLAG and or the corresponding PyBuf flag
@@ -308,7 +295,6 @@ get_buffer_info(PyObject *self, PyObject *args)
 
 
 static PyMethodDef buffer_functions[] = {
-    {"test_buffer",   (PyCFunction)test_buffer, METH_VARARGS, NULL},
     {"get_buffer_info",   (PyCFunction)get_buffer_info, METH_VARARGS, NULL},
     {NULL,        NULL}    /* Sentinel */
 };
@@ -358,7 +344,6 @@ initbuffer_test(void)
 #endif
     if (m == NULL)
         INITERROR;
-    PyMyArrayType.tp_new = PyType_GenericNew;
     if (PyType_Ready(&PyMyArrayType) < 0)
         INITERROR;
     Py_INCREF(&PyMyArrayType);

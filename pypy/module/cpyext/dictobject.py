@@ -1,11 +1,66 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.objectmodel import specialize
+from pypy.interpreter.error import OperationError
+from pypy.objspace.std.classdict import ClassDictStrategy
+from pypy.interpreter.typedef import GetSetProperty
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, build_type_checkers, Py_ssize_t,
-    Py_ssize_tP, CONST_STRING)
-from pypy.module.cpyext.pyobject import PyObject, PyObjectP, as_pyobj
+    Py_ssize_tP, CONST_STRING, PyObjectFields, cpython_struct,
+    bootstrap_function, slot_function)
+from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, as_pyobj,
+        make_typedescr, track_reference, create_ref, from_ref, decref,
+        Py_IncRef)
+from pypy.module.cpyext.object import _dealloc
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
-from pypy.interpreter.error import OperationError
-from rpython.rlib.objectmodel import specialize
+
+PyDictObjectStruct = lltype.ForwardReference()
+PyDictObject = lltype.Ptr(PyDictObjectStruct)
+PyDictObjectFields = PyObjectFields + \
+    (("_tmpkeys", PyObject),)
+cpython_struct("PyDictObject", PyDictObjectFields, PyDictObjectStruct)
+
+@bootstrap_function
+def init_dictobject(space):
+    "Type description of PyDictObject"
+    make_typedescr(space.w_dict.layout.typedef,
+                   basestruct=PyDictObject.TO,
+                   attach=dict_attach,
+                   dealloc=dict_dealloc,
+                   realize=dict_realize)
+
+def dict_attach(space, py_obj, w_obj, w_userdata=None):
+    """
+    Fills a newly allocated PyDictObject with the given dict object.
+    """
+    py_dict = rffi.cast(PyDictObject, py_obj)
+    py_dict.c__tmpkeys = lltype.nullptr(PyObject.TO)
+    # Problems: if this dict is a typedict, we may have unbound GetSetProperty
+    # functions in the dict. The corresponding PyGetSetDescrObject must be
+    # bound to a class, but the actual w_type will be unavailable later on.
+    # Solution: use the w_userdata argument when assigning a PyTypeObject's
+    # tp_dict slot to pass a w_type in, and force creation of the pair here
+    if not space.is_w(w_userdata, space.gettypefor(GetSetProperty)):
+        # do not do this for type dict of GetSetProperty, that would recurse
+        w_vals = space.call_method(space.w_dict, "values", w_obj)
+        vals = space.listview(w_vals)
+        for w_v in vals:
+            if isinstance(w_v, GetSetProperty):
+                pyobj = as_pyobj(space, w_v, w_userdata)
+                # refcnt will be REFCNT_FROM_PYPY, no need to inc or dec
+
+def dict_realize(space, py_obj):
+    """
+    Creates the dict in the interpreter
+    """
+    w_obj = space.newdict()
+    track_reference(space, py_obj, w_obj)
+
+@slot_function([PyObject], lltype.Void)
+def dict_dealloc(space, py_obj):
+    py_dict = rffi.cast(PyDictObject, py_obj)
+    decref(space, py_dict.c__tmpkeys)
+    py_dict.c__tmpkeys = lltype.nullptr(PyObject.TO)
+    _dealloc(space, py_obj)
 
 @cpython_api([], PyObject)
 def PyDict_New(space):
@@ -74,7 +129,7 @@ def PyDict_DelItemString(space, w_dict, key_ptr):
         key = rffi.charp2str(key_ptr)
         # our dicts dont have a standardized interface, so we need
         # to go through the space
-        space.delitem(w_dict, space.wrap(key))
+        space.delitem(w_dict, space.newtext(key))
         return 0
     else:
         PyErr_BadInternalCall(space)
@@ -181,9 +236,9 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
     }
 
     The dictionary p should not be mutated during iteration.  It is safe
-    (since Python 2.1) to modify the values of the keys as you iterate over the
-    dictionary, but only so long as the set of keys does not change.  For
-    example:
+    (since Python 2.1) to modify the values but not the keys as you iterate
+    over the dictionary, the keys must not change.
+    For example:
 
     PyObject *key, *value;
     Py_ssize_t pos = 0;
@@ -199,34 +254,32 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
         }
         Py_DECREF(o);
     }"""
+
     if w_dict is None:
         return 0
 
-    # XXX XXX PyDict_Next is not efficient. Storing an iterator would probably
-    # work, but we can't work out how to not leak it if iteration does
-    # not complete.  Alternatively, we could add some RPython-only
-    # dict-iterator method to move forward by N steps.
-
-    w_dict.ensure_object_strategy()     # make sure both keys and values can
-                                        # be borrwed
-    try:
-        w_iter = space.call_method(space.w_dict, "iteritems", w_dict)
-        pos = ppos[0]
-        while pos:
-            space.call_method(w_iter, "next")
-            pos -= 1
-
-        w_item = space.call_method(w_iter, "next")
-        w_key, w_value = space.fixedview(w_item, 2)
-        if pkey:
-            pkey[0]   = as_pyobj(space, w_key)
-        if pvalue:
-            pvalue[0] = as_pyobj(space, w_value)
-        ppos[0] += 1
-    except OperationError as e:
-        if not e.match(space, space.w_StopIteration):
-            raise
+    pos = ppos[0]
+    py_obj = as_pyobj(space, w_dict)
+    py_dict = rffi.cast(PyDictObject, py_obj)
+    if pos == 0:
+        # Store the current keys in the PyDictObject.
+        decref(space, py_dict.c__tmpkeys)
+        w_keys = space.call_method(space.w_dict, "keys", w_dict)
+        py_dict.c__tmpkeys = create_ref(space, w_keys)
+        Py_IncRef(space, py_dict.c__tmpkeys)
+    else:
+        w_keys = from_ref(space, py_dict.c__tmpkeys)
+    ppos[0] += 1
+    if pos >= space.len_w(w_keys):
+        decref(space, py_dict.c__tmpkeys)
+        py_dict.c__tmpkeys = lltype.nullptr(PyObject.TO)
         return 0
+    w_key = space.listview(w_keys)[pos]
+    w_value = space.getitem(w_dict, w_key)
+    if pkey:
+        pkey[0]   = as_pyobj(space, w_key)
+    if pvalue:
+        pvalue[0] = as_pyobj(space, w_value)
     return 1
 
 @specialize.memo()
@@ -234,7 +287,7 @@ def make_frozendict(space):
     if space not in _frozendict_cache:
         _frozendict_cache[space] = _make_frozendict(space)
     return _frozendict_cache[space]
-        
+
 _frozendict_cache = {}
 def _make_frozendict(space):
     return space.appexec([], '''():

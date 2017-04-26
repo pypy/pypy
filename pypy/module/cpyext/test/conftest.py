@@ -21,9 +21,6 @@ def pytest_ignore_collect(path, config):
     import pypy.module.cpyext.test.test_cpyext
     return False
 
-def pytest_funcarg__space(request):
-    return request.cls.api
-
 def pytest_funcarg__api(request):
     return request.cls.api
 

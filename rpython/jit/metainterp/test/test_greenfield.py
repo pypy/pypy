@@ -49,7 +49,7 @@ class GreenFieldsTests:
         #
         res = self.meta_interp(g, [7])
         assert res == -22
-        self.check_trace_count(6)
+        self.check_trace_count(4)
         self.check_resops(guard_value=0)
 
     def test_green_field_3(self):

@@ -193,6 +193,15 @@ class W_Weakref(W_WeakrefBase):
         W_WeakrefBase.__init__(self, space, w_obj, w_callable)
         self.w_hash = None
 
+    def _cleanup_(self):
+        # When a prebuilt weakref is frozen inside a translation, if
+        # this weakref has got an already-cached w_hash, then throw it
+        # away.  That's because the hash value will change after
+        # translation.  It will be recomputed the first time we ask for
+        # it.  Note that such a frozen weakref, if not dead, will point
+        # to a frozen object, so it will never die.
+        self.w_hash = None
+
     def descr__init__weakref(self, space, w_obj, w_callable=None,
                              __args__=None):
         if __args__.arguments_w:
@@ -278,10 +287,10 @@ def getweakrefcount(space, w_obj):
     """Return the number of weak references to 'obj'."""
     lifeline = w_obj.getweakref()
     if lifeline is None:
-        return space.wrap(0)
+        return space.newint(0)
     else:
         result = lifeline.traverse(_weakref_count, 0)
-        return space.wrap(result)
+        return space.newint(result)
 
 def _get_weakrefs(lifeline, wref, result):
     w_ref = wref()

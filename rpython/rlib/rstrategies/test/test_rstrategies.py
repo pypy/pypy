@@ -204,7 +204,7 @@ def do_test_initialization(cls, default_value=w_nil, is_safe=True):
     if is_safe:
         py.test.raises(IndexError, s.fetch, l, -1)
     else:
-        assert s.fetch(l, -1) == s.fetch(l, size - 1)
+        py.test.raises(AssertionError, s.fetch, l, -1)
 
 def test_init_Empty():
     l = W_List(EmptyStrategy, 0)
@@ -249,7 +249,7 @@ def do_test_store(cls, stored_value=W_Object(), is_safe=True, is_varsize=False):
     if is_safe:
         py.test.raises(IndexError, s.store, l, -1, stored_value)
     else:
-        store_test(-1)
+        py.test.raises(AssertionError, s.store, l, -1, stored_value)
 
 def test_store_Nil():
     do_test_store(NilStrategy, stored_value=w_nil)

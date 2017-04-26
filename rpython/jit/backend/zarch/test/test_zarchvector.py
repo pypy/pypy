@@ -1,10 +1,10 @@
 import py
 from rpython.jit.backend.zarch.test import test_basic
-from rpython.jit.metainterp.test import test_vector
+from rpython.jit.metainterp.test import test_zvector
 from rpython.jit.backend.zarch.detect_feature import detect_simd_z
 
 
-class TestBasic(test_basic.JitZARCHMixin, test_vector.VectorizeTests):
+class TestBasic(test_basic.JitZARCHMixin, test_zvector.VectorizeTests):
     # for the individual tests see
     # ====> ../../../metainterp/test/test_basic.py
     def setup_method(self, method):

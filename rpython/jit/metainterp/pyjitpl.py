@@ -275,12 +275,18 @@ class MIFrame(object):
     def opimpl_ptr_iszero(self, box):
         return self.execute(rop.PTR_EQ, box, history.CONST_NULL)
 
+    @arguments("box")
+    def opimpl_assert_not_none(self, box):
+        if self.metainterp.heapcache.is_nullity_known(box):
+            return
+        self.execute(rop.ASSERT_NOT_NONE, box)
+        self.metainterp.heapcache.nullity_now_known(box)
+
     @arguments("box", "box")
     def opimpl_record_exact_class(self, box, clsbox):
         from rpython.rtyper.lltypesystem import llmemory
         if self.metainterp.heapcache.is_class_known(box):
             return
-        adr = clsbox.getaddr()
         self.execute(rop.RECORD_EXACT_CLASS, box, clsbox)
         self.metainterp.heapcache.class_now_known(box)
 
@@ -2418,7 +2424,6 @@ class MetaInterp(object):
         self.staticdata.profiler.start_tracing()
         assert jitdriver_sd is self.jitdriver_sd
         self.staticdata.try_to_free_some_loops()
-        self.create_empty_history()
         try:
             original_boxes = self.initialize_original_boxes(jitdriver_sd, *args)
             return self._compile_and_run_once(original_boxes)
@@ -2432,10 +2437,11 @@ class MetaInterp(object):
         num_green_args = self.jitdriver_sd.num_green_args
         original_greenkey = original_boxes[:num_green_args]
         self.resumekey = compile.ResumeFromInterpDescr(original_greenkey)
-        self.history.set_inputargs(original_boxes[num_green_args:],
-                                   self.staticdata)
         self.seen_loop_header_for_jdindex = -1
         try:
+            self.create_empty_history()
+            self.history.set_inputargs(original_boxes[num_green_args:],
+                                       self.staticdata)
             self.interpret()
         except SwitchToBlackhole as stb:
             self.run_blackhole_interp_to_cancel_tracing(stb)
@@ -2455,9 +2461,11 @@ class MetaInterp(object):
         if self.resumekey_original_loop_token is None:
             raise compile.giveup() # should be rare
         self.staticdata.try_to_free_some_loops()
-        inputargs = self.initialize_state_from_guard_failure(key, deadframe)
         try:
+            inputargs = self.initialize_state_from_guard_failure(key, deadframe)
             return self._handle_guard_failure(resumedescr, key, inputargs, deadframe)
+        except SwitchToBlackhole as stb:
+            self.run_blackhole_interp_to_cancel_tracing(stb)
         finally:
             self.resumekey_original_loop_token = None
             self.staticdata.profiler.end_tracing()
@@ -2469,13 +2477,10 @@ class MetaInterp(object):
         self.seen_loop_header_for_jdindex = -1
         if isinstance(key, compile.ResumeAtPositionDescr):
             self.seen_loop_header_for_jdindex = self.jitdriver_sd.index
-        try:
-            self.prepare_resume_from_failure(deadframe, inputargs, resumedescr)
-            if self.resumekey_original_loop_token is None:   # very rare case
-                raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
-            self.interpret()
-        except SwitchToBlackhole as stb:
-            self.run_blackhole_interp_to_cancel_tracing(stb)
+        self.prepare_resume_from_failure(deadframe, inputargs, resumedescr)
+        if self.resumekey_original_loop_token is None:   # very rare case
+            raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
+        self.interpret()
         assert False, "should always raise"
 
     def run_blackhole_interp_to_cancel_tracing(self, stb):

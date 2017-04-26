@@ -99,6 +99,15 @@ class TestFunctions(BaseCTypesTestChecker):
         result = f(0, 0, 0, 0, 0, 0)
         assert result == '\x00'
 
+    def test_boolresult(self):
+        f = dll._testfunc_i_bhilfd
+        f.argtypes = [c_byte, c_short, c_int, c_long, c_float, c_double]
+        f.restype = c_bool
+        false_result = f(0, 0, 0, 0, 0, 0)
+        assert false_result is False
+        true_result = f(1, 0, 0, 0, 0, 0)
+        assert true_result is True
+
     def test_voidresult(self):
         f = dll._testfunc_v
         f.restype = None
@@ -587,3 +596,37 @@ class TestFunctions(BaseCTypesTestChecker):
 
         get_data.errcheck = ret_list_p(1)
         assert get_data('testing!') == [-1, -2, -3, -4]
+
+    def test_issue2533(self):
+        import cffi
+        ffi = cffi.FFI()
+        ffi.cdef("int **fetchme(void);")
+        ffi.set_source("_x_cffi", """
+            int **fetchme(void)
+            {
+                static int a = 42;
+                static int *pa = &a;
+                return &pa;
+            }
+        """)
+        from rpython.tool.udir import udir
+        ffi.compile(verbose=True, tmpdir=str(udir))
+
+        import sys
+        sys.path.insert(0, str(udir))
+        try:
+            from _x_cffi import ffi, lib
+        finally:
+            sys.path.pop(0)
+        fetchme = ffi.addressof(lib, 'fetchme')
+        fetchme = int(ffi.cast("intptr_t", fetchme))
+
+        FN = CFUNCTYPE(POINTER(POINTER(c_int)))
+        ff = cast(fetchme, FN)
+
+        g = ff()
+        assert g.contents.contents.value == 42
+
+        h = c_int(43)
+        g[0] = pointer(h)     # used to crash here
+        assert g.contents.contents.value == 43

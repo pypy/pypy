@@ -10,6 +10,14 @@ from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import oefmt
 
+@cpython_api([rffi.CCHARP], PyObject)
+def PyModule_New(space, name):
+    """
+    Return a new module object with the __name__ attribute set to name.
+    Only the module's __doc__ and __name__ attributes are filled in;
+    the caller is responsible for providing a __file__ attribute."""
+    return Module(space, space.newtext(rffi.charp2str(name)))
+
 #@cpython_api([rffi.CCHARP], PyObject)
 def PyImport_AddModule(space, name):
     """Return the module object corresponding to a module name.  The name argument
@@ -21,12 +29,12 @@ def PyImport_AddModule(space, name):
     loaded, you will get an empty module object. Use PyImport_ImportModule()
     or one of its variants to import a module.  Package structures implied by a
     dotted name for name are not created if not already present."""
-    w_name = space.wrap(name)
+    w_name = space.newtext(name)
     w_modules = space.sys.get('modules')
 
     w_mod = space.finditem_str(w_modules, name)
     if w_mod is None:
-        w_mod = space.wrap(Module(space, w_name))
+        w_mod = Module(space, w_name)
         space.setitem(w_modules, w_name, w_mod)
 
     return w_mod
@@ -50,7 +58,7 @@ def _Py_InitPyPyModule(space, name, methods, doc, w_self, apiver):
     cache.  CPython includes some extra checking here to make sure the module
     being initialized lines up with what's expected, but we don't.
     """
-    from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
+    from pypy.module.cpyext.api import PyTypeObjectPtr
     modname = rffi.charp2str(name)
     state = space.fromcache(State)
     f_name, f_path = state.package_context
@@ -60,20 +68,20 @@ def _Py_InitPyPyModule(space, name, methods, doc, w_self, apiver):
     state.package_context = None, None
 
     if f_path is not None:
-        dict_w = {'__file__': space.wrap(f_path)}
+        dict_w = {'__file__': space.newtext(f_path)}
     else:
         dict_w = {}
     convert_method_defs(space, dict_w, methods, None, w_self, modname)
     for key, w_value in dict_w.items():
-        space.setattr(w_mod, space.wrap(key), w_value)
+        space.setattr(w_mod, space.newtext(key), w_value)
     if doc:
-        space.setattr(w_mod, space.wrap("__doc__"),
-                      space.wrap(rffi.charp2str(doc)))
+        space.setattr(w_mod, space.newtext("__doc__"),
+                      space.newtext(rffi.charp2str(doc)))
     return w_mod   # borrowed result kept alive in PyImport_AddModule()
 
 
 def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
-    w_name = space.wrap(name)
+    w_name = space.newtext_or_none(name)
     methods = rffi.cast(rffi.CArrayPtr(PyMethodDef), methods)
     if methods:
         i = -1
@@ -90,7 +98,7 @@ def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
                     raise oefmt(space.w_ValueError,
                             "module functions cannot set METH_CLASS or "
                             "METH_STATIC")
-                w_obj = space.wrap(W_PyCFunctionObject(space, method, w_self, w_name))
+                w_obj = W_PyCFunctionObject(space, method, w_self, w_name)
             else:
                 if methodname in dict_w and not (flags & METH_COEXIST):
                     continue

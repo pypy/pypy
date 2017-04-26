@@ -26,6 +26,11 @@ class MockAssembler:
         assert isinstance(to_loc,   FrameLoc)
         self.ops.append(('immedmem2mem', from_loc, to_loc))
 
+    class mc:
+        @staticmethod
+        def forget_scratch_register():
+            pass
+
     def got(self, expected):
         print '------------------------ comparing ---------------------------'
         for op1, op2 in zip(self.ops, expected):
@@ -405,6 +410,10 @@ def test_overflow_bug():
             print "pop", x
         def regalloc_immedmem2mem(self, x, y):
             print "?????????????????????????"
+        class mc:
+            @staticmethod
+            def forget_scratch_register():
+                pass
     def main():
         srclocs = [FrameLoc(9999, x, 'i') for x,y in CASE]
         dstlocs = [FrameLoc(9999, y, 'i') for x,y in CASE]

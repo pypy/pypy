@@ -18,9 +18,9 @@ class ClassDictStrategy(DictStrategy):
     def getitem(self, w_dict, w_key):
         space = self.space
         w_lookup_type = space.type(w_key)
-        if (space.is_w(w_lookup_type, space.w_str) or  # Most common path first
-            space.abstract_issubclass_w(w_lookup_type, space.w_str)):
-            return self.getitem_str(w_dict, space.str_w(w_key))
+        if (space.is_w(w_lookup_type, space.w_text) or  # Most common path first
+            space.abstract_issubclass_w(w_lookup_type, space.w_text)):
+            return self.getitem_str(w_dict, space.text_w(w_key))
         elif space.abstract_issubclass_w(w_lookup_type, space.w_unicode):
             try:
                 w_key = space.str(w_key)
@@ -29,7 +29,7 @@ class ClassDictStrategy(DictStrategy):
                     raise
                 # non-ascii unicode is never equal to a byte string
                 return None
-            return self.getitem_str(w_dict, space.str_w(w_key))
+            return self.getitem_str(w_dict, space.text_w(w_key))
         else:
             return None
 
@@ -38,8 +38,8 @@ class ClassDictStrategy(DictStrategy):
 
     def setitem(self, w_dict, w_key, w_value):
         space = self.space
-        if space.is_w(space.type(w_key), space.w_str):
-            self.setitem_str(w_dict, self.space.str_w(w_key), w_value)
+        if space.is_w(space.type(w_key), space.w_text):
+            self.setitem_str(w_dict, self.space.text_w(w_key), w_value)
         else:
             raise oefmt(space.w_TypeError,
                         "cannot add non-string keys to dict of a type")
@@ -70,8 +70,8 @@ class ClassDictStrategy(DictStrategy):
     def delitem(self, w_dict, w_key):
         space = self.space
         w_key_type = space.type(w_key)
-        if space.is_w(w_key_type, space.w_str):
-            key = self.space.str_w(w_key)
+        if space.is_w(w_key_type, space.w_text):
+            key = self.space.text_w(w_key)
             if not self.unerase(w_dict.dstorage).deldictvalue(space, key):
                 raise KeyError
         else:
@@ -82,7 +82,7 @@ class ClassDictStrategy(DictStrategy):
 
     def w_keys(self, w_dict):
         space = self.space
-        return space.newlist_bytes(self.unerase(w_dict.dstorage).dict_w.keys())
+        return space.newlist_text(self.unerase(w_dict.dstorage).dict_w.keys())
 
     def values(self, w_dict):
         return [unwrap_cell(self.space, w_value) for w_value in
@@ -90,7 +90,7 @@ class ClassDictStrategy(DictStrategy):
 
     def items(self, w_dict):
         space = self.space
-        return [space.newtuple([space.wrap(key), unwrap_cell(self.space, w_value)])
+        return [space.newtuple([space.newtext(key), unwrap_cell(self.space, w_value)])
                     for (key, w_value) in self.unerase(w_dict.dstorage).dict_w.iteritems()]
 
     def clear(self, w_dict):
@@ -112,7 +112,7 @@ class ClassDictStrategy(DictStrategy):
         return iteritems_with_hash(self.unerase(w_dict.dstorage).dict_w)
 
     def wrapkey(space, key):
-        return space.wrap(key)
+        return space.newtext(key)
 
     def wrapvalue(space, value):
         return unwrap_cell(space, value)

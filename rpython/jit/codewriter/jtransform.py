@@ -283,6 +283,12 @@ class Transformer(object):
     def rewrite_op_jit_record_exact_class(self, op):
         return SpaceOperation("record_exact_class", [op.args[0], op.args[1]], None)
 
+    def rewrite_op_debug_assert_not_none(self, op):
+        if isinstance(op.args[0], Variable):
+            return SpaceOperation('assert_not_none', [op.args[0]], None)
+        else:
+            return []
+
     def rewrite_op_cast_bool_to_int(self, op): pass
     def rewrite_op_cast_bool_to_uint(self, op): pass
     def rewrite_op_cast_char_to_int(self, op): pass
@@ -593,6 +599,8 @@ class Transformer(object):
         log.WARNING('ignoring hint %r at %r' % (hints, self.graph))
 
     def _rewrite_raw_malloc(self, op, name, args):
+        # NB. the operation 'raw_malloc' is not supported; this is for
+        # the operation 'malloc'/'malloc_varsize' with {flavor: 'gc'}
         d = op.args[1].value.copy()
         d.pop('flavor')
         add_memory_pressure = d.pop('add_memory_pressure', False)

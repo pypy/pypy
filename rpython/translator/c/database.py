@@ -346,8 +346,9 @@ class LowLevelDatabase(object):
 
         assert not self.delayedfunctionptrs
         self.completed = True
-        if self.gctransformer is not None and self.gctransformer.inline:
-            self.gctransformer.inline_helpers(self.all_graphs())
+        if self.gctransformer is not None:
+            log.database("Inlining GC helpers and postprocessing")
+            self.gctransformer.inline_helpers_and_postprocess(self.all_graphs())
         if show_progress:
             dump()
         log.database("Completed")

@@ -364,7 +364,7 @@ class DictTests:
                     if n in mdict:
                         raise Exception
         self.meta_interp(f, [10])
-        self.check_simple_loop(call_may_force_i=0, call_i=3, call_n=1)
+        self.check_simple_loop(call_may_force_i=0, call_i=2, call_n=1)
 
     def test_dict_virtual(self):
         myjitdriver = JitDriver(greens = [], reds = 'auto')

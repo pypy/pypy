@@ -8,11 +8,14 @@
 #define OP_STACK_CURRENT(r)  r = (Signed)&r
 
 
-#define OP_RAW_MALLOC(size, r, restype)  {				\
-	r = (restype) malloc(size);				\
-	if (r != NULL) {						\
-	    COUNT_MALLOC;						\
-	}								\
+#define OP_RAW_MALLOC(size, zero, result)  {    \
+        if (zero)                               \
+            result = calloc(size, 1);           \
+        else                                    \
+            result = malloc(size);              \
+        if (result != NULL) {                   \
+            COUNT_MALLOC;                       \
+        }                                       \
     }
 
 #define OP_RAW_FREE(p, r) free(p); COUNT_FREE;
@@ -26,10 +29,6 @@
 #define alloca  _alloca
 #endif
 
-#define OP_STACK_MALLOC(size,r,restype)                                 \
-    r = (restype) alloca(size);                                         \
-    if (r != NULL) memset((void*) r, 0, size);
-    
 #define OP_RAW_MEMCOPY(x,y,size,r) memcpy(y,x,size);
 #define OP_RAW_MEMMOVE(x,y,size,r) memmove(y,x,size);
 
@@ -134,6 +133,12 @@ RPY_EXTERN void *boehm_fq_next_dead(struct boehm_fq_s **);
 #define GC_set_max_heap_size(a)  /* nothing */
 #define OP_GC_FQ_REGISTER(tag, obj, r)   /* nothing */
 #define OP_GC_FQ_NEXT_DEAD(tag, r)       (r = NULL)
+#endif
+
+#if defined(PYPY_USING_BOEHM_GC) || defined(PYPY_USING_NO_GC_AT_ALL)
+#  define RPY_SIZE_OF_GCHEADER  0
+#else
+#  define RPY_SIZE_OF_GCHEADER  sizeof(struct pypy_header0)
 #endif
 
 /************************************************************/

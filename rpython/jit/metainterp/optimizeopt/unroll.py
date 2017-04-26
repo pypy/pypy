@@ -86,12 +86,14 @@ class UnrollableOptimizer(Optimizer):
             if preamble_info.is_nonnull():
                 self.make_nonnull(op)
         elif isinstance(preamble_info, intutils.IntBound):
-            if preamble_info.lower > MININT/2 or preamble_info.upper < MAXINT/2:
+            fix_lo = preamble_info.has_lower and preamble_info.lower >= MININT/2
+            fix_up = preamble_info.has_upper and preamble_info.upper <= MAXINT/2
+            if fix_lo or fix_up:
                 intbound = self.getintbound(op)
-                if preamble_info.has_lower and preamble_info.lower > MININT/2:
+                if fix_lo:
                     intbound.has_lower = True
                     intbound.lower = preamble_info.lower
-                if preamble_info.has_upper and preamble_info.upper < MAXINT/2:
+                if fix_up:
                     intbound.has_upper = True
                     intbound.upper = preamble_info.upper
         elif isinstance(preamble_info, info.FloatConstInfo):
@@ -232,9 +234,15 @@ class UnrollOptimizer(Optimization):
         return label_vs
 
     def optimize_bridge(self, trace, runtime_boxes, call_pure_results,
-                        inline_short_preamble, box_names_memo):
+                        inline_short_preamble, box_names_memo, resumestorage):
+        from rpython.jit.metainterp.optimizeopt.bridgeopt import deserialize_optimizer_knowledge
+        frontend_inputargs = trace.inputargs
         trace = trace.get_iter()
         self._check_no_forwarding([trace.inputargs])
+        if resumestorage:
+            deserialize_optimizer_knowledge(self.optimizer,
+                                            resumestorage, frontend_inputargs,
+                                            trace.inputargs)
         info, ops = self.optimizer.propagate_all_forward(trace,
             call_pure_results, False)
         jump_op = info.jump_op
@@ -405,7 +413,8 @@ class UnrollOptimizer(Optimization):
                 i += 1
                 self.optimizer.send_extra_operation(op)
             # force all of them except the virtuals
-            for arg in args_no_virtuals + short_jump_args:
+            for arg in (args_no_virtuals +
+                        self._map_args(mapping, short_jump_args)):
                 self.optimizer.force_box(self.get_box_replacement(arg))
             self.optimizer.flush()
             # done unless "short" has grown again

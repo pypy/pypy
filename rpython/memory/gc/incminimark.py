@@ -117,9 +117,7 @@ GCFLAG_VISITED      = first_gcflag << 2
 
 # The following flag is set on nursery objects of which we asked the id
 # or the identityhash.  It means that a space of the size of the object
-# has already been allocated in the nonmovable part.  The same flag is
-# abused to mark prebuilt objects whose hash has been taken during
-# translation and is statically recorded.
+# has already been allocated in the nonmovable part.
 GCFLAG_HAS_SHADOW   = first_gcflag << 3
 
 # The following flag is set temporarily on some objects during a major
@@ -158,7 +156,11 @@ GCFLAG_PINNED_OBJECT_PARENT_KNOWN = GCFLAG_PINNED
 # record that ignore_finalizer() has been called
 GCFLAG_IGNORE_FINALIZER = first_gcflag << 10
 
-_GCFLAG_FIRST_UNUSED = first_gcflag << 11    # the first unused bit
+# shadow objects can have its memory initialized when it is created.
+# It does not need an additional copy in trace out
+GCFLAG_SHADOW_INITIALIZED   = first_gcflag << 11
+
+_GCFLAG_FIRST_UNUSED = first_gcflag << 12    # the first unused bit
 
 
 # States for the incremental GC
@@ -204,10 +206,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
     # by GCFLAG_xxx above.
     HDR = lltype.Struct('header', ('tid', lltype.Signed))
     typeid_is_in_field = 'tid'
-    withhash_flag_is_in_field = 'tid', GCFLAG_HAS_SHADOW
-    # ^^^ prebuilt objects may have the flag GCFLAG_HAS_SHADOW;
-    #     then they are one word longer, the extra word storing the hash.
-
 
     # During a minor collection, the objects in the nursery that are
     # moved outside are changed in-place: their header is replaced with
@@ -729,6 +727,16 @@ class IncrementalMiniMarkGC(MovingGCBase):
         obj = self.external_malloc(typeid, length, alloc_young=True)
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
+    def move_out_of_nursery(self, obj):
+        # called twice, it should return the same shadow object,
+        # and not creating another shadow object
+        if self.header(obj).tid & GCFLAG_HAS_SHADOW:
+            shadow = self.nursery_objects_shadows.get(obj)
+            ll_assert(shadow != llmemory.NULL,
+                      "GCFLAG_HAS_SHADOW but no shadow found")
+            return shadow
+
+        return self._allocate_shadow(obj, copy=True)
 
     def collect(self, gen=2):
         """Do a minor (gen=0), start a major (gen=1), or do a full
@@ -1130,7 +1138,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # Check if the object at 'addr' is young.
         if not self.is_valid_gc_object(addr):
             return False     # filter out tagged pointers explicitly.
-        if self.nursery <= addr < self.nursery_top:
+        if self.is_in_nursery(addr):
             return True      # addr is in the nursery
         # Else, it may be in the set 'young_rawmalloced_objects'
         return (bool(self.young_rawmalloced_objects) and
@@ -1756,11 +1764,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             # clear the arena between the last pinned object (or arena start)
             # and the pinned object
-            pinned_obj_size = llarena.getfakearenaaddress(cur) - prev
+            free_range_size = llarena.getfakearenaaddress(cur) - prev
             if self.gc_nursery_debug:
-                llarena.arena_reset(prev, pinned_obj_size, 3)
+                llarena.arena_reset(prev, free_range_size, 3)
             else:
-                llarena.arena_reset(prev, pinned_obj_size, 0)
+                llarena.arena_reset(prev, free_range_size, 0)
             #
             # clean up object's flags
             obj = cur + size_gc_header
@@ -1770,7 +1778,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             nursery_barriers.append(cur)
             #
             # update 'prev' to the end of the 'cur' object
-            prev = prev + pinned_obj_size + \
+            prev = prev + free_range_size + \
                 (size_gc_header + self.get_size(obj))
         #
         # reset everything after the last pinned object till the end of the arena
@@ -1982,6 +1990,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 and self.young_rawmalloced_objects.contains(obj)):
                 self._visit_young_rawmalloced_object(obj)
             return
+        # copy the contents of the object? usually yes, but not for some
+        # shadow objects
+        copy = True
         #
         size_gc_header = self.gcheaderbuilder.size_gc_header
         if self.header(obj).tid & (GCFLAG_HAS_SHADOW | GCFLAG_PINNED) == 0:
@@ -2037,13 +2048,18 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Remove the flag GCFLAG_HAS_SHADOW, so that it doesn't get
             # copied to the shadow itself.
             self.header(obj).tid &= ~GCFLAG_HAS_SHADOW
+            tid = self.header(obj).tid
+            if (tid & GCFLAG_SHADOW_INITIALIZED) != 0:
+                copy = False
+                self.header(obj).tid &= ~GCFLAG_SHADOW_INITIALIZED
             #
             totalsize = size_gc_header + self.get_size(obj)
             self.nursery_surviving_size += raw_malloc_usage(totalsize)
         #
         # Copy it.  Note that references to other objects in the
         # nursery are kept unchanged in this step.
-        llmemory.raw_memcopy(obj - size_gc_header, newhdr, totalsize)
+        if copy:
+            llmemory.raw_memcopy(obj - size_gc_header, newhdr, totalsize)
         #
         # Set the old object's tid to -42 (containing all flags) and
         # replace the old object's content with the target address.
@@ -2108,7 +2124,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _malloc_out_of_nursery(self, totalsize):
         """Allocate non-movable memory for an object of the given
         'totalsize' that lives so far in the nursery."""
-        if raw_malloc_usage(totalsize) <= self.small_request_threshold:
+        if (r_uint(raw_malloc_usage(totalsize)) <=
+            r_uint(self.small_request_threshold)):
             # most common path
             return self.ac.malloc(totalsize)
         else:
@@ -2117,6 +2134,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
     _malloc_out_of_nursery._always_inline_ = True
 
     def _malloc_out_of_nursery_nonsmall(self, totalsize):
+        if r_uint(raw_malloc_usage(totalsize)) > r_uint(self.nursery_size):
+            out_of_memory("memory corruption: bad size for object in the "
+                          "nursery")
         # 'totalsize' should be aligned.
         ll_assert(raw_malloc_usage(totalsize) & (WORD-1) == 0,
                   "misaligned totalsize in _malloc_out_of_nursery_nonsmall")
@@ -2204,7 +2224,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         # 'threshold_objects_made_old', is used inside comparisons
         # with 'size_objects_made_old' to know when we must do
-        # several major GC steps (i.e. several consecurive calls
+        # several major GC steps (i.e. several consecutive calls
         # to the present function).  Here is the target that
         # we try to aim to: either (A1) or (A2)
         #
@@ -2570,7 +2590,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
     # ----------
     # id() and identityhash() support
 
-    def _allocate_shadow(self, obj):
+    @specialize.arg(2)
+    def _allocate_shadow(self, obj, copy=False):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         size = self.get_size(obj)
         shadowhdr = self._malloc_out_of_nursery(size_gc_header +
@@ -2592,6 +2613,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         self.header(obj).tid |= GCFLAG_HAS_SHADOW
         self.nursery_objects_shadows.setitem(obj, shadow)
+
+        if copy:
+            self.header(obj).tid |= GCFLAG_SHADOW_INITIALIZED
+            totalsize = size_gc_header + self.get_size(obj)
+            llmemory.raw_memcopy(obj - size_gc_header, shadow, totalsize)
+
         return shadow
 
     def _find_shadow(self, obj):
@@ -2611,40 +2638,22 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return shadow
     _find_shadow._dont_inline_ = True
 
-    @specialize.arg(2)
-    def id_or_identityhash(self, gcobj, is_hash):
+    def id_or_identityhash(self, gcobj):
         """Implement the common logic of id() and identityhash()
         of an object, given as a GCREF.
         """
         obj = llmemory.cast_ptr_to_adr(gcobj)
-        #
         if self.is_valid_gc_object(obj):
             if self.is_in_nursery(obj):
                 obj = self._find_shadow(obj)
-            elif is_hash:
-                if self.header(obj).tid & GCFLAG_HAS_SHADOW:
-                    #
-                    # For identityhash(), we need a special case for some
-                    # prebuilt objects: their hash must be the same before
-                    # and after translation.  It is stored as an extra word
-                    # after the object.  But we cannot use it for id()
-                    # because the stored value might clash with a real one.
-                    size = self.get_size(obj)
-                    i = (obj + size).signed[0]
-                    # Important: the returned value is not mangle_hash()ed!
-                    return i
-        #
-        i = llmemory.cast_adr_to_int(obj)
-        if is_hash:
-            i = mangle_hash(i)
-        return i
+        return llmemory.cast_adr_to_int(obj)
     id_or_identityhash._always_inline_ = True
 
     def id(self, gcobj):
-        return self.id_or_identityhash(gcobj, False)
+        return self.id_or_identityhash(gcobj)
 
     def identityhash(self, gcobj):
-        return self.id_or_identityhash(gcobj, True)
+        return mangle_hash(self.id_or_identityhash(gcobj))
 
     # ----------
     # Finalizers

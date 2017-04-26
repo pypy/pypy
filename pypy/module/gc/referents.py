@@ -30,7 +30,7 @@ def try_cast_gcref_to_w_root(gcref):
 def wrap(space, gcref):
     w_obj = try_cast_gcref_to_w_root(gcref)
     if w_obj is None:
-        w_obj = space.wrap(W_GcRef(gcref))
+        w_obj = W_GcRef(gcref)
     return w_obj
 
 def unwrap(space, w_obj):
@@ -149,7 +149,7 @@ def get_rpy_memory_usage(space, w_obj):
     size = rgc.get_rpy_memory_usage(gcref)
     if size < 0:
         raise missing_operation(space)
-    return space.wrap(size)
+    return space.newint(size)
 
 def get_rpy_type_index(space, w_obj):
     """Return an integer identifying the RPython type of the given
@@ -159,7 +159,7 @@ def get_rpy_type_index(space, w_obj):
     index = rgc.get_rpy_type_index(gcref)
     if index < 0:
         raise missing_operation(space)
-    return space.wrap(index)
+    return space.newint(index)
 
 def get_objects(space):
     """Return a list of all app-level objects."""
@@ -202,9 +202,9 @@ def _dump_rpy_heap(space, fd):
 def get_typeids_z(space):
     a = rgc.get_typeids_z()
     s = ''.join([a[i] for i in range(len(a))])
-    return space.wrap(s)
+    return space.newbytes(s)
 
 def get_typeids_list(space):
     l = rgc.get_typeids_list()
-    list_w = [space.wrap(l[i]) for i in range(len(l))]
+    list_w = [space.newint(l[i]) for i in range(len(l))]
     return space.newlist(list_w)

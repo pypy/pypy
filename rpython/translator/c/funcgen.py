@@ -33,7 +33,6 @@ class FunctionCodeGenerator(object):
     Collects information about a function which we have to generate
     from a flow graph.
     """
-
     def __init__(self, graph, db, exception_policy, functionname):
         self.graph = graph
         self.db = db
@@ -174,6 +173,19 @@ class FunctionCodeGenerator(object):
     def cfunction_body(self):
         graph = self.graph
 
+        # ----- for gc_enter_roots_frame
+        _seen = set()
+        for block in graph.iterblocks():
+            for op in block.operations:
+                if op.opname == 'gc_enter_roots_frame':
+                    _seen.add(tuple(op.args))
+        if _seen:
+            assert len(_seen) == 1, (
+                "multiple different gc_enter_roots_frame in %r" % (graph,))
+            for line in self.gcpolicy.enter_roots_frame(self, list(_seen)[0]):
+                yield line
+        # ----- done
+
         # Locate blocks with a single predecessor, which can be written
         # inline in place of a "goto":
         entrymap = mkentrymap(graph)
@@ -193,6 +205,7 @@ class FunctionCodeGenerator(object):
 
     def gen_block(self, block):
         if 1:      # (preserve indentation)
+            self._current_block = block
             myblocknum = self.blocknum[block]
             if block in self.inlinable_blocks:
                 # debug comment
@@ -608,16 +621,6 @@ class FunctionCodeGenerator(object):
         return 'GC_REGISTER_FINALIZER(%s, (GC_finalization_proc)%s, NULL, NULL, NULL);' \
                % (self.expr(op.args[0]), self.expr(op.args[1]))
 
-    def OP_RAW_MALLOC(self, op):
-        eresult = self.expr(op.result)
-        esize = self.expr(op.args[0])
-        return "OP_RAW_MALLOC(%s, %s, void *);" % (esize, eresult)
-
-    def OP_STACK_MALLOC(self, op):
-        eresult = self.expr(op.result)
-        esize = self.expr(op.args[0])
-        return "OP_STACK_MALLOC(%s, %s, void *);" % (esize, eresult)
-
     def OP_DIRECT_FIELDPTR(self, op):
         return self.OP_GETFIELD(op, ampersand='&')
 
@@ -655,7 +658,7 @@ class FunctionCodeGenerator(object):
     OP_CAST_OPAQUE_PTR = OP_CAST_POINTER
 
     def OP_LENGTH_OF_SIMPLE_GCARRAY_FROM_OPAQUE(self, op):
-        return ('%s = *(long *)(((char *)%s) + sizeof(struct pypy_header0));'
+        return ('%s = *(long *)(((char *)%s) + RPY_SIZE_OF_GCHEADER);'
                 '  /* length_of_simple_gcarray_from_opaque */'
             % (self.expr(op.result), self.expr(op.args[0])))
 
@@ -821,6 +824,10 @@ class FunctionCodeGenerator(object):
     def OP_DEBUG_ASSERT(self, op):
         return 'RPyAssert(%s, %s);' % (self.expr(op.args[0]),
                                        c_string_constant(op.args[1].value))
+
+    def OP_DEBUG_ASSERT_NOT_NONE(self, op):
+        return 'RPyAssert(%s != NULL, "ll_assert_not_none() failed");' % (
+                    self.expr(op.args[0]),)
 
     def OP_DEBUG_FATALERROR(self, op):
         # XXX

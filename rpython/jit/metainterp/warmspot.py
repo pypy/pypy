@@ -52,12 +52,19 @@ def apply_jit(translator, backend_name="auto", inline=False,
         jd.jitdriver.is_recursive = True
     else:
         count_recursive = 0
+        invalid = 0
         for jd in warmrunnerdesc.jitdrivers_sd:
             count_recursive += jd.jitdriver.is_recursive
+            invalid += (jd.jitdriver.has_unique_id and
+                           not jd.jitdriver.is_recursive)
         if count_recursive == 0:
             raise Exception("if you have more than one jitdriver, at least"
                 " one of them has to be marked with is_recursive=True,"
                 " none found")
+        if invalid > 0:
+            raise Exception("found %d jitdriver(s) with 'get_unique_id=...' "
+                            "specified but without 'is_recursive=True'" %
+                            (invalid,))
     for jd in warmrunnerdesc.jitdrivers_sd:
         jd.warmstate.set_param_inlining(inline)
         jd.warmstate.set_param_vec(vec)

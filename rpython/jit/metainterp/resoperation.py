@@ -752,7 +752,6 @@ class InputArgRef(RefOp, AbstractInputArg):
 
     def __init__(self, r=lltype.nullptr(llmemory.GCREF.TO)):
         self.setref_base(r)
-        self.datatype = 'r'
 
     def reset_value(self):
         self.setref_base(lltype.nullptr(llmemory.GCREF.TO))
@@ -1143,6 +1142,7 @@ _oplist = [
     'COPYSTRCONTENT/5/n',       # src, dst, srcstart, dststart, length
     'COPYUNICODECONTENT/5/n',
     'QUASIIMMUT_FIELD/1d/n',    # [objptr], descr=SlowMutateDescr
+    'ASSERT_NOT_NONE/1/n',      # [objptr]
     'RECORD_EXACT_CLASS/2/n',   # [objptr, clsptr]
     'KEEPALIVE/1/n',
     'SAVE_EXCEPTION/0/r',

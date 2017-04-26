@@ -37,7 +37,7 @@ class TestObject(BaseApiTest):
         assert not hasattr_(space.w_int, 'nonexistingattr')
 
         buf = rffi.str2charp('__len__')
-        assert api.PyObject_HasAttrString(space.w_str, buf)
+        assert api.PyObject_HasAttrString(space.w_bytes, buf)
         assert not api.PyObject_HasAttrString(space.w_int, buf)
         rffi.free_charp(buf)
 
@@ -214,12 +214,42 @@ class TestObject(BaseApiTest):
 
 class AppTestObject(AppTestCpythonExtensionBase):
     def setup_class(cls):
+        from rpython.rlib import rgc
+        from pypy.interpreter import gateway
+
         AppTestCpythonExtensionBase.setup_class.im_func(cls)
         tmpname = str(py.test.ensuretemp('out', dir=0))
         if cls.runappdirect:
             cls.tmpname = tmpname
         else:
             cls.w_tmpname = cls.space.wrap(tmpname)
+
+        if not cls.runappdirect:
+            cls.total_mem = 0
+            def add_memory_pressure(estimate):
+                assert estimate >= 0
+                cls.total_mem += estimate
+            cls.orig_add_memory_pressure = [rgc.add_memory_pressure]
+            rgc.add_memory_pressure = add_memory_pressure
+
+            def _reset_memory_pressure(space):
+                cls.total_mem = 0
+            cls.w_reset_memory_pressure = cls.space.wrap(
+                gateway.interp2app(_reset_memory_pressure))
+
+            def _cur_memory_pressure(space):
+                return space.newint(cls.total_mem)
+            cls.w_cur_memory_pressure = cls.space.wrap(
+                gateway.interp2app(_cur_memory_pressure))
+        else:
+            def _skip_test(*ignored):
+                pytest.skip("not for -A testing")
+            cls.w_reset_memory_pressure = _skip_test
+
+    def teardown_class(cls):
+        from rpython.rlib import rgc
+        if hasattr(cls, 'orig_add_memory_pressure'):
+            [rgc.add_memory_pressure] = cls.orig_add_memory_pressure
 
     def test_object_malloc(self):
         module = self.import_extension('foo', [
@@ -322,6 +352,31 @@ class AppTestObject(AppTestCpythonExtensionBase):
             """)])
         a = module.empty_format('hello')
         assert isinstance(a, unicode)
+
+    def test_add_memory_pressure(self):
+        self.reset_memory_pressure()    # for the potential skip
+        module = self.import_extension('foo', [
+            ("foo", "METH_O",
+            """
+                _PyTraceMalloc_Track(0, 0, PyInt_AsLong(args) - sizeof(long));
+                Py_INCREF(Py_None);
+                return Py_None;
+            """)])
+        self.reset_memory_pressure()
+        module.foo(42)
+        assert self.cur_memory_pressure() == 0
+        module.foo(65000 - 42)
+        assert self.cur_memory_pressure() == 0
+        module.foo(536)
+        assert self.cur_memory_pressure() == 65536
+        module.foo(40000)
+        assert self.cur_memory_pressure() == 65536
+        module.foo(40000)
+        assert self.cur_memory_pressure() == 65536 + 80000
+        module.foo(35000)
+        assert self.cur_memory_pressure() == 65536 + 80000
+        module.foo(35000)
+        assert self.cur_memory_pressure() == 65536 + 80000 + 70000
 
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     """

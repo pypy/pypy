@@ -1,4 +1,4 @@
-
+import sys
 import py
 try:
     import cffi
@@ -7,6 +7,7 @@ except ImportError:
 
 from rpython.rlib import rvmprof
 srcdir = py.path.local(rvmprof.__file__).join("..", "src")
+shareddir = srcdir.join('shared')
 
 ffi = cffi.FFI()
 ffi.cdef("""
@@ -43,7 +44,7 @@ long pypy_yield_codemap_at_addr(void *codemap_raw, long addr,
 }
 
 
-""" + open(str(srcdir.join("vmprof_get_custom_offset.h"))).read(), include_dirs=[str(srcdir)])
+""" + open(str(srcdir.join("shared/vmprof_get_custom_offset.h"))).read(), include_dirs=[str(srcdir), str(shareddir)])
 
 class TestDirect(object):
     def test_infrastructure(self):

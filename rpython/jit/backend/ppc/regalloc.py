@@ -1066,7 +1066,6 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
 
     prepare_cond_call_value_r = prepare_cond_call_value_i
 
-
 def notimplemented(self, op):
     msg = '[PPC/regalloc] %s not implemented\n' % op.getopname()
     if we_are_translated():
