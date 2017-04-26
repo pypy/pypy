@@ -3,6 +3,7 @@ from rpython.flowspace.operation import op
 from rpython.annotator import model as annmodel
 from rpython.tool.pairtype import pairtype
 from rpython.annotator.bookkeeper import getbookkeeper
+from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.rmodel import Repr
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.annlowlevel import cachedtype
@@ -64,25 +65,25 @@ class Controller(object):
     def _freeze_(self):
         return True
 
+    @specialize.arg(0)
     def box(self, obj):
         return controlled_instance_box(self, obj)
-    box._annspecialcase_ = 'specialize:arg(0)'
 
+    @specialize.arg(0)
     def unbox(self, obj):
         return controlled_instance_unbox(self, obj)
-    unbox._annspecialcase_ = 'specialize:arg(0)'
 
+    @specialize.arg(0)
     def is_box(self, obj):
         return controlled_instance_is_box(self, obj)
-    is_box._annspecialcase_ = 'specialize:arg(0)'
 
+    @specialize.arg(0, 2)
     def getattr(self, obj, attr):
         return getattr(self, 'get_' + attr)(obj)
-    getattr._annspecialcase_ = 'specialize:arg(0, 2)'
 
+    @specialize.arg(0, 2)
     def setattr(self, obj, attr, value):
         return getattr(self, 'set_' + attr)(obj, value)
-    setattr._annspecialcase_ = 'specialize:arg(0, 2)'
 
 
 def delegate(boundmethod, *args_s):
