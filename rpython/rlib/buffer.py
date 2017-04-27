@@ -1,7 +1,8 @@
 """
 Buffer protocol support.
 """
-from rpython.rlib.rgc import nonmoving_raw_ptr_for_resizable_list
+from rpython.rlib.rgc import (
+    nonmoving_raw_ptr_for_resizable_list, resizable_list_supporting_raw_ptr)
 from rpython.rlib.signature import signature
 from rpython.rlib import types
 
@@ -62,8 +63,8 @@ class Buffer(object):
 class ByteBuffer(Buffer):
     _immutable_ = True
 
-    def __init__(self, len):
-        self.data = ['\x00'] * len
+    def __init__(self, n):
+        self.data = resizable_list_supporting_raw_ptr(['\0'] * n)
         self.readonly = False
 
     def getlength(self):
@@ -117,7 +118,8 @@ class SubBuffer(Buffer):
     _attrs_ = ['buffer', 'offset', 'size', 'readonly']
     _immutable_ = True
 
-    @signature(types.any(), types.instance(Buffer), types.int(), types.int(), returns=types.none())
+    @signature(types.any(), types.instance(Buffer), types.int(), types.int(),
+               returns=types.none())
     def __init__(self, buffer, offset, size):
         self.readonly = buffer.readonly
         if isinstance(buffer, SubBuffer):     # don't nest them

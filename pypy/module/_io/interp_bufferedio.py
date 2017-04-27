@@ -9,9 +9,7 @@ from pypy.interpreter.typedef import (
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.buffer import SimpleView
 
-from rpython.rlib.buffer import Buffer, SubBuffer
-from rpython.rlib.rgc import (
-    nonmoving_raw_ptr_for_resizable_list, resizable_list_supporting_raw_ptr)
+from rpython.rlib.buffer import ByteBuffer, SubBuffer
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import r_longlong, intmask
 from rpython.rlib import rposix
@@ -160,26 +158,6 @@ implementation, but wrap one.
     readinto1 = interp2app(W_BufferedIOBase.readinto1_w),
 )
 
-class RawBuffer(Buffer):
-    _immutable_ = True
-
-    def __init__(self, n):
-        self.length = n
-        self.buf = resizable_list_supporting_raw_ptr(['\0'] * n)
-        self.readonly = False
-
-    def getlength(self):
-        return self.length
-
-    def getitem(self, index):
-        return self.buf[index]
-
-    def setitem(self, index, char):
-        self.buf[index] = char
-
-    def get_raw_address(self):
-        return nonmoving_raw_ptr_for_resizable_list(self.buf)
-
 class BufferedMixin:
     _mixin_ = True
 
@@ -218,7 +196,7 @@ class BufferedMixin:
             raise oefmt(space.w_ValueError,
                         "buffer size must be strictly positive")
 
-        self.buffer = RawBuffer(self.buffer_size)
+        self.buffer = ByteBuffer(self.buffer_size)
 
         self.lock = TryLock(space)
 
@@ -626,7 +604,7 @@ class BufferedMixin:
         if n <= current_size:
             return self._read_fast(n)
 
-        result_buffer = RawBuffer(n)
+        result_buffer = ByteBuffer(n)
         remaining = n
         written = 0
         if current_size:
@@ -742,8 +720,8 @@ class BufferedMixin:
                 pos = 0
                 found = False
                 while pos < have:
-                    # 'buffer.buf[]' instead of 'buffer[]' because RPython...
-                    c = self.buffer.buf[pos]
+                    # 'buffer.data[]' instead of 'buffer[]' because RPython...
+                    c = self.buffer.data[pos]
                     pos += 1
                     if c == '\n':
                         self.pos = pos
@@ -802,7 +780,7 @@ class BufferedMixin:
                 # Make some place by shifting the buffer
                 for i in range(self.write_pos, self.write_end):
                     # XXX: messing with buffer internals
-                    self.buffer.buf[i - self.write_pos] = self.buffer.buf[i]
+                    self.buffer.data[i - self.write_pos] = self.buffer.data[i]
                 self.write_end -= self.write_pos
                 self.raw_pos -= self.write_pos
                 newpos = self.pos - self.write_pos
