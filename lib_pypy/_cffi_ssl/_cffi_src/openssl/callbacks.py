@@ -63,6 +63,12 @@ CUSTOMIZATIONS += """
 */
 
 #ifdef _WIN32
+#ifdef _MSC_VER
+#ifdef inline
+#undef inline
+#endif
+#define inline __inline
+#endif
 #include <Windows.h>
 typedef CRITICAL_SECTION mutex1_t;
 static inline void mutex1_init(mutex1_t *mutex) {

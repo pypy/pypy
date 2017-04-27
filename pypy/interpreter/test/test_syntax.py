@@ -315,7 +315,7 @@ d = rb"""u"""
         s = """
 from __future__ import unicode_literals; from __future__ import print_function
 """
-        exec s in {}
+        exec(s, {})
 
 
 class AppTestComprehensions:

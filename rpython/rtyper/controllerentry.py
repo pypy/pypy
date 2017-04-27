@@ -1,6 +1,10 @@
+from rpython.flowspace.model import Constant
+from rpython.flowspace.operation import op
 from rpython.annotator import model as annmodel
 from rpython.tool.pairtype import pairtype
 from rpython.annotator.bookkeeper import getbookkeeper
+from rpython.rlib.objectmodel import specialize
+from rpython.rtyper.rmodel import Repr
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.annlowlevel import cachedtype
 from rpython.rtyper.error import TyperError
@@ -10,7 +14,14 @@ class ControllerEntry(ExtRegistryEntry):
 
     def compute_result_annotation(self, *args_s, **kwds_s):
         controller = self.getcontroller(*args_s, **kwds_s)
-        return controller.ctrl_new_ex(self.bookkeeper, *args_s, **kwds_s)
+        if kwds_s:
+            raise TypeError("cannot handle keyword arguments in %s" % (
+                self.new,))
+        s_real_obj = delegate(controller.new, *args_s)
+        if s_real_obj == annmodel.s_ImpossibleValue:
+            return annmodel.s_ImpossibleValue
+        else:
+            return SomeControlledInstance(s_real_obj, controller)
 
     def getcontroller(self, *args_s, **kwds_s):
         return self._controller_()
@@ -19,9 +30,10 @@ class ControllerEntry(ExtRegistryEntry):
         if hop.s_result == annmodel.s_ImpossibleValue:
             raise TyperError("object creation always raises: %s" % (
                 hop.spaceop,))
+        assert not kwds_i
         controller = hop.s_result.controller
-        return controller.rtype_new(hop, **kwds_i)
-
+        return rtypedelegate(controller.new, hop, revealargs=[],
+            revealresult=True)
 
 
 def controlled_instance_box(controller, obj):
@@ -53,91 +65,25 @@ class Controller(object):
     def _freeze_(self):
         return True
 
+    @specialize.arg(0)
     def box(self, obj):
         return controlled_instance_box(self, obj)
-    box._annspecialcase_ = 'specialize:arg(0)'
 
+    @specialize.arg(0)
     def unbox(self, obj):
         return controlled_instance_unbox(self, obj)
-    unbox._annspecialcase_ = 'specialize:arg(0)'
 
+    @specialize.arg(0)
     def is_box(self, obj):
         return controlled_instance_is_box(self, obj)
-    is_box._annspecialcase_ = 'specialize:arg(0)'
 
-    def ctrl_new(self, *args_s, **kwds_s):
-        if kwds_s:
-            raise TypeError("cannot handle keyword arguments in %s" % (
-                self.new,))
-        s_real_obj = delegate(self.new, *args_s)
-        if s_real_obj == annmodel.s_ImpossibleValue:
-            return annmodel.s_ImpossibleValue
-        else:
-            return SomeControlledInstance(s_real_obj, controller=self)
-
-    def ctrl_new_ex(self, bookkeeper, *args_s, **kwds_s):
-        return self.ctrl_new(*args_s, **kwds_s)
-
-    def rtype_new(self, hop):
-        from rpython.rtyper.rcontrollerentry import rtypedelegate
-        return rtypedelegate(self.new, hop, revealargs=[], revealresult=True)
-
+    @specialize.arg(0, 2)
     def getattr(self, obj, attr):
         return getattr(self, 'get_' + attr)(obj)
-    getattr._annspecialcase_ = 'specialize:arg(0, 2)'
 
-    def ctrl_getattr(self, s_obj, s_attr):
-        return delegate(self.getattr, s_obj, s_attr)
-
-    def rtype_getattr(self, hop):
-        from rpython.rtyper.rcontrollerentry import rtypedelegate
-        return rtypedelegate(self.getattr, hop)
-
+    @specialize.arg(0, 2)
     def setattr(self, obj, attr, value):
         return getattr(self, 'set_' + attr)(obj, value)
-    setattr._annspecialcase_ = 'specialize:arg(0, 2)'
-
-    def ctrl_setattr(self, s_obj, s_attr, s_value):
-        return delegate(self.setattr, s_obj, s_attr, s_value)
-
-    def rtype_setattr(self, hop):
-        from rpython.rtyper.rcontrollerentry import rtypedelegate
-        return rtypedelegate(self.setattr, hop)
-
-    def ctrl_getitem(self, s_obj, s_key):
-        return delegate(self.getitem, s_obj, s_key)
-
-    def rtype_getitem(self, hop):
-        from rpython.rtyper.rcontrollerentry import rtypedelegate
-        return rtypedelegate(self.getitem, hop)
-
-    def ctrl_setitem(self, s_obj, s_key, s_value):
-        return delegate(self.setitem, s_obj, s_key, s_value)
-
-    def rtype_setitem(self, hop):
-        from rpython.rtyper.rcontrollerentry import rtypedelegate
-        return rtypedelegate(self.setitem, hop)
-
-    def ctrl_delitem(self, s_obj, s_key):
-        return delegate(self.delitem, s_obj, s_key)
-
-    def rtype_delitem(self, hop):
-        from rpython.rtyper.rcontrollerentry import rtypedelegate
-        return rtypedelegate(self.delitem, hop)
-
-    def ctrl_bool(self, s_obj):
-        return delegate(self.bool, s_obj)
-
-    def rtype_bool(self, hop):
-        from rpython.rtyper.rcontrollerentry import rtypedelegate
-        return rtypedelegate(self.bool, hop)
-
-    def ctrl_call(self, s_obj, *args_s):
-        return delegate(self.call, s_obj, *args_s)
-
-    def rtype_call(self, hop):
-        from rpython.rtyper.rcontrollerentry import rtypedelegate
-        return rtypedelegate(self.call, hop)
 
 
 def delegate(boundmethod, *args_s):
@@ -158,7 +104,6 @@ class BoxEntry(ExtRegistryEntry):
             return SomeControlledInstance(s_real_obj, controller=controller)
 
     def specialize_call(self, hop):
-        from rpython.rtyper.rcontrollerentry import ControlledInstanceRepr
         if not isinstance(hop.r_result, ControlledInstanceRepr):
             raise TyperError("box() should return ControlledInstanceRepr,\n"
                              "got %r" % (hop.r_result,))
@@ -176,7 +121,6 @@ class UnboxEntry(ExtRegistryEntry):
             return s_obj.s_real_obj
 
     def specialize_call(self, hop):
-        from rpython.rtyper.rcontrollerentry import ControlledInstanceRepr
         if not isinstance(hop.args_r[1], ControlledInstanceRepr):
             raise TyperError("unbox() should take a ControlledInstanceRepr,\n"
                              "got %r" % (hop.args_r[1],))
@@ -219,41 +163,40 @@ class SomeControlledInstance(annmodel.SomeObject):
         return SomeControlledInstance(self.s_real_obj, self.controller)
 
     def rtyper_makerepr(self, rtyper):
-        from rpython.rtyper.rcontrollerentry import ControlledInstanceRepr
         return ControlledInstanceRepr(rtyper, self.s_real_obj, self.controller)
 
     def rtyper_makekey(self):
         real_key = self.s_real_obj.rtyper_makekey()
         return self.__class__, real_key, self.controller
 
-
-class __extend__(SomeControlledInstance):
-
-    def getattr(s_cin, s_attr):
+    def getattr(self, s_attr):
         assert s_attr.is_constant()
-        return s_cin.controller.ctrl_getattr(s_cin.s_real_obj, s_attr)
+        ctrl = self.controller
+        return delegate(ctrl.getattr, self.s_real_obj, s_attr)
 
-    def setattr(s_cin, s_attr, s_value):
+    def setattr(self, s_attr, s_value):
         assert s_attr.is_constant()
-        s_cin.controller.ctrl_setattr(s_cin.s_real_obj, s_attr, s_value)
+        ctrl = self.controller
+        return delegate(ctrl.setattr, self.s_real_obj, s_attr, s_value)
 
-    def bool(s_cin):
-        return s_cin.controller.ctrl_is_true(s_cin.s_real_obj)
+    def bool(self):
+        ctrl = self.controller
+        return delegate(ctrl.bool, self.s_real_obj)
 
-    def simple_call(s_cin, *args_s):
-        return s_cin.controller.ctrl_call(s_cin.s_real_obj, *args_s)
+    def simple_call(self, *args_s):
+        return delegate(self.controller.call, self.s_real_obj, *args_s)
 
 
 class __extend__(pairtype(SomeControlledInstance, annmodel.SomeObject)):
 
     def getitem((s_cin, s_key)):
-        return s_cin.controller.ctrl_getitem(s_cin.s_real_obj, s_key)
+        return delegate(s_cin.controller.getitem, s_cin.s_real_obj, s_key)
 
     def setitem((s_cin, s_key), s_value):
-        s_cin.controller.ctrl_setitem(s_cin.s_real_obj, s_key, s_value)
+        delegate(s_cin.controller.setitem, s_cin.s_real_obj, s_key, s_value)
 
     def delitem((s_cin, s_key)):
-        s_cin.controller.ctrl_delitem(s_cin.s_real_obj, s_key)
+        delegate(s_cin.controller.delitem, s_cin.s_real_obj, s_key)
 
 
 class __extend__(pairtype(SomeControlledInstance, SomeControlledInstance)):
@@ -264,3 +207,75 @@ class __extend__(pairtype(SomeControlledInstance, SomeControlledInstance)):
         return SomeControlledInstance(annmodel.unionof(s_cin1.s_real_obj,
                                                        s_cin2.s_real_obj),
                                       s_cin1.controller)
+
+class ControlledInstanceRepr(Repr):
+
+    def __init__(self, rtyper, s_real_obj, controller):
+        self.rtyper = rtyper
+        self.s_real_obj = s_real_obj
+        self.r_real_obj = rtyper.getrepr(s_real_obj)
+        self.controller = controller
+        self.lowleveltype = self.r_real_obj.lowleveltype
+
+    def convert_const(self, value):
+        real_value = self.controller.convert(value)
+        return self.r_real_obj.convert_const(real_value)
+
+    def reveal(self, r):
+        if r is not self:
+            raise TyperError("expected %r, got %r" % (self, r))
+        return self.s_real_obj, self.r_real_obj
+
+    def rtype_getattr(self, hop):
+        return rtypedelegate(self.controller.getattr, hop)
+
+    def rtype_setattr(self, hop):
+        return rtypedelegate(self.controller.setattr, hop)
+
+    def rtype_bool(self, hop):
+        return rtypedelegate(self.controller.bool, hop)
+
+    def rtype_simple_call(self, hop):
+        return rtypedelegate(self.controller.call, hop)
+
+
+class __extend__(pairtype(ControlledInstanceRepr, Repr)):
+
+    def rtype_getitem((r_controlled, r_key), hop):
+        return rtypedelegate(r_controlled.controller.getitem, hop)
+
+    def rtype_setitem((r_controlled, r_key), hop):
+        return rtypedelegate(r_controlled.controller.setitem, hop)
+
+    def rtype_delitem((r_controlled, r_key), hop):
+        return rtypedelegate(r_controlled.controller.delitem, hop)
+
+
+def rtypedelegate(callable, hop, revealargs=[0], revealresult=False):
+    bk = hop.rtyper.annotator.bookkeeper
+    c_meth = Constant(callable)
+    s_meth = bk.immutablevalue(callable)
+    hop2 = hop.copy()
+    for index in revealargs:
+        r_controlled = hop2.args_r[index]
+        if not isinstance(r_controlled, ControlledInstanceRepr):
+            raise TyperError("args_r[%d] = %r, expected ControlledInstanceRepr"
+                             % (index, r_controlled))
+        s_new, r_new = r_controlled.s_real_obj, r_controlled.r_real_obj
+        hop2.args_s[index], hop2.args_r[index] = s_new, r_new
+        v = hop2.args_v[index]
+        if isinstance(v, Constant):
+            real_value = r_controlled.controller.convert(v.value)
+            hop2.args_v[index] = Constant(real_value)
+    if revealresult:
+        r_controlled = hop2.r_result
+        if not isinstance(r_controlled, ControlledInstanceRepr):
+            raise TyperError("r_result = %r, expected ControlledInstanceRepr"
+                             % (r_controlled,))
+        s_new, r_new = r_controlled.s_real_obj, r_controlled.r_real_obj
+        hop2.s_result, hop2.r_result = s_new, r_new
+    hop2.v_s_insertfirstarg(c_meth, s_meth)
+    spaceop = op.simple_call(*hop2.args_v)
+    spaceop.result = hop2.spaceop.result
+    hop2.spaceop = spaceop
+    return hop2.dispatch()

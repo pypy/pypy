@@ -321,6 +321,11 @@ class PyPyTarget(object):
         elif config.objspace.usemodules.pypyjit:
             config.translation.jit = True
 
+        if config.translation.sandbox:
+            assert 0, ("--sandbox is not tested nor maintained.  If you "
+                       "really want to try it anyway, remove this line in "
+                       "pypy/goal/targetpypystandalone.py.")
+
         if config.objspace.usemodules.cpyext:
             if config.translation.gc not in ('incminimark', 'boehm'):
                 raise Exception("The 'cpyext' module requires the 'incminimark'"
