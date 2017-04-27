@@ -30,3 +30,7 @@ blocks are moved off-line.  Also, the temporary register used to contain
 large constants is reused across instructions.
 
 .. branch: vmprof-0.4.4
+
+.. branch: controller-refactor
+
+Refactor rpython.rtyper.controllerentry.
