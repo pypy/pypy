@@ -243,9 +243,10 @@ class AppTestListObject(AppTestCpythonExtensionBase):
                 tmp = PyList_GET_ITEM(o, 0);
                 // XXX should tmp be the original i2?
                 //     use CPyListStrategy?
-                if (strcmp(PyString_AsString(tmp), PyString_AsString(i2))) 
+                if ((Py_REFCNT(tmp) != Py_REFCNT(i2))) 
                 {
-                    sprintf(errbuffer, "GETITEM did not return i2");
+                    sprintf(errbuffer, "GETITEM return (%ld) and i2 (%ld)refcounts"
+                            " unequal", (long)Py_REFCNT(tmp), (long)Py_REFCNT(i2));
                     PyErr_SetString(PyExc_AssertionError, errbuffer); 
                     return NULL;
                 }
