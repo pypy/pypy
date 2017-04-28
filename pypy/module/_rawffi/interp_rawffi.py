@@ -1,10 +1,10 @@
 import sys
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.buffer import SimpleView
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.objspace.std.bytesobject import getbytevalue
 
 from rpython.rlib.clibffi import *
 from rpython.rlib.objectmodel import we_are_translated
@@ -380,7 +380,7 @@ class W_DataInstance(W_Root):
         self._ll_buffer = self.ll_buffer
 
     def buffer_w(self, space, flags):
-        return RawFFIBuffer(self)
+        return SimpleView(RawFFIBuffer(self))
 
     def getrawsize(self):
         raise NotImplementedError("abstract base class")
@@ -409,7 +409,7 @@ def unwrap_value(space, push_func, add_arg, argdesc, letter, w_arg):
                                               space.float_w(w_arg)))
     elif letter == "c":
         if space.isinstance_w(w_arg, space.w_int):
-            val = getbytevalue(space, w_arg)
+            val = space.byte_w(w_arg)
         else:
             s = space.bytes_w(w_arg)
             if len(s) != 1:

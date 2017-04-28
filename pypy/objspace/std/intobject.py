@@ -875,7 +875,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
         elif (space.isinstance_w(w_value, space.w_bytearray) or
               space.isinstance_w(w_value, space.w_bytes)):
             return _string_to_int_or_long(space, w_inttype, w_value,
-                                          space.bufferstr_w(w_value))
+                                          space.charbuf_w(w_value))
         else:
             # If object supports the buffer interface
             try:
@@ -901,7 +901,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
             s = unicode_to_decimal_w(space, w_value, allow_surrogates=True)
         elif (space.isinstance_w(w_value, space.w_bytes) or
               space.isinstance_w(w_value, space.w_bytearray)):
-            s = space.bufferstr_w(w_value)
+            s = space.charbuf_w(w_value)
         else:
             raise oefmt(space.w_TypeError,
                         "int() can't convert non-string with explicit base")

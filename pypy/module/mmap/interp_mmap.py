@@ -2,8 +2,10 @@ from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from rpython.rlib import rmmap, rarithmetic, objectmodel
+from pypy.interpreter.buffer import SimpleView
+
 from rpython.rlib.buffer import Buffer
+from rpython.rlib import rmmap, rarithmetic, objectmodel
 from rpython.rlib.rmmap import RValueError, RTypeError, RMMapError
 from rpython.rlib.rstring import StringBuilder
 
@@ -24,11 +26,7 @@ class W_MMap(W_Root):
         write_required = bool(flags & space.BUF_WRITABLE)
         if write_required and readonly:
             raise oefmt(space.w_BufferError, "Object is not writable.")
-        return MMapBuffer(self.space, self.mmap, readonly)
-
-    def writebuf_w(self, space):
-        self.check_writeable()
-        return MMapBuffer(self.space, self.mmap, False)
+        return SimpleView(MMapBuffer(self.space, self.mmap, readonly))
 
     def close(self):
         self.mmap.close()
@@ -56,7 +54,7 @@ class W_MMap(W_Root):
     def find(self, w_tofind, w_start=None, w_end=None):
         self.check_valid()
         space = self.space
-        tofind = space.getarg_w('y#', w_tofind)
+        tofind = space.charbuf_w(w_tofind)
         if w_start is None:
             start = self.mmap.pos
         else:
@@ -70,7 +68,7 @@ class W_MMap(W_Root):
     def rfind(self, w_tofind, w_start=None, w_end=None):
         self.check_valid()
         space = self.space
-        tofind = space.getarg_w('y#', w_tofind)
+        tofind = space.charbuf_w(w_tofind)
         if w_start is None:
             start = self.mmap.pos
         else:
@@ -102,7 +100,7 @@ class W_MMap(W_Root):
 
     def write(self, w_data):
         self.check_valid()
-        data = self.space.getarg_w('y#', w_data)
+        data = self.space.charbuf_w(w_data)
         self.check_writeable()
         try:
             self.mmap.write(data)

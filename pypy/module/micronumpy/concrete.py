@@ -1,8 +1,8 @@
+from pypy.interpreter.buffer import BufferView
 from pypy.interpreter.error import oefmt
 from rpython.rlib import jit, rgc
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.listsort import make_timsort_class
-from rpython.rlib.buffer import Buffer
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage, \
@@ -21,7 +21,7 @@ from rpython.rlib.objectmodel import keepalive_until_here
 
 TimSort = make_timsort_class()
 class StrideSort(TimSort):
-    ''' 
+    '''
     argsort (return the indices to sort) a list of strides
     '''
     def __init__(self, rangelist, strides, order):
@@ -380,14 +380,14 @@ class BaseConcreteArray(object):
 
     def get_buffer(self, space, flags):
         errtype = space.w_ValueError # should be BufferError, numpy does this instead
-        if ((flags & space.BUF_C_CONTIGUOUS) == space.BUF_C_CONTIGUOUS and 
+        if ((flags & space.BUF_C_CONTIGUOUS) == space.BUF_C_CONTIGUOUS and
                 not self.flags & NPY.ARRAY_C_CONTIGUOUS):
            raise oefmt(errtype, "ndarray is not C-contiguous")
-        if ((flags & space.BUF_F_CONTIGUOUS) == space.BUF_F_CONTIGUOUS and 
+        if ((flags & space.BUF_F_CONTIGUOUS) == space.BUF_F_CONTIGUOUS and
                 not self.flags & NPY.ARRAY_F_CONTIGUOUS):
            raise oefmt(errtype, "ndarray is not Fortran contiguous")
         if ((flags & space.BUF_ANY_CONTIGUOUS) == space.BUF_ANY_CONTIGUOUS and
-                not (self.flags & NPY.ARRAY_F_CONTIGUOUS and 
+                not (self.flags & NPY.ARRAY_F_CONTIGUOUS and
                      self.flags & NPY.ARRAY_C_CONTIGUOUS)):
            raise oefmt(errtype, "ndarray is not contiguous")
         if ((flags & space.BUF_STRIDES) != space.BUF_STRIDES and
@@ -397,7 +397,7 @@ class BaseConcreteArray(object):
             not self.flags & NPY.ARRAY_WRITEABLE):
            raise oefmt(errtype, "buffer source array is read-only")
         readonly = not (flags & space.BUF_WRITABLE) == space.BUF_WRITABLE
-        return ArrayBuffer(self, readonly)
+        return ArrayView(self, readonly)
 
     def astype(self, space, dtype, order, copy=True):
         # copy the general pattern of the strides
@@ -527,7 +527,7 @@ class ConcreteArray(ConcreteArrayNotOwning):
         try:
             length = support.product_check(shape)
             self.size = ovfcheck(length * dtype.elsize)
-        except OverflowError: 
+        except OverflowError:
             raise oefmt(dtype.itemtype.space.w_ValueError, "array is too big.")
         if storage == lltype.nullptr(RAW_STORAGE):
             if dtype.num == NPY.OBJECT:
@@ -702,7 +702,7 @@ class VoidBoxStorage(BaseConcreteArray):
         free_raw_storage(self.storage)
 
 
-class ArrayBuffer(Buffer):
+class ArrayView(BufferView):
     _immutable_ = True
 
     def __init__(self, impl, readonly):

@@ -5,8 +5,6 @@ from rpython.rlib.objectmodel import specialize, newlist_hint
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.rstring import (
     find, rfind, count, endswith, replace, rsplit, split, startswith)
-from rpython.rlib.buffer import Buffer
-
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
 from pypy.objspace.std.sliceobject import W_SliceObject, unwrap_start_stop
@@ -487,7 +485,7 @@ class StringMethods(object):
 
             pos = value.find(sub)
         else:
-            sub = _get_buffer(space, w_sub)
+            sub = space.readbuf_w(w_sub)
             sublen = sub.getlength()
             if sublen == 0:
                 raise oefmt(space.w_ValueError, "empty separator")
@@ -517,7 +515,7 @@ class StringMethods(object):
 
             pos = value.rfind(sub)
         else:
-            sub = _get_buffer(space, w_sub)
+            sub = space.readbuf_w(w_sub)
             sublen = sub.getlength()
             if sublen == 0:
                 raise oefmt(space.w_ValueError, "empty separator")
@@ -808,6 +806,3 @@ class StringMethods(object):
 @specialize.argtype(0)
 def _descr_getslice_slowpath(selfvalue, start, step, sl):
     return [selfvalue[start + i*step] for i in range(sl)]
-
-def _get_buffer(space, w_obj):
-    return space.buffer_w(w_obj, space.BUF_SIMPLE)

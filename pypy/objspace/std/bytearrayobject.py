@@ -3,7 +3,6 @@
 import sys
 from rpython.rlib.objectmodel import (
     import_from_mixin, newlist_hint, resizelist_hint, specialize)
-from rpython.rlib.buffer import Buffer
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rstring import StringBuilder, ByteListBuilder
 from rpython.rlib.debug import check_list_of_chars, check_nonneg
@@ -11,15 +10,16 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
         nonmoving_raw_ptr_for_resizable_list)
 from rpython.rlib import jit
+from rpython.rlib.buffer import Buffer
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.objspace.std.bytesobject import (
-    getbytevalue, makebytesdata_w, newbytesdata_w)
+from pypy.objspace.std.bytesobject import makebytesdata_w, newbytesdata_w
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.buffer import SimpleView
 from pypy.objspace.std.sliceobject import W_SliceObject, unwrap_start_stop
-from pypy.objspace.std.stringmethods import StringMethods, _get_buffer
+from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.stringmethods import _descr_getslice_slowpath
 from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.util import get_positive_index
@@ -52,7 +52,7 @@ class W_BytearrayObject(W_Root):
                            ''.join(self._data[self._offset:]))
 
     def buffer_w(self, space, flags):
-        return BytearrayBuffer(self)
+        return SimpleView(BytearrayBuffer(self))
 
     def bytearray_list_of_chars_w(self, space):
         return self.getdata()
@@ -267,7 +267,7 @@ class W_BytearrayObject(W_Root):
             return space.newbool(self.getdata() == w_other.getdata())
 
         try:
-            buffer = _get_buffer(space, w_other)
+            buffer = space.readbuf_w(w_other)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
@@ -287,7 +287,7 @@ class W_BytearrayObject(W_Root):
             return space.newbool(self.getdata() != w_other.getdata())
 
         try:
-            buffer = _get_buffer(space, w_other)
+            buffer = space.readbuf_w(w_other)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
@@ -315,7 +315,7 @@ class W_BytearrayObject(W_Root):
             cmp = _memcmp(value, other, min(len(value), len(other)))
         else:
             try:
-                buffer = _get_buffer(space, w_other)
+                buffer = space.readbuf_w(w_other)
             except OperationError as e:
                 if e.match(space, space.w_TypeError):
                     return False, 0, 0
@@ -357,7 +357,7 @@ class W_BytearrayObject(W_Root):
         if isinstance(w_other, W_BytesObject):
             self._inplace_add(self._op_val(space, w_other))
         else:
-            self._inplace_add(_get_buffer(space, w_other))
+            self._inplace_add(space.readbuf_w(w_other))
         return self
 
     @specialize.argtype(1)
@@ -392,7 +392,7 @@ class W_BytearrayObject(W_Root):
                                   slicelength, sequence2, empty_elem='\x00')
         else:
             idx = space.getindex_w(w_index, space.w_IndexError, "bytearray")
-            newvalue = getbytevalue(space, w_other)
+            newvalue = space.byte_w(w_other)
             self._data[self._fixindex(space, idx)] = newvalue
 
     def descr_delitem(self, space, w_idx):
@@ -418,7 +418,7 @@ class W_BytearrayObject(W_Root):
                              _shrink_after_delete_from_start, self)
 
     def descr_append(self, space, w_item):
-        self._data.append(getbytevalue(space, w_item))
+        self._data.append(space.byte_w(w_item))
 
     def descr_extend(self, space, w_other):
         if isinstance(w_other, W_BytearrayObject):
@@ -428,10 +428,9 @@ class W_BytearrayObject(W_Root):
 
     def descr_insert(self, space, w_idx, w_other):
         where = space.int_w(w_idx)
-        val = getbytevalue(space, w_other)
         data = self.getdata()
-        length = len(data)
-        index = get_positive_index(where, length)
+        index = get_positive_index(where, len(data))
+        val = space.byte_w(w_other)
         data.insert(index, val)
 
     @unwrap_spec(w_idx=WrappedDefault(-1))
@@ -460,7 +459,7 @@ class W_BytearrayObject(W_Root):
             return self._add(self._op_val(space, w_other))
 
         try:
-            buffer = _get_buffer(space, w_other)
+            buffer = space.readbuf_w(w_other)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented

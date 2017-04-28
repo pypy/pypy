@@ -644,7 +644,7 @@ Parse XML data.  `isfinal' should be true at end of input."""
             # Explicitly set UTF-8 encoding. Return code ignored.
             XML_SetEncoding(self.itself, "utf-8")
         else:
-            data = space.bufferstr_w(w_data)
+            data = space.charbuf_w(w_data)
         isfinal = bool(isfinal)
         res = XML_Parse(self.itself, data, len(data), isfinal)
         if self._exc_info:

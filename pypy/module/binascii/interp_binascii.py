@@ -20,5 +20,5 @@ class AsciiBufferUnwrapper(Unwrapper):
     def unwrap(self, space, w_value):
         if space.isinstance_w(w_value, space.w_unicode):
             w_value = space.call_method(w_value, "encode", space.newtext("ascii"))
-        return space.bufferstr_w(w_value)
+        return space.charbuf_w(w_value)
 

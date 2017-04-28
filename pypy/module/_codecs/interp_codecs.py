@@ -955,7 +955,7 @@ def unicode_internal_decode(space, w_string, errors="strict"):
     if space.isinstance_w(w_string, space.w_unicode):
         return space.newtuple([w_string, space.len(w_string)])
 
-    string = space.readbuf_w(w_string).as_str()
+    string = space.charbuf_w(w_string)
     space.warn(space.newtext("unicode_internal codec has been deprecated"),
                space.w_DeprecationWarning)
 
@@ -983,7 +983,7 @@ def unicode_internal_encode(space, w_uni, errors="strict"):
         return space.newtuple([space.newbytes(result), space.newint(len(uni))])
     else:
         # special case for this codec: bytes are returned as is
-        string = space.readbuf_w(w_uni).as_str()
+        string = space.charbuf_w(w_uni)
         return space.newtuple([space.newbytes(string), space.newint(len(string))])
 
 # ____________________________________________________________

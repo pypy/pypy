@@ -1,9 +1,9 @@
 from rpython.rlib import jit
-from rpython.rlib.buffer import SubBuffer
 from rpython.rlib.rstruct.error import StructError, StructOverflowError
 from rpython.rlib.rstruct.formatiterator import CalcSizeFormatIterator
 
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.buffer import SubBuffer
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
@@ -85,7 +85,7 @@ def do_pack_into(space, format, w_buffer, offset, args_w):
 Write the packed bytes into the writable buffer buf starting at offset
     """
     res = _pack(space, format, args_w)
-    buf = space.getarg_w('w*', w_buffer)
+    buf = space.writebuf_w(w_buffer)
     if offset < 0:
         offset += buf.getlength()
     size = len(res)
@@ -112,7 +112,7 @@ def unpack(space, w_format, w_str):
     return do_unpack(space, format, w_str)
 
 def do_unpack(space, format, w_str):
-    buf = space.getarg_w('y*', w_str)
+    buf = space.readbuf_w(w_str)
     return _unpack(space, format, buf)
 
 
@@ -127,7 +127,7 @@ def do_unpack_from(space, format, w_buffer, offset=0):
     """Unpack the buffer, containing packed C structure data, according to
 fmt, starting at offset. Requires len(buffer[offset:]) >= calcsize(fmt)."""
     size = _calcsize(space, format)
-    buf = space.buffer_w(w_buffer, space.BUF_SIMPLE)
+    buf = space.readbuf_w(w_buffer)
     if offset < 0:
         offset += buf.getlength()
     if offset < 0 or (buf.getlength() - offset) < size:
@@ -140,7 +140,7 @@ fmt, starting at offset. Requires len(buffer[offset:]) >= calcsize(fmt)."""
 
 class W_UnpackIter(W_Root):
     def __init__(self, space, w_struct, w_buffer):
-        buf = space.buffer_w(w_buffer, space.BUF_SIMPLE)
+        buf = space.readbuf_w(w_buffer)
         if w_struct.size <= 0:
             raise oefmt(get_error(space),
                 "cannot iteratively unpack with a struct of length %d",

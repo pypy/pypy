@@ -1,12 +1,15 @@
 from __future__ import with_statement
 
+from rpython.rlib.signature import signature
+from rpython.rlib import types
+
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from rpython.rlib.buffer import Buffer, SubBuffer
-from rpython.rlib.rgc import (
-    nonmoving_raw_ptr_for_resizable_list, resizable_list_supporting_raw_ptr)
+from pypy.interpreter.buffer import SimpleView
+
+from rpython.rlib.buffer import ByteBuffer, SubBuffer
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import r_longlong, intmask
 from rpython.rlib import rposix
@@ -114,7 +117,7 @@ state."""
         return self._readinto(space, w_buffer, "read1")
 
     def _readinto(self, space, w_buffer, methodname):
-        rwbuffer = space.getarg_w('w*', w_buffer)
+        rwbuffer = space.writebuf_w(w_buffer)
         length = rwbuffer.getlength()
         w_data = space.call_method(self, methodname, space.newint(length))
 
@@ -155,26 +158,6 @@ implementation, but wrap one.
     readinto1 = interp2app(W_BufferedIOBase.readinto1_w),
 )
 
-class RawBuffer(Buffer):
-    _immutable_ = True
-
-    def __init__(self, n):
-        self.length = n
-        self.buf = resizable_list_supporting_raw_ptr(['\0'] * n)
-        self.readonly = False
-
-    def getlength(self):
-        return self.length
-
-    def getitem(self, index):
-        return self.buf[index]
-
-    def setitem(self, index, char):
-        self.buf[index] = char
-
-    def get_raw_address(self):
-        return nonmoving_raw_ptr_for_resizable_list(self.buf)
-
 class BufferedMixin:
     _mixin_ = True
 
@@ -213,7 +196,7 @@ class BufferedMixin:
             raise oefmt(space.w_ValueError,
                         "buffer size must be strictly positive")
 
-        self.buffer = RawBuffer(self.buffer_size)
+        self.buffer = ByteBuffer(self.buffer_size)
 
         self.lock = TryLock(space)
 
@@ -285,6 +268,7 @@ class BufferedMixin:
 
     # ______________________________________________
 
+    @signature(types.any(), returns=types.int())
     def _readahead(self):
         if self.readable and self.read_end != -1:
             available = self.read_end - self.pos
@@ -325,7 +309,7 @@ class BufferedMixin:
                 else:
                     offset = pos
                 if -self.pos <= offset <= available:
-                    newpos = self.pos + offset
+                    newpos = self.pos + int(offset)
                     assert newpos >= 0
                     self.pos = newpos
                     return space.newint(current - available + offset)
@@ -577,12 +561,13 @@ class BufferedMixin:
         return space.newbytes(builder.build())
 
     def _raw_read(self, space, buffer, start, length):
+        assert buffer is not None
         length = intmask(length)
         start = intmask(start)
-        w_buf = space.newbuffer(SubBuffer(buffer, start, length))
+        w_view = SimpleView(SubBuffer(buffer, start, length)).wrap(space)
         while True:
             try:
-                w_size = space.call_method(self.w_raw, "readinto", w_buf)
+                w_size = space.call_method(self.w_raw, "readinto", w_view)
             except OperationError as e:
                 if trap_eintr(space, e):
                     continue  # try again
@@ -619,7 +604,7 @@ class BufferedMixin:
         if n <= current_size:
             return self._read_fast(n)
 
-        result_buffer = RawBuffer(n)
+        result_buffer = ByteBuffer(n)
         remaining = n
         written = 0
         if current_size:
@@ -735,8 +720,8 @@ class BufferedMixin:
                 pos = 0
                 found = False
                 while pos < have:
-                    # 'buffer.buf[]' instead of 'buffer[]' because RPython...
-                    c = self.buffer.buf[pos]
+                    # 'buffer.data[]' instead of 'buffer[]' because RPython...
+                    c = self.buffer.data[pos]
                     pos += 1
                     if c == '\n':
                         self.pos = pos
@@ -764,7 +749,7 @@ class BufferedMixin:
 
     def write_w(self, space, w_data):
         self._check_closed(space, "write to closed file")
-        data = space.getarg_w('y*', w_data).as_str()
+        data = space.charbuf_w(w_data)
         size = len(data)
 
         with self.lock:
@@ -795,7 +780,7 @@ class BufferedMixin:
                 # Make some place by shifting the buffer
                 for i in range(self.write_pos, self.write_end):
                     # XXX: messing with buffer internals
-                    self.buffer.buf[i - self.write_pos] = self.buffer.buf[i]
+                    self.buffer.data[i - self.write_pos] = self.buffer.data[i]
                 self.write_end -= self.write_pos
                 self.raw_pos -= self.write_pos
                 newpos = self.pos - self.write_pos

@@ -3,14 +3,15 @@ import sys
 from rpython.rlib.cache import Cache
 from rpython.tool.uid import HUGEVAL_BYTES
 from rpython.rlib import jit, types
-from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
      compute_unique_id, specialize, not_rpython)
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import r_uint, SHRT_MIN, SHRT_MAX, \
     INT_MIN, INT_MAX, UINT_MAX, USHRT_MAX
+from rpython.rlib.buffer import StringBuffer
 
+from pypy.interpreter.buffer import BufferInterfaceNotFound
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
     make_finalizer_queue)
 from pypy.interpreter.error import OperationError, new_exception_class, oefmt
@@ -372,9 +373,6 @@ class SpaceCache(Cache):
         pass
 
 class DescrMismatch(Exception):
-    pass
-
-class BufferInterfaceNotFound(Exception):
     pass
 
 @specialize.memo()
@@ -1477,28 +1475,23 @@ class ObjSpace(object):
     def readbuf_w(self, w_obj):
         # Old buffer interface, returns a readonly buffer (PyObject_AsReadBuffer)
         try:
-            return w_obj.buffer_w(self, self.BUF_SIMPLE)
+            return w_obj.buffer_w(self, self.BUF_SIMPLE).as_readbuf()
         except BufferInterfaceNotFound:
-            raise oefmt(self.w_TypeError,
-                        "expected an object with a buffer interface")
+            self._getarg_error("bytes-like object", w_obj)
 
     def writebuf_w(self, w_obj):
         # Old buffer interface, returns a writeable buffer (PyObject_AsWriteBuffer)
         try:
-            return w_obj.buffer_w(self, self.BUF_WRITABLE)
-        except BufferInterfaceNotFound:
-            raise oefmt(self.w_TypeError,
-                        "expected an object with a writable buffer interface")
+            return w_obj.buffer_w(self, self.BUF_WRITABLE).as_writebuf()
+        except (BufferInterfaceNotFound, OperationError):
+            self._getarg_error("read-write bytes-like object", w_obj)
 
     def charbuf_w(self, w_obj):
         # Old buffer interface, returns a character buffer (PyObject_AsCharBuffer)
-        try:
-            buf = w_obj.buffer_w(self, self.BUF_SIMPLE)
-        except BufferInterfaceNotFound:
-            raise oefmt(self.w_TypeError,
-                        "expected an object with a buffer interface")
+        if self.isinstance_w(w_obj, self.w_bytes):  # XXX: is this shortcut useful?
+            return w_obj.bytes_w(self)
         else:
-            return buf.as_str()
+            return self.readbuf_w(w_obj).as_str()
 
     def _getarg_error(self, expected, w_obj):
         if self.is_none(w_obj):
@@ -1519,10 +1512,11 @@ class ObjSpace(object):
             # most API in CPython 3.x no longer do.
             if self.isinstance_w(w_obj, self.w_bytes):
                 return StringBuffer(w_obj.bytes_w(self))
-            if self.isinstance_w(w_obj, self.w_unicode):  # NB. CPython forbids
-                return StringBuffer(w_obj.text_w(self))   # surrogates here
+            if self.isinstance_w(w_obj, self.w_unicode):
+                # NB. CPython forbids surrogates here
+                return StringBuffer(w_obj.text_w(self))
             try:
-                return w_obj.buffer_w(self, self.BUF_SIMPLE)
+                return w_obj.buffer_w(self, self.BUF_SIMPLE).as_readbuf()
             except BufferInterfaceNotFound:
                 self._getarg_error("bytes or buffer", w_obj)
         elif code == 's#':
@@ -1538,44 +1532,13 @@ class ObjSpace(object):
             except BufferInterfaceNotFound:
                 self._getarg_error("bytes or read-only buffer", w_obj)
         elif code == 'w*':
-            try:
-                return w_obj.buffer_w(self, self.BUF_WRITABLE)
-            except OperationError:
-                pass
-            except BufferInterfaceNotFound:
-                pass
-            self._getarg_error("read-write buffer", w_obj)
+            return self.writebuf_w(w_obj)
         elif code == 'y*':
-            try:
-                return w_obj.buffer_w(self, self.BUF_SIMPLE)
-            except BufferInterfaceNotFound:
-                self._getarg_error("bytes-like object", w_obj)
+            return self.readbuf_w(w_obj)
         elif code == 'y#':
-            if self.isinstance_w(w_obj, self.w_bytes):
-                return w_obj.bytes_w(self)
-            try:
-                return w_obj.buffer_w(self, self.BUF_SIMPLE).as_str()
-            except BufferInterfaceNotFound:
-                self._getarg_error("bytes-like object", w_obj)
+            return self.charbuf_w(w_obj)
         else:
             assert False
-
-    # XXX rename/replace with code more like CPython getargs for buffers
-    def bufferstr_w(self, w_obj, flags=BUF_SIMPLE):
-        # Directly returns an interp-level str.  Note that if w_obj is a
-        # unicode string, this is different from str_w(buffer(w_obj)):
-        # indeed, the latter returns a string with the raw bytes from
-        # the underlying unicode buffer, but bufferstr_w() just converts
-        # the unicode to an ascii string.  This inconsistency is kind of
-        # needed because CPython has the same issue.  (Well, it's
-        # unclear if there is any use at all for getting the bytes in
-        # the unicode buffer.)
-        try:
-            return self.bytes_w(w_obj)
-        except OperationError as e:
-            if not e.match(self, self.w_TypeError):
-                raise
-        return self.buffer_w(w_obj, flags).as_str()
 
     def text_or_none_w(self, w_obj):
         return None if self.is_none(w_obj) else self.text_w(w_obj)
@@ -1631,6 +1594,18 @@ class ObjSpace(object):
 
     def fsencode_or_none_w(self, w_obj):
         return None if self.is_none(w_obj) else self.fsencode_w(w_obj)
+
+    def byte_w(self, w_obj):
+        """
+        Convert an index-like object to an interp-level char
+
+        Used for app-level code like "bytearray(b'abc')[0] = 42".
+        """
+        value = self.getindex_w(w_obj, None)
+        if not 0 <= value < 256:
+            # this includes the OverflowError in case the long is too large
+            raise oefmt(self.w_ValueError, "byte must be in range(0, 256)")
+        return chr(value)
 
     def int_w(self, w_obj, allow_conversion=True):
         """
@@ -1694,7 +1669,12 @@ class ObjSpace(object):
         from rpython.rlib import rstring
         if self.isinstance_w(w_obj, self.w_unicode):
             w_obj = self.fsencode(w_obj)
-        result = self.bufferstr_w(w_obj, self.BUF_FULL_RO)
+        try:
+            result = self.bytes_w(w_obj)
+        except OperationError as e:
+            if not e.match(self, self.w_TypeError):
+                raise
+            result = self.buffer_w(w_obj, self.BUF_FULL_RO).as_str()
         if '\x00' in result:
             raise oefmt(self.w_ValueError,
                         "argument must be a string without NUL characters")

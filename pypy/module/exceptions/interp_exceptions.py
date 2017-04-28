@@ -894,7 +894,7 @@ class W_UnicodeDecodeError(W_UnicodeError):
     def descr_init(self, space, w_encoding, w_object, w_start, w_end, w_reason):
         # typechecking
         if space.isinstance_w(w_object, space.w_bytearray):
-            w_bytes = space.newbytes(space.bufferstr_w(w_object))
+            w_bytes = space.newbytes(space.charbuf_w(w_object))
         else:
             w_bytes = w_object
         space.realtext_w(w_encoding)

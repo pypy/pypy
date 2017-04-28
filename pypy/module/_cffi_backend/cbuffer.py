@@ -4,6 +4,7 @@ from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
 from pypy.module._cffi_backend import ctypestruct
+from pypy.interpreter.buffer import SimpleView
 
 from rpython.rlib.buffer import Buffer
 from rpython.rtyper.annlowlevel import llstr
@@ -47,7 +48,7 @@ class MiniBuffer(W_Root):
         self.keepalive = keepalive
 
     def buffer_w(self, space, flags):
-        return self.buffer
+        return SimpleView(self.buffer)
 
     def descr_len(self, space):
         return space.newint(self.buffer.getlength())
@@ -65,7 +66,7 @@ class MiniBuffer(W_Root):
                                                       self.buffer.getlength())
         if step not in (0, 1):
             raise oefmt(space.w_NotImplementedError, "")
-        value = space.buffer_w(w_newstring, space.BUF_CONTIG_RO)
+        value = space.buffer_w(w_newstring, space.BUF_CONTIG_RO).as_readbuf()
         if value.getlength() != size:
             raise oefmt(space.w_ValueError,
                         "cannot modify size of memoryview object")
@@ -79,7 +80,7 @@ class MiniBuffer(W_Root):
         if space.isinstance_w(w_other, space.w_unicode):
             return space.w_NotImplemented
         try:
-            other_buf = space.buffer_w(w_other, space.BUF_SIMPLE)
+            other_buf = space.readbuf_w(w_other)
         except OperationError as e:
             if e.async(space):
                 raise

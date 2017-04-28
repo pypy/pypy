@@ -4,10 +4,10 @@ from rpython.rlib import jit
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin, newlist_hint,
     resizelist_hint)
-from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.rstring import StringBuilder
 
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.buffer import SimpleView, StringBuffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
@@ -419,14 +419,7 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def buffer_w(self, space, flags):
         space.check_buf_flags(flags, True)
-        return StringBuffer(self._value)
-
-    def readbuf_w(self, space):
-        return StringBuffer(self._value)
-
-    def writebuf_w(self, space):
-        raise oefmt(space.w_TypeError,
-                    "Cannot use bytes as modifiable buffer")
+        return SimpleView(StringBuffer(self._value))
 
     def descr_getbuffer(self, space, w_flags):
         #from pypy.objspace.std.bufferobject import W_Buffer
@@ -542,7 +535,7 @@ class W_BytesObject(W_AbstractBytesObject):
                 length = space.len_w(w_source)
                 if jit.isconstant(length) and length == 1:
                     w_item = space.getitem(w_source, space.newint(0))
-                    value = getbytevalue(space, w_item)
+                    value = space.byte_w(w_item)
                     return W_BytesObject(value)
             else:
                 # special-case 'bytes(X)' if X has a __bytes__() method:
@@ -702,13 +695,6 @@ def _create_list_from_bytes(value):
 W_BytesObject.EMPTY = W_BytesObject('')
 
 
-def getbytevalue(space, w_value):
-    value = space.getindex_w(w_value, None)
-    if not 0 <= value < 256:
-        # this includes the OverflowError in case the long is too large
-        raise oefmt(space.w_ValueError, "byte must be in range(0, 256)")
-    return chr(value)
-
 def invoke_bytes_method(space, w_source):
     w_bytes_method = space.lookup(w_source, "__bytes__")
     if w_bytes_method is not None:
@@ -809,7 +795,7 @@ def _convert_from_buffer_or_iterable(space, w_source):
             if not e.match(space, space.w_StopIteration):
                 raise
             break
-        value = getbytevalue(space, w_item)
+        value = space.byte_w(w_item)
         builder.append(value)
     return builder.build()
 

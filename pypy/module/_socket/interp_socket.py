@@ -482,7 +482,7 @@ class W_Socket(W_Root):
         Like send(data, flags) but allows specifying the destination address.
         For IP sockets, the address is a pair (hostaddr, port).
         """
-        data = space.bufferstr_w(w_data)
+        data = space.charbuf_w(w_data)
         if w_param3 is None:
             # 2 args version
             flags = 0
@@ -559,7 +559,7 @@ class W_Socket(W_Root):
 
         See recv() for documentation about the flags.
         """
-        rwbuffer = space.getarg_w('w*', w_buffer)
+        rwbuffer = space.writebuf_w(w_buffer)
         lgt = rwbuffer.getlength()
         if nbytes < 0:
             raise oefmt(space.w_ValueError, "negative buffersize in recv_into")
@@ -581,7 +581,7 @@ class W_Socket(W_Root):
 
         Like recv_into(buffer[, nbytes[, flags]]) but also return the sender's address info.
         """
-        rwbuffer = space.getarg_w('w*', w_buffer)
+        rwbuffer = space.writebuf_w(w_buffer)
         lgt = rwbuffer.getlength()
         if nbytes == 0:
             nbytes = lgt

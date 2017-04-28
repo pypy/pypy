@@ -468,7 +468,7 @@ def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
     # Type check
     if not (space.is_none(w_pattern) or
             space.isinstance_w(w_pattern, space.w_unicode)):
-        space.bufferstr_w(w_pattern)
+        space.readbuf_w(w_pattern)
     srepat.w_pattern = w_pattern      # the original uncompiled pattern
     srepat.flags = flags
     srepat.code = code
@@ -523,7 +523,7 @@ class W_SRE_Match(W_Root):
         u = space.unicode_w(space.repr(w_s))
         if len(u) > 50:
             u = u[:50]
-        return space.newunicode(u'<_sre.SRE_Match object; span=(%d, %d), match=%s>' % 
+        return space.newunicode(u'<_sre.SRE_Match object; span=(%d, %d), match=%s>' %
                           (start, end, u))
 
     def cannot_copy_w(self):

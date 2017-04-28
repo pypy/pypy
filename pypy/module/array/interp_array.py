@@ -1,12 +1,13 @@
 from rpython.rlib import jit, rgc
-from rpython.rlib.buffer import Buffer
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import ovfcheck, widen
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
+from rpython.rlib.buffer import Buffer
 
+from pypy.interpreter.buffer import BufferView
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
@@ -59,7 +60,7 @@ def w_array(space, w_cls, typecode, __args__):
             a.descr_fromlist(space, w_initializer)
         else:
             try:
-                buf = space.bufferstr_w(w_initializer)
+                buf = space.charbuf_w(w_initializer)
             except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
@@ -257,7 +258,7 @@ class W_ArrayBase(W_Root):
             lltype.free(oldbuffer, flavor='raw')
 
     def buffer_w(self, space, flags):
-        return ArrayBuffer(self, False)
+        return ArrayView(ArrayData(self), self.typecode, self.itemsize, False)
 
     def descr_append(self, space, w_x):
         """ append(x)
@@ -402,10 +403,9 @@ class W_ArrayBase(W_Root):
         machine values, as if it had been read from a file using the
         fromfile() method).
         """
-        buf = space.getarg_w('y*', w_s)
-        if buf.getitemsize() != 1:
-            raise oefmt(space.w_TypeError, "a bytes-like object is required")
-        s = buf.as_str()
+        # For some reason, CPython rejects arguments with itemsize != 1 here
+        # (like array.array('i')). We don't apply that restriction.
+        s = space.charbuf_w(w_s)
         self._frombytes(space, s)
 
     def _frombytes(self, space, s):
@@ -848,57 +848,87 @@ for k, v in types.items():
     v.typecode = k
 unroll_typecodes = unrolling_iterable(types.keys())
 
-class ArrayBuffer(Buffer):
+class ArrayData(Buffer):
+    _immutable_ = True
+    readonly = False
+    def __init__(self, w_array):
+        self.w_array = w_array
+
+    def getlength(self):
+        return self.w_array.len * self.w_array.itemsize
+
+    def getitem(self, index):
+        w_array = self.w_array
+        data = w_array._charbuf_start()
+        char = data[index]
+        w_array._charbuf_stop()
+        return char
+
+    def setitem(self, index, char):
+        w_array = self.w_array
+        data = w_array._charbuf_start()
+        data[index] = char
+        w_array._charbuf_stop()
+
+    def getslice(self, start, stop, step, size):
+        if size == 0:
+            return ''
+        assert step == 1
+        data = self.w_array._charbuf_start()
+        try:
+            return rffi.charpsize2str(rffi.ptradd(data, start), size)
+        finally:
+            self.w_array._charbuf_stop()
+
+    def get_raw_address(self):
+        return self.w_array._charbuf_start()
+
+
+class ArrayView(BufferView):
     _immutable_ = True
 
-    def __init__(self, array, readonly):
-        self.array = array
+    def __init__(self, data, fmt, itemsize, readonly):
+        self.data = data
+        self.fmt = fmt
+        self.itemsize = itemsize
         self.readonly = readonly
 
     def getlength(self):
-        return self.array.len * self.array.itemsize
+        return self.data.getlength()
+
+    def as_str(self):
+        return self.data.as_str()
+
+    def getbytes(self, start, size):
+        return self.data[start:start + size]
+
+    def setbytes(self, offset, s):
+        return self.data.setslice(offset, s)
 
     def getformat(self):
-        return self.array.typecode
+        return self.fmt
 
     def getitemsize(self):
-        return self.array.itemsize
+        return self.itemsize
 
     def getndim(self):
         return 1
 
     def getshape(self):
-        return [self.array.len]
+        return [self.getlength() // self.itemsize]
 
     def getstrides(self):
         return [self.getitemsize()]
 
-    def getitem(self, index):
-        array = self.array
-        data = array._charbuf_start()
-        char = data[index]
-        array._charbuf_stop()
-        return char
-
-    def setitem(self, index, char):
-        array = self.array
-        data = array._charbuf_start()
-        data[index] = char
-        array._charbuf_stop()
-
-    def getslice(self, start, stop, step, size):
-        if size == 0:
-            return ''
-        if step == 1:
-            data = self.array._charbuf_start()
-            try:
-                return rffi.charpsize2str(rffi.ptradd(data, start), size)
-            finally:
-                self.array._charbuf_stop()
-        return Buffer.getslice(self, start, stop, step, size)
-
     def get_raw_address(self):
-        return self.array._charbuf_start()
+        return self.data.get_raw_address()
+
+    def as_readbuf(self):
+        return self.data
+
+    def as_writebuf(self):
+        assert not self.readonly
+        return self.data
 
 
 unpack_driver = jit.JitDriver(name='unpack_array',
