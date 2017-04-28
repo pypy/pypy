@@ -194,35 +194,60 @@ class AppTestListObject(AppTestCpythonExtensionBase):
              """)])
         assert module.test_get_item() == 0
 
-    def test_set_item_macro(self):
+    def test_item_refcounts(self):
         """PyList_SET_ITEM leaks a reference to the target."""
         module = self.import_extension('foo', [
-             ("test_refcount_diff_after_setitem", "METH_NOARGS",
+             ("test_refcount_diff", "METH_NOARGS",
              """
-                PyObject* o = PyList_New(0);
-                PyObject* o2 = PyLong_FromLong(0);
-                Py_INCREF(o2);
-                Py_ssize_t refcount, new_refcount;
+                #define CHECKCOUNT(diff1, diff2, action) \
+                    new_count1 = Py_REFCNT(i1); \
+                    new_count2 = Py_REFCNT(i2); \
+                    diff = new_count1 - old_count1; \
+                    if (diff != diff1) {\
+                        sprintf(errbuffer, action \
+                            " i1 expected diff of %ld got %ld", (long)diff1, (long)diff); \
+                    PyErr_SetString(PyExc_AssertionError, errbuffer); \
+                    return NULL; } \
+                    diff = new_count2 - old_count2; \
+                    if (diff != diff2) {\
+                        sprintf(errbuffer, action \
+                            " i2 expected diff of %ld got %ld", (long)diff2, (long)diff); \
+                    PyErr_SetString(PyExc_AssertionError, errbuffer); \
+                    return NULL; } \
+                    old_count1 = new_count1; \
+                    old_count2 = new_count2;
 
-                refcount = Py_REFCNT(o2); // 1
+                PyObject* tmp, *o = PyList_New(0);
+                char errbuffer[1024];
+                PyObject* i1 = PyBytes_FromString("random string 1");
+                PyObject* i2 = PyBytes_FromString("random string 2");
+                Py_ssize_t old_count1, new_count1;
+                Py_ssize_t old_count2, new_count2;
+                Py_ssize_t diff;
 
-                PyList_Append(o, o2); 
+                old_count1 = Py_REFCNT(i1); // 1
+                old_count2 = Py_REFCNT(i2); // 1
 
-                new_refcount = Py_REFCNT(o2);
+                PyList_Append(o, i1);
+                CHECKCOUNT(1, 0, "PyList_Append");
 
-                if (new_refcount != refcount + 1)
-                    return PyLong_FromSsize_t(-10);
-                refcount = new_refcount;
+                PyList_SET_ITEM(o, 0, i2);
+                CHECKCOUNT(0, 0, "PyList_SET_ITEM");
 
-                // Steal a reference to o2, leak the old reference to o2.
-                // The net result should be no change in refcount.
-                PyList_SET_ITEM(o, 0, o2);
+                tmp = PyList_GET_ITEM(o, 0);
+                // XXX should tmp be the original i2?
+                //     use CPyListStrategy?
+                if (strcmp(PyString_AsString(tmp), PyString_AsString(i2))) 
+                {
+                    sprintf(errbuffer, "GETITEM did not return i2");
+                    PyErr_SetString(PyExc_AssertionError, errbuffer); 
+                    return NULL;
+                }
+                CHECKCOUNT(0, 0, "PyList_GET_ITEM");
 
-                new_refcount = Py_REFCNT(o2);
-
-                Py_DECREF(o2); // append incref'd.
-                Py_DECREF(o);
-                Py_DECREF(o2);
-                return PyLong_FromSsize_t(new_refcount - refcount);
+                Py_DECREF(i1); // append incref'd.
+                Py_DECREF(o); // decref's stolen reference to i2
+                Py_DECREF(i1); 
+                return PyLong_FromSsize_t(0);
              """)])
-        assert module.test_refcount_diff_after_setitem() == 0
+        assert module.test_refcount_diff() == 0
