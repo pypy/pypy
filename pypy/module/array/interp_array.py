@@ -403,6 +403,8 @@ class W_ArrayBase(W_Root):
         machine values, as if it had been read from a file using the
         fromfile() method).
         """
+        # For some reason, CPython rejects arguments with itemsize != 1 here
+        # (like array.array('i')). We don't apply that restriction.
         s = space.charbuf_w(w_s)
         self._frombytes(space, s)
 

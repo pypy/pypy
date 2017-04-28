@@ -170,6 +170,7 @@ class AppTestArray(object):
             assert len(b) == 2 and b[0] == 0 and b[1] == 0
 
     def test_frombytes(self):
+        import sys
         for t in 'bBhHiIlLfd':
             a = self.array(t)
             a.frombytes(b'\x00' * a.itemsize * 2)
@@ -199,7 +200,12 @@ class AppTestArray(object):
                     # bad I suppose.
                     assert a.tolist() == old_items * 2
             else:
-                raises(TypeError, a.frombytes, a)
+                if '__pypy__' in sys.modules:
+                    old_items = a.tolist()
+                    a.frombytes(a)
+                    assert a.tolist() == old_items * 2
+                else:
+                    raises(TypeError, a.frombytes, a)
 
     def test_fromfile(self):
         def myfile(c, s):
