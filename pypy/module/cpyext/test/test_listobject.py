@@ -199,6 +199,10 @@ class AppTestListObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
              ("test_refcount_diff", "METH_NOARGS",
              """
+                /* test that the refcount differences for functions
+                 * are correct. diff1 - expected refcount diff for i1,
+                 *              diff2 - expected refcount diff for i2
+                 */
                 #define CHECKCOUNT(diff1, diff2, action) \
                     new_count1 = Py_REFCNT(i1); \
                     new_count2 = Py_REFCNT(i2); \
@@ -225,6 +229,8 @@ class AppTestListObject(AppTestCpythonExtensionBase):
                 Py_ssize_t old_count2, new_count2;
                 Py_ssize_t diff;
 
+                Py_INCREF(i2); // since it is used in macros
+
                 old_count1 = Py_REFCNT(i1); // 1
                 old_count2 = Py_REFCNT(i2); // 1
 
@@ -245,8 +251,22 @@ class AppTestListObject(AppTestCpythonExtensionBase):
                 }
                 CHECKCOUNT(0, 0, "PyList_GET_ITEM");
 
-                Py_DECREF(i1); // append incref'd.
+                PyList_SetItem(o, 0, i1);
+                CHECKCOUNT(0, -1, "PyList_Set_Item");
+
+                PyList_GetItem(o, 0);
+                CHECKCOUNT(0, 0, "PyList_Get_Item");
+
                 Py_DECREF(o); // decref's stolen reference to i2
+                #ifdef PYPY_VERSION
+                    // XXX TODO
+                #else
+                    if (Py_REFCNT(i1) != 1)
+                        return PyLong_FromSsize_t(1);
+                    if (Py_REFCNT(i2) != 1)
+                        return PyLong_FromSsize_t(2);
+                #endif
+                Py_DECREF(i1); // append incref'd.
                 Py_DECREF(i1); 
                 return PyLong_FromSsize_t(0);
              """)])
