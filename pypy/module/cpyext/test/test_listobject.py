@@ -163,11 +163,17 @@ class AppTestListObject(AppTestCpythonExtensionBase):
              Py_INCREF(o);
              PyList_SET_ITEM(l, 1, o);
 
-             PyList_GET_ITEM(o, 0);
-             PyList_GET_ITEM(l, 1);
+             if(PyList_GET_ITEM(o, 0) != PyList_GET_ITEM(l, 1))
+             {
+                PyErr_SetString(PyExc_AssertionError, "PyList_GET_ITEM error");
+                return NULL;
+             }
 
-             PyList_GET_SIZE(o);
-             PyList_GET_SIZE(l);
+             if(PyList_GET_SIZE(o) != PyList_GET_SIZE(l))
+             {
+                PyErr_SetString(PyExc_AssertionError, "PyList_GET_SIZE error");
+                return NULL;
+             }
 
              return o;
              """
@@ -228,13 +234,16 @@ class AppTestListObject(AppTestCpythonExtensionBase):
                 Py_ssize_t old_count1, new_count1;
                 Py_ssize_t old_count2, new_count2;
                 Py_ssize_t diff;
+                int ret;
 
                 Py_INCREF(i2); // since it is used in macros
 
                 old_count1 = Py_REFCNT(i1); // 1
                 old_count2 = Py_REFCNT(i2); // 1
 
-                PyList_Append(o, i1);
+                ret = PyList_Append(o, i1);
+                if (ret != 0) 
+                    return NULL;
                 CHECKCOUNT(1, 0, "PyList_Append");
 
                 PyList_SET_ITEM(o, 0, i2);
