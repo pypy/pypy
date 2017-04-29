@@ -241,8 +241,7 @@ class AppTestListObject(AppTestCpythonExtensionBase):
                 CHECKCOUNT(0, 0, "PyList_SET_ITEM");
 
                 tmp = PyList_GET_ITEM(o, 0);
-                // XXX should tmp be the original i2?
-                //     use CPyListStrategy?
+                // XXX should tmp == i2?
                 if ((Py_REFCNT(tmp) != Py_REFCNT(i2))) 
                 {
                     sprintf(errbuffer, "GETITEM return (%ld) and i2 (%ld)refcounts"
@@ -258,17 +257,15 @@ class AppTestListObject(AppTestCpythonExtensionBase):
                 PyList_GetItem(o, 0);
                 CHECKCOUNT(0, 0, "PyList_Get_Item");
 
-                Py_DECREF(o); // decref's stolen reference to i2
-                #ifdef PYPY_VERSION
-                    // XXX TODO
-                #else
-                    if (Py_REFCNT(i1) != 1)
-                        return PyLong_FromSsize_t(1);
-                    if (Py_REFCNT(i2) != 1)
-                        return PyLong_FromSsize_t(2);
+                Py_DECREF(o); 
+                #ifndef PYPY_VERSION
+                {
+                    // PyPy deletes only at teardown
+                    CHECKCOUNT(-1, 0, "Py_DECREF(o)");
+                }
                 #endif
                 Py_DECREF(i1); // append incref'd.
-                Py_DECREF(i1); 
+                Py_DECREF(i2); 
                 return PyLong_FromSsize_t(0);
              """)])
         assert module.test_refcount_diff() == 0
