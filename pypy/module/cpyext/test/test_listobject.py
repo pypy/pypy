@@ -189,16 +189,17 @@ class AppTestListObject(AppTestCpythonExtensionBase):
                 PyObject* o, *o2, *o3;
                 o = PyList_New(1);
 
-                o2 = PyInt_FromLong(0);
+                o2 = PyBytes_FromString("test_get_item0");
+                Py_INCREF(o2);
                 PyList_SET_ITEM(o, 0, o2);
-                o2 = NULL;
 
                 o3 = PyList_GET_ITEM(o, 0);
                 Py_INCREF(o3);
-                Py_CLEAR(o);
+                Py_DECREF(o);
+                Py_DECREF(o2);
                 return o3;
              """)])
-        assert module.test_get_item() == 0
+        assert module.test_get_item() == b'test_get_item0'
 
     def test_item_refcounts(self):
         """PyList_SET_ITEM leaks a reference to the target."""
