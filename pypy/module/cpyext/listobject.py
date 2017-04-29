@@ -3,7 +3,8 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (cpython_api, CANNOT_FAIL, Py_ssize_t,
                                     build_type_checkers)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
-from pypy.module.cpyext.pyobject import decref, PyObject, make_ref, w_obj_has_pyobj
+from pypy.module.cpyext.pyobject import (decref, incref, PyObject, make_ref, 
+            w_obj_has_pyobj)
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.interpreter.error import oefmt
 
@@ -19,10 +20,11 @@ def PyList_New(space, len):
     PySequence_SetItem()  or expose the object to Python code before
     setting all items to a real object with PyList_SetItem().
     """
-    return space.newlist([None] * len)
+    w_list = space.newlist([None] * len)
+    w_list.convert_to_cpy_strategy(space)
+    return w_list
 
-@cpython_api([rffi.VOIDP, Py_ssize_t, PyObject], PyObject, error=CANNOT_FAIL,
-             result_borrowed=True)
+@cpython_api([rffi.VOIDP, Py_ssize_t, PyObject], lltype.Void, error=CANNOT_FAIL)
 def PyList_SET_ITEM(space, w_list, index, w_item):
     """Form of PyList_SetItem() without error checking. This is normally
     only used to fill in new lists where there is no previous content.
@@ -31,10 +33,15 @@ def PyList_SET_ITEM(space, w_list, index, w_item):
     discard a reference to any item that it being replaced; any reference in
     list at position i will be leaked.
     """
+    from pypy.module.cpyext.sequence import CPyListStrategy
+    cpy_strategy = space.fromcache(CPyListStrategy)
     assert isinstance(w_list, W_ListObject)
+    assert w_list.strategy is cpy_strategy, "list strategy not CPyListStrategy"
     assert 0 <= index < w_list.length()
+    w_old = w_list.getitem(index)
+    incref(space, w_old) # since setitem calls decref, maintain cpython semantics here
     w_list.setitem(index, w_item)
-    return w_item
+    decref(space, w_item)
 
 
 @cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
@@ -45,20 +52,15 @@ def PyList_SetItem(space, w_list, index, w_item):
     This function "steals" a reference to item and discards a reference to
     an item already in the list at the affected position.
     """
-    from pypy.module.cpyext.sequence import CPyListStrategy
-    cpy_strategy = space.fromcache(CPyListStrategy)
     if not isinstance(w_list, W_ListObject):
         decref(space, w_item)
         PyErr_BadInternalCall(space)
     if index < 0 or index >= w_list.length():
         decref(space, w_item)
         raise oefmt(space.w_IndexError, "list assignment index out of range")
-    if w_list.strategy is not cpy_strategy:
-        w_list.ensure_object_strategy() # make sure we can use borrowed obj
-    w_old = w_list.getitem(index)
-    if w_obj_has_pyobj(w_old):
-        decref(space, w_old)
+    w_list.convert_to_cpy_strategy(space)
     w_list.setitem(index, w_item)
+    decref(space, w_item)
     return 0
 
 @cpython_api([PyObject, Py_ssize_t], PyObject, result_borrowed=True)
@@ -67,14 +69,11 @@ def PyList_GetItem(space, w_list, index):
     position must be positive, indexing from the end of the list is not
     supported.  If pos is out of bounds, return NULL and set an
     IndexError exception."""
-    from pypy.module.cpyext.sequence import CPyListStrategy
-    cpy_strategy = space.fromcache(CPyListStrategy)
     if not isinstance(w_list, W_ListObject):
         PyErr_BadInternalCall(space)
     if index < 0 or index >= w_list.length():
         raise oefmt(space.w_IndexError, "list index out of range")
-    if w_list.strategy is not cpy_strategy:
-        w_list.ensure_object_strategy() # make sure we can return a borrowed obj
+    w_list.convert_to_cpy_strategy(space)
     w_res = w_list.getitem(index)
     return w_res     # borrowed ref
 
@@ -83,8 +82,9 @@ def PyList_GetItem(space, w_list, index):
 def PyList_Append(space, w_list, w_item):
     if not isinstance(w_list, W_ListObject):
         PyErr_BadInternalCall(space)
-    make_ref(space, w_item)
+    #pyobj = make_ref(space, w_item)
     w_list.append(w_item)
+    w_list.convert_to_cpy_strategy(space)  # calls incref when switching strategy
     return 0
 
 @cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1)

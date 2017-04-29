@@ -152,16 +152,13 @@ class AppTestListObject(AppTestCpythonExtensionBase):
     def test_list_macros(self):
         """The PyList_* macros cast, and calls expecting that build."""
         module = self.import_extension('foo', [
-            ("test_macro_invocations", "METH_NOARGS",
+            ("test_macro_invocations", "METH_O",
              """
              PyObject* o = PyList_New(2);
              PyListObject* l = (PyListObject*)o;
 
-
-             Py_INCREF(o);
-             PyList_SET_ITEM(o, 0, o);
-             Py_INCREF(o);
-             PyList_SET_ITEM(l, 1, o);
+             PyList_SET_ITEM(o, 0, args);
+             PyList_SET_ITEM(l, 1, args);
 
              if(PyList_GET_ITEM(o, 0) != PyList_GET_ITEM(l, 1))
              {
@@ -179,8 +176,9 @@ class AppTestListObject(AppTestCpythonExtensionBase):
              """
             )
         ])
-        x = module.test_macro_invocations()
-        assert x[0] is x[1] is x
+        s = 'abcdef'
+        x = module.test_macro_invocations(s)
+        assert x[0] is x[1] is s
 
     def test_get_item_macro(self):
         module = self.import_extension('foo', [
