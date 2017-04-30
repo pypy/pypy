@@ -582,8 +582,11 @@ class AppTestPosix:
 
     def test_utime_raises(self):
         os = self.posix
+        import errno
         raises(TypeError, "os.utime('xxx', 3)")
-        raises(OSError, "os.utime('somefilewhichihopewouldneverappearhere', None)")
+        exc = raises(OSError,
+                     "os.utime('somefilewhichihopewouldneverappearhere', None)")
+        assert exc.value.errno == errno.ENOENT
 
     for name in rposix.WAIT_MACROS:
         if hasattr(os, name):

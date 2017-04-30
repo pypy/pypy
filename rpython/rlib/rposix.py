@@ -2057,8 +2057,10 @@ if HAVE_FEXECVE:
         raise OSError(get_saved_errno(), "execve failed")
 
 if HAVE_LINKAT:
-    c_linkat = external('linkat',
-        [rffi.INT, rffi.CCHARP, rffi.INT, rffi.CCHARP, rffi.INT], rffi.INT)
+    c_linkat = external(
+        'linkat',
+        [rffi.INT, rffi.CCHARP, rffi.INT, rffi.CCHARP, rffi.INT], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
 
     def linkat(src, dst, src_dir_fd=AT_FDCWD, dst_dir_fd=AT_FDCWD,
             follow_symlinks=True):
@@ -2073,7 +2075,8 @@ if HAVE_LINKAT:
         handle_posix_error('linkat', error)
 
 if HAVE_FUTIMENS:
-    c_futimens = external('futimens', [rffi.INT, TIMESPEC2P], rffi.INT)
+    c_futimens = external('futimens', [rffi.INT, TIMESPEC2P], rffi.INT,
+                          save_err=rffi.RFFI_SAVE_ERRNO)
 
     def futimens(fd, atime, atime_ns, mtime, mtime_ns):
         l_times = lltype.malloc(TIMESPEC2P.TO, 2, flavor='raw')
@@ -2086,8 +2089,10 @@ if HAVE_FUTIMENS:
         handle_posix_error('futimens', error)
 
 if HAVE_UTIMENSAT:
-    c_utimensat = external('utimensat',
-        [rffi.INT, rffi.CCHARP, TIMESPEC2P, rffi.INT], rffi.INT)
+    c_utimensat = external(
+        'utimensat',
+        [rffi.INT, rffi.CCHARP, TIMESPEC2P, rffi.INT], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
 
     def utimensat(pathname, atime, atime_ns, mtime, mtime_ns,
             dir_fd=AT_FDCWD, follow_symlinks=True):
