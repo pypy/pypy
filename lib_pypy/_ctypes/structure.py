@@ -234,6 +234,9 @@ class StructOrUnion(_CData):
         if ('_abstract_' in cls.__dict__ or cls is Structure 
                                          or cls is union.Union):
             raise TypeError("abstract class")
+        if hasattr(cls, '_swappedbytes_'):
+            raise NotImplementedError("missing in PyPy: structure/union with "
+                                      "swapped (non-native) byte ordering")
         if hasattr(cls, '_ffistruct_'):
             self.__dict__['_buffer'] = self._ffistruct_(autofree=True)
         return self
