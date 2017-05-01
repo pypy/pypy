@@ -157,6 +157,8 @@ class AppTestListObject(AppTestCpythonExtensionBase):
              PyObject* o = PyList_New(2);
              PyListObject* l = (PyListObject*)o;
 
+             Py_INCREF(args);
+             Py_INCREF(args);
              PyList_SET_ITEM(o, 0, args);
              PyList_SET_ITEM(l, 1, args);
 
