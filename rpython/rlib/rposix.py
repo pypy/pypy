@@ -261,6 +261,8 @@ class CConfig:
 
     HAVE_UTIMES = rffi_platform.Has('utimes')
     HAVE_D_TYPE = rffi_platform.Has('DT_UNKNOWN')
+    HAVE_FALLOCATE = rffi_platform.Has('posix_fallocate')
+    HAVE_FADVISE = rffi_platform.Has('posix_fadvise')
     UTIMBUF = rffi_platform.Struct('struct %sutimbuf' % UNDERSCORE_ON_WIN32,
                                    [('actime', rffi.INT),
                                     ('modtime', rffi.INT)])
@@ -449,7 +451,7 @@ def write(fd, data):
 def close(fd):
     validate_fd(fd)
     handle_posix_error('close', c_close(fd))
-
+    
 c_lseek = external('_lseeki64' if _WIN32 else 'lseek',
                    [rffi.INT, rffi.LONGLONG, rffi.INT], rffi.LONGLONG,
                    macro=_MACRO_ON_POSIX, save_err=rffi.RFFI_SAVE_ERRNO)
@@ -489,6 +491,41 @@ if not _WIN32:
         validate_fd(fd)
         with rffi.scoped_nonmovingbuffer(data) as buf:
             return handle_posix_error('pwrite', c_pwrite(fd, buf, count, offset))
+
+    if HAVE_FALLOCATE:
+        c_posix_fallocate = external('posix_fallocate',
+                                     [rffi.INT, OFF_T, OFF_T], rffi.INT,
+                                     save_err=rffi.RFFI_SAVE_ERRNO)
+
+        @enforceargs(int, None, None)
+        def posix_fallocate(fd, offset, length):
+            validate_fd(fd)
+            return handle_posix_error('posix_fallocate', c_posix_fallocate(fd, offset, length))
+
+    if HAVE_FADVISE:
+        class CConfig:
+            _compilation_info_ = eci
+            POSIX_FADV_WILLNEED = rffi_platform.DefinedConstantInteger('POSIX_FADV_WILLNEED')
+            POSIX_FADV_NORMAL = rffi_platform.DefinedConstantInteger('POSIX_FADV_NORMAL')
+            POSIX_FADV_SEQUENTIAL = rffi_platform.DefinedConstantInteger('POSIX_FADV_SEQUENTIAL')
+            POSIX_FADV_RANDOM= rffi_platform.DefinedConstantInteger('POSIX_FADV_RANDOM')
+            POSIX_FADV_NOREUSE = rffi_platform.DefinedConstantInteger('POSIX_FADV_NOREUSE')
+            POSIX_FADV_DONTNEED = rffi_platform.DefinedConstantInteger('POSIX_FADV_DONTNEED')
+
+        config = rffi_platform.configure(CConfig)
+        globals().update(config)
+
+        c_posix_fadvise = external('posix_fadvise',
+                                   [rffi.INT, OFF_T, OFF_T, rffi.INT], rffi.INT,
+                                   save_err=rffi.RFFI_SAVE_ERRNO)
+
+        @enforceargs(int, None, None, int)
+        def posix_fadvise(fd, offset, length, advice):
+            validate_fd(fd)
+            error = c_posix_fadvise(fd, offset, length, advice)
+            error = widen(error)
+            if error != 0:
+                raise OSError(error, 'posix_fadvise failed')
 
 c_ftruncate = external('ftruncate', [rffi.INT, rffi.LONGLONG], rffi.INT,
                        macro=_MACRO_ON_POSIX, save_err=rffi.RFFI_SAVE_ERRNO)
@@ -2020,8 +2057,10 @@ if HAVE_FEXECVE:
         raise OSError(get_saved_errno(), "execve failed")
 
 if HAVE_LINKAT:
-    c_linkat = external('linkat',
-        [rffi.INT, rffi.CCHARP, rffi.INT, rffi.CCHARP, rffi.INT], rffi.INT)
+    c_linkat = external(
+        'linkat',
+        [rffi.INT, rffi.CCHARP, rffi.INT, rffi.CCHARP, rffi.INT], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
 
     def linkat(src, dst, src_dir_fd=AT_FDCWD, dst_dir_fd=AT_FDCWD,
             follow_symlinks=True):
@@ -2036,7 +2075,8 @@ if HAVE_LINKAT:
         handle_posix_error('linkat', error)
 
 if HAVE_FUTIMENS:
-    c_futimens = external('futimens', [rffi.INT, TIMESPEC2P], rffi.INT)
+    c_futimens = external('futimens', [rffi.INT, TIMESPEC2P], rffi.INT,
+                          save_err=rffi.RFFI_SAVE_ERRNO)
 
     def futimens(fd, atime, atime_ns, mtime, mtime_ns):
         l_times = lltype.malloc(TIMESPEC2P.TO, 2, flavor='raw')
@@ -2049,8 +2089,10 @@ if HAVE_FUTIMENS:
         handle_posix_error('futimens', error)
 
 if HAVE_UTIMENSAT:
-    c_utimensat = external('utimensat',
-        [rffi.INT, rffi.CCHARP, TIMESPEC2P, rffi.INT], rffi.INT)
+    c_utimensat = external(
+        'utimensat',
+        [rffi.INT, rffi.CCHARP, TIMESPEC2P, rffi.INT], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
 
     def utimensat(pathname, atime, atime_ns, mtime, mtime_ns,
             dir_fd=AT_FDCWD, follow_symlinks=True):
