@@ -122,3 +122,9 @@ def ungetch(ch):
 def ungetwch(ch):
     if _lib._ungetwch(ord(ch)) == -1:   # EOF
         _ioerr()
+
+SetErrorMode = _lib.SetErrorMode
+SEM_FAILCRITICALERRORS     = _lib.SEM_FAILCRITICALERRORS
+SEM_NOGPFAULTERRORBOX      = _lib.SEM_NOGPFAULTERRORBOX
+SEM_NOALIGNMENTFAULTEXCEPT = _lib.SEM_NOALIGNMENTFAULTEXCEPT
+SEM_NOOPENFILEERRORBOX     = _lib.SEM_NOOPENFILEERRORBOX
