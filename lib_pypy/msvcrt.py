@@ -16,6 +16,7 @@ if sys.platform != 'win32':
 import _rawffi
 from _pypy_winbase_cffi import ffi as _ffi
 _lib = _ffi.dlopen(_rawffi.get_libc().name)
+_kernel32 = _ffi.dlopen('kernel32')
 
 import errno
 
@@ -123,7 +124,7 @@ def ungetwch(ch):
     if _lib._ungetwch(ord(ch)) == -1:   # EOF
         _ioerr()
 
-SetErrorMode = _lib.SetErrorMode
+SetErrorMode = _kernel32.SetErrorMode
 SEM_FAILCRITICALERRORS     = _lib.SEM_FAILCRITICALERRORS
 SEM_NOGPFAULTERRORBOX      = _lib.SEM_NOGPFAULTERRORBOX
 SEM_NOALIGNMENTFAULTEXCEPT = _lib.SEM_NOALIGNMENTFAULTEXCEPT
