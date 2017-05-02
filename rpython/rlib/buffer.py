@@ -12,7 +12,7 @@ class Buffer(object):
     _immutable_ = True
 
     def getlength(self):
-        """Returns the size in bytes (even if getitemsize() > 1)."""
+        """Return the size in bytes."""
         raise NotImplementedError
 
     def __len__(self):

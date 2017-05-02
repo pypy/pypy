@@ -5,6 +5,7 @@ from rpython.rlib.buffer import Buffer, SubBuffer
 from rpython.rlib.objectmodel import compute_hash
 
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.buffer import SimpleView
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
@@ -19,7 +20,7 @@ class W_Buffer(W_Root):
 
     def buffer_w(self, space, flags):
         space.check_buf_flags(flags, self.buf.readonly)
-        return self.buf
+        return SimpleView(self.buf)
 
     def readbuf_w(self, space):
         return self.buf
