@@ -1,10 +1,22 @@
 """
 Buffer protocol support.
 """
+from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.lltypesystem.rstr import STR
+from rpython.rtyper.annlowlevel import llstr
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib import jit
 from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
         nonmoving_raw_ptr_for_resizable_list)
 
+
+class CannotRead(Exception):
+    """
+    Exception raised by Buffer.typed_read in case it is not possible to
+    accomplish the request. This might be because it is not supported by the
+    specific type of buffer, or because of alignment issues.
+    """
 
 class Buffer(object):
     """Abstract base class for buffers."""
@@ -80,6 +92,12 @@ class Buffer(object):
     def releasebuffer(self):
         pass
 
+    #@specialize.??
+    def typed_read(self, TP, byte_offset):
+        raise CannotRead
+
+
+
 class StringBuffer(Buffer):
     _attrs_ = ['readonly', 'value']
     _immutable_ = True
@@ -114,6 +132,19 @@ class StringBuffer(Buffer):
         from rpython.rtyper.lltypesystem import rffi
         # may still raise ValueError on some GCs
         return rffi.get_raw_address_of_string(self.value)
+
+    #@specialize.??
+    def typed_read(self, TP, byte_offset):
+        # WARNING: the 'byte_offset' is, as its name says, measured in bytes;
+        # however, it should be aligned for TP, otherwise on some platforms this
+        # code will crash!
+        lls = llstr(self.value)
+        base_ofs = (llmemory.offsetof(STR, 'chars') +
+                    llmemory.itemoffsetof(STR.chars, 0))
+        scale_factor = llmemory.sizeof(lltype.Char)
+        return llop.gc_load_indexed(TP, lls, byte_offset,
+                                    scale_factor, base_ofs)
+
 
 class SubBuffer(Buffer):
     _attrs_ = ['buffer', 'offset', 'size', 'readonly']

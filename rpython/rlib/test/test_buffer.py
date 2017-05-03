@@ -1,3 +1,6 @@
+import struct
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.rlib.buffer import StringBuffer, SubBuffer, Buffer
 from rpython.annotator.annrpython import RPythonAnnotator
 from rpython.annotator.model import SomeInteger
@@ -71,3 +74,43 @@ def test_string_buffer_as_buffer():
     assert addr[0] == b'h'
     assert addr[4] == b'o'
     assert addr[6] == b'w'
+
+
+class BaseTypedReadTest:
+
+    def test_signed(self):
+        buf = struct.pack('@ll', 42, 43)
+        size = struct.calcsize('@l')
+        assert self.read(lltype.Signed, buf, 0) == 42
+        assert self.read(lltype.Signed, buf, size) == 43
+
+    def test_short(self):
+        buf = struct.pack('@hh', 42, 43)
+        size = struct.calcsize('@h')
+        x = self.read(rffi.SHORT, buf, 0)
+        assert int(x) == 42
+        x = self.read(rffi.SHORT, buf, size)
+        assert int(x) == 43
+
+    def test_float(self):
+        buf = struct.pack('@dd', 12.3, 45.6)
+        size = struct.calcsize('@d')
+        assert self.read(lltype.Float, buf, 0) == 12.3
+        assert self.read(lltype.Float, buf, size) == 45.6
+
+    def test_singlefloat(self):
+        buf = struct.pack('@ff', 12.3, 45.6)
+        size = struct.calcsize('@f')
+        x = self.read(lltype.SingleFloat, buf, 0)
+        assert x == r_singlefloat(12.3)
+        x = self.read(lltype.SingleFloat, buf, size)
+        assert x == r_singlefloat(45.6)
+
+
+class TestTypedReadDirect(BaseTypedReadTest):
+
+    def read(self, TYPE, data, offset):
+        buf = StringBuffer(data)
+        return buf.typed_read(TYPE, offset)
+
+
