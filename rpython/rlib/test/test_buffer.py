@@ -4,7 +4,7 @@ from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.rlib.buffer import StringBuffer, SubBuffer, Buffer
 from rpython.annotator.annrpython import RPythonAnnotator
 from rpython.annotator.model import SomeInteger
-
+from rpython.rtyper.test.tool import BaseRtypingTest
 
 def test_string_buffer():
     buf = StringBuffer('hello world')
@@ -114,3 +114,27 @@ class TestTypedReadDirect(BaseTypedReadTest):
         return buf.typed_read(TYPE, offset)
 
 
+class TestCompiled(BaseTypedReadTest):
+    cache = {}
+
+    def read(self, TYPE, data, offset):
+        if TYPE not in self.cache:
+            from rpython.translator.c.test.test_genc import compile
+
+            assert isinstance(TYPE, lltype.Primitive)
+            if TYPE in (lltype.Float, lltype.SingleFloat):
+                TARGET_TYPE = lltype.Float
+            else:
+                TARGET_TYPE = lltype.Signed
+
+            def llf(data, offset):
+                buf = StringBuffer(data)
+                x = buf.typed_read(TYPE, offset)
+                return lltype.cast_primitive(TARGET_TYPE, x)
+
+            fn = compile(llf, [str, int])
+            self.cache[TYPE] = fn
+        #
+        fn = self.cache[TYPE]
+        x = fn(data, offset)
+        return lltype.cast_primitive(TYPE, x)
