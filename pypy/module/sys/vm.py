@@ -234,6 +234,7 @@ class windows_version_info(metaclass=structseqtype):
     service_pack_minor = structseqfield(11, "Service Pack minor version number")
     suite_mask = structseqfield(12, "Bit mask identifying available product suites")
     product_type = structseqfield(13, "System product type")
+    _platform_version = structseqfield(14, "Diagnostic version number")
 ''')
 
 
@@ -251,6 +252,9 @@ def getwindowsversion(space):
         space.newint(info[6]),
         space.newint(info[7]),
         space.newint(info[8]),
+        # leave _platform_version empty, platform.py will use the main
+        # version numbers above.
+        space.w_None,
     ])
     return space.call_function(w_windows_version_info, raw_version)
 
