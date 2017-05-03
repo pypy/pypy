@@ -87,11 +87,11 @@ class CCompilerDriver(object):
     def _do_profbased(self):
         ProfDriver, args = self.profbased
         profdrv = ProfDriver(self)
-        dolog = getattr(log, profdrv.name)
+        # dolog = getattr(log, profdrv.name)
         dolog(args)
         exename = profdrv.first()
-        dolog('Gathering profile data from: %s %s' % (
-            str(exename), args))
+        # dolog('Gathering profile data from: %s %s' % (
+        #     str(exename), args))
         profdrv.probe(exename, args)
         return profdrv.after()
 
@@ -391,6 +391,8 @@ class CStandaloneBuilder(CBuilder):
         shared = self.config.translation.shared
 
         extra_opts = []
+        if self.config.translation.profopt and not self.config.translation.noprofopt:
+            extra_opts += ["profopt"]
         if self.config.translation.make_jobs != 1:
             extra_opts += ['-j', str(self.config.translation.make_jobs)]
         if self.config.translation.lldebug:
@@ -420,11 +422,14 @@ class CStandaloneBuilder(CBuilder):
             shared=self.config.translation.shared,
             config=self.config)
 
-        if self.has_profopt():
-            profopt = self.config.translation.profopt
-            mk.definition('ABS_TARGET', str(targetdir.join('$(TARGET)')))
-            mk.definition('DEFAULT_TARGET', 'profopt')
-            mk.definition('PROFOPT', profopt)
+
+        #if self.has_profopt():
+        #     profopt = self.config.translation.profopt
+        #     mk.definition('ABS_TARGET', str(targetdir.join('$(TARGET)')))
+        #     mk.definition('DEFAULT_TARGET', 'profopt')
+        #     mk.definition('PROFOPT', profopt)
+        # I have commented this out because I have made another rule with other definitions explained below
+
 
         rules = [
             ('debug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT" debug_target'),
@@ -433,15 +438,30 @@ class CStandaloneBuilder(CBuilder):
             ('llsafer', '', '$(MAKE) CFLAGS="-O2 -DRPY_LL_ASSERT" $(DEFAULT_TARGET)'),
             ('lldebug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
             ('profile', '', '$(MAKE) CFLAGS="-g -O1 -pg $(CFLAGS) -fno-omit-frame-pointer" LDFLAGS="-pg $(LDFLAGS)" $(DEFAULT_TARGET)'),
-            ]
-        if self.has_profopt():
-            rules.append(
-                ('profopt', '', [
-                '$(MAKENOPROF)',
-                '$(MAKE) CFLAGS="-fprofile-generate $(CFLAGS)" LDFLAGS="-fprofile-generate $(LDFLAGS)" $(TARGET)',
-                'cd $(RPYDIR)/translator/goal && $(ABS_TARGET) $(PROFOPT)',
+        ]
+        # if self.has_profopt():
+
+        #added a new target for profopt, because it requires -lgcov to compile successfully when -shared is used as an argument
+        # PROFOPT_Tar
+
+        mk.definition('PROFOPT_TARGET','pypy-c')
+        mk.rule('$(PROFOPT_TARGET)', '$(TARGET) main.o',
+                     '$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ $(RPATH_FLAGS) -lgcov')
+        rules.append(
+            ('profopt', '', [
+                '$(MAKE) CFLAGS="-fprofile-generate -fPIC $(CFLAGS) -fno-lto"  LDFLAGS="-fprofile-generate $(LDFLAGS) -fno-lto" $(PROFOPT_TARGET)',
+                'rm -f $(RPYDIR)/../pypy/goal/libpypy-c.so || true',
+                'cp -f libpypy-c.so $(RPYDIR)/../pypy/goal/ || true',
+                'rm -f $(RPYDIR)/../pypy/goal/pypy-c',
+                'cp -f pypy-c $(RPYDIR)/../pypy/goal/',
+                '$(RPYDIR)/../pypy/goal/pypy-c $(RPYDIR)/../pypy/goal/regrtest/regrtest.py --pgo -x test_asyncore test_gdb test_multiprocessing test_subprocess || true',
                 '$(MAKE) clean_noprof',
-                '$(MAKE) CFLAGS="-fprofile-use $(CFLAGS)" LDFLAGS="-fprofile-use $(LDFLAGS)" $(TARGET)']))
+                '$(MAKE) CFLAGS="-fprofile-use -fprofile-correction -fPIC $(CFLAGS) -fno-lto"  LDFLAGS="-fprofile-use $(LDFLAGS) -fno-lto" $(PROFOPT_TARGET)',
+                'rm -f $(RPYDIR)/../pypy/goal/libpypy-c.so || true',
+                'cp -f libpypy-c.so $(RPYDIR)/../pypy/goal/ || true',
+                'rm -f $(RPYDIR)/../pypy/goal/pypy-c',
+                'cp -f pypy-c $(RPYDIR)/../pypy/goal/']))
+
         for rule in rules:
             mk.rule(*rule)
 

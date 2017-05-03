@@ -142,7 +142,7 @@ translation_optiondescription = OptionDescription(
     BoolOption("verbose", "Print extra information", default=False,
                cmdline="--verbose"),
     StrOption("cc", "Specify compiler to use for compiling generated C", cmdline="--cc"),
-    StrOption("profopt", "Specify profile based optimization script",
+    BoolOption("profopt", "Specify profile based optimization script",
               cmdline="--profopt"),
     BoolOption("noprofopt", "Don't use profile based optimization",
                default=False, cmdline="--no-profopt", negation=False),
