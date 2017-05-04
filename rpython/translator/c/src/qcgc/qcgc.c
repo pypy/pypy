@@ -40,6 +40,10 @@ void qcgc_initialize(void) {
 	qcgc_hbtable_initialize();
 	qcgc_event_logger_initialize();
 
+#if LOG_ALLOCATOR_SWITCH
+	qcgc_allocations = 0;
+#endif
+
 	env_or_fallback(qcgc_state.incmark_threshold,
 			"QCGC_INCMARK", QCGC_INCMARK_THRESHOLD);
 	env_or_fallback(qcgc_state.incmark_to_sweep,
@@ -49,6 +53,18 @@ void qcgc_initialize(void) {
 }
 
 void qcgc_destroy(void) {
+#if LOG_ALLOCATOR_SWITCH
+	struct log_info_s {
+		bool bump_allocator;
+		size_t allocations;
+	};
+	struct log_info_s log_info = {
+		_qcgc_bump_allocator.ptr != NULL,
+		qcgc_allocations,
+	};
+	qcgc_event_logger_log(EVENT_ALLOCATOR_SWITCH, sizeof(struct log_info_s),
+			(uint8_t *) &log_info);
+#endif
 	qcgc_event_logger_destroy();
 	qcgc_hbtable_destroy();
 	qcgc_allocator_destroy();
@@ -131,12 +147,12 @@ object_t *_qcgc_allocate_slowpath(size_t size) {
 			if ((_qcgc_bump_allocator.ptr == NULL) != old_use_fit_allocator) {
 				// Allocator switched
 				struct log_info_s {
+					bool bump_allocator;
 					size_t allocations;
-					bool fit_allocator;
 				};
 				struct log_info_s log_info = {
+					_qcgc_bump_allocator.ptr != NULL,
 					qcgc_allocations,
-					_qcgc_bump_allocator.ptr == NULL,
 				};
 				qcgc_event_logger_log(EVENT_ALLOCATOR_SWITCH, sizeof(struct log_info_s),
 						(uint8_t *) &log_info);
@@ -154,12 +170,12 @@ object_t *_qcgc_allocate_slowpath(size_t size) {
 		if ((_qcgc_bump_allocator.ptr == NULL) != old_use_fit_allocator) {
 			// Allocator switched
 			struct log_info_s {
+				bool bump_allocator;
 				size_t allocations;
-				bool fit_allocator;
 			};
 			struct log_info_s log_info = {
+				_qcgc_bump_allocator.ptr != NULL,
 				qcgc_allocations,
-				_qcgc_bump_allocator.ptr == NULL,
 			};
 			qcgc_event_logger_log(EVENT_ALLOCATOR_SWITCH, sizeof(struct log_info_s),
 					(uint8_t *) &log_info);
@@ -188,12 +204,12 @@ object_t *_qcgc_allocate_slowpath(size_t size) {
 	if ((_qcgc_bump_allocator.ptr == NULL) != old_use_fit_allocator) {
 		// Allocator switched
 		struct log_info_s {
+			bool bump_allocator;
 			size_t allocations;
-			bool fit_allocator;
 		};
 		struct log_info_s log_info = {
+			_qcgc_bump_allocator.ptr != NULL,
 			qcgc_allocations,
-			_qcgc_bump_allocator.ptr == NULL,
 		};
 		qcgc_event_logger_log(EVENT_ALLOCATOR_SWITCH, sizeof(struct log_info_s),
 				(uint8_t *) &log_info);

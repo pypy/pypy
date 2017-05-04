@@ -60,7 +60,7 @@ typedef struct object_stack_s {
 } object_stack_t;
 
 #if LOG_ALLOCATOR_SWITCH
-size_t qcgc_allocations = 0;
+size_t qcgc_allocations;
 #endif
 
 /**
@@ -289,6 +289,6 @@ void qcgc_register_weakref(object_t *weakrefobj, object_t **target);
  * @param	object	The object to trace
  * @param	visit	The function to be called on the referenced objects
  */
-void qcgc_trace_cb(object_t *object, void (*visit)(object_t *object));
+extern void qcgc_trace_cb(object_t *object, void (*visit)(object_t *object));
 
 #endif
