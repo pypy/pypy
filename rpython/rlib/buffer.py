@@ -207,3 +207,7 @@ class SubBuffer(Buffer):
         from rpython.rtyper.lltypesystem import rffi
         ptr = self.buffer.get_raw_address()
         return rffi.ptradd(ptr, self.offset)
+
+    @specialize.ll_and_arg(1)
+    def typed_read(self, TP, byte_offset):
+        return self.buffer.typed_read(TP, byte_offset + self.offset)

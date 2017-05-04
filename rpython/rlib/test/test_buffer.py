@@ -114,6 +114,14 @@ class TestTypedReadDirect(BaseTypedReadTest):
         return buf.typed_read(TYPE, offset)
 
 
+class TestSubBufferTypedReadDirect(BaseTypedReadTest):
+
+    def read(self, TYPE, data, offset):
+        buf = StringBuffer('xx' + data)
+        subbuf = SubBuffer(buf, 2, len(data))
+        return subbuf.typed_read(TYPE, offset)
+
+
 class TestCompiled(BaseTypedReadTest):
     cache = {}
 
