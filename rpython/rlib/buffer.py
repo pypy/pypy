@@ -92,7 +92,7 @@ class Buffer(object):
     def releasebuffer(self):
         pass
 
-    #@specialize.??
+    @specialize.ll_and_arg(1)
     def typed_read(self, TP, byte_offset):
         raise CannotRead
 
@@ -133,7 +133,7 @@ class StringBuffer(Buffer):
         # may still raise ValueError on some GCs
         return rffi.get_raw_address_of_string(self.value)
 
-    #@specialize.??
+    @specialize.ll_and_arg(1)
     def typed_read(self, TP, byte_offset):
         # WARNING: the 'byte_offset' is, as its name says, measured in bytes;
         # however, it should be aligned for TP, otherwise on some platforms this
