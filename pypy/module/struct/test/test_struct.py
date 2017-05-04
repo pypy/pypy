@@ -499,6 +499,10 @@ class AppTestFastPath(object):
         from rpython.rlib.rstruct import standardfmttable
         standardfmttable.ALLOW_SLOWPATH = True
 
+    def test_unpack_simple(self):
+        buf = self.struct.pack("iii", 0, 42, 43)
+        assert self.struct.unpack("iii", buf) == (0, 42, 43)
+
     def test_unpack_from(self):
         buf = self.struct.pack("iii", 0, 42, 43)
         offset = self.struct.calcsize("i")

@@ -37,6 +37,7 @@ class Buffer(object):
         # May be overridden.
         return self.getslice(0, self.getlength(), 1, self.getlength())
 
+    # XXX kill me
     def as_str_and_offset_maybe(self):
         """
         If the buffer is backed by a string, return a pair (string, offset), where

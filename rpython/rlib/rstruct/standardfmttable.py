@@ -149,8 +149,11 @@ def unpack_fastpath(TYPE):
             # buf.typed_read to raise CannotRead in case it is not aligned
             # *and* it is not supported.
             raise CannotRead
+        # we need to call skip *after* we typed_read(), because if it raises
+        # we do not want to skip
+        result = buf.typed_read(TYPE, pos)
         fmtiter.skip(size)
-        return buf.typed_read(TYPE, pos)
+        return result
     return do_unpack_fastpath
 
 @specialize.argtype(0)
