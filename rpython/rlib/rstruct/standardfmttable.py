@@ -14,6 +14,7 @@ from rpython.rlib.rstruct.error import StructError, StructOverflowError
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.strstorage import str_storage_getitem
 from rpython.rlib import rarithmetic
+from rpython.rlib.buffer import CannotRead
 from rpython.rtyper.lltypesystem import rffi
 
 native_is_bigendian = struct.pack("=i", 1) == struct.pack(">i", 1)
@@ -134,19 +135,22 @@ def make_int_packer(size, signed, _memo={}):
 USE_FASTPATH = True    # set to False by some tests
 ALLOW_SLOWPATH = True  # set to False by some tests
 
-class CannotUnpack(Exception):
-    pass
 
 @specialize.memo()
 def unpack_fastpath(TYPE):
     @specialize.argtype(0)
     def do_unpack_fastpath(fmtiter):
         size = rffi.sizeof(TYPE)
-        strbuf, pos = fmtiter.get_buffer_as_string_maybe()
-        if strbuf is None or pos % size != 0 or not USE_FASTPATH:
-            raise CannotUnpack
+        buf, pos = fmtiter.get_buffer_and_pos()
+        if pos % size != 0 or not USE_FASTPATH:
+            # XXX: maybe we are too conservative here? On most architectures,
+            # it is possible to read the data even if pos is not
+            # aligned. Also, probably it should responsibility of
+            # buf.typed_read to raise CannotRead in case it is not aligned
+            # *and* it is not supported.
+            raise CannotRead
         fmtiter.skip(size)
-        return str_storage_getitem(TYPE, strbuf, pos)
+        return buf.typed_read(TYPE, pos)
     return do_unpack_fastpath
 
 @specialize.argtype(0)
@@ -196,7 +200,7 @@ def make_ieee_unpacker(TYPE):
         try:
             # fast path
             val = unpack_fastpath(TYPE)(fmtiter)
-        except CannotUnpack:
+        except CannotRead:
             # slow path, take the slice
             input = fmtiter.read(size)
             val = str_storage_getitem(TYPE, input, 0)
@@ -251,7 +255,7 @@ def make_int_unpacker(size, signed, _memo={}):
             return False
         try:
             intvalue = unpack_fastpath(TYPE)(fmtiter)
-        except CannotUnpack:
+        except CannotRead:
             return False
         if not signed and size < native_int_size:
             intvalue = rarithmetic.intmask(intvalue)

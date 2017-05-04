@@ -8,17 +8,20 @@ from struct import unpack
 from rpython.rlib.rstruct.formatiterator import FormatIterator
 from rpython.rlib.rstruct.error import StructError
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib.buffer import StringBuffer
 
 class MasterReader(object):
     def __init__(self, s):
-        self.input = s
+        self.inputbuf = StringBuffer(s)
+        self.length = len(s)
         self.inputpos = 0
 
     def read(self, count):
         end = self.inputpos + count
-        if end > len(self.input):
+        if end > self.length:
             raise StructError("unpack str size too short for format")
-        s = self.input[self.inputpos : end]
+        size = end - self.inputpos
+        s = self.inputbuf.getslice(self.inputpos, end, 1, size)
         self.inputpos = end
         return s
 
@@ -40,8 +43,8 @@ def reader_for_pos(pos):
         def appendobj(self, value):
             self.value = value
 
-        def get_buffer_as_string_maybe(self):
-            return self.mr.input, self.mr.inputpos
+        def get_buffer_and_pos(self):
+            return self.mr.inputbuf, self.mr.inputpos
 
         def skip(self, size):
             self.read(size) # XXX, could avoid taking the slice
