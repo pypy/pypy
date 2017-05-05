@@ -86,6 +86,9 @@ class Buffer(object):
 
     @specialize.ll_and_arg(1)
     def typed_read(self, TP, byte_offset):
+        """
+        Read the value of type TP starting at byte_offset. No bounds checks
+        """
         raise CannotRead
 
 
