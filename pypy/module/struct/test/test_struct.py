@@ -507,3 +507,8 @@ class AppTestFastPath(object):
         buf = self.struct.pack("iii", 0, 42, 43)
         offset = self.struct.calcsize("i")
         assert self.struct.unpack_from("ii", buf, offset) == (42, 43)
+
+    def test_unpack_bytearray(self):
+        buf = self.struct.pack("iii", 0, 42, 43)
+        buf = bytearray(buf)
+        assert self.struct.unpack("iii", buf) == (0, 42, 43)

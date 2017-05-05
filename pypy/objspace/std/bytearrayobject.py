@@ -1251,6 +1251,18 @@ class BytearrayBuffer(Buffer):
     def get_raw_address(self):
         return nonmoving_raw_ptr_for_resizable_list(self.data)
 
+    @specialize.ll_and_arg(1)
+    def typed_read(self, TP, byte_offset):
+        # XXX: this is sub-efficient, because it forces the bytearray to
+        # become non-movable in order to do the raw_load. In theory, it should
+        # be possible to do the same using llop.gc_load_indexed, the same way
+        # we do it for strings. However, we cannot do it because there is no
+        # way to convert self.data from being a high-level list into the ll
+        # equivalent.
+        from rpython.rtyper.lltypesystem.lloperation import llop
+        raw_ptr = self.get_raw_address()
+        return llop.raw_load(TP, raw_ptr, byte_offset)
+
 
 @specialize.argtype(1)
 def _memcmp(selfvalue, buffer, length):
