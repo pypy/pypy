@@ -2071,8 +2071,15 @@ class KeyContainer(W_Root):
 #       annotator.
 class SimpleSort(TimSort):
     def lt(self, a, b):
+        jitdriver1.jit_merge_point(a=a,
+                                   b=b)
         space = self.space
         return space.is_true(space.lt(a, b))
+
+jitdriver1 = jit.JitDriver(name='simple_sort',
+                        greens=[],
+                        reds=['a','b'],
+                        get_printable_location=None)
 
 
 class IntSort(IntBaseTimSort):
