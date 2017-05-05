@@ -95,6 +95,7 @@ class StringBuffer(Buffer):
     _immutable_ = True
 
     def __init__(self, value):
+        assert value  is not None
         self.value = value
         self.readonly = 1
 
