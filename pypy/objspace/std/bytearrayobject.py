@@ -2,18 +2,19 @@
 
 from rpython.rlib.objectmodel import (
     import_from_mixin, newlist_hint, resizelist_hint, specialize)
-from rpython.rlib.buffer import Buffer
 from rpython.rlib.rstring import StringBuilder, ByteListBuilder
 from rpython.rlib.debug import check_list_of_chars, check_nonneg
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
         nonmoving_raw_ptr_for_resizable_list)
 from rpython.rlib import jit
+from rpython.rlib.buffer import Buffer
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.buffer import SimpleView
 from pypy.objspace.std.sliceobject import W_SliceObject, unwrap_start_stop
 from pypy.objspace.std.stringmethods import StringMethods, _get_buffer
 from pypy.objspace.std.stringmethods import _descr_getslice_slowpath
@@ -46,7 +47,7 @@ class W_BytearrayObject(W_Root):
                            ''.join(self._data[self._offset:]))
 
     def buffer_w(self, space, flags):
-        return BytearrayBuffer(self)
+        return SimpleView(BytearrayBuffer(self))
 
     def readbuf_w(self, space):
         return BytearrayBuffer(self, readonly=True)
