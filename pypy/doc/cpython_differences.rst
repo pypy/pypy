@@ -501,7 +501,11 @@ Miscellaneous
   the rest is kept.  If you return an unexpected string from
   ``__hex__()`` you get an exception (or a crash before CPython 2.7.13).
 
-* PyPy3: ``__class__`` attritube assignment between heaptypes and non heaptypes.
+* In PyPy, dictionaries passed as ``**kwargs`` can contain only string keys,
+  even if the called function takes ``**kwargs``. E.g. this code always
+  produces a ``TypeError``, no matter what ``f`` is: ``f(**{1: 2})``.
+
+* PyPy3: ``__class__`` attribute assignment between heaptypes and non heaptypes.
   CPython allows that for module subtypes, but not for e.g. ``int``
   or ``float`` subtypes. Currently PyPy does not support the
   ``__class__`` attribute assignment for any non heaptype subtype.
