@@ -1654,6 +1654,23 @@ class ObjSpace(object):
     def fsencode_or_none_w(self, w_obj):
         return None if self.is_none(w_obj) else self.fsencode_w(w_obj)
 
+    def byte_w(self, w_obj):
+        """
+        Convert an index-like object to an interp-level char
+
+        Used for app-level code like "bytearray(b'abc')[0] = 42".
+        """
+        if self.isinstance_w(w_obj, self.w_bytes):
+            string = self.bytes_w(w_obj)
+            if len(string) != 1:
+                raise oefmt(self.w_ValueError, "string must be of size 1")
+            return string[0]
+        value = self.getindex_w(w_obj, None)
+        if not 0 <= value < 256:
+            # this includes the OverflowError in case the long is too large
+            raise oefmt(self.w_ValueError, "byte must be in range(0, 256)")
+        return chr(value)
+
     def int_w(self, w_obj, allow_conversion=True):
         """
         Unwrap an app-level int object into an interpret-level int.

@@ -27,7 +27,8 @@ class AppTestMemoryView:
         v[0:3] = v[2:5]
         assert data == bytearray(eval("b'23f3fg'"))
         exc = raises(ValueError, "v[2] = 'spam'")
-        assert str(exc.value) == "cannot modify size of memoryview object"
+        assert str(exc.value) in ("cannot modify size of memoryview object",
+                                  "string must be of size 1")
         exc = raises(NotImplementedError, "v[0:2:2] = 'spam'")
         assert str(exc.value) == ""
 
