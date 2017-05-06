@@ -234,6 +234,12 @@ def make_win32_traits(traits):
             rwin32.BOOL,
             save_err=rffi.RFFI_SAVE_LASTERROR)
 
+        CreateHardLink = external(
+            'CreateHardLink' + suffix,
+            [traits.CCHARP, traits.CCHARP, rwin32.LPSECURITY_ATTRIBUTES],
+            rwin32.BOOL,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
+
     return Win32Traits
 
 def make_longlong(high, low):

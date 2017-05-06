@@ -69,6 +69,7 @@ corresponding Unix manual entries for more information on calls."""
         'chmod': 'interp_posix.chmod',
         'rename': 'interp_posix.rename',
         'replace': 'interp_posix.replace',
+        'link': 'interp_posix.link',
         'umask': 'interp_posix.umask',
         '_exit': 'interp_posix._exit',
         'utime': 'interp_posix.utime',
@@ -109,8 +110,6 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['killpg'] = 'interp_posix.killpg'
     if hasattr(os, 'getpid'):
         interpleveldefs['getpid'] = 'interp_posix.getpid'
-    if hasattr(os, 'link'):
-        interpleveldefs['link'] = 'interp_posix.link'
     if hasattr(os, 'symlink'):
         interpleveldefs['symlink'] = 'interp_posix.symlink'
     if hasattr(os, 'readlink'):

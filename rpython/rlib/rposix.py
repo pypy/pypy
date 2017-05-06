@@ -1296,9 +1296,17 @@ c_symlink = external('symlink', [rffi.CCHARP, rffi.CCHARP], rffi.INT,
 @replace_os_function('link')
 @specialize.argtype(0, 1)
 def link(oldpath, newpath):
-    oldpath = _as_bytes0(oldpath)
-    newpath = _as_bytes0(newpath)
-    handle_posix_error('link', c_link(oldpath, newpath))
+    if not _WIN32:
+        oldpath = _as_bytes0(oldpath)
+        newpath = _as_bytes0(newpath)
+        handle_posix_error('link', c_link(oldpath, newpath))
+    else:
+        traits = _preferred_traits(path1)
+        win32traits = make_win32_traits(traits)
+        oldpath = traits.as_str0(oldpath)
+        newpath = traits.as_str0(newpath)
+        if not win32traits.CreateHardLink(newpath, oldpath, None):
+            raise rwin32.lastSavedWindowsError()
 
 @replace_os_function('symlink')
 @specialize.argtype(0, 1)
