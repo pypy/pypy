@@ -50,7 +50,8 @@ class AppTestCompile:
         co1 = compile('print 1', '<string>', 'exec', _ast.PyCF_ONLY_AST)
         raises(TypeError, compile, co1, '<ast>', 'eval')
         co2 = compile('1+1', '<string>', 'eval', _ast.PyCF_ONLY_AST)
-        compile(co2, '<ast>', 'eval')
+        tree = compile(co2, '<ast>', 'eval')
+        assert compile(co2, '<ast>', 'eval', _ast.PyCF_ONLY_AST) is co2
 
     def test_leading_newlines(self):
         src = """

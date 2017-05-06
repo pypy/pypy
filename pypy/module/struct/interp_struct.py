@@ -115,15 +115,16 @@ fmt, starting at offset. Requires len(buffer[offset:]) >= calcsize(fmt)."""
 class W_Struct(W_Root):
     _immutable_fields_ = ["format", "size"]
 
-    def __init__(self, space, format):
-        self.format = format
-        self.size = _calcsize(space, format)
+    format = ""
+    size = -1
+
+    def descr__new__(space, w_subtype, __args__):
+        return space.allocate_instance(W_Struct, w_subtype)
 
     @unwrap_spec(format='text')
-    def descr__new__(space, w_subtype, format):
-        self = space.allocate_instance(W_Struct, w_subtype)
-        W_Struct.__init__(self, space, format)
-        return self
+    def descr__init__(self, space, format):
+        self.format = format
+        self.size = _calcsize(space, format)
 
     def descr_pack(self, space, args_w):
         return pack(space, jit.promote_string(self.format), args_w)
@@ -141,6 +142,7 @@ class W_Struct(W_Root):
 
 W_Struct.typedef = TypeDef("Struct",
     __new__=interp2app(W_Struct.descr__new__.im_func),
+    __init__=interp2app(W_Struct.descr__init__),
     format=interp_attrproperty("format", cls=W_Struct, wrapfn="newbytes"),
     size=interp_attrproperty("size", cls=W_Struct, wrapfn="newint"),
 
