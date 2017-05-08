@@ -502,8 +502,10 @@ Miscellaneous
   ``__hex__()`` you get an exception (or a crash before CPython 2.7.13).
 
 * In PyPy, dictionaries passed as ``**kwargs`` can contain only string keys,
-  even if the called function takes ``**kwargs``. E.g. this code always
-  produces a ``TypeError``, no matter what ``f`` is: ``f(**{1: 2})``.
+  even for ``dict()`` and ``dict.update()``.  CPython 2.7 allows non-string
+  keys in these two cases (and only there, as far as we know).  E.g. this
+  code produces a ``TypeError``, on CPython 3.x as well as on any PyPy:
+  ``dict(**{1: 2})``.
 
 * PyPy3: ``__class__`` attribute assignment between heaptypes and non heaptypes.
   CPython allows that for module subtypes, but not for e.g. ``int``
