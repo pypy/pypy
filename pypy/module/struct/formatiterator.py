@@ -140,13 +140,20 @@ class UnpackFormatIterator(FormatIterator):
         if self.pos != self.length:
             raise StructError("unpack str size too long for format")
 
-    def read(self, count):
+    def can_advance(self, count):
         end = self.pos + count
-        if end > self.length:
+        return end <= self.length
+
+    def advance(self, count):
+        if not self.can_advance(count):
             raise StructError("unpack str size too short for format")
-        s = self.buf.getslice(self.pos, end, 1, count)
-        self.pos = end
-        return s
+        self.pos += count
+
+    def read(self, count):
+        curpos = self.pos
+        end = curpos + count
+        self.advance(count) # raise if we are out of bound
+        return self.buf.getslice(curpos, end, 1, count)
 
     @specialize.argtype(1)
     def appendobj(self, value):

@@ -16,14 +16,20 @@ class MasterReader(object):
         self.length = len(s)
         self.inputpos = 0
 
-    def read(self, count):
+    def can_advance(self, count):
         end = self.inputpos + count
-        if end > self.length:
+        return end <= self.length
+
+    def advance(self, count):
+        if not self.can_advance(count):
             raise StructError("unpack str size too short for format")
-        size = end - self.inputpos
-        s = self.inputbuf.getslice(self.inputpos, end, 1, size)
-        self.inputpos = end
-        return s
+        self.inputpos += count
+
+    def read(self, count):
+        curpos = self.inputpos
+        end = curpos + count
+        self.advance(count) # raise if we are out of bound
+        return self.inputbuf.getslice(curpos, end, 1, count)
 
     def align(self, mask):
         self.inputpos = (self.inputpos + mask) & ~mask
@@ -46,8 +52,11 @@ def reader_for_pos(pos):
         def get_buffer_and_pos(self):
             return self.mr.inputbuf, self.mr.inputpos
 
-        def skip(self, size):
-            self.read(size) # XXX, could avoid taking the slice
+        def can_advance(self, size):
+            return self.mr.can_advance(size)
+
+        def advance(self, size):
+            self.mr.advance(size)
     ReaderForPos.__name__ = 'ReaderForPos%d' % pos
     return ReaderForPos
 
