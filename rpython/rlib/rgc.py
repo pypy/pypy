@@ -1263,6 +1263,10 @@ def ll_for_resizable_list(lst):
     assert isinstance(lst, _ResizableListSupportingRawPtr)
     return lst._get_ll_list()
 
+@specialize.memo()
+def get_LIST_OF_CHAR():
+    return _ResizableListSupportingRawPtr._get_lltype()
+
 def _check_resizable_list_of_chars(s_list):
     from rpython.annotator import model as annmodel
     from rpython.rlib import debug

@@ -7,7 +7,8 @@ from rpython.rlib.rstring import StringBuilder, ByteListBuilder
 from rpython.rlib.debug import check_list_of_chars
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
-        nonmoving_raw_ptr_for_resizable_list)
+                              nonmoving_raw_ptr_for_resizable_list,
+                              ll_for_resizable_list)
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -1253,15 +1254,17 @@ class BytearrayBuffer(Buffer):
 
     @specialize.ll_and_arg(1)
     def typed_read(self, TP, byte_offset):
-        # XXX: this is sub-efficient, because it forces the bytearray to
-        # become non-movable in order to do the raw_load. In theory, it should
-        # be possible to do the same using llop.gc_load_indexed, the same way
-        # we do it for strings. However, we cannot do it because there is no
-        # way to convert self.data from being a high-level list into the ll
-        # equivalent.
+        from rpython.rtyper.lltypesystem import lltype, llmemory
         from rpython.rtyper.lltypesystem.lloperation import llop
-        raw_ptr = self.get_raw_address()
-        return llop.raw_load(TP, raw_ptr, byte_offset)
+        from rpython.rlib.rgc import get_LIST_OF_CHAR
+        LIST = get_LIST_OF_CHAR()
+        ll_data = ll_for_resizable_list(self.data)
+        ll_items = ll_data.items
+        base_ofs = llmemory.itemoffsetof(LIST.items.TO, 0)
+        scale_factor = llmemory.sizeof(lltype.Char)
+        return llop.gc_load_indexed(TP, ll_items, byte_offset,
+                                    scale_factor, base_ofs)
+
 
 
 @specialize.argtype(1)
