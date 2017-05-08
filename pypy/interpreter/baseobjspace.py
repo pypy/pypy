@@ -1504,10 +1504,15 @@ class ObjSpace(object):
     def readbuf_w(self, w_obj):
         # Old buffer interface, returns a readonly buffer (PyObject_AsReadBuffer)
         try:
+            return w_obj.buffer_w(self, self.BUF_SIMPLE).as_readbuf()
+        except OperationError:
+            self._getarg_error("convertible to a buffer", w_obj)
+        except BufferInterfaceNotFound:
+            pass
+        try:
             return w_obj.readbuf_w(self)
         except BufferInterfaceNotFound:
-            raise oefmt(self.w_TypeError,
-                        "expected a readable buffer object")
+            self._getarg_error("convertible to a buffer", w_obj)
 
     def writebuf_w(self, w_obj):
         # Old buffer interface, returns a writeable buffer (PyObject_AsWriteBuffer)
@@ -1549,12 +1554,10 @@ class ObjSpace(object):
             if self.isinstance_w(w_obj, self.w_unicode):
                 return self.str(w_obj).readbuf_w(self)
             try:
-                return w_obj.buffer_w(self, 0)
-            except BufferInterfaceNotFound:
-                pass
-            try:
-                return w_obj.readbuf_w(self)
-            except BufferInterfaceNotFound:
+                return self.readbuf_w(w_obj)
+            except OperationError as e:
+                if not e.match(self, self.w_TypeError):
+                    raise
                 self._getarg_error("string or buffer", w_obj)
         elif code == 's#':
             if self.isinstance_w(w_obj, self.w_bytes):
