@@ -505,7 +505,8 @@ Miscellaneous
   even for ``dict()`` and ``dict.update()``.  CPython 2.7 allows non-string
   keys in these two cases (and only there, as far as we know).  E.g. this
   code produces a ``TypeError``, on CPython 3.x as well as on any PyPy:
-  ``dict(**{1: 2})``.
+  ``dict(**{1: 2})``.  (Note that ``dict(**d1)`` is equivalent to
+  ``dict(d1)``.)
 
 * PyPy3: ``__class__`` attribute assignment between heaptypes and non heaptypes.
   CPython allows that for module subtypes, but not for e.g. ``int``
