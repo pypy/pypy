@@ -1226,7 +1226,7 @@ class _ResizableListSupportingRawPtr(list):
         list.sort(lst, *args, **kwds)
         self.__from_list(lst)
 
-    def _nonmoving_raw_ptr_for_resizable_list(self):
+    def _get_ll_list(self):
         if self._ll_list is None:
             existing_items = list(self)
             from rpython.rtyper.lltypesystem import lltype, rffi
@@ -1237,8 +1237,11 @@ class _ResizableListSupportingRawPtr(list):
             self._ll_list.items = lltype.malloc(LIST.items.TO, n)
             self.__from_list(existing_items)
             assert self._ll_list is not None
-        return ll_nonmovable_raw_ptr_for_resizable_list(self._ll_list)
-        #return self._raw_items
+        return self._ll_list
+
+    def _nonmoving_raw_ptr_for_resizable_list(self):
+        ll_list = self._get_ll_list()
+        return ll_nonmovable_raw_ptr_for_resizable_list(ll_list)
 
 def resizable_list_supporting_raw_ptr(lst):
     return _ResizableListSupportingRawPtr(lst)
@@ -1247,6 +1250,18 @@ def nonmoving_raw_ptr_for_resizable_list(lst):
     assert isinstance(lst, _ResizableListSupportingRawPtr)
     return lst._nonmoving_raw_ptr_for_resizable_list()
 
+def ll_for_resizable_list(lst):
+    """
+    This is the equivalent of llstr(), but for lists. It can be called only if
+    the list has been created by calling resizable_list_supporting_raw_ptr().
+
+    In theory, all the operations on lst are immediately visible also on
+    ll_list. However, support for that is incomplete in
+    _ResizableListSupportingRawPtr and as such, the pointer becomes invalid as
+    soon as you call a resizing operation on lst.
+    """
+    assert isinstance(lst, _ResizableListSupportingRawPtr)
+    return lst._get_ll_list()
 
 def _check_resizable_list_of_chars(s_list):
     from rpython.annotator import model as annmodel
@@ -1288,6 +1303,23 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()   # ignoring MemoryError
         return hop.gendirectcall(ll_nonmovable_raw_ptr_for_resizable_list,
                                  v_list)
+
+class Entry(ExtRegistryEntry):
+    _about_ = ll_for_resizable_list
+
+    def compute_result_annotation(self, s_list):
+        from rpython.rtyper.llannotation import lltype_to_annotation
+        _check_resizable_list_of_chars(s_list)
+        LIST = _ResizableListSupportingRawPtr._get_lltype()
+        return lltype_to_annotation(lltype.Ptr(LIST))
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        assert hop.args_r[0].lowleveltype == hop.r_result.lowleveltype
+        v_ll_list, = hop.inputargs(*hop.args_r)
+        return hop.genop('same_as', [v_ll_list],
+                         resulttype = hop.r_result.lowleveltype)
+
 
 @jit.dont_look_inside
 def ll_nonmovable_raw_ptr_for_resizable_list(ll_list):
