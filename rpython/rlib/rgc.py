@@ -1051,17 +1051,25 @@ class _ResizableListSupportingRawPtr(list):
     rgc.nonmoving_raw_ptr_for_resizable_list() might be
     used if needed.  For now, only supports lists of chars.
     """
-    __slots__ = ('_raw_items',)   # either None or a rffi.CCHARP
+    __slots__ = ('_ll_list',)   # either None or a struct of TYPE=_get_lltype()
+
+    _LLTYPE = None
+    @classmethod
+    def _get_lltype(cls):
+        from rpython.rtyper.lltypesystem.rlist import make_LIST
+        if cls._LLTYPE is None:
+            cls._LLTYPE = make_LIST(lltype.Char)
+        return cls._LLTYPE
 
     def __init__(self, lst):
-        self._raw_items = None
+        self._ll_list = None
         self.__from_list(lst)
 
     def __resize(self):
         """Called before an operation changes the size of the list"""
-        if self._raw_items is not None:
+        if self._ll_list is not None:
             list.__init__(self, self.__as_list())
-            self._raw_items = None
+            self._ll_list = None
 
     def __from_list(self, lst):
         """Initialize the list from a copy of the list 'lst'."""
@@ -1072,39 +1080,39 @@ class _ResizableListSupportingRawPtr(list):
             return
         if len(self) != len(lst):
             self.__resize()
-        if self._raw_items is None:
+        if self._ll_list is None:
             list.__init__(self, lst)
         else:
-            assert len(self) == self._raw_items._obj.getlength() == len(lst)
+            assert len(self) == self._ll_list.length == len(lst)
             for i in range(len(self)):
-                self._raw_items[i] = lst[i]
+                self._ll_list.items[i] = lst[i]
 
     def __as_list(self):
         """Return a list (the same or a different one) which contains the
         items in the regular way."""
-        if self._raw_items is None:
+        if self._ll_list is None:
             return self
-        length = self._raw_items._obj.getlength()
+        length = self._ll_list.length
         assert length == len(self)
-        return [self._raw_items[i] for i in range(length)]
+        return [self._ll_list.items[i] for i in range(length)]
 
     def __getitem__(self, index):
-        if self._raw_items is None:
+        if self._ll_list is None:
             return list.__getitem__(self, index)
         if index < 0:
             index += len(self)
         if not (0 <= index < len(self)):
             raise IndexError
-        return self._raw_items[index]
+        return self._ll_list.items[index]
 
     def __setitem__(self, index, new):
-        if self._raw_items is None:
+        if self._ll_list is None:
             return list.__setitem__(self, index, new)
         if index < 0:
             index += len(self)
         if not (0 <= index < len(self)):
             raise IndexError
-        self._raw_items[index] = new
+        self._ll_list.items[index] = new
 
     def __delitem__(self, index):
         self.__resize()
@@ -1219,14 +1227,18 @@ class _ResizableListSupportingRawPtr(list):
         self.__from_list(lst)
 
     def _nonmoving_raw_ptr_for_resizable_list(self):
-        if self._raw_items is None:
+        if self._ll_list is None:
             existing_items = list(self)
             from rpython.rtyper.lltypesystem import lltype, rffi
-            self._raw_items = lltype.malloc(rffi.CCHARP.TO, len(self),
-                                           flavor='raw', immortal=True)
+            LIST = self._get_lltype()
+            n = len(self)
+            self._ll_list = lltype.malloc(LIST, immortal=True)
+            self._ll_list.length = n
+            self._ll_list.items = lltype.malloc(LIST.items.TO, n)
             self.__from_list(existing_items)
-            assert self._raw_items is not None
-        return self._raw_items
+            assert self._ll_list is not None
+        return ll_nonmovable_raw_ptr_for_resizable_list(self._ll_list)
+        #return self._raw_items
 
 def resizable_list_supporting_raw_ptr(lst):
     return _ResizableListSupportingRawPtr(lst)
@@ -1256,6 +1268,9 @@ class Entry(ExtRegistryEntry):
         return s_list
 
     def specialize_call(self, hop):
+        if hop.args_r[0].LIST != _ResizableListSupportingRawPtr._get_lltype():
+            raise ValueError('Resizable list of chars does not have the '
+                             'expected low-level type')
         hop.exception_cannot_occur()
         return hop.inputarg(hop.args_r[0], 0)
 

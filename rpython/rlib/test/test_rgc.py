@@ -351,14 +351,14 @@ def test_ListSupportingRawPtr_direct():
 
     p = lst
     check_nonresizing()
-    assert lst._raw_items is None
-    lst._nonmoving_raw_ptr_for_resizable_list()
-    p = lst._raw_items
+    assert lst._ll_list is None
+    p = lst._nonmoving_raw_ptr_for_resizable_list()
+    ll_list = lst._ll_list
     check_nonresizing()
-    assert lst._raw_items == p
-    assert p[0] == 'a'
-    assert p[1] == 'b'
-    assert p[2] == 'c'
+    assert lst._ll_list == ll_list
+    assert p[0] == ll_list.items[0] == 'a'
+    assert p[1] == ll_list.items[1] == 'b'
+    assert p[2] == ll_list.items[2] == 'c'
 
     def do_resizing_operation():
         del lst[1]
@@ -397,7 +397,7 @@ def test_ListSupportingRawPtr_direct():
     assert lst == ['a', 'b', 'c']
     for expect in do_resizing_operation():
         assert lst == expect
-        assert lst._raw_items is None
+        assert lst._ll_list is None
         lst = ['a', 'b', 'c']
         lst = rgc.resizable_list_supporting_raw_ptr(lst)
         lst._nonmoving_raw_ptr_for_resizable_list()
