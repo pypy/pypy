@@ -9,7 +9,9 @@ from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import r_uint, SHRT_MIN, SHRT_MAX, \
     INT_MIN, INT_MAX, UINT_MAX, USHRT_MAX
+from rpython.rlib.buffer import StringBuffer
 
+from pypy.interpreter.buffer import BufferInterfaceNotFound
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
     make_finalizer_queue)
 from pypy.interpreter.error import OperationError, new_exception_class, oefmt
@@ -394,9 +396,6 @@ class SpaceCache(Cache):
         pass
 
 class DescrMismatch(Exception):
-    pass
-
-class BufferInterfaceNotFound(Exception):
     pass
 
 @specialize.memo()
@@ -1513,10 +1512,15 @@ class ObjSpace(object):
     def writebuf_w(self, w_obj):
         # Old buffer interface, returns a writeable buffer (PyObject_AsWriteBuffer)
         try:
+            return w_obj.buffer_w(self, self.BUF_WRITABLE).as_writebuf()
+        except OperationError:
+            self._getarg_error("read-write buffer", w_obj)
+        except BufferInterfaceNotFound:
+            pass
+        try:
             return w_obj.writebuf_w(self)
         except BufferInterfaceNotFound:
-            raise oefmt(self.w_TypeError,
-                        "expected a writeable buffer object")
+            self._getarg_error("read-write buffer", w_obj)
 
     def charbuf_w(self, w_obj):
         # Old buffer interface, returns a character buffer (PyObject_AsCharBuffer)
@@ -1562,16 +1566,7 @@ class ObjSpace(object):
             except BufferInterfaceNotFound:
                 self._getarg_error("string or read-only buffer", w_obj)
         elif code == 'w*':
-            try:
-                return w_obj.buffer_w(self, self.BUF_WRITABLE)
-            except OperationError:
-                self._getarg_error("read-write buffer", w_obj)
-            except BufferInterfaceNotFound:
-                pass
-            try:
-                return w_obj.writebuf_w(self)
-            except BufferInterfaceNotFound:
-                self._getarg_error("read-write buffer", w_obj)
+            return self.writebuf_w(w_obj)
         elif code == 't#':
             try:
                 return w_obj.charbuf_w(self)
