@@ -29,14 +29,6 @@ CPython 2.7 compatible versions
    whatsnew-2.0.0-beta1.rst
    whatsnew-1.9.rst
 
-CPython 3.5 compatible versions
--------------------------------
-
-.. toctree::
-
-    whatsnew-pypy3-head.rst
-    whatsnew-pypy3-5.7.0.rst
-
 CPython 3.3 compatible versions
 -------------------------------
 
