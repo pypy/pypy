@@ -1051,15 +1051,7 @@ class _ResizableListSupportingRawPtr(list):
     rgc.nonmoving_raw_ptr_for_resizable_list() might be
     used if needed.  For now, only supports lists of chars.
     """
-    __slots__ = ('_ll_list',)   # either None or a struct of TYPE=_get_lltype()
-
-    _LLTYPE = None
-    @classmethod
-    def _get_lltype(cls):
-        from rpython.rtyper.lltypesystem.rlist import make_LIST
-        if cls._LLTYPE is None:
-            cls._LLTYPE = make_LIST(lltype.Char)
-        return cls._LLTYPE
+    __slots__ = ('_ll_list',)   # either None or a struct of TYPE=LIST_OF(Char)
 
     def __init__(self, lst):
         self._ll_list = None
@@ -1227,10 +1219,11 @@ class _ResizableListSupportingRawPtr(list):
         self.__from_list(lst)
 
     def _get_ll_list(self):
+        from rpython.rtyper.lltypesystem import rffi
+        from rpython.rtyper.lltypesystem.rlist import LIST_OF
         if self._ll_list is None:
+            LIST = LIST_OF(lltype.Char)
             existing_items = list(self)
-            from rpython.rtyper.lltypesystem import lltype, rffi
-            LIST = self._get_lltype()
             n = len(self)
             self._ll_list = lltype.malloc(LIST, immortal=True)
             self._ll_list.length = n
@@ -1263,10 +1256,6 @@ def ll_for_resizable_list(lst):
     assert isinstance(lst, _ResizableListSupportingRawPtr)
     return lst._get_ll_list()
 
-@specialize.memo()
-def get_LIST_OF_CHAR():
-    return _ResizableListSupportingRawPtr._get_lltype()
-
 def _check_resizable_list_of_chars(s_list):
     from rpython.annotator import model as annmodel
     from rpython.rlib import debug
@@ -1287,7 +1276,8 @@ class Entry(ExtRegistryEntry):
         return s_list
 
     def specialize_call(self, hop):
-        if hop.args_r[0].LIST != _ResizableListSupportingRawPtr._get_lltype():
+        from rpython.rtyper.lltypesystem.rlist import LIST_OF
+        if hop.args_r[0].LIST != LIST_OF(lltype.Char):
             raise ValueError('Resizable list of chars does not have the '
                              'expected low-level type')
         hop.exception_cannot_occur()
@@ -1312,9 +1302,10 @@ class Entry(ExtRegistryEntry):
     _about_ = ll_for_resizable_list
 
     def compute_result_annotation(self, s_list):
+        from rpython.rtyper.lltypesystem.rlist import LIST_OF
         from rpython.rtyper.llannotation import lltype_to_annotation
         _check_resizable_list_of_chars(s_list)
-        LIST = _ResizableListSupportingRawPtr._get_lltype()
+        LIST = LIST_OF(lltype.Char)
         return lltype_to_annotation(lltype.Ptr(LIST))
 
     def specialize_call(self, hop):

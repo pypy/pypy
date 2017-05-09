@@ -30,16 +30,23 @@ from rpython.tool.pairtype import pairtype, pair
 #    item_t list_items[]
 #
 
-def make_LIST(ITEMTYPE):
+def LIST_OF(ITEMTYPE, cache={}):
     """
     Return the low-level type for a resizable list of ITEMTYPE
     """
+    try:
+        return cache[ITEMTYPE]
+    except KeyError:
+        pass
+    
     from rpython.rtyper.lltypesystem.rstr import CharRepr
     assert ITEMTYPE is Char, 'only Char is supported for now'
     # XXX: maybe we should think of a better way to build the type?
     list_of_char_repr = ListRepr(None, CharRepr())
     list_of_char_repr._setup_repr()
-    return list_of_char_repr.LIST
+    LIST = list_of_char_repr.LIST
+    cache[ITEMTYPE] = LIST
+    return LIST
 
 
 class BaseListRepr(AbstractBaseListRepr):

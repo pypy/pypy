@@ -1256,10 +1256,9 @@ class BytearrayBuffer(Buffer):
     def typed_read(self, TP, byte_offset):
         from rpython.rtyper.lltypesystem import lltype, llmemory
         from rpython.rtyper.lltypesystem.lloperation import llop
-        from rpython.rlib.rgc import get_LIST_OF_CHAR
-        LIST = get_LIST_OF_CHAR()
         ll_data = ll_for_resizable_list(self.data)
         ll_items = ll_data.items
+        LIST = lltype.typeOf(ll_data).TO # rlist.LIST_OF(lltype.Char)
         base_ofs = llmemory.itemoffsetof(LIST.items.TO, 0)
         scale_factor = llmemory.sizeof(lltype.Char)
         return llop.gc_load_indexed(TP, ll_items, byte_offset,
