@@ -480,7 +480,7 @@ class AppTestStructBuffer(object):
 
 
 class AppTestFastPath(object):
-    spaceconfig = dict(usemodules=['struct', '__pypy__'])
+    spaceconfig = dict(usemodules=['array', 'struct', '__pypy__'])
 
     def setup_class(cls):
         from rpython.rlib.rstruct import standardfmttable
@@ -509,6 +509,12 @@ class AppTestFastPath(object):
         assert self.struct.unpack_from("ii", buf, offset) == (42, 43)
 
     def test_unpack_bytearray(self):
-        buf = self.struct.pack("iii", 0, 42, 43)
-        buf = bytearray(buf)
+        data = self.struct.pack("iii", 0, 42, 43)
+        buf = bytearray(data)
+        assert self.struct.unpack("iii", buf) == (0, 42, 43)
+
+    def test_unpack_array(self):
+        import array
+        data = self.struct.pack("iii", 0, 42, 43)
+        buf = array.array('c', data)
         assert self.struct.unpack("iii", buf) == (0, 42, 43)
