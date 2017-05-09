@@ -12,7 +12,8 @@ from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from rpython.rlib.rstruct import ieee
 from rpython.rlib.rstruct.error import StructError, StructOverflowError
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.strstorage import str_storage_getitem
+from rpython.rlib.buffer import StringBuffer
+#from rpython.rlib.strstorage import str_storage_getitem
 from rpython.rlib import rarithmetic
 from rpython.rlib.buffer import CannotRead
 from rpython.rtyper.lltypesystem import rffi
@@ -210,9 +211,12 @@ def make_ieee_unpacker(TYPE):
             # fast path
             val = unpack_fastpath(TYPE)(fmtiter)
         except CannotRead:
-            # slow path, take the slice
+            # slow path: we should arrive here only if we could not unpack
+            # because of alignment issues. So we copy the slice into a new
+            # string, which is guaranteed to be properly aligned, and read the
+            # float/double from there
             input = fmtiter.read(size)
-            val = str_storage_getitem(TYPE, input, 0)
+            val = StringBuffer(input).typed_read(TYPE, 0)
         fmtiter.appendobj(float(val))
     return unpack_ieee
 
