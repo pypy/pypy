@@ -2,7 +2,7 @@ from pypy.interpreter.error import oefmt
 from rpython.rlib import jit, rgc
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.listsort import make_timsort_class
-from rpython.rlib.buffer import Buffer
+from rpython.rlib.buffer import RawBuffer
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage, \
@@ -702,7 +702,7 @@ class VoidBoxStorage(BaseConcreteArray):
         free_raw_storage(self.storage)
 
 
-class ArrayBuffer(Buffer):
+class ArrayBuffer(RawBuffer):
     _immutable_ = True
 
     def __init__(self, impl, readonly):

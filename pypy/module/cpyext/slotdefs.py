@@ -21,7 +21,7 @@ from pypy.module.cpyext.state import State
 from pypy.module.cpyext import userslot
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.argument import Arguments
-from rpython.rlib.buffer import Buffer
+from rpython.rlib.buffer import RawBuffer
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize, not_rpython
 from rpython.tool.sourcetools import func_renamer
@@ -322,7 +322,7 @@ def wrap_hashfunc(space, w_self, w_args, func):
         space.fromcache(State).check_and_raise_exception(always=True)
     return space.newint(res)
 
-class CPyBuffer(Buffer):
+class CPyBuffer(RawBuffer):
     # Similar to Py_buffer
     _immutable_ = True
 
