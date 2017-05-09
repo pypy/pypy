@@ -101,6 +101,7 @@ class RawBuffer(Buffer):
     base class if get_raw_address() is potentially costly, like for example if
     you call rgc.nonmoving_raw_ptr_for_resizable_list
     """
+    _immutable_ = True
 
     @specialize.ll_and_arg(1)
     def typed_read(self, TP, byte_offset):
