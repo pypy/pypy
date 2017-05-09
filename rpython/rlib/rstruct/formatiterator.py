@@ -116,6 +116,7 @@ class FmtDesc(object):
 def table2desclist(table):
     items = table.items()
     items.sort()
+    import pdb;pdb.set_trace()
     lst = [FmtDesc(key, attrs) for key, attrs in items]
     return unrolling_iterable(lst)
 
