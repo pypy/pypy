@@ -92,6 +92,24 @@ class Buffer(object):
         raise CannotRead
 
 
+class RawBuffer(Buffer):
+    """
+    A buffer which is baked by a raw, non-movable memory area. It implementes
+    typed_read in terms of get_raw_address()
+
+    NOTE: this assumes that get_raw_address() is cheap. Do not use this as a
+    base class if get_raw_address() is potentially costly, like for example if
+    you call rgc.nonmoving_raw_ptr_for_resizable_list
+    """
+
+    @specialize.ll_and_arg(1)
+    def typed_read(self, TP, byte_offset):
+        """
+        Read the value of type TP starting at byte_offset. No bounds checks
+        """
+        ptr = self.get_raw_address()
+        return llop.raw_load(TP, ptr, byte_offset)
+
 
 class StringBuffer(Buffer):
     _attrs_ = ['readonly', 'value']

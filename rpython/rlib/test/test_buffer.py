@@ -1,10 +1,25 @@
 import struct
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import r_singlefloat
-from rpython.rlib.buffer import StringBuffer, SubBuffer, Buffer
+from rpython.rlib.buffer import StringBuffer, SubBuffer, Buffer, RawBuffer
 from rpython.annotator.annrpython import RPythonAnnotator
 from rpython.annotator.model import SomeInteger
 from rpython.rtyper.test.tool import BaseRtypingTest
+
+class MyRawBuffer(RawBuffer):
+
+    def __init__(self, data):
+        self._buf = lltype.malloc(rffi.CCHARP.TO, len(data), flavor='raw')
+        for i, ch in enumerate(data):
+            self._buf[i] = ch
+
+    def get_raw_address(self):
+        return self._buf
+
+    def __del__(self):
+        lltype.free(self._buf, flavor='raw')
+        self._buf = None
+
 
 def test_string_buffer():
     buf = StringBuffer('hello world')
@@ -95,6 +110,14 @@ class TestSubBufferTypedReadDirect(BaseTypedReadTest):
         buf = StringBuffer('xx' + data)
         subbuf = SubBuffer(buf, 2, len(data))
         return subbuf.typed_read(TYPE, offset)
+
+
+class TestRawBufferTypedReadDirect(BaseTypedReadTest):
+
+    def read(self, TYPE, data, offset):
+        buf = MyRawBuffer(data)
+        return buf.typed_read(TYPE, offset)
+    
 
 
 class TestCompiled(BaseTypedReadTest):
