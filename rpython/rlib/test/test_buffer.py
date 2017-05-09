@@ -8,13 +8,18 @@ from rpython.rtyper.test.tool import BaseRtypingTest
 
 class MyRawBuffer(RawBuffer):
 
-    def __init__(self, data):
-        self._buf = lltype.malloc(rffi.CCHARP.TO, len(data), flavor='raw')
+    def __init__(self, data, readonly):
+        self.readonly = readonly
+        self._n = len(data)
+        self._buf = lltype.malloc(rffi.CCHARP.TO, self._n, flavor='raw')
         for i, ch in enumerate(data):
             self._buf[i] = ch
 
     def get_raw_address(self):
         return self._buf
+
+    def as_str(self):
+        return rffi.charpsize2str(self._buf, self._n)
 
     def __del__(self):
         lltype.free(self._buf, flavor='raw')
@@ -119,6 +124,14 @@ class TestRawBufferTypedReadDirect(BaseTypedReadTest):
         return buf.typed_read(TYPE, offset)
     
 
+class TestRawBufferTypedWrite(object):
+
+    def test_typed_write(self):
+        buf = MyRawBuffer('\xff' * 8, readonly=False)
+        buf.typed_write(rffi.USHORT, 0, 0xABCD)
+        assert buf.as_str() == '\xcd\xab\xff\xff\xff\xff\xff\xff'
+        assert buf.typed_read(rffi.USHORT, 0) == 0xABCD
+    
 
 class TestCompiled(BaseTypedReadTest):
     cache = {}

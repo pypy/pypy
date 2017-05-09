@@ -18,6 +18,12 @@ class CannotRead(Exception):
     specific type of buffer, or because of alignment issues.
     """
 
+class CannotWrite(Exception):
+    """
+    Raised by Buffer.typed_write in case it is not possible to accomplish the
+    request
+    """
+
 class Buffer(object):
     """Abstract base class for buffers."""
     _attrs_ = ['readonly']
@@ -91,6 +97,13 @@ class Buffer(object):
         """
         raise CannotRead
 
+    @specialize.ll_and_arg(1)
+    def typed_write(self, TP, byte_offset, value):
+        """
+        Write the value of type TP at byte_offset. No bounds checks
+        """
+        raise CannotWrite
+
 
 class RawBuffer(Buffer):
     """
@@ -110,6 +123,17 @@ class RawBuffer(Buffer):
         """
         ptr = self.get_raw_address()
         return llop.raw_load(TP, ptr, byte_offset)
+
+    @specialize.ll_and_arg(1)
+    def typed_write(self, TP, byte_offset, value):
+        """
+        Write the value of type TP at byte_offset. No bounds checks
+        """
+        if self.readonly:
+            raise CannotWrite
+        ptr = self.get_raw_address()
+        value = lltype.cast_primitive(TP, value)
+        return llop.raw_store(lltype.Void, ptr, byte_offset, value)
 
 
 class StringBuffer(Buffer):
