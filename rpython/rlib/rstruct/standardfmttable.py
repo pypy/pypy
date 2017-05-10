@@ -21,7 +21,11 @@ native_is_bigendian = struct.pack("=i", 1) == struct.pack(">i", 1)
 native_is_ieee754 = float.__getformat__('double').startswith('IEEE')
 
 def pack_pad(fmtiter, count):
-    fmtiter.result.append_multiple_char('\x00', count)
+    if fmtiter.needs_zeros:
+        pos = fmtiter.pos
+        for i in range(count):
+            fmtiter.result.setitem(pos+i, '\x00')
+    fmtiter.advance(count)
 
 def pack_char(fmtiter):
     string = fmtiter.accept_str_arg()

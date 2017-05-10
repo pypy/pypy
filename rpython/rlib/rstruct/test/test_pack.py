@@ -88,10 +88,8 @@ class BaseTestPack(object):
         self.check('?', False)
 
     def test_pack_pad(self):
-        bigendian = self.endianess == '>'
-        fmtiter = FakeFormatIter(bigendian, None)
-        standardfmttable.pack_pad(fmtiter, 4)
-        s = fmtiter.result.build()
+        s = self.mypack_fn(standardfmttable.pack_pad,
+                           arg=4, value=None, size=4)
         assert s == '\x00'*4
 
     def test_pack_string(self):
