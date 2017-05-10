@@ -60,6 +60,30 @@ class BaseTestPack(object):
         self.check('f', 123.456)
         self.check('d', 123.456789)
 
+    def test_pack_char(self):
+        self.check('c', 'a')
+
+    def test_pack_pad(self):
+        bigendian = self.endianess == '>'
+        fmtiter = FakeFormatIter(bigendian, None)
+        standardfmttable.pack_pad(fmtiter, 4)
+        s = fmtiter.result.build()
+        assert s == '\x00'*4
+
+    def test_pack_string(self):
+        bigendian = self.endianess == '>'
+        fmtiter = FakeFormatIter(bigendian, 'hello')
+        standardfmttable.pack_string(fmtiter, 8)
+        s = fmtiter.result.build()
+        assert s == 'hello\x00\x00\x00'
+
+    def test_pack_pascal(self):
+        bigendian = self.endianess == '>'
+        fmtiter = FakeFormatIter(bigendian, 'hello')
+        standardfmttable.pack_pascal(fmtiter, 8)
+        s = fmtiter.result.build()
+        assert s == '\x05hello\x00\x00'
+
 
 class TestPackLittleEndian(BaseTestPack):
     endianess = '<'
