@@ -28,3 +28,15 @@ def debug_print_once(space, category, args_w):
 @jit.dont_look_inside
 def debug_flush(space):
     debug.debug_flush()
+
+class Cache(object):
+    def __init__(self, space):
+        self.w_debug_file = None
+
+def set_str_debug_file(space, w_debug_file):
+    if space.is_none(w_debug_file):
+        w_debug_file = None
+    space.fromcache(Cache).w_debug_file = w_debug_file
+
+def get_str_debug_file(space):
+    return space.fromcache(Cache).w_debug_file

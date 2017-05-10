@@ -98,6 +98,7 @@ class Module(MixedModule):
         'decode_long'               : 'interp_magic.decode_long',
         '_promote'                   : 'interp_magic._promote',
         'stack_almost_full'         : 'interp_magic.stack_almost_full',
+        'set_str_debug_file'        : 'interp_debug.set_str_debug_file',
     }
     if sys.platform == 'win32':
         interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'

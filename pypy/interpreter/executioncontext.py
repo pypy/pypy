@@ -153,6 +153,7 @@ class ExecutionContext(object):
         Like bytecode_trace() but doesn't invoke any other events besides the
         trace function.
         """
+        frame._frame_counter += 1
         if (frame.get_w_f_trace() is None or self.is_tracing or
             self.gettrace() is None):
             return

@@ -20,7 +20,7 @@ class StringMethods(object):
         #if start == 0 and stop == len(s) and space.is_w(space.type(orig_obj),
         #                                                space.w_bytes):
         #    return orig_obj
-        return self._new(s[start:stop])
+        return self._new(space, s[start:stop])
 
     def _convert_idx_params(self, space, w_start, w_end):
         value = self._val(space)
@@ -61,7 +61,7 @@ class StringMethods(object):
                 if e.match(space, space.w_TypeError):
                     return space.w_NotImplemented
                 raise
-            return self._new(self._val(space) + other)
+            return self._new(space, self._val(space) + other)
 
         # Bytearray overrides this method, CPython doesn't support contacting
         # buffers and strs, and unicodes are always handled above
@@ -77,8 +77,8 @@ class StringMethods(object):
         if times <= 0:
             return self._empty()
         if self._len() == 1:
-            return self._new(self._multi_chr(self._val(space)[0]) * times)
-        return self._new(self._val(space) * times)
+            return self._new(space, self._multi_chr(self._val(space)[0]) * times)
+        return self._new(space, self._val(space) * times)
 
     descr_rmul = descr_mul
 
@@ -94,7 +94,7 @@ class StringMethods(object):
                 return self._sliced(space, selfvalue, start, stop, self)
             else:
                 ret = _descr_getslice_slowpath(selfvalue, start, step, sl)
-                return self._new_from_list(ret)
+                return self._new_from_list(space, ret)
 
         index = space.getindex_w(w_index, space.w_IndexError, "string index")
         return self._getitem_result(space, index)
@@ -105,7 +105,7 @@ class StringMethods(object):
             character = selfvalue[index]
         except IndexError:
             raise oefmt(space.w_IndexError, "string index out of range")
-        return self._new(character)
+        return self._new(space, character)
 
     def descr_getslice(self, space, w_start, w_stop):
         selfvalue = self._val(space)
@@ -125,7 +125,7 @@ class StringMethods(object):
         builder.append(self._upper(value[0]))
         for i in range(1, len(value)):
             builder.append(self._lower(value[i]))
-        return self._new(builder.build())
+        return self._new(space, builder.build())
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
     def descr_center(self, space, width, w_fillchar):
@@ -143,7 +143,7 @@ class StringMethods(object):
         else:
             centered = value
 
-        return self._new(centered)
+        return self._new(space, centered)
 
     def descr_count(self, space, w_sub, w_start=None, w_end=None):
         value, start, end = self._convert_idx_params(space, w_start, w_end)
@@ -207,7 +207,7 @@ class StringMethods(object):
                                                          tabsize) + token
             oldtoken = token
 
-        return self._new(expanded)
+        return self._new(space, expanded)
 
     def _tabindent(self, token, tabsize):
         """calculates distance behind the token to the next tabstop"""
@@ -442,7 +442,7 @@ class StringMethods(object):
             if value and i != 0:
                 sb.append(value)
             sb.append(unwrapped[i])
-        return self._new(sb.build())
+        return self._new(space, sb.build())
 
     def _join_autoconvert(self, space, list_w):
         assert False, 'unreachable'
@@ -459,7 +459,7 @@ class StringMethods(object):
             fillchar = self._multi_chr(fillchar[0])
             value = value + fillchar * d
 
-        return self._new(value)
+        return self._new(space, value)
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
     def descr_rjust(self, space, width, w_fillchar):
@@ -473,14 +473,14 @@ class StringMethods(object):
             fillchar = self._multi_chr(fillchar[0])
             value = d * fillchar + value
 
-        return self._new(value)
+        return self._new(space, value)
 
     def descr_lower(self, space):
         value = self._val(space)
         builder = self._builder(len(value))
         for i in range(len(value)):
             builder.append(self._lower(value[i]))
-        return self._new(builder.build())
+        return self._new(space, builder.build())
 
     def descr_partition(self, space, w_sub):
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject
@@ -501,11 +501,11 @@ class StringMethods(object):
 
             pos = find(value, sub, 0, len(value))
             if pos != -1 and isinstance(self, W_BytearrayObject):
-                w_sub = self._new_from_buffer(sub)
+                w_sub = self._new_from_buffer(space, sub)
 
         if pos == -1:
             if isinstance(self, W_BytearrayObject):
-                self = self._new(value)
+                self = self._new(space, value)
             return space.newtuple([self, self._empty(), self._empty()])
         else:
             return space.newtuple(
@@ -531,11 +531,11 @@ class StringMethods(object):
 
             pos = rfind(value, sub, 0, len(value))
             if pos != -1 and isinstance(self, W_BytearrayObject):
-                w_sub = self._new_from_buffer(sub)
+                w_sub = self._new_from_buffer(space, sub)
 
         if pos == -1:
             if isinstance(self, W_BytearrayObject):
-                self = self._new(value)
+                self = self._new(space, value)
             return space.newtuple([self._empty(), self._empty(), self])
         else:
             return space.newtuple(
@@ -557,7 +557,7 @@ class StringMethods(object):
         except OverflowError:
             raise oefmt(space.w_OverflowError, "replace string is too long")
 
-        return self._new(res)
+        return self._new(space, res)
 
     @unwrap_spec(maxsplit=int)
     def descr_split(self, space, w_sep=None, maxsplit=-1):
@@ -716,13 +716,13 @@ class StringMethods(object):
                 builder.append(self._upper(ch))
             else:
                 builder.append(ch)
-        return self._new(builder.build())
+        return self._new(space, builder.build())
 
     def descr_title(self, space):
         selfval = self._val(space)
         if len(selfval) == 0:
             return self
-        return self._new(self.title(selfval))
+        return self._new(space, self.title(selfval))
 
     @jit.elidable
     def title(self, value):
@@ -764,24 +764,24 @@ class StringMethods(object):
             for char in string:
                 if not deletion_table[ord(char)]:
                     buf.append(table[ord(char)])
-        return self._new(buf.build())
+        return self._new(space, buf.build())
 
     def descr_upper(self, space):
         value = self._val(space)
         builder = self._builder(len(value))
         for i in range(len(value)):
             builder.append(self._upper(value[i]))
-        return self._new(builder.build())
+        return self._new(space, builder.build())
 
     @unwrap_spec(width=int)
     def descr_zfill(self, space, width):
         selfval = self._val(space)
         if len(selfval) == 0:
-            return self._new(self._multi_chr(self._chr('0')) * width)
+            return self._new(space, self._multi_chr(self._chr('0')) * width)
         num_zeros = width - len(selfval)
         if num_zeros <= 0:
             # cannot return self, in case it is a subclass of str
-            return self._new(selfval)
+            return self._new(space, selfval)
 
         builder = self._builder(width)
         if len(selfval) > 0 and (selfval[0] == '+' or selfval[0] == '-'):
@@ -792,10 +792,10 @@ class StringMethods(object):
             start = 0
         builder.append_multiple_char(self._chr('0'), num_zeros)
         builder.append_slice(selfval, start, len(selfval))
-        return self._new(builder.build())
+        return self._new(space, builder.build())
 
     def descr_getnewargs(self, space):
-        return space.newtuple([self._new(self._val(space))])
+        return space.newtuple([self._new(space, self._val(space))])
 
 # ____________________________________________________________
 # helpers for slow paths, moved out because they contain loops

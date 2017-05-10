@@ -16,6 +16,7 @@ class Darwin(posix.BasePosix):
 
     standalone_only = ('-mdynamic-no-pic',)
     shared_only = ()
+    accepts_flto = False
 
     link_flags = (DARWIN_VERSION_MIN,)
     cflags = ('-O3', '-fomit-frame-pointer', DARWIN_VERSION_MIN)

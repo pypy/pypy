@@ -76,6 +76,9 @@ class PyFrame(W_Root):
     valuestackdepth = 0 # number of items on valuestack
     lastblock = None
 
+    # XXX string debugging
+    _frame_counter = 0
+
     # other fields:
     
     # builtin - builtin cache, only if honor__builtins__ is True

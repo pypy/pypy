@@ -50,15 +50,15 @@ class W_BytearrayObject(W_Root):
     def nonmovable_carray(self, space):
         return BytearrayBuffer(self.data, False).get_raw_address()
 
-    def _new(self, value):
+    def _new(self, space, value):
         if value is self.data:
             value = value[:]
         return W_BytearrayObject(value)
 
-    def _new_from_buffer(self, buffer):
+    def _new_from_buffer(self, space, buffer):
         return W_BytearrayObject([buffer[i] for i in range(len(buffer))])
 
-    def _new_from_list(self, value):
+    def _new_from_list(self, space, value):
         return W_BytearrayObject(value)
 
     def _empty(self):
@@ -443,10 +443,10 @@ class W_BytearrayObject(W_Root):
 
     def descr_add(self, space, w_other):
         if isinstance(w_other, W_BytearrayObject):
-            return self._new(self.data + w_other.data)
+            return self._new(space, self.data + w_other.data)
 
         if isinstance(w_other, W_BytesObject):
-            return self._add(self._op_val(space, w_other))
+            return self._add(space, self._op_val(space, w_other))
 
         try:
             buffer = _get_buffer(space, w_other)
@@ -454,11 +454,11 @@ class W_BytearrayObject(W_Root):
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
-        return self._add(buffer)
+        return self._add(space, buffer)
 
-    @specialize.argtype(1)
-    def _add(self, other):
-        return self._new(self.data + [other[i] for i in range(len(other))])
+    @specialize.argtype(2)
+    def _add(self, space, other):
+        return self._new(space, self.data + [other[i] for i in range(len(other))])
 
     def descr_reverse(self, space):
         self.data.reverse()

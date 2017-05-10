@@ -1,5 +1,6 @@
 """The builtin unicode implementation"""
 
+import py
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin,
     enforceargs)
@@ -29,11 +30,26 @@ __all__ = ['W_UnicodeObject', 'wrapunicode', 'plain_str2unicode',
 class W_UnicodeObject(W_Root):
     import_from_mixin(StringMethods)
     _immutable_fields_ = ['_value']
+    _frame_counter = 0
+    _frame_id = 0
 
     @enforceargs(uni=unicode)
-    def __init__(self, unistr):
+    def __init__(self, space, unistr):
         assert isinstance(unistr, unicode)
         self._value = unistr
+        if space is None:
+            return
+        frame = space.getexecutioncontext().gettopframe()
+        if frame is None:
+            return
+        self._frame_counter = frame._frame_counter
+        self._frame_id = compute_unique_id(frame)
+        from pypy.module.__pypy__.interp_debug import get_str_debug_file
+        w_file = get_str_debug_file(space)
+        if w_file is None:
+            return
+        space.call_function(space.getattr(w_file, space.newtext("write")),
+            space.newtext("descr_new %s %s\n" % (self._frame_counter, self._frame_id)))
 
     def __repr__(self):
         """representation for debugging purposes"""
@@ -43,10 +59,10 @@ class W_UnicodeObject(W_Root):
         # for testing
         return self._value
 
-    def create_if_subclassed(self):
+    def create_if_subclassed(self, space):
         if type(self) is W_UnicodeObject:
             return self
-        return W_UnicodeObject(self._value)
+        return W_UnicodeObject(space, self._value)
 
     def is_w(self, space, w_other):
         if not isinstance(w_other, W_UnicodeObject):
@@ -105,11 +121,11 @@ class W_UnicodeObject(W_Root):
                          "found", len(self._value))
         return space.newint(ord(self._value[0]))
 
-    def _new(self, value):
-        return W_UnicodeObject(value)
+    def _new(self, space, value):
+        return W_UnicodeObject(space, value)
 
-    def _new_from_list(self, value):
-        return W_UnicodeObject(u''.join(value))
+    def _new_from_list(self, space, value):
+        return W_UnicodeObject(space, u''.join(value))
 
     def _empty(self):
         return W_UnicodeObject.EMPTY
@@ -222,7 +238,7 @@ class W_UnicodeObject(W_Root):
 
         assert isinstance(w_value, W_UnicodeObject)
         w_newobj = space.allocate_instance(W_UnicodeObject, w_unicodetype)
-        W_UnicodeObject.__init__(w_newobj, w_value._value)
+        W_UnicodeObject.__init__(w_newobj, space, w_value._value)
         return w_newobj
 
     def descr_repr(self, space):
@@ -354,7 +370,7 @@ class W_UnicodeObject(W_Root):
                     raise oefmt(space.w_TypeError,
                                 "character mapping must return integer, None "
                                 "or unicode")
-        return W_UnicodeObject(u''.join(result))
+        return W_UnicodeObject(space, u''.join(result))
 
     def descr_encode(self, space, w_encoding=None, w_errors=None):
         encoding, errors = _get_encoding_and_errors(space, w_encoding,
@@ -420,7 +436,7 @@ class W_UnicodeObject(W_Root):
 
 
 def wrapunicode(space, uni):
-    return W_UnicodeObject(uni)
+    return W_UnicodeObject(space, uni)
 
 
 def plain_str2unicode(space, s):
@@ -562,7 +578,7 @@ def unicode_from_string(space, w_bytes):
         return unicode_from_encoded_object(space, w_bytes, encoding, "strict")
     s = space.bytes_w(w_bytes)
     try:
-        return W_UnicodeObject(s.decode("ascii"))
+        return W_UnicodeObject(space, s.decode("ascii"))
     except UnicodeDecodeError:
         # raising UnicodeDecodeError is messy, "please crash for me"
         return unicode_from_encoded_object(space, w_bytes, "ascii", "strict")
@@ -967,6 +983,39 @@ class UnicodeDocstrings:
         of the specified width. The string S is never truncated.
         """
 
+def setup():
+    from pypy.module.__pypy__.interp_debug import get_str_debug_file
+
+    def wrap(func):
+        d = {'orig': func, 'get_str_debug_file': get_str_debug_file}
+        name = func.__name__
+        orig_args = list(func.__code__.co_varnames[:func.__code__.co_argcount])
+        args = orig_args[:]
+        if func.func_defaults:
+            i = func.__code__.co_argcount - len(func.func_defaults)
+            for j, default in enumerate(func.func_defaults):
+                args[i] = "%s = %r" % (args[i], func.func_defaults[j])
+                i += 1
+        func_args = ", ".join(args)
+        lines = ["def %s(%s):" % (name, func_args),
+        "    w_file = get_str_debug_file(space)",
+        "    if w_file is not None:",
+        "        txt = '%s ' + str(self._frame_counter) + ' ' + str(self._frame_id) + ' '+ '\\n'" % func.func_name,
+        "        space.call_function(space.getattr(w_file, space.newtext('write')), space.newtext(txt))",
+        "    return orig(%s)" % (", ".join(orig_args),)]
+        exec "\n".join(lines) in d
+        if hasattr(func, 'unwrap_spec'):
+            d[name].unwrap_spec = func.unwrap_spec
+        # get it as an unbound method
+        return d[name]
+
+    for k, v in W_UnicodeObject.__dict__.iteritems():
+        if k == 'descr_new':
+            continue
+        if k.startswith('descr_'):
+           setattr(W_UnicodeObject, k, wrap(getattr(W_UnicodeObject, k)))
+
+setup()
 
 W_UnicodeObject.typedef = TypeDef(
     "unicode", basestring_typedef,
@@ -1112,7 +1161,7 @@ def _create_list_from_unicode(value):
     return [s for s in value]
 
 
-W_UnicodeObject.EMPTY = W_UnicodeObject(u'')
+W_UnicodeObject.EMPTY = W_UnicodeObject(None, u'')
 
 
 # Helper for converting int/long

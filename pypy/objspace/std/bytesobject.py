@@ -481,10 +481,10 @@ class W_BytesObject(W_AbstractBytesObject):
                         "found", len(self._value))
         return space.newint(ord(self._value[0]))
 
-    def _new(self, value):
+    def _new(self, space, value):
         return W_BytesObject(value)
 
-    def _new_from_list(self, value):
+    def _new_from_list(self, space, value):
         return W_BytesObject(''.join(value))
 
     def _empty(self):

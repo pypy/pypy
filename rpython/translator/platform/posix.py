@@ -11,6 +11,7 @@ class BasePosix(Platform):
     exe_ext = ''
     make_cmd = 'make'
     so_prefixes = ('lib', '')
+    accepts_flto = True
 
     relevant_environ = ('CPATH', 'LIBRARY_PATH', 'C_INCLUDE_PATH')
 
@@ -131,7 +132,7 @@ class BasePosix(Platform):
             cflags = tuple(self.cflags) + tuple(self.standalone_only)
 
         # xxx check which compilers accept this option or not
-        if not config or config.translation.gcrootfinder != 'asmgcc':
+        if (not config or config.translation.gcrootfinder != 'asmgcc') and self.accepts_flto:
             cflags = ('-flto',) + cflags
 
         m = GnuMakefile(path)
