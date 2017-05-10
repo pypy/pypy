@@ -32,6 +32,7 @@ def debug_flush(space):
 class Cache(object):
     def __init__(self, space):
         self.w_debug_file = None
+        self.counter = 0
 
 def set_str_debug_file(space, w_debug_file):
     if space.is_none(w_debug_file):

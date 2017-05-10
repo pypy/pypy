@@ -30,8 +30,7 @@ __all__ = ['W_UnicodeObject', 'wrapunicode', 'plain_str2unicode',
 class W_UnicodeObject(W_Root):
     import_from_mixin(StringMethods)
     _immutable_fields_ = ['_value']
-    _frame_counter = 0
-    _frame_id = 0
+    _string_id = 0
 
     @enforceargs(uni=unicode)
     def __init__(self, space, unistr):
@@ -42,14 +41,15 @@ class W_UnicodeObject(W_Root):
         frame = space.getexecutioncontext().gettopframe()
         if frame is None:
             return
-        self._frame_counter = frame._frame_counter
-        self._frame_id = compute_unique_id(frame)
-        from pypy.module.__pypy__.interp_debug import get_str_debug_file
+        from pypy.module.__pypy__.interp_debug import get_str_debug_file, Cache
+        cache = space.fromcache(Cache)
+        self._string_id = cache.counter
+        cache.counter += 1
         w_file = get_str_debug_file(space)
         if w_file is None:
             return
         space.call_function(space.getattr(w_file, space.newtext("write")),
-            space.newtext("descr_new %s %s\n" % (self._frame_counter, self._frame_id)))
+            space.newtext("%d = descr_new\n" % (self._string_id,)))
 
     def __repr__(self):
         """representation for debugging purposes"""
@@ -1000,7 +1000,7 @@ def setup():
         lines = ["def %s(%s):" % (name, func_args),
         "    w_file = get_str_debug_file(space)",
         "    if w_file is not None:",
-        "        txt = '%s ' + str(self._frame_counter) + ' ' + str(self._frame_id) + ' '+ '\\n'" % func.func_name,
+        "        txt = '%s ' + str(self._string_id) + '\\n'" % func.func_name,
         "        space.call_function(space.getattr(w_file, space.newtext('write')), space.newtext(txt))",
         "    return orig(%s)" % (", ".join(orig_args),)]
         exec "\n".join(lines) in d
