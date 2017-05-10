@@ -10,7 +10,11 @@ class FakeFormatIter(object):
         self.value = value
         self.bigendian = bigendian
         self.result = MutableStringBuffer(size)
+        # we set the buffer to non-zero, so ensure that we actively write 0s
+        # where it's needed
+        self.result.setslice(0, '\xff'*size)
         self.pos = 0
+        self.needs_zeros = True
 
     def advance(self, count):
         self.pos += count
@@ -48,6 +52,12 @@ class BaseTestPack(object):
         pack(fake_fmtiter)
         return fake_fmtiter.finish()
 
+    def mypack_fn(self, func, size, arg, value):
+        bigendian = self.endianess == '>'
+        fmtiter = FakeFormatIter(bigendian, size, value)
+        func(fmtiter, arg)
+        return fmtiter.finish()
+
     def check(self, fmt, value):
         expected = struct.pack(self.endianess+fmt, value)
         got = self.mypack(fmt, value)
@@ -73,6 +83,10 @@ class BaseTestPack(object):
     def test_pack_char(self):
         self.check('c', 'a')
 
+    def test_pack_bool(self):
+        self.check('?', True)
+        self.check('?', False)
+
     def test_pack_pad(self):
         bigendian = self.endianess == '>'
         fmtiter = FakeFormatIter(bigendian, None)
@@ -81,11 +95,13 @@ class BaseTestPack(object):
         assert s == '\x00'*4
 
     def test_pack_string(self):
-        bigendian = self.endianess == '>'
-        fmtiter = FakeFormatIter(bigendian, 'hello')
-        standardfmttable.pack_string(fmtiter, 8)
-        s = fmtiter.result.build()
+        s = self.mypack_fn(standardfmttable.pack_string,
+                           arg=8, value='hello', size=8)
         assert s == 'hello\x00\x00\x00'
+        #
+        s = self.mypack_fn(standardfmttable.pack_string,
+                           arg=8, value='hello world', size=8)
+        assert s == 'hello wo'
 
     def test_pack_pascal(self):
         bigendian = self.endianess == '>'

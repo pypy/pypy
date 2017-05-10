@@ -33,15 +33,20 @@ def pack_char(fmtiter):
 
 def pack_bool(fmtiter):
     c = '\x01' if fmtiter.accept_bool_arg() else '\x00'
-    fmtiter.result.append(c)
+    fmtiter.result.setitem(fmtiter.pos, c)
+    fmtiter.advance(1)
 
 def pack_string(fmtiter, count):
+    pos = fmtiter.pos
     string = fmtiter.accept_str_arg()
     if len(string) < count:
-        fmtiter.result.append(string)
-        fmtiter.result.append_multiple_char('\x00', count - len(string))
+        fmtiter.result.setslice(pos, string)
+        if fmtiter.needs_zeros:
+            for i in range(pos + len(string), count):
+                fmtiter.result.setitem(i, '\x00')
     else:
-        fmtiter.result.append_slice(string, 0, count)
+        fmtiter.result.setslice(pos, string[:count])
+    fmtiter.advance(count)
 
 def pack_pascal(fmtiter, count):
     string = fmtiter.accept_str_arg()
