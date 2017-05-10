@@ -16,7 +16,7 @@ class MutableStringBuffer(Buffer):
 
     You can call finish() only once.
     """
-    _attrs_ = ['readonly', 'll_val']
+    _attrs_ = ['readonly', 'll_val', 'size']
     _immutable_ = True
 
     def __init__(self, size):

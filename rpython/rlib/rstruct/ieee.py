@@ -265,14 +265,17 @@ def float_pack80(x, size):
     return (mant, (sign << BITS - MANT_DIG - 1) | exp)
 
 @jit.unroll_safe
-def pack_float(result, x, size, be):
-    l = []
+def pack_float(result, pos, x, size, be):
     unsigned = float_pack(x, size)
-    for i in range(size):
-        l.append(chr((unsigned >> (i * 8)) & 0xFF))
     if be:
-        l.reverse()
-    result.append("".join(l))
+        # write in reversed order
+        for i in range(size):
+            c = chr((unsigned >> (i * 8)) & 0xFF)
+            result.setitem(pos + size - i - 1, c)
+    else:
+        for i in range(size):
+            c = chr((unsigned >> (i * 8)) & 0xFF)
+            result.setitem(pos+i, c)
 
 @jit.unroll_safe
 def pack_float80(result, x, size, be):

@@ -62,10 +62,14 @@ def make_float_packer(size):
     def packer(fmtiter):
         fl = fmtiter.accept_float_arg()
         try:
-            return ieee.pack_float(fmtiter.result, fl, size, fmtiter.bigendian)
+            result = ieee.pack_float(fmtiter.result, fmtiter.pos,
+                                     fl, size, fmtiter.bigendian)
         except OverflowError:
             assert size == 4
             raise StructOverflowError("float too large for format 'f'")
+        else:
+            fmtiter.advance(size)
+            return result
     return packer
 
 # ____________________________________________________________

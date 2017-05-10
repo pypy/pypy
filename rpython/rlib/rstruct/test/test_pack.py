@@ -15,6 +15,11 @@ class FakeFormatIter(object):
     def advance(self, count):
         self.pos += count
 
+    def finish(self):
+        # check that we called advance() the right number of times
+        assert self.pos == self.result.getlength()
+        return self.result.finish()
+
     def _accept_arg(self):
         return self.value
 
@@ -41,7 +46,7 @@ class BaseTestPack(object):
         attrs = self.fmttable[fmt]
         pack = attrs['pack']
         pack(fake_fmtiter)
-        return fake_fmtiter.result.finish()
+        return fake_fmtiter.finish()
 
     def check(self, fmt, value):
         expected = struct.pack(self.endianess+fmt, value)
