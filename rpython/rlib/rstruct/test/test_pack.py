@@ -102,10 +102,8 @@ class BaseTestPack(object):
         assert s == 'hello wo'
 
     def test_pack_pascal(self):
-        bigendian = self.endianess == '>'
-        fmtiter = FakeFormatIter(bigendian, 'hello')
-        standardfmttable.pack_pascal(fmtiter, 8)
-        s = fmtiter.result.build()
+        s = self.mypack_fn(standardfmttable.pack_pascal,
+                           arg=8, value='hello', size=8)
         assert s == '\x05hello\x00\x00'
 
 

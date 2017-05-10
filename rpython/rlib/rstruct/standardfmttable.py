@@ -40,17 +40,21 @@ def pack_bool(fmtiter):
     fmtiter.result.setitem(fmtiter.pos, c)
     fmtiter.advance(1)
 
-def pack_string(fmtiter, count):
+def _pack_string(fmtiter, string, count):
     pos = fmtiter.pos
-    string = fmtiter.accept_str_arg()
     if len(string) < count:
         fmtiter.result.setslice(pos, string)
         if fmtiter.needs_zeros:
-            for i in range(pos + len(string), count):
-                fmtiter.result.setitem(i, '\x00')
+            pos += len(string)
+            for i in range(count - len(string)):
+                fmtiter.result.setitem(pos+i, '\x00')
     else:
         fmtiter.result.setslice(pos, string[:count])
     fmtiter.advance(count)
+
+def pack_string(fmtiter, count):
+    string = fmtiter.accept_str_arg()
+    _pack_string(fmtiter, string, count)
 
 def pack_pascal(fmtiter, count):
     string = fmtiter.accept_str_arg()
@@ -60,12 +64,10 @@ def pack_pascal(fmtiter, count):
         if prefix < 0:
             raise StructError("bad '0p' in struct format")
     if prefix > 255:
-        prefixchar = '\xff'
-    else:
-        prefixchar = chr(prefix)
-    fmtiter.result.append(prefixchar)
-    fmtiter.result.append_slice(string, 0, prefix)
-    fmtiter.result.append_multiple_char('\x00', count - (1 + prefix))
+        prefix = 255
+    fmtiter.result.setitem(fmtiter.pos, chr(prefix))
+    fmtiter.advance(1)
+    _pack_string(fmtiter, string, count-1)
 
 def make_float_packer(size):
     def packer(fmtiter):
