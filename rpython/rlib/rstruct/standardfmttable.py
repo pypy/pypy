@@ -13,7 +13,6 @@ from rpython.rlib.rstruct import ieee
 from rpython.rlib.rstruct.error import StructError, StructOverflowError
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.buffer import StringBuffer
-#from rpython.rlib.strstorage import str_storage_getitem
 from rpython.rlib import rarithmetic
 from rpython.rlib.buffer import CannotRead
 from rpython.rtyper.lltypesystem import rffi
@@ -29,7 +28,8 @@ def pack_char(fmtiter):
     if len(string) != 1:
         raise StructError("expected a string of length 1")
     c = string[0]   # string->char conversion for the annotator
-    fmtiter.result.append(c)
+    fmtiter.result.setitem(fmtiter.pos, c)
+    fmtiter.advance(1)
 
 def pack_bool(fmtiter):
     c = '\x01' if fmtiter.accept_bool_arg() else '\x00'

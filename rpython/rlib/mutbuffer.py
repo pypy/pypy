@@ -23,7 +23,11 @@ class MutableStringBuffer(Buffer):
         self.readonly = False
         # rstr.mallocstr does not pass zero=True, so we call lltype.malloc
         # directly
+        self.size = size
         self.ll_val = lltype.malloc(STR, size, zero=True)
+
+    def getlength(self):
+        return self.size
 
     def finish(self):
         if not self.ll_val:

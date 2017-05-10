@@ -5,11 +5,15 @@ import struct
 
 class FakeFormatIter(object):
 
-    def __init__(self, bigendian, value):
+    def __init__(self, bigendian, size, value):
         from rpython.rlib.rstring import StringBuilder
         self.value = value
         self.bigendian = bigendian
-        self.result = StringBuilder(8)
+        self.result = MutableStringBuffer(size)
+        self.pos = 0
+
+    def advance(self, count):
+        self.pos += count
 
     def _accept_arg(self):
         return self.value
@@ -32,11 +36,12 @@ class BaseTestPack(object):
 
     def mypack(self, fmt, value):
         bigendian = self.endianess == '>'
-        fake_fmtiter = FakeFormatIter(bigendian, value)
+        size = struct.calcsize(fmt)
+        fake_fmtiter = FakeFormatIter(bigendian, size, value)
         attrs = self.fmttable[fmt]
         pack = attrs['pack']
         pack(fake_fmtiter)
-        return fake_fmtiter.result.build()
+        return fake_fmtiter.result.finish()
 
     def check(self, fmt, value):
         expected = struct.pack(self.endianess+fmt, value)
