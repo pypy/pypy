@@ -119,14 +119,18 @@ def make_int_packer(size, signed, _memo={}):
         value = method()
         if not min <= value <= max:
             raise StructError(errormsg)
+        #
+        pos = fmtiter.pos + size - 1        
         if fmtiter.bigendian:
             for i in unroll_revrange_size:
                 x = (value >> (8*i)) & 0xff
-                fmtiter.result.append(chr(x))
+                fmtiter.result.setitem(pos-i, chr(x))
         else:
+
             for i in unroll_revrange_size:
-                fmtiter.result.append(chr(value & 0xff))
+                fmtiter.result.setitem(pos-i, chr(value & 0xff))
                 value >>= 8
+        fmtiter.advance(size)
 
     _memo[key] = pack_int
     return pack_int
