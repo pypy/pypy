@@ -40,10 +40,7 @@ def calcsize(space, format):
 
 def _pack(space, format, args_w):
     """Return string containing values v1, v2, ... packed according to fmt."""
-    if jit.isconstant(format):
-        size = _calcsize(space, format)
-    else:
-        size = 8
+    size = _calcsize(space, format)
     fmtiter = PackFormatIterator(space, args_w, size)
     try:
         fmtiter.interpret(format)
@@ -51,7 +48,8 @@ def _pack(space, format, args_w):
         raise OperationError(space.w_OverflowError, space.newtext(e.msg))
     except StructError as e:
         raise OperationError(get_error(space), space.newtext(e.msg))
-    return fmtiter.result.build()
+    assert fmtiter.pos == fmtiter.result.getlength(), 'missing .advance() or wrong calcsize()'
+    return fmtiter.result.finish()
 
 
 @unwrap_spec(format='text')

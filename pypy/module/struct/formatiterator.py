@@ -2,7 +2,7 @@ from rpython.rlib.rarithmetic import (r_uint, r_ulonglong, r_longlong,
                                       maxint, intmask)
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.mutbuffer import MutableStringBuffer
 from rpython.rlib.rstruct.error import StructError
 from rpython.rlib.rstruct.formatiterator import FormatIterator
 
@@ -14,7 +14,12 @@ class PackFormatIterator(FormatIterator):
         self.space = space
         self.args_w = args_w
         self.args_index = 0
-        self.result = StringBuilder(size)
+        self.pos = 0
+        self.result = MutableStringBuffer(size)
+        self.needs_zeros = False # MutableStringBuffer is already 0-inizialized
+
+    def advance(self, count):
+        self.pos += count
 
     # This *should* be always unroll safe, the only way to get here is by
     # unroll the interpret function, which means the fmt is const, and thus
@@ -31,8 +36,8 @@ class PackFormatIterator(FormatIterator):
 
     @jit.unroll_safe
     def align(self, mask):
-        pad = (-self.result.getlength()) & mask
-        self.result.append_multiple_char('\x00', pad)
+        pad = (-self.pos) & mask
+        self.advance(pad)
 
     def finished(self):
         if self.args_index != len(self.args_w):

@@ -136,7 +136,8 @@ def pack_unichar(fmtiter):
     if len(unistr) != 1:
         raise StructError("expected a unicode string of length 1")
     c = unistr[0]   # string->char conversion for the annotator
-    unichar.pack_unichar(c, fmtiter.result)
+    unichar.pack_unichar(c, fmtiter.result, fmtiter.pos)
+    fmtiter.advance(unichar.UNICODE_SIZE)
 
 @specialize.argtype(0)
 def unpack_unichar(fmtiter):
