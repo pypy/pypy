@@ -128,6 +128,12 @@ class W_MemoryView(W_Root):
         else:
             raise TypeError("memoryview: invalid slice key")
 
+    @staticmethod
+    def copy(w_view):
+        # TODO suboffsets
+        view = w_view.view
+        return W_MemoryView(view)
+
     def descr_setitem(self, space, w_index, w_obj):
         self._check_released(space)
         if self.view.readonly:
