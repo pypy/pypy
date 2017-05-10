@@ -267,18 +267,19 @@ def float_pack80(x, size):
 
 def pack_float(result, pos, x, size, be):
     unsigned = float_pack(x, size)
-    pack_float_to_buffer(result, pos, unsigned, size, be)
+    value = rarithmetic.longlongmask(unsigned)
+    pack_float_to_buffer(result, pos, value, size, be)
 
 @jit.unroll_safe
-def pack_float_to_buffer(result, pos, unsigned, size, be):
+def pack_float_to_buffer(result, pos, value, size, be):
     if be:
         # write in reversed order
         for i in range(size):
-            c = chr((unsigned >> (i * 8)) & 0xFF)
+            c = chr((value >> (i * 8)) & 0xFF)
             result.setitem(pos + size - i - 1, c)
     else:
         for i in range(size):
-            c = chr((unsigned >> (i * 8)) & 0xFF)
+            c = chr((value >> (i * 8)) & 0xFF)
             result.setitem(pos+i, c)
 
 @jit.unroll_safe

@@ -49,6 +49,7 @@ def _pack_string(fmtiter, string, count):
             for i in range(count - len(string)):
                 fmtiter.result.setitem(pos+i, '\x00')
     else:
+        assert count >= 0
         fmtiter.result.setslice(pos, string[:count])
     fmtiter.advance(count)
 
