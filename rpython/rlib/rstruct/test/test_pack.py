@@ -1,5 +1,5 @@
 import pytest
-from rpython.rlib.rstruct import standardfmttable
+from rpython.rlib.rstruct import standardfmttable, nativefmttable
 from rpython.rlib.mutbuffer import MutableStringBuffer
 import struct
 
@@ -40,26 +40,25 @@ class BaseTestPack(object):
     implement struct.pack in pypy/module/struct
     """
 
-    endianess = None
-    fmttable = standardfmttable.standard_fmttable
+    bigendian = None
+    fmt_prefix = None
+    fmttable = None
 
     def mypack(self, fmt, value):
-        bigendian = self.endianess == '>'
         size = struct.calcsize(fmt)
-        fake_fmtiter = FakeFormatIter(bigendian, size, value)
+        fake_fmtiter = FakeFormatIter(self.bigendian, size, value)
         attrs = self.fmttable[fmt]
         pack = attrs['pack']
         pack(fake_fmtiter)
         return fake_fmtiter.finish()
 
     def mypack_fn(self, func, size, arg, value):
-        bigendian = self.endianess == '>'
-        fmtiter = FakeFormatIter(bigendian, size, value)
+        fmtiter = FakeFormatIter(self.bigendian, size, value)
         func(fmtiter, arg)
         return fmtiter.finish()
 
     def check(self, fmt, value):
-        expected = struct.pack(self.endianess+fmt, value)
+        expected = struct.pack(self.fmt_prefix+fmt, value)
         got = self.mypack(fmt, value)
         assert got == expected
 
@@ -108,8 +107,16 @@ class BaseTestPack(object):
 
 
 class TestPackLittleEndian(BaseTestPack):
-    endianess = '<'
-
+    bigendian = False
+    fmt_prefix = '<'
+    fmttable = standardfmttable.standard_fmttable
 
 class TestPackBigEndian(BaseTestPack):
-    endianess = '>'
+    bigendian = True
+    fmt_prefix = '>'
+    fmttable = standardfmttable.standard_fmttable
+
+class TestNative(BaseTestPack):
+    bigendian = nativefmttable.native_is_bigendian
+    fmt_prefix = '@'
+    fmttable = nativefmttable.native_fmttable

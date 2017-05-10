@@ -10,6 +10,7 @@ from rpython.rlib.rarithmetic import r_singlefloat, widen
 from rpython.rlib.rstruct import standardfmttable as std
 from rpython.rlib.rstruct.standardfmttable import native_is_bigendian
 from rpython.rlib.rstruct.error import StructError
+from rpython.rlib.rstruct.ieee import pack_float_to_buffer
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
@@ -26,35 +27,19 @@ native_fmttable = {
 # ____________________________________________________________
 
 
-range_8_unroll = unrolling_iterable(list(reversed(range(8))))
-range_4_unroll = unrolling_iterable(list(reversed(range(4))))
-
 def pack_double(fmtiter):
     doubleval = fmtiter.accept_float_arg()
     value = longlong2float.float2longlong(doubleval)
-    if fmtiter.bigendian:
-        for i in range_8_unroll:
-            x = (value >> (8*i)) & 0xff
-            fmtiter.result.append(chr(x))
-    else:
-        for i in range_8_unroll:
-            fmtiter.result.append(chr(value & 0xff))
-            value >>= 8
-
+    pack_float_to_buffer(fmtiter.result, fmtiter.pos, value, 8, fmtiter.bigendian)
+    fmtiter.advance(8)
 
 def pack_float(fmtiter):
     doubleval = fmtiter.accept_float_arg()
     floatval = r_singlefloat(doubleval)
     value = longlong2float.singlefloat2uint(floatval)
     value = widen(value)
-    if fmtiter.bigendian:
-        for i in range_4_unroll:
-            x = (value >> (8*i)) & 0xff
-            fmtiter.result.append(chr(x))
-    else:
-        for i in range_4_unroll:
-            fmtiter.result.append(chr(value & 0xff))
-            value >>= 8
+    pack_float_to_buffer(fmtiter.result, fmtiter.pos, value, 4, fmtiter.bigendian)
+    fmtiter.advance(4)
 
 # ____________________________________________________________
 #

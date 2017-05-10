@@ -264,9 +264,13 @@ def float_pack80(x, size):
     sign = r_ulonglong(sign)
     return (mant, (sign << BITS - MANT_DIG - 1) | exp)
 
-@jit.unroll_safe
+
 def pack_float(result, pos, x, size, be):
     unsigned = float_pack(x, size)
+    pack_float_to_buffer(result, pos, unsigned, size, be)
+
+@jit.unroll_safe
+def pack_float_to_buffer(result, pos, unsigned, size, be):
     if be:
         # write in reversed order
         for i in range(size):
