@@ -753,11 +753,18 @@ class LLGraphCPU(model.AbstractCPU):
         val = lltype.cast_primitive(T, val)
         llop.gc_store_indexed(lltype.Void, struct, index, scale, base_ofs, val)
 
+    def bh_gc_store_indexed_f(self, struct, index, scale, base_ofs, val, bytes,
+                              descr):
+        if bytes != 8:
+            raise Exception("gc_store_indexed_f is only for 'double'!")
+        val = longlong.getrealfloat(val)
+        llop.gc_store_indexed(lltype.Void, struct, index, scale, base_ofs, val)
+
     def bh_gc_store_indexed(self, struct, index, scale, base_ofs, val, bytes,
                             descr):
         if descr.A.OF == lltype.Float:
-            XXX
-            self.bh_raw_store_f(struct, offset, newvalue, descr)
+            self.bh_gc_store_indexed_f(struct, index, scale, base_ofs,
+                                       val, bytes, descr)
         else:
             self.bh_gc_store_indexed_i(struct, index, scale, base_ofs,
                                        val, bytes, descr)

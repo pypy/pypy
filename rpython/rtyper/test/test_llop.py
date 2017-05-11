@@ -46,9 +46,13 @@ class BaseLLOpTest(object):
         val = self.gc_load_from_string(rffi.INT, buf, 12)
         assert val == 0x12345678
 
-    def test_gc_store_indexed(self):
+    def test_gc_store_indexed_int(self):
         expected = struct.pack('i', 0x12345678)
         self.newlist_and_gc_store(rffi.INT, 0x12345678, expected)
+
+    def test_gc_store_indexed_double(self):
+        expected = struct.pack('d', 123.456)
+        self.newlist_and_gc_store(rffi.DOUBLE, 123.456, expected)
 
 
 class TestDirect(BaseLLOpTest):

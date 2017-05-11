@@ -828,9 +828,9 @@ class MIFrame(object):
                             self._remove_symbolics(baseofsbox), bytesbox)
 
     @arguments("box", "box", "box", "box", "box", "box", "descr")
-    def opimpl_gc_store_indexed_i(self, addrbox, indexbox,
-                                  scalebox, baseofsbox, valuebox, bytesbox,
-                                  arraydescr):
+    def _opimpl_gc_store_indexed(self, addrbox, indexbox,
+                                 scalebox, baseofsbox, valuebox, bytesbox,
+                                 arraydescr):
         return self.execute_with_descr(rop.GC_STORE_INDEXED,
                                        arraydescr,
                                        addrbox,
@@ -839,6 +839,8 @@ class MIFrame(object):
                                        self._remove_symbolics(baseofsbox),
                                        valuebox,
                                        bytesbox)
+    opimpl_gc_store_indexed_i = _opimpl_gc_store_indexed
+    opimpl_gc_store_indexed_f = _opimpl_gc_store_indexed
 
     @arguments("box")
     def opimpl_hint_force_virtualizable(self, box):
