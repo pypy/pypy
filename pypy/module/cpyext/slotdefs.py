@@ -469,10 +469,10 @@ def wrap_getreadbuffer(space, w_self, w_args, func):
         size = generic_cpy_call(space, func_target, w_self, index, ptr)
         if size < 0:
             space.fromcache(State).check_and_raise_exception(always=True)
-        buf = CPyBuffer(space, ptr[0], size, w_self,
+        view = CPyBuffer(space, ptr[0], size, w_self,
                                releasebufferproc=rbp)
-        fq.register_finalizer(buf)
-        return buf.wrap(space)
+        fq.register_finalizer(view)
+        return space.newbuffer(CBuffer(view))
 
 def wrap_getwritebuffer(space, w_self, w_args, func):
     func_target = rffi.cast(readbufferproc, func)
@@ -487,10 +487,10 @@ def wrap_getwritebuffer(space, w_self, w_args, func):
         size = generic_cpy_call(space, func_target, w_self, index, ptr)
         if size < 0:
             space.fromcache(State).check_and_raise_exception(always=True)
-        buf = CPyBuffer(space, ptr[0], size, w_self, readonly=False,
+        view = CPyBuffer(space, ptr[0], size, w_self, readonly=False,
                                releasebufferproc=rbp)
-        fq.register_finalizer(buf)
-        return buf.wrap(space)
+        fq.register_finalizer(view)
+        return space.newbuffer(CBuffer(view))
 
 def wrap_getbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(getbufferproc, func)
