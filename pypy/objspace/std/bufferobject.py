@@ -5,7 +5,7 @@ from rpython.rlib.buffer import Buffer, SubBuffer
 from rpython.rlib.objectmodel import compute_hash
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import SimpleView
+from pypy.interpreter.buffer import SimpleView, BufferInterfaceNotFound
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
@@ -40,7 +40,10 @@ class W_Buffer(W_Root):
     @staticmethod
     @unwrap_spec(offset=int, size=int)
     def descr_new_buffer(space, w_subtype, w_object, offset=0, size=-1):
-        buf = space.readbuf_w(w_object)
+        try:
+            buf = w_object.readbuf_w(space)
+        except BufferInterfaceNotFound:
+            raise oefmt(space.w_TypeError, "expected a readable buffer object")
         if offset == 0 and size == -1:
             return W_Buffer(buf)
         # handle buffer slices
