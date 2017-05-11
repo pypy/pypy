@@ -1,4 +1,5 @@
 from __future__ import with_statement
+from rpython.annotator import model as annmodel
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
@@ -552,6 +553,7 @@ class W_BZ2Compressor(W_Root):
         to compress, call the flush() method to finish the compression process,
         and return what is left in the internal buffers."""
 
+        assert data is not None
         datasize = len(data)
 
         if datasize == 0:
@@ -662,6 +664,7 @@ class W_BZ2Decompressor(W_Root):
         was found after the end of stream, it'll be ignored and saved in
         unused_data attribute."""
 
+        assert data is not None
         if not self.running:
             raise oefmt(self.space.w_EOFError,
                         "end of stream was already found")
@@ -715,6 +718,7 @@ def compress(space, data, compresslevel=9):
     use an instance of BZ2Compressor instead. The compresslevel parameter, if
     given, must be a number between 1 and 9."""
 
+    assert data is not None
     if compresslevel < 1 or compresslevel > 9:
         raise oefmt(space.w_ValueError,
                     "compresslevel must be between 1 and 9")
@@ -757,6 +761,7 @@ def decompress(space, data):
     Decompress data in one shot. If you want to decompress data sequentially,
     use an instance of BZ2Decompressor instead."""
 
+    assert data is not None
     in_bufsize = len(data)
     if in_bufsize == 0:
         return space.newbytes("")
