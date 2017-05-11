@@ -5,6 +5,9 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.rstr import STR
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rlib.rarithmetic import r_singlefloat
+from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
+                              ll_for_resizable_list)
+
 
 def str_gc_load(TYPE, buf, offset):
     base_ofs = (llmemory.offsetof(STR, 'chars') +
@@ -13,6 +16,19 @@ def str_gc_load(TYPE, buf, offset):
     lls = llstr(buf)
     return llop.gc_load_indexed(TYPE, lls, offset,
                                 scale_factor, base_ofs)
+
+
+def list_gc_store(TYPE, lst, offset, value):
+    value = lltype.cast_primitive(TYPE, value)
+    ll_data = ll_for_resizable_list(lst)
+    ll_items = ll_data.items
+    LIST = lltype.typeOf(ll_data).TO # rlist.LIST_OF(lltype.Char)
+    base_ofs = llmemory.itemoffsetof(LIST.items.TO, 0)
+    scale_factor = llmemory.sizeof(lltype.Char)
+    return llop.gc_store_indexed(lltype.Void, ll_items, offset,
+                                 scale_factor, base_ofs, value)
+
+
 
 class BaseLLOpTest(object):
     
@@ -26,6 +42,14 @@ class BaseLLOpTest(object):
         #
         val = self.gc_load_from_string(rffi.INT, buf, 12)
         assert val == 0x12345678
+
+    def test_gc_store_indexed(self):
+        expected = struct.pack('i', 0x12345678)
+        n = len(expected)
+        lst = resizable_list_supporting_raw_ptr(['\x00']*n)
+        list_gc_store(rffi.INT, lst, 0, 0x12345678)
+        buf = ''.join(lst)
+        assert buf == expected
 
 
 class TestDirect(BaseLLOpTest):
