@@ -26,7 +26,7 @@ class TestLLOp(BaseLLOpTest):
         x = fn(buf, offset)
         return lltype.cast_primitive(TYPE, x)
 
-    def newlist_and_gc_store(self, TYPE, value):
+    def newlist_and_gc_store(self, TYPE, value, expected):
         if TYPE not in self.cache:
             assert isinstance(TYPE, lltype.Primitive)
             if TYPE in (lltype.Float, lltype.SingleFloat):
@@ -43,4 +43,5 @@ class TestLLOp(BaseLLOpTest):
             self.cache[TYPE] = fn
         #
         fn = self.cache[TYPE]
-        return fn(value)
+        got = fn(value)
+        assert got == expected

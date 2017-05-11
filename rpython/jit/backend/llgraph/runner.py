@@ -747,10 +747,20 @@ class LLGraphCPU(model.AbstractCPU):
         return llop.gc_load_indexed(longlong.FLOATSTORAGE,
                                     struct, index, scale, base_ofs)
 
-    def bh_gc_store_indexed_i(self, struct, index, scale, base_ofs, val, bytes):
+    def bh_gc_store_indexed_i(self, struct, index, scale, base_ofs, val, bytes,
+                              descr):
         T = self._get_int_type_from_size(bytes)
         val = lltype.cast_primitive(T, val)
         llop.gc_store_indexed(lltype.Void, struct, index, scale, base_ofs, val)
+
+    def bh_gc_store_indexed(self, struct, index, scale, base_ofs, val, bytes,
+                            descr):
+        if descr.A.OF == lltype.Float:
+            XXX
+            self.bh_raw_store_f(struct, offset, newvalue, descr)
+        else:
+            self.bh_gc_store_indexed_i(struct, index, scale, base_ofs,
+                                       val, bytes, descr)
 
     def bh_increment_debug_counter(self, addr):
         p = rffi.cast(rffi.CArrayPtr(lltype.Signed), addr)

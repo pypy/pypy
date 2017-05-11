@@ -264,7 +264,8 @@ def do_gc_store_indexed(cpu, _, addrbox, indexbox, scalebox,
         import pdb;pdb.set_trace()
     else:
         intval = valuebox.getint()
-        cpu.bh_gc_store_indexed_i(addr, index, scale, base_ofs, intval, bytes)
+        cpu.bh_gc_store_indexed_i(addr, index, scale, base_ofs, intval, bytes,
+                                  arraydescr)
 
 
 def exec_new_with_vtable(cpu, descr):

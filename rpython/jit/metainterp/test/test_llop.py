@@ -29,9 +29,12 @@ class TestLLOp(BaseLLOpTest, LLJitMixin):
             return longlong.int2singlefloat(res)
         return res
 
-    def newlist_and_gc_store(self, TYPE, value):
+    def newlist_and_gc_store(self, TYPE, value, expected):
         def f(value):
-            return newlist_and_gc_store(TYPE, value)
+            lst = newlist_and_gc_store(TYPE, value)
+            got = ''.join(lst)
+            assert got == expected
+            return len(got)
         return self.interp_operations(f, [value], supports_singlefloats=True)
 
 

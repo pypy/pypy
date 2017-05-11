@@ -48,9 +48,7 @@ class BaseLLOpTest(object):
 
     def test_gc_store_indexed(self):
         expected = struct.pack('i', 0x12345678)
-        lst = self.newlist_and_gc_store(rffi.INT, 0x12345678)
-        buf = ''.join(lst)
-        assert buf == expected
+        self.newlist_and_gc_store(rffi.INT, 0x12345678, expected)
 
 
 class TestDirect(BaseLLOpTest):
@@ -58,8 +56,10 @@ class TestDirect(BaseLLOpTest):
     def gc_load_from_string(self, TYPE, buf, offset):
         return str_gc_load(TYPE, buf, offset)
 
-    def newlist_and_gc_store(self, TYPE, value):
-        return newlist_and_gc_store(TYPE, value)
+    def newlist_and_gc_store(self, TYPE, value, expected):
+        got = newlist_and_gc_store(TYPE, value)
+        got = ''.join(got)
+        assert got == expected
 
 class TestRTyping(BaseLLOpTest, BaseRtypingTest):
 
@@ -68,8 +68,9 @@ class TestRTyping(BaseLLOpTest, BaseRtypingTest):
             return str_gc_load(TYPE, buf, offset)
         return self.interpret(fn, [offset])
 
-    def newlist_and_gc_store(self, TYPE, value):
+    def newlist_and_gc_store(self, TYPE, value, expected):
         def fn(value):
             return newlist_and_gc_store(TYPE, value)
         ll_res = self.interpret(fn, [value])
-        return list(ll_res.items)
+        got = ''.join(ll_res.items)
+        assert got == expected
