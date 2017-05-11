@@ -11,7 +11,7 @@ for a full 64bit translation.
 
 To build pypy-c you need a working python environment, and a C compiler.
 It is possible to translate with a CPython 2.6 or later, but this is not
-the preferred way, because it will take a lot longer to run â€“ depending
+the preferred way, because it will take a lot longer to run – depending
 on your architecture, between two and three times as long. So head to
 `our downloads`_ and get the latest stable version.
 
@@ -343,9 +343,9 @@ large enough to (occasionally) contain a pointer value cast to an
 integer.  The simplest fix is to make sure that it is so, but it will
 give the following incompatibility between CPython and PyPy on Win64:
 
-CPython: ``sys.maxint == 2**32-1, sys.maxsize == 2**64-1``
+CPython: ``sys.maxint == 2**31-1, sys.maxsize == 2**63-1``
 
-PyPy: ``sys.maxint == sys.maxsize == 2**64-1``
+PyPy: ``sys.maxint == sys.maxsize == 2**63-1``
 
 ...and, correspondingly, PyPy supports ints up to the larger value of
 sys.maxint before they are converted to ``long``.  The first decision
