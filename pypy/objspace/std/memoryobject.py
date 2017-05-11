@@ -145,7 +145,11 @@ class W_MemoryView(W_Root):
         start, stop, step, slicelength = self._decode_index(space, w_index, is_slice)
         itemsize = self.getitemsize()
         if step == 0:  # index only
-            self.view.setitem_w(space, start, w_obj)
+            value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
+            if value.getitemsize() != itemsize:
+                raise oefmt(space.w_TypeError,
+                            "mismatching itemsizes for %T and %T", self, w_obj)
+            self.view.setbytes(start * itemsize, value.getbytes(0, itemsize))
         elif step == 1:
             value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
             if value.getlength() != slicelength * itemsize:
