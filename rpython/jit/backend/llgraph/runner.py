@@ -751,6 +751,8 @@ class LLGraphCPU(model.AbstractCPU):
                               descr):
         T = self._get_int_type_from_size(bytes)
         val = lltype.cast_primitive(T, val)
+        if descr.A.OF == lltype.SingleFloat:
+            val = longlong.int2singlefloat(val)
         llop.gc_store_indexed(lltype.Void, struct, index, scale, base_ofs, val)
 
     def bh_gc_store_indexed_f(self, struct, index, scale, base_ofs, val, bytes,

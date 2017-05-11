@@ -54,6 +54,10 @@ class BaseLLOpTest(object):
         expected = struct.pack('d', 123.456)
         self.newlist_and_gc_store(rffi.DOUBLE, 123.456, expected)
 
+    def test_gc_store_indexed_float(self):
+        expected = struct.pack('f', 123.456)
+        self.newlist_and_gc_store(rffi.FLOAT, 123.456, expected)
+
 
 class TestDirect(BaseLLOpTest):
 
