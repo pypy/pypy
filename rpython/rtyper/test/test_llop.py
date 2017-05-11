@@ -18,15 +18,18 @@ def str_gc_load(TYPE, buf, offset):
                                 scale_factor, base_ofs)
 
 
-def list_gc_store(TYPE, lst, offset, value):
-    value = lltype.cast_primitive(TYPE, value)
+def newlist_and_gc_store(TYPE, value):
+    size = rffi.sizeof(TYPE)
+    lst = resizable_list_supporting_raw_ptr(['\x00']*size)
     ll_data = ll_for_resizable_list(lst)
     ll_items = ll_data.items
     LIST = lltype.typeOf(ll_data).TO # rlist.LIST_OF(lltype.Char)
     base_ofs = llmemory.itemoffsetof(LIST.items.TO, 0)
     scale_factor = llmemory.sizeof(lltype.Char)
-    return llop.gc_store_indexed(lltype.Void, ll_items, offset,
-                                 scale_factor, base_ofs, value)
+    value = lltype.cast_primitive(TYPE, value)
+    llop.gc_store_indexed(lltype.Void, ll_items, 0,
+                          scale_factor, base_ofs, value)
+    return lst
 
 
 
@@ -45,9 +48,7 @@ class BaseLLOpTest(object):
 
     def test_gc_store_indexed(self):
         expected = struct.pack('i', 0x12345678)
-        n = len(expected)
-        lst = resizable_list_supporting_raw_ptr(['\x00']*n)
-        list_gc_store(rffi.INT, lst, 0, 0x12345678)
+        lst = self.newlist_and_gc_store(rffi.INT, 0x12345678)
         buf = ''.join(lst)
         assert buf == expected
 
@@ -57,9 +58,18 @@ class TestDirect(BaseLLOpTest):
     def gc_load_from_string(self, TYPE, buf, offset):
         return str_gc_load(TYPE, buf, offset)
 
+    def newlist_and_gc_store(self, TYPE, value):
+        return newlist_and_gc_store(TYPE, value)
+
 class TestRTyping(BaseLLOpTest, BaseRtypingTest):
 
     def gc_load_from_string(self, TYPE, buf, offset):
         def fn(offset):
             return str_gc_load(TYPE, buf, offset)
         return self.interpret(fn, [offset])
+
+    def newlist_and_gc_store(self, TYPE, value):
+        def fn(value):
+            return newlist_and_gc_store(TYPE, value)
+        ll_res = self.interpret(fn, [value])
+        return list(ll_res.items)
