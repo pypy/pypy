@@ -144,18 +144,11 @@ class W_MemoryView(W_Root):
         is_slice = space.isinstance_w(w_index, space.w_slice)
         start, stop, step, slicelength = self._decode_index(space, w_index, is_slice)
         itemsize = self.getitemsize()
-        if step == 0:  # index only
-            value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
-            if value.getitemsize() != itemsize:
-                raise oefmt(space.w_TypeError,
-                            "mismatching itemsizes for %T and %T", self, w_obj)
-            self.view.setbytes(start * itemsize, value.getbytes(0, itemsize))
-        elif step == 1:
-            value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
-            if value.getlength() != slicelength * itemsize:
-                raise oefmt(space.w_ValueError,
-                            "cannot modify size of memoryview object")
-            self.view.setbytes(start * itemsize, value.as_str())
+        value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
+        if value.getlength() != slicelength * itemsize:
+            raise oefmt(space.w_ValueError,
+                        "cannot modify size of memoryview object")
+        self.view.setbytes(start * itemsize, value.as_str())
 
     def descr_len(self, space):
         self._check_released(space)
