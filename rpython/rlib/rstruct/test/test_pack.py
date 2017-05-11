@@ -10,11 +10,7 @@ class FakeFormatIter(object):
         self.value = value
         self.bigendian = bigendian
         self.result = MutableStringBuffer(size)
-        # we set the buffer to non-zero, so ensure that we actively write 0s
-        # where it's needed
-        self.result.setslice(0, '\xff'*size)
         self.pos = 0
-        self.needs_zeros = True
 
     def advance(self, count):
         self.pos += count

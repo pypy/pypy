@@ -1,6 +1,6 @@
-from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rtyper.lltypesystem.rstr import STR
+from rpython.rtyper.lltypesystem.rstr import STR, mallocstr
 from rpython.rtyper.annlowlevel import llstr, hlstr
 from rpython.rlib.buffer import Buffer
 
@@ -21,10 +21,8 @@ class MutableStringBuffer(Buffer):
 
     def __init__(self, size):
         self.readonly = False
-        # rstr.mallocstr does not pass zero=True, so we call lltype.malloc
-        # directly
         self.size = size
-        self.ll_val = lltype.malloc(STR, size, zero=True)
+        self.ll_val = mallocstr(size)
 
     def getlength(self):
         return self.size
@@ -40,5 +38,13 @@ class MutableStringBuffer(Buffer):
     def as_str(self):
         raise ValueError('as_str() is not supported. Use finish() instead')
 
+    def _hlstr(self):
+        assert not we_are_translated() # debug only
+        return hlstr(self.ll_val)
+
     def setitem(self, index, char):
         self.ll_val.chars[index] = char
+
+    def setzeros(self, index, count):
+        for i in range(index, index+count):
+            self.setitem(i, '\x00')

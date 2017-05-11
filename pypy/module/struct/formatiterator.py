@@ -16,7 +16,6 @@ class PackFormatIterator(FormatIterator):
         self.args_index = 0
         self.pos = 0
         self.result = MutableStringBuffer(size)
-        self.needs_zeros = False # MutableStringBuffer is already 0-inizialized
 
     def advance(self, count):
         self.pos += count
@@ -37,6 +36,7 @@ class PackFormatIterator(FormatIterator):
     @jit.unroll_safe
     def align(self, mask):
         pad = (-self.pos) & mask
+        self.result.setzeros(self.pos, pad)
         self.advance(pad)
 
     def finished(self):

@@ -22,3 +22,9 @@ class TestMutableStringBuffer(object):
         buf = MutableStringBuffer(6)
         buf.setslice(2, 'ABCD')
         assert buf.finish() == '\x00\x00ABCD'
+
+    def test_setzeros(self):
+        buf = MutableStringBuffer(8)
+        buf.setslice(0, 'ABCDEFGH')
+        buf.setzeros(2, 3)
+        assert buf.finish() == 'AB\x00\x00\x00FGH'
