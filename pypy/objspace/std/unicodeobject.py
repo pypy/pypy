@@ -96,6 +96,12 @@ class W_UnicodeObject(W_Root):
         return space.text_w(space.str(self))
 
     def unicode_w(self, space):
+        from pypy.module.__pypy__.interp_debug import get_str_debug_file
+        w_file = get_str_debug_file(space)
+        if w_file is not None:
+            space.call_function(space.getattr(w_file, space.newtext("write")),
+                space.newtext("unicode_w %d\n" % (self._string_id,)))
+        
         return self._value
 
     def readbuf_w(self, space):
@@ -986,8 +992,18 @@ class UnicodeDocstrings:
 def setup():
     from pypy.module.__pypy__.interp_debug import get_str_debug_file
 
+    def lines_for_arg(argname, func):
+        return [
+            "        if isinstance(%s, W_UnicodeObject):" % argname,
+            "            txt = '%s ' + str(self._string_id) + ' ' + str(%s._string_id) + '\\n'" % (func.func_name, argname),
+            "        else:",
+            "            txt = '%s ' + str(self._string_id) + ' string\\n'" % func.func_name
+            ]
+
+
     def wrap(func):
-        d = {'orig': func, 'get_str_debug_file': get_str_debug_file}
+        d = {'orig': func, 'get_str_debug_file': get_str_debug_file,
+        'W_UnicodeObject': W_UnicodeObject}
         name = func.__name__
         orig_args = list(func.__code__.co_varnames[:func.__code__.co_argcount])
         args = orig_args[:]
@@ -999,8 +1015,20 @@ def setup():
         func_args = ", ".join(args)
         lines = ["def %s(%s):" % (name, func_args),
         "    w_file = get_str_debug_file(space)",
-        "    if w_file is not None:",
-        "        txt = '%s ' + str(self._string_id) + '\\n'" % func.func_name,
+        "    if w_file is not None:"]
+        if name in ['descr_eq', 'descr_add', 'descr_ne', 'descr_lt', 'descr_gt', 'descr_ge', 'descr_le']:
+            lines += lines_for_arg('w_other', func)
+        elif name == 'descr_startswith':
+            lines += lines_for_arg('w_prefix', func)
+        elif name == 'descr_endswith':
+            lines += lines_for_arg('w_suffix', func)
+        elif name in ['descr_find', 'descr_rfind', 'descr_index', 'descr_count']:
+            lines += lines_for_arg('w_sub', func)
+        else:
+            lines += [
+            "        txt = '%s ' + str(self._string_id) + '\\n'" % func.func_name,
+            ]
+        lines += [
         "        space.call_function(space.getattr(w_file, space.newtext('write')), space.newtext(txt))",
         "    return orig(%s)" % (", ".join(orig_args),)]
         exec "\n".join(lines) in d
