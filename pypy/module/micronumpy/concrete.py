@@ -762,3 +762,6 @@ class ArrayView(BufferView):
 
     def getstrides(self):
         return self.impl.strides
+
+    def get_raw_address(self):
+        return self.data.get_raw_address()
