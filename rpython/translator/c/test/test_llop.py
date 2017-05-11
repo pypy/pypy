@@ -1,7 +1,5 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
-from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rtyper.annlowlevel import llstr
-from rpython.rtyper.test.test_llop import BaseLLOpTest, str_offset
+from rpython.rtyper.test.test_llop import BaseLLOpTest, str_gc_load
 from rpython.translator.c.test.test_genc import compile
 
 
@@ -17,10 +15,7 @@ class TestLLOp(BaseLLOpTest):
                 TARGET_TYPE = lltype.Signed
 
             def llf(buf, offset):
-                base_ofs, scale_factor = str_offset()
-                lls = llstr(buf)
-                x = llop.gc_load_indexed(TYPE, lls, offset,
-                                         scale_factor, base_ofs)
+                x = str_gc_load(TYPE, buf, offset)
                 return lltype.cast_primitive(TARGET_TYPE, x)
 
             fn = compile(llf, [str, int])
