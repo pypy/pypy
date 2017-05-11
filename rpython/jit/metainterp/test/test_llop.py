@@ -2,7 +2,8 @@ import py
 import sys
 import struct
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rtyper.test.test_llop import BaseLLOpTest, str_gc_load
+from rpython.rtyper.test.test_llop import (BaseLLOpTest, str_gc_load,
+                                           newlist_and_gc_store)
 from rpython.jit.codewriter import longlong
 from rpython.jit.metainterp.history import getkind
 from rpython.jit.metainterp.test.support import LLJitMixin
@@ -27,6 +28,12 @@ class TestLLOp(BaseLLOpTest, LLJitMixin):
             # back!
             return longlong.int2singlefloat(res)
         return res
+
+    def newlist_and_gc_store(self, TYPE, value):
+        def f(value):
+            return newlist_and_gc_store(TYPE, value)
+        return self.interp_operations(f, [value], supports_singlefloats=True)
+
 
     def test_force_virtual_str_storage(self):
         byteorder = sys.byteorder
