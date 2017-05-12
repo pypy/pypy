@@ -3,6 +3,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, applevel, \
     WrappedDefault
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, \
     make_weakref_descr
+from pypy.interpreter.buffer import SimpleView
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rawstorage import RAW_STORAGE_PTR
@@ -808,7 +809,8 @@ class __extend__(W_NDimArray):
         return self.implementation.get_buffer(space, flags)
 
     def descr_get_data(self, space):
-        return self.implementation.get_buffer(space, space.BUF_FULL).wrap(space)
+        return space.newmemoryview(
+            self.implementation.get_buffer(space, space.BUF_FULL))
 
     @unwrap_spec(offset=int, axis1=int, axis2=int)
     def descr_diagonal(self, space, offset=0, axis1=0, axis2=1):

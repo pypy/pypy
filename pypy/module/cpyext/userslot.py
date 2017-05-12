@@ -109,4 +109,14 @@ def slot_mp_subscript(space, w_obj1, w_obj2):
 def slot_tp_getattr(space, w_obj1, w_obj2):
     return space.getattr(w_obj1, w_obj2)
 
+@slot_function([PyObject, PyObject, PyObject], PyObject)
+def slot_tp_descr_get(space, w_self, w_obj, w_type):
+    return space.get(w_self, w_obj, w_type)
 
+@slot_function([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
+def slot_tp_descr_set(space, w_self, w_obj, w_value):
+    if w_value is not None:
+        space.set(w_self, w_obj, w_value)
+    else:
+        space.delete(w_self, w_obj)
+    return 0

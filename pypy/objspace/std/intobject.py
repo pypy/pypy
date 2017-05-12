@@ -768,7 +768,7 @@ def wrapint(space, x):
     # use r_uint to perform a single comparison (this whole function is
     # getting inlined into every caller so keeping the branching to a
     # minimum is a good idea)
-    index = r_uint(x - lower)
+    index = r_uint(x) - r_uint(lower)
     if index >= r_uint(upper - lower):
         w_res = instantiate(W_IntObject)
     else:

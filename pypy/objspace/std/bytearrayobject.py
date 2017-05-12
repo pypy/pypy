@@ -26,7 +26,6 @@ from pypy.objspace.std.util import get_positive_index
 from pypy.objspace.std.formatting import mod_format, FORMAT_BYTEARRAY
 
 
-
 class W_BytearrayObject(W_Root):
     import_from_mixin(StringMethods)
     _KIND1 = "bytearray"
@@ -1277,10 +1276,10 @@ def _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
 
 class BytearrayBuffer(Buffer):
     _immutable_ = True
-    readonly = False
 
-    def __init__(self, ba):
+    def __init__(self, ba, readonly=False):
         self.ba = ba     # the W_BytearrayObject
+        self.readonly = readonly
 
     def getlength(self):
         return self.ba._len()

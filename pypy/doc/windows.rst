@@ -11,7 +11,7 @@ for a full 64bit translation.
 
 To build pypy-c you need a working python environment, and a C compiler.
 It is possible to translate with a CPython 2.6 or later, but this is not
-the preferred way, because it will take a lot longer to run â€“ depending
+the preferred way, because it will take a lot longer to run – depending
 on your architecture, between two and three times as long. So head to
 `our downloads`_ and get the latest stable version.
 
@@ -120,7 +120,7 @@ Abridged method (for -Ojit builds using Visual Studio 2008)
 Download the versions of all the external packages from
 https://bitbucket.org/pypy/pypy/downloads/local_5.8.zip
 (for post-5.7.1 builds) with sha256 checksum 
-``f1510452293f22e84d6059464e11f4c62ffd0e2ee97a52be9195bec8a70c6dce`` or
+``fbe769bf3a4ab6f5a8b0a05b61930fc7f37da2a9a85a8f609cf5a9bad06e2554`` or
 https://bitbucket.org/pypy/pypy/downloads/local_2.4.zip
 (for 2.4 release and later) or
 https://bitbucket.org/pypy/pypy/downloads/local.zip
@@ -128,9 +128,9 @@ https://bitbucket.org/pypy/pypy/downloads/local.zip
 Then expand it into the base directory (base_dir) and modify your environment
 to reflect this::
 
-    set PATH=<base_dir>\bin;<base_dir>\tcltk\bin;%PATH%
-    set INCLUDE=<base_dir>\include;<base_dir>\tcltk\include;%INCLUDE%
-    set LIB=<base_dir>\lib;<base_dir>\tcltk\lib;%LIB%
+    set PATH=<base_dir>\bin;%PATH%
+    set INCLUDE=<base_dir>\include;%INCLUDE%
+    set LIB=<base_dir>\lib;%LIB%
 
 Now you should be good to go. If you choose this method, you do not need
 to download/build anything else. 
@@ -236,6 +236,9 @@ use the one distributed by ActiveState, or the one from cygwin.::
     copy out32\*.lib <somewhere in LIB>
     xcopy /S include\openssl <somewhere in INCLUDE>
 
+For tests you will also need the dlls::
+    nmake -f ms\ntdll.mak install
+    copy out32dll\*.dll <somewhere in PATH>
 
 TkInter module support
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -245,18 +248,17 @@ Tkinter is imported via cffi, so the module is optional. To recreate the tcltk
 directory found for the release script, create the dlls, libs, headers and
 runtime by running::
 
-	svn export http://svn.python.org/projects/external/tcl-8.5.2.1 tcl85
-	svn export http://svn.python.org/projects/external/tk-8.5.2.0 tk85
-	cd tcl85\win
-	nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 DEBUG=0 INSTALLDIR=..\..\tcltk clean all
-	nmake -f makefile.vc DEBUG=0 INSTALLDIR=..\..\tcltk install
-	cd ..\..\tk85\win
-	nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 OPTS=noxp DEBUG=1 INSTALLDIR=..\..\tcltk TCLDIR=..\..\tcl85 clean all
-	nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 OPTS=noxp DEBUG=1 INSTALLDIR=..\..\tcltk TCLDIR=..\..\tcl85 install
-
-Now you should have a tcktk\bin, tcltk\lib, and tcltk\include directory ready
-for use. The release packaging script will pick up the tcltk runtime in the lib
-directory and put it in the archive.
+    svn export http://svn.python.org/projects/external/tcl-8.5.2.1 tcl85
+    svn export http://svn.python.org/projects/external/tk-8.5.2.0 tk85
+    cd tcl85\win
+    nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 DEBUG=0 INSTALLDIR=..\..\tcltk clean all
+    nmake -f makefile.vc DEBUG=0 INSTALLDIR=..\..\tcltk install
+    cd ..\..\tk85\win
+    nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 OPTS=noxp DEBUG=1 INSTALLDIR=..\..\tcltk TCLDIR=..\..\tcl85 clean all
+    nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 OPTS=noxp DEBUG=1 INSTALLDIR=..\..\tcltk TCLDIR=..\..\tcl85 install
+    copy ..\..\tcltk\bin\* <somewhere in PATH>
+    copy ..\..\tcltk\lib\*.lib <somewhere in LIB>
+    xcopy /S ..\..\tcltk\include <somewhere in INCLUDE>
 
 The lzma compression library
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -341,9 +343,9 @@ large enough to (occasionally) contain a pointer value cast to an
 integer.  The simplest fix is to make sure that it is so, but it will
 give the following incompatibility between CPython and PyPy on Win64:
 
-CPython: ``sys.maxint == 2**32-1, sys.maxsize == 2**64-1``
+CPython: ``sys.maxint == 2**31-1, sys.maxsize == 2**63-1``
 
-PyPy: ``sys.maxint == sys.maxsize == 2**64-1``
+PyPy: ``sys.maxint == sys.maxsize == 2**63-1``
 
 ...and, correspondingly, PyPy supports ints up to the larger value of
 sys.maxint before they are converted to ``long``.  The first decision

@@ -3,6 +3,7 @@ from pypy.interpreter.error import oefmt
 from rpython.rlib import jit, rgc
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.listsort import make_timsort_class
+from rpython.rlib.buffer import Buffer
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage, \
@@ -701,10 +702,8 @@ class VoidBoxStorage(BaseConcreteArray):
     def __del__(self):
         free_raw_storage(self.storage)
 
-
-class ArrayView(BufferView):
+class ArrayData(Buffer):
     _immutable_ = True
-
     def __init__(self, impl, readonly):
         self.impl = impl
         self.readonly = readonly
@@ -725,6 +724,28 @@ class ArrayView(BufferView):
         from rpython.rtyper.lltypesystem import rffi
         return rffi.ptradd(self.impl.storage, self.impl.start)
 
+
+class ArrayView(BufferView):
+    _immutable_ = True
+
+    def __init__(self, impl, readonly):
+        self.impl = impl
+        self.readonly = readonly
+        self.data = ArrayData(impl, readonly)
+
+    def getlength(self):
+        return self.data.getlength()
+
+    def getbytes(self, start, size):
+        return self.data[start:start + size]
+
+    def as_readbuf(self):
+        return ArrayData(self.impl, readonly=True)
+
+    def as_writebuf(self):
+        assert not self.readonly
+        return ArrayData(self.impl, readonly=False)
+
     def getformat(self):
         sb = StringBuilder()
         self.impl.dtype.getformat(sb)
@@ -742,4 +763,5 @@ class ArrayView(BufferView):
     def getstrides(self):
         return self.impl.strides
 
-
+    def get_raw_address(self):
+        return self.data.get_raw_address()

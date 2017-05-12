@@ -47,6 +47,33 @@ class TestAppLevelObject(BaseApiTest):
         w_year = space.getattr(w_obj, space.newtext('year'))
         assert space.int_w(w_year) == 1
 
+    def test_descr_slots(self, space, api):
+        w_descr = space.appexec([], """():
+            class Descr(object):
+                def __get__(self, obj, type):
+                    return 42
+                def __set__(self, obj, value):
+                    obj.append('set')
+                def __delete__(self, obj):
+                    obj.append('del')
+            return Descr()
+            """)
+        w_descrtype = space.type(w_descr)
+        py_descr = make_ref(space, w_descr)
+        py_descrtype = rffi.cast(PyTypeObjectPtr, make_ref(space, w_descrtype))
+        w_obj = space.newlist([])
+        py_obj = make_ref(space, w_obj)
+        w_res = generic_cpy_call(space, py_descrtype.c_tp_descr_get,
+                                 py_descr, py_obj, py_obj)
+        assert space.int_w(w_res) == 42
+        assert generic_cpy_call(
+            space, py_descrtype.c_tp_descr_set,
+            py_descr, py_obj, make_ref(space, space.w_None)) == 0
+        assert generic_cpy_call(
+            space, py_descrtype.c_tp_descr_set,
+            py_descr, py_obj, None) == 0
+        assert space.eq_w(w_obj, space.wrap(['set', 'del']))
+
 class AppTestUserSlots(AppTestCpythonExtensionBase):
     def test_tp_hash_from_python(self):
         # to see that the functions are being used,

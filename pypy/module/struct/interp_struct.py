@@ -1,9 +1,9 @@
 from rpython.rlib import jit
+from rpython.rlib.buffer import SubBuffer
 from rpython.rlib.rstruct.error import StructError, StructOverflowError
 from rpython.rlib.rstruct.formatiterator import CalcSizeFormatIterator
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import SubBuffer
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
@@ -177,15 +177,16 @@ class W_UnpackIter(W_Root):
 class W_Struct(W_Root):
     _immutable_fields_ = ["format", "size"]
 
-    def __init__(self, space, format):
+    format = ""
+    size = -1
+
+    def descr__new__(space, w_subtype, __args__):
+        return space.allocate_instance(W_Struct, w_subtype)
+
+    def descr__init__(self, space, w_format):
+        format = text_or_bytes_w(space, w_format)
         self.format = format
         self.size = _calcsize(space, format)
-
-    def descr__new__(space, w_subtype, w_format):
-        format = text_or_bytes_w(space, w_format)
-        self = space.allocate_instance(W_Struct, w_subtype)
-        W_Struct.__init__(self, space, format)
-        return self
 
     def descr_pack(self, space, args_w):
         return do_pack(space, jit.promote_string(self.format), args_w)
@@ -206,6 +207,7 @@ class W_Struct(W_Root):
 
 W_Struct.typedef = TypeDef("Struct",
     __new__=interp2app(W_Struct.descr__new__.im_func),
+    __init__=interp2app(W_Struct.descr__init__),
     format=interp_attrproperty("format", cls=W_Struct, wrapfn="newbytes"),
     size=interp_attrproperty("size", cls=W_Struct, wrapfn="newint"),
 
@@ -223,8 +225,8 @@ W_UnpackIter.typedef = TypeDef("unpack_iterator",
 )
 
 def iter_unpack(space, w_format, w_buffer):
-    format = text_or_bytes_w(space, w_format)
-    w_struct = W_Struct(space, format)
+    w_struct = W_Struct()
+    w_struct.descr__init__(space, w_format)
     return W_UnpackIter(space, w_struct, w_buffer)
 
 def clearcache(space):
