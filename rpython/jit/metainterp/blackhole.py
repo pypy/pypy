@@ -1479,11 +1479,11 @@ class BlackholeInterpreter(object):
         return cpu.bh_gc_load_indexed_f(addr, index,scale,base_ofs, bytes)
 
     @arguments("cpu", "r", "i", "i", "i", "i", "i")
-    def bhimpl_gc_store_indexed_i(cpu, addr, index, scale, base_ofs, val, bytes):
-        return cpu.bh_gc_store_indexed_i(addr, index,scale,base_ofs, val, bytes)
-    @arguments("cpu", "r", "i", "i", "i", "f", "i")
-    def bhimpl_gc_store_indexed_f(cpu, addr, index, scale, base_ofs, val, bytes):
-        return cpu.bh_gc_store_indexed_f(addr, index,scale,base_ofs, val, bytes)
+    def bhimpl_gc_store_indexed_i(cpu, addr, index, val, scale, base_ofs, bytes):
+        return cpu.bh_gc_store_indexed_i(addr, index, val, scale,base_ofs, bytes)
+    @arguments("cpu", "r", "i", "f", "i", "i", "i")
+    def bhimpl_gc_store_indexed_f(cpu, addr, index, val, scale, base_ofs, bytes):
+        return cpu.bh_gc_store_indexed_f(addr, index, val, scale,base_ofs, bytes)
 
     @arguments("r", "d", "d")
     def bhimpl_record_quasiimmut_field(struct, fielddescr, mutatefielddescr):

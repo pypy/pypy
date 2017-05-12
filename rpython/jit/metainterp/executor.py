@@ -251,8 +251,8 @@ def do_raw_load(cpu, _, addrbox, offsetbox, arraydescr):
     else:
         return BoxInt(cpu.bh_raw_load_i(addr, offset, arraydescr))
 
-def do_gc_store_indexed(cpu, _, addrbox, indexbox, scalebox,
-                        base_ofsbox, valuebox, bytesbox, arraydescr):
+def do_gc_store_indexed(cpu, _, addrbox, indexbox, valuebox, scalebox,
+                        base_ofsbox, bytesbox, arraydescr):
     addr = addrbox.getref_base()
     index = indexbox.getint()
     scale = scalebox.getint()
@@ -262,11 +262,11 @@ def do_gc_store_indexed(cpu, _, addrbox, indexbox, scalebox,
         raise AssertionError("cannot store GC pointers in gc_store_indexed for now")
     elif arraydescr.is_array_of_floats():
         floatval = valuebox.getfloat()
-        cpu.bh_gc_store_indexed_i(addr, index, scale, base_ofs, floatval, bytes,
+        cpu.bh_gc_store_indexed_i(addr, index, floatval, scale, base_ofs, bytes,
                                   arraydescr)
     else:
         intval = valuebox.getint()
-        cpu.bh_gc_store_indexed_i(addr, index, scale, base_ofs, intval, bytes,
+        cpu.bh_gc_store_indexed_i(addr, index, intval, scale, base_ofs, bytes,
                                   arraydescr)
 
 

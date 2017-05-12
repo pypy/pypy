@@ -728,7 +728,7 @@ def op_gc_load_indexed(TVAL, p, index, scale, base_ofs):
     return p[0]
 op_gc_load_indexed.need_result_type = True
 
-def op_gc_store_indexed(p, index, scale, base_ofs, newvalue):
+def op_gc_store_indexed(p, index, newvalue, scale, base_ofs):
     # 'base_ofs' should be a CompositeOffset(..., ArrayItemsOffset).
     # 'scale' should be a llmemory.sizeof().
     from rpython.rtyper.lltypesystem import rffi

@@ -747,29 +747,29 @@ class LLGraphCPU(model.AbstractCPU):
         return llop.gc_load_indexed(longlong.FLOATSTORAGE,
                                     struct, index, scale, base_ofs)
 
-    def bh_gc_store_indexed_i(self, struct, index, scale, base_ofs, val, bytes,
+    def bh_gc_store_indexed_i(self, struct, index, val, scale, base_ofs, bytes,
                               descr):
         T = self._get_int_type_from_size(bytes)
         val = lltype.cast_primitive(T, val)
         if descr.A.OF == lltype.SingleFloat:
             val = longlong.int2singlefloat(val)
-        llop.gc_store_indexed(lltype.Void, struct, index, scale, base_ofs, val)
+        llop.gc_store_indexed(lltype.Void, struct, index, val, scale, base_ofs)
 
-    def bh_gc_store_indexed_f(self, struct, index, scale, base_ofs, val, bytes,
+    def bh_gc_store_indexed_f(self, struct, index, val, scale, base_ofs, bytes,
                               descr):
         if bytes != 8:
             raise Exception("gc_store_indexed_f is only for 'double'!")
         val = longlong.getrealfloat(val)
-        llop.gc_store_indexed(lltype.Void, struct, index, scale, base_ofs, val)
+        llop.gc_store_indexed(lltype.Void, struct, index, val, scale, base_ofs)
 
-    def bh_gc_store_indexed(self, struct, index, scale, base_ofs, val, bytes,
+    def bh_gc_store_indexed(self, struct, index, val, scale, base_ofs, bytes,
                             descr):
         if descr.A.OF == lltype.Float:
-            self.bh_gc_store_indexed_f(struct, index, scale, base_ofs,
-                                       val, bytes, descr)
+            self.bh_gc_store_indexed_f(struct, index, val, scale, base_ofs,
+                                       bytes, descr)
         else:
-            self.bh_gc_store_indexed_i(struct, index, scale, base_ofs,
-                                       val, bytes, descr)
+            self.bh_gc_store_indexed_i(struct, index, val, scale, base_ofs,
+                                       bytes, descr)
 
     def bh_increment_debug_counter(self, addr):
         p = rffi.cast(rffi.CArrayPtr(lltype.Signed), addr)

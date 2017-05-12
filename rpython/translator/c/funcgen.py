@@ -731,10 +731,10 @@ class FunctionCodeGenerator(object):
     def OP_GC_STORE_INDEXED(self, op):
         addr = self.expr(op.args[0])
         index = self.expr(op.args[1])
-        scale = self.expr(op.args[2])
-        base_ofs = self.expr(op.args[3])
-        value = self.expr(op.args[4])
-        TYPE = op.args[4].concretetype
+        value = self.expr(op.args[2])
+        scale = self.expr(op.args[3])
+        base_ofs = self.expr(op.args[4])
+        TYPE = op.args[2].concretetype
         typename = cdecl(self.db.gettype(TYPE).replace('@', '*@'), '')
         return (
           "((%(typename)s) (((char *)%(addr)s) + "

@@ -28,7 +28,7 @@ def newlist_and_gc_store(TYPE, value):
     scale_factor = llmemory.sizeof(lltype.Char)
     value = lltype.cast_primitive(TYPE, value)
     llop.gc_store_indexed(lltype.Void, ll_items, 0,
-                          scale_factor, base_ofs, value)
+                          value, scale_factor, base_ofs)
     return lst
 
 

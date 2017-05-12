@@ -1132,19 +1132,18 @@ class Transformer(object):
                                op.args[2], op.args[3], c_bytes], op.result)
 
     def rewrite_op_gc_store_indexed(self, op):
-        T = op.args[4].concretetype
+        T = op.args[2].concretetype
         kind = getkind(T)[0]
         assert kind != 'r'
         descr = self.cpu.arraydescrof(rffi.CArray(T))
-        if (not isinstance(op.args[2], Constant) or
-            not isinstance(op.args[3], Constant)):
+        if (not isinstance(op.args[3], Constant) or
+            not isinstance(op.args[4], Constant)):
             raise NotImplementedError("gc_store_indexed: 'scale' and 'base_ofs'"
                                       " should be constants")
-        # xxx hard-code the size in bytes at translation time, which is
-        # probably fine and avoids lots of issues later
+        # According to the comment in resoperation.py, "itemsize is not signed
+        # (always > 0)", so we don't need the "bytes = -bytes" line which is
+        # in rewrite_op_gc_load_indexed
         bytes = descr.get_item_size_in_bytes()
-        if descr.is_item_signed():
-            bytes = -bytes
         c_bytes = Constant(bytes, lltype.Signed)
         return SpaceOperation('gc_store_indexed_%s' % kind,
                               [op.args[0], op.args[1], op.args[2],

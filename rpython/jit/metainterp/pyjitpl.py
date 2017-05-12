@@ -828,16 +828,16 @@ class MIFrame(object):
                             self._remove_symbolics(baseofsbox), bytesbox)
 
     @arguments("box", "box", "box", "box", "box", "box", "descr")
-    def _opimpl_gc_store_indexed(self, addrbox, indexbox,
-                                 scalebox, baseofsbox, valuebox, bytesbox,
+    def _opimpl_gc_store_indexed(self, addrbox, indexbox, valuebox,
+                                 scalebox, baseofsbox, bytesbox,
                                  arraydescr):
         return self.execute_with_descr(rop.GC_STORE_INDEXED,
                                        arraydescr,
                                        addrbox,
                                        indexbox,
+                                       valuebox,
                                        self._remove_symbolics(scalebox),
                                        self._remove_symbolics(baseofsbox),
-                                       valuebox,
                                        bytesbox)
     opimpl_gc_store_indexed_i = _opimpl_gc_store_indexed
     opimpl_gc_store_indexed_f = _opimpl_gc_store_indexed
