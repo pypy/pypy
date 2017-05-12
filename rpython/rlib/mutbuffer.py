@@ -4,6 +4,7 @@ from rpython.rtyper.lltypesystem.rstr import STR, mallocstr
 from rpython.rtyper.annlowlevel import llstr, hlstr
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.buffer import Buffer
+from rpython.rlib import jit
 
 class MutableStringBuffer(Buffer):
     """
@@ -46,6 +47,8 @@ class MutableStringBuffer(Buffer):
     def setitem(self, index, char):
         self.ll_val.chars[index] = char
 
+    @jit.look_inside_iff(lambda self, index, count:
+                         jit.isconstant(count) and count <= 8)
     def setzeros(self, index, count):
         for i in range(index, index+count):
             self.setitem(i, '\x00')
