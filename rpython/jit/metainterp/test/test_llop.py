@@ -8,6 +8,7 @@ from rpython.jit.codewriter import longlong
 from rpython.jit.metainterp.history import getkind
 from rpython.jit.metainterp.test.support import LLJitMixin
 
+
 class TestLLOp(BaseLLOpTest, LLJitMixin):
 
     # for the individual tests see
@@ -37,7 +38,11 @@ class TestLLOp(BaseLLOpTest, LLJitMixin):
                 # I'm not sure why, but if I use an assert, the test doesn't fail
                 raise ValueError('got != expected')
             return len(got)
-        return self.interp_operations(f, [value], supports_singlefloats=True)
+        # we pass a big inline_threshold to ensure that newlist_and_gc_store
+        # is inlined, else the blackhole does not see (and thus we do not
+        # test!) the llop.gc_store_indexed
+        return self.interp_operations(f, [value], supports_singlefloats=True,
+                                      backendopt_inline_threshold=33)
 
 
     def test_force_virtual_str_storage(self):
