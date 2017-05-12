@@ -1,4 +1,5 @@
 import pytest
+from rpython.rlib.rarithmetic import r_ulonglong
 from rpython.rlib.rstruct import standardfmttable, nativefmttable
 from rpython.rlib.mutbuffer import MutableStringBuffer
 import struct
@@ -40,6 +41,23 @@ class BaseTestPack(object):
     fmt_prefix = None
     fmttable = None
 
+    USE_FASTPATH = True
+    ALLOW_SLOWPATH = True
+    
+    def setup_method(self, meth):
+        standardfmttable.USE_FASTPATH = self.USE_FASTPATH
+        standardfmttable.ALLOW_SLOWPATH = self.ALLOW_SLOWPATH
+
+    def teardown_method(self, meth):
+        standardfmttable.USE_FASTPATH = True
+        standardfmttable.ALLOW_SLOWPATH = True
+
+    def teardown_method(self, meth):
+        if not hasattr(self.fmttable, 'USE_FASTPATH'):
+            return
+        self.fmttable.USE_FASTPATH = self.orig_use_fastpath
+        self.fmttable.ALLOW_SLOWPATH = self.orig_allow_slowpath
+
     def mypack(self, fmt, value):
         size = struct.calcsize(fmt)
         fake_fmtiter = FakeFormatIter(self.bigendian, size, value)
@@ -69,7 +87,7 @@ class BaseTestPack(object):
         self.check("I", 0x81424344)
         self.check("q", 0x4142434445464748)
         self.check("q", -0x41B2B3B4B5B6B7B8)
-        self.check("Q", 0x8142434445464748)
+        self.check("Q", r_ulonglong(0x8142434445464748))
 
     def test_pack_ieee(self):
         self.check('f', 123.456)
@@ -107,12 +125,22 @@ class TestPackLittleEndian(BaseTestPack):
     fmt_prefix = '<'
     fmttable = standardfmttable.standard_fmttable
 
+class TestPackLittleEndianSlowPath(TestPackLittleEndian):
+    USE_FASTPATH = False
+
 class TestPackBigEndian(BaseTestPack):
     bigendian = True
     fmt_prefix = '>'
     fmttable = standardfmttable.standard_fmttable
 
+class TestPackBigEndianSlowPath(TestPackBigEndian):
+    USE_FASTPATH = False
+
+
 class TestNative(BaseTestPack):
+    # native packing automatically use the proper endianess, so it should
+    # always take the fast path
+    ALLOW_SLOWPATH = False
     bigendian = nativefmttable.native_is_bigendian
     fmt_prefix = '@'
     fmttable = nativefmttable.native_fmttable

@@ -14,8 +14,11 @@ from rpython.rlib.rstruct.error import StructError, StructOverflowError
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.buffer import StringBuffer
 from rpython.rlib import rarithmetic
-from rpython.rlib.buffer import CannotRead
+from rpython.rlib.buffer import CannotRead, CannotWrite
 from rpython.rtyper.lltypesystem import rffi
+
+USE_FASTPATH = True    # set to False by some tests
+ALLOW_SLOWPATH = True  # set to False by some tests
 
 native_is_bigendian = struct.pack("=i", 1) == struct.pack(">i", 1)
 native_is_ieee754 = float.__getformat__('double').startswith('IEEE')
@@ -64,6 +67,21 @@ def pack_pascal(fmtiter, count):
     fmtiter.result.setitem(fmtiter.pos, chr(prefix))
     fmtiter.advance(1)
     _pack_string(fmtiter, string, count-1)
+
+@specialize.memo()
+def pack_fastpath(TYPE):
+    @specialize.argtype(0)
+    def do_pack_fastpath(fmtiter, value):
+        size = rffi.sizeof(TYPE)
+        pos = fmtiter.pos
+        if (not USE_FASTPATH or
+            fmtiter.bigendian != native_is_bigendian or
+            pos % size != 0):
+            raise CannotWrite
+        # the following might raise CannotWrite and abort the fastpath
+        fmtiter.result.typed_write(TYPE, fmtiter.pos, value)
+        fmtiter.advance(size)
+    return do_pack_fastpath
 
 def make_float_packer(size):
     def packer(fmtiter):
@@ -124,12 +142,21 @@ def make_int_packer(size, signed, _memo={}):
     errormsg = "argument out of range for %d-byte%s integer format" % (size,
                                                                        plural)
     unroll_revrange_size = unrolling_iterable(range(size-1, -1, -1))
+    TYPE = get_rffi_int_type(size, signed)
 
     def pack_int(fmtiter):
         method = getattr(fmtiter, accept_method)
         value = method()
         if not min <= value <= max:
             raise StructError(errormsg)
+        #
+        try:
+            pack_fastpath(TYPE)(fmtiter, value)
+            return
+        except CannotWrite:
+            if not ALLOW_SLOWPATH:
+                # we enter here only in some tests
+                raise ValueError("fastpath not taken :(")
         #
         pos = fmtiter.pos + size - 1        
         if fmtiter.bigendian:
@@ -147,9 +174,6 @@ def make_int_packer(size, signed, _memo={}):
     return pack_int
 
 # ____________________________________________________________
-
-USE_FASTPATH = True    # set to False by some tests
-ALLOW_SLOWPATH = True  # set to False by some tests
 
 
 @specialize.memo()
