@@ -34,3 +34,8 @@ large constants is reused across instructions.
 .. branch: controller-refactor
 
 Refactor rpython.rtyper.controllerentry.
+
+.. branch: PyBuffer-backport
+
+Internal refactoring of buffers and memoryviews. Memoryviews will now be
+accepted in a few more places, e.g. in compile().
