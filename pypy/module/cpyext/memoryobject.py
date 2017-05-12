@@ -41,15 +41,15 @@ def memory_attach(space, py_obj, w_obj, w_userdata=None):
     assert isinstance(w_obj, W_MemoryView)
     py_obj = rffi.cast(PyMemoryViewObject, py_obj)
     view = py_obj.c_view
-    ndim = w_obj.buf.getndim()
+    ndim = w_obj.getndim()
     if ndim >= Py_MAX_NDIMS:
         # XXX warn?
         return
-    fill_Py_buffer(space, w_obj.buf, view)
+    fill_Py_buffer(space, w_obj.view, view)
     try:
-        view.c_buf = rffi.cast(rffi.VOIDP, w_obj.buf.get_raw_address())
+        view.c_buf = rffi.cast(rffi.VOIDP, w_obj.view.get_raw_address())
         view.c_obj = make_ref(space, w_userdata)
-        rffi.setintfield(view, 'c_readonly', w_obj.buf.readonly)
+        rffi.setintfield(view, 'c_readonly', w_obj.view.readonly)
     except ValueError:
         w_s = w_obj.descr_tobytes(space)
         view.c_obj = make_ref(space, w_s)
@@ -94,7 +94,6 @@ def memory_dealloc(space, py_obj):
         decref(space, mem_obj.c_view.c_obj)
     mem_obj.c_view.c_obj = rffi.cast(PyObject, 0)
     _dealloc(space, py_obj)
-
 
 def fill_Py_buffer(space, buf, view):
     # c_buf, c_obj have been filled in

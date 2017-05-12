@@ -111,7 +111,7 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
                 PyObject* obj = PyTuple_GetItem(args, 0);
                 PyObject* memoryview = PyMemoryView_FromObject(obj);
                 if (memoryview == NULL)
-                    return PyLong_FromLong(-1);
+                    return NULL;
                 view = PyMemoryView_GET_BUFFER(memoryview);
                 Py_DECREF(memoryview);
                 return PyLong_FromLong(view->len / view->itemsize);

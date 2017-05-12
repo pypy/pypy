@@ -34,17 +34,17 @@ class W_BytesIO(W_BufferedIOBase):
         size = convert_size(space, w_size)
         return space.newbytes(self.read(size))
 
+    def read1_w(self, space, w_size):
+        return self.read_w(space, w_size)
+
     def readline_w(self, space, w_limit=None):
         self._check_closed(space)
         limit = convert_size(space, w_limit)
         return space.newbytes(self.readline(limit))
 
-    def read1_w(self, space, w_size):
-        return self.read_w(space, w_size)
-
     def readinto_w(self, space, w_buffer):
         self._check_closed(space)
-        rwbuffer = space.getarg_w('w*', w_buffer)
+        rwbuffer = space.writebuf_w(w_buffer)
         size = rwbuffer.getlength()
 
         output = self.read(size)

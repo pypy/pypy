@@ -105,24 +105,10 @@ def _get_common_types(space, w_dict):
 # ____________________________________________________________
 
 def _fetch_as_read_buffer(space, w_x):
-    # xxx do we really need to implement the same mess as in CPython 2.7
-    # w.r.t. buffers and memoryviews??
-    try:
-        buf = space.readbuf_w(w_x)
-    except OperationError as e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        buf = space.buffer_w(w_x, space.BUF_SIMPLE)
-    return buf
+    return space.readbuf_w(w_x)
 
 def _fetch_as_write_buffer(space, w_x):
-    try:
-        buf = space.writebuf_w(w_x)
-    except OperationError as e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        buf = space.buffer_w(w_x, space.BUF_WRITABLE)
-    return buf
+    return space.writebuf_w(w_x)
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType)
 def from_buffer(space, w_ctype, w_x):

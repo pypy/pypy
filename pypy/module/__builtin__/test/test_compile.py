@@ -1,5 +1,6 @@
 class AppTestCompile:
     def test_simple(self):
+        import sys
         co = compile('1+2', '?', 'eval')
         assert eval(co) == 3
         co = compile(buffer('1+2'), '?', 'eval')
@@ -8,8 +9,10 @@ class AppTestCompile:
         assert str(exc.value) == "compile() expected string without null bytes"
         exc = raises(TypeError, compile, unichr(0), '?', 'eval')
         assert str(exc.value) == "compile() expected string without null bytes"
-        exc = raises(TypeError, compile, memoryview('1+2'), '?', 'eval')
-        assert str(exc.value) == "expected a readable buffer object"
+
+        if '__pypy__' in sys.modules:
+            co = compile(memoryview('1+2'), '?', 'eval')
+            assert eval(co) == 3
         compile("from __future__ import with_statement", "<test>", "exec")
         raises(SyntaxError, compile, '-', '?', 'eval')
         raises(ValueError, compile, '"\\xt"', '?', 'eval')

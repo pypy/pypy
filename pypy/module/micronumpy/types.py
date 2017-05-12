@@ -454,8 +454,8 @@ class Bool(BaseType, Primitive):
             return Float64(self.space).box(self.unbox(v))
         # numpy 1.10 compatibility
         raise oefmt(self.space.w_TypeError, "ufunc casting failure")
-            
-            
+
+
 
 class Integer(Primitive):
     _mixin_ = True
