@@ -1,7 +1,8 @@
-from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.rstr import STR, mallocstr
 from rpython.rtyper.annlowlevel import llstr, hlstr
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib.buffer import Buffer
 
 class MutableStringBuffer(Buffer):
@@ -48,3 +49,12 @@ class MutableStringBuffer(Buffer):
     def setzeros(self, index, count):
         for i in range(index, index+count):
             self.setitem(i, '\x00')
+
+    @specialize.ll_and_arg(1)
+    def typed_write(self, TP, byte_offset, value):
+        base_ofs = (llmemory.offsetof(STR, 'chars') +
+                    llmemory.itemoffsetof(STR.chars, 0))
+        scale_factor = llmemory.sizeof(lltype.Char)
+        value = lltype.cast_primitive(TP, value)
+        llop.gc_store_indexed(lltype.Void, self.ll_val, byte_offset, value,
+                              scale_factor, base_ofs)
