@@ -754,6 +754,16 @@ class AbstractLLCPU(AbstractCPU):
         offset = base_ofs + scale * index
         return self.read_float_at_mem(addr, offset)
 
+    def bh_gc_store_indexed_i(self, addr, index, val, scale, base_ofs, bytes,
+                              descr):
+        offset = base_ofs + scale * index
+        self.write_int_at_mem(addr, offset, bytes, val)
+
+    def bh_gc_store_indexed_f(self, addr, index, val, scale, base_ofs, bytes,
+                              descr):
+        offset = base_ofs + scale * index
+        self.write_float_at_mem(addr, offset, val)
+
     def bh_new(self, sizedescr):
         return self.gc_ll_descr.gc_malloc(sizedescr)
 

@@ -33,7 +33,9 @@ class TestLLOp(BaseLLOpTest, LLJitMixin):
         def f(value):
             lst = newlist_and_gc_store(TYPE, value)
             got = ''.join(lst)
-            assert got == expected
+            if got != expected:
+                # I'm not sure why, but if I use an assert, the test doesn't fail
+                raise ValueError('got != expected')
             return len(got)
         return self.interp_operations(f, [value], supports_singlefloats=True)
 
