@@ -23,6 +23,39 @@ ALLOW_SLOWPATH = True  # set to False by some tests
 native_is_bigendian = struct.pack("=i", 1) == struct.pack(">i", 1)
 native_is_ieee754 = float.__getformat__('double').startswith('IEEE')
 
+@specialize.memo()
+def pack_fastpath(TYPE):
+    """
+    Create a fast path packer for TYPE. The packer returns True is it succeded
+    or False otherwise.
+    """
+    @specialize.argtype(0)
+    def do_pack_fastpath(fmtiter, value):
+        size = rffi.sizeof(TYPE)
+        pos = fmtiter.pos
+        if (not USE_FASTPATH or
+            fmtiter.bigendian != native_is_bigendian or
+            not native_is_ieee754 or
+            pos % size != 0):
+            raise CannotWrite
+        #
+        # typed_write() might raise CannotWrite
+        fmtiter.result.typed_write(TYPE, fmtiter.pos, value)
+        fmtiter.advance(size)
+    #
+    @specialize.argtype(0)
+    def do_pack_fastpath_maybe(fmtiter, value):
+        try:
+            do_pack_fastpath(fmtiter, value)
+        except CannotWrite:
+            if not ALLOW_SLOWPATH:
+                raise ValueErro("fastpath not taken :(")
+            return False
+        else:
+            return True
+    #
+    return do_pack_fastpath_maybe
+
 def pack_pad(fmtiter, count):
     fmtiter.result.setzeros(fmtiter.pos, count)
     fmtiter.advance(count)
@@ -68,24 +101,14 @@ def pack_pascal(fmtiter, count):
     fmtiter.advance(1)
     _pack_string(fmtiter, string, count-1)
 
-@specialize.memo()
-def pack_fastpath(TYPE):
-    @specialize.argtype(0)
-    def do_pack_fastpath(fmtiter, value):
-        size = rffi.sizeof(TYPE)
-        pos = fmtiter.pos
-        if (not USE_FASTPATH or
-            fmtiter.bigendian != native_is_bigendian or
-            pos % size != 0):
-            raise CannotWrite
-        # the following might raise CannotWrite and abort the fastpath
-        fmtiter.result.typed_write(TYPE, fmtiter.pos, value)
-        fmtiter.advance(size)
-    return do_pack_fastpath
 
-def make_float_packer(size):
+def make_float_packer(TYPE):
+    size = rffi.sizeof(TYPE)
     def packer(fmtiter):
         fl = fmtiter.accept_float_arg()
+        if pack_fastpath(TYPE)(fmtiter, fl):
+            return
+        # slow path
         try:
             result = ieee.pack_float(fmtiter.result, fmtiter.pos,
                                      fl, size, fmtiter.bigendian)
@@ -150,13 +173,8 @@ def make_int_packer(size, signed, _memo={}):
         if not min <= value <= max:
             raise StructError(errormsg)
         #
-        try:
-            pack_fastpath(TYPE)(fmtiter, value)
+        if pack_fastpath(TYPE)(fmtiter, value):
             return
-        except CannotWrite:
-            if not ALLOW_SLOWPATH:
-                # we enter here only in some tests
-                raise ValueError("fastpath not taken :(")
         #
         pos = fmtiter.pos + size - 1        
         if fmtiter.bigendian:
@@ -303,7 +321,7 @@ def make_int_unpacker(size, signed, _memo={}):
 
     @specialize.argtype(0)
     def unpack_int_fastpath_maybe(fmtiter):
-        if fmtiter.bigendian != native_is_bigendian or not native_is_ieee754: ## or not str_storage_supported(TYPE):
+        if fmtiter.bigendian != native_is_bigendian or not native_is_ieee754:
             return False
         try:
             intvalue = unpack_fastpath(TYPE)(fmtiter)
@@ -356,9 +374,9 @@ standard_fmttable = {
           'needcount' : True },
     'p':{ 'size' : 1, 'pack' : pack_pascal, 'unpack' : unpack_pascal,
           'needcount' : True },
-    'f':{ 'size' : 4, 'pack' : make_float_packer(4),
+    'f':{ 'size' : 4, 'pack' : make_float_packer(rffi.FLOAT),
                     'unpack' : unpack_float},
-    'd':{ 'size' : 8, 'pack' : make_float_packer(8),
+    'd':{ 'size' : 8, 'pack' : make_float_packer(rffi.DOUBLE),
                     'unpack' : unpack_double},
     '?':{ 'size' : 1, 'pack' : pack_bool, 'unpack' : unpack_bool},
     }
