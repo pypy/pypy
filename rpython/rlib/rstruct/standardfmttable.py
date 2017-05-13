@@ -49,7 +49,7 @@ def pack_fastpath(TYPE):
             do_pack_fastpath(fmtiter, value)
         except CannotWrite:
             if not ALLOW_SLOWPATH:
-                raise ValueErro("fastpath not taken :(")
+                raise ValueError("fastpath not taken :(")
             return False
         else:
             return True

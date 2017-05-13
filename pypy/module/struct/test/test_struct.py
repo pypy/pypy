@@ -518,3 +518,10 @@ class AppTestFastPath(object):
         data = self.struct.pack("iii", 0, 42, 43)
         buf = array.array('c', data)
         assert self.struct.unpack("iii", buf) == (0, 42, 43)
+
+    def test_pack_into_bytearray(self):
+        expected = self.struct.pack("ii", 42, 43)
+        buf = bytearray(len(expected))
+        self.struct.pack_into("ii", buf, 0, 42, 43)
+        assert buf == expected
+        

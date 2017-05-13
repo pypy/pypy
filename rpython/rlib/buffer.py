@@ -240,3 +240,7 @@ class SubBuffer(Buffer):
     @specialize.ll_and_arg(1)
     def typed_read(self, TP, byte_offset):
         return self.buffer.typed_read(TP, byte_offset + self.offset)
+
+    @specialize.ll_and_arg(1)
+    def typed_write(self, TP, byte_offset, value):
+        return self.buffer.typed_write(TP, byte_offset + self.offset, value)

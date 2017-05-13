@@ -1252,17 +1252,30 @@ class BytearrayBuffer(Buffer):
     def get_raw_address(self):
         return nonmoving_raw_ptr_for_resizable_list(self.data)
 
-    @specialize.ll_and_arg(1)
-    def typed_read(self, TP, byte_offset):
+    def _get_gc_data(self):
         from rpython.rtyper.lltypesystem import lltype, llmemory
-        from rpython.rtyper.lltypesystem.lloperation import llop
         ll_data = ll_for_resizable_list(self.data)
         ll_items = ll_data.items
         LIST = lltype.typeOf(ll_data).TO # rlist.LIST_OF(lltype.Char)
         base_ofs = llmemory.itemoffsetof(LIST.items.TO, 0)
         scale_factor = llmemory.sizeof(lltype.Char)
+        return ll_items, scale_factor, base_ofs
+
+    @specialize.ll_and_arg(1)
+    def typed_read(self, TP, byte_offset):
+        from rpython.rtyper.lltypesystem.lloperation import llop
+        ll_items, scale_factor, base_ofs = self._get_gc_data()
         return llop.gc_load_indexed(TP, ll_items, byte_offset,
                                     scale_factor, base_ofs)
+
+    @specialize.ll_and_arg(1)
+    def typed_write(self, TP, byte_offset, value):
+        from rpython.rtyper.lltypesystem import lltype
+        from rpython.rtyper.lltypesystem.lloperation import llop
+        ll_items, scale_factor, base_ofs = self._get_gc_data()
+        value = lltype.cast_primitive(TP, value)
+        return llop.gc_store_indexed(lltype.Void, ll_items, byte_offset, value,
+                                     scale_factor, base_ofs)
 
 
 
