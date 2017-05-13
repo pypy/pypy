@@ -29,6 +29,9 @@ native_fmttable = {
 
 def pack_double(fmtiter):
     doubleval = fmtiter.accept_float_arg()
+    if std.pack_fastpath(rffi.DOUBLE)(fmtiter, doubleval):
+        return
+    # slow path
     value = longlong2float.float2longlong(doubleval)
     pack_float_to_buffer(fmtiter.result, fmtiter.pos, value, 8, fmtiter.bigendian)
     fmtiter.advance(8)
@@ -36,6 +39,9 @@ def pack_double(fmtiter):
 def pack_float(fmtiter):
     doubleval = fmtiter.accept_float_arg()
     floatval = r_singlefloat(doubleval)
+    if std.pack_fastpath(rffi.FLOAT)(fmtiter, floatval):
+        return
+    # slow path
     value = longlong2float.singlefloat2uint(floatval)
     value = widen(value)
     pack_float_to_buffer(fmtiter.result, fmtiter.pos, value, 4, fmtiter.bigendian)

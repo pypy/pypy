@@ -144,3 +144,9 @@ class TestNative(BaseTestPack):
     bigendian = nativefmttable.native_is_bigendian
     fmt_prefix = '@'
     fmttable = nativefmttable.native_fmttable
+
+class TestNativeSlowPath(BaseTestPack):
+    USE_FASTPATH = False
+    bigendian = nativefmttable.native_is_bigendian
+    fmt_prefix = '@'
+    fmttable = nativefmttable.native_fmttable
