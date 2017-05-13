@@ -10,7 +10,7 @@ class FakeFormatIter(object):
         from rpython.rlib.rstring import StringBuilder
         self.value = value
         self.bigendian = bigendian
-        self.result = MutableStringBuffer(size)
+        self.wbuf = MutableStringBuffer(size)
         self.pos = 0
 
     def advance(self, count):
@@ -18,8 +18,8 @@ class FakeFormatIter(object):
 
     def finish(self):
         # check that we called advance() the right number of times
-        assert self.pos == self.result.getlength()
-        return self.result.finish()
+        assert self.pos == self.wbuf.getlength()
+        return self.wbuf.finish()
 
     def _accept_arg(self):
         return self.value

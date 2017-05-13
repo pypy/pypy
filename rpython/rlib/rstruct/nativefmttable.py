@@ -33,7 +33,7 @@ def pack_double(fmtiter):
         return
     # slow path
     value = longlong2float.float2longlong(doubleval)
-    pack_float_to_buffer(fmtiter.result, fmtiter.pos, value, 8, fmtiter.bigendian)
+    pack_float_to_buffer(fmtiter.wbuf, fmtiter.pos, value, 8, fmtiter.bigendian)
     fmtiter.advance(8)
 
 def pack_float(fmtiter):
@@ -44,7 +44,7 @@ def pack_float(fmtiter):
     # slow path
     value = longlong2float.singlefloat2uint(floatval)
     value = widen(value)
-    pack_float_to_buffer(fmtiter.result, fmtiter.pos, value, 4, fmtiter.bigendian)
+    pack_float_to_buffer(fmtiter.wbuf, fmtiter.pos, value, 4, fmtiter.bigendian)
     fmtiter.advance(4)
 
 # ____________________________________________________________
@@ -142,7 +142,7 @@ def pack_unichar(fmtiter):
     if len(unistr) != 1:
         raise StructError("expected a unicode string of length 1")
     c = unistr[0]   # string->char conversion for the annotator
-    unichar.pack_unichar(c, fmtiter.result, fmtiter.pos)
+    unichar.pack_unichar(c, fmtiter.wbuf, fmtiter.pos)
     fmtiter.advance(unichar.UNICODE_SIZE)
 
 @specialize.argtype(0)

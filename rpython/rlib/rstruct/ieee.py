@@ -265,22 +265,22 @@ def float_pack80(x, size):
     return (mant, (sign << BITS - MANT_DIG - 1) | exp)
 
 
-def pack_float(result, pos, x, size, be):
+def pack_float(wbuf, pos, x, size, be):
     unsigned = float_pack(x, size)
     value = rarithmetic.longlongmask(unsigned)
-    pack_float_to_buffer(result, pos, value, size, be)
+    pack_float_to_buffer(wbuf, pos, value, size, be)
 
 @jit.unroll_safe
-def pack_float_to_buffer(result, pos, value, size, be):
+def pack_float_to_buffer(wbuf, pos, value, size, be):
     if be:
         # write in reversed order
         for i in range(size):
             c = chr((value >> (i * 8)) & 0xFF)
-            result.setitem(pos + size - i - 1, c)
+            wbuf.setitem(pos + size - i - 1, c)
     else:
         for i in range(size):
             c = chr((value >> (i * 8)) & 0xFF)
-            result.setitem(pos+i, c)
+            wbuf.setitem(pos+i, c)
 
 @jit.unroll_safe
 def pack_float80(result, x, size, be):

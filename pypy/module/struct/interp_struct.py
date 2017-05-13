@@ -48,8 +48,8 @@ def _pack(space, format, args_w):
         raise OperationError(space.w_OverflowError, space.newtext(e.msg))
     except StructError as e:
         raise OperationError(get_error(space), space.newtext(e.msg))
-    assert fmtiter.pos == fmtiter.result.getlength(), 'missing .advance() or wrong calcsize()'
-    return fmtiter.result.finish()
+    assert fmtiter.pos == fmtiter.wbuf.getlength(), 'missing .advance() or wrong calcsize()'
+    return fmtiter.wbuf.finish()
 
 
 @unwrap_spec(format='text')

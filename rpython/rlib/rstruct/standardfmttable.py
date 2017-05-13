@@ -40,7 +40,7 @@ def pack_fastpath(TYPE):
             raise CannotWrite
         #
         # typed_write() might raise CannotWrite
-        fmtiter.result.typed_write(TYPE, fmtiter.pos, value)
+        fmtiter.wbuf.typed_write(TYPE, fmtiter.pos, value)
         fmtiter.advance(size)
     #
     @specialize.argtype(0)
@@ -57,7 +57,7 @@ def pack_fastpath(TYPE):
     return do_pack_fastpath_maybe
 
 def pack_pad(fmtiter, count):
-    fmtiter.result.setzeros(fmtiter.pos, count)
+    fmtiter.wbuf.setzeros(fmtiter.pos, count)
     fmtiter.advance(count)
 
 def pack_char(fmtiter):
@@ -65,23 +65,23 @@ def pack_char(fmtiter):
     if len(string) != 1:
         raise StructError("expected a string of length 1")
     c = string[0]   # string->char conversion for the annotator
-    fmtiter.result.setitem(fmtiter.pos, c)
+    fmtiter.wbuf.setitem(fmtiter.pos, c)
     fmtiter.advance(1)
 
 def pack_bool(fmtiter):
     c = '\x01' if fmtiter.accept_bool_arg() else '\x00'
-    fmtiter.result.setitem(fmtiter.pos, c)
+    fmtiter.wbuf.setitem(fmtiter.pos, c)
     fmtiter.advance(1)
 
 def _pack_string(fmtiter, string, count):
     pos = fmtiter.pos
     if len(string) < count:
         n = len(string)
-        fmtiter.result.setslice(pos, string)
-        fmtiter.result.setzeros(pos+n, count-n)
+        fmtiter.wbuf.setslice(pos, string)
+        fmtiter.wbuf.setzeros(pos+n, count-n)
     else:
         assert count >= 0
-        fmtiter.result.setslice(pos, string[:count])
+        fmtiter.wbuf.setslice(pos, string[:count])
     fmtiter.advance(count)
 
 def pack_string(fmtiter, count):
@@ -97,7 +97,7 @@ def pack_pascal(fmtiter, count):
             raise StructError("bad '0p' in struct format")
     if prefix > 255:
         prefix = 255
-    fmtiter.result.setitem(fmtiter.pos, chr(prefix))
+    fmtiter.wbuf.setitem(fmtiter.pos, chr(prefix))
     fmtiter.advance(1)
     _pack_string(fmtiter, string, count-1)
 
@@ -110,7 +110,7 @@ def make_float_packer(TYPE):
             return
         # slow path
         try:
-            result = ieee.pack_float(fmtiter.result, fmtiter.pos,
+            result = ieee.pack_float(fmtiter.wbuf, fmtiter.pos,
                                      fl, size, fmtiter.bigendian)
         except OverflowError:
             assert size == 4
@@ -180,11 +180,11 @@ def make_int_packer(size, signed, _memo={}):
         if fmtiter.bigendian:
             for i in unroll_revrange_size:
                 x = (value >> (8*i)) & 0xff
-                fmtiter.result.setitem(pos-i, chr(x))
+                fmtiter.wbuf.setitem(pos-i, chr(x))
         else:
 
             for i in unroll_revrange_size:
-                fmtiter.result.setitem(pos-i, chr(value & 0xff))
+                fmtiter.wbuf.setitem(pos-i, chr(value & 0xff))
                 value >>= 8
         fmtiter.advance(size)
 
