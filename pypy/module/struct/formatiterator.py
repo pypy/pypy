@@ -35,7 +35,8 @@ class PackFormatIterator(FormatIterator):
     @jit.unroll_safe
     def align(self, mask):
         pad = (-self.pos) & mask
-        self.wbuf.setzeros(self.pos, pad)
+        for i in range(self.pos, self.pos+pad):
+            self.wbuf.setitem(i, '\x00')
         self.advance(pad)
 
     def finished(self):
