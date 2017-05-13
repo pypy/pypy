@@ -1,5 +1,6 @@
 from rpython.rlib import jit
 from rpython.rlib.buffer import SubBuffer
+from rpython.rlib.mutbuffer import MutableStringBuffer
 from rpython.rlib.rstruct.error import StructError, StructOverflowError
 from rpython.rlib.rstruct.formatiterator import CalcSizeFormatIterator
 
@@ -41,15 +42,16 @@ def calcsize(space, format):
 def _pack(space, format, args_w):
     """Return string containing values v1, v2, ... packed according to fmt."""
     size = _calcsize(space, format)
-    fmtiter = PackFormatIterator(space, args_w, size)
+    wbuf = MutableStringBuffer(size)
+    fmtiter = PackFormatIterator(space, wbuf, args_w)
     try:
         fmtiter.interpret(format)
     except StructOverflowError as e:
         raise OperationError(space.w_OverflowError, space.newtext(e.msg))
     except StructError as e:
         raise OperationError(get_error(space), space.newtext(e.msg))
-    assert fmtiter.pos == fmtiter.wbuf.getlength(), 'missing .advance() or wrong calcsize()'
-    return fmtiter.wbuf.finish()
+    assert fmtiter.pos == wbuf.getlength(), 'missing .advance() or wrong calcsize()'
+    return wbuf.finish()
 
 
 @unwrap_spec(format='text')

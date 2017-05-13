@@ -2,7 +2,6 @@ from rpython.rlib.rarithmetic import (r_uint, r_ulonglong, r_longlong,
                                       maxint, intmask)
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.mutbuffer import MutableStringBuffer
 from rpython.rlib.rstruct.error import StructError
 from rpython.rlib.rstruct.formatiterator import FormatIterator
 
@@ -10,12 +9,12 @@ from pypy.interpreter.error import OperationError
 
 
 class PackFormatIterator(FormatIterator):
-    def __init__(self, space, args_w, size):
+    def __init__(self, space, wbuf, args_w):
         self.space = space
         self.args_w = args_w
         self.args_index = 0
         self.pos = 0
-        self.wbuf = MutableStringBuffer(size)
+        self.wbuf = wbuf
 
     def advance(self, count):
         self.pos += count
