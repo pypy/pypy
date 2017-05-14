@@ -146,3 +146,48 @@ class TestStruct(BaseTestPyPyC):
             guard_not_invalidated(descr=...)
             i70 = gc_load_indexed_i(p48, 0, 1, _, -2)
         """)
+
+    def test_pack_into_raw_buffer(self):
+        def main(n):
+            import array
+            import struct
+            buf = array.array('b', '\x00'*8)
+            i = 1
+            while i < n:
+                struct.pack_into("h", buf, 4, i)     # ID: pack_into
+                i += 1
+            return i
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match_by_id('pack_into', """\
+            guard_not_invalidated(descr=...)
+            i65 = int_le(i58, 32767)
+            guard_true(i65, descr=...)
+            raw_store(i55, 4, i58, descr=<ArrayS 2>)
+        """)
+
+    def test_pack_into_bytearray(self):
+        def main(n):
+            import struct
+            buf = bytearray(8)
+            i = 1
+            while i < n:
+                struct.pack_into("h", buf, 4, i)     # ID: pack_into
+                i += 1
+            return i
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match_by_id('pack_into', """\
+            guard_not_invalidated(descr=...)
+            p66 = getfield_gc_r(p14, descr=<FieldP pypy.objspace.std.bytearrayobject.W_BytearrayObject.inst_data \d+>)
+            i67 = getfield_gc_i(p66, descr=<FieldS list.length \d+>)
+            i69 = int_sub(i67, 4)
+            i71 = int_lt(i69, 2)
+            guard_false(i71, descr=...)
+            i73 = int_le(i60, 32767)
+            guard_true(i73, descr=...)
+            p74 = getfield_gc_r(p66, descr=<FieldP list.items \d+>)
+            gc_store_indexed(p74, 4, i60, 1, _, 2, descr=<ArrayS 2>)
+        """)
