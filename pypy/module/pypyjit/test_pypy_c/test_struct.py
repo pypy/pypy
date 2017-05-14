@@ -105,3 +105,44 @@ class TestStruct(BaseTestPyPyC):
                 i90 = gc_load_indexed_i(p88, 0, 1, _, -4)
                 i91 = gc_load_indexed_i(p88, 4, 1, _, -4)
             """)
+
+    def test_unpack_raw_buffer(self):
+        def main(n):
+            import array
+            import struct
+            buf = struct.pack('H', 0x1234)
+            buf = array.array('b', buf)
+            i = 1
+            res = 0
+            while i < n:
+                val = struct.unpack("h", buf)[0]     # ID: unpack
+                res += val
+                i += 1
+            return res
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match_by_id('unpack', """
+            guard_not_invalidated(descr=...)
+            i65 = raw_load_i(i49, 0, descr=<ArrayS 2>)
+        """)
+
+    def test_unpack_bytearray(self):
+        def main(n):
+            import struct
+            buf = struct.pack('H', 0x1234)
+            buf = bytearray(buf)
+            i = 1
+            res = 0
+            while i < n:
+                val = struct.unpack("h", buf)[0]     # ID: unpack
+                res += val
+                i += 1
+            return res
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match_by_id('unpack', """
+            guard_not_invalidated(descr=...)
+            i70 = gc_load_indexed_i(p48, 0, 1, _, -2)
+        """)
