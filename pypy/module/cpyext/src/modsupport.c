@@ -603,6 +603,16 @@ PyModule_GetDef(PyObject* m)
     return ((PyModuleObject *)m)->md_def;
 }
 
+void*
+PyModule_GetState(PyObject* m)
+{
+    if (!PyModule_Check(m)) {
+        PyErr_BadArgument();
+        return NULL;
+    }
+    return ((PyModuleObject *)m)->md_state;
+}
+
 PyTypeObject PyModuleDef_Type = {
     PyVarObject_HEAD_INIT(&PyType_Type, 0)
     "moduledef",                                /* tp_name */

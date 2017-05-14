@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, METH_STATIC, METH_CLASS, METH_COEXIST, CANNOT_FAIL, cts,
-    parse_dir, bootstrap_function, generic_cpy_call)
+    parse_dir, bootstrap_function, generic_cpy_call, slot_function)
 from pypy.module.cpyext.pyobject import PyObject, as_pyobj, make_typedescr
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.methodobject import (
@@ -18,7 +18,16 @@ PyModuleDef_Slot = cts.gettype('PyModuleDef_Slot')
 
 @bootstrap_function
 def init_moduleobject(space):
-    make_typedescr(Module.typedef, basestruct=PyModuleObject.TO)
+    make_typedescr(Module.typedef, basestruct=PyModuleObject.TO,
+                   dealloc=module_dealloc)
+
+@slot_function([PyObject], lltype.Void)
+def module_dealloc(space, py_obj):
+    py_module = rffi.cast(PyModuleObject, py_obj)
+    if py_module.c_md_state:
+        lltype.free(py_module.c_md_state, flavor='raw')
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)
 
 @cpython_api([rffi.CCHARP], PyObject)
 def PyModule_New(space, name):
@@ -49,7 +58,8 @@ def PyModule_Create2(space, module, api_version):
     if f_name is not None:
         modname = f_name
     w_mod = Module(space, space.newtext(modname))
-    rffi.cast(PyModuleObject, as_pyobj(space, w_mod)).c_md_def = module
+    py_mod = rffi.cast(PyModuleObject, as_pyobj(space, w_mod))
+    py_mod.c_md_def = module
     state.package_context = None, None
 
     if f_path is not None:
@@ -62,6 +72,10 @@ def PyModule_Create2(space, module, api_version):
     if doc:
         space.setattr(w_mod, space.newtext("__doc__"),
                       space.newtext(doc))
+
+    if module.c_m_size > 0:
+        py_mod.c_md_state = lltype.malloc(rffi.VOIDP.TO, module.c_m_size,
+                                          flavor='raw', zero=True)
     return w_mod
 
 

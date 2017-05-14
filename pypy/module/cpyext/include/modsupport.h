@@ -71,6 +71,7 @@ PyAPI_FUNC(int) PyModule_AddStringConstant(PyObject *m, const char *name, const 
 #define PyModule_AddStringMacro(m, c) PyModule_AddStringConstant(m, #c, c)
 
 PyAPI_FUNC(struct PyModuleDef*) PyModule_GetDef(PyObject*);
+PyAPI_FUNC(void*) PyModule_GetState(PyObject*);
 
 
 PyAPI_FUNC(PyObject *) Py_BuildValue(const char *, ...);

@@ -32,6 +32,29 @@ class AppTestModuleObject(AppTestCpythonExtensionBase):
             """)
         assert module.check_getdef_same()
 
+    def test_getstate(self):
+        module = self.import_extension('foo', [
+            ("check_mod_getstate", "METH_NOARGS",
+             """
+                 struct module_state { int foo[51200]; };
+                 static struct PyModuleDef moduledef = {
+                     PyModuleDef_HEAD_INIT,
+                     "module_getstate_myextension",
+                     NULL,
+                     sizeof(struct module_state)
+                 };
+                 PyObject *module = PyModule_Create(&moduledef);
+                 int *p = (int *)PyModule_GetState(module);
+                 int i;
+                 for (i = 0; i < 51200; i++)
+                     if (p[i] != 0)
+                         return PyBool_FromLong(0);
+                 Py_DECREF(module);
+                 return PyBool_FromLong(1);
+             """
+            )])
+        assert module.check_mod_getstate()
+
 
 class AppTestMultiPhase(AppTestCpythonExtensionBase):
     def test_basic(self):
