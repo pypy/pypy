@@ -30,32 +30,33 @@ class TestStruct(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         # This could, of course stand some improvement, to remove all these
         # arithmatic ops, but we've removed all the core overhead.
-        assert loop.match_by_id("pack", """
-            guard_not_invalidated(descr=...)
-            # struct.pack
-            %s
-            i11 = int_and(i4, 255)
-            i13 = int_rshift(i4, 8)
-            i14 = int_and(i13, 255)
-            i16 = int_rshift(i13, 8)
-            i17 = int_and(i16, 255)
-            i19 = int_rshift(i16, 8)
-            i20 = int_and(i19, 255)
-        """ % extra)
+        if sys.byteorder == 'little':
+            # on little endian machines, we take the fast path and store the
+            # value using gc_store_indexed
+            assert loop.match_by_id("pack", """
+                guard_not_invalidated(descr=...)
+                # struct.pack
+                %s
+                p75 = newstr(4)
+                gc_store_indexed(p75, 0, _, 1, _, 4, descr=...)
+            """ % extra)
+        else:
+            assert loop.match_by_id("pack", """
+                guard_not_invalidated(descr=...)
+                # struct.pack
+                %s
+                i11 = int_and(i4, 255)
+                i13 = int_rshift(i4, 8)
+                i14 = int_and(i13, 255)
+                i16 = int_rshift(i13, 8)
+                i17 = int_and(i16, 255)
+                i19 = int_rshift(i16, 8)
+                i20 = int_and(i19, 255)
+            """ % extra)
 
         if sys.byteorder == 'little':
-            # the newstr and the strsetitems are because the string is forced,
-            # which is in turn because the optimizer doesn't know how to handle a
-            # gc_load_indexed_i on a virtual string. It could be improved, but it
-            # is also true that in real life cases struct.unpack is called on
-            # strings which come from the outside, so it's a minor issue.
             assert loop.match_by_id("unpack", """
                 # struct.unpack
-                p88 = newstr(4)
-                strsetitem(p88, 0, i11)
-                strsetitem(p88, 1, i14)
-                strsetitem(p88, 2, i17)
-                strsetitem(p88, 3, i20)
                 i91 = gc_load_indexed_i(p88, 0, 1, _, -4)
             """)
         else:
@@ -93,27 +94,14 @@ class TestStruct(BaseTestPyPyC):
             assert loop.match_by_id('pack', """
                 guard_not_invalidated(descr=...)
                 # struct.pack
+                p85 = newstr(8)
+                gc_store_indexed(p85, 0, -1, 1, _, 4, descr=...)
                 %s
-                i11 = int_and(i4, 255)
-                i13 = int_rshift(i4, 8)
-                i14 = int_and(i13, 255)
-                i16 = int_rshift(i13, 8)
-                i17 = int_and(i16, 255)
-                i19 = int_rshift(i16, 8)
-                i20 = int_and(i19, 255)
+                gc_store_indexed(p85, 4, _, 1, _, 4, descr=...)
             """ % extra)
 
             assert loop.match_by_id('unpack', """
                 # struct.unpack
-                p88 = newstr(8)
-                strsetitem(p88, 0, 255)
-                strsetitem(p88, 1, 255)
-                strsetitem(p88, 2, 255)
-                strsetitem(p88, 3, 255)
-                strsetitem(p88, 4, i11)
-                strsetitem(p88, 5, i14)
-                strsetitem(p88, 6, i17)
-                strsetitem(p88, 7, i20)
                 i90 = gc_load_indexed_i(p88, 0, 1, _, -4)
                 i91 = gc_load_indexed_i(p88, 4, 1, _, -4)
             """)
