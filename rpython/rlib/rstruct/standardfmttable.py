@@ -106,7 +106,7 @@ def make_float_packer(TYPE):
     size = rffi.sizeof(TYPE)
     def packer(fmtiter):
         fl = fmtiter.accept_float_arg()
-        if pack_fastpath(TYPE)(fmtiter, fl):
+        if TYPE is not rffi.FLOAT and pack_fastpath(TYPE)(fmtiter, fl):
             return
         # slow path
         try:

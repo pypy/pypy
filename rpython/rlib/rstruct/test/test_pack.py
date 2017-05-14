@@ -1,6 +1,7 @@
 import pytest
 from rpython.rlib.rarithmetic import r_ulonglong
 from rpython.rlib.rstruct import standardfmttable, nativefmttable
+from rpython.rlib.rstruct.error import StructOverflowError
 from rpython.rlib.mutbuffer import MutableStringBuffer
 import struct
 
@@ -92,6 +93,14 @@ class BaseTestPack(object):
     def test_pack_ieee(self):
         self.check('f', 123.456)
         self.check('d', 123.456789)
+
+    def test_float_overflow(self):
+        if self.fmt_prefix == '@':
+            # native packing, no overflow
+            self.check('f', 10e100)
+        else:
+            # non-native packing, should raise
+            pytest.raises(StructOverflowError, "self.mypack('f', 10e100)")
 
     def test_pack_char(self):
         self.check('c', 'a')
