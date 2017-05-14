@@ -13,6 +13,7 @@ class TestLLOp(BaseLLOpTest, LLJitMixin):
 
     # for the individual tests see
     # ====> ../../../rtyper/test/test_llop.py
+    TEST_BLACKHOLE = True
 
     def gc_load_from_string(self, TYPE, buf, offset):
         def f(offset):
@@ -38,11 +39,16 @@ class TestLLOp(BaseLLOpTest, LLJitMixin):
                 # I'm not sure why, but if I use an assert, the test doesn't fail
                 raise ValueError('got != expected')
             return len(got)
-        # we pass a big inline_threshold to ensure that newlist_and_gc_store
-        # is inlined, else the blackhole does not see (and thus we do not
-        # test!) the llop.gc_store_indexed
+        #
+        if self.TEST_BLACKHOLE:
+            # we pass a big inline_threshold to ensure that
+            # newlist_and_gc_store is inlined, else the blackhole does not see
+            # (and thus we do not test!) the llop.gc_store_indexed
+            threshold = 33
+        else:
+            threshold = 0
         return self.interp_operations(f, [value], supports_singlefloats=True,
-                                      backendopt_inline_threshold=33)
+                                      backendopt_inline_threshold=threshold)
 
 
     def test_force_virtual_str_storage(self):
