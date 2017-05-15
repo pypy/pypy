@@ -86,27 +86,6 @@ class Buffer(object):
         raise CannotWrite
 
 
-class ByteBuffer(Buffer):
-    _immutable_ = True
-
-    def __init__(self, n):
-        self.data = resizable_list_supporting_raw_ptr(['\0'] * n)
-        self.readonly = False
-
-    def getlength(self):
-        return len(self.data)
-
-    def getitem(self, index):
-        return self.data[index]
-
-    def setitem(self, index, char):
-        self.data[index] = char
-
-    def get_raw_address(self):
-        return nonmoving_raw_ptr_for_resizable_list(self.data)
-
-
-
 class RawBuffer(Buffer):
     """
     A buffer which is baked by a raw, non-movable memory area. It implementes
@@ -136,6 +115,26 @@ class RawBuffer(Buffer):
         ptr = self.get_raw_address()
         value = lltype.cast_primitive(TP, value)
         return llop.raw_store(lltype.Void, ptr, byte_offset, value)
+
+
+class ByteBuffer(Buffer):
+    _immutable_ = True
+
+    def __init__(self, n):
+        self.data = resizable_list_supporting_raw_ptr(['\0'] * n)
+        self.readonly = False
+
+    def getlength(self):
+        return len(self.data)
+
+    def getitem(self, index):
+        return self.data[index]
+
+    def setitem(self, index, char):
+        self.data[index] = char
+
+    def get_raw_address(self):
+        return nonmoving_raw_ptr_for_resizable_list(self.data)
 
 
 class StringBuffer(Buffer):
