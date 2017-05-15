@@ -255,4 +255,60 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
             ])
         d = module.get_type_dict(1)
         assert d['real'].__get__(1, 1) == 1
-
+    def test_advanced(self):
+        module = self.import_extension('foo', [
+            ("dict_len", "METH_O",
+            '''
+                int ret = args->ob_type->tp_as_mapping->mp_length(args);
+                return PyLong_FromLong(ret);
+            '''),
+            ("dict_setitem", "METH_VARARGS",
+            '''
+                int ret;
+                PyObject * dict = PyTuple_GetItem(args, 0);
+                if (PyTuple_Size(args) < 3 || !dict || 
+                        !dict->ob_type->tp_as_mapping ||
+                        !dict->ob_type->tp_as_mapping->mp_ass_subscript)
+                    return PyLong_FromLong(-1);
+                ret = dict->ob_type->tp_as_mapping->mp_ass_subscript(
+                        dict, PyTuple_GetItem(args, 1),
+                        PyTuple_GetItem(args, 2));
+                return PyLong_FromLong(ret);
+            '''),
+            ("dict_delitem", "METH_VARARGS",
+            '''
+                int ret;
+                PyObject * dict = PyTuple_GetItem(args, 0);
+                if (PyTuple_Size(args) < 2 || !dict || 
+                        !dict->ob_type->tp_as_mapping ||
+                        !dict->ob_type->tp_as_mapping->mp_ass_subscript)
+                    return PyLong_FromLong(-1);
+                ret = dict->ob_type->tp_as_mapping->mp_ass_subscript(
+                        dict, PyTuple_GetItem(args, 1), NULL);
+                return PyLong_FromLong(ret);
+            '''),
+            ("dict_next", "METH_VARARGS",
+            '''
+                PyObject *key, *value;
+                PyObject *arg = NULL;
+                Py_ssize_t pos = 0;
+                int ret = 0;
+                if ((PyArg_ParseTuple(args, "|O", &arg))) {
+                    if (arg && PyDict_Check(arg)) {
+                        while (PyDict_Next(arg, &pos, &key, &value))
+                            ret ++;
+                        /* test no crash if pos is not reset to 0*/
+                        while (PyDict_Next(args, &pos, &key, &value))
+                            ret ++;
+                    }
+                }
+                return PyLong_FromLong(ret);
+            '''),
+            ])
+        d = {'a': 1, 'b':2}
+        assert module.dict_len(d) == 2
+        assert module.dict_setitem(d, 'a', 'c') == 0
+        assert d['a'] == 'c'
+        assert module.dict_delitem(d, 'a') == 0
+        r = module.dict_next({'a': 1, 'b': 2})
+        assert r == 2
