@@ -8,7 +8,7 @@ from rpython.rtyper.test.tool import BaseRtypingTest
 
 class MyRawBuffer(RawBuffer):
 
-    def __init__(self, data, readonly):
+    def __init__(self, data, readonly=True):
         self.readonly = readonly
         self._n = len(data)
         self._buf = lltype.malloc(rffi.CCHARP.TO, self._n, flavor='raw')
