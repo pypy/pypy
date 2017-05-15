@@ -241,12 +241,11 @@ class TestStandalone(StandaloneTests):
             os.write(1, str(tot))
             return 0
         from rpython.translator.interactive import Translation
-        # XXX this is mostly a "does not crash option"
         t = Translation(entry_point, backend='c', profopt=True, shared=True)
         t.backendopt()
         exe = t.compile()
         assert (os.path.isfile("%s/pypy-c" % os.path.dirname(str(exe))))
-        
+
         # test --profoptpath
         profoptpth = open('dummypythontraining.py', 'w+')
         profoptpth.close()
