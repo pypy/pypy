@@ -390,7 +390,7 @@ class CStandaloneBuilder(CBuilder):
                 'cp -f libpypy-c.so $(RPYDIR)/../pypy/goal/ || true',
                 'rm -f $(RPYDIR)/../pypy/goal/pypy-c',
                 'cp -f pypy-c $(RPYDIR)/../pypy/goal/ || true',
-                '$(RPYDIR)/../pypy/goal/pypy-c $(RPYDIR)/../pypy/goal/regrtest/regrtest.py --pgo -x test_asyncore test_gdb test_multiprocessing test_subprocess || true',
+                '$(RPYDIR)/../pypy/goal/pypy-c %s --pgo -x test_asyncore test_gdb test_multiprocessing test_subprocess || true' % self.config.translation.profoptpath,
                 '$(MAKE) clean_noprof',
                 '$(MAKE) CFLAGS="-fprofile-use -fprofile-correction -fPIC $(CFLAGS) -fno-lto"  LDFLAGS="-fprofile-use $(LDFLAGS) -fno-lto" $(PROFOPT_TARGET)',
                 'rm -f $(RPYDIR)/../pypy/goal/libpypy-c.so || true',

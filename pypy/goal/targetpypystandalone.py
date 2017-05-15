@@ -264,6 +264,14 @@ class PyPyTarget(object):
                 raise Exception("Cannot use the --output option with PyPy "
                                 "when --shared is on (it is by default). "
                                 "See issue #1971.")
+
+        # if both profopt and profoptpath are specified then we keep them as they are with no other changes
+        if config.translation.profopt:
+            if config.translation.profoptpath is None:
+                config.translation.profoptpath = "$(RPYDIR)/../lib-python/2.7/test/regrtest.py"
+        elif config.translation.profoptpath is not None:
+            raise Exception("Cannot use --profoptpath without specifying --profopt as well")
+
         if sys.platform == 'win32':
             libdir = thisdir.join('..', '..', 'libs')
             libdir.ensure(dir=1)

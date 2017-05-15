@@ -227,7 +227,7 @@ class TestStandalone(StandaloneTests):
         data = cbuilder.cmdexec('hi there')
         assert map(float, data.split()) == [0.0, 0.0]
 
-    def test_profopt1(self):
+    def test_profopt(self):
         if sys.platform == 'win32':
             py.test.skip("no profopt on win32")
         def add(a,b):
@@ -247,6 +247,29 @@ class TestStandalone(StandaloneTests):
         t.backendopt()
         exe = t.compile()
         assert (os.path.isfile("%s/pypy-c" % os.path.dirname(str(exe))))
+        # test --profoptpath
+        profoptpth = open('dummypythontraining.py', 'w+')
+        profoptpth.close()
+        abspath = os.path.abspath('dummypythontraining.py')
+        t = Translation(entry_point, backend='c', profopt=True, profoptpath=abspath, shared=True)
+        # no counters
+        t.backendopt()
+        exe = t.compile()
+        assert (os.path.isfile("%s/pypy-c" % os.path.dirname(str(exe))))
+
+        os.remove(abspath)
+
+        profoptpth = open('dummypythontraining.py', 'w+')
+        profoptpth.close()
+        abspath = os.path.abspath('dummypythontraining.py')
+        t = Translation(entry_point, backend='c', profopt=True, profoptpath=abspath, shared=False)
+        # no counters
+        t.backendopt()
+        exe = t.compile()
+        assert (os.path.isfile("%s" % exe))
+
+        os.remove(abspath)
+
         # out = py.process.cmdexec("%s 500" % exe)
         # assert int(out) == 500*501/2
         t = Translation(entry_point, backend='c', profopt=True, shared=False)

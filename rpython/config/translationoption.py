@@ -144,6 +144,7 @@ translation_optiondescription = OptionDescription(
     StrOption("cc", "Specify compiler to use for compiling generated C", cmdline="--cc"),
     BoolOption("profopt", "Specify profile based optimization script",
               cmdline="--profopt"),
+    StrOption("profoptpath", "Absolute path to the profile guided optimization training script", cmdline="--profoptpath"),
     BoolOption("instrument", "internal: turn instrumentation on",
                default=False, cmdline=None),
     BoolOption("countmallocs", "Count mallocs and frees", default=False,
