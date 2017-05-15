@@ -1304,7 +1304,7 @@ class BytearrayBuffer(Buffer):
 
     def _get_gc_data(self):
         from rpython.rtyper.lltypesystem import lltype, llmemory
-        ll_data = ll_for_resizable_list(self.data)
+        ll_data = ll_for_resizable_list(self.ba._data)
         ll_items = ll_data.items
         LIST = lltype.typeOf(ll_data).TO # rlist.LIST_OF(lltype.Char)
         base_ofs = llmemory.itemoffsetof(LIST.items.TO, 0)
