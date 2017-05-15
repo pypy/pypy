@@ -1,7 +1,8 @@
 import struct
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import r_singlefloat
-from rpython.rlib.buffer import StringBuffer, SubBuffer, Buffer, RawBuffer
+from rpython.rlib.buffer import (StringBuffer, SubBuffer, Buffer, RawBuffer,
+                                 ByteBuffer)
 from rpython.annotator.annrpython import RPythonAnnotator
 from rpython.annotator.model import SomeInteger
 from rpython.rtyper.test.tool import BaseRtypingTest
@@ -101,7 +102,6 @@ class BaseTypedReadTest:
         x = self.read(lltype.SingleFloat, buf, size)
         assert x == r_singlefloat(45.6)
 
-
 class TestTypedReadDirect(BaseTypedReadTest):
 
     def read(self, TYPE, data, offset):
@@ -157,3 +157,28 @@ class TestCompiled(BaseTypedReadTest):
         fn = self.cache[TYPE]
         x = fn(data, offset)
         return lltype.cast_primitive(TYPE, x)
+
+
+class TestByteBuffer(object):
+
+    def test_basic(self):
+        buf = ByteBuffer(4)
+        assert buf.getlength() == 4
+        assert buf.getitem(2) == '\x00'
+        buf.setitem(0, 'A')
+        buf.setitem(3, 'Z')
+        assert buf.as_str() == 'A\x00\x00Z'
+
+    def test_typed_write(self):
+        buf = ByteBuffer(4)
+        buf.typed_write(rffi.USHORT, 0, 0x1234)
+        buf.typed_write(rffi.USHORT, 2, 0x5678)
+        expected = struct.pack('HH', 0x1234, 0x5678)
+        assert buf.as_str() == expected
+    
+    def test_typed_read(self):
+        data = struct.pack('HH', 0x1234, 0x5678)
+        buf = ByteBuffer(4)
+        buf.setslice(0, data)
+        assert buf.typed_read(rffi.USHORT, 0) == 0x1234
+        assert buf.typed_read(rffi.USHORT, 2) == 0x5678

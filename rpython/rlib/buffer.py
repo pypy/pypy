@@ -8,7 +8,8 @@ from rpython.rtyper.annlowlevel import llstr
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import jit
 from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
-                              nonmoving_raw_ptr_for_resizable_list)
+                              nonmoving_raw_ptr_for_resizable_list,
+                              ll_for_resizable_list)
 from rpython.rlib.signature import signature
 from rpython.rlib import types
 
@@ -166,8 +167,15 @@ class GCBuffer(Buffer):
                                      scale_factor, base_ofs)
 
 
+def get_gc_data_for_list_of_chars(data):
+    ll_data = ll_for_resizable_list(data)
+    ll_items = ll_data.items
+    LIST = lltype.typeOf(ll_data).TO # rlist.LIST_OF(lltype.Char)
+    base_ofs = llmemory.itemoffsetof(LIST.items.TO, 0)
+    return ll_items, base_ofs
 
-class ByteBuffer(Buffer):
+
+class ByteBuffer(GCBuffer):
     _immutable_ = True
 
     def __init__(self, n):
@@ -185,6 +193,9 @@ class ByteBuffer(Buffer):
 
     def get_raw_address(self):
         return nonmoving_raw_ptr_for_resizable_list(self.data)
+
+    def _get_gc_data(self):
+        return get_gc_data_for_list_of_chars(self.data)
 
 
 class StringBuffer(GCBuffer):

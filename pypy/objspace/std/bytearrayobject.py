@@ -6,10 +6,9 @@ from rpython.rlib.rstring import StringBuilder, ByteListBuilder
 from rpython.rlib.debug import check_list_of_chars, check_nonneg
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
-                              nonmoving_raw_ptr_for_resizable_list,
-                              ll_for_resizable_list)
+                              nonmoving_raw_ptr_for_resizable_list)
 from rpython.rlib import jit
-from rpython.rlib.buffer import GCBuffer
+from rpython.rlib.buffer import GCBuffer, get_gc_data_for_list_of_chars
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
@@ -1303,12 +1302,7 @@ class BytearrayBuffer(GCBuffer):
         return p
 
     def _get_gc_data(self):
-        from rpython.rtyper.lltypesystem import lltype, llmemory
-        ll_data = ll_for_resizable_list(self.ba._data)
-        ll_items = ll_data.items
-        LIST = lltype.typeOf(ll_data).TO # rlist.LIST_OF(lltype.Char)
-        base_ofs = llmemory.itemoffsetof(LIST.items.TO, 0)
-        return ll_items, base_ofs
+        return get_gc_data_for_list_of_chars(self.ba._data)
 
 
 @specialize.argtype(1)
