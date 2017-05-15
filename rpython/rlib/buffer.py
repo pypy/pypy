@@ -172,6 +172,7 @@ def get_gc_data_for_list_of_chars(data):
     ll_items = ll_data.items
     LIST = lltype.typeOf(ll_data).TO # rlist.LIST_OF(lltype.Char)
     base_ofs = llmemory.itemoffsetof(LIST.items.TO, 0)
+    ll_items = lltype.cast_opaque_ptr(llmemory.GCREF, ll_items)
     return ll_items, base_ofs
 
 
@@ -233,6 +234,7 @@ class StringBuffer(GCBuffer):
 
     def _get_gc_data(self):
         lls = llstr(self.value)
+        lls = lltype.cast_opaque_ptr(llmemory.GCREF, lls)
         base_ofs = (llmemory.offsetof(STR, 'chars') +
                     llmemory.itemoffsetof(STR.chars, 0))
         return lls, base_ofs
