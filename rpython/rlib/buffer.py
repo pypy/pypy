@@ -4,6 +4,7 @@ Buffer protocol support.
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.rstr import STR
+from rpython.rtyper.lltypesystem.rlist import LIST_OF
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import jit
@@ -131,14 +132,17 @@ class GCBuffer(Buffer):
     typed_read and typed_write in terms of llop.gc_load_indexed and
     llop.gc_store_indexed.
 
-    Subclasses MUST override the _get_gc_data method.
+    Subclasses MUST override the _get_gc_* methods.
     """
     _immutable_ = True
     _attrs_ = ['readonly']
 
     def _get_gc_data(self):
+        raise NotImplementedError
+
+    def _get_gc_data_offset(self):
         """
-        Return a tuple (data, base_offset), whose items can be used with
+        Return the offset to use with _get_gc_data() for calling
         llop.gc_{load,store}_indexed.
         """
         raise NotImplementedError
@@ -148,7 +152,8 @@ class GCBuffer(Buffer):
         """
         Read the value of type TP starting at byte_offset. No bounds checks
         """
-        lldata, base_ofs = self._get_gc_data()
+        lldata = self._get_gc_data()
+        base_ofs = self._get_gc_data_offset()
         scale_factor = llmemory.sizeof(lltype.Char)
         return llop.gc_load_indexed(TP, lldata, byte_offset,
                                     scale_factor, base_ofs)
@@ -160,7 +165,8 @@ class GCBuffer(Buffer):
         """
         if self.readonly:
             raise CannotWrite
-        lldata, base_ofs = self._get_gc_data()
+        lldata = self._get_gc_data()
+        base_ofs = self._get_gc_data_offset()
         scale_factor = llmemory.sizeof(lltype.Char)
         value = lltype.cast_primitive(TP, value)
         return llop.gc_store_indexed(lltype.Void, lldata, byte_offset, value,
@@ -170,10 +176,11 @@ class GCBuffer(Buffer):
 def get_gc_data_for_list_of_chars(data):
     ll_data = ll_for_resizable_list(data)
     ll_items = ll_data.items
-    LIST = lltype.typeOf(ll_data).TO # rlist.LIST_OF(lltype.Char)
-    base_ofs = llmemory.itemoffsetof(LIST.items.TO, 0)
-    ll_items = lltype.cast_opaque_ptr(llmemory.GCREF, ll_items)
-    return ll_items, base_ofs
+    return lltype.cast_opaque_ptr(llmemory.GCREF, ll_items)
+
+def get_gc_data_offset_for_list_of_chars():
+    LIST = LIST_OF(lltype.Char)
+    return llmemory.itemoffsetof(LIST.items.TO, 0)
 
 
 class ByteBuffer(GCBuffer):
@@ -197,6 +204,9 @@ class ByteBuffer(GCBuffer):
 
     def _get_gc_data(self):
         return get_gc_data_for_list_of_chars(self.data)
+
+    def _get_gc_data_offset(self):
+        return get_gc_data_offset_for_list_of_chars()
 
 
 class StringBuffer(GCBuffer):
@@ -232,12 +242,13 @@ class StringBuffer(GCBuffer):
         # may still raise ValueError on some GCs
         return rffi.get_raw_address_of_string(self.value)
 
+    def _get_gc_data_offset(self):
+        return (llmemory.offsetof(STR, 'chars') +
+                llmemory.itemoffsetof(STR.chars, 0))
+
     def _get_gc_data(self):
         lls = llstr(self.value)
-        lls = lltype.cast_opaque_ptr(llmemory.GCREF, lls)
-        base_ofs = (llmemory.offsetof(STR, 'chars') +
-                    llmemory.itemoffsetof(STR.chars, 0))
-        return lls, base_ofs
+        return lltype.cast_opaque_ptr(llmemory.GCREF, lls)
 
 
 class SubBuffer(Buffer):
