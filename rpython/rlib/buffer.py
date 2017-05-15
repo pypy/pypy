@@ -26,7 +26,13 @@ class CannotWrite(Exception):
     """
 
 class Buffer(object):
-    """Base class for buffers of bytes"""
+    """
+    Base class for buffers of bytes.
+
+    Most probably, you do NOT want to use this as a base class, but either
+    GCBuffer or RawBuffer, so that you automatically get the proper
+    implementation of typed_read and typed_write.
+    """
     _attrs_ = ['readonly']
     _immutable_ = True
 
@@ -89,7 +95,8 @@ class Buffer(object):
 class RawBuffer(Buffer):
     """
     A buffer which is baked by a raw, non-movable memory area. It implementes
-    typed_read in terms of get_raw_address()
+    typed_read and typed_write in terms of get_raw_address(), llop.raw_load,
+    llop.raw_store.
 
     NOTE: this assumes that get_raw_address() is cheap. Do not use this as a
     base class if get_raw_address() is potentially costly, like for example if
@@ -117,6 +124,49 @@ class RawBuffer(Buffer):
         return llop.raw_store(lltype.Void, ptr, byte_offset, value)
 
 
+class GCBuffer(Buffer):
+    """
+    A buffer which is baked by a GC-managed memory area. It implements
+    typed_read and typed_write in terms of llop.gc_load_indexed and
+    llop.gc_store_indexed.
+
+    Subclasses MUST override the _get_gc_data method.
+    """
+    _immutable_ = True
+    _attrs_ = ['readonly']
+
+    def _get_gc_data(self):
+        """
+        Return a tuple (data, base_offset), whose items can be used with
+        llop.gc_{load,store}_indexed.
+        """
+        raise NotImplementedError
+
+    @specialize.ll_and_arg(1)
+    def typed_read(self, TP, byte_offset):
+        """
+        Read the value of type TP starting at byte_offset. No bounds checks
+        """
+        lldata, base_ofs = self._get_gc_data()
+        scale_factor = llmemory.sizeof(lltype.Char)
+        return llop.gc_load_indexed(TP, lldata, byte_offset,
+                                    scale_factor, base_ofs)
+
+    @specialize.ll_and_arg(1)
+    def typed_write(self, TP, byte_offset, value):
+        """
+        Write the value of type TP at byte_offset. No bounds checks
+        """
+        if self.readonly:
+            raise CannotWrite
+        lldata, base_ofs = self._get_gc_data()
+        scale_factor = llmemory.sizeof(lltype.Char)
+        value = lltype.cast_primitive(TP, value)
+        return llop.gc_store_indexed(lltype.Void, lldata, byte_offset, value,
+                                     scale_factor, base_ofs)
+
+
+
 class ByteBuffer(Buffer):
     _immutable_ = True
 
@@ -137,7 +187,7 @@ class ByteBuffer(Buffer):
         return nonmoving_raw_ptr_for_resizable_list(self.data)
 
 
-class StringBuffer(Buffer):
+class StringBuffer(GCBuffer):
     _attrs_ = ['readonly', 'value']
     _immutable_ = True
 
@@ -170,17 +220,11 @@ class StringBuffer(Buffer):
         # may still raise ValueError on some GCs
         return rffi.get_raw_address_of_string(self.value)
 
-    @specialize.ll_and_arg(1)
-    def typed_read(self, TP, byte_offset):
-        # WARNING: the 'byte_offset' is, as its name says, measured in bytes;
-        # however, it should be aligned for TP, otherwise on some platforms this
-        # code will crash!
+    def _get_gc_data(self):
         lls = llstr(self.value)
         base_ofs = (llmemory.offsetof(STR, 'chars') +
                     llmemory.itemoffsetof(STR.chars, 0))
-        scale_factor = llmemory.sizeof(lltype.Char)
-        return llop.gc_load_indexed(TP, lls, byte_offset,
-                                    scale_factor, base_ofs)
+        return lls, base_ofs
 
 
 class SubBuffer(Buffer):
