@@ -243,44 +243,34 @@ class TestStandalone(StandaloneTests):
         from rpython.translator.interactive import Translation
         # XXX this is mostly a "does not crash option"
         t = Translation(entry_point, backend='c', profopt=True, shared=True)
-        # no counters
         t.backendopt()
         exe = t.compile()
         assert (os.path.isfile("%s/pypy-c" % os.path.dirname(str(exe))))
+        
         # test --profoptpath
         profoptpth = open('dummypythontraining.py', 'w+')
         profoptpth.close()
         abspath = os.path.abspath('dummypythontraining.py')
         t = Translation(entry_point, backend='c', profopt=True, profoptpath=abspath, shared=True)
-        # no counters
         t.backendopt()
         exe = t.compile()
         assert (os.path.isfile("%s/pypy-c" % os.path.dirname(str(exe))))
-
         os.remove(abspath)
 
         profoptpth = open('dummypythontraining.py', 'w+')
         profoptpth.close()
         abspath = os.path.abspath('dummypythontraining.py')
         t = Translation(entry_point, backend='c', profopt=True, profoptpath=abspath, shared=False)
-        # no counters
         t.backendopt()
         exe = t.compile()
         assert (os.path.isfile("%s" % exe))
-
         os.remove(abspath)
 
-        # out = py.process.cmdexec("%s 500" % exe)
-        # assert int(out) == 500*501/2
         t = Translation(entry_point, backend='c', profopt=True, shared=False)
-        # no counters
         t.backendopt()
         exe = t.compile()
         assert (os.path.isfile("%s" % exe))
-        # assert( ("%s/../pypy-c" % exe.purebasename) == "aa")
 
-        # out = py.process.cmdexec("%s 500" % exe)
-        # assert int(out) == 500*501/2
 
     if hasattr(os, 'setpgrp'):
         def test_os_setpgrp(self):
