@@ -382,6 +382,7 @@ class AppTestStruct(object):
         raises(self.struct.error, self.struct.unpack, "i", b)
 
     def test_pack_unpack_buffer(self):
+        import sys
         import array
         b = array.array('c', '\x00' * 19)
         sz = self.struct.calcsize("ii")
@@ -391,9 +392,11 @@ class AppTestStruct(object):
                                       self.struct.pack("ii", 17, 42) +
                                       '\x00' * (19-sz-2))
         exc = raises(TypeError, self.struct.pack_into, "ii", buffer(b), 0, 17, 42)
-        assert str(exc.value) == "must be read-write buffer, not buffer"
+        if '__pypy__' in sys.modules:
+            assert str(exc.value) == "must be read-write buffer, not buffer"
         exc = raises(TypeError, self.struct.pack_into, "ii", 'test', 0, 17, 42)
-        assert str(exc.value) == "must be read-write buffer, not str"
+        if '__pypy__' in sys.modules:
+            assert str(exc.value) == "must be read-write buffer, not str"
         exc = raises(self.struct.error, self.struct.pack_into, "ii", b[0:1], 0, 17, 42)
         assert str(exc.value) == "pack_into requires a buffer of at least 8 bytes"
 
@@ -428,6 +431,14 @@ class AppTestStruct(object):
         s = self.struct.Struct('i')
         assert s.unpack(s.pack(42)) == (42,)
         assert s.unpack_from(memoryview(s.pack(42))) == (42,)
+
+    def test_struct_subclass(self):
+        class S(self.struct.Struct):
+            def __init__(self):
+                assert self.size == -1
+                super(S, self).__init__('c')
+                assert self.size == 1
+        assert S().unpack('a') == ('a',)
 
     def test_overflow(self):
         raises(self.struct.error, self.struct.pack, 'i', 1<<65)

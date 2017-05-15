@@ -34,7 +34,7 @@ PyTupleObjectFields = PyVarObjectFields + \
 cpython_struct("PyTupleObject", PyTupleObjectFields, PyTupleObjectStruct)
 
 @bootstrap_function
-def init_stringobject(space):
+def init_tupleobject(space):
     "Type description of PyTupleObject"
     make_typedescr(space.w_tuple.layout.typedef,
                    basestruct=PyTupleObject.TO,

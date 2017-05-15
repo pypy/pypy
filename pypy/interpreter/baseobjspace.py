@@ -9,7 +9,9 @@ from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import r_uint, SHRT_MIN, SHRT_MAX, \
     INT_MIN, INT_MAX, UINT_MAX, USHRT_MAX
+from rpython.rlib.buffer import StringBuffer
 
+from pypy.interpreter.buffer import BufferInterfaceNotFound
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
     make_finalizer_queue)
 from pypy.interpreter.error import OperationError, new_exception_class, oefmt
@@ -221,7 +223,8 @@ class W_Root(object):
         if w_impl is not None:
             w_result = space.get_and_call_function(w_impl, self,
                                         space.newint(flags))
-            if space.isinstance_w(w_result, space.w_buffer):
+            if (space.isinstance_w(w_result, space.w_buffer) or
+                    space.isinstance_w(w_result, space.w_memoryview)):
                 return w_result.buffer_w(space, flags)
         raise BufferInterfaceNotFound
 
@@ -233,7 +236,8 @@ class W_Root(object):
         if w_impl is not None:
             w_result = space.get_and_call_function(w_impl, self,
                                         space.newint(space.BUF_FULL_RO))
-            if space.isinstance_w(w_result, space.w_buffer):
+            if (space.isinstance_w(w_result, space.w_buffer) or
+                    space.isinstance_w(w_result, space.w_memoryview)):
                 return w_result.readbuf_w(space)
         raise BufferInterfaceNotFound
 
@@ -245,7 +249,8 @@ class W_Root(object):
         if w_impl is not None:
             w_result = space.get_and_call_function(w_impl, self,
                                         space.newint(space.BUF_FULL))
-            if space.isinstance_w(w_result, space.w_buffer):
+            if (space.isinstance_w(w_result, space.w_buffer) or
+                    space.isinstance_w(w_result, space.w_memoryview)):
                 return w_result.writebuf_w(space)
         raise BufferInterfaceNotFound
 
@@ -254,7 +259,8 @@ class W_Root(object):
         if w_impl is not None:
             w_result = space.get_and_call_function(w_impl, self,
                                         space.newint(space.BUF_FULL_RO))
-            if space.isinstance_w(w_result, space.w_buffer):
+            if (space.isinstance_w(w_result, space.w_buffer) or
+                    space.isinstance_w(w_result, space.w_memoryview)):
                 return w_result.charbuf_w(space)
         raise BufferInterfaceNotFound
 
@@ -390,9 +396,6 @@ class SpaceCache(Cache):
         pass
 
 class DescrMismatch(Exception):
-    pass
-
-class BufferInterfaceNotFound(Exception):
     pass
 
 @specialize.memo()
@@ -1501,18 +1504,28 @@ class ObjSpace(object):
     def readbuf_w(self, w_obj):
         # Old buffer interface, returns a readonly buffer (PyObject_AsReadBuffer)
         try:
+            return w_obj.buffer_w(self, self.BUF_SIMPLE).as_readbuf()
+        except OperationError:
+            self._getarg_error("convertible to a buffer", w_obj)
+        except BufferInterfaceNotFound:
+            pass
+        try:
             return w_obj.readbuf_w(self)
         except BufferInterfaceNotFound:
-            raise oefmt(self.w_TypeError,
-                        "expected a readable buffer object")
+            self._getarg_error("convertible to a buffer", w_obj)
 
     def writebuf_w(self, w_obj):
         # Old buffer interface, returns a writeable buffer (PyObject_AsWriteBuffer)
         try:
+            return w_obj.buffer_w(self, self.BUF_WRITABLE).as_writebuf()
+        except OperationError:
+            self._getarg_error("read-write buffer", w_obj)
+        except BufferInterfaceNotFound:
+            pass
+        try:
             return w_obj.writebuf_w(self)
         except BufferInterfaceNotFound:
-            raise oefmt(self.w_TypeError,
-                        "expected a writeable buffer object")
+            self._getarg_error("read-write buffer", w_obj)
 
     def charbuf_w(self, w_obj):
         # Old buffer interface, returns a character buffer (PyObject_AsCharBuffer)
@@ -1541,12 +1554,10 @@ class ObjSpace(object):
             if self.isinstance_w(w_obj, self.w_unicode):
                 return self.str(w_obj).readbuf_w(self)
             try:
-                return w_obj.buffer_w(self, 0)
-            except BufferInterfaceNotFound:
-                pass
-            try:
-                return w_obj.readbuf_w(self)
-            except BufferInterfaceNotFound:
+                return self.readbuf_w(w_obj)
+            except OperationError as e:
+                if not e.match(self, self.w_TypeError):
+                    raise
                 self._getarg_error("string or buffer", w_obj)
         elif code == 's#':
             if self.isinstance_w(w_obj, self.w_bytes):
@@ -1558,16 +1569,7 @@ class ObjSpace(object):
             except BufferInterfaceNotFound:
                 self._getarg_error("string or read-only buffer", w_obj)
         elif code == 'w*':
-            try:
-                return w_obj.buffer_w(self, self.BUF_WRITABLE)
-            except OperationError:
-                self._getarg_error("read-write buffer", w_obj)
-            except BufferInterfaceNotFound:
-                pass
-            try:
-                return w_obj.writebuf_w(self)
-            except BufferInterfaceNotFound:
-                self._getarg_error("read-write buffer", w_obj)
+            return self.writebuf_w(w_obj)
         elif code == 't#':
             try:
                 return w_obj.charbuf_w(self)
@@ -1653,6 +1655,23 @@ class ObjSpace(object):
 
     def fsencode_or_none_w(self, w_obj):
         return None if self.is_none(w_obj) else self.fsencode_w(w_obj)
+
+    def byte_w(self, w_obj):
+        """
+        Convert an index-like object to an interp-level char
+
+        Used for app-level code like "bytearray(b'abc')[0] = 42".
+        """
+        if self.isinstance_w(w_obj, self.w_bytes):
+            string = self.bytes_w(w_obj)
+            if len(string) != 1:
+                raise oefmt(self.w_ValueError, "string must be of size 1")
+            return string[0]
+        value = self.getindex_w(w_obj, None)
+        if not 0 <= value < 256:
+            # this includes the OverflowError in case the long is too large
+            raise oefmt(self.w_ValueError, "byte must be in range(0, 256)")
+        return chr(value)
 
     def int_w(self, w_obj, allow_conversion=True):
         """

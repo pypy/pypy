@@ -8,8 +8,9 @@ from rpython.rtyper.annlowlevel import llstr
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import jit
 from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
-        nonmoving_raw_ptr_for_resizable_list)
-
+                              nonmoving_raw_ptr_for_resizable_list)
+from rpython.rlib.signature import signature
+from rpython.rlib import types
 
 class CannotRead(Exception):
     """
@@ -25,12 +26,12 @@ class CannotWrite(Exception):
     """
 
 class Buffer(object):
-    """Abstract base class for buffers."""
+    """Base class for buffers of bytes"""
     _attrs_ = ['readonly']
     _immutable_ = True
 
     def getlength(self):
-        """Returns the size in bytes (even if getitemsize() > 1)."""
+        """Return the size in bytes."""
         raise NotImplementedError
 
     def __len__(self):
@@ -54,6 +55,7 @@ class Buffer(object):
         # May be overridden.  No bounds checks.
         return ''.join([self.getitem(i) for i in range(start, stop, step)])
 
+    @signature(types.any(), types.int(), types.int(), returns=types.str())
     def __getslice__(self, start, stop):
         return self.getslice(start, stop, 1, stop - start)
 
@@ -69,27 +71,6 @@ class Buffer(object):
         for i in range(len(string)):
             self.setitem(start + i, string[i])
 
-    def get_raw_address(self):
-        raise ValueError("no raw buffer")
-
-    def getformat(self):
-        return 'B'
-
-    def getitemsize(self):
-        return 1
-
-    def getndim(self):
-        return 1
-
-    def getshape(self):
-        return [self.getlength()]
-
-    def getstrides(self):
-        return [1]
-
-    def releasebuffer(self):
-        pass
-
     @specialize.ll_and_arg(1)
     def typed_read(self, TP, byte_offset):
         """
@@ -103,6 +84,27 @@ class Buffer(object):
         Write the value of type TP at byte_offset. No bounds checks
         """
         raise CannotWrite
+
+
+class ByteBuffer(Buffer):
+    _immutable_ = True
+
+    def __init__(self, n):
+        self.data = resizable_list_supporting_raw_ptr(['\0'] * n)
+        self.readonly = False
+
+    def getlength(self):
+        return len(self.data)
+
+    def getitem(self, index):
+        return self.data[index]
+
+    def setitem(self, index, char):
+        self.data[index] = char
+
+    def get_raw_address(self):
+        return nonmoving_raw_ptr_for_resizable_list(self.data)
+
 
 
 class RawBuffer(Buffer):
@@ -186,6 +188,8 @@ class SubBuffer(Buffer):
     _attrs_ = ['buffer', 'offset', 'size', 'readonly']
     _immutable_ = True
 
+    @signature(types.any(), types.instance(Buffer), types.int(), types.int(),
+               returns=types.none())
     def __init__(self, buffer, offset, size):
         self.readonly = buffer.readonly
         if isinstance(buffer, SubBuffer):     # don't nest them

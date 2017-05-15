@@ -1,5 +1,5 @@
-from rpython.rlib.buffer import RawBuffer
 from rpython.rtyper.lltypesystem import rffi
+from rpython.rlib.buffer import RawBuffer
 
 # XXX not the most efficient implementation
 

@@ -19,6 +19,7 @@ from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.memoryobject import fill_Py_buffer
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext import userslot
+from pypy.interpreter.buffer import BufferView
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.argument import Arguments
 from rpython.rlib.buffer import RawBuffer
@@ -322,7 +323,7 @@ def wrap_hashfunc(space, w_self, w_args, func):
         space.fromcache(State).check_and_raise_exception(always=True)
     return space.newint(res)
 
-class CPyBuffer(RawBuffer):
+class CPyBuffer(BufferView):
     # Similar to Py_buffer
     _immutable_ = True
 
@@ -333,9 +334,12 @@ class CPyBuffer(RawBuffer):
         self.space = space
         self.ptr = ptr
         self.size = size
-        self.w_obj = w_obj # kept alive
+        self.w_obj = w_obj  # kept alive
         self.pyobj = as_pyobj(space, w_obj)
         self.format = format
+        self.ndim = ndim
+        self.itemsize = itemsize
+
         if not shape:
             self.shape = [size]
         else:
@@ -344,8 +348,6 @@ class CPyBuffer(RawBuffer):
             self.strides = [1]
         else:
             self.strides = strides
-        self.ndim = ndim
-        self.itemsize = itemsize
         self.readonly = readonly
         self.needs_decref = needs_decref
         self.releasebufferproc = releasebufferproc
@@ -378,8 +380,20 @@ class CPyBuffer(RawBuffer):
     def getlength(self):
         return self.size
 
-    def getitem(self, index):
-        return self.ptr[index]
+    def getbytes(self, start, size):
+        return ''.join([self.ptr[i] for i in range(start, start + size)])
+
+    def setbytes(self, start, string):
+        # absolutely no safety checks, what could go wrong?
+        for i in range(len(string)):
+            self.ptr[start + i] = string[i]
+
+    def as_readbuf(self):
+        return CBuffer(self)
+
+    def as_writebuf(self):
+        assert not self.readonly
+        return CBuffer(self)
 
     def get_raw_address(self):
         return rffi.cast(rffi.CCHARP, self.ptr)
@@ -399,10 +413,6 @@ class CPyBuffer(RawBuffer):
     def getndim(self):
         return self.ndim
 
-    def setitem(self, index, char):
-        # absolutely no safety checks, what could go wrong?
-        self.ptr[index] = char
-
 class FQ(rgc.FinalizerQueue):
     Class = CPyBuffer
     def finalizer_trigger(self):
@@ -413,6 +423,37 @@ class FQ(rgc.FinalizerQueue):
             buf.releasebuffer()
 
 fq = FQ()
+
+
+class CBuffer(RawBuffer):
+    _immutable_ = True
+    def __init__(self, view):
+        self.view = view
+        self.readonly = view.readonly
+
+    def getlength(self):
+        return self.view.getlength()
+
+    def getitem(self, index):
+        return self.view.ptr[index]
+
+    def getslice(self, start, stop, step, size):
+        assert step == 1
+        assert stop - start == size
+        ptr = rffi.ptradd(cts.cast('char *', self.view.ptr), start)
+        return rffi.charpsize2str(ptr, size)
+
+    def setitem(self, index, char):
+        self.view.ptr[index] = char
+
+    def setslice(self, index, s):
+        assert s is not None
+        ptr = rffi.ptradd(cts.cast('char *', self.view.ptr), index)
+        rffi.str2chararray(s, ptr, len(s))
+
+    def get_raw_address(self):
+        return cts.cast('char *', self.view.ptr)
+
 
 def wrap_getreadbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(readbufferproc, func)
@@ -427,10 +468,10 @@ def wrap_getreadbuffer(space, w_self, w_args, func):
         size = generic_cpy_call(space, func_target, w_self, index, ptr)
         if size < 0:
             space.fromcache(State).check_and_raise_exception(always=True)
-        buf = CPyBuffer(space, ptr[0], size, w_self,
+        view = CPyBuffer(space, ptr[0], size, w_self,
                                releasebufferproc=rbp)
-        fq.register_finalizer(buf)
-        return space.newbuffer(buf)
+        fq.register_finalizer(view)
+        return space.newbuffer(CBuffer(view))
 
 def wrap_getwritebuffer(space, w_self, w_args, func):
     func_target = rffi.cast(readbufferproc, func)
@@ -445,10 +486,10 @@ def wrap_getwritebuffer(space, w_self, w_args, func):
         size = generic_cpy_call(space, func_target, w_self, index, ptr)
         if size < 0:
             space.fromcache(State).check_and_raise_exception(always=True)
-        buf = CPyBuffer(space, ptr[0], size, w_self, readonly=False,
+        view = CPyBuffer(space, ptr[0], size, w_self, readonly=False,
                                releasebufferproc=rbp)
-        fq.register_finalizer(buf)
-        return space.newbuffer(buf)
+        fq.register_finalizer(view)
+        return space.newbuffer(CBuffer(view))
 
 def wrap_getbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(getbufferproc, func)
@@ -490,7 +531,7 @@ def wrap_getbuffer(space, w_self, w_args, func):
                             needs_decref=True,
                             releasebufferproc = rbp)
         fq.register_finalizer(buf)
-        return space.newbuffer(buf)
+        return buf.wrap(space)
 
 def get_richcmp_func(OP_CONST):
     def inner(space, w_self, w_args, func):
@@ -667,6 +708,7 @@ def build_slot_tp_function(space, typedef, name):
         def slot_tp_getattro(space, w_self, w_name):
             return space.call_function(getattr_fn, w_self, w_name)
         slot_func = slot_tp_getattro
+
     elif name == 'tp_call':
         call_fn = w_type.getdictvalue(space, '__call__')
         if call_fn is None:
@@ -744,24 +786,24 @@ def slot_from___buffer__(space, typedef, buff_fn):
     @slot_function([PyObject, Py_bufferP, rffi.INT_real],
             rffi.INT_real, error=-1)
     @func_renamer("cpyext_%s_%s" % (name, typedef.name))
-    def buff_w(space, w_self, view, flags):
+    def buff_w(space, w_self, c_view, flags):
         args = Arguments(space, [space.newint(flags)])
         w_obj = space.call_args(space.get(buff_fn, w_self), args)
-        if view:
+        if c_view:
             #like PyObject_GetBuffer
             flags = widen(flags)
             buf = space.buffer_w(w_obj, flags)
             try:
-                view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
-                view.c_obj = make_ref(space, w_obj)
+                c_view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
+                c_view.c_obj = make_ref(space, w_obj)
             except ValueError:
                 s = buf.as_str()
                 w_s = space.newbytes(s)
-                view.c_obj = make_ref(space, w_s)
-                view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(
+                c_view.c_obj = make_ref(space, w_s)
+                c_view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(
                                         s, track_allocation=False))
-                rffi.setintfield(view, 'c_readonly', 1)
-            ret = fill_Py_buffer(space, buf, view)
+                rffi.setintfield(c_view, 'c_readonly', 1)
+            ret = fill_Py_buffer(space, buf, c_view)
             return ret
         return 0
     return buff_w
@@ -771,23 +813,23 @@ def slot_from_buffer_w(space, typedef, buff_fn):
     @slot_function([PyObject, Py_bufferP, rffi.INT_real],
             rffi.INT_real, error=-1)
     @func_renamer("cpyext_%s_%s" % (name, typedef.name))
-    def buff_w(space, w_self, view, flags):
+    def buff_w(space, w_self, c_view, flags):
         w_obj = w_self
-        if view:
+        if c_view:
             #like PyObject_GetBuffer
             flags = widen(flags)
             buf = space.buffer_w(w_obj, flags)
             try:
-                view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
-                view.c_obj = make_ref(space, w_obj)
+                c_view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
+                c_view.c_obj = make_ref(space, w_obj)
             except ValueError:
                 s = buf.as_str()
                 w_s = space.newbytes(s)
-                view.c_obj = make_ref(space, w_s)
-                view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(
+                c_view.c_obj = make_ref(space, w_s)
+                c_view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(
                                         s, track_allocation=False))
-                rffi.setintfield(view, 'c_readonly', 1)
-            ret = fill_Py_buffer(space, buf, view)
+                rffi.setintfield(c_view, 'c_readonly', 1)
+            ret = fill_Py_buffer(space, buf, c_view)
             return ret
         return 0
     return buff_w
