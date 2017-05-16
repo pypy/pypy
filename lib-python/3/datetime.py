@@ -746,15 +746,15 @@ class date:
             _MONTHNAMES[self._month],
             self._day, self._year)
 
-    def strftime(self, fmt):
+    def strftime(self, format):
         "Format using strftime()."
-        return _wrap_strftime(self, fmt, self.timetuple())
+        return _wrap_strftime(self, format, self.timetuple())
 
-    def __format__(self, fmt):
-        if not isinstance(fmt, str):
-            raise TypeError("must be str, not %s" % type(fmt).__name__)
-        if len(fmt) != 0:
-            return self.strftime(fmt)
+    def __format__(self, format):
+        if not isinstance(format, str):
+            raise TypeError("must be str, not %s" % type(format).__name__)
+        if len(format) != 0:
+            return self.strftime(format)
         return str(self)
 
     def isoformat(self):
@@ -1215,7 +1215,7 @@ class time:
 
     __str__ = isoformat
 
-    def strftime(self, fmt):
+    def strftime(self, format):
         """Format using strftime().  The date part of the timestamp passed
         to underlying strftime should not be used.
         """
@@ -1224,13 +1224,13 @@ class time:
         timetuple = (1900, 1, 1,
                      self._hour, self._minute, self._second,
                      0, 1, -1)
-        return _wrap_strftime(self, fmt, timetuple)
+        return _wrap_strftime(self, format, timetuple)
 
-    def __format__(self, fmt):
-        if not isinstance(fmt, str):
-            raise TypeError("must be str, not %s" % type(fmt).__name__)
-        if len(fmt) != 0:
-            return self.strftime(fmt)
+    def __format__(self, format):
+        if not isinstance(format, str):
+            raise TypeError("must be str, not %s" % type(format).__name__)
+        if len(format) != 0:
+            return self.strftime(format)
         return str(self)
 
     # Timezone functions
