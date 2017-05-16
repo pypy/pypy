@@ -1289,7 +1289,7 @@ class BytearrayBuffer(Buffer):
             if start != 0 or stop != len(data):
                 data = data[start:stop]
             return "".join(data)
-        return GCBuffer.getslice(self, start, stop, step, size)
+        return Buffer.getslice(self, start, stop, step, size)
 
     def setslice(self, start, string):
         # No bounds checks.
