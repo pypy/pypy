@@ -694,6 +694,8 @@ def run_command_line(interactive,
                             del mainmodule.__file__
                         except (AttributeError, TypeError):
                             pass
+                if hasattr(sys, '__interactivehook__'):
+                    run_toplevel(sys.__interactivehook__)
                 # Then we need a prompt.
                 inspect = True
             else:
