@@ -21,3 +21,8 @@ Implement posix.posix_fallocate() and posix.posix_fadvise()
 .. branch: py3.5-mac-translate
 
 Fix for different posix primitives on MacOS
+
+.. branch: PyBuffer
+
+Internal refactoring of memoryviews and buffers, fixing some related
+performance issues.
