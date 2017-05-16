@@ -8,7 +8,8 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
                               nonmoving_raw_ptr_for_resizable_list)
 from rpython.rlib import jit
-from rpython.rlib.buffer import (GCBuffer, get_gc_data_for_list_of_chars,
+from rpython.rlib.buffer import (Buffer, GCBuffer,
+                                 get_gc_data_for_list_of_chars,
                                  get_gc_data_offset_for_list_of_chars)
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -1257,7 +1258,8 @@ def _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
         start += step
 
 
-class BytearrayBuffer(GCBuffer):
+@GCBuffer
+class BytearrayBuffer(Buffer):
     _immutable_ = True
 
     def __init__(self, ba, readonly=False):
@@ -1302,11 +1304,12 @@ class BytearrayBuffer(GCBuffer):
         p = rffi.ptradd(p, ba._offset)
         return p
 
+    @staticmethod
+    def _get_gc_data_offset():
+        return get_gc_data_offset_for_list_of_chars()
+
     def _get_gc_data(self):
         return get_gc_data_for_list_of_chars(self.ba._data)
-
-    def _get_gc_data_offset(self):
-        return get_gc_data_offset_for_list_of_chars()
 
 
 @specialize.argtype(1)

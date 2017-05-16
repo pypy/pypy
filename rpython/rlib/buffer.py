@@ -31,9 +31,10 @@ class Buffer(object):
     """
     Base class for buffers of bytes.
 
-    Most probably, you do NOT want to use this as a base class, but either
-    GCBuffer or RawBuffer, so that you automatically get the proper
-    implementation of typed_read and typed_write.
+    Most probably, you do NOT want to use this as a lone base class, but
+    either inherit from RawBuffer or use the GCBuffer class decorator, so that
+    you automatically get the proper implementation of typed_read and
+    typed_write.
     """
     _attrs_ = ['readonly']
     _immutable_ = True
@@ -126,51 +127,45 @@ class RawBuffer(Buffer):
         return llop.raw_store(lltype.Void, ptr, byte_offset, value)
 
 
-class GCBuffer(Buffer):
+def GCBuffer(buffercls):
     """
-    A buffer which is baked by a GC-managed memory area. It implements
-    typed_read and typed_write in terms of llop.gc_load_indexed and
-    llop.gc_store_indexed.
+    class decorator for a buffer which is baked by a GC-managed memory
+    area. It implements typed_read and typed_write in terms of
+    llop.gc_load_indexed and llop.gc_store_indexed.
 
-    Subclasses MUST override the _get_gc_* methods.
-    """
-    _immutable_ = True
-    _attrs_ = ['readonly']
+    The target class MUST provide the following methods:
+
+    @staticmethod
+    def _get_gc_data_offset(self):
+        raise NotImplementedError
 
     def _get_gc_data(self):
         raise NotImplementedError
-
-    def _get_gc_data_offset(self):
-        """
-        Return the offset to use with _get_gc_data() for calling
-        llop.gc_{load,store}_indexed.
-        """
-        raise NotImplementedError
+    """
+    # We had to write this as a class decorator instead of a base class
+    # because we need to produce specialized versions of typed_{read,write} in
+    # which base_ofs is an RPython constant.
+    base_ofs = buffercls._get_gc_data_offset()
+    scale_factor = llmemory.sizeof(lltype.Char)
 
     @specialize.ll_and_arg(1)
     def typed_read(self, TP, byte_offset):
-        """
-        Read the value of type TP starting at byte_offset. No bounds checks
-        """
         lldata = self._get_gc_data()
-        base_ofs = self._get_gc_data_offset()
-        scale_factor = llmemory.sizeof(lltype.Char)
         return llop.gc_load_indexed(TP, lldata, byte_offset,
                                     scale_factor, base_ofs)
 
     @specialize.ll_and_arg(1)
     def typed_write(self, TP, byte_offset, value):
-        """
-        Write the value of type TP at byte_offset. No bounds checks
-        """
         if self.readonly:
             raise CannotWrite
         lldata = self._get_gc_data()
-        base_ofs = self._get_gc_data_offset()
-        scale_factor = llmemory.sizeof(lltype.Char)
         value = lltype.cast_primitive(TP, value)
         return llop.gc_store_indexed(lltype.Void, lldata, byte_offset, value,
                                      scale_factor, base_ofs)
+
+    buffercls.typed_read = typed_read
+    buffercls.typed_write = typed_write
+    return buffercls
 
 
 def get_gc_data_for_list_of_chars(data):
@@ -183,7 +178,8 @@ def get_gc_data_offset_for_list_of_chars():
     return llmemory.itemoffsetof(LIST.items.TO, 0)
 
 
-class ByteBuffer(GCBuffer):
+@GCBuffer
+class ByteBuffer(Buffer):
     _immutable_ = True
 
     def __init__(self, n):
@@ -205,11 +201,13 @@ class ByteBuffer(GCBuffer):
     def _get_gc_data(self):
         return get_gc_data_for_list_of_chars(self.data)
 
-    def _get_gc_data_offset(self):
+    @staticmethod
+    def _get_gc_data_offset():
         return get_gc_data_offset_for_list_of_chars()
 
 
-class StringBuffer(GCBuffer):
+@GCBuffer
+class StringBuffer(Buffer):
     _attrs_ = ['readonly', 'value']
     _immutable_ = True
 
@@ -242,7 +240,8 @@ class StringBuffer(GCBuffer):
         # may still raise ValueError on some GCs
         return rffi.get_raw_address_of_string(self.value)
 
-    def _get_gc_data_offset(self):
+    @staticmethod
+    def _get_gc_data_offset():
         return (llmemory.offsetof(STR, 'chars') +
                 llmemory.itemoffsetof(STR.chars, 0))
 

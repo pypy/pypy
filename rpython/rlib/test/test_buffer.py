@@ -6,6 +6,8 @@ from rpython.rlib.buffer import (StringBuffer, SubBuffer, Buffer, RawBuffer,
 from rpython.annotator.annrpython import RPythonAnnotator
 from rpython.annotator.model import SomeInteger
 from rpython.rtyper.test.tool import BaseRtypingTest
+from rpython.jit.metainterp.test.support import LLJitMixin
+
 
 class MyRawBuffer(RawBuffer):
 
@@ -182,3 +184,33 @@ class TestByteBuffer(object):
         buf.setslice(0, data)
         assert buf.typed_read(rffi.USHORT, 0) == 0x1234
         assert buf.typed_read(rffi.USHORT, 2) == 0x5678
+
+
+class TestJIT(LLJitMixin):
+
+    def test_GCBuffer_typed_read(self):
+        from rpython.rlib import jit
+        DATA = struct.pack('i', 0x12345678)
+
+        @jit.dont_look_inside
+        def make_buffer(flag):
+            if flag:
+                buf = ByteBuffer(len(DATA))
+                buf.setslice(0, DATA)
+            else:
+                buf = StringBuffer(DATA)
+            return buf
+
+        def f(flag):
+            buf = make_buffer(flag)
+            return buf.typed_read(rffi.INT, 0)
+
+        for flag in (0, 1):
+            res = self.interp_operations(f, [0], supports_singlefloats=True)
+            #
+            self.check_operations_history({'call_r': 1,
+                                           'guard_no_exception': 1,
+                                           'guard_class': 1,
+                                           'gc_load_indexed_i': 1,
+                                           'finish': 1})
+            assert res == 0x12345678
