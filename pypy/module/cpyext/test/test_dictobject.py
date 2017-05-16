@@ -298,7 +298,7 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
                         while (PyDict_Next(arg, &pos, &key, &value))
                             ret ++;
                         /* test no crash if pos is not reset to 0*/
-                        while (PyDict_Next(args, &pos, &key, &value))
+                        while (PyDict_Next(arg, &pos, &key, &value))
                             ret ++;
                     }
                 }
