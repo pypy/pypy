@@ -118,10 +118,11 @@ def test_wrap_oserror():
     class FakeSpace:
         w_OSError = [OSError]
         w_EnvironmentError = [EnvironmentError]
+        w_None = None
         def wrap(self, obj):
             return [obj]
         newint = newtext = newunicode = newfilename = wrap
-        def call_function(self, exc, w_errno, w_msg, w_filename=None):
+        def call_function(self, exc, w_errno, w_msg, w_filename=None, *args):
             return (exc, w_errno, w_msg, w_filename)
     space = FakeSpace()
     #
