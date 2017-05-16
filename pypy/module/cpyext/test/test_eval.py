@@ -331,3 +331,30 @@ class AppTestCall(AppTestCpythonExtensionBase):
                 def nested_flags():
                     return module.get_flags()""" in ns
         assert ns['nested_flags']() == (1, 0x2000)  # CO_FUTURE_DIVISION
+
+    def test_recursive_function(self):
+        module = self.import_extension('foo', [
+            ("call_recursive", "METH_NOARGS",
+             """
+                int res = 0;
+                int recurse(void) {
+                    if (Py_EnterRecursiveCall(" while calling recurse"))
+                        return -1;
+                    res ++;
+                    return recurse();
+                }
+                int oldlimit = Py_GetRecursionLimit();
+                Py_SetRecursionLimit(200);
+                res = recurse();
+                Py_SetRecursionLimit(oldlimit);
+                if (PyErr_Occurred())
+                    return NULL;
+                return PyLong_FromLong(res);
+             """),], prologue= ''' int recurse(void); '''
+            )
+        try:
+            res = module.call_recursive()
+        except RuntimeError as e:
+            assert 'while calling recurse' in str(e)
+        else:
+            assert False, "expected RuntimeError"  
