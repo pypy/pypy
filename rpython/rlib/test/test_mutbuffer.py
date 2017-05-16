@@ -7,6 +7,7 @@ class TestMutableStringBuffer(object):
 
     def test_finish(self):
         buf = MutableStringBuffer(4)
+        buf.setzeros(0, 4)
         pytest.raises(ValueError, "buf.as_str()")
         s = buf.finish()
         assert s == '\x00' * 4
@@ -22,6 +23,7 @@ class TestMutableStringBuffer(object):
 
     def test_setslice(self):
         buf = MutableStringBuffer(6)
+        buf.setzeros(0, 6)
         buf.setslice(2, 'ABCD')
         assert buf.finish() == '\x00\x00ABCD'
 
