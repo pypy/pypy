@@ -2,6 +2,7 @@ from pypy.interpreter.error import oefmt
 from pypy.interpreter.astcompiler import consts
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, fread, feof, Py_ssize_tP,
     cpython_struct, is_valid_fp)
@@ -236,7 +237,7 @@ def Py_GetRecursionLimit(space):
 @cpython_api([rffi.INT_real], lltype.Void, error=CANNOT_FAIL)
 def Py_SetRecursionLimit(space, limit):
     from pypy.module.sys.vm import setrecursionlimit
-    setrecursionlimit(space, limit)
+    setrecursionlimit(space, widen(limit))
 
 limit = 0 # for testing
 
@@ -261,12 +262,12 @@ def Py_EnterRecursiveCall(space, where):
         limit += 1
         if limit > 10:
             raise oefmt(space.w_RuntimeError, 
-                    "maximum recursion depth exceeded" + rffi.charp2str(where))
+                 "maximum recursion depth exceeded%s", rffi.charp2str(where))
         return 0
     from rpython.rlib.rstack import stack_almost_full
     if stack_almost_full():
         raise oefmt(space.w_RuntimeError,
-                     "maximum recursion depth exceeded" + rffi.charp2str(where))
+                 "maximum recursion depth exceeded%s", rffi.charp2str(where))
     return 0
 
 @cpython_api([], lltype.Void)
