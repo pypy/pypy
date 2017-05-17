@@ -408,7 +408,9 @@ def enablerlcompleter():
             readline.parse_and_bind('tab: complete')
 
         try:
-            readline.read_init_file()
+            # Unimplemented on PyPy
+            #readline.read_init_file()
+            pass
         except OSError:
             # An OSError here could have many causes, but the most likely one
             # is that there's no .inputrc file (or .editrc file in the case of
@@ -560,8 +562,7 @@ def main():
     setquit()
     setcopyright()
     sethelper()
-    # Disabled on PyPy: incompatible with our readline
-    #enablerlcompleter()
+    enablerlcompleter()
     aliasmbcs()
     execsitecustomize()
     if ENABLE_USER_SITE:
