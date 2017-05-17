@@ -159,6 +159,7 @@ class GCBuffer(Buffer):
         @specialize.ll_and_arg(1)
         def typed_read(self, TP, byte_offset):
             lldata = self._get_gc_data()
+            byte_offset += self._get_gc_data_extra_offset()
             return llop.gc_load_indexed(TP, lldata, byte_offset,
                                         scale_factor, base_ofs)
 
@@ -167,6 +168,7 @@ class GCBuffer(Buffer):
             if self.readonly:
                 raise CannotWrite
             lldata = self._get_gc_data()
+            byte_offset += self._get_gc_data_extra_offset()
             value = lltype.cast_primitive(TP, value)
             return llop.gc_store_indexed(lltype.Void, lldata, byte_offset, value,
                                          scale_factor, base_ofs)
@@ -178,6 +180,9 @@ class GCBuffer(Buffer):
     @staticmethod
     def _get_gc_data_offset(self):
         raise NotImplementedError
+
+    def _get_gc_data_extra_offset(self):
+        return 0
 
     def _get_gc_data(self):
         raise NotImplementedError

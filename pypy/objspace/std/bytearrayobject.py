@@ -1308,6 +1308,9 @@ class BytearrayBuffer(GCBuffer):
     def _get_gc_data_offset():
         return get_gc_data_offset_for_list_of_chars()
 
+    def _get_gc_data_extra_offset(self):
+        return self.ba._offset
+
     def _get_gc_data(self):
         return get_gc_data_for_list_of_chars(self.ba._data)
 
