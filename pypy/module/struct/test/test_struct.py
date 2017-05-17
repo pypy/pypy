@@ -541,3 +541,12 @@ class AppTestFastPath(object):
         buf = bytearray(len(expected))
         self.struct.pack_into("xxi", buf, 0, 42)
         assert buf == expected
+
+    def test_pack_into_bytearray_delete(self):
+        expected = self.struct.pack("i", 42)
+        # force W_BytearrayObject._delete_from_start
+        buf = bytearray(64)
+        del buf[:8]
+        self.struct.pack_into("i", buf, 0, 42)
+        buf = buf[:len(expected)]
+        assert buf == expected

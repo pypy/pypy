@@ -304,6 +304,30 @@ def test_nonmoving_raw_ptr_for_resizable_list():
     data = subprocess.check_output([str(exename), '.', '.', '.'])
     assert data.strip().endswith('OK!')
 
+
+def test_nonmoving_raw_ptr_for_resizable_list_getslice():
+    def f(n):
+        lst = ['a', 'b', 'c', 'd', 'e']
+        lst = rgc.resizable_list_supporting_raw_ptr(lst)
+        lst = lst[:3]
+        lst.append(chr(n))
+        assert lst[3] == chr(n)
+        assert lst[-1] == chr(n)
+        #
+        ptr = rgc.nonmoving_raw_ptr_for_resizable_list(lst)
+        assert lst[:] == ['a', 'b', 'c', chr(n)]
+        assert lltype.typeOf(ptr) == rffi.CCHARP
+        assert [ptr[i] for i in range(4)] == ['a', 'b', 'c', chr(n)]
+        return lst
+    #
+    # direct untranslated run
+    lst = f(35)
+    assert isinstance(lst, rgc._ResizableListSupportingRawPtr)
+    #
+    # llinterp run
+    interpret(f, [35])
+
+
 def test_ll_for_resizable_list():
     def f(n):
         lst = ['a', 'b', 'c']

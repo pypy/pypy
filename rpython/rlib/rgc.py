@@ -1111,7 +1111,7 @@ class _ResizableListSupportingRawPtr(list):
         list.__delitem__(self, index)
 
     def __getslice__(self, i, j):
-        return list.__getslice__(self.__as_list(), i, j)
+        return self.__class__(list.__getslice__(self.__as_list(), i, j))
 
     def __setslice__(self, i, j, new):
         lst = self.__as_list()
