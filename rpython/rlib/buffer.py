@@ -32,9 +32,8 @@ class Buffer(object):
     Base class for buffers of bytes.
 
     Most probably, you do NOT want to use this as a lone base class, but
-    either inherit from RawBuffer or use the GCBuffer class decorator, so that
-    you automatically get the proper implementation of typed_read and
-    typed_write.
+    either inherit from RawBuffer or GCBuffer, so that you automatically get
+    the proper implementation of typed_read and typed_write.
     """
     _attrs_ = ['readonly']
     _immutable_ = True
@@ -133,13 +132,48 @@ class RawBuffer(Buffer):
         return llop.raw_store(lltype.Void, ptr, byte_offset, value)
 
 
-def GCBuffer(buffercls):
+class GCBuffer(Buffer):
     """
-    class decorator for a buffer which is baked by a GC-managed memory
-    area. It implements typed_read and typed_write in terms of
-    llop.gc_load_indexed and llop.gc_store_indexed.
+    Base class for a buffer which is baked by a GC-managed memory area. You
+    MUST also decorate the class with @GCBuffer.decorate: it implements
+    typed_read and typed_write in terms of llop.gc_load_indexed and
+    llop.gc_store_indexed.
+    """
+    _attrs_ = ['readonly', 'value']
+    _immutable_ = True
 
-    The target class MUST provide the following methods:
+    @staticmethod
+    def decorate(targetcls):
+        """
+        Create and attach specialized versions of typed_{read,write}. We need to
+        do this becase the JIT codewriters mandates that base_ofs is an
+        RPython constant.
+        """
+        if targetcls.__bases__ != (GCBuffer,):
+            raise ValueError("@GCBuffer.decorate should be used only on "
+                             "GCBuffer subclasses")
+
+        base_ofs = targetcls._get_gc_data_offset()
+        scale_factor = llmemory.sizeof(lltype.Char)
+
+        @specialize.ll_and_arg(1)
+        def typed_read(self, TP, byte_offset):
+            lldata = self._get_gc_data()
+            return llop.gc_load_indexed(TP, lldata, byte_offset,
+                                        scale_factor, base_ofs)
+
+        @specialize.ll_and_arg(1)
+        def typed_write(self, TP, byte_offset, value):
+            if self.readonly:
+                raise CannotWrite
+            lldata = self._get_gc_data()
+            value = lltype.cast_primitive(TP, value)
+            return llop.gc_store_indexed(lltype.Void, lldata, byte_offset, value,
+                                         scale_factor, base_ofs)
+
+        targetcls.typed_read = typed_read
+        targetcls.typed_write = typed_write
+        return targetcls
 
     @staticmethod
     def _get_gc_data_offset(self):
@@ -147,31 +181,16 @@ def GCBuffer(buffercls):
 
     def _get_gc_data(self):
         raise NotImplementedError
-    """
-    # We had to write this as a class decorator instead of a base class
-    # because we need to produce specialized versions of typed_{read,write} in
-    # which base_ofs is an RPython constant.
-    base_ofs = buffercls._get_gc_data_offset()
-    scale_factor = llmemory.sizeof(lltype.Char)
 
     @specialize.ll_and_arg(1)
     def typed_read(self, TP, byte_offset):
-        lldata = self._get_gc_data()
-        return llop.gc_load_indexed(TP, lldata, byte_offset,
-                                    scale_factor, base_ofs)
+        raise NotImplementedError("You MUST decorate this class with "
+                                  "@GCBuffer.decorate")
 
     @specialize.ll_and_arg(1)
     def typed_write(self, TP, byte_offset, value):
-        if self.readonly:
-            raise CannotWrite
-        lldata = self._get_gc_data()
-        value = lltype.cast_primitive(TP, value)
-        return llop.gc_store_indexed(lltype.Void, lldata, byte_offset, value,
-                                     scale_factor, base_ofs)
-
-    buffercls.typed_read = typed_read
-    buffercls.typed_write = typed_write
-    return buffercls
+        raise NotImplementedError("You MUST decorate this class with "
+                                  "@GCBuffer.decorate")
 
 
 def get_gc_data_for_list_of_chars(data):
@@ -184,8 +203,8 @@ def get_gc_data_offset_for_list_of_chars():
     return llmemory.itemoffsetof(LIST.items.TO, 0)
 
 
-@GCBuffer
-class ByteBuffer(Buffer):
+@GCBuffer.decorate
+class ByteBuffer(GCBuffer):
     _immutable_ = True
 
     def __init__(self, n):
@@ -212,8 +231,8 @@ class ByteBuffer(Buffer):
         return get_gc_data_offset_for_list_of_chars()
 
 
-@GCBuffer
-class StringBuffer(Buffer):
+@GCBuffer.decorate
+class StringBuffer(GCBuffer):
     _attrs_ = ['readonly', 'value']
     _immutable_ = True
 

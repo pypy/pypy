@@ -3,11 +3,11 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.rstr import STR, mallocstr
 from rpython.rtyper.annlowlevel import llstr, hlstr
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.buffer import Buffer, GCBuffer
+from rpython.rlib.buffer import GCBuffer
 from rpython.rlib import jit
 
-@GCBuffer
-class MutableStringBuffer(Buffer):
+@GCBuffer.decorate
+class MutableStringBuffer(GCBuffer):
     """
     A writeable buffer to incrementally fill a string of a fixed size.
 

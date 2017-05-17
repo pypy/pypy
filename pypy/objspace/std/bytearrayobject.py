@@ -8,7 +8,7 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
                               nonmoving_raw_ptr_for_resizable_list)
 from rpython.rlib import jit
-from rpython.rlib.buffer import (Buffer, GCBuffer,
+from rpython.rlib.buffer import (GCBuffer,
                                  get_gc_data_for_list_of_chars,
                                  get_gc_data_offset_for_list_of_chars)
 from pypy.interpreter.baseobjspace import W_Root
@@ -1258,8 +1258,8 @@ def _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
         start += step
 
 
-@GCBuffer
-class BytearrayBuffer(Buffer):
+@GCBuffer.decorate
+class BytearrayBuffer(GCBuffer):
     _immutable_ = True
 
     def __init__(self, ba, readonly=False):
@@ -1289,7 +1289,7 @@ class BytearrayBuffer(Buffer):
             if start != 0 or stop != len(data):
                 data = data[start:stop]
             return "".join(data)
-        return Buffer.getslice(self, start, stop, step, size)
+        return GCBuffer.getslice(self, start, stop, step, size)
 
     def setslice(self, start, string):
         # No bounds checks.
