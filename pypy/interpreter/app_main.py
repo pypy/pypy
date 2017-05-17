@@ -694,8 +694,6 @@ def run_command_line(interactive,
                             del mainmodule.__file__
                         except (AttributeError, TypeError):
                             pass
-                if hasattr(sys, '__interactivehook__'):
-                    run_toplevel(sys.__interactivehook__)
                 # Then we need a prompt.
                 inspect = True
             else:
@@ -791,6 +789,8 @@ def run_command_line(interactive,
     if inspect_requested():
         try:
             from _pypy_interact import interactive_console
+            if hasattr(sys, '__interactivehook__'):
+                run_toplevel(sys.__interactivehook__)
             pypy_version_info = getattr(sys, 'pypy_version_info', sys.version_info)
             irc_topic = pypy_version_info[3] != 'final' or (
                             readenv and os.getenv('PYPY_IRC_TOPIC'))
