@@ -80,6 +80,12 @@ class Buffer(object):
         for i in range(len(string)):
             self.setitem(start + i, string[i])
 
+    @jit.look_inside_iff(lambda self, index, count:
+                         jit.isconstant(count) and count <= 8)
+    def setzeros(self, index, count):
+        for i in range(index, index+count):
+            self.setitem(i, '\x00')
+
     @specialize.ll_and_arg(1)
     def typed_read(self, TP, byte_offset):
         """

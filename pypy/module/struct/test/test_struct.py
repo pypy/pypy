@@ -535,4 +535,9 @@ class AppTestFastPath(object):
         buf = bytearray(len(expected))
         self.struct.pack_into("ii", buf, 0, 42, 43)
         assert buf == expected
-        
+
+    def test_pack_into_bytearray_padding(self):
+        expected = self.struct.pack("xxi", 42)
+        buf = bytearray(len(expected))
+        self.struct.pack_into("xxi", buf, 0, 42)
+        assert buf == expected

@@ -24,6 +24,10 @@ class MyRawBuffer(RawBuffer):
     def as_str(self):
         return rffi.charpsize2str(self._buf, self._n)
 
+    def setitem(self, i, char):
+        assert not self.readonly
+        self._buf[i] = char
+
     def __del__(self):
         lltype.free(self._buf, flavor='raw')
         self._buf = None
@@ -72,6 +76,13 @@ def test_string_buffer_as_buffer():
     assert addr[0] == b'h'
     assert addr[4] == b'o'
     assert addr[6] == b'w'
+
+def test_setzeros():
+    buf = MyRawBuffer('ABCDEFGH', readonly=False)
+    buf.setzeros(2, 3)
+    assert buf.as_str() == 'AB\x00\x00\x00FGH'
+
+    
 
 
 class BaseTypedReadTest:

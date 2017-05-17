@@ -48,12 +48,6 @@ class MutableStringBuffer(Buffer):
     def setitem(self, index, char):
         self.ll_val.chars[index] = char
 
-    @jit.look_inside_iff(lambda self, index, count:
-                         jit.isconstant(count) and count <= 8)
-    def setzeros(self, index, count):
-        for i in range(index, index+count):
-            self.setitem(i, '\x00')
-
     @staticmethod
     def _get_gc_data_offset():
         return (llmemory.offsetof(STR, 'chars') +
