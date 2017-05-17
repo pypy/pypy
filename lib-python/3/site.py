@@ -560,7 +560,8 @@ def main():
     setquit()
     setcopyright()
     sethelper()
-    enablerlcompleter()
+    # Disabled on PyPy: incompatible with our readline
+    #enablerlcompleter()
     aliasmbcs()
     execsitecustomize()
     if ENABLE_USER_SITE:
