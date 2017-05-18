@@ -2,6 +2,7 @@ import pytest
 from rpython.rlib.rarithmetic import r_ulonglong
 from rpython.rlib.rstruct import standardfmttable, nativefmttable
 from rpython.rlib.rstruct.error import StructOverflowError
+from rpython.rlib.buffer import SubBuffer
 from rpython.rlib.mutbuffer import MutableStringBuffer
 import struct
 
@@ -212,6 +213,20 @@ class TestUnaligned(PackSupport):
         wbuf.setitem(0, chr(0xAB))
         wbuf.setitem(1, chr(0xCD))
         fake_fmtiter = self.mypack_into('i', wbuf, 0x1234, advance=2)
+        assert fake_fmtiter.pos == wbuf.getlength()
+        got = wbuf.finish()
+        assert got == expected
+
+    def test_subbuffer(self):
+        # to force a non-aligned 'i'
+        expected = struct.pack('=BBi', 0xAB, 0xCD, 0x1234)
+        size = len(expected)
+        #
+        wbuf = MutableStringBuffer(size)
+        wsubbuf = SubBuffer(wbuf, 2, size-4)
+        wbuf.setitem(0, chr(0xAB))
+        wbuf.setitem(1, chr(0xCD))
+        fake_fmtiter = self.mypack_into('i', wsubbuf, 0x1234)
         assert fake_fmtiter.pos == wbuf.getlength()
         got = wbuf.finish()
         assert got == expected
