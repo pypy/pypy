@@ -7,20 +7,14 @@ import struct
 
 class FakeFormatIter(object):
 
-    def __init__(self, bigendian, size, value):
-        from rpython.rlib.rstring import StringBuilder
+    def __init__(self, bigendian, wbuf, value):
         self.value = value
         self.bigendian = bigendian
-        self.wbuf = MutableStringBuffer(size)
+        self.wbuf = wbuf
         self.pos = 0
 
     def advance(self, count):
         self.pos += count
-
-    def finish(self):
-        # check that we called advance() the right number of times
-        assert self.pos == self.wbuf.getlength()
-        return self.wbuf.finish()
 
     def _accept_arg(self):
         return self.value
@@ -58,16 +52,27 @@ class PackSupport(object):
 
     def mypack(self, fmt, value):
         size = struct.calcsize(fmt)
-        fake_fmtiter = FakeFormatIter(self.bigendian, size, value)
+        wbuf = MutableStringBuffer(size)
+        fake_fmtiter = self.mypack_into(fmt, wbuf, value)
+        # check that we called advance() the right number of times
+        assert fake_fmtiter.pos == wbuf.getlength()
+        return wbuf.finish()
+
+    def mypack_into(self, fmt, wbuf, value, advance=None):
+        fake_fmtiter = FakeFormatIter(self.bigendian, wbuf, value)
+        if advance:
+            fake_fmtiter.advance(advance)
         attrs = self.fmttable[fmt]
         pack = attrs['pack']
         pack(fake_fmtiter)
-        return fake_fmtiter.finish()
+        return fake_fmtiter
 
     def mypack_fn(self, func, size, arg, value):
-        fmtiter = FakeFormatIter(self.bigendian, size, value)
-        func(fmtiter, arg)
-        return fmtiter.finish()
+        wbuf = MutableStringBuffer(size)
+        fake_fmtiter = FakeFormatIter(self.bigendian, wbuf, value)
+        func(fake_fmtiter, arg)
+        assert fake_fmtiter.pos == wbuf.getlength()
+        return wbuf.finish()
 
     def check(self, fmt, value):
         expected = struct.pack(self.fmt_prefix+fmt, value)
@@ -193,3 +198,20 @@ class TestNativeSlowPath(BaseTestPack):
     fmt_prefix = '@'
     fmttable = nativefmttable.native_fmttable
 
+
+class TestUnaligned(PackSupport):
+    ALLOW_FASTPATH = False
+    bigendian = nativefmttable.native_is_bigendian
+    fmttable = nativefmttable.native_fmttable
+
+    def test_unaligned(self):
+        # to force a non-aligned 'i'
+        expected = struct.pack('=BBi', 0xAB, 0xCD, 0x1234)
+        #
+        wbuf = MutableStringBuffer(len(expected))
+        wbuf.setitem(0, chr(0xAB))
+        wbuf.setitem(1, chr(0xCD))
+        fake_fmtiter = self.mypack_into('i', wbuf, 0x1234, advance=2)
+        assert fake_fmtiter.pos == wbuf.getlength()
+        got = wbuf.finish()
+        assert got == expected
