@@ -31,7 +31,7 @@ class FakeFormatIter(object):
         raise AttributeError(name)
 
 
-class BaseTestPack(object):
+class PackSupport(object):
     """
     These test tests only the various pack_* functions, individually.  There
     is no RPython interface to them, as for now they are used only to
@@ -70,6 +70,32 @@ class BaseTestPack(object):
         expected = struct.pack(self.fmt_prefix+fmt, value)
         got = self.mypack(fmt, value)
         assert got == expected
+
+
+class TestAllowSlowpath(PackSupport):
+    ALLOW_SLOWPATH = False
+    bigendian = not nativefmttable.native_is_bigendian
+    fmttable = standardfmttable.standard_fmttable
+
+    def test_slowpath_not_allowed(self):
+        # we are using a non-native endianess and ALLOW_SLOWPATH is False, so
+        # the following MUST raise
+        pytest.raises(ValueError, "self.mypack('i', 42)")
+
+
+class TestUseFastpath(PackSupport):
+    ALLOW_SLOWPATH = False
+    bigendian = nativefmttable.native_is_bigendian
+    fmttable = standardfmttable.standard_fmttable
+
+    def test_fastpath_taken(self):
+        # we are using native endianess and slowpath is not allowed, so the
+        # following MUST succeed
+        expected = struct.pack('i', 42)
+        assert self.mypack('i', 42) == expected
+
+
+class BaseTestPack(PackSupport):
 
     def test_pack_int(self):
         self.check('b', 42)
@@ -153,3 +179,4 @@ class TestNativeSlowPath(BaseTestPack):
     bigendian = nativefmttable.native_is_bigendian
     fmt_prefix = '@'
     fmttable = nativefmttable.native_fmttable
+
