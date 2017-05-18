@@ -53,12 +53,6 @@ class BaseTestPack(object):
         standardfmttable.USE_FASTPATH = True
         standardfmttable.ALLOW_SLOWPATH = True
 
-    def teardown_method(self, meth):
-        if not hasattr(self.fmttable, 'USE_FASTPATH'):
-            return
-        self.fmttable.USE_FASTPATH = self.orig_use_fastpath
-        self.fmttable.ALLOW_SLOWPATH = self.orig_allow_slowpath
-
     def mypack(self, fmt, value):
         size = struct.calcsize(fmt)
         fake_fmtiter = FakeFormatIter(self.bigendian, size, value)
