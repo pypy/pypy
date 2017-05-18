@@ -1,0 +1,8 @@
+-------Ctypes tests------
+
+Unlike the other tests in the PyPy sources, these tests are assumed to run after the translation is complete.
+Therefore, using the resulting binary, you can then call, for example:
+
+/path/to/your_modified_pypy_binary pytest.py pypy/module/test_lib_pypy/ctypes_tests/test_libc.py
+
+This also applies to any other test in ctypes_tests.
