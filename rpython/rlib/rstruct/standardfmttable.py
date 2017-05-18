@@ -33,17 +33,17 @@ def pack_fastpath(TYPE):
     @specialize.argtype(0)
     def do_pack_fastpath(fmtiter, value):
         size = rffi.sizeof(TYPE)
-        pos = fmtiter.pos
         if (not USE_FASTPATH or
             fmtiter.bigendian != native_is_bigendian or
-            not native_is_ieee754 or
-            pos % size != 0):
+            not native_is_ieee754):
             raise CannotWrite
         #
-        if not ALLOW_FASTPATH:
-            raise ValueError("fastpath not allowed :(")
         # typed_write() might raise CannotWrite
         fmtiter.wbuf.typed_write(TYPE, fmtiter.pos, value)
+        if not ALLOW_FASTPATH:
+            # if we are here it means that typed_write did not raise, and thus
+            # the fast path was actually taken
+            raise ValueError("fastpath not allowed :(")
         fmtiter.advance(size)
     #
     @specialize.argtype(0)
@@ -203,12 +203,7 @@ def unpack_fastpath(TYPE):
     def do_unpack_fastpath(fmtiter):
         size = rffi.sizeof(TYPE)
         buf, pos = fmtiter.get_buffer_and_pos()
-        if pos % size != 0 or not USE_FASTPATH:
-            # XXX: maybe we are too conservative here? On most architectures,
-            # it is possible to read the data even if pos is not
-            # aligned. Also, probably it should responsibility of
-            # buf.typed_read to raise CannotRead in case it is not aligned
-            # *and* it is not supported.
+        if not USE_FASTPATH:
             raise CannotRead
         #
         if not ALLOW_FASTPATH:

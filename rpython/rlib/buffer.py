@@ -13,6 +13,21 @@ from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
                               ll_for_resizable_list)
 from rpython.rlib.signature import signature
 from rpython.rlib import types
+from rpython.rlib import rawstorage
+
+ALLOW_UNALIGNED_ACCESS = rawstorage.misaligned_is_fine
+
+@specialize.ll()
+def is_alignment_correct(TYPE, index):
+    if ALLOW_UNALIGNED_ACCESS:
+        return True
+    try:
+        rawstorage._check_alignment(TYPE, index)
+    except rawstorage.AlignmentError:
+        return False
+    else:
+        return True
+
 
 class CannotRead(Exception):
     """
@@ -117,6 +132,8 @@ class RawBuffer(Buffer):
         """
         Read the value of type TP starting at byte_offset. No bounds checks
         """
+        if not is_alignment_correct(TP, byte_offset):
+            raise CannotRead
         ptr = self.get_raw_address()
         return llop.raw_load(TP, ptr, byte_offset)
 
@@ -125,7 +142,7 @@ class RawBuffer(Buffer):
         """
         Write the value of type TP at byte_offset. No bounds checks
         """
-        if self.readonly:
+        if self.readonly or not is_alignment_correct(TP, byte_offset):
             raise CannotWrite
         ptr = self.get_raw_address()
         value = lltype.cast_primitive(TP, value)
@@ -158,6 +175,8 @@ class GCBuffer(Buffer):
 
         @specialize.ll_and_arg(1)
         def typed_read(self, TP, byte_offset):
+            if not is_alignment_correct(TP, byte_offset):
+                raise CannotRead
             lldata = self._get_gc_data()
             byte_offset += self._get_gc_data_extra_offset()
             return llop.gc_load_indexed(TP, lldata, byte_offset,
@@ -165,7 +184,7 @@ class GCBuffer(Buffer):
 
         @specialize.ll_and_arg(1)
         def typed_write(self, TP, byte_offset, value):
-            if self.readonly:
+            if self.readonly or not is_alignment_correct(TP, byte_offset):
                 raise CannotWrite
             lldata = self._get_gc_data()
             byte_offset += self._get_gc_data_extra_offset()

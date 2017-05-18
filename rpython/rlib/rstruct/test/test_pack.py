@@ -2,8 +2,10 @@ import pytest
 from rpython.rlib.rarithmetic import r_ulonglong
 from rpython.rlib.rstruct import standardfmttable, nativefmttable
 from rpython.rlib.rstruct.error import StructOverflowError
+from rpython.rlib import buffer
 from rpython.rlib.buffer import SubBuffer
 from rpython.rlib.mutbuffer import MutableStringBuffer
+from rpython.rlib import rawstorage
 import struct
 
 class FakeFormatIter(object):
@@ -40,16 +42,19 @@ class PackSupport(object):
     USE_FASTPATH = True
     ALLOW_SLOWPATH = True
     ALLOW_FASTPATH = True
+    ALLOW_UNALIGNED_ACCESS = rawstorage.misaligned_is_fine
     
     def setup_method(self, meth):
         standardfmttable.USE_FASTPATH = self.USE_FASTPATH
         standardfmttable.ALLOW_SLOWPATH = self.ALLOW_SLOWPATH
         standardfmttable.ALLOW_FASTPATH = self.ALLOW_FASTPATH
+        buffer.ALLOW_UNALIGNED_ACCESS = self.ALLOW_UNALIGNED_ACCESS
 
     def teardown_method(self, meth):
         standardfmttable.USE_FASTPATH = True
         standardfmttable.ALLOW_SLOWPATH = True
         standardfmttable.ALLOW_FASTPATH = True
+        buffer.ALLOW_UNALIGNED_ACCESS = rawstorage.misaligned_is_fine
 
     def mypack(self, fmt, value):
         size = struct.calcsize(fmt)
@@ -202,6 +207,7 @@ class TestNativeSlowPath(BaseTestPack):
 
 class TestUnaligned(PackSupport):
     ALLOW_FASTPATH = False
+    ALLOW_UNALIGNED_ACCESS = False
     bigendian = nativefmttable.native_is_bigendian
     fmttable = nativefmttable.native_fmttable
 
@@ -227,6 +233,6 @@ class TestUnaligned(PackSupport):
         wbuf.setitem(0, chr(0xAB))
         wbuf.setitem(1, chr(0xCD))
         fake_fmtiter = self.mypack_into('i', wsubbuf, 0x1234)
-        assert fake_fmtiter.pos == wbuf.getlength()
+        assert fake_fmtiter.pos == wbuf.getlength()-2 # -2 since it's a SubBuffer
         got = wbuf.finish()
         assert got == expected
