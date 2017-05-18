@@ -44,14 +44,17 @@ class PackSupport(object):
 
     USE_FASTPATH = True
     ALLOW_SLOWPATH = True
+    ALLOW_FASTPATH = True
     
     def setup_method(self, meth):
         standardfmttable.USE_FASTPATH = self.USE_FASTPATH
         standardfmttable.ALLOW_SLOWPATH = self.ALLOW_SLOWPATH
+        standardfmttable.ALLOW_FASTPATH = self.ALLOW_FASTPATH
 
     def teardown_method(self, meth):
         standardfmttable.USE_FASTPATH = True
         standardfmttable.ALLOW_SLOWPATH = True
+        standardfmttable.ALLOW_FASTPATH = True
 
     def mypack(self, fmt, value):
         size = struct.calcsize(fmt)
@@ -93,6 +96,16 @@ class TestUseFastpath(PackSupport):
         # following MUST succeed
         expected = struct.pack('i', 42)
         assert self.mypack('i', 42) == expected
+
+class TestAllowFastPath(PackSupport):
+    ALLOW_FASTPATH = False
+    bigendian = nativefmttable.native_is_bigendian
+    fmttable = standardfmttable.standard_fmttable
+
+    def test_fastpath_not_allowed(self):
+        # we are using a native endianess but ALLOW_FASTPATH is False, so
+        # the following MUST raise
+        pytest.raises(ValueError, "self.mypack('i', 42)")
 
 
 class BaseTestPack(PackSupport):

@@ -19,6 +19,7 @@ from rpython.rtyper.lltypesystem import rffi
 
 USE_FASTPATH = True    # set to False by some tests
 ALLOW_SLOWPATH = True  # set to False by some tests
+ALLOW_FASTPATH = True  # set to False by some tests
 
 native_is_bigendian = struct.pack("=i", 1) == struct.pack(">i", 1)
 native_is_ieee754 = float.__getformat__('double').startswith('IEEE')
@@ -39,6 +40,8 @@ def pack_fastpath(TYPE):
             pos % size != 0):
             raise CannotWrite
         #
+        if not ALLOW_FASTPATH:
+            raise ValueError("fastpath not allowed :(")
         # typed_write() might raise CannotWrite
         fmtiter.wbuf.typed_write(TYPE, fmtiter.pos, value)
         fmtiter.advance(size)
@@ -208,6 +211,8 @@ def unpack_fastpath(TYPE):
             # *and* it is not supported.
             raise CannotRead
         #
+        if not ALLOW_FASTPATH:
+            raise ValueError("fastpath not allowed :(")
         # typed_read does not do any bound check, so we must call it only if
         # we are sure there are at least "size" bytes to read
         if fmtiter.can_advance(size):
