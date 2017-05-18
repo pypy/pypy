@@ -341,6 +341,9 @@ class StdObjSpace(ObjSpace):
         ret = W_Buffer(obj)
         return ret
 
+    def newmemoryview(self, view):
+        return W_MemoryView(view)
+
     def newbytes(self, s):
         assert isinstance(s, str)
         return W_BytesObject(s)

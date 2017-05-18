@@ -223,6 +223,40 @@ class TestDecoding(UnicodeTests):
         py.test.raises(UnicodeDecodeError, runicode.str_decode_utf_16_le,
                        s, len(s), True)
 
+    def test_utf16_surrogates(self):
+        assert runicode.unicode_encode_utf_16_be(
+            u"\ud800", 1, None) == '\xd8\x00'
+        py.test.raises(UnicodeEncodeError, runicode.unicode_encode_utf_16_be,
+                       u"\ud800", 1, None, allow_surrogates=False)
+        def replace_with(ru, rs):
+            def errorhandler(errors, enc, msg, u, startingpos, endingpos):
+                if errors == 'strict':
+                    raise UnicodeEncodeError(enc, u, startingpos,
+                                             endingpos, msg)
+                return ru, rs, endingpos
+            return runicode.unicode_encode_utf_16_be(
+                u"<\ud800>", 3, None,
+                errorhandler, allow_surrogates=False)
+        assert replace_with(u'rep', None) == '\x00<\x00r\x00e\x00p\x00>'
+        assert replace_with(None, '\xca\xfe') == '\x00<\xca\xfe\x00>'
+
+    def test_utf32_surrogates(self):
+        assert runicode.unicode_encode_utf_32_be(
+            u"\ud800", 1, None) == '\x00\x00\xd8\x00'
+        py.test.raises(UnicodeEncodeError, runicode.unicode_encode_utf_32_be,
+                       u"\ud800", 1, None, allow_surrogates=False)
+        def replace_with(ru, rs):
+            def errorhandler(errors, enc, msg, u, startingpos, endingpos):
+                if errors == 'strict':
+                    raise UnicodeEncodeError(enc, u, startingpos,
+                                             endingpos, msg)
+                return ru, rs, endingpos
+            return runicode.unicode_encode_utf_32_be(
+                u"<\ud800>", 3, None,
+                errorhandler, allow_surrogates=False)
+        assert replace_with(u'rep', None) == u'<rep>'.encode('utf-32-be')
+        assert replace_with(None, '\xca\xfe\xca\xfe') == '\x00\x00\x00<\xca\xfe\xca\xfe\x00\x00\x00>'
+
     def test_utf7_bugs(self):
         u = u'A\u2262\u0391.'
         assert runicode.unicode_encode_utf_7(u, len(u), None) == 'A+ImIDkQ.'

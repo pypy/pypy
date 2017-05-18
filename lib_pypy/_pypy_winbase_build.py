@@ -79,10 +79,20 @@ BOOL WINAPI DuplicateHandle(HANDLE, HANDLE, HANDLE, LPHANDLE,
 BOOL WINAPI CreateProcessA(char *, char *, void *,
                            void *, BOOL, DWORD, char *,
                            char *, LPSTARTUPINFO, LPPROCESS_INFORMATION);
+BOOL WINAPI CreateProcessW(wchar_t *, wchar_t *, void *,
+                           void *, BOOL, DWORD, wchar_t *,
+                           wchar_t *, LPSTARTUPINFO, LPPROCESS_INFORMATION);
 DWORD WINAPI WaitForSingleObject(HANDLE, DWORD);
 BOOL WINAPI GetExitCodeProcess(HANDLE, LPDWORD);
 BOOL WINAPI TerminateProcess(HANDLE, UINT);
 HANDLE WINAPI GetStdHandle(DWORD);
+DWORD WINAPI GetModuleFileNameW(HANDLE, wchar_t *, DWORD);
+
+UINT WINAPI SetErrorMode(UINT);
+#define SEM_FAILCRITICALERRORS     0x0001
+#define SEM_NOGPFAULTERRORBOX      0x0002
+#define SEM_NOALIGNMENTFAULTEXCEPT 0x0004
+#define SEM_NOOPENFILEERRORBOX     0x8000
 """)
 
 # --------------------

@@ -8,6 +8,7 @@ from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.rstring import StringBuilder, replace
 
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.buffer import SimpleView
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
@@ -455,7 +456,7 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def buffer_w(self, space, flags):
         space.check_buf_flags(flags, True)
-        return StringBuffer(self._value)
+        return SimpleView(StringBuffer(self._value))
 
     def readbuf_w(self, space):
         return StringBuffer(self._value)

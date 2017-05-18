@@ -161,9 +161,9 @@ def create_package(basedir, options, _fake=False):
                 tktcldir = p.dirpath().join('..').join('lib')
                 shutil.copytree(str(tktcldir), str(pypydir.join('tcl')))
             except WindowsError:
-                print >>sys.stderr, """Packaging Tk runtime failed.
-tk85.dll and tcl85.dll found, expecting to find runtime in ..\\lib
-directory next to the dlls, as per build instructions."""
+                print >>sys.stderr, r"""Packaging Tk runtime failed.
+tk85.dll and tcl85.dll found in %s, expecting to find runtime in %s
+directory next to the dlls, as per build instructions.""" %(p, tktcldir)
                 import traceback;traceback.print_exc()
                 raise MissingDependenciesError('Tk runtime')
 

@@ -1,4 +1,4 @@
-from rpython.rlib import rposix
+from rpython.rlib import rposix, rwin32
 from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.lltypesystem import lltype, rffi
 
@@ -17,7 +17,8 @@ def opendir_bytes(path):
 def closedir(dirp):
     rposix.c_closedir(dirp)
 
-NULL_DIRP = lltype.nullptr(rposix.DIRP.TO)
+if not rwin32.WIN32:
+    NULL_DIRP = lltype.nullptr(rposix.DIRP.TO)
 
 def nextentry(dirp):
     """Read the next entry and returns an opaque object.
