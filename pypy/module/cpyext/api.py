@@ -677,7 +677,7 @@ def build_exported_objects():
         register_global(cpyname, 'PyTypeObject*', pypyexpr, header=pypy_decl)
 
     for cpyname in '''PyMethodObject PyListObject PyLongObject
-                      PyClassObject'''.split():
+                      PyClassObject PyBaseExceptionObject'''.split():
         FORWARD_DECLS.append('typedef struct { PyObject_HEAD } %s'
                              % (cpyname, ))
 build_exported_objects()
