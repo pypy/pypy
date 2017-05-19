@@ -5,10 +5,11 @@ from rpython.translator.c.test.test_genc import compile
 
 
 class TestLLOp(BaseLLOpTest):
-    cache = {}
+    cache_load = {}
+    cache_store = {}
 
     def gc_load_from_string(self, TYPE, buf, offset):
-        if TYPE not in self.cache:
+        if TYPE not in self.cache_load:
             assert isinstance(TYPE, lltype.Primitive)
             if TYPE in (lltype.Float, lltype.SingleFloat):
                 TARGET_TYPE = lltype.Float
@@ -20,14 +21,14 @@ class TestLLOp(BaseLLOpTest):
                 return lltype.cast_primitive(TARGET_TYPE, x)
 
             fn = compile(llf, [str, int])
-            self.cache[TYPE] = fn
+            self.cache_load[TYPE] = fn
         #
-        fn = self.cache[TYPE]
+        fn = self.cache_load[TYPE]
         x = fn(buf, offset)
         return lltype.cast_primitive(TYPE, x)
 
     def newlist_and_gc_store(self, TYPE, value, expected):
-        if TYPE not in self.cache:
+        if TYPE not in self.cache_store:
             assert isinstance(TYPE, lltype.Primitive)
             if TYPE in (lltype.Float, lltype.SingleFloat):
                 argtype = float
@@ -40,8 +41,8 @@ class TestLLOp(BaseLLOpTest):
                 return ''.join(lst)
 
             fn = compile(llf, [argtype])
-            self.cache[TYPE] = fn
+            self.cache_store[TYPE] = fn
         #
-        fn = self.cache[TYPE]
+        fn = self.cache_store[TYPE]
         got = fn(value)
         assert got == expected
