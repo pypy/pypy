@@ -6,7 +6,7 @@ import struct
 
 from rpython.rlib import jit, longlong2float
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import r_singlefloat, widen
+from rpython.rlib.rarithmetic import r_singlefloat, widen, intmask
 from rpython.rlib.rstruct import standardfmttable as std
 from rpython.rlib.rstruct.standardfmttable import native_is_bigendian
 from rpython.rlib.rstruct.error import StructError
@@ -44,6 +44,7 @@ def pack_float(fmtiter):
     # slow path
     value = longlong2float.singlefloat2uint(floatval)
     value = widen(value)
+    value = intmask(value)
     pack_float_to_buffer(fmtiter.wbuf, fmtiter.pos, value, 4, fmtiter.bigendian)
     fmtiter.advance(4)
 
