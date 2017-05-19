@@ -142,9 +142,12 @@ class TestStruct(BaseTestPyPyC):
         log = self.run(main, [1000])
         assert log.result == main(1000)
         loop, = log.loops_by_filename(self.filepath)
+        # the offset of gc_load_indexed_i used to be the constant 0. However,
+        # now it is 'i46' because we need to add 0 to
+        # W_BytearrayObject._offset
         assert loop.match_by_id('unpack', """
             guard_not_invalidated(descr=...)
-            i70 = gc_load_indexed_i(p48, 0, 1, _, -2)
+            i70 = gc_load_indexed_i(p48, i46, 1, _, -2)
         """)
 
     def test_pack_into_raw_buffer(self):
@@ -191,5 +194,6 @@ class TestStruct(BaseTestPyPyC):
             i77 = int_le(i62, 32767)
             guard_true(i77, descr=...)
             p78 = getfield_gc_r(p68, descr=<FieldP list.items \d+>)
-            gc_store_indexed(p78, 4, i62, 1, _, 2, descr=<ArrayS 2>)
+            i81 = int_add(4, i70)
+            gc_store_indexed(p78, i81, i62, 1, _, 2, descr=<ArrayS 2>)
         """)
