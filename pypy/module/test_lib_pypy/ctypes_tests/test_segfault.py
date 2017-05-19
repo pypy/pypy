@@ -12,5 +12,5 @@ class TestFastpath():
         libc.strlen.restype = ctypes.c_size_t
         try:
             libc.strlen(False)
-        except Exception as e:
-                assert isinstance(e,Exception)
+        except ctypes.ArgumentError as e:
+                assert isinstance(e,ctypes.ArgumentError)
