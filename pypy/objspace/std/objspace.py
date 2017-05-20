@@ -16,7 +16,7 @@ from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.boolobject import W_BoolObject
 from pypy.objspace.std.bufferobject import W_Buffer
 from pypy.objspace.std.bytearrayobject import W_BytearrayObject
-from pypy.objspace.std.bytesobject import W_AbstractBytesObject, W_BytesObject
+from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.complexobject import W_ComplexObject
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject, W_DictObject
 from pypy.objspace.std.floatobject import W_FloatObject
@@ -81,9 +81,6 @@ class StdObjSpace(ObjSpace):
             W_TypeObject.typedef: W_TypeObject,
             W_UnicodeObject.typedef: W_UnicodeObject,
         }
-        if self.config.objspace.std.withstrbuf:
-            builtin_type_classes[W_BytesObject.typedef] = W_AbstractBytesObject
-
         self.builtin_types = {}
         self._interplevel_classes = {}
         for typedef, cls in builtin_type_classes.items():
@@ -285,7 +282,7 @@ class StdObjSpace(ObjSpace):
         return W_LongObject.fromint(self, val)
 
     @specialize.argtype(1)
-    def newlong_from_rarith_int(self, val): # val is an rarithmetic type 
+    def newlong_from_rarith_int(self, val): # val is an rarithmetic type
         return W_LongObject.fromrarith_int(val)
 
     def newlong_from_rbigint(self, val):

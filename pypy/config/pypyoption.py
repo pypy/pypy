@@ -220,9 +220,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("withsmalllong", "use a version of 'long' in a C long long",
                    default=False),
 
-        BoolOption("withstrbuf", "use strings optimized for addition (ver 2)",
-                   default=False),
-
         BoolOption("withspecialisedtuple",
                    "use specialised tuples",
                    default=False),
