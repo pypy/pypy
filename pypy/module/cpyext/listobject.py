@@ -27,7 +27,6 @@ def PyList_New(space, len):
 @always_inline
 def get_list_storage(space, w_list):
     from pypy.module.cpyext.sequence import CPyListStrategy
-    assert isinstance(w_list, W_ListObject)
     w_list.convert_to_cpy_strategy(space)
     return CPyListStrategy.unerase(w_list.lstorage)
 
@@ -40,6 +39,7 @@ def PyList_SET_ITEM(space, w_list, index, py_item):
     discard a reference to any item that it being replaced; any reference in
     list at position i will be leaked.
     """
+    assert isinstance(w_list, W_ListObject)
     storage = get_list_storage(space, w_list)
     assert 0 <= index < w_list.length()
     storage._elems[index] = py_item
@@ -53,10 +53,10 @@ def PyList_SetItem(space, w_list, index, py_item):
     an item already in the list at the affected position.
     """
     if not isinstance(w_list, W_ListObject):
-        decref(space, w_item)
+        decref(space, py_item)
         PyErr_BadInternalCall(space)
     if index < 0 or index >= w_list.length():
-        decref(space, w_item)
+        decref(space, py_item)
         raise oefmt(space.w_IndexError, "list assignment index out of range")
     storage = get_list_storage(space, w_list)
     py_old = storage._elems[index]
@@ -66,6 +66,7 @@ def PyList_SetItem(space, w_list, index, py_item):
 
 @cpython_api([rffi.VOIDP, Py_ssize_t], PyObject, result_is_ll=True)
 def PyList_GET_ITEM(space, w_list, index):
+    assert isinstance(w_list, W_ListObject)
     storage = get_list_storage(space, w_list)
     assert 0 <= index < w_list.length()
     return storage._elems[index]     # borrowed ref
