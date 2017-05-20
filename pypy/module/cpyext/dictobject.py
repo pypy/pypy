@@ -257,7 +257,8 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
 
     if w_dict is None:
         return 0
-
+    if not space.isinstance_w(w_dict, space.w_dict):
+        return 0 
     pos = ppos[0]
     py_obj = as_pyobj(space, w_dict)
     py_dict = rffi.cast(PyDictObject, py_obj)
@@ -268,6 +269,9 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
         py_dict.c__tmpkeys = create_ref(space, w_keys)
         Py_IncRef(space, py_dict.c__tmpkeys)
     else:
+        if not py_dict.c__tmpkeys:
+            # pos should have been 0, cannot fail so return 0
+            return 0;
         w_keys = from_ref(space, py_dict.c__tmpkeys)
     ppos[0] += 1
     if pos >= space.len_w(w_keys):

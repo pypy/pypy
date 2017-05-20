@@ -690,7 +690,8 @@ def build_exported_objects():
         }.items():
         register_global(cpyname, 'PyTypeObject*', pypyexpr, header=pypy_decl)
 
-    for cpyname in '''PyMethodObject PyListObject PyLongObject'''.split():
+    for cpyname in '''PyMethodObject PyListObject PyLongObject
+                      PyBaseExceptionObject'''.split():
         FORWARD_DECLS.append('typedef struct { PyObject_HEAD } %s'
                              % (cpyname, ))
 build_exported_objects()
@@ -1613,7 +1614,6 @@ def generic_cpy_call_dont_convert_result(space, func, *args):
 
 @specialize.memo()
 def make_generic_cpy_call(FT, expect_null, convert_result):
-    from pypy.module.cpyext.pyobject import make_ref, from_ref
     from pypy.module.cpyext.pyobject import is_pyobj, as_pyobj
     from pypy.module.cpyext.pyobject import get_w_obj_and_decref
     from pypy.module.cpyext.pyerrors import PyErr_Occurred

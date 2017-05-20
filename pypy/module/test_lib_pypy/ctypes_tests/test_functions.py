@@ -478,7 +478,7 @@ class TestFunctions(BaseCTypesTestChecker):
         raises(ArgumentError, lambda: callback((1, 2, 3, 4), POINT()))
 
     def test_argument_conversion_and_checks(self):
-        py.test.skip("XXX currently broken on PyPy, sorry")
+        #This test is designed to check for segfaults if the wrong type of argument is passed as parameter
         strlen = dll.my_strchr
         strlen.argtypes = [c_char_p, c_int]
         strlen.restype = c_char_p

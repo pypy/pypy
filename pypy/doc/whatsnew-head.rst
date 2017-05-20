@@ -39,3 +39,20 @@ Refactor rpython.rtyper.controllerentry.
 
 Internal refactoring of buffers and memoryviews. Memoryviews will now be
 accepted in a few more places, e.g. in compile().
+
+.. branch: sthalik/fix-signed-integer-sizes-1494493539409
+
+.. branch: cpyext-obj-stealing
+
+Redo much of the refcount semantics in PyList_{SG}etItem to closer match
+CPython and ensure the same PyObject stored in the list can be later
+retrieved
+
+.. branch: cpyext-recursionlimit
+
+Implement Py_EnterRecursiveCall and associated functions
+
+.. branch: pypy_ctypes_nosegfault_nofastpath
+
+Remove faulty fastpath from ctypes
+

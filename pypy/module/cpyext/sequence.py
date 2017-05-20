@@ -256,8 +256,9 @@ class CPyListStrategy(ListStrategy):
     def setitem(self, w_list, index, w_obj):
         storage = self.unerase(w_list.lstorage)
         index = self._check_index(index, storage._length)
-        decref(w_list.space, storage._elems[index])
+        py_old = storage._elems[index]
         storage._elems[index] = make_ref(w_list.space, w_obj)
+        decref(w_list.space, py_old)
 
     def length(self, w_list):
         storage = self.unerase(w_list.lstorage)

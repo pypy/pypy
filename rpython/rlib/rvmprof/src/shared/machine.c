@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 #ifdef VMPROF_UNIX
+#include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
 #endif
