@@ -269,6 +269,34 @@ class TestWriteAnalyze(BaseTest):
         assert struct == "struct"
         assert name.endswith("foobar")
 
+    def test_gc_store_indexed(self):
+        from rpython.rtyper.lltypesystem import lltype, llmemory
+        from rpython.rtyper.lltypesystem.lloperation import llop
+        from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
+                                      ll_for_resizable_list)
+
+        def write_item(lst, byte_offset, value):
+            ll_data = ll_for_resizable_list(lst)
+            ll_items = ll_data.items
+            LIST = lltype.typeOf(ll_data).TO # rlist.LIST_OF(lltype.Char)
+            base_ofs = llmemory.itemoffsetof(LIST.items.TO, 0)
+            scale_factor = llmemory.sizeof(lltype.Char)
+            llop.gc_store_indexed(lltype.Void, ll_items, byte_offset, value,
+                                  scale_factor, base_ofs)
+
+        def f(x):
+            lst = resizable_list_supporting_raw_ptr(['A', 'B', 'C', 'D'])
+            write_item(lst, 0, 'E')
+        t, wa = self.translate(f, [int])
+        fgraph = graphof(t, f)
+        result = wa.analyze(fgraph.startblock.operations[-1])
+        #
+        assert len(result) == 1
+        array, A = list(result)[0]
+        assert array == "array"
+        assert A.TO.OF == lltype.Char
+
+
 
 class TestLLtypeReadWriteAnalyze(BaseTest):
     Analyzer = ReadWriteAnalyzer

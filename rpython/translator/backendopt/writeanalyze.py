@@ -61,6 +61,9 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
             if graphinfo is None or not graphinfo.is_fresh_malloc(op.args[0]):
                 name = self._getinteriorname(op)
                 return self._interiorfield_result(op.args[0].concretetype, name)
+        elif op.opname == "gc_store_indexed":
+            if graphinfo is None or not graphinfo.is_fresh_malloc(op.args[0]):
+                return self._array_result(op.args[0].concretetype)
         return empty_set
 
     def _array_result(self, TYPE):
