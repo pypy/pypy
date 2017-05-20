@@ -490,29 +490,6 @@ def PyUnicodeDecodeError_SetReason(space, exc, reason):
     0 on success, -1 on failure."""
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP], rffi.INT_real, error=1)
-def Py_EnterRecursiveCall(space, where):
-    """Marks a point where a recursive C-level call is about to be performed.
-
-    If USE_STACKCHECK is defined, this function checks if the the OS
-    stack overflowed using PyOS_CheckStack().  In this is the case, it
-    sets a MemoryError and returns a nonzero value.
-
-    The function then checks if the recursion limit is reached.  If this is the
-    case, a RuntimeError is set and a nonzero value is returned.
-    Otherwise, zero is returned.
-
-    where should be a string such as " in instance check" to be
-    concatenated to the RuntimeError message caused by the recursion depth
-    limit."""
-    raise NotImplementedError
-
-@cpython_api([], lltype.Void)
-def Py_LeaveRecursiveCall(space):
-    """Ends a Py_EnterRecursiveCall().  Must be called once for each
-    successful invocation of Py_EnterRecursiveCall()."""
-    raise NotImplementedError
-
 @cpython_api([PyFileObject], lltype.Void)
 def PyFile_IncUseCount(space, p):
     """Increments the PyFileObject's internal use count to indicate
