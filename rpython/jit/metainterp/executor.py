@@ -261,7 +261,7 @@ def do_gc_store_indexed(cpu, _, addrbox, indexbox, valuebox, scalebox,
     if arraydescr.is_array_of_pointers():
         raise AssertionError("cannot store GC pointers in gc_store_indexed for now")
     elif arraydescr.is_array_of_floats():
-        floatval = valuebox.getfloat()
+        floatval = valuebox.getfloatstorage()
         cpu.bh_gc_store_indexed_f(addr, index, floatval, scale, base_ofs, bytes,
                                   arraydescr)
     else:
