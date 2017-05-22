@@ -305,14 +305,13 @@ class W_Socket(W_Root):
         If a nonzero buffersize argument is given, the return value is a
         string of that length; otherwise it is an integer.
         """
-        if w_buflen is None:
+        if w_buflen is not None:
+            buflen = space.int_w(w_buflen)
+        if w_buflen is None or buflen == 0:
             try:
                 return space.newint(self.sock.getsockopt_int(level, optname))
             except SocketError as e:
                 raise converted_error(space, e)
-        buflen = space.int_w(w_buflen)
-        if buflen == 0:
-            return space.newint(0)
         return space.newbytes(self.sock.getsockopt(level, optname, buflen))
 
     def gettimeout_w(self, space):
