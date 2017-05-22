@@ -99,9 +99,12 @@ initissue2482(void)
     Py_INCREF(base);
     type->tp_base = (PyTypeObject *) base;
     type->tp_basicsize = ((PyTypeObject *) base)->tp_basicsize;
-    type->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_CHECKTYPES;
+    type->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
 
     if (PyType_Ready(type) < 0) INITERROR;
 
     PyModule_AddObject(module, name, (PyObject *) type);
+#if PY_MAJOR_VERSION >= 3
+    return module;
+#endif
 };
