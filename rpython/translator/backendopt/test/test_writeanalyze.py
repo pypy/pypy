@@ -1,5 +1,7 @@
 import py
-from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.lltypesystem.rstr import STR
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.backendopt.writeanalyze import WriteAnalyzer, top_set
 from rpython.translator.backendopt.writeanalyze import ReadWriteAnalyzer
@@ -269,34 +271,6 @@ class TestWriteAnalyze(BaseTest):
         assert struct == "struct"
         assert name.endswith("foobar")
 
-    def test_gc_store_indexed(self):
-        from rpython.rtyper.lltypesystem import lltype, llmemory
-        from rpython.rtyper.lltypesystem.lloperation import llop
-        from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
-                                      ll_for_resizable_list)
-
-        def write_item(lst, byte_offset, value):
-            ll_data = ll_for_resizable_list(lst)
-            ll_items = ll_data.items
-            LIST = lltype.typeOf(ll_data).TO # rlist.LIST_OF(lltype.Char)
-            base_ofs = llmemory.itemoffsetof(LIST.items.TO, 0)
-            scale_factor = llmemory.sizeof(lltype.Char)
-            llop.gc_store_indexed(lltype.Void, ll_items, byte_offset, value,
-                                  scale_factor, base_ofs)
-
-        def f(x):
-            lst = resizable_list_supporting_raw_ptr(['A', 'B', 'C', 'D'])
-            write_item(lst, 0, 'E')
-        t, wa = self.translate(f, [int])
-        fgraph = graphof(t, f)
-        result = wa.analyze(fgraph.startblock.operations[-1])
-        #
-        assert len(result) == 1
-        array, A = list(result)[0]
-        assert array == "array"
-        assert A.TO.OF == lltype.Char
-
-
 
 class TestLLtypeReadWriteAnalyze(BaseTest):
     Analyzer = ReadWriteAnalyzer
@@ -433,3 +407,42 @@ class TestLLtypeReadWriteAnalyze(BaseTest):
         res = list(result)
         assert ('readinteriorfield', lltype.Ptr(A), 'y') in res
         assert ('interiorfield', lltype.Ptr(A), 'x') in res
+
+
+class TestGcLoadStoreIndexed(BaseTest):
+    Analyzer = ReadWriteAnalyzer
+
+    def _analyze_graph_single(self, t, wa, fn):
+        graph = graphof(t, fn)
+        result = wa.analyze(graph.startblock.operations[-1])
+        result = list(result)
+        return result
+
+    def test_gc_load_indexed_str(self):
+        from rpython.rlib.buffer import StringBuffer
+
+        def typed_read(buf):
+            return buf.typed_read(lltype.Signed, 0)
+
+        def direct_read(buf):
+            return buf.value[0]
+
+        def f(x):
+            buf = StringBuffer(x)
+            return direct_read(buf), typed_read(buf)
+
+        t, wa = self.translate(f, [str])
+        # check that the effect of direct_read
+        direct_effects = self._analyze_graph_single(t, wa, direct_read)
+        assert len(direct_effects) == 1
+        effect = direct_effects[0]
+        what, T, field = effect
+        assert what == 'readinteriorfield'
+        assert T == lltype.Ptr(STR)
+        assert field == 'chars'
+        #
+        # typed_read contains many effects because it reads the vtable etc.,
+        # but we want to check that it contains also the same effect as
+        # direct_read
+        typed_effects = self._analyze_graph_single(t, wa, typed_read)
+        assert effect in typed_effects

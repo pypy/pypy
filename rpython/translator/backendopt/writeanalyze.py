@@ -1,5 +1,6 @@
 from rpython.flowspace.model import Variable, Constant
 from rpython.translator.backendopt import graphanalyze
+from rpython.rtyper.lltypesystem import lltype, llmemory
 
 top_set = object()
 empty_set = frozenset()
@@ -62,8 +63,7 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
                 name = self._getinteriorname(op)
                 return self._interiorfield_result(op.args[0].concretetype, name)
         elif op.opname == "gc_store_indexed":
-            if graphinfo is None or not graphinfo.is_fresh_malloc(op.args[0]):
-                return self._array_result(op.args[0].concretetype)
+            assert False, 'implement me'
         return empty_set
 
     def _array_result(self, TYPE):
@@ -125,4 +125,37 @@ class ReadWriteAnalyzer(WriteAnalyzer):
             name = self._getinteriorname(op)
             return frozenset([("readinteriorfield", op.args[0].concretetype,
                             name)])
+        elif op.opname == "gc_load_indexed":
+            return self._gc_load_store_result(op)
         return WriteAnalyzer.analyze_simple_operation(self, op, graphinfo)
+
+    def _gc_load_store_result(self, op):
+        base_offset = op.args[3].value
+        effect = self._get_effect_for_offset(base_offset)
+        return frozenset([effect])
+
+    def _get_effect_for_offset(self, ofs):
+        # gc_{load,store}_indexed are generic operation which operate on
+        # various data types: depending on the symbolic offset, they can be
+        # equivalent as reading/writing an array, and interiorfield, etc. The
+        # following logic tries to catch all the known usages. If you see an
+        # 'implement me', please update the logic accordingly
+        if isinstance(ofs, llmemory.CompositeOffset):
+            # get the effect for the first component and modify it if
+            # necessary
+            sub_offsets = ofs.offsets
+            effect = self._get_effect_for_offset(sub_offsets[0])
+            for sub_ofs in sub_offsets[1:]:
+                if isinstance(sub_ofs, llmemory.ArrayItemsOffset):
+                    # reading from the middle of an array is the same as
+                    # reading from the beginning, so we don't need to change
+                    # the effect
+                    pass
+                else:
+                    assert False, 'implement me'
+            return effect
+        elif isinstance(ofs, llmemory.FieldOffset):
+            T = ofs.TYPE
+            return ('readinteriorfield', lltype.Ptr(T), ofs.fldname)
+        else:
+            assert False, 'implement me'
