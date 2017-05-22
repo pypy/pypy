@@ -98,6 +98,9 @@ class BasePosix(Platform):
     def get_shared_only_compile_flags(self):
         return tuple(self.shared_only) + ('-fvisibility=hidden',)
 
+    def makefile_link_flags(self):
+        return list(self.link_flags)
+
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
                      no_precompile_cfiles = [], config=None):
@@ -113,7 +116,7 @@ class BasePosix(Platform):
         else:
             exe_name = exe_name.new(ext=self.exe_ext)
 
-        linkflags = list(self.link_flags)
+        linkflags = self.makefile_link_flags()
         if shared:
             linkflags = self._args_for_shared(linkflags)
 
