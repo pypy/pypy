@@ -88,7 +88,7 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
             # get the effect for the first component and modify it if
             # necessary
             sub_offsets = ofs.offsets
-            effect = self._get_effect_for_offset(sub_offsets[0])
+            effect = self._get_effect_for_offset(sub_offsets[0], prefix)
             for sub_ofs in sub_offsets[1:]:
                 if isinstance(sub_ofs, llmemory.ArrayItemsOffset):
                     # reading from the middle of an array is the same as
