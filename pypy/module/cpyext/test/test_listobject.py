@@ -1,5 +1,6 @@
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
+from pypy.module.cpyext.pyobject import from_ref
 
 class TestListObject(BaseApiTest):
     def test_list(self, space, api):
@@ -38,12 +39,10 @@ class TestListObject(BaseApiTest):
         assert api.PyList_Insert(w_l, 0, space.wrap(1)) == 0
         assert api.PyList_Size(w_l) == 3
         assert api.PyList_Insert(w_l, 99, space.wrap(2)) == 0
-        assert api.PyObject_Compare(api.PyList_GetItem(w_l, 3),
-                                    space.wrap(2)) == 0
+        assert space.unwrap(from_ref(space, api.PyList_GetItem(w_l, 3))) == 2
         # insert at index -1: next-to-last
         assert api.PyList_Insert(w_l, -1, space.wrap(3)) == 0
-        assert api.PyObject_Compare(api.PyList_GET_ITEM(w_l, 3),
-                                    space.wrap(3)) == 0
+        assert space.unwrap(from_ref(space, api.PyList_GET_ITEM(w_l, 3))) == 3
 
     def test_sort(self, space, api):
         l = space.newlist([space.wrap(1), space.wrap(0), space.wrap(7000)])
@@ -243,7 +242,7 @@ class AppTestListObject(AppTestCpythonExtensionBase):
                 old_count2 = Py_REFCNT(i2);
 
                 ret = PyList_Append(o, i1);
-                if (ret != 0) 
+                if (ret != 0)
                     return NULL;
                 /* check the result of Append(), and also force the list
                    to use the CPyListStrategy now */
@@ -274,7 +273,7 @@ class AppTestListObject(AppTestCpythonExtensionBase):
                 PyList_GetItem(o, 0);
                 CHECKCOUNT(0, 0, "PyList_Get_Item");
 
-                Py_DECREF(o); 
+                Py_DECREF(o);
                 #ifndef PYPY_VERSION
                 {
                     // PyPy deletes only at teardown
