@@ -582,6 +582,16 @@ class AppTestSocket:
         (reuse,) = struct.unpack('i', reusestr)
         assert reuse != 0
 
+    def test_getsockopt_zero(self):
+        # related to issue #2561: in CPython, when setting the buffer size:
+        # if 0, should return 0,
+        # otherwise an empty buffer of the specified size
+        import _socket
+        s = _socket.socket()
+
+        assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 0) == 0
+        assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 2) == b'\x00\x00'
+
     def test_socket_ioctl(self):
         import _socket, sys
         if sys.platform != 'win32':

@@ -311,6 +311,8 @@ class W_Socket(W_Root):
             except SocketError as e:
                 raise converted_error(space, e)
         buflen = space.int_w(w_buflen)
+        if buflen == 0:
+            return space.newint(0)
         return space.newbytes(self.sock.getsockopt(level, optname, buflen))
 
     def gettimeout_w(self, space):
