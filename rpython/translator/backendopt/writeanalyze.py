@@ -160,7 +160,7 @@ class ReadWriteAnalyzer(WriteAnalyzer):
             return frozenset([("readinteriorfield", op.args[0].concretetype,
                             name)])
         elif op.opname == "gc_load_indexed":
-            return self._gc_load_store_result(op)
+            return self._gc_load_indexed_result(op)
         return WriteAnalyzer.analyze_simple_operation(self, op, graphinfo)
 
     def _gc_load_indexed_result(self, op):
