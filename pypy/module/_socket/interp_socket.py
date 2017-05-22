@@ -297,20 +297,19 @@ class W_Socket(W_Root):
         except SocketError as e:
             raise converted_error(space, e)
 
-    @unwrap_spec(level=int, optname=int)
-    def getsockopt_w(self, space, level, optname, w_buflen=None):
+    @unwrap_spec(level=int, optname=int, buflen=int)
+    def getsockopt_w(self, space, level, optname, buflen=0):
         """getsockopt(level, option[, buffersize]) -> value
 
         Get a socket option.  See the Unix manual for level and option.
         If a nonzero buffersize argument is given, the return value is a
         string of that length; otherwise it is an integer.
         """
-        if w_buflen is None:
+        if buflen == 0:
             try:
                 return space.newint(self.sock.getsockopt_int(level, optname))
             except SocketError as e:
                 raise converted_error(space, e)
-        buflen = space.int_w(w_buflen)
         return space.newbytes(self.sock.getsockopt(level, optname, buflen))
 
     def gettimeout_w(self, space):
