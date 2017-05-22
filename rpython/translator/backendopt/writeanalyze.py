@@ -157,5 +157,7 @@ class ReadWriteAnalyzer(WriteAnalyzer):
         elif isinstance(ofs, llmemory.FieldOffset):
             T = ofs.TYPE
             return ('readinteriorfield', lltype.Ptr(T), ofs.fldname)
+        elif isinstance(ofs, llmemory.ArrayItemsOffset):
+            return ('readarray', lltype.Ptr(ofs.TYPE))
         else:
             assert False, 'implement me'

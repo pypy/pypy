@@ -2,6 +2,7 @@ import py
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.rstr import STR
+from rpython.rtyper.lltypesystem.rlist import LIST_OF
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.backendopt.writeanalyze import WriteAnalyzer, top_set
 from rpython.translator.backendopt.writeanalyze import ReadWriteAnalyzer
@@ -412,10 +413,9 @@ class TestLLtypeReadWriteAnalyze(BaseTest):
 class TestGcLoadStoreIndexed(BaseTest):
     Analyzer = ReadWriteAnalyzer
 
-    def _analyze_graph_single(self, t, wa, fn):
+    def _analyze_graph(self, t, wa, fn):
         graph = graphof(t, fn)
         result = wa.analyze(graph.startblock.operations[-1])
-        result = list(result)
         return result
 
     def test_gc_load_indexed_str(self):
@@ -433,16 +433,46 @@ class TestGcLoadStoreIndexed(BaseTest):
 
         t, wa = self.translate(f, [str])
         # check that the effect of direct_read
-        direct_effects = self._analyze_graph_single(t, wa, direct_read)
-        assert len(direct_effects) == 1
-        effect = direct_effects[0]
-        what, T, field = effect
-        assert what == 'readinteriorfield'
-        assert T == lltype.Ptr(STR)
-        assert field == 'chars'
+        direct_effects = self._analyze_graph(t, wa, direct_read)
+        assert direct_effects == frozenset([
+            ('readinteriorfield', lltype.Ptr(STR), 'chars')
+        ])
         #
         # typed_read contains many effects because it reads the vtable etc.,
         # but we want to check that it contains also the same effect as
         # direct_read
-        typed_effects = self._analyze_graph_single(t, wa, typed_read)
-        assert effect in typed_effects
+        typed_effects = self._analyze_graph(t, wa, typed_read)
+        assert direct_effects.issubset(typed_effects)
+
+    def test_gc_load_indexed_list_of_chars(self):
+        from rpython.rlib.buffer import ByteBuffer
+
+        def typed_read(buf):
+            return buf.typed_read(lltype.Signed, 0)
+
+        def direct_read(buf):
+            return buf.data[0]
+
+        def f(x):
+            buf = ByteBuffer(8)
+            return direct_read(buf), typed_read(buf)
+
+        t, wa = self.translate(f, [str])
+        # check that the effect of direct_read
+        LIST = LIST_OF(lltype.Char)
+        PLIST = lltype.Ptr(LIST)
+        direct_effects = self._analyze_graph(t, wa, direct_read)
+        assert direct_effects == frozenset([
+            ('readstruct', PLIST, 'length'),
+            ('readstruct', PLIST, 'items'),
+            ('readarray', LIST.items),
+        ])
+
+        # typed_read contains many effects because it reads the vtable etc.,
+        # but we want to check that it contains also the expected effects
+        typed_effects = self._analyze_graph(t, wa, typed_read)
+        expected = frozenset([
+            ('readstruct', PLIST, 'items'),
+            ('readarray', LIST.items),
+        ])
+        assert expected.issubset(typed_effects)
