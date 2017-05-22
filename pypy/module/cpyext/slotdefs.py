@@ -14,7 +14,7 @@ from pypy.module.cpyext.typeobjectdefs import (
     ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
     cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc, objobjargproc,
     readbufferproc, getbufferproc, releasebufferproc, ssizessizeobjargproc)
-from pypy.module.cpyext.pyobject import make_ref, decref, as_pyobj
+from pypy.module.cpyext.pyobject import make_ref, decref, as_pyobj, from_ref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.memoryobject import fill_Py_buffer
 from pypy.module.cpyext.state import State
@@ -265,7 +265,7 @@ def wrap_sq_delitem(space, w_self, w_args, func):
     check_num_args(space, w_args, 1)
     args_w = space.fixedview(w_args)
     index = space.int_w(space.index(args_w[0]))
-    null = lltype.nullptr(PyObject.TO)
+    null = rffi.cast(PyObject, 0)
     res = generic_cpy_call(space, func_target, w_self, index, null)
     if rffi.cast(lltype.Signed, res) == -1:
         space.fromcache(State).check_and_raise_exception(always=True)
@@ -294,7 +294,8 @@ def wrap_delitem(space, w_self, w_args, func):
     func_target = rffi.cast(objobjargproc, func)
     check_num_args(space, w_args, 1)
     w_key, = space.fixedview(w_args)
-    res = generic_cpy_call(space, func_target, w_self, w_key, None)
+    null = rffi.cast(PyObject, 0)
+    res = generic_cpy_call(space, func_target, w_self, w_key, null)
     if rffi.cast(lltype.Signed, res) == -1:
         space.fromcache(State).check_and_raise_exception(always=True)
     return space.w_None
@@ -612,6 +613,8 @@ def build_slot_tp_function(space, typedef, name):
             handled = True
 
     for tp_name, attr in [('tp_hash', '__hash__'),
+                          ('tp_as_sequence.c_sq_length', '__len__'),
+                          ('tp_as_mapping.c_mp_length', '__len__'),
                          ]:
         if name == tp_name:
             slot_fn = w_type.getdictvalue(space, attr)
@@ -637,7 +640,8 @@ def build_slot_tp_function(space, typedef, name):
                           ('tp_as_number.c_nb_xor', '__xor__'),
                           ('tp_as_number.c_nb_or', '__or__'),
                           ('tp_as_sequence.c_sq_concat', '__add__'),
-                          ('tp_as_sequence.c_sq_inplace_concat', '__iadd__')
+                          ('tp_as_sequence.c_sq_inplace_concat', '__iadd__'),
+                          ('tp_as_mapping.c_mp_subscript', '__getitem__'),
                           ]:
         if name == tp_name:
             slot_fn = w_type.getdictvalue(space, attr)
@@ -651,7 +655,7 @@ def build_slot_tp_function(space, typedef, name):
             handled = True
 
     # binary-with-Py_ssize_t-type
-    for tp_name, attr in [('tp_as_sequence.c_sq_item', '__getitem'),
+    for tp_name, attr in [('tp_as_sequence.c_sq_item', '__getitem__'),
                           ('tp_as_sequence.c_sq_repeat', '__mul__'),
                           ('tp_as_sequence.c_sq_repeat', '__mul__'),
                           ('tp_as_sequence.c_sq_inplace_repeat', '__imul__'),
@@ -680,7 +684,48 @@ def build_slot_tp_function(space, typedef, name):
             def slot_func(space, w_self, w_arg1, w_arg2):
                 return space.call_function(slot_fn, w_self, w_arg1, w_arg2)
             handled = True
+    # ternary-with-void returning-Py_size_t-type
+    for tp_name, attr in [('tp_as_mapping.c_mp_ass_subscript', '__setitem__'),
+                         ]:
+        if name == tp_name:
+            slot_ass = w_type.getdictvalue(space, attr)
+            if slot_ass is None:
+                return
+            slot_del = w_type.getdictvalue(space, '__delitem__')
+            if slot_del is None:
+                return
 
+            @slot_function([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
+            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+            def slot_func(space, w_self, w_arg1, arg2):
+                if arg2:
+                    w_arg2 = from_ref(space, rffi.cast(PyObject, arg2))
+                    space.call_function(slot_ass, w_self, w_arg1, w_arg2)
+                else:
+                    space.call_function(slot_del, w_self, w_arg1)
+                return 0
+            handled = True
+    # ternary-Py_size_t-void returning-Py_size_t-type
+    for tp_name, attr in [('tp_as_sequence.c_sq_ass_item', '__setitem__'),
+                         ]:
+        if name == tp_name:
+            slot_ass = w_type.getdictvalue(space, attr)
+            if slot_ass is None:
+                return
+            slot_del = w_type.getdictvalue(space, '__delitem__')
+            if slot_del is None:
+                return
+
+            @slot_function([PyObject, lltype.Signed, PyObject], rffi.INT_real, error=-1)
+            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+            def slot_func(space, w_self, arg1, arg2):
+                if arg2:
+                    w_arg2 = from_ref(space, rffi.cast(PyObject, arg2))
+                    space.call_function(slot_ass, w_self, space.newint(arg1), w_arg2)
+                else:
+                    space.call_function(slot_del, w_self, space.newint(arg1))
+                return 0
+            handled = True
     if handled:
         pass
     elif name == 'tp_setattro':

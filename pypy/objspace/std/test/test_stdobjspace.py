@@ -57,13 +57,6 @@ class TestW_StdObjSpace:
         cls = space._get_interplevel_cls(w_sequenceiterator)
         assert cls is W_AbstractSeqIterObject
 
-    def test_withstrbuf_fastpath_isinstance(self):
-        from pypy.objspace.std.bytesobject import W_AbstractBytesObject
-
-        space = gettestobjspace(withstrbuf=True)
-        cls = space._get_interplevel_cls(space.w_bytes)
-        assert cls is W_AbstractBytesObject
-
     def test_wrap_various_unsigned_types(self):
         import sys
         from rpython.rlib.rarithmetic import r_uint
