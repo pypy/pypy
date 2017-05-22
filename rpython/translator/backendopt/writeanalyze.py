@@ -63,7 +63,8 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
                 name = self._getinteriorname(op)
                 return self._interiorfield_result(op.args[0].concretetype, name)
         elif op.opname == "gc_store_indexed":
-            assert False, 'implement me'
+            if graphinfo is None or not graphinfo.is_fresh_malloc(op.args[0]):
+                return self._gc_store_indexed_result(op)
         return empty_set
 
     def _array_result(self, TYPE):
@@ -71,6 +72,39 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
 
     def _interiorfield_result(self, TYPE, fieldname):
         return frozenset([("interiorfield", TYPE, fieldname)])
+
+    def _gc_store_indexed_result(self, op):
+        base_ofs = op.args[4].value
+        effect = self._get_effect_for_offset(base_ofs)
+        return frozenset([effect])
+
+    def _get_effect_for_offset(self, ofs, prefix=''):
+        # gc_{load,store}_indexed are generic operation which operate on
+        # various data types: depending on the symbolic offset, they can be
+        # equivalent as reading/writing an array, and interiorfield, etc. The
+        # following logic tries to catch all the known usages. If you see an
+        # 'implement me', please update the logic accordingly
+        if isinstance(ofs, llmemory.CompositeOffset):
+            # get the effect for the first component and modify it if
+            # necessary
+            sub_offsets = ofs.offsets
+            effect = self._get_effect_for_offset(sub_offsets[0])
+            for sub_ofs in sub_offsets[1:]:
+                if isinstance(sub_ofs, llmemory.ArrayItemsOffset):
+                    # reading from the middle of an array is the same as
+                    # reading from the beginning, so we don't need to change
+                    # the effect
+                    pass
+                else:
+                    assert False, 'implement me'
+            return effect
+        elif isinstance(ofs, llmemory.FieldOffset):
+            T = ofs.TYPE
+            return (prefix + 'interiorfield', lltype.Ptr(T), ofs.fldname)
+        elif isinstance(ofs, llmemory.ArrayItemsOffset):
+            return (prefix + 'array', lltype.Ptr(ofs.TYPE))
+        else:
+            assert False, 'implement me'
 
     def compute_graph_info(self, graph):
         return FreshMallocs(graph)
@@ -129,35 +163,8 @@ class ReadWriteAnalyzer(WriteAnalyzer):
             return self._gc_load_store_result(op)
         return WriteAnalyzer.analyze_simple_operation(self, op, graphinfo)
 
-    def _gc_load_store_result(self, op):
+    def _gc_load_indexed_result(self, op):
         base_offset = op.args[3].value
-        effect = self._get_effect_for_offset(base_offset)
+        effect = self._get_effect_for_offset(base_offset, prefix='read')
         return frozenset([effect])
 
-    def _get_effect_for_offset(self, ofs):
-        # gc_{load,store}_indexed are generic operation which operate on
-        # various data types: depending on the symbolic offset, they can be
-        # equivalent as reading/writing an array, and interiorfield, etc. The
-        # following logic tries to catch all the known usages. If you see an
-        # 'implement me', please update the logic accordingly
-        if isinstance(ofs, llmemory.CompositeOffset):
-            # get the effect for the first component and modify it if
-            # necessary
-            sub_offsets = ofs.offsets
-            effect = self._get_effect_for_offset(sub_offsets[0])
-            for sub_ofs in sub_offsets[1:]:
-                if isinstance(sub_ofs, llmemory.ArrayItemsOffset):
-                    # reading from the middle of an array is the same as
-                    # reading from the beginning, so we don't need to change
-                    # the effect
-                    pass
-                else:
-                    assert False, 'implement me'
-            return effect
-        elif isinstance(ofs, llmemory.FieldOffset):
-            T = ofs.TYPE
-            return ('readinteriorfield', lltype.Ptr(T), ofs.fldname)
-        elif isinstance(ofs, llmemory.ArrayItemsOffset):
-            return ('readarray', lltype.Ptr(ofs.TYPE))
-        else:
-            assert False, 'implement me'
