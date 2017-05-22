@@ -5,8 +5,7 @@ from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator
 from rpython.rtyper.annlowlevel import hlstr, hlunicode
 from rpython.rtyper.llannotation import lltype_to_annotation
-from rpython.rlib.objectmodel import (we_are_translated, specialize, compute_hash,
-                                      enforceargs)
+from rpython.rlib.objectmodel import we_are_translated, specialize, compute_hash
 from rpython.jit.metainterp import history, compile
 from rpython.jit.metainterp.optimize import SpeculativeError
 from rpython.jit.codewriter import heaptracker, longlong
@@ -495,9 +494,9 @@ class AbstractLLCPU(AbstractCPU):
         return llop.raw_load(longlong.FLOATSTORAGE, gcref, ofs)
 
     @specialize.argtype(1)
-    @enforceargs(newvalue=longlong.r_float_storage)
     def write_float_at_mem(self, gcref, ofs, newvalue):
         llop.raw_store(lltype.Void, gcref, ofs, newvalue)
+    write_float_at_mem._annenforceargs_ = [None, None, None, longlong.r_float_storage]
 
     # ____________________________________________________________
 
