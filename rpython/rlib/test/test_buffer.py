@@ -140,9 +140,10 @@ class TestRawBufferTypedReadDirect(BaseTypedReadTest):
 class TestRawBufferTypedWrite(object):
 
     def test_typed_write(self):
+        expected = struct.pack('=H', 0xABCD) + '\xff'*6
         buf = MyRawBuffer('\xff' * 8, readonly=False)
         buf.typed_write(rffi.USHORT, 0, 0xABCD)
-        assert buf.as_str() == '\xcd\xab\xff\xff\xff\xff\xff\xff'
+        assert buf.as_str() == expected
         assert buf.typed_read(rffi.USHORT, 0) == 0xABCD
     
 
