@@ -56,3 +56,6 @@ Implement Py_EnterRecursiveCall and associated functions
 
 Remove faulty fastpath from ctypes
 
+.. branch: sockopt_zero
+
+Passing a buffersize of 0 to socket.getsockopt
