@@ -1,5 +1,4 @@
 from __future__ import with_statement
-from rpython.annotator import model as annmodel
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
