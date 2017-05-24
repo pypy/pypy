@@ -100,7 +100,7 @@ class BasePosix(Platform):
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
-                     no_precompile_cfiles = [], config=None):
+                     no_precompile_cfiles = [], profopt=False, config=None):
         cfiles = self._all_cfiles(cfiles, eci)
 
         if path is None:
@@ -186,6 +186,10 @@ class BasePosix(Platform):
             ('LINKFILES', eci.link_files),
             ('RPATH_FLAGS', self.get_rpath_flags(rel_libdirs)),
             ]
+
+        if profopt==True and shared==True:
+            definitions.append(('PROFOPT_TARGET', exe_name.basename))
+
         for args in definitions:
             m.definition(*args)
 

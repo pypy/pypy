@@ -267,10 +267,10 @@ class PyPyTarget(object):
 
         # if both profopt and profoptpath are specified then we keep them as they are with no other changes
         if config.translation.profopt:
-            if config.translation.profoptpath is None:
-                config.translation.profoptpath = "$(RPYDIR)/../lib-python/2.7/test/regrtest.py"
-        elif config.translation.profoptpath is not None:
-            raise Exception("Cannot use --profoptpath without specifying --profopt as well")
+            if config.translation.profoptargs is None:
+                config.translation.profoptargs = "$(RPYDIR)/../lib-python/2.7/test/regrtest.py --pgo -x test_asyncore test_gdb test_multiprocessing test_subprocess || true"
+        elif config.translation.profoptargs is not None:
+            raise Exception("Cannot use --profoptargs without specifying --profopt as well")
 
         if sys.platform == 'win32':
             libdir = thisdir.join('..', '..', 'libs')

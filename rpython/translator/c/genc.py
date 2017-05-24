@@ -360,8 +360,12 @@ class CStandaloneBuilder(CBuilder):
             headers_to_precompile=headers_to_precompile,
             no_precompile_cfiles = module_files,
             shared=self.config.translation.shared,
+            profopt = self.config.translation.profopt,
             config=self.config)
 
+        if exe_name is None:
+            short =  targetdir.basename
+            exe_name = targetdir.join(short)
 
         rules = [
             ('debug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT" debug_target'),
@@ -375,28 +379,22 @@ class CStandaloneBuilder(CBuilder):
         # added a new target for profopt, because it requires -lgcov to compile successfully when -shared is used as an argument
         # Also made a difference between translating with shared or not, because this affects profopt's target
 
+        if self.config.translation.profopt:
+            if self.config.translation.profoptargs is None:
+                self.config.translation.profoptargs = "$(RPYDIR)/../lib-python/2.7/test/regrtest.py --pgo -x test_asyncore test_gdb test_multiprocessing test_subprocess || true"
+            if self.config.translation.shared:
+                mk.rule('$(PROFOPT_TARGET)', '$(TARGET) main.o',
+                         '$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ $(RPATH_FLAGS) -lgcov')
+            else:
+                mk.definition('PROFOPT_TARGET', '$(TARGET)')
 
-        if self.config.translation.shared:
-            mk.definition('PROFOPT_TARGET', 'pypy-c')
-            mk.rule('$(PROFOPT_TARGET)', '$(TARGET) main.o',
-                     '$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ $(RPATH_FLAGS) -lgcov')
-        else:
-            mk.definition('PROFOPT_TARGET', '$(TARGET)')
-
-        rules.append(
-            ('profopt', '', [
-                '$(MAKE) CFLAGS="-fprofile-generate -fPIC $(CFLAGS) -fno-lto"  LDFLAGS="-fprofile-generate $(LDFLAGS) -fno-lto" $(PROFOPT_TARGET)',
-                'rm -f $(RPYDIR)/../pypy/goal/libpypy-c.so',
-                'cp -f libpypy-c.so $(RPYDIR)/../pypy/goal/ || true',
-                'rm -f $(RPYDIR)/../pypy/goal/pypy-c',
-                'cp -f pypy-c $(RPYDIR)/../pypy/goal/ || true',
-                '$(RPYDIR)/../pypy/goal/pypy-c %s --pgo -x test_asyncore test_gdb test_multiprocessing test_subprocess || true' % self.config.translation.profoptpath,
-                '$(MAKE) clean_noprof',
-                '$(MAKE) CFLAGS="-fprofile-use -fprofile-correction -fPIC $(CFLAGS) -fno-lto"  LDFLAGS="-fprofile-use $(LDFLAGS) -fno-lto" $(PROFOPT_TARGET)',
-                'rm -f $(RPYDIR)/../pypy/goal/libpypy-c.so || true',
-                'cp -f libpypy-c.so $(RPYDIR)/../pypy/goal/ || true',
-                'rm -f $(RPYDIR)/../pypy/goal/pypy-c',
-                'cp -f pypy-c $(RPYDIR)/../pypy/goal/ || true']))
+            rules.append(
+                ('profopt', '', [
+                    '$(MAKE) CFLAGS="-fprofile-generate -fPIC $(CFLAGS) -fno-lto"  LDFLAGS="-fprofile-generate $(LDFLAGS) -fno-lto" $(PROFOPT_TARGET)',
+                    '%s %s ' % (exe_name, self.config.translation.profoptargs),
+                    '$(MAKE) clean_noprof',
+                    '$(MAKE) CFLAGS="-fprofile-use -fprofile-correction -fPIC $(CFLAGS) -fno-lto"  LDFLAGS="-fprofile-use $(LDFLAGS) -fno-lto" $(PROFOPT_TARGET)',
+                ]))
 
         for rule in rules:
             mk.rule(*rule)

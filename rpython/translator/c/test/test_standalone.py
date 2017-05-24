@@ -241,31 +241,18 @@ class TestStandalone(StandaloneTests):
             os.write(1, str(tot))
             return 0
         from rpython.translator.interactive import Translation
-        t = Translation(entry_point, backend='c', profopt=True, shared=True)
-        t.backendopt()
-        exe = t.compile()
-        assert (os.path.isfile("%s/pypy-c" % os.path.dirname(str(exe))))
-
-        # test --profoptpath
-        profoptpth = open('dummypythontraining.py', 'w+')
-        profoptpth.close()
-        abspath = os.path.abspath('dummypythontraining.py')
-        t = Translation(entry_point, backend='c', profopt=True, profoptpath=abspath, shared=True)
-        t.backendopt()
-        exe = t.compile()
-        assert (os.path.isfile("%s/pypy-c" % os.path.dirname(str(exe))))
-        os.remove(abspath)
-
-        profoptpth = open('dummypythontraining.py', 'w+')
-        profoptpth.close()
-        abspath = os.path.abspath('dummypythontraining.py')
-        t = Translation(entry_point, backend='c', profopt=True, profoptpath=abspath, shared=False)
+        t = Translation(entry_point, backend='c', profopt=True, profoptargs="10", shared=True)
         t.backendopt()
         exe = t.compile()
         assert (os.path.isfile("%s" % exe))
-        os.remove(abspath)
 
-        t = Translation(entry_point, backend='c', profopt=True, shared=False)
+        t = Translation(entry_point, backend='c', profopt=True, profoptargs="10", shared=False)
+        t.backendopt()
+        exe = t.compile()
+        assert (os.path.isfile("%s" % exe))
+
+        import rpython.translator.goal.targetrpystonedalone as rpy
+        t = Translation(rpy.entry_point, backend='c', profopt=True, profoptargs='1000', shared=False)
         t.backendopt()
         exe = t.compile()
         assert (os.path.isfile("%s" % exe))
