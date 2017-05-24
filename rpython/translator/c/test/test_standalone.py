@@ -281,12 +281,12 @@ class TestStandalone(StandaloneTests):
             return 0
         from rpython.translator.interactive import Translation
         # XXX this is mostly a "does not crash option"
-        t = Translation(entry_point, backend='c', profopt=True, shared=True)
+        t = Translation(entry_point, backend='c', profopt=True, profoptargs='10', shared=True)
         # no counters
         t.backendopt()
         exe = t.compile()
         #py.process.cmdexec(exe)
-        t = Translation(entry_point, backend='c', profopt=True, shared=True)
+        t = Translation(entry_point, backend='c', profopt=True, profoptargs='10', shared=True)
         # no counters
         t.backendopt()
         exe = t.compile()

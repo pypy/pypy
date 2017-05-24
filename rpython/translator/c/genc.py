@@ -381,7 +381,7 @@ class CStandaloneBuilder(CBuilder):
 
         if self.config.translation.profopt:
             if self.config.translation.profoptargs is None:
-                self.config.translation.profoptargs = "$(RPYDIR)/../lib-python/2.7/test/regrtest.py --pgo -x test_asyncore test_gdb test_multiprocessing test_subprocess || true"
+                raise Exception("No profoptargs specified, neither in the command line, nor in the target. If the target is not PyPy, please specify profoptargs")
             if self.config.translation.shared:
                 mk.rule('$(PROFOPT_TARGET)', '$(TARGET) main.o',
                          '$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ $(RPATH_FLAGS) -lgcov')
