@@ -324,6 +324,7 @@ class W_BZ2Compressor(W_Root):
         to compress, call the flush() method to finish the compression process,
         and return what is left in the internal buffers."""
 
+        assert data is not None
         try:
             self.lock()
             datasize = len(data)

@@ -1,5 +1,6 @@
 from rpython.rlib.rstruct.error import StructError
 from rpython.rlib.buffer import StringBuffer, SubBuffer
+from rpython.rlib.mutbuffer import MutableStringBuffer
 
 from pypy.interpreter.error import oefmt
 
@@ -72,14 +73,15 @@ class BufferView(object):
     def bytes_from_value(self, space, w_val):
         from pypy.module.struct.formatiterator import PackFormatIterator
         itemsize = self.getitemsize()
-        fmtiter = PackFormatIterator(space, [w_val], itemsize)
+        buf = MutableStringBuffer(itemsize)
+        fmtiter = PackFormatIterator(space, buf, [w_val])
         try:
             fmtiter.interpret(self.getformat())
         except StructError as e:
             raise oefmt(space.w_TypeError,
                         "memoryview: invalid type for format '%s'",
                         self.getformat())
-        return fmtiter.result.build()
+        return buf.finish()
 
     def _copy_buffer(self):
         if self.getndim() == 0:

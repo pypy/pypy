@@ -8,10 +8,11 @@ from rpython.rlib.rstring import StringBuilder, ByteListBuilder
 from rpython.rlib.debug import check_list_of_chars, check_nonneg
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
-        nonmoving_raw_ptr_for_resizable_list)
+                              nonmoving_raw_ptr_for_resizable_list)
 from rpython.rlib import jit
-from rpython.rlib.buffer import Buffer
-
+from rpython.rlib.buffer import (GCBuffer,
+                                 get_gc_data_for_list_of_chars,
+                                 get_gc_data_offset_for_list_of_chars)
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.bytesobject import makebytesdata_w, newbytesdata_w
@@ -1274,7 +1275,8 @@ def _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
         start += step
 
 
-class BytearrayBuffer(Buffer):
+@GCBuffer.decorate
+class BytearrayBuffer(GCBuffer):
     _immutable_ = True
 
     def __init__(self, ba, readonly=False):
@@ -1304,7 +1306,7 @@ class BytearrayBuffer(Buffer):
             if start != 0 or stop != len(data):
                 data = data[start:stop]
             return "".join(data)
-        return Buffer.getslice(self, start, stop, step, size)
+        return GCBuffer.getslice(self, start, stop, step, size)
 
     def setslice(self, start, string):
         # No bounds checks.
@@ -1318,6 +1320,16 @@ class BytearrayBuffer(Buffer):
         p = nonmoving_raw_ptr_for_resizable_list(ba._data)
         p = rffi.ptradd(p, ba._offset)
         return p
+
+    @staticmethod
+    def _get_gc_data_offset():
+        return get_gc_data_offset_for_list_of_chars()
+
+    def _get_gc_data_extra_offset(self):
+        return self.ba._offset
+
+    def _get_gc_data(self):
+        return get_gc_data_for_list_of_chars(self.ba._data)
 
 
 @specialize.argtype(1)

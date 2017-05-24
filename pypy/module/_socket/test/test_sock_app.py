@@ -514,6 +514,19 @@ class AppTestSocket:
         (reuse,) = struct.unpack('i', reusestr)
         assert reuse != 0
 
+    def test_getsetsockopt_zero(self):
+        # related to issue #2561: when specifying the buffer size param:
+        # if 0 or None, should return the setted value,
+        # otherwise an empty buffer of the specified size
+        import _socket
+        s = _socket.socket()
+        assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 0) == 0
+        assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 2) == b'\x00\x00'
+        s.setsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, True)
+        assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 0) == 1
+        s.setsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 1)
+        assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 0) == 1
+
     def test_socket_ioctl(self):
         import _socket, sys
         if sys.platform != 'win32':

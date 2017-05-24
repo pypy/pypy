@@ -1,11 +1,11 @@
 from rpython.rlib import jit, rgc
+from rpython.rlib.buffer import RawBuffer
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import ovfcheck, widen
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
-from rpython.rlib.buffer import Buffer
 
 from pypy.interpreter.buffer import BufferView
 from pypy.interpreter.baseobjspace import W_Root
@@ -848,7 +848,7 @@ for k, v in types.items():
     v.typecode = k
 unroll_typecodes = unrolling_iterable(types.keys())
 
-class ArrayData(Buffer):
+class ArrayData(RawBuffer):
     _immutable_ = True
     readonly = False
     def __init__(self, w_array):

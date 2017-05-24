@@ -1,5 +1,6 @@
 from rpython.rlib.rarithmetic import LONG_BIT, r_longlong, r_uint
-from rpython.rlib.rstring import StringBuilder, assert_str0
+from rpython.rlib.rstring import assert_str0
+from rpython.rlib.mutbuffer import MutableStringBuffer
 from rpython.rlib.rstruct import ieee
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib import objectmodel
@@ -213,9 +214,9 @@ def unmarshal_long(space, u, tc):
 
 
 def pack_float(f):
-    result = StringBuilder(8)
-    ieee.pack_float(result, f, 8, False)
-    return result.build()
+    buf = MutableStringBuffer(8)
+    ieee.pack_float(buf, 0, f, 8, False)
+    return buf.finish()
 
 def unpack_float(s):
     return ieee.unpack_float(s, False)
@@ -408,7 +409,7 @@ def unmarshal_pycode(space, u, tc):
     stacksize   = u.get_int()
     flags       = u.get_int()
     code        = space.bytes_w(u.get_w_obj())
-    consts_w    = _unmarshal_tuple_w(u)   
+    consts_w    = _unmarshal_tuple_w(u)
     names       = _unmarshal_strlist(u)
     varnames    = _unmarshal_strlist(u)
     freevars    = _unmarshal_strlist(u)

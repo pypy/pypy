@@ -22,8 +22,7 @@ from pypy.module.cpyext import userslot
 from pypy.interpreter.buffer import BufferView
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.argument import Arguments
-
-from rpython.rlib.buffer import Buffer
+from rpython.rlib.buffer import RawBuffer
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize, not_rpython
 from rpython.tool.sourcetools import func_renamer
@@ -428,7 +427,7 @@ class FQ(rgc.FinalizerQueue):
 fq = FQ()
 
 
-class CBuffer(Buffer):
+class CBuffer(RawBuffer):
     _immutable_ = True
     def __init__(self, view):
         self.view = view

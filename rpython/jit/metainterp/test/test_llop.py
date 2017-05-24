@@ -2,21 +2,23 @@ import py
 import sys
 import struct
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.strstorage import str_storage_getitem
-from rpython.rlib.test.test_strstorage import BaseStrStorageTest
+from rpython.rtyper.test.test_llop import (BaseLLOpTest, str_gc_load,
+                                           newlist_and_gc_store)
 from rpython.jit.codewriter import longlong
 from rpython.jit.metainterp.history import getkind
 from rpython.jit.metainterp.test.support import LLJitMixin
 
-class TestStrStorage(BaseStrStorageTest, LLJitMixin):
+
+class TestLLOp(BaseLLOpTest, LLJitMixin):
 
     # for the individual tests see
-    # ====> ../../../rlib/test/test_strstorage.py
+    # ====> ../../../rtyper/test/test_llop.py
+    TEST_BLACKHOLE = True
 
-    def str_storage_getitem(self, TYPE, buf, offset):
-        def f():
-            return str_storage_getitem(TYPE, buf, offset)
-        res = self.interp_operations(f, [], supports_singlefloats=True)
+    def gc_load_from_string(self, TYPE, buf, offset):
+        def f(offset):
+            return str_gc_load(TYPE, buf, offset)
+        res = self.interp_operations(f, [offset], supports_singlefloats=True)
         #
         kind = getkind(TYPE)[0] # 'i' or 'f'
         self.check_operations_history({'gc_load_indexed_%s' % kind: 1,
@@ -29,8 +31,25 @@ class TestStrStorage(BaseStrStorageTest, LLJitMixin):
             return longlong.int2singlefloat(res)
         return res
 
-    #def str_storage_supported(self, TYPE):
-    #    py.test.skip('this is not a JIT test')
+    def newlist_and_gc_store(self, TYPE, value, expected):
+        def f(value):
+            lst = newlist_and_gc_store(TYPE, value)
+            got = ''.join(lst)
+            if got != expected:
+                # I'm not sure why, but if I use an assert, the test doesn't fail
+                raise ValueError('got != expected')
+            return len(got)
+        #
+        if self.TEST_BLACKHOLE:
+            # we pass a big inline_threshold to ensure that
+            # newlist_and_gc_store is inlined, else the blackhole does not see
+            # (and thus we do not test!) the llop.gc_store_indexed
+            threshold = 33
+        else:
+            threshold = 0
+        return self.interp_operations(f, [value], supports_singlefloats=True,
+                                      backendopt_inline_threshold=threshold)
+
 
     def test_force_virtual_str_storage(self):
         byteorder = sys.byteorder
@@ -40,7 +59,7 @@ class TestStrStorage(BaseStrStorageTest, LLJitMixin):
                 x = chr(val) + '\x00'*(size-1)
             else:
                 x = '\x00'*(size-1) + chr(val)
-            return str_storage_getitem(lltype.Signed, x, 0)
+            return str_gc_load(lltype.Signed, x, 0)
         res = self.interp_operations(f, [42], supports_singlefloats=True)
         assert res == 42
         self.check_operations_history({

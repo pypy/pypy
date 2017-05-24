@@ -397,6 +397,7 @@ LL_OPERATIONS = {
     'raw_store':            LLOp(canrun=True),
     'bare_raw_store':       LLOp(),
     'gc_load_indexed':      LLOp(sideeffects=False, canrun=True),
+    'gc_store_indexed':     LLOp(canrun=True),
     'track_alloc_start':    LLOp(),
     'track_alloc_stop':     LLOp(),
     'adr_add':              LLOp(canfold=True),

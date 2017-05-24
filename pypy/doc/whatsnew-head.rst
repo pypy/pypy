@@ -56,3 +56,15 @@ Implement Py_EnterRecursiveCall and associated functions
 
 Remove faulty fastpath from ctypes
 
+.. branch: sockopt_zero
+
+Passing a buffersize of 0 to socket.getsockopt
+
+.. branch: better-test-whatsnew
+
+.. branch: faster-rstruct-2
+
+Improve the performance of struct.pack and struct.pack_into by using raw_store
+or gc_store_indexed whenever possible. Moreover, enable the existing
+struct.unpack fast path to all the existing buffer types, whereas previously
+it was enabled only for strings

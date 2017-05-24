@@ -304,6 +304,74 @@ def test_nonmoving_raw_ptr_for_resizable_list():
     data = subprocess.check_output([str(exename), '.', '.', '.'])
     assert data.strip().endswith('OK!')
 
+
+def test_nonmoving_raw_ptr_for_resizable_list_getslice():
+    def f(n):
+        lst = ['a', 'b', 'c', 'd', 'e']
+        lst = rgc.resizable_list_supporting_raw_ptr(lst)
+        lst = lst[:3]
+        lst.append(chr(n))
+        assert lst[3] == chr(n)
+        assert lst[-1] == chr(n)
+        #
+        ptr = rgc.nonmoving_raw_ptr_for_resizable_list(lst)
+        assert lst[:] == ['a', 'b', 'c', chr(n)]
+        assert lltype.typeOf(ptr) == rffi.CCHARP
+        assert [ptr[i] for i in range(4)] == ['a', 'b', 'c', chr(n)]
+        return lst
+    #
+    # direct untranslated run
+    lst = f(35)
+    assert isinstance(lst, rgc._ResizableListSupportingRawPtr)
+    #
+    # llinterp run
+    interpret(f, [35])
+
+
+def test_ll_for_resizable_list():
+    def f(n):
+        lst = ['a', 'b', 'c']
+        lst = rgc.resizable_list_supporting_raw_ptr(lst)
+        lst.append(chr(n))
+        assert lst[3] == chr(n)
+        assert lst[-1] == chr(n)
+        #
+        ll_list = rgc.ll_for_resizable_list(lst)
+        assert lst[:] == ['a', 'b', 'c', chr(n)]
+        assert ll_list.length == 4
+        assert [ll_list.items[i] for i in range(4)] == ['a', 'b', 'c', chr(n)]
+        #
+        lst[-3] = 'X'
+        assert ll_list.items[1] == 'X'
+        ll_list.items[2] = 'Y'
+        assert lst[-2] == 'Y'
+        #
+        return lst
+    #
+    # direct untranslated run
+    lst = f(35)
+    assert isinstance(lst, rgc._ResizableListSupportingRawPtr)
+    #
+    # llinterp run
+    interpret(f, [35])
+    #
+    # compilation with the GC transformer
+    import subprocess
+    from rpython.translator.interactive import Translation
+    #
+    def main(argv):
+        f(len(argv))
+        print "OK!"
+        return 0
+    #
+    t = Translation(main, gc="incminimark")
+    t.disable(['backendopt'])
+    t.set_backend_extra_options(c_debug_defines=True)
+    exename = t.compile()
+    data = subprocess.check_output([str(exename), '.', '.', '.'])
+    assert data.strip().endswith('OK!')
+
+
 def test_ListSupportingRawPtr_direct():
     lst = ['a', 'b', 'c']
     lst = rgc.resizable_list_supporting_raw_ptr(lst)
@@ -351,14 +419,15 @@ def test_ListSupportingRawPtr_direct():
 
     p = lst
     check_nonresizing()
-    assert lst._raw_items is None
-    lst._nonmoving_raw_ptr_for_resizable_list()
-    p = lst._raw_items
+    assert lst._ll_list is None
+    p = lst._nonmoving_raw_ptr_for_resizable_list()
+    ll_list = rgc.ll_for_resizable_list(lst)
+    assert ll_list is lst._ll_list
     check_nonresizing()
-    assert lst._raw_items == p
-    assert p[0] == 'a'
-    assert p[1] == 'b'
-    assert p[2] == 'c'
+    assert lst._ll_list == ll_list
+    assert p[0] == ll_list.items[0] == 'a'
+    assert p[1] == ll_list.items[1] == 'b'
+    assert p[2] == ll_list.items[2] == 'c'
 
     def do_resizing_operation():
         del lst[1]
@@ -397,7 +466,7 @@ def test_ListSupportingRawPtr_direct():
     assert lst == ['a', 'b', 'c']
     for expect in do_resizing_operation():
         assert lst == expect
-        assert lst._raw_items is None
+        assert lst._ll_list is None
         lst = ['a', 'b', 'c']
         lst = rgc.resizable_list_supporting_raw_ptr(lst)
         lst._nonmoving_raw_ptr_for_resizable_list()
