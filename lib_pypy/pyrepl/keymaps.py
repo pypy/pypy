@@ -62,7 +62,7 @@ reader_emacs_keymap = tuple(
      (r'\M-\n', 'self-insert'),
      (r'\<backslash>', 'self-insert')] + \
     [(c, 'self-insert')
-     for c in map(chr, range(32, 127)) if c <> '\\'] + \
+     for c in map(chr, range(32, 127)) if c != '\\'] + \
     [(c, 'self-insert')
      for c in map(chr, range(128, 256)) if c.isalpha()] + \
     [(r'\<up>', 'up'),
@@ -101,7 +101,7 @@ python_emacs_keymap = comp_emacs_keymap + (
     
 reader_vi_insert_keymap = tuple(
     [(c, 'self-insert')
-     for c in map(chr, range(32, 127)) if c <> '\\'] + \
+     for c in map(chr, range(32, 127)) if c != '\\'] + \
     [(c, 'self-insert')
      for c in map(chr, range(128, 256)) if c.isalpha()] + \
     [(r'\C-d', 'delete'),
