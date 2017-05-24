@@ -1,5 +1,5 @@
 from rpython.rlib.rarithmetic import LONG_BIT, r_longlong, r_uint
-from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.mutbuffer import MutableStringBuffer
 from rpython.rlib.rstruct import ieee
 from rpython.rlib.unroll import unrolling_iterable
 
@@ -190,9 +190,9 @@ def unmarshal_long(space, u, tc):
 
 
 def pack_float(f):
-    result = StringBuilder(8)
-    ieee.pack_float(result, f, 8, False)
-    return result.build()
+    buf = MutableStringBuffer(8)
+    ieee.pack_float(buf, 0, f, 8, False)
+    return buf.finish()
 
 def unpack_float(s):
     return ieee.unpack_float(s, False)

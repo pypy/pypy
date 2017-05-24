@@ -1,5 +1,6 @@
 from rpython.rlib import jit
 from rpython.rlib.buffer import SubBuffer
+from rpython.rlib.mutbuffer import MutableStringBuffer
 from rpython.rlib.rstruct.error import StructError, StructOverflowError
 from rpython.rlib.rstruct.formatiterator import CalcSizeFormatIterator
 
@@ -40,18 +41,17 @@ def calcsize(space, format):
 
 def _pack(space, format, args_w):
     """Return string containing values v1, v2, ... packed according to fmt."""
-    if jit.isconstant(format):
-        size = _calcsize(space, format)
-    else:
-        size = 8
-    fmtiter = PackFormatIterator(space, args_w, size)
+    size = _calcsize(space, format)
+    wbuf = MutableStringBuffer(size)
+    fmtiter = PackFormatIterator(space, wbuf, args_w)
     try:
         fmtiter.interpret(format)
     except StructOverflowError as e:
         raise OperationError(space.w_OverflowError, space.newtext(e.msg))
     except StructError as e:
         raise OperationError(get_error(space), space.newtext(e.msg))
-    return fmtiter.result.build()
+    assert fmtiter.pos == wbuf.getlength(), 'missing .advance() or wrong calcsize()'
+    return wbuf.finish()
 
 
 @unwrap_spec(format='text')
@@ -59,22 +59,28 @@ def pack(space, format, args_w):
     return space.newbytes(_pack(space, format, args_w))
 
 
-# XXX inefficient
 @unwrap_spec(format='text', offset=int)
 def pack_into(space, format, w_buffer, offset, args_w):
     """ Pack the values v1, v2, ... according to fmt.
 Write the packed bytes into the writable buffer buf starting at offset
     """
-    res = _pack(space, format, args_w)
+    size = _calcsize(space, format)
     buf = space.getarg_w('w*', w_buffer)
     if offset < 0:
         offset += buf.getlength()
-    size = len(res)
     if offset < 0 or (buf.getlength() - offset) < size:
         raise oefmt(get_error(space),
                     "pack_into requires a buffer of at least %d bytes",
                     size)
-    buf.setslice(offset, res)
+    #
+    wbuf = SubBuffer(buf, offset, size)
+    fmtiter = PackFormatIterator(space, wbuf, args_w)
+    try:
+        fmtiter.interpret(format)
+    except StructOverflowError as e:
+        raise OperationError(space.w_OverflowError, space.newtext(e.msg))
+    except StructError as e:
+        raise OperationError(get_error(space), space.newtext(e.msg))
 
 
 def _unpack(space, format, buf):
