@@ -818,6 +818,11 @@ def setup_bootstrap_path(executable):
     executable = sys.pypy_find_executable(executable)
     stdlib_path = sys.pypy_find_stdlib(executable)
     if stdlib_path is None:
+        for lib_path in sys.path:
+            stdlib_path = sys.pypy_find_stdlib(lib_path)
+            if stdlib_path is not None:
+                break
+    if stdlib_path is None:
         print >> sys.stderr, STDLIB_WARNING
     else:
         sys.path[:] = stdlib_path
