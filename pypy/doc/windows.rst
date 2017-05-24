@@ -23,7 +23,7 @@ of success with the mingw32 port of gcc.
 Installing Visual Compiler v9 (for Python 2.7)
 ----------------------------------------------
 
-This compiler, while the standard one for Python 2.7, is depricated. Microsoft has
+This compiler, while the standard one for Python 2.7, is deprecated. Microsoft has
 made it available as the `Microsoft Visual C++ Compiler for Python 2.7`_ (the link
 was checked in Nov 2016). Note that the compiler suite will be installed in
 ``C:\Users\<user name>\AppData\Local\Programs\Common\Microsoft\Visual C++ for Python``.
