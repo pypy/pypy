@@ -112,7 +112,9 @@ class W_Buffer(W_Root):
     descr_ge = _make_descr__cmp('ge')
 
     def descr_hash(self, space):
-        return space.newint(compute_hash(self.buf.as_str()))
+        x = compute_hash(self.buf.as_str())
+        x -= (x == -1) # convert -1 to -2 without creating a bridge
+        return space.newint(x)
 
     def descr_mul(self, space, w_times):
         # xxx not the most efficient implementation

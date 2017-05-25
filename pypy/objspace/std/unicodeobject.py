@@ -239,6 +239,7 @@ class W_UnicodeObject(W_Root):
 
     def descr_hash(self, space):
         x = compute_hash(self._value)
+        x -= (x == -1) # convert -1 to -2 without creating a bridge
         return space.newint(x)
 
     def descr_eq(self, space, w_other):
