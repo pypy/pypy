@@ -2011,9 +2011,19 @@ array_buffer_getsegcount(arrayobject *self, Py_ssize_t *lenp)
 static int
 array_getbuffer(PyObject* obj, Py_buffer* view, int flags)
 {
+    int ret;
     arrayobject* self = (arrayobject*)obj;
-    return PyBuffer_FillInfo(view, obj, self->ob_item,
+    ret = PyBuffer_FillInfo(view, obj, self->ob_item,
             Py_SIZE(self)*self->ob_descr->itemsize, 0, flags);
+    if (ret < 0) {
+        return ret;
+    }
+    if ((flags & PyBUF_ND) != PyBUF_ND) {
+        // numpy effectively does this
+        view->ndim = 0;
+        view->shape = NULL;
+    }
+    return ret;
 }
 
 static long releasebuffer_cnt = 0;

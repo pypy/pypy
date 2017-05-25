@@ -389,6 +389,9 @@ class CPyBuffer(BufferView):
         for i in range(len(string)):
             self.ptr[start + i] = string[i]
 
+    def as_str(self):
+        return CBuffer(self).as_str()
+
     def as_readbuf(self):
         return CBuffer(self)
 
