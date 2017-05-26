@@ -514,6 +514,7 @@ def current_object_addr_as_int(x):
 
 # ----------
 
+@specialize.ll()
 def _hash_string(s):
     """The default algorithm behind compute_hash() for a string or a unicode.
     This is a modified Fowler-Noll-Vo (FNV) hash.  According to Wikipedia,
