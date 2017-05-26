@@ -218,12 +218,7 @@ class W_Root(object):
         return self.__buffer_w(space, flags).buffer_w(space, flags)
 
     def __buffer_w(self, space, flags):
-        if flags & space.BUF_WRITABLE:
-            w_impl = space.lookup(self, '__wbuffer__')
-        else:
-            w_impl = space.lookup(self, '__rbuffer__')
-        if w_impl is None:
-            w_impl = space.lookup(self, '__buffer__')
+        w_impl = space.lookup(self, '__buffer__')
         if w_impl is not None:
             w_result = space.get_and_call_function(w_impl, self,
                                                    space.newint(flags))
