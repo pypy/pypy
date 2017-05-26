@@ -264,6 +264,9 @@ class PyPyTarget(object):
                 raise Exception("Cannot use the --output option with PyPy "
                                 "when --shared is on (it is by default). "
                                 "See issue #1971.")
+        elif config.translation.nopax is not None:
+            raise Exception("Cannot use the --nopax option "
+                            "when --shared is off (it is on by default). ")
 
         # if both profopt and profoptpath are specified then we keep them as they are with no other changes
         if config.translation.profopt:

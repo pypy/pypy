@@ -22,12 +22,23 @@ elif sys.platform == 'darwin':
     linklibs = ['tcl', 'tk']
     libdirs = []
 else:
+    # On some Linux distributions, the tcl and tk libraries are
+    # stored in /usr/include, so we must check this case also
+    found = False
     for _ver in ['', '8.6', '8.5', '']:
         incdirs = ['/usr/include/tcl' + _ver]
         linklibs = ['tcl' + _ver, 'tk' + _ver]
         libdirs = []
         if os.path.isdir(incdirs[0]):
+            found = True
             break
+        if not found:
+            for _ver in ['8.6', '8.5', '']:
+                incdirs = ['/usr/include']
+                linklibs = ['tcl' + _ver, 'tk' + _ver]
+                libdirs=[]
+                if os.path.isfile(''.join(['/usr/lib/lib', linklibs[1], '.so'])):
+                    break
 
 config_ffi = FFI()
 config_ffi.cdef("""
