@@ -28,7 +28,7 @@ def test_round_away():
 
 def test_round_double():
     def almost_equal(x, y):
-        assert round(abs(x-y), 7) == 0
+        assert abs(x-y) < 1e-7
 
     almost_equal(round_double(0.125, 2), 0.13)
     almost_equal(round_double(0.375, 2), 0.38)
@@ -85,6 +85,13 @@ def test_round_double():
     almost_equal(round_double(0.5e22, -22), 1e22)
     almost_equal(round_double(1.5e22, -22), 2e22)
 
+    exact_integral = 5e15 + 1
+    assert round_double(exact_integral, 0) == exact_integral
+    assert round_double(exact_integral/2.0, 0) == 5e15/2.0 + 1.0
+    exact_integral = 5e15 - 1
+    assert round_double(exact_integral, 0) == exact_integral
+    assert round_double(exact_integral/2.0, 0) == 5e15/2.0
+
 def test_round_half_even():
     from rpython.rlib import rfloat
     func = rfloat.round_double
@@ -92,6 +99,15 @@ def test_round_half_even():
     assert func(2.5, 0, False) == 3.0
     # 3.x behavior
     assert func(2.5, 0, True) == 2.0
+    for i in range(-10, 10):
+        assert func(i + 0.5, 0, True) == i + (i & 1)
+        assert func(i * 10 + 5, -1, True) == (i + (i & 1)) * 10
+    exact_integral = 5e15 + 1
+    assert round_double(exact_integral, 0, True) == exact_integral
+    assert round_double(exact_integral/2.0, 0, True) == 5e15/2.0
+    exact_integral = 5e15 - 1
+    assert round_double(exact_integral, 0, True) == exact_integral
+    assert round_double(exact_integral/2.0, 0, True) == 5e15/2.0
 
 def test_float_as_rbigint_ratio():
     for f, ratio in [

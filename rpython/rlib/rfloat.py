@@ -96,7 +96,20 @@ def round_double(value, ndigits, half_even=False):
     """Round a float half away from zero.
 
     Specify half_even=True to round half even instead.
+    The argument 'value' must be a finite number.  This
+    function may return an infinite number in case of
+    overflow (only if ndigits is a very negative integer).
     """
+    if ndigits == 0:
+        # fast path for this common case
+        if half_even:
+            return round_half_even(value)
+        else:
+            return round_away(value)
+
+    if value == 0.0:
+        return 0.0
+
     # The basic idea is very simple: convert and round the double to
     # a decimal string using _Py_dg_dtoa, then convert that decimal
     # string back to a double with _Py_dg_strtod.  There's one minor
@@ -217,11 +230,34 @@ def log2(x):
 
 def round_away(x):
     # round() from libm, which is not available on all platforms!
+    # This version rounds away from zero.
     absx = abs(x)
-    if absx - math.floor(absx) >= .5:
-        r = math.ceil(absx)
+    r = math.floor(absx + 0.5)
+    if r - absx < 1.0:
+        return copysign(r, x)
     else:
-        r = math.floor(absx)
+        # 'absx' is just in the wrong range: its exponent is precisely
+        # the one for which all integers are representable but not any
+        # half-integer.  It means that 'absx + 0.5' computes equal to
+        # 'absx + 1.0', which is not equal to 'absx'.  So 'r - absx'
+        # computes equal to 1.0.  In this situation, we can't return
+        # 'r' because 'absx' was already an integer but 'r' is the next
+        # integer!  But just returning the original 'x' is fine.
+        return x
+
+def round_half_even(x):
+    absx = abs(x)
+    r = math.floor(absx + 0.5)
+    frac = r - absx
+    if frac >= 0.5:
+        # two rare cases: either 'absx' is precisely half-way between
+        # two integers (frac == 0.5); or we're in the same situation as
+        # described in round_away above (frac == 1.0).
+        if frac >= 1.0:
+            return x
+        # absx == n + 0.5  for a non-negative integer 'n'
+        # absx * 0.5 == n//2 + 0.25 or 0.75, which we round to nearest
+        r = math.floor(absx * 0.5 + 0.5) * 2.0
     return copysign(r, x)
 
 @not_rpython
