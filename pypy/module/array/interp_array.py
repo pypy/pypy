@@ -258,7 +258,7 @@ class W_ArrayBase(W_Root):
             lltype.free(oldbuffer, flavor='raw')
 
     def buffer_w(self, space, flags):
-        return ArrayView(ArrayData(self), self.typecode, self.itemsize, False)
+        return ArrayView(ArrayBuffer(self), self.typecode, self.itemsize, False)
 
     def descr_append(self, space, w_x):
         """ append(x)
@@ -848,7 +848,7 @@ for k, v in types.items():
     v.typecode = k
 unroll_typecodes = unrolling_iterable(types.keys())
 
-class ArrayData(RawBuffer):
+class ArrayBuffer(RawBuffer):
     _immutable_ = True
     readonly = False
     def __init__(self, w_array):
