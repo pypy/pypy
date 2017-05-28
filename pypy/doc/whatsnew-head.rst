@@ -68,3 +68,10 @@ Improve the performance of struct.pack and struct.pack_into by using raw_store
 or gc_store_indexed whenever possible. Moreover, enable the existing
 struct.unpack fast path to all the existing buffer types, whereas previously
 it was enabled only for strings
+
+.. branch: Kounavi/fix-typo-depricate-to-deprecate-p-1495624547235
+
+.. branch: PyPy_profopt_enabled
+
+Add profile-based optimization option ``profopt``, and specify training data
+via ``profoptpath``
