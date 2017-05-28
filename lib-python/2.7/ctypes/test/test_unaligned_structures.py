@@ -37,7 +37,10 @@ class TestStructures(unittest.TestCase):
         for typ in byteswapped_structures:
 ##            print >> sys.stderr, typ.value
             self.assertEqual(typ.value.offset, 1)
-            o = typ()
+            try:
+                o = typ()
+            except NotImplementedError as e:
+                self.skipTest(str(e))    # for PyPy
             o.value = 4
             self.assertEqual(o.value, 4)
 
