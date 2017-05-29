@@ -2989,8 +2989,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def rawrefcount_mark_deallocating(self, gcobj, pyobject):
         ll_assert(self.rrc_enabled, "rawrefcount.init not called")
         obj = llmemory.cast_ptr_to_adr(gcobj)   # should be a prebuilt obj
-        objint = llmemory.cast_adr_to_int(obj, "symbolic")
-        self._pyobj(pyobject).ob_pypy_link = objint
+        self._rrc_set_gc_partner(pyobject, obj)
 
     def rawrefcount_from_obj(self, gcobj):
         obj = llmemory.cast_ptr_to_adr(gcobj)

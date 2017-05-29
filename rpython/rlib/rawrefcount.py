@@ -307,6 +307,5 @@ def _spec_ob(hop, v_adr):
 src_dir = py.path.local(__file__).dirpath() / 'src'
 boehm_eci = ExternalCompilationInfo(
     post_include_bits=[(src_dir / 'boehm-rawrefcount.h').read()],
-    separate_module_files=[(src_dir / 'boehm-rawrefcount.c')],
-)
+    separate_module_files=[(src_dir / 'boehm-rawrefcount.c')])
 func_boehm_eci = rffi.llexternal_use_eci(boehm_eci)
