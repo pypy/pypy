@@ -595,6 +595,16 @@ class AppTestSocket:
         s.setsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 1)
         assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 0) == 1
 
+    def test_getsockopt_bad_length(self):
+        import _socket
+        s = _socket.socket()
+        buf = s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 1024)
+        assert buf == b'\x00' * 4
+        raises(_socket.error, s.getsockopt,
+               _socket.IPPROTO_TCP, _socket.TCP_NODELAY, 1025)
+        raises(_socket.error, s.getsockopt,
+               _socket.IPPROTO_TCP, _socket.TCP_NODELAY, -1)
+
     def test_socket_ioctl(self):
         import _socket, sys
         if sys.platform != 'win32':
