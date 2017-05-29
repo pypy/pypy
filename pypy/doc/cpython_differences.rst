@@ -363,9 +363,10 @@ C-API Differences
 The external C-API has been reimplemented in PyPy as an internal cpyext module.
 We support most of the documented C-API, but sometimes internal C-abstractions
 leak out on CPython and are abused, perhaps even unknowingly. For instance,
-assignment to a ``PyTupleObject`` is not supported on PyPy after the tuple is
-used internally, even if its refcount is 1 (whatever that means). On PyPy this
-will raise a ``SystemError('PyTuple_SetItem called on tuple after  use of tuple")``
+assignment to a ``PyTupleObject`` is not supported after the tuple is
+used internally, even by another C-API function call. On CPython this will
+succeed as long as the refcount is 1.  On PyPy this will always raise a
+``SystemError('PyTuple_SetItem called on tuple after  use of tuple")``
 exception (explicitly listed here for search engines).
 
 Another similar problem is assignment of a new function pointer to any of the
