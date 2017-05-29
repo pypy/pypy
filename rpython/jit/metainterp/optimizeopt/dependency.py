@@ -13,6 +13,7 @@ from rpython.rlib.objectmodel import we_are_translated
 MODIFY_COMPLEX_OBJ = [ (rop.SETARRAYITEM_GC, 0, 1)
                      , (rop.SETARRAYITEM_RAW, 0, 1)
                      , (rop.RAW_STORE, 0, 1)
+                     , (rop.VEC_STORE, 0, 1)
                      , (rop.SETINTERIORFIELD_GC, 0, -1)
                      , (rop.SETINTERIORFIELD_RAW, 0, -1)
                      , (rop.SETFIELD_GC, 0, -1)
@@ -31,6 +32,8 @@ LOAD_COMPLEX_OBJ = [ (rop.GETARRAYITEM_GC_I, 0, 1)
                    , (rop.GETARRAYITEM_RAW_F, 0, 1)
                    , (rop.RAW_LOAD_I, 0, 1)
                    , (rop.RAW_LOAD_F, 0, 1)
+                   , (rop.VEC_LOAD_I, 0, 1)
+                   , (rop.VEC_LOAD_F, 0, 1)
                    , (rop.GETINTERIORFIELD_GC_I, 0, 1)
                    , (rop.GETINTERIORFIELD_GC_F, 0, 1)
                    , (rop.GETINTERIORFIELD_GC_R, 0, 1)
@@ -136,6 +139,7 @@ class Node(object):
         self.schedule_position = -1
         self.priority = 0
         self._stack = False
+        self.delayed = None
 
     def is_imaginary(self):
         return False
@@ -148,6 +152,7 @@ class Node(object):
 
     def getopnum(self):
         return self.op.getopnum()
+
     def getopname(self):
         return self.op.getopname()
 
@@ -156,6 +161,9 @@ class Node(object):
 
     def can_be_relaxed(self):
         return self.op.getopnum() in (rop.GUARD_TRUE, rop.GUARD_FALSE)
+
+    def is_pure(self):
+        return rop.is_always_pure(self.op.getopnum())
 
     def edge_to(self, to, arg=None, failarg=False, label=None):
         if self is to:
@@ -545,14 +553,15 @@ class DependencyGraph(object):
     """
     def __init__(self, loop):
         self.loop = loop
-        self.label = Node(loop.label, 0)
+        label = loop.prefix_label or loop.label
+        self.label = Node(label, 0)
         self.nodes = [ Node(op,0) for op in loop.operations if not rop.is_jit_debug(op.opnum) ]
         for i,node in enumerate(self.nodes):
             node.opidx = i+1
         self.inodes = [] # imaginary nodes
         self.jump = Node(loop.jump, len(self.nodes)+1)
         self.invariant_vars = {}
-        self.update_invariant_vars()
+        self.update_invariant_vars(label)
         self.memory_refs = {}
         self.schedulable_nodes = []
         self.index_vars = {}
@@ -568,8 +577,9 @@ class DependencyGraph(object):
         self.inodes.append(node)
         return node
 
-    def update_invariant_vars(self):
-        label_op = self.label.getoperation()
+    def update_invariant_vars(self, label_op=None):
+        if not label_op:
+            label_op = self.label.getoperation()
         jump_op = self.jump.getoperation()
         assert label_op.numargs() == jump_op.numargs()
         for i in range(label_op.numargs()):
@@ -933,10 +943,6 @@ class IntegralForwardModification(object):
     """
     exec py.code.Source(multiplicative_func_source
             .format(name='INT_MUL', op='*', tgt='mul', cop='*')).compile()
-    #exec py.code.Source(multiplicative_func_source
-    #        .format(name='INT_PY_DIV', op='*', tgt='div', cop='/')).compile()
-    #exec py.code.Source(multiplicative_func_source
-    #        .format(name='UINT_FLOORDIV', op='*', tgt='div', cop='/')).compile()
     del multiplicative_func_source
 
     array_access_source = """
@@ -982,6 +988,23 @@ class IndexVar(AbstractValue):
         # saves the next modification that uses a variable
         self.next_nonconst = None
         self.current_end = None
+
+    def calculated_by(self, op):
+        # quick check to indicate if this operation is not directly expressable using
+        # the operation in the op parameter.
+        if op.getopnum() == rop.INT_ADD:
+            a0 = op.getarg(0)
+            a1 = op.getarg(1)
+            if a0 is self.var and a1.is_constant() and a1.getint() == self.constant:
+                return True
+            if a1 is self.var and a0.is_constant() and a0.getint() == self.constant:
+                return True
+        if op.getopnum() == rop.INT_SUB:
+            a0 = op.getarg(0)
+            a1 = op.getarg(1)
+            if a0 is self.var and a1.is_constant() and a1.getint() == self.constant:
+                return True
+        return False
 
     def stride_const(self):
         return self.next_nonconst is None
@@ -1037,29 +1060,35 @@ class IndexVar(AbstractValue):
         assert isinstance(other, IndexVar)
         return self.constant - other.constant
 
+    def get_operations(self):
+        var = self.var
+        tolist = []
+        if self.coefficient_mul != 1:
+            args = [var, ConstInt(self.coefficient_mul)]
+            var = ResOperation(rop.INT_MUL, args)
+            tolist.append(var)
+        if self.coefficient_div != 1:
+            assert 0   # should never be the case with handling
+                       # of INT_PY_DIV commented out in this file...
+        if self.constant > 0:
+            args = [var, ConstInt(self.constant)]
+            var = ResOperation(rop.INT_ADD, args)
+            tolist.append(var)
+        if self.constant < 0:
+            args = [var, ConstInt(-self.constant)]
+            var = ResOperation(rop.INT_SUB, args)
+            tolist.append(var)
+        return tolist
+
     def emit_operations(self, opt, result_box=None):
         var = self.var
         if self.is_identity():
             return var
-        if self.coefficient_mul != 1:
-            args = [var, ConstInt(self.coefficient_mul)]
-            var = ResOperation(rop.INT_MUL, args)
-            opt.emit_operation(var)
-        if self.coefficient_div != 1:
-            assert 0   # XXX for now; should never be the case with handling
-                       # of INT_PY_DIV commented out in this file...
-            #args = [var, ConstInt(self.coefficient_div)]
-            #var = ResOperation(rop.INT_FLOORDIV, args)
-            #opt.emit_operation(var)
-        if self.constant > 0:
-            args = [var, ConstInt(self.constant)]
-            var = ResOperation(rop.INT_ADD, args)
-            opt.emit_operation(var)
-        if self.constant < 0:
-            args = [var, ConstInt(self.constant)]
-            var = ResOperation(rop.INT_SUB, args)
-            opt.emit_operation(var)
-        return var 
+        last = None
+        for op in self.get_operations():
+            opt.emit_operation(op)
+            last = op
+        return last
 
     def compare(self, other):
         """ Returns if the two are compareable as a first result

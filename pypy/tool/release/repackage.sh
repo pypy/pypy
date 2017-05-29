@@ -1,8 +1,8 @@
 # Edit these appropriately before running this script
 maj=5
-min=3
+min=7
 rev=1
-branchname=release-$maj.x  # ==OR== release-$maj.$min.x
+branchname=release-pypy2.7-5.x # ==OR== release-$maj.x  # ==OR== release-$maj.$min.x
 tagname=release-pypy2.7-v$maj.$min.$rev  # ==OR== release-$maj.$min
 
 echo checking hg log -r $branchname
@@ -39,7 +39,7 @@ mv pypy-c-jit-*-$plat $rel-$plat
 zip -rq $rel-$plat.zip $rel-$plat
 rm -rf $rel-$plat
 
-# Do this after creating a tag, note the untarred directory is pypy-pypy-<hash>
+# Requires a valid $tagname, note the untarred directory is pypy-pypy-<hash>
 # so make sure there is not another one
 wget https://bitbucket.org/pypy/pypy/get/$tagname.tar.bz2
 tar -xf $tagname.tar.bz2
@@ -50,8 +50,8 @@ zip -rq $rel-src.zip $rel-src
 rm -rf $rel-src
 
 # Print out the md5, sha1, sha256
-md5sum *.bz2 *.zip
-sha1sum *.bz2 *.zip
+#md5sum *.bz2 *.zip
+#sha1sum *.bz2 *.zip
 sha256sum *.bz2 *.zip
 
 # Now upload all the bz2 and zip

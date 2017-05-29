@@ -1,11 +1,18 @@
 #!/usr/bin/env python
 
 import sys, os
+import itertools
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
 MAXUNICODE = 0x10FFFF     # the value of sys.maxunicode of wide Python builds
 
 MANDATORY_LINE_BREAKS = ["BK", "CR", "LF", "NL"] # line break categories
+
+# Private Use Areas -- in planes 1, 15, 16
+PUA_1 = range(0xE000, 0xF900)
+PUA_15 = range(0xF0000, 0xFFFFE)
+PUA_16 = range(0x100000, 0x10FFFE)
 
 class Fraction:
     def __init__(self, numerator, denominator):
@@ -18,7 +25,7 @@ class Fraction:
     def __str__(self):
         return repr(self)
 
-class Unicodechar:
+class UnicodeChar:
     def __init__(self, data=None):
         if data is None:
             return
@@ -41,6 +48,7 @@ class Unicodechar:
         self.linebreak = False
         self.decompositionTag = ''
         self.properties = ()
+        self.casefolding = None
         if data[5]:
             self.raw_decomposition = data[5]
             if data[5][0] == '<':
@@ -74,37 +82,96 @@ class Unicodechar:
             self.title = int(data[14], 16)
 
     def copy(self):
-        uc = Unicodechar()
+        uc = UnicodeChar()
         uc.__dict__.update(self.__dict__)
         return uc
 
-def get_compat_decomposition(table, code):
-    if not table[code].decomposition:
-        return [code]
-    if not table[code].compat_decomp:
-        result = []
-        for decomp in table[code].decomposition:
-            result.extend(get_compat_decomposition(table, decomp))
-        table[code].compat_decomp = result
-    return table[code].compat_decomp
+class UnicodeData(object):
+    # we use this range of PUA_15 to store name aliases and named sequences
+    NAME_ALIASES_START = 0xF0000
+    NAMED_SEQUENCES_START = 0xF0200
 
-def get_canonical_decomposition(table, code):
-    if not table[code].decomposition or table[code].isCompatibility:
-        return [code]
-    if not table[code].canonical_decomp:
-        result = []
-        for decomp in table[code].decomposition:
-            result.extend(get_canonical_decomposition(table, decomp))
-        table[code].canonical_decomp = result
-    return table[code].canonical_decomp
+    def __init__(self):
+        self.table = [None] * (MAXUNICODE + 1)
+        self.aliases = []
+        self.named_sequences = []
 
-def read_unicodedata(unicodedata_file, exclusions_file, east_asian_width_file,
-                     unihan_file=None, linebreak_file=None,
-                     derived_core_properties_file=None):
+    def add_char(self, code, char):
+        assert self.table[code] is None, (
+            'Multiply defined character %04X' % code)
+        if isinstance(char, list):
+            char = UnicodeChar(char)
+        self.table[code] = char
+        return char
+
+    def all_codes(self):
+        return range(len(self.table))
+
+    def enum_chars(self):
+        for code in range(len(self.table)):
+            yield code, self.table[code]
+
+    def get_char(self, code):
+        return self.table[code]
+
+    def clone_char(self, code):
+        clone = self.table[code] = self.table[code].copy()
+        return clone
+
+    def set_excluded(self, code):
+        self.table[code].excluded = True
+
+    def set_linebreak(self, code):
+        self.table[code].linebreak = True
+
+    def set_east_asian_width(self, code, width):
+        self.table[code].east_asian_width = width
+
+    def add_property(self, code, p):
+        self.table[code].properties += (p,)
+
+    def get_compat_decomposition(self, code):
+        if not self.table[code].decomposition:
+            return [code]
+        if not self.table[code].compat_decomp:
+            result = []
+            for decomp in self.table[code].decomposition:
+                result.extend(self.get_compat_decomposition(decomp))
+            self.table[code].compat_decomp = result
+        return self.table[code].compat_decomp
+
+    def get_canonical_decomposition(self, code):
+        if (not self.table[code].decomposition or
+            self.table[code].isCompatibility):
+            return [code]
+        if not self.table[code].canonical_decomp:
+            result = []
+            for decomp in self.table[code].decomposition:
+                result.extend(self.get_canonical_decomposition(decomp))
+            self.table[code].canonical_decomp = result
+        return self.table[code].canonical_decomp
+
+    def add_alias(self, name, char):
+        pua_index = self.NAME_ALIASES_START + len(self.aliases)
+        self.aliases.append((name, char))
+        # also store the name in the PUA 1
+        self.table[pua_index].name = name
+
+    def add_named_sequence(self, name, chars):
+        pua_index = self.NAMED_SEQUENCES_START + len(self.named_sequences)
+        self.named_sequences.append((name, chars))
+        # also store these in the PUA 1
+        self.table[pua_index].name = name
+
+    def add_casefold_sequence(self, code, chars):
+        self.table[code].casefolding = chars
+
+
+def read_unicodedata(files):
     rangeFirst = {}
     rangeLast = {}
-    table = [None] * (MAXUNICODE + 1)
-    for line in unicodedata_file:
+    table = UnicodeData()
+    for line in files['data']:
         line = line.split('#', 1)[0].strip()
         if not line:
             continue
@@ -119,26 +186,23 @@ def read_unicodedata(unicodedata_file, exclusions_file, east_asian_width_file,
             rangeLast[name]  = code
             continue
         code = int(data[0], 16)
-        u = Unicodechar(data)
-        assert table[code] is None, 'Multiply defined character %04X' % code
-        table[code] = u
+        table.add_char(code, data)
 
     # Collect ranges
     ranges = {}
     for name, (start, data) in rangeFirst.iteritems():
         end = rangeLast[name]
-        unichar = Unicodechar(['0000', None] + data[2:])
-        ranges[(start, end)] = unichar
+        ranges[(start, end)] = ['0000', None] + data[2:]
 
     # Read exclusions
-    for line in exclusions_file:
+    for line in files['exclusions']:
         line = line.split('#', 1)[0].strip()
         if not line:
             continue
-        table[int(line, 16)].excluded = True
+        table.set_excluded(int(line, 16))
 
     # Read line breaks
-    for line in linebreak_file:
+    for line in files['linebreak']:
         line = line.split('#', 1)[0].strip()
         if not line:
             continue
@@ -150,16 +214,15 @@ def read_unicodedata(unicodedata_file, exclusions_file, east_asian_width_file,
         else:
             first, last = [int(c, 16) for c in data[0].split('..')]
         for char in range(first, last+1):
-            table[char].linebreak = True
+            table.set_linebreak(char)
 
     # Expand ranges
-    for (first, last), char in ranges.iteritems():
+    for (first, last), data in ranges.iteritems():
         for code in range(first, last + 1):
-            assert table[code] is None, 'Multiply defined character %04X' % code
-            table[code] = char
+            table.add_char(code, data)
 
     # Read east asian width
-    for line in east_asian_width_file:
+    for line in files['east_asian_width']:
         line = line.split('#', 1)[0].strip()
         if not line:
             continue
@@ -167,16 +230,16 @@ def read_unicodedata(unicodedata_file, exclusions_file, east_asian_width_file,
         if '..' in code:
             first, last = map(lambda x:int(x,16), code.split('..'))
             for code in range(first, last + 1):
-                uc = table[code]
-                if uc is None:
-                    uc = table[code] = Unicodechar(['0000', None,
-                                                    'Cn'] + [''] * 12)
+                uc = table.get_char(code)
+                if not uc:
+                    uc = table.add_char(code, ['0000', None,
+                                               'Cn'] + [''] * 12)
                 uc.east_asian_width = width
         else:
-            table[int(code, 16)].east_asian_width = width
+            table.set_east_asian_width(int(code, 16), width)
 
     # Read Derived Core Properties:
-    for line in derived_core_properties_file:
+    for line in files['derived_core_properties']:
         line = line.split('#', 1)[0].strip()
         if not line:
             continue
@@ -190,27 +253,73 @@ def read_unicodedata(unicodedata_file, exclusions_file, east_asian_width_file,
         else:
             chars = [int(r, 16)]
         for char in chars:
-            if not table[char]:
+            if not table.get_char(char):
                 # Some properties (e.g. Default_Ignorable_Code_Point)
                 # apply to unassigned code points; ignore them
                 continue
-            table[char].properties += (p,)
+            table.add_property(char, p)
 
-    defaultChar = Unicodechar(['0000', None, 'Cn'] + [''] * 12)
-    for code in range(len(table)):
-        if table[code] is None:
-            table[code] = defaultChar
+    defaultChar = UnicodeChar(['0000', None, 'Cn'] + [''] * 12)
+    for code, char in table.enum_chars():
+        if not char:
+            table.add_char(code, defaultChar)
 
-    extra_numeric = read_unihan(unihan_file)
+    extra_numeric = read_unihan(files['unihan'])
     for code, value in extra_numeric.iteritems():
-        uc = table[code].copy()
-        uc.numeric = value
-        table[code] = uc
+        table.clone_char(code).numeric = value
+
+    table.special_casing = {}
+    if 'special_casing' in files:
+        for line in files['special_casing']:
+            line = line[:-1].split('#', 1)[0]
+            if not line:
+                continue
+            data = line.split("; ")
+            if data[4]:
+                # We ignore all conditionals (since they depend on
+                # languages) except for one, which is hardcoded. See
+                # handle_capital_sigma in unicodeobject.py.
+                continue
+            c = int(data[0], 16)
+            lower = [int(char, 16) for char in data[1].split()]
+            title = [int(char, 16) for char in data[2].split()]
+            upper = [int(char, 16) for char in data[3].split()]
+            table.special_casing[c] = (lower, title, upper)
 
     # Compute full decompositions.
-    for code in range(len(table)):
-        get_canonical_decomposition(table, code)
-        get_compat_decomposition(table, code)
+    for code, char in table.enum_chars():
+        table.get_canonical_decomposition(code)
+        table.get_compat_decomposition(code)
+
+    # Name aliases
+    for line in files['name_aliases']:
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        items = line.split(';')
+        char = int(items[0], 16)
+        name = items[1]
+        table.add_alias(name, char)
+
+    # Named sequences
+    for line in files['named_sequences']:
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        name, chars = line.split(';')
+        chars = tuple(int(char, 16) for char in chars.split())
+        table.add_named_sequence(name, chars)
+
+    # Casefold sequences
+    for line in files['casefolding']:
+        line = line.strip().split('#', 1)[0]
+        if not line or line.startswith('#'):
+            continue
+        code, status, mapping, _ = line.split('; ')
+        code = int(code, 16)
+        if status in 'CF':
+            chars = [int(char, 16) for char in mapping.split()]
+            table.add_casefold_sequence(code, chars)
 
     return table
 
@@ -285,11 +394,12 @@ def writeDbRecord(outfile, table):
     IS_XID_START = 1024
     IS_XID_CONTINUE = 2048
     IS_PRINTABLE = 4096 # PEP 3138
+    IS_CASE_IGNORABLE = 8192
 
     # Create the records
     db_records = {}
-    for code in range(len(table)):
-        char = table[code]
+    for code in table.all_codes():
+        char = table.get_char(code)
         flags = 0
         if char.category == "Zs" or char.bidirectional in ("WS", "B", "S"):
             flags |= IS_SPACE
@@ -303,11 +413,13 @@ def writeDbRecord(outfile, table):
             flags |= IS_DIGIT
         if char.decimal is not None:
             flags |= IS_DECIMAL
-        if char.category == "Lu":
+        if char.category == "Lu" or (table.upper_lower_from_properties and
+                                     "Uppercase" in char.properties):
             flags |= IS_UPPER
         if char.category == "Lt":
             flags |= IS_TITLE
-        if char.category == "Ll":
+        if char.category == "Ll" or (table.upper_lower_from_properties and
+                                     "Lowercase" in char.properties):
             flags |= IS_LOWER
         if char.mirrored:
             flags |= IS_MIRRORED
@@ -317,7 +429,9 @@ def writeDbRecord(outfile, table):
             flags |= IS_XID_START
         if "XID_Continue" in char.properties:
             flags |= IS_XID_CONTINUE
-        char.db_record = (char.category, char.bidirectional, char.east_asian_width, flags, char.combining)
+        if "Case_Ignorable" in char.properties:
+            flags |= IS_CASE_IGNORABLE
+        char.db_record = (char.category, char.bidirectional, char.east_asian_width, flags)
         db_records[char.db_record] = 1
     db_records = db_records.keys()
     db_records.sort()
@@ -325,12 +439,15 @@ def writeDbRecord(outfile, table):
     for record in db_records:
         print >> outfile, '%r,'%(record,)
     print >> outfile, ']'
+    assert len(db_records) <= 256, "too many db_records!"
     print >> outfile, '_db_pgtbl = ('
     pages = []
     line = []
-    for i in range(0, len(table), pgsize):
+    groups = [iter(table.enum_chars())] * pgsize
+    for group in itertools.izip_longest(*groups):
         result = []
-        for char in table[i:i + pgsize]:
+        for code, char in group:
+            if not char: continue
             result.append(chr(db_records.index(char.db_record)))
         categorytbl = ''.join(result)
         try:
@@ -374,13 +491,15 @@ def _get_record(code):
     print >> outfile, 'def isxidcontinue(code): return _get_record(code)[3] & %d != 0'% (IS_XID_CONTINUE)
     print >> outfile, 'def isprintable(code): return _get_record(code)[3] & %d != 0'% IS_PRINTABLE
     print >> outfile, 'def mirrored(code): return _get_record(code)[3] & %d != 0'% IS_MIRRORED
-    print >> outfile, 'def combining(code): return _get_record(code)[4]'
+    print >> outfile, 'def iscaseignorable(code): return _get_record(code)[3] & %d != 0'% IS_CASE_IGNORABLE
 
 def write_character_names(outfile, table, base_mod):
 
     import triegenerator
 
-    names = dict((table[code].name,code) for code in range(len(table)) if table[code].name)
+    names = dict((table.get_char(code).name, code)
+                 for code in table.all_codes()
+                 if table.get_char(code).name)
     sorted_names_codes = sorted(names.iteritems())
 
     if base_mod is None:
@@ -450,12 +569,25 @@ def writeUnicodedata(version, table, outfile, base):
                         " 0x4E00 <= code <= 0x9FCB or"
                         " 0x20000 <= code <= 0x2A6D6 or"
                         " 0x2A700 <= code <= 0x2B734)")
-    else:
+    elif version < "6.1":
         cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
                         " 0x4E00 <= code <= 0x9FCB or"
                         " 0x20000 <= code <= 0x2A6D6 or"
                         " 0x2A700 <= code <= 0x2B734 or"
                         " 0x2B740 <= code <= 0x2B81D)")
+    elif version < "8":
+        cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
+                        " 0x4E00 <= code <= 0x9FCC or"
+                        " 0x20000 <= code <= 0x2A6D6 or"
+                        " 0x2A700 <= code <= 0x2B734 or"
+                        " 0x2B740 <= code <= 0x2B81D)")
+    else:
+        cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
+                        " 0x4E00 <= code <= 0x9FD5 or"
+                        " 0x20000 <= code <= 0x2A6D6 or"
+                        " 0x2A700 <= code <= 0x2B734 or"
+                        " 0x2B740 <= code <= 0x2B81D or"
+                        " 0x2B820 <= code <= 0x2CEA1)")
 
     write_character_names(outfile, table, base_mod)
 
@@ -511,29 +643,32 @@ def _lookup_cjk(cjk_code):
         if not ('0' <= c <= '9' or 'A' <= c <= 'F'):
             raise KeyError
     code = int(cjk_code, 16)
-    if %s:
+    if %(cjk_interval)s:
         return code
     raise KeyError
 
-def lookup(name):
+def lookup(name, with_named_sequence=False):
     if name[:len(_cjk_prefix)] == _cjk_prefix:
         return _lookup_cjk(name[len(_cjk_prefix):])
     if name[:len(_hangul_prefix)] == _hangul_prefix:
         return _lookup_hangul(name[len(_hangul_prefix):])
 
     if not base_mod:
-        return trie_lookup(name)
+        code = trie_lookup(name)
     else:
         try:
-            return _code_by_name[name]
+            code = _code_by_name[name]
         except KeyError:
             if name not in _code_by_name_corrected:
-                return base_mod.trie_lookup(name)
+                code = base_mod.trie_lookup(name)
             else:
                 raise
+    if not with_named_sequence and %(named_sequence_interval)s:
+        raise KeyError
+    return code
 
 def name(code):
-    if %s:
+    if %(cjk_interval)s:
         return "CJK UNIFIED IDEOGRAPH-" + hex(code)[2:].upper()
     if 0xAC00 <= code <= 0xD7A3:
         # vl_code, t_code = divmod(code - 0xAC00, len(_hangul_T))
@@ -544,6 +679,8 @@ def name(code):
         v_code = vl_code %% len(_hangul_V)
         return ("HANGUL SYLLABLE " + _hangul_L[l_code] +
                 _hangul_V[v_code] + _hangul_T[t_code])
+    if %(pua_interval)s:
+        raise KeyError
 
     if not base_mod:
         return lookup_charcode(code)
@@ -555,7 +692,9 @@ def name(code):
                 return base_mod.lookup_charcode(code)
             else:
                 raise
-''' % (cjk_interval, cjk_interval)
+''' % dict(cjk_interval=cjk_interval,
+           pua_interval="0xF0000 <= code < 0xF0400",
+           named_sequence_interval="0xF0200 <= code < 0xF0400")
 
     # Categories
     writeDbRecord(outfile, table)
@@ -563,13 +702,13 @@ def name(code):
     decimal = {}
     digit = {}
     numeric = {}
-    for code in range(len(table)):
-        if table[code].decimal is not None:
-            decimal[code] = table[code].decimal
-        if table[code].digit is not None:
-            digit[code] = table[code].digit
-        if table[code].numeric is not None:
-            numeric[code] = table[code].numeric
+    for code, char in table.enum_chars():
+        if char.decimal is not None:
+            decimal[code] = char.decimal
+        if char.digit is not None:
+            digit[code] = char.digit
+        if char.numeric is not None:
+            numeric[code] = char.numeric
 
     writeDict(outfile, '_decimal', decimal, base_mod)
     writeDict(outfile, '_digit', digit, base_mod)
@@ -606,16 +745,17 @@ def numeric(code):
     toupper = {}
     tolower = {}
     totitle = {}
-    for code in range(len(table)):
-        if table[code].upper:
-            toupper[code] = table[code].upper
-        if table[code].lower:
-            tolower[code] = table[code].lower
-        if table[code].title:
-            totitle[code] = table[code].title
+    for code, char in table.enum_chars():
+        if char.upper:
+            toupper[code] = char.upper
+        if char.lower:
+            tolower[code] = char.lower
+        if char.title:
+            totitle[code] = char.title
     writeDict(outfile, '_toupper', toupper, base_mod)
     writeDict(outfile, '_tolower', tolower, base_mod)
     writeDict(outfile, '_totitle', totitle, base_mod)
+    writeDict(outfile, '_special_casing', table.special_casing, base_mod)
     print >> outfile, '''
 def toupper(code):
     try:
@@ -643,12 +783,45 @@ def totitle(code):
             return base_mod._totitle.get(code, code)
         else:
             return code
+
+def toupper_full(code):
+    try:
+        return _special_casing[code][2]
+    except KeyError:
+        if base_mod is not None and code not in _special_casing_corrected:
+            try:
+                return base_mod._special_casing[code][2]
+            except KeyError:
+                pass
+    return [toupper(code)]
+
+def tolower_full(code):
+    try:
+        return _special_casing[code][0]
+    except KeyError:
+        if base_mod is not None and code not in _special_casing_corrected:
+            try:
+                return base_mod._special_casing[code][0]
+            except KeyError:
+                pass
+    return [tolower(code)]
+
+def totitle_full(code):
+    try:
+        return _special_casing[code][1]
+    except KeyError:
+        if base_mod is not None and code not in _special_casing_corrected:
+            try:
+                return base_mod._special_casing[code][1]
+            except KeyError:
+                pass
+    return [totitle(code)]
 '''
     # Decomposition
     decomposition = {}
-    for code in range(len(table)):
-        if table[code].raw_decomposition:
-            decomposition[code] = table[code].raw_decomposition
+    for code, char in table.enum_chars():
+        if char.raw_decomposition:
+            decomposition[code] = char.raw_decomposition
     writeDict(outfile, '_raw_decomposition', decomposition, base_mod)
     print >> outfile, '''
 def decomposition(code):
@@ -662,13 +835,12 @@ def decomposition(code):
 '''
     # Collect the composition pairs.
     compositions = []
-    for code in range(len(table)):
-        unichar = table[code]
+    for code, unichar in table.enum_chars():
         if (not unichar.decomposition or
             unichar.isCompatibility or
             unichar.excluded or
             len(unichar.decomposition) != 2 or
-            table[unichar.decomposition[0]].combining):
+            table.get_char(unichar.decomposition[0]).combining):
             continue
         left, right = unichar.decomposition
         compositions.append((left, right, code))
@@ -680,15 +852,15 @@ def decomposition(code):
     print >> outfile
 
     decomposition = {}
-    for code in range(len(table)):
-        if table[code].canonical_decomp:
-            decomposition[code] = table[code].canonical_decomp
+    for code, char in table.enum_chars():
+        if char.canonical_decomp:
+            decomposition[code] = char.canonical_decomp
     writeDict(outfile, '_canon_decomposition', decomposition, base_mod)
 
     decomposition = {}
-    for code in range(len(table)):
-        if table[code].compat_decomp:
-            decomposition[code] = table[code].compat_decomp
+    for code, char in table.enum_chars():
+        if char.compat_decomp:
+            decomposition[code] = char.compat_decomp
     writeDict(outfile, '_compat_decomposition', decomposition, base_mod)
     print >> outfile, '''
 def canon_decomposition(code):
@@ -707,7 +879,72 @@ def compat_decomposition(code):
             return base_mod._compat_decomposition.get(code, [])
         else:
             return []
+
 '''
+
+    # named sequences
+    print >> outfile, '_named_sequences = ['
+    for name, chars in table.named_sequences:
+        print >> outfile, "%r," % (u''.join(unichr(c) for c in chars))
+    print >> outfile, ']'
+    print >> outfile, '''
+
+def lookup_named_sequence(code):
+    if 0 <= code - %(start)s < len(_named_sequences):
+        return _named_sequences[code - %(start)s]
+    else:
+        return None
+''' % dict(start=table.NAMED_SEQUENCES_START)
+    
+    # aliases
+    print >> outfile, '_name_aliases = ['
+    for name, char in table.aliases:
+        print >> outfile, "%s," % (char,)
+    print >> outfile, ']'
+    print >> outfile, '''
+
+def lookup_with_alias(name, with_named_sequence=False):
+    code = lookup(name, with_named_sequence=with_named_sequence)
+    if 0 <= code - %(start)s < len(_name_aliases):
+        return _name_aliases[code - %(start)s]
+    else:
+        return code
+''' % dict(start=table.NAME_ALIASES_START)
+
+    casefolds = {}
+    for code, char in table.enum_chars():
+        if char.casefolding and char.casefolding != [char.lower]:
+            casefolds[code] = char.casefolding
+    writeDict(outfile, '_casefolds', casefolds, base_mod)
+    print >> outfile, '''
+
+def casefold_lookup(code):
+    try:
+        return _casefolds[code]
+    except KeyError:
+        if base_mod is not None and code not in _casefolds_corrected:
+            return base_mod._casefolds.get(code, None)
+        else:
+            return None
+'''
+
+    combining = {}
+    for code, char in table.enum_chars():
+        if char.combining:
+            combining[code] = char.combining
+    writeDict(outfile, '_combining', combining, base_mod)
+    print >> outfile, '''
+
+def combining(code):
+    try:
+        return _combining[code]
+    except KeyError:
+        if base_mod is not None and code not in _combining_corrected:
+            return base_mod._combining.get(code, 0)
+        else:
+            return 0
+'''
+
 
 def main():
     import sys
@@ -726,16 +963,27 @@ def main():
 
     if options.output:
         outfile = open(options.output + '.py', "w")
-    infile = open('UnicodeData-%s.txt' % options.unidata_version)
-    exclusions = open('CompositionExclusions-%s.txt' % options.unidata_version)
-    east_asian_width = open('EastAsianWidth-%s.txt' % options.unidata_version)
-    unihan = open('UnihanNumeric-%s.txt' % options.unidata_version)
-    linebreak = open('LineBreak-%s.txt' % options.unidata_version)
-    derived_core_properties = open('DerivedCoreProperties-%s.txt' %
-                                   options.unidata_version)
 
-    table = read_unicodedata(infile, exclusions, east_asian_width, unihan,
-                             linebreak, derived_core_properties)
+    filenames = dict(
+        data='UnicodeData-%(version)s.txt',
+        exclusions='CompositionExclusions-%(version)s.txt',
+        east_asian_width='EastAsianWidth-%(version)s.txt',
+        unihan='UnihanNumeric-%(version)s.txt',
+        linebreak='LineBreak-%(version)s.txt',
+        derived_core_properties='DerivedCoreProperties-%(version)s.txt',
+        name_aliases='NameAliases-%(version)s.txt',
+        named_sequences = 'NamedSequences-%(version)s.txt',
+        casefolding = 'CaseFolding-%(version)s.txt',
+    )
+    if options.unidata_version > '5':
+        filenames['special_casing'] = 'SpecialCasing-%(version)s.txt'
+    filenames = dict((name, filename % dict(version=options.unidata_version))
+                     for (name, filename) in filenames.items())
+    files = dict((name, open(filename))
+                 for (name, filename) in filenames.items())
+
+    table = read_unicodedata(files)
+    table.upper_lower_from_properties = (options.unidata_version >= '6')
     print >> outfile, '# UNICODE CHARACTER DATABASE'
     print >> outfile, '# This file was generated with the command:'
     print >> outfile, '#    ', ' '.join(sys.argv)

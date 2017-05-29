@@ -1,7 +1,7 @@
 import sys
 import _continuation
 
-__version__ = "0.4.10"
+__version__ = "0.4.12"
 
 # ____________________________________________________________
 # Exceptions

@@ -532,8 +532,7 @@ def measure_median_execution_cost(graph):
         return sys.maxint
     else:
         res = Solution[blockmap[graph.startblock]]
-        assert res >= 0
-        return res
+        return max(res, 0.0)
 
 def static_instruction_count(graph):
     count = 0

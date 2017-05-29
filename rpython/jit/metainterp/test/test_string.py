@@ -951,3 +951,10 @@ class TestLLtypeUnicode(TestLLtype):
         self.meta_interp(f, [222, 3333])
         self.check_simple_loop({'guard_true': 1, 'int_add': 1,
                                 'int_lt': 1, 'jump': 1})
+
+    def test_string_hashing(self):
+        def f(i):
+            s = str(i)
+            d = {s: s + s}
+            return len(d[s])
+        assert self.interp_operations(f, [222]) == 6

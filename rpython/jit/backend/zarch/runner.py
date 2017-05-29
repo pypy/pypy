@@ -2,6 +2,7 @@ from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 from rpython.jit.backend.zarch import registers as r
 from rpython.jit.backend.zarch.assembler import AssemblerZARCH
 from rpython.jit.backend.zarch.codebuilder import InstrBuilder
+from rpython.jit.backend.zarch import vector_ext
 from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype, llmemory
 
@@ -15,6 +16,8 @@ class CPU_S390_64(AbstractZARCHCPU):
     dont_keepalive_stuff = True
     supports_floats = True
     from rpython.jit.backend.zarch.registers import JITFRAME_FIXED_SIZE
+
+    vector_ext = vector_ext.ZSIMDVectorExt()
 
     backend_name = 'zarch'
 

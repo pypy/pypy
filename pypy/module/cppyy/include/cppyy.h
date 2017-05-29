@@ -1,6 +1,8 @@
 #ifndef CPPYY_CPPYY
 #define CPPYY_CPPYY
 
+#include "cpp_cppyy.h"
+
 #ifdef __cplusplus
 struct CPPYY_G__DUMMY_FOR_CINT7 {
 #else

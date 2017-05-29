@@ -372,19 +372,6 @@ def test_id():
             result = interpret(getids, [i, j])
             assert result
 
-def test_stack_malloc():
-    py.test.skip("stack-flavored mallocs no longer supported")
-    class A(object):
-        pass
-    def f():
-        a = A()
-        a.i = 1
-        return a.i
-    interp, graph = get_interpreter(f, [])
-    graph.startblock.operations[0].args[1] = inputconst(Void, {'flavor': "stack"})
-    result = interp.eval_graph(graph, [])
-    assert result == 1
-
 def test_invalid_stack_access():
     py.test.skip("stack-flavored mallocs no longer supported")
     class A(object):

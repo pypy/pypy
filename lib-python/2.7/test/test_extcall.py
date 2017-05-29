@@ -93,7 +93,7 @@ Verify clearing of SF bug #733667
     >>> g(*Nothing())                     #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after * must be a sequence, not instance
+    TypeError: ...argument after * must be an iterable, not instance
 
     >>> class Nothing:
     ...     def __len__(self): return 5
@@ -102,7 +102,7 @@ Verify clearing of SF bug #733667
     >>> g(*Nothing())                     #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after * must be a sequence, not instance
+    TypeError: ...argument after * must be an iterable, not instance
 
     >>> class Nothing():
     ...     def __len__(self): return 5
@@ -127,6 +127,17 @@ Verify clearing of SF bug #733667
 
     >>> g(*Nothing())
     0 (1, 2, 3) {}
+
+Check for issue #4806: Does a TypeError in a generator get propagated with the
+right error message?
+
+    >>> def broken(): raise TypeError("myerror")
+    ...
+
+    >>> g(*(broken() for i in range(1)))
+    Traceback (most recent call last):
+      ...
+    TypeError: myerror
 
 Make sure that the function doesn't stomp the dictionary
 
@@ -167,22 +178,42 @@ What about willful misconduct?
     >>> h(*h)                                  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after * must be a sequence, not function
+    TypeError: ...argument after * must be an iterable, not function
+
+    >>> h(1, *h)                               #doctest: +ELLIPSIS
+    Traceback (most recent call last):
+      ...
+    TypeError: ...argument after * must be an iterable, not function
 
     >>> dir(*h)                                #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after * must be a sequence, not function
+    TypeError: ...argument after * must be an iterable, not function
 
     >>> None(*h)                               #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after * must be a sequence, not function
+    TypeError: ...argument after * must be an iterable, not function
 
     >>> h(**h)                                 #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
     TypeError: ...argument after ** must be a mapping, not function
+
+    >>> h(**[])                                #doctest: +ELLIPSIS
+    Traceback (most recent call last):
+      ...
+    TypeError: ...argument after ** must be a mapping, not list
+
+    >>> h(a=1, **h)                            #doctest: +ELLIPSIS
+    Traceback (most recent call last):
+      ...
+    TypeError: ...argument after ** must be a mapping, not function
+
+    >>> h(a=1, **[])                           #doctest: +ELLIPSIS
+    Traceback (most recent call last):
+      ...
+    TypeError: ...argument after ** must be a mapping, not list
 
     >>> dir(**h)                               #doctest: +ELLIPSIS
     Traceback (most recent call last):
@@ -269,7 +300,7 @@ the function call setup. See <http://bugs.python.org/issue2016>.
     >>> f(**x)
     1 2
 
-A obscure message:
+An obscure message:
 
     >>> def f(a, b):
     ...    pass

@@ -1,4 +1,4 @@
-The PyPy Release Process
+PyPy's Release Process
 ========================
 
 Release Policy
@@ -39,41 +39,60 @@ Release Steps
   Some of the next updates may be done before or after branching; make
   sure things are ported back to the trunk and to the branch as
   necessary.
-* update pypy/doc/contributor.rst (and possibly LICENSE)
-  pypy/doc/tool/makecontributor.py generates the list of contributors
-* rename pypy/doc/whatsnew_head.rst to whatsnew_VERSION.rst
-  create a fresh whatsnew_head.rst after the release
-  and add the new file to  pypy/doc/index-of-whatsnew.rst
-* go to pypy/tool/release and run
-  ``force-builds.py <release branch>``
-  The following JIT binaries should be built, however, we need more buildbots
-  windows, linux-32, linux-64, osx64, armhf-raring, armhf-raspberrian, armel,
-  freebsd64 
 
-* wait for builds to complete, make sure there are no failures
-* download the builds, repackage binaries. Tag the release version
-  and download and repackage source from bitbucket. You may find it
-  convenient to use the ``repackage.sh`` script in pypy/tool/release to do this. 
+* Update and write documentation
 
-  Otherwise repackage and upload source "-src.tar.bz2" to bitbucket
-  and to cobra, as some packagers prefer a clearly labeled source package
-  ( download e.g.  https://bitbucket.org/pypy/pypy/get/release-2.5.x.tar.bz2,
-  unpack, rename the top-level directory to "pypy-2.5.0-src", repack, and upload)
+  * update pypy/doc/contributor.rst (and possibly LICENSE)
+    pypy/doc/tool/makecontributor.py generates the list of contributors
 
-* Upload binaries to https://bitbucket.org/pypy/pypy/downloads
+  * rename pypy/doc/whatsnew_head.rst to whatsnew_VERSION.rst
+    create a fresh whatsnew_head.rst after the release
+    and add the new file to  pypy/doc/index-of-whatsnew.rst
 
-* write release announcement pypy/doc/release-x.y(.z).txt
+  * write release announcement pypy/doc/release-VERSION.rst
+    The release announcement should contain a direct link to the download page
 
-  The release announcement should contain a direct link to the download page
+  * Add the new files to  pypy/doc/index-of-{whatsnew,release-notes}.rst
 
-* Add the new files to  pypy/doc/index-of-{whatsnew,release-notes}.rst
+* Build and upload the release tar-balls
 
-* update pypy.org (under extradoc/pypy.org), rebuild and commit
+  * go to pypy/tool/release and run
+    ``force-builds.py <release branch>``
+    The following JIT binaries should be built, however, we need more buildbots
+    windows, linux-32, linux-64, osx64, armhf-raring, armhf-raspberrian, armel,
+    freebsd64 
 
-* post announcement on morepypy.blogspot.com
-* send announcements to twitter.com, pypy-dev, python-list,
-  python-announce, python-dev ...
+  * wait for builds to complete, make sure there are no failures
 
-* add a tag on the pypy/jitviewer repo that corresponds to pypy release
-* add a tag on the codespeed web site that corresponds to pypy release
-* revise versioning at https://readthedocs.org/projects/pypy
+  * send out a mailing list message asking for people to test before uploading
+    to prevent having to upload more than once
+
+  * add a tag on the pypy/jitviewer repo that corresponds to pypy release, so
+    that the source tarball can be produced in the next steps
+
+  * download the builds, repackage binaries. Tag the release version
+    and download and repackage source from bitbucket. You may find it
+    convenient to use the ``repackage.sh`` script in pypy/tool/release to do this. 
+
+    Otherwise repackage and upload source "-src.tar.bz2" to bitbucket
+    and to cobra, as some packagers prefer a clearly labeled source package
+    ( download e.g.  https://bitbucket.org/pypy/pypy/get/release-2.5.x.tar.bz2,
+    unpack, rename the top-level directory to "pypy-2.5.0-src", repack, and upload)
+
+  * Upload binaries to https://bitbucket.org/pypy/pypy/downloads
+
+* Send out a mailing list message asking for last-minute comments and testing
+
+* RELEASE !  
+
+  * update pypy.org (under extradoc/pypy.org), rebuild and commit, using the
+    hashes produced from the ``repackage.sh`` script or by hand
+
+  * post announcement on morepypy.blogspot.com
+  * send announcements to twitter.com, pypy-dev, python-list,
+    python-announce, python-dev ...
+
+* If all is OK, document the released version
+
+  * add a tag on the codespeed web site that corresponds to pypy release
+  * revise versioning at https://readthedocs.org/projects/pypy

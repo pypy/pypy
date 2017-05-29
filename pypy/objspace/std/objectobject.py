@@ -91,11 +91,17 @@ def descr__new__(space, w_type, __args__):
     from pypy.objspace.std.typeobject import _precheck_for_new
     w_type = _precheck_for_new(space, w_type)
 
-    # don't allow arguments if the default object.__init__() is about
-    # to be called
     if _excess_args(__args__):
+        w_parent_new, _ = space.lookup_in_type_where(w_type, '__new__')
         w_parent_init, _ = space.lookup_in_type_where(w_type, '__init__')
-        if w_parent_init is space.w_object:
+        if (w_parent_new is not space.w_object and
+            w_parent_init is not space.w_object):
+            # 2.7: warn about excess arguments when both methods are
+            # overridden
+            space.warn(space.newtext("object() takes no parameters"),
+                       space.w_DeprecationWarning, 1)
+        elif (w_parent_new is not space.w_object or
+              w_parent_init is space.w_object):
             raise oefmt(space.w_TypeError,
                         "object() takes no parameters")
     if w_type.is_abstract():
@@ -108,11 +114,18 @@ def descr___subclasshook__(space, __args__):
 
 
 def descr__init__(space, w_obj, __args__):
-    # don't allow arguments unless __new__ is overridden
     if _excess_args(__args__):
         w_type = space.type(w_obj)
+        w_parent_init, _ = space.lookup_in_type_where(w_type, '__init__')
         w_parent_new, _ = space.lookup_in_type_where(w_type, '__new__')
-        if w_parent_new is space.w_object:
+        if (w_parent_init is not space.w_object and
+            w_parent_new is not space.w_object):
+            # 2.7: warn about excess arguments when both methods are
+            # overridden
+            space.warn(space.newtext("object.__init__() takes no parameters"),
+                       space.w_DeprecationWarning, 1)
+        elif (w_parent_init is not space.w_object or
+              w_parent_new is space.w_object):
             raise oefmt(space.w_TypeError,
                         "object.__init__() takes no parameters")
 
@@ -148,7 +161,7 @@ def descr__repr__(space, w_obj):
         w_module = w_type.lookup("__module__")
         if w_module is not None:
             try:
-                modulename = space.str_w(w_module)
+                modulename = space.text_w(w_module)
             except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
@@ -170,25 +183,25 @@ def descr__str__(space, w_obj):
 def descr__reduce__(space, w_obj, proto=0):
     if proto >= 2:
         return reduce_2(space, w_obj)
-    w_proto = space.wrap(proto)
+    w_proto = space.newint(proto)
     return reduce_1(space, w_obj, w_proto)
 
 @unwrap_spec(proto=int)
 def descr__reduce_ex__(space, w_obj, proto=0):
-    w_st_reduce = space.wrap('__reduce__')
+    w_st_reduce = space.newtext('__reduce__')
     w_reduce = space.findattr(w_obj, w_st_reduce)
     if w_reduce is not None:
-        w_cls = space.getattr(w_obj, space.wrap('__class__'))
+        w_cls = space.getattr(w_obj, space.newtext('__class__'))
         w_cls_reduce_meth = space.getattr(w_cls, w_st_reduce)
         try:
-            w_cls_reduce = space.getattr(w_cls_reduce_meth, space.wrap('im_func'))
+            w_cls_reduce = space.getattr(w_cls_reduce_meth, space.newtext('im_func'))
         except OperationError as e:
             # i.e. PyCFunction from cpyext
             if not e.match(space, space.w_AttributeError):
                 raise
             w_cls_reduce = space.w_None
         w_objtype = space.w_object
-        w_obj_dict = space.getattr(w_objtype, space.wrap('__dict__'))
+        w_obj_dict = space.getattr(w_objtype, space.newtext('__dict__'))
         w_obj_reduce = space.getitem(w_obj_dict, w_st_reduce)
         override = not space.is_w(w_cls_reduce, w_obj_reduce)
         # print 'OVR', override, w_cls_reduce, w_obj_reduce
@@ -199,13 +212,13 @@ def descr__reduce_ex__(space, w_obj, proto=0):
 def descr___format__(space, w_obj, w_format_spec):
     if space.isinstance_w(w_format_spec, space.w_unicode):
         w_as_str = space.call_function(space.w_unicode, w_obj)
-    elif space.isinstance_w(w_format_spec, space.w_str):
+    elif space.isinstance_w(w_format_spec, space.w_bytes):
         w_as_str = space.str(w_obj)
     else:
         raise oefmt(space.w_TypeError, "format_spec must be a string")
     if space.len_w(w_format_spec) > 0:
         msg = "object.__format__ with a non-empty format string is deprecated"
-        space.warn(space.wrap(msg), space.w_PendingDeprecationWarning)
+        space.warn(space.newtext(msg), space.w_PendingDeprecationWarning)
     return space.format(w_as_str, w_format_spec)
 
 

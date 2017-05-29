@@ -295,7 +295,11 @@ class TestW_IntObject:
         assert self.space.unwrap(result) == hex(x)
 
 
-class AppTestInt:
+class AppTestInt(object):
+    def test_hash(self):
+        assert hash(-1) == (-1).__hash__() == -2
+        assert hash(-2) == (-2).__hash__() == -2
+
     def test_conjugate(self):
         assert (1).conjugate() == 1
         assert (-1).conjugate() == -1
@@ -454,11 +458,11 @@ class AppTestInt:
                 return None
         inst = a()
         raises(TypeError, int, inst)
-        assert inst.ar == True 
+        assert inst.ar == True
 
         class b(object):
-            pass 
-        raises((AttributeError,TypeError), int, b()) 
+            pass
+        raises((AttributeError,TypeError), int, b())
 
     def test_special_long(self):
         class a(object):
@@ -496,6 +500,17 @@ class AppTestInt:
             def __trunc__(self):
                 return Integral()
         assert int(TruncReturnsNonInt()) == 42
+
+    def test_trunc_returns_int_subclass(self):
+        class Classic:
+            pass
+        for base in object, Classic:
+            class TruncReturnsNonInt(base):
+                def __trunc__(self):
+                    return True
+            n = int(TruncReturnsNonInt())
+            assert n == 1
+            assert type(n) is bool
 
     def test_int_before_string(self):
         class Integral(str):

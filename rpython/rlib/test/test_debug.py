@@ -118,3 +118,30 @@ def test_debug_print_start_stop():
     finally:
         debug._log = None
     assert dlog == [("mycat", [('debug_print', 'foo', 2, 'bar', 3)])]
+
+
+def test_debug_print_traceback():
+    from rpython.translator.c.test.test_genc import compile
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
+
+    def ggg(n):
+        if n < 10:
+            ggg(n + 1)
+        else:
+            raise ValueError
+    def recovery():
+        llop.debug_print_traceback(lltype.Void)
+    recovery._dont_inline_ = True
+    def fff():
+        try:
+            ggg(0)
+        except:
+            recovery()
+
+    fn = compile(fff, [], return_stderr=True)
+    stderr = fn()
+    assert 'RPython traceback:\n' in stderr
+    assert stderr.count('entry_point') == 1
+    assert stderr.count('ggg') == 11
+    assert stderr.count('recovery') == 0

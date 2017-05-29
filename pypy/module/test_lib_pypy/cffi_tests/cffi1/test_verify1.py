@@ -547,7 +547,8 @@ def test_struct_array_no_length():
                      "int bar(struct foo_s *f) { return f->a[14]; }\n")
     assert ffi.sizeof('struct foo_s') == 19 * ffi.sizeof('int')
     s = ffi.new("struct foo_s *")
-    assert ffi.typeof(s.a) is ffi.typeof('int *')   # because no length
+    assert ffi.typeof(s.a) is ffi.typeof('int[]')   # implicit max length
+    assert len(s.a) == 18  # max length, computed from the size and start offset
     s.a[14] = 4242
     assert lib.bar(s) == 4242
     # with no declared length, out-of-bound accesses are not detected
@@ -577,10 +578,15 @@ def test_struct_array_c99_1():
     ffi.verify("struct foo_s { int x; int a[]; };")
     assert ffi.sizeof('struct foo_s') == 1 * ffi.sizeof('int')
     s = ffi.new("struct foo_s *", [424242, 4])
-    assert ffi.sizeof(s[0]) == 1 * ffi.sizeof('int')   # the same in C
+    assert ffi.sizeof(ffi.typeof(s[0])) == 1 * ffi.sizeof('int')
+    assert ffi.sizeof(s[0]) == 5 * ffi.sizeof('int')
+    # ^^^ explanation: if you write in C: "char x[5];", then
+    # "sizeof(x)" will evaluate to 5.  The behavior above is
+    # a generalization of that to "struct foo_s[len(a)=5] x;"
+    # if you could do that in C.
     assert s.a[3] == 0
     s = ffi.new("struct foo_s *", [424242, [-40, -30, -20, -10]])
-    assert ffi.sizeof(s[0]) == 1 * ffi.sizeof('int')
+    assert ffi.sizeof(s[0]) == 5 * ffi.sizeof('int')
     assert s.a[3] == -10
     s = ffi.new("struct foo_s *")
     assert ffi.sizeof(s[0]) == 1 * ffi.sizeof('int')
@@ -595,10 +601,10 @@ def test_struct_array_c99_2():
     ffi.verify("struct foo_s { int x, y; int a[]; };")
     assert ffi.sizeof('struct foo_s') == 2 * ffi.sizeof('int')
     s = ffi.new("struct foo_s *", [424242, 4])
-    assert ffi.sizeof(s[0]) == 2 * ffi.sizeof('int')
+    assert ffi.sizeof(s[0]) == 6 * ffi.sizeof('int')
     assert s.a[3] == 0
     s = ffi.new("struct foo_s *", [424242, [-40, -30, -20, -10]])
-    assert ffi.sizeof(s[0]) == 2 * ffi.sizeof('int')
+    assert ffi.sizeof(s[0]) == 6 * ffi.sizeof('int')
     assert s.a[3] == -10
     s = ffi.new("struct foo_s *")
     assert ffi.sizeof(s[0]) == 2 * ffi.sizeof('int')
@@ -1037,9 +1043,13 @@ def test_autofilled_struct_as_argument_dynamic():
         int (*foo)(struct foo_s s) = &foo1;
     """)
     e = py.test.raises(NotImplementedError, lib.foo, "?")
-    msg = ("ctype 'struct foo_s' not supported as argument (it is a struct "
-           'declared with "...;", but the C calling convention may depend '
-           'on the missing fields)')
+    msg = ("ctype 'struct foo_s' not supported as argument.  It is a struct "
+           'declared with "...;", but the C calling convention may depend on '
+           "the missing fields; or, it contains anonymous struct/unions.  "
+           "Such structs are only supported as argument "
+           "if the function is 'API mode' and non-variadic (i.e. declared "
+           "inside ffibuilder.cdef()+ffibuilder.set_source() and not taking "
+           "a final '...' argument)")
     assert str(e.value) == msg
 
 def test_func_returns_struct():
@@ -2109,14 +2119,23 @@ def test_consider_not_implemented_function_type():
     # assert did not crash so far
     e = py.test.raises(NotImplementedError, fooptr, ffi.new("Data *"))
     assert str(e.value) == (
-        "ctype 'Data' (size 4) not supported as argument")
+        "ctype 'Data' not supported as argument by libffi.  Unions are only "
+        "supported as argument if the function is 'API mode' and "
+        "non-variadic (i.e. declared inside ffibuilder.cdef()+"
+        "ffibuilder.set_source() and not taking a final '...' argument)")
     e = py.test.raises(NotImplementedError, bazptr)
     assert str(e.value) == (
-        "ctype 'Data' (size 4) not supported as return value")
+        "ctype 'Data' not supported as return value by libffi.  Unions are "
+        "only supported as return value if the function is 'API mode' and "
+        "non-variadic (i.e. declared inside ffibuilder.cdef()+"
+        "ffibuilder.set_source() and not taking a final '...' argument)")
     e = py.test.raises(NotImplementedError, barptr)
     assert str(e.value) == (
-        "ctype 'MyStr' not supported as return value "
-        "(it is a struct with bit fields)")
+        "ctype 'MyStr' not supported as return value.  It is a struct with "
+        "bit fields, which libffi does not support.  Such structs are only "
+        "supported as return value if the function is 'API mode' and non-"
+        "variadic (i.e. declared inside ffibuilder.cdef()+ffibuilder."
+        "set_source() and not taking a final '...' argument)")
 
 def test_verify_extra_arguments():
     ffi = FFI()

@@ -574,10 +574,14 @@ def rtype_runtime_type_info(hop):
 # memory addresses
 
 @typer_for(llmemory.raw_malloc)
-def rtype_raw_malloc(hop):
-    v_size, = hop.inputargs(lltype.Signed)
+def rtype_raw_malloc(hop, i_zero=None):
+    v_size = hop.inputarg(lltype.Signed, arg=0)
+    v_zero, = parse_kwds(hop, (i_zero, None))
+    if v_zero is None:
+        v_zero = hop.inputconst(lltype.Bool, False)
     hop.exception_cannot_occur()
-    return hop.genop('raw_malloc', [v_size], resulttype=llmemory.Address)
+    return hop.genop('raw_malloc', [v_size, v_zero],
+                     resulttype=llmemory.Address)
 
 @typer_for(llmemory.raw_malloc_usage)
 def rtype_raw_malloc_usage(hop):

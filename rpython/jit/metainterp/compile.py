@@ -7,6 +7,7 @@ from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib import rstack
 from rpython.rlib.jit import JitDebugInfo, Counters, dont_look_inside
 from rpython.rlib.rjitlog import rjitlog as jl
+from rpython.rlib.objectmodel import compute_unique_id
 from rpython.conftest import option
 
 from rpython.jit.metainterp.resoperation import ResOperation, rop,\
@@ -84,13 +85,14 @@ class BridgeCompileData(CompileData):
     """ This represents ops() with a jump at the end that goes to some
     loop, we need to deal with virtual state and inlining of short preamble
     """
-    def __init__(self, trace, runtime_boxes, call_pure_results=None,
+    def __init__(self, trace, runtime_boxes, resumestorage=None, call_pure_results=None,
                  enable_opts=None, inline_short_preamble=False):
         self.trace = trace
         self.runtime_boxes = runtime_boxes
         self.call_pure_results = call_pure_results
         self.enable_opts = enable_opts
         self.inline_short_preamble = inline_short_preamble
+        self.resumestorage = resumestorage
 
     def optimize(self, metainterp_sd, jitdriver_sd, optimizations, unroll):
         from rpython.jit.metainterp.optimizeopt.unroll import UnrollOptimizer
@@ -99,7 +101,8 @@ class BridgeCompileData(CompileData):
         return opt.optimize_bridge(self.trace, self.runtime_boxes,
                                    self.call_pure_results,
                                    self.inline_short_preamble,
-                                   self.box_names_memo)
+                                   self.box_names_memo,
+                                   self.resumestorage)
 
 class UnrolledLoopData(CompileData):
     """ This represents label() ops jump with extra info that's from the
@@ -301,7 +304,8 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
         history.cut(cut_at)
         return None
 
-    if ((warmstate.vec and jitdriver_sd.vec) or warmstate.vec_all):
+    if ((warmstate.vec and jitdriver_sd.vec) or warmstate.vec_all) and \
+        metainterp.cpu.vector_ext and metainterp.cpu.vector_ext.is_enabled():
         from rpython.jit.metainterp.optimizeopt.vector import optimize_vector
         loop_info, loop_ops = optimize_vector(trace, metainterp_sd,
                                               jitdriver_sd, warmstate,
@@ -326,7 +330,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
         metainterp_sd.logger_ops.log_short_preamble([],
             label_token.short_preamble, metainterp.box_names_memo)
     loop.operations = ([start_label] + preamble_ops + loop_info.extra_same_as +
-                       [loop_info.label_op] + loop_ops)
+                       loop_info.extra_before_label + [loop_info.label_op] + loop_ops)
     if not we_are_translated():
         loop.check_consistency()
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop",
@@ -723,7 +727,8 @@ class AbstractResumeGuardDescr(ResumeDescr):
     TY_FLOAT        = 0x06
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
-        if self.must_compile(deadframe, metainterp_sd, jitdriver_sd):
+        if (self.must_compile(deadframe, metainterp_sd, jitdriver_sd)
+                and not rstack.stack_almost_full()):
             self.start_compiling()
             try:
                 self._trace_and_compile_from_bridge(deadframe, metainterp_sd,
@@ -860,10 +865,9 @@ class ResumeGuardCopiedDescr(AbstractResumeGuardDescr):
 
 
 class ResumeGuardDescr(AbstractResumeGuardDescr):
-    _attrs_ = ('rd_numb', 'rd_count', 'rd_consts', 'rd_virtuals',
+    _attrs_ = ('rd_numb', 'rd_consts', 'rd_virtuals',
                'rd_pendingfields', 'status')
     rd_numb = lltype.nullptr(NUMBERING)
-    rd_count = 0
     rd_consts = None
     rd_virtuals = None
     rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
@@ -872,7 +876,6 @@ class ResumeGuardDescr(AbstractResumeGuardDescr):
         if isinstance(other, ResumeGuardCopiedDescr):
             other = other.prev
         assert isinstance(other, ResumeGuardDescr)
-        self.rd_count = other.rd_count
         self.rd_consts = other.rd_consts
         self.rd_pendingfields = other.rd_pendingfields
         self.rd_virtuals = other.rd_virtuals
@@ -885,7 +888,6 @@ class ResumeGuardDescr(AbstractResumeGuardDescr):
 
     def store_final_boxes(self, guard_op, boxes, metainterp_sd):
         guard_op.setfailargs(boxes)
-        self.rd_count = len(boxes)
         self.store_hash(metainterp_sd)
 
     def clone(self):
@@ -1067,7 +1069,15 @@ def compile_trace(metainterp, resumekey, runtime_boxes):
     call_pure_results = metainterp.call_pure_results
 
     if metainterp.history.ends_with_jump:
-        data = BridgeCompileData(trace, runtime_boxes,
+        if isinstance(resumekey, ResumeGuardCopiedDescr):
+            key = resumekey.prev
+            assert isinstance(key, ResumeGuardDescr)
+        elif isinstance(resumekey, ResumeFromInterpDescr):
+            key = None
+        else:
+            key = resumekey
+            assert isinstance(key, ResumeGuardDescr)
+        data = BridgeCompileData(trace, runtime_boxes, key,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts,
                                  inline_short_preamble=inline_short_preamble)
@@ -1121,6 +1131,10 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
     version of the code may end up replacing it.
     """
     jitcell_token = make_jitcell_token(jitdriver_sd)
+    #
+    # record the target of a temporary callback to the interpreter
+    jl.tmp_callback(jitcell_token)
+    #
     nb_red_args = jitdriver_sd.num_red_args
     assert len(redargtypes) == nb_red_args
     inputargs = []
@@ -1156,6 +1170,7 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
     operations[1].setfailargs([])
     operations = get_deep_immutable_oplist(operations)
     cpu.compile_loop(inputargs, operations, jitcell_token, log=False)
+
     if memory_manager is not None:    # for tests
         memory_manager.keep_loop_alive(jitcell_token)
     return jitcell_token

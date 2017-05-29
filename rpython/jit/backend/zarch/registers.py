@@ -1,8 +1,9 @@
-from rpython.jit.backend.zarch.locations import FloatRegisterLocation
-from rpython.jit.backend.zarch.locations import RegisterLocation
+from rpython.jit.backend.zarch.locations import (FloatRegisterLocation,
+        RegisterLocation, VectorRegisterLocation)
 
 registers = [RegisterLocation(i) for i in range(16)]
 fpregisters = [FloatRegisterLocation(i) for i in range(16)]
+vregisters = [VectorRegisterLocation(16+i) for i in range(16)]
 
 [r0,r1,r2,r3,r4,r5,r6,r7,r8,
  r9,r10,r11,r12,r13,r14,r15] = registers
@@ -29,6 +30,8 @@ FP_SCRATCH = f15
 
 MANAGED_FP_REGS = fpregisters[:-1]
 VOLATILES_FLOAT = [f0,f1,f2,f3,f4,f5,f6,f7]
+
+MANAGED_VECTOR_REGS = vregisters
 
 # The JITFRAME_FIXED_SIZE is measured in words, and should be the
 # number of registers that need to be saved into the jitframe when

@@ -29,11 +29,6 @@ class AppTestIterator(AppTestCpythonExtensionBase):
            ("test", "METH_NOARGS",
             '''
                 PyObject *obj;
-                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
-                Foo_Type.tp_as_mapping = &tp_as_mapping;
-                tp_as_mapping.mp_length = mp_length;
-                tp_as_mapping.mp_subscript = mp_subscript;
-                if (PyType_Ready(&Foo_Type) < 0) return NULL;
                 obj = PyObject_New(PyObject, &Foo_Type);
                 return obj;
             '''
@@ -44,8 +39,7 @@ class AppTestIterator(AppTestCpythonExtensionBase):
                     PySequence_Check(args) +
                     PyMapping_Check(args) * 2);
             ''')
-            ],
-            '''
+            ], prologue = '''
             static PyObject *
             mp_subscript(PyObject *self, PyObject *key)
             {
@@ -61,6 +55,12 @@ class AppTestIterator(AppTestCpythonExtensionBase):
                 PyVarObject_HEAD_INIT(NULL, 0)
                 "foo.foo",
             };
+            ''', more_init = '''
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                Foo_Type.tp_as_mapping = &tp_as_mapping;
+                tp_as_mapping.mp_length = mp_length;
+                tp_as_mapping.mp_subscript = mp_subscript;
+                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
             ''')
         obj = module.test()
         assert obj["hi there"] == 42
@@ -80,11 +80,6 @@ class AppTestIterator(AppTestCpythonExtensionBase):
            ("test", "METH_NOARGS",
             '''
                 PyObject *obj;
-                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
-                Foo_Type.tp_as_sequence = &tp_as_sequence;
-                tp_as_sequence.sq_length = sq_length;
-                tp_as_sequence.sq_item = sq_item;
-                if (PyType_Ready(&Foo_Type) < 0) return NULL;
                 obj = PyObject_New(PyObject, &Foo_Type);
                 return obj;
             '''),
@@ -94,8 +89,7 @@ class AppTestIterator(AppTestCpythonExtensionBase):
                     PySequence_Check(args) +
                     PyMapping_Check(args) * 2);
             ''')
-            ],
-            '''
+            ], prologue='''
             static PyObject *
             sq_item(PyObject *self, Py_ssize_t size)
             {
@@ -111,6 +105,12 @@ class AppTestIterator(AppTestCpythonExtensionBase):
                 PyVarObject_HEAD_INIT(NULL, 0)
                 "foo.foo",
             };
+            ''', more_init='''
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                Foo_Type.tp_as_sequence = &tp_as_sequence;
+                tp_as_sequence.sq_length = sq_length;
+                tp_as_sequence.sq_item = sq_item;
+                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
             ''')
         obj = module.test()
         assert obj[1] == 42

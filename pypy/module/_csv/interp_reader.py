@@ -1,4 +1,5 @@
 from rpython.rlib.rstring import StringBuilder
+from rpython.rlib import objectmodel
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
@@ -23,14 +24,14 @@ class W_Reader(W_Root):
         self.line_num = 0
 
     def iter_w(self):
-        return self.space.wrap(self)
+        return self
 
+    @objectmodel.dont_inline
     def error(self, msg):
         space = self.space
         w_module = space.getbuiltinmodule('_csv')
-        w_error = space.getattr(w_module, space.wrap('Error'))
+        w_error = space.getattr(w_module, space.newtext('Error'))
         raise oefmt(w_error, "line %d: %s", self.line_num, msg)
-    error._dont_inline_ = True
 
     def add_char(self, field_builder, c):
         assert field_builder is not None
@@ -48,10 +49,10 @@ class W_Reader(W_Root):
             try:
                 ff = string_to_float(field)
             except ParseStringError as e:
-                raise wrap_parsestringerror(space, e, space.wrap(field))
-            w_obj = space.wrap(ff)
+                raise wrap_parsestringerror(space, e, space.newtext(field))
+            w_obj = space.newfloat(ff)
         else:
-            w_obj = space.wrap(field)
+            w_obj = space.newtext(field)
         self.fields_w.append(w_obj)
 
     def next_w(self):
@@ -78,7 +79,7 @@ class W_Reader(W_Root):
                             break
                 raise
             self.line_num += 1
-            line = space.str_w(w_line)
+            line = space.text_w(w_line)
             for c in line:
                 if c == '\0':
                     raise self.error("line contains NULL byte")
@@ -246,7 +247,8 @@ def csv_reader(space, w_iterator, w_dialect=None,
 W_Reader.typedef = TypeDef(
         '_csv.reader',
         dialect = interp_attrproperty_w('dialect', W_Reader),
-        line_num = interp_attrproperty('line_num', W_Reader),
+        line_num = interp_attrproperty('line_num', W_Reader,
+            wrapfn="newint"),
         __iter__ = interp2app(W_Reader.iter_w),
         next = interp2app(W_Reader.next_w),
         __doc__ = """CSV reader
@@ -266,4 +268,4 @@ def csv_field_size_limit(space, new_limit=-1):
     old_limit = field_limit.limit
     if new_limit >= 0:
         field_limit.limit = new_limit
-    return space.wrap(old_limit)
+    return space.newint(old_limit)

@@ -1,23 +1,44 @@
+#ifndef CPPYY_DUMMY_BACKEND
+#include "RtypesCore.h"
+#else
+// copied from RtypesCore.h ...
+#if defined(R__WIN32) && !defined(__CINT__)
+typedef __int64          Long64_t;  //Portable signed long integer 8 bytes
+typedef unsigned __int64 ULong64_t; //Portable unsigned long integer 8 bytes
+#else
+typedef long long          Long64_t; //Portable signed long integer 8 bytes
+typedef unsigned long long ULong64_t;//Portable unsigned long integer 8 bytes
+#endif
+#endif
+#include <vector>
+
 const int N = 5;
 
 
 //===========================================================================
-struct cppyy_test_pod {
+struct CppyyTestPod {
    int    m_int;
    double m_double;
 };
 
 
 //===========================================================================
-enum fruit { kApple=78, kBanana=29, kCitrus=34 };
+enum EFruit {kApple=78, kBanana=29, kCitrus=34};
+extern std::vector<EFruit> vecFruits;
 
 
 //===========================================================================
-class four_vector {
+namespace EnumSpace {
+   enum E {E1 = 1, E2};
+};
+
+
+//===========================================================================
+class FourVector {
 public:
-    four_vector(double x, double y, double z, double t) :
+    FourVector(double x, double y, double z, double t) :
         m_cc_called(false), m_x(x), m_y(y), m_z(z), m_t(t) {}
-    four_vector(const four_vector& s) :
+    FourVector(const FourVector& s) :
         m_cc_called(true), m_x(s.m_x), m_y(s.m_y), m_z(s.m_z), m_t(s.m_t) {}
 
     double operator[](int i) {
@@ -28,7 +49,7 @@ public:
        return -1;
     }
 
-    bool operator==(const four_vector& o) {
+    bool operator==(const FourVector& o) {
        return (m_x == o.m_x && m_y == o.m_y &&
                m_z == o.m_z && m_t == o.m_t);
     }
@@ -42,13 +63,13 @@ private:
 
 
 //===========================================================================
-class cppyy_test_data {
+class CppyyTestData {
 public:
-    cppyy_test_data();
-    ~cppyy_test_data();
+    CppyyTestData();
+    ~CppyyTestData();
 
 // special cases
-    enum what { kNothing=6, kSomething=111, kLots=42 };
+    enum EWhat { kNothing=6, kSomething=111, kLots=42 };
 
 // helper
     void destroy_arrays();
@@ -56,6 +77,7 @@ public:
 // getters
     bool                 get_bool();
     char                 get_char();
+    signed char          get_schar();
     unsigned char        get_uchar();
     short                get_short();
     unsigned short       get_ushort();
@@ -65,9 +87,12 @@ public:
     unsigned long        get_ulong();
     long long            get_llong();
     unsigned long long   get_ullong();
+    Long64_t             get_long64();
+    ULong64_t            get_ulong64();
     float                get_float();
     double               get_double();
-    what                 get_enum();
+    long double          get_ldouble();
+    EWhat                get_enum();
     void*                get_voidp();
 
     bool*           get_bool_array();
@@ -90,50 +115,104 @@ public:
     double* get_double_array();
     double* get_double_array2();
 
-    cppyy_test_pod get_pod_val();                 // for m_pod
-    cppyy_test_pod* get_pod_val_ptr();
-    cppyy_test_pod& get_pod_val_ref();
-    cppyy_test_pod*& get_pod_ptrref();
+    CppyyTestPod get_pod_val();                 // for m_pod
+    CppyyTestPod* get_pod_val_ptr();
+    CppyyTestPod& get_pod_val_ref();
+    CppyyTestPod*& get_pod_ptrref();
 
-    cppyy_test_pod* get_pod_ptr();                // for m_ppod
+    CppyyTestPod* get_pod_ptr();                // for m_ppod
+
+// getters const-ref
+    const bool&               get_bool_cr();
+    const char&               get_char_cr();
+    const signed char&        get_schar_cr();
+    const unsigned char&      get_uchar_cr();
+    const short&              get_short_cr();
+    const unsigned short&     get_ushort_cr();
+    const int&                get_int_cr();
+    const unsigned int&       get_uint_cr();
+    const long&               get_long_cr();
+    const unsigned long&      get_ulong_cr();
+    const long long&          get_llong_cr();
+    const unsigned long long& get_ullong_cr();
+    const Long64_t&           get_long64_cr();
+    const ULong64_t&          get_ulong64_cr();
+    const float&              get_float_cr();
+    const double&             get_double_cr();
+    const long double&        get_ldouble_cr();
+    const EWhat&              get_enum_cr();
+
+// getters ref
+    bool&               get_bool_r();
+    char&               get_char_r();
+    signed char&        get_schar_r();
+    unsigned char&      get_uchar_r();
+    short&              get_short_r();
+    unsigned short&     get_ushort_r();
+    int&                get_int_r();
+    unsigned int&       get_uint_r();
+    long&               get_long_r();
+    unsigned long&      get_ulong_r();
+    long long&          get_llong_r();
+    unsigned long long& get_ullong_r();
+    Long64_t&           get_long64_r();
+    ULong64_t&          get_ulong64_r();
+    float&              get_float_r();
+    double&             get_double_r();
+    long double&        get_ldouble_r();
+    EWhat&              get_enum_r();
 
 // setters
-    void set_bool(bool b);
-    void set_char(char c);
-    void set_uchar(unsigned char uc);
-    void set_short(short s);
-    void set_short_c(const short& s);
-    void set_ushort(unsigned short us);
-    void set_ushort_c(const unsigned short& us);
-    void set_int(int i);
-    void set_int_c(const int& i);
-    void set_uint(unsigned int ui);
-    void set_uint_c(const unsigned int& ui);
-    void set_long(long l);
-    void set_long_c(const long& l);
-    void set_llong(long long ll);
-    void set_llong_c(const long long& ll);
-    void set_ulong(unsigned long ul);
-    void set_ulong_c(const unsigned long& ul);
-    void set_ullong(unsigned long long ll);
-    void set_ullong_c(const unsigned long long& ll);
-    void set_float(float f);
-    void set_float_c(const float& f);
-    void set_double(double d);
-    void set_double_c(const double& d);
-    void set_enum(what w);
-    void set_voidp(void* p);
+    void set_bool(bool);
+    void set_char(char);
+    void set_schar(signed char);
+    void set_uchar(unsigned char);
+    void set_short(short);
+    void set_ushort(unsigned short);
+    void set_int(int);
+    void set_uint(unsigned int);
+    void set_long(long);
+    void set_ulong(unsigned long);
+    void set_llong(long long);
+    void set_ullong(unsigned long long);
+    void set_long64(Long64_t);
+    void set_ulong64(ULong64_t);
+    void set_float(float);
+    void set_double(double);
+    void set_ldouble(long double);
+    void set_enum(EWhat);
+    void set_voidp(void*);
 
-    void set_pod_val(cppyy_test_pod);             // for m_pod
-    void set_pod_ptr_in(cppyy_test_pod*);
-    void set_pod_ptr_out(cppyy_test_pod*);
-    void set_pod_ref(const cppyy_test_pod&);
-    void set_pod_ptrptr_in(cppyy_test_pod**);
+    void set_pod_val(CppyyTestPod);             // for m_pod
+    void set_pod_ptr_in(CppyyTestPod*);
+    void set_pod_ptr_out(CppyyTestPod*);
+    void set_pod_ref(const CppyyTestPod&);
+    void set_pod_ptrptr_in(CppyyTestPod**);
     void set_pod_void_ptrptr_in(void**);
-    void set_pod_ptrptr_out(cppyy_test_pod**);
+    void set_pod_ptrptr_out(CppyyTestPod**);
     void set_pod_void_ptrptr_out(void**);
 
-    void set_pod_ptr(cppyy_test_pod*);            // for m_ppod
+    void set_pod_ptr(CppyyTestPod*);            // for m_ppod
+
+// setters const-ref
+    void set_bool_cr(const bool&);
+    void set_char_cr(const char&);
+    void set_schar_cr(const signed char&);
+    void set_uchar_cr(const unsigned char&);
+    void set_short_cr(const short&);
+    void set_ushort_cr(const unsigned short&);
+    void set_int_cr(const int&);
+    void set_uint_cr(const unsigned int&);
+    void set_long_cr(const long&);
+    void set_ulong_cr(const unsigned long&);
+    void set_llong_cr(const long long&);
+    void set_ullong_cr(const unsigned long long&);
+    void set_long64_cr(const Long64_t&);
+    void set_ulong64_cr(const ULong64_t&);
+    void set_float_cr(const float&);
+    void set_double_cr(const double&);
+    void set_ldouble_cr(const long double&);
+    void set_enum_cr(const EWhat&);
 
 // passers
     short*          pass_array(short*);
@@ -162,6 +241,7 @@ public:
 // basic types
     bool                 m_bool;
     char                 m_char;
+    signed char          m_schar;
     unsigned char        m_uchar;
     short                m_short;
     unsigned short       m_ushort;
@@ -171,9 +251,12 @@ public:
     unsigned long        m_ulong;
     long long            m_llong;
     unsigned long long   m_ullong;
+    Long64_t             m_long64;
+    ULong64_t            m_ulong64;
     float                m_float;
     double               m_double;
-    what                 m_enum;
+    long double          m_ldouble;
+    EWhat                m_enum;
     void*                m_voidp;
 
 // array types
@@ -191,18 +274,20 @@ public:
     long*           m_long_array2;
     unsigned long   m_ulong_array[N];
     unsigned long*  m_ulong_array2;
- 
+
     float   m_float_array[N];
     float*  m_float_array2;
     double  m_double_array[N];
     double* m_double_array2;
 
 // object types
-    cppyy_test_pod m_pod;
-    cppyy_test_pod* m_ppod;
+    CppyyTestPod m_pod;
+    CppyyTestPod* m_ppod;
 
 public:
+    static bool                    s_bool;
     static char                    s_char;
+    static signed char             s_schar;
     static unsigned char           s_uchar;
     static short                   s_short;
     static unsigned short          s_ushort;
@@ -212,9 +297,12 @@ public:
     static unsigned long           s_ulong;
     static long long               s_llong;
     static unsigned long long      s_ullong;
+    static Long64_t                s_long64;
+    static ULong64_t               s_ulong64;
     static float                   s_float;
     static double                  s_double;
-    static what                    s_enum;
+    static long double             s_ldouble;
+    static EWhat                   s_enum;
     static void*                   s_voidp;
 
 private:
@@ -223,18 +311,59 @@ private:
 
 
 //= global functions ========================================================
-long get_pod_address(cppyy_test_data& c);
-long get_int_address(cppyy_test_data& c);
-long get_double_address(cppyy_test_data& c);
+long get_pod_address(CppyyTestData& c);
+long get_int_address(CppyyTestData& c);
+long get_double_address(CppyyTestData& c);
 
 
 //= global variables/pointers ===============================================
-extern int g_int;
+extern bool               g_bool;
+extern char               g_char;
+extern signed char        g_schar;
+extern unsigned char      g_uchar;
+extern short              g_short;
+extern unsigned short     g_ushort;
+extern int                g_int;
+extern unsigned int       g_uint;
+extern long               g_long;
+extern unsigned long      g_ulong;
+extern long long          g_llong;
+extern unsigned long long g_ullong;
+extern Long64_t           g_long64;
+extern ULong64_t          g_ulong64;
+extern float              g_float;
+extern double             g_double;
+extern long double        g_ldouble;
+extern EFruit             g_enum;
+extern void*              g_voidp;
+
+static const bool               g_c_bool    = true;
+static const char               g_c_char    = 'z';
+static const signed char        g_c_schar   = 'y';
+static const unsigned char      g_c_uchar   = 'x';
+static const short              g_c_short   =  -99;
+static const unsigned short     g_c_ushort  =   99u;
+static const int                g_c_int     = -199;
+static const unsigned int       g_c_uint    =  199u;
+static const long               g_c_long    = -299;
+static const unsigned long      g_c_ulong   =  299ul;
+static const long long          g_c_llong   = -399ll;
+static const unsigned long long g_c_ullong  =  399ull;
+static const Long64_t           g_c_long64  = -499ll;
+static const ULong64_t          g_c_ulong64 =  499ull;
+static const float              g_c_float   = -599.f;
+static const double             g_c_double  = -699.;
+static const long double        g_c_ldouble = -799.l;
+static const EFruit             g_c_enum    = kApple;
+static const void*              g_c_voidp   = nullptr;
+
+
+//= global accessors ========================================================
 void set_global_int(int i);
 int get_global_int();
 
-extern cppyy_test_pod* g_pod;
-bool is_global_pod(cppyy_test_pod* t);
-void set_global_pod(cppyy_test_pod* t);
-cppyy_test_pod* get_global_pod();
-cppyy_test_pod* get_null_pod();
+extern CppyyTestPod* g_pod;
+bool is_global_pod(CppyyTestPod* t);
+void set_global_pod(CppyyTestPod* t);
+CppyyTestPod* get_global_pod();
+CppyyTestPod* get_null_pod();

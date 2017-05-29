@@ -23,6 +23,17 @@ def _check_params(length, size):
         raise error("not a whole number of frames")
 
 
+def _check_state(state):
+    if state is None:
+        valpred = 0
+        index = 0
+    else:
+        valpred, index = state
+        if not (-0x8000 <= valpred < 0x8000 and 0 <= index < 89):
+            raise ValueError("bad state")
+    return (valpred, index)
+
+
 def _sample_count(cp, size):
     return len(cp) // size
 
@@ -363,7 +374,7 @@ def tostereo(cp, size, fac1, fac2):
 
     sample_count = _sample_count(cp, size)
 
-    rv = ffi.new("unsigned char[]", len(cp) * 2)
+    rv = ffi.new("char[]", len(cp) * 2)
     lib.tostereo(rv, cp, len(cp), size, fac1, fac2)
     return ffi.buffer(rv)[:]
 
@@ -374,7 +385,7 @@ def add(cp1, cp2, size):
     if len(cp1) != len(cp2):
         raise error("Lengths should be the same")
 
-    rv = ffi.new("unsigned char[]", len(cp1))
+    rv = ffi.new("char[]", len(cp1))
     lib.add(rv, cp1, cp2, len(cp1), size)
     return ffi.buffer(rv)[:]
 
@@ -454,6 +465,9 @@ def ratecv(cp, size, nchannels, inrate, outrate, state, weightA=1, weightB=0):
     d = gcd(inrate, outrate)
     inrate //= d
     outrate //= d
+    d = gcd(weightA, weightB)
+    weightA //= d
+    weightB //= d
 
     if state is None:
         d = -outrate
@@ -474,7 +488,7 @@ def ratecv(cp, size, nchannels, inrate, outrate, state, weightA=1, weightB=0):
     ceiling = (q + 1) * outrate
     nbytes = ceiling * bytes_per_frame
 
-    rv = ffi.new("unsigned char[]", nbytes)
+    rv = ffi.new("char[]", nbytes)
     trim_index = lib.ratecv(rv, cp, frame_count, size,
                             nchannels, inrate, outrate,
                             state_d, prev_i, cur_i,
@@ -483,7 +497,6 @@ def ratecv(cp, size, nchannels, inrate, outrate, state, weightA=1, weightB=0):
     d = state_d[0]
     samps = zip(prev_i, cur_i)
     return (result, (d, tuple(samps)))
-
 
 
 def _get_lin_samples(cp, size):
@@ -495,6 +508,7 @@ def _get_lin_samples(cp, size):
         elif size == 4:
             yield sample >> 16
 
+
 def _put_lin_sample(result, size, i, sample):
     if size == 1:
         sample >>= 8
@@ -503,6 +517,7 @@ def _put_lin_sample(result, size, i, sample):
     elif size == 4:
         sample <<= 16
     _put_sample(result, size, i, sample)
+
 
 def lin2ulaw(cp, size):
     _check_params(len(cp), size)
@@ -542,8 +557,7 @@ def alaw2lin(cp, size):
 
 def lin2adpcm(cp, size, state):
     _check_params(len(cp), size)
-    if state is None:
-        state = (0, 0)
+    state = _check_state(state)
     rv = ffi.new("unsigned char[]", len(cp) // size // 2)
     state_ptr = ffi.new("int[]", state)
     lib.lin2adcpm(rv, cp, len(cp), size, state_ptr)
@@ -552,10 +566,8 @@ def lin2adpcm(cp, size, state):
 
 def adpcm2lin(cp, size, state):
     _check_size(size)
-    if state is None:
-        state = (0, 0)
+    state = _check_state(state)
     rv = ffi.new("unsigned char[]", len(cp) * size * 2)
     state_ptr = ffi.new("int[]", state)
     lib.adcpm2lin(rv, cp, len(cp), size, state_ptr)
     return ffi.buffer(rv)[:], tuple(state_ptr)
-

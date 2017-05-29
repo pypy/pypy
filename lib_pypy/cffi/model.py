@@ -1,8 +1,8 @@
-import types, sys
+import types
 import weakref
 
 from .lock import allocate_lock
-
+from .error import CDefError, VerificationError, VerificationMissing
 
 # type qualifiers
 Q_CONST    = 0x01
@@ -39,7 +39,6 @@ class BaseTypeByIdentity(object):
         replace_with = qualify(quals, replace_with)
         result = result.replace('&', replace_with)
         if '$' in result:
-            from .ffiplatform import VerificationError
             raise VerificationError(
                 "cannot generate '%s' in %s: unknown type name"
                 % (self._get_c_name(), context))
@@ -223,9 +222,8 @@ class RawFunctionType(BaseFunctionType):
     is_raw_function = True
 
     def build_backend_type(self, ffi, finishlist):
-        from . import api
-        raise api.CDefError("cannot render the type %r: it is a function "
-                            "type, not a pointer-to-function type" % (self,))
+        raise CDefError("cannot render the type %r: it is a function "
+                        "type, not a pointer-to-function type" % (self,))
 
     def as_function_pointer(self):
         return FunctionPtrType(self.args, self.result, self.ellipsis, self.abi)
@@ -307,9 +305,8 @@ class ArrayType(BaseType):
 
     def build_backend_type(self, ffi, finishlist):
         if self.length == '...':
-            from . import api
-            raise api.CDefError("cannot render the type %r: unknown length" %
-                                (self,))
+            raise CDefError("cannot render the type %r: unknown length" %
+                            (self,))
         self.item.get_cached_btype(ffi, finishlist)   # force the item BType
         BPtrItem = PointerType(self.item).get_cached_btype(ffi, finishlist)
         return global_cache(self, ffi, 'new_array_type', BPtrItem, self.length)
@@ -455,13 +452,11 @@ class StructOrUnion(StructOrUnionOrEnum):
         self.completed = 2
 
     def _verification_error(self, msg):
-        from .ffiplatform import VerificationError
         raise VerificationError(msg)
 
     def check_not_partial(self):
         if self.partial and self.fixedlayout is None:
-            from . import ffiplatform
-            raise ffiplatform.VerificationMissing(self._get_c_name())
+            raise VerificationMissing(self._get_c_name())
 
     def build_backend_type(self, ffi, finishlist):
         self.check_not_partial()
@@ -499,8 +494,7 @@ class EnumType(StructOrUnionOrEnum):
 
     def check_not_partial(self):
         if self.partial and not self.partial_resolved:
-            from . import ffiplatform
-            raise ffiplatform.VerificationMissing(self._get_c_name())
+            raise VerificationMissing(self._get_c_name())
 
     def build_backend_type(self, ffi, finishlist):
         self.check_not_partial()
@@ -514,15 +508,22 @@ class EnumType(StructOrUnionOrEnum):
         if self.baseinttype is not None:
             return self.baseinttype.get_cached_btype(ffi, finishlist)
         #
-        from . import api
         if self.enumvalues:
             smallest_value = min(self.enumvalues)
             largest_value = max(self.enumvalues)
         else:
-            raise api.CDefError("%r has no values explicitly defined: "
-                                "refusing to guess which integer type it is "
-                                "meant to be (unsigned/signed, int/long)"
-                % self._get_c_name())
+            import warnings
+            try:
+                # XXX!  The goal is to ensure that the warnings.warn()
+                # will not suppress the warning.  We want to get it
+                # several times if we reach this point several times.
+                __warningregistry__.clear()
+            except NameError:
+                pass
+            warnings.warn("%r has no values explicitly defined; "
+                          "guessing that it is equivalent to 'unsigned int'"
+                          % self._get_c_name())
+            smallest_value = largest_value = 0
         if smallest_value < 0:   # needs a signed type
             sign = 1
             candidate1 = PrimitiveType("int")
@@ -541,8 +542,8 @@ class EnumType(StructOrUnionOrEnum):
         if (smallest_value >= ((-1) << (8*size2-1)) and
             largest_value < (1 << (8*size2-sign))):
             return btype2
-        raise api.CDefError("%s values don't all fit into either 'long' "
-                            "or 'unsigned long'" % self._get_c_name())
+        raise CDefError("%s values don't all fit into either 'long' "
+                        "or 'unsigned long'" % self._get_c_name())
 
 def unknown_type(name, structname=None):
     if structname is None:

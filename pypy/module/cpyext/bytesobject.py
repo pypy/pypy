@@ -2,7 +2,7 @@ from pypy.interpreter.error import oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
-    PyVarObjectFields, Py_ssize_t, CONST_STRING, CANNOT_FAIL)
+    PyVarObjectFields, Py_ssize_t, CONST_STRING, CANNOT_FAIL, slot_function)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
@@ -14,45 +14,33 @@ from pypy.objspace.std.bytesobject import W_BytesObject
 ## Implementation of PyBytesObject
 ## ================================
 ##
-## The problem
-## -----------
+## PyBytesObject has its own ob_sval buffer, so we have two copies of a string;
+## one in the PyBytesObject returned from various C-API functions and another
+## in the corresponding RPython object.
 ##
-## PyString_AsString() must return a (non-movable) pointer to the underlying
-## ob_sval, whereas pypy strings are movable.  C code may temporarily store
-## this address and use it, as long as it owns a reference to the PyObject.
-## There is no "release" function to specify that the pointer is not needed
-## any more.
+## The following calls can create a PyBytesObject without a correspoinding
+## RPython object:
 ##
-## Also, the pointer may be used to fill the initial value of string. This is
-## valid only when the string was just allocated, and is not used elsewhere.
+## PyBytes_FromStringAndSize(NULL, n) / PyString_FromStringAndSize(NULL, n)
 ##
-## Solution
-## --------
+## In the PyBytesObject returned, the ob_sval buffer may be modified as
+## long as the freshly allocated PyBytesObject is not "forced" via a call
+## to any of the more sophisticated C-API functions.
 ##
-## PyBytesObject contains two additional members: the ob_size and a pointer to a
-## char ob_sval; it may be NULL.
+## Care has been taken in implementing the functions below, so that
+## if they are called with a non-forced PyBytesObject, they will not
+## unintentionally force the creation of a RPython object. As long as only these
+## are used, the ob_sval buffer is still modifiable:
 ##
-## - A string allocated by pypy will be converted into a PyBytesObject with a
-##   NULL buffer.  The first time PyString_AsString() is called, memory is
-##   allocated (with flavor='raw') and content is copied.
-##
-## - A string allocated with PyString_FromStringAndSize(NULL, size) will
-##   allocate a PyBytesObject structure, and a buffer with the specified
-##   size+1, but the reference won't be stored in the global map; there is no
-##   corresponding object in pypy.  When from_ref() or Py_INCREF() is called,
-##   the pypy string is created, and added to the global map of tracked
-##   objects.  The buffer is then supposed to be immutable.
-##
-##-  A buffer obtained from PyString_AS_STRING() could be mutable iff
-##   there is no corresponding pypy object for the string
-##
-## - _PyString_Resize() works only on not-yet-pypy'd strings, and returns a
-##   similar object.
-##
-## - PyString_Size() doesn't need to force the object.
+## PyBytes_AsString / PyString_AsString
+## PyBytes_AS_STRING / PyString_AS_STRING
+## PyBytes_AsStringAndSize / PyString_AsStringAndSize
+## PyBytes_Size / PyString_Size
+## PyBytes_Resize / PyString_Resize
+## _PyBytes_Resize / _PyString_Resize (raises if called with a forced object)
 ##
 ## - There could be an (expensive!) check in from_ref() that the buffer still
-##   corresponds to the pypy gc-managed string.
+##   corresponds to the pypy gc-managed string,
 ##
 
 PyBytesObjectStruct = lltype.ForwardReference()
@@ -64,13 +52,13 @@ cpython_struct("PyStringObject", PyBytesObjectFields, PyBytesObjectStruct)
 @bootstrap_function
 def init_bytesobject(space):
     "Type description of PyBytesObject"
-    make_typedescr(space.w_str.layout.typedef,
+    make_typedescr(space.w_bytes.layout.typedef,
                    basestruct=PyBytesObject.TO,
                    attach=bytes_attach,
                    dealloc=bytes_dealloc,
                    realize=bytes_realize)
 
-PyString_Check, PyString_CheckExact = build_type_checkers("String", "w_str")
+PyString_Check, PyString_CheckExact = build_type_checkers("String", "w_bytes")
 
 def new_empty_str(space, length):
     """
@@ -78,28 +66,32 @@ def new_empty_str(space, length):
     interpreter object.  The ob_sval may be mutated, until bytes_realize() is
     called.  Refcount of the result is 1.
     """
-    typedescr = get_typedescr(space.w_str.layout.typedef)
-    py_obj = typedescr.allocate(space, space.w_str, length)
+    typedescr = get_typedescr(space.w_bytes.layout.typedef)
+    py_obj = typedescr.allocate(space, space.w_bytes, length)
     py_str = rffi.cast(PyBytesObject, py_obj)
     py_str.c_ob_shash = -1
     py_str.c_ob_sstate = rffi.cast(rffi.INT, 0) # SSTATE_NOT_INTERNED
     return py_str
 
-def bytes_attach(space, py_obj, w_obj):
+def bytes_attach(space, py_obj, w_obj, w_userdata=None):
     """
     Copy RPython string object contents to a PyBytesObject. The
     c_ob_sval must not be modified.
     """
     py_str = rffi.cast(PyBytesObject, py_obj)
-    s = space.str_w(w_obj)
-    if py_str.c_ob_size  < len(s):
+    s = space.bytes_w(w_obj)
+    len_s = len(s)
+    if py_str.c_ob_size  < len_s:
         raise oefmt(space.w_ValueError,
             "bytes_attach called on object with ob_size %d but trying to store %d",
-            py_str.c_ob_size, len(s))
+            py_str.c_ob_size, len_s)
     with rffi.scoped_nonmovingbuffer(s) as s_ptr:
-        rffi.c_memcpy(py_str.c_ob_sval, s_ptr, len(s))
-    py_str.c_ob_sval[len(s)] = '\0'
-    py_str.c_ob_shash = space.hash_w(w_obj)
+        rffi.c_memcpy(py_str.c_ob_sval, s_ptr, len_s)
+    py_str.c_ob_sval[len_s] = '\0'
+    # if py_obj has a tp_hash, this will try to call it, but the objects are
+    # not fully linked yet
+    #py_str.c_ob_shash = space.hash_w(w_obj)
+    py_str.c_ob_shash = space.hash_w(space.newbytes(s))
     py_str.c_ob_sstate = rffi.cast(rffi.INT, 1) # SSTATE_INTERNED_MORTAL
 
 def bytes_realize(space, py_obj):
@@ -112,12 +104,14 @@ def bytes_realize(space, py_obj):
     w_type = from_ref(space, rffi.cast(PyObject, py_obj.c_ob_type))
     w_obj = space.allocate_instance(W_BytesObject, w_type)
     w_obj.__init__(s)
-    py_str.c_ob_shash = space.hash_w(w_obj)
+    # if py_obj has a tp_hash, this will try to call it but the object is
+    # not realized yet
+    py_str.c_ob_shash = space.hash_w(space.newbytes(s))
     py_str.c_ob_sstate = rffi.cast(rffi.INT, 1) # SSTATE_INTERNED_MORTAL
     track_reference(space, py_obj, w_obj)
     return w_obj
 
-@cpython_api([PyObject], lltype.Void, header=None)
+@slot_function([PyObject], lltype.Void)
 def bytes_dealloc(space, py_obj):
     """Frees allocated PyBytesObject resources.
     """
@@ -130,21 +124,21 @@ def bytes_dealloc(space, py_obj):
 def PyString_FromStringAndSize(space, char_p, length):
     if char_p:
         s = rffi.charpsize2str(char_p, length)
-        return make_ref(space, space.wrap(s))
+        return make_ref(space, space.newbytes(s))
     else:
         return rffi.cast(PyObject, new_empty_str(space, length))
 
 @cpython_api([CONST_STRING], PyObject)
 def PyString_FromString(space, char_p):
     s = rffi.charp2str(char_p)
-    return space.wrap(s)
+    return space.newbytes(s)
 
 @cpython_api([PyObject], rffi.CCHARP, error=0)
 def PyString_AsString(space, ref):
     return _PyString_AsString(space, ref)
 
 def _PyString_AsString(space, ref):
-    if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_str:
+    if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_bytes:
         pass    # typecheck returned "ok" without forcing 'ref' at all
     elif not PyString_Check(space, ref):   # otherwise, use the alternate way
         from pypy.module.cpyext.unicodeobject import (
@@ -156,9 +150,6 @@ def _PyString_AsString(space, ref):
                         "expected string or Unicode object, %T found",
                         from_ref(space, ref))
     ref_str = rffi.cast(PyBytesObject, ref)
-    if not pyobj_has_w_obj(ref):
-        # XXX Force the ref?
-        bytes_realize(space, ref)
     return ref_str.c_ob_sval
 
 @cpython_api([rffi.VOIDP], rffi.CCHARP, error=0)
@@ -182,9 +173,6 @@ def PyString_AsStringAndSize(space, ref, data, length):
             raise oefmt(space.w_TypeError,
                         "expected string or Unicode object, %T found",
                         from_ref(space, ref))
-    if not pyobj_has_w_obj(ref):
-        # force the ref
-        bytes_realize(space, ref)
     ref_str = rffi.cast(PyBytesObject, ref)
     data[0] = ref_str.c_ob_sval
     if length:
@@ -200,7 +188,7 @@ def PyString_AsStringAndSize(space, ref, data, length):
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyString_Size(space, ref):
-    if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_str:
+    if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_bytes:
         ref = rffi.cast(PyBytesObject, ref)
         return ref.c_ob_size
     else:
@@ -323,9 +311,9 @@ def PyString_AsEncodedObject(space, w_str, encoding, errors):
 
     w_encoding = w_errors = None
     if encoding:
-        w_encoding = space.wrap(rffi.charp2str(encoding))
+        w_encoding = space.newtext(rffi.charp2str(encoding))
     if errors:
-        w_errors = space.wrap(rffi.charp2str(errors))
+        w_errors = space.newtext(rffi.charp2str(errors))
     return space.call_method(w_str, 'encode', w_encoding, w_errors)
 
 @cpython_api([PyObject, CONST_STRING, CONST_STRING], PyObject)
@@ -343,9 +331,9 @@ def PyString_AsDecodedObject(space, w_str, encoding, errors):
 
     w_encoding = w_errors = None
     if encoding:
-        w_encoding = space.wrap(rffi.charp2str(encoding))
+        w_encoding = space.newtext(rffi.charp2str(encoding))
     if errors:
-        w_errors = space.wrap(rffi.charp2str(errors))
+        w_errors = space.newtext(rffi.charp2str(errors))
     return space.call_method(w_str, "decode", w_encoding, w_errors)
 
 @cpython_api([PyObject, PyObject], PyObject)

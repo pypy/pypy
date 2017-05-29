@@ -8,6 +8,8 @@ class AppTestSSL:
     def setup_class(cls):
         cls.w_nullbytecert = cls.space.wrap(os.path.join(
             os.path.dirname(__file__), 'nullbytecert.pem'))
+        cls.w_allsans = cls.space.wrap(os.path.join(
+            os.path.dirname(__file__), 'allsans.pem'))
 
     def test_init_module(self):
         import _ssl
@@ -77,7 +79,7 @@ class AppTestSSL:
         if sys.version_info < (2, 7, 9):
             ss = _ssl.sslwrap(s, 0)
         else:
-            ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+            ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLS)
             ss = ctx._wrap_socket(s, 0)
             assert ss.context is ctx
         exc = raises(_socket.error, ss.do_handshake)
@@ -95,7 +97,7 @@ class AppTestSSL:
         if sys.version_info < (2, 7, 9):
             ss = _ssl.sslwrap(s, 0)
         else:
-            ss = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)._wrap_socket(s, 0)
+            ss = _ssl._SSLContext(_ssl.PROTOCOL_TLS)._wrap_socket(s, 0)
         s.close()
         exc = raises(_ssl.SSLError, ss.write, "data")
         assert exc.value.message == 'Underlying socket has been closed.'
@@ -121,15 +123,19 @@ class AppTestSSL:
              ('IP Address', '192.0.2.1'),
              ('IP Address', '2001:DB8:0:0:0:0:0:1\n'))
 
+    def test_decode_all_sans(self):
+        import _ssl
+        _ssl._test_decode_cert(self.allsans)
+
     def test_context(self):
         import _ssl
-        s = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        s = _ssl._SSLContext(_ssl.PROTOCOL_TLS)
         raises(ValueError, _ssl._SSLContext, -1)
 
         assert type(s.options) is long
-        assert s.options & _ssl.OP_NO_SSLv2
-        s.options &= ~_ssl.OP_NO_SSLv2
-        assert not s.options & _ssl.OP_NO_SSLv2
+        assert s.options & _ssl.OP_NO_SSLv3
+        s.options &= ~_ssl.OP_NO_SSLv3
+        assert not s.options & _ssl.OP_NO_SSLv3
         raises(TypeError, "s.options = 2.5")
 
         assert not s.check_hostname
@@ -159,7 +165,7 @@ class AppTestSSL:
 
     def test_set_default_verify_paths(self):
         import _ssl
-        s = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        s = _ssl._SSLContext(_ssl.PROTOCOL_TLS)
         s.set_default_verify_paths()
 
 
@@ -169,8 +175,8 @@ class AppTestConnectedSSL:
     }
 
     def setup_method(self, method):
-        # https://www.verisign.net/
-        ADDR = "www.verisign.net", 443
+        # https://gmail.com/
+        ADDR = "gmail.com", 443
 
         self.w_s = self.space.appexec([self.space.wrap(ADDR)], """(ADDR):
             import socket
@@ -181,6 +187,23 @@ class AppTestConnectedSSL:
                 skip("no network available or issues with connection")
             return s
             """)
+
+    def teardown_method(self, method):
+        # pytest may keep some objects alive.
+        # So do some clean-up now without waiting for them to die
+        from ..interp_ssl import SOCKET_STORAGE
+        SOCKET_STORAGE._dict.clear()
+
+    def test_warmup_connection(self):
+        # not sure it is gmail.com's fault, but on some machines the
+        # very first connection attempt fails.  So we make one here and
+        # ignore the result.  The first real test is test_connect().
+        import socket, ssl
+        try:
+            ss = socket.ssl(self.s)
+            self.s.close()
+        except ssl.SSLError:
+            pass
 
     def test_connect(self):
         import socket, gc
@@ -206,6 +229,7 @@ class AppTestConnectedSSL:
         ss.write("hello\n")
         data = ss.read(10)
         assert isinstance(data, str)
+        assert ss.read(0) == ''
         self.s.close()
         del ss; gc.collect()
 
@@ -217,6 +241,18 @@ class AppTestConnectedSSL:
         data = ss.read(10)
         assert isinstance(data, str)
         assert len(data) == 10
+        assert ss.pending() > 50 # many more bytes to read
+        self.s.close()
+        del ss; gc.collect()
+
+    def test_read_buffer(self):
+        import socket, gc
+        ss = socket.ssl(self.s)
+        raises(TypeError, ss.read, "foo")
+        ss.write("hello\n")
+        buf = bytearray(10)
+        read = ss.read(-1, buf)
+        assert read == 10
         assert ss.pending() > 50 # many more bytes to read
         self.s.close()
         del ss; gc.collect()
@@ -241,10 +277,41 @@ class AppTestConnectedSSL:
         if not _ssl.HAS_NPN:
             skip("NPN requires OpenSSL 1.0.1 or greater")
 
-        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLS)
         ctx._set_npn_protocols(b'\x08http/1.1\x06spdy/2')
         ss = ctx._wrap_socket(self.s._sock, True,
                               server_hostname="svn.python.org")
+        self.s.close()
+        del ss; gc.collect()
+
+    def test_peer_certificate(self):
+        import _ssl, gc
+        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLS)
+        ss = ctx._wrap_socket(self.s._sock, False)
+        ss.do_handshake()
+        assert isinstance(ss.peer_certificate(der=True), bytes)
+        assert isinstance(ss.peer_certificate(), dict)
+        self.s.close()
+        del ss; gc.collect()
+
+    def test_peer_certificate_verify(self):
+        import _ssl, ssl, gc
+        paths = ssl.get_default_verify_paths()
+        if not paths.capath and not paths.cafile:
+            skip("ssl.get_default_verify_paths() failed to return any path")
+
+        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLS)
+        ctx.verify_mode = _ssl.CERT_REQUIRED
+        ctx.load_verify_locations(capath=paths.capath, cafile=paths.cafile)
+
+        ss = ctx._wrap_socket(self.s._sock, False)
+        try:
+            ss.do_handshake()
+        except _ssl.SSLError as e:
+            if e.reason == 'CERTIFICATE_VERIFY_FAILED':
+                skip("Certificate verification failed. "
+                     "Most likely we just don't have any CA certificates.")
+        assert ss.peer_certificate()
         self.s.close()
         del ss; gc.collect()
 
@@ -313,7 +380,7 @@ class AppTestContext:
 
     def test_load_cert_chain(self):
         import _ssl, errno
-        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLS)
         ctx.load_cert_chain(self.keycert)
         ctx.load_cert_chain(self.cert, self.key)
         exc = raises(IOError, ctx.load_cert_chain, "inexistent.pem")
@@ -332,11 +399,11 @@ class AppTestContext:
 
     def test_load_verify_locations(self):
         import _ssl
-        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLS)
         ctx.load_verify_locations(self.keycert)
         ctx.load_verify_locations(cafile=self.keycert, capath=None)
 
-        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLS)
         with open(self.keycert) as f:
             cacert_pem = f.read().decode('ascii')
         ctx.load_verify_locations(cadata=cacert_pem)
@@ -344,7 +411,7 @@ class AppTestContext:
 
     def test_get_ca_certs(self):
         import _ssl
-        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLS)
         ctx.load_verify_locations(self.keycert)
         assert ctx.get_ca_certs() == []
         ctx.load_verify_locations(self.python_org_cert)
@@ -358,7 +425,7 @@ class AppTestContext:
 
     def test_cert_store_stats(self):
         import _ssl
-        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLS)
         assert ctx.cert_store_stats() == {'x509_ca': 0, 'crl': 0, 'x509': 0}
         ctx.load_cert_chain(self.keycert)
         assert ctx.cert_store_stats() == {'x509_ca': 0, 'crl': 0, 'x509': 0}
@@ -367,7 +434,7 @@ class AppTestContext:
 
     def test_load_dh_params(self):
         import _ssl, errno
-        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLS)
         ctx.load_dh_params(self.dh512)
         raises(TypeError, ctx.load_dh_params)
         raises(TypeError, ctx.load_dh_params, None)
@@ -377,7 +444,7 @@ class AppTestContext:
 
     def test_set_ecdh_curve(self):
         import _ssl
-        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLS)
         ctx.set_ecdh_curve("prime256v1")
         raises(ValueError, ctx.set_ecdh_curve, "foo")
 
@@ -422,7 +489,7 @@ class AppTestSSLError:
     def test_lib_reason(self):
         # Test the library and reason attributes
         import _ssl
-        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLS)
         exc = raises(_ssl.SSLError, ctx.load_dh_params, self.keycert)
         assert exc.value.library == 'PEM'
         assert exc.value.reason == 'NO_START_LINE'
@@ -433,7 +500,7 @@ class AppTestSSLError:
         # Check that the appropriate SSLError subclass is raised
         # (this only tests one of them)
         import _ssl, _socket
-        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLS)
         s = _socket.socket()
         try:
             s.bind(("127.0.0.1", 0))
@@ -441,7 +508,7 @@ class AppTestSSLError:
             c = _socket.socket()
             c.connect(s.getsockname())
             c.setblocking(False)
-            
+
             c = ctx._wrap_socket(c, False)
             try:
                 exc = raises(_ssl.SSLWantReadError, c.do_handshake)
@@ -450,7 +517,12 @@ class AppTestSSLError:
                 # For compatibility
                 assert exc.value.errno == _ssl.SSL_ERROR_WANT_READ
             finally:
-                c.shutdown()
+                try:
+                    c.shutdown()
+                except _ssl.SSLError:
+                    # If the expected exception was raised, the SSLContext
+                    # can't be shut down yet
+                    pass
         finally:
             s.close()
 

@@ -138,11 +138,12 @@ class MixLevelHelperAnnotator(object):
         # get the graph of the mix-level helper ll_function and prepare it for
         # being annotated.  Annotation and RTyping should be done in a single shot
         # at the end with finish().
-        graph, args_s = self.rtyper.annotator.get_call_parameters(
-            ll_function, args_s, policy = self.policy)
+        ann = self.rtyper.annotator
+        with ann.using_policy(self.policy):
+            graph, args_s = ann.get_call_parameters(ll_function, args_s)
         for v_arg, s_arg in zip(graph.getargs(), args_s):
-            self.rtyper.annotator.setbinding(v_arg, s_arg)
-        self.rtyper.annotator.setbinding(graph.getreturnvar(), s_result)
+            ann.setbinding(v_arg, s_arg)
+        ann.setbinding(graph.getreturnvar(), s_result)
         #self.rtyper.annotator.annotated[graph.returnblock] = graph
         self.pending.append((ll_function, graph, args_s, s_result))
         return graph
@@ -224,16 +225,17 @@ class MixLevelHelperAnnotator(object):
         bk = ann.bookkeeper
         translator = ann.translator
         original_graph_count = len(translator.graphs)
-        for ll_function, graph, args_s, s_result in self.pending:
-            # mark the return block as already annotated, because the return var
-            # annotation was forced in getgraph() above.  This prevents temporary
-            # less general values reaching the return block from crashing the
-            # annotator (on the assert-that-new-binding-is-not-less-general).
-            ann.annotated[graph.returnblock] = graph
-            s_function = bk.immutablevalue(ll_function)
-            bk.emulate_pbc_call(graph, s_function, args_s)
-            self.newgraphs.add(graph)
-        ann.complete_helpers(self.policy)
+        with ann.using_policy(self.policy):
+            for ll_function, graph, args_s, s_result in self.pending:
+                # mark the return block as already annotated, because the return var
+                # annotation was forced in getgraph() above.  This prevents temporary
+                # less general values reaching the return block from crashing the
+                # annotator (on the assert-that-new-binding-is-not-less-general).
+                ann.annotated[graph.returnblock] = graph
+                s_function = bk.immutablevalue(ll_function)
+                bk.emulate_pbc_call(graph, s_function, args_s)
+                self.newgraphs.add(graph)
+            ann.complete_helpers()
         for ll_function, graph, args_s, s_result in self.pending:
             s_real_result = ann.binding(graph.getreturnvar())
             if s_real_result != s_result:

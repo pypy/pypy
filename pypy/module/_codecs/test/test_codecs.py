@@ -28,8 +28,8 @@ class AppTestCodecs:
         raises( UnicodeDecodeError, unicode,'\\NSPACE}','unicode-escape')
         raises( UnicodeDecodeError, unicode,'\\NSPACE','unicode-escape')
         raises( UnicodeDecodeError, unicode,'\\N','unicode-escape')
-        assert  unicode('\\N{SPACE}\\N{SPACE}','unicode-escape') == u"  " 
-        assert  unicode('\\N{SPACE}a\\N{SPACE}','unicode-escape') == u" a " 
+        assert  unicode('\\N{SPACE}\\N{SPACE}','unicode-escape') == u"  "
+        assert  unicode('\\N{SPACE}a\\N{SPACE}','unicode-escape') == u" a "
         assert "\\N{foo}xx".decode("unicode-escape", "ignore") == u"xx"
         assert 1 <= len(u"\N{CJK UNIFIED IDEOGRAPH-20000}") <= 2
 
@@ -292,8 +292,8 @@ class AppTestPartialEvaluation:
             assert bytes2.decode("unicode_internal") == u"\U00010098"
         assert bytes.decode("unicode_internal") == u"a"
         assert _codecs.unicode_internal_decode(array.array('c', bytes))[0] == u"a"
-        exc = raises(TypeError, _codecs.unicode_internal_decode, memoryview(bytes))
-        assert str(exc.value) == "expected a readable buffer object"
+        if '__pypy__' in sys.modules:
+            assert _codecs.unicode_internal_decode(memoryview(bytes))[0] == u"a"
 
     def test_raw_unicode_escape(self):
         assert unicode("\u0663", "raw-unicode-escape") == u"\u0663"
@@ -676,6 +676,9 @@ class AppTestPartialEvaluation:
             (b'a+//,+IKw-b', u'a\ufffd\u20acb'),
             (b'a+///,+IKw-b', u'a\uffff\ufffd\u20acb'),
             (b'a+////,+IKw-b', u'a\uffff\ufffd\u20acb'),
+            (b'a+2AE\xe1b', u'a\ufffdb'),
+            (b'a+2AEA-b', u'a\ufffdb'),
+            (b'a+2AH-b', u'a\ufffdb'),
         ]
         for raw, expected in tests:
             raises(UnicodeDecodeError, codecs.utf_7_decode, raw, 'strict', True)

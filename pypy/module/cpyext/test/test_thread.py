@@ -1,12 +1,13 @@
 import sys
 
-import py, pytest
+import pytest
 
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
+only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names" 
 
 class AppTestThread(AppTestCpythonExtensionBase):
-    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy only test')
+    @pytest.mark.skipif(only_pypy, reason='pypy only test')
     def test_get_thread_ident(self):
         module = self.import_extension('foo', [
             ("get_thread_ident", "METH_NOARGS",
@@ -33,7 +34,7 @@ class AppTestThread(AppTestCpythonExtensionBase):
 
         assert results[0][0] != results[1][0]
 
-    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy only test')
+    @pytest.mark.skipif(only_pypy, reason='pypy only test')
     def test_acquire_lock(self):
         module = self.import_extension('foo', [
             ("test_acquire_lock", "METH_NOARGS",
@@ -57,7 +58,7 @@ class AppTestThread(AppTestCpythonExtensionBase):
             ])
         module.test_acquire_lock()
 
-    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy only test')
+    @pytest.mark.skipif(only_pypy, reason='pypy only test')
     def test_release_lock(self):
         module = self.import_extension('foo', [
             ("test_release_lock", "METH_NOARGS",
@@ -79,7 +80,7 @@ class AppTestThread(AppTestCpythonExtensionBase):
             ])
         module.test_release_lock()
 
-    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy only test')
+    @pytest.mark.skipif(only_pypy, reason='pypy only test')
     def test_tls(self):
         module = self.import_extension('foo', [
             ("create_key", "METH_NOARGS",

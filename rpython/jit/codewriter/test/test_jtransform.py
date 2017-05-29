@@ -243,6 +243,20 @@ def test_optimize_goto_if_not__ptr_iszero():
         assert block.exitswitch == (opname, v1, '-live-before')
         assert block.exits == exits
 
+def test_optimize_goto_if_not__argument_to_call():
+    for opname in ['ptr_iszero', 'ptr_nonzero']:
+        v1 = Variable()
+        v3 = Variable(); v3.concretetype = lltype.Bool
+        v4 = Variable()
+        block = Block([v1])
+        callop = SpaceOperation('residual_call_r_i',
+                ["fake", ListOfKind('int', [v3])], v4)
+        block.operations = [SpaceOperation(opname, [v1], v3), callop]
+        block.exitswitch = v3
+        block.exits = exits = [FakeLink(False), FakeLink(True)]
+        res = Transformer().optimize_goto_if_not(block)
+        assert not res
+
 def test_symmetric():
     ops = {'int_add': 'int_add',
            'int_or': 'int_or',

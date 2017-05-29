@@ -1486,7 +1486,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert d[1] == 12
 
     def test_sum(self):
-        from numpy import array, zeros, float16, complex64, str_
+        from numpy import array, zeros, float16, complex64, str_, isscalar, add
         a = array(range(5))
         assert a.sum() == 10
         assert a[:4].sum() == 6
@@ -1514,6 +1514,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert c.imag == 5
 
         assert list(zeros((0, 2)).sum(axis=1)) == []
+
+        a = array([1, 2, 3, 4]).sum()
+        s = isscalar(a)
+        assert s is True
+        a = add.reduce([1.0, 2, 3, 4])
+        s = isscalar(a)
+        assert s is True,'%r is not a scalar' % type(a)
 
     def test_reduce_nd(self):
         from numpy import arange, array
@@ -3215,7 +3222,9 @@ class AppTestMultiDim(BaseNumpyAppTest):
         raises(TypeError, array, Dummy({'version': 3, 'typestr': 'f8', 'shape': ('a', 3)}))
 
         a = array([1, 2, 3])
-        b = array(Dummy(a.__array_interface__))
+        d = Dummy(a.__array_interface__)
+        b = array(d)
+        assert b.base is None
         b[1] = 200
         assert a[1] == 2 # upstream compatibility, is this a bug?
         interface_a = a.__array_interface__
@@ -3226,6 +3235,8 @@ class AppTestMultiDim(BaseNumpyAppTest):
         interface_b.pop('data')
         interface_a.pop('data')
         assert interface_a == interface_b
+        b = array(d, copy=False)
+        assert b.base is d
 
         b = array(Dummy({'version':3, 'shape': (50,), 'typestr': 'u1',
                          'data': 'a'*100}))
@@ -3594,13 +3605,12 @@ class AppTestSupport(BaseNumpyAppTest):
         cls.w_float32val = cls.space.wrap(struct.pack('f', 5.2))
         cls.w_float64val = cls.space.wrap(struct.pack('d', 300.4))
         cls.w_ulongval = cls.space.wrap(struct.pack('L', 12))
+        cls.w_one = cls.space.wrap(struct.pack('i', 1))
 
     def test_frombuffer(self):
         import numpy as np
         exc = raises(AttributeError, np.frombuffer, None)
         assert str(exc.value) == "'NoneType' object has no attribute '__buffer__'"
-        exc = raises(AttributeError, np.frombuffer, memoryview(self.data))
-        assert str(exc.value) == "'memoryview' object has no attribute '__buffer__'"
         exc = raises(ValueError, np.frombuffer, self.data, 'S0')
         assert str(exc.value) == "itemsize cannot be zero in type"
         exc = raises(ValueError, np.frombuffer, self.data, offset=-1)
@@ -3626,12 +3636,64 @@ class AppTestSupport(BaseNumpyAppTest):
         assert str(exc.value) == "assignment destination is read-only"
 
         class A(object):
-            __buffer__ = 'abc'
+            def __buffer__(self, flags):
+                return 'abc'
 
         data = A()
         a = np.frombuffer(data, 'c')
         #assert a.base is data.__buffer__
         assert a.tostring() == 'abc'
+
+    def test_memoryview(self):
+        import numpy as np
+        import sys
+        if sys.version_info[:2] > (3, 2):
+            # In Python 3.3 the representation of empty shape, strides and sub-offsets
+            # is an empty tuple instead of None.
+            # http://docs.python.org/dev/whatsnew/3.3.html#api-changes
+            EMPTY = ()
+        else:
+            EMPTY = None
+        x = np.array([1, 2, 3, 4, 5], dtype='i')
+        y = memoryview(x)
+        assert y.format == 'i'
+        assert y.shape == (5,)
+        assert y.ndim == 1
+        assert y.strides == (4,)
+        assert y.suboffsets == EMPTY
+        assert y.itemsize == 4
+        assert isinstance(y, memoryview)
+        assert y[0] == self.one
+        assert (np.array(y) == x).all()
+
+        x = np.array([0, 0, 0, 0], dtype='O')
+        y = memoryview(x)
+        # handles conversion of address to pinned object?
+        z = np.array(y)
+        assert z.dtype == 'O'
+        assert (z == x).all()
+
+        dt1 = np.dtype(
+             [('a', 'b'), ('b', 'i'), ('sub', np.dtype('b,i')), ('c', 'i')],
+             align=True)
+        x = np.arange(dt1.itemsize, dtype=np.int8).view(dt1)
+        y = memoryview(x)
+        if '__pypy__' in sys.builtin_module_names:
+            assert y.format == 'T{b:a:xxxi:b:T{b:f0:i:f1:}:sub:xxxi:c:}'
+        else:
+            assert y.format == 'T{b:a:xxxi:b:T{b:f0:=i:f1:}:sub:xxx@i:c:}'
+
+
+        dt1 = np.dtype(
+             [('a', 'b'), ('b', 'i'), ('sub', np.dtype('b,i')), ('c', 'i')],
+             align=True)
+        x = np.arange(dt1.itemsize, dtype=np.int8).view(dt1)
+        y = memoryview(x)
+        if '__pypy__' in sys.builtin_module_names:
+            assert y.format == 'T{b:a:xxxi:b:T{b:f0:i:f1:}:sub:xxxi:c:}'
+        else:
+            assert y.format == 'T{b:a:xxxi:b:T{b:f0:=i:f1:}:sub:xxx@i:c:}'
+
 
     def test_fromstring(self):
         import sys

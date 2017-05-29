@@ -20,7 +20,7 @@ def chr(space, w_ascii):
         char = __builtin__.chr(space.int_w(w_ascii))
     except ValueError:  # chr(out-of-range)
         raise oefmt(space.w_ValueError, "character code not in range(256)")
-    return space.wrap(char)
+    return space.newtext(char)
 
 @unwrap_spec(code=int)
 def unichr(space, code):
@@ -30,7 +30,7 @@ def unichr(space, code):
         c = UNICHR(code)
     except ValueError:
         raise oefmt(space.w_ValueError, "unichr() arg out of range")
-    return space.wrap(c)
+    return space.newunicode(c)
 
 def len(space, w_obj):
     "len(object) -> integer\n\nReturn the number of items of a sequence or mapping."
@@ -44,9 +44,9 @@ def checkattrname(space, w_name):
     # space.{get,set,del}attr()...
     # Note that if w_name is already an exact string it must be returned
     # unmodified (and not e.g. unwrapped-rewrapped).
-    if not space.is_w(space.type(w_name), space.w_str):
-        name = space.str_w(w_name)    # typecheck
-        w_name = space.wrap(name)     # rewrap as a real string
+    if not space.is_w(space.type(w_name), space.w_text):
+        name = space.text_w(w_name)    # typecheck
+        w_name = space.newtext(name)     # rewrap as a real string
     return w_name
 
 def delattr(space, w_object, w_name):
@@ -135,23 +135,23 @@ This always returns a floating point number.  Precision may be negative."""
 
     # nans, infinities and zeros round to themselves
     if number == 0 or isinf(number) or isnan(number):
-        return space.wrap(number)
+        return space.newfloat(number)
 
     # Deal with extreme values for ndigits. For ndigits > NDIGITS_MAX, x
     # always rounds to itself.  For ndigits < NDIGITS_MIN, x always
     # rounds to +-0.0.
     if ndigits > NDIGITS_MAX:
-        return space.wrap(number)
+        return space.newfloat(number)
     elif ndigits < NDIGITS_MIN:
         # return 0.0, but with sign of x
-        return space.wrap(0.0 * number)
+        return space.newfloat(0.0 * number)
 
     # finite x, and ndigits is not unreasonably large
     z = round_double(number, ndigits)
     if isinf(z):
         raise oefmt(space.w_OverflowError,
                     "rounded value too large to represent")
-    return space.wrap(z)
+    return space.newfloat(z)
 
 # ____________________________________________________________
 
@@ -223,7 +223,7 @@ def intern(space, w_str):
 table of interned strings whose purpose is to speed up dictionary lookups.
 Return the string itself or the previously interned string object with the
 same value."""
-    if space.is_w(space.type(w_str), space.w_str):
+    if space.is_w(space.type(w_str), space.w_bytes):
         return space.new_interned_w_str(w_str)
     raise oefmt(space.w_TypeError, "intern() argument must be string.")
 

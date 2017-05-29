@@ -313,3 +313,33 @@ class AppTestMinMax:
         assert type(max(1, 1.0, 1L)) is int
         assert type(max(1.0, 1L, 1)) is float
         assert type(max(1L, 1, 1.0)) is long
+
+
+try:
+    from hypothesis import given, strategies, example
+except ImportError:
+    pass
+else:
+    @given(lst=strategies.lists(strategies.integers()))
+    def test_map_hypothesis(space, lst):
+        print lst
+        w_lst = space.appexec([space.wrap(lst[:])], """(lst):
+            def change(n):
+                if n & 3 == 1:
+                    lst.pop(0)
+                elif n & 3 == 2:
+                    lst.append(100)
+                return n * 2
+            return map(change, lst)
+        """)
+        expected = []
+        i = 0
+        while i < len(lst):
+            n = lst[i]
+            if n & 3 == 1:
+                lst.pop(0)
+            elif n & 3 == 2:
+                lst.append(100)
+            expected.append(n * 2)
+            i += 1
+        assert space.unwrap(w_lst) == expected

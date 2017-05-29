@@ -35,7 +35,7 @@ an outout-buffering stream.
 # return value of tell(), but not as argument to read().
 
 import os, sys, errno
-from rpython.rlib.objectmodel import specialize, we_are_translated
+from rpython.rlib.objectmodel import specialize, we_are_translated, not_rpython
 from rpython.rlib.rarithmetic import r_longlong, intmask
 from rpython.rlib import rposix, nonconst, _rsocket_rffi as _c
 from rpython.rlib.rstring import StringBuilder
@@ -394,8 +394,8 @@ class DiskFile(Stream):
 class MMapFile(Stream):
     """Standard I/O basis stream using mmap."""
 
+    @not_rpython
     def __init__(self, fd, mmapaccess):
-        """NOT_RPYTHON"""
         self.fd = fd
         self.access = mmapaccess
         self.pos = 0
@@ -902,18 +902,30 @@ class TextCRLFFilter(Stream):
         self.do_read = base.read
         self.do_write = base.write
         self.do_flush = base.flush_buffers
-        self.lfbuffer = ""
+        self.readahead_count = 0   # either 0 or 1
 
     def read(self, n=-1):
-        data = self.lfbuffer + self.do_read(n)
-        self.lfbuffer = ""
+        """If n >= 1, this should read between 1 and n bytes."""
+        if n <= 0:
+            if n < 0:
+                return self.readall()
+            else:
+                return ""
+
+        data = self.do_read(n - self.readahead_count)
+        if self.readahead_count > 0:
+            data = self.readahead_char + data
+            self.readahead_count = 0
+
         if data.endswith("\r"):
             c = self.do_read(1)
-            if c and c[0] == '\n':
-                data = data + '\n'
-                self.lfbuffer = c[1:]
-            else:
-                self.lfbuffer = c
+            if len(c) >= 1:
+                assert len(c) == 1
+                if c[0] == '\n':
+                    data = data + '\n'
+                else:
+                    self.readahead_char = c[0]
+                    self.readahead_count = 1
 
         result = []
         offset = 0
@@ -936,21 +948,21 @@ class TextCRLFFilter(Stream):
 
     def tell(self):
         pos = self.base.tell()
-        return pos - len(self.lfbuffer)
+        return pos - self.readahead_count
 
     def seek(self, offset, whence):
         if whence == 1:
-            offset -= len(self.lfbuffer)   # correct for already-read-ahead character
+            offset -= self.readahead_count   # correct for already-read-ahead character
         self.base.seek(offset, whence)
-        self.lfbuffer = ""
+        self.readahead_count = 0
 
     def flush_buffers(self):
-        if self.lfbuffer:
+        if self.readahead_count > 0:
             try:
-                self.base.seek(-len(self.lfbuffer), 1)
+                self.base.seek(-self.readahead_count, 1)
             except (MyNotImplementedError, OSError):
                 return
-            self.lfbuffer = ""
+            self.readahead_count = 0
         self.do_flush()
 
     def write(self, data):
@@ -1032,11 +1044,13 @@ class TextInputFilter(Stream):
             # we can safely read without reading past an end-of-line
             startindex, peeked = self.base.peek()
             assert 0 <= startindex <= len(peeked)
-            pn = peeked.find("\n", startindex)
-            pr = peeked.find("\r", startindex)
-            if pn < 0: pn = len(peeked)
-            if pr < 0: pr = len(peeked)
-            c = self.read(min(pn, pr) - startindex + 1)
+            cl_or_lf_pos = len(peeked)
+            for i in range(startindex, len(peeked)):
+                ch = peeked[i]
+                if ch == '\n' or ch == '\r':
+                    cl_or_lf_pos = i
+                    break
+            c = self.read(cl_or_lf_pos - startindex + 1)
             if not c:
                 break
             result.append(c)
@@ -1157,8 +1171,8 @@ class CallbackReadFilter(Stream):
 class DecodingInputFilter(Stream):
     """Filtering input stream that decodes an encoded file."""
 
+    @not_rpython
     def __init__(self, base, encoding="utf8", errors="strict"):
-        """NOT_RPYTHON"""
         self.base = base
         self.do_read = base.read
         self.encoding = encoding
@@ -1203,8 +1217,8 @@ class DecodingInputFilter(Stream):
 class EncodingOutputFilter(Stream):
     """Filtering output stream that writes to an encoded file."""
 
+    @not_rpython
     def __init__(self, base, encoding="utf8", errors="strict"):
-        """NOT_RPYTHON"""
         self.base = base
         self.do_write = base.write
         self.encoding = encoding

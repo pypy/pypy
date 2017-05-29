@@ -283,3 +283,21 @@ class TestOwnLib(object):
             assert ret.right == ownlib.right
             assert ret.top == ownlib.top
             assert ret.bottom == ownlib.bottom
+
+    def test_addressof_lib(self):
+        if self.module is None:
+            py.test.skip("fix the auto-generation of the tiny test lib")
+        if self.Backend is CTypesBackend:
+            py.test.skip("not implemented with the ctypes backend")
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("long left; int test_getting_errno(void);")
+        lib = ffi.dlopen(self.module)
+        lib.left = 123456
+        p = ffi.addressof(lib, "left")
+        assert ffi.typeof(p) == ffi.typeof("long *")
+        assert p[0] == 123456
+        p[0] += 1
+        assert lib.left == 123457
+        pfn = ffi.addressof(lib, "test_getting_errno")
+        assert ffi.typeof(pfn) == ffi.typeof("int(*)(void)")
+        assert pfn == lib.test_getting_errno

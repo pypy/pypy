@@ -104,9 +104,7 @@ GCFLAG_VISITED      = first_gcflag << 2
 
 # The following flag is set on nursery objects of which we asked the id
 # or the identityhash.  It means that a space of the size of the object
-# has already been allocated in the nonmovable part.  The same flag is
-# abused to mark prebuilt objects whose hash has been taken during
-# translation and is statically recorded.
+# has already been allocated in the nonmovable part.
 GCFLAG_HAS_SHADOW   = first_gcflag << 3
 
 # The following flag is set temporarily on some objects during a major
@@ -149,9 +147,6 @@ class MiniMarkGC(MovingGCBase):
     # by GCFLAG_xxx above.
     HDR = lltype.Struct('header', ('tid', lltype.Signed))
     typeid_is_in_field = 'tid'
-    withhash_flag_is_in_field = 'tid', GCFLAG_HAS_SHADOW
-    # ^^^ prebuilt objects may have the flag GCFLAG_HAS_SHADOW;
-    #     then they are one word longer, the extra word storing the hash.
 
     _ADDRARRAY = lltype.Array(llmemory.Address, hints={'nolength': True})
 
@@ -1868,40 +1863,22 @@ class MiniMarkGC(MovingGCBase):
         return shadow
     _find_shadow._dont_inline_ = True
 
-    @specialize.arg(2)
-    def id_or_identityhash(self, gcobj, is_hash):
+    def id_or_identityhash(self, gcobj):
         """Implement the common logic of id() and identityhash()
         of an object, given as a GCREF.
         """
         obj = llmemory.cast_ptr_to_adr(gcobj)
-        #
         if self.is_valid_gc_object(obj):
             if self.is_in_nursery(obj):
                 obj = self._find_shadow(obj)
-            elif is_hash:
-                if self.header(obj).tid & GCFLAG_HAS_SHADOW:
-                    #
-                    # For identityhash(), we need a special case for some
-                    # prebuilt objects: their hash must be the same before
-                    # and after translation.  It is stored as an extra word
-                    # after the object.  But we cannot use it for id()
-                    # because the stored value might clash with a real one.
-                    size = self.get_size(obj)
-                    i = (obj + size).signed[0]
-                    # Important: the returned value is not mangle_hash()ed!
-                    return i
-        #
-        i = llmemory.cast_adr_to_int(obj)
-        if is_hash:
-            i = mangle_hash(i)
-        return i
+        return llmemory.cast_adr_to_int(obj)
     id_or_identityhash._always_inline_ = True
 
     def id(self, gcobj):
-        return self.id_or_identityhash(gcobj, False)
+        return self.id_or_identityhash(gcobj)
 
     def identityhash(self, gcobj):
-        return self.id_or_identityhash(gcobj, True)
+        return mangle_hash(self.id_or_identityhash(gcobj))
 
     # ----------
     # Finalizers

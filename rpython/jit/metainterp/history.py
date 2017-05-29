@@ -726,15 +726,7 @@ class History(object):
             op.setref_base(value)
 
     def _record_op(self, opnum, argboxes, descr=None):
-        from rpython.jit.metainterp.opencoder import FrontendTagOverflow
-
-        try:
-            return self.trace.record_op(opnum, argboxes, descr)
-        except FrontendTagOverflow:
-            # note that with the default settings this one should not
-            # happen - however if we hit that case, we don't get
-            # anything disabled
-            raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
+        return self.trace.record_op(opnum, argboxes, descr)
 
     @specialize.argtype(3)
     def record(self, opnum, argboxes, value, descr=None):

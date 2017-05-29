@@ -336,6 +336,6 @@ or start off at one of the following points:
    that fixes some bugs and is translatable.
 
 *  :source:`pypy/objspace/std` contains the :ref:`Standard object space <standard-object-space>`.  The main file
-   is :source:`pypy/objspace/std/objspace.py`.  For each type, the files ``xxxtype.py`` and
-   ``xxxobject.py`` contain respectively the definition of the type and its
-   (default) implementation.
+   is :source:`pypy/objspace/std/objspace.py`.  For each type, the file
+   ``xxxobject.py`` contains the implementation for objects of type ``xxx``,
+   as a first approximation.  (Some types have multiple implementations.)

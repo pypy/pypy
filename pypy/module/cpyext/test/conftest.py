@@ -2,6 +2,12 @@ import os
 import pytest
 
 def pytest_configure(config):
+    if config.option.runappdirect:
+        import sys
+        import py
+        from pypy import pypydir
+        sys.path.append(str(py.path.local(pypydir) / 'tool' / 'cpyext'))
+        return
     from pypy.tool.pytest.objspace import gettestobjspace
     # For some reason (probably a ll2ctypes cache issue on linux64)
     # it's necessary to run "import time" at least once before any
@@ -14,9 +20,6 @@ def pytest_ignore_collect(path, config):
     # ensure additional functions are registered
     import pypy.module.cpyext.test.test_cpyext
     return False
-
-def pytest_funcarg__space(request):
-    return request.cls.api
 
 def pytest_funcarg__api(request):
     return request.cls.api

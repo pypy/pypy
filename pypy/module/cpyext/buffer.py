@@ -1,41 +1,41 @@
-from pypy.interpreter.error import oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
+from pypy.interpreter.error import oefmt
 from pypy.module.cpyext.api import (
-    cpython_api, CANNOT_FAIL, Py_buffer)
-from pypy.module.cpyext.pyobject import PyObject
+    cpython_api, CANNOT_FAIL, cts, Py_buffer,
+    Py_ssize_t, Py_ssize_tP, generic_cpy_call,
+    PyBUF_WRITABLE, PyBUF_FORMAT, PyBUF_ND, PyBUF_STRIDES)
+from pypy.module.cpyext.pyobject import PyObject, Py_IncRef
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyObject_CheckBuffer(space, w_obj):
-    """Return 1 if obj supports the buffer interface otherwise 0."""
-    return 0  # the bf_getbuffer field is never filled by cpyext
+@cpython_api([lltype.Ptr(Py_buffer), PyObject, rffi.VOIDP, Py_ssize_t,
+              lltype.Signed, lltype.Signed], rffi.INT, error=-1)
+def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
+    """
+    Fills in a buffer-info structure correctly for an exporter that can only
+    share a contiguous chunk of memory of "unsigned bytes" of the given
+    length. Returns 0 on success and -1 (with raising an error) on error.
+    """
+    if flags & PyBUF_WRITABLE and readonly:
+        raise oefmt(space.w_ValueError, "Object is not writable")
+    view.c_buf = buf
+    view.c_len = length
+    view.c_obj = obj
+    if obj:
+        Py_IncRef(space, obj)
+    view.c_itemsize = 1
+    rffi.setintfield(view, 'c_readonly', readonly)
+    rffi.setintfield(view, 'c_ndim', 1)
+    view.c_format = lltype.nullptr(rffi.CCHARP.TO)
+    if (flags & PyBUF_FORMAT) == PyBUF_FORMAT:
+        view.c_format = rffi.str2charp("B")
+    view.c_shape = lltype.nullptr(Py_ssize_tP.TO)
+    if (flags & PyBUF_ND) == PyBUF_ND:
+        view.c_shape = rffi.cast(Py_ssize_tP, view.c__shape)
+        view.c_shape[0] = view.c_len
+    view.c_strides = lltype.nullptr(Py_ssize_tP.TO)
+    if (flags & PyBUF_STRIDES) == PyBUF_STRIDES:
+        view.c_strides = rffi.cast(Py_ssize_tP, view.c__strides)
+        view.c_strides[0] = view.c_itemsize
+    view.c_suboffsets = lltype.nullptr(Py_ssize_tP.TO)
+    view.c_internal = lltype.nullptr(rffi.VOIDP.TO)
 
-@cpython_api([PyObject, lltype.Ptr(Py_buffer), rffi.INT_real],
-             rffi.INT_real, error=-1)
-def PyObject_GetBuffer(space, w_obj, view, flags):
-    """Export obj into a Py_buffer, view.  These arguments must
-    never be NULL.  The flags argument is a bit field indicating what
-    kind of buffer the caller is prepared to deal with and therefore what
-    kind of buffer the exporter is allowed to return.  The buffer interface
-    allows for complicated memory sharing possibilities, but some caller may
-    not be able to handle all the complexity but may want to see if the
-    exporter will let them take a simpler view to its memory.
-
-    Some exporters may not be able to share memory in every possible way and
-    may need to raise errors to signal to some consumers that something is
-    just not possible. These errors should be a BufferError unless
-    there is another error that is actually causing the problem. The
-    exporter can use flags information to simplify how much of the
-    Py_buffer structure is filled in with non-default values and/or
-    raise an error if the object can't support a simpler view of its memory.
-
-    0 is returned on success and -1 on error."""
-    raise oefmt(space.w_TypeError,
-                "PyPy does not yet implement the new buffer interface")
-
-@cpython_api([lltype.Ptr(Py_buffer), lltype.Char], rffi.INT_real, error=CANNOT_FAIL)
-def PyBuffer_IsContiguous(space, view, fortran):
-    """Return 1 if the memory defined by the view is C-style (fortran is
-    'C') or Fortran-style (fortran is 'F') contiguous or either one
-    (fortran is 'A').  Return 0 otherwise."""
-    # PyPy only supports contiguous Py_buffers for now.
-    return 1
+    return 0

@@ -22,6 +22,12 @@ class AppTestWeakref(object):
         import _weakref
         raises(TypeError, _weakref.ref)
 
+    def test_no_kwargs(self):
+        import _weakref
+        class C(object):
+            pass
+        raises(TypeError, _weakref.ref, C(), callback=None)
+
     def test_callback(self):
         import _weakref, gc
         class A(object):
@@ -143,6 +149,14 @@ class AppTestWeakref(object):
         assert ref1 != ref2
         assert not (ref1 == [])
         assert ref1 != []
+
+    def test_ne(self):
+        import _weakref
+        class X(object):
+            pass
+        ref1 = _weakref.ref(X())
+        assert ref1.__eq__(X()) is NotImplemented
+        assert ref1.__ne__(X()) is NotImplemented
 
     def test_getweakrefs(self):
         import _weakref, gc

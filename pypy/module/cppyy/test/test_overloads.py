@@ -16,7 +16,7 @@ class AppTestOVERLOADS:
 
     def setup_class(cls):
         env = os.environ
-        cls.w_test_dct  = cls.space.wrap(test_dct)
+        cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_overloads = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))

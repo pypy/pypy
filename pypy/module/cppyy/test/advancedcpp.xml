@@ -20,7 +20,7 @@
   <class pattern="T3<*>" />
 
   <namespace name="a_ns" />
-  <namespace pattern="a_ns::*" />
+  <namespace name="a_ns::d_ns" />
   <class pattern="a_ns::*" />
   <variable name="a_ns::g_a" />
   <function name="a_ns::get_g_a" />
@@ -34,9 +34,12 @@
   <class name="some_class_with_data::some_data" />
 
   <class name="some_comparable" />
-  <function name="operator=="/>
-  <function name="operator!="/>
+  <function name="operator==" />
+  <function name="operator!=" />
 
+  <variable name="my_global_double" />
+  <variable name="my_global_array" />
+  <variable name="my_global_ptr" />
 
   <class name="ref_tester" />
   <class name="std::vector<ref_tester>" />

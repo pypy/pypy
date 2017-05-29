@@ -93,12 +93,12 @@ class W_FunctionWrapper(W_Root):
 
     def descr_repr(self, space):
         doc = self.rawfunctype.repr_fn_type(self.ffi, self.fnname)
-        return space.wrap("<FFIFunctionWrapper '%s'>" % (doc,))
+        return space.newtext("<FFIFunctionWrapper '%s'>" % (doc,))
 
     def descr_get_doc(self, space):
         doc = self.rawfunctype.repr_fn_type(self.ffi, self.fnname)
         doc = '%s;\n\nCFFI C function from %s.lib' % (doc, self.modulename)
-        return space.wrap(doc)
+        return space.newtext(doc)
 
     def descr_get(self, space, w_obj, w_type=None):
         # never bind anything, but a __get__ is still present so that
@@ -138,8 +138,8 @@ W_FunctionWrapper.typedef = TypeDef(
         'FFIFunctionWrapper',
         __repr__ = interp2app(W_FunctionWrapper.descr_repr),
         __call__ = interp2app(W_FunctionWrapper.descr_call),
-        __name__ = interp_attrproperty('fnname', cls=W_FunctionWrapper),
-        __module__ = interp_attrproperty('modulename', cls=W_FunctionWrapper),
+        __name__ = interp_attrproperty('fnname', cls=W_FunctionWrapper, wrapfn="newtext"),
+        __module__ = interp_attrproperty('modulename', cls=W_FunctionWrapper, wrapfn="newtext"),
         __doc__ = GetSetProperty(W_FunctionWrapper.descr_get_doc),
         __get__ = interp2app(W_FunctionWrapper.descr_get),
         )

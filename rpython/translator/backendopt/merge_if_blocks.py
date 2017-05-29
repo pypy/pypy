@@ -20,6 +20,14 @@ def is_chain_block(block, first=False):
         return False
     if isinstance(op.args[0], Constant) and isinstance(op.args[1], Constant):
         return False
+    # check that the constant is hashable (ie not a symbolic)
+    try:
+        if isinstance(op.args[0], Constant):
+            hash(op.args[0].value)
+        else:
+            hash(op.args[1].value)
+    except TypeError:
+        return False
     return True
 
 def merge_chain(chain, checkvar, varmap, graph):

@@ -52,7 +52,7 @@ def get_positive_index(where, length):
 
 def wrap_parsestringerror(space, e, w_source):
     if isinstance(e, InvalidBaseError):
-        raise OperationError(space.w_ValueError, space.wrap(e.msg))
+        raise OperationError(space.w_ValueError, space.newtext(e.msg))
     else:
-        raise oefmt(space.w_ValueError, '%s: %s',
-                    e.msg, space.str_w(space.repr(w_source)))
+        raise oefmt(space.w_ValueError, '%s: %R',
+                    e.msg, w_source)

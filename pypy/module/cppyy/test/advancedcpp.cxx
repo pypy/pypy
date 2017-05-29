@@ -73,7 +73,8 @@ bool operator!=( const some_comparable& c1, const some_comparable& c2 )
 // a couple of globals for access testing
 double my_global_double = 12.;
 double my_global_array[500];
-
+static double sd = 1234.;
+double* my_global_ptr = &sd;
 
 // for life-line and identity testing
 int some_class_with_data::some_data::s_num_data = 0;

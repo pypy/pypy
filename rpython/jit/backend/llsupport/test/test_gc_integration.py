@@ -323,13 +323,10 @@ class TestMallocFastpath(BaseTestRegalloc):
     def test_malloc_slowpath(self):
         def check(frame):
             expected_size = 1
-            idx = 0
             fixed_size = self.cpu.JITFRAME_FIXED_SIZE
             if self.cpu.backend_name.startswith('arm'):
                 # jitframe fixed part is larger here
                 expected_size = 2
-                idx = 1
-                fixed_size -= 32
             if self.cpu.backend_name.startswith('zarch') or \
                self.cpu.backend_name.startswith('ppc'):
                 # the allocation always allocates the register
@@ -342,7 +339,10 @@ class TestMallocFastpath(BaseTestRegalloc):
             # registers (p0 and p1 are moved away when doing p2, but not
             # spilled, just moved to different registers)
             bits = [n for n in range(fixed_size)
-                      if frame.jf_gcmap[idx] & (1<<n)]
+                      if frame.jf_gcmap[0] & (1<<n)]
+            if expected_size > 1:
+                bits += [n for n in range(32, fixed_size)
+                           if frame.jf_gcmap[1] & (1<<(n - 32))]
             assert len(bits) == 2
 
         self.cpu = self.getcpu(check)

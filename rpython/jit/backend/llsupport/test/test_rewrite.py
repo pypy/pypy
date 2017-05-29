@@ -1222,6 +1222,10 @@ class TestFramework(RewriteTests):
                        'i3 = gc_load_i(p0,'
                                  '%(strlendescr.offset)s,'
                                  '%(strlendescr.field_size)s)'],
+        [True,  (1,),  'i3 = strhash(p0)' '->'
+                       'i3 = gc_load_i(p0,'
+                                 '%(strhashdescr.offset)s,'
+                                 '-%(strhashdescr.field_size)s)'],
         #[False, (1,),  'i3 = unicodelen(p0)' '->'
         #               'i3 = gc_load_i(p0,'
         #                       '%(unicodelendescr.offset)s,'
@@ -1230,7 +1234,10 @@ class TestFramework(RewriteTests):
                        'i3 = gc_load_i(p0,'
                                '%(unicodelendescr.offset)s,'
                                '%(unicodelendescr.field_size)s)'],
-
+        [True,  (1,),  'i3 = unicodehash(p0)' '->'
+                       'i3 = gc_load_i(p0,'
+                                 '%(unicodehashdescr.offset)s,'
+                                 '-%(unicodehashdescr.field_size)s)'],
         ## getitem str/unicode
         [True,  (2,4), 'i3 = unicodegetitem(p0,i1)' '->'
                        'i3 = gc_load_indexed_i(p0,i1,'

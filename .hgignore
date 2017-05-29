@@ -49,6 +49,11 @@ syntax: regexp
 ^rpython/translator/goal/target.+-c$
 ^rpython/translator/goal/.+\.exe$
 ^rpython/translator/goal/.+\.dll$
+^rpython/rlib/rvmprof/src/shared/libbacktrace/Makefile$
+^rpython/rlib/rvmprof/src/shared/libbacktrace/config.guess$
+^rpython/rlib/rvmprof/src/shared/libbacktrace/config.h$
+^rpython/rlib/rvmprof/src/shared/libbacktrace/config.log$
+^rpython/rlib/rvmprof/src/shared/libbacktrace/config.status$
 ^pypy/goal/pypy-translation-snapshot$
 ^pypy/goal/pypy-c
 ^pypy/goal/.+\.exe$
@@ -60,6 +65,9 @@ syntax: regexp
 ^lib_pypy/ctypes_config_cache/_.+_cache\.py$
 ^lib_pypy/ctypes_config_cache/_.+_.+_\.py$
 ^lib_pypy/_libmpdec/.+.o$
+^lib_pypy/.+.c$
+^lib_pypy/.+.o$
+^lib_pypy/.+.so$
 ^pypy/doc/discussion/.+\.html$
 ^include/.+\.h$
 ^include/.+\.inl$
@@ -74,6 +82,11 @@ syntax: regexp
 ^rpython/doc/_build/.*$
 ^compiled
 ^.git/
-^.hypothesis/
+.hypothesis/
 ^release/
 ^rpython/_cache$
+^\.cache$
+
+pypy/module/cppyy/.+/*\.pcm
+
+

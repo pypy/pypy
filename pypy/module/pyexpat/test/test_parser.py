@@ -20,6 +20,19 @@ class AppTestPyexpat:
 
         pyexpat.ExpatError("error")
 
+    def test_attributes(self):
+        import pyexpat
+        p = pyexpat.ParserCreate()
+        def test_setget(p, attr, default=False):
+            assert getattr(p, attr) is default
+            for x in 0, 1, 2, 0:
+                setattr(p, attr, x)
+                assert getattr(p, attr) is bool(x), attr
+        for attr in ('buffer_text', 'namespace_prefixes', 'ordered_attributes',
+                     'specified_attributes'):
+            test_setget(p, attr)
+        test_setget(p, 'returns_unicode', True)
+
     def test_version(self):
         import pyexpat
         assert isinstance(pyexpat.__version__, str)

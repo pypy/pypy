@@ -161,9 +161,9 @@ def create_package(basedir, options, _fake=False):
                 tktcldir = p.dirpath().join('..').join('lib')
                 shutil.copytree(str(tktcldir), str(pypydir.join('tcl')))
             except WindowsError:
-                print >>sys.stderr, """Packaging Tk runtime failed.
-tk85.dll and tcl85.dll found, expecting to find runtime in ..\\lib
-directory next to the dlls, as per build instructions."""
+                print >>sys.stderr, r"""Packaging Tk runtime failed.
+tk85.dll and tcl85.dll found in %s, expecting to find runtime in %s
+directory next to the dlls, as per build instructions.""" %(p, tktcldir)
                 import traceback;traceback.print_exc()
                 raise MissingDependenciesError('Tk runtime')
 
@@ -179,7 +179,7 @@ directory next to the dlls, as per build instructions."""
     shutil.copytree(str(basedir.join('lib_pypy')),
                     str(pypydir.join('lib_pypy')),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~',
-                                           '*.c', '*.o'))
+                                           '*_cffi.c', '*.o'))
     for file in ['README.rst',]:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     for file in ['_testcapimodule.c', '_ctypes_test.c']:
@@ -234,12 +234,14 @@ directory next to the dlls, as per build instructions."""
             zf.close()
         else:
             archive = str(builddir.join(name + '.tar.bz2'))
-            if sys.platform == 'darwin' or sys.platform.startswith('freebsd'):
+            if sys.platform == 'darwin':
                 print >>sys.stderr, """Warning: tar on current platform does not suport overriding the uid and gid
 for its contents. The tarball will contain your uid and gid. If you are
 building the actual release for the PyPy website, you may want to be
 using another platform..."""
                 e = os.system('tar --numeric-owner -cvjf ' + archive + " " + name)
+            elif sys.platform.startswith('freebsd'):
+                e = os.system('tar --uname=root --gname=wheel -cvjf ' + archive + " " + name)
             elif sys.platform == 'cygwin':
                 e = os.system('tar --owner=Administrator --group=Administrators --numeric-owner -cvjf ' + archive + " " + name)
             else:

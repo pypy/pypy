@@ -60,7 +60,6 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
         self.length = length
         self._is_virtual = is_virtual
         self.mode = mode
-        self.length = length
 
     def getlenbound(self, mode):
         from rpython.jit.metainterp.optimizeopt import intutils
@@ -79,7 +78,6 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
     def force_box(self, op, optforce):
         if not self.is_virtual():
             return op
-        optforce.forget_numberings()
         if self.mode is mode_string:
             s = self.get_constant_string_spec(optforce, mode_string)
             if s is not None:
@@ -97,7 +95,7 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
         newop = ResOperation(self.mode.NEWSTR, [lengthbox])
         if not we_are_translated():
             newop.name = 'FORCE'
-        optforce.emit_operation(newop)
+        optforce.emit_extra(newop)
         newop = optforce.getlastop()
         newop.set_forwarded(self)
         op = optforce.get_box_replacement(op)
@@ -111,21 +109,21 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
         return self.string_copy_parts(op, string_optimizer, targetbox,
                                       offsetbox, mode)
 
-    def getstrlen(self, op, string_optimizer, mode, create_ops=True):
+    def getstrlen(self, op, string_optimizer, mode):
+        assert op is not None
         if self.lgtop is not None:
             return self.lgtop
         assert not self.is_virtual()
-        if not create_ops:
-            return None
         lengthop = ResOperation(mode.STRLEN, [op])
         lengthop.set_forwarded(self.getlenbound(mode))
         self.lgtop = lengthop
-        string_optimizer.emit_operation(lengthop)
+        string_optimizer.emit_extra(lengthop)
         return lengthop
 
     def make_guards(self, op, short, optimizer):
         info.AbstractVirtualPtrInfo.make_guards(self, op, short, optimizer)
-        if self.lenbound and self.lenbound.lower >= 1:
+        if (self.lenbound and
+                self.lenbound.has_lower and self.lenbound.lower >= 1):
             if self.mode is mode_string:
                 lenop = ResOperation(rop.STRLEN, [op])
             else:
@@ -173,7 +171,8 @@ class VStringPlainInfo(StrPtrInfo):
     def is_virtual(self):
         return self._is_virtual
 
-    def getstrlen(self, op, string_optimizer, mode, create_ops=True):
+    def getstrlen(self, op, string_optimizer, mode):
+        assert op is not None
         if self.lgtop is None:
             self.lgtop = ConstInt(len(self._chars))
         return self.lgtop
@@ -204,7 +203,7 @@ class VStringPlainInfo(StrPtrInfo):
                 op = ResOperation(mode.STRSETITEM, [targetbox,
                                                     offsetbox,
                                                     charbox])
-                string_optimizer.emit_operation(op)
+                string_optimizer.emit_extra(op)
             offsetbox = _int_add(string_optimizer, offsetbox, CONST_1)
         return offsetbox
 
@@ -252,7 +251,8 @@ class VStringSliceInfo(StrPtrInfo):
             return s1[start : start + length]
         return None
 
-    def getstrlen(self, op, string_optimizer, mode, create_ops=True):
+    def getstrlen(self, op, string_optimizer, mode):
+        assert op is not None
         return self.lgtop
 
     def _visitor_walk_recursive(self, instbox, visitor, optimizer):
@@ -281,20 +281,19 @@ class VStringConcatInfo(StrPtrInfo):
     def is_virtual(self):
         return self._is_virtual
 
-    def getstrlen(self, op, string_optimizer, mode, create_ops=True):
+    def getstrlen(self, op, string_optimizer, mode):
+        assert op is not None
         if self.lgtop is not None:
             return self.lgtop
         lefti = string_optimizer.getptrinfo(self.vleft)
-        len1box = lefti.getstrlen(self.vleft, string_optimizer, mode,
-                                  create_ops)
+        len1box = lefti.getstrlen(self.vleft, string_optimizer, mode)
         if len1box is None:
             return None
         righti = string_optimizer.getptrinfo(self.vright)
-        len2box = righti.getstrlen(self.vright, string_optimizer, mode,
-                                   create_ops)
+        len2box = righti.getstrlen(self.vright, string_optimizer, mode)
         if len2box is None:
             return None
-        self.lgtop = _int_add(string_optimizer, len1box, len2box, create_ops)
+        self.lgtop = _int_add(string_optimizer, len1box, len2box)
             # ^^^ may still be None, if string_optimizer is None
         return self.lgtop
 
@@ -356,7 +355,7 @@ def copy_str_content(string_optimizer, srcbox, targetbox,
                                                   mode)
             srcoffsetbox = _int_add(string_optimizer, srcoffsetbox, CONST_1)
             assert not isinstance(targetbox, Const)# ConstPtr never makes sense
-            string_optimizer.emit_operation(ResOperation(mode.STRSETITEM,
+            string_optimizer.emit_extra(ResOperation(mode.STRSETITEM,
                     [targetbox, offsetbox, charbox]))
             offsetbox = _int_add(string_optimizer, offsetbox, CONST_1)
     else:
@@ -368,11 +367,11 @@ def copy_str_content(string_optimizer, srcbox, targetbox,
         op = ResOperation(mode.COPYSTRCONTENT, [srcbox, targetbox,
                                                 srcoffsetbox, offsetbox,
                                                 lengthbox])
-        string_optimizer.emit_operation(op)
+        string_optimizer.emit_extra(op)
         offsetbox = nextoffsetbox
     return offsetbox
 
-def _int_add(string_optimizer, box1, box2, create_ops=True):
+def _int_add(string_optimizer, box1, box2):
     if isinstance(box1, ConstInt):
         if box1.value == 0:
             return box2
@@ -380,8 +379,6 @@ def _int_add(string_optimizer, box1, box2, create_ops=True):
             return ConstInt(box1.value + box2.value)
     elif isinstance(box2, ConstInt) and box2.value == 0:
         return box1
-    if not create_ops:
-        return None
     op = ResOperation(rop.INT_ADD, [box1, box2])
     string_optimizer.send_extra_operation(op)
     return op
@@ -412,7 +409,7 @@ def _strgetitem(string_optimizer, strbox, indexbox, mode, resbox=None):
     else:
         resbox = string_optimizer.replace_op_with(resbox, mode.STRGETITEM,
                                                   [strbox, indexbox])
-    string_optimizer.emit_operation(resbox)
+    string_optimizer.emit_extra(resbox)
     return resbox
 
 
@@ -421,6 +418,12 @@ class OptString(optimizer.Optimization):
 
     def setup(self):
         self.optimizer.optstring = self
+
+    def propagate_forward(self, op):
+        return dispatch_opt(self, op)
+
+    def propagate_postprocess(self, op):
+        return dispatch_postprocess(self, op)
 
     def make_vstring_plain(self, op, mode, length):
         vvalue = VStringPlainInfo(mode, True, length)
@@ -441,9 +444,9 @@ class OptString(optimizer.Optimization):
         return vvalue
 
     def optimize_NEWSTR(self, op):
-        self._optimize_NEWSTR(op, mode_string)
+        return self._optimize_NEWSTR(op, mode_string)
     def optimize_NEWUNICODE(self, op):
-        self._optimize_NEWSTR(op, mode_unicode)
+        return self._optimize_NEWSTR(op, mode_unicode)
 
     def _optimize_NEWSTR(self, op, mode):
         length_box = self.get_constant_box(op.getarg(0))
@@ -452,8 +455,13 @@ class OptString(optimizer.Optimization):
             self.make_vstring_plain(op, mode, length_box.getint())
         else:
             self.make_nonnull_str(op, mode)
-            self.emit_operation(op)
-            self.pure_from_args(mode.STRLEN, [op], op.getarg(0))
+            return self.emit(op)
+
+    def postprocess_NEWSTR(self, op):
+        self.pure_from_args(mode_string.STRLEN, [op], op.getarg(0))
+
+    def postprocess_NEWUNICODE(self, op):
+        self.pure_from_args(mode_unicode.STRLEN, [op], op.getarg(0))
 
     def optimize_STRSETITEM(self, op):
         opinfo = self.getptrinfo(op.getarg(0))
@@ -464,17 +472,17 @@ class OptString(optimizer.Optimization):
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
                 opinfo.strsetitem(indexbox.getint(),
-                              self.get_box_replacement(op.getarg(2)))
+                                  self.get_box_replacement(op.getarg(2)))
                 return
         self.make_nonnull(op.getarg(0))
-        self.emit_operation(op)
+        return self.emit(op)
 
     optimize_UNICODESETITEM = optimize_STRSETITEM
 
     def optimize_STRGETITEM(self, op):
-        self._optimize_STRGETITEM(op, mode_string)
+        return self._optimize_STRGETITEM(op, mode_string)
     def optimize_UNICODEGETITEM(self, op):
-        self._optimize_STRGETITEM(op, mode_unicode)
+        return self._optimize_STRGETITEM(op, mode_unicode)
 
     def _optimize_STRGETITEM(self, op, mode):
         self.strgetitem(op, op.getarg(0), op.getarg(1), mode)
@@ -514,24 +522,39 @@ class OptString(optimizer.Optimization):
         return _strgetitem(self, s, index, mode, op)
 
     def optimize_STRLEN(self, op):
-        self._optimize_STRLEN(op, mode_string)
+        return self._optimize_STRLEN(op, mode_string)
     def optimize_UNICODELEN(self, op):
-        self._optimize_STRLEN(op, mode_unicode)
+        return self._optimize_STRLEN(op, mode_unicode)
 
     def _optimize_STRLEN(self, op, mode):
-        opinfo = self.getptrinfo(op.getarg(0))
+        arg1 = self.get_box_replacement(op.getarg(0))
+        opinfo = self.getptrinfo(arg1)
         if opinfo:
-            lgtop = opinfo.getstrlen(op, self, mode, False)
+            lgtop = opinfo.getstrlen(arg1, self, mode)
             if lgtop is not None:
                 self.make_equal_to(op, lgtop)
                 return
-        self.emit_operation(op)
+        return self.emit(op)
+
+    def optimize_STRHASH(self, op):
+        return self._optimize_STRHASH(op, mode_string)
+    def optimize_UNICODEHASH(self, op):
+        return self._optimize_STRHASH(op, mode_unicode)
+
+    def _optimize_STRHASH(self, op, mode):
+        opinfo = self.getptrinfo(op.getarg(0))
+        if opinfo:
+            lgtop = opinfo.getstrhash(op, mode)
+            if lgtop is not None:
+                self.make_equal_to(op, lgtop)
+                return
+        return self.emit(op)
 
     def optimize_COPYSTRCONTENT(self, op):
-        self._optimize_COPYSTRCONTENT(op, mode_string)
+        return self._optimize_COPYSTRCONTENT(op, mode_string)
 
     def optimize_COPYUNICODECONTENT(self, op):
-        self._optimize_COPYSTRCONTENT(op, mode_unicode)
+        return self._optimize_COPYSTRCONTENT(op, mode_unicode)
 
     def _optimize_COPYSTRCONTENT(self, op, mode):
         # args: src dst srcstart dststart length
@@ -566,7 +589,7 @@ class OptString(optimizer.Optimization):
                         op.getarg(1), ConstInt(index + dst_start),
                         vresult,
                     ])
-                    self.emit_operation(new_op)
+                    self.emit_extra(new_op)
         else:
             copy_str_content(self, op.getarg(0), op.getarg(1), op.getarg(2),
                              op.getarg(3), op.getarg(4), mode,
@@ -581,13 +604,15 @@ class OptString(optimizer.Optimization):
         if oopspecindex != EffectInfo.OS_NONE:
             for value, meth in opt_call_oopspec_ops:
                 if oopspecindex == value:      # a match with the OS_STR_xxx
-                    if meth(self, op, mode_string):
-                        return
+                    handled, newop = meth(self, op, mode_string)
+                    if handled:
+                        return newop
                     break
                 if oopspecindex == value + EffectInfo._OS_offset_uni:
                     # a match with the OS_UNI_xxx
-                    if meth(self, op, mode_unicode):
-                        return
+                    handled, newop = meth(self, op, mode_unicode)
+                    if handled:
+                        return newop
                     break
             if oopspecindex == EffectInfo.OS_STR2UNICODE:
                 if self.opt_call_str_STR2UNICODE(op):
@@ -595,7 +620,7 @@ class OptString(optimizer.Optimization):
             if oopspecindex == EffectInfo.OS_SHRINK_ARRAY:
                 if self.opt_call_SHRINK_ARRAY(op):
                     return
-        self.emit_operation(op)
+        return self.emit(op)
     optimize_CALL_R = optimize_CALL_I
     optimize_CALL_F = optimize_CALL_I
     optimize_CALL_N = optimize_CALL_I
@@ -607,7 +632,7 @@ class OptString(optimizer.Optimization):
     def optimize_GUARD_NO_EXCEPTION(self, op):
         if self.last_emitted_operation is REMOVED:
             return
-        self.emit_operation(op)
+        return self.emit(op)
 
     def opt_call_str_STR2UNICODE(self, op):
         # Constant-fold unicode("constant string").
@@ -635,7 +660,7 @@ class OptString(optimizer.Optimization):
                                  self.get_box_replacement(op.getarg(1)),
                                  self.get_box_replacement(op.getarg(2)))
         self.last_emitted_operation = REMOVED
-        return True
+        return True, None
 
     def opt_call_stroruni_STR_SLICE(self, op, mode):
         self.make_nonnull_str(op.getarg(1), mode)
@@ -651,7 +676,7 @@ class OptString(optimizer.Optimization):
         #    value = self.make_vstring_plain(op, mode, -1)
         #    value.setup_slice(vstr._chars, vstart.getint(),
         #                      vstop.getint())
-        #    return True
+        #    return True, None
         #
         startbox = op.getarg(2)
         strbox = op.getarg(1)
@@ -664,7 +689,7 @@ class OptString(optimizer.Optimization):
         #
         self.make_vstring_slice(op, strbox, startbox, mode, lengthbox)
         self.last_emitted_operation = REMOVED
-        return True
+        return True, None
 
     @specialize.arg(2)
     def opt_call_stroruni_STR_EQUAL(self, op, mode):
@@ -674,11 +699,11 @@ class OptString(optimizer.Optimization):
         i2 = self.getptrinfo(arg2)
         #
         if i1:
-            l1box = i1.getstrlen(arg1, self, mode, create_ops=False)
+            l1box = i1.getstrlen(arg1, self, mode)
         else:
             l1box = None
         if i2:
-            l2box = i2.getstrlen(arg2, self, mode, create_ops=False)
+            l2box = i2.getstrlen(arg2, self, mode)
         else:
             l2box = None
         if (l1box is not None and l2box is not None and
@@ -687,25 +712,28 @@ class OptString(optimizer.Optimization):
             l1box.value != l2box.value):
             # statically known to have a different length
             self.make_constant(op, CONST_0)
-            return True
+            return True, None
         #
-        if self.handle_str_equal_level1(arg1, arg2, op, mode):
-            return True
-        if self.handle_str_equal_level1(arg2, arg1, op, mode):
-            return True
-        if self.handle_str_equal_level2(arg1, arg2, op, mode):
-            return True
-        if self.handle_str_equal_level2(arg2, arg1, op, mode):
-            return True
+        handled, result = self.handle_str_equal_level1(arg1, arg2, op, mode)
+        if handled:
+            return True, result
+        handled, result = self.handle_str_equal_level1(arg2, arg1, op, mode)
+        if handled:
+            return True, result
+        handled, result = self.handle_str_equal_level2(arg1, arg2, op, mode)
+        if handled:
+            return True, result
+        handled, result = self.handle_str_equal_level2(arg2, arg1, op, mode)
+        if handled:
+            return True, result
         #
         if i1 and i1.is_nonnull() and i2 and i2.is_nonnull():
             if l1box is not None and l2box is not None and l1box.same_box(l2box):
                 do = EffectInfo.OS_STREQ_LENGTHOK
             else:
                 do = EffectInfo.OS_STREQ_NONNULL
-            self.generate_modified_call(do, [arg1, arg2], op, mode)
-            return True
-        return False
+            return True, self.generate_modified_call(do, [arg1, arg2], op, mode)
+        return False, None
 
     def handle_str_equal_level1(self, arg1, arg2, resultop, mode):
         i1 = self.getptrinfo(arg1)
@@ -713,7 +741,7 @@ class OptString(optimizer.Optimization):
         l2box = None
         l1box = None
         if i2:
-            l2box = i2.getstrlen(arg2, self, mode, create_ops=False)
+            l2box = i2.getstrlen(arg2, self, mode)
         if isinstance(l2box, ConstInt):
             if l2box.value == 0:
                 if i1 and i1.is_nonnull():
@@ -728,10 +756,10 @@ class OptString(optimizer.Optimization):
                                               [lengthbox, CONST_0],
                                               descr=DONT_CHANGE)
                     seo(op)
-                    return True
+                    return True, None
             if l2box.value == 1:
                 if i1:
-                    l1box = i1.getstrlen(arg1, self, mode, False)
+                    l1box = i1.getstrlen(arg1, self, mode)
                 if isinstance(l1box, ConstInt) and l1box.value == 1:
                     # comparing two single chars
                     vchar1 = self.strgetitem(None, arg1, optimizer.CONST_0,
@@ -742,37 +770,35 @@ class OptString(optimizer.Optimization):
                     op = self.optimizer.replace_op_with(resultop, rop.INT_EQ,
                                 [vchar1, vchar2], descr=DONT_CHANGE)
                     seo(op)
-                    return True
+                    return True, None
                 if isinstance(i1, VStringSliceInfo):
                     vchar = self.strgetitem(None, arg2, optimizer.CONST_0,
                                             mode)
                     do = EffectInfo.OS_STREQ_SLICE_CHAR
-                    self.generate_modified_call(do, [i1.s, i1.start,
-                                                     i1.lgtop, vchar],
-                                                     resultop, mode)
-                    return True
+                    return True, self.generate_modified_call(do, [i1.s, i1.start,
+                                                                  i1.lgtop, vchar],
+                                                             resultop, mode)
         #
         if i2 and i2.is_null():
             if i1 and i1.is_nonnull():
                 self.make_constant(resultop, CONST_0)
-                return True
+                return True, None
             if i1 and i1.is_null():
                 self.make_constant(resultop, CONST_1)
-                return True
+                return True, None
             op = self.optimizer.replace_op_with(resultop, rop.PTR_EQ,
                                                 [arg1, llhelper.CONST_NULL],
                                                 descr=DONT_CHANGE)
-            self.emit_operation(op)
-            return True
+            return True, self.emit(op)
         #
-        return False
+        return False, None
 
     def handle_str_equal_level2(self, arg1, arg2, resultbox, mode):
         i1 = self.getptrinfo(arg1)
         i2 = self.getptrinfo(arg2)
         l2box = None
         if i2:
-            l2box = i2.getstrlen(arg1, self, mode, create_ops=False)
+            l2box = i2.getstrlen(arg1, self, mode)
         if l2box:
             l2info = self.getintbound(l2box)
             if l2info.is_constant():
@@ -782,27 +808,27 @@ class OptString(optimizer.Optimization):
                         do = EffectInfo.OS_STREQ_NONNULL_CHAR
                     else:
                         do = EffectInfo.OS_STREQ_CHECKNULL_CHAR
-                    self.generate_modified_call(do, [arg1, vchar],
-                                                resultbox, mode)
-                    return True
+                    return True, self.generate_modified_call(do, [arg1, vchar],
+                                                             resultbox, mode)
             #
         if isinstance(i1, VStringSliceInfo) and i1.is_virtual():
             if i2 and i2.is_nonnull():
                 do = EffectInfo.OS_STREQ_SLICE_NONNULL
             else:
                 do = EffectInfo.OS_STREQ_SLICE_CHECKNULL
-            self.generate_modified_call(do, [i1.s, i1.start, i1.lgtop,
-                                             arg2], resultbox, mode)
-            return True
-        return False
+            return True, self.generate_modified_call(do, [i1.s, i1.start, i1.lgtop,
+                                                          arg2], resultbox, mode)
+        return False, None
 
     def opt_call_stroruni_STR_CMP(self, op, mode):
-        i1 = self.getptrinfo(op.getarg(1))
-        i2 = self.getptrinfo(op.getarg(2))
+        arg1 = self.get_box_replacement(op.getarg(1))
+        arg2 = self.get_box_replacement(op.getarg(2))
+        i1 = self.getptrinfo(arg1)
+        i2 = self.getptrinfo(arg2)
         if not i1 or not i2:
-            return False
-        l1box = i1.getstrlen(None, self, mode, False)
-        l2box = i2.getstrlen(None, self, mode, False)
+            return False, None
+        l1box = i1.getstrlen(arg1, self, mode)
+        l2box = i2.getstrlen(arg2, self, mode)
         if (l1box is not None and l2box is not None and
             isinstance(l1box, ConstInt) and
             isinstance(l2box, ConstInt) and
@@ -814,8 +840,8 @@ class OptString(optimizer.Optimization):
             op = self.replace_op_with(op, rop.INT_SUB, [char1, char2],
                                       descr=DONT_CHANGE)
             seo(op)
-            return True
-        return False
+            return True, None
+        return False, None
 
     def opt_call_SHRINK_ARRAY(self, op):
         i1 = self.getptrinfo(op.getarg(1))
@@ -838,14 +864,12 @@ class OptString(optimizer.Optimization):
         op = self.optimizer.replace_op_with(result, rop.CALL_I,
                                             [ConstInt(func)] + args,
                                             descr=calldescr)
-        self.emit_operation(op)
-
-    def propagate_forward(self, op):
-        dispatch_opt(self, op)
+        return self.emit(op)
 
 
 dispatch_opt = make_dispatcher_method(OptString, 'optimize_',
-        default=OptString.emit_operation)
+                                      default=OptString.emit)
+dispatch_postprocess = make_dispatcher_method(OptString, 'postprocess_')
 
 
 def _findall_call_oopspec():

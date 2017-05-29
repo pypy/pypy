@@ -189,7 +189,7 @@ printed unless the exception is SystemExit."""
             raise
     except rthread.error:
         raise wrap_thread_error(space, "can't start new thread")
-    return space.wrap(ident)
+    return space.newint(ident)
 
 
 def get_ident(space):
@@ -201,7 +201,7 @@ allocated consecutive numbers starting at 1, this behavior should not
 be relied upon, and the number should be seen purely as a magic cookie.
 A thread's identity may be reused for another thread after it exits."""
     ident = rthread.get_ident()
-    return space.wrap(ident)
+    return space.newint(ident)
 
 @unwrap_spec(size=int)
 def stack_size(space, size=0):
@@ -231,7 +231,7 @@ the suggested approach in the absence of more specific information)."""
         raise oefmt(space.w_ValueError, "size not valid: %d bytes", size)
     if error == -2:
         raise wrap_thread_error(space, "setting stack size not supported")
-    return space.wrap(old_size)
+    return space.newint(old_size)
 
 def _count(space):
     """_count() -> integer
@@ -242,7 +242,7 @@ yet finished.
 
 This function is meant for internal and specialized purposes only.
 In most applications `threading.enumerate()` should be used instead."""
-    return space.wrap(bootstrapper.nbthreads)
+    return space.newint(bootstrapper.nbthreads)
 
 def exit(space):
     """This is synonymous to ``raise SystemExit''.  It will cause the current

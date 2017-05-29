@@ -72,6 +72,7 @@ class TinyObjSpace(object):
         for name in ('int', 'long', 'str', 'unicode', 'None', 'ValueError',
                 'OverflowError'):
             setattr(self, 'w_' + name, eval(name))
+        self.w_bytes = bytes
         import __builtin__ as __builtin__
         self.builtin = __builtin__
 
@@ -106,6 +107,9 @@ class TinyObjSpace(object):
 
     def newlist(self, iterable):
         return list(iterable)
+
+    def newbytes(self, obj):
+        return bytes(obj)
 
     def call_function(self, func, *args, **kwds):
         return func(*args, **kwds)

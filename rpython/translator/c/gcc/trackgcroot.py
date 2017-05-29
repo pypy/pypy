@@ -926,6 +926,13 @@ class FunctionGcRootTracker(object):
                 assert  lineoffset in (1,2)
                 return [InsnStackAdjust(-4)]
 
+        if target.startswith('__x86.get_pc_thunk.'):
+            # special case, found on x86-32: these static functions
+            # contain only a simple load of some non-GC pointer to
+            # a specific register (not necessarily EAX)
+            reg = '%e' + target.split('.')[-1]
+            return [InsnSetLocal(reg)]
+
         insns = [InsnCall(target, self.currentlineno),
                  InsnSetLocal(self.EAX)]      # the result is there
         if self.format in ('mingw32', 'msvc'):

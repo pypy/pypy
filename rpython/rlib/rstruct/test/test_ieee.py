@@ -3,6 +3,7 @@ import sys
 import random
 import struct
 
+from rpython.rlib.mutbuffer import MutableStringBuffer
 from rpython.rlib.rstruct import ieee
 from rpython.rlib.rfloat import isnan, NAN, INFINITY
 from rpython.translator.c.test.test_genc import compile
@@ -73,9 +74,9 @@ class TestFloatPacking:
                 assert repr(x) == repr(y), '%r != %r, Q=%r' % (x, y, Q)
 
         for be in [False, True]:
-            Q = []
-            ieee.pack_float(Q, x, 8, be)
-            Q = Q[0]
+            buf = MutableStringBuffer(8)
+            ieee.pack_float(buf, 0, x, 8, be)
+            Q = buf.finish()
             y = ieee.unpack_float(Q, be)
             assert repr(x) == repr(y), '%r != %r, Q=%r' % (x, y, Q)
 
@@ -197,12 +198,11 @@ class TestFloatPacking:
 class TestCompiled:
     def test_pack_float(self):
         def pack(x, size):
-            result = []
-            ieee.pack_float(result, x, size, False)
+            buf = MutableStringBuffer(size)
+            ieee.pack_float(buf, 0, x, size, False)
             l = []
-            for x in result:
-                for c in x:
-                    l.append(str(ord(c)))
+            for c in buf.finish():
+                l.append(str(ord(c)))
             return ','.join(l)
         c_pack = compile(pack, [float, int])
 

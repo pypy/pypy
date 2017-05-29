@@ -299,6 +299,7 @@ class OpParser(object):
             vecinfo.datatype = match.group(3)
             vecinfo.bytesize = int(match.group(4)) // 8
             resop._vec_debug_info = vecinfo
+            resop.bytesize = vecinfo.bytesize
             return var[:var.find('[')]
 
         vecinfo = VectorizationInfo(resop)

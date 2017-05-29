@@ -7,7 +7,7 @@ from rpython.rlib.objectmodel import (
     resizelist_hint, is_annotation_constant, always_inline, NOT_CONSTANT,
     iterkeys_with_hash, iteritems_with_hash, contains_with_hash,
     setitem_with_hash, getitem_with_hash, delitem_with_hash, import_from_mixin,
-    fetch_translated_config)
+    fetch_translated_config, try_inline, delitem_if_value_is, move_to_end)
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.test.test_llinterp import interpret
@@ -166,7 +166,6 @@ def test_compute_hash():
     foo = Foo()
     h = compute_hash(foo)
     assert h == object.__hash__(foo)
-    assert h == getattr(foo, '__precomputed_identity_hash')
     assert compute_hash(None) == 0
 
 def test_compute_hash_float():
@@ -182,7 +181,6 @@ def test_compute_identity_hash():
     foo = Foo()
     h = compute_identity_hash(foo)
     assert h == object.__hash__(foo)
-    assert h == getattr(foo, '__precomputed_identity_hash')
 
 def test_compute_unique_id():
     from rpython.rlib.rarithmetic import intmask
@@ -410,36 +408,6 @@ class TestObjectModel(BaseRtypingTest):
         res = self.interpret(f, [])
         assert res == 1
 
-    def test_compute_hash_across_translation(self):
-        class Foo(object):
-            pass
-        q = Foo()
-
-        def f(i):
-            assert compute_hash(None) == 0
-            assert compute_hash(i) == h_42
-            assert compute_hash(i + 1.0) == h_43_dot_0
-            assert compute_hash((i + 3) / 6.0) == h_7_dot_5
-            assert compute_hash("Hello" + str(i)) == h_Hello42
-            if i == 42:
-                p = None
-            else:
-                p = Foo()
-            assert compute_hash(p) == h_None
-            assert compute_hash(("world", None, i, 7.5)) == h_tuple
-            assert compute_hash(q) == h_q
-            return i * 2
-        h_42 = compute_hash(42)
-        h_43_dot_0 = compute_hash(43.0)
-        h_7_dot_5 = compute_hash(7.5)
-        h_Hello42 = compute_hash("Hello42")
-        h_None = compute_hash(None)
-        h_tuple = compute_hash(("world", None, 42, 7.5))
-        h_q = compute_hash(q)
-
-        res = self.interpret(f, [42])
-        assert res == 84
-
     def test_fetch_translated_config(self):
         assert fetch_translated_config() is None
         def f():
@@ -482,6 +450,13 @@ def test_always_inline():
     def f(a, b, c):
         return a, b, c
     assert f._always_inline_ is True
+
+def test_try_inline():
+    @try_inline
+    def f(a, b, c):
+        return a, b, c
+    assert f._always_inline_ == "try"
+
 
 def test_enforceargs_defaults():
     @enforceargs(int, int)
@@ -686,6 +661,24 @@ def test_delitem_with_hash():
     f(29)
     interpret(f, [27])
 
+def test_delitem_if_value_is():
+    class X:
+        pass
+    def f(i):
+        x42 = X()
+        x612 = X()
+        d = {i + .5: x42, i + .6: x612}
+        delitem_if_value_is(d, i + .5, x612)
+        assert (i + .5) in d
+        delitem_if_value_is(d, i + .5, x42)
+        assert (i + .5) not in d
+        delitem_if_value_is(d, i + .5, x612)
+        assert (i + .5) not in d
+        return 0
+
+    f(29)
+    interpret(f, [27])
+
 def test_rdict_with_hash():
     def f(i):
         d = r_dict(strange_key_eq, strange_key_hash)
@@ -703,6 +696,16 @@ def test_rdict_with_hash():
 
     assert f(29) == 0
     interpret(f, [27])
+
+def test_rordereddict_move_to_end():
+    d = OrderedDict()
+    d['key1'] = 'val1'
+    d['key2'] = 'val2'
+    d['key3'] = 'val3'
+    move_to_end(d, 'key1')
+    assert d.items() == [('key2', 'val2'), ('key3', 'val3'), ('key1', 'val1')]
+    move_to_end(d, 'key1', last=False)
+    assert d.items() == [('key1', 'val1'), ('key2', 'val2'), ('key3', 'val3')]
 
 def test_import_from_mixin():
     class M:    # old-style

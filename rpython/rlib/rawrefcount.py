@@ -5,8 +5,11 @@
 #  useful interface over our GC.  XXX "pypy" should be removed here
 #
 import sys, weakref
-from rpython.rtyper.lltypesystem import lltype, llmemory
+import py
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rlib.objectmodel import not_rpython
 from rpython.rtyper.extregistry import ExtRegistryEntry
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib import rgc
 
 
@@ -22,8 +25,9 @@ def _build_pypy_link(p):
     return res
 
 
+@not_rpython
 def init(dealloc_trigger_callback=None):
-    """NOT_RPYTHON: set up rawrefcount with the GC.  This is only used
+    """set up rawrefcount with the GC.  This is only used
     for tests; it should not be called at all during translation.
     """
     global _p_list, _o_list, _adr2pypy, _pypy2ob, _pypy2ob_rev
@@ -34,6 +38,7 @@ def init(dealloc_trigger_callback=None):
     _pypy2ob = {}
     _pypy2ob_rev = {}
     _d_list = []
+    _d_marker = None
     _dealloc_trigger_callback = dealloc_trigger_callback
 
 class Entry(ExtRegistryEntry):
@@ -49,8 +54,9 @@ class Entry(ExtRegistryEntry):
         hop.genop('gc_rawrefcount_init', [v_dealloc_callback])
 
 
+@not_rpython
 def create_link_pypy(gcobj, ob):
-    "NOT_RPYTHON: a link where the PyPy object contains some or all the data"
+    "a link where the PyPy object contains some or all the data"
     assert gcobj not in _pypy2ob
     assert ob._obj not in _pypy2ob_rev
     assert not ob.c_ob_pypy_link
@@ -59,8 +65,9 @@ def create_link_pypy(gcobj, ob):
     _pypy2ob_rev[ob._obj] = gcobj
     _p_list.append(ob)
 
+@not_rpython
 def create_link_pyobj(gcobj, ob):
-    """NOT_RPYTHON: a link where the PyObject contains all the data.
+    """a link where the PyObject contains all the data.
        from_obj() will not work on this 'gcobj'."""
     assert gcobj not in _pypy2ob
     assert ob._obj not in _pypy2ob_rev
@@ -68,8 +75,16 @@ def create_link_pyobj(gcobj, ob):
     ob.c_ob_pypy_link = _build_pypy_link(gcobj)
     _o_list.append(ob)
 
+@not_rpython
+def mark_deallocating(marker, ob):
+    """mark the PyObject as deallocating, by storing 'marker'
+    inside its ob_pypy_link field"""
+    assert ob._obj not in _pypy2ob_rev
+    assert not ob.c_ob_pypy_link
+    ob.c_ob_pypy_link = _build_pypy_link(marker)
+
 class Entry(ExtRegistryEntry):
-    _about_ = (create_link_pypy, create_link_pyobj)
+    _about_ = (create_link_pypy, create_link_pyobj, mark_deallocating)
 
     def compute_result_annotation(self, s_gcobj, s_ob):
         pass
@@ -79,13 +94,20 @@ class Entry(ExtRegistryEntry):
             name = 'gc_rawrefcount_create_link_pypy'
         elif self.instance is create_link_pyobj:
             name = 'gc_rawrefcount_create_link_pyobj'
+        elif self.instance is mark_deallocating:
+            name = 'gc_rawrefcount_mark_deallocating'
         v_gcobj, v_ob = hop.inputargs(*hop.args_r)
         hop.exception_cannot_occur()
         hop.genop(name, [_unspec_gc(hop, v_gcobj), _unspec_ob(hop, v_ob)])
+        #
+        if hop.rtyper.annotator.translator.config.translation.gc == "boehm":
+            c_func = hop.inputconst(lltype.typeOf(func_boehm_eci),
+                                    func_boehm_eci)
+            hop.genop('direct_call', [c_func])
 
 
+@not_rpython
 def from_obj(OB_PTR_TYPE, gcobj):
-    "NOT_RPYTHON"
     ob = _pypy2ob.get(gcobj)
     if ob is None:
         return lltype.nullptr(OB_PTR_TYPE.TO)
@@ -112,8 +134,8 @@ class Entry(ExtRegistryEntry):
         return _spec_ob(hop, v_adr)
 
 
+@not_rpython
 def to_obj(Class, ob):
-    "NOT_RPYTHON"
     link = ob.c_ob_pypy_link
     if link == 0:
         return None
@@ -140,8 +162,9 @@ class Entry(ExtRegistryEntry):
         return _spec_gc(hop, v_gcobj)
 
 
+@not_rpython
 def next_dead(OB_PTR_TYPE):
-    """NOT_RPYTHON.  When the GC runs, it finds some pyobjs to be dead
+    """When the GC runs, it finds some pyobjs to be dead
     but cannot immediately dispose of them (it doesn't know how to call
     e.g. tp_dealloc(), and anyway calling it immediately would cause all
     sorts of bugs).  So instead, it stores them in an internal list,
@@ -168,8 +191,9 @@ class Entry(ExtRegistryEntry):
         return _spec_ob(hop, v_rawaddr)
 
 
+@not_rpython
 def _collect(track_allocation=True):
-    """NOT_RPYTHON: for tests only.  Emulates a GC collection.
+    """for tests only.  Emulates a GC collection.
     Will invoke dealloc_trigger_callback() once if there are objects
     whose _Py_Dealloc() should be called.
     """
@@ -279,3 +303,10 @@ def _spec_ob(hop, v_adr):
     assert v_adr.concretetype == llmemory.Address
     return hop.genop('cast_adr_to_ptr', [v_adr],
                      resulttype=hop.r_result.lowleveltype)
+
+src_dir = py.path.local(__file__).dirpath() / 'src'
+boehm_eci = ExternalCompilationInfo(
+    post_include_bits=[(src_dir / 'boehm-rawrefcount.h').read()],
+    separate_module_files=[(src_dir / 'boehm-rawrefcount.c')],
+)
+func_boehm_eci = rffi.llexternal_use_eci(boehm_eci)

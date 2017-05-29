@@ -4,7 +4,7 @@ python builtin open()
 """
 
 import os, stat, errno, sys
-from rpython.rlib import rposix
+from rpython.rlib import rposix, rgc
 from rpython.rlib.objectmodel import enforceargs
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rstring import StringBuilder
@@ -294,6 +294,7 @@ class RFile(object):
         if ll_file:
             # double close is allowed
             self._ll_file = lltype.nullptr(FILEP.TO)
+            rgc.may_ignore_finalizer(self)
             do_close = self._close2[0]
             try:
                 if do_close:

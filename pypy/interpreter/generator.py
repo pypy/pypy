@@ -2,7 +2,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.pyopcode import LoopBlock
 from pypy.interpreter.pycode import CO_YIELD_INSIDE_TRY
-from rpython.rlib import jit
+from rpython.rlib import jit, rgc
 
 
 class GeneratorIterator(W_Root):
@@ -23,15 +23,14 @@ class GeneratorIterator(W_Root):
         else:
             code_name = self.pycode.co_name
         addrstring = self.getaddrstring(space)
-        return space.wrap("<generator object %s at 0x%s>" %
-                          (code_name, addrstring))
+        return space.newtext("<generator object %s at 0x%s>" %
+                             (code_name, addrstring))
 
     def descr__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('generator_new')
-        w        = space.wrap
         if self.frame:
             w_frame = self.frame._reduce_state(space)
         else:
@@ -39,7 +38,7 @@ class GeneratorIterator(W_Root):
 
         tup = [
             w_frame,
-            w(self.running),
+            space.newbool(self.running),
             ]
 
         return space.newtuple([new_inst, space.newtuple([]),
@@ -61,9 +60,9 @@ class GeneratorIterator(W_Root):
 
     def descr__iter__(self):
         """x.__iter__() <==> iter(x)"""
-        return self.space.wrap(self)
+        return self
 
-    def descr_send(self, w_arg=None):
+    def descr_send(self, w_arg):
         """send(arg) -> send 'arg' into generator,
 return next yielded value or raise StopIteration."""
         return self.send_ex(w_arg)
@@ -103,11 +102,11 @@ return next yielded value or raise StopIteration."""
                 w_result = frame.execute_frame(w_arg, operr)
             except OperationError:
                 # errors finish a frame
-                self.frame = None
+                self.frame_is_finished()
                 raise
             # if the frame is now marked as finished, it was RETURNed from
             if frame.frame_finished_execution:
-                self.frame = None
+                self.frame_is_finished()
                 raise OperationError(space.w_StopIteration, space.w_None)
             else:
                 return w_result     # YIELDed
@@ -170,7 +169,7 @@ return next yielded value or raise StopIteration."""
             code_name = '<finished>'
         else:
             code_name = self.pycode.co_name
-        return space.wrap(code_name)
+        return space.newtext(code_name)
 
     # Results can be either an RPython list of W_Root, or it can be an
     # app-level W_ListObject, which also has an append() method, that's why we
@@ -209,7 +208,7 @@ return next yielded value or raise StopIteration."""
             finally:
                 frame.f_backref = jit.vref_None
                 self.running = False
-                self.frame = None
+                self.frame_is_finished()
         return unpack_into
     unpack_into = _create_unpack_into()
     unpack_into_w = _create_unpack_into()
@@ -227,6 +226,10 @@ return next yielded value or raise StopIteration."""
                     self.descr_close()
                     break
                 block = block.previous
+
+    def frame_is_finished(self):
+        self.frame = None
+        rgc.may_ignore_finalizer(self)
 
 
 def get_printable_location_genentry(bytecode):

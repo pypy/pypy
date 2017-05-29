@@ -357,6 +357,24 @@ cannot have several of them in a set, unlike in CPython.  (Issue `#1974`__)
 
 .. __: https://bitbucket.org/pypy/pypy/issue/1974/different-behaviour-for-collections-of
 
+Performance Differences
+-------------------------
+
+CPython has an optimization that can make repeated string concatenation not
+quadratic. For example, this kind of code runs in O(n) time::
+
+    s = ''
+    for string in mylist:
+        s += string
+
+In PyPy, this code will always have quadratic complexity. Note also, that the
+CPython optimization is brittle and can break by having slight variations in
+your code anyway. So you should anyway replace the code with::
+
+    parts = []
+    for string in mylist:
+        parts.append(string)
+    s = "".join(parts)
 
 Miscellaneous
 -------------
@@ -428,11 +446,6 @@ Miscellaneous
   ``datetime.date`` is the superclass of ``datetime.datetime``).
   Anyway, the proper fix is arguably to use a regular method call in
   the first place: ``datetime.date.today().strftime(...)``
-
-* the ``__dict__`` attribute of new-style classes returns a normal dict, as
-  opposed to a dict proxy like in CPython. Mutating the dict will change the
-  type and vice versa. For builtin types, a dictionary will be returned that
-  cannot be changed (but still looks and behaves like a normal dictionary).
   
 * some functions and attributes of the ``gc`` module behave in a
   slightly different way: for example, ``gc.enable`` and
@@ -449,6 +462,58 @@ Miscellaneous
   support (see ``multiline_input()``).  On the other hand,
   ``parse_and_bind()`` calls are ignored (issue `#2072`_).
 
+* ``sys.getsizeof()`` always raises ``TypeError``.  This is because a
+  memory profiler using this function is most likely to give results
+  inconsistent with reality on PyPy.  It would be possible to have
+  ``sys.getsizeof()`` return a number (with enough work), but that may
+  or may not represent how much memory the object uses.  It doesn't even
+  make really sense to ask how much *one* object uses, in isolation with
+  the rest of the system.  For example, instances have maps, which are
+  often shared across many instances; in this case the maps would
+  probably be ignored by an implementation of ``sys.getsizeof()``, but
+  their overhead is important in some cases if they are many instances
+  with unique maps.  Conversely, equal strings may share their internal
+  string data even if they are different objects---or empty containers
+  may share parts of their internals as long as they are empty.  Even
+  stranger, some lists create objects as you read them; if you try to
+  estimate the size in memory of ``range(10**6)`` as the sum of all
+  items' size, that operation will by itself create one million integer
+  objects that never existed in the first place.  Note that some of
+  these concerns also exist on CPython, just less so.  For this reason
+  we explicitly don't implement ``sys.getsizeof()``.
+
+* The ``timeit`` module behaves differently under PyPy: it prints the average
+  time and the standard deviation, instead of the minimum, since the minimum is
+  often misleading.
+
+* The ``get_config_vars`` method of ``sysconfig`` and ``distutils.sysconfig``
+  are not complete. On POSIX platforms, CPython fishes configuration variables
+  from the Makefile used to build the interpreter. PyPy should bake the values
+  in during compilation, but does not do that yet.
+
+* ``"%d" % x`` and ``"%x" % x`` and similar constructs, where ``x`` is
+  an instance of a subclass of ``long`` that overrides the special
+  methods ``__str__`` or ``__hex__`` or ``__oct__``: PyPy doesn't call
+  the special methods; CPython does---but only if it is a subclass of
+  ``long``, not ``int``.  CPython's behavior is really messy: e.g. for
+  ``%x`` it calls ``__hex__()``, which is supposed to return a string
+  like ``-0x123L``; then the ``0x`` and the final ``L`` are removed, and
+  the rest is kept.  If you return an unexpected string from
+  ``__hex__()`` you get an exception (or a crash before CPython 2.7.13).
+
+* In PyPy, dictionaries passed as ``**kwargs`` can contain only string keys,
+  even for ``dict()`` and ``dict.update()``.  CPython 2.7 allows non-string
+  keys in these two cases (and only there, as far as we know).  E.g. this
+  code produces a ``TypeError``, on CPython 3.x as well as on any PyPy:
+  ``dict(**{1: 2})``.  (Note that ``dict(**d1)`` is equivalent to
+  ``dict(d1)``.)
+
+* PyPy3: ``__class__`` attribute assignment between heaptypes and non heaptypes.
+  CPython allows that for module subtypes, but not for e.g. ``int``
+  or ``float`` subtypes. Currently PyPy does not support the
+  ``__class__`` attribute assignment for any non heaptype subtype.
+
 .. _`is ignored in PyPy`: http://bugs.python.org/issue14621
 .. _`little point`: http://events.ccc.de/congress/2012/Fahrplan/events/5152.en.html
 .. _`#2072`: https://bitbucket.org/pypy/pypy/issue/2072/
+

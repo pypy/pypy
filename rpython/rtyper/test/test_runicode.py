@@ -110,7 +110,13 @@ class TestRUnicode(AbstractTestRstr, BaseRtypingTest):
             x = u'\ud800' + unichr(n)
             return x.encode('utf-8')
 
-        self.interpret_raises(UnicodeEncodeError, g, [38])
+        # used to raise in RPython, but not when run as plain Python,
+        # which just makes code very hard to test.  Nowadays, .encode()
+        # and .decode() accept surrogates like in Python 2.7.  Use
+        # functions from the rlib.runicode module if you need stricter
+        # behavior.
+        #self.interpret_raises(UnicodeEncodeError, g, [38])
+        assert self.ll_to_string(self.interpret(g, [38])) == g(38)
 
     def test_utf_8_encoding_annotation(self):
         from rpython.rlib.runicode import unicode_encode_utf_8
@@ -162,6 +168,18 @@ class TestRUnicode(AbstractTestRstr, BaseRtypingTest):
 
         assert self.ll_to_string(self.interpret(f, [0])) == f(0)
 
+    def test_unicode_decode_final(self):
+        strings = ['\xc3', '']
+        def f(n):
+            try:
+                strings[n].decode('utf-8')
+            except UnicodeDecodeError:
+                return True
+            return False
+
+        assert f(0)
+        assert self.interpret(f, [0])
+
     def test_utf_8_decoding_annotation(self):
         from rpython.rlib.runicode import str_decode_utf_8
         def errorhandler(errors, encoding, msg, s,
@@ -176,7 +194,7 @@ class TestRUnicode(AbstractTestRstr, BaseRtypingTest):
             else:
                 errors = 'foo'
             # the annotation of y is SomeUnicodeString(can_be_None=False)
-            y, _ = str_decode_utf_8(x, len(x), errors, errorhandler)
+            y, _ = str_decode_utf_8(x, len(x), errors, errorhandler=errorhandler)
             return x.decode('utf-8') + y
 
         assert self.ll_to_string(self.interpret(f, [1])) == f(1)

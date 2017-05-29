@@ -95,8 +95,8 @@ class AppTestFunctionIntrospection:
     def test_write_code_builtin_forbidden(self):
         def f(*args):
             return 42
-            raises(TypeError, "dir.func_code = f.func_code")
-            raises(TypeError, "list.append.im_func.func_code = f.func_code")
+        raises(TypeError, "dir.func_code = f.func_code")
+        raises(TypeError, "list.append.im_func.func_code = f.func_code")
 
     def test_set_module_to_name_eagerly(self):
         skip("fails on PyPy but works on CPython.  Unsure we want to care")
@@ -560,6 +560,18 @@ class AppTestMethod:
         assert A().m == X()
         assert X() == A().m
 
+    def test_method_equals_with_identity(self):
+        from types import MethodType
+        class CallableBadEq(object):
+            def __call__(self):
+                pass
+            def __eq__(self, other):
+                raise ZeroDivisionError
+        func = CallableBadEq()
+        meth = MethodType(func, object)
+        assert meth == meth
+        assert meth == MethodType(func, object)
+
     @pytest.mark.skipif("config.option.runappdirect")
     def test_method_identity(self):
         class A(object):
@@ -649,7 +661,7 @@ class TestMethod:
         assert meth4.call_args(args) == obj2
         # Check method returned from unbound_method.__get__()
         # --- with an incompatible class
-        w_meth5 = meth3.descr_method_get(space.wrap('hello'), space.w_str)
+        w_meth5 = meth3.descr_method_get(space.wrap('hello'), space.w_text)
         assert space.is_w(w_meth5, w_meth3)
         # Same thing, with an old-style class
         w_oldclass = space.call_function(
@@ -660,7 +672,7 @@ class TestMethod:
         # Reverse order of old/new styles
         w_meth7 = descr_function_get(space, func, space.w_None, w_oldclass)
         meth7 = space.unwrap(w_meth7)
-        w_meth8 = meth7.descr_method_get(space.wrap('hello'), space.w_str)
+        w_meth8 = meth7.descr_method_get(space.wrap('hello'), space.w_text)
         assert space.is_w(w_meth8, w_meth7)
 
 class TestShortcuts(object):

@@ -162,40 +162,43 @@ def make_pycppclass(scope, class_name, final_class_name, cppclass):
         except KeyError:
             pass
 
-    # create a meta class to allow properties (for static data write access)
-    metabases = [type(base) for base in bases]
-    metacpp = type(CPPClass)(class_name+'_meta', _drop_cycles(metabases), {})
+    # prepare dictionary for meta class
+    d_meta = {}
 
-    # create the python-side C++ class representation
+    # prepare dictionary for python-side C++ class representation
     def dispatch(self, name, signature):
         cppol = cppclass.dispatch(name, signature)
         return types.MethodType(make_method(name, cppol), self, type(self))
-    d = {"_cpp_proxy"   : cppclass,
+    d_class = {"_cpp_proxy"   : cppclass,
          "__dispatch__" : dispatch,
          "__new__"      : make_new(class_name),
          }
-    pycppclass = metacpp(class_name, _drop_cycles(bases), d)
-
-    # cache result early so that the class methods can find the class itself
-    setattr(scope, final_class_name, pycppclass)
 
     # insert (static) methods into the class dictionary
-    for meth_name in cppclass.get_method_names():
-        cppol = cppclass.get_overload(meth_name)
+    for name in cppclass.get_method_names():
+        cppol = cppclass.get_overload(name)
         if cppol.is_static():
-            setattr(pycppclass, meth_name, make_static_function(meth_name, cppol))
+            d_class[name] = make_static_function(name, cppol)
         else:
-            setattr(pycppclass, meth_name, make_method(meth_name, cppol))
+            d_class[name] = make_method(name, cppol)
 
     # add all data members to the dictionary of the class to be created, and
     # static ones also to the meta class (needed for property setters)
-    for dm_name in cppclass.get_datamember_names():
-        cppdm = cppclass.get_datamember(dm_name)
+    for name in cppclass.get_datamember_names():
+        cppdm = cppclass.get_datamember(name)
+        d_class[name] = cppdm
+        if cppdm.is_static():
+            d_meta[name] = cppdm
 
-        setattr(pycppclass, dm_name, cppdm)
-        import cppyy
-        if cppyy._is_static(cppdm):     # TODO: make this a method of cppdm
-            setattr(metacpp, dm_name, cppdm)
+    # create a meta class to allow properties (for static data write access)
+    metabases = [type(base) for base in bases]
+    metacpp = type(CPPClass)(class_name+'_meta', _drop_cycles(metabases), d_meta)
+
+    # create the python-side C++ class
+    pycppclass = metacpp(class_name, _drop_cycles(bases), d_class)
+
+    # store the class on its outer scope
+    setattr(scope, final_class_name, pycppclass)
 
     # the call to register will add back-end specific pythonizations and thus
     # needs to run first, so that the generic pythonizations can use them
@@ -250,7 +253,7 @@ def get_pycppitem(scope, name):
         try:
             cppdm = scope._cpp_proxy.get_datamember(name)
             setattr(scope, name, cppdm)
-            if cppyy._is_static(cppdm): # TODO: make this a method of cppdm
+            if cppdm.is_static():
                 setattr(scope.__class__, name, cppdm)
             pycppitem = getattr(scope, name)      # gets actual property value
         except AttributeError:
@@ -308,6 +311,7 @@ def python_style_sliceable_getitem(self, slice_or_idx):
     else:
         return python_style_getitem(self, slice_or_idx)
 
+
 _pythonizations = {}
 def _pythonize(pyclass):
 
@@ -354,8 +358,8 @@ def _pythonize(pyclass):
         pyclass.__iadd__ = __iadd__
 
     # map begin()/end() protocol to iter protocol on STL(-like) classes, but
-    # not on vector, for which otherwise the user has to make sure that the
-    # global == and != for its iterators are reflected, which is a hassle ...
+    # not on vector, which is pythonized in the capi (interp-level; there is
+    # also the fallback on the indexed __getitem__, but that is slower)
     if not 'vector' in pyclass.__name__[:11] and \
             ('begin' in pyclass.__dict__ and 'end' in pyclass.__dict__):
         if cppyy._scope_byname(pyclass.__name__+'::iterator') or \
@@ -437,13 +441,13 @@ def _init_pythonify():
     gbl = make_cppnamespace(None, "::", None, False)   # global C++ namespace
     gbl.__doc__ = "Global C++ namespace."
 
-    # mostly for the benefit of the CINT backend, which treats std as special
+    # pre-create std to allow direct importing
     gbl.std = make_cppnamespace(None, "std", None, False)
 
     # install a type for enums to refer to
     # TODO: this is correct for C++98, not for C++11 and in general there will
     # be the same issue for all typedef'd builtin types
-    setattr(gbl, 'unsigned int', int)
+    setattr(gbl, 'internal_enum_type_t', int)
 
     # install nullptr as a unique reference
     setattr(gbl, 'nullptr', cppyy._get_nullptr())

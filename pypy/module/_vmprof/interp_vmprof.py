@@ -4,6 +4,7 @@ from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.baseobjspace import W_Root
 from rpython.rlib import rvmprof, jit
+from pypy.interpreter.error import oefmt
 
 # ____________________________________________________________
 
@@ -47,11 +48,11 @@ class Cache:
 
 def VMProfError(space, e):
     w_VMProfError = space.fromcache(Cache).w_VMProfError
-    return OperationError(w_VMProfError, space.wrap(e.msg))
+    return OperationError(w_VMProfError, space.newtext(e.msg))
 
 
-@unwrap_spec(fileno=int, period=float)
-def enable(space, fileno, period):
+@unwrap_spec(fileno=int, period=float, memory=int, lines=int, native=int)
+def enable(space, fileno, period, memory, lines, native):
     """Enable vmprof.  Writes go to the given 'fileno', a file descriptor
     opened for writing.  *The file descriptor must remain open at least
     until disable() is called.*
@@ -60,12 +61,12 @@ def enable(space, fileno, period):
     Must be smaller than 1.0
     """
     w_modules = space.sys.get('modules')
-    #if space.contains_w(w_modules, space.wrap('_continuation')):
-    #    space.warn(space.wrap("Using _continuation/greenlet/stacklet together "
-    #                          "with vmprof will crash"),
+    #if space.contains_w(w_modules, space.newtext('_continuation')):
+    #    space.warn(space.newtext("Using _continuation/greenlet/stacklet together "
+    #                             "with vmprof will crash"),
     #               space.w_RuntimeWarning)
     try:
-        rvmprof.enable(fileno, period)
+        rvmprof.enable(fileno, period, memory, native)
     except rvmprof.VMProfError as e:
         raise VMProfError(space, e)
 
@@ -82,3 +83,16 @@ def disable(space):
         rvmprof.disable()
     except rvmprof.VMProfError as e:
         raise VMProfError(space, e)
+
+def is_enabled(space):
+    return space.newbool(rvmprof.is_enabled())
+
+def get_profile_path(space):
+    path = rvmprof.get_profile_path(space)
+    if path is None:
+        # profiling is not enabled
+        return space.w_None
+    if path == "":
+        # Indicates an error! Assume platform does not implement the function call
+        raise oefmt(space.w_NotImplementedError, "platform not implemented")
+    return space.newtext(path)

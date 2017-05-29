@@ -201,6 +201,8 @@ def r_unsetenv(name):
     # default implementation for platforms without a real unsetenv()
     r_putenv(name, '')
 
+REAL_UNSETENV = False
+
 if hasattr(__import__(os.name), 'unsetenv'):
     os_unsetenv = rffi.llexternal('unsetenv', [rffi.CCHARP], rffi.INT,
                                   save_err=rffi.RFFI_SAVE_ERRNO)
@@ -222,3 +224,4 @@ if hasattr(__import__(os.name), 'unsetenv'):
     register_external(r_unsetenv, [str0], annmodel.s_None,
                       export_name='ll_os.ll_os_unsetenv',
                       llimpl=unsetenv_llimpl)
+    REAL_UNSETENV = True

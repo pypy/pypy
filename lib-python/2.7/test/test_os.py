@@ -638,7 +638,7 @@ class TestInvalidFD(unittest.TestCase):
     singles = ["fchdir", "fdopen", "dup", "fdatasync", "fstat",
                "fstatvfs", "fsync", "tcgetpgrp", "ttyname"]
     #singles.append("close")
-    #We omit close because it doesn'r raise an exception on some platforms
+    #We omit close because it doesn't raise an exception on some platforms
     def get_single(f):
         def helper(self):
             if  hasattr(os, f):
@@ -653,7 +653,7 @@ class TestInvalidFD(unittest.TestCase):
         except OSError as e:
             self.assertEqual(e.errno, errno.EBADF)
         else:
-            self.fail("%r didn't raise a OSError with a bad file descriptor"
+            self.fail("%r didn't raise an OSError with a bad file descriptor"
                       % f)
 
     @unittest.skipUnless(hasattr(os, 'isatty'), 'test needs os.isatty()')
@@ -861,7 +861,7 @@ class Win32KillTests(unittest.TestCase):
             os.kill(proc.pid, signal.SIGINT)
             self.fail("subprocess did not stop on {}".format(name))
 
-    @unittest.skip("subprocesses aren't inheriting CTRL+C property")
+    @unittest.skip("subprocesses aren't inheriting Ctrl+C property")
     def test_CTRL_C_EVENT(self):
         from ctypes import wintypes
         import ctypes
@@ -874,7 +874,7 @@ class Win32KillTests(unittest.TestCase):
         SetConsoleCtrlHandler.restype = wintypes.BOOL
 
         # Calling this with NULL and FALSE causes the calling process to
-        # handle CTRL+C, rather than ignore it. This property is inherited
+        # handle Ctrl+C, rather than ignore it. This property is inherited
         # by subprocesses.
         SetConsoleCtrlHandler(NULL, 0)
 

@@ -341,6 +341,9 @@ class TestJointOps(unittest.TestCase):
         gc.collect()
         self.assertTrue(ref() is None, "Cycle was not collected")
 
+    def test_free_after_iterating(self):
+        test_support.check_free_after_iterating(self, iter, self.thetype)
+
 class TestSet(TestJointOps):
     thetype = set
 
@@ -357,6 +360,21 @@ class TestSet(TestJointOps):
         s = self.thetype(range(3))
         t = self.thetype(s)
         self.assertNotEqual(id(s), id(t))
+
+    def test_set_literal_insertion_order(self):
+        # SF Issue #26020 -- Expect left to right insertion
+        s = {1, 1.0, True}
+        self.assertEqual(len(s), 1)
+        stored_value = s.pop()
+        self.assertEqual(type(stored_value), int)
+
+    def test_set_literal_evaluation_order(self):
+        # Expect left to right expression evaluation
+        events = []
+        def record(obj):
+            events.append(obj)
+        s = {record(1), record(2), record(3)}
+        self.assertEqual(events, [1, 2, 3])
 
     def test_hash(self):
         self.assertRaises(TypeError, hash, self.s)
@@ -1651,6 +1669,17 @@ class TestWeirdBugs(unittest.TestCase):
         be_bad = True
         set1.symmetric_difference_update(dict2)
 
+    def test_iter_and_mutate(self):
+        # Issue #24581
+        s = set(range(100))
+        s.clear()
+        s.update(range(100))
+        si = iter(s)
+        s.clear()
+        a = list(range(100))
+        s.update(range(100))
+        list(si)
+
 # Application tests (based on David Eppstein's graph recipes ====================================
 
 def powerset(U):
@@ -1729,7 +1758,7 @@ class TestGraphs(unittest.TestCase):
 
         # http://en.wikipedia.org/wiki/Cuboctahedron
         # 8 triangular faces and 6 square faces
-        # 12 indentical vertices each connecting a triangle and square
+        # 12 identical vertices each connecting a triangle and square
 
         g = cube(3)
         cuboctahedron = linegraph(g)            # V( --> {V1, V2, V3, V4}

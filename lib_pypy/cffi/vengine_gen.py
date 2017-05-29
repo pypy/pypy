@@ -4,7 +4,8 @@
 import sys, os
 import types
 
-from . import model, ffiplatform
+from . import model
+from .error import VerificationError
 
 
 class VGenericEngine(object):
@@ -102,7 +103,7 @@ class VGenericEngine(object):
                 method = getattr(self, '_generate_gen_%s_%s' % (kind,
                                                                 step_name))
             except AttributeError:
-                raise ffiplatform.VerificationError(
+                raise VerificationError(
                     "not implemented in verify(): %r" % name)
             try:
                 method(tp, realname)
@@ -281,7 +282,7 @@ class VGenericEngine(object):
                     prnt('  { %s = &p->%s; (void)tmp; }' % (
                         ftype.get_c_name('*tmp', 'field %r'%fname, quals=fqual),
                         fname))
-                except ffiplatform.VerificationError as e:
+                except VerificationError as e:
                     prnt('  /* %s */' % str(e))   # cannot verify it, ignore
         prnt('}')
         self.export_symbols.append(layoutfuncname)
@@ -344,7 +345,7 @@ class VGenericEngine(object):
             # check that the layout sizes and offsets match the real ones
             def check(realvalue, expectedvalue, msg):
                 if realvalue != expectedvalue:
-                    raise ffiplatform.VerificationError(
+                    raise VerificationError(
                         "%s (we have %d, but C compiler says %d)"
                         % (msg, expectedvalue, realvalue))
             ffi = self.ffi
@@ -498,7 +499,7 @@ class VGenericEngine(object):
             error = self.ffi.string(p)
             if sys.version_info >= (3,):
                 error = str(error, 'utf-8')
-            raise ffiplatform.VerificationError(error)
+            raise VerificationError(error)
 
     def _enum_funcname(self, prefix, name):
         # "$enum_$1" => "___D_enum____D_1"
@@ -591,7 +592,7 @@ class VGenericEngine(object):
                 BItemType = self.ffi._get_cached_btype(tp.item)
                 length, rest = divmod(size, self.ffi.sizeof(BItemType))
                 if rest != 0:
-                    raise ffiplatform.VerificationError(
+                    raise VerificationError(
                         "bad size: %r does not seem to be an array of %s" %
                         (name, tp.item))
                 tp = tp.resolve_length(length)

@@ -11,7 +11,7 @@ import sys
 import pypy
 conftestpath = py.path.local(pypy.__file__).dirpath("conftest.py")
 
-pytest_plugins = "pytest_pytester"
+pytest_plugins = "pytester"
 
 def somefunc(x):
     print x

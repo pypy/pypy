@@ -14,6 +14,16 @@ class NotSpecialised(Exception):
 
 def make_specialised_class(typetuple):
     assert type(typetuple) == tuple
+    wraps = []
+    for typ in typetuple:
+        if typ == int:
+            wraps.append(lambda space, x: space.newint(x))
+        elif typ == float:
+            wraps.append(lambda space, x: space.newfloat(x))
+        elif typ == object:
+            wraps.append(lambda space, w_x: w_x)
+        else:
+            assert 0
 
     typelen = len(typetuple)
     iter_n = unrolling_iterable(range(typelen))
@@ -46,8 +56,7 @@ def make_specialised_class(typetuple):
             list_w = [None] * typelen
             for i in iter_n:
                 value = getattr(self, 'value%s' % i)
-                if typetuple[i] != object:
-                    value = self.space.wrap(value)
+                value = wraps[i](self.space, value)
                 list_w[i] = value
             return list_w
 
@@ -78,7 +87,7 @@ def make_specialised_class(typetuple):
                 z -= 1
                 mult += 82520 + z + z
             x += 97531
-            return space.wrap(intmask(x))
+            return space.newint(intmask(x))
 
         def descr_eq(self, space, w_other):
             if not isinstance(w_other, W_AbstractTupleObject):
@@ -89,8 +98,7 @@ def make_specialised_class(typetuple):
                 for i in iter_n:
                     myval = getattr(self, 'value%s' % i)
                     otherval = w_other.getitem(space, i)
-                    if typetuple[i] != object:
-                        myval = space.wrap(myval)
+                    myval = wraps[i](self.space, myval)
                     if not space.eq_w(myval, otherval):
                         return space.w_False
                 return space.w_True
@@ -119,8 +127,7 @@ def make_specialised_class(typetuple):
             for i in iter_n:
                 if index == i:
                     value = getattr(self, 'value%s' % i)
-                    if typetuple[i] != object:
-                        value = space.wrap(value)
+                    value = wraps[i](self.space, value)
                     return value
             raise oefmt(space.w_IndexError, "tuple index out of range")
 
@@ -163,10 +170,10 @@ def makespecialisedtuple(space, list_w):
 # faster to move the decision out of the loop.
 
 @specialize.arg(1)
-def _build_zipped_spec(space, Cls, lst1, lst2):
+def _build_zipped_spec(space, Cls, lst1, lst2, wrap1, wrap2):
     length = min(len(lst1), len(lst2))
-    return [Cls(space, space.wrap(lst1[i]),
-                       space.wrap(lst2[i])) for i in range(length)]
+    return [Cls(space, wrap1(lst1[i]),
+                       wrap2(lst2[i])) for i in range(length)]
 
 def _build_zipped_spec_oo(space, w_list1, w_list2):
     strat1 = w_list1.strategy
@@ -192,15 +199,18 @@ def specialized_zip_2_lists(space, w_list1, w_list2):
         if intlist1 is not None:
             intlist2 = w_list2.getitems_int()
             if intlist2 is not None:
-                lst_w = _build_zipped_spec(space, Cls_ii, intlist1, intlist2)
+                lst_w = _build_zipped_spec(
+                        space, Cls_ii, intlist1, intlist2,
+                        space.newint, space.newint)
                 return space.newlist(lst_w)
         else:
             floatlist1 = w_list1.getitems_float()
             if floatlist1 is not None:
                 floatlist2 = w_list2.getitems_float()
                 if floatlist2 is not None:
-                    lst_w = _build_zipped_spec(space, Cls_ff, floatlist1,
-                                                              floatlist2)
+                    lst_w = _build_zipped_spec(
+                        space, Cls_ff, floatlist1, floatlist2, space.newfloat,
+                        space.newfloat)
                     return space.newlist(lst_w)
 
         lst_w = _build_zipped_spec_oo(space, w_list1, w_list2)

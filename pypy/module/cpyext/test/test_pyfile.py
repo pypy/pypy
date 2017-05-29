@@ -101,7 +101,7 @@ class TestFile(BaseApiTest):
         w_stdout = space.sys.get("stdout")
         assert api.PyFile_SoftSpace(w_stdout, 1) == 0
         assert api.PyFile_SoftSpace(w_stdout, 0) == 1
-        
+
         api.PyFile_SoftSpace(w_stdout, 1)
         w_ns = space.newdict()
         space.exec_("print 1,", w_ns, w_ns)
@@ -117,11 +117,9 @@ class TestFile(BaseApiTest):
 class AppTestPyFile(AppTestCpythonExtensionBase):
 
     def setup_class(cls):
+        AppTestCpythonExtensionBase.setup_class.__func__(cls)
         from rpython.tool.udir import udir
-        if option.runappdirect:
-            cls.w_udir = str(udir)
-        else:
-            cls.w_udir = cls.space.wrap(str(udir))
+        cls.w_udir = cls.space.wrap(str(udir))
 
     def test_file_tell(self):
         module = self.import_extension('foo', [
@@ -157,5 +155,4 @@ class AppTestPyFile(AppTestCpythonExtensionBase):
             print '-------- tell ',t_c
             t_py = fid.tell()
             assert t_c == t_py, 'after a fread, c level ftell(fp) %d but PyFile.tell() %d' % (t_c, t_py)
-
 

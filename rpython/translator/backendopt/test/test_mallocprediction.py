@@ -169,7 +169,10 @@ def test_pystone():
     t, graph = rtype(entrypoint, [int])
     total0 = preparation(t, t.graphs, heuristic=heuristic)
     total = clever_inlining_and_malloc_removal(t)
-    assert total == 6     # XXX total0 appears to vary
+    assert total in (6, 7)     # XXX total0 appears to vary
+    # we get 6 before fbace1f687b0, but 7 afterwards on some
+    # platforms, probably because rtime.clock() now contains
+    # a fall-back path
 
 def test_richards():
     from rpython.translator.goal.richards import entry_point

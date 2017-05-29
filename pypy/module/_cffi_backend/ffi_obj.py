@@ -152,7 +152,7 @@ class W_FFIObject(W_Root):
         space = self.space
         if (accept & ACCEPT_STRING) and (
                 space.isinstance_w(w_x, space.w_basestring)):
-            string = space.str_w(w_x)
+            string = space.text_w(w_x)
             consider_fn_as_fnptr = (accept & CONSIDER_FN_AS_FNPTR) != 0
             if jit.isconstant(string):
                 try:
@@ -174,7 +174,7 @@ class W_FFIObject(W_Root):
                     m1, s12, m2, s23, m3, w_x)
 
 
-    @unwrap_spec(module_name=str, _version=int, _types=str)
+    @unwrap_spec(module_name='text', _version=int, _types='bytes')
     def descr_init(self, module_name='?', _version=-1, _types='',
                    w__globals=None, w__struct_unions=None, w__enums=None,
                    w__typenames=None, w__includes=None):
@@ -226,7 +226,7 @@ function or global variable."""
         space = self.space
         if isinstance(w_arg, W_LibObject) and len(args_w) == 1:
             # case 3 in the docstring
-            return w_arg.address_of_func_or_global_var(space.str_w(args_w[0]))
+            return w_arg.address_of_func_or_global_var(space.text_w(args_w[0]))
         #
         w_ctype = self.ffi_type(w_arg, ACCEPT_CDATA)
         if len(args_w) == 0:
@@ -262,23 +262,7 @@ It can be a string naming a C type, or a 'cdata' instance."""
         #
         w_ctype = self.ffi_type(w_arg, ACCEPT_ALL)
         align = w_ctype.alignof()
-        return self.space.wrap(align)
-
-
-    @unwrap_spec(w_cdata=W_CData, size=int)
-    def descr_buffer(self, w_cdata, size=-1):
-        """\
-Return a read-write buffer object that references the raw C data
-ointed to by the given 'cdata'.  The 'cdata' must be a pointer or an
-array.  Can be passed to functions expecting a buffer, or directly
-manipulated with:
-
-    buf[:]          get a copy of it in a regular string, or
-    buf[idx]        as a single character
-    buf[:] = ...
-    buf[idx] = ...  change the content"""
-        #
-        return cbuffer.buffer(self.space, w_cdata, size)
+        return self.space.newint(align)
 
 
     @unwrap_spec(w_name=WrappedDefault(None),
@@ -297,7 +281,7 @@ handle what occurs if the Python function raises an exception
         #
         # returns a single-argument function
         space = self.space
-        w_ffi = space.wrap(self)
+        w_ffi = self
         w_decorator = call_python.get_generic_decorator(space)
         return space.appexec([w_decorator, w_ffi, w_name, w_error, w_onerror],
         """(decorator, ffi, name, error, onerror):
@@ -377,7 +361,7 @@ Later, when this new cdata object is garbage-collected,
         return w_cdata.with_gc(w_destructor)
 
 
-    @unwrap_spec(replace_with=str)
+    @unwrap_spec(replace_with='text')
     def descr_getctype(self, w_cdecl, replace_with=''):
         """\
 Return a string giving the C type 'cdecl', which may be itself a
@@ -405,7 +389,7 @@ variable name, or '*' to get actually the C type 'pointer-to-cdecl'."""
                 result += ')'
             result += w_ctype.name[w_ctype.name_position:]
         # Python 3: bytes -> unicode string
-        return self.space.wrap(result)
+        return self.space.newtext(result)
 
 
     @unwrap_spec(code=int)
@@ -518,7 +502,7 @@ values which correspond to array items, in case of an array type."""
             _, offset = w_ctype.direct_typeoffsetof(w_field_or_array, False)
         else:
             offset = self._more_offsetof(w_ctype, w_field_or_array, args_w)
-        return self.space.wrap(offset)
+        return self.space.newint(offset)
 
 
     @unwrap_spec(w_cdata=W_CData, maxlen=int)
@@ -574,7 +558,7 @@ It can be a string naming a C type, or a 'cdata' instance."""
             if size < 0:
                 raise oefmt(self.w_FFIError,
                             "don't know the size of ctype '%s'", w_ctype.name)
-        return self.space.wrap(size)
+        return self.space.newint(size)
 
 
     def descr_typeof(self, w_arg):
@@ -588,7 +572,7 @@ It can also be used on 'cdata' instance to get its C type."""
         return self.ffi_type(w_arg, ACCEPT_STRING | ACCEPT_CDATA)
 
 
-    @unwrap_spec(filename="str_or_None", flags=int)
+    @unwrap_spec(filename="fsencode_or_none", flags=int)
     def descr_dlopen(self, filename, flags=0):
         """\
 Load and return a dynamic library identified by 'name'.  The standard
@@ -614,7 +598,7 @@ segmentation fault)."""
         lib.cdlopen_close()
 
 
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='text')
     def descr_integer_const(self, name):
         """\
 Get the value of an integer constant.
@@ -642,7 +626,7 @@ This returns a tuple containing three lists of names:
         lst1_w = []
         for i in range(rffi.getintfield(ctx, 'c_num_typenames')):
             s = rffi.charp2str(ctx.c_typenames[i].c_name)
-            lst1_w.append(space.wrap(s))
+            lst1_w.append(space.newtext(s))
 
         lst2_w = []
         lst3_w = []
@@ -655,7 +639,7 @@ This returns a tuple containing three lists of names:
                 lst_w = lst3_w
             else:
                 lst_w = lst2_w
-            lst_w.append(space.wrap(s))
+            lst_w.append(space.newtext(s))
 
         return space.newtuple([space.newlist(lst1_w),
                                space.newlist(lst2_w),
@@ -734,7 +718,7 @@ def make_plain_ffi_object(space, w_ffitype=None):
     return r
 
 def W_FFIObject___new__(space, w_subtype, __args__):
-    return space.wrap(make_plain_ffi_object(space, w_subtype))
+    return make_plain_ffi_object(space, w_subtype)
 
 def make_CData(space):
     return space.gettypefor(W_CData)
@@ -744,12 +728,15 @@ def make_CType(space):
 
 def make_NULL(space):
     ctvoidp = newtype._new_voidp_type(space)
-    w_NULL = ctvoidp.cast(space.wrap(0))
+    w_NULL = ctvoidp.cast(space.newint(0))
     return w_NULL
 
 def make_error(space):
     return space.appexec([], """():
         return type('error', (Exception,), {'__module__': 'ffi'})""")
+
+def make_buffer(space):
+    return space.gettypefor(cbuffer.MiniBuffer)
 
 _extras = get_dict_rtld_constants()
 if sys.platform == 'win32':
@@ -770,7 +757,7 @@ W_FFIObject.typedef = TypeDef(
                                      cls=W_FFIObject),
         addressof   = interp2app(W_FFIObject.descr_addressof),
         alignof     = interp2app(W_FFIObject.descr_alignof),
-        buffer      = interp2app(W_FFIObject.descr_buffer),
+        buffer      = ClassAttr(make_buffer),
         callback    = interp2app(W_FFIObject.descr_callback),
         cast        = interp2app(W_FFIObject.descr_cast),
         def_extern  = interp2app(W_FFIObject.descr_def_extern),

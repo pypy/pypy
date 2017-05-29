@@ -3,7 +3,7 @@
 
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib.rarithmetic import r_uint
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
@@ -34,6 +34,7 @@ if _FREEBSD or _NETBSD or _WIN32:
 else:
     libraries = ['dl']
 
+# this 'eci' is also used in pypy/module/sys/initpath.py
 eci = ExternalCompilationInfo(
     pre_include_bits = pre_include_bits,
     includes = includes,
@@ -91,15 +92,23 @@ if not _WIN32:
             return ""
         return rffi.charp2str(res)
 
+    @not_rpython
     def _dlerror_on_dlopen_untranslated(name):
-        "NOT_RPYTHON: aaargh"
+        # aaargh
         import ctypes
         name = rffi.charp2str(name)
         try:
             ctypes.CDLL(name)
         except OSError as e:
+            # common case: ctypes fails too, with the real dlerror()
+            # message in str(e).  Return that error message.
             return str(e)
         else:
+            # uncommon case: may happen if 'name' is a linker script
+            # (which the C-level dlopen() can't handle) and we are
+            # directly running on pypy (whose implementation of ctypes
+            # or cffi will resolve linker scripts).  In that case, 
+            # unsure what we can do.
             return ("opening %r with ctypes.CDLL() works, "
                     "but not with c_dlopen()??" % (name,))
 
@@ -160,7 +169,18 @@ if not _WIN32:
             mode = _dlopen_default_mode()
         elif (mode & (RTLD_LAZY | RTLD_NOW)) == 0:
             mode |= RTLD_NOW
+        #
+        # haaaack for 'pypy py.test -A' if libm.so is a linker script
+        # (see reason in _dlerror_on_dlopen_untranslated())
+        must_free = False
+        if not we_are_translated() and platform.name == "linux":
+            if name and rffi.charp2str(name) == 'libm.so':
+                name = rffi.str2charp('libm.so.6')
+                must_free = True
+        #
         res = c_dlopen(name, rffi.cast(rffi.INT, mode))
+        if must_free:
+            rffi.free_charp(name)
         if not res:
             if not we_are_translated():
                 err = _dlerror_on_dlopen_untranslated(name)

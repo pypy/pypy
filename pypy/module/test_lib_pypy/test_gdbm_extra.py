@@ -15,3 +15,7 @@ def test_len():
     assert len(g) == 2
     del g['abc']
     assert len(g) == 1
+
+def test_unicode():
+    path = unicode(udir.join('test_gdm_unicode'))
+    g = gdbm.open(path, 'c')  # does not crash

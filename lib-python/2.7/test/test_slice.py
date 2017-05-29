@@ -1,8 +1,10 @@
 # tests for slice objects; in particular the indices method.
 
 import unittest
-from test import test_support
+import weakref
+
 from cPickle import loads, dumps
+from test import test_support
 
 import sys
 
@@ -18,7 +20,8 @@ class SliceTest(unittest.TestCase):
     def test_hash(self):
         # Verify clearing of SF bug #800796
         self.assertRaises(TypeError, hash, slice(5))
-        self.assertRaises(TypeError, slice(5).__hash__)
+        with self.assertRaises(TypeError):
+            slice(5).__hash__()
 
     def test_cmp(self):
         s1 = slice(1, 2, 3)
@@ -126,6 +129,15 @@ class SliceTest(unittest.TestCase):
             self.assertEqual(s, t)
             self.assertEqual(s.indices(15), t.indices(15))
             self.assertNotEqual(id(s), id(t))
+
+    def test_cycle(self):
+        class myobj(): pass
+        o = myobj()
+        o.s = slice(o)
+        w = weakref.ref(o)
+        o = None
+        test_support.gc_collect()
+        self.assertIsNone(w())
 
 def test_main():
     test_support.run_unittest(SliceTest)

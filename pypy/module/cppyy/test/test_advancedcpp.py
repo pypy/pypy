@@ -18,8 +18,8 @@ class AppTestADVANCEDCPP:
     spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
-        cls.w_test_dct = cls.space.wrap(test_dct)
-        cls.w_capi_identity = cls.space.wrap(capi.identify())
+        cls.w_test_dct = cls.space.newtext(test_dct)
+        cls.w_capi_identity = cls.space.newtext(capi.identify())
         cls.w_advanced = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))
@@ -669,3 +669,14 @@ class AppTestADVANCEDCPP:
 
         assert cppyy.gbl.overload_one_way().gime() == 1
         assert cppyy.gbl.overload_the_other_way().gime() == "aap"
+
+    def test22_access_to_global_variables(self):
+        """Access global_variables_and_pointers"""
+
+        import cppyy
+
+        assert cppyy.gbl.my_global_double == 12.
+        assert len(cppyy.gbl.my_global_array) == 500
+        # TODO: currently fails b/c double** not understood as &double*
+        #assert cppyy.gbl.my_global_ptr[0] == 1234.
+

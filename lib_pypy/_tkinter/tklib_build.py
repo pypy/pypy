@@ -107,7 +107,7 @@ void Tcl_DeleteInterp(Tcl_Interp* interp);
 int Tcl_Init(Tcl_Interp* interp);
 int Tk_Init(Tcl_Interp* interp);
 
-void Tcl_Free(char* ptr);
+void Tcl_Free(void* ptr);
 
 const char *Tcl_SetVar(Tcl_Interp* interp, const char* varName, const char* newValue, int flags);
 const char *Tcl_SetVar2(Tcl_Interp* interp, const char* name1, const char* name2, const char* newValue, int flags);

@@ -14,7 +14,6 @@ class Module(MixedModule):
         '_set_class_generator'   : 'interp_cppyy.set_class_generator',
         '_set_function_generator': 'interp_cppyy.set_function_generator',
         '_register_class'        : 'interp_cppyy.register_class',
-        '_is_static'             : 'interp_cppyy.is_static',
         '_get_nullptr'           : 'interp_cppyy.get_nullptr',
         'CPPInstanceBase'        : 'interp_cppyy.W_CPPInstance',
         'addressof'              : 'interp_cppyy.addressof',
@@ -41,4 +40,4 @@ class Module(MixedModule):
         from pypy.module.cppyy import capi
         capi.verify_backend(space)      # may raise ImportError
 
-        space.call_method(space.wrap(self), '_init_pythonify')
+        space.call_method(self, '_init_pythonify')

@@ -26,6 +26,7 @@ from rpython.rlib import listsort
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.rlib.jit import Counters
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.backend.llsupport.symbolic import (WORD as INT_WORD,
         SIZEOF_FLOAT as FLOAT_WORD)
@@ -47,6 +48,7 @@ class VectorLoop(object):
         self.operations = oplist
         self.jump = jump
         assert self.jump.getopnum() == rop.JUMP
+        self.align_operations = []
 
     def setup_vectorization(self):
         for op in self.operations:
@@ -57,7 +59,6 @@ class VectorLoop(object):
             op.set_forwarded(None)
 
     def finaloplist(self, jitcell_token=None, reset_label_token=True, label=False):
-        oplist = []
         if jitcell_token:
             if reset_label_token:
                 token = TargetToken(jitcell_token)
@@ -75,13 +76,19 @@ class VectorLoop(object):
                 self.jump.setdescr(token)
             if reset_label_token:
                 self.jump.setdescr(token)
+        oplist = []
         if self.prefix_label:
             oplist = self.prefix + [self.prefix_label]
         elif self.prefix:
             oplist = self.prefix
         if label:
             oplist = [self.label] + oplist
-        return oplist + self.operations + [self.jump]
+        if not label:
+            for op in oplist:
+                op.set_forwarded(None)
+            self.jump.set_forwarded(None)
+        ops = oplist + self.operations + [self.jump]
+        return ops
 
     def clone(self):
         renamer = Renamer()
@@ -132,9 +139,7 @@ def optimize_vector(trace, metainterp_sd, jitdriver_sd, warmstate,
         #
         start = time.clock()
         opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, warmstate.vec_cost)
-        index_vars = opt.run_optimization(info, loop)
-        gso = GuardStrengthenOpt(index_vars)
-        gso.propagate_all_forward(info, loop, user_code)
+        oplist = opt.run_optimization(metainterp_sd, info, loop, jitcell_token, user_code)
         end = time.clock()
         #
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZED)
@@ -145,21 +150,20 @@ def optimize_vector(trace, metainterp_sd, jitdriver_sd, warmstate,
         debug_stop("vec-opt-loop")
         #
         info.label_op = loop.label
-        return info, loop.finaloplist(jitcell_token=jitcell_token, reset_label_token=False)
+        return info, oplist
     except NotAVectorizeableLoop:
         debug_stop("vec-opt-loop")
         # vectorization is not possible
         return loop_info, version.loop.finaloplist()
     except NotAProfitableLoop:
         debug_stop("vec-opt-loop")
+        debug_print("failed to vectorize loop, cost model indicated it is not profitable")
         # cost model says to skip this loop
         return loop_info, version.loop.finaloplist()
     except Exception as e:
         debug_stop("vec-opt-loop")
         debug_print("failed to vectorize loop. THIS IS A FATAL ERROR!")
         if we_are_translated():
-            from rpython.rtyper.lltypesystem import lltype
-            from rpython.rtyper.lltypesystem.lloperation import llop
             llop.debug_print_traceback(lltype.Void)
         else:
             raise
@@ -188,24 +192,13 @@ def user_loop_bail_fast_path(loop, warmstate):
         if op.is_primitive_array_access():
             at_least_one_array_access = True
 
-        if warmstate.vec_ratio > 0.0:
-            # blacklist
-            if rop.is_call(op.opnum) or rop.is_call_assembler(op.opnum):
-                return True
+        if rop.is_call(op.opnum) or rop.is_call_assembler(op.opnum):
+            return True
 
         if rop.is_guard(op.opnum):
             guard_count += 1
 
     if not at_least_one_array_access:
-        return True
-
-    if resop_count > warmstate.vec_length:
-        return True
-
-    if (float(vector_instr)/float(resop_count)) < warmstate.vec_ratio:
-        return True
-
-    if float(guard_count)/float(resop_count) > warmstate.vec_guard_ratio:
         return True
 
     return False
@@ -216,62 +209,92 @@ class VectorizingOptimizer(Optimizer):
     def __init__(self, metainterp_sd, jitdriver_sd, cost_threshold):
         Optimizer.__init__(self, metainterp_sd, jitdriver_sd)
         self.cpu = metainterp_sd.cpu
+        self.vector_ext = self.cpu.vector_ext
         self.cost_threshold = cost_threshold
         self.packset = None
         self.unroll_count = 0
         self.smallest_type_bytes = 0
         self.orig_label_args = None
 
-    def run_optimization(self, info, loop):
+    def run_optimization(self, metainterp_sd, info, loop, jitcell_token, user_code):
         self.orig_label_args = loop.label.getarglist_copy()
         self.linear_find_smallest_type(loop)
         byte_count = self.smallest_type_bytes
-        vsize = self.cpu.vector_register_size
-        if vsize == 0 or byte_count == 0 or loop.label.getopnum() != rop.LABEL:
-            # stop, there is no chance to vectorize this trace
+        vsize = self.vector_ext.vec_size()
+        # stop, there is no chance to vectorize this trace
             # we cannot optimize normal traces (if there is no label)
-            raise NotAVectorizeableLoop()
-
+        if vsize == 0:
+            debug_print("vector size is zero")
+            raise NotAVectorizeableLoop
+        if byte_count == 0:
+            debug_print("could not find smallest type")
+            raise NotAVectorizeableLoop
+        if loop.label.getopnum() != rop.LABEL:
+            debug_print("not a loop, can only vectorize loops")
+            raise NotAVectorizeableLoop
         # find index guards and move to the earliest position
         graph = self.analyse_index_calculations(loop)
         if graph is not None:
-            state = SchedulerState(graph)
+            state = SchedulerState(metainterp_sd.cpu, graph)
             self.schedule(state) # reorder the trace
 
         # unroll
         self.unroll_count = self.get_unroll_count(vsize)
-        self.unroll_loop_iterations(loop, self.unroll_count)
+        align_unroll = self.unroll_count==1 and \
+                       self.vector_ext.should_align_unroll
+        self.unroll_loop_iterations(loop, self.unroll_count,
+                                    align_unroll_once=align_unroll)
 
         # vectorize
         graph = DependencyGraph(loop)
         self.find_adjacent_memory_refs(graph)
         self.extend_packset()
         self.combine_packset()
-        # TODO move cost model to CPU
-        costmodel = X86_CostModel(self.cpu, self.cost_threshold)
+        costmodel = GenericCostModel(self.cpu, self.cost_threshold)
         state = VecScheduleState(graph, self.packset, self.cpu, costmodel)
         self.schedule(state)
         if not state.profitable():
-            raise NotAProfitableLoop()
-        return graph.index_vars
+            raise NotAProfitableLoop
+        gso = GuardStrengthenOpt(graph.index_vars)
+        gso.propagate_all_forward(info, loop, user_code)
 
-    def unroll_loop_iterations(self, loop, unroll_count):
-        """ Unroll the loop X times. unroll_count + 1 = unroll_factor """
+        # re-schedule the trace -> removes many pure operations
+        graph = DependencyGraph(loop)
+        state = SchedulerState(self.cpu, graph)
+        state.schedule()
+
+        info.extra_before_label = loop.align_operations
+        for op in loop.align_operations:
+            op.set_forwarded(None)
+
+        return loop.finaloplist(jitcell_token=jitcell_token, reset_label_token=False)
+
+    def unroll_loop_iterations(self, loop, unroll_count, align_unroll_once=False):
+        """ Unroll the loop `unroll_count` times. There can be an additional unroll step
+            if alignment might benefit """
         numops = len(loop.operations)
 
         renamer = Renamer()
         operations = loop.operations
-        unrolled = []
-        prohibit_opnums = (rop.GUARD_FUTURE_CONDITION,
-                           rop.GUARD_NOT_INVALIDATED)
         orig_jump_args = loop.jump.getarglist()[:]
+        prohibit_opnums = (rop.GUARD_FUTURE_CONDITION,
+                           rop.GUARD_NOT_INVALIDATED,
+                           rop.DEBUG_MERGE_POINT)
+        unrolled = []
+
+        if align_unroll_once:
+            unroll_count += 1
+
         # it is assumed that #label_args == #jump_args
         label_arg_count = len(orig_jump_args)
+        label = loop.label
+        jump = loop.jump
+        new_label = loop.label
         for u in range(unroll_count):
             # fill the map with the renaming boxes. keys are boxes from the label
             for i in range(label_arg_count):
-                la = loop.label.getarg(i)
-                ja = loop.jump.getarg(i)
+                la = label.getarg(i)
+                ja = jump.getarg(i)
                 ja = renamer.rename_box(ja)
                 if la != ja:
                     renamer.start_renaming(la, ja)
@@ -296,6 +319,13 @@ class VectorizingOptimizer(Optimizer):
                     self.copy_guard_descr(renamer, copied_op)
                 #
                 unrolled.append(copied_op)
+            #
+            if align_unroll_once and u == 0:
+                descr = label.getdescr()
+                args = label.getarglist()[:]
+                new_label = ResOperation(rop.LABEL, args, descr)
+                renamer.rename(new_label)
+            #
 
         # the jump arguments have been changed
         # if label(iX) ... jump(i(X+1)) is called, at the next unrolled loop
@@ -305,7 +335,12 @@ class VectorizingOptimizer(Optimizer):
             value = renamer.rename_box(arg)
             loop.jump.setarg(i, value)
         #
-        loop.operations = operations + unrolled
+        loop.label = new_label
+        if align_unroll_once:
+            loop.align_operations = operations
+            loop.operations = unrolled
+        else:
+            loop.operations = operations + unrolled
 
     def copy_guard_descr(self, renamer, copied_op):
         descr = copied_op.getdescr()
@@ -313,6 +348,11 @@ class VectorizingOptimizer(Optimizer):
             assert isinstance(descr, ResumeDescr)
             copied_op.setdescr(descr.clone())
             failargs = renamer.rename_failargs(copied_op, clone=True)
+            if not we_are_translated():
+                for arg in failargs:
+                    if arg is None:
+                        continue
+                    assert not arg.is_constant()
             copied_op.setfailargs(failargs)
 
     def linear_find_smallest_type(self, loop):
@@ -345,7 +385,7 @@ class VectorizingOptimizer(Optimizer):
         loop = graph.loop
         operations = loop.operations
 
-        self.packset = PackSet(self.cpu.vector_register_size)
+        self.packset = PackSet(self.vector_ext.vec_size())
         memory_refs = graph.memory_refs.items()
         # initialize the pack set
         for node_a,memref_a in memory_refs:
@@ -425,7 +465,8 @@ class VectorizingOptimizer(Optimizer):
             intersecting edges.
         """
         if len(self.packset.packs) == 0:
-            raise NotAVectorizeableLoop()
+            debug_print("packset is empty")
+            raise NotAVectorizeableLoop
         i = 0
         j = 0
         end_ij = len(self.packset.packs)
@@ -451,7 +492,7 @@ class VectorizingOptimizer(Optimizer):
             if len_before == len(self.packset.packs):
                 break
 
-        self.packset.split_overloaded_packs()
+        self.packset.split_overloaded_packs(self.cpu.vector_ext)
 
         if not we_are_translated():
             # some test cases check the accumulation variables
@@ -546,10 +587,15 @@ class VectorizingOptimizer(Optimizer):
         assert isinstance(op, GuardResOp)
         if op.getopnum() in (rop.GUARD_TRUE, rop.GUARD_FALSE):
             descr = CompileLoopVersionDescr()
-            if op.getdescr():
-                descr.copy_all_attributes_from(op.getdescr())
+            olddescr = op.getdescr()
+            if olddescr:
+                descr.copy_all_attributes_from(olddescr)
             op.setdescr(descr)
-        op.setfailargs(loop.label.getarglist_copy())
+        arglistcopy = loop.label.getarglist_copy()
+        if not we_are_translated():
+            for arg in arglistcopy:
+                assert not arg.is_constant()
+        op.setfailargs(arglistcopy)
 
 class CostModel(object):
     """ Utility to estimate the savings for the new trace loop.
@@ -558,7 +604,7 @@ class CostModel(object):
     """
     def __init__(self, cpu, threshold):
         self.threshold = threshold
-        self.vec_reg_size = cpu.vector_register_size
+        self.vec_reg_size = cpu.vector_ext.vec_size()
         self.savings = 0
 
     def reset_savings(self):
@@ -585,7 +631,7 @@ class CostModel(object):
     def profitable(self):
         return self.savings >= 0
 
-class X86_CostModel(CostModel):
+class GenericCostModel(CostModel):
     def record_pack_savings(self, pack, times):
         cost, benefit_factor = (1,1)
         node = pack.operations[0]
@@ -653,7 +699,8 @@ class PackSet(object):
                 if forward and origin_pack.is_accumulating():
                     # in this case the splitted accumulator must
                     # be combined. This case is not supported
-                    raise NotAVectorizeableLoop()
+                    debug_print("splitted accum must be flushed here (not supported)")
+                    raise NotAVectorizeableLoop
                 #
                 if self.contains_pair(lnode, rnode):
                     return None
@@ -793,10 +840,18 @@ class PackSet(object):
             if pack.reduce_init() == 0:
                 vecop = OpHelpers.create_vec(datatype, bytesize, signed, count)
                 oplist.append(vecop)
-                vecop = VecOperation(rop.VEC_INT_XOR, [vecop, vecop],
+                opnum = rop.VEC_INT_XOR
+                if datatype == FLOAT:
+                    # see PRECISION loss below
+                    raise NotImplementedError
+                vecop = VecOperation(opnum, [vecop, vecop],
                                      vecop, count)
                 oplist.append(vecop)
             elif pack.reduce_init() == 1:
+                # PRECISION loss, because the numbers are accumulated (associative, commutative properties must hold)
+                # you can end up a small number and a huge number that is finally multiplied. giving an
+                # inprecision result, thus this is disabled now
+                raise NotImplementedError
                 # multiply is only supported by floats
                 vecop = OpHelpers.create_vec_expand(ConstFloat(1.0), bytesize,
                                                     signed, count)
@@ -814,12 +869,12 @@ class PackSet(object):
             state.setvector_of_box(seed, 0, vecop) # prevent it from expansion
             state.renamer.start_renaming(seed, vecop)
 
-    def split_overloaded_packs(self):
+    def split_overloaded_packs(self, vector_ext):
         newpacks = []
         for i,pack in enumerate(self.packs):
             load = pack.pack_load(self.vec_reg_size)
             if load > Pack.FULL:
-                pack.split(newpacks, self.vec_reg_size)
+                pack.split(newpacks, self.vec_reg_size, vector_ext)
                 continue
             if load < Pack.FULL:
                 for op in pack.operations:

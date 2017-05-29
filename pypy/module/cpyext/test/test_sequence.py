@@ -267,3 +267,31 @@ class AppTestSequenceObject(AppTestCpythonExtensionBase):
         assert module.test_fast_sequence(s[0:-1])
         assert module.test_fast_sequence(s[::-1])
 
+    def test_fast_keyerror(self):
+        module = self.import_extension('foo', [
+            ("test_fast_sequence", "METH_VARARGS",
+             """
+                PyObject *foo;
+                PyObject * seq = PyTuple_GetItem(args, 0);
+                if (seq == NULL)
+                    Py_RETURN_NONE;
+                foo = PySequence_Fast(seq, "Could not convert object to sequence");
+                if (foo != NULL)
+                {
+                    return foo;
+                }
+                if (PyErr_ExceptionMatches(PyExc_KeyError)) {
+                    PyErr_Clear();
+                    return PyBool_FromLong(1);
+                }
+                return NULL;
+             """)])
+        class Map(object):
+            def __len__(self):
+                return 1
+
+            def __getitem__(self, index):
+                raise KeyError()
+
+        assert module.test_fast_sequence(Map()) is True
+

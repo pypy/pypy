@@ -56,3 +56,30 @@ class AppTestWeakReference(AppTestCpythonExtensionBase):
             )
         ])
         module.test_macro_cast()
+
+    def test_weakref_check(self):
+        module = self.import_extension('foo', [
+            ("test_weakref_cast", "METH_O",
+             """
+             return Py_BuildValue("iiii",
+                                  (int)PyWeakref_Check(args),
+                                  (int)PyWeakref_CheckRef(args),
+                                  (int)PyWeakref_CheckRefExact(args),
+                                  (int)PyWeakref_CheckProxy(args));
+             """
+            )
+        ])
+        import weakref
+        def foo(): pass
+        class Bar(object):
+            pass
+        bar = Bar()
+        assert module.test_weakref_cast([]) == (0, 0, 0, 0)
+        assert module.test_weakref_cast(weakref.ref(foo)) == (1, 1, 1, 0)
+        assert module.test_weakref_cast(weakref.ref(bar)) == (1, 1, 1, 0)
+        assert module.test_weakref_cast(weakref.proxy(foo)) == (1, 0, 0, 1)
+        assert module.test_weakref_cast(weakref.proxy(bar)) == (1, 0, 0, 1)
+        class X(weakref.ref):
+            pass
+        assert module.test_weakref_cast(X(foo)) == (1, 1, 0, 0)
+        assert module.test_weakref_cast(X(bar)) == (1, 1, 0, 0)

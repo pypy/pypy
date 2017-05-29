@@ -199,9 +199,9 @@ class TestAssemble(object):
             a.load_imm(r10, call_addr)
         elif IS_BIG_ENDIAN:
             # load the 3-words descriptor
-            a.load_from_addr(r10, call_addr)
-            a.load_from_addr(r2, call_addr+WORD)
-            a.load_from_addr(r11, call_addr+2*WORD)
+            a.load_from_addr(r10, SCRATCH2, call_addr)
+            a.load_from_addr(r2, SCRATCH2, call_addr+WORD)
+            a.load_from_addr(r11, SCRATCH2, call_addr+2*WORD)
         else:
             # no descriptor on little-endian, but the ABI says r12 must
             # contain the function pointer
@@ -304,7 +304,7 @@ class TestAssemble(object):
         addr = rffi.cast(lltype.Signed, p)
         p[0] = rffi.cast(rffi.LONG, 200)
 
-        a.load_from_addr(r3, addr)
+        a.load_from_addr(r3, SCRATCH2, addr)
         a.blr()
         f = a.get_assembler_function()
         assert f() == 200
