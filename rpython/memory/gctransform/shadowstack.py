@@ -245,6 +245,13 @@ class ShadowStackRootWalker(BaseRootWalker):
         from rpython.rlib import _stacklet_shadowstack
         _stacklet_shadowstack.complete_destrptr(gctransformer)
 
+        gcdata = self.gcdata
+        def gc_modified_shadowstack():
+            gcdata.can_look_at_partial_stack = False
+
+        self.gc_modified_shadowstack_ptr = getfn(gc_modified_shadowstack,
+                                                 [], annmodel.s_None)
+
     def postprocess_graph(self, gct, graph, any_inlining):
         from rpython.memory.gctransform import shadowcolor
         if any_inlining:

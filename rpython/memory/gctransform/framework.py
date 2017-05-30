@@ -925,6 +925,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
     def gct_gc_adr_of_root_stack_top(self, hop):
         self._gc_adr_of_gcdata_attr(hop, 'root_stack_top')
 
+    def gct_gc_modified_shadowstack(self, hop):
+        # for stacklet
+        hop.genop("direct_call", [self.root_walker.gc_modified_shadowstack_ptr])
+
     def gct_gc_detach_callback_pieces(self, hop):
         op = hop.spaceop
         assert len(op.args) == 0

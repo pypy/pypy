@@ -846,3 +846,7 @@ class AppTestBytesObject:
                 return 42
         x = Foo()
         assert "hello" + x == 42
+
+    def test_add(self):
+        assert 'abc' + 'abc' == 'abcabc'
+        assert isinstance('abc' + u'\u03a3', unicode)

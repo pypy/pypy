@@ -77,6 +77,7 @@ def sscopy_attach_shadow_stack(sscopy):
     llmemory.raw_memcopy(sscopy + SIZEADDR, base, length_bytes)
     llop.gc_adr_of_root_stack_top(llmemory.Address).address[0] = (
         base + length_bytes)
+    llop.gc_modified_shadowstack(lltype.Void)
     llmemory.raw_free(sscopy)
 
 def alloc_stacklet():

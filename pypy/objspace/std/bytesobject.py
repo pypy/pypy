@@ -648,7 +648,7 @@ class W_BytesObject(W_AbstractBytesObject):
         if space.isinstance_w(w_other, space.w_unicode):
             self_as_unicode = unicode_from_encoded_object(space, self, None,
                                                           None)
-            return space.add(self_as_unicode, w_other)
+            return self_as_unicode.descr_add(space, w_other)
         elif space.isinstance_w(w_other, space.w_bytearray):
             # XXX: eliminate double-copy
             from .bytearrayobject import W_BytearrayObject, _make_data
