@@ -161,3 +161,47 @@ class AppTestTuple(AppTestCpythonExtensionBase):
         assert list(a) == range(100, 400, 100)
         assert list(a) == range(100, 400, 100)
         assert list(a) == range(100, 400, 100)
+
+    def test_setitem(self):
+        module = self.import_extension('foo', [
+            ("set_after_use", "METH_O",
+             """
+                PyObject *t2, *tuple = PyTuple_New(1);
+                PyObject * one = PyLong_FromLong(1);
+                int res;
+                Py_INCREF(one);
+                res = PyTuple_SetItem(tuple, 0, one);
+                if (res != 0)
+                {
+                    Py_DECREF(tuple);
+                    return NULL;
+                }
+                Py_INCREF(args);
+                res = PyTuple_SetItem(tuple, 0, args);
+                if (res != 0)
+                {
+                    Py_DECREF(tuple);
+                    return NULL;
+                }
+                /* Do something that uses the tuple, but does not incref */
+                t2 = PyTuple_GetSlice(tuple, 0, 1);
+                Py_DECREF(t2);
+                Py_INCREF(one);
+                res = PyTuple_SetItem(tuple, 0, one);
+                Py_DECREF(tuple);
+                if (res != 0)
+                {
+                    Py_DECREF(one);
+                    return NULL;
+                }
+                Py_INCREF(Py_None);
+                return Py_None;
+             """),
+            ])
+        import sys
+        s = 'abc'
+        if '__pypy__' in sys.builtin_module_names:
+            raises(SystemError, module.set_after_use, s)
+        else:
+            module.set_after_use(s)
+
