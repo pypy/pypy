@@ -2376,6 +2376,10 @@ def cpu_count(space):
 
 @unwrap_spec(fd=c_int)
 def get_blocking(space, fd):
+    """get_blocking(fd) -> bool
+
+Get the blocking mode of the file descriptor:
+False if the O_NONBLOCK flag is set, True if the flag is cleared."""
     try:
         flags = rposix.get_status_flags(fd)
     except OSError as e:
@@ -2384,6 +2388,12 @@ def get_blocking(space, fd):
 
 @unwrap_spec(fd=c_int, blocking=int)
 def set_blocking(space, fd, blocking):
+    """\
+set_blocking(fd, blocking)
+
+Set the blocking mode of the specified file descriptor.
+Set the O_NONBLOCK flag if blocking is False,
+clear the O_NONBLOCK flag otherwise."""
     try:
         flags = rposix.get_status_flags(fd)
         if blocking:
@@ -2396,6 +2406,10 @@ def set_blocking(space, fd, blocking):
 
 @unwrap_spec(out=c_int, count=int)
 def sendfile(space, out, w_in, w_offset, count):
+    """\
+sendfile(out, in, offset, count[, headers][, trailers], flags=0)
+            -> byteswritten
+Copy count bytes from file descriptor in to file descriptor out."""
     # why is an argument called "in"???  that doesn't make sense (it is
     # a reserved word), but that's what CPython does
     in_ = space.c_int_w(w_in)
