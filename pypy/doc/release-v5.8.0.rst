@@ -83,46 +83,70 @@ See also issues that were resolved_
 
 * New features and cleanups
 
-  * 
-  * 
+  * Implement PyModule_New, 
+  * Fix for multiple inheritance in app-level for C-API defined classes
+  * Revert a change that removed tp_getattr (Part of the 5.7.1 bugfix release)
+  * Document more differences with CPython here_
+  * Add native PyPy support to profile frames in vmprof
+  * Fix an issue with Exception order on failed import
+  * Fix for a corner case of __future__ imports
 
 * Bug Fixes
 
-  * 
-  * 
+  * Correctly handle dict.pop where the popping key is not the same type as the
+    dict's and pop is called with a default (Part of the 5.7.1 bugfix release)
+  * Improve our file's universal newline .readline implementation for
+    ``\n``, ``\r`` confusion
 
 * Performance improvements:
 
-  * 
-  * 
+  * Tweaks made to improve performance by reducing the number of guards
+    inserted in jitted code, based on feedback from users
+  * Add garbage collector memory pressure to some c-level allocations
 
 * RPython improvements
 
-  * 
-  * 
+  * Improve the default shadowstack garbage collector, fixing a crash with
+    multithreaded code and other issues
+  * Make sure lstrip consumes the entire string
+  * Support posix_fallocate and posix_fadvise, expose them on PyPy3.5
+  * Test and fix for int_and() propagating wrong bounds
+  * Improve the generated machine code by tracking the (constant) value of
+    r11 across intructions.  This lets us avoid reloading r11 with another
+    (apparently slowish) "movabs" instruction, replacing it with either
+    nothing or a cheaper variant.
+  * Performance tweaks in the x86 JIT-generated machine code: rarely taken
+    blocks are moved off-line.  Also, the temporary register used to contain
+    large constants is reused across instructions. This helps CPUs branch
+    predictor
 
+.. _here: http://rpython.readthedocs.io/en/latest/cpython_differences.html
 
 Highlights of the PyPy3.5 release (since 5.7 beta released March 2017)
 ======================================================================
 
 * New features
 
-  * 
-  * 
+  * Implement main part of PEP 489 (multi-phase extension module initialization)
+  * Add docstrings to various modules and functions
 
 * Bug Fixes
 
-  * 
-  * 
+  * Fix inconsistencies in the xml.etree.ElementTree.Element class, which on
+    CPython is hidden by the C version from '_elementree'.
+  * OSError(None,None) is different from OSError()
+  * Get closer to supporting 32 bit windows, translation now succeeds and most
+    lib-python/3/test runs
 
 * Performance improvements:
 
-  * 
+  * Use "<python> -m test" to run the CPython test suite, as documented by CPython,
+    instead of our outdated regrverbose.py script
+  * Change _cffi_src/openssl/callbacks.py to stop relying on the CPython C API.
 
 * The following features of Python 3.5 are not implemented yet in PyPy:
 
   * PEP 442: Safe object finalization
-  * PEP 489: Multi-phase extension module initialization
 
 .. _resolved: whatsnew-pypy2-5.8.0.html
 
