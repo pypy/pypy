@@ -164,12 +164,20 @@ class AppTestTuple(AppTestCpythonExtensionBase):
 
     def test_setitem(self):
         module = self.import_extension('foo', [
-            ("set_after_use", "METH_NOARGS",
+            ("set_after_use", "METH_O",
              """
                 PyObject *t2, *tuple = PyTuple_New(1);
                 PyObject * one = PyLong_FromLong(1);
+                int res;
                 Py_INCREF(one);
-                int res = PyTuple_SetItem(tuple, 0, one);
+                res = PyTuple_SetItem(tuple, 0, one);
+                if (res != 0)
+                {
+                    Py_DECREF(tuple);
+                    return NULL;
+                }
+                Py_INCREF(args);
+                res = PyTuple_SetItem(tuple, 0, args);
                 if (res != 0)
                 {
                     Py_DECREF(tuple);
@@ -191,8 +199,9 @@ class AppTestTuple(AppTestCpythonExtensionBase):
              """),
             ])
         import sys
+        s = 'abc'
         if '__pypy__' in sys.builtin_module_names:
-            raises(SystemError, module.set_after_use)
+            raises(SystemError, module.set_after_use, s)
         else:
-            module.set_after_use()
+            module.set_after_use(s)
 

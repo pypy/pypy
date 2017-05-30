@@ -135,17 +135,17 @@ def PyTuple_SetItem(space, ref, index, py_obj):
     if not tuple_check_ref(space, ref):
         decref(space, py_obj)
         PyErr_BadInternalCall(space)
-    ref = rffi.cast(PyTupleObject, ref)
-    size = ref.c_ob_size
+    tupleobj = rffi.cast(PyTupleObject, ref)
+    size = tupleobj.c_ob_size
     if index < 0 or index >= size:
         decref(space, py_obj)
         raise oefmt(space.w_IndexError, "tuple assignment index out of range")
-    old_ref = ref.c_ob_item[index]
+    old_ref = tupleobj.c_ob_item[index]
     if pyobj_has_w_obj(ref):
         # similar but not quite equal to ref.c_ob_refcnt != 1 on CPython
         raise oefmt(space.w_SystemError, "PyTuple_SetItem called on tuple after"
                                         " use of tuple")
-    ref.c_ob_item[index] = py_obj    # consumes a reference
+    tupleobj.c_ob_item[index] = py_obj    # consumes a reference
     if old_ref:
         decref(space, old_ref)
     return 0
