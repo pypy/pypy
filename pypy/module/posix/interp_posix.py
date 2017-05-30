@@ -2435,7 +2435,7 @@ def sched_get_priority_max(space, policy):
 
 @unwrap_spec(policy=int)
 def sched_get_priority_min(space, policy):
-    """rreturns the minimum priority value that
+    """returns the minimum priority value that
      can be used with the scheduling algorithm 
      identified by policy
     """
