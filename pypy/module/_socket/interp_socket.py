@@ -367,20 +367,19 @@ class W_Socket(W_Root):
         except SocketError as e:
             raise converted_error(space, e)
 
-    @unwrap_spec(level=int, optname=int)
-    def getsockopt_w(self, space, level, optname, w_buflen=None):
+    @unwrap_spec(level=int, optname=int, buflen=int)
+    def getsockopt_w(self, space, level, optname, buflen=0):
         """getsockopt(level, option[, buffersize]) -> value
 
         Get a socket option.  See the Unix manual for level and option.
         If a nonzero buffersize argument is given, the return value is a
         string of that length; otherwise it is an integer.
         """
-        if w_buflen is None:
+        if buflen == 0:
             try:
                 return space.newint(self.sock.getsockopt_int(level, optname))
             except SocketError as e:
                 raise converted_error(space, e)
-        buflen = space.int_w(w_buflen)
         return space.newbytes(self.sock.getsockopt(level, optname, buflen))
 
     def gettimeout_w(self, space):
@@ -482,7 +481,7 @@ class W_Socket(W_Root):
         Like send(data, flags) but allows specifying the destination address.
         For IP sockets, the address is a pair (hostaddr, port).
         """
-        data = space.bufferstr_w(w_data)
+        data = space.charbuf_w(w_data)
         if w_param3 is None:
             # 2 args version
             flags = 0
@@ -559,7 +558,7 @@ class W_Socket(W_Root):
 
         See recv() for documentation about the flags.
         """
-        rwbuffer = space.getarg_w('w*', w_buffer)
+        rwbuffer = space.writebuf_w(w_buffer)
         lgt = rwbuffer.getlength()
         if nbytes < 0:
             raise oefmt(space.w_ValueError, "negative buffersize in recv_into")
@@ -581,7 +580,7 @@ class W_Socket(W_Root):
 
         Like recv_into(buffer[, nbytes[, flags]]) but also return the sender's address info.
         """
-        rwbuffer = space.getarg_w('w*', w_buffer)
+        rwbuffer = space.writebuf_w(w_buffer)
         lgt = rwbuffer.getlength()
         if nbytes == 0:
             nbytes = lgt

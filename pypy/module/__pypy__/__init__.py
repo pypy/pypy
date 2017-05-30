@@ -6,6 +6,8 @@ from rpython.rlib import rtime
 
 
 class BuildersModule(MixedModule):
+    """ Module containing string and unicode builders """
+
     appleveldefs = {}
 
     interpleveldefs = {
@@ -34,6 +36,8 @@ class ThreadModule(MixedModule):
 
 
 class IntOpModule(MixedModule):
+    """ Module for integer operations that have two-complement overflow
+    behaviour instead of overflowing to longs """
     appleveldefs = {}
     interpleveldefs = {
         'int_add':         'interp_intop.int_add',
@@ -55,12 +59,15 @@ class OsModule(MixedModule):
 
 
 class Module(MixedModule):
+    """ PyPy specific "magic" functions. A lot of them are experimental and
+    subject to change, many are internal. """
     appleveldefs = {
     }
 
     interpleveldefs = {
         'attach_gdb'                : 'interp_magic.attach_gdb',
         'internal_repr'             : 'interp_magic.internal_repr',
+        'objects_in_repr'           : 'interp_magic.objects_in_repr',
         'bytebuffer'                : 'bytebuffer.bytebuffer',
         'identity_dict'             : 'interp_identitydict.W_IdentityDict',
         'debug_start'               : 'interp_debug.debug_start',

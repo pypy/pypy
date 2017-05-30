@@ -42,15 +42,15 @@ def memory_attach(space, py_obj, w_obj, w_userdata=None):
     assert isinstance(w_obj, W_MemoryView)
     py_obj = rffi.cast(PyMemoryViewObject, py_obj)
     view = py_obj.c_view
-    ndim = w_obj.buf.getndim()
+    ndim = w_obj.getndim()
     if ndim >= Py_MAX_NDIMS:
         # XXX warn?
         return
-    fill_Py_buffer(space, w_obj.buf, view)
+    fill_Py_buffer(space, w_obj.view, view)
     try:
-        view.c_buf = rffi.cast(rffi.VOIDP, w_obj.buf.get_raw_address())
+        view.c_buf = rffi.cast(rffi.VOIDP, w_obj.view.get_raw_address())
         view.c_obj = make_ref(space, w_userdata)
-        rffi.setintfield(view, 'c_readonly', w_obj.buf.readonly)
+        rffi.setintfield(view, 'c_readonly', w_obj.view.readonly)
     except ValueError:
         w_s = w_obj.descr_tobytes(space)
         view.c_obj = make_ref(space, w_s)
@@ -84,7 +84,7 @@ def memory_realize(space, obj):
     # Allow subclassing W_MemeoryView
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     w_obj = space.allocate_instance(W_MemoryView, w_type)
-    w_obj.__init__(buf, itemsize=buf.itemsize)
+    w_obj.__init__(buf)
     track_reference(space, obj, w_obj)
     return w_obj
 

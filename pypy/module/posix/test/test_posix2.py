@@ -582,8 +582,11 @@ class AppTestPosix:
 
     def test_utime_raises(self):
         os = self.posix
+        import errno
         raises(TypeError, "os.utime('xxx', 3)")
-        raises(OSError, "os.utime('somefilewhichihopewouldneverappearhere', None)")
+        exc = raises(OSError,
+                     "os.utime('somefilewhichihopewouldneverappearhere', None)")
+        assert exc.value.errno == errno.ENOENT
 
     for name in rposix.WAIT_MACROS:
         if hasattr(os, name):
@@ -859,6 +862,38 @@ class AppTestPosix:
                 assert os.read(fd, 4) == b'txxt'
             finally:
                 os.close(fd)
+
+    if hasattr(rposix, 'posix_fadvise'):
+        def test_os_posix_fadvise(self):
+            posix = self.posix
+            fd = posix.open(self.path2 + 'test_os_posix_fadvise', posix.O_CREAT | posix.O_RDWR)
+            try:
+                posix.write(fd, b"foobar")
+                assert posix.posix_fadvise(fd, 0, 1, posix.POSIX_FADV_WILLNEED) is None
+                assert posix.posix_fadvise(fd, 1, 1, posix.POSIX_FADV_NORMAL) is None
+                assert posix.posix_fadvise(fd, 2, 1, posix.POSIX_FADV_SEQUENTIAL) is None
+                assert posix.posix_fadvise(fd, 3, 1, posix.POSIX_FADV_RANDOM) is None
+                assert posix.posix_fadvise(fd, 4, 1, posix.POSIX_FADV_NOREUSE) is None
+                assert posix.posix_fadvise(fd, 5, 1, posix.POSIX_FADV_DONTNEED) is None
+                raises(OSError, posix.posix_fadvise, fd, 6, 1, 1234567)
+            finally:
+                posix.close(fd)
+
+    if hasattr(rposix, 'posix_fallocate'):
+        def test_os_posix_posix_fallocate(self):
+            posix, os = self.posix, self.os
+            fd = os.open(self.path2 + 'test_os_posix_fallocate', os.O_WRONLY | os.O_CREAT)
+            try:
+                assert posix.posix_fallocate(fd, 0, 10) == 0
+            except OSError as inst:
+                """ ZFS seems not to support fallocate.
+                so skipping solaris-based since it is likely to come with ZFS
+                """
+                if inst.errno != errno.EINVAL or not sys.platform.startswith("sunos"):
+                    raise
+            finally:
+                os.close(fd)
+
 
     def test_largefile(self):
         os = self.posix

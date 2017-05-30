@@ -86,46 +86,61 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
     if binary and newline is not None:
         raise oefmt(space.w_ValueError,
                     "binary mode doesn't take a newline argument")
-    w_raw = space.call_function(
-        space.gettypefor(W_FileIO), w_file, space.newtext(rawmode),
-        space.newbool(bool(closefd)), w_opener)
 
-    isatty = space.is_true(space.call_method(w_raw, "isatty"))
-    line_buffering = buffering == 1 or (buffering < 0 and isatty)
-    if line_buffering:
-        buffering = -1
+    w_result = None
+    try:
+        w_raw = space.call_function(
+            space.gettypefor(W_FileIO), w_file, space.newtext(rawmode),
+            space.newbool(bool(closefd)), w_opener)
+        w_result = w_raw
 
-    if buffering < 0:
-        buffering = space.c_int_w(space.getattr(w_raw, space.newtext("_blksize")))
+        isatty = space.is_true(space.call_method(w_raw, "isatty"))
+        line_buffering = buffering == 1 or (buffering < 0 and isatty)
+        if line_buffering:
+            buffering = -1
 
-    if buffering < 0:
-        raise oefmt(space.w_ValueError, "invalid buffering size")
+        if buffering < 0:
+            buffering = space.c_int_w(space.getattr(
+                w_raw, space.newtext("_blksize")))
 
-    if buffering == 0:
-        if not binary:
-            raise oefmt(space.w_ValueError, "can't have unbuffered text I/O")
-        return w_raw
+        if buffering < 0:
+            raise oefmt(space.w_ValueError, "invalid buffering size")
 
-    if updating:
-        buffer_cls = W_BufferedRandom
-    elif writing or creating or appending:
-        buffer_cls = W_BufferedWriter
-    elif reading:
-        buffer_cls = W_BufferedReader
-    else:
-        raise oefmt(space.w_ValueError, "unknown mode: '%s'", mode)
-    w_buffer = space.call_function(
-        space.gettypefor(buffer_cls), w_raw, space.newint(buffering)
-    )
-    if binary:
-        return w_buffer
+        if buffering == 0:
+            if not binary:
+                raise oefmt(space.w_ValueError,
+                            "can't have unbuffered text I/O")
+            return w_result
 
-    w_wrapper = space.call_function(space.gettypefor(W_TextIOWrapper),
-        w_buffer,
-        space.newtext_or_none(encoding),
-        space.newtext_or_none(errors),
-        space.newtext_or_none(newline),
-        space.newbool(line_buffering)
-    )
-    space.setattr(w_wrapper, space.newtext("mode"), space.newtext(mode))
-    return w_wrapper
+        if updating:
+            buffer_cls = W_BufferedRandom
+        elif writing or creating or appending:
+            buffer_cls = W_BufferedWriter
+        elif reading:
+            buffer_cls = W_BufferedReader
+        else:
+            raise oefmt(space.w_ValueError, "unknown mode: '%s'", mode)
+        w_buffer = space.call_function(
+            space.gettypefor(buffer_cls), w_raw, space.newint(buffering)
+        )
+        w_result = w_buffer
+        if binary:
+            return w_result
+
+        w_wrapper = space.call_function(space.gettypefor(W_TextIOWrapper),
+            w_buffer,
+            space.newtext_or_none(encoding),
+            space.newtext_or_none(errors),
+            space.newtext_or_none(newline),
+            space.newbool(line_buffering)
+        )
+        w_result = w_wrapper
+        space.setattr(w_wrapper, space.newtext("mode"), space.newtext(mode))
+        return w_result
+    except OperationError as e:
+        if w_result:
+            try:
+                space.call_method(w_result, "close")
+            except OperationError as e2:
+                e.chain_exceptions(space, e2)
+        raise

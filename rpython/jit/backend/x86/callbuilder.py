@@ -11,6 +11,7 @@ from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
     RegLoc, RawEspLoc, RawEbpLoc, imm, ImmedLoc)
 from rpython.jit.backend.x86.jump import remap_frame_layout
+from rpython.jit.backend.x86 import codebuf
 from rpython.jit.backend.llsupport.callbuilder import AbstractCallBuilder
 from rpython.jit.backend.llsupport import llerrno
 from rpython.rtyper.lltypesystem import llmemory, rffi
@@ -239,7 +240,7 @@ class CallBuilderX86(AbstractCallBuilder):
             if IS_X86_32:
                 tmpreg = edx
             else:
-                tmpreg = r11     # edx is used for 3rd argument
+                tmpreg = r10                   # edx is used for 3rd argument
             mc.MOV_rm(tmpreg.value, (tlofsreg.value, p_errno))
             mc.MOV32_rm(eax.value, (tlofsreg.value, rpy_errno))
             mc.MOV32_mr((tmpreg.value, 0), eax.value)
@@ -293,6 +294,41 @@ class CallBuilderX86(AbstractCallBuilder):
             tlofsreg = self.get_tlofs_reg()    # => esi (possibly reused)
             mc.MOV32_mr((tlofsreg.value, lasterror), eax.value)
 
+    class ReacqGilSlowPath(codebuf.SlowPath):
+        early_jump_addr = 0
+
+        def generate_body(self, assembler, mc):
+            if self.early_jump_addr != 0:
+                # This slow-path has two entry points, with two
+                # conditional jumps.  We can jump to the regular start
+                # of this slow-path with the 2nd conditional jump.  Or,
+                # we can jump past the "MOV(heap(fastgil), ecx)"
+                # instruction from the 1st conditional jump.
+                # This instruction reverts the rpy_fastgil acquired
+                # previously, so that the general 'reacqgil_addr'
+                # function can acquire it again.  It must only be done
+                # if we actually succeeded in acquiring rpy_fastgil.
+                from rpython.jit.backend.x86.assembler import heap
+                mc.MOV(heap(self.fastgil), ecx)
+                offset = mc.get_relative_pos() - self.early_jump_addr
+                mc.overwrite32(self.early_jump_addr-4, offset)
+                # scratch register forgotten here, by get_relative_pos()
+
+            # call the reacqgil() function
+            cb = self.callbuilder
+            if not cb.result_value_saved_early:
+                cb.save_result_value(save_edx=False)
+            if assembler._is_asmgcc():
+                if IS_X86_32:
+                    css_value = edx
+                    old_value = ecx
+                    mc.MOV_sr(4, old_value.value)
+                    mc.MOV_sr(0, css_value.value)
+                # on X86_64, they are already in the right registers
+            mc.CALL(imm(follow_jump(assembler.reacqgil_addr)))
+            if not cb.result_value_saved_early:
+                cb.restore_result_value(save_edx=False)
+
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
         from rpython.jit.backend.x86 import rx86
         #
@@ -314,8 +350,8 @@ class CallBuilderX86(AbstractCallBuilder):
                     if not self.result_value_saved_early:
                         mc.MOV_sr(12, edx.value)
                         restore_edx = True
-                css_value = edx
-                old_value = ecx
+                css_value = edx    # note: duplicated in ReacqGilSlowPath
+                old_value = ecx    #
             elif IS_X86_64:
                 css_value = edi
                 old_value = esi
@@ -341,35 +377,25 @@ class CallBuilderX86(AbstractCallBuilder):
             # thread.  So here we check if the shadowstack pointer
             # is still the same as before we released the GIL (saved
             # in 'ebx'), and if not, we fall back to 'reacqgil_addr'.
-            jne_location = mc.emit_forward_jump('NE')
+            mc.J_il(rx86.Conditions['NE'], 0xfffff)     # patched later
+            early_jump_addr = mc.get_relative_pos(break_basic_block=False)
+            # ^^^ this jump will go to almost the same place as the
+            # ReacqGilSlowPath() computes, but one instruction farther,
+            # i.e. just after the "MOV(heap(fastgil), ecx)".
+
             # here, ecx (=old_value) is zero (so rpy_fastgil was in 'released'
             # state before the XCHG, but the XCHG acquired it by writing 1)
             rst = gcrootmap.get_root_stack_top_addr()
             mc = self.mc
             mc.CMP(ebx, heap(rst))
-            je_location = mc.emit_forward_jump('E')
-            # revert the rpy_fastgil acquired above, so that the
-            # general 'reacqgil_addr' below can acquire it again...
-            mc.MOV(heap(fastgil), ecx)
-            # patch the JNE above
-            mc.patch_forward_jump(jne_location)
+            sp = self.ReacqGilSlowPath(mc, rx86.Conditions['NE'])
+            sp.early_jump_addr = early_jump_addr
+            sp.fastgil = fastgil
         else:
-            je_location = mc.emit_forward_jump('E')
-        #
-        # Yes, we need to call the reacqgil() function
-        if not self.result_value_saved_early:
-            self.save_result_value(save_edx=False)
-        if self.asm._is_asmgcc():
-            if IS_X86_32:
-                mc.MOV_sr(4, old_value.value)
-                mc.MOV_sr(0, css_value.value)
-            # on X86_64, they are already in the right registers
-        mc.CALL(imm(follow_jump(self.asm.reacqgil_addr)))
-        if not self.result_value_saved_early:
-            self.restore_result_value(save_edx=False)
-        #
-        # patch the JE above
-        mc.patch_forward_jump(je_location)
+            sp = self.ReacqGilSlowPath(mc, rx86.Conditions['NE'])
+        sp.callbuilder = self
+        sp.set_continue_addr(mc)
+        self.asm.pending_slowpaths.append(sp)
         #
         if restore_edx:
             mc.MOV_rs(edx.value, 12)   # restore this

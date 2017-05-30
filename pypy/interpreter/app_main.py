@@ -789,6 +789,8 @@ def run_command_line(interactive,
     if inspect_requested():
         try:
             from _pypy_interact import interactive_console
+            if hasattr(sys, '__interactivehook__'):
+                run_toplevel(sys.__interactivehook__)
             pypy_version_info = getattr(sys, 'pypy_version_info', sys.version_info)
             irc_topic = pypy_version_info[3] != 'final' or (
                             readenv and os.getenv('PYPY_IRC_TOPIC'))
@@ -827,6 +829,11 @@ def setup_bootstrap_path(executable):
     # path
     executable = sys.pypy_find_executable(executable)
     stdlib_path = sys.pypy_find_stdlib(executable)
+    if stdlib_path is None:
+        for lib_path in sys.path:
+            stdlib_path = sys.pypy_find_stdlib(lib_path)
+            if stdlib_path is not None:
+                break
     if stdlib_path is None:
         initstdio()
         print(STDLIB_WARNING, file=sys.stderr)

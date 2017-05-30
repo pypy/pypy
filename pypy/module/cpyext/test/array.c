@@ -2330,6 +2330,7 @@ array_multiply(PyObject* obj1, PyObject* obj2)
             for (nn = 0; nn < n; nn++)
             {
                 v = PyList_GetItem(obj1, nn);
+                Py_INCREF(v);
                 PyList_SetItem(ret, nn+ii*n, v);
             }
         return ret;
@@ -2345,6 +2346,7 @@ array_multiply(PyObject* obj1, PyObject* obj2)
             for (nn = 0; nn < n; nn++)
             {
                 v = PyList_GetItem(obj2, nn);
+                Py_INCREF(v);
                 PyList_SetItem(ret, nn+ii*n, v);
             }
         return ret;

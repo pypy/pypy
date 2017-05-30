@@ -285,10 +285,10 @@ def read(space, fd, length):
 def write(space, fd, w_data):
     """Write a string to a file descriptor.  Return the number of bytes
 actually written, which may be smaller than len(data)."""
-    data = space.getarg_w('y*', w_data)
+    data = space.charbuf_w(w_data)
     while True:
         try:
-            res = os.write(fd, data.as_str())
+            res = os.write(fd, data)
         except OSError as e:
             wrap_oserror(space, e, eintr_retry=True)
         else:
@@ -392,14 +392,38 @@ def pread(space, fd, length, offset):
 def pwrite(space, fd, w_data, offset):
     """Write a string to a file descriptor at a given offset.
     """
-    data = space.getarg_w('y*', w_data)
+    data = space.charbuf_w(w_data)
     while True:
         try:
-            res = rposix.pwrite(fd, data.as_str(), offset)
+            res = rposix.pwrite(fd, data, offset)
         except OSError as e:
             wrap_oserror(space, e, eintr_retry=True)
         else:
             return space.newint(res)
+
+@unwrap_spec(fd=c_int, length=r_longlong, offset=r_longlong)
+def posix_fallocate(space, fd, offset, length):
+    """allocate file space .
+    """
+    while True:
+        try:
+            s = rposix.posix_fallocate(fd, offset, length)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+           return space.newint(s)
+
+@unwrap_spec(fd=c_int, offset=r_longlong, length=r_longlong, advice=int)
+def posix_fadvise(space, fd, offset, length, advice):
+    """predeclare an access pattern for file data .
+    """
+    while True:
+        try:
+            rposix.posix_fadvise(fd, offset, length, advice)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+            return
 
 # ____________________________________________________________
 
@@ -855,9 +879,7 @@ if _WIN32:
         # started through main() instead of wmain()
         rwin32._wgetenv(u"")
         for key, value in rwin32._wenviron_items():
-            if isinstance(key, str):
-                key = key.upper()
-            space.setitem(w_env, space.newtext(key), space.newtext(value))
+            space.setitem(w_env, space.newunicode(key), space.newunicode(value))
 
     @unwrap_spec(name=unicode, value=unicode)
     def putenv(space, name, value):
@@ -2170,7 +2192,7 @@ def urandom(space, size):
         # not a bound method like 'getexecutioncontext().checksignals'.
         # Otherwise, we can't use it from several independent places.
         _sigcheck.space = space
-        return space.newbytes(rurandom.urandom(context, n, _signal_checker))
+        return space.newbytes(rurandom.urandom(context, size, _signal_checker))
     except OSError as e:
         # 'rurandom' should catch and retry internally if it gets EINTR
         # (at least in os.read(), which is probably enough in practice)

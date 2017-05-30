@@ -1238,6 +1238,9 @@ class TestDate(HarmlessMixedComparison, unittest.TestCase):
         #check that this standard extension works
         t.strftime("%f")
 
+        #test that passing keyword arguments work
+        self.assertEqual(t.strftime(format=""), "")
+
     def test_format(self):
         dt = self.theclass(2007, 9, 10)
         self.assertEqual(dt.__format__(''), str(dt))
@@ -1601,6 +1604,9 @@ class TestDateTime(TestDate):
             self.assertEqual(dt.__format__(fmt), dt.strftime(fmt))
             self.assertEqual(a.__format__(fmt), dt.strftime(fmt))
             self.assertEqual(b.__format__(fmt), 'B')
+
+        #test that passing keyword arguments work
+        self.assertEqual(dt.strftime(format=""), "")
 
     def test_more_ctime(self):
         # Test fields that TestDate doesn't touch.
@@ -2334,6 +2340,9 @@ class TestTime(HarmlessMixedComparison, unittest.TestCase):
         self.assertEqual(t.strftime('%H %M %S %f'), "01 02 03 000004")
         # A naive object replaces %z and %Z with empty strings.
         self.assertEqual(t.strftime("'%z' '%Z'"), "'' ''")
+
+        #test that passing keyword arguments work
+        self.assertEqual(t.strftime(format=""), "")
 
     def test_format(self):
         t = self.theclass(1, 2, 3, 4)

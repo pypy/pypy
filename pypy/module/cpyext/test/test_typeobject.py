@@ -16,12 +16,12 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert 'foo' in sys.modules
         assert "copy" in dir(module.fooType)
         obj = module.new()
-        print(obj.foo)
+        #print(obj.foo)
         assert obj.foo == 42
-        print("Obj has type", type(obj))
+        #print("Obj has type", type(obj))
         assert type(obj) is module.fooType
-        print("type of obj has type", type(type(obj)))
-        print("type of type of obj has type", type(type(type(obj))))
+        #print("type of obj has type", type(type(obj)))
+        #print("type of type of obj has type", type(type(type(obj))))
         assert module.fooType.__doc__ == "foo is for testing."
 
     def test_typeobject_method_descriptor(self):
@@ -1161,8 +1161,8 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                   ((PyHeapTypeObject*)Base2)->ht_name = dummyname;
                   ((PyHeapTypeObject*)Base12)->ht_name = dummyname;
                 }
-                #endif 
-                #endif 
+                #endif
+                #endif
                 Base1->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
                 Base2->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
                 Base12->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE;
@@ -1200,35 +1200,37 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         bases = module.foo(C)
         assert bases == (A, B)
 
-    def test_multiple_inheritance_old_style_base(self):
-        module = self.import_extension('foo', [
-           ("foo", "METH_O",
-            '''
-                PyTypeObject *tp;
-                tp = (PyTypeObject*)args;
-                Py_INCREF(tp->tp_bases);
-                return tp->tp_bases;
-            '''
-            )])
-        # used to segfault after some iterations
-        for i in range(11):
-            print i
-            class A(object):
-                pass
-            class B:
-                pass
-            class C(A, B):
-                pass
-            bases = module.foo(C)
-            assert bases == (A, B)
-
     def test_getattr_getattro(self):
         module = self.import_module(name='foo')
-        assert module.gettype2.dcba == 'getattro:dcba'
+        assert module.gettype2.dcba == b'getattro:dcba'
         assert (type(module.gettype2).__getattribute__(module.gettype2, 'dcBA')
-            == 'getattro:dcBA')
-        assert module.gettype1.abcd == 'getattr:abcd'
+            == b'getattro:dcBA')
+        assert module.gettype1.abcd == b'getattr:abcd'
         # GetType1 objects have a __getattribute__ method, but this
         # doesn't call tp_getattr at all, also on CPython
         raises(AttributeError, type(module.gettype1).__getattribute__,
                                module.gettype1, 'dcBA')
+
+    def test_multiple_inheritance_tp_basicsize(self):
+        module = self.import_module(name='issue2482')
+
+        class PyBase(object):
+            pass
+
+        basesize = module.get_basicsize(PyBase)
+
+        CBase = module.issue2482_object
+        class A(CBase, PyBase):
+            def __init__(self, i):
+                CBase.__init__(self)
+                PyBase.__init__(self)
+
+        class B(PyBase, CBase):
+            def __init__(self, i):
+                PyBase.__init__(self)
+                CBase.__init__(self)
+
+        Asize = module.get_basicsize(A)
+        Bsize = module.get_basicsize(B)
+        assert Asize == Bsize
+        assert Asize > basesize

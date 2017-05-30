@@ -27,15 +27,3 @@ class AppTestInstanceMethod(AppTestCpythonExtensionBase):
         InstanceMethod.testmethod.attribute = "test"
         assert testfunction.attribute == "test"
         raises(AttributeError, setattr, inst.testmethod, "attribute", "test")
-
-    def test_pyclass_new_no_bases(self):
-        module = self.import_extension('foo', [
-            ("new_foo", "METH_O",
-             """
-                 return PyClass_New(NULL, PyDict_New(), args);
-             """)])
-        FooClass = module.new_foo("FooClass")
-        class Cls1:
-            pass
-        assert type(FooClass) is type(Cls1)
-        assert FooClass.__bases__ == Cls1.__bases__

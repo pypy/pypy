@@ -8,6 +8,8 @@ extern "C" {
 
 #include "cpyext_moduleobject.h"
 
+PyAPI_FUNC(PyObject *) PyModuleDef_Init(struct PyModuleDef*);
+
 #ifdef __cplusplus
 }
 #endif

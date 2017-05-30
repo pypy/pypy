@@ -597,7 +597,7 @@ class ReallyRunFileExternal(py.test.collect.Item):
                     py.test.skip("%s module not included in %s" % (mod,
                                                                    execpath))
 
-            cmd = "%s %s %s" % (execpath, regrrun, fspath.purebasename)
+            cmd = "%s -m test -v %s" % (execpath, fspath.purebasename)
             # add watchdog for timing out
             cmd = "%s %s %s %s" % (python, watchdog_script, TIMEOUT, cmd)
         else:

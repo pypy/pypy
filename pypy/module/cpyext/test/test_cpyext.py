@@ -40,9 +40,11 @@ class SpaceCompiler(SystemCompilationInfo):
 
     def load_module(self, mod, name):
         space = self.space
-        api.load_extension_module(space, mod, name)
-        return space.getitem(
-            space.sys.get('modules'), space.wrap(name))
+        w_path = space.newtext(mod)
+        w_name = space.newtext(name)
+        return space.appexec([w_name, w_path], '''(name, path):
+            import imp
+            return imp.load_dynamic(name, path)''')
 
 
 def get_cpyext_info(space):

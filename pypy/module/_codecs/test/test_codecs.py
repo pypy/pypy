@@ -10,7 +10,7 @@ class AppTestCodecs:
         raises(TypeError, _codecs.register, 1)
 
     def test_bigU_codecs(self):
-        u = '\U00010001\U00020002\U00030003\U00040004\U00050005'
+        u = u'\U00010001\U00020002\U00030003\U00040004\U00050005'
         for encoding in ('utf-8', 'utf-16', 'utf-16-le', 'utf-16-be',
                          'utf-32', 'utf-32-le', 'utf-32-be',
                          'raw_unicode_escape',
@@ -18,7 +18,7 @@ class AppTestCodecs:
             assert str(u.encode(encoding),encoding) == u
 
     def test_ucs4(self):
-        x = '\U00100000'
+        x = u'\U00100000'
         y = x.encode("raw-unicode-escape").decode("raw-unicode-escape")
         assert x == y
 
@@ -146,21 +146,21 @@ class AppTestPartialEvaluation:
         import _codecs
         encoding = 'utf-8'
         check_partial = [
-                "\x00",
-                "\x00",
-                "\x00\xff",
-                "\x00\xff",
-                "\x00\xff\u07ff",
-                "\x00\xff\u07ff",
-                "\x00\xff\u07ff",
-                "\x00\xff\u07ff\u0800",
-                "\x00\xff\u07ff\u0800",
-                "\x00\xff\u07ff\u0800",
-                "\x00\xff\u07ff\u0800\uffff",
-                "\x00\xff\u07ff\u0800\uffff",
-                "\x00\xff\u07ff\u0800\uffff",
-                "\x00\xff\u07ff\u0800\uffff",
-                "\x00\xff\u07ff\u0800\uffff\U00010000",
+                u"\x00",
+                u"\x00",
+                u"\x00\xff",
+                u"\x00\xff",
+                u"\x00\xff\u07ff",
+                u"\x00\xff\u07ff",
+                u"\x00\xff\u07ff",
+                u"\x00\xff\u07ff\u0800",
+                u"\x00\xff\u07ff\u0800",
+                u"\x00\xff\u07ff\u0800",
+                u"\x00\xff\u07ff\u0800\uffff",
+                u"\x00\xff\u07ff\u0800\uffff",
+                u"\x00\xff\u07ff\u0800\uffff",
+                u"\x00\xff\u07ff\u0800\uffff",
+                u"\x00\xff\u07ff\u0800\uffff\U00010000",
             ]
 
         buffer = b''
@@ -177,20 +177,20 @@ class AppTestPartialEvaluation:
         import _codecs
         encoding = 'utf-16'
         check_partial = [
-                    "", # first byte of BOM read
-                    "", # second byte of BOM read => byteorder known
-                    "",
-                    "\x00",
-                    "\x00",
-                    "\x00\xff",
-                    "\x00\xff",
-                    "\x00\xff\u0100",
-                    "\x00\xff\u0100",
-                    "\x00\xff\u0100\uffff",
-                    "\x00\xff\u0100\uffff",
-                    "\x00\xff\u0100\uffff",
-                    "\x00\xff\u0100\uffff",
-                    "\x00\xff\u0100\uffff\U00010000",
+                    u"", # first byte of BOM read
+                    u"", # second byte of BOM read => byteorder known
+                    u"",
+                    u"\x00",
+                    u"\x00",
+                    u"\x00\xff",
+                    u"\x00\xff",
+                    u"\x00\xff\u0100",
+                    u"\x00\xff\u0100",
+                    u"\x00\xff\u0100\uffff",
+                    u"\x00\xff\u0100\uffff",
+                    u"\x00\xff\u0100\uffff",
+                    u"\x00\xff\u0100\uffff",
+                    u"\x00\xff\u0100\uffff\U00010000",
                 ]
         buffer = b''
         result = ""
@@ -205,9 +205,9 @@ class AppTestPartialEvaluation:
     def test_bug1098990_a(self):
         import codecs, io
         self.encoding = 'utf-8'
-        s1 = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\r\n"
-        s2 = "offending line: ladfj askldfj klasdj fskla dfzaskdj fasklfj laskd fjasklfzzzzaa%whereisthis!!!\r\n"
-        s3 = "next line.\r\n"
+        s1 = u"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\r\n"
+        s2 = u"offending line: ladfj askldfj klasdj fskla dfzaskdj fasklfj laskd fjasklfzzzzaa%whereisthis!!!\r\n"
+        s3 = u"next line.\r\n"
 
         s = (s1+s2+s3).encode(self.encoding)
         stream = io.BytesIO(s)
@@ -215,16 +215,16 @@ class AppTestPartialEvaluation:
         assert reader.readline() == s1
         assert reader.readline() == s2
         assert reader.readline() == s3
-        assert reader.readline() == ""
+        assert reader.readline() == u""
 
     def test_bug1098990_b(self):
         import codecs, io
         self.encoding = 'utf-8'
-        s1 = "aaaaaaaaaaaaaaaaaaaaaaaa\r\n"
-        s2 = "bbbbbbbbbbbbbbbbbbbbbbbb\r\n"
-        s3 = "stillokay:bbbbxx\r\n"
-        s4 = "broken!!!!badbad\r\n"
-        s5 = "againokay.\r\n"
+        s1 = u"aaaaaaaaaaaaaaaaaaaaaaaa\r\n"
+        s2 = u"bbbbbbbbbbbbbbbbbbbbbbbb\r\n"
+        s3 = u"stillokay:bbbbxx\r\n"
+        s4 = u"broken!!!!badbad\r\n"
+        s5 = u"againokay.\r\n"
 
         s = (s1+s2+s3+s4+s5).encode(self.encoding)
         stream = io.BytesIO(s)
@@ -234,7 +234,7 @@ class AppTestPartialEvaluation:
         assert reader.readline() == s3
         assert reader.readline() == s4
         assert reader.readline() == s5
-        assert reader.readline() == ""
+        assert reader.readline() == u""
 
     def test_seek_utf16le(self):
         # all codecs should be able to encode these
@@ -757,6 +757,11 @@ class AppTestPartialEvaluation:
         repl = "\u00E9"
         s = "\u5678".encode("latin-1", "test.bad_handler")
         assert s == b'\xe9'
+
+    def test_lone_surrogates(self):
+        for encoding in ('utf-8', 'utf-16', 'utf-16-le', 'utf-16-be',
+                         'utf-32', 'utf-32-le', 'utf-32-be'):
+            raises(UnicodeEncodeError, u'\ud800'.encode, encoding)
 
     def test_charmap_encode(self):
         assert 'xxx'.encode('charmap') == b'xxx'

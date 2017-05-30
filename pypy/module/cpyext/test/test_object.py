@@ -217,7 +217,7 @@ class AppTestObject(AppTestCpythonExtensionBase):
                 gateway.interp2app(_cur_memory_pressure))
         else:
             def _skip_test(*ignored):
-                pytest.skip("not for -A testing")
+                skip("not for -A testing")
             cls.w_reset_memory_pressure = _skip_test
 
     def teardown_class(cls):

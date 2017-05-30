@@ -563,7 +563,7 @@ class FFI(object):
             if sys.platform == "win32":
                 # we need 'libpypy-c.lib'.  Current distributions of
                 # pypy (>= 4.1) contain it as 'libs/python27.lib'.
-                pythonlib = "python27"
+                pythonlib = "python{0[0]}{0[1]}".format(sys.version_info)
                 if hasattr(sys, 'prefix'):
                     ensure('library_dirs', os.path.join(sys.prefix, 'libs'))
             else:

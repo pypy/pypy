@@ -1,6 +1,6 @@
-import imp
+import _imp
 
-so_ext = [s[0] for s in imp.get_suffixes() if s[2] == imp.C_EXTENSION][0]
+so_ext = _imp.extension_suffixes()[0]
 
 build_time_vars = {
     "EXT_SUFFIX": so_ext,

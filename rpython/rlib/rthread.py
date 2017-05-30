@@ -429,7 +429,11 @@ class ThreadLocalReference(ThreadLocalField):
                 gc._trace_callback(callback, arg, p + offset)
             llop.threadlocalref_release(lltype.Void)
         _lambda_trace_tlref = lambda: _trace_tlref
-        TRACETLREF = lltype.GcStruct('TRACETLREF')
+        # WAAAH obscurity: can't use a name that may be non-unique,
+        # otherwise the types compare equal, even though we call
+        # register_custom_trace_hook() to register different trace
+        # functions...
+        TRACETLREF = lltype.GcStruct('TRACETLREF%d' % unique_id)
         _tracetlref_obj = lltype.malloc(TRACETLREF, immortal=True)
 
     @staticmethod

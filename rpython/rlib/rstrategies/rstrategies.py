@@ -1,7 +1,7 @@
 
 import weakref, sys
 from rpython.rlib.rstrategies import logger
-from rpython.rlib import jit, objectmodel, rerased
+from rpython.rlib import jit, objectmodel, rerased, rarithmetic
 from rpython.rlib.objectmodel import specialize, not_rpython
 
 def make_accessors(strategy='strategy', storage='storage'):
@@ -443,6 +443,7 @@ class StrategyWithStorage(AbstractStrategy):
 
     def store(self, w_self, index0, wrapped_value):
         self.check_index_store(w_self, index0)
+        assert index0 >= 0
         if self._check_can_handle(wrapped_value):
             unwrapped = self._unwrap(wrapped_value)
             self.get_storage(w_self)[index0] = unwrapped
@@ -451,6 +452,7 @@ class StrategyWithStorage(AbstractStrategy):
 
     def fetch(self, w_self, index0):
         self.check_index_fetch(w_self, index0)
+        assert index0 >= 0
         unwrapped = self.get_storage(w_self)[index0]
         return self._wrap(unwrapped)
 
@@ -517,7 +519,7 @@ class SafeIndexingMixin(object):
         self.check_index(w_self, start)
         self.check_index(w_self, end)
     def check_index(self, w_self, index0):
-        if index0 < 0 or index0 >= self.size(w_self):
+        if not rarithmetic.int_between(0, index0, self.size(w_self)):
             raise IndexError
 
 class UnsafeIndexingMixin(object):

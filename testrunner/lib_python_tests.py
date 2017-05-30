@@ -15,6 +15,7 @@ popen = subprocess.Popen(
     [sys.executable, "pypy/test_all.py",
      "--pypy=pypy/goal/pypy3-c",
      "--timeout=3600",
+     "-rs",
      "--resultlog=cpython.log", "lib-python",
      ] + sys.argv[1:],
     cwd=rootdir)

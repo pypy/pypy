@@ -2,13 +2,13 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr, GetSetProperty)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.buffer import SimpleView
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.rStringIO import RStringIO
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.objectmodel import import_from_mixin
 from pypy.module._io.interp_bufferedio import W_BufferedIOBase
 from pypy.module._io.interp_iobase import convert_size
-from pypy.objspace.std.memoryobject import W_MemoryView
 import sys
 
 
@@ -88,7 +88,7 @@ class W_BytesIO(W_BufferedIOBase):
 
     def readinto_w(self, space, w_buffer):
         self._check_closed(space)
-        rwbuffer = space.getarg_w('w*', w_buffer)
+        rwbuffer = space.writebuf_w(w_buffer)
         size = rwbuffer.getlength()
 
         output = self.read(size)
@@ -125,7 +125,7 @@ class W_BytesIO(W_BufferedIOBase):
 
     def getbuffer_w(self, space):
         self._check_closed(space)
-        return W_MemoryView(BytesIOBuffer(self))
+        return SimpleView(BytesIOBuffer(self)).wrap(space)
 
     def getvalue_w(self, space):
         self._check_closed(space)

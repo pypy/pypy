@@ -4,11 +4,11 @@ import struct
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
-from rpython.rlib.buffer import Buffer
+from pypy.interpreter.buffer import BufferView
 from pypy.conftest import option
 
-class AppTestMemoryView:
-    spaceconfig = dict(usemodules=['array', 'sys', '_rawffi'])
+class AppTestMemoryView(object):
+    spaceconfig = dict(usemodules=['array', 'sys'])
 
     def test_basic(self):
         v = memoryview(b"abc")
@@ -56,8 +56,10 @@ class AppTestMemoryView:
         assert list(w) == [97]
         v[::2] = b'ABC'
         assert data == bytearray(eval("b'AbBeCg'"))
-        assert v[::2].tobytes() == b'ABC'
-        assert v[::-2].tobytes() == b'geb'
+        w = v[::2]
+        assert w.tobytes() == bytes(w) == b'ABC'
+        w = v[::-2]
+        assert w.tobytes() == bytes(w) == b'geb'
 
     def test_memoryview_attrs(self):
         v = memoryview(b"a"*100)
@@ -193,6 +195,9 @@ class AppTestMemoryView:
         assert m[2] == 1
 
     def test_pypy_raw_address_base(self):
+        import sys
+        if '__pypy__' not in sys.modules:
+            skip('PyPy-only test')
         a = memoryview(b"foobar")._pypy_raw_address()
         assert a != 0
         b = memoryview(bytearray(b"foobar"))._pypy_raw_address()
@@ -280,6 +285,9 @@ class AppTestMemoryView:
         assert m2.itemsize == m1.itemsize
         assert m2.shape == m1.shape
 
+class AppTestCtypes(object):
+    spaceconfig = dict(usemodules=['sys', '_rawffi'])
+
     def test_cast_ctypes(self):
         import _rawffi, sys
         a = _rawffi.Array('i')(1)
@@ -292,7 +300,7 @@ class AppTestMemoryView:
         assert (m[0], m[1], m[2], m[3]) == expected
         a.free()
 
-class MockBuffer(Buffer):
+class MockBuffer(BufferView):
     def __init__(self, space, w_arr, w_dim, w_fmt, \
                  w_itemsize, w_strides, w_shape):
         self.space = space
@@ -323,11 +331,14 @@ class MockBuffer(Buffer):
                 self.data.append(c)
         self.data = ''.join(self.data)
 
+    def as_str(self):
+        return self.data
+
     def getformat(self):
         return self.format
 
-    def getitem(self, index):
-        return self.data[index:index+1]
+    def getbytes(self, start, size):
+        return self.data[start:start + size]
 
     def getlength(self):
         return len(self.data)
@@ -403,11 +414,6 @@ class AppTestMemoryViewMockBuffer(object):
         empty = self.MockArray([], dim=1, fmt='i', size=4, strides=[1], shape=[1])
         view = memoryview(empty)
         raises(TypeError, "view.cast('l')")
-        try:
-            view.cast('l')
-            assert False, "i -> l not possible. buffer must be byte format"
-        except TypeError:
-            pass
 
     def test_cast_empty(self):
         empty = self.MockArray([], dim=1, fmt='b', size=1, strides=[1], shape=[1])

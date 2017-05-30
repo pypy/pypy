@@ -75,6 +75,7 @@ class ShadowStackRootWalker(BaseRootWalker):
         BaseRootWalker.__init__(self, gctransformer)
         # NB. 'self' is frozen, but we can use self.gcdata to store state
         gcdata = self.gcdata
+        gcdata.can_look_at_partial_stack = True
 
         def incr_stack(n):
             top = gcdata.root_stack_top
@@ -109,7 +110,19 @@ class ShadowStackRootWalker(BaseRootWalker):
         BaseRootWalker.setup_root_walker(self)
 
     def walk_stack_roots(self, collect_stack_root, is_minor=False):
+        # Note that if we're the first minor collection after a thread
+        # switch, then we also need to disable the 'is_minor'
+        # optimization.  The reason is subtle: we need to walk the whole
+        # stack because otherwise, we can be in the middle of an
+        # incremental major collection, and the new stack was just moved
+        # off a ShadowStackRef object (gctransform/shadowstack.py) which
+        # was not seen yet.  We might completely miss some old objects
+        # from the parts of that stack that are skipped by this is_minor
+        # optimization.
         gcdata = self.gcdata
+        if is_minor and not gcdata.can_look_at_partial_stack:
+            is_minor = False
+            gcdata.can_look_at_partial_stack = True
         walk_stack_root(self.invoke_collect_stack_root, collect_stack_root,
                         None, gcdata.root_stack_base, gcdata.root_stack_top,
                         is_minor=is_minor)
@@ -298,6 +311,7 @@ class ShadowStackPool(object):
                   "restore_state_from: broken shadowstack")
         self.gcdata.root_stack_base = shadowstackref.base
         self.gcdata.root_stack_top  = shadowstackref.top
+        self.gcdata.can_look_at_partial_stack = False
         self._cleanup(shadowstackref)
 
     def start_fresh_new_state(self):

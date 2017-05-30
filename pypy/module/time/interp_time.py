@@ -39,7 +39,7 @@ if _WIN:
     # timeout.  On Ctrl-C, the signal handler is called, the event is set,
     # and the wait function exits.
     from rpython.rlib import rwin32
-    from pypy.interpreter.error import wrap_windowserror, wrap_oserror
+    from pypy.interpreter.error import wrap_oserror
     from rpython.rlib import rthread as thread
 
     eci = ExternalCompilationInfo(
@@ -101,9 +101,9 @@ if _WIN:
                 globalState.interrupt_event = rwin32.CreateEvent(
                     rffi.NULL, True, False, rffi.NULL)
             except WindowsError as e:
-                raise wrap_windowserror(space, e)
+                raise wrap_oserror(space, e)
             if not _setCtrlHandlerRoutine(globalState.interrupt_event):
-                raise wrap_windowserror(space,
+                raise wrap_oserror(space,
                     rwin32.lastSavedWindowsError("SetConsoleCtrlHandler"))
 
     globalState = GlobalState()
@@ -447,17 +447,36 @@ def _get_error_msg():
     errno = rposix.get_saved_errno()
     return _strerror(errno)
 
-if sys.platform != 'win32':
-    from errno import EINTR
+from errno import EINTR
+if not _WIN:
     from rpython.rlib.rtime import c_select
+from rpython.rlib import rwin32
 
-    @unwrap_spec(secs=float)
-    def sleep(space, secs):
-        if secs < 0:
-            raise oefmt(space.w_ValueError,
-                        "sleep length must be non-negative")
-        end_time = timeutils.monotonic(space) + secs
-        while True:
+@unwrap_spec(secs=float)
+def sleep(space, secs):
+    if secs < 0:
+        raise oefmt(space.w_ValueError,
+                    "sleep length must be non-negative")
+    end_time = timeutils.monotonic(space) + secs
+    while True:
+        if _WIN:
+            # as decreed by Guido, only the main thread can be
+            # interrupted.
+            main_thread = space.fromcache(State).main_thread
+            interruptible = (main_thread == thread.get_ident())
+            millisecs = int(secs * 1000)
+            if millisecs == 0 or not interruptible:
+                rtime.sleep(secs)
+                break
+            MAX = int(sys.maxint / 1000)  # > 24 days
+            if millisecs > MAX:
+                millisecs = MAX
+            interrupt_event = space.fromcache(State).get_interrupt_event()
+            rwin32.ResetEvent(interrupt_event)
+            rc = rwin32.WaitForSingleObject(interrupt_event, millisecs)
+            if rc != rwin32.WAIT_OBJECT_0:
+                break
+        else:
             void = lltype.nullptr(rffi.VOIDP.TO)
             with lltype.scoped_alloc(TIMEVAL) as t:
                 frac = math.fmod(secs, 1.0)
@@ -469,43 +488,10 @@ if sys.platform != 'win32':
                 break    # normal path
             if rposix.get_saved_errno() != EINTR:
                 raise exception_from_saved_errno(space, space.w_OSError)
-            space.getexecutioncontext().checksignals()
-            secs = end_time - timeutils.monotonic(space)   # retry
-            if secs <= 0.0:
-                break
-
-else:
-    from rpython.rlib import rwin32
-    from errno import EINTR
-    def _simple_sleep(space, secs, interruptible):
-        if secs == 0.0 or not interruptible:
-            rtime.sleep(secs)
-        else:
-            millisecs = int(secs * 1000)
-            interrupt_event = space.fromcache(State).get_interrupt_event()
-            rwin32.ResetEvent(interrupt_event)
-            rc = rwin32.WaitForSingleObject(interrupt_event, millisecs)
-            if rc == rwin32.WAIT_OBJECT_0:
-                # Yield to make sure real Python signal handler
-                # called.
-                rtime.sleep(0.001)
-                raise wrap_oserror(space,
-                                   OSError(EINTR, "sleep() interrupted"))
-    @unwrap_spec(secs=float)
-    def sleep(space, secs):
-        XXX   # review for EINTR / PEP475
-        if secs < 0:
-            raise oefmt(space.w_ValueError,
-                        "sleep length must be non-negative")
-        # as decreed by Guido, only the main thread can be
-        # interrupted.
-        main_thread = space.fromcache(State).main_thread
-        interruptible = (main_thread == thread.get_ident())
-        MAX = sys.maxint / 1000.0 # > 24 days
-        while secs > MAX:
-            _simple_sleep(space, MAX, interruptible)
-            secs -= MAX
-        _simple_sleep(space, secs, interruptible)
+        space.getexecutioncontext().checksignals()
+        secs = end_time - timeutils.monotonic(space)   # retry
+        if secs <= 0.0:
+            break
 
 def _get_module_object(space, obj_name):
     w_module = space.getbuiltinmodule('time')
@@ -602,10 +588,10 @@ def _gettmarg(space, w_tup, allowNone=True):
     rffi.setintfield(glob_buf, 'c_tm_yday', tm_yday)
     rffi.setintfield(glob_buf, 'c_tm_isdst', space.c_int_w(tup_w[8]))
     #
-    old_tm_zone = glob_buf.c_tm_zone
-    glob_buf.c_tm_zone = lltype.nullptr(rffi.CCHARP.TO)
-    rffi.setintfield(glob_buf, 'c_tm_gmtoff', 0)
     if HAS_TM_ZONE :
+        old_tm_zone = glob_buf.c_tm_zone
+        glob_buf.c_tm_zone = lltype.nullptr(rffi.CCHARP.TO)
+        rffi.setintfield(glob_buf, 'c_tm_gmtoff', 0)
         if len(tup_w) >= 10:
             # NOTE this is not cleanly solved!
             # it saves the string that is later deleted when this
@@ -911,7 +897,7 @@ if HAS_MONOTONIC:
                                                   is_time_adjustment_disabled)
                     if not ok:
                         # Is this right? Cargo culting...
-                        raise wrap_windowserror(space,
+                        raise wrap_oserror(space,
                             rwin32.lastSavedWindowsError("GetSystemTimeAdjustment"))
                     resolution = resolution * time_increment[0]
                 _setinfo(space, w_info, implementation, resolution, True, False)
@@ -1020,7 +1006,7 @@ if _WIN:
             worked = GetProcessTimes(current_process, creation_time, exit_time,
                                      kernel_time, user_time)
             if not worked:
-                raise wrap_windowserror(space,
+                raise wrap_oserror(space,
                     rwin32.lastSavedWindowsError("GetProcessTimes"))
             kernel_time2 = (kernel_time.c_dwLowDateTime |
                             r_ulonglong(kernel_time.c_dwHighDateTime) << 32)

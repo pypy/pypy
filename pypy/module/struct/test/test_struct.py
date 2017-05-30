@@ -365,8 +365,8 @@ class AppTestStruct(object):
         assert self.struct.unpack("ii", b) == (62, 12)
         raises(self.struct.error, self.struct.unpack, "i", b)
 
-    def test_pack_unpack_buffer(self):
-        import array
+    def test_pack_buffer(self):
+        import array, sys
         b = array.array('b', b'\x00' * 19)
         sz = self.struct.calcsize("ii")
         for offset in [2, -17]:
@@ -379,10 +379,16 @@ class AppTestStruct(object):
         assert bytes(b2) == self.struct.pack("ii", 17, 42) + (b'\x00' * 11)
 
         exc = raises(TypeError, self.struct.pack_into, "ii", b'test', 0, 17, 42)
-        assert str(exc.value) == "a read-write buffer is required, not bytes"
+        if '__pypy__' in sys.modules:
+            assert str(exc.value) == "a read-write bytes-like object is required, not bytes"
         exc = raises(self.struct.error, self.struct.pack_into, "ii", b[0:1], 0, 17, 42)
         assert str(exc.value) == "pack_into requires a buffer of at least 8 bytes"
 
+    def test_unpack_buffer(self):
+        import array
+        b = array.array('b', b'\x00' * 19)
+        for offset in [2, -17]:
+            self.struct.pack_into("ii", b, offset, 17, 42)
         assert self.struct.unpack_from("ii", b, 2) == (17, 42)
         assert self.struct.unpack_from("ii", b, -17) == (17, 42)
         assert self.struct.unpack_from("ii", memoryview(b)[2:]) == (17, 42)
@@ -448,6 +454,14 @@ class AppTestStruct(object):
         s = self.struct.Struct('i')
         assert s.unpack(s.pack(42)) == (42,)
         assert s.unpack_from(memoryview(s.pack(42))) == (42,)
+
+    def test_struct_subclass(self):
+        class S(self.struct.Struct):
+            def __init__(self):
+                assert self.size == -1
+                super(S, self).__init__('b')
+                assert self.size == 1
+        assert S().unpack(b'a') == (ord(b'a'),)
 
     def test_overflow(self):
         raises(self.struct.error, self.struct.pack, 'i', 1<<65)
@@ -577,7 +591,7 @@ class AppTestStructBuffer(object):
 
 
 class AppTestFastPath(object):
-    spaceconfig = dict(usemodules=['struct', '__pypy__'])
+    spaceconfig = dict(usemodules=['array', 'struct', '__pypy__'])
 
     def setup_class(cls):
         from rpython.rlib.rstruct import standardfmttable
@@ -596,7 +610,43 @@ class AppTestFastPath(object):
         from rpython.rlib.rstruct import standardfmttable
         standardfmttable.ALLOW_SLOWPATH = True
 
+    def test_unpack_simple(self):
+        buf = self.struct.pack("iii", 0, 42, 43)
+        assert self.struct.unpack("iii", buf) == (0, 42, 43)
+
     def test_unpack_from(self):
         buf = self.struct.pack("iii", 0, 42, 43)
         offset = self.struct.calcsize("i")
         assert self.struct.unpack_from("ii", buf, offset) == (42, 43)
+
+    def test_unpack_bytearray(self):
+        data = self.struct.pack("iii", 0, 42, 43)
+        buf = bytearray(data)
+        assert self.struct.unpack("iii", buf) == (0, 42, 43)
+
+    def test_unpack_array(self):
+        import array
+        data = self.struct.pack("iii", 0, 42, 43)
+        buf = array.array('c', data)
+        assert self.struct.unpack("iii", buf) == (0, 42, 43)
+
+    def test_pack_into_bytearray(self):
+        expected = self.struct.pack("ii", 42, 43)
+        buf = bytearray(len(expected))
+        self.struct.pack_into("ii", buf, 0, 42, 43)
+        assert buf == expected
+
+    def test_pack_into_bytearray_padding(self):
+        expected = self.struct.pack("xxi", 42)
+        buf = bytearray(len(expected))
+        self.struct.pack_into("xxi", buf, 0, 42)
+        assert buf == expected
+
+    def test_pack_into_bytearray_delete(self):
+        expected = self.struct.pack("i", 42)
+        # force W_BytearrayObject._delete_from_start
+        buf = bytearray(64)
+        del buf[:8]
+        self.struct.pack_into("i", buf, 0, 42)
+        buf = buf[:len(expected)]
+        assert buf == expected

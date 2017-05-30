@@ -46,7 +46,7 @@ CLIENT = 0
 SERVER = 1
 
 VERIFY_DEFAULT = 0
-VERIFY_CRL_CHECK_LEAF = lib.X509_V_FLAG_CRL_CHECK 
+VERIFY_CRL_CHECK_LEAF = lib.X509_V_FLAG_CRL_CHECK
 VERIFY_CRL_CHECK_CHAIN = lib.X509_V_FLAG_CRL_CHECK | lib.X509_V_FLAG_CRL_CHECK_ALL
 VERIFY_X509_STRICT = lib.X509_V_FLAG_X509_STRICT
 if lib.Cryptography_HAS_X509_V_FLAG_TRUSTED_FIRST:
@@ -296,6 +296,10 @@ class _SSLSocket(object):
             lib.SSL_set_SSL_CTX(self.ssl, self.ctx.ctx);
         else:
             raise TypeError("The value must be a SSLContext")
+
+    @property
+    def server_side(self):
+        return self.socket_type == SSL_SERVER
 
     def do_handshake(self):
         sock = self.get_socket_or_connection_gone()
@@ -658,7 +662,7 @@ class _SSLSocket(object):
     def tls_unique_cb(self):
         buf = ffi.new("char[]", SSL_CB_MAXLEN)
 
-        if lib.SSL_session_reused(self.ssl) ^ (not self.socket_type):
+        if lib.SSL_session_reused(self.ssl) ^ (not self.server_side):
             # if session is resumed XOR we are the client
             length = lib.SSL_get_finished(self.ssl, buf, SSL_CB_MAXLEN)
         else:
@@ -1297,7 +1301,7 @@ def nid2obj(nid):
     result = _asn1obj2py(obj);
     lib.ASN1_OBJECT_free(obj);
     return result;
-                                                               
+
 
 class MemoryBIO(object):
     def __init__(self):

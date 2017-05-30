@@ -26,7 +26,7 @@
 #define PY_RELEASE_SERIAL	0
 
 /* Version as a string */
-#define PY_VERSION		"3.5.2"
+#define PY_VERSION		"3.5.3"
 
 /* PyPy version as a string */
 #define PYPY_VERSION "5.7.1-beta0"

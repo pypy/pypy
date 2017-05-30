@@ -36,9 +36,9 @@ try:
 except ImportError:
     def _delitem_if_value_is(d, key, value):
         try:
-            if self.data[key] is value:  # fall-back: there is a potential
+            if d[key] is value:  # fall-back: there is a potential
                 #             race condition in multithreaded programs HERE
-                del self.data[key]
+                del d[key]
         except KeyError:
             pass
 

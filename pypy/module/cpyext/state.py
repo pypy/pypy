@@ -163,6 +163,7 @@ class State:
         w_dict = w_mod.getdict(space)
         w_copy = space.call_method(w_dict, 'copy')
         self.extensions[path] = w_copy
+        return w_mod
 
 
 def _rawrefcount_perform(space):

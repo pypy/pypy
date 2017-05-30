@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, METH_STATIC, METH_CLASS, METH_COEXIST, CANNOT_FAIL, cts,
-    parse_dir, bootstrap_function)
+    parse_dir, bootstrap_function, generic_cpy_call, slot_function)
 from pypy.module.cpyext.pyobject import PyObject, as_pyobj, make_typedescr
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.methodobject import (
@@ -14,10 +14,28 @@ from pypy.interpreter.error import oefmt
 cts.parse_header(parse_dir / 'cpyext_moduleobject.h')
 PyModuleDef = cts.gettype('PyModuleDef *')
 PyModuleObject = cts.gettype('PyModuleObject *')
+PyModuleDef_Slot = cts.gettype('PyModuleDef_Slot')
 
 @bootstrap_function
 def init_moduleobject(space):
-    make_typedescr(Module.typedef, basestruct=PyModuleObject.TO)
+    make_typedescr(Module.typedef, basestruct=PyModuleObject.TO,
+                   dealloc=module_dealloc)
+
+@slot_function([PyObject], lltype.Void)
+def module_dealloc(space, py_obj):
+    py_module = rffi.cast(PyModuleObject, py_obj)
+    if py_module.c_md_state:
+        lltype.free(py_module.c_md_state, flavor='raw')
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)
+
+@cpython_api([rffi.CCHARP], PyObject)
+def PyModule_New(space, name):
+    """
+    Return a new module object with the __name__ attribute set to name.
+    Only the module's __doc__ and __name__ attributes are filled in;
+    the caller is responsible for providing a __file__ attribute."""
+    return Module(space, space.newtext(rffi.charp2str(name)))
 
 @cpython_api([PyModuleDef, rffi.INT_real], PyObject)
 def PyModule_Create2(space, module, api_version):
@@ -40,7 +58,8 @@ def PyModule_Create2(space, module, api_version):
     if f_name is not None:
         modname = f_name
     w_mod = Module(space, space.newtext(modname))
-    rffi.cast(PyModuleObject, as_pyobj(space, w_mod)).c_md_def = module
+    py_mod = rffi.cast(PyModuleObject, as_pyobj(space, w_mod))
+    py_mod.c_md_def = module
     state.package_context = None, None
 
     if f_path is not None:
@@ -53,7 +72,94 @@ def PyModule_Create2(space, module, api_version):
     if doc:
         space.setattr(w_mod, space.newtext("__doc__"),
                       space.newtext(doc))
+
+    if module.c_m_size > 0:
+        py_mod.c_md_state = lltype.malloc(rffi.VOIDP.TO, module.c_m_size,
+                                          flavor='raw', zero=True)
     return w_mod
+
+
+createfunctype = lltype.Ptr(lltype.FuncType([PyObject, PyModuleDef], PyObject))
+execfunctype = lltype.Ptr(lltype.FuncType([PyObject], rffi.INT_real))
+
+
+def create_module_from_def_and_spec(space, moddef, w_spec, name):
+    moddef = rffi.cast(PyModuleDef, moddef)
+    if moddef.c_m_size < 0:
+        raise oefmt(space.w_SystemError,
+                    "module %s: m_size may not be negative for multi-phase "
+                    "initialization", name)
+    createf = lltype.nullptr(rffi.VOIDP.TO)
+    has_execution_slots = False
+    cur_slot = rffi.cast(rffi.CArrayPtr(PyModuleDef_Slot), moddef.c_m_slots)
+    if cur_slot:
+        while True:
+            slot = rffi.cast(lltype.Signed, cur_slot[0].c_slot)
+            if slot == 0:
+                break
+            elif slot == 1:
+                if createf:
+                    raise oefmt(space.w_SystemError,
+                                "module %s has multiple create slots", name)
+                createf = cur_slot[0].c_value
+            elif slot < 0 or slot > 2:
+                raise oefmt(space.w_SystemError,
+                            "module %s uses unknown slot ID %d", name, slot)
+            else:
+                has_execution_slots = True
+            cur_slot = rffi.ptradd(cur_slot, 1)
+    if createf:
+        createf = rffi.cast(createfunctype, createf)
+        w_mod = generic_cpy_call(space, createf, w_spec, moddef)
+    else:
+        w_mod = Module(space, space.newtext(name))
+    if isinstance(w_mod, Module):
+        mod = rffi.cast(PyModuleObject, as_pyobj(space, w_mod))
+        #mod.c_md_state = None
+        mod.c_md_def = moddef
+    else:
+        if moddef.c_m_size > 0 or moddef.c_m_traverse or moddef.c_m_clear or \
+           moddef.c_m_free:
+            raise oefmt(space.w_SystemError,
+                        "module %s is not a module object, but requests "
+                        "module state", name)
+        if has_execution_slots:
+            raise oefmt(space.w_SystemError,
+                        "module %s specifies execution slots, but did not "
+                        "create a ModuleType instance", name)
+    dict_w = {}
+    convert_method_defs(space, dict_w, moddef.c_m_methods, None, w_mod, name)
+    for key, w_value in dict_w.items():
+        space.setattr(w_mod, space.newtext(key), w_value)
+    if moddef.c_m_doc:
+        doc = rffi.charp2str(rffi.cast(rffi.CCHARP, moddef.c_m_doc))
+        space.setattr(w_mod, space.newtext('__doc__'), space.newtext(doc))
+    return w_mod
+
+
+def exec_def(space, w_mod, mod_as_pyobj):
+    from pypy.module.cpyext.pyerrors import PyErr_Occurred
+    mod = rffi.cast(PyModuleObject, mod_as_pyobj)
+    moddef = mod.c_md_def
+    cur_slot = rffi.cast(rffi.CArrayPtr(PyModuleDef_Slot), moddef.c_m_slots)
+    while cur_slot and rffi.cast(lltype.Signed, cur_slot[0].c_slot):
+        if rffi.cast(lltype.Signed, cur_slot[0].c_slot) == 2:
+            execf = rffi.cast(execfunctype, cur_slot[0].c_value)
+            res = generic_cpy_call(space, execf, w_mod)
+            has_error = PyErr_Occurred(space) is not None
+            if rffi.cast(lltype.Signed, res):
+                if has_error:
+                    state = space.fromcache(State)
+                    state.check_and_raise_exception()
+                else:
+                    raise oefmt(space.w_SystemError,
+                                "execution of module %S failed without "
+                                "setting an exception", w_mod.w_name)
+            if has_error:
+                raise oefmt(space.w_SystemError,
+                            "execution of module %S raised unreported "
+                            "exception", w_mod.w_name)
+        cur_slot = rffi.ptradd(cur_slot, 1)
 
 
 def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):

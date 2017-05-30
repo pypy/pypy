@@ -40,5 +40,5 @@ typedef struct PyModuleDef{
 typedef struct {
     PyObject_HEAD
     struct PyModuleDef *md_def;
-    //void *md_state;
+    void *md_state;
 } PyModuleObject;

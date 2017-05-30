@@ -514,13 +514,13 @@ class __extend__(pairtype(SomeTuple, SomeTuple)):
     ne = eq
 
     def lt((tup1, tup2)):
-        raise Exception("unsupported: (...) < (...)")
+        raise AnnotatorError("unsupported: (...) < (...)")
     def le((tup1, tup2)):
-        raise Exception("unsupported: (...) <= (...)")
+        raise AnnotatorError("unsupported: (...) <= (...)")
     def gt((tup1, tup2)):
-        raise Exception("unsupported: (...) > (...)")
+        raise AnnotatorError("unsupported: (...) > (...)")
     def ge((tup1, tup2)):
-        raise Exception("unsupported: (...) >= (...)")
+        raise AnnotatorError("unsupported: (...) >= (...)")
 
 
 class __extend__(pairtype(SomeDict, SomeDict)):

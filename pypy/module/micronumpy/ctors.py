@@ -1,7 +1,7 @@
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import BufferInterfaceNotFound
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
-from rpython.rlib.buffer import SubBuffer
+from pypy.interpreter.buffer import SubBuffer
 from rpython.rlib.rstring import strip_spaces
 from rpython.rlib.rawstorage import RAW_STORAGE_PTR
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -91,7 +91,7 @@ def try_interface_method(space, w_object, copy):
             w_base = w_object
             if read_only:
                 w_base = None
-            return W_NDimArray.from_shape_and_storage(space, shape, w_data, 
+            return W_NDimArray.from_shape_and_storage(space, shape, w_data,
                                 dtype, w_base=w_base, strides=strides,
                                 start=offset), read_only
         if w_data is None:
@@ -104,11 +104,11 @@ def try_interface_method(space, w_object, copy):
         #print 'create view from shape',shape,'dtype',dtype,'data',data
         if strides is not None:
             raise oefmt(space.w_NotImplementedError,
-                   "__array_interface__ strides not fully supported yet") 
+                   "__array_interface__ strides not fully supported yet")
         arr = frombuffer(space, w_data, dtype, support.product(shape), offset)
         new_impl = arr.implementation.reshape(arr, shape)
         return W_NDimArray(new_impl), False
-        
+
     except OperationError as e:
         if e.match(space, space.w_AttributeError):
             return None, False
@@ -120,7 +120,7 @@ def _descriptor_from_pep3118_format(space, c_format):
         return descr
     msg = "invalid PEP 3118 format string: '%s'" % c_format
     space.warn(space.newtext(msg), space.w_RuntimeWarning)
-    return None 
+    return None
 
 def _array_from_buffer_3118(space, w_object, dtype):
     try:
@@ -139,12 +139,12 @@ def _array_from_buffer_3118(space, w_object, dtype):
             raise oefmt(space.w_NotImplementedError,
                 "creating an array from a memoryview while specifying dtype "
                 "not supported")
-        if descr.elsize != space.int_w(space.getattr(w_buf, space.newbytes('itemsize'))): 
+        if descr.elsize != space.int_w(space.getattr(w_buf, space.newbytes('itemsize'))):
             msg = ("Item size computed from the PEP 3118 buffer format "
                   "string does not match the actual item size.")
             space.warn(space.newtext(msg), space.w_RuntimeWarning)
             return w_object
-        dtype = descr 
+        dtype = descr
     elif not dtype:
         dtype = descriptor.get_dtype_cache(space).w_stringdtype
         dtype.elsize = space.int_w(space.getattr(w_buf, space.newbytes('itemsize')))
@@ -181,7 +181,7 @@ def _array_from_buffer_3118(space, w_object, dtype):
             raise e
     writable = not space.bool_w(space.getattr(w_buf, space.newbytes('readonly')))
     w_ret = W_NDimArray.from_shape_and_storage(space, shape, w_data,
-               storage_bytes=buflen, dtype=dtype, w_base=w_object, 
+               storage_bytes=buflen, dtype=dtype, w_base=w_object,
                writable=writable, strides=strides)
     if w_ret:
         return w_ret
@@ -212,7 +212,7 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
     if not isinstance(w_object, W_NDimArray):
         w_array = try_array_method(space, w_object, w_dtype)
         if w_array is None:
-            if (    not space.isinstance_w(w_object, space.w_bytes) and 
+            if (    not space.isinstance_w(w_object, space.w_bytes) and
                     not space.isinstance_w(w_object, space.w_unicode) and
                     not isinstance(w_object, W_GenericBox)):
                 # use buffer interface
@@ -551,7 +551,7 @@ def frombuffer(space, w_buffer, w_dtype=None, count=-1, offset=0):
     except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
-        w_buffer = space.call_method(w_buffer, '__buffer__', 
+        w_buffer = space.call_method(w_buffer, '__buffer__',
                                     space.newint(space.BUF_FULL_RO))
         buf = _getbuffer(space, w_buffer)
 

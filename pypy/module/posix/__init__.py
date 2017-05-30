@@ -222,6 +222,14 @@ corresponding Unix manual entries for more information on calls."""
     if hasattr(rposix, 'pwrite'):
        interpleveldefs['pwrite'] = 'interp_posix.pwrite'
 
+    if hasattr(rposix, 'posix_fadvise'):
+        interpleveldefs['posix_fadvise'] = 'interp_posix.posix_fadvise'
+        interpleveldefs['posix_fallocate'] = 'interp_posix.posix_fallocate'
+        for _name in ['POSIX_FADV_WILLNEED', 'POSIX_FADV_NORMAL', 'POSIX_FADV_SEQUENTIAL',
+        'POSIX_FADV_RANDOM', 'POSIX_FADV_NOREUSE', 'POSIX_FADV_DONTNEED']:
+            assert getattr(rposix, _name) is not None, "missing %r" % (_name,)
+            interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
+
     for _name in ["O_CLOEXEC"]:
         if getattr(rposix, _name) is not None:
             interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)

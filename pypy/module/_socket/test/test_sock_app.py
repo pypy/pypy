@@ -514,6 +514,19 @@ class AppTestSocket:
         (reuse,) = struct.unpack('i', reusestr)
         assert reuse != 0
 
+    def test_getsetsockopt_zero(self):
+        # related to issue #2561: when specifying the buffer size param:
+        # if 0 or None, should return the setted value,
+        # otherwise an empty buffer of the specified size
+        import _socket
+        s = _socket.socket()
+        assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 0) == 0
+        assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 2) == b'\x00\x00'
+        s.setsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, True)
+        assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 0) == 1
+        s.setsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 1)
+        assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 0) == 1
+
     def test_socket_ioctl(self):
         import _socket, sys
         if sys.platform != 'win32':
@@ -555,11 +568,11 @@ class AppTestSocket:
         except _socket.gaierror as ex:
             skip("GAIError - probably no connection: %s" % str(ex.args))
         exc = raises(TypeError, s.send, None)
-        assert str(exc.value) == "'NoneType' does not support the buffer interface"
+        assert str(exc.value).startswith("a bytes-like object is required,")
         assert s.send(memoryview(b'')) == 0
         assert s.sendall(memoryview(b'')) is None
         exc = raises(TypeError, s.send, '')
-        assert str(exc.value) == "'str' does not support the buffer interface"
+        assert str(exc.value).startswith("a bytes-like object is required,")
         raises(TypeError, s.sendall, '')
         s.close()
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM, 0)

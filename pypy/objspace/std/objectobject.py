@@ -173,31 +173,55 @@ def descr__str__(space, w_obj):
     return space.get_and_call_function(w_impl, w_obj)
 
 
+def _getnewargs(space, w_obj):
+    w_descr = space.lookup(w_obj, '__getnewargs_ex__')
+    hasargs = True
+    if w_descr is not None:
+        w_result = space.get_and_call_function(w_descr, w_obj)
+        if not space.isinstance_w(w_result, space.w_tuple):
+            raise oefmt(space.w_TypeError,
+                "__getnewargs_ex__ should return a tuple, not '%T'", w_result)
+        n = space.len_w(w_result)
+        if n != 2:
+            raise oefmt(space.w_ValueError,
+                "__getnewargs_ex__ should return a tuple of length 2, not %d",
+                n)
+        w_args, w_kwargs = space.fixedview(w_result, 2)
+        if not space.isinstance_w(w_args, space.w_tuple):
+            raise oefmt(space.w_TypeError,
+                "first item of the tuple returned by __getnewargs_ex__ must "
+                "be a tuple, not '%T'", w_args)
+        if not space.isinstance_w(w_kwargs, space.w_dict):
+            raise oefmt(space.w_TypeError,
+                "second item of the tuple returned by __getnewargs_ex__ must "
+                "be a dict, not '%T'", w_kwargs)
+    else:
+        w_descr = space.lookup(w_obj, '__getnewargs__')
+        if w_descr is not None:
+            w_args = space.get_and_call_function(w_descr, w_obj)
+            if not space.isinstance_w(w_args, space.w_tuple):
+                raise oefmt(space.w_TypeError,
+                    "__getnewargs__ should return a tuple, not '%T'", w_args)
+        else:
+            hasargs = False
+            w_args = space.newtuple([])
+        w_kwargs = space.w_None
+    return hasargs, w_args, w_kwargs
+
 @unwrap_spec(proto=int)
 def descr__reduce__(space, w_obj, proto=0):
     w_proto = space.newint(proto)
     if proto >= 2:
-        w_descr = space.lookup(w_obj, '__getnewargs_ex__')
-        hasargs = True
-        if w_descr is not None:
-            w_result = space.get_and_call_function(w_descr, w_obj)
-            w_args, w_kwargs = space.fixedview(w_result, 2)
-        else:
-            w_descr = space.lookup(w_obj, '__getnewargs__')
-            if w_descr is not None:
-                w_args = space.get_and_call_function(w_descr, w_obj)
-            else:
-                hasargs = False
-                w_args = space.newtuple([])
-            w_kwargs = space.w_None
+        hasargs, w_args, w_kwargs = _getnewargs(space, w_obj)
         w_getstate = space.lookup(w_obj, '__get_state__')
         if w_getstate is None:
-            required = not hasargs and \
-                       not space.isinstance_w(w_obj, space.w_list) and \
-                       not space.isinstance_w(w_obj, space.w_dict)
+            required = (not hasargs and
+                not space.isinstance_w(w_obj, space.w_list) and
+                not space.isinstance_w(w_obj, space.w_dict))
             w_obj_type = space.type(w_obj)
             if required and w_obj_type.layout.typedef.variable_sized:
-                raise oefmt(space.w_TypeError, "cannot pickle %N objects", w_obj_type)
+                raise oefmt(
+                    space.w_TypeError, "cannot pickle %N objects", w_obj_type)
         return reduce_2(space, w_obj, w_proto, w_args, w_kwargs)
     return reduce_1(space, w_obj, w_proto)
 

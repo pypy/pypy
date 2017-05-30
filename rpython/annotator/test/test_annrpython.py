@@ -4584,7 +4584,7 @@ class TestAnnotateTestCase:
             return Ellipsis
         a = self.RPythonAnnotator()
         e = py.test.raises(Exception, a.build_types, f, [])
-        assert str(e.value) == "Don't know how to represent Ellipsis"
+        assert "Don't know how to represent Ellipsis" in str(e.value)
 
     def test_must_be_light_finalizer(self):
         from rpython.rlib import rgc

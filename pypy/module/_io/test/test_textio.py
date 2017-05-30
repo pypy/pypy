@@ -1,5 +1,5 @@
 class AppTestTextIO:
-    spaceconfig = dict(usemodules=['_io', '_locale'])
+    spaceconfig = dict(usemodules=['_io', '_locale', 'array'])
 
     def setup_class(cls):
         from rpython.rlib.rarithmetic import INT_MAX, UINT_MAX
@@ -365,6 +365,22 @@ class AppTestTextIO:
         raises(IOError, txt.close)  # exception not swallowed
         assert txt.closed
 
+    def test_close_error_on_close(self):
+        import _io as io
+        buffer = io.BytesIO(b'testdata')
+        def bad_flush():
+            raise OSError('flush')
+        def bad_close():
+            raise OSError('close')
+        buffer.close = bad_close
+        txt = io.TextIOWrapper(buffer, encoding="ascii")
+        txt.flush = bad_flush
+        err = raises(OSError, txt.close)
+        assert err.value.args == ('close',)
+        assert isinstance(err.value.__context__, OSError)
+        assert err.value.__context__.args == ('flush',)
+        assert not txt.closed
+
     def test_illegal_decoder(self):
         import _io
         raises(LookupError, _io.TextIOWrapper, _io.BytesIO(),
@@ -380,6 +396,38 @@ class AppTestTextIO:
         raises(TypeError, t.readline)
         t = _io.TextIOWrapper(NonbytesStream(u'a'))
         raises(TypeError, t.read)
+
+    def test_read_byteslike(self):
+        import _io as io
+        import array
+
+        class MemviewBytesIO(io.BytesIO):
+            '''A BytesIO object whose read method returns memoryviews
+               rather than bytes'''
+
+            def read1(self, len_):
+                return _to_memoryview(super().read1(len_))
+
+            def read(self, len_):
+                return _to_memoryview(super().read(len_))
+
+        def _to_memoryview(buf):
+            '''Convert bytes-object *buf* to a non-trivial memoryview'''
+
+            arr = array.array('i')
+            idx = len(buf) - len(buf) % arr.itemsize
+            arr.frombytes(buf[:idx])
+            return memoryview(arr)
+
+        r = MemviewBytesIO(b'Just some random string\n')
+        t = io.TextIOWrapper(r, 'utf-8')
+
+        # TextIOwrapper will not read the full string, because
+        # we truncate it to a multiple of the native int size
+        # so that we can construct a more complex memoryview.
+        bytes_val =  _to_memoryview(r.getvalue()).tobytes()
+
+        assert t.read(200) == bytes_val.decode('utf-8')
 
     def test_device_encoding(self):
         import os

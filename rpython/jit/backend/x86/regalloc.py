@@ -435,9 +435,9 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
 
     def consider_guard_not_invalidated(self, op):
         mc = self.assembler.mc
-        n = mc.get_relative_pos()
+        n = mc.get_relative_pos(break_basic_block=False)
         self.perform_guard(op, [], None)
-        assert n == mc.get_relative_pos()
+        assert n == mc.get_relative_pos(break_basic_block=False)
         # ensure that the next label is at least 5 bytes farther than
         # the current position.  Otherwise, when invalidating the guard,
         # we would overwrite randomly the next label's position.

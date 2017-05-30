@@ -253,6 +253,11 @@ def set_wakeup_fd(space, fd):
         raise oefmt(space.w_ValueError,
                     "set_wakeup_fd only works in main thread or with "
                     "__pypy__.thread.enable_signals()")
+
+    if WIN32:
+        raise oefmt(space.w_NotImplementedError, 
+                    "signal.set_wakeup_fd is not implemented on Windows")
+
     if fd != -1:
         if not rposix.is_valid_fd(fd):
             raise oefmt(space.w_ValueError, "invalid fd")

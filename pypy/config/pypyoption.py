@@ -46,8 +46,9 @@ working_modules.update([
 from rpython.jit.backend import detect_cpu
 try:
     if detect_cpu.autodetect().startswith('x86'):
-        working_modules.add('_vmprof')
-        working_modules.add('faulthandler')
+        if not sys.platform.startswith('openbsd'):
+            working_modules.add('_vmprof')
+            working_modules.add('faulthandler')
 except detect_cpu.ProcessorAutodetectError:
     pass
 
@@ -72,8 +73,6 @@ if sys.platform == "win32":
 
     if "cppyy" in working_modules:
         working_modules.remove("cppyy")  # not tested on win32
-    if "faulthandler" in working_modules:
-        working_modules.remove("faulthandler")  # missing details
 
     # The _locale module is needed by site.py on Windows
     default_modules.add("_locale")
@@ -222,9 +221,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                   default=100, cmdline="--prebuiltintto"),
 
         BoolOption("withsmalllong", "use a version of 'long' in a C long long",
-                   default=False),
-
-        BoolOption("withstrbuf", "use strings optimized for addition (ver 2)",
                    default=False),
 
         BoolOption("withspecialisedtuple",

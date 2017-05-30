@@ -61,13 +61,12 @@ def compile_shared(csource, modulename, output_dir=None):
     # set link options
     output_filename = modulename + _get_c_extension_suffix()
     if sys.platform == 'win32':
-        # XXX pyconfig.h uses a pragma to link to the import library,
-        #     which is currently python3.lib
-        library = os.path.join(thisdir, '..', 'libs', 'python32')
+        libname = 'python{0[0]}{0[1]}'.format(sys.version_info)
+        library = os.path.join(thisdir, '..', 'lib', libname)
         if not os.path.exists(library + '.lib'):
             # For a local translation or nightly build
-            library = os.path.join(thisdir, '..', 'pypy', 'goal', 'python32')
-        assert os.path.exists(library + '.lib'),'Could not find import library "%s"' % library
+            library = os.path.join(thisdir, '..', 'pypy', 'goal', libname)
+        assert os.path.exists(library + '.lib'), 'Could not find import library "%s"' % library
         libraries = [library, 'oleaut32']
         extra_ldargs = ['/MANIFEST',  # needed for VC10
                         '/EXPORT:PyInit_' + modulename]

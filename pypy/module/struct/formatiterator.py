@@ -2,7 +2,6 @@ from rpython.rlib.rarithmetic import (r_uint, r_ulonglong, r_longlong,
                                       maxint, intmask)
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rstruct.error import StructError
 from rpython.rlib.rstruct.formatiterator import FormatIterator
 
@@ -10,11 +9,15 @@ from pypy.interpreter.error import OperationError
 
 
 class PackFormatIterator(FormatIterator):
-    def __init__(self, space, args_w, size):
+    def __init__(self, space, wbuf, args_w):
         self.space = space
         self.args_w = args_w
         self.args_index = 0
-        self.result = StringBuilder(size)
+        self.pos = 0
+        self.wbuf = wbuf
+
+    def advance(self, count):
+        self.pos += count
 
     # This *should* be always unroll safe, the only way to get here is by
     # unroll the interpret function, which means the fmt is const, and thus
@@ -31,8 +34,10 @@ class PackFormatIterator(FormatIterator):
 
     @jit.unroll_safe
     def align(self, mask):
-        pad = (-self.result.getlength()) & mask
-        self.result.append_multiple_char('\x00', pad)
+        pad = (-self.pos) & mask
+        for i in range(self.pos, self.pos+pad):
+            self.wbuf.setitem(i, '\x00')
+        self.advance(pad)
 
     def finished(self):
         if self.args_index != len(self.args_w):
@@ -135,15 +140,22 @@ class UnpackFormatIterator(FormatIterator):
         if value != self.length:
             raise StructError("unpack str size too long for format")
 
-    def read(self, count):
+    def can_advance(self, count):
         if self.strides:
             count = self.strides[0]
         end = self.pos + count
-        if end > self.length:
+        return end <= self.length
+
+    def advance(self, count):
+        if not self.can_advance(count):
             raise StructError("unpack str size too short for format")
-        s = self.buf.getslice(self.pos, end, 1, count)
-        self.pos = end
-        return s
+        self.pos += count
+
+    def read(self, count):
+        curpos = self.pos
+        end = curpos + count
+        self.advance(count) # raise if we are out of bound
+        return self.buf.getslice(curpos, end, 1, count)
 
     @specialize.argtype(1)
     def appendobj(self, value):
@@ -162,9 +174,8 @@ class UnpackFormatIterator(FormatIterator):
     def get_pos(self):
         return self.pos
 
-    def get_buffer_as_string_maybe(self):
-        string, pos = self.buf.as_str_and_offset_maybe()
-        return string, pos+self.pos
+    def get_buffer_and_pos(self):
+        return self.buf, self.pos
 
     def skip(self, count):
         # assumption: UnpackFormatIterator only iterates over

@@ -143,11 +143,7 @@ class W_DictMultiObject(W_Root):
         init_or_update(space, self, __args__, 'dict')
 
     def descr_repr(self, space):
-        ec = space.getexecutioncontext()
-        w_currently_in_repr = ec._py_repr
-        if w_currently_in_repr is None:
-            w_currently_in_repr = ec._py_repr = space.newdict()
-        return dictrepr(space, w_currently_in_repr, self)
+        return dictrepr(space, space.get_objects_in_repr(), self)
 
     def descr_eq(self, space, w_other):
         if space.is_w(self, w_other):
@@ -404,10 +400,9 @@ app = applevel('''
     def dictrepr(currently_in_repr, d):
         if len(d) == 0:
             return "{}"
-        dict_id = id(d)
-        if dict_id in currently_in_repr:
+        if d in currently_in_repr:
             return '{...}'
-        currently_in_repr[dict_id] = 1
+        currently_in_repr[d] = 1
         try:
             items = []
             # XXX for now, we cannot use items() without list at
@@ -419,7 +414,7 @@ app = applevel('''
             return "{" +  ', '.join(items) + "}"
         finally:
             try:
-                del currently_in_repr[dict_id]
+                del currently_in_repr[d]
             except:
                 pass
 ''', filename=__file__)
