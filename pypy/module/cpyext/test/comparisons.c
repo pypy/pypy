@@ -64,7 +64,7 @@ PyTypeObject CmpType = {
     0,                                              /* tp_dictoffset */
     0,                                              /* tp_init */
     0,                                              /* tp_alloc */
-    0,                                              /* tp_new */
+    PyType_GenericNew,                              /* tp_new */
     0                                               /* tp_free */
 };
 
@@ -108,12 +108,12 @@ initcomparisons(void)
 {
     PyObject *m, *d;
 
+    OldCmpType.tp_new = &PyType_GenericNew;
+
     if (PyType_Ready(&CmpType) < 0)
         return;
     if (PyType_Ready(&OldCmpType) < 0)
         return;
-    CmpType.tp_new = PyType_GenericNew;
-    OldCmpType.tp_new = PyType_GenericNew;
     m = Py_InitModule("comparisons", NULL);
     if (m == NULL)
         return;

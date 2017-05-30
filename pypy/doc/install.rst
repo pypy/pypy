@@ -32,10 +32,10 @@ file, with no need to install it in any specific location:
 
 .. code-block:: console
 
-    $ tar xf pypy-2.1.tar.bz2
-    $ ./pypy-2.1/bin/pypy
-    Python 2.7.3 (480845e6b1dd, Jul 31 2013, 11:05:31)
-    [PyPy 2.1.0 with GCC 4.4.3] on linux2
+    $ tar xf pypy-x.y.z.tar.bz2
+    $ ./pypy-x.y.z/bin/pypy
+    Python 2.7.x (xxxxxxxxxxxx, Date, Time)
+    [PyPy x.y.z with GCC x.y.z] on linux2
     Type "help", "copyright", "credits" or "license" for more information.
     And now for something completely different: ``PyPy is an exciting technology
     that lets you to write fast, portable, multi-platform interpreters with less
@@ -57,6 +57,7 @@ explained below; then you can directly use pip inside virtualenvs):
 .. code-block:: console
 
     $ ./pypy-xxx/bin/pypy -m ensurepip
+    $ ./pypy-xxx/bin/pip install -U pip wheel # to upgrade to the latest versions
     $ ./pypy-xxx/bin/pip install pygments  # for example
 
 Third party libraries will be installed in ``pypy-xxx/site-packages``, and
@@ -77,7 +78,17 @@ checkout::
 	# from the mercurial checkout
 	$ virtualenv -p /path/to/pypy/pypy/translator/goal/pypy-c my-pypy-env
 
-Note that bin/python is now a symlink to bin/pypy.
+	# in any case activate it
+	$ source my-pypy-env/bin/activate
+
+Note that my-pypy-env/bin/python is now a symlink to my-pypy-env/bin/pypy
+so you should be able to run pypy simply by typing::
+
+    $ python
+
+You should still upgrade pip and wheel to the latest versions via::
+
+    $ my-pypy-env/bin/pip install -U pip wheel
 
 .. _pip: http://pypi.python.org/pypi/pip
 .. _ensurepip: https://docs.python.org/2.7/library/ensurepip.html

@@ -1,5 +1,6 @@
 class AppTestCompile:
     def test_simple(self):
+        import sys
         co = compile('1+2', '?', 'eval')
         assert eval(co) == 3
         co = compile(buffer('1+2'), '?', 'eval')
@@ -8,8 +9,10 @@ class AppTestCompile:
         assert str(exc.value) == "compile() expected string without null bytes"
         exc = raises(TypeError, compile, unichr(0), '?', 'eval')
         assert str(exc.value) == "compile() expected string without null bytes"
-        exc = raises(TypeError, compile, memoryview('1+2'), '?', 'eval')
-        assert str(exc.value) == "expected a readable buffer object"
+
+        if '__pypy__' in sys.modules:
+            co = compile(memoryview('1+2'), '?', 'eval')
+            assert eval(co) == 3
         compile("from __future__ import with_statement", "<test>", "exec")
         raises(SyntaxError, compile, '-', '?', 'eval')
         raises(ValueError, compile, '"\\xt"', '?', 'eval')
@@ -50,7 +53,8 @@ class AppTestCompile:
         co1 = compile('print 1', '<string>', 'exec', _ast.PyCF_ONLY_AST)
         raises(TypeError, compile, co1, '<ast>', 'eval')
         co2 = compile('1+1', '<string>', 'eval', _ast.PyCF_ONLY_AST)
-        compile(co2, '<ast>', 'eval')
+        tree = compile(co2, '<ast>', 'eval')
+        assert compile(co2, '<ast>', 'eval', _ast.PyCF_ONLY_AST) is co2
 
     def test_leading_newlines(self):
         src = """

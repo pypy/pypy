@@ -1471,8 +1471,13 @@ class AppTestRecompiler:
         with self.StdErrCapture(fd=True) as f:
             res = lib.bar(4, 5)
         assert res == 0
-        assert f.getvalue() == (
+        assert f.getvalue() in (
+            # If the underlying cffi is <= 1.9
             "extern \"Python\": function bar() called, but no code was attached "
+            "to it yet with @ffi.def_extern().  Returning 0.\n",
+            # If the underlying cffi is >= 1.10
+            "extern \"Python\": function _CFFI_test_extern_python_1.bar() "
+            "called, but no code was attached "
             "to it yet with @ffi.def_extern().  Returning 0.\n")
 
         @ffi.def_extern("bar")

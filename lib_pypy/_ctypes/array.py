@@ -85,8 +85,9 @@ class ArrayMeta(_CDataMeta):
         res = self.__new__(self)
         ffiarray = self._ffiarray.fromaddress(resarray.buffer, self._length_)
         res._buffer = ffiarray
-        res._base = base
-        res._index = index
+        if base is not None:
+            res._base = base
+            res._index = index
         return res
 
     def _CData_retval(self, resbuffer):

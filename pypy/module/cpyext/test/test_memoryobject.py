@@ -111,7 +111,7 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
                 PyObject* obj = PyTuple_GetItem(args, 0);
                 PyObject* memoryview = PyMemoryView_FromObject(obj);
                 if (memoryview == NULL)
-                    return PyLong_FromLong(-1);
+                    return NULL;
                 view = PyMemoryView_GET_BUFFER(memoryview);
                 Py_DECREF(memoryview);
                 return PyLong_FromLong(view->len / view->itemsize);
@@ -166,6 +166,10 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
                           " on too long format string"
         finally:
             warnings.resetwarnings()
+        # calling get_buffer_info on x creates a memory leak,
+        # which is detected as an error at test teardown:
+        # Exception TypeError: "'NoneType' object is not callable"
+        #         in <bound method ConcreteArray.__del__ ...> ignored
 
     def test_releasebuffer(self):
         if not self.runappdirect:

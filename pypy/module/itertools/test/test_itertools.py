@@ -634,6 +634,17 @@ class AppTestItertools:
         it = itertools.groupby([0], 1)
         raises(TypeError, it.next)
 
+    def test_groupby_question_43905804(self):
+        # http://stackoverflow.com/questions/43905804/
+        import itertools
+
+        inputs = ((x > 5, x) for x in range(10))
+        (_, a), (_, b) = itertools.groupby(inputs, key=lambda x: x[0])
+        a = list(a)
+        b = list(b)
+        assert a == []
+        assert b == [(True, 9)]
+
     def test_iterables(self):
         import itertools
     

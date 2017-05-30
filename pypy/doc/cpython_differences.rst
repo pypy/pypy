@@ -357,6 +357,24 @@ cannot have several of them in a set, unlike in CPython.  (Issue `#1974`__)
 
 .. __: https://bitbucket.org/pypy/pypy/issue/1974/different-behaviour-for-collections-of
 
+Performance Differences
+-------------------------
+
+CPython has an optimization that can make repeated string concatenation not
+quadratic. For example, this kind of code runs in O(n) time::
+
+    s = ''
+    for string in mylist:
+        s += string
+
+In PyPy, this code will always have quadratic complexity. Note also, that the
+CPython optimization is brittle and can break by having slight variations in
+your code anyway. So you should anyway replace the code with::
+
+    parts = []
+    for string in mylist:
+        parts.append(string)
+    s = "".join(parts)
 
 Miscellaneous
 -------------
@@ -483,7 +501,14 @@ Miscellaneous
   the rest is kept.  If you return an unexpected string from
   ``__hex__()`` you get an exception (or a crash before CPython 2.7.13).
 
-* PyPy3: ``__class__`` attritube assignment between heaptypes and non heaptypes.
+* In PyPy, dictionaries passed as ``**kwargs`` can contain only string keys,
+  even for ``dict()`` and ``dict.update()``.  CPython 2.7 allows non-string
+  keys in these two cases (and only there, as far as we know).  E.g. this
+  code produces a ``TypeError``, on CPython 3.x as well as on any PyPy:
+  ``dict(**{1: 2})``.  (Note that ``dict(**d1)`` is equivalent to
+  ``dict(d1)``.)
+
+* PyPy3: ``__class__`` attribute assignment between heaptypes and non heaptypes.
   CPython allows that for module subtypes, but not for e.g. ``int``
   or ``float`` subtypes. Currently PyPy does not support the
   ``__class__`` attribute assignment for any non heaptype subtype.

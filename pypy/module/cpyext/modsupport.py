@@ -10,6 +10,14 @@ from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import oefmt
 
+@cpython_api([rffi.CCHARP], PyObject)
+def PyModule_New(space, name):
+    """
+    Return a new module object with the __name__ attribute set to name.
+    Only the module's __doc__ and __name__ attributes are filled in;
+    the caller is responsible for providing a __file__ attribute."""
+    return Module(space, space.newtext(rffi.charp2str(name)))
+
 #@cpython_api([rffi.CCHARP], PyObject)
 def PyImport_AddModule(space, name):
     """Return the module object corresponding to a module name.  The name argument

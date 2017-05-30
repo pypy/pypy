@@ -716,16 +716,28 @@ class LLGraphCPU(model.AbstractCPU):
         else:
             return self.bh_raw_load_i(struct, offset, descr)
 
+    def _get_int_type_from_size(self, size):
+        if   size == 1:
+            return rffi.UCHAR
+        elif size == 2:
+            return rffi.USHORT
+        elif size == 4:
+            return rffi.UINT
+        elif size == 8:
+            return rffi.ULONGLONG
+        elif size == -1:
+            return rffi.SIGNEDCHAR
+        elif size == -2:
+            return rffi.SHORT
+        elif size == -4:
+            return rffi.INT
+        elif size == -8:
+            return rffi.LONGLONG
+        else:
+            raise NotImplementedError(size)
+    
     def bh_gc_load_indexed_i(self, struct, index, scale, base_ofs, bytes):
-        if   bytes == 1: T = rffi.UCHAR
-        elif bytes == 2: T = rffi.USHORT
-        elif bytes == 4: T = rffi.UINT
-        elif bytes == 8: T = rffi.ULONGLONG
-        elif bytes == -1: T = rffi.SIGNEDCHAR
-        elif bytes == -2: T = rffi.SHORT
-        elif bytes == -4: T = rffi.INT
-        elif bytes == -8: T = rffi.LONGLONG
-        else: raise NotImplementedError(bytes)
+        T = self._get_int_type_from_size(bytes)
         x = llop.gc_load_indexed(T, struct, index, scale, base_ofs)
         return lltype.cast_primitive(lltype.Signed, x)
 
@@ -734,6 +746,30 @@ class LLGraphCPU(model.AbstractCPU):
             raise Exception("gc_load_indexed_f is only for 'double'!")
         return llop.gc_load_indexed(longlong.FLOATSTORAGE,
                                     struct, index, scale, base_ofs)
+
+    def bh_gc_store_indexed_i(self, struct, index, val, scale, base_ofs, bytes,
+                              descr):
+        T = self._get_int_type_from_size(bytes)
+        val = lltype.cast_primitive(T, val)
+        if descr.A.OF == lltype.SingleFloat:
+            val = longlong.int2singlefloat(val)
+        llop.gc_store_indexed(lltype.Void, struct, index, val, scale, base_ofs)
+
+    def bh_gc_store_indexed_f(self, struct, index, val, scale, base_ofs, bytes,
+                              descr):
+        if bytes != 8:
+            raise Exception("gc_store_indexed_f is only for 'double'!")
+        val = longlong.getrealfloat(val)
+        llop.gc_store_indexed(lltype.Void, struct, index, val, scale, base_ofs)
+
+    def bh_gc_store_indexed(self, struct, index, val, scale, base_ofs, bytes,
+                            descr):
+        if descr.A.OF == lltype.Float:
+            self.bh_gc_store_indexed_f(struct, index, val, scale, base_ofs,
+                                       bytes, descr)
+        else:
+            self.bh_gc_store_indexed_i(struct, index, val, scale, base_ofs,
+                                       bytes, descr)
 
     def bh_increment_debug_counter(self, addr):
         p = rffi.cast(rffi.CArrayPtr(lltype.Signed), addr)

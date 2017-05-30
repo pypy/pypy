@@ -621,7 +621,8 @@ class InstanceRepr(Repr):
 
     def _parse_field_list(self, fields, accessor, hints):
         ranking = {}
-        for name in fields:
+        for fullname in fields:
+            name = fullname
             quasi = False
             if name.endswith('?[*]'):   # a quasi-immutable field pointing to
                 name = name[:-4]        # an immutable array
@@ -644,6 +645,12 @@ class InstanceRepr(Repr):
                 raise TyperError(
                     "can't have _immutable_ = True and a quasi-immutable field "
                     "%s in class %s" % (name, self.classdef))
+            if rank in (IR_QUASIIMMUTABLE_ARRAY, IR_IMMUTABLE_ARRAY):
+                from rpython.rtyper.rlist import AbstractBaseListRepr
+                if not isinstance(r, AbstractBaseListRepr):
+                    raise TyperError(
+                        "_immutable_fields_ = [%r] in %r, but %r is not a list "
+                        "(got %r)" % (fullname, self, name, r))
             ranking[mangled_name] = rank
         accessor.initialize(self.object_type, ranking)
         return ranking

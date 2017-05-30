@@ -1,9 +1,10 @@
 
+from rpython.rlib.objectmodel import always_inline
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (cpython_api, CANNOT_FAIL, Py_ssize_t,
                                     build_type_checkers)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
-from pypy.module.cpyext.pyobject import Py_DecRef, PyObject, make_ref
+from pypy.module.cpyext.pyobject import decref, incref, PyObject, make_ref
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.interpreter.error import oefmt
 
@@ -19,59 +20,69 @@ def PyList_New(space, len):
     PySequence_SetItem()  or expose the object to Python code before
     setting all items to a real object with PyList_SetItem().
     """
-    return space.newlist([None] * len)
+    w_list = space.newlist([None] * len)
+    #w_list.convert_to_cpy_strategy(space)
+    return w_list
 
-@cpython_api([rffi.VOIDP, Py_ssize_t, PyObject], PyObject, error=CANNOT_FAIL,
-             result_borrowed=True)
-def PyList_SET_ITEM(space, w_list, index, w_item):
-    """Macro form of PyList_SetItem() without error checking. This is normally
+@always_inline
+def get_list_storage(space, w_list):
+    from pypy.module.cpyext.sequence import CPyListStrategy
+    w_list.convert_to_cpy_strategy(space)
+    return CPyListStrategy.unerase(w_list.lstorage)
+
+@cpython_api([rffi.VOIDP, Py_ssize_t, PyObject], lltype.Void, error=CANNOT_FAIL)
+def PyList_SET_ITEM(space, w_list, index, py_item):
+    """Form of PyList_SetItem() without error checking. This is normally
     only used to fill in new lists where there is no previous content.
 
-    This function "steals" a reference to item, and, unlike PyList_SetItem(),
-    does not discard a reference to any item that it being replaced; any
-    reference in list at position i will be leaked.
+    "steals" a reference to item, and, unlike PyList_SetItem(), does not
+    discard a reference to any item that it being replaced; any reference in
+    list at position i will be leaked.
     """
     assert isinstance(w_list, W_ListObject)
+    storage = get_list_storage(space, w_list)
     assert 0 <= index < w_list.length()
-    # Deliberately leak, so that it can be safely decref'd.
-    make_ref(space, w_list.getitem(index))
-    Py_DecRef(space, w_item)
-    w_list.setitem(index, w_item)
-    return w_item
-
+    storage._elems[index] = py_item
 
 @cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
-def PyList_SetItem(space, w_list, index, w_item):
+def PyList_SetItem(space, w_list, index, py_item):
     """Set the item at index index in list to item.  Return 0 on success
     or -1 on failure.
-    
+
     This function "steals" a reference to item and discards a reference to
     an item already in the list at the affected position.
     """
-    Py_DecRef(space, w_item)
     if not isinstance(w_list, W_ListObject):
+        decref(space, py_item)
         PyErr_BadInternalCall(space)
     if index < 0 or index >= w_list.length():
+        decref(space, py_item)
         raise oefmt(space.w_IndexError, "list assignment index out of range")
-    w_list.setitem(index, w_item)
+    storage = get_list_storage(space, w_list)
+    py_old = storage._elems[index]
+    storage._elems[index] = py_item
+    decref(w_list.space, py_old)
     return 0
 
-@cpython_api([PyObject, Py_ssize_t], PyObject, result_borrowed=True)
+@cpython_api([rffi.VOIDP, Py_ssize_t], PyObject, result_is_ll=True)
+def PyList_GET_ITEM(space, w_list, index):
+    assert isinstance(w_list, W_ListObject)
+    storage = get_list_storage(space, w_list)
+    assert 0 <= index < w_list.length()
+    return storage._elems[index]     # borrowed ref
+
+@cpython_api([PyObject, Py_ssize_t], PyObject, result_is_ll=True)
 def PyList_GetItem(space, w_list, index):
     """Return the object at position pos in the list pointed to by p.  The
     position must be positive, indexing from the end of the list is not
     supported.  If pos is out of bounds, return NULL and set an
     IndexError exception."""
-    from pypy.module.cpyext.sequence import CPyListStrategy
     if not isinstance(w_list, W_ListObject):
         PyErr_BadInternalCall(space)
     if index < 0 or index >= w_list.length():
         raise oefmt(space.w_IndexError, "list index out of range")
-    cpy_strategy = space.fromcache(CPyListStrategy)
-    if w_list.strategy is not cpy_strategy:
-        w_list.ensure_object_strategy() # make sure we can return a borrowed obj
-    w_res = w_list.getitem(index)
-    return w_res     # borrowed ref
+    storage = get_list_storage(space, w_list)
+    return storage._elems[index]     # borrowed ref
 
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)

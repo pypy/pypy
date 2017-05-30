@@ -1,5 +1,5 @@
 from rpython.rlib import jit, rgc
-from rpython.rlib.buffer import Buffer
+from rpython.rlib.buffer import RawBuffer
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import ovfcheck, widen
 from rpython.rlib.unroll import unrolling_iterable
@@ -796,7 +796,7 @@ for k, v in types.items():
     v.typecode = k
 unroll_typecodes = unrolling_iterable(types.keys())
 
-class ArrayBuffer(Buffer):
+class ArrayBuffer(RawBuffer):
     _immutable_ = True
 
     def __init__(self, array, readonly):
@@ -840,7 +840,7 @@ class ArrayBuffer(Buffer):
                 return rffi.charpsize2str(rffi.ptradd(data, start), size)
             finally:
                 self.array._charbuf_stop()
-        return Buffer.getslice(self, start, stop, step, size)
+        return RawBuffer.getslice(self, start, stop, step, size)
 
     def get_raw_address(self):
         return self.array._charbuf_start()
