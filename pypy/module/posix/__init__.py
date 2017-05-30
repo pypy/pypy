@@ -229,6 +229,14 @@ corresponding Unix manual entries for more information on calls."""
         'POSIX_FADV_RANDOM', 'POSIX_FADV_NOREUSE', 'POSIX_FADV_DONTNEED']:
             assert getattr(rposix, _name) is not None, "missing %r" % (_name,)
             interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
+    
+    if hasattr(rposix, 'sched_get_priority_max'):
+        interpleveldefs['sched_get_priority_max'] = 'interp_posix.sched_get_priority_max'
+        interpleveldefs['sched_get_priority_min'] = 'interp_posix.sched_get_priority_min'
+        for _name in ['SCHED_FIFO', 'SCHED_RR', 'SCHED_OTHER',
+        'SCHED_BATCH']:
+            assert getattr(rposix, _name) is not None, "missing %r" % (_name,)
+            interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
 
     for _name in ["O_CLOEXEC"]:
         if getattr(rposix, _name) is not None:
