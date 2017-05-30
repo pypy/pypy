@@ -14,6 +14,49 @@ S.become(lltype.GcStruct('S',
                          ('prev', lltype.Ptr(S)),
                          ('next', lltype.Ptr(S))))
 
+class RefcountSpace(GCSpace):
+    def __init__(self):
+        GCSpace.__init__(self, IncrementalMiniMarkGC, {})
+        self.trigger = []
+        self.gc.rawrefcount_init(lambda: self.trigger.append(1))
+
+    def new_rawobj(self):
+        r1 = lltype.malloc(PYOBJ_HDR, flavor='raw')
+        r1.ob_refcnt = 0
+        r1.ob_pypy_link = 0
+        return r1
+
+    def new_gcobj(self, intval, external=False):
+        saved = self.gc.nonlarge_max
+        try:
+            if external:
+                self.gc.nonlarge_max = 1
+            p1 = self.malloc(S)
+        finally:
+            self.gc.nonlarge_max = saved
+        p1.x = intval
+        return p1
+
+    def create_link(self, rawobj, gcobj, is_light=False, is_pyobj=False):
+        if is_light:
+            rawobj.ob_refcnt += REFCNT_FROM_PYPY_LIGHT
+        else:
+            rawobj.ob_refcnt += REFCNT_FROM_PYPY
+        rawaddr = llmemory.cast_ptr_to_adr(rawobj)
+        gcref = lltype.cast_opaque_ptr(llmemory.GCREF, gcobj)
+        if is_pyobj:
+            self.gc.rawrefcount_create_link_pyobj(gcref, rawaddr)
+        else:
+            self.gc.rawrefcount_create_link_pypy(gcref, rawaddr)
+
+    def from_gc(self, gcobj):
+        gcref = lltype.cast_opaque_ptr(llmemory.GCREF, gcobj)
+        rawaddr = self.gc.rawrefcount_from_obj(gcref)
+        if rawaddr == llmemory.NULL:
+            return None
+        else:
+            return self.gc._pyobj(rawaddr)
+
 
 class TestRawRefCount(BaseDirectGCTest):
     GCClass = IncrementalMiniMarkGC
@@ -314,49 +357,6 @@ class TestRawRefCount(BaseDirectGCTest):
         check_alive(0)
         self._collect(major=True)
         check_alive(0)
-
-class RefcountSpace(GCSpace):
-    def __init__(self):
-        GCSpace.__init__(self, IncrementalMiniMarkGC, {})
-        self.trigger = []
-        self.gc.rawrefcount_init(lambda: self.trigger.append(1))
-
-    def new_rawobj(self):
-        r1 = lltype.malloc(PYOBJ_HDR, flavor='raw')
-        r1.ob_refcnt = 0
-        r1.ob_pypy_link = 0
-        return r1
-
-    def new_gcobj(self, intval, external=False):
-        saved = self.gc.nonlarge_max
-        try:
-            if external:
-                self.gc.nonlarge_max = 1
-            p1 = self.malloc(S)
-        finally:
-            self.gc.nonlarge_max = saved
-        p1.x = intval
-        return p1
-
-    def create_link(self, rawobj, gcobj, is_light=False, is_pyobj=False):
-        if is_light:
-            rawobj.ob_refcnt += REFCNT_FROM_PYPY_LIGHT
-        else:
-            rawobj.ob_refcnt += REFCNT_FROM_PYPY
-        rawaddr = llmemory.cast_ptr_to_adr(rawobj)
-        gcref = lltype.cast_opaque_ptr(llmemory.GCREF, gcobj)
-        if is_pyobj:
-            self.gc.rawrefcount_create_link_pyobj(gcref, rawaddr)
-        else:
-            self.gc.rawrefcount_create_link_pypy(gcref, rawaddr)
-
-    def from_gc(self, gcobj):
-        gcref = lltype.cast_opaque_ptr(llmemory.GCREF, gcobj)
-        rawaddr = self.gc.rawrefcount_from_obj(gcref)
-        if rawaddr == llmemory.NULL:
-            return None
-        else:
-            return self.gc._pyobj(rawaddr)
 
 from rpython.rtyper.test.test_rdict import signal_timeout, Action
 from hypothesis.strategies import (
