@@ -235,6 +235,7 @@ else:
     includes = ['unistd.h',  'sys/types.h', 'sys/wait.h',
                 'utime.h', 'sys/time.h', 'sys/times.h',
                 'sys/resource.h',
+                'sched.h',
                 'grp.h', 'dirent.h', 'sys/stat.h', 'fcntl.h',
                 'signal.h', 'sys/utsname.h', _ptyh]
     if sys.platform.startswith('linux'):
@@ -255,6 +256,10 @@ class CConfig:
     PRIO_PROCESS = rffi_platform.DefinedConstantInteger('PRIO_PROCESS')
     PRIO_PGRP = rffi_platform.DefinedConstantInteger('PRIO_PGRP')
     PRIO_USER = rffi_platform.DefinedConstantInteger('PRIO_USER')
+    SCHED_FIFO = rffi_platform.DefinedConstantInteger('SCHED_FIFO')
+    SCHED_RR = rffi_platform.DefinedConstantInteger('SCHED_RR')
+    SCHED_OTHER = rffi_platform.DefinedConstantInteger('SCHED_OTHER')
+    SCHED_BATCH = rffi_platform.DefinedConstantInteger('SCHED_BATCH')
     O_NONBLOCK = rffi_platform.DefinedConstantInteger('O_NONBLOCK')
     OFF_T = rffi_platform.SimpleType('off_t')
     OFF_T_SIZE = rffi_platform.SizeOf('off_t')
@@ -1817,6 +1822,21 @@ if not _WIN32:
 
     def setpriority(which, who, prio):
         handle_posix_error('setpriority', c_setpriority(which, who, prio))
+
+    c_sched_get_priority_max = external('sched_get_priority_max', [rffi.INT],
+                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+    c_sched_get_priority_min = external('sched_get_priority_min', [rffi.INT],
+                             rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO)
+
+    @enforceargs(int)
+    def sched_get_priority_max(policy):
+        return handle_posix_error('sched_get_priority_max', c_sched_get_priority_max(policy))
+
+    @enforceargs(int)
+    def sched_get_priority_min(policy):
+        return handle_posix_error('sched_get_priority_min', c_sched_get_priority_min(policy))
+
+
 
 
 #___________________________________________________________________

@@ -1,9 +1,9 @@
 =========================
-What's new in PyPy3 5.8+
+What's new in PyPy3 5.7+
 =========================
 
-.. this is the revision after release-pypy3.3-5.8.x was branched
-.. startrev: 0f08064cf67c
+.. this is the revision after release-pypy3.3-5.7.x was branched
+.. startrev: afbf09453369
 
 .. branch: mtest
 Use "<python> -m test" to run the CPython test suite, as documented by CPython,
