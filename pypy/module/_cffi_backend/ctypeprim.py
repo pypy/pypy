@@ -532,3 +532,51 @@ class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
     @jit.dont_look_inside
     def nonzero(self, cdata):
         return misc.is_nonnull_longdouble(cdata)
+
+
+class W_CTypePrimitiveComplex(W_CTypePrimitive):
+    _attrs_ = []
+
+    def cast(self, w_ob):
+        space = self.space
+        if isinstance(w_ob, cdataobj.W_CData):
+            if not isinstance(w_ob.ctype, W_CTypePrimitive):
+                raise oefmt(space.w_TypeError,
+                            "cannot cast ctype '%s' to ctype '%s'",
+                            w_ob.ctype.name, self.name)
+            w_ob = w_ob.convert_to_object()
+        #
+        imag = 0.0
+        if space.isinstance_w(w_ob, space.w_bytes):
+            real = self.cast_str(w_ob)
+        elif space.isinstance_w(w_ob, space.w_unicode):
+            real = self.cast_unicode(w_ob)
+        else:
+            real, imag = space.unpackcomplex(w_ob)
+        w_cdata = cdataobj.W_CDataMem(space, self)
+        w_cdata.write_raw_complex_data(real, imag)
+        return w_cdata
+
+    def complex(self, cdata):
+        return self.convert_to_object(cdata)
+
+    def convert_to_object(self, cdata):
+        halfsize = self.size >> 1
+        cdata2 = rffi.ptradd(cdata, halfsize)
+        real = misc.read_raw_float_data(cdata, halfsize)
+        imag = misc.read_raw_float_data(cdata2, halfsize)
+        return self.space.newcomplex(real, imag)
+
+    def convert_from_object(self, cdata, w_ob):
+        space = self.space
+        real, imag = space.unpackcomplex(w_ob)
+        halfsize = self.size >> 1
+        cdata2 = rffi.ptradd(cdata, halfsize)
+        misc.write_raw_float_data(cdata,  real, halfsize)
+        misc.write_raw_float_data(cdata2, imag, halfsize)
+
+    def nonzero(self, cdata):
+        halfsize = self.size >> 1
+        cdata2 = rffi.ptradd(cdata, halfsize)
+        return (misc.is_nonnull_float(cdata, halfsize) |
+                misc.is_nonnull_float(cdata2, halfsize))

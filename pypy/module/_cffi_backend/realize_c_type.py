@@ -8,6 +8,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.module import _cffi_backend
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend import cffi_opcode, newtype, ctypestruct
+from pypy.module._cffi_backend import ctypeprim
 from pypy.module._cffi_backend import parse_c_type
 
 
@@ -70,6 +71,8 @@ class RealizeCache:
         "uint_fast64_t",
         "intmax_t",
         "uintmax_t",
+        "float _Complex",
+        "double _Complex",
         ]
     assert len(NAMES) == cffi_opcode._NUM_PRIM
 
@@ -209,7 +212,7 @@ class W_RawFuncType(W_Root):
         # which the struct args are replaced with ptr-to- struct, and
         # a struct return value is replaced with a hidden first arg of
         # type ptr-to-struct.  This is how recompiler.py produces
-        # trampoline functions for PyPy.
+        # trampoline functions for PyPy.  (Same with complex numbers.)
         if self.nostruct_ctype is None:
             fargs, fret, ellipsis, abi = self._unpack(ffi)
             # 'locs' will be a string of the same length as the final fargs,
@@ -218,11 +221,13 @@ class W_RawFuncType(W_Root):
             locs = ['\x00'] * len(fargs)
             for i in range(len(fargs)):
                 farg = fargs[i]
-                if isinstance(farg, ctypestruct.W_CTypeStructOrUnion):
+                if (isinstance(farg, ctypestruct.W_CTypeStructOrUnion) or
+                    isinstance(farg, ctypeprim.W_CTypePrimitiveComplex)):
                     farg = newtype.new_pointer_type(ffi.space, farg)
                     fargs[i] = farg
                     locs[i] = 'A'
-            if isinstance(fret, ctypestruct.W_CTypeStructOrUnion):
+            if (isinstance(fret, ctypestruct.W_CTypeStructOrUnion) or
+                isinstance(fret, ctypeprim.W_CTypePrimitiveComplex)):
                 fret = newtype.new_pointer_type(ffi.space, fret)
                 fargs = [fret] + fargs
                 locs = ['R'] + locs

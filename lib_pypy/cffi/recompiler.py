@@ -506,7 +506,7 @@ class Recompiler:
 
     def _convert_funcarg_to_c(self, tp, fromvar, tovar, errcode):
         extraarg = ''
-        if isinstance(tp, model.BasePrimitiveType):
+        if isinstance(tp, model.BasePrimitiveType) and not tp.is_complex_type():
             if tp.is_integer_type() and tp.name != '_Bool':
                 converter = '_cffi_to_c_int'
                 extraarg = ', %s' % tp.name
@@ -524,8 +524,10 @@ class Recompiler:
                                                     tovar, errcode)
             return
         #
-        elif isinstance(tp, model.StructOrUnionOrEnum):
-            # a struct (not a struct pointer) as a function argument
+        elif (isinstance(tp, model.StructOrUnionOrEnum) or
+              isinstance(tp, model.BasePrimitiveType)):
+            # a struct (not a struct pointer) as a function argument;
+            # or, a complex (the same code works)
             self._prnt('  if (_cffi_to_c((char *)&%s, _cffi_type(%d), %s) < 0)'
                       % (tovar, self._gettypenum(tp), fromvar))
             self._prnt('    %s;' % errcode)
@@ -570,7 +572,7 @@ class Recompiler:
                 return '_cffi_from_c_int(%s, %s)' % (var, tp.name)
             elif isinstance(tp, model.UnknownFloatType):
                 return '_cffi_from_c_double(%s)' % (var,)
-            elif tp.name != 'long double':
+            elif tp.name != 'long double' and not tp.is_complex_type():
                 return '_cffi_from_c_%s(%s)' % (tp.name.replace(' ', '_'), var)
             else:
                 return '_cffi_from_c_deref((char *)&%s, _cffi_type(%d))' % (
@@ -734,21 +736,26 @@ class Recompiler:
         #
         # the PyPy version: need to replace struct/union arguments with
         # pointers, and if the result is a struct/union, insert a first
-        # arg that is a pointer to the result.
+        # arg that is a pointer to the result.  We also do that for
+        # complex args and return type.
+        def need_indirection(type):
+            return (isinstance(type, model.StructOrUnion) or
+                    (isinstance(type, model.PrimitiveType) and
+                     type.is_complex_type()))
         difference = False
         arguments = []
         call_arguments = []
         context = 'argument of %s' % name
         for i, type in enumerate(tp.args):
             indirection = ''
-            if isinstance(type, model.StructOrUnion):
+            if need_indirection(type):
                 indirection = '*'
                 difference = True
             arg = type.get_c_name(' %sx%d' % (indirection, i), context)
             arguments.append(arg)
             call_arguments.append('%sx%d' % (indirection, i))
         tp_result = tp.result
-        if isinstance(tp_result, model.StructOrUnion):
+        if need_indirection(tp_result):
             context = 'result of %s' % name
             arg = tp_result.get_c_name(' *result', context)
             arguments.insert(0, arg)
@@ -1180,7 +1187,7 @@ class Recompiler:
             size_of_result = '(int)sizeof(%s)' % (
                 tp.result.get_c_name('', context),)
         prnt('static struct _cffi_externpy_s _cffi_externpy__%s =' % name)
-        prnt('  { "%s", %s };' % (name, size_of_result))
+        prnt('  { "%s.%s", %s };' % (self.module_name, name, size_of_result))
         prnt()
         #
         arguments = []
@@ -1479,6 +1486,12 @@ def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
                     _patch_for_embedding(patchlist)
                 if target != '*':
                     _patch_for_target(patchlist, target)
+                if compiler_verbose:
+                    if tmpdir == '.':
+                        msg = 'the current directory is'
+                    else:
+                        msg = 'setting the current directory to'
+                    print('%s %r' % (msg, os.path.abspath(tmpdir)))
                 os.chdir(tmpdir)
                 outputfilename = ffiplatform.compile('.', ext,
                                                      compiler_verbose, debug)

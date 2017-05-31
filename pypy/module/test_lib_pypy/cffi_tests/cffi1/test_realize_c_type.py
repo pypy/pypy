@@ -48,7 +48,6 @@ def test_all_primitives():
     for name in cffi_opcode.PRIMITIVE_TO_INDEX:
         check(name, name)
 
-
 def check_func(input, expected_output=None):
     import _cffi_backend
     ffi = _cffi_backend.FFI()
