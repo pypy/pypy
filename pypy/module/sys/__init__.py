@@ -39,8 +39,8 @@ class Module(MixedModule):
         'byteorder'             : 'space.newtext(sys.byteorder)',
         'maxunicode'            : 'space.newint(vm.MAXUNICODE)',
         'pypy_objspaceclass'    : 'space.newtext(repr(space))',
-        #'prefix'               : # added by pypy_initial_path() when it
-        #'exec_prefix'          : # succeeds, pointing to trunk or /usr
+        'prefix'                : 'state.get(space).w_initial_prefix',
+        'exec_prefix'           : 'state.get(space).w_initial_prefix',
         'path'                  : 'state.get(space).w_path',
         'modules'               : 'state.get(space).w_modules',
         'argv'                  : 'state.get(space).w_argv',

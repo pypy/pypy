@@ -149,7 +149,6 @@ class AppTestBytesObject:
             assert result == "a foo b"
             assert isinstance(result, cls)
 
-
         for format, arg, cls in [("a %s b", "foo", str),
                                  (u"a %s b", u"foo", unicode)]:
             raises(TypeError, arg.__rmod__, format[:2])
