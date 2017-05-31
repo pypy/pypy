@@ -20,8 +20,8 @@ class RefcountSpace(GCSpace):
         self.trigger = []
         self.gc.rawrefcount_init(lambda: self.trigger.append(1))
 
-    def new_rawobj(self):
-        r1 = lltype.malloc(PYOBJ_HDR, flavor='raw')
+    def new_rawobj(self, immortal=False):
+        r1 = lltype.malloc(PYOBJ_HDR, flavor='raw', immortal=immortal)
         r1.ob_refcnt = 0
         r1.ob_pypy_link = 0
         return r1
@@ -82,47 +82,20 @@ class TestRawRefCount(BaseDirectGCTest):
             p1.x = intval
             space.consider_constant(p1)
             return p1
-        saved = space.gc.nonlarge_max
-        try:
-            if external:
-                space.gc.nonlarge_max = 1
-            p1 = space.malloc(S)
-        finally:
-            space.gc.nonlarge_max = saved
-        p1.x = intval
+        p1 = space.new_gcobj(intval, external=external)
         if old:
             space.stackroots.append(p1)
             self._collect(major=False)
             p1 = space.stackroots.pop()
         return p1
 
-    def create_rawobj(self, immortal=False):
-        r1 = lltype.malloc(PYOBJ_HDR, flavor='raw', immortal=immortal)
-        r1.ob_refcnt = 0
-        r1.ob_pypy_link = 0
-        return r1
-
-    def create_link(self, rawobj, gcobj, is_light=False, is_pyobj=False):
-        space = self.space
-        if is_light:
-            rawobj.ob_refcnt += REFCNT_FROM_PYPY_LIGHT
-        else:
-            rawobj.ob_refcnt += REFCNT_FROM_PYPY
-        rawaddr = llmemory.cast_ptr_to_adr(rawobj)
-        gcref = lltype.cast_opaque_ptr(llmemory.GCREF, gcobj)
-        if is_pyobj:
-            assert not is_light
-            space.gc.rawrefcount_create_link_pyobj(gcref, rawaddr)
-        else:
-            space.gc.rawrefcount_create_link_pypy(gcref, rawaddr)
-
     def _rawrefcount_pair(self, intval, is_light=False, is_pyobj=False,
                           create_old=False, create_immortal=False,
                           force_external=False):
         space = self.space
         p1 = self.create_gcobj(intval, old=create_old, immortal=create_immortal, external=force_external)
-        r1 = self.create_rawobj(immortal=create_immortal)
-        self.create_link(r1, p1, is_light=is_light, is_pyobj=is_pyobj)
+        r1 = space.new_rawobj(immortal=create_immortal)
+        space.create_link(r1, p1, is_light=is_light, is_pyobj=is_pyobj)
         if is_light:
             rc = REFCNT_FROM_PYPY_LIGHT
         else:
@@ -155,7 +128,7 @@ class TestRawRefCount(BaseDirectGCTest):
         assert space.gc.rawrefcount_from_obj(p1ref) == r1addr
         assert space.gc.rawrefcount_to_obj(r1addr) == p1ref
         p2 = self.create_gcobj(84)
-        r2 = self.create_rawobj()
+        r2 = space.new_rawobj()
         r2.ob_refcnt += 1
         p2ref = lltype.cast_opaque_ptr(llmemory.GCREF, p2)
         r2addr = llmemory.cast_ptr_to_adr(r2)
