@@ -6,6 +6,7 @@ LIST_OF_FILE_NAMES = ['sources', 'include_dirs', 'library_dirs',
                       'extra_objects', 'depends']
 
 def get_extension(srcfilename, modname, sources=(), **kwds):
+    _hack_at_distutils()
     from distutils.core import Extension
     allsources = [srcfilename]
     for src in sources:
@@ -15,6 +16,7 @@ def get_extension(srcfilename, modname, sources=(), **kwds):
 def compile(tmpdir, ext, compiler_verbose=0, debug=None):
     """Compile a C extension module using distutils."""
 
+    _hack_at_distutils()
     saved_environ = os.environ.copy()
     try:
         outputfilename = _build(tmpdir, ext, compiler_verbose, debug)
@@ -113,3 +115,13 @@ def flatten(x):
     f = cStringIO.StringIO()
     _flatten(x, f)
     return f.getvalue()
+
+def _hack_at_distutils():
+    # Windows-only workaround for some configurations: see
+    # https://bugs.python.org/issue23246 (Python 2.7 with 
+    # a specific MS compiler suite download)
+    if sys.platform == "win32":
+        try:
+            import setuptools    # for side-effects, patches distutils
+        except ImportError:
+            pass

@@ -95,7 +95,8 @@ void_type = VoidType()
 
 
 class BasePrimitiveType(BaseType):
-    pass
+    def is_complex_type(self):
+        return False
 
 
 class PrimitiveType(BasePrimitiveType):
@@ -116,6 +117,8 @@ class PrimitiveType(BasePrimitiveType):
         'float':              'f',
         'double':             'f',
         'long double':        'f',
+        'float _Complex':     'j',
+        'double _Complex':    'j',
         '_Bool':              'i',
         # the following types are not primitive in the C sense
         'wchar_t':            'c',
@@ -163,6 +166,8 @@ class PrimitiveType(BasePrimitiveType):
         return self.ALL_PRIMITIVE_TYPES[self.name] == 'i'
     def is_float_type(self):
         return self.ALL_PRIMITIVE_TYPES[self.name] == 'f'
+    def is_complex_type(self):
+        return self.ALL_PRIMITIVE_TYPES[self.name] == 'j'
 
     def build_backend_type(self, ffi, finishlist):
         return global_cache(self, ffi, 'new_primitive_type', self.name)
