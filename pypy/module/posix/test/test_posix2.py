@@ -944,7 +944,8 @@ class AppTestPosix:
             assert posix.sched_get_priority_max(posix.SCHED_FIFO) != -1
             assert posix.sched_get_priority_max(posix.SCHED_RR) != -1
             assert posix.sched_get_priority_max(posix.SCHED_OTHER) != -1
-            assert posix.sched_get_priority_max(posix.SCHED_BATCH) != -1
+            if getattr(posix, 'SCHED_BATCH', None):
+                assert posix.sched_get_priority_max(posix.SCHED_BATCH) != -1
 
     if hasattr(rposix, 'sched_get_priority_min'):
         def test_os_sched_get_priority_min(self):
@@ -953,7 +954,8 @@ class AppTestPosix:
             assert posix.sched_get_priority_min(posix.SCHED_FIFO) != -1
             assert posix.sched_get_priority_min(posix.SCHED_RR) != -1
             assert posix.sched_get_priority_min(posix.SCHED_OTHER) != -1
-            assert posix.sched_get_priority_min(posix.SCHED_BATCH) != -1
+            if getattr(posix, 'SCHED_BATCH', None):
+                assert posix.sched_get_priority_min(posix.SCHED_BATCH) != -1
             
     if hasattr(rposix, 'sched_get_priority_min'):
         def test_os_sched_priority_max_greater_than_min(self):
