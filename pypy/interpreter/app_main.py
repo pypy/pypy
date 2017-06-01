@@ -831,7 +831,7 @@ def setup_bootstrap_path(executable):
     stdlib_path = sys.pypy_find_stdlib(executable)
     if stdlib_path is None:
         initstdio()
-        print(STDLIB_WARNING % (getattr(sys, 'prefix', '<missing>'), 
+        print(STDLIB_WARNING % (getattr(sys, 'prefix', '<missing>'),),
             file=sys.stderr)
     else:
         sys.path[:] = stdlib_path
@@ -954,3 +954,4 @@ if __name__ == '__main__':
         import os; os.environ.update(reset)
         assert old_argv is sys.argv
         assert old_path is sys.path
+
