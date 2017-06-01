@@ -8,8 +8,7 @@ v3.5 syntax). The two releases are both based on much the same codebase, thus
 the dual release.  Note that PyPy3.5 supports Linux 64bit only for now. 
 
 This new PyPy2.7 release includes the upstream stdlib version 2.7.13, and
-PyPy3.5 (our first in the 3.5 series) includes the upstream stdlib version
-3.5.3.
+PyPy3.5 includes the upstream stdlib version 3.5.3.
 
 We continue to make incremental improvements to our C-API
 compatibility layer (cpyext). PyPy2 can now import and run many C-extension
@@ -19,13 +18,13 @@ Please let us know if your use case is slow, we have ideas how to make things
 faster but need real-world examples (not micro-benchmarks) of problematic code.
 
 Work proceeds at a good pace on the PyPy3.5
-version due to a grant_ from the Mozilla Foundation, hence our first 3.5.3 beta
+version due to a grant_ from the Mozilla Foundation, hence our 3.5.3 beta
 release. Thanks Mozilla !!! While we do not pass all tests yet, asyncio works and
 as `these benchmarks show`_ it already gives a nice speed bump.
 We also backported the ``f""`` formatting from 3.6 (as an exception; otherwise
 "PyPy3.5" supports the Python 3.5 language).
 
-CFFI_ has been updated to 1.10, improving an already great package for
+CFFI_ has been updated to 1.11, improving an already great package for
 interfacing with C.
 
 As always, this release fixed many issues and bugs raised by the
