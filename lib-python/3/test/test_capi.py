@@ -26,6 +26,11 @@ _testcapi = support.import_module('_testcapi')
 # Were we compiled --with-pydebug or with #define Py_DEBUG?
 Py_DEBUG = hasattr(sys, 'gettotalrefcount')
 
+skips = []
+if support.check_impl_detail(pypy=True):
+    skips += [
+            'test_widechar',
+            ]
 
 def testfunction(self):
     """some doc"""
@@ -558,7 +563,7 @@ class TestThreadState(unittest.TestCase):
 class Test_testcapi(unittest.TestCase):
     def test__testcapi(self):
         for name in dir(_testcapi):
-            if name.startswith('test_'):
+            if name.startswith('test_') and name not in skips:
                 with self.subTest("internal", name=name):
                     test = getattr(_testcapi, name)
                     test()

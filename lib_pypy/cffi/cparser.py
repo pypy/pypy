@@ -16,6 +16,7 @@ try:
 except ImportError:
     lock = None
 
+CDEF_SOURCE_STRING = "<cdef source string>"
 _r_comment = re.compile(r"/\*.*?\*/|//([^\n\\]|\\.)*?$",
                         re.DOTALL | re.MULTILINE)
 _r_define  = re.compile(r"^\s*#\s*define\s+([A-Za-z_][A-Za-z_0-9]*)"
@@ -258,15 +259,21 @@ class Parser(object):
                 ctn.discard(name)
         typenames += sorted(ctn)
         #
-        csourcelines = ['typedef int %s;' % typename for typename in typenames]
+        csourcelines = []
+        csourcelines.append('# 1 "<cdef automatic initialization code>"')
+        for typename in typenames:
+            csourcelines.append('typedef int %s;' % typename)
         csourcelines.append('typedef int __dotdotdotint__, __dotdotdotfloat__,'
                             ' __dotdotdot__;')
+        # this forces pycparser to consider the following in the file
+        # called <cdef source string> from line 1
+        csourcelines.append('# 1 "%s"' % (CDEF_SOURCE_STRING,))
         csourcelines.append(csource)
-        csource = '\n'.join(csourcelines)
+        fullcsource = '\n'.join(csourcelines)
         if lock is not None:
             lock.acquire()     # pycparser is not thread-safe...
         try:
-            ast = _get_parser().parse(csource)
+            ast = _get_parser().parse(fullcsource)
         except pycparser.c_parser.ParseError as e:
             self.convert_pycparser_error(e, csource)
         finally:
@@ -276,17 +283,17 @@ class Parser(object):
         return ast, macros, csource
 
     def _convert_pycparser_error(self, e, csource):
-        # xxx look for ":NUM:" at the start of str(e) and try to interpret
-        # it as a line number
+        # xxx look for "<cdef source string>:NUM:" at the start of str(e)
+        # and interpret that as a line number.  This will not work if
+        # the user gives explicit ``# NUM "FILE"`` directives.
         line = None
         msg = str(e)
-        if msg.startswith(':') and ':' in msg[1:]:
-            linenum = msg[1:msg.find(':',1)]
-            if linenum.isdigit():
-                linenum = int(linenum, 10)
-                csourcelines = csource.splitlines()
-                if 1 <= linenum <= len(csourcelines):
-                    line = csourcelines[linenum-1]
+        match = re.match(r"%s:(\d+):" % (CDEF_SOURCE_STRING,), msg)
+        if match:
+            linenum = int(match.group(1), 10)
+            csourcelines = csource.splitlines()
+            if 1 <= linenum <= len(csourcelines):
+                line = csourcelines[linenum-1]
         return line
 
     def convert_pycparser_error(self, e, csource):
@@ -321,10 +328,12 @@ class Parser(object):
                 break
         else:
             assert 0
+        current_decl = None
         #
         try:
             self._inside_extern_python = '__cffi_extern_python_stop'
             for decl in iterator:
+                current_decl = decl
                 if isinstance(decl, pycparser.c_ast.Decl):
                     self._parse_decl(decl)
                 elif isinstance(decl, pycparser.c_ast.Typedef):
@@ -348,7 +357,13 @@ class Parser(object):
                 elif decl.__class__.__name__ == 'Pragma':
                     pass    # skip pragma, only in pycparser 2.15
                 else:
-                    raise CDefError("unrecognized construct", decl)
+                    raise CDefError("unexpected <%s>: this construct is valid "
+                                    "C but not valid in cdef()" %
+                                    decl.__class__.__name__, decl)
+        except CDefError as e:
+            if len(e.args) == 1:
+                e.args = e.args + (current_decl,)
+            raise
         except FFIError as e:
             msg = self._convert_pycparser_error(e, csource)
             if msg:

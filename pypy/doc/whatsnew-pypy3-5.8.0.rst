@@ -26,3 +26,7 @@ Fix for different posix primitives on MacOS
 
 Internal refactoring of memoryviews and buffers, fixing some related
 performance issues.
+
+.. branch: jumbojet
+
+Add sched_get min/max to rposix

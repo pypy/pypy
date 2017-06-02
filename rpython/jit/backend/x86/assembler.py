@@ -1052,17 +1052,19 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     def _call_header_shadowstack(self, gcrootmap):
         rst = self._load_shadowstack_top_in_ebx(self.mc, gcrootmap)
-        self.mc.MOV_mr((ebx.value, 0), ebp.value)      # MOV [ebx], ebp
-        self.mc.ADD_ri(ebx.value, WORD)
+        # the '1' is to benefit from the shadowstack 'is_minor' optimization
+        self.mc.MOV_mi((ebx.value, 0), 1)               # MOV [ebx], 1
+        self.mc.MOV_mr((ebx.value, WORD), ebp.value)    # MOV [ebx + WORD], ebp
+        self.mc.ADD_ri(ebx.value, WORD * 2)
         self.mc.MOV(heap(rst), ebx)                   # MOV [rootstacktop], ebx
 
     def _call_footer_shadowstack(self, gcrootmap):
         rst = gcrootmap.get_root_stack_top_addr()
         if rx86.fits_in_32bits(rst):
-            self.mc.SUB_ji8(rst, WORD)       # SUB [rootstacktop], WORD
+            self.mc.SUB_ji8(rst, WORD * 2)       # SUB [rootstacktop], WORD * 2
         else:
             self.mc.MOV_ri(ebx.value, rst)           # MOV ebx, rootstacktop
-            self.mc.SUB_mi8((ebx.value, 0), WORD)  # SUB [ebx], WORD
+            self.mc.SUB_mi8((ebx.value, 0), WORD * 2)  # SUB [ebx], WORD * 2
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         # some minimal sanity checking
