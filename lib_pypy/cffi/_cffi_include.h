@@ -8,7 +8,7 @@
    the same works for the other two macros.  Py_DEBUG implies them,
    but not the other way around.
 */
-#ifndef _CFFI_USE_EMBEDDING
+#if !defined(_CFFI_USE_EMBEDDING) && !defined(Py_LIMITED_API)
 #  include <pyconfig.h>
 #  if !defined(Py_DEBUG) && !defined(Py_TRACE_REFS) && !defined(Py_REF_DEBUG)
 #    define Py_LIMITED_API
