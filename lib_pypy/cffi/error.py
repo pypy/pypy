@@ -5,13 +5,10 @@ class FFIError(Exception):
 class CDefError(Exception):
     def __str__(self):
         try:
-            current_decl = self.args[1]
-            filename = current_decl.coord.file
-            linenum = current_decl.coord.line
-            prefix = '%s:%d: ' % (filename, linenum)
+            line = 'line %d: ' % (self.args[1].coord.line,)
         except (AttributeError, TypeError, IndexError):
-            prefix = ''
-        return '%s%s' % (prefix, self.args[0])
+            line = ''
+        return '%s%s' % (line, self.args[0])
 
 class VerificationError(Exception):
     """ An error raised when verification fails

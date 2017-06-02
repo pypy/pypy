@@ -20,7 +20,7 @@ from pypy.module._cffi_backend.ctypevoid import W_CTypeVoid
 from pypy.module._cffi_backend.ctypestruct import W_CTypeStruct, W_CTypeUnion
 from pypy.module._cffi_backend.ctypeprim import (W_CTypePrimitiveSigned,
     W_CTypePrimitiveUnsigned, W_CTypePrimitiveCharOrUniChar,
-    W_CTypePrimitiveFloat, W_CTypePrimitiveLongDouble, W_CTypePrimitiveComplex)
+    W_CTypePrimitiveFloat, W_CTypePrimitiveLongDouble)
 
 
 class W_CTypeFunc(W_CTypePtrBase):
@@ -212,21 +212,18 @@ USE_C_LIBFFI_MSVC = getattr(clibffi, 'USE_C_LIBFFI_MSVC', False)
 
 # ----------
 # We attach to the classes small methods that return a 'ffi_type'
-
-def _notimplemented_ffi_type(self, is_result_type, extra=''):
+def _missing_ffi_type(self, cifbuilder, is_result_type):
+    space = self.space
+    if self.size < 0:
+        raise oefmt(space.w_TypeError,
+                    "ctype '%s' has incomplete type", self.name)
     if is_result_type:
         place = "return value"
     else:
         place = "argument"
-    raise oefmt(self.space.w_NotImplementedError,
-                "ctype '%s' (size %d) not supported as %s%s",
-                self.name, self.size, place, extra)
-
-def _missing_ffi_type(self, cifbuilder, is_result_type):
-    if self.size < 0:
-        raise oefmt(self.space.w_TypeError,
-                    "ctype '%s' has incomplete type", self.name)
-    raise _notimplemented_ffi_type(self, is_result_type)
+    raise oefmt(space.w_NotImplementedError,
+                "ctype '%s' (size %d) not supported as %s",
+                self.name, self.size, place)
 
 def _struct_ffi_type(self, cifbuilder, is_result_type):
     if self.size >= 0:
@@ -263,13 +260,6 @@ def _primfloat_ffi_type(self, cifbuilder, is_result_type):
 def _primlongdouble_ffi_type(self, cifbuilder, is_result_type):
     return clibffi.ffi_type_longdouble
 
-def _primcomplex_ffi_type(self, cifbuilder, is_result_type):
-    raise _notimplemented_ffi_type(self, is_result_type,
-        extra = " (the support for complex types inside libffi "
-                "is mostly missing at this point, so CFFI only "
-                "supports complex types as arguments or return "
-                "value in API-mode functions)")
-
 def _ptr_ffi_type(self, cifbuilder, is_result_type):
     return clibffi.ffi_type_pointer
 
@@ -286,7 +276,6 @@ W_CTypePrimitiveCharOrUniChar._get_ffi_type = _primunsigned_ffi_type
 W_CTypePrimitiveUnsigned._get_ffi_type      = _primunsigned_ffi_type
 W_CTypePrimitiveFloat._get_ffi_type         = _primfloat_ffi_type
 W_CTypePrimitiveLongDouble._get_ffi_type    = _primlongdouble_ffi_type
-W_CTypePrimitiveComplex._get_ffi_type       = _primcomplex_ffi_type
 W_CTypePtrBase._get_ffi_type                = _ptr_ffi_type
 W_CTypeVoid._get_ffi_type                   = _void_ffi_type
 # ----------

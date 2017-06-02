@@ -91,11 +91,6 @@ class W_CData(W_Root):
             w_result = self.ctype.float(ptr)
         return w_result
 
-    def complex(self):
-        with self as ptr:
-            w_result = self.ctype.complex(ptr)
-        return w_result
-
     def len(self):
         from pypy.module._cffi_backend import ctypearray
         space = self.space
@@ -410,13 +405,6 @@ class W_CData(W_Root):
         with self as ptr:
             misc.write_raw_float_data(ptr, source, self.ctype.size)
 
-    def write_raw_complex_data(self, real, imag):
-        with self as ptr:
-            halfsize = self.ctype.size >> 1
-            ptr2 = rffi.ptradd(ptr, halfsize)
-            misc.write_raw_float_data(ptr, real, halfsize)
-            misc.write_raw_float_data(ptr2, imag, halfsize)
-
     def convert_to_object(self):
         with self as ptr:
             w_obj = self.ctype.convert_to_object(ptr)
@@ -658,7 +646,6 @@ W_CData.typedef = TypeDef(
     __int__ = interp2app(W_CData.int),
     __long__ = interp2app(W_CData.long),
     __float__ = interp2app(W_CData.float),
-    __complex__ = interp2app(W_CData.complex),
     __len__ = interp2app(W_CData.len),
     __lt__ = interp2app(W_CData.lt),
     __le__ = interp2app(W_CData.le),
