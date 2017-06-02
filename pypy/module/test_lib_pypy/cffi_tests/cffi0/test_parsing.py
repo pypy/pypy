@@ -229,13 +229,27 @@ def test_cannot_have_only_variadic_part():
     # this checks that we get a sensible error if we try "int foo(...);"
     ffi = FFI()
     e = py.test.raises(CDefError, ffi.cdef, "int foo(...);")
-    assert str(e.value) == \
-           "foo: a function with only '(...)' as argument is not correct C"
+    assert str(e.value) == (
+           "<cdef source string>:1: foo: a function with only '(...)' "
+           "as argument is not correct C")
 
 def test_parse_error():
     ffi = FFI()
     e = py.test.raises(CDefError, ffi.cdef, " x y z ")
-    assert re.match(r'cannot parse "x y z"\n:\d+:', str(e.value))
+    assert str(e.value).startswith(
+        'cannot parse "x y z"\n<cdef source string>:1:')
+    e = py.test.raises(CDefError, ffi.cdef, "\n\n\n x y z ")
+    assert str(e.value).startswith(
+        'cannot parse "x y z"\n<cdef source string>:4:')
+
+def test_error_custom_lineno():
+    ffi = FFI()
+    e = py.test.raises(CDefError, ffi.cdef, """
+# 42 "foobar"
+
+    a b c d
+    """)
+    assert str(e.value).startswith('parse error\nfoobar:43:')
 
 def test_cannot_declare_enum_later():
     ffi = FFI()
@@ -279,7 +293,8 @@ def test_bool():
 def test_unknown_argument_type():
     ffi = FFI()
     e = py.test.raises(CDefError, ffi.cdef, "void f(foobarbazzz);")
-    assert str(e.value) == ("f arg 1: unknown type 'foobarbazzz' (if you meant"
+    assert str(e.value) == ("<cdef source string>:1: f arg 1:"
+                            " unknown type 'foobarbazzz' (if you meant"
                             " to use the old C syntax of giving untyped"
                             " arguments, it is not supported)")
 
@@ -437,3 +452,9 @@ def test_extern_python_group():
             ffi._parser._declarations['extern_python foobar'] !=
             ffi._parser._declarations['function bok'] ==
             ffi._parser._declarations['extern_python bzrrr'])
+
+def test_error_invalid_syntax_for_cdef():
+    ffi = FFI()
+    e = py.test.raises(CDefError, ffi.cdef, 'void foo(void) {}')
+    assert str(e.value) == ('<cdef source string>:1: unexpected <FuncDef>: '
+                            'this construct is valid C but not valid in cdef()')
