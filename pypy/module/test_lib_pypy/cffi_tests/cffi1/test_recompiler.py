@@ -1553,8 +1553,7 @@ def test_extern_python_1():
         res = lib.bar(4, 5)
     assert res == 0
     assert f.getvalue() == (
-        b"extern \"Python\": function _CFFI_test_extern_python_1.bar() called, "
-        b"but no code was attached "
+        b"extern \"Python\": function bar() called, but no code was attached "
         b"to it yet with @ffi.def_extern().  Returning 0.\n")
 
     @ffi.def_extern("bar")
@@ -2001,60 +2000,6 @@ def test_function_returns_partial_struct():
         static struct aaa f1(int x) { struct aaa s = {0}; s.a = x; return s; }
     """)
     assert lib.f1(52).a == 52
-
-def test_function_returns_float_complex():
-    if sys.platform == 'win32':
-        py.test.skip("MSVC may not support _Complex")
-    ffi = FFI()
-    ffi.cdef("float _Complex f1(float a, float b);");
-    lib = verify(ffi, "test_function_returns_float_complex", """
-        #include <complex.h>
-        static float _Complex f1(float a, float b) { return a + I*2.0*b; }
-    """)
-    result = lib.f1(1.25, 5.1)
-    assert type(result) == complex
-    assert result.real == 1.25   # exact
-    assert (result.imag != 2*5.1) and (abs(result.imag - 2*5.1) < 1e-5) # inexact
-
-def test_function_returns_double_complex():
-    if sys.platform == 'win32':
-        py.test.skip("MSVC may not support _Complex")
-    ffi = FFI()
-    ffi.cdef("double _Complex f1(double a, double b);");
-    lib = verify(ffi, "test_function_returns_double_complex", """
-        #include <complex.h>
-        static double _Complex f1(double a, double b) { return a + I*2.0*b; }
-    """)
-    result = lib.f1(1.25, 5.1)
-    assert type(result) == complex
-    assert result.real == 1.25   # exact
-    assert result.imag == 2*5.1  # exact
-
-def test_function_argument_float_complex():
-    if sys.platform == 'win32':
-        py.test.skip("MSVC may not support _Complex")
-    ffi = FFI()
-    ffi.cdef("float f1(float _Complex x);");
-    lib = verify(ffi, "test_function_argument_float_complex", """
-        #include <complex.h>
-        static float f1(float _Complex x) { return cabsf(x); }
-    """)
-    x = complex(12.34, 56.78)
-    result = lib.f1(x)
-    assert abs(result - abs(x)) < 1e-5
-
-def test_function_argument_double_complex():
-    if sys.platform == 'win32':
-        py.test.skip("MSVC may not support _Complex")
-    ffi = FFI()
-    ffi.cdef("double f1(double _Complex);");
-    lib = verify(ffi, "test_function_argument_double_complex", """
-        #include <complex.h>
-        static double f1(double _Complex x) { return cabs(x); }
-    """)
-    x = complex(12.34, 56.78)
-    result = lib.f1(x)
-    assert abs(result - abs(x)) < 1e-11
 
 def test_typedef_array_dotdotdot():
     ffi = FFI()

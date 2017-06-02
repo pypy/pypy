@@ -66,8 +66,8 @@ def _clean_cache(space):
 
 PRIMITIVE_TYPES = {}
 
-def eptype(name, TYPE, ctypecls, rep=1):
-    PRIMITIVE_TYPES[name] = ctypecls, rffi.sizeof(TYPE) * rep, alignment(TYPE)
+def eptype(name, TYPE, ctypecls):
+    PRIMITIVE_TYPES[name] = ctypecls, rffi.sizeof(TYPE), alignment(TYPE)
 
 def eptypesize(name, size, ctypecls):
     for TYPE in [lltype.Signed, lltype.SignedLongLong, rffi.SIGNEDCHAR,
@@ -93,9 +93,6 @@ eptype("float",  rffi.FLOAT,  ctypeprim.W_CTypePrimitiveFloat)
 eptype("double", rffi.DOUBLE, ctypeprim.W_CTypePrimitiveFloat)
 eptype("long double", rffi.LONGDOUBLE, ctypeprim.W_CTypePrimitiveLongDouble)
 eptype("_Bool",  lltype.Bool,          ctypeprim.W_CTypePrimitiveBool)
-
-eptype("float _Complex",  rffi.FLOAT,  ctypeprim.W_CTypePrimitiveComplex, rep=2)
-eptype("double _Complex", rffi.DOUBLE, ctypeprim.W_CTypePrimitiveComplex, rep=2)
 
 eptypesize("int8_t",   1, ctypeprim.W_CTypePrimitiveSigned)
 eptypesize("uint8_t",  1, ctypeprim.W_CTypePrimitiveUnsigned)

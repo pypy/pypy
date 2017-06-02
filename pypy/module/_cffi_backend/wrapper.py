@@ -8,7 +8,6 @@ from rpython.rlib import jit
 from pypy.module._cffi_backend.cdataobj import W_CData
 from pypy.module._cffi_backend.cdataobj import W_CDataPtrToStructOrUnion
 from pypy.module._cffi_backend.ctypeptr import W_CTypePtrOrArray
-from pypy.module._cffi_backend.ctypeptr import W_CTypePointer
 from pypy.module._cffi_backend.ctypefunc import W_CTypeFunc
 from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion
 from pypy.module._cffi_backend import allocator
@@ -84,9 +83,8 @@ class W_FunctionWrapper(W_Root):
                 #
                 ctype._call(self.fnptr, args_w)    # returns w_None
                 #
-                ctyperesptr = w_result_cdata.ctype
-                assert isinstance(ctyperesptr, W_CTypePointer)
-                return w_result_cdata._do_getitem(ctyperesptr, 0)
+                assert isinstance(w_result_cdata, W_CDataPtrToStructOrUnion)
+                return w_result_cdata.structobj
             else:
                 args_w = args_w[:]
                 prepare_args(space, rawfunctype, args_w, 0)
@@ -111,14 +109,13 @@ class W_FunctionWrapper(W_Root):
 @jit.unroll_safe
 def prepare_args(space, rawfunctype, args_w, start_index):
     # replaces struct/union arguments with ptr-to-struct/union arguments
-    # as well as complex numbers
     locs = rawfunctype.nostruct_locs
     fargs = rawfunctype.nostruct_ctype.fargs
     for i in range(start_index, len(locs)):
         if locs[i] != 'A':
             continue
         w_arg = args_w[i]
-        farg = fargs[i]      # <ptr to struct/union/complex>
+        farg = fargs[i]      # <ptr to struct/union>
         assert isinstance(farg, W_CTypePtrOrArray)
         if isinstance(w_arg, W_CData) and w_arg.ctype is farg.ctitem:
             # fast way: we are given a W_CData "struct", so just make
