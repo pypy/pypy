@@ -26,16 +26,6 @@ else:
                 s = s.encode('ascii')
             super(NativeIO, self).write(s)
 
-def _hack_at_distutils():
-    # Windows-only workaround for some configurations: see
-    # https://bugs.python.org/issue23246 (Python 2.7 with 
-    # a specific MS compiler suite download)
-    if sys.platform == "win32":
-        try:
-            import setuptools    # for side-effects, patches distutils
-        except ImportError:
-            pass
-
 
 class Verifier(object):
 
@@ -126,7 +116,7 @@ class Verifier(object):
         return basename
 
     def get_extension(self):
-        _hack_at_distutils() # backward compatibility hack
+        ffiplatform._hack_at_distutils() # backward compatibility hack
         if not self._has_source:
             with self.ffi._lock:
                 if not self._has_source:

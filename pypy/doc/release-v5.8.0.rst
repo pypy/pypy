@@ -8,8 +8,7 @@ v3.5 syntax). The two releases are both based on much the same codebase, thus
 the dual release.  Note that PyPy3.5 supports Linux 64bit only for now. 
 
 This new PyPy2.7 release includes the upstream stdlib version 2.7.13, and
-PyPy3.5 (our first in the 3.5 series) includes the upstream stdlib version
-3.5.3.
+PyPy3.5 includes the upstream stdlib version 3.5.3.
 
 We continue to make incremental improvements to our C-API
 compatibility layer (cpyext). PyPy2 can now import and run many C-extension
@@ -19,13 +18,13 @@ Please let us know if your use case is slow, we have ideas how to make things
 faster but need real-world examples (not micro-benchmarks) of problematic code.
 
 Work proceeds at a good pace on the PyPy3.5
-version due to a grant_ from the Mozilla Foundation, hence our first 3.5.3 beta
+version due to a grant_ from the Mozilla Foundation, hence our 3.5.3 beta
 release. Thanks Mozilla !!! While we do not pass all tests yet, asyncio works and
 as `these benchmarks show`_ it already gives a nice speed bump.
 We also backported the ``f""`` formatting from 3.6 (as an exception; otherwise
 "PyPy3.5" supports the Python 3.5 language).
 
-CFFI_ has been updated to 1.10, improving an already great package for
+CFFI_ has been updated to 1.11, improving an already great package for
 interfacing with C.
 
 As always, this release fixed many issues and bugs raised by the
@@ -81,28 +80,52 @@ Highlights of the PyPy2.7, cpyext, and RPython changes (since 5.7 released March
 
 See also issues that were resolved_
 
+Note that these are also merged into PyPy 3.5
+
 * New features and cleanups
 
-  * Implement PyModule_New, 
+  * Implement PyModule_New, Py_GetRecursionLimit, Py_SetRecursionLimit,
+    Py_EnterRecursiveCall, Py_LeaveRecursiveCall, populate tp_descr_get and
+    tp_descr_set slots,
+    add conversions of ``__len__``, ``__setitem__``, ``__delitem__`` to
+    appropriate C-API slots
   * Fix for multiple inheritance in app-level for C-API defined classes
   * Revert a change that removed tp_getattr (Part of the 5.7.1 bugfix release)
   * Document more differences with CPython here_
   * Add native PyPy support to profile frames in vmprof
   * Fix an issue with Exception order on failed import
   * Fix for a corner case of __future__ imports
+  * Update packaged Windows zlib, sqlite, expat and OpenSSL to versions used
+    by CPython
+  * Allow windows builds to use ``jom.exe`` for compiling in parallel
+  * Rewrite ``itertools.groupby()``, following CPython
+  * Backport changes from PyPy 3.5 to minimize the code differences
+  * Improve support for BSD using patches contributed by downstream
+  * Support profile-guided optimization, enabled with --profopt, , and
+    specify training data ``profoptpath``
 
-* Bug Fixes
+* Bug Fixes 
 
   * Correctly handle dict.pop where the popping key is not the same type as the
     dict's and pop is called with a default (Part of the 5.7.1 bugfix release)
   * Improve our file's universal newline .readline implementation for
     ``\n``, ``\r`` confusion
+  * Tweak issue where ctype array ``_base`` was set on empty arrays, now it
+    is closer to the implementation in CPython
+  * Fix critical bugs in shadowstack that crashed multithreaded programs and
+    very rarely showed up even in single threaded programs
+  * Remove flaky fastpath function call from ctypes
+  * Support passing a buffersize of 0 to socket.getsockopt
+  * Avoid hash() returning -1 in cpyext
 
 * Performance improvements:
 
   * Tweaks made to improve performance by reducing the number of guards
     inserted in jitted code, based on feedback from users
   * Add garbage collector memory pressure to some c-level allocations
+  * Speed up struck.pack, struck.pack_into
+  * Performance tweaks to round(x, n) for the case n == 0
+  * Improve zipfile performance by not doing repeated string concatenation
 
 * RPython improvements
 
@@ -119,6 +142,11 @@ See also issues that were resolved_
     blocks are moved off-line.  Also, the temporary register used to contain
     large constants is reused across instructions. This helps CPUs branch
     predictor
+  * Refactor rpython.rtyper.controllerentry to use use ``@specialize`` instead
+    of ``._annspecialcase_``
+  * Refactor handling of buffers and memoryviews. Memoryviews will now be
+    accepted in a few more places, e.g. in compile()
+
 
 .. _here: http://rpython.readthedocs.io/en/latest/cpython_differences.html
 
@@ -129,6 +157,15 @@ Highlights of the PyPy3.5 release (since 5.7 beta released March 2017)
 
   * Implement main part of PEP 489 (multi-phase extension module initialization)
   * Add docstrings to various modules and functions
+  * Adapt many CPython bug/feature fixes from CPython 3.5 to PyPy3.5
+  * Translation succeeds on Mac OS X, unfortunately our buildbot slave cannot
+    be updated to the proper development versions of OpenSSL to properly
+    package a release.
+  * Implement `` _SSLSocket.server_side``
+  * Do not silently ignore ``_swappedbytes_`` in ctypes. We now raise a
+    ``NotImplementedError``
+  * Implement and expose ``msvcrt.SetErrorMode``
+  * Implement ``PyModule_GetState``
 
 * Bug Fixes
 
@@ -137,12 +174,19 @@ Highlights of the PyPy3.5 release (since 5.7 beta released March 2017)
   * OSError(None,None) is different from OSError()
   * Get closer to supporting 32 bit windows, translation now succeeds and most
     lib-python/3/test runs
+  * Call ``sys.__interactivehook__`` at startup
 
 * Performance improvements:
 
   * Use "<python> -m test" to run the CPython test suite, as documented by CPython,
     instead of our outdated regrverbose.py script
   * Change _cffi_src/openssl/callbacks.py to stop relying on the CPython C API.
+  * Avoid importing the full locale module during _io initialization, 
+    CPython change fbbf8b160e8d
+  * Avoid freezing many app-level modules at translation, avoid importing many
+    modules at startup
+  * Refactor buffers, which allows an optimization for 
+    ``bytearray()[:n].tobytes()``
 
 * The following features of Python 3.5 are not implemented yet in PyPy:
 
