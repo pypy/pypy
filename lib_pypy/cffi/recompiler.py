@@ -1479,6 +1479,12 @@ def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
                     _patch_for_embedding(patchlist)
                 if target != '*':
                     _patch_for_target(patchlist, target)
+                if compiler_verbose:
+                    if tmpdir == '.':
+                        msg = 'the current directory is'
+                    else:
+                        msg = 'setting the current directory to'
+                    print('%s %r' % (msg, os.path.abspath(tmpdir)))
                 os.chdir(tmpdir)
                 outputfilename = ffiplatform.compile('.', ext,
                                                      compiler_verbose, debug)
