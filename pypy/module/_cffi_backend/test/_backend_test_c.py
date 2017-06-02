@@ -2087,22 +2087,40 @@ def test_cast_with_functionptr():
     py.test.raises(TypeError, newp, BStructPtr, [cast(BFunc2, 0)])
 
 def test_wchar():
-    BWChar = new_primitive_type("wchar_t")
+    _test_wchar_variant("wchar_t")
+
+def test_char16():
+    BChar16 = new_primitive_type("char16_t")
+    assert sizeof(BChar16) == 2
+    _test_wchar_variant("char16_t")
+    assert int(cast(BChar16, -1)) == 0xffff       # always unsigned
+
+def test_char32():
+    BChar32 = new_primitive_type("char32_t")
+    assert sizeof(BChar32) == 4
+    _test_wchar_variant("char32_t")
+    assert int(cast(BChar32, -1)) == 0xffffffff   # always unsigned
+
+def _test_wchar_variant(typename):
+    BWChar = new_primitive_type(typename)
     BInt = new_primitive_type("int")
     pyuni4 = {1: True, 2: False}[len(u+'\U00012345')]
     wchar4 = {2: False, 4: True}[sizeof(BWChar)]
-    assert str(cast(BWChar, 0x45)) == "<cdata 'wchar_t' %s'E'>" % (
-        mandatory_u_prefix,)
-    assert str(cast(BWChar, 0x1234)) == "<cdata 'wchar_t' %s'\u1234'>" % (
-        mandatory_u_prefix,)
-    if wchar4:
-        if not _hacked_pypy_uni4():
+    assert str(cast(BWChar, 0x45)) == "<cdata '%s' %s'E'>" % (
+        typename, mandatory_u_prefix)
+    assert str(cast(BWChar, 0x1234)) == "<cdata '%s' %s'\u1234'>" % (
+        typename, mandatory_u_prefix)
+    if not _hacked_pypy_uni4():
+        if wchar4:
             x = cast(BWChar, 0x12345)
-            assert str(x) == "<cdata 'wchar_t' %s'\U00012345'>" % (
-                mandatory_u_prefix,)
+            assert str(x) == "<cdata '%s' %s'\U00012345'>" % (
+                typename, mandatory_u_prefix)
             assert int(x) == 0x12345
-    else:
-        assert not pyuni4
+        else:
+            x = cast(BWChar, 0x18345)
+            assert str(x) == "<cdata '%s' %s'\u8345'>" % (
+                typename, mandatory_u_prefix)
+            assert int(x) == 0x8345
     #
     BWCharP = new_pointer_type(BWChar)
     BStruct = new_struct_type("struct foo_s")
@@ -2117,9 +2135,9 @@ def test_wchar():
     s.a1 = u+'\u1234'
     assert s.a1 == u+'\u1234'
     if pyuni4:
-        assert wchar4
-        s.a1 = u+'\U00012345'
-        assert s.a1 == u+'\U00012345'
+        if wchar4:
+            s.a1 = u+'\U00012345'
+            assert s.a1 == u+'\U00012345'
     elif wchar4:
         if not _hacked_pypy_uni4():
             s.a1 = cast(BWChar, 0x12345)
@@ -2154,17 +2172,17 @@ def test_wchar():
         py.test.raises(IndexError, 'a[4]')
     #
     w = cast(BWChar, 'a')
-    assert repr(w) == "<cdata 'wchar_t' %s'a'>" % mandatory_u_prefix
+    assert repr(w) == "<cdata '%s' %s'a'>" % (typename, mandatory_u_prefix)
     assert str(w) == repr(w)
     assert string(w) == u+'a'
     assert int(w) == ord('a')
     w = cast(BWChar, 0x1234)
-    assert repr(w) == "<cdata 'wchar_t' %s'\u1234'>" % mandatory_u_prefix
+    assert repr(w) == "<cdata '%s' %s'\u1234'>" % (typename, mandatory_u_prefix)
     assert str(w) == repr(w)
     assert string(w) == u+'\u1234'
     assert int(w) == 0x1234
     w = cast(BWChar, u+'\u8234')
-    assert repr(w) == "<cdata 'wchar_t' %s'\u8234'>" % mandatory_u_prefix
+    assert repr(w) == "<cdata '%s' %s'\u8234'>" % (typename, mandatory_u_prefix)
     assert str(w) == repr(w)
     assert string(w) == u+'\u8234'
     assert int(w) == 0x8234
@@ -2172,8 +2190,8 @@ def test_wchar():
     assert repr(w) == "<cdata 'int' 4660>"
     if wchar4 and not _hacked_pypy_uni4():
         w = cast(BWChar, u+'\U00012345')
-        assert repr(w) == "<cdata 'wchar_t' %s'\U00012345'>" % (
-            mandatory_u_prefix,)
+        assert repr(w) == "<cdata '%s' %s'\U00012345'>" % (
+            typename, mandatory_u_prefix)
         assert str(w) == repr(w)
         assert string(w) == u+'\U00012345'
         assert int(w) == 0x12345
@@ -2200,7 +2218,7 @@ def test_wchar():
     py.test.raises(RuntimeError, string, q)
     #
     def cb(p):
-        assert repr(p).startswith("<cdata 'wchar_t *' 0x")
+        assert repr(p).startswith("<cdata '%s *' 0x" % typename)
         return len(string(p))
     BFunc = new_function_type((BWCharP,), BInt, False)
     f = callback(BFunc, cb, -42)
