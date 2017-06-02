@@ -10,10 +10,9 @@ the dual release.  Note that PyPy3.5 supports Linux 64bit only for now.
 This new PyPy2.7 release includes the upstream stdlib version 2.7.13, and
 PyPy3.5 includes the upstream stdlib version 3.5.3.
 
-We continue to make incremental improvements to our C-API
-compatibility layer (cpyext). PyPy2 can now import and run many C-extension
-packages, among the most notable are Numpy, Cython, and Pandas. Performance may
-be slower than CPython, especially for frequently-called short C functions.
+This release enables `profile guided optimization` of the base interpreter,
+which may make unjitted code run faster.
+
 Please let us know if your use case is slow, we have ideas how to make things
 faster but need real-world examples (not micro-benchmarks) of problematic code.
 
@@ -24,8 +23,8 @@ as `these benchmarks show`_ it already gives a nice speed bump.
 We also backported the ``f""`` formatting from 3.6 (as an exception; otherwise
 "PyPy3.5" supports the Python 3.5 language).
 
-CFFI_ has been updated to 1.11, improving an already great package for
-interfacing with C.
+CFFI_, which is part of the PyPy release, has been updated to an unreleased 1.10.1,
+improving an already great package for interfacing with C.
 
 As always, this release fixed many issues and bugs raised by the
 growing community of PyPy users. We strongly recommend updating.
@@ -43,6 +42,7 @@ layers and we need help with all of them: `PyPy`_ and `RPython`_ documentation
 improvements, tweaking popular `modules`_ to run on pypy, or general `help`_
 with making RPython's JIT even better.
 
+.. _`profile guided optimization`: https://pythonfiles.wordpress.com/2017/05/12/enabling-profile-guided-optimizations-for-pypy
 .. _CFFI: https://cffi.readthedocs.io/en/latest/whatsnew.html
 .. _grant: https://morepypy.blogspot.com/2016/08/pypy-gets-funding-from-mozilla-for.html
 .. _`PyPy`: index.html
