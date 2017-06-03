@@ -175,6 +175,8 @@ Highlights of the PyPy3.5 release (since 5.7 beta released March 2017)
   * Get closer to supporting 32 bit windows, translation now succeeds and most
     lib-python/3/test runs
   * Call ``sys.__interactivehook__`` at startup
+  * Let ``OrderedDict.__init__`` behave like CPython wrt. subclasses
+    overridding ``__setitem__``
 
 * Performance improvements:
 
