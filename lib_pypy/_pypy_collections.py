@@ -15,6 +15,21 @@ class OrderedDict(dict):
     cases but is nonsensical in other cases.  This is officially
     forbidden by the CPython docs, so we forbid it explicitly for now.
     '''
+    def __init__(*args, **kwds):
+        '''Initialize an ordered dictionary.  The signature is the same as
+        regular dictionaries, but keyword arguments are not recommended because
+        their insertion order is arbitrary.
+
+        '''
+        if not args:
+            raise TypeError("descriptor '__init__' of 'OrderedDict' object "
+                            "needs an argument")
+        self, *args = args
+        if len(args) > 1:
+            raise TypeError('expected at most 1 arguments, got %d' % len(args))
+        self.__update(*args, **kwds)
+
+    update = __update = _collections_abc.MutableMapping.update
 
     def __reversed__(self):
         return reversed_dict(self)
