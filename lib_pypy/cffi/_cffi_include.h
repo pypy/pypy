@@ -62,16 +62,11 @@ extern "C" {
     typedef unsigned char _Bool;
 #  endif
 # endif
-# if _MSC_VER < 1900 || !defined(__cplusplus)   /* MSVC < 2015, or plain C */
-    typedef uint16_t char16_t;
-    typedef uint32_t char32_t;
-# endif
 #else
 # include <stdint.h>
 # if (defined (__SVR4) && defined (__sun)) || defined(_AIX) || defined(__hpux)
 #  include <alloca.h>
 # endif
-# include <uchar.h>
 #endif
 
 #ifdef __GNUC__
