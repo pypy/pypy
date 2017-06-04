@@ -2254,6 +2254,11 @@ def test_wchar_variants_mix():
     py.test.raises(TypeError, newp, BChar16A, [x])
     x = cast(BChar16, 'A')
     py.test.raises(TypeError, newp, BChar32A, [x])
+    #
+    a = newp(BChar16A, u+'\U00012345')
+    assert len(a) == 3
+    a = newp(BChar32A, u+'\U00012345')
+    assert len(a) == 2   # even if the Python unicode string above is 2 chars
 
 def test_keepalive_struct():
     # exception to the no-keepalive rule: p=newp(BStructPtr) returns a

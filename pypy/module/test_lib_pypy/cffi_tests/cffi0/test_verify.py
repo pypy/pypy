@@ -242,7 +242,7 @@ def test_primitive_category():
         F = tp.is_float_type()
         X = tp.is_complex_type()
         I = tp.is_integer_type()
-        assert C == (typename in ('char', 'wchar_t'))
+        assert C == (typename in ('char', 'wchar_t', 'char16_t', 'char32_t'))
         assert F == (typename in ('float', 'double', 'long double'))
         assert X == (typename in ('float _Complex', 'double _Complex'))
         assert I + F + C + X == 1      # one and only one of them is true
@@ -384,6 +384,10 @@ def test_wchar_type():
     ffi.cdef("wchar_t foo(wchar_t);")
     lib = ffi.verify("wchar_t foo(wchar_t x) { return x+1; }")
     assert lib.foo(uniexample1) == uniexample2
+
+def test_char16_char32_type():
+    py.test.skip("XXX test or fully prevent char16_t and char32_t from "
+                 "working in ffi.verify() mode")
 
 def test_no_argument():
     ffi = FFI()

@@ -25,13 +25,14 @@ def check_type_table(input, expected_output, included=None):
     assert ''.join(map(str, recomp.cffi_types)) == expected_output
 
 def verify(ffi, module_name, source, *args, **kwds):
+    no_cpp = kwds.pop('no_cpp', False)
     kwds.setdefault('undef_macros', ['NDEBUG'])
     module_name = '_CFFI_' + module_name
     ffi.set_source(module_name, source)
-    if not os.environ.get('NO_CPP'):     # test the .cpp mode too
+    if not os.environ.get('NO_CPP') and not no_cpp:   # test the .cpp mode too
         kwds.setdefault('source_extension', '.cpp')
         source = 'extern "C" {\n%s\n}' % (source,)
-    else:
+    elif sys.platform != 'win32':
         # add '-Werror' to the existing 'extra_compile_args' flags
         kwds['extra_compile_args'] = (kwds.get('extra_compile_args', []) +
                                       ['-Werror'])
@@ -2251,3 +2252,29 @@ def test_gcc_visibility_hidden():
     int f(int a) { return a + 40; }
     """, extra_compile_args=['-fvisibility=hidden'])
     assert lib.f(2) == 42
+
+def test_override_default_definition():
+    ffi = FFI()
+    ffi.cdef("typedef long int16_t, char16_t;")
+    lib = verify(ffi, "test_override_default_definition", "")
+    assert ffi.typeof("int16_t") is ffi.typeof("char16_t") is ffi.typeof("long")
+
+def test_char16_char32_type(no_cpp=False):
+    ffi = FFI()
+    ffi.cdef("""
+        char16_t foo_2bytes(char16_t);
+        char32_t foo_4bytes(char32_t);
+    """)
+    lib = verify(ffi, "test_char16_char32_type" + no_cpp * "_nocpp", """
+    char16_t foo_2bytes(char16_t a) { return (char16_t)(a + 42); }
+    char32_t foo_4bytes(char32_t a) { return (char32_t)(a + 42); }
+    """, no_cpp=no_cpp)
+    assert lib.foo_2bytes(u+'\u1234') == u+'\u125e'
+    assert lib.foo_4bytes(u+'\u1234') == u+'\u125e'
+    assert lib.foo_4bytes(u+'\U00012345') == u+'\U0001236f'
+    py.test.raises(TypeError, lib.foo_2bytes, u+'\U00012345')
+    py.test.raises(TypeError, lib.foo_2bytes, 1234)
+    py.test.raises(TypeError, lib.foo_4bytes, 1234)
+
+def test_char16_char32_plain_c():
+    test_char16_char32_type(no_cpp=True)
