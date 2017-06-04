@@ -218,7 +218,7 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
         else:
             try:
                 u = wchar_helper.unicode_from_char32(ptr, length)
-            except OutOfRange as e:
+            except wchar_helper.OutOfRange as e:
                 raise oefmt(self.space.w_ValueError,
                             "char32_t out of range for "
                             "conversion to unicode: %s", hex(e.ordinal))

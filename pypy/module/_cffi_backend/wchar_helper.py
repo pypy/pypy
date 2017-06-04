@@ -39,6 +39,8 @@ def unicode_to_ordinal(u):
 
 
 class OutOfRange(Exception):
+    ordinal = 0
+
     def __init__(self, ordinal):
         ordinal = intmask(rffi.cast(rffi.INT, ordinal))
         self.ordinal = ordinal
