@@ -222,8 +222,8 @@ intersphinx_mapping = {'python': ('http://docs.python.org/2.7', None),
 # -- Options for manpage output-------------------------------------------------
 
 man_pages = [
-  ('man/pypy.1', 'pypy',
-   u'fast, compliant alternative implementation of the Python language',
+  ('man/pypy3.1', 'pypy3',
+   u'fast, compliant alternative implementation of the Python 3 language',
    u'The PyPy Project', 1)
 ]
 
