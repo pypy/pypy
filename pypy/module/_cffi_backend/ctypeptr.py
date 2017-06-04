@@ -102,7 +102,12 @@ class W_CTypePtrOrArray(W_CType):
                             "(got %d characters)", self.name, n)
             add_final_zero = (n != self.length)
             if self.ctitem.size == 2:
-                wchar_helper.unicode_to_char16(s, cdata, n, add_final_zero)
+                try:
+                    wchar_helper.unicode_to_char16(s, cdata, n, add_final_zero)
+                except wchar_helper.OutOfRange as e:
+                    raise oefmt(self.space.w_ValueError,
+                                "unicode character ouf of range for "
+                                "conversion to char16_t: %s", hex(e.ordinal))
             else:
                 wchar_helper.unicode_to_char32(s, cdata, n, add_final_zero)
         else:

@@ -14,10 +14,12 @@ else:
     def ordinal_to_unicode(ordinal):    # 'ordinal' is a r_uint
         if ordinal <= 0xffff:
             return unichr(intmask(ordinal))
-        else:
+        elif ordinal <= 0x10ffff:
             ordinal = intmask(ordinal - 0x10000)
             return (unichr(0xD800 | (ordinal >> 10)) +
                     unichr(0xDC00 | (ordinal & 0x3FF)))
+        else:
+            raise OutOfRange(ordinal)
 
 def is_surrogate(u, index):
     return (unichr(0xD800) <= u[index + 0] <= unichr(0xDBFF) and
@@ -174,8 +176,8 @@ else:
         for uc in u:
             ordinal = ord(uc)
             if ordinal > 0xFFFF:
-                # NB. like CPython, ignore the problem of unicode string
-                # objects containing characters greater than sys.maxunicode
+                if ordinal > 0x10FFFF:
+                    raise OutOfRange(ordinal)
                 ordinal -= 0x10000
                 ptr[0] = rffi.cast(rffi.USHORT, 0xD800 | (ordinal >> 10))
                 ptr[1] = rffi.cast(rffi.USHORT, 0xDC00 | (ordinal & 0x3FF))

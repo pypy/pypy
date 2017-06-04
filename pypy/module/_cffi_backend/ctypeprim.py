@@ -179,7 +179,12 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
             return self.space.newunicode(unichardata[0])
         else:
             value = misc.read_raw_ulong_data(cdata, self.size)   # r_uint
-            u = wchar_helper.ordinal_to_unicode(value)
+            try:
+                u = wchar_helper.ordinal_to_unicode(value)
+            except wchar_helper.OutOfRange as e:
+                raise oefmt(self.space.w_ValueError,
+                            "char32_t out of range for "
+                            "conversion to unicode: %s", hex(e.ordinal))
             return self.space.newunicode(u)
 
     def string(self, cdataobj, maxlen):
