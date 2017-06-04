@@ -153,8 +153,9 @@ if SIZE_UNICODE == 2:
         # we assume here that target_length == unicode_size_as_char32(u).
         ptr = rffi.cast(rffi.UINTP, target_ptr)
         src_index = 0
+        last_surrogate_pos = len(u) - 2
         for i in range(target_length):
-            if i < target_length - 1 and is_surrogate(u, src_index):
+            if src_index <= last_surrogate_pos and is_surrogate(u, src_index):
                 ordinal = as_surrogate(u, src_index)
                 src_index += 2
             else:
