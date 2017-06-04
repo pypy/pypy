@@ -18,31 +18,25 @@ def create_builder(name, strtype, builder_cls):
             else:
                 self.builder = builder_cls(size)
 
-        def _check_done(self, space):
-            if self.builder is None:
-                raise oefmt(space.w_ValueError,
-                            "Can't operate on a built builder")
-
         @unwrap_spec(size=int)
         def descr__new__(space, w_subtype, size=-1):
             return W_Builder(space, size)
 
         @unwrap_spec(s=unwrap)
         def descr_append(self, space, s):
-            self._check_done(space)
             self.builder.append(s)
 
         @unwrap_spec(s=unwrap, start=int, end=int)
         def descr_append_slice(self, space, s, start, end):
-            self._check_done(space)
             if not 0 <= start <= end <= len(s):
                 raise oefmt(space.w_ValueError, "bad start/stop")
             self.builder.append_slice(s, start, end)
 
         def descr_build(self, space):
-            self._check_done(space)
             s = self.builder.build()
-            self.builder = None
+            # after build(), we can continue to append more strings
+            # to the same builder.  This is supported since
+            # 2ff5087aca28 in RPython.
             if strtype is str:
                 return space.newbytes(s)
             else:
