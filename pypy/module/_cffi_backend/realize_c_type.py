@@ -73,6 +73,8 @@ class RealizeCache:
         "uintmax_t",
         "float _Complex",
         "double _Complex",
+        "char16_t",
+        "char32_t",
         ]
     assert len(NAMES) == cffi_opcode._NUM_PRIM
 

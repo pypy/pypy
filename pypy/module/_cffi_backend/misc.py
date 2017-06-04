@@ -296,6 +296,7 @@ def get_new_array_length(space, w_value):
         return (w_value, space.int_w(space.len(w_value)))
     elif space.isinstance_w(w_value, space.w_basestring):
         # from a string, we add the null terminator
+        XXXXXXXXXX
         return (w_value, space.int_w(space.len(w_value)) + 1)
     else:
         explicitlength = space.getindex_w(w_value, space.w_OverflowError)

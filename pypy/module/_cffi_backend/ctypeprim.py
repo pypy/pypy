@@ -42,6 +42,7 @@ class W_CTypePrimitive(W_CType):
     def cast_unicode(self, w_ob):
         space = self.space
         s = space.unicode_w(w_ob)
+        XXXXXXXXXXXXXX
         if len(s) != 1:
             raise oefmt(space.w_TypeError,
                         "cannot cast unicode string of length %d to ctype '%s'",
@@ -149,15 +150,15 @@ class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
 
 
 class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
-    _attrs_            = ['is_signed']
-    _immutable_fields_ = ['is_signed']
+    _attrs_            = ['is_signed_wchar']
+    _immutable_fields_ = ['is_signed_wchar']
 
     _wchar_is_signed = rfficache.signof_c_type('wchar_t')
 
     def __init__(self, space, size, name, name_position, align):
-        W_CTypePrimitiveUniChar.__init__(self, space, size, name,
-                                         name_position, align)
-        self.is_signed = self._wchar_is_signed and (name == "wchar_t")
+        W_CTypePrimitiveCharOrUniChar.__init__(self, space, size, name,
+                                               name_position, align)
+        self.is_signed_wchar = self._wchar_is_signed and (name == "wchar_t")
         # "char16_t" and "char32_t" are always unsigned
 
     def cast_to_int(self, cdata):
@@ -185,32 +186,41 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
             w_res = self.convert_to_object(ptr)
         return w_res
 
-    def _convert_to_charN_t(self, w_ob, size):
-        # returns a r_uint.  If size == 2, it is smaller than 0x10000
+    def _convert_to_charN_t(self, w_ob):
+        # returns a r_uint.  If self.size == 2, it is smaller than 0x10000
         space = self.space
         if space.isinstance_w(w_ob, space.w_unicode):
             u = space.unicode_w(w_ob)
-            if len(u) == 1:
-                u = ord(u[0])
-                if size == 2 and u > 0xffff:
+            try:
+                ordinal = wchar_helper.unicode_to_ordinal(u)
+            except ValueError:
+                pass
+            else:
+                if self.size == 2 and ordinal > 0xffff:
                     raise self._convert_error("single character <= 0xFFFF",
                                               w_ob)
-                return r_uint(u)
-            elif size == 4 and len(u) == 2 and ...
-
+                return ordinal
         elif (isinstance(w_ob, cdataobj.W_CData) and
                isinstance(w_ob.ctype, W_CTypePrimitiveUniChar) and
-               w_ob.ctype.size == 2):
+               w_ob.ctype.size == self.size):
             with w_ob as ptr:
-                return misc.read_raw_ulong_data(ptr, 2)
+                return misc.read_raw_ulong_data(ptr, self.size)
         raise self._convert_error("unicode string of length 1", w_ob)
 
     def convert_from_object(self, cdata, w_ob):
-        ordinal = self._convert_to_char16(w_ob, self.size)
+        ordinal = self._convert_to_charN_t(w_ob)
         misc.write_raw_unsigned_data(cdata, ordinal, self.size)
 
     def unpack_ptr(self, w_ctypeptr, ptr, length):
-        u = rffi.wcharpsize2unicode(rffi.cast(rffi.CWCHARP, ptr), length)
+        if self.size == 2:
+            u = wchar_helper.unicode_from_char16(ptr, length)
+        else:
+            try:
+                u = wchar_helper.unicode_from_char32(ptr, length)
+            except OutOfRange as e:
+                raise oefmt(self.space.w_ValueError,
+                            "char32_t out of range for "
+                            "conversion to unicode: %s", hex(e.ordinal))
         return self.space.newunicode(u)
 
 

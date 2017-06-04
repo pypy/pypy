@@ -91,11 +91,24 @@ class W_CTypePtrOrArray(W_CType):
             if not space.isinstance_w(w_ob, space.w_unicode):
                 raise self._convert_error("unicode or list or tuple", w_ob)
             s = space.unicode_w(w_ob)
+            XXXXXXXXXXXXXXX
             n = len(s)
             if self.length >= 0 and n > self.length:
                 raise oefmt(space.w_IndexError,
                             "initializer unicode string is too long for '%s' "
                             "(got %d characters)", self.name, n)
+
+
+
+
+            if self.ctitem.size == 2:
+                length = wchar_helper.measure_length_16(ptr, length)
+            else:
+                length = wchar_helper.measure_length_32(ptr, length)
+            XXXX
+
+
+
             unichardata = rffi.cast(rffi.CWCHARP, cdata)
             copy_unicode_to_raw(llunicode(s), unichardata, 0, n)
             if n != self.length:
@@ -134,12 +147,12 @@ class W_CTypePtrOrArray(W_CType):
                 #
                 # pointer to a wchar_t: builds and returns a unicode
                 if self.is_unichar_ptr_or_array():
-                    cdata = rffi.cast(rffi.CWCHARP, ptr)
-                    if length < 0:
-                        u = rffi.wcharp2unicode(cdata)
+                    from pypy.module._cffi_backend import wchar_helper
+                    if self.ctitem.size == 2:
+                        length = wchar_helper.measure_length_16(ptr, length)
                     else:
-                        u = rffi.wcharp2unicoden(cdata, length)
-                    return space.newunicode(u)
+                        length = wchar_helper.measure_length_32(ptr, length)
+                    return self.ctitem.unpack_ptr(self, ptr, length)
         #
         return W_CType.string(self, cdataobj, maxlen)
 
@@ -304,6 +317,7 @@ class W_CTypePointer(W_CTypePtrBase):
             length = space.int_w(space.len(w_init))
         elif space.isinstance_w(w_init, space.w_basestring):
             # from a string, we add the null terminator
+            XXXXXXXXXXXXXXX
             length = space.int_w(space.len(w_init)) + 1
         elif self.is_file:
             result = self.prepare_file(w_init)
