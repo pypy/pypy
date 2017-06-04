@@ -244,7 +244,7 @@ class W_CField(W_Root):
         ct = self.ctype
         if isinstance(ct, ctypearray.W_CTypeArray) and ct.length < 0:
             space = ct.space
-            w_ob, varsizelength = misc.get_new_array_length(space, w_ob)
+            w_ob, varsizelength = ct.get_new_array_length(w_ob)
             if optvarsize != -1:
                 # in this mode, the only purpose of this function is to compute
                 # the real size of the structure from a var-sized C99 array

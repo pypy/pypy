@@ -42,12 +42,13 @@ class W_CTypePrimitive(W_CType):
     def cast_unicode(self, w_ob):
         space = self.space
         s = space.unicode_w(w_ob)
-        XXXXXXXXXXXXXX
-        if len(s) != 1:
+        try:
+            ordinal = wchar_helper.unicode_to_ordinal(s)
+        except ValueError:
             raise oefmt(space.w_TypeError,
                         "cannot cast unicode string of length %d to ctype '%s'",
                         len(s), self.name)
-        return ord(s[0])
+        return intmask(ordinal)
 
     def cast(self, w_ob):
         from pypy.module._cffi_backend import ctypeptr
