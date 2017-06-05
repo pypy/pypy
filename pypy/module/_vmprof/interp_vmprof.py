@@ -96,3 +96,10 @@ def get_profile_path(space):
         # Indicates an error! Assume platform does not implement the function call
         raise oefmt(space.w_NotImplementedError, "platform not implemented")
     return space.newtext(path)
+
+def stop_sampling(space):
+    return space.newint(rvmprof.stop_sampling(space))
+
+def start_sampling(space):
+    rvmprof.start_sampling(space)
+    return space.w_None

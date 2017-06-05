@@ -166,7 +166,7 @@ static PY_THREAD_STATE_T * _get_pystate_for_this_thread(void) {
     mythread_id = PyThread_get_thread_ident();
     istate = PyInterpreterState_Head();
     if (istate == NULL) {
-        fprintf(stderr, "WARNING: interp state head is null (for thread id %d)\n", mythread_id);
+        fprintf(stderr, "WARNING: interp state head is null (for thread id %ld)\n", mythread_id);
         return NULL;
     }
     // fish fish fish, it will NOT lock the keymutex in pythread
@@ -180,7 +180,7 @@ static PY_THREAD_STATE_T * _get_pystate_for_this_thread(void) {
     } while ((istate = PyInterpreterState_Next(istate)) != NULL);
 
     // uh? not found?
-    fprintf(stderr, "WARNING: cannot find thread state (for thread id %d), sample will be thrown away\n", mythread_id);
+    fprintf(stderr, "WARNING: cannot find thread state (for thread id %ld), sample will be thrown away\n", mythread_id);
     return NULL;
 }
 #endif
@@ -462,12 +462,8 @@ int close_profile(void)
 {
     int fileno = vmp_profile_fileno();
     fsync(fileno);
-    dump_native_symbols(fileno);
-
     (void)vmp_write_time_now(MARKER_TRAILER);
-
     teardown_rss();
-
 
     /* don't close() the file descriptor from here */
     vmp_set_profile_fileno(-1);
@@ -483,13 +479,16 @@ int vmprof_disable(void)
     disable_cpyprof();
 #endif
 
-    if (remove_sigprof_timer() == -1)
+    if (remove_sigprof_timer() == -1) {
         return -1;
-    if (remove_sigprof_handler() == -1)
+    }
+    if (remove_sigprof_handler() == -1) {
         return -1;
+    }
 #ifdef VMPROF_UNIX
-    if ((signal_type == SIGALRM) && remove_threads() == -1)
+    if ((signal_type == SIGALRM) && remove_threads() == -1) {
         return -1;
+    }
 #endif
     flush_codes();
     if (shutdown_concurrent_bufs(vmp_profile_fileno()) < 0)

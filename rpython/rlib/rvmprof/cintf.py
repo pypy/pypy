@@ -110,6 +110,12 @@ def setup():
     vmprof_get_profile_path = rffi.llexternal("vmprof_get_profile_path", [rffi.CCHARP, lltype.Signed],
                                               lltype.Signed, compilation_info=eci,
                                               _nowrapper=True)
+    vmprof_stop_sampling = rffi.llexternal("vmprof_stop_sampling", [],
+                                              rffi.INT, compilation_info=eci,
+                                              _nowrapper=True)
+    vmprof_start_sampling = rffi.llexternal("vmprof_start_sampling", [],
+                                              lltype.Void, compilation_info=eci,
+                                              _nowrapper=True)
 
     return CInterface(locals())
 

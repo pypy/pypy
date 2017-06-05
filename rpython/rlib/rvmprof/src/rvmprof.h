@@ -38,6 +38,8 @@ RPY_EXTERN long vmprof_stack_pop(void*);
 RPY_EXTERN void vmprof_stack_free(void*);
 RPY_EXTERN intptr_t vmprof_get_traceback(void *, void *, intptr_t*, intptr_t);
 RPY_EXTERN long vmprof_get_profile_path(const char *, long);
+RPY_EXTERN int vmprof_stop_sampling(void);
+RPY_EXTERN void vmprof_start_sampling(void);
 
 long vmprof_write_header_for_jit_addr(intptr_t *result, long n,
                                       intptr_t addr, int max_depth);
