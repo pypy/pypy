@@ -10,8 +10,8 @@ the dual release.  Note that PyPy3.5 supports Linux 64bit only for now.
 This new PyPy2.7 release includes the upstream stdlib version 2.7.13, and
 PyPy3.5 includes the upstream stdlib version 3.5.3.
 
-This release enables `profile guided optimization` of the base interpreter,
-which may make unjitted code run faster.
+This release enables link-time optimization and `profile guided optimization` 
+of the base interpreter, which may make unjitted code run faster.
 
 Please let us know if your use case is slow, we have ideas how to make things
 faster but need real-world examples (not micro-benchmarks) of problematic code.
