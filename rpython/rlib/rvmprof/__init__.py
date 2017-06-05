@@ -9,7 +9,6 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 # See README.txt.
 #
 
-
 #vmprof_execute_code(): implemented directly in rvmprof.py
 
 def register_code_object_class(CodeClass, full_name_func):

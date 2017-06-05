@@ -83,8 +83,11 @@ static int emit_code_object(PyCodeObject *co)
 
 static int _look_for_code_object(PyObject *o, void * param)
 {
-    PyObject * all_codes = (PyObject*)((void**)param)[0];
-    PyObject * seen_codes = (PyObject*)((void**)param)[1];
+    int i;
+    PyObject * all_codes, * seen_codes;
+
+    all_codes = (PyObject*)((void**)param)[0];
+    seen_codes = (PyObject*)((void**)param)[1];
     if (PyCode_Check(o) && !PySet_Contains(all_codes, o)) {
         PyCodeObject *co = (PyCodeObject *)o;
         PyObject * id = PyLong_FromVoidPtr((void*)CODE_ADDR_TO_UID(co));
@@ -101,7 +104,7 @@ static int _look_for_code_object(PyObject *o, void * param)
            objects are not created as GC-aware in CPython, so we need
            to hack like this to hope to find most of them. 
         */
-        int i = PyTuple_Size(co->co_consts);
+        i = PyTuple_Size(co->co_consts);
         while (i > 0) {
             --i;
             if (_look_for_code_object(PyTuple_GET_ITEM(co->co_consts, i),
@@ -117,6 +120,7 @@ void emit_all_code_objects(PyObject * seen_code_ids)
 {
     PyObject *gc_module = NULL, *lst = NULL, *all_codes = NULL;
     Py_ssize_t i, size;
+    void * param[2];
 
     gc_module = PyImport_ImportModuleNoBlock("gc");
     if (gc_module == NULL)
@@ -132,7 +136,6 @@ void emit_all_code_objects(PyObject * seen_code_ids)
     if (all_codes == NULL)
         goto error;
 
-    void * param[2];
     param[0] = all_codes;
     param[1] = seen_code_ids;
 
