@@ -10,8 +10,9 @@ the dual release.  Note that PyPy3.5 supports Linux 64bit only for now.
 This new PyPy2.7 release includes the upstream stdlib version 2.7.13, and
 PyPy3.5 includes the upstream stdlib version 3.5.3.
 
-This release enables link-time optimization and `profile guided optimization` 
-of the base interpreter, which may make unjitted code run faster.
+This release enables link-time optimization and `profile guided optimization`_
+of the base interpreter, which may make unjitted code run faster. To use these,
+translate with appropriate `options`_.
 
 Please let us know if your use case is slow, we have ideas how to make things
 faster but need real-world examples (not micro-benchmarks) of problematic code.
@@ -49,6 +50,7 @@ with making RPython's JIT even better.
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`modules`: project-ideas.html#make-more-python-modules-pypy-friendly
 .. _`help`: project-ideas.html
+.. _`options`: config/commandline.html#general-translation-options
 .. _`these benchmarks show`: https://morepypy.blogspot.com/2017/03/async-http-benchmarks-on-pypy3.html
 
 What is PyPy?
@@ -148,7 +150,7 @@ Note that these are also merged into PyPy 3.5
     accepted in a few more places, e.g. in compile()
 
 
-.. _here: http://rpython.readthedocs.io/en/latest/cpython_differences.html
+.. _here: cpython_differences.html
 
 Highlights of the PyPy3.5 release (since 5.7 beta released March 2017)
 ======================================================================
