@@ -819,6 +819,18 @@ def build_slot_tp_function(space, typedef, name):
         else:
             return
         slot_func = buff_w
+    elif name == 'tp_descr_get':
+        get_fn = w_type.getdictvalue(space, '__get__')
+        if get_fn is None:
+            return
+
+        @slot_function([PyObject, PyObject, PyObject], PyObject)
+        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+        def slot_tp_descr_get(space, w_self, w_arg1, w_arg2):
+            if w_arg1 is None:
+                w_arg1 = space.w_None
+            return space.call_function(get_fn, w_self, w_arg1, w_arg2)
+        slot_func = slot_tp_descr_get
     else:
         # missing: tp_as_number.nb_nonzero, tp_as_number.nb_coerce
         # tp_as_sequence.c_sq_contains, tp_as_sequence.c_sq_length
