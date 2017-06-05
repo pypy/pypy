@@ -505,6 +505,7 @@ int search_standard_typename(const char *p, size_t size)
 
     case '1':
         if (size == 8 && !memcmp(p, "uint16", 6)) return _CFFI_PRIM_UINT16;
+        if (size == 8 && !memcmp(p, "char16", 6)) return _CFFI_PRIM_CHAR16;
         break;
 
     case '2':
@@ -513,6 +514,7 @@ int search_standard_typename(const char *p, size_t size)
 
     case '3':
         if (size == 8 && !memcmp(p, "uint32", 6)) return _CFFI_PRIM_UINT32;
+        if (size == 8 && !memcmp(p, "char32", 6)) return _CFFI_PRIM_CHAR32;
         break;
 
     case '4':
