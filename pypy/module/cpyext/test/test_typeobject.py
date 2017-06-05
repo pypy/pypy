@@ -392,6 +392,37 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         obj = foo.new()
         assert module.hack_tp_dict(obj) == 2
 
+    def test_tp_descr_get(self):
+        module = self.import_extension('foo', [
+           ("tp_descr_get", "METH_O",
+            '''
+                if (args->ob_type->tp_descr_get == NULL) {
+                    Py_INCREF(Py_False);
+                    return Py_False;
+                }
+                return args->ob_type->tp_descr_get(args, NULL,
+                                                   (PyObject *)&PyInt_Type);
+             '''
+             )
+            ])
+        assert module.tp_descr_get(42) is False
+
+        class Y(object):
+            def __get__(self, *args):
+                return 42
+            def unbound_method_example(self):
+                pass
+        assert module.tp_descr_get(Y()) == 42
+        #
+        p = property(lambda self: 42)
+        result = module.tp_descr_get(p)
+        assert result is p
+        #
+        f = lambda x: x + 1
+        ubm = module.tp_descr_get(f)
+        assert type(ubm) is type(Y.unbound_method_example)
+        assert ubm(42) == 43
+
 
 class TestTypes(BaseApiTest):
     def test_type_attributes(self, space, api):
