@@ -111,6 +111,9 @@ eptype("uintptr_t", rffi.UINTPTR_T, ctypeprim.W_CTypePrimitiveUnsigned)
 eptype("size_t",    rffi.SIZE_T,    ctypeprim.W_CTypePrimitiveUnsigned)
 eptype("ssize_t",   rffi.SSIZE_T,   ctypeprim.W_CTypePrimitiveSigned)
 
+eptypesize("char16_t", 2, ctypeprim.W_CTypePrimitiveUniChar)
+eptypesize("char32_t", 4, ctypeprim.W_CTypePrimitiveUniChar)
+
 _WCTSigned = ctypeprim.W_CTypePrimitiveSigned
 _WCTUnsign = ctypeprim.W_CTypePrimitiveUnsigned
 
