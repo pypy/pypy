@@ -394,9 +394,9 @@ class AppTestStruct(object):
         assert self.struct.unpack_from("ii", memoryview(b)[2:]) == (17, 42)
         assert self.struct.unpack_from("ii", memoryview(b), 2) == (17, 42)
         exc = raises(TypeError, self.struct.unpack_from, "ii", 123)
-        assert str(exc.value) == "'int' does not support the buffer interface"
+        assert str(exc.value) == "a bytes-like object is required, not int"
         exc = raises(TypeError, self.struct.unpack_from, "ii", None)
-        assert str(exc.value) == "'NoneType' does not support the buffer interface"
+        assert str(exc.value) == "a bytes-like object is required, not None"
         exc = raises(self.struct.error, self.struct.unpack_from, "ii", b'')
         assert str(exc.value) == "unpack_from requires a buffer of at least 8 bytes"
         exc = raises(self.struct.error, self.struct.unpack_from, "ii", memoryview(b''))
@@ -627,7 +627,7 @@ class AppTestFastPath(object):
     def test_unpack_array(self):
         import array
         data = self.struct.pack("iii", 0, 42, 43)
-        buf = array.array('c', data)
+        buf = array.array('B', data)
         assert self.struct.unpack("iii", buf) == (0, 42, 43)
 
     def test_pack_into_bytearray(self):
