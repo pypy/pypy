@@ -154,7 +154,7 @@ class TestStruct(BaseTestPyPyC):
         def main(n):
             import array
             import struct
-            buf = array.array('b', '\x00'*8)
+            buf = array.array('b', b'\x00'*8)
             i = 1
             while i < n:
                 struct.pack_into("h", buf, 4, i)     # ID: pack_into
