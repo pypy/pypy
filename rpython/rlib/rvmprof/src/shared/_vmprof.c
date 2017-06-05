@@ -214,6 +214,46 @@ static void emit_all_code_objects_seen(int fileno)
     Py_XDECREF(gc_module);
 }
 
+static int emit_all_code_objects_helper(int only_needed, int disable_vmprof)
+{
+    int fd = vmp_profile_fileno();
+
+    if (!is_enabled) {
+        PyErr_SetString(PyExc_ValueError, "vmprof is not enabled");
+        return -1;
+    }
+
+#if VMPROF_UNIX
+    if ((read(fd, NULL, 0) != 0) && (only_needed != 0)) {
+        PyErr_SetString(PyExc_ValueError,
+                        "file descriptor must be readable to save only needed code objects");
+        return -1;
+    }
+#else
+    if (only_needed) {
+        PyErr_SetString(PyExc_ValueError,
+                        "saving only needed code objects is not supported for windows");
+        return -1;
+    }
+#endif
+
+    if (disable_vmprof) {
+        is_enabled = 0;
+        vmprof_ignore_signals(1);
+    }
+
+#if VMPROF_UNIX
+    if (only_needed)
+        emit_all_code_objects_seen(fd);
+    else
+        emit_all_code_objects();
+#else
+    emit_all_code_objects();
+#endif
+
+    return 0;
+}
+
 static void cpyprof_code_dealloc(PyObject *co)
 {
     if (is_enabled) {
@@ -229,10 +269,11 @@ static PyObject *enable_vmprof(PyObject* self, PyObject *args)
     int memory = 0;
     int lines = 0;
     int native = 0;
+    int real_time = 0;
     double interval;
     char *p_error;
 
-    if (!PyArg_ParseTuple(args, "id|iii", &fd, &interval, &memory, &lines, &native)) {
+    if (!PyArg_ParseTuple(args, "id|iiii", &fd, &interval, &memory, &lines, &native, &real_time)) {
         return NULL;
     }
 
@@ -251,6 +292,13 @@ static PyObject *enable_vmprof(PyObject* self, PyObject *args)
         return NULL;
     }
 
+#ifndef VMPROF_UNIX
+    if (real_time) {
+        PyErr_SetString(PyExc_ValueError, "real time profiling is only supported on Linux and MacOS");
+        return NULL;
+    }
+#endif
+
     vmp_profile_lines(lines);
 
     if (!Original_code_dealloc) {
@@ -258,21 +306,20 @@ static PyObject *enable_vmprof(PyObject* self, PyObject *args)
         PyCode_Type.tp_dealloc = &cpyprof_code_dealloc;
     }
 
-    p_error = vmprof_init(fd, interval, memory, lines, "cpython", native);
+    p_error = vmprof_init(fd, interval, memory, lines, "cpython", native, real_time);
     if (p_error) {
         PyErr_SetString(PyExc_ValueError, p_error);
         return NULL;
     }
 
-    if (vmprof_enable(memory, native) < 0) {
+    if (vmprof_enable(memory, native, real_time) < 0) {
         PyErr_SetFromErrno(PyExc_OSError);
         return NULL;
     }
 
     is_enabled = 1;
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 static PyObject * vmp_is_enabled(PyObject *module, PyObject *noargs) {
@@ -285,66 +332,40 @@ static PyObject * vmp_is_enabled(PyObject *module, PyObject *noargs) {
 static PyObject *
 disable_vmprof(PyObject *module, PyObject *args)
 {
-    int fd = vmp_profile_fileno();
     int only_needed = 0;
 
-    if (!PyArg_ParseTuple(args, "|i", &only_needed)) {
+    if (!PyArg_ParseTuple(args, "|i", &only_needed))
         return NULL;
-    }
 
-#if VMPROF_UNIX
-    if ((read(fd, NULL, 0) != 0) && (only_needed != 0)) {
-        PyErr_SetString(PyExc_ValueError,
-                        "file descriptor must be readable to save only needed code objects");
+    if (emit_all_code_objects_helper(only_needed, 1))
         return NULL;
-    }
-#else
-    if (only_needed) {
-        PyErr_SetString(PyExc_ValueError,
-                        "saving only needed code objects is not supported for windows");
-        return NULL;
-    }
-#endif
-
-    if (!is_enabled) {
-        PyErr_SetString(PyExc_ValueError, "vmprof is not enabled");
-        return NULL;
-    }
-
-    is_enabled = 0;
-    vmprof_ignore_signals(1);
-
-#if VMPROF_UNIX
-    if (only_needed)
-        emit_all_code_objects_seen(fd);
-    else
-        emit_all_code_objects();
-#else
-    emit_all_code_objects();
-#endif
 
     if (vmprof_disable() < 0) {
         PyErr_SetFromErrno(PyExc_OSError);
         return NULL;
     }
+
     if (PyErr_Occurred())
         return NULL;
-    Py_INCREF(Py_None);
-    return Py_None;
+
+    Py_RETURN_NONE;
 }
 
 static PyObject *
-write_all_code_objects(PyObject *module, PyObject *noargs)
+write_all_code_objects(PyObject *module, PyObject *args)
 {
-    if (!is_enabled) {
-        PyErr_SetString(PyExc_ValueError, "vmprof is not enabled");
+    int only_needed = 0;
+
+    if (!PyArg_ParseTuple(args, "|i", &only_needed))
         return NULL;
-    }
-    emit_all_code_objects();
+
+    if (emit_all_code_objects_helper(only_needed, 0))
+        return NULL;
+
     if (PyErr_Occurred())
         return NULL;
-    Py_INCREF(Py_None);
-    return Py_None;
+
+    Py_RETURN_NONE;
 }
 
 
@@ -378,7 +399,7 @@ sample_stack_now(PyObject *module, PyObject * args)
         vmprof_ignore_signals(0);
         return NULL;
     }
-    entry_count = vmp_walk_and_record_stack(tstate->frame, m, MAX_STACK_DEPTH-1, skip, 0);
+    entry_count = vmp_walk_and_record_stack(tstate->frame, m, SINGLE_BUF_SIZE/sizeof(void*)-1, (int)skip, 0);
 
     for (i = 0; i < entry_count; i++) {
         routine_ip = m[i];
@@ -387,16 +408,14 @@ sample_stack_now(PyObject *module, PyObject * args)
 
     free(m);
 
+    vmprof_ignore_signals(0);
     Py_INCREF(list);
-
-    vmprof_ignore_signals(0);
     return list;
-error:
-    Py_DECREF(list);
-    Py_INCREF(Py_None);
 
+error:
     vmprof_ignore_signals(0);
-    return Py_None;
+    Py_DECREF(list);
+    Py_RETURN_NONE;
 }
 
 #ifdef VMP_SUPPORTS_NATIVE_PROFILING
@@ -428,13 +447,13 @@ resolve_addr(PyObject *module, PyObject *args) {
     if (o_srcfile == NULL) goto error;
     //
     return PyTuple_Pack(3, o_name, o_lineno, o_srcfile);
+
 error:
     Py_XDECREF(o_name);
     Py_XDECREF(o_lineno);
     Py_XDECREF(o_srcfile);
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 #endif
 
@@ -455,18 +474,72 @@ static PyObject * vmp_get_profile_path(PyObject *module, PyObject *noargs) {
 }
 #endif
 
+
+#ifdef VMPROF_UNIX
+static PyObject *
+insert_real_time_thread(PyObject *module, PyObject * noargs) {
+    ssize_t thread_count;
+
+    if (!is_enabled) {
+        PyErr_SetString(PyExc_ValueError, "vmprof is not enabled");
+        return NULL;
+    }
+
+    if (signal_type != SIGALRM) {
+        PyErr_SetString(PyExc_ValueError, "vmprof is not in real time mode");
+        return NULL;
+    }
+
+    while (__sync_lock_test_and_set(&spinlock, 1)) {
+    }
+
+    thread_count = insert_thread(pthread_self(), -1);
+    __sync_lock_release(&spinlock);
+
+    return PyLong_FromSsize_t(thread_count);
+}
+
+static PyObject *
+remove_real_time_thread(PyObject *module, PyObject * noargs) {
+    ssize_t thread_count;
+
+    if (!is_enabled) {
+        PyErr_SetString(PyExc_ValueError, "vmprof is not enabled");
+        return NULL;
+    }
+
+    if (signal_type != SIGALRM) {
+        PyErr_SetString(PyExc_ValueError, "vmprof is not in real time mode");
+        return NULL;
+    }
+
+    while (__sync_lock_test_and_set(&spinlock, 1)) {
+    }
+
+    thread_count = remove_thread(pthread_self(), -1);
+    __sync_lock_release(&spinlock);
+
+    return PyLong_FromSsize_t(thread_count);
+}
+#endif
+
+
 static PyMethodDef VMProfMethods[] = {
     {"enable",  enable_vmprof, METH_VARARGS, "Enable profiling."},
     {"disable", disable_vmprof, METH_VARARGS, "Disable profiling."},
-    {"write_all_code_objects", write_all_code_objects, METH_NOARGS,
+    {"write_all_code_objects", write_all_code_objects, METH_VARARGS,
      "Write eagerly all the IDs of code objects"},
     {"sample_stack_now", sample_stack_now, METH_VARARGS, "Sample the stack now"},
+    {"is_enabled", vmp_is_enabled, METH_NOARGS, "Indicates if vmprof is currently sampling."},
 #ifdef VMP_SUPPORTS_NATIVE_PROFILING
     {"resolve_addr", resolve_addr, METH_VARARGS, "Return the name of the addr"},
 #endif
-    {"is_enabled", vmp_is_enabled, METH_NOARGS, "Indicates if vmprof is currently sampling."},
 #ifdef VMPROF_UNIX
     {"get_profile_path", vmp_get_profile_path, METH_NOARGS, "Profile path the profiler logs to."},
+    {"insert_real_time_thread", insert_real_time_thread, METH_NOARGS,
+     "Insert a thread into the real time profiling list."},
+    {"remove_real_time_thread", remove_real_time_thread, METH_NOARGS,
+     "Remove a thread from the real time profiling list."},
 #endif
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };

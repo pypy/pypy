@@ -306,7 +306,7 @@ void _dump_native_symbol(int fileno, void * addr, char * sym, int linenumber, ch
 int _skip_string(int fileno)
 {
     long chars;
-    int count = read(fileno, &chars, sizeof(long));
+    ssize_t count = read(fileno, &chars, sizeof(long));
     //LOG("reading string of %d chars\n", chars);
     if (count <= 0) {
         return 1;
@@ -359,7 +359,7 @@ int _skip_time_and_zone(int fileno)
     return 0;
 }
 
-KHASH_MAP_INIT_INT(ptr, intptr_t)
+KHASH_MAP_INIT_INT64(ptr, int)
 
 void vmp_scan_profile(int fileno, int dump_nat_sym, void *all_code_uids)
 {
@@ -442,7 +442,7 @@ void vmp_scan_profile(int fileno, int dump_nat_sym, void *all_code_uids)
 
                             // if the address has already been dumped,
                             // do not log it again!
-                            it = kh_get(ptr, nat_syms, (intptr_t)addr);
+                            it = kh_get(ptr, nat_syms, (khint64_t)addr);
                             if (it == kh_end(nat_syms)) {
                                 char name[MAXLEN];
                                 char srcfile[MAXLEN];
@@ -453,7 +453,7 @@ void vmp_scan_profile(int fileno, int dump_nat_sym, void *all_code_uids)
                                     LOG("dumping add %p, name %s, %s:%d\n", addr, name, srcfile, lineno);
                                     _dump_native_symbol(fileno, addr, name, lineno, srcfile);
                                     int ret;
-                                    it = kh_put(ptr, nat_syms, (intptr_t)addr, &ret);
+                                    it = kh_put(ptr, nat_syms, (khint64_t)addr, &ret);
                                     kh_value(nat_syms, it) = 1;
                                 }
                             }
