@@ -207,7 +207,9 @@ int backtrace_full_cb(void *data, uintptr_t pc, const char *filename,
 }
 #endif
 
+static
 struct backtrace_state * bstate = NULL;
+
 int vmp_resolve_addr(void * addr, char * name, int name_len, int * lineno, char * srcfile, int srcfile_len) {
 #ifdef __APPLE__
     Dl_info dlinfo;
@@ -303,10 +305,34 @@ void _dump_native_symbol(int fileno, void * addr, char * sym, int linenumber, ch
     lseek(fileno, pos_before, SEEK_SET);
 }
 
+static
+int cannot_read_profile = 0;
+
+ssize_t read_exactly(int fileno, void * buf, ssize_t size) {
+    assert(size >= 0 && "size parameter must be positive");
+
+    ssize_t r = 0;
+    if ((r = read(fileno, buf, (size_t)size)) == size) {
+        return r;
+    }
+
+    if (r == -1) {
+        if (errno == EINTR) {
+            if ((r = read(fileno, buf, (size_t)size)) == size) {
+                return r;
+            }
+        }
+    }
+
+    fprintf(stderr, "unhandled error in read_exactly. cannot proceed! could not read %d bytes", size);
+    cannot_read_profile = 1;
+    return -1;
+}
+
 int _skip_string(int fileno)
 {
     long chars;
-    ssize_t count = read(fileno, &chars, sizeof(long));
+    ssize_t count = read_exactly(fileno, &chars, sizeof(long));
     //LOG("reading string of %d chars\n", chars);
     if (count <= 0) {
         return 1;
@@ -319,7 +345,7 @@ int _skip_string(int fileno)
 int _skip_header(int fileno, int * version, int * flags)
 {
     unsigned char r[4];
-    (void)read(fileno, r, 4);
+    (void)read_exactly(fileno, r, 4);
     unsigned char count = r[3];
     *version = (r[0] & 0xff) << 8 | (r[1] & 0xff);
     *flags = r[2];
@@ -330,14 +356,14 @@ int _skip_header(int fileno, int * version, int * flags)
 long _read_word(int fileno)
 {
     long w;
-    (void)read(fileno, &w, WORD_SIZE);
+    (void)read_exactly(fileno, &w, WORD_SIZE);
     return w;
 }
 
 void * _read_addr(int fileno)
 {
     void * a;
-    (void)read(fileno, &a, ADDR_SIZE);
+    (void)read_exactly(fileno, &a, ADDR_SIZE);
     return a;
 }
 
@@ -378,7 +404,11 @@ void vmp_scan_profile(int fileno, int dump_nat_sym, void *all_code_uids)
     lseek(fileno, 5*WORD_SIZE, SEEK_SET);
 
     while (1) {
-        count = read(fileno, &marker, 1);
+        if (cannot_read_profile == 1) {
+            cannot_read_profile = 0;
+            break;
+        }
+        count = read_exactly(fileno, &marker, 1);
         if (count <= 0) {
             break;
         }
