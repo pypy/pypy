@@ -84,7 +84,7 @@ def setup():
     eci = global_eci
     vmprof_init = rffi.llexternal("vmprof_init",
                                   [rffi.INT, rffi.DOUBLE, rffi.INT, rffi.INT,
-                                   rffi.CCHARP, rffi.INT],
+                                   rffi.CCHARP, rffi.INT, rffi.INT],
                                   rffi.CCHARP, compilation_info=eci)
     vmprof_enable = rffi.llexternal("vmprof_enable", [rffi.INT, rffi.INT, rffi.INT],
                                     rffi.INT,

@@ -295,7 +295,11 @@ static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
             if (commit) {
                 commit_buffer(fd, p);
             } else {
+#ifndef RPYTHON_VMPROF
                 fprintf(stderr, "WARNING: canceled buffer, no stack trace was written %d\n", is_enabled);
+#else
+                fprintf(stderr, "WARNING: canceled buffer, no stack trace was written\n");
+#endif
                 cancel_buffer(p);
             }
         }

@@ -60,7 +60,7 @@ class AppTestVMProf(object):
         import _vmprof
         gc.collect()  # try to make the weakref list deterministic
         gc.collect()  # by freeing all dead code objects
-        _vmprof.enable(tmpfileno, 0.01, 0, 0, 0)
+        _vmprof.enable(tmpfileno, 0.01, 0, 0, 0, 0)
         _vmprof.disable()
         s = open(self.tmpfilename, 'rb').read()
         no_of_codes = count(s)
@@ -73,7 +73,7 @@ class AppTestVMProf(object):
 
         gc.collect()
         gc.collect()
-        _vmprof.enable(tmpfileno2, 0.01, 0, 0, 0)
+        _vmprof.enable(tmpfileno2, 0.01, 0, 0, 0, 0)
 
         exec """def foo2():
             pass
@@ -88,18 +88,18 @@ class AppTestVMProf(object):
 
     def test_enable_ovf(self):
         import _vmprof
-        raises(_vmprof.VMProfError, _vmprof.enable, 2, 0, 0, 0, 0)
-        raises(_vmprof.VMProfError, _vmprof.enable, 2, -2.5, 0, 0, 0)
-        raises(_vmprof.VMProfError, _vmprof.enable, 2, 1e300, 0, 0, 0)
-        raises(_vmprof.VMProfError, _vmprof.enable, 2, 1e300 * 1e300, 0, 0, 0)
+        raises(_vmprof.VMProfError, _vmprof.enable, 2, 0, 0, 0, 0, 0)
+        raises(_vmprof.VMProfError, _vmprof.enable, 2, -2.5, 0, 0, 0, 0)
+        raises(_vmprof.VMProfError, _vmprof.enable, 2, 1e300, 0, 0, 0, 0)
+        raises(_vmprof.VMProfError, _vmprof.enable, 2, 1e300 * 1e300, 0, 0, 0, 0)
         NaN = (1e300*1e300) / (1e300*1e300)
-        raises(_vmprof.VMProfError, _vmprof.enable, 2, NaN, 0, 0, 0)
+        raises(_vmprof.VMProfError, _vmprof.enable, 2, NaN, 0, 0, 0, 0)
 
     def test_is_enabled(self):
         import _vmprof
         tmpfile = open(self.tmpfilename, 'wb')
         assert _vmprof.is_enabled() is False
-        _vmprof.enable(tmpfile.fileno(), 0.01, 0, 0, 0)
+        _vmprof.enable(tmpfile.fileno(), 0.01, 0, 0, 0, 0)
         assert _vmprof.is_enabled() is True
         _vmprof.disable()
         assert _vmprof.is_enabled() is False
@@ -108,7 +108,7 @@ class AppTestVMProf(object):
         import _vmprof
         tmpfile = open(self.tmpfilename, 'wb')
         assert _vmprof.get_profile_path() is None
-        _vmprof.enable(tmpfile.fileno(), 0.01, 0, 0, 0)
+        _vmprof.enable(tmpfile.fileno(), 0.01, 0, 0, 0, 0)
         path = _vmprof.get_profile_path()
         if path != tmpfile.name:
             with open(path, "rb") as fd1:

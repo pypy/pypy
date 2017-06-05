@@ -33,8 +33,8 @@ def get_unique_id(code):
         return code._vmprof_unique_id
     return 0
 
-def enable(fileno, interval, memory=0, native=0):
-    _get_vmprof().enable(fileno, interval, memory, native)
+def enable(fileno, interval, memory=0, native=0, real_time=0):
+    _get_vmprof().enable(fileno, interval, memory, native, real_time)
 
 def disable():
     _get_vmprof().disable()

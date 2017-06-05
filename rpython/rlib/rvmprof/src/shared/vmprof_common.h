@@ -6,6 +6,7 @@
 
 #include <stddef.h>
 #include <time.h>
+#include <stdlib.h>
 
 #ifndef VMPROF_WINDOWS
 #include <sys/time.h>
