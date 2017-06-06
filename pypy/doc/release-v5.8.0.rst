@@ -3,8 +3,8 @@ PyPy2.7 and PyPy3.5 v5.8 dual release
 =====================================
 
 The PyPy team is proud to release both PyPy2.7 v5.8 (an interpreter supporting
-Python v2.7 syntax), and a beta-quality PyPy3.5 v5.8 (an interpreter for Python
-v3.5 syntax). The two releases are both based on much the same codebase, thus
+Python 2.7 syntax), and a beta-quality PyPy3.5 v5.8 (an interpreter for Python
+3.5 syntax). The two releases are both based on much the same codebase, thus
 the dual release.  Note that PyPy3.5 supports Linux 64bit only for now. 
 
 This new PyPy2.7 release includes the upstream stdlib version 2.7.13, and
