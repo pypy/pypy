@@ -10,6 +10,12 @@ the dual release.  Note that PyPy3.5 supports Linux 64bit only for now.
 This new PyPy2.7 release includes the upstream stdlib version 2.7.13, and
 PyPy3.5 includes the upstream stdlib version 3.5.3.
 
+We can now profile native frames in the vmprof_ statistical profiler, even in
+JITted code.
+
+The struct module functions `pack*` and `unpack*` are now much faster,
+especially on raw buffers and bytearrays.
+
 This release adds (but disables by default) link-time optimization and
 `profile guided optimization`_ of the base interpreter, which may make
 unjitted code run faster. To use these, translate with appropriate
