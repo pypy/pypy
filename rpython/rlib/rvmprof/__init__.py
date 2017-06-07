@@ -3,12 +3,11 @@ from rpython.rlib.rvmprof.rvmprof import _get_vmprof, VMProfError
 from rpython.rlib.rvmprof.rvmprof import vmprof_execute_code, MAX_FUNC_NAME
 from rpython.rlib.rvmprof.rvmprof import _was_registered
 from rpython.rlib.rvmprof.cintf import VMProfPlatformUnsupported
-from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import rffi, lltype
 
 #
 # See README.txt.
 #
-
 
 #vmprof_execute_code(): implemented directly in rvmprof.py
 
@@ -56,3 +55,9 @@ def get_profile_path(space):
 
     return None
 
+def stop_sampling(space):
+    fd = _get_vmprof().cintf.vmprof_stop_sampling()
+    return rffi.cast(lltype.Signed, fd)
+
+def start_sampling(space):
+    _get_vmprof().cintf.vmprof_start_sampling()

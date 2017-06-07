@@ -39,7 +39,7 @@ static struct profbuf_s *volatile current_codes;
 static inline ssize_t search_thread(pthread_t tid, ssize_t i) {
     if (i < 0)
         i = 0;
-    while (i < thread_count) {
+    while ((size_t)i < thread_count) {
         if (pthread_equal(threads[i], tid))
             return i;
         i++;

@@ -14,6 +14,9 @@ class Module(MixedModule):
         'write_all_code_objects': 'interp_vmprof.write_all_code_objects',
         'is_enabled': 'interp_vmprof.is_enabled',
         'get_profile_path': 'interp_vmprof.get_profile_path',
+        'stop_sampling': 'interp_vmprof.stop_sampling',
+        'start_sampling': 'interp_vmprof.start_sampling',
+
         'VMProfError': 'space.fromcache(interp_vmprof.Cache).w_VMProfError',
     }
 

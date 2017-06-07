@@ -30,8 +30,18 @@ int IS_VMPROF_EVAL(void * ptr)
 }
 #endif
 
-
 long vmprof_get_profile_path(const char * buffer, long size)
 {
     return vmp_fd_to_path(vmp_profile_fileno(), buffer, size);
+}
+
+int vmprof_stop_sampling(void)
+{
+    vmprof_ignore_signals(1);
+    return vmp_profile_fileno();
+}
+
+void vmprof_start_sampling(void)
+{
+    vmprof_ignore_signals(0);
 }
