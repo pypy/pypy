@@ -143,14 +143,18 @@ class TestSophisticatedThings(BaseCTypesTestChecker):
         A = c_char * 10
         TP = POINTER(A)
         x = TP(A())
-        assert repr(x[0]) != "''"
-        assert isinstance(repr(x[0]), bytes)
+        assert x[0] != ''
 
         A = c_wchar * 10
         TP = POINTER(A)
         x = TP(A())
-        assert repr(x[0]) != "''"
-        assert isinstance(repr(x[0]), bytes)
+        assert x[0] != ''
+
+    def test_output_simple_array(self):
+        A = c_char * 10
+        AA = A * 10
+        aa = AA()
+        assert aa[0] != ''
 
     def test_output_complex_test(self):
         class Car(Structure):
@@ -158,6 +162,7 @@ class TestSophisticatedThings(BaseCTypesTestChecker):
                         ("speed", c_float),
                         ("owner", c_char * 10)]
 
+        assert isinstance(Car("abcdefghi", 42.0, "12345").brand, bytes)
         assert Car("abcdefghi", 42.0, "12345").brand == "abcdefghi"
         assert Car("abcdefghio", 42.0, "12345").brand == "abcdefghio"
         raises(ValueError, Car, "abcdefghiop", 42.0, "12345")
@@ -165,12 +170,4 @@ class TestSophisticatedThings(BaseCTypesTestChecker):
         A = Car._fields_[2][1]
         TP = POINTER(A)
         x = TP(A())
-        assert repr(x[0]) != "''"
-        assert isinstance(repr(x[0]), bytes)
-
-        c = Car()
-        c.brand = "abcdex"
-        c.speed = 42.0
-        c.owner = "12345"
-        assert isinstance(repr(c.brand), bytes)
-        
+        assert x[0] != ''
