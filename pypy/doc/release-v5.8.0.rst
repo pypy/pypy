@@ -15,7 +15,7 @@ profiler.
 
 The `struct`` module functions `pack*` and `unpack*` are now much faster,
 especially on raw buffers and bytearrays. Microbenchmarks show a 2x to 10x
-speedup. Thanks to Gambit_ for sponsoring this work.
+speedup. Thanks to `Gambit Research`_ for sponsoring this work.
 
 This release adds (but disables by default) link-time optimization and
 `profile guided optimization`_ of the base interpreter, which may make
