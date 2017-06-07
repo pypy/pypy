@@ -61,7 +61,7 @@ with making RPython's JIT even better.
 .. _`help`: project-ideas.html
 .. _`options`: config/commandline.html#general-translation-options
 .. _`these benchmarks show`: https://morepypy.blogspot.com/2017/03/async-http-benchmarks-on-pypy3.html
-.. _Gambit: http://gambitresearch.com
+.. _`Gambit Reseach`: http://gambitresearch.com
 
 What is PyPy?
 =============
