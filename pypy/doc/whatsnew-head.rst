@@ -9,3 +9,7 @@ What's new in PyPy2.7 5.9+
 .. branch: cffi-char16-char32
 
 The two ``cffi-*`` branches are part of the upgrade to cffi 1.11.
+
+.. branch: vmprof-0.4.8
+
+Reduces the amount of C code needed to write native symbol information to the logfile.
