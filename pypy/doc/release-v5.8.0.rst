@@ -17,7 +17,7 @@ even in single threaded programs.
 We added native PyPy support to profile frames in the vmprof_ statistical
 profiler.
 
-The `struct`` module functions `pack*` and `unpack*` are now much faster,
+The ``struct`` module functions ``pack*`` and ``unpack*`` are now much faster,
 especially on raw buffers and bytearrays. Microbenchmarks show a 2x to 10x
 speedup. Thanks to `Gambit Research`_ for sponsoring this work.
 
@@ -29,20 +29,18 @@ unjitted code run faster. To use these, translate with appropriate
 Please let us know if your use case is slow, we have ideas how to make things
 faster but need real-world examples (not micro-benchmarks) of problematic code.
 
-Work proceeds at a good pace on the PyPy3.5
-version due to a grant_ from the Mozilla Foundation, hence our 3.5.3 beta
-release. Thanks Mozilla !!! While we do not pass all tests yet, asyncio works and
-as `these benchmarks show`_ it already gives a nice speed bump.
-We also backported the ``f""`` formatting from 3.6 (as an exception; otherwise
-"PyPy3.5" supports the Python 3.5 language).
+Work sponsored by a Mozilla grant_ continues on PyPy3.5; numerous fixes from
+CPython were ported to PyPy and PEP 489 was fully implemented. Of course the
+bug fixes and performance enhancements mentioned above are part of both PyPy
+2.7 and PyPy 3.5.
 
 CFFI_, which is part of the PyPy release, has been updated to an unreleased 1.10.1,
 improving an already great package for interfacing with C.
 
-As always, this release fixed many issues and bugs raised by the
+As always, this release fixed many other issues and bugs raised by the
 growing community of PyPy users. We strongly recommend updating.
 
-You can download the v5.8 release here:
+You can download the v5.8 releases here:
 
     http://pypy.org/download.html
 
@@ -57,6 +55,7 @@ with making RPython's JIT even better.
 
 .. _`profile guided optimization`: https://pythonfiles.wordpress.com/2017/05/12/enabling-profile-guided-optimizations-for-pypy
 .. _shadowstack: config/translation.gcrootfinder.html
+.. _vmprof: http://vmprof.readthedocs.io
 .. _`issues with gcc toolchains`: https://bitbucket.org/pypy/pypy/issues/2572/link-time-optimization-lto-disabled
 .. _CFFI: https://cffi.readthedocs.io/en/latest/whatsnew.html
 .. _grant: https://morepypy.blogspot.com/2016/08/pypy-gets-funding-from-mozilla-for.html
@@ -66,7 +65,7 @@ with making RPython's JIT even better.
 .. _`help`: project-ideas.html
 .. _`options`: config/commandline.html#general-translation-options
 .. _`these benchmarks show`: https://morepypy.blogspot.com/2017/03/async-http-benchmarks-on-pypy3.html
-.. _`Gambit Reseach`: http://gambitresearch.com
+.. _`Gambit Research`: http://gambitresearch.com
 
 What is PyPy?
 =============
