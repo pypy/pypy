@@ -56,8 +56,8 @@ def get_profile_path(space):
     return None
 
 def stop_sampling(space):
-    fd = _get_vmprof().cintf.stop_sampling()
+    fd = _get_vmprof().cintf.vmprof_stop_sampling()
     return rffi.cast(lltype.Signed, fd)
 
 def start_sampling(space):
-    _get_vmprof().cintf.start_sampling()
+    _get_vmprof().cintf.vmprof_start_sampling()
