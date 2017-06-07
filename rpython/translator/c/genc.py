@@ -403,7 +403,7 @@ class CStandaloneBuilder(CBuilder):
             mk.definition('PAX_TARGET', '%s' % (exe_name))
             rules.append(('$(PAX_TARGET)', '$(TARGET) main.o', [
                           '$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ $(RPATH_FLAGS)',
-                          'paxmark -zm $(PAX_TARGET)']))
+                          'attr -q -s pax.flags -V m $(PAX_TARGET)']))
             mk.rule('nopax', '',
                     '$(MAKE) CFLAGS="$(CFLAGS) $(CFLAGSEXTRA)" LDFLAGS="$(LDFLAGS)" $(PAX_TARGET)')
 
