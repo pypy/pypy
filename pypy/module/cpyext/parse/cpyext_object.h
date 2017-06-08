@@ -289,6 +289,19 @@ typedef struct _typeobject {
     destructor tp_finalize;
 } PyTypeObject;
 
+typedef struct{
+    int slot;    /* slot id, see below */
+    void *pfunc; /* function pointer */
+} PyType_Slot;
+
+typedef struct{
+    const char* name;
+    int basicsize;
+    int itemsize;
+    unsigned int flags;
+    PyType_Slot *slots; /* terminated by slot==0. */
+} PyType_Spec;
+
 typedef struct _heaptypeobject {
     PyTypeObject ht_type;
     PyNumberMethods as_number;

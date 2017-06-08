@@ -130,3 +130,18 @@ class AppTestMultiPhase(AppTestCpythonExtensionBase):
         """
         raises(SystemError, self.import_module, name='multiphase', body=body,
                init=init)
+
+    def test_module(self):
+        import sys
+        from importlib import machinery, util
+        NAME = '_testmultiphase'
+        module = self.import_module(name=NAME)
+        finder = machinery.FileFinder(None)
+        spec = util.find_spec(NAME)
+        assert spec
+        assert module.__name__ == NAME
+        #assert module.__file__ == spec.origin
+        assert module.__package__ == ''
+        raises(AttributeError, 'module.__path__')
+        assert module is sys.modules[NAME]
+        assert isinstance(module.__loader__, machinery.ExtensionFileLoader)
