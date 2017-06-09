@@ -36,7 +36,10 @@ for plat in linux linux64 linux-armhf-raspbian linux-armhf-raring linux-armel os
     hgcheck=`tar -tf pypy-c-jit-latest-$plat.tar.bz2 |head -n1 | cut -d- -f5`
     if [ "$hgcheck" != "$hgrev" ]
     then
+        echo xxxxxxxxxxxxxxxxxxxxxx
         echo $plat hg tag mismatch, expected $hgrev, got $hgcheck
+        echo xxxxxxxxxxxxxxxxxxxxxx
+        rm pypy-c-jit-latest-$plat.tar.bz2
         continue
     fi
     tar -xf pypy-c-jit-latest-$plat.tar.bz2
