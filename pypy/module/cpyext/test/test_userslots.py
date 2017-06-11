@@ -51,7 +51,7 @@ class TestAppLevelObject(BaseApiTest):
         w_descr = space.appexec([], """():
             class Descr(object):
                 def __get__(self, obj, type):
-                    return 42
+                    return 42 + (obj is None)
                 def __set__(self, obj, value):
                     obj.append('set')
                 def __delete__(self, obj):
@@ -73,6 +73,11 @@ class TestAppLevelObject(BaseApiTest):
             space, py_descrtype.c_tp_descr_set,
             py_descr, py_obj, None) == 0
         assert space.eq_w(w_obj, space.wrap(['set', 'del']))
+        #
+        # unbound __get__(self, NULL, type)
+        w_res = generic_cpy_call(space, py_descrtype.c_tp_descr_get,
+                                 py_descr, None, space.w_int)
+        assert space.int_w(w_res) == 43
 
 class AppTestUserSlots(AppTestCpythonExtensionBase):
     def test_tp_hash_from_python(self):

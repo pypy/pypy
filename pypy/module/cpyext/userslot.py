@@ -111,6 +111,8 @@ def slot_tp_getattr(space, w_obj1, w_obj2):
 
 @slot_function([PyObject, PyObject, PyObject], PyObject)
 def slot_tp_descr_get(space, w_self, w_obj, w_type):
+    if w_obj is None:
+        w_obj = space.w_None
     return space.get(w_self, w_obj, w_type)
 
 @slot_function([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)

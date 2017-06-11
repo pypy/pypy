@@ -134,7 +134,7 @@ class BasePosix(Platform):
             cflags = tuple(self.cflags) + tuple(self.standalone_only)
 
         # xxx check which compilers accept this option or not
-        if not config or config.translation.gcrootfinder != 'asmgcc':
+        if config and config.translation.lto:
             cflags = ('-flto',) + cflags
 
         m = GnuMakefile(path)

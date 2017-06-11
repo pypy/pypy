@@ -10,7 +10,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rfficache
 
 from pypy.interpreter.error import oefmt
-from pypy.module._cffi_backend import cdataobj, misc
+from pypy.module._cffi_backend import cdataobj, misc, wchar_helper
 from pypy.module._cffi_backend.ctypeobj import W_CType
 
 
@@ -42,11 +42,13 @@ class W_CTypePrimitive(W_CType):
     def cast_unicode(self, w_ob):
         space = self.space
         s = space.unicode_w(w_ob)
-        if len(s) != 1:
+        try:
+            ordinal = wchar_helper.unicode_to_ordinal(s)
+        except ValueError:
             raise oefmt(space.w_TypeError,
                         "cannot cast unicode string of length %d to ctype '%s'",
                         len(s), self.name)
-        return ord(s[0])
+        return intmask(ordinal)
 
     def cast(self, w_ob):
         from pypy.module._cffi_backend import ctypeptr
@@ -148,53 +150,83 @@ class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
         return self.space.newbytes(s)
 
 
-# XXX explicitly use an integer type instead of lltype.UniChar here,
-# because for now the latter is defined as unsigned by RPython (even
-# though it may be signed when 'wchar_t' is written to C).
-WCHAR_INT = {(2, False): rffi.USHORT,
-             (4, False): rffi.UINT,
-             (4, True): rffi.INT}[rffi.sizeof(lltype.UniChar),
-                                  rfficache.signof_c_type('wchar_t')]
-WCHAR_INTP = rffi.CArrayPtr(WCHAR_INT)
-
 class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
-    _attrs_ = []
+    _attrs_            = ['is_signed_wchar']
+    _immutable_fields_ = ['is_signed_wchar']
 
-    if rffi.r_wchar_t.SIGN:
-        def write_raw_integer_data(self, w_cdata, value):
-            w_cdata.write_raw_signed_data(value)
+    _wchar_is_signed = rfficache.signof_c_type('wchar_t')
+
+    def __init__(self, space, size, name, name_position, align):
+        W_CTypePrimitiveCharOrUniChar.__init__(self, space, size, name,
+                                               name_position, align)
+        self.is_signed_wchar = self._wchar_is_signed and (name == "wchar_t")
+        # "char16_t" and "char32_t" are always unsigned
 
     def cast_to_int(self, cdata):
-        unichardata = rffi.cast(WCHAR_INTP, cdata)
-        return self.space.newint(unichardata[0])
+        if self.is_signed_wchar:
+            value = misc.read_raw_long_data(cdata, self.size)
+            return self.space.newint(value)
+        else:
+            value = misc.read_raw_ulong_data(cdata, self.size)
+            if self.size < rffi.sizeof(lltype.Signed):
+                return self.space.newint(intmask(value))
+            else:
+                return self.space.newint(value)    # r_uint => 'long' object
 
     def convert_to_object(self, cdata):
-        unichardata = rffi.cast(rffi.CWCHARP, cdata)
-        return self.space.newunicode(unichardata[0])
+        if self.is_signed_wchar:
+            unichardata = rffi.cast(rffi.CWCHARP, cdata)
+            return self.space.newunicode(unichardata[0])
+        else:
+            value = misc.read_raw_ulong_data(cdata, self.size)   # r_uint
+            try:
+                u = wchar_helper.ordinal_to_unicode(value)
+            except wchar_helper.OutOfRange as e:
+                raise oefmt(self.space.w_ValueError,
+                            "char32_t out of range for "
+                            "conversion to unicode: %s", hex(e.ordinal))
+            return self.space.newunicode(u)
 
     def string(self, cdataobj, maxlen):
         with cdataobj as ptr:
             w_res = self.convert_to_object(ptr)
         return w_res
 
-    def _convert_to_unichar(self, w_ob):
+    def _convert_to_charN_t(self, w_ob):
+        # returns a r_uint.  If self.size == 2, it is smaller than 0x10000
         space = self.space
         if space.isinstance_w(w_ob, space.w_unicode):
-            s = space.unicode_w(w_ob)
-            if len(s) == 1:
-                return s[0]
-        if (isinstance(w_ob, cdataobj.W_CData) and
-               isinstance(w_ob.ctype, W_CTypePrimitiveUniChar)):
+            u = space.unicode_w(w_ob)
+            try:
+                ordinal = wchar_helper.unicode_to_ordinal(u)
+            except ValueError:
+                pass
+            else:
+                if self.size == 2 and ordinal > 0xffff:
+                    raise self._convert_error("single character <= 0xFFFF",
+                                              w_ob)
+                return ordinal
+        elif (isinstance(w_ob, cdataobj.W_CData) and
+               isinstance(w_ob.ctype, W_CTypePrimitiveUniChar) and
+               w_ob.ctype.size == self.size):
             with w_ob as ptr:
-                return rffi.cast(rffi.CWCHARP, ptr)[0]
+                return misc.read_raw_ulong_data(ptr, self.size)
         raise self._convert_error("unicode string of length 1", w_ob)
 
     def convert_from_object(self, cdata, w_ob):
-        value = self._convert_to_unichar(w_ob)
-        rffi.cast(rffi.CWCHARP, cdata)[0] = value
+        ordinal = self._convert_to_charN_t(w_ob)
+        misc.write_raw_unsigned_data(cdata, ordinal, self.size)
 
     def unpack_ptr(self, w_ctypeptr, ptr, length):
-        u = rffi.wcharpsize2unicode(rffi.cast(rffi.CWCHARP, ptr), length)
+        if self.size == 2:
+            u = wchar_helper.unicode_from_char16(ptr, length)
+        else:
+            try:
+                u = wchar_helper.unicode_from_char32(ptr, length)
+            except wchar_helper.OutOfRange as e:
+                raise oefmt(self.space.w_ValueError,
+                            "char32_t out of range for "
+                            "conversion to unicode: %s", hex(e.ordinal))
         return self.space.newunicode(u)
 
 

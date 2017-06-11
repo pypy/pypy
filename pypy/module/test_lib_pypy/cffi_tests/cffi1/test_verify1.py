@@ -222,7 +222,7 @@ def test_primitive_category():
         F = tp.is_float_type()
         X = tp.is_complex_type()
         I = tp.is_integer_type()
-        assert C == (typename in ('char', 'wchar_t'))
+        assert C == (typename in ('char', 'wchar_t', 'char16_t', 'char32_t'))
         assert F == (typename in ('float', 'double', 'long double'))
         assert X == (typename in ('float _Complex', 'double _Complex'))
         assert I + F + C + X == 1      # one and only one of them is true

@@ -819,6 +819,39 @@ def build_slot_tp_function(space, typedef, name):
         else:
             return
         slot_func = buff_w
+    elif name == 'tp_descr_get':
+        get_fn = w_type.getdictvalue(space, '__get__')
+        if get_fn is None:
+            return
+
+        @slot_function([PyObject, PyObject, PyObject], PyObject)
+        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+        def slot_tp_descr_get(space, w_self, w_obj, w_value):
+            if w_obj is None:
+                w_obj = space.w_None
+            return space.call_function(get_fn, w_self, w_obj, w_value)
+        slot_func = slot_tp_descr_get
+    elif name == 'tp_descr_set':
+        set_fn = w_type.getdictvalue(space, '__set__')
+        delete_fn = w_type.getdictvalue(space, '__delete__')
+        if set_fn is None and delete_fn is None:
+            return
+
+        @slot_function([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
+        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+        def slot_tp_descr_set(space, w_self, w_obj, w_value):
+            if w_value is not None:
+                if set_fn is None:
+                    raise oefmt(space.w_TypeError,
+                                "%s object has no __set__", typedef.name)
+                space.call_function(set_fn, w_self, w_obj, w_value)
+            else:
+                if delete_fn is None:
+                    raise oefmt(space.w_TypeError,
+                                "%s object has no __delete__", typedef.name)
+                space.call_function(delete_fn, w_self, w_obj)
+            return 0
+        slot_func = slot_tp_descr_set
     else:
         # missing: tp_as_number.nb_nonzero, tp_as_number.nb_coerce
         # tp_as_sequence.c_sq_contains, tp_as_sequence.c_sq_length

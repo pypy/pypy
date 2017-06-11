@@ -26,6 +26,7 @@
 #define PROFILE_LINES  '\x02'
 #define PROFILE_NATIVE '\x04'
 #define PROFILE_RPYTHON '\x08'
+#define PROFILE_REAL_TIME '\x10'
 
 #define DYN_JIT_FLAG 0xbeefbeef
 

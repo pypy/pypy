@@ -6,9 +6,9 @@ import os
 
 from rpython.rlib import rposix
 from rpython.rlib.rarithmetic import ovfcheck
-from rpython.rtyper.annlowlevel import llstr, llunicode
+from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw, copy_unicode_to_raw
+from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.module._cffi_backend import cdataobj, misc, ctypeprim, ctypevoid
@@ -90,18 +90,28 @@ class W_CTypePtrOrArray(W_CType):
             if n != self.length:
                 cdata[n] = '\x00'
         elif isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveUniChar):
+            from pypy.module._cffi_backend import wchar_helper
             if not space.isinstance_w(w_ob, space.w_unicode):
                 raise self._convert_error("unicode or list or tuple", w_ob)
             s = space.unicode_w(w_ob)
-            n = len(s)
+            if self.ctitem.size == 2:
+                n = wchar_helper.unicode_size_as_char16(s)
+            else:
+                n = wchar_helper.unicode_size_as_char32(s)
             if self.length >= 0 and n > self.length:
                 raise oefmt(space.w_IndexError,
                             "initializer unicode string is too long for '%s' "
                             "(got %d characters)", self.name, n)
-            unichardata = rffi.cast(rffi.CWCHARP, cdata)
-            copy_unicode_to_raw(llunicode(s), unichardata, 0, n)
-            if n != self.length:
-                unichardata[n] = u'\x00'
+            add_final_zero = (n != self.length)
+            if self.ctitem.size == 2:
+                try:
+                    wchar_helper.unicode_to_char16(s, cdata, n, add_final_zero)
+                except wchar_helper.OutOfRange as e:
+                    raise oefmt(self.space.w_ValueError,
+                                "unicode character ouf of range for "
+                                "conversion to char16_t: %s", hex(e.ordinal))
+            else:
+                wchar_helper.unicode_to_char32(s, cdata, n, add_final_zero)
         else:
             raise self._convert_error("list or tuple", w_ob)
 
@@ -136,12 +146,12 @@ class W_CTypePtrOrArray(W_CType):
                 #
                 # pointer to a wchar_t: builds and returns a unicode
                 if self.is_unichar_ptr_or_array():
-                    cdata = rffi.cast(rffi.CWCHARP, ptr)
-                    if length < 0:
-                        u = rffi.wcharp2unicode(cdata)
+                    from pypy.module._cffi_backend import wchar_helper
+                    if self.ctitem.size == 2:
+                        length = wchar_helper.measure_length_16(ptr, length)
                     else:
-                        u = rffi.wcharp2unicoden(cdata, length)
-                    return space.newunicode(u)
+                        length = wchar_helper.measure_length_32(ptr, length)
+                    return self.ctitem.unpack_ptr(self, ptr, length)
         #
         return W_CType.string(self, cdataobj, maxlen)
 
@@ -304,10 +314,18 @@ class W_CTypePointer(W_CTypePtrBase):
         if (space.isinstance_w(w_init, space.w_list) or
             space.isinstance_w(w_init, space.w_tuple)):
             length = space.int_w(space.len(w_init))
-        elif (space.isinstance_w(w_init, space.w_unicode) or
-              space.isinstance_w(w_init, space.w_bytes)):
+        elif space.isinstance_w(w_init, space.w_bytes):
             # from a string, we add the null terminator
-            length = space.int_w(space.len(w_init)) + 1
+            s = space.bytes_w(w_init)
+            length = len(s) + 1
+        elif space.isinstance_w(w_init, space.w_unicode):
+            from pypy.module._cffi_backend import wchar_helper
+            u = space.unicode_w(w_init)
+            if self.ctitem.size == 2:
+                length = wchar_helper.unicode_size_as_char16(u)
+            else:
+                length = wchar_helper.unicode_size_as_char32(u)
+            length += 1
         elif self.is_file:
             result = self.prepare_file(w_init)
             if result:

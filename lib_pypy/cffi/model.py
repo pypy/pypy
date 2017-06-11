@@ -122,6 +122,8 @@ class PrimitiveType(BasePrimitiveType):
         '_Bool':              'i',
         # the following types are not primitive in the C sense
         'wchar_t':            'c',
+        'char16_t':           'c',
+        'char32_t':           'c',
         'int8_t':             'i',
         'uint8_t':            'i',
         'int16_t':            'i',

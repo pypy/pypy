@@ -3,8 +3,9 @@ from . import ffiplatform, model
 from .error import VerificationError
 from .cffi_opcode import *
 
-VERSION = "0x2601"
-VERSION_EMBEDDED = "0x2701"
+VERSION_BASE = 0x2601
+VERSION_EMBEDDED = 0x2701
+VERSION_CHAR16CHAR32 = 0x2801
 
 
 class GlobalExpr:
@@ -126,6 +127,10 @@ class Recompiler:
         self.ffi = ffi
         self.module_name = module_name
         self.target_is_python = target_is_python
+        self._version = VERSION_BASE
+
+    def needs_version(self, ver):
+        self._version = max(self._version, ver)
 
     def collect_type_table(self):
         self._typesdict = {}
@@ -304,9 +309,7 @@ class Recompiler:
             prnt('#endif')
             lines = self._rel_readlines('_embedding.h')
             prnt(''.join(lines))
-            version = VERSION_EMBEDDED
-        else:
-            version = VERSION
+            self.needs_version(VERSION_EMBEDDED)
         #
         # then paste the C source given by the user, verbatim.
         prnt('/************************************************************/')
@@ -405,7 +408,7 @@ class Recompiler:
             prnt('        _cffi_call_python_org = '
                  '(void(*)(struct _cffi_externpy_s *, char *))p[1];')
             prnt('    }')
-        prnt('    p[0] = (const void *)%s;' % version)
+        prnt('    p[0] = (const void *)0x%x;' % self._version)
         prnt('    p[1] = &_cffi_type_context;')
         prnt('}')
         # on Windows, distutils insists on putting init_cffi_xyz in
@@ -423,21 +426,22 @@ class Recompiler:
         prnt('PyMODINIT_FUNC')
         prnt('PyInit_%s(void)' % (base_module_name,))
         prnt('{')
-        prnt('  return _cffi_init("%s", %s, &_cffi_type_context);' % (
-            self.module_name, version))
+        prnt('  return _cffi_init("%s", 0x%x, &_cffi_type_context);' % (
+            self.module_name, self._version))
         prnt('}')
         prnt('#else')
         prnt('PyMODINIT_FUNC')
         prnt('init%s(void)' % (base_module_name,))
         prnt('{')
-        prnt('  _cffi_init("%s", %s, &_cffi_type_context);' % (
-            self.module_name, version))
+        prnt('  _cffi_init("%s", 0x%x, &_cffi_type_context);' % (
+            self.module_name, self._version))
         prnt('}')
         prnt('#endif')
         prnt()
         prnt('#ifdef __GNUC__')
         prnt('#  pragma GCC visibility pop')
         prnt('#endif')
+        self._version = None
 
     def _to_py(self, x):
         if isinstance(x, str):
@@ -476,7 +480,8 @@ class Recompiler:
             prnt('from %s import ffi as _ffi%d' % (included_module_name, i))
         prnt()
         prnt("ffi = _cffi_backend.FFI('%s'," % (self.module_name,))
-        prnt("    _version = %s," % (VERSION,))
+        prnt("    _version = 0x%x," % (self._version,))
+        self._version = None
         #
         # the '_types' keyword argument
         self.cffi_types = tuple(self.cffi_types)    # don't change any more
@@ -515,8 +520,11 @@ class Recompiler:
                 # double' here, and _cffi_to_c_double would loose precision
                 converter = '(%s)_cffi_to_c_double' % (tp.get_c_name(''),)
             else:
-                converter = '(%s)_cffi_to_c_%s' % (tp.get_c_name(''),
+                cname = tp.get_c_name('')
+                converter = '(%s)_cffi_to_c_%s' % (cname,
                                                    tp.name.replace(' ', '_'))
+                if cname in ('char16_t', 'char32_t'):
+                    self.needs_version(VERSION_CHAR16CHAR32)
             errvalue = '-1'
         #
         elif isinstance(tp, model.PointerType):
@@ -573,7 +581,10 @@ class Recompiler:
             elif isinstance(tp, model.UnknownFloatType):
                 return '_cffi_from_c_double(%s)' % (var,)
             elif tp.name != 'long double' and not tp.is_complex_type():
-                return '_cffi_from_c_%s(%s)' % (tp.name.replace(' ', '_'), var)
+                cname = tp.name.replace(' ', '_')
+                if cname in ('char16_t', 'char32_t'):
+                    self.needs_version(VERSION_CHAR16CHAR32)
+                return '_cffi_from_c_%s(%s)' % (cname, var)
             else:
                 return '_cffi_from_c_deref((char *)&%s, _cffi_type(%d))' % (
                     var, self._gettypenum(tp))

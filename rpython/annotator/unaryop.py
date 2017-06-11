@@ -410,6 +410,7 @@ class __extend__(SomeList):
                 self.listdef.resize()
                 self.listdef.listitem.hint_maxlength = True
         elif 'fence' in hints:
+            self.listdef.resize()
             self = self.listdef.offspring(getbookkeeper())
         return self
 
