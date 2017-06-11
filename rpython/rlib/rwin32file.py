@@ -46,6 +46,8 @@ def make_win32_traits(traits):
             'INVALID_FILE_ATTRIBUTES')
         ERROR_SHARING_VIOLATION = platform.ConstantInteger(
             'ERROR_SHARING_VIOLATION')
+        ERROR_ACCESS_DENIED = platform.ConstantInteger(
+            'ERROR_ACCESS_DENIED')
         MOVEFILE_REPLACE_EXISTING = platform.ConstantInteger(
             'MOVEFILE_REPLACE_EXISTING')
         _S_IFDIR = platform.ConstantInteger('_S_IFDIR')
@@ -56,10 +58,14 @@ def make_win32_traits(traits):
         FILE_TYPE_CHAR = platform.ConstantInteger('FILE_TYPE_CHAR')
         FILE_TYPE_PIPE = platform.ConstantInteger('FILE_TYPE_PIPE')
 
+        FILE_READ_ATTRIBUTES = platform.ConstantInteger(
+            'FILE_READ_ATTRIBUTES')
         FILE_WRITE_ATTRIBUTES = platform.ConstantInteger(
             'FILE_WRITE_ATTRIBUTES')
         OPEN_EXISTING = platform.ConstantInteger(
             'OPEN_EXISTING')
+        FILE_ATTRIBUTE_NORMAL = platform.ConstantInteger(
+            'FILE_ATTRIBUTE_NORMAL')
         FILE_FLAG_BACKUP_SEMANTICS = platform.ConstantInteger(
             'FILE_FLAG_BACKUP_SEMANTICS')
         VOLUME_NAME_DOS = platform.ConstantInteger('VOLUME_NAME_DOS')
@@ -103,10 +109,12 @@ def make_win32_traits(traits):
                        INVALID_FILE_ATTRIBUTES
                        _S_IFDIR _S_IFREG _S_IFCHR _S_IFIFO
                        FILE_TYPE_UNKNOWN FILE_TYPE_CHAR FILE_TYPE_PIPE
+                       FILE_READ_ATTRIBUTES
                        FILE_WRITE_ATTRIBUTES OPEN_EXISTING FILE_FLAG_BACKUP_SEMANTICS
                        VOLUME_NAME_DOS VOLUME_NAME_NT
                        ERROR_FILE_NOT_FOUND ERROR_NO_MORE_FILES
                        ERROR_SHARING_VIOLATION MOVEFILE_REPLACE_EXISTING
+                       ERROR_ACCESS_DENIED
                     '''.split():
             locals()[name] = config[name]
         LPWIN32_FIND_DATA    = lltype.Ptr(WIN32_FIND_DATA)
