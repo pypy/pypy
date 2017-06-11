@@ -710,7 +710,7 @@ if _WIN32:
                 return win32_attribute_data_to_stat(win32traits, data)
 
         with lltype.scoped_alloc(
-                win32traits.BY_HANDLE_FILE_INFORMATION) as data:
+                win32traits.BY_HANDLE_FILE_INFORMATION, zero=True) as data:
             res = win32traits.GetFileInformationByHandle(hFile, data)
             errcode = rwin32.GetLastError_saved()
             rwin32.CloseHandle(hFile)

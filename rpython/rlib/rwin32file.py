@@ -8,29 +8,14 @@ from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import intmask
 
-@specialize.memo()
-def make_win32_traits(traits):
+
+def GetCConfigGlobal():
     from rpython.rlib import rwin32
 
-    if traits.str is unicode:
-        suffix = 'W'
-    else:
-        suffix = 'A'
-
-    class CConfig:
+    class CConfigGlobal:
         _compilation_info_ = ExternalCompilationInfo(
             includes = ['windows.h', 'winbase.h', 'sys/stat.h'],
         )
-        WIN32_FIND_DATA = platform.Struct(
-            'struct _WIN32_FIND_DATA' + suffix,
-            # Only interesting fields
-            [('dwFileAttributes', rwin32.DWORD),
-             ('nFileSizeHigh', rwin32.DWORD),
-             ('nFileSizeLow', rwin32.DWORD),
-             ('ftCreationTime', rwin32.FILETIME),
-             ('ftLastAccessTime', rwin32.FILETIME),
-             ('ftLastWriteTime', rwin32.FILETIME),
-             ('cFileName', lltype.FixedSizeArray(traits.CHAR, 250))])
         ERROR_FILE_NOT_FOUND = platform.ConstantInteger(
             'ERROR_FILE_NOT_FOUND')
         ERROR_NO_MORE_FILES = platform.ConstantInteger(
@@ -93,7 +78,40 @@ def make_win32_traits(traits):
              ('nFileIndexHigh', rwin32.DWORD),
              ('nFileIndexLow', rwin32.DWORD)])
 
-    config = platform.configure(CConfig)
+    return CConfigGlobal
+
+config_global = None
+
+
+@specialize.memo()
+def make_win32_traits(traits):
+    from rpython.rlib import rwin32
+    global config_global
+
+    if traits.str is unicode:
+        suffix = 'W'
+    else:
+        suffix = 'A'
+
+    class CConfig:
+        _compilation_info_ = ExternalCompilationInfo(
+            includes = ['windows.h', 'winbase.h', 'sys/stat.h'],
+        )
+        WIN32_FIND_DATA = platform.Struct(
+            'struct _WIN32_FIND_DATA' + suffix,
+            # Only interesting fields
+            [('dwFileAttributes', rwin32.DWORD),
+             ('nFileSizeHigh', rwin32.DWORD),
+             ('nFileSizeLow', rwin32.DWORD),
+             ('ftCreationTime', rwin32.FILETIME),
+             ('ftLastAccessTime', rwin32.FILETIME),
+             ('ftLastWriteTime', rwin32.FILETIME),
+             ('cFileName', lltype.FixedSizeArray(traits.CHAR, 250))])
+
+    if config_global is None:
+        config_global = platform.configure(GetCConfigGlobal())
+    config = config_global.copy()
+    config.update(platform.configure(CConfig))
 
     def external(*args, **kwargs):
         kwargs['compilation_info'] = CConfig._compilation_info_
