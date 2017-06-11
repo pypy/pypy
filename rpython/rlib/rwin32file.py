@@ -109,7 +109,7 @@ def make_win32_traits(traits):
                        INVALID_FILE_ATTRIBUTES
                        _S_IFDIR _S_IFREG _S_IFCHR _S_IFIFO
                        FILE_TYPE_UNKNOWN FILE_TYPE_CHAR FILE_TYPE_PIPE
-                       FILE_READ_ATTRIBUTES
+                       FILE_READ_ATTRIBUTES FILE_ATTRIBUTE_NORMAL
                        FILE_WRITE_ATTRIBUTES OPEN_EXISTING FILE_FLAG_BACKUP_SEMANTICS
                        VOLUME_NAME_DOS VOLUME_NAME_NT
                        ERROR_FILE_NOT_FOUND ERROR_NO_MORE_FILES

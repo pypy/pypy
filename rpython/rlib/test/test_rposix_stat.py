@@ -70,11 +70,11 @@ class TestPosixStatFunctions:
 
     @py.test.mark.skipif(sys.platform != 'win32', reason='win32 test')
     def test_stat3_ino_dev(self):
-        st = rposix.stat2('C:\\')
+        st = rposix_stat.stat('C:\\')
         assert st.st_dev == st.st_ino == 0
-        st = rposix.stat3('C:\\')
+        st = rposix_stat.stat3('C:\\')
         assert st.st_dev != 0 and st.st_ino != 0
-        st2 = rposix.lstat3('C:\\')
+        st2 = rposix_stat.lstat3('C:\\')
         assert (st2.st_dev, st2.st_ino) == (st.st_dev, st.st_ino)
 
 

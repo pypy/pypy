@@ -711,9 +711,9 @@ if _WIN32:
 
         with lltype.scoped_alloc(
                 win32traits.BY_HANDLE_FILE_INFORMATION) as data:
-            res = rwin32.GetFileInformationByHandle(hFile, data)
+            res = win32traits.GetFileInformationByHandle(hFile, data)
             errcode = rwin32.GetLastError_saved()
-            win32.CloseHandle(hFile)
+            rwin32.CloseHandle(hFile)
             if res == 0:
                 raise WindowsError(errcode, "GetFileInformationByHandle failed")
             return win32_by_handle_info_to_stat(win32traits, data)
