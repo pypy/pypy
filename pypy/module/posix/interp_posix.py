@@ -531,9 +531,9 @@ def do_stat(space, funcname, path, dir_fd, follow_symlinks):
                     "%s: cannot use fd and follow_symlinks together", funcname)
             st = rposix_stat.fstat(path.as_fd)
         elif follow_symlinks and dir_fd == DEFAULT_DIR_FD:
-            st = call_rposix(rposix_stat.stat, path)
+            st = call_rposix(rposix_stat.stat3, path)
         elif not follow_symlinks and dir_fd == DEFAULT_DIR_FD:
-            st = call_rposix(rposix_stat.lstat, path)
+            st = call_rposix(rposix_stat.lstat3, path)
         elif rposix.HAVE_FSTATAT:
             st = call_rposix(rposix_stat.fstatat, path, dir_fd, follow_symlinks)
         else:
