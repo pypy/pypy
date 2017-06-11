@@ -748,6 +748,7 @@ if _WIN32:
 
         return make_stat_result(result)
 
+    @specialize.arg(0)
     def win32_by_handle_info_to_stat(win32traits, info):
         # similar to the one above
         st_mode = win32_attributes_to_mode(win32traits, info.c_dwFileAttributes)
