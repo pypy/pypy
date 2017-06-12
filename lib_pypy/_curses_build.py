@@ -87,6 +87,13 @@ static const chtype A_PROTECT;
 static const chtype A_CHARTEXT;
 static const chtype A_COLOR;
 
+static const chtype A_HORIZONTAL;
+static const chtype A_LEFT;
+static const chtype A_LOW;
+static const chtype A_RIGHT;
+static const chtype A_TOP;
+static const chtype A_VERTICAL;
+
 static const int BUTTON1_RELEASED;
 static const int BUTTON1_PRESSED;
 static const int BUTTON1_CLICKED;
