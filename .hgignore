@@ -1,6 +1,6 @@
 syntax: glob
 *.py[co]
-*.sw[po]
+*.sw[pon]
 *~
 .*.swp
 .idea
