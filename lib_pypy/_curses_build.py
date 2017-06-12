@@ -70,6 +70,8 @@ typedef unsigned char bool;
 typedef unsigned long... chtype;
 typedef chtype attr_t;
 
+typedef int... wint_t;
+
 typedef struct
 {
     short id;           /* ID to distinguish multiple devices */
@@ -167,6 +169,8 @@ char erasechar(void);
 void filter(void);
 int flash(void);
 int flushinp(void);
+int wget_wch(WINDOW *, wint_t *);
+int mvwget_wch(WINDOW *, int, int, wint_t *);
 chtype getbkgd(WINDOW *);
 WINDOW * getwin(FILE *);
 int halfdelay(int);
@@ -242,6 +246,7 @@ int touchline(WINDOW *, int, int);
 int touchwin(WINDOW *);
 int typeahead(int);
 int ungetch(int);
+int unget_wch(const wchar_t);
 int untouchwin(WINDOW *);
 void use_env(bool);
 int waddch(WINDOW *, const chtype);

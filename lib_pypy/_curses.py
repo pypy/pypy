@@ -403,6 +403,17 @@ class Window(object):
             raise error("getch requires 0 or 2 arguments")
         return val
 
+    def get_wch(self, *args):
+        wch = ffi.new("int[1]")
+        if len(args) == 0:
+            val = lib.wget_wch(self._win, wch)
+        elif len(args) == 2:
+            val = lib.mvwget_wch(self._win, *args, wch)
+        else:
+            raise error("get_wch requires 0 or 2 arguments")
+        _check_ERR(val, "get_wch"):
+        return wch[0]
+
     def getkey(self, *args):
         if len(args) == 0:
             val = lib.wgetch(self._win)
@@ -1003,6 +1014,11 @@ def unctrl(ch):
 def ungetch(ch):
     _ensure_initialised()
     return _check_ERR(lib.ungetch(_chtype(ch)), "ungetch")
+
+
+def unget_wch(ch):
+    _ensure_initialised()
+    return _check_ERR(lib.unget_wch(_chtype(ch)), "unget_wch")
 
 
 def use_env(flag):
