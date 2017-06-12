@@ -456,13 +456,15 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
     return decorate
 
 def api_func_from_cdef(func, cdef, cts,
-        error=_NOT_SPECIFIED, header=DEFAULT_HEADER):
+        error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
+        result_is_ll=False):
     func._always_inline_ = 'try'
     cdecl = cts.parse_func(cdef)
     RESULT = cdecl.get_llresult(cts)
     api_function = ApiFunction(
         cdecl.get_llargs(cts), RESULT, func,
-        error=_compute_error(error, RESULT), cdecl=cdecl)
+        error=_compute_error(error, RESULT), cdecl=cdecl,
+        result_is_ll=result_is_ll)
     FUNCTIONS_BY_HEADER[header][cdecl.name] = api_function
     unwrapper = api_function.get_unwrapper()
     unwrapper.func = func
@@ -656,10 +658,12 @@ build_exported_objects()
 
 
 class CpyextTypeSpace(CTypeSpace):
-    def decl(self, cdef, error=_NOT_SPECIFIED, header=DEFAULT_HEADER):
+    def decl(self, cdef, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
+            result_is_ll=False):
         def decorate(func):
             return api_func_from_cdef(
-                    func, cdef, self, error=error, header=header)
+                func, cdef, self, error=error, header=header,
+                result_is_ll=result_is_ll)
         return decorate
 
 
