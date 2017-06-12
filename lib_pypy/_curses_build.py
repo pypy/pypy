@@ -209,6 +209,8 @@ int redrawwin(WINDOW *);
 int resetty(void);
 int reset_prog_mode(void);
 int reset_shell_mode(void);
+int resizeterm(int, int);
+int resize_term(int, int);
 int savetty(void);
 int scroll(WINDOW *);
 int scrollok(WINDOW *, bool);
