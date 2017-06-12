@@ -8,6 +8,9 @@ from functools import wraps
 
 from _curses_cffi import ffi, lib
 
+version = b"2.2"
+__version__ = b"2.2"
+
 def _copy_to_globals(name):
     globals()[name] = getattr(lib, name)
 
@@ -59,10 +62,6 @@ def _setup():
             globals()[key_n] = key
 
 _setup()
-
-# Do we want this?
-# version = "2.2"
-# __version__ = "2.2"
 
 
 # ____________________________________________________________
