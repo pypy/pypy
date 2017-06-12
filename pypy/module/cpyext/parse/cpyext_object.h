@@ -304,9 +304,10 @@ typedef struct{
 
 typedef struct _heaptypeobject {
     PyTypeObject ht_type;
+    PyAsyncMethods as_async;
     PyNumberMethods as_number;
     PyMappingMethods as_mapping;
     PySequenceMethods as_sequence;
     PyBufferProcs as_buffer;
-    PyObject *ht_name, *ht_slots;
+    PyObject *ht_name, *ht_slots, *ht_qualname;
 } PyHeapTypeObject;

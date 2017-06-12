@@ -624,6 +624,8 @@ SYMBOLS_C = [
     'PyObject_CallFinalizerFromDealloc',
     '_PyTraceMalloc_Track', '_PyTraceMalloc_Untrack',
     'PyBytes_FromFormat', 'PyBytes_FromFormatV',
+
+    'PyType_FromSpec',
 ]
 TYPES = {}
 FORWARD_DECLS = []
@@ -1348,6 +1350,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "_warnings.c",
                          source_dir / "pylifecycle.c",
                          source_dir / "object.c",
+                         source_dir / "typeobject.c",
                          ]
 
 def build_eci(code, use_micronumpy=False, translating=False):

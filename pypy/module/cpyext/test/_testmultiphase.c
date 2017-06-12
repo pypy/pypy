@@ -6,98 +6,98 @@
 
 #include "Python.h"
 
-///* Example objects */
-//typedef struct {
-//    PyObject_HEAD
-//    PyObject            *x_attr;        /* Attributes dictionary */
-//} ExampleObject;
-//
-///* Example methods */
-//
-//static int
-//Example_traverse(ExampleObject *self, visitproc visit, void *arg)
-//{
-//    Py_VISIT(self->x_attr);
-//    return 0;
-//}
-//
-//static int
-//Example_finalize(ExampleObject *self)
-//{
-//    Py_CLEAR(self->x_attr);
-//    return 0;
-//}
-//
-//static PyObject *
-//Example_demo(ExampleObject *self, PyObject *args)
-//{
-//    PyObject *o = NULL;
-//    if (!PyArg_ParseTuple(args, "|O:demo", &o))
-//        return NULL;
-//    if (o != NULL && PyUnicode_Check(o)) {
-//        Py_INCREF(o);
-//        return o;
-//    }
-//    Py_INCREF(Py_None);
-//    return Py_None;
-//}
-//
-//
-//static PyMethodDef Example_methods[] = {
-//    {"demo",            (PyCFunction)Example_demo,  METH_VARARGS,
-//        PyDoc_STR("demo() -> None")},
-//    {NULL,              NULL}           /* sentinel */
-//};
-//
-//static PyObject *
-//Example_getattro(ExampleObject *self, PyObject *name)
-//{
-//    if (self->x_attr != NULL) {
-//        PyObject *v = PyDict_GetItem(self->x_attr, name);
-//        if (v != NULL) {
-//            Py_INCREF(v);
-//            return v;
-//        }
-//    }
-//    return PyObject_GenericGetAttr((PyObject *)self, name);
-//}
-//
-//static int
-//Example_setattr(ExampleObject *self, char *name, PyObject *v)
-//{
-//    if (self->x_attr == NULL) {
-//        self->x_attr = PyDict_New();
-//        if (self->x_attr == NULL)
-//            return -1;
-//    }
-//    if (v == NULL) {
-//        int rv = PyDict_DelItemString(self->x_attr, name);
-//        if (rv < 0)
-//            PyErr_SetString(PyExc_AttributeError,
-//                "delete non-existing Example attribute");
-//        return rv;
-//    }
-//    else
-//        return PyDict_SetItemString(self->x_attr, name, v);
-//}
-//
-//static PyType_Slot Example_Type_slots[] = {
-//    {Py_tp_doc, "The Example type"},
-//    {Py_tp_finalize, Example_finalize},
-//    {Py_tp_traverse, Example_traverse},
-//    {Py_tp_getattro, Example_getattro},
-//    {Py_tp_setattr, Example_setattr},
-//    {Py_tp_methods, Example_methods},
-//    {0, 0},
-//};
-//
-//static PyType_Spec Example_Type_spec = {
-//    "_testimportexec.Example",
-//    sizeof(ExampleObject),
-//    0,
-//    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC | Py_TPFLAGS_HAVE_FINALIZE,
-//    Example_Type_slots
-//};
+/* Example objects */
+typedef struct {
+    PyObject_HEAD
+    PyObject            *x_attr;        /* Attributes dictionary */
+} ExampleObject;
+
+/* Example methods */
+
+static int
+Example_traverse(ExampleObject *self, visitproc visit, void *arg)
+{
+    Py_VISIT(self->x_attr);
+    return 0;
+}
+
+static int
+Example_finalize(ExampleObject *self)
+{
+    Py_CLEAR(self->x_attr);
+    return 0;
+}
+
+static PyObject *
+Example_demo(ExampleObject *self, PyObject *args)
+{
+    PyObject *o = NULL;
+    if (!PyArg_ParseTuple(args, "|O:demo", &o))
+        return NULL;
+    if (o != NULL && PyUnicode_Check(o)) {
+        Py_INCREF(o);
+        return o;
+    }
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+
+static PyMethodDef Example_methods[] = {
+    {"demo",            (PyCFunction)Example_demo,  METH_VARARGS,
+        PyDoc_STR("demo() -> None")},
+    {NULL,              NULL}           /* sentinel */
+};
+
+static PyObject *
+Example_getattro(ExampleObject *self, PyObject *name)
+{
+    if (self->x_attr != NULL) {
+        PyObject *v = PyDict_GetItem(self->x_attr, name);
+        if (v != NULL) {
+            Py_INCREF(v);
+            return v;
+        }
+    }
+    return PyObject_GenericGetAttr((PyObject *)self, name);
+}
+
+static int
+Example_setattr(ExampleObject *self, char *name, PyObject *v)
+{
+    if (self->x_attr == NULL) {
+        self->x_attr = PyDict_New();
+        if (self->x_attr == NULL)
+            return -1;
+    }
+    if (v == NULL) {
+        int rv = PyDict_DelItemString(self->x_attr, name);
+        if (rv < 0)
+            PyErr_SetString(PyExc_AttributeError,
+                "delete non-existing Example attribute");
+        return rv;
+    }
+    else
+        return PyDict_SetItemString(self->x_attr, name, v);
+}
+
+static PyType_Slot Example_Type_slots[] = {
+    {Py_tp_doc, "The Example type"},
+    {Py_tp_finalize, Example_finalize},
+    {Py_tp_traverse, Example_traverse},
+    {Py_tp_getattro, Example_getattro},
+    {Py_tp_setattr, Example_setattr},
+    {Py_tp_methods, Example_methods},
+    {0, 0},
+};
+
+static PyType_Spec Example_Type_spec = {
+    "_testimportexec.Example",
+    sizeof(ExampleObject),
+    0,
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC | Py_TPFLAGS_HAVE_FINALIZE,
+    Example_Type_slots
+};
 
 /* Function of two integers returning integer */
 
@@ -158,18 +158,18 @@ call_state_registration_func(PyObject *mod, PyObject *args)
 }
 */
 
-//static PyType_Slot Str_Type_slots[] = {
-//    {Py_tp_base, NULL}, /* filled out in module exec function */
-//    {0, 0},
-//};
-//
-//static PyType_Spec Str_Type_spec = {
-//    "_testimportexec.Str",
-//    0,
-//    0,
-//    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
-//    Str_Type_slots
-//};
+static PyType_Slot Str_Type_slots[] = {
+    {Py_tp_base, NULL}, /* filled out in module exec function */
+    {0, 0},
+};
+
+static PyType_Spec Str_Type_spec = {
+    "_testimportexec.Str",
+    0,
+    0,
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    Str_Type_slots
+};
 
 static PyMethodDef testexport_methods[] = {
     {"foo",             testexport_foo,         METH_VARARGS,
@@ -179,46 +179,46 @@ static PyMethodDef testexport_methods[] = {
     {NULL,              NULL}           /* sentinel */
 };
 
-//static int execfunc(PyObject *m)
-//{
-//    PyObject *temp = NULL;
-//
-//    /* Due to cross platform compiler issues the slots must be filled
-//     * here. It's required for portability to Windows without requiring
-//     * C++. */
-//    Str_Type_slots[0].pfunc = &PyUnicode_Type;
-//
-//    /* Add a custom type */
-//    temp = PyType_FromSpec(&Example_Type_spec);
-//    if (temp == NULL)
-//        goto fail;
-//    if (PyModule_AddObject(m, "Example", temp) != 0)
-//        goto fail;
-//
-//    /* Add an exception type */
-//    temp = PyErr_NewException("_testimportexec.error", NULL, NULL);
-//    if (temp == NULL)
-//        goto fail;
-//    if (PyModule_AddObject(m, "error", temp) != 0)
-//        goto fail;
-//
-//    /* Add Str */
-//    temp = PyType_FromSpec(&Str_Type_spec);
-//    if (temp == NULL)
-//        goto fail;
-//    if (PyModule_AddObject(m, "Str", temp) != 0)
-//        goto fail;
-//
-//    if (PyModule_AddIntConstant(m, "int_const", 1969) != 0)
-//        goto fail;
-//
-//    if (PyModule_AddStringConstant(m, "str_const", "something different") != 0)
-//        goto fail;
-//
-//    return 0;
-// fail:
-//    return -1;
-//}
+static int execfunc(PyObject *m)
+{
+    PyObject *temp = NULL;
+
+    /* Due to cross platform compiler issues the slots must be filled
+     * here. It's required for portability to Windows without requiring
+     * C++. */
+    Str_Type_slots[0].pfunc = &PyUnicode_Type;
+
+    /* Add a custom type */
+    temp = PyType_FromSpec(&Example_Type_spec);
+    if (temp == NULL)
+        goto fail;
+    if (PyModule_AddObject(m, "Example", temp) != 0)
+        goto fail;
+
+    /* Add an exception type */
+    temp = PyErr_NewException("_testimportexec.error", NULL, NULL);
+    if (temp == NULL)
+        goto fail;
+    if (PyModule_AddObject(m, "error", temp) != 0)
+        goto fail;
+
+    /* Add Str */
+    temp = PyType_FromSpec(&Str_Type_spec);
+    if (temp == NULL)
+        goto fail;
+    if (PyModule_AddObject(m, "Str", temp) != 0)
+        goto fail;
+
+    if (PyModule_AddIntConstant(m, "int_const", 1969) != 0)
+        goto fail;
+
+    if (PyModule_AddStringConstant(m, "str_const", "something different") != 0)
+        goto fail;
+
+    return 0;
+ fail:
+    return -1;
+}
 
 /* Helper for module definitions; there'll be a lot of them */
 #define TEST_MODULE_DEF(name, slots, methods) { \
@@ -234,7 +234,7 @@ static PyMethodDef testexport_methods[] = {
 }
 
 PyModuleDef_Slot main_slots[] = {
-    //{Py_mod_exec, execfunc},
+    {Py_mod_exec, execfunc},
     {0, NULL},
 };
 

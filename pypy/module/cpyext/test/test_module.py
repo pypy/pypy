@@ -145,3 +145,17 @@ class AppTestMultiPhase(AppTestCpythonExtensionBase):
         raises(AttributeError, 'module.__path__')
         assert module is sys.modules[NAME]
         assert isinstance(module.__loader__, machinery.ExtensionFileLoader)
+
+    def test_functionality(self):
+        import types
+        NAME = '_testmultiphase'
+        module = self.import_module(name=NAME)
+        assert isinstance(module, types.ModuleType)
+        ex = module.Example()
+        assert ex.demo('abcd') == 'abcd'
+        assert ex.demo() is None
+        raises(AttributeError, ex.abc)
+        ex.abc = 0
+        assert ex.abc == 0
+        assert module.foo(9, 9) == 18
+
