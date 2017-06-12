@@ -41,6 +41,7 @@ from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 PyType_Check, PyType_CheckExact = build_type_checkers("Type", "w_type")
 
 PyHeapTypeObject = cts.gettype('PyHeapTypeObject *')
+cts.parse_header(parse_dir / "typeslots.h")
 
 
 class W_GetSetPropertyEx(GetSetProperty):

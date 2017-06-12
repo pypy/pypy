@@ -4,7 +4,7 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.api import generic_cpy_call
 from pypy.module.cpyext.pyobject import make_ref, from_ref
-from pypy.module.cpyext.typeobject import PyTypeObjectPtr
+from pypy.module.cpyext.typeobject import cts, PyTypeObjectPtr
 
 import sys
 import pytest
@@ -434,6 +434,9 @@ class TestTypes(BaseApiTest):
             return _numpypy.multiarray.dtype('int64').type(2)""")
         ref = make_ref(space, w_obj)
         api.Py_DecRef(ref)
+
+    def test_typeslots(self, space):
+        assert cts.macros['Py_tp_doc'] == 56
 
 class AppTestSlots(AppTestCpythonExtensionBase):
     def setup_class(cls):
