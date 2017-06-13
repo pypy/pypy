@@ -107,7 +107,8 @@ lzma (PyPy3 only)
 
 To run untranslated tests, you need the Boehm garbage collector libgc.
 
-On Debian, this is the command to install all build-time dependencies::
+On Debian and Ubuntu, this is the command to install all build-time
+dependencies::
 
     apt-get install gcc make libffi-dev pkg-config libz-dev libbz2-dev \
     libsqlite3-dev libncurses-dev libexpat1-dev libssl-dev libgdbm-dev \
