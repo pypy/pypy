@@ -81,7 +81,7 @@ class TestCall(BaseTestPyPyC):
         assert log.opnames(ops) == ["getfield_gc_r"]
         #
         assert entry_bridge.match_by_id('call', """
-            p30 = getfield_gc_r(ConstPtr(ptr29), descr=<FieldP pypy.objspace.std.unicodeobject.W_UnicodeObject.inst__utf8 .>)
+            dummy_get_utf8?
             p38 = call_r(ConstClass(_ll_1_threadlocalref_get__Ptr_GcStruct_objectLlT_Signed), #, descr=<Callr . i EF=1 OS=5>)
             p99 = getfield_gc_r(p38, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_sys_exc_operror .*>)
             p39 = getfield_gc_r(p38, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref .*>)
@@ -443,7 +443,7 @@ class TestCall(BaseTestPyPyC):
             i22 = getfield_gc_i(p12, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
             i24 = int_lt(i22, 5000)
             guard_true(i24, descr=...)
-            p21 = getfield_gc_r(ConstPtr(ptr20), descr=<FieldP pypy.objspace.std.unicodeobject.W_UnicodeObject.inst__utf8 .>)
+            dummy_get_utf8?
             guard_not_invalidated(descr=...)
             p29 = call_r(ConstClass(_ll_1_threadlocalref_get__Ptr_GcStruct_objectLlT_Signed), #, descr=<Callr . i EF=1 OS=5>)
             p99 = getfield_gc_r(p29, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_sys_exc_operror .*>)

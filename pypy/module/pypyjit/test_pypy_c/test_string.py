@@ -57,7 +57,6 @@ class TestString(BaseTestPyPyC):
         assert loop.match("""
             i88 = int_lt(i83, i36)
             guard_true(i88, descr=...)
-            p90 = getfield_gc_r(ConstPtr(ptr89), descr=<FieldP pypy.objspace.std.unicodeobject.W_UnicodeObject.inst__utf8 .>)
             guard_not_invalidated(descr=...)
             i92 = int_eq(i83, %d)
             i94 = call_i(ConstClass(ll_int_py_mod__Signed_Signed), i83, i46, descr=<Calli . ii EF=0 OS=14>)
@@ -66,7 +65,6 @@ class TestString(BaseTestPyPyC):
             i97 = int_ge(i94, i53)
             guard_false(i97, descr=...)
             i98 = strgetitem(p52, i94)
-            p100 = getfield_gc_r(ConstPtr(ptr99), descr=<FieldP pypy.objspace.std.unicodeobject.W_UnicodeObject.inst__utf8 .>)
             p101 = force_token()
             p103 = newstr(1)
             strsetitem(p103, 0, i98)
@@ -83,7 +81,6 @@ class TestString(BaseTestPyPyC):
             p116 = call_r(ConstClass(ll_build_trampoline__), p104, descr=<Callr . r EF=5>)
             guard_no_exception(descr=...)
             guard_nonnull(p116, descr=...)
-            p118 = getfield_gc_r(ConstPtr(ptr117), descr=<FieldP pypy.objspace.std.unicodeobject.W_UnicodeObject.inst__utf8 .>)
             guard_not_invalidated(descr=...)
             i119 = int_ge(i94, i46)
             guard_false(i119, descr=...)
@@ -113,9 +110,7 @@ class TestString(BaseTestPyPyC):
         assert loop.match("""
             i11 = int_lt(i6, i7)
             guard_true(i11, descr=...)
-            p70 = getfield_gc_r(ConstPtr(ptr69), descr=<FieldP pypy.objspace.std.unicodeobject.W_UnicodeObject.inst__utf8 .>)
             guard_not_invalidated(descr=...)
-            p72 = getfield_gc_r(ConstPtr(ptr71), descr=<FieldP pypy.objspace.std.unicodeobject.W_UnicodeObject.inst__utf8 .>)
             i13 = int_eq(i6, %d)         # value provided below
 
             # "mod 10" block:

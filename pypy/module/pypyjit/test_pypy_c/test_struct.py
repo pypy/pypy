@@ -34,6 +34,7 @@ class TestStruct(BaseTestPyPyC):
             # on little endian machines, we take the fast path and store the
             # value using gc_store_indexed
             assert loop.match_by_id("pack", """
+                dummy_get_utf8?
                 guard_not_invalidated(descr=...)
                 # struct.pack
                 %s
@@ -42,6 +43,7 @@ class TestStruct(BaseTestPyPyC):
             """ % extra)
         else:
             assert loop.match_by_id("pack", """
+                dummy_get_utf8?
                 guard_not_invalidated(descr=...)
                 # struct.pack
                 %s
@@ -56,6 +58,8 @@ class TestStruct(BaseTestPyPyC):
 
         if sys.byteorder == 'little':
             assert loop.match_by_id("unpack", """
+                dummy_get_utf8?
+                dummy_get_utf8?
                 # struct.unpack
                 i91 = gc_load_indexed_i(p88, 0, 1, _, -4)
             """)
@@ -64,6 +68,8 @@ class TestStruct(BaseTestPyPyC):
             # a char buffer and then use load gc to read the integer,
             # here manual shifting is applied
             assert loop.match_by_id("unpack", """
+                dummy_get_utf8?
+                dummy_get_utf8?
                 # struct.unpack
                 i95 = int_lshift(i90, 8)
                 i96 = int_or(i88, i95)
@@ -92,6 +98,7 @@ class TestStruct(BaseTestPyPyC):
         if sys.byteorder == 'little':
             loop, = log.loops_by_filename(self.filepath)
             assert loop.match_by_id('pack', """
+                dummy_get_utf8?
                 guard_not_invalidated(descr=...)
                 # struct.pack
                 p85 = newstr(8)
@@ -101,6 +108,7 @@ class TestStruct(BaseTestPyPyC):
             """ % extra)
 
             assert loop.match_by_id('unpack', """
+                dummy_get_utf8?
                 # struct.unpack
                 i90 = gc_load_indexed_i(p88, 0, 1, _, -4)
                 i91 = gc_load_indexed_i(p88, 4, 1, _, -4)
@@ -183,7 +191,9 @@ class TestStruct(BaseTestPyPyC):
         assert log.result == main(1000)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('pack_into', """\
+            dummy_get_utf8?
             guard_not_invalidated(descr=...)
+            dummy_get_utf8?
             p68 = getfield_gc_r(p14, descr=<FieldP pypy.objspace.std.bytearrayobject.W_BytearrayObject.inst__data \d+>)
             i69 = getfield_gc_i(p68, descr=<FieldS list.length \d+>)
             i70 = getfield_gc_i(p14, descr=<FieldS pypy.objspace.std.bytearrayobject.W_BytearrayObject.inst__offset \d+>)
