@@ -356,7 +356,7 @@ class TestStm(RewriteTests):
             setfield_gc(p1, p2, descr=tzdescr)
             label(p1, i3)
             setfield_gc(p1, i3, descr=tydescr)
-            jump(p1)
+            jump(p1, i3)
         """, """
             [p1, p2, i3]
             cond_call_gc_wb(p1, descr=wbdescr)
@@ -364,7 +364,24 @@ class TestStm(RewriteTests):
             label(p1, i3)
             cond_call_gc_wb(p1, descr=wbdescr)
             gc_store(p1, 0,  i3, %(tydescr.field_size)s)
-            jump(p1)
+            jump(p1, i3)
+        """)
+
+    def test_rewrite_getfield_over_label(self):
+        self.check_rewrite("""
+            [p1, p2, i3]
+            p3 = getfield_gc_r(p1, descr=tzdescr)
+            label(p1, i3)
+            p4 = getfield_gc_r(p1, descr=tzdescr)
+            jump(p4, i3)
+        """, """
+            [p1, p2, i3]
+            stm_read(p1)
+            p3 = gc_load_r(p1,  %(tzdescr.field_size)s, %(tzdescr.field_size)s)
+            label(p1, i3)
+            stm_read(p1)
+            p4 = gc_load_r(p1,  %(tzdescr.field_size)s, %(tzdescr.field_size)s)
+            jump(p4, i3)
         """)
 
     def test_remove_debug_merge_point(self):
@@ -583,7 +600,7 @@ class TestStm(RewriteTests):
             i3 = getfield_raw_i(i1, descr=tydescr)
             label(i1, i2, i3)
             i4 = getfield_raw_i(i2, descr=tydescr)
-            jump(i3, i4)
+            jump(i3, i4, i4)
         """, """
             [i1, i2]
             $INEV
@@ -591,7 +608,7 @@ class TestStm(RewriteTests):
             label(i1, i2, i3)
             $INEV
             i4 = gc_load_i(i2, 0, -%(tydescr.field_size)d)
-            jump(i3, i4)
+            jump(i3, i4, i4)
         """)
 
     def test_getarrayitem_raw(self):
