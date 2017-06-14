@@ -118,6 +118,7 @@ class ThreadState(object):
         self._transaction_aborting = False
         self._transaction_inev = None
         self._transaction_detached_time = 0.0
+        self._transaction_awaiting_free_seg = False
         self._in_minor_coll = None
         assert self._prev[1] == "stop"
 
@@ -169,6 +170,10 @@ class ThreadState(object):
         if self._transaction_inev is None:
             self._transaction_inev = [entry, None]
 
+    def transaction_await_free_segment(self, entry):
+        self._transaction_awaiting_free_seg = True
+        self.transaction_pause(entry)
+
     def transaction_pause(self, entry):
         self.progress(entry.timestamp, "pause")
         if (entry.event == STM_WAIT_OTHER_INEVITABLE and
@@ -176,7 +181,12 @@ class ThreadState(object):
             self._transaction_inev[1] = entry.timestamp
 
     def transaction_unpause(self, entry, out_conflicts):
-        self.progress(entry.timestamp, "run")
+        if self._transaction_awaiting_free_seg:
+            # waiting for free segment does not mean we are running now
+            self.progress(entry.timestamp, "stop")
+            self._transaction_awaiting_free_seg = False
+        else:
+            self.progress(entry.timestamp, "run")
         if self._transaction_inev and self._transaction_inev[1] is not None:
             wait_time = entry.timestamp - self._transaction_inev[1]
             self.wait_for_other_inev(wait_time, out_conflicts)
@@ -310,8 +320,9 @@ def summarize_log_entries(logentries, stmlog):
             t.become_inevitable(entry)
         elif entry.event == STM_CONTENTION_WRITE_READ:
             t.contention_write_read(entry, conflicts)
-        elif entry.event in (STM_WAIT_FREE_SEGMENT,
-                             STM_WAIT_SYNCING,
+        elif entry.event == STM_WAIT_FREE_SEGMENT:
+            t.transaction_await_free_segment(entry)
+        elif entry.event in (STM_WAIT_SYNCING,
                              STM_WAIT_SYNC_PAUSE,
                              STM_WAIT_OTHER_INEVITABLE):
             t.transaction_pause(entry)
