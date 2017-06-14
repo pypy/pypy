@@ -154,7 +154,7 @@ class AppTestMultiPhase(AppTestCpythonExtensionBase):
         ex = module.Example()
         assert ex.demo('abcd') == 'abcd'
         assert ex.demo() is None
-        raises(AttributeError, ex.abc)
+        raises(AttributeError, 'ex.abc')
         ex.abc = 0
         assert ex.abc == 0
         assert module.foo(9, 9) == 18

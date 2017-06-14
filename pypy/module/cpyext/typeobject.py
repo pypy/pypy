@@ -1,5 +1,6 @@
 import os
 
+from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -17,7 +18,7 @@ from pypy.module.cpyext.api import (
     build_type_checkers, Py_TPFLAGS_BASETYPE,
     PyObjectFields, PyTypeObject, PyTypeObjectPtr,
     cts, parse_dir)
-from pypy.module.cpyext.cparser import parse_source
+from pypy.module.cpyext.cparser import CTypeSpace
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
     W_PyCWrapperObject, PyCFunction_NewEx, PyCFunction, PyMethodDef,
     W_PyCMethodObject, W_PyCFunctionObject)
@@ -41,6 +42,7 @@ from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 PyType_Check, PyType_CheckExact = build_type_checkers("Type", "w_type")
 
 PyHeapTypeObject = cts.gettype('PyHeapTypeObject *')
+
 cts.parse_header(parse_dir / "typeslots.h")
 
 
@@ -867,6 +869,36 @@ def PyType_GenericNew(space, type, w_args, w_kwds):
     return generic_cpy_call(
         space, type.c_tp_alloc, type, 0)
 
+def _parse_typeslots():
+    slots_hdr = CTypeSpace()
+    slots_hdr.parse_header(parse_dir / "typeslots.h")
+    prefix2member = {
+        'tp': "ht_type",
+        'am': "as_async",
+        'nb': "as_number",
+        'mp': "as_mapping",
+        'sq': "as_sequence",
+        'bf': "as_buffer"}
+
+    TABLE = []
+    HTO = cts.gettype('PyHeapTypeObject')
+    for name, num in slots_hdr.macros.items():
+        assert isinstance(num, int)
+        assert name.startswith('Py_')
+        name = name[3:]
+        membername = 'c_' + prefix2member[name[:2]]
+        slotname = 'c_' + name
+        TARGET = HTO._flds[membername]._flds[slotname]
+        TABLE.append((num, membername, slotname, TARGET))
+    return unrolling_iterable(TABLE)
+SLOT_TABLE = _parse_typeslots()
+
+def fill_slot(ht, slotnum, ptr):
+    for num, membername, slotname, TARGET in SLOT_TABLE:
+        if num == slotnum:
+            setattr(getattr(ht, membername), slotname, rffi.cast(TARGET, ptr))
+
+
 @cts.decl("""PyObject *
     PyType_FromSpecWithBases(PyType_Spec *spec, PyObject *bases)""",
     result_is_ll=True)
@@ -879,7 +911,7 @@ def PyType_FromSpecWithBases(space, spec, bases):
     #s = 'foo'
     #res.c_ht_name = PyUnicode_FromString(s)
     #res.c_ht_qualname = res.c_ht_name
-    incref(space, res.c_ht_qualname)
+    #incref(space, res.c_ht_qualname)
     typ.c_tp_name = spec.c_name
     slotdefs = rffi.cast(rffi.CArrayPtr(cts.gettype('PyType_Slot')), spec.c_slots)
     if not bases:
@@ -899,7 +931,7 @@ def PyType_FromSpecWithBases(space, spec, bases):
         if not bases_w:
             bases_w = [w_base]
     else:
-        bases_w = space.fixed_view(from_ref(space, bases))
+        bases_w = space.fixedview(from_ref(space, bases))
     w_base = best_base(space, bases_w)
     base = cts.cast('PyTypeObject*', make_ref(space, w_base))
     if False:  # not base.c_tp_flags & Py_TPFLAGS_BASETYPE:
@@ -929,7 +961,7 @@ def PyType_FromSpecWithBases(space, spec, bases):
             # Processed above
             i += 1
             continue
-        #fill_slot(res, slot, slotdef.c_pfunc)
+        fill_slot(res, slot, slotdef.c_pfunc)
         # XXX: need to make a copy of the docstring slot, which usually
         # points to a static string literal
         i += 1
