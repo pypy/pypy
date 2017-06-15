@@ -8,6 +8,8 @@ syntax: glob
 .pydevproject
 __pycache__
 
+.cache/
+.gdb_history
 syntax: regexp
 ^testresult$
 ^site-packages$
@@ -85,7 +87,6 @@ syntax: regexp
 .hypothesis/
 ^release/
 ^rpython/_cache$
-^\.cache$
 
 pypy/module/cppyy/.+/*\.pcm
 
