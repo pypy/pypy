@@ -28,6 +28,6 @@ def test_find_global():
 
     f = cStringIO.StringIO(f.getvalue())
     up = cPickle.Unpickler(f)
-    up.find_global = lambda module, name: lambda a, b: (a, b)
+    up.find_global = lambda module, name: lambda a, b: (name, a, b)
     e = up.load()
-    assert e == ((2017, 3, 27, 22, 20, 42, 4, 86, -1), {})
+    assert e == ('struct_time', (2017, 3, 27, 22, 20, 42, 4, 86, -1), {})
