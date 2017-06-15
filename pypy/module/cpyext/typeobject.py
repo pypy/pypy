@@ -903,15 +903,22 @@ def fill_slot(ht, slotnum, ptr):
     PyType_FromSpecWithBases(PyType_Spec *spec, PyObject *bases)""",
     result_is_ll=True)
 def PyType_FromSpecWithBases(space, spec, bases):
+    from pypy.module.cpyext.unicodeobject import PyUnicode_FromString
     res = PyType_GenericAlloc(space, space.w_type, 0)
     res = cts.cast('PyHeapTypeObject *', res)
     typ = res.c_ht_type
     typ.c_tp_flags = rffi.cast(lltype.Signed, spec.c_flags)
     typ.c_tp_flags |= Py_TPFLAGS_HEAPTYPE
-    #s = 'foo'
-    #res.c_ht_name = PyUnicode_FromString(s)
-    #res.c_ht_qualname = res.c_ht_name
-    #incref(space, res.c_ht_qualname)
+    specname = rffi.charp2str(spec.c_name)
+    dotpos = specname.rfind('.')
+    if dotpos < 0:
+        name = specname
+    else:
+        name = specname[dotpos + 1:]
+    res.c_ht_name = make_ref(
+        space, PyUnicode_FromString(space, rffi.str2charp(name)))
+    res.c_ht_qualname = res.c_ht_name
+    incref(space, res.c_ht_qualname)
     typ.c_tp_name = spec.c_name
     slotdefs = rffi.cast(rffi.CArrayPtr(cts.gettype('PyType_Slot')), spec.c_slots)
     if not bases:

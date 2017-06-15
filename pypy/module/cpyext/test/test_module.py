@@ -158,4 +158,16 @@ class AppTestMultiPhase(AppTestCpythonExtensionBase):
         ex.abc = 0
         assert ex.abc == 0
         assert module.foo(9, 9) == 18
+        assert isinstance(module.Str(), str)
+        assert module.Str(1) + '23' == '123'
+        raises(module.error, 'raise module.error()')
+        assert module.int_const == 1969
+        assert module.str_const == 'something different'
 
+    def test_reload(self):
+        import importlib
+        NAME = '_testmultiphase'
+        module = self.import_module(name=NAME)
+        ex_class = module.Example
+        importlib.reload(module)
+        assert ex_class is module.Example
