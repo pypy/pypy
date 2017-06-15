@@ -77,9 +77,9 @@ translation_optiondescription = OptionDescription(
                                ("translation.gctransformer", "boehm")],
                      "qcgc": [("translation.gctransformer", "framework"),
                               ("translation.gcrootfinder", "qcgc"),
-                              ("translation.gcremovetypeptr", True),
+                              ("translation.gcremovetypeptr", False),
                               ("translation.thread", False),
-                              ("translation.rweakref", True)], # XXX
+                              ("translation.rweakref", True)],
                      "minimark": [("translation.gctransformer", "framework")],
                      "incminimark": [("translation.gctransformer", "framework")],
                      },
