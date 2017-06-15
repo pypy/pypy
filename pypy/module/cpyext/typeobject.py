@@ -909,7 +909,7 @@ def PyType_FromSpecWithBases(space, spec, bases):
     typ = res.c_ht_type
     typ.c_tp_flags = rffi.cast(lltype.Signed, spec.c_flags)
     typ.c_tp_flags |= Py_TPFLAGS_HEAPTYPE
-    specname = rffi.charp2str(spec.c_name)
+    specname = rffi.charp2str(cts.cast('char*', spec.c_name))
     dotpos = specname.rfind('.')
     if dotpos < 0:
         name = specname
