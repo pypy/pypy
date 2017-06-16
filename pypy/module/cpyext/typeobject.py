@@ -927,11 +927,12 @@ def PyType_FromSpecWithBases(space, spec, bases):
         i = 0
         while True:
             slotdef = slotdefs[i]
-            if slotdef.c_slot == 0:
+            slotnum = rffi.cast(lltype.Signed, slotdef.c_slot)
+            if slotnum == 0:
                 break
-            if slotdef.c_slot == cts.macros['Py_tp_base']:
+            elif slotnum == cts.macros['Py_tp_base']:
                 w_base = from_ref(space, cts.cast('PyObject*', slotdef.c_pfunc))
-            elif slotdef.c_slot == cts.macros['Py_tp_bases']:
+            elif slotnum == cts.macros['Py_tp_bases']:
                 bases = cts.cast('PyObject*', slotdef.c_pfunc)
                 bases_w = space.fixedview(from_ref(space, bases))
             i += 1
@@ -959,9 +960,9 @@ def PyType_FromSpecWithBases(space, spec, bases):
     i = 0
     while True:
         slotdef = slotdefs[i]
-        if slotdef.c_slot == 0:
+        slot = rffi.cast(lltype.Signed, slotdef.c_slot)
+        if slot == 0:
             break
-        slot = slotdef.c_slot
         if slot < 0:  # or slot > len(slotoffsets):
             raise oefmt(space.w_RuntimeError, "invalid slot offset")
         if slot in (cts.macros['Py_tp_base'], cts.macros['Py_tp_bases']):
