@@ -1423,31 +1423,6 @@ def PySequence_Count(space, o, value):
     in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyFrozenSet_Check(space, p):
-    """Return true if p is a frozenset object or an instance of a
-    subtype.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyFrozenSet_CheckExact(space, p):
-    """Return true if p is a frozenset object but not an instance of a
-    subtype."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyFrozenSet_New(space, iterable):
-    """Return a new frozenset containing objects returned by the iterable.
-    The iterable may be NULL to create a new empty frozenset.  Return the new
-    set on success or NULL on failure.  Raise TypeError if iterable is
-    not actually iterable.
-
-    Now guaranteed to return a brand-new frozenset.  Formerly,
-    frozensets of zero-length were a singleton.  This got in the way of
-    building-up new frozensets with PySet_Add()."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.CCHARP], PyObject)
 def PyString_Decode(space, s, size, encoding, errors):
     """Create an object by decoding size bytes of the encoded buffer s using the
