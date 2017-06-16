@@ -88,8 +88,8 @@ object_t *_qcgc_allocate_large(size_t size) {
 		}
 	}
 
-	// FIXME: alligned_alloc requires size to be a multiple of the alignment
-	object_t *result = aligned_alloc(QCGC_ARENA_SIZE, size);
+	size_t rounded_size = (size + QCGC_ARENA_SIZE - 1) & ~(QCGC_ARENA_SIZE - 1);
+	object_t *result = aligned_alloc(QCGC_ARENA_SIZE, rounded_size);
 #if QCGC_INIT_ZERO
 	memset(result, 0, size);
 #endif
