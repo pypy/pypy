@@ -477,7 +477,8 @@ class AppTestTypeObject:
             a = 1
 
         class mymeta(type):
-            def mro(self):
+            def mro(self, ignore=False):
+                assert ignore or self.__mro__ is None
                 return [self, object]
 
         class B_mro(A_mro, metaclass=mymeta):
@@ -485,7 +486,7 @@ class AppTestTypeObject:
 
         assert B_mro.__bases__ == (A_mro,)
         assert B_mro.__mro__ == (B_mro, object)
-        assert B_mro.mro() == [B_mro, object]
+        assert B_mro.mro(ignore=True) == [B_mro, object]
         assert B_mro.b == 1
         assert B_mro().b == 1
         assert getattr(B_mro, 'a', None) == None
