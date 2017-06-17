@@ -636,7 +636,7 @@ class SomeStringBuilder(SomeObject):
         return SomeInteger(nonneg=True)
 
     def method_build(self):
-        return SomeString()
+        return SomeString(can_be_None=False)
 
     def rtyper_makerepr(self, rtyper):
         from rpython.rtyper.lltypesystem.rbuilder import stringbuilder_repr
@@ -676,7 +676,7 @@ class SomeUnicodeBuilder(SomeObject):
         return SomeInteger(nonneg=True)
 
     def method_build(self):
-        return SomeUnicodeString()
+        return SomeUnicodeString(can_be_None=False)
 
     def rtyper_makerepr(self, rtyper):
         from rpython.rtyper.lltypesystem.rbuilder import unicodebuilder_repr

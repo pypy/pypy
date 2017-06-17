@@ -9,3 +9,11 @@ What's new in PyPy2.7 5.9+
 .. branch: cffi-char16-char32
 
 The two ``cffi-*`` branches are part of the upgrade to cffi 1.11.
+
+.. branch: ctypes_char_indexing
+
+Indexing into char* behaves differently than CPython
+
+.. branch: vmprof-0.4.8
+
+Improve and fix issues with vmprof

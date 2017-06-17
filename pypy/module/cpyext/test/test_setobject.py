@@ -9,9 +9,11 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 class TestTupleObject(BaseApiTest):
     def test_setobj(self, space, api):
         assert not api.PySet_Check(space.w_None)
+        assert not api.PyFrozenSet_Check(space.w_None)
         assert api.PySet_Add(space.w_None, space.w_None) == -1
         api.PyErr_Clear()
         w_set = space.call_function(space.w_set)
+        assert not api.PyFrozenSet_CheckExact(w_set)
         space.call_method(w_set, 'update', space.wrap([1,2,3,4]))
         assert api.PySet_Size(w_set) == 4
         assert api.PySet_GET_SIZE(w_set) == 4
@@ -21,6 +23,8 @@ class TestTupleObject(BaseApiTest):
     def test_set_add_discard(self, space, api):
         w_set = api.PySet_New(None)
         assert api.PySet_Size(w_set) == 0
+        w_set = api.PyFrozenSet_New(space.wrap([1,2,3,4]))
+        assert api.PySet_Size(w_set) == 4
         w_set = api.PySet_New(space.wrap([1,2,3,4]))
         assert api.PySet_Size(w_set) == 4
         api.PySet_Add(w_set, space.wrap(6))
