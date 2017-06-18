@@ -546,14 +546,6 @@ class ObjSpace(object):
         self._builtinmodule_list = modules
         return self._builtinmodule_list
 
-    ALL_BUILTIN_MODULES = [
-        'posix', 'nt', 'os2', 'mac', 'ce', 'riscos',
-        'math', 'array', 'select',
-        '_random', '_sre', 'time', '_socket', 'errno',
-        'unicodedata',
-        'parser', 'fcntl', '_codecs', 'binascii'
-    ]
-
     @not_rpython
     def make_builtins(self):
         "only for initializing the space."
@@ -580,11 +572,6 @@ class ObjSpace(object):
         w_builtin.install()
         self.setitem(self.builtin.w_dict, self.newtext('__builtins__'), w_builtin)
 
-        # exceptions was bootstrapped as '__exceptions__' but still
-        # lives in pypy/module/exceptions, we rename it below for
-        # sys.builtin_module_names
-        bootstrap_modules = set(('sys', 'imp', 'builtins', 'exceptions'))
-        installed_builtin_modules = list(bootstrap_modules)
 
         exception_types_w = self.export_builtin_exceptions()
 
@@ -595,15 +582,13 @@ class ObjSpace(object):
             self.setitem(self.builtin.w_dict, self.newtext(name), w_type)
 
         # install mixed modules
+        bootstrap_modules = set(('sys', 'imp', 'builtins', 'exceptions'))
         for mixedname in self.get_builtinmodule_to_install():
             if mixedname not in bootstrap_modules:
-                self.install_mixedmodule(mixedname, installed_builtin_modules)
+                self.install_mixedmodule(mixedname)
 
-        installed_builtin_modules.remove('exceptions')
-        installed_builtin_modules.append('__exceptions__')
-        installed_builtin_modules.sort()
         w_builtin_module_names = self.newtuple(
-            [self.newtext(fn) for fn in installed_builtin_modules])
+            [self.newtext(name) for name in sorted(self.builtin_modules)])
 
         # force this value into the dict without unlazyfying everything
         self.setitem(self.sys.w_dict, self.newtext('builtin_module_names'),
@@ -635,13 +620,8 @@ class ObjSpace(object):
         return exc_types_w
 
     @not_rpython
-    def install_mixedmodule(self, mixedname, installed_builtin_modules):
-        modname = self.setbuiltinmodule(mixedname)
-        if modname:
-            assert modname not in installed_builtin_modules, (
-                "duplicate interp-level module enabled for the "
-                "app-level module %r" % (modname,))
-            installed_builtin_modules.append(modname)
+    def install_mixedmodule(self, mixedname):
+        self.setbuiltinmodule(mixedname)
 
     @not_rpython
     def setup_builtin_modules(self):

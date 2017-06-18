@@ -108,6 +108,13 @@ class AppTestImpModule:
         assert not imp.is_builtin('hello.world.this.is.never.a.builtin.module.name')
         assert not imp.is_frozen('hello.world.this.is.never.a.frozen.module.name')
 
+    def test_is_builtin(self):
+        import sys, imp
+        for name in sys.builtin_module_names:
+            assert imp.is_builtin(name)
+            mod = imp.init_builtin(name)
+            assert mod
+            assert mod.__spec__
 
     def test_load_module_py(self):
         import imp
