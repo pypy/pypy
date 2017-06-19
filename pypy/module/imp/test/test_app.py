@@ -115,6 +115,7 @@ class AppTestImpModule:
             mod = imp.init_builtin(name)
             assert mod
             assert mod.__spec__
+    test_is_builtin.dont_track_allocations = True
 
     def test_load_module_py(self):
         import imp
