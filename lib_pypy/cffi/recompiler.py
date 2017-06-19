@@ -308,6 +308,8 @@ class Recompiler:
                 base_module_name,))
             prnt('#endif')
             lines = self._rel_readlines('_embedding.h')
+            i = lines.index('#include "_cffi_errors.h"\n')
+            lines[i:i+1] = self._rel_readlines('_cffi_errors.h')
             prnt(''.join(lines))
             self.needs_version(VERSION_EMBEDDED)
         #

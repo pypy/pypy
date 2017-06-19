@@ -75,9 +75,10 @@ class FFI(object):
         self._init_once_cache = {}
         self._cdef_version = None
         self._embedding = None
+        self._typecache = model.get_typecache(backend)
         if hasattr(backend, 'set_ffi'):
             backend.set_ffi(self)
-        for name in backend.__dict__:
+        for name in list(backend.__dict__):
             if name.startswith('RTLD_'):
                 setattr(self, name, getattr(backend, name))
         #
