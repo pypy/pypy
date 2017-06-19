@@ -290,6 +290,7 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
 def make_frozendict(space):
     if space not in _frozendict_cache:
         _frozendict_cache[space] = _make_frozendict(space)
+        _frozendict_cache[space].flag_map_or_seq = 'M'
     return _frozendict_cache[space]
 
 _frozendict_cache = {}
