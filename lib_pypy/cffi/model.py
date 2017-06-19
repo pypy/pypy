@@ -568,22 +568,26 @@ def unknown_ptr_type(name, structname=None):
 
 
 global_lock = allocate_lock()
+_typecache_cffi_backend = weakref.WeakValueDictionary()
+
+def get_typecache(backend):
+    # returns _typecache_cffi_backend if backend is the _cffi_backend
+    # module, or type(backend).__typecache if backend is an instance of
+    # CTypesBackend (or some FakeBackend class during tests)
+    if isinstance(backend, types.ModuleType):
+        return _typecache_cffi_backend
+    with global_lock:
+        if not hasattr(type(backend), '__typecache'):
+            type(backend).__typecache = weakref.WeakValueDictionary()
+        return type(backend).__typecache
 
 def global_cache(srctype, ffi, funcname, *args, **kwds):
     key = kwds.pop('key', (funcname, args))
     assert not kwds
     try:
-        return ffi._backend.__typecache[key]
+        return ffi._typecache[key]
     except KeyError:
         pass
-    except AttributeError:
-        # initialize the __typecache attribute, either at the module level
-        # if ffi._backend is a module, or at the class level if ffi._backend
-        # is some instance.
-        if isinstance(ffi._backend, types.ModuleType):
-            ffi._backend.__typecache = weakref.WeakValueDictionary()
-        else:
-            type(ffi._backend).__typecache = weakref.WeakValueDictionary()
     try:
         res = getattr(ffi._backend, funcname)(*args)
     except NotImplementedError as e:
@@ -591,7 +595,7 @@ def global_cache(srctype, ffi, funcname, *args, **kwds):
     # note that setdefault() on WeakValueDictionary is not atomic
     # and contains a rare bug (http://bugs.python.org/issue19542);
     # we have to use a lock and do it ourselves
-    cache = ffi._backend.__typecache
+    cache = ffi._typecache
     with global_lock:
         res1 = cache.get(key)
         if res1 is None:
