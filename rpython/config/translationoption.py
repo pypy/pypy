@@ -4,7 +4,6 @@ from rpython.config.config import OptionDescription, BoolOption, IntOption, Arbi
 from rpython.config.config import ChoiceOption, StrOption, Config, ConflictConfigError
 from rpython.config.config import ConfigError
 from rpython.config.support import detect_number_of_processors
-from rpython.config.support import detect_pax
 from rpython.translator.platform import platform as compiler
 
 
@@ -146,9 +145,6 @@ translation_optiondescription = OptionDescription(
     BoolOption("profopt", "Enable profile guided optimization. Defaults to enabling this for PyPy. For other training workloads, please specify them in profoptargs",
               cmdline="--profopt", default=False),
     StrOption("profoptargs", "Absolute path to the profile guided optimization training script + the necessary arguments of the script", cmdline="--profoptargs", default=None),
-    BoolOption("nopax", "Use this in case your system comes with a PAX protection. --nopax will disable it for pypy, so that it can use the jit. Requires paxmark to be installed",
-               default=detect_pax(),
-               cmdline="--nopax"),
     BoolOption("instrument", "internal: turn instrumentation on",
                default=False, cmdline=None),
     BoolOption("countmallocs", "Count mallocs and frees", default=False,

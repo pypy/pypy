@@ -14,6 +14,7 @@ from rpython.translator.c.support import log
 from rpython.translator.gensupp import uniquemodulename, NameManager
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
+
 _CYGWIN = sys.platform == 'cygwin'
 
 _CPYTHON_RE = py.std.re.compile('^Python 2.[567]')
@@ -333,8 +334,6 @@ class CStandaloneBuilder(CBuilder):
         extra_opts = []
         if self.config.translation.profopt:
             extra_opts += ["profopt"]
-        if self.config.translation.nopax:
-            extra_opts += ["nopax"]
         if self.config.translation.make_jobs != 1:
             extra_opts += ['-j', str(self.config.translation.make_jobs)]
         if self.config.translation.lldebug:
@@ -386,7 +385,7 @@ class CStandaloneBuilder(CBuilder):
                 raise Exception("No profoptargs specified, neither in the command line, nor in the target. If the target is not PyPy, please specify profoptargs")
             if self.config.translation.shared:
                 mk.rule('$(PROFOPT_TARGET)', '$(TARGET) main.o',
-                         '$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ $(RPATH_FLAGS) -lgcov')
+                         ['$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ $(RPATH_FLAGS) -lgcov', '$(MAKE) postcompile BIN=$(PROFOPT_TARGET)'])
             else:
                 mk.definition('PROFOPT_TARGET', '$(TARGET)')
 
@@ -397,15 +396,6 @@ class CStandaloneBuilder(CBuilder):
                     '$(MAKE) clean_noprof',
                     '$(MAKE) CFLAGS="-fprofile-use -fprofile-correction -fPIC $(CFLAGS) -fno-lto"  LDFLAGS="-fprofile-use $(LDFLAGS) -fno-lto" $(PROFOPT_TARGET)',
                 ]))
-
-        # No-pax code
-        if self.config.translation.nopax:
-            mk.definition('PAX_TARGET', '%s' % (exe_name))
-            rules.append(('$(PAX_TARGET)', '$(TARGET) main.o', [
-                          '$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ $(RPATH_FLAGS)',
-                          'attr -q -s pax.flags -V m $(PAX_TARGET)']))
-            mk.rule('nopax', '',
-                    '$(MAKE) CFLAGS="$(CFLAGS) $(CFLAGSEXTRA)" LDFLAGS="$(LDFLAGS)" $(PAX_TARGET)')
 
         for rule in rules:
             mk.rule(*rule)
