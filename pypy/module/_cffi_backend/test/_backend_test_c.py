@@ -50,6 +50,10 @@ def find_and_load_library(name, flags=RTLD_NOW):
         path = None
     else:
         path = ctypes.util.find_library(name)
+        if path is None and name == 'c':
+            assert sys.platform == 'win32'
+            assert sys.version_info >= (3,)
+            py.test.skip("dlopen(None) cannot work on Windows with Python 3")
     return load_library(path, flags)
 
 def test_load_library():

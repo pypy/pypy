@@ -95,6 +95,8 @@ def test_dlopen_none():
     if sys.platform == 'win32':
         import ctypes.util
         name = ctypes.util.find_msvcrt()
+        if name is None:
+            py.test.skip("dlopen(None) cannot work on Windows with Python 3")
     lib = ffi.dlopen(name)
     assert lib.strlen(b"hello") == 5
 

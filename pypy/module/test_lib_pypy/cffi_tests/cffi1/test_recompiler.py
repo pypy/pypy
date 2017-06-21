@@ -2260,6 +2260,9 @@ def test_override_default_definition():
     assert ffi.typeof("int16_t") is ffi.typeof("char16_t") is ffi.typeof("long")
 
 def test_char16_char32_type(no_cpp=False):
+    if no_cpp is False and sys.platform == "win32":
+        py.test.skip("aaaaaaa why do modern MSVC compilers still define "
+                     "a very old __cplusplus value")
     ffi = FFI()
     ffi.cdef("""
         char16_t foo_2bytes(char16_t);
@@ -2270,7 +2273,7 @@ def test_char16_char32_type(no_cpp=False):
     typedef uint_least16_t char16_t;
     typedef uint_least32_t char32_t;
     #endif
-    
+
     char16_t foo_2bytes(char16_t a) { return (char16_t)(a + 42); }
     char32_t foo_4bytes(char32_t a) { return (char32_t)(a + 42); }
     """, no_cpp=no_cpp)
