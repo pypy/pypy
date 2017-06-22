@@ -17,3 +17,7 @@ Indexing into char* behaves differently than CPython
 .. branch: vmprof-0.4.8
 
 Improve and fix issues with vmprof
+
+.. branch: issue-2592
+
+CPyext PyListObject.pop must return the value
