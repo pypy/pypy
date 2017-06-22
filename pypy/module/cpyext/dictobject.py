@@ -286,7 +286,6 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
         pvalue[0] = as_pyobj(space, w_value)
     return 1
 
-        _frozendict_cache[space].flag_map_or_seq = 'M'
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def _PyDict_HasOnlyStringKeys(space, w_dict):
     keys_w = space.unpackiterable(w_dict)
