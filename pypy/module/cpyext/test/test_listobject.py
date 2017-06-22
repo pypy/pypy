@@ -154,7 +154,9 @@ class AppTestListObject(AppTestCpythonExtensionBase):
         l = module.newlist()
         p = l.pop()
         assert p == 1000
-        assert l == [3, -5]
+        p = l.pop(0)
+        assert p == 3
+        assert l == [-5]
 
     def test_list_macros(self):
         """The PyList_* macros cast, and calls expecting that build."""
