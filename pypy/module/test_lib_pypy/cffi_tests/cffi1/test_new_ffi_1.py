@@ -419,7 +419,6 @@ class TestNewFFI1:
         #
         p = ffi.new("wchar_t[]", u+'\U00023456')
         if SIZE_OF_WCHAR == 2:
-            assert sys.maxunicode == 0xffff
             assert len(p) == 3
             assert p[0] == u+'\ud84d'
             assert p[1] == u+'\udc56'

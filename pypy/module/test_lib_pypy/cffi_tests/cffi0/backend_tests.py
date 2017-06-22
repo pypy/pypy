@@ -11,6 +11,10 @@ SIZE_OF_SHORT = ctypes.sizeof(ctypes.c_short)
 SIZE_OF_PTR   = ctypes.sizeof(ctypes.c_void_p)
 SIZE_OF_WCHAR = ctypes.sizeof(ctypes.c_wchar)
 
+def needs_dlopen_none():
+    if sys.platform == 'win32' and sys.version_info >= (3,):
+        py.test.skip("dlopen(None) cannot work on Windows for Python 3")
+
 
 class BackendTests:
 
@@ -355,7 +359,6 @@ class BackendTests:
         #
         p = ffi.new("wchar_t[]", u+'\U00023456')
         if SIZE_OF_WCHAR == 2:
-            assert sys.maxunicode == 0xffff
             assert len(p) == 3
             assert p[0] == u+'\ud84d'
             assert p[1] == u+'\udc56'
@@ -938,6 +941,7 @@ class BackendTests:
     def test_enum_partial(self):
         ffi = FFI(backend=self.Backend())
         ffi.cdef(r"enum foo {A, ...}; enum bar { B, C };")
+        needs_dlopen_none()
         lib = ffi.dlopen(None)
         assert lib.B == 0
         py.test.raises(VerificationMissing, getattr, lib, "A")
@@ -1845,6 +1849,7 @@ class BackendTests:
             #define DOT_UL 1000UL
             enum foo {AA, BB=DOT, CC};
         """)
+        needs_dlopen_none()
         lib = ffi.dlopen(None)
         assert ffi.string(ffi.cast("enum foo", 100)) == "BB"
         assert lib.DOT_0 == 0
@@ -1874,6 +1879,7 @@ class BackendTests:
         ffi = FFI()
         ffi.include(ffi1)
         ffi.cdef("enum { EE2, EE3 };")
+        needs_dlopen_none()
         lib = ffi.dlopen(None)
         assert lib.EE1 == 0
         assert lib.EE2 == 0

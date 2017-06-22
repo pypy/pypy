@@ -36,7 +36,11 @@ static PyObject *_cffi_start_error_capture(void)
     if (result == NULL)
         goto error;
 
+#if PY_MAJOR_VERSION >= 3
+    bi = PyImport_ImportModule("builtins");
+#else
     bi = PyImport_ImportModule("__builtin__");
+#endif
     if (bi == NULL)
         goto error;
     PyDict_SetItemString(result, "__builtins__", bi);

@@ -33,6 +33,11 @@ class AppTestIterator(AppTestCpythonExtensionBase):
                 return obj;
             '''
             ),
+           ("get_dictproxy", "METH_O",
+            '''
+                return PyDictProxy_New(args);
+            '''
+            ),
            ("check", "METH_O",
             '''
                 return PyLong_FromLong(
@@ -69,6 +74,10 @@ class AppTestIterator(AppTestCpythonExtensionBase):
         e = raises(TypeError, iter, obj)
         assert str(e.value).endswith("object is not iterable")
         #
+        assert module.check(obj) == 2
+        # make sure dictionaries return false for PySequence_Check
+        assert module.check({'a': 1}) == 2
+        obj = module.get_dictproxy({'a': 10})
         assert module.check(obj) == 2
 
     def test_iterable_nonmapping_object(self):

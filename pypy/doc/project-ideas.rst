@@ -238,18 +238,17 @@ Alternatively, an approach we used to recommend was to rewrite C extensions
 using more pypy-friendly technologies, e.g. cffi. Here is a partial list of
 good work that needs to be finished:
 
-**matplotlib** https://github.com/mattip/matplotlib
+**matplotlib** https://github.com/matplotlib/matplotlib
 
-    Status: the repo is an older version of matplotlib adapted to pypy and cpyext
+    TODO: the tkagg backend does not work, which makes tests fail on downstream
+    projects like Pandas, SciPy. It uses id(obj) as a c-pointer to obj in 
+    tkagg.py, which requires refactoring
 
-    TODO: A suggested first step would be to merge the differences into 
-    matplotlib/HEAD. The major problem is the use of a generic view into a
-    numpy ndarray. The int* fields would need to be converted into int[MAX_DIMS]
-    c-arrays and filled in.
+**wxPython** https://bitbucket.org/amauryfa/wxpython-cffi
 
-**wxPython** https://bitbucket.org/waedt/wxpython_cffi
+    Status: A project by a PyPy developer to adapt the Phoenix sip build system to cffi
 
-    Status: A GSOC 2013 project to adapt the Phoenix sip build system to cffi
+    The project is a continuation of a 2013 GSOC https://bitbucket.org/waedt/wxpython_cffi
 
     TODO: Merge the latest version of the wrappers and finish the sip conversion
 
