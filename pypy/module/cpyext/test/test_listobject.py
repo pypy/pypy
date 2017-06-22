@@ -151,6 +151,13 @@ class AppTestListObject(AppTestCpythonExtensionBase):
         # tp_as_sequence should be filled, but tp_as_number should be NULL
         assert module.test_tp_as_() == 3
 
+        l = module.newlist()
+        p = l.pop()
+        assert p == 1000
+        p = l.pop(0)
+        assert p == 3
+        assert l == [-5]
+
     def test_list_macros(self):
         """The PyList_* macros cast, and calls expecting that build."""
         module = self.import_extension('foo', [
