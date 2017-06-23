@@ -1,5 +1,5 @@
 from rpython.rlib import jit, rgc
-from rpython.rlib.buffer import RawBuffer
+from rpython.rlib.buffer import RawBuffer, SubBuffer
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import ovfcheck, widen
 from rpython.rlib.unroll import unrolling_iterable
@@ -929,6 +929,14 @@ class ArrayView(BufferView):
     def as_writebuf(self):
         assert not self.readonly
         return self.data
+
+    def new_slice(self, start, step, slicelength):
+        if step == 1:
+            n = self.itemsize
+            newbuf = SubBuffer(self.data, start * n, slicelength * n)
+            return ArrayView(newbuf, self.fmt, self.itemsize, self.readonly)
+        else:
+            return BufferView.new_slice(self, start, step, slicelength)
 
 
 unpack_driver = jit.JitDriver(name='unpack_array',

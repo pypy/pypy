@@ -1062,6 +1062,13 @@ class AppTestArray(object):
     def test_fresh_array_buffer_bytes(self):
         assert bytes(memoryview(self.array('i'))) == b''
 
+    def test_mview_slice_aswritebuf(self):
+        import struct
+        a = self.array('B', b'abcdef')
+        view = memoryview(a)[1:5]
+        struct.pack_into('>H', view, 1, 0x1234)
+        assert a.tobytes() == b'ab\x12\x34ef'
+
 
 class AppTestArrayReconstructor:
     spaceconfig = dict(usemodules=('array', 'struct'))
