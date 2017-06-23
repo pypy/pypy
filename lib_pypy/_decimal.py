@@ -719,8 +719,8 @@ class Decimal(object):
 
     compare = _make_binary_operation('compare')
     compare_signal = _make_binary_operation('compare_signal')
-    compare_total = _make_binary_operation('compare')
-    compare_total_mag = _make_binary_operation('compare')
+    compare_total = _make_binary_operation('compare_total')
+    compare_total_mag = _make_binary_operation('compare_total_mag')
     logical_and = _make_binary_operation('logical_and')
     logical_or = _make_binary_operation('logical_or')
     logical_xor = _make_binary_operation('logical_xor')

@@ -1,3 +1,5 @@
+import pytest
+
 import pickle
 import sys
 
@@ -7,6 +9,11 @@ C = import_fresh_module('decimal', fresh=['_decimal'])
 P = import_fresh_module('decimal', blocked=['_decimal'])
 # import _decimal as C
 # import _pydecimal as P
+
+@pytest.yield_fixture(params=[C, P], ids=['_decimal', '_pydecimal'])
+def module(request):
+    yield request.param
+
 
 def test_C():
     sys.modules["decimal"] = C
@@ -54,3 +61,10 @@ def test_pickle():
         r = pickle.loads(p)
         assert isinstance(r, P.DecimalTuple)
         assert r == pdt
+
+def test_compare_total(module):
+    assert module.Decimal('12').compare_total(module.Decimal('12.0')) == 1
+    assert module.Decimal('4367').compare_total(module.Decimal('NaN')) == -1
+
+def test_compare_total_mag(module):
+    assert module.Decimal(1).compare_total_mag(-2) == -1
