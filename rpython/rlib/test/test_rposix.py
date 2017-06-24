@@ -753,6 +753,9 @@ def test_pwrite():
 
 @rposix_requires('posix_fadvise')
 def test_posix_fadvise():
+    if sys.maxint <= 2**32:
+        py.test.skip("ll2ctypes run of posix_fadvise() on 32-bit "
+                     "gets confused by the size of OFF_T")
     fname = str(udir.join('test_os_posix_fadvise'))
     fd = os.open(fname, os.O_CREAT | os.O_RDWR)
     try:
@@ -769,6 +772,9 @@ def test_posix_fadvise():
 
 @rposix_requires('posix_fallocate')
 def test_posix_fallocate():
+    if sys.maxint <= 2**32:
+        py.test.skip("ll2ctypes run of posix_fallocate() on 32-bit "
+                     "gets confused by the size of OFF_T")
     fname = str(udir.join('os_test.txt'))
     fd = os.open(fname, os.O_WRONLY | os.O_CREAT, 0777)
     try:
