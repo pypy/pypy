@@ -10,6 +10,7 @@ import collections
 import weakref
 import sys
 import io
+import __pypy__
 
 from _lzma_cffi import ffi, lib as m
 
@@ -688,6 +689,16 @@ class LZMACompressor(object):
         self.lock = threading.Lock()
         self.flushed = 0
         self.lzs = _new_lzma_stream()
+        # Issue #2579:
+        # Setting up the stream for encoding takes around 17MB of RAM
+        # on my Linux 64 system.  That's potentially too much to sanely
+        # leave it to the GC: in case we're compressing a large number
+        # of small files, the following line puts a big pressure on the
+        # major collections.  Still better than without it, where it
+        # would allocate huge amount of RAMs before doing any collection.
+        # Ideally we should do something more clever like reusing old
+        # streams after we're finished with them.
+        __pypy__.add_memory_pressure(1024*1024*17)
         if format == FORMAT_XZ:
             if filters is None:
                 if check == -1:
