@@ -64,6 +64,10 @@ def _new_lzma_stream():
     m._pylzma_stream_init(ret)
     return ffi.gc(ret, m.lzma_end)
 
+def _release_lzma_stream(st):
+    ffi.gc(st, None)
+    m.lzma_end(st)
+
 def add_constant(c):
     globals()[c] = getattr(m, 'LZMA_' + c)
 
@@ -649,6 +653,16 @@ class LZMADecompressor(object):
         raise TypeError("cannot serialize '%s' object" %
                         self.__class__.__name__)
 
+
+# Issue #2579: Setting up the stream for encoding takes around 17MB of
+# RAM on my Linux 64 system.  So we call add_memory_pressure(17MB) when
+# we create the stream.  In flush(), we actively free the stream even
+# though we could just leave it to the GC (but 17MB is too much for
+# doing that sanely); at this point we call add_memory_pressure(-17MB)
+# to cancel the original increase.
+COMPRESSION_STREAM_SIZE = 1024*1024*17
+
+
 class LZMACompressor(object):
     """
     LZMACompressor(format=FORMAT_XZ, check=-1, preset=None, filters=None)
@@ -689,16 +703,7 @@ class LZMACompressor(object):
         self.lock = threading.Lock()
         self.flushed = 0
         self.lzs = _new_lzma_stream()
-        # Issue #2579:
-        # Setting up the stream for encoding takes around 17MB of RAM
-        # on my Linux 64 system.  That's potentially too much to sanely
-        # leave it to the GC: in case we're compressing a large number
-        # of small files, the following line puts a big pressure on the
-        # major collections.  Still better than without it, where it
-        # would allocate huge amount of RAMs before doing any collection.
-        # Ideally we should do something more clever like reusing old
-        # streams after we're finished with them.
-        __pypy__.add_memory_pressure(1024*1024*17)
+        __pypy__.add_memory_pressure(COMPRESSION_STREAM_SIZE)
         if format == FORMAT_XZ:
             if filters is None:
                 if check == -1:
@@ -782,7 +787,10 @@ class LZMACompressor(object):
             if self.flushed:
                 raise ValueError("Repeated...")
             self.flushed = 1
-            return self._compress(b'', action=m.LZMA_FINISH)
+            result = self._compress(b'', action=m.LZMA_FINISH)
+            __pypy__.add_memory_pressure(-COMPRESSION_STREAM_SIZE)
+            _release_lzma_stream(self.lzs)
+        return result
 
     def __getstate__(self):
         raise TypeError("cannot serialize '%s' object" %
