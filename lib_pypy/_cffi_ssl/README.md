@@ -7,7 +7,7 @@ that cryptography can ship their own cffi backend)
 
 NOTE: currently, we have changed ``_cffi_src/openssl/callbacks.py`` to
 not rely on the CPython C API, and ``_cffi_src/utils.py`` for issue #2575
-(29c9a89359e4).
+(29c9a89359e4).  (The first change is now backported.)
 
 # Tests?
 
