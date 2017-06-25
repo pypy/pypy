@@ -1,4 +1,5 @@
 import pytest
+from hypothesis import given, strategies as st
 
 import pickle
 import sys
@@ -13,6 +14,27 @@ P = import_fresh_module('decimal', blocked=['_decimal'])
 @pytest.yield_fixture(params=[C, P], ids=['_decimal', '_pydecimal'])
 def module(request):
     yield request.param
+
+# Translate symbols.
+CondMap = {
+        C.Clamped:             P.Clamped,
+        C.ConversionSyntax:    P.ConversionSyntax,
+        C.DivisionByZero:      P.DivisionByZero,
+        C.DivisionImpossible:  P.InvalidOperation,
+        C.DivisionUndefined:   P.DivisionUndefined,
+        C.Inexact:             P.Inexact,
+        C.InvalidContext:      P.InvalidContext,
+        C.InvalidOperation:    P.InvalidOperation,
+        C.Overflow:            P.Overflow,
+        C.Rounded:             P.Rounded,
+        C.Subnormal:           P.Subnormal,
+        C.Underflow:           P.Underflow,
+        C.FloatOperation:      P.FloatOperation,
+}
+
+def check_same_flags(flags_C, flags_P):
+    for signal in flags_C:
+        assert flags_C[signal] == flags_P[CondMap[signal]]
 
 
 def test_C():
@@ -68,3 +90,22 @@ def test_compare_total(module):
 
 def test_compare_total_mag(module):
     assert module.Decimal(1).compare_total_mag(-2) == -1
+
+@given(st.decimals(), st.decimals())
+def test_lt(d1, d2):
+    ctx_C = C.getcontext()
+    ctx_P = P.getcontext()
+    ctx_C.clear_flags()
+    ctx_P.clear_flags()
+    d1_P = P.Decimal(str(d1))
+    d2_P = P.Decimal(str(d2))
+    try:
+        res_C = d1 < d2
+    except Exception as e:
+        res_C = str(type(e))
+    try:
+        res_P = d1_P < d2_P
+    except Exception as e:
+        res_P = str(type(e))
+    assert res_C == res_P
+    check_same_flags(ctx_C.flags, ctx_P.flags)
