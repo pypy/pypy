@@ -268,12 +268,22 @@ class channel(object):
         assert abs(d) == 1
         source = getcurrent()
         source.tempval = arg
-        if d > 0:
-            cando = self.balance < 0
-            dir = d
-        else:
-            cando = self.balance > 0
-            dir = 0
+        while True:
+            if d > 0:
+                cando = self.balance < 0
+                dir = d
+            else:
+                cando = self.balance > 0
+                dir = 0
+
+            if cando and not self.queue[0].alive:
+                # issue #2595: the tasklet was killed while waiting.
+                # drop that tasklet from consideration and try again.
+                self.balance += d
+                self.queue.popleft()
+            else:
+                # normal path
+                break
 
         if _channel_callback is not None:
             _channel_callback(self, source, dir, not cando)

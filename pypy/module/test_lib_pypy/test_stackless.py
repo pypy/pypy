@@ -600,4 +600,23 @@ class Test_Stackless:
 
         stackless.run()
 
-
+    def test_kill_tasklet_waiting_for_channel(self):
+        # issue #2595
+        c = stackless.channel()
+        def sender():
+            c.send(1)
+        def receiver():
+            v = c.receive()
+        def killer(tl):
+            tl.kill()
+        def main():
+            trk = stackless.tasklet(receiver)()
+            stackless.schedule()
+            killer(trk)
+            stackless.schedule()
+            stackless.tasklet(sender)()
+            stackless.schedule()
+            stackless.tasklet(receiver)()
+            stackless.schedule()
+        stackless.tasklet(main)()
+        stackless.run()
