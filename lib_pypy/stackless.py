@@ -276,7 +276,7 @@ class channel(object):
                 cando = self.balance > 0
                 dir = 0
 
-            if cando and not self.queue[0].alive:
+            if cando and self.queue[0]._tasklet_killed:
                 # issue #2595: the tasklet was killed while waiting.
                 # drop that tasklet from consideration and try again.
                 self.balance += d
@@ -358,6 +358,8 @@ class tasklet(coroutine):
     module.
     """
     tempval = None
+    _tasklet_killed = False
+
     def __new__(cls, func=None, label=''):
         res = coroutine.__new__(cls)
         res.label = label
@@ -405,6 +407,7 @@ class tasklet(coroutine):
         If the exception passes the toplevel frame of the tasklet,
         the tasklet will silently die.
         """
+        self._tasklet_killed = True
         if not self.is_zombie:
             # Killing the tasklet by throwing TaskletExit exception.
             coroutine.kill(self)
