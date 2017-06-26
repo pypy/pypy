@@ -1,5 +1,5 @@
 import pytest
-from hypothesis import given, strategies as st
+from hypothesis import example, settings, given, strategies as st
 
 import pickle
 import sys
@@ -91,21 +91,32 @@ def test_compare_total(module):
 def test_compare_total_mag(module):
     assert module.Decimal(1).compare_total_mag(-2) == -1
 
-@given(st.decimals(), st.decimals())
+def convert_arg(module, arg):
+    if isinstance(arg, module.Decimal):
+        return arg
+    elif type(arg).__name__ == 'Decimal':
+        return module.Decimal(str(arg))
+    else:
+        return arg
+
+from fractions import Fraction
+from decimal import Decimal
+
+@given(st.decimals(), st.decimals() | st.fractions())
 def test_lt(d1, d2):
-    ctx_C = C.getcontext()
-    ctx_P = P.getcontext()
-    ctx_C.clear_flags()
-    ctx_P.clear_flags()
-    d1_P = P.Decimal(str(d1))
-    d2_P = P.Decimal(str(d2))
-    try:
-        res_C = d1 < d2
-    except Exception as e:
-        res_C = str(type(e))
-    try:
-        res_P = d1_P < d2_P
-    except Exception as e:
-        res_P = str(type(e))
+    with C.localcontext(C.ExtendedContext) as ctx_C:
+        d1_C = convert_arg(C, d1)
+        d2_C = convert_arg(C, d2)
+        try:
+            res_C = d1_C < d2_C
+        except Exception as e:
+            res_C = str(type(e))
+    with P.localcontext(P.ExtendedContext) as ctx_P:
+        d1_P = convert_arg(P, d1)
+        d2_P = convert_arg(P, d2)
+        try:
+            res_P = d1_P < d2_P
+        except Exception as e:
+            res_P = str(type(e))
     assert res_C == res_P
     check_same_flags(ctx_C.flags, ctx_P.flags)
