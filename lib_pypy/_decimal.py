@@ -489,13 +489,16 @@ class Decimal(object):
                     vv.exp = 0
                     multiplied = Decimal._new_empty()
                     denom = Decimal(other.denominator)
-                    with _CatchStatus(context) as (ctx, status_ptr):
-                        _mpdec.mpd_qmul(multiplied._mpd, vv, denom._mpd,
-                                        ctx, status_ptr)
-                    multiplied._mpd.exp += exp  # XXX probably a bug
-                                                # in _decimal.c
+                    maxctx = _ffi.new("struct mpd_context_t*")
+                    _mpdec.mpd_maxcontext(maxctx)
+                    status_ptr = _ffi.new("uint32_t*")
+                    _mpdec.mpd_qmul(multiplied._mpd, vv, denom._mpd,
+                                    maxctx, status_ptr)
+                    multiplied._mpd.exp = exp
                 finally:
                     _mpdec.mpd_del(vv)
+                if status_ptr[0] != 0:
+                    raise ValueError("exact conversion for comparison failed")
 
                 return multiplied, numerator
             else:
