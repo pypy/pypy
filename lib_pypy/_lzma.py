@@ -153,39 +153,39 @@ def parse_filter_spec_bcj(id, start_offset=0):
 def parse_filter_spec_lzma(id, preset=m.LZMA_PRESET_DEFAULT, **kwargs):
     ret = ffi.new('lzma_options_lzma*')
     if m.lzma_lzma_preset(ret, preset):
-        raise LZMAError("Invalid...")
+        raise LZMAError("Invalid compression preset: %s" % preset)
     for arg, val in kwargs.items():
         if arg in ('dict_size', 'lc', 'lp', 'pb', 'nice_len', 'depth'):
             setattr(ret, arg, val)
         elif arg in ('mf', 'mode'):
             setattr(ret, arg, int(val))
         else:
-            raise ValueError("Invalid...")
+            raise ValueError("Invalid filter specifier for LZMA filter")
     return ret
 
 def parse_filter_spec(spec):
     if not isinstance(spec, collections.Mapping):
-        raise TypeError("Filter...")
+        raise TypeError("Filter specifier must be a dict or dict-like object")
     ret = ffi.new('lzma_filter*')
     try:
         ret.id = spec['id']
     except KeyError:
-        raise ValueError("Filter...")
+        raise ValueError("Filter specifier must have an \"id\" entry")
     if ret.id in (m.LZMA_FILTER_LZMA1, m.LZMA_FILTER_LZMA2):
         try:
             options = parse_filter_spec_lzma(**spec)
         except TypeError:
-            raise ValueError("Invalid...")
+            raise ValueError("Invalid filter specifier for LZMA filter")
     elif ret.id == m.LZMA_FILTER_DELTA:
         try:
             options = parse_filter_spec_delta(**spec)
         except TypeError:
-            raise ValueError("Invalid...")
+            raise ValueError("Invalid filter specifier for delta filter")
     elif ret.id in BCJ_FILTERS:
         try:
             options = parse_filter_spec_bcj(**spec)
         except TypeError:
-            raise ValueError("Invalid...")
+            raise ValueError("Invalid filter specifier for BCJ filter")
     else:
         raise ValueError("Invalid %d" % (ret.id,))
 
@@ -209,7 +209,9 @@ def _encode_filter_properties(filterspec):
 
 def parse_filter_chain_spec(filterspecs):
     if len(filterspecs) > m.LZMA_FILTERS_MAX:
-        raise ValueError("Too...")
+        raise ValueError(
+            "Too many filters - liblzma supports a maximum of %s" %
+            m.LZMA_FILTERS_MAX)
     filters = ffi.new('lzma_filter[]', m.LZMA_FILTERS_MAX+1)
     _owns[filters] = children = []
     for i in range(m.LZMA_FILTERS_MAX+1):
@@ -241,7 +243,7 @@ def build_filter_spec(filter):
     elif filter.id in BCJ_FILTERS:
         add_opts('lzma_options_bcj', 'start_offset')
     else:
-        raise ValueError("Invalid...")
+        raise ValueError("Invalid filter ID: %s" % filter.id)
     return spec
 
 def _decode_filter_properties(filter_id, encoded_props):
@@ -425,25 +427,26 @@ class LZMADecompressor(object):
 
     For one-shot decompression, use the decompress() function instead.
     """
-    def __init__(self, format=FORMAT_AUTO, memlimit=None, filters=None, header=None, check=None, unpadded_size=None):
+    def __init__(self, format=FORMAT_AUTO, memlimit=None, filters=None,
+                 header=None, check=None, unpadded_size=None):
         decoder_flags = m.LZMA_TELL_ANY_CHECK | m.LZMA_TELL_NO_CHECK
-        #decoder_flags = 0
         if memlimit is not None:
             if format == FORMAT_RAW:
-                raise ValueError("Cannot sp...")
-            #memlimit = long(memlimit)
+                raise ValueError("Cannot specify memory limit with FORMAT_RAW")
         else:
             memlimit = m.UINT64_MAX
 
         if format == FORMAT_RAW and filters is None:
-            raise ValueError("Must...")
+            raise ValueError("Must specify filters for FORMAT_RAW")
         elif format != FORMAT_RAW and filters is not None:
-            raise ValueError("Cannot...")
+            raise ValueError("Cannot specify filters except with FORMAT_RAW")
 
         if format == FORMAT_BLOCK and (header is None or unpadded_size is None or check is None):
-            raise ValueError("Must...")
+            raise ValueError("Must specify header, unpadded_size and check "
+                             "with FORMAT_BLOCK")
         elif format != FORMAT_BLOCK and (header is not None or unpadded_size is not None or check is not None):
-            raise ValueError("Cannot...")
+            raise ValueError("Cannot specify header, unpadded_size or check "
+                             "except with FORMAT_BLOCK")
 
         format = _parse_format(format)
         self.lock = threading.Lock()
@@ -481,7 +484,7 @@ class LZMADecompressor(object):
             self.expected_size = block.compressed_size
             catch_lzma_error(m.lzma_block_decoder, self.lzs, block)
         else:
-            raise ValueError("invalid...")
+            raise ValueError("invalid container format: %s" % format)
 
     def pre_decompress_left_data(self, buf, buf_size):
         # in this case there is data left that needs to be processed before the first
@@ -556,7 +559,7 @@ class LZMADecompressor(object):
             raise TypeError("max_length parameter object cannot be interpreted as an integer")
         with self.lock:
             if self.eof:
-                raise EOFError("Already...")
+                raise EOFError("Already at end of stream")
             lzs = self.lzs
             data = to_bytes(data)
             buf = ffi.new('uint8_t[]', data)
@@ -694,9 +697,9 @@ class LZMACompressor(object):
     """
     def __init__(self, format=FORMAT_XZ, check=-1, preset=None, filters=None):
         if format != FORMAT_XZ and check not in (-1, m.LZMA_CHECK_NONE):
-            raise ValueError("Integrity...")
+            raise ValueError("Integrity checks are only supported by FORMAT_XZ")
         if preset is not None and filters is not None:
-            raise ValueError("Cannot...")
+            raise ValueError("Cannot specify both preset and filter chain")
         if preset is None:
             preset = m.LZMA_PRESET_DEFAULT
         format = _parse_format(format)
@@ -718,19 +721,19 @@ class LZMACompressor(object):
             if filters is None:
                 options = ffi.new('lzma_options_lzma*')
                 if m.lzma_lzma_preset(options, preset):
-                    raise LZMAError("Invalid...")
+                    raise LZMAError("Invalid compression preset: %s" % preset)
                 catch_lzma_error(m.lzma_alone_encoder, self.lzs,
                     options)
             else:
                 raise NotImplementedError
         elif format == FORMAT_RAW:
             if filters is None:
-                raise ValueError("Must...")
+                raise ValueError("Must specify filters for FORMAT_RAW")
             filters = parse_filter_chain_spec(filters)
             catch_lzma_error(m.lzma_raw_encoder, self.lzs,
                 filters)
         else:
-            raise ValueError("Invalid...")
+            raise ValueError("invalid container format: %s" % format)
 
     def compress(self, data):
         """
@@ -744,7 +747,7 @@ class LZMACompressor(object):
         """
         with self.lock:
             if self.flushed:
-                raise ValueError("Compressor...")
+                raise ValueError("Compressor has been flushed")
             return self._compress(data)
 
     def _compress(self, data, action=m.LZMA_RUN):
@@ -785,7 +788,7 @@ class LZMACompressor(object):
     def flush(self):
         with self.lock:
             if self.flushed:
-                raise ValueError("Repeated...")
+                raise ValueError("Repeated call to flush()")
             self.flushed = 1
             result = self._compress(b'', action=m.LZMA_FINISH)
             __pypy__.add_memory_pressure(-COMPRESSION_STREAM_SIZE)
