@@ -88,6 +88,10 @@ class TestFromAppLevel(object):
         self.check(app_types.float, space.wrap(12.34), r_singlefloat(12.34))
         self.check(app_types.double, space.wrap(12.34), 12.34)
 
+    def test_long__and_double(self):
+        space = self.space
+        self.check(app_types.longdouble, space.wrap(3.14159265358979323846264338327950288419716939937510), 3.14159265358979323846264338327950288419716939937510)
+ 
     def test_pointer(self):
         # pointers are "unsigned" at applevel, but signed at interp-level (for
         # no good reason, at interp-level Signed or Unsigned makes no

@@ -46,6 +46,8 @@ class FromAppLevelConverter(object):
             self.handle_unichar(w_ffitype, w_obj, intval)
         elif w_ffitype.is_double():
             self._float(w_ffitype, w_obj)
+        elif w_ffitype.is_longdouble():
+            self._float(w_ffitype, w_obj)
         elif w_ffitype.is_singlefloat():
             self._singlefloat(w_ffitype, w_obj)
         elif w_ffitype.is_struct():

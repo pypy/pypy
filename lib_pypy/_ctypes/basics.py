@@ -271,6 +271,7 @@ _shape_to_ffi_type.typemap =  {
     'Q' : _ffi.types.ulonglong,
     'f' : _ffi.types.float,
     'd' : _ffi.types.double,
+    'g' : _ffi.types.longdouble,
     's' : _ffi.types.void_p,
     'P' : _ffi.types.void_p,
     'z' : _ffi.types.void_p,
