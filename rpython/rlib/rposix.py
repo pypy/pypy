@@ -1301,7 +1301,7 @@ def link(oldpath, newpath):
         newpath = _as_bytes0(newpath)
         handle_posix_error('link', c_link(oldpath, newpath))
     else:
-        traits = _preferred_traits(path1)
+        traits = _preferred_traits(oldpath)
         win32traits = make_win32_traits(traits)
         oldpath = traits.as_str0(oldpath)
         newpath = traits.as_str0(newpath)
