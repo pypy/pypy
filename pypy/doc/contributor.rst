@@ -6,11 +6,11 @@ Contributors
 
   Armin Rigo
   Maciej Fijalkowski
-  Carl Friedrich Bolz
+  Carl Friedrich Bolz-Tereick
   Amaury Forgeot d'Arc
   Antonio Cuni
-  Samuele Pedroni
   Matti Picus
+  Samuele Pedroni
   Ronan Lamy
   Alex Gaynor
   Philip Jenvey
@@ -68,28 +68,28 @@ Contributors
   Vincent Legoll
   Michael Foord
   Stephan Diehl
+  Stefano Rivera
   Stefan Schwarzer
   Tomek Meka
   Valentino Volonghi
-  Stefano Rivera
   Patrick Maupin
   Devin Jeanpierre
   Bob Ippolito
   Bruno Gola
   David Malcolm
   Jean-Paul Calderone
-  Edd Barrett
   Squeaky
+  Edd Barrett
   Timo Paulssen
   Marius Gedminas
   Alexandre Fayolle
   Simon Burton
   Nicolas Truessel
   Martin Matusiak
+  Laurence Tratt
   Wenzhu Man
   Konstantin Lopuhin
   John Witulski
-  Laurence Tratt
   Greg Price
   Ivan Sichmann Freitas
   Dario Bertini
@@ -116,13 +116,13 @@ Contributors
   Stian Andreassen
   Wanja Saatkamp
   Mike Blume
+  Joannah Nanjekye
   Gerald Klix
   Oscar Nierstrasz
   Rami Chowdhury
   Stefan H. Muller
-  Joannah Nanjekye
-  Eugene Oden
   Tim Felgentreff
+  Eugene Oden
   Jeff Terrace
   Henry Mason
   Vasily Kuznetsov
@@ -131,11 +131,11 @@ Contributors
   Dusty Phillips
   Lukas Renggli
   Guenter Jantzen
+  Jasper Schulz
   Ned Batchelder
   Amit Regmi
   Anton Gulenko
   Sergey Matyunin
-  Jasper Schulz
   Andrew Chambers
   Nicolas Chauvat
   Andrew Durdin
@@ -150,6 +150,7 @@ Contributors
   Gintautas Miliauskas
   Lucian Branescu Mihaila
   anatoly techtonik
+  Dodan Mihai
   Karl Bartel
   Gabriel Lavoie
   Jared Grubb
@@ -187,12 +188,14 @@ Contributors
   Vaibhav Sood
   Reuben Cummings
   Attila Gobi
+  Alecsandru Patrascu
   Christopher Pope
   Tristan Arthur
   Christian Tismer 
   Dan Stromberg
   Carl Meyer
   Florin Papa
+  Jens-Uwe Mager
   Valentina Mukhamedzhanova
   Stefano Parmesan
   touilleMan
@@ -231,7 +234,6 @@ Contributors
   Dan Buch
   Lene Wagner
   Tomo Cocoa
-  Alecsandru Patrascu
   David Lievens
   Neil Blakey-Milner
   Henrik Vendelbo
@@ -270,6 +272,7 @@ Contributors
   Anna Katrina Dominguez
   Kim Jin Su
   Amber Brown
+  Nate Bragg
   Ben Darnell
   Juan Francisco Cantero Hurtado
   Godefroid Chappelle
@@ -307,11 +310,13 @@ Contributors
   Jim Hunziker
   shoma hosaka
   Buck Golemon
+  Iraklis D.
   JohnDoe
   yrttyr
   Michael Chermside
   Anna Ravencroft
   remarkablerocket
+  Petre Vijiac
   Berker Peksag
   Christian Muirhead
   soareschen

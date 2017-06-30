@@ -591,7 +591,10 @@ def str_decode_utf_16_helper(s, size, errors, final=True,
 
 def unicode_encode_utf_16_helper(s, size, errors,
                                  errorhandler=None,
+                                 allow_surrogates=True,
                                  byteorder='little'):
+    if errorhandler is None:
+        errorhandler = default_unicode_error_encode
     if size == 0:
         if byteorder == 'native':
             result = StringBuilder(2)
@@ -604,34 +607,60 @@ def unicode_encode_utf_16_helper(s, size, errors,
         _STORECHAR(result, 0xFEFF, BYTEORDER)
         byteorder = BYTEORDER
 
-    i = 0
-    while i < size:
-        ch = ord(s[i])
-        i += 1
-        ch2 = 0
-        if ch >= 0x10000:
-            ch2 = 0xDC00 | ((ch-0x10000) & 0x3FF)
-            ch  = 0xD800 | ((ch-0x10000) >> 10)
+    pos = 0
+    while pos < size:
+        ch = ord(s[pos])
+        pos += 1
 
-        _STORECHAR(result, ch, byteorder)
-        if ch2:
-            _STORECHAR(result, ch2, byteorder)
+        if ch < 0xD800:
+            _STORECHAR(result, ch, byteorder)
+        elif ch >= 0x10000:
+            _STORECHAR(result, 0xD800 | ((ch-0x10000) >> 10), byteorder)
+            _STORECHAR(result, 0xDC00 | ((ch-0x10000) & 0x3FF), byteorder)
+        elif ch >= 0xE000 or allow_surrogates:
+            _STORECHAR(result, ch, byteorder)
+        else:
+            ru, rs, pos = errorhandler(errors, 'utf16',
+                                       'surrogates not allowed',
+                                       s, pos-1, pos)
+            if rs is not None:
+                # py3k only
+                if len(rs) % 2 != 0:
+                    errorhandler('strict', 'utf16',
+                                 'surrogates not allowed',
+                                 s, pos-1, pos)
+                result.append(rs)
+                continue
+            for ch in ru:
+                if ord(ch) < 0xD800:
+                    _STORECHAR(result, ord(ch), byteorder)
+                else:
+                    errorhandler('strict', 'utf16',
+                                 'surrogates not allowed',
+                                 s, pos-1, pos)
+            continue
 
     return result.build()
 
 def unicode_encode_utf_16(s, size, errors,
-                          errorhandler=None):
-    return unicode_encode_utf_16_helper(s, size, errors, errorhandler, "native")
+                          errorhandler=None,
+                          allow_surrogates=True):
+    return unicode_encode_utf_16_helper(s, size, errors, errorhandler,
+                                        allow_surrogates, "native")
 
 
 def unicode_encode_utf_16_be(s, size, errors,
-                             errorhandler=None):
-    return unicode_encode_utf_16_helper(s, size, errors, errorhandler, "big")
+                             errorhandler=None,
+                             allow_surrogates=True):
+    return unicode_encode_utf_16_helper(s, size, errors, errorhandler,
+                                        allow_surrogates, "big")
 
 
 def unicode_encode_utf_16_le(s, size, errors,
-                             errorhandler=None):
-    return unicode_encode_utf_16_helper(s, size, errors, errorhandler, "little")
+                             errorhandler=None,
+                             allow_surrogates=True):
+    return unicode_encode_utf_16_helper(s, size, errors, errorhandler,
+                                        allow_surrogates, "little")
 
 
 # ____________________________________________________________
@@ -756,7 +785,10 @@ def _STORECHAR32(result, CH, byteorder):
 
 def unicode_encode_utf_32_helper(s, size, errors,
                                  errorhandler=None,
+                                 allow_surrogates=True,
                                  byteorder='little'):
+    if errorhandler is None:
+        errorhandler = default_unicode_error_encode
     if size == 0:
         if byteorder == 'native':
             result = StringBuilder(4)
@@ -769,33 +801,57 @@ def unicode_encode_utf_32_helper(s, size, errors,
         _STORECHAR32(result, 0xFEFF, BYTEORDER)
         byteorder = BYTEORDER
 
-    i = 0
-    while i < size:
-        ch = ord(s[i])
-        i += 1
+    pos = 0
+    while pos < size:
+        ch = ord(s[pos])
+        pos += 1
         ch2 = 0
-        if MAXUNICODE < 65536 and 0xD800 <= ch <= 0xDBFF and i < size:
-            ch2 = ord(s[i])
-            if 0xDC00 <= ch2 <= 0xDFFF:
-                ch = (((ch & 0x3FF)<<10) | (ch2 & 0x3FF)) + 0x10000;
-                i += 1
+        if 0xD800 <= ch < 0xDC00:
+            if not allow_surrogates:
+                ru, rs, pos = errorhandler(errors, 'utf32',
+                                           'surrogates not allowed',
+                                           s, pos-1, pos)
+                if rs is not None:
+                    # py3k only
+                    if len(rs) % 4 != 0:
+                        errorhandler('strict', 'utf32',
+                                     'surrogates not allowed',
+                                     s, pos-1, pos)
+                    result.append(rs)
+                    continue
+                for ch in ru:
+                    if ord(ch) < 0xD800:
+                        _STORECHAR32(result, ord(ch), byteorder)
+                    else:
+                        errorhandler('strict', 'utf32',
+                                     'surrogates not allowed',
+                                     s, pos-1, pos)
+                continue
+            elif MAXUNICODE < 65536 and pos < size:
+                ch2 = ord(s[pos])
+                if 0xDC00 <= ch2 < 0xE000:
+                    ch = (((ch & 0x3FF)<<10) | (ch2 & 0x3FF)) + 0x10000;
+                    pos += 1
         _STORECHAR32(result, ch, byteorder)
 
     return result.build()
 
 def unicode_encode_utf_32(s, size, errors,
-                          errorhandler=None):
-    return unicode_encode_utf_32_helper(s, size, errors, errorhandler, "native")
+                          errorhandler=None, allow_surrogates=True):
+    return unicode_encode_utf_32_helper(s, size, errors, errorhandler,
+                                        allow_surrogates, "native")
 
 
 def unicode_encode_utf_32_be(s, size, errors,
-                             errorhandler=None):
-    return unicode_encode_utf_32_helper(s, size, errors, errorhandler, "big")
+                             errorhandler=None, allow_surrogates=True):
+    return unicode_encode_utf_32_helper(s, size, errors, errorhandler,
+                                        allow_surrogates, "big")
 
 
 def unicode_encode_utf_32_le(s, size, errors,
-                             errorhandler=None):
-    return unicode_encode_utf_32_helper(s, size, errors, errorhandler, "little")
+                             errorhandler=None, allow_surrogates=True):
+    return unicode_encode_utf_32_helper(s, size, errors, errorhandler,
+                                        allow_surrogates, "little")
 
 
 # ____________________________________________________________

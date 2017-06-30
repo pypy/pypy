@@ -95,7 +95,8 @@ void_type = VoidType()
 
 
 class BasePrimitiveType(BaseType):
-    pass
+    def is_complex_type(self):
+        return False
 
 
 class PrimitiveType(BasePrimitiveType):
@@ -116,9 +117,13 @@ class PrimitiveType(BasePrimitiveType):
         'float':              'f',
         'double':             'f',
         'long double':        'f',
+        'float _Complex':     'j',
+        'double _Complex':    'j',
         '_Bool':              'i',
         # the following types are not primitive in the C sense
         'wchar_t':            'c',
+        'char16_t':           'c',
+        'char32_t':           'c',
         'int8_t':             'i',
         'uint8_t':            'i',
         'int16_t':            'i',
@@ -163,6 +168,8 @@ class PrimitiveType(BasePrimitiveType):
         return self.ALL_PRIMITIVE_TYPES[self.name] == 'i'
     def is_float_type(self):
         return self.ALL_PRIMITIVE_TYPES[self.name] == 'f'
+    def is_complex_type(self):
+        return self.ALL_PRIMITIVE_TYPES[self.name] == 'j'
 
     def build_backend_type(self, ffi, finishlist):
         return global_cache(self, ffi, 'new_primitive_type', self.name)
@@ -561,22 +568,26 @@ def unknown_ptr_type(name, structname=None):
 
 
 global_lock = allocate_lock()
+_typecache_cffi_backend = weakref.WeakValueDictionary()
+
+def get_typecache(backend):
+    # returns _typecache_cffi_backend if backend is the _cffi_backend
+    # module, or type(backend).__typecache if backend is an instance of
+    # CTypesBackend (or some FakeBackend class during tests)
+    if isinstance(backend, types.ModuleType):
+        return _typecache_cffi_backend
+    with global_lock:
+        if not hasattr(type(backend), '__typecache'):
+            type(backend).__typecache = weakref.WeakValueDictionary()
+        return type(backend).__typecache
 
 def global_cache(srctype, ffi, funcname, *args, **kwds):
     key = kwds.pop('key', (funcname, args))
     assert not kwds
     try:
-        return ffi._backend.__typecache[key]
+        return ffi._typecache[key]
     except KeyError:
         pass
-    except AttributeError:
-        # initialize the __typecache attribute, either at the module level
-        # if ffi._backend is a module, or at the class level if ffi._backend
-        # is some instance.
-        if isinstance(ffi._backend, types.ModuleType):
-            ffi._backend.__typecache = weakref.WeakValueDictionary()
-        else:
-            type(ffi._backend).__typecache = weakref.WeakValueDictionary()
     try:
         res = getattr(ffi._backend, funcname)(*args)
     except NotImplementedError as e:
@@ -584,7 +595,7 @@ def global_cache(srctype, ffi, funcname, *args, **kwds):
     # note that setdefault() on WeakValueDictionary is not atomic
     # and contains a rare bug (http://bugs.python.org/issue19542);
     # we have to use a lock and do it ourselves
-    cache = ffi._backend.__typecache
+    cache = ffi._typecache
     with global_lock:
         res1 = cache.get(key)
         if res1 is None:

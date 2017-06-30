@@ -1,11 +1,14 @@
-import sys, py
+import sys
+import pytest
+from pypy.interpreter.error import OperationError
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import maxint
-from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-
+from pypy.module.cpyext.longobject import (PyLong_Check, PyLong_CheckExact,
+    PyLong_FromLong, PyLong_AsLong, PyLong_AsUnsignedLong, PyLong_AsLongLong,
+    PyLong_AsUnsignedLongLong, PyLong_AsUnsignedLongLongMask)
 
 class TestLongObject(BaseApiTest):
     def test_FromLong(self, space, api):
@@ -17,24 +20,25 @@ class TestLongObject(BaseApiTest):
         assert isinstance(w_value, W_LongObject)
         assert space.unwrap(w_value) == sys.maxint
 
-    def test_aslong(self, space, api):
-        w_value = api.PyLong_FromLong((sys.maxint - 1) / 2)
+    def test_aslong(self, space):
+        w_value = PyLong_FromLong(space, (sys.maxint - 1) / 2)
         assert isinstance(w_value, W_LongObject)
 
         w_value = space.mul(w_value, space.wrap(2))
         assert isinstance(w_value, W_LongObject)
-        value = api.PyLong_AsLong(w_value)
+        value = PyLong_AsLong(space, w_value)
         assert value == (sys.maxint - 1)
 
         w_value = space.mul(w_value, space.wrap(2))
-
-        value = api.PyLong_AsLong(w_value)
-        assert value == -1 and api.PyErr_Occurred() is space.w_OverflowError
-        api.PyErr_Clear()
-        value = api.PyLong_AsUnsignedLong(w_value)
+        with pytest.raises(OperationError) as excinfo:
+            PyLong_AsLong(space, w_value)
+        assert excinfo.value.w_type is space.w_OverflowError
+        value = PyLong_AsUnsignedLong(space, w_value)
         assert value == (sys.maxint - 1) * 2
 
-        self.raises(space, api, OverflowError, api.PyLong_AsUnsignedLong, space.wrap(-1))
+        with pytest.raises(OperationError) as excinfo:
+            PyLong_AsUnsignedLong(space, space.newint(-1))
+        assert excinfo.value.w_type is space.w_OverflowError
 
     def test_as_ssize_t(self, space, api):
         w_value = space.newlong(2)
@@ -53,12 +57,12 @@ class TestLongObject(BaseApiTest):
 
     def test_type_check(self, space, api):
         w_l = space.wrap(sys.maxint + 1)
-        assert api.PyLong_Check(w_l)
-        assert api.PyLong_CheckExact(w_l)
+        assert PyLong_Check(space, w_l)
+        assert PyLong_CheckExact(space, w_l)
 
         w_i = space.wrap(sys.maxint)
-        assert not api.PyLong_Check(w_i)
-        assert not api.PyLong_CheckExact(w_i)
+        assert not PyLong_Check(space, w_i)
+        assert not PyLong_CheckExact(space, w_i)
 
         L = space.appexec([], """():
             class L(long):
@@ -66,23 +70,25 @@ class TestLongObject(BaseApiTest):
             return L
         """)
         l = space.call_function(L)
-        assert api.PyLong_Check(l)
-        assert not api.PyLong_CheckExact(l)
+        assert PyLong_Check(space, l)
+        assert not PyLong_CheckExact(space, l)
 
-    def test_as_longlong(self, space, api):
-        assert api.PyLong_AsLongLong(space.wrap(1<<62)) == 1<<62
-        assert api.PyLong_AsLongLong(space.wrap(1<<63)) == -1
-        api.PyErr_Clear()
+    def test_as_longlong(self, space):
+        assert PyLong_AsLongLong(space, space.wrap(1 << 62)) == 1 << 62
+        with pytest.raises(OperationError) as excinfo:
+            PyLong_AsLongLong(space, space.wrap(1 << 63))
+        assert excinfo.value.w_type is space.w_OverflowError
 
-        assert api.PyLong_AsUnsignedLongLong(space.wrap(1<<63)) == 1<<63
-        assert api.PyLong_AsUnsignedLongLong(space.wrap(1<<64)) == (1<<64) - 1
-        assert api.PyErr_Occurred()
-        api.PyErr_Clear()
+        assert PyLong_AsUnsignedLongLong(space, space.wrap(1 << 63)) == 1 << 63
+        with pytest.raises(OperationError) as excinfo:
+            PyLong_AsUnsignedLongLong(space, space.wrap(1 << 64))
+        assert excinfo.value.w_type is space.w_OverflowError
 
-        assert api.PyLong_AsUnsignedLongLongMask(
-            space.wrap(1<<64)) == 0
+        assert PyLong_AsUnsignedLongLongMask(space, space.wrap(1 << 64)) == 0
 
-        self.raises(space, api, OverflowError, api.PyLong_AsUnsignedLongLong, space.wrap(-1))
+        with pytest.raises(OperationError) as excinfo:
+            PyLong_AsUnsignedLongLong(space, space.newint(-1))
+        assert excinfo.value.w_type is space.w_OverflowError
 
     def test_as_long_and_overflow(self, space, api):
         overflow = lltype.malloc(rffi.CArrayPtr(rffi.INT_real).TO, 1, flavor='raw')
@@ -131,10 +137,6 @@ class TestLongObject(BaseApiTest):
         assert api.PyLong_AsVoidPtr(w_l) == p
 
     def test_sign_and_bits(self, space, api):
-        if space.is_true(space.lt(space.sys.get('version_info'),
-                                  space.wrap((2, 7)))):
-            py.test.skip("unsupported before Python 2.7")
-
         assert api._PyLong_Sign(space.wraplong(0L)) == 0
         assert api._PyLong_Sign(space.wraplong(2L)) == 1
         assert api._PyLong_Sign(space.wraplong(-2L)) == -1
@@ -282,7 +284,7 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                     return PyLong_FromLong(3);
                  if (str + strlen(str) != end)
                     return PyLong_FromLong(4);
-                 return PyLong_FromLong(0); 
+                 return PyLong_FromLong(0);
              """)])
         assert module.from_str() == 0
 
@@ -338,4 +340,4 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
         assert module.has_pow() == 0
         assert module.has_hex() == '0x2aL'
         assert module.has_oct() == '052L'
-                
+

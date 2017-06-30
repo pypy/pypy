@@ -6,7 +6,7 @@ from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from rpython.rlib.runicode import UNICHR
-from rpython.rlib.rfloat import isnan, isinf, round_double
+from rpython.rlib.rfloat import isfinite, isinf, round_double, round_away
 from rpython.rlib import rfloat
 import __builtin__
 
@@ -134,23 +134,26 @@ This always returns a floating point number.  Precision may be negative."""
     ndigits = space.getindex_w(w_ndigits, None)
 
     # nans, infinities and zeros round to themselves
-    if number == 0 or isinf(number) or isnan(number):
-        return space.newfloat(number)
-
-    # Deal with extreme values for ndigits. For ndigits > NDIGITS_MAX, x
-    # always rounds to itself.  For ndigits < NDIGITS_MIN, x always
-    # rounds to +-0.0.
-    if ndigits > NDIGITS_MAX:
-        return space.newfloat(number)
-    elif ndigits < NDIGITS_MIN:
-        # return 0.0, but with sign of x
-        return space.newfloat(0.0 * number)
-
-    # finite x, and ndigits is not unreasonably large
-    z = round_double(number, ndigits)
-    if isinf(z):
-        raise oefmt(space.w_OverflowError,
-                    "rounded value too large to represent")
+    if not isfinite(number):
+        z = number
+    elif ndigits == 0:    # common case
+        z = round_away(number)
+        # no need to check for an infinite 'z' here
+    else:
+        # Deal with extreme values for ndigits. For ndigits > NDIGITS_MAX, x
+        # always rounds to itself.  For ndigits < NDIGITS_MIN, x always
+        # rounds to +-0.0.
+        if ndigits > NDIGITS_MAX:
+            z = number
+        elif ndigits < NDIGITS_MIN:
+            # return 0.0, but with sign of x
+            z = 0.0 * number
+        else:
+            # finite x, and ndigits is not unreasonably large
+            z = round_double(number, ndigits)
+            if isinf(z):
+                raise oefmt(space.w_OverflowError,
+                            "rounded value too large to represent")
     return space.newfloat(z)
 
 # ____________________________________________________________

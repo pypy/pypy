@@ -366,6 +366,15 @@ c = br'u'"""
         assert isinstance(ns["b"], str)
         assert isinstance(ns["c"], str)
 
+    def test_both_futures_with_semicolon(self):
+        # Issue #2526: a corner case which crashes only if the file
+        # contains *nothing more* than two __future__ imports separated
+        # by a semicolon.
+        s = """
+from __future__ import unicode_literals; from __future__ import print_function
+"""
+        exec s in {}
+
 
 class AppTestComprehensions:
 

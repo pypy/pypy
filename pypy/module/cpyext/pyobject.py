@@ -30,8 +30,7 @@ class BaseCpyTypedescr(object):
         return subtype_dealloc.api_func
 
     def allocate(self, space, w_type, itemcount=0):
-        # similar to PyType_GenericAlloc?
-        # except that it's not related to any pypy object.
+        # typically called from PyType_GenericAlloc via typedescr.allocate
         # this returns a PyObject with ob_refcnt == 1.
 
         pytype = as_pyobj(space, w_type)
@@ -250,6 +249,8 @@ def pyobj_has_w_obj(pyobj):
     w_obj = rawrefcount.to_obj(W_Root, pyobj)
     return w_obj is not None and w_obj is not w_marker_deallocating
 
+def w_obj_has_pyobj(w_obj):
+    return bool(rawrefcount.from_obj(PyObject, w_obj))
 
 def is_pyobj(x):
     if x is None or isinstance(x, W_Root):
@@ -275,13 +276,14 @@ def make_ref(space, obj, w_userdata=None):
     """
     if is_pyobj(obj):
         pyobj = rffi.cast(PyObject, obj)
+        at_least = 1
     else:
         pyobj = as_pyobj(space, obj, w_userdata)
+        at_least = rawrefcount.REFCNT_FROM_PYPY
     if pyobj:
-        assert pyobj.c_ob_refcnt > 0
+        assert pyobj.c_ob_refcnt >= at_least
         pyobj.c_ob_refcnt += 1
-        if not is_pyobj(obj):
-            keepalive_until_here(obj)
+        keepalive_until_here(obj)
     return pyobj
 
 
@@ -315,9 +317,14 @@ def decref(space, obj):
         obj = rffi.cast(PyObject, obj)
         if obj:
             assert obj.c_ob_refcnt > 0
+            assert obj.c_ob_pypy_link == 0 or obj.c_ob_refcnt > rawrefcount.REFCNT_FROM_PYPY
             obj.c_ob_refcnt -= 1
             if obj.c_ob_refcnt == 0:
                 _Py_Dealloc(space, obj)
+            #else:
+            #    w_obj = rawrefcount.to_obj(W_Root, ref)
+            #    if w_obj is not None:
+            #        assert obj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
     else:
         get_w_obj_and_decref(space, obj)
 

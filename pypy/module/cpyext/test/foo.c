@@ -670,6 +670,34 @@ static PyObject * is_TupleLike(PyObject *self, PyObject * t)
     return PyInt_FromLong(tf);
 }
 
+static PyTypeObject GetType1 = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "foo.GetType1",          /*tp_name*/
+    sizeof(PyObject),        /*tp_size*/
+};
+static PyTypeObject GetType2 = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "foo.GetType2",          /*tp_name*/
+    sizeof(PyObject),        /*tp_size*/
+};
+static PyObject *gettype1, *gettype2;
+
+static PyObject *gettype1_getattr(PyObject *self, char *name)
+{
+    char buf[200];
+    strcpy(buf, "getattr:");
+    strcat(buf, name);
+    return PyString_FromString(buf);
+}
+static PyObject *gettype2_getattro(PyObject *self, PyObject *name)
+{
+    char buf[200];
+    strcpy(buf, "getattro:");
+    strcat(buf, PyString_AS_STRING(name));
+    return PyString_FromString(buf);
+}
+
+
 /* List of functions exported by this module */
 
 static PyMethodDef foo_functions[] = {
@@ -765,6 +793,18 @@ initfoo(void)
     if (PyType_Ready(&TupleLike) < 0)
         INITERROR;
 
+    GetType1.tp_flags = Py_TPFLAGS_DEFAULT;
+    GetType1.tp_getattr = &gettype1_getattr;
+    if (PyType_Ready(&GetType1) < 0)
+        INITERROR;
+    gettype1 = PyObject_New(PyObject, &GetType1);
+
+    GetType2.tp_flags = Py_TPFLAGS_DEFAULT;
+    GetType2.tp_getattro = &gettype2_getattro;
+    if (PyType_Ready(&GetType2) < 0)
+        INITERROR;
+    gettype2 = PyObject_New(PyObject, &GetType2);
+
 
     d = PyModule_GetDict(module);
     if (d == NULL)
@@ -786,6 +826,10 @@ initfoo(void)
     if (PyDict_SetItemString(d, "Custom", (PyObject *) &CustomType) < 0)
         INITERROR;
     if (PyDict_SetItemString(d, "TupleLike", (PyObject *) &TupleLike) < 0)
+        INITERROR;
+    if (PyDict_SetItemString(d, "gettype1", gettype1) < 0)
+        INITERROR;
+    if (PyDict_SetItemString(d, "gettype2", gettype2) < 0)
         INITERROR;
 #if PY_MAJOR_VERSION >=3
     return module;

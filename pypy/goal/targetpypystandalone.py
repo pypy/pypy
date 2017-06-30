@@ -264,11 +264,14 @@ class PyPyTarget(object):
                 raise Exception("Cannot use the --output option with PyPy "
                                 "when --shared is on (it is by default). "
                                 "See issue #1971.")
-            if (config.translation.profopt is not None
-                    and not config.translation.noprofopt):
-                raise Exception("Cannot use the --profopt option "
-                                "when --shared is on (it is by default). "
-                                "See issue #2398.")
+
+        # if both profopt and profoptpath are specified then we keep them as they are with no other changes
+        if config.translation.profopt:
+            if config.translation.profoptargs is None:
+                config.translation.profoptargs = "$(RPYDIR)/../lib-python/2.7/test/regrtest.py --pgo -x test_asyncore test_gdb test_multiprocessing test_subprocess || true"
+        elif config.translation.profoptargs is not None:
+            raise Exception("Cannot use --profoptargs without specifying --profopt as well")
+
         if sys.platform == 'win32':
             libdir = thisdir.join('..', '..', 'libs')
             libdir.ensure(dir=1)
@@ -307,6 +310,9 @@ class PyPyTarget(object):
             config.translation.jit = True
 
         if config.translation.sandbox:
+            assert 0, ("--sandbox is not tested nor maintained.  If you "
+                       "really want to try it anyway, remove this line in "
+                       "pypy/goal/targetpypystandalone.py.")
             config.objspace.lonepycfiles = False
 
         if config.objspace.usemodules.cpyext:

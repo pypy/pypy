@@ -4,6 +4,7 @@ from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin,
     enforceargs)
 from rpython.rlib.buffer import StringBuffer
+from rpython.rlib.mutbuffer import MutableStringBuffer
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.runicode import (
     make_unicode_escape_function, str_decode_ascii, str_decode_utf_8,
@@ -84,10 +85,12 @@ class W_UnicodeObject(W_Root):
 
     def readbuf_w(self, space):
         from rpython.rlib.rstruct.unichar import pack_unichar, UNICODE_SIZE
-        builder = StringBuilder(len(self._value) * UNICODE_SIZE)
+        buf = MutableStringBuffer(len(self._value) * UNICODE_SIZE)
+        pos = 0
         for unich in self._value:
-            pack_unichar(unich, builder)
-        return StringBuffer(builder.build())
+            pack_unichar(unich, buf, pos)
+            pos += UNICODE_SIZE
+        return StringBuffer(buf.finish())
 
     def writebuf_w(self, space):
         raise oefmt(space.w_TypeError,
@@ -236,6 +239,7 @@ class W_UnicodeObject(W_Root):
 
     def descr_hash(self, space):
         x = compute_hash(self._value)
+        x -= (x == -1) # convert -1 to -2 without creating a bridge
         return space.newint(x)
 
     def descr_eq(self, space, w_other):

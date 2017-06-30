@@ -185,8 +185,8 @@ class __extend__(SomeObject):
         return SomeString()
 
     def id(self):
-        raise Exception("cannot use id() in RPython; "
-                        "see objectmodel.compute_xxx()")
+        raise AnnotatorError("cannot use id() in RPython; "
+                             "see objectmodel.compute_xxx()")
 
     def int(self):
         return SomeInteger()
@@ -410,6 +410,7 @@ class __extend__(SomeList):
                 self.listdef.resize()
                 self.listdef.listitem.hint_maxlength = True
         elif 'fence' in hints:
+            self.listdef.resize()
             self = self.listdef.offspring(getbookkeeper())
         return self
 
@@ -421,7 +422,7 @@ class __extend__(SomeList):
     def setslice(self, s_start, s_stop, s_iterable):
         check_negative_slice(s_start, s_stop)
         if not isinstance(s_iterable, SomeList):
-            raise Exception("list[start:stop] = x: x must be a list")
+            raise AnnotatorError("list[start:stop] = x: x must be a list")
         self.listdef.mutate()
         self.listdef.agree(getbookkeeper(), s_iterable.listdef)
         self.listdef.resize()

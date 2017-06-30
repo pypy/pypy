@@ -314,8 +314,8 @@ class FunctionDesc(Desc):
         enforceargs = getattr(self.pyobj, '_annenforceargs_', None)
         signature = getattr(self.pyobj, '_signature_', None)
         if enforceargs and signature:
-            raise Exception("%r: signature and enforceargs cannot both be "
-                            "used" % (self,))
+            raise AnnotatorError("%r: signature and enforceargs cannot both be "
+                                 "used" % (self,))
         if enforceargs:
             if not callable(enforceargs):
                 from rpython.annotator.signature import Sig
@@ -432,7 +432,7 @@ class MethodDesc(Desc):
     def func_args(self, args):
         from rpython.annotator.model import SomeInstance
         if self.selfclassdef is None:
-            raise Exception("calling %r" % (self,))
+            raise AnnotatorError("calling %r" % (self,))
         s_instance = SomeInstance(self.selfclassdef, flags=self.flags)
         return args.prepend(s_instance)
 

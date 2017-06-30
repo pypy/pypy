@@ -431,7 +431,14 @@ class Unpickler(object):
         self.append(obj)
 
     def find_class(self, module, name):
-        # Subclasses may override this
+        if self.find_global is None:
+            raise UnpicklingError(
+                "Global and instance pickles are not supported.")
+        return self.find_global(module, name)
+
+    def find_global(self, module, name):
+        # This can officially be patched directly in the Unpickler
+        # instance, according to the docs
         __import__(module)
         mod = sys.modules[module]
         klass = getattr(mod, name)

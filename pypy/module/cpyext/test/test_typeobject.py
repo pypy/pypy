@@ -392,6 +392,73 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         obj = foo.new()
         assert module.hack_tp_dict(obj) == 2
 
+    def test_tp_descr_get(self):
+        module = self.import_extension('foo', [
+           ("tp_descr_get", "METH_O",
+            '''
+                if (args->ob_type->tp_descr_get == NULL) {
+                    Py_INCREF(Py_False);
+                    return Py_False;
+                }
+                return args->ob_type->tp_descr_get(args, NULL,
+                                                   (PyObject *)&PyInt_Type);
+             '''
+             )
+            ])
+        assert module.tp_descr_get(42) is False
+
+        class Y(object):
+            def __get__(self, *args):
+                return 42
+            def unbound_method_example(self):
+                pass
+        assert module.tp_descr_get(Y()) == 42
+        #
+        p = property(lambda self: 42)
+        result = module.tp_descr_get(p)
+        assert result is p
+        #
+        f = lambda x: x + 1
+        ubm = module.tp_descr_get(f)
+        assert type(ubm) is type(Y.unbound_method_example)
+        assert ubm(42) == 43
+
+    def test_tp_descr_set(self):
+        module = self.import_extension('foo', [
+           ("tp_descr_set", "METH_O",
+            '''
+                if (args->ob_type->tp_descr_set == NULL) {
+                    Py_INCREF(Py_False);
+                    return Py_False;
+                }
+                if (args->ob_type->tp_descr_set(args, Py_False, Py_True) != 0)
+                    return NULL;
+                if (args->ob_type->tp_descr_set(args, Py_Ellipsis, NULL) != 0)
+                    return NULL;
+
+                Py_INCREF(Py_True);
+                return Py_True;
+             '''
+             )
+            ])
+        assert module.tp_descr_set(42) is False
+
+        class Y(object):
+            def __set__(self, obj, value):
+                assert obj is False
+                assert value is True
+            def __delete__(self, obj):
+                assert obj is Ellipsis
+        assert module.tp_descr_set(Y()) is True
+        #
+        def pset(obj, value):
+            assert obj is False
+            assert value is True
+        def pdel(obj):
+            assert obj is Ellipsis
+        p = property(lambda: "never used", pset, pdel)
+        assert module.tp_descr_set(p) is True
+
 
 class TestTypes(BaseApiTest):
     def test_type_attributes(self, space, api):
@@ -1245,3 +1312,38 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 pass
             bases = module.foo(C)
             assert bases == (A, B)
+
+    def test_getattr_getattro(self):
+        module = self.import_module(name='foo')
+        assert module.gettype2.dcba == 'getattro:dcba'
+        assert (type(module.gettype2).__getattribute__(module.gettype2, 'dcBA')
+            == 'getattro:dcBA')
+        assert module.gettype1.abcd == 'getattr:abcd'
+        # GetType1 objects have a __getattribute__ method, but this
+        # doesn't call tp_getattr at all, also on CPython
+        raises(AttributeError, type(module.gettype1).__getattribute__,
+                               module.gettype1, 'dcBA')
+
+    def test_multiple_inheritance_tp_basicsize(self):
+        module = self.import_module(name='issue2482')
+
+        class PyBase(object):
+            pass
+
+        basesize = module.get_basicsize(PyBase)
+
+        CBase = module.issue2482_object
+        class A(CBase, PyBase):
+            def __init__(self, i):
+                CBase.__init__(self)
+                PyBase.__init__(self)
+
+        class B(PyBase, CBase):
+            def __init__(self, i):
+                PyBase.__init__(self)
+                CBase.__init__(self)
+
+        Asize = module.get_basicsize(A)
+        Bsize = module.get_basicsize(B)
+        assert Asize == Bsize
+        assert Asize > basesize

@@ -1232,8 +1232,11 @@ class scoped_unicode2wcharp:
 
 
 class scoped_nonmovingbuffer:
+
     def __init__(self, data):
         self.data = data
+    __init__._annenforceargs_ = [None, annmodel.SomeString(can_be_None=False)]
+
     def __enter__(self):
         self.buf, self.flag = get_nonmovingbuffer(self.data)
         return self.buf

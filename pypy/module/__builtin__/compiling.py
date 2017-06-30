@@ -38,6 +38,8 @@ in addition to any features explicitly specified.
                     "compile() arg 3 must be 'exec', 'eval' or 'single'")
 
     if space.isinstance_w(w_source, space.gettypeobject(ast.W_AST.typedef)):
+        if flags & consts.PyCF_ONLY_AST:
+            return w_source
         ast_node = ast.mod.from_object(space, w_source)
         return ec.compiler.compile_ast(ast_node, filename, mode, flags)
 

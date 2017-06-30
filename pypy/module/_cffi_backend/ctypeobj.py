@@ -73,6 +73,14 @@ class W_CType(W_Root):
         raise oefmt(space.w_TypeError, "float() not supported on cdata '%s'",
                     self.name)
 
+    def complex(self, cdata):
+        # <cdata 'float'> or <cdata 'int'> cannot be directly converted by
+        # calling complex(), just like <cdata 'int'> cannot be directly
+        # converted by calling float()
+        space = self.space
+        raise oefmt(space.w_TypeError, "complex() not supported on cdata '%s'",
+                    self.name)
+
     def convert_to_object(self, cdata):
         space = self.space
         raise oefmt(space.w_TypeError, "cannot return a cdata '%s'", self.name)

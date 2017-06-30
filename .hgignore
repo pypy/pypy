@@ -1,6 +1,6 @@
 syntax: glob
 *.py[co]
-*.sw[po]
+*.sw[pon]
 *~
 .*.swp
 .idea
@@ -8,6 +8,8 @@ syntax: glob
 .pydevproject
 __pycache__
 
+.cache/
+.gdb_history
 syntax: regexp
 ^testresult$
 ^site-packages$
@@ -49,6 +51,11 @@ syntax: regexp
 ^rpython/translator/goal/target.+-c$
 ^rpython/translator/goal/.+\.exe$
 ^rpython/translator/goal/.+\.dll$
+^rpython/rlib/rvmprof/src/shared/libbacktrace/Makefile$
+^rpython/rlib/rvmprof/src/shared/libbacktrace/config.guess$
+^rpython/rlib/rvmprof/src/shared/libbacktrace/config.h$
+^rpython/rlib/rvmprof/src/shared/libbacktrace/config.log$
+^rpython/rlib/rvmprof/src/shared/libbacktrace/config.status$
 ^pypy/goal/pypy-translation-snapshot$
 ^pypy/goal/pypy-c
 ^pypy/goal/.+\.exe$
@@ -80,6 +87,7 @@ syntax: regexp
 .hypothesis/
 ^release/
 ^rpython/_cache$
-^\.cache$
 
 pypy/module/cppyy/.+/*\.pcm
+
+

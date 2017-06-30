@@ -31,10 +31,11 @@ import sys
 import weakref
 from threading import _get_ident as _thread_get_ident
 try:
-    from __pypy__ import newlist_hint
+    from __pypy__ import newlist_hint, add_memory_pressure
 except ImportError:
     assert '__pypy__' not in sys.builtin_module_names
     newlist_hint = lambda sizehint: []
+    add_memory_pressure = lambda size: None
 
 if sys.version_info[0] >= 3:
     StandardError = Exception
@@ -150,6 +151,9 @@ class NotSupportedError(DatabaseError):
 def connect(database, timeout=5.0, detect_types=0, isolation_level="",
                  check_same_thread=True, factory=None, cached_statements=100):
     factory = Connection if not factory else factory
+    # an sqlite3 db seems to be around 100 KiB at least (doesn't matter if
+    # backed by :memory: or a file)
+    add_memory_pressure(100 * 1024)
     return factory(database, timeout, detect_types, isolation_level,
                     check_same_thread, factory, cached_statements)
 

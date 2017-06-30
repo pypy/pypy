@@ -56,9 +56,9 @@ def buffer_attach(space, py_obj, w_obj, w_userdata=None):
         py_buf.c_b_ptr = rffi.cast(rffi.VOIDP, rffi.str2charp(buf.value))
         py_buf.c_b_size = buf.getlength()
     elif isinstance(buf, ArrayBuffer):
-        w_base = buf.array
+        w_base = buf.w_array
         py_buf.c_b_base = make_ref(space, w_base)
-        py_buf.c_b_ptr = rffi.cast(rffi.VOIDP, buf.array._charbuf_start())
+        py_buf.c_b_ptr = rffi.cast(rffi.VOIDP, buf.w_array._charbuf_start())
         py_buf.c_b_size = buf.getlength()
     else:
         raise oefmt(space.w_NotImplementedError, "buffer flavor not supported")

@@ -397,6 +397,7 @@ LL_OPERATIONS = {
     'raw_store':            LLOp(canrun=True),
     'bare_raw_store':       LLOp(),
     'gc_load_indexed':      LLOp(sideeffects=False, canrun=True),
+    'gc_store_indexed':     LLOp(canrun=True),
     'track_alloc_start':    LLOp(),
     'track_alloc_stop':     LLOp(),
     'adr_add':              LLOp(canfold=True),
@@ -514,6 +515,7 @@ LL_OPERATIONS = {
     'gc_adr_of_root_stack_base': LLOp(),
     'gc_adr_of_root_stack_top': LLOp(),
     # returns the address of gcdata.root_stack_base/top (for shadowstack only)
+    'gc_modified_shadowstack': LLOp(),
 
     # for asmgcroot support to get the address of various static structures
     # see translator/c/src/mem.h for the valid indices

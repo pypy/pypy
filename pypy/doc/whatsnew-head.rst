@@ -1,19 +1,23 @@
 ==========================
-What's new in PyPy2.7 5.8+
+What's new in PyPy2.7 5.9+
 ==========================
 
-.. this is a revision shortly after release-pypy2.7-v5.7.0
-.. startrev: 44f31f6dd39f
+.. this is a revision shortly after release-pypy2.7-v5.8.0
+.. startrev: 558bd00b3dd8
 
-Add cpyext interfaces for ``PyModule_New``
+.. branch: cffi-complex
+.. branch: cffi-char16-char32
 
-Correctly handle `dict.pop`` where the ``pop``ping 
-key is not the same type as the ``dict``'s and ``pop`` 
-is called with a default (will be part of release 5.7.1)
+The two ``cffi-*`` branches are part of the upgrade to cffi 1.11.
 
-.. branch: issue2522
+.. branch: ctypes_char_indexing
 
-Fix missing tp_new on w_object called through multiple inheritance
-(will be part of release 5.7.1)
+Indexing into char* behaves differently than CPython
 
+.. branch: vmprof-0.4.8
 
+Improve and fix issues with vmprof
+
+.. branch: issue-2592
+
+CPyext PyListObject.pop must return the value

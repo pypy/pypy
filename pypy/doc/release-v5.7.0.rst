@@ -99,7 +99,7 @@ See also issues that were resolved_
     tp_dealloc
   * refactor and clean up poor handling of unicode exposed in work on py3.5
   * builtin module cppyy_ supports C++ 11, 14, etc. via cling (reflex has been removed)
-  * adapt ``weakref`` according to CPython issue #19542_, will be in CPython 2.7.14
+  * adapt ``weakref`` according to CPython issue 19542_, will be in CPython 2.7.14
   * support translations with cpyext and the Boehm GC (for special cases like
     RevDB_
   * implement ``StringBuffer.get_raw_address`` for the buffer protocol, it is
@@ -125,18 +125,18 @@ See also issues that were resolved_
   * disable ``clock_gettime()`` on OS/X, since we support 10.11 and it was only
     added in 10.12
   * support ``HAVE_FSTATVFS`` which was unintentionally always false
-  * fix user-created C-API heaptype, issue #2434_
+  * fix user-created C-API heaptype, issue 2434_
   * fix ``PyDict_Update`` is not actually the same as ``dict.update``
   * assign ``tp_doc`` on ``PyTypeObject`` and tie it to the app-level ``__doc__`` attribute
-    issue #2446_
+    issue 2446_
   * clean up memory leaks around ``PyObject_GetBuffer``, ``PyMemoryView_GET_BUFFER``,
     ``PyMemoryView_FromBuffer``, and ``PyBuffer_Release``
   * improve support for creating C-extension objects from app-level classes,
     filling more slots, especially ``tp_new`` and ``tp_dealloc``
-  * fix for ``ctypes.c_bool`` returning ``bool`` restype, issue #2475_
+  * fix for ``ctypes.c_bool`` returning ``bool`` restype, issue 2475_
   * fix in corner cases with the GIL and C-API functions
-  * allow overriding thread.local.__init__ in a subclass, issue #2501_
-  * allow ``PyClass_New`` to be called with NULL as the first arguemnt, issue #2504_
+  * allow overriding thread.local.__init__ in a subclass, issue 2501_
+  * allow ``PyClass_New`` to be called with NULL as the first arguemnt, issue 2504_
 
 
 * Performance improvements:

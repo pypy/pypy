@@ -1,5 +1,5 @@
 from rpython.rlib import jit, rgc
-from rpython.rlib.buffer import Buffer
+from rpython.rlib.buffer import RawBuffer
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import ovfcheck, widen
 from rpython.rlib.unroll import unrolling_iterable
@@ -796,54 +796,42 @@ for k, v in types.items():
     v.typecode = k
 unroll_typecodes = unrolling_iterable(types.keys())
 
-class ArrayBuffer(Buffer):
+class ArrayBuffer(RawBuffer):
     _immutable_ = True
 
-    def __init__(self, array, readonly):
-        self.array = array
+    def __init__(self, w_array, readonly):
+        self.w_array = w_array
         self.readonly = readonly
 
     def getlength(self):
-        return self.array.len * self.array.itemsize
-
-    def getformat(self):
-        return self.array.typecode
-
-    def getitemsize(self):
-        return self.array.itemsize
-
-    def getndim(self):
-        return 1
-
-    def getstrides(self):
-        return [self.getitemsize()]
+        return self.w_array.len * self.w_array.itemsize
 
     def getitem(self, index):
-        array = self.array
-        data = array._charbuf_start()
+        w_array = self.w_array
+        data = w_array._charbuf_start()
         char = data[index]
-        array._charbuf_stop()
+        w_array._charbuf_stop()
         return char
 
     def setitem(self, index, char):
-        array = self.array
-        data = array._charbuf_start()
+        w_array = self.w_array
+        data = w_array._charbuf_start()
         data[index] = char
-        array._charbuf_stop()
+        w_array._charbuf_stop()
 
     def getslice(self, start, stop, step, size):
         if size == 0:
             return ''
         if step == 1:
-            data = self.array._charbuf_start()
+            data = self.w_array._charbuf_start()
             try:
                 return rffi.charpsize2str(rffi.ptradd(data, start), size)
             finally:
-                self.array._charbuf_stop()
-        return Buffer.getslice(self, start, stop, step, size)
+                self.w_array._charbuf_stop()
+        return RawBuffer.getslice(self, start, stop, step, size)
 
     def get_raw_address(self):
-        return self.array._charbuf_start()
+        return self.w_array._charbuf_start()
 
 
 unpack_driver = jit.JitDriver(name='unpack_array',

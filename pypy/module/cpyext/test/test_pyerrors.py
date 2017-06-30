@@ -5,9 +5,7 @@ import StringIO
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-from rpython.rtyper.lltypesystem import rffi, ll2ctypes
-
-from pypy.interpreter.gateway import interp2app
+from rpython.rtyper.lltypesystem import rffi
 
 class TestExceptions(BaseApiTest):
     def test_GivenExceptionMatches(self, space, api):
@@ -68,13 +66,6 @@ class TestExceptions(BaseApiTest):
 
         api.PyErr_NoMemory()
         assert space.eq_w(state.operror.w_type, space.w_MemoryError)
-        api.PyErr_Clear()
-
-    def test_BadArgument(self, space, api):
-        ret = api.PyErr_BadArgument()
-        state = space.fromcache(State)
-        assert space.eq_w(state.operror.w_type, space.w_TypeError)
-        assert ret == 0
         api.PyErr_Clear()
 
     def test_Warning(self, space, api, capfd):
@@ -369,7 +360,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         "XXX seems to pass, but doesn't: 'py.test -s' shows errors in PyObject_Free")
     def test_GetSetExcInfo(self):
         import sys
-        if self.runappdirect and (sys.version_info.major < 3 or 
+        if self.runappdirect and (sys.version_info.major < 3 or
                                   sys.version_info.minor < 3):
             skip('PyErr_{GS}etExcInfo introduced in python 3.3')
         module = self.import_extension('foo', [
