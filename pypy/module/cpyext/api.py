@@ -448,38 +448,10 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
             error=_compute_error(error, restype), gil=gil,
             result_borrowed=result_borrowed, result_is_ll=result_is_ll)
         FUNCTIONS_BY_HEADER[header][func.__name__] = api_function
-
-        # ZZZ is this whole logic really needed???  It seems to be only
-        # for RPython code calling PyXxx() functions directly.  I would
-        # think that usually directly calling the function is clean
-        # enough now
-        def unwrapper_catch(space, *args):
-            try:
-                res = unwrapper(space, *args)
-            except OperationError as e:
-                if not hasattr(unwrapper.api_func, "error_value"):
-                    raise
-                state = space.fromcache(State)
-                state.set_exception(e)
-                if is_PyObject(restype):
-                    return None
-                else:
-                    return unwrapper.api_func.error_value
-            got_integer = isinstance(res, (int, long, float))
-            if isinstance(restype, lltype.Typedef):
-                real_restype = restype.OF
-            else:
-                real_restype = restype
-            expect_integer = (isinstance(real_restype, lltype.Primitive) and
-                            rffi.cast(restype, 0) == 0)
-            assert got_integer == expect_integer, (
-                'got %r not integer' % (res,))
-            return res
-        INTERPLEVEL_API[func.__name__] = unwrapper_catch  # used in tests
-
         unwrapper = api_function.get_unwrapper()
         unwrapper.func = func
         unwrapper.api_func = api_function
+        INTERPLEVEL_API[func.__name__] = unwrapper  # used in tests
         return unwrapper
     return decorate
 

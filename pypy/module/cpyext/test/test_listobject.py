@@ -1,5 +1,8 @@
+import pytest
+from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
+from pypy.module.cpyext.listobject import PyList_Size
 
 class TestListObject(BaseApiTest):
     def test_list(self, space, api):
@@ -19,19 +22,19 @@ class TestListObject(BaseApiTest):
 
         assert not api.PyList_Check(space.newtuple([]))
         assert not api.PyList_CheckExact(space.newtuple([]))
-    
+
     def test_get_size(self, space, api):
         l = api.PyList_New(0)
         assert api.PyList_GET_SIZE(l) == 0
         api.PyList_Append(l, space.wrap(3))
         assert api.PyList_GET_SIZE(l) == 1
-    
-    def test_size(self, space, api):
+
+    def test_size(self, space):
         l = space.newlist([space.w_None, space.w_None])
-        assert api.PyList_Size(l) == 2
-        assert api.PyList_Size(space.w_None) == -1
-        assert api.PyErr_Occurred() is space.w_TypeError
-        api.PyErr_Clear()
+        assert PyList_Size(space, l) == 2
+        with pytest.raises(OperationError) as excinfo:
+            PyList_Size(space, space.w_None)
+        assert excinfo.value.w_type is space.w_TypeError
 
     def test_insert(self, space, api):
         w_l = space.newlist([space.w_None, space.w_None])
@@ -49,7 +52,7 @@ class TestListObject(BaseApiTest):
         l = space.newlist([space.wrap(1), space.wrap(0), space.wrap(7000)])
         assert api.PyList_Sort(l) == 0
         assert space.eq_w(l, space.newlist([space.wrap(0), space.wrap(1), space.wrap(7000)]))
-    
+
     def test_reverse(self, space, api):
         l = space.newlist([space.wrap(3), space.wrap(2), space.wrap(1)])
         assert api.PyList_Reverse(l) == 0
@@ -128,9 +131,9 @@ class AppTestListObject(AppTestCpythonExtensionBase):
         l = L([1])
         module.setlistitem(l, 0)
         assert len(l) == 1
-        
+
         raises(SystemError, module.setlistitem, (1, 2, 3), 0)
-    
+
         l = []
         module.appendlist(l, 14)
         assert len(l) == 1
@@ -250,7 +253,7 @@ class AppTestListObject(AppTestCpythonExtensionBase):
                 old_count2 = Py_REFCNT(i2);
 
                 ret = PyList_Append(o, i1);
-                if (ret != 0) 
+                if (ret != 0)
                     return NULL;
                 /* check the result of Append(), and also force the list
                    to use the CPyListStrategy now */
@@ -281,7 +284,7 @@ class AppTestListObject(AppTestCpythonExtensionBase):
                 PyList_GetItem(o, 0);
                 CHECKCOUNT(0, 0, "PyList_Get_Item");
 
-                Py_DECREF(o); 
+                Py_DECREF(o);
                 #ifndef PYPY_VERSION
                 {
                     // PyPy deletes only at teardown
