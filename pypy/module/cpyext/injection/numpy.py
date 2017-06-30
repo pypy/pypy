@@ -52,7 +52,7 @@ def array_realize(space, obj):
     return w_obj
 
 @bootstrap_function
-def init_mything(space):
+def init_arrayobject(space):
     make_typedescr(W_ArrayObject.typedef,
                    basestruct=PyArrayObject.TO,
                    realize=array_realize)
