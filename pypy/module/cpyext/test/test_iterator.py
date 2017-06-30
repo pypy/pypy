@@ -1,5 +1,8 @@
+import pytest
+from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
+from pypy.module.cpyext.iterator import PyIter_Next
 
 
 class TestIterator(BaseApiTest):
@@ -14,13 +17,12 @@ class TestIterator(BaseApiTest):
         assert space.unwrap(api.PyIter_Next(w_iter)) == 1
         assert space.unwrap(api.PyIter_Next(w_iter)) == 2
         assert space.unwrap(api.PyIter_Next(w_iter)) == 3
-        assert api.PyIter_Next(w_iter) is None
-        assert not api.PyErr_Occurred()
+        assert PyIter_Next(space, w_iter) is None
 
-    def test_iternext_error(self,space, api):
-        assert api.PyIter_Next(space.w_None) is None
-        assert api.PyErr_Occurred() is space.w_TypeError
-        api.PyErr_Clear()
+    def test_iternext_error(self, space):
+        with pytest.raises(OperationError) as excinfo:
+            PyIter_Next(space, space.w_None)
+        assert excinfo.value.w_type is space.w_TypeError
 
 
 class AppTestIterator(AppTestCpythonExtensionBase):
