@@ -6,7 +6,7 @@ from rpython.rlib.rarithmetic import maxint
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-from pypy.module.cpyext.longobject import (
+from pypy.module.cpyext.longobject import (PyLong_Check, PyLong_CheckExact,
     PyLong_FromLong, PyLong_AsLong, PyLong_AsUnsignedLong, PyLong_AsLongLong,
     PyLong_AsUnsignedLongLong, PyLong_AsUnsignedLongLongMask)
 
@@ -57,12 +57,12 @@ class TestLongObject(BaseApiTest):
 
     def test_type_check(self, space, api):
         w_l = space.wrap(sys.maxint + 1)
-        assert api.PyLong_Check(w_l)
-        assert api.PyLong_CheckExact(w_l)
+        assert PyLong_Check(space, w_l)
+        assert PyLong_CheckExact(space, w_l)
 
         w_i = space.wrap(sys.maxint)
-        assert not api.PyLong_Check(w_i)
-        assert not api.PyLong_CheckExact(w_i)
+        assert not PyLong_Check(space, w_i)
+        assert not PyLong_CheckExact(space, w_i)
 
         L = space.appexec([], """():
             class L(long):
@@ -70,8 +70,8 @@ class TestLongObject(BaseApiTest):
             return L
         """)
         l = space.call_function(L)
-        assert api.PyLong_Check(l)
-        assert not api.PyLong_CheckExact(l)
+        assert PyLong_Check(space, l)
+        assert not PyLong_CheckExact(space, l)
 
     def test_as_longlong(self, space):
         assert PyLong_AsLongLong(space, space.wrap(1 << 62)) == 1 << 62

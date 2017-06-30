@@ -1,8 +1,7 @@
-import pytest
-from pypy.interpreter.error import OperationError
-from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-from pypy.module.cpyext.listobject import PyList_Size
+from pypy.module.cpyext.listobject import (
+    PyList_Check, PyList_CheckExact, PyList_Size)
 
 class TestListObject(BaseApiTest):
     def test_list(self, space, api):
@@ -13,15 +12,15 @@ class TestListObject(BaseApiTest):
         """)
 
         l = api.PyList_New(0)
-        assert api.PyList_Check(l)
-        assert api.PyList_CheckExact(l)
+        assert PyList_Check(space, l)
+        assert PyList_CheckExact(space, l)
 
         l = space.call_function(L)
-        assert api.PyList_Check(l)
-        assert not api.PyList_CheckExact(l)
+        assert PyList_Check(space, l)
+        assert not PyList_CheckExact(space, l)
 
-        assert not api.PyList_Check(space.newtuple([]))
-        assert not api.PyList_CheckExact(space.newtuple([]))
+        assert not PyList_Check(space, space.newtuple([]))
+        assert not PyList_CheckExact(space, space.newtuple([]))
 
     def test_get_size(self, space, api):
         l = api.PyList_New(0)
@@ -32,9 +31,8 @@ class TestListObject(BaseApiTest):
     def test_size(self, space):
         l = space.newlist([space.w_None, space.w_None])
         assert PyList_Size(space, l) == 2
-        with pytest.raises(OperationError) as excinfo:
+        with raises_w(space, TypeError):
             PyList_Size(space, space.w_None)
-        assert excinfo.value.w_type is space.w_TypeError
 
     def test_insert(self, space, api):
         w_l = space.newlist([space.w_None, space.w_None])

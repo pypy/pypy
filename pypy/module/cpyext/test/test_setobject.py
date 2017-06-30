@@ -1,19 +1,21 @@
 from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-from pypy.module.cpyext.setobject import PySet_Add, PySet_Size
+from pypy.module.cpyext.setobject import (
+    PySet_Check, PyFrozenSet_Check, PyFrozenSet_CheckExact,
+    PySet_Add, PySet_Size, PySet_GET_SIZE)
 
 
 class TestTupleObject(BaseApiTest):
-    def test_setobj(self, space, api):
-        assert not api.PySet_Check(space.w_None)
-        assert not api.PyFrozenSet_Check(space.w_None)
+    def test_setobj(self, space):
+        assert not PySet_Check(space, space.w_None)
+        assert not PyFrozenSet_Check(space, space.w_None)
         with raises_w(space, SystemError):
             PySet_Add(space, space.w_None, space.w_None)
         w_set = space.call_function(space.w_set)
-        assert not api.PyFrozenSet_CheckExact(w_set)
+        assert not PyFrozenSet_CheckExact(space, w_set)
         space.call_method(w_set, 'update', space.wrap([1, 2, 3, 4]))
-        assert api.PySet_Size(w_set) == 4
-        assert api.PySet_GET_SIZE(w_set) == 4
+        assert PySet_Size(space, w_set) == 4
+        assert PySet_GET_SIZE(space, w_set) == 4
         with raises_w(space, TypeError):
             PySet_Size(space, space.newlist([]))
 
