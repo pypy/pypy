@@ -86,8 +86,6 @@ if MESSAGEBOX:
                 return
 
             w_text = self.space.call_function(w_done)
-            # XXX Python 3: MessageBoxA() => MessageBoxW()
-
             p = rffi.str2charp(self.space.bytes_w(w_text),
                                track_allocation=False)
             if self.text_p:
