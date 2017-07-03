@@ -7,6 +7,7 @@ from pypy.module.cpyext.pyobject import (
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import widen
 from pypy.interpreter.error import oefmt
+from pypy.module.cpyext.api import PyBUF_WRITE
 from pypy.objspace.std.memoryobject import W_MemoryView
 from pypy.module.cpyext.object import _dealloc
 from pypy.module.cpyext.import_ import PyImport_Import
@@ -184,6 +185,20 @@ def PyMemoryView_FromObject(space, w_obj):
     w_memview = space.call_method(space.builtin, "memoryview", w_obj)
     py_memview = make_ref(space, w_memview, w_obj)
     return py_memview
+
+@cts.decl("""PyObject *
+    PyMemoryView_FromMemory(char *mem, Py_ssize_t size, int flags)""")
+def PyMemoryView_FromMemory(space, mem, size, flags):
+    """Expose a raw memory area as a view of contiguous bytes. flags can be
+    PyBUF_READ or PyBUF_WRITE. view->format is set to "B" (unsigned bytes).
+    The memoryview has complete buffer information.
+    """
+    from pypy.module.cpyext.slotdefs import CPyBuffer
+    readonly = int(widen(flags) == PyBUF_WRITE)
+    view = CPyBuffer(space, cts.cast('void*', mem), size, None,
+            readonly=readonly)
+    w_mview = W_MemoryView(view)
+    return w_mview
 
 @cpython_api([Py_bufferP], PyObject, result_is_ll=True)
 def PyMemoryView_FromBuffer(space, view):

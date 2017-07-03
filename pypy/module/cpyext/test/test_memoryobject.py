@@ -265,3 +265,12 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         self.debug_collect()
         assert module.get_cnt() == 0
         assert module.get_dealloc_cnt() == 1
+
+    def test_FromMemory(self):
+        module = self.import_extension('foo', [
+            ('new', 'METH_NOARGS', """
+             static char s[5] = "hello";
+             return PyMemoryView_FromMemory(s, 4, PyBUF_READ);
+             """)])
+        mv = module.new()
+        assert mv.tobytes() == b'hell'
