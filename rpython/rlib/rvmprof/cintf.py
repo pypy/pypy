@@ -58,6 +58,7 @@ eci_kwds = dict(
         SHARED.join('compat.c'),
         SHARED.join('machine.c'),
         SHARED.join('vmp_stack.c'),
+        SHARED.join('vmprof_main.c'),
         # symbol table already in separate_module_files
     ] + separate_module_files,
     post_include_bits=[],
