@@ -9,6 +9,7 @@ from rpython.rlib.rarithmetic import widen
 from pypy.objspace.std.memoryobject import W_MemoryView
 from pypy.module.cpyext.object import _dealloc
 from pypy.module.cpyext.import_ import PyImport_Import
+from pypy.module.cpyext.buffer import CPyBuffer, fq
 
 cts.parse_header(parse_dir / 'cpyext_memoryobject.h')
 PyMemoryViewObject = cts.gettype('PyMemoryViewObject*')
@@ -53,7 +54,6 @@ def memory_realize(space, obj):
     """
     Creates the memory object in the interpreter
     """
-    from pypy.module.cpyext.slotdefs import CPyBuffer, fq
     py_mem = rffi.cast(PyMemoryViewObject, obj)
     view = py_mem.c_view
     ndim = widen(view.c_ndim)

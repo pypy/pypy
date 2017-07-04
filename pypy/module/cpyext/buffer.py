@@ -1,10 +1,148 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib import rgc  # Force registration of gc.collect
+from rpython.rlib.buffer import RawBuffer
 from pypy.interpreter.error import oefmt
+from pypy.interpreter.buffer import BufferView
 from pypy.module.cpyext.api import (
     cpython_api, Py_buffer, Py_ssize_t, Py_ssize_tP, CONST_STRINGP, cts,
     generic_cpy_call,
     PyBUF_WRITABLE, PyBUF_FORMAT, PyBUF_ND, PyBUF_STRIDES)
-from pypy.module.cpyext.pyobject import PyObject, incref
+from pypy.module.cpyext.typeobjectdefs import releasebufferproc
+from pypy.module.cpyext.pyobject import PyObject, incref, decref, as_pyobj
+
+class CBuffer(RawBuffer):
+    _immutable_ = True
+    def __init__(self, view):
+        self.view = view
+        self.readonly = view.readonly
+
+    def getlength(self):
+        return self.view.getlength()
+
+    def getitem(self, index):
+        return self.view.ptr[index]
+
+    def getslice(self, start, stop, step, size):
+        assert step == 1
+        assert stop - start == size
+        ptr = rffi.ptradd(cts.cast('char *', self.view.ptr), start)
+        return rffi.charpsize2str(ptr, size)
+
+    def setitem(self, index, char):
+        self.view.ptr[index] = char
+
+    def setslice(self, index, s):
+        assert s is not None
+        ptr = rffi.ptradd(cts.cast('char *', self.view.ptr), index)
+        rffi.str2chararray(s, ptr, len(s))
+
+    def get_raw_address(self):
+        return cts.cast('char *', self.view.ptr)
+
+class CPyBuffer(BufferView):
+    # Similar to Py_buffer
+    _immutable_ = True
+
+    def __init__(self, space, ptr, size, w_obj, format='B', shape=None,
+                 strides=None, ndim=1, itemsize=1, readonly=True,
+                 needs_decref=False,
+                 releasebufferproc=rffi.cast(rffi.VOIDP, 0)):
+        self.space = space
+        self.ptr = ptr
+        self.size = size
+        self.w_obj = w_obj  # kept alive
+        self.pyobj = as_pyobj(space, w_obj)
+        self.format = format
+        self.ndim = ndim
+        self.itemsize = itemsize
+
+        if not shape:
+            self.shape = [size]
+        else:
+            self.shape = shape
+        if not strides:
+            self.strides = [1]
+        else:
+            self.strides = strides
+        self.readonly = readonly
+        self.needs_decref = needs_decref
+        self.releasebufferproc = releasebufferproc
+
+    def releasebuffer(self):
+        if self.pyobj:
+            if self.needs_decref:
+                if self.releasebufferproc:
+                    func_target = rffi.cast(releasebufferproc, self.releasebufferproc)
+                    with lltype.scoped_alloc(Py_buffer) as pybuf:
+                        pybuf.c_buf = self.ptr
+                        pybuf.c_len = self.size
+                        pybuf.c_ndim = cts.cast('int', self.ndim)
+                        pybuf.c_shape = cts.cast('Py_ssize_t*', pybuf.c__shape)
+                        pybuf.c_strides = cts.cast('Py_ssize_t*', pybuf.c__strides)
+                        for i in range(self.ndim):
+                            pybuf.c_shape[i] = self.shape[i]
+                            pybuf.c_strides[i] = self.strides[i]
+                        if self.format:
+                            pybuf.c_format = rffi.str2charp(self.format)
+                        else:
+                            pybuf.c_format = rffi.str2charp("B")
+                        generic_cpy_call(self.space, func_target, self.pyobj, pybuf)
+                decref(self.space, self.pyobj)
+            self.pyobj = lltype.nullptr(PyObject.TO)
+        else:
+            #do not call twice
+            return
+
+    def getlength(self):
+        return self.size
+
+    def getbytes(self, start, size):
+        return ''.join([self.ptr[i] for i in range(start, start + size)])
+
+    def setbytes(self, start, string):
+        # absolutely no safety checks, what could go wrong?
+        for i in range(len(string)):
+            self.ptr[start + i] = string[i]
+
+    def as_str(self):
+        return CBuffer(self).as_str()
+
+    def as_readbuf(self):
+        return CBuffer(self)
+
+    def as_writebuf(self):
+        assert not self.readonly
+        return CBuffer(self)
+
+    def get_raw_address(self):
+        return rffi.cast(rffi.CCHARP, self.ptr)
+
+    def getformat(self):
+        return self.format
+
+    def getshape(self):
+        return self.shape
+
+    def getstrides(self):
+        return self.strides
+
+    def getitemsize(self):
+        return self.itemsize
+
+    def getndim(self):
+        return self.ndim
+
+class FQ(rgc.FinalizerQueue):
+    Class = CPyBuffer
+    def finalizer_trigger(self):
+        while 1:
+            buf  = self.next_dead()
+            if not buf:
+                break
+            buf.releasebuffer()
+
+fq = FQ()
+
 
 @cpython_api([PyObject, CONST_STRINGP, Py_ssize_tP], rffi.INT_real, error=-1)
 def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
