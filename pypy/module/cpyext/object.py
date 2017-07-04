@@ -3,7 +3,7 @@ from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t, Py_ssize_tP,
     PyVarObject, size_t, slot_function,
     Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
-    Py_GE, CONST_STRING, CONST_STRINGP, FILEP, fwrite)
+    Py_GE, CONST_STRING, FILEP, fwrite)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, from_ref, Py_IncRef, Py_DecRef,
     get_typedescr)
@@ -431,30 +431,6 @@ def PyObject_Dir(space, w_o):
     returning the names of the current locals; in this case, if no execution frame
     is active then NULL is returned but PyErr_Occurred() will return false."""
     return space.call_function(space.builtin.get('dir'), w_o)
-
-@cpython_api([PyObject, CONST_STRINGP, Py_ssize_tP], rffi.INT_real, error=-1)
-def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
-    """Returns a pointer to a read-only memory location usable as
-    character-based input.  The obj argument must support the single-segment
-    character buffer interface.  On success, returns 0, sets buffer to the
-    memory location and size to the buffer length.  Returns -1 and sets a
-    TypeError on error.
-    """
-    pto = obj.c_ob_type
-
-    pb = pto.c_tp_as_buffer
-    if not (pb and pb.c_bf_getreadbuffer and pb.c_bf_getsegcount):
-        raise oefmt(space.w_TypeError, "expected a character buffer object")
-    if generic_cpy_call(space, pb.c_bf_getsegcount,
-                        obj, lltype.nullptr(Py_ssize_tP.TO)) != 1:
-        raise oefmt(space.w_TypeError,
-                    "expected a single-segment buffer object")
-    size = generic_cpy_call(space, pb.c_bf_getcharbuffer,
-                            obj, 0, bufferp)
-    if size < 0:
-        return -1
-    sizep[0] = size
-    return 0
 
 # Also in include/object.h
 Py_PRINT_RAW = 1 # No string quotes etc.
