@@ -383,7 +383,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
                     return Py_False;
                 }
                 return args->ob_type->tp_descr_get(args, NULL,
-                                                   (PyObject *)&PyInt_Type);
+                                                   (PyObject *)&PyLong_Type);
              '''
              )
             ])
