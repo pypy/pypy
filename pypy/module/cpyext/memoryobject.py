@@ -6,11 +6,11 @@ from pypy.module.cpyext.pyobject import (
     get_typedescr, track_reference)
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import widen
-from pypy.interpreter.error import oefmt
 from pypy.module.cpyext.api import PyBUF_WRITE
 from pypy.objspace.std.memoryobject import W_MemoryView
 from pypy.module.cpyext.object import _dealloc
 from pypy.module.cpyext.import_ import PyImport_Import
+from pypy.module.cpyext.buffer import CPyBuffer, fq
 
 cts.parse_header(parse_dir / 'cpyext_memoryobject.h')
 PyMemoryViewObject = cts.gettype('PyMemoryViewObject*')
@@ -55,7 +55,6 @@ def memory_realize(space, obj):
     """
     Creates the memory object in the interpreter
     """
-    from pypy.module.cpyext.slotdefs import CPyBuffer, fq
     py_mem = rffi.cast(PyMemoryViewObject, obj)
     view = py_mem.c_view
     ndim = widen(view.c_ndim)
@@ -169,7 +168,6 @@ def PyBuffer_IsContiguous(space, view, fort):
     (fort is 'A').  Return 0 otherwise."""
     # traverse the strides, checking for consistent stride increases from
     # right-to-left (c) or left-to-right (fortran). Copied from cpython
-
     if view.c_suboffsets:
         return 0
     if (fort == 'C'):
@@ -193,7 +191,6 @@ def PyMemoryView_FromMemory(space, mem, size, flags):
     PyBUF_READ or PyBUF_WRITE. view->format is set to "B" (unsigned bytes).
     The memoryview has complete buffer information.
     """
-    from pypy.module.cpyext.slotdefs import CPyBuffer
     readonly = int(widen(flags) == PyBUF_WRITE)
     view = CPyBuffer(space, cts.cast('void*', mem), size, None,
             readonly=readonly)
