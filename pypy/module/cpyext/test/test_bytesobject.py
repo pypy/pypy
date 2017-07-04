@@ -1,13 +1,15 @@
 # encoding: utf-8
-import pytest
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-from pypy.module.cpyext.bytesobject import new_empty_str, PyBytesObject
-from pypy.module.cpyext.api import PyObjectP, PyObject, Py_ssize_tP, generic_cpy_call, Py_buffer
-from pypy.module.cpyext.pyobject import Py_DecRef, from_ref, make_ref, as_pyobj
-from pypy.module.cpyext.api import PyTypeObjectPtr
+from pypy.module.cpyext.bytesobject import (
+    new_empty_str, PyBytesObject, _PyBytes_Resize, PyBytes_Concat,
+    PyBytes_ConcatAndDel,
+    _PyBytes_Eq,
+    _PyBytes_Join)
+from pypy.module.cpyext.api import PyObjectP, PyObject, Py_ssize_tP
+from pypy.module.cpyext.pyobject import Py_DecRef, from_ref, make_ref
+from pypy.module.cpyext.buffer import PyObject_AsCharBuffer
 
 
 class AppTestBytesObject(AppTestCpythonExtensionBase):
@@ -225,21 +227,21 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
         assert module.check_suboffsets(b'1234') == 1
 
 class TestBytes(BaseApiTest):
-    def test_bytes_resize(self, space, api):
+    def test_bytes_resize(self, space):
         py_str = new_empty_str(space, 10)
         ar = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
         py_str.c_ob_sval[0] = 'a'
         py_str.c_ob_sval[1] = 'b'
         py_str.c_ob_sval[2] = 'c'
         ar[0] = rffi.cast(PyObject, py_str)
-        api._PyBytes_Resize(ar, 3)
+        _PyBytes_Resize(space, ar, 3)
         py_str = rffi.cast(PyBytesObject, ar[0])
         assert py_str.c_ob_size == 3
         assert py_str.c_ob_sval[1] == 'b'
         assert py_str.c_ob_sval[3] == '\x00'
         # the same for growing
         ar[0] = rffi.cast(PyObject, py_str)
-        api._PyBytes_Resize(ar, 10)
+        _PyBytes_Resize(space, ar, 10)
         py_str = rffi.cast(PyBytesObject, ar[0])
         assert py_str.c_ob_size == 10
         assert py_str.c_ob_sval[1] == 'b'
@@ -247,61 +249,61 @@ class TestBytes(BaseApiTest):
         Py_DecRef(space, ar[0])
         lltype.free(ar, flavor='raw')
 
-    def test_Concat(self, space, api):
+    def test_Concat(self, space):
         ref = make_ref(space, space.newbytes('abc'))
         ptr = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
         ptr[0] = ref
         prev_refcnt = ref.c_ob_refcnt
-        api.PyBytes_Concat(ptr, space.newbytes('def'))
+        PyBytes_Concat(space, ptr, space.newbytes('def'))
         assert ref.c_ob_refcnt == prev_refcnt - 1
         assert space.bytes_w(from_ref(space, ptr[0])) == 'abcdef'
-        api.PyBytes_Concat(ptr, space.w_None)
+        with raises_w(space, TypeError):
+            PyBytes_Concat(space, ptr, space.w_None)
         assert not ptr[0]
-        api.PyErr_Clear()
         ptr[0] = lltype.nullptr(PyObject.TO)
-        api.PyBytes_Concat(ptr, space.newbytes('def')) # should not crash
+        PyBytes_Concat(space, ptr, space.newbytes('def')) # should not crash
         lltype.free(ptr, flavor='raw')
 
-    def test_ConcatAndDel(self, space, api):
+    def test_ConcatAndDel(self, space):
         ref1 = make_ref(space, space.newbytes('abc'))
         ref2 = make_ref(space, space.newbytes('def'))
         ptr = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
         ptr[0] = ref1
         prev_refcnf = ref2.c_ob_refcnt
-        api.PyBytes_ConcatAndDel(ptr, ref2)
+        PyBytes_ConcatAndDel(space, ptr, ref2)
         assert space.bytes_w(from_ref(space, ptr[0])) == 'abcdef'
         assert ref2.c_ob_refcnt == prev_refcnf - 1
         Py_DecRef(space, ptr[0])
         ptr[0] = lltype.nullptr(PyObject.TO)
         ref2 = make_ref(space, space.newbytes('foo'))
         prev_refcnf = ref2.c_ob_refcnt
-        api.PyBytes_ConcatAndDel(ptr, ref2) # should not crash
+        PyBytes_ConcatAndDel(space, ptr, ref2) # should not crash
         assert ref2.c_ob_refcnt == prev_refcnf - 1
         lltype.free(ptr, flavor='raw')
 
-    def test_asbuffer(self, space, api):
+    def test_asbuffer(self, space):
         bufp = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
         lenp = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')
 
         w_text = space.newbytes("text")
         ref = make_ref(space, w_text)
         prev_refcnt = ref.c_ob_refcnt
-        assert api.PyObject_AsCharBuffer(ref, bufp, lenp) == 0
+        assert PyObject_AsCharBuffer(space, ref, bufp, lenp) == 0
         assert ref.c_ob_refcnt == prev_refcnt
         assert lenp[0] == 4
         assert rffi.charp2str(bufp[0]) == 'text'
         lltype.free(bufp, flavor='raw')
         lltype.free(lenp, flavor='raw')
-        api.Py_DecRef(ref)
+        Py_DecRef(space, ref)
 
-    def test_eq(self, space, api):
-        assert 1 == api._PyBytes_Eq(space.newbytes("hello"), space.newbytes("hello"))
-        assert 0 == api._PyBytes_Eq(space.newbytes("hello"), space.newbytes("world"))
+    def test_eq(self, space):
+        assert 1 == _PyBytes_Eq(space, space.newbytes("hello"), space.newbytes("hello"))
+        assert 0 == _PyBytes_Eq(space, space.newbytes("hello"), space.newbytes("world"))
 
-    def test_join(self, space, api):
+    def test_join(self, space):
         w_sep = space.newbytes('<sep>')
         w_seq = space.newtuple([space.newbytes('a'), space.newbytes('b')])
-        w_joined = api._PyBytes_Join(w_sep, w_seq)
+        w_joined = _PyBytes_Join(space, w_sep, w_seq)
         assert space.bytes_w(w_joined) == 'a<sep>b'
 
     def test_FromObject(self, space, api):
@@ -310,6 +312,5 @@ class TestBytes(BaseApiTest):
         w_obj = space.call_function(space.w_bytearray, w_obj)
         assert space.eq_w(w_obj, api.PyBytes_FromObject(w_obj))
         w_obj = space.wrap(u"test")
-        assert api.PyBytes_FromObject(w_obj) is None
-        api.PyErr_Clear()
-
+        with raises_w(space, TypeError):
+            api.PyBytes_FromObject(w_obj)
