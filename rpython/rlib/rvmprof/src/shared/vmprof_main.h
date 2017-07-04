@@ -60,25 +60,9 @@ static void flush_codes(void);
 
 /************************************************************/
 
-/* value: last bit is 1 if signals must be ignored; all other bits
-   are a counter for how many threads are currently in a signal handler */
-static long volatile signal_handler_value = 1;
-
-RPY_EXTERN
-void vmprof_ignore_signals(int ignored)
-{
-    if (!ignored) {
-        __sync_fetch_and_and(&signal_handler_value, ~1L);
-    }
-    else {
-        /* set the last bit, and wait until concurrently-running signal
-           handlers finish */
-        while (__sync_or_and_fetch(&signal_handler_value, 1L) != 1L) {
-            usleep(1);
-        }
-    }
-}
-
+RPY_EXTERN void vmprof_ignore_signals(int ignored);
+RPY_EXTERN long vmprof_enter_signal(void);
+RPY_EXTERN long vmprof_exit_signal(void);
 
 /* *************************************************************
  * functions to write a profile file compatible with gperftools
@@ -276,7 +260,7 @@ static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
     __sync_lock_release(&spinlock);
 #endif
 
-    long val = __sync_fetch_and_add(&signal_handler_value, 2L);
+    long val = vmprof_enter_signal();
 
     if ((val & 1) == 0) {
         int saved_errno = errno;
@@ -307,7 +291,7 @@ static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
         errno = saved_errno;
     }
 
-    __sync_sub_and_fetch(&signal_handler_value, 2L);
+    vmprof_exit_signal();
 }
 
 
