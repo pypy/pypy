@@ -1,3 +1,6 @@
+#ifdef VMPROF_UNIX
+
+#include <unistd.h>
 /* value: LSB bit is 1 if signals must be ignored; all other bits
    are a counter for how many threads are currently in a signal handler */
 static long volatile signal_handler_value = 1;
@@ -24,3 +27,4 @@ long vmprof_exit_signal(void)
 {
     return __sync_sub_and_fetch(&signal_handler_value, 2L);
 }
+#endif
