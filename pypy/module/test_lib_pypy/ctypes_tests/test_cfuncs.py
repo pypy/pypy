@@ -162,6 +162,18 @@ class TestCFunctions(BaseCTypesTestChecker):
         assert self._dll.tf_bd(0, 42.) == 14.
         assert self.S() == 42
 
+    def test_longdouble(self):
+        self._dll.tf_D.restype = c_longdouble
+        self._dll.tf_D.argtypes = (c_longdouble,)
+        assert self._dll.tf_D(42.) == 14.
+        assert self.S() == 42
+
+    def test_longdouble_plus(self):
+        self._dll.tf_bD.restype = c_longdouble
+        self._dll.tf_bD.argtypes = (c_byte, c_longdouble)
+        assert self._dll.tf_bD(0, 42.) == 14.
+        assert self.S() == 42
+
     def test_callwithresult(self):
         def process_result(result):
             return result * 2

@@ -17,6 +17,7 @@ class TestCallbacks(BaseCTypesTestChecker):
         unwrapped_types = {
             c_float: (float,),
             c_double: (float,),
+            c_longdouble:(float,),
             c_char: (str,),
             c_char_p: (str,),
             c_uint: (int, long),
@@ -89,6 +90,10 @@ class TestCallbacks(BaseCTypesTestChecker):
     def test_double(self):
         self.check_type(c_double, 3.14)
         self.check_type(c_double, -3.14)
+    
+    def test_longdouble(self):
+        self.check_type(c_longdouble, 3.14)
+        self.check_type(c_longdouble, -3.14)
 
     def test_char(self):
         self.check_type(c_char, "x")
