@@ -233,6 +233,8 @@ class ToAppLevelConverter(object):
             return space.newunicode(unichr(wcharval))
         elif w_ffitype.is_double():
             return self._float(w_ffitype)
+        elif w_ffitype.is_longdouble():
+            return self._float(w_ffitype)
         elif w_ffitype.is_singlefloat():
             return self._singlefloat(w_ffitype)
         elif w_ffitype.is_struct():
