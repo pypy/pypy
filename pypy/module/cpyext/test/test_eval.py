@@ -360,9 +360,5 @@ class AppTestCall(AppTestCpythonExtensionBase):
                 return PyLong_FromLong(res);
              """),], prologue= ''' int recurse(void); '''
             )
-        try:
-            res = module.call_recursive()
-        except RuntimeError as e:
-            assert 'while calling recurse' in str(e)
-        else:
-            assert False, "expected RuntimeError"  
+        excinfo = raises(RecursionError, module.call_recursive)
+        assert 'while calling recurse' in str(excinfo.value)
