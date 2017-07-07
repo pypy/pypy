@@ -1,6 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rgc  # Force registration of gc.collect
 from rpython.rlib.buffer import RawBuffer
+from rpython.rlib.rarithmetic import widen
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.buffer import BufferView
 from pypy.module.cpyext.api import (
@@ -219,6 +220,7 @@ def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
     share a contiguous chunk of memory of "unsigned bytes" of the given
     length. Returns 0 on success and -1 (with raising an error) on error.
     """
+    flags = widen(flags)
     if flags & PyBUF_WRITABLE and readonly:
         raise oefmt(space.w_ValueError, "Object is not writable")
     view.c_buf = buf
