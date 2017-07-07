@@ -1351,6 +1351,9 @@ class AppTestSlots(AppTestCpythonExtensionBase):
 
 class AppTestHashable(AppTestCpythonExtensionBase):
     def test_unhashable(self):
+        if not self.runappdirect:
+            skip('pointer to function equality available'
+                 ' only after translation')
         module = self.import_extension('foo', [
            ("new_obj", "METH_NOARGS",
             '''

@@ -347,12 +347,9 @@ def add_operators(space, dict_w, pto):
         if len(slot_names) == 1:
             func = getattr(pto, slot_names[0])
             if slot_names[0] == 'c_tp_hash':
-                # XXX if it is hash_not_impl, do not assign to dict_w
-                # name = rffi.charp2str(pto.c_tp_name)
-                # if 'foo' in name:
-                #    import pdb;pdb.set_trace()
                 if hash_not_impl == func:
-                    # XXX never reached
+                    # special case for tp_hash == PyObject_HashNotImplemented
+                    dict_w[method_name] = space.w_None
                     continue
         else:
             assert len(slot_names) == 2
