@@ -1641,9 +1641,13 @@ class ObjSpace(object):
         return fsdecode(space, w_obj)
 
     def fsencode_w(self, w_obj):
-        from rpython.rlib import rstring
         if self.isinstance_w(w_obj, self.w_unicode):
             w_obj = self.fsencode(w_obj)
+        return self.bytesbuf0_w(w_obj)
+
+    def bytesbuf0_w(self, w_obj):
+        # Like bytes0_w(), but also accept a read-only buffer.
+        from rpython.rlib import rstring
         try:
             result = self.bytes_w(w_obj)
         except OperationError as e:
