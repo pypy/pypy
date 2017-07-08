@@ -236,10 +236,6 @@ class W_DictMultiObject(W_Root):
                         "an internal 'del' on the dictionary failed to find "
                         "the key")
 
-    def descr_reversed(self, space):
-        raise oefmt(space.w_TypeError,
-                    "argument to reversed() must be a sequence")
-
     def descr_copy(self, space):
         """D.copy() -> a shallow copy of D"""
         w_new = W_DictMultiObject.allocate_and_init_instance(space)
@@ -517,7 +513,6 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     __setitem__ = interp2app(W_DictMultiObject.descr_setitem),
     __delitem__ = interp2app(W_DictMultiObject.descr_delitem),
 
-    __reversed__ = interp2app(W_DictMultiObject.descr_reversed),
     copy = interp2app(W_DictMultiObject.descr_copy),
     items = interp2app(W_DictMultiObject.descr_items),
     keys = interp2app(W_DictMultiObject.descr_keys),
