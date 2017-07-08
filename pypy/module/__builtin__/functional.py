@@ -348,7 +348,7 @@ class W_ReversedIterator(W_Root):
         self.remaining = space.len_w(w_sequence) - 1
         if not space.issequence_w(w_sequence):
             raise oefmt(space.w_TypeError,
-                        "reversed() argument must be a sequence")
+                        "argument to reversed() must be a sequence")
         self.w_sequence = w_sequence
 
     def descr___iter__(self, space):
