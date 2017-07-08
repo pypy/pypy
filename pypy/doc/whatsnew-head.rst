@@ -21,3 +21,7 @@ Improve and fix issues with vmprof
 .. branch: issue-2592
 
 CPyext PyListObject.pop must return the value
+
+.. branch: cpyext-hash_notimpl
+
+If ``tp_hash`` is ``PyObject_HashNotImplemented``, set ``obj.__dict__['__hash__']`` to None

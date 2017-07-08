@@ -1301,3 +1301,33 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         Bsize = module.get_basicsize(B)
         assert Asize == Bsize
         assert Asize > basesize
+
+
+class AppTestHashable(AppTestCpythonExtensionBase):
+    def test_unhashable(self):
+        if not self.runappdirect:
+            skip('pointer to function equality available'
+                 ' only after translation')
+        module = self.import_extension('foo', [
+           ("new_obj", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                obj = PyObject_New(PyObject, &Foo_Type);
+                return obj;
+            '''
+            )], prologue='''
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            ''', more_init = '''
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                Foo_Type.tp_hash = PyObject_HashNotImplemented;
+                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
+            ''')
+        obj = module.new_obj()
+        raises(TypeError, hash, obj)
+        assert type(obj).__dict__['__hash__'] is None
+        # this is equivalent to
+        from collections import Hashable
+        assert not isinstance(obj, Hashable)
