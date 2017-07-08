@@ -177,6 +177,23 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             ])
         assert module.check_error()
 
+    def test_normalize_no_exception(self):
+        module = self.import_extension('foo', [
+            ("check_error", "METH_NOARGS",
+             '''
+             PyObject *type, *val, *tb;
+             PyErr_Fetch(&type, &val, &tb);
+             if (type != NULL)
+                 Py_RETURN_FALSE;
+             if (val != NULL)
+                 Py_RETURN_FALSE;
+             PyErr_NormalizeException(&type, &val, &tb);
+             Py_RETURN_TRUE;
+             '''
+             ),
+            ])
+        assert module.check_error()
+
     def test_SetFromErrno(self):
         import sys
         if sys.platform != 'win32':

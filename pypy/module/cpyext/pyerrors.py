@@ -95,8 +95,18 @@ def PyErr_NormalizeException(space, exc_p, val_p, tb_p):
     not an instance of the  same class.  This function can be used to instantiate
     the class in that case.  If the values are already normalized, nothing happens.
     The delayed normalization is implemented to improve performance."""
-    operr = OperationError(from_ref(space, exc_p[0]),
-                           from_ref(space, val_p[0]))
+    if exc_p[0]:
+        w_etype = from_ref(space, exc_p[0])
+    else:
+        # There is no exception, so nothing to do
+        return
+    if val_p[0]:
+        w_evalue = from_ref(space, val_p[0])
+    else:
+        # On CPython, PyErr_SetNone actually sets val to NULL.
+        # Sensible code should probably never trigger this path on PyPy, but...
+        w_evalue = space.w_None
+    operr = OperationError(w_etype, w_evalue)
     operr.normalize_exception(space)
     Py_DecRef(space, exc_p[0])
     Py_DecRef(space, val_p[0])
@@ -388,9 +398,9 @@ def PyErr_SetExcInfo(space, w_type, w_value, w_traceback):
     freshly raised.  This function steals the references of the arguments.
     To clear the exception state, pass *NULL* for all three arguments.
     For general rules about the three arguments, see :c:func:`PyErr_Restore`.
- 
+
     .. note::
- 
+
        This function is not normally used by code that wants to handle
        exceptions.  Rather, it can be used when code needs to save and
        restore the exception state temporarily.  Use
