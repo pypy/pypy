@@ -77,5 +77,6 @@ class AppTestUserObject:
         #
         {}.update(proxy)
 
+
 class AppTestUserObjectMethodCache(AppTestUserObject):
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
