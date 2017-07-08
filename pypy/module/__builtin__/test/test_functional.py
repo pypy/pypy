@@ -239,6 +239,7 @@ class AppTestReversed:
         raises(TypeError, reversed, {})
         raises(TypeError, reversed, {2: 3})
         assert not hasattr(dict, '__reversed__')
+        raises(TypeError, reversed, int.__dict__)
 
     def test_reversed_type_with_no_len(self):
         class X(object):

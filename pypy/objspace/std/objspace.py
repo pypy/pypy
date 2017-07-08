@@ -96,6 +96,10 @@ class StdObjSpace(ObjSpace):
             self._interplevel_classes[w_type] = cls
         self.w_text = self.w_bytes   # 'space.w_text' is w_unicode on Py3
         self.w_dict.flag_map_or_seq = 'M'
+        from pypy.objspace.std import dictproxyobject
+        dictproxyobject._set_flag_map_or_seq(self)
+        self.w_list.flag_map_or_seq = 'S'
+        self.w_tuple.flag_map_or_seq = 'S'
         self.builtin_types["NotImplemented"] = self.w_NotImplemented
         self.builtin_types["Ellipsis"] = self.w_Ellipsis
         self.w_basestring = self.builtin_types['basestring'] = \
