@@ -315,13 +315,20 @@ class AppTestObject(AppTestCpythonExtensionBase):
                  if (fp == NULL)
                      Py_RETURN_NONE;
                  ret = PyObject_Print(obj, fp, Py_PRINT_RAW);
-                 fclose(fp);
-                 if (ret < 0)
+                 if (ret < 0) {
+                     fclose(fp);
                      return NULL;
+                 }
+                 ret = PyObject_Print(NULL, fp, Py_PRINT_RAW);
+                 if (ret < 0) {
+                     fclose(fp);
+                     return NULL;
+                 }
+                 fclose(fp);
                  Py_RETURN_TRUE;
              """)])
         assert module.dump(self.tmpname, None)
-        assert open(self.tmpname).read() == 'None'
+        assert open(self.tmpname).read() == 'None<nil>'
 
     def test_issue1970(self):
         module = self.import_extension('foo', [

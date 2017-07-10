@@ -436,15 +436,19 @@ def PyObject_Dir(space, w_o):
 Py_PRINT_RAW = 1 # No string quotes etc.
 
 @cpython_api([PyObject, FILEP, rffi.INT_real], rffi.INT_real, error=-1)
-def PyObject_Print(space, w_obj, fp, flags):
+def PyObject_Print(space, pyobj, fp, flags):
     """Print an object o, on file fp.  Returns -1 on error.  The flags argument
     is used to enable certain printing options.  The only option currently
     supported is Py_PRINT_RAW; if given, the str() of the object is written
     instead of the repr()."""
-    if rffi.cast(lltype.Signed, flags) & Py_PRINT_RAW:
-        w_str = space.str(w_obj)
+    if not pyobj:
+        w_str = space.newtext("<nil>")
     else:
-        w_str = space.repr(w_obj)
+        w_obj = from_ref(space, pyobj)
+        if rffi.cast(lltype.Signed, flags) & Py_PRINT_RAW:
+            w_str = space.str(w_obj)
+        else:
+            w_str = space.repr(w_obj)
 
     count = space.len_w(w_str)
     data = space.text_w(w_str)
