@@ -446,7 +446,7 @@ class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
     def enter_roots_frame(self, funcgen, (c_gcdata, c_numcolors)):
         numcolors = c_numcolors.value
         # XXX hard-code the field name here
-        gcpol_ss = '%s->gcd_inst_root_stack_top' % funcgen.expr(c_gcdata)
+        gcpol_ss = 'pypy_threadlocal.shadowstack_top'
         #
         yield ('typedef struct { void %s; } pypy_ss_t;'
                    % ', '.join(['*s%d' % i for i in range(numcolors)]))

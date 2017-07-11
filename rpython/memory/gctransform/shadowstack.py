@@ -174,13 +174,23 @@ class NoGilShadowStackRootWalker(BaseRootWalker):
 
         self.thread_setup = thread_setup
         self.thread_run_ptr = getfn(thread_run, [], annmodel.s_None,
-                                    inline=True, minimal_transform=False)
+                                    minimal_transform=False)
         self.thread_die_ptr = getfn(thread_die, [], annmodel.s_None,
                                     minimal_transform=False)
 
     def need_stacklet_support(self, gctransformer, getfn):
         from rpython.rlib import _stacklet_shadowstack
         _stacklet_shadowstack.complete_destrptr(gctransformer)
+
+    def postprocess_graph(self, gct, graph, any_inlining):
+        from rpython.memory.gctransform import shadowcolor
+        if any_inlining:
+            shadowcolor.postprocess_inlining(graph)
+        use_push_pop = shadowcolor.postprocess_graph(graph, gct.c_const_gcdata)
+        if use_push_pop and graph in gct.graphs_to_inline:
+            log.WARNING("%r is marked for later inlining, "
+                        "but is using push/pop roots.  Disabled" % (graph,))
+            del gct.graphs_to_inline[graph]
 
 
 class ShadowStackRootWalker(BaseRootWalker):
