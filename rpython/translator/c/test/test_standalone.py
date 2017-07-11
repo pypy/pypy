@@ -1221,6 +1221,43 @@ class TestThread(object):
             py.test.fail("none of the stack sizes worked")
 
 
+    def test_thread_and_gc_simple(self):
+        import time, gc
+        from rpython.rlib import rthread, rposix
+
+        def bootstrap():
+            rthread.gc_thread_start()
+            gc.collect()
+            rthread.gc_thread_die()
+
+        def new_thread():
+            ident = rthread.start_new_thread(bootstrap, ())
+            return ident
+
+        def entry_point(argv):
+            # start 5 new threads
+            new_thread()
+            new_thread()
+            #
+            gc.collect()
+            #
+            new_thread()
+            new_thread()
+            new_thread()
+            time.sleep(0.5)
+            os.write(1, "ok\n")
+            return 0
+
+        def runme(no__thread):
+            t, cbuilder = self.compile(entry_point, no__thread=no__thread)
+            data = cbuilder.cmdexec('')
+            assert data == 'ok\n'
+
+        if SUPPORT__THREAD:
+            runme(no__thread=False)
+        runme(no__thread=True)
+
+
     def test_thread_and_gc(self):
         import time, gc
         from rpython.rlib import rthread, rposix
