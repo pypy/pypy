@@ -418,7 +418,8 @@ class ObjSpace(object):
     def __init__(self, config=None):
         "Basic initialization of objects."
         self.fromcache = InternalSpaceCache(self).getorbuild
-        self.threadlocals = ThreadLocals()
+        self.threadlocals = ThreadLocals() # this value is replaces
+        # if compiled with threads enabled, see pypy/module/thread/__init__.py
         # set recursion limit
         # sets all the internal descriptors
         if config is None:

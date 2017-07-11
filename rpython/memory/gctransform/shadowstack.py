@@ -96,14 +96,8 @@ class NoGilShadowStackRootWalker(BaseRootWalker):
             return top
         self.decr_stack = decr_stack
 
-        def walk_stack_root(callback, start, end):
-            gc = self.gc
-            addr = end
-            while addr != start:
-                addr -= sizeofaddr
-                if gc.points_to_valid_gc_object(addr):
-                    callback(gc, addr)
-        self.rootstackhook = walk_stack_root
+        self.invoke_collect_stack_root = specialize.call_location()(
+            lambda arg0, arg1, addr: arg0(self.gc, addr))
 
         from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
         def walk_thread_stack(collect_stack_root, tl):
@@ -117,7 +111,9 @@ class NoGilShadowStackRootWalker(BaseRootWalker):
                 # without barriers)
                 return
             debug_print("walk_stack", base, top)
-            self.rootstackhook(collect_stack_root, base, top)
+            walk_stack_root(self.invoke_collect_stack_root, collect_stack_root,
+                None, base, top, is_minor=False)
+
         self._walk_thread_stack = walk_thread_stack
 
     def push_stack(self, addr):
@@ -152,13 +148,6 @@ class NoGilShadowStackRootWalker(BaseRootWalker):
             if tl_shadowstack.get_or_make_raw() == llmemory.NULL:
                 allocate_shadow_stack()
 
-
-        def thread_start():
-            allocate_shadow_stack()
-            tl_synclock.get_or_make_raw()  # reference the field at least once
-
-        thread_start._always_inline_ = True
-
         def allocate_shadow_stack():
             root_stack_depth = 163840
             root_stack_size = sizeofaddr * root_stack_depth
@@ -182,7 +171,7 @@ class NoGilShadowStackRootWalker(BaseRootWalker):
         self.thread_setup = thread_setup
         self.thread_run_ptr = getfn(thread_run, [], annmodel.s_None,
                                     minimal_transform=False)
-        self.thread_start_ptr = getfn(thread_start, [], annmodel.s_None,
+        self.thread_start_ptr = getfn(thread_setup, [], annmodel.s_None,
                                       minimal_transform=False)
         self.thread_die_ptr = getfn(thread_die, [], annmodel.s_None,
                                     minimal_transform=False)
