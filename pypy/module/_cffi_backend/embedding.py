@@ -63,6 +63,8 @@ def pypy_init_embedded_cffi_module(version, init_struct):
             load_embedded_cffi_module(space, version, init_struct)
             res = 0
         except OperationError as operr:
+            from pypy.module._cffi_backend import errorbox
+            ecap = errorbox.start_error_capture(space)
             operr.write_unraisable(space, "initialization of '%s'" % name,
                                    with_traceback=True)
             space.appexec([], r"""():
@@ -71,6 +73,7 @@ def pypy_init_embedded_cffi_module(version, init_struct):
                                  sys.pypy_version_info[:3])
                 sys.stderr.write('sys.path: %r\n' % (sys.path,))
             """)
+            errorbox.stop_error_capture(space, ecap)
             res = -1
         if must_leave:
             space.threadlocals.leave_thread(space)

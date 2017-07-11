@@ -51,6 +51,25 @@ PyAPI_FUNC(void *) PyMem_Malloc(size_t);
 #define PyMem_Del               PyMem_Free
 #define PyMem_DEL               PyMem_FREE
 
+
+/* From CPython 3.6, with a different goal.  _PyTraceMalloc_Track()
+ * is equivalent to __pypy__.add_memory_pressure(size); it works with
+ * or without the GIL.  _PyTraceMalloc_Untrack() is an empty stub.
+ * You can check if these functions are available by using:
+ *
+ *    #if defined(PYPY_TRACEMALLOC) || \
+ *         (PY_VERSION_HEX >= 0x03060000 && !defined(Py_LIMITED_API))
+ */
+#define PYPY_TRACEMALLOC        1
+
+typedef unsigned int _PyTraceMalloc_domain_t;
+
+PyAPI_FUNC(int) _PyTraceMalloc_Track(_PyTraceMalloc_domain_t domain,
+                                     uintptr_t ptr, size_t size);
+PyAPI_FUNC(int) _PyTraceMalloc_Untrack(_PyTraceMalloc_domain_t domain,
+                                       uintptr_t ptr);
+
+
 #ifdef __cplusplus
 }
 #endif

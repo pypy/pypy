@@ -3,6 +3,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, applevel, \
     WrappedDefault
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, \
     make_weakref_descr
+from pypy.interpreter.buffer import SimpleView
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rawstorage import RAW_STORAGE_PTR
@@ -807,16 +808,17 @@ class __extend__(W_NDimArray):
         return self.implementation.get_buffer(space, flags)
 
     def readbuf_w(self, space):
-        return self.implementation.get_buffer(space, space.BUF_FULL_RO)
+        return self.implementation.get_buffer(space, space.BUF_FULL_RO).as_readbuf()
 
     def writebuf_w(self, space):
-        return self.implementation.get_buffer(space, space.BUF_FULL)
+        return self.implementation.get_buffer(space, space.BUF_FULL).as_writebuf()
 
     def charbuf_w(self, space):
         return self.implementation.get_buffer(space, space.BUF_FULL_RO).as_str()
 
     def descr_get_data(self, space):
-        return space.newbuffer(self.implementation.get_buffer(space, space.BUF_FULL))
+        return space.newbuffer(
+            self.implementation.get_buffer(space, space.BUF_FULL).as_writebuf())
 
     @unwrap_spec(offset=int, axis1=int, axis2=int)
     def descr_diagonal(self, space, offset=0, axis1=0, axis2=1):
@@ -1532,7 +1534,7 @@ app_ptp = applevel(r"""
         return res
 """, filename=__file__).interphook('ptp')
 
-W_NDimArray.typedef = TypeDef("numpy.ndarray",
+W_NDimArray.typedef = TypeDef("numpy.ndarray", None, None, 'read-write',
     __new__ = interp2app(descr_new_array),
 
     __len__ = interp2app(W_NDimArray.descr_len),

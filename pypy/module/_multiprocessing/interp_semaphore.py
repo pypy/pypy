@@ -362,6 +362,7 @@ else:
                 except OSError as e:
                     if e.errno == errno.EINTR:
                         # again
+                        _check_signals(space)
                         continue
                     elif e.errno in (errno.EAGAIN, errno.ETIMEDOUT):
                         return False

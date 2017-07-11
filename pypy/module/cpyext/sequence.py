@@ -230,7 +230,7 @@ def PySequence_Index(space, w_seq, w_obj):
             if e.match(space, space.w_StopIteration):
                 break
             raise
-        if space.is_true(space.eq(w_next, w_obj)):
+        if space.eq_w(w_next, w_obj):
             return idx
         idx += 1
 
@@ -256,8 +256,9 @@ class CPyListStrategy(ListStrategy):
     def setitem(self, w_list, index, w_obj):
         storage = self.unerase(w_list.lstorage)
         index = self._check_index(index, storage._length)
-        decref(w_list.space, storage._elems[index])
+        py_old = storage._elems[index]
         storage._elems[index] = make_ref(w_list.space, w_obj)
+        decref(w_list.space, py_old)
 
     def length(self, w_list):
         storage = self.unerase(w_list.lstorage)
@@ -345,11 +346,11 @@ class CPyListStrategy(ListStrategy):
 
     def pop(self, w_list, index):
         w_list.switch_to_object_strategy()
-        w_list.strategy.pop(w_list, index)
+        return w_list.strategy.pop(w_list, index)
 
     def pop_end(self, w_list):
         w_list.switch_to_object_strategy()
-        w_list.strategy.pop_end(w_list)
+        return w_list.strategy.pop_end(w_list)
 
     def insert(self, w_list, index, w_item):
         w_list.switch_to_object_strategy()

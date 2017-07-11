@@ -11,7 +11,7 @@ from pypy.module.cpyext.bytesobject import (
     _PyString_Join)
 from pypy.module.cpyext.api import PyObjectP, PyObject, Py_ssize_tP, generic_cpy_call
 from pypy.module.cpyext.pyobject import Py_DecRef, from_ref, make_ref
-from pypy.module.cpyext.object import PyObject_AsCharBuffer
+from pypy.module.cpyext.buffer import PyObject_AsCharBuffer
 from pypy.module.cpyext.api import PyTypeObjectPtr
 
 

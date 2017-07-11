@@ -68,9 +68,11 @@ Let P = list of links created with rawrefcount.create_link_pypy()
 and O = list of links created with rawrefcount.create_link_pyobj().
 The PyPy objects in the list O are all W_CPyExtPlaceHolderObject: all
 the data is in the PyObjects, and all outsite references (if any) are
-in C, as "PyObject *" fields.
+in C, as ``PyObject *`` fields.
 
 So, during the collection we do this about P links:
+
+.. code-block:: python
 
     for (p, ob) in P:
         if ob->ob_refcnt != REFCNT_FROM_PYPY
@@ -79,6 +81,8 @@ So, during the collection we do this about P links:
 
 At the end of the collection, the P and O links are both handled like
 this:
+
+.. code-block:: python
 
     for (p, ob) in P + O:
         if p is not surviving:    # even if 'ob' might be surviving

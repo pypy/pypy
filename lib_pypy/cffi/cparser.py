@@ -16,6 +16,7 @@ try:
 except ImportError:
     lock = None
 
+CDEF_SOURCE_STRING = "<cdef source string>"
 _r_comment = re.compile(r"/\*.*?\*/|//([^\n\\]|\\.)*?$",
                         re.DOTALL | re.MULTILINE)
 _r_define  = re.compile(r"^\s*#\s*define\s+([A-Za-z_][A-Za-z_0-9]*)"
@@ -34,6 +35,9 @@ _r_extern_python = re.compile(r'\bextern\s*"'
                               r'(Python|Python\s*\+\s*C|C\s*\+\s*Python)"\s*.')
 _r_star_const_space = re.compile(       # matches "* const "
     r"[*]\s*((const|volatile|restrict)\b\s*)+")
+_r_int_dotdotdot = re.compile(r"(\b(int|long|short|signed|unsigned|char)\s*)+"
+                              r"\.\.\.")
+_r_float_dotdotdot = re.compile(r"\b(double|float)\s*\.\.\.")
 
 def _get_parser():
     global _parser_cache
@@ -180,6 +184,10 @@ def _preprocess(csource):
             assert csource[p:p+3] == '...'
             csource = '%s __dotdotdot%d__ %s' % (csource[:p], number,
                                                  csource[p+3:])
+    # Replace "int ..." or "unsigned long int..." with "__dotdotdotint__"
+    csource = _r_int_dotdotdot.sub(' __dotdotdotint__ ', csource)
+    # Replace "float ..." or "double..." with "__dotdotdotfloat__"
+    csource = _r_float_dotdotdot.sub(' __dotdotdotfloat__ ', csource)
     # Replace all remaining "..." with the same name, "__dotdotdot__",
     # which is declared with a typedef for the purpose of C parsing.
     return csource.replace('...', ' __dotdotdot__ '), macros
@@ -251,14 +259,21 @@ class Parser(object):
                 ctn.discard(name)
         typenames += sorted(ctn)
         #
-        csourcelines = ['typedef int %s;' % typename for typename in typenames]
-        csourcelines.append('typedef int __dotdotdot__;')
+        csourcelines = []
+        csourcelines.append('# 1 "<cdef automatic initialization code>"')
+        for typename in typenames:
+            csourcelines.append('typedef int %s;' % typename)
+        csourcelines.append('typedef int __dotdotdotint__, __dotdotdotfloat__,'
+                            ' __dotdotdot__;')
+        # this forces pycparser to consider the following in the file
+        # called <cdef source string> from line 1
+        csourcelines.append('# 1 "%s"' % (CDEF_SOURCE_STRING,))
         csourcelines.append(csource)
-        csource = '\n'.join(csourcelines)
+        fullcsource = '\n'.join(csourcelines)
         if lock is not None:
             lock.acquire()     # pycparser is not thread-safe...
         try:
-            ast = _get_parser().parse(csource)
+            ast = _get_parser().parse(fullcsource)
         except pycparser.c_parser.ParseError as e:
             self.convert_pycparser_error(e, csource)
         finally:
@@ -268,17 +283,17 @@ class Parser(object):
         return ast, macros, csource
 
     def _convert_pycparser_error(self, e, csource):
-        # xxx look for ":NUM:" at the start of str(e) and try to interpret
-        # it as a line number
+        # xxx look for "<cdef source string>:NUM:" at the start of str(e)
+        # and interpret that as a line number.  This will not work if
+        # the user gives explicit ``# NUM "FILE"`` directives.
         line = None
         msg = str(e)
-        if msg.startswith(':') and ':' in msg[1:]:
-            linenum = msg[1:msg.find(':',1)]
-            if linenum.isdigit():
-                linenum = int(linenum, 10)
-                csourcelines = csource.splitlines()
-                if 1 <= linenum <= len(csourcelines):
-                    line = csourcelines[linenum-1]
+        match = re.match(r"%s:(\d+):" % (CDEF_SOURCE_STRING,), msg)
+        if match:
+            linenum = int(match.group(1), 10)
+            csourcelines = csource.splitlines()
+            if 1 <= linenum <= len(csourcelines):
+                line = csourcelines[linenum-1]
         return line
 
     def convert_pycparser_error(self, e, csource):
@@ -311,10 +326,14 @@ class Parser(object):
         for decl in iterator:
             if decl.name == '__dotdotdot__':
                 break
+        else:
+            assert 0
+        current_decl = None
         #
         try:
             self._inside_extern_python = '__cffi_extern_python_stop'
             for decl in iterator:
+                current_decl = decl
                 if isinstance(decl, pycparser.c_ast.Decl):
                     self._parse_decl(decl)
                 elif isinstance(decl, pycparser.c_ast.Typedef):
@@ -322,15 +341,15 @@ class Parser(object):
                         raise CDefError("typedef does not declare any name",
                                         decl)
                     quals = 0
-                    if (isinstance(decl.type.type, pycparser.c_ast.IdentifierType)
-                            and decl.type.type.names[-1] == '__dotdotdot__'):
+                    if (isinstance(decl.type.type, pycparser.c_ast.IdentifierType) and
+                            decl.type.type.names[-1].startswith('__dotdotdot')):
                         realtype = self._get_unknown_type(decl)
                     elif (isinstance(decl.type, pycparser.c_ast.PtrDecl) and
                           isinstance(decl.type.type, pycparser.c_ast.TypeDecl) and
                           isinstance(decl.type.type.type,
                                      pycparser.c_ast.IdentifierType) and
-                          decl.type.type.type.names == ['__dotdotdot__']):
-                        realtype = model.unknown_ptr_type(decl.name)
+                          decl.type.type.type.names[-1].startswith('__dotdotdot')):
+                        realtype = self._get_unknown_ptr_type(decl)
                     else:
                         realtype, quals = self._get_type_and_quals(
                             decl.type, name=decl.name, partial_length_ok=True)
@@ -338,7 +357,13 @@ class Parser(object):
                 elif decl.__class__.__name__ == 'Pragma':
                     pass    # skip pragma, only in pycparser 2.15
                 else:
-                    raise CDefError("unrecognized construct", decl)
+                    raise CDefError("unexpected <%s>: this construct is valid "
+                                    "C but not valid in cdef()" %
+                                    decl.__class__.__name__, decl)
+        except CDefError as e:
+            if len(e.args) == 1:
+                e.args = e.args + (current_decl,)
+            raise
         except FFIError as e:
             msg = self._convert_pycparser_error(e, csource)
             if msg:
@@ -793,6 +818,16 @@ class Parser(object):
                            "the actual array length in this context"
                            % exprnode.coord.line)
         #
+        if (isinstance(exprnode, pycparser.c_ast.BinaryOp) and
+                exprnode.op == '+'):
+            return (self._parse_constant(exprnode.left) +
+                    self._parse_constant(exprnode.right))
+        #
+        if (isinstance(exprnode, pycparser.c_ast.BinaryOp) and
+                exprnode.op == '-'):
+            return (self._parse_constant(exprnode.left) -
+                    self._parse_constant(exprnode.right))
+        #
         raise FFIError(":%d: unsupported expression: expected a "
                        "simple numeric constant" % exprnode.coord.line)
 
@@ -832,24 +867,25 @@ class Parser(object):
 
     def _get_unknown_type(self, decl):
         typenames = decl.type.type.names
-        assert typenames[-1] == '__dotdotdot__'
-        if len(typenames) == 1:
+        if typenames == ['__dotdotdot__']:
             return model.unknown_type(decl.name)
 
-        if (typenames[:-1] == ['float'] or
-            typenames[:-1] == ['double']):
-            # not for 'long double' so far
-            result = model.UnknownFloatType(decl.name)
-        else:
-            for t in typenames[:-1]:
-                if t not in ['int', 'short', 'long', 'signed',
-                             'unsigned', 'char']:
-                    raise FFIError(':%d: bad usage of "..."' %
-                                   decl.coord.line)
-            result = model.UnknownIntegerType(decl.name)
+        if typenames == ['__dotdotdotint__']:
+            if self._uses_new_feature is None:
+                self._uses_new_feature = "'typedef int... %s'" % decl.name
+            return model.UnknownIntegerType(decl.name)
 
-        if self._uses_new_feature is None:
-            self._uses_new_feature = "'typedef %s... %s'" % (
-                ' '.join(typenames[:-1]), decl.name)
+        if typenames == ['__dotdotdotfloat__']:
+            # note: not for 'long double' so far
+            if self._uses_new_feature is None:
+                self._uses_new_feature = "'typedef float... %s'" % decl.name
+            return model.UnknownFloatType(decl.name)
 
-        return result
+        raise FFIError(':%d: unsupported usage of "..." in typedef'
+                       % decl.coord.line)
+
+    def _get_unknown_ptr_type(self, decl):
+        if decl.type.type.type.names == ['__dotdotdot__']:
+            return model.unknown_ptr_type(decl.name)
+        raise FFIError(':%d: unsupported usage of "..." in typedef'
+                       % decl.coord.line)

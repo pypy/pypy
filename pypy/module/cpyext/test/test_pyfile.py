@@ -1,10 +1,11 @@
+import pytest
 from pypy.conftest import option
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.object import Py_PRINT_RAW
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.tool.udir import udir
-import pytest
+from pypy.module.cpyext.pyfile import PyFile_Check, PyFile_CheckExact
 
 class TestFile(BaseApiTest):
 
@@ -15,9 +16,9 @@ class TestFile(BaseApiTest):
         rffi.free_charp(filename)
         rffi.free_charp(mode)
 
-        assert api.PyFile_Check(w_file)
-        assert api.PyFile_CheckExact(w_file)
-        assert not api.PyFile_Check(space.wrap("text"))
+        assert PyFile_Check(space, w_file)
+        assert PyFile_CheckExact(space, w_file)
+        assert not PyFile_Check(space, space.wrap("text"))
 
         space.call_method(w_file, "write", space.newbytes("text"))
         space.call_method(w_file, "close")
@@ -70,7 +71,7 @@ class TestFile(BaseApiTest):
                 assert fp is not None
                 w_file2 = api.PyFile_FromFile(fp, filename, mode, None)
         assert w_file2 is not None
-        assert api.PyFile_Check(w_file2)
+        assert PyFile_Check(space, w_file2)
         assert space.str_w(api.PyFile_Name(w_file2)) == name
 
     @pytest.mark.xfail

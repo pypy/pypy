@@ -255,6 +255,14 @@ def _get_dllhandle(space):
 
 getsizeof_missing = """sys.getsizeof() is not implemented on PyPy.
 
+First note that the CPython documentation says that this function may
+raise a TypeError, so if you are seeing it, it means that the program
+you are using is not correctly handling this case.
+
+On PyPy, though, it always raises TypeError.  Before looking for
+alternatives, please take a moment to read the following explanation as
+to why it is the case.  What you are looking for may not be possible.
+
 A memory profiler using this function is most likely to give results
 inconsistent with reality on PyPy.  It would be possible to have
 sys.getsizeof() return a number (with enough work), but that may or

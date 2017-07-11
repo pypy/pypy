@@ -627,7 +627,8 @@ cffimod_header = r'''
 #include <sys/types.h>   /* XXX for ssize_t on some platforms */
 
 /* this block of #ifs should be kept exactly identical between
-   c/_cffi_backend.c, cffi/vengine_cpy.py, cffi/vengine_gen.py */
+   c/_cffi_backend.c, cffi/vengine_cpy.py, cffi/vengine_gen.py
+   and cffi/_cffi_include.h */
 #if defined(_MSC_VER)
 # include <malloc.h>   /* for alloca() */
 # if _MSC_VER < 1600   /* MSVC < 2010 */
@@ -661,11 +662,13 @@ cffimod_header = r'''
 #  include <stdint.h>
 # endif
 # if _MSC_VER < 1800   /* MSVC < 2013 */
-   typedef unsigned char _Bool;
+#  ifndef __cplusplus
+    typedef unsigned char _Bool;
+#  endif
 # endif
 #else
 # include <stdint.h>
-# if (defined (__SVR4) && defined (__sun)) || defined(_AIX)
+# if (defined (__SVR4) && defined (__sun)) || defined(_AIX) || defined(__hpux)
 #  include <alloca.h>
 # endif
 #endif

@@ -99,3 +99,7 @@ W_DictProxyObject.typedef = TypeDef(
     copy=interp2app(W_DictProxyObject.copy_w),
     **cmp_methods
 )
+
+def _set_flag_map_or_seq(space):
+    w_type = space.gettypeobject(W_DictProxyObject.typedef)
+    w_type.flag_map_or_seq = 'M'

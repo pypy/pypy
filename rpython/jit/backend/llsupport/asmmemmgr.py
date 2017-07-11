@@ -250,7 +250,7 @@ class BlockBuilderMixin(object):
         return self.rawstart
 
     def overwrite(self, index, char):
-        assert 0 <= index < self.get_relative_pos()
+        assert 0 <= index < self.get_relative_pos(break_basic_block=False)
         block = self._cursubblock
         index -= self._baserelpos
         while index < 0:
@@ -264,7 +264,8 @@ class BlockBuilderMixin(object):
         self.overwrite(index + 2, chr((val >> 16) & 0xff))
         self.overwrite(index + 3, chr((val >> 24) & 0xff))
 
-    def get_relative_pos(self):
+    def get_relative_pos(self, break_basic_block=True):
+        # 'break_basic_block' is only used in x86
         return self._baserelpos + self._cursubindex
 
     def copy_to_raw_memory(self, addr):
@@ -288,7 +289,7 @@ class BlockBuilderMixin(object):
         HEX = '0123456789ABCDEF'
         dump = []
         src = rffi.cast(rffi.CCHARP, addr)
-        end = self.get_relative_pos()
+        end = self.get_relative_pos(break_basic_block=False)
         if count != -1:
             end = offset + count
         for p in range(offset, end):
@@ -336,17 +337,20 @@ class BlockBuilderMixin(object):
 
     def _become_a_plain_block_builder(self):
         # hack purely for speed of tests
-        self._data = []
-        self.writechar = self._data.append
-        self.overwrite = self._data.__setitem__
-        self.get_relative_pos = self._data.__len__
+        self._data = _data = []
+        self.writechar = _data.append
+        self.overwrite = _data.__setitem__
+        def get_relative_pos(break_basic_block=True):
+            return len(_data)
+        self.get_relative_pos = get_relative_pos
         def plain_copy_to_raw_memory(addr):
             dst = rffi.cast(rffi.CCHARP, addr)
-            for i, c in enumerate(self._data):
+            for i, c in enumerate(_data):
                 dst[i] = c
         self._copy_to_raw_memory = plain_copy_to_raw_memory
 
     def insert_gcroot_marker(self, mark):
         if self.gcroot_markers is None:
             self.gcroot_markers = []
-        self.gcroot_markers.append((self.get_relative_pos(), mark))
+        self.gcroot_markers.append(
+            (self.get_relative_pos(break_basic_block=False), mark))

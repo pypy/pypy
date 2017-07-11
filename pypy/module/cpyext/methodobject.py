@@ -10,7 +10,7 @@ from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.module.cpyext.api import (
     CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_NOARGS, METH_O,
     METH_STATIC, METH_VARARGS, PyObject, bootstrap_function,
-    build_type_checkers, cpython_api, generic_cpy_call,
+    build_type_checkers, cpython_api, generic_cpy_call, CANNOT_FAIL,
     PyTypeObjectPtr, slot_function, cts)
 from pypy.module.cpyext.pyobject import (
     Py_DecRef, from_ref, make_ref, as_pyobj, make_typedescr)
@@ -113,8 +113,14 @@ class W_PyCMethodObject(W_PyCFunctionObject):
                             "built-in method '%s' of '%s' object" %
                             (self.name, self.w_objclass.getname(self.space)))
 
-PyCFunction_Check, PyCFunction_CheckExact = build_type_checkers(
-    "CFunction", W_PyCFunctionObject)
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+def PyCFunction_Check(space, w_obj):
+    from pypy.interpreter.function import BuiltinFunction
+    if w_obj is None:
+        return False
+    if isinstance(w_obj, W_PyCFunctionObject):
+        return True
+    return isinstance(w_obj, BuiltinFunction)
 
 class W_PyCClassMethodObject(W_PyCFunctionObject):
     w_self = None

@@ -397,6 +397,7 @@ LL_OPERATIONS = {
     'raw_store':            LLOp(canrun=True),
     'bare_raw_store':       LLOp(),
     'gc_load_indexed':      LLOp(sideeffects=False, canrun=True),
+    'gc_store_indexed':     LLOp(canrun=True),
     'track_alloc_start':    LLOp(),
     'track_alloc_stop':     LLOp(),
     'adr_add':              LLOp(canfold=True),
@@ -498,6 +499,13 @@ LL_OPERATIONS = {
 
     'gc_move_out_of_nursery':           LLOp(),
 
+    'gc_push_roots'        : LLOp(),  # temporary: list of roots to save
+    'gc_pop_roots'         : LLOp(),  # temporary: list of roots to restore
+    'gc_enter_roots_frame' : LLOp(),  # reserve N entries, save local frame pos
+    'gc_leave_roots_frame' : LLOp(),  # free the shadowstack frame
+    'gc_save_root'         : LLOp(),  # save value Y in shadowstack pos X
+    'gc_restore_root'      : LLOp(),  # restore value Y from shadowstack pos X
+
     # ------- JIT & GC interaction, only for some GCs ----------
 
     'gc_adr_of_nursery_free' : LLOp(),
@@ -507,6 +515,7 @@ LL_OPERATIONS = {
     'gc_adr_of_root_stack_base': LLOp(),
     'gc_adr_of_root_stack_top': LLOp(),
     # returns the address of gcdata.root_stack_base/top (for shadowstack only)
+    'gc_modified_shadowstack': LLOp(),
 
     # for asmgcroot support to get the address of various static structures
     # see translator/c/src/mem.h for the valid indices

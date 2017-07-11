@@ -205,6 +205,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
             if minimal_transform:
                 self.need_minimal_transform(graph)
             if inline:
+                assert minimal_transform, (
+                    "%r has both inline=True and minimal_transform=False"
+                    % (graph,))
                 self.graphs_to_inline[graph] = True
             return annhelper.graph2const(graph)
 
@@ -410,7 +413,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         self.identityhash_ptr = getfn(GCClass.identityhash.im_func,
                                       [s_gc, s_gcref],
                                       annmodel.SomeInteger(),
-                                      minimal_transform=False, inline=True)
+                                      minimal_transform=False)
         if getattr(GCClass, 'obtain_free_space', False):
             self.obtainfreespace_ptr = getfn(GCClass.obtain_free_space.im_func,
                                              [s_gc, annmodel.SomeInteger()],
@@ -419,7 +422,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
         if GCClass.moving_gc:
             self.id_ptr = getfn(GCClass.id.im_func,
                                 [s_gc, s_gcref], annmodel.SomeInteger(),
-                                inline = True,
                                 minimal_transform = False)
         else:
             self.id_ptr = None
@@ -600,6 +602,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
                     "the custom trace hook %r for %r can cause "
                     "the GC to be called!" % (func, TP))
 
+    def postprocess_graph(self, graph, any_inlining):
+        self.root_walker.postprocess_graph(self, graph, any_inlining)
+
     def consider_constant(self, TYPE, value):
         self.layoutbuilder.consider_constant(TYPE, value, self.gcdata.gc)
 
@@ -634,7 +639,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
         addresses_of_static_ptrs = (
             self.layoutbuilder.addresses_of_static_ptrs_in_nongc +
             self.layoutbuilder.addresses_of_static_ptrs)
-        log.info("found %s static roots" % (len(addresses_of_static_ptrs), ))
+        if len(addresses_of_static_ptrs) == 1:
+            log.info("found 1 static root")
+        else:
+            log.info("found %s static roots" % (len(addresses_of_static_ptrs), ))
         ll_static_roots_inside = lltype.malloc(lltype.Array(llmemory.Address),
                                                len(addresses_of_static_ptrs),
                                                immortal=True)
@@ -919,6 +927,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
         self._gc_adr_of_gcdata_attr(hop, 'root_stack_base')
     def gct_gc_adr_of_root_stack_top(self, hop):
         self._gc_adr_of_gcdata_attr(hop, 'root_stack_top')
+
+    def gct_gc_modified_shadowstack(self, hop):
+        # for stacklet
+        hop.genop("direct_call", [self.root_walker.gc_modified_shadowstack_ptr])
 
     def gct_gc_detach_callback_pieces(self, hop):
         op = hop.spaceop

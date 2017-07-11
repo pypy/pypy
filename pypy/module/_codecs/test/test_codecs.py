@@ -292,8 +292,8 @@ class AppTestPartialEvaluation:
             assert bytes2.decode("unicode_internal") == u"\U00010098"
         assert bytes.decode("unicode_internal") == u"a"
         assert _codecs.unicode_internal_decode(array.array('c', bytes))[0] == u"a"
-        exc = raises(TypeError, _codecs.unicode_internal_decode, memoryview(bytes))
-        assert str(exc.value) == "expected a readable buffer object"
+        if '__pypy__' in sys.modules:
+            assert _codecs.unicode_internal_decode(memoryview(bytes))[0] == u"a"
 
     def test_raw_unicode_escape(self):
         assert unicode("\u0663", "raw-unicode-escape") == u"\u0663"

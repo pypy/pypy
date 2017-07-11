@@ -241,20 +241,22 @@ class TestStandalone(StandaloneTests):
             os.write(1, str(tot))
             return 0
         from rpython.translator.interactive import Translation
-        # XXX this is mostly a "does not crash option"
-        t = Translation(entry_point, backend='c', profopt="100")
-        # no counters
+        t = Translation(entry_point, backend='c', profopt=True, profoptargs="10", shared=True)
         t.backendopt()
         exe = t.compile()
-        out = py.process.cmdexec("%s 500" % exe)
-        assert int(out) == 500*501/2
-        t = Translation(entry_point, backend='c', profopt="100",
-                        noprofopt=True)
-        # no counters
+        assert (os.path.isfile("%s" % exe))
+
+        t = Translation(entry_point, backend='c', profopt=True, profoptargs="10", shared=False)
         t.backendopt()
         exe = t.compile()
-        out = py.process.cmdexec("%s 500" % exe)
-        assert int(out) == 500*501/2
+        assert (os.path.isfile("%s" % exe))
+
+        import rpython.translator.goal.targetrpystonedalone as rpy
+        t = Translation(rpy.entry_point, backend='c', profopt=True, profoptargs='1000', shared=False)
+        t.backendopt()
+        exe = t.compile()
+        assert (os.path.isfile("%s" % exe))
+
 
     if hasattr(os, 'setpgrp'):
         def test_os_setpgrp(self):
@@ -279,13 +281,12 @@ class TestStandalone(StandaloneTests):
             return 0
         from rpython.translator.interactive import Translation
         # XXX this is mostly a "does not crash option"
-        t = Translation(entry_point, backend='c', profopt="")
+        t = Translation(entry_point, backend='c', profopt=True, profoptargs='10', shared=True)
         # no counters
         t.backendopt()
         exe = t.compile()
         #py.process.cmdexec(exe)
-        t = Translation(entry_point, backend='c', profopt="",
-                        noprofopt=True)
+        t = Translation(entry_point, backend='c', profopt=True, profoptargs='10', shared=True)
         # no counters
         t.backendopt()
         exe = t.compile()

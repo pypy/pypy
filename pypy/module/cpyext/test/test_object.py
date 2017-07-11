@@ -1,10 +1,17 @@
-import py, pytest
+import pytest
 
-from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     Py_LT, Py_LE, Py_NE, Py_EQ, Py_GE, Py_GT)
+from pypy.module.cpyext.object import (
+    PyObject_IsTrue, PyObject_Not, PyObject_GetAttrString,
+    PyObject_DelAttrString, PyObject_GetAttr, PyObject_DelAttr,
+    PyObject_GetItem, PyObject_RichCompareBool,
+    PyObject_IsInstance, PyObject_IsSubclass, PyObject_AsFileDescriptor,
+    PyObject_Hash, PyObject_Cmp, PyObject_Unicode
+)
 
 class TestObject(BaseApiTest):
     def test_IsTrue(self, space, api):
@@ -25,9 +32,10 @@ class TestObject(BaseApiTest):
                     raise ValueError
             return C()""")
 
-        assert api.PyObject_IsTrue(w_obj) == -1
-        assert api.PyObject_Not(w_obj) == -1
-        api.PyErr_Clear()
+        with raises_w(space, ValueError):
+            PyObject_IsTrue(space, w_obj)
+        with raises_w(space, ValueError):
+            PyObject_Not(space, w_obj)
 
     def test_HasAttr(self, space, api):
         hasattr_ = lambda w_obj, name: api.PyObject_HasAttr(w_obj,
@@ -59,22 +67,21 @@ class TestObject(BaseApiTest):
         rffi.free_charp(buf)
         assert space.unwrap(space.getattr(w_obj, space.wrap('test'))) == 20
 
-    def test_getattr(self, space, api):
+    def test_getattr(self, space):
         charp1 = rffi.str2charp("__len__")
         charp2 = rffi.str2charp("not_real")
-        assert api.PyObject_GetAttrString(space.wrap(""), charp1)
-        assert not api.PyObject_GetAttrString(space.wrap(""), charp2)
-        assert api.PyErr_Occurred() is space.w_AttributeError
-        api.PyErr_Clear()
-        assert api.PyObject_DelAttrString(space.wrap(""), charp1) == -1
-        assert api.PyErr_Occurred() is space.w_AttributeError
-        api.PyErr_Clear()
+        assert PyObject_GetAttrString(space, space.wrap(""), charp1)
+
+        with raises_w(space, AttributeError):
+            PyObject_GetAttrString(space, space.wrap(""), charp2)
+        with raises_w(space, AttributeError):
+            PyObject_DelAttrString(space, space.wrap(""), charp1)
         rffi.free_charp(charp1)
         rffi.free_charp(charp2)
 
-        assert api.PyObject_GetAttr(space.wrap(""), space.wrap("__len__"))
-        assert api.PyObject_DelAttr(space.wrap(""), space.wrap("__len__")) == -1
-        api.PyErr_Clear()
+        assert PyObject_GetAttr(space, space.wrap(""), space.wrap("__len__"))
+        with raises_w(space, AttributeError):
+            PyObject_DelAttr(space, space.wrap(""), space.wrap("__len__"))
 
     def test_getitem(self, space, api):
         w_t = space.wrap((1, 2, 3, 4, 5))
@@ -88,9 +95,8 @@ class TestObject(BaseApiTest):
         assert space.getitem(w_d, space.wrap("key")) is space.w_None
 
         assert api.PyObject_DelItem(w_d, space.wrap("key")) == 0
-        assert api.PyObject_GetItem(w_d, space.wrap("key")) is None
-        assert api.PyErr_Occurred() is space.w_KeyError
-        api.PyErr_Clear()
+        with raises_w(space, KeyError):
+            PyObject_GetItem(space, w_d, space.wrap("key"))
 
     def test_size(self, space, api):
         assert api.PyObject_Size(space.newlist([space.w_None])) == 1
@@ -119,9 +125,9 @@ class TestObject(BaseApiTest):
             w_o2 = space.wrap(o2)
 
             for opid, expected in [
-                    (Py_LT, o1 <  o2), (Py_LE, o1 <= o2),
+                    (Py_LT, o1 < o2), (Py_LE, o1 <= o2),
                     (Py_NE, o1 != o2), (Py_EQ, o1 == o2),
-                    (Py_GT, o1 >  o2), (Py_GE, o1 >= o2)]:
+                    (Py_GT, o1 > o2), (Py_GE, o1 >= o2)]:
                 assert compare(w_o1, w_o2, opid) == expected
 
         test_compare(1, 2)
@@ -129,9 +135,8 @@ class TestObject(BaseApiTest):
         test_compare('2', '1')
 
         w_i = space.wrap(1)
-        assert api.PyObject_RichCompareBool(w_i, w_i, 123456) == -1
-        assert api.PyErr_Occurred() is space.w_SystemError
-        api.PyErr_Clear()
+        with raises_w(space, SystemError):
+            PyObject_RichCompareBool(space, w_i, w_i, 123456)
 
     def test_IsInstance(self, space, api):
         assert api.PyObject_IsInstance(space.wrap(1), space.w_int) == 1
@@ -140,8 +145,8 @@ class TestObject(BaseApiTest):
         assert api.PyObject_IsInstance(
             space.wrap(1), space.newtuple([space.w_int, space.w_float])) == 1
         assert api.PyObject_IsInstance(space.w_type, space.w_type) == 1
-        assert api.PyObject_IsInstance(space.wrap(1), space.w_None) == -1
-        api.PyErr_Clear()
+        with raises_w(space, TypeError):
+            PyObject_IsInstance(space, space.wrap(1), space.w_None)
 
     def test_IsSubclass(self, space, api):
         assert api.PyObject_IsSubclass(space.w_type, space.w_type) == 1
@@ -149,14 +154,13 @@ class TestObject(BaseApiTest):
         assert api.PyObject_IsSubclass(space.w_object, space.w_type) == 0
         assert api.PyObject_IsSubclass(
             space.w_type, space.newtuple([space.w_int, space.w_type])) == 1
-        assert api.PyObject_IsSubclass(space.wrap(1), space.w_type) == -1
-        api.PyErr_Clear()
+        with raises_w(space, TypeError):
+            PyObject_IsSubclass(space, space.wrap(1), space.w_type)
 
     def test_fileno(self, space, api):
         assert api.PyObject_AsFileDescriptor(space.wrap(1)) == 1
-        assert api.PyObject_AsFileDescriptor(space.wrap(-20)) == -1
-        assert api.PyErr_Occurred() is space.w_ValueError
-        api.PyErr_Clear()
+        with raises_w(space, ValueError):
+            PyObject_AsFileDescriptor(space, space.wrap(-20))
 
         w_File = space.appexec([], """():
             class File:
@@ -169,9 +173,8 @@ class TestObject(BaseApiTest):
     def test_hash(self, space, api):
         assert api.PyObject_Hash(space.wrap(72)) == 72
         assert api.PyObject_Hash(space.wrap(-1)) == -2
-        assert (api.PyObject_Hash(space.wrap([])) == -1 and
-            api.PyErr_Occurred() is space.w_TypeError)
-        api.PyErr_Clear()
+        with raises_w(space, TypeError):
+            PyObject_Hash(space, space.wrap([]))
 
     def test_hash_double(self, space, api):
         assert api._Py_HashDouble(72.0) == 72
@@ -191,16 +194,15 @@ class TestObject(BaseApiTest):
             assert ptr[0] == -1
             assert api.PyObject_Cmp(w("a"), w("a"), ptr) == 0
             assert ptr[0] == 0
-            assert api.PyObject_Cmp(w(u"\xe9"), w("\xe9"), ptr) < 0
-            assert api.PyErr_Occurred()
-            api.PyErr_Clear()
+            with raises_w(space, UnicodeDecodeError):
+                PyObject_Cmp(space, w(u"\xe9"), w("\xe9"), ptr)
 
     def test_unicode(self, space, api):
         assert space.unwrap(api.PyObject_Unicode(None)) == u"<NULL>"
         assert space.unwrap(api.PyObject_Unicode(space.wrap([]))) == u"[]"
         assert space.unwrap(api.PyObject_Unicode(space.wrap("e"))) == u"e"
-        assert api.PyObject_Unicode(space.wrap("\xe9")) is None
-        api.PyErr_Clear()
+        with raises_w(space, UnicodeDecodeError):
+            PyObject_Unicode(space, space.wrap("\xe9"))
 
     def test_dir(self, space, api):
         w_dir = api.PyObject_Dir(space.sys)
@@ -214,12 +216,42 @@ class TestObject(BaseApiTest):
 
 class AppTestObject(AppTestCpythonExtensionBase):
     def setup_class(cls):
+        from rpython.rlib import rgc
+        from pypy.interpreter import gateway
+
         AppTestCpythonExtensionBase.setup_class.im_func(cls)
-        tmpname = str(py.test.ensuretemp('out', dir=0))
+        tmpname = str(pytest.ensuretemp('out', dir=0))
         if cls.runappdirect:
             cls.tmpname = tmpname
         else:
             cls.w_tmpname = cls.space.wrap(tmpname)
+
+        if not cls.runappdirect:
+            cls.total_mem = 0
+            def add_memory_pressure(estimate):
+                assert estimate >= 0
+                cls.total_mem += estimate
+            cls.orig_add_memory_pressure = [rgc.add_memory_pressure]
+            rgc.add_memory_pressure = add_memory_pressure
+
+            def _reset_memory_pressure(space):
+                cls.total_mem = 0
+            cls.w_reset_memory_pressure = cls.space.wrap(
+                gateway.interp2app(_reset_memory_pressure))
+
+            def _cur_memory_pressure(space):
+                return space.newint(cls.total_mem)
+            cls.w_cur_memory_pressure = cls.space.wrap(
+                gateway.interp2app(_cur_memory_pressure))
+        else:
+            def _skip_test(*ignored):
+                pytest.skip("not for -A testing")
+            cls.w_reset_memory_pressure = _skip_test
+
+    def teardown_class(cls):
+        from rpython.rlib import rgc
+        if hasattr(cls, 'orig_add_memory_pressure'):
+            [rgc.add_memory_pressure] = cls.orig_add_memory_pressure
 
     def test_object_malloc(self):
         module = self.import_extension('foo', [
@@ -283,13 +315,20 @@ class AppTestObject(AppTestCpythonExtensionBase):
                  if (fp == NULL)
                      Py_RETURN_NONE;
                  ret = PyObject_Print(obj, fp, Py_PRINT_RAW);
-                 fclose(fp);
-                 if (ret < 0)
+                 if (ret < 0) {
+                     fclose(fp);
                      return NULL;
+                 }
+                 ret = PyObject_Print(NULL, fp, Py_PRINT_RAW);
+                 if (ret < 0) {
+                     fclose(fp);
+                     return NULL;
+                 }
+                 fclose(fp);
                  Py_RETURN_TRUE;
              """)])
         assert module.dump(self.tmpname, None)
-        assert open(self.tmpname).read() == 'None'
+        assert open(self.tmpname).read() == 'None<nil>'
 
     def test_issue1970(self):
         module = self.import_extension('foo', [
@@ -322,6 +361,31 @@ class AppTestObject(AppTestCpythonExtensionBase):
             """)])
         a = module.empty_format('hello')
         assert isinstance(a, unicode)
+
+    def test_add_memory_pressure(self):
+        self.reset_memory_pressure()    # for the potential skip
+        module = self.import_extension('foo', [
+            ("foo", "METH_O",
+            """
+                _PyTraceMalloc_Track(0, 0, PyInt_AsLong(args) - sizeof(long));
+                Py_INCREF(Py_None);
+                return Py_None;
+            """)])
+        self.reset_memory_pressure()
+        module.foo(42)
+        assert self.cur_memory_pressure() == 0
+        module.foo(65000 - 42)
+        assert self.cur_memory_pressure() == 0
+        module.foo(536)
+        assert self.cur_memory_pressure() == 65536
+        module.foo(40000)
+        assert self.cur_memory_pressure() == 65536
+        module.foo(40000)
+        assert self.cur_memory_pressure() == 65536 + 80000
+        module.foo(35000)
+        assert self.cur_memory_pressure() == 65536 + 80000
+        module.foo(35000)
+        assert self.cur_memory_pressure() == 65536 + 80000 + 70000
 
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     """

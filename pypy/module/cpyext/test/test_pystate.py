@@ -73,6 +73,7 @@ class AppTestThreads(AppTestCpythonExtensionBase):
                 ("dance", "METH_NOARGS",
                  """
                      PyThreadState *old_tstate, *new_tstate;
+                     PyObject *d;
 
                      PyEval_InitThreads();
 
@@ -81,7 +82,7 @@ class AppTestThreads(AppTestCpythonExtensionBase):
                          return PyLong_FromLong(0);
                      }
 
-                     PyObject* d = PyThreadState_GetDict(); /* fails on cpython */
+                     d = PyThreadState_GetDict(); /* fails on cpython */
                      if (d != NULL) {
                          return PyLong_FromLong(1);
                      }
@@ -144,6 +145,9 @@ class AppTestThreads(AppTestCpythonExtensionBase):
             ("bounce", "METH_NOARGS",
             """
             PyThreadState * tstate;
+            PyObject *dict;
+            PyGILState_STATE gilstate;
+
             if (PyEval_ThreadsInitialized() == 0)
             {
             PyEval_InitThreads();
@@ -152,11 +156,11 @@ class AppTestThreads(AppTestCpythonExtensionBase):
             if (tstate == NULL) {
                 return PyLong_FromLong(0);
             }
-            PyObject* dict = PyThreadState_GetDict();
+            dict = PyThreadState_GetDict();
             if (dict != NULL) {
             return PyLong_FromLong(1);
             }
-            PyGILState_STATE gilstate = PyGILState_Ensure();
+            gilstate = PyGILState_Ensure();
             dict = PyThreadState_GetDict();
             if (dict == NULL) {
             return PyLong_FromLong(2);
