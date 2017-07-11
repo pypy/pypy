@@ -1270,6 +1270,7 @@ class TestThread(object):
                 self._lock.acquire()
                 self.l.append(item)
                 self._lock.release()
+            append._dont_inline_ = True
 
             def get_counter(self):
                 self._lock.acquire()
@@ -1286,7 +1287,9 @@ class TestThread(object):
 
         def bootstrap():
             rthread.gc_thread_start()
-            state.append(Node(state.get_counter()))
+            x = Node(state.get_counter())
+            state.append(x)
+            state.append(x)
             rthread.gc_thread_die()
 
         def new_thread():
@@ -1315,7 +1318,7 @@ class TestThread(object):
             data = cbuilder.cmdexec('')
             r = data.splitlines()
             r.sort()
-            assert r == ['0', '1', '2', '3', '4', 'ok']
+            assert r == ['0', '0', '1', '1', '2', '2', '3', '3', '4', '4', 'ok']
 
         assert SUPPORT__THREAD
         runme(no__thread=False)
