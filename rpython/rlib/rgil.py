@@ -122,19 +122,21 @@ def allocate():
     _gil_allocate()
 
 def release():
+    return
     # this function must not raise, in such a way that the exception
     # transformer knows that it cannot raise!
     _gil_release()
-release._gctransformer_hint_cannot_collect_ = True
-release._dont_reach_me_in_del_ = True
+#release._gctransformer_hint_cannot_collect_ = True
+#release._dont_reach_me_in_del_ = True
 
 def acquire():
+    return
     from rpython.rlib import rthread
     _gil_acquire()
     rthread.gc_thread_run()
     _after_thread_switch()
-acquire._gctransformer_hint_cannot_collect_ = True
-acquire._dont_reach_me_in_del_ = True
+#acquire._gctransformer_hint_cannot_collect_ = True
+#acquire._dont_reach_me_in_del_ = True
 
 # The _gctransformer_hint_cannot_collect_ hack is needed for
 # translations in which the *_external_call() functions are not inlined.
@@ -151,10 +153,11 @@ def yield_thread():
     #     from rpython.rlib import rthread
     #     rthread.gc_thread_run()
     #     _after_thread_switch()
-    _gil_yield_thread()
-yield_thread._gctransformer_hint_close_stack_ = True
-yield_thread._dont_reach_me_in_del_ = True
-yield_thread._dont_inline_ = True
+    return
+    #_gil_yield_thread()
+#yield_thread._gctransformer_hint_close_stack_ = True
+#yield_thread._dont_reach_me_in_del_ = True
+#yield_thread._dont_inline_ = True
 
 # yield_thread() needs a different hint: _gctransformer_hint_close_stack_.
 # The *_external_call() functions are themselves called only from the rffi
