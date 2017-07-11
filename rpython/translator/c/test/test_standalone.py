@@ -1256,8 +1256,71 @@ class TestThread(object):
         assert SUPPORT__THREAD
         runme(no__thread=False)
 
+    def test_thread_and_gc_medium(self):
+        import time, gc
+        from rpython.rlib import rthread, rposix
 
-    def test_thread_and_gc(self):
+        class State(object):
+            def _init_(self):
+                self._lock = rthread.allocate_lock()
+                self.counter = 0
+                self.l = []
+
+            def append(self, item):
+                self._lock.acquire()
+                self.l.append(item)
+                self._lock.release()
+
+            def get_counter(self):
+                self._lock.acquire()
+                r = self.counter
+                self.counter += 1
+                self._lock.release()
+                return r
+
+        state = State()
+
+        class Node(object):
+            def __init__(self, c):
+                self.c = c
+
+        def bootstrap():
+            rthread.gc_thread_start()
+            state.append(Node(state.get_counter()))
+            rthread.gc_thread_die()
+
+        def new_thread():
+            ident = rthread.start_new_thread(bootstrap, ())
+            return ident
+
+        def entry_point(argv):
+            # start 5 new threads
+            state._init_()
+            new_thread()
+            new_thread()
+            #
+            gc.collect()
+            #
+            new_thread()
+            new_thread()
+            new_thread()
+            time.sleep(0.5)
+            for item in state.l:
+                os.write(1, str(item.c) + "\n")
+            os.write(1, "ok\n")
+            return 0
+
+        def runme(no__thread):
+            t, cbuilder = self.compile(entry_point, no__thread=no__thread)
+            data = cbuilder.cmdexec('')
+            r = data.splitlines()
+            r.sort()
+            assert r == ['0', '1', '2', '3', '4', 'ok']
+
+        assert SUPPORT__THREAD
+        runme(no__thread=False)
+
+    def test_thread_and_gc_large(self):
         import time, gc
         from rpython.rlib import rthread, rposix
         from rpython.rtyper.lltypesystem import lltype

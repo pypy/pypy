@@ -159,7 +159,7 @@ class Lock(object):
     def __init__(self, ll_lock):
         self._lock = ll_lock
 
-    def acquire(self, flag):
+    def acquire(self, flag=True):
         if flag:
             c_thread_acquirelock(self._lock, 1)
             return True
