@@ -211,7 +211,7 @@ void RPython_ThreadLocals_ProgramInit(void)
 
 
 /* ------------------------------------------------------------ */
-/* #ifdef USE___THREAD XXX */
+#ifdef USE___THREAD
 /* ------------------------------------------------------------ */
 
 
@@ -239,8 +239,9 @@ void RPython_ThreadLocals_ThreadDie(void)
 
 
 /* /\* ------------------------------------------------------------ *\/ */
-/* #else */
+ #else 
 /* /\* ------------------------------------------------------------ *\/ */
+#error "redo this part"
 
 
 /* /\* this is the case where the 'struct pypy_threadlocal_s' is allocated */
@@ -272,5 +273,5 @@ void RPython_ThreadLocals_ThreadDie(void)
 
 
 /* /\* ------------------------------------------------------------ *\/ */
-/* #endif */
+#endif
 /* /\* ------------------------------------------------------------ *\/ */

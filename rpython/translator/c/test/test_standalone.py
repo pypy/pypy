@@ -1253,9 +1253,8 @@ class TestThread(object):
             data = cbuilder.cmdexec('')
             assert data == 'ok\n'
 
-        if SUPPORT__THREAD:
-            runme(no__thread=False)
-        runme(no__thread=True)
+        assert SUPPORT__THREAD
+        runme(no__thread=False)
 
 
     def test_thread_and_gc(self):
