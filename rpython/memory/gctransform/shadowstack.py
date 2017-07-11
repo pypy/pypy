@@ -152,6 +152,13 @@ class NoGilShadowStackRootWalker(BaseRootWalker):
             if tl_shadowstack.get_or_make_raw() == llmemory.NULL:
                 allocate_shadow_stack()
 
+
+        def thread_start():
+            allocate_shadow_stack()
+            tl_synclock.get_or_make_raw()  # reference the field at least once
+
+        thread_start._always_inline_ = True
+
         def allocate_shadow_stack():
             root_stack_depth = 163840
             root_stack_size = sizeofaddr * root_stack_depth
@@ -175,6 +182,8 @@ class NoGilShadowStackRootWalker(BaseRootWalker):
         self.thread_setup = thread_setup
         self.thread_run_ptr = getfn(thread_run, [], annmodel.s_None,
                                     minimal_transform=False)
+        self.thread_start_ptr = getfn(thread_start, [], annmodel.s_None,
+                                      minimal_transform=False)
         self.thread_die_ptr = getfn(thread_die, [], annmodel.s_None,
                                     minimal_transform=False)
 
