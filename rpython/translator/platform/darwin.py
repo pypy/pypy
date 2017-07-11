@@ -9,7 +9,7 @@ import os
 # since 10.5, so we use that as minimum requirement. Bumped to 10.6
 # because 10.11 does not ship with 10.5 versions of libs
 #
-DARWIN_VERSION_MIN = '-mmacosx-version-min=10.6'
+DARWIN_VERSION_MIN = '-mmacosx-version-min=10.7'
 
 class Darwin(posix.BasePosix):
     name = "darwin"
