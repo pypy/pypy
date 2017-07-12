@@ -75,22 +75,22 @@ RPY_EXTERN void RPyGilMasterRequestSafepoint(void);
       SLOWPATH: signal "now at safepoint"; 111 -> 110
  */
 
-#define _RPyGilAcquire() do {                                           \
+#define _RPyGilAcquire() /*do {                                           \
         assert((__sync_fetch_and_add(                                   \
                     &RPY_THREADLOCALREF_GET(synclock), 0)               \
                 & 0b001) == 0b0);                                       \
     if (!__sync_bool_compare_and_swap(                                  \
             &RPY_THREADLOCALREF_GET(synclock), 0b100L, 0b101L))         \
         RPyGilAcquireSlowPath();                                        \
-            } while (0)
+            } while (0)*/
 
-#define _RPyGilRelease() do {                                           \
+#define _RPyGilRelease() /*do {                                           \
         assert((__sync_fetch_and_add(                                   \
                     &RPY_THREADLOCALREF_GET(synclock), 0) & 0b101) == 0b101); \
     if (!__sync_bool_compare_and_swap(                                  \
             &RPY_THREADLOCALREF_GET(synclock), 0b101L, 0b100L))         \
         RPyGilReleaseSlowPath();                                        \
-        } while (0)
+        } while (0)*/
 
 static inline long *_RPyFetchFastGil(void) {
     abort();
