@@ -765,15 +765,15 @@ class Popen(object):
             # Wait for the process to terminate, to avoid zombies.
             self.wait()
 
-    def __del__(self, _maxsize=sys.maxsize):
+    def __del__(self, _maxsize=sys.maxsize, _warn=warnings.warn):
         if not self._child_created:
             # We didn't get to successfully create a child process.
             return
         if self.returncode is None:
             # Not reading subprocess exit status creates a zombi process which
             # is only destroyed at the parent python process exit
-            warnings.warn("subprocess %s is still running" % self.pid,
-                          ResourceWarning, source=self)
+            _warn("subprocess %s is still running" % self.pid,
+                  ResourceWarning, source=self)
         # In case the child hasn't been waited on, check if it's done.
         self._internal_poll(_deadstate=_maxsize)
         if self.returncode is None and _active is not None:
@@ -1357,7 +1357,8 @@ class Popen(object):
 
         def _handle_exitstatus(self, sts, _WIFSIGNALED=os.WIFSIGNALED,
                 _WTERMSIG=os.WTERMSIG, _WIFEXITED=os.WIFEXITED,
-                _WEXITSTATUS=os.WEXITSTATUS):
+                _WEXITSTATUS=os.WEXITSTATUS, _WIFSTOPPED=os.WIFSTOPPED,
+                _WSTOPSIG=os.WSTOPSIG):
             """All callers to this function MUST hold self._waitpid_lock."""
             # This method is called (indirectly) by __del__, so it cannot
             # refer to anything outside of its local scope.
@@ -1365,6 +1366,8 @@ class Popen(object):
                 self.returncode = -_WTERMSIG(sts)
             elif _WIFEXITED(sts):
                 self.returncode = _WEXITSTATUS(sts)
+            elif _WIFSTOPPED(sts):
+                self.returncode = -_WSTOPSIG(sts)
             else:
                 # Should never happen
                 raise SubprocessError("Unknown child exit status!")

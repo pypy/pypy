@@ -465,6 +465,13 @@ class UnicodeTest(string_tests.CommonTest,
         self.checkraises(TypeError, ' ', 'join', [1, 2, 3])
         self.checkraises(TypeError, ' ', 'join', ['1', '2', 3])
 
+    @unittest.skipIf(sys.maxsize > 2**32,
+        'needs too much memory on a 64-bit platform')
+    def test_join_overflow(self):
+        size = int(sys.maxsize**0.5) + 1
+        seq = ('A' * size,) * size
+        self.assertRaises(OverflowError, ''.join, seq)
+
     def test_replace(self):
         string_tests.CommonTest.test_replace(self)
 
@@ -1440,6 +1447,15 @@ class UnicodeTest(string_tests.CommonTest,
         format_string = "%.{}f".format(sys.maxsize + 1)
         with self.assertRaises(ValueError):
             result = format_string % 2.34
+
+    def test_issue28598_strsubclass_rhs(self):
+        # A subclass of str with an __rmod__ method should be able to hook
+        # into the % operator
+        class SubclassedStr(str):
+            def __rmod__(self, other):
+                return 'Success, self.__rmod__({!r}) was called'.format(other)
+        self.assertEqual('lhs %% %r' % SubclassedStr('rhs'),
+                         "Success, self.__rmod__('lhs %% %r') was called")
 
     @support.cpython_only
     def test_formatting_huge_precision_c_limits(self):
@@ -2639,7 +2655,7 @@ class CAPITest(unittest.TestCase):
                      b'repr=%V', None, b'abc\xff')
 
         # not supported: copy the raw format string. these tests are just here
-        # to check for crashs and should not be considered as specifications
+        # to check for crashes and should not be considered as specifications
         check_format('%s',
                      b'%1%s', b'abc')
         check_format('%1abc',

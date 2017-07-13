@@ -1404,7 +1404,7 @@ class ReTests(unittest.TestCase):
 
     def test_locale_flag(self):
         import locale
-        _, enc = locale.getlocale(locale.LC_CTYPE)
+        enc = locale.getpreferredencoding(False)
         # Search non-ASCII letter
         for i in range(128, 256):
             try:
@@ -1824,6 +1824,16 @@ SUBPATTERN None 0 0
         with warnings.catch_warnings():
             warnings.simplefilter('error', BytesWarning)
             self.assertNotEqual(pattern3, pattern1)
+
+    def test_bug_29444(self):
+        s = bytearray(b'abcdefgh')
+        m = re.search(b'[a-h]+', s)
+        m2 = re.search(b'[e-h]+', s)
+        self.assertEqual(m.group(), b'abcdefgh')
+        self.assertEqual(m2.group(), b'efgh')
+        s[:] = b'xyz'
+        self.assertEqual(m.group(), b'xyz')
+        self.assertEqual(m2.group(), b'')
 
 
 class PatternReprTests(unittest.TestCase):

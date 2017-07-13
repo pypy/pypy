@@ -1,4 +1,4 @@
-# Copyright 2001-2016 by Vinay Sajip. All Rights Reserved.
+# Copyright 2001-2017 by Vinay Sajip. All Rights Reserved.
 #
 # Permission to use, copy, modify, and distribute this software and its
 # documentation for any purpose and without fee is hereby granted,
@@ -16,7 +16,7 @@
 
 """Test harness for the logging module. Run all tests.
 
-Copyright (C) 2001-2016 Vinay Sajip. All Rights Reserved.
+Copyright (C) 2001-2017 Vinay Sajip. All Rights Reserved.
 """
 
 import logging
@@ -330,6 +330,14 @@ class BuiltinLevelsTest(BaseTest):
     def test_issue27935(self):
         fatal = logging.getLevelName('FATAL')
         self.assertEqual(fatal, logging.FATAL)
+
+    def test_regression_29220(self):
+        """See issue #29220 for more information."""
+        logging.addLevelName(logging.INFO, '')
+        self.addCleanup(logging.addLevelName, logging.INFO, 'INFO')
+        self.assertEqual(logging.getLevelName(logging.INFO), '')
+        self.assertEqual(logging.getLevelName(logging.NOTSET), 'NOTSET')
+        self.assertEqual(logging.getLevelName('NOTSET'), logging.NOTSET)
 
 class BasicFilterTest(BaseTest):
 
@@ -1458,9 +1466,17 @@ class SocketHandlerTest(BaseTest):
         """Set up a TCP server to receive log messages, and a SocketHandler
         pointing to that server's address and port."""
         BaseTest.setUp(self)
-        self.server = server = self.server_class(self.address,
-                                                 self.handle_socket, 0.01)
-        server.start()
+        # Issue #29177: deal with errors that happen during setup
+        self.server = self.sock_hdlr = self.server_exception = None
+        try:
+            self.server = server = self.server_class(self.address,
+                                                     self.handle_socket, 0.01)
+            server.start()
+            # Uncomment next line to test error recovery in setUp()
+            # raise OSError('dummy error raised')
+        except OSError as e:
+            self.server_exception = e
+            return
         server.ready.wait()
         hcls = logging.handlers.SocketHandler
         if isinstance(server.server_address, tuple):
@@ -1475,9 +1491,11 @@ class SocketHandlerTest(BaseTest):
     def tearDown(self):
         """Shutdown the TCP server."""
         try:
-            self.server.stop(2.0)
-            self.root_logger.removeHandler(self.sock_hdlr)
-            self.sock_hdlr.close()
+            if self.server:
+                self.server.stop(2.0)
+            if self.sock_hdlr:
+                self.root_logger.removeHandler(self.sock_hdlr)
+                self.sock_hdlr.close()
         finally:
             BaseTest.tearDown(self)
 
@@ -1498,6 +1516,8 @@ class SocketHandlerTest(BaseTest):
 
     def test_output(self):
         # The log message sent to the SocketHandler is properly received.
+        if self.server_exception:
+            self.skipTest(self.server_exception)
         logger = logging.getLogger("tcp")
         logger.error("spam")
         self.handled.acquire()
@@ -1506,6 +1526,8 @@ class SocketHandlerTest(BaseTest):
         self.assertEqual(self.log_output, "spam\neggs\n")
 
     def test_noserver(self):
+        if self.server_exception:
+            self.skipTest(self.server_exception)
         # Avoid timing-related failures due to SocketHandler's own hard-wired
         # one-second timeout on socket.create_connection() (issue #16264).
         self.sock_hdlr.retryStart = 2.5
@@ -1546,7 +1568,7 @@ class UnixSocketHandlerTest(SocketHandlerTest):
 
     def tearDown(self):
         SocketHandlerTest.tearDown(self)
-        os.remove(self.address)
+        support.unlink(self.address)
 
 @unittest.skipUnless(threading, 'Threading required for this test.')
 class DatagramHandlerTest(BaseTest):
@@ -1561,9 +1583,17 @@ class DatagramHandlerTest(BaseTest):
         """Set up a UDP server to receive log messages, and a DatagramHandler
         pointing to that server's address and port."""
         BaseTest.setUp(self)
-        self.server = server = self.server_class(self.address,
-                                                 self.handle_datagram, 0.01)
-        server.start()
+        # Issue #29177: deal with errors that happen during setup
+        self.server = self.sock_hdlr = self.server_exception = None
+        try:
+            self.server = server = self.server_class(self.address,
+                                                     self.handle_datagram, 0.01)
+            server.start()
+            # Uncomment next line to test error recovery in setUp()
+            # raise OSError('dummy error raised')
+        except OSError as e:
+            self.server_exception = e
+            return
         server.ready.wait()
         hcls = logging.handlers.DatagramHandler
         if isinstance(server.server_address, tuple):
@@ -1578,9 +1608,11 @@ class DatagramHandlerTest(BaseTest):
     def tearDown(self):
         """Shutdown the UDP server."""
         try:
-            self.server.stop(2.0)
-            self.root_logger.removeHandler(self.sock_hdlr)
-            self.sock_hdlr.close()
+            if self.server:
+                self.server.stop(2.0)
+            if self.sock_hdlr:
+                self.root_logger.removeHandler(self.sock_hdlr)
+                self.sock_hdlr.close()
         finally:
             BaseTest.tearDown(self)
 
@@ -1594,6 +1626,8 @@ class DatagramHandlerTest(BaseTest):
 
     def test_output(self):
         # The log message sent to the DatagramHandler is properly received.
+        if self.server_exception:
+            self.skipTest(self.server_exception)
         logger = logging.getLogger("udp")
         logger.error("spam")
         self.handled.wait()
@@ -1618,7 +1652,7 @@ class UnixDatagramHandlerTest(DatagramHandlerTest):
 
     def tearDown(self):
         DatagramHandlerTest.tearDown(self)
-        os.remove(self.address)
+        support.unlink(self.address)
 
 @unittest.skipUnless(threading, 'Threading required for this test.')
 class SysLogHandlerTest(BaseTest):
@@ -1633,9 +1667,17 @@ class SysLogHandlerTest(BaseTest):
         """Set up a UDP server to receive log messages, and a SysLogHandler
         pointing to that server's address and port."""
         BaseTest.setUp(self)
-        self.server = server = self.server_class(self.address,
-                                                 self.handle_datagram, 0.01)
-        server.start()
+        # Issue #29177: deal with errors that happen during setup
+        self.server = self.sl_hdlr = self.server_exception = None
+        try:
+            self.server = server = self.server_class(self.address,
+                                                     self.handle_datagram, 0.01)
+            server.start()
+            # Uncomment next line to test error recovery in setUp()
+            # raise OSError('dummy error raised')
+        except OSError as e:
+            self.server_exception = e
+            return
         server.ready.wait()
         hcls = logging.handlers.SysLogHandler
         if isinstance(server.server_address, tuple):
@@ -1648,11 +1690,13 @@ class SysLogHandlerTest(BaseTest):
         self.handled = threading.Event()
 
     def tearDown(self):
-        """Shutdown the UDP server."""
+        """Shutdown the server."""
         try:
-            self.server.stop(2.0)
-            self.root_logger.removeHandler(self.sl_hdlr)
-            self.sl_hdlr.close()
+            if self.server:
+                self.server.stop(2.0)
+            if self.sl_hdlr:
+                self.root_logger.removeHandler(self.sl_hdlr)
+                self.sl_hdlr.close()
         finally:
             BaseTest.tearDown(self)
 
@@ -1661,6 +1705,8 @@ class SysLogHandlerTest(BaseTest):
         self.handled.set()
 
     def test_output(self):
+        if self.server_exception:
+            self.skipTest(self.server_exception)
         # The log message sent to the SysLogHandler is properly received.
         logger = logging.getLogger("slh")
         logger.error("sp\xe4m")
@@ -1693,7 +1739,7 @@ class UnixSysLogHandlerTest(SysLogHandlerTest):
 
     def tearDown(self):
         SysLogHandlerTest.tearDown(self)
-        os.remove(self.address)
+        support.unlink(self.address)
 
 @unittest.skipUnless(threading, 'Threading required for this test.')
 class HTTPHandlerTest(BaseTest):

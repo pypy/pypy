@@ -20,6 +20,7 @@ import time
 import unittest
 
 from test import support
+android_not_root = support.android_not_root
 
 @contextlib.contextmanager
 def kill_on_error(proc):
@@ -311,6 +312,7 @@ class SocketEINTRTest(EINTRBaseTest):
     # https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=203162
     @support.requires_freebsd_version(10, 3)
     @unittest.skipUnless(hasattr(os, 'mkfifo'), 'needs mkfifo()')
+    @unittest.skipIf(android_not_root, "mkfifo not allowed, non root user")
     def _test_open(self, do_open_close_reader, do_open_close_writer):
         filename = support.TESTFN
 
@@ -435,6 +437,8 @@ class SelectEINTRTest(EINTRBaseTest):
         self.stop_alarm()
         self.assertGreaterEqual(dt, self.sleep_time)
 
+    @unittest.skipIf(sys.platform == "darwin",
+                     "poll may fail on macOS; see issue #28087")
     @unittest.skipUnless(hasattr(select, 'poll'), 'need select.poll')
     def test_poll(self):
         poller = select.poll()

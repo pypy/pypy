@@ -192,7 +192,9 @@ class _WindowsFlavour(_Flavour):
                         s = self._ext_to_normal(_getfinalpathname(s))
                     except FileNotFoundError:
                         previous_s = s
-                        s = os.path.abspath(os.path.join(s, os.pardir))
+                        s = os.path.dirname(s)
+                        if previous_s == s:
+                            return path
                     else:
                         if previous_s is None:
                             return s
@@ -1233,7 +1235,7 @@ class Path(PurePath):
                 if not exist_ok or not self.is_dir():
                     raise
             except OSError as e:
-                if e.errno != ENOENT:
+                if e.errno != ENOENT or self.parent == self:
                     raise
                 self.parent.mkdir(parents=True)
                 self._accessor.mkdir(self, mode)
