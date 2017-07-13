@@ -113,17 +113,19 @@ def get_thread_info(space):
     if not space.config.objspace.usemodules.thread:
         return None
     from rpython.rlib import rthread
+    w_version = space.w_None
     if rthread.RPYTHREAD_NAME == "pthread":
         w_lock = space.newtext("semaphore" if rthread.USE_SEMAPHORES
                                else "mutex+cond")
         if rthread.CS_GNU_LIBPTHREAD_VERSION is not None:
-            w_version = space.newtext(
-                os.confstr(rthread.CS_GNU_LIBPTHREAD_VERSION))
-        else:
-            w_version = space.w_None
+            try:
+                name = os.confstr(rthread.CS_GNU_LIBPTHREAD_VERSION)
+            except OSError:
+                pass
+            else:
+                w_version = space.newtext(name)
     else:
         w_lock = space.w_None
-        w_version = space.w_None
     info_w = [
         space.newtext(rthread.RPYTHREAD_NAME),
         w_lock, w_version,
