@@ -93,8 +93,10 @@ __all__ = [
     "check__all__", "requires_android_level", "requires_multiprocessing_queue",
     # sys
     "is_jython", "is_android", "check_impl_detail", "unix_shell",
+    "setswitchinterval", "android_not_root",
     # network
     "HOST", "IPV6_ENABLED", "find_unused_port", "bind_port", "open_urlresource",
+    "bind_unix_socket",
     # processes
     'temp_umask', "reap_children",
     # logging
@@ -360,9 +362,9 @@ if sys.platform.startswith("win"):
                     mode = 0
                 if stat.S_ISDIR(mode):
                     _waitfor(_rmtree_inner, fullname, waitall=True)
-                    _force_run(path, os.rmdir, fullname)
+                    _force_run(fullname, os.rmdir, fullname)
                 else:
-                    _force_run(path, os.unlink, fullname)
+                    _force_run(fullname, os.unlink, fullname)
         _waitfor(_rmtree_inner, path, waitall=True)
         _waitfor(lambda p: _force_run(p, os.rmdir, p), path)
 else:
@@ -707,6 +709,15 @@ def bind_port(sock, host=HOST):
     port = sock.getsockname()[1]
     return port
 
+def bind_unix_socket(sock, addr):
+    """Bind a unix socket, raising SkipTest if PermissionError is raised."""
+    assert sock.family == socket.AF_UNIX
+    try:
+        sock.bind(addr)
+    except PermissionError:
+        sock.close()
+        raise unittest.SkipTest('cannot bind AF_UNIX sockets')
+
 def _is_ipv6_enabled():
     """Check whether IPv6 is enabled on this host."""
     if socket.has_ipv6:
@@ -768,6 +779,7 @@ is_jython = sys.platform.startswith('java')
 
 _ANDROID_API_LEVEL = sysconfig.get_config_var('ANDROID_API_LEVEL')
 is_android = (_ANDROID_API_LEVEL is not None and _ANDROID_API_LEVEL > 0)
+android_not_root = (is_android and os.geteuid() != 0)
 
 if sys.platform != 'win32':
     unix_shell = '/system/bin/sh' if is_android else '/bin/sh'
@@ -1054,9 +1066,16 @@ def make_bad_fd():
         file.close()
         unlink(TESTFN)
 
-def check_syntax_error(testcase, statement):
-    testcase.assertRaises(SyntaxError, compile, statement,
-                          '<test string>', 'exec')
+def check_syntax_error(testcase, statement, *, lineno=None, offset=None):
+    with testcase.assertRaises(SyntaxError) as cm:
+        compile(statement, '<test string>', 'exec')
+    err = cm.exception
+    testcase.assertIsNotNone(err.lineno)
+    if lineno is not None:
+        testcase.assertEqual(err.lineno, lineno)
+    testcase.assertIsNotNone(err.offset)
+    if offset is not None:
+        testcase.assertEqual(err.offset, offset)
 
 def open_urlresource(url, *args, **kw):
     import urllib.request, urllib.parse
@@ -2547,3 +2566,18 @@ def missing_compiler_executable(cmd_names=[]):
             continue
         if spawn.find_executable(cmd[0]) is None:
             return cmd[0]
+
+
+_is_android_emulator = None
+def setswitchinterval(interval):
+    # Setting a very low gil interval on the Android emulator causes python
+    # to hang (issue #26939).
+    minimum_interval = 1e-5
+    if is_android and interval < minimum_interval:
+        global _is_android_emulator
+        if _is_android_emulator is None:
+            _is_android_emulator = (subprocess.check_output(
+                               ['getprop', 'ro.kernel.qemu']).strip() == b'1')
+        if _is_android_emulator:
+            interval = minimum_interval
+    return sys.setswitchinterval(interval)

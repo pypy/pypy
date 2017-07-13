@@ -3,6 +3,7 @@ from unittest import mock
 from test import support
 import subprocess
 import sys
+import platform
 import signal
 import io
 import os
@@ -15,6 +16,11 @@ import select
 import shutil
 import gc
 import textwrap
+
+try:
+    import ctypes
+except ImportError:
+    ctypes = None
 
 try:
     import threading
@@ -340,6 +346,16 @@ class ProcessTestCase(BaseTestCase):
         temp_dir = tempfile.gettempdir()
         temp_dir = self._normalize_cwd(temp_dir)
         self._assert_cwd(temp_dir, sys.executable, cwd=temp_dir)
+
+    def test_cwd_with_pathlike(self):
+        temp_dir = tempfile.gettempdir()
+        temp_dir = self._normalize_cwd(temp_dir)
+
+        class _PathLikeObj:
+            def __fspath__(self):
+                return temp_dir
+
+        self._assert_cwd(temp_dir, sys.executable, cwd=_PathLikeObj())
 
     @unittest.skipIf(mswindows, "pending resolution of issue #15533")
     def test_cwd_with_relative_arg(self):
@@ -2497,6 +2513,46 @@ class POSIXProcessTestCase(BaseTestCase):
             # _communicate() should swallow BrokenPipeError from close.
             proc.communicate(timeout=999)
             mock_proc_stdin.close.assert_called_once_with()
+
+    _libc_file_extensions = {
+      'Linux': 'so.6',
+      'Darwin': 'dylib',
+    }
+    @unittest.skipIf(not ctypes, 'ctypes module required.')
+    @unittest.skipIf(platform.uname()[0] not in _libc_file_extensions,
+                     'Test requires a libc this code can load with ctypes.')
+    @unittest.skipIf(not sys.executable, 'Test requires sys.executable.')
+    def test_child_terminated_in_stopped_state(self):
+        """Test wait() behavior when waitpid returns WIFSTOPPED; issue29335."""
+        PTRACE_TRACEME = 0  # From glibc and MacOS (PT_TRACE_ME).
+        libc_name = 'libc.' + self._libc_file_extensions[platform.uname()[0]]
+        libc = ctypes.CDLL(libc_name)
+        if not hasattr(libc, 'ptrace'):
+            raise unittest.SkipTest('ptrace() required.')
+        test_ptrace = subprocess.Popen(
+            [sys.executable, '-c', """if True:
+             import ctypes
+             libc = ctypes.CDLL({libc_name!r})
+             libc.ptrace({PTRACE_TRACEME}, 0, 0)
+             """.format(libc_name=libc_name, PTRACE_TRACEME=PTRACE_TRACEME)
+            ])
+        if test_ptrace.wait() != 0:
+            raise unittest.SkipTest('ptrace() failed - unable to test.')
+        child = subprocess.Popen(
+            [sys.executable, '-c', """if True:
+             import ctypes
+             libc = ctypes.CDLL({libc_name!r})
+             libc.ptrace({PTRACE_TRACEME}, 0, 0)
+             libc.printf(ctypes.c_char_p(0xdeadbeef))  # Crash the process.
+             """.format(libc_name=libc_name, PTRACE_TRACEME=PTRACE_TRACEME)
+            ])
+        try:
+            returncode = child.wait()
+        except Exception as e:
+            child.kill()  # Clean up the hung stopped process.
+            raise e
+        self.assertNotEqual(0, returncode)
+        self.assertLess(returncode, 0)  # signal death, likely SIGSEGV.
 
 
 @unittest.skipUnless(mswindows, "Windows specific tests")
