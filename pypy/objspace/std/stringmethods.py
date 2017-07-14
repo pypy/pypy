@@ -5,8 +5,6 @@ from rpython.rlib.objectmodel import specialize, newlist_hint
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.rstring import (
     find, rfind, count, endswith, replace, rsplit, split, startswith)
-from rpython.rlib.buffer import Buffer
-
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
 from pypy.objspace.std.sliceobject import W_SliceObject, unwrap_start_stop
@@ -17,7 +15,7 @@ class StringMethods(object):
         assert start >= 0
         assert stop >= 0
         #if start == 0 and stop == len(s) and space.is_w(space.type(orig_obj),
-        #                                                space.w_str):
+        #                                                space.w_bytes):
         #    return orig_obj
         return self._new(s[start:stop])
 
@@ -73,7 +71,7 @@ class StringMethods(object):
         return chr(char)
 
     def descr_len(self, space):
-        return space.wrap(self._len())
+        return space.newint(self._len())
 
     def descr_iter(self, space):
         from pypy.objspace.std.iterobject import W_StringIterObject
@@ -147,7 +145,7 @@ class StringMethods(object):
             raise oefmt(space.w_IndexError, self._KIND1 + " index out of range")
         from pypy.objspace.std.bytesobject import W_BytesObject
         if isinstance(self, W_BytesObject):
-            return space.wrap(ord(character))
+            return space.newint(ord(character))
         return self._new(character)
 
     def descr_capitalize(self, space):
@@ -188,7 +186,7 @@ class StringMethods(object):
         else:
             res = count(value, sub, start, end)
             assert res >= 0
-        return space.wrap(res)
+        return space.newint(res)
 
     def descr_decode(self, space, w_encoding=None, w_errors=None):
         from pypy.objspace.std.unicodeobject import (
@@ -257,7 +255,7 @@ class StringMethods(object):
             res = find(value, sub, start, end)
         if ofs is not None and res >= 0:
             res -= ofs
-        return space.wrap(res)
+        return space.newint(res)
 
     def descr_rfind(self, space, w_sub, w_start=None, w_end=None):
         value, start, end, ofs = self._convert_idx_params(space, w_start, w_end)
@@ -269,7 +267,7 @@ class StringMethods(object):
             res = rfind(value, sub, start, end)
         if ofs is not None and res >= 0:
             res -= ofs
-        return space.wrap(res)
+        return space.newint(res)
 
     def descr_index(self, space, w_sub, w_start=None, w_end=None):
         value, start, end, ofs = self._convert_idx_params(space, w_start, w_end)
@@ -285,7 +283,7 @@ class StringMethods(object):
                         "substring not found in " + self._KIND2 + ".index")
         if ofs is not None:
             res -= ofs
-        return space.wrap(res)
+        return space.newint(res)
 
     def descr_rindex(self, space, w_sub, w_start=None, w_end=None):
         value, start, end, ofs = self._convert_idx_params(space, w_start, w_end)
@@ -301,7 +299,7 @@ class StringMethods(object):
                         "substring not found in " + self._KIND2 + ".rindex")
         if ofs is not None:
             res -= ofs
-        return space.wrap(res)
+        return space.newint(res)
 
     @specialize.arg(2)
     def _is_generic(self, space, func_name):
@@ -487,7 +485,7 @@ class StringMethods(object):
 
             pos = value.find(sub)
         else:
-            sub = _get_buffer(space, w_sub)
+            sub = space.readbuf_w(w_sub)
             sublen = sub.getlength()
             if sublen == 0:
                 raise oefmt(space.w_ValueError, "empty separator")
@@ -517,7 +515,7 @@ class StringMethods(object):
 
             pos = value.rfind(sub)
         else:
-            sub = _get_buffer(space, w_sub)
+            sub = space.readbuf_w(w_sub)
             sublen = sub.getlength()
             if sublen == 0:
                 raise oefmt(space.w_ValueError, "empty separator")
@@ -541,6 +539,10 @@ class StringMethods(object):
 
         sub = self._op_val(space, w_old)
         by = self._op_val(space, w_new)
+        # the following two lines are for being bug-to-bug compatible
+        # with CPython: see issue #2448
+        if count >= 0 and len(input) == 0:
+            return self._empty()
         try:
             res = replace(input, sub, by, count)
         except OverflowError:
@@ -653,7 +655,7 @@ class StringMethods(object):
         prefix = self._op_val(space, w_prefix)
         return endswith(value, prefix, start, end)
 
-    def _strip(self, space, w_chars, left, right):
+    def _strip(self, space, w_chars, left, right, name='strip'):
         "internal function called by str_xstrip methods"
         value = self._val(space)
         chars = self._op_val(space, w_chars)
@@ -693,17 +695,17 @@ class StringMethods(object):
     def descr_strip(self, space, w_chars=None):
         if space.is_none(w_chars):
             return self._strip_none(space, left=1, right=1)
-        return self._strip(space, w_chars, left=1, right=1)
+        return self._strip(space, w_chars, left=1, right=1, name='strip')
 
     def descr_lstrip(self, space, w_chars=None):
         if space.is_none(w_chars):
             return self._strip_none(space, left=1, right=0)
-        return self._strip(space, w_chars, left=1, right=0)
+        return self._strip(space, w_chars, left=1, right=0, name='lstrip')
 
     def descr_rstrip(self, space, w_chars=None):
         if space.is_none(w_chars):
             return self._strip_none(space, left=0, right=1)
-        return self._strip(space, w_chars, left=0, right=1)
+        return self._strip(space, w_chars, left=0, right=1, name='rstrip')
 
     def descr_swapcase(self, space):
         selfvalue = self._val(space)
@@ -804,6 +806,3 @@ class StringMethods(object):
 @specialize.argtype(0)
 def _descr_getslice_slowpath(selfvalue, start, step, sl):
     return [selfvalue[start + i*step] for i in range(sl)]
-
-def _get_buffer(space, w_obj):
-    return space.buffer_w(w_obj, space.BUF_SIMPLE)

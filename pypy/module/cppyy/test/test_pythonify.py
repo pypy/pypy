@@ -1,23 +1,20 @@
 import py, os, sys
 
 from pypy.module.cppyy import interp_cppyy, executor
+from .support import setup_make
 
 
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("example01Dict.so"))
 
 def setup_module(mod):
-    if sys.platform == 'win32':
-        py.test.skip("win32 not supported so far")
-    err = os.system("cd '%s' && make example01Dict.so" % currpath)
-    if err:
-        raise OSError("'make' failed (see stderr)")
+    setup_make("example01Dict.so")
 
 class AppTestPYTHONIFY:
     spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
-        cls.w_test_dct  = cls.space.wrap(test_dct)
+        cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_example01 = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))
@@ -375,7 +372,7 @@ class AppTestPYTHONIFY_UI:
     spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
-        cls.w_test_dct  = cls.space.wrap(test_dct)
+        cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_example01 = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))

@@ -16,7 +16,7 @@ all_modules = [p.basename for p in modulepath.listdir()
 
 essential_modules = set([
     "exceptions", "_io", "sys", "builtins", "posix", "_warnings",
-    "itertools", "_frozen_importlib", "operator",
+    "itertools", "_frozen_importlib", "operator", "_locale", "struct",
 ])
 if sys.platform == "win32":
     essential_modules.add("_winreg")
@@ -33,9 +33,9 @@ default_modules.update([
 # --allworkingmodules
 working_modules = default_modules.copy()
 working_modules.update([
-    "_socket", "unicodedata", "mmap", "fcntl", "_locale", "pwd",
+    "_socket", "unicodedata", "mmap", "fcntl", "pwd",
     "select", "zipimport", "_lsprof", "crypt", "signal", "_rawffi", "termios",
-    "zlib", "bz2", "struct", "_md5", "_minimal_curses",
+    "zlib", "bz2", "_md5", "_minimal_curses",
     "thread", "itertools", "pyexpat", "cpyext", "array",
     "binascii", "_multiprocessing", '_warnings', "_collections",
     "_multibytecodec", "_continuation", "_cffi_backend",
@@ -46,8 +46,9 @@ working_modules.update([
 from rpython.jit.backend import detect_cpu
 try:
     if detect_cpu.autodetect().startswith('x86'):
-        working_modules.add('_vmprof')
-        working_modules.add('faulthandler')
+        if not sys.platform.startswith('openbsd'):
+            working_modules.add('_vmprof')
+            working_modules.add('faulthandler')
 except detect_cpu.ProcessorAutodetectError:
     pass
 
@@ -72,8 +73,6 @@ if sys.platform == "win32":
 
     if "cppyy" in working_modules:
         working_modules.remove("cppyy")  # not tested on win32
-    if "faulthandler" in working_modules:
-        working_modules.remove("faulthandler")  # missing details
 
     # The _locale module is needed by site.py on Windows
     default_modules.add("_locale")
@@ -196,6 +195,18 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                default=False,
                requires=[("objspace.usemodules.cpyext", False)]),
 
+    BoolOption("fstrings",
+               "if you are really convinced that f-strings are a security "
+               "issue, you can disable them here",
+               default=True),
+
+    ChoiceOption("hash",
+                 "The hash function to use for strings: fnv from CPython 2.7"
+                 " or siphash24 from CPython >= 3.4",
+                 ["fnv", "siphash24"],
+                 default="siphash24",
+                 cmdline="--hash"),
+
     OptionDescription("std", "Standard Object Space Options", [
         BoolOption("withtproxy", "support transparent proxies",
                    default=True),
@@ -210,9 +221,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                   default=100, cmdline="--prebuiltintto"),
 
         BoolOption("withsmalllong", "use a version of 'long' in a C long long",
-                   default=False),
-
-        BoolOption("withstrbuf", "use strings optimized for addition (ver 2)",
                    default=False),
 
         BoolOption("withspecialisedtuple",

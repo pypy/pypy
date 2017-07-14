@@ -175,7 +175,6 @@ class HashRandomizationTests:
     def get_hash_command(self, repr_):
         return 'print(hash(eval(%a)))' % repr_
 
-    @impl_detail("PyPy does not support hash randomization", pypy=False)
     def get_hash(self, repr_, seed=None):
         env = os.environ.copy()
         env['__cleanenv'] = True  # signal to assert_python not to do a copy
@@ -197,10 +196,6 @@ class HashRandomizationTests:
         self.assertNotEqual(run1, run2)
 
 class StringlikeHashRandomizationTests(HashRandomizationTests):
-    if check_impl_detail(pypy=True):
-        EMPTY_STRING_HASH = -2
-    else:
-        EMPTY_STRING_HASH = 0
     repr_ = None
     repr_long = None
 
@@ -241,7 +236,26 @@ class StringlikeHashRandomizationTests(HashRandomizationTests):
             # seed 42, 'äú∑ℇ'
             [-283066365, -4576729883824601543, -271871407,
              -3927695501187247084],
-        ]
+        ],
+        'fnv-pypy': [
+            # This is for PyPy, whose fnv algorithm does not support hash
+            # randomization, so the results don't depend on the seed.
+            # seed 0, 'abc'
+            [-1600925533, 1453079729188098211, -1600925533,
+             1453079729188098211],
+            # seed 42, 'abc'
+            [-1600925533, 1453079729188098211, -1600925533,
+             1453079729188098211],
+            # seed 42, 'abcdefghijk'
+            [112677275, -7109391839480295013, 112677275,
+             -7109391839480295013],
+            # seed 0, 'äú∑ℇ'
+            [-272186246, 6456588004676256890, -272186246,
+             6456588004676256890],
+            # seed 42, 'äú∑ℇ'
+            [-272186246, 6456588004676256890, -272186246,
+             6456588004676256890],
+        ],
     }
 
     def get_expected_hash(self, position, length):
@@ -254,6 +268,8 @@ class StringlikeHashRandomizationTests(HashRandomizationTests):
         else:
             assert(sys.byteorder == 'big')
             platform = 3 if IS_64BIT else 2
+        if algorithm == 'fnv' and check_impl_detail(pypy=True):
+            algorithm = 'fnv-pypy'
         return self.known_hashes[algorithm][position][platform]
 
     def test_null_hash(self):
@@ -287,10 +303,12 @@ class StrHashRandomizationTests(StringlikeHashRandomizationTests,
     repr_long = repr('abcdefghijk')
     repr_ucs2 = repr('äú∑ℇ')
 
+    @impl_detail("hash('') != 0 on PyPy", pypy=False)
     @skip_unless_internalhash
     def test_empty_string(self):
         self.assertEqual(hash(""), 0)
 
+    @impl_detail("hash(ucs2) differs on PyPy if unichar is 4 bytes", pypy=False)
     @skip_unless_internalhash
     def test_ucs2_string(self):
         h = self.get_expected_hash(3, 6)
@@ -303,18 +321,20 @@ class BytesHashRandomizationTests(StringlikeHashRandomizationTests,
     repr_ = repr(b'abc')
     repr_long = repr(b'abcdefghijk')
 
+    @impl_detail("hash('') != 0 on PyPy", pypy=False)
     @skip_unless_internalhash
     def test_empty_string(self):
-        self.assertEqual(hash(b""), self.EMPTY_STRING_HASH)
+        self.assertEqual(hash(b""), 0)
 
 class MemoryviewHashRandomizationTests(StringlikeHashRandomizationTests,
                                        unittest.TestCase):
     repr_ = "memoryview(b'abc')"
     repr_long = "memoryview(b'abcdefghijk')"
 
+    @impl_detail("hash('') != 0 on PyPy", pypy=False)
     @skip_unless_internalhash
     def test_empty_string(self):
-        self.assertEqual(hash(memoryview(b"")), self.EMPTY_STRING_HASH)
+        self.assertEqual(hash(memoryview(b"")), 0)
 
 class DatetimeTests(HashRandomizationTests):
     def get_hash_command(self, repr_):

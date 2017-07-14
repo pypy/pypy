@@ -115,6 +115,13 @@ class Random(_random.Random):
             x ^= len(a)
             a = -2 if x == -1 else x
 
+        if version == 1 and isinstance(a, (str, bytes)):
+            x = ord(a[0]) << 7 if a else 0
+            for c in a:
+                x = ((1000003 * x) ^ ord(c)) & 0xFFFFFFFFFFFFFFFF
+            x ^= len(a)
+            a = -2 if x == -1 else x
+
         if version == 2 and isinstance(a, (str, bytes, bytearray)):
             if isinstance(a, str):
                 a = a.encode()

@@ -5,9 +5,7 @@ import StringIO
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-from rpython.rtyper.lltypesystem import rffi, ll2ctypes
-
-from pypy.interpreter.gateway import interp2app
+from rpython.rtyper.lltypesystem import rffi
 
 class TestExceptions(BaseApiTest):
     def test_GivenExceptionMatches(self, space, api):
@@ -61,13 +59,6 @@ class TestExceptions(BaseApiTest):
         assert space.eq_w(state.operror.w_type, space.w_MemoryError)
         api.PyErr_Clear()
 
-    def test_BadArgument(self, space, api):
-        ret = api.PyErr_BadArgument()
-        state = space.fromcache(State)
-        assert space.eq_w(state.operror.w_type, space.w_TypeError)
-        assert ret == 0
-        api.PyErr_Clear()
-
     def test_Warning(self, space, api, capfd):
         message = rffi.str2charp("this is a warning")
         api.PyErr_WarnEx(None, message, 1)
@@ -90,7 +81,7 @@ class TestExceptions(BaseApiTest):
         api.PyErr_WriteUnraisable(w_where)
         space.call_method(space.sys.get('stderr'), "flush")
         out, err = capfd.readouterr()
-        assert "Exception ValueError: 'message' in 'location' ignored" == err.strip()
+        assert "Exception ignored in: 'location'\nValueError: message" == err.strip()
 
     @pytest.mark.skipif(True, reason='not implemented yet')
     def test_interrupt_occurred(self, space, api):
@@ -177,6 +168,23 @@ class AppTestFetch(AppTestCpythonExtensionBase):
 
              PyErr_Restore(type, val, tb);
              PyErr_Clear();
+             Py_RETURN_TRUE;
+             '''
+             ),
+            ])
+        assert module.check_error()
+
+    def test_normalize_no_exception(self):
+        module = self.import_extension('foo', [
+            ("check_error", "METH_NOARGS",
+             '''
+             PyObject *type, *val, *tb;
+             PyErr_Fetch(&type, &val, &tb);
+             if (type != NULL)
+                 Py_RETURN_FALSE;
+             if (val != NULL)
+                 Py_RETURN_FALSE;
+             PyErr_NormalizeException(&type, &val, &tb);
              Py_RETURN_TRUE;
              '''
              ),
@@ -428,3 +436,30 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             assert orig_exc_info == reset_sys_exc_info
             assert new_exc_info == (new_exc.__class__, new_exc, None)
             assert new_exc_info == new_sys_exc_info
+
+    def test_PyErr_WarnFormat(self):
+        import warnings
+
+        module = self.import_extension('foo', [
+                ("test", "METH_NOARGS",
+                 '''
+                 PyErr_WarnFormat(PyExc_UserWarning, 1, "foo %d bar", 42);
+                 Py_RETURN_NONE;
+                 '''),
+                ])
+        with warnings.catch_warnings(record=True) as l:
+            module.test()
+        assert len(l) == 1
+        assert "foo 42 bar" in str(l[0])
+
+    def test_StopIteration_value(self):
+        module = self.import_extension('foo', [
+                ("test", "METH_O",
+                 '''
+                 PyObject *o = ((PyStopIterationObject *)args)->value;
+                 Py_INCREF(o);
+                 return o;
+                 '''),
+                ])
+        res = module.test(StopIteration("foo!"))
+        assert res == "foo!"

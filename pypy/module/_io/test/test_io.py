@@ -80,7 +80,7 @@ class AppTestIoModule:
         bufio.flush()
         assert f.getvalue() == b"ABC"
 
-    def test_destructor(self):
+    def test_destructor_1(self):
         import io
         io.IOBase()
 
@@ -88,6 +88,26 @@ class AppTestIoModule:
         class MyIO(io.IOBase):
             def __del__(self):
                 record.append(1)
+                # doesn't call the inherited __del__, so file not closed
+            def close(self):
+                record.append(2)
+                super(MyIO, self).close()
+            def flush(self):
+                record.append(3)
+                super(MyIO, self).flush()
+        MyIO()
+        import gc; gc.collect()
+        assert record == [1]
+
+    def test_destructor_2(self):
+        import io
+        io.IOBase()
+
+        record = []
+        class MyIO(io.IOBase):
+            def __del__(self):
+                record.append(1)
+                super(MyIO, self).__del__()
             def close(self):
                 record.append(2)
                 super(MyIO, self).close()
@@ -205,17 +225,21 @@ class AppTestOpen:
 
     def test_attributes(self):
         import _io
+        import warnings
 
         with _io.open(self.tmpfile, "wb", buffering=0) as f:
             assert f.mode == "wb"
 
-        with _io.open(self.tmpfile, "U") as f:
-            assert f.name == self.tmpfile
-            assert f.buffer.name == self.tmpfile
-            assert f.buffer.raw.name == self.tmpfile
-            assert f.mode == "U"
-            assert f.buffer.mode == "rb"
-            assert f.buffer.raw.mode == "rb"
+        with warnings.catch_warnings(record=True) as l:
+            warnings.simplefilter("always")
+            with _io.open(self.tmpfile, "U") as f:
+                assert f.name == self.tmpfile
+                assert f.buffer.name == self.tmpfile
+                assert f.buffer.raw.name == self.tmpfile
+                assert f.mode == "U"
+                assert f.buffer.mode == "rb"
+                assert f.buffer.raw.mode == "rb"
+        assert isinstance(l[0].message, DeprecationWarning)
 
         with _io.open(self.tmpfile, "w+") as f:
             assert f.mode == "w+"
@@ -449,6 +473,22 @@ class AppTestOpen:
         with _io.open(filename, 'x') as f:
             assert f.mode == 'x'
         raises(FileExistsError, _io.open, filename, 'x')
+
+    def test_nonbuffered_textio(self):
+        import warnings, _io as io
+        filename = self.tmpfile + '_x2'
+        warnings.simplefilter("always", category=ResourceWarning)
+        with warnings.catch_warnings(record=True) as recorded:
+            raises(ValueError, io.open, filename, 'w', buffering=0)
+        assert recorded == []
+
+    def test_invalid_newline(self):
+        import warnings, _io as io
+        filename = self.tmpfile + '_x2'
+        warnings.simplefilter("always", category=ResourceWarning)
+        with warnings.catch_warnings(record=True) as recorded:
+            raises(ValueError, io.open, filename, 'w', newline='invalid')
+        assert recorded == []
 
 
 class AppTestIoAferClose:

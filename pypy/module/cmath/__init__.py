@@ -38,8 +38,8 @@ class Module(MixedModule):
     }
 
     interpleveldefs = {
-        'pi': 'space.wrap(interp_cmath.pi)',
-        'e':  'space.wrap(interp_cmath.e)',
+        'pi': 'space.newfloat(interp_cmath.pi)',
+        'e':  'space.newfloat(interp_cmath.e)',
         'isclose': 'interp_cmath.isclose',
     }
     interpleveldefs.update(dict([(name, 'interp_cmath.wrapped_' + name)

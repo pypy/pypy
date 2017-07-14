@@ -106,8 +106,9 @@ class CodeWriter(object):
         else:
             name = 'unnamed' % id(ssarepr)
         i = 1
-        # escape <lambda> names for windows
-        name = name.replace('<lambda>', '_(lambda)_')
+        # escape names like <lambda> for windows by removing any strange
+        # character; then make sure the names are not too long
+        name = ''.join(c for c in name if c.isalnum() or c == '_')[:60]
         extra = ''
         while dir.join(name+extra).check():
             i += 1

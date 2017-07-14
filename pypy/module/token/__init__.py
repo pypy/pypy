@@ -7,7 +7,7 @@ class Module(MixedModule):
 
     appleveldefs = {}
     interpleveldefs = {
-        "NT_OFFSET" : "space.wrap(256)",
+        "NT_OFFSET" : "space.newint(256)",
         "ISTERMINAL" : "__init__.isterminal",
         "ISNONTERMINAL" : "__init__.isnonterminal",
         "ISEOF" : "__init__.iseof"
@@ -22,6 +22,11 @@ def _init_tokens():
     Module.interpleveldefs["tok_name"] = "space.wrap(%r)" % (tok_name,)
     Module.interpleveldefs["N_TOKENS"] = "space.wrap(%d)" % len(tok_name)
     all_names = Module.interpleveldefs.keys()
+    # obscure, but these names are not in CPython's token module
+    # so we remove them from 'token.__all__' otherwise they end up
+    # twice in 'tokenize.__all__'
+    all_names.remove('COMMENT')
+    all_names.remove('NL')
     Module.interpleveldefs["__all__"] = "space.wrap(%r)" % (all_names,)
 
 _init_tokens()
@@ -29,12 +34,12 @@ _init_tokens()
 
 @unwrap_spec(tok=int)
 def isterminal(space, tok):
-    return space.wrap(tok < 256)
+    return space.newbool(tok < 256)
 
 @unwrap_spec(tok=int)
 def isnonterminal(space, tok):
-    return space.wrap(tok >= 256)
+    return space.newbool(tok >= 256)
 
 @unwrap_spec(tok=int)
 def iseof(space, tok):
-    return space.wrap(tok == pygram.tokens.ENDMARKER)
+    return space.newbool(tok == pygram.tokens.ENDMARKER)

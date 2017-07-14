@@ -24,6 +24,16 @@ class TestStringBuffer(BaseCTypesTestChecker):
         assert b[0] == "a"
         assert b[:] == "abc\0"
 
+    def test_from_buffer(self):
+        b1 = bytearray("abcde")
+        b = (c_char * 5).from_buffer(b1)
+        assert b[2] == "c"
+        #
+        b1 = bytearray("abcd")
+        b = c_int.from_buffer(b1)
+        assert b.value in (1684234849,   # little endian
+                           1633837924)   # big endian
+
     try:
         c_wchar
     except NameError:

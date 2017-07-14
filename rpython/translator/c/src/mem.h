@@ -135,6 +135,12 @@ RPY_EXTERN void *boehm_fq_next_dead(struct boehm_fq_s **);
 #define OP_GC_FQ_NEXT_DEAD(tag, r)       (r = NULL)
 #endif
 
+#if defined(PYPY_USING_BOEHM_GC) || defined(PYPY_USING_NO_GC_AT_ALL)
+#  define RPY_SIZE_OF_GCHEADER  0
+#else
+#  define RPY_SIZE_OF_GCHEADER  sizeof(struct pypy_header0)
+#endif
+
 /************************************************************/
 /* weakref support */
 

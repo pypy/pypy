@@ -1064,8 +1064,9 @@ class ExceptionTests(unittest.TestCase):
                         self.assertIn("<exception str() failed>", report)
                     else:
                         # pypy: this is what lib-python's traceback.py gives
-                        self.assertIn("<unprintable BrokenExceptionDel object>",
-                                      report)
+                        self.assertRegex(report,
+                            ".*BrokenStrException: <unprintable"
+                            " BrokenStrException object>\n")
                 else:
                     self.assertIn("ValueError", report)
                     self.assertIn("del is broken", report)

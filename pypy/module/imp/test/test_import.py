@@ -153,6 +153,11 @@ def setup_directory_structure(cls):
         pass
     p.join('x.py').rename(p.join('x.pyw'))
 
+    if hasattr(p, "mksymlinkto"):
+        p = root.join("devnullpkg")
+        p.ensure(dir=True)
+        p.join("__init__.py").mksymlinkto(os.devnull)
+
     return str(root)
 
 
@@ -245,6 +250,10 @@ class AppTestImport(BaseFSEncodeTest):
 
     def test_import_keywords(self):
         __import__(name='sys', level=0)
+
+    def test_import_nonutf8_encodable(self):
+        exc = raises(ImportError, __import__, '\ud800')
+        assert exc.value.args[0].startswith("No module named ")
 
     def test_import_by_filename(self):
         import pkg.a
@@ -354,8 +363,8 @@ class AppTestImport(BaseFSEncodeTest):
         o = __import__('sys', [], [], ['']) # CPython accepts this
         assert sys == o
 
-    def test_import_fromlist_must_not_contain_unicodes(self):
-        raises(TypeError, __import__, 'encodings', None, None, [u'xxx'])
+    def test_import_fromlist_must_not_contain_bytes(self):
+        raises(TypeError, __import__, 'encodings', None, None, [b'xxx'])
 
     def test_proper_failure_on_killed__path__(self):
         import pkg.pkg2.a
@@ -763,16 +772,19 @@ class AppTestImport(BaseFSEncodeTest):
         finally:
             os.rmdir(name)
 
+    @pytest.mark.skipif(not hasattr(py.path.local, "mksymlinkto"), reason="requires symlinks")
+    def test_dev_null_init_file(self):
+        import devnullpkg
+
 
 class TestAbi:
     def test_abi_tag(self):
         space1 = maketestobjspace(make_config(None, soabi='TEST'))
         space2 = maketestobjspace(make_config(None, soabi=''))
+        assert importing.get_so_extension(space1).startswith('.TEST')
         if sys.platform == 'win32':
-            assert importing.get_so_extension(space1) == '.TESTi.pyd'
             assert importing.get_so_extension(space2) == '.pyd'
         else:
-            assert importing.get_so_extension(space1) == '.TESTi.so'
             assert importing.get_so_extension(space2) == '.so'
 
 def _getlong(data):

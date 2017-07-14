@@ -6,9 +6,9 @@ from pypy.module._cffi_backend.newtype import _clean_cache
 import pypy.module.cpyext.api     # side-effect of pre-importing it
 
 
-@unwrap_spec(cdef=str, module_name=str, source=str)
+@unwrap_spec(cdef='text', module_name='text', source='text', packed=int)
 def prepare(space, cdef, module_name, source, w_includes=None,
-            w_extra_source=None, w_min_version=None):
+            w_extra_source=None, w_min_version=None, packed=False):
     try:
         import cffi
         from cffi import FFI            # <== the system one, which
@@ -47,7 +47,7 @@ def prepare(space, cdef, module_name, source, w_includes=None,
     ffi = FFI()
     for include_ffi_object in includes:
         ffi.include(include_ffi_object._test_recompiler_source_ffi)
-    ffi.cdef(cdef)
+    ffi.cdef(cdef, packed=packed)
     ffi.set_source(module_name, source)
     ffi.emit_c_code(c_file)
 
@@ -1471,8 +1471,13 @@ class AppTestRecompiler:
         with self.StdErrCapture(fd=True) as f:
             res = lib.bar(4, 5)
         assert res == 0
-        assert f.getvalue() == (
+        assert f.getvalue() in (
+            # If the underlying cffi is <= 1.9
             "extern \"Python\": function bar() called, but no code was attached "
+            "to it yet with @ffi.def_extern().  Returning 0.\n",
+            # If the underlying cffi is >= 1.10
+            "extern \"Python\": function _CFFI_test_extern_python_1.bar() "
+            "called, but no code was attached "
             "to it yet with @ffi.def_extern().  Returning 0.\n")
 
         @ffi.def_extern("bar")
@@ -1814,6 +1819,68 @@ class AppTestRecompiler:
         assert lib.f.__get__(42) is lib.f
         assert lib.f.__get__(42, int) is lib.f
 
+    def test_function_returns_float_complex(self):
+        import sys
+        if sys.platform == 'win32':
+            skip("MSVC may not support _Complex")
+        ffi, lib = self.prepare(
+            "float _Complex f1(float a, float b);",
+            "test_function_returns_float_complex", """
+            #include <complex.h>
+            static float _Complex f1(float a, float b) { return a + I*2.0*b; }
+        """, min_version=(1, 11, 0))
+        result = lib.f1(1.25, 5.1)
+        assert type(result) == complex
+        assert result.real == 1.25   # exact
+        assert (result.imag != 2*5.1) and (abs(result.imag - 2*5.1) < 1e-5) # inexact
+
+    def test_function_returns_double_complex(self):
+        import sys
+        if sys.platform == 'win32':
+            skip("MSVC may not support _Complex")
+        ffi, lib = self.prepare(
+            "double _Complex f1(double a, double b);",
+            "test_function_returns_double_complex", """
+            #include <complex.h>
+            static double _Complex f1(double a, double b) { return a + I*2.0*b; }
+        """, min_version=(1, 11, 0))
+        result = lib.f1(1.25, 5.1)
+        assert type(result) == complex
+        assert result.real == 1.25   # exact
+        assert result.imag == 2*5.1  # exact
+
+    def test_function_argument_float_complex(self):
+        import sys
+        if sys.platform == 'win32':
+            skip("MSVC may not support _Complex")
+        ffi, lib = self.prepare(
+            "float f1(float _Complex x);",
+            "test_function_argument_float_complex", """
+            #include <complex.h>
+            static float f1(float _Complex x) { return cabsf(x); }
+        """, min_version=(1, 11, 0))
+        x = complex(12.34, 56.78)
+        result = lib.f1(x)
+        assert abs(result - abs(x)) < 1e-5
+        result2 = lib.f1(ffi.cast("float _Complex", x))
+        assert result2 == result
+
+    def test_function_argument_double_complex(self):
+        import sys
+        if sys.platform == 'win32':
+            skip("MSVC may not support _Complex")
+        ffi, lib = self.prepare(
+            "double f1(double _Complex);",
+            "test_function_argument_double_complex", """
+            #include <complex.h>
+            static double f1(double _Complex x) { return cabs(x); }
+        """, min_version=(1, 11, 0))
+        x = complex(12.34, 56.78)
+        result = lib.f1(x)
+        assert abs(result - abs(x)) < 1e-11
+        result2 = lib.f1(ffi.cast("double _Complex", x))
+        assert result2 == result
+
     def test_typedef_array_dotdotdot(self):
         ffi, lib = self.prepare("""
             typedef int foo_t[...], bar_t[...];
@@ -1838,3 +1905,152 @@ class AppTestRecompiler:
         raises(ffi.error, ffi.sizeof, "vmat_t")
         p = ffi.new("vmat_t", 4)
         assert ffi.sizeof(p[3]) == 8 * ffi.sizeof("int")
+
+    def test_call_with_custom_field_pos(self):
+        ffi, lib = self.prepare("""
+            struct foo { int x; ...; };
+            struct foo f(void);
+            struct foo g(int, ...);
+            """, "test_call_with_custom_field_pos", """
+            struct foo { int y, x; };
+            struct foo f(void) {
+                struct foo s = { 40, 200 };
+                return s;
+            }
+            struct foo g(int a, ...) { }
+        """)
+        assert lib.f().x == 200
+        e = raises(NotImplementedError, lib.g, 0)
+        assert str(e.value) == (
+            'ctype \'struct foo\' not supported as return value.  It is a '
+            'struct declared with "...;", but the C calling convention may '
+            'depend on the missing fields; or, it contains anonymous '
+            'struct/unions.  Such structs are only supported '
+            'as return value if the function is \'API mode\' and non-variadic '
+            '(i.e. declared inside ffibuilder.cdef()+ffibuilder.set_source() '
+            'and not taking a final \'...\' argument)')
+
+    def test_call_with_nested_anonymous_struct(self):
+        import sys
+        if sys.platform == 'win32':
+            skip("needs a GCC extension")
+        ffi, lib = self.prepare("""
+            struct foo { int a; union { int b, c; }; };
+            struct foo f(void);
+            struct foo g(int, ...);
+            """, "test_call_with_nested_anonymous_struct", """
+            struct foo { int a; union { int b, c; }; };
+            struct foo f(void) {
+                struct foo s = { 40 };
+                s.b = 200;
+                return s;
+            }
+            struct foo g(int a, ...) { }
+        """)
+        assert lib.f().b == 200
+        e = raises(NotImplementedError, lib.g, 0)
+        assert str(e.value) == (
+            'ctype \'struct foo\' not supported as return value.  It is a '
+            'struct declared with "...;", but the C calling convention may '
+            'depend on the missing fields; or, it contains anonymous '
+            'struct/unions.  Such structs are only supported '
+            'as return value if the function is \'API mode\' and non-variadic '
+            '(i.e. declared inside ffibuilder.cdef()+ffibuilder.set_source() '
+            'and not taking a final \'...\' argument)')
+
+    def test_call_with_bitfield(self):
+        ffi, lib = self.prepare("""
+            struct foo { int x:5; };
+            struct foo f(void);
+            struct foo g(int, ...);
+            """, "test_call_with_bitfield", """
+            struct foo { int x:5; };
+            struct foo f(void) {
+                struct foo s = { 11 };
+                return s;
+            }
+            struct foo g(int a, ...) { }
+        """)
+        assert lib.f().x == 11
+        e = raises(NotImplementedError, lib.g, 0)
+        assert str(e.value) == (
+            "ctype 'struct foo' not supported as return value.  It is a struct "
+            "with bit fields, which libffi does not support.  Such structs are "
+            "only supported as return value if the function is 'API mode' and "
+            "non-variadic (i.e. declared inside ffibuilder.cdef()+ffibuilder."
+            "set_source() and not taking a final '...' argument)")
+
+    def test_call_with_zero_length_field(self):
+        import sys
+        if sys.platform == 'win32':
+            skip("zero-length field not supported by MSVC")
+        ffi, lib = self.prepare("""
+            struct foo { int a; int x[0]; };
+            struct foo f(void);
+            struct foo g(int, ...);
+            """, "test_call_with_zero_length_field", """
+            struct foo { int a; int x[0]; };
+            struct foo f(void) {
+                struct foo s = { 42 };
+                return s;
+            }
+            struct foo g(int a, ...) { }
+        """)
+        assert lib.f().a == 42
+        e = raises(NotImplementedError, lib.g, 0)
+        assert str(e.value) == (
+           "ctype 'struct foo' not supported as return value.  It is a "
+           "struct with a zero-length array, which libffi does not support.  "
+           "Such structs are only supported as return value if the function is "
+           "'API mode' and non-variadic (i.e. declared inside ffibuilder.cdef()"
+           "+ffibuilder.set_source() and not taking a final '...' argument)")
+
+    def test_call_with_union(self):
+        ffi, lib = self.prepare("""
+            union foo { int a; char b; };
+            union foo f(void);
+            union foo g(int, ...);
+            """, "test_call_with_union", """
+            union foo { int a; char b; };
+            union foo f(void) {
+                union foo s = { 42 };
+                return s;
+            }
+            union foo g(int a, ...) { }
+        """)
+        assert lib.f().a == 42
+        e = raises(NotImplementedError, lib.g, 0)
+        assert str(e.value) == (
+           "ctype 'union foo' not supported as return value by libffi.  "
+           "Unions are only supported as return value if the function is "
+           "'API mode' and non-variadic (i.e. declared inside ffibuilder.cdef()"
+           "+ffibuilder.set_source() and not taking a final '...' argument)")
+
+    def test_call_with_packed_struct(self):
+        import sys
+        if sys.platform == 'win32':
+            skip("needs a GCC extension")
+        ffi, lib = self.prepare("""
+            struct foo { char y; int x; };
+            struct foo f(void);
+            struct foo g(int, ...);
+        """, "test_call_with_packed_struct", """
+            struct foo { char y; int x; } __attribute__((packed));
+            struct foo f(void) {
+                struct foo s = { 40, 200 };
+                return s;
+            }
+            struct foo g(int a, ...) {
+                struct foo s = { 41, 201 };
+                return s;
+            }
+        """, packed=True, min_version=(1, 8, 3))
+        assert ord(lib.f().y) == 40
+        assert lib.f().x == 200
+        e = raises(NotImplementedError, lib.g, 0)
+        assert str(e.value) == (
+           "ctype 'struct foo' not supported as return value.  It is a 'packed'"
+           " structure, with a different layout than expected by libffi.  "
+           "Such structs are only supported as return value if the function is "
+           "'API mode' and non-variadic (i.e. declared inside ffibuilder.cdef()"
+           "+ffibuilder.set_source() and not taking a final '...' argument)")

@@ -67,6 +67,8 @@ SIGNED_CERTFILE2 = data_file("keycert4.pem")
 SIGNING_CA = data_file("capath", "ceff1710.0")
 # cert with all kinds of subject alt names
 ALLSANFILE = data_file("allsans.pem")
+# cert with all kinds of subject alt names
+ALLSANFILE = data_file("allsans.pem")
 
 REMOTE_HOST = "self-signed.pythontest.net"
 

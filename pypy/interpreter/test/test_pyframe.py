@@ -67,8 +67,12 @@ class AppTestPyFrame:
 
     def test_f_lineno_set(self):
         def tracer(f, *args):
+            def y(f, *args):
+                return y
             def x(f, *args):
                 f.f_lineno += 1
+                return y  # "return None" should have the same effect, but see
+                          # test_local_trace_function_returning_None_ignored
             return x
 
         # obscure: call open beforehand, py3k's open invokes some app
@@ -772,6 +776,29 @@ class AppTestPyFrame:
                         'return', 'exception', 'return']
         assert frames[-4].f_code.co_name == 'f'
         """
+
+    def test_local_trace_function_returning_None_ignored(self):
+        # behave the same as CPython does, and in contradiction with
+        # the documentation.
+        def tracer(f, event, arg):
+            assert event == 'call'
+            return local_tracer
+
+        seen = []
+        def local_tracer(f, event, arg):
+            seen.append(event)
+            return None     # but 'local_tracer' will be called again
+
+        def function():
+            a = 1
+            a = 2
+            a = 3
+
+        import sys
+        sys.settrace(tracer)
+        function()
+        sys.settrace(None)
+        assert seen == ["line", "line", "line", "return"]
 
     def test_clear_locals(self):
         def make_frames():

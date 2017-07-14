@@ -72,6 +72,19 @@ class AppTestLocal(GenericTestThread):
         assert seen1 == [1, 2, 3, 4, 5]
         assert tags == ['???']
 
+    def test_local_init2(self):
+        import _thread
+
+        class A(object):
+            def __init__(self, n):
+                assert n == 42
+                self.n = n
+        class X(_thread._local, A):
+            pass
+
+        x = X(42)
+        assert x.n == 42
+
     def test_local_setdict(self):
         import _thread
         x = _thread._local()
@@ -122,6 +135,7 @@ def test_local_caching():
             return {}
         def wrap(self, obj):
             return obj
+        newtext = wrap
         def type(self, obj):
             return type(obj)
         class config:

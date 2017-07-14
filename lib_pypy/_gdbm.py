@@ -150,6 +150,13 @@ class gdbm(object):
         self[key] = default
         return default
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        self.close()
+
+
 def open(filename, flags='r', mode=0o666):
     if not isinstance(filename, str):
         raise TypeError("must be str, not %s" % type(filename).__name__)

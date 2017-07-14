@@ -235,7 +235,7 @@ class TestMisc(BaseTestPyPyC):
             i21 = getfield_gc_i(p17, descr=<FieldS .*W_Array.*.inst_len .*>)
             i23 = int_lt(0, i21)
             guard_true(i23, descr=...)
-            i24 = getfield_gc_i(p17, descr=<FieldU .*W_ArrayTypei.inst_buffer .*>)
+            i24 = getfield_gc_i(p17, descr=<FieldU .*W_ArrayBase.inst__buffer .*>)
             i25 = getarrayitem_raw_i(i24, 0, descr=<.*>)
             i27 = int_lt(1, i21)
             guard_false(i27, descr=...)
@@ -321,7 +321,7 @@ class TestMisc(BaseTestPyPyC):
         loop, = log.loops_by_id("globalread", is_entry_bridge=True)
         assert loop.match_by_id("globalread", """
             # only a dead read
-            p26 = getfield_gc_r(ConstPtr(ptr25), descr=<FieldP pypy.objspace.std.unicodeobject.W_UnicodeObject.inst__utf8 .>)
+            dummy_get_utf8?
         """)
 
     def test_eval(self):

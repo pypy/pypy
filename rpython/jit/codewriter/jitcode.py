@@ -1,6 +1,7 @@
 from rpython.jit.metainterp.history import AbstractDescr, ConstInt
 from rpython.jit.codewriter import heaptracker
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rarithmetic import base_int
 
 
 class JitCode(AbstractDescr):
@@ -21,6 +22,10 @@ class JitCode(AbstractDescr):
               liveness=None, startpoints=None, alllabels=None,
               resulttypes=None):
         self.code = code
+        for x in constants_i:
+            assert not isinstance(x, base_int), (
+                "found constant %r of type %r, must not appear in "
+                "JitCode.constants_i" % (x, type(x)))
         # if the following lists are empty, use a single shared empty list
         self.constants_i = constants_i or self._empty_i
         self.constants_r = constants_r or self._empty_r
@@ -141,14 +146,13 @@ class LiveVarsInfo(object):
     def get_register_index_f(self, index):
         return ord(self.live_f[index])
 
-    def enumerate_vars(self, callback_i, callback_r, callback_f, spec, index):
+    def enumerate_vars(self, callback_i, callback_r, callback_f, spec):
         for i in range(self.get_register_count_i()):
-            index = callback_i(index, self.get_register_index_i(i))
+            callback_i(self.get_register_index_i(i))
         for i in range(self.get_register_count_r()):
-            index = callback_r(index, self.get_register_index_r(i))
+            callback_r(self.get_register_index_r(i))
         for i in range(self.get_register_count_f()):
-            index = callback_f(index, self.get_register_index_f(i))
-        return index
+            callback_f(self.get_register_index_f(i))
     enumerate_vars._annspecialcase_ = 'specialize:arg(4)'
 
 _liveness_cache = {}

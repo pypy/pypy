@@ -492,7 +492,7 @@ class BasePosixUnicodeOrAscii:
 
 class TestPosixAscii(BasePosixUnicodeOrAscii):
     def _get_filename(self):
-        return str(udir.join('test_open_ascii'))
+        return unicode(udir.join('test_open_ascii'))
 
     @rposix_requires('openat')
     def test_openat(self):
@@ -669,3 +669,145 @@ def test_set_status_flags():
     finally:
         os.close(fd1)
         os.close(fd2)
+
+@rposix_requires('getpriority')
+def test_getpriority():
+    # a "don't crash" kind of test only
+    prio = rposix.getpriority(rposix.PRIO_PROCESS, 0)
+    rposix.setpriority(rposix.PRIO_PROCESS, 0, prio)
+    py.test.raises(OSError, rposix.getpriority, rposix.PRIO_PGRP, 123456789)
+    
+if sys.platform != 'win32':
+    def test_sendfile():
+        from rpython.rlib import rsocket
+        s1, s2 = rsocket.socketpair()
+        relpath = 'test_sendfile'
+        filename = str(udir.join(relpath))
+        fd = os.open(filename, os.O_RDWR|os.O_CREAT, 0777)
+        os.write(fd, 'abcdefghij')
+        res = rposix.sendfile(s1.fd, fd, 3, 5)
+        assert res == 5
+        data = os.read(s2.fd, 10)
+        assert data == 'defgh'
+        os.close(fd)
+        s2.close()
+        s1.close()
+
+    def test_sendfile_invalid_offset():
+        from rpython.rlib import rsocket
+        s1, s2 = rsocket.socketpair()
+        relpath = 'test_sendfile_invalid_offset'
+        filename = str(udir.join(relpath))
+        fd = os.open(filename, os.O_RDWR|os.O_CREAT, 0777)
+        os.write(fd, 'abcdefghij')
+        with py.test.raises(OSError) as excinfo:
+            rposix.sendfile(s1.fd, fd, -1, 5)
+        assert excinfo.value.errno == errno.EINVAL
+        os.close(fd)
+        s2.close()
+        s1.close()
+
+if sys.platform.startswith('linux'):
+    def test_sendfile_no_offset():
+        from rpython.rlib import rsocket
+        s1, s2 = rsocket.socketpair()
+        relpath = 'test_sendfile'
+        filename = str(udir.join(relpath))
+        fd = os.open(filename, os.O_RDWR|os.O_CREAT, 0777)
+        os.write(fd, 'abcdefghij')
+        os.lseek(fd, 3, 0)
+        res = rposix.sendfile_no_offset(s1.fd, fd, 5)
+        assert res == 5
+        data = os.read(s2.fd, 10)
+        assert data == 'defgh'
+        os.close(fd)
+        s2.close()
+        s1.close()
+        
+@rposix_requires('pread')
+def test_pread():
+    fname = str(udir.join('os_test.txt'))
+    fd = os.open(fname, os.O_RDWR | os.O_CREAT)
+    try:
+        assert fd >= 0
+        os.write(fd, b'Hello world')
+        os.lseek(fd, 0, 0)
+        assert rposix.pread(fd, 2, 1) == b'el'
+    finally:
+        os.close(fd)
+    py.test.raises(OSError, rposix.pread, fd, 2, 1)
+
+@rposix_requires('pwrite')
+def test_pwrite():
+    fname = str(udir.join('os_test.txt'))
+    fd = os.open(fname, os.O_RDWR | os.O_CREAT, 0777)
+    try:
+        assert fd >= 0
+        os.write(fd, b'Hello world')
+        os.lseek(fd, 0, 0)
+        rposix.pwrite(fd, b'ea', 1)
+        assert os.read(fd, 4) == b'Heal'
+    finally:
+        os.close(fd)
+    py.test.raises(OSError, rposix.pwrite, fd, b'ea', 1)
+
+@rposix_requires('posix_fadvise')
+def test_posix_fadvise():
+    if sys.maxint <= 2**32:
+        py.test.skip("ll2ctypes run of posix_fadvise() on 32-bit "
+                     "gets confused by the size of OFF_T")
+    fname = str(udir.join('test_os_posix_fadvise'))
+    fd = os.open(fname, os.O_CREAT | os.O_RDWR)
+    try:
+        os.write(fd, b"foobar")
+        assert rposix.posix_fadvise(fd, 0, 1, rposix.POSIX_FADV_WILLNEED) is None
+        assert rposix.posix_fadvise(fd, 1, 1, rposix.POSIX_FADV_NORMAL) is None
+        assert rposix.posix_fadvise(fd, 2, 1, rposix.POSIX_FADV_SEQUENTIAL) is None
+        assert rposix.posix_fadvise(fd, 3, 1, rposix.POSIX_FADV_RANDOM) is None
+        assert rposix.posix_fadvise(fd, 4, 1, rposix.POSIX_FADV_NOREUSE) is None
+        assert rposix.posix_fadvise(fd, 5, 1, rposix.POSIX_FADV_DONTNEED) is None
+        py.test.raises(OSError, rposix.posix_fadvise, fd, 6, 1, 1234567)
+    finally:
+        os.close(fd)
+
+@rposix_requires('posix_fallocate')
+def test_posix_fallocate():
+    if sys.maxint <= 2**32:
+        py.test.skip("ll2ctypes run of posix_fallocate() on 32-bit "
+                     "gets confused by the size of OFF_T")
+    fname = str(udir.join('os_test.txt'))
+    fd = os.open(fname, os.O_WRONLY | os.O_CREAT, 0777)
+    try:
+        assert rposix.posix_fallocate(fd, 0, 10) == 0
+    except OSError as inst:
+        """ ZFS seems not to support fallocate.
+        so skipping solaris-based since it is likely to come with ZFS
+        """
+        if inst.errno != errno.EINVAL or not sys.platform.startswith("sunos"):
+            raise
+    finally:
+        os.close(fd)
+
+@rposix_requires('sched_get_priority_max')
+def test_sched_get_priority_max():
+    assert rposix.sched_get_priority_max(rposix.SCHED_FIFO) != -1
+    assert rposix.sched_get_priority_max(rposix.SCHED_RR) != -1
+    assert rposix.sched_get_priority_max(rposix.SCHED_OTHER) != -1
+    assert rposix.sched_get_priority_max(rposix.SCHED_BATCH) != -1
+    
+@rposix_requires('sched_get_priority_min')
+def test_sched_get_priority_min():
+    assert rposix.sched_get_priority_min(rposix.SCHED_FIFO) != -1
+    assert rposix.sched_get_priority_min(rposix.SCHED_RR) != -1
+    assert rposix.sched_get_priority_min(rposix.SCHED_OTHER) != -1
+    assert rposix.sched_get_priority_min(rposix.SCHED_BATCH) != -1
+    
+@rposix_requires('sched_get_priority_min')
+def test_os_sched_priority_max_greater_than_min():
+    policy = rposix.SCHED_RR
+    low = rposix.sched_get_priority_min(policy)
+    high = rposix.sched_get_priority_max(policy)
+    assert isinstance(low, int) == True
+    assert isinstance(high, int) == True
+    assert  high > low
+

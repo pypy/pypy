@@ -1155,6 +1155,8 @@ st_values = sampled_from(keytypes_s + [SomeString(can_be_None=True)])
 
 class MappingSpace(object):
     def __init__(self, s_key, s_value):
+        from rpython.rtyper.rtuple import TupleRepr
+
         self.s_key = s_key
         self.s_value = s_value
         rtyper = PseudoRTyper()
@@ -1168,6 +1170,9 @@ class MappingSpace(object):
         self.reference = self.new_reference()
         self.ll_key = r_key.convert_const
         self.ll_value = r_value.convert_const
+        self.removed_keys = []
+        r_tuple = TupleRepr(rtyper, [r_key, r_value])
+        self.TUPLE = r_tuple.lowleveltype
 
     def setitem(self, key, value):
         ll_key = self.ll_key(key)
@@ -1181,6 +1186,13 @@ class MappingSpace(object):
         self.ll_delitem(self.l_dict, ll_key)
         del self.reference[key]
         assert not self.ll_contains(self.l_dict, ll_key)
+        self.removed_keys.append(key)
+
+    def move_to_end(self, key, last=True):
+        "For test_rordereddict"
+
+    def move_to_first(self, key):
+        self.move_to_end(key, last=False)
 
     def copydict(self):
         self.l_dict = self.ll_copy(self.l_dict)
@@ -1188,14 +1200,44 @@ class MappingSpace(object):
 
     def cleardict(self):
         self.ll_clear(self.l_dict)
+        for key in self.reference:
+            self.removed_keys.append(key)
         self.reference.clear()
         assert self.ll_len(self.l_dict) == 0
+
+    def popitem(self):
+        try:
+            ll_tuple = self.ll_popitem(self.TUPLE, self.l_dict)
+        except KeyError:
+            assert len(self.reference) == 0
+        else:
+            ll_key = ll_tuple.item0
+            ll_value = ll_tuple.item1
+            for key, value in self.reference.iteritems():
+                if self.ll_key(key) == ll_key:
+                    assert self.ll_value(value) == ll_value
+                    del self.reference[key]
+                    self.removed_keys.append(key)
+                    break
+            else:
+                raise AssertionError("popitem() returned unexpected key")
+
+    def removeindex(self):
+        pass     # overridden in test_rordereddict
 
     def fullcheck(self):
         assert self.ll_len(self.l_dict) == len(self.reference)
         for key, value in self.reference.iteritems():
             assert (self.ll_getitem(self.l_dict, self.ll_key(key)) ==
                 self.ll_value(value))
+        for key in self.removed_keys:
+            if key not in self.reference:
+                try:
+                    self.ll_getitem(self.l_dict, self.ll_key(key))
+                except KeyError:
+                    pass
+                else:
+                    raise AssertionError("removed key still shows up")
 
 class MappingSM(GenericStateMachine):
     def __init__(self):
@@ -1214,14 +1256,25 @@ class MappingSM(GenericStateMachine):
         return builds(Action,
             just('delitem'), tuples(sampled_from(self.space.reference)))
 
+    def st_move_to_end(self):
+        return builds(Action,
+            just('move_to_end'), tuples(sampled_from(self.space.reference)))
+
+    def st_move_to_first(self):
+        return builds(Action,
+            just('move_to_first'),
+                tuples(sampled_from(self.space.reference)))
+
     def steps(self):
         if not self.space:
             return builds(Action, just('setup'), tuples(st_keys, st_values))
-        global_actions = [Action('copydict', ()), Action('cleardict', ())]
+        global_actions = [Action('copydict', ()), Action('cleardict', ()),
+                          Action('popitem', ()), Action('removeindex', ())]
         if self.space.reference:
             return (
                 self.st_setitem() | sampled_from(global_actions) |
-                self.st_updateitem() | self.st_delitem())
+                self.st_updateitem() | self.st_delitem() |
+                self.st_move_to_end() | self.st_move_to_first())
         else:
             return (self.st_setitem() | sampled_from(global_actions))
 
@@ -1249,6 +1302,7 @@ class DictSpace(MappingSpace):
     ll_contains = staticmethod(rdict.ll_contains)
     ll_copy = staticmethod(rdict.ll_copy)
     ll_clear = staticmethod(rdict.ll_clear)
+    ll_popitem = staticmethod(rdict.ll_popitem)
 
     def newdict(self, repr):
         return rdict.ll_newdict(repr.DICT)

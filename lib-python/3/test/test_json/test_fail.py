@@ -1,4 +1,5 @@
 from test.test_json import PyTest, CTest
+from test import support
 
 # 2007-10-05
 JSONDOCS = [
@@ -126,7 +127,16 @@ class TestFail:
             with self.assertRaises(self.JSONDecodeError) as cm:
                 self.loads(data)
             err = cm.exception
-            self.assertEqual(err.msg, msg)
+            if support.check_impl_detail():
+                self.assertEqual(err.msg, msg)
+            else:
+                if data in ['[42',         # skip these tests, PyPy gets
+                            '["spam"',     # another error which makes sense
+                            '{"spam":42',  # too: unterminated array
+                           ]:
+                    continue
+                msg = err.msg   # ignore the message provided in the test,
+                                # only check for position
             self.assertEqual(err.pos, idx)
             self.assertEqual(err.lineno, 1)
             self.assertEqual(err.colno, idx + 1)
@@ -162,7 +172,11 @@ class TestFail:
             with self.assertRaises(self.JSONDecodeError) as cm:
                 self.loads(data)
             err = cm.exception
-            self.assertEqual(err.msg, msg)
+            if support.check_impl_detail():
+                self.assertEqual(err.msg, msg)
+            else:
+                msg = err.msg   # ignore the message provided in the test,
+                                # only check for position
             self.assertEqual(err.pos, idx)
             self.assertEqual(err.lineno, 1)
             self.assertEqual(err.colno, idx + 1)
@@ -204,13 +218,18 @@ class TestFail:
             with self.assertRaises(self.JSONDecodeError) as cm:
                 self.loads(data)
             err = cm.exception
-            self.assertEqual(err.msg, 'Expecting value')
+            if support.check_impl_detail():
+                msg = 'Expecting value'
+                self.assertEqual(err.msg, msg)
+            else:
+                msg = err.msg   # ignore the message provided in the test,
+                                # only check for position
             self.assertEqual(err.pos, idx)
             self.assertEqual(err.lineno, line)
             self.assertEqual(err.colno, col)
             self.assertEqual(str(err),
-                             'Expecting value: line %s column %d (char %d)' %
-                             (line, col, idx))
+                             '%s: line %s column %d (char %d)' %
+                             (msg, line, col, idx))
 
 class TestPyFail(TestFail, PyTest): pass
 class TestCFail(TestFail, CTest): pass

@@ -61,17 +61,17 @@ def _current_frames(space):
         else:
             frames.append(None)
 
-        w_topframe = space.wrap(None)
+        w_topframe = space.w_None
         w_prevframe = None
         for f in frames:
-            w_nextframe = space.call_function(w_fake_frame, space.wrap(f))
+            w_nextframe = space.call_function(w_fake_frame, space.wrap_none(f))
             if w_prevframe is None:
                 w_topframe = w_nextframe
             else:
-                space.setattr(w_prevframe, space.wrap('f_back'), w_nextframe)
+                space.setattr(w_prevframe, space.newtext('f_back'), w_nextframe)
             w_prevframe = w_nextframe
 
         space.setitem(w_result,
-                      space.wrap(thread_ident),
+                      space.newint(thread_ident),
                       w_topframe)
     return w_result

@@ -57,13 +57,6 @@
 #endif
 #include <stdlib.h>
 
-#ifndef _WIN32
-typedef intptr_t Py_ssize_t;
-#else
-typedef long Py_ssize_t;
-#endif
-#define PY_SSIZE_T_MAX ((Py_ssize_t)(((size_t)-1)>>1))
-#define PY_SSIZE_T_MIN (-PY_SSIZE_T_MAX-1)
 #define Py_SAFE_DOWNCAST(VALUE, WIDE, NARROW) (NARROW)(VALUE)
 
 #define Py_USING_UNICODE
@@ -80,7 +73,7 @@ typedef long Py_ssize_t;
 
 #define Py_MEMCPY memcpy
 
-#include <pypy_macros.h>
+#include "pypy_macros.h"
 
 #define PyExc_EnvironmentError PyExc_OSError
 #define PyExc_IOError PyExc_OSError
@@ -140,6 +133,7 @@ typedef long Py_ssize_t;
 #include "pysignals.h"
 #include "pythread.h"
 #include "traceback.h"
+#include "pylifecycle.h"
 
 /* Missing definitions */
 #include "missing.h"
@@ -151,7 +145,7 @@ typedef long Py_ssize_t;
 #ifdef __cplusplus
 extern "C" {
 #endif
-  #include <pypy_decl.h>
+  #include "pypy_decl.h"
 #ifdef __cplusplus
 }
 #endif

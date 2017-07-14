@@ -3,14 +3,15 @@ import sys
 from rpython.rlib.cache import Cache
 from rpython.tool.uid import HUGEVAL_BYTES
 from rpython.rlib import jit, types
-from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
-     compute_unique_id, specialize)
+     compute_unique_id, specialize, not_rpython)
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import r_uint, SHRT_MIN, SHRT_MAX, \
     INT_MIN, INT_MAX, UINT_MAX, USHRT_MAX
+from rpython.rlib.buffer import StringBuffer
 
+from pypy.interpreter.buffer import BufferInterfaceNotFound
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
     make_finalizer_queue)
 from pypy.interpreter.error import OperationError, new_exception_class, oefmt
@@ -23,15 +24,6 @@ __all__ = ['ObjSpace', 'OperationError', 'W_Root']
 unpackiterable_driver = jit.JitDriver(name='unpackiterable',
                                       greens=['tp'],
                                       reds=['items', 'w_iterator'])
-
-
-@specialize.memo()
-def _does_override_buffer_w(type):
-    return type.buffer_w != W_Root.buffer_w
-
-@specialize.memo()
-def _does_override_buffer_w_ex(type):
-    return type.buffer_w_ex != W_Root.buffer_w_ex
 
 
 class W_Root(object):
@@ -61,7 +53,7 @@ class W_Root(object):
         w_dict = self.getdict(space)
         if w_dict is not None:
             try:
-                space.delitem(w_dict, space.wrap(attr))
+                space.delitem(w_dict, space.newtext(attr))
                 return True
             except OperationError as ex:
                 if not ex.match(space, space.w_KeyError):
@@ -87,7 +79,7 @@ class W_Root(object):
 
     def getname(self, space):
         try:
-            return space.unicode_w(space.getattr(self, space.wrap('__name__')))
+            return space.unicode_w(space.getattr(self, space.newtext('__name__')))
         except OperationError as e:
             if e.match(space, space.w_TypeError) or e.match(space, space.w_AttributeError):
                 return u'?'
@@ -96,8 +88,8 @@ class W_Root(object):
     def getaddrstring(self, space):
         # slowish
         w_id = space.id(self)
-        w_4 = space.wrap(4)
-        w_0x0F = space.wrap(0x0F)
+        w_4 = space.newint(4)
+        w_0x0F = space.newint(0x0F)
         i = 2 * HUGEVAL_BYTES
         addrstring = [' '] * i
         while True:
@@ -114,7 +106,7 @@ class W_Root(object):
 
     def getrepr(self, space, info, moreinfo=u''):
         addrstring = unicode(self.getaddrstring(space))
-        return space.wrap(u"<%s at 0x%s%s>" % (info, addrstring, moreinfo))
+        return space.newunicode(u"<%s at 0x%s%s>" % (info, addrstring, moreinfo))
 
     def getslotvalue(self, index):
         raise NotImplementedError
@@ -223,22 +215,10 @@ class W_Root(object):
         return None
 
     def buffer_w(self, space, flags):
-        if _does_override_buffer_w_ex(self.__class__):
-            return self.buffer_w_ex(space, flags)[0]
-        return self._buffer(space, flags).buffer_w(space, flags)
+        return self.__buffer_w(space, flags).buffer_w(space, flags)
 
-    def buffer_w_ex(self, space, flags):
-        if _does_override_buffer_w(self.__class__):
-            return self.buffer_w(space, flags), 'B', 1
-        return self._buffer(space, flags).buffer_w_ex(space, flags)
-
-    def _buffer(self, space, flags):
-        if flags & space.BUF_WRITABLE:
-            w_impl = space.lookup(self, '__wbuffer__')
-        else:
-            w_impl = space.lookup(self, '__rbuffer__')
-        if w_impl is None:
-            w_impl = space.lookup(self, '__buffer__')
+    def __buffer_w(self, space, flags):
+        w_impl = space.lookup(self, '__buffer__')
         if w_impl is not None:
             w_result = space.get_and_call_function(w_impl, self,
                                                    space.newint(flags))
@@ -252,7 +232,7 @@ class W_Root(object):
     def unicode_w(self, space):
         self._typed_unwrap_error(space, "string")
 
-    def identifier_w(self, space):
+    def text_w(self, space):
         self._typed_unwrap_error(space, "string")
 
     def bytearray_list_of_chars_w(self, space):
@@ -306,7 +286,7 @@ class W_Root(object):
             return w_result
         if space.isinstance_w(w_result, space.w_int):
             tp = space.type(w_result).name
-            space.warn(space.wrap(
+            space.warn(space.newtext(
                 "__int__ returned non-int (type %s).  "
                 "The ability to return an instance of a strict subclass of int "
                 "is deprecated, and may be removed in a future version of "
@@ -319,11 +299,14 @@ class W_Root(object):
         raise oefmt(space.w_TypeError,
                     "ord() expected string of length 1, but %T found", self)
 
-    def __spacebind__(self, space):
+    def spacebind(self, space):
+        """ Return a version of the object bound to a specific object space
+        instance. This is used for objects (like e.g. TypeDefs) that are
+        constructed before there is an object space instance. """
         return self
 
+    @not_rpython
     def unwrap(self, space):
-        """NOT_RPYTHON"""
         # _____ this code is here to support testing only _____
         return self
 
@@ -387,9 +370,6 @@ class SpaceCache(Cache):
 class DescrMismatch(Exception):
     pass
 
-class BufferInterfaceNotFound(Exception):
-    pass
-
 @specialize.memo()
 def wrappable_class_name(Class):
     try:
@@ -406,8 +386,9 @@ class ObjSpace(object):
     """Base class for the interpreter-level implementations of object spaces.
     http://pypy.readthedocs.org/en/latest/objspace.html"""
 
+    @not_rpython
     def __init__(self, config=None):
-        "NOT_RPYTHON: Basic initialization of objects."
+        "Basic initialization of objects."
         self.fromcache = InternalSpaceCache(self).getorbuild
         self.threadlocals = ThreadLocals()
         # set recursion limit
@@ -483,8 +464,9 @@ class ObjSpace(object):
         except AttributeError:
             return self.__class__.__name__
 
+    @not_rpython
     def setbuiltinmodule(self, importname):
-        """NOT_RPYTHON. load a lazy pypy/module and put it into sys.modules"""
+        """load a lazy pypy/module and put it into sys.modules"""
         if '.' in importname:
             fullname = importname
             importname = fullname.rsplit('.', 1)[1]
@@ -498,13 +480,13 @@ class ObjSpace(object):
         else:
             name = importname
 
-        mod = Module(self, self.wrap(name))
+        mod = Module(self, self.newtext(name))
         mod.install()
 
         return name
 
     def getbuiltinmodule(self, name, force_init=False, reuse=True):
-        w_name = self.wrap(name)
+        w_name = self.newtext(name)
         w_modules = self.sys.get('modules')
         if not force_init:
             assert reuse
@@ -530,7 +512,7 @@ class ObjSpace(object):
             if not reuse and w_mod.startup_called:
                 # create a copy of the module.  (see issue1514) eventlet
                 # patcher relies on this behaviour.
-                w_mod2 = self.wrap(Module(self, w_name))
+                w_mod2 = Module(self, w_name)
                 self.setitem(w_modules, w_name, w_mod2)
                 w_mod.getdict(self)  # unlazy w_initialdict
                 self.call_method(w_mod2.getdict(self), 'update',
@@ -542,8 +524,8 @@ class ObjSpace(object):
             self.setitem(w_modules, w_name, w_mod)
         return w_mod
 
+    @not_rpython
     def get_builtinmodule_to_install(self):
-        """NOT_RPYTHON"""
         try:
             return self._builtinmodule_list
         except AttributeError:
@@ -564,44 +546,32 @@ class ObjSpace(object):
         self._builtinmodule_list = modules
         return self._builtinmodule_list
 
-    ALL_BUILTIN_MODULES = [
-        'posix', 'nt', 'os2', 'mac', 'ce', 'riscos',
-        'math', 'array', 'select',
-        '_random', '_sre', 'time', '_socket', 'errno',
-        'unicodedata',
-        'parser', 'fcntl', '_codecs', 'binascii'
-    ]
-
+    @not_rpython
     def make_builtins(self):
-        "NOT_RPYTHON: only for initializing the space."
+        "only for initializing the space."
 
         from pypy.module.exceptions import Module
-        w_name = self.wrap('__exceptions__')
+        w_name = self.newtext('__exceptions__')
         self.exceptions_module = Module(self, w_name)
         self.exceptions_module.install()
 
         from pypy.module.imp import Module
-        w_name = self.wrap('_imp')
+        w_name = self.newtext('_imp')
         mod = Module(self, w_name)
         mod.install()
 
         from pypy.module.sys import Module
-        w_name = self.wrap('sys')
+        w_name = self.newtext('sys')
         self.sys = Module(self, w_name)
         self.sys.install()
 
         from pypy.module.__builtin__ import Module
-        w_name = self.wrap('builtins')
+        w_name = self.newtext('builtins')
         self.builtin = Module(self, w_name)
-        w_builtin = self.wrap(self.builtin)
+        w_builtin = self.builtin
         w_builtin.install()
-        self.setitem(self.builtin.w_dict, self.wrap('__builtins__'), w_builtin)
+        self.setitem(self.builtin.w_dict, self.newtext('__builtins__'), w_builtin)
 
-        # exceptions was bootstrapped as '__exceptions__' but still
-        # lives in pypy/module/exceptions, we rename it below for
-        # sys.builtin_module_names
-        bootstrap_modules = set(('sys', 'imp', 'builtins', 'exceptions'))
-        installed_builtin_modules = list(bootstrap_modules)
 
         exception_types_w = self.export_builtin_exceptions()
 
@@ -609,21 +579,19 @@ class ObjSpace(object):
         types_w = (self.get_builtin_types().items() +
                    exception_types_w.items())
         for name, w_type in types_w:
-            self.setitem(self.builtin.w_dict, self.wrap(name), w_type)
+            self.setitem(self.builtin.w_dict, self.newtext(name), w_type)
 
         # install mixed modules
+        bootstrap_modules = set(('sys', 'imp', 'builtins', 'exceptions'))
         for mixedname in self.get_builtinmodule_to_install():
             if mixedname not in bootstrap_modules:
-                self.install_mixedmodule(mixedname, installed_builtin_modules)
+                self.install_mixedmodule(mixedname)
 
-        installed_builtin_modules.remove('exceptions')
-        installed_builtin_modules.append('__exceptions__')
-        installed_builtin_modules.sort()
         w_builtin_module_names = self.newtuple(
-            [self.wrap(fn) for fn in installed_builtin_modules])
+            [self.newtext(name) for name in sorted(self.builtin_modules)])
 
         # force this value into the dict without unlazyfying everything
-        self.setitem(self.sys.w_dict, self.wrap('builtin_module_names'),
+        self.setitem(self.sys.w_dict, self.newtext('builtin_module_names'),
                      w_builtin_module_names)
 
     def get_builtin_types(self):
@@ -631,8 +599,8 @@ class ObjSpace(object):
         objects."""
         raise NotImplementedError
 
+    @not_rpython
     def export_builtin_exceptions(self):
-        """NOT_RPYTHON"""
         w_dic = self.exceptions_module.getdict(self)
         exc_types_w = {}
         w_iter = self.iter(w_dic)
@@ -643,7 +611,7 @@ class ObjSpace(object):
                 if not e.match(self, self.w_StopIteration):
                     raise
                 break
-            name = self.str_w(w_name)
+            name = self.text_w(w_name)
             if not name.startswith('__'):
                 excname = name
                 w_exc = self.getitem(w_dic, w_name)
@@ -651,20 +619,18 @@ class ObjSpace(object):
                 setattr(self, "w_" + excname, w_exc)
         return exc_types_w
 
-    def install_mixedmodule(self, mixedname, installed_builtin_modules):
-        """NOT_RPYTHON"""
-        modname = self.setbuiltinmodule(mixedname)
-        if modname:
-            assert modname not in installed_builtin_modules, (
-                "duplicate interp-level module enabled for the "
-                "app-level module %r" % (modname,))
-            installed_builtin_modules.append(modname)
+    @not_rpython
+    def install_mixedmodule(self, mixedname):
+        self.setbuiltinmodule(mixedname)
 
+    @not_rpython
     def setup_builtin_modules(self):
-        "NOT_RPYTHON: only for initializing the space."
+        "only for initializing the space."
         if self.config.objspace.usemodules.cpyext:
+            # Special-case this to have state.install_dll() called early, which
+            # is required to initialise sys on Windows.
             from pypy.module.cpyext.state import State
-            self.fromcache(State).build_api(self)
+            self.fromcache(State).build_api()
         self.getbuiltinmodule('sys')
         self.getbuiltinmodule('_imp')
         self.getbuiltinmodule('_frozen_importlib')
@@ -672,8 +638,9 @@ class ObjSpace(object):
         for mod in self.builtin_modules.values():
             mod.setup_after_space_initialization()
 
+    @not_rpython
     def initialize(self):
-        """NOT_RPYTHON: Abstract method that should put some minimal
+        """Abstract method that should put some minimal
         content into the w_builtins."""
 
     def getexecutioncontext(self):
@@ -749,7 +716,7 @@ class ObjSpace(object):
     # may also override specific functions for performance.
 
     def not_(self, w_obj):
-        return self.wrap(not self.is_true(w_obj))
+        return self.newbool(not self.is_true(w_obj))
 
     def eq_w(self, w_obj1, w_obj2):
         """Implements equality with the double check 'x is y or x == y'."""
@@ -775,7 +742,7 @@ class ObjSpace(object):
         w_result = w_obj.immutable_unique_id(self)
         if w_result is None:
             # in the common case, returns an unsigned value
-            w_result = self.wrap(r_uint(compute_unique_id(w_obj)))
+            w_result = self.newint(r_uint(compute_unique_id(w_obj)))
         return w_result
 
     def hash_w(self, w_obj):
@@ -791,10 +758,14 @@ class ObjSpace(object):
         return self.is_true(self.contains(w_container, w_item))
 
     def setitem_str(self, w_obj, key, w_value):
-        return self.setitem(w_obj, self.wrap(key), w_value)
+        # key is a "text", i.e. a byte string (in python3 it
+        # represents a utf-8-encoded unicode)
+        return self.setitem(w_obj, self.newtext(key), w_value)
 
     def finditem_str(self, w_obj, key):
-        return self.finditem(w_obj, self.wrap(key))
+        # key is a "text", i.e. a byte string (in python3 it
+        # represents a utf-8-encoded unicode)
+        return self.finditem(w_obj, self.newtext(key))
 
     def finditem(self, w_obj, w_key):
         try:
@@ -812,6 +783,11 @@ class ObjSpace(object):
             if e.async(self):
                 raise
             return None
+
+    def wrap_none(self, w_obj):
+        if w_obj is None:
+            return self.w_None
+        return w_obj
 
     @signature(types.any(), types.bool(), returns=types.instance(W_Root))
     def newbool(self, b):
@@ -832,13 +808,14 @@ class ObjSpace(object):
         return w_u1
 
     def new_interned_str(self, s):
-        """Assumes an identifier (utf-8 encoded str)"""
+        # Assumes an identifier (utf-8 encoded str)
+        # returns a "text" object (ie str in python2 and unicode in python3)
         if not we_are_translated():
             assert type(s) is str
         u = s.decode('utf-8')
         w_s1 = self.interned_strings.get(u)
         if w_s1 is None:
-            w_s1 = self.wrap(u)
+            w_s1 = self.newunicode(u)
             self.interned_strings.set(u, w_s1)
         return w_s1
 
@@ -1067,13 +1044,13 @@ class ObjSpace(object):
         return self.newlist([self.newbytes(s) for s in list_s])
 
     def newlist_unicode(self, list_u):
-        return self.newlist([self.wrap(u) for u in list_u])
+        return self.newlist([self.newunicode(u) for u in list_u])
 
     def newlist_int(self, list_i):
-        return self.newlist([self.wrap(i) for i in list_i])
+        return self.newlist([self.newint(i) for i in list_i])
 
     def newlist_float(self, list_f):
-        return self.newlist([self.wrap(f) for f in list_f])
+        return self.newlist([self.newfloat(f) for f in list_f])
 
     def newlist_hint(self, sizehint):
         from pypy.objspace.std.listobject import make_empty_list_with_size
@@ -1169,7 +1146,7 @@ class ObjSpace(object):
         return w_res
 
     def call_method(self, w_obj, methname, *arg_w):
-        w_meth = self.getattr(w_obj, self.wrap(methname))
+        w_meth = self.getattr(w_obj, self.newtext(methname))
         return self.call_function(w_meth, *arg_w)
 
     def raise_key_error(self, w_key):
@@ -1178,7 +1155,7 @@ class ObjSpace(object):
 
     def lookup(self, w_obj, name):
         w_type = self.type(w_obj)
-        w_mro = self.getattr(w_type, self.wrap("__mro__"))
+        w_mro = self.getattr(w_type, self.newtext("__mro__"))
         for w_supertype in self.fixedview(w_mro):
             w_value = w_supertype.getdictvalue(self, name)
             if w_value is not None:
@@ -1190,7 +1167,7 @@ class ObjSpace(object):
         return isinstance(w_obj, GeneratorIterator)
 
     def callable(self, w_obj):
-        return self.wrap(self.lookup(w_obj, "__call__") is not None)
+        return self.newbool(self.lookup(w_obj, "__call__") is not None)
 
     def issequence_w(self, w_obj):
         flag = self.type(w_obj).flag_map_or_seq
@@ -1233,7 +1210,7 @@ class ObjSpace(object):
 
     def isabstractmethod_w(self, w_obj):
         try:
-            w_result = self.getattr(w_obj, self.wrap("__isabstractmethod__"))
+            w_result = self.getattr(w_obj, self.newtext("__isabstractmethod__"))
         except OperationError as e:
             if e.match(self, self.w_AttributeError):
                 return False
@@ -1258,14 +1235,16 @@ class ObjSpace(object):
     def exception_issubclass_w(self, w_cls1, w_cls2):
         return self.issubtype_w(w_cls1, w_cls2)
 
+    @not_rpython
     def new_exception_class(self, *args, **kwargs):
-        "NOT_RPYTHON; convenience method to create excceptions in modules"
+        "convenience method to create excceptions in modules"
         return new_exception_class(self, *args, **kwargs)
 
     # end of special support code
 
+    @not_rpython
     def eval(self, expression, w_globals, w_locals, hidden_applevel=False):
-        "NOT_RPYTHON: For internal debugging."
+        "For internal debugging."
         if isinstance(expression, str):
             compiler = self.createcompiler()
             expression = compiler.compile(expression, '?', 'eval', 0,
@@ -1274,9 +1253,10 @@ class ObjSpace(object):
             raise TypeError('space.eval(): expected a string, code or PyCode object')
         return expression.exec_code(self, w_globals, w_locals)
 
+    @not_rpython
     def exec_(self, statement, w_globals, w_locals, hidden_applevel=False,
               filename=None):
-        "NOT_RPYTHON: For internal debugging."
+        "For internal debugging."
         if filename is None:
             filename = '?'
         from pypy.interpreter.pycode import PyCode
@@ -1286,15 +1266,15 @@ class ObjSpace(object):
                                          hidden_applevel=hidden_applevel)
         if not isinstance(statement, PyCode):
             raise TypeError('space.exec_(): expected a string, code or PyCode object')
-        w_key = self.wrap('__builtins__')
+        w_key = self.newtext('__builtins__')
         if not self.contains_w(w_globals, w_key):
-            self.setitem(w_globals, w_key, self.wrap(self.builtin))
+            self.setitem(w_globals, w_key, self.builtin)
         return statement.exec_code(self, w_globals, w_locals)
 
     @specialize.arg(2)
     def appexec(self, posargs_w, source):
         """ return value from executing given source at applevel.
-            EXPERIMENTAL. The source must look like
+            The source must look like
                '''(x, y):
                        do_stuff...
                        return result
@@ -1399,7 +1379,7 @@ class ObjSpace(object):
                 raise
             if not w_exception:
                 # w_index should be a long object, but can't be sure of that
-                if self.is_true(self.lt(w_index, self.wrap(0))):
+                if self.is_true(self.lt(w_index, self.newint(0))):
                     return -sys.maxint-1
                 else:
                     return sys.maxint
@@ -1467,46 +1447,32 @@ class ObjSpace(object):
             raise oefmt(self.w_TypeError,
                         "'%T' does not support the buffer interface", w_obj)
 
-    def buffer_w_ex(self, w_obj, flags):
-        # New buffer interface, returns a buffer based on flags (PyObject_GetBuffer)
-        # Returns extra information: (buffer, typecode, itemsize)
-        try:
-            return w_obj.buffer_w_ex(self, flags)
-        except BufferInterfaceNotFound:
-            raise oefmt(self.w_TypeError,
-                        "'%T' does not support the buffer interface", w_obj)
-
     def readbuf_w(self, w_obj):
         # Old buffer interface, returns a readonly buffer (PyObject_AsReadBuffer)
         try:
-            return w_obj.buffer_w(self, self.BUF_SIMPLE)
+            return w_obj.buffer_w(self, self.BUF_SIMPLE).as_readbuf()
         except BufferInterfaceNotFound:
-            raise oefmt(self.w_TypeError,
-                        "expected an object with a buffer interface")
+            self._getarg_error("bytes-like object", w_obj)
 
     def writebuf_w(self, w_obj):
         # Old buffer interface, returns a writeable buffer (PyObject_AsWriteBuffer)
         try:
-            return w_obj.buffer_w(self, self.BUF_WRITABLE)
-        except BufferInterfaceNotFound:
-            raise oefmt(self.w_TypeError,
-                        "expected an object with a writable buffer interface")
+            return w_obj.buffer_w(self, self.BUF_WRITABLE).as_writebuf()
+        except (BufferInterfaceNotFound, OperationError):
+            self._getarg_error("read-write bytes-like object", w_obj)
 
     def charbuf_w(self, w_obj):
         # Old buffer interface, returns a character buffer (PyObject_AsCharBuffer)
-        try:
-            buf = w_obj.buffer_w(self, self.BUF_SIMPLE)
-        except BufferInterfaceNotFound:
-            raise oefmt(self.w_TypeError,
-                        "expected an object with a buffer interface")
+        if self.isinstance_w(w_obj, self.w_bytes):  # XXX: is this shortcut useful?
+            return w_obj.bytes_w(self)
         else:
-            return buf.as_str()
+            return self.readbuf_w(w_obj).as_str()
 
     def _getarg_error(self, expected, w_obj):
         if self.is_none(w_obj):
             e = oefmt(self.w_TypeError, "a %s is required, not None", expected)
         else:
-            e = oefmt(self.w_TypeError, "a %s is requried, not %T", expected, w_obj)
+            e = oefmt(self.w_TypeError, "a %s is required, not %T", expected, w_obj)
         raise e
 
     @specialize.arg(1)
@@ -1516,86 +1482,72 @@ class ObjSpace(object):
                 return None
             code = 's*'
         if code == 's*':
-            if self.isinstance_w(w_obj, self.w_str):
+            # NOTE: 's*' is almost not used any more inside CPython 3.5.
+            # Try not to use it pointlessly: it accepts unicodes, which
+            # most API in CPython 3.x no longer do.
+            if self.isinstance_w(w_obj, self.w_bytes):
                 return StringBuffer(w_obj.bytes_w(self))
             if self.isinstance_w(w_obj, self.w_unicode):
-                return StringBuffer(w_obj.identifier_w(self))
+                # NB. CPython forbids surrogates here
+                return StringBuffer(w_obj.text_w(self))
             try:
-                return w_obj.buffer_w(self, self.BUF_SIMPLE)
+                return w_obj.buffer_w(self, self.BUF_SIMPLE).as_readbuf()
             except BufferInterfaceNotFound:
                 self._getarg_error("bytes or buffer", w_obj)
         elif code == 's#':
-            if self.isinstance_w(w_obj, self.w_str):
+            # NOTE: 's#' is almost not used any more inside CPython 3.5.
+            # Try not to use it pointlessly: it accepts unicodes, which
+            # most API in CPython 3.x no longer do.
+            if self.isinstance_w(w_obj, self.w_bytes):
                 return w_obj.bytes_w(self)
-            if self.isinstance_w(w_obj, self.w_unicode):
-                return w_obj.identifier_w(self)
+            if self.isinstance_w(w_obj, self.w_unicode):  # NB. CPython forbids
+                return w_obj.text_w(self)                 # surrogates here
             try:
                 return w_obj.buffer_w(self, self.BUF_SIMPLE).as_str()
             except BufferInterfaceNotFound:
                 self._getarg_error("bytes or read-only buffer", w_obj)
         elif code == 'w*':
-            try:
-                return w_obj.buffer_w(self, self.BUF_WRITABLE)
-            except OperationError:
-                pass
-            except BufferInterfaceNotFound:
-                pass
-            self._getarg_error("read-write buffer", w_obj)
+            return self.writebuf_w(w_obj)
         elif code == 'y*':
-            try:
-                return w_obj.buffer_w(self, self.BUF_SIMPLE)
-            except BufferInterfaceNotFound:
-                self._getarg_error("bytes-like object", w_obj)
+            return self.readbuf_w(w_obj)
+        elif code == 'y#':
+            return self.charbuf_w(w_obj)
         else:
             assert False
 
-    # XXX rename/replace with code more like CPython getargs for buffers
-    def bufferstr_w(self, w_obj, flags=BUF_SIMPLE):
-        # Directly returns an interp-level str.  Note that if w_obj is a
-        # unicode string, this is different from str_w(buffer(w_obj)):
-        # indeed, the latter returns a string with the raw bytes from
-        # the underlying unicode buffer, but bufferstr_w() just converts
-        # the unicode to an ascii string.  This inconsistency is kind of
-        # needed because CPython has the same issue.  (Well, it's
-        # unclear if there is any use at all for getting the bytes in
-        # the unicode buffer.)
-        try:
-            return self.bytes_w(w_obj)
-        except OperationError as e:
-            if not e.match(self, self.w_TypeError):
-                raise
-        return self.buffer_w(w_obj, flags).as_str()
-
-    def str_or_None_w(self, w_obj):
-        return None if self.is_none(w_obj) else self.str_w(w_obj)
-
-    def text_or_None_w(self, w_obj):
-        return None if self.is_none(w_obj) else self.identifier_w(w_obj)
-
-    def str_w(self, w_obj):
-        """
-        if w_obj is unicode, call identifier_w() (i.e., return the UTF-8
-        encoded string). Else, call bytes_w().
-
-        Maybe we should kill str_w completely and manually substitute it with
-        identifier_w/bytes_w at all call sites?
-        """
-        if self.isinstance_w(w_obj, self.w_unicode):
-            return w_obj.identifier_w(self)
-        else:
-            return w_obj.bytes_w(self)
+    def text_or_none_w(self, w_obj):
+        return None if self.is_none(w_obj) else self.text_w(w_obj)
 
     def bytes_w(self, w_obj):
+        """ Takes an application level :py:class:`bytes`
+            (on PyPy2 this equals `str`) and returns a rpython byte string.
+        """
         return w_obj.bytes_w(self)
 
-    def str0_w(self, w_obj):
-        "Like str_w, but rejects strings with NUL bytes."
-        from rpython.rlib import rstring
-        result = self.str_w(w_obj)
-        if '\x00' in result:
-            raise oefmt(self.w_ValueError,
-                        "argument must be a string without NUL characters")
-        return rstring.assert_str0(result)
+    def text_w(self, w_obj):
+        """ PyPy2 takes either a :py:class:`str` and returns a
+            rpython byte string, or it takes an :py:class:`unicode`
+            and uses the systems default encoding to return a rpython
+            byte string.
+
+            On PyPy3 it takes a :py:class:`str` and it will return
+            an utf-8 encoded rpython string.
+        """
+        return w_obj.text_w(self)
+
+    @not_rpython    # tests only; should be replaced with bytes_w or text_w
+    def str_w(self, w_obj):
+        """
+        if w_obj is unicode, call text_w() (i.e., return the UTF-8-nosg
+        encoded string). Else, call bytes_w().
+
+        We should kill str_w completely and manually substitute it with
+        text_w/bytes_w at all call sites.  It remains for now for tests only.
+        """
+        if self.isinstance_w(w_obj, self.w_unicode):
+            return w_obj.text_w(self)
+        else:
+            return w_obj.bytes_w(self)
 
     def bytes0_w(self, w_obj):
         "Like bytes_w, but rejects strings with NUL bytes."
@@ -1605,6 +1557,30 @@ class ObjSpace(object):
             raise oefmt(self.w_ValueError,
                         "argument must be a string without NUL characters")
         return rstring.assert_str0(result)
+
+    def text0_w(self, w_obj):
+        "Like text_w, but rejects strings with NUL bytes."
+        from rpython.rlib import rstring
+        result = self.text_w(w_obj)
+        if '\x00' in result:
+            raise oefmt(self.w_ValueError,
+                        "argument must be a string without NUL characters")
+        return rstring.assert_str0(result)
+
+    def fsencode_or_none_w(self, w_obj):
+        return None if self.is_none(w_obj) else self.fsencode_w(w_obj)
+
+    def byte_w(self, w_obj):
+        """
+        Convert an index-like object to an interp-level char
+
+        Used for app-level code like "bytearray(b'abc')[0] = 42".
+        """
+        value = self.getindex_w(w_obj, None)
+        if not 0 <= value < 256:
+            # this includes the OverflowError in case the long is too large
+            raise oefmt(self.w_ValueError, "byte must be in range(0, 256)")
+        return chr(value)
 
     def int_w(self, w_obj, allow_conversion=True):
         """
@@ -1653,20 +1629,8 @@ class ObjSpace(object):
                         "characters")
         return rstring.assert_str0(result)
 
-    def realunicode_w(self, w_obj):
-        # Like unicode_w, but only works if w_obj is really of type
-        # 'unicode'.
-        if not self.isinstance_w(w_obj, self.w_unicode):
-            raise oefmt(self.w_TypeError, "argument must be a unicode")
-        return self.unicode_w(w_obj)
-
-    def identifier_w(self, w_obj):
-        """
-        Unwrap an object which is used as an identifier (i.e. names of
-        variables, methdods, functions, classes etc.). In py3k, identifiers
-        are unicode strings and are unwrapped as UTF-8 encoded byte strings.
-        """
-        return w_obj.identifier_w(self)
+    realtext_w = text_w         # Python 2 compatibility
+    realunicode_w = unicode_w
 
     def fsencode(space, w_obj):
         from pypy.interpreter.unicodehelper import fsencode
@@ -1677,10 +1641,19 @@ class ObjSpace(object):
         return fsdecode(space, w_obj)
 
     def fsencode_w(self, w_obj):
-        from rpython.rlib import rstring
         if self.isinstance_w(w_obj, self.w_unicode):
             w_obj = self.fsencode(w_obj)
-        result = self.bufferstr_w(w_obj, self.BUF_FULL_RO)
+        return self.bytesbuf0_w(w_obj)
+
+    def bytesbuf0_w(self, w_obj):
+        # Like bytes0_w(), but also accept a read-only buffer.
+        from rpython.rlib import rstring
+        try:
+            result = self.bytes_w(w_obj)
+        except OperationError as e:
+            if not e.match(self, self.w_TypeError):
+                raise
+            result = self.buffer_w(w_obj, self.BUF_FULL_RO).as_str()
         if '\x00' in result:
             raise oefmt(self.w_ValueError,
                         "argument must be a string without NUL characters")
@@ -1690,9 +1663,6 @@ class ObjSpace(object):
         if self.isinstance_w(w_obj, self.w_bytes):
             w_obj = self.fsdecode(w_obj)
         return self.unicode0_w(w_obj)
-
-    def wrap_fsdecoded(self, x):
-        return self.fsdecode(self.newbytes(x))
 
     def bool_w(self, w_obj):
         # Unwraps a bool, also accepting an int for compatibility.
@@ -1818,7 +1788,7 @@ class ObjSpace(object):
         # with a fileno(), but not an object with an __int__().
         if not self.isinstance_w(w_fd, self.w_int):
             try:
-                w_fileno = self.getattr(w_fd, self.wrap("fileno"))
+                w_fileno = self.getattr(w_fd, self.newtext("fileno"))
             except OperationError as e:
                 if e.match(self, self.w_AttributeError):
                     raise oefmt(self.w_TypeError,
@@ -1836,16 +1806,17 @@ class ObjSpace(object):
         return fd
 
     def warn(self, w_msg, w_warningcls, stacklevel=2):
-        self.appexec([w_msg, w_warningcls, self.wrap(stacklevel)],
-                     """(msg, warningcls, stacklevel):
-            import _warnings
-            _warnings.warn(msg, warningcls, stacklevel=stacklevel)
-        """)
+        from pypy.module._warnings.interp_warnings import do_warn
+
+        # 'w_warningcls' must a Warning subclass
+        if not we_are_translated():
+            assert self.issubtype_w(w_warningcls, self.w_Warning)
+        do_warn(self, w_msg, w_warningcls, stacklevel - 1)
 
 
 class AppExecCache(SpaceCache):
+    @not_rpython
     def build(cache, source):
-        """ NOT_RPYTHON """
         space = cache.space
         # XXX will change once we have our own compiler
         import py
@@ -1854,7 +1825,7 @@ class AppExecCache(SpaceCache):
         source = py.code.Source("def anonymous%s\n" % source)
         w_glob = space.newdict(module=True)
         space.exec_(str(source), w_glob, w_glob)
-        return space.getitem(w_glob, space.wrap('anonymous'))
+        return space.getitem(w_glob, space.newtext('anonymous'))
 
 
 # Table describing the regular part of the interface of object spaces,

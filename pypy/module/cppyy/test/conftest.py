@@ -2,12 +2,6 @@ import py, sys
 
 @py.test.mark.tryfirst
 def pytest_runtest_setup(item):
-    if 'linux' in sys.platform:
-        # tests require minimally std=c++11
-        cc_info = py.process.cmdexec('gcc -v --help')
-        if not '-std=c++11' in cc_info:
-            py.test.skip('skipping tests because gcc does not support C++11')
-
     if py.path.local.sysfind('genreflex') is None:
         import pypy.module.cppyy.capi.loadable_capi as lcapi
         if 'dummy' in lcapi.reflection_library:
@@ -29,6 +23,10 @@ def pytest_runtest_setup(item):
 def pytest_ignore_collect(path, config):
     if py.path.local.sysfind('genreflex') is None and config.option.runappdirect:
         return True          # "can't run dummy tests in -A"
+    if disabled:
+        return True
+
+disabled = None
 
 def pytest_configure(config):
     if py.path.local.sysfind('genreflex') is None:
@@ -43,7 +41,7 @@ def pytest_configure(config):
             # build dummy backend (which has reflex info and calls hard-wired)
             import os
             from rpython.translator.tool.cbuild import ExternalCompilationInfo
-            from rpython.translator.platform import platform
+            from rpython.translator.platform import platform, CompilationError
             from rpython.translator import cdir
 
             from rpython.rtyper.lltypesystem import rffi
@@ -61,9 +59,16 @@ def pytest_configure(config):
                 use_cpp_linker=True,
             )
 
-            soname = platform.compile(
-                [], eci,
-                outputfilename='libcppyy_dummy_backend',
-                standalone=False)
+            try:
+                soname = platform.compile(
+                    [], eci,
+                    outputfilename='libcppyy_dummy_backend',
+                    standalone=False)
+            except CompilationError as e:
+                if '-std=c++11' in str(e):
+                    global disabled
+                    disabled = str(e)
+                    return
+                raise
 
             lcapi.reflection_library = str(soname)

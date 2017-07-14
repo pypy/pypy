@@ -13,6 +13,7 @@ from pypy.tool.option import make_objspace
 from pypy import pypydir
 from rpython.rlib import rthread
 from pypy.module.thread import os_thread
+from pypy.module.sys.version import CPYTHON_VERSION
 
 thisdir = py.path.local(__file__).dirpath()
 
@@ -32,10 +33,11 @@ def debug(msg):
 
 def create_entry_point(space, w_dict):
     if w_dict is not None: # for tests
-        w_entry_point = space.getitem(w_dict, space.wrap('entry_point'))
-        w_run_toplevel = space.getitem(w_dict, space.wrap('run_toplevel'))
-        w_initstdio = space.getitem(w_dict, space.wrap('initstdio'))
+        w_entry_point = space.getitem(w_dict, space.newtext('entry_point'))
+        w_run_toplevel = space.getitem(w_dict, space.newtext('run_toplevel'))
+        w_initstdio = space.getitem(w_dict, space.newtext('initstdio'))
         withjit = space.config.objspace.usemodules.pypyjit
+        hashfunc = space.config.objspace.hash
     else:
         w_initstdio = space.appexec([], """():
             return lambda unbuffered: None
@@ -45,6 +47,10 @@ def create_entry_point(space, w_dict):
         if withjit:
             from rpython.jit.backend.hlinfo import highleveljitinfo
             highleveljitinfo.sys_executable = argv[0]
+
+        if hashfunc == "siphash24":
+            from rpython.rlib import rsiphash
+            rsiphash.enable_siphash24()
 
         #debug("entry point starting")
         #for arg in argv:
@@ -66,8 +72,8 @@ def create_entry_point(space, w_dict):
                         rlocale.setlocale(rlocale.LC_CTYPE, '')
                     except rlocale.LocaleError:
                         pass
-                w_executable = space.wrap_fsdecoded(argv[0])
-                w_argv = space.newlist([space.wrap_fsdecoded(s)
+                w_executable = space.newfilename(argv[0])
+                w_argv = space.newlist([space.newfilename(s)
                                         for s in argv[1:]])
                 w_exitcode = space.call_function(w_entry_point, w_executable, w_argv)
                 exitcode = space.int_w(w_exitcode)
@@ -78,7 +84,7 @@ def create_entry_point(space, w_dict):
             except OperationError as e:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space).encode('utf-8'))
-                debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
+                debug(" operror-value: " + space.text_w(space.str(e.get_w_value(space))))
                 return 1
         finally:
             try:
@@ -86,7 +92,7 @@ def create_entry_point(space, w_dict):
             except OperationError as e:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space).encode('utf-8'))
-                debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
+                debug(" operror-value: " + space.text_w(space.str(e.get_w_value(space))))
                 return 1
         return exitcode
 
@@ -125,7 +131,7 @@ def get_additional_entrypoints(space, w_initstdio):
         try:
             # initialize sys.{path,executable,stdin,stdout,stderr}
             # (in unbuffered mode, to avoid troubles) and import site
-            space.appexec([w_path, space.wrap_fsdecoded(home), w_initstdio],
+            space.appexec([w_path, space.newfilename(home), w_initstdio],
             r"""(path, home, initstdio):
                 import sys
                 sys.path[:] = path
@@ -143,7 +149,7 @@ def get_additional_entrypoints(space, w_initstdio):
             if verbose:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space).encode('utf-8'))
-                debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
+                debug(" operror-value: " + space.text_w(space.str(e.get_w_value(space))))
             return rffi.cast(rffi.INT, -1)
         finally:
             if must_leave:
@@ -182,11 +188,11 @@ def get_additional_entrypoints(space, w_initstdio):
     def _pypy_execute_source(source, c_argument):
         try:
             w_globals = space.newdict(module=True)
-            space.setitem(w_globals, space.wrap('__builtins__'),
+            space.setitem(w_globals, space.newtext('__builtins__'),
                           space.builtin_modules['builtins'])
-            space.setitem(w_globals, space.wrap('c_argument'),
-                          space.wrap(c_argument))
-            space.appexec([space.wrap(source), w_globals], """(src, glob):
+            space.setitem(w_globals, space.newtext('c_argument'),
+                          space.newint(c_argument))
+            space.appexec([space.newtext(source), w_globals], """(src, glob):
                 import sys
                 stmt = compile(src, 'c callback', 'exec')
                 if not hasattr(sys, '_pypy_execute_source'):
@@ -197,7 +203,7 @@ def get_additional_entrypoints(space, w_initstdio):
         except OperationError as e:
             debug("OperationError:")
             debug(" operror-type: " + e.w_type.getname(space).encode('utf-8'))
-            debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
+            debug(" operror-value: " + space.text_w(space.str(e.get_w_value(space))))
             return -1
         return 0
 
@@ -229,6 +235,12 @@ class PyPyTarget(object):
             raise Exception("You have to specify the --opt level.\n"
                     "Try --opt=2 or --opt=jit, or equivalently -O2 or -Ojit .")
         self.translateconfig = translateconfig
+
+        # change the default for this option
+        # XXX disabled until we fix the real problem: a per-translation
+        # seed for siphash is bad
+        #config.translation.suggest(hash="siphash24")
+
         # set up the objspace optimizations based on the --opt argument
         from pypy.config.pypyoption import set_pypy_opt_level
         set_pypy_opt_level(config, translateconfig.opt)
@@ -241,7 +253,7 @@ class PyPyTarget(object):
         return pypy_optiondescription
 
     def target(self, driver, args):
-        driver.exe_name = 'pypy-%(backend)s'
+        driver.exe_name = 'pypy3-%(backend)s'
 
         config = driver.config
         parser = self.opt_parser(config)
@@ -266,15 +278,19 @@ class PyPyTarget(object):
                 raise Exception("Cannot use the --output option with PyPy "
                                 "when --shared is on (it is by default). "
                                 "See issue #1971.")
-            if (config.translation.profopt is not None
-                    and not config.translation.noprofopt):
-                raise Exception("Cannot use the --profopt option "
-                                "when --shared is on (it is by default). "
-                                "See issue #2398.")
+
+        # if both profopt and profoptpath are specified then we keep them as they are with no other changes
+        if config.translation.profopt:
+            if config.translation.profoptargs is None:
+                config.translation.profoptargs = "$(RPYDIR)/../lib-python/2.7/test/regrtest.py --pgo -x test_asyncore test_gdb test_multiprocessing test_subprocess || true"
+        elif config.translation.profoptargs is not None:
+            raise Exception("Cannot use --profoptargs without specifying --profopt as well")
+
         if sys.platform == 'win32':
             libdir = thisdir.join('..', '..', 'libs')
             libdir.ensure(dir=1)
-            config.translation.libname = str(libdir.join('python27.lib'))
+            pythonlib = "python{0[0]}{0[1]}.lib".format(CPYTHON_VERSION)
+            config.translation.libname = str(libdir.join(pythonlib))
 
         if config.translation.thread:
             config.objspace.usemodules.thread = True
@@ -308,11 +324,16 @@ class PyPyTarget(object):
         elif config.objspace.usemodules.pypyjit:
             config.translation.jit = True
 
+        if config.translation.sandbox:
+            assert 0, ("--sandbox is not tested nor maintained.  If you "
+                       "really want to try it anyway, remove this line in "
+                       "pypy/goal/targetpypystandalone.py.")
+
         if config.objspace.usemodules.cpyext:
-            if config.translation.gc != 'incminimark':
+            if config.translation.gc not in ('incminimark', 'boehm'):
                 raise Exception("The 'cpyext' module requires the 'incminimark'"
-                                " GC.  You need either 'targetpypystandalone.py"
-                                " --withoutmod-cpyext' or '--gc=incminimark'")
+                    " or 'boehm' GC.  You need either 'targetpypystandalone.py"
+                    " --withoutmod-cpyext', or use one of these two GCs.")
 
         config.translating = True
 
@@ -322,7 +343,7 @@ class PyPyTarget(object):
         # obscure hack to stuff the translation options into the translated PyPy
         import pypy.module.sys
         options = make_dict(config)
-        wrapstr = 'space.wrap(%r)' % (options)
+        wrapstr = 'space.wrap(%r)' % (options) # import time
         pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
         if config.objspace.usemodules._cffi_backend:
             self.hack_for_cffi_modules(driver)

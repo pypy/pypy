@@ -158,7 +158,7 @@ def skip_on_missing_buildoption(**ropts):
     import sys
     options = getattr(sys, 'pypy_translation_info', None)
     if options is None:
-        py.test.skip("not running on translated pypy "
+        py.test.skip("not running on translated pypy3 "
                      "(btw, i would need options: %s)" %
                      (ropts,))
     for opt in ropts:
@@ -166,7 +166,7 @@ def skip_on_missing_buildoption(**ropts):
             break
     else:
         return
-    py.test.skip("need translated pypy with: %s, got %s"
+    py.test.skip("need translated pypy3 with: %s, got %s"
                  %(ropts,options))
 
 class LazyObjSpaceGetter(object):

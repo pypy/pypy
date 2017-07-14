@@ -21,7 +21,11 @@ def detect_sse2():
     return bool(code & (1<<25)) and bool(code & (1<<26))
 
 def cpu_id(eax = 1, ret_edx = True, ret_ecx = False):
-    asm = ["\xB8", chr(eax), "\x00\x00\x00", # MOV EAX, $eax
+    asm = ["\xB8",                     # MOV EAX, $eax
+                chr(eax & 0xff),
+                chr((eax >> 8) & 0xff),
+                chr((eax >> 16) & 0xff),
+                chr((eax >> 24) & 0xff),
            "\x53",                     # PUSH EBX
            "\x0F\xA2",                 # CPUID
            "\x5B",                     # POP EBX

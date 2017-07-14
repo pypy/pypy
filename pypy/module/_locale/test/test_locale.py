@@ -106,24 +106,6 @@ class AppTestLocaleTrivia:
         assert _locale.setlocale(_locale.LC_ALL, None)
         assert _locale.setlocale(_locale.LC_ALL)
 
-    def test_string_ulcase(self):
-        if not hasattr(self, 'language_utf8'):
-            skip("No utf8 locale on this platform")
-        import _locale, string
-
-        lcase = "abcdefghijklmnopqrstuvwxyz"
-        ucase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-        _locale.setlocale(_locale.LC_ALL, self.language_utf8)
-        assert string.lowercase == lcase
-        assert string.uppercase == ucase
-
-        _locale.setlocale(_locale.LC_ALL, self.language_en)
-
-        # the asserts below are just plain wrong
-        #    assert string.lowercase != lcase
-        #    assert string.uppercase != ucase
-
     def test_localeconv(self):
         import _locale
 

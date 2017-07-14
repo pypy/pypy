@@ -6,7 +6,7 @@ from pypy.interpreter.typedef import GetSetProperty
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, build_type_checkers, Py_ssize_t,
     Py_ssize_tP, CONST_STRING, PyObjectFields, cpython_struct,
-    bootstrap_function)
+    bootstrap_function, slot_function)
 from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, as_pyobj, 
         make_typedescr, track_reference, create_ref, from_ref, decref,
         Py_IncRef)
@@ -36,7 +36,7 @@ def dict_attach(space, py_obj, w_obj, w_userdata=None):
     py_dict.c__tmpkeys = lltype.nullptr(PyObject.TO)
     # Problems: if this dict is a typedict, we may have unbound GetSetProperty
     # functions in the dict. The corresponding PyGetSetDescrObject must be
-    # bound to a class, but the actual w_type will be unavailable later on. 
+    # bound to a class, but the actual w_type will be unavailable later on.
     # Solution: use the w_userdata argument when assigning a PyTypeObject's
     # tp_dict slot to pass a w_type in, and force creation of the pair here
     if not space.is_w(w_userdata, space.gettypefor(GetSetProperty)):
@@ -55,7 +55,7 @@ def dict_realize(space, py_obj):
     w_obj = space.newdict()
     track_reference(space, py_obj, w_obj)
 
-@cpython_api([PyObject], lltype.Void, header=None)
+@slot_function([PyObject], lltype.Void)
 def dict_dealloc(space, py_obj):
     py_dict = rffi.cast(PyDictObject, py_obj)
     decref(space, py_dict.c__tmpkeys)
@@ -129,7 +129,7 @@ def PyDict_DelItemString(space, w_dict, key_ptr):
         key = rffi.charp2str(key_ptr)
         # our dicts dont have a standardized interface, so we need
         # to go through the space
-        space.delitem(w_dict, space.wrap(key))
+        space.delitem(w_dict, space.newtext(key))
         return 0
     else:
         PyErr_BadInternalCall(space)
@@ -257,7 +257,8 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
 
     if w_dict is None:
         return 0
-
+    if not space.isinstance_w(w_dict, space.w_dict):
+        return 0 
     pos = ppos[0]
     py_obj = as_pyobj(space, w_dict)
     py_dict = rffi.cast(PyDictObject, py_obj)
@@ -268,6 +269,9 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
         py_dict.c__tmpkeys = create_ref(space, w_keys)
         Py_IncRef(space, py_dict.c__tmpkeys)
     else:
+        if not py_dict.c__tmpkeys:
+            # pos should have been 0, cannot fail so return 0
+            return 0;
         w_keys = from_ref(space, py_dict.c__tmpkeys)
     ppos[0] += 1
     if pos >= space.len_w(w_keys):

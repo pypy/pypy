@@ -65,7 +65,7 @@ def raiseattrerror(space, w_obj, w_name, w_descr=None):
 
 def get_attribute_name(space, w_obj, w_name):
     try:
-        return space.str_w(w_name)
+        return space.text_w(w_name)
     except OperationError as e:
         if e.match(space, space.w_UnicodeEncodeError):
             raiseattrerror(space, w_obj, w_name)
@@ -263,7 +263,7 @@ class DescrOperation(object):
         if w_descr is None:
             raise oefmt(space.w_TypeError, "'%T' has no length", w_obj)
         w_res = space.get_and_call_function(w_descr, w_obj)
-        return space.wrap(space._check_len_result(w_res))
+        return space.newint(space._check_len_result(w_res))
 
     def _check_len_result(space, w_obj):
         # Will complain if result is too big.
@@ -408,7 +408,7 @@ class DescrOperation(object):
             except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
-                return space.wrap(count)
+                return space.newint(count)
             if space.eq_w(w_next, w_item):
                 count += 1
 
@@ -424,7 +424,7 @@ class DescrOperation(object):
                 raise oefmt(space.w_ValueError,
                             "sequence.index(x): x not in sequence")
             if space.eq_w(w_next, w_item):
-                return space.wrap(index)
+                return space.newint(index)
             index += 1
 
     def hash(space, w_obj):
@@ -459,7 +459,7 @@ class DescrOperation(object):
         return space._type_issubtype(w_sub, w_type)
 
     def issubtype(space, w_sub, w_type):
-        return space.wrap(space._type_issubtype(w_sub, w_type))
+        return space.newbool(space._type_issubtype(w_sub, w_type))
 
     @specialize.arg_or_var(2)
     def isinstance_w(space, w_inst, w_type):
@@ -467,7 +467,7 @@ class DescrOperation(object):
 
     @specialize.arg_or_var(2)
     def isinstance(space, w_inst, w_type):
-        return space.wrap(space.isinstance_w(w_inst, w_type))
+        return space.newbool(space.isinstance_w(w_inst, w_type))
 
     def index(space, w_obj):
         if space.isinstance_w(w_obj, space.w_int):
@@ -483,7 +483,7 @@ class DescrOperation(object):
             return w_result
         if space.isinstance_w(w_result, space.w_int):
             tp = space.type(w_result).name
-            space.warn(space.wrap(
+            space.warn(space.newtext(
                 "__index__ returned non-int (type %s).  "
                 "The ability to return an instance of a strict subclass of int "
                 "is deprecated, and may be removed in a future version of "

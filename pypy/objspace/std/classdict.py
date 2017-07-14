@@ -19,8 +19,8 @@ class ClassDictStrategy(DictStrategy):
     def getitem(self, w_dict, w_key):
         space = self.space
         w_lookup_type = space.type(w_key)
-        if space.issubtype_w(w_lookup_type, space.w_unicode):
-            return self.getitem_str(w_dict, space.str_w(w_key))
+        if space.issubtype_w(w_lookup_type, space.w_text):
+            return self.getitem_str(w_dict, space.text_w(w_key))
         else:
             return None
 
@@ -29,8 +29,8 @@ class ClassDictStrategy(DictStrategy):
 
     def setitem(self, w_dict, w_key, w_value):
         space = self.space
-        if space.is_w(space.type(w_key), space.w_unicode):
-            self.setitem_str(w_dict, self.space.str_w(w_key), w_value)
+        if space.is_w(space.type(w_key), space.w_text):
+            self.setitem_str(w_dict, self.space.text_w(w_key), w_value)
         else:
             raise oefmt(space.w_TypeError,
                         "cannot add non-string keys to dict of a type")
@@ -61,8 +61,8 @@ class ClassDictStrategy(DictStrategy):
     def delitem(self, w_dict, w_key):
         space = self.space
         w_key_type = space.type(w_key)
-        if space.is_w(w_key_type, space.w_unicode):
-            key = self.space.str_w(w_key)
+        if space.is_w(w_key_type, space.w_text):
+            key = self.space.text_w(w_key)
             if not self.unerase(w_dict.dstorage).deldictvalue(space, key):
                 raise KeyError
         else:
@@ -73,9 +73,7 @@ class ClassDictStrategy(DictStrategy):
 
     def w_keys(self, w_dict):
         space = self.space
-        w_type = self.unerase(w_dict.dstorage)
-        return space.newlist([_wrapkey(space, key)
-                              for key in w_type.dict_w.iterkeys()])
+        return space.newlist_text(self.unerase(w_dict.dstorage).dict_w.keys())
 
     def values(self, w_dict):
         return [unwrap_cell(self.space, w_value) for w_value in
@@ -83,10 +81,8 @@ class ClassDictStrategy(DictStrategy):
 
     def items(self, w_dict):
         space = self.space
-        w_type = self.unerase(w_dict.dstorage)
-        return [space.newtuple([_wrapkey(space, key),
-                                unwrap_cell(space, w_value)])
-                for (key, w_value) in w_type.dict_w.iteritems()]
+        return [space.newtuple([space.newtext(key), unwrap_cell(self.space, w_value)])
+                    for (key, w_value) in self.unerase(w_dict.dstorage).dict_w.iteritems()]
 
     def clear(self, w_dict):
         space = self.space
@@ -107,13 +103,10 @@ class ClassDictStrategy(DictStrategy):
         return iteritems_with_hash(self.unerase(w_dict.dstorage).dict_w)
 
     def wrapkey(space, key):
-        return _wrapkey(space, key)
+        # keys are utf-8 encoded identifiers from type's dict_w
+        return space.newtext(key)
 
     def wrapvalue(space, value):
         return unwrap_cell(space, value)
-
-def _wrapkey(space, key):
-    # keys are utf-8 encoded identifiers from type's dict_w
-    return space.wrap(key.decode('utf-8'))
 
 create_iterator_classes(ClassDictStrategy)

@@ -247,7 +247,7 @@ EXPECTED_VERSION_OUTPUT = "pip " + ensurepip._PIP_VERSION
 class TestBootstrappingMainFunction(EnsurepipMixin, unittest.TestCase):
 
     def test_bootstrap_version(self):
-        with test.support.captured_stderr() as stdout:
+        with test.support.captured_stdout() as stdout:
             with self.assertRaises(SystemExit):
                 ensurepip._main(["--version"])
         result = stdout.getvalue().strip()
@@ -271,7 +271,7 @@ class TestBootstrappingMainFunction(EnsurepipMixin, unittest.TestCase):
 class TestUninstallationMainFunction(EnsurepipMixin, unittest.TestCase):
 
     def test_uninstall_version(self):
-        with test.support.captured_stderr() as stdout:
+        with test.support.captured_stdout() as stdout:
             with self.assertRaises(SystemExit):
                 ensurepip._uninstall._main(["--version"])
         result = stdout.getvalue().strip()

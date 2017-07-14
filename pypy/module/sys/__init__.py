@@ -31,16 +31,16 @@ class Module(MixedModule):
         self.dlopenflags = rdynload._dlopen_default_mode()
 
     interpleveldefs = {
-        '__name__'              : '(space.wrap("sys"))',
-        '__doc__'               : '(space.wrap("PyPy sys module"))',
+        '__name__'              : '(space.newtext("sys"))',
+        '__doc__'               : '(space.newtext("PyPy sys module"))',
 
-        'platform'              : 'space.wrap(system.PLATFORM)',
-        'maxsize'               : 'space.wrap(sys.maxint)',
-        'byteorder'             : 'space.wrap(sys.byteorder)',
-        'maxunicode'            : 'space.wrap(vm.MAXUNICODE)',
-        'pypy_objspaceclass'    : 'space.wrap(repr(space))',
-        #'prefix'               : # added by pypy_initial_path() when it
-        #'exec_prefix'          : # succeeds, pointing to trunk or /usr
+        'platform'              : 'space.newtext(system.PLATFORM)',
+        'maxsize'               : 'space.newint(sys.maxint)',
+        'byteorder'             : 'space.newtext(sys.byteorder)',
+        'maxunicode'            : 'space.newint(vm.MAXUNICODE)',
+        'pypy_objspaceclass'    : 'space.newtext(repr(space))',
+        'prefix'                : 'state.get(space).w_initial_prefix',
+        'exec_prefix'           : 'state.get(space).w_initial_prefix',
         'path'                  : 'state.get(space).w_path',
         'modules'               : 'state.get(space).w_modules',
         'argv'                  : 'state.get(space).w_argv',
@@ -80,10 +80,10 @@ class Module(MixedModule):
 
         'displayhook'           : 'hook.displayhook',
         '__displayhook__'       : 'hook.__displayhook__',
-        'meta_path'             : 'space.wrap([])',
-        'path_hooks'            : 'space.wrap([])',
-        'path_importer_cache'   : 'space.wrap({})',
-        'dont_write_bytecode'   : 'space.wrap(space.config.translation.sandbox)',
+        'meta_path'             : 'space.newlist([])',
+        'path_hooks'            : 'space.newlist([])',
+        'path_importer_cache'   : 'space.newdict()',
+        'dont_write_bytecode'   : 'space.newbool(space.config.translation.sandbox)',
 
         'getdefaultencoding'    : 'interp_encoding.getdefaultencoding',
         'getfilesystemencoding' : 'interp_encoding.getfilesystemencoding',
@@ -131,17 +131,17 @@ class Module(MixedModule):
 
         if not space.config.translating or we_are_translated():
             from pypy.module.sys import version
-            space.setitem(self.w_dict, space.wrap("version"),
-                          space.wrap(version.get_version(space)))
+            space.setitem(self.w_dict, space.newtext("version"),
+                          version.get_version(space))
             if _WIN:
                 from pypy.module.sys import vm
                 w_handle = vm.get_dllhandle(space)
-                space.setitem(self.w_dict, space.wrap("dllhandle"), w_handle)
+                space.setitem(self.w_dict, space.newtext("dllhandle"), w_handle)
 
         from pypy.module.sys import system
         thread_info = system.get_thread_info(space)
         if thread_info is not None:
-            space.setitem(self.w_dict, space.wrap('thread_info'), thread_info)
+            space.setitem(self.w_dict, space.newtext('thread_info'), thread_info)
 
     def setup_after_space_initialization(self):
         "NOT_RPYTHON"
@@ -182,7 +182,7 @@ class Module(MixedModule):
 
     def _file_is_closed(self, space, w_file):
         try:
-            w_closed = space.getattr(w_file, space.wrap('closed'))
+            w_closed = space.getattr(w_file, space.newtext('closed'))
         except OperationError:
             return False
         return space.bool_w(w_closed)
@@ -191,7 +191,7 @@ class Module(MixedModule):
         space = self.space
         w_modules = self.get('modules')
         try:
-            return space.getitem(w_modules, space.wrap(name))
+            return space.getitem(w_modules, space.newtext(name))
         except OperationError as e:
             if not e.match(space, space.w_KeyError):
                 raise
@@ -199,7 +199,7 @@ class Module(MixedModule):
 
     def setmodule(self, w_module):
         space = self.space
-        w_name = self.space.getattr(w_module, space.wrap('__name__'))
+        w_name = self.space.getattr(w_module, space.newtext('__name__'))
         w_modules = self.get('modules')
         self.space.setitem(w_modules, w_name, w_module)
 
@@ -225,12 +225,12 @@ class Module(MixedModule):
             if operror is None:
                 return space.w_None
             else:
-                return space.wrap(operror.get_traceback())
+                return operror.get_w_traceback(space)
         return None
 
     def get_flag(self, name):
         space = self.space
-        return space.int_w(space.getattr(self.get('flags'), space.wrap(name)))
+        return space.int_w(space.getattr(self.get('flags'), space.newtext(name)))
 
     def get_state(self, space):
         from pypy.module.sys import state

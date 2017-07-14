@@ -24,7 +24,7 @@ class Module(MixedModule):
         '_set_sentinel':          'os_lock._set_sentinel',
         '_local':                 'os_local.Local',
         'TIMEOUT_MAX':            'space.wrap(float(os_lock.TIMEOUT_MAX // 1000000))',
-        'error':                  'space.fromcache(error.Cache).w_error',
+        'error':                  'space.w_RuntimeError',
     }
 
     def __init__(self, space, *args):

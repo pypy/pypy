@@ -15,12 +15,12 @@ class W_AbstractSeqIterObject(W_Root):
 
     def getlength(self, space):
         if self.w_seq is None:
-            return space.wrap(0)
+            return space.newint(0)
         index = self.index
         w_length = space.len(self.w_seq)
-        w_len = space.sub(w_length, space.wrap(index))
-        if space.is_true(space.lt(w_len, space.wrap(0))):
-            w_len = space.wrap(0)
+        w_len = space.sub(w_length, space.newint(index))
+        if space.is_true(space.lt(w_len, space.newint(0))):
+            w_len = space.newint(0)
         return w_len
 
     def descr_iter(self, space):
@@ -34,7 +34,7 @@ class W_AbstractSeqIterObject(W_Root):
         if w_seq is None:
             return _empty_iterable(space)
         w_callable = space.builtin.get('iter')
-        items = [w_callable, space.newtuple([w_seq]), space.wrap(self.index)]
+        items = [w_callable, space.newtuple([w_seq]), space.newint(self.index)]
         return space.newtuple(items)
 
     def descr_setstate(self, space, w_state):
@@ -71,7 +71,7 @@ class W_SeqIterObject(W_AbstractSeqIterObject):
         if self.w_seq is None:
             raise OperationError(space.w_StopIteration, space.w_None)
         try:
-            w_item = space.getitem(self.w_seq, space.wrap(self.index))
+            w_item = space.getitem(self.w_seq, space.newint(self.index))
         except OperationError as e:
             self.w_seq = None
             if not e.match(space, space.w_IndexError):
@@ -157,7 +157,7 @@ class W_ReverseSeqIterObject(W_Root):
         if w_seq is None:
             return _empty_iterable(space)
         w_callable = space.builtin.get('reversed')
-        items = [w_callable, space.newtuple([w_seq]), space.wrap(self.index)]
+        items = [w_callable, space.newtuple([w_seq]), space.newint(self.index)]
         return space.newtuple(items)
 
     def descr_setstate(self, space, w_state):
@@ -171,14 +171,14 @@ class W_ReverseSeqIterObject(W_Root):
         length = self.index + 1
         if self.w_seq is None or space.len_w(self.w_seq) < length:
             length = 0
-        return space.wrap(length)
+        return space.newint(length)
 
     def descr_iter(self, space):
         return self
 
     def descr_next(self, space):
         if self.index >= 0:
-            w_index = space.wrap(self.index)
+            w_index = space.newint(self.index)
             try:
                 w_item = space.getitem(self.w_seq, w_index)
             except OperationError as e:

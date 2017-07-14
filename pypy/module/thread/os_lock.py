@@ -3,7 +3,6 @@ Python locks, based on true threading locks provided by the OS.
 """
 
 import time
-import weakref
 from rpython.rlib import rthread
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.baseobjspace import W_Root
@@ -94,13 +93,16 @@ but it needn't be locked by the same thread that unlocks it."""
             raise oefmt(space.w_RuntimeError,
                         "cannot release un-acquired lock")
 
-    def descr_lock_locked(self, space):
-        """Return whether the lock is in the locked state."""
+    def _is_locked(self):
         if self.lock.acquire(False):
             self.lock.release()
-            return space.w_False
+            return False
         else:
-            return space.w_True
+            return True
+
+    def descr_lock_locked(self, space):
+        """Return whether the lock is in the locked state."""
+        return space.newbool(self._is_locked())
 
     def descr__enter__(self, space):
         self.descr_lock_acquire(space)
@@ -115,6 +117,14 @@ but it needn't be locked by the same thread that unlocks it."""
 
     def __exit__(self, *args):
         self.descr_lock_release(self.space)
+
+    def descr__repr__(self, space):
+        classname = space.getfulltypename(self)
+        if self._is_locked():
+            locked = u"locked"
+        else:
+            locked = u"unlocked"
+        return self.getrepr(space, u'%s %s object' % (locked, classname))
 
 Lock.typedef = TypeDef(
     "_thread.lock",
@@ -134,6 +144,7 @@ will block until another thread unlocks it.  Deadlocks may ensue.""",
     locked=interp2app(Lock.descr_lock_locked),
     __enter__=interp2app(Lock.descr__enter__),
     __exit__=interp2app(Lock.descr__exit__),
+    __repr__ = interp2app(Lock.descr__repr__),
     # Obsolete synonyms
     acquire_lock=interp2app(Lock.descr_lock_acquire),
     release_lock=interp2app(Lock.descr_lock_release),
@@ -144,7 +155,7 @@ will block until another thread unlocks it.  Deadlocks may ensue.""",
 def allocate_lock(space):
     """Create a new lock object.  (allocate() is an obsolete synonym.)
 See LockType.__doc__ for information about locks."""
-    return space.wrap(Lock(space))
+    return Lock(space)
 
 def _set_sentinel(space):
     """_set_sentinel() -> lock
@@ -158,7 +169,7 @@ def _set_sentinel(space):
     # after forking the lock must be recreated! forget the old lock
     lock = Lock(space)
     ec._sentinel_lock = lock
-    return space.wrap(lock)
+    return lock
 
 class W_RLock(W_Root):
     def __init__(self, space):
@@ -172,12 +183,16 @@ class W_RLock(W_Root):
     def descr__new__(space, w_subtype):
         self = space.allocate_instance(W_RLock, w_subtype)
         W_RLock.__init__(self, space)
-        return space.wrap(self)
+        return self
 
-    def descr__repr__(self):
-        typename = space.type(self).getname(space)
-        return space.wrap(u"<%s owner=%d count=%d>" % (
-                typename, self.rlock_owner, self.rlock_count))
+    def descr__repr__(self, space):
+        classname = space.getfulltypename(self)
+        if self.rlock_count == 0:
+            locked = u"unlocked"
+        else:
+            locked = u"locked"
+        return self.getrepr(space, u'%s %s object owner=%d count=%d' % (
+            locked, classname, self.rlock_owner, self.rlock_count))
 
     @unwrap_spec(blocking=int, timeout=float)
     def acquire_w(self, space, blocking=True, timeout=-1.0):
@@ -214,7 +229,7 @@ class W_RLock(W_Root):
             self.rlock_owner = tid
             self.rlock_count = 1
 
-        return space.wrap(r)
+        return space.newbool(r)
 
     def release_w(self, space):
         """Release the lock, allowing another thread that is blocked waiting for
@@ -265,7 +280,7 @@ class W_RLock(W_Root):
         count, self.rlock_count = self.rlock_count, 0
         owner, self.rlock_owner = self.rlock_owner, 0
         self.lock.release()
-        return space.newtuple([space.wrap(count), space.wrap(owner)])
+        return space.newtuple([space.newint(count), space.newint(owner)])
 
     def descr__enter__(self, space):
         self.acquire_w(space)
@@ -285,4 +300,5 @@ W_RLock.typedef = TypeDef(
     __enter__ = interp2app(W_RLock.descr__enter__),
     __exit__ = interp2app(W_RLock.descr__exit__),
     __weakref__ = make_weakref_descr(W_RLock),
+    __repr__ = interp2app(W_RLock.descr__repr__),
     )

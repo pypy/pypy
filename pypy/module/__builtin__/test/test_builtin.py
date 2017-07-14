@@ -641,6 +641,9 @@ class AppTestBuiltinApp:
         assert round(5e15) == 5e15
         assert round(-(5e15-1)) == -(5e15-1)
         assert round(-5e15) == -5e15
+        assert round(5e15/2) == 5e15/2
+        assert round((5e15+1)/2) == 5e15/2
+        assert round((5e15-1)/2) == 5e15/2
         #
         inf = 1e200 * 1e200
         raises(OverflowError, round, inf)
@@ -651,6 +654,12 @@ class AppTestBuiltinApp:
         #
         assert round(562949953421312.5, 1) == 562949953421312.5
         assert round(56294995342131.5, 3) == 56294995342131.5
+        #
+        for i in range(-10, 10):
+            expected = i + (i % 2)
+            assert round(i + 0.5) == round(i + 0.5, 0) == expected
+            x = i * 10 + 5
+            assert round(x, -1) == round(float(x), -1) == expected * 10
 
         assert round(0.0) == 0.0
         assert type(round(0.0)) == int

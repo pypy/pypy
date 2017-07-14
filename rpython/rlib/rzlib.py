@@ -51,6 +51,7 @@ class SimpleCConfig:
     voidpf = rffi_platform.SimpleType('voidpf', rffi.VOIDP)
 
     ZLIB_VERSION = rffi_platform.DefinedConstantString('ZLIB_VERSION')
+    ZLIB_VERNUM = rffi_platform.DefinedConstantInteger('ZLIB_VERNUM')
 
 for _name in constantnames:
     setattr(SimpleCConfig, _name, rffi_platform.ConstantInteger(_name))
@@ -63,6 +64,7 @@ Bytef = config['Bytef']
 Bytefp = lltype.Ptr(lltype.Array(Bytef, hints={'nolength': True}))
 
 ZLIB_VERSION = config['ZLIB_VERSION']
+ZLIB_VERNUM = config['ZLIB_VERNUM']
 
 for _name in constantnames:
     globals()[_name] = config[_name]
@@ -261,7 +263,7 @@ null_stream = lltype.nullptr(z_stream)
 
 def deflateInit(level=Z_DEFAULT_COMPRESSION, method=Z_DEFLATED,
                 wbits=MAX_WBITS, memLevel=DEF_MEM_LEVEL,
-                strategy=Z_DEFAULT_STRATEGY):
+                strategy=Z_DEFAULT_STRATEGY, zdict=None):
     """
     Allocate and return an opaque 'stream' object that can be used to
     compress data.
@@ -270,6 +272,12 @@ def deflateInit(level=Z_DEFAULT_COMPRESSION, method=Z_DEFLATED,
     rgc.add_memory_pressure(rffi.sizeof(z_stream))
     err = _deflateInit2(stream, level, method, wbits, memLevel, strategy)
     if err == Z_OK:
+        if zdict is not None:
+            try:
+                deflateSetDictionary(stream, zdict)
+            except:
+                lltype.free(stream, flavor='raw')
+                raise
         return stream
     else:
         try:
@@ -290,7 +298,7 @@ def deflateEnd(stream):
     lltype.free(stream, flavor='raw')
 
 
-def inflateInit(wbits=MAX_WBITS):
+def inflateInit(wbits=MAX_WBITS, zdict=None):
     """
     Allocate and return an opaque 'stream' object that can be used to
     decompress data.
@@ -299,6 +307,17 @@ def inflateInit(wbits=MAX_WBITS):
     rgc.add_memory_pressure(rffi.sizeof(z_stream))
     err = _inflateInit2(stream, wbits)
     if err == Z_OK:
+        if zdict is not None and wbits < 0:
+            try:
+                if ZLIB_VERNUM is None or ZLIB_VERNUM < 0x1221:
+                    raise RZlibError("zlib version %s does not allow raw "
+                                     "inflate with dictionary" %
+                                       ZLIB_VERSION if ZLIB_VERSION is not None
+                                       else "<unknown>")
+                inflateSetDictionary(stream, zdict)
+            except:
+                lltype.free(stream, flavor='raw')
+                raise
         return stream
     else:
         try:

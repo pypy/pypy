@@ -2,6 +2,9 @@
 Miscellaneous utilities.
 """
 
+from rpython.rlib.listsort import make_timsort_class
+
+
 class ThreadLocals:
     """Pseudo thread-local storage, for 'space.threadlocals'.
     This is not really thread-local at all; the intention is that the PyPy
@@ -33,6 +36,11 @@ class ThreadLocals:
     def getallvalues(self):
         return {0: self._value}
 
+    def _cleanup_(self):
+        # should still be unfilled at this point during translation.
+        # but in some corner cases it is not...  unsure why
+        self._value = None
+
 
 def make_weak_value_dictionary(space, keytype, valuetype):
     "NOT_RPYTHON"
@@ -48,3 +56,15 @@ def make_weak_value_dictionary(space, keytype, valuetype):
             def set(self, key, value):
                 self._dict[key] = value
         return FakeWeakValueDict()
+
+
+_StringBaseTimSort = make_timsort_class()
+
+class StringSort(_StringBaseTimSort):
+    def lt(self, a, b):
+        return a < b
+
+def string_sort(lst):
+    """Sort a (resizable) list of strings."""
+    sorter = StringSort(lst, len(lst))
+    sorter.sort()

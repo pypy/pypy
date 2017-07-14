@@ -5,12 +5,13 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pycode import PyCode
 from pypy.module._io.interp_iobase import W_IOBase
 from pypy.interpreter.streamutil import wrap_streamerror
+from pypy.interpreter.error import OperationError
 
 
 def extension_suffixes(space):
     suffixes_w = []
     if 1:   #if space.config.objspace.usemodules.cpyext:
-        suffixes_w.append(space.wrap(importing.get_so_extension(space)))
+        suffixes_w.append(space.newtext(importing.get_so_extension(space)))
     return space.newlist(suffixes_w)
 
 def get_magic(space):
@@ -27,7 +28,7 @@ def get_magic(space):
 def get_tag(space):
     """get_tag() -> string
     Return the magic tag for .pyc or .pyo files."""
-    return space.wrap(importing.PYC_TAG)
+    return space.newtext(importing.PYC_TAG)
 
 def get_file(space, w_file, filename, filemode):
     if space.is_none(w_file):
@@ -48,15 +49,13 @@ def get_file(space, w_file, filename, filemode):
 def create_dynamic(space, w_spec, w_file=None):
     if not importing.has_so_extension(space):
         raise oefmt(space.w_ImportError, "Not implemented")
-    w_modulename = space.getattr(w_spec, space.wrap("name"))
-    w_path = space.getattr(w_spec, space.wrap("origin"))
-    filename = space.fsencode_w(w_path)
-    importing.load_c_extension(space, filename, space.str_w(w_modulename))
-    return importing.check_sys_modules(space, w_modulename)
+    from pypy.module.cpyext.api import create_extension_module
+    # NB. cpyext.api.create_extension_module() can also delegate to _cffi_backend
+    return create_extension_module(space, w_spec)
 
 def create_builtin(space, w_spec):
-    w_name = space.getattr(w_spec, space.wrap("name"))
-    name = space.str0_w(w_name)
+    w_name = space.getattr(w_spec, space.newtext("name"))
+    name = space.text0_w(w_name)
     # force_init is needed to make reload actually reload instead of just
     # using the already-present module in sys.modules.
 
@@ -65,19 +64,27 @@ def create_builtin(space, w_spec):
     reuse = space.finditem(space.sys.get('modules'), w_name) is not None
     return space.getbuiltinmodule(name, force_init=True, reuse=reuse)
 
+def exec_dynamic(space, w_mod):
+    from pypy.module.cpyext.api import exec_extension_module
+    exec_extension_module(space, w_mod)
+
 def exec_builtin(space, w_mod):
-    return  # Until we really support ModuleDef
+    return
 
 def init_frozen(space, w_name):
     return None
 
 def is_builtin(space, w_name):
-    name = space.str0_w(w_name)
+    try:
+        name = space.text0_w(w_name)
+    except OperationError:
+        return space.newint(0)
+
     if name not in space.builtin_modules:
-        return space.wrap(0)
+        return space.newint(0)
     if space.finditem(space.sys.get('modules'), w_name) is not None:
-        return space.wrap(-1)   # cannot be initialized again
-    return space.wrap(1)
+        return space.newint(-1)   # cannot be initialized again
+    return space.newint(1)
 
 def is_frozen(space, w_name):
     return space.w_False
@@ -94,7 +101,7 @@ def is_frozen_package(space, w_name):
 
 def lock_held(space):
     if space.config.objspace.usemodules.thread:
-        return space.wrap(importing.getimportlock(space).lock_held_by_anyone())
+        return space.newbool(importing.getimportlock(space).lock_held_by_anyone())
     else:
         return space.w_False
 

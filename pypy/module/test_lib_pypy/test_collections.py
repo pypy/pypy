@@ -219,9 +219,10 @@ class AppTestDefaultDict:
                 self.default_factory = self._factory
             def _factory(self):
                 return []
+        sub._factory.__qualname__ = "FACTORY"
         d = sub()
         assert repr(d).startswith(
-            "defaultdict(<bound method sub._factory of defaultdict(...")
+            "defaultdict(<bound method FACTORY of defaultdict(...")
 
     def test_copy(self):
         collections = self.collections

@@ -215,6 +215,23 @@ class AppTest(object):
         assert check("\\\"\b\f\n\r\t") == '\\\\\\"\\b\\f\\n\\r\\t'
         assert check("\x07") == "\\u0007"
 
+    def test_error_position(self):
+        import _pypyjson
+        test_cases = [
+            ('[,', "Unexpected ',' at", 1),
+            ('{"spam":[}', "Unexpected '}' at", 9),
+            ('[42:', "Unexpected ':' when decoding array", 3),
+            ('[42 "spam"', "Unexpected '\"' when decoding array", 4),
+            ('[42,]', "Unexpected ']' at", 4),
+            ('{"spam":[42}', "Unexpected '}' when decoding array", 11),
+            ('["]', 'Unterminated string starting at', 1),
+            ('["spam":', "Unexpected ':' when decoding array", 7),
+            ('[{]', "Unexpected ']' at", 2),
+        ]
+        for inputtext, errmsg, errpos in test_cases:
+            exc = raises(ValueError, _pypyjson.loads, inputtext)
+            assert exc.value.args == (errmsg, inputtext, errpos)
+
     def test_keys_reuse(self):
         import _pypyjson
         s = '[{"a_key": 1, "b_\xe9": 2}, {"a_key": 3, "b_\xe9": 4}]'
@@ -222,3 +239,10 @@ class AppTest(object):
         (a, b), (c, d) = sorted(rval[0]), sorted(rval[1])
         assert a is c
         assert b is d
+
+    def test_custom_error_class(self):
+        import _pypyjson
+        class MyError(Exception):
+            pass
+        exc = raises(MyError, _pypyjson.loads, 'nul', MyError)
+        assert exc.value.args == ('Error when decoding null at', 'nul', 1)

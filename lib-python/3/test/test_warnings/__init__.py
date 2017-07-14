@@ -575,8 +575,9 @@ class CWarnTests(WarnTests, unittest.TestCase):
     # As an early adopter, we sanity check the
     # test.support.import_fresh_module utility function
     def test_accelerated(self):
+        import types
         self.assertFalse(original_warnings is self.module)
-        self.assertFalse(hasattr(self.module.warn, '__code__'))
+        self.assertIs(type(self.module.warn), types.BuiltinFunctionType)
 
 class PyWarnTests(WarnTests, unittest.TestCase):
     module = py_warnings
@@ -584,8 +585,9 @@ class PyWarnTests(WarnTests, unittest.TestCase):
     # As an early adopter, we sanity check the
     # test.support.import_fresh_module utility function
     def test_pure_python(self):
+        import types
         self.assertFalse(original_warnings is self.module)
-        self.assertTrue(hasattr(self.module.warn, '__code__'))
+        self.assertIs(type(self.module.warn), types.FunctionType)
 
 
 class WCmdLineTests(BaseTest):
@@ -1104,13 +1106,13 @@ class A:
     def __del__(self):
         warn("test")
 
-a=A()
+A()
+import gc; gc.collect()
         """
         rc, out, err = assert_python_ok("-c", code)
-        # note: "__main__" filename is not correct, it should be the name
-        # of the script
-        self.assertEqual(err, b'__main__:7: UserWarning: test')
+        self.assertEqual(err, b'-c:7: UserWarning: test')
 
+    @support.cpython_only
     def test_late_resource_warning(self):
         # Issue #21925: Emitting a ResourceWarning late during the Python
         # shutdown must be logged.

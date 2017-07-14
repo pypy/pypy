@@ -14,7 +14,7 @@ from rpython.rlib import rposix
 USEMODULES = ['binascii', 'posix', 'signal', 'struct', 'time']
 # py3k os.open uses subprocess, requiring the following per platform
 if os.name != 'nt':
-    USEMODULES += ['fcntl', 'select', '_posixsubprocess']
+    USEMODULES += ['fcntl', 'select', '_posixsubprocess', '_socket']
 else:
     USEMODULES += ['_rawffi', 'thread']
 
@@ -202,6 +202,8 @@ class AppTestPosix:
         excinfo = raises(TypeError, self.posix.stat, 2.)
         assert "should be string, bytes or integer, not float" in str(excinfo.value)
         raises(ValueError, self.posix.stat, -1)
+        raises(ValueError, self.posix.stat, b"abc\x00def")
+        raises(ValueError, self.posix.stat, u"abc\x00def")
 
     if hasattr(__import__(os.name), "statvfs"):
         def test_statvfs(self):
@@ -332,6 +334,14 @@ class AppTestPosix:
         expected = b'caf%E9' if sys.platform == 'darwin' else b'caf\xe9'
         assert expected in result
 
+    def test_listdir_memoryview_returns_unicode(self):
+        # XXX unknown why CPython has this behaviour
+        bytes_dir = self.bytes_dir
+        os, posix = self.os, self.posix
+        result1 = posix.listdir(bytes_dir)              # -> list of bytes
+        result2 = posix.listdir(memoryview(bytes_dir))  # -> list of unicodes
+        assert [os.fsencode(x) for x in result2] == result1
+
     def test_fdlistdir(self):
         posix = self.posix
         dirfd = posix.open('.', posix.O_RDONLY)
@@ -360,11 +370,11 @@ class AppTestPosix:
         pdir = self.pdir + '/file1'
         posix = self.posix
 
-        assert posix.access(pdir, posix.R_OK)
-        assert posix.access(pdir, posix.W_OK)
+        assert posix.access(pdir, posix.R_OK) is True
+        assert posix.access(pdir, posix.W_OK) is True
         import sys
         if sys.platform != "win32":
-            assert not posix.access(pdir, posix.X_OK)
+            assert posix.access(pdir, posix.X_OK) is False
 
     def test_times(self):
         """
@@ -580,8 +590,11 @@ class AppTestPosix:
 
     def test_utime_raises(self):
         os = self.posix
+        import errno
         raises(TypeError, "os.utime('xxx', 3)")
-        raises(OSError, "os.utime('somefilewhichihopewouldneverappearhere', None)")
+        exc = raises(OSError,
+                     "os.utime('somefilewhichihopewouldneverappearhere', None)")
+        assert exc.value.errno == errno.ENOENT
 
     for name in rposix.WAIT_MACROS:
         if hasattr(os, name):
@@ -834,6 +847,62 @@ class AppTestPosix:
                     os.chdir(localdir)
             raises(ValueError, os.fchdir, -1)
 
+    if hasattr(rposix, 'pread'):
+        def test_os_pread(self):
+            os = self.posix
+            fd = os.open(self.path2 + 'test_os_pread', os.O_RDWR | os.O_CREAT)
+            try:
+                os.write(fd, b'test')
+                os.lseek(fd, 0, 0)
+                assert os.pread(fd, 2, 1) == b'es'
+                assert os.read(fd, 2) == b'te'
+            finally:
+                os.close(fd)
+
+    if hasattr(rposix, 'pwrite'):
+        def test_os_pwrite(self):
+            os = self.posix
+            fd = os.open(self.path2 + 'test_os_pwrite', os.O_RDWR | os.O_CREAT)
+            try:
+                os.write(fd, b'test')
+                os.lseek(fd, 0, 0)
+                os.pwrite(fd, b'xx', 1)
+                assert os.read(fd, 4) == b'txxt'
+            finally:
+                os.close(fd)
+
+    if hasattr(rposix, 'posix_fadvise'):
+        def test_os_posix_fadvise(self):
+            posix = self.posix
+            fd = posix.open(self.path2 + 'test_os_posix_fadvise', posix.O_CREAT | posix.O_RDWR)
+            try:
+                posix.write(fd, b"foobar")
+                assert posix.posix_fadvise(fd, 0, 1, posix.POSIX_FADV_WILLNEED) is None
+                assert posix.posix_fadvise(fd, 1, 1, posix.POSIX_FADV_NORMAL) is None
+                assert posix.posix_fadvise(fd, 2, 1, posix.POSIX_FADV_SEQUENTIAL) is None
+                assert posix.posix_fadvise(fd, 3, 1, posix.POSIX_FADV_RANDOM) is None
+                assert posix.posix_fadvise(fd, 4, 1, posix.POSIX_FADV_NOREUSE) is None
+                assert posix.posix_fadvise(fd, 5, 1, posix.POSIX_FADV_DONTNEED) is None
+                raises(OSError, posix.posix_fadvise, fd, 6, 1, 1234567)
+            finally:
+                posix.close(fd)
+
+    if hasattr(rposix, 'posix_fallocate'):
+        def test_os_posix_posix_fallocate(self):
+            posix, os = self.posix, self.os
+            fd = os.open(self.path2 + 'test_os_posix_fallocate', os.O_WRONLY | os.O_CREAT)
+            try:
+                assert posix.posix_fallocate(fd, 0, 10) == 0
+            except OSError as inst:
+                """ ZFS seems not to support fallocate.
+                so skipping solaris-based since it is likely to come with ZFS
+                """
+                if inst.errno != errno.EINVAL or not sys.platform.startswith("sunos"):
+                    raise
+            finally:
+                os.close(fd)
+
+
     def test_largefile(self):
         os = self.posix
         fd = os.open(self.path2 + 'test_largefile',
@@ -850,6 +919,61 @@ class AppTestPosix:
         st = os.stat(self.path2 + 'test_largefile')
         assert st.st_size == 10000000000
     test_largefile.need_sparse_files = True
+
+    if hasattr(rposix, 'getpriority'):
+        def test_os_set_get_priority(self):
+            posix, os = self.posix, self.os
+            childpid = os.fork()
+            if childpid == 0:
+                # in the child (avoids changing the priority of the parent
+                # process)
+                orig_priority = posix.getpriority(posix.PRIO_PROCESS,
+                                                  os.getpid())
+                orig_grp_priority = posix.getpriority(posix.PRIO_PGRP,
+                                                      os.getpgrp())
+                posix.setpriority(posix.PRIO_PROCESS, os.getpid(),
+                                  orig_priority + 1)
+                new_priority = posix.getpriority(posix.PRIO_PROCESS,
+                                                 os.getpid())
+                assert new_priority == orig_priority + 1
+                assert posix.getpriority(posix.PRIO_PGRP, os.getpgrp()) == (
+                    orig_grp_priority)
+                os._exit(0)    # ok
+            #
+            pid1, status1 = os.waitpid(childpid, 0)
+            assert pid1 == childpid
+            assert os.WIFEXITED(status1)
+            assert os.WEXITSTATUS(status1) == 0   # else, test failure
+
+    if hasattr(rposix, 'sched_get_priority_max'):
+        def test_os_sched_get_priority_max(self):
+            import sys
+            posix, os = self.posix, self.os
+            assert posix.sched_get_priority_max(posix.SCHED_FIFO) != -1
+            assert posix.sched_get_priority_max(posix.SCHED_RR) != -1
+            assert posix.sched_get_priority_max(posix.SCHED_OTHER) != -1
+            if getattr(posix, 'SCHED_BATCH', None):
+                assert posix.sched_get_priority_max(posix.SCHED_BATCH) != -1
+
+    if hasattr(rposix, 'sched_get_priority_min'):
+        def test_os_sched_get_priority_min(self):
+            import sys
+            posix, os = self.posix, self.os
+            assert posix.sched_get_priority_min(posix.SCHED_FIFO) != -1
+            assert posix.sched_get_priority_min(posix.SCHED_RR) != -1
+            assert posix.sched_get_priority_min(posix.SCHED_OTHER) != -1
+            if getattr(posix, 'SCHED_BATCH', None):
+                assert posix.sched_get_priority_min(posix.SCHED_BATCH) != -1
+            
+    if hasattr(rposix, 'sched_get_priority_min'):
+        def test_os_sched_priority_max_greater_than_min(self):
+            posix, os = self.posix, self.os
+            policy = posix.SCHED_RR
+            low = posix.sched_get_priority_min(policy)
+            high = posix.sched_get_priority_max(policy)
+            assert isinstance(low, int) == True
+            assert isinstance(high, int) == True
+            assert  high > low
 
     def test_write_buffer(self):
         os = self.posix
@@ -1025,6 +1149,12 @@ class AppTestPosix:
             with open(dest) as f:
                 data = f.read()
                 assert data == "who cares?"
+            #
+            posix.unlink(dest)
+            posix.symlink(memoryview(bytes_dir + b"/somefile"), dest)
+            with open(dest) as f:
+                data = f.read()
+                assert data == "who cares?"
 
         # XXX skip test if dir_fd is unsupported
         def test_symlink_fd(self):
@@ -1162,6 +1292,45 @@ class AppTestPosix:
             raises(OSError, posix.get_blocking, 1234567)
             raises(OSError, posix.set_blocking, 1234567, True)
 
+    if sys.platform != 'win32':
+        def test_sendfile(self):
+            import _socket, posix
+            s1, s2 = _socket.socketpair()
+            fd = posix.open(self.path, posix.O_RDONLY)
+            res = posix.sendfile(s1.fileno(), fd, 3, 5)
+            assert res == 5
+            assert posix.lseek(fd, 0, 1) == 0
+            data = s2.recv(10)
+            expected = b'this is a test'[3:8]
+            assert data == expected
+            posix.close(fd)
+            s2.close()
+            s1.close()
+
+        def test_filename_can_be_a_buffer(self):
+            import posix, sys
+            fsencoding = sys.getfilesystemencoding()
+            pdir = (self.pdir + '/file1').encode(fsencoding)
+            fd = posix.open(pdir, posix.O_RDONLY)
+            posix.close(fd)
+            fd = posix.open(memoryview(pdir), posix.O_RDONLY)
+            posix.close(fd)
+
+    if sys.platform.startswith('linux'):
+        def test_sendfile_no_offset(self):
+            import _socket, posix
+            s1, s2 = _socket.socketpair()
+            fd = posix.open(self.path, posix.O_RDONLY)
+            posix.lseek(fd, 3, 0)
+            res = posix.sendfile(s1.fileno(), fd, None, 5)
+            assert res == 5
+            assert posix.lseek(fd, 0, 1) == 8
+            data = s2.recv(10)
+            expected = b'this is a test'[3:8]
+            assert data == expected
+            posix.close(fd)
+            s2.close()
+            s1.close()
 
     def test_urandom(self):
         os = self.posix

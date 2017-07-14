@@ -550,8 +550,8 @@ class ClassDesc(Desc):
                                         "with _mixin_: %r" % (cls,))
                 base = b1
         if mixins_before and mixins_after:
-            raise Exception("unsupported: class %r has mixin bases both"
-                            " before and after the regular base" % (self,))
+            raise AnnotatorError("unsupported: class %r has mixin bases both"
+                                 " before and after the regular base" % (self,))
         self.add_mixins(mixins_after, check_not_in=base)
         self.add_mixins(mixins_before)
         self.add_sources_for_class(cls)
@@ -569,8 +569,8 @@ class ClassDesc(Desc):
                 attrs.update(decl)
             if self.basedesc is not None:
                 if self.basedesc.all_enforced_attrs is None:
-                    raise Exception("%r has slots or _attrs_, "
-                                    "but not its base class" % (cls,))
+                    raise AnnotatorError("%r has slots or _attrs_, "
+                                         "but not its base class" % (cls,))
                 attrs.update(self.basedesc.all_enforced_attrs)
             self.all_enforced_attrs = attrs
 
@@ -714,8 +714,8 @@ class ClassDesc(Desc):
                 try:
                     args.fixedunpack(0)
                 except ValueError:
-                    raise Exception("default __init__ takes no argument"
-                                    " (class %s)" % (self.name,))
+                    raise AnnotatorError("default __init__ takes no argument"
+                                         " (class %s)" % (self.name,))
             elif self.pyobj is Exception:
                 # check explicitly against "raise Exception, x" where x
                 # is a low-level exception pointer
@@ -824,8 +824,8 @@ class ClassDesc(Desc):
         # actual copy in the rtyper). Tested in rpython.rtyper.test.test_rlist,
         # test_immutable_list_out_of_instance.
         if self._detect_invalid_attrs and attr in self._detect_invalid_attrs:
-            raise Exception("field %r was migrated to %r from a subclass in "
-                            "which it was declared as _immutable_fields_" %
+            raise AnnotatorError("field %r was migrated to %r from a subclass in "
+                                 "which it was declared as _immutable_fields_" %
                             (attr, self.pyobj))
         search1 = '%s[*]' % (attr,)
         search2 = '%s?[*]' % (attr,)
@@ -858,7 +858,7 @@ class ClassDesc(Desc):
             # call to a single class, look at the result annotation
             # in case it was specialized
             if not isinstance(s_result, SomeInstance):
-                raise Exception("calling a class didn't return an instance??")
+                raise AnnotatorError("calling a class didn't return an instance??")
             classdefs = [s_result.classdef]
         else:
             # call to multiple classes: specialization not supported

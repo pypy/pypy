@@ -140,7 +140,7 @@ class PythonAstCompiler(PyCodeCompiler):
             validate.validate_ast(self.space, node)
         except validate.ValidationError as e:
             raise OperationError(self.space.w_ValueError,
-                                 self.space.wrap(e.message))
+                                 self.space.newtext(e.message))
 
     def compile_to_ast(self, source, filename, mode, flags):
         info = pyparse.CompileInfo(filename, mode, flags)
@@ -150,7 +150,8 @@ class PythonAstCompiler(PyCodeCompiler):
         space = self.space
         try:
             parse_tree = self.parser.parse_source(source, info)
-            mod = astbuilder.ast_from_node(space, parse_tree, info)
+            mod = astbuilder.ast_from_node(space, parse_tree, info,
+                                           recursive_parser=self.parser)
         except parseerror.TabError as e:
             raise OperationError(space.w_TabError,
                                  e.wrap_info(space))

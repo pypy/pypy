@@ -73,7 +73,10 @@ class AppTestImpModule:
         # passed in, whose value is ignored. We don't implement that.
         #raises(IOError, _imp.create_dynamic, FakeSpec(), "unused")
 
-        raises(ImportError, _imp.create_dynamic, FakeSpec(b'foo'))
+        # Note: On CPython, the following gives nonsense.  I suspect
+        # it's because the b'foo' is read with PyUnicode_Xxx()
+        # functions that don't check the type of the argument.
+        raises(TypeError, _imp.create_dynamic, FakeSpec(b'foo'))
 
     def test_suffixes(self):
         import imp
@@ -105,6 +108,14 @@ class AppTestImpModule:
         assert not imp.is_builtin('hello.world.this.is.never.a.builtin.module.name')
         assert not imp.is_frozen('hello.world.this.is.never.a.frozen.module.name')
 
+    def test_is_builtin(self):
+        import sys, imp
+        for name in sys.builtin_module_names:
+            assert imp.is_builtin(name)
+            mod = imp.init_builtin(name)
+            assert mod
+            assert mod.__spec__
+    test_is_builtin.dont_track_allocations = True
 
     def test_load_module_py(self):
         import imp

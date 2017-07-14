@@ -1,67 +1,62 @@
 import math
 
 from pypy.module.cpyext import pystrtod
-from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
+from pypy.module.cpyext.pystrtod import PyOS_string_to_double
 
 
 class TestPyOS_string_to_double(BaseApiTest):
 
-    def test_simple_float(self, api):
+    def test_simple_float(self, space):
         s = rffi.str2charp('0.4')
         null = lltype.nullptr(rffi.CCHARPP.TO)
-        r = api.PyOS_string_to_double(s, null, None)
+        r = PyOS_string_to_double(space, s, null, None)
         assert r == 0.4
         rffi.free_charp(s)
 
-    def test_empty_string(self, api):
+    def test_empty_string(self, space):
         s = rffi.str2charp('')
         null = lltype.nullptr(rffi.CCHARPP.TO)
-        r = api.PyOS_string_to_double(s, null, None)
-        assert r == -1.0
-        raises(ValueError)
-        api.PyErr_Clear()
+        with raises_w(space, ValueError):
+            PyOS_string_to_double(space, s, null, None)
         rffi.free_charp(s)
 
-    def test_bad_string(self, api):
+    def test_bad_string(self, space):
         s = rffi.str2charp(' 0.4')
         null = lltype.nullptr(rffi.CCHARPP.TO)
-        r = api.PyOS_string_to_double(s, null, None)
-        assert r == -1.0
-        raises(ValueError)
-        api.PyErr_Clear()
+        with raises_w(space, ValueError):
+            PyOS_string_to_double(space, s, null, None)
         rffi.free_charp(s)
 
-    def test_overflow_pos(self, api):
+    def test_overflow_pos(self, space):
         s = rffi.str2charp('1e500')
         null = lltype.nullptr(rffi.CCHARPP.TO)
-        r = api.PyOS_string_to_double(s, null, None)
+        r = PyOS_string_to_double(space, s, null, None)
         assert math.isinf(r)
         assert r > 0
         rffi.free_charp(s)
 
-    def test_overflow_neg(self, api):
+    def test_overflow_neg(self, space):
         s = rffi.str2charp('-1e500')
         null = lltype.nullptr(rffi.CCHARPP.TO)
-        r = api.PyOS_string_to_double(s, null, None)
+        r = PyOS_string_to_double(space, s, null, None)
         assert math.isinf(r)
         assert r < 0
         rffi.free_charp(s)
 
-    def test_overflow_exc(self, space, api):
+    def test_overflow_exc(self, space):
         s = rffi.str2charp('1e500')
         null = lltype.nullptr(rffi.CCHARPP.TO)
-        r = api.PyOS_string_to_double(s, null, space.w_ValueError)
-        assert r == -1.0
-        raises(ValueError)
-        api.PyErr_Clear()
+        with raises_w(space, ValueError):
+            PyOS_string_to_double(space, s, null, space.w_ValueError)
         rffi.free_charp(s)
 
-    def test_endptr_number(self, api):
+    def test_endptr_number(self, space):
         s = rffi.str2charp('0.4')
         endp = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
-        r = api.PyOS_string_to_double(s, endp, None)
+        r = PyOS_string_to_double(space, s, endp, None)
         assert r == 0.4
         endp_addr = rffi.cast(rffi.LONG, endp[0])
         s_addr = rffi.cast(rffi.LONG, s)
@@ -69,10 +64,10 @@ class TestPyOS_string_to_double(BaseApiTest):
         rffi.free_charp(s)
         lltype.free(endp, flavor='raw')
 
-    def test_endptr_tail(self, api):
+    def test_endptr_tail(self, space):
         s = rffi.str2charp('0.4 foo')
         endp = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
-        r = api.PyOS_string_to_double(s, endp, None)
+        r = PyOS_string_to_double(space, s, endp, None)
         assert r == 0.4
         endp_addr = rffi.cast(rffi.LONG, endp[0])
         s_addr = rffi.cast(rffi.LONG, s)
@@ -80,16 +75,14 @@ class TestPyOS_string_to_double(BaseApiTest):
         rffi.free_charp(s)
         lltype.free(endp, flavor='raw')
 
-    def test_endptr_no_conversion(self, api):
+    def test_endptr_no_conversion(self, space):
         s = rffi.str2charp('foo')
         endp = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
-        r = api.PyOS_string_to_double(s, endp, None)
-        assert r == -1.0
-        raises(ValueError)
+        with raises_w(space, ValueError):
+            PyOS_string_to_double(space, s, endp, None)
         endp_addr = rffi.cast(rffi.LONG, endp[0])
         s_addr = rffi.cast(rffi.LONG, s)
         assert endp_addr == s_addr
-        api.PyErr_Clear()
         rffi.free_charp(s)
         lltype.free(endp, flavor='raw')
 

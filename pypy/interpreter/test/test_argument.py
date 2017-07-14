@@ -94,15 +94,14 @@ class DummySpace(object):
 
     def wrap(self, obj):
         return obj
+    newtext = wrap
+    newunicode = wrap
 
-    def str_w(self, s):
-        return str(s)
+    def text_w(self, s):
+        return self.unicode_w(s).encode('utf-8')
 
     def unicode_w(self, s):
         return unicode(s)
-
-    def identifier_w(self, s):
-        return self.unicode_w(s).encode('utf-8')
 
     def len(self, x):
         return len(x)
@@ -351,6 +350,7 @@ class TestArgumentsNormal(object):
                 raise OperationError(ValueError, None)
             return str(w)
         space.unicode_w = unicode_w
+        space.text_w = unicode_w
         excinfo = py.test.raises(OperationError, Arguments, space, [],
                                  ["a"], [1], w_starstararg={None: 1})
         assert excinfo.value.w_type is TypeError

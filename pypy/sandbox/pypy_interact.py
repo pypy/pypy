@@ -17,7 +17,7 @@ Options:
 Note that you can get readline-like behavior with a tool like 'ledit',
 provided you use enough -u options:
 
-    ledit python -u pypy_interact.py pypy-c-sandbox -u
+    ledit python -u pypy_interact.py pypy3-c-sandbox -u
 """
 
 import sys, os
@@ -29,7 +29,7 @@ import pypy
 LIB_ROOT = os.path.dirname(os.path.dirname(pypy.__file__))
 
 class PyPySandboxedProc(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
-    argv0 = '/bin/pypy-c'
+    argv0 = '/bin/pypy3-c'
     virtual_cwd = '/tmp'
     virtual_env = {}
     virtual_console_isatty = True
@@ -55,7 +55,7 @@ class PyPySandboxedProc(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
 
         return Dir({
             'bin': Dir({
-                'pypy-c': RealFile(self.executable, mode=0111),
+                'pypy3-c': RealFile(self.executable, mode=0111),
                 'lib-python': RealDir(os.path.join(libroot, 'lib-python'),
                                       exclude=exclude), 
                 'lib_pypy': RealDir(os.path.join(libroot, 'lib_pypy'),

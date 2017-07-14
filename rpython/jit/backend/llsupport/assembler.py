@@ -265,14 +265,16 @@ class BaseAssembler(object):
 
     def enter_portal_frame(self, op):
         if self.cpu.HAS_CODEMAP:
+            pos = self.mc.get_relative_pos(break_basic_block=False)
             self.codemap_builder.enter_portal_frame(op.getarg(0).getint(),
                                                     op.getarg(1).getint(),
-                                                    self.mc.get_relative_pos())
+                                                    pos)
 
     def leave_portal_frame(self, op):
         if self.cpu.HAS_CODEMAP:
+            pos = self.mc.get_relative_pos(break_basic_block=False)
             self.codemap_builder.leave_portal_frame(op.getarg(0).getint(),
-                                                    self.mc.get_relative_pos())
+                                                    pos)
 
     def call_assembler(self, op, argloc, vloc, result_loc, tmploc):
         """

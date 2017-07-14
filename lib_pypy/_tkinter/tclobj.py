@@ -31,7 +31,7 @@ class TypeCache(object):
 
 def FromTclString(s):
     try:
-        return s.decode('utf8')
+        return s.decode('utf-8')
     except UnicodeDecodeError:
         # Tcl encodes null character as \xc0\x80
         try:
@@ -185,7 +185,7 @@ class Tcl_Obj(object):
 
     def __repr__(self):
         return "<%s object at 0x%x>" % (
-            self.typename, tkffi.cast("intptr_t", self._value))
+            self.typename, int(tkffi.cast("intptr_t", self._value)))
 
     def __eq__(self, other):
         if not isinstance(other, Tcl_Obj):
@@ -194,7 +194,7 @@ class Tcl_Obj(object):
 
     @property
     def typename(self):
-        return tkffi.string(self._value.typePtr.name)
+        return FromTclString(tkffi.string(self._value.typePtr.name))
 
     @property
     def string(self):
@@ -203,6 +203,6 @@ class Tcl_Obj(object):
             length = tkffi.new("int*")
             s = tklib.Tcl_GetStringFromObj(self._value, length)
             value = tkffi.buffer(s, length[0])[:]
-            value = value.decode('utf8')
+            value = value.decode('utf-8')
             self._string = value
         return self._string

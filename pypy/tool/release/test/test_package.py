@@ -8,13 +8,13 @@ import tarfile, zipfile, sys
 
 class TestPackaging:
     def setup_class(cls):
-        # make sure we have sort of pypy-c
+        # make sure we have sort of pypy3-c
         if sys.platform == 'win32':
-            basename = 'pypy-c.exe'
-            cls.rename_pypy_c = 'pypy-c'
-            cls.exe_name_in_archive = 'pypy-c.exe'
+            basename = 'pypy3-c.exe'
+            cls.rename_pypy_c = 'pypy3-c'
+            cls.exe_name_in_archive = 'pypy3-c.exe'
         else:
-            basename = 'pypy-c'
+            basename = 'pypy3-c'
             cls.rename_pypy_c = package.POSIX_EXE
             cls.exe_name_in_archive = os.path.join('bin', package.POSIX_EXE)
         cls.pypy_c = py.path.local(pypydir).join('goal', basename)
@@ -96,7 +96,7 @@ def test_fix_permissions(tmpdir):
     bin   = tmpdir.join('bin')  .ensure(dir=True)
     file1 = tmpdir.join('file1').ensure(file=True)
     file2 = mydir .join('file2').ensure(file=True)
-    pypy  = bin   .join('pypy') .ensure(file=True)
+    pypy  = bin   .join('pypy3').ensure(file=True)
     #
     mydir.chmod(0700)
     bin.chmod(0700)

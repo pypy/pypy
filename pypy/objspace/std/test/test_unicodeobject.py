@@ -30,6 +30,13 @@ class TestUnicodeObject:
                 space.w_unicode, "__new__", space.w_unicode, w_uni)
         assert w_new is w_uni
 
+    def test_text_w(self):
+        space = self.space
+        w_uni = space.wrap(u'abcd')
+        assert space.text_w(w_uni) == 'abcd'
+        w_uni = space.wrap(unichr(0xd921) + unichr(0xdddd))
+        space.raises_w(space.w_UnicodeEncodeError, space.text_w, w_uni)
+
 
 class AppTestUnicodeStringStdOnly:
     def test_compares(self):
@@ -233,6 +240,9 @@ class AppTestUnicodeString:
         # check with Ll chars with no upper - nothing changes here
         assert ('\u019b\u1d00\u1d86\u0221\u1fb7'.capitalize() ==
                 '\u019b\u1d00\u1d86\u0221\u1fb7')
+
+    def test_changed_in_unicodedata_version_8(self):
+        assert u'\u025C'.upper() == u'\uA7AB'
 
     def test_isprintable(self):
         assert "".isprintable()
@@ -490,6 +500,7 @@ class AppTestUnicodeString:
         assert u'x\ty'.expandtabs(-42) == u'xy'
 
     def test_translate(self):
+        import sys
         assert 'bbbc' == 'abababc'.translate({ord('a'):None})
         assert 'iiic' == 'abababc'.translate({ord('a'):None, ord('b'):ord('i')})
         assert 'iiix' == 'abababc'.translate({ord('a'):None, ord('b'):ord('i'), ord('c'):'x'})
@@ -501,6 +512,7 @@ class AppTestUnicodeString:
         assert 'abababc'.translate({ord('a'): ''}) == 'bbbc'
 
         raises(TypeError, 'hello'.translate)
+        raises(ValueError, "\xff".translate, {0xff: sys.maxunicode+1})
 
     def test_maketrans(self):
         assert 'abababc' == 'abababc'.translate({'b': '<i>'})
@@ -911,6 +923,16 @@ class AppTestUnicodeString:
     def test_formatting_unicode__repr__(self):
         # Printable character
         assert '%r' % chr(0xe9) == "'\xe9'"
+
+    def test_formatting_not_tuple(self):
+        class mydict(dict):
+            pass
+        assert 'xxx' % mydict() == 'xxx'
+        assert 'xxx' % b'foo' == 'xxx'   # b'foo' considered as a mapping(!)
+        assert 'xxx' % bytearray() == 'xxx'   # same
+        assert 'xxx' % [] == 'xxx'       # [] considered as a mapping(!)
+        raises(TypeError, "'xxx' % 'foo'")
+        raises(TypeError, "'xxx' % 53")
 
     def test_str_subclass(self):
         class Foo9(str):

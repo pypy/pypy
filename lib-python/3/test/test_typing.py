@@ -588,6 +588,15 @@ class GenericTests(BaseTestCase):
         with self.assertRaises(TypeError):
             class MyGeneric(List[T], Generic[S]): ...
 
+    def test_generic_errors(self):
+        T = TypeVar('T')
+        with self.assertRaises(TypeError):
+            Generic[T]()
+        with self.assertRaises(TypeError):
+            isinstance([], List[int])
+        with self.assertRaises(TypeError):
+            issubclass(list, List[int])
+
     def test_init(self):
         T = TypeVar('T')
         S = TypeVar('S')

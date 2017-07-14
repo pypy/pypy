@@ -156,6 +156,8 @@ def test_simple():
             ("long int", lib._CFFI_PRIM_LONG),
             ("unsigned short", lib._CFFI_PRIM_USHORT),
             ("long double", lib._CFFI_PRIM_LONGDOUBLE),
+            (" float  _Complex", lib._CFFI_PRIM_FLOATCOMPLEX),
+            ("double _Complex ", lib._CFFI_PRIM_DOUBLECOMPLEX),
             ]:
         assert parse(simple_type) == ['->', Prim(expected)]
 
@@ -281,6 +283,11 @@ def test_error():
     parse_error("int[5](*)", "unexpected symbol", 6)
     parse_error("int a(*)", "identifier expected", 6)
     parse_error("int[123456789012345678901234567890]", "number too large", 4)
+    #
+    parse_error("_Complex", "identifier expected", 0)
+    parse_error("int _Complex", "_Complex type combination unsupported", 4)
+    parse_error("long double _Complex", "_Complex type combination unsupported",
+                12)
 
 def test_number_too_large():
     num_max = sys.maxsize

@@ -19,13 +19,16 @@ from distutils.errors import DistutilsPlatformError
 
 PREFIX = os.path.normpath(sys.prefix)
 EXEC_PREFIX = os.path.normpath(sys.exec_prefix)
+BASE_PREFIX = os.path.normpath(sys.base_prefix)
+BASE_EXEC_PREFIX = os.path.normpath(sys.base_exec_prefix)
 project_base = os.path.dirname(os.path.abspath(sys.executable))
 python_build = False
 
 
 def get_python_inc(plat_specific=0, prefix=None):
-    from os.path import join as j
-    return j(sys.prefix, 'include')
+    if prefix is None:
+        prefix = plat_specific and BASE_EXEC_PREFIX or BASE_PREFIX
+    return os.path.join(prefix, 'include')
 
 def get_python_version():
     """Return a string containing the major and minor Python version,
@@ -60,17 +63,18 @@ _config_vars = None
 
 def _init_posix():
     """Initialize the module as appropriate for POSIX systems."""
-    so_list = [s[0] for s in imp.get_suffixes() if s[2] == imp.C_EXTENSION]
-    so_ext = (so_list or ['.so'])[0]
+    so_ext = [s[0] for s in imp.get_suffixes() if s[2] == imp.C_EXTENSION][0]
+
     g = {}
-    g['CC'] = "gcc -pthread"
-    g['CXX'] = "g++ -pthread"
+    g['CC'] = "cc -pthread"
+    g['CXX'] = "c++ -pthread"
     g['OPT'] = "-DNDEBUG -O2"
     g['CFLAGS'] = "-DNDEBUG -O2"
     g['CCSHARED'] = "-fPIC"
-    g['LDSHARED'] = "gcc -pthread -shared"
-    g['SO'] = so_ext
-    g['SHLIB_SUFFIX'] = g['SO']
+    g['LDSHARED'] = "cc -pthread -shared"
+    g['EXT_SUFFIX'] = so_ext
+    g['SHLIB_SUFFIX'] = so_ext
+    g['SO'] = so_ext  # deprecated in Python 3, for backward compatibility
     g['AR'] = "ar"
     g['ARFLAGS'] = "rc"
     g['EXE'] = ""

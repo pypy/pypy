@@ -264,6 +264,8 @@ class AppTestStruct(object):
         assert pack(">?", False) == b'\x00'
         assert pack("@?", True) == b'\x01'
         assert pack("@?", False) == b'\x00'
+        assert self.struct.unpack("?", b'X')[0] is True
+        raises(TypeError, self.struct.unpack, "?", 'X')
 
     def test_transitiveness(self):
         c = b'a'
@@ -363,8 +365,8 @@ class AppTestStruct(object):
         assert self.struct.unpack("ii", b) == (62, 12)
         raises(self.struct.error, self.struct.unpack, "i", b)
 
-    def test_pack_unpack_buffer(self):
-        import array
+    def test_pack_buffer(self):
+        import array, sys
         b = array.array('b', b'\x00' * 19)
         sz = self.struct.calcsize("ii")
         for offset in [2, -17]:
@@ -377,18 +379,24 @@ class AppTestStruct(object):
         assert bytes(b2) == self.struct.pack("ii", 17, 42) + (b'\x00' * 11)
 
         exc = raises(TypeError, self.struct.pack_into, "ii", b'test', 0, 17, 42)
-        assert str(exc.value) == "a read-write buffer is requried, not bytes"
+        if '__pypy__' in sys.modules:
+            assert str(exc.value) == "a read-write bytes-like object is required, not bytes"
         exc = raises(self.struct.error, self.struct.pack_into, "ii", b[0:1], 0, 17, 42)
         assert str(exc.value) == "pack_into requires a buffer of at least 8 bytes"
 
+    def test_unpack_buffer(self):
+        import array
+        b = array.array('b', b'\x00' * 19)
+        for offset in [2, -17]:
+            self.struct.pack_into("ii", b, offset, 17, 42)
         assert self.struct.unpack_from("ii", b, 2) == (17, 42)
         assert self.struct.unpack_from("ii", b, -17) == (17, 42)
         assert self.struct.unpack_from("ii", memoryview(b)[2:]) == (17, 42)
         assert self.struct.unpack_from("ii", memoryview(b), 2) == (17, 42)
         exc = raises(TypeError, self.struct.unpack_from, "ii", 123)
-        assert str(exc.value) == "'int' does not support the buffer interface"
+        assert str(exc.value) == "a bytes-like object is required, not int"
         exc = raises(TypeError, self.struct.unpack_from, "ii", None)
-        assert str(exc.value) == "'NoneType' does not support the buffer interface"
+        assert str(exc.value) == "a bytes-like object is required, not None"
         exc = raises(self.struct.error, self.struct.unpack_from, "ii", b'')
         assert str(exc.value) == "unpack_from requires a buffer of at least 8 bytes"
         exc = raises(self.struct.error, self.struct.unpack_from, "ii", memoryview(b''))
@@ -423,6 +431,12 @@ class AppTestStruct(object):
         raises(struct.error, s.iter_unpack, b'123')
         raises(struct.error, struct.iter_unpack, 'h', b'12345')
 
+    def test_iter_unpack_empty_struct(self):
+        struct = self.struct
+        s = struct.Struct('')
+        raises(struct.error, s.iter_unpack, b'')
+        raises(struct.error, s.iter_unpack, b'?')
+
     def test___float__(self):
         class MyFloat(object):
             def __init__(self, x):
@@ -440,6 +454,14 @@ class AppTestStruct(object):
         s = self.struct.Struct('i')
         assert s.unpack(s.pack(42)) == (42,)
         assert s.unpack_from(memoryview(s.pack(42))) == (42,)
+
+    def test_struct_subclass(self):
+        class S(self.struct.Struct):
+            def __init__(self):
+                assert self.size == -1
+                super(S, self).__init__('b')
+                assert self.size == 1
+        assert S().unpack(b'a') == (ord(b'a'),)
 
     def test_overflow(self):
         raises(self.struct.error, self.struct.pack, 'i', 1<<65)
@@ -524,6 +546,17 @@ class AppTestStruct(object):
                 format = byteorder+code
                 t = run_not_int_test(format)
 
+    def test_struct_with_bytes_as_format_string(self):
+        # why??
+        assert self.struct.calcsize(b'!ii') == 8
+        b = memoryview(bytearray(8))
+        self.struct.iter_unpack(b'ii', b)
+        self.struct.pack(b"ii", 45, 56)
+        self.struct.pack_into(b"ii", b, 0, 45, 56)
+        self.struct.unpack(b"ii", b"X" * 8)
+        assert self.struct.unpack_from(b"ii", b) == (45, 56)
+        self.struct.Struct(b"ii")
+
 
 class AppTestStructBuffer(object):
     spaceconfig = dict(usemodules=['struct', '__pypy__'])
@@ -558,7 +591,7 @@ class AppTestStructBuffer(object):
 
 
 class AppTestFastPath(object):
-    spaceconfig = dict(usemodules=['struct', '__pypy__'])
+    spaceconfig = dict(usemodules=['array', 'struct', '__pypy__'])
 
     def setup_class(cls):
         from rpython.rlib.rstruct import standardfmttable
@@ -577,7 +610,43 @@ class AppTestFastPath(object):
         from rpython.rlib.rstruct import standardfmttable
         standardfmttable.ALLOW_SLOWPATH = True
 
+    def test_unpack_simple(self):
+        buf = self.struct.pack("iii", 0, 42, 43)
+        assert self.struct.unpack("iii", buf) == (0, 42, 43)
+
     def test_unpack_from(self):
         buf = self.struct.pack("iii", 0, 42, 43)
         offset = self.struct.calcsize("i")
         assert self.struct.unpack_from("ii", buf, offset) == (42, 43)
+
+    def test_unpack_bytearray(self):
+        data = self.struct.pack("iii", 0, 42, 43)
+        buf = bytearray(data)
+        assert self.struct.unpack("iii", buf) == (0, 42, 43)
+
+    def test_unpack_array(self):
+        import array
+        data = self.struct.pack("iii", 0, 42, 43)
+        buf = array.array('B', data)
+        assert self.struct.unpack("iii", buf) == (0, 42, 43)
+
+    def test_pack_into_bytearray(self):
+        expected = self.struct.pack("ii", 42, 43)
+        buf = bytearray(len(expected))
+        self.struct.pack_into("ii", buf, 0, 42, 43)
+        assert buf == expected
+
+    def test_pack_into_bytearray_padding(self):
+        expected = self.struct.pack("xxi", 42)
+        buf = bytearray(len(expected))
+        self.struct.pack_into("xxi", buf, 0, 42)
+        assert buf == expected
+
+    def test_pack_into_bytearray_delete(self):
+        expected = self.struct.pack("i", 42)
+        # force W_BytearrayObject._delete_from_start
+        buf = bytearray(64)
+        del buf[:8]
+        self.struct.pack_into("i", buf, 0, 42)
+        buf = buf[:len(expected)]
+        assert buf == expected

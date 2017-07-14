@@ -210,7 +210,6 @@ def _ll_2_list_pop(l, index):
     return rlist.ll_pop(rlist.dum_checkidx, l, index)
 _ll_2_list_append = rlist.ll_append
 _ll_2_list_extend = rlist.ll_extend
-_ll_3_list_insert = rlist.ll_insert_nonneg
 _ll_2_list_delslice_startonly = rlist.ll_listdelslice_startonly
 _ll_3_list_delslice_startstop = rlist.ll_listdelslice_startstop
 _ll_2_list_inplace_mul = rlist.ll_inplace_mul

@@ -152,9 +152,9 @@ def makePyPseudoDFA ():
         return group(states,
                      chain(states,
                            maybe(states, groupStr(states, "rR")),
-                           maybe(states, groupStr(states, "bB"))),
+                           maybe(states, groupStr(states, "bBfF"))),
                      chain(states,
-                           maybe(states, groupStr(states, "bB")),
+                           maybe(states, groupStr(states, "bBfF")),
                            maybe(states, groupStr(states, "rR"))),
                      maybe(states, groupStr(states, "uU")))
     # ____________________________________________________________

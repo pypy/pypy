@@ -152,3 +152,13 @@ class AppTest_Descriptor:
         assert hash(myfloat(-1.0)) == -2
         assert hash(myHashClass()) == -2
         assert hash(myHashClass3()) == hash(-10**100)
+
+    def test_descr_funny_new(self):
+        class C(object):
+            @classmethod
+            def __new__(*args):
+                return args
+
+        assert C.__new__(1,2) == (C, 1, 2)
+        assert C(1,2) == (C, C, 1, 2)
+

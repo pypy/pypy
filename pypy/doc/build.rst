@@ -49,13 +49,16 @@ Install build-time dependencies
 -------------------------------
 (**Note**: for some hints on how to translate the Python interpreter under
 Windows, see the `windows document`_ . For hints on how to cross-compile in
-a chroot using scratchbox2, see the `arm document`_ in the 
+a chroot using scratchbox2, see the `arm document`_ in the
 `RPython documentation`_)
 
 .. _`windows document`: windows.html
 .. _`arm document`: http://rpython.readthedocs.org/en/latest/arm.html
 .. _`RPython documentation`: http://rpython.readthedocs.org
 
+The host Python needs to have CFFI installed. If translating on PyPy, CFFI is
+already installed. If translating on CPython, you need to install it, e.g.
+using ``pip install cffi``.
 
 To build PyPy on Unix using the C translation backend, you need at least a C
 compiler and ``make`` installed. Further, some optional modules have additional
@@ -76,6 +79,9 @@ pyexpat
 _ssl
     libssl
 
+_vmprof
+    libunwind (optional, loaded dynamically at runtime)
+
 Make sure to have these libraries (with development headers) installed
 before building PyPy, otherwise the resulting binary will not contain
 these modules.  Furthermore, the following libraries should be present
@@ -87,7 +93,8 @@ sqlite3
     libsqlite3
 
 curses
-    libncurses
+    libncurses-dev   (for PyPy2)
+    libncursesw-dev  (for PyPy3)
 
 gdbm
     libgdbm-dev
@@ -100,26 +107,27 @@ lzma (PyPy3 only)
 
 To run untranslated tests, you need the Boehm garbage collector libgc.
 
-On Debian, this is the command to install all build-time dependencies::
+On Debian and Ubuntu, this is the command to install all build-time
+dependencies::
 
     apt-get install gcc make libffi-dev pkg-config libz-dev libbz2-dev \
     libsqlite3-dev libncurses-dev libexpat1-dev libssl-dev libgdbm-dev \
-    tk-dev libgc-dev \
-    liblzma-dev  # For lzma on PyPy3.
+    tk-dev libgc-dev python-cffi \
+    liblzma-dev libncursesw-dev      # these two only needed on PyPy3
 
 On Fedora::
 
     dnf install gcc make libffi-devel pkgconfig zlib-devel bzip2-devel \
-    lib-sqlite3-devel ncurses-devel expat-devel openssl-devel tk-devel \
-    gdbm-devel \
+    sqlite-devel ncurses-devel expat-devel openssl-devel tk-devel \
+    gdbm-devel python-cffi\
     xz-devel  # For lzma on PyPy3.
 
 On SLES11::
 
     zypper install gcc make python-devel pkg-config \
     zlib-devel libopenssl-devel libbz2-devel sqlite3-devel \
-    libexpat-devel libffi-devel python-curses \
-    xz-devel  # For lzma on PyPy3.
+    libexpat-devel libffi-devel python-curses python-cffi \
+    xz-devel # For lzma on PyPy3.
     (XXX plus the SLES11 version of libgdbm-dev and tk-dev)
 
 On Mac OS X, most of these build-time dependencies are installed alongside
@@ -156,7 +164,8 @@ Various stdlib modules require a separate build step to create the cffi
 import libraries in the `out-of-line API mode`_. This is done by the following
 command::
 
-   PYTHONPATH=. ./pypy-c pypy/tool/build_cffi_imports.py
+   cd pypy/goal
+   PYTHONPATH=../.. ./pypy-c ../tool/build_cffi_imports.py
 
 .. _`out-of-line API mode`: http://cffi.readthedocs.org/en/latest/overview.html#real-example-api-level-out-of-line
 
@@ -179,14 +188,37 @@ mostly libraries that would normally be compiled if and when they are
 imported the first time.
 
 ::
-    
+
     cd pypy/tool/release
-    ./package.py pypy-VER-PLATFORM
+    ./package.py --archive-name=pypy-VER-PLATFORM
 
 This creates a clean and prepared hierarchy, as well as a ``.tar.bz2``
 with the same content; both are found by default in
 ``/tmp/usession-YOURNAME/build/``.  You can then either move the file
 hierarchy or unpack the ``.tar.bz2`` at the correct place.
+
+It is recommended to use package.py because custom scripts will
+invariably become out-of-date.  If you want to write custom scripts
+anyway, note an easy-to-miss point: some modules are written with CFFI,
+and require some compilation.  If you install PyPy as root without
+pre-compiling them, normal users will get errors:
+
+* PyPy 2.5.1 or earlier: normal users would see permission errors.
+  Installers need to run ``pypy -c "import gdbm"`` and other similar
+  commands at install time; the exact list is in `package.py`_.  Users
+  seeing a broken installation of PyPy can fix it after-the-fact if they
+  have sudo rights, by running once e.g. ``sudo pypy -c "import gdbm``.
+
+* PyPy 2.6 and later: anyone would get ``ImportError: no module named
+  _gdbm_cffi``.  Installers need to run ``pypy _gdbm_build.py`` in the
+  ``lib_pypy`` directory during the installation process (plus others;
+  see the exact list in `package.py`_).  Users seeing a broken
+  installation of PyPy can fix it after-the-fact, by running ``pypy
+  /path/to/lib_pypy/_gdbm_build.py``.  This command produces a file
+  called ``_gdbm_cffi.pypy-41.so`` locally, which is a C extension
+  module for PyPy.  You can move it at any place where modules are
+  normally found: e.g. in your project's main directory, or in a
+  directory that you add to the env var ``PYTHONPATH``.
 
 
 Installation
@@ -216,5 +248,3 @@ WARNING: library path not found, using compiled-in sys.path`` and then attempt
 to continue normally. If the default path is usable, most code will be fine.
 However, the ``sys.prefix`` will be unset and some existing libraries assume
 that this is never the case.
-
-

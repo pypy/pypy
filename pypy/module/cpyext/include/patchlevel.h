@@ -21,16 +21,16 @@
 /* Version parsed out into numeric values */
 #define PY_MAJOR_VERSION	3
 #define PY_MINOR_VERSION	6
-#define PY_MICRO_VERSION	0
+#define PY_MICRO_VERSION	1
 #define PY_RELEASE_LEVEL	PY_RELEASE_LEVEL_FINAL
 #define PY_RELEASE_SERIAL	0
 
 /* Version as a string */
-#define PY_VERSION		"3.6.0"
+#define PY_VERSION		"3.6.1"
 
 /* PyPy version as a string */
-#define PYPY_VERSION "5.6.0-alpha0"
-#define PYPY_VERSION_NUM  0x05060000
+#define PYPY_VERSION "5.9.0-alpha0"
+#define PYPY_VERSION_NUM  0x05090000
 
 /* Defined to mean a PyPy where cpyext holds more regular references
    to PyObjects, e.g. staying alive as long as the internal PyPy object

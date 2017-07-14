@@ -8,6 +8,7 @@ import stat
 import sys
 
 from rpython.rlib import rpath, rdynload
+from rpython.rlib.rstring import assert_str0
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -73,18 +74,60 @@ def resolvedirof(filename):
     return dirname
 
 
+def find_pyvenv_cfg(dirname):
+    try:
+        fd = os.open(os.path.join(dirname, 'pyvenv.cfg'), os.O_RDONLY, 0)
+        try:
+            content = os.read(fd, 16384)
+        finally:
+            os.close(fd)
+    except OSError:
+        return ''
+    # painfully parse the file for a line 'home = PATH'
+    for line in content.splitlines():
+        line += '\x00'
+        i = 0
+        while line[i] == ' ':
+            i += 1
+        if (line[i] == 'h' and
+            line[i+1] == 'o' and
+            line[i+2] == 'm' and
+            line[i+3] == 'e'):
+            i += 4
+            while line[i] == ' ':
+                i += 1
+            if line[i] == '=':
+                line = line[i+1:]
+                n = line.find('\x00')
+                assert n >= 0
+                line = line[:n]
+                return assert_str0(line.strip())
+    return ''
+
+
 def find_stdlib(state, executable):
     """
     Find and compute the stdlib path, starting from the directory where
     ``executable`` is and going one level up until we find it.  Return a
     tuple (path, prefix), where ``prefix`` is the root directory which
     contains the stdlib.  If it cannot be found, return (None, None).
+
+    On PyPy3, it will also look for 'pyvenv.cfg' either in the same or
+    in the parent directory of 'executable', and search from the 'home'
+    entry instead of from the path to 'executable'.
     """
-    search = 'pypy-c' if executable == '' else executable
+    search = 'pypy3-c' if executable == '' else executable
+    search_pyvenv_cfg = 2
     while True:
         dirname = resolvedirof(search)
         if dirname == search:
             return None, None  # not found :-(
+        if search_pyvenv_cfg > 0:
+            search_pyvenv_cfg -= 1
+            home = find_pyvenv_cfg(dirname)
+            if home:
+                dirname = home
+                search_pyvenv_cfg = 0
         newpath = compute_stdlib_path_maybe(state, dirname)
         if newpath is not None:
             return newpath, dirname
@@ -117,7 +160,7 @@ def compute_stdlib_path(state, prefix):
 
     if state is not None:    # 'None' for testing only
         lib_extensions = os.path.join(lib_pypy, '__extensions__')
-        state.w_lib_extensions = state.space.wrap_fsdecoded(lib_extensions)
+        state.w_lib_extensions = state.space.newfilename(lib_extensions)
         importlist.append(lib_extensions)
 
     importlist.append(lib_pypy)
@@ -149,12 +192,12 @@ def compute_stdlib_path_maybe(state, prefix):
 
 @unwrap_spec(executable='fsencode')
 def pypy_find_executable(space, executable):
-    return space.wrap_fsdecoded(find_executable(executable))
+    return space.newfilename(find_executable(executable))
 
 
 @unwrap_spec(filename='fsencode')
 def pypy_resolvedirof(space, filename):
-    return space.wrap_fsdecoded(resolvedirof(filename))
+    return space.newfilename(resolvedirof(filename))
 
 
 @unwrap_spec(executable='fsencode')
@@ -171,12 +214,12 @@ def pypy_find_stdlib(space, executable):
                 path, prefix = find_stdlib(get_state(space), dyn_path)
         if path is None:
             return space.w_None
-    w_prefix = space.wrap_fsdecoded(prefix)
-    space.setitem(space.sys.w_dict, space.wrap('prefix'), w_prefix)
-    space.setitem(space.sys.w_dict, space.wrap('exec_prefix'), w_prefix)
-    space.setitem(space.sys.w_dict, space.wrap('base_prefix'), w_prefix)
-    space.setitem(space.sys.w_dict, space.wrap('base_exec_prefix'), w_prefix)
-    return space.newlist([space.wrap_fsdecoded(p) for p in path])
+    w_prefix = space.newfilename(prefix)
+    space.setitem(space.sys.w_dict, space.newtext('prefix'), w_prefix)
+    space.setitem(space.sys.w_dict, space.newtext('exec_prefix'), w_prefix)
+    space.setitem(space.sys.w_dict, space.newtext('base_prefix'), w_prefix)
+    space.setitem(space.sys.w_dict, space.newtext('base_exec_prefix'), w_prefix)
+    return space.newlist([space.newfilename(p) for p in path])
 
 def pypy_initfsencoding(space):
     space.sys.filesystemencoding = _getfilesystemencoding(space)

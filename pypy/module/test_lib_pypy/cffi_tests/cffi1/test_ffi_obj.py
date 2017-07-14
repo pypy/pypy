@@ -234,6 +234,7 @@ def test_ffi_buffer():
     a = ffi.new("signed char[]", [5, 6, 7])
     assert ffi.buffer(a)[:] == b'\x05\x06\x07'
     assert ffi.buffer(cdata=a, size=2)[:] == b'\x05\x06'
+    assert type(ffi.buffer(a)) is ffi.buffer
 
 def test_ffi_from_buffer():
     import array

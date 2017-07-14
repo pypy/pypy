@@ -107,6 +107,17 @@ class _TracebackLogger:
             self.loop.call_exception_handler({'message': msg})
 
 
+def isfuture(obj):
+    """Check for a Future.
+
+    This returns True when obj is a Future instance or is advertising
+    itself as duck-type compatible by setting _asyncio_future_blocking.
+    See comment in Future for more details.
+    """
+    return (hasattr(obj.__class__, '_asyncio_future_blocking') and
+            obj._asyncio_future_blocking is not None)
+
+
 class Future:
     """This class is *almost* compatible with concurrent.futures.Future.
 

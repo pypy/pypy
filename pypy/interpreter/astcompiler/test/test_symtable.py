@@ -283,7 +283,6 @@ class TestSymbolTable:
     def test_global(self):
         scp = self.func_scope("def f():\n   global x\n   x = 4")
         assert scp.lookup("x") == symtable.SCOPE_GLOBAL_EXPLICIT
-        input = "def f(x):\n   global x"
         scp = self.func_scope("""def f():
     y = 3
     def x():
@@ -295,18 +294,38 @@ class TestSymbolTable:
         xscp, zscp = scp.children
         assert xscp.lookup("y") == symtable.SCOPE_GLOBAL_EXPLICIT
         assert zscp.lookup("y") == symtable.SCOPE_FREE
-        exc = py.test.raises(SyntaxError, self.func_scope, input).value
+
+        src = "def f(x):\n   global x"
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.lineno == 2
         assert exc.msg == "name 'x' is parameter and global"
 
-    def test_nonlocal(self):
-        src = str(py.code.Source("""
-                     def f():
-                         nonlocal x
-                         global x
-                 """))
+    def test_global_nested(self):
+        src = """
+def f(x):
+    def g(x):
+        global x"""
         exc = py.test.raises(SyntaxError, self.func_scope, src).value
-        assert exc.msg == "name 'x' is nonlocal and global"
-        #
+        assert exc.lineno == 4
+        assert exc.msg == "name 'x' is parameter and global"
+
+        scp = self.func_scope("""
+def f(x):
+    def g():
+        global x""")
+        g = scp.children[0]
+        assert g.name == 'g'
+        x = g.lookup_role('x')
+        assert x == symtable.SYM_GLOBAL
+
+    def test_nonlocal(self):
+        src = """
+x = 1
+def f():
+    nonlocal x"""
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.msg == "no binding for nonlocal 'x' found"
+
         src = str(py.code.Source("""
                      def f(x):
                          nonlocal x
@@ -324,6 +343,58 @@ class TestSymbolTable:
         src = "nonlocal x"
         exc = py.test.raises(SyntaxError, self.func_scope, src).value
         assert exc.msg == "nonlocal declaration not allowed at module level"
+        assert exc.lineno == 1
+
+        src = "x = 2\nnonlocal x"
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.msg == "nonlocal declaration not allowed at module level"
+        assert exc.lineno == 2
+
+    def test_nonlocal_and_global(self):
+        """This test differs from CPython3 behaviour. CPython points to the
+        first occurance of the global/local expression. PyPy will point to the
+        last expression which makes the problem."""
+        src = """
+def f():
+    nonlocal x
+    global x"""
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.msg == "name 'x' is nonlocal and global"
+        assert exc.lineno == 4
+
+        src = """
+def f():
+    global x
+    nonlocal x """
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.msg == "name 'x' is nonlocal and global"
+        assert exc.lineno == 4
+
+    def test_nonlocal_nested(self):
+        scp = self.func_scope("""
+def f(x):
+    def g():
+        nonlocal x""")
+        g = scp.children[0]
+        x = g.lookup_role('x')
+        assert x == symtable.SYM_NONLOCAL
+
+        scp = self.func_scope("""
+def f():
+    def g():
+        nonlocal x
+    x = 1""")
+        g = scp.children[0]
+        x = g.lookup_role('x')
+        assert x == symtable.SYM_NONLOCAL
+
+        src = """
+def f(x):
+    def g(x):
+        nonlocal x"""
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.msg == "name 'x' is parameter and nonlocal"
+        assert exc.lineno == 4
 
     def test_optimization(self):
         assert not self.mod_scope("").can_be_optimized
@@ -363,6 +434,13 @@ class TestSymbolTable:
             input = "def f():\n    " + input
             scp = self.func_scope(input)
         scp = self.func_scope("def f():\n    return\n    yield x")
+
+    def test_async_def(self):
+        # CPython compatibility only; "is_generator" is otherwise ignored
+        scp = self.func_scope("async def f(): pass")
+        assert not scp.is_generator
+        scp = self.func_scope("async def f(): await 5")
+        assert scp.is_generator
 
     def test_yield_inside_try(self):
         scp = self.func_scope("def f(): yield x")

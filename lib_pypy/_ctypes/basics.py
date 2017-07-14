@@ -64,8 +64,9 @@ class _CDataMeta(type):
         res = object.__new__(self)
         res.__class__ = self
         res.__dict__['_buffer'] = resbuffer
-        res.__dict__['_base'] = base
-        res.__dict__['_index'] = index
+        if base is not None:
+            res.__dict__['_base'] = base
+            res.__dict__['_index'] = index
         return res
 
     def _CData_retval(self, resbuffer):
@@ -92,7 +93,11 @@ class _CDataMeta(type):
                 % (buf.nbytes, offset + size))
         raw_addr = buf._pypy_raw_address() + offset
         result = self.from_address(raw_addr)
-        result._ensure_objects()['ffffffff'] = obj
+        objects = result._ensure_objects()
+        if objects is not None:
+            objects['ffffffff'] = obj
+        else:   # case e.g. of a primitive type like c_int
+            result._objects = obj
         return result
 
     def from_buffer_copy(self, obj, offset=0):

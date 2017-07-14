@@ -302,3 +302,20 @@ class AppTestLockSignals(GenericTestThread):
         finally:
             signal.signal(signal.SIGALRM, oldalrm)
 
+    def test_lock_repr(self):
+        import _thread
+        lock = _thread.allocate_lock()
+        assert repr(lock).startswith("<unlocked _thread.lock object at ")
+        lock.acquire()
+        assert repr(lock).startswith("<locked _thread.lock object at ")
+
+    def test_rlock_repr(self):
+        import _thread
+        rlock = _thread.RLock()
+        assert repr(rlock).startswith(
+            "<unlocked _thread.RLock object owner=0 count=0 at ")
+        rlock.acquire()
+        rlock.acquire()
+        assert repr(rlock).startswith("<locked _thread.RLock object owner=")
+        assert 'owner=0' not in repr(rlock)
+        assert " count=2 at " in repr(rlock)

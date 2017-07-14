@@ -7,4 +7,4 @@ PyDictProxy_Check, PyDictProxy_CheckExact = build_type_checkers(
 
 @cpython_api([PyObject], PyObject)
 def PyDictProxy_New(space, w_dict):
-    return space.wrap(W_DictProxyObject(w_dict))
+    return W_DictProxyObject(w_dict)

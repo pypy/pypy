@@ -46,18 +46,18 @@ class AppTestUnicodeData:
     def test_cjk(self):
         import sys
         import unicodedata
-        cases = ((0x3400, 0x4DB5),
-                 (0x4E00, 0x9FA5))
-        if unicodedata.unidata_version >= "5":    # don't know the exact limit
-            cases = ((0x3400, 0x4DB5),
-                     (0x4E00, 0x9FCB),
-                     (0x20000, 0x2A6D6),
-                     (0x2A700, 0x2B734))
-        elif unicodedata.unidata_version >= "4.1":
-            cases = ((0x3400, 0x4DB5),
-                     (0x4E00, 0x9FBB),
-                     (0x20000, 0x2A6D6))
+        assert unicodedata.unidata_version >= "8"
+        cases = [
+            ('3400', '4DB5'),
+            ('4E00', '9FD5'),
+            ('20000', '2A6D6'),
+            ('2A700', '2B734'),
+            ('2B740', '2B81D'),
+            ('2B820', '2CEA1'),
+        ]
         for first, last in cases:
+            first = int(first, 16)
+            last = int(last, 16)
             # Test at and inside the boundary
             for i in (first, first + 1, last - 1, last):
                 charname = 'CJK UNIFIED IDEOGRAPH-%X'%i

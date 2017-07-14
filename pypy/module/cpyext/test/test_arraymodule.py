@@ -25,27 +25,27 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
 
     def test_index(self):
         module = self.import_module(name='array')
-        arr = module.array('i', [1,2,3,4])
+        arr = module.array('i', [1, 2, 3, 4])
         assert arr[3] == 4
         raises(IndexError, arr.__getitem__, 10)
         del arr[2]
-        assert arr.tolist() == [1,2,4]
+        assert arr.tolist() == [1, 2, 4]
         arr[2] = 99
-        assert arr.tolist() == [1,2,99]
+        assert arr.tolist() == [1, 2, 99]
 
     def test_slice_get(self):
         module = self.import_module(name='array')
-        arr = module.array('i', [1,2,3,4])
-        assert arr[:].tolist() == [1,2,3,4]
-        assert arr[1:].tolist() == [2,3,4]
-        assert arr[:2].tolist() == [1,2]
-        assert arr[1:3].tolist() == [2,3]
+        arr = module.array('i', [1, 2, 3, 4])
+        assert arr[:].tolist() == [1, 2, 3, 4]
+        assert arr[1:].tolist() == [2, 3, 4]
+        assert arr[:2].tolist() == [1, 2]
+        assert arr[1:3].tolist() == [2, 3]
 
     def test_slice_object(self):
         module = self.import_module(name='array')
-        arr = module.array('i', [1,2,3,4])
-        assert arr[slice(1,3)].tolist() == [2,3]
-        arr[slice(1,3)] = module.array('i', [21, 22, 23])
+        arr = module.array('i', [1, 2, 3, 4])
+        assert arr[slice(1, 3)].tolist() == [2,3]
+        arr[slice(1, 3)] = module.array('i', [21, 22, 23])
         assert arr.tolist() == [1, 21, 22, 23, 4]
         del arr[slice(1, 3)]
         assert arr.tolist() == [1, 23, 4]
@@ -54,20 +54,40 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
     def test_buffer(self):
         import sys
         module = self.import_module(name='array')
-        arr = module.array('i', [1,2,3,4])
+        arr = module.array('i', [1, 2, 3, 4])
         buf = memoryview(arr)
         exc = raises(TypeError, "buf[1] = 1")
         assert str(exc.value) == "cannot modify read-only memory"
         if sys.byteorder == 'big':
-            assert bytes(buf) == (b'\0\0\0\x01'
-                                b'\0\0\0\x02'
-                                b'\0\0\0\x03'
-                                b'\0\0\0\x04')
+            expected = b'\0\0\0\x01\0\0\0\x02\0\0\0\x03\0\0\0\x04'
         else:
-            assert bytes(buf) == (b'\x01\0\0\0'
-                                b'\x02\0\0\0'
-                                b'\x03\0\0\0'
-                                b'\x04\0\0\0')
+            expected = b'\x01\0\0\0\x02\0\0\0\x03\0\0\0\x04\0\0\0'
+        assert bytes(buf) == expected
+
+    def test_releasebuffer(self):
+        module = self.import_module(name='array')
+        arr = module.array('i', [1,2,3,4])
+        assert module.get_releasebuffer_cnt() == 0
+        module.create_and_release_buffer(arr)
+        assert module.get_releasebuffer_cnt() == 1
+
+    def test_Py_buffer(self):
+        module = self.import_module(name='array')
+        arr = module.array('i', [1,2,3,4])
+        assert module.get_releasebuffer_cnt() == 0
+        m = memoryview(arr)
+        assert module.get_releasebuffer_cnt() == 0
+        del m
+        self.debug_collect()
+        assert module.get_releasebuffer_cnt() == 1
+
+    def test_0d_view(self):
+        module = self.import_module(name='array')
+        arr = module.array('B', b'\0\0\0\x01')
+        buf = memoryview(arr).cast('i', shape=())
+        assert bytes(buf) == b'\0\0\0\x01'
+        assert buf.shape == ()
+        assert buf.strides == ()
 
     def test_binop_mul_impl(self):
         # check that rmul is called
@@ -78,6 +98,15 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         module.switch_multiply()
         res = [1, 2, 3] * arr
         assert res == [2, 4, 6]
+
+    def test_string_buf(self):
+        module = self.import_module(name='array')
+        arr = module.array('u', '123')
+        view = memoryview(arr)
+        assert view.itemsize == 4
+        assert module.write_buffer_len(arr) == 12
+        assert len(module.readbuffer_as_string(arr)) == 12
+        assert len(module.readbuffer_as_string(view)) == 12
 
     def test_subclass(self):
         import struct

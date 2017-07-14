@@ -140,7 +140,7 @@ testmap = [
     RegrTest('test_cmath.py', core=True),
     RegrTest('test_cmd.py'),
     RegrTest('test_cmd_line.py'),
-    RegrTest('test_cmd_line_script.py', skip="XXX: deadlocks?"),
+    RegrTest('test_cmd_line_script.py'),
     RegrTest('test_code.py', core=True),
     RegrTest('test_code_module.py'),
     RegrTest('test_codeccallbacks.py', core=True),
@@ -267,7 +267,7 @@ testmap = [
     RegrTest('test_imaplib.py'),
     RegrTest('test_imghdr.py'),
     RegrTest('test_import'),
-    RegrTest('test_importlib', skip='XXX segfaults'),
+    RegrTest('test_importlib'),
     RegrTest('test_imp.py', core=True, usemodules='thread'),
     RegrTest('test_index.py'),
     RegrTest('test_inspect.py', usemodules="struct unicodedata"),
@@ -310,10 +310,10 @@ testmap = [
     RegrTest('test_modulefinder.py'),
     RegrTest('test_msilib.py'),
     RegrTest('test_multibytecodec.py', usemodules='_multibytecodec'),
-    RegrTest('test_multiprocessing_fork.py', skip="XXX: deadlocks?"),
-    RegrTest('test_multiprocessing_forkserver.py', skip="XXX: deadlocks?"),
-    RegrTest('test_multiprocessing_main_handling.py', skip="XXX: deadlocks?"),
-    RegrTest('test_multiprocessing_spawn.py', skip="XXX: deadlocks?"),
+    RegrTest('test_multiprocessing_fork.py'),
+    RegrTest('test_multiprocessing_forkserver.py'),
+    RegrTest('test_multiprocessing_main_handling.py'),
+    RegrTest('test_multiprocessing_spawn.py'),
     RegrTest('test_netrc.py'),
     RegrTest('test_nis.py'),
     RegrTest('test_nntplib.py'),
@@ -397,7 +397,7 @@ testmap = [
     RegrTest('test_source_encoding.py'),
     RegrTest('test_spwd.py'),
     RegrTest('test_sqlite.py', usemodules="thread _rawffi zlib"),
-    RegrTest('test_ssl.py', usemodules='_ssl _socket select'),
+    RegrTest('test_ssl.py', usemodules='_socket select'),
     RegrTest('test_startfile.py'),
     RegrTest('test_stat.py'),
     RegrTest('test_statistics.py'),
@@ -603,7 +603,7 @@ class ReallyRunFileExternal(py.test.collect.Item):
                     py.test.skip("%s module not included in %s" % (mod,
                                                                    execpath))
 
-            cmd = "%s %s %s" % (execpath, regrrun, fspath.purebasename)
+            cmd = "%s -m test -v %s" % (execpath, fspath.purebasename)
             # add watchdog for timing out
             cmd = "%s %s %s %s" % (python, watchdog_script, TIMEOUT, cmd)
         else:

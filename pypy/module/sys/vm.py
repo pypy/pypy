@@ -36,7 +36,7 @@ def getframe(space, depth):
             raise oefmt(space.w_ValueError, "call stack is not deep enough")
         if depth == 0:
             f.mark_as_escaped()
-            return space.wrap(f)
+            return f
         depth -= 1
         f = ec.getnextframe_nohidden(f)
 
@@ -73,7 +73,7 @@ value to N reserves N/1000 times 768KB of stack space.
 def getrecursionlimit(space):
     """Return the last value set by setrecursionlimit().
     """
-    return space.wrap(space.sys.recursionlimit)
+    return space.newint(space.sys.recursionlimit)
 
 @unwrap_spec(interval=int)
 def setcheckinterval(space, interval):
@@ -91,7 +91,7 @@ def getcheckinterval(space):
     result = space.actionflag.getcheckinterval()
     if result <= 1:
         result = 0
-    return space.wrap(result)
+    return space.newint(result)
 
 @unwrap_spec(interval=float)
 def setswitchinterval(space, interval):
@@ -110,7 +110,7 @@ def getswitchinterval(space):
     """For CPython compatibility, this maps to
     sys.getcheckinterval() / 2000000
     """
-    return space.wrap(space.actionflag.getcheckinterval() / 2000000.0)
+    return space.newfloat(space.actionflag.getcheckinterval() / 2000000.0)
 
 def exc_info(space):
     """Return the (type, value, traceback) of the most recent exception
@@ -124,7 +124,7 @@ def exc_info_with_tb(space):
         return space.newtuple([space.w_None, space.w_None, space.w_None])
     else:
         return space.newtuple([operror.w_type, operror.get_w_value(space),
-                               space.wrap(operror.get_traceback())])
+                               operror.get_w_traceback(space)])
 
 def exc_info_without_tb(space, operror):
     return space.newtuple([operror.w_type, operror.get_w_value(space),
@@ -234,6 +234,7 @@ class windows_version_info(metaclass=structseqtype):
     service_pack_minor = structseqfield(11, "Service Pack minor version number")
     suite_mask = structseqfield(12, "Bit mask identifying available product suites")
     product_type = structseqfield(13, "System product type")
+    _platform_version = structseqfield(14, "Diagnostic version number")
 ''')
 
 
@@ -242,22 +243,25 @@ def getwindowsversion(space):
     info = rwin32.GetVersionEx()
     w_windows_version_info = app.wget(space, "windows_version_info")
     raw_version = space.newtuple([
-        space.wrap(info[0]),
-        space.wrap(info[1]),
-        space.wrap(info[2]),
-        space.wrap(info[3]),
-        space.wrap(info[4]),
-        space.wrap(info[5]),
-        space.wrap(info[6]),
-        space.wrap(info[7]),
-        space.wrap(info[8]),
+        space.newint(info[0]),
+        space.newint(info[1]),
+        space.newint(info[2]),
+        space.newint(info[3]),
+        space.newtext(info[4]),
+        space.newint(info[5]),
+        space.newint(info[6]),
+        space.newint(info[7]),
+        space.newint(info[8]),
+        # leave _platform_version empty, platform.py will use the main
+        # version numbers above.
+        space.w_None,
     ])
     return space.call_function(w_windows_version_info, raw_version)
 
 @jit.dont_look_inside
 def get_dllhandle(space):
     if not space.config.objspace.usemodules.cpyext:
-        return space.wrap(0)
+        return space.newint(0)
 
     return _get_dllhandle(space)
 
@@ -270,12 +274,20 @@ def _get_dllhandle(space):
     # from pypy.module._rawffi.interp_rawffi import W_CDLL
     # from rpython.rlib.clibffi import RawCDLL
     # cdll = RawCDLL(handle)
-    # return space.wrap(W_CDLL(space, "python api", cdll))
+    # return W_CDLL(space, "python api", cdll)
     # Provide a cpython-compatible int
     from rpython.rtyper.lltypesystem import lltype, rffi
-    return space.wrap(rffi.cast(lltype.Signed, handle))
+    return space.newint(rffi.cast(lltype.Signed, handle))
 
 getsizeof_missing = """sys.getsizeof() is not implemented on PyPy.
+
+First note that the CPython documentation says that this function may
+raise a TypeError, so if you are seeing it, it means that the program
+you are using is not correctly handling this case.
+
+On PyPy, though, it always raises TypeError.  Before looking for
+alternatives, please take a moment to read the following explanation as
+to why it is the case.  What you are looking for may not be possible.
 
 A memory profiler using this function is most likely to give results
 inconsistent with reality on PyPy.  It would be possible to have
@@ -329,4 +341,4 @@ def set_coroutine_wrapper(space, w_wrapper):
         raise oefmt(space.w_TypeError, "callable expected, got %T", w_wrapper)
 
 def is_finalizing(space):
-    return space.wrap(space.sys.finalizing)
+    return space.newbool(space.sys.finalizing)

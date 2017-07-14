@@ -1,5 +1,6 @@
 from rpython.rlib.rarithmetic import LONG_BIT, r_longlong, r_uint
-from rpython.rlib.rstring import StringBuilder, assert_str0
+from rpython.rlib.rstring import assert_str0
+from rpython.rlib.mutbuffer import MutableStringBuffer
 from rpython.rlib.rstruct import ieee
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib import objectmodel
@@ -213,9 +214,9 @@ def unmarshal_long(space, u, tc):
 
 
 def pack_float(f):
-    result = StringBuilder(8)
-    ieee.pack_float(result, f, 8, False)
-    return result.build()
+    buf = MutableStringBuffer(8)
+    ieee.pack_float(buf, 0, f, 8, False)
+    return buf.finish()
 
 def unpack_float(s):
     return ieee.unpack_float(s, False)
@@ -227,12 +228,12 @@ def marshal_float(space, w_float, m):
         m.put(pack_float(w_float.floatval))
     else:
         m.start(TYPE_FLOAT)
-        m.put_pascal(space.str_w(space.repr(w_float)))
+        m.put_pascal(space.text_w(space.repr(w_float)))
 
 @unmarshaller(TYPE_FLOAT)
 def unmarshal_float(space, u, tc):
     return space.call_function(space.builtin.get('float'),
-                               space.wrap(u.get_pascal()))
+                               space.newtext(u.get_pascal()))
 
 @unmarshaller(TYPE_BINARY_FLOAT)
 def unmarshal_float_bin(space, u, tc):
@@ -246,19 +247,18 @@ def marshal_complex(space, w_complex, m):
         m.put(pack_float(w_complex.realval))
         m.put(pack_float(w_complex.imagval))
     else:
-        # XXX a bit too wrap-happy
-        w_real = space.wrap(w_complex.realval)
-        w_imag = space.wrap(w_complex.imagval)
+        w_real = space.newfloat(w_complex.realval)
+        w_imag = space.newfloat(w_complex.imagval)
         m.start(TYPE_COMPLEX)
-        m.put_pascal(space.str_w(space.repr(w_real)))
-        m.put_pascal(space.str_w(space.repr(w_imag)))
+        m.put_pascal(space.text_w(space.repr(w_real)))
+        m.put_pascal(space.text_w(space.repr(w_imag)))
 
 @unmarshaller(TYPE_COMPLEX)
 def unmarshal_complex(space, u, tc):
     w_real = space.call_function(space.builtin.get('float'),
-                                 space.wrap(u.get_pascal()))
+                                 space.newtext(u.get_pascal()))
     w_imag = space.call_function(space.builtin.get('float'),
-                                 space.wrap(u.get_pascal()))
+                                 space.newtext(u.get_pascal()))
     w_t = space.builtin.get('complex')
     return space.call_function(w_t, w_real, w_imag)
 
@@ -371,9 +371,9 @@ def marshal_pycode(space, w_pycode, m):
     m.atom_str(TYPE_STRING, x.co_code)
     _marshal_tuple(space, x.co_consts_w, m)
     _marshal_tuple(space, x.co_names_w, m)   # list of w_unicodes
-    co_varnames_w = [space.wrap(_decode_utf8(space, s)) for s in x.co_varnames]
-    co_freevars_w = [space.wrap(_decode_utf8(space, s)) for s in x.co_freevars]
-    co_cellvars_w = [space.wrap(_decode_utf8(space, s)) for s in x.co_cellvars]
+    co_varnames_w = [space.newunicode(_decode_utf8(space, s)) for s in x.co_varnames]
+    co_freevars_w = [space.newunicode(_decode_utf8(space, s)) for s in x.co_freevars]
+    co_cellvars_w = [space.newunicode(_decode_utf8(space, s)) for s in x.co_cellvars]
     _marshal_tuple(space, co_varnames_w, m)  # more lists, now of w_unicodes
     _marshal_tuple(space, co_freevars_w, m)
     _marshal_tuple(space, co_cellvars_w, m)
@@ -409,7 +409,7 @@ def unmarshal_pycode(space, u, tc):
     stacksize   = u.get_int()
     flags       = u.get_int()
     code        = space.bytes_w(u.get_w_obj())
-    consts_w    = _unmarshal_tuple_w(u)   
+    consts_w    = _unmarshal_tuple_w(u)
     names       = _unmarshal_strlist(u)
     varnames    = _unmarshal_strlist(u)
     freevars    = _unmarshal_strlist(u)

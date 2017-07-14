@@ -3591,6 +3591,7 @@ class ModuleLevelMiscTest(BaseTest):
         logging.setLoggerClass(logging.Logger)
         self.assertEqual(logging.getLoggerClass(), logging.Logger)
 
+    @support.cpython_only    # PyPy doesn't call __del__() at shutdown
     @support.requires_type_collecting
     def test_logging_at_shutdown(self):
         # Issue #20037

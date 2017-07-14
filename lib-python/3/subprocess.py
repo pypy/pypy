@@ -601,7 +601,7 @@ class Popen(object):
 
         # --- PyPy hack, see _pypy_install_libs_after_virtualenv() ---
         # match arguments passed by different versions of virtualenv
-        if args[1:] in (
+        if type(args) is list and args[1:] in (
             ['-c', 'import sys; print(sys.prefix)'],        # 1.6 10ba3f3c
             ['-c', "\nimport sys\nprefix = sys.prefix\n"    # 1.7 0e9342ce
              "if sys.version_info[0] == 3:\n"
@@ -1603,8 +1603,8 @@ class Popen(object):
 def _pypy_install_libs_after_virtualenv(target_executable):
     # https://bitbucket.org/pypy/pypy/issue/1922/future-proofing-virtualenv
     #
-    # PyPy 2.4.1 turned --shared on by default.  This means the pypy binary
-    # depends on the 'libpypy-c.so' shared library to be able to run.
+    # We have --shared on by default.  This means the pypy binary
+    # depends on the 'libpypy3-c.so' shared library to be able to run.
     # The virtualenv code existing at the time did not account for this
     # and would break.  Try to detect that we're running under such a
     # virtualenv in the "Testing executable with" phase and copy the
@@ -1614,7 +1614,7 @@ def _pypy_install_libs_after_virtualenv(target_executable):
                   'copyfile' in caller.f_globals):
         dest_dir = sys.pypy_resolvedirof(target_executable)
         src_dir = sys.pypy_resolvedirof(sys.executable)
-        for libname in ['libpypy-c.so', 'libpypy-c.dylib']:
+        for libname in ['libpypy3-c.so', 'libpypy3-c.dylib']:
             dest_library = os.path.join(dest_dir, libname)
             src_library = os.path.join(src_dir, libname)
             if os.path.exists(src_library):

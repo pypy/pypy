@@ -2,6 +2,9 @@
 try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
 
+try: from reprlib import recursive_repr as _recursive_repr
+except ImportError: _recursive_repr = lambda: (lambda f: f)
+
 
 sentinel = object()
 
@@ -76,6 +79,7 @@ class partial(object):
             fkeywords = dict(self._keywords, **fkeywords)
         return self._func(*(self._args + fargs), **fkeywords)
 
+    @_recursive_repr()
     def __repr__(self):
         cls = type(self)
         if cls is partial:

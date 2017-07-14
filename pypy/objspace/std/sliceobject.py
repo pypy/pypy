@@ -105,10 +105,10 @@ class W_SliceObject(W_Root):
         return w_obj
 
     def descr_repr(self, space):
-        return space.wrap("slice(%s, %s, %s)" % (
-            space.str_w(space.repr(self.w_start)),
-            space.str_w(space.repr(self.w_stop)),
-            space.str_w(space.repr(self.w_step))))
+        return space.newtext("slice(%s, %s, %s)" % (
+            space.text_w(space.repr(self.w_start)),
+            space.text_w(space.repr(self.w_stop)),
+            space.text_w(space.repr(self.w_step))))
 
     def descr__reduce__(self, space):
         from pypy.objspace.std.sliceobject import W_SliceObject
@@ -253,7 +253,7 @@ def normalize_simple_slice(space, length, w_start, w_stop):
 
 
 app = gateway.applevel("""
-    from operator import index
+    from _operator import index
 
     def evaluate_slice_index(x):
         try:

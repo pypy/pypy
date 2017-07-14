@@ -4,6 +4,10 @@ from _pypy_openssl import ffi, lib
 from _cffi_ssl._stdssl.utility import (_str_to_ffi_buffer, _bytes_with_len,
         _str_from_buf)
 
+try: from __pypy__ import builtinify
+except ImportError: builtinify = lambda f: f
+
+
 def new(name, string=b''):
     h = Hash(name)
     h.update(string)
@@ -132,6 +136,7 @@ del _fetch_names
 
 # shortcut functions
 def make_new_hash(name, funcname):
+    @builtinify
     def new_hash(string=b''):
         return new(name, string)
     new_hash.__name__ = funcname
@@ -142,6 +147,7 @@ for _name in algorithms:
     globals()[_newname] = make_new_hash(_name, _newname)
 
 if hasattr(lib, 'PKCS5_PBKDF2_HMAC'):
+    @builtinify
     def pbkdf2_hmac(hash_name, password, salt, iterations, dklen=None):
         if not isinstance(hash_name, str):
             raise TypeError("expected 'str' for name, but got %s" % type(hash_name))

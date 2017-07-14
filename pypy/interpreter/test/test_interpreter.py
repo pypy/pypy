@@ -340,7 +340,7 @@ class TestInterpreter:
         assert self.codetest(code, "g1", []) == (3, 7)
         resg2 = self.codetest(code, 'g2', [])
         assert "TypeError:" in resg2
-        assert "'list' object is not a mapping" in resg2
+        assert "argument after ** must be a mapping, not list" in resg2
         resg3 = self.codetest(code, 'g3', [])
         assert "TypeError:" in resg3
         assert "keywords must be strings" in resg3

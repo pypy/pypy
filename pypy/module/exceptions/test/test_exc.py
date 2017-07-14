@@ -2,8 +2,6 @@
 
 
 class AppTestExc(object):
-    spaceconfig = dict(usemodules=('exceptions',))
-
     def setup_class(cls):
         cls.w_file = cls.space.wrap(__file__)
 
@@ -103,12 +101,13 @@ class AppTestExc(object):
             WindowsError
         except NameError:
             skip('WindowsError not present')
-        ee = WindowsError(3, "x", "y")
-        assert str(ee) == "[Error 3] x: y"
+        ee = WindowsError(None, "x", "y", 3)
+        assert type(ee) is FileNotFoundError
+        assert str(ee) == "[WinError 3] x: 'y'"
         # winerror=3 (ERROR_PATH_NOT_FOUND) maps to errno=2 (ENOENT)
         assert ee.winerror == 3
         assert ee.errno == 2
-        assert str(WindowsError(3, "x")) == "[Error 3] x"
+        assert str(WindowsError(3, "x")) == "[Errno 3] x"
 
     def test_syntax_error(self):
         s = SyntaxError()
@@ -391,6 +390,12 @@ class AppTestExc(object):
         assert e.filename == "baz"
         assert e.filename2 == "bok"
         assert str(e) == "[Errno 42] bar: 'baz' -> 'bok'"
+
+    def test_oserror_None(self):
+        assert str(OSError()) == ""
+        assert str(OSError(None)) == "None"
+        assert str(OSError(None, None)) == "[Errno None] None"
+        assert str(OSError(None, None, None, None)) == "[Errno None] None"
 
     # Check the heuristic for print & exec covers significant cases
     # As well as placing some limits on false positives

@@ -102,7 +102,10 @@ class AppTestKqueue(object):
         except socket.error as e:
             assert e.args[0] == errno.EINPROGRESS
         else:
-            assert False, "EINPROGRESS not raised"
+            #assert False, "EINPROGRESS not raised"
+            pass # FreeBSD doesn't raise an exception here
+            # (the above commented-out code is just like CPython's
+            # test_kqueue)
         server, addr = server_socket.accept()
 
         if sys.platform.startswith("darwin"):

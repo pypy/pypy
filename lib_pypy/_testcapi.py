@@ -25,3 +25,14 @@ class awaitType:
         self._iterator = iterator
     def __await__(self):
         return self._iterator
+
+def raise_signal(signum):
+    import _signal, _thread
+    _signal.pthread_kill(_thread.get_ident(), signum)
+
+
+# the hacks above have replaced this module with another, so we need
+# to push the extra names into this other module too...
+import _testcapi
+_testcapi.awaitType = awaitType
+_testcapi.raise_signal = raise_signal

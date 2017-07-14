@@ -216,4 +216,4 @@ def length_hint(space, w_iterable, default=0):
     If the object supports len(), the result will be exact.
     Otherwise, it may over- or under-estimate by an arbitrary amount.
     The result will be an integer >= 0."""
-    return space.wrap(space.length_hint(w_iterable, default))
+    return space.newint(space.length_hint(w_iterable, default))

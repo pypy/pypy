@@ -46,7 +46,7 @@ class Cell(W_Root):
         if not isinstance(w_other, Cell):
             return space.w_NotImplemented
         if self.w_value is None or w_other.w_value is None:
-            return space.wrap(self.w_value == w_other.w_value)
+            return space.newbool(self.w_value == w_other.w_value)
         return space.eq(self.w_value, w_other.w_value)
 
     def descr__reduce__(self, space):
@@ -60,7 +60,7 @@ class Cell(W_Root):
                                space.newtuple(tup)])
 
     def descr__setstate__(self, space, w_state):
-        self.w_value = space.getitem(w_state, space.wrap(0))
+        self.w_value = space.getitem(w_state, space.newint(0))
 
     def __repr__(self):
         """ representation for debugging purposes """
@@ -78,7 +78,7 @@ class Cell(W_Root):
             content = "%s object at 0x%s" % (space.type(self.w_value).name,
                                              self.w_value.getaddrstring(space))
         s = "<cell at 0x%s: %s>" % (self.getaddrstring(space), content)
-        return space.wrap(s.decode('utf-8'))
+        return space.newtext(s)
 
     def descr__cell_contents(self, space):
         try:

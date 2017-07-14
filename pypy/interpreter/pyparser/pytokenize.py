@@ -27,10 +27,12 @@ endDFAs = {"'" : singleDFA,
            'R' : None,
            "u" : None,
            "U" : None,
+           'f' : None,
+           'F' : None,
            'b' : None,
            'B' : None}
 
-for uniPrefix in ("", "b", "B"):
+for uniPrefix in ("", "b", "B", "f", "F"):
     for rawPrefix in ("", "r", "R"):
         prefix_1 = uniPrefix + rawPrefix
         prefix_2 = rawPrefix + uniPrefix
@@ -55,6 +57,11 @@ triple_quoted = {}
 for t in ("'''", '"""',
           "r'''", 'r"""', "R'''", 'R"""',
           "u'''", 'u"""', "U'''", 'U"""',
+          "f'''", 'f"""', "F'''", 'F"""',
+          "fr'''", 'fr"""', "Fr'''", 'Fr"""',
+          "fR'''", 'fR"""', "FR'''", 'FR"""',
+          "rf'''", 'rf"""', "rF'''", 'rF"""',
+          "Rf'''", 'Rf"""', "RF'''", 'RF"""',
           "b'''", 'b"""', "B'''", 'B"""',
           "br'''", 'br"""', "Br'''", 'Br"""',
           "bR'''", 'bR"""', "BR'''", 'BR"""',
@@ -65,6 +72,11 @@ single_quoted = {}
 for t in ("'", '"',
           "r'", 'r"', "R'", 'R"',
           "u'", 'u"', "U'", 'U"',
+          "f'", 'f"', "F'", 'F"',
+          "fr'", 'fr"', "Fr'", 'Fr"',
+          "fR'", 'fR"', "FR'", 'FR"',
+          "rf'", 'rf"', "rF'", 'rF"',
+          "Rf'", 'Rf"', "RF'", 'RF"',
           "b'", 'b"', "B'", 'B"',
           "br'", 'br"', "Br'", 'Br"',
           "bR'", 'bR"', "BR'", 'BR"',

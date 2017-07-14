@@ -1,7 +1,7 @@
 import weakref
 from rpython.rlib import rawrefcount, objectmodel, rgc
 from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY, REFCNT_FROM_PYPY_LIGHT
-from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.translator.c.test.test_standalone import StandaloneTests
 from rpython.config.translationoption import get_combined_translation_config
@@ -263,6 +263,9 @@ class TestTranslated(StandaloneTests):
                 return 1
             if rawrefcount.next_dead(PyObject) != ob:
                 print "NEXT_DEAD != OB"
+                return 1
+            if ob.c_ob_refcnt != 1:
+                print "next_dead().ob_refcnt != 1"
                 return 1
             if rawrefcount.next_dead(PyObject) != lltype.nullptr(PyObjectS):
                 print "NEXT_DEAD second time != NULL"

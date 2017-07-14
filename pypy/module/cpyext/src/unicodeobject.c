@@ -551,3 +551,27 @@ PyUnicode_AsWideCharString(PyObject *unicode,
     return buffer;
 }
 
+Py_ssize_t
+PyUnicode_GetSize(PyObject *unicode)
+{
+    if (!PyUnicode_Check(unicode)) {
+        PyErr_BadArgument();
+        goto onError;
+    }
+    return PyUnicode_GET_SIZE(unicode);
+
+  onError:
+    return -1;
+}
+
+Py_ssize_t
+PyUnicode_GetLength(PyObject *unicode)
+{
+    if (!PyUnicode_Check(unicode)) {
+        PyErr_BadArgument();
+        return -1;
+    }
+    if (PyUnicode_READY(unicode) == -1)
+        return -1;
+    return PyUnicode_GET_LENGTH(unicode);
+}

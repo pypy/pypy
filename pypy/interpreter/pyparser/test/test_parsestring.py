@@ -82,7 +82,7 @@ class TestParsetring:
         w_ret = parsestring.parsestr(space, None, repr("hello"))
         assert space.isinstance_w(w_ret, space.w_unicode)
         w_ret = parsestring.parsestr(space, None, "b'hi'")
-        assert space.isinstance_w(w_ret, space.w_str)
+        assert space.isinstance_w(w_ret, space.w_bytes)
         w_ret = parsestring.parsestr(space, None, "r'hi'")
         assert space.isinstance_w(w_ret, space.w_unicode)
 

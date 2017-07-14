@@ -5,7 +5,7 @@ from rpython.rlib import jit
 from rpython.rlib.rgc import must_be_light_finalizer
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, intmask
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.typedef import TypeDef, interp_attrproperty
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._rawffi.alt.interp_ffitype import W_FFIType
@@ -21,7 +21,7 @@ class W_Field(W_Root):
     def __repr__(self):
         return '<Field %s %s>' % (self.name, self.w_ffitype.name)
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def descr_new_field(space, w_type, name, w_ffitype):
     w_ffitype = space.interp_w(W_FFIType, w_ffitype)
     return W_Field(name, w_ffitype)
@@ -29,9 +29,11 @@ def descr_new_field(space, w_type, name, w_ffitype):
 W_Field.typedef = TypeDef(
     'Field',
     __new__ = interp2app(descr_new_field),
-    name = interp_attrproperty('name', W_Field),
-    ffitype = interp_attrproperty('w_ffitype', W_Field),
-    offset = interp_attrproperty('offset', W_Field),
+    name = interp_attrproperty('name', W_Field,
+        wrapfn="newtext_or_none"),
+    ffitype = interp_attrproperty_w('w_ffitype', W_Field),
+    offset = interp_attrproperty('offset', W_Field,
+        wrapfn="newint"),
     )
 
 
@@ -100,7 +102,7 @@ class W__StructDescr(W_Root):
         return W__StructInstance(self, allocate=False, autofree=True, rawmem=rawmem)
 
     def get_type_and_offset_for_field(self, space, w_name):
-        name = space.str_w(w_name)
+        name = space.text_w(w_name)
         try:
             return self._get_type_and_offset_for_field(space, name)
         except KeyError:
@@ -113,7 +115,7 @@ class W__StructDescr(W_Root):
 
 
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def descr_new_structdescr(space, w_type, name, w_fields=None):
     descr = W__StructDescr(name)
     if not space.is_none(w_fields):
@@ -145,7 +147,7 @@ def compute_size_and_alignement(space, fields_w):
 W__StructDescr.typedef = TypeDef(
     '_StructDescr',
     __new__ = interp2app(descr_new_structdescr),
-    ffitype = interp_attrproperty('w_ffitype', W__StructDescr),
+    ffitype = interp_attrproperty_w('w_ffitype', W__StructDescr),
     define_fields = interp2app(W__StructDescr.define_fields),
     allocate = interp2app(W__StructDescr.allocate),
     fromaddress = interp2app(W__StructDescr.fromaddress),
@@ -180,7 +182,7 @@ class W__StructInstance(W_Root):
 
     def getaddr(self, space):
         addr = rffi.cast(rffi.ULONG, self.rawmem)
-        return space.wrap(addr)
+        return space.newint(addr)
 
     def getfield(self, space, w_name):
         w_ffitype, offset = self.structdescr.get_type_and_offset_for_field(

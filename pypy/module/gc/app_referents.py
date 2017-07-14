@@ -31,7 +31,7 @@ def dump_rpy_heap(file):
             filename2 = os.path.join(os.path.dirname(file), 'typeids.txt')
             if not os.path.exists(filename2):
                 data = zlib.decompress(gc.get_typeids_z())
-                f = open(filename2, 'w')
+                f = open(filename2, 'wb')
                 f.write(data)
                 f.close()
             filename2 = os.path.join(os.path.dirname(file), 'typeids.lst')

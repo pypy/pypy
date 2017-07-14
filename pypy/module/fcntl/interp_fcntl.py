@@ -120,7 +120,7 @@ def fcntl(space, w_fd, op, w_arg):
     rv = fcntl_int(fd, op, intarg)
     if rv < 0:
         raise _get_error(space, "fcntl")
-    return space.wrap(rv)
+    return space.newint(rv)
 
 @unwrap_spec(op=int)
 def flock(space, w_fd, op):
@@ -224,7 +224,7 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
             arg = rffi.charpsize2str(ll_arg, len(arg))
             if mutate_flag != 0:
                 rwbuffer.setslice(0, arg)
-                return space.wrap(rv)
+                return space.newint(rv)
             return space.newbytes(arg)
         finally:
             lltype.free(ll_arg, flavor='raw')
@@ -255,4 +255,4 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
     rv = ioctl_int(fd, op, intarg)
     if rv < 0:
         raise _get_error(space, "ioctl")
-    return space.wrap(rv)
+    return space.newint(rv)

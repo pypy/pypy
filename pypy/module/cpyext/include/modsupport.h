@@ -70,6 +70,9 @@ PyAPI_FUNC(int) PyModule_AddStringConstant(PyObject *m, const char *name, const 
 #define PyModule_AddIntMacro(m, c) PyModule_AddIntConstant(m, #c, c)
 #define PyModule_AddStringMacro(m, c) PyModule_AddStringConstant(m, #c, c)
 
+PyAPI_FUNC(struct PyModuleDef*) PyModule_GetDef(PyObject*);
+PyAPI_FUNC(void*) PyModule_GetState(PyObject*);
+
 
 PyAPI_FUNC(PyObject *) Py_BuildValue(const char *, ...);
 PyAPI_FUNC(PyObject *) Py_VaBuildValue(const char *, va_list);
@@ -85,9 +88,9 @@ PyAPI_FUNC(int) PyArg_UnpackTuple(PyObject *args, const char *name, Py_ssize_t m
 #ifdef _WIN32
 /* explicitly export since PyAPI_FUNC is usually dllimport */
 #ifdef __cplusplus
-#define PyMODINIT_FUNC extern "C" __declspec(dllexport) void
+#define PyMODINIT_FUNC extern "C" __declspec(dllexport) PyObject*
 #else
-#define PyMODINIT_FUNC __declspec(dllexport) void
+#define PyMODINIT_FUNC __declspec(dllexport) PyObject*
 #endif
 #else
 #ifdef __cplusplus

@@ -3,7 +3,7 @@
 The 'sys' module.
 """
 
-from _structseq import structseqtype, structseqfield
+from _structseq import structseqtype, structseqfield, SimpleNamespace
 import sys
 import _imp
 
@@ -109,41 +109,6 @@ class sysflags(metaclass=structseqtype):
 
 null_sysflags = sysflags((0,)*13)
 null__xoptions = {}
-
-
-class SimpleNamespace:
-    """A simple attribute-based namespace.
-
-SimpleNamespace(**kwargs)"""
-
-    def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
-
-    def __repr__(self):
-        ident = id(self)
-        if ident in sns_recurse:
-            return "namespace(...)"
-        sns_recurse.add(ident)
-        try:
-            pairs = ('%s=%r' % item for item in sorted(self.__dict__.items()))
-            return "namespace(%s)" % ', '.join(pairs)
-        finally:
-            sns_recurse.discard(ident)
-
-    def __eq__(self, other):
-        if issubclass(type(other), SimpleNamespace):
-            return self.__dict__ == other.__dict__
-        return NotImplemented
-
-    def __ne__(self, other):
-        if issubclass(type(other), SimpleNamespace):
-            return self.__dict__ != other.__dict__
-        return NotImplemented
-
-sns_recurse = set()
-
-# This class is not exposed in sys, but by the types module.
-SimpleNamespace.__module__ = 'types'
 
 
 implementation = SimpleNamespace(

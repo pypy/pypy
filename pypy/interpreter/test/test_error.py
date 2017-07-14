@@ -92,19 +92,51 @@ def test_oefmt_utf8(space):
     operr = oefmt("w_type", "abc %8", arg)
     val = operr._compute_value(space)
     assert val == u"abc àèìòù"
+    #
+    # if the arg is a byte string and we specify '%s', then we
+    # also get utf-8 encoding.  This should be the common case
+    # nowadays with utf-8 byte strings being common in the RPython
+    # sources of PyPy.
+    operr = oefmt("w_type", "abc %s", arg)
+    val = operr._compute_value(space)
+    assert val == u"abc àèìòù"
+    #
+    # if the byte string is not valid utf-8, then don't crash
+    arg = '\xe9'
+    operr = oefmt("w_type", "abc %8", arg)
+    val = operr._compute_value(space)
+
 
 def test_errorstr(space):
     operr = OperationError(space.w_ValueError, space.wrap("message"))
     assert operr.errorstr(space) == "ValueError: message"
-    assert operr.errorstr(space, use_repr=True) == "ValueError: 'message'"
+    assert operr.errorstr(space, use_repr=True) == (
+        "ValueError: ValueError('message',)")
+    operr = OperationError(space.w_ValueError, space.w_None)
+    assert operr.errorstr(space) == "ValueError"
+    operr = OperationError(space.w_ValueError,
+        space.newtuple([space.wrap(6), space.wrap(7)]))
+    assert operr.errorstr(space) == "ValueError: (6, 7)"
+    operr = OperationError(space.w_UnicodeDecodeError,
+        space.newtuple([
+            space.wrap('unicodeescape'),
+            space.newbytes(r'\\x'),
+            space.newint(0),
+            space.newint(2),
+            space.wrap(r'truncated \\xXX escape')]))
+    assert operr.errorstr(space) == (
+        "UnicodeDecodeError: 'unicodeescape' codec can't decode "
+        "bytes in position 0-1: truncated \\\\xXX escape")
 
 def test_wrap_oserror():
     class FakeSpace:
         w_OSError = [OSError]
         w_EnvironmentError = [EnvironmentError]
+        w_None = None
         def wrap(self, obj):
             return [obj]
-        def call_function(self, exc, w_errno, w_msg, w_filename=None):
+        newint = newtext = newunicode = newfilename = wrap
+        def call_function(self, exc, w_errno, w_msg, w_filename=None, *args):
             return (exc, w_errno, w_msg, w_filename)
     space = FakeSpace()
     #

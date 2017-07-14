@@ -1,8 +1,8 @@
+import pytest
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.object import Py_PRINT_RAW
 from rpython.rtyper.lltypesystem import rffi
 from rpython.tool.udir import udir
-import pytest
 
 class TestFile(BaseApiTest):
 

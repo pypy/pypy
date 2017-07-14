@@ -41,25 +41,25 @@ def _PyDateTime_Import(space):
     datetimeAPI = lltype.malloc(PyDateTime_CAPI, flavor='raw',
                                 track_allocation=False)
 
-    w_datetime = PyImport_Import(space, space.wrap("datetime"))
+    w_datetime = PyImport_Import(space, space.newtext("datetime"))
 
-    w_type = space.getattr(w_datetime, space.wrap("date"))
+    w_type = space.getattr(w_datetime, space.newtext("date"))
     datetimeAPI.c_DateType = rffi.cast(
         PyTypeObjectPtr, make_ref(space, w_type))
 
-    w_type = space.getattr(w_datetime, space.wrap("datetime"))
+    w_type = space.getattr(w_datetime, space.newtext("datetime"))
     datetimeAPI.c_DateTimeType = rffi.cast(
         PyTypeObjectPtr, make_ref(space, w_type))
 
-    w_type = space.getattr(w_datetime, space.wrap("time"))
+    w_type = space.getattr(w_datetime, space.newtext("time"))
     datetimeAPI.c_TimeType = rffi.cast(
         PyTypeObjectPtr, make_ref(space, w_type))
 
-    w_type = space.getattr(w_datetime, space.wrap("timedelta"))
+    w_type = space.getattr(w_datetime, space.newtext("timedelta"))
     datetimeAPI.c_DeltaType = rffi.cast(
         PyTypeObjectPtr, make_ref(space, w_type))
 
-    w_type = space.getattr(w_datetime, space.wrap("tzinfo"))
+    w_type = space.getattr(w_datetime, space.newtext("tzinfo"))
     datetimeAPI.c_TZInfoType = rffi.cast(
         PyTypeObjectPtr, make_ref(space, w_type))
 
@@ -118,12 +118,16 @@ def make_check_function(func_name, type_name):
                     """ % (type_name,)))
         except OperationError:
             return 0
+    return check, check_exact
 
-make_check_function("PyDateTime_Check", "datetime")
-make_check_function("PyDate_Check", "date")
-make_check_function("PyTime_Check", "time")
-make_check_function("PyDelta_Check", "timedelta")
-make_check_function("PyTZInfo_Check", "tzinfo")
+PyDateTime_Check, PyDateTime_CheckExact = make_check_function(
+    "PyDateTime_Check", "datetime")
+PyDate_Check, PyDate_CheckExact = make_check_function("PyDate_Check", "date")
+PyTime_Check, PyTime_CheckExact = make_check_function("PyTime_Check", "time")
+PyDelta_Check, PyDelta_CheckExact = make_check_function(
+    "PyDelta_Check", "timedelta")
+PyTZInfo_Check, PyTZInfo_CheckExact = make_check_function(
+    "PyTZInfo_Check", "tzinfo")
 
 # Constructors. They are better used as macros.
 
@@ -137,7 +141,7 @@ def _PyDate_FromDate(space, year, month, day, w_type):
     day = rffi.cast(lltype.Signed, day)
     return space.call_function(
         w_type,
-        space.wrap(year), space.wrap(month), space.wrap(day))
+        space.newint(year), space.newint(month), space.newint(day))
 
 @cpython_api([rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real,
               PyObject, PyTypeObjectPtr], PyObject)
@@ -150,8 +154,8 @@ def _PyTime_FromTime(space, hour, minute, second, usecond, w_tzinfo, w_type):
     usecond = rffi.cast(lltype.Signed, usecond)
     return space.call_function(
         w_type,
-        space.wrap(hour), space.wrap(minute), space.wrap(second),
-        space.wrap(usecond), w_tzinfo)
+        space.newint(hour), space.newint(minute), space.newint(second),
+        space.newint(usecond), w_tzinfo)
 
 @cpython_api([rffi.INT_real, rffi.INT_real, rffi.INT_real,
               rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real,
@@ -171,18 +175,18 @@ def _PyDateTime_FromDateAndTime(space, year, month, day,
     usecond = rffi.cast(lltype.Signed, usecond)
     return space.call_function(
         w_type,
-        space.wrap(year), space.wrap(month), space.wrap(day),
-        space.wrap(hour), space.wrap(minute), space.wrap(second),
-        space.wrap(usecond), w_tzinfo)
+        space.newint(year), space.newint(month), space.newint(day),
+        space.newint(hour), space.newint(minute), space.newint(second),
+        space.newint(usecond), w_tzinfo)
 
 @cpython_api([PyObject], PyObject)
 def PyDateTime_FromTimestamp(space, w_args):
     """Create and return a new datetime.datetime object given an argument tuple
     suitable for passing to datetime.datetime.fromtimestamp().
     """
-    w_datetime = PyImport_Import(space, space.wrap("datetime"))
-    w_type = space.getattr(w_datetime, space.wrap("datetime"))
-    w_method = space.getattr(w_type, space.wrap("fromtimestamp"))
+    w_datetime = PyImport_Import(space, space.newtext("datetime"))
+    w_type = space.getattr(w_datetime, space.newtext("datetime"))
+    w_method = space.getattr(w_type, space.newtext("fromtimestamp"))
     return space.call(w_method, w_args)
 
 @cpython_api([PyObject], PyObject)
@@ -190,9 +194,9 @@ def PyDate_FromTimestamp(space, w_args):
     """Create and return a new datetime.date object given an argument tuple
     suitable for passing to datetime.date.fromtimestamp().
     """
-    w_datetime = PyImport_Import(space, space.wrap("datetime"))
-    w_type = space.getattr(w_datetime, space.wrap("date"))
-    w_method = space.getattr(w_type, space.wrap("fromtimestamp"))
+    w_datetime = PyImport_Import(space, space.newtext("datetime"))
+    w_type = space.getattr(w_datetime, space.newtext("date"))
+    w_method = space.getattr(w_type, space.newtext("fromtimestamp"))
     return space.call(w_method, w_args)
 
 @cpython_api([rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real,
@@ -209,7 +213,7 @@ def _PyDelta_FromDelta(space, days, seconds, useconds, normalize, w_type):
     useconds = rffi.cast(lltype.Signed, useconds)
     return space.call_function(
         w_type,
-        space.wrap(days), space.wrap(seconds), space.wrap(useconds))
+        space.newint(days), space.newint(seconds), space.newint(useconds))
 
 # Accessors
 
@@ -217,67 +221,67 @@ def _PyDelta_FromDelta(space, days, seconds, useconds, normalize, w_type):
 def PyDateTime_GET_YEAR(space, w_obj):
     """Return the year, as a positive int.
     """
-    return space.int_w(space.getattr(w_obj, space.wrap("year")))
+    return space.int_w(space.getattr(w_obj, space.newtext("year")))
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_GET_MONTH(space, w_obj):
     """Return the month, as an int from 1 through 12.
     """
-    return space.int_w(space.getattr(w_obj, space.wrap("month")))
+    return space.int_w(space.getattr(w_obj, space.newtext("month")))
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_GET_DAY(space, w_obj):
     """Return the day, as an int from 1 through 31.
     """
-    return space.int_w(space.getattr(w_obj, space.wrap("day")))
+    return space.int_w(space.getattr(w_obj, space.newtext("day")))
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_DATE_GET_HOUR(space, w_obj):
     """Return the hour, as an int from 0 through 23.
     """
-    return space.int_w(space.getattr(w_obj, space.wrap("hour")))
+    return space.int_w(space.getattr(w_obj, space.newtext("hour")))
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_DATE_GET_MINUTE(space, w_obj):
     """Return the minute, as an int from 0 through 59.
     """
-    return space.int_w(space.getattr(w_obj, space.wrap("minute")))
+    return space.int_w(space.getattr(w_obj, space.newtext("minute")))
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_DATE_GET_SECOND(space, w_obj):
     """Return the second, as an int from 0 through 59.
     """
-    return space.int_w(space.getattr(w_obj, space.wrap("second")))
+    return space.int_w(space.getattr(w_obj, space.newtext("second")))
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_DATE_GET_MICROSECOND(space, w_obj):
     """Return the microsecond, as an int from 0 through 999999.
     """
-    return space.int_w(space.getattr(w_obj, space.wrap("microsecond")))
+    return space.int_w(space.getattr(w_obj, space.newtext("microsecond")))
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_TIME_GET_HOUR(space, w_obj):
     """Return the hour, as an int from 0 through 23.
     """
-    return space.int_w(space.getattr(w_obj, space.wrap("hour")))
+    return space.int_w(space.getattr(w_obj, space.newtext("hour")))
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_TIME_GET_MINUTE(space, w_obj):
     """Return the minute, as an int from 0 through 59.
     """
-    return space.int_w(space.getattr(w_obj, space.wrap("minute")))
+    return space.int_w(space.getattr(w_obj, space.newtext("minute")))
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_TIME_GET_SECOND(space, w_obj):
     """Return the second, as an int from 0 through 59.
     """
-    return space.int_w(space.getattr(w_obj, space.wrap("second")))
+    return space.int_w(space.getattr(w_obj, space.newtext("second")))
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_TIME_GET_MICROSECOND(space, w_obj):
     """Return the microsecond, as an int from 0 through 999999.
     """
-    return space.int_w(space.getattr(w_obj, space.wrap("microsecond")))
+    return space.int_w(space.getattr(w_obj, space.newtext("microsecond")))
 
 # XXX these functions are not present in the Python API
 # But it does not seem possible to expose a different structure
@@ -285,12 +289,12 @@ def PyDateTime_TIME_GET_MICROSECOND(space, w_obj):
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_DELTA_GET_DAYS(space, w_obj):
-    return space.int_w(space.getattr(w_obj, space.wrap("days")))
+    return space.int_w(space.getattr(w_obj, space.newtext("days")))
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_DELTA_GET_SECONDS(space, w_obj):
-    return space.int_w(space.getattr(w_obj, space.wrap("seconds")))
+    return space.int_w(space.getattr(w_obj, space.newtext("seconds")))
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_DELTA_GET_MICROSECONDS(space, w_obj):
-    return space.int_w(space.getattr(w_obj, space.wrap("microseconds")))
+    return space.int_w(space.getattr(w_obj, space.newtext("microseconds")))

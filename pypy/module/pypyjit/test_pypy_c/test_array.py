@@ -28,7 +28,7 @@ class TestArray(BaseTestPyPyC):
     def test_array_sum(self):
         def main():
             from array import array
-            img = array("i", range(128) * 5) * 480
+            img = array("i", list(range(128)) * 5) * 480
             l, i = 0, 0
             while i < len(img):
                 l += img[i]

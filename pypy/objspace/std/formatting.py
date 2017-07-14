@@ -72,7 +72,7 @@ class BaseStringFormatter(object):
 
     def fmt_X(self, w_value):
         "HEX formatting"
-        r = hex_num_helper(self.space, w_value)
+        r = hex_num_helper(self.space, w_value, fmt_for_error='%X')
         if self.f_alt:
             prefix = '0X'
         else:
@@ -194,7 +194,10 @@ def make_formatter_subclass(do_unicode):
             space = self.space
             if self.w_valuedict is None:
                 raise oefmt(space.w_TypeError, "format requires a mapping")
-            w_key = space.wrap(key)
+            if do_unicode:
+                w_key = space.newunicode(key)
+            else:
+                w_key = space.newbytes(key)
             return space.getitem(self.w_valuedict, w_key)
 
         def parse_fmt(self):
@@ -335,7 +338,7 @@ def make_formatter_subclass(do_unicode):
             length = len(r)
             if do_unicode and isinstance(r, str):
                 # convert string to unicode using the default encoding
-                r = self.space.unicode_w(self.space.wrap(r))
+                r = self.space.unicode_w(self.space.newbytes(r))
             prec = self.prec
             if prec == -1 and self.width == 0:
                 # fast path
@@ -419,7 +422,7 @@ def make_formatter_subclass(do_unicode):
             if space.isinstance_w(w_result,
                                               space.w_unicode):
                 raise NeedUnicodeFormattingError
-            return space.str_w(w_result)
+            return space.bytes_w(w_result)
 
         def fmt_s(self, w_value):
             if not do_unicode:
@@ -454,7 +457,7 @@ def make_formatter_subclass(do_unicode):
             if do_unicode:
                 value = self.space.unicode_w(w_value)
             else:
-                value = self.space.str_w(w_value)
+                value = self.space.text_w(w_value)
             self.std_wp(value)
 
         def fmt_c(self, w_value):
@@ -484,8 +487,8 @@ def make_formatter_subclass(do_unicode):
                     self.std_wp(s)
                 return
             if not do_unicode:
-                if space.isinstance_w(w_value, space.w_str):
-                    s = space.str_w(w_value)
+                if space.isinstance_w(w_value, space.w_bytes):
+                    s = space.bytes_w(w_value)
                 elif space.isinstance_w(w_value, space.w_bytearray):
                     s = w_value.buffer_w(space, 0).as_str()
                 else:
@@ -557,7 +560,7 @@ def format(space, w_fmt, values_w, w_valuedict, fmt_type):
         if fmt_type == FORMAT_BYTEARRAY:
             fmt = w_fmt.buffer_w(space, 0).as_str()
         else:
-            fmt = space.str_w(w_fmt)
+            fmt = space.bytes_w(w_fmt)
         formatter = StringFormatter(space, fmt, values_w, w_valuedict)
         try:
             result = formatter.format()
@@ -569,11 +572,11 @@ def format(space, w_fmt, values_w, w_valuedict, fmt_type):
                 return space.newbytes(result)
             elif fmt_type == FORMAT_BYTEARRAY:
                 return space.newbytearray([c for c in result])
-            return space.wrap(result)
+            return space.newbytes(result)
     fmt = space.unicode_w(w_fmt)
     formatter = UnicodeFormatter(space, fmt, values_w, w_valuedict)
     result = formatter.format()
-    return space.wrap(result)
+    return space.newunicode(result)
 
 def mod_format(space, w_format, w_values, fmt_type=FORMAT_STR):
     if space.isinstance_w(w_values, space.w_tuple):
@@ -583,11 +586,21 @@ def mod_format(space, w_format, w_values, fmt_type=FORMAT_STR):
         # we check directly for dict to avoid obscure checking
         # in simplest case
         if space.isinstance_w(w_values, space.w_dict) or \
-           (space.lookup(w_values, '__getitem__') and
-           not space.isinstance_w(w_values, space.w_unicode)):
+             _looks_like_a_mapping(space, w_values, fmt_type):
             return format(space, w_format, [w_values], w_values, fmt_type)
         else:
             return format(space, w_format, [w_values], None, fmt_type)
+
+def _looks_like_a_mapping(space, w_x, fmt_type):
+    if not space.lookup(w_x, '__getitem__'):
+        return False
+    if space.isinstance_w(w_x, space.w_unicode):
+        return False
+    if fmt_type != FORMAT_UNICODE:  # (S6) in http://bugs.python.org/issue28885
+        if (space.isinstance_w(w_x, space.w_bytes) or
+            space.isinstance_w(w_x, space.w_bytearray)):
+            return False
+    return True
 
 # ____________________________________________________________
 # Formatting helpers
@@ -605,14 +618,14 @@ def maybe_float(space, w_value):
 
 def format_num_helper_generator(fmt, digits, decoder=maybe_int,
                                 expect_text="a number"):
-    def format_num_helper(space, w_value):
+    def format_num_helper(space, w_value, fmt_for_error=fmt):
         if not space.isinstance_w(w_value, space.w_int):
             try:
                 w_value = decoder(space, w_value)
             except OperationError:
                 raise oefmt(space.w_TypeError,
                             "%s format: %s is required, not %T",
-                            fmt, expect_text, w_value)
+                            fmt_for_error, expect_text, w_value)
         try:
             value = space.int_w(w_value)
             return fmt % (value,)

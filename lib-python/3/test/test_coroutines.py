@@ -1988,6 +1988,15 @@ class CoroutineTest(unittest.TestCase):
             support.gc_collect()
         self.assertIn("was never awaited", stderr.getvalue())
 
+    def test_fatal_coro_warning(self):
+        # Issue 27811
+        async def func(): pass
+        with warnings.catch_warnings(), support.captured_stderr() as stderr:
+            warnings.filterwarnings("error")
+            func()
+            support.gc_collect()
+        self.assertIn("was never awaited", stderr.getvalue())
+
 
 class CoroAsyncIOCompatTest(unittest.TestCase):
 

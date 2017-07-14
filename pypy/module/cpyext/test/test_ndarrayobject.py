@@ -1,13 +1,16 @@
-import py
+import pytest
 import os
+from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.micronumpy.ndarray import W_NDimArray
 from pypy.module.micronumpy.descriptor import get_dtype_cache
 import pypy.module.micronumpy.constants as NPY
+from pypy.module.cpyext.ndarrayobject import (
+    _PyArray_FromAny, _PyArray_FromObject)
 
-py.test.skip("Micronumpy not yet supported on py3k.")
+pytest.skip("Micronumpy not yet supported on py3k.")
 
 def scalar(space):
     dtype = get_dtype_cache(space).w_float64dtype
@@ -89,19 +92,19 @@ class TestNDArrayObject(BaseApiTest):
         ptr = rffi.cast(rffi.DOUBLEP, api._PyArray_DATA(a))
         assert ptr[0] == 10.
 
-    def test_FromAny(self, space, api):
+    def test_FromAny(self, space):
         a = array(space, [10, 5, 3])
-        assert api._PyArray_FromAny(a, None, 0, 0, 0, NULL) is a
-        assert api._PyArray_FromAny(a, None, 1, 4, 0, NULL) is a
-        self.raises(space, api, ValueError, api._PyArray_FromAny,
-                    a, None, 4, 5, 0, NULL)
+        assert _PyArray_FromAny(space, a, None, 0, 0, 0, NULL) is a
+        assert _PyArray_FromAny(space, a, None, 1, 4, 0, NULL) is a
+        with pytest.raises(OperationError) as excinfo:
+            _PyArray_FromAny(space, a, None, 4, 5, 0, NULL)
 
-    def test_FromObject(self, space, api):
+    def test_FromObject(self, space):
         a = array(space, [10, 5, 3])
-        assert api._PyArray_FromObject(a, a.get_dtype().num, 0, 0) is a
-        exc = self.raises(space, api, ValueError, api._PyArray_FromObject,
-                    a, 11, 4, 5)
-        assert exc.errorstr(space).find('desired') >= 0
+        assert _PyArray_FromObject(space, a, a.get_dtype().num, 0, 0) is a
+        with pytest.raises(OperationError) as excinfo:
+            _PyArray_FromObject(space, a, 11, 4, 5)
+        assert excinfo.value.errorstr(space).find('desired') >= 0
 
     def test_list_from_fixedptr(self, space, api):
         A = lltype.GcArray(lltype.Float)
@@ -218,7 +221,7 @@ class TestNDArrayObject(BaseApiTest):
         assert res.get_scalar_value().imag == 4.
 
     def _test_Ufunc_FromFuncAndDataAndSignature(self, space, api):
-        py.test.skip('preliminary non-translated test')
+        pytest.skip('preliminary non-translated test')
         '''
         PyUFuncGenericFunction funcs[] = {&double_times2, &int_times2};
         char types[] = { NPY_DOUBLE,NPY_DOUBLE, NPY_INT, NPY_INT };
@@ -365,7 +368,7 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
     def test_ufunc(self):
         if self.runappdirect:
             from numpy import arange
-            py.test.xfail('segfaults on cpython: PyUFunc_API == NULL?')
+            pytest.xfail('segfaults on cpython: PyUFunc_API == NULL?')
         else:
             from _numpypy.multiarray import arange
         mod = self.import_extension('foo', [

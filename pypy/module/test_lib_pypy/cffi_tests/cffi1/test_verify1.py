@@ -220,15 +220,18 @@ def test_primitive_category():
         tp = model.PrimitiveType(typename)
         C = tp.is_char_type()
         F = tp.is_float_type()
+        X = tp.is_complex_type()
         I = tp.is_integer_type()
-        assert C == (typename in ('char', 'wchar_t'))
+        assert C == (typename in ('char', 'wchar_t', 'char16_t', 'char32_t'))
         assert F == (typename in ('float', 'double', 'long double'))
-        assert I + F + C == 1      # one and only one of them is true
+        assert X == (typename in ('float _Complex', 'double _Complex'))
+        assert I + F + C + X == 1      # one and only one of them is true
 
 def test_all_integer_and_float_types():
     typenames = []
     for typename in all_primitive_types:
         if (all_primitive_types[typename] == 'c' or
+            all_primitive_types[typename] == 'j' or    # complex
             typename == '_Bool' or typename == 'long double'):
             pass
         else:
@@ -1043,9 +1046,13 @@ def test_autofilled_struct_as_argument_dynamic():
         int (*foo)(struct foo_s s) = &foo1;
     """)
     e = py.test.raises(NotImplementedError, lib.foo, "?")
-    msg = ("ctype 'struct foo_s' not supported as argument (it is a struct "
-           'declared with "...;", but the C calling convention may depend '
-           'on the missing fields)')
+    msg = ("ctype 'struct foo_s' not supported as argument.  It is a struct "
+           'declared with "...;", but the C calling convention may depend on '
+           "the missing fields; or, it contains anonymous struct/unions.  "
+           "Such structs are only supported as argument "
+           "if the function is 'API mode' and non-variadic (i.e. declared "
+           "inside ffibuilder.cdef()+ffibuilder.set_source() and not taking "
+           "a final '...' argument)")
     assert str(e.value) == msg
 
 def test_func_returns_struct():
@@ -2115,14 +2122,23 @@ def test_consider_not_implemented_function_type():
     # assert did not crash so far
     e = py.test.raises(NotImplementedError, fooptr, ffi.new("Data *"))
     assert str(e.value) == (
-        "ctype 'Data' (size 4) not supported as argument")
+        "ctype 'Data' not supported as argument by libffi.  Unions are only "
+        "supported as argument if the function is 'API mode' and "
+        "non-variadic (i.e. declared inside ffibuilder.cdef()+"
+        "ffibuilder.set_source() and not taking a final '...' argument)")
     e = py.test.raises(NotImplementedError, bazptr)
     assert str(e.value) == (
-        "ctype 'Data' (size 4) not supported as return value")
+        "ctype 'Data' not supported as return value by libffi.  Unions are "
+        "only supported as return value if the function is 'API mode' and "
+        "non-variadic (i.e. declared inside ffibuilder.cdef()+"
+        "ffibuilder.set_source() and not taking a final '...' argument)")
     e = py.test.raises(NotImplementedError, barptr)
     assert str(e.value) == (
-        "ctype 'MyStr' not supported as return value "
-        "(it is a struct with bit fields)")
+        "ctype 'MyStr' not supported as return value.  It is a struct with "
+        "bit fields, which libffi does not support.  Such structs are only "
+        "supported as return value if the function is 'API mode' and non-"
+        "variadic (i.e. declared inside ffibuilder.cdef()+ffibuilder."
+        "set_source() and not taking a final '...' argument)")
 
 def test_verify_extra_arguments():
     ffi = FFI()

@@ -82,8 +82,10 @@ class AppTestStringObject:
         assert '-23' == '%d' % f
         assert '-23' == '%i' % f
         assert '-23' == '%u' % f
-        raises(TypeError, "'%x' % f")
-        raises(TypeError, "'%X' % f")
+        e = raises(TypeError, "'%x' % f")
+        assert str(e.value).startswith("%x format:")
+        e = raises(TypeError, "'%X' % f")
+        assert str(e.value).startswith("%X format:")
         raises(TypeError, "'%o' % f")
         assert '-23.456' == '%s' % f
         # for 'r' use a float that has an exact decimal rep:
@@ -408,6 +410,7 @@ class AppTestBytes:
         assert b"<%a>" % b"\xe9" == b"<b'\\xe9'>"
         assert b"<%a>" % "foo" == b"<'foo'>"
         assert b"<%a>" % "\u1234" == b"<'\\u1234'>"
+        assert b"<%a>" % 3.14 == b"<3.14>"
 
     def test_r_compat_bytes(self):
         assert b"<%r>" % b"test" == b"<b'test'>"

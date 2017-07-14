@@ -50,7 +50,7 @@ def f():
         assert decode_long(b'\xff\x7f', 'little', False) == 32767
         assert decode_long(b'\x00\x80', 'little', False) == 32768
         assert decode_long(b'\x00\x80', 'little', True) == -32768
-        raises(ValueError, decode_long, '', 'foo')
+        raises(ValueError, decode_long, b'', 'foo')
 
     def test_promote(self):
         from __pypy__ import _promote

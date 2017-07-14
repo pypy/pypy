@@ -38,9 +38,9 @@ extern "C" {
       * taken care of by distutils.) */
 #        ifdef _DEBUG
 #            error("debug first with cpython")    
-#            pragma comment(lib,"python33.lib")
+#            pragma comment(lib,"python35.lib")
 #        else
-#            pragma comment(lib,"python33.lib")
+#            pragma comment(lib,"python35.lib")
 #        endif /* _DEBUG */
 #    endif
 #endif /* _MSC_VER */

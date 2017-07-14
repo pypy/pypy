@@ -71,7 +71,7 @@ MACHINE_FORMAT_CODE_MIN = min(format_descriptors)
 MACHINE_FORMAT_CODE_MAX = max(format_descriptors)
 
 
-@unwrap_spec(typecode=str, mformat_code=int)
+@unwrap_spec(typecode='text', mformat_code=int)
 def array_reconstructor(space, w_cls, typecode, mformat_code, w_items):
     # Fast path: machine format code corresponds to the
     # platform-independent typecode.
@@ -98,7 +98,7 @@ def array_reconstructor(space, w_cls, typecode, mformat_code, w_items):
         memstr = space.bytes_w(w_items)
         step = descr.bytes
         converted_items = [
-            space.wrap(ieee.unpack_float(
+            space.newfloat(ieee.unpack_float(
                     memstr[i:i+step],
                     descr.big_endian))
             for i in range(0, len(memstr), step)]
@@ -106,16 +106,16 @@ def array_reconstructor(space, w_cls, typecode, mformat_code, w_items):
 
     elif mformat_code == UTF16_LE:
         w_converted_items = space.call_method(
-            w_items, "decode", space.wrap("utf-16-le"))
+            w_items, "decode", space.newtext("utf-16-le"))
     elif mformat_code == UTF16_BE:
         w_converted_items = space.call_method(
-            w_items, "decode", space.wrap("utf-16-be"))
+            w_items, "decode", space.newtext("utf-16-be"))
     elif mformat_code == UTF32_LE:
         w_converted_items = space.call_method(
-            w_items, "decode", space.wrap("utf-32-le"))
+            w_items, "decode", space.newtext("utf-32-le"))
     elif mformat_code == UTF32_BE:
         w_converted_items = space.call_method(
-            w_items, "decode", space.wrap("utf-32-be"))
+            w_items, "decode", space.newtext("utf-32-be"))
     else:
         descr = format_descriptors[mformat_code]
         # If possible, try to pack array's items using a data type

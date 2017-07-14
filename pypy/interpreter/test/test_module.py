@@ -215,3 +215,8 @@ class AppTest_ModuleObject:
                               '__package__': None,
                               '__loader__': None,
                               '__spec__': None}
+
+    def test_module_new_makes_empty_dict(self):
+        import sys
+        m = type(sys).__new__(type(sys))
+        assert not m.__dict__

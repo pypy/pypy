@@ -98,6 +98,18 @@ int PyObject_AsWriteBuffer(PyObject *obj,
 
 /* Buffer C-API for Python 3.0 */
 
+int
+PyObject_GetBuffer(PyObject *obj, Py_buffer *view, int flags)
+{
+    if (!PyObject_CheckBuffer(obj)) {
+        PyErr_Format(PyExc_TypeError,
+                     "'%100s' does not have the buffer interface",
+                     Py_TYPE(obj)->tp_name);
+        return -1;
+    }
+    return (*(obj->ob_type->tp_as_buffer->bf_getbuffer))(obj, view, flags);
+}
+
 void
 PyBuffer_Release(Py_buffer *view)
 {

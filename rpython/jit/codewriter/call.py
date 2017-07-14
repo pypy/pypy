@@ -202,12 +202,12 @@ class CallControl(object):
         ARGS = FUNC.ARGS
         if NON_VOID_ARGS != [T for T in ARGS if T is not lltype.Void]:
             raise Exception(
-                "in operation %r: caling a function with signature %r, "
+                "in operation %r: calling a function with signature %r, "
                 "but passing actual arguments (ignoring voids) of types %r"
                 % (op, FUNC, NON_VOID_ARGS))
         if RESULT != FUNC.RESULT:
             raise Exception(
-                "in operation %r: caling a function with signature %r, "
+                "in operation %r: calling a function with signature %r, "
                 "but the actual return type is %r" % (op, FUNC, RESULT))
         # ok
         # get the 'elidable' and 'loopinvariant' flags from the function object

@@ -8,6 +8,7 @@ import functools
 import os
 import sys
 
+is_pypy = support.check_impl_detail(pypy=True)
 
 # NOTE: There are some additional tests relating to interaction with
 #       zipimport in the test_zipimport_support test module.
@@ -435,7 +436,7 @@ We'll simulate a __file__ attr that ends in pyc:
     >>> tests = finder.find(sample_func)
 
     >>> print(tests)  # doctest: +ELLIPSIS
-    [<DocTest sample_func from ...:19 (1 example)>]
+    [<DocTest sample_func from ...:20 (1 example)>]
 
 The exact name depends on how test_doctest was invoked, so allow for
 leading path components.
@@ -659,7 +660,8 @@ plain ol' Python and is guaranteed to be available.
 
     >>> import builtins
     >>> tests = doctest.DocTestFinder().find(builtins)
-    >>> 790 < len(tests) < 810 # approximate number of objects with docstrings
+    >>> lo, hi = (120, 140) if is_pypy else (790, 810)
+    >>> lo < len(tests) < hi # approximate number of objects with docstrings
     True
     >>> real_tests = [t for t in tests if len(t.examples) > 0]
     >>> len(real_tests) # objects that actually have doctests

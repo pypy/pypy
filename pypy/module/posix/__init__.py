@@ -1,3 +1,4 @@
+import sys
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib import rposix
 from rpython.rlib import rdynload
@@ -68,6 +69,7 @@ corresponding Unix manual entries for more information on calls."""
         'chmod': 'interp_posix.chmod',
         'rename': 'interp_posix.rename',
         'replace': 'interp_posix.replace',
+        'link': 'interp_posix.link',
         'umask': 'interp_posix.umask',
         '_exit': 'interp_posix._exit',
         'utime': 'interp_posix.utime',
@@ -108,8 +110,6 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['killpg'] = 'interp_posix.killpg'
     if hasattr(os, 'getpid'):
         interpleveldefs['getpid'] = 'interp_posix.getpid'
-    if hasattr(os, 'link'):
-        interpleveldefs['link'] = 'interp_posix.link'
     if hasattr(os, 'symlink'):
         interpleveldefs['symlink'] = 'interp_posix.symlink'
     if hasattr(os, 'readlink'):
@@ -206,6 +206,37 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['get_blocking'] = 'interp_posix.get_blocking'
         interpleveldefs['set_blocking'] = 'interp_posix.set_blocking'
 
+    if hasattr(rposix, 'getpriority'):
+        interpleveldefs['getpriority'] = 'interp_posix.getpriority'
+        interpleveldefs['setpriority'] = 'interp_posix.setpriority'
+        for _name in ['PRIO_PROCESS', 'PRIO_PGRP', 'PRIO_USER']:
+            assert getattr(rposix, _name) is not None, "missing %r" % (_name,)
+            interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
+
+    if sys.platform.startswith('linux'): #hasattr(rposix, 'sendfile'):
+        interpleveldefs['sendfile'] = 'interp_posix.sendfile'
+
+    if hasattr(rposix, 'pread'):
+        interpleveldefs['pread'] = 'interp_posix.pread'
+    if hasattr(rposix, 'pwrite'):
+       interpleveldefs['pwrite'] = 'interp_posix.pwrite'
+
+    if hasattr(rposix, 'posix_fadvise'):
+        interpleveldefs['posix_fadvise'] = 'interp_posix.posix_fadvise'
+        interpleveldefs['posix_fallocate'] = 'interp_posix.posix_fallocate'
+        for _name in ['POSIX_FADV_WILLNEED', 'POSIX_FADV_NORMAL', 'POSIX_FADV_SEQUENTIAL',
+        'POSIX_FADV_RANDOM', 'POSIX_FADV_NOREUSE', 'POSIX_FADV_DONTNEED']:
+            assert getattr(rposix, _name) is not None, "missing %r" % (_name,)
+            interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
+    
+    if hasattr(rposix, 'sched_get_priority_max'):
+        interpleveldefs['sched_get_priority_max'] = 'interp_posix.sched_get_priority_max'
+        interpleveldefs['sched_get_priority_min'] = 'interp_posix.sched_get_priority_min'
+        for _name in ['SCHED_FIFO', 'SCHED_RR', 'SCHED_OTHER',
+        'SCHED_BATCH']:
+            if getattr(rposix, _name) is not None:
+                interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
+
     for _name in ["O_CLOEXEC"]:
         if getattr(rposix, _name) is not None:
             interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
@@ -220,4 +251,9 @@ corresponding Unix manual entries for more information on calls."""
 for constant in dir(os):
     value = getattr(os, constant)
     if constant.isupper() and type(value) is int:
+        if constant in ['SEEK_SET', 'SEEK_CUR', 'SEEK_END',
+                        'P_NOWAIT', 'P_NOWAITO', 'P_WAIT']:
+            # obscure, but these names are not in CPython's posix module
+            # and if we put it here then they end up twice in 'os.__all__'
+            continue
         Module.interpleveldefs[constant] = "space.wrap(%s)" % value

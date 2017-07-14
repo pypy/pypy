@@ -169,11 +169,11 @@ class AppTestCINTTTREE:
     spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
-        cls.w_N = cls.space.wrap(5)
-        cls.w_M = cls.space.wrap(10)
-        cls.w_fname = cls.space.wrap("test.root")
-        cls.w_tname = cls.space.wrap("test")
-        cls.w_title = cls.space.wrap("test tree")
+        cls.w_N = cls.space.newint(5)
+        cls.w_M = cls.space.newint(10)
+        cls.w_fname = cls.space.newtext("test.root")
+        cls.w_tname = cls.space.newtext("test")
+        cls.w_title = cls.space.newtext("test tree")
         cls.w_iotypes = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (iotypes_dct,))

@@ -1,7 +1,7 @@
 import py, os, sys
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rlib.objectmodel import specialize, instantiate
-from rpython.rlib import rarithmetic, jit
+from rpython.rlib import rarithmetic, rbigint, jit
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper import llinterp
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
@@ -63,8 +63,16 @@ def setup_module(mod):
 class FakeBase(W_Root):
     typename = None
 
+class FakeBool(FakeBase):
+    typename = "bool"
+    def __init__(self, val):
+        self.val = val
 class FakeInt(FakeBase):
     typename = "int"
+    def __init__(self, val):
+        self.val = val
+class FakeLong(FakeBase):
+    typename = "long"
     def __init__(self, val):
         self.val = val
 class FakeFloat(FakeBase):
@@ -141,17 +149,41 @@ class FakeSpace(object):
     def issequence_w(self, w_obj):
         return True
 
-    @specialize.argtype(1)
     def wrap(self, obj):
-        if isinstance(obj, int):
-            return FakeInt(obj)
-        if isinstance(obj, float):
-            return FakeFloat(obj)
-        if isinstance(obj, str):
-            return FakeString(obj)
-        if isinstance(obj, rffi.r_int):
-            return FakeInt(int(obj))
         assert 0
+
+    @specialize.argtype(1)
+    def newbool(self, obj):
+        return FakeBool(obj)
+
+    @specialize.argtype(1)
+    def newint(self, obj):
+        if not isinstance(obj, int):
+            return FakeLong(rbigint.rbigint.fromrarith_int(obj))
+        return FakeInt(obj)
+
+    @specialize.argtype(1)
+    def newlong(self, obj):
+        return FakeLong(rbigint.rbigint.fromint(obj))
+
+    @specialize.argtype(1)
+    def newlong_from_rarith_int(self, obj):
+        return FakeLong(rbigint.rbigint.fromrarith_int(obj))
+
+    def newlong_from_rbigint(self, val):
+        return FakeLong(obj)
+
+    @specialize.argtype(1)
+    def newfloat(self, obj):
+        return FakeFloat(obj)
+
+    @specialize.argtype(1)
+    def newbytes(self, obj):
+        return FakeString(obj)
+
+    @specialize.argtype(1)
+    def newtext(self, obj):
+        return FakeString(obj)
 
     def float_w(self, w_obj, allow_conversion=True):
         assert isinstance(w_obj, FakeFloat)
@@ -179,8 +211,8 @@ class FakeSpace(object):
         return w_obj.val
 
     def uint_w(self, w_obj):
-        assert isinstance(w_obj, FakeInt)
-        return rarithmetic.r_uint(w_obj.val)
+        assert isinstance(w_obj, FakeLong)
+        return rarithmetic.r_uint(w_obj.val.touint())
 
     def str_w(self, w_obj):
         assert isinstance(w_obj, FakeString)

@@ -840,6 +840,7 @@ class ThreadJoinOnShutdown(BaseTestCase):
 
 class SubinterpThreadingTests(BaseTestCase):
 
+    @cpython_only
     def test_threads_join(self):
         # Non-daemon threads should be joined at subinterpreter shutdown
         # (issue #18808)
@@ -863,6 +864,7 @@ class SubinterpThreadingTests(BaseTestCase):
         # The thread was joined properly.
         self.assertEqual(os.read(r, 1), b"x")
 
+    @cpython_only
     def test_threads_join_2(self):
         # Same as above, but a delay gets introduced after the thread's
         # Python code returned but before the thread state is deleted.

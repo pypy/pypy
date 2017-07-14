@@ -1398,3 +1398,9 @@ class TestAstBuilder:
         assert len(asyncwith.body) == 1
         assert isinstance(asyncwith.body[0], ast.Expr)
         assert isinstance(asyncwith.body[0].value, ast.Num)
+
+    def test_decode_error_in_string_literal(self):
+        input = "u'\\x'"
+        exc = py.test.raises(SyntaxError, self.get_ast, input).value
+        assert exc.msg == ("(unicode error) 'unicodeescape' codec can't decode"
+                           " bytes in position 0-1: truncated \\xXX escape")

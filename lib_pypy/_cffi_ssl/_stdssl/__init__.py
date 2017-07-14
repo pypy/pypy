@@ -46,7 +46,7 @@ CLIENT = 0
 SERVER = 1
 
 VERIFY_DEFAULT = 0
-VERIFY_CRL_CHECK_LEAF = lib.X509_V_FLAG_CRL_CHECK 
+VERIFY_CRL_CHECK_LEAF = lib.X509_V_FLAG_CRL_CHECK
 VERIFY_CRL_CHECK_CHAIN = lib.X509_V_FLAG_CRL_CHECK | lib.X509_V_FLAG_CRL_CHECK_ALL
 VERIFY_X509_STRICT = lib.X509_V_FLAG_X509_STRICT
 if lib.Cryptography_HAS_X509_V_FLAG_TRUSTED_FIRST:
@@ -71,6 +71,7 @@ if lib.Cryptography_HAS_SSL2:
     PROTOCOL_SSLv2  = 0
 PROTOCOL_SSLv3  = 1
 PROTOCOL_SSLv23 = 2
+PROTOCOL_TLS    = PROTOCOL_SSLv23
 PROTOCOL_TLSv1    = 3
 if lib.Cryptography_HAS_TLSv1_2:
     PROTOCOL_TLSv1 = 3
@@ -296,6 +297,10 @@ class _SSLSocket(object):
         else:
             raise TypeError("The value must be a SSLContext")
 
+    @property
+    def server_side(self):
+        return self.socket_type == SSL_SERVER
+
     def do_handshake(self):
         sock = self.get_socket_or_connection_gone()
         ssl = self.ssl
@@ -433,8 +438,10 @@ class _SSLSocket(object):
 
         sock = self.get_socket_or_connection_gone()
 
-        if not buffer_into:
+        if buffer_into is None:
             dest = ffi.new("char[]", length)
+            if length == 0:
+                return b""
             mem = dest
         else:
             mem = ffi.from_buffer(buffer_into)
@@ -442,6 +449,8 @@ class _SSLSocket(object):
                 length = len(buffer_into)
                 if length > sys.maxsize:
                     raise OverflowError("maximum length can't fit in a C 'int'")
+                if len(buffer_into) == 0:
+                    return 0
 
         if sock:
             timeout = _socket_timeout(sock)
@@ -527,12 +536,12 @@ class _SSLSocket(object):
             return None
 
         comp_method = lib.SSL_get_current_compression(self.ssl);
-        if comp_method == ffi.NULL: # or comp_method.type == lib.NID_undef:
+        if comp_method == ffi.NULL: # or lib.SSL_COMP_get_type(comp_method) == lib.NID_undef:
             return None
         short_name = lib.SSL_COMP_get_name(comp_method)
         if short_name == ffi.NULL:
             return None
-        return _fs_decode(_str_from_buf(short_name))
+        return _cstr_decode_fs(short_name)
 
     def version(self):
         if self.ssl == ffi.NULL:
@@ -653,7 +662,7 @@ class _SSLSocket(object):
     def tls_unique_cb(self):
         buf = ffi.new("char[]", SSL_CB_MAXLEN)
 
-        if lib.SSL_session_reused(self.ssl) ^ (not self.socket_type):
+        if lib.SSL_session_reused(self.ssl) ^ (not self.server_side):
             # if session is resumed XOR we are the client
             length = lib.SSL_get_finished(self.ssl, buf, SSL_CB_MAXLEN)
         else:
@@ -1292,7 +1301,7 @@ def nid2obj(nid):
     result = _asn1obj2py(obj);
     lib.ASN1_OBJECT_free(obj);
     return result;
-                                                               
+
 
 class MemoryBIO(object):
     def __init__(self):
@@ -1358,7 +1367,8 @@ class MemoryBIO(object):
         return lib.BIO_ctrl_pending(self.bio)
 
 
-RAND_status = lib.RAND_status
+def RAND_status():
+    return lib.RAND_status()
 
 def _RAND_bytes(count, pseudo):
     if count < 0:
@@ -1448,4 +1458,12 @@ if lib.OPENSSL_NPN_NEGOTIATED:
             return lib.SSL_TLSEXT_ERR_NOACK
 
         return lib.SSL_TLSEXT_ERR_OK
+
+if lib.Cryptography_HAS_EGD:
+    def RAND_egd(path):
+        bytecount = lib.RAND_egd_bytes(ffi.from_buffer(path), len(path))
+        if bytecount == -1:
+            raise SSLError("EGD connection failed or EGD did not return "
+                           "enough data to seed the PRNG");
+        return bytecount
 

@@ -477,7 +477,8 @@ class AppTestTypeObject:
             a = 1
 
         class mymeta(type):
-            def mro(self):
+            def mro(self, ignore=False):
+                assert ignore or self.__mro__ is None
                 return [self, object]
 
         class B_mro(A_mro, metaclass=mymeta):
@@ -485,7 +486,7 @@ class AppTestTypeObject:
 
         assert B_mro.__bases__ == (A_mro,)
         assert B_mro.__mro__ == (B_mro, object)
-        assert B_mro.mro() == [B_mro, object]
+        assert B_mro.mro(ignore=True) == [B_mro, object]
         assert B_mro.b == 1
         assert B_mro().b == 1
         assert getattr(B_mro, 'a', None) == None
@@ -957,6 +958,9 @@ class AppTestTypeObject:
         assert C.__name__ == 'A'
         assert C.__qualname__ == 'C'
 
+        e = raises(TypeError, type, 'D', (), {'__qualname__': 42})
+        assert str(e.value) == "type __qualname__ must be a str, not int"
+
     def test_compare(self):
         class A(object):
             pass
@@ -1412,6 +1416,8 @@ class AppTestNewShortcut:
         assert type.__ne__(dict, 42) is NotImplemented
         assert type.__eq__(int, int) == True
         assert type.__eq__(int, dict) is NotImplemented
+
+
 class AppTestComparesByIdentity:
 
     def setup_class(cls):
@@ -1456,3 +1462,19 @@ class AppTestComparesByIdentity:
     def test_duplicate_slot_name(self):
         class X:   # does not raise
             __slots__ = 'a', 'a'
+
+    def test_descriptor_objclass(self):
+        class X(object):
+            pass
+        assert X.__dict__['__dict__'].__objclass__ is X
+        assert X.__dict__['__weakref__'].__objclass__ is X
+        assert object.__dict__['__class__'].__objclass__ is object
+        assert int.__dict__['imag'].__objclass__ is int
+        assert type.__dict__['__name__'].__objclass__ is type
+        assert type.__dict__['__doc__'].__objclass__ is type
+        #
+        assert type.__dict__['__name__'].__name__ == '__name__'
+        assert type.__dict__['__doc__'].__name__ == '__doc__'
+
+    def test_type_construct_unicode_surrogate_issue(self):
+        raises(ValueError, type, 'A\udcdcb', (), {})

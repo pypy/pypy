@@ -306,9 +306,7 @@ def getsitepackages(prefixes=None):
         seen.add(prefix)
 
         if is_pypy:
-            from distutils.sysconfig import get_python_lib
-            sitepackages.append(get_python_lib(standard_lib=False,
-                                               prefix=prefix))
+            sitepackages.append(os.path.join(prefix, "site-packages"))
         elif os.sep == '/':
             sitepackages.append(os.path.join(prefix, "lib",
                                         "python%d.%d" % sys.version_info[:2],
@@ -409,7 +407,9 @@ def enablerlcompleter():
             readline.parse_and_bind('tab: complete')
 
         try:
-            readline.read_init_file()
+            # Unimplemented on PyPy
+            #readline.read_init_file()
+            pass
         except OSError:
             # An OSError here could have many causes, but the most likely one
             # is that there's no .inputrc file (or .editrc file in the case of

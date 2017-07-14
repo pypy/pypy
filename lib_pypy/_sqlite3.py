@@ -32,10 +32,11 @@ import weakref
 import threading
 
 try:
-    from __pypy__ import newlist_hint
+    from __pypy__ import newlist_hint, add_memory_pressure
 except ImportError:
     assert '__pypy__' not in sys.builtin_module_names
     newlist_hint = lambda sizehint: []
+    add_memory_pressure = lambda size: None
 
 if sys.version_info[0] >= 3:
     StandardError = Exception
@@ -152,6 +153,9 @@ def connect(database, timeout=5.0, detect_types=0, isolation_level="",
                  check_same_thread=True, factory=None, cached_statements=100,
                  uri=0):
     factory = Connection if not factory else factory
+    # an sqlite3 db seems to be around 100 KiB at least (doesn't matter if
+    # backed by :memory: or a file)
+    add_memory_pressure(100 * 1024)
     return factory(database, timeout, detect_types, isolation_level,
                     check_same_thread, factory, cached_statements, uri)
 
@@ -190,6 +194,12 @@ class _StatementCache(object):
                 self.cache[sql] = stat
         return stat
 
+BEGIN_STATMENTS = (
+    "BEGIN ",
+    "BEGIN DEFERRED",
+    "BEGIN IMMEDIATE",
+    "BEGIN EXCLUSIVE",
+)
 
 class Connection(object):
     __initialized = False
@@ -231,6 +241,7 @@ class Connection(object):
         self.__statements_counter = 0
         self.__rawstatements = set()
         self._statement_cache = _StatementCache(self, cached_statements)
+        self.__statements_already_committed = []
 
         self.__func_cache = {}
         self.__aggregates = {}
@@ -238,6 +249,8 @@ class Connection(object):
         self.__collations = {}
         if check_same_thread:
             self.__thread_ident = threading.get_ident()
+        if not check_same_thread and _lib.sqlite3_libversion_number() < 3003001:
+            raise NotSupportedError("shared connections not available")
 
         self.Error = Error
         self.Warning = Warning
@@ -374,10 +387,12 @@ class Connection(object):
                 if cursor is not None:
                     cursor._reset = True
 
-    def _reset_other_statements(self, excepted):
-        for weakref in self.__statements:
+    def _reset_already_committed_statements(self):
+        lst = self.__statements_already_committed
+        self.__statements_already_committed = []
+        for weakref in lst:
             statement = weakref()
-            if statement is not None and statement is not excepted:
+            if statement is not None:
                 statement._reset()
 
     @_check_thread_wrap
@@ -434,6 +449,19 @@ class Connection(object):
         self._check_closed()
         if not self._in_transaction:
             return
+
+        # PyPy fix for non-refcounting semantics: since 2.7.13 (and in
+        # <= 2.6.x), the statements are not automatically reset upon
+        # commit.  However, if this is followed by some specific SQL
+        # operations like "drop table", these open statements come in
+        # the way and cause the "drop table" to fail.  On CPython the
+        # problem is much less important because typically all the old
+        # statements are freed already by reference counting.  So here,
+        # we copy all the still-alive statements to another list which
+        # is usually ignored, except if we get SQLITE_LOCKED
+        # afterwards---at which point we reset all statements in this
+        # list.
+        self.__statements_already_committed = self.__statements[:]
 
         statement_star = _ffi.new('sqlite3_stmt **')
         ret = _lib.sqlite3_prepare_v2(self._db, b"COMMIT", -1,
@@ -675,7 +703,13 @@ class Connection(object):
         if val is None:
             self.commit()
         else:
-            self.__begin_statement = str("BEGIN " + val).encode('utf-8')
+            if not isinstance(val, str):
+                raise TypeError("isolation level must be " \
+                        "a string or None, not %s" % type(val).__name__)
+            stmt = str("BEGIN " + val).upper()
+            if stmt not in BEGIN_STATMENTS:
+                raise ValueError("invalid value for isolation_level")
+            self.__begin_statement = stmt.encode('utf-8')
         self._isolation_level = val
     isolation_level = property(__get_isolation_level, __set_isolation_level)
 
@@ -863,22 +897,15 @@ class Cursor(object):
 
                 # Actually execute the SQL statement
 
-                # NOTE: if we get SQLITE_LOCKED, it's probably because
+                ret = _lib.sqlite3_step(self.__statement._statement)
+
+                # PyPy: if we get SQLITE_LOCKED, it's probably because
                 # one of the cursors created previously is still alive
                 # and not reset and the operation we're trying to do
                 # makes Sqlite unhappy about that.  In that case, we
-                # automatically reset all cursors and try again.  This
-                # is not what CPython does!  It is a workaround for a
-                # new feature of 2.7.13.  Previously, all cursors would
-                # be reset at commit(), which makes it unlikely to have
-                # cursors lingering around.  Since 2.7.13, cursors stay
-                # around instead.  This causes problems here---at least:
-                # this is the only place shown by pysqlite tests, and I
-                # can only hope there is no other.
-
-                ret = _lib.sqlite3_step(self.__statement._statement)
+                # automatically reset all old cursors and try again.
                 if ret == _lib.SQLITE_LOCKED:
-                    self.__connection._reset_other_statements(self.__statement)
+                    self.__connection._reset_already_committed_statements()
                     ret = _lib.sqlite3_step(self.__statement._statement)
 
                 if ret == _lib.SQLITE_ROW:
@@ -930,7 +957,7 @@ class Cursor(object):
         if isinstance(sql, unicode):
             sql = sql.encode('utf-8')
         elif not isinstance(sql, str):
-            raise ValueError("script argument must be unicode or string.")
+            raise ValueError("script argument must be unicode.")
         statement_star = _ffi.new('sqlite3_stmt **')
         next_char = _ffi.new('char **')
 
