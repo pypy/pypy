@@ -221,9 +221,11 @@ static const long X509_V_ERR_SUITE_B_INVALID_CURVE = 0;
 static const long X509_V_ERR_SUITE_B_INVALID_SIGNATURE_ALGORITHM = 0;
 static const long X509_V_ERR_SUITE_B_LOS_NOT_ALLOWED = 0;
 static const long X509_V_ERR_SUITE_B_CANNOT_SIGN_P_384_WITH_P_256 = 0;
+#if !CRYPTOGRAPHY_LIBRESSL_251_OR_GREATER
 static const long X509_V_ERR_HOSTNAME_MISMATCH = 0;
 static const long X509_V_ERR_EMAIL_MISMATCH = 0;
 static const long X509_V_ERR_IP_ADDRESS_MISMATCH = 0;
+#endif
 #endif
 
 /* OpenSSL 1.0.2beta2+ verification parameters */
@@ -238,6 +240,14 @@ static const long X509_V_FLAG_SUITEB_128_LOS_ONLY = 0;
 static const long X509_V_FLAG_SUITEB_192_LOS = 0;
 static const long X509_V_FLAG_SUITEB_128_LOS = 0;
 
+#if CRYPTOGRAPHY_LIBRESSL_251_OR_GREATER
+int X509_VERIFY_PARAM_set1_host(X509_VERIFY_PARAM *, const char *, size_t);
+int X509_VERIFY_PARAM_set1_email(X509_VERIFY_PARAM *, const char *, size_t);
+int X509_VERIFY_PARAM_set1_ip(X509_VERIFY_PARAM *, const unsigned char *,
+                              size_t);
+int X509_VERIFY_PARAM_set1_ip_asc(X509_VERIFY_PARAM *, const char *);
+void X509_VERIFY_PARAM_set_hostflags(X509_VERIFY_PARAM *, unsigned int);
+#else
 int (*X509_VERIFY_PARAM_set1_host)(X509_VERIFY_PARAM *, const char *,
                                    size_t) = NULL;
 int (*X509_VERIFY_PARAM_set1_email)(X509_VERIFY_PARAM *, const char *,
@@ -247,6 +257,7 @@ int (*X509_VERIFY_PARAM_set1_ip)(X509_VERIFY_PARAM *, const unsigned char *,
 int (*X509_VERIFY_PARAM_set1_ip_asc)(X509_VERIFY_PARAM *, const char *) = NULL;
 void (*X509_VERIFY_PARAM_set_hostflags)(X509_VERIFY_PARAM *,
                                         unsigned int) = NULL;
+#endif
 #endif
 
 /* OpenSSL 1.0.2+ or Solaris's backport */
