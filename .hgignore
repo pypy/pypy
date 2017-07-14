@@ -58,6 +58,7 @@ syntax: regexp
 ^rpython/rlib/rvmprof/src/shared/libbacktrace/config.h$
 ^rpython/rlib/rvmprof/src/shared/libbacktrace/config.log$
 ^rpython/rlib/rvmprof/src/shared/libbacktrace/config.status$
+^pypy/tool/dest$
 ^pypy/goal/pypy-translation-snapshot$
 ^pypy/goal/pypy-c
 ^pypy/goal/pypy3-c

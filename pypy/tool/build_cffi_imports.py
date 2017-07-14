@@ -22,12 +22,98 @@ cffi_build_scripts = {
     "xx": None,    # for testing: 'None' should be completely ignored
     }
 
-def create_cffi_import_libraries(pypy_c, options, basedir, only=None):
+# for distribution, we may want to fetch dependencies not provided by
+# the OS, such as a recent openssl/libressl or liblzma/xz.
+cffi_dependencies = {
+    'lzma': ('https://tukaani.org/xz/xz-5.2.3.tar.gz', []),
+    'ssl': ('http://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-2.6.0.tar.gz',
+            ['--without-openssldir']),
+    '_gdbm': ('ftp://ftp.gnu.org/gnu/gdbm/gdbm-1.13.tar.gz',
+              ['--without-readline']),
+}
+
+
+def _unpack_tarfile(filename, extract_dir):
+    """Unpack tar/tar.gz/tar.bz2/tar.xz `filename` to `extract_dir`
+    """
+    import tarfile  # late import for breaking circular dependency
+    try:
+        tarobj = tarfile.open(filename)
+    except tarfile.TarError:
+        raise ReadError(
+            "%s is not a compressed or uncompressed tar file" % filename)
+    try:
+        tarobj.extractall(extract_dir)
+    finally:
+        tarobj.close()
+
+
+def _build_dependency(name, destdir):
+    import multiprocessing
+    import shutil
+    import subprocess
+
+    try:
+        from urllib.request import urlretrieve
+    except ImportError:
+        from urllib import urlretrieve
+
+    try:
+        url, args = cffi_dependencies[name]
+    except KeyError:
+        return 0, None, None
+
+    archive = os.path.join(destdir, url.rsplit('/', 1)[-1])
+
+    # next, fetch the archive to disk, if needed
+    if not os.path.exists(archive):
+        urlretrieve(url, archive)
+
+    # extract the archive into our destination directory
+    _unpack_tarfile(archive, destdir)
+
+    # configure & build it
+    sources = os.path.join(
+        destdir,
+        os.path.basename(archive)[:-7],
+    )
+
+    from rpython.tool.runsubprocess import run_subprocess
+
+    status, stdout, stderr = run_subprocess(
+        './configure',
+        [
+            '--prefix=/usr',
+            '--disable-shared',
+            '--enable-silent-rules',
+            '--disable-dependency-tracking',
+        ] + args,
+        cwd=sources,
+    )
+
+    if status != 0:
+        return status, stdout, stderr
+
+    status, stdout, stderr = run_subprocess(
+        'make',
+        [
+            '-s', '-j' + str(multiprocessing.cpu_count() + 1),
+            'install', 'DESTDIR={}/'.format(destdir),
+        ],
+        cwd=sources,
+    )
+
+    return status, stdout, stderr
+
+
+def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
+                                 embed_dependencies=False):
     from rpython.tool.runsubprocess import run_subprocess
 
     shutil.rmtree(str(join(basedir,'lib_pypy','__pycache__')),
                   ignore_errors=True)
     failures = []
+
     for key, module in sorted(cffi_build_scripts.items()):
         if only and key not in only:
             print("* SKIPPING", key, '(not specified in --only)')
@@ -40,9 +126,33 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None):
         else:
             args = ['-c', 'import ' + module]
             cwd = None
+        env = os.environ.copy()
+
         print('*', ' '.join(args), file=sys.stderr)
+        if embed_dependencies:
+            destdir = os.path.join(os.path.abspath(os.path.dirname(__file__)),
+                                   'dest')
+            shutil.rmtree(destdir, ignore_errors=True)
+            os.makedirs(destdir)
+
+            status, stdout, stderr = _build_dependency(key, destdir)
+
+            if status != 0:
+                failures.append((key, module))
+                print("stdout:")
+                print(stdout.decode('utf-8'))
+                print("stderr:")
+                print(stderr.decode('utf-8'))
+                continue
+
+            env['CPPFLAGS'] = \
+                '-I{}/usr/include {}'.format(destdir, env.get('CPPFLAGS', ''))
+            env['LDFLAGS'] = \
+                '-L{}/usr/lib {}'.format(destdir, env.get('LDFLAGS', ''))
+
         try:
-            status, stdout, stderr = run_subprocess(str(pypy_c), args, cwd=cwd)
+            status, stdout, stderr = run_subprocess(str(pypy_c), args,
+                                                    cwd=cwd, env=env)
             if status != 0:
                 failures.append((key, module))
                 print("stdout:")
@@ -73,6 +183,8 @@ if __name__ == '__main__':
                              ' you can specify an alternative pypy vm here')
     parser.add_argument('--only', dest='only', default=None,
                         help='Only build the modules delimited by a colon. E.g. ssl,sqlite')
+    parser.add_argument('--embed-dependencies', dest='embed_dependencies', action='store_true',
+        help='embed dependencies for distribution')
     args = parser.parse_args()
 
     exename = join(os.getcwd(), args.exefile)
@@ -89,7 +201,8 @@ if __name__ == '__main__':
         only = None
     else:
         only = set(args.only.split(','))
-    failures = create_cffi_import_libraries(exename, options, basedir, only=only)
+    failures = create_cffi_import_libraries(exename, options, basedir, only=only,
+                                            embed_dependencies=args.embed_dependencies)
     if len(failures) > 0:
         print('*** failed to build the CFFI modules %r' % (
             [f[1] for f in failures],), file=sys.stderr)
