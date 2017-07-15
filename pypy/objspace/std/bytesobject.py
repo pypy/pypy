@@ -750,20 +750,12 @@ def _convert_from_buffer_or_iterable(space, w_source):
                     "cannot convert a (unicode) str object to bytes")
 
     # sequence of bytes
-    w_iter = space.iter(w_source)
-    length_hint = space.length_hint(w_source, 0)
-    builder = StringBuilder(length_hint)
-    while True:
-        try:
-            w_item = space.next(w_iter)
-        except OperationError as e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            break
-        value = space.byte_w(w_item)
-        builder.append(value)
-    return builder.build()
-
+    w_result = space.appexec([w_source], """(seq):
+        result = bytearray()
+        for i in seq:
+            result.append(i)
+        return result""")
+    return w_result.getdata()
 
 W_BytesObject.typedef = TypeDef(
     "bytes", None, None, "read",
