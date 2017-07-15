@@ -345,6 +345,10 @@ W_RuntimeError = _new_exception('RuntimeError', W_Exception,
 W_UnicodeError = _new_exception('UnicodeError', W_ValueError,
                           """Unicode related error.""")
 
+W_ModuleNotFoundError = _new_exception(
+    'ModuleNotFoundError', W_ImportError, """Module not found."""
+)
+
 
 class W_UnicodeTranslateError(W_UnicodeError):
     """Unicode translation error."""

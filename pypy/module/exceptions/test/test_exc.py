@@ -296,6 +296,14 @@ class AppTestExc(object):
         assert ImportError("message", path="y").path == "y"
         raises(TypeError, ImportError, invalid="z")
 
+    def test_modulenotfounderror(self):
+        assert ModuleNotFoundError("message").name is None
+        assert ModuleNotFoundError("message").path is None
+        assert ModuleNotFoundError("message", name="x").name == "x"
+        assert ModuleNotFoundError("message", path="y").path == "y"
+        raises(TypeError, ModuleNotFoundError, invalid="z")
+        assert repr(ModuleNotFoundError('test')) == "ModuleNotFoundError('test',)"
+
     def test_blockingioerror(self):
         args = ("a", "b", "c", "d", "e")
         for n in range(6):

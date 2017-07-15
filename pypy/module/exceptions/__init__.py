@@ -4,7 +4,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 class Module(MixedModule):
     applevel_name = '__exceptions__'
     appleveldefs = {}
-    
+
     interpleveldefs = {
         'ArithmeticError' : 'interp_exceptions.W_ArithmeticError',
         'AssertionError' : 'interp_exceptions.W_AssertionError',
@@ -39,6 +39,7 @@ class Module(MixedModule):
         'KeyboardInterrupt' : 'interp_exceptions.W_KeyboardInterrupt',
         'LookupError' : 'interp_exceptions.W_LookupError',
         'MemoryError' : 'interp_exceptions.W_MemoryError',
+        'ModuleNotFoundError': 'interp_exceptions.W_ModuleNotFoundError',
         'NameError' : 'interp_exceptions.W_NameError',
         'NotADirectoryError': 'interp_exceptions.W_NotADirectoryError',
         'NotImplementedError' : 'interp_exceptions.W_NotImplementedError',
