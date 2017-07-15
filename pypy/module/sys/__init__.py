@@ -87,6 +87,7 @@ class Module(MixedModule):
 
         'getdefaultencoding'    : 'interp_encoding.getdefaultencoding',
         'getfilesystemencoding' : 'interp_encoding.getfilesystemencoding',
+        'getfilesystemencodeerrors': 'interp_encoding.getfilesystemencodeerrors',
 
         'float_info'            : 'system.get_float_info(space)',
         'int_info'              : 'system.get_int_info(space)',
