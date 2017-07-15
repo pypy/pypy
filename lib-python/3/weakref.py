@@ -16,8 +16,8 @@ from _weakref import (
      proxy,
      CallableProxyType,
      ProxyType,
-     ReferenceType,
-     _remove_dead_weakref)
+     ReferenceType
+)
 
 from _weakrefset import WeakSet, _IterationGuard
 
