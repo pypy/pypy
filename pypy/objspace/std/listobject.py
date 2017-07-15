@@ -34,7 +34,6 @@ from pypy.objspace.std.sliceobject import (
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std.util import get_positive_index, negate
-from pypy.objspace.std.noneobject import W_NoneObject
 
 __all__ = ['W_ListObject', 'make_range_list', 'make_empty_list_with_size']
 
@@ -122,8 +121,6 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
             elif type(w_obj) is W_FloatObject:
                 if longlong2float.can_encode_float(space.float_w(w_obj)):
                     continue    # ok
-            elif type(w_obj) is W_NoneObject:
-                continue        # ok
             break
         else:
             return space.fromcache(IntOrFloatListStrategy)
@@ -1731,8 +1728,7 @@ class IntegerListStrategy(ListStrategy):
         return True
 
     def switch_to_next_strategy(self, w_list, w_sample_item):
-        if (type(w_sample_item) is W_FloatObject or
-            type(w_sample_item) is W_NoneObject):
+        if type(w_sample_item) is W_FloatObject:
             if self.switch_to_int_or_float_strategy(w_list):
                 # yes, we can switch to IntOrFloatListStrategy
                 # (ignore here the extremely unlikely case where
@@ -1842,16 +1838,12 @@ class FloatListStrategy(ListStrategy):
         return True
 
     def switch_to_next_strategy(self, w_list, w_sample_item):
-        try_switch = False
         if type(w_sample_item) is W_IntObject:
             sample_intval = self.space.int_w(w_sample_item)
             if longlong2float.can_encode_int32(sample_intval):
-                try_switch = True
-        elif type(w_sample_item) is W_NoneObject:
-            try_switch = True
-        if try_switch and self.switch_to_int_or_float_strategy(w_list):
-            # yes, we can switch to IntOrFloatListStrategy
-            return
+                if self.switch_to_int_or_float_strategy(w_list):
+                    # yes, we can switch to IntOrFloatListStrategy
+                    return
         # no, fall back to ObjectListStrategy
         w_list.switch_to_object_strategy()
 
@@ -1862,8 +1854,6 @@ class IntOrFloatListStrategy(ListStrategy):
     _none_value = longlong2float.float2longlong(0.0)
 
     def wrap(self, llval):
-        if llval == longlong2float.nan_encoded_none:
-            return self.space.w_None
         if longlong2float.is_int32_from_longlong_nan(llval):
             intval = longlong2float.decode_int32_from_longlong_nan(llval)
             return self.space.newint(intval)
@@ -1875,8 +1865,6 @@ class IntOrFloatListStrategy(ListStrategy):
         if type(w_int_or_float) is W_IntObject:
             intval = self.space.int_w(w_int_or_float)
             return longlong2float.encode_int32_into_longlong_nan(intval)
-        elif type(w_int_or_float) is W_NoneObject:
-            return longlong2float.nan_encoded_none
         else:
             floatval = self.space.float_w(w_int_or_float)
             return longlong2float.float2longlong(floatval)
@@ -1892,8 +1880,6 @@ class IntOrFloatListStrategy(ListStrategy):
         elif type(w_obj) is W_FloatObject:
             floatval = self.space.float_w(w_obj)
             return longlong2float.can_encode_float(floatval)
-        elif type(w_obj) is W_NoneObject:
-            return True
         else:
             return False
 

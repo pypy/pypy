@@ -104,12 +104,10 @@ class LongLong2FloatEntry(ExtRegistryEntry):
 # ____________________________________________________________
 
 
-# For encoding integers or none inside nonstandard NaN bit patterns.
+# For encoding integers inside nonstandard NaN bit patterns.
 #   ff ff ff fe xx xx xx xx    (signed 32-bit int)
-#   ff ff ff ff ff ff ff ac    (none)
 nan_high_word_int32 = -2       # -2 == (int)0xfffffffe
 nan_encoded_zero = r_int64(nan_high_word_int32 << 32)
-nan_encoded_none = r_int64(-84)
 
 def encode_int32_into_longlong_nan(value):
     return (nan_encoded_zero +
@@ -129,9 +127,7 @@ def can_encode_int32(value):
     return value == rffi.cast(lltype.Signed, rffi.cast(rffi.INT, value))
 
 def can_encode_float(value):
-    return intmask(float2longlong(value) >> 33) != -1
-assert (nan_high_word_int32 >> 1) == -1
-assert (nan_encoded_none >> 33) == -1
+    return intmask(float2longlong(value) >> 32) != nan_high_word_int32
 
 def maybe_decode_longlong_as_float(value):
     # Decode a longlong value.  If a float, just return it as a float.
