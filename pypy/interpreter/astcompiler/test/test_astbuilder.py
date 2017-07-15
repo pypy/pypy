@@ -1399,6 +1399,20 @@ class TestAstBuilder:
         assert isinstance(asyncwith.body[0], ast.Expr)
         assert isinstance(asyncwith.body[0].value, ast.Num)
 
+    def test_asyncYield(self):
+        mod = self.get_ast("async def f():\n yield 5")
+        assert isinstance(mod, ast.Module)
+        assert len(mod.body) == 1
+        asyncdef = mod.body[0]
+        assert isinstance(asyncdef, ast.AsyncFunctionDef)
+        assert asyncdef.name == 'f'
+        assert asyncdef.args.args == None
+        assert len(asyncdef.body) == 1
+        expr = asyncdef.body[0]
+        assert isinstance(expr, ast.Expr)
+        assert isinstance(expr.value, ast.Yield)
+        assert isinstance(expr.value.value, ast.Num)
+
     def test_decode_error_in_string_literal(self):
         input = "u'\\x'"
         exc = py.test.raises(SyntaxError, self.get_ast, input).value
