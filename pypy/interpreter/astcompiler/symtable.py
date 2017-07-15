@@ -298,20 +298,12 @@ class FunctionScope(Scope):
 
 class AsyncFunctionScope(FunctionScope):
 
-    def note_yield(self, yield_node):
-        raise SyntaxError("'yield' inside async function", yield_node.lineno,
-                          yield_node.col_offset)
-
     def note_yieldFrom(self, yield_node):
         raise SyntaxError("'yield from' inside async function", yield_node.lineno,
                           yield_node.col_offset)
 
     def note_await(self, await_node):
-        # Compatibility with CPython 3.5: set the CO_GENERATOR flag in
-        # addition to the CO_COROUTINE flag if the function uses the
-        # "await" keyword.  Don't do it if the function does not.  In
-        # that case, CO_GENERATOR is ignored anyway.
-        self.is_generator = True
+        pass
 
 
 class ClassScope(Scope):

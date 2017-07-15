@@ -244,7 +244,8 @@ class PyFrame(W_Root):
 
     def _is_generator_or_coroutine(self):
         return (self.getcode().co_flags & (pycode.CO_COROUTINE |
-                                           pycode.CO_GENERATOR)) != 0
+                                           pycode.CO_GENERATOR |
+                                           pycode.CO_ASYNC_GENERATOR)) != 0
 
     def run(self, name=None, qualname=None):
         """Start this frame's execution."""
@@ -278,16 +279,24 @@ class PyFrame(W_Root):
 
     def initialize_as_generator(self, name, qualname):
         space = self.space
-        if self.getcode().co_flags & pycode.CO_COROUTINE:
-            from pypy.interpreter.generator import Coroutine
-            gen = Coroutine(self, name, qualname)
-            ec = space.getexecutioncontext()
-            w_wrapper = ec.w_coroutine_wrapper_fn
-        else:
+        flags = self.getcode().co_flags
+        if flags & pycode.CO_GENERATOR:
             from pypy.interpreter.generator import GeneratorIterator
             gen = GeneratorIterator(self, name, qualname)
             ec = None
             w_wrapper = None
+        elif flags & pycode.CO_COROUTINE:
+            from pypy.interpreter.generator import Coroutine
+            gen = Coroutine(self, name, qualname)
+            ec = space.getexecutioncontext()
+            w_wrapper = ec.w_coroutine_wrapper_fn
+        elif flags & pycode.CO_ASYNC_GENERATOR:
+            from pypy.interpreter.generator import AsyncGenerator
+            gen = AsyncGenerator(self, name, qualname)
+            ec = None
+            w_wrapper = None
+        else:
+            raise AssertionError("bad co_flags")
 
         if space.config.translation.rweakref:
             self.f_generator_wref = rweakref.ref(gen)

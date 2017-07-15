@@ -1597,7 +1597,10 @@ class AsyncFunctionCodeGenerator(AbstractFunctionCodeGenerator):
 
     def _get_code_flags(self):
         flags = AbstractFunctionCodeGenerator._get_code_flags(self)
-        return flags | consts.CO_COROUTINE
+        if flags & consts.CO_GENERATOR:
+            return (flags & ~consts.CO_GENERATOR) | consts.CO_ASYNC_GENERATOR
+        else:
+            return flags | consts.CO_COROUTINE
 
 class LambdaCodeGenerator(AbstractFunctionCodeGenerator):
 

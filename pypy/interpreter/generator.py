@@ -90,10 +90,15 @@ return next yielded value or raise StopIteration."""
         # if the frame is now marked as finished, it was RETURNed from
         if frame.frame_finished_execution:
             self.frame_is_finished()
-            if space.is_w(w_result, space.w_None):
-                raise OperationError(space.w_StopIteration, space.w_None)
+            if isinstance(self, AsyncGenerator):
+                assert space.is_w(w_result, space.w_None), (
+                    "getting non-None here should be forbidden by the bytecode")
+                raise OperationError(space.w_StopAsyncIteration, space.w_None)
             else:
-                raise stopiteration_value(space, w_result)
+                if space.is_w(w_result, space.w_None):
+                    raise OperationError(space.w_StopIteration, space.w_None)
+                else:
+                    raise stopiteration_value(space, w_result)
         else:
             return w_result     # YIELDed
 
@@ -206,7 +211,8 @@ return next yielded value or raise StopIteration."""
         space = self.space
         if self.pycode.co_flags & (consts.CO_FUTURE_GENERATOR_STOP |
                                    consts.CO_COROUTINE |
-                                   consts.CO_ITERABLE_COROUTINE):
+                                   consts.CO_ITERABLE_COROUTINE |
+                                   consts.CO_ASYNC_GENERATOR):
             e2 = OperationError(space.w_RuntimeError,
                                 space.newtext("%s raised StopIteration" %
                                               self.KIND))
@@ -557,3 +563,49 @@ def should_not_inline(pycode):
         if op >= HAVE_ARGUMENT:
             i += 2
     return count_yields >= 2
+
+
+# ------------------------------------------------
+# Python 3.6 async generators
+
+
+class AsyncGenerator(GeneratorOrCoroutine):
+    "An async generator (i.e. a coroutine with a 'yield')"
+    KIND = "async_generator"
+
+    def descr__aiter__(self):
+        """Return an asynchronous iterator."""
+        return self
+
+    def descr__anext__(self):
+        return AsyncGenASend(self)
+
+    def descr_asend(self, w_arg):
+        XXX
+        return AsyncGenASend(w_arg)
+
+    def descr_athrow(self, w_type, w_val=None, w_tb=None):
+        XXX
+        return AsyncGenAThrow(w_type, w_val, w_tb)
+
+
+class AsyncGenValueWrapper(W_Root):
+    def __init__(self, w_value):
+        self.w_value = w_value
+
+
+class AsyncGenASend(W_Root):
+
+    def __init__(self, async_gen):
+        self.async_gen = async_gen
+
+    def descr__iter__(self):
+        return self
+
+    def descr__next__(self):
+        space = self.async_gen.space
+        w_value = self.async_gen.send_ex(space.w_None)
+        if isinstance(w_value, AsyncGenValueWrapper):
+            raise OperationError(space.w_StopIteration, w_value.w_value)
+        else:
+            return w_value

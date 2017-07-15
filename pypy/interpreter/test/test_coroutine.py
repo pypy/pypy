@@ -203,3 +203,22 @@ class AppTestCoroutine:
             pass
         assert result == [42]
         """
+
+    def test_async_yield(self): """
+        class Done(Exception): pass
+
+        async def mygen():
+            yield 5
+
+        result = []
+        async def foo():
+            async for i in mygen():
+                result.append(i)
+            raise Done
+
+        try:
+            foo().send(None)
+        except Done:
+            pass
+        assert result == [5]
+        """

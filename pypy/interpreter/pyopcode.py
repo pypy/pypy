@@ -1088,6 +1088,11 @@ class __extend__(pyframe.PyFrame):
 
 
     def YIELD_VALUE(self, oparg, next_instr):
+        if self.getcode().co_flags & pycode.CO_ASYNC_GENERATOR:
+            from pypy.interpreter.generator import AsyncGenValueWrapper
+            w_value = self.popvalue()
+            w_value = AsyncGenValueWrapper(w_value)
+            self.pushvalue(w_value)
         raise Yield
 
     def YIELD_FROM(self, oparg, next_instr):
@@ -1096,7 +1101,6 @@ class __extend__(pyframe.PyFrame):
         # Instead, we directly set the generator's w_yielded_from.
         # This asks generator.resume_execute_frame() to exhaust that
         # sub-iterable first before continuing on the next bytecode.
-        from pypy.interpreter.generator import Coroutine
         in_generator = self.get_generator()
         assert in_generator is not None
         w_inputvalue = self.popvalue()    # that's always w_None, actually
@@ -1595,6 +1599,7 @@ class __extend__(pyframe.PyFrame):
     def GET_ANEXT(self, oparg, next_instr):
         from pypy.interpreter.generator import get_awaitable_iter
 
+        # XXX add performance shortcut if w_aiter is an AsyncGenerator
         space = self.space
         w_aiter = self.peekvalue()
         w_func = space.lookup(w_aiter, "__anext__")
