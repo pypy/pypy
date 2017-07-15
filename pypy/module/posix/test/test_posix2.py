@@ -964,7 +964,7 @@ class AppTestPosix:
             assert posix.sched_get_priority_min(posix.SCHED_OTHER) != -1
             if getattr(posix, 'SCHED_BATCH', None):
                 assert posix.sched_get_priority_min(posix.SCHED_BATCH) != -1
-            
+
     if hasattr(rposix, 'sched_get_priority_min'):
         def test_os_sched_priority_max_greater_than_min(self):
             posix, os = self.posix, self.os
@@ -1410,6 +1410,32 @@ class AppTestPosix:
 
         e = raises(OSError, self.posix.symlink, 'bok', '/nonexistentdir/boz')
         assert str(e.value).endswith(": 'bok' -> '/nonexistentdir/boz'")
+
+    def test_os_fspath(self):
+        assert hasattr(self.posix, 'fspath')
+        raises(TypeError, self.posix.fspath, None)
+        e = raises(TypeError, self.posix.fspath, 42)
+        assert str(e.value).endswith('int')
+        string = 'string'
+        assert self.posix.fspath(string) == string
+        assert self.posix.fspath(b'bytes') == b'bytes'
+        class Sample:
+            def __fspath__(self):
+                return 'sample'
+
+        assert self.posix.fspath(Sample()) == 'sample'
+
+        class BSample:
+            def __fspath__(self):
+                return b'binary sample'
+
+        assert self.posix.fspath(BSample()) == b'binary sample'
+
+        class WrongSample:
+            def __fspath__(self):
+                return 4
+
+        raises(TypeError, self.posix.fspath, WrongSample())
 
 
 class AppTestEnvironment(object):

@@ -2437,8 +2437,8 @@ Copy count bytes from file descriptor in to file descriptor out."""
 
 @unwrap_spec(policy=int)
 def sched_get_priority_max(space, policy):
-    """returns the maximum priority value that 
-    can be used with the scheduling algorithm 
+    """returns the maximum priority value that
+    can be used with the scheduling algorithm
     identified by policy
     """
     while True:
@@ -2452,7 +2452,7 @@ def sched_get_priority_max(space, policy):
 @unwrap_spec(policy=int)
 def sched_get_priority_min(space, policy):
     """returns the minimum priority value that
-     can be used with the scheduling algorithm 
+     can be used with the scheduling algorithm
      identified by policy
     """
     while True:
@@ -2462,3 +2462,36 @@ def sched_get_priority_min(space, policy):
             wrap_oserror(space, e, eintr_retry=True)
         else:
            return space.newint(s)
+
+
+def fspath(space, w_path):
+    """
+    Return the file system path representation of the object.
+
+    If the object is str or bytes, then allow it to pass through as-is. If the
+    object defines __fspath__(), then return the result of that method. All other
+    types raise a TypeError.
+    """
+    if (space.isinstance_w(w_path, space.w_text) or
+        space.isinstance_w(w_path, space.w_bytes)):
+        return w_path
+
+    w_fspath_method = space.lookup(w_path, '__fspath__')
+    if w_fspath_method is None:
+        raise oefmt(
+            space.w_TypeError,
+            'expected str, bytes or os.PathLike object, not %T',
+            w_path
+        )
+
+    w_result = space.get_and_call_function(w_fspath_method, w_path)
+    if (space.isinstance_w(w_result, space.w_text) or
+        space.isinstance_w(w_result, space.w_bytes)):
+        return w_result
+
+    raise oefmt(
+        space.w_TypeError,
+        'expected %T.__fspath__() to return str or bytes, not %T',
+        w_path,
+        w_result
+    )

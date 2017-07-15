@@ -83,6 +83,7 @@ corresponding Unix manual entries for more information on calls."""
         'scandir': 'interp_scandir.scandir',
         'get_inheritable': 'interp_posix.get_inheritable',
         'set_inheritable': 'interp_posix.set_inheritable',
+        'fspath': 'interp_posix.fspath',
     }
 
     if hasattr(os, 'chown'):
@@ -228,7 +229,7 @@ corresponding Unix manual entries for more information on calls."""
         'POSIX_FADV_RANDOM', 'POSIX_FADV_NOREUSE', 'POSIX_FADV_DONTNEED']:
             assert getattr(rposix, _name) is not None, "missing %r" % (_name,)
             interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
-    
+
     if hasattr(rposix, 'sched_get_priority_max'):
         interpleveldefs['sched_get_priority_max'] = 'interp_posix.sched_get_priority_max'
         interpleveldefs['sched_get_priority_min'] = 'interp_posix.sched_get_priority_min'
