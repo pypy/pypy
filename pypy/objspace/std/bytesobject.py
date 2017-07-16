@@ -755,7 +755,7 @@ def _convert_from_buffer_or_iterable(space, w_source):
         for i in seq:
             result.append(i)
         return result""")
-    return w_result.getdata()
+    return ''.join(w_result.getdata())
 
 W_BytesObject.typedef = TypeDef(
     "bytes", None, None, "read",
