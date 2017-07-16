@@ -315,3 +315,71 @@ class AppTestCoroutine:
         assert e.value.args == (42,)
         assert result == [5, 6]
         """
+
+    def test_async_yield_explicit_asend_and_next(self): """
+        async def mygen(y):
+            assert y == 4983
+            x = yield 5
+            assert x == 2189
+            yield "ok"
+
+        g = mygen(4983)
+        raises(TypeError, g.asend(42).__next__)
+        e = raises(StopIteration, g.asend(None).__next__)
+        assert e.value.args == (5,)
+        e = raises(StopIteration, g.asend(2189).__next__)
+        assert e.value.args == ("ok",)
+        """
+
+    def test_async_yield_explicit_asend_and_send(self): """
+        async def mygen(y):
+            assert y == 4983
+            x = yield 5
+            assert x == 2189
+            yield "ok"
+
+        g = mygen(4983)
+        e = raises(TypeError, g.asend(None).send, 42)
+        assert str(e.value) == ("can't send non-None value to a just-started "
+                                "async generator")
+        e = raises(StopIteration, g.asend(None).send, None)
+        assert e.value.args == (5,)
+        e = raises(StopIteration, g.asend("IGNORED").send, 2189)  # xxx
+        assert e.value.args == ("ok",)
+        """
+
+    def test_async_yield_explicit_asend_used_several_times(self): """
+        class X:
+            def __await__(self):
+                r = yield -2
+                assert r == "cont1"
+                r = yield -3
+                assert r == "cont2"
+                return -4
+        async def mygen(y):
+            x = await X()
+            assert x == -4
+            r = yield -5
+            assert r == "foo"
+            r = yield -6
+            assert r == "bar"
+
+        g = mygen(4983)
+        gs = g.asend(None)
+        r = gs.send(None)
+        assert r == -2
+        r = gs.send("cont1")
+        assert r == -3
+        e = raises(StopIteration, gs.send, "cont2")
+        assert e.value.args == (-5,)
+        e = raises(StopIteration, gs.send, None)
+        assert e.value.args == ()
+        e = raises(StopIteration, gs.send, None)
+        assert e.value.args == ()
+        #
+        gs = g.asend("foo")
+        e = raises(StopIteration, gs.send, None)
+        assert e.value.args == (-6,)
+        e = raises(StopIteration, gs.send, "bar")
+        assert e.value.args == ()
+        """
