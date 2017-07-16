@@ -315,7 +315,8 @@ class AppTestLong:
                 return IntSubclass(42)
         n = int(ReturnsIntSubclass())
         assert n == 42
-        assert type(n) is IntSubclass
+        # cpython 3.6 fixed behaviour to actually return type int here
+        assert type(n) is int
 
     def test_trunc_returns(self):
         # but!: (blame CPython 2.7)
