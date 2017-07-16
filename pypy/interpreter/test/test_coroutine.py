@@ -383,3 +383,33 @@ class AppTestCoroutine:
         e = raises(StopIteration, gs.send, "bar")
         assert e.value.args == ()
         """
+
+    def test_async_yield_asend_notnone_throw(self): """
+        async def f():
+            yield 123
+
+        raises(ValueError, f().asend(42).throw, ValueError)
+    """
+
+    def test_async_yield_asend_none_throw(self): """
+        async def f():
+            yield 123
+
+        raises(ValueError, f().asend(None).throw, ValueError)
+    """
+
+    def test_async_yield_athrow_send_none(self): """
+        async def ag():
+            yield 42
+
+        raises(ValueError, ag().athrow(ValueError).send, None)
+    """
+
+    def test_async_yield_athrow_send_notnone(self): """
+        async def ag():
+            yield 42
+
+        ex = raises(RuntimeError, ag().athrow(ValueError).send, 42)
+        expected = ("can't send non-None value to a just-started coroutine", )
+        assert ex.value.args == expected
+        """
