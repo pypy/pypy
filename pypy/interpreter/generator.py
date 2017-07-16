@@ -626,7 +626,7 @@ class AsyncGenASend(W_Root):
         return self.send_ex(space.w_None)
 
     def descr_send(self, w_arg):
-        XXX
+        return self.send_ex(w_arg)
 
     def descr_throw(self, w_type, w_val=None, w_tb=None):
         XXX
