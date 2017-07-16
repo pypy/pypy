@@ -865,7 +865,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
             return _from_intlike(space, w_inttype, space.int(w_value))
         elif space.lookup(w_value, '__trunc__') is not None:
             w_obj = space.trunc(w_value)
-            if not space.isinstance_w(w_obj, space.w_int):
+            if not space.is_w(space.type(w_obj), space.w_int):
                 w_obj = space.int(w_obj)
             return _from_intlike(space, w_inttype, w_obj)
         elif space.isinstance_w(w_value, space.w_unicode):
