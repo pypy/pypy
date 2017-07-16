@@ -1,4 +1,5 @@
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
+from rpython.rlib import jit
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -186,6 +187,7 @@ class W_PyCWrapperObject(W_Root):
                                   (self.method_name,
                                    self.w_objclass.name))
 
+@jit.dont_look_inside
 def cwrapper_descr_call(space, w_self, __args__):
     self = space.interp_w(W_PyCWrapperObject, w_self)
     args_w, kw_w = __args__.unpack()
@@ -197,6 +199,7 @@ def cwrapper_descr_call(space, w_self, __args__):
     return self.call(space, w_self, w_args, w_kw)
 
 
+@jit.dont_look_inside
 def cfunction_descr_call(space, w_self, __args__):
     self = space.interp_w(W_PyCFunctionObject, w_self)
     args_w, kw_w = __args__.unpack()
@@ -207,6 +210,7 @@ def cfunction_descr_call(space, w_self, __args__):
     ret = self.call(space, None, w_args, w_kw)
     return ret
 
+@jit.dont_look_inside
 def cmethod_descr_call(space, w_self, __args__):
     self = space.interp_w(W_PyCFunctionObject, w_self)
     args_w, kw_w = __args__.unpack()

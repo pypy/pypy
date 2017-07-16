@@ -443,6 +443,11 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
         if func.__name__ in FUNCTIONS_BY_HEADER[header]:
             raise ValueError("%s already registered" % func.__name__)
         func._always_inline_ = 'try'
+        #
+        # XXX: should we @jit.dont_look_inside all the @cpython_api functions,
+        # or we should only disable some of them?
+        func._jit_look_inside_ = False
+        #
         api_function = ApiFunction(
             argtypes, restype, func,
             error=_compute_error(error, restype), gil=gil,
