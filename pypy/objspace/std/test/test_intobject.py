@@ -405,10 +405,10 @@ class AppTestInt(object):
         value = 4200000000000000000000000000000000
         assert int(j()) == 4200000000000000000000000000000000
         value = subint(42)
-        assert int(j()) == 42 and type(int(j())) is subint
+        assert int(j()) == 42 and type(int(j())) is int
         value = subint(4200000000000000000000000000000000)
         assert (int(j()) == 4200000000000000000000000000000000
-                and type(int(j())) is subint)
+                and type(int(j())) is int)
         value = 42.0
         raises(TypeError, int, j())
         value = "foo"
@@ -473,7 +473,7 @@ class AppTestInt(object):
                     return True
             n = int(TruncReturnsNonInt())
             assert n == 1
-            assert type(n) is bool
+            assert type(n) is int
 
     def test_int_before_string(self):
         class Integral(str):
@@ -639,7 +639,7 @@ class AppTestInt(object):
             warnings.simplefilter("always", DeprecationWarning)
             n = int(bad)
             m = _operator.index(bad)
-        assert n is True
+        assert n == 1 and type(n) is int
         assert m is False
         assert len(log) == 2
 
