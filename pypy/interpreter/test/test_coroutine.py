@@ -244,3 +244,35 @@ class AppTestCoroutine:
             pass
         assert result == [5]
         """
+
+    def test_async_yield_with_await(self): """
+        class Done(Exception): pass
+
+        class X:
+            def __await__(self):
+                i1 = yield 40
+                assert i1 == 82
+                i2 = yield 41
+                assert i2 == 93
+
+        async def mygen():
+            yield 5
+            await X()
+            yield 6
+
+        result = []
+        async def foo():
+            async for i in mygen():
+                result.append(i)
+            raise Done
+
+        co = foo()
+        x = co.send(None)
+        assert x == 40
+        assert result == [5]
+        x = co.send(82)
+        assert x == 41
+        assert result == [5]
+        raises(Done, co.send, 93)
+        assert result == [5, 6]
+        """

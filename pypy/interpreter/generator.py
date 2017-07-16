@@ -186,6 +186,8 @@ return next yielded value or raise StopIteration."""
         try:
             if isinstance(w_yf, GeneratorOrCoroutine):
                 w_retval = w_yf.send_ex(w_inputvalue_or_err)
+            elif isinstance(w_yf, AsyncGenASend):
+                w_retval = w_yf.send_ex(w_inputvalue_or_err)
             elif space.is_w(w_inputvalue_or_err, space.w_None):
                 w_retval = space.next(w_yf)
             else:
@@ -617,7 +619,20 @@ class AsyncGenASend(W_Root):
 
     def descr__next__(self):
         space = self.async_gen.space
-        w_value = self.async_gen.send_ex(space.w_None)
+        return self.send_ex(space.w_None)
+
+    def descr_send(self, w_arg):
+        XXX
+
+    def descr_throw(self, w_type, w_val=None, w_tb=None):
+        XXX
+
+    def descr_close(self):
+        XXX
+
+    def send_ex(self, w_arg_or_err):
+        space = self.async_gen.space
+        w_value = self.async_gen.send_ex(w_arg_or_err)
         if isinstance(w_value, AsyncGenValueWrapper):
             raise OperationError(space.w_StopIteration, w_value.w_value)
         else:

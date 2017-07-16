@@ -901,7 +901,18 @@ AsyncGenASend.typedef = TypeDef("async_generator_asend",
     __await__    = interp2app(AsyncGenASend.descr__iter__),
     __iter__     = interp2app(AsyncGenASend.descr__iter__),
     __next__     = interp2app(AsyncGenASend.descr__next__),
+    close        = interp2app(AsyncGenASend.descr_close),
+    send         = interp2app(AsyncGenASend.descr_send),
+    throw        = interp2app(AsyncGenASend.descr_throw),
 )
+#AsyncGenAThrow.typedef = TypeDef("async_generator_athrow",
+#    __await__    = interp2app(AsyncGenAThrow.descr__iter__),
+#    __iter__     = interp2app(AsyncGenAThrow.descr__iter__),
+#    __next__     = interp2app(AsyncGenAThrow.descr__next__),
+#    close        = interp2app(AsyncGenAThrow.descr_close),
+#    send         = interp2app(AsyncGenAThrow.descr_send),
+#    throw        = interp2app(AsyncGenAThrow.descr_throw),
+#)
 
 Cell.typedef = TypeDef("cell",
     __total_ordering__ = 'auto',
