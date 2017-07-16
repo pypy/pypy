@@ -380,6 +380,12 @@ class OperationError(Exception):
             _break_context_cycle(space, w_value, w_context)
             space.setattr(w_value, space.newtext('__context__'), w_context)
 
+    def chain_exceptions_from_cause(self, space, exception):
+        # XXX does this code really make sense?
+        self.chain_exceptions(space, exception)
+        self.set_cause(space, exception.get_w_value(space))
+        self.record_context(space, space.getexecutioncontext())
+
     # A simplified version of _PyErr_TrySetFromCause, which returns a
     # new exception of the same class, but with another error message.
     # This only works for exceptions which have just a single message,

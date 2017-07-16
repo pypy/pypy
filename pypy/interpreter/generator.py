@@ -129,6 +129,9 @@ return next yielded value or raise StopIteration."""
             try:
                 if e.match(space, space.w_StopIteration):
                     self._leak_stopiteration(e)
+                elif (isinstance(self, AsyncGenerator) and
+                      e.match(space, space.w_StopAsyncIteration)):
+                    self._leak_stopasynciteration(e)
             finally:
                 self.frame_is_finished()
             raise
@@ -218,14 +221,19 @@ return next yielded value or raise StopIteration."""
             e2 = OperationError(space.w_RuntimeError,
                                 space.newtext("%s raised StopIteration" %
                                               self.KIND))
-            e2.chain_exceptions(space, e)
-            e2.set_cause(space, e.get_w_value(space))
-            e2.record_context(space, space.getexecutioncontext())
+            e2.chain_exceptions_from_cause(space, e)
             raise e2
         else:
             space.warn(space.newunicode(u"generator '%s' raised StopIteration"
                                         % self.get_qualname()),
-                       space.w_PendingDeprecationWarning)
+                       space.w_DeprecationWarning)
+
+    def _leak_stopasynciteration(self, e):
+        space = self.space
+        e2 = OperationError(space.w_RuntimeError,
+                   space.newtext("async generator raised StopAsyncIteration"))
+        e2.chain_exceptions_from_cause(space, e)
+        raise e2
 
     def descr_throw(self, w_type, w_val=None, w_tb=None):
         """throw(typ[,val[,tb]]) -> raise exception in generator/coroutine,
@@ -469,7 +477,7 @@ def get_generator_exit(space):
 def gen_close_iter(space, w_yf):
     # This helper function is used by close() and throw() to
     # close a subiterator being delegated to by yield-from.
-    if isinstance(w_yf, GeneratorIterator):
+    if isinstance(w_yf, GeneratorIterator) or isinstance(w_yf, Coroutine):
         w_yf.descr_close()
     else:
         try:
