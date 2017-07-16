@@ -593,15 +593,17 @@ class AsyncGenerator(GeneratorOrCoroutine):
         return self
 
     def descr__anext__(self):
-        return AsyncGenASend(self)
+        return AsyncGenASend(self, self.space.w_None)
 
     def descr_asend(self, w_arg):
-        XXX
-        return AsyncGenASend(w_arg)
+        return AsyncGenASend(self, w_arg)
 
     def descr_athrow(self, w_type, w_val=None, w_tb=None):
         XXX
         return AsyncGenAThrow(w_type, w_val, w_tb)
+
+    def descr_aclose(self):
+        XXX
 
 
 class AsyncGenValueWrapper(W_Root):
@@ -610,9 +612,11 @@ class AsyncGenValueWrapper(W_Root):
 
 
 class AsyncGenASend(W_Root):
+    state = 0
 
-    def __init__(self, async_gen):
+    def __init__(self, async_gen, w_value_to_send):
         self.async_gen = async_gen
+        self.w_value_to_send = w_value_to_send
 
     def descr__iter__(self):
         return self
@@ -632,8 +636,29 @@ class AsyncGenASend(W_Root):
 
     def send_ex(self, w_arg_or_err):
         space = self.async_gen.space
-        w_value = self.async_gen.send_ex(w_arg_or_err)
-        if isinstance(w_value, AsyncGenValueWrapper):
-            raise OperationError(space.w_StopIteration, w_value.w_value)
-        else:
-            return w_value
+        if self.state == 2:
+            raise OperationError(space.w_StopIteration, space.w_None)
+
+        # We think that the code should look like this:
+        #if self.w_value_to_send is not None:
+        #    if not space.is_w(w_arg_or_err, space.w_None):
+        #        raise ...
+        #    w_arg_or_err = self.w_value_to_send
+        #    self.w_value_to_send = None
+
+        # But instead, CPython's logic is this, which we think is
+        # giving nonsense results for 'g.asend(42).send(43)':
+        if self.state == 0:
+            if space.is_w(w_arg_or_err, space.w_None):
+                w_arg_or_err = self.w_value_to_send
+            self.state = 1
+
+        try:
+            w_value = self.async_gen.send_ex(w_arg_or_err)
+            if isinstance(w_value, AsyncGenValueWrapper):
+                raise OperationError(space.w_StopIteration, w_value.w_value)
+            else:
+                return w_value
+        except OperationError as e:
+            self.state = 2
+            raise

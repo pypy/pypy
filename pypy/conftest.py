@@ -5,7 +5,7 @@ if hasattr(sys, 'setrecursionlimit'):
     # some tests fail otherwise
     sys.setrecursionlimit(2000)
 
-LOOK_FOR_PYTHON3 = 'python3.5'
+LOOK_FOR_PYTHON3 = 'python3.6'
 PYTHON3 = os.getenv('PYTHON3') or py.path.local.sysfind(LOOK_FOR_PYTHON3)
 if PYTHON3 is not None:
     PYTHON3 = str(PYTHON3)

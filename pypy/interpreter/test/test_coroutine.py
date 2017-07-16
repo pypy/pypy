@@ -276,3 +276,42 @@ class AppTestCoroutine:
         raises(Done, co.send, 93)
         assert result == [5, 6]
         """
+
+    def test_async_yield_with_explicit_send(self): """
+        class X:
+            def __await__(self):
+                i1 = yield 40
+                assert i1 == 82
+                i2 = yield 41
+                assert i2 == 93
+
+        async def mygen():
+            x = yield 5
+            assert x == 2189
+            await X()
+            y = yield 6
+            assert y == 319
+
+        result = []
+        async def foo():
+            gen = mygen()
+            result.append(await gen.asend(None))
+            result.append(await gen.asend(2189))
+            try:
+                await gen.asend(319)
+            except StopAsyncIteration:
+                return 42
+            else:
+                raise AssertionError
+
+        co = foo()
+        x = co.send(None)
+        assert x == 40
+        assert result == [5]
+        x = co.send(82)
+        assert x == 41
+        assert result == [5]
+        e = raises(StopIteration, co.send, 93)
+        assert e.value.args == (42,)
+        assert result == [5, 6]
+        """
