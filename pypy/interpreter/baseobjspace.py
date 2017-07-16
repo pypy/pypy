@@ -277,6 +277,7 @@ class W_Root(object):
                     "expected %s, got %T object", expected, self)
 
     def int(self, space):
+        from pypy.objspace.std.intobject import _new_int
         w_impl = space.lookup(self, '__int__')
         if w_impl is None:
             self._typed_unwrap_error(space, "integer")
@@ -291,6 +292,8 @@ class W_Root(object):
                 "The ability to return an instance of a strict subclass of int "
                 "is deprecated, and may be removed in a future version of "
                 "Python." % (tp,)), space.w_DeprecationWarning)
+            # convert to int to be like python 3.6
+            w_result = _new_int(space, space.w_int, w_result)
             return w_result
         raise oefmt(space.w_TypeError,
                     "__int__ returned non-int (type '%T')", w_result)
