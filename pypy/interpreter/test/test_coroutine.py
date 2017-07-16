@@ -421,3 +421,30 @@ class AppTestCoroutine:
         raises(RuntimeError, ag().athrow(ValueError).throw, LookupError)
         # CPython's message makes little sense; PyPy's message is different
     """
+
+    def test_async_yield_athrow_while_running(self): """
+        values = []
+        async def ag():
+            try:
+                received = yield 1
+            except ValueError:
+                values.append(42)
+                return
+            yield 2
+
+
+        async def run():
+            running = ag()
+            x = await running.asend(None)
+            assert x == 1
+            try:
+                await running.athrow(ValueError)
+            except StopAsyncIteration:
+                pass
+
+
+        try:
+            run().send(None)
+        except StopIteration:
+            assert values == [42]
+    """
