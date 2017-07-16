@@ -413,3 +413,12 @@ class AppTestCoroutine:
         expected = ("can't send non-None value to a just-started coroutine", )
         assert ex.value.args == expected
         """
+
+    def test_async_yield_athrow_throw(self): """
+        async def ag():
+            yield 42
+
+        ex = raises(RuntimeError, ag().athrow(ValueError).throw, LookupError)
+        expected = ("can't send non-None value to a just-started coroutine", )
+        assert ex.value.args == expected
+    """
