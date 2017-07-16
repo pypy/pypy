@@ -116,11 +116,16 @@ return next yielded value or raise StopIteration."""
         #
         # Optimization only: after we've started a Coroutine without
         # CO_YIELD_INSIDE_TRY, then Coroutine._finalize_() will be a no-op
-        if (isinstance(self, Coroutine)
-                and frame.last_instr == -1
-                and not (self.pycode.co_flags & CO_YIELD_INSIDE_TRY)):
-            rgc.may_ignore_finalizer(self)
-        #
+        if frame.last_instr == -1:
+            if (isinstance(self, Coroutine) and
+                not (self.pycode.co_flags & CO_YIELD_INSIDE_TRY)):
+                rgc.may_ignore_finalizer(self)
+
+            if (not space.is_w(w_arg_or_err, space.w_None) and
+                not isinstance(w_arg_or_err, SApplicationException)):
+                raise oefmt(space.w_TypeError,
+                            "can't send non-None value to a just-started %s",
+                            self.KIND)
         self.running = True
         try:
             w_result = frame.execute_frame(self, w_arg_or_err)
@@ -168,12 +173,7 @@ return next yielded value or raise StopIteration."""
             return frame.handle_generator_error(w_arg_or_err.operr)
 
         last_instr = jit.promote(frame.last_instr)
-        if last_instr == -1:
-            if not space.is_w(w_arg_or_err, space.w_None):
-                raise oefmt(space.w_TypeError,
-                            "can't send non-None value to a just-started %s",
-                            self.KIND)
-        else:
+        if last_instr != -1:
             frame.pushvalue(w_arg_or_err)
         return r_uint(last_instr + 1)
 
