@@ -418,7 +418,6 @@ class AppTestCoroutine:
         async def ag():
             yield 42
 
-        ex = raises(RuntimeError, ag().athrow(ValueError).throw, LookupError)
-        expected = ("can't send non-None value to a just-started coroutine", )
-        assert ex.value.args == expected
+        raises(RuntimeError, ag().athrow(ValueError).throw, LookupError)
+        # CPython's message makes little sense; PyPy's message is different
     """

@@ -611,7 +611,11 @@ class AsyncGenValueWrapper(W_Root):
 
 
 class AsyncGenABase(W_Root):
-    state = 0
+    ST_INIT = 0
+    ST_ITER = 1
+    ST_CLOSED = 2
+
+    state = ST_INIT
 
     def __init__(self, async_gen):
         self.space = async_gen.space
@@ -628,13 +632,13 @@ class AsyncGenABase(W_Root):
 
     def descr_throw(self, w_type, w_val=None, w_tb=None):
         space = self.space
-        if self.state == 2:
+        if self.state == self.ST_CLOSED:
             raise OperationError(space.w_StopIteration, space.w_None)
         try:
             w_value = self.async_gen.throw(w_type, w_val, w_tb)
             return self.unwrap_value(w_value)
         except OperationError as e:
-            self.state = 2
+            self.state = self.ST_CLOSED
             raise
 
     def descr_close(self):
@@ -655,7 +659,7 @@ class AsyncGenASend(AsyncGenABase):
 
     def do_send(self, w_arg_or_err):
         space = self.space
-        if self.state == 2:
+        if self.state == self.ST_CLOSED:
             raise OperationError(space.w_StopIteration, space.w_None)
 
         # We think that the code should look like this:
@@ -667,16 +671,16 @@ class AsyncGenASend(AsyncGenABase):
 
         # But instead, CPython's logic is this, which we think is
         # giving nonsense results for 'g.asend(42).send(43)':
-        if self.state == 0:
+        if self.state == self.ST_INIT:
             if space.is_w(w_arg_or_err, space.w_None):
                 w_arg_or_err = self.w_value_to_send
-            self.state = 1
+            self.state = self.ST_ITER
 
         try:
             w_value = self.async_gen.send_ex(w_arg_or_err)
             return self.unwrap_value(w_value)
         except OperationError as e:
-            self.state = 2
+            self.state = self.ST_CLOSED
             raise
 
 
@@ -691,17 +695,32 @@ class AsyncGenAThrow(AsyncGenABase):
     def do_send(self, w_arg_or_err):
         # XXX FAR MORE COMPLICATED IN CPYTHON
         space = self.space
-        if self.state == 2:
+        if self.state == self.ST_CLOSED:
             raise OperationError(space.w_StopIteration, space.w_None)
 
-        if self.state == 0:
+        if self.state == self.ST_INIT:
             if not space.is_w(w_arg_or_err, space.w_None):
                 raise OperationError(space.w_RuntimeError, space.newtext(
                     "can't send non-None value to a just-started coroutine"))
-            self.state = 1
-            w_value = self.async_gen.throw(self.w_exc_type,
-                                           self.w_exc_value,
-                                           self.w_exc_tb)
+            self.state = self.ST_ITER
+            throwing = True
         else:
-            w_value = self.async_gen.send_ex(w_arg_or_err)
-        return self.unwrap_value(w_value)
+            throwing = False
+
+        try:
+            if throwing:
+                w_value = self.async_gen.throw(self.w_exc_type,
+                                               self.w_exc_value,
+                                               self.w_exc_tb)
+            else:
+                w_value = self.async_gen.send_ex(w_arg_or_err)
+            return self.unwrap_value(w_value)
+        except OperationError as e:
+            self.state = self.ST_CLOSED
+            raise
+
+    def descr_throw(self, w_type, w_val=None, w_tb=None):
+        if self.state == self.ST_INIT:
+            raise OperationError(self.space.w_RuntimeError,
+                self.space.newtext("can't do async_generator.athrow().throw()"))
+        return AsyncGenABase.descr_throw(self, w_type, w_val, w_tb)
