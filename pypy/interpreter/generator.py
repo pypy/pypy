@@ -615,6 +615,7 @@ class AsyncGenASend(W_Root):
     state = 0
 
     def __init__(self, async_gen, w_value_to_send):
+        self.space = async_gen.space
         self.async_gen = async_gen
         self.w_value_to_send = w_value_to_send
 
@@ -622,20 +623,27 @@ class AsyncGenASend(W_Root):
         return self
 
     def descr__next__(self):
-        space = self.async_gen.space
-        return self.send_ex(space.w_None)
+        return self.send_ex(self.space.w_None)
 
     def descr_send(self, w_arg):
         return self.send_ex(w_arg)
 
     def descr_throw(self, w_type, w_val=None, w_tb=None):
-        XXX
+        space = self.space
+        if self.state == 2:
+            raise OperationError(space.w_StopIteration, space.w_None)
+        try:
+            w_value = self.async_gen.throw(w_type, w_val, w_tb)
+            return self.unwrap_value(w_value)
+        except OperationError as e:
+            self.state = 2
+            raise
 
     def descr_close(self):
         XXX
 
     def send_ex(self, w_arg_or_err):
-        space = self.async_gen.space
+        space = self.space
         if self.state == 2:
             raise OperationError(space.w_StopIteration, space.w_None)
 
@@ -655,10 +663,13 @@ class AsyncGenASend(W_Root):
 
         try:
             w_value = self.async_gen.send_ex(w_arg_or_err)
-            if isinstance(w_value, AsyncGenValueWrapper):
-                raise OperationError(space.w_StopIteration, w_value.w_value)
-            else:
-                return w_value
+            return self.unwrap_value(w_value)
         except OperationError as e:
             self.state = 2
             raise
+
+    def unwrap_value(self, w_value):
+        if isinstance(w_value, AsyncGenValueWrapper):
+            raise OperationError(self.space.w_StopIteration, w_value.w_value)
+        else:
+            return w_value
