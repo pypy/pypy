@@ -337,7 +337,7 @@ class AppTestLong:
                 return IntSubclass(42)
         n = int(TruncReturnsNonInt())
         assert n == 42
-        assert type(n) is IntSubclass
+        assert type(n) is int
 
     def test_long_before_string(self):
         class A(str):
