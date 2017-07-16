@@ -186,8 +186,8 @@ return next yielded value or raise StopIteration."""
         try:
             if isinstance(w_yf, GeneratorOrCoroutine):
                 w_retval = w_yf.send_ex(w_inputvalue_or_err)
-            elif isinstance(w_yf, AsyncGenASend):
-                w_retval = w_yf.send_ex(w_inputvalue_or_err)
+            elif isinstance(w_yf, AsyncGenASend):   # performance only
+                w_retval = w_yf.do_send(w_inputvalue_or_err)
             elif space.is_w(w_inputvalue_or_err, space.w_None):
                 w_retval = space.next(w_yf)
             else:
@@ -599,8 +599,7 @@ class AsyncGenerator(GeneratorOrCoroutine):
         return AsyncGenASend(self, w_arg)
 
     def descr_athrow(self, w_type, w_val=None, w_tb=None):
-        XXX
-        return AsyncGenAThrow(w_type, w_val, w_tb)
+        return AsyncGenAThrow(self, w_type, w_val, w_tb)
 
     def descr_aclose(self):
         XXX
@@ -611,22 +610,21 @@ class AsyncGenValueWrapper(W_Root):
         self.w_value = w_value
 
 
-class AsyncGenASend(W_Root):
+class AsyncGenABase(W_Root):
     state = 0
 
-    def __init__(self, async_gen, w_value_to_send):
+    def __init__(self, async_gen):
         self.space = async_gen.space
         self.async_gen = async_gen
-        self.w_value_to_send = w_value_to_send
 
     def descr__iter__(self):
         return self
 
     def descr__next__(self):
-        return self.send_ex(self.space.w_None)
+        return self.do_send(self.space.w_None)
 
     def descr_send(self, w_arg):
-        return self.send_ex(w_arg)
+        return self.do_send(w_arg)
 
     def descr_throw(self, w_type, w_val=None, w_tb=None):
         space = self.space
@@ -642,7 +640,20 @@ class AsyncGenASend(W_Root):
     def descr_close(self):
         XXX
 
-    def send_ex(self, w_arg_or_err):
+    def unwrap_value(self, w_value):
+        if isinstance(w_value, AsyncGenValueWrapper):
+            raise OperationError(self.space.w_StopIteration, w_value.w_value)
+        else:
+            return w_value
+
+
+class AsyncGenASend(AsyncGenABase):
+
+    def __init__(self, async_gen, w_value_to_send):
+        AsyncGenABase.__init__(self, async_gen)
+        self.w_value_to_send = w_value_to_send
+
+    def do_send(self, w_arg_or_err):
         space = self.space
         if self.state == 2:
             raise OperationError(space.w_StopIteration, space.w_None)
@@ -668,8 +679,29 @@ class AsyncGenASend(W_Root):
             self.state = 2
             raise
 
-    def unwrap_value(self, w_value):
-        if isinstance(w_value, AsyncGenValueWrapper):
-            raise OperationError(self.space.w_StopIteration, w_value.w_value)
+
+class AsyncGenAThrow(AsyncGenABase):
+
+    def __init__(self, async_gen, w_exc_type, w_exc_value, w_exc_tb):
+        AsyncGenABase.__init__(self, async_gen)
+        self.w_exc_type = w_exc_type
+        self.w_exc_value = w_exc_value
+        self.w_exc_tb = w_exc_tb
+
+    def do_send(self, w_arg_or_err):
+        # XXX FAR MORE COMPLICATED IN CPYTHON
+        space = self.space
+        if self.state == 2:
+            raise OperationError(space.w_StopIteration, space.w_None)
+
+        if self.state == 0:
+            if not space.is_w(w_arg_or_err, space.w_None):
+                raise OperationError(space.w_RuntimeError, space.newtext(
+                    "can't send non-None value to a just-started coroutine"))
+            self.state = 1
+            w_value = self.async_gen.throw(self.w_exc_type,
+                                           self.w_exc_value,
+                                           self.w_exc_tb)
         else:
-            return w_value
+            w_value = self.async_gen.send_ex(w_arg_or_err)
+        return self.unwrap_value(w_value)

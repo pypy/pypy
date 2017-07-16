@@ -487,8 +487,9 @@ from pypy.interpreter.function import (Function, Method, StaticMethod,
     ClassMethod, BuiltinFunction, descr_function_get)
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter.generator import GeneratorIterator, Coroutine
-from pypy.interpreter.generator import AsyncGenerator, AsyncGenASend
 from pypy.interpreter.generator import CoroutineWrapper, AIterWrapper
+from pypy.interpreter.generator import AsyncGenerator
+from pypy.interpreter.generator import AsyncGenASend, AsyncGenAThrow
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.special import NotImplemented, Ellipsis
 
@@ -905,14 +906,14 @@ AsyncGenASend.typedef = TypeDef("async_generator_asend",
     send         = interp2app(AsyncGenASend.descr_send),
     throw        = interp2app(AsyncGenASend.descr_throw),
 )
-#AsyncGenAThrow.typedef = TypeDef("async_generator_athrow",
-#    __await__    = interp2app(AsyncGenAThrow.descr__iter__),
-#    __iter__     = interp2app(AsyncGenAThrow.descr__iter__),
-#    __next__     = interp2app(AsyncGenAThrow.descr__next__),
-#    close        = interp2app(AsyncGenAThrow.descr_close),
-#    send         = interp2app(AsyncGenAThrow.descr_send),
-#    throw        = interp2app(AsyncGenAThrow.descr_throw),
-#)
+AsyncGenAThrow.typedef = TypeDef("async_generator_athrow",
+    __await__    = interp2app(AsyncGenAThrow.descr__iter__),
+    __iter__     = interp2app(AsyncGenAThrow.descr__iter__),
+    __next__     = interp2app(AsyncGenAThrow.descr__next__),
+    close        = interp2app(AsyncGenAThrow.descr_close),
+    send         = interp2app(AsyncGenAThrow.descr_send),
+    throw        = interp2app(AsyncGenAThrow.descr_throw),
+)
 
 Cell.typedef = TypeDef("cell",
     __total_ordering__ = 'auto',
