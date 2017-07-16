@@ -222,3 +222,25 @@ class AppTestCoroutine:
             pass
         assert result == [5]
         """
+
+    def test_async_yield_already_finished(self): """
+        class Done(Exception): pass
+
+        async def mygen():
+            yield 5
+
+        result = []
+        async def foo():
+            g = mygen()
+            async for i in g:
+                result.append(i)
+            async for i in g:
+                assert False   # should not be reached
+            raise Done
+
+        try:
+            foo().send(None)
+        except Done:
+            pass
+        assert result == [5]
+        """

@@ -43,7 +43,7 @@ class GeneratorOrCoroutine(W_Root):
     def descr__repr__(self, space):
         addrstring = self.getaddrstring(space)
         return space.newunicode(u"<%s object %s at 0x%s>" %
-                          (unicode(self.KIND),
+                          (self.KIND_U,
                            self.get_qualname(),
                            unicode(addrstring)))
 
@@ -80,6 +80,8 @@ return next yielded value or raise StopIteration."""
             # execute_frame() if the frame is actually finished
             if isinstance(w_arg_or_err, SApplicationException):
                 operr = w_arg_or_err.operr
+            elif isinstance(self, AsyncGenerator):
+                operr = OperationError(space.w_StopAsyncIteration, space.w_None)
             else:
                 operr = OperationError(space.w_StopIteration, space.w_None)
             raise operr
@@ -345,6 +347,7 @@ return next yielded value or raise StopIteration."""
 class GeneratorIterator(GeneratorOrCoroutine):
     "An iterator created by a generator."
     KIND = "generator"
+    KIND_U = u"generator"
 
     def descr__iter__(self):
         """Implement iter(self)."""
@@ -393,6 +396,7 @@ class GeneratorIterator(GeneratorOrCoroutine):
 class Coroutine(GeneratorOrCoroutine):
     "A coroutine object."
     KIND = "coroutine"
+    KIND_U = u"coroutine"
 
     def descr__await__(self, space):
         return CoroutineWrapper(self)
@@ -571,7 +575,8 @@ def should_not_inline(pycode):
 
 class AsyncGenerator(GeneratorOrCoroutine):
     "An async generator (i.e. a coroutine with a 'yield')"
-    KIND = "async_generator"
+    KIND = "async generator"
+    KIND_U = u"async_generator"
 
     def descr__aiter__(self):
         """Return an asynchronous iterator."""
