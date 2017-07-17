@@ -748,14 +748,17 @@ def _convert_from_buffer_or_iterable(space, w_source):
     if space.isinstance_w(w_source, space.w_unicode):
         raise oefmt(space.w_TypeError,
                     "cannot convert a (unicode) str object to bytes")
+    return _from_byte_sequence(space, w_source)
 
-    # sequence of bytes
+
+def _from_byte_sequence(space, w_source):
+    # Split off in a separate function for the JIT's benefit
     w_result = space.appexec([w_source], """(seq):
         result = bytearray()
         for i in seq:
             result.append(i)
         return result""")
-    return w_result.getdata()
+    return ''.join(w_result.getdata())
 
 W_BytesObject.typedef = TypeDef(
     "bytes", None, None, "read",
