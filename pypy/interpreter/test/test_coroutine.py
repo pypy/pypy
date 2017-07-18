@@ -470,3 +470,18 @@ class AppTestCoroutine:
             pass
         assert raises_generator_exit
     """
+
+    def test_async_aclose_ignore_generator_exit(self): """
+        async def ag():
+            try:
+                yield
+            except GeneratorExit:
+                yield
+
+        async def run():
+            a = ag()
+            async for i in a:
+                break
+            await a.aclose()
+        raises(RuntimeError, run().send, None)
+    """

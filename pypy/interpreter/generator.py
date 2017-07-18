@@ -713,7 +713,8 @@ class AsyncGenAThrow(AsyncGenABase):
                     w_value = self.async_gen.throw(space.w_GeneratorExit,
                                                    None, None)
                     if w_value is not None:
-                        XXX
+                        raise oefmt(space.w_RuntimeError,
+                                    "async generator ignored GeneratorExit")
                 else:
                     w_value = self.async_gen.throw(self.w_exc_type,
                                                    self.w_exc_value,
