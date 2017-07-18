@@ -1,4 +1,4 @@
-from pypy.module.cppyy import helper
+from pypy.module._cppyy import helper
 
 def test_remove_const():
     assert helper.remove_const("const int") == "int"

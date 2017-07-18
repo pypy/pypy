@@ -1,4 +1,4 @@
-import pypy.module.cppyy.capi as capi
+import pypy.module._cppyy.capi as capi
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -12,7 +12,7 @@ from rpython.rlib import jit_libffi, clibffi
 from rpython.rlib.objectmodel import we_are_translated, keepalive_until_here
 
 from pypy.module._cffi_backend import ctypefunc
-from pypy.module.cppyy import converter, executor, ffitypes, helper
+from pypy.module._cppyy import converter, executor, ffitypes, helper
 
 
 class FastCallNotPossible(Exception):

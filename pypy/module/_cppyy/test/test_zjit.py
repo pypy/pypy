@@ -6,7 +6,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper import llinterp
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 
-from pypy.module.cppyy import interp_cppyy, capi, executor
+from pypy.module._cppyy import interp_cppyy, capi, executor
 # These tests are for the backend that support the fast path only.
 if capi.identify() == 'CINT':
     py.test.skip("CINT does not support fast path")

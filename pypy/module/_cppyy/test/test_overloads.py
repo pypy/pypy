@@ -12,26 +12,26 @@ def setup_module(mod):
         raise OSError("'make' failed (see stderr)")
 
 class AppTestOVERLOADS:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
+    spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         env = os.environ
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_overloads = cls.space.appexec([], """():
-            import cppyy
-            return cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import _cppyy
+            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
 
     def test01_class_based_overloads(self):
         """Test functions overloaded on different C++ clases"""
 
-        import cppyy
-        a_overload = cppyy.gbl.a_overload
-        b_overload = cppyy.gbl.b_overload
-        c_overload = cppyy.gbl.c_overload
-        d_overload = cppyy.gbl.d_overload
+        import _cppyy
+        a_overload = _cppyy.gbl.a_overload
+        b_overload = _cppyy.gbl.b_overload
+        c_overload = _cppyy.gbl.c_overload
+        d_overload = _cppyy.gbl.d_overload
 
-        ns_a_overload = cppyy.gbl.ns_a_overload
-        ns_b_overload = cppyy.gbl.ns_b_overload
+        ns_a_overload = _cppyy.gbl.ns_a_overload
+        ns_b_overload = _cppyy.gbl.ns_b_overload
 
         assert c_overload().get_int(a_overload()) == 42
         assert c_overload().get_int(b_overload()) == 13
@@ -47,13 +47,13 @@ class AppTestOVERLOADS:
     def test02_class_based_overloads_explicit_resolution(self):
         """Test explicitly resolved function overloads"""
 
-        import cppyy
-        a_overload = cppyy.gbl.a_overload
-        b_overload = cppyy.gbl.b_overload
-        c_overload = cppyy.gbl.c_overload
-        d_overload = cppyy.gbl.d_overload
+        import _cppyy
+        a_overload = _cppyy.gbl.a_overload
+        b_overload = _cppyy.gbl.b_overload
+        c_overload = _cppyy.gbl.c_overload
+        d_overload = _cppyy.gbl.d_overload
 
-        ns_a_overload = cppyy.gbl.ns_a_overload
+        ns_a_overload = _cppyy.gbl.ns_a_overload
 
         c = c_overload()
         raises(TypeError, c.__dispatch__, 'get_int', 12)
@@ -76,12 +76,12 @@ class AppTestOVERLOADS:
 
         # TODO: make Reflex generate unknown classes ...
 
-        import cppyy
-        more_overloads = cppyy.gbl.more_overloads
-        aa_ol = cppyy.gbl.aa_ol
-#        bb_ol = cppyy.gbl.bb_ol
-        cc_ol = cppyy.gbl.cc_ol
-#        dd_ol = cppyy.gbl.dd_ol
+        import _cppyy
+        more_overloads = _cppyy.gbl.more_overloads
+        aa_ol = _cppyy.gbl.aa_ol
+#        bb_ol = _cppyy.gbl.bb_ol
+        cc_ol = _cppyy.gbl.cc_ol
+#        dd_ol = _cppyy.gbl.dd_ol
 
         assert more_overloads().call(aa_ol()) == "aa_ol"
 #        assert more_overloads().call(bb_ol()) == "dd_ol"    # <- bb_ol has an unknown + void*
@@ -94,10 +94,10 @@ class AppTestOVERLOADS:
         # TODO: make Reflex generate unknown classes ...
         return
 
-        import cppyy
-        more_overloads2 = cppyy.gbl.more_overloads2
-        bb_ol = cppyy.gbl.bb_ol
-        dd_ol = cppyy.gbl.dd_ol
+        import _cppyy
+        more_overloads2 = _cppyy.gbl.more_overloads2
+        bb_ol = _cppyy.gbl.bb_ol
+        dd_ol = _cppyy.gbl.dd_ol
 
         assert more_overloads2().call(bb_ol())    == "bb_olptr"
         assert more_overloads2().call(dd_ol(), 1) == "dd_olptr"
@@ -105,9 +105,9 @@ class AppTestOVERLOADS:
     def test05_array_overloads(self):
         """Test functions overloaded on different arrays"""
 
-        import cppyy
-        c_overload = cppyy.gbl.c_overload
-        d_overload = cppyy.gbl.d_overload
+        import _cppyy
+        c_overload = _cppyy.gbl.c_overload
+        d_overload = _cppyy.gbl.d_overload
 
         from array import array
 
@@ -122,8 +122,8 @@ class AppTestOVERLOADS:
     def test06_double_int_overloads(self):
         """Test overloads on int/doubles"""
 
-        import cppyy
-        more_overloads = cppyy.gbl.more_overloads
+        import _cppyy
+        more_overloads = _cppyy.gbl.more_overloads
 
         assert more_overloads().call(1)   == "int"
         assert more_overloads().call(1.)  == "double"
@@ -133,8 +133,8 @@ class AppTestOVERLOADS:
     def test07_mean_overloads(self):
         """Adapted test for array overloading"""
 
-        import cppyy, array
-        cmean = cppyy.gbl.calc_mean
+        import _cppyy, array
+        cmean = _cppyy.gbl.calc_mean
 
         numbers = [8, 2, 4, 2, 4, 2, 4, 4, 1, 5, 6, 3, 7]
         mean, median = 4.0, 4.0

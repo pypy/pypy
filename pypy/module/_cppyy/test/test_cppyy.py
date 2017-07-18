@@ -1,7 +1,7 @@
 import py, os, sys
 import subprocess
 
-from pypy.module.cppyy import interp_cppyy, executor
+from pypy.module._cppyy import interp_cppyy, executor
 from .support import setup_make
 
 
@@ -27,13 +27,13 @@ class TestCPPYYImplementation:
 
 
 class AppTestCPPYY:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
+    spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_example01, cls.w_payload = cls.space.unpackiterable(cls.space.appexec([], """():
-            import cppyy
-            cppyy.load_reflection_info(%r)
-            return cppyy._scope_byname('example01'), cppyy._scope_byname('payload')""" % (test_dct, )))
+            import _cppyy
+            _cppyy.load_reflection_info(%r)
+            return _cppyy._scope_byname('example01'), _cppyy._scope_byname('payload')""" % (test_dct, )))
 
     def test01_static_int(self):
         """Test passing of an int, returning of an int, and overloading on a
@@ -86,7 +86,7 @@ class AppTestCPPYY:
     def test04_method_int(self):
         """Test passing of a int, returning of a int, and memory cleanup, on
             a method."""
-        import cppyy
+        import _cppyy
 
         t = self.example01
 
@@ -119,7 +119,7 @@ class AppTestCPPYY:
         """Test memory destruction and integrity."""
 
         import gc
-        import cppyy
+        import _cppyy
 
         t = self.example01
 
@@ -150,7 +150,7 @@ class AppTestCPPYY:
     def test05a_memory2(self):
         """Test ownership control."""
 
-        import gc, cppyy
+        import gc, _cppyy
 
         t = self.example01
 
@@ -171,7 +171,7 @@ class AppTestCPPYY:
     def test06_method_double(self):
         """Test passing of a double and returning of double on a method."""
 
-        import cppyy
+        import _cppyy
 
         t = self.example01
 
@@ -189,7 +189,7 @@ class AppTestCPPYY:
     def test07_method_constcharp(self):
         """Test passing of a C string and returning of a C string on a
             method."""
-        import cppyy
+        import _cppyy
 
         t = self.example01
 
@@ -205,7 +205,7 @@ class AppTestCPPYY:
 
     def test08_pass_object_by_pointer(self):
         """Test passing of an instance as an argument."""
-        import cppyy
+        import _cppyy
 
         t1 = self.example01
         t2 = self.payload
@@ -225,7 +225,7 @@ class AppTestCPPYY:
 
     def test09_return_object_by_pointer(self):
         """Test returning of an instance as an argument."""
-        import cppyy
+        import _cppyy
 
         t1 = self.example01
         t2 = self.payload

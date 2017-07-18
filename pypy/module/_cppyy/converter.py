@@ -9,7 +9,7 @@ from rpython.rlib import rfloat
 from pypy.module._rawffi.interp_rawffi import letter2tp
 from pypy.module._rawffi.array import W_Array, W_ArrayInstance
 
-from pypy.module.cppyy import helper, capi, ffitypes
+from pypy.module._cppyy import helper, capi, ffitypes
 
 # Converter objects are used to translate between RPython and C++. They are
 # defined by the type name for which they provide conversion. Uses are for
@@ -22,7 +22,7 @@ from pypy.module.cppyy import helper, capi, ffitypes
 
 
 def get_rawobject(space, w_obj):
-    from pypy.module.cppyy.interp_cppyy import W_CPPInstance
+    from pypy.module._cppyy.interp_cppyy import W_CPPInstance
     cppinstance = space.interp_w(W_CPPInstance, w_obj, can_be_None=True)
     if cppinstance:
         rawobject = cppinstance.get_rawobject()
@@ -31,14 +31,14 @@ def get_rawobject(space, w_obj):
     return capi.C_NULL_OBJECT
 
 def set_rawobject(space, w_obj, address):
-    from pypy.module.cppyy.interp_cppyy import W_CPPInstance
+    from pypy.module._cppyy.interp_cppyy import W_CPPInstance
     cppinstance = space.interp_w(W_CPPInstance, w_obj, can_be_None=True)
     if cppinstance:
         assert lltype.typeOf(cppinstance._rawobject) == capi.C_OBJECT
         cppinstance._rawobject = rffi.cast(capi.C_OBJECT, address)
 
 def get_rawobject_nonnull(space, w_obj):
-    from pypy.module.cppyy.interp_cppyy import W_CPPInstance
+    from pypy.module._cppyy.interp_cppyy import W_CPPInstance
     cppinstance = space.interp_w(W_CPPInstance, w_obj, can_be_None=True)
     if cppinstance:
         cppinstance._nullcheck()
@@ -56,7 +56,7 @@ def is_nullpointer_specialcase(space, w_obj):
     except Exception:
         pass
     # None or nullptr
-    from pypy.module.cppyy import interp_cppyy
+    from pypy.module._cppyy import interp_cppyy
     return space.is_true(space.is_(w_obj, space.w_None)) or \
         space.is_true(space.is_(w_obj, interp_cppyy.get_nullptr(space)))
 
@@ -104,18 +104,18 @@ class TypeConverter(object):
                     "no converter available for '%s'", self.name)
 
     def cffi_type(self, space):
-        from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
+        from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
 
     def convert_argument(self, space, w_obj, address, call_local):
         self._is_abstract(space)
 
     def convert_argument_libffi(self, space, w_obj, address, call_local):
-        from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
+        from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
 
     def default_argument_libffi(self, space, address):
-        from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
+        from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
 
     def from_memory(self, space, w_obj, w_pycppclass, offset):
@@ -362,7 +362,7 @@ class ConstFloatRefConverter(FloatConverter):
         return state.c_voidp
 
     def convert_argument_libffi(self, space, w_obj, address, call_local):
-        from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
+        from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
 
 class DoubleConverter(ffitypes.typeid(rffi.DOUBLE), FloatTypeConverterMixin, TypeConverter):
@@ -442,7 +442,7 @@ class VoidPtrConverter(TypeConverter):
         address = self._get_raw_address(space, w_obj, offset)
         ptrval = rffi.cast(rffi.ULONG, rffi.cast(rffi.VOIDPP, address)[0])
         if ptrval == 0:
-            from pypy.module.cppyy import interp_cppyy
+            from pypy.module._cppyy import interp_cppyy
             return interp_cppyy.get_nullptr(space)
         arr = space.interp_w(W_Array, letter2tp(space, 'P'))
         return arr.fromaddress(space, ptrval, sys.maxint)
@@ -488,12 +488,12 @@ class InstanceRefConverter(TypeConverter):
     typecode    = 'V'
 
     def __init__(self, space, cppclass):
-        from pypy.module.cppyy.interp_cppyy import W_CPPClass
+        from pypy.module._cppyy.interp_cppyy import W_CPPClass
         assert isinstance(cppclass, W_CPPClass)
         self.cppclass = cppclass
 
     def _unwrap_object(self, space, w_obj):
-        from pypy.module.cppyy.interp_cppyy import W_CPPInstance
+        from pypy.module._cppyy.interp_cppyy import W_CPPInstance
         if isinstance(w_obj, W_CPPInstance):
             if capi.c_is_subtype(space, w_obj.cppclass, self.cppclass):
                 rawobject = w_obj.get_rawobject()
@@ -521,12 +521,12 @@ class InstanceRefConverter(TypeConverter):
 class InstanceConverter(InstanceRefConverter):
 
     def convert_argument_libffi(self, space, w_obj, address, call_local):
-        from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
+        from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible       # TODO: by-value is a jit_libffi special case
 
     def from_memory(self, space, w_obj, w_pycppclass, offset):
         address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
-        from pypy.module.cppyy import interp_cppyy
+        from pypy.module._cppyy import interp_cppyy
         return interp_cppyy.wrap_cppobject(space, address, self.cppclass, do_cast=False)
 
     def to_memory(self, space, w_obj, w_value, offset):
@@ -547,7 +547,7 @@ class InstancePtrConverter(InstanceRefConverter):
 
     def from_memory(self, space, w_obj, w_pycppclass, offset):
         address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
-        from pypy.module.cppyy import interp_cppyy
+        from pypy.module._cppyy import interp_cppyy
         return interp_cppyy.wrap_cppobject(space, address, self.cppclass, do_cast=False)
 
     def to_memory(self, space, w_obj, w_value, offset):
@@ -570,30 +570,30 @@ class InstancePtrPtrConverter(InstancePtrConverter):
 
     def convert_argument_libffi(self, space, w_obj, address, call_local):
         # TODO: finalize_call not yet called for fast call (see interp_cppyy.py)
-        from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
+        from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
 
     def finalize_call(self, space, w_obj, call_local):
-        from pypy.module.cppyy.interp_cppyy import W_CPPInstance
+        from pypy.module._cppyy.interp_cppyy import W_CPPInstance
         assert isinstance(w_obj, W_CPPInstance)
         r = rffi.cast(rffi.VOIDPP, call_local)
         w_obj._rawobject = rffi.cast(capi.C_OBJECT, r[0])
 
     def from_memory(self, space, w_obj, w_pycppclass, offset):
         address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
-        from pypy.module.cppyy import interp_cppyy
+        from pypy.module._cppyy import interp_cppyy
         return interp_cppyy.wrap_cppobject(space, address, self.cppclass,
                                            do_cast=False, is_ref=True)
 
 class StdStringConverter(InstanceConverter):
 
     def __init__(self, space, extra):
-        from pypy.module.cppyy import interp_cppyy
+        from pypy.module._cppyy import interp_cppyy
         cppclass = interp_cppyy.scope_byname(space, capi.std_string_name)
         InstanceConverter.__init__(self, space, cppclass)
 
     def _unwrap_object(self, space, w_obj):
-        from pypy.module.cppyy.interp_cppyy import W_CPPInstance
+        from pypy.module._cppyy.interp_cppyy import W_CPPInstance
         if isinstance(w_obj, W_CPPInstance):
             arg = InstanceConverter._unwrap_object(self, space, w_obj)
             return capi.c_stdstring2stdstring(space, arg)
@@ -604,7 +604,7 @@ class StdStringConverter(InstanceConverter):
         try:
             address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
             assign = self.cppclass.get_overload("__assign__")
-            from pypy.module.cppyy import interp_cppyy
+            from pypy.module._cppyy import interp_cppyy
             assign.call(
                 interp_cppyy.wrap_cppobject(space, address, self.cppclass, do_cast=False), [w_value])
         except Exception:
@@ -619,7 +619,7 @@ class StdStringRefConverter(InstancePtrConverter):
     typecode    = 'V'
 
     def __init__(self, space, extra):
-        from pypy.module.cppyy import interp_cppyy
+        from pypy.module._cppyy import interp_cppyy
         cppclass = interp_cppyy.scope_byname(space, capi.std_string_name)
         InstancePtrConverter.__init__(self, space, cppclass)
 
@@ -642,7 +642,7 @@ class PyObjectConverter(TypeConverter):
 
     def convert_argument_libffi(self, space, w_obj, address, call_local):
         # TODO: free_argument not yet called for fast call (see interp_cppyy.py)
-        from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
+        from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
 
         # proposed implementation:
@@ -709,11 +709,11 @@ def get_converter(space, name, default):
     #   3) TODO: accept ref as pointer
 
     #   4) generalized cases (covers basically all user classes)
-    from pypy.module.cppyy import interp_cppyy
+    from pypy.module._cppyy import interp_cppyy
     cppclass = interp_cppyy.scope_byname(space, clean_name)
     if cppclass:
         # type check for the benefit of the annotator
-        from pypy.module.cppyy.interp_cppyy import W_CPPClass
+        from pypy.module._cppyy.interp_cppyy import W_CPPClass
         cppclass = space.interp_w(W_CPPClass, cppclass, can_be_None=False)
         if compound == "*":
             return InstancePtrConverter(space, cppclass)
@@ -874,12 +874,12 @@ if capi.identify() == "CINT":
 
     class TStringConverter(InstanceConverter):
         def __init__(self, space, extra):
-            from pypy.module.cppyy import interp_cppyy
+            from pypy.module._cppyy import interp_cppyy
             cppclass = interp_cppyy.scope_byname(space, "TString")
             InstanceConverter.__init__(self, space, cppclass)
 
         def _unwrap_object(self, space, w_obj):
-            from pypy.module.cppyy import interp_cppyy
+            from pypy.module._cppyy import interp_cppyy
             if isinstance(w_obj, interp_cppyy.W_CPPInstance):
                 arg = InstanceConverter._unwrap_object(self, space, w_obj)
                 return capi.backend.c_TString2TString(space, arg)

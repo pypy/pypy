@@ -8,7 +8,7 @@ from rpython.rlib import jit_libffi
 from pypy.module._rawffi.interp_rawffi import unpack_simple_shape
 from pypy.module._rawffi.array import W_Array, W_ArrayInstance
 
-from pypy.module.cppyy import helper, capi, ffitypes
+from pypy.module._cppyy import helper, capi, ffitypes
 
 # Executor objects are used to dispatch C++ methods. They are defined by their
 # return type only: arguments are converted by Converter objects, and Executors
@@ -31,7 +31,7 @@ class FunctionExecutor(object):
         pass
 
     def cffi_type(self, space):
-        from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
+        from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
@@ -39,7 +39,7 @@ class FunctionExecutor(object):
                     "return type not available or supported")
 
     def execute_libffi(self, space, cif_descr, funcaddr, buffer):
-        from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
+        from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
 
 
@@ -58,7 +58,7 @@ class PtrTypeExecutor(FunctionExecutor):
         ptrval = rffi.cast(rffi.ULONG, lresult)
         arr = space.interp_w(W_Array, unpack_simple_shape(space, space.newtext(self.typecode)))
         if ptrval == 0:
-            from pypy.module.cppyy import interp_cppyy
+            from pypy.module._cppyy import interp_cppyy
             return interp_cppyy.get_nullptr(space)
         return arr.fromaddress(space, ptrval, sys.maxint)
 
@@ -138,7 +138,7 @@ class CStringExecutor(FunctionExecutor):
 class ConstructorExecutor(FunctionExecutor):
 
     def execute(self, space, cppmethod, cpptype, num_args, args):
-        from pypy.module.cppyy import interp_cppyy
+        from pypy.module._cppyy import interp_cppyy
         newthis = capi.c_constructor(space, cppmethod, cpptype, num_args, args)
         assert lltype.typeOf(newthis) == capi.C_OBJECT
         return space.newlong(rffi.cast(rffi.LONG, newthis))   # really want ptrdiff_t here
@@ -156,7 +156,7 @@ class InstancePtrExecutor(FunctionExecutor):
         return state.c_voidp
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
-        from pypy.module.cppyy import interp_cppyy
+        from pypy.module._cppyy import interp_cppyy
         long_result = capi.c_call_l(space, cppmethod, cppthis, num_args, args)
         ptr_result = rffi.cast(capi.C_OBJECT, long_result)
         pyres = interp_cppyy.wrap_cppobject(space, ptr_result, self.cppclass)
@@ -165,34 +165,34 @@ class InstancePtrExecutor(FunctionExecutor):
     def execute_libffi(self, space, cif_descr, funcaddr, buffer):
         jit_libffi.jit_ffi_call(cif_descr, funcaddr, buffer)
         result = rffi.ptradd(buffer, cif_descr.exchange_result)
-        from pypy.module.cppyy import interp_cppyy
+        from pypy.module._cppyy import interp_cppyy
         ptr_result = rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, result)[0])
         return interp_cppyy.wrap_cppobject(space, ptr_result, self.cppclass)
 
 class InstancePtrPtrExecutor(InstancePtrExecutor):
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
-        from pypy.module.cppyy import interp_cppyy
+        from pypy.module._cppyy import interp_cppyy
         voidp_result = capi.c_call_r(space, cppmethod, cppthis, num_args, args)
         ref_address = rffi.cast(rffi.VOIDPP, voidp_result)
         ptr_result = rffi.cast(capi.C_OBJECT, ref_address[0])
         return interp_cppyy.wrap_cppobject(space, ptr_result, self.cppclass)
 
     def execute_libffi(self, space, cif_descr, funcaddr, buffer):
-        from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
+        from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
 
 class InstanceExecutor(InstancePtrExecutor):
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
-        from pypy.module.cppyy import interp_cppyy
+        from pypy.module._cppyy import interp_cppyy
         long_result = capi.c_call_o(space, cppmethod, cppthis, num_args, args, self.cppclass)
         ptr_result = rffi.cast(capi.C_OBJECT, long_result)
         return interp_cppyy.wrap_cppobject(space, ptr_result, self.cppclass,
                                            do_cast=False, python_owns=True, fresh=True)
 
     def execute_libffi(self, space, cif_descr, funcaddr, buffer):
-        from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
+        from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
 
 
@@ -205,13 +205,13 @@ class StdStringExecutor(InstancePtrExecutor):
         return space.newbytes(pystr)
 
     def execute_libffi(self, space, cif_descr, funcaddr, buffer):
-        from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
+        from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
 
 class StdStringRefExecutor(InstancePtrExecutor):
 
     def __init__(self, space, cppclass):
-        from pypy.module.cppyy import interp_cppyy
+        from pypy.module._cppyy import interp_cppyy
         cppclass = interp_cppyy.scope_byname(space, capi.std_string_name)
         InstancePtrExecutor.__init__(self, space, cppclass)
 
@@ -277,11 +277,11 @@ def get_executor(space, name):
             pass
 
     #   3) types/classes, either by ref/ptr or by value
-    from pypy.module.cppyy import interp_cppyy
+    from pypy.module._cppyy import interp_cppyy
     cppclass = interp_cppyy.scope_byname(space, clean_name)
     if cppclass:
         # type check for the benefit of the annotator
-        from pypy.module.cppyy.interp_cppyy import W_CPPClass
+        from pypy.module._cppyy.interp_cppyy import W_CPPClass
         cppclass = space.interp_w(W_CPPClass, cppclass, can_be_None=False)
         if compound == '':
             return InstanceExecutor(space, cppclass)

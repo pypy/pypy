@@ -64,7 +64,7 @@ def clean_type(name):
 _operator_mappings = {}
 
 def map_operator_name(space, cppname, nargs, result_type):
-    from pypy.module.cppyy import capi
+    from pypy.module._cppyy import capi
 
     if cppname[0:8] == "operator":
         op = cppname[8:].strip(' ')

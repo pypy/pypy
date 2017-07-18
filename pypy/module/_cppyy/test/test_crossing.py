@@ -68,14 +68,14 @@ def compile_extension_module(space, modname, **kwds):
     return str(pydname)
 
 class AppTestCrossing:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
+    spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
-        # cppyy specific additions (note that test_dct is loaded late
+        # _cppyy specific additions (note that test_dct is loaded late
         # to allow the generated extension module be loaded first)
         cls.w_test_dct    = cls.space.newtext(test_dct)
         cls.w_pre_imports = cls.space.appexec([], """():
-            import ctypes, cppyy""")    # prevents leak-checking complaints on ctypes' statics
+            import ctypes, _cppyy""")   # prevents leak-checking complaints on ctypes' statics
 
     def setup_method(self, func):
         @unwrap_spec(name='text', init='text', body='text')
@@ -145,11 +145,11 @@ class AppTestCrossing:
     def test02_crossing_dict(self):
         """Test availability of all needed classes in the dict"""
 
-        import cppyy
-        cppyy.load_reflection_info(self.test_dct)
+        import _cppyy
+        _cppyy.load_reflection_info(self.test_dct)
 
-        assert cppyy.gbl.crossing == cppyy.gbl.crossing
-        crossing = cppyy.gbl.crossing
+        assert _cppyy.gbl.crossing == _cppyy.gbl.crossing
+        crossing = _cppyy.gbl.crossing
 
         assert crossing.A == crossing.A
 
@@ -157,8 +157,8 @@ class AppTestCrossing:
     def test03_send_pyobject(self):
         """Test sending a true pyobject to C++"""
 
-        import cppyy
-        crossing = cppyy.gbl.crossing
+        import _cppyy
+        crossing = _cppyy.gbl.crossing
 
         a = crossing.A()
         assert a.unwrap(13) == 13
@@ -167,8 +167,8 @@ class AppTestCrossing:
     def test04_send_and_receive_pyobject(self):
         """Test receiving a true pyobject from C++"""
 
-        import cppyy
-        crossing = cppyy.gbl.crossing
+        import _cppyy
+        crossing = _cppyy.gbl.crossing
 
         a = crossing.A()
 

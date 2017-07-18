@@ -9,9 +9,9 @@ from pypy.interpreter.error import oefmt
 
 from pypy.module._cffi_backend import ctypefunc, ctypeprim, cdataobj, misc
 from pypy.module._cffi_backend import newtype
-from pypy.module.cppyy import ffitypes
+from pypy.module._cppyy import ffitypes
 
-from pypy.module.cppyy.capi.capi_types import C_SCOPE, C_TYPE, C_OBJECT,\
+from pypy.module._cppyy.capi.capi_types import C_SCOPE, C_TYPE, C_OBJECT,\
    C_METHOD, C_INDEX, C_INDEX_ARRAY, WLAVC_INDEX, C_FUNC_PTR
 
 
@@ -599,7 +599,7 @@ def c_stdvector_valuesize(space, pystr):
 def stdstring_c_str(space, w_self):
     """Return a python string taking into account \0"""
 
-    from pypy.module.cppyy import interp_cppyy
+    from pypy.module._cppyy import interp_cppyy
     cppstr = space.interp_w(interp_cppyy.W_CPPInstance, w_self, can_be_None=False)
     return space.newtext(c_stdstring2charp(space, cppstr._rawobject))
 

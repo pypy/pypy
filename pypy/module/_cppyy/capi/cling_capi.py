@@ -11,7 +11,7 @@ from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import jit, libffi, rdynload
 
 from pypy.module._rawffi.array import W_ArrayInstance
-from pypy.module.cppyy.capi.capi_types import C_OBJECT
+from pypy.module._cppyy.capi.capi_types import C_OBJECT
 
 __all__ = ['identify', 'std_string_name', 'eci', 'c_load_dictionary']
 
@@ -99,7 +99,7 @@ def c_stdstring2charp(space, cppstr):
 def stdstring_c_str(space, w_self):
     """Return a python string taking into account \0"""
 
-    from pypy.module.cppyy import interp_cppyy
+    from pypy.module._cppyy import interp_cppyy
     cppstr = space.interp_w(interp_cppyy.W_CPPInstance, w_self, can_be_None=False)
     return space.wrap(c_stdstring2charp(space, cppstr._rawobject))
 
@@ -112,12 +112,12 @@ class W_STLVectorIter(W_AbstractSeqIterObject):
         W_AbstractSeqIterObject.__init__(self, w_vector)
         # TODO: this should live in rpythonize.py or something so that the
         # imports can move to the top w/o getting circles
-        from pypy.module.cppyy import interp_cppyy
+        from pypy.module._cppyy import interp_cppyy
         assert isinstance(w_vector, interp_cppyy.W_CPPInstance)
         vector = space.interp_w(interp_cppyy.W_CPPInstance, w_vector)
         self.overload = vector.cppclass.get_overload("__getitem__")
 
-        from pypy.module.cppyy import capi
+        from pypy.module._cppyy import capi
         v_type = capi.c_stdvector_valuetype(space, vector.cppclass.name)
         v_size = capi.c_stdvector_valuesize(space, vector.cppclass.name)
 
@@ -131,7 +131,7 @@ class W_STLVectorIter(W_AbstractSeqIterObject):
 
         self.data = rffi.cast(rffi.VOIDP, space.uint_w(arr.getbuffer(space)))
 
-        from pypy.module.cppyy import converter
+        from pypy.module._cppyy import converter
         self.converter = converter.get_converter(space, v_type, '')
         self.len     = space.uint_w(vector.cppclass.get_overload("size").call(w_vector, []))
         self.stride  = v_size
@@ -143,7 +143,7 @@ class W_STLVectorIter(W_AbstractSeqIterObject):
             self.w_seq = None
             raise OperationError(space.w_StopIteration, space.w_None)
         try:
-            from pypy.module.cppyy import capi    # TODO: refector
+            from pypy.module._cppyy import capi   # TODO: refector
             offset = capi.direct_ptradd(rffi.cast(C_OBJECT, self.data), self.index*self.stride)
             w_item = self.converter.from_memory(space, space.w_None, space.w_None, offset)
         except OperationError as e:
@@ -186,7 +186,7 @@ def pythonize(space, name, w_pycppclass):
         _method_alias(space, w_pycppclass, "__str__",           "c_str")
 
     if "vector" in name[:11]: # len('std::vector') == 11
-        from pypy.module.cppyy import capi
+        from pypy.module._cppyy import capi
         v_type = capi.c_stdvector_valuetype(space, name)
         if v_type:
             space.setattr(w_pycppclass, space.wrap("value_type"), space.wrap(v_type))

@@ -1,6 +1,6 @@
 import py, os, sys
 
-from pypy.module.cppyy import capi
+from pypy.module._cppyy import capi
 
 
 currpath = py.path.local(__file__).dirpath()
@@ -14,35 +14,35 @@ def setup_module(mod):
         raise OSError("'make' failed (see stderr)")
 
 class AppTestFRAGILE:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
+    spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_identity = cls.space.newtext(capi.identify())
         cls.w_fragile = cls.space.appexec([], """():
-            import cppyy
-            return cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import _cppyy
+            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
 
     def test01_load_failure(self):
         """Test failure to load dictionary"""
 
-        import cppyy
-        raises(RuntimeError, cppyy.load_reflection_info, "does_not_exist.so")
+        import _cppyy
+        raises(RuntimeError, _cppyy.load_reflection_info, "does_not_exist.so")
 
         try:
-            cppyy.load_reflection_info("does_not_exist.so")
+            _cppyy.load_reflection_info("does_not_exist.so")
         except RuntimeError as e:
             assert "does_not_exist.so" in str(e)
 
     def test02_missing_classes(self):
         """Test (non-)access to missing classes"""
 
-        import cppyy
+        import _cppyy
 
-        raises(AttributeError, getattr, cppyy.gbl, "no_such_class")
+        raises(AttributeError, getattr, _cppyy.gbl, "no_such_class")
 
-        assert cppyy.gbl.fragile == cppyy.gbl.fragile
-        fragile = cppyy.gbl.fragile
+        assert _cppyy.gbl.fragile == _cppyy.gbl.fragile
+        fragile = _cppyy.gbl.fragile
 
         raises(AttributeError, getattr, fragile, "no_such_class")
 
@@ -60,10 +60,10 @@ class AppTestFRAGILE:
     def test03_arguments(self):
         """Test reporting when providing wrong arguments"""
 
-        import cppyy
+        import _cppyy
 
-        assert cppyy.gbl.fragile == cppyy.gbl.fragile
-        fragile = cppyy.gbl.fragile
+        assert _cppyy.gbl.fragile == _cppyy.gbl.fragile
+        fragile = _cppyy.gbl.fragile
 
         assert fragile.D == fragile.D
         assert fragile.D().check() == ord('D')
@@ -78,10 +78,10 @@ class AppTestFRAGILE:
     def test04_unsupported_arguments(self):
         """Test arguments that are yet unsupported"""
 
-        import cppyy
+        import _cppyy
 
-        assert cppyy.gbl.fragile == cppyy.gbl.fragile
-        fragile = cppyy.gbl.fragile
+        assert _cppyy.gbl.fragile == _cppyy.gbl.fragile
+        fragile = _cppyy.gbl.fragile
 
         assert fragile.E == fragile.E
         assert fragile.E().check() == ord('E')
@@ -93,10 +93,10 @@ class AppTestFRAGILE:
     def test05_wrong_arg_addressof(self):
         """Test addressof() error reporting"""
 
-        import cppyy
+        import _cppyy
 
-        assert cppyy.gbl.fragile == cppyy.gbl.fragile
-        fragile = cppyy.gbl.fragile
+        assert _cppyy.gbl.fragile == _cppyy.gbl.fragile
+        fragile = _cppyy.gbl.fragile
 
         assert fragile.F == fragile.F
         assert fragile.F().check() == ord('F')
@@ -104,21 +104,21 @@ class AppTestFRAGILE:
         f = fragile.F()
         o = object()
 
-        cppyy.addressof(f)
-        raises(TypeError, cppyy.addressof, o)
-        raises(TypeError, cppyy.addressof, 1)
+        _cppyy.addressof(f)
+        raises(TypeError, _cppyy.addressof, o)
+        raises(TypeError, _cppyy.addressof, 1)
         # 0, None, and nullptr allowed
-        assert cppyy.addressof(0)                 == 0
-        assert cppyy.addressof(None)              == 0
-        assert cppyy.addressof(cppyy.gbl.nullptr) == 0
+        assert _cppyy.addressof(0)                  == 0
+        assert _cppyy.addressof(None)               == 0
+        assert _cppyy.addressof(_cppyy.gbl.nullptr) == 0
 
     def test06_wrong_this(self):
         """Test that using an incorrect self argument raises"""
 
-        import cppyy
+        import _cppyy
 
-        assert cppyy.gbl.fragile == cppyy.gbl.fragile
-        fragile = cppyy.gbl.fragile
+        assert _cppyy.gbl.fragile == _cppyy.gbl.fragile
+        fragile = _cppyy.gbl.fragile
 
         a = fragile.A()
         assert fragile.A.check(a) == ord('A')
@@ -136,43 +136,43 @@ class AppTestFRAGILE:
     def test07_unnamed_enum(self):
         """Test that an unnamed enum does not cause infinite recursion"""
 
-        import cppyy
+        import _cppyy
 
-        assert cppyy.gbl.fragile is cppyy.gbl.fragile
-        fragile = cppyy.gbl.fragile
-        assert cppyy.gbl.fragile is fragile
+        assert _cppyy.gbl.fragile is _cppyy.gbl.fragile
+        fragile = _cppyy.gbl.fragile
+        assert _cppyy.gbl.fragile is fragile
 
         g = fragile.G()
 
     def test08_unhandled_scoped_datamember(self):
         """Test that an unhandled scoped data member does not cause infinite recursion"""
 
-        import cppyy
+        import _cppyy
 
-        assert cppyy.gbl.fragile is cppyy.gbl.fragile
-        fragile = cppyy.gbl.fragile
-        assert cppyy.gbl.fragile is fragile
+        assert _cppyy.gbl.fragile is _cppyy.gbl.fragile
+        fragile = _cppyy.gbl.fragile
+        assert _cppyy.gbl.fragile is fragile
 
         h = fragile.H()
 
     def test09_operator_bool(self):
         """Access to global vars with an operator bool() returning False"""
 
-        import cppyy
+        import _cppyy
 
-        i = cppyy.gbl.fragile.I()
+        i = _cppyy.gbl.fragile.I()
         assert not i
 
-        g = cppyy.gbl.fragile.gI
+        g = _cppyy.gbl.fragile.gI
         assert not g
 
     def test10_documentation(self):
         """Check contents of documentation"""
 
-        import cppyy
+        import _cppyy
 
-        assert cppyy.gbl.fragile == cppyy.gbl.fragile
-        fragile = cppyy.gbl.fragile
+        assert _cppyy.gbl.fragile == _cppyy.gbl.fragile
+        fragile = _cppyy.gbl.fragile
 
         d = fragile.D()
         try:
@@ -211,16 +211,16 @@ class AppTestFRAGILE:
     def test11_dir(self):
         """Test __dir__ method"""
 
-        import cppyy
+        import _cppyy
 
         if self.identity == 'CINT':          # CINT only support classes on global space
-            members = dir(cppyy.gbl)
+            members = dir(_cppyy.gbl)
             assert 'TROOT' in members
             assert 'TSystem' in members
             assert 'TClass' in members
-            members = dir(cppyy.gbl.fragile)
+            members = dir(_cppyy.gbl.fragile)
         else:
-            members = dir(cppyy.gbl.fragile)
+            members = dir(_cppyy.gbl.fragile)
             assert 'A' in members
             assert 'B' in members
             assert 'C' in members
@@ -236,44 +236,44 @@ class AppTestFRAGILE:
     def test12_imports(self):
         """Test ability to import from namespace (or fail with ImportError)"""
 
-        import cppyy
+        import _cppyy
 
         # TODO: namespaces aren't loaded (and thus not added to sys.modules)
         # with just the from ... import statement; actual use is needed
-        from cppyy.gbl import fragile
+        from _cppyy.gbl import fragile
 
         def fail_import():
-            from cppyy.gbl import does_not_exist
+            from _cppyy.gbl import does_not_exist
         raises(ImportError, fail_import)
 
-        from cppyy.gbl.fragile import A, B, C, D
-        assert cppyy.gbl.fragile.A is A
-        assert cppyy.gbl.fragile.B is B
-        assert cppyy.gbl.fragile.C is C
-        assert cppyy.gbl.fragile.D is D
+        from _cppyy.gbl.fragile import A, B, C, D
+        assert _cppyy.gbl.fragile.A is A
+        assert _cppyy.gbl.fragile.B is B
+        assert _cppyy.gbl.fragile.C is C
+        assert _cppyy.gbl.fragile.D is D
 
         # according to warnings, can't test "import *" ...
 
-        from cppyy.gbl.fragile import nested1
-        assert cppyy.gbl.fragile.nested1 is nested1
+        from _cppyy.gbl.fragile import nested1
+        assert _cppyy.gbl.fragile.nested1 is nested1
 
-        from cppyy.gbl.fragile.nested1 import A, nested2
-        assert cppyy.gbl.fragile.nested1.A is A
-        assert cppyy.gbl.fragile.nested1.nested2 is nested2
+        from _cppyy.gbl.fragile.nested1 import A, nested2
+        assert _cppyy.gbl.fragile.nested1.A is A
+        assert _cppyy.gbl.fragile.nested1.nested2 is nested2
 
-        from cppyy.gbl.fragile.nested1.nested2 import A, nested3
-        assert cppyy.gbl.fragile.nested1.nested2.A is A
-        assert cppyy.gbl.fragile.nested1.nested2.nested3 is nested3
+        from _cppyy.gbl.fragile.nested1.nested2 import A, nested3
+        assert _cppyy.gbl.fragile.nested1.nested2.A is A
+        assert _cppyy.gbl.fragile.nested1.nested2.nested3 is nested3
 
-        from cppyy.gbl.fragile.nested1.nested2.nested3 import A
-        assert cppyy.gbl.fragile.nested1.nested2.nested3.A is nested3.A
+        from _cppyy.gbl.fragile.nested1.nested2.nested3 import A
+        assert _cppyy.gbl.fragile.nested1.nested2.nested3.A is nested3.A
 
     def test13_missing_casts(self):
         """Test proper handling when a hierarchy is not fully available"""
 
-        import cppyy
+        import _cppyy
 
-        k = cppyy.gbl.fragile.K()
+        k = _cppyy.gbl.fragile.K()
 
         assert k is k.GimeK(False)
         assert k is not k.GimeK(True)
@@ -290,10 +290,10 @@ class AppTestFRAGILE:
 
         return # don't bother; is fixed in cling-support
 
-        import cppyy
+        import _cppyy
 
-        M = cppyy.gbl.fragile.M
-        N = cppyy.gbl.fragile.N
+        M = _cppyy.gbl.fragile.M
+        N = _cppyy.gbl.fragile.N
 
         assert M.kOnce == N.kOnce
         assert M.kTwice == N.kTwice

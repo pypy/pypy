@@ -12,14 +12,14 @@ def setup_module(mod):
         raise OSError("'make' failed (see stderr)")
 
 class AppTestOPERATORS:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
+    spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_N = cls.space.newint(5)  # should be imported from the dictionary
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_operators = cls.space.appexec([], """():
-            import cppyy
-            return cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import _cppyy
+            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
 
     def teardown_method(self, meth):
         import gc
@@ -28,8 +28,8 @@ class AppTestOPERATORS:
     def test01_math_operators(self):
         """Test overloading of math operators"""
 
-        import cppyy
-        number = cppyy.gbl.number
+        import _cppyy
+        number = _cppyy.gbl.number
 
         assert (number(20) + number(10)) == number(30)
         assert (number(20) + 10        ) == number(30)
@@ -50,8 +50,8 @@ class AppTestOPERATORS:
     def test02_unary_math_operators(self):
         """Test overloading of unary math operators"""
 
-        import cppyy
-        number = cppyy.gbl.number
+        import _cppyy
+        number = _cppyy.gbl.number
 
         n  = number(20)
         n += number(10)
@@ -66,8 +66,8 @@ class AppTestOPERATORS:
     def test03_comparison_operators(self):
         """Test overloading of comparison operators"""
 
-        import cppyy
-        number = cppyy.gbl.number
+        import _cppyy
+        number = _cppyy.gbl.number
 
         assert (number(20) >  number(10)) == True
         assert (number(20) <  number(10)) == False
@@ -79,8 +79,8 @@ class AppTestOPERATORS:
     def test04_boolean_operator(self):
         """Test implementation of operator bool"""
 
-        import cppyy
-        number = cppyy.gbl.number
+        import _cppyy
+        number = _cppyy.gbl.number
 
         n = number(20)
         assert n
@@ -91,8 +91,8 @@ class AppTestOPERATORS:
     def test05_exact_types(self):
         """Test converter operators of exact types"""
 
-        import cppyy
-        gbl = cppyy.gbl
+        import _cppyy
+        gbl = _cppyy.gbl
 
         o = gbl.operator_char_star()
         assert o.m_str == 'operator_char_star'
@@ -117,8 +117,8 @@ class AppTestOPERATORS:
     def test06_approximate_types(self):
         """Test converter operators of approximate types"""
 
-        import cppyy, sys
-        gbl = cppyy.gbl
+        import _cppyy, sys
+        gbl = _cppyy.gbl
 
         o = gbl.operator_short(); o.m_short = 256
         assert o.m_short == 256
@@ -140,12 +140,12 @@ class AppTestOPERATORS:
     def test07_virtual_operator_eq(self):
         """Test use of virtual bool operator=="""
 
-        import cppyy
+        import _cppyy
 
-        b1  = cppyy.gbl.v_opeq_base(1)
-        b1a = cppyy.gbl.v_opeq_base(1)
-        b2  = cppyy.gbl.v_opeq_base(2)
-        b2a = cppyy.gbl.v_opeq_base(2)
+        b1  = _cppyy.gbl.v_opeq_base(1)
+        b1a = _cppyy.gbl.v_opeq_base(1)
+        b2  = _cppyy.gbl.v_opeq_base(2)
+        b2a = _cppyy.gbl.v_opeq_base(2)
 
         assert b1 == b1
         assert b1 == b1a
@@ -154,10 +154,10 @@ class AppTestOPERATORS:
         assert b2 == b2
         assert b2 == b2a
 
-        d1  = cppyy.gbl.v_opeq_derived(1)
-        d1a = cppyy.gbl.v_opeq_derived(1)
-        d2  = cppyy.gbl.v_opeq_derived(2)
-        d2a = cppyy.gbl.v_opeq_derived(2)
+        d1  = _cppyy.gbl.v_opeq_derived(1)
+        d1a = _cppyy.gbl.v_opeq_derived(1)
+        d2  = _cppyy.gbl.v_opeq_derived(2)
+        d2a = _cppyy.gbl.v_opeq_derived(2)
 
         # derived operator== returns opposite
         assert not d1 == d1
