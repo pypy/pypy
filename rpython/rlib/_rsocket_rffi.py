@@ -2,6 +2,7 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rtyper.lltypesystem.rffi import CCHARP
+from rpython.rlib import jit
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform as target_platform
 
@@ -190,6 +191,8 @@ TCP_LINGER2 TCP_MAXSEG TCP_NODELAY TCP_QUICKACK TCP_SYNCNT TCP_WINDOW_CLAMP
 
 IPX_TYPE
 
+SCM_RIGHTS
+
 POLLIN POLLPRI POLLOUT POLLERR POLLHUP POLLNVAL
 POLLRDNORM POLLRDBAND POLLWRNORM POLLWEBAND POLLMSG
 
@@ -259,6 +262,7 @@ CConfig.ssize_t = platform.SimpleType('ssize_t', rffi.INT)
 CConfig.socklen_t = platform.SimpleType('socklen_t', rffi.INT)
 sockaddr_ptr = lltype.Ptr(lltype.ForwardReference())
 addrinfo_ptr = lltype.Ptr(lltype.ForwardReference())
+
 
 # struct types
 CConfig.sockaddr = platform.Struct('struct sockaddr',
@@ -343,6 +347,675 @@ if _POSIX:
                                 [('ifr_ifindex', rffi.INT),
                                  ('ifr_name', rffi.CFixedArray(rffi.CHAR, 8))])
 
+# insert handler for sendmsg / recvmsg here
+if _POSIX:
+    includes = ['stddef.h',
+                'sys/socket.h',
+                'unistd.h',
+                'string.h',
+                'stdlib.h',
+                'errno.h',
+                'limits.h',
+                'stdio.h',
+                'sys/types.h']
+    separate_module_sources = ['''
+
+        //defines for recvmsg
+        #define SUCCESS 0
+        #define BAD_MSG_SIZE_GIVEN -1
+        #define BAD_ANC_SIZE_GIVEN -2
+        #define WOULD_BLOCK -3
+        #define AGAIN -4
+        #define BADDESC -5
+        #define CON_REF -6
+        #define FAULT -7
+        #define INTR -8
+        #define NOMEM -9
+        #define NOTCONN -10
+        #define NOTSOCK -11
+        #define MAL_ANC -12
+
+        //defines for sendmsg
+        #define MUL_MSGS_NOT_SUP -1000
+        #define ANC_DATA_TOO_LARGE -1001
+        #define ANC_DATA_TOO_LARGEX -1002
+
+        #define MSG_IOVLEN 1 // CPyhton has hardcoded this as well.
+        #if INT_MAX > 0x7fffffff
+            #define SOCKLEN_T_LIMIT 0x7fffffff
+        #else
+        #define SOCKLEN_T_LIMIT INT_MAX
+        #endif
+
+
+        #ifdef CMSG_SPACE
+        static int
+        cmsg_min_space(struct msghdr *msg, struct cmsghdr *cmsgh, size_t space)
+        {
+            size_t cmsg_offset;
+            static const size_t cmsg_len_end = (offsetof(struct cmsghdr, cmsg_len) +
+                                                sizeof(cmsgh->cmsg_len));
+
+            /* Note that POSIX allows msg_controllen to be of signed type. */
+            if (cmsgh == NULL || msg->msg_control == NULL)
+                return 0;
+            /* Note that POSIX allows msg_controllen to be of a signed type. This is
+               annoying under OS X as it's unsigned there and so it triggers a
+               tautological comparison warning under Clang when compared against 0.
+               Since the check is valid on other platforms, silence the warning under
+               Clang. */
+            #ifdef __clang__
+            #pragma clang diagnostic push
+            #pragma clang diagnostic ignored "-Wtautological-compare"
+            #endif
+            #if defined(__GNUC__) && ((__GNUC__ > 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ > 5)))
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wtype-limits"
+            #endif
+            if (msg->msg_controllen < 0)
+                return 0;
+            #if defined(__GNUC__) && ((__GNUC__ > 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ > 5)))
+            #pragma GCC diagnostic pop
+            #endif
+            #ifdef __clang__
+            #pragma clang diagnostic pop
+            #endif
+            if (space < cmsg_len_end)
+                space = cmsg_len_end;
+            cmsg_offset = (char *)cmsgh - (char *)msg->msg_control;
+            return (cmsg_offset <= (size_t)-1 - space &&
+                    cmsg_offset + space <= msg->msg_controllen);
+        }
+        #endif
+
+        #ifdef CMSG_LEN
+
+        /* If pointer CMSG_DATA(cmsgh) is in buffer msg->msg_control, set
+           *space to number of bytes following it in the buffer and return
+           true; otherwise, return false.  Assumes cmsgh, msg->msg_control and
+           msg->msg_controllen are valid. */
+        static int
+        get_cmsg_data_space(struct msghdr *msg, struct cmsghdr *cmsgh, size_t *space)
+        {
+            size_t data_offset;
+            char *data_ptr;
+
+            if ((data_ptr = (char *)CMSG_DATA(cmsgh)) == NULL)
+                return 0;
+            data_offset = data_ptr - (char *)msg->msg_control;
+            if (data_offset > msg->msg_controllen)
+                return 0;
+            *space = msg->msg_controllen - data_offset;
+            return 1;
+        }
+
+        /* If cmsgh is invalid or not contained in the buffer pointed to by
+           msg->msg_control, return -1.  If cmsgh is valid and its associated
+           data is entirely contained in the buffer, set *data_len to the
+           length of the associated data and return 0.  If only part of the
+           associated data is contained in the buffer but cmsgh is otherwise
+           valid, set *data_len to the length contained in the buffer and
+           return 1. */
+        static int
+        get_cmsg_data_len(struct msghdr *msg, struct cmsghdr *cmsgh, size_t *data_len)
+        {
+            size_t space, cmsg_data_len;
+
+            if (!cmsg_min_space(msg, cmsgh, CMSG_LEN(0)) ||
+                cmsgh->cmsg_len < CMSG_LEN(0))
+                return -1;
+            cmsg_data_len = cmsgh->cmsg_len - CMSG_LEN(0);
+            if (!get_cmsg_data_space(msg, cmsgh, &space))
+                return -1;
+            if (space >= cmsg_data_len) {
+                *data_len = cmsg_data_len;
+                return 0;
+            }
+            *data_len = space;
+            return 1;
+        }
+        #endif    /* CMSG_LEN */
+
+        struct recvmsg_info
+        {
+            int error_code;
+            struct sockaddr* address;
+            socklen_t addrlen;
+            int* length_of_messages;
+            char** messages;
+            int no_of_messages;
+            int size_of_ancillary;
+            int* levels;
+            int* types;
+            char** file_descr;
+            int* descr_per_ancillary;
+            int flags;
+        };
+
+
+        RPY_EXTERN
+        int recvmsg_implementation(
+                                  int socket_fd,
+                                  int message_size,
+                                  int ancillary_size,
+                                  int flags,
+                                  struct sockaddr* address,
+                                  socklen_t* addrlen,
+                                  int** length_of_messages,
+                                  char** messages,
+                                  int* no_of_messages,
+                                  int* size_of_ancillary,
+                                  int** levels,
+                                  int** types,
+                                  char** file_descr,
+                                  int** descr_per_ancillary,
+                                  int* flag)
+
+        {
+
+            struct sockaddr* recvd_address;
+            socklen_t recvd_addrlen;
+            struct msghdr msg = {0};
+            void *controlbuf = NULL;
+            struct cmsghdr *cmsgh;
+            int cmsg_status;
+            struct iovec iov;
+            struct recvmsg_info* retinfo;
+            int error_flag;
+            int cmsgdatalen = 0;
+
+            //allocation flags for failure
+            int iov_alloc = 0;
+            int anc_alloc = 0;
+
+            retinfo = (struct recvmsg_info*) malloc(sizeof(struct recvmsg_info));
+            /*
+            if (message_size < 0){
+                error_flag = BAD_MSG_SIZE_GIVEN;
+                goto fail;
+            }
+            */
+            if (ancillary_size > SOCKLEN_T_LIMIT){
+                error_flag = BAD_ANC_SIZE_GIVEN;
+                goto fail;
+            }
+
+
+            iov.iov_base = (char*) malloc(message_size);
+            memset(iov.iov_base, 0, message_size);
+            iov.iov_len = message_size;
+            controlbuf = malloc(ancillary_size);
+            recvd_addrlen = sizeof(struct sockaddr);
+            recvd_address = (struct sockaddr*) malloc(recvd_addrlen);
+
+            memset(recvd_address, 0,recvd_addrlen);
+
+            msg.msg_name = recvd_address;
+            msg.msg_namelen = recvd_addrlen;
+            msg.msg_iov = &iov;
+            msg.msg_iovlen = MSG_IOVLEN;
+            msg.msg_control = controlbuf;
+            msg.msg_controllen = ancillary_size;
+
+            retinfo->address = msg.msg_name;
+            retinfo->length_of_messages = (int*) malloc (MSG_IOVLEN * sizeof(int));
+            retinfo->no_of_messages = 1;
+            retinfo->messages = (char**) malloc (MSG_IOVLEN * sizeof(char*));
+            retinfo->messages[0] = msg.msg_iov->iov_base;
+
+            iov_alloc = 1;
+
+            ssize_t bytes_recvd = 0;
+
+            bytes_recvd = recvmsg(socket_fd, &msg, flags);
+
+            if (bytes_recvd < 0){
+                switch (errno){
+                    case EAGAIN:
+                        error_flag = -3;
+                        break;
+                    case EBADF:
+                        error_flag = -5;
+                        break;
+                    case ECONNREFUSED:
+                        error_flag = -6;
+                        break;
+                    case EFAULT:
+                        error_flag = -7;
+                        break;
+                    case EINTR:
+                        error_flag = -8;
+                        break;
+                    case ENOMEM:
+                        error_flag = -9;
+                        break;
+                    case ENOTCONN:
+                        error_flag = -10;
+                        break;
+                    case ENOTSOCK:
+                        error_flag = -11;
+                        break;
+                 }
+
+                 goto fail;
+            }
+
+            retinfo->addrlen = (socklen_t) msg.msg_namelen;
+            retinfo->length_of_messages[0] = msg.msg_iov->iov_len;
+
+
+            int anc_counter = 0;
+            /*
+            struct recv_list* first_item = (struct recv_list*) malloc(sizeof(struct recv_list));
+            struct recv_list* iter = first_item;
+            */
+            for (cmsgh = ((msg.msg_controllen > 0) ? CMSG_FIRSTHDR(&msg) : NULL);
+                 cmsgh != NULL; cmsgh = CMSG_NXTHDR(&msg, cmsgh)) {
+
+                 anc_counter++;
+            }
+
+            retinfo->size_of_ancillary = anc_counter;
+            retinfo->file_descr = (char**) malloc (anc_counter * sizeof(char*));
+            retinfo->levels = (int*) malloc(anc_counter * sizeof(int));
+            retinfo->types = (int*) malloc(anc_counter * sizeof(int));
+            retinfo->descr_per_ancillary = (int*) malloc(anc_counter * sizeof(int));
+            anc_alloc = 1;
+
+            int i=0;
+            for (cmsgh = ((msg.msg_controllen > 0) ? CMSG_FIRSTHDR(&msg) : NULL);
+                 cmsgh != NULL; cmsgh = CMSG_NXTHDR(&msg, cmsgh)) {
+                 size_t local_size = 0;
+                 cmsg_status = get_cmsg_data_len(&msg, cmsgh, &local_size);
+                 if (cmsg_status !=0 ){
+                    error_flag = MAL_ANC;
+                    goto err_closefds;
+                 }
+                 retinfo->file_descr[i] = (char*) malloc(local_size);
+                 memcpy(retinfo->file_descr[i], CMSG_DATA(cmsgh), local_size);
+                 retinfo->levels[i] = cmsgh->cmsg_level;
+                 retinfo->types[i] = cmsgh->cmsg_type;
+                 retinfo->descr_per_ancillary[i] =local_size;
+                 i++;
+
+            }
+            retinfo->flags = msg.msg_flags;
+            retinfo->error_code = 0;
+
+            //address = (struct sockaddr*) malloc (sizeof(struct sockaddr));
+            memcpy(address,retinfo->address,sizeof(struct sockaddr));
+
+
+            *addrlen = retinfo->addrlen;
+            *no_of_messages = retinfo->no_of_messages;
+            *size_of_ancillary = retinfo->size_of_ancillary;
+
+            *length_of_messages = (int*) malloc (sizeof(int) * retinfo->no_of_messages);
+            //*length_of_messages =
+            memcpy(*length_of_messages, retinfo->length_of_messages, sizeof(int) * retinfo->no_of_messages);
+
+            int counter = 0;
+            for (i=0; i< retinfo->no_of_messages; i++)
+                counter += retinfo->length_of_messages[i];
+
+            //*messages = (char*) malloc(sizeof(char) * counter);
+            memset(*messages, 0, sizeof(char) * counter);
+            counter = 0;
+            for(i=0; i< retinfo->no_of_messages; i++){
+                memcpy(*messages+counter,retinfo->messages[i],retinfo->length_of_messages[i]);
+                counter += retinfo->length_of_messages[i];
+            }
+
+            *levels = (int*) malloc (sizeof(int) * retinfo->size_of_ancillary);
+            //*levels =
+            memcpy(*levels, retinfo->levels, sizeof(int) * retinfo->size_of_ancillary);
+            *types = (int*) malloc (sizeof(int) * retinfo->size_of_ancillary);
+            //*types =
+            memcpy(*types, retinfo->types, sizeof(int) * retinfo->size_of_ancillary);
+            *descr_per_ancillary = (int*) malloc (sizeof(int) * retinfo->size_of_ancillary);
+            //*descr_per_ancillary =
+            memcpy(*descr_per_ancillary, retinfo->descr_per_ancillary, sizeof(int) * retinfo->size_of_ancillary);
+
+            counter = 0;
+            for (i=0; i < retinfo->size_of_ancillary; i++)
+                counter += retinfo->descr_per_ancillary[i];
+
+            *file_descr = (char*) malloc (sizeof(char) * counter);
+            memset(*file_descr, 0, sizeof(char) * counter);
+            counter = 0;
+            for (i=0; i<retinfo->size_of_ancillary; i++){
+                memcpy(*file_descr+counter,retinfo->file_descr[i], retinfo->descr_per_ancillary[i]);
+                counter += retinfo->descr_per_ancillary[i];
+            }
+
+            *flag = retinfo->flags;
+            //int k;
+            //char* dsadas;
+            //dsadas = (char*) (*file_descr[0]);
+            //for (k=0; k<retinfo->no_of_messages * sizeof(int); k++)
+            //                printf("0x%X ", dsadas[k]);
+
+            free(retinfo->address);
+            free(retinfo->length_of_messages);
+            free(retinfo->levels);
+            free(retinfo->types);
+            free(retinfo->descr_per_ancillary);
+            for(i = 0; i<retinfo->no_of_messages; i++)
+                free(retinfo->messages[i]);
+            for (i = 0; i < retinfo->size_of_ancillary; i++)
+                free(retinfo->file_descr[i]);
+            free(retinfo->file_descr);
+            free(retinfo->messages);
+            free(retinfo);
+            free(controlbuf);
+
+            return bytes_recvd;
+
+        fail:
+            if (anc_alloc){
+                free(retinfo->file_descr);
+                free(retinfo->levels);
+                free(retinfo->types);
+                free(retinfo->descr_per_ancillary);
+                free(retinfo->length_of_messages);
+                free(retinfo->messages[0]);
+                free(retinfo->messages);
+                free(retinfo->address);
+                free(controlbuf);
+                file_descr = NULL;
+                levels = NULL;
+                types = NULL;
+                descr_per_ancillary = NULL;
+                length_of_messages = NULL;
+                messages =NULL;
+                address = NULL;
+                addrlen = NULL;
+                no_of_messages = NULL;
+                size_of_ancillary = NULL;
+
+            }else{
+                if (iov_alloc){
+                    free(retinfo->length_of_messages);
+                    free(retinfo->messages[0]);
+                    free(retinfo->messages);
+                    free(retinfo->address);
+                    free(controlbuf);
+                    length_of_messages = NULL;
+                    messages =NULL;
+                    address = NULL;
+                    file_descr = NULL;
+                    levels = NULL;
+                    types = NULL;
+                    descr_per_ancillary = NULL;
+                    addrlen = NULL;
+                    no_of_messages = NULL;
+                    size_of_ancillary = NULL;
+
+                }
+            }
+            return error_flag;
+
+        err_closefds:
+        #ifdef SCM_RIGHTS
+            /* Close all descriptors coming from SCM_RIGHTS, so they don't leak. */
+            for (cmsgh = ((msg.msg_controllen > 0) ? CMSG_FIRSTHDR(&msg) : NULL);
+                 cmsgh != NULL; cmsgh = CMSG_NXTHDR(&msg, cmsgh)) {
+                size_t dataleng;
+                cmsg_status = get_cmsg_data_len(&msg, cmsgh, &dataleng);
+                cmsgdatalen = (int) dataleng;
+                if (cmsg_status < 0)
+                    break;
+                if (cmsgh->cmsg_level == SOL_SOCKET &&
+                    cmsgh->cmsg_type == SCM_RIGHTS) {
+                    size_t numfds;
+                    int *fdp;
+
+                    numfds = cmsgdatalen / sizeof(int);
+                    fdp = (int *)CMSG_DATA(cmsgh);
+                    while (numfds-- > 0)
+                        close(*fdp++);
+                }
+                if (cmsg_status != 0)
+                    break;
+            }
+        #endif /* SCM_RIGHTS */
+            goto fail;
+        }
+
+
+        //################################################################################################
+        //send goes from here
+
+        #ifdef CMSG_LEN
+        static int
+        get_CMSG_LEN(size_t length, size_t *result)
+        {
+            size_t tmp;
+
+            if (length > (SOCKLEN_T_LIMIT - CMSG_LEN(0)))
+                return 0;
+            tmp = CMSG_LEN(length);
+            if ((tmp > SOCKLEN_T_LIMIT) || (tmp < length))
+                return 0;
+            *result = tmp;
+            return 1;
+        }
+        #endif
+
+        #ifdef CMSG_SPACE
+        /* If length is in range, set *result to CMSG_SPACE(length) and return
+           true; otherwise, return false. */
+        static int
+        get_CMSG_SPACE(size_t length, size_t *result)
+        {
+            size_t tmp;
+
+            /* Use CMSG_SPACE(1) here in order to take account of the padding
+               necessary before *and* after the data. */
+            if (length > (SOCKLEN_T_LIMIT - CMSG_SPACE(1)))
+                return 0;
+            tmp = CMSG_SPACE(length);
+            if ((tmp > SOCKLEN_T_LIMIT) || (tmp < length))
+                return 0;
+            *result = tmp;
+            return 1;
+        }
+        #endif
+
+        RPY_EXTERN
+        int sendmsg_implementation(int socket, struct sockaddr* address, socklen_t addrlen, long* length_of_messages, char** messages, int no_of_messages, long* levels, long* types, char** file_descriptors, long* no_of_fds, int control_length, int flag )
+        {
+
+            struct msghdr        msg = {0};
+            struct cmsghdr       *cmsg;
+            void* controlbuf = NULL;
+            int retval;
+            size_t i;
+
+            // Add the address
+
+            if (address != NULL) {
+                msg.msg_name = address;
+                msg.msg_namelen = addrlen;
+            }
+            // Add the message
+            struct iovec *iovs = NULL;
+
+            if (no_of_messages > 0){
+
+                iovs = (struct iovec*) malloc(no_of_messages * sizeof(struct iovec));
+                memset(iovs, 0, no_of_messages * sizeof(struct iovec));
+                msg.msg_iov = iovs;
+                msg.msg_iovlen = no_of_messages;
+
+                for (i=0; i< no_of_messages; i++){
+                    iovs[i].iov_base = messages[i];
+                    iovs[i].iov_len = length_of_messages[i];
+                }
+            }
+            // Add the ancillary
+
+            #ifndef CMSG_SPACE
+                if (control_length > 1){
+                    free(iovs);
+                    return MUL_MSGS_NOT_SUP;
+                }
+            #endif
+            if (control_length > 0){
+                //compute the total size of the ancillary
+                size_t total_size_of_ancillary = 0;
+                size_t space;
+                size_t controllen = 0, controllen_last = 0;
+                for (i = 0; i< control_length; i++){
+                    total_size_of_ancillary = no_of_fds[i];
+                    #ifdef CMSG_SPACE
+                        if (!get_CMSG_SPACE(total_size_of_ancillary, &space)) {
+                    #else
+                        if (!get_CMSG_LEN(total_size_of_ancillary, &space)) {
+                    #endif
+                            if (iovs != NULL)
+                                free(iovs);
+                            return ANC_DATA_TOO_LARGE;
+                        }
+                    controllen +=space;
+                    if ((controllen > SOCKLEN_T_LIMIT) || (controllen < controllen_last)) {
+                        if (iovs != NULL)
+                                free(iovs);
+                        return ANC_DATA_TOO_LARGEX;
+                    }
+                    controllen_last = controllen;
+
+                }
+
+                controlbuf = malloc(controllen); //* sizeof(int)
+
+                msg.msg_control= controlbuf;
+                msg.msg_controllen = controllen;
+
+                memset(controlbuf, 0, controllen);
+
+                cmsg = NULL;
+                for (i = 0; i< control_length; i++){
+                    cmsg = (i == 0) ? CMSG_FIRSTHDR(&msg) : CMSG_NXTHDR(&msg, cmsg);
+
+                    cmsg->cmsg_level = (int) levels[i];
+                    cmsg->cmsg_type = (int) types[i];
+                    cmsg->cmsg_len = CMSG_LEN(sizeof(char) * no_of_fds[i]);
+                    memcpy(CMSG_DATA(cmsg), file_descriptors[i], sizeof(char) * no_of_fds[i]);
+                }
+
+
+            }
+            // Add the flags
+            msg.msg_flags = flag;
+
+            // Send the data
+            retval = sendmsg(socket, &msg, flag);
+
+            if (iovs != NULL)
+                free(iovs);
+            if (controlbuf !=NULL)
+               free(controlbuf);
+
+            return retval;
+        }
+        #ifdef CMSG_SPACE
+        RPY_EXTERN
+        size_t CMSG_SPACE_wrapper(size_t desired_space){
+            size_t result;
+            if (!get_CMSG_SPACE(desired_space, &result)){
+                return 0;
+            }
+            return result;
+        }
+        #endif
+
+        #ifdef CMSG_LEN
+
+        RPY_EXTERN
+        size_t CMSG_LEN_wrapper(size_t desired_len){
+            size_t result;
+            if (!get_CMSG_LEN(desired_len, &result)){
+                return 0;
+            }
+            return result;
+        }
+        #endif
+
+        RPY_EXTERN
+        char* memcpy_from_CCHARP_at_offset_and_size(char* string, int offset, int size){
+            char* buffer;
+            buffer = (char*)malloc(sizeof(char)*size);
+            buffer = memcpy(buffer, string + offset, size);
+            return buffer;
+        }
+
+        RPY_EXTERN
+        int free_pointer_to_signedp(int** ptrtofree){
+            free(*ptrtofree);
+            return 0;
+        }
+
+        RPY_EXTERN
+        int free_ptr_to_charp(char** ptrtofree){
+            free(*ptrtofree);
+            return 0;
+        }
+
+    ''',]
+
+    post_include_bits =[ "RPY_EXTERN "
+                         "int sendmsg_implementation(int socket, struct sockaddr* address, socklen_t addrlen, long* length_of_messages, char** messages, int no_of_messages, long* levels, long* types, char** file_descriptors, long* no_of_fds, int control_length, int flag );\n"
+                         "RPY_EXTERN "
+                         "int recvmsg_implementation(int socket_fd, int message_size, int ancillary_size, int flags, struct sockaddr* address, socklen_t* addrlen, int** length_of_messages, char** messages, int* no_of_messages, int* size_of_ancillary, int** levels, int** types, char** file_descr, int** descr_per_ancillary, int* flag);\n"
+                         "static "
+                         "int cmsg_min_space(struct msghdr *msg, struct cmsghdr *cmsgh, size_t space);\n"
+                         "static "
+                         "int get_cmsg_data_space(struct msghdr *msg, struct cmsghdr *cmsgh, size_t *space);\n"
+                         "static "
+                         "int get_cmsg_data_len(struct msghdr *msg, struct cmsghdr *cmsgh, size_t *data_len);\n"
+                         "static "
+                         "int get_CMSG_LEN(size_t length, size_t *result);\n"
+                         "static "
+                         "int get_CMSG_SPACE(size_t length, size_t *result);\n"
+                         "RPY_EXTERN "
+                         "size_t CMSG_LEN_wrapper(size_t desired_len);\n"
+                         "RPY_EXTERN "
+                         "size_t CMSG_SPACE_wrapper(size_t desired_space);\n"
+                         "RPY_EXTERN "
+                         "char* memcpy_from_CCHARP_at_offset_and_size(char* string, int offset, int size);\n"
+                         "RPY_EXTERN "
+                         "int free_pointer_to_signedp(int** ptrtofree);\n"
+                         "RPY_EXTERN "
+                         "int free_ptr_to_charp(char** ptrtofree);\n"
+                         ]
+
+    #CConfig.SignedPP = lltype.Ptr(lltype.Array(rffi.SIGNEDP, hints={'nolength': True}))
+
+
+    # CConfig.recvmsginfo = platform.Struct('struct recvmsg_info',
+    #                                       [('error_code',rffi.SIGNED),
+    #                                        ('address',sockaddr_ptr),
+    #                                        ('addrlen',socklen_t_ptr),
+    #                                        ('length_of_messages', rffi.SIGNEDP),
+    #                                        ('messages',rffi.CCHARPP),
+    #                                        ('no_of_messages',rffi.INT),
+    #                                        ('size_of_ancillary',rffi.INT),
+    #                                        ('levels', rffi.SIGNEDP),
+    #                                        ('types', rffi.SIGNEDP),
+    #                                        ('file_descr', rffi.CCHARPP),
+    #                                        ('descr_per_ancillary', rffi.SIGNEDP),
+    #                                        ('flags', rffi.INT),
+    #                                       ])
+
+    #
+
+    compilation_info = ExternalCompilationInfo(
+                                    includes=includes,
+                                    separate_module_sources=separate_module_sources,
+                                    post_include_bits=post_include_bits,
+                               )
+
 if _WIN32:
     CConfig.WSAEVENT = platform.SimpleType('WSAEVENT', rffi.VOIDP)
     CConfig.WSANETWORKEVENTS = platform.Struct(
@@ -386,6 +1059,7 @@ cConfig.__dict__.update(platform.configure(CConfig))
 
 sockaddr_ptr.TO.become(cConfig.sockaddr)
 addrinfo_ptr.TO.become(cConfig.addrinfo)
+
 
 # fill in missing constants with reasonable defaults
 cConfig.NI_MAXHOST = cConfig.NI_MAXHOST or 1025
@@ -571,11 +1245,32 @@ socketrecv = external('recv', [socketfd_type, rffi.VOIDP, rffi.INT,
 recvfrom = external('recvfrom', [socketfd_type, rffi.VOIDP, size_t,
                            rffi.INT, sockaddr_ptr, socklen_t_ptr], rffi.INT,
                     save_err=SAVE_ERR)
+recvmsg = jit.dont_look_inside(rffi.llexternal("recvmsg_implementation",
+                                               [rffi.INT, rffi.INT, rffi.INT, rffi.INT,sockaddr_ptr, socklen_t_ptr, rffi.SIGNEDPP, rffi.CCHARPP,
+                                                rffi.SIGNEDP,rffi.SIGNEDP, rffi.SIGNEDPP, rffi.SIGNEDPP, rffi.CCHARPP, rffi.SIGNEDPP, rffi.SIGNEDP],
+                                               rffi.INT, save_err=SAVE_ERR,
+                                               compilation_info=compilation_info))
+
+memcpy_from_CCHARP_at_offset = jit.dont_look_inside(rffi.llexternal("memcpy_from_CCHARP_at_offset_and_size",
+                                    [rffi.CCHARP,rffi.INT,rffi.INT],rffi.CCHARP,save_err=SAVE_ERR,compilation_info=compilation_info))
+freeccharp = jit.dont_look_inside(rffi.llexternal("free_ptr_to_charp",
+                                    [rffi.CCHARPP],rffi.INT,save_err=SAVE_ERR,compilation_info=compilation_info))
+freesignedp = jit.dont_look_inside(rffi.llexternal("free_pointer_to_signedp",
+                                    [rffi.SIGNEDPP],rffi.INT,save_err=SAVE_ERR,compilation_info=compilation_info))
+
 send = external('send', [socketfd_type, rffi.CCHARP, size_t, rffi.INT],
                        ssize_t, save_err=SAVE_ERR)
 sendto = external('sendto', [socketfd_type, rffi.VOIDP, size_t, rffi.INT,
                                     sockaddr_ptr, socklen_t], ssize_t,
                   save_err=SAVE_ERR)
+sendmsg = jit.dont_look_inside(rffi.llexternal("sendmsg_implementation",
+                               [rffi.INT, sockaddr_ptr, socklen_t, rffi.SIGNEDP, rffi.CCHARPP, rffi.INT,
+                                rffi.SIGNEDP, rffi.SIGNEDP, rffi.CCHARPP, rffi.SIGNEDP, rffi.INT, rffi.INT],
+                               rffi.INT, save_err=SAVE_ERR,
+                               compilation_info=compilation_info))
+CMSG_SPACE = jit.dont_look_inside(rffi.llexternal("CMSG_SPACE_wrapper",[size_t], size_t, save_err=SAVE_ERR,compilation_info=compilation_info))
+CMSG_LEN = jit.dont_look_inside(rffi.llexternal("CMSG_LEN_wrapper",[size_t], size_t, save_err=SAVE_ERR,compilation_info=compilation_info))
+
 socketshutdown = external('shutdown', [socketfd_type, rffi.INT], rffi.INT,
                           save_err=SAVE_ERR)
 gethostname = external('gethostname', [rffi.CCHARP, rffi.INT], rffi.INT,
