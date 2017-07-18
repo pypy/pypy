@@ -710,6 +710,7 @@ class AsyncGenAThrow(AsyncGenABase):
         try:
             if throwing:
                 if self.w_exc_type is None:
+                    # TODO: add equivalent to CPython's o->agt_gen->ag_closed = 1;
                     w_value = self.async_gen.throw(space.w_GeneratorExit,
                                                    None, None)
                     if w_value is not None:
