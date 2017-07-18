@@ -8,9 +8,7 @@ from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 
 from pypy.module._cppyy import interp_cppyy, capi, executor
 # These tests are for the backend that support the fast path only.
-if capi.identify() == 'CINT':
-    py.test.skip("CINT does not support fast path")
-elif capi.identify() == 'loadable_capi':
+if capi.identify() == 'loadable_capi':
     py.test.skip("can not currently use FakeSpace with _cffi_backend")
 elif os.getenv("CPPYY_DISABLE_FASTPATH"):
     py.test.skip("fast path is disabled by CPPYY_DISABLE_FASTPATH envar")

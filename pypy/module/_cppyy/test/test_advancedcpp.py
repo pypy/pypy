@@ -1,10 +1,8 @@
 import py, os, sys
 
-from pypy.module._cppyy import capi
-
-
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("advancedcppDict.so"))
+
 
 def setup_module(mod):
     if sys.platform == 'win32':
@@ -19,7 +17,6 @@ class AppTestADVANCEDCPP:
 
     def setup_class(cls):
         cls.w_test_dct = cls.space.newtext(test_dct)
-        cls.w_capi_identity = cls.space.newtext(capi.identify())
         cls.w_advanced = cls.space.appexec([], """():
             import _cppyy
             return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
@@ -538,9 +535,6 @@ class AppTestADVANCEDCPP:
         assert c1.m_c == 3
         c1.destruct()
 
-        if self.capi_identity == 'CINT':     # CINT does not support dynamic casts
-            return
-
         c2 = _cppyy.gbl.create_c2()
         assert type(c2) == _cppyy.gbl.c_class_2
         assert c2.m_c == 3
@@ -549,24 +543,12 @@ class AppTestADVANCEDCPP:
     def test14_new_overloader(self):
         """Verify that class-level overloaded new/delete are called"""
 
-        # TODO: operator new appears to be respected by CINT, but operator
-        # delete is not called through root/meta. Anyway, Reflex gets it all
-        # wrong (clear from the generated code). Keep this test as it should
-        # be all better in the cling/llvm world ...
-
-        # TODO: get the capi-identify test selection right ...
-        if self.capi_identity != 'CINT':     # don't test anything for Reflex
-            return
-
         import _cppyy
 
         assert _cppyy.gbl.new_overloader.s_instances == 0
         nl = _cppyy.gbl.new_overloader()
         assert _cppyy.gbl.new_overloader.s_instances == 1
         nl.destruct()
-
-        if self.capi_identity == 'CINT':     # do not test delete
-            return
 
         import gc
         gc.collect()
