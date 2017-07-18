@@ -602,7 +602,7 @@ class AsyncGenerator(GeneratorOrCoroutine):
         return AsyncGenAThrow(self, w_type, w_val, w_tb)
 
     def descr_aclose(self):
-        XXX
+        return AsyncGenAThrow(self, None, None, None)
 
 
 class AsyncGenValueWrapper(W_Root):
@@ -709,14 +709,30 @@ class AsyncGenAThrow(AsyncGenABase):
 
         try:
             if throwing:
-                w_value = self.async_gen.throw(self.w_exc_type,
-                                               self.w_exc_value,
-                                               self.w_exc_tb)
+                if self.w_exc_type is None:
+                    w_value = self.async_gen.throw(space.w_GeneratorExit,
+                                                   None, None)
+                    if w_value is not None:
+                        XXX
+                else:
+                    w_value = self.async_gen.throw(self.w_exc_type,
+                                                   self.w_exc_value,
+                                                   self.w_exc_tb)
             else:
                 w_value = self.async_gen.send_ex(w_arg_or_err)
             return self.unwrap_value(w_value)
         except OperationError as e:
-            self.state = self.ST_CLOSED
+            if e.match(space, space.w_StopAsyncIteration):
+                self.state = self.ST_CLOSED
+                if self.w_exc_type is None:
+                    # When aclose() is called we don't want to propagate
+                    # StopAsyncIteration; just raise StopIteration, signalling
+                    # that 'aclose()' is done.
+                    raise OperationError(space.w_StopIteration, space.w_None)
+            if e.match(space, space.w_GeneratorExit):
+                self.state = self.ST_CLOSED
+                # Ignore this error.
+                raise OperationError(space.w_StopIteration, space.w_None)
             raise
 
     def descr_throw(self, w_type, w_val=None, w_tb=None):

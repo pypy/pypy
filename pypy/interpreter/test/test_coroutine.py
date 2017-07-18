@@ -448,3 +448,25 @@ class AppTestCoroutine:
         except StopIteration:
             assert values == [42]
     """
+
+    def test_async_aclose(self): """
+        raises_generator_exit = False
+        async def ag():
+            nonlocal raises_generator_exit
+            try:
+                yield
+            except GeneratorExit:
+                raises_generator_exit = True
+                raise
+
+        async def run():
+            a = ag()
+            async for i in a:
+                break
+            await a.aclose()
+        try:
+            run().send(None)
+        except StopIteration:
+            pass
+        assert raises_generator_exit
+    """
