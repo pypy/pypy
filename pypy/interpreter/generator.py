@@ -642,7 +642,7 @@ class AsyncGenABase(W_Root):
             raise
 
     def descr_close(self):
-        XXX
+        self.state = self.ST_CLOSED
 
     def unwrap_value(self, w_value):
         if isinstance(w_value, AsyncGenValueWrapper):

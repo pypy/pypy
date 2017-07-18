@@ -485,3 +485,17 @@ class AppTestCoroutine:
             await a.aclose()
         raises(RuntimeError, run().send, None)
     """
+
+    def test_async_anext_close(self): """
+        async def ag():
+            yield 42
+
+        an = ag().__anext__()
+        an.close()
+        try:
+            next(an)
+        except StopIteration as e:
+            assert e.value is None
+        else:
+            assert False, "didn't raise"
+    """
