@@ -212,7 +212,11 @@ class FakeSpace(object):
         assert isinstance(w_obj, FakeLong)
         return rarithmetic.r_uint(w_obj.val.touint())
 
-    def str_w(self, w_obj):
+    def bytes_w(self, w_obj):
+        assert isinstance(w_obj, FakeString)
+        return w_obj.val
+
+    def text_w(self, w_obj):
         assert isinstance(w_obj, FakeString)
         return w_obj.val
 
