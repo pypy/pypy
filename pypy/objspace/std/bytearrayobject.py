@@ -567,24 +567,16 @@ def makebytearraydata_w(space, w_source):
             raise
     else:
         return list(buf.as_str())
+    return _from_byte_sequence(space, w_source)
 
-    # sequence of bytes
-    w_iter = space.iter(w_source)
-    length_hint = space.length_hint(w_source, 0)
-    data = newlist_hint(length_hint)
-    extended = 0
-    while True:
-        try:
-            w_item = space.next(w_iter)
-        except OperationError as e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            break
-        data.append(space.byte_w(w_item))
-        extended += 1
-    if extended < length_hint:
-        resizelist_hint(data, extended)
-    return data
+def _from_byte_sequence(space, w_source):
+    # Split off in a separate function for the JIT's benefit
+    w_result = space.appexec([w_source], """(seq):
+        result = bytearray()
+        for i in seq:
+            result.append(i)
+        return result""")
+    return w_result.getdata()
 
 
 def _hex_digit_to_int(d):
