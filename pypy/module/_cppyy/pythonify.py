@@ -1,5 +1,5 @@
 # NOT_RPYTHON
-# do not load cppyy here, see _init_pythonify()
+# do not load _cppyy here, see _init_pythonify()
 import types
 import sys
 
@@ -35,8 +35,8 @@ class CPPTemplate(object):
 
     def _arg_to_str(self, arg):
         if arg == str:
-            import cppyy
-            arg = cppyy._std_string_name()
+            import _cppyy
+            arg = _cppyy._std_string_name()
         elif type(arg) != str:
             arg = arg.__name__
         return arg
@@ -99,8 +99,8 @@ def make_cppnamespace(scope, namespace_name, cppns, build_in_full=True):
     else:
         d = dict()
         def cpp_proxy_loader(cls):
-            import cppyy
-            cpp_proxy = cppyy._scope_byname(cls.__name__ != '::' and cls.__name__ or '')
+            import _cppyy
+            cpp_proxy = _cppyy._scope_byname(cls.__name__ != '::' and cls.__name__ or '')
             del cls.__class__._cpp_proxy
             cls._cpp_proxy = cpp_proxy
             return cpp_proxy
@@ -126,7 +126,7 @@ def make_cppnamespace(scope, namespace_name, cppns, build_in_full=True):
             setattr(metans, dm_name, cppdm)
 
         modname = pycppns.__name__.replace('::', '.')
-        sys.modules['cppyy.gbl.'+modname] = pycppns
+        sys.modules['_cppyy.gbl.'+modname] = pycppns
     return pycppns
 
 def _drop_cycles(bases):
@@ -141,8 +141,8 @@ def _drop_cycles(bases):
 def make_new(class_name):
     def __new__(cls, *args):
         # create a place-holder only as there may be a derived class defined
-        import cppyy
-        instance = cppyy.bind_object(0, class_name, True)
+        import _cppyy
+        instance = _cppyy.bind_object(0, class_name, True)
         if not instance.__class__ is cls:
             instance.__class__ = cls     # happens for derived class
         return instance
@@ -202,8 +202,8 @@ def make_pycppclass(scope, class_name, final_class_name, cppclass):
 
     # the call to register will add back-end specific pythonizations and thus
     # needs to run first, so that the generic pythonizations can use them
-    import cppyy
-    cppyy._register_class(pycppclass)
+    import _cppyy
+    _cppyy._register_class(pycppclass)
     _pythonize(pycppclass)
     return pycppclass
 
@@ -212,18 +212,18 @@ def make_cpptemplatetype(scope, template_name):
 
 
 def get_pycppitem(scope, name):
-    import cppyy
+    import _cppyy
 
     # resolve typedefs/aliases
     full_name = (scope == gbl) and name or (scope.__name__+'::'+name)
-    true_name = cppyy._resolve_name(full_name)
+    true_name = _cppyy._resolve_name(full_name)
     if true_name != full_name:
         return get_pycppclass(true_name)
 
     pycppitem = None
 
     # classes
-    cppitem = cppyy._scope_byname(true_name)
+    cppitem = _cppyy._scope_byname(true_name)
     if cppitem:
         if cppitem.is_namespace():
             pycppitem = make_cppnamespace(scope, true_name, cppitem)
@@ -233,7 +233,7 @@ def get_pycppitem(scope, name):
 
     # templates
     if not cppitem:
-        cppitem = cppyy._template_byname(true_name)
+        cppitem = _cppyy._template_byname(true_name)
         if cppitem:
             pycppitem = make_cpptemplatetype(scope, name)
             setattr(scope, name, pycppitem)
@@ -323,7 +323,7 @@ def _pythonize(pyclass):
     # general note: use 'in pyclass.__dict__' rather than 'hasattr' to prevent
     # adding pythonizations multiple times in derived classes
 
-    import cppyy
+    import _cppyy
 
     # map __eq__/__ne__ through a comparison to None
     if '__eq__' in pyclass.__dict__:
@@ -362,8 +362,8 @@ def _pythonize(pyclass):
     # also the fallback on the indexed __getitem__, but that is slower)
     if not 'vector' in pyclass.__name__[:11] and \
             ('begin' in pyclass.__dict__ and 'end' in pyclass.__dict__):
-        if cppyy._scope_byname(pyclass.__name__+'::iterator') or \
-                cppyy._scope_byname(pyclass.__name__+'::const_iterator'):
+        if _cppyy._scope_byname(pyclass.__name__+'::iterator') or \
+                _cppyy._scope_byname(pyclass.__name__+'::const_iterator'):
             def __iter__(self):
                 i = self.begin()
                 while i != self.end():
@@ -383,7 +383,7 @@ def _pythonize(pyclass):
             pyclass.__getitem__ = python_style_getitem
 
     # string comparisons
-    if pyclass.__name__ == cppyy._std_string_name():
+    if pyclass.__name__ == _cppyy._std_string_name():
         def eq(self, other):
             if type(other) == pyclass:
                 return self.c_str() == other.c_str()
@@ -410,29 +410,29 @@ def load_reflection_info(name):
     try:
         return _loaded_dictionaries[name]
     except KeyError:
-        import cppyy
-        lib = cppyy._load_dictionary(name)
+        import _cppyy
+        lib = _cppyy._load_dictionary(name)
         _loaded_dictionaries[name] = lib
         return lib
 
 def _init_pythonify():
-    # cppyy should not be loaded at the module level, as that will trigger a
-    # call to space.getbuiltinmodule(), which will cause cppyy to be loaded
-    # at pypy-c startup, rather than on the "import cppyy" statement
-    import cppyy
+    # _cppyy should not be loaded at the module level, as that will trigger a
+    # call to space.getbuiltinmodule(), which will cause _cppyy to be loaded
+    # at pypy-c startup, rather than on the "import _cppyy" statement
+    import _cppyy
 
     # root of all proxy classes: CPPInstance in pythonify exists to combine the
     # CPPClass meta class with the interp-level CPPInstanceBase
     global CPPInstance
-    class CPPInstance(cppyy.CPPInstanceBase):
+    class CPPInstance(_cppyy.CPPInstanceBase):
         __metaclass__ = CPPClass
         pass
 
     # class generator callback
-    cppyy._set_class_generator(clgen_callback)
+    _cppyy._set_class_generator(clgen_callback)
 
     # function generator callback
-    cppyy._set_function_generator(fngen_callback)
+    _cppyy._set_function_generator(fngen_callback)
 
     # user interface objects (note the two-step of not calling scope_byname here:
     # creation of global functions may cause the creation of classes in the global
@@ -450,14 +450,14 @@ def _init_pythonify():
     setattr(gbl, 'internal_enum_type_t', int)
 
     # install nullptr as a unique reference
-    setattr(gbl, 'nullptr', cppyy._get_nullptr())
+    setattr(gbl, 'nullptr', _cppyy._get_nullptr())
 
     # install for user access
-    cppyy.gbl = gbl
+    _cppyy.gbl = gbl
 
     # install as modules to allow importing from
-    sys.modules['cppyy.gbl'] = gbl
-    sys.modules['cppyy.gbl.std'] = gbl.std
+    sys.modules['_cppyy.gbl'] = gbl
+    sys.modules['_cppyy.gbl.std'] = gbl.std
 
 # user-defined pythonizations interface
 _pythonizations = {}

@@ -61,29 +61,23 @@ these two modules.
 .. _libffi: http://sourceware.org/libffi/
 
 
-Cling and cppyy
----------------
+cppyy
+-----
 
-The builtin :doc:`cppyy <cppyy>` module uses reflection information, provided by
-`Cling`_ (which needs to be `installed separately`_), of C/C++ code to
-automatically generate bindings at runtime.
-In Python, classes and functions are always runtime structures, so when they
-are generated matters not for performance.
-However, if the backend itself is capable of dynamic behavior, it is a much
-better functional match, allowing tighter integration and more natural
-language mappings.
+For C++, `cppyy`_ is an automated bindings generator available for both
+PyPy and CPython.
+``cppyy`` relies on declarations from C++ header files to dynamically
+construct Python equivalent classes, functions, variables, etc.
+It is designed for use by large scale programs and supports modern C++.
+With PyPy, it leverages the built-in ``_cppyy`` module, allowing the JIT to
+remove most of the cross-language overhead.
 
-The :doc:`cppyy <cppyy>` module is written in RPython, thus PyPy's JIT is able to remove
-most cross-language call overhead.
+To install, run ``pip install cppyy``.
+Further details are available in the `full documentation`_.
 
-:doc:Full details are `available here <cppyy>`.
+.. _cppyy: http://cppyy.readthedocs.org/
+.. _`full documentation`: http://cppyy.readthedocs.org/
 
-.. _installed separately: https://pypi.python.org/pypi/PyPy-cppyy-backend
-.. _Cling: https://root.cern.ch/cling
-
-.. toctree::
-
-   cppyy
 
 RPython Mixed Modules
 ---------------------

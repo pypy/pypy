@@ -3,7 +3,7 @@ import py, sys
 @py.test.mark.tryfirst
 def pytest_runtest_setup(item):
     if py.path.local.sysfind('genreflex') is None:
-        import pypy.module.cppyy.capi.loadable_capi as lcapi
+        import pypy.module._cppyy.capi.loadable_capi as lcapi
         if 'dummy' in lcapi.reflection_library:
             # run only tests that are covered by the dummy backend and tests
             # that do not rely on reflex
@@ -30,7 +30,7 @@ disabled = None
 
 def pytest_configure(config):
     if py.path.local.sysfind('genreflex') is None:
-        import pypy.module.cppyy.capi.loadable_capi as lcapi
+        import pypy.module._cppyy.capi.loadable_capi as lcapi
         try:
             import ctypes
             ctypes.CDLL(lcapi.reflection_library)

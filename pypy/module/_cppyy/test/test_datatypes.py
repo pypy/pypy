@@ -9,26 +9,26 @@ def setup_module(mod):
     setup_make("datatypesDict.so")
 
 class AppTestDATATYPES:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
+    spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_datatypes = cls.space.appexec([], """():
-            import cppyy
-            return cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import _cppyy
+            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
         cls.w_N = cls.space.newint(5)  # should be imported from the dictionary
 
     def test01_load_reflection_cache(self):
         """Loading reflection info twice should result in the same object"""
-        import cppyy
-        lib2 = cppyy.load_reflection_info(self.test_dct)
+        import _cppyy
+        lib2 = _cppyy.load_reflection_info(self.test_dct)
         assert self.datatypes is lib2
 
     def test02_instance_data_read_access(self):
         """Read access to instance public data and verify values"""
 
-        import cppyy
-        CppyyTestData = cppyy.gbl.CppyyTestData
+        import _cppyy
+        CppyyTestData = _cppyy.gbl.CppyyTestData
 
         c = CppyyTestData()
         assert isinstance(c, CppyyTestData)
@@ -115,8 +115,8 @@ class AppTestDATATYPES:
     def test03_instance_data_write_access(self):
         """Test write access to instance public data and verify values"""
 
-        import cppyy
-        CppyyTestData = cppyy.gbl.CppyyTestData
+        import _cppyy
+        CppyyTestData = _cppyy.gbl.CppyyTestData
 
         c = CppyyTestData()
         assert isinstance(c, CppyyTestData)
@@ -202,8 +202,8 @@ class AppTestDATATYPES:
     def test04_array_passing(self):
         """Test passing of array arguments"""
 
-        import cppyy, array, sys
-        CppyyTestData = cppyy.gbl.CppyyTestData
+        import _cppyy, array, sys
+        CppyyTestData = _cppyy.gbl.CppyyTestData
 
         c = CppyyTestData()
         assert isinstance(c, CppyyTestData)
@@ -232,16 +232,16 @@ class AppTestDATATYPES:
         raises(Exception, c.pass_array(0).__getitem__, 0)    # raises SegfaultException
         assert not c.pass_array(None)
         raises(Exception, c.pass_array(None).__getitem__, 0) # id.
-        assert not c.pass_array(cppyy.gbl.nullptr)
-        raises(Exception, c.pass_array(cppyy.gbl.nullptr).__getitem__, 0) # id. id.
+        assert not c.pass_array(_cppyy.gbl.nullptr)
+        raises(Exception, c.pass_array(_cppyy.gbl.nullptr).__getitem__, 0) # id. id.
 
         c.destruct()
 
     def test05_class_read_access(self):
         """Test read access to class public data and verify values"""
 
-        import cppyy, sys
-        CppyyTestData = cppyy.gbl.CppyyTestData
+        import _cppyy, sys
+        CppyyTestData = _cppyy.gbl.CppyyTestData
 
         c = CppyyTestData()
         assert isinstance(c, CppyyTestData)
@@ -281,8 +281,8 @@ class AppTestDATATYPES:
     def test06_class_data_write_access(self):
         """Test write access to class public data and verify values"""
 
-        import cppyy, sys
-        CppyyTestData = cppyy.gbl.CppyyTestData
+        import _cppyy, sys
+        CppyyTestData = _cppyy.gbl.CppyyTestData
 
         c = CppyyTestData()
         assert isinstance(c, CppyyTestData)
@@ -345,8 +345,8 @@ class AppTestDATATYPES:
     def test07_range_access(self):
         """Test the ranges of integer types"""
 
-        import cppyy, sys
-        CppyyTestData = cppyy.gbl.CppyyTestData
+        import _cppyy, sys
+        CppyyTestData = _cppyy.gbl.CppyyTestData
 
         c = CppyyTestData()
         assert isinstance(c, CppyyTestData)
@@ -361,8 +361,8 @@ class AppTestDATATYPES:
     def test08_type_conversions(self):
         """Test conversions between builtin types"""
 
-        import cppyy, sys
-        CppyyTestData = cppyy.gbl.CppyyTestData
+        import _cppyy, sys
+        CppyyTestData = _cppyy.gbl.CppyyTestData
 
         c = CppyyTestData()
         assert isinstance(c, CppyyTestData)
@@ -379,8 +379,8 @@ class AppTestDATATYPES:
     def test09_global_builtin_type(self):
         """Test access to a global builtin type"""
 
-        import cppyy
-        gbl = cppyy.gbl
+        import _cppyy
+        gbl = _cppyy.gbl
 
         assert gbl.g_int == gbl.get_global_int()
 
@@ -395,8 +395,8 @@ class AppTestDATATYPES:
     def test10_global_ptr(self):
         """Test access of global objects through a pointer"""
 
-        import cppyy
-        gbl = cppyy.gbl
+        import _cppyy
+        gbl = _cppyy.gbl
 
         raises(ReferenceError, 'gbl.g_pod.m_int')
 
@@ -426,10 +426,10 @@ class AppTestDATATYPES:
     def test11_enum(self):
         """Test access to enums"""
 
-        import cppyy
-        gbl = cppyy.gbl
+        import _cppyy
+        gbl = _cppyy.gbl
 
-        CppyyTestData = cppyy.gbl.CppyyTestData
+        CppyyTestData = _cppyy.gbl.CppyyTestData
 
         c = CppyyTestData()
         assert isinstance(c, CppyyTestData)
@@ -474,8 +474,8 @@ class AppTestDATATYPES:
     def test12_string_passing(self):
         """Test passing/returning of a const char*"""
 
-        import cppyy
-        CppyyTestData = cppyy.gbl.CppyyTestData
+        import _cppyy
+        CppyyTestData = _cppyy.gbl.CppyyTestData
 
         c = CppyyTestData()
         assert c.get_valid_string('aap') == 'aap'
@@ -484,8 +484,8 @@ class AppTestDATATYPES:
     def test13_copy_contructor(self):
         """Test copy constructor"""
 
-        import cppyy
-        FourVector = cppyy.gbl.FourVector
+        import _cppyy
+        FourVector = _cppyy.gbl.FourVector
 
         t1 = FourVector(1., 2., 3., -4.)
         t2 = FourVector(0., 0., 0.,  0.)
@@ -500,9 +500,9 @@ class AppTestDATATYPES:
     def test14_object_returns(self):
         """Test access to and return of PODs"""
 
-        import cppyy
+        import _cppyy
 
-        c = cppyy.gbl.CppyyTestData()
+        c = _cppyy.gbl.CppyyTestData()
 
         assert c.m_pod.m_int == 888
         assert c.m_pod.m_double == 3.14
@@ -527,13 +527,13 @@ class AppTestDATATYPES:
     def test15_object_arguments(self):
         """Test setting and returning of a POD through arguments"""
 
-        import cppyy
+        import _cppyy
 
-        c = cppyy.gbl.CppyyTestData()
+        c = _cppyy.gbl.CppyyTestData()
         assert c.m_pod.m_int == 888
         assert c.m_pod.m_double == 3.14
 
-        p = cppyy.gbl.CppyyTestPod()
+        p = _cppyy.gbl.CppyyTestPod()
         p.m_int = 123
         assert p.m_int == 123
         p.m_double = 321.
@@ -543,12 +543,12 @@ class AppTestDATATYPES:
         assert c.m_pod.m_int == 123
         assert c.m_pod.m_double == 321.
 
-        c = cppyy.gbl.CppyyTestData()
+        c = _cppyy.gbl.CppyyTestData()
         c.set_pod_ptr_in(p)
         assert c.m_pod.m_int == 123
         assert c.m_pod.m_double == 321.
 
-        c = cppyy.gbl.CppyyTestData()
+        c = _cppyy.gbl.CppyyTestData()
         c.set_pod_ptr_out(p)
         assert p.m_int == 888
         assert p.m_double == 3.14
@@ -556,26 +556,26 @@ class AppTestDATATYPES:
         p.m_int = 555
         p.m_double = 666.
 
-        c = cppyy.gbl.CppyyTestData()
+        c = _cppyy.gbl.CppyyTestData()
         c.set_pod_ref(p)
         assert c.m_pod.m_int == 555
         assert c.m_pod.m_double == 666.
 
-        c = cppyy.gbl.CppyyTestData()
+        c = _cppyy.gbl.CppyyTestData()
         c.set_pod_ptrptr_in(p)
         assert c.m_pod.m_int == 555
         assert c.m_pod.m_double == 666.
         assert p.m_int == 555
         assert p.m_double == 666.
 
-        c = cppyy.gbl.CppyyTestData()
+        c = _cppyy.gbl.CppyyTestData()
         c.set_pod_void_ptrptr_in(p)
         assert c.m_pod.m_int == 555
         assert c.m_pod.m_double == 666.
         assert p.m_int == 555
         assert p.m_double == 666.
 
-        c = cppyy.gbl.CppyyTestData()
+        c = _cppyy.gbl.CppyyTestData()
         c.set_pod_ptrptr_out(p)
         assert c.m_pod.m_int == 888
         assert c.m_pod.m_double == 3.14
@@ -585,7 +585,7 @@ class AppTestDATATYPES:
         p.m_int = 777
         p.m_double = 888.
 
-        c = cppyy.gbl.CppyyTestData()
+        c = _cppyy.gbl.CppyyTestData()
         c.set_pod_void_ptrptr_out(p)
         assert c.m_pod.m_int == 888
         assert c.m_pod.m_double == 3.14
@@ -595,10 +595,10 @@ class AppTestDATATYPES:
     def test16_nullptr_passing(self):
         """Integer 0 ('NULL') and None allowed to pass through instance*"""
 
-        import cppyy
+        import _cppyy
 
         for o in (0, None):
-            c = cppyy.gbl.CppyyTestData()
+            c = _cppyy.gbl.CppyyTestData()
             assert c.m_pod.m_int == 888
             assert c.m_pod.m_double == 3.14
             assert not not c.m_ppod
@@ -610,8 +610,8 @@ class AppTestDATATYPES:
     def test17_respect_privacy(self):
         """Test that privacy settings are respected"""
 
-        import cppyy
-        CppyyTestData = cppyy.gbl.CppyyTestData
+        import _cppyy
+        CppyyTestData = _cppyy.gbl.CppyyTestData
 
         c = CppyyTestData()
         assert isinstance(c, CppyyTestData)
@@ -623,26 +623,26 @@ class AppTestDATATYPES:
     def test18_object_and_pointer_comparisons(self):
         """Verify object and pointer comparisons"""
 
-        import cppyy
-        gbl = cppyy.gbl
+        import _cppyy
+        gbl = _cppyy.gbl
 
-        c1 = cppyy.bind_object(0, gbl.CppyyTestData)
+        c1 = _cppyy.bind_object(0, gbl.CppyyTestData)
         assert c1 == None
         assert None == c1
 
-        c2 = cppyy.bind_object(0, gbl.CppyyTestData)
+        c2 = _cppyy.bind_object(0, gbl.CppyyTestData)
         assert c1 == c2
         assert c2 == c1
 
         # FourVector overrides operator==
-        l1 = cppyy.bind_object(0, gbl.FourVector)
+        l1 = _cppyy.bind_object(0, gbl.FourVector)
         assert l1 == None
         assert None == l1
 
         assert c1 != l1
         assert l1 != c1
 
-        l2 = cppyy.bind_object(0, gbl.FourVector)
+        l2 = _cppyy.bind_object(0, gbl.FourVector)
         assert l1 == l2
         assert l2 == l1
 
@@ -660,7 +660,7 @@ class AppTestDATATYPES:
     def test19_object_validity(self):
         """Test object validity checking"""
 
-        from cppyy import gbl
+        from _cppyy import gbl
 
         d = gbl.CppyyTestPod()
 
@@ -674,8 +674,8 @@ class AppTestDATATYPES:
     def test20_buffer_reshaping(self):
         """Test usage of buffer sizing"""
 
-        import cppyy
-        CppyyTestData = cppyy.gbl.CppyyTestData
+        import _cppyy
+        CppyyTestData = _cppyy.gbl.CppyyTestData
 
         c = CppyyTestData()
         for func in ['get_bool_array',   'get_bool_array2',
@@ -695,34 +695,34 @@ class AppTestDATATYPES:
     def test21_voidp(self):
         """Test usage of void* data"""
 
-        import cppyy
-        CppyyTestData = cppyy.gbl.CppyyTestData
+        import _cppyy
+        CppyyTestData = _cppyy.gbl.CppyyTestData
 
         c = CppyyTestData()
 
-        assert not cppyy.gbl.nullptr
+        assert not _cppyy.gbl.nullptr
 
-        assert c.s_voidp                is cppyy.gbl.nullptr
-        assert CppyyTestData.s_voidp  is cppyy.gbl.nullptr
+        assert c.s_voidp                is _cppyy.gbl.nullptr
+        assert CppyyTestData.s_voidp    is _cppyy.gbl.nullptr
 
-        assert c.m_voidp                is cppyy.gbl.nullptr
-        assert c.get_voidp()            is cppyy.gbl.nullptr
+        assert c.m_voidp                is _cppyy.gbl.nullptr
+        assert c.get_voidp()            is _cppyy.gbl.nullptr
 
         c2 = CppyyTestData()
-        assert c2.m_voidp               is cppyy.gbl.nullptr
+        assert c2.m_voidp               is _cppyy.gbl.nullptr
         c.set_voidp(c2.m_voidp)
-        assert c.m_voidp                is cppyy.gbl.nullptr
+        assert c.m_voidp                is _cppyy.gbl.nullptr
         c.set_voidp(c2.get_voidp())
-        assert c.m_voidp                is cppyy.gbl.nullptr
-        c.set_voidp(cppyy.gbl.nullptr)
-        assert c.m_voidp                is cppyy.gbl.nullptr
+        assert c.m_voidp                is _cppyy.gbl.nullptr
+        c.set_voidp(_cppyy.gbl.nullptr)
+        assert c.m_voidp                is _cppyy.gbl.nullptr
 
         c.set_voidp(c2)
         def address_equality_test(a, b):
-            assert cppyy.addressof(a) == cppyy.addressof(b)
-            b2 = cppyy.bind_object(a, CppyyTestData)
+            assert _cppyy.addressof(a) == _cppyy.addressof(b)
+            b2 = _cppyy.bind_object(a, CppyyTestData)
             assert b is b2    # memory regulator recycles
-            b3 = cppyy.bind_object(cppyy.addressof(a), CppyyTestData)
+            b3 = _cppyy.bind_object(_cppyy.addressof(a), CppyyTestData)
             assert b is b3    # likewise
 
         address_equality_test(c.m_voidp, c2)
@@ -730,8 +730,8 @@ class AppTestDATATYPES:
 
         def null_test(null):
             c.m_voidp = null
-            assert c.m_voidp is cppyy.gbl.nullptr
-        map(null_test, [0, None, cppyy.gbl.nullptr])
+            assert c.m_voidp is _cppyy.gbl.nullptr
+        map(null_test, [0, None, _cppyy.gbl.nullptr])
 
         c.m_voidp = c2
         address_equality_test(c.m_voidp,     c2)

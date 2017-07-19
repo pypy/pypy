@@ -12,17 +12,17 @@ def setup_module(mod):
 
 
 class AppTestACLASSLOADER:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
+    spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.space.appexec([], """():
-            import cppyy""")
+            import _cppyy""")
 
     def test01_class_autoloading(self):
         """Test whether a class can be found through .rootmap."""
-        import cppyy
-        example01_class = cppyy.gbl.example01
+        import _cppyy
+        example01_class = _cppyy.gbl.example01
         assert example01_class
-        cl2 = cppyy.gbl.example01
+        cl2 = _cppyy.gbl.example01
         assert cl2
         assert example01_class is cl2

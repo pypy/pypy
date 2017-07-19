@@ -12,24 +12,24 @@ def setup_module(mod):
         raise OSError("'make' failed (see stderr)")
 
 class AppTestSTLVECTOR:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
+    spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_N = cls.space.newint(13)
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_stlvector = cls.space.appexec([], """():
-            import cppyy
-            return cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import _cppyy
+            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
 
     def test01_builtin_type_vector_types(self):
         """Test access to std::vector<int>/std::vector<double>"""
 
-        import cppyy
+        import _cppyy
 
-        assert cppyy.gbl.std        is cppyy.gbl.std
-        assert cppyy.gbl.std.vector is cppyy.gbl.std.vector
+        assert _cppyy.gbl.std        is _cppyy.gbl.std
+        assert _cppyy.gbl.std.vector is _cppyy.gbl.std.vector
 
-        assert callable(cppyy.gbl.std.vector)
+        assert callable(_cppyy.gbl.std.vector)
 
         type_info = (
             ("int",     int),
@@ -38,10 +38,10 @@ class AppTestSTLVECTOR:
         )
 
         for c_type, p_type in type_info:
-            tv1 = getattr(cppyy.gbl.std, 'vector<%s>' % c_type)
-            tv2 = cppyy.gbl.std.vector(p_type)
+            tv1 = getattr(_cppyy.gbl.std, 'vector<%s>' % c_type)
+            tv2 = _cppyy.gbl.std.vector(p_type)
             assert tv1 is tv2
-            assert tv1.iterator is cppyy.gbl.std.vector(p_type).iterator
+            assert tv1.iterator is _cppyy.gbl.std.vector(p_type).iterator
 
             #----- 
             v = tv1(); v += range(self.N)    # default args from Reflex are useless :/
@@ -75,16 +75,16 @@ class AppTestSTLVECTOR:
     def test02_user_type_vector_type(self):
         """Test access to an std::vector<just_a_class>"""
 
-        import cppyy
+        import _cppyy
 
-        assert cppyy.gbl.std        is cppyy.gbl.std
-        assert cppyy.gbl.std.vector is cppyy.gbl.std.vector
+        assert _cppyy.gbl.std        is _cppyy.gbl.std
+        assert _cppyy.gbl.std.vector is _cppyy.gbl.std.vector
 
-        assert callable(cppyy.gbl.std.vector)
+        assert callable(_cppyy.gbl.std.vector)
 
-        tv1 = getattr(cppyy.gbl.std, 'vector<just_a_class>')
-        tv2 = cppyy.gbl.std.vector('just_a_class')
-        tv3 = cppyy.gbl.std.vector(cppyy.gbl.just_a_class)
+        tv1 = getattr(_cppyy.gbl.std, 'vector<just_a_class>')
+        tv2 = _cppyy.gbl.std.vector('just_a_class')
+        tv3 = _cppyy.gbl.std.vector(_cppyy.gbl.just_a_class)
 
         assert tv1 is tv2
         assert tv2 is tv3
@@ -97,7 +97,7 @@ class AppTestSTLVECTOR:
         assert hasattr(v, 'end' )
 
         for i in range(self.N):
-            v.push_back(cppyy.gbl.just_a_class())
+            v.push_back(_cppyy.gbl.just_a_class())
             v[i].m_i = i
             assert v[i].m_i == i
 
@@ -107,9 +107,9 @@ class AppTestSTLVECTOR:
     def test03_empty_vector_type(self):
         """Test behavior of empty std::vector<int>"""
 
-        import cppyy
+        import _cppyy
 
-        v = cppyy.gbl.std.vector(int)()
+        v = _cppyy.gbl.std.vector(int)()
         for arg in v:
             pass
         v.destruct()
@@ -117,9 +117,9 @@ class AppTestSTLVECTOR:
     def test04_vector_iteration(self):
         """Test iteration over an std::vector<int>"""
 
-        import cppyy
+        import _cppyy
 
-        v = cppyy.gbl.std.vector(int)()
+        v = _cppyy.gbl.std.vector(int)()
 
         for i in range(self.N):
             v.push_back(i)
@@ -142,9 +142,9 @@ class AppTestSTLVECTOR:
     def test05_push_back_iterables_with_iadd(self):
         """Test usage of += of iterable on push_back-able container"""
 
-        import cppyy
+        import _cppyy
 
-        v = cppyy.gbl.std.vector(int)()
+        v = _cppyy.gbl.std.vector(int)()
 
         v += [1, 2, 3]
         assert len(v) == 3
@@ -161,7 +161,7 @@ class AppTestSTLVECTOR:
         raises(TypeError, v.__iadd__, (7, '8'))  # string shouldn't pass
         assert len(v) == 7   # TODO: decide whether this should roll-back
 
-        v2 = cppyy.gbl.std.vector(int)()
+        v2 = _cppyy.gbl.std.vector(int)()
         v2 += [8, 9]
         assert len(v2) == 2
         assert v2[0] == 8
@@ -176,9 +176,9 @@ class AppTestSTLVECTOR:
     def test06_vector_indexing(self):
         """Test python-style indexing to an std::vector<int>"""
 
-        import cppyy
+        import _cppyy
 
-        v = cppyy.gbl.std.vector(int)()
+        v = _cppyy.gbl.std.vector(int)()
 
         for i in range(self.N):
             v.push_back(i)
@@ -200,20 +200,20 @@ class AppTestSTLVECTOR:
 
 
 class AppTestSTLSTRING:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
+    spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_stlstring = cls.space.appexec([], """():
-            import cppyy
-            return cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import _cppyy
+            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
 
     def test01_string_argument_passing(self):
         """Test mapping of python strings and std::string"""
 
-        import cppyy
-        std = cppyy.gbl.std
-        stringy_class = cppyy.gbl.stringy_class
+        import _cppyy
+        std = _cppyy.gbl.std
+        stringy_class = _cppyy.gbl.stringy_class
 
         c, s = stringy_class(""), std.string("test1")
 
@@ -242,9 +242,9 @@ class AppTestSTLSTRING:
     def test02_string_data_access(self):
         """Test access to std::string object data members"""
 
-        import cppyy
-        std = cppyy.gbl.std
-        stringy_class = cppyy.gbl.stringy_class
+        import _cppyy
+        std = _cppyy.gbl.std
+        stringy_class = _cppyy.gbl.stringy_class
 
         c, s = stringy_class("dummy"), std.string("test string")
 
@@ -263,9 +263,9 @@ class AppTestSTLSTRING:
 
         return # don't bother; is fixed in cling-support
 
-        import cppyy
-        std = cppyy.gbl.std
-        stringy_class = cppyy.gbl.stringy_class
+        import _cppyy
+        std = _cppyy.gbl.std
+        stringy_class = _cppyy.gbl.stringy_class
 
         t0 = "aap\0noot"
         assert t0 == "aap\0noot"
@@ -278,20 +278,20 @@ class AppTestSTLSTRING:
 
 
 class AppTestSTLLIST:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
+    spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_N = cls.space.newint(13)
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_stlstring = cls.space.appexec([], """():
-            import cppyy
-            return cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import _cppyy
+            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
 
     def test01_builtin_list_type(self):
         """Test access to a list<int>"""
 
-        import cppyy
-        from cppyy.gbl import std
+        import _cppyy
+        from _cppyy.gbl import std
 
         type_info = (
             ("int",     int),
@@ -301,9 +301,9 @@ class AppTestSTLLIST:
 
         for c_type, p_type in type_info:
             tl1 = getattr(std, 'list<%s>' % c_type)
-            tl2 = cppyy.gbl.std.list(p_type)
+            tl2 = _cppyy.gbl.std.list(p_type)
             assert tl1 is tl2
-            assert tl1.iterator is cppyy.gbl.std.list(p_type).iterator
+            assert tl1.iterator is _cppyy.gbl.std.list(p_type).iterator
 
             #-----
             a = tl1()
@@ -325,8 +325,8 @@ class AppTestSTLLIST:
     def test02_empty_list_type(self):
         """Test behavior of empty list<int>"""
 
-        import cppyy
-        from cppyy.gbl import std
+        import _cppyy
+        from _cppyy.gbl import std
 
         a = std.list(int)()
         for arg in a:
@@ -334,20 +334,20 @@ class AppTestSTLLIST:
 
 
 class AppTestSTLMAP:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
+    spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_N = cls.space.newint(13)
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_stlstring = cls.space.appexec([], """():
-            import cppyy
-            return cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import _cppyy
+            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
 
     def test01_builtin_map_type(self):
         """Test access to a map<int,int>"""
 
-        import cppyy
-        std = cppyy.gbl.std
+        import _cppyy
+        std = _cppyy.gbl.std
 
         a = std.map(int, int)()
         for i in range(self.N):
@@ -375,8 +375,8 @@ class AppTestSTLMAP:
     def test02_keyed_maptype(self):
         """Test access to a map<std::string,int>"""
 
-        import cppyy
-        std = cppyy.gbl.std
+        import _cppyy
+        std = _cppyy.gbl.std
 
         a = std.map(std.string, int)()
         for i in range(self.N):
@@ -388,8 +388,8 @@ class AppTestSTLMAP:
     def test03_empty_maptype(self):
         """Test behavior of empty map<int,int>"""
 
-        import cppyy
-        std = cppyy.gbl.std
+        import _cppyy
+        std = _cppyy.gbl.std
 
         m = std.map(int, int)()
         for key, value in m:
@@ -398,8 +398,8 @@ class AppTestSTLMAP:
     def test04_unsignedvalue_typemap_types(self):
         """Test assignability of maps with unsigned value types"""
 
-        import cppyy, math, sys
-        std = cppyy.gbl.std
+        import _cppyy, math, sys
+        std = _cppyy.gbl.std
 
         mui = std.map(str, 'unsigned int')()
         mui['one'] = 1
@@ -422,8 +422,8 @@ class AppTestSTLMAP:
     def test05_STL_like_class_indexing_overloads(self):
         """Test overloading of operator[] in STL like class"""
 
-        import cppyy
-        stl_like_class = cppyy.gbl.stl_like_class
+        import _cppyy
+        stl_like_class = _cppyy.gbl.stl_like_class
 
         a = stl_like_class(int)()
         assert a["some string" ] == 'string'
@@ -432,8 +432,8 @@ class AppTestSTLMAP:
     def test06_STL_like_class_iterators(self):
         """Test the iterator protocol mapping for an STL like class"""
 
-        import cppyy
-        stl_like_class = cppyy.gbl.stl_like_class
+        import _cppyy
+        stl_like_class = _cppyy.gbl.stl_like_class
 
         a = stl_like_class(int)()
         for i in a:
@@ -443,19 +443,19 @@ class AppTestSTLMAP:
 
 
 class AppTestSTLITERATOR:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
+    spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_stlstring = cls.space.appexec([], """():
-            import cppyy, sys
-            return cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import _cppyy, sys
+            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
 
     def test01_builtin_vector_iterators(self):
         """Test iterator comparison with operator== reflected"""
 
-        import cppyy
-        from cppyy.gbl import std
+        import _cppyy
+        from _cppyy.gbl import std
 
         v = std.vector(int)()
         v.resize(1)
@@ -480,20 +480,20 @@ class AppTestSTLITERATOR:
 
 
 class AppTestTEMPLATE_UI:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
+    spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_stlstring = cls.space.appexec([], """():
-            import cppyy, sys
-            return cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import _cppyy, sys
+            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
 
     def test01_explicit_templates(self):
         """Explicit use of Template class"""
 
-        import cppyy
+        import _cppyy
 
-        vector = cppyy.Template('vector', cppyy.gbl.std)
+        vector = _cppyy.Template('vector', _cppyy.gbl.std)
         assert vector[int] == vector(int)
 
         v = vector[int]()

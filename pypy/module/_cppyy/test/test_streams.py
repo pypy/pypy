@@ -12,27 +12,27 @@ def setup_module(mod):
         raise OSError("'make' failed (see stderr)")
 
 class AppTestSTDStreams:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
+    spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_streams = cls.space.appexec([], """():
-            import cppyy
-            return cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import _cppyy
+            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
 
     def test01_std_ostream(self):
         """Test availability of std::ostream"""
 
-        import cppyy
+        import _cppyy
 
-        assert cppyy.gbl.std is cppyy.gbl.std
-        assert cppyy.gbl.std.ostream is cppyy.gbl.std.ostream
+        assert _cppyy.gbl.std is _cppyy.gbl.std
+        assert _cppyy.gbl.std.ostream is _cppyy.gbl.std.ostream
 
-        assert callable(cppyy.gbl.std.ostream)
+        assert callable(_cppyy.gbl.std.ostream)
 
     def test02_std_cout(self):
         """Test access to std::cout"""
 
-        import cppyy
+        import _cppyy
 
-        assert not (cppyy.gbl.std.cout is None)
+        assert not (_cppyy.gbl.std.cout is None)

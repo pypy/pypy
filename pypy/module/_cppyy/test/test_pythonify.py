@@ -1,6 +1,6 @@
 import py, os, sys
 
-from pypy.module.cppyy import interp_cppyy, executor
+from pypy.module._cppyy import interp_cppyy, executor
 from .support import setup_make
 
 
@@ -11,33 +11,33 @@ def setup_module(mod):
     setup_make("example01Dict.so")
 
 class AppTestPYTHONIFY:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
+    spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_example01 = cls.space.appexec([], """():
-            import cppyy
-            return cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import _cppyy
+            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
 
     def test01_load_dictionary_cache(self):
         """Test whether loading a dictionary twice results in the same object."""
-        import cppyy
-        lib2 = cppyy.load_reflection_info(self.test_dct)
+        import _cppyy
+        lib2 = _cppyy.load_reflection_info(self.test_dct)
         assert self.example01 is lib2
 
     def test02_finding_classes(self):
         """Test the lookup of a class, and its caching."""
-        import cppyy
-        example01_class = cppyy.gbl.example01
-        cl2 = cppyy.gbl.example01
+        import _cppyy
+        example01_class = _cppyy.gbl.example01
+        cl2 = _cppyy.gbl.example01
         assert example01_class is cl2
 
-        raises(AttributeError, 'cppyy.gbl.nonexistingclass')
+        raises(AttributeError, '_cppyy.gbl.nonexistingclass')
 
     def test03_calling_static_functions(self):
         """Test calling of static methods."""
-        import cppyy, sys, math
-        example01_class = cppyy.gbl.example01
+        import _cppyy, sys, math
+        example01_class = _cppyy.gbl.example01
         res = example01_class.staticAddOneToInt(1)
         assert res == 2
 
@@ -72,8 +72,8 @@ class AppTestPYTHONIFY:
 
     def test04_constructing_and_calling(self):
         """Test object and method calls."""
-        import cppyy
-        example01_class = cppyy.gbl.example01
+        import _cppyy
+        example01_class = _cppyy.gbl.example01
         #assert example01_class.getCount() == 0
         instance = example01_class(7)
         #assert example01_class.getCount() == 1
@@ -123,9 +123,9 @@ class AppTestPYTHONIFY:
         assert example01_class.getCount() == 0
 
     def test05_passing_object_by_pointer(self):
-        import cppyy
-        example01_class = cppyy.gbl.example01
-        payload_class = cppyy.gbl.payload
+        import _cppyy
+        example01_class = _cppyy.gbl.example01
+        payload_class = _cppyy.gbl.payload
 
         e = example01_class(14)
         pl = payload_class(3.14)
@@ -146,9 +146,9 @@ class AppTestPYTHONIFY:
         assert example01_class.getCount() == 0
 
     def test06_returning_object_by_pointer(self):
-        import cppyy
-        example01_class = cppyy.gbl.example01
-        payload_class = cppyy.gbl.payload
+        import _cppyy
+        example01_class = _cppyy.gbl.example01
+        payload_class = _cppyy.gbl.payload
 
         pl = payload_class(3.14)
         assert round(pl.getData()-3.14, 8) == 0
@@ -166,9 +166,9 @@ class AppTestPYTHONIFY:
         assert example01_class.getCount() == 0
 
     def test07_returning_object_by_value(self):
-        import cppyy
-        example01_class = cppyy.gbl.example01
-        payload_class = cppyy.gbl.payload
+        import _cppyy
+        example01_class = _cppyy.gbl.example01
+        payload_class = _cppyy.gbl.payload
 
         pl = payload_class(3.14)
         assert round(pl.getData()-3.14, 8) == 0
@@ -188,20 +188,20 @@ class AppTestPYTHONIFY:
         assert example01_class.getCount() == 0
 
     def test08_global_functions(self):
-        import cppyy
+        import _cppyy
 
-        assert cppyy.gbl.globalAddOneToInt(3) == 4     # creation lookup
-        assert cppyy.gbl.globalAddOneToInt(3) == 4     # cached lookup
+        assert _cppyy.gbl.globalAddOneToInt(3) == 4    # creation lookup
+        assert _cppyy.gbl.globalAddOneToInt(3) == 4    # cached lookup
 
-        assert cppyy.gbl.ns_example01.globalAddOneToInt(4) == 5
-        assert cppyy.gbl.ns_example01.globalAddOneToInt(4) == 5
+        assert _cppyy.gbl.ns_example01.globalAddOneToInt(4) == 5
+        assert _cppyy.gbl.ns_example01.globalAddOneToInt(4) == 5
 
     def test09_memory(self):
         """Test proper C++ destruction by the garbage collector"""
 
-        import cppyy, gc
-        example01_class = cppyy.gbl.example01
-        payload_class = cppyy.gbl.payload
+        import _cppyy, gc
+        example01_class = _cppyy.gbl.example01
+        payload_class = _cppyy.gbl.payload
 
         pl = payload_class(3.14)
         assert payload_class.count == 1
@@ -243,12 +243,12 @@ class AppTestPYTHONIFY:
     def test10_default_arguments(self):
         """Test propagation of default function arguments"""
 
-        import cppyy
-        a = cppyy.gbl.ArgPasser()
+        import _cppyy
+        a = _cppyy.gbl.ArgPasser()
 
         # NOTE: when called through the stub, default args are fine
         f = a.stringRef
-        s = cppyy.gbl.std.string
+        s = _cppyy.gbl.std.string
         assert f(s("aap"), 0, s("noot")) == "aap"
         assert f(s("noot"), 1) == "default"
         assert f(s("mies")) == "mies"
@@ -278,8 +278,8 @@ class AppTestPYTHONIFY:
     def test11_overload_on_arguments(self):
         """Test functions overloaded on arguments"""
 
-        import cppyy
-        e = cppyy.gbl.example01(1)
+        import _cppyy
+        e = _cppyy.gbl.example01(1)
 
         assert e.addDataToInt(2)                 ==  3
         assert e.overloadedAddDataToInt(3)       ==  4
@@ -289,18 +289,18 @@ class AppTestPYTHONIFY:
     def test12_typedefs(self):
         """Test access and use of typedefs"""
 
-        import cppyy
+        import _cppyy
 
-        assert cppyy.gbl.example01 == cppyy.gbl.example01_t
+        assert _cppyy.gbl.example01 == _cppyy.gbl.example01_t
 
     def test13_underscore_in_class_name(self):
         """Test recognition of '_' as part of a valid class name"""
 
-        import cppyy
+        import _cppyy
 
-        assert cppyy.gbl.z_ == cppyy.gbl.z_
+        assert _cppyy.gbl.z_ == _cppyy.gbl.z_
 
-        z = cppyy.gbl.z_()
+        z = _cppyy.gbl.z_()
 
         assert hasattr(z, 'myint')
         assert z.gime_z_(z)
@@ -308,33 +308,33 @@ class AppTestPYTHONIFY:
     def test14_bound_unbound_calls(self):
         """Test (un)bound method calls"""
 
-        import cppyy
+        import _cppyy
 
-        raises(TypeError, cppyy.gbl.example01.addDataToInt, 1)
+        raises(TypeError, _cppyy.gbl.example01.addDataToInt, 1)
 
-        meth = cppyy.gbl.example01.addDataToInt
+        meth = _cppyy.gbl.example01.addDataToInt
         raises(TypeError, meth)
         raises(TypeError, meth, 1)
 
-        e = cppyy.gbl.example01(2)
+        e = _cppyy.gbl.example01(2)
         assert 5 == meth(e, 3)
 
     def test15_installable_function(self):
        """Test installing and calling global C++ function as python method"""
 
-       import cppyy
+       import _cppyy
 
-       cppyy.gbl.example01.fresh = cppyy.gbl.installableAddOneToInt
+       _cppyy.gbl.example01.fresh = _cppyy.gbl.installableAddOneToInt
 
-       e =  cppyy.gbl.example01(0)
+       e =  _cppyy.gbl.example01(0)
        assert 2 == e.fresh(1)
        assert 3 == e.fresh(2)
 
     def test16_subclassing(self):
         """A sub-class on the python side should have that class as type"""
 
-        import cppyy
-        example01 = cppyy.gbl.example01
+        import _cppyy
+        example01 = _cppyy.gbl.example01
 
         assert example01.getCount() == 0
 
@@ -371,18 +371,18 @@ class AppTestPYTHONIFY:
 
 
 class AppTestPYTHONIFY_UI:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
+    spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_example01 = cls.space.appexec([], """():
-            import cppyy
-            return cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import _cppyy
+            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
 
     def test01_pythonizations(self):
         """Test addition of user-defined pythonizations"""
 
-        import cppyy
+        import _cppyy
 
         def example01a_pythonize(pyclass):
             assert pyclass.__name__ == 'example01a'
@@ -390,9 +390,9 @@ class AppTestPYTHONIFY_UI:
                 return self.addDataToInt(idx)
             pyclass.__getitem__ = getitem
 
-        cppyy.add_pythonization('example01a', example01a_pythonize)
+        _cppyy.add_pythonization('example01a', example01a_pythonize)
 
-        e = cppyy.gbl.example01a(1)
+        e = _cppyy.gbl.example01a(1)
 
         assert e[0] == 1
         assert e[1] == 2
@@ -401,21 +401,21 @@ class AppTestPYTHONIFY_UI:
     def test02_fragile_pythonizations(self):
         """Test pythonizations error reporting"""
 
-        import cppyy
+        import _cppyy
 
         example01_pythonize = 1
-        raises(TypeError, cppyy.add_pythonization, 'example01', example01_pythonize)
+        raises(TypeError, _cppyy.add_pythonization, 'example01', example01_pythonize)
 
     def test03_write_access_to_globals(self):
         """Test overwritability of globals"""
 
-        import cppyy
+        import _cppyy
 
-        oldval = cppyy.gbl.ns_example01.gMyGlobalInt
+        oldval = _cppyy.gbl.ns_example01.gMyGlobalInt
         assert oldval == 99
 
-        proxy = cppyy.gbl.ns_example01.__class__.__dict__['gMyGlobalInt']
-        cppyy.gbl.ns_example01.gMyGlobalInt = 3
+        proxy = _cppyy.gbl.ns_example01.__class__.__dict__['gMyGlobalInt']
+        _cppyy.gbl.ns_example01.gMyGlobalInt = 3
         assert proxy.__get__(proxy, None) == 3
 
-        cppyy.gbl.ns_example01.gMyGlobalInt = oldval
+        _cppyy.gbl.ns_example01.gMyGlobalInt = oldval

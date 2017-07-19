@@ -6,11 +6,9 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper import llinterp
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 
-from pypy.module.cppyy import interp_cppyy, capi, executor
+from pypy.module._cppyy import interp_cppyy, capi, executor
 # These tests are for the backend that support the fast path only.
-if capi.identify() == 'CINT':
-    py.test.skip("CINT does not support fast path")
-elif capi.identify() == 'loadable_capi':
+if capi.identify() == 'loadable_capi':
     py.test.skip("can not currently use FakeSpace with _cffi_backend")
 elif os.getenv("CPPYY_DISABLE_FASTPATH"):
     py.test.skip("fast path is disabled by CPPYY_DISABLE_FASTPATH envar")
@@ -214,7 +212,11 @@ class FakeSpace(object):
         assert isinstance(w_obj, FakeLong)
         return rarithmetic.r_uint(w_obj.val.touint())
 
-    def str_w(self, w_obj):
+    def bytes_w(self, w_obj):
+        assert isinstance(w_obj, FakeString)
+        return w_obj.val
+
+    def text_w(self, w_obj):
         assert isinstance(w_obj, FakeString)
         return w_obj.val
 

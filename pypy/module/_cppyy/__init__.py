@@ -33,11 +33,11 @@ class Module(MixedModule):
 
         # pythonization functions may be written in RPython, but the interp2app
         # code generation is not, so give it a chance to run now
-        from pypy.module.cppyy import capi
+        from pypy.module._cppyy import capi
         capi.register_pythonizations(space)
 
     def startup(self, space):
-        from pypy.module.cppyy import capi
+        from pypy.module._cppyy import capi
         capi.verify_backend(space)      # may raise ImportError
 
         space.call_method(self, '_init_pythonify')
