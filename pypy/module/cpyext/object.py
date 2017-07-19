@@ -462,6 +462,12 @@ def PyObject_Print(space, pyobj, fp, flags):
         fwrite(buf, 1, count, fp)
     return 0
 
+@cts.decl("""
+    Py_ssize_t PyObject_LengthHint(PyObject *o, Py_ssize_t defaultvalue)""",
+    error=-1)
+def PyObject_LengthHint(space, w_o, defaultvalue):
+    return space.length_hint(w_o, defaultvalue)
+
 @cpython_api([lltype.Signed], lltype.Void)
 def _PyPyGC_AddMemoryPressure(space, report):
     from rpython.rlib import rgc
